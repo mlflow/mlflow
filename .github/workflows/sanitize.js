@@ -25,12 +25,19 @@ module.exports = {
 };
 
 if (require.main === module) {
+  const sanitizers = new Map([["input", sanitizeInput]]);
+  const sanitizer = sanitizers.get(process.argv[2]);
+  if (process.argv.length !== 3 || !sanitizer) {
+    console.error("Usage: node sanitize.js input");
+    process.exit(1);
+  }
+
   let input = "";
   process.stdin.setEncoding("utf8");
   process.stdin.on("data", (chunk) => {
     input += chunk;
   });
   process.stdin.on("end", () => {
-    process.stdout.write(sanitizeInput(input));
+    process.stdout.write(sanitizer(input));
   });
 }

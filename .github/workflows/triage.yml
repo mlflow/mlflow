@@ -323,7 +323,7 @@ jobs:
           jq -n '{title: env.TITLE, body: env.BODY}' > "$RUNNER_TEMP/original_issue.json"
           for field in title body; do
             jq -j ".$field" "$RUNNER_TEMP/original_issue.json" \
-              | node .github/workflows/sanitize.js > "$RUNNER_TEMP/sanitized_$field.txt"
+              | node .github/workflows/sanitize.js input > "$RUNNER_TEMP/sanitized_$field.txt"
           done
           jq --rawfile title "$RUNNER_TEMP/sanitized_title.txt" \
             --rawfile body "$RUNNER_TEMP/sanitized_body.txt" \
