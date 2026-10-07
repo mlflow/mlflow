@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-import json
 from typing import TYPE_CHECKING, Any, Literal
 
 from fastapi import APIRouter, Query, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
+from fastapi.responses import Response
 from pydantic import (
     BaseModel,
     ConfigDict,
@@ -26,6 +25,7 @@ from mlflow.entities.mcp_server import (
 from mlflow.entities.mcp_server_version import ConnectOptionSettings, MCPServerVersion
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import PERMISSION_DENIED, RESOURCE_ALREADY_EXISTS, ErrorCode
+from mlflow.server.mlflow_response import mlflow_exception_response
 from mlflow.utils.validation import (
     _MAX_MCP_ICONS_PER_LIST,
     _MAX_MCP_TOOLS_PER_LIST,
@@ -473,13 +473,6 @@ def _parse_transport_type(value: str) -> MCPRemoteTransportType:
         ) from None
 
 
-def _mlflow_error_response(e: MlflowException) -> JSONResponse:
-    return JSONResponse(
-        status_code=e.get_http_status_code(),
-        content=json.loads(e.serialize_as_json()),
-    )
-
-
 def _format_validation_errors(exc: RequestValidationError) -> str:
     messages = []
     for error in exc.errors():
@@ -490,11 +483,12 @@ def _format_validation_errors(exc: RequestValidationError) -> str:
     return "; ".join(messages)
 
 
-def _request_validation_error_response(exc: RequestValidationError) -> JSONResponse:
-    return _mlflow_error_response(
+def _request_validation_error_response(exc: RequestValidationError) -> Response:
+    return mlflow_exception_response(
         MlflowException.invalid_parameter_value(
             f"Invalid request: {_format_validation_errors(exc)}"
-        )
+        ),
+        handler_name="_request_validation_error_response",
     )
 
 

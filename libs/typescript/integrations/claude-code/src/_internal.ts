@@ -18,6 +18,10 @@ export const METADATA_KEY_CLAUDE_CODE_VERSION = 'mlflow.claude_code_version';
 export const METADATA_KEY_WORKING_DIRECTORY = 'mlflow.trace.working_directory';
 export const METADATA_KEY_PERMISSION_MODE = 'mlflow.trace.permission_mode';
 
+export function getCurrentUser(): string {
+  return process.env.USER || process.env.USERNAME || '';
+}
+
 // ============================================================================
 // Content / token helpers
 // ============================================================================

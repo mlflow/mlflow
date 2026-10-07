@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import re
 import uuid
 from dataclasses import asdict, replace
 from typing import Any
@@ -1466,9 +1465,7 @@ def _parse_search_mcp_access_endpoints_order_by(order_by_list):
 
 
 def _apply_mcp_server_version_filter(query, filter_string, dialect):
-    parsed = SearchMCPServerVersionUtils.parse_search_filter(
-        _normalize_mcp_server_version_filter_string(filter_string)
-    )
+    parsed = SearchMCPServerVersionUtils.parse_search_filter(filter_string)
     for f in parsed:
         type_ = f["type"]
         key = f["key"]
@@ -1495,14 +1492,6 @@ def _apply_mcp_server_version_filter(query, filter_string, dialect):
                 SearchUtils.get_sql_comparison_func(comparator, dialect)(attr, value)
             )
     return query
-
-
-def _normalize_mcp_server_version_filter_string(filter_string: str) -> str:
-    return re.sub(
-        r"(?<![`\w.])version(?=\s*(?:=|!=|<=|>=|<|>|LIKE|ILIKE))",
-        "`version`",
-        filter_string,
-    )
 
 
 def _get_semver_version_filter_expression(comparator: str, version: str):

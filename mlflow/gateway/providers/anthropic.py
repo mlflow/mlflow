@@ -369,7 +369,7 @@ class AnthropicAdapter(ProviderAdapter):
         from mlflow.anthropic.chat import convert_message_to_mlflow_chat
         from mlflow.types.chat import TextContentPart
 
-        stop_reason = "length" if resp["stop_reason"] == "max_tokens" else "stop"
+        stop_reason = cls._to_finish_reason(resp["stop_reason"])
 
         message = convert_message_to_mlflow_chat(resp)
 
@@ -442,6 +442,10 @@ class AnthropicAdapter(ProviderAdapter):
         )
 
     @classmethod
+    def _to_finish_reason(cls, stop_reason):
+        return {"max_tokens": "length", "tool_use": "tool_calls"}.get(stop_reason, "stop")
+
+    @classmethod
     def chat_streaming_to_model(cls, payload, config):
         return cls.chat_to_model(payload, config)
 
@@ -449,7 +453,7 @@ class AnthropicAdapter(ProviderAdapter):
     def model_to_chat_streaming(cls, resp, config):
         content = resp.get("delta") or resp.get("content_block") or {}
         if (stop_reason := content.get("stop_reason")) is not None:
-            stop_reason = "length" if stop_reason == "max_tokens" else "stop"
+            stop_reason = cls._to_finish_reason(stop_reason)
 
         # example of function calling delta message format:
         # https://platform.openai.com/docs/guides/function-calling#streaming
@@ -457,7 +461,7 @@ class AnthropicAdapter(ProviderAdapter):
             delta = chat.StreamDelta(
                 tool_calls=[
                     ToolCallDelta(
-                        index=0,
+                        index=resp.get("_tool_index", 0),
                         id=content.get("id"),
                         type="function",
                         function=Function(name=content.get("name")),
@@ -467,7 +471,10 @@ class AnthropicAdapter(ProviderAdapter):
         elif content.get("type") == "input_json_delta":
             delta = chat.StreamDelta(
                 tool_calls=[
-                    ToolCallDelta(index=0, function=Function(arguments=content.get("partial_json")))
+                    ToolCallDelta(
+                        index=resp.get("_tool_index", 0),
+                        function=Function(arguments=content.get("partial_json")),
+                    )
                 ]
             )
         else:
@@ -487,7 +494,7 @@ class AnthropicAdapter(ProviderAdapter):
             model=resp["model"],
             choices=[
                 chat.StreamChoice(
-                    index=resp["index"],
+                    index=0,
                     finish_reason=stop_reason,
                     delta=delta,
                 )
@@ -677,7 +684,7 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
             payload=payload,
         )
 
-        indices = []
+        tool_indices: dict[int, int] = {}  # content block index -> tool call index
         metadata = {}
         usage_data = {}  # Track usage across events
         async for chunk in stream:
@@ -714,9 +721,13 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
             ):
                 continue
 
-            index = resp.get("index")
-            if index is not None and index not in indices:
-                indices.append(index)
+            block_index = resp.get("index")
+            if resp["type"] == "content_block_start" and (
+                resp["content_block"].get("type") == "tool_use"
+            ):
+                tool_indices[block_index] = len(tool_indices)
+            if block_index in tool_indices:
+                resp["_tool_index"] = tool_indices[block_index]
 
             resp.update(metadata)
             if resp["type"] == "message_delta":
@@ -725,11 +736,7 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
                     usage_data["output_tokens"] = delta_usage.get("output_tokens")
                 # Include accumulated usage in the response
                 resp["_usage_data"] = usage_data
-                for index in indices:
-                    yield AnthropicAdapter.model_to_chat_streaming(
-                        {**resp, "index": index},
-                        self.config,
-                    )
+                yield AnthropicAdapter.model_to_chat_streaming(resp, self.config)
             else:
                 yield AnthropicAdapter.model_to_chat_streaming(resp, self.config)
 

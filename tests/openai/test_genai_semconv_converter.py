@@ -182,7 +182,7 @@ def test_autolog_with_tool_calls(client, capture_otel_export, api):
     assert input_msgs[2]["role"] == "tool"
     assert input_msgs[2]["parts"][0]["type"] == "tool_call_response"
     assert input_msgs[2]["parts"][0]["id"] == "call_123"
-    assert input_msgs[2]["parts"][0]["result"] == "Sunny"
+    assert input_msgs[2]["parts"][0]["response"] == "Sunny"
     system_instructions = json.loads(chat_span.attributes["gen_ai.system_instructions"])
     assert system_instructions == [{"type": "text", "content": "Be helpful"}]
 

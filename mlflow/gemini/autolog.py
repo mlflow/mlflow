@@ -1,3 +1,4 @@
+import functools
 import inspect
 import logging
 from typing import Any
@@ -19,23 +20,32 @@ from mlflow.tracing.utils import (
 )
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 
-try:
-    # This is for supporting the previous Google GenAI SDK
-    # https://github.com/google-gemini/generative-ai-python
-    from google import generativeai
-
-    has_generativeai = True
-except ImportError:
-    has_generativeai = False
-
-try:
-    from google import genai
-
-    has_genai = True
-except ImportError:
-    has_genai = False
-
 _logger = logging.getLogger(__name__)
+
+
+# The Google SDKs are imported lazily. Importing them at module load would fire the
+# `mlflow.autolog()` post-import hook for `google.genai` while `mlflow.gemini` is still
+# partially initialized, causing a circular import.
+@functools.cache
+def _get_generativeai():
+    try:
+        # This is for supporting the previous Google GenAI SDK
+        # https://github.com/google-gemini/generative-ai-python
+        from google import generativeai
+
+        return generativeai
+    except ImportError:
+        return None
+
+
+@functools.cache
+def _get_genai():
+    try:
+        from google import genai
+
+        return genai
+    except ImportError:
+        return None
 
 
 def patched_class_call(original, self, *args, **kwargs):
@@ -100,7 +110,8 @@ class TracingSession:
             inputs=self.inputs,
             attributes={SpanAttributeKey.MESSAGE_FORMAT: "gemini"},
         )
-        if has_generativeai and isinstance(self.instance, generativeai.GenerativeModel):
+        generativeai = _get_generativeai()
+        if generativeai and isinstance(self.instance, generativeai.GenerativeModel):
             _log_generativeai_tool_definition(self.instance, self.span)
 
         if _is_genai_model_or_chat(self.instance):
@@ -144,7 +155,8 @@ class TracingSession:
 
 
 def _is_genai_model_or_chat(instance) -> bool:
-    return has_genai and isinstance(
+    genai = _get_genai()
+    return genai is not None and isinstance(
         instance,
         (
             genai.models.Models,
@@ -226,7 +238,7 @@ def _log_genai_tool_definition(model, inputs, span):
     # Here, we use an internal function of gemini library to convert callable to Tool schema to
     # avoid having the same logic on mlflow side and there is no public attribute for Tool schema.
     # https://github.com/googleapis/python-genai/blob/01b15e32d3823a58d25534bb6eea93f30bf82219/google/genai/_transformers.py#L662
-    tools = genai._transformers.t_tools(model._api_client, tools)
+    tools = _get_genai()._transformers.t_tools(model._api_client, tools)
 
     try:
         set_span_chat_tools(
@@ -249,7 +261,8 @@ def _should_inject_headers(original) -> bool:
 
 
 def _inject_tracing_headers_genai(kwargs: dict[str, Any], span: LiveSpan):
-    if not has_genai:
+    genai = _get_genai()
+    if genai is None:
         return
     try:
         tracing_headers = _get_tracing_headers_from_span(span)

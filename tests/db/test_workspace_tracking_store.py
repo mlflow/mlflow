@@ -4,15 +4,34 @@ import uuid
 import pytest
 import sqlalchemy as sa
 
+from mlflow.entities import ViewType
 from mlflow.entities.entity_type import EntityAssociationType
+from mlflow.entities.trace_info import TraceInfo
+from mlflow.entities.trace_location import TraceLocation
+from mlflow.entities.trace_state import TraceState
 from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
 from mlflow.exceptions import MlflowException
+from mlflow.store.model_registry.sqlalchemy_workspace_store import (
+    WorkspaceAwareSqlAlchemyStore as WorkspaceAwareRegistryStore,
+)
 from mlflow.store.tracking.sqlalchemy_workspace_store import WorkspaceAwareSqlAlchemyStore
 from mlflow.utils.workspace_context import WorkspaceContext
 
 pytestmark = pytest.mark.notrackingurimock
 
 DB_URI = os.environ.get("MLFLOW_TRACKING_URI")
+
+
+def _psycopg3_uri():
+    if not DB_URI or not DB_URI.startswith("postgresql"):
+        pytest.skip("Only PostgreSQL rejects comparing an integer column to a string parameter")
+    pytest.importorskip("psycopg")
+    return (
+        sa
+        .make_url(DB_URI)
+        .set(drivername="postgresql+psycopg")
+        .render_as_string(hide_password=False)
+    )
 
 
 @pytest.fixture
@@ -24,20 +43,20 @@ def psycopg3_store(tmp_path, monkeypatch):
     rejects a string compared against an INTEGER column. psycopg2, the driver the other db tests
     run on, interpolates the parameter as an untyped literal that PostgreSQL coerces for us.
     """
-    if not DB_URI or not DB_URI.startswith("postgresql"):
-        pytest.skip("Only PostgreSQL rejects comparing an integer column to a string parameter")
-    pytest.importorskip("psycopg")
-
     monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
     artifact_dir = tmp_path / "artifacts"
     artifact_dir.mkdir()
-    psycopg3_uri = (
-        sa
-        .make_url(DB_URI)
-        .set(drivername="postgresql+psycopg")
-        .render_as_string(hide_password=False)
-    )
-    store = WorkspaceAwareSqlAlchemyStore(psycopg3_uri, artifact_dir.as_uri())
+    store = WorkspaceAwareSqlAlchemyStore(_psycopg3_uri(), artifact_dir.as_uri())
+    try:
+        yield store
+    finally:
+        store._dispose_engine()
+
+
+@pytest.fixture
+def psycopg3_registry_store(monkeypatch):
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+    store = WorkspaceAwareRegistryStore(_psycopg3_uri())
     try:
         yield store
     finally:
@@ -63,6 +82,48 @@ def test_experiment_id_filters_bind_integers(psycopg3_store):
         assert associations.to_list() == []
 
 
+@pytest.mark.parametrize("base_filter", [None, 'tags.base = "true"'])
+def test_trace_filter_correlation_binds_integer_experiment_ids(psycopg3_store, base_filter):
+    # psycopg v3 rejects a VARCHAR bind compared with trace_info.experiment_id (INTEGER).
+    # The public API accepts string IDs, but the SQL filter must bind them as integers.
+    with WorkspaceContext("team-a"):
+        exp_id = psycopg3_store.create_experiment(f"correlation-{uuid.uuid4().hex}")
+
+        result = psycopg3_store.calculate_trace_filter_correlation(
+            experiment_ids=[exp_id],
+            filter_string1='tags.has_error = "true"',
+            filter_string2='tags.primary_span_type = "TOOL"',
+            base_filter=base_filter,
+        )
+
+        assert result.total_count == 0
+        assert result.filter1_count == 0
+        assert result.filter2_count == 0
+        assert result.joint_count == 0
+
+        psycopg3_store.start_trace(
+            TraceInfo(
+                trace_id=f"tr-{uuid.uuid4().hex}",
+                trace_location=TraceLocation.from_experiment_id(exp_id),
+                request_time=1234,
+                execution_duration=100,
+                state=TraceState.OK,
+                tags={"base": "true", "has_error": "true", "primary_span_type": "TOOL"},
+            )
+        )
+        result = psycopg3_store.calculate_trace_filter_correlation(
+            experiment_ids=[exp_id],
+            filter_string1='tags.has_error = "true"',
+            filter_string2='tags.primary_span_type = "TOOL"',
+            base_filter=base_filter,
+        )
+
+        assert result.total_count == 1
+        assert result.filter1_count == 1
+        assert result.filter2_count == 1
+        assert result.joint_count == 1
+
+
 def test_search_experiments_experiment_id_filter_binds_integers(psycopg3_store):
     # `experiment_id = ...` / `IN (...)` filters bind against the INTEGER
     # `experiments.experiment_id` column; without coercing the filter value to
@@ -79,3 +140,91 @@ def test_search_experiments_experiment_id_filter_binds_integers(psycopg3_store):
 
         with pytest.raises(MlflowException, match="must be a valid integer"):
             psycopg3_store.search_experiments(filter_string="experiment_id = 'not-a-number'")
+
+
+def test_search_experiments_time_filter_binds_integers(psycopg3_store):
+    with WorkspaceContext("team-a"):
+        exp_id = psycopg3_store.create_experiment(f"filter-{uuid.uuid4().hex}")
+        experiment = psycopg3_store.get_experiment(exp_id)
+
+        results = psycopg3_store.search_experiments(
+            filter_string=f"creation_time = {experiment.creation_time}"
+        )
+
+        assert exp_id in {experiment.experiment_id for experiment in results}
+
+
+def test_search_datasets_time_filter_binds_integers(psycopg3_store):
+    with WorkspaceContext("team-a"):
+        dataset = psycopg3_store.create_dataset(f"filter-{uuid.uuid4().hex}")
+
+        results = psycopg3_store.search_datasets(
+            filter_string=f"created_time = {dataset.created_time}"
+        )
+
+        assert dataset.dataset_id in {dataset.dataset_id for dataset in results}
+
+
+def test_search_runs_time_filter_binds_integers(psycopg3_store):
+    with WorkspaceContext("team-a"):
+        exp_id = psycopg3_store.create_experiment(f"filter-{uuid.uuid4().hex}")
+        run = psycopg3_store.create_run(
+            exp_id,
+            user_id="test-user",
+            start_time=1234,
+            tags=[],
+            run_name="numeric-filter",
+        )
+
+        results = psycopg3_store.search_runs(
+            [exp_id],
+            filter_string="attributes.start_time = 1234",
+            run_view_type=ViewType.ALL,
+        )
+
+        assert [result.info.run_id for result in results] == [run.info.run_id]
+
+
+def test_search_mcp_registry_time_filters_bind_integers(psycopg3_store):
+    with WorkspaceContext("team-a"):
+        name = f"io.github.test/server-{uuid.uuid4().hex}"
+        version = psycopg3_store.create_mcp_server_version({
+            "name": name,
+            "version": "1.0.0",
+            "title": "Test server",
+        })
+        endpoint = psycopg3_store.create_mcp_access_endpoint(
+            server_name=name,
+            url="https://example.com/mcp",
+            server_version=version.version,
+        )
+
+        servers = psycopg3_store.search_mcp_servers(
+            filter_string=f"name = '{name}' AND created_at > 0"
+        )
+        versions = psycopg3_store.search_mcp_server_versions(
+            name,
+            filter_string="created_at > 0",
+        )
+        endpoints = psycopg3_store.search_mcp_access_endpoints(
+            server_name=name,
+            filter_string="created_at > 0",
+        )
+
+        assert [server.name for server in servers] == [name]
+        assert [result.version for result in versions] == [version.version]
+        assert [result.id for result in endpoints] == [endpoint.id]
+
+
+def test_search_model_versions_version_number_filter_binds_integers(psycopg3_registry_store):
+    with WorkspaceContext("team-a"):
+        name = f"model-{uuid.uuid4().hex}"
+        psycopg3_registry_store.create_registered_model(name)
+        psycopg3_registry_store.create_model_version(name, "source")
+        version = psycopg3_registry_store.create_model_version(name, "source")
+
+        results = psycopg3_registry_store.search_model_versions(
+            filter_string=f"name = '{name}' AND version_number = '{version.version}'"
+        )
+
+        assert [mv.version for mv in results] == [version.version]

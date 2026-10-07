@@ -42,7 +42,7 @@ jobs:
   # Both commands, end-to-end. `--dry-run` skips push and PR creation, so no token.
   test:
     if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
     permissions:
       contents: read
@@ -108,7 +108,7 @@ jobs:
 
   run:
     if: github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
     permissions:
       contents: read

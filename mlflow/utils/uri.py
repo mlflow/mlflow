@@ -87,6 +87,22 @@ def is_databricks_uri(uri):
     return uri == "databricks" or urllib.parse.urlparse(uri).scheme == "databricks"
 
 
+def is_sagemaker_mlflow_tracking_uri(uri: str) -> bool:
+    """Whether the URI has the shape of a SageMaker MLflow tracking-server ARN."""
+    parts = uri.split(":", 5)
+    if len(parts) != 6:
+        return False
+
+    resource_type, separator, resource_id = parts[5].partition("/")
+    return (
+        parts[0] == "arn"
+        and parts[2] == "sagemaker"
+        and resource_type == "mlflow-tracking-server"
+        and separator == "/"
+        and bool(resource_id)
+    )
+
+
 def is_fuse_or_uc_volumes_uri(uri):
     """
     Validates whether a provided URI is directed to a FUSE mount point or a UC volumes mount point.

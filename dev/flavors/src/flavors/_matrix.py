@@ -232,7 +232,7 @@ def get_python_version(
 
 
 def get_runs_on(runs_on: dict[str, str] | None, version: str) -> str:
-    return _get_spec_value(runs_on, version, "ubuntu-latest")
+    return _get_spec_value(runs_on, version, "ubuntu-24.04")
 
 
 def remove_comments(s: str) -> str:

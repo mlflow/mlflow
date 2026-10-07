@@ -34,6 +34,7 @@ import { TEMPLATE_INSTRUCTIONS_MAP } from '../prompts';
 import { isEmpty } from 'lodash';
 import { useQueryClient } from '@databricks/web-shared/query-client';
 import { invalidateMlflowSearchTracesCache } from '../../../../shared/web-shared/model-trace-explorer/hooks/invalidateMlflowSearchTracesCache';
+import { formatJudgeModelError } from '../utils/judgeModelErrors';
 
 interface UseRunScorerInTracesViewConfigurationReturnType extends ModelTraceExplorerRunJudgeConfig {
   evaluateTraces: (scorer: LLMScorer | LLM_TEMPLATE, traceIds: string[], endpointName?: string) => void;
@@ -90,6 +91,7 @@ export const useRunScorerInTracesViewConfiguration = (
       subscribeToScorerFinished as ModelTraceExplorerRunJudgeConfig['subscribeToScorerFinished'],
     reset,
     scope,
+    formatErrorMessage: (errorMessage: string) => formatJudgeModelError({ message: errorMessage }),
   };
 };
 
@@ -605,7 +607,10 @@ const JudgesEvaluationStatusBanner = ({
                     defaultMessage: 'Judge "{label}" failed: {error}',
                     description: 'Banner message shown when a judge run fails',
                   },
-                  { label: evaluation.label, error: evaluation.error.message },
+                  {
+                    label: evaluation.label,
+                    error: formatJudgeModelError(evaluation.error) || evaluation.error.message,
+                  },
                 )}
               />
             </div>

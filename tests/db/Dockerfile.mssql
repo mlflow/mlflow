@@ -5,8 +5,6 @@ FROM --platform=linux/amd64 python:3.11
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
-ARG DEPENDENCIES
-
 # apt-get and system utilities
 RUN apt-get update && apt-get install -y \
     curl apt-transport-https debconf-utils gnupg \
@@ -19,9 +17,3 @@ RUN curl https://packages.microsoft.com/config/ubuntu/20.04/prod.list > /etc/apt
 
 # install SQL Server drivers and tools
 RUN apt-get update && ACCEPT_EULA=Y apt-get install -y mssql-tools unixodbc-dev
-
-RUN uv pip install --system pyodbc psutil pytest pytest-cov pytest-asyncio
-RUN echo "${DEPENDENCIES}" > /tmp/requirements.txt && \
-    uv pip install --system -r /tmp/requirements.txt
-
-RUN uv pip list

@@ -11,11 +11,11 @@
       "capabilities": {
         "function_calling": true,
         "vision": true,
-        "reasoning": false,
+        "reasoning": true,
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-23"
+      "last_updated_at": "2026-09-28"
     },
     "gpt-5.1-codex-mini": {
       "mode": "responses",
@@ -27,11 +27,11 @@
       "capabilities": {
         "function_calling": true,
         "vision": true,
-        "reasoning": false,
+        "reasoning": true,
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-23"
+      "last_updated_at": "2026-09-28"
     },
     "gpt-5.2": {
       "mode": "responses",
@@ -43,11 +43,11 @@
       "capabilities": {
         "function_calling": true,
         "vision": true,
-        "reasoning": false,
+        "reasoning": true,
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-23"
+      "last_updated_at": "2026-09-28"
     },
     "gpt-5.2-codex": {
       "mode": "responses",
@@ -59,11 +59,11 @@
       "capabilities": {
         "function_calling": true,
         "vision": true,
-        "reasoning": false,
+        "reasoning": true,
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-23"
+      "last_updated_at": "2026-09-28"
     },
     "gpt-5.3-chat-latest": {
       "mode": "responses",
@@ -75,11 +75,11 @@
       "capabilities": {
         "function_calling": true,
         "vision": true,
-        "reasoning": false,
+        "reasoning": true,
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-23"
+      "last_updated_at": "2026-09-28"
     },
     "gpt-5.3-codex": {
       "mode": "responses",
@@ -91,11 +91,11 @@
       "capabilities": {
         "function_calling": true,
         "vision": true,
-        "reasoning": false,
+        "reasoning": true,
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-23"
+      "last_updated_at": "2026-09-28"
     },
     "gpt-5.3-codex-spark": {
       "mode": "responses",
@@ -139,11 +139,11 @@
       "capabilities": {
         "function_calling": true,
         "vision": true,
-        "reasoning": false,
+        "reasoning": true,
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-23"
+      "last_updated_at": "2026-09-28"
     },
     "gpt-5.4-pro": {
       "mode": "responses",
@@ -155,11 +155,11 @@
       "capabilities": {
         "function_calling": true,
         "vision": true,
-        "reasoning": false,
+        "reasoning": true,
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-23"
+      "last_updated_at": "2026-09-28"
     },
     "gpt-5.5": {
       "mode": "responses",
@@ -171,11 +171,11 @@
       "capabilities": {
         "function_calling": true,
         "vision": true,
-        "reasoning": false,
+        "reasoning": true,
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-23"
+      "last_updated_at": "2026-09-28"
     },
     "gpt-5.6-luna": {
       "mode": "responses",
@@ -187,11 +187,11 @@
       "capabilities": {
         "function_calling": true,
         "vision": true,
-        "reasoning": false,
+        "reasoning": true,
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-23"
+      "last_updated_at": "2026-09-28"
     },
     "gpt-5.6-sol": {
       "mode": "responses",
@@ -203,11 +203,11 @@
       "capabilities": {
         "function_calling": true,
         "vision": true,
-        "reasoning": false,
+        "reasoning": true,
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-23"
+      "last_updated_at": "2026-09-28"
     },
     "gpt-5.6-terra": {
       "mode": "responses",
@@ -219,11 +219,75 @@
       "capabilities": {
         "function_calling": true,
         "vision": true,
-        "reasoning": false,
+        "reasoning": true,
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-23"
+      "last_updated_at": "2026-09-28"
+    },
+    "gpt-6-astra": {
+      "mode": "responses",
+      "context_window": {
+        "max_input": 922000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-10-06"
+    },
+    "gpt-6-luna": {
+      "mode": "responses",
+      "context_window": {
+        "max_input": 922000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-10-06"
+    },
+    "gpt-6-sol": {
+      "mode": "responses",
+      "context_window": {
+        "max_input": 922000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-10-06"
+    },
+    "gpt-6.1-sol": {
+      "mode": "responses",
+      "context_window": {
+        "max_input": 922000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-10-06"
     }
   }
 }

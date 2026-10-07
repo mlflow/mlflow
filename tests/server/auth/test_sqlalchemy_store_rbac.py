@@ -2,7 +2,7 @@ import pytest
 
 from mlflow.exceptions import MlflowException
 from mlflow.server.auth.entities import Role, RolePermission, UserRoleAssignment
-from mlflow.server.auth.permissions import EDIT, MANAGE, READ, USE, VALID_RESOURCE_TYPES
+from mlflow.server.auth.permissions import DENY, EDIT, MANAGE, READ, USE, VALID_RESOURCE_TYPES
 
 # Every concrete resource type the resolver accepts, excluding the special
 # ``"workspace"`` (admin-only grant form) and ``"*"`` (workspace-wide grant
@@ -281,10 +281,79 @@ def test_add_role_permission_invalid_resource_type(store):
         store.add_role_permission(role.id, "invalid_type", "123", "READ")
 
 
-def test_add_role_permission_workspace_requires_wildcard(store):
-    role = store.create_role(name="ws-role", workspace="ws1")
-    with pytest.raises(MlflowException, match="resource_type='workspace' requires"):
-        store.add_role_permission(role.id, "workspace", "42", "MANAGE")
+@pytest.mark.parametrize(
+    ("resource_type", "permission"),
+    [
+        # The workspace slot names its workspace via the role, never via the pattern.
+        ("workspace", "MANAGE"),
+        # Sub-resources are wildcard-only grain: a per-id grant could not be enforced in
+        # list/search paths, so it must not be writable at all.
+        ("run", "EDIT"),
+        ("trace", "DENY"),
+        ("scorer_version", "EDIT"),
+    ],
+)
+def test_add_role_permission_rejects_a_pattern_the_grain_disallows(
+    store, resource_type, permission
+):
+    role = store.create_role(name=f"grain-role-{resource_type}", workspace="ws1")
+    with pytest.raises(MlflowException, match="supports only wildcard"):
+        store.add_role_permission(role.id, resource_type, "42", permission)
+
+
+@pytest.mark.parametrize(
+    "grant_method", ["grant_user_permission", "grant_user_resource_permission"]
+)
+@pytest.mark.parametrize(
+    ("resource_type", "permission"),
+    [
+        ("run", "EDIT"),
+        ("trace", "DENY"),
+        ("assessment", "DENY"),
+        ("logged_model", "EDIT"),
+        ("review_queue", "EDIT"),
+        ("registered_model_version", "EDIT"),
+        ("prompt_version", "DENY"),
+        ("scorer_version", "DENY"),
+        ("mcp_server_version", "DENY"),
+    ],
+)
+def test_user_grants_reject_a_pattern_the_grain_disallows(
+    store, grant_method, resource_type, permission
+):
+    """Grain must be validated at EVERY write boundary, not only the role API.
+
+    ``matches()`` accepts only ``"*"`` for a wildcard-only type, so a per-id row is stored and then
+    silently ignored by the fold. An operator granting or denying one run id would get a success
+    response for a grant that does nothing -- and for a DENY that is a false sense of protection.
+    """
+    store.create_user(f"grain-{grant_method}-{resource_type}", "pw1234567890")
+    with pytest.raises(MlflowException, match="supports only wildcard"):
+        getattr(store, grant_method)(
+            f"grain-{grant_method}-{resource_type}", resource_type, "42", permission
+        )
+
+
+@pytest.mark.parametrize(
+    "grant_method", ["grant_user_permission", "grant_user_resource_permission"]
+)
+def test_user_grants_still_accept_wildcard_and_per_id_where_declared(store, grant_method):
+    username = f"grain-ok-{grant_method}"
+    store.create_user(username, "pw1234567890")
+    # Wildcard on a wildcard-only child.
+    getattr(store, grant_method)(username, "run", "*", "EDIT")
+    # A per-id grant on a type that declares ID grain is unaffected.
+    getattr(store, grant_method)(username, "experiment", "exp-1", "READ")
+
+
+def test_add_role_permission_accepts_wildcard_for_those_types(store):
+    role = store.create_role(name="grain-role-ok", workspace="ws1")
+    for resource_type, permission in [
+        ("workspace", "MANAGE"),
+        ("run", "EDIT"),
+        ("scorer_version", "DENY"),
+    ]:
+        store.add_role_permission(role.id, resource_type, "*", permission)
 
 
 def test_add_role_permission_nonexistent_role(store):
@@ -420,6 +489,30 @@ def test_get_role_permission_specific_match(store, user):
 
     result = store.get_role_permission_for_resource(user.id, "experiment", "1", "ws1")
     assert result == READ
+
+
+@pytest.mark.parametrize(
+    ("rows", "expected"),
+    [
+        # DENY is priority -1, so a max fold would lift it to the positive grant beside it.
+        ([("experiment", "1", "DENY"), ("experiment", "1", "MANAGE")], DENY),
+        ([("experiment", "1", "MANAGE"), ("experiment", "1", "DENY")], DENY),
+        ([("experiment", "*", "DENY"), ("experiment", "1", "READ")], DENY),
+        ([("experiment", "1", "DENY")], DENY),
+        # A workspace admin is not restrictable, so that precedes DENY -- matching
+        # `resolve_permissions`, which short-circuits to MANAGE before consulting DENY.
+        ([("experiment", "1", "DENY"), ("workspace", "*", "MANAGE")], MANAGE),
+        # A DENY on a different resource type must not reach this key.
+        ([("registered_model", "m1", "DENY"), ("experiment", "1", "READ")], READ),
+    ],
+)
+def test_get_role_permission_deny_is_not_lifted_by_a_positive_grant(store, user, rows, expected):
+    for index, (resource_type, pattern, permission) in enumerate(rows):
+        role = store.create_role(name=f"role-{index}", workspace="ws1")
+        store.add_role_permission(role.id, resource_type, pattern, permission)
+        store.assign_role_to_user(user.id, role.id)
+
+    assert store.get_role_permission_for_resource(user.id, "experiment", "1", "ws1") == expected
 
 
 def test_get_role_permission_no_match(store, user):

@@ -684,6 +684,14 @@ def test_model_log_uses_skops_serialization_format_by_default(sklearn_logreg_mod
     assert sklearn_conf["serialization_format"] == mlflow.sklearn.SERIALIZATION_FORMAT_SKOPS
 
 
+def test_get_default_serialization_format_in_databricks():
+    expected = mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE
+    with mock.patch("mlflow.sklearn.is_in_databricks_runtime", return_value=True):
+        assert mlflow.sklearn._get_default_serialization_format() == expected
+    with mock.patch("mlflow.get_tracking_uri", return_value="databricks"):
+        assert mlflow.sklearn._get_default_serialization_format() == expected
+
+
 def test_model_save_with_cloudpickle_format_adds_cloudpickle_to_conda_environment(
     sklearn_knn_model, model_path
 ):

@@ -9,8 +9,11 @@ on:
       - ".github/workflows/copilot-*.yml"
       - ".github/workflows/docs.yml"
       - ".github/workflows/preview-docs.yml"
+      - ".github/workflows/triage.yml"
       - "mlflow/server/js/**"
       - ".github/workflows/js.yml"
+      - "libs/typescript/**"
+      - ".github/workflows/typescript.yml"
       - ".claude/**"
   push:
     branches:
@@ -39,7 +42,7 @@ cache-mode: none
 
 jobs:
   core:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
     timeout-minutes: 30
@@ -57,10 +60,7 @@ jobs:
 
       - name: Install test dependencies
         run: |
-          # litellm pinned as in `requirements/test-requirements.txt`, which
-          # this install path does not read.
-          # https://github.com/BerriAI/litellm/issues/38892
-          uv pip install --system pytest pytest-asyncio pytest-timeout 'litellm!=1.97.0,<1.98.0'
+          uv pip install --system pytest pytest-asyncio pytest-timeout litellm
 
       - name: Run core tracing tests
         # NB: OTLP exporter includes large dependencies, so we want to test it in a separate job

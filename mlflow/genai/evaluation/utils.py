@@ -413,11 +413,19 @@ def add_scorer_metadata(scorer: "Scorer", feedbacks: list[Feedback]) -> None:
     if (scorer_version := getattr(scorer, "scorer_version", None)) is None:
         return
 
+    metadata = {
+        AssessmentMetadataKey.SCORER_NAME: scorer.name,
+        AssessmentMetadataKey.SCORER_VERSION: str(scorer_version),
+    }
+    if scorer_resource_name := getattr(scorer, "canonical_resource_name", None):
+        metadata[AssessmentMetadataKey.SCORER_RESOURCE_NAME] = scorer_resource_name
+    if scorer_resource_name_type := getattr(scorer, "canonical_resource_name_type", None):
+        metadata[AssessmentMetadataKey.SCORER_RESOURCE_NAME_TYPE] = scorer_resource_name_type
+
     for feedback in feedbacks:
         feedback.metadata = {
             **(feedback.metadata or {}),
-            AssessmentMetadataKey.SCORER_NAME: scorer.name,
-            AssessmentMetadataKey.SCORER_VERSION: str(scorer_version),
+            **metadata,
         }
 
 

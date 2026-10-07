@@ -1,9 +1,11 @@
 import json
+from pathlib import Path
 from typing import Any
 
 import pytest
 from jsonschema import Draft202012Validator  # type: ignore[import-untyped]
-from skills.commands.validate_review import DEFAULT_SCHEMA
+
+SCHEMA_PATH = Path(__file__).parents[1] / "pr-review" / "review-payload.schema.json"
 
 BODY = "Overall the change looks good."
 CRITICAL = {"path": "a.py", "body": "🔴 **CRITICAL:** unhandled None", "line": 1, "side": "RIGHT"}
@@ -13,13 +15,13 @@ NIT = {"path": "a.py", "body": "🟢 **NIT:** stray blank line", "line": 1, "sid
 
 @pytest.fixture(scope="module")
 def validator() -> Draft202012Validator:
-    return Draft202012Validator(json.loads(DEFAULT_SCHEMA.read_text()))
+    return Draft202012Validator(json.loads(SCHEMA_PATH.read_text()))
 
 
 def test_schema_is_well_formed() -> None:
     # Catches malformed keyword values and invalid `pattern` regexes, which would otherwise
     # surface as a confusing failure on the first payload validated rather than here.
-    Draft202012Validator.check_schema(json.loads(DEFAULT_SCHEMA.read_text()))
+    Draft202012Validator.check_schema(json.loads(SCHEMA_PATH.read_text()))
 
 
 def payload(**overrides: Any) -> dict[str, Any]:

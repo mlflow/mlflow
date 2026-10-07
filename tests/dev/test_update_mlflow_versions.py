@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 from packaging.version import Version
 
+from dev import update_mlflow_versions
 from dev.update_mlflow_versions import (
     get_current_py_version,
     replace_java,
@@ -168,3 +169,57 @@ def _parse_diff_line(diff: list[str]) -> dict[int, str]:
             diff_lines[int(match.group(1))] = diff[idx + 1][2:]
 
     return diff_lines
+
+
+@pytest.mark.parametrize(
+    ("stage", "version"),
+    [("pre_release", "3.17.0"), ("pre_release", "3.17.0rc1"), ("post_release", "3.17.0")],
+)
+def test_helm_release_ordering(monkeypatch, tmp_path, stage, version):
+    monkeypatch.chdir(tmp_path)
+    for name in (
+        "_PYPROJECT_TOML_FILES",
+        "_JAVA_VERSION_FILES",
+        "_JAVA_POM_XML_FILES",
+        "_TS_VERSION_FILES",
+        "_R_VERSION_FILES",
+    ):
+        monkeypatch.setattr(update_mlflow_versions, name, [])
+    Path("mlflow").mkdir()
+    Path("charts").mkdir()
+    Path("mlflow/version.py").write_text('VERSION = "3.17.0.dev0"\n')
+    chart = Path("charts/Chart.yaml")
+    previous = 'name: mlflow\nversion: 0.1.1\nappVersion: "3.16.0"\n'
+    chart.write_text(previous)
+
+    getattr(update_mlflow_versions, stage)(version)
+
+    if stage == "post_release":
+        assert chart.read_text() == 'name: mlflow\nversion: 3.17.0\nappVersion: "3.17.0"\n'
+        assert get_current_py_version() == "3.17.1.dev0"
+    else:
+        assert chart.read_text() == previous
+        assert get_current_py_version() == version
+
+
+def test_replace_helm_chart_does_not_update_dependency_versions(tmp_path):
+    chart = tmp_path / "Chart.yaml"
+    chart.write_text(
+        "name: mlflow\n"
+        "version: 0.1.1\n"
+        'appVersion: "3.16.0"\n'
+        "dependencies:\n"
+        "  - name: dependency\n"
+        "    version: 1.2.3\n"
+    )
+
+    update_mlflow_versions.replace_helm_chart("3.17.0", [chart])
+
+    assert chart.read_text() == (
+        "name: mlflow\n"
+        "version: 3.17.0\n"
+        'appVersion: "3.17.0"\n'
+        "dependencies:\n"
+        "  - name: dependency\n"
+        "    version: 1.2.3\n"
+    )

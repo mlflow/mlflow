@@ -11,6 +11,7 @@ import pytest
 from mlflow import server
 from mlflow.environment_variables import (
     _MLFLOW_AUTH_ADMIN_BOOTSTRAPPED,
+    _MLFLOW_IN_JOB_EXECUTOR,
     _MLFLOW_SERVER_BOOT_ID,
     _MLFLOW_SGI_NAME,
     MLFLOW_FLASK_SERVER_SECRET_KEY,
@@ -209,7 +210,8 @@ def test_run_server_rejects_invalid_enabled_rollup_schedule(mock_exec_cmd, monke
     monkeypatch.setenv("MLFLOW_TRACE_ROLLUPS_SCHEDULE", "invalid")
 
     with (
-        mock.patch("sys.platform", return_value="linux"),
+        # The job backend rejects Windows via os.name (not sys.platform), so patch os.name.
+        mock.patch("os.name", "posix"),
         mock.patch("mlflow.server.jobs.utils._check_requirements"),
         pytest.raises(MlflowException, match="five-field UTC cron"),
     ):
@@ -240,7 +242,8 @@ def test_run_server_rejects_invalid_enabled_rollup_limits(
     monkeypatch.setenv(variable, value)
 
     with (
-        mock.patch("sys.platform", return_value="linux"),
+        # The job backend rejects Windows via os.name (not sys.platform), so patch os.name.
+        mock.patch("os.name", "posix"),
         mock.patch("mlflow.server.jobs.utils._check_requirements"),
         pytest.raises(MlflowException, match=variable),
     ):
@@ -265,7 +268,6 @@ def test_run_server_rejects_missing_job_backend_when_rollups_are_enabled(
     monkeypatch.setenv("MLFLOW_SQL_TRACE_ROLLUPS_ENABLED", "true")
 
     with (
-        mock.patch("sys.platform", return_value="linux"),
         mock.patch(
             "mlflow.server.jobs.utils._check_requirements",
             side_effect=MlflowException("database backend required"),
@@ -355,7 +357,8 @@ def test_run_server_passes_public_store_config_to_job_runner(mock_exec_cmd, monk
     mock_exec_cmd.return_value.pid = 123
 
     with (
-        mock.patch("sys.platform", return_value="linux"),
+        # The job backend rejects Windows via os.name (not sys.platform), so patch os.name.
+        mock.patch("os.name", "posix"),
         mock.patch("mlflow.server.jobs.utils._check_requirements"),
         mock.patch("mlflow.server.jobs.utils._launch_job_runner") as launch_job_runner,
         mock.patch("mlflow.tracing.trace_rollup_service.validate_sql_trace_rollup_startup"),
@@ -431,6 +434,9 @@ def test_run_server_with_uvicorn(mock_exec_cmd, monkeypatch):
     # Each server generation is stamped with a boot id (used to reap orphaned sandbox containers
     # left by a previous generation); its value is a random per-boot uuid.
     assert extra_env[_MLFLOW_SERVER_BOOT_ID.name]
+    # The custom-scorer reconstruction marker is forced off for server workers so it can never be
+    # inherited from the ambient environment (the server must never execute custom scorer code).
+    assert extra_env[_MLFLOW_IN_JOB_EXECUTOR.name] == "false"
 
 
 @pytest.mark.parametrize(

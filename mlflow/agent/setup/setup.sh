@@ -606,53 +606,6 @@ s/"name"/\
 	fi
 }
 
-json_warehouse_rows() {
-	sed '
-s/"id"[[:space:]]*:/\
-"id":/g
-s/"name"[[:space:]]*:/\
-"name":/g
-s/"state"[[:space:]]*:/\
-"state":/g
-' | awk '
-		function emit_if_complete() {
-			if (id != "" && name != "" && state != "") {
-				row=id "|" name "|" state
-				if (state == "RUNNING") { running[++running_count]=row }
-				else { not_running[++not_running_count]=row }
-				id=""
-				name=""
-				state=""
-			}
-		}
-		/"id"[[:space:]]*:/ {
-			line=$0
-			sub(/^.*"id"[[:space:]]*:[[:space:]]*"/, "", line)
-			sub(/".*$/, "", line)
-			id=line
-			emit_if_complete()
-		}
-		/"name"[[:space:]]*:/ {
-			line=$0
-			sub(/^.*"name"[[:space:]]*:[[:space:]]*"/, "", line)
-			sub(/".*$/, "", line)
-			name=line
-			emit_if_complete()
-		}
-		/"state"[[:space:]]*:/ {
-			line=$0
-			sub(/^.*"state"[[:space:]]*:[[:space:]]*"/, "", line)
-			sub(/".*$/, "", line)
-			state=line
-			emit_if_complete()
-		}
-		END {
-			for (i=1; i<=running_count; i++) print running[i]
-			for (i=1; i<=not_running_count; i++) print not_running[i]
-		}
-	'
-}
-
 json_escape() {
 	printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'
 }
@@ -686,6 +639,7 @@ EXPERIMENT_ID=""
 EXPERIMENT_NAME=""
 UC_SCHEMA=""
 WAREHOUSE_ID=""
+uc_trace_storage_pending="false"
 AGENT_NAME=""
 WORKSPACE_URL_EXPLICIT="false"
 PROFILE_EXPLICIT="false"
@@ -699,11 +653,15 @@ usage() {
 		"  --profile <name>              Databricks CLI profile" \
 		"  --tracking-uri <url>          Existing OSS MLflow server" \
 		"  --experiment-id <id>          Existing experiment" \
-		"  --experiment-name <name>      Experiment name or workspace path" \
+		"  --experiment-name <name>      Use or create this experiment name/path" \
 		"  --uc-schema <catalog.schema>  Unity Catalog trace storage" \
-		"  --warehouse-id <id>           Databricks SQL warehouse" \
-		"  --agent <name>                claude, codex, or opencode" \
-		"  -h, --help                    Show this help"
+		"  --warehouse-id <id>           SQL warehouse (default: agent selects)" \
+		"  --agent <name>                claude, codex, opencode, or manual" \
+		"  -h, --help                    Show this help" \
+		"" \
+		"Without an experiment flag, create a new experiment with a unique project-based name." \
+		"Without a backend setting, default to Databricks when a local profile exists." \
+		"Choose the first installed coding agent: claude, codex, then opencode; otherwise configure manually."
 }
 
 parse_args() {
@@ -801,6 +759,12 @@ show_manual_setup() {
 		primary_detail "2. Set MLFLOW_TRACKING_URI=$TRACKING_URI and MLFLOW_EXPERIMENT_ID=$EXPERIMENT_ID."
 		if [ -n "$WAREHOUSE_ID" ]; then
 			primary_detail "3. Set MLFLOW_TRACING_SQL_WAREHOUSE_ID=$WAREHOUSE_ID."
+		elif [ "$uc_trace_storage_pending" = "true" ] || [ -n "$trace_destination" ]; then
+			primary_detail "3. Choose an available SQL warehouse in this workspace and set MLFLOW_TRACING_SQL_WAREHOUSE_ID to its ID."
+		fi
+		if [ "$uc_trace_storage_pending" = "true" ]; then
+			primary_detail "Configure Unity Catalog trace storage in $UC_SCHEMA with table prefix $EXPERIMENT_ID before enabling tracing."
+			primary_detail "In Python, call mlflow.set_experiment(experiment_id=\"$EXPERIMENT_ID\", trace_location=UnityCatalog(catalog_name=\"${UC_SCHEMA%%.*}\", schema_name=\"${UC_SCHEMA#*.}\", table_prefix=\"$EXPERIMENT_ID\")), importing UnityCatalog from mlflow.entities.trace_location."
 		fi
 		if [ -n "$PROFILE" ]; then
 			primary_detail "Authenticate with: $DATABRICKS_BIN auth login --host $WORKSPACE_URL --profile $PROFILE"
@@ -824,7 +788,7 @@ show_manual_setup() {
 		;;
 	local)
 		primary_detail "1. Install mlflow-tracing in this project."
-		primary_detail "2. Configure it to use $TRACKING_URI and experiment $EXPERIMENT_NAME."
+		primary_detail "2. Set MLFLOW_TRACKING_URI=$TRACKING_URI and MLFLOW_EXPERIMENT_ID=$EXPERIMENT_ID."
 		primary_detail "3. Run one request and confirm the trace appears in MLflow."
 		;;
 	esac
@@ -837,37 +801,28 @@ show_manual_setup() {
 
 validate_agent_name() {
 	case "$AGENT_NAME" in
-	"" | claude | codex | opencode) ;;
+	"" | claude | codex | opencode | manual) ;;
 	*) die "Unsupported coding agent: $AGENT_NAME" ;;
 	esac
 }
 
 choose_agent() {
 	manual_setup_docs="https://mlflow.org/docs/latest/genai/tracing/quickstart/"
-	agent_options=""
-	for candidate in claude codex opencode; do
-		if command -v "$candidate" >/dev/null 2>&1; then
-			agent_options="${agent_options}${candidate}\n"
-		fi
-	done
-	if [ -n "$AGENT_NAME" ]; then
+	agent_choice=$AGENT_NAME
+	if [ -n "$AGENT_NAME" ] && [ "$AGENT_NAME" != "manual" ]; then
 		command -v "$AGENT_NAME" >/dev/null 2>&1 || die "Coding agent '$AGENT_NAME' is not installed."
-		agent_choice=$AGENT_NAME
-	else
-		set --
-		while IFS= read -r candidate; do
-			[ -n "$candidate" ] && set -- "$@" "$candidate"
-		done <<EOF
-$(printf '%b' "$agent_options")
-EOF
-		set -- "$@" "Configure manually"
-		begin_selection "Choose a coding agent" "It can instrument this project and verify a trace in MLflow."
-		select_option "Choose a coding agent" "$@"
-		agent_choice=$selected_value
-		if [ "$agent_choice" = "Configure manually" ]; then
-			show_manual_setup
-			exit 0
-		fi
+	elif [ -z "$AGENT_NAME" ]; then
+		# Match MLflow Assistant's local provider order, with OpenCode as a setup fallback.
+		for candidate in claude codex opencode; do
+			if command -v "$candidate" >/dev/null 2>&1; then
+				agent_choice=$candidate
+				break
+			fi
+		done
+	fi
+	if [ -z "$agent_choice" ] || [ "$agent_choice" = "manual" ]; then
+		show_manual_setup
+		exit 0
 	fi
 	case "$agent_choice" in
 	claude) agent_display="Claude Code" ;;
@@ -876,6 +831,19 @@ EOF
 	*) die "Unsupported coding agent: $agent_choice" ;;
 	esac
 	success "Coding agent" "$agent_display"
+}
+
+has_databricks_profile() {
+	profile_config_file=${DATABRICKS_CONFIG_FILE:-$HOME/.databrickscfg}
+	[ -r "$profile_config_file" ] || return 1
+	awk '
+		/^[[:space:]]*\[[^]]+\]/ { in_profile=1 }
+		in_profile && /^[[:space:]]*host[[:space:]]*=[[:space:]]*[^[:space:]#;]/ {
+			found=1
+			exit
+		}
+		END { exit !found }
+	' "$profile_config_file"
 }
 
 choose_backend() {
@@ -893,6 +861,8 @@ choose_backend() {
 	elif [ -n "$configured_tracking_uri" ]; then
 		backend="remote"
 		TRACKING_URI=$configured_tracking_uri
+	elif [ -n "${DATABRICKS_CONFIG_PROFILE:-}" ] || [ -n "${DATABRICKS_HOST:-}" ] || has_databricks_profile; then
+		backend="databricks"
 	else
 		select_option "Where should MLflow store traces?" \
 			"Databricks" \
@@ -1140,52 +1110,28 @@ authenticate_databricks() {
 	fi
 }
 
+new_experiment_name() {
+	printf '%s-%s-%s' "$repo_name" "$(date +%Y%m%d-%H%M%S)" "$$"
+}
+
 resolve_databricks_experiment() {
 	experiment_created="false"
-	existing_experiment_selected="false"
 	if [ -n "$EXPERIMENT_ID" ]; then
 		experiment_json=$(dbx_json experiments get-experiment "$EXPERIMENT_ID") || die "Experiment '$EXPERIMENT_ID' was not found."
 		EXPERIMENT_NAME=$(printf '%s\n' "$experiment_json" | json_first_string name)
 	else
 		if [ -z "$EXPERIMENT_NAME" ]; then
-			if [ -n "$current_user" ]; then
-				default_experiment="/Users/$current_user/$repo_name"
-				begin_selection "Choose an MLflow experiment" "Experiments group traces. Create one or connect an existing experiment."
-				selection_hint="Default path: $default_experiment"
-				select_option "Choose an MLflow experiment" \
-					"Create a new experiment" \
-					"Use existing experiment path or ID"
-				if [ "$selected_index" -eq 0 ]; then
-					prompt_text "New experiment path" "$default_experiment" "Type an experiment path, or press Enter to use the default."
-					EXPERIMENT_NAME=$(trim_whitespace "$prompt_value")
-					[ -n "$EXPERIMENT_NAME" ] || die "An absolute Databricks experiment path is required."
-				else
-					prompt_text "Existing experiment path or ID" ""
-					existing_experiment=$(trim_whitespace "$prompt_value")
-					[ -n "$existing_experiment" ] || die "An experiment path or ID is required."
-					case "$existing_experiment" in
-					/*)
-						EXPERIMENT_NAME=$existing_experiment
-						existing_experiment_selected="true"
-						;;
-					*)
-						EXPERIMENT_ID=$existing_experiment
-						;;
-					esac
-				fi
-			else
-				prompt_text "Experiment path" ""
-				EXPERIMENT_NAME=$(trim_whitespace "$prompt_value")
-				[ -n "$EXPERIMENT_NAME" ] || die "An absolute Databricks experiment path is required."
+			if [ -z "$current_user" ]; then
+				current_user_json=$(dbx_json current-user me 2>/dev/null || true)
+				current_user=$(printf '%s\n' "$current_user_json" | json_first_string userName)
 			fi
-		fi
-		if [ -n "$EXPERIMENT_ID" ]; then
-			experiment_json=$(dbx_json experiments get-experiment "$EXPERIMENT_ID") || die "Experiment '$EXPERIMENT_ID' was not found."
-			EXPERIMENT_NAME=$(printf '%s\n' "$experiment_json" | json_first_string name)
+			[ -n "$current_user" ] || die "Could not determine your Databricks user. Specify --experiment-name with an absolute workspace path or --experiment-id."
+			EXPERIMENT_NAME="/Users/$current_user/$(new_experiment_name)"
 		elif experiment_json=$(dbx_json experiments get-by-name "$EXPERIMENT_NAME" 2>/dev/null); then
 			EXPERIMENT_ID=$(printf '%s\n' "$experiment_json" | json_first_string experiment_id)
-		else
-			[ "$existing_experiment_selected" = "false" ] || die "Experiment '$EXPERIMENT_NAME' was not found."
+			[ -n "$EXPERIMENT_ID" ] || die "Databricks did not return an experiment ID."
+		fi
+		if [ -z "$EXPERIMENT_ID" ]; then
 			experiment_json=$(dbx_json experiments create-experiment "$EXPERIMENT_NAME") || die "Could not create experiment '$EXPERIMENT_NAME'."
 			EXPERIMENT_ID=$(printf '%s\n' "$experiment_json" | json_first_string experiment_id)
 			[ -n "$EXPERIMENT_ID" ] || die "Databricks did not return an experiment ID."
@@ -1269,47 +1215,6 @@ EOF
 	success "Trace storage" "$UC_SCHEMA"
 }
 
-select_warehouse() {
-	if [ -n "$WAREHOUSE_ID" ]; then
-		success "SQL warehouse" "$WAREHOUSE_ID"
-		return
-	fi
-	begin_selection "Choose a SQL warehouse" "Required compute for creating and querying trace tables."
-	load_with_manual_option "Choose a SQL warehouse" "Enter a warehouse ID" "Loading available SQL warehouses…" dbx_json warehouses list || die "Could not list SQL warehouses."
-	if [ "$loading_manual_selected" = "true" ]; then
-		selected_value="Enter a warehouse ID"
-	else
-		warehouse_json=$spinner_output
-		warehouse_rows=$(printf '%s\n' "$warehouse_json" | json_warehouse_rows)
-		set -- "Enter a warehouse ID"
-		while IFS='|' read -r warehouse_id warehouse_name warehouse_state; do
-			[ -n "$warehouse_id" ] && set -- "$@" "$warehouse_name    $warehouse_state · $warehouse_id"
-		done <<EOF
-$warehouse_rows
-EOF
-		if [ -n "$warehouse_rows" ]; then
-			selection_default_index=1
-		else
-			selection_default_index=0
-		fi
-		selection_filter_enabled="true"
-		select_option "Choose a SQL warehouse" "$@"
-	fi
-	if [ "$selected_value" = "Enter a warehouse ID" ]; then
-		WAREHOUSE_ID=$selection_query
-		if [ -z "$WAREHOUSE_ID" ]; then
-			prompt_text "SQL warehouse ID" ""
-			WAREHOUSE_ID=$prompt_value
-		fi
-		[ -n "$WAREHOUSE_ID" ] || die "A SQL warehouse ID is required."
-		success "SQL warehouse" "$WAREHOUSE_ID"
-	else
-		WAREHOUSE_ID=$(printf '%s' "$selected_value" | awk '{print $NF}')
-		[ -n "$WAREHOUSE_ID" ] || die "Could not resolve the selected warehouse."
-		success "SQL warehouse" "$selected_value"
-	fi
-}
-
 link_uc_trace_storage() {
 	[ -z "$trace_destination" ] || {
 		UC_SCHEMA=$(printf '%s' "$trace_destination" | awk -F '.' '{print $1 "." $2}')
@@ -1317,6 +1222,11 @@ link_uc_trace_storage() {
 		return
 	}
 	select_uc_schema
+	if [ -z "$WAREHOUSE_ID" ]; then
+		uc_trace_storage_pending="true"
+		progress "Unity Catalog trace storage pending" "$UC_SCHEMA · The coding agent will select a SQL warehouse and configure trace storage."
+		return
+	fi
 	catalog_name=$(printf '%s' "$UC_SCHEMA" | cut -d . -f 1)
 	schema_name=$(printf '%s' "$UC_SCHEMA" | cut -d . -f 2)
 	escaped_catalog_name=$(json_escape "$catalog_name")
@@ -1362,13 +1272,14 @@ configure_databricks() {
 		export DATABRICKS_HOST
 	fi
 	resolve_databricks_experiment
+	if [ -n "$WAREHOUSE_ID" ]; then
+		success "SQL warehouse" "$WAREHOUSE_ID"
+	fi
 	if [ "$experiment_created" = "true" ]; then
-		select_warehouse
 		link_uc_trace_storage
 	elif [ -n "$trace_destination" ]; then
 		UC_SCHEMA=$(printf '%s' "$trace_destination" | awk -F '.' '{print $1 "." $2}')
 		success "Trace storage" "$trace_destination"
-		select_warehouse
 	else
 		success "Trace storage" "Existing experiment uses workspace storage"
 	fi
@@ -1515,31 +1426,18 @@ resolve_oss_experiment() {
 		EXPERIMENT_NAME=$(json_first_string name <"$setup_tmp_dir/experiment.json")
 		return
 	fi
-	search_oss_experiments
-	experiment_ids_file="$setup_tmp_dir/experiment-ids"
-	experiment_names_file="$setup_tmp_dir/experiment-names"
-	json_experiment_strings experiment_id <"$setup_tmp_dir/experiments.json" >"$experiment_ids_file"
-	json_experiment_strings name <"$setup_tmp_dir/experiments.json" >"$experiment_names_file"
 	if [ -n "$EXPERIMENT_NAME" ]; then
+		search_oss_experiments
+		experiment_ids_file="$setup_tmp_dir/experiment-ids"
+		experiment_names_file="$setup_tmp_dir/experiment-names"
+		json_experiment_strings experiment_id <"$setup_tmp_dir/experiments.json" >"$experiment_ids_file"
+		json_experiment_strings name <"$setup_tmp_dir/experiments.json" >"$experiment_names_file"
 		experiment_line=$(awk -v wanted="$EXPERIMENT_NAME" '$0 == wanted { print NR; exit }' "$experiment_names_file")
 		if [ -n "$experiment_line" ]; then
 			EXPERIMENT_ID=$(sed -n "${experiment_line}p" "$experiment_ids_file")
 		fi
 	else
-		set -- "Create a new experiment"
-		while IFS= read -r experiment_name; do
-			[ -n "$experiment_name" ] && set -- "$@" "$experiment_name"
-		done <<EOF
-$(cat "$experiment_names_file")
-EOF
-		select_option "Choose an experiment" "$@"
-		if [ "$selected_index" -gt 0 ]; then
-			EXPERIMENT_NAME=$selected_value
-			EXPERIMENT_ID=$(sed -n "${selected_index}p" "$experiment_ids_file")
-		else
-			prompt_text "Experiment name" "$repo_name"
-			EXPERIMENT_NAME=$prompt_value
-		fi
+		EXPERIMENT_NAME=$(new_experiment_name)
 	fi
 	if [ -z "$EXPERIMENT_ID" ]; then
 		escaped_experiment_name=$(json_escape "$EXPERIMENT_NAME")
@@ -1592,11 +1490,7 @@ configure_local() {
 	printf '%b│%b\n' "$LINE" "$RESET" >&2
 	run_with_spinner "Waiting for the local MLflow server…" wait_for_local_server
 	success "Local MLflow server connected" "$TRACKING_URI"
-	if [ -z "$EXPERIMENT_NAME" ]; then
-		prompt_text "Experiment name" "$repo_name"
-		EXPERIMENT_NAME=$prompt_value
-	fi
-	success "Experiment" "$EXPERIMENT_NAME"
+	configure_remote
 }
 
 build_agent_prompt() {
@@ -1624,13 +1518,15 @@ build_agent_prompt() {
 	case "$backend" in
 	databricks)
 		printf '%s\n' \
-			"The setup wizard already provisioned these resources. Do not recreate them:" \
+			"The setup wizard already resolved these resources. Do not recreate them:" \
 			"- Tracking URI: $TRACKING_URI" \
 			"- Experiment ID: $EXPERIMENT_ID" \
 			"- Experiment name: $EXPERIMENT_NAME" \
 			""
 		if [ -n "$trace_destination" ]; then
 			printf '%s\n' "- Unity Catalog trace destination: $trace_destination"
+		elif [ "$uc_trace_storage_pending" = "true" ]; then
+			printf '%s\n' "- Unity Catalog destination to configure: $UC_SCHEMA.$EXPERIMENT_ID"
 		fi
 		if [ -n "$WAREHOUSE_ID" ]; then
 			printf '%s\n' "- SQL warehouse ID: $WAREHOUSE_ID"
@@ -1645,12 +1541,26 @@ build_agent_prompt() {
 		fi
 		if [ -n "$WAREHOUSE_ID" ]; then
 			printf '%s\n' "MLFLOW_TRACING_SQL_WAREHOUSE_ID=$WAREHOUSE_ID"
+		elif [ "$uc_trace_storage_pending" = "true" ] || [ -n "$trace_destination" ]; then
+			printf '%s\n' \
+				"" \
+				"Discover available SQL warehouses in the configured Databricks workspace using the Databricks CLI or SDK and the same authentication profile/host as the tracking URI." \
+				"Choose a warehouse the current user can use, preferring a running warehouse. Verify it can access the selected Unity Catalog schema." \
+				"Set MLFLOW_TRACING_SQL_WAREHOUSE_ID to its ID using the project's configuration conventions before configuring or querying trace storage." \
+				"Do not ask the user to choose a warehouse unless no usable warehouse is available; report the access issue if discovery or validation fails."
 		fi
-		if [ -n "$trace_destination" ]; then
-			uc_catalog_name=${trace_destination%%.*}
-			uc_location_remainder=${trace_destination#*.}
+		if [ -n "$trace_destination" ] || [ "$uc_trace_storage_pending" = "true" ]; then
+			uc_destination=${trace_destination:-$UC_SCHEMA.$EXPERIMENT_ID}
+			uc_catalog_name=${uc_destination%%.*}
+			uc_location_remainder=${uc_destination#*.}
 			uc_schema_name=${uc_location_remainder%%.*}
 			uc_table_prefix=${uc_location_remainder#*.}
+			if [ "$uc_trace_storage_pending" = "true" ]; then
+				printf '%s\n' \
+					"" \
+					"The experiment exists, but its Unity Catalog trace tables have not been created or linked yet." \
+					"After selecting the warehouse, create and link trace storage in the chosen catalog and schema for this experiment using mlflow.set_experiment with the UnityCatalog location below. Complete this before enabling tracing, including for non-Python applications."
+			fi
 			printf '%s\n' \
 				"" \
 				"For a Python application, activate the UC-backed experiment before enabling autologging:" \
@@ -1666,7 +1576,10 @@ build_agent_prompt() {
 				"Use this exact Unity Catalog destination. Do not replace it with MlflowExperimentLocation, which targets MLflow experiment storage rather than the configured UC tables."
 		fi
 		;;
-	remote)
+	remote | local)
+		if [ "$backend" = "local" ]; then
+			printf '%s\n' "The user already started a local MLflow server at $TRACKING_URI. Do not start another server."
+		fi
 		printf '%s\n' \
 			"The setup wizard already resolved these resources. Do not recreate them:" \
 			"- Tracking URI: $TRACKING_URI" \
@@ -1677,11 +1590,6 @@ build_agent_prompt() {
 		if [ -n "${MLFLOW_WORKSPACE:-}" ]; then
 			printf '%s\n' "MLFLOW_WORKSPACE=$MLFLOW_WORKSPACE"
 		fi
-		;;
-	local)
-		printf '%s\n' \
-			"The user already started a local MLflow server at $TRACKING_URI. Do not start another server." \
-			"Add the latest mlflow-tracing package and use experiment $EXPERIMENT_NAME."
 		;;
 	esac
 	printf '%s\n' \

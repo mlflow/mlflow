@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Any, Callable, ClassVar
 
 import sqlparse
 from packaging.version import Version
+from sqlparse.engine.grouping import group_comparison
 from sqlparse.sql import (
     Comparison,
     Identifier,
@@ -459,7 +460,9 @@ class SearchUtils:
                         f"Found {token.value}",
                         error_code=INVALID_PARAMETER_VALUE,
                     )
-                return token.value
+                if token.ttype == TokenType.Literal.Number.Integer:
+                    return int(token.value)
+                return float(token.value)
             elif token.ttype in cls.STRING_VALUE_TYPES or isinstance(token, Identifier):
                 return cls._strip_quotes(token.value, expect_quoted_value=True)
             elif isinstance(token, Parenthesis):
@@ -706,7 +709,8 @@ class SearchUtils:
             lhs = getattr(run.info, key)
         elif cls.is_numeric_attribute(key_type, key, comparator):
             lhs = getattr(run.info, key)
-            value = int(value)
+            if isinstance(value, str):
+                value = int(value)
         elif cls.is_dataset(key_type, comparator):
             if key == "context":
                 return any(
@@ -755,7 +759,8 @@ class SearchUtils:
             lhs = getattr(model.info, key)
         elif cls.is_numeric_attribute(key_type, key, comparator):
             lhs = getattr(model.info, key)
-            value = int(value)
+            if isinstance(value, str):
+                value = int(value)
         else:
             raise MlflowException(
                 f"Invalid model search expression type '{key_type}'",
@@ -2430,6 +2435,16 @@ class SearchEvaluationDatasetsUtils(SearchUtils):
     VALID_ORDER_BY_ATTRIBUTE_KEYS = {"name", "created_time", "last_update_time"}
     NUMERIC_ATTRIBUTES = {"created_time", "last_update_time"}
     VALID_TAG_COMPARATORS = {"!=", "=", "LIKE", "ILIKE"}
+    LIST_SUPPORTED_KEYS = frozenset({"name"})
+
+    @classmethod
+    def _get_comparison(cls, comparison):
+        comp = super()._get_comparison(comparison)
+        if isinstance(comp["value"], tuple) and comp["comparator"] != "IN":
+            raise MlflowException.invalid_parameter_value(
+                "List values for 'name' are only supported with the IN comparator."
+            )
+        return comp
 
     @classmethod
     def _invalid_statement_token(cls, token):
@@ -2542,7 +2557,8 @@ class SearchLoggedModelsUtils(SearchUtils):
             lhs = model.tags.get(key, None)
         elif cls.is_numeric_attribute(key_type, key, comparator):
             lhs = getattr(model, key)
-            value = int(value)
+            if isinstance(value, str):
+                value = int(value)
         elif hasattr(model, key):
             lhs = getattr(model, key)
         else:
@@ -2777,6 +2793,15 @@ class SearchMCPServerVersionUtils(SearchUtils):
     NUMERIC_ATTRIBUTES = {"created_at", "last_updated_at"}
     LIST_SUPPORTED_KEYS = frozenset({"status"})
 
+    @classmethod
+    def _process_statement(cls, statement):
+        # Normalize the keyword-typed field without changing quoted filter values.
+        for index, token in enumerate(statement.tokens):
+            if token.ttype == TokenType.Keyword and token.value == "version":
+                statement.tokens[index] = Identifier([Token(TokenType.Name, token.value)])
+        group_comparison(statement)
+        return super()._process_statement(statement)
+
 
 class SearchMCPAccessEndpointUtils(SearchUtils):
     """Utility class for parsing MCP access endpoint search filters."""
@@ -2789,11 +2814,17 @@ class SearchMCPAccessEndpointUtils(SearchUtils):
         "last_updated_at",
     }
     NUMERIC_ATTRIBUTES = {"created_at", "last_updated_at"}
-    # `server_name` is not usable with `IN`/`NOT IN` today because `server_name`
-    # is also a reserved word in sqlparse's builtin keyword table, so it never
-    # tokenizes as an Identifier even with a plain `=` comparator. See
-    # https://github.com/mlflow/mlflow/issues/25203.
-    LIST_SUPPORTED_KEYS = frozenset()
+    LIST_SUPPORTED_KEYS = frozenset({"server_name"})
+
+    @classmethod
+    def _process_statement(cls, statement):
+        # sqlparse treats server_name as a SQL keyword, so it does not group
+        # comparisons using this valid endpoint attribute.
+        for index, token in enumerate(statement.tokens):
+            if token.ttype == TokenType.Keyword and token.value == "server_name":
+                statement.tokens[index] = Identifier([Token(TokenType.Name, token.value)])
+        group_comparison(statement)
+        return super()._process_statement(statement)
 
 
 class SearchIssuesUtils(SearchUtils):

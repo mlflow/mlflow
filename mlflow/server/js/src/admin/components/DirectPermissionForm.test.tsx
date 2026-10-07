@@ -3,7 +3,7 @@ import { PointerEventsCheckLevel } from '@testing-library/user-event';
 import userEventGlobal from '@testing-library/user-event';
 import React from 'react';
 import { renderWithDesignSystem, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
-import { DirectPermissionForm, DIRECT_PERMISSION_DEFAULT } from './DirectPermissionForm';
+import { DirectPermissionForm, DIRECT_PERMISSION_DEFAULT, type DirectGrantResourceType } from './DirectPermissionForm';
 
 jest.mock('../hooks', () => ({
   useResourceOptionsQuery: () => ({ options: [], isLoading: false, error: null }),
@@ -72,5 +72,49 @@ describe('DirectPermissionForm — permission picker filtering', () => {
     expect(onChange).toHaveBeenCalledWith(
       expect.objectContaining({ resourceType: 'registered_model', scope: 'all', resourceId: '' }),
     );
+  });
+});
+
+describe('DirectPermissionForm — wildcard-only resource types', () => {
+  it.each([
+    ['run', 'Run'],
+    ['trace', 'Trace'],
+    ['assessment', 'Assessment'],
+    ['logged_model', 'Logged model'],
+    ['review_queue', 'Review queue'],
+    ['registered_model_version', 'Model version'],
+    ['prompt_version', 'Prompt version'],
+    ['scorer_version', 'Scorer version'],
+  ])('disables the specific-resource scope for %s', (resourceType, label) => {
+    renderWithDesignSystem(
+      <DirectPermissionForm
+        value={{ ...DIRECT_PERMISSION_DEFAULT, resourceType: resourceType as DirectGrantResourceType, scope: 'all' }}
+        onChange={() => {}}
+      />,
+    );
+    expect(screen.getByRole('radio', { name: new RegExp(`^Specific ${label.toLowerCase()}$`) })).toBeDisabled();
+  });
+
+  it('coerces the default specific scope to All when switching to a tier', async () => {
+    // DIRECT_PERMISSION_DEFAULT.scope is 'specific', which a wildcard-only tier
+    // can never satisfy — the form would otherwise sit on an unreachable scope.
+    const onChange = jest.fn();
+    renderWithDesignSystem(<DirectPermissionForm value={DIRECT_PERMISSION_DEFAULT} onChange={onChange} />);
+    await userEvent.click(document.getElementById('admin-direct-permission-resource-type')!);
+    await userEvent.click(await screen.findByRole('option', { name: 'Trace' }));
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ resourceType: 'trace', scope: 'all' }));
+  });
+
+  it('does not offer workspace, which the per-user API rejects', async () => {
+    renderWithDesignSystem(<DirectPermissionForm value={DIRECT_PERMISSION_DEFAULT} onChange={() => {}} />);
+    await userEvent.click(document.getElementById('admin-direct-permission-resource-type')!);
+    expect(screen.queryByRole('option', { name: 'Workspace' })).not.toBeInTheDocument();
+  });
+
+  it('offers DENY last in the permission dropdown', async () => {
+    renderWithDesignSystem(<DirectPermissionForm value={DIRECT_PERMISSION_DEFAULT} onChange={() => {}} />);
+    await userEvent.click(document.getElementById('admin-direct-permission-level')!);
+    const options = await screen.findAllByRole('option');
+    expect(options.map((o) => o.textContent)).toEqual(['READ', 'EDIT', 'MANAGE', 'DENY']);
   });
 });

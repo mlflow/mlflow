@@ -113,7 +113,8 @@ module.exports = async ({ github, context, core }) => {
       if (attempt < 3) await sleep(5000);
     }
     if (workflowRuns.length === 0) {
-      throw new Error(`No workflow runs found for ${ref} after 3 attempts. Rerun this job.`);
+      core.setFailed(`No workflow runs found for ${ref} after 3 attempts. Rerun this job.`);
+      return;
     }
 
     // Deduplicate workflow runs by path and event, keeping the latest attempt
@@ -177,6 +178,7 @@ module.exports = async ({ github, context, core }) => {
   while (new Date() - start < TIMEOUT) {
     ++iterationCount;
     const checks = await fetchChecks(sha);
+    if (!checks) return;
     if (rateLimitRemaining !== undefined) {
       console.log(`Rate limit remaining: ${rateLimitRemaining}`);
     }
@@ -195,9 +197,10 @@ module.exports = async ({ github, context, core }) => {
     });
 
     if (checks.some(({ status }) => status === STATE.failure)) {
-      throw new Error(
+      core.setFailed(
         "This job ensures that all checks except for this one have passed to prevent accidental auto-merges."
       );
+      return;
     }
 
     if (
@@ -216,5 +219,6 @@ module.exports = async ({ github, context, core }) => {
     await sleep(sleepLength);
   }
 
-  throw new Error("Timeout");
+  core.setFailed("Timeout");
+  return;
 };

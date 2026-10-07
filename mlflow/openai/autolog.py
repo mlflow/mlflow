@@ -344,10 +344,17 @@ def _end_span_on_success(
         # and then log the outputs as a single artifact when the stream ends
         def _stream_output_logging_hook(stream: Iterator) -> Iterator:
             output = []
-            for i, chunk in enumerate(stream):
-                _add_span_event(span, i, chunk)
-                output.append(chunk)
-                yield chunk
+            chunk = None
+            try:
+                for i, chunk in enumerate(stream):
+                    _add_span_event(span, i, chunk)
+                    output.append(chunk)
+                    yield chunk
+            except Exception as e:
+                # The SDK raises mid-stream (e.g. an error event from the server). End the
+                # span with an error status, otherwise the trace is never exported.
+                _end_span_on_exception(span, e)
+                raise
             _process_last_chunk(span, chunk, inputs, output, is_responses_api)
 
         result._iterator = _stream_output_logging_hook(result._iterator)
@@ -355,10 +362,15 @@ def _end_span_on_success(
 
         async def _stream_output_logging_hook(stream: AsyncIterator) -> AsyncIterator:
             output = []
-            async for chunk in stream:
-                _add_span_event(span, len(output), chunk)
-                output.append(chunk)
-                yield chunk
+            chunk = None
+            try:
+                async for chunk in stream:
+                    _add_span_event(span, len(output), chunk)
+                    output.append(chunk)
+                    yield chunk
+            except Exception as e:
+                _end_span_on_exception(span, e)
+                raise
             _process_last_chunk(span, chunk, inputs, output, is_responses_api)
 
         result._iterator = _stream_output_logging_hook(result._iterator)

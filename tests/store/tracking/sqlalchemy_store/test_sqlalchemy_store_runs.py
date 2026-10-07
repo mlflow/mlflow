@@ -4085,6 +4085,32 @@ def test_search_logged_models_invalid_operator_lists_applicable_operators(store:
         store.search_logged_models(experiment_ids=[exp_id], filter_string="metrics.loss LIKE 'x'")
 
 
+@pytest.mark.parametrize(
+    "filter_string",
+    [
+        "name like 'model-%'",
+        "name ilike 'MODEL-%'",
+        "name in ('model-a', 'other')",
+        "name not in ('other')",
+        "params.lr like '0.%'",
+        "tags.team in ('ml')",
+    ],
+)
+def test_search_logged_models_accepts_lowercase_operators(
+    store: SqlAlchemyStore, filter_string: str
+):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    model = store.create_logged_model(
+        experiment_id=exp_id,
+        name="model-a",
+        params=[LoggedModelParameter("lr", "0.01")],
+        tags=[LoggedModelTag("team", "ml")],
+    )
+
+    models = store.search_logged_models(experiment_ids=[exp_id], filter_string=filter_string)
+    assert [m.model_id for m in models] == [model.model_id]
+
+
 def test_search_logged_models_order_by_metric_paginates_tied_dataset_metrics(
     store: SqlAlchemyStore,
 ):
@@ -4151,6 +4177,111 @@ def test_search_logged_models_order_by_model_id_does_not_duplicate_tiebreaker(
             "logged_models.model_id DESC",
             "logged_models.creation_timestamp_ms DESC",
         ]
+
+
+def test_search_logged_models_metric_filter_does_not_shrink_pages(store: SqlAlchemyStore):
+    """A metric filter must not let one model occupy several rows before LIMIT.
+
+    Each model below logs the same metric on three datasets, so joining the matching
+    metric rows would emit three rows per model. Deduplication happens after LIMIT,
+    so an unfixed store returns fewer models per page than requested and can stop
+    paginating while matches remain.
+    """
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    expected_names = set()
+    for i in range(4):
+        model = store.create_logged_model(experiment_id=exp_id, name=f"model-{i}")
+        expected_names.add(model.name)
+        for dataset_name in ["train", "val", "test"]:
+            run = store.create_run(
+                experiment_id=exp_id,
+                user_id="user",
+                start_time=0,
+                tags=[],
+                run_name=f"{model.name}-{dataset_name}",
+            )
+            store.log_metric(
+                run.info.run_id,
+                Metric(
+                    "accuracy",
+                    1.0,
+                    timestamp=123,
+                    step=0,
+                    model_id=model.model_id,
+                    dataset_name=dataset_name,
+                    dataset_digest="d",
+                ),
+            )
+
+    filter_string = "metrics.accuracy > 0"
+    max_results = 2
+
+    page = store.search_logged_models(
+        experiment_ids=[exp_id], filter_string=filter_string, max_results=max_results
+    )
+    # The first page must be full: four models match and two were asked for.
+    assert len(page) == max_results
+
+    actual_names = []
+    while True:
+        actual_names.extend(model.name for model in page)
+        if page.token is None:
+            break
+        page = store.search_logged_models(
+            experiment_ids=[exp_id],
+            filter_string=filter_string,
+            max_results=max_results,
+            page_token=page.token,
+        )
+
+    # Every matching model is returned exactly once across the pages.
+    assert sorted(actual_names) == sorted(expected_names)
+    assert len(actual_names) == len(set(actual_names))
+
+
+def test_search_logged_models_eager_loads_tags_params_and_metrics(store: SqlAlchemyStore):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    run = store.create_run(
+        experiment_id=exp_id, user_id="user", start_time=0, run_name="run", tags=[]
+    )
+    num_models = 5
+    for i in range(num_models):
+        model = store.create_logged_model(
+            experiment_id=exp_id,
+            name=f"model-{i}",
+            source_run_id=run.info.run_id,
+            tags=[LoggedModelTag("tag", f"v{i}")],
+            params=[LoggedModelParameter("param", f"v{i}")],
+        )
+        store.log_metric(
+            run.info.run_id,
+            Metric("accuracy", float(i), timestamp=123, step=0, model_id=model.model_id),
+        )
+
+    statements = []
+
+    def capture_statement(_conn, _cursor, statement, _parameters, _context, _executemany):
+        statements.append(statement.lower())
+
+    sqlalchemy.event.listen(store.engine, "before_cursor_execute", capture_statement)
+    try:
+        models = store.search_logged_models(experiment_ids=[exp_id])
+    finally:
+        sqlalchemy.event.remove(store.engine, "before_cursor_execute", capture_statement)
+
+    assert len(models) == num_models
+    # Eager loading must still populate the entities, not just suppress the queries.
+    assert all(m.tags and m.params and m.metrics for m in models)
+
+    statements = [s.replace('"', "").replace("`", "") for s in statements]
+    for table in ("logged_model_tags", "logged_model_params", "logged_model_metrics"):
+        child_selects = [
+            s
+            for s in statements
+            if s.lstrip().startswith("select") and re.search(rf"\bfrom\s+{table}\b", s)
+        ]
+        # One batched `WHERE model_id IN (...)` load per relationship, not one per model.
+        assert len(child_selects) == 1, f"{table}: {len(child_selects)} SELECTs"
 
 
 def test_search_runs_returns_outputs(store: SqlAlchemyStore):

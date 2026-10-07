@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 import numpy as np
 import pytest
 from opentelemetry import trace as trace_api
+from sqlalchemy import literal, select, union_all
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.orm import Query
 
@@ -28,7 +29,7 @@ from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges import CategoricalRating
 from mlflow.store.db import db_types
-from mlflow.store.tracking.dbmodels.models import SqlTraceInfo, SqlTraceMetadata
+from mlflow.store.tracking.dbmodels.models import SqlSpan, SqlTraceInfo, SqlTraceMetadata
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.store.tracking.utils.sql_trace_metrics_postgres import (
     _apply_postgres_trace_first_span_query,
@@ -36,6 +37,7 @@ from mlflow.store.tracking.utils.sql_trace_metrics_postgres import (
 from mlflow.store.tracking.utils.sql_trace_metrics_utils import (
     _apply_filters,
     _partition_span_metric_filters,
+    get_time_bucket_expression,
     query_metrics,
     validate_query_trace_metrics_params,
 )
@@ -57,6 +59,51 @@ from mlflow.utils.time import get_current_time_millis
 from tests.store.tracking.sqlalchemy_store.conftest import create_test_span
 
 pytestmark = pytest.mark.notrackingurimock
+
+
+def _postgres_span_bucket_boundary_query(time_interval_seconds):
+    bucket_ns = time_interval_seconds * 1_000_000_000
+    timestamps = {-(2**63), -1, 0, 1, 2**63 - 1}
+    for multiplier in [-2, -1, 1, 2, 1_750_000_000 // time_interval_seconds]:
+        boundary = multiplier * bucket_ns
+        timestamps.update(
+            value for value in [boundary - 1, boundary, boundary + 1] if -(2**63) <= value < 2**63
+        )
+    timestamps = sorted(timestamps)
+    spans = union_all(
+        *(select(literal(value).label("start_time_unix_nano")) for value in timestamps)
+    ).cte("spans")
+    expression = get_time_bucket_expression(
+        MetricViewType.SPANS, time_interval_seconds, db_types.POSTGRES
+    )
+    query = (
+        select(SqlSpan.start_time_unix_nano, expression)
+        .add_cte(spans)
+        .order_by(SqlSpan.start_time_unix_nano)
+    )
+    expected = [
+        (value, (value // bucket_ns) * time_interval_seconds * 1000) for value in timestamps
+    ]
+    return query, expected
+
+
+def test_postgres_span_time_buckets_use_exact_quotient():
+    query, _ = _postgres_span_bucket_boundary_query(86400)
+    statement = str(
+        query.compile(dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True})
+    )
+    assert "div(spans.start_time_unix_nano, 86400000000000)" in statement
+    assert "mod(spans.start_time_unix_nano, 86400000000000)" in statement
+    assert " / " not in statement
+
+
+@pytest.mark.parametrize("time_interval_seconds", [1, 60, 86400, 10_000_000_000])
+def test_postgres_span_time_bucket_boundaries(store, time_interval_seconds):
+    if store.db_type != db_types.POSTGRES:
+        pytest.skip("PostgreSQL-specific exact span bucketing")
+    query, expected = _postgres_span_bucket_boundary_query(time_interval_seconds)
+    with store.ManagedSessionMaker() as session:
+        assert [tuple(row) for row in session.execute(query)] == expected
 
 
 def test_postgres_span_query_materializes_trace_filters_before_span_join(

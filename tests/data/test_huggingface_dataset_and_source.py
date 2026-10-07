@@ -275,6 +275,44 @@ def test_to_evaluation_dataset():
     assert np.array_equal(evaluation_dataset.labels_data, dataset.ds.to_pandas()["label"].values)
 
 
+def test_to_evaluation_dataset_with_nested_variable_length_arrays():
+    data = {
+        "id": ["1", "2"],
+        "expected_results": [
+            [
+                {
+                    "id": "1",
+                    "text": (
+                        "The main idea of the document is to provide an overview of the project."
+                    ),
+                },
+                {
+                    "id": "2",
+                    "text": (
+                        "The expected outcomes of the project were to gain insights and "
+                        "develop a robust solution."
+                    ),
+                },
+            ],
+            [
+                {
+                    "id": "3",
+                    "text": "Another result.",
+                }
+            ],
+        ],
+    }
+
+    ds = datasets.Dataset.from_dict(data)
+    dataset = mlflow.data.from_huggingface(ds, targets="expected_results")
+
+    evaluation_dataset = dataset.to_evaluation_dataset()
+    evaluation_dataset_2 = dataset.to_evaluation_dataset()
+
+    assert isinstance(evaluation_dataset, EvaluationDataset)
+    assert evaluation_dataset.hash == evaluation_dataset_2.hash
+
+
 def test_from_huggingface_dataset_with_sample_source():
     source_uri = "test:/my/test/uri"
     source = SampleDatasetSource._resolve(source_uri)

@@ -96,6 +96,7 @@ TRACING_INCLUDE_FILES = [
     "mlflow.mistral*",
     "mlflow.openai*",
     "mlflow.strands*",
+    "mlflow.typesafe*",
     "mlflow.haystack*",
     # Other necessary modules
     "mlflow.azure*",
@@ -365,6 +366,8 @@ def build(package_type: PackageType) -> None:
                     # Required to use MySQL, PostgreSQL, or SQL Server as the backend store
                     "PyMySQL",
                     "psycopg2-binary",
+                    # Default driver for postgresql:// URLs in SQLAlchemy 2.1+
+                    "psycopg[binary]",
                     "pymssql",
                 ],
                 "databricks": [

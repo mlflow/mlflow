@@ -109,9 +109,18 @@ class MistralAdapter(ProviderAdapter):
         #       },
         #       "finish_reason": "string" | null,
         #     }
-        #   ]
+        #   ],
+        #   "usage": {...}  # only in the final chunk
         # }
         # ```
+        usage = None
+        if usage_data := resp.get("usage"):
+            usage = chat_schema.ChatUsage(
+                prompt_tokens=usage_data.get("prompt_tokens"),
+                completion_tokens=usage_data.get("completion_tokens"),
+                total_tokens=usage_data.get("total_tokens"),
+            )
+
         return chat_schema.StreamResponsePayload(
             id=resp["id"],
             object=resp["object"],
@@ -132,6 +141,7 @@ class MistralAdapter(ProviderAdapter):
                 )
                 for c in resp["choices"]
             ],
+            usage=usage,
         )
 
     @classmethod

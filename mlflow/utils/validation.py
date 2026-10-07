@@ -575,6 +575,22 @@ def _validate_experiment_id(exp_id):
         )
 
 
+def _parse_experiment_id(experiment_id: str | int) -> int:
+    """Parse a non-None experiment ID into an integer."""
+    try:
+        return int(experiment_id)
+    except (ValueError, TypeError):
+        raise MlflowException(
+            f"Invalid experiment ID '{experiment_id}'. Experiment ID must be a valid integer.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+
+def _parse_experiment_ids(experiment_ids: list[str | int]) -> list[int]:
+    """Parse non-None experiment IDs into integers."""
+    return [_parse_experiment_id(experiment_id) for experiment_id in experiment_ids]
+
+
 def _validate_batch_limit(entity_name, limit, length):
     if length > limit:
         error_msg = (

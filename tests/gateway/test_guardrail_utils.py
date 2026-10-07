@@ -16,7 +16,11 @@ from mlflow.gateway.guardrail_utils import (
     run_post_llm_guardrails_passthrough,
     run_pre_llm_guardrails,
 )
-from mlflow.gateway.guardrails import GuardrailViolation, JudgeGuardrail
+from mlflow.gateway.guardrails import (
+    GuardrailViolation,
+    JudgeGuardrail,
+    UnsupportedGuardrailScorerError,
+)
 from mlflow.gateway.schemas.chat import ResponsePayload
 
 # ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -353,3 +357,32 @@ def test_load_guardrails_skips_failed_conversion():
         result = load_guardrails(store, endpoint_config, request)
 
     assert result == [good_judge]
+
+
+def test_load_guardrails_fails_request_for_custom_scorer_guardrail():
+    # A guardrail backed by a custom @scorer cannot run in the server, so loading it must fail the
+    # request rather than silently dropping the guardrail and serving traffic without it.
+    config = _make_guardrail_config(stage="BEFORE")
+    config.guardrail.scorer = ScorerVersion(
+        experiment_id="0",
+        scorer_name="custom",
+        scorer_version=1,
+        serialized_scorer=json.dumps({
+            "name": "custom",
+            "call_source": "return True",
+            "call_signature": "(outputs)",
+            "original_func_name": "custom",
+        }),
+        creation_time=0,
+        scorer_id="s-custom",
+    )
+    store = mock.MagicMock()
+    store.list_endpoint_guardrail_configs.return_value = [config]
+    store.resolve_endpoint_in_scorer.side_effect = lambda scorer: scorer
+    endpoint_config = mock.MagicMock()
+    endpoint_config.endpoint_id = "ep-1"
+    request = mock.MagicMock()
+    request.base_url = "http://localhost:5000/"
+
+    with pytest.raises(UnsupportedGuardrailScorerError, match="Guardrail 'safety' uses a custom"):
+        load_guardrails(store, endpoint_config, request)

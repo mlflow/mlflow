@@ -137,6 +137,37 @@
       ],
       "unevaluatedProperties": false
     },
+    "TraceImage": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "type": "object",
+          "description": "Renders an image attachment stored on the current trace. Bind uri to a spanField path that resolves to an mlflow-attachment:// URI; never paste a URI from the sample trace.",
+          "properties": {
+            "component": {
+              "const": "TraceImage"
+            },
+            "uri": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString",
+              "description": "An mlflow-attachment:// URI for an image stored on the current trace."
+            },
+            "title": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString",
+              "description": "Optional heading shown above the image."
+            },
+            "weight": {
+              "type": "number",
+              "description": "Relative flex weight when placed directly inside a Row/Column."
+            }
+          },
+          "required": ["component", "uri"]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
     "KeyValueViewer": {
       "type": "object",
       "allOf": [
@@ -461,6 +492,9 @@
         },
         {
           "$ref": "#/components/Markdown"
+        },
+        {
+          "$ref": "#/components/TraceImage"
         },
         {
           "$ref": "#/components/KeyValueViewer"

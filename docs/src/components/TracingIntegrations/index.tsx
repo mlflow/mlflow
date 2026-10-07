@@ -330,6 +330,13 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     category: 'Model Providers',
   },
   {
+    id: 'typesafe',
+    name: 'TypeSafe AI',
+    logoPath: '/images/logos/typesafe-ai-logo.png',
+    link: '/genai/tracing/integrations/listing/typesafe',
+    category: 'Model Providers',
+  },
+  {
     id: 'xai-grok',
     name: 'xAI / Grok',
     logoPath: '/images/logos/grok-logo.png',

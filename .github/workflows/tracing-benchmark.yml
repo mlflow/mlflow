@@ -29,7 +29,7 @@ cache-mode: none
 
 jobs:
   benchmark:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
       # contents: write is required for the action to push to gh-pages on master.

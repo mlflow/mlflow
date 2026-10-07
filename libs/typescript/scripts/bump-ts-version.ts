@@ -21,6 +21,7 @@ const INTEGRATION_PACKAGES = [
   'codex',
   'opencode',
   'qwen-code',
+  'typesafe',
 ];
 
 interface PackageJson {

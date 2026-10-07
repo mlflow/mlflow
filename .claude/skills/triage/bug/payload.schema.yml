@@ -1,0 +1,58 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+title: Bug Triage Payload
+description: Bug triage result, posted to the issue as a label and a comment.
+type: object
+additionalProperties: false
+required:
+  - label
+  - comment
+properties:
+  label:
+    description: Bug triage outcome label.
+    type: string
+    oneOf:
+      - const: "triage: reproduced"
+        description: The bug exists at the current checkout.
+      - const: "triage: already-fixed"
+        description: The reported version reproduces it, but the current checkout does not.
+      - const: "triage: not-reproduced"
+        description: Neither version reproduces it with the information given.
+      - const: "triage: needs-info"
+        description: The issue is too incomplete to attempt a reproduction.
+      - const: "triage: skipped"
+        description: Reproduction needs resources the sandbox lacks.
+  comment:
+    description: |
+      Markdown comment for the issue. Fill in this template: replace each `<...>` placeholder,
+      and drop a line or section that has nothing to say, except the verdict.
+
+      ### Summary
+
+      **<verdict>**: <one or two sentences on what happens and on which versions>.
+
+      - Expected: <what should happen>
+      - Actual: <what happens, in one line, e.g. the exception and its message>
+      - Fails at: <only for Reproduced: permalink to the line that raises or returns the wrong value>
+      - Missing information: <what the reporter should add>
+
+      ### How to reproduce
+
+      Tested on MLflow <version and commit>, Python <version from `python --version`>, <OS>.
+
+      <whatever a reader needs to see the bug themselves: the commands, scripts, or UI steps to
+      run and the output or observed behavior that shows the bug. Shape it to fit the bug, putting anything
+      to run in code blocks.>
+
+      ### Suggested fix
+
+      <the root cause in a sentence or two, with permalinks>
+
+      <the fix: for a short change, the patch in a `diff` code block; for a longer or multi-file
+      change, what changes in each file and why, with permalinks>
+
+      ### What I tried
+
+      <for any verdict other than Reproduced: the attempts and why each did not reproduce it>
+    type: string
+    minLength: 1
+    maxLength: 5000

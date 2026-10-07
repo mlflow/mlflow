@@ -73,6 +73,12 @@ with mlflow.start_run():
 
 See <APILink fn="mlflow.sklearn.log_model" /> and <APILink fn="mlflow.sklearn.save_model" /> for full parameters.
 
+## SHAP explainers remain pickle-based
+
+<APILink fn="mlflow.shap.log_explainer" /> and <APILink fn="mlflow.shap.save_explainer" /> use pickle-based serialization for the SHAP explainer state, so the complete artifact is not pickle-free. For a scikit-learn-backed explainer, MLflow also uses cloudpickle for its extracted nested model. Using skops only for that nested model—or automatically trusting classes that skops rejects—would not make the complete SHAP artifact pickle-free or safe to load from an untrusted source.
+
+Treat SHAP explainers as pickle-based artifacts and load them only from trusted sources. Setting [`MLFLOW_ALLOW_PICKLE_DESERIALIZATION=false`](#global-configuration-to-force-mlflow-pickle-free-model-loading) prevents them from loading outside Databricks Runtime and Databricks Model Serving. This SHAP-specific behavior does not change models saved directly with `mlflow.sklearn`: standalone sklearn models still use skops by default and can accept explicitly reviewed `skops_trusted_types`.
+
 ## Pickle-free format for PyTorch model
 
 When saving a PyTorch model, saving with `serialization_format="pt2"` uses `torch.export.save` and stores the model as a traced graph instead of pickle serialization format.

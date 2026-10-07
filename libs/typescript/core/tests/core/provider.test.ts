@@ -27,14 +27,15 @@ const testHost = 'https://dbc-12345.cloud.databricks.com';
 // provider. This file therefore only exercises a single `init()` call.
 // UC processor + exporter behavior is covered in detail by the unit tests
 // in `tests/exporters/uc_table*.test.ts`; this file just verifies that
-// `init()` wires up the UC processor when `traceLocation` is provided.
-describe('init() with traceLocation wires the UC span processor', () => {
+// `init()` wires up the UC processor when MLFLOW_TRACE_LOCATION is set.
+describe('init() with MLFLOW_TRACE_LOCATION wires the UC span processor', () => {
   let server: ReturnType<typeof setupServer>;
   const v4TraceInfoCalls: { url: string; body: any }[] = [];
 
   beforeAll(() => {
     process.env.DATABRICKS_HOST = testHost;
     process.env.DATABRICKS_TOKEN = 'test-token';
+    process.env.MLFLOW_TRACE_LOCATION = 'cat.sch.agent';
     server = setupServer(
       http.post(
         `${testHost}/api/4.0/mlflow/traces/:location/:otelTraceId/info`,
@@ -59,7 +60,6 @@ describe('init() with traceLocation wires the UC span processor', () => {
     init({
       trackingUri: 'databricks',
       experimentId: '4118495900667593',
-      traceLocation: { catalogName: 'cat', schemaName: 'sch', tablePrefix: 'agent' },
     });
   });
 
@@ -67,6 +67,7 @@ describe('init() with traceLocation wires the UC span processor', () => {
     server.close();
     delete process.env.DATABRICKS_HOST;
     delete process.env.DATABRICKS_TOKEN;
+    delete process.env.MLFLOW_TRACE_LOCATION;
   });
 
   it('routes spans through the V4 endpoint with the configured UC location', async () => {

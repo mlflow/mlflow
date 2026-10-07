@@ -201,6 +201,7 @@ class LoggedModel(_MlflowObject):
                 model_type=self.model_type,
                 source_run_id=self.source_run_id,
                 status=self.status.to_proto(),
+                status_message=self.status_message,
                 tags=[pb2.LoggedModelTag(key=k, value=v) for k, v in self.tags.items()],
             ),
             data=pb2.LoggedModelData(

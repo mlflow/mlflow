@@ -1,3 +1,4 @@
+import json
 from unittest import mock
 
 import pytest
@@ -199,6 +200,49 @@ async def test_chat():
     result = jsonable_encoder(response)
     assert result["id"] == "chatcmpl-db-123"
     assert result["choices"][0]["message"]["content"] == "Hello from Databricks!"
+
+
+def _chat_stream_chunk(content):
+    chunk = {
+        "id": "chatcmpl-db-123",
+        "object": "chat.completion.chunk",
+        "created": 1700000000,
+        "model": "databricks-gpt-oss-120b",
+        "choices": [{"index": 0, "delta": {"role": "assistant", "content": content}}],
+    }
+    return f"data: {json.dumps(chunk)}\n\n".encode()
+
+
+_REASONING_PART = {"type": "reasoning", "summary": [{"type": "summary_text", "text": "thinking"}]}
+_IMAGE_PART = {"type": "image_url", "image_url": {"url": "https://example.com/a.png"}}
+
+
+@pytest.mark.parametrize(
+    ("content", "expected"),
+    [
+        ([{"type": "text", "text": "hi"}], "hi"),
+        ([{"type": "text", "text": "Hello, "}, {"type": "text", "text": "world"}], "Hello, world"),
+        ([_REASONING_PART], None),
+        ([_REASONING_PART, {"type": "text", "text": "hi"}], "hi"),
+        ([_IMAGE_PART], None),
+        ([{"type": "text", "text": "hi"}, _IMAGE_PART], "hi"),
+    ],
+    ids=["text", "multi-text", "reasoning", "reasoning-then-text", "image", "text-and-image"],
+)
+@pytest.mark.asyncio
+async def test_chat_stream_normalizes_list_content(content, expected):
+    provider = _make_provider()
+    chunks = [_chat_stream_chunk(content), _chat_stream_chunk("!"), b"data: [DONE]\n\n"]
+    mock_client = mock_http_client(MockAsyncStreamingResponse(chunks))
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
+        payload = chat.RequestPayload(
+            messages=[{"role": "user", "content": "Hello"}],
+            stream=True,
+        )
+        responses = [jsonable_encoder(r) async for r in provider.chat_stream(payload)]
+
+    assert [r["choices"][0]["delta"]["content"] for r in responses] == [expected, "!"]
 
 
 @pytest.mark.asyncio

@@ -19,6 +19,7 @@ from packaging.version import Version
 
 from mlflow.environment_variables import (
     _MLFLOW_AUTH_ADMIN_BOOTSTRAPPED,
+    _MLFLOW_IN_JOB_EXECUTOR,
     _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN,
     _MLFLOW_SERVER_BOOT_ID,
     _MLFLOW_SGI_NAME,
@@ -408,6 +409,11 @@ def _run_server(
     # this server generation from orphans left by a previous one during startup cleanup.
     env_map[_MLFLOW_SERVER_BOOT_ID.name] = uuid.uuid4().hex
 
+    # This marker permits reconstructing custom scorer code, which the server process must never
+    # do. It is meant to be set only inside job-executor subprocesses, so force it off for the
+    # server workers in case it is present in the ambient environment.
+    env_map[_MLFLOW_IN_JOB_EXECUTOR.name] = "false"
+
     # Determine which server we're using (only one should be true)
     using_gunicorn = gunicorn_opts is not None
     using_waitress = waitress_opts is not None
@@ -495,12 +501,21 @@ def _run_server(
                 "Errors will be surfaced at job invocation time."
             )
 
-    if job_execution_enabled and MLFLOW_SQL_TRACE_ROLLUPS_ENABLED.get():
-        from mlflow.tracing.trace_rollup_service import (
-            validate_and_resolve_sql_trace_rollup_schedule,
-        )
+        if job_execution_enabled:
+            from mlflow.server.jobs.executor_registry import validate_executor_config
+            from mlflow.server.jobs.utils import get_job_execution_engine
 
-        validate_and_resolve_sql_trace_rollup_schedule()
+            validate_executor_config()
+            # Validate the engine selection before the server is spawned below, so an
+            # invalid value fails fast instead of leaving an unmanaged server running.
+            get_job_execution_engine()
+
+            if MLFLOW_SQL_TRACE_ROLLUPS_ENABLED.get():
+                from mlflow.tracing.trace_rollup_service import (
+                    validate_and_resolve_sql_trace_rollup_schedule,
+                )
+
+                validate_and_resolve_sql_trace_rollup_schedule()
 
     if app_name == "basic-auth" and job_execution_enabled:
         # Generate the token here (before forking uvicorn workers) so that all
@@ -537,7 +552,7 @@ def _run_server(
 
     if job_execution_enabled:
         from mlflow.environment_variables import MLFLOW_GATEWAY_URI, MLFLOW_TRACKING_URI
-        from mlflow.server.jobs.utils import _launch_job_runner
+        from mlflow.server.jobs.utils import _launch_job_execution_runner
 
         server_uri = f"http://{host}:{port}"
         job_env = {
@@ -558,6 +573,6 @@ def _run_server(
         # gateway routing (e.g., judge LLM calls via /gateway/mlflow/v1/).
         if not MLFLOW_GATEWAY_URI.is_set():
             job_env[MLFLOW_GATEWAY_URI.name] = server_uri
-        _launch_job_runner(job_env, server_proc.pid)
+        _launch_job_execution_runner(job_env, server_proc.pid)
 
     server_proc.wait()

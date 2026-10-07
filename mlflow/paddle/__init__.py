@@ -19,6 +19,8 @@ import yaml
 
 import mlflow
 from mlflow import pyfunc
+from mlflow.environment_variables import MLFLOW_ALLOW_PICKLE_DESERIALIZATION
+from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelInputExample, ModelSignature
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import _infer_signature_from_input_example
@@ -26,6 +28,10 @@ from mlflow.models.utils import _save_example
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
+from mlflow.utils.databricks_utils import (
+    is_in_databricks_model_serving_environment,
+    is_in_databricks_runtime,
+)
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
@@ -308,6 +314,18 @@ def load_model(model_uri, model=None, dst_path=None, **kwargs):
         np_array = ...
         predictions = pd_model(np_array)
     """
+    # Both `paddle.jit.load` (legacy IR format) and `paddle.Model.load` unpickle
+    # files from the model artifact.
+    if (
+        not MLFLOW_ALLOW_PICKLE_DESERIALIZATION.get()
+        and not is_in_databricks_runtime()
+        and not is_in_databricks_model_serving_environment()
+    ):
+        raise MlflowException(
+            "Deserializing model using pickle is disallowed, but loading a paddle model "
+            "may deserialize pickle data. The workaround is to set environment variable "
+            "'MLFLOW_ALLOW_PICKLE_DESERIALIZATION' to 'true'."
+        )
     import paddle
 
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)

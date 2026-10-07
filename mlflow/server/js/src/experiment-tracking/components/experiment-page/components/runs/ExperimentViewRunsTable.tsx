@@ -548,7 +548,6 @@ export const ExperimentViewRunsTable = React.memo(
                 components={getFrameworkComponents()}
                 suppressNoRowsOverlay
                 loadingOverlayComponent="loadingOverlayComponent"
-                loadingOverlayComponentParams={{ showImmediately: true }}
                 getRowId={getRowId}
                 rowBuffer={ROW_BUFFER}
                 onCellClicked={handleCellClicked}

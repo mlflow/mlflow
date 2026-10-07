@@ -1,6 +1,8 @@
 import random
+import sys
 import threading
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 from unittest import mock
 
 import pytest
@@ -840,6 +842,7 @@ def test_otel_resource_attributes(monkeypatch):
         attributes.pop("service.instance.id", None)
         return attributes
 
+    default_service_name = f"unknown_service:{Path(sys.executable).name}"
     tracer = _get_tracer("test")
     # By default, only MLflow's SDK attributes are set on an empty resource
     assert resource_attributes(tracer) == {
@@ -859,7 +862,7 @@ def test_otel_resource_attributes(monkeypatch):
         "telemetry.sdk.language": "python",
         "telemetry.sdk.name": "mlflow",
         "telemetry.sdk.version": mlflow.__version__,
-        "service.name": "unknown_service",
+        "service.name": default_service_name,
     }
 
     # Service name should be propagated from the env var
@@ -880,7 +883,7 @@ def test_otel_resource_attributes(monkeypatch):
     monkeypatch.delenv("OTEL_SERVICE_NAME", raising=False)
     tracer = _get_tracer("test")
     assert resource_attributes(tracer) == {
-        "service.name": "unknown_service",
+        "service.name": default_service_name,
         "telemetry.sdk.language": "python",
         "telemetry.sdk.name": "mlflow",
         "telemetry.sdk.version": mlflow.__version__,

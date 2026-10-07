@@ -1,12 +1,13 @@
 import argparse
-import json
+import io
+import sys
 from pathlib import Path
 from unittest import mock
 
 import pytest
 from skills.cli import build_parser
 from skills.commands import embed_media
-from skills.commands.embed_media import rewrite_payload, substitute
+from skills.commands.embed_media import substitute
 from skills.github import uploads
 
 URL = "https://github.com/user-attachments/assets/2f1c0a3e-0000-4000-8000-000000000001"
@@ -16,25 +17,21 @@ CLIP = f"{MEDIA}/clip.mp4"
 URLS = {SHOT: URL}
 
 
-def build_args(media: Path, target: Path) -> argparse.Namespace:
+def build_args(media: Path) -> argparse.Namespace:
     return build_parser().parse_args([
         "embed-media",
         "--dir",
         str(media),
-        "--target",
-        str(target),
         "--repository-id",
         "136202695",
     ])
 
 
-def build_check_args(media: Path, target: Path) -> argparse.Namespace:
+def build_check_args(media: Path) -> argparse.Namespace:
     return build_parser().parse_args([
         "embed-media",
         "--dir",
         str(media),
-        "--target",
-        str(target),
         "--check",
     ])
 
@@ -49,6 +46,18 @@ def make_media(tmp_path: Path, name: str = "shot.png") -> Path:
 def check(tmp_path: Path, body: str, name: str = "shot.png") -> embed_media.CheckReport:
     media = make_media(tmp_path, name)
     return embed_media.check_media(media, [body.format(p=media / name, media=media)])
+
+
+def run_cli(
+    args: argparse.Namespace,
+    text: str,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> tuple[str, str]:
+    monkeypatch.setattr(sys, "stdin", io.StringIO(text))
+    args.func(args)
+    captured = capsys.readouterr()
+    return captured.out, captured.err
 
 
 @pytest.mark.parametrize(
@@ -74,6 +83,7 @@ def test_substitute_is_idempotent() -> None:
     ("text", "expected"),
     [
         (f"![repro]({CLIP})", f"\n{URL}\n"),
+        (f"![repro]({CLIP}) \t", f"\n{URL}\n \t"),
         (f"before\n![repro]({CLIP})\nafter", f"before\n\n{URL}\n\nafter"),
         # ![]() around a video URL renders as a broken image, so it must become a link.
         (f"see ![repro]({CLIP}) inline", f"see [repro]({URL}) inline"),
@@ -95,211 +105,103 @@ def test_substitute_strips_markup_for_media_that_never_uploaded(text: str, expec
     assert substitute(text, {}, [SHOT]) == expected
 
 
-def test_rewrite_payload_covers_body_and_inline_comments() -> None:
-    payload = {
-        "event": "COMMENT",
-        "body": f"Race shown in [the trace]({SHOT})\n\nNothing else stood out.",
-        "comments": [{"path": "a.py", "body": f"🔴 **CRITICAL:** ![x]({SHOT})", "line": 1}],
-    }
-    result = rewrite_payload(payload, URLS)
-    assert result["body"] == f"Race shown in [the trace]({URL})\n\nNothing else stood out."
-    assert result["comments"][0]["body"] == f"🔴 **CRITICAL:** ![x]({URL})"
-
-
-def test_rewrite_payload_neutralizes_unavailable_media_in_comments() -> None:
-    payload = {"body": "b", "comments": [{"body": f"![the bug]({SHOT})"}]}
-    assert rewrite_payload(payload, {}, [SHOT])["comments"][0]["body"] == "the bug"
-
-
-def test_rewrite_payload_preserves_trailing_text() -> None:
-    payload = {"body": f"![x]({SHOT})\n\nNothing else stood out.", "comments": []}
-    assert rewrite_payload(payload, URLS)["body"].endswith("Nothing else stood out.")
-
-
-def test_rewrite_payload_tolerates_missing_and_malformed_fields() -> None:
-    assert rewrite_payload({}, URLS) == {}
-    assert rewrite_payload({"body": None, "comments": None}, URLS) == {
-        "body": None,
-        "comments": None,
-    }
-
-
-def test_cli_rewrites_a_json_payload(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    media = make_media(tmp_path)
-    target = tmp_path / "review-payload.json"
-    target.write_text(json.dumps({"body": f"[the trace]({media / 'shot.png'})", "comments": []}))
-
-    monkeypatch.setenv("GH_TOKEN", "t")
-    args = build_args(media, target)
-    with mock.patch.object(embed_media, "upload_asset", return_value=URL) as uploader:
-        args.func(args)
-
-    uploader.assert_called_once_with(media / "shot.png", "136202695", "t")
-    assert json.loads(target.read_text())["body"] == f"[the trace]({URL})"
-
-
-def test_cli_rewrites_markdown(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    media = make_media(tmp_path)
-    target = tmp_path / "body.md"
-    target.write_text(f"![alt]({media / 'shot.png'})")
-
-    monkeypatch.setenv("GH_TOKEN", "t")
-    args = build_args(media, target)
-    with mock.patch.object(embed_media, "upload_asset", return_value=URL) as uploader:
-        args.func(args)
-
-    uploader.assert_called_once_with(media / "shot.png", "136202695", "t")
-    assert target.read_text() == f"![alt]({URL})"
-
-
-def test_cli_degrades_to_prose_when_every_upload_fails(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+def test_cli_converts_stdin_and_keeps_stdout_clean(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     media = make_media(tmp_path)
-    target = tmp_path / "body.md"
-    target.write_text(f"evidence: ![the bug]({media / 'shot.png'})")
-
+    (media / "scratch.png").write_bytes(b"\x89PNG")
+    text = f"evidence: ![the bug]({media / 'shot.png'})\n \t"
     monkeypatch.setenv("GH_TOKEN", "t")
-    args = build_args(media, target)
-    with mock.patch.object(
-        embed_media, "upload_asset", side_effect=uploads.UploadFailed("shot.png: boom")
-    ) as uploader:
-        args.func(args)
-
+    with mock.patch.object(embed_media, "upload_asset", return_value=URL) as uploader:
+        out, err = run_cli(build_args(media), text, monkeypatch, capsys)
     uploader.assert_called_once_with(media / "shot.png", "136202695", "t")
-    assert target.read_text() == "evidence: the bug"
+    assert out == f"evidence: ![the bug]({URL})\n \t"
+    assert "Uploading 1 referenced file" in err
+    assert "not referenced, skipping: scratch.png" in err
+    assert "Embedded 1 of 1" in err
 
 
-def test_cli_never_posts_a_local_path_when_no_token_resolves(tmp_path: Path) -> None:
+@pytest.mark.parametrize("text", ["", "a prose-only finding\n \t", "not json {"])
+def test_cli_passes_through_text_without_references(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], text: str
+) -> None:
     media = make_media(tmp_path)
-    target = tmp_path / "body.md"
-    target.write_text(f"evidence: ![the bug]({media / 'shot.png'})")
-
-    args = build_args(media, target)
     with (
-        mock.patch.object(embed_media, "resolve_github_token", return_value=None) as resolver,
+        mock.patch.object(embed_media, "resolve_github_token") as resolver,
         mock.patch.object(embed_media, "upload_asset") as uploader,
     ):
-        args.func(args)
-
-    resolver.assert_called_once()
+        out, _ = run_cli(build_args(media), text, monkeypatch, capsys)
+    resolver.assert_not_called()
     uploader.assert_not_called()
-    assert target.read_text() == "evidence: the bug"
+    assert out == text
 
 
-def test_cli_is_a_noop_when_there_is_no_media(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+@pytest.mark.parametrize("missing_token", [False, True])
+def test_cli_strips_local_path_when_upload_unavailable(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    missing_token: bool,
 ) -> None:
-    media = tmp_path / "empty"
-    media.mkdir()
-    target = tmp_path / "body.md"
-    target.write_text("unchanged")
+    media = make_media(tmp_path)
+    with (
+        mock.patch.object(
+            embed_media, "resolve_github_token", return_value=None if missing_token else "t"
+        ) as resolver,
+        mock.patch.object(
+            embed_media, "upload_asset", side_effect=uploads.UploadFailed("shot.png: boom")
+        ) as uploader,
+    ):
+        out, err = run_cli(
+            build_args(media), f"evidence: ![the bug]({media / 'shot.png'})", monkeypatch, capsys
+        )
+    resolver.assert_called_once()
+    if missing_token:
+        uploader.assert_not_called()
+        assert "no GitHub token" in err
+    else:
+        uploader.assert_called_once_with(media / "shot.png", "136202695", "t")
+        assert "failed shot.png: boom" in err
+    assert out == "evidence: the bug"
 
-    monkeypatch.setenv("GH_TOKEN", "t")
-    args = build_args(media, target)
-    with mock.patch.object(embed_media, "upload_asset") as uploader:
-        args.func(args)
 
-    uploader.assert_not_called()
-    assert target.read_text() == "unchanged"
-
-
-def test_cli_never_reads_a_symlink(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_cli_never_reads_a_symlink(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
     media = tmp_path / "media"
     media.mkdir()
     secret = tmp_path / "environ"
     secret.write_text("GH_TOKEN=supersecret")
     (media / "shot.png").symlink_to(secret)
-    target = tmp_path / "body.md"
-    target.write_text(f"![the secret]({media / 'shot.png'})")
-
-    monkeypatch.setenv("GH_TOKEN", "t")
-    args = build_args(media, target)
-    with mock.patch.object(embed_media, "upload_asset", return_value=URL) as uploader:
-        args.func(args)
-
+    with mock.patch.object(embed_media, "upload_asset") as uploader:
+        out, err = run_cli(
+            build_args(media), f"![the secret]({media / 'shot.png'})", monkeypatch, capsys
+        )
     uploader.assert_not_called()
-    # Never uploaded, so the citation resolves to nothing and must not post the path.
-    assert target.read_text() == "the secret"
+    assert out == "the secret"
+    assert "skip shot.png: symlink" in err
 
 
-def test_cli_annotates_once_and_degrades_when_the_token_is_rejected(
+def test_cli_stops_after_a_fatal_upload_error(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     media = make_media(tmp_path)
     (media / "second.png").write_bytes(b"\x89PNG")
-    target = tmp_path / "body.md"
-    # Both are cited, so a second upload would be attempted if the loop kept going.
-    target.write_text(
-        f"evidence: ![the bug]({media / 'shot.png'}) and ![more]({media / 'second.png'})"
-    )
-
     monkeypatch.setenv("GH_TOKEN", "t")
-    args = build_args(media, target)
     with mock.patch.object(
         embed_media,
         "upload_asset",
         side_effect=uploads.UploadFailed("the credential was rejected (401)", status=401),
     ) as uploader:
-        args.func(args)
-
-    # One annotation for the run, and the loop stops rather than retrying a dead token.
-    out = capsys.readouterr().out
-    assert out.count("::warning::media upload stopped: the credential was rejected (401)") == 1
+        out, err = run_cli(
+            build_args(media),
+            f"![the bug]({media / 'shot.png'}) and ![more]({media / 'second.png'})",
+            monkeypatch,
+            capsys,
+        )
     assert uploader.call_count == 1
-    assert target.read_text() == "evidence: the bug and more"
-
-
-def test_cli_uploads_only_media_the_target_references(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    media = make_media(tmp_path, "cited.png")
-    (media / "scratch.png").write_bytes(b"\x89PNG")
-    target = tmp_path / "body.md"
-    target.write_text(f"evidence: ![the bug]({media / 'cited.png'})")
-
-    monkeypatch.setenv("GH_TOKEN", "t")
-    args = build_args(media, target)
-    with mock.patch.object(embed_media, "upload_asset", return_value=URL) as uploader:
-        args.func(args)
-
-    uploader.assert_called_once_with(media / "cited.png", "136202695", "t")
-    assert target.read_text() == f"evidence: ![the bug]({URL})"
-
-
-def test_cli_uploads_nothing_when_no_media_is_referenced(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    media = make_media(tmp_path, "scratch.png")
-    target = tmp_path / "body.md"
-    target.write_text("a prose-only finding")
-
-    monkeypatch.setenv("GH_TOKEN", "t")
-    args = build_args(media, target)
-    with mock.patch.object(embed_media, "upload_asset") as uploader:
-        args.func(args)
-
-    uploader.assert_not_called()
-    assert target.read_text() == "a prose-only finding"
-
-
-def test_cli_uploads_media_referenced_by_an_inline_comment(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    media = make_media(tmp_path, "cited.png")
-    (media / "scratch.png").write_bytes(b"\x89PNG")
-    target = tmp_path / "review-payload.json"
-    target.write_text(
-        json.dumps({"body": "b", "comments": [{"body": f"see [it]({media / 'cited.png'})"}]})
-    )
-
-    monkeypatch.setenv("GH_TOKEN", "t")
-    args = build_args(media, target)
-    with mock.patch.object(embed_media, "upload_asset", return_value=URL) as uploader:
-        args.func(args)
-
-    uploader.assert_called_once_with(media / "cited.png", "136202695", "t")
-    assert json.loads(target.read_text())["comments"][0]["body"] == f"see [it]({URL})"
+    assert out == "the bug and more"
+    assert err.count("::warning::media upload stopped: the credential was rejected (401)") == 1
 
 
 @pytest.mark.parametrize(
@@ -319,20 +221,17 @@ def test_is_referenced_matches_only_a_link_to_the_full_path(text: str, expected:
 
 
 def test_cli_does_not_upload_a_name_that_is_a_suffix_of_a_cited_one(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     media = make_media(tmp_path, "longshot.png")
     (media / "shot.png").write_bytes(b"\x89PNG")
-    target = tmp_path / "body.md"
-    target.write_text(f"![x]({media / 'longshot.png'})")
 
     monkeypatch.setenv("GH_TOKEN", "t")
-    args = build_args(media, target)
     with mock.patch.object(embed_media, "upload_asset", return_value=URL) as uploader:
-        args.func(args)
+        out, _ = run_cli(build_args(media), f"![x]({media / 'longshot.png'})", monkeypatch, capsys)
 
     uploader.assert_called_once_with(media / "longshot.png", "136202695", "t")
-    assert target.read_text() == f"![x]({URL})"
+    assert out == f"![x]({URL})"
 
 
 @pytest.mark.parametrize("body", ["![the bug]({p})", "[the bug]({p})"])
@@ -438,21 +337,6 @@ def test_check_warns_about_a_symlink(tmp_path: Path) -> None:
     assert report.warnings == ["shot.png: a symlink, so it is never uploaded"]
 
 
-def test_check_reads_the_body_and_comments_of_a_json_payload(tmp_path: Path) -> None:
-    media = make_media(tmp_path)
-    target = tmp_path / "review-payload.json"
-    target.write_text(
-        json.dumps({
-            "body": f"![overview]({media / 'shot.png'})",
-            "comments": [{"body": f"and ![again]({media / 'missing.png'})"}],
-        })
-    )
-    report = embed_media.check_media(media, embed_media.target_bodies(target))
-    assert report.cited == ["shot.png"]
-    assert len(report.errors) == 1
-    assert "missing.png): no such file" in report.errors[0]
-
-
 def test_check_reports_a_repeated_bad_citation_once(tmp_path: Path) -> None:
     media = make_media(tmp_path)
     cite = f"{media / 'missing.png'}"
@@ -468,133 +352,150 @@ def test_check_agrees_with_what_the_upload_would_rewrite(tmp_path: Path) -> None
 
 
 def test_cli_check_exits_zero_and_uploads_nothing(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     media = make_media(tmp_path)
-    target = tmp_path / "body.md"
     body = f"![the bug]({media / 'shot.png'})"
-    target.write_text(body)
+    with (
+        mock.patch.object(embed_media, "resolve_github_token") as resolver,
+        mock.patch.object(embed_media, "upload_asset") as uploader,
+    ):
+        out, err = run_cli(build_check_args(media), body, monkeypatch, capsys)
 
-    monkeypatch.setenv("GH_TOKEN", "t")
-    args = build_check_args(media, target)
-    with mock.patch.object(embed_media, "upload_asset") as uploader:
-        args.func(args)
-
+    resolver.assert_not_called()
     uploader.assert_not_called()
-    assert target.read_text() == body
+    assert out == ""
+    assert "OK: 1 media reference(s) resolve" in err
 
 
-def test_cli_check_exits_nonzero_on_an_unresolvable_citation(tmp_path: Path) -> None:
+@pytest.mark.parametrize("cite", ["shto.png", "shot.png", "./shot.png"])
+def test_cli_check_exits_nonzero_on_an_unresolvable_citation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    cite: str,
+) -> None:
     media = make_media(tmp_path)
-    target = tmp_path / "body.md"
-    target.write_text(f"![the bug]({media / 'shto.png'})")
-
-    args = build_check_args(media, target)
+    text = f"![the bug]({media / cite})" if cite == "shto.png" else f"![the bug]({cite})"
+    monkeypatch.setattr(sys, "stdin", io.StringIO(text))
+    args = build_check_args(media)
     with pytest.raises(SystemExit, match="^1$"):
         args.func(args)
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert "ERROR: input cites media that will not render" in captured.err
 
 
-@pytest.mark.parametrize("contents", ["not json", '{"body": '])
-def test_cli_check_exits_nonzero_on_a_malformed_json_payload(tmp_path: Path, contents: str) -> None:
-    target = tmp_path / "review-payload.json"
-    target.write_text(contents)
+def test_cli_check_reports_warnings_without_uploading(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    media = make_media(tmp_path, "clip.mp4")
+    (media / "unused.png").write_bytes(b"\x89PNG")
+    with mock.patch.object(embed_media, "upload_asset") as uploader:
+        out, err = run_cli(
+            build_check_args(media),
+            f"see [repro]({media / 'clip.mp4'}) inline",
+            monkeypatch,
+            capsys,
+        )
+    uploader.assert_not_called()
+    assert out == ""
+    assert "renders a link rather than a player" in err
+    assert "unused.png: cited by nothing" in err
 
-    args = build_check_args(make_media(tmp_path), target)
+
+def test_cli_check_reports_unsupported_and_missing_media(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    media = make_media(tmp_path, "notes.txt")
+    monkeypatch.setattr(
+        sys,
+        "stdin",
+        io.StringIO(f"[notes]({media / 'notes.txt'})\n![missing]({media / 'missing.png'})"),
+    )
+    args = build_check_args(media)
     with pytest.raises(SystemExit, match="^1$"):
         args.func(args)
-
-
-def test_cli_check_exits_nonzero_when_the_target_is_missing(tmp_path: Path) -> None:
-    args = build_check_args(make_media(tmp_path), tmp_path / "absent.md")
-    with pytest.raises(SystemExit, match="^1$"):
-        args.func(args)
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert "unsupported extension" in captured.err
+    assert "no such file" in captured.err
 
 
 def test_cli_strips_a_citation_naming_no_capture(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     media = make_media(tmp_path)
-    target = tmp_path / "body.md"
-    target.write_text(f"evidence: ![the bug]({media / 'shto.png'})")
-
-    monkeypatch.setenv("GH_TOKEN", "t")
-    args = build_args(media, target)
     with mock.patch.object(embed_media, "upload_asset") as uploader:
-        args.func(args)
+        out, err = run_cli(
+            build_args(media), f"evidence: ![the bug]({media / 'shto.png'})", monkeypatch, capsys
+        )
 
     uploader.assert_not_called()
-    assert target.read_text() == "evidence: the bug"
+    assert out == "evidence: the bug"
+    assert "no such capture, stripping" in err
 
 
 def test_cli_strips_a_typo_while_still_embedding_the_capture_beside_it(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     media = make_media(tmp_path)
-    target = tmp_path / "body.md"
-    target.write_text(f"![ok]({media / 'shot.png'}) and ![typo]({media / 'shto.png'})")
-
     monkeypatch.setenv("GH_TOKEN", "t")
-    args = build_args(media, target)
     with mock.patch.object(embed_media, "upload_asset", return_value=URL) as uploader:
-        args.func(args)
+        out, _ = run_cli(
+            build_args(media),
+            f"![ok]({media / 'shot.png'}) and ![typo]({media / 'shto.png'})",
+            monkeypatch,
+            capsys,
+        )
 
     uploader.assert_called_once_with(media / "shot.png", "136202695", "t")
-    assert target.read_text() == f"![ok]({URL}) and typo"
+    assert out == f"![ok]({URL}) and typo"
 
 
 @pytest.mark.parametrize("cite", ["shot.png", "./shot.png"])
 def test_cli_strips_a_bare_filename_citation(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, cite: str
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    cite: str,
 ) -> None:
-    # The form this PR stopped teaching: nothing resolves it, so it must not post.
     media = make_media(tmp_path)
-    target = tmp_path / "body.md"
-    target.write_text(f"evidence: ![the bug]({cite})")
-
-    monkeypatch.setenv("GH_TOKEN", "t")
-    args = build_args(media, target)
     with mock.patch.object(embed_media, "upload_asset") as uploader:
-        args.func(args)
+        out, _ = run_cli(build_args(media), f"evidence: ![the bug]({cite})", monkeypatch, capsys)
 
     uploader.assert_not_called()
-    assert target.read_text() == "evidence: the bug"
+    assert out == "evidence: the bug"
 
 
 def test_cli_leaves_a_link_outside_the_media_directory_alone(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     media = make_media(tmp_path)
-    target = tmp_path / "body.md"
     body = "see [the icon](docs/static/img/shot.png)"
-    target.write_text(body)
-
-    monkeypatch.setenv("GH_TOKEN", "t")
-    args = build_args(media, target)
     with mock.patch.object(embed_media, "upload_asset") as uploader:
-        args.func(args)
+        out, _ = run_cli(build_args(media), body, monkeypatch, capsys)
 
     uploader.assert_not_called()
-    assert target.read_text() == body
+    assert out == body
 
 
-def test_cli_check_tolerates_a_missing_media_directory(tmp_path: Path) -> None:
-    target = tmp_path / "body.md"
-    target.write_text("a prose-only finding")
-    args = build_check_args(tmp_path / "absent", target)
-    args.func(args)
+def test_cli_check_tolerates_a_missing_media_directory(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    out, err = run_cli(
+        build_check_args(tmp_path / "absent"), "a prose-only finding", monkeypatch, capsys
+    )
+    assert out == ""
+    assert "OK: 0 media reference(s) resolve" in err
 
 
 def test_cli_requires_a_repository_id_without_check(tmp_path: Path) -> None:
     media = make_media(tmp_path)
-    target = tmp_path / "body.md"
-    target.write_text(f"![the bug]({media / 'shot.png'})")
-
     args = build_parser().parse_args([
         "embed-media",
         "--dir",
         str(media),
-        "--target",
-        str(target),
     ])
     with pytest.raises(SystemExit, match="^2$"):
         args.func(args)

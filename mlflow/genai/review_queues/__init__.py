@@ -37,7 +37,10 @@ from mlflow.utils.databricks_utils import databricks_api_disabled
 if TYPE_CHECKING:
     from mlflow.store.entities.paged_list import PagedList
 
-_REVIEWS_UI_ALTERNATIVE = "Use the workspace Reviews UI."
+_REVIEWS_UI_ALTERNATIVE = (
+    "Use the workspace Reviews UI. For programmatic access, use "
+    "`mlflow.genai.databricks.review_queues`."
+)
 
 __all__ = [
     "ReviewItemType",

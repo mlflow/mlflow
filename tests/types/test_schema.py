@@ -21,6 +21,7 @@ from mlflow.types.schema import (
     AnyType,
     Array,
     ColSpec,
+    Map,
     Object,
     ParamSchema,
     ParamSpec,
@@ -1405,6 +1406,75 @@ def test_merge_property_example():
     assert prop2.to_dict() == prop2_dict
 
 
+@pytest.mark.parametrize(
+    ("concrete", "any_type", "expected"),
+    [
+        (
+            Property(name="a", dtype=DataType.long),
+            Property(name="a", dtype=AnyType(), required=False),
+            Property(name="a", dtype=DataType.long, required=False),
+        ),
+        (Array(DataType.long), Array(AnyType()), Array(DataType.long)),
+        (Map(DataType.long), Map(AnyType()), Map(DataType.long)),
+        # nested values
+        (
+            Property(name="a", dtype=Array(DataType.long)),
+            Property(name="a", dtype=AnyType(), required=False),
+            Property(name="a", dtype=Array(DataType.long), required=False),
+        ),
+        (
+            Object([Property(name="z", dtype=DataType.long)]),
+            Object([Property(name="z", dtype=AnyType(), required=False)]),
+            Object([Property(name="z", dtype=DataType.long, required=False)]),
+        ),
+        (Array(Array(DataType.long)), Array(Array(AnyType())), Array(Array(DataType.long))),
+        (
+            Array(Object([Property(name="z", dtype=DataType.long)])),
+            Array(Object([Property(name="z", dtype=AnyType(), required=False)])),
+            Array(Object([Property(name="z", dtype=DataType.long, required=False)])),
+        ),
+        (
+            Map(Object([Property(name="z", dtype=DataType.long)])),
+            Map(Object([Property(name="z", dtype=AnyType(), required=False)])),
+            Map(Object([Property(name="z", dtype=DataType.long, required=False)])),
+        ),
+        (Map(Array(DataType.long)), Map(Array(AnyType())), Map(Array(DataType.long))),
+    ],
+)
+def test_merge_with_anytype_is_order_independent(concrete, any_type, expected):
+    assert concrete._merge(any_type) == expected
+    assert any_type._merge(concrete) == expected
+
+
+@pytest.mark.parametrize(
+    ("required1", "required2", "expected_required"),
+    [(True, True, True), (True, False, False), (False, True, False), (False, False, False)],
+)
+def test_merge_property_with_anytype_keeps_required_semantics(
+    required1, required2, expected_required
+):
+    concrete = Property(name="a", dtype=DataType.long, required=required1)
+    any_type = Property(name="a", dtype=AnyType(), required=required2)
+    expected = Property(name="a", dtype=DataType.long, required=expected_required)
+    assert concrete._merge(any_type) == expected
+    assert any_type._merge(concrete) == expected
+
+
+@pytest.mark.parametrize(
+    ("type1", "type2"),
+    [
+        (Property(name="a", dtype=DataType.long), Property(name="a", dtype=DataType.string)),
+        (Array(DataType.long), Array(DataType.string)),
+        (Map(DataType.long), Map(DataType.string)),
+    ],
+)
+def test_merge_incompatible_concrete_types_still_raises(type1, type2):
+    with pytest.raises(MlflowException, match="incompatible"):
+        type1._merge(type2)
+    with pytest.raises(MlflowException, match="incompatible"):
+        type2._merge(type1)
+
+
 def test_infer_colspec_type():
     data = {"role": "system", "content": "Translate every message you receive to French."}
     dtype = _infer_colspec_type(data)
@@ -1975,6 +2045,107 @@ def test_convert_dataclass_to_schema_invalid():
         (
             {"a": [None, "string"]},
             Schema([ColSpec(type=Array(DataType.string), name="a", required=False)]),
+        ),
+        # The order in which None appears must not affect the inferred schema
+        (
+            {"a": [{"k": None}, {"k": 1}]},
+            Schema([
+                ColSpec(
+                    type=Array(Object([Property("k", DataType.long, required=False)])), name="a"
+                )
+            ]),
+        ),
+        (
+            {"a": [{"k": 1}, {"k": None}]},
+            Schema([
+                ColSpec(
+                    type=Array(Object([Property("k", DataType.long, required=False)])), name="a"
+                )
+            ]),
+        ),
+        (
+            {"a": [{"k": [None]}, {"k": [1]}]},
+            Schema([ColSpec(type=Array(Object([Property("k", Array(DataType.long))])), name="a")]),
+        ),
+        (
+            {"a": [{"k": [1]}, {"k": [None]}]},
+            Schema([ColSpec(type=Array(Object([Property("k", Array(DataType.long))])), name="a")]),
+        ),
+        (
+            {"a": [{"k": None}, {"k": [1]}]},
+            Schema([
+                ColSpec(
+                    type=Array(Object([Property("k", Array(DataType.long), required=False)])),
+                    name="a",
+                )
+            ]),
+        ),
+        (
+            {"a": [{"k": [1]}, {"k": None}]},
+            Schema([
+                ColSpec(
+                    type=Array(Object([Property("k", Array(DataType.long), required=False)])),
+                    name="a",
+                )
+            ]),
+        ),
+        (
+            {"a": [{"k": {"z": None}}, {"k": {"z": 1}}]},
+            Schema([
+                ColSpec(
+                    type=Array(
+                        Object([
+                            Property("k", Object([Property("z", DataType.long, required=False)]))
+                        ])
+                    ),
+                    name="a",
+                )
+            ]),
+        ),
+        (
+            {"a": [{"k": {"z": 1}}, {"k": {"z": None}}]},
+            Schema([
+                ColSpec(
+                    type=Array(
+                        Object([
+                            Property("k", Object([Property("z", DataType.long, required=False)]))
+                        ])
+                    ),
+                    name="a",
+                )
+            ]),
+        ),
+        (
+            {"a": [{"k": [{"z": None}]}, {"k": [{"z": 1}]}]},
+            Schema([
+                ColSpec(
+                    type=Array(
+                        Object([
+                            Property(
+                                "k",
+                                Array(Object([Property("z", DataType.long, required=False)])),
+                            )
+                        ])
+                    ),
+                    name="a",
+                )
+            ]),
+        ),
+        (
+            {"a": [{"k": [{"z": 1}]}, {"k": [{"z": None}]}]},
+            Schema([
+                ColSpec(
+                    type=Array(
+                        Object([
+                            Property(
+                                "k",
+                                Array(Object([Property("z", DataType.long, required=False)])),
+                            )
+                        ])
+                    ),
+                    name="a",
+                )
+            ]),
         ),
         (
             {"a": {"x": None}},

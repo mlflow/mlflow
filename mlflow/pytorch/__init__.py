@@ -74,6 +74,7 @@ from mlflow.utils.model_utils import (
     _validate_and_prepare_target_save_path,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
+from mlflow.utils.uri import is_databricks_uri
 
 FLAVOR_NAME = "pytorch"
 
@@ -93,6 +94,14 @@ MAX_REQ_VERSION = Version(_ML_PACKAGE_VERSIONS["pytorch-lightning"]["autologging
 
 
 _MODEL_DATA_SUBPATH = "data"
+
+
+def _get_default_serialization_format(export_model):
+    if export_model:
+        return SERIALIZATION_FORMAT_PT2
+    if is_in_databricks_runtime() or is_databricks_uri(mlflow.get_tracking_uri()):
+        return SERIALIZATION_FORMAT_PICKLE
+    return SERIALIZATION_FORMAT_PT2
 
 
 def get_default_pip_requirements():
@@ -170,7 +179,7 @@ def log_model(
     step: int = 0,
     model_id: str | None = None,
     export_model: bool = False,
-    serialization_format: Literal["pickle", "pt2"] = SERIALIZATION_FORMAT_PT2,
+    serialization_format: Literal["pickle", "pt2"] | None = None,
     **kwargs,
 ):
     """
@@ -226,6 +235,8 @@ def log_model(
             For details, see documentation of `serialization_format` argument.
         serialization_format: The serialization format used to save the PyTorch model.
             Accepted values are "pickle" and "pt2".
+            If not specified, the model is serialized as "pickle" in Databricks Runtime or when
+            using a Databricks tracking URI, and as "pt2" otherwise.
             When set to "pickle", the model is serialized using either pickle or cloudpickle,
             depending on the `pickle_module` parameter.
             When set to "pt2", the model is saved using torch.export.save, which exports the model
@@ -278,7 +289,9 @@ def log_model(
 
         # Log the model
         with mlflow.start_run() as run:
-            mlflow.pytorch.log_model(model, name="model", input_example=X)
+            mlflow.pytorch.log_model(
+                model, name="model", input_example=X, serialization_format="pt2"
+            )
 
             # convert to scripted model and log the model
             scripted_pytorch_model = torch.jit.script(model)
@@ -298,8 +311,7 @@ def log_model(
         :caption: Output
 
         run_id: 1a1ec9e413ce48e9abf9aec20efd6f71
-        artifacts: ['model/data/model.pth',
-                    'model/data/pickle_module_info.txt']
+        artifacts: ['model/data/model.pt2']
         artifacts: ['scripted_model/data/model.pth',
                     'scripted_model/data/pickle_module_info.txt']
 
@@ -307,6 +319,9 @@ def log_model(
 
         PyTorch logged models
     """
+    if serialization_format is None:
+        serialization_format = _get_default_serialization_format(export_model)
+
     pickle_module = pickle_module or mlflow_pytorch_pickle_module
     return Model.log(
         artifact_path=artifact_path,
@@ -350,7 +365,7 @@ def save_model(
     extra_pip_requirements=None,
     metadata=None,
     export_model: bool = False,
-    serialization_format: Literal["pickle", "pt2"] = SERIALIZATION_FORMAT_PT2,
+    serialization_format: Literal["pickle", "pt2"] | None = None,
     **kwargs,
 ):
     """
@@ -387,6 +402,8 @@ def save_model(
             For details, see documentation of `serialization_format` argument.
         serialization_format: The serialization format used to save the PyTorch model.
             Accepted values are "pickle" and "pt2".
+            If not specified, the model is serialized as "pickle" in Databricks Runtime or when
+            using a Databricks tracking URI, and as "pt2" otherwise.
             When set to "pickle", the model is serialized using either pickle or cloudpickle,
             depending on the `pickle_module` parameter.
             When set to "pt2", the model is saved using torch.export.save, which exports the model
@@ -410,7 +427,12 @@ def save_model(
 
         # Save PyTorch models to current working directory
         with mlflow.start_run() as run:
-            mlflow.pytorch.save_model(model, "model", input_example=torch.ones(1, 1))
+            mlflow.pytorch.save_model(
+                model,
+                "model",
+                input_example=torch.ones(1, 1),
+                serialization_format="pt2",
+            )
 
             # Convert to a scripted model and save it
             scripted_pytorch_model = torch.jit.script(model)
@@ -449,6 +471,9 @@ def save_model(
     from torch.export import Dim as ExportDim
 
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
+
+    if serialization_format is None:
+        serialization_format = _get_default_serialization_format(export_model)
 
     if export_model:
         if serialization_format == SERIALIZATION_FORMAT_PICKLE:

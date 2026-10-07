@@ -168,6 +168,27 @@ beforeEach(() => {
 });
 
 describe('processTranscript', () => {
+  let originalUser: string | undefined;
+  let originalUsername: string | undefined;
+
+  beforeEach(() => {
+    originalUser = process.env.USER;
+    originalUsername = process.env.USERNAME;
+  });
+
+  afterEach(() => {
+    if (originalUser === undefined) {
+      delete process.env.USER;
+    } else {
+      process.env.USER = originalUser;
+    }
+    if (originalUsername === undefined) {
+      delete process.env.USERNAME;
+    } else {
+      process.env.USERNAME = originalUsername;
+    }
+  });
+
   // --------------------------------------------------------------------------
   // Basic span hierarchy
   // --------------------------------------------------------------------------
@@ -377,8 +398,20 @@ describe('processTranscript', () => {
     });
 
     it('sets trace user from environment', async () => {
+      process.env.USER = 'known-user';
+      process.env.USERNAME = 'windows-user';
+
       await processTranscript(resolve(FIXTURES_DIR, 'basic.jsonl'), 'test-session-123');
-      expect(mockTraceInfo.traceMetadata['mlflow.trace.user']).toBe(process.env.USER ?? '');
+      expect(mockTraceInfo.traceMetadata['mlflow.trace.user']).toBe('known-user');
+    });
+
+    it('sets trace user from USERNAME when USER is unset', async () => {
+      delete process.env.USER;
+      process.env.USERNAME = 'windows-user';
+
+      await processTranscript(resolve(FIXTURES_DIR, 'basic.jsonl'), 'test-session-123');
+
+      expect(mockTraceInfo.traceMetadata['mlflow.trace.user']).toBe('windows-user');
     });
 
     it('sets working directory', async () => {

@@ -305,8 +305,10 @@ class Property(BaseType):
         if self.name != other.name:
             raise MlflowException("Can't merge properties with different names")
         required = self.required and other.required
-        if isinstance(self.dtype, DataType) and isinstance(other.dtype, DataType):
-            if self.dtype == other.dtype:
+        if isinstance(self.dtype, DataType):
+            # Mirror `AnyType._merge`: an undetermined type (e.g. inferred from `None`)
+            # is compatible with any concrete type regardless of merge order
+            if self.dtype == other.dtype or isinstance(other.dtype, AnyType):
                 return Property(name=self.name, dtype=self.dtype, required=required)
             raise MlflowException(f"Properties are incompatible for {self.dtype} and {other.dtype}")
 
@@ -553,7 +555,7 @@ class Array(BaseType):
         if not isinstance(other, Array):
             raise MlflowException(f"Can't merge array with non-array type: {type(other).__name__}")
         if isinstance(self.dtype, DataType):
-            if self.dtype == other.dtype:
+            if self.dtype == other.dtype or isinstance(other.dtype, AnyType):
                 return Array(dtype=self.dtype)
             raise MlflowException(
                 f"Array types are incompatible for {self} with dtype={self.dtype} and "
@@ -667,7 +669,7 @@ class Map(BaseType):
         if not isinstance(other, Map):
             raise MlflowException(f"Can't merge map with non-map type: {type(other).__name__}")
         if isinstance(self.value_type, DataType):
-            if self.value_type == other.value_type:
+            if self.value_type == other.value_type or isinstance(other.value_type, AnyType):
                 return Map(value_type=self.value_type)
             raise MlflowException(
                 f"Map types are incompatible for {self} with value_type={self.value_type} and "

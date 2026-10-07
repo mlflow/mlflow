@@ -2833,6 +2833,7 @@ class ExampleModel(mlflow.pyfunc.PythonModel):
 
 def test_lock_model_requirements(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
     monkeypatch.setenv("MLFLOW_LOCK_MODEL_DEPENDENCIES", "true")
+    monkeypatch.setenv("MLFLOW_TESTING", "false")
 
     model_info = mlflow.pyfunc.log_model(name="model", python_model=ExampleModel())
     pyfunc_model_path = _download_artifact_from_uri(model_info.model_uri, output_path=tmp_path)
@@ -2875,6 +2876,7 @@ def test_lock_model_requirements(monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 
 def test_lock_model_requirements_pip_requirements(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
     monkeypatch.setenv("MLFLOW_LOCK_MODEL_DEPENDENCIES", "true")
+    monkeypatch.setenv("MLFLOW_TESTING", "false")
     model_info = mlflow.pyfunc.log_model(
         name="model",
         python_model=ExampleModel(),
@@ -2896,6 +2898,7 @@ def test_lock_model_requirements_extra_pip_requirements(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ):
     monkeypatch.setenv("MLFLOW_LOCK_MODEL_DEPENDENCIES", "true")
+    monkeypatch.setenv("MLFLOW_TESTING", "false")
     model_info = mlflow.pyfunc.log_model(
         name="model",
         python_model=ExampleModel(),
@@ -2914,6 +2917,7 @@ def test_lock_model_requirements_constraints(monkeypatch: pytest.MonkeyPatch, tm
     constraints_file = tmp_path / "constraints.txt"
     constraints_file.write_text("openai==1.82.0")
     monkeypatch.setenv("MLFLOW_LOCK_MODEL_DEPENDENCIES", "true")
+    monkeypatch.setenv("MLFLOW_TESTING", "false")
     model_info = mlflow.pyfunc.log_model(
         name="model",
         python_model=ExampleModel(),

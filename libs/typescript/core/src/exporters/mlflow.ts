@@ -128,6 +128,8 @@ export class MlflowSpanProcessor implements SpanProcessor {
       return;
     }
 
+    // V3 search reads user and session from TraceInfo metadata. Only UC-backed V4 traces need
+    // those values promoted to root-span attributes.
     this.updateTraceInfo(trace.info, span);
     // Aggregate token usage from all spans and add to trace metadata
     const allSpans = Array.from(trace.spanDict.values());

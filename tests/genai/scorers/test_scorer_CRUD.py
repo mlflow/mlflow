@@ -7,11 +7,17 @@ import mlflow
 import mlflow.genai
 from mlflow.entities import GatewayEndpointModelConfig, GatewayModelLinkageType, LifecycleStage
 from mlflow.entities.gateway_endpoint import GatewayEndpoint
+from mlflow.entities.scorer import ScorerVersion
 from mlflow.exceptions import MlflowException
 from mlflow.genai.scorers import Guidelines, Scorer, scorer
-from mlflow.genai.scorers.base import ScorerSamplingConfig, ScorerStatus
+from mlflow.genai.scorers.base import (
+    SCORER_BACKEND_DATABRICKS,
+    ScorerSamplingConfig,
+    ScorerStatus,
+)
 from mlflow.genai.scorers.registry import (
     DatabricksStore,
+    MlflowTrackingStore,
     _DatabricksScheduledScorerConfig,
     delete_scorer,
     get_scorer,
@@ -148,15 +154,51 @@ def test_databricks_backend_list_and_get_use_databricks_agents():
             sample_rate=0.5, filter_string="test_filter"
         )
         assert scorers[0]._experiment_id == "exp_123"
+        assert scorers[0].scorer_version is None
+        assert scorers[0].canonical_resource_name is None
+        assert scorers[0].canonical_resource_name_type is None
         assert len(scorers) == 1
         mock_list.assert_called_once_with("exp_123")
         mock_tracking_store.return_value.get_experiment.assert_called_once_with("exp_123")
 
         retrieved_scorer = get_scorer(name="test_databricks_scorer", experiment_id="exp_123")
         assert retrieved_scorer.name == "test_databricks_scorer"
+        assert retrieved_scorer.scorer_version is None
+        assert retrieved_scorer.canonical_resource_name is None
+        assert retrieved_scorer.canonical_resource_name_type is None
         mock_get.assert_called_once_with("test_databricks_scorer", "exp_123")
 
         mock_http.assert_not_called()
+
+
+def test_mlflow_tracking_store_hydrate_clears_canonical_resource_metadata():
+    stale_databricks_scorer = Guidelines(
+        name="tracking_scorer",
+        guidelines=["Be concise"],
+        model="databricks:/judge",
+    )._set_registration_metadata(
+        backend=SCORER_BACKEND_DATABRICKS,
+        experiment_id="databricks_exp",
+        sampling_config=None,
+        scorer_version=4,
+        canonical_resource_name="experiments/databricks_exp/scorers/dHJhY2tpbmdfc2NvcmVy/versions/4",
+        canonical_resource_name_type="databricks_scorer_version",
+    )
+    scorer_version = ScorerVersion(
+        experiment_id="tracking_exp",
+        scorer_name=stale_databricks_scorer.name,
+        scorer_version=5,
+        serialized_scorer=json.dumps(stale_databricks_scorer.model_dump()),
+        creation_time=0,
+        scorer_id="scorer-id",
+    )
+
+    store = object.__new__(MlflowTrackingStore)
+    store._hydrate_scorer(stale_databricks_scorer, scorer_version)
+
+    assert stale_databricks_scorer.scorer_version == 5
+    assert stale_databricks_scorer.canonical_resource_name is None
+    assert stale_databricks_scorer.canonical_resource_name_type is None
 
 
 def _mock_response(payload):
@@ -253,6 +295,14 @@ def test_databricks_backend_registers_with_patch_and_post_fallback():
         assert store.register_scorer("exp_123", scorer_v1) == 1
         assert store.register_scorer("exp_123", scorer_v2) == 2
 
+    assert scorer_v1.canonical_resource_name == (
+        DatabricksStore._scorer_version_resource_name("exp_123", scorer_v1.name, 1)
+    )
+    assert scorer_v2.canonical_resource_name == (
+        DatabricksStore._scorer_version_resource_name("exp_123", scorer_v2.name, 2)
+    )
+    assert scorer_v1.canonical_resource_name_type == "databricks_scorer_version"
+    assert scorer_v2.canonical_resource_name_type == "databricks_scorer_version"
     assert scorer_v2._sampling_config == ScorerSamplingConfig(
         sample_rate=0.4,
         filter_string="trace.status = 'OK'",
@@ -621,6 +671,8 @@ def test_databricks_backend_version_operations_use_managed_resource_endpoints():
 
     assert exact.name == scorer_name
     assert exact.scorer_version == 1
+    assert exact.canonical_resource_name == v1_version_config["name"]
+    assert exact.canonical_resource_name_type == "databricks_scorer_version"
     assert exact._sampling_config == ScorerSamplingConfig(
         sample_rate=0.5,
         filter_string="trace.status = 'OK'",
@@ -628,6 +680,14 @@ def test_databricks_backend_version_operations_use_managed_resource_endpoints():
     assert [version for _, version in versions] == [1, 2]
     assert [scorer.name for scorer, _ in versions] == [scorer_name, scorer_name]
     assert [scorer.scorer_version for scorer, _ in versions] == [1, 2]
+    assert [scorer.canonical_resource_name for scorer, _ in versions] == [
+        v1_version_config["name"],
+        v2_version_config["name"],
+    ]
+    assert [scorer.canonical_resource_name_type for scorer, _ in versions] == [
+        "databricks_scorer_version",
+        "databricks_scorer_version",
+    ]
 
     scorer_key = "Zm9sZGVyL3Rlc3RfZGF0YWJyaWNrc19zY29yZXI"
     assert mock_http.call_args_list[0].kwargs["endpoint"] == (
@@ -797,6 +857,17 @@ def test_databricks_backend_historical_scorer_scheduling_preserves_current_defin
         stopped_config,
     ]
     assert [started.guidelines, updated.guidelines, stopped.guidelines] == [["v2"]] * 3
+    assert [
+        scorer.canonical_resource_name for scorer in [historical, started, updated, stopped]
+    ] == [
+        historical_config["name"],
+        DatabricksStore._scorer_version_resource_name("exp_123", scorer_name, 2),
+        DatabricksStore._scorer_version_resource_name("exp_123", scorer_name, 2),
+        DatabricksStore._scorer_version_resource_name("exp_123", scorer_name, 2),
+    ]
+    assert [
+        scorer.canonical_resource_name_type for scorer in [historical, started, updated, stopped]
+    ] == ["databricks_scorer_version"] * 4
 
 
 def _mock_gateway_endpoint():

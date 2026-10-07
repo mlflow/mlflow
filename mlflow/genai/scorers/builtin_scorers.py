@@ -51,7 +51,11 @@ from mlflow.genai.judges.prompts.conversational_tool_call_efficiency import (
 )
 from mlflow.genai.judges.prompts.correctness import CORRECTNESS_PROMPT_INSTRUCTIONS
 from mlflow.genai.judges.prompts.equivalence import EQUIVALENCE_PROMPT_INSTRUCTIONS
-from mlflow.genai.judges.prompts.fluency import FLUENCY_ASSESSMENT_NAME, FLUENCY_PROMPT
+from mlflow.genai.judges.prompts.fluency import (
+    FLUENCY_ASSESSMENT_NAME,
+    FLUENCY_PROMPT,
+    FLUENCY_TYPESAFE_PROMPT_INSTRUCTIONS,
+)
 from mlflow.genai.judges.prompts.groundedness import GROUNDEDNESS_PROMPT_INSTRUCTIONS
 from mlflow.genai.judges.prompts.guidelines import GUIDELINES_PROMPT_INSTRUCTIONS
 from mlflow.genai.judges.prompts.knowledge_retention import (
@@ -75,6 +79,8 @@ from mlflow.genai.judges.prompts.user_frustration import (
     USER_FRUSTRATION_ASSESSMENT_NAME,
     USER_FRUSTRATION_PROMPT,
 )
+from mlflow.genai.judges.structured_judge import _invoke_structured_builtin_judge
+from mlflow.genai.judges.typesafe import _is_typesafe_model
 from mlflow.genai.judges.utils import (
     CategoricalRating,
     get_chat_completions_with_structured_output,
@@ -499,7 +505,10 @@ class RetrievalRelevance(BuiltInScorer):
         self, span_id: str, request: str, chunks: list[dict[str, str]]
     ) -> list[Feedback]:
         """Compute the relevance of retrieved context for one retriever span."""
-        from mlflow.genai.judges.prompts.retrieval_relevance import get_prompt
+        from mlflow.genai.judges.prompts.retrieval_relevance import (
+            RETRIEVAL_RELEVANCE_TYPESAFE_PROMPT_INSTRUCTIONS,
+            get_prompt,
+        )
 
         model = self.model or get_default_model()
 
@@ -517,13 +526,22 @@ class RetrievalRelevance(BuiltInScorer):
             )
         else:
             for i, chunk in enumerate(chunks):
-                prompt = get_prompt(request=request, context=chunk["content"])
-                feedback = invoke_judge_model(
+                feedback = _invoke_structured_builtin_judge(
                     model,
-                    prompt,
-                    assessment_name=self.name,
-                    inference_params=self.inference_params,
-                    extra_headers=self.extra_headers,
+                    chat_invoker=lambda chunk=chunk: invoke_judge_model(
+                        model,
+                        get_prompt(request=request, context=chunk["content"]),
+                        assessment_name=self.name,
+                        inference_params=self.inference_params,
+                        extra_headers=self.extra_headers,
+                    ),
+                    decision_invoke_params={
+                        "instructions": RETRIEVAL_RELEVANCE_TYPESAFE_PROMPT_INSTRUCTIONS,
+                        "state": {"input": request, "doc": chunk["content"]},
+                        "assessment_name": self.name,
+                        "inference_params": self.inference_params,
+                        "extra_headers": self.extra_headers,
+                    },
                 )
                 sanitized_feedback = _sanitize_scorer_feedback(feedback)
                 sanitized_feedback.metadata = {
@@ -1953,10 +1971,16 @@ class Fluency(BuiltInScorer):
 
     def _get_judge(self) -> Judge:
         if self._judge is None:
+            model = self.model or get_default_model()
+            instructions = (
+                FLUENCY_TYPESAFE_PROMPT_INSTRUCTIONS
+                if _is_typesafe_model(model)
+                else self.instructions
+            )
             self._judge = InstructionsJudge(
                 name=self.name,
-                instructions=self.instructions,
-                model=self.model,
+                instructions=instructions,
+                model=model,
                 description=self.description,
                 feedback_value_type=self.feedback_value_type,
                 extra_headers=self.extra_headers,
@@ -2108,6 +2132,7 @@ class Equivalence(BuiltInScorer):
         from mlflow.genai.judges.builtin import _sanitize_feedback
         from mlflow.genai.judges.prompts.equivalence import (
             EQUIVALENCE_FEEDBACK_NAME,
+            EQUIVALENCE_TYPESAFE_PROMPT_INSTRUCTIONS,
             get_prompt,
         )
 
@@ -2167,16 +2192,25 @@ class Equivalence(BuiltInScorer):
         model = self.model or get_default_model()
         assessment_name = self.name or EQUIVALENCE_FEEDBACK_NAME
 
-        prompt = get_prompt(
-            output=outputs_str,
-            expected_output=expectations_str,
-        )
-        feedback = invoke_judge_model(
+        feedback = _invoke_structured_builtin_judge(
             model,
-            prompt,
-            assessment_name=assessment_name,
-            inference_params=self.inference_params,
-            extra_headers=self.extra_headers,
+            chat_invoker=lambda: invoke_judge_model(
+                model,
+                get_prompt(
+                    output=outputs_str,
+                    expected_output=expectations_str,
+                ),
+                assessment_name=assessment_name,
+                inference_params=self.inference_params,
+                extra_headers=self.extra_headers,
+            ),
+            decision_invoke_params={
+                "instructions": EQUIVALENCE_TYPESAFE_PROMPT_INSTRUCTIONS,
+                "state": {"output": actual_output, "expected_output": expected_output},
+                "assessment_name": assessment_name,
+                "inference_params": self.inference_params,
+                "extra_headers": self.extra_headers,
+            },
         )
 
         return _sanitize_feedback(feedback)

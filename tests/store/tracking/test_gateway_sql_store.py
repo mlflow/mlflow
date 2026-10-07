@@ -836,6 +836,68 @@ def test_create_gateway_endpoint_nonexistent_model_raises(store: SqlAlchemyStore
     assert exc.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
 
 
+def _create_gateway_test_model_definition(store: SqlAlchemyStore, prefix: str):
+    secret = store.create_gateway_secret(
+        secret_name=f"{prefix}-key-{uuid.uuid4().hex}", secret_value={"api_key": "value"}
+    )
+    return store.create_gateway_model_definition(
+        name=f"{prefix}-model-{uuid.uuid4().hex}",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+
+
+def _primary_gateway_model_config(model_definition_id: str) -> GatewayEndpointModelConfig:
+    return GatewayEndpointModelConfig(
+        model_definition_id=model_definition_id,
+        linkage_type=GatewayModelLinkageType.PRIMARY,
+        weight=1.0,
+    )
+
+
+@pytest.mark.parametrize("bad_experiment_id", ["not-a-number", ""])
+def test_gateway_endpoint_rejects_non_numeric_experiment_id(
+    store: SqlAlchemyStore, bad_experiment_id
+):
+    model_def = _create_gateway_test_model_definition(store, "bad-exp")
+
+    with pytest.raises(MlflowException, match="Experiment ID must be a valid integer") as exc:
+        store.create_gateway_endpoint(
+            name=f"bad-create-exp-endpoint-{uuid.uuid4().hex}",
+            model_configs=[_primary_gateway_model_config(model_def.model_definition_id)],
+            experiment_id=bad_experiment_id,
+            usage_tracking=False,
+        )
+
+    assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+    endpoint = store.create_gateway_endpoint(
+        name=f"bad-update-exp-endpoint-{uuid.uuid4().hex}",
+        model_configs=[_primary_gateway_model_config(model_def.model_definition_id)],
+        usage_tracking=False,
+    )
+
+    with pytest.raises(MlflowException, match="Experiment ID must be a valid integer") as exc:
+        store.update_gateway_endpoint(endpoint.endpoint_id, experiment_id=bad_experiment_id)
+
+    assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
+@pytest.mark.parametrize("experiment_id", ["0", 0])
+def test_create_gateway_endpoint_accepts_zero_experiment_id(store: SqlAlchemyStore, experiment_id):
+    model_def = _create_gateway_test_model_definition(store, "zero-exp")
+
+    endpoint = store.create_gateway_endpoint(
+        name=f"zero-exp-endpoint-{uuid.uuid4().hex}",
+        model_configs=[_primary_gateway_model_config(model_def.model_definition_id)],
+        experiment_id=experiment_id,
+        usage_tracking=True,
+    )
+
+    assert endpoint.experiment_id == "0"
+
+
 def test_get_gateway_endpoint_by_id(store: SqlAlchemyStore):
     secret = store.create_gateway_secret(
         secret_name="get-ep-key", secret_value={"api_key": "value"}
@@ -3167,6 +3229,27 @@ def test_create_gateway_guardrail_rejects_unknown_scorer_version(store: SqlAlche
             scorer_version=999,
             stage=GuardrailStage.BEFORE,
             action=GuardrailAction.VALIDATION,
+        )
+
+
+def test_create_gateway_guardrail_rejects_custom_code_scorer(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment(f"guardrail-custom-{uuid.uuid4().hex[:8]}")
+    serialized_scorer = json.dumps({
+        "name": "custom",
+        "call_source": "return len(outputs) > 0",
+        "call_signature": "(outputs)",
+        "original_func_name": "custom",
+    })
+    scorer = store.register_scorer(experiment_id, "custom-code-scorer", serialized_scorer)
+
+    with pytest.raises(MlflowException, match="do not support custom scorers"):
+        store.create_gateway_guardrail(
+            name="custom-guardrail",
+            scorer_id=scorer.scorer_id,
+            scorer_version=scorer.scorer_version,
+            stage=GuardrailStage.BEFORE,
+            action=GuardrailAction.VALIDATION,
+            created_by="test-user",
         )
 
 
