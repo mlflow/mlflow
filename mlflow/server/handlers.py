@@ -7465,8 +7465,10 @@ def _update_endpoint_guardrail_config():
     return _wrap_response(response_message)
 
 
-@catch_mlflow_exception
-def _get_server_info():
+def build_server_info_payload() -> dict[str, Any]:
+    # This JSON is returned with no login, including when basic auth is on.
+    # Clients use it to learn how the server is set up before they authenticate.
+    # Do not add secrets, credentials, tenant data, or internal addresses.
     from mlflow.store.tracking.file_store import FileStore
     from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 
@@ -7507,7 +7509,7 @@ def _get_server_info():
                 exc_info=True,
             )
 
-    return jsonify({
+    return {
         SERVER_INFO_STORE_TYPE: store_type,
         SERVER_INFO_WORKSPACES_ENABLED: MLFLOW_ENABLE_WORKSPACES.get(),
         SERVER_INFO_TRACE_ARCHIVAL_ENABLED: trace_archival_enabled,
@@ -7519,7 +7521,12 @@ def _get_server_info():
         SERVER_INFO_FEATURES_ENABLED: {
             "gateway": MLFLOW_ENABLE_AI_GATEWAY.get(),
         },
-    })
+    }
+
+
+@catch_mlflow_exception
+def _get_server_info():
+    return jsonify(build_server_info_payload())
 
 
 @catch_mlflow_exception
