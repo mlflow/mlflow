@@ -14,7 +14,11 @@ function removeInvisibleCharacters(text) {
 }
 
 function sanitizeInput(text) {
-  return removeInvisibleCharacters(removeControlCharacters(removeHtmlComments(text)));
+  return removeHtmlComments(removeInvisibleCharacters(removeControlCharacters(text)));
+}
+
+function sanitizeOutput(text) {
+  return removeHtmlComments(removeInvisibleCharacters(removeControlCharacters(text)));
 }
 
 module.exports = {
@@ -22,13 +26,17 @@ module.exports = {
   removeControlCharacters,
   removeInvisibleCharacters,
   sanitizeInput,
+  sanitizeOutput,
 };
 
 if (require.main === module) {
-  const sanitizers = new Map([["input", sanitizeInput]]);
+  const sanitizers = new Map([
+    ["input", sanitizeInput],
+    ["output", sanitizeOutput],
+  ]);
   const sanitizer = sanitizers.get(process.argv[2]);
   if (process.argv.length !== 3 || !sanitizer) {
-    console.error("Usage: node sanitize.js input");
+    console.error("Usage: node sanitize.js <input|output>");
     process.exit(1);
   }
 
