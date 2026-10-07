@@ -867,3 +867,157 @@ def test_a_row_governing_none_of_the_ids_costs_no_query(gate, monkeypatch):
     )
     assert allowed is True
     assert calls == [], f"a row governing no id in play must not reach the store: {calls}"
+
+
+# ---- Cost must follow the configuration, not the request ---------------------
+#
+# F-0034. A route declares one context per target -- OTLP ingestion one per trace, a
+# model-targeted LogBatch one per model -- so asking each context separately made the
+# statement count `contexts x rows`. These tests assert the shape, not a magic number:
+# the count must not move when the number of targets does.
+
+
+def _otlp_shaped_contexts(count, experiment_id="1"):
+    """What OTLP ingestion declares: one exact trace context per submitted trace."""
+    return [
+        ConditionContext(
+            resource_type="trace",
+            scope=ConditionScope.MUTATE,
+            request=TraceRequestValues(),
+            resource_ids=(f"tr-{i}",),
+            parent_resource_id=experiment_id,
+        )
+        for i in range(count)
+    ]
+
+
+def test_query_count_is_independent_of_how_many_traces_are_submitted(gate, monkeypatch):
+    """Fifty traces must cost what one trace costs: one call per (type, row)."""
+    run, _state = gate
+    rows = [MutationConditionSpec("trace", target_condition=f"tags.k{i} = 'v'") for i in range(4)]
+
+    counts = {}
+    for target_count in (1, 50):
+        calls = _recording_pushdown_store(monkeypatch)
+        assert run(_otlp_shaped_contexts(target_count), rows=rows, values={}) is True
+        counts[target_count] = len(calls)
+
+    assert counts[1] == counts[50] == len(rows), (
+        "the statement count must follow the configured rows, not the submitted traces; "
+        f"got {counts}"
+    )
+
+
+def test_every_submitted_trace_still_reaches_the_query(gate, monkeypatch):
+    """Batching must not drop a target. Cheap is worthless if it is also blind."""
+    run, _state = gate
+    calls = _recording_pushdown_store(monkeypatch)
+    assert (
+        run(
+            _otlp_shaped_contexts(3),
+            rows=[MutationConditionSpec("trace", target_condition="tags.k = 'v'")],
+            values={},
+        )
+        is True
+    )
+    (_entity, ids, _clauses) = calls[0]
+    assert sorted(ids) == ["tr-0", "tr-1", "tr-2"], ids
+
+
+def test_a_union_still_respects_each_rows_container_scope(gate, monkeypatch):
+    """F-0022 inside the union: a row scoped to one experiment must not pick up ids from
+    contexts in another, even though both are being asked in one call.
+    """
+    run, _state = gate
+    calls = _recording_pushdown_store(monkeypatch)
+    contexts = [
+        *_otlp_shaped_contexts(2, experiment_id="exp-a"),
+        ConditionContext(
+            resource_type="trace",
+            scope=ConditionScope.MUTATE,
+            request=TraceRequestValues(),
+            resource_ids=("tr-elsewhere",),
+            parent_resource_id="exp-b",
+        ),
+    ]
+    assert (
+        run(
+            contexts,
+            rows=[
+                MutationConditionSpec(
+                    "trace",
+                    target_condition="tags.k = 'v'",
+                    container_resource_type="experiment",
+                    container_resource_pattern="exp-a",
+                )
+            ],
+            values={},
+        )
+        is True
+    )
+    assert len(calls) == 1, calls
+    (_entity, ids, _clauses) = calls[0]
+    assert "tr-elsewhere" not in ids, (
+        f"a row scoped to exp-a must not judge an id from exp-b; got {ids}"
+    )
+    assert sorted(ids) == ["tr-0", "tr-1"], ids
+
+
+def test_a_scoped_row_and_a_workspace_row_are_separate_calls(gate, monkeypatch):
+    """They govern different id sets, so they cannot share one statement -- the grouping
+    key is (type, row), not the type alone.
+    """
+    run, _state = gate
+    calls = _recording_pushdown_store(monkeypatch)
+    contexts = [
+        *_otlp_shaped_contexts(2, experiment_id="exp-a"),
+        ConditionContext(
+            resource_type="trace",
+            scope=ConditionScope.MUTATE,
+            request=TraceRequestValues(),
+            resource_ids=("tr-elsewhere",),
+            parent_resource_id="exp-b",
+        ),
+    ]
+    assert (
+        run(
+            contexts,
+            rows=[
+                MutationConditionSpec(
+                    "trace",
+                    target_condition="tags.k = 'v'",
+                    container_resource_type="experiment",
+                    container_resource_pattern="exp-a",
+                ),
+                MutationConditionSpec("trace", target_condition="tags.j = 'w'"),
+            ],
+            values={},
+        )
+        is True
+    )
+    pushed = sorted(sorted(ids) for _entity, ids, _clauses in calls)
+    assert pushed == [["tr-0", "tr-1"], ["tr-0", "tr-1", "tr-elsewhere"]], pushed
+
+
+def test_a_denial_in_a_union_still_names_the_resource_that_failed(gate, monkeypatch):
+    """Attribution survives the union: the context travels with the answer, so the denial
+    quotes the failing trace rather than whichever one happened to be asked first.
+    """
+    from mlflow.server.auth import resources as auth_resources
+
+    run, _state = gate
+    # The detail lives in a ContextVar that outlives a test in this process, so clear it
+    # first -- otherwise a leftover from an earlier case would satisfy the assertion.
+    auth_resources.clear_cache()
+    _recording_pushdown_store(monkeypatch, answer="tr-7")
+    allowed = run(
+        _otlp_shaped_contexts(10),
+        rows=[MutationConditionSpec("trace", target_condition="tags.k = 'v'")],
+        # Attribution reads the resource the store named; with none readable the denial
+        # correctly degrades to the generic message, which would not test anything here.
+        values={("trace", "tr-7"): TraceResourceValues("tr-7", tags={})},
+    )
+    assert allowed is False
+    detail = auth_resources.condition_denial_detail()
+    assert detail is not None, "the denial was not attributed to any resource"
+    assert "tr-7" in detail, detail

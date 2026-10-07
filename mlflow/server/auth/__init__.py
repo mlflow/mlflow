@@ -1237,42 +1237,37 @@ def _target_denial_detail(context, row, resource_id) -> "str | None":
     return None
 
 
-def _target_pushdown(
-    context, target_rows, *, resource_ids=None, parent_id=None, max_timestamp_ms=None
-):
-    """Ask the store for a resource that fails one of this context's target rows.
+def _cascade_target_pushdown(context, target_rows, *, parent_id, max_timestamp_ms=None):
+    """Ask the store whether a parent holds a child failing one of this context's rows.
 
-    One question with two ways of naming the population, which is why this is one
-    function over one store method rather than a batch path and a cascade path. With
-    ``resource_ids`` the request names what it will touch; with ``parent_id`` it names
-    a parent whose children a cascade reaches, and which the caller cannot enumerate
-    cheaply or at all. Either way the store returns an id and never a tag value.
+    The cascade half of target evaluation. A cascade reaches children the request never
+    named and the caller cannot enumerate cheaply or at all, so the population is named by
+    its parent and the store answers with at most the first failing child -- their ids are
+    never listed. Named-id contexts take the other path,
+    :func:`_batched_target_pushdown`, which can union them into one call per row.
 
-    Each row is a separate condition and all must hold, so each is asked separately
-    and the first failure settles it. A row whose clauses the store cannot express
-    declines the whole context: asking only the rows it understood would judge the
-    conjunction against a subset of itself, and the fallback already evaluates
-    everything correctly.
+    Each row is a separate condition and all must hold, so each is asked separately and
+    the first failure settles it. A row whose clauses the store cannot express declines the
+    whole context: asking only the rows it understood would judge the conjunction against a
+    subset of itself, and there is no fallback left to evaluate the rest.
 
     Returns:
-        ``None`` if every resource satisfies every row, or a ``(row, resource_id)`` pair
-        naming the condition that refused and the resource that broke it. That pair is
-        the whole reason this returns more than a boolean: it is what lets the denial say
-        which.
+        ``None`` if every child satisfies every row, or a ``(row, resource_id)`` pair naming
+        the condition that refused and the child that broke it. That pair is the whole
+        reason this returns more than a boolean: it is what lets the denial say which.
 
-        There is no third answer. A store that cannot express the predicate raises, and
-        so does this function -- the fallback that used to load every resource and
-        evaluate the clauses in Python is gone.
+        There is no third answer. A store that cannot express the predicate raises, and so
+        does this function -- the fallback that used to load every resource and evaluate the
+        clauses in Python is gone.
     """
-    if resource_ids is None and parent_id is None:
-        # A caller reaching here with neither selector is a wiring bug: the gate picks the
-        # selector -- named ids, or the parent for a cascade -- and refuses outright when a
-        # context offers neither, because then nothing identifies what would be judged.
-        # Treating an unasked question as a pass is the one direction this must never fail
-        # in.
+    if parent_id is None:
+        # The gate picks the selector and refuses a context offering neither, because then
+        # nothing identifies what would be judged. Reaching here without a parent is a
+        # wiring bug, and treating an unasked question as a pass is the one direction this
+        # must never fail in.
         raise ValueError(
-            "_target_pushdown needs resource_ids or parent_id; a context with neither "
-            "must be refused by the caller, not asked about"
+            "_cascade_target_pushdown needs a parent_id; a context naming neither its "
+            "resources nor a parent must be refused by the caller, not asked about"
         )
 
     pushed_rows = []
@@ -1290,55 +1285,115 @@ def _target_pushdown(
 
     store_ = _condition_store(context.resource_type)
     for row, clauses in pushed_rows:
-        if parent_id is not None:
-            # A row naming one resource cannot be pushed over a cascade: its clauses
-            # apply to that one child, and a query over "any child" would charge them
-            # against every sibling. Unreachable today -- every cascade-reachable type
-            # (run, trace, logged model, and the three version types) is wildcard-only,
-            # so such a row cannot be authored -- but a future tier with id-grain
-            # patterns would otherwise fail silently and in the fail-open direction.
-            if row.resource_pattern != WILDCARD_PATTERN:
-                raise NotImplementedError(
-                    f"a cascade on {context.resource_type!r} cannot be judged against "
-                    f"a condition scoped to {row.resource_pattern!r}: its clauses "
-                    "apply to one child, and a query over 'any child' would charge them "
-                    "against every sibling"
-                )
-            failing = store_.find_failing_resource(
-                context.resource_type,
-                clauses,
-                parent_id=parent_id,
-                max_timestamp_ms=max_timestamp_ms,
+        # A row naming one resource cannot be pushed over a cascade: its clauses apply to
+        # that one child, and a query over "any child" would charge them against every
+        # sibling. Unreachable today -- every cascade-reachable type (run, trace, logged
+        # model, and the three version types) is wildcard-only, so such a row cannot be
+        # authored -- but a future tier with id-grain patterns would otherwise fail
+        # silently and in the fail-open direction.
+        if row.resource_pattern != WILDCARD_PATTERN:
+            raise NotImplementedError(
+                f"a cascade on {context.resource_type!r} cannot be judged against "
+                f"a condition scoped to {row.resource_pattern!r}: its clauses "
+                "apply to one child, and a query over 'any child' would charge them "
+                "against every sibling"
             )
-            if failing is not None:
-                # The children were never enumerated, so unlike the named path below there
-                # is no id mapping to invert -- the store's key has to be converted back.
-                return (row, _condition_resource_id(context.resource_type, failing))
-            continue
-        # Narrow to the ids this row governs rather than abandoning the pushdown for a
-        # scoped row. The ids are the query input, so a row naming one resource is just
-        # a shorter id list -- and charging it against a sibling would deny a mutation
-        # on a resource the admin never pointed the condition at, which is what
-        # `_row_governs` enforces on the in-memory path too.
-        governed = [rid for rid in resource_ids if _row_governs(row, rid)]
-        if not governed:
+        failing = store_.find_failing_resource(
+            context.resource_type,
+            clauses,
+            parent_id=parent_id,
+            max_timestamp_ms=max_timestamp_ms,
+        )
+        if failing is not None:
+            # The children were never enumerated, so there is no id mapping to invert --
+            # the store's key has to be converted back.
+            return (row, _condition_resource_id(context.resource_type, failing))
+    return None
+
+
+def _batched_target_pushdown(named):
+    """Evaluate every named-id target condition in one store call per (type, row).
+
+    The cost shape is the whole point. A route declares one context per target -- OTLP
+    ingestion declares one per trace, a model-targeted ``LogBatch`` one per model -- and
+    asking each context separately made the statement count *contexts x rows*. Fifty
+    traces against a hundred configured rows is five thousand statements, each one
+    carrying a subquery per clause, before a single span is written. A request could
+    saturate the database purely because conditions were enabled, which turns a
+    restriction feature into an availability risk.
+
+    The ids are the query INPUT, so a row's question over many ids is the same question
+    with a longer list. Grouping by ``(resource_type, row)`` and unioning the ids each row
+    governs makes the count proportional to the CONFIGURATION -- types times rows -- and
+    independent of how many resources the request names. The store already chunks a long
+    id list, so the union does not trade a query explosion for a parameter-limit failure.
+
+    Three properties of the per-context path are preserved deliberately:
+
+    - **Container scope.** An id joins a row's list only if that row applies within the id's
+      OWN context, so a row scoped to experiment A never reaches an id from experiment B
+      (F-0022). This is why the grouping key cannot be the type alone.
+    - **Unpushable rows refuse wholesale.** Every applicable row is parsed before any query
+      runs, so a row the store cannot express declines the whole request rather than
+      letting the rows it understood judge a subset of the conjunction.
+    - **First failure settles it.** The store returns one id, and the walk stops there.
+
+    Returns:
+        ``None`` if every named resource satisfies every row, or a
+        ``(context, row, resource_id)`` triple. The context travels with the answer
+        because attribution needs it and the union has mixed several together.
+    """
+    # (resource_type, row) -> {store key: (resource_id, context)}
+    #
+    # Insertion-ordered so evaluation order is deterministic: with two failing rows, the
+    # denial should name the same one on every identical request.
+    grouped: "dict[tuple, dict]" = {}
+    for context, target_rows in named:
+        for row in target_rows:
+            bucket = grouped.setdefault((context.resource_type, row), {})
+            for resource_id in context.resource_ids:
+                if not _row_governs(row, resource_id):
+                    continue
+                key = _condition_pushdown_key(context.resource_type, resource_id)
+                # First context wins for attribution. An id belongs to one parent, so two
+                # contexts naming it agree about the container; the choice only affects
+                # which context the denial quotes, and they are equivalent.
+                bucket.setdefault(key, (resource_id, context))
+
+    # Parse everything first: an unpushable row must refuse before any query is issued.
+    parsed = []
+    for (resource_type, row), bucket in grouped.items():
+        clauses = _pushable_clauses(_parsed_condition(row.target_condition, NAMESPACE_RESOURCE))
+        if clauses is None:
+            # Unreachable: authoring rejects a clause outside the two resource namespaces,
+            # and a stored row has been through it. Loud rather than silent, because with
+            # no fallback left, skipping the row would permit what it forbids.
+            raise NotImplementedError(
+                f"target condition {row.target_condition!r} on {resource_type!r} has a "
+                "clause that cannot be pushed down"
+            )
+        parsed.append((resource_type, row, bucket, clauses))
+
+    for resource_type, row, bucket, clauses in parsed:
+        if not bucket:
             # This row governs none of the ids in play, so it has nothing to say here.
             continue
-        # The store matches on decomposed keys; keeping the mapping back means a denial
-        # names the resource the way this layer and the caller address it, rather than
-        # as the tuple the tables are keyed by.
-        by_key = {_condition_pushdown_key(context.resource_type, rid): rid for rid in governed}
-        failing = store_.find_failing_resource(context.resource_type, clauses, ids=list(by_key))
-        if failing is not None:
-            # The id either failed a clause or does not exist. Both deny, and
-            # deliberately indistinguishably -- a 404 here would reveal which ids exist
-            # to a caller who may not read them.
-            mapped = by_key.get(failing)
-            if mapped is None:
-                # The store named something outside the asked set, which should not happen;
-                # convert rather than quote a raw tuple at the caller.
-                mapped = _condition_resource_id(context.resource_type, failing)
-            return (row, mapped)
+        failing = _condition_store(resource_type).find_failing_resource(
+            resource_type, clauses, ids=list(bucket)
+        )
+        if failing is None:
+            continue
+        # The id either failed a clause or does not exist. Both deny, and deliberately
+        # indistinguishably -- a 404 here would reveal which ids exist to a caller who
+        # may not read them.
+        resource_id, context = bucket.get(failing, (None, None))
+        if context is None:
+            # The store named something outside the asked set, which should not happen;
+            # convert rather than quote a raw tuple at the caller. Any context of this
+            # type will do for attribution -- they share the type and the row.
+            resource_id = _condition_resource_id(resource_type, failing)
+            context = next(c for c, _ in named if c.resource_type == resource_type)
+        return (context, row, resource_id)
     return None
 
 
@@ -1354,8 +1409,10 @@ def _row_governs(row, resource_id: "str | None") -> bool:
     fail-open -- the row restricts one named resource, and an operation naming no resource
     is not an operation on that one. Restricting a create is the wildcard's job.
 
-    The container axis is not checked here: the loader filters it in SQL, because the
-    container is always resolved before the query runs.
+    The container axis is not checked here. The loader filters it in SQL for the request
+    as a whole, and the gate narrows it again per context (``applies_within``), because
+    one request can put several containers in play and a row scoped to one of them must
+    not be charged against the resources in another.
     """
     if row.resource_pattern == WILDCARD_PATTERN:
         return True
@@ -1476,6 +1533,10 @@ def _authorize_on_conditions(
     if not needs_resource_values(contexts, types_with_target):
         return True
 
+    # Named-id contexts are collected and evaluated together, below: one store call per
+    # (type, row) instead of one per (context, row). A cascade is already one query over a
+    # population the request never enumerated, so it is answered here, in place.
+    named = []
     for context in contexts:
         if context.scope is not ConditionScope.MUTATE:
             continue
@@ -1492,7 +1553,7 @@ def _authorize_on_conditions(
             # query, and the only way to answer it without enumerating a population the
             # request never named and the caller may not be able to bound. The children's
             # ids are never learned -- the store returns at most the first failing one.
-            pushed = _target_pushdown(
+            pushed = _cascade_target_pushdown(
                 context,
                 target_rows,
                 parent_id=context.parent_resource_id,
@@ -1527,14 +1588,18 @@ def _authorize_on_conditions(
             # route at MUTATE scope does. It is the backstop for one that cannot, and for
             # a future wiring bug that forgets to.
             return False
-        # One query per clause answers the predicate without the resources' tags ever
-        # crossing the wire. The store either answers or raises; there is no in-memory
-        # fallback, which is what keeps SQL the single evaluator of a target condition.
-        pushed = _target_pushdown(context, target_rows, resource_ids=resource_ids)
+        named.append((context, target_rows))
+
+    if named:
+        # One call per (type, row) over the union of the ids that row governs, so the cost
+        # follows the configuration rather than the number of targets. The resources' tags
+        # never cross the wire: the store either answers or raises, which is what keeps SQL
+        # the single evaluator of a target condition.
+        pushed = _batched_target_pushdown(named)
         if pushed is not None:
             # There is no per-id result for `combine` to weigh, so deny directly --
             # after naming the clause the offending resource broke.
-            row, failing_id = pushed
+            context, row, failing_id = pushed
             auth_resources.note_condition_denial(_target_denial_detail(context, row, failing_id))
             return False
 

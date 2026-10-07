@@ -1165,7 +1165,7 @@ class TestResourceScopeMatchingAndPushdown:
         context = context_for("run", None, ConditionScope.MUTATE, None, parent_resource_id="e-1")
 
         def ask():
-            return auth_module._target_pushdown(context, rows, parent_id="e-1")
+            return auth_module._cascade_target_pushdown(context, rows, parent_id="e-1")
 
         # `asked` is returned separately from the call so a test can still inspect it when
         # the call raises -- an unpushable row must not reach the store at all.
