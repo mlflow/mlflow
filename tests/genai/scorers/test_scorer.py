@@ -969,9 +969,9 @@ def test_registered_versions_keep_their_own_quality_threshold():
 
     assert [c[0][0] for c in mock_warning.call_args_list] == [
         "`quality_threshold` (at least 0.6 on the mean) is saved with version 1 of scorer "
-        "'tone'. A new threshold creates a new scorer version.",
+        "'tone'. Changing the threshold later creates a new scorer version.",
         "`quality_threshold` (at least 0.8 on the min) is saved with version 2 of scorer "
-        "'tone'. A new threshold creates a new scorer version.",
+        "'tone'. Changing the threshold later creates a new scorer version.",
     ]
     v1 = get_scorer(name="tone", experiment_id=experiment_id, version=1)
     v2 = get_scorer(name="tone", experiment_id=experiment_id, version=2)
