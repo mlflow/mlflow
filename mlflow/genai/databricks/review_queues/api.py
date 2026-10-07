@@ -7,7 +7,7 @@ resources nested under an experiment, and every function takes the ``experiment_
 explicitly. They require a Databricks tracking URI.
 """
 
-from typing import Any
+from typing import Any, Literal
 from urllib.parse import quote
 
 from mlflow.exceptions import MlflowException
@@ -59,7 +59,7 @@ def create_review_question(
     experiment_id: str,
     *,
     title: str,
-    type: QuestionType | str,
+    type: QuestionType | Literal["FEEDBACK", "EXPECTATION"],
     input: QuestionInput,
     instruction: str | None = None,
     enable_comment: bool | None = None,
@@ -200,7 +200,7 @@ def create_review_queue(
     experiment_id: str,
     display_name: str,
     *,
-    queue_type: ReviewQueueType | str = ReviewQueueType.CUSTOM,
+    queue_type: ReviewQueueType | Literal["USER", "CUSTOM"] = ReviewQueueType.CUSTOM,
     question_ids: list[str] | None = None,
 ) -> ReviewQueue:
     """
@@ -479,7 +479,7 @@ def list_review_queue_items(
     experiment_id: str,
     queue_id: str,
     *,
-    status: ReviewStatus | str | None = None,
+    status: ReviewStatus | Literal["PENDING", "COMPLETE", "DECLINED"] | None = None,
     max_results: int | None = None,
     page_token: str | None = None,
 ) -> PagedList[ReviewQueueItem]:
@@ -516,7 +516,7 @@ def set_review_queue_item_status(
     experiment_id: str,
     queue_id: str,
     item_id: str,
-    status: ReviewStatus | str,
+    status: ReviewStatus | Literal["PENDING", "COMPLETE", "DECLINED"],
 ) -> ReviewQueueItem:
     """
     Set an item's review status.
@@ -548,7 +548,7 @@ def resolve_effective_review_questions(
     experiment_id: str,
     queue_id: str,
     *,
-    item_kind: ItemKind | str | None = None,
+    item_kind: ItemKind | Literal["V4_TRACE", "DATASET_RECORD"] | None = None,
 ) -> list[ReviewQuestion]:
     """
     Return the questions reviewers answer in a queue.
