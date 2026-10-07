@@ -112,27 +112,34 @@ export const toHttpsGitRepoUrl = (source: string): string | undefined => {
   return undefined;
 };
 
+/**
+ * The Git host whose repository pages the UI knows how to link to: GitHub or GitLab, including GitHub Enterprise
+ * and self-managed GitLab hosts named after them, such as github.example.com or gitlab.example.com.
+ */
+const linkableGitHost = (repoUrl: string): 'github' | 'gitlab' | undefined => {
+  let labels: string[];
+  try {
+    labels = new URL(repoUrl).hostname.split('.');
+  } catch {
+    return undefined;
+  }
+  if (labels.includes('gitlab')) return 'gitlab';
+  if (labels.includes('github')) return 'github';
+  return undefined;
+};
+
 export const buildGitBrowseHref = (
   repoUrl: string,
   ref?: string | null,
   subpath?: string | null,
 ): string | undefined => {
   const revision = ref?.trim();
-  if (!revision || /\/(tree|blob|src)\//.test(repoUrl)) {
+  const host = linkableGitHost(repoUrl);
+  if (!revision || !host || /\/(tree|blob)\//.test(repoUrl)) {
     return undefined;
   }
-  let prefix = 'tree';
-  try {
-    const host = new URL(repoUrl).hostname;
-    if (host === 'bitbucket.org' || host.endsWith('.bitbucket.org')) {
-      prefix = 'src';
-    } else if (host.split('.').includes('gitlab')) {
-      // GitLab, including self-managed hosts such as gitlab.example.com, scopes repository pages under /-/.
-      prefix = '-/tree';
-    }
-  } catch {
-    return undefined;
-  }
+  // GitLab scopes repository pages under /-/.
+  const prefix = host === 'gitlab' ? '-/tree' : 'tree';
   const path = subpath ? encodeGitPath(subpath) : '';
   const href = path
     ? `${repoUrl}/${prefix}/${encodeGitPath(revision)}/${path}`
@@ -153,15 +160,16 @@ export const describeSkillSource = (
 
   if (version.source_type === 'git') {
     const repoUrl = toHttpsGitRepoUrl(source);
-    const browseHref = repoUrl ? buildGitBrowseHref(repoUrl, ref, path) : undefined;
+    // Other Git hosts lay out their pages differently, so their sources are shown as text rather than guessed at.
+    const locatorHref = repoUrl && linkableGitHost(repoUrl) ? repoUrl : undefined;
     return {
       label,
-      locator: repoUrl ?? source,
-      locatorHref: repoUrl,
+      locator: locatorHref ?? source,
+      locatorHref,
       path,
       ref,
-      browseHref,
-      showExternalWarning: Boolean(repoUrl),
+      browseHref: locatorHref ? buildGitBrowseHref(locatorHref, ref, path) : undefined,
+      showExternalWarning: Boolean(locatorHref),
     };
   }
 

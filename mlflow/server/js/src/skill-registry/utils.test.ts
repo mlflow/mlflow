@@ -51,7 +51,7 @@ describe('formatSkillSourceLabel', () => {
 });
 
 describe('buildGitBrowseHref', () => {
-  it("uses each host family's tree URL", () => {
+  it('uses the GitHub and GitLab tree URLs, including their enterprise and self-managed hosts', () => {
     expect(buildGitBrowseHref('https://github.com/acme/skills', 'main', 'skills/review')).toBe(
       'https://github.com/acme/skills/tree/main/skills/review',
     );
@@ -61,10 +61,15 @@ describe('buildGitBrowseHref', () => {
     expect(buildGitBrowseHref('https://gitlab.example.com/acme/skills', 'main')).toBe(
       'https://gitlab.example.com/acme/skills/-/tree/main',
     );
-    expect(buildGitBrowseHref('https://bitbucket.org/acme/skills', 'main')).toBe(
-      'https://bitbucket.org/acme/skills/src/main',
+    expect(buildGitBrowseHref('https://github.example.com/acme/skills', 'main')).toBe(
+      'https://github.example.com/acme/skills/tree/main',
     );
     expect(buildGitBrowseHref('https://github.com/acme/skills', null)).toBeUndefined();
+  });
+
+  it('builds no URL for other Git hosts', () => {
+    expect(buildGitBrowseHref('https://bitbucket.org/acme/skills', 'main')).toBeUndefined();
+    expect(buildGitBrowseHref('https://git.example.com/acme/skills', 'main')).toBeUndefined();
   });
 });
 
@@ -92,6 +97,37 @@ describe('describeSkillSource', () => {
     ).toMatchObject({
       locatorHref: 'https://github.com/acme/skills',
       browseHref: 'https://github.com/acme/skills/tree/main',
+    });
+  });
+
+  it('links GitLab sources, and shows sources on other Git hosts as text', () => {
+    expect(
+      describeSkillSource({
+        source_type: 'git',
+        source: 'git@gitlab.com:acme/platform/skills.git',
+        ref: 'v1',
+        subpath: 'review',
+      }),
+    ).toMatchObject({
+      locatorHref: 'https://gitlab.com/acme/platform/skills',
+      browseHref: 'https://gitlab.com/acme/platform/skills/-/tree/v1/review',
+      showExternalWarning: true,
+    });
+    expect(
+      describeSkillSource({
+        source_type: 'git',
+        source: 'https://bitbucket.org/acme/skills.git',
+        ref: 'main',
+        subpath: 'review',
+      }),
+    ).toEqual({
+      label: 'Git',
+      locator: 'https://bitbucket.org/acme/skills.git',
+      locatorHref: undefined,
+      path: 'review',
+      ref: 'main',
+      browseHref: undefined,
+      showExternalWarning: false,
     });
   });
 
