@@ -487,7 +487,8 @@ class Scorer(BaseModel):
     name: str
     aggregations: list[_AggregationType] | None = None
     # The bar the run-level metric must clear. A bare float means ``at_least``. Evaluation
-    # records it on the run; it is deliberately not part of the scorer's serialized form.
+    # records it on the run. Kinds in `_KINDS_SAVING_QUALITY_THRESHOLD` save it inside their
+    # own serialized data, never at the top level of `SerializedScorer`.
     quality_threshold: float | QualityThreshold | None = None
     description: str | None = None
     # Per-invocation timeout (seconds) enforced by `run()`. `None` (default) uses
