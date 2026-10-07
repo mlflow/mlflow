@@ -303,12 +303,12 @@ def test_process_sdk_messages_cache_tokens():
     # mlflow.anthropic.autolog. Cache fields are exposed as separate keys so
     # consumers can compute cache hit rate without scraping transcripts.
     token_usage = root_span.get_attribute(SpanAttributeKey.CHAT_USAGE)
-    assert token_usage["input_tokens"] == 36
+    assert token_usage["input_tokens"] == 36 + 139035 + 23554
     assert token_usage["output_tokens"] == 3344
-    assert token_usage["total_tokens"] == 36 + 3344
+    assert token_usage["total_tokens"] == 36 + 139035 + 23554 + 3344
     assert token_usage["cache_read_input_tokens"] == 139035
     assert token_usage["cache_creation_input_tokens"] == 23554
 
     # Trace-level aggregation should match
-    assert trace.info.token_usage["input_tokens"] == 36
+    assert trace.info.token_usage["input_tokens"] == 36 + 139035 + 23554
     assert trace.info.token_usage["output_tokens"] == 3344
