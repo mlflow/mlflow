@@ -101,7 +101,7 @@ jobs:
           issues=$(printf '%s' "$response" | jq --arg marker "$marker" -r '
             .data.repository.pullRequest.closingIssuesReferences.nodes[]
             | select(any(.comments.nodes[]; .body | contains($marker)) | not)
-            | [.number, .author.login] | @tsv')
+            | [.number, (.author.login // "")] | @tsv')
 
           if [ -z "$issues" ]; then
             echo "No linked issues."
@@ -109,6 +109,10 @@ jobs:
           fi
 
           while IFS=$'\t' read -r issue author; do
+            comment="$body"
+            if [ -n "$author" ]; then
+              comment="@${author} ${body}"
+            fi
             gh issue comment "$issue" --repo "$REPO" \
-              --body "@${author} ${body}"
+              --body "$comment"
           done <<< "$issues"
