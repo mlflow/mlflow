@@ -1,4 +1,3 @@
-import importlib.metadata
 import itertools
 import logging
 import os
@@ -8,7 +7,6 @@ from string import Formatter
 from typing import Any
 
 import yaml
-from packaging.version import Version
 
 import mlflow
 from mlflow import pyfunc
@@ -24,6 +22,7 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types import ColSpec, Schema, TensorSpec
+from mlflow.utils import get_installed_version
 from mlflow.utils.annotations import deprecated
 from mlflow.utils.databricks_utils import (
     check_databricks_secret_scope_access,
@@ -118,7 +117,8 @@ def _get_model_name(model):
     if isinstance(model, str):
         return model
 
-    if Version(_get_openai_package_version()).major < 1 and isinstance(model, openai.Model):
+    openai_version = get_installed_version("openai")
+    if openai_version is not None and openai_version.major < 1 and isinstance(model, openai.Model):
         return model.id
 
     raise mlflow.MlflowException(
@@ -178,8 +178,11 @@ def _get_api_config() -> _OpenAIApiConfig:
     )
 
 
-def _get_openai_package_version():
-    return importlib.metadata.version("openai")
+def _get_openai_package_version() -> str | None:
+    # Stringified for the saved model's flavor metadata. Returns None if openai has no parseable
+    # version (e.g. vendored on Databricks Serverless), rather than crashing model logging.
+    version = get_installed_version("openai")
+    return str(version) if version is not None else None
 
 
 def _log_secrets_yaml(local_model_dir, scope):
@@ -308,7 +311,8 @@ def save_model(
             path="model",
         )
     """
-    if Version(_get_openai_package_version()).major < 1:
+    openai_version = get_installed_version("openai")
+    if openai_version is not None and openai_version.major < 1:
         raise MlflowException("Only openai>=1.0 is supported.")
 
     import numpy as np
@@ -427,14 +431,15 @@ def save_model(
     # Save `requirements.txt`
     write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
 
-    _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
-
+    # Copy uv project files if configured
     if uv is not None:
-        from mlflow.utils.uv_utils import copy_uv_project_files
+        from mlflow.utils.uv_utils import copy_uv_project_files, resolve_uv_source_dir
 
-        source_dir = uv.resolve_project_dir()
-        if source_dir is not None:
-            copy_uv_project_files(path, source_dir)
+        uv_source = resolve_uv_source_dir(uv)
+        if uv_source is not None:
+            copy_uv_project_files(dest_dir=path, source_dir=uv_source)
+
+    _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
 
 
 @deprecated(

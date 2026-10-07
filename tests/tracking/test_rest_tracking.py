@@ -1452,7 +1452,7 @@ def test_get_metric_history_bulk_interval_respects_max_results(mlflow_client):
         params={"run_ids": [run_id1], "metric_key": "metricA", "max_results": 5},
     )
     assert response_limited.status_code == 200
-    expected_steps = [0, 2, 4, 6, 8, 9]
+    expected_steps = [0, 2, 4, 6, 9]
     expected_metrics = [
         {**metric, "run_id": run_id1}
         for metric in metric_history
@@ -1491,7 +1491,12 @@ def test_get_metric_history_bulk_interval_respects_max_results(mlflow_client):
             "max_results": 5,
         },
     )
-    expected_steps = [0, 4, 8, 9, 12, 16, 19]
+    # Each run is sampled independently to ~max_results points spanning its own full range
+    # (the final/maximum point is always preserved), so the two runs need not share steps.
+    expected_steps_by_run = {
+        run_id1: [0, 2, 4, 6, 9],
+        run_id2: [0, 4, 8, 12, 19],
+    }
     expected_metrics = []
     for run_id, metric_history in [
         (run_id1, metric_history),
@@ -1500,11 +1505,13 @@ def test_get_metric_history_bulk_interval_respects_max_results(mlflow_client):
         expected_metrics.extend([
             {**metric, "run_id": run_id}
             for metric in metric_history
-            if metric["step"] in expected_steps
+            if metric["step"] in expected_steps_by_run[run_id]
         ])
     assert response_limited.json().get("metrics") == expected_metrics
 
-    # test metrics with same steps
+    # Multiple values logged at the same step (here two timestamps per step) are sampled by row,
+    # not by step, so the response stays bounded by max_results instead of returning every row
+    # for each sampled step. The final (max-step, latest-timestamp) point is always preserved.
     metric_history_timestamp2 = [
         {"key": "metricA", "timestamp": 2, "step": i, "value": 10.0} for i in range(10)
     ]
@@ -1516,11 +1523,12 @@ def test_get_metric_history_bulk_interval_respects_max_results(mlflow_client):
         params={"run_ids": [run_id1], "metric_key": "metricA", "max_results": 5},
     )
     assert response_limited.status_code == 200
-    expected_steps = [0, 2, 4, 6, 8, 9]
     expected_metrics = [
-        {"key": "metricA", "timestamp": j, "step": i, "value": 10.0, "run_id": run_id1}
-        for i in expected_steps
-        for j in [1, 2]
+        {"key": "metricA", "timestamp": 1, "step": 0, "value": 10.0, "run_id": run_id1},
+        {"key": "metricA", "timestamp": 1, "step": 2, "value": 10.0, "run_id": run_id1},
+        {"key": "metricA", "timestamp": 1, "step": 4, "value": 10.0, "run_id": run_id1},
+        {"key": "metricA", "timestamp": 1, "step": 6, "value": 10.0, "run_id": run_id1},
+        {"key": "metricA", "timestamp": 2, "step": 9, "value": 10.0, "run_id": run_id1},
     ]
     assert response_limited.json().get("metrics") == expected_metrics
 
@@ -1655,7 +1663,7 @@ def test_create_model_version_with_non_local_source(mlflow_client):
         f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
         json={
             "name": name,
-            "source": "mlflow-artifacts:/models",
+            "source": "s3://bucket/models",
             "run_id": run.info.run_id,
         },
     )
@@ -1666,7 +1674,7 @@ def test_create_model_version_with_non_local_source(mlflow_client):
         f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
         json={
             "name": name,
-            "source": "mlflow-artifacts:/models/",
+            "source": "s3://bucket/models/",
             "run_id": run.info.run_id,
         },
     )
@@ -1677,7 +1685,7 @@ def test_create_model_version_with_non_local_source(mlflow_client):
         f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
         json={
             "name": name,
-            "source": "mlflow-artifacts:/models///",
+            "source": "s3://bucket/models///",
             "run_id": run.info.run_id,
         },
     )
@@ -1688,12 +1696,14 @@ def test_create_model_version_with_non_local_source(mlflow_client):
         f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
         json={
             "name": name,
-            "source": "mlflow-artifacts:/models/foo///bar",
+            "source": "s3://bucket/models/foo///bar",
             "run_id": run.info.run_id,
         },
     )
     assert response.status_code == 200
 
+    # A remote source on a host other than the server's own artifact storage is refused, since
+    # the server would connect to that host when serving the model version's artifacts.
     response = requests.post(
         f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
         json={
@@ -1702,7 +1712,8 @@ def test_create_model_version_with_non_local_source(mlflow_client):
             "run_id": run.info.run_id,
         },
     )
-    assert response.status_code == 200
+    assert response.status_code == 400
+    assert "'source' cannot use the 'mlflow-artifacts' scheme" in response.json()["message"]
 
     # Multiple dots
     response = requests.post(
@@ -1713,7 +1724,8 @@ def test_create_model_version_with_non_local_source(mlflow_client):
             "run_id": run.info.run_id,
         },
     )
-    assert response.status_code == 200
+    assert response.status_code == 400
+    assert "'source' cannot use the 'mlflow-artifacts' scheme" in response.json()["message"]
 
     # Test that invalid remote uri's cannot be created
     response = requests.post(
@@ -1725,7 +1737,7 @@ def test_create_model_version_with_non_local_source(mlflow_client):
         },
     )
     assert response.status_code == 400
-    assert "If supplying a source as an http, https," in response.json()["message"]
+    assert "'source' cannot use the 'mlflow-artifacts' scheme" in response.json()["message"]
 
     response = requests.post(
         f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
@@ -1736,7 +1748,7 @@ def test_create_model_version_with_non_local_source(mlflow_client):
         },
     )
     assert response.status_code == 400
-    assert "If supplying a source as an http, https," in response.json()["message"]
+    assert "'source' cannot use the 'http' scheme" in response.json()["message"]
 
     response = requests.post(
         f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
@@ -1747,7 +1759,7 @@ def test_create_model_version_with_non_local_source(mlflow_client):
         },
     )
     assert response.status_code == 400
-    assert "If supplying a source as an http, https," in response.json()["message"]
+    assert "'source' cannot use the 'https' scheme" in response.json()["message"]
 
     response = requests.post(
         f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
@@ -1769,7 +1781,7 @@ def test_create_model_version_with_non_local_source(mlflow_client):
         },
     )
     assert response.status_code == 400
-    assert "If supplying a source as an http, https," in response.json()["message"]
+    assert "'source' cannot use the 'ftp' scheme" in response.json()["message"]
 
     response = requests.post(
         f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
@@ -1780,7 +1792,7 @@ def test_create_model_version_with_non_local_source(mlflow_client):
         },
     )
     assert response.status_code == 400
-    assert "If supplying a source as an http, https," in response.json()["message"]
+    assert "'source' cannot use the 'mlflow-artifacts' scheme" in response.json()["message"]
 
     response = requests.post(
         f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
@@ -1791,7 +1803,7 @@ def test_create_model_version_with_non_local_source(mlflow_client):
         },
     )
     assert response.status_code == 400
-    assert "If supplying a source as an http, https," in response.json()["message"]
+    assert "'source' cannot use the 'mlflow-artifacts' scheme" in response.json()["message"]
 
     response = requests.post(
         f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
@@ -2526,7 +2538,7 @@ def test_get_run_and_experiment_graphql(mlflow_client):
     experiment_id = mlflow_client.create_experiment(name)
     created_run = mlflow_client.create_run(experiment_id)
     run_id = created_run.info.run_id
-    mlflow_client.create_model_version("GraphqlTest", "runs:/graphql_test/model", run_id)
+    mlflow_client.create_model_version("GraphqlTest", f"runs:/{run_id}/model", run_id)
     response = requests.post(
         f"{mlflow_client.tracking_uri}/graphql",
         json={

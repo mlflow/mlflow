@@ -1,3 +1,4 @@
+import json
 from unittest import mock
 
 import pytest
@@ -22,13 +23,17 @@ def _mock_workspace_client(host="https://my-workspace.databricks.com"):
     return client
 
 
-def _make_provider(*, host: str = "https://my-workspace.databricks.com") -> DatabricksProvider:
+def _make_provider(
+    *,
+    host: str = "https://my-workspace.databricks.com",
+    model_name: str = "databricks-dbrx-instruct",
+) -> DatabricksProvider:
     endpoint_config = EndpointConfig(
         name="databricks-endpoint",
         endpoint_type="llm/v1/chat",
         model={
             "provider": "databricks",
-            "name": "databricks-dbrx-instruct",
+            "name": model_name,
             "config": {"host": host, "token": "dapi-test-key"},
         },
     )
@@ -72,6 +77,37 @@ def _embeddings_response():
 def test_api_base_normalization():
     provider = _make_provider(host="https://my-workspace.databricks.com")
     assert provider._api_base == "https://my-workspace.databricks.com/serving-endpoints"
+
+
+@pytest.mark.parametrize(
+    ("model_name", "expected_base"),
+    [
+        # Serving endpoint names (simple, no dots) → /serving-endpoints
+        ("databricks-dbrx-instruct", "https://my-workspace.databricks.com/serving-endpoints"),
+        ("my-custom-endpoint", "https://my-workspace.databricks.com/serving-endpoints"),
+        # UC model service FQNs (three-level) → /ai-gateway/mlflow/v1
+        (
+            "catalog_ml.schema_ml.my-opus5",
+            "https://my-workspace.databricks.com/ai-gateway/mlflow/v1",
+        ),
+        ("system.ai.claude-haiku-4-5", "https://my-workspace.databricks.com/ai-gateway/mlflow/v1"),
+        (
+            "my_catalog.my_schema.my_model",
+            "https://my-workspace.databricks.com/ai-gateway/mlflow/v1",
+        ),
+    ],
+)
+def test_api_base_routes_uc_model_to_ai_gateway(model_name, expected_base):
+    provider = _make_provider(model_name=model_name)
+    assert provider._api_base == expected_base
+
+
+def test_get_endpoint_url_uc_model():
+    provider = _make_provider(model_name="catalog.schema.my-model")
+    assert (
+        provider.get_endpoint_url("llm/v1/chat")
+        == "https://my-workspace.databricks.com/ai-gateway/mlflow/v1/chat/completions"
+    )
 
 
 def test_headers_from_sdk():
@@ -164,6 +200,49 @@ async def test_chat():
     result = jsonable_encoder(response)
     assert result["id"] == "chatcmpl-db-123"
     assert result["choices"][0]["message"]["content"] == "Hello from Databricks!"
+
+
+def _chat_stream_chunk(content):
+    chunk = {
+        "id": "chatcmpl-db-123",
+        "object": "chat.completion.chunk",
+        "created": 1700000000,
+        "model": "databricks-gpt-oss-120b",
+        "choices": [{"index": 0, "delta": {"role": "assistant", "content": content}}],
+    }
+    return f"data: {json.dumps(chunk)}\n\n".encode()
+
+
+_REASONING_PART = {"type": "reasoning", "summary": [{"type": "summary_text", "text": "thinking"}]}
+_IMAGE_PART = {"type": "image_url", "image_url": {"url": "https://example.com/a.png"}}
+
+
+@pytest.mark.parametrize(
+    ("content", "expected"),
+    [
+        ([{"type": "text", "text": "hi"}], "hi"),
+        ([{"type": "text", "text": "Hello, "}, {"type": "text", "text": "world"}], "Hello, world"),
+        ([_REASONING_PART], None),
+        ([_REASONING_PART, {"type": "text", "text": "hi"}], "hi"),
+        ([_IMAGE_PART], None),
+        ([{"type": "text", "text": "hi"}, _IMAGE_PART], "hi"),
+    ],
+    ids=["text", "multi-text", "reasoning", "reasoning-then-text", "image", "text-and-image"],
+)
+@pytest.mark.asyncio
+async def test_chat_stream_normalizes_list_content(content, expected):
+    provider = _make_provider()
+    chunks = [_chat_stream_chunk(content), _chat_stream_chunk("!"), b"data: [DONE]\n\n"]
+    mock_client = mock_http_client(MockAsyncStreamingResponse(chunks))
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
+        payload = chat.RequestPayload(
+            messages=[{"role": "user", "content": "Hello"}],
+            stream=True,
+        )
+        responses = [jsonable_encoder(r) async for r in provider.chat_stream(payload)]
+
+    assert [r["choices"][0]["delta"]["content"] for r in responses] == [expected, "!"]
 
 
 @pytest.mark.asyncio

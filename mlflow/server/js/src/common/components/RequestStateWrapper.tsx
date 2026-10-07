@@ -15,14 +15,20 @@ import type { ReduxState } from '../../redux-types';
 
 export const DEFAULT_ERROR_MESSAGE = 'A request error occurred.';
 
+type RenderPropChildren = (
+  isLoading: boolean,
+  hasError: boolean,
+  requests: any[],
+  requestErrors: any[],
+) => React.ReactNode;
+
 type RequestStateWrapperProps = {
-  children?: React.ReactNode;
+  children?: React.ReactNode | RenderPropChildren;
   customSpinner?: React.ReactNode;
   shouldOptimisticallyRender?: boolean;
   requests: any[];
   requestIds?: string[];
   requestIdsWith404sToIgnore?: string[];
-  permissionDeniedView?: React.ReactNode;
   suppressErrorThrow?: boolean;
   customRequestErrorHandlerFn?: (
     failedRequests: {
@@ -78,20 +84,13 @@ export class RequestStateWrapper extends Component<RequestStateWrapperProps, Req
   }
 
   getRenderedContent() {
-    const { children, requests, customSpinner, permissionDeniedView, suppressErrorThrow, customRequestErrorHandlerFn } =
-      this.props;
+    const { children, requests, customSpinner, suppressErrorThrow, customRequestErrorHandlerFn } = this.props;
     // @ts-expect-error TS(2339): Property 'requestErrors' does not exist on type '{... Remove this comment to see the full error message
     const { shouldRender, shouldRenderError, requestErrors } = this.state;
-    const permissionDeniedErrors = requestErrors.filter((failedRequest: any) => {
-      return failedRequest.error.getErrorCode() === ErrorCodes.PERMISSION_DENIED;
-    });
 
     if (typeof children === 'function') {
-      return children(!shouldRender, shouldRenderError, requests, requestErrors);
+      return (children as RenderPropChildren)(!shouldRender, shouldRenderError, requests, requestErrors);
     } else if (shouldRender || shouldRenderError || this.props.shouldOptimisticallyRender) {
-      if (permissionDeniedErrors.length > 0 && permissionDeniedView) {
-        return permissionDeniedView;
-      }
       if (shouldRenderError && !suppressErrorThrow) {
         customRequestErrorHandlerFn ? customRequestErrorHandlerFn(requestErrors) : triggerError(requestErrors);
       }

@@ -326,6 +326,7 @@ export const ExperimentViewMetadataEditor = ({
             hasRetentionChanged,
             intl,
           }) ||
+            e?.renderHttpError?.() ||
             e?.message ||
             intl.formatMessage({
               defaultMessage: 'Failed to update experiment. Please try again.',

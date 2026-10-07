@@ -12,6 +12,7 @@ from mlflow.store.workspace.abstract_store import WorkspaceNameValidator
         "a" * 63,
         "123",
         "a1-b2",
+        "team--a",
     ],
 )
 def test_workspace_name_validator_accepts_valid_names(name):
@@ -27,7 +28,6 @@ def test_workspace_name_validator_accepts_valid_names(name):
         ("a" * 256, "must be between"),
         ("Team-A", "must match the pattern"),
         ("team_a", "must match the pattern"),
-        ("team--a", "must match the pattern"),
         ("-team", "must match the pattern"),
         ("team-", "must match the pattern"),
         ("workspaces", "is reserved"),

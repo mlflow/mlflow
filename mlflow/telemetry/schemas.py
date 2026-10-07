@@ -55,6 +55,19 @@ class Environment(str, Enum):
     DEMO = "demo"
 
 
+class CodingAgent(str, Enum):
+    CLAUDE_CODE = "claude-code"
+    CLINE = "cline"
+    CODEX = "codex"
+    COPILOT_CLI = "copilot-cli"
+    CURSOR = "cursor"
+    CURSOR_CLI = "cursor-cli"
+    GEMINI_CLI = "gemini-cli"
+    KIRO = "kiro"
+    OPENCODE = "opencode"
+    PI = "pi"
+
+
 # The following env vars were found by manually inspecting
 # env vars in the specified environments and avoiding potentially
 # PII-containing variables.
@@ -98,6 +111,7 @@ class TelemetryInfo:
     )
     operating_system: str = platform.platform()
     environment: str | None = None
+    coding_agent: str | None = None
     tracking_uri_scheme: str | None = None
     is_localhost: bool | None = None
     installation_id: str | None = None

@@ -185,6 +185,26 @@ def test_log_artifact(
         mock_abort.assert_called_once()
 
 
+def test_log_artifact_skips_size_check_when_multipart_disabled(http_artifact_repo, tmp_path):
+    file_path = tmp_path.joinpath("small.txt")
+    file_path.write_text("0")
+
+    with (
+        mock.patch.object(http_artifact_repo, "_is_multipart_upload_enabled", return_value=False),
+        mock.patch(
+            "mlflow.store.artifact.http_artifact_repo.os.path.getsize",
+            side_effect=AssertionError("getsize should not be called"),
+        ),
+        mock.patch(
+            "mlflow.store.artifact.http_artifact_repo.http_request",
+            return_value=MockResponse({}, 200),
+        ) as mock_put,
+    ):
+        http_artifact_repo.log_artifact(file_path)
+
+    mock_put.assert_called_once()
+
+
 @pytest.mark.parametrize(
     ("ignore_tls", "expected_verify"),
     [
@@ -746,6 +766,35 @@ def test_multipart_download_creates_chunks(http_artifact_repo, tmp_path, monkeyp
     assert sorted_calls[0] == (0, 99)
     assert sorted_calls[1] == (100, 199)
     assert sorted_calls[2] == (200, 249)
+
+
+@pytest.mark.parametrize(
+    ("ignore_tls", "expected_verify"),
+    [
+        (None, True),
+        ("true", False),
+        ("false", True),
+    ],
+)
+def test_multipart_download_honors_s3_ignore_tls(
+    http_artifact_repo, tmp_path, monkeypatch, ignore_tls, expected_verify
+):
+    if ignore_tls is not None:
+        monkeypatch.setenv("MLFLOW_S3_IGNORE_TLS", ignore_tls)
+    presigned_response = PresignedDownloadUrlResponse(
+        url="https://s3.amazonaws.com/bucket/large_file.bin", headers={}, file_size=100
+    )
+    with mock.patch("mlflow.store.artifact.http_artifact_repo.download_chunk") as mock_download:
+        file_path = tmp_path / "large_file.bin"
+        http_artifact_repo._multipart_download(
+            presigned_response=presigned_response,
+            remote_file_path="large_file.bin",
+            local_path=str(file_path),
+            file_size=100,
+            chunk_size=100,
+        )
+    mock_download.assert_called_once()
+    assert mock_download.call_args.kwargs.get("verify") is expected_verify
 
 
 def test_get_presigned_download_url(http_artifact_repo):

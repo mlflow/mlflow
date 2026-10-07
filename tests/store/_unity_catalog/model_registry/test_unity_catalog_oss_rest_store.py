@@ -3,7 +3,7 @@ from unittest import mock
 
 import pytest
 
-from mlflow.protos.unity_catalog_oss_messages_pb2 import (
+from mlflow.protos.unity_catalog_messages_pb2 import (
     AwsCredentials,
     CreateRegisteredModel,
     DeleteModelVersion,

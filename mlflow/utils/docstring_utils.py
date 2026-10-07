@@ -220,15 +220,6 @@ section of the model's conda environment (``conda.yaml``) file.
 `This example <https://github.com/mlflow/mlflow/blob/master/examples/pip_requirements/pip_requirements.py>`_ demonstrates how to specify pip requirements using
 ``pip_requirements`` and ``extra_pip_requirements``."""  # noqa: E501
     ),
-    "uv": (
-        """An optional :class:`~mlflow.utils.uv_utils.UvConfig` instance describing a
-uv project to use when capturing dependencies. When provided, MLflow runs
-``uv export`` against the specified project, uses the resulting lockfile-pinned
-requirements instead of package-capture inference, and logs
-``uv.lock``/``pyproject.toml`` alongside the model so the environment can be
-reproduced deterministically with ``uv sync``. If ``None``, standard pip-based
-requirement inference is used."""
-    ),
     "signature": (
         """an instance of the :py:class:`ModelSignature <mlflow.models.ModelSignature>`
 class that describes the model's inputs and outputs. If not specified but an
@@ -457,6 +448,30 @@ navigate to the model as well.
 
     # Load the prompt
     prompt = mlflow.genai.load_prompt(model_info.prompts[0])
+""",
+    "uv": """An instance of :py:class:`~mlflow.utils.uv_utils.UvConfig` that configures
+        uv-based dependency export. When provided, MLflow uses ``uv export`` to generate
+        pinned requirements from a uv lockfile instead of inferring dependencies by
+        capturing imported packages during model inference.
+
+        Example::
+
+            from mlflow.utils.uv_utils import UvConfig
+
+            mlflow.pyfunc.log_model(
+                name="model",
+                python_model=my_model,
+                uv=UvConfig(
+                    project_path="/path/to/project",
+                    groups=["serving"],
+                ),
+            )
+
+        If ``None`` (default), MLflow auto-detects uv projects from the current working
+        directory when ``MLFLOW_UV_AUTO_DETECT`` is enabled (default: true).
+
+        .. Note:: Experimental: This parameter may change or be removed in a future
+                                release without warning.
 """,
 })
 

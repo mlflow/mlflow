@@ -115,6 +115,85 @@ MLFLOW_WORKSPACE_STORE_URI = _EnvironmentVariable("MLFLOW_WORKSPACE_STORE_URI", 
 #: (default: ``False``)
 MLFLOW_ENABLE_WORKSPACES = _BooleanEnvironmentVariable("MLFLOW_ENABLE_WORKSPACES", False)
 
+#: Enables AI Gateway endpoints and UI.
+#: (default: ``True``)
+MLFLOW_ENABLE_AI_GATEWAY = _BooleanEnvironmentVariable("MLFLOW_ENABLE_AI_GATEWAY", True)
+
+#: **Experimental** — subject to change or removal in a future release.
+#: Controls whether the MLflow Assistant API is reachable from non-localhost clients. When true,
+#: the server runs the work the assistant would otherwise run on the host — the ``Bash`` tool and
+#: the coding-agent CLI providers — inside a hardened Docker container instead (automatically,
+#: when a ``docker`` executable is available), so those providers can serve remote clients without
+#: executing on the host. When false (the default) the assistant is localhost-only and runs that
+#: work in a host subprocess, exactly as before.
+#: (default: ``False``)
+MLFLOW_ENABLE_REMOTE_ASSISTANT = _BooleanEnvironmentVariable(
+    "MLFLOW_ENABLE_REMOTE_ASSISTANT", False
+)
+
+#: **Experimental** — subject to change or removal in a future release.
+#: Override for whether the assistant runs its work (the ``Bash`` tool and the coding-agent CLI
+#: providers) inside a Docker sandbox. Tri-state:
+#:
+#: - unset (the default): derive it from the deployment — sandbox when the assistant is in remote
+#:   mode (``MLFLOW_ENABLE_REMOTE_ASSISTANT``) and a ``docker`` executable is available.
+#: - ``true``: force the sandbox on (a turn fails at container start if Docker is unavailable).
+#: - ``false``: force it off — run that work in a host subprocess even in remote mode, letting an
+#:   operator opt out of sandboxing.
+#:
+#: (default: unset)
+MLFLOW_ENABLE_ASSISTANT_SANDBOX = _BooleanEnvironmentVariable(
+    "MLFLOW_ENABLE_ASSISTANT_SANDBOX", None
+)
+
+#: **Experimental** — subject to change or removal in a future release.
+#: Docker image used for server-side sandboxed execution (e.g. the assistant ``Bash`` sandbox).
+#: The image must have Python and MLflow installed. If the image is not present locally, a
+#: minimal one is built on first use.
+#: (default: ``mlflow-sandbox:latest``)
+MLFLOW_SANDBOX_DOCKER_IMAGE = _EnvironmentVariable(
+    "MLFLOW_SANDBOX_DOCKER_IMAGE", str, "mlflow-sandbox:latest"
+)
+
+#: **Experimental** — subject to change or removal in a future release.
+#: Docker image used to run the MLflow Assistant's CLI providers (e.g. Claude Code) in a
+#: sandbox. Unlike ``MLFLOW_SANDBOX_DOCKER_IMAGE``, this image must additionally contain the
+#: provider CLI and its language runtime. Operators are expected to build/provide this image;
+#: there is no minimal auto-built fallback for it.
+#: (default: ``mlflow-assistant-sandbox:latest``)
+MLFLOW_ASSISTANT_SANDBOX_CLI_IMAGE = _EnvironmentVariable(
+    "MLFLOW_ASSISTANT_SANDBOX_CLI_IMAGE", str, "mlflow-assistant-sandbox:latest"
+)
+
+#: Internal. A per-server-boot identifier set by the server on startup and inherited by all of
+#: its worker processes. Sandbox containers are labeled with it so startup cleanup can remove
+#: only containers left by a *previous* server generation, never one a sibling worker in the
+#: current generation just launched. Not intended to be set by users.
+_MLFLOW_SERVER_BOOT_ID = _EnvironmentVariable("_MLFLOW_SERVER_BOOT_ID", str, None)
+
+#: Internal. Set by ``mlflow server --app-name basic-auth`` for its worker processes once the
+#: admin user has been bootstrapped in the CLI process, so each worker skips the redundant
+#: bootstrap and legacy-password checks (each one a PBKDF2 hash comparison against the primary
+#: database). Not intended to be set by users.
+_MLFLOW_AUTH_ADMIN_BOOTSTRAPPED = _BooleanEnvironmentVariable(
+    "_MLFLOW_AUTH_ADMIN_BOOTSTRAPPED", False
+)
+
+#: **Experimental** — subject to change or removal in a future release.
+#: URL of an outbound proxy for sandbox container egress (e.g. ``http://proxy.internal:3128``).
+#: When set, it is injected as ``HTTP_PROXY``/``HTTPS_PROXY`` into every sandbox container, with
+#: only the fixed self-host bypass list (``host.docker.internal`` + loopback) excluded via
+#: ``NO_PROXY`` so a co-located tracking server stays reachable. A remote tracking host is NOT
+#: auto-exempted — it must be allowlisted in the proxy itself. Point this at a proxy that
+#: allowlists only the destinations the sandbox needs (e.g. the model provider API) to steer
+#: egress through an operator-controlled chokepoint. Note this only shapes egress
+#: from *cooperative* HTTP clients that honor the proxy env; it is not a hard boundary, since the
+#: container still has network access and code that ignores the proxy env or opens raw sockets
+#: can reach other hosts. Pair it with host-level firewalling for a true egress boundary. When
+#: unset, sandbox containers have unrestricted egress.
+#: (default: ``None``)
+MLFLOW_SANDBOX_EGRESS_PROXY = _EnvironmentVariable("MLFLOW_SANDBOX_EGRESS_PROXY", str, None)
+
 #: When true, newly created workspaces are seeded with two default RBAC roles
 #: (``admin``, ``user``) that super-admins can assign to other
 #: users. ``CreateWorkspace`` is gated to super-admins, whose ``is_admin`` flag already
@@ -470,6 +549,22 @@ MLFLOW_EXPERIMENT_NAME = _EnvironmentVariable("MLFLOW_EXPERIMENT_NAME", str, Non
 #: (default: ``None``)
 MLFLOW_AUTH_CONFIG_PATH = _EnvironmentVariable("MLFLOW_AUTH_CONFIG_PATH", str, None)
 
+#: Specifies the username of the admin user that MLflow Authentication creates the first time
+#: it starts against an empty user store. Takes precedence over ``admin_username`` in the
+#: authentication configuration file.
+#: (default: ``None``)
+MLFLOW_AUTH_ADMIN_USERNAME = _EnvironmentVariable("MLFLOW_AUTH_ADMIN_USERNAME", str, None)
+
+#: Specifies the password of the admin user that MLflow Authentication creates the first time
+#: it starts against an empty user store. Takes precedence over ``admin_password`` in the
+#: authentication configuration file. MLflow ships no default admin password, so this variable
+#: (or ``admin_password`` in the configuration file) must be set before the admin user exists.
+#: On upgraded deployments whose admin user still has the legacy default password
+#: ``password1234`` (https://github.com/advisories/GHSA-gq3w-7jj3-x7gr), which the server no
+#: longer accepts, it is also used once at startup to replace that password.
+#: (default: ``None``)
+MLFLOW_AUTH_ADMIN_PASSWORD = _EnvironmentVariable("MLFLOW_AUTH_ADMIN_PASSWORD", str, None)
+
 #: Specifies and takes precedence for setting the UC OSS basic/bearer auth on http requests.
 #: (default: ``None``)
 MLFLOW_UC_OSS_TOKEN = _EnvironmentVariable("MLFLOW_UC_OSS_TOKEN", str, None)
@@ -490,6 +585,16 @@ MLFLOW_ENABLE_DBFS_FUSE_ARTIFACT_REPO = _BooleanEnvironmentVariable(
 #: (default: ``True``)
 MLFLOW_ENABLE_UC_VOLUME_FUSE_ARTIFACT_REPO = _BooleanEnvironmentVariable(
     "MLFLOW_ENABLE_UC_VOLUME_FUSE_ARTIFACT_REPO", True
+)
+
+#: Specifies whether to route Unity Catalog model-registry calls to the native
+#: ``/api/2.1/unity-catalog/*`` endpoints. When ``True``, the ``databricks-uc`` scheme instantiates
+#: the native store that issues requests against the native surface; when ``False`` (default), the
+#: legacy store using the ``/api/2.0/mlflow/unity-catalog/*`` endpoints is used. This is a static
+#: per-process choice read when the store is constructed, not an adaptive runtime fallback.
+#: (default: ``False``)
+MLFLOW_ENABLE_UC_NATIVE_MODEL_REGISTRY = _BooleanEnvironmentVariable(
+    "MLFLOW_ENABLE_UC_NATIVE_MODEL_REGISTRY", False
 )
 
 #: Private environment variable that should be set to ``True`` when running autologging tests.
@@ -613,6 +718,17 @@ MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE = _EnvironmentVariable(
 #: (default: ``True``)
 MLFLOW_ALLOW_HTTP_REDIRECTS = _BooleanEnvironmentVariable("MLFLOW_ALLOW_HTTP_REDIRECTS", True)
 
+#: Specifies whether client-side MCP tool auto-discovery is enabled.
+#: When ``True`` (default), omitting ``tools`` on MCP server version create
+#: allows Python client helpers to best-effort scrape the first usable
+#: ``server_json.remotes[]`` URL via ``mlflow[mcp]`` before sending the create
+#: request. When ``False``, omitted ``tools`` are sent/stored as null unless
+#: the caller provides an explicit tools value.
+#: (default: ``True``)
+MLFLOW_ENABLE_MCP_TOOL_DISCOVERY = _BooleanEnvironmentVariable(
+    "MLFLOW_ENABLE_MCP_TOOL_DISCOVERY", True
+)
+
 #: Timeout for a SINGLE HTTP request to a deployment endpoint (in seconds).
 #: This controls how long ONE individual predict/predict_stream request can take before timing out.
 #: If your model inference takes longer than this (e.g., long-running agent queries that take
@@ -682,6 +798,15 @@ MLFLOW_GATEWAY_BUDGET_REDIS_URL = _EnvironmentVariable("MLFLOW_GATEWAY_BUDGET_RE
 #: (default: ``None`` — all providers are allowed)
 MLFLOW_GATEWAY_ALLOWED_PROVIDERS = _EnvironmentVariable(
     "MLFLOW_GATEWAY_ALLOWED_PROVIDERS", str, None
+)
+
+#: Maximum size in bytes of an AI Gateway request body after decompression.
+#: Requests whose decompressed body exceeds this limit are rejected with HTTP 413.
+#: This bounds the memory a compressed request can consume, since a small compressed
+#: body can expand by several orders of magnitude.
+#: (default: ``104857600`` — 100 MB)
+MLFLOW_GATEWAY_MAX_DECOMPRESSED_REQUEST_SIZE = _EnvironmentVariable(
+    "MLFLOW_GATEWAY_MAX_DECOMPRESSED_REQUEST_SIZE", int, 100 * 1024 * 1024
 )
 
 #: If True, MLflow fluent logging APIs, e.g., `mlflow.log_metric` will log asynchronously.
@@ -780,7 +905,7 @@ _MLFLOW_EVALUATE_SUPPRESS_CLASSIFICATION_ERRORS = _BooleanEnvironmentVariable(
     "_MLFLOW_EVALUATE_SUPPRESS_CLASSIFICATION_ERRORS", False
 )
 
-#: Maximum number of workers to use for running model prediction and scoring during
+#: Maximum number of workers to use for running model prediction and scoring
 #: for each row in the dataset passed to the `mlflow.genai.evaluate` function.
 #: (default: ``10``)
 MLFLOW_GENAI_EVAL_MAX_WORKERS = _EnvironmentVariable("MLFLOW_GENAI_EVAL_MAX_WORKERS", int, 10)
@@ -845,6 +970,13 @@ MLFLOW_GENAI_OPTIMIZE_MAX_WORKERS = _EnvironmentVariable(
 MLFLOW_GENAI_JUDGE_DEFAULT_MODEL = _EnvironmentVariable(
     "MLFLOW_GENAI_JUDGE_DEFAULT_MODEL", str, None
 )
+
+#: Base URL for the judge model endpoint used by the ``sap-ai-core:/`` provider.
+#: Supports both ``http://`` (for egress-gateway routing) and ``https://``.
+#: Aligns with the ``base_url`` parameter on ``mlflow.genai.make_judge``.
+#: Example: ``http://egress-gw.cluster.local/v2/inference/deployments/<id>/chat/completions``
+#: Required when using ``sap-ai-core:/<model>`` as the judge model URI. (default: unset)
+MLFLOW_GENAI_JUDGE_BASE_URL = _EnvironmentVariable("MLFLOW_GENAI_JUDGE_BASE_URL", str, None)
 
 
 #: Skip trace validation during GenAI evaluation. By default (False), MLflow will validate if
@@ -926,6 +1058,25 @@ MLFLOW_ENABLE_OTLP_EXPORTER = _BooleanEnvironmentVariable("MLFLOW_ENABLE_OTLP_EX
 #: (default: ``True``)
 MLFLOW_USE_DEFAULT_TRACER_PROVIDER = _BooleanEnvironmentVariable(
     "MLFLOW_USE_DEFAULT_TRACER_PROVIDER", True
+)
+
+#: When ``True`` (and MLflow is in isolated tracer provider mode, i.e.
+#: ``MLFLOW_USE_DEFAULT_TRACER_PROVIDER=True``), MLflow also propagates its active span into the
+#: process-global OpenTelemetry context. This lets pure-OpenTelemetry libraries (e.g.
+#: strands-agents, LangChain, LlamaIndex) that read the global OTel context via
+#: ``opentelemetry.trace.get_current_span()`` nest their spans under an MLflow span created with
+#: ``@mlflow.trace`` or ``mlflow.start_span()``.
+#:
+#: .. warning::
+#:     Enabling this makes MLflow's active span visible to *all* OpenTelemetry instrumentation
+#:     in the process (e.g. FastAPI, ``requests``), which reduces the isolation that isolated
+#:     tracer provider mode normally provides. Leave this disabled unless you need pure-OTel
+#:     libraries to nest under MLflow spans. It has no effect in unified mode
+#:     (``MLFLOW_USE_DEFAULT_TRACER_PROVIDER=False``), where the global context is used already.
+#:
+#: (default: ``False``)
+MLFLOW_TRACE_PROPAGATE_TO_OTEL_CONTEXT = _BooleanEnvironmentVariable(
+    "MLFLOW_TRACE_PROPAGATE_TO_OTEL_CONTEXT", False
 )
 
 #: When set to ``True``, MLflow uses a private ``random.Random`` instance for trace/span ID
@@ -1113,6 +1264,11 @@ MLFLOW_SERVER_DISABLE_SECURITY_MIDDLEWARE = _EnvironmentVariable(
 MLFLOW_SERVER_X_FRAME_OPTIONS = _EnvironmentVariable(
     "MLFLOW_SERVER_X_FRAME_OPTIONS", str, "SAMEORIGIN"
 )
+
+#: Deny (403) authenticated requests to routes with no authorization decision in the
+#: built-in basic-auth app (fail-closed). On by default; set to ``False`` to restore the
+#: previous fail-open behavior. (default: ``True``)
+MLFLOW_BASIC_AUTH_FAIL_CLOSED = _BooleanEnvironmentVariable("MLFLOW_BASIC_AUTH_FAIL_CLOSED", True)
 
 #: Specifies the max length (in chars) of an experiment's artifact location.
 #: The default is 2048.
@@ -1351,6 +1507,11 @@ MLFLOW_SERVER_GRAPHQL_MAX_ALIASES = _EnvironmentVariable(
 #: (default: ``False``)
 MLFLOW_DISABLE_SCHEMA_DETAILS = _BooleanEnvironmentVariable("MLFLOW_DISABLE_SCHEMA_DETAILS", False)
 
+#: Disable the hint that points a coding agent at the MLflow tracing skill on
+#: ``import mlflow``. The hint is only ever emitted when a coding agent is detected.
+#: (default: ``False``)
+MLFLOW_DISABLE_AGENT_HINT = _BooleanEnvironmentVariable("MLFLOW_DISABLE_AGENT_HINT", False)
+
 
 def _split_strip(s: str) -> list[str]:
     return [s.strip() for s in s.split(",")]
@@ -1362,6 +1523,53 @@ _MLFLOW_WEBHOOK_ALLOWED_SCHEMES = _EnvironmentVariable(
     "MLFLOW_WEBHOOK_ALLOWED_SCHEMES", _split_strip, ["https"]
 )
 
+
+#: Allowed schemes for icon URLs.
+#: Defaults to ``https``. Set to ``http,https`` for local development.
+MLFLOW_ICON_URL_ALLOWED_SCHEMES = _EnvironmentVariable(
+    "MLFLOW_ICON_URL_ALLOWED_SCHEMES", _split_strip, ["https"]
+)
+
+#: Whether to allow icon URLs that target private or loopback hosts.
+#: Intended for local development and testing only.
+MLFLOW_ICON_URL_ALLOW_PRIVATE_IPS = _BooleanEnvironmentVariable(
+    "MLFLOW_ICON_URL_ALLOW_PRIVATE_IPS", False
+)
+
+#: Optional allowlist of domains that icon URLs may target.
+#: Supports exact hosts and wildcard patterns like ``*.example.com``.
+#: When unset, icon URLs may use any public host allowed by the scheme/private-IP
+#: policy.
+MLFLOW_ICON_URL_ALLOWED_DOMAINS = _EnvironmentVariable(
+    "MLFLOW_ICON_URL_ALLOWED_DOMAINS", _split_strip, None
+)
+
+#: Allowed URL schemes for an AI Gateway secret's ``api_base``. Set to ``http,https`` to
+#: allow plaintext upstreams. (default: ``https``)
+MLFLOW_GATEWAY_API_BASE_ALLOWED_SCHEMES = _EnvironmentVariable(
+    "MLFLOW_GATEWAY_API_BASE_ALLOWED_SCHEMES", _split_strip, ["https"]
+)
+
+#: Host-addressed artifact URI schemes (``ftp``, ``sftp``, ``hdfs``, ``viewfs``, ``http``,
+#: ``https``, ``mlflow-artifacts``, ``r2``, ``b2``, ``abfss``) that the tracking server connects
+#: to even when the URI points at a host other than the server's ``--default-artifact-root`` or
+#: ``--artifacts-destination``. The artifact repositories for these schemes connect to the host
+#: named in the URI, so inside a server process (and its job subprocesses) locations on other
+#: hosts are rejected, both when a client submits them and when a stored location is used.
+#: Locations on the server's own storage hosts are always accepted. Set to e.g. ``hdfs`` or
+#: ``http,https`` when clients legitimately store artifacts on another host. (default: none)
+MLFLOW_ALLOWED_HOST_ADDRESSED_ARTIFACT_SCHEMES = _EnvironmentVariable(
+    "MLFLOW_ALLOWED_HOST_ADDRESSED_ARTIFACT_SCHEMES", _split_strip, []
+)
+
+#: Whether an AI Gateway secret's ``api_base`` may target private, loopback or link-local
+#: addresses (e.g. cloud metadata at ``169.254.169.254``). When false, such values are
+#: rejected on write and again at connect time, on the raw proxy route as well. Set to true
+#: for private upstreams such as in-cluster vLLM or Private Link endpoints.
+#: (default: ``False``)
+MLFLOW_GATEWAY_API_BASE_ALLOW_PRIVATE_IPS = _BooleanEnvironmentVariable(
+    "MLFLOW_GATEWAY_API_BASE_ALLOW_PRIVATE_IPS", False
+)
 
 #: Specifies the secret key used to encrypt webhook secrets in MLflow.
 MLFLOW_WEBHOOK_SECRET_ENCRYPTION_KEY = _EnvironmentVariable(
@@ -1417,6 +1625,15 @@ _MLFLOW_TELEMETRY_SESSION_ID = _EnvironmentVariable("_MLFLOW_TELEMETRY_SESSION_I
 #: (default: ``False``)
 _MLFLOW_TELEMETRY_LOGGING = _BooleanEnvironmentVariable("_MLFLOW_TELEMETRY_LOGGING", False)
 
+
+#: Internal flag to import the Databricks SDK at ``import mlflow`` time inside Databricks, so
+#: the telemetry consumer thread never performs a first-time import of it. Set to ``false`` to
+#: opt out. Must be set before ``import mlflow`` to take effect.
+#: (default: ``True``)
+_MLFLOW_TELEMETRY_PRE_WARM_DATABRICKS_SDK = _BooleanEnvironmentVariable(
+    "_MLFLOW_TELEMETRY_PRE_WARM_DATABRICKS_SDK", True
+)
+
 #: Internal environment variable to indicate which SGI is being used,
 #: e.g. "uvicorn" or "gunicorn".
 #: This should never be set by users or explicitly.
@@ -1436,6 +1653,27 @@ MLFLOW_ENFORCE_STDIN_SCORING_SERVER_FOR_SPARK_UDF = _BooleanEnvironmentVariable(
 #: (default: ``True``)
 MLFLOW_SERVER_ENABLE_JOB_EXECUTION = _BooleanEnvironmentVariable(
     "MLFLOW_SERVER_ENABLE_JOB_EXECUTION", True
+)
+
+#: Specifies whether to run periodic MLflow server jobs from this instance.
+#: In a multi-replica deployment, enable this on only one instance to avoid duplicate scheduling.
+#: (default: ``True``)
+MLFLOW_SERVER_JOB_ENABLE_PERIODIC_TASKS = _BooleanEnvironmentVariable(
+    "MLFLOW_SERVER_JOB_ENABLE_PERIODIC_TASKS", True
+)
+
+#: Specifies an optional Redis URL for MLflow server job execution.
+#: When set, MLflow uses Redis-backed Huey storage instead of local SQLite files.
+#: (default: ``None``)
+MLFLOW_SERVER_JOB_HUEY_REDIS_URL = _EnvironmentVariable(
+    "MLFLOW_SERVER_JOB_HUEY_REDIS_URL", str, None
+)
+
+#: Specifies whether to flush stale periodic-task locks when the consumer starts.
+#: If unset, this defaults to ``True`` for SQLite and ``False`` for Redis.
+#: (default: ``None``)
+MLFLOW_SERVER_JOB_FLUSH_PERIODIC_LOCKS_ON_STARTUP = _BooleanEnvironmentVariable(
+    "MLFLOW_SERVER_JOB_FLUSH_PERIODIC_LOCKS_ON_STARTUP", None
 )
 
 #: Specifies MLflow server job maximum allowed retries for transient errors.
@@ -1464,6 +1702,35 @@ MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_MAX_DELAY = _EnvironmentVariable(
 #: (default: ``None``)
 MLFLOW_TRACE_ARCHIVAL_CONFIG = _EnvironmentVariable("MLFLOW_TRACE_ARCHIVAL_CONFIG", str, None)
 
+#: Enables opt-in SQL daily rollups for trace analytics. When ``true``, the query planner serves
+#: eligible daily aggregate requests from precomputed rollup tables, falling back to the raw path
+#: for any day that is not covered. When ``false`` (the default), all trace analytics queries use
+#: the raw path. Before disabling an active deployment, remove existing derived rows with
+#: ``mlflow db delete-trace-rollups``.
+#: (default: ``False``)
+MLFLOW_SQL_TRACE_ROLLUPS_ENABLED = _BooleanEnvironmentVariable(
+    "MLFLOW_SQL_TRACE_ROLLUPS_ENABLED", False
+)
+
+#: Five-field UTC cron expression for the server-owned SQL trace rollup scheduler.
+#: (default: ``"0 2 * * *"``)
+MLFLOW_TRACE_ROLLUPS_SCHEDULE = _EnvironmentVariable(
+    "MLFLOW_TRACE_ROLLUPS_SCHEDULE", str, "0 2 * * *"
+)
+
+#: Caps the number of ``(experiment_id, rollup_day, family)`` partitions successfully built or
+#: emptied in one maintenance pass. Deferred partitions (for example, partitions with active traces
+#: that are not yet eligible) do not consume this publication budget.
+#: (default: ``1000``)
+MLFLOW_TRACE_ROLLUPS_MAX_PARTITIONS_PER_RUN = _EnvironmentVariable(
+    "MLFLOW_TRACE_ROLLUPS_MAX_PARTITIONS_PER_RUN", int, 1000
+)
+
+#: Maximum number of distinct SQL trace rollup partitions maintained concurrently in a single
+#: maintenance pass. SQLite always uses one worker because it permits only one concurrent writer.
+#: (default: ``4``)
+MLFLOW_TRACE_ROLLUPS_MAX_WORKERS = _EnvironmentVariable("MLFLOW_TRACE_ROLLUPS_MAX_WORKERS", int, 4)
+
 #: Specifies the maximum number of workers for async judge invocation jobs.
 #: (default: ``10``)
 MLFLOW_SERVER_JUDGE_INVOKE_MAX_WORKERS = _EnvironmentVariable(
@@ -1488,12 +1755,81 @@ MLFLOW_ONLINE_SCORING_DEFAULT_SESSION_COMPLETION_BUFFER_SECONDS = _EnvironmentVa
     "MLFLOW_ONLINE_SCORING_DEFAULT_SESSION_COMPLETION_BUFFER_SECONDS", int, 5 * 60
 )
 
+#: Default buffer time in seconds applied to the trace scoring window's upper bound.
+#: Traces that started within this buffer period before the current time are excluded from
+#: the scoring window, giving them time to finish before being evaluated. The buffer should
+#: exceed the expected trace duration; traces that remain IN_PROGRESS longer can still be skipped.
+#: (default: ``300`` (5 minutes))
+MLFLOW_ONLINE_SCORING_DEFAULT_TRACE_COMPLETION_BUFFER_SECONDS = _EnvironmentVariable(
+    "MLFLOW_ONLINE_SCORING_DEFAULT_TRACE_COMPLETION_BUFFER_SECONDS", int, 5 * 60
+)
+
 
 #: Specifies the maximum number of completion iterations allowed when invoking
 #: judge models. This prevents infinite loops in case of complex traces or
 #: issues with the judge's reasoning.
 #: (default: ``30``)
 MLFLOW_JUDGE_MAX_ITERATIONS = _EnvironmentVariable("MLFLOW_JUDGE_MAX_ITERATIONS", int, 30)
+
+#: Specifies the default job executor backend name.
+#: (default: ``"local"``)
+MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND = _EnvironmentVariable(
+    "MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND", str, "local"
+)
+
+#: Executor backend used for custom scorer jobs. This is forward-looking configuration for
+#: per-job dispatch: until the runner dispatches jobs per backend, this must equal
+#: ``MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND`` (or be left unset). Setting it to a different backend
+#: does not route jobs there yet; it causes custom scorer job submissions to be rejected.
+#: Validated at startup. Note this only selects *where* a custom scorer would run -- running one
+#: at all still requires ``MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS`` to be enabled (it is off by
+#: default), otherwise custom scorer jobs are rejected regardless of this backend.
+#: (default: unset, i.e. the default backend)
+MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND = _EnvironmentVariable(
+    "MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND", str, None
+)
+
+#: Whether the server may run custom scorers defined with the ``@scorer`` decorator. A custom
+#: scorer carries its function source in its serialized form, and that source is executed (via
+#: ``exec()``) on the tracking server when the scorer is deserialized to run — i.e. it runs
+#: arbitrary user-provided code in the server process. This is off by default: the server does
+#: not yet run that code inside an isolation boundary, so custom scorer jobs are rejected unless
+#: an operator who explicitly accepts that trust boundary sets this to ``True``.
+#: (default: ``False``)
+MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS = _BooleanEnvironmentVariable(
+    "MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS", False
+)
+
+#: Internal marker set only inside a job-executor subprocess while it deserializes a scorer, so
+#: that reconstructing a custom ``@scorer`` (which executes its stored source via ``exec()``) is
+#: confined to the executor. The tracking server process never sets it, so the server deserializes
+#: custom scorers as non-executing metadata only and never runs their code. Not intended to be set
+#: by users. (default: ``False``)
+_MLFLOW_IN_JOB_EXECUTOR = _BooleanEnvironmentVariable("_MLFLOW_IN_JOB_EXECUTOR", False)
+
+#: Opt-in switch for the executor job-execution engine. Leave unset to use the default engine
+#: (currently the built-in Huey consumers); set to ``"executor"`` to route job execution through
+#: the ``AbstractJobExecutor`` framework (``LocalJobExecutor`` by default). It is intentionally
+#: not settable to ``"huey"`` — unset it to use the default. Periodic tasks always run on Huey
+#: regardless of this setting. The executor engine currently supports only single-replica MLflow
+#: deployments; overlapping rolling restarts are also unsupported. Multi-replica coordination will
+#: be supported after scheduler leadership and stale-lease recovery are implemented.
+#: (default: unset, i.e. the default engine)
+MLFLOW_SERVER_JOB_EXECUTION_ENGINE = _EnvironmentVariable(
+    "MLFLOW_SERVER_JOB_EXECUTION_ENGINE", str, None
+)
+
+#: Default timeout in seconds applied by the executor framework when a job
+#: submission does not specify one explicitly.
+#: (default: ``3600.0``)
+MLFLOW_SERVER_JOB_DEFAULT_TIMEOUT = _EnvironmentVariable(
+    "MLFLOW_SERVER_JOB_DEFAULT_TIMEOUT", float, 3600.0
+)
+
+#: Time-to-live in seconds for the short-lived RUNNING job lease used by
+#: recovery logic.
+#: (default: ``60.0``)
+MLFLOW_SERVER_JOB_LEASE_TTL = _EnvironmentVariable("MLFLOW_SERVER_JOB_LEASE_TTL", float, 60.0)
 
 
 #: Enable automatic run resumption for Serverless GPU Compute (SGC) jobs on Databricks.

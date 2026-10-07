@@ -66,6 +66,38 @@ def test_download_chunk_incomplete_read(tmp_path):
             )
 
 
+@pytest.mark.parametrize("verify", [True, False, None])
+def test_download_chunk_verify(tmp_path, verify):
+    mock_response = mock.MagicMock()
+    mock_response.headers = {}
+    mock_response.content = b"chunk_data"
+    with (
+        mock.patch.object(
+            request_utils,
+            "cloud_storage_http_request",
+            return_value=mock.MagicMock(__enter__=mock.MagicMock(return_value=mock_response)),
+        ) as mock_http_request,
+        mock.patch.object(request_utils, "augmented_raise_for_status"),
+    ):
+        download_path = tmp_path / "chunk"
+        download_path.touch()
+        kwargs = {}
+        if verify is not None:
+            kwargs["verify"] = verify
+        request_utils.download_chunk(
+            range_start=0,
+            range_end=9,
+            headers={},
+            download_path=download_path,
+            http_uri="https://example.com",
+            **kwargs,
+        )
+        if verify is not None:
+            assert mock_http_request.call_args.kwargs.get("verify") is verify
+        else:
+            assert "verify" not in mock_http_request.call_args.kwargs
+
+
 @pytest.mark.parametrize("env_value", ["0", "false", "False", "FALSE"])
 def test_redirects_disabled_if_env_var_set(monkeypatch, env_value):
     monkeypatch.setenv("MLFLOW_ALLOW_HTTP_REDIRECTS", env_value)

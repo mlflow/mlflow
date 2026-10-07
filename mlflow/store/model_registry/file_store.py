@@ -846,7 +846,7 @@ class FileStore(AbstractStore):
 
     def _fetch_file_model_version_if_exists(self, name, version) -> FileModelVersion:
         _validate_model_name(name)
-        _validate_model_version(version)
+        version = _validate_model_version(version)
         registered_model_version_dir = self._get_model_version_dir(name, version)
         if not exists(registered_model_version_dir):
             raise MlflowException(
@@ -1070,7 +1070,9 @@ class FileStore(AbstractStore):
             A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
         """
         if alias.lower() == _REGISTERED_MODEL_ALIAS_LATEST:
-            latest_version = next(v for v in self.get_latest_versions(name) if v is not None)
+            # `get_latest_versions` returns the latest version of each stage, so the
+            # highest version must be selected explicitly.
+            latest_version = max(self.get_latest_versions(name), key=lambda mv: int(mv.version))
             return self.get_model_version(name, latest_version.version)
 
         alias_path = self._get_registered_model_alias_path(name, alias)

@@ -43,9 +43,12 @@ import {
   getTotalTokens,
   getTraceCost,
   convertOtelAttributesToMap,
+  decodeLinkTraceId,
+  getTraceHref,
   isSessionLevelAssessment,
   createTraceV4SerializedLocation,
   parseTraceV4SerializedLocation,
+  tryDeserializeAttribute,
 } from './ModelTraceExplorer.utils';
 import { TEST_SPAN_FILTER_STATE } from './timeline-tree/TimelineTree.test-utils';
 
@@ -1189,6 +1192,8 @@ describe('convertOtelAttributesToMap', () => {
         { key: 'bool_attr', value: { bool_value: true } },
         { key: 'int_attr', value: { int_value: 42 } },
         { key: 'double_attr', value: { double_value: 3.14 } },
+        // an empty AnyValue is how OTLP represents null
+        { key: 'null_attr', value: {} },
       ],
     } as any;
 
@@ -1202,6 +1207,65 @@ describe('convertOtelAttributesToMap', () => {
         bool_attr: true,
         int_attr: 42,
         double_attr: 3.14,
+        null_attr: null,
+      },
+    });
+  });
+
+  it('should recursively decode kvlist and array values', () => {
+    // shape returned by OTLP-based endpoints (e.g. V3 traces/get) for
+    // dict-valued attributes like mlflow.spanInputs / mlflow.spanOutputs
+    const modelTraceSpan = {
+      span_id: '1',
+      attributes: [
+        {
+          key: 'mlflow.spanInputs',
+          value: {
+            kvlist_value: {
+              values: [
+                {
+                  key: 'messages',
+                  value: {
+                    array_value: {
+                      values: [
+                        {
+                          kvlist_value: {
+                            values: [
+                              { key: 'role', value: { string_value: 'user' } },
+                              { key: 'content', value: { string_value: 'How are you?' } },
+                            ],
+                          },
+                        },
+                      ],
+                    },
+                  },
+                },
+                { key: 'n', value: { int_value: 1 } },
+                // null fields are serialized as kvlist entries without a value
+                { key: 'stop' },
+              ],
+            },
+          },
+        },
+        { key: 'empty_kvlist', value: { kvlist_value: {} } },
+        { key: 'empty_array', value: { array_value: {} } },
+        { key: 'int64_as_string', value: { int_value: '1783916154' } },
+      ],
+    } as any;
+
+    const result = convertOtelAttributesToMap(modelTraceSpan);
+
+    expect(result).toEqual({
+      span_id: '1',
+      attributes: {
+        'mlflow.spanInputs': {
+          messages: [{ role: 'user', content: 'How are you?' }],
+          n: 1,
+          stop: null,
+        },
+        empty_kvlist: {},
+        empty_array: [],
+        int64_as_string: 1783916154,
       },
     });
   });
@@ -1307,6 +1371,86 @@ describe('convertOtelAttributesToMap', () => {
       span_id: '1',
       events: [{ attributes: { converted: 'value' } }],
     });
+  });
+
+  it('should normalize OTLP-format links (base64 ids, key-value array attributes)', () => {
+    // shape returned by OTLP-based endpoints (V3 traces/get): base64-encoded
+    // ids and K/V-list attributes that the links UI expects as tr-<hex> + map
+    const modelTraceSpan = {
+      span_id: '1',
+      links: [
+        {
+          trace_id: 'r/bfSxmZcIKSljvv1ZuvFA==',
+          span_id: 'OMvyqZzI1C0=',
+          attributes: [
+            { key: 'relationship', value: { string_value: 'triggered_by' } },
+            { key: 'handoff', value: { string_value: 'research' } },
+          ],
+        },
+      ],
+    } as any;
+
+    const result = convertOtelAttributesToMap(modelTraceSpan);
+
+    expect(result).toEqual({
+      span_id: '1',
+      links: [
+        {
+          trace_id: 'tr-aff6df4b1999708292963befd59baf14',
+          span_id: '38cbf2a99cc8d42d',
+          attributes: {
+            relationship: 'triggered_by',
+            handoff: 'research',
+          },
+        },
+      ],
+    });
+  });
+
+  it('should leave already-normalized links (tr- id, map attributes) unchanged', () => {
+    // shape returned by the artifact route: already tr-<hex> + hex span id + map
+    const modelTraceSpan = {
+      span_id: '1',
+      links: [
+        {
+          trace_id: 'tr-aff6df4b1999708292963befd59baf14',
+          span_id: '38cbf2a99cc8d42d',
+          attributes: { relationship: 'triggered_by' },
+        },
+      ],
+    } as any;
+
+    const result = convertOtelAttributesToMap(modelTraceSpan);
+
+    expect(result).toEqual(modelTraceSpan);
+  });
+});
+
+describe('decodeLinkTraceId', () => {
+  it('should decode a base64-encoded trace id to tr-<hex>', () => {
+    expect(decodeLinkTraceId('r/bfSxmZcIKSljvv1ZuvFA==')).toBe('tr-aff6df4b1999708292963befd59baf14');
+  });
+
+  it('should leave a tr- prefixed id unchanged', () => {
+    expect(decodeLinkTraceId('tr-aff6df4b1999708292963befd59baf14')).toBe('tr-aff6df4b1999708292963befd59baf14');
+  });
+
+  it('should leave a V4 trace:/ id unchanged', () => {
+    expect(decodeLinkTraceId('trace:/catalog.schema/abc123')).toBe('trace:/catalog.schema/abc123');
+  });
+
+  it('should return an empty string for nullish input', () => {
+    expect(decodeLinkTraceId(undefined)).toBe('');
+    expect(decodeLinkTraceId(null)).toBe('');
+  });
+});
+
+describe('getTraceHref', () => {
+  it('uses only the canonical trace ID query parameter', () => {
+    const href = getTraceHref('tr-linked', MOCK_TRACE_INFO_V3);
+
+    expect(href).toContain('traceId=tr-linked');
+    expect(href).not.toContain('selectedEvaluationId');
   });
 });
 
@@ -1496,6 +1640,54 @@ describe('parseTraceV4SerializedLocation', () => {
       type: 'UC_TABLE_PREFIX',
       uc_table_prefix: { catalog_name: 'catalog', schema_name: 'schema', table_prefix: 'prefix' },
     });
+  });
+});
+
+describe('tryDeserializeAttribute', () => {
+  it.each([
+    ['small int', '42', 42],
+    ['float', '3.14', 3.14],
+    // These are floats whose JSON text is not JS's canonical number formatting; they must keep
+    // deserializing to numbers (the round-trip precision guard applies only to integer literals).
+    ['float with trailing .0', '1.0', 1],
+    ['scientific notation float', '1e-05', 0.00001],
+    ['string', '"hello"', 'hello'],
+    ['object', '{"a":1}', { a: 1 }],
+    ['array', '[1,2,3]', [1, 2, 3]],
+  ])('parses %s into its JSON value', (_label, raw, expected) => {
+    expect(tryDeserializeAttribute(raw)).toEqual(expected);
+  });
+
+  it.each([
+    ['non-JSON string', 'not json'],
+    ['malformed JSON', '{'],
+  ])('returns the original string unchanged for %s', (_label, raw) => {
+    expect(tryDeserializeAttribute(raw)).toBe(raw);
+  });
+
+  it('keeps a large int64-range numeric string as-is instead of losing precision', () => {
+    // 2051281657916407550 and 2051281657916407549 differ only in the last digit, well within
+    // IEEE-754 double's rounding granularity at this magnitude (~512) — JSON.parse would
+    // otherwise silently collapse both to the same corrupted number, 2051281657916407600.
+    expect(tryDeserializeAttribute('2051281657916407550')).toBe('2051281657916407550');
+    expect(tryDeserializeAttribute('2051281657916407549')).toBe('2051281657916407549');
+  });
+
+  it('keeps an unsafe integer whose shortest representation matches its input text', () => {
+    // 1000000000000000100 parses to the double 1000000000000000128, but JS prints the shortest
+    // text that round-trips ('1000000000000000100'), so a re-stringify check would wrongly
+    // accept the corrupted number — only the safe-integer range check catches this.
+    expect(tryDeserializeAttribute('1000000000000000100')).toBe('1000000000000000100');
+  });
+
+  it('keeps a whitespace-padded unsafe integer as-is', () => {
+    // `JSON.parse` accepts surrounding whitespace, so the guard has to match on trimmed text.
+    expect(tryDeserializeAttribute(' 9007199254740993 ')).toBe(' 9007199254740993 ');
+  });
+
+  it('keeps a numeric string far beyond int64 range as-is', () => {
+    const huge = '1' + '0'.repeat(400);
+    expect(tryDeserializeAttribute(huge)).toBe(huge);
   });
 });
 

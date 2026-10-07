@@ -1,3 +1,4 @@
+import json
 from unittest import mock
 
 import pytest
@@ -113,6 +114,20 @@ def test_get_headers_uses_server_key_by_default():
     assert merged["X-Custom"] == "value"
 
 
+def test_get_headers_drops_client_auth_headers():
+    provider = GeminiProvider(EndpointConfig(**chat_config()))
+    merged = provider._get_headers(
+        headers={
+            "authorization": "Bearer client-token",
+            "x-goog-api-key": "client-key",
+            "X-Custom": "value",
+        }
+    )
+    assert merged["x-goog-api-key"] == "key"
+    assert "authorization" not in merged
+    assert merged["X-Custom"] == "value"
+
+
 @pytest.mark.parametrize(
     "user_agent",
     [
@@ -159,6 +174,7 @@ async def test_gemini_single_embedding():
         expected_url,
         json=expected_payload,
         timeout=mock.ANY,
+        allow_redirects=False,
     )
 
 
@@ -205,6 +221,7 @@ async def test_gemini_batch_embedding():
         expected_url,
         json=expected_payload,
         timeout=mock.ANY,
+        allow_redirects=False,
     )
 
 
@@ -271,6 +288,7 @@ async def test_gemini_completions():
         expected_url,
         json=expected_payload,
         timeout=mock.ANY,
+        allow_redirects=False,
     )
 
 
@@ -378,6 +396,7 @@ async def test_gemini_chat():
         expected_url,
         json=expected_payload,
         timeout=mock.ANY,
+        allow_redirects=False,
     )
 
 
@@ -464,6 +483,74 @@ def chat_function_calling_payload(stream: bool = False):
     if stream:
         payload["stream"] = True
     return payload
+
+
+@pytest.mark.parametrize("stream", [False, True])
+@pytest.mark.parametrize(
+    ("tool_choice", "expected_config"),
+    [
+        (None, None),
+        ("auto", None),
+        ("none", {"mode": "NONE"}),
+        ("required", {"mode": "ANY"}),
+        (
+            {"type": "function", "function": {"name": "get_weather"}},
+            {"mode": "ANY", "allowedFunctionNames": ["get_weather"]},
+        ),
+    ],
+)
+@pytest.mark.asyncio
+async def test_gemini_chat_tool_choice(tool_choice, expected_config, stream):
+    provider = GeminiProvider(EndpointConfig(**chat_config()))
+    payload = chat_function_calling_payload(stream=stream)
+    payload["tool_choice"] = tool_choice
+    payload["tools"].append({
+        "type": "function",
+        "function": {
+            "name": "get_forecast",
+            "description": "Get a weather forecast.",
+            "parameters": {"type": "object", "properties": {}},
+        },
+    })
+    response = (
+        MockAsyncStreamingResponse(chat_stream_response())
+        if stream
+        else MockAsyncResponse(fake_chat_response())
+    )
+    mock_client = mock_http_client(response)
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
+        request = chat.RequestPayload(**payload)
+        if stream:
+            chunks = [chunk async for chunk in provider.chat_stream(request)]
+            assert chunks
+        else:
+            await provider.chat(request)
+
+    mock_client.post.assert_called_once()
+    sent_payload = mock_client.post.call_args.kwargs["json"]
+    assert len(sent_payload["tools"][0]["functionDeclarations"]) == 2
+    assert "tool_choice" not in sent_payload
+    if expected_config is None:
+        assert "toolConfig" not in sent_payload
+    else:
+        assert sent_payload["toolConfig"] == {"functionCallingConfig": expected_config}
+
+
+@pytest.mark.parametrize("tools", [None, []])
+@pytest.mark.parametrize(
+    "tool_choice",
+    ["auto", "none", "required", {"type": "function", "function": {"name": "get_weather"}}],
+)
+def test_gemini_tool_choice_without_tools(tools, tool_choice):
+    payload = {
+        "messages": [{"role": "user", "content": "Hello"}],
+        "tools": tools,
+        "tool_choice": tool_choice,
+    }
+    config = EndpointConfig(**chat_config())
+    result = GeminiAdapter.chat_to_model(payload, config)
+    assert "tools" not in result
+    assert "toolConfig" not in result
 
 
 @pytest.mark.asyncio
@@ -553,7 +640,7 @@ async def test_gemini_chat_function_calling():
                     ],
                     "refusal": None,
                 },
-                "finish_reason": "stop",
+                "finish_reason": "tool_calls",
             }
         ],
         "usage": {
@@ -568,6 +655,7 @@ async def test_gemini_chat_function_calling():
         expected_url,
         json=expected_payload,
         timeout=mock.ANY,
+        allow_redirects=False,
     )
 
 
@@ -681,7 +769,7 @@ async def test_gemini_chat_multi_function_calling():
                     ],
                     "refusal": None,
                 },
-                "finish_reason": "stop",
+                "finish_reason": "tool_calls",
             }
         ],
         "usage": {"prompt_tokens": None, "completion_tokens": None, "total_tokens": None},
@@ -692,6 +780,7 @@ async def test_gemini_chat_multi_function_calling():
         expected_url,
         json=mock.ANY,
         timeout=mock.ANY,
+        allow_redirects=False,
     )
 
 
@@ -832,7 +921,179 @@ async def test_gemini_chat_function_calling_second_turn():
         expected_url,
         json=expected_payload,
         timeout=mock.ANY,
+        allow_redirects=False,
     )
+
+
+@pytest.mark.parametrize(
+    ("content", "expected_response"),
+    [
+        (
+            "Status: 200 OK\nThe page loaded fine.",
+            {"result": "Status: 200 OK\nThe page loaded fine."},
+        ),
+        ("", {"result": ""}),
+        ('{"temperature": 31.2}', {"temperature": 31.2}),
+        ("42", {"result": 42}),
+        ('["sunny", "windy"]', {"result": ["sunny", "windy"]}),
+        ([{"type": "text", "text": "sunny"}], {"result": [{"type": "text", "text": "sunny"}]}),
+    ],
+)
+@pytest.mark.asyncio
+async def test_gemini_chat_function_calling_tool_result_content(content, expected_response):
+    provider = GeminiProvider(EndpointConfig(**chat_config()))
+    payload = chat_function_calling_payload()
+    payload["messages"].extend([
+        {
+            "role": "assistant",
+            "tool_calls": [
+                {
+                    "id": "call_001",
+                    "function": {"arguments": '{"location": "Singapore"}', "name": "get_weather"},
+                    "type": "function",
+                }
+            ],
+        },
+        {"role": "tool", "tool_call_id": "call_001", "content": content},
+    ])
+    resp = {"candidates": [{"content": {"parts": [{"text": "Sunny."}]}, "finishReason": "stop"}]}
+
+    with mock.patch(
+        "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
+    ) as mock_post:
+        await provider.chat(chat.RequestPayload(**payload))
+
+    mock_post.assert_called_once()
+    assert mock_post.call_args.kwargs["json"]["contents"][-1] == {
+        "role": "user",
+        "parts": [
+            {
+                "functionResponse": {
+                    "id": "call_001",
+                    "name": "get_weather",
+                    "response": expected_response,
+                }
+            }
+        ],
+    }
+
+
+def _weather_tool_call(call_id, location):
+    return {
+        "id": call_id,
+        "function": {"arguments": json.dumps({"location": location}), "name": "get_weather"},
+        "type": "function",
+    }
+
+
+@pytest.mark.asyncio
+async def test_gemini_chat_function_calling_parallel_calls():
+    provider = GeminiProvider(EndpointConfig(**chat_config()))
+    payload = chat_function_calling_payload()
+    payload["messages"].extend([
+        {
+            "role": "assistant",
+            "tool_calls": [
+                _weather_tool_call("call_001", "Singapore"),
+                _weather_tool_call("call_002", "Tokyo"),
+            ],
+        },
+        {"role": "tool", "tool_call_id": "call_001", "content": '{"temperature": 31.2}'},
+        {"role": "tool", "tool_call_id": "call_002", "content": '{"temperature": 18.0}'},
+    ])
+    resp = {"candidates": [{"content": {"parts": [{"text": "Sunny."}]}, "finishReason": "stop"}]}
+
+    with mock.patch(
+        "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
+    ) as mock_post:
+        await provider.chat(chat.RequestPayload(**payload))
+
+    mock_post.assert_called_once()
+    # Gemini returns 400 unless a turn with N function calls is answered by one user turn
+    # holding N function responses.
+    assert mock_post.call_args.kwargs["json"]["contents"][1:] == [
+        {
+            "role": "model",
+            "parts": [
+                {
+                    "functionCall": {
+                        "id": "call_001",
+                        "name": "get_weather",
+                        "args": {"location": "Singapore"},
+                    }
+                },
+                {
+                    "functionCall": {
+                        "id": "call_002",
+                        "name": "get_weather",
+                        "args": {"location": "Tokyo"},
+                    }
+                },
+            ],
+        },
+        {
+            "role": "user",
+            "parts": [
+                {
+                    "functionResponse": {
+                        "id": "call_001",
+                        "name": "get_weather",
+                        "response": {"temperature": 31.2},
+                    }
+                },
+                {
+                    "functionResponse": {
+                        "id": "call_002",
+                        "name": "get_weather",
+                        "response": {"temperature": 18.0},
+                    }
+                },
+            ],
+        },
+    ]
+
+
+@pytest.mark.asyncio
+async def test_gemini_chat_function_calling_sequential_calls_keep_separate_response_turns():
+    provider = GeminiProvider(EndpointConfig(**chat_config()))
+    payload = chat_function_calling_payload()
+    payload["messages"].extend([
+        {"role": "assistant", "tool_calls": [_weather_tool_call("call_001", "Singapore")]},
+        {"role": "tool", "tool_call_id": "call_001", "content": '{"temperature": 31.2}'},
+        {"role": "assistant", "tool_calls": [_weather_tool_call("call_002", "Tokyo")]},
+        {"role": "tool", "tool_call_id": "call_002", "content": '{"temperature": 18.0}'},
+    ])
+    resp = {"candidates": [{"content": {"parts": [{"text": "Sunny."}]}, "finishReason": "stop"}]}
+
+    with mock.patch(
+        "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
+    ) as mock_post:
+        await provider.chat(chat.RequestPayload(**payload))
+
+    mock_post.assert_called_once()
+    contents = mock_post.call_args.kwargs["json"]["contents"]
+    assert [(c["role"], len(c["parts"])) for c in contents] == [
+        ("user", 1),
+        ("model", 1),
+        ("user", 1),
+        ("model", 1),
+        ("user", 1),
+    ]
+
+
+@pytest.mark.parametrize("tool_message", [{"tool_call_id": "call_002"}, {}])
+@pytest.mark.asyncio
+async def test_gemini_chat_function_calling_unmatched_tool_call_id(tool_message):
+    provider = GeminiProvider(EndpointConfig(**chat_config()))
+    payload = chat_function_calling_payload()
+    payload["messages"].extend([
+        {"role": "assistant", "tool_calls": [_weather_tool_call("call_001", "Singapore")]},
+        {"role": "tool", "content": '{"temperature": 31.2}', **tool_message},
+    ])
+
+    with pytest.raises(AIGatewayException, match="does not match any tool call") as exc_info:
+        await provider.chat(chat.RequestPayload(**payload))
+    assert exc_info.value.status_code == 422
 
 
 @pytest.mark.asyncio
@@ -877,8 +1138,8 @@ async def test_gemini_chat_function_calling_thought_signature():
                                 "name": "get_weather",
                                 "args": {"location": "Kuala Lumpur"},
                                 "id": "call_002",
-                                "thoughtSignature": "new_thought_sig_token",
                             },
+                            "thoughtSignature": "new_thought_sig_token",
                         },
                     ],
                     "role": "model",
@@ -910,8 +1171,8 @@ async def test_gemini_chat_function_calling_thought_signature():
                             "id": "call_001",
                             "name": "get_weather",
                             "args": {"location": "Singapore"},
-                            "thoughtSignature": "opaque_thought_sig_token",
-                        }
+                        },
+                        "thoughtSignature": "opaque_thought_sig_token",
                     }
                 ],
             },
@@ -952,7 +1213,91 @@ async def test_gemini_chat_function_calling_thought_signature():
         expected_url,
         json=expected_payload,
         timeout=mock.ANY,
+        allow_redirects=False,
     )
+
+
+@pytest.mark.parametrize(
+    "part",
+    [
+        pytest.param(
+            {
+                "functionCall": {
+                    "name": "get_weather",
+                    "args": {"location": "Paris"},
+                    "id": "call_001",
+                },
+                "thoughtSignature": "sig_token",
+            },
+            id="sibling-of-functionCall",
+        ),
+        pytest.param(
+            {
+                "functionCall": {
+                    "name": "get_weather",
+                    "args": {"location": "Paris"},
+                    "id": "call_001",
+                    "thoughtSignature": "sig_token",
+                },
+            },
+            id="nested-in-functionCall",
+        ),
+    ],
+)
+def test_gemini_function_call_thought_signature_response(part):
+    # thoughtSignature is documented as a sibling of functionCall on the Part, but some
+    # responses have been observed with it nested inside functionCall instead. The adapter
+    # must not silently drop the signature in either case.
+    choice = GeminiAdapter._convert_function_call_to_openai_choice(
+        content_parts=[part],
+        finish_reason="stop",
+        choice_idx=0,
+        stream=False,
+    )
+    assert choice.message.tool_calls[0].thought_signature == "sig_token"
+
+
+def _mixed_parts_response(parts):
+    return {
+        "candidates": [{"content": {"role": "model", "parts": parts}, "finishReason": "STOP"}],
+        "usageMetadata": {"promptTokenCount": 1, "candidatesTokenCount": 1, "totalTokenCount": 2},
+    }
+
+
+_TEXT_PART = {"text": "Let me look that up."}
+_CALL_PART = {"functionCall": {"name": "get_weather", "args": {"city": "Baku"}, "id": "call_1"}}
+
+
+@pytest.mark.parametrize(
+    "parts",
+    [[_TEXT_PART, _CALL_PART], [_CALL_PART, _TEXT_PART]],
+    ids=["text-then-call", "call-then-text"],
+)
+def test_gemini_chat_mixed_text_and_function_call_parts(parts):
+    config = EndpointConfig(**chat_config())
+    resp = GeminiAdapter.model_to_chat(_mixed_parts_response(parts), config)
+
+    message = resp.choices[0].message
+    assert message.content == "Let me look that up."
+    assert [(c.id, c.function.name, c.function.arguments) for c in message.tool_calls] == [
+        ("call_1", "get_weather", '{"city": "Baku"}')
+    ]
+
+
+@pytest.mark.parametrize(
+    "parts",
+    [[_TEXT_PART, _CALL_PART], [_CALL_PART, _TEXT_PART]],
+    ids=["text-then-call", "call-then-text"],
+)
+def test_gemini_chat_streaming_mixed_text_and_function_call_parts(parts):
+    config = EndpointConfig(**chat_config())
+    resp = GeminiAdapter.model_to_chat_streaming(_mixed_parts_response(parts), config)
+
+    delta = resp.choices[0].delta
+    assert delta.content == "Let me look that up."
+    assert [(c.id, c.function.name, c.function.arguments) for c in delta.tool_calls] == [
+        ("call_1", "get_weather", '{"city": "Baku"}')
+    ]
 
 
 def chat_stream_response():
@@ -1046,7 +1391,103 @@ async def test_gemini_chat_stream(resp):
         expected_url,
         json=mock.ANY,
         timeout=mock.ANY,
+        allow_redirects=False,
     )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("split_across_chunks", [False, True])
+async def test_gemini_chat_stream_parallel_tool_calls_get_distinct_indices(split_across_chunks):
+    call_a = {"functionCall": {"name": "get_weather", "args": {"city": "Baku"}}}
+    call_b = {"functionCall": {"name": "get_time", "args": {"tz": "UTC"}}}
+    part_groups = [[call_a], [call_b]] if split_across_chunks else [[call_a, call_b]]
+    resp = [
+        line
+        for parts in part_groups
+        for line in (
+            b"data: "
+            + json.dumps({"candidates": [{"content": {"parts": parts}}]}).encode()
+            + b"\n",
+            b"\n",
+        )
+    ] + [b"data: [DONE]\n"]
+    mock_client = mock_http_client(MockAsyncStreamingResponse(resp))
+    provider = GeminiProvider(EndpointConfig(**chat_config()))
+    payload = chat_function_calling_payload(stream=True)
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client) as mock_session:
+        chunks = [c async for c in provider.chat_stream(chat.RequestPayload(**payload))]
+
+    mock_session.assert_called_once()
+    mock_client.post.assert_called_once()
+    calls = [tc for c in chunks for tc in c.choices[0].delta.tool_calls]
+    assert [(tc.index, tc.function.name) for tc in calls] == [(0, "get_weather"), (1, "get_time")]
+    assert [json.loads(tc.function.arguments) for tc in calls] == [
+        {"city": "Baku"},
+        {"tz": "UTC"},
+    ]
+
+
+@pytest.mark.asyncio
+async def test_gemini_chat_stream_tool_call_indices_are_per_candidate():
+    call_a = {"functionCall": {"name": "get_weather", "args": {}}}
+    call_b = {"functionCall": {"name": "get_time", "args": {}}}
+    call_c = {"functionCall": {"name": "get_date", "args": {}}}
+    chunks_in = [
+        {
+            "candidates": [
+                {"content": {"parts": [call_a]}},
+                {"content": {"parts": [call_a, call_b]}},
+            ]
+        },
+        {"candidates": [{"content": {"parts": [call_c]}}, {"content": {"parts": [call_c]}}]},
+    ]
+    resp = [line for c in chunks_in for line in (b"data: " + json.dumps(c).encode() + b"\n", b"\n")]
+    resp.append(b"data: [DONE]\n")
+    mock_client = mock_http_client(MockAsyncStreamingResponse(resp))
+    provider = GeminiProvider(EndpointConfig(**chat_config()))
+    payload = chat_function_calling_payload(stream=True)
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client) as mock_session:
+        chunks = [c async for c in provider.chat_stream(chat.RequestPayload(**payload))]
+
+    mock_session.assert_called_once()
+    mock_client.post.assert_called_once()
+    by_candidate = {0: [], 1: []}
+    for c in chunks:
+        for choice in c.choices:
+            by_candidate[choice.index] += [tc.index for tc in choice.delta.tool_calls]
+    assert by_candidate == {0: [0, 1], 1: [0, 1, 2]}
+
+
+@pytest.mark.asyncio
+async def test_gemini_chat_stream_tool_call_indices_use_candidate_api_index():
+    call_a = {"functionCall": {"name": "get_weather", "args": {}}}
+    call_b = {"functionCall": {"name": "get_time", "args": {}}}
+    # Each chunk carries a single candidate, so list position differs from the API index.
+    chunks_in = [
+        {"candidates": [{"index": 1, "content": {"parts": [call_a]}}]},
+        {"candidates": [{"index": 0, "content": {"parts": [call_a]}}]},
+        {"candidates": [{"index": 1, "content": {"parts": [call_b]}}]},
+    ]
+    resp = [line for c in chunks_in for line in (b"data: " + json.dumps(c).encode() + b"\n", b"\n")]
+    resp.append(b"data: [DONE]\n")
+    mock_client = mock_http_client(MockAsyncStreamingResponse(resp))
+    provider = GeminiProvider(EndpointConfig(**chat_config()))
+    payload = chat_function_calling_payload(stream=True)
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client) as mock_session:
+        chunks = [c async for c in provider.chat_stream(chat.RequestPayload(**payload))]
+
+    mock_session.assert_called_once()
+    mock_client.post.assert_called_once()
+    by_candidate = {0: [], 1: []}
+    for c in chunks:
+        for choice in c.choices:
+            by_candidate[choice.index] += [
+                (tc.index, tc.function.name) for tc in choice.delta.tool_calls
+            ]
+    assert by_candidate == {0: [(0, "get_weather")], 1: [(0, "get_weather"), (1, "get_time")]}
 
 
 def chat_function_calling_stream_response():
@@ -1084,7 +1525,7 @@ async def test_gemini_chat_function_calling_stream():
             "choices": [
                 {
                     "index": 0,
-                    "finish_reason": "stop",
+                    "finish_reason": "tool_calls",
                     "delta": {
                         "role": "assistant",
                         "content": None,
@@ -1117,6 +1558,7 @@ async def test_gemini_chat_function_calling_stream():
         expected_url,
         json=mock.ANY,
         timeout=mock.ANY,
+        allow_redirects=False,
     )
 
 
@@ -1192,6 +1634,7 @@ async def test_gemini_completions_stream(resp):
         expected_url,
         json=mock.ANY,
         timeout=mock.ANY,
+        allow_redirects=False,
     )
 
 
@@ -1640,3 +2083,179 @@ def test_gemini_adapter_build_chat_usage_without_cached_tokens():
     assert usage.completion_tokens == 20
     assert usage.total_tokens == 70
     assert usage.prompt_tokens_details is None
+
+
+def test_gemini_adapter_build_chat_usage_preserves_provider_specific_fields():
+    usage_metadata = {
+        "promptTokenCount": 50,
+        "candidatesTokenCount": 20,
+        "totalTokenCount": 70,
+        "thoughtsTokenCount": 12,
+        "trafficType": "ON_DEMAND",
+    }
+    usage = GeminiAdapter._build_chat_usage(usage_metadata)
+
+    assert usage.model_dump()["thoughtsTokenCount"] == 12
+    assert usage.model_dump()["trafficType"] == "ON_DEMAND"
+    assert "promptTokenCount" not in usage.model_dump()
+
+
+def test_chat_to_model_translates_multimodal_image_content():
+    # A user message with OpenAI-format multimodal content (text + an image_url base64
+    # data URL) must be translated to Gemini inlineData parts; the gateway path is how
+    # native gemini:/ judge URIs reach the model.
+    payload = {
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "what color?"},
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": "data:image/png;base64,QUJD"},
+                    },
+                ],
+            }
+        ],
+    }
+
+    result = GeminiAdapter.chat_to_model(payload, EndpointConfig(**chat_config()))
+
+    assert result["contents"] == [
+        {
+            "role": "user",
+            "parts": [
+                {"text": "what color?"},
+                {"inlineData": {"mimeType": "image/png", "data": "QUJD"}},
+            ],
+        }
+    ]
+
+
+def test_chat_to_model_string_content_unchanged():
+    # String content must remain a no-op (shared with non-judge gateway traffic).
+    payload = {"messages": [{"role": "user", "content": "just text"}]}
+
+    result = GeminiAdapter.chat_to_model(payload, EndpointConfig(**chat_config()))
+
+    assert result["contents"] == [{"role": "user", "parts": [{"text": "just text"}]}]
+
+
+def test_chat_to_model_unknown_content_part_passed_through():
+    # A non-text, non-image_url part (e.g. input_audio) must be preserved, not coerced to
+    # an empty {"text": ""} part which would silently drop its content.
+    audio_part = {"type": "input_audio", "input_audio": {"data": "QUJD", "format": "wav"}}
+    payload = {
+        "messages": [
+            {"role": "user", "content": [{"type": "text", "text": "transcribe"}, audio_part]}
+        ]
+    }
+
+    result = GeminiAdapter.chat_to_model(payload, EndpointConfig(**chat_config()))
+
+    assert result["contents"] == [{"role": "user", "parts": [{"text": "transcribe"}, audio_part]}]
+
+
+@pytest.mark.parametrize("stream", [False, True])
+def test_gemini_finish_reason_is_tool_calls_for_function_call(stream):
+    resp = {
+        "candidates": [
+            {
+                "content": {
+                    "role": "model",
+                    "parts": [{"functionCall": {"name": "get_weather", "args": {"city": "Paris"}}}],
+                },
+                "finishReason": "STOP",
+                "index": 0,
+            }
+        ],
+        "usageMetadata": {"promptTokenCount": 3, "candidatesTokenCount": 1, "totalTokenCount": 4},
+        "modelVersion": "gemini-2.0-flash",
+    }
+    config = EndpointConfig(**chat_config())
+    convert = GeminiAdapter.model_to_chat_streaming if stream else GeminiAdapter.model_to_chat
+
+    assert convert(resp, config).choices[0].finish_reason == "tool_calls"
+
+
+def test_gemini_finish_reason_stays_stop_for_text():
+    resp = {
+        "candidates": [
+            {
+                "content": {"role": "model", "parts": [{"text": "hi"}]},
+                "finishReason": "STOP",
+                "index": 0,
+            }
+        ],
+        "usageMetadata": {"promptTokenCount": 3, "candidatesTokenCount": 1, "totalTokenCount": 4},
+        "modelVersion": "gemini-2.0-flash",
+    }
+
+    result = GeminiAdapter.model_to_chat(resp, EndpointConfig(**chat_config()))
+
+    assert result.choices[0].finish_reason == "stop"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("call_chunks", "stop_candidate"),
+    [
+        (1, {"content": {"role": "model", "parts": [{"text": ""}]}, "finishReason": "STOP"}),
+        (1, {"finishReason": "STOP"}),
+        (3, {"content": {"role": "model", "parts": [{"text": ""}]}, "finishReason": "STOP"}),
+    ],
+    ids=["single_call_empty_text", "single_call_no_content", "parallel_calls_empty_text"],
+)
+async def test_gemini_chat_stream_finish_reason_is_tool_calls_for_trailing_stop_chunk(
+    call_chunks, stop_candidate
+):
+    # Live Gemini streams send each functionCall in its own chunk and STOP in a final chunk
+    # that has no functionCall.
+    call = {"functionCall": {"name": "get_weather", "args": {"city": "Paris"}}}
+    chunks_in = [
+        {"candidates": [{"content": {"role": "model", "parts": [call]}, "index": 0}]}
+    ] * call_chunks + [{"candidates": [{**stop_candidate, "index": 0}]}]
+    resp = [line for c in chunks_in for line in (b"data: " + json.dumps(c).encode() + b"\n", b"\n")]
+    resp.append(b"data: [DONE]\n")
+    mock_client = mock_http_client(MockAsyncStreamingResponse(resp))
+    provider = GeminiProvider(EndpointConfig(**chat_config()))
+    payload = chat_function_calling_payload(stream=True)
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client) as mock_session:
+        chunks = [c async for c in provider.chat_stream(chat.RequestPayload(**payload))]
+
+    mock_session.assert_called_once()
+    mock_client.post.assert_called_once()
+    assert [c.choices[0].finish_reason for c in chunks] == [None] * call_chunks + ["tool_calls"]
+
+
+@pytest.mark.asyncio
+async def test_gemini_chat_stream_trailing_stop_finish_reason_is_per_candidate():
+    call = {"functionCall": {"name": "get_weather", "args": {"city": "Paris"}}}
+    chunks_in = [
+        {
+            "candidates": [
+                {"content": {"parts": [call]}, "index": 0},
+                {"content": {"parts": [{"text": "Sunny."}]}, "index": 1},
+            ]
+        },
+        {
+            "candidates": [
+                {"content": {"parts": [{"text": ""}]}, "finishReason": "STOP", "index": 0},
+                {"content": {"parts": [{"text": ""}]}, "finishReason": "STOP", "index": 1},
+            ]
+        },
+    ]
+    resp = [line for c in chunks_in for line in (b"data: " + json.dumps(c).encode() + b"\n", b"\n")]
+    resp.append(b"data: [DONE]\n")
+    mock_client = mock_http_client(MockAsyncStreamingResponse(resp))
+    provider = GeminiProvider(EndpointConfig(**chat_config()))
+    payload = chat_function_calling_payload(stream=True)
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client) as mock_session:
+        chunks = [c async for c in provider.chat_stream(chat.RequestPayload(**payload))]
+
+    mock_session.assert_called_once()
+    mock_client.post.assert_called_once()
+    finish_reasons = {choice.index: choice.finish_reason for choice in chunks[-1].choices}
+    assert finish_reasons == {0: "tool_calls", 1: "stop"}

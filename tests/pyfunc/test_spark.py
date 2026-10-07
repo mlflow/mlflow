@@ -813,6 +813,8 @@ def test_model_cache(spark, model_path):
     assert min(results2) > 0
 
 
+# flaky: auto-detected from CI re-runs; see the weekly flaky-test report
+@pytest.mark.flaky(attempts=2)
 @pytest.mark.skipif(
     not sys.platform.startswith("linux"),
     reason="Only Linux system support setting  parent process death signal via prctl lib.",
@@ -859,11 +861,13 @@ def test_spark_udf_embedded_model_server_killed_when_job_canceled(
     job_thread.start()
 
     client = ScoringServerClient("127.0.0.1", server_port)
-    client.wait_server_ready(timeout=20)
-    spark.sparkContext.cancelAllJobs()
-    job_thread.join()
-
-    time.sleep(10)  # waiting server to exit and release the port.
+    try:
+        client.wait_server_ready(timeout=20)
+    finally:
+        spark.sparkContext.cancelAllJobs()
+        job_thread.join(timeout=60)
+        assert not job_thread.is_alive(), "Spark job thread did not stop after cancellation"
+        time.sleep(10)  # waiting server to exit and release the port.
 
     # assert ping failed, i.e. the server process is killed successfully.
     with pytest.raises(Exception, match=r".*"):

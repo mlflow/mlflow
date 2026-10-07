@@ -11,6 +11,7 @@ import yaml
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.statsmodels
 from mlflow import pyfunc
+from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.utils import _read_example, load_serving_example
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
@@ -144,6 +145,16 @@ def test_models_save_load(tmp_path):
 
 def test_models_log(tmp_path):
     _test_models_list(tmp_path, _test_model_log)
+
+
+@pytest.mark.parametrize("load_fn", [mlflow.statsmodels.load_model, pyfunc.load_model])
+def test_load_model_disallows_pickle_deserialization(model_path, monkeypatch, load_fn):
+    ols = ols_model()
+    mlflow.statsmodels.save_model(statsmodels_model=ols.model, path=model_path)
+
+    monkeypatch.setenv("MLFLOW_ALLOW_PICKLE_DESERIALIZATION", "false")
+    with pytest.raises(MlflowException, match="MLFLOW_ALLOW_PICKLE_DESERIALIZATION"):
+        load_fn(model_path)
 
 
 def test_signature_and_examples_are_saved_correctly():

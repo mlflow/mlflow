@@ -650,14 +650,15 @@ def _save_model_metadata(
     # Save `requirements.txt`
     write_to(os.path.join(dst_dir, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
 
-    _PythonEnv.current().to_yaml(os.path.join(dst_dir, _PYTHON_ENV_FILE_NAME))
-
+    # Copy uv project files if configured
     if uv is not None:
-        from mlflow.utils.uv_utils import copy_uv_project_files
+        from mlflow.utils.uv_utils import copy_uv_project_files, resolve_uv_source_dir
 
-        source_dir = uv.resolve_project_dir()
-        if source_dir is not None:
-            copy_uv_project_files(dst_dir, source_dir)
+        uv_source = resolve_uv_source_dir(uv)
+        if uv_source is not None:
+            copy_uv_project_files(dest_dir=dst_dir, source_dir=uv_source)
+
+    _PythonEnv.current().to_yaml(os.path.join(dst_dir, _PYTHON_ENV_FILE_NAME))
 
 
 def _validate_model(spark_model):

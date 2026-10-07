@@ -19,6 +19,8 @@ import yaml
 
 import mlflow
 from mlflow import pyfunc
+from mlflow.environment_variables import MLFLOW_ALLOW_PICKLE_DESERIALIZATION
+from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelInputExample, ModelSignature
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import _infer_signature_from_input_example
@@ -26,6 +28,10 @@ from mlflow.models.utils import _save_example
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
+from mlflow.utils.databricks_utils import (
+    is_in_databricks_model_serving_environment,
+    is_in_databricks_runtime,
+)
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
@@ -272,14 +278,15 @@ def save_model(
     # Save `requirements.txt`
     write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
 
-    _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
-
+    # Copy uv project files if configured
     if uv is not None:
-        from mlflow.utils.uv_utils import copy_uv_project_files
+        from mlflow.utils.uv_utils import copy_uv_project_files, resolve_uv_source_dir
 
-        source_dir = uv.resolve_project_dir()
-        if source_dir is not None:
-            copy_uv_project_files(path, source_dir)
+        uv_source = resolve_uv_source_dir(uv)
+        if uv_source is not None:
+            copy_uv_project_files(dest_dir=path, source_dir=uv_source)
+
+    _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
 
 
 def load_model(model_uri, model=None, dst_path=None, **kwargs):
@@ -318,6 +325,18 @@ def load_model(model_uri, model=None, dst_path=None, **kwargs):
         np_array = ...
         predictions = pd_model(np_array)
     """
+    # Both `paddle.jit.load` (legacy IR format) and `paddle.Model.load` unpickle
+    # files from the model artifact.
+    if (
+        not MLFLOW_ALLOW_PICKLE_DESERIALIZATION.get()
+        and not is_in_databricks_runtime()
+        and not is_in_databricks_model_serving_environment()
+    ):
+        raise MlflowException(
+            "Deserializing model using pickle is disallowed, but loading a paddle model "
+            "may deserialize pickle data. The workaround is to set environment variable "
+            "'MLFLOW_ALLOW_PICKLE_DESERIALIZATION' to 'true'."
+        )
     import paddle
 
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)

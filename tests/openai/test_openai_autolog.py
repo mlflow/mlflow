@@ -9,6 +9,7 @@ import pytest
 from openai.resources.chat.completions import Completions as ChatCompletions
 from openai.resources.completions import Completions
 from openai.resources.embeddings import Embeddings
+from openai.types.chat import ChatCompletion
 from packaging.version import Version
 from pydantic import BaseModel
 
@@ -17,7 +18,7 @@ from mlflow.entities import SpanLogLevel
 from mlflow.entities.span import SpanType
 from mlflow.exceptions import MlflowException
 from mlflow.openai.autolog import _get_span_type
-from mlflow.openai.utils.chat_schema import _parse_tools
+from mlflow.openai.utils.chat_schema import _parse_tools, _parse_usage
 from mlflow.tracing.constant import (
     STREAM_CHUNK_EVENT_VALUE_KEY,
     CostKey,
@@ -27,7 +28,13 @@ from mlflow.tracing.constant import (
 )
 from mlflow.version import IS_TRACING_SDK_ONLY
 
-from tests.openai.mock_openai import AZURE_ANNOTATIONS, EMPTY_CHOICES, LIST_CONTENT
+from tests.openai.mock_openai import (
+    AZURE_ANNOTATIONS,
+    EMPTY_CHOICES,
+    EMPTY_STREAM,
+    ERROR_MID_STREAM,
+    LIST_CONTENT,
+)
 from tests.tracing.helper import get_traces, skip_when_testing_trace_sdk
 
 MOCK_TOOLS = [
@@ -239,6 +246,52 @@ async def test_chat_completions_autolog_with_cached_tokens(client, mock_litellm_
         TokenUsageKey.OUTPUT_TOKENS: 20,
         TokenUsageKey.TOTAL_TOKENS: 70,
         TokenUsageKey.CACHE_READ_INPUT_TOKENS: 30,
+    }
+
+
+@pytest.mark.parametrize(
+    ("cache_usage", "expected_cache_usage"),
+    [
+        (
+            {"cache_read_input_tokens": 9203, "cache_creation_input_tokens": 0},
+            {
+                TokenUsageKey.CACHE_READ_INPUT_TOKENS: 9203,
+                TokenUsageKey.CACHE_CREATION_INPUT_TOKENS: 0,
+            },
+        ),
+        (
+            {
+                "prompt_tokens_details": {"cached_tokens": 50},
+                "cache_read_input_tokens": 9999,
+                "cache_creation_input_tokens": 8888,
+            },
+            {
+                TokenUsageKey.CACHE_READ_INPUT_TOKENS: 50,
+                TokenUsageKey.CACHE_CREATION_INPUT_TOKENS: 8888,
+            },
+        ),
+    ],
+)
+def test_parse_usage_cache_tokens(cache_usage, expected_cache_usage):
+    response = ChatCompletion.model_validate({
+        "id": "chatcmpl-cache",
+        "object": "chat.completion",
+        "created": 1677652288,
+        "model": "databricks-claude-opus-4-8",
+        "choices": [],
+        "usage": {
+            "prompt_tokens": 100,
+            "completion_tokens": 20,
+            "total_tokens": 120,
+            **cache_usage,
+        },
+    })
+
+    assert _parse_usage(response) == {
+        TokenUsageKey.INPUT_TOKENS: 100,
+        TokenUsageKey.OUTPUT_TOKENS: 20,
+        TokenUsageKey.TOTAL_TOKENS: 120,
+        **expected_cache_usage,
     }
 
 
@@ -460,6 +513,50 @@ async def test_chat_completions_streaming_empty_choices(client):
 
     trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     assert trace.info.status == "OK"
+
+
+@pytest.mark.asyncio
+async def test_chat_completions_streaming_no_chunks(client):
+    mlflow.openai.autolog()
+    stream = client.chat.completions.create(
+        messages=[{"role": "user", "content": EMPTY_STREAM}],
+        model="gpt-4o-mini",
+        stream=True,
+    )
+
+    chunks = [chunk async for chunk in await stream] if client._is_async else list(stream)
+    assert chunks == []
+
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    assert trace.info.status == "OK"
+    assert trace.data.spans[0].outputs is None
+
+
+@pytest.mark.asyncio
+async def test_chat_completions_streaming_error_mid_stream(client):
+    mlflow.openai.autolog()
+    stream = client.chat.completions.create(
+        messages=[{"role": "user", "content": ERROR_MID_STREAM}],
+        model="gpt-4o-mini",
+        stream=True,
+    )
+
+    async def consume():
+        if client._is_async:
+            return [chunk async for chunk in await stream]
+        return list(stream)
+
+    with pytest.raises(openai.APIError, match="Server overloaded"):
+        await consume()
+
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    assert trace.info.status == "ERROR"
+    span = trace.data.spans[0]
+    assert span.status.status_code == "ERROR"
+    assert span.outputs is None
+    event_names = [event.name for event in span.events]
+    assert event_names == ["mlflow.chunk.item.0", "exception"]
+    assert span.events[1].attributes["exception.type"] == "APIError"
 
 
 @pytest.mark.asyncio
@@ -829,7 +926,7 @@ async def test_response_format(client):
     span = trace.data.spans[0]
     assert span.outputs["choices"][0]["message"]["content"] == '{"name":"Angelo","age":42}'
     assert span.span_type == SpanType.CHAT_MODEL
-    assert span.model_name == "gpt-4o"
+    assert span.model_name == "gpt-4o-2024-08-06"
 
     assert trace.info.trace_metadata.get(TraceMetadataKey.TOKEN_USAGE) == json.dumps({
         TokenUsageKey.INPUT_TOKENS: 68,
@@ -837,6 +934,52 @@ async def test_response_format(client):
         TokenUsageKey.TOTAL_TOKENS: 79,
         TokenUsageKey.CACHE_READ_INPUT_TOKENS: 0,
     })
+
+
+@pytest.mark.asyncio
+async def test_model_name_fallback_to_request_model(client):
+    mlflow.openai.autolog()
+
+    mock_response = {
+        "id": "chatcmpl-123",
+        "object": "chat.completion",
+        "created": 1677652288,
+        "model": "",
+        "choices": [
+            {
+                "index": 0,
+                "message": {"role": "assistant", "content": "hi"},
+                "finish_reason": "stop",
+            }
+        ],
+        "usage": {"prompt_tokens": 9, "completion_tokens": 12, "total_tokens": 21},
+    }
+
+    if client._is_async:
+        patch_target = "httpx.AsyncClient.send"
+
+        async def send_patch(self, request, *args, **kwargs):
+            return httpx.Response(status_code=200, request=request, json=mock_response)
+
+    else:
+        patch_target = "httpx.Client.send"
+
+        def send_patch(self, request, *args, **kwargs):
+            return httpx.Response(status_code=200, request=request, json=mock_response)
+
+    with mock.patch(patch_target, send_patch):
+        response = client.chat.completions.create(
+            messages=[{"role": "user", "content": "test"}],
+            model="custom-deployment",
+        )
+        if client._is_async:
+            response = await response
+
+    # response.model is empty, verify fallback to request.model
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    assert len(trace.data.spans) == 1
+    span = trace.data.spans[0]
+    assert span.model_name == "custom-deployment"
 
 
 @skip_when_testing_trace_sdk
@@ -1190,7 +1333,25 @@ async def test_tracing_headers_preserve_user_headers(client):
 @pytest.mark.skipif(
     Version(openai.__version__) < Version("1.66"), reason="Cost tracking does not work before 1.66"
 )
-async def test_chat_completions_autolog_streaming_with_cached_tokens(client, mock_litellm_cost):
+@pytest.mark.parametrize(
+    ("cache_usage", "expected_cache_usage"),
+    [
+        (
+            {"prompt_tokens_details": {"cached_tokens": 30, "audio_tokens": 0}},
+            {TokenUsageKey.CACHE_READ_INPUT_TOKENS: 30},
+        ),
+        (
+            {"cache_read_input_tokens": 30, "cache_creation_input_tokens": 10},
+            {
+                TokenUsageKey.CACHE_READ_INPUT_TOKENS: 30,
+                TokenUsageKey.CACHE_CREATION_INPUT_TOKENS: 10,
+            },
+        ),
+    ],
+)
+async def test_chat_completions_autolog_streaming_with_cached_tokens(
+    client, mock_litellm_cost, cache_usage, expected_cache_usage
+):
     mlflow.openai.autolog()
 
     mock_chunk = {
@@ -1203,8 +1364,8 @@ async def test_chat_completions_autolog_streaming_with_cached_tokens(client, moc
             "prompt_tokens": 50,
             "completion_tokens": 20,
             "total_tokens": 70,
-            "prompt_tokens_details": {"cached_tokens": 30, "audio_tokens": 0},
             "completion_tokens_details": {"reasoning_tokens": 0},
+            **cache_usage,
         },
     }
 
@@ -1244,5 +1405,5 @@ async def test_chat_completions_autolog_streaming_with_cached_tokens(client, moc
         TokenUsageKey.INPUT_TOKENS: 50,
         TokenUsageKey.OUTPUT_TOKENS: 20,
         TokenUsageKey.TOTAL_TOKENS: 70,
-        TokenUsageKey.CACHE_READ_INPUT_TOKENS: 30,
+        **expected_cache_usage,
     }

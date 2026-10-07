@@ -1,3 +1,4 @@
+import logging
 import os
 import subprocess
 from pathlib import Path
@@ -17,6 +18,7 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_DOES_NOT_EXIST,
 )
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+from mlflow.tracking._model_registry.fluent import _register_model
 from mlflow.utils.databricks_utils import DatabricksRuntimeVersion
 from mlflow.utils.env_pack import EnvPackConfig
 
@@ -294,7 +296,123 @@ def mock_dbr_version():
         yield
 
 
-def test_register_model_with_env_pack(tmp_path, mock_dbr_version):
+ARM_ENV_PACK_WARNING = (
+    "`env_pack` is not supported on the current architecture and will be ignored. "
+    "The model will be registered without a packed environment."
+)
+
+
+@pytest.mark.parametrize(
+    ("cpu_arch", "env_pack"),
+    [
+        ("AArch64", "databricks_model_serving"),
+        (
+            "arm64",
+            EnvPackConfig(name="databricks_model_serving", install_dependencies=False),
+        ),
+    ],
+)
+def test_register_model_ignores_env_pack_on_arm_client_image(
+    tmp_path, monkeypatch, caplog, cpu_arch, env_pack
+):
+    local_model_path = tmp_path / "model"
+    local_model_path.mkdir()
+    monkeypatch.setenv("DATABRICKS_CPU_ARCH", cpu_arch)
+
+    created_model_version = ModelVersion(f"Model {cpu_arch}", "1", creation_timestamp=123)
+    with (
+        mock.patch(
+            "mlflow.tracking._model_registry.fluent.pack_env_for_databricks_model_serving"
+        ) as mock_pack_env,
+        mock.patch(
+            "mlflow.tracking._model_registry.fluent.stage_model_for_databricks_model_serving"
+        ) as mock_stage_model,
+        mock.patch(
+            "mlflow.MlflowClient._create_model_version",
+            return_value=created_model_version,
+        ) as mock_create_version,
+        caplog.at_level(logging.WARNING, logger="mlflow.tracking._model_registry.fluent"),
+    ):
+        result = _register_model(
+            "s3:/some/path/to/model",
+            f"Model {cpu_arch}",
+            local_model_path=str(local_model_path),
+            env_pack=env_pack,
+        )
+
+    assert result is created_model_version
+    assert ARM_ENV_PACK_WARNING in caplog.messages
+    mock_pack_env.assert_not_called()
+    mock_stage_model.assert_not_called()
+    mock_create_version.assert_called_once_with(
+        name=f"Model {cpu_arch}",
+        source="s3:/some/path/to/model",
+        run_id=None,
+        tags=None,
+        await_creation_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
+        local_model_path=str(local_model_path),
+        model_id=None,
+    )
+
+
+@pytest.mark.parametrize(
+    ("env_pack", "error_match"),
+    [
+        ("invalid", "Invalid env_pack value"),
+        (
+            EnvPackConfig(name="invalid", install_dependencies=True),
+            "Invalid EnvPackConfig.name",
+        ),
+    ],
+)
+def test_register_model_validates_env_pack_before_ignoring_it_on_arm(
+    monkeypatch, caplog, env_pack, error_match
+):
+    monkeypatch.setenv("DATABRICKS_CPU_ARCH", "aarch64")
+
+    with (
+        mock.patch(
+            "mlflow.tracking._model_registry.fluent.pack_env_for_databricks_model_serving"
+        ) as mock_pack_env,
+        mock.patch(
+            "mlflow.tracking._model_registry.fluent.stage_model_for_databricks_model_serving"
+        ) as mock_stage_model,
+        mock.patch("mlflow.MlflowClient._create_model_version") as mock_create_version,
+        caplog.at_level(logging.WARNING, logger="mlflow.tracking._model_registry.fluent"),
+        pytest.raises(MlflowException, match=error_match),
+    ):
+        register_model("s3:/some/path/to/model", "Invalid env pack", env_pack=env_pack)
+
+    assert ARM_ENV_PACK_WARNING not in caplog.messages
+    mock_pack_env.assert_not_called()
+    mock_stage_model.assert_not_called()
+    mock_create_version.assert_not_called()
+
+
+def test_register_model_without_env_pack_does_not_warn_on_arm(monkeypatch, caplog):
+    monkeypatch.setenv("DATABRICKS_CPU_ARCH", "aarch64")
+
+    created_model_version = ModelVersion("No env pack", "1", creation_timestamp=123)
+    with (
+        mock.patch(
+            "mlflow.MlflowClient._create_model_version",
+            return_value=created_model_version,
+        ) as mock_create_version,
+        caplog.at_level(logging.WARNING, logger="mlflow.tracking._model_registry.fluent"),
+    ):
+        register_model("s3:/some/path/to/model", "No env pack")
+
+    assert ARM_ENV_PACK_WARNING not in caplog.messages
+    mock_create_version.assert_called_once()
+
+
+@pytest.mark.parametrize("cpu_arch", ["x86_64", "unknown", None])
+def test_register_model_with_env_pack(tmp_path, mock_dbr_version, monkeypatch, caplog, cpu_arch):
+    if cpu_arch is None:
+        monkeypatch.delenv("DATABRICKS_CPU_ARCH", raising=False)
+    else:
+        monkeypatch.setenv("DATABRICKS_CPU_ARCH", cpu_arch)
+
     # Mock download_artifacts to return a path
     mock_artifacts_dir = tmp_path / "artifacts"
     mock_artifacts_dir.mkdir()
@@ -320,6 +438,7 @@ def test_register_model_with_env_pack(tmp_path, mock_dbr_version):
             "mlflow.MlflowClient.get_model_version",
             return_value=ModelVersion("Model 1", "1", creation_timestamp=123),
         ),
+        caplog.at_level(logging.WARNING, logger="mlflow.tracking._model_registry.fluent"),
     ):
         # Set up the mock pack_env to yield a path
         mock_pack_env.return_value.__enter__.return_value = str(mock_artifacts_dir)
@@ -350,10 +469,13 @@ def test_register_model_with_env_pack(tmp_path, mock_dbr_version):
             model_name="Model 1",
             model_version="1",
         )
+        assert ARM_ENV_PACK_WARNING not in caplog.messages
 
 
 @pytest.mark.parametrize("install_deps", [True, False])
-def test_register_model_with_env_pack_config(tmp_path, install_deps):
+def test_register_model_with_env_pack_config(tmp_path, install_deps, monkeypatch):
+    monkeypatch.setenv("DATABRICKS_CPU_ARCH", "x86_64")
+
     # Mock download_artifacts to return a path
     mock_artifacts_dir = tmp_path / "artifacts"
     mock_artifacts_dir.mkdir()
@@ -415,7 +537,9 @@ def test_register_model_with_env_pack_config(tmp_path, install_deps):
         )
 
 
-def test_register_model_with_env_pack_staging_failure(tmp_path, mock_dbr_version):
+def test_register_model_with_env_pack_staging_failure(tmp_path, mock_dbr_version, monkeypatch):
+    monkeypatch.setenv("DATABRICKS_CPU_ARCH", "x86_64")
+
     # Mock download_artifacts to return a path
     mock_artifacts_dir = tmp_path / "artifacts"
     mock_artifacts_dir.mkdir()

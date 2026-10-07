@@ -122,6 +122,18 @@ function createEmbeddingResponse(request: EmbeddingCreateParams): CreateEmbeddin
 export const openAIMockHandlers = [
   http.post('https://api.openai.com/v1/chat/completions', async ({ request }) => {
     const body = (await request.json()) as ChatCompletionCreateParams;
+    if (body.stream) {
+      return new HttpResponse(
+        [
+          'data: {"id":"chatcmpl-stream","object":"chat.completion.chunk","created":123,"model":"gpt-4","choices":[{"index":0,"delta":{"role":"assistant","content":"Test "},"finish_reason":null}]}\n\n',
+          'data: {"id":"chatcmpl-stream","object":"chat.completion.chunk","created":123,"model":"gpt-4","choices":[{"index":0,"delta":{"content":"response","tool_calls":[{"index":0,"id":"call_123","type":"function","function":{"name":"get_weather","arguments":"{\\"city\\":"}}]},"finish_reason":null}]}\n\n',
+          'data: {"id":"chatcmpl-stream","object":"chat.completion.chunk","created":123,"model":"gpt-4","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":"\\"Paris\\"}"}}]},"finish_reason":"tool_calls"}]}\n\n',
+          'data: {"id":"chatcmpl-stream","object":"chat.completion.chunk","created":123,"model":"gpt-4","choices":[],"usage":{"prompt_tokens":10,"completion_tokens":20,"total_tokens":30}}\n\n',
+          'data: [DONE]\n\n',
+        ].join(''),
+        { headers: { 'Content-Type': 'text/event-stream' } },
+      );
+    }
     return HttpResponse.json(createChatCompletionResponse(body));
   }),
   http.post('https://api.openai.com/v1/responses', async ({ request }) => {

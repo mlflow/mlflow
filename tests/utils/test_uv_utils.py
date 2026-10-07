@@ -1,14 +1,18 @@
 import subprocess
+from pathlib import Path
 from unittest import mock
 
 import pytest
 from packaging.version import Version
 
 from mlflow.environment_variables import MLFLOW_UV_AUTO_DETECT
+from mlflow.exceptions import MlflowException
 from mlflow.utils.environment import infer_pip_requirements
 from mlflow.utils.uv_utils import (
     _PYPROJECT_FILE,
     _UV_LOCK_FILE,
+    UvConfig,
+    _resolve_uv_param_compat,
     copy_uv_project_files,
     create_uv_sync_pyproject,
     detect_uv_project,
@@ -17,6 +21,7 @@ from mlflow.utils.uv_utils import (
     get_uv_version,
     has_uv_lock_artifact,
     is_uv_available,
+    resolve_uv_source_dir,
     run_uv_sync,
     setup_uv_sync_environment,
 )
@@ -454,8 +459,7 @@ def test_infer_pip_requirements_passes_groups_and_extras_to_uv_export(tmp_path, 
         result = infer_pip_requirements(
             str(tmp_path),
             "sklearn",
-            uv_groups=["serving"],
-            uv_extras=["api"],
+            uv=UvConfig(groups=["serving"], extras=["api"]),
         )
 
         assert "fastapi==0.100.0" in result
@@ -538,7 +542,8 @@ def test_infer_pip_requirements_uses_explicit_uv_project_dir(tmp_path, monkeypat
         mock.patch("mlflow.utils.uv_utils._get_uv_binary", return_value="/usr/bin/uv"),
         mock.patch("mlflow.utils.uv_utils.subprocess.run", return_value=mock_result),
     ):
-        result = infer_pip_requirements(str(tmp_path), "sklearn", uv_project_dir=uv_project)
+        uv_cfg = UvConfig(project_path=uv_project)
+        result = infer_pip_requirements(str(tmp_path), "sklearn", uv=uv_cfg)
 
         assert "requests==2.28.0" in result
 
@@ -562,7 +567,8 @@ def test_infer_pip_requirements_explicit_uv_project_dir_overrides_disabled_auto_
         mock.patch("mlflow.utils.uv_utils._get_uv_binary", return_value="/usr/bin/uv"),
         mock.patch("mlflow.utils.uv_utils.subprocess.run", return_value=mock_result),
     ):
-        result = infer_pip_requirements(str(tmp_path), "sklearn", uv_project_dir=uv_project)
+        uv_cfg = UvConfig(project_path=uv_project)
+        result = infer_pip_requirements(str(tmp_path), "sklearn", uv=uv_cfg)
 
         assert "numpy==1.24.0" in result
 
@@ -856,12 +862,168 @@ def test_infer_pip_requirements_warns_when_groups_set_but_no_uv_project(tmp_path
         result = infer_pip_requirements(
             str(tmp_path),
             "sklearn",
-            uv_groups=["serving"],
-            uv_extras=["api"],
+            uv=UvConfig(groups=["serving"], extras=["api"]),
         )
 
         assert "scikit-learn==1.0" in result
         mock_logger.warning.assert_any_call(
-            "uv_groups and/or uv_extras were specified but no uv project was detected. "
+            "UvConfig groups and/or extras were specified but no uv project was detected. "
             "These parameters will be ignored. Falling back to package capture based inference."
+        )
+
+
+# --- Deprecated parameter compatibility tests ---
+
+
+def test_resolve_uv_param_compat_no_params_returns_none():
+    assert _resolve_uv_param_compat(None, None, None, None) is None
+
+
+def test_resolve_uv_param_compat_only_uvconfig_returns_unchanged():
+    cfg = UvConfig(project_path="/tmp/x", groups=["a"], extras=["b"])
+    assert _resolve_uv_param_compat(cfg, None, None, None) is cfg
+
+
+@pytest.mark.parametrize(
+    ("project_path", "groups", "extras"),
+    [
+        ("/p", None, None),
+        (None, ["g"], None),
+        (None, None, ["e"]),
+        ("/p", ["g"], ["e"]),
+    ],
+)
+def test_resolve_uv_param_compat_legacy_emits_future_warning(project_path, groups, extras):
+    with pytest.warns(FutureWarning, match="deprecated"):
+        result = _resolve_uv_param_compat(None, project_path, groups, extras)
+    assert isinstance(result, UvConfig)
+    assert result.project_path == project_path
+    assert result.groups == groups
+    assert result.extras == extras
+
+
+@pytest.mark.parametrize(
+    ("project_path", "groups", "extras"),
+    [
+        ("/p", None, None),
+        (None, ["g"], None),
+        (None, None, ["e"]),
+    ],
+)
+def test_resolve_uv_param_compat_mixing_raises(project_path, groups, extras):
+    cfg = UvConfig(project_path="/other")
+    with pytest.raises(MlflowException, match="Cannot specify both"):
+        _resolve_uv_param_compat(cfg, project_path, groups, extras)
+
+
+def test_resolve_uv_param_compat_uvconfig_does_not_warn(recwarn):
+    cfg = UvConfig(project_path="/tmp/x")
+    _resolve_uv_param_compat(cfg, None, None, None)
+    assert not [w for w in recwarn if issubclass(w.category, FutureWarning)]
+
+
+def test_infer_pip_requirements_mixing_legacy_and_uv_raises():
+    with pytest.raises(MlflowException, match="Cannot specify both"):
+        infer_pip_requirements(
+            "models:/dummy",
+            "sklearn",
+            uv=UvConfig(project_path="/tmp/x"),
+            uv_project_dir="/tmp/x",
+        )
+
+
+# --- resolve_uv_source_dir tests ---
+
+
+def test_resolve_uv_source_dir_prefers_explicit_project_path(tmp_path, monkeypatch):
+    monkeypatch.setenv("MLFLOW_UV_AUTO_DETECT", "false")
+
+    assert resolve_uv_source_dir(UvConfig(project_path=str(tmp_path))) == tmp_path
+
+
+@pytest.mark.parametrize("uv", [None, UvConfig(), UvConfig(groups=["serving"], extras=["gpu"])])
+def test_resolve_uv_source_dir_uses_cwd_when_auto_detect_enabled(tmp_path, monkeypatch, uv):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("MLFLOW_UV_AUTO_DETECT", "true")
+
+    assert resolve_uv_source_dir(uv) == Path.cwd()
+
+
+@pytest.mark.parametrize("uv", [None, UvConfig(), UvConfig(groups=["serving"], extras=["gpu"])])
+def test_resolve_uv_source_dir_returns_none_when_auto_detect_disabled(monkeypatch, uv):
+    monkeypatch.setenv("MLFLOW_UV_AUTO_DETECT", "false")
+
+    assert resolve_uv_source_dir(uv) is None
+
+
+def test_infer_pip_requirements_uvconfig_without_project_path_auto_detects_cwd(
+    tmp_path, monkeypatch
+):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("MLFLOW_UV_AUTO_DETECT", "true")
+    (tmp_path / _UV_LOCK_FILE).touch()
+    (tmp_path / _PYPROJECT_FILE).touch()
+
+    mock_result = mock.Mock()
+    mock_result.stdout = "gunicorn==22.0.0\n"
+
+    with (
+        mock.patch("mlflow.utils.uv_utils._get_uv_binary", return_value="/usr/bin/uv"),
+        mock.patch("mlflow.utils.uv_utils.subprocess.run", return_value=mock_result) as mock_run,
+    ):
+        result = infer_pip_requirements(
+            str(tmp_path), "sklearn", uv=UvConfig(groups=["serving"], extras=["gpu"])
+        )
+
+    assert "gunicorn==22.0.0" in result
+    cmd = mock_run.call_args.args[0]
+    assert cmd[cmd.index("--group") + 1] == "serving"
+    assert cmd[cmd.index("--extra") + 1] == "gpu"
+    assert mock_run.call_args.kwargs["cwd"] == Path.cwd()
+
+
+# --- Deprecated uv_project_dir alias on infer_pip_requirements (3.11 surface) ---
+
+
+def test_resolve_uv_param_compat_names_the_caller_parameter():
+    with pytest.warns(FutureWarning, match=r"\['uv_project_dir'\]"):
+        result = _resolve_uv_param_compat(
+            None, "/p", None, None, project_path_param="uv_project_dir"
+        )
+
+    assert result == UvConfig(project_path="/p")
+
+
+def test_infer_pip_requirements_uv_project_dir_is_deprecated_alias(tmp_path, monkeypatch):
+    work_dir = tmp_path / "work"
+    work_dir.mkdir()
+    monkeypatch.chdir(work_dir)
+    monkeypatch.setenv("MLFLOW_UV_AUTO_DETECT", "false")
+
+    uv_project = tmp_path / "my_project"
+    uv_project.mkdir()
+    (uv_project / _UV_LOCK_FILE).touch()
+    (uv_project / _PYPROJECT_FILE).touch()
+
+    mock_result = mock.Mock()
+    mock_result.stdout = "requests==2.28.0\n"
+
+    with (
+        mock.patch("mlflow.utils.uv_utils._get_uv_binary", return_value="/usr/bin/uv"),
+        mock.patch("mlflow.utils.uv_utils.subprocess.run", return_value=mock_result) as mock_run,
+        pytest.warns(FutureWarning, match="uv_project_dir"),
+    ):
+        result = infer_pip_requirements(str(tmp_path), "sklearn", uv_project_dir=uv_project)
+
+    assert "requests==2.28.0" in result
+    assert mock_run.call_args.kwargs["cwd"] == uv_project
+
+
+def test_infer_pip_requirements_uv_project_dir_with_uv_raises():
+    with pytest.raises(MlflowException, match="Cannot specify both"):
+        infer_pip_requirements(
+            "models:/dummy",
+            "sklearn",
+            uv=UvConfig(project_path="/tmp/x"),
+            uv_project_dir="/tmp/y",
         )

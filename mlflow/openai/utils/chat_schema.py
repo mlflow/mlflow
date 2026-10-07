@@ -33,7 +33,13 @@ def set_span_chat_attributes(span: LiveSpan, inputs: dict[str, Any], output: Any
         _logger.debug("Failed to set chat tools on span", exc_info=True)
 
     # Set model name if available
-    set_span_model_attribute(span, inputs)
+    # NB: Prioritize model name from the response to ensure accuracy for providers like Azure
+    #     OpenAI where the request 'model' parameter may contain deployment name instead of the
+    #     actual model name.
+    if model := _parse_model(output):
+        span.set_attribute(SpanAttributeKey.MODEL, model)
+    else:
+        set_span_model_attribute(span, inputs)
 
     # Extract and set usage information if available
     if usage := _parse_usage(output):
@@ -123,6 +129,58 @@ def _parse_tools(inputs: dict[str, Any]) -> list[ChatTool]:
     return parsed_tools
 
 
+def _parse_model(output: Any) -> str | None:
+    """
+    Parse model information from OpenAI response objects.
+
+    Args:
+        output: The response object from OpenAI API calls
+
+    Returns:
+        The model name.
+    """
+    if output is None:
+        return None
+
+    # Handle OpenAI ChatCompletion API response
+    try:
+        from openai.types.chat import ChatCompletion
+
+        if isinstance(output, ChatCompletion) and (model := output.model):
+            return model
+    except ImportError:
+        pass
+
+    # Handle OpenAI Responses API response
+    try:
+        from openai.types.responses import Response
+
+        if isinstance(output, Response) and (model := output.model):
+            return model
+    except ImportError:
+        pass
+
+    # Handle OpenAI non-chat Text Completion API
+    try:
+        from openai.types.completion import Completion
+
+        if isinstance(output, Completion) and (model := output.model):
+            return model
+    except ImportError:
+        pass
+
+    # Handle OpenAI Embeddings API
+    try:
+        from openai.types.create_embedding_response import CreateEmbeddingResponse
+
+        if isinstance(output, CreateEmbeddingResponse) and (model := output.model):
+            return model
+    except ImportError:
+        pass
+
+    return None
+
+
 def _parse_usage(output: Any) -> dict[str, Any] | None:
     """
     Parse token usage information from OpenAI response objects.
@@ -141,15 +199,7 @@ def _parse_usage(output: Any) -> dict[str, Any] | None:
         from openai.types.chat import ChatCompletion
 
         if isinstance(output, ChatCompletion) and (usage := output.usage):
-            usage_dict = {
-                TokenUsageKey.INPUT_TOKENS: usage.prompt_tokens,
-                TokenUsageKey.OUTPUT_TOKENS: usage.completion_tokens,
-                TokenUsageKey.TOTAL_TOKENS: usage.total_tokens,
-            }
-            if details := getattr(usage, "prompt_tokens_details", None):
-                if (cached := getattr(details, "cached_tokens", None)) is not None:
-                    usage_dict[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = cached
-            return usage_dict
+            return _parse_chat_completion_usage(usage)
     except ImportError:
         pass
 
@@ -171,3 +221,20 @@ def _parse_usage(output: Any) -> dict[str, Any] | None:
         pass
 
     return None
+
+
+def _parse_chat_completion_usage(usage: Any) -> dict[str, Any]:
+    usage_dict = {
+        TokenUsageKey.INPUT_TOKENS: usage.prompt_tokens,
+        TokenUsageKey.OUTPUT_TOKENS: usage.completion_tokens,
+        TokenUsageKey.TOTAL_TOKENS: usage.total_tokens,
+    }
+    details = getattr(usage, "prompt_tokens_details", None)
+    cached = getattr(details, "cached_tokens", None)
+    if cached is None:
+        cached = getattr(usage, "cache_read_input_tokens", None)
+    if cached is not None:
+        usage_dict[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = cached
+    if (created := getattr(usage, "cache_creation_input_tokens", None)) is not None:
+        usage_dict[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS] = created
+    return usage_dict

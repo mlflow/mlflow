@@ -1,0 +1,27 @@
+{
+  "network": {
+    "allowedDomains": [
+      "localhost:8080",
+      "pypi.org",
+      "files.pythonhosted.org",
+      "releases.astral.sh",
+      "registry.npmjs.org",
+      "registry.yarnpkg.com"
+    ],
+    "deniedDomains": [],
+    "allowAllUnixSockets": true
+  },
+  "filesystem": {
+    "denyRead": [
+      "~/.ssh",
+      "~/.docker",
+      "~/.config/gh",
+      "/var/run/docker.sock",
+      "/run/docker.sock",
+      "/run/containerd",
+      "/home/runner/work/_temp/_runner_file_commands"
+    ],
+    "allowWrite": [".", "/tmp", "~/.claude", "~/.claude.json", "~/.cache/uv", "~/.npm"],
+    "denyWrite": []
+  }
+}

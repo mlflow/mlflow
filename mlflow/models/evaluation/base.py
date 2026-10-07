@@ -1393,7 +1393,7 @@ def evaluate(
             - ``'text'``
             - ``'retriever'``
 
-            If no ``model_type`` is specified, then you must provide a a list of
+            If no ``model_type`` is specified, then you must provide a list of
             metrics to compute via the ``extra_metrics`` param.
 
             .. note::

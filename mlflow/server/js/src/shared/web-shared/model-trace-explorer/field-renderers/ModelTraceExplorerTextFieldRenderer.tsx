@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { ChevronDownIcon, ChevronRightIcon, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 import { GenAIMarkdownRenderer } from '../../genai-markdown-renderer/GenAIMarkdownRenderer';
+import { SnippetCopyAction } from '../../snippet/actions/SnippetCopyAction';
 
 const STRING_TRUNCATION_LIMIT = 400;
 
@@ -38,11 +39,14 @@ export const ModelTraceExplorerTextFieldRenderer = ({ title, value }: { title: s
       )}
       <div
         css={{
+          position: 'relative',
           display: 'flex',
           flexDirection: 'column',
           gap: theme.spacing.sm,
           marginInline: theme.spacing.sm,
           paddingInline: theme.spacing.sm,
+          // reserve space for the copy action so it doesn't overlap the rendered markdown
+          paddingRight: theme.spacing.lg,
           paddingBlock: theme.spacing.sm,
           border: `1px solid ${theme.colors.border}`,
           borderRadius: theme.borders.borderRadiusSm,
@@ -52,6 +56,13 @@ export const ModelTraceExplorerTextFieldRenderer = ({ title, value }: { title: s
           },
         }}
       >
+        {/* the action always copies the full value, not the truncated preview */}
+        <SnippetCopyAction
+          componentId="shared.model-trace-explorer.copy-text-field"
+          copyText={value}
+          size="small"
+          css={{ position: 'absolute', top: theme.spacing.xs, right: theme.spacing.xs, zIndex: 1 }}
+        />
         <GenAIMarkdownRenderer>{displayValue}</GenAIMarkdownRenderer>
         {isExpandable && (
           <Typography.Link
