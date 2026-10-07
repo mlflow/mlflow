@@ -3,13 +3,13 @@ import { FormattedMessage, defineMessage, useIntl } from 'react-intl';
 
 const tooltipIntroMessage = defineMessage({
   defaultMessage:
-    'Free-text search matches name and description through {searchText}. Structured filters are sent as {filterString} clauses.',
-  description: 'Tooltip explaining Skill Registry catalog search',
+    'Type text to search skill names and descriptions. To search by tags or by names and tags,{newline}use a simplified version of the SQL {whereBold} clause.',
+  description: 'Tooltip explaining how to search skills in the registry',
 });
 
 export const SkillSearchInputHelpTooltip = () => {
   const { formatMessage } = useIntl();
-  const labelText = formatMessage(tooltipIntroMessage, { searchText: 'search_text', filterString: 'filter_string' });
+  const labelText = formatMessage(tooltipIntroMessage, { newline: ' ', whereBold: 'WHERE' });
 
   return (
     <Popover.Root componentId="mlflow.skill_registry.search.help_tooltip">
@@ -21,19 +21,15 @@ export const SkillSearchInputHelpTooltip = () => {
       </Popover.Trigger>
       <Popover.Content align="start">
         <div>
-          <FormattedMessage
-            {...tooltipIntroMessage}
-            values={{ searchText: <b>search_text</b>, filterString: <b>filter_string</b> }}
-          />
+          <FormattedMessage {...tooltipIntroMessage} values={{ newline: <br />, whereBold: <b>WHERE</b> }} />
           <br />
           <br />
           <FormattedMessage
             defaultMessage="Examples:"
             description="Text header for examples of Skill Registry search syntax"
           />
-          <br />• search_text ILIKE &quot;%review%&quot;
-          <br />• status = &quot;active&quot; AND organization = &quot;acme&quot;
-          <br />• source_type = &quot;git&quot;
+          <br />• tags.team = &quot;platform&quot;
+          <br />• name ILIKE &quot;%review%&quot; AND tags.team = &quot;platform&quot;
         </div>
         <Popover.Arrow />
       </Popover.Content>

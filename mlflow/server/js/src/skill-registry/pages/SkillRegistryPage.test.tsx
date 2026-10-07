@@ -1,4 +1,4 @@
-import { beforeEach, describe, it, expect } from '@jest/globals';
+import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { IntlProvider } from 'react-intl';
@@ -13,10 +13,14 @@ import { getAjaxUrl } from '@mlflow/mlflow/src/common/utils/FetchUtils';
 import { setActiveWorkspace } from '../../workspaces/utils/WorkspaceUtils';
 import {
   createMockSkill,
+  createMockSkillVersion,
+  getMockedGetSkillResponse,
   getMockedSearchSkillsErrorResponse,
   getMockedSearchSkillsPermissionDeniedResponse,
   getMockedSearchSkillsResponse,
+  getMockedSkillDetailHandlers,
 } from '../test-utils';
+import { SKILL_QUERY_KEYS } from '../utils';
 
 const BASE_URL = 'ajax-api/3.0/mlflow/skills';
 
@@ -28,11 +32,21 @@ const changeSimpleSelect = async (componentId: string, optionLabel: string) => {
 };
 
 describe('SkillRegistryPage', () => {
-  const server = setupServer(getMockedSearchSkillsResponse([]));
+  const server = setupServer(
+    getMockedSearchSkillsResponse([]),
+    // A new skill is created before its first version is registered.
+    rest.post(getAjaxUrl(BASE_URL), async (req, res, ctx) => res(ctx.json(createMockSkill(await req.json())))),
+  );
 
   beforeEach(() => {
     setActiveWorkspace(null);
   });
+
+  // An empty catalog shows Create skill in its empty state once the list has loaded.
+  const openCreateSkillDialog = async () => {
+    await screen.findByText('Register and catalog skills for your organization.');
+    await userEvent.click(screen.getByRole('button', { name: 'Create skill' }));
+  };
 
   const renderPage = (initialEntries = ['/skills']) => {
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -44,7 +58,7 @@ describe('SkillRegistryPage', () => {
               routes={[
                 testRoute(<SkillRegistryPage />, '/skills'),
                 testRoute(<SkillDetailPage />, '/skills/:organization/:skillName'),
-                testRoute(<SkillDetailPage />, '/skills/:skillName'),
+                testRoute(<SkillDetailPage />, '/skills/:skillKey'),
               ]}
               initialEntries={initialEntries}
             />
@@ -52,20 +66,28 @@ describe('SkillRegistryPage', () => {
         </DesignSystemProvider>
       </IntlProvider>,
     );
+    return queryClient;
   };
 
   it('renders the catalog title and empty-registry state', async () => {
     renderPage();
-    await waitFor(() => {
-      expect(screen.getByText('No skills yet')).toBeInTheDocument();
-    });
+    expect(await screen.findByText('Register and catalog skills for your organization.')).toBeInTheDocument();
     expect(screen.getByText('Skills')).toBeInTheDocument();
-    expect(screen.getByText('Skills you can read will appear here once they are registered.')).toBeInTheDocument();
     expect(screen.queryByPlaceholderText('Tag key')).not.toBeInTheDocument();
     expect(screen.queryByPlaceholderText('Tag value')).not.toBeInTheDocument();
   });
 
-  it('orders catalog filters like the prototype', async () => {
+  it('keeps the header create button hidden while the first page loads', async () => {
+    server.use(rest.get(getAjaxUrl(BASE_URL), (_req, res, ctx) => res(ctx.delay(300), ctx.json({ skills: [] }))));
+    renderPage();
+
+    expect(await screen.findByText('Loading skills...')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Create skill' })).not.toBeInTheDocument();
+    await openCreateSkillDialog();
+    expect(screen.getByRole('dialog', { name: 'Create skill' })).toBeInTheDocument();
+  });
+
+  it('orders the catalog filters as search, active, organization, then source', async () => {
     renderPage();
 
     const search = screen.getByPlaceholderText('Search skills');
@@ -113,6 +135,43 @@ describe('SkillRegistryPage', () => {
     });
     expect(screen.getByText('Not allowed to search skills')).toBeInTheDocument();
     expect(screen.queryByText('Retry')).not.toBeInTheDocument();
+  });
+
+  it('moves Create skill from the header into the empty state when the catalog is empty', async () => {
+    renderPage();
+
+    expect(await screen.findByText('Register and catalog skills for your organization.')).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: 'Create skill' })).toHaveLength(1);
+    await userEvent.click(screen.getByRole('button', { name: 'Create skill' }));
+    expect(screen.getByRole('dialog', { name: 'Create skill' })).toBeInTheDocument();
+  });
+
+  it('drops a Git ref when the location changes to another source type', async () => {
+    let requestBody: Record<string, unknown> | undefined;
+    server.use(
+      rest.get(/skills\/@acme\/oci-skill$/, (_req, res, ctx) => res(ctx.status(404), ctx.json({}))),
+      rest.post(getAjaxUrl(`${BASE_URL}/register`), async (req, res, ctx) => {
+        requestBody = await req.json();
+        return res(ctx.status(500), ctx.json({ message: 'stop here' }));
+      }),
+    );
+    renderPage();
+
+    await openCreateSkillDialog();
+    await userEvent.type(screen.getByLabelText('Location'), 'https://github.com/acme/skills/tree/dev/code-review');
+    await userEvent.click(screen.getByRole('button', { name: 'Advanced settings (optional)' }));
+    expect(screen.getByLabelText('Branch, tag or commit')).toHaveValue('dev');
+
+    await userEvent.clear(screen.getByLabelText('Location'));
+    await userEvent.type(screen.getByLabelText('Location'), 'oci://ghcr.io/acme/oci-skill:1');
+    expect(screen.queryByLabelText('Branch, tag or commit')).not.toBeInTheDocument();
+    await userEvent.clear(screen.getByLabelText('Name'));
+    await userEvent.type(screen.getByLabelText('Name'), '@acme/oci-skill');
+    await userEvent.click(screen.getByRole('button', { name: 'Create' }));
+
+    await waitFor(() => expect(requestBody).toBeDefined());
+    expect(requestBody).toMatchObject({ source_type: 'oci', source: 'ghcr.io/acme/oci-skill:1' });
+    expect(requestBody).not.toHaveProperty('ref');
   });
 
   it('shows empty-search copy when filters return no results', async () => {
@@ -266,6 +325,10 @@ describe('SkillRegistryPage', () => {
       expect(screen.getByRole('link', { name: 'cluster-inventory' })).toBeInTheDocument();
     });
     expect(screen.queryByRole('link', { name: '@ocp-admin/cluster-inventory' })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'cluster-inventory' })).toHaveAttribute(
+      'href',
+      '/skills/%40ocp-admin%2Fcluster-inventory',
+    );
     expect(screen.getByText('@ocp-admin')).toBeInTheDocument();
     expect(screen.getByText('v4')).toBeInTheDocument();
     expect(screen.getByText('MLflow artifacts')).toBeInTheDocument();
@@ -377,7 +440,14 @@ describe('SkillRegistryPage', () => {
   });
 
   it('navigates from a catalog card to the Skill detail route', async () => {
-    server.use(getMockedSearchSkillsResponse([createMockSkill({ name: 'code-review', organization: 'acme' })]));
+    const skill = createMockSkill({ name: 'code-review', organization: 'acme' });
+    server.use(
+      getMockedSearchSkillsResponse([skill]),
+      ...getMockedSkillDetailHandlers(skill, [
+        createMockSkillVersion({ version: 2 }),
+        createMockSkillVersion({ version: 1 }),
+      ]),
+    );
     renderPage();
 
     await waitFor(() => {
@@ -387,8 +457,320 @@ describe('SkillRegistryPage', () => {
     await userEvent.click(document.querySelector('[data-component-id="mlflow.skill_registry.card"]') as HTMLElement);
 
     await waitFor(() => {
-      expect(screen.getByText('Skill details will appear here.')).toBeInTheDocument();
-      expect(screen.getByText('@acme/code-review')).toBeInTheDocument();
+      expect(screen.getByText('Viewing version 2')).toBeInTheDocument();
+      expect(screen.getByText('@acme')).toBeInTheDocument();
     });
+  });
+
+  it('registers an external source from the catalog and opens the returned version', async () => {
+    const skill = createMockSkill({
+      name: 'network-policy-architect',
+      organization: 'acme',
+      latest_version: 1,
+    });
+    const version = createMockSkillVersion({
+      name: 'network-policy-architect',
+      organization: 'acme',
+      version: 1,
+      ref: 'main',
+      subpath: 'network-policy-architect',
+    });
+    let requestBody: unknown;
+    let registered = false;
+    server.use(
+      // The skill does not exist until it is registered, so the name check passes.
+      rest.get(/skills\/@acme\/network-policy-architect$/, (_req, res, ctx) =>
+        registered ? undefined : res(ctx.status(404), ctx.json({ error_code: 'RESOURCE_DOES_NOT_EXIST' })),
+      ),
+      rest.post(getAjaxUrl(`${BASE_URL}/register`), async (req, res, ctx) => {
+        requestBody = await req.json();
+        registered = true;
+        return res(ctx.json(version));
+      }),
+      ...getMockedSkillDetailHandlers(skill, [version]),
+    );
+    const queryClient = renderPage();
+    const invalidateQueries = jest.spyOn(queryClient, 'invalidateQueries');
+
+    await openCreateSkillDialog();
+    expect(screen.getByRole('radio', { name: /Import from existing source, e.g. Git, OCI/ })).toBeChecked();
+    expect(
+      screen.getByLabelText('Location').compareDocumentPosition(screen.getByLabelText('Name')) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+
+    await userEvent.click(screen.getByRole('radio', { name: /Upload a folder/ }));
+    expect(screen.getByText('Select the directory containing SKILL.md.')).toBeInTheDocument();
+    expect(screen.getByText('Up to 25 MB of files, unless your server sets a different limit.')).toBeInTheDocument();
+    expect(screen.getByLabelText('Name')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Advanced settings (optional)' })).toBeInTheDocument();
+    expect(document.querySelector('input[type="file"]')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Create' })).toBeDisabled();
+
+    await userEvent.click(screen.getByRole('radio', { name: /Import from existing source, e.g. Git, OCI/ }));
+    await userEvent.type(
+      screen.getByLabelText('Location'),
+      'https://github.com/acme/skills/tree/main/network-policy-architect',
+    );
+    expect(screen.getByLabelText('Name')).toHaveValue('@acme/network-policy-architect');
+    expect(screen.getByText(/Filled in from the source/)).toBeInTheDocument();
+    expect(
+      screen.getByText('Registers Git https://github.com/acme/skills · branch main · path network-policy-architect'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Registering every skill under this folder? Run this instead:')).toBeInTheDocument();
+    expect(document.body.textContent).toContain("--subpath 'network-policy-architect'");
+    await userEvent.click(screen.getByRole('button', { name: /create through API/ }));
+    const snippet = document.body.textContent ?? '';
+    expect(snippet).toContain('mlflow skills register git');
+    expect(snippet).toContain("--name 'network-policy-architect'");
+    expect(snippet).toContain("--organization 'acme'");
+    expect(snippet).toContain("--url 'https://github.com/acme/skills'");
+    expect(snippet).toContain("--ref 'main'");
+    expect(snippet).toContain("--subpath 'network-policy-architect'");
+    expect(screen.getByRole('button', { name: 'Create' })).toBeDisabled();
+    await userEvent.click(screen.getByRole('button', { name: /Back to form/ }));
+    expect(screen.getByLabelText('Location')).toHaveValue(
+      'https://github.com/acme/skills/tree/main/network-policy-architect',
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Create' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Viewing version 1')).toBeInTheDocument();
+    });
+    expect(requestBody).toMatchObject({
+      name: 'network-policy-architect',
+      organization: 'acme',
+      source: 'https://github.com/acme/skills',
+      source_type: 'git',
+      ref: 'main',
+      subpath: 'network-policy-architect',
+      status: 'active',
+    });
+    // The catalog, and the registered skill's own queries, once its follow-up writes are done.
+    expect(invalidateQueries).toHaveBeenCalledWith([SKILL_QUERY_KEYS.SKILLS_LIST]);
+    for (const key of [SKILL_QUERY_KEYS.SKILL, SKILL_QUERY_KEYS.SKILL_VERSIONS, SKILL_QUERY_KEYS.SKILL_VERSION]) {
+      expect(invalidateQueries).toHaveBeenCalledWith([key, 'network-policy-architect', 'acme']);
+    }
+  });
+
+  it('refuses to register a new skill under a name that is already taken', async () => {
+    let registerCalled = false;
+    server.use(
+      getMockedGetSkillResponse(createMockSkill({ name: 'skills-developer', organization: 'redhat-ai' })),
+      rest.post(getAjaxUrl(`${BASE_URL}/register`), (_req, res, ctx) => {
+        registerCalled = true;
+        return res(ctx.json({}));
+      }),
+    );
+    renderPage();
+
+    await openCreateSkillDialog();
+    await userEvent.type(screen.getByLabelText('Location'), 'https://github.com/redhat-ai/skills-developer');
+    await userEvent.click(screen.getByLabelText('Name'));
+    await userEvent.tab();
+    expect(
+      await screen.findByText('A skill named "@redhat-ai/skills-developer" is already registered.'),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Create' })).toBeDisabled();
+
+    await userEvent.type(screen.getByLabelText('Name'), '-v2');
+    expect(screen.queryByText(/is already registered/)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Create' })).toBeEnabled();
+    await userEvent.clear(screen.getByLabelText('Name'));
+    await userEvent.type(screen.getByLabelText('Name'), '@redhat-ai/skills-developer');
+    await userEvent.click(screen.getByRole('button', { name: 'Create' }));
+    expect(
+      await screen.findByText('A skill named "@redhat-ai/skills-developer" is already registered.'),
+    ).toBeInTheDocument();
+    expect(registerCalled).toBe(false);
+  });
+
+  it('offers only Import when the server cannot store uploads', async () => {
+    server.use(
+      rest.get(getAjaxUrl('ajax-api/3.0/mlflow/server-info'), (_req, res, ctx) =>
+        res(ctx.json({ store_type: 'SqlStore', artifact_serving_enabled: false })),
+      ),
+    );
+    renderPage();
+
+    await openCreateSkillDialog();
+    // Server info can answer after the dialog opens.
+    await waitFor(() => {
+      expect(screen.queryByRole('radio', { name: /Upload a folder/ })).not.toBeInTheDocument();
+    });
+    expect(screen.getByRole('radio', { name: /Import from existing source/ })).toBeChecked();
+  });
+
+  it('refuses a folder over the server limits before packaging it', async () => {
+    server.use(
+      rest.get(getAjaxUrl('ajax-api/3.0/mlflow/server-info'), (_req, res, ctx) =>
+        res(ctx.json({ store_type: 'SqlStore', skill_content_max_size: 64, skill_content_max_files: 2 })),
+      ),
+    );
+    const folderFile = (path: string, content: string) => {
+      const file = new File([content], path.split('/').pop() ?? path);
+      Object.defineProperties(file, {
+        webkitRelativePath: { value: path },
+        text: { value: async () => content, writable: true, configurable: true },
+      });
+      return file;
+    };
+    renderPage();
+
+    await openCreateSkillDialog();
+    await userEvent.click(screen.getByRole('radio', { name: /Upload a folder/ }));
+    expect(await screen.findByText('Up to 64 B of files.')).toBeInTheDocument();
+
+    const manifest = folderFile('demo/SKILL.md', '---\nname: demo\n---\n');
+    const readManifest = jest.spyOn(manifest, 'text');
+    await userEvent.upload(screen.getByLabelText('Skill folder'), [
+      manifest,
+      folderFile('demo/a.md', 'a'),
+      folderFile('demo/b.md', 'b'),
+    ]);
+    expect(await screen.findByText('This folder has 3 files. The server accepts up to 2.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Create' })).toBeDisabled();
+    // An over-limit folder is refused without reading its SKILL.md, so the name stays empty.
+    expect(readManifest).not.toHaveBeenCalled();
+    expect(screen.getByLabelText('Name')).toHaveValue('');
+
+    await userEvent.upload(screen.getByLabelText('Skill folder'), [
+      manifest,
+      folderFile('demo/big.md', 'x'.repeat(100)),
+    ]);
+    expect(await screen.findByText(/This folder is .* The server accepts up to 64 B of files\./)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Create' })).toBeDisabled();
+  });
+
+  it('forgets a selected folder when switching away from Upload', async () => {
+    renderPage();
+
+    await openCreateSkillDialog();
+    await userEvent.click(screen.getByRole('radio', { name: /Upload a folder/ }));
+    const content = '---\nname: demo\n---\n# Demo\n';
+    const manifest = new File([content], 'SKILL.md');
+    // jsdom's File has no text().
+    Object.defineProperties(manifest, {
+      webkitRelativePath: { value: 'demo/SKILL.md' },
+      text: { value: async () => content },
+    });
+    await userEvent.upload(screen.getByLabelText('Skill folder'), manifest);
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Create' })).toBeEnabled());
+
+    await userEvent.click(screen.getByRole('radio', { name: /Import from existing source, e.g. Git, OCI/ }));
+    await userEvent.click(screen.getByRole('radio', { name: /Upload a folder/ }));
+    expect(screen.getByRole('button', { name: 'Create' })).toBeDisabled();
+  });
+
+  it('warns that a GitHub link may split a branch name containing a slash', async () => {
+    renderPage();
+
+    await openCreateSkillDialog();
+    await userEvent.type(
+      screen.getByLabelText('Location'),
+      'https://github.com/acme/skills/tree/feature/review/skills/code-review',
+    );
+    expect(screen.getByText(/GitHub links don't show where a branch name ends/)).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: /Advanced settings/ }));
+    await userEvent.clear(screen.getByLabelText('Branch, tag or commit'));
+    await userEvent.type(screen.getByLabelText('Branch, tag or commit'), 'feature/review');
+    expect(screen.queryByText(/GitHub links don't show where a branch name ends/)).not.toBeInTheDocument();
+  });
+
+  it('ignores a name check that answers after the name changed', async () => {
+    let answerOldName = () => {};
+    const oldNameAnswered = new Promise<void>((resolve) => {
+      answerOldName = resolve;
+    });
+    server.use(
+      rest.get(/skills\/@redhat-ai\/skills-developer$/, async (_req, res, ctx) => {
+        await oldNameAnswered;
+        return res(ctx.json(createMockSkill({ name: 'skills-developer', organization: 'redhat-ai' })));
+      }),
+      rest.get(/skills\/@redhat-ai\/fresh-name$/, (_req, res, ctx) => res(ctx.status(404), ctx.json({}))),
+    );
+    renderPage();
+
+    await openCreateSkillDialog();
+    await userEvent.type(screen.getByLabelText('Name'), '@redhat-ai/skills-developer');
+    await userEvent.tab();
+    await userEvent.clear(screen.getByLabelText('Name'));
+    await userEvent.type(screen.getByLabelText('Name'), '@redhat-ai/fresh-name');
+
+    // The check for the old name answers only now, after the name changed.
+    await act(async () => {
+      answerOldName();
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    });
+    expect(screen.queryByText(/is already registered/)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Create' })).toBeEnabled();
+  });
+
+  it('does not register until the name check succeeds', async () => {
+    let registerCalled = false;
+    server.use(
+      rest.get(/skills\/@redhat-ai\/skills-developer$/, (_req, res, ctx) =>
+        res(ctx.status(500), ctx.json({ error_code: 'INTERNAL_ERROR', message: 'Database unavailable' })),
+      ),
+      rest.post(getAjaxUrl(`${BASE_URL}/register`), (_req, res, ctx) => {
+        registerCalled = true;
+        return res(ctx.json({}));
+      }),
+    );
+    renderPage();
+
+    await openCreateSkillDialog();
+    await userEvent.type(screen.getByLabelText('Location'), 'https://github.com/redhat-ai/skills-developer');
+    await userEvent.click(screen.getByRole('button', { name: 'Create' }));
+
+    expect(await screen.findByText(/Couldn't check whether this name is already registered/)).toBeInTheDocument();
+    expect(registerCalled).toBe(false);
+  });
+
+  it('points a whole-repository location at the repository import command', async () => {
+    renderPage();
+
+    await openCreateSkillDialog();
+    await userEvent.type(screen.getByLabelText('Location'), 'https://github.com/redhat-ai/skills-developer');
+
+    expect(screen.getByText('Registers Git https://github.com/redhat-ai/skills-developer')).toBeInTheDocument();
+    expect(screen.getByText('Registering every skill in this repository? Run this instead:')).toBeInTheDocument();
+    expect(document.body.textContent).toContain(
+      "mlflow skills import --source 'https://github.com/redhat-ai/skills-developer'",
+    );
+    expect(document.body.textContent).toContain("--organization 'redhat-ai'");
+    expect(screen.getByRole('button', { name: 'Copy repository import command' })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: /create through API/ }));
+    await userEvent.click(screen.getByText('Python'));
+    expect(document.body.textContent).toContain('mlflow.genai.import_skills(');
+    expect(document.body.textContent).toContain('organization="redhat-ai"');
+  });
+
+  it('keeps the form and shows the server error when registration is denied', async () => {
+    server.use(
+      rest.get(/skills\/@redhat-ai\/skills-developer$/, (_req, res, ctx) => res(ctx.status(404), ctx.json({}))),
+      rest.post(getAjaxUrl(`${BASE_URL}/register`), (_req, res, ctx) =>
+        res(ctx.status(403), ctx.json({ error_code: 'PERMISSION_DENIED', message: 'Not allowed to create skills' })),
+      ),
+    );
+    renderPage();
+
+    await openCreateSkillDialog();
+    await userEvent.click(screen.getByRole('button', { name: 'Create' }));
+    expect(screen.getByText('Enter a source location.')).toBeInTheDocument();
+
+    const location = 'https://github.com/redhat-ai/skills-developer.git';
+    await userEvent.type(screen.getByLabelText('Location'), location);
+    expect(screen.getByLabelText('Name')).toHaveValue('@redhat-ai/skills-developer');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Create' }));
+    await waitFor(() => {
+      expect(screen.getByText(/Not allowed to create skills/)).toBeInTheDocument();
+    });
+    expect(screen.getByLabelText('Location')).toHaveValue(location);
+    expect(screen.getByLabelText('Name')).toHaveValue('@redhat-ai/skills-developer');
+    expect(screen.queryByText(/Viewing version/)).not.toBeInTheDocument();
   });
 });

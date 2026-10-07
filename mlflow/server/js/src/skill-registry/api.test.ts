@@ -86,7 +86,7 @@ describe('Skill Registry API', () => {
   });
 
   describe('query serialization', () => {
-    it('serializes RFC search parameters without reinterpreting them', async () => {
+    it('serializes search parameters without reinterpreting them', async () => {
       const params = {
         filter_string: "search_text LIKE '%review%' AND status = 'active'",
         max_results: 25,
@@ -131,6 +131,12 @@ describe('Skill Registry API', () => {
         body: { status: SkillStatus.DEPRECATED },
       },
       {
+        name: 'hard-delete a skill',
+        invoke: () => SkillRegistryApi.deleteSkill('code-review', 'acme'),
+        url: 'ajax-api/3.0/mlflow/skills/@acme/code-review',
+        method: 'DELETE',
+      },
+      {
         name: 'soft-delete a version',
         invoke: () => SkillRegistryApi.deleteSkillVersion('code-review', 3, 'acme'),
         url: 'ajax-api/3.0/mlflow/skills/@acme/code-review/versions/3',
@@ -165,7 +171,7 @@ describe('Skill Registry API', () => {
       },
     ];
 
-    it.each(endpointCases)('uses the RFC request for $name', async ({ invoke, url, method, body }) => {
+    it.each(endpointCases)('sends the expected request for $name', async ({ invoke, url, method, body }) => {
       await invoke();
 
       const [actualUrl, options] = fetchMock.mock.calls[0];
