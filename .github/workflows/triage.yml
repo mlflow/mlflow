@@ -309,7 +309,10 @@ jobs:
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
-          sparse-checkout: .github/actions/setup-gateway
+          sparse-checkout: |
+            .github/actions/setup-gateway
+            .github/workflows/sanitize.js
+          sparse-checkout-cone-mode: false
       - name: Clean issue content
         env:
           TITLE: ${{ needs.issue.outputs.title }}
@@ -317,13 +320,16 @@ jobs:
           REPOSITORY: ${{ github.repository }}
           ISSUE_NUMBER: ${{ needs.issue.outputs.number }}
         run: |
-          # Strip HTML comments, control characters, and invisible Unicode (zero-width,
-          # bidi overrides, tag characters) that can hide text from human reviewers.
           jq -n '{title: env.TITLE, body: env.BODY}' > "$RUNNER_TEMP/original_issue.json"
-          jq --arg repository "$REPOSITORY" --argjson number "$ISSUE_NUMBER" '
-            map_values(gsub("<!--[\\s\\S]*?-->"; "") | gsub("[\\x{0}-\\x{8}\\x{b}-\\x{1f}\\x{7f}-\\x{9f}\\x{ad}\\x{200b}-\\x{200f}\\x{202a}-\\x{202e}\\x{2060}-\\x{2064}\\x{2066}-\\x{2069}\\x{feff}\\x{e0000}-\\x{e007f}]"; ""))
-            | . + {$repository, issue_number: $number}
-          ' "$RUNNER_TEMP/original_issue.json" > "$RUNNER_TEMP/sanitized_issue.json"
+          for field in title body; do
+            jq -j ".$field" "$RUNNER_TEMP/original_issue.json" \
+              | node .github/workflows/sanitize.js input > "$RUNNER_TEMP/sanitized_$field.txt"
+          done
+          jq --rawfile title "$RUNNER_TEMP/sanitized_title.txt" \
+            --rawfile body "$RUNNER_TEMP/sanitized_body.txt" \
+            --arg repository "$REPOSITORY" --argjson number "$ISSUE_NUMBER" \
+            -n '{title: $title, body: $body} + {$repository, issue_number: $number}' \
+            > "$RUNNER_TEMP/sanitized_issue.json"
           for variant in original sanitized; do
             # Split on CRLF too: the sanitizer strips "\r", so splitting on "\n" alone would
             # flag every line of a CRLF body as changed.
