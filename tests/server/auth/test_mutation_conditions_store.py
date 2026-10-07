@@ -842,3 +842,94 @@ class TestTheTwoScopeAxes:
         )
         same = store.update_mutation_condition(created.id, target_condition="tags.a = 'c'")
         assert same.resource_pattern == "7"
+
+
+# ---- Registry rename -------------------------------------------------------
+
+
+def test_rename_moves_only_the_rows_addressed_by_the_old_name(store, role):
+    """A rename rewrites the two axes that carry the name, and nothing else.
+
+    The isolation half of the rename: a row scoped to a *sibling* name, a row that is
+    workspace-wide, and a version row whose container names a different model must all
+    come back unchanged, or the rename would retarget restrictions at resources it never
+    touched -- the fail-open direction in a different disguise.
+    """
+    scoped = store.add_mutation_condition(
+        role.id, "registered_model", resource_pattern="old", value_condition="tag_key != 'a'"
+    )
+    sibling = store.add_mutation_condition(
+        role.id, "registered_model", resource_pattern="other", value_condition="tag_key != 'b'"
+    )
+    workspace_wide = store.add_mutation_condition(
+        role.id, "registered_model", value_condition="tag_key != 'c'"
+    )
+    version = store.add_mutation_condition(
+        role.id,
+        "registered_model_version",
+        container_resource_type="registered_model",
+        container_resource_pattern="old",
+        value_condition="tag_key != 'd'",
+    )
+    other_version = store.add_mutation_condition(
+        role.id,
+        "registered_model_version",
+        container_resource_type="registered_model",
+        container_resource_pattern="other",
+        value_condition="tag_key != 'e'",
+    )
+
+    store.rename_conditions_for_registry_resource("old", "new")
+
+    assert store.get_mutation_condition(scoped.id).resource_pattern == "new"
+    assert store.get_mutation_condition(version.id).container_resource_pattern == "new"
+    # Untouched.
+    assert store.get_mutation_condition(sibling.id).resource_pattern == "other"
+    assert store.get_mutation_condition(workspace_wide.id).resource_pattern == "*"
+    assert store.get_mutation_condition(other_version.id).container_resource_pattern == "other"
+
+
+def test_rename_does_not_cross_registry_families(store, role):
+    """Each version type keeps its own container type across a rename.
+
+    Both families are swept unconditionally -- names are unique across the registry, so
+    one matches and the other is a no-op. The isolation comes from the per-type
+    ``resource_type ==`` filter, which already partitions the rows; the paired
+    ``container_resource_type`` is defence in depth, the same relationship
+    ``_scope_predicates`` documents. What this pins is the outcome: a rename moves the
+    container *pattern* and never the container *type*, so no row can end up addressed by
+    the other family's container.
+    """
+    prompt_version = store.add_mutation_condition(
+        role.id,
+        "prompt_version",
+        container_resource_type="prompt",
+        container_resource_pattern="shared",
+        value_condition="tag_key != 'a'",
+    )
+    model_version = store.add_mutation_condition(
+        role.id,
+        "registered_model_version",
+        container_resource_type="registered_model",
+        container_resource_pattern="shared",
+        value_condition="tag_key != 'b'",
+    )
+
+    store.rename_conditions_for_registry_resource("shared", "renamed")
+
+    # Both move, because each matched its OWN family's container type -- and the sweep
+    # covers both families. What must not happen is one row taking the other's container.
+    assert store.get_mutation_condition(prompt_version.id).container_resource_type == "prompt"
+    assert (
+        store.get_mutation_condition(model_version.id).container_resource_type == "registered_model"
+    )
+    assert store.get_mutation_condition(prompt_version.id).container_resource_pattern == "renamed"
+    assert store.get_mutation_condition(model_version.id).container_resource_pattern == "renamed"
+
+
+def test_rename_is_a_no_op_when_nothing_is_scoped_to_the_name(store, role):
+    unscoped = store.add_mutation_condition(
+        role.id, "registered_model", value_condition="tag_key != 'a'"
+    )
+    store.rename_conditions_for_registry_resource("absent", "new")
+    assert store.get_mutation_condition(unscoped.id).resource_pattern == "*"

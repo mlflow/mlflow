@@ -754,6 +754,62 @@ def test_a_version_resource_condition_reads_the_versions_own_tags(server, auth_c
         MlflowClient(server).set_model_version_tag(name, "1", "notes", "x")
 
 
+def test_a_renamed_model_keeps_its_exact_scoped_condition(server, auth_client, monkeypatch):
+    """A registry resource IS its name, so a rename moves the identity the row names.
+
+    Grants were already migrated on rename; conditions were not, so the rename dropped
+    every restriction on the resource and left the grants they narrowed fully intact.
+    """
+    old_name = f"m-{random_str()}"
+    new_name = f"m-{random_str()}"
+    username, password = _exact_name_conditioned_user(
+        auth_client, monkeypatch, "registered_model", old_name, "tag_key != 'lifecycle'"
+    )
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        MlflowClient(server).create_registered_model(old_name)
+
+    # Denied before the rename...
+    _assert_denied(
+        lambda: _set_tag(server, username, password, monkeypatch, old_name, "lifecycle", "prod")
+    )
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        MlflowClient(server).rename_registered_model(old_name, new_name)
+    # ...and still denied after it, under the new name.
+    _assert_denied(
+        lambda: _set_tag(server, username, password, monkeypatch, new_name, "lifecycle", "prod")
+    )
+
+
+def test_a_renamed_model_keeps_the_conditions_scoped_to_its_versions(
+    server, auth_client, monkeypatch
+):
+    """The other scope axis: a version row is wildcard-only and names the model as its
+    container, so a rename has to move the container pattern too.
+    """
+    old_name = f"m-{random_str()}"
+    new_name = f"m-{random_str()}"
+    username, password = random_str(), random_str(12)
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        auth_client.create_user(username, password)
+        role = auth_client.create_role(workspace=_WORKSPACE, name=f"dev-{random_str()}")
+        auth_client.add_role_permission(role.id, "registered_model", "*", "EDIT")
+        auth_client.assign_role(username, role.id)
+        auth_client.add_mutation_condition(
+            role.id,
+            "registered_model_version",
+            container_resource_type="registered_model",
+            container_resource_pattern=old_name,
+            value_condition="tag_key != 'lifecycle'",
+        )
+        MlflowClient(server).create_registered_model(old_name)
+        MlflowClient(server).create_model_version(old_name, source="s3://bucket/path")
+        MlflowClient(server).rename_registered_model(old_name, new_name)
+
+    with pytest.raises(MlflowException, match=r"Permission denied"):
+        with User(username, password, monkeypatch):
+            MlflowClient(server).set_model_version_tag(new_name, "1", "lifecycle", "prod")
+
+
 def test_a_registered_model_condition_does_not_gate_a_version_tag(server, auth_client, monkeypatch):
     """D2 across the parent/child boundary: the two are distinct resource types, so a
     condition on the entry must not travel to its versions.

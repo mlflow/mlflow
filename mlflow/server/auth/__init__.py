@@ -7777,7 +7777,7 @@ def filter_search_model_versions(resp: Response):
 
 def rename_registered_model_permission(resp: Response):
     """
-    Propagate a registered-model rename to RBAC grants.
+    Propagate a registered-model rename to RBAC grants and mutation conditions.
 
     ``RenameRegisteredModel`` is shared between registered models and prompts;
     sweep both namespaces so a prompt rename doesn't orphan its
@@ -7794,6 +7794,11 @@ def rename_registered_model_permission(resp: Response):
         )
     store.rename_grants_for_resource("registered_model", old_name, new_name, workspace_scoped=True)
     store.rename_grants_for_resource("prompt", old_name, new_name, workspace_scoped=True)
+    # And the conditions addressed by that name, or the rename drops every restriction on
+    # the resource while leaving the grants they narrowed intact -- fail-open, and reachable
+    # by anyone who can rename. Covers the parent rows and its versions' container scope in
+    # one transaction.
+    store.rename_conditions_for_registry_resource(old_name, new_name)
     # The renamed model comes back through ``to_mlflow_entity()``, so it carries the same embedded
     # versions Get and Update do.
     _redact_registered_model_response(resp, RenameRegisteredModel.Response())

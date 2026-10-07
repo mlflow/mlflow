@@ -59,7 +59,10 @@ from mlflow.server.auth.permissions import (
     RESOURCE_TYPE_GATEWAY_MODEL_DEFINITION,
     RESOURCE_TYPE_GATEWAY_SECRET,
     RESOURCE_TYPE_MCP_SERVER,
+    RESOURCE_TYPE_PROMPT,
+    RESOURCE_TYPE_PROMPT_VERSION,
     RESOURCE_TYPE_REGISTERED_MODEL,
+    RESOURCE_TYPE_REGISTERED_MODEL_VERSION,
     RESOURCE_TYPE_SCORER,
     RESOURCE_TYPE_WORKSPACE,
     Permission,
@@ -633,6 +636,84 @@ class SqlAlchemyStore:
                 {SqlRolePermission.resource_pattern: new_pattern},
                 synchronize_session=False,
             )
+
+    def rename_conditions_for_registry_resource(self, old_name: str, new_name: str) -> None:
+        """Follow a registered-model/prompt rename with the conditions scoped to that name.
+
+        The companion to :meth:`rename_grants_for_resource`, and necessary for the same
+        reason: a registry resource IS its name, so a rename moves the identity every
+        scoped row is addressed by. Grants were already migrated; conditions were not, so
+        a rename silently dropped every restriction on the resource while leaving the
+        grants that the restrictions narrowed fully intact. That is the fail-open
+        direction, and it is reachable by anyone who can rename.
+
+        Two kinds of row are addressed by the old name, because the two scope axes carry
+        it differently (see :func:`normalize_condition_scope`):
+
+        - the **parent** rows -- type ``registered_model``/``prompt``, whose
+          ``resource_pattern`` is the name itself;
+        - the **version** rows -- type ``registered_model_version``/``prompt_version``,
+          which are wildcard-only on their own axis and name the model as their
+          ``container_resource_pattern`` instead.
+
+        Both families are swept unconditionally, following the grant hook: names are unique
+        across the registry, so exactly one matches and the other is a no-op -- cheaper and
+        more robust than classifying the family from the response. Each version type is
+        paired with its own container type, which is defence in depth rather than what
+        provides the isolation: the per-type ``resource_type ==`` filter already partitions
+        the rows, and :func:`normalize_condition_scope` refuses to store a row whose
+        container is not its type's declared one. It costs nothing and keeps a corrupt row
+        from being retargeted.
+
+        Scoped to the active workspace, like the grant rename: a name identifies a
+        different resource in a different workspace, so rewriting beyond it would retarget
+        conditions at resources the rename never touched.
+
+        Unlike the grant rename this is NOT limited to synthetic roles. Grants on named
+        roles are managed by an admin through the role APIs, but conditions live on named
+        roles by design -- that is the only place an admin can write one -- so limiting
+        this to synthetic roles would miss essentially every condition.
+
+        One transaction, so a rename cannot leave the parent row migrated and its versions
+        stranded. No unique constraint can be violated: uniqueness is on
+        ``(role_id, resource_type, condition_slot)``, and two rows scoped to the same name
+        are harmless anyway because every applicable condition must pass.
+        """
+        with self.ManagedSessionMaker(read_only=False) as session:
+            workspace = self._get_active_workspace_name()
+            role_ids = [
+                role_id
+                for (role_id,) in session
+                .query(SqlRole.id)
+                .filter(SqlRole.workspace == workspace)
+                .all()
+            ]
+            if not role_ids:
+                return
+            session.query(SqlMutationConditions).filter(
+                SqlMutationConditions.role_id.in_(role_ids),
+                SqlMutationConditions.resource_type.in_((
+                    RESOURCE_TYPE_REGISTERED_MODEL,
+                    RESOURCE_TYPE_PROMPT,
+                )),
+                SqlMutationConditions.resource_pattern == old_name,
+            ).update(
+                {SqlMutationConditions.resource_pattern: new_name},
+                synchronize_session=False,
+            )
+            for version_type, container_type in (
+                (RESOURCE_TYPE_REGISTERED_MODEL_VERSION, RESOURCE_TYPE_REGISTERED_MODEL),
+                (RESOURCE_TYPE_PROMPT_VERSION, RESOURCE_TYPE_PROMPT),
+            ):
+                session.query(SqlMutationConditions).filter(
+                    SqlMutationConditions.role_id.in_(role_ids),
+                    SqlMutationConditions.resource_type == version_type,
+                    SqlMutationConditions.container_resource_type == container_type,
+                    SqlMutationConditions.container_resource_pattern == old_name,
+                ).update(
+                    {SqlMutationConditions.container_resource_pattern: new_name},
+                    synchronize_session=False,
+                )
 
     # ---- Legacy per-resource CRUD (tombstones) ----
     #
