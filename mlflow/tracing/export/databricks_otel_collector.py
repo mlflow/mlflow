@@ -6,7 +6,7 @@ Trace-level metadata continues to flow through the inherited MLflow REST path.
 
 The collector client is initialized without network I/O. Credential, workspace,
 and endpoint discovery happen on the first span export; see
-``zerobus_otel_client.ZerobusOtelClient`` for the low-level wire contract.
+``databricks_otel_client.ZerobusOtelClient`` for the low-level wire contract.
 """
 
 import logging
@@ -21,12 +21,12 @@ from opentelemetry.sdk.trace import ReadableSpan
 from mlflow.entities.span import Span
 from mlflow.entities.trace_location import UnityCatalog
 from mlflow.environment_variables import MLFLOW_ENABLE_DATABRICKS_OTEL_COLLECTOR_EXPORT
-from mlflow.tracing.export.uc_table import DatabricksUCTableSpanExporter
-from mlflow.tracing.export.zerobus_otel_client import (
+from mlflow.tracing.export.databricks_otel_client import (
     ZerobusOtelClient,
     ZerobusOtelTokenError,
     ZerobusOtelTokenRefreshError,
 )
+from mlflow.tracing.export.uc_table import DatabricksUCTableSpanExporter
 from mlflow.tracing.utils.otlp import build_otlp_export_request
 
 _logger = logging.getLogger(__name__)

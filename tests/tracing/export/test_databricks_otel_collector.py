@@ -17,15 +17,7 @@ from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from mlflow.entities.span import Span
 from mlflow.entities.trace_location import UCSchemaLocation, UnityCatalog
 from mlflow.environment_variables import MLFLOW_ENABLE_DATABRICKS_OTEL_COLLECTOR_EXPORT
-from mlflow.tracing.export.databricks_otel_collector import (
-    DatabricksOtelCollectorSpanExporter,
-    _get_table_name_from_destination,
-    _is_connection_not_established,
-    get_databricks_otel_collector_span_exporter,
-)
-from mlflow.tracing.export.uc_table import DatabricksUCTableSpanExporter
-from mlflow.tracing.export.utils import flush_exporter
-from mlflow.tracing.export.zerobus_otel_client import (
+from mlflow.tracing.export.databricks_otel_client import (
     _REQUEST_TIMEOUT_SECONDS,
     _SDK_HTTP_TIMEOUT_SECONDS,
     _TOKEN_REQUEST_TIMEOUT_SECONDS,
@@ -38,18 +30,26 @@ from mlflow.tracing.export.zerobus_otel_client import (
     is_databricks_otel_collector_host,
     resolve_databricks_otel_collector_endpoint,
 )
+from mlflow.tracing.export.databricks_otel_collector import (
+    DatabricksOtelCollectorSpanExporter,
+    _get_table_name_from_destination,
+    _is_connection_not_established,
+    get_databricks_otel_collector_span_exporter,
+)
+from mlflow.tracing.export.uc_table import DatabricksUCTableSpanExporter
+from mlflow.tracing.export.utils import flush_exporter
 
 from tests.tracing.helper import create_mock_otel_span
 
 _MODULE = "mlflow.tracing.export.databricks_otel_collector"
-_CLIENT_MODULE = "mlflow.tracing.export.zerobus_otel_client"
+_CLIENT_MODULE = "mlflow.tracing.export.databricks_otel_client"
 
 
 @pytest.fixture(autouse=True)
 def _reset_collector_config_warning():
     # ``_warn_collector_config_failure`` warns once per process via a module-level
     # flag; reset it around every test so warning/debug assertions stay isolated.
-    import mlflow.tracing.export.zerobus_otel_client as _client_mod
+    import mlflow.tracing.export.databricks_otel_client as _client_mod
 
     _client_mod._collector_config_failure_warned = False
     yield

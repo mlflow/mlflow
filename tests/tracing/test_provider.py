@@ -1324,10 +1324,10 @@ def test_uc_destination_uses_lazy_collector_exporter(monkeypatch):
         mock.patch("mlflow.tracking.fluent._get_experiment_id", return_value="123"),
         mock.patch("mlflow.tracking._tracking_service.utils._get_store") as mock_store_fn,
         mock.patch(
-            "mlflow.tracing.export.zerobus_otel_client._resolve_collector_credentials"
+            "mlflow.tracing.export.databricks_otel_client._resolve_collector_credentials"
         ) as mock_resolve_credentials,
         mock.patch(
-            "mlflow.tracing.export.zerobus_otel_client._resolve_collector_endpoint_from_metastore"
+            "mlflow.tracing.export.databricks_otel_client._resolve_collector_endpoint_from_metastore"
         ) as mock_resolve_endpoint,
         mock.patch("databricks.sdk.core.Config") as mock_config,
         mock.patch("databricks.sdk.WorkspaceClient") as mock_ws_client,
