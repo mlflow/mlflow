@@ -210,15 +210,14 @@ def _restore_quality_threshold(scorer: "Scorer", saved: Any) -> "Scorer":
     if saved is None:
         return scorer
     try:
-        threshold = QualityThreshold(**saved) if isinstance(saved, dict) else saved
-        _as_quality_threshold(threshold)
+        return scorer.with_quality_threshold(
+            QualityThreshold(**saved) if isinstance(saved, dict) else saved
+        )
     except (MlflowException, TypeError) as e:
         # Load the scorer without a threshold this version can't read, e.g. one saved with
         # an aggregation added later.
         _logger.warning(f"Ignoring the saved `quality_threshold` of scorer '{scorer.name}': {e}")
         return scorer
-    scorer.quality_threshold = threshold
-    return scorer
 
 
 def _extract_scorer_value(result: Any) -> Any:
@@ -1325,7 +1324,7 @@ class Scorer(BaseModel):
                 target = f"version {version} of {target}"
             _logger.warning(
                 f"`quality_threshold` ({bound} {value} on the {threshold.aggregation}) is saved "
-                f"with {target}. A new threshold creates a new scorer version."
+                f"with {target}. Changing the threshold later creates a new scorer version."
             )
 
         if isinstance(store, DatabricksStore):
