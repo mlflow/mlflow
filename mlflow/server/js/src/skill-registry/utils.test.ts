@@ -1,19 +1,30 @@
 import { describe, expect, it } from '@jest/globals';
 import { SkillAction, SkillStatus } from './types';
 import {
+  aliasesForVersion,
   buildSkillCatalogFilterString,
+  buildGitBrowseHref,
+  describeSkillSource,
   escapeFilterLiteral,
   formatSkillIdentity,
   formatSkillOrganization,
+  formatSkillReferenceUris,
   formatSkillSourceLabel,
+  formatSkillUri,
   formatTagFilterIdentifier,
   getSkillPermissions,
   hasSkillCatalogFilters,
+  canSoftDeleteSkillVersion,
   isSkillDimmed,
   parseSkillRouteParams,
+  parseSkillVersionParam,
+  resolveDefaultSkillVersion,
+  skillVersionStatusTransitions,
   SKILL_CATALOG_SOURCE_TYPE_OPTIONS,
+  visibleSkillVersions,
 } from './utils';
-import { createMockSkill } from './test-utils';
+import { formatSkillPullCli, formatSkillPullPython } from './snippets';
+import { createMockSkill, createMockSkillVersion } from './test-utils';
 
 describe('formatSkillIdentity', () => {
   it('prefixes organization-qualified names and leaves the empty organization bare', () => {
@@ -36,6 +47,131 @@ describe('formatSkillSourceLabel', () => {
     expect(formatSkillSourceLabel('zip')).toBe('ZIP archive');
     expect(formatSkillSourceLabel('mlflow')).toBe('MLflow artifacts');
     expect(formatSkillSourceLabel(null)).toBe('');
+  });
+});
+
+describe('buildGitBrowseHref', () => {
+  it('uses the GitHub and GitLab tree URLs, including their enterprise and self-managed hosts', () => {
+    expect(buildGitBrowseHref('https://github.com/acme/skills', 'main', 'skills/review')).toBe(
+      'https://github.com/acme/skills/tree/main/skills/review',
+    );
+    expect(buildGitBrowseHref('https://gitlab.com/acme/platform/skills', 'v1.0', 'review')).toBe(
+      'https://gitlab.com/acme/platform/skills/-/tree/v1.0/review',
+    );
+    expect(buildGitBrowseHref('https://gitlab.example.com/acme/skills', 'main')).toBe(
+      'https://gitlab.example.com/acme/skills/-/tree/main',
+    );
+    expect(buildGitBrowseHref('https://github.example.com/acme/skills', 'main')).toBe(
+      'https://github.example.com/acme/skills/tree/main',
+    );
+    expect(buildGitBrowseHref('https://github.com/acme/skills', null)).toBeUndefined();
+  });
+
+  it('builds no URL for other Git hosts', () => {
+    expect(buildGitBrowseHref('https://bitbucket.org/acme/skills', 'main')).toBeUndefined();
+    expect(buildGitBrowseHref('https://git.example.com/acme/skills', 'main')).toBeUndefined();
+  });
+});
+
+describe('describeSkillSource', () => {
+  it('maps a git remote to a repo link, path, ref, and browse URL', () => {
+    expect(
+      describeSkillSource({
+        source_type: 'git',
+        source: 'https://github.com/RHEcosystemAppEng/agentic-plugins.git',
+        ref: 'main',
+        subpath: 'ocp-admin/skills/network-policy-architect',
+      }),
+    ).toEqual({
+      label: 'Git',
+      locator: 'https://github.com/RHEcosystemAppEng/agentic-plugins',
+      locatorHref: 'https://github.com/RHEcosystemAppEng/agentic-plugins',
+      path: 'ocp-admin/skills/network-policy-architect',
+      ref: 'main',
+      browseHref:
+        'https://github.com/RHEcosystemAppEng/agentic-plugins/tree/main/ocp-admin/skills/network-policy-architect',
+      showExternalWarning: true,
+    });
+    expect(
+      describeSkillSource({ source_type: 'git', source: 'git@github.com:acme/skills.git', ref: 'main', subpath: null }),
+    ).toMatchObject({
+      locatorHref: 'https://github.com/acme/skills',
+      browseHref: 'https://github.com/acme/skills/tree/main',
+    });
+  });
+
+  it('links GitLab sources, and shows sources on other Git hosts as text', () => {
+    expect(
+      describeSkillSource({
+        source_type: 'git',
+        source: 'git@gitlab.com:acme/platform/skills.git',
+        ref: 'v1',
+        subpath: 'review',
+      }),
+    ).toMatchObject({
+      locatorHref: 'https://gitlab.com/acme/platform/skills',
+      browseHref: 'https://gitlab.com/acme/platform/skills/-/tree/v1/review',
+      showExternalWarning: true,
+    });
+    expect(
+      describeSkillSource({
+        source_type: 'git',
+        source: 'https://bitbucket.org/acme/skills.git',
+        ref: 'main',
+        subpath: 'review',
+      }),
+    ).toEqual({
+      label: 'Git',
+      locator: 'https://bitbucket.org/acme/skills.git',
+      locatorHref: undefined,
+      path: 'review',
+      ref: 'main',
+      browseHref: undefined,
+      showExternalWarning: false,
+    });
+  });
+
+  it('links zip URLs, keeps artifact URIs as text, and shows OCI image references with a path', () => {
+    expect(
+      describeSkillSource({
+        source_type: 'zip',
+        source: 'https://example.com/skills.zip',
+        ref: 'main',
+        subpath: 'skills/code-review',
+      }),
+    ).toMatchObject({
+      label: 'ZIP archive',
+      locatorHref: 'https://example.com/skills.zip',
+      path: 'skills/code-review',
+      ref: null,
+      showExternalWarning: true,
+    });
+    expect(
+      describeSkillSource({
+        source_type: 'mlflow',
+        source: 'mlflow-artifacts:/skills/@acme/code-review/2',
+        ref: null,
+        subpath: null,
+      }),
+    ).toMatchObject({
+      locator: 'mlflow-artifacts:/skills/@acme/code-review/2',
+      locatorHref: undefined,
+      showExternalWarning: false,
+    });
+    expect(
+      describeSkillSource({
+        source_type: 'oci',
+        source: 'ghcr.io/acme/skills:v1',
+        ref: null,
+        subpath: 'skills/code-review',
+      }),
+    ).toMatchObject({
+      label: 'OCI image',
+      locator: 'ghcr.io/acme/skills:v1',
+      locatorHref: undefined,
+      path: 'skills/code-review',
+      showExternalWarning: false,
+    });
   });
 });
 
@@ -64,31 +200,35 @@ describe('isSkillDimmed', () => {
   });
 });
 
+describe('skill version lifecycle', () => {
+  it('offers only the stored transitions and never a direct active deletion', () => {
+    expect(skillVersionStatusTransitions(SkillStatus.DRAFT)).toEqual([SkillStatus.ACTIVE]);
+    expect(skillVersionStatusTransitions(SkillStatus.ACTIVE)).toEqual([SkillStatus.DRAFT, SkillStatus.DEPRECATED]);
+    expect(skillVersionStatusTransitions(SkillStatus.DEPRECATED)).toEqual([SkillStatus.ACTIVE]);
+    expect(skillVersionStatusTransitions(SkillStatus.DELETED)).toEqual([]);
+    expect(canSoftDeleteSkillVersion(SkillStatus.DRAFT)).toBe(true);
+    expect(canSoftDeleteSkillVersion(SkillStatus.DEPRECATED)).toBe(true);
+    expect(canSoftDeleteSkillVersion(SkillStatus.ACTIVE)).toBe(false);
+    expect(canSoftDeleteSkillVersion(SkillStatus.DELETED)).toBe(false);
+  });
+});
+
 describe('getSkillPermissions', () => {
   it('treats missing allowed_actions as unrestricted', () => {
-    expect(getSkillPermissions(createMockSkill())).toEqual({
-      canUse: true,
-      canUpdate: true,
-      canDelete: true,
-      canManage: true,
-    });
+    expect(getSkillPermissions(createMockSkill())).toEqual({ canUpdate: true, canDelete: true });
   });
 
   it('treats an empty allowed_actions list as read-only', () => {
     expect(getSkillPermissions(createMockSkill({ allowed_actions: [] }))).toEqual({
-      canUse: false,
       canUpdate: false,
       canDelete: false,
-      canManage: false,
     });
   });
 
   it('exposes matching parent actions', () => {
     expect(getSkillPermissions(createMockSkill({ allowed_actions: [SkillAction.USE, SkillAction.UPDATE] }))).toEqual({
-      canUse: true,
       canUpdate: true,
       canDelete: false,
-      canManage: false,
     });
   });
 });
@@ -164,5 +304,109 @@ describe('hasSkillCatalogFilters', () => {
 describe('catalog filter options', () => {
   it('exposes latest-resolved source types for the catalog source filter', () => {
     expect(SKILL_CATALOG_SOURCE_TYPE_OPTIONS).toEqual(['git', 'oci', 'zip', 'mlflow']);
+  });
+});
+
+describe('parseSkillIdentityKey and parseSkillRouteParams', () => {
+  it('parses encoded and decoded skillKey identities', () => {
+    expect(parseSkillRouteParams({ skillKey: encodeURIComponent('@acme/code-review') })).toEqual({
+      name: 'code-review',
+      organization: 'acme',
+    });
+    expect(parseSkillRouteParams({ skillKey: '@acme/code-review' })).toEqual({
+      name: 'code-review',
+      organization: 'acme',
+    });
+    expect(parseSkillRouteParams({ skillKey: 'prompt-style-guide' })).toEqual({
+      name: 'prompt-style-guide',
+      organization: '',
+    });
+  });
+});
+
+describe('skill URI and pull snippets', () => {
+  it('formats pinned and unpinned skills URIs', () => {
+    expect(formatSkillUri('code-review', 'acme')).toBe('skills:/@acme/code-review');
+    expect(formatSkillUri('code-review', 'acme', 2)).toBe('skills:/@acme/code-review/2');
+    expect(formatSkillUri('prompt-style-guide')).toBe('skills:/prompt-style-guide');
+    expect(formatSkillReferenceUris('code-review', 'acme', 2, ['production', 'stable'])).toEqual([
+      'skills:/@acme/code-review/2',
+      'skills:/@acme/code-review@production',
+      'skills:/@acme/code-review@stable',
+    ]);
+  });
+
+  it('formats CLI and Python pull examples for a destination', () => {
+    expect(formatSkillPullCli('skills:/@acme/code-review/2', '.claude/skills')).toBe(
+      'mlflow skills pull skills:/@acme/code-review/2 \\\n    --destination .claude/skills',
+    );
+    expect(
+      formatSkillPullPython({
+        name: 'code-review',
+        organization: 'acme',
+        version: 2,
+        destination: '.cursor/skills',
+      }),
+    ).toBe(
+      'import mlflow.genai\n\nmlflow.genai.pull(\n    name="code-review",\n    organization="acme",\n    version=2,\n    destination=".cursor/skills",\n)',
+    );
+  });
+
+  it('scopes pull examples to the active workspace', () => {
+    expect(formatSkillPullCli('skills:/code-review', './skills', "team's-a")).toBe(
+      "MLFLOW_WORKSPACE='team'\\''s-a' mlflow skills pull skills:/code-review \\\n    --destination ./skills",
+    );
+    expect(formatSkillPullPython({ name: 'code-review', destination: './skills', workspace: 'team-a' })).toBe(
+      'import mlflow.genai\n\nmlflow.set_workspace("team-a")\nmlflow.genai.pull(\n    name="code-review",\n    destination="./skills",\n)',
+    );
+  });
+});
+
+describe('version helpers', () => {
+  it('omits deleted versions from ordinary results', () => {
+    expect(
+      visibleSkillVersions([
+        createMockSkillVersion({ version: 2, status: SkillStatus.ACTIVE }),
+        createMockSkillVersion({ version: 1, status: SkillStatus.DELETED }),
+      ]).map((version) => version.version),
+    ).toEqual([2]);
+  });
+
+  it('defaults to latest_version when present', () => {
+    expect(resolveDefaultSkillVersion(createMockSkill({ latest_version: 4 }), [])).toBe(4);
+    expect(
+      resolveDefaultSkillVersion(createMockSkill({ latest_version: null }), [
+        createMockSkillVersion({ version: 3, status: SkillStatus.DELETED }),
+        createMockSkillVersion({ version: 2, status: SkillStatus.ACTIVE }),
+      ]),
+    ).toBe(2);
+  });
+
+  it('parses positive integer version query params', () => {
+    expect(parseSkillVersionParam('2')).toBe(2);
+    expect(parseSkillVersionParam('01')).toBeUndefined();
+    expect(parseSkillVersionParam('latest')).toBeUndefined();
+    expect(parseSkillVersionParam(null)).toBeUndefined();
+  });
+
+  it('links only safe http(s) sources', () => {
+    const locatorHref = (source: string) =>
+      describeSkillSource({ source_type: 'zip', source, ref: null, subpath: null }).locatorHref;
+    expect(locatorHref('https://example.com/skill.zip')).toBe('https://example.com/skill.zip');
+    expect(locatorHref('mlflow-artifacts:/skills/@acme/code-review/2')).toBeUndefined();
+    expect(locatorHref(`${'javascript'}:alert(1)`)).toBeUndefined();
+  });
+
+  it('collects aliases that target a version from parent and version records', () => {
+    const skill = createMockSkill({
+      aliases: [
+        { alias: 'prod', version: 2 },
+        { alias: 'stable', version: 1 },
+      ],
+    });
+    expect(aliasesForVersion(skill, createMockSkillVersion({ version: 2, aliases: ['current'] }))).toEqual([
+      'prod',
+      'current',
+    ]);
   });
 });

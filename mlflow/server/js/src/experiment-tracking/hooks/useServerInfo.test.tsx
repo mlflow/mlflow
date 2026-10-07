@@ -8,6 +8,7 @@ import {
   useIsFileStore,
   useTraceArchivalEnabled,
   useMultipartDownloadsEnabled,
+  useArtifactServingEnabled,
   useFeatureEnabled,
   useWorkspacesEnabled,
   getFeatureEnabledSync,
@@ -181,6 +182,38 @@ describe('useTraceArchivalEnabled', () => {
 
       await waitFor(() => {
         expect(result.current).toBe(false);
+      });
+    });
+  });
+});
+
+describe('useArtifactServingEnabled', () => {
+  describe('when the server does not serve artifacts', () => {
+    setupServer(
+      rest.get('/ajax-api/3.0/mlflow/server-info', (_req, res, ctx) => {
+        return res(ctx.json({ store_type: 'SqlStore', artifact_serving_enabled: false }));
+      }),
+    );
+
+    test('should return false', async () => {
+      const { result } = renderHook(() => useArtifactServingEnabled(), { wrapper });
+      await waitFor(() => {
+        expect(result.current).toBe(false);
+      });
+    });
+  });
+
+  describe('when the server predates the field', () => {
+    setupServer(
+      rest.get('/ajax-api/3.0/mlflow/server-info', (_req, res, ctx) => {
+        return res(ctx.json({ store_type: 'SqlStore' }));
+      }),
+    );
+
+    test('should return true', async () => {
+      const { result } = renderHook(() => useArtifactServingEnabled(), { wrapper });
+      await waitFor(() => {
+        expect(result.current).toBe(true);
       });
     });
   });
