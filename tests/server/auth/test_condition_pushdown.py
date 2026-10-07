@@ -27,6 +27,7 @@ from mlflow.server.auth import resources as auth_resources
 from mlflow.server.auth.conditions import (
     NAMESPACE_RESOURCE,
     Clause,
+    MutationConditionSpec,
     evaluate_resource,
     parse_condition,
 )
@@ -452,7 +453,7 @@ class TestTheGateConsultsPushdown:
                 self, user_id, workspace, resource_types, parents=None
             ):
                 return [
-                    SimpleNamespace(
+                    MutationConditionSpec(
                         resource_type="run",
                         value_condition=None,
                         target_condition=condition,
@@ -885,7 +886,7 @@ class TestTheGateConsultsPushdownForExplicitIds:
 
             def list_mutation_conditions_for_user(self, user_id, workspace, types, parents=None):
                 return [
-                    SimpleNamespace(
+                    MutationConditionSpec(
                         resource_type=resource_type,
                         value_condition=None,
                         target_condition=c,
@@ -998,7 +999,7 @@ class TestTheRightStoreAnswers:
 
             def list_mutation_conditions_for_user(self, user_id, workspace, types, parents=None):
                 return [
-                    SimpleNamespace(
+                    MutationConditionSpec(
                         resource_type=resource_type,
                         value_condition=None,
                         target_condition=f"tags.{TAG_KEY} != 'prod'",
@@ -1076,7 +1077,7 @@ class TestAnUnpushableRowRefusesWholesale:
 
             def list_mutation_conditions_for_user(self, user_id, workspace, types, parents=None):
                 return [
-                    SimpleNamespace(
+                    MutationConditionSpec(
                         resource_type="run",
                         value_condition=None,
                         target_condition=c,
@@ -1127,7 +1128,7 @@ class TestResourceScopeMatchingAndPushdown:
 
     @staticmethod
     def _row(resource_pattern):
-        return SimpleNamespace(
+        return MutationConditionSpec(
             resource_type="run",
             value_condition=None,
             target_condition=f"tags.{TAG_KEY} != 'prod'",

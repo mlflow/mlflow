@@ -29,8 +29,10 @@ import pytest
 from mlflow.server import auth as auth_module
 from mlflow.server.auth import resources as auth_resources
 from mlflow.server.auth.conditions import (
+    CONTAINER_WORKSPACE,
     ConditionContext,
     ConditionScope,
+    MutationConditionSpec,
     RunRequestValues,
 )
 
@@ -39,12 +41,29 @@ from tests.server.auth.condition_store_fakes import answering_store
 TAG_KEY = "lifecycle"
 
 
-def _row(*, value_condition=None, target_condition=None, resource_type="run", pattern="*"):
-    return SimpleNamespace(
+def _row(
+    *,
+    value_condition=None,
+    target_condition=None,
+    resource_type="run",
+    pattern="*",
+    container_type=None,
+    container_pattern="*",
+):
+    """A loader row, built as the real spec type rather than a look-alike.
+
+    `MutationConditionSpec` mirrors the store's `MutationConditionRow`, so a new scope
+    field reaches these tests as its default instead of as an AttributeError -- and more
+    importantly, a field the gate starts reading cannot be silently absent here while
+    present in production.
+    """
+    return MutationConditionSpec(
         resource_type=resource_type,
         value_condition=value_condition,
         target_condition=target_condition,
         resource_pattern=pattern,
+        container_resource_type=container_type or CONTAINER_WORKSPACE,
+        container_resource_pattern=container_pattern,
     )
 
 
@@ -407,3 +426,111 @@ class TestTheForbiddenBodyIsAParseableEnvelope:
         working -- a JSON body still contains the phrase.
         """
         assert "Permission denied" in self._body().get_data(as_text=True)
+
+
+class TestAScopedRowOnlyJudgesItsOwnContainer:
+    """F-0022. The store narrows to the containers in play for the whole REQUEST; the
+    gate has to narrow again, per context.
+
+    A request touching two experiments puts both in play, so a row scoped to one of them
+    is returned and would otherwise be charged against the resources in the other. That
+    only ever over-denies, but it applies a restriction to resources its author did not
+    name -- and the admin who scoped it to experiment A has no way to see that it also
+    governs B.
+    """
+
+    def _contexts(self):
+        return [
+            ConditionContext(
+                resource_type="run",
+                scope=ConditionScope.MUTATE,
+                request=RunRequestValues(),
+                resource_ids=("r-in-a",),
+                parent_resource_id="exp-a",
+            ),
+            ConditionContext(
+                resource_type="run",
+                scope=ConditionScope.MUTATE,
+                request=RunRequestValues(),
+                resource_ids=("r-in-b",),
+                parent_resource_id="exp-b",
+            ),
+        ]
+
+    def test_a_row_scoped_to_one_experiment_judges_only_that_experiments_runs(self, gate):
+        """The failing run lives in B, and the row governs A. It must not be consulted."""
+        allowed, _ = gate(
+            self._contexts(),
+            [
+                _row(
+                    target_condition=f"tags.{TAG_KEY} = 'dev'",
+                    container_type="experiment",
+                    container_pattern="exp-a",
+                )
+            ],
+            store_answer=None,
+            values={
+                ("run", "r-in-a"): SimpleNamespace(tags={TAG_KEY: "dev"}, aliases={}),
+                ("run", "r-in-b"): SimpleNamespace(tags={}, aliases={}),
+            },
+        )
+        assert allowed
+
+    def test_the_same_row_still_judges_a_run_in_its_own_experiment(self, gate):
+        """The other side: narrowing must not become a bypass."""
+        allowed, message = gate(
+            self._contexts(),
+            [
+                _row(
+                    target_condition=f"tags.{TAG_KEY} = 'dev'",
+                    container_type="experiment",
+                    container_pattern="exp-a",
+                )
+            ],
+            store_answer="r-in-a",
+            values={
+                ("run", "r-in-a"): SimpleNamespace(tags={}, aliases={}),
+                ("run", "r-in-b"): SimpleNamespace(tags={TAG_KEY: "dev"}, aliases={}),
+            },
+        )
+        assert not allowed
+        assert "r-in-a" in message
+
+    def test_a_workspace_wide_row_judges_every_container(self, gate):
+        """The pre-scoping default, and still the common case."""
+        allowed, message = gate(
+            self._contexts(),
+            [_row(target_condition=f"tags.{TAG_KEY} = 'dev'")],
+            store_answer="r-in-b",
+            values={
+                ("run", "r-in-a"): SimpleNamespace(tags={TAG_KEY: "dev"}, aliases={}),
+                ("run", "r-in-b"): SimpleNamespace(tags={}, aliases={}),
+            },
+        )
+        assert not allowed
+        assert "r-in-b" in message
+
+    def test_a_scoped_value_condition_also_narrows(self, gate):
+        """The value half has the same bug and the same fix: a condition on what may be
+        set in experiment A must not constrain a write to a run in B.
+        """
+        contexts = [
+            ConditionContext(
+                resource_type="run",
+                scope=ConditionScope.MUTATE,
+                request=RunRequestValues(tags=((TAG_KEY, "prod"),)),
+                resource_ids=("r-in-b",),
+                parent_resource_id="exp-b",
+            )
+        ]
+        allowed, _ = gate(
+            contexts,
+            [
+                _row(
+                    value_condition=f"tag_key != '{TAG_KEY}'",
+                    container_type="experiment",
+                    container_pattern="exp-a",
+                )
+            ],
+        )
+        assert allowed

@@ -598,7 +598,9 @@ def test_loader_rows_are_detached_plain_tuples(store, user, role):
     )
     (row,) = store.list_mutation_conditions_for_user(user.id, _WORKSPACE, ["run"])
     assert isinstance(row, tuple)
-    assert row == ("run", "tag_key != 'a'", "tags.b = '1'", "*")
+    # The scope axes travel with the row: the gate matches the container per context,
+    # which the store cannot do for it.
+    assert row == ("run", "tag_key != 'a'", "tags.b = '1'", "*", "workspace", "*")
 
 
 # ---- The user-addressed add ------------------------------------------------

@@ -146,6 +146,17 @@ class MutationConditionRow(NamedTuple):
     #: children -- a fail-open. The container axis *is* filtered in SQL, because the
     #: container is always resolved before the query runs.
     resource_pattern: str = "*"
+    #: The container this row governs within: ``workspace`` plus ``"*"`` for the whole
+    #: workspace, or the type's declared parent plus one of its ids.
+    #:
+    #: Filtered in SQL *and* matched again by the gate, which is not redundant: the query
+    #: narrows to the containers in play for the whole REQUEST, while the gate decides per
+    #: CONTEXT. A request touching two experiments puts both in play, so a row scoped to
+    #: one of them comes back and would otherwise be charged against the resources in the
+    #: other. Over-denial rather than a bypass, but it applies a restriction to resources
+    #: its author did not name.
+    container_resource_type: str = CONTAINER_WORKSPACE
+    container_resource_pattern: str = "*"
 
 
 #: How many times ``add_mutation_condition`` re-picks a slot before giving up.
@@ -2448,6 +2459,8 @@ class SqlAlchemyStore:
                     SqlMutationConditions.value_condition,
                     SqlMutationConditions.target_condition,
                     SqlMutationConditions.resource_pattern,
+                    SqlMutationConditions.container_resource_type,
+                    SqlMutationConditions.container_resource_pattern,
                 )
                 .join(SqlRole, SqlRole.id == SqlMutationConditions.role_id)
                 .join(SqlUserRoleAssignment, SqlRole.id == SqlUserRoleAssignment.role_id)
@@ -2459,8 +2472,10 @@ class SqlAlchemyStore:
                 .all()
             )
             return [
-                MutationConditionRow(rtype, value, target, pattern)
-                for rtype, value, target, pattern in rows
+                MutationConditionRow(
+                    rtype, value, target, pattern, container_type, container_pattern
+                )
+                for rtype, value, target, pattern, container_type, container_pattern in rows
             ]
 
     @staticmethod

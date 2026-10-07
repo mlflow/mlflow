@@ -279,6 +279,7 @@ from mlflow.server.asgi_utils import get_routed_asgi_path
 from mlflow.server.auth import resources as auth_resources
 from mlflow.server.auth.conditions import (
     _VERSION_RESOURCE_TYPES,
+    CONTAINER_WORKSPACE,
     NAMESPACE_REQUEST,
     NAMESPACE_RESOURCE,
     PARENT_RESOURCE_TYPES,
@@ -1420,12 +1421,34 @@ def _authorize_on_conditions(
     for row in rows:
         by_type.setdefault(row.resource_type, []).append(row)
 
+    def applies_within(row, context) -> bool:
+        """Whether a row's container scope covers this particular context.
+
+        The store already narrowed to the containers in play, but it narrowed for the
+        whole REQUEST: a request touching two experiments puts both in play, so a row
+        scoped to one of them comes back and must not be charged against the resources
+        in the other. One `LogBatch` naming logged models in experiments A and B is the
+        concrete case -- an A-scoped logged-model condition would otherwise judge the
+        model in B as well.
+
+        A workspace-wide row covers every context of its type, which is the pre-scoping
+        default and stays the common case.
+        """
+        if row.container_resource_type == CONTAINER_WORKSPACE:
+            return True
+        return (
+            context.parent_resource_id is not None
+            and row.container_resource_pattern == context.parent_resource_id
+        )
+
     results: list[bool] = []
 
     # Request conditions first: pure, no I/O, and a denial here saves the resource read.
     for context in contexts:
         for row in by_type.get(context.resource_type, ()):
             if row.value_condition is None:
+                continue
+            if not applies_within(row, context):
                 continue
             # A row naming one resource constrains what may be set on THAT resource, so it
             # is charged only against an operation naming it. A create names none, which is
@@ -1459,7 +1482,7 @@ def _authorize_on_conditions(
         target_rows = [
             row
             for row in by_type.get(context.resource_type, ())
-            if row.target_condition is not None
+            if row.target_condition is not None and applies_within(row, context)
         ]
         if not target_rows:
             continue

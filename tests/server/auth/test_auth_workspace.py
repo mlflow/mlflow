@@ -5580,9 +5580,7 @@ def test_a_users_direct_condition_is_attributed_to_them_not_a_role(tmp_path, mon
 
     auth_store.create_user("alice", "supersecurepassword", is_admin=False)
     with workspace_context.WorkspaceContext("team-a"):
-        auth_store.add_user_mutation_condition(
-            "alice", "run", value_condition="tag_key != 'bob'"
-        )
+        auth_store.add_user_mutation_condition("alice", "run", value_condition="tag_key != 'bob'")
 
     monkeypatch.setattr(
         auth_module, "authenticate_request", lambda: SimpleNamespace(username="alice")

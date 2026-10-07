@@ -621,15 +621,21 @@ class ConditionContext(NamedTuple):
 class MutationConditionSpec(NamedTuple):
     """One role's conditions for one resource type, as loaded from the store.
 
-    Mirrors ``MutationConditionRow``: ``resource_pattern`` defaults to the wildcard so a
-    spec written without a scope governs every resource of its type, which is what every
-    spec meant before scoping existed.
+    Mirrors ``MutationConditionRow``: every scope field defaults to the unscoped value, so
+    a spec written without a scope governs every resource of its type in the whole
+    workspace -- which is what every spec meant before scoping existed.
+
+    The container fields are carried here as well as on the row because the gate matches
+    them per context: the store narrows to the containers in play for the whole request,
+    which is a wider set than any single context's parent.
     """
 
     resource_type: str
     value_condition: str | None = None
     target_condition: str | None = None
     resource_pattern: str = "*"
+    container_resource_type: str = CONTAINER_WORKSPACE
+    container_resource_pattern: str = "*"
 
 
 # ---------------------------------------------------------------------------
