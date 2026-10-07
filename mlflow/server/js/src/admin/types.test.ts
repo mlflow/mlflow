@@ -11,6 +11,7 @@ describe('getGrantablePermissions', () => {
     ['scorer', ['READ', 'EDIT', 'MANAGE']],
     ['gateway_secret', ['READ', 'USE', 'EDIT', 'MANAGE']],
     ['gateway_endpoint', ['READ', 'USE', 'EDIT', 'MANAGE']],
+    ['skill', ['READ', 'EDIT', 'MANAGE']],
     ['workspace', ['USE', 'MANAGE']],
   ])('returns the backend-allowed set for %s', (resourceType, expected) => {
     expect(getGrantablePermissions(resourceType)).toEqual(expected);
@@ -24,6 +25,7 @@ describe('getGrantablePermissions', () => {
       'scorer',
       'gateway_secret',
       'gateway_endpoint',
+      'skill',
       'workspace',
     ];
     for (const t of types) {

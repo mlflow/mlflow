@@ -47,6 +47,30 @@ describe('DirectPermissionForm — permission picker filtering', () => {
     expect(screen.queryByRole('option', { name: 'Workspace' })).not.toBeInTheDocument();
   });
 
+  it('offers skill, without the USE permission the backend rejects for skills', async () => {
+    const onChange = jest.fn();
+    const { rerender } = renderWithDesignSystem(
+      <DirectPermissionForm
+        value={{ ...DIRECT_PERMISSION_DEFAULT, resourceType: 'gateway_secret', permission: 'USE' }}
+        onChange={onChange}
+      />,
+    );
+    await userEvent.click(document.getElementById('admin-direct-permission-resource-type')!);
+    await userEvent.click(await screen.findByRole('option', { name: 'Skill' }));
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({ resourceType: 'skill', resourceId: '', permission: 'READ' }),
+    );
+
+    rerender(
+      <DirectPermissionForm value={{ ...DIRECT_PERMISSION_DEFAULT, resourceType: 'skill' }} onChange={onChange} />,
+    );
+    expect(screen.getByRole('radio', { name: 'Specific skill' })).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: 'All skills' })).toBeInTheDocument();
+    await userEvent.click(document.getElementById('admin-direct-permission-level')!);
+    const permissions = (await screen.findAllByRole('option')).map((option) => option.textContent);
+    expect(permissions).toEqual(['READ', 'EDIT', 'MANAGE']);
+  });
+
   it('switches to All scope without writing the wildcard into resourceId', async () => {
     // The wildcard is derived from scope at staging time so a resource
     // literally named ``*`` can't masquerade as an all-of-type grant.
