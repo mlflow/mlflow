@@ -577,8 +577,8 @@
         "max_tokens": 1000000
       },
       "pricing": {
-        "input_per_million_tokens": 0.09,
-        "output_per_million_tokens": 0.282
+        "input_per_million_tokens": 0.15,
+        "output_per_million_tokens": 0.47
       },
       "capabilities": {
         "function_calling": false,
@@ -587,7 +587,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-09-22"
+      "last_updated_at": "2026-10-07"
     },
     "arcee-ai/trinity-mini": {
       "mode": "chat",
@@ -1492,9 +1492,9 @@
         "max_tokens": 1048576
       },
       "pricing": {
-        "input_per_million_tokens": 3.0,
-        "output_per_million_tokens": 15.0,
-        "cache_read_per_million_tokens": 0.3
+        "input_per_million_tokens": 2.7,
+        "output_per_million_tokens": 13.5,
+        "cache_read_per_million_tokens": 0.27
       },
       "capabilities": {
         "function_calling": true,
@@ -1503,7 +1503,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-08-31"
+      "last_updated_at": "2026-10-07"
     },
     "nvidia/Llama-3.1-Nemotron-70B-Instruct-HF": {
       "mode": "chat",

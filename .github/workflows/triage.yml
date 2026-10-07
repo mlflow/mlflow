@@ -49,7 +49,8 @@ jobs:
       author_association: ${{ fromJSON(steps.issue.outputs.json).author_association }}
       dry_run: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
     steps:
-      - id: issue
+      - name: Load issue
+        id: issue
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
@@ -82,11 +83,13 @@ jobs:
     outputs:
       security_match: ${{ steps.security.outputs.match }}
     steps:
-      - id: security
+      - name: Detect security
+        id: security
         env:
           SECURITY_MATCH: ${{ contains(needs.issue.outputs.title, 'security') && contains(needs.issue.outputs.title, 'vulnerability') }}
         run: echo "match=$SECURITY_MATCH" >> "$GITHUB_OUTPUT"
-      - if: steps.security.outputs.match == 'true'
+      - name: Close security issue
+        if: steps.security.outputs.match == 'true'
         env:
           DRY_RUN: ${{ needs.issue.outputs.dry_run }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -120,7 +123,8 @@ jobs:
           sparse-checkout: |
             .github/ISSUE_TEMPLATE
             .github/actions/setup-gateway
-      - id: detect
+      - name: Detect type
+        id: detect
         env:
           TITLE: ${{ needs.issue.outputs.title }}
           BODY: ${{ needs.issue.outputs.body }}
@@ -162,7 +166,8 @@ jobs:
           host: ${{ secrets.DATABRICKS_HOST }}
           client-id: ${{ secrets.DATABRICKS_CLIENT_ID }}
           client-secret: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
-      - id: classify
+      - name: Classify type
+        id: classify
         if: steps.detect.outputs.type == 'unknown' && steps.gateway.outcome == 'success'
         continue-on-error: true
         env:
@@ -212,7 +217,8 @@ jobs:
             exit 0
           fi
           echo "type=$type" >> "$GITHUB_OUTPUT"
-      - id: label
+      - name: Apply labels
+        id: label
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ISSUE_URL: ${{ needs.issue.outputs.url }}
@@ -258,7 +264,8 @@ jobs:
     outputs:
       allowed: ${{ steps.check.outputs.allowed }}
     steps:
-      - id: check
+      - name: Check rate limit
+        id: check
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
