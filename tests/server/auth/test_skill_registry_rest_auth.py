@@ -1,6 +1,8 @@
+import pytest
 from fastapi import FastAPI
 from starlette.testclient import TestClient
 
+from mlflow.exceptions import MlflowException
 from mlflow.server import auth, handlers, skill_registry_api
 from mlflow.server.auth.permissions import EDIT, MANAGE, NO_PERMISSIONS, READ
 from mlflow.server.auth.sqlalchemy_store import SqlAlchemyStore as AuthStore
@@ -46,6 +48,21 @@ def test_skill_rest_enforces_grants_and_filters_before_pagination(tmp_path, monk
                 headers={"x-user": owner.username},
             )
             assert response.status_code == 200, response.text
+
+        for name in ("register", "bulk-register"):
+            special = f"{prefix}/{name}"
+            owner_headers = {"x-user": owner.username}
+            assert (
+                client.post(prefix, json={"name": name}, headers=owner_headers).status_code == 200
+            )
+            assert client.get(special, headers=owner_headers).status_code == 200
+            assert (
+                client.patch(
+                    special, json={"description": "ordinary skill"}, headers=owner_headers
+                ).status_code
+                == 200
+            )
+            assert client.delete(special, headers=owner_headers).status_code == 200
 
         assert (
             auth_store.get_role_permission_for_resource(
@@ -103,6 +120,97 @@ def test_skill_rest_enforces_grants_and_filters_before_pagination(tmp_path, monk
         auth_store.grant_user_permission(reader.username, "skill", "@acme/reviewer", EDIT.name)
         assert client.patch(target, json={"description": "x"}, headers=headers).status_code == 200
         assert client.delete(target, headers=headers).status_code == 403
+
+        # A status PATCH can soft-delete a version and remove its aliases. That
+        # transition requires MANAGE even though ordinary status updates use EDIT.
+        tracking_store.create_skill_version(
+            name="reviewer",
+            organization="acme",
+            source_type="zip",
+            source="https://example.com/skill.zip",
+            status="draft",
+        )
+        tracking_store.set_skill_alias("reviewer", "stable", 1, organization="acme")
+        version_path = f"{target}/versions/1"
+        assert client.delete(version_path, headers=headers).status_code == 403
+        assert (
+            client.patch(version_path, json={"status": "deleted"}, headers=headers).status_code
+            == 403
+        )
+        version = tracking_store.get_skill_version("reviewer", 1, organization="acme")
+        assert version.status == "draft"
+        assert "stable" in version.aliases
+        assert (
+            client.patch(version_path, json={"status": "active"}, headers=headers).status_code
+            == 200
+        )
+        assert (
+            client.patch(version_path, json={"status": "draft"}, headers=headers).status_code == 200
+        )
+        assert (
+            client.patch(
+                version_path,
+                json={"status": "deleted"},
+                headers={"x-user": owner.username},
+            ).status_code
+            == 200
+        )
+        with pytest.raises(MlflowException, match="not found"):
+            tracking_store.get_skill_version_by_alias("reviewer", "stable", organization="acme")
+
+        # If the owner deletes an existing parent after registration preflight,
+        # the transaction must not recreate it using the stale EDIT decision.
+        for endpoint in ("register", "versions", "bulk-register"):
+            race_name = f"raced-{endpoint}"
+            assert (
+                client.post(
+                    prefix,
+                    json={"name": race_name},
+                    headers={"x-user": owner.username},
+                ).status_code
+                == 200
+            )
+            auth_store.grant_user_permission(reader.username, "skill", race_name, EDIT.name)
+            target_function = (
+                "bulk_register_skill_versions"
+                if endpoint == "bulk-register"
+                else "register_skill_version"
+            )
+            original = getattr(skill_registry_api, target_function)
+
+            def delete_after_preflight(*args, **kwargs):
+                response = client.delete(
+                    f"{prefix}/{race_name}", headers={"x-user": owner.username}
+                )
+                assert response.status_code == 200, response.text
+                return original(*args, **kwargs)
+
+            if endpoint == "bulk-register":
+                url = f"{prefix}/bulk-register"
+                body = {
+                    "skills": [
+                        {
+                            "name": race_name,
+                            "source": "https://example.com/repo.git",
+                            "ref": "main",
+                            "digest": "a" * 64,
+                        }
+                    ]
+                }
+            else:
+                url = (
+                    f"{prefix}/{race_name}/versions"
+                    if endpoint == "versions"
+                    else f"{prefix}/register"
+                )
+                body = {"source": "https://example.com/skill.zip"}
+                if endpoint == "register":
+                    body["name"] = race_name
+            with monkeypatch.context() as patch:
+                patch.setattr(skill_registry_api, target_function, delete_after_preflight)
+                response = client.post(url, json=body, headers=headers)
+            assert response.status_code in (403, 409), response.text
+            assert race_name not in [skill.name for skill in tracking_store.search_skills()]
 
         auth_store.grant_user_permission(reader.username, "skill", "@acme/reviewer", MANAGE.name)
         assert client.delete(target, headers=headers).status_code == 200

@@ -101,6 +101,7 @@ def register_skill_version(
     content: BinaryIO | None = None,
     multipart: bool = False,
     authorize_existing: Callable[[str, str, str], None] | None = None,
+    authorize_missing: Callable[[str, str], None] | None = None,
 ) -> SkillVersion:
     """
     Register a skill version from a request that carries metadata and, for a local skill, the
@@ -130,18 +131,19 @@ def register_skill_version(
                 "multipart/form-data body with a 'content' part. To register a remote skill, "
                 "set 'source' to its git, oci, or zip location."
             )
-        return _register_uploaded(registration, content, authorize_existing)
+        return _register_uploaded(registration, content, authorize_existing, authorize_missing)
     if multipart or content is not None:
         raise MlflowException.invalid_parameter_value(
             "A registration with a remote 'source' must use an application/json body; it "
             "cannot also carry uploaded content. Omit 'source' to upload content instead."
         )
-    return _register_remote(registration, authorize_existing)
+    return _register_remote(registration, authorize_existing, authorize_missing)
 
 
 def bulk_register_skill_versions(
     registrations: list[SkillVersionRegistration],
     authorize_existing: Callable[[str, str, str], None] | None = None,
+    authorize_missing: Callable[[str, str], None] | None = None,
 ) -> list[SkillVersion]:
     """Normalize remote Git registrations and register the batch atomically.
 
@@ -202,6 +204,7 @@ def bulk_register_skill_versions(
         organization=organization,
         created_by=created_by,
         authorize_existing=authorize_existing,
+        authorize_missing=authorize_missing,
     )
 
 
@@ -236,6 +239,7 @@ def _validate_metadata(registration: SkillVersionRegistration) -> None:
 def _register_remote(
     registration: SkillVersionRegistration,
     authorize_existing: Callable[[str, str, str], None] | None,
+    authorize_missing: Callable[[str, str], None] | None,
 ) -> SkillVersion:
     from mlflow.server.handlers import _get_tracking_store
 
@@ -251,6 +255,7 @@ def _register_remote(
         status=registration.status,
         created_by=registration.created_by,
         authorize_existing=authorize_existing,
+        authorize_missing=authorize_missing,
     )
 
 
@@ -325,6 +330,7 @@ def _register_uploaded(
     registration: SkillVersionRegistration,
     content: BinaryIO,
     authorize_existing: Callable[[str, str, str], None] | None,
+    authorize_missing: Callable[[str, str], None] | None,
 ) -> SkillVersion:
     from mlflow.server.handlers import _get_tracking_store
 
@@ -370,6 +376,7 @@ def _register_uploaded(
             status=registration.status,
             created_by=registration.created_by,
             authorize_existing=authorize_existing,
+            authorize_missing=authorize_missing,
         )
     except MlflowException as e:
         if e.error_code in _DEFINITE_REJECTIONS:

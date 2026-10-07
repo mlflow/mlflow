@@ -21,7 +21,11 @@ from mlflow.entities.skill_source import (
 )
 from mlflow.entities.skill_version import SkillVersion
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import PERMISSION_DENIED, TEMPORARILY_UNAVAILABLE
+from mlflow.protos.databricks_pb2 import (
+    PERMISSION_DENIED,
+    RESOURCE_CONFLICT,
+    TEMPORARILY_UNAVAILABLE,
+)
 from mlflow.server.constants import ARTIFACTS_ONLY_ENV_VAR
 from mlflow.server.skill_registry.registration import (
     SkillVersionRegistration,
@@ -394,6 +398,27 @@ def _existing_skill_authorizer(request: Request) -> Callable[[str, str, str], No
     return authorize
 
 
+def _missing_skill_authorizer(
+    request: Request, expected_missing: set[str]
+) -> Callable[[str, str], None] | None:
+    username = getattr(request.state, "username", None)
+    if username is None:
+        return None
+
+    def authorize(organization: str, name: str) -> None:
+        from mlflow.server import auth
+
+        if name not in expected_missing:
+            raise MlflowException(
+                f"Skill '{name}' disappeared after registration authorization; retry the request",
+                RESOURCE_CONFLICT,
+            )
+        if not auth.validate_can_create_skill(username):
+            raise MlflowException("Permission denied", PERMISSION_DENIED)
+
+    return authorize
+
+
 def _grant_creator_if_new(request: Request, organization: str, name: str, new: bool) -> None:
     if new and (username := getattr(request.state, "username", None)):
         from mlflow.server import auth
@@ -423,6 +448,9 @@ async def _create_skill_version(
             content=content,
             multipart=multipart,
             authorize_existing=_existing_skill_authorizer(request),
+            authorize_missing=_missing_skill_authorizer(
+                request, {name} if parent_missing else set()
+            ),
         )
     _grant_creator_if_new(request, organization, name, parent_missing)
     return SkillVersionResponse.from_entity(version)
@@ -628,6 +656,11 @@ def _update_skill_version(
     _validate_skill_version(version)
     username = getattr(request.state, "username", None)
     status = body.status if "status" in body.model_fields_set else NOT_SET
+    if username is not None and status == SkillStatus.DELETED.value:
+        from mlflow.server import auth
+
+        if not auth._get_skill_permission(organization, name, username).can_manage:
+            raise MlflowException("Permission denied", PERMISSION_DENIED)
     return SkillVersionResponse.from_entity(
         _get_tracking_store().update_skill_version(
             name=name,
@@ -1085,6 +1118,9 @@ async def register_skill(request: Request) -> SkillVersionResponse:
             content=content,
             multipart=multipart,
             authorize_existing=_existing_skill_authorizer(request),
+            authorize_missing=_missing_skill_authorizer(
+                request, {registration.name} if parent_missing else set()
+            ),
         )
     _grant_creator_if_new(request, registration.organization, registration.name, parent_missing)
     return SkillVersionResponse.from_entity(version)
@@ -1123,6 +1159,7 @@ async def bulk_register_skills(
         bulk_register_skill_versions,
         registrations,
         authorize_existing=_existing_skill_authorizer(request),
+        authorize_missing=_missing_skill_authorizer(request, set(new_parents)),
     )
     for name in new_parents:
         _grant_creator_if_new(request, body.organization, name, True)

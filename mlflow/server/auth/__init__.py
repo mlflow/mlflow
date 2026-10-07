@@ -491,7 +491,7 @@ from mlflow.utils import workspace_context
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.rest_utils import _REST_API_PATH_PREFIX
 from mlflow.utils.search_utils import SearchUtils
-from mlflow.utils.uri import is_models_uri, validate_path_is_safe
+from mlflow.utils.uri import _decode, is_models_uri, validate_path_is_safe
 from mlflow.utils.validation import _validate_password
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
@@ -1311,7 +1311,24 @@ def _parse_skill_upload_path_for_auth(artifact_path: str) -> SkillArtifactIdenti
     # path. Recognize both forms before falling back to workspace-level artifact auth.
     segments = artifact_path.strip("/").split("/", 2)
     if len(segments) == 3 and segments[0] == "workspaces" and segments[1]:
-        return parse_skill_upload_path(segments[2])
+        if identity := parse_skill_upload_path(segments[2]):
+            return identity
+
+    # An invalid spelling beneath the Skill upload root must not acquire the broader
+    # workspace/default artifact permission. The artifact handler can resolve repeated
+    # separators and encoded dot segments to the same private file.
+    try:
+        decoded = _decode(artifact_path).strip("/")
+    except ValueError:
+        decoded = artifact_path.strip("/")
+    parts = decoded.split("/", 3)
+    if len(parts) >= 3 and parts[0] == "workspaces":
+        decoded = decoded.split("/", 2)[2]
+    if decoded.split("/", 1)[0] == "skills" and decoded not in ("skills",):
+        if not (decoded.startswith("skills/@") and decoded.count("/") == 1):
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid Skill artifact path {artifact_path!r}."
+            )
     return None
 
 
@@ -8281,10 +8298,14 @@ def _get_skill_registry_validator(path: str) -> Callable[[str, StarletteRequest]
             return request.method == "GET" or (
                 request.method == "POST" and validate_can_create_skill(username)
             )
-        if parts[0] in ("register", "bulk-register") and len(parts) == 1:
+        if (
+            request.method == "POST"
+            and parts[0] in ("register", "bulk-register")
+            and len(parts) == 1
+        ):
             # Registration bodies may be multipart. The route parses them and calls
             # validate_can_register_skill before touching artifacts or persistence.
-            return request.method == "POST"
+            return True
 
         organization = parts[0][1:] if parts[0].startswith("@") else ""
         name_index = 1 if organization else 0
@@ -8718,6 +8739,16 @@ def _artifact_proxy_path_suffix(path: str, include_presigned: bool = False) -> s
     return None
 
 
+def _effective_artifact_proxy_path(path: str, query_path: str | None = None) -> str | None:
+    # Concrete artifact operations use the URL path. Only the list endpoint reads ?path=.
+    if (artifact_path := _artifact_proxy_path_suffix(path, include_presigned=True)) is not None:
+        return artifact_path
+    for api_prefix in (_REST_API_PATH_PREFIX, _AJAX_API_PATH_PREFIX):
+        if path.rstrip("/") == f"{api_prefix}/mlflow-artifacts/artifacts":
+            return query_path
+    return None
+
+
 def _extract_experiment_id_from_artifact_proxy_path(
     path: str, query_path: str | None = None
 ) -> str | None:
@@ -8749,12 +8780,8 @@ def _extract_experiment_id_from_artifact_proxy_path(
 def _extract_skill_identity_from_artifact_proxy_path(
     path: str, query_path: str | None = None
 ) -> SkillArtifactIdentity | None:
-    if (artifact_path := _artifact_proxy_path_suffix(path, include_presigned=True)) is not None:
-        if identity := _parse_skill_upload_path_for_auth(artifact_path):
-            return identity
-
-    if query_path:
-        return _parse_skill_upload_path_for_auth(query_path)
+    if (artifact_path := _effective_artifact_proxy_path(path, query_path)) is not None:
+        return _parse_skill_upload_path_for_auth(artifact_path)
     return None
 
 

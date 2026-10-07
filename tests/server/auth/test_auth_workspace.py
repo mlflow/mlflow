@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, Mock
 
 import pytest
 from flask import Response, request
+from starlette.requests import Request as StarletteRequest
 
 from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
 from mlflow.exceptions import MlflowException
@@ -568,6 +569,61 @@ def test_skill_rest_validator_maps_parent_and_inherited_permissions(
     ]:
         validator = auth_module._get_skill_registry_validator(path)
         assert asyncio.run(validator(username, SimpleNamespace(method=method))) is allowed
+
+
+@pytest.mark.parametrize("name", ["register", "bulk-register"])
+@pytest.mark.parametrize("method", ["GET", "PATCH", "DELETE"])
+def test_skill_registration_route_names_use_parent_permission(monkeypatch, name, method):
+    monkeypatch.setattr(auth_module, "_get_skill_permission", lambda *args: MANAGE)
+    path = f"/api/3.0/mlflow/skills/{name}"
+    validator = auth_module._get_skill_registry_validator(path)
+    assert asyncio.run(validator("owner", SimpleNamespace(method=method)))
+
+
+@pytest.mark.parametrize("prefix", ["/api/2.0", "/ajax-api/2.0"])
+@pytest.mark.parametrize("method", ["GET", "PUT"])
+def test_concrete_artifact_path_cannot_be_replaced_by_query_identity(prefix, method, monkeypatch):
+    monkeypatch.setenv("MLFLOW_ENABLE_WORKSPACES", "false")
+    monkeypatch.setattr(auth_module, "_get_tracking_store", lambda: Mock())
+    monkeypatch.setattr(
+        auth_module, "_role_permission_for", lambda **kwargs: lambda: NO_PERMISSIONS
+    )
+    monkeypatch.setattr(auth_module, "_get_skill_permission", lambda *args: EDIT)
+    path = f"{prefix}/mlflow-artifacts/artifacts/17/run/artifacts/model.pkl"
+    assert (
+        auth_module._extract_skill_identity_from_artifact_proxy_path(path, "skills/owned") is None
+    )
+    assert auth_module._extract_experiment_id_from_artifact_proxy_path(path, "skills/owned") == "17"
+    assert not auth_module._get_proxy_artifact_permission(path, "editor", "skills/owned").can_read
+    request = StarletteRequest({
+        "type": "http",
+        "method": method,
+        "path": path,
+        "query_string": b"path=skills/owned",
+        "headers": [],
+    })
+    validator = auth_module._get_fastapi_proxy_artifact_validator(path, method)
+    assert not asyncio.run(validator("editor", request))
+
+
+@pytest.mark.parametrize(
+    "suffix", ["skills//private/token/SKILL.md", "skills/%2e/private/token/SKILL.md"]
+)
+@pytest.mark.parametrize("prefix", ["", "workspaces/team-a/"])
+def test_noncanonical_skill_artifact_path_cannot_use_default_permission(
+    suffix, prefix, monkeypatch
+):
+    monkeypatch.setenv("MLFLOW_ENABLE_WORKSPACES", "false")
+    monkeypatch.setattr(
+        auth_module,
+        "auth_config",
+        auth_module.auth_config._replace(default_permission=READ.name),
+    )
+    monkeypatch.setattr(auth_module, "_get_skill_permission", lambda *args: NO_PERMISSIONS)
+    path = f"/api/2.0/mlflow-artifacts/artifacts/{prefix}{suffix}"
+    with pytest.raises(MlflowException, match="Invalid Skill artifact path") as error:
+        auth_module._get_proxy_artifact_permission(path, "reader")
+    assert error.value.get_http_status_code() in (400, 403)
 
 
 def test_skill_rest_create_requires_workspace_create_grant(workspace_permission_setup):

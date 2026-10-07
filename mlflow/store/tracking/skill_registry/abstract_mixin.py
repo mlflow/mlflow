@@ -77,6 +77,7 @@ class SkillRegistryMixin:
         status: str = "active",
         created_by: str | None = None,
         authorize_existing: Callable[[str, str, str], None] | None = None,
+        authorize_missing: Callable[[str, str], None] | None = None,
     ) -> SkillVersion:
         raise NotImplementedError(self.__class__.__name__)
 
@@ -86,6 +87,7 @@ class SkillRegistryMixin:
         organization: str = "",
         created_by: str | None = None,
         authorize_existing: Callable[[str, str, str], None] | None = None,
+        authorize_missing: Callable[[str, str], None] | None = None,
     ) -> list[SkillVersion]:
         """Atomically register standalone skills from one Git repository and ref.
 

@@ -466,6 +466,7 @@ class SqlAlchemySkillRegistryMixin:
         organization: str,
         created_by: str | None = None,
         authorize_existing: Callable[[str, str, str], None] | None = None,
+        authorize_missing: Callable[[str, str], None] | None = None,
     ) -> SqlSkill:
         skill = (
             self
@@ -478,6 +479,8 @@ class SqlAlchemySkillRegistryMixin:
                 authorize_existing(organization, name, skill.workspace)
             return skill
 
+        if authorize_missing is not None:
+            authorize_missing(organization, name)
         skill = self._with_workspace_field(
             SqlSkill(
                 name=name,
@@ -511,6 +514,7 @@ class SqlAlchemySkillRegistryMixin:
         status: str = SkillStatus.ACTIVE.value,
         created_by: str | None = None,
         authorize_existing: Callable[[str, str, str], None] | None = None,
+        authorize_missing: Callable[[str, str], None] | None = None,
     ) -> SkillVersion:
         self._validate_skill_identity(name, organization)
         self._validate_skill_version_source(source_type, source, ref, subpath, digest)
@@ -523,6 +527,7 @@ class SqlAlchemySkillRegistryMixin:
             organization,
             created_by=created_by,
             authorize_existing=authorize_existing,
+            authorize_missing=authorize_missing,
         )
         now = get_current_time_millis()
         skill_version = SqlSkillVersion(
@@ -563,6 +568,7 @@ class SqlAlchemySkillRegistryMixin:
         status: str = SkillStatus.ACTIVE.value,
         created_by: str | None = None,
         authorize_existing: Callable[[str, str, str], None] | None = None,
+        authorize_missing: Callable[[str, str], None] | None = None,
     ) -> SkillVersion:
         self._validate_skill_identity(name, organization)
         self._validate_skill_version_source(source_type, source, ref, subpath, digest)
@@ -585,6 +591,7 @@ class SqlAlchemySkillRegistryMixin:
                     status=status,
                     created_by=created_by,
                     authorize_existing=authorize_existing,
+                    authorize_missing=authorize_missing,
                 )
             except MlflowException as e:
                 if e.error_code != ErrorCode.Name(RESOURCE_ALREADY_EXISTS):
@@ -629,6 +636,7 @@ class SqlAlchemySkillRegistryMixin:
         organization: str = "",
         created_by: str | None = None,
         authorize_existing: Callable[[str, str, str], None] | None = None,
+        authorize_missing: Callable[[str, str], None] | None = None,
     ) -> list[SkillVersion]:
         if not isinstance(skill_definitions, list) or not skill_definitions:
             raise MlflowException.invalid_parameter_value(
@@ -685,6 +693,7 @@ class SqlAlchemySkillRegistryMixin:
                     created_by,
                     status,
                     authorize_existing,
+                    authorize_missing,
                 )
             except MlflowException as e:
                 # Persistence helpers chain IntegrityError for creation/allocation collisions;
@@ -697,7 +706,7 @@ class SqlAlchemySkillRegistryMixin:
                     raise
 
     def _bulk_register_skills_once(
-        self, definitions, organization, created_by, status, authorize_existing
+        self, definitions, organization, created_by, status, authorize_existing, authorize_missing
     ):
         results = {}
         with self.ManagedSessionMaker(read_only=False) as session:
@@ -720,7 +729,14 @@ class SqlAlchemySkillRegistryMixin:
                     .one_or_none()
                 )
                 if parent is None:
-                    self._get_or_create_skill_for_version(session, name, organization, created_by)
+                    self._get_or_create_skill_for_version(
+                        session,
+                        name,
+                        organization,
+                        created_by,
+                        authorize_existing=authorize_existing,
+                        authorize_missing=authorize_missing,
+                    )
                 elif authorize_existing is not None:
                     authorize_existing(organization, name, parent.workspace)
 
