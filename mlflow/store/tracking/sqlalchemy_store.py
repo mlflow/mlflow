@@ -3708,7 +3708,21 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         for comp in comparisons:
             comp_func = SearchUtils.get_sql_comparison_func(comp.op, dialect)
             if comp.entity.type == EntityType.ATTRIBUTE:
-                attr_filters.append(comp_func(getattr(SqlLoggedModel, comp.entity.key), comp.value))
+                value = comp.value
+                if comp.entity.key == "status":
+                    if comp.op not in ("=", "!=", "IN", "NOT IN"):
+                        raise MlflowException.invalid_parameter_value(
+                            f"Invalid comparison operator for status: {comp.op}"
+                        )
+                    values = value if comp.op in ("IN", "NOT IN") else (value,)
+                    try:
+                        statuses = [LoggedModelStatus(status).to_int() for status in values]
+                    except ValueError as e:
+                        raise MlflowException.invalid_parameter_value(
+                            f"Unknown model status in filter: {value!r}"
+                        ) from e
+                    value = statuses if comp.op in ("IN", "NOT IN") else statuses[0]
+                attr_filters.append(comp_func(getattr(SqlLoggedModel, comp.entity.key), value))
             elif comp.entity.type == EntityType.METRIC:
                 has_metric_filters = True
                 metric_filters = [
@@ -10375,8 +10389,10 @@ def _get_orderby_clauses_for_search_traces(order_by_list: list[str], session):
                 f"Ordering by reserved metadata '{key}' is not supported because it is "
                 "represented by multiple columns."
             )
+        needs_null_ordering = True
         if SearchTraceUtils.is_attribute(key_type, key, "="):
             order_value = getattr(SqlTraceInfo, key)
+            needs_null_ordering = order_value.nullable
         elif SearchTraceUtils.is_tag(key_type, "=") and key == TraceTagKey.TRACE_NAME:
             order_value = SqlTraceInfo.trace_name
         elif (
@@ -10399,9 +10415,10 @@ def _get_orderby_clauses_for_search_traces(order_by_list: list[str], session):
             ordering_joins.append(subquery)
             order_value = subquery.c.value
 
-        case = sql.case((order_value.is_(None), 1), else_=0).label(f"clause_{clause_id}")
-        clauses.append(case.name)
-        select_clauses.append(case)
+        if needs_null_ordering:
+            case = sql.case((order_value.is_(None), 1), else_=0).label(f"clause_{clause_id}")
+            clauses.append(case.name)
+            select_clauses.append(case)
         select_clauses.append(order_value)
 
         if (key_type, key) in observed_order_by_clauses:
@@ -10772,9 +10789,11 @@ def _get_search_datasets_filter_clauses(parsed_filters, dialect):
         value = f["value"]
 
         if type_ == "attribute":
-            if SearchEvaluationDatasetsUtils.is_string_attribute(
-                type_, key, comparator
-            ) and comparator not in ("=", "!=", "LIKE", "ILIKE"):
+            if (
+                SearchEvaluationDatasetsUtils.is_string_attribute(type_, key, comparator)
+                and comparator not in ("=", "!=", "LIKE", "ILIKE")
+                and not (key == "name" and comparator == "IN")
+            ):
                 raise MlflowException.invalid_parameter_value(
                     f"Invalid comparator for string attribute: {comparator}"
                 )

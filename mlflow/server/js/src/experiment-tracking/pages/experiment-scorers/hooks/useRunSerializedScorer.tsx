@@ -66,6 +66,10 @@ export const useRunSerializedScorer = ({
             instructions: instructionsForCustomTemplate,
             model: endpointName,
             is_instructions_judge: true,
+            // These built-in templates are yes/no judges. Pin a Boolean output type so the
+            // backend does not fall back to `str`, which TypeSafe/Jev (System One) endpoints
+            // reject (they support only bool or finite Literal outputs).
+            outputType: { kind: 'bool' },
             isSessionLevelScorer: scope === ScorerEvaluationScope.SESSIONS,
           }
         : {

@@ -1116,7 +1116,19 @@
       "pricing": {
         "input_per_million_tokens": 1.25,
         "output_per_million_tokens": 2.5,
-        "cache_read_per_million_tokens": 0.2
+        "cache_read_per_million_tokens": 0.2,
+        "service_tiers": {
+          "flex": {
+            "input_per_million_tokens": 0.625,
+            "output_per_million_tokens": 1.25,
+            "cache_read_per_million_tokens": 0.1
+          },
+          "priority": {
+            "input_per_million_tokens": 2.1875,
+            "output_per_million_tokens": 4.375,
+            "cache_read_per_million_tokens": 0.35
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -1125,7 +1137,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-18"
+      "last_updated_at": "2026-10-06"
     },
     "xai.grok-4.6": {
       "mode": "chat",
@@ -1137,7 +1149,19 @@
       "pricing": {
         "input_per_million_tokens": 2.2,
         "output_per_million_tokens": 6.6,
-        "cache_read_per_million_tokens": 0.55
+        "cache_read_per_million_tokens": 0.55,
+        "service_tiers": {
+          "flex": {
+            "input_per_million_tokens": 1.1,
+            "output_per_million_tokens": 3.3,
+            "cache_read_per_million_tokens": 0.275
+          },
+          "priority": {
+            "input_per_million_tokens": 3.85,
+            "output_per_million_tokens": 11.55,
+            "cache_read_per_million_tokens": 0.9625
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -1146,7 +1170,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-08-25"
+      "last_updated_at": "2026-10-06"
     }
   }
 }

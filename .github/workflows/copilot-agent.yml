@@ -70,7 +70,14 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           marker="<!-- copilot-agent-pr:${PR_NUMBER} -->"
-          body=$(printf 'Copilot opened #%s for this issue.\n\n%s' "$PR_NUMBER" "$marker")
+          body=$(printf '%s\n' \
+            "Copilot opened #${PR_NUMBER} for this issue. Test the fix with:" \
+            '' \
+            '```bash' \
+            "pip install -U 'git+https://github.com/${REPO}.git@refs/pull/${PR_NUMBER}/merge'" \
+            '```' \
+            '' \
+            "$marker")
           response=$(gh api graphql -F owner="$OWNER" -F name="${REPO#*/}" -F number="$PR_NUMBER" -f query='
             query($owner: String!, $name: String!, $number: Int!) {
               repository(owner: $owner, name: $name) {

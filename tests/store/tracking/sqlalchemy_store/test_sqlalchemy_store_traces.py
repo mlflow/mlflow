@@ -430,6 +430,50 @@ def test_search_traces_order_by(store_with_traces, order_by, expected_ids):
 
 
 @pytest.mark.parametrize(
+    ("order_by", "needs_null_ordering"),
+    [
+        ("timestamp ASC", False),
+        ("timestamp DESC", False),
+        ("experiment_id", False),
+        ("status", False),
+        ("execution_time DESC", True),
+        ("name", True),
+        ("tag.nonexistent", True),
+        ("run_id", True),
+    ],
+)
+def test_search_traces_order_by_null_handling(store, order_by, needs_null_ordering):
+    with store.ManagedSessionMaker() as session:
+        selects, clauses, joins = sqlalchemy_store_module._get_orderby_clauses_for_search_traces(
+            [order_by], session
+        )
+        query = session.query(SqlTraceInfo, *selects)
+        for join in joins:
+            query = query.outerjoin(join, SqlTraceInfo.request_id == join.c.request_id)
+        statement = str(query.order_by(*clauses).statement.compile(dialect=postgresql.dialect()))
+
+    assert ("CASE WHEN" in statement) == needs_null_ordering
+    assert statement.endswith("trace_info.request_id ASC") or statement.endswith(
+        "trace_info.request_id"
+    )
+    if order_by.startswith("timestamp"):
+        direction = " DESC" if order_by.endswith("DESC") else ""
+        assert f"ORDER BY trace_info.timestamp_ms{direction}, trace_info.request_id" in statement
+
+
+@pytest.mark.parametrize("direction", ["ASC", "DESC"])
+def test_search_traces_order_by_nullable_attribute(store, direction):
+    exp_id = store.create_experiment("nullable-ordering")
+    _create_trace(store, "tr-missing", exp_id, execution_duration=None)
+    _create_trace(store, "tr-fast", exp_id, execution_duration=1)
+    _create_trace(store, "tr-slow", exp_id, execution_duration=2)
+
+    traces, _ = store.search_traces([exp_id], order_by=[f"execution_time {direction}"])
+    ordered_ids = ["tr-fast", "tr-slow"] if direction == "ASC" else ["tr-slow", "tr-fast"]
+    assert [trace.trace_id for trace in traces] == [*ordered_ids, "tr-missing"]
+
+
+@pytest.mark.parametrize(
     ("filter_string", "expected_ids"),
     [
         # Search by name
@@ -665,7 +709,8 @@ def test_search_traces_pagination(store_with_traces):
     assert token is None
 
 
-def test_search_traces_pagination_tie_breaker(store):
+@pytest.mark.parametrize("order_by", [None, ["timestamp DESC"]])
+def test_search_traces_pagination_tie_breaker(store, order_by):
     # This test is for ensuring the tie breaker for ordering traces with the same timestamp
     # works correctly.
     exp1 = store.create_experiment("exp1")
@@ -682,13 +727,13 @@ def test_search_traces_pagination_tie_breaker(store):
     for rid in trace_ids:
         _create_trace(store, rid, exp1, request_time=1)
 
-    traces, token = store.search_traces([exp1], max_results=3)
+    traces, token = store.search_traces([exp1], max_results=3, order_by=order_by)
     assert [t.trace_id for t in traces] == ["tr-5", "tr-6", "tr-7"]
-    traces, token = store.search_traces([exp1], max_results=3, page_token=token)
+    traces, token = store.search_traces([exp1], max_results=3, page_token=token, order_by=order_by)
     assert [t.trace_id for t in traces] == ["tr-8", "tr-9", "tr-0"]
-    traces, token = store.search_traces([exp1], max_results=3, page_token=token)
+    traces, token = store.search_traces([exp1], max_results=3, page_token=token, order_by=order_by)
     assert [t.trace_id for t in traces] == ["tr-1", "tr-2", "tr-3"]
-    traces, token = store.search_traces([exp1], max_results=3, page_token=token)
+    traces, token = store.search_traces([exp1], max_results=3, page_token=token, order_by=order_by)
     assert [t.trace_id for t in traces] == ["tr-4"]
 
 

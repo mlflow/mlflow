@@ -42,11 +42,12 @@ For a complete list of supported providers, view the provider dropdown when crea
 
 ### Evaluation Providers
 
-| Provider     | Model family | Passthrough API                  |
-| ------------ | ------------ | -------------------------------- |
-| **TypeSafe** | Jev          | `/gateway/typesafe/v1/systemone` |
+| Provider       | Model family        | Passthrough API                  |
+| -------------- | ------------------- | -------------------------------- |
+| **TypeSafe**   | Jev                 | `/gateway/typesafe/v1/systemone` |
+| **OpenRouter** | Jev decision models | `/gateway/typesafe/v1/systemone` |
 
-TypeSafe endpoints support structured System One evaluation requests. They do not support the gateway's chat, embeddings, OpenAI-compatible, or streaming APIs.
+TypeSafe and OpenRouter Jev decision endpoints support structured System One evaluation requests. They do not support the gateway's chat, embeddings, OpenAI-compatible, or streaming APIs. OpenRouter `typesafe/jev-router` is a chat model and uses normal chat routes.
 
 ## Provider-Specific Passthrough APIs
 
@@ -279,6 +280,8 @@ response = client.chat.completions.create(
 ### TypeSafe
 
 The TypeSafe passthrough exposes TypeSafe's System One API through the MLflow Gateway. The gateway endpoint name goes in the request body's `model` field; the gateway forwards the request to the configured TypeSafe model with its server-side TypeSafe API key.
+
+Requests are sent to `https://api.typesafe.ai/v1` by default. To use a proxy or another System One host, set **API Base URL** (`api_base`) on the TypeSafe LLM connection. Private or non-HTTPS connection URLs require the settings described in [custom base URL validation](/genai/governance/ai-gateway/api-keys/create-and-manage#custom-base-url-validation). When constructing `TypeSafeConfig` directly, use `typesafe_api_base` instead.
 
 **Base URL:** `http://localhost:5000/gateway/typesafe/v1`
 
