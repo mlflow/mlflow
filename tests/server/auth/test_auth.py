@@ -6532,6 +6532,191 @@ def test_create_model_version_logged_model_condition_is_scoped_to_its_experiment
     assert response.status_code == 200
 
 
+def test_link_traces_to_run_applies_the_trace_target_condition(fastapi_client, monkeypatch):
+    """F-0038. ``link_traces_to_run`` writes an association row per trace, so each trace is
+    mutated and a trace target condition has to govern it.
+
+    The OTLP ingest path reaches the same store call via ``X-Mlflow-Run-Id`` and already
+    evaluated those conditions, which made this explicit route the weaker of the two ways
+    to perform one write.
+    """
+    from mlflow.server.auth.client import AuthServiceClient
+
+    auth_client = AuthServiceClient(fastapi_client.tracking_uri)
+    user, password = create_user(fastapi_client.tracking_uri)
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        experiment_id = fastapi_client.create_experiment(f"link-cond-{random_str()}")
+        run = fastapi_client.create_run(experiment_id=experiment_id)
+
+    def ingest(tags):
+        body, raw = _otlp_payload(tags=tags)
+        assert (
+            requests.post(
+                url=fastapi_client.tracking_uri + "/v1/traces",
+                headers={
+                    "Content-Type": "application/x-protobuf",
+                    "X-Mlflow-Experiment-Id": experiment_id,
+                },
+                data=body,
+                auth=(ADMIN_USERNAME, ADMIN_PASSWORD),
+            ).status_code
+            == 200
+        )
+        return raw
+
+    ingest({"gate": "shut"})
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        traces = fastapi_client.search_traces([experiment_id])
+    assert len(traces) == 1
+    shut_trace_id = traces[0].info.trace_id
+
+    open_experiment_id = experiment_id
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        open_experiment_id = fastapi_client.create_experiment(f"link-open-{random_str()}")
+
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        role = auth_client.create_role("default", f"link-cond-{random_str()}", "test")
+        auth_client.add_role_permission(role.id, "experiment", "*", EDIT.name)
+        auth_client.add_mutation_condition(role.id, "trace", target_condition="tags.gate = 'open'")
+        auth_client.assign_role(user, role.id)
+
+    def link(trace_ids):
+        return requests.post(
+            url=fastapi_client.tracking_uri + "/api/2.0/mlflow/traces/link-to-run",
+            json={"run_id": run.info.run_id, "trace_ids": trace_ids},
+            auth=(user, password),
+        )
+
+    # The trace is tagged gate=shut, so a condition admitting only gate=open refuses it.
+    assert link([shut_trace_id]).status_code == 403
+
+    # A trace the condition admits is linked, which is what shows the denial above came
+    # from the condition and not from a grant rung.
+    body, _ = _otlp_payload(tags={"gate": "open"})
+    assert (
+        requests.post(
+            url=fastapi_client.tracking_uri + "/v1/traces",
+            headers={
+                "Content-Type": "application/x-protobuf",
+                "X-Mlflow-Experiment-Id": open_experiment_id,
+            },
+            data=body,
+            auth=(ADMIN_USERNAME, ADMIN_PASSWORD),
+        ).status_code
+        == 200
+    )
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        open_traces = fastapi_client.search_traces([open_experiment_id])
+    assert len(open_traces) == 1
+    assert link([open_traces[0].info.trace_id]).status_code == 200
+
+
+def test_link_traces_to_run_anchors_each_trace_on_its_own_experiment(fastapi_client, monkeypatch):
+    """The MUTATE context must name the trace's OWN experiment.
+
+    An experiment-scoped trace condition is only loaded when the context names that
+    experiment, so anchoring on anything else (the run's experiment, the first one seen)
+    would silently stop a scoped restriction from applying. Also pins that a nonexistent
+    trace id denies, so the response is not an existence oracle.
+    """
+    from mlflow.server.auth.client import AuthServiceClient
+
+    auth_client = AuthServiceClient(fastapi_client.tracking_uri)
+    user, password = create_user(fastapi_client.tracking_uri)
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        run_experiment = fastapi_client.create_experiment(f"link-run-{random_str()}")
+        trace_experiment = fastapi_client.create_experiment(f"link-trace-{random_str()}")
+        run = fastapi_client.create_run(experiment_id=run_experiment)
+
+    body, _ = _otlp_payload(tags={"gate": "shut"})
+    assert (
+        requests.post(
+            url=fastapi_client.tracking_uri + "/v1/traces",
+            headers={
+                "Content-Type": "application/x-protobuf",
+                "X-Mlflow-Experiment-Id": trace_experiment,
+            },
+            data=body,
+            auth=(ADMIN_USERNAME, ADMIN_PASSWORD),
+        ).status_code
+        == 200
+    )
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        trace_id = fastapi_client.search_traces([trace_experiment])[0].info.trace_id
+        role = auth_client.create_role("default", f"link-anchor-{random_str()}", "test")
+        auth_client.add_role_permission(role.id, "experiment", "*", EDIT.name)
+        # Scoped to the experiment the TRACE lives in, which is NOT the run's.
+        auth_client.add_mutation_condition(
+            role.id,
+            "trace",
+            container_resource_type="experiment",
+            container_resource_pattern=trace_experiment,
+            target_condition="tags.gate = 'open'",
+        )
+        auth_client.assign_role(user, role.id)
+
+    def link(trace_ids):
+        return requests.post(
+            url=fastapi_client.tracking_uri + "/api/2.0/mlflow/traces/link-to-run",
+            json={"run_id": run.info.run_id, "trace_ids": trace_ids},
+            auth=(user, password),
+        )
+
+    # Only reachable if the context is anchored on the trace's own experiment.
+    assert link([trace_id]).status_code == 403
+    # A trace id that does not exist denies rather than being skipped.
+    assert link([f"tr-{random_str()}"]).status_code == 403
+    # And one real id mixed with a missing one still denies the whole request.
+    assert link([trace_id, f"tr-{random_str()}"]).status_code == 403
+
+
+def test_link_traces_to_run_ignores_a_condition_scoped_elsewhere(fastapi_client, monkeypatch):
+    """The F-0022 property: a restriction written for another experiment's traces must not
+    refuse this link.
+    """
+    from mlflow.server.auth.client import AuthServiceClient
+
+    auth_client = AuthServiceClient(fastapi_client.tracking_uri)
+    user, password = create_user(fastapi_client.tracking_uri)
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        trace_experiment = fastapi_client.create_experiment(f"link-here-{random_str()}")
+        elsewhere = fastapi_client.create_experiment(f"link-there-{random_str()}")
+        run = fastapi_client.create_run(experiment_id=trace_experiment)
+
+    body, _ = _otlp_payload(tags={"gate": "shut"})
+    assert (
+        requests.post(
+            url=fastapi_client.tracking_uri + "/v1/traces",
+            headers={
+                "Content-Type": "application/x-protobuf",
+                "X-Mlflow-Experiment-Id": trace_experiment,
+            },
+            data=body,
+            auth=(ADMIN_USERNAME, ADMIN_PASSWORD),
+        ).status_code
+        == 200
+    )
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        trace_id = fastapi_client.search_traces([trace_experiment])[0].info.trace_id
+        role = auth_client.create_role("default", f"link-scope-{random_str()}", "test")
+        auth_client.add_role_permission(role.id, "experiment", "*", EDIT.name)
+        auth_client.add_mutation_condition(
+            role.id,
+            "trace",
+            container_resource_type="experiment",
+            container_resource_pattern=elsewhere,
+            target_condition="tags.gate = 'open'",
+        )
+        auth_client.assign_role(user, role.id)
+
+    response = requests.post(
+        url=fastapi_client.tracking_uri + "/api/2.0/mlflow/traces/link-to-run",
+        json={"run_id": run.info.run_id, "trace_ids": [trace_id]},
+        auth=(user, password),
+    )
+    assert response.status_code == 200
+
+
 def test_an_unparsable_otlp_payload_denies(fastapi_client, monkeypatch):
     # Fail closed: a payload the gate cannot read cannot be judged, and if the gate's parser
     # ever disagrees with the handler's, failing open would let exactly the unreadable

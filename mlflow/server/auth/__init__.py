@@ -5591,7 +5591,7 @@ def _authorize_trace(
     )
 
 
-def _authorize_existing_traces_as(username, submitted, action):
+def _authorize_existing_traces_as(username, submitted, action, *, mutates=False):
     """Authorize a mutation of traces that ALREADY exist, each on its OWN experiment.
 
     The routes that ingest spans or start a trace take a caller-supplied trace id. An id
@@ -5615,6 +5615,10 @@ def _authorize_existing_traces_as(username, submitted, action):
     All-or-nothing: one trace failing either half denies the whole batch. The handler
     writes the batch as a unit, so a partial refusal would leave the caller unable to tell
     what was persisted.
+
+    ``mutates`` declares the contexts while leaving the grant tier at ``action``, for a
+    route whose grant contract is a read but whose store call still writes to the trace.
+    See :func:`_authorize_logged_model_id` for the same device and the reasoning.
     """
     if not submitted:
         return True
@@ -5628,7 +5632,7 @@ def _authorize_existing_traces_as(username, submitted, action):
     anchor, requirements = resolved
     conditions = (
         []
-        if action == READ_ACTION
+        if action == READ_ACTION and not mutates
         else [
             context_for(
                 RESOURCE_TYPE_TRACE,
@@ -6014,20 +6018,39 @@ def validate_can_start_trace_v3():
 
 
 def validate_can_link_traces_to_run():
-    tracking_store = _get_tracking_store()
+    """UPDATE on the run, and the traces' own conditions.
+
+    ``store.link_traces_to_run`` writes an association row per trace, so each trace is
+    mutated -- and a trace target condition answers which traces this role may mutate at
+    all. The OTLP ingest path reaches the SAME store call through ``X-Mlflow-Run-Id`` and
+    already evaluates those conditions; this route did not, which made the explicit route
+    the weaker of the two ways to perform one write.
+
+    The trace GRANT tier stays ``read``, deliberately. Raising it to ``update`` would be a
+    change to this route's pre-existing authorization contract rather than to condition
+    enforcement, and it is left for a separate decision -- so the two routes still differ
+    at the grant rung while agreeing on conditions.
+    """
     run_id = _get_request_param("run_id")
     if not _authorize_run_id(run_id, "update"):
         return False
-    trace_ids = (request.json or {}).get("trace_ids", [])
-    try:
-        trace_experiment_ids = [
-            tracking_store.get_trace_info(tid).experiment_id for tid in trace_ids
-        ]
-    except MlflowException as e:
-        if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+    trace_ids = list(dict.fromkeys((request.json or {}).get("trace_ids", [])))
+    # One batched resolution rather than one store call per trace; it also seeds the memo,
+    # so the requirement build below is free.
+    auth_resources.prefetch_trace_infos(trace_ids)
+    submitted: "dict[str, tuple[str, tuple[tuple[str, str | None], ...]]]" = {}
+    for trace_id in trace_ids:
+        trace = auth_resources.fetch_trace_info(trace_id)
+        if trace is None:
+            # Uniform denial for a nonexistent id, so the response is not an existence
+            # oracle -- the same choice the previous RESOURCE_DOES_NOT_EXIST branch made.
             return False
-        raise
-    return _authorize_bulk_in_experiments(trace_experiment_ids, RESOURCE_TYPE_TRACE, "read")
+        submitted[trace_id] = (str(trace.experiment_id), ())
+    # No request values: the body names trace ids and a run, and sets no trace tag or
+    # alias, so every value clause is vacuous (D13).
+    return _authorize_existing_traces_as(
+        authenticate_request().username, submitted, "read", mutates=True
+    )
 
 
 def validate_can_read_metric_history_bulk(run_ids=None):
