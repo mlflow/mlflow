@@ -17,6 +17,7 @@ from mlflow.entities.assessment_error import AssessmentError
 from mlflow.environment_variables import _MLFLOW_IN_JOB_EXECUTOR
 from mlflow.exceptions import MlflowException
 from mlflow.genai import Scorer, scorer
+from mlflow.genai.evaluation.quality_thresholds import build_quality_threshold_rules
 from mlflow.genai.judges import make_judge
 from mlflow.genai.judges.utils import CategoricalRating
 from mlflow.genai.scorers import (
@@ -983,6 +984,23 @@ def test_registered_versions_keep_their_own_quality_threshold():
     ] == [(1, 0.6), (2, v2_threshold)]
     [latest] = list_scorers(experiment_id=experiment_id)
     assert latest.quality_threshold == v2_threshold
+
+
+def test_loaded_scorer_with_saved_threshold_can_be_reused_in_an_ensemble():
+    experiment_id = mlflow.create_experiment("test_quality_threshold_ensemble_reuse")
+    Correctness().with_quality_threshold(0.8).register(experiment_id=experiment_id)
+    loaded = get_scorer(name="correctness", experiment_id=experiment_id)
+    ensemble = make_scorer_ensemble(
+        name="ens", scorers=[loaded], ensemble_fn="agg_all"
+    ).with_quality_threshold(0.9)
+
+    with patch("mlflow.genai.evaluation.quality_thresholds._logger.warning") as mock_warning:
+        rules = build_quality_threshold_rules([ensemble])
+
+    assert loaded.quality_threshold == 0.8
+    assert [(rule["metricKey"], rule["threshold"]) for rule in rules] == [("ens/mean", 0.9)]
+    mock_warning.assert_called_once()
+    assert "a sub-scorer of the ensemble 'ens'" in mock_warning.call_args[0][0]
 
 
 def test_register_warns_that_decorator_quality_threshold_is_not_saved(monkeypatch):
