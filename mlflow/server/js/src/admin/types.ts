@@ -96,6 +96,7 @@ export const RESOURCE_TYPES = [
   'gateway_secret',
   'gateway_endpoint',
   'mcp_server',
+  'skill',
   'workspace',
 ] as const;
 
@@ -114,6 +115,7 @@ export const RESOURCE_TYPE_LABELS = {
   gateway_secret: 'LLM connection',
   gateway_endpoint: 'LLM endpoint',
   mcp_server: 'MCP server',
+  skill: 'Skill',
   workspace: 'Workspace',
 } satisfies Record<(typeof RESOURCE_TYPES)[number], string>;
 
@@ -126,8 +128,8 @@ export const PERMISSIONS = ['READ', 'USE', 'EDIT', 'MANAGE', 'NO_PERMISSIONS'] a
  * Permission levels the picker should expose per resource type, mirroring
  * the backend's ``_validate_permission_for_resource_type``:
  * ``workspace`` is ``USE`` / ``MANAGE`` only; gateway types expose ``USE``;
- * other types hide ``USE`` (no-op over ``READ``); ``NO_PERMISSIONS`` is
- * hidden everywhere.
+ * ``skill`` rejects ``USE`` outright; other types hide ``USE`` (no-op over
+ * ``READ``); ``NO_PERMISSIONS`` is hidden everywhere.
  */
 export const PERMISSIONS_FOR_RESOURCE_TYPE = {
   experiment: ['READ', 'EDIT', 'MANAGE'],
@@ -136,6 +138,7 @@ export const PERMISSIONS_FOR_RESOURCE_TYPE = {
   scorer: ['READ', 'EDIT', 'MANAGE'],
   gateway_secret: ['READ', 'USE', 'EDIT', 'MANAGE'],
   gateway_endpoint: ['READ', 'USE', 'EDIT', 'MANAGE'],
+  skill: ['READ', 'EDIT', 'MANAGE'],
   workspace: ['USE', 'MANAGE'],
 } satisfies Record<string, readonly string[]>;
 
