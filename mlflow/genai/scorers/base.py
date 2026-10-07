@@ -190,6 +190,37 @@ def _as_quality_threshold(value: float | QualityThreshold) -> QualityThreshold:
     return value if isinstance(value, QualityThreshold) else QualityThreshold(at_least=value)
 
 
+# Kinds that save `quality_threshold` inside their own serialized data, where versions that
+# predate it ignore the key. Decorator scorers have no such data, and third-party data is
+# forwarded to the library.
+_KINDS_SAVING_QUALITY_THRESHOLD = {
+    ScorerKind.BUILTIN,
+    ScorerKind.GUIDELINES,
+    ScorerKind.INSTRUCTIONS,
+    ScorerKind.MEMORY_AUGMENTED,
+    ScorerKind.ENSEMBLE,
+}
+
+
+def _dump_quality_threshold(value: float | QualityThreshold) -> float | dict[str, Any]:
+    return asdict(value) if isinstance(value, QualityThreshold) else value
+
+
+def _restore_quality_threshold(scorer: "Scorer", saved: Any) -> "Scorer":
+    if saved is None:
+        return scorer
+    try:
+        threshold = QualityThreshold(**saved) if isinstance(saved, dict) else saved
+        _as_quality_threshold(threshold)
+    except (MlflowException, TypeError) as e:
+        # Load the scorer without a threshold this version can't read, e.g. one saved with
+        # an aggregation added later.
+        _logger.warning(f"Ignoring the saved `quality_threshold` of scorer '{scorer.name}': {e}")
+        return scorer
+    scorer.quality_threshold = threshold
+    return scorer
+
+
 def _extract_scorer_value(result: Any) -> Any:
     """Reduce a sub-scorer's return to a single aggregatable value.
 
@@ -768,7 +799,7 @@ class Scorer(BaseModel):
                 )
 
             try:
-                return InstructionsJudge(
+                judge = InstructionsJudge(
                     name=serialized.name,
                     description=serialized.description,
                     instructions=data["instructions"],
@@ -782,6 +813,7 @@ class Scorer(BaseModel):
                 raise MlflowException.invalid_parameter_value(
                     f"Failed to create InstructionsJudge scorer '{serialized.name}': {e}"
                 )
+            return _restore_quality_threshold(judge, data.get("quality_threshold"))
 
         # Handle MemoryAugmentedJudge scorers
         elif serialized.memory_augmented_judge_data is not None:
@@ -883,13 +915,14 @@ class Scorer(BaseModel):
                     f"'{fn_name}'. Available: {sorted(BUILTIN_ENSEMBLES)}."
                 )
             sub_scorers = [cls.model_validate(d) for d in data.get("scorers", [])]
-            return make_scorer_ensemble(
+            ensemble = make_scorer_ensemble(
                 name=serialized.name,
                 scorers=sub_scorers,
                 ensemble_fn=fn_name,
                 description=serialized.description,
                 aggregations=serialized.aggregations,
             )
+            return _restore_quality_threshold(ensemble, data.get("quality_threshold"))
 
         # Invalid serialized data
         else:
@@ -1262,7 +1295,7 @@ class Scorer(BaseModel):
         from mlflow.genai.scorers.registry import DatabricksStore, _get_scorer_store
 
         self._check_can_be_registered()
-        if self.quality_threshold is not None:
+        if self.quality_threshold is not None and self.kind not in _KINDS_SAVING_QUALITY_THRESHOLD:
             _logger.warning(
                 f"`quality_threshold` on scorer '{self.name}' is not saved with the registered "
                 "scorer. It only applies when this scorer is passed to `mlflow.genai.evaluate`."
@@ -1279,6 +1312,21 @@ class Scorer(BaseModel):
                 new_scorer._cached_dump["name"] = name
 
         store.register_scorer(experiment_id, new_scorer)
+        if (
+            new_scorer.quality_threshold is not None
+            and self.kind in _KINDS_SAVING_QUALITY_THRESHOLD
+        ):
+            threshold = _as_quality_threshold(new_scorer.quality_threshold)
+            bound = "at least" if threshold.at_least is not None else "at most"
+            value = threshold.at_least if threshold.at_least is not None else threshold.at_most
+            version = new_scorer.scorer_version
+            target = f"scorer '{new_scorer.name}'"
+            if version is not None:
+                target = f"version {version} of {target}"
+            _logger.warning(
+                f"`quality_threshold` ({bound} {value} on the {threshold.aggregation}) is saved "
+                f"with {target}. A new threshold creates a new scorer version."
+            )
 
         if isinstance(store, DatabricksStore):
             new_scorer._registered_backend = SCORER_BACKEND_DATABRICKS
@@ -1948,6 +1996,10 @@ class EnsembleScorer(Scorer):
                 "scorers": [s.model_dump() for s in self._scorers],
             },
         )
+        if self.quality_threshold is not None:
+            serialized.ensemble_scorer_data["quality_threshold"] = _dump_quality_threshold(
+                self.quality_threshold
+            )
         return asdict(serialized)
 
     def _run_sub_scorer(self, sub_scorer: "Scorer", kwargs: dict[str, Any]) -> Any:

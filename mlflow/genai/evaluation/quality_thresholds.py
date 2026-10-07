@@ -55,13 +55,16 @@ def build_quality_threshold_rules(scorers: list[Scorer]) -> list[dict[str, Any]]
             )
         threshold = _as_quality_threshold(value)
         bound = "at_least" if threshold.at_least is not None else "at_most"
-        rules.append({
+        rule = {
             "metricKey": f"{scorer.name}/{threshold.aggregation}",
             "comparator": _COMPARATORS[bound],
             "threshold": getattr(threshold, bound),
             "scorerName": scorer.name,
             "scorerAggregation": threshold.aggregation,
-        })
+        }
+        if scorer.scorer_version is not None:
+            rule["scorerVersion"] = scorer.scorer_version
+        rules.append(rule)
     return rules
 
 

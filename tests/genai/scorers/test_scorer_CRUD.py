@@ -1058,6 +1058,25 @@ def test_register_scorer_creates_endpoint_binding(monkeypatch):
     mlflow.delete_experiment(experiment_id)
 
 
+def test_quality_threshold_override_then_start_creates_no_new_version(monkeypatch):
+    monkeypatch.setenv("MLFLOW_CRYPTO_KEK_PASSPHRASE", "test-passphrase-for-binding-tests")
+    experiment_id = mlflow.create_experiment("test_quality_threshold_override")
+    endpoint = _setup_gateway_endpoint(_get_store())
+    registered = (
+        Guidelines(name="polite", guidelines=["Be polite"], model=f"gateway:/{endpoint.name}")
+        .with_quality_threshold(0.6)
+        .register(experiment_id=experiment_id)
+    )
+
+    started = registered.with_quality_threshold(0.9).start(
+        experiment_id=experiment_id, sampling_config=ScorerSamplingConfig(sample_rate=0.5)
+    )
+
+    assert started.sample_rate == 0.5
+    [(stored, version)] = list_scorer_versions(name="polite", experiment_id=experiment_id)
+    assert (version, stored.quality_threshold) == (1, 0.6)
+
+
 def test_delete_scorer_removes_endpoint_binding(monkeypatch):
     monkeypatch.setenv("MLFLOW_CRYPTO_KEK_PASSPHRASE", "test-passphrase-for-binding-tests")
 

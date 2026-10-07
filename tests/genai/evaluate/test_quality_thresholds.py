@@ -63,6 +63,17 @@ def test_build_tag_serializes_rules_in_ui_criteria_shape():
     }
 
 
+def test_build_tag_records_scorer_version():
+    registered = _make_scorer("registered", 0.5)._set_registration_metadata(
+        backend="tracking", experiment_id="123", sampling_config=None, scorer_version=3
+    )
+
+    rules = json.loads(_build_tag([registered, _make_scorer("unregistered", 0.5)]))["rules"]
+
+    assert [rule.get("scorerVersion") for rule in rules] == [3, None]
+    assert "scorerVersion" not in rules[1]
+
+
 def test_build_tag_uses_fresh_revision_per_call():
     scorers = [_make_scorer("a", 0.5)]
     first = json.loads(_build_tag(scorers))
