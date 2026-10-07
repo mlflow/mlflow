@@ -114,8 +114,6 @@ jobs:
           submodules: true
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
-        with:
-          pin-micro-version: true
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
       - name: Install python dependencies
