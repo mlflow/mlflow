@@ -7,7 +7,7 @@ description: GitHub Actions workflow and composite action conventions for MLflow
 
 ## Name Steps When the Name Adds Information
 
-GitHub Actions shows only the first line of an unnamed `run:` step. Add a short,
+GitHub Actions UI shows only the first line of an unnamed `run:` step. Add a short,
 action-oriented `name:` when it explains the whole step better than that line,
 even if the first command is clear:
 
