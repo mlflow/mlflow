@@ -52,7 +52,7 @@ MLflow always computes the aggregation a threshold uses, even if it isn't in the
 
 `with_quality_threshold` works on every scorer: built-in scorers, custom `@scorer` functions, judges from <APILink fn="mlflow.genai.judges.make_judge">`make_judge`</APILink>, and third-party scorers (DeepEval, RAGAS, TruLens, Phoenix, Google ADK).
 
-- **Ensembles**: set the threshold on the scorer returned by <APILink fn="mlflow.genai.scorers.make_scorer_ensemble">`make_scorer_ensemble`</APILink>, not on its sub-scorers.
+- **Ensembles**: set the threshold on the scorer returned by <APILink fn="mlflow.genai.scorers.make_scorer_ensemble">`make_scorer_ensemble`</APILink>. A sub-scorer has no metric of its own on the run, so a threshold on a sub-scorer is ignored with a warning.
 - **Third-party scorers**: the quality threshold is separate from the library's own per-row `threshold` argument, which decides whether a single row passes.
 
 Thresholds aren't saved when you register a scorer. To use one with a registered scorer, set it after loading:

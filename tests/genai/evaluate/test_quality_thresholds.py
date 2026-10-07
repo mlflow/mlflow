@@ -80,14 +80,24 @@ def test_build_tag_allows_duplicate_names_without_thresholds():
     assert _build_tag([_make_scorer("a"), _make_scorer("a")]) is None
 
 
-def test_build_tag_rejects_threshold_on_ensemble_sub_scorer():
+@pytest.mark.parametrize("ensemble_threshold", [None, 0.7])
+def test_build_tag_ignores_threshold_on_ensemble_sub_scorer(caplog, ensemble_threshold):
     ensemble = make_scorer_ensemble(
         name="ensemble",
         scorers=[_make_scorer("sub", 0.5), _make_scorer("other")],
         ensemble_fn="mean",
+    ).with_quality_threshold(ensemble_threshold)
+
+    with caplog.at_level(logging.WARNING, logger="mlflow.genai.evaluation.quality_thresholds"):
+        rules = build_quality_threshold_rules([ensemble])
+
+    assert [rule["metricKey"] for rule in rules] == (
+        ["ensemble/mean"] if ensemble_threshold else []
     )
-    with pytest.raises(MlflowException, match="'sub', a sub-scorer of the ensemble 'ensemble'"):
-        _build_tag([ensemble])
+    [record] = caplog.records
+    assert "Ignoring the `quality_threshold` on 'sub', a sub-scorer of the ensemble" in (
+        record.message
+    )
 
 
 def test_build_tag_accepts_threshold_on_ensemble():

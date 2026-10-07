@@ -28,15 +28,21 @@ def _sub_scorers(scorer: Scorer) -> Iterator[Scorer]:
 def build_quality_threshold_rules(scorers: list[Scorer]) -> list[dict[str, Any]]:
     """
     Validate the thresholds declared on ``scorers`` and build one rule per thresholded scorer.
+
+    Thresholds on ensemble sub-scorers are ignored with a warning.
     """
     name_counts = Counter(scorer.name for scorer in scorers)
     rules = []
     for scorer in scorers:
         for sub_scorer in _sub_scorers(scorer):
+            # A sub-scorer has no run-level metric of its own, so its threshold can't be
+            # checked. It's ignored rather than rejected, because a registered scorer that is
+            # reused in an ensemble may carry the threshold saved with its version.
             if sub_scorer.quality_threshold is not None:
-                raise MlflowException.invalid_parameter_value(
-                    f"`quality_threshold` is set on '{sub_scorer.name}', a sub-scorer of the "
-                    f"ensemble '{scorer.name}'. Set it on the ensemble scorer instead."
+                _logger.warning(
+                    f"Ignoring the `quality_threshold` on '{sub_scorer.name}', a sub-scorer of "
+                    f"the ensemble '{scorer.name}'. Only the ensemble's own threshold is "
+                    "recorded on the run."
                 )
 
         if (value := getattr(scorer, "quality_threshold", None)) is None:
