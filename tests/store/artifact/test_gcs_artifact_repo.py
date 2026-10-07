@@ -1,13 +1,23 @@
+import datetime
 import os
 import posixpath
+import urllib.parse
 from unittest import mock
 
 import pytest
 import requests
-from google.auth.exceptions import DefaultCredentialsError
+from google.auth import crypt
+from google.auth.credentials import AnonymousCredentials
+from google.auth.exceptions import DefaultCredentialsError, TransportError
+from google.cloud import storage as gcs_storage
 from google.cloud.storage import client as gcs_client
+from google.oauth2 import credentials as user_credentials
+from google.oauth2 import service_account
 
 from mlflow.entities.multipart_upload import MultipartUploadPart
+from mlflow.exceptions import _UnsupportedPresignedUploadException
+from mlflow.protos.databricks_pb2 import NOT_IMPLEMENTED, ErrorCode
+from mlflow.store.artifact.artifact_repo import PresignedUploadMixin
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.artifact.gcs_artifact_repo import GCSArtifactRepository, GCSMPUArguments
 
@@ -571,3 +581,139 @@ def test_retryable_log_artifacts(throw, tmp_path):
             gcs_refreshed_bucket_mock.blob.assert_not_called()
             mock_gcs_client_factory.assert_not_called()
             mock_gcs_credentials_factory.assert_not_called()
+
+
+class _FakeSigner(crypt.Signer):
+    key_id = "key-id"
+
+    def sign(self, message):
+        return b"signature"
+
+
+def _make_gcs_client(credentials):
+    return gcs_storage.Client(project="project", credentials=credentials)
+
+
+def _make_signing_credentials():
+    return service_account.Credentials(
+        _FakeSigner(), "sa@project.iam.gserviceaccount.com", "https://oauth2.googleapis.com/token"
+    )
+
+
+def test_gcs_repo_supports_presigned_upload():
+    repo = GCSArtifactRepository("gs://test_bucket/some/path", client=mock.MagicMock())
+    assert isinstance(repo, PresignedUploadMixin)
+
+
+def test_create_presigned_upload_url(mock_client):
+    repo = GCSArtifactRepository("gs://test_bucket/some/path", client=mock_client)
+    mock_bucket = mock_client.bucket.return_value
+    mock_blob = mock_bucket.blob.return_value
+    mock_blob.generate_signed_url.return_value = "https://storage.googleapis.com/signed-put"
+
+    response = repo.create_presigned_upload_url("dir/model.pkl")
+
+    mock_client.bucket.assert_called_once_with("test_bucket")
+    mock_bucket.blob.assert_called_once_with("some/path/dir/model.pkl")
+    # .pkl has no standard MIME type, so it falls back to application/octet-stream
+    mock_blob.generate_signed_url.assert_called_once_with(
+        method="PUT",
+        version="v4",
+        expiration=datetime.timedelta(seconds=900),
+        content_type="application/octet-stream",
+    )
+    assert response.presigned_url == "https://storage.googleapis.com/signed-put"
+    assert response.headers == {"Content-Type": "application/octet-stream"}
+
+
+def test_create_presigned_upload_url_with_known_content_type(mock_client):
+    repo = GCSArtifactRepository("gs://test_bucket/some/path", client=mock_client)
+    mock_blob = mock_client.bucket.return_value.blob.return_value
+
+    response = repo.create_presigned_upload_url("data.json")
+
+    _, kwargs = mock_blob.generate_signed_url.call_args
+    assert kwargs["content_type"] == "application/json"
+    assert response.headers == {"Content-Type": "application/json"}
+
+
+def test_create_presigned_upload_url_custom_expiration(mock_client):
+    repo = GCSArtifactRepository("gs://test_bucket/some/path", client=mock_client)
+    mock_blob = mock_client.bucket.return_value.blob.return_value
+
+    repo.create_presigned_upload_url("model.pkl", expiration=60)
+
+    _, kwargs = mock_blob.generate_signed_url.call_args
+    assert kwargs["expiration"] == datetime.timedelta(seconds=60)
+
+
+def test_create_presigned_upload_url_with_signing_credentials():
+    # Sign with real google-cloud-storage URL generation (no network access needed).
+    repo = GCSArtifactRepository(
+        "gs://test_bucket/some/path", client=_make_gcs_client(_make_signing_credentials())
+    )
+
+    response = repo.create_presigned_upload_url("data.json", expiration=60)
+
+    parsed = urllib.parse.urlparse(response.presigned_url)
+    query = urllib.parse.parse_qs(parsed.query)
+    assert parsed.netloc == "storage.googleapis.com"
+    assert parsed.path == "/test_bucket/some/path/data.json"
+    assert query["X-Goog-Algorithm"] == ["GOOG4-RSA-SHA256"]
+    assert query["X-Goog-Expires"] == ["60"]
+    # Content-Type is a signed header, so the client must send it with the PUT request.
+    assert query["X-Goog-SignedHeaders"] == ["content-type;host"]
+    assert response.headers == {"Content-Type": "application/json"}
+
+
+@pytest.mark.parametrize(
+    "credentials",
+    [
+        # Credentials without a private key, e.g. from `gcloud auth application-default login`
+        # or a bare access token. google-cloud-storage raises AttributeError for these.
+        user_credentials.Credentials("token"),
+        AnonymousCredentials(),
+    ],
+    ids=["user_credentials", "anonymous_credentials"],
+)
+def test_create_presigned_upload_url_raises_not_implemented_for_credentials_without_private_key(
+    credentials,
+):
+    repo = GCSArtifactRepository("gs://test_bucket/some/path", client=_make_gcs_client(credentials))
+
+    with pytest.raises(
+        _UnsupportedPresignedUploadException,
+        match=_UnsupportedPresignedUploadException.MESSAGE,
+    ) as exc_info:
+        repo.create_presigned_upload_url("model.pkl")
+
+    assert exc_info.value.error_code == ErrorCode.Name(NOT_IMPLEMENTED)
+    assert "private key" in str(exc_info.value.__cause__)
+
+
+def test_create_presigned_upload_url_raises_not_implemented_when_remote_signing_fails(mock_client):
+    # e.g. impersonated credentials whose IAM `signBlob` call is denied
+    repo = GCSArtifactRepository("gs://test_bucket/some/path", client=mock_client)
+    mock_blob = mock_client.bucket.return_value.blob.return_value
+    error = TransportError("Error calling sign_bytes: permission denied")
+    mock_blob.generate_signed_url.side_effect = error
+
+    with pytest.raises(
+        _UnsupportedPresignedUploadException,
+        match=_UnsupportedPresignedUploadException.MESSAGE,
+    ) as exc_info:
+        repo.create_presigned_upload_url("model.pkl")
+
+    assert exc_info.value.__cause__ is error
+
+
+def test_create_presigned_upload_url_propagates_other_signing_errors(mock_client):
+    repo = GCSArtifactRepository("gs://test_bucket/some/path", client=mock_client)
+    mock_blob = mock_client.bucket.return_value.blob.return_value
+    error = TypeError("Expected an integer timestamp, datetime, or timedelta.")
+    mock_blob.generate_signed_url.side_effect = error
+
+    with pytest.raises(TypeError, match="Expected an integer timestamp") as exc_info:
+        repo.create_presigned_upload_url("model.pkl")
+
+    assert exc_info.value is error
