@@ -5964,6 +5964,364 @@ def test_an_otlp_target_condition_gates_an_existing_trace(fastapi_client, monkey
     assert "tags.gate" in refused.json()["message"]
 
 
+def test_otlp_cannot_append_to_a_trace_in_another_experiment(fastapi_client, monkeypatch):
+    """F-0025. The header says where spans should land; for an id that already exists the
+    store ignores it and appends to the trace where it is.
+
+    So create rights on the header experiment are not authority over an existing trace
+    elsewhere. The caller here holds EDIT on their own experiment and nothing at all on
+    the other one, and knowing the trace id must not be enough.
+    """
+    from mlflow.server.auth.client import AuthServiceClient
+
+    auth_client = AuthServiceClient(fastapi_client.tracking_uri)
+    user, password = create_user(fastapi_client.tracking_uri)
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        mine = fastapi_client.create_experiment(f"otlp-mine-{random_str()}")
+        theirs = fastapi_client.create_experiment(f"otlp-theirs-{random_str()}")
+
+    def ingest(body, experiment_id, auth):
+        return requests.post(
+            url=fastapi_client.tracking_uri + "/v1/traces",
+            headers={
+                "Content-Type": "application/x-protobuf",
+                "X-Mlflow-Experiment-Id": experiment_id,
+            },
+            data=body,
+            auth=auth,
+        )
+
+    # Admin puts a trace in the experiment the caller has no access to.
+    victim_body, victim_id = _otlp_payload(tags={"owner": "admin"})
+    assert ingest(victim_body, theirs, (ADMIN_USERNAME, ADMIN_PASSWORD)).status_code == 200
+
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        role = auth_client.create_role("default", f"otlp-mine-{random_str()}", "test")
+        # Scoped to the caller's OWN experiment only.
+        auth_client.add_role_permission(role.id, "experiment", mine, EDIT.name)
+        auth_client.assign_role(user, role.id)
+
+    # Creating in their own experiment is fine.
+    own_body, _own_id = _otlp_payload()
+    assert ingest(own_body, mine, (user, password)).status_code == 200
+
+    # Appending to the other experiment's trace, while naming their own in the header,
+    # must not be.
+    hijack, _ = _otlp_payload(trace_id=victim_id, tags={"owner": "attacker"})
+    assert ingest(hijack, mine, (user, password)).status_code == 403
+
+
+def test_otlp_judges_an_existing_trace_on_its_own_experiments_condition(
+    fastapi_client, monkeypatch
+):
+    """F-0007's residual half: the MUTATE context must anchor on the trace's REAL parent.
+
+    An experiment-scoped trace condition is only loaded when the context names that
+    experiment. Anchoring on the header instead meant a condition written to govern the
+    traces in the experiment a trace actually lives in was never even loaded for it.
+    """
+    from mlflow.server.auth.client import AuthServiceClient
+
+    auth_client = AuthServiceClient(fastapi_client.tracking_uri)
+    user, password = create_user(fastapi_client.tracking_uri)
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        header_experiment = fastapi_client.create_experiment(f"otlp-hdr-{random_str()}")
+        home_experiment = fastapi_client.create_experiment(f"otlp-home-{random_str()}")
+
+    def ingest(body, experiment_id, auth):
+        return requests.post(
+            url=fastapi_client.tracking_uri + "/v1/traces",
+            headers={
+                "Content-Type": "application/x-protobuf",
+                "X-Mlflow-Experiment-Id": experiment_id,
+            },
+            data=body,
+            auth=auth,
+        )
+
+    body, trace_id = _otlp_payload(tags={"gate": "shut"})
+    assert ingest(body, home_experiment, (ADMIN_USERNAME, ADMIN_PASSWORD)).status_code == 200
+
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        role = auth_client.create_role("default", f"otlp-anchor-{random_str()}", "test")
+        # Broad grants, so any denial can only come from the condition.
+        auth_client.add_role_permission(role.id, "experiment", "*", EDIT.name)
+        # Scoped to the experiment the trace REALLY lives in.
+        auth_client.add_mutation_condition(
+            role.id,
+            "trace",
+            container_resource_type="experiment",
+            container_resource_pattern=home_experiment,
+            target_condition="tags.gate = 'open'",
+        )
+        auth_client.assign_role(user, role.id)
+
+    # Appending to that trace while naming a DIFFERENT experiment in the header must still
+    # load and apply the condition scoped to the trace's own experiment.
+    more, _ = _otlp_payload(trace_id=trace_id)
+    refused = ingest(more, header_experiment, (user, password))
+    assert refused.status_code == 403
+    assert "tags.gate" in refused.json()["message"]
+
+
+def test_start_trace_v3_cannot_take_over_a_trace_in_another_experiment(fastapi_client, monkeypatch):
+    """F-0028. The trace id is caller-supplied and the store's write is an upsert.
+
+    Handed an id that already exists, it rewrites that trace's info and tags and
+    re-parents its spans -- moving the trace into the experiment this request names. That
+    is a mutation of someone else's trace, so create rights on the target experiment are
+    not enough.
+    """
+    from mlflow.server.auth.client import AuthServiceClient
+
+    auth_client = AuthServiceClient(fastapi_client.tracking_uri)
+    user, password = create_user(fastapi_client.tracking_uri)
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        mine = fastapi_client.create_experiment(f"v3-mine-{random_str()}")
+        theirs = fastapi_client.create_experiment(f"v3-theirs-{random_str()}")
+
+    # Admin creates a trace in the experiment the caller cannot touch.
+    victim_body, victim_id = _otlp_payload(tags={"owner": "admin"})
+    assert (
+        requests.post(
+            url=fastapi_client.tracking_uri + "/v1/traces",
+            headers={
+                "Content-Type": "application/x-protobuf",
+                "X-Mlflow-Experiment-Id": theirs,
+            },
+            data=victim_body,
+            auth=(ADMIN_USERNAME, ADMIN_PASSWORD),
+        ).status_code
+        == 200
+    )
+    stored = _resolve_otlp_trace_id(fastapi_client, monkeypatch, theirs, victim_id)
+
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        role = auth_client.create_role("default", f"v3-mine-{random_str()}", "test")
+        auth_client.add_role_permission(role.id, "experiment", mine, EDIT.name)
+        auth_client.assign_role(user, role.id)
+
+    def start(trace_id, experiment_id, auth):
+        return requests.post(
+            url=fastapi_client.tracking_uri + "/api/3.0/mlflow/traces",
+            json={
+                "trace": {
+                    "trace_info": {
+                        "trace_id": trace_id,
+                        "trace_location": {
+                            "type": "MLFLOW_EXPERIMENT",
+                            "mlflow_experiment": {"experiment_id": experiment_id},
+                        },
+                        "request_time": "1970-01-01T00:00:01Z",
+                        "execution_duration": "1s",
+                        "state": "OK",
+                        "tags": {"owner": "attacker"},
+                    }
+                }
+            },
+            auth=auth,
+        )
+
+    # A brand-new id in their own experiment is an ordinary create.
+    assert start(f"tr-{random_str()}", mine, (user, password)).status_code == 200
+    # Re-pointing the other experiment's existing trace at theirs must be refused.
+    assert start(stored, mine, (user, password)).status_code == 403
+
+
+def _resolve_otlp_trace_id(fastapi_client, monkeypatch, experiment_id, raw_trace_id):
+    """The trace id the store assigned for an ingested OTLP batch.
+
+    The payload carries 16 raw bytes; the store addresses the trace by its own string id,
+    which is what a StartTraceV3 body has to name.
+    """
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        traces = fastapi_client.search_traces([experiment_id])
+    assert traces, "the ingested trace was not found"
+    return traces[0].info.trace_id
+
+
+def _otlp_mixed_payload(existing_trace_id, new_tags=None):
+    """One batch carrying a root span for an EXISTING trace and one for a new trace."""
+    import os as _os
+
+    from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceRequest
+
+    first, _ = _otlp_payload(trace_id=existing_trace_id)
+    second, new_id = _otlp_payload(tags=new_tags)
+    merged = ExportTraceServiceRequest()
+    merged.ParseFromString(first)
+    other = ExportTraceServiceRequest()
+    other.ParseFromString(second)
+    merged.MergeFrom(other)
+    assert _os  # keep the import meaningful if the helper is extended
+    return merged.SerializeToString(), new_id
+
+
+def test_a_mixed_otlp_batch_is_denied_whole_when_one_existing_trace_fails(
+    fastapi_client, monkeypatch
+):
+    """All-or-nothing. The handler writes the batch as a unit, so one refused trace has to
+    refuse the request -- a partial accept would leave the caller unable to tell what was
+    persisted, and would write the half the gate did permit.
+    """
+    from mlflow.server.auth.client import AuthServiceClient
+
+    auth_client = AuthServiceClient(fastapi_client.tracking_uri)
+    user, password = create_user(fastapi_client.tracking_uri)
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        experiment_id = fastapi_client.create_experiment(f"otlp-mixed-{random_str()}")
+
+    def ingest(body, auth, content_type="application/x-protobuf"):
+        return requests.post(
+            url=fastapi_client.tracking_uri + "/v1/traces",
+            headers={
+                "Content-Type": content_type,
+                "X-Mlflow-Experiment-Id": experiment_id,
+            },
+            data=body,
+            auth=auth,
+        )
+
+    shut_body, shut_id = _otlp_payload(tags={"gate": "shut"})
+    assert ingest(shut_body, (ADMIN_USERNAME, ADMIN_PASSWORD)).status_code == 200
+
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        role = auth_client.create_role("default", f"otlp-mixed-{random_str()}", "test")
+        auth_client.add_role_permission(role.id, "experiment", "*", EDIT.name)
+        auth_client.add_mutation_condition(role.id, "trace", target_condition="tags.gate = 'open'")
+        auth_client.assign_role(user, role.id)
+
+    # A batch carrying one brand-new trace AND an append to the refused one: the new trace
+    # on its own would be permitted, so only the batch rule can deny this.
+    mixed, _new_id = _otlp_mixed_payload(shut_id)
+    refused = ingest(mixed, (user, password))
+    assert refused.status_code == 403
+    assert "tags.gate" in refused.json()["message"]
+
+    # The new trace was not written despite being individually acceptable.
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        assert len(fastapi_client.search_traces([experiment_id])) == 1
+
+
+def test_a_json_otlp_batch_is_judged_like_a_protobuf_one(fastapi_client, monkeypatch):
+    """The route accepts JSON as well as protobuf, and both reach the same store call.
+
+    A gate that judged only the protobuf encoding would be bypassed by re-encoding the
+    same payload, so the JSON path has to classify and refuse identically.
+    """
+    import base64
+    import json
+
+    from google.protobuf.json_format import MessageToJson
+    from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceRequest
+
+    from mlflow.server.auth.client import AuthServiceClient
+
+    auth_client = AuthServiceClient(fastapi_client.tracking_uri)
+    user, password = create_user(fastapi_client.tracking_uri)
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        experiment_id = fastapi_client.create_experiment(f"otlp-json-{random_str()}")
+
+    def ingest(body, auth, content_type):
+        return requests.post(
+            url=fastapi_client.tracking_uri + "/v1/traces",
+            headers={"Content-Type": content_type, "X-Mlflow-Experiment-Id": experiment_id},
+            data=body,
+            auth=auth,
+        )
+
+    shut_body, shut_id = _otlp_payload(tags={"gate": "shut"})
+    assert (
+        ingest(shut_body, (ADMIN_USERNAME, ADMIN_PASSWORD), "application/x-protobuf").status_code
+        == 200
+    )
+
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        role = auth_client.create_role("default", f"otlp-json-{random_str()}", "test")
+        auth_client.add_role_permission(role.id, "experiment", "*", EDIT.name)
+        auth_client.add_mutation_condition(role.id, "trace", target_condition="tags.gate = 'open'")
+        auth_client.assign_role(user, role.id)
+
+    # The same append, re-encoded as OTLP/JSON. The spec puts trace and span ids in HEX
+    # (protobuf's own JSON mapping would use base64), so convert them the way a real OTLP
+    # JSON client emits them -- otherwise the payload is simply unparsable and the 403
+    # would be the fail-closed one rather than the condition's.
+    more_proto, _ = _otlp_payload(trace_id=shut_id)
+    parsed = ExportTraceServiceRequest()
+    parsed.ParseFromString(more_proto)
+    document = json.loads(MessageToJson(parsed))
+    for resource_span in document.get("resourceSpans", []):
+        for scope_span in resource_span.get("scopeSpans", []):
+            for span in scope_span.get("spans", []):
+                for field in ("traceId", "spanId", "parentSpanId"):
+                    if value := span.get(field):
+                        span[field] = base64.b64decode(value).hex()
+    refused = ingest(json.dumps(document), (user, password), "application/json")
+    assert refused.status_code == 403
+    assert "tags.gate" in refused.json()["message"], (
+        "a JSON payload must be judged by the condition, not merely refused as unparsable"
+    )
+
+    # And the same JSON shape is accepted for a trace the condition permits, so the gate
+    # is judging this encoding rather than rejecting it wholesale.
+    open_body, open_id = _otlp_payload(tags={"gate": "open"})
+    assert (
+        ingest(open_body, (ADMIN_USERNAME, ADMIN_PASSWORD), "application/x-protobuf").status_code
+        == 200
+    )
+    more_open, _ = _otlp_payload(trace_id=open_id)
+    allowed = ExportTraceServiceRequest()
+    allowed.ParseFromString(more_open)
+    document = json.loads(MessageToJson(allowed))
+    for resource_span in document.get("resourceSpans", []):
+        for scope_span in resource_span.get("scopeSpans", []):
+            for span in scope_span.get("spans", []):
+                for field in ("traceId", "spanId", "parentSpanId"):
+                    if value := span.get(field):
+                        span[field] = base64.b64decode(value).hex()
+    assert ingest(json.dumps(document), (user, password), "application/json").status_code == 200
+
+
+def test_start_trace_v3_with_no_trace_id_is_still_an_ordinary_create(fastapi_client, monkeypatch):
+    """A body carrying no id -- or a placeholder the store will replace -- names no
+    existing trace, so it must keep taking the create path rather than failing closed.
+    """
+    from mlflow.server.auth.client import AuthServiceClient
+
+    auth_client = AuthServiceClient(fastapi_client.tracking_uri)
+    user, password = create_user(fastapi_client.tracking_uri)
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        experiment_id = fastapi_client.create_experiment(f"v3-create-{random_str()}")
+        role = auth_client.create_role("default", f"v3-create-{random_str()}", "test")
+        auth_client.add_role_permission(role.id, "experiment", experiment_id, EDIT.name)
+        auth_client.assign_role(user, role.id)
+
+    def start(trace_info_extra):
+        return requests.post(
+            url=fastapi_client.tracking_uri + "/api/3.0/mlflow/traces",
+            json={
+                "trace": {
+                    "trace_info": {
+                        "trace_location": {
+                            "type": "MLFLOW_EXPERIMENT",
+                            "mlflow_experiment": {"experiment_id": experiment_id},
+                        },
+                        "request_time": "1970-01-01T00:00:01Z",
+                        "execution_duration": "1s",
+                        "state": "OK",
+                        **trace_info_extra,
+                    }
+                }
+            },
+            auth=(user, password),
+        )
+
+    # No id at all.
+    assert start({}).status_code == 200
+    # An id that does not exist yet.
+    assert start({"trace_id": f"tr-{random_str()}"}).status_code == 200
+
+
 def test_an_unparsable_otlp_payload_denies(fastapi_client, monkeypatch):
     # Fail closed: a payload the gate cannot read cannot be judged, and if the gate's parser
     # ever disagrees with the handler's, failing open would let exactly the unreadable

@@ -29,12 +29,12 @@ a free memo hit from their base check.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from contextvars import ContextVar
 from typing import Any
 from urllib.parse import quote, unquote
 
-from mlflow.exceptions import MlflowException
+from mlflow.exceptions import MlflowException, MlflowNotImplementedException
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, ErrorCode
 from mlflow.server.auth.conditions import (
     ALIAS_OWNING_RESOURCE_TYPES,
@@ -343,6 +343,48 @@ def fetch_experiment(experiment_id: str):
 
 def fetch_run(run_id: str):
     return _memoized("run", run_id, lambda: _fetch_or_none(_tracking_store().get_run, run_id))
+
+
+def prefetch_trace_infos(trace_ids: "Sequence[str]") -> None:
+    """Resolve many trace ids in ONE store call, seeding the per-request memo.
+
+    A validator that has to classify a batch of caller-supplied trace ids -- which exist,
+    and which experiment each really belongs to -- would otherwise call
+    :func:`fetch_trace_info` once per id. This makes it one query, after which every
+    ``fetch_trace_info`` for those ids is a memo hit, so the existing per-trace
+    authorization helpers keep working unchanged and cost nothing extra.
+
+    A MISSING id is cached as ``None``, which is the same answer ``fetch_trace_info``
+    gives for one, and is what lets a caller distinguish "this trace is new" from "this
+    trace already exists elsewhere" without a second lookup. ``batch_get_trace_infos``
+    omits ids it cannot find, so absence from the result is what marks them.
+
+    Deliberately NOT scoped by ``experiment_ids``: the whole point is to learn each
+    trace's real experiment, and scoping the query to the experiment the request claims
+    would hide a trace living somewhere else -- turning the classification into a
+    confirmation of what the caller asserted.
+
+    A store that does not implement the batch lookup falls back to per-id fetches, so a
+    non-SQL backend degrades in cost rather than in correctness. Any other store failure
+    propagates: reporting an outage as "this trace does not exist" would classify an
+    existing trace as new and authorize it as a create.
+    """
+    pending = [trace_id for trace_id in dict.fromkeys(trace_ids) if trace_id]
+    if not pending:
+        return
+    cache = _entities()
+    pending = [tid for tid in pending if _cache_key("trace", tid) not in cache]
+    if not pending:
+        return
+    try:
+        found = _tracking_store().batch_get_trace_infos(pending)
+    except (MlflowNotImplementedException, NotImplementedError):
+        for trace_id in pending:
+            fetch_trace_info(trace_id)
+        return
+    by_id = {str(info.trace_id): info for info in found}
+    for trace_id in pending:
+        cache[_cache_key("trace", trace_id)] = by_id.get(trace_id)
 
 
 def fetch_trace_info(trace_id: str):

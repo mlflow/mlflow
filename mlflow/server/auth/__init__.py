@@ -5550,6 +5550,58 @@ def _authorize_trace(
     )
 
 
+def _authorize_existing_traces_as(username, submitted, action):
+    """Authorize a mutation of traces that ALREADY exist, each on its OWN experiment.
+
+    The routes that ingest spans or start a trace take a caller-supplied trace id. An id
+    that already exists is not a create: the store appends to that trace, recomputes its
+    aggregates, and can relocate it. The authority required is therefore authority over
+    THAT trace, in the experiment it actually lives in -- not the experiment the request
+    names. Trusting the request's experiment is what let a caller with create rights in
+    one experiment write to a trace in another.
+
+    ``submitted`` maps each existing trace id to ``(real_experiment_id, tags)``, with the
+    experiment resolved from the store rather than read from the body.
+
+    Grants and conditions both anchor there. The grants are the same tiers
+    :func:`_authorize_trace` requires -- experiment ``read`` plus trace ``action`` with an
+    experiment fallback -- gathered across every distinct experiment into ONE requirement
+    list, so a batch spanning several experiments costs one grant load rather than one per
+    trace. Each trace then gets its own MUTATE context anchored on its own experiment, so
+    a condition scoped to that experiment is loaded and judged, and one scoped to a
+    different experiment is not (F-0022).
+
+    All-or-nothing: one trace failing either half denies the whole batch. The handler
+    writes the batch as a unit, so a partial refusal would leave the caller unable to tell
+    what was persisted.
+    """
+    if not submitted:
+        return True
+    resolved = _bulk_requirements_in_experiments(
+        [experiment_id for experiment_id, _tags in submitted.values()],
+        RESOURCE_TYPE_TRACE,
+        action,
+    )
+    if resolved is None:
+        return False
+    anchor, requirements = resolved
+    conditions = (
+        []
+        if action == READ_ACTION
+        else [
+            context_for(
+                RESOURCE_TYPE_TRACE,
+                trace_id,
+                ConditionScope.MUTATE,
+                TraceRequestValues(tags=tags),
+                parent_resource_id=experiment_id,
+            )
+            for trace_id, (experiment_id, tags) in sorted(submitted.items())
+        ]
+    )
+    return authorize(username, anchor, requirements, conditions=conditions)
+
+
 def validate_can_update_trace_by_trace_id():
     """Bodies that set no tag, addressed by `trace_id`."""
     return _authorize_trace(_get_request_param("trace_id"), "update")
@@ -5871,11 +5923,37 @@ def validate_can_start_trace_v3():
         else ()
     )
     # V3 carries its tags as a map on TraceInfo rather than a repeated field.
+    tags = tuple(message.trace.trace_info.tags.items())
+
+    # The trace id is CALLER-SUPPLIED, and the store's write is an upsert: handed an id
+    # that already exists it rewrites that trace's info, tags and metadata, re-parents its
+    # spans and assessments, and so can move the trace into the experiment this request
+    # names. That is a mutation of an existing trace, not a create, and authorizing it as
+    # a create let a caller with create rights in one experiment take over a trace in
+    # another.
+    #
+    # So classify the id first. Only a MISSING id is a create.
+    trace_id = message.trace.trace_info.trace_id
+    if trace_id:
+        existing = auth_resources.fetch_trace_info(trace_id)
+        if existing is not None:
+            # Judged on the experiment the trace is in NOW, not the one the body asks for.
+            # The assessment veto is retained: `store.start_trace` persists
+            # `trace_info.assessments` on this path too.
+            username = authenticate_request().username
+            if extra and not authorize(
+                username, (RESOURCE_TYPE_EXPERIMENT, str(existing.experiment_id)), list(extra)
+            ):
+                return False
+            return _authorize_existing_traces_as(
+                username, {trace_id: (str(existing.experiment_id), tags)}, "update"
+            )
+
     return _authorize_create_in_experiment(
         experiment_id,
         RESOURCE_TYPE_TRACE,
         extra=extra,
-        tags=tuple(message.trace.trace_info.tags.items()),
+        tags=tags,
     )
 
 
@@ -10719,42 +10797,50 @@ def _get_otel_validator(
             return False
 
         # A trace the payload creates is judged on the VALUES it sets; one that already
-        # exists is judged on its STATE. The same batch can carry both.
+        # exists is judged on its STATE, and on the authority the caller holds over the
+        # experiment it ACTUALLY lives in. The same batch can carry both.
+        #
+        # One batched resolution, so classifying fifty submitted traces is one query
+        # rather than fifty. It also seeds the per-request memo, which is what keeps the
+        # per-trace helpers below free.
+        auth_resources.prefetch_trace_infos([trace_id for trace_id, _tags in projections])
         created_tags: "list[tuple[str, str | None]]" = []
-        existing: "list[tuple[str, tuple[tuple[str, str | None], ...]]]" = []
+        existing: "dict[str, tuple[str, tuple[tuple[str, str | None], ...]]]" = {}
         for trace_id, tags in projections:
-            if auth_resources.fetch_trace_info(trace_id) is None:
+            trace = auth_resources.fetch_trace_info(trace_id)
+            if trace is None:
                 created_tags.extend(tags)
             else:
-                existing.append((trace_id, tags))
+                # The trace's OWN experiment, read from the store. The header says where
+                # the caller wants the spans to land; for an id that already exists the
+                # store ignores it and appends to the trace where it is, so the header is
+                # not evidence of anything here.
+                existing[trace_id] = (str(trace.experiment_id), tags)
 
         # The handler persists the submitted spans, so this is a trace create and carries the
         # same veto as StartTrace / StartTraceV3. The projected tags ride on its CREATE
         # context, which is what makes a value condition apply here at all.
-        if not _authorize_create_in_experiment_as(
+        #
+        # Skipped only for a batch that exclusively APPENDS to traces that already exist:
+        # it creates nothing in the header experiment -- the store ignores the header for
+        # an existing id -- so requiring create there would deny an append the caller is
+        # entitled to make, while protecting nothing. Those traces are instead held to the
+        # stronger requirement below, on the experiment they really live in.
+        #
+        # Every other shape still carries it, including an empty payload, so a caller with
+        # no rights in the header experiment is refused exactly as before.
+        appends_only = bool(projections) and len(existing) == len(projections)
+        if not appends_only and not _authorize_create_in_experiment_as(
             username, experiment_id, RESOURCE_TYPE_TRACE, tags=tuple(created_tags)
         ):
             return False
 
-        if existing:
-            workspace = get_anchor_workspace(RESOURCE_TYPE_EXPERIMENT, experiment_id)
-            if workspace is None:
-                return False
-            if not authorize_on_conditions(
-                username,
-                workspace,
-                [
-                    context_for(
-                        RESOURCE_TYPE_TRACE,
-                        trace_id,
-                        ConditionScope.MUTATE,
-                        request_values_shape(RESOURCE_TYPE_TRACE)(tags=tags),
-                        parent_resource_id=experiment_id,
-                    )
-                    for trace_id, tags in existing
-                ],
-            ):
-                return False
+        # Appending spans to an existing trace rewrites that trace's aggregates, so it
+        # needs authority over the trace itself -- grants AND conditions, anchored on its
+        # real experiment. Without this a caller who could create traces in the header
+        # experiment could append to any trace in the workspace whose id they knew.
+        if not _authorize_existing_traces_as(username, existing, "update"):
+            return False
 
         # ``X-Mlflow-Run-Id`` makes the handler associate the ingested traces with that run
         # through the SAME store call the explicit ``LinkTracesToRun`` route makes, so it
