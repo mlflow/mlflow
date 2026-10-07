@@ -6727,6 +6727,104 @@ def test_create_model_version_logged_model_condition_is_scoped_to_its_experiment
     assert response.status_code == 200
 
 
+def _start_trace_v3(tracking_uri, experiment_id, auth, *, metadata=None, trace_id=None):
+    # Timestamps are RFC3339 strings here, not {seconds, nanos}: the proto fields are
+    # well-known Timestamp/Duration types and the JSON parser rejects the struct form.
+    trace_info = {
+        "trace_location": {
+            "type": "MLFLOW_EXPERIMENT",
+            "mlflow_experiment": {"experiment_id": str(experiment_id)},
+        },
+        "request_time": "1970-01-01T00:00:01Z",
+        "execution_duration": "1s",
+        "state": "OK",
+        "trace_metadata": metadata or {},
+        "tags": {},
+    }
+    if trace_id:
+        trace_info["trace_id"] = trace_id
+    return requests.post(
+        url=tracking_uri + "/api/3.0/mlflow/traces",
+        json={"trace": {"trace_info": trace_info}},
+        auth=auth,
+    )
+
+
+def test_starting_a_trace_requires_read_on_a_named_source_run(fastapi_client, monkeypatch):
+    """``mlflow.sourceRun`` associates the trace with a run, so the run named is judged.
+
+    The store upserts the body's ``trace_metadata`` verbatim on both the create and the
+    existing-id path, and the validator declared no run requirement at all -- so a caller
+    could attach a trace to any run, including one their role explicitly denies. The auth
+    layer already treats the key as access-controlled the other way round, stripping it
+    from responses when the run tier is denied (``_TRACE_METADATA_SIBLING_TIERS``).
+
+    READ rather than update, because the SDK stamps this key whenever a trace is logged
+    inside a run: gating the ordinary logging path on update authority would refuse
+    legitimate traffic. Read still refuses an explicitly denied run.
+    """
+    from mlflow.server.auth.client import AuthServiceClient
+
+    auth_client = AuthServiceClient(fastapi_client.tracking_uri)
+    user, password = create_user(fastapi_client.tracking_uri)
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        experiment_id = fastapi_client.create_experiment(f"src-run-trace-{random_str()}")
+        run = fastapi_client.create_run(experiment_id=experiment_id)
+        role = auth_client.create_role("default", f"src-run-trace-{random_str()}", "test")
+        auth_client.add_role_permission(role.id, "experiment", "*", EDIT.name)
+        auth_client.assign_role(user, role.id)
+
+    # No run grant at all: the experiment fallback satisfies READ, so an ordinary trace
+    # logged inside a run is unaffected. This is the regression half -- the requirement
+    # must not break the common path.
+    assert (
+        _start_trace_v3(
+            fastapi_client.tracking_uri,
+            experiment_id,
+            (user, password),
+            metadata={"mlflow.sourceRun": run.info.run_id},
+        ).status_code
+        == 200
+    )
+
+    # A body naming no run is likewise unaffected.
+    assert (
+        _start_trace_v3(fastapi_client.tracking_uri, experiment_id, (user, password)).status_code
+        == 200
+    )
+
+    # A run tier with READ but not update: permitted, which pins the tier this requires.
+    # Raising it to `update` would refuse this and gate the SDK's ordinary in-run logging
+    # on authority the caller need not hold.
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        run_permission = auth_client.add_role_permission(role.id, "run", "*", READ.name)
+    assert _start_trace_v3(
+        fastapi_client.tracking_uri,
+        experiment_id,
+        (user, password),
+        metadata={"mlflow.sourceRun": run.info.run_id},
+    ).status_code == 200
+
+    # Deny the run tier: the same association must now be refused.
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        auth_client.update_role_permission(run_permission.id, DENY.name)
+    assert (
+        _start_trace_v3(
+            fastapi_client.tracking_uri,
+            experiment_id,
+            (user, password),
+            metadata={"mlflow.sourceRun": run.info.run_id},
+        ).status_code
+        == 403
+    )
+    # Without the metadata the trace still logs, so the refusal is the association and not
+    # the denied run tier refusing trace creation outright.
+    assert (
+        _start_trace_v3(fastapi_client.tracking_uri, experiment_id, (user, password)).status_code
+        == 200
+    )
+
+
 def test_link_traces_to_run_does_not_crash_on_a_malformed_trace_id(fastapi_client, monkeypatch):
     """F-0047. An unhashable element in ``trace_ids`` must not fault the gate.
 

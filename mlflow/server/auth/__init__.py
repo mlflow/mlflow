@@ -5910,6 +5910,24 @@ def _assessment_source_run_id(assessment_proto) -> "str | None":
     return metadata.get(AssessmentMetadataKey.SOURCE_RUN_ID) or None
 
 
+def _named_run_permits(run_id: str, action: str) -> bool:
+    """Authorize a run that a request NAMES but does not otherwise act on.
+
+    The id in the body is what identifies the target, so it decides which run is judged.
+    No condition context is declared for it: for ``read`` that is the standing rule (a read
+    declares none), and for a veto there is nothing to condition -- the request mutates no
+    tag or alias of the run, only a reference to it.
+
+    A nonexistent id resolves to nothing and is refused, uniformly, so the response is not
+    an existence oracle for runs in experiments the caller cannot see.
+    """
+    resolved = _run_requirement(run_id, action)
+    if resolved is None:
+        return False
+    run_anchor, requirements = resolved
+    return authorize(authenticate_request().username, run_anchor, requirements)
+
+
 def _assessment_source_run_permits(run_id: str) -> bool:
     """The named source run's tier must not be DENIED.
 
@@ -5930,11 +5948,7 @@ def _assessment_source_run_permits(run_id: str) -> bool:
     consistent extension -- an association naming a run is a run-side write, which is how
     ``LinkTracesToRun`` is judged -- but the decision taken was the grant veto alone.
     """
-    resolved = _run_requirement(run_id, ACTION_NOT_DENIED)
-    if resolved is None:
-        return False
-    run_anchor, requirements = resolved
-    return authorize(authenticate_request().username, run_anchor, requirements)
+    return _named_run_permits(run_id, ACTION_NOT_DENIED)
 
 
 def validate_can_create_assessment():
@@ -6087,6 +6101,11 @@ def validate_can_read_traces_by_experiment_ids():
 
 
 def validate_can_start_trace_v3():
+    # Imported here rather than at module scope, matching the other uses in this module:
+    # ``mlflow.tracing`` pulls in tracing machinery the auth plugin does not need loaded
+    # during app construction.
+    from mlflow.tracing.constant import TraceMetadataKey
+
     # Read from the parsed proto, as the handler does: a structural match on raw JSON rejected the
     # lowerCamelCase spelling the handler accepts, refusing valid requests.
     message = _get_request_message(StartTraceV3())
@@ -6103,6 +6122,21 @@ def validate_can_start_trace_v3():
     )
     # V3 carries its tags as a map on TraceInfo rather than a repeated field.
     tags = tuple(message.trace.trace_info.tags.items())
+
+    # ``mlflow.sourceRun`` in the metadata associates this trace with a run, and the store
+    # upserts the body's metadata verbatim on BOTH the create and the existing-id path. The
+    # id names the target, so it selects the run to judge.
+    #
+    # READ, not update: the SDK stamps this key automatically whenever a trace is logged
+    # inside a run, so requiring update authority would gate the ordinary logging path on a
+    # tier callers need not hold. Read still refuses a run the role explicitly DENIES, which
+    # is what stops a caller attaching a trace to a run they have no standing over -- and
+    # the auth layer already treats the key as access-controlled in the other direction,
+    # stripping it from RESPONSES when the run tier is denied
+    # (``_TRACE_METADATA_SIBLING_TIERS``). No condition context: a read declares none.
+    source_run_id = message.trace.trace_info.trace_metadata.get(TraceMetadataKey.SOURCE_RUN)
+    if source_run_id and not _named_run_permits(source_run_id, READ_ACTION):
+        return False
 
     # The trace id is CALLER-SUPPLIED, and the store's write is an upsert: handed an id
     # that already exists it rewrites that trace's info, tags and metadata, re-parents its
