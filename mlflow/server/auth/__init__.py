@@ -1264,10 +1264,11 @@ def _target_pushdown(
         evaluate the clauses in Python is gone.
     """
     if resource_ids is None and parent_id is None:
-        # A caller reaching here with neither selector is a wiring bug: the gate decides
-        # which selector applies and refuses outright (D21) when an operation cannot name
-        # what it will touch. Treating an unasked question as a pass is the one direction
-        # this must never fail in.
+        # A caller reaching here with neither selector is a wiring bug: the gate picks the
+        # selector -- named ids, or the parent for a cascade -- and refuses outright when a
+        # context offers neither, because then nothing identifies what would be judged.
+        # Treating an unasked question as a pass is the one direction this must never fail
+        # in.
         raise ValueError(
             "_target_pushdown needs resource_ids or parent_id; a context with neither "
             "must be refused by the caller, not asked about"
@@ -1490,12 +1491,14 @@ def _authorize_on_conditions(
             # parent holds no children of this type at all.
             continue
         if not resource_ids:
-            # A target condition exists for a type this operation mutates, but the
-            # operation could not name which resources it will touch -- a predicate-mode
-            # bulk delete selecting by timestamp, for instance (D21). The condition cannot
-            # be evaluated, so the operation is refused rather than allowed: iterating an
-            # empty id list would pass every clause vacuously, which is the one direction
-            # this gate must never fail in.
+            # A target condition exists for a type this operation mutates, but the context
+            # neither names its resources nor its parent, so nothing identifies what would
+            # be judged. The condition cannot be evaluated, so the operation is refused
+            # rather than allowed: iterating an empty id list would pass every clause
+            # vacuously, which is the one direction this gate must never fail in.
+            #
+            # A predicate-mode operation that cannot enumerate its targets is NOT this
+            # case -- it anchors on its parent and cascades instead (D21, amended).
             #
             # This is unreachable for a route that names its resource, and every wired
             # route at MUTATE scope does. It is the backstop for one that cannot, and for
@@ -2478,6 +2481,56 @@ def validate_can_create_prompt_optimization_job():
     return authorize(authenticate_request().username, experiment, requirements)
 
 
+def _submitted_trace_ids(body) -> "tuple[str, ...]":
+    """The traces a job-submission body names, order-preserving-deduplicated.
+
+    Mirrors the handlers' own ``list(dict.fromkeys(...))`` so the gate judges exactly the
+    set the job will act on -- no more (a duplicate id is one trace) and no fewer.
+    """
+    raw = body.get("trace_ids") if isinstance(body, dict) else None
+    if not isinstance(raw, list):
+        return ()
+    return tuple(dict.fromkeys(item for item in raw if isinstance(item, str) and item))
+
+
+def _submitted_trace_contexts(experiment_id: str, body) -> list:
+    """A trace MUTATE context for the existing traces an async job will write to.
+
+    These routes submit a job and return; the worker then writes trace tags and
+    assessments through a privileged client. Conditions are enforced here, at the
+    submission gate, on what is knowable here -- the worker's own writes are not
+    re-validated -- so a trace whose target condition rejects mutation has to be refused
+    before the job is accepted.
+
+    Anchored on the request's experiment. That is sound rather than assumed: the handler
+    binds every submitted id to that experiment (``_validate_trace_ids_in_experiment``
+    raises PERMISSION_DENIED for a trace belonging elsewhere), so no write can reach a
+    trace outside it. A foreign id that reaches this gate is judged against this
+    experiment's rows and then refused downstream regardless -- and since an absent
+    resource satisfies nothing (D20), the pushdown denies it here first.
+
+    ``TraceRequestValues()`` carries no values deliberately: the question these routes
+    raise is whether these traces may be mutated at all, not what is being set on them.
+    The worker's tag keys are not knowable from the submission body.
+
+    Empty when the body names no trace, so a malformed or trace-free body adds no context
+    rather than an empty one -- an empty ``resource_ids`` with a parent reads as a
+    cascade, which would ask about every trace in the experiment instead.
+    """
+    trace_ids = _submitted_trace_ids(body)
+    if not trace_ids:
+        return []
+    return [
+        ConditionContext(
+            resource_type=RESOURCE_TYPE_TRACE,
+            scope=ConditionScope.MUTATE,
+            request=TraceRequestValues(),
+            resource_ids=trace_ids,
+            parent_resource_id=experiment_id,
+        )
+    ]
+
+
 def validate_can_invoke_scorer():
     """Applying a scorer to EXISTING traces. It creates no run."""
     experiment_id = _get_request_param("experiment_id")
@@ -2506,7 +2559,14 @@ def validate_can_invoke_scorer():
         # An inline serialized_scorer names no stored scorer, but the version tier can still
         # be denied wholesale.
         requirements.append(Requirement(RESOURCE_TYPE_SCORER_VERSION, "*", ACTION_NOT_DENIED))
-    return authorize(authenticate_request().username, experiment, requirements)
+    # Only an assessment-logging invocation mutates the traces. A scorer run that just
+    # returns results reads them, and a read declares no condition context.
+    conditions = (
+        _submitted_trace_contexts(experiment_id, body) if body.get("log_assessments") else []
+    )
+    return authorize(
+        authenticate_request().username, experiment, requirements, conditions=conditions
+    )
 
 
 def _get_permission_from_scorer_name() -> Permission:
@@ -3003,9 +3063,15 @@ def _authorize_create_in_experiment_as(
     *,
     extra: "Sequence[Requirement]" = (),
     tags: "tuple[tuple[str, str | None], ...]" = (),
+    extra_conditions: "Sequence[ConditionContext]" = (),
 ) -> bool:
     # Takes the username explicitly for the FastAPI validators, which are handed one rather
     # than running inside a Flask request context.
+    #
+    # ``extra_conditions`` is the condition counterpart of ``extra``: a create that also
+    # MUTATES existing resources -- a GenAI evaluation writing tags and assessments onto the
+    # traces it evaluates -- has targets the CREATE context cannot describe, because a
+    # create has no prior state to read. Keyword-only for the same reason as the others.
     #
     # ``extra`` and ``tags`` are keyword-only deliberately: they occupy the same argument
     # slot by position, carry unrelated meanings, and a positional call that bound one to
@@ -3047,7 +3113,7 @@ def _authorize_create_in_experiment_as(
             Requirement(created_type, "*", ACTION_NOT_DENIED),
             *extra,
         ],
-        conditions=conditions,
+        conditions=[*conditions, *extra_conditions],
     )
 
 
@@ -3057,6 +3123,7 @@ def _authorize_create_in_experiment(
     *,
     extra: "Sequence[Requirement]" = (),
     tags: "tuple[tuple[str, str | None], ...]" = (),
+    extra_conditions: "Sequence[ConditionContext]" = (),
 ) -> bool:
     return _authorize_create_in_experiment_as(
         authenticate_request().username,
@@ -3064,6 +3131,7 @@ def _authorize_create_in_experiment(
         created_type,
         extra=extra,
         tags=tags,
+        extra_conditions=extra_conditions,
     )
 
 
@@ -4831,7 +4899,20 @@ def validate_can_invoke_issue_detection():
 
 
 def validate_can_invoke_genai_evaluate():
-    return _authorize_create_in_experiment(_get_request_param("experiment_id"), RESOURCE_TYPE_RUN)
+    """Creates a run, and writes to the existing traces it evaluates.
+
+    The run half is the create shape every run-creating route uses. The trace half is the
+    reason this route needs more: the accepted job links the named traces to its run and
+    writes their tags and assessments through a privileged client, so a trace target
+    condition has to be evaluated before the job is submitted.
+    """
+    experiment_id = _get_request_param("experiment_id")
+    body = request.get_json(silent=True)
+    return _authorize_create_in_experiment(
+        experiment_id,
+        RESOURCE_TYPE_RUN,
+        extra_conditions=_submitted_trace_contexts(experiment_id, body),
+    )
 
 
 def _validate_can_use_model_definitions(
@@ -5299,10 +5380,11 @@ def validate_can_delete_traces():
     # With the anchor the two modes resolve differently, both safely. Named ids are
     # enumerated and conditioned directly -- one bulk attribute fetch, not one query per
     # id. Timestamp mode cannot enumerate its set before the delete, so it asks the
-    # parent instead: "does this experiment hold any trace failing the condition?" in a
-    # single pushdown. None failing means no trace the delete could reach fails either,
-    # so it proceeds; one failing refuses the whole delete, which is conservative -- that
-    # trace may well sit outside the timestamp range -- but never passes vacuously (D21).
+    # parent instead, narrowed by the delete's own bound: "does this experiment hold a
+    # trace at or before `max_timestamp_millis` that fails?" in a single pushdown. None
+    # failing means no trace the delete can reach fails either, so it proceeds; the first
+    # one failing refuses the whole delete and names it (D21, amended -- the original
+    # decision refused timestamp mode outright).
     #
     # Either way the refusal only bites when a trace target condition actually exists:
     # with none configured the gate returns before reaching it, so both modes behave

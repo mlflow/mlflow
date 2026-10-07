@@ -1245,11 +1245,11 @@ def needs_resource_values(
     case). Either way the resource is never read.
 
     Deliberately does **not** also require ``resource_ids``. A ``MUTATE`` context that
-    names none still has to reach the gate's target loop, which refuses it (D21) -- an
-    operation that cannot say which resources it will change cannot be checked against a
-    condition on them. Answering "no reads needed" here would return *allow* instead,
+    names none still has to reach the gate's target loop: with a parent it cascades, and
+    with neither selector the loop refuses it, since nothing then identifies what would be
+    judged. Answering "no reads needed" here would return *allow* in both cases instead,
     making a predicate-mode bulk delete a way around every resource condition. The loop
-    denies before fetching anything, so this costs no query.
+    decides before fetching anything, so this costs no query.
     """
     return any(
         context.scope is ConditionScope.MUTATE and context.resource_type in types_with_target

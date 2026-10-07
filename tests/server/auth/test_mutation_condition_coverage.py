@@ -362,6 +362,25 @@ _WIRED_MUTATIONS = [
         "experiment",
         ConditionScope.CREATE,
     ),
+    # Async job submissions that write to the EXISTING traces they name. Conditions are
+    # enforced here, at the submission gate, because the worker's own writes are not
+    # re-validated.
+    (
+        "validate_can_invoke_genai_evaluate",
+        "/ajax-api/3.0/mlflow/genai/evaluate/invoke",
+        "POST",
+        {"experiment_id": "1", "trace_ids": ["tr-1", "tr-2"]},
+        "trace",
+        ConditionScope.MUTATE,
+    ),
+    (
+        "validate_can_invoke_scorer",
+        "/ajax-api/3.0/mlflow/scorer/invoke",
+        "POST",
+        {"experiment_id": "1", "trace_ids": ["tr-1"], "log_assessments": True},
+        "trace",
+        ConditionScope.MUTATE,
+    ),
     # Prompt-optimization job lifecycle. Both routes reach past the job record into its
     # backing run -- cancel terminates it, delete removes it -- so the run is a target and
     # must be conditioned. Delete especially: the handler drops the job record BEFORE
@@ -509,6 +528,11 @@ def test_every_wired_mutation_extracts_its_values(
         # at all, not what values are being written to it.
         "validate_can_update_prompt_optimization_job",
         "validate_can_delete_prompt_optimization_job",
+        # A job submission names traces, not values. The worker's tag keys are not
+        # knowable from the body, so the context exists for the TARGET condition: may
+        # these traces be mutated at all.
+        "validate_can_invoke_genai_evaluate",
+        "validate_can_invoke_scorer",
     }
 
     with auth_module.app.test_request_context(path, method=method, json=body):
@@ -1300,3 +1324,47 @@ def test_an_already_deleted_backing_run_does_not_strand_the_job(recorder, monkey
         "/api/3.0/mlflow/prompt-optimization/jobs/<job_id>", method="DELETE", json={"job_id": "j-1"}
     ):
         assert auth_module.validate_can_delete_prompt_optimization_job() is True
+
+
+def test_a_scorer_that_only_reads_declares_no_trace_condition(recorder, monkeypatch):
+    """Reads declare no condition context. Without `log_assessments` the scorer returns
+    results and writes nothing, so there is no target to judge.
+    """
+    with auth_module.app.test_request_context(
+        "/ajax-api/3.0/mlflow/scorer/invoke",
+        method="POST",
+        json={"experiment_id": "1", "trace_ids": ["tr-1"]},
+    ):
+        auth_module.validate_can_invoke_scorer()
+    assert not [c for c in recorder.contexts if c.resource_type == "trace"]
+
+
+def test_a_job_submission_names_every_trace_once(recorder, monkeypatch):
+    """The gate judges exactly the set the job acts on: deduplicated, order preserved.
+
+    The handlers do `list(dict.fromkeys(...))`, so a duplicate id is one trace. A gate
+    counting it twice would merely be wasteful; a gate dropping one would leave a trace
+    unjudged.
+    """
+    with auth_module.app.test_request_context(
+        "/ajax-api/3.0/mlflow/genai/evaluate/invoke",
+        method="POST",
+        json={"experiment_id": "1", "trace_ids": ["tr-2", "tr-1", "tr-2"]},
+    ):
+        auth_module.validate_can_invoke_genai_evaluate()
+    traces = [c for c in recorder.contexts if c.resource_type == "trace"]
+    assert [c.resource_ids for c in traces] == [("tr-2", "tr-1")]
+
+
+def test_a_trace_free_job_submission_declares_no_cascade(recorder, monkeypatch):
+    """An empty `resource_ids` alongside a parent reads as a cascade, which would ask
+    about every trace in the experiment rather than none. So a body naming no trace must
+    declare no trace context at all.
+    """
+    with auth_module.app.test_request_context(
+        "/ajax-api/3.0/mlflow/genai/evaluate/invoke",
+        method="POST",
+        json={"experiment_id": "1"},
+    ):
+        auth_module.validate_can_invoke_genai_evaluate()
+    assert not [c for c in recorder.contexts if c.resource_type == "trace"]
