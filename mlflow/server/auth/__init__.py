@@ -5177,13 +5177,25 @@ def validate_can_delete_traces():
     experiment_id = _get_request_param("experiment_id")
     experiment = (RESOURCE_TYPE_EXPERIMENT, experiment_id)
     # §7.1 cases 9a and 9b. The route has two modes: it either names the traces
-    # (``request_ids``) or selects them by timestamp. In the first, every named trace is
-    # conditioned -- one bulk attribute fetch, not one query per id. In the second the set
-    # is not enumerable before the delete, so a resource condition cannot be evaluated
-    # against it and the gate refuses (D21) rather than passing vacuously.
+    # (``request_ids``) or selects them by timestamp.
     #
-    # The refusal only bites when a trace target condition actually exists: with none
-    # configured the gate returns before reaching it, so timestamp-mode deletes behave
+    # The context is anchored on the experiment in both. That is not decoration: the
+    # loader skips a context whose ``parent_resource_id`` is None, and the store then
+    # matches only UNSCOPED conditions for the type -- so without it an
+    # experiment-scoped trace condition was never loaded, never evaluated, and the
+    # delete ran unconditioned. Workspace-wide conditions still applied, which is what
+    # made the gap invisible.
+    #
+    # With the anchor the two modes resolve differently, both safely. Named ids are
+    # enumerated and conditioned directly -- one bulk attribute fetch, not one query per
+    # id. Timestamp mode cannot enumerate its set before the delete, so it asks the
+    # parent instead: "does this experiment hold any trace failing the condition?" in a
+    # single pushdown. None failing means no trace the delete could reach fails either,
+    # so it proceeds; one failing refuses the whole delete, which is conservative -- that
+    # trace may well sit outside the timestamp range -- but never passes vacuously (D21).
+    #
+    # Either way the refusal only bites when a trace target condition actually exists:
+    # with none configured the gate returns before reaching it, so both modes behave
     # exactly as they do today.
     msg = _get_request_message(DeleteTraces())
     trace_ids = tuple(msg.request_ids)
@@ -5215,6 +5227,7 @@ def validate_can_delete_traces():
                 scope=ConditionScope.MUTATE,
                 request=TraceRequestValues(),
                 resource_ids=trace_ids,
+                parent_resource_id=experiment_id,
             )
         ],
     )

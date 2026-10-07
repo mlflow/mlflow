@@ -952,6 +952,33 @@ def _trace_conditioned_user(
     return username, password
 
 
+def _experiment_scoped_trace_conditioned_user(
+    auth_client, monkeypatch, experiment_id, *, target_condition, permission="MANAGE"
+):
+    """A user whose trace condition is scoped to ONE experiment, not the whole workspace.
+
+    The scoped form is the one that exposed the loader contract: a context with no
+    ``parent_resource_id`` makes the store match only UNSCOPED conditions, so a condition
+    written like this was silently never loaded and never evaluated.
+    """
+    username, password = random_str(), random_str(12)
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        auth_client.create_user(username, password)
+        role = auth_client.create_role(workspace=_WORKSPACE, name=f"dev-{random_str()}")
+        auth_client.add_role_permission(role.id, "experiment", "*", permission)
+        auth_client.add_role_permission(role.id, "trace", "*", permission)
+        auth_client.add_role_permission(role.id, "assessment", "*", permission)
+        auth_client.assign_role(username, role.id)
+        auth_client.add_mutation_condition(
+            role.id,
+            "trace",
+            container_resource_type="experiment",
+            container_resource_pattern=experiment_id,
+            target_condition=target_condition,
+        )
+    return username, password
+
+
 def _a_trace(server, monkeypatch):
     """One finished trace, returning its experiment and trace ids."""
     import mlflow
@@ -1006,27 +1033,95 @@ def test_deleting_traces_by_id_is_gated_on_each_trace(server, auth_client, monke
         MlflowClient(server).delete_traces(experiment_id, trace_ids=[trace_id])
 
 
-def test_deleting_traces_by_timestamp_is_refused_when_a_target_condition_exists(
+def test_deleting_traces_by_timestamp_is_refused_when_a_trace_fails_the_condition(
     server, auth_client, monkeypatch
 ):
     """§7.1 case 9b and D21.
 
-    Timestamp mode does not name the traces it will delete, so a resource condition cannot
-    be evaluated against them. The gate refuses rather than passing vacuously -- an empty
-    id list would otherwise satisfy every clause and make this mode a way around any
-    resource condition on traces.
+    Timestamp mode does not name the traces it will delete, so the condition cannot be
+    evaluated against an enumerated set. It is answered by the parent instead -- "does
+    this experiment hold any trace that fails?" in one pushdown -- which is what keeps
+    the mode from passing vacuously: an empty id list would otherwise satisfy every
+    clause and make timestamp mode a way around any resource condition on traces.
+
+    Here the experiment holds a trace without the required tag, so the delete is refused.
+    The refusal is conservative by construction: that trace may sit outside the timestamp
+    range, but the gate cannot know which traces the range covers, so it declines.
+    """
+    username, password = _trace_conditioned_user(
+        auth_client, monkeypatch, target_condition="tags.reviewed = 'yes'", permission="MANAGE"
+    )
+    experiment_id, _ = _a_trace(server, monkeypatch)
+
+    with pytest.raises(MlflowException, match=r"Permission denied"):
+        with User(username, password, monkeypatch):
+            MlflowClient(server).delete_traces(experiment_id, max_timestamp_millis=2**62)
+
+
+def test_deleting_traces_by_timestamp_is_allowed_when_every_trace_passes(
+    server, auth_client, monkeypatch
+):
+    """The other side of the parent pushdown, and why it beats a blanket refusal.
+
+    Every trace in the experiment satisfies the condition, so no trace the delete could
+    possibly reach violates it and there is nothing for the gate to protect. This used to
+    be refused outright, because the context carried no parent and the mode had no way to
+    answer the question.
     """
     username, password = _trace_conditioned_user(
         auth_client, monkeypatch, target_condition="tags.reviewed = 'yes'", permission="MANAGE"
     )
     experiment_id, trace_id = _a_trace(server, monkeypatch)
-    # Even with the tag the condition asks for, the mode itself cannot be checked.
     with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
         MlflowClient(server).set_trace_tag(trace_id, "reviewed", "yes")
 
+    with User(username, password, monkeypatch):
+        MlflowClient(server).delete_traces(experiment_id, max_timestamp_millis=2**62)
+
+
+def test_an_experiment_scoped_trace_condition_gates_a_named_delete(
+    server, auth_client, monkeypatch
+):
+    """The scoped form of the condition must actually be enforced.
+
+    The trace context carried no ``parent_resource_id``, and the loader skips such a
+    context when deciding which parents are in play -- so the store matched only UNSCOPED
+    conditions and this experiment-scoped one was never loaded, never evaluated, and the
+    delete ran unconditioned. Workspace-wide conditions still applied, which is exactly
+    what hid the gap.
+    """
+    experiment_id, trace_id = _a_trace(server, monkeypatch)
+    username, password = _experiment_scoped_trace_conditioned_user(
+        auth_client, monkeypatch, experiment_id, target_condition="tags.reviewed = 'yes'"
+    )
+
     with pytest.raises(MlflowException, match=r"Permission denied"):
         with User(username, password, monkeypatch):
-            MlflowClient(server).delete_traces(experiment_id, max_timestamp_millis=2**62)
+            MlflowClient(server).delete_traces(experiment_id, trace_ids=[trace_id])
+
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        MlflowClient(server).set_trace_tag(trace_id, "reviewed", "yes")
+
+    with User(username, password, monkeypatch):
+        MlflowClient(server).delete_traces(experiment_id, trace_ids=[trace_id])
+
+
+def test_a_trace_condition_scoped_to_another_experiment_does_not_gate_this_one(
+    server, auth_client, monkeypatch
+):
+    """Scoping has to cut both ways, or "scoped" would just mean "slower workspace-wide".
+
+    The condition names a different experiment, so it must not restrict a delete in this
+    one -- the delete proceeds even though the trace lacks the tag the condition asks for.
+    """
+    other_experiment_id, _ = _a_trace(server, monkeypatch)
+    experiment_id, trace_id = _a_trace(server, monkeypatch)
+    username, password = _experiment_scoped_trace_conditioned_user(
+        auth_client, monkeypatch, other_experiment_id, target_condition="tags.reviewed = 'yes'"
+    )
+
+    with User(username, password, monkeypatch):
+        MlflowClient(server).delete_traces(experiment_id, trace_ids=[trace_id])
 
 
 def test_deleting_traces_by_timestamp_is_unaffected_without_a_target_condition(

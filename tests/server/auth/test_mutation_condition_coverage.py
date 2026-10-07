@@ -21,6 +21,8 @@ import pytest
 from mlflow.server import auth as auth_module
 from mlflow.server.auth import resources as auth_resources
 from mlflow.server.auth.conditions import (
+    PARENT_RESOURCE_TYPES,
+    PARENTLESS_RESOURCE_TYPES,
     ConditionContext,
     ConditionScope,
     MutationConditionSpec,
@@ -386,6 +388,54 @@ def test_every_wired_mutation_declares_a_condition(
     assert resource_type in recorder.types_at(scope), (
         f"{validator} declared no {resource_type} condition at {scope.name} scope; "
         f"got {[(c.resource_type, c.scope.name) for c in recorder.contexts]}"
+    )
+
+
+@pytest.mark.parametrize(
+    ("validator", "path", "method", "body", "resource_type", "scope"), _WIRED_MUTATIONS
+)
+def test_every_sub_resource_context_declares_its_parent(
+    recorder, monkeypatch, validator, path, method, body, resource_type, scope
+):
+    """A sub-resource context must name the parent it sits under, or scoped conditions on
+    that type are never even loaded.
+
+    This is not a cosmetic field. `condition_load_parents` skips a context whose
+    `parent_resource_id` is None, and the store then matches "only unscoped conditions"
+    for that type -- so an experiment-scoped trace condition is not loaded, not evaluated,
+    and the mutation proceeds unconditioned. Workspace-wide conditions still apply, which
+    is what makes the gap invisible: the feature looks like it works until someone narrows
+    a condition to one experiment.
+
+    The store's own docstring puts the duty here: "resolving the parent belongs at the
+    context-construction boundary, where the caller knows it had a child to govern -- by
+    the time a query runs, an empty parent set and a genuinely parentless target are
+    indistinguishable."
+
+    Only MUTATE scope is checked. A CREATE context has no persisted resource and is
+    allowed to be unanchored.
+    """
+    if resource_type in PARENTLESS_RESOURCE_TYPES:
+        pytest.skip(f"{resource_type} is top-level and has no parent scope")
+    if validator.endswith("_alias"):
+        monkeypatch.setattr(auth_module, "_alias_version_requirement_met", lambda: True)
+
+    with auth_module.app.test_request_context(path, method=method, json=body):
+        getattr(auth_module, validator)()
+
+    scoped = [
+        c
+        for c in recorder.contexts
+        if c.resource_type == resource_type and c.scope is ConditionScope.MUTATE
+    ]
+    if not scoped:
+        pytest.skip(f"{validator} declares no {resource_type} context at MUTATE scope")
+    unanchored = [c for c in scoped if c.parent_resource_id is None]
+    assert not unanchored, (
+        f"{validator} declared a {resource_type} MUTATE context with no parent_resource_id, "
+        f"so a {PARENT_RESOURCE_TYPES[resource_type]}-scoped condition on {resource_type} "
+        f"would never be loaded and the mutation would run unconditioned; "
+        f"got resource_ids={[c.resource_ids for c in unanchored]}"
     )
 
 
