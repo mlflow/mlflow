@@ -10911,23 +10911,30 @@ def _otlp_scan(
     distinct trace id the payload writes to. Both come from a single parse so the two can
     never disagree about what the payload contains, and an unparsable payload fails once.
 
-    ``projections`` is ``(trace_id, tags)`` for every ROOT span in the payload.
+    ``projections`` is ``(trace_id, tags)`` once per TRACE, carrying every tag the payload
+    sets on it.
 
     This is the request-side projection for OTel ingest, and it has to agree with what the
-    store actually persists or a condition judges a string that was never written. The
-    parse reuses the handler's own helpers, and the tag derivation mirrors
-    ``_log_spans_once``: user tags come ONLY from a root span's ``mlflow.traceTag.*``
-    attributes, each unwrapped once, then validated.
+    store actually persists or a condition judges a string that was never written. The parse
+    reuses the handler's own helpers, and the derivation mirrors ``_log_spans_once``, which
+    writes trace tags from TWO sources:
 
-    Only a root span is projected because only a root span carries those attributes and
-    only a root span completes a trace -- the same predicate (``parent_id is None``) the
-    handler keys ``completed_trace_ids`` on.
+    - the first OTel Resource carrying attributes among the trace's spans, in payload order,
+      minus ``telemetry.sdk.*`` and ``mlflow.*``, each value stringified with ``json.dumps``
+      unless it is already a string. Later blocks' resources are IGNORED by the store, so
+      they are ignored here -- judging them would refuse a write the handler accepts.
+    - every ROOT span's ``mlflow.traceTag.*`` attributes, each unwrapped once, accumulated
+      by key across all roots of the trace.
 
-    That makes this the wrong set to AUTHORIZE on. ``_log_spans_once`` groups the payload by
-    ``trace_id`` and writes every group, root present or not, so a batch of child spans
-    alone still appends to a trace and recomputes its aggregates while projecting nothing
-    here. Use :func:`_otlp_submitted_trace_ids` for the set of traces a payload WRITES, and
-    this for the tags it SETS.
+    Resource attributes are written first and the root tags overlaid, so a user tag wins a
+    key collision; the merge reproduces that order. An earlier version projected one tuple
+    per ROOT and left the caller to collapse them, which dropped a tag whenever one payload
+    carried two roots for the same trace, and omitted resource attributes entirely.
+
+    Both sources are written for every trace in the batch, root present or not, so a batch
+    of CHILD spans alone still sets tags -- which is why this is keyed per trace rather than
+    per root. ``all_trace_ids`` remains the set a payload WRITES to, a superset of the traces
+    it completes.
 
     An invalid tag is SKIPPED, exactly as the store skips it. Rejecting here would deny a
     write the handler would have accepted, which is the failure mode of a projection that
@@ -10959,9 +10966,33 @@ def _otlp_scan(
     else:
         parsed_request.ParseFromString(body)
 
+    def resource_derived_tags(attributes) -> "dict[str, str]":
+        """An OTel Resource's attributes as the store would persist them.
+
+        Mirrors ``_log_spans_once``: skip OTel SDK bookkeeping and the reserved ``mlflow.*``
+        namespace, stringify a non-string value with ``json.dumps``, validate, and drop
+        whatever fails. Note the stringification differs from the root-tag path below, which
+        UNWRAPS a JSON string instead of encoding one -- mirroring one rule for both sources
+        would judge a string the store never writes.
+        """
+        derived: "dict[str, str]" = {}
+        for key, value in attributes.items():
+            if key.startswith(("telemetry.sdk.", "mlflow.")):
+                continue
+            str_value = value if isinstance(value, str) else json.dumps(value)
+            try:
+                key, str_value = _validate_trace_tag(key, str_value)
+            except Exception:
+                continue
+            derived[key] = str_value
+        return derived
+
     all_trace_ids: "list[str]" = []
     prefix = SpanAttributeKey.TRACE_TAG_PREFIX
-    projections: "list[tuple[str, tuple[tuple[str, str | None], ...]]]" = []
+    # The store writes trace tags from TWO sources with different precedence, so they are
+    # accumulated separately and merged once per trace at the end.
+    resource_tags: "dict[str, dict[str, str]]" = {}
+    root_tags: "dict[str, dict[str, str]]" = {}
     for resource_span in parsed_request.resource_spans:
         resource = resource_span.resource
         for scope_span in resource_span.scope_spans:
@@ -10975,11 +11006,26 @@ def _otlp_scan(
                 # Recorded BEFORE the root filter: this is a trace the payload writes to,
                 # which is what has to be authorized, regardless of whether this batch
                 # happens to carry its root.
-                all_trace_ids.append(str(span.trace_id))
+                trace_id = str(span.trace_id)
+                all_trace_ids.append(trace_id)
+                # The store binds the FIRST resource carrying attributes among this trace's
+                # spans, in payload order, and ignores every later block -- so a second
+                # block's attributes must NOT be judged, or the gate refuses a write the
+                # handler would accept. Membership is recorded even when the derived map
+                # comes out empty, because the store likewise binds that resource and
+                # persists nothing from it. Read off the CONVERTED span, as the store does:
+                # the proto ``AnyValue`` view and the SDK view are not the same shape.
+                if trace_id not in resource_tags:
+                    span_resource = getattr(span._span, "resource", None)
+                    if span_resource is not None and span_resource.attributes:
+                        resource_tags[trace_id] = resource_derived_tags(span_resource.attributes)
                 if span.parent_id is not None:
                     continue
                 attributes = translate_span_when_storing(span).get("attributes") or {}
-                tags: "list[tuple[str, str | None]]" = []
+                # Accumulated by key across EVERY root of this trace, last value winning,
+                # because that is what the store persists. Keeping one root's set instead
+                # dropped a tag whenever a payload carried two roots for one trace.
+                accumulated = root_tags.setdefault(trace_id, {})
                 for attr_key, attr_value in attributes.items():
                     if not attr_key.startswith(prefix):
                         continue
@@ -10991,9 +11037,17 @@ def _otlp_scan(
                         continue
                     if tag_key == TraceTagKey.TRACE_NAME:
                         tag_value = validate_trace_name(tag_value)
-                    tags.append((tag_key, tag_value))
-                projections.append((span.trace_id, tuple(tags)))
-    return projections, list(dict.fromkeys(all_trace_ids))
+                    accumulated[tag_key] = tag_value
+
+    submitted = list(dict.fromkeys(all_trace_ids))
+    projections: "list[tuple[str, tuple[tuple[str, str | None], ...]]]" = []
+    for trace_id in submitted:
+        # Resource attributes first, root tags over the top: the store writes them in that
+        # order and lets a user tag win a key collision.
+        merged = dict(resource_tags.get(trace_id, {}))
+        merged.update(root_tags.get(trace_id, {}))
+        projections.append((trace_id, tuple(merged.items())))
+    return projections, submitted
 
 
 def _otlp_trace_projections(
@@ -11001,7 +11055,7 @@ def _otlp_trace_projections(
     content_type: "str | None",
     content_encoding: "str | None",
 ) -> "list[tuple[str, tuple[tuple[str, str | None], ...]]]":
-    """The root-span tag projections for an OTLP payload. See :func:`_otlp_scan`."""
+    """The per-trace tag projections for an OTLP payload. See :func:`_otlp_scan`."""
     return _otlp_scan(raw_body, content_type, content_encoding)[0]
 
 
@@ -11045,10 +11099,11 @@ def _get_otel_validator(
         # rather than fifty. It also seeds the per-request memo, which is what keeps the
         # per-trace helpers below free.
         auth_resources.prefetch_trace_infos(submitted_ids)
-        # Tags are keyed off the ROOT projections, which is where they live; the ids
-        # being classified are every id the payload WRITES to, which is a superset. A
-        # trace reached by child spans alone is therefore still authorized, with no tags
-        # to judge because the batch sets none for it.
+        # One projection per trace, carrying both tag sources the store writes, so this
+        # collapse is lossless. A trace reached by CHILD spans alone still gets an entry:
+        # the store persists the batch's resource attributes as tags for every trace it
+        # touches, so such a batch does set values, and judging it as if it set none was
+        # the hole behind F-0045.
         tags_by_trace = dict(projections)
         created_tags: "list[tuple[str, str | None]]" = []
         existing: "dict[str, tuple[str, tuple[tuple[str, str | None], ...]]]" = {}

@@ -5753,7 +5753,14 @@ def test_otel_run_association_applies_the_run_target_condition(fastapi_client, m
 
 
 def _otlp_payload(
-    tags=None, trace_id=None, parent_span_id=b"", extra_attributes=None, child_tags=None
+    tags=None,
+    trace_id=None,
+    parent_span_id=b"",
+    extra_attributes=None,
+    child_tags=None,
+    resource_attributes=None,
+    second_root_tags=None,
+    second_block_resource_attributes=None,
 ):
     """A one-root-span OTLP protobuf batch, optionally carrying ``mlflow.traceTag.*`` attrs.
 
@@ -5764,6 +5771,21 @@ def _otlp_payload(
     A tag value is JSON-encoded exactly as ``OtelSpanProcessor`` emits it, so a value that is
     not a JSON string (a number, an object) round-trips through the same unwrap the store
     applies.
+
+    ``resource_attributes`` puts attributes on the block's OTel Resource. The store persists
+    those as trace tags too (``_log_spans_once``), on a DIFFERENT code path from the root
+    ``mlflow.traceTag.*`` attributes and with a different stringification, so a projection
+    that mirrors only the latter misses them.
+
+    ``second_root_tags`` adds a SECOND root span for the SAME trace. The store accumulates
+    root trace tags by key across every root in the trace, so both roots' tags are persisted
+    -- which is what makes this the test for a projection that keeps only one root's set.
+
+    ``second_block_resource_attributes`` adds a second ``ResourceSpans`` block, carrying its
+    own Resource and another span of the same trace. The store takes the FIRST resource with
+    attributes and ignores the rest, so these attributes must NOT be projected; a projection
+    that unions every block would be stricter than the store and refuse a write the handler
+    accepts.
     """
     import json as _json
     import os as _os
@@ -5771,6 +5793,7 @@ def _otlp_payload(
 
     from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceRequest
     from opentelemetry.proto.common.v1.common_pb2 import AnyValue, KeyValue
+    from opentelemetry.proto.resource.v1.resource_pb2 import Resource
     from opentelemetry.proto.trace.v1.trace_pb2 import ResourceSpans, ScopeSpans
     from opentelemetry.proto.trace.v1.trace_pb2 import Span as ProtoSpan
 
@@ -5814,9 +5837,53 @@ def _otlp_payload(
                 end_time_unix_nano=now + 500,
             )
         )
-    request = ExportTraceServiceRequest(
-        resource_spans=[ResourceSpans(scope_spans=[ScopeSpans(spans=spans)])]
-    )
+    if second_root_tags:
+        spans.append(
+            ProtoSpan(
+                trace_id=resolved_trace_id,
+                span_id=_os.urandom(8),
+                parent_span_id=b"",
+                name="root-2",
+                attributes=tag_attrs(second_root_tags),
+                start_time_unix_nano=now,
+                end_time_unix_nano=now + 1000,
+            )
+        )
+
+    def resource_of(mapping):
+        return Resource(
+            attributes=[
+                KeyValue(key=key, value=AnyValue(string_value=value))
+                for key, value in (mapping or {}).items()
+            ]
+        )
+
+    blocks = [
+        ResourceSpans(
+            resource=resource_of(resource_attributes), scope_spans=[ScopeSpans(spans=spans)]
+        )
+    ]
+    if second_block_resource_attributes:
+        blocks.append(
+            ResourceSpans(
+                resource=resource_of(second_block_resource_attributes),
+                scope_spans=[
+                    ScopeSpans(
+                        spans=[
+                            ProtoSpan(
+                                trace_id=resolved_trace_id,
+                                span_id=_os.urandom(8),
+                                parent_span_id=root_span_id,
+                                name="child-in-second-block",
+                                start_time_unix_nano=now,
+                                end_time_unix_nano=now + 400,
+                            )
+                        ]
+                    )
+                ],
+            )
+        )
+    request = ExportTraceServiceRequest(resource_spans=blocks)
     return request.SerializeToString(), resolved_trace_id
 
 
@@ -5846,11 +5913,33 @@ def test_the_otlp_projection_matches_the_tags_the_store_persists(fastapi_client,
         "obj": {"a": 1},
         "": "invalid-empty-key",
     }
-    body, _ = _otlp_payload(tags=tags, child_tags={"child_only": "must-not-be-projected"})
+    body, _ = _otlp_payload(
+        tags=tags,
+        child_tags={"child_only": "must-not-be-projected"},
+        # The store persists these as trace tags too, on a separate path with its own
+        # stringification. `lifecycle` collides with a root tag deliberately: the store
+        # writes resource attributes FIRST and lets the root tag win, so the projection
+        # has to resolve the collision the same way round.
+        resource_attributes={
+            "service.name": "checkout",
+            "lifecycle": "overridden-by-root",
+            # A string that is ALSO valid JSON. The store keeps a string value verbatim,
+            # while the root-tag path would unwrap it -- so this is the value that proves
+            # the two sources are stringified by their own rules and not one shared rule.
+            "json_ish": '"quoted"',
+        },
+        # Accumulated by key across every root, so this must survive alongside the first
+        # root's tags rather than replacing them.
+        second_root_tags={"from_second_root": "kept"},
+        # Ignored by the store -- it binds the first resource that has attributes -- so
+        # projecting it would judge a value that is never written.
+        second_block_resource_attributes={"service.name": "never-persisted"},
+    )
 
     projected = _otlp_trace_projections(body, "application/x-protobuf", None)
-    # One projection per ROOT span -- a child span neither carries trace tags nor completes
-    # a trace, so projecting it would both invent tags and double-count the trace.
+    # One projection per TRACE. It was once per ROOT span, which silently dropped a tag when
+    # a payload carried two roots for one trace: the validator collapses the list with
+    # ``dict()``, so only the last root's set survived while the store persisted the union.
     assert len(projected) == 1
     projected_trace_id, projected_tags = projected[0]
     assert "child_only" not in dict(projected_tags)
@@ -5882,6 +5971,111 @@ def test_the_otlp_projection_matches_the_tags_the_store_persists(fastapi_client,
     # Guard the guard: a payload that produced no tags at all would make the comparison
     # vacuously true and hide any drift.
     assert persisted, "the payload must actually persist tags for this to prove anything"
+
+
+def _otlp_tag_condition_role(auth_client, user, value_condition):
+    """A role with experiment EDIT and one trace value condition."""
+    role = auth_client.create_role("default", f"otlp-res-{random_str()}", "test")
+    auth_client.add_role_permission(role.id, "experiment", "*", EDIT.name)
+    auth_client.add_mutation_condition(role.id, "trace", value_condition=value_condition)
+    auth_client.assign_role(user, role.id)
+    return role
+
+
+def _post_otlp(tracking_uri, experiment_id, body, auth):
+    return requests.post(
+        url=tracking_uri + "/v1/traces",
+        headers={
+            "Content-Type": "application/x-protobuf",
+            "X-Mlflow-Experiment-Id": experiment_id,
+        },
+        data=body,
+        auth=auth,
+    )
+
+
+def test_an_otlp_value_condition_judges_a_resource_attribute(fastapi_client, monkeypatch):
+    """F-0045. A forbidden tag sent as an OTel RESOURCE attribute, not a root trace tag.
+
+    ``_log_spans_once`` persists the first non-empty resource's attributes as SqlTraceTag
+    rows, skipping only ``telemetry.sdk.*`` and ``mlflow.*``. The projection mirrored only
+    the root ``mlflow.traceTag.*`` path, so the gate saw no ``pii`` key at all -- and
+    request-side absence is vacuous by design (D13), so the condition passed and the store
+    wrote the forbidden tag.
+    """
+    from mlflow.server.auth.client import AuthServiceClient
+
+    auth_client = AuthServiceClient(fastapi_client.tracking_uri)
+    user, password = create_user(fastapi_client.tracking_uri)
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        experiment_id = fastapi_client.create_experiment(f"otlp-res-{random_str()}")
+        _otlp_tag_condition_role(auth_client, user, "tag_key != 'pii'")
+
+    forbidden, _ = _otlp_payload(resource_attributes={"pii": "yes"})
+    assert (
+        _post_otlp(
+            fastapi_client.tracking_uri, experiment_id, forbidden, (user, password)
+        ).status_code
+        == 403
+    )
+
+    # The same route, a resource attribute the condition permits: still allowed, so the
+    # refusal above is the condition and not the new projection refusing resources wholesale.
+    allowed, _ = _otlp_payload(resource_attributes={"service.name": "checkout"})
+    assert (
+        _post_otlp(
+            fastapi_client.tracking_uri, experiment_id, allowed, (user, password)
+        ).status_code
+        == 200
+    )
+
+
+def test_an_otlp_value_condition_judges_every_root_in_the_batch(fastapi_client, monkeypatch):
+    """F-0045, second half. Two roots for one trace; only the EARLIER carries the bad tag.
+
+    The projection emitted one tuple per root and the validator collapsed them with
+    ``dict()``, so the later root's set won outright. The store instead accumulates root
+    tags by key across the whole trace and persists the union.
+    """
+    from mlflow.server.auth.client import AuthServiceClient
+
+    auth_client = AuthServiceClient(fastapi_client.tracking_uri)
+    user, password = create_user(fastapi_client.tracking_uri)
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        experiment_id = fastapi_client.create_experiment(f"otlp-roots-{random_str()}")
+        _otlp_tag_condition_role(auth_client, user, "tag_key != 'pii'")
+
+    body, _ = _otlp_payload(tags={"pii": "yes"}, second_root_tags={"harmless": "yes"})
+    assert (
+        _post_otlp(fastapi_client.tracking_uri, experiment_id, body, (user, password)).status_code
+        == 403
+    )
+
+
+def test_an_otlp_projection_ignores_a_resource_the_store_never_binds(fastapi_client, monkeypatch):
+    """The over-projection guard: mirroring the store means matching what it SKIPS too.
+
+    The store binds the FIRST resource carrying attributes and ignores every later block,
+    so a forbidden attribute on a second block is never written. Judging it would refuse a
+    write the handler would have accepted -- the failure mode of a projection that is
+    stricter than its target rather than equal to it.
+    """
+    from mlflow.server.auth.client import AuthServiceClient
+
+    auth_client = AuthServiceClient(fastapi_client.tracking_uri)
+    user, password = create_user(fastapi_client.tracking_uri)
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        experiment_id = fastapi_client.create_experiment(f"otlp-2res-{random_str()}")
+        _otlp_tag_condition_role(auth_client, user, "tag_key != 'pii'")
+
+    body, _ = _otlp_payload(
+        resource_attributes={"service.name": "checkout"},
+        second_block_resource_attributes={"pii": "yes"},
+    )
+    assert (
+        _post_otlp(fastapi_client.tracking_uri, experiment_id, body, (user, password)).status_code
+        == 200
+    )
 
 
 def test_an_otlp_value_condition_refuses_a_restricted_trace_tag(fastapi_client, monkeypatch):
