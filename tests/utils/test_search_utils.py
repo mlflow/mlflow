@@ -30,6 +30,8 @@ from mlflow.utils.search_utils import (
     SearchLoggedModelsUtils,
     SearchMCPAccessEndpointUtils,
     SearchMCPServerUtils,
+    SearchModelUtils,
+    SearchModelVersionUtils,
     SearchMCPServerVersionUtils,
     SearchTraceUtils,
     SearchUtils,
@@ -1051,3 +1053,16 @@ def test_search_trace_utils_filter_metadata_is_null():
 
     result = SearchTraceUtils.filter(traces, "metadata.session IS NOT NULL")
     assert {t.trace_id for t in result} == {"t1"}
+
+
+def test_search_model_utils_rejects_is_null_operators():
+    for cls_ in [SearchModelUtils, SearchModelVersionUtils]:
+        with pytest.raises(MlflowException, match="'IS NULL' is not supported for this search"):
+            cls_.parse_search_filter("tags.stage IS NULL")
+        with pytest.raises(MlflowException, match="'IS NOT NULL' is not supported for this search"):
+            cls_.parse_search_filter("tags.stage IS NOT NULL")
+
+        # Verify ordinary parsing still works
+        parsed = cls_.parse_search_filter("tags.stage = 'dev'")
+        assert len(parsed) == 1
+        assert parsed[0].get("comparator") == "="
