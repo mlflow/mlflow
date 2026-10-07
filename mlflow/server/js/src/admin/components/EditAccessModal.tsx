@@ -151,7 +151,11 @@ export const EditAccessModal = ({ open, onClose, username }: EditAccessModalProp
   );
   const syntheticRoleId = syntheticRole?.id ?? Number.NaN;
 
-  const { data: conditionsData, isLoading: conditionsLoading } = useRoleMutationConditionsQuery(syntheticRoleId);
+  const {
+    data: conditionsData,
+    isLoading: conditionsLoading,
+    error: conditionsError,
+  } = useRoleMutationConditionsQuery(syntheticRoleId);
   const addCondition = useAddUserMutationCondition(username, syntheticRoleId);
   const removeCondition = useRemoveMutationCondition(syntheticRoleId);
 
@@ -193,7 +197,23 @@ export const EditAccessModal = ({ open, onClose, username }: EditAccessModalProp
 
   const workspaceOptions = useWorkspaceOptions(workspaces);
 
-  const stateLoaded = !rolesLoading && !usersLoading;
+  // The conditions query is keyed on the synthetic role id, which comes out of the ROLES
+  // response -- so it cannot start until the roles query resolves, which is the very
+  // moment the other two flags go quiet. Leaving it out of the gate meant the pre-fill
+  // always ran against an empty condition list and then latched `filledForWorkspaceRef`,
+  // so the real conditions never reached editable state and the diff read them as removed.
+  //
+  // `isLoading` alone is not the right flag: a DISABLED react-query v4 query reports
+  // `isLoading: true` forever, and the query is disabled whenever the user has no
+  // synthetic role. In that case there is no role to carry conditions, so `[]` is the
+  // true answer and the modal is ready immediately.
+  const conditionsReady = !Number.isFinite(syntheticRoleId) || conditionsData !== undefined || Boolean(conditionsError);
+  const stateLoaded = !rolesLoading && !usersLoading && conditionsReady;
+
+  // An errored fetch is an UNKNOWN list, not an empty one. Either query failing blocks the
+  // form for the same reason: an empty pre-fill would masquerade as the user's real access,
+  // and applying it would silently strip what failed to load.
+  const loadError = rolesError ?? conditionsError;
 
   // ``filledForWorkspaceRef`` tracks which workspace's data was last pre-filled
   // into editable state. The pre-fill effect re-runs when this stops matching
@@ -475,7 +495,7 @@ export const EditAccessModal = ({ open, onClose, username }: EditAccessModalProp
                 setError(null);
                 setStep('review');
               }}
-              disabled={!hasAnyChange || !stateLoaded || Boolean(rolesError)}
+              disabled={!hasAnyChange || !stateLoaded || Boolean(loadError)}
             >
               Review changes
             </Button>
@@ -537,15 +557,15 @@ export const EditAccessModal = ({ open, onClose, username }: EditAccessModalProp
             >
               <Spinner size="small" />
             </div>
-          ) : rolesError ? (
-            // Block the form on a failed roles fetch so the empty pre-fill
-            // doesn't masquerade as the user's actual access.
+          ) : loadError ? (
+            // Block the form on a failed roles OR conditions fetch so the empty
+            // pre-fill doesn't masquerade as the user's actual access.
             <Alert
               componentId="admin.edit_access_modal.roles_error"
               type="error"
               message="Failed to load access state"
               description={
-                (rolesError instanceof Error ? rolesError.message : null) ||
+                (loadError instanceof Error ? loadError.message : null) ||
                 `An error occurred while fetching the current access for ${username}. Close the modal and try again.`
               }
             />

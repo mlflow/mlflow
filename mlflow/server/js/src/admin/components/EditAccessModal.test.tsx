@@ -297,3 +297,99 @@ describe('EditAccessModal — condition scope on the wire', () => {
     expect(mockRemoveConditionMutateAsync).toHaveBeenCalledWith(scopedCondition.id);
   });
 });
+
+describe('EditAccessModal — prefill waits for the conditions query', () => {
+  // The conditions query is keyed on the synthetic role id, which is derived from the
+  // ROLES response -- so it cannot even start until the roles query has resolved, which
+  // is exactly when `stateLoaded` flips true. The prefill then ran against an empty
+  // condition list and latched `filledForWorkspaceRef`, so the real conditions arriving a
+  // moment later never reached the editable state. The diff compared a populated
+  // `currentConditions` against an empty staged list and concluded the admin had removed
+  // all of them: changing anything unrelated silently deleted every restriction on the
+  // user. Fail-OPEN, and deterministic rather than a rare interleaving.
+
+  const existingCondition = {
+    id: 21,
+    role_id: 99,
+    condition_slot: 1,
+    resource_type: 'experiment',
+    resource_pattern: '*',
+    container_resource_type: 'workspace',
+    container_resource_pattern: '*',
+    value_condition: null,
+    target_condition: "tags.lifecycle != 'prod'",
+  };
+
+  beforeEach(() => {
+    mockUseUserRolesQuery.mockReset();
+    mockUseUserRolesQuery.mockReturnValue({
+      data: { roles: [syntheticUserRole('default')] },
+      isLoading: false,
+      error: null,
+    });
+    mockGrantPermissionMutateAsync.mockReset();
+    mockGrantPermissionMutateAsync.mockResolvedValue({});
+    mockRevokePermissionMutateAsync.mockReset();
+    mockRevokePermissionMutateAsync.mockResolvedValue({});
+  });
+
+  it('does not stage a removal for conditions that arrive after the roles query', async () => {
+    // Roles have resolved but the conditions request is still in flight: the state the
+    // modal is always in on first open.
+    mockUseRoleMutationConditionsQuery.mockReturnValue({ data: undefined, isLoading: true, error: null });
+    const onClose = jest.fn();
+    const { rerender } = renderWithDesignSystem(<EditAccessModal open onClose={onClose} username="alice" />);
+
+    // The conditions land, and the settling query re-renders the modal.
+    mockUseRoleMutationConditionsQuery.mockReturnValue({
+      data: { mutation_conditions: [existingCondition] },
+      isLoading: false,
+      error: null,
+    });
+    rerender(<EditAccessModal open onClose={onClose} username="alice" />);
+
+    // An unrelated edit: granting a direct permission.
+    fireEvent.click(await screen.findByRole('radio', { name: /^All experiments$/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^Add$/ }));
+
+    // The prefilled condition is now visible, which is the positive half of the fix.
+    expect(await screen.findByRole('button', { name: /Remove Experiment mutation condition/ })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /^Review changes$/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^Apply changes$/ }));
+
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    // The admin touched a permission, not a condition. Nothing may be removed.
+    expect(mockRemoveConditionMutateAsync).not.toHaveBeenCalled();
+    expect(mockGrantPermissionMutateAsync).toHaveBeenCalledTimes(1);
+  });
+
+  it('blocks the form when the conditions query fails rather than pre-filling an empty list', async () => {
+    // An errored query is an UNKNOWN condition list, not an empty one. Treating it as
+    // empty would stage the same mass removal, so the form is blocked exactly as it is
+    // for a failed roles fetch.
+    mockUseRoleMutationConditionsQuery.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      error: new Error('conditions boom'),
+    });
+    renderWithDesignSystem(<EditAccessModal open onClose={jest.fn()} username="alice" />);
+
+    expect(await screen.findByText('Failed to load access state')).toBeInTheDocument();
+    expect(screen.getByText('conditions boom')).toBeInTheDocument();
+    expect(screen.queryByText('Role assignments')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Review changes/ })).toBeDisabled();
+  });
+
+  it('still pre-fills when the user has no synthetic role, where the query never runs', async () => {
+    // With no direct grants there is no synthetic role, so the query is disabled -- and a
+    // disabled react-query v4 query reports `isLoading: true` forever. Gating on that flag
+    // alone would hang the modal on a permanent spinner.
+    mockUseUserRolesQuery.mockReturnValue({ data: { roles: [] }, isLoading: false, error: null });
+    mockUseRoleMutationConditionsQuery.mockReturnValue({ data: undefined, isLoading: true, error: null });
+    renderWithDesignSystem(<EditAccessModal open onClose={jest.fn()} username="alice" />);
+
+    // The form is usable, not stuck behind a spinner.
+    expect(await screen.findByText('Role assignments')).toBeInTheDocument();
+  });
+});
