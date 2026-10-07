@@ -10,6 +10,7 @@
  *   3. Set environment variables:
  *      export MLFLOW_TRACKING_URI=http://localhost:5000
  *      export MLFLOW_EXPERIMENT_ID=123
+ *      # For a UC-backed experiment: export MLFLOW_TRACE_LOCATION=catalog.schema.table_prefix
  *   4. Run opencode normally - tracing happens automatically
  */
 
@@ -29,7 +30,7 @@ import {
 // last processed count to determine if new messages need tracing.
 const processedMessageCounts = new Map<string, number>();
 
-// Silent plugin - no console output to avoid TUI interference
+// Avoid routine console output so the plugin does not interrupt the TUI.
 const DEBUG = process.env.MLFLOW_OPENCODE_DEBUG === 'true';
 
 // Constants
@@ -39,6 +40,7 @@ const MESSAGE_ROLE_USER = 'user';
 const MESSAGE_ROLE_ASSISTANT = 'assistant';
 const PART_TYPE_TEXT = 'text';
 const PART_TYPE_TOOL = 'tool';
+const PART_TYPE_REASONING = 'reasoning';
 
 // Well-known trace metadata keys. We pass these through updateCurrentTrace's
 // generic `metadata` option rather than its `sessionId`/`user` convenience
@@ -48,8 +50,14 @@ const PART_TYPE_TOOL = 'tool';
 const TRACE_SESSION_METADATA_KEY = 'mlflow.trace.session';
 const TRACE_USER_METADATA_KEY = 'mlflow.trace.user';
 
+// Keep local: integrations are independent packages and must support older @mlflow/core floors.
+function getCurrentUser(): string {
+  return process.env.USER || process.env.USERNAME || '';
+}
+
 // SDK initialization state
 let initialized = false;
+let lastInitializationWarning: string | null = null;
 
 interface ApiResponse<T> {
   data?: T;
@@ -112,6 +120,8 @@ interface Message {
 /**
  * Initialize the MLflow tracing SDK if not already initialized.
  * Requires MLFLOW_TRACKING_URI and MLFLOW_EXPERIMENT_ID environment variables.
+ * MLFLOW_TRACE_LOCATION is optional and resolved by the core SDK. If init()
+ * fails, a later event retries it; repeated warnings are suppressed.
  */
 function ensureInitialized(): boolean {
   if (initialized) {
@@ -138,13 +148,16 @@ function ensureInitialized(): boolean {
   try {
     init({ trackingUri, experimentId });
     initialized = true;
+    lastInitializationWarning = null;
     if (DEBUG) {
       console.error('[mlflow] SDK initialized successfully');
     }
     return true;
   } catch (error) {
-    if (DEBUG) {
-      console.error('[mlflow] Failed to initialize SDK:', error);
+    const message = error instanceof Error ? error.message : String(error);
+    if (message !== lastInitializationWarning) {
+      console.error(`[mlflow] OpenCode tracing is disabled: ${message}`);
+      lastInitializationWarning = message;
     }
     return false;
   }
@@ -215,8 +228,13 @@ function findLastUserMessageIndex(messages: Message[]): number | null {
 function reconstructConversationMessages(
   messages: Message[],
   endIdx: number,
-): Array<{ role: string; content: string; tool_call_id?: string }> {
-  const result: Array<{ role: string; content: string; tool_call_id?: string }> = [];
+): Array<{ role: string; content: string; reasoning?: string; tool_call_id?: string }> {
+  const result: Array<{
+    role: string;
+    content: string;
+    reasoning?: string;
+    tool_call_id?: string;
+  }> = [];
 
   for (let i = 0; i < endIdx; i++) {
     const msg = messages[i];
@@ -234,8 +252,18 @@ function reconstructConversationMessages(
       const textParts = parts
         .filter((p) => p.type === PART_TYPE_TEXT && p.text)
         .map((p) => p.text || '');
-      if (textParts.length > 0) {
-        result.push({ role: 'assistant', content: textParts.join('\n') });
+      const reasoningParts = parts
+        .filter((p) => p.type === PART_TYPE_REASONING && p.text)
+        .map((p) => p.text || '');
+      if (textParts.length > 0 || reasoningParts.length > 0) {
+        const msg: { role: string; content: string; reasoning?: string } = {
+          role: 'assistant',
+          content: textParts.join('\n'),
+        };
+        if (reasoningParts.length > 0) {
+          msg.reasoning = reasoningParts.join('\n\n');
+        }
+        result.push(msg);
       }
 
       // Add tool results as tool messages
@@ -310,17 +338,20 @@ function createLlmAndToolSpans(
     const createdNs = timestampToNs(timeInfo.created);
     const completedNs = timestampToNs(timeInfo.completed);
 
-    // Check for text and tool content
+    // Check for text, tool, and reasoning content
     const textParts = parts.filter((p) => p.type === PART_TYPE_TEXT);
     const toolParts = parts.filter((p) => p.type === PART_TYPE_TOOL);
+    const reasoningParts = parts.filter((p) => p.type === PART_TYPE_REASONING);
 
     // Create LLM span for all assistant messages with content.
     // Tool-call-only responses (no text) are still LLM calls and must be traced;
     // omitting them causes missing spans when agents like prometheus issue many
     // back-to-back tool calls without intermediate text.
-    if (textParts.length > 0 || toolParts.length > 0) {
+    if (textParts.length > 0 || toolParts.length > 0 || reasoningParts.length > 0) {
       const conversationMessages = reconstructConversationMessages(messages, i);
       const textContent = textParts.map((p) => p.text || '').join('\n');
+      const reasoningText =
+        reasoningParts.length > 0 ? reasoningParts.map((p) => p.text || '').join('\n\n') : null;
 
       const llmSpan = startSpan({
         name: 'llm_call',
@@ -350,12 +381,16 @@ function createLlmAndToolSpans(
       const outputMessage: {
         role: string;
         content: string | null;
+        reasoning?: string;
         tool_calls?: Array<{
           id: string;
           type: 'function';
           function: { name: string; arguments: string };
         }>;
       } = { role: 'assistant', content: textContent || null };
+      if (reasoningText) {
+        outputMessage.reasoning = reasoningText;
+      }
       if (toolParts.length > 0) {
         outputMessage.tool_calls = toolParts.map((p) => ({
           id: p.callID || '',
@@ -469,7 +504,7 @@ async function processSession(sessionId: string, messages: Message[]): Promise<v
       updateCurrentTrace({
         metadata: {
           [TRACE_SESSION_METADATA_KEY]: sessionId,
-          [TRACE_USER_METADATA_KEY]: process.env.USER || '',
+          [TRACE_USER_METADATA_KEY]: getCurrentUser(),
         },
         requestPreview: userPrompt.slice(0, MAX_PREVIEW_LENGTH),
         ...(finalResponse ? { responsePreview: finalResponse.slice(0, MAX_PREVIEW_LENGTH) } : {}),

@@ -15,13 +15,15 @@ import {
   VisibleIcon,
   VisibleOffIcon,
   SparkleIcon,
+  ChevronDownIcon,
+  ChevronRightIcon,
 } from '@databricks/design-system';
 import type { ColumnDef, HeaderContext } from '@tanstack/react-table';
 import { DatasetSourceTypes, RunEntity } from '../../types';
 import { Link, useNavigate, useSearchParams } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 import { useGetLoggedModelQuery } from '../../hooks/logged-models/useGetLoggedModelQuery';
 import Routes from '../../routes';
-import { getTimeRangeQueryString } from '../experiment-page-tabs/side-nav/utils';
+import { getPreservedQueryString } from '../experiment-page-tabs/side-nav/utils';
 import { useSaveExperimentRunColor } from '../../components/experiment-page/hooks/useExperimentRunColor';
 import { useGetExperimentRunColor } from '../../components/experiment-page/hooks/useExperimentRunColor';
 import { RunColorPill } from '../../components/experiment-page/components/RunColorPill';
@@ -43,6 +45,7 @@ import {
 } from '../../constants';
 import { DatasetLink } from '../experiment-evaluation-datasets/DatasetLink';
 import { RunStatusIcon } from '../../components/RunStatusIcon';
+import { useIntl } from '@databricks/i18n';
 
 export const CheckboxCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({
   row,
@@ -78,6 +81,7 @@ export const RunNameCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({
   const getRunColor = useGetExperimentRunColor();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const intl = useIntl();
 
   if ('subRuns' in row.original) {
     return <div>-</div>;
@@ -96,7 +100,7 @@ export const RunNameCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({
     // When flag is ON and clicking on an issue detection run, navigate to the issue detection run details page
     if (isIssueDetectionRun && showIssuesPanelFlag) {
       const route = Routes.getIssueDetectionRunDetailsRoute(experimentId, runUuid);
-      const timeRangeSearch = getTimeRangeQueryString(searchParams.toString());
+      const timeRangeSearch = getPreservedQueryString(searchParams.toString());
       navigate(timeRangeSearch ? `${route}${timeRangeSearch}` : route);
       return;
     }
@@ -104,12 +108,48 @@ export const RunNameCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({
     (meta as any).setSelectedRunUuid?.(runUuid);
   };
 
+  const level = row.depth;
+  const hasExpander = row.getCanExpand();
+  const isExpanded = row.getIsExpanded();
+
+  const handleExpanderClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    row.toggleExpanded();
+  };
+
   return (
     <div
-      css={{ overflow: 'hidden', display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}
+      css={{
+        overflow: 'hidden',
+        display: 'flex',
+        alignItems: 'center',
+        gap: theme.spacing.xs,
+        paddingLeft: level > 0 ? (level + 1) * theme.spacing.lg : undefined,
+      }}
       onClick={handleClick}
       onMouseDown={(e) => e.stopPropagation()}
     >
+      {hasExpander && (
+        <Button
+          componentId="mlflow.eval-runs.parent-child-expand-button"
+          size="small"
+          icon={isExpanded ? <ChevronDownIcon /> : <ChevronRightIcon />}
+          aria-expanded={isExpanded}
+          aria-label={
+            isExpanded
+              ? intl.formatMessage({
+                  defaultMessage: 'Collapse child runs',
+                  description: 'Aria label to collapse child runs',
+                })
+              : intl.formatMessage({
+                  defaultMessage: 'Expand child runs',
+                  description: 'Aria label to expand child runs',
+                })
+          }
+          onClick={handleExpanderClick}
+          type="link"
+        />
+      )}
       {isIssueDetectionRun && showIssuesPanelFlag ? (
         <Tooltip
           content={
@@ -354,7 +394,12 @@ export const VisiblityCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({ row, ta
     return <div>-</div>;
   }
   const runUuid = row.original.info.runUuid;
-  const rowIndex = row.index;
+
+  // Use pre-calculated flat run index from table meta
+  // This index excludes group rows and provides a global position across all parents
+  const flatRunIndexMap = (table.options.meta as any)?.flatRunIndexMap;
+  const rowIndex = flatRunIndexMap?.[runUuid] ?? row.index;
+
   const runStatus = row.original.info.status;
   const Icon = isRowHidden(runUuid, rowIndex, runStatus) ? VisibleOffIcon : VisibleIcon;
 
@@ -363,7 +408,7 @@ export const VisiblityCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({ row, ta
       <Icon
         onClick={(e: React.MouseEvent) => {
           e.stopPropagation();
-          toggleRowVisibility(runUuid);
+          toggleRowVisibility(runUuid, rowIndex, runStatus);
         }}
         css={{ cursor: 'pointer' }}
       />

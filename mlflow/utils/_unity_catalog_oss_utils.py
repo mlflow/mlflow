@@ -7,7 +7,7 @@ from mlflow.entities.model_registry import (
     RegisteredModelSearch,
 )
 from mlflow.exceptions import MlflowException
-from mlflow.protos.unity_catalog_oss_messages_pb2 import (
+from mlflow.protos.unity_catalog_messages_pb2 import (
     ModelVersionInfo,
     ModelVersionStatus,
     RegisteredModelInfo,

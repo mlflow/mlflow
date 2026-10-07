@@ -46,14 +46,13 @@ export { GenAITracesTableContext, GenAITracesTableProvider } from './GenAITraces
 export { MarkdownConverterProvider as GenAiTracesMarkdownConverterProvider } from './utils/MarkdownUtils';
 
 export { RunColorCircle } from './components/RunColorCircle';
+export { DetectIssuesButton } from './components/DetectIssuesButton';
 
 export { useSelectedColumns } from './hooks/useGenAITracesUIState';
 export { useTableSortURL } from './hooks/useTableSortURL';
 export { useColumnsURL } from './hooks/useColumnsURL';
 
 export { GenAiEvaluationTracesReviewModal } from './components/GenAiEvaluationTracesReviewModal';
-
-export { AnalyzeWithAssistantButton } from './components/AnalyzeWithAssistantButton';
 
 export * from './types';
 
@@ -87,7 +86,10 @@ export {
   getSpansLocation,
   TRACKING_STORE_SPANS_LOCATION,
   RESULT_ASSESSMENT_NAME,
+  MLFLOW_SOURCE_RUN_KEY,
 } from './utils/TraceUtils';
+
+export { RunName } from './cellRenderers/RunName';
 
 export {
   INPUTS_COLUMN_ID,

@@ -10,7 +10,9 @@ from tests.tracking.integration_test_utils import _send_rest_tracking_post_reque
 PERMISSION = "READ"
 NEW_PERMISSION = "EDIT"
 ADMIN_USERNAME = auth_config.admin_username
-ADMIN_PASSWORD = auth_config.admin_password
+# MLflow ships no default admin password, so tests bootstrap the admin user with this one
+# (either written into an isolated .ini or passed via MLFLOW_AUTH_ADMIN_PASSWORD).
+ADMIN_PASSWORD = "test-admin-password"
 
 
 def write_isolated_auth_config(tmp_path: Path) -> Path:

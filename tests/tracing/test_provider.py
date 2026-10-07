@@ -1,6 +1,8 @@
 import random
+import sys
 import threading
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 from unittest import mock
 
 import pytest
@@ -32,9 +34,11 @@ from mlflow.tracing.processor.mlflow_v3 import MlflowV3SpanProcessor
 from mlflow.tracing.processor.otel import OtelSpanProcessor
 from mlflow.tracing.processor.uc_table import DatabricksUCTableSpanProcessor
 from mlflow.tracing.provider import (
+    _get_span_processor,
     _get_tracer,
     _initialize_tracer_provider,
     _IsolatedRandomIdGenerator,
+    detach_span_from_context,
     is_tracing_enabled,
     start_span_in_context,
     trace_disabled,
@@ -382,8 +386,46 @@ def test_disable_enable_tracing_not_mutate_otel_provider(monkeypatch):
     assert trace.get_tracer_provider() is otel_tracer_provider
 
 
+def test_detach_span_from_context_ignores_cross_context_value_error(monkeypatch):
+    monkeypatch.setenv(MLFLOW_USE_DEFAULT_TRACER_PROVIDER.name, "true")
+
+    token = (mock.sentinel.mlflow_token, None)
+    with mock.patch(
+        "mlflow.tracing.provider.mlflow_runtime_context.detach",
+        side_effect=ValueError("token was created in a different Context"),
+    ) as mock_detach:
+        detach_span_from_context(token)
+        mock_detach.assert_called_once_with(mock.sentinel.mlflow_token)
+
+
+def test_detach_span_from_context_reraises_unrelated_value_error(monkeypatch):
+    monkeypatch.setenv(MLFLOW_USE_DEFAULT_TRACER_PROVIDER.name, "true")
+
+    token = (mock.sentinel.mlflow_token, None)
+    with mock.patch(
+        "mlflow.tracing.provider.mlflow_runtime_context.detach",
+        side_effect=ValueError("some other error"),
+    ):
+        with pytest.raises(ValueError, match="some other error"):
+            detach_span_from_context(token)
+
+
 def _count_batch_processor_threads() -> int:
-    return sum("OtelBatchSpanRecordProcessor" in t.name for t in threading.enumerate())
+    # Match the "OtelBatchSpan" prefix rather than the full worker-thread name:
+    # OTel SDK versions name this daemon thread differently ("OtelBatchSpanProcessor"
+    # on older releases, "OtelBatchSpanRecordProcessor" on current ones), and the
+    # protobuf cross-version CI job exercises both.
+    return sum("OtelBatchSpan" in t.name for t in threading.enumerate())
+
+
+def _assert_batch_path_active() -> None:
+    # Guard against a vacuous pass: the async BatchSpanProcessor path must actually
+    # be active before we measure the baseline thread count. Assert on the active
+    # processor's batch delegate directly so the guard does not depend on OTel's
+    # worker-thread name (which varies across SDK versions).
+    processor = _get_span_processor()
+    assert processor is not None
+    assert processor._batch_delegate is not None
 
 
 @pytest.fixture
@@ -400,10 +442,15 @@ def test_disable_enable_does_not_leak_batch_processor_threads(batch_span_process
     def f():
         return 0
 
+    # Rebuild the tracer provider from a clean slate so the first traced call
+    # constructs the async BatchSpanProcessor under this test's env, regardless of
+    # what an earlier test in a sharded run left on the global provider.
+    mlflow.tracing.reset()
+
     # Prime a real BatchSpanProcessor (and its daemon thread).
     f()
+    _assert_batch_path_active()
     baseline = _count_batch_processor_threads()
-    # Guard against a vacuous pass: the batch path must actually be active.
     assert baseline >= 1
 
     # Each enable() used to build a fresh provider + BatchSpanProcessor without
@@ -424,7 +471,13 @@ def test_trace_disabled_does_not_leak_batch_processor_threads(batch_span_process
     def wrapped():
         return 0
 
+    # Rebuild the tracer provider from a clean slate so the first traced call
+    # constructs the async BatchSpanProcessor under this test's env, regardless of
+    # what an earlier test in a sharded run left on the global provider.
+    mlflow.tracing.reset()
+
     f()
+    _assert_batch_path_active()
     baseline = _count_batch_processor_threads()
     assert baseline >= 1
 
@@ -789,6 +842,7 @@ def test_otel_resource_attributes(monkeypatch):
         attributes.pop("service.instance.id", None)
         return attributes
 
+    default_service_name = f"unknown_service:{Path(sys.executable).name}"
     tracer = _get_tracer("test")
     # By default, only MLflow's SDK attributes are set on an empty resource
     assert resource_attributes(tracer) == {
@@ -808,7 +862,7 @@ def test_otel_resource_attributes(monkeypatch):
         "telemetry.sdk.language": "python",
         "telemetry.sdk.name": "mlflow",
         "telemetry.sdk.version": mlflow.__version__,
-        "service.name": "unknown_service",
+        "service.name": default_service_name,
     }
 
     # Service name should be propagated from the env var
@@ -829,7 +883,7 @@ def test_otel_resource_attributes(monkeypatch):
     monkeypatch.delenv("OTEL_SERVICE_NAME", raising=False)
     tracer = _get_tracer("test")
     assert resource_attributes(tracer) == {
-        "service.name": "unknown_service",
+        "service.name": default_service_name,
         "telemetry.sdk.language": "python",
         "telemetry.sdk.name": "mlflow",
         "telemetry.sdk.version": mlflow.__version__,
@@ -1069,4 +1123,171 @@ def test_get_tracer_does_not_fail_when_experiment_id_resolution_fails():
         tracer = _get_tracer("test")
 
     assert tracer is not None
+    mlflow.tracing.reset()
+
+
+def _serving_uc_experiment():
+    return _experiment(tags={MLFLOW_EXPERIMENT_DATABRICKS_TRACE_DESTINATION_PATH: "cat.sch.pfx"})
+
+
+def test_resolve_uc_location_in_serving_uses_databricks_store(
+    mock_databricks_serving_with_tracing_env, monkeypatch
+):
+    from mlflow.tracing.provider import _resolve_experiment_uc_location
+
+    mlflow.tracing.reset()
+    monkeypatch.setenv("MLFLOW_EXPERIMENT_ID", "123")
+
+    with (
+        mock.patch(
+            "mlflow.tracing.provider.mlflow.get_tracking_uri",
+            return_value="sqlite:///mlflow.db",
+        ),
+        mock.patch("mlflow.tracking._tracking_service.utils._get_store") as mock_store_fn,
+    ):
+        mock_store_fn.return_value.get_experiment.return_value = _serving_uc_experiment()
+
+        result = _resolve_experiment_uc_location()
+
+        assert result == UnityCatalog("cat", "sch", table_prefix="pfx")
+        mock_store_fn.assert_called_once_with("databricks")
+        mock_store_fn.return_value.get_experiment.assert_called_once_with("123")
+
+    mlflow.tracing.reset()
+
+
+def test_resolve_uc_location_in_serving_bypasses_local_experiment_validation(
+    mock_databricks_serving_with_tracing_env, monkeypatch
+):
+    # `_get_experiment_id()` raises in serving (local store); resolution falls back to the env var.
+    from mlflow.tracing.provider import _resolve_experiment_uc_location
+
+    mlflow.tracing.reset()
+    monkeypatch.setenv("MLFLOW_EXPERIMENT_ID", "123")
+
+    with (
+        mock.patch(
+            "mlflow.tracing.provider.mlflow.get_tracking_uri",
+            return_value="sqlite:///mlflow.db",
+        ),
+        mock.patch(
+            "mlflow.tracking.fluent._get_experiment_id",
+            side_effect=MlflowException("does not exist in the tracking server"),
+        ) as mock_get_experiment_id,
+        mock.patch("mlflow.tracking._tracking_service.utils._get_store") as mock_store_fn,
+    ):
+        mock_store_fn.return_value.get_experiment.return_value = _serving_uc_experiment()
+
+        result = _resolve_experiment_uc_location()
+
+        assert result == UnityCatalog("cat", "sch", table_prefix="pfx")
+        mock_get_experiment_id.assert_not_called()
+        mock_store_fn.return_value.get_experiment.assert_called_once_with("123")
+
+    mlflow.tracing.reset()
+
+
+def test_serving_uc_bound_experiment_selects_uc_processor(
+    mock_databricks_serving_with_tracing_env, monkeypatch
+):
+    mlflow.tracing.reset()
+    monkeypatch.setenv("MLFLOW_EXPERIMENT_ID", "123")
+
+    with (
+        mock.patch(
+            "mlflow.tracing.provider.mlflow.get_tracking_uri",
+            return_value="sqlite:///mlflow.db",
+        ),
+        mock.patch("mlflow.tracking._tracking_service.utils._get_store") as mock_store_fn,
+    ):
+        mock_store_fn.return_value.get_experiment.return_value = _serving_uc_experiment()
+
+        tracer = _get_tracer("test")
+        processors = tracer.span_processor._span_processors
+
+        assert len(processors) == 1
+        assert isinstance(processors[0], DatabricksUCTableSpanProcessor)
+        assert isinstance(processors[0].span_exporter, DatabricksUCTableSpanExporter)
+        assert processors[0].span_exporter._client.tracking_uri == "databricks"
+
+    mlflow.tracing.reset()
+
+
+@pytest.mark.parametrize("tracking_uri", ["databricks", "databricks://myprofile"])
+def test_serving_keeps_explicit_databricks_tracking_uri(
+    mock_databricks_serving_with_tracing_env, tracking_uri, monkeypatch
+):
+    # Substituting "databricks" in serving must not discard a configured profile.
+    mlflow.tracing.reset()
+    monkeypatch.setenv("MLFLOW_EXPERIMENT_ID", "123")
+
+    with (
+        mock.patch(
+            "mlflow.tracing.provider.mlflow.get_tracking_uri",
+            return_value=tracking_uri,
+        ),
+        mock.patch("mlflow.tracking._tracking_service.utils._get_store") as mock_store_fn,
+    ):
+        mock_store_fn.return_value.get_experiment.return_value = _serving_uc_experiment()
+
+        tracer = _get_tracer("test")
+        processors = tracer.span_processor._span_processors
+
+        assert isinstance(processors[0], DatabricksUCTableSpanProcessor)
+        assert processors[0].span_exporter._client.tracking_uri == tracking_uri
+
+    mlflow.tracing.reset()
+
+
+def test_serving_non_uc_experiment_retains_inference_table(
+    mock_databricks_serving_with_tracing_env, monkeypatch
+):
+    mlflow.tracing.reset()
+    monkeypatch.setenv("MLFLOW_EXPERIMENT_ID", "123")
+
+    with (
+        mock.patch(
+            "mlflow.tracing.provider.mlflow.get_tracking_uri",
+            return_value="sqlite:///mlflow.db",
+        ),
+        mock.patch("mlflow.tracking._tracking_service.utils._get_store") as mock_store_fn,
+    ):
+        mock_store_fn.return_value.get_experiment.return_value = _experiment(tags={})
+
+        tracer = _get_tracer("test")
+        processors = tracer.span_processor._span_processors
+
+        assert len(processors) == 1
+        assert isinstance(processors[0], InferenceTableSpanProcessor)
+
+    mlflow.tracing.reset()
+
+
+def test_serving_tracing_destination_env_wins_over_experiment_binding(
+    mock_databricks_serving_with_tracing_env, monkeypatch
+):
+    # An explicit MLFLOW_TRACING_DESTINATION is read before the experiment-binding fallback, so it
+    # takes precedence and the experiment store is never consulted.
+    monkeypatch.setenv("MLFLOW_TRACING_DESTINATION", "envcat.envsch")
+    mlflow.tracing.reset()
+
+    with (
+        mock.patch(
+            "mlflow.tracing.provider.mlflow.get_tracking_uri",
+            return_value="databricks",
+        ),
+        mock.patch("mlflow.tracking.fluent._get_experiment_id", return_value="123"),
+        mock.patch("mlflow.tracking._tracking_service.utils._get_store") as mock_store_fn,
+    ):
+        mock_store_fn.return_value.get_experiment.return_value = _serving_uc_experiment()
+
+        tracer = _get_tracer("test")
+        processors = tracer.span_processor._span_processors
+
+        assert len(processors) == 1
+        assert isinstance(processors[0], DatabricksUCTableSpanProcessor)
+        mock_store_fn.return_value.get_experiment.assert_not_called()
+        spans_table = get_active_spans_table_name()
+        assert spans_table == "envcat.envsch.mlflow_experiment_trace_otel_spans"
+
     mlflow.tracing.reset()

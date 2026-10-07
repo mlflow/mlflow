@@ -109,6 +109,11 @@ const sidebarsGenAI: SidebarsConfig = {
                 },
                 {
                   type: 'doc',
+                  id: 'tracing/observe-with-traces/custom-views',
+                  label: 'Custom Trace Views',
+                },
+                {
+                  type: 'doc',
                   id: 'tracing/search-traces',
                   label: 'Search Traces',
                 },
@@ -505,6 +510,11 @@ const sidebarsGenAI: SidebarsConfig = {
                 },
                 {
                   type: 'doc',
+                  id: 'tracing/integrations/listing/typesafe',
+                  label: 'TypeSafe AI',
+                },
+                {
+                  type: 'doc',
                   id: 'tracing/integrations/listing/xai-grok',
                   label: 'xAI / Grok',
                 },
@@ -839,6 +849,11 @@ const sidebarsGenAI: SidebarsConfig = {
                   type: 'doc',
                   id: 'eval-monitor/scorers/llm-judge/custom-judges/create-custom-judge',
                   label: 'Create a Custom Judge',
+                },
+                {
+                  type: 'doc',
+                  id: 'eval-monitor/scorers/llm-judge/custom-judges/typesafe',
+                  label: 'TypeSafe Judge Models',
                 },
               ],
               collapsed: false,
@@ -1299,14 +1314,26 @@ const sidebarsGenAI: SidebarsConfig = {
     },
     {
       type: 'category',
-      label: 'MCP',
+      label: 'MCP Registry',
       className: 'sidebar-top-level-category',
       items: [
         {
           type: 'doc',
-          id: 'mcp/index',
+          id: 'mcp-registry/register-mcp-servers',
+        },
+        {
+          type: 'doc',
+          id: 'mcp-registry/manage-versions-and-aliases',
+        },
+        {
+          type: 'doc',
+          id: 'mcp-registry/connect-to-servers',
         },
       ],
+      link: {
+        type: 'doc',
+        id: 'mcp-registry/index',
+      },
     },
     {
       type: 'category',
@@ -1338,6 +1365,17 @@ const sidebarsGenAI: SidebarsConfig = {
       type: 'html',
       value: '<b>References</b>',
       defaultStyle: true,
+    },
+    {
+      type: 'category',
+      label: 'MLflow MCP Server',
+      className: 'sidebar-top-level-category',
+      items: [
+        {
+          type: 'doc',
+          id: 'mcp/index',
+        },
+      ],
     },
     {
       type: 'category',

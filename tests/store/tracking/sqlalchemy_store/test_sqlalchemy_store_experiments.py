@@ -1,8 +1,11 @@
+import json
 import time
 import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
+from sqlalchemy import event
 
 from mlflow import entities
 from mlflow.entities import (
@@ -18,13 +21,24 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, ErrorCode
 from mlflow.store.tracking.dbmodels import models
 from mlflow.store.tracking.dbmodels.models import (
+    SqlAssessmentDailyRollup,
+    SqlAssessments,
     SqlExperiment,
+    SqlExperimentTag,
     SqlLoggedModel,
     SqlLoggedModelMetric,
     SqlLoggedModelParam,
     SqlLoggedModelTag,
     SqlRun,
+    SqlSpan,
+    SqlSpanCostDailyRollup,
+    SqlSpanMetrics,
     SqlTraceInfo,
+    SqlTraceMetadata,
+    SqlTraceMetricDailyRollup,
+    SqlTraceMetrics,
+    SqlTraceRollupRebuild,
+    SqlTraceTag,
     TraceState,
 )
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
@@ -94,12 +108,64 @@ def test_default_experiment_lifecycle(store: SqlAlchemyStore, tmp_path):
             default_exp = (
                 session
                 .query(SqlExperiment)
-                .filter(SqlExperiment.experiment_id == store.DEFAULT_EXPERIMENT_ID)
+                .filter(SqlExperiment.experiment_id == int(store.DEFAULT_EXPERIMENT_ID))
                 .first()
             )
             if default_exp:
                 default_exp.lifecycle_stage = entities.LifecycleStage.ACTIVE
                 session.commit()
+
+
+def test_create_default_experiment_is_idempotent(store: SqlAlchemyStore):
+    # The default experiment (ID 0) is created during store initialization. Renaming it away from
+    # "Default" and re-running the bootstrap (simulating a server restart) must not collide on the
+    # primary key: the insert should tolerate ID 0 already existing and preserve the renamed row.
+    with store.ManagedSessionMaker(read_only=False) as session:
+        session.query(SqlExperiment).filter(
+            SqlExperiment.experiment_id == int(store.DEFAULT_EXPERIMENT_ID)
+        ).update({SqlExperiment.name: "renamed-default"})
+
+    with store.ManagedSessionMaker(read_only=False) as session:
+        store._create_default_experiment(session)
+
+    default_experiment = store.get_experiment(store.DEFAULT_EXPERIMENT_ID)
+    assert default_experiment.experiment_id == store.DEFAULT_EXPERIMENT_ID
+    assert default_experiment.name == "renamed-default"
+
+
+def test_create_default_experiment_reraises_when_name_slot_taken_and_id_zero_missing(
+    store: SqlAlchemyStore,
+):
+    # Put the DB into a corrupt state: experiment 0 is gone, but a different experiment already
+    # occupies the "Default" name slot in the default workspace. Re-creating experiment 0 then
+    # trips the (workspace, name) unique constraint rather than the primary-key race, so the store
+    # must surface the error instead of silently swallowing it.
+    with store.ManagedSessionMaker(read_only=False) as session:
+        default_experiment = (
+            session
+            .query(SqlExperiment)
+            .filter(SqlExperiment.experiment_id == int(store.DEFAULT_EXPERIMENT_ID))
+            .one()
+        )
+        workspace = default_experiment.workspace
+        session.delete(default_experiment)
+        session.flush()
+        session.add(
+            SqlExperiment(
+                experiment_id=123,
+                name=Experiment.DEFAULT_EXPERIMENT_NAME,
+                workspace=workspace,
+                lifecycle_stage=entities.LifecycleStage.ACTIVE,
+                creation_time=get_current_time_millis(),
+                last_update_time=get_current_time_millis(),
+            )
+        )
+
+    # The wrapped message is the driver's error string, whose class name is dialect-specific:
+    # "IntegrityError" on sqlite/pymysql/pyodbc but "UniqueViolation" on psycopg2 (Postgres).
+    with pytest.raises(MlflowException, match="IntegrityError|UniqueViolation"):
+        with store.ManagedSessionMaker(read_only=False) as session:
+            store._create_default_experiment(session)
 
 
 def test_single_tenant_store_detects_workspace_scoped_experiments(
@@ -290,6 +356,119 @@ def test_search_experiments_filter_by_attribute(store: SqlAlchemyStore):
     assert [e.name for e in experiments] == ["ab"]
 
 
+def test_search_experiments_filter_by_experiment_id_in(store: SqlAlchemyStore):
+    id_a, id_b, id_c = _create_experiments(store, ["a", "b", "c"])
+
+    experiments = store.search_experiments(filter_string=f"experiment_id IN ('{id_a}', '{id_b}')")
+    assert {e.experiment_id for e in experiments} == {id_a, id_b}
+
+    experiments = store.search_experiments(filter_string=f"experiment_id IN ('{id_a}')")
+    assert {e.experiment_id for e in experiments} == {id_a}
+
+    experiments = store.search_experiments(
+        filter_string=f"experiment_id IN ('{id_a}', '{id_b}') AND name = 'a'"
+    )
+    assert {e.experiment_id for e in experiments} == {id_a}
+
+    experiments = store.search_experiments(
+        filter_string=f"experiment_id NOT IN ('{id_a}', '{id_b}')"
+    )
+    assert {e.experiment_id for e in experiments} == {id_c, store.DEFAULT_EXPERIMENT_ID}
+
+    with pytest.raises(
+        MlflowException,
+        match=(
+            r"While parsing a list in the query, "
+            r"expected string value, punctuation, or whitespace, "
+            r"but got different type in list"
+        ),
+    ) as exception_context:
+        store.search_experiments(filter_string="experiment_id IN (1,2,3)")
+    assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+    with pytest.raises(MlflowException, match=r"support comparison with a list"):
+        store.search_experiments(filter_string="name IN ('a', 'b')")
+
+
+def test_search_experiments_filter_by_experiment_id(store: SqlAlchemyStore):
+    id_a, id_b = _create_experiments(store, ["a", "b"])
+
+    experiments = store.search_experiments(filter_string=f"experiment_id = '{id_a}'")
+    assert {e.experiment_id for e in experiments} == {id_a}
+
+    experiments = store.search_experiments(filter_string=f"experiment_id != '{id_a}'")
+    assert {e.experiment_id for e in experiments} == {id_b, store.DEFAULT_EXPERIMENT_ID}
+
+
+@pytest.mark.parametrize("comparator", ["LIKE", "ILIKE", "<", "<=", ">", ">="])
+def test_search_experiments_filter_by_experiment_id_rejects_invalid_comparators(
+    store: SqlAlchemyStore, comparator: str
+):
+    (id_a,) = _create_experiments(store, ["a"])
+
+    with pytest.raises(
+        MlflowException,
+        match=r"Invalid comparator for experiment_id",
+        check=lambda e: e.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE),
+    ):
+        store.search_experiments(filter_string=f"experiment_id {comparator} '{id_a}'")
+
+
+def test_search_experiments_filter_by_experiment_id_rejects_non_integer(store: SqlAlchemyStore):
+    # `experiment_id` is an INTEGER column but filter values are always parsed as
+    # strings; a value that isn't a valid integer must fail with the same error
+    # contract as `_parse_experiment_id` (e.g. `get_experiment("invalid_id")`),
+    # not a raw `ValueError` or a silent psycopg type-mismatch at bind time.
+    with pytest.raises(
+        MlflowException,
+        match=r"Invalid experiment ID 'abc'\. Experiment ID must be a valid integer\.",
+        check=lambda e: e.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE),
+    ):
+        store.search_experiments(filter_string="experiment_id = 'abc'")
+
+    with pytest.raises(
+        MlflowException,
+        match=r"Invalid experiment ID 'abc'\. Experiment ID must be a valid integer\.",
+        check=lambda e: e.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE),
+    ):
+        store.search_experiments(filter_string="experiment_id IN ('abc')")
+
+
+def test_filter_active_experiment_ids(store: SqlAlchemyStore, monkeypatch):
+    """
+    Given a bounded batch of experiment ids, only the ones that exist and are
+    ACTIVE come back. Also exercises the IN-list chunking by forcing a tiny
+    chunk size, including a chunk boundary (exactly at, and just over, the
+    chunk size).
+    """
+    id_a, id_b, id_c = _create_experiments(store, ["a", "b", "c"])
+    store.delete_experiment(id_c)
+    nonexistent_id = "999999"
+
+    assert store.filter_active_experiment_ids([]) == []
+    assert set(store.filter_active_experiment_ids([id_a, id_b, id_c, nonexistent_id])) == {
+        id_a,
+        id_b,
+    }
+
+    with pytest.raises(
+        MlflowException,
+        match=r"Invalid experiment ID 'abc'\. Experiment ID must be a valid integer\.",
+        check=lambda e: e.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE),
+    ):
+        store.filter_active_experiment_ids(["abc"])
+
+    # Force a tiny chunk size to exercise the IN-list chunking loop end-to-end,
+    # including a chunk that lands exactly on the boundary (2 ids, chunk size 2)
+    # and one that spans multiple chunks (4 ids, chunk size 2).
+    monkeypatch.setattr(SqlAlchemyStore, "_ID_CHUNK_SIZE", 2)
+    assert set(store.filter_active_experiment_ids([id_a, id_b])) == {id_a, id_b}
+    assert set(store.filter_active_experiment_ids([id_a, id_b, id_c, nonexistent_id])) == {
+        id_a,
+        id_b,
+    }
+
+
 def test_search_experiments_filter_by_time_attribute(store: SqlAlchemyStore):
     # Sleep to ensure that the first experiment has a different creation_time than the default
     # experiment and eliminate flakiness.
@@ -347,6 +526,15 @@ def test_search_experiments_filter_by_time_attribute(store: SqlAlchemyStore):
         filter_string=f"last_update_time = {exp2.last_update_time}"
     )
     assert [e.experiment_id for e in experiments] == [exp_id2]
+
+
+def test_search_experiments_filter_by_time_attribute_rejects_non_integer(store: SqlAlchemyStore):
+    with pytest.raises(
+        MlflowException,
+        match=r"Invalid value for numeric attribute 'creation_time': '1.5'",
+        check=lambda e: e.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE),
+    ):
+        store.search_experiments(filter_string="creation_time > 1.5")
 
 
 def test_search_experiments_filter_by_tag(store: SqlAlchemyStore):
@@ -433,6 +621,7 @@ def test_hard_delete_experiment_cascades_to_child_tables(
     timestamp_ms = get_current_time_millis()
 
     with store.ManagedSessionMaker(read_only=False) as session:
+        session.add(SqlExperimentTag(key="exp-tag", value="v", experiment_id=target_exp_id))
         session.add(
             SqlRun(
                 run_uuid=run_uuid,
@@ -463,6 +652,40 @@ def test_hard_delete_experiment_cascades_to_child_tables(
                 status=TraceState.OK.value,
             )
         )
+        session.add(SqlTraceTag(request_id=request_id, key="tag", value="v"))
+        session.add(SqlTraceMetadata(request_id=request_id, key="metadata", value="v"))
+        session.add(SqlTraceMetrics(request_id=request_id, key="metric", value=1.0))
+        session.add(
+            SqlAssessments(
+                assessment_id=f"assessment-{uuid.uuid4().hex}",
+                trace_id=request_id,
+                name="assessment",
+                assessment_type="feedback",
+                value=json.dumps("value"),
+                created_timestamp=timestamp_ms,
+                last_updated_timestamp=timestamp_ms,
+                source_type="HUMAN",
+            )
+        )
+        session.add(
+            SqlSpan(
+                trace_id=request_id,
+                experiment_id=target_exp_id,
+                span_id="span-id",
+                status="OK",
+                start_time_unix_nano=timestamp_ms * 1_000_000,
+                end_time_unix_nano=timestamp_ms * 1_000_000,
+                content="{}",
+            )
+        )
+        session.add(
+            SqlSpanMetrics(
+                trace_id=request_id,
+                span_id="span-id",
+                key="span-metric",
+                value=1.0,
+            )
+        )
         session.add(
             SqlLoggedModelMetric(
                 model_id=model_id,
@@ -490,6 +713,36 @@ def test_hard_delete_experiment_cascades_to_child_tables(
                 tag_value="v",
             )
         )
+        rollup_day = datetime.fromtimestamp(timestamp_ms / 1000, tz=timezone.utc).date()
+        session.add_all([
+            SqlTraceMetricDailyRollup(
+                experiment_id=target_exp_id,
+                rollup_day=rollup_day,
+                metric_name="trace_count",
+                grouping_set="global",
+                sample_count=1,
+            ),
+            SqlSpanCostDailyRollup(
+                experiment_id=target_exp_id,
+                rollup_day=rollup_day,
+                metric_name="total_cost",
+                grouping_set="global",
+                sample_count=1,
+                sum_value=1.0,
+            ),
+            SqlAssessmentDailyRollup(
+                experiment_id=target_exp_id,
+                rollup_day=rollup_day,
+                metric_name="assessment_count",
+                grouping_set="global",
+                sample_count=1,
+            ),
+            SqlTraceRollupRebuild(
+                experiment_id=target_exp_id,
+                rollup_day=rollup_day,
+                rollup_family="trace_metric",
+            ),
+        ])
 
     # _hard_delete_experiment requires the experiment to be soft-deleted first.
     store.delete_experiment(str(target_exp_id))
@@ -497,14 +750,60 @@ def test_hard_delete_experiment_cascades_to_child_tables(
 
     with store.ManagedSessionMaker() as session:
         for model in (
+            SqlExperimentTag,
             SqlTraceInfo,
             SqlLoggedModel,
             SqlLoggedModelMetric,
             SqlLoggedModelParam,
             SqlLoggedModelTag,
+            SqlTraceMetricDailyRollup,
+            SqlSpanCostDailyRollup,
+            SqlAssessmentDailyRollup,
+            SqlTraceRollupRebuild,
         ):
             remaining = session.query(model).filter_by(experiment_id=target_exp_id).count()
             assert remaining == 0
+        for model in (SqlTraceTag, SqlTraceMetadata, SqlTraceMetrics):
+            assert session.query(model).filter_by(request_id=request_id).count() == 0
+        assert session.query(SqlAssessments).filter_by(trace_id=request_id).count() == 0
+        assert session.query(SqlSpan).filter_by(trace_id=request_id).count() == 0
+        assert session.query(SqlSpanMetrics).filter_by(trace_id=request_id).count() == 0
+
+
+def test_hard_delete_experiment_deletes_rollup_queue_first(store: SqlAlchemyStore):
+    experiment_id = int(store.create_experiment(f"rollup-delete-order-{uuid.uuid4()}"))
+    rollup_day = datetime.now(timezone.utc).date()
+    with store.ManagedSessionMaker(read_only=False) as session:
+        session.add_all([
+            SqlTraceRollupRebuild(
+                experiment_id=experiment_id,
+                rollup_day=rollup_day,
+                rollup_family="trace_metric",
+            ),
+            SqlTraceMetricDailyRollup(
+                experiment_id=experiment_id,
+                rollup_day=rollup_day,
+                metric_name="trace_count",
+                grouping_set="global",
+                sample_count=1,
+            ),
+        ])
+
+    delete_statements = []
+
+    def record_delete_order(_, __, statement, ___, ____, _____):
+        normalized = statement.strip().lower()
+        if normalized.startswith("delete from sql_trace_"):
+            delete_statements.append(normalized)
+
+    store.delete_experiment(str(experiment_id))
+    event.listen(store.engine, "before_cursor_execute", record_delete_order)
+    try:
+        store._hard_delete_experiment(str(experiment_id))
+    finally:
+        event.remove(store.engine, "before_cursor_execute", record_delete_order)
+
+    assert delete_statements[0].startswith("delete from sql_trace_rollup_rebuild_queue")
 
 
 def test_search_experiments_filter_by_attribute_and_tag(store: SqlAlchemyStore):
@@ -688,12 +987,14 @@ def test_set_experiment_tag(store: SqlAlchemyStore):
     experiment = store.get_experiment(exp_id)
     assert experiment.tags["multiline tag"] == "value2\nvalue2\nvalue2"
     # test cannot set tags that are too long
-    long_tag = entities.ExperimentTag("longTagKey", "a" * 100_001)
-    with pytest.raises(MlflowException, match="exceeds the maximum length of 5000"):
+    long_tag = entities.ExperimentTag("longTagKey", "a" * 20_001)
+    with pytest.raises(MlflowException, match="exceeds the maximum length of 20000"):
         store.set_experiment_tag(exp_id, long_tag)
-    # test can set tags that are somewhat long
-    long_tag = entities.ExperimentTag("longTagKey", "a" * 4999)
+    # test can set multibyte tags at the maximum character length
+    max_length_value = "😀" * 20_000
+    long_tag = entities.ExperimentTag("longTagKey", max_length_value)
     store.set_experiment_tag(exp_id, long_tag)
+    assert store.get_experiment(exp_id).tags["longTagKey"] == max_length_value
     # test cannot set tags on deleted experiments
     store.delete_experiment(exp_id)
     with pytest.raises(MlflowException, match="must be in the 'active' state"):

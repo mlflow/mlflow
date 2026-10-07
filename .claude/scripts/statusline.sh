@@ -7,6 +7,7 @@ input=$(cat)
 cwd=$(echo "$input" | jq -r '.workspace.current_dir')
 dir=$(basename "$cwd")
 model=$(echo "$input" | jq -r '.model.display_name // empty')
+model=${model% (1M context)}
 
 cd "$cwd" 2>/dev/null || cd /
 branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)

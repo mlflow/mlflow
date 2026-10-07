@@ -18,7 +18,8 @@ import threading
 import urllib
 import uuid
 import warnings
-from typing import TYPE_CHECKING, Any, Literal, Sequence, Union
+from dataclasses import replace
+from typing import TYPE_CHECKING, Any, Literal, Mapping, Sequence, Union
 
 import yaml
 from pydantic import BaseModel
@@ -47,6 +48,9 @@ from mlflow.entities import (
     Workspace,
     WorkspaceDeletionMode,
 )
+from mlflow.entities.mcp_access_endpoint import MCPAccessEndpoint
+from mlflow.entities.mcp_server import MCPRemoteTransportType, MCPServer, MCPStatus, MCPTool
+from mlflow.entities.mcp_server_version import ConnectOptionSettings, MCPServerVersion
 from mlflow.entities.model_registry import ModelVersion, Prompt, PromptVersion, RegisteredModel
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
 from mlflow.entities.model_registry.prompt_version import PromptModelConfig
@@ -66,6 +70,7 @@ from mlflow.environment_variables import (
 )
 from mlflow.exceptions import MlflowException
 from mlflow.prompt.constants import (
+    _CLIENT_PROMPT_SOURCE_PLACEHOLDER,
     IS_PROMPT_TAG_KEY,
     PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY,
     PROMPT_EXPERIMENT_IDS_TAG_KEY,
@@ -108,6 +113,7 @@ from mlflow.store.tracking import (
     SEARCH_MAX_RESULTS_DEFAULT,
     SEARCH_TRACES_DEFAULT_MAX_RESULTS,
 )
+from mlflow.store.tracking.mcp_server_registry.abstract_mixin import NOT_SET, MCPIcon
 from mlflow.tracing.client import TracingClient
 from mlflow.tracing.constant import TRACE_REQUEST_ID_PREFIX, TraceMetadataKey
 from mlflow.tracing.display import get_display_handler
@@ -125,10 +131,12 @@ from mlflow.tracking.artifact_utils import _upload_artifacts_to_databricks
 from mlflow.tracking.multimedia import Image, compress_image_size, convert_to_pil_image
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
 from mlflow.utils import is_uuid, workspace_utils
-from mlflow.utils.annotations import deprecated, deprecated_parameter, experimental
+from mlflow.utils.annotations import deprecated, deprecated_parameter
 from mlflow.utils.async_logging.run_operations import RunOperations
 from mlflow.utils.databricks_utils import (
     get_databricks_run_url,
+    get_workspace_id,
+    get_workspace_url,
     is_in_databricks_runtime,
 )
 from mlflow.utils.logging_utils import eprint
@@ -724,7 +732,7 @@ class MlflowClient:
                 Using PromptModelConfig provides validation and type safety.
 
         Returns:
-            A :py:class:`Prompt <mlflow.entities.Prompt>` object that was created.
+            A :py:class:`PromptVersion <mlflow.entities.PromptVersion>` object that was created.
         """
         registry_client = self._get_registry_client()
 
@@ -752,7 +760,9 @@ class MlflowClient:
                 model_config=model_config,
             )
 
-            return registry_client.get_prompt_version(name, str(prompt_version.version))
+            prompt_version = registry_client.get_prompt_version(name, str(prompt_version.version))
+            self._log_prompt_ui_link(name, prompt_version.version)
+            return prompt_version
 
         # OSS approach using RegisteredModel with special tags
         is_new_prompt = False
@@ -810,7 +820,7 @@ class MlflowClient:
             mv: ModelVersion = registry_client.create_model_version(
                 name=name,
                 description=commit_message,
-                source="dummy-source",  # Required field, but not used for prompts
+                source=_CLIENT_PROMPT_SOURCE_PLACEHOLDER,  # Required field, unused for prompts
                 tags=tags,
             )
         except Exception:
@@ -824,7 +834,7 @@ class MlflowClient:
         prompt_tags = registry_client.get_registered_model(name)._tags
 
         # Invalidate "latest" cache entry since we just created a new version
-        PromptCache.get_instance().delete(name, alias="latest")
+        PromptCache.get_instance().delete(name, alias="latest", registry_uri=self._registry_uri)
 
         prompt_version = model_version_to_prompt_version(mv, prompt_tags=prompt_tags)
 
@@ -835,6 +845,39 @@ class MlflowClient:
             self._link_prompt_to_experiment(prompt_version, experiment_id)
 
         return prompt_version
+
+    def _log_prompt_ui_link(self, name: str, version: int) -> None:
+        """Log the registered prompt in the active experiment's Prompts tab.
+
+        Emits an informational message only; never raises.
+        """
+        try:
+            workspace_url = get_workspace_url()
+            # Import here to avoid circular import.
+            from mlflow.tracking.fluent import _get_experiment_id
+
+            experiment_id = _get_experiment_id()
+            if not workspace_url or not experiment_id:
+                return
+            parts = name.split(".")
+            if len(parts) != 3:
+                return
+            workspace_id = get_workspace_id()
+            query = (
+                f"?o={workspace_id}&promptVersion={version}"
+                if workspace_id
+                else f"?promptVersion={version}"
+            )
+            _logger.info(
+                "Prompt registered. View in experiment Prompts tab: "
+                "%s/ml/experiments/%s/prompts/%s%s",
+                workspace_url.rstrip("/"),
+                experiment_id,
+                name,
+                query,
+            )
+        except Exception:
+            _logger.debug("Failed to log prompt UI link", exc_info=True)
 
     def _link_prompt_to_experiment(self, prompt_version: PromptVersion, experiment_id: str) -> None:
         """
@@ -878,6 +921,7 @@ class MlflowClient:
         filter_string: str | None = None,
         max_results: int = SEARCH_MAX_RESULTS_DEFAULT,
         page_token: str | None = None,
+        order_by: list[str] | None = None,
     ) -> PagedList[Prompt]:
         """
         Search for prompts in the MLflow Prompt Registry.
@@ -897,6 +941,9 @@ class MlflowClient:
             page_token (Optional[str]):
                 A pagination token from a previous `search_prompts` call; use this
                 to retrieve the next page of results.  Defaults to `None`.
+            order_by (Optional[list[str]]):
+                List of column names with ASC|DESC annotation to order the results by.
+                Not honored by Unity Catalog registries. Defaults to `None`.
 
         Returns:
             A pageable list of :py:class:`Prompt <mlflow.entities.Prompt>` objects
@@ -923,6 +970,9 @@ class MlflowClient:
                 # Get prompts by experiment
                 prompts = client.search_prompts(filter_string='experiment_id = "1"')
 
+                # Get prompts ordered by name
+                prompts = client.search_prompts(order_by=["name ASC"])
+
                 # Get specific version content
                 for prompt in prompts:
                     prompt_version = client.get_prompt_version(prompt.name, version="1")
@@ -936,6 +986,7 @@ class MlflowClient:
         return registry_client.search_prompts(
             filter_string=filter_string,
             max_results=max_results,
+            order_by=order_by,
             page_token=page_token,
         )
 
@@ -995,7 +1046,7 @@ class MlflowClient:
         # Check cache if cache_ttl_seconds > 0 (0 means no caching)
         if cache_ttl_seconds > 0:
             cache = PromptCache.get_instance()
-            cache_key = PromptCacheKey.from_uri(prompt_uri)
+            cache_key = PromptCacheKey.from_uri(prompt_uri, registry_uri=self._registry_uri)
             if cached_prompt := cache.get(cache_key):
                 return cached_prompt
 
@@ -1226,7 +1277,7 @@ class MlflowClient:
         self._get_registry_client().set_prompt_alias(name, alias, version)
 
         # Invalidate cache for this alias since it now points to a different version
-        PromptCache.get_instance().delete(name, alias=alias)
+        PromptCache.get_instance().delete(name, alias=alias, registry_uri=self._registry_uri)
 
     @require_prompt_registry
     @translate_prompt_exception
@@ -1241,7 +1292,7 @@ class MlflowClient:
         self._get_registry_client().delete_prompt_alias(name, alias)
 
         # Invalidate cache for this alias
-        PromptCache.get_instance().delete(name, alias=alias)
+        PromptCache.get_instance().delete(name, alias=alias, registry_uri=self._registry_uri)
 
     @require_prompt_registry
     @translate_prompt_exception
@@ -1257,7 +1308,7 @@ class MlflowClient:
         """
         self._get_registry_client().set_prompt_version_tag(name, version, key, value)
 
-        PromptCache.get_instance().delete_all(name)
+        PromptCache.get_instance().delete_all(name, registry_uri=self._registry_uri)
 
     @require_prompt_registry
     @translate_prompt_exception
@@ -1272,7 +1323,7 @@ class MlflowClient:
         """
         self._get_registry_client().delete_prompt_version_tag(name, version, key)
 
-        PromptCache.get_instance().delete_all(name)
+        PromptCache.get_instance().delete_all(name, registry_uri=self._registry_uri)
 
     def _validate_prompt(self, name: str, version: int):
         registry_client = self._get_registry_client()
@@ -2973,7 +3024,6 @@ class MlflowClient:
                     # Stringify objects that can't be JSON-serialized
                     json.dump(dictionary, f, indent=2, default=str)
 
-    @experimental(version="3.9.0")
     def log_stream(
         self, run_id: str, stream: io.BufferedIOBase | io.RawIOBase, artifact_file: str
     ) -> None:
@@ -5945,31 +5995,39 @@ class MlflowClient:
         _validate_model_id_specified(model_id)
         return self._tracking_client.delete_logged_model_tag(model_id, key)
 
-    def log_model_artifact(self, model_id: str, local_path: str) -> None:
+    def log_model_artifact(
+        self, model_id: str, local_path: str, artifact_path: str | None = None
+    ) -> None:
         """
         Upload an artifact to the specified logged model.
 
         Args:
             model_id: ID of the model.
             local_path: Local path to the artifact to upload.
+            artifact_path: If provided, the directory in the model's artifact
+                directory to write to.
 
         Returns:
             None
         """
-        return self._tracking_client.log_model_artifact(model_id, local_path)
+        return self._tracking_client.log_model_artifact(model_id, local_path, artifact_path)
 
-    def log_model_artifacts(self, model_id: str, local_dir: str) -> None:
+    def log_model_artifacts(
+        self, model_id: str, local_dir: str, artifact_path: str | None = None
+    ) -> None:
         """
         Upload a set of artifacts to the specified logged model.
 
         Args:
             model_id: ID of the model.
             local_dir: Local directory containing the artifacts to upload.
+            artifact_path: If provided, the directory in the model's artifact
+                directory to write to.
 
         Returns:
             None
         """
-        return self._tracking_client.log_model_artifacts(model_id, local_dir)
+        return self._tracking_client.log_model_artifacts(model_id, local_dir, artifact_path)
 
     def search_logged_models(
         self,
@@ -6217,7 +6275,7 @@ class MlflowClient:
         registry_client = self._get_registry_client()
         registry_client.delete_prompt_version(name, version)
 
-        PromptCache.get_instance().delete_all(name)
+        PromptCache.get_instance().delete_all(name, registry_uri=self._registry_uri)
 
     @require_prompt_registry
     @translate_prompt_exception
@@ -6383,7 +6441,7 @@ class MlflowClient:
         with _prompt_experiment_link_lock:
             # For non-Unity Catalog registries, or if version check passes, delete the prompt
             registry_client.delete_prompt(name)
-            PromptCache.get_instance().delete_all(name)
+            PromptCache.get_instance().delete_all(name, registry_uri=self._registry_uri)
             return
 
     @_disable_in_databricks()
@@ -6762,3 +6820,220 @@ class MlflowClient:
             WebhookTestResult indicating success/failure and response details.
         """
         return self._get_registry_client().test_webhook(webhook_id, event)
+
+    # ---------------------------------------------------------------------------
+    # MCP Server Registry
+    # ---------------------------------------------------------------------------
+
+    def create_mcp_server(
+        self,
+        name: str,
+        description: str | None = None,
+        icons: list[MCPIcon] | None = None,
+    ) -> MCPServer:
+        return self._tracking_client.store.create_mcp_server(
+            name=name,
+            description=description,
+            icons=icons,
+        )
+
+    def get_mcp_server(self, name: str) -> MCPServer:
+        return self._tracking_client.store.get_mcp_server(name=name)
+
+    def search_mcp_servers(
+        self,
+        filter_string: str | None = None,
+        max_results: int = SEARCH_MAX_RESULTS_DEFAULT,
+        order_by: list[str] | None = None,
+        page_token: str | None = None,
+    ) -> PagedList[MCPServer]:
+        return self._tracking_client.store.search_mcp_servers(
+            filter_string=filter_string,
+            max_results=max_results,
+            order_by=order_by,
+            page_token=page_token,
+        )
+
+    def update_mcp_server(
+        self,
+        name: str,
+        display_name: str | None = NOT_SET,
+        description: str | None = NOT_SET,
+        icons: list[MCPIcon] | None = NOT_SET,
+    ) -> MCPServer:
+        return self._tracking_client.store.update_mcp_server(
+            name=name,
+            display_name=display_name,
+            description=description,
+            icons=icons,
+        )
+
+    def delete_mcp_server(self, name: str) -> None:
+        self._tracking_client.store.delete_mcp_server(name=name)
+
+    def create_mcp_server_version(
+        self,
+        server_json: dict[str, Any],
+        source: str | None = None,
+        status: MCPStatus | None = None,
+        tools: list[MCPTool] | None = NOT_SET,
+        connect_options: dict[str, ConnectOptionSettings] | None = None,
+    ) -> MCPServerVersion:
+        from mlflow.genai.mcp_tool_discovery import resolve_tools_for_create
+
+        resolved_tools = resolve_tools_for_create(server_json=server_json, tools=tools)
+        return self._tracking_client.store.create_mcp_server_version(
+            server_json=server_json,
+            source=source,
+            status=status,
+            tools=resolved_tools,
+            connect_options=connect_options,
+        )
+
+    def get_mcp_server_version(self, name: str, version: str) -> MCPServerVersion:
+        return self._tracking_client.store.get_mcp_server_version(name=name, version=version)
+
+    def get_mcp_server_version_by_alias(self, name: str, alias: str) -> MCPServerVersion:
+        return self._tracking_client.store.get_mcp_server_version_by_alias(name=name, alias=alias)
+
+    def get_latest_mcp_server_version(self, name: str) -> MCPServerVersion:
+        return self._tracking_client.store.get_latest_mcp_server_version(name=name)
+
+    def search_mcp_server_versions(
+        self,
+        name: str,
+        filter_string: str | None = None,
+        max_results: int = SEARCH_MAX_RESULTS_DEFAULT,
+        order_by: list[str] | None = None,
+        page_token: str | None = None,
+    ) -> PagedList[MCPServerVersion]:
+        return self._tracking_client.store.search_mcp_server_versions(
+            name=name,
+            filter_string=filter_string,
+            max_results=max_results,
+            order_by=order_by,
+            page_token=page_token,
+        )
+
+    def update_mcp_server_version(
+        self,
+        name: str,
+        version: str,
+        status: MCPStatus | None = NOT_SET,
+        tools: list[MCPTool] | None = NOT_SET,
+        connect_options: dict[str, ConnectOptionSettings] | None = NOT_SET,
+    ) -> MCPServerVersion:
+        return self._tracking_client.store.update_mcp_server_version(
+            name=name,
+            version=version,
+            status=status,
+            tools=tools,
+            connect_options=connect_options,
+        )
+
+    def refresh_mcp_server_version_tools(
+        self,
+        name: str,
+        version: str,
+        mcp_server_access_headers: Mapping[str, str] | None = None,
+        dry_run: bool = False,
+    ) -> MCPServerVersion:
+        from mlflow.genai.mcp_tool_discovery import discover_tools_for_server_json
+
+        current = self.get_mcp_server_version(name=name, version=version)
+        discovered_tools = discover_tools_for_server_json(
+            server_json=current.server_json,
+            headers=mcp_server_access_headers,
+        )
+        if dry_run:
+            return replace(current, tools=discovered_tools)
+        return self.update_mcp_server_version(name=name, version=version, tools=discovered_tools)
+
+    def delete_mcp_server_version(self, name: str, version: str) -> None:
+        self._tracking_client.store.delete_mcp_server_version(name=name, version=version)
+
+    def create_mcp_access_endpoint(
+        self,
+        server_name: str,
+        url: str,
+        transport_type: MCPRemoteTransportType = MCPRemoteTransportType.STREAMABLE_HTTP,
+        server_version: str | None = None,
+        server_alias: str | None = None,
+    ) -> MCPAccessEndpoint:
+        return self._tracking_client.store.create_mcp_access_endpoint(
+            server_name=server_name,
+            url=url,
+            transport_type=transport_type,
+            server_version=server_version,
+            server_alias=server_alias,
+        )
+
+    def get_mcp_access_endpoint(self, server_name: str, endpoint_id: str) -> MCPAccessEndpoint:
+        return self._tracking_client.store.get_mcp_access_endpoint(
+            server_name=server_name, endpoint_id=endpoint_id
+        )
+
+    def search_mcp_access_endpoints(
+        self,
+        server_name: str | None = None,
+        server_version: str | None = None,
+        server_alias: str | None = None,
+        filter_string: str | None = None,
+        max_results: int = SEARCH_MAX_RESULTS_DEFAULT,
+        order_by: list[str] | None = None,
+        page_token: str | None = None,
+    ) -> PagedList[MCPAccessEndpoint]:
+        return self._tracking_client.store.search_mcp_access_endpoints(
+            server_name=server_name,
+            server_version=server_version,
+            server_alias=server_alias,
+            filter_string=filter_string,
+            max_results=max_results,
+            order_by=order_by,
+            page_token=page_token,
+        )
+
+    def update_mcp_access_endpoint(
+        self,
+        server_name: str,
+        endpoint_id: str,
+        url: str | None = NOT_SET,
+        transport_type: MCPRemoteTransportType | None = NOT_SET,
+        server_version: str | None = NOT_SET,
+        server_alias: str | None = NOT_SET,
+    ) -> MCPAccessEndpoint:
+        return self._tracking_client.store.update_mcp_access_endpoint(
+            server_name=server_name,
+            endpoint_id=endpoint_id,
+            url=url,
+            transport_type=transport_type,
+            server_version=server_version,
+            server_alias=server_alias,
+        )
+
+    def delete_mcp_access_endpoint(self, server_name: str, endpoint_id: str) -> None:
+        self._tracking_client.store.delete_mcp_access_endpoint(
+            server_name=server_name, endpoint_id=endpoint_id
+        )
+
+    def set_mcp_server_tag(self, name: str, key: str, value: str) -> None:
+        self._tracking_client.store.set_mcp_server_tag(name=name, key=key, value=value)
+
+    def delete_mcp_server_tag(self, name: str, key: str) -> None:
+        self._tracking_client.store.delete_mcp_server_tag(name=name, key=key)
+
+    def set_mcp_server_version_tag(self, name: str, version: str, key: str, value: str) -> None:
+        self._tracking_client.store.set_mcp_server_version_tag(
+            name=name, version=version, key=key, value=value
+        )
+
+    def delete_mcp_server_version_tag(self, name: str, version: str, key: str) -> None:
+        self._tracking_client.store.delete_mcp_server_version_tag(
+            name=name, version=version, key=key
+        )
+
+    def set_mcp_server_alias(self, name: str, alias: str, version: str) -> None:
+        self._tracking_client.store.set_mcp_server_alias(name=name, alias=alias, version=version)
+
+    def delete_mcp_server_alias(self, name: str, alias: str) -> None:
+        self._tracking_client.store.delete_mcp_server_alias(name=name, alias=alias)

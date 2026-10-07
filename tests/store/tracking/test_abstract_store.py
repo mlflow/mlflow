@@ -1,3 +1,4 @@
+import threading
 from abc import ABC
 from unittest import mock
 from unittest.mock import patch
@@ -40,6 +41,33 @@ def test_supports_workspaces_defaults_to_false(store):
 
 def test_supports_trace_archival_defaults_to_false(store):
     assert store.supports_trace_archival is False
+
+
+class _SyncOnlySpanStore(AbstractStore, ABC):
+    """Tracking store that implements ``log_spans`` but not ``log_spans_async``."""
+
+    def __init__(self):
+        super().__init__()
+        self.calls = []
+        self.worker_idents = []
+
+    def log_spans(self, location, spans, tracking_uri=None):
+        self.worker_idents.append(threading.get_ident())
+        self.calls.append((location, list(spans)))
+        return spans
+
+
+@pytest.mark.asyncio
+async def test_log_spans_async_defaults_to_offloading_log_spans():
+    with patch.multiple(_SyncOnlySpanStore, __abstractmethods__=set()):
+        store = _SyncOnlySpanStore()
+        event_loop_ident = threading.get_ident()
+        result = await store.log_spans_async("exp-1", [])
+
+    assert result == []
+    assert store.calls == [("exp-1", [])]
+    assert store.worker_idents
+    assert store.worker_idents[0] != event_loop_ident
 
 
 def test_get_metric_history_bulk_interval_empty_run_ids(store):
@@ -255,6 +283,34 @@ def test_get_sampled_steps_from_steps(start_step, end_step, max_results, steps, 
 
     actual_steps = {metric.step for metric in metrics}
     assert actual_steps == expected
+
+
+def test_get_metric_history_bulk_interval_same_step_is_bounded(store):
+    # Many values logged under a single step (the default step=0) must not return every row.
+    max_results = 10
+    store.metrics = [Metric("accuracy", float(i), 1000 + i, 0, run_id="run1") for i in range(1000)]
+
+    result = store.get_metric_history_bulk_interval(["run1"], "accuracy", max_results, None, None)
+
+    assert len(result) <= max_results
+    assert result[0].value == 0.0
+
+
+def test_get_metric_history_bulk_interval_is_not_biased_to_early_steps(store):
+    # A step holding many values must not crowd out later sampled steps. The per-run rows used to
+    # be truncated with [:max_results] after sorting ascending, so the 100 rows at step 0 consumed
+    # the whole budget and the end boundary (step 9) was dropped.
+    store.metrics = [Metric("accuracy", float(i), 1000 + i, 0, run_id="run1") for i in range(100)]
+    store.metrics += [
+        Metric("accuracy", float(s), 2000 + s, s, run_id="run1") for s in range(1, 10)
+    ]
+
+    result = store.get_metric_history_bulk_interval(["run1"], "accuracy", 5, None, None)
+
+    result_steps = {m.step for m in result}
+    assert max(result_steps) == 9
+    assert len(result_steps) > 1
+    assert len(result) <= 6
 
 
 # Tests for get_metric_history_bulk_interval_from_steps

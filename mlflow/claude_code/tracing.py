@@ -128,6 +128,10 @@ def is_tracing_enabled() -> bool:
     return get_env_var(MLFLOW_TRACING_ENABLED).lower() in ("true", "1", "yes")
 
 
+def _get_current_user() -> str:
+    return os.environ.get("USER", "") or os.environ.get("USERNAME", "")
+
+
 # ============================================================================
 # INPUT/OUTPUT UTILITIES
 # ============================================================================
@@ -386,12 +390,10 @@ def _get_input_messages(transcript: list[dict[str, Any]], current_idx: int) -> l
 def _build_usage_dict(usage: dict[str, Any]) -> dict[str, int]:
     """Normalize a Claude Code usage payload into the CHAT_USAGE schema.
 
-    Stores fields as the Anthropic API reports them, matching
-    ``mlflow.anthropic.autolog``: ``input_tokens`` is the non-cached input,
-    cache tokens are exposed as separate optional keys so consumers can
-    compute cache hit rate, and ``total_tokens`` follows the
-    ``mlflow.anthropic`` convention of ``input_tokens + output_tokens``
-    (cache tokens excluded).
+    Includes cache-read and cache-creation tokens in ``input_tokens`` and
+    ``total_tokens``, matching ``mlflow.anthropic.autolog`` and cost calculation.
+    Cache tokens are also exposed as separate optional keys so consumers can
+    compute cache hit rate.
     """
     input_tokens = usage.get("input_tokens", 0)
     output_tokens = usage.get("output_tokens", 0)
@@ -405,6 +407,10 @@ def _build_usage_dict(usage: dict[str, Any]) -> dict[str, int]:
         usage_dict[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = cached
     if (created := usage.get("cache_creation_input_tokens")) is not None:
         usage_dict[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS] = created
+    # Anthropic reports input_tokens excluding cache tokens.
+    if cache_total := (cached or 0) + (created or 0):
+        usage_dict[TokenUsageKey.INPUT_TOKENS] += cache_total
+        usage_dict[TokenUsageKey.TOTAL_TOKENS] += cache_total
     return usage_dict
 
 
@@ -520,7 +526,7 @@ def _finalize_trace(
                 in_memory_trace.info.response_preview = final_response[:MAX_PREVIEW_LENGTH]
 
             metadata = {
-                TraceMetadataKey.TRACE_USER: os.environ.get("USER", ""),
+                TraceMetadataKey.TRACE_USER: _get_current_user(),
                 "mlflow.trace.working_directory": os.getcwd(),
             }
             if session_id:

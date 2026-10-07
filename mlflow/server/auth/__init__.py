@@ -4,20 +4,25 @@ Usage
 
 .. code-block:: bash
 
+    export MLFLOW_AUTH_ADMIN_PASSWORD="<strong-password>"  # required on first start
     mlflow server --app-name basic-auth
 """
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import functools
 import hmac
 import importlib
 import json
 import logging
+import os
 import re
 import secrets
 import threading
+import urllib.parse
+from collections.abc import Sequence
 from dataclasses import asdict, dataclass
 from http import HTTPStatus
 from typing import Any, Awaitable, Callable
@@ -26,18 +31,22 @@ import sqlalchemy
 from cachetools import TTLCache
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse, PlainTextResponse
+from fastapi.responses import Response as FilteredResponse
 from flask import (
     Flask,
     Request,
     Response,
     flash,
     g,
+    has_request_context,
     jsonify,
     make_response,
     render_template_string,
     request,
 )
 from starlette.requests import Request as StarletteRequest
+from starlette.responses import Response as StarletteResponse
+from starlette.routing import BaseRoute, Match, Mount
 from werkzeug.datastructures import Authorization
 
 from mlflow import MlflowException
@@ -45,8 +54,13 @@ from mlflow.entities import Experiment
 from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.model_registry import RegisteredModel
 from mlflow.environment_variables import (
+    _MLFLOW_AUTH_ADMIN_BOOTSTRAPPED,
     _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN,
     _MLFLOW_SGI_NAME,
+    MLFLOW_AUTH_ADMIN_PASSWORD,
+    MLFLOW_AUTH_ADMIN_USERNAME,
+    MLFLOW_AUTH_CONFIG_PATH,
+    MLFLOW_BASIC_AUTH_FAIL_CLOSED,
     MLFLOW_ENABLE_WORKSPACES,
     MLFLOW_FLASK_SERVER_SECRET_KEY,
     MLFLOW_RBAC_SEED_DEFAULT_ROLES,
@@ -57,8 +71,15 @@ from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
     INTERNAL_ERROR,
     INVALID_PARAMETER_VALUE,
+    RESOURCE_ALREADY_EXISTS,
     RESOURCE_DOES_NOT_EXIST,
     ErrorCode,
+)
+from mlflow.protos.issues_pb2 import (
+    CreateIssue,
+    GetIssue,
+    SearchIssues,
+    UpdateIssue,
 )
 from mlflow.protos.label_schemas_pb2 import (
     CreateLabelSchema,
@@ -105,29 +126,39 @@ from mlflow.protos.review_queues_pb2 import (
     UpdateReviewQueue,
 )
 from mlflow.protos.service_pb2 import (
+    AddDatasetToExperiments,
+    AddGuardrailToEndpoint,
     AttachModelToGatewayEndpoint,
     BatchGetTraceInfos,
     BatchGetTraces,
     CalculateTraceFilterCorrelation,
     CancelPromptOptimizationJob,
     CreateAssessment,
+    CreateDataset,
     CreateExperiment,
     CreateGatewayBudgetPolicy,
     CreateGatewayEndpoint,
     CreateGatewayEndpointBinding,
+    CreateGatewayGuardrail,
     CreateGatewayModelDefinition,
     CreateGatewaySecret,
     CreateLoggedModel,
+    CreatePresignedDownloadUrl,
+    CreatePresignedUploadUrl,
     CreatePromptOptimizationJob,
     CreateRun,
     CreateWorkspace,
     DeleteAssessment,
+    DeleteDataset,
+    DeleteDatasetRecords,
+    DeleteDatasetTag,
     DeleteExperiment,
     DeleteExperimentTag,
     DeleteGatewayBudgetPolicy,
     DeleteGatewayEndpoint,
     DeleteGatewayEndpointBinding,
     DeleteGatewayEndpointTag,
+    DeleteGatewayGuardrail,
     DeleteGatewayModelDefinition,
     DeleteGatewaySecret,
     DeleteLoggedModel,
@@ -144,10 +175,15 @@ from mlflow.protos.service_pb2 import (
     DetachModelFromGatewayEndpoint,
     EndTrace,
     FinalizeLoggedModel,
+    GatewayEndpointModelConfig,
     GetAssessmentRequest,
+    GetDataset,
+    GetDatasetExperimentIds,
+    GetDatasetRecords,
     GetExperiment,
     GetExperimentByName,
     GetGatewayEndpoint,
+    GetGatewayGuardrail,
     GetGatewayModelDefinition,
     GetGatewaySecretInfo,
     GetLoggedModel,
@@ -162,7 +198,9 @@ from mlflow.protos.service_pb2 import (
     LinkPromptsToTrace,
     LinkTracesToRun,
     ListArtifacts,
+    ListEndpointGuardrailConfigs,
     ListGatewayEndpointBindings,
+    ListGatewayGuardrails,
     ListLoggedModelArtifacts,
     ListScorers,
     ListScorerVersions,
@@ -174,15 +212,21 @@ from mlflow.protos.service_pb2 import (
     LogModel,
     LogOutputs,
     LogParam,
+    MetricViewType,
     QueryTraceMetrics,
     RegisterScorer,
+    RemoveDatasetFromExperiments,
+    RemoveGuardrailFromEndpoint,
     RestoreExperiment,
     RestoreRun,
+    SearchEvaluationDatasets,
     SearchExperiments,
     SearchLoggedModels,
     SearchPromptOptimizationJobs,
+    SearchRuns,
     SearchTraces,
     SearchTracesV3,
+    SetDatasetTags,
     SetExperimentTag,
     SetGatewayEndpointTag,
     SetLoggedModelTags,
@@ -192,6 +236,7 @@ from mlflow.protos.service_pb2 import (
     StartTrace,
     StartTraceV3,
     UpdateAssessment,
+    UpdateEndpointGuardrailConfig,
     UpdateExperiment,
     UpdateGatewayBudgetPolicy,
     UpdateGatewayEndpoint,
@@ -199,12 +244,16 @@ from mlflow.protos.service_pb2 import (
     UpdateGatewaySecret,
     UpdateRun,
     UpdateWorkspace,
+    UpsertDatasetRecords,
 )
 from mlflow.protos.service_pb2 import (
     GetGatewayBudgetPolicy as GetGatewayBudgetPolicy,
 )
 from mlflow.protos.service_pb2 import (
     ListGatewayBudgetPolicies as ListGatewayBudgetPolicies,
+)
+from mlflow.protos.service_pb2 import (
+    ListGatewayBudgetWindows as ListGatewayBudgetWindows,
 )
 from mlflow.protos.service_pb2 import (
     ListGatewayEndpoints as ListGatewayEndpoints,
@@ -230,22 +279,56 @@ from mlflow.server.auth.config import DEFAULT_AUTHORIZATION_FUNCTION, read_auth_
 from mlflow.server.auth.entities import GetUserPermissionResult, User
 from mlflow.server.auth.logo import MLFLOW_LOGO
 from mlflow.server.auth.permissions import (
+    DENY as DENY,
+)
+from mlflow.server.auth.permissions import (
     MANAGE,
     NO_PERMISSIONS,
+    RESOURCE_TYPE_ASSESSMENT,
     RESOURCE_TYPE_EXPERIMENT,
     RESOURCE_TYPE_GATEWAY_ENDPOINT,
     RESOURCE_TYPE_GATEWAY_MODEL_DEFINITION,
     RESOURCE_TYPE_GATEWAY_SECRET,
+    RESOURCE_TYPE_LOGGED_MODEL,
+    RESOURCE_TYPE_MCP_SERVER,
+    RESOURCE_TYPE_MCP_SERVER_VERSION,
+    RESOURCE_TYPE_PROMPT,
+    RESOURCE_TYPE_PROMPT_VERSION,
     RESOURCE_TYPE_REGISTERED_MODEL,
+    RESOURCE_TYPE_REGISTERED_MODEL_VERSION,
+    RESOURCE_TYPE_REVIEW_QUEUE,
+    RESOURCE_TYPE_RUN,
     RESOURCE_TYPE_SCORER,
+    RESOURCE_TYPE_SCORER_VERSION,
+    RESOURCE_TYPE_TRACE,
     RESOURCE_TYPE_WORKSPACE,
     USE,
+    GrantLoadKey,
     Permission,
     _validate_resource_type,
     get_permission,
 )
 from mlflow.server.auth.permissions import (
+    matches as matches,
+)
+from mlflow.server.auth.permissions import (
     max_permission as max_permission,
+)
+from mlflow.server.auth.requirements import (
+    ACTION_NOT_DENIED,
+    Requirement,
+    action_met,
+    floor_positive_permission,
+    fold_grants_for_key,
+    governing_permission_and_action,
+    is_workspace_admin_grant,
+    requirement_met,
+    requirement_satisfied,
+    requirement_to_grant_load_keys,
+    requirements_to_grant_load_keys,
+)
+from mlflow.server.auth.requirements import (
+    requirement_to_grant_load_keys as requirement_to_grant_load_keys,
 )
 from mlflow.server.auth.routes import (
     ADD_ROLE_PERMISSION,
@@ -267,6 +350,8 @@ from mlflow.server.auth.routes import (
     AJAX_LIST_USER_PERMISSIONS,
     AJAX_LIST_USER_ROLES,
     AJAX_LIST_USERS,
+    AJAX_ONLINE_SCORING_CONFIG,
+    AJAX_ONLINE_SCORING_CONFIGS,
     AJAX_REMOVE_ROLE_PERMISSION,
     AJAX_REVOKE_USER_PERMISSION,
     AJAX_UNASSIGN_ROLE,
@@ -281,6 +366,8 @@ from mlflow.server.auth.routes import (
     CREATE_USER_UI,
     DELETE_ROLE,
     DELETE_USER,
+    DEMO_DELETE,
+    DEMO_GENERATE,
     GATEWAY_PROVIDER_CONFIG,
     GATEWAY_PROXY,
     GATEWAY_SECRETS_CONFIG,
@@ -290,6 +377,7 @@ from mlflow.server.auth.routes import (
     GET_CURRENT_USER,
     GET_METRIC_HISTORY_BULK,
     GET_METRIC_HISTORY_BULK_INTERVAL,
+    GET_METRIC_HISTORY_BULK_INTERVAL_REST,
     GET_MODEL_VERSION_ARTIFACT,
     GET_ROLE,
     GET_TRACE_ARTIFACT,
@@ -298,7 +386,11 @@ from mlflow.server.auth.routes import (
     GET_USER_PERMISSION,
     GRANT_USER_PERMISSION,
     HOME,
+    INVOKE_GENAI_EVALUATE,
+    INVOKE_ISSUE_DETECTION,
     INVOKE_SCORER,
+    JOB_CANCEL,
+    JOB_GET,
     LIST_CURRENT_USER_PERMISSIONS,
     LIST_ROLE_PERMISSIONS,
     LIST_ROLE_USERS,
@@ -306,10 +398,14 @@ from mlflow.server.auth.routes import (
     LIST_USER_PERMISSIONS,
     LIST_USER_ROLES,
     LIST_USERS,
+    ONLINE_SCORING_CONFIG,
+    ONLINE_SCORING_CONFIGS,
     REMOVE_ROLE_PERMISSION,
     REVOKE_USER_PERMISSION,
     SEARCH_DATASETS,
+    SERVER_VERSION,
     SIGNUP,
+    UI_TELEMETRY,
     UNASSIGN_ROLE,
     UPDATE_ROLE,
     UPDATE_ROLE_PERMISSION,
@@ -317,14 +413,21 @@ from mlflow.server.auth.routes import (
     UPDATE_USER_PASSWORD,
     UPLOAD_ARTIFACT,
 )
+from mlflow.server.auth.sqlalchemy_store import RoleGrantRow as RoleGrantRow
 from mlflow.server.auth.sqlalchemy_store import SqlAlchemyStore
 from mlflow.server.fastapi_app import create_fastapi_app
+from mlflow.server.gateway_api import list_models as _list_gateway_models_endpoint
 from mlflow.server.handlers import (
+    STATIC_PREFIX_ENV_VAR,
     _add_static_prefix,
+    _assert_array,
+    _assert_item_type_string,
     _get_ajax_path,
     _get_model_registry_store,
+    _get_normalized_request_json,
     _get_request_message,
     _get_tracking_store,
+    _get_validated_flask_request_json,
     catch_mlflow_exception,
     get_endpoints,
     get_service_endpoints,
@@ -332,18 +435,52 @@ from mlflow.server.handlers import (
 from mlflow.server.handlers import (
     _disable_if_workspaces_disabled as _disable_if_workspaces_disabled,
 )
+from mlflow.server.job_api import search_jobs as _search_jobs_endpoint
 from mlflow.server.jobs import get_job
+from mlflow.server.mcp_server_api import (
+    MCPAccessEndpointResponse,
+    MCPServerResponse,
+    get_mcp_server_api_route_prefixes,
+    is_mcp_server_api_path,
+)
+from mlflow.server.mcp_server_api import (
+    create_mcp_access_endpoint as _create_mcp_access_endpoint_endpoint,
+)
+from mlflow.server.mcp_server_api import (
+    get_mcp_access_endpoint as _get_mcp_access_endpoint_endpoint,
+)
+from mlflow.server.mcp_server_api import (
+    get_mcp_server as _get_mcp_server_endpoint,
+)
+from mlflow.server.mcp_server_api import (
+    search_all_access_endpoints as _search_all_access_endpoints_endpoint,
+)
+from mlflow.server.mcp_server_api import (
+    search_mcp_servers as _search_mcp_servers_endpoint,
+)
+from mlflow.server.mcp_server_api import (
+    search_server_access_endpoints as _search_server_access_endpoints_endpoint,
+)
+from mlflow.server.mcp_server_api import (
+    update_mcp_access_endpoint as _update_mcp_access_endpoint_endpoint,
+)
+from mlflow.server.mcp_server_api import (
+    update_mcp_server as _update_mcp_server_endpoint,
+)
 from mlflow.server.workspace_helpers import (
     WORKSPACE_HEADER_NAME,
     _get_workspace_store,
     resolve_workspace_for_request_if_enabled,
 )
+from mlflow.store.artifact.utils.models import _parse_model_uri
 from mlflow.store.entities import PagedList
 from mlflow.store.workspace.utils import get_default_workspace_optional
 from mlflow.utils import workspace_context
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.rest_utils import _REST_API_PATH_PREFIX
 from mlflow.utils.search_utils import SearchUtils
+from mlflow.utils.uri import is_models_uri, validate_path_is_safe
+from mlflow.utils.validation import _validate_password
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 try:
@@ -413,9 +550,10 @@ def _authenticate_cached(username: str, password: str) -> User | None:
         if not store.authenticate_user(username, password):
             return None
         try:
-            return store.get_user(username)
+            user = store.get_user(username)
         except MlflowException:
             return None
+        return None if _is_disabled_legacy_admin_login(username, password, user) else user
 
     key = _auth_cache_key(username, password)
     with _USER_AUTH_CACHE_LOCK:
@@ -432,6 +570,9 @@ def _authenticate_cached(username: str, password: str) -> User | None:
     except MlflowException:
         # User was deleted between authenticate_user and get_user — treat as auth
         # failure and don't cache anything.
+        return None
+    if _is_disabled_legacy_admin_login(username, password, user):
+        # A rejected credential must not be cached as valid either.
         return None
     with _USER_AUTH_CACHE_LOCK:
         _USER_AUTH_CACHE[key] = user
@@ -460,7 +601,12 @@ def is_unprotected_route(path: str) -> bool:
     # both the unprefixed and the prefixed forms so health checks don't end
     # up requiring auth on prefixed deployments.
     prefixed = tuple(_add_static_prefix(p) for p in _UNPROTECTED_PATH_PREFIXES)
-    return path.startswith(_UNPROTECTED_PATH_PREFIXES) or path.startswith(prefixed)
+    if path.startswith(_UNPROTECTED_PATH_PREFIXES) or path.startswith(prefixed):
+        return True
+    # Server-info is public, including on a basic-auth server, so a client can read
+    # how the server is configured before logging in. Keep the payload free of
+    # secrets; see build_server_info_payload.
+    return _matches_route_suffix(_strip_static_prefix(path), _PUBLIC_ROUTE_SUFFIXES)
 
 
 def make_basic_auth_response() -> Response:
@@ -558,30 +704,34 @@ def _get_role_permission_or_default(
 ) -> Permission:
     """Fold the role-derived permission against ``default_permission`` as a floor.
 
-    ``NO_PERMISSIONS`` is preserved rather than max'd against ``default_permission``
-    — it's the resolver's "user has no presence in this workspace" signal (no role
-    matches in the resource's workspace and it isn't an autograted default workspace).
-    That's the only place the workspace boundary lives in this chain; lifting it via
-    the floor would silently leak ``default_permission`` (e.g. READ) into every
-    workspace the user has no role in. ``None`` (workspaces disabled, no grant) still
-    falls through to ``default_permission`` as the safety net.
+    The floor applies only to a POSITIVE grant. ``DENY`` and ``NO_PERMISSIONS`` are returned
+    as they are, via the same ``floor_positive_permission`` the requirement model uses, so one
+    rule governs both paths:
+
+    * ``DENY`` is an explicit veto. ``max_permission`` would discard it outright --
+      ``PERMISSION_PRIORITY[DENY]`` is -1, so ``max(DENY, READ)`` is ``READ`` and the veto
+      silently became the default.
+    * ``NO_PERMISSIONS`` is the resolver's "user has no presence in this workspace" signal
+      (no role matched in the resource's workspace, and it isn't an autogranted default
+      workspace). That is the only place the workspace boundary lives in this chain; lifting
+      it via the floor would leak ``default_permission`` into every workspace the user has no
+      role in.
+
+    ``None`` (workspaces disabled, no grant matched) still falls through to
+    ``default_permission`` as the safety net.
     """
     perm = role_permission_func()
-    default = get_permission(auth_config.default_permission)
     if perm is None:
-        # Workspaces disabled, no grant matched.
-        return default
-    if perm.name == NO_PERMISSIONS.name:
-        # Workspace-boundary deny — see docstring.
-        return perm
-    return get_permission(max_permission(perm.name, default.name))
+        return get_permission(auth_config.default_permission)
+    return floor_positive_permission(perm, auth_config.default_permission)
 
 
-def _user_can_create_in_workspace() -> bool:
+def _can_create_in_workspace(username: str) -> bool:
     """
-    True if the current request can create new resources in the request's
-    workspace. Always allows when workspaces are disabled. Otherwise requires
-    a workspace-wide grant whose level has ``can_use`` (i.e. USE or MANAGE under
+    True if *username* can create new resources in the request's workspace.
+
+    Always allows when workspaces are disabled. Otherwise requires a
+    workspace-wide grant whose level has ``can_use`` (i.e. USE or MANAGE under
     the simplified two-tier workspace model). Resource-specific grants don't
     confer create rights — only workspace-wide grants do.
 
@@ -601,13 +751,17 @@ def _user_can_create_in_workspace() -> bool:
     if workspace_name is None:
         return False
 
-    user = store.get_user(authenticate_request().username)
-    perm = store.get_role_permission_for_resource(user.id, "workspace", "*", workspace_name)
+    user = store.get_user(username)
+    perm = _role_grant_for_resource(user.id, "workspace", "*", workspace_name)
     if perm is not None and perm.can_use:
         return True
     if perm is None and _user_inherits_default_workspace_grant(workspace_name):
         return get_permission(auth_config.default_permission).can_use
     return False
+
+
+def _user_can_create_in_workspace() -> bool:
+    return _can_create_in_workspace(authenticate_request().username)
 
 
 def _get_resource_workspace(
@@ -663,10 +817,207 @@ def _get_resource_workspace(
     return workspace_name
 
 
+_WORKSPACE_FETCHER: "dict[str, tuple[str, Callable[[], Callable[[str], Any]]]]" = {
+    RESOURCE_TYPE_EXPERIMENT: ("experiment", lambda: _get_tracking_store().get_experiment),
+    # A prompt IS a registered model (distinguished by a tag), so both read the same store
+    # and share its cache label.
+    RESOURCE_TYPE_REGISTERED_MODEL: (
+        "registered_model",
+        lambda: _get_model_registry_store().get_registered_model,
+    ),
+    RESOURCE_TYPE_PROMPT: (
+        "registered_model",
+        lambda: _get_model_registry_store().get_registered_model,
+    ),
+    RESOURCE_TYPE_MCP_SERVER: ("mcp server", lambda: _get_tracking_store().get_mcp_server),
+}
+
+
+def get_anchor_workspace(resource_type: str, resource_id: str) -> str | None:
+    """The workspace an operation's grants are resolved in, read from its anchor resource."""
+    if not MLFLOW_ENABLE_WORKSPACES.get():
+        # Every resource lives in the default workspace, which is where grants are stored.
+        # Skipping the tracking-store lookup keeps an artifacts-only server working.
+        return DEFAULT_WORKSPACE_NAME
+    if resource_type == RESOURCE_TYPE_WORKSPACE:
+        # The anchor IS the workspace, for a create whose parent does not exist yet.
+        return workspace_context.get_request_workspace()
+    entry = _WORKSPACE_FETCHER.get(resource_type)
+    if entry is None:
+        return None
+    label, fetcher_factory = entry
+    return _get_resource_workspace(resource_id, fetcher_factory(), label)
+
+
+def _absent_permission(workspace_name: str) -> Permission:
+    # With workspaces enabled an absent grant is a denial unless the operator opted into
+    # grant_default_workspace_access, so a resource-not-found never becomes a default grant.
+    default_applies = not MLFLOW_ENABLE_WORKSPACES.get() or _user_inherits_default_workspace_grant(
+        workspace_name
+    )
+    return get_permission(auth_config.default_permission) if default_applies else NO_PERMISSIONS
+
+
+def resolve_permissions(
+    username: str, workspace_name: str, keys: "Sequence[GrantLoadKey]"
+) -> "list[Permission | None]":
+    """The permission at each key, from ONE store query. ``None`` means no grant there."""
+    grants = store.list_grants(
+        store.get_user(username).id, workspace_name, {key.resource_type for key in keys}
+    )
+    if any(is_workspace_admin_grant(grant) for grant in grants):
+        # Admins are not restrictable, so this precedes every other rule including DENY.
+        return [MANAGE] * len(keys)
+    return [fold_grants_for_key(grants, key) for key in keys]
+
+
+def _resolve_requirement_decisions(
+    username: str, anchor: "tuple[str, str]", requirements: "Sequence[Requirement]"
+) -> "list[tuple[Permission, str]] | None":
+    """
+    The governing permission AND the action it must satisfy, per requirement, from one grants
+    query in the anchor's workspace. ``None`` when the anchor workspace cannot be resolved.
+
+    The action travels with the permission because a fallback rung may carry a different action
+    from the requirement's own key, so the permission alone no longer says what to check.
+    """
+    workspace_name = get_anchor_workspace(*anchor)
+    if workspace_name is None:
+        return None
+    keys = requirements_to_grant_load_keys(requirements)
+    permissions = dict(zip(keys, resolve_permissions(username, workspace_name, keys)))
+    absent = _absent_permission(workspace_name)
+    return [
+        governing_permission_and_action(
+            requirement, permissions, auth_config.default_permission, absent
+        )
+        for requirement in requirements
+    ]
+
+
+def resolve_requirements(
+    username: str, anchor: "tuple[str, str]", requirements: "Sequence[Requirement]"
+) -> "list[Permission] | None":
+    """
+    The permission that governs each requirement, from one grants query in the anchor's
+    workspace. ``None`` when the anchor workspace cannot be resolved (callers deny).
+    """
+    decisions = _resolve_requirement_decisions(username, anchor, requirements)
+    if decisions is None:
+        return None
+    return [permission for permission, _action in decisions]
+
+
+def authorize(
+    username: str, anchor: "tuple[str, str]", requirements: "Sequence[Requirement]"
+) -> bool:
+    """Allow only if EVERY requirement is met by the permission that governs it."""
+    decisions = _resolve_requirement_decisions(username, anchor, requirements)
+    if decisions is None:
+        return False
+    return all(action_met(action, permission) for permission, action in decisions)
+
+
+class RetentionGate:
+    """Which resources a response may retain, decided on demand from ONE grants load.
+
+    Built from requirement TEMPLATES, one per resource type. ``retains(type)`` uses the
+    template's own id, which is the whole answer for a wildcard-only tier; ``retains(type, id)``
+    substitutes a per-row id. Decisions and folds memoize, so a listing that repeats a resource
+    resolves it once.
+
+    Asking about a type no template covered raises: its grants were never loaded, so any answer
+    would be a guess, and a mistyped type silently redacting a response is worse than a loud
+    failure.
+    """
+
+    def __init__(
+        self,
+        templates: "dict[str, Requirement]",
+        grants: "Sequence[Any]",
+        default_permission: str,
+        absent: Permission,
+        always: "bool | None" = None,
+    ) -> None:
+        self._templates = templates
+        self._grants = grants
+        self._default_permission = default_permission
+        self._absent = absent
+        self._always = always
+        self._decided: dict[tuple[str, str], bool] = {}
+        self._folded: dict[GrantLoadKey, Permission | None] = {}
+
+    def retains(self, resource_type: str, resource_id: "str | None" = None) -> bool:
+        template = self._templates.get(resource_type)
+        if template is None:
+            raise KeyError(
+                f"No requirement template for {resource_type!r}. Pass one to retention_gate. "
+                f"Declared: {sorted(self._templates)}"
+            )
+        if self._always is not None:
+            return self._always
+        requirement = (
+            template if resource_id is None else template._replace(resource_id=resource_id)
+        )
+        cache_key = (requirement.resource_type, requirement.resource_id)
+        decided = self._decided.get(cache_key)
+        if decided is None:
+            permissions = {
+                key: self._fold(key) for key in requirement_to_grant_load_keys(requirement)
+            }
+            decided = requirement_satisfied(
+                requirement, permissions, self._default_permission, self._absent
+            )
+            self._decided[cache_key] = decided
+        return decided
+
+    def _fold(self, key: GrantLoadKey) -> "Permission | None":
+        if key not in self._folded:
+            self._folded[key] = fold_grants_for_key(self._grants, key)
+        return self._folded[key]
+
+
+def retention_gate(
+    username: str, anchor: "tuple[str, str]", templates: "Sequence[Requirement]"
+) -> RetentionGate:
+    """A ``RetentionGate`` over ``templates``, from one grants query in the anchor's workspace."""
+    by_type: dict[str, Requirement] = {}
+    for template in templates:
+        if template.resource_type in by_type:
+            raise ValueError(
+                f"Two requirement templates for {template.resource_type!r}; retains() could not "
+                f"tell them apart"
+            )
+        by_type[template.resource_type] = template
+
+    workspace_name = get_anchor_workspace(*anchor)
+    if workspace_name is None:
+        return RetentionGate(by_type, (), auth_config.default_permission, NO_PERMISSIONS, False)
+    grants = store.list_grants(
+        store.get_user(username).id,
+        workspace_name,
+        {key.resource_type for key in requirements_to_grant_load_keys(templates)},
+    )
+    if any(is_workspace_admin_grant(grant) for grant in grants):
+        return RetentionGate(by_type, grants, auth_config.default_permission, NO_PERMISSIONS, True)
+    return RetentionGate(
+        by_type, grants, auth_config.default_permission, _absent_permission(workspace_name)
+    )
+
+
 def _get_permission_from_experiment_id() -> Permission:
     experiment_id = _get_request_param("experiment_id")
     username = authenticate_request().username
     return _get_experiment_permission(experiment_id, username)
+
+
+def _role_grant_for_resource(
+    user_id: int, resource_type: str, resource_key: str, workspace_name: str
+) -> Permission | None:
+    grants = store.list_grants(user_id, workspace_name, {resource_type})
+    if any(is_workspace_admin_grant(grant) for grant in grants):
+        return MANAGE
+    return fold_grants_for_key(grants, GrantLoadKey(resource_type, resource_key))
 
 
 def _role_permission_for(
@@ -689,17 +1040,22 @@ def _role_permission_for(
 
     def _role_perm() -> Permission | None:
         user = store.get_user(username)
-        workspace_name = _get_resource_workspace(
-            workspace_lookup_id, workspace_fetcher, workspace_label
-        )
-        if workspace_name is None:
-            # Workspace lookup failed — when workspaces are enabled, deny by returning
-            # NO_PERMISSIONS (security: don't let resource_not_found silently become a
-            # default-permission grant). When disabled, fall through to the default.
-            return NO_PERMISSIONS if MLFLOW_ENABLE_WORKSPACES.get() else None
-        perm = store.get_role_permission_for_resource(
-            user.id, resource_type, resource_key, workspace_name
-        )
+        if MLFLOW_ENABLE_WORKSPACES.get():
+            workspace_name = _get_resource_workspace(
+                workspace_lookup_id, workspace_fetcher, workspace_label
+            )
+            if workspace_name is None:
+                # Workspace lookup failed with workspaces enabled — deny by returning
+                # NO_PERMISSIONS (security: don't let resource_not_found silently become a
+                # default-permission grant).
+                return NO_PERMISSIONS
+        else:
+            # Workspaces disabled: every resource lives in the default workspace, which is
+            # where grants are stored. Skip the tracking-store workspace lookup so resolution
+            # honors the grant even when the tracking store has no data for the resource — e.g.
+            # an --artifacts-only server that shares the auth DB but has no experiment data.
+            workspace_name = DEFAULT_WORKSPACE_NAME
+        perm = _role_grant_for_resource(user.id, resource_type, resource_key, workspace_name)
         if perm is not None:
             return perm
         # No grant in the resolved workspace. With workspaces disabled, fall through
@@ -710,6 +1066,9 @@ def _role_permission_for(
         # don't lose resource-level access.
         if not MLFLOW_ENABLE_WORKSPACES.get():
             return None
+        # Only reachable with workspaces enabled — the guard above returns first when
+        # disabled, so ``_user_inherits_default_workspace_grant`` (which touches the
+        # workspace store) never runs on an artifacts-only / workspaces-disabled server.
         if _user_inherits_default_workspace_grant(workspace_name):
             return get_permission(auth_config.default_permission)
         return NO_PERMISSIONS
@@ -730,17 +1089,25 @@ def _role_permission_for_known_workspace(
     """
 
     def _role_perm() -> Permission | None:
-        if workspace_name is None:
-            return NO_PERMISSIONS if MLFLOW_ENABLE_WORKSPACES.get() else None
+        resolved_workspace = workspace_name
+        if resolved_workspace is None:
+            # Workspaces enabled + unknown workspace (e.g. resource not found) → deny.
+            # Workspaces disabled → every resource lives in the default workspace, which is
+            # where grants are stored, so resolve the grant there instead of ignoring it.
+            # Mirrors _role_permission_for so both resolvers behave identically.
+            if MLFLOW_ENABLE_WORKSPACES.get():
+                return NO_PERMISSIONS
+            resolved_workspace = DEFAULT_WORKSPACE_NAME
         user = store.get_user(username)
-        perm = store.get_role_permission_for_resource(
-            user.id, resource_type, resource_key, workspace_name
-        )
+        perm = _role_grant_for_resource(user.id, resource_type, resource_key, resolved_workspace)
         if perm is not None:
             return perm
         if not MLFLOW_ENABLE_WORKSPACES.get():
             return None
-        if _user_inherits_default_workspace_grant(workspace_name):
+        # Only reachable with workspaces enabled (see _role_permission_for): the guard
+        # above returns first when disabled, so the workspace-store lookup here never runs
+        # on a workspaces-disabled server.
+        if _user_inherits_default_workspace_grant(resolved_workspace):
             return get_permission(auth_config.default_permission)
         return NO_PERMISSIONS
 
@@ -768,17 +1135,165 @@ def _get_experiment_permission(experiment_id: str, username: str) -> Permission:
 _EXPERIMENT_ID_PATTERN = re.compile(r"^(?:workspaces/[^/]+/)?(\d+)/")
 
 
+def _experiment_id_from_canonical_proxy_path(canonical: str) -> "str | None":
+    match = _EXPERIMENT_ID_PATTERN.match(f"{canonical.strip('/')}/")
+    return match.group(1) if match else None
+
+
+_ARTIFACT_PROXY_CHILD_FOLDERS = {
+    "models": RESOURCE_TYPE_LOGGED_MODEL,
+    "traces": RESOURCE_TYPE_TRACE,
+}
+
+
+_ARTIFACT_PROXY_EXPERIMENT_ROOT_TIERS = (
+    RESOURCE_TYPE_RUN,
+    RESOURCE_TYPE_TRACE,
+    RESOURCE_TYPE_LOGGED_MODEL,
+)
+
+
+# A run id is ``uuid.uuid4().hex`` (``SqlAlchemyStore._create_run``), so a segment of this shape
+# directly under an experiment's artifact root names a run. Every writer under that root is
+# tier-prefixed -- ``<run_id>/artifacts``, ``models/<model_id>/artifacts`` and
+# ``traces/<trace_id>/artifacts`` -- and no API writes an experiment-level artifact, so matching
+# here cannot shadow one. A file uploaded through the proxy to a 32-hex name is judged as a run,
+# which fails closed: the uploader hides their own file and no other caller is affected.
+_RUN_ID_SEGMENT_PATTERN = re.compile(r"[0-9a-f]{32}")
+
+
+def _artifact_proxy_child_types(artifact_path: str, *, recursive: bool) -> "tuple[str, ...]":
+    """The child tiers the path is judged against.
+
+    A point operation names one tier, or none for an experiment-level artifact. A ``recursive``
+    operation -- only delete, which removes a whole subtree -- is judged against every tier it
+    can reach, so stripping a path segment cannot turn a denied delete into a permitted one.
+    """
+    remainder = _EXPERIMENT_ID_PATTERN.sub("", f"{artifact_path.lstrip('/')}/", count=1)
+    segments = [segment for segment in remainder.split("/") if segment]
+    if not segments:
+        # The experiment artifact root contains every child tier's subtree.
+        return _ARTIFACT_PROXY_EXPERIMENT_ROOT_TIERS if recursive else ()
+    if child_type := _ARTIFACT_PROXY_CHILD_FOLDERS.get(segments[0]):
+        return (child_type,)
+    if len(segments) > 1 and segments[1] == "artifacts":
+        return (RESOURCE_TYPE_RUN,)
+    if _RUN_ID_SEGMENT_PATTERN.fullmatch(segments[0]):
+        # A bare ``<run_id>``, which is what listing an experiment's artifact root returns. Judged
+        # as a run so an explicit run ``DENY`` is honoured here too; the experiment fallback still
+        # judges a caller holding no run grant on the experiment, exactly as before.
+        return (RESOURCE_TYPE_RUN,)
+    # An experiment-level artifact. A point read or write of it is the experiment's business, but a
+    # recursive delete removes whatever subtree the name covers, so deleting is judged as a run.
+    return (RESOURCE_TYPE_RUN,) if recursive else ()
+
+
+def _canonical_artifact_proxy_path(artifact_path: str) -> "str | None":
+    try:
+        return validate_path_is_safe(artifact_path)
+    except MlflowException:
+        return None
+
+
+_ARTIFACT_PROXY_UNPARSABLE = object()
+
+_ARTIFACT_PROXY_CAN = {"read": "can_read", "update": "can_update", "manage": "can_manage"}
+
+# The DELETE routes map to ``manage``, and only they remove a subtree rather than one object.
+_ARTIFACT_PROXY_RECURSIVE_ACTIONS = frozenset({"manage"})
+
+
+def _artifact_proxy_child(artifact_path: "str | None", action: str):
+    """Resolve an artifact proxy path to the sub-resources the request is judged against.
+
+    Returns ``(child_types, experiment_key)``, ``None`` when no child tier applies -- either the
+    path names no experiment, or it is an experiment-level artifact, and the caller falls through
+    to the experiment -- or ``_ARTIFACT_PROXY_UNPARSABLE`` when the path cannot be canonicalized,
+    which must deny rather than fall through.
+
+    ``action`` is needed because a recursive delete reaches tiers a point read does not.
+    """
+    if not artifact_path:
+        return None
+    canonical = _canonical_artifact_proxy_path(artifact_path)
+    if canonical is None:
+        return _ARTIFACT_PROXY_UNPARSABLE
+    match = _EXPERIMENT_ID_PATTERN.match(f"{canonical.lstrip('/')}/")
+    if match is None:
+        return None
+    child_types = _artifact_proxy_child_types(
+        canonical, recursive=action in _ARTIFACT_PROXY_RECURSIVE_ACTIONS
+    )
+    if not child_types:
+        return None
+    return child_types, (RESOURCE_TYPE_EXPERIMENT, match.group(1))
+
+
+def _authorize_artifact_proxy_resolved(
+    child, username: str, action: str, experiment_permission
+) -> bool:
+    """Authorize an artifact proxy request against the tier the path names.
+
+    An artifact under ``<experiment>/<run_id>/artifacts/`` is the run's payload, so it is
+    gated like any other run mutation: the experiment carries the READ baseline and the run
+    tier carries the action, which lets a positive run grant decide exactly as it does on
+    ``UpdateRun``. A recursive delete of an ancestor directory carries the action on every tier
+    it reaches, so the broad path is never the softer one. A path naming no child tier keeps the
+    experiment at the action level, since there is no tier to carry it.
+    """
+    if child is _ARTIFACT_PROXY_UNPARSABLE:
+        return False
+    if child is None:
+        return getattr(experiment_permission(), _ARTIFACT_PROXY_CAN[action])
+    child_types, experiment = child
+    return authorize(
+        username,
+        experiment,
+        [
+            Requirement(RESOURCE_TYPE_EXPERIMENT, experiment[1], "read"),
+            *(
+                Requirement(child_type, "*", action, fallback_if_no_grant=(experiment,))
+                for child_type in child_types
+            ),
+        ],
+    )
+
+
+def _authorize_flask_artifact_proxy(action: str) -> bool:
+    username = getattr(g, "mlflow_authenticated_user", None) or authenticate_request().username
+    return _authorize_artifact_proxy_resolved(
+        _artifact_proxy_child(_artifact_proxy_path(), action),
+        username,
+        action,
+        _get_permission_from_experiment_id_artifact_proxy,
+    )
+
+
+def _artifact_proxy_path() -> "str | None":
+    # ``view_args`` is None when no route matched, so guard it rather than assuming a match.
+    return (request.view_args or {}).get("artifact_path") or request.args.get("path")
+
+
 def _get_experiment_id_from_view_args():
     # For download/upload/delete artifact endpoints, artifact_path is a URL path parameter.
     # For the list-artifacts endpoint, the path is a query parameter named "path".
-    if artifact_path := (request.view_args.get("artifact_path") or request.args.get("path")):
-        if m := _EXPERIMENT_ID_PATTERN.match(artifact_path):
-            return m.group(1)
+    #
+    # Matched against the CANONICAL path for the same reason the child half is: the handler applies
+    # `validate_path_is_safe`, which decodes again, so `%2531/plain.txt` arrives here as
+    # `%31/plain.txt` and names no experiment while naming experiment 1 to the handler. An unparsed
+    # id is not a denial -- the caller falls through to the workspace or default permission below --
+    # so failing to canonicalize here is a privilege escalation, not a broken request.
+    if artifact_path := _artifact_proxy_path():
+        if canonical := _canonical_artifact_proxy_path(artifact_path):
+            return _experiment_id_from_canonical_proxy_path(canonical)
     return None
 
 
 def _get_permission_from_experiment_id_artifact_proxy() -> Permission:
-    username = authenticate_request().username
+    # Flask artifact proxy routes have already authenticated in `_before_request`.
+    # Reuse that username so custom auth functions are not invoked twice on
+    # Flask-served list/delete/presigned/MPU requests.
+    username = getattr(g, "mlflow_authenticated_user", None) or authenticate_request().username
 
     if experiment_id := _get_experiment_id_from_view_args():
         return _get_role_permission_or_default(
@@ -795,7 +1310,7 @@ def _get_permission_from_experiment_id_artifact_proxy() -> Permission:
     if MLFLOW_ENABLE_WORKSPACES.get():
         if workspace_name := workspace_context.get_request_workspace():
             user = store.get_user(username)
-            perm = store.get_role_permission_for_resource(user.id, "workspace", "*", workspace_name)
+            perm = _role_grant_for_resource(user.id, "workspace", "*", workspace_name)
             if perm is not None:
                 return perm
             # Honor the default-workspace auto-grant when configured.
@@ -828,41 +1343,32 @@ def _get_permission_from_experiment_name() -> Permission:
     )
 
 
-def _get_permission_from_run_id() -> Permission:
-    # run permissions inherit from parent resource (experiment)
-    # so we just get the experiment permission
-    run_id = _get_request_param("run_id")
-    run = _get_tracking_store().get_run(run_id)
-    experiment_id = run.info.experiment_id
-    username = authenticate_request().username
-    return _get_role_permission_or_default(
-        _role_permission_for(
-            username=username,
-            resource_type="experiment",
-            resource_key=experiment_id,
-            workspace_lookup_id=experiment_id,
-            workspace_fetcher=_get_tracking_store().get_experiment,
-            workspace_label="experiment",
-        ),
+def _authorize_logged_model(action: str) -> bool:
+    return _authorize_logged_model_id(_get_request_param("model_id"), action)
+
+
+def _authorize_logged_model_id(model_id: str, action: str) -> bool:
+    model = _fetch_or_none(_get_tracking_store().get_logged_model, model_id)
+    if model is None:
+        return False
+    experiment = (RESOURCE_TYPE_EXPERIMENT, model.experiment_id)
+    # Experiment READ baseline -- see _run_requirement.
+    return authorize(
+        authenticate_request().username,
+        experiment,
+        [
+            Requirement(RESOURCE_TYPE_EXPERIMENT, model.experiment_id, "read"),
+            Requirement(
+                RESOURCE_TYPE_LOGGED_MODEL, "*", action, fallback_if_no_grant=(experiment,)
+            ),
+        ],
     )
 
 
-def _get_permission_from_model_id() -> Permission:
-    # logged model permissions inherit from parent resource (experiment)
-    model_id = _get_request_param("model_id")
-    model = _get_tracking_store().get_logged_model(model_id)
-    experiment_id = model.experiment_id
-    username = authenticate_request().username
-    return _get_role_permission_or_default(
-        _role_permission_for(
-            username=username,
-            resource_type="experiment",
-            resource_key=experiment_id,
-            workspace_lookup_id=experiment_id,
-            workspace_fetcher=_get_tracking_store().get_experiment,
-            workspace_label="experiment",
-        ),
-    )
+def _prompt_optimization_job_experiment_id() -> str | None:
+    job_entity = get_job(_get_request_param("job_id"))
+    experiment_id = json.loads(job_entity.params).get("experiment_id")
+    return experiment_id or None
 
 
 def _get_permission_from_prompt_optimization_job_id() -> Permission:
@@ -884,8 +1390,7 @@ def _get_permission_from_prompt_optimization_job_id() -> Permission:
     )
 
 
-def _get_permission_from_registered_model_name() -> Permission:
-    name = _get_request_param("name")
+def _get_registered_model_permission(name: str) -> Permission:
     username = authenticate_request().username
     return _get_role_permission_or_default(
         _role_permission_for(
@@ -897,6 +1402,10 @@ def _get_permission_from_registered_model_name() -> Permission:
             workspace_label="registered model",
         ),
     )
+
+
+def _get_permission_from_registered_model_name() -> Permission:
+    return _get_registered_model_permission(_get_request_param("name"))
 
 
 def _get_permission_from_prompt_name() -> Permission:
@@ -918,27 +1427,217 @@ def _get_permission_from_prompt_name() -> Permission:
     )
 
 
-def _get_permission_from_registered_model_or_prompt_name() -> Permission:
-    """Resolve permission for a shared model-registry route in a single DB round-trip.
-
-    Fetches the ``RegisteredModel`` once, classifies it as prompt or model via
-    ``._is_prompt()``, and resolves the workspace from the same object — avoiding
-    the separate classify fetch that ``_request_targets_prompt`` would add.
-    """
-    name = _get_request_param("name")
+def _get_registered_model_or_prompt_permission(name: str) -> Permission:
+    """Resolve a persisted registry entity's permission in its actual namespace."""
     username = authenticate_request().username
-    workspace_name = None
-    resource_type = "registered_model"
-    try:
-        rm = _get_model_registry_store().get_registered_model(name)
-        resource_type = "prompt" if rm._is_prompt() else "registered_model"
-        workspace_name = getattr(rm, "workspace", None)
-    except MlflowException as e:
-        if e.error_code != ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
-            raise
+    rm = _get_model_registry_store().get_registered_model(name)
+    resource_type = "prompt" if rm._is_prompt() else "registered_model"
+    workspace_name = getattr(rm, "workspace", None)
     return _get_role_permission_or_default(
         _role_permission_for_known_workspace(username, resource_type, name, workspace_name)
     )
+
+
+def _get_permission_from_registered_model_or_prompt_name() -> Permission:
+    """Resolve permission for a shared model-registry route in a single DB round-trip."""
+    name = _get_request_param("name")
+    try:
+        return _get_registered_model_or_prompt_permission(name)
+    except MlflowException as e:
+        if e.error_code != ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+            raise
+    username = authenticate_request().username
+    return _get_role_permission_or_default(
+        _role_permission_for_known_workspace(username, "registered_model", name, None)
+    )
+
+
+def validate_can_register_scorer():
+    """Registering adds a version, creating the scorer if it does not yet exist."""
+    experiment_id = _get_request_param("experiment_id")
+    scorer = store._scorer_pattern(experiment_id, _get_request_param("name"))
+    experiment = (RESOURCE_TYPE_EXPERIMENT, experiment_id)
+    return authorize(
+        authenticate_request().username,
+        experiment,
+        [
+            Requirement(RESOURCE_TYPE_EXPERIMENT, experiment_id, "update"),
+            Requirement(RESOURCE_TYPE_SCORER, scorer, ACTION_NOT_DENIED),
+            Requirement(RESOURCE_TYPE_SCORER_VERSION, "*", ACTION_NOT_DENIED),
+        ],
+    )
+
+
+def _optimizer_gateway_endpoint(optimizer_config_json: str) -> str | None:
+    if not optimizer_config_json:
+        return None
+    try:
+        config = json.loads(optimizer_config_json)
+    except (TypeError, ValueError):
+        return None
+    model = config.get("reflection_model") if isinstance(config, dict) else None
+    if not isinstance(model, str):
+        return None
+    provider, _, name = model.partition(":/")
+    return (name.lstrip("/") or None) if provider == "gateway" else None
+
+
+_OPTIMIZER_ENDPOINT_UNRESOLVED = object()
+
+
+def _optimizer_gateway_endpoint_requirement(optimizer_config_json: str):
+    """The gateway-endpoint requirement for the reflection model, keyed by its stored id.
+
+    ``gateway_endpoint`` grants are keyed by generated id (``e-...``), so requiring the NAME the
+    config carries matched no grant and a denied endpoint was not blocked. Resolve the name the
+    way every other gateway route addresses an endpoint. Returns ``None`` when the config names
+    no gateway endpoint, or ``_OPTIMIZER_ENDPOINT_UNRESOLVED`` when it names one that cannot be
+    resolved, which must refuse rather than drop the requirement.
+    """
+    endpoint_name = _optimizer_gateway_endpoint(optimizer_config_json)
+    if endpoint_name is None:
+        return None
+    try:
+        endpoint = _get_tracking_store().get_gateway_endpoint(name=endpoint_name)
+    except MlflowException:
+        return _OPTIMIZER_ENDPOINT_UNRESOLVED
+    return Requirement(RESOURCE_TYPE_GATEWAY_ENDPOINT, endpoint.endpoint_id, ACTION_NOT_DENIED)
+
+
+def _registered_scorer_names(names: "Sequence[str]") -> list[str]:
+    # A built-in that instantiates is code, not a stored resource. Any other name makes the
+    # worker load the REGISTERED scorer of that name (optimize.job._load_scorers).
+    from mlflow.genai.scorers import builtin_scorers
+
+    registered = set()
+    for name in names:
+        builtin = getattr(builtin_scorers, name, None)
+        if builtin is not None:
+            try:
+                builtin()
+                continue
+            except Exception:
+                pass
+        registered.add(name)
+    return sorted(registered)
+
+
+def _source_prompt_names(prompt_uri: str) -> "list[str]":
+    """Every prompt name the submitted URI could resolve to, or ``[]`` if none could be read.
+
+    A ``prompts:/`` URI is resolved by ``_parse_model_uri``, the parser ``load_prompt`` itself
+    uses, which takes the name as everything before the LAST ``@``. Splitting at the first one
+    disagreed for any name containing ``@``, so the grant was checked on a prompt the worker never
+    loads and a ``DENY`` on the real one did not stop the job.
+
+    A bare name is normalized by ``parse_prompt_name_or_uri`` into ``prompts:/<value>@latest``, so
+    the whole value is the name even when it embeds an ``@``: ``other@latest`` loads a prompt
+    literally named ``other@latest``, not alias ``latest`` of prompt ``other``. That is surprising
+    enough that a caller writing it plausibly meant the latter, so both readings are required and a
+    ``DENY`` on either stops the job.
+    """
+    if prompt_uri.startswith("prompts:/"):
+        try:
+            name = _parse_model_uri(prompt_uri, scheme="prompts").name
+        except MlflowException:
+            # Includes `prompts:/` with no name, and `prompts:/name` with no version or alias,
+            # which prompts have no form for.
+            return []
+        return [name] if name else []
+    names = [prompt_uri]
+    if "@" in prompt_uri:
+        before_alias = prompt_uri.rpartition("@")[0]
+        if not before_alias:
+            # `@prod`: no name precedes the alias, so nothing could be identified.
+            return []
+        names.append(before_alias)
+    return names
+
+
+def _source_prompt_requirements(prompt_uri: str) -> "list[Requirement] | None":
+    if not prompt_uri:
+        return []
+    names = _source_prompt_names(prompt_uri)
+    if not names:
+        # Non-empty but no name could be read. The worker still resolves it somehow, so refuse
+        # rather than authorize a prompt the auth layer could not identify.
+        return None
+    return [
+        *(Requirement(RESOURCE_TYPE_PROMPT, name, ACTION_NOT_DENIED) for name in names),
+        Requirement(RESOURCE_TYPE_PROMPT_VERSION, "*", ACTION_NOT_DENIED),
+    ]
+
+
+def validate_can_create_prompt_optimization_job():
+    """Submitting hands work to a worker running with NO caller identity.
+
+    This is the only validator that must parse protected resource identities out of free-form
+    payload fields -- ``source_prompt_uri`` and ``optimizer_config_json`` -- rather than reading
+    request params the handler uses verbatim. Everywhere else the gate and the handler cannot
+    disagree because they read the same field; here each identity has to be resolved the same way
+    the worker resolves it, or the grant is checked against the wrong resource.
+    """
+    message = _get_request_message(CreatePromptOptimizationJob())
+    experiment_id = message.experiment_id
+    experiment = (RESOURCE_TYPE_EXPERIMENT, experiment_id)
+    source_prompt_requirements = _source_prompt_requirements(message.source_prompt_uri)
+    if source_prompt_requirements is None:
+        return False
+    endpoint_requirement = _optimizer_gateway_endpoint_requirement(
+        message.config.optimizer_config_json
+    )
+    if endpoint_requirement is _OPTIMIZER_ENDPOINT_UNRESOLVED:
+        return False
+    requirements = [
+        Requirement(RESOURCE_TYPE_EXPERIMENT, experiment_id, "update"),
+        # The handler creates a run in the experiment to track the optimization.
+        Requirement(RESOURCE_TYPE_RUN, "*", ACTION_NOT_DENIED),
+        # The worker loads and executes stored scorer versions.
+        Requirement(RESOURCE_TYPE_SCORER_VERSION, "*", ACTION_NOT_DENIED),
+        *source_prompt_requirements,
+        *(
+            Requirement(
+                RESOURCE_TYPE_SCORER,
+                store._scorer_pattern(experiment_id, name),
+                ACTION_NOT_DENIED,
+            )
+            for name in _registered_scorer_names(message.config.scorers)
+        ),
+    ]
+    if endpoint_requirement is not None:
+        requirements.append(endpoint_requirement)
+    return authorize(authenticate_request().username, experiment, requirements)
+
+
+def validate_can_invoke_scorer():
+    """Applying a scorer to EXISTING traces. It creates no run."""
+    experiment_id = _get_request_param("experiment_id")
+    body = request.get_json(silent=True)
+    body = body if isinstance(body, dict) else {}
+    experiment = (RESOURCE_TYPE_EXPERIMENT, experiment_id)
+    requirements = [
+        Requirement(RESOURCE_TYPE_EXPERIMENT, experiment_id, "update"),
+        Requirement(RESOURCE_TYPE_TRACE, "*", ACTION_NOT_DENIED),
+    ]
+    if body.get("log_assessments"):
+        requirements.append(Requirement(RESOURCE_TYPE_ASSESSMENT, "*", ACTION_NOT_DENIED))
+    scorer_name = body.get("scorer_name")
+    if isinstance(scorer_name, str) and scorer_name:
+        scorer = (RESOURCE_TYPE_SCORER, store._scorer_pattern(experiment_id, scorer_name))
+        requirements.append(Requirement(*scorer, ACTION_NOT_DENIED))
+        requirements.append(
+            Requirement(
+                RESOURCE_TYPE_SCORER_VERSION,
+                "*",
+                ACTION_NOT_DENIED,
+                fallback_if_no_grant=(scorer,),
+            )
+        )
+    else:
+        # An inline serialized_scorer names no stored scorer, but the version tier can still
+        # be denied wholesale.
+        requirements.append(Requirement(RESOURCE_TYPE_SCORER_VERSION, "*", ACTION_NOT_DENIED))
+    return authorize(authenticate_request().username, experiment, requirements)
 
 
 def _get_permission_from_scorer_name() -> Permission:
@@ -973,8 +1672,7 @@ def _get_permission_from_scorer_permission_request() -> Permission:
     )
 
 
-def _get_permission_from_gateway_secret_id() -> Permission:
-    secret_id = _get_request_param("secret_id")
+def _get_gateway_secret_permission(secret_id: str) -> Permission:
     username = authenticate_request().username
     return _get_role_permission_or_default(
         _role_permission_for(
@@ -988,8 +1686,11 @@ def _get_permission_from_gateway_secret_id() -> Permission:
     )
 
 
-def _get_permission_from_gateway_endpoint_id() -> Permission:
-    endpoint_id = _get_request_param("endpoint_id")
+def _get_permission_from_gateway_secret_id() -> Permission:
+    return _get_gateway_secret_permission(_get_request_param("secret_id"))
+
+
+def _get_gateway_endpoint_permission(endpoint_id: str) -> Permission:
     username = authenticate_request().username
     return _get_role_permission_or_default(
         _role_permission_for(
@@ -1005,8 +1706,11 @@ def _get_permission_from_gateway_endpoint_id() -> Permission:
     )
 
 
-def _get_permission_from_gateway_model_definition_id() -> Permission:
-    model_definition_id = _get_request_param("model_definition_id")
+def _get_permission_from_gateway_endpoint_id() -> Permission:
+    return _get_gateway_endpoint_permission(_get_request_param("endpoint_id"))
+
+
+def _get_gateway_model_definition_permission(model_definition_id: str) -> Permission:
     username = authenticate_request().username
     return _get_role_permission_or_default(
         _role_permission_for(
@@ -1022,6 +1726,106 @@ def _get_permission_from_gateway_model_definition_id() -> Permission:
     )
 
 
+def _get_permission_from_gateway_model_definition_id() -> Permission:
+    return _get_gateway_model_definition_permission(_get_request_param("model_definition_id"))
+
+
+def _authorize_create_mcp_server_version(username: str, name: str) -> bool:
+    server = (RESOURCE_TYPE_MCP_SERVER, name)
+    return authorize(
+        username,
+        server,
+        [
+            Requirement(RESOURCE_TYPE_MCP_SERVER, name, "update"),
+            Requirement(RESOURCE_TYPE_MCP_SERVER_VERSION, "*", ACTION_NOT_DENIED),
+        ],
+    )
+
+
+def _mcp_server_version_action_allowed(username: str, name: str, action: str) -> bool:
+    server = (RESOURCE_TYPE_MCP_SERVER, name)
+    return authorize(
+        username,
+        server,
+        [
+            # The parent READ baseline is a SEPARATE requirement, not another link in the chain:
+            # folding it in would let a version grant short-circuit past a server DENY.
+            Requirement(RESOURCE_TYPE_MCP_SERVER, name, "read"),
+            Requirement(
+                RESOURCE_TYPE_MCP_SERVER_VERSION,
+                "*",
+                action,
+                fallback_if_no_grant=(server,),
+            ),
+        ],
+    )
+
+
+def _mcp_version_action(parts: list[str], method: str) -> str:
+    if parts[2] == "aliases":
+        return "read"
+    if method == "DELETE":
+        return "delete"
+    if method in ("POST", "PATCH"):
+        return "update"
+    return "read"
+
+
+def _mcp_server_version_not_denied(username: str, name: str) -> bool:
+    # For a route where the version is a PASSENGER: the server is the subject and its own gate
+    # has already run, so the tier can only refuse.
+    return _mcp_server_version_action_allowed(username, name, ACTION_NOT_DENIED)
+
+
+def _mcp_auto_create_not_denied(username: str, name: str) -> bool:
+    workspace = (RESOURCE_TYPE_WORKSPACE, "*")
+    return authorize(
+        username,
+        workspace,
+        [
+            Requirement(RESOURCE_TYPE_MCP_SERVER, name, ACTION_NOT_DENIED),
+            Requirement(RESOURCE_TYPE_MCP_SERVER_VERSION, "*", ACTION_NOT_DENIED),
+        ],
+    )
+
+
+def _mcp_version_tier_not_denied_in_workspace(username: str) -> bool:
+    # The cross-server endpoint search names no server, so the workspace is the anchor. The version
+    # tier is wildcard grain only, so a constant veto is exact -- there is no per-id grant to miss.
+    workspace = (RESOURCE_TYPE_WORKSPACE, "*")
+    return authorize(
+        username,
+        workspace,
+        [Requirement(RESOURCE_TYPE_MCP_SERVER_VERSION, "*", ACTION_NOT_DENIED)],
+    )
+
+
+def _get_mcp_server_permission(name: str, username: str) -> Permission:
+    return _get_role_permission_or_default(
+        _role_permission_for(
+            username=username,
+            resource_type="mcp_server",
+            resource_key=name,
+            workspace_lookup_id=name,
+            workspace_fetcher=_get_tracking_store().get_mcp_server,
+            workspace_label="mcp server",
+        ),
+    )
+
+
+def _permission_to_allowed_actions(perm: Permission) -> list[str]:
+    actions = []
+    if perm.can_use:
+        actions.append("USE")
+    if perm.can_update:
+        actions.append("UPDATE")
+    if perm.can_delete:
+        actions.append("DELETE")
+    if perm.can_manage:
+        actions.append("MANAGE")
+    return actions
+
+
 def validate_can_read_experiment():
     return _get_permission_from_experiment_id().can_read
 
@@ -1032,6 +1836,14 @@ def validate_can_read_scorer_list():
     # a cross-experiment listing and ``AFTER_REQUEST_PATH_HANDLERS`` does the
     # per-row RBAC filtering, so the route itself is open to any authenticated
     # caller.
+    #
+    # NB: this validator does not look at the newer, plural ``experiment_ids``
+    # field (added for pre-request auth scoping, see #24964). A caller that
+    # sets only ``experiment_ids`` still falls through to the ``not
+    # args.get("experiment_id")`` branch below and relies on the
+    # post-response filtering in ``filter_list_scorers`` -- basic auth does
+    # not yet use ``experiment_ids`` to scope the query before it reaches
+    # the store.
     args = request.args if request.method == "GET" else (request.get_json(silent=True) or {})
     if not args.get("experiment_id"):
         return True
@@ -1046,8 +1858,46 @@ def validate_can_update_experiment():
     return _get_permission_from_experiment_id().can_update
 
 
+# Every experiment-scoped tier. A soft delete marks only the experiment and its runs, but the rest
+# become unreachable with their experiment, so the delete reaches them all the same -- and
+# ``_hard_delete_experiment`` (``mlflow gc``) destroys them outright through the scorers and
+# scorer_versions foreign keys, both declared ON DELETE CASCADE.
+_EXPERIMENT_CASCADE_TIERS = (
+    RESOURCE_TYPE_RUN,
+    RESOURCE_TYPE_TRACE,
+    RESOURCE_TYPE_LOGGED_MODEL,
+    RESOURCE_TYPE_ASSESSMENT,
+    RESOURCE_TYPE_REVIEW_QUEUE,
+    RESOURCE_TYPE_SCORER,
+    RESOURCE_TYPE_SCORER_VERSION,
+)
+
+
 def validate_can_delete_experiment():
-    return _get_permission_from_experiment_id().can_delete
+    """DeleteExperiment and RestoreExperiment: delete on the experiment AND on what it contains.
+
+    Each child tier carries ``delete`` with the experiment as fallback, so a caller holding no child
+    grant is judged exactly as master judges them. A caller who does hold one is judged by it: tier
+    override means the narrower grant decides, so ``(run, EDIT)`` -- which cannot delete runs --
+    withholds the cascade even from an experiment MANAGE holder. That is the intended reading of a
+    child grant taking priority, not an accident of it.
+
+    Master pairs Restore with Delete under ``can_delete`` (both map to this validator), so restore
+    keeps the same requirement rather than being split off.
+    """
+    experiment_id = _get_request_param("experiment_id")
+    experiment = (RESOURCE_TYPE_EXPERIMENT, experiment_id)
+    return authorize(
+        authenticate_request().username,
+        experiment,
+        [
+            Requirement(RESOURCE_TYPE_EXPERIMENT, experiment_id, "delete"),
+            *(
+                Requirement(tier, "*", "delete", fallback_if_no_grant=(experiment,))
+                for tier in _EXPERIMENT_CASCADE_TIERS
+            ),
+        ],
+    )
 
 
 def validate_can_manage_experiment():
@@ -1055,32 +1905,164 @@ def validate_can_manage_experiment():
 
 
 def validate_can_read_experiment_artifact_proxy():
-    return _get_permission_from_experiment_id_artifact_proxy().can_read
+    return _authorize_flask_artifact_proxy("read")
 
 
 def validate_can_update_experiment_artifact_proxy():
-    return _get_permission_from_experiment_id_artifact_proxy().can_update
+    return _authorize_flask_artifact_proxy("update")
 
 
 def validate_can_delete_experiment_artifact_proxy():
-    return _get_permission_from_experiment_id_artifact_proxy().can_manage
+    return _authorize_flask_artifact_proxy("manage")
 
 
 # Runs
 def validate_can_read_run():
-    return _get_permission_from_run_id().can_read
+    return _authorize_run("read")
+
+
+def _fetch_or_none(fetch: "Callable[[str], Any]", resource_id: str) -> Any | None:
+    # None when the resource does not exist; any other store failure is re-raised, because
+    # reporting an outage as "permission denied" sends operators after the wrong fault.
+    try:
+        return fetch(resource_id)
+    except MlflowException as e:
+        if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+            return None
+        raise
+
+
+def _run_requirement(
+    run_id: str, action: str
+) -> "tuple[tuple[str, str], list[Requirement]] | None":
+    # A missing run denies rather than 404ing, so the response is not an oracle for which
+    # run ids exist -- master applies the same reasoning to logged models.
+    run = _fetch_or_none(_get_tracking_store().get_run, run_id)
+    if run is None:
+        return None
+    experiment = (RESOURCE_TYPE_EXPERIMENT, run.info.experiment_id)
+    return experiment, [
+        Requirement(RESOURCE_TYPE_EXPERIMENT, run.info.experiment_id, "read"),
+        Requirement(RESOURCE_TYPE_RUN, "*", action, fallback_if_no_grant=(experiment,)),
+    ]
+
+
+def _authorize_run_id(run_id: str, action: str) -> bool:
+    resolved = _run_requirement(run_id, action)
+    if resolved is None:
+        return False
+    anchor, requirements = resolved
+    return authorize(authenticate_request().username, anchor, requirements)
+
+
+def _authorize_run(action: str) -> bool:
+    return _authorize_run_id(_get_request_param("run_id"), action)
 
 
 def validate_can_update_run():
-    return _get_permission_from_run_id().can_update
+    return _authorize_run("update")
+
+
+def _authorize_create_in_experiment_as(
+    username: str,
+    experiment_id: str,
+    created_type: str,
+    extra: "Sequence[Requirement]" = (),
+) -> bool:
+    # Takes the username explicitly for the FastAPI validators, which are handed one rather
+    # than running inside a Flask request context.
+    #
+    # ``extra`` carries a veto for a type the request writes ALONGSIDE the created one, which a
+    # create otherwise never mentions. Kept here rather than inlined at the call site so this
+    # stays the single definition of what a create in an experiment requires.
+    return authorize(
+        username,
+        (RESOURCE_TYPE_EXPERIMENT, experiment_id),
+        [
+            Requirement(RESOURCE_TYPE_EXPERIMENT, experiment_id, "update"),
+            Requirement(created_type, "*", ACTION_NOT_DENIED),
+            *extra,
+        ],
+    )
+
+
+def _authorize_create_in_experiment(
+    experiment_id: str, created_type: str, extra: "Sequence[Requirement]" = ()
+) -> bool:
+    return _authorize_create_in_experiment_as(
+        authenticate_request().username, experiment_id, created_type, extra
+    )
+
+
+def validate_can_create_run():
+    return _authorize_create_in_experiment(_get_request_param("experiment_id"), RESOURCE_TYPE_RUN)
+
+
+def _validate_can_update_run_and_models(model_ids: set[str]) -> bool:
+    """UPDATE on the run AND on every logged model the metrics target.
+
+    Without the second half, a caller with UPDATE on their own run could inject metrics
+    onto another user's logged models. A logged model resolves to its OWN experiment, since
+    a metric may target a model in a different one, so each contributes its own requirement
+    and its own fallback -- all resolved from one grants query.
+
+    A nonexistent model_id denies uniformly, so the response cannot be used as an oracle
+    for which model ids exist.
+    """
+    resolved = _run_requirement(_get_request_param("run_id"), "update")
+    if resolved is None:
+        return False
+    anchor, requirements = resolved
+    for model_id in sorted(model_ids):
+        model = _fetch_or_none(_get_tracking_store().get_logged_model, model_id)
+        if model is None:
+            return False
+        model_experiment = (RESOURCE_TYPE_EXPERIMENT, model.experiment_id)
+        requirements.append(Requirement(RESOURCE_TYPE_EXPERIMENT, model.experiment_id, "read"))
+        requirements.append(
+            Requirement(
+                RESOURCE_TYPE_LOGGED_MODEL,
+                "*",
+                "update",
+                fallback_if_no_grant=(model_experiment,),
+            )
+        )
+    return authorize(authenticate_request().username, anchor, requirements)
+
+
+def validate_can_log_metric():
+    # LogMetric can optionally write the metric to a logged model via model_id. Parse
+    # through the proto so the camelCase `modelId` alias is covered. Only the LogMetric
+    # shape is parsed so fields the endpoint ignores never affect authorization.
+    msg = _get_request_message(LogMetric())
+    model_ids = {msg.model_id} if msg.model_id else set()
+    return _validate_can_update_run_and_models(model_ids)
+
+
+def validate_can_log_batch():
+    # LogBatch can optionally write metrics to logged models via per-metric model_id.
+    # Parse through the proto (covers the camelCase `modelId` alias on nested metrics).
+    msg = _get_request_message(LogBatch())
+    model_ids = {m.model_id for m in msg.metrics if m.model_id}
+    return _validate_can_update_run_and_models(model_ids)
+
+
+def validate_can_log_inputs():
+    msg = _get_request_message(LogInputs())
+    return _validate_can_update_run_and_models({m.model_id for m in msg.models if m.model_id})
+
+
+def validate_can_log_outputs():
+    msg = _get_request_message(LogOutputs())
+    return _validate_can_update_run_and_models({m.model_id for m in msg.models if m.model_id})
 
 
 def validate_can_delete_run():
-    return _get_permission_from_run_id().can_delete
+    return _authorize_run("delete")
 
 
 def validate_can_manage_run():
-    return _get_permission_from_run_id().can_manage
+    return _authorize_run("manage")
 
 
 # Prompt optimization jobs
@@ -1088,29 +2070,63 @@ def validate_can_read_prompt_optimization_job():
     return _get_permission_from_prompt_optimization_job_id().can_read
 
 
+def _authorize_prompt_optimization_job(action: str) -> bool:
+    experiment_id = _prompt_optimization_job_experiment_id()
+    if experiment_id is None:
+        return False
+    experiment = (RESOURCE_TYPE_EXPERIMENT, experiment_id)
+    return authorize(
+        authenticate_request().username,
+        experiment,
+        [
+            Requirement(RESOURCE_TYPE_EXPERIMENT, experiment_id, action),
+            Requirement(RESOURCE_TYPE_RUN, "*", ACTION_NOT_DENIED),
+        ],
+    )
+
+
 def validate_can_update_prompt_optimization_job():
-    return _get_permission_from_prompt_optimization_job_id().can_update
+    return _authorize_prompt_optimization_job("update")
 
 
 def validate_can_delete_prompt_optimization_job():
-    return _get_permission_from_prompt_optimization_job_id().can_delete
+    return _authorize_prompt_optimization_job("delete")
 
 
 # Logged models
 def validate_can_read_logged_model():
-    return _get_permission_from_model_id().can_read
+    return _authorize_logged_model("read")
 
 
 def validate_can_update_logged_model():
-    return _get_permission_from_model_id().can_update
+    return _authorize_logged_model("update")
 
 
 def validate_can_delete_logged_model():
-    return _get_permission_from_model_id().can_delete
+    return _authorize_logged_model("delete")
 
 
 def validate_can_manage_logged_model():
-    return _get_permission_from_model_id().can_manage
+    return _authorize_logged_model("manage")
+
+
+def validate_can_update_run_or_logged_model():
+    # The presigned upload endpoint accepts exactly one of run_id / model_id. The
+    # handler enforces this with a 400, but this validator runs first — without the
+    # same check here, a malformed request carrying both IDs would resolve the
+    # model's permission and could surface 403/404 instead of the documented 400.
+    # Mirror the check before looking up either resource. Parse through the proto,
+    # exactly as the handler does, so the camelCase `runId` / `modelId` aliases the
+    # handler accepts are authorized against the same IDs it will act on.
+    msg = _get_request_message(CreatePresignedUploadUrl())
+    if bool(msg.run_id) == bool(msg.model_id):
+        raise MlflowException(
+            "Exactly one of run_id and model_id must be provided.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    if msg.model_id:
+        return _authorize_logged_model_id(msg.model_id, "update")
+    return _authorize_run_id(msg.run_id, "update")
 
 
 # Registered models
@@ -1181,36 +2197,344 @@ def _validate_can_delete_registered_model_or_prompt():
     return _get_permission_from_registered_model_or_prompt_name().can_delete
 
 
+def _alias_version_requirement_met() -> bool:
+    target = _registered_model_or_prompt_target()
+    if target is None:
+        return False
+    container_type, name = target
+    version_type = (
+        RESOURCE_TYPE_PROMPT_VERSION
+        if container_type == RESOURCE_TYPE_PROMPT
+        else RESOURCE_TYPE_REGISTERED_MODEL_VERSION
+    )
+    container = (container_type, name)
+    return authorize(
+        authenticate_request().username,
+        container,
+        [Requirement(version_type, "*", "read", fallback_if_no_grant=(container,))],
+    )
+
+
+def validate_can_set_model_or_prompt_version_alias() -> bool:
+    return _validate_can_update_registered_model_or_prompt() and _alias_version_requirement_met()
+
+
+def validate_can_delete_model_or_prompt_version_alias() -> bool:
+    return _validate_can_delete_registered_model_or_prompt() and _alias_version_requirement_met()
+
+
+def _authorize_version_action(action: str) -> bool:
+    target = _registered_model_or_prompt_target()
+    if target is None:
+        return False
+    container_type, name = target
+    version_type = (
+        RESOURCE_TYPE_PROMPT_VERSION
+        if container_type == RESOURCE_TYPE_PROMPT
+        else RESOURCE_TYPE_REGISTERED_MODEL_VERSION
+    )
+    container = (container_type, name)
+    return authorize(
+        authenticate_request().username,
+        container,
+        [
+            Requirement(container_type, name, "read"),
+            Requirement(version_type, "*", action, fallback_if_no_grant=(container,)),
+        ],
+    )
+
+
+def validate_can_delete_registered_model_or_prompt_cascade():
+    """DeleteRegisteredModel destroys every version of the model (an ORM delete), so the version
+    tier carries ``delete`` with the parent as fallback. Not shared with the alias routes, which
+    mutate the parent's alias map and destroy no version.
+    """
+    target = _registered_model_or_prompt_target()
+    if target is None:
+        return False
+    container_type, name = target
+    version_type = (
+        RESOURCE_TYPE_PROMPT_VERSION
+        if container_type == RESOURCE_TYPE_PROMPT
+        else RESOURCE_TYPE_REGISTERED_MODEL_VERSION
+    )
+    container = (container_type, name)
+    return authorize(
+        authenticate_request().username,
+        container,
+        [
+            Requirement(container_type, name, "delete"),
+            Requirement(version_type, "*", "delete", fallback_if_no_grant=(container,)),
+        ],
+    )
+
+
+def _filter_selects_attribute(
+    filter_string: str, parser: "Callable[[str], Any]", attribute: str
+) -> bool:
+    if not filter_string:
+        return False
+    try:
+        parsed = parser(filter_string)
+    except Exception:
+        return True
+    return any(c.get("type") == "attribute" and c.get("key") == attribute for c in parsed)
+
+
+def _run_tier_not_denied_in_workspace(username: str) -> bool:
+    # The run tier is wildcard grain only, so one key decides the request -- there is no per-run
+    # grant to resolve, and a cross-parent search has no parent to read a workspace from.
+    return authorize(
+        username,
+        (RESOURCE_TYPE_WORKSPACE, "*"),
+        [Requirement(RESOURCE_TYPE_RUN, "*", ACTION_NOT_DENIED)],
+    )
+
+
+def _model_version_filter_selects_run(filter_string: str) -> bool:
+    from mlflow.utils.search_utils import SearchModelVersionUtils
+
+    return _filter_selects_attribute(
+        filter_string, SearchModelVersionUtils.parse_search_filter, "run_id"
+    )
+
+
+def _logged_model_filter_selects_run(filter_string: str) -> bool:
+    from mlflow.utils.search_utils import SearchLoggedModelsUtils
+
+    return _filter_selects_attribute(
+        filter_string, SearchLoggedModelsUtils.parse_search_filter, "source_run_id"
+    )
+
+
+def _issue_filter_selects_run(filter_string: str) -> bool:
+    from mlflow.utils.search_utils import SearchIssuesUtils
+
+    return _filter_selects_attribute(
+        filter_string, SearchIssuesUtils.parse_search_filter, "source_run_id"
+    )
+
+
+def validate_can_search_logged_models():
+    """The rows are filtered after the fact, so this gates only what redaction cannot hide."""
+    filter_string = _get_request_message(SearchLoggedModels()).filter
+    if not _logged_model_filter_selects_run(filter_string):
+        return True
+    return _run_tier_not_denied_in_workspace(authenticate_request().username)
+
+
+def validate_can_search_model_versions():
+    """The rows are filtered after the fact, so this gates only what redaction cannot hide."""
+    # Read it the way the handler does: this route accepts both GET query args and a POST body.
+    filter_string = _get_request_message(SearchModelVersions()).filter
+    if not _model_version_filter_selects_run(filter_string):
+        return True
+    return _run_tier_not_denied_in_workspace(authenticate_request().username)
+
+
+# The handler drops this `secret_id`, so gating it would refuse an unfiltered listing; the coverage
+# test fails if it is ever wired.
+_GATEWAY_SECRET_SELECTOR_INERT_ROUTES = ("_list_gateway_endpoints",)
+
+
+def _gateway_secret_selector_not_denied(message) -> bool:
+    secret_id = message.secret_id
+    if not secret_id:
+        return True
+    return authorize(
+        authenticate_request().username,
+        (RESOURCE_TYPE_WORKSPACE, "*"),
+        [Requirement(RESOURCE_TYPE_GATEWAY_SECRET, secret_id, ACTION_NOT_DENIED)],
+    )
+
+
+def validate_can_list_gateway_model_definitions():
+    return _gateway_secret_selector_not_denied(_get_request_message(ListGatewayModelDefinitions()))
+
+
+def validate_can_read_model_or_prompt_version():
+    target = _registered_model_or_prompt_target()
+    if target is None:
+        return False
+    container_type, name = target
+    version_type = (
+        RESOURCE_TYPE_PROMPT_VERSION
+        if container_type == RESOURCE_TYPE_PROMPT
+        else RESOURCE_TYPE_REGISTERED_MODEL_VERSION
+    )
+    return authorize(
+        authenticate_request().username,
+        (container_type, name),
+        [
+            Requirement(container_type, name, "read"),
+            Requirement(version_type, "*", ACTION_NOT_DENIED),
+        ],
+    )
+
+
+def validate_can_update_model_or_prompt_version():
+    return _authorize_version_action("update")
+
+
+def validate_can_delete_model_or_prompt_version():
+    return _authorize_version_action("delete")
+
+
 def _validate_can_manage_registered_model_or_prompt():
     return _get_permission_from_registered_model_or_prompt_name().can_manage
 
 
+def _registered_model_or_prompt_target() -> "tuple[str, str] | None":
+    name = _get_request_param("name")
+    rm = _fetch_or_none(_get_model_registry_store().get_registered_model, name)
+    if rm is None:
+        return None
+    return (RESOURCE_TYPE_PROMPT if rm._is_prompt() else RESOURCE_TYPE_REGISTERED_MODEL), name
+
+
+def _authorize_create_version(target: "tuple[str, str]") -> bool:
+    container_type, name = target
+    version_type = (
+        RESOURCE_TYPE_PROMPT_VERSION
+        if container_type == RESOURCE_TYPE_PROMPT
+        else RESOURCE_TYPE_REGISTERED_MODEL_VERSION
+    )
+    return authorize(
+        authenticate_request().username,
+        (container_type, name),
+        [
+            Requirement(container_type, name, "update"),
+            Requirement(version_type, "*", ACTION_NOT_DENIED),
+        ],
+    )
+
+
+def _model_id_from_source_uri(source: str) -> str | None:
+    if not source or urllib.parse.urlparse(source).scheme != "models":
+        return None
+    try:
+        return _parse_model_uri(source).model_id
+    except Exception:
+        return None
+
+
+def _can_read_model_version_source(
+    get_permission: Callable[[str], Permission], source_id: str
+) -> bool:
+    # Deny a nonexistent source id uniformly (403 rather than 404) so the response cannot
+    # be used as an oracle for which run/model ids exist.
+    try:
+        return get_permission(source_id).can_read
+    except MlflowException as e:
+        if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+            return False
+        raise
+
+
+def _version_type_asserted_against_parent(msg, container_type: str) -> "str | None":
+    asserted = _prompt_marker_in_tags(msg.tags)
+    if asserted is None:
+        return None
+    asserted_type = (
+        RESOURCE_TYPE_PROMPT_VERSION if asserted else RESOURCE_TYPE_REGISTERED_MODEL_VERSION
+    )
+    parent_type = (
+        RESOURCE_TYPE_PROMPT_VERSION
+        if container_type == RESOURCE_TYPE_PROMPT
+        else RESOURCE_TYPE_REGISTERED_MODEL_VERSION
+    )
+    return None if asserted_type == parent_type else asserted_type
+
+
 def validate_can_create_model_version():
-    # A model version anchors its `source` inside the artifact directory of the run/model
-    # named by `run_id`/`model_id`. Downstream artifact reads are gated on the model version's
-    # registered model, so without a read check here a caller could point `source` at another
-    # user's run/model and read those artifacts through their own registered model. Require read
-    # on the source run/model to keep create-time access consistent with artifact-read gating.
-    if not _validate_can_update_registered_model_or_prompt():
+    target = _registered_model_or_prompt_target()
+    if target is None or not _authorize_create_version(target):
         return False
-    body = request.get_json(force=True, silent=True)
-    body = body if isinstance(body, dict) else {}
+    msg = _get_request_message(CreateModelVersion())
+    # Before the source branches: a marker disagreeing with the parent means the OTHER version tier
+    # governs the row that gets created, so it vetoes too.
+    asserted_type = _version_type_asserted_against_parent(msg, target[0])
+    if asserted_type is not None and not authorize(
+        authenticate_request().username,
+        target,
+        [Requirement(asserted_type, "*", ACTION_NOT_DENIED)],
+    ):
+        return False
+    if is_models_uri(msg.source):
+        parsed_source = _parse_model_uri(msg.source)
+        if parsed_source.name is not None:
+            # A registered model is itself the artifact access boundary. The copied version's
+            # lineage IDs are metadata and do not require separate run/logged-model access.
+            return _can_read_model_version_source(
+                _get_registered_model_or_prompt_permission, parsed_source.name
+            )
     # Presence of run_id/model_id means the version is anchored to that source, so require
     # READ on it. Guard on presence (not truthiness): an explicitly-supplied empty id is
     # denied here rather than being allowed to slip past the guard as if it were absent.
-    if "run_id" in body and not (body["run_id"] and _get_permission_from_run_id().can_read):
+    if msg.HasField("run_id") and not (msg.run_id and _authorize_run_id(msg.run_id, "read")):
         return False
-    if "model_id" in body and not (body["model_id"] and _get_permission_from_model_id().can_read):
+    if msg.HasField("model_id") and not (
+        msg.model_id and _authorize_logged_model_id(msg.model_id, "read")
+    ):
+        return False
+    source_model_id = _model_id_from_source_uri(msg.source)
+    if source_model_id and not _authorize_logged_model_id(source_model_id, "read"):
         return False
     return True
 
 
+def _create_not_denied(username: str, created_type: str, resource_id: str = "*") -> bool:
+    return authorize(
+        username,
+        (RESOURCE_TYPE_WORKSPACE, "*"),
+        [Requirement(created_type, resource_id or "*", ACTION_NOT_DENIED)],
+    )
+
+
+def _workspace_create_not_denied(created_type: str, resource_id: str = "*") -> bool:
+    return _create_not_denied(authenticate_request().username, created_type, resource_id)
+
+
 def validate_can_create_experiment() -> bool:
-    return _user_can_create_in_workspace()
+    return _user_can_create_in_workspace() and _workspace_create_not_denied(
+        RESOURCE_TYPE_EXPERIMENT
+    )
 
 
 def validate_can_create_registered_model() -> bool:
-    return _user_can_create_in_workspace()
+    """The created type's veto, on whichever family the request is creating.
+
+    The route is shared: a prompt IS a registered model carrying `mlflow.prompt.is_prompt`. Unlike
+    every other shared route -- where `_request_targets_prompt` reads the tag from the PERSISTED
+    entity because a body could contradict it -- CREATE has no persisted entity to contradict, and
+    the request's `tags` are the very tags the handler will store. So here the body is the truth
+    about what will exist, and the veto applies to that family alone rather than to both.
+
+    Note this authorizes the create only. `mlflow.prompt.is_prompt` stays an ordinary tag that
+    set-tag and delete-tag can change afterwards, moving an object between families; guarding that
+    belongs to the registry store and is out of scope here.
+    """
+    # The container check first: it needs no request body, and keeping it ahead of the parse
+    # preserves the short-circuit callers rely on.
+    if not _user_can_create_in_workspace():
+        return False
+    if not has_request_context():
+        # No body to classify from (a non-HTTP caller), so fall back to demanding both families --
+        # strictly narrower than either alone, never wider.
+        return _workspace_create_not_denied(
+            RESOURCE_TYPE_REGISTERED_MODEL
+        ) and _workspace_create_not_denied(RESOURCE_TYPE_PROMPT)
+    msg = _get_request_message(CreateRegisteredModel())
+    created_type = (
+        RESOURCE_TYPE_PROMPT if _entity_is_prompt(msg) else RESOURCE_TYPE_REGISTERED_MODEL
+    )
+    return _workspace_create_not_denied(created_type, msg.name)
+
+
+def validate_can_create_mcp_server(username: str, name: str = "*") -> bool:
+    return _can_create_in_workspace(username) and _create_not_denied(
+        username, RESOURCE_TYPE_MCP_SERVER, name
+    )
 
 
 def validate_can_view_workspace() -> bool:
@@ -1237,16 +2561,68 @@ def validate_can_view_workspace() -> bool:
 
 
 # Scorers
+def _scorer_version_not_denied() -> bool:
+    experiment_id = _get_request_param("experiment_id")
+    name = _get_request_param("name")
+    scorer = (RESOURCE_TYPE_SCORER, store._scorer_pattern(experiment_id, name))
+    return authorize(
+        authenticate_request().username,
+        (RESOURCE_TYPE_EXPERIMENT, experiment_id),
+        [
+            Requirement(
+                RESOURCE_TYPE_SCORER_VERSION,
+                "*",
+                ACTION_NOT_DENIED,
+                fallback_if_no_grant=(scorer,),
+            )
+        ],
+    )
+
+
 def validate_can_read_scorer():
-    return _get_permission_from_scorer_name().can_read
+    return _get_permission_from_scorer_name().can_read and _scorer_version_not_denied()
 
 
 def validate_can_update_scorer():
     return _get_permission_from_scorer_name().can_update
 
 
+def _scorer_version_delete_allowed() -> bool:
+    experiment_id = _get_request_param("experiment_id")
+    name = _get_request_param("name")
+    scorer = (RESOURCE_TYPE_SCORER, store._scorer_pattern(experiment_id, name))
+    return authorize(
+        authenticate_request().username,
+        (RESOURCE_TYPE_EXPERIMENT, experiment_id),
+        [
+            Requirement(
+                RESOURCE_TYPE_SCORER_VERSION,
+                "*",
+                "delete",
+                fallback_if_no_grant=(scorer,),
+            ),
+        ],
+    )
+
+
 def validate_can_delete_scorer():
-    return _get_permission_from_scorer_name().can_delete
+    """One route deletes either a single scorer version or the whole scorer.
+
+    Without a ``version`` the handler removes the scorer and every version it holds, which stays
+    the parent's ``delete``. With a ``version`` it removes just that one, so the parent carries
+    only the read that addresses it and the ``scorer_version`` tier carries the delete -- the
+    shape every other sub-resource route uses. Requiring the parent's ``delete`` in both cases
+    meant a ``scorer_version`` grant could only ever subtract, never confer, so holding
+    ``MANAGE`` on the versions of a scorer read-only to you could not delete one.
+
+    The version tier is consulted either way: deleting the scorer destroys every version, so a
+    ``DENY`` there still vetoes. ``version`` is read the way the handler reads it, so the gate
+    cannot judge a different operation than the one performed.
+    """
+    permission = _get_permission_from_scorer_name()
+    names_a_version = _get_request_message(DeleteScorer()).HasField("version")
+    addressed = permission.can_read if names_a_version else permission.can_delete
+    return addressed and _scorer_version_delete_allowed()
 
 
 def validate_can_manage_scorer():
@@ -1257,10 +2633,58 @@ def validate_can_manage_scorer_permission():
     return _get_permission_from_scorer_permission_request().can_manage
 
 
+def validate_can_update_online_scoring_config():
+    body = request.get_json(silent=True) or {}
+    experiment_id = body.get("experiment_id")
+    if not experiment_id:
+        return False
+    username = authenticate_request().username
+    return _get_experiment_permission(experiment_id, username).can_update
+
+
+def validate_can_read_online_scoring_configs():
+    # Parse scorer_ids the same way the handler does (query params OR JSON body)
+    # so this gate can't be bypassed by moving scorer_ids into a GET request body.
+    # Omit _assert_required: an absent scorer_ids falls through to allow here and
+    # is handled by the handler's own validation, rather than raising in the gate.
+    request_json = _get_validated_flask_request_json(
+        request, schema={"scorer_ids": [_assert_array, _assert_item_type_string]}
+    )
+    scorer_ids = request_json.get("scorer_ids") or []
+    if not scorer_ids:
+        return True
+    username = authenticate_request().username
+    configs = _get_tracking_store().get_online_scoring_configs(scorer_ids)
+    for config in configs:
+        if not _get_experiment_permission(config.experiment_id, username).can_read:
+            return False
+    return True
+
+
 def sender_is_admin():
     """Validate if the sender is admin"""
     username = authenticate_request().username
     return store.get_user(username).is_admin
+
+
+def _allow_authenticated():
+    # For routes open to any logged-in user (no tenant-scoped data): discovery, demo.
+    return True
+
+
+def validate_is_job_owner():
+    # Jobs have no experiment scope, so ownership is the boundary: the recorded
+    # creator must match the caller. Missing creator or missing job -> denied.
+    from mlflow.server.jobs import get_job
+
+    job_id = _get_request_param("job_id")
+    try:
+        creator = get_job(job_id).creator
+    except MlflowException as e:
+        if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+            return False
+        raise
+    return creator is not None and creator == authenticate_request().username
 
 
 def _is_workspace_admin(user_id: int, workspace: str) -> bool:
@@ -1429,6 +2853,10 @@ _RESOURCE_WORKSPACE_FETCHER: dict[str, tuple[str, Callable[[], Callable[[str], A
             )
         ),
     ),
+    RESOURCE_TYPE_MCP_SERVER: (
+        "mcp server",
+        lambda: _get_tracking_store().get_mcp_server,
+    ),
 }
 
 
@@ -1471,6 +2899,21 @@ def _resource_dispatch_keys(resource_type: str, resource_id: str) -> _ResourceDi
     )
 
 
+def _wildcard_grant_workspace() -> "str | None":
+    """The workspace a wildcard grant is written to and read from.
+
+    A ``"*"`` pattern names no resource, so there is nothing to fetch a workspace from. The
+    store's write path already resolves this from the request rather than the resource
+    (``grant_user_resource_permission`` -> ``_get_active_workspace_name``), so authorization has
+    to agree with it or the two halves disagree about which workspace the grant is in.
+
+    ``None`` when workspaces are enabled and the request names none, which callers deny on.
+    """
+    if not MLFLOW_ENABLE_WORKSPACES.get():
+        return DEFAULT_WORKSPACE_NAME
+    return workspace_context.get_request_workspace()
+
+
 def _resolve_user_permission_for_resource(
     username: str, resource_type: str, resource_id: str
 ) -> Permission:
@@ -1480,6 +2923,14 @@ def _resolve_user_permission_for_resource(
     """
     _reject_workspace_resource_type(resource_type)
     _validate_resource_type(resource_type)
+    if resource_id == "*":
+        # No resource to fetch, so the workspace comes from the request. This is the only
+        # grain the sub-resource tiers have, and it is also how ``experiment``/``*`` is reached.
+        return _get_role_permission_or_default(
+            _role_permission_for_known_workspace(
+                username, resource_type, "*", _wildcard_grant_workspace()
+            )
+        )
     dispatch = _resource_dispatch_keys(resource_type, resource_id)
     if dispatch is None:
         raise MlflowException(
@@ -1507,6 +2958,21 @@ def validate_can_manage_resource() -> bool:
     resource_type = _get_request_param("resource_type")
     resource_id = _get_request_param("resource_id")
     requester = authenticate_request().username
+    if resource_id == "*":
+        # A wildcard grant is not attached to any resource, so there is no resource-level
+        # MANAGE to check. It is gated like the role API instead -- admin or workspace admin --
+        # because both write the same rows, and the per-user route must not be the softer one.
+        #
+        # The type checks below are what ``_resolve_user_permission_for_resource`` would have
+        # run; this branch bypasses it, so they have to be repeated or ``workspace`` slips past
+        # its own rejection.
+        _reject_workspace_resource_type(resource_type)
+        _validate_resource_type(resource_type)
+        user = store.get_user(requester)
+        if user.is_admin:
+            return True
+        workspace = _wildcard_grant_workspace()
+        return workspace is not None and _is_workspace_admin(user.id, workspace)
     return _resolve_user_permission_for_resource(requester, resource_type, resource_id).can_manage
 
 
@@ -1515,6 +2981,8 @@ def _workspace_for_resource(resource_type: str, resource_id: str) -> str | None:
     if the resource can't be located. Fail-closed: any lookup failure returns
     None so authorization gates deny rather than leak across workspaces.
     """
+    if resource_id == "*":
+        return _wildcard_grant_workspace()
     try:
         dispatch = _resource_dispatch_keys(resource_type, resource_id)
     except MlflowException:
@@ -1555,6 +3023,14 @@ def validate_can_get_user_permission() -> bool:
     return store.is_workspace_admin(requester_user.id, workspace_name)
 
 
+def _prompt_marker_in_tags(tags) -> "bool | None":
+    value = None
+    for tag in tags:
+        if tag.key == IS_PROMPT_TAG_KEY:
+            value = tag.value
+    return None if value is None else value.lower() == "true"
+
+
 def _entity_is_prompt(entity) -> bool:
     """True if a ``RegisteredModel`` / ``ModelVersion`` entity is prompt-flagged.
 
@@ -1566,7 +3042,7 @@ def _entity_is_prompt(entity) -> bool:
     """
     if hasattr(entity, "_is_prompt"):
         return entity._is_prompt()
-    return any(t.key == IS_PROMPT_TAG_KEY and t.value.lower() == "true" for t in entity.tags)
+    return _prompt_marker_in_tags(entity.tags) is True
 
 
 def _rm_or_prompt_read_predicate(username: str) -> Callable[[Any], bool]:
@@ -1583,42 +3059,69 @@ def _rm_or_prompt_read_predicate(username: str) -> Callable[[Any], bool]:
     return can_read
 
 
-def _role_based_read_predicate(username: str, resource_type: str) -> Callable[[str], bool]:
-    """
-    Build a ``p(resource_id) -> bool`` predicate from ``username``'s role
-    grants in the active workspace. Max-style: any positive grant (specific or
-    wildcard) wins; ``NO_PERMISSIONS`` rows are ignored. Falls back to
-    ``default_permission.can_read`` when workspaces are disabled, otherwise to
-    deny.
-    """
-    workspace_name = (
-        workspace_context.get_request_workspace()
-        if MLFLOW_ENABLE_WORKSPACES.get()
-        else DEFAULT_WORKSPACE_NAME
+def _rm_or_prompt_version_read_predicate(username: str) -> Callable[[Any], bool]:
+    can_read_rm = _role_based_read_predicate(
+        username,
+        "registered_model",
+        also_require=[Requirement(RESOURCE_TYPE_REGISTERED_MODEL_VERSION, "*", ACTION_NOT_DENIED)],
     )
-    if workspace_name is None:
-        return lambda _resource_id: False
+    can_read_prompt = _role_based_read_predicate(
+        username,
+        "prompt",
+        also_require=[Requirement(RESOURCE_TYPE_PROMPT_VERSION, "*", ACTION_NOT_DENIED)],
+    )
 
-    user = store.get_user(username)
-    readable: set[str] = set()
-    wildcard_can_read = False
-    for resource_pattern, permission in store.list_role_grants_for_user_in_workspace(
-        user.id, workspace_name, resource_type
-    ):
-        if not get_permission(permission).can_read:
-            continue
-        if resource_pattern == "*":
-            wildcard_can_read = True
-        else:
-            readable.add(resource_pattern)
+    def can_read(entity) -> bool:
+        return (can_read_prompt if _entity_is_prompt(entity) else can_read_rm)(entity.name)
 
-    default_can_read = get_permission(auth_config.default_permission).can_read
-    fallback = default_can_read if not MLFLOW_ENABLE_WORKSPACES.get() else False
+    return can_read
 
-    def predicate(resource_id: str) -> bool:
-        return resource_id in readable or wildcard_can_read or fallback
 
-    return predicate
+def _role_based_read_predicate(
+    username: str,
+    resource_type: str,
+    also_require: "Sequence[Requirement]" = (),
+) -> Callable[[str], bool]:
+    """
+    Build a ``p(resource_id) -> bool`` predicate from ``username``'s role grants in the active
+    workspace.
+
+    Every row is decided by ``governing_permission_and_action`` and ``action_met`` -- the same
+    functions behind ``authorize`` -- against ``Requirement(resource_type, row_id, "read")``. That
+    shared path is the point: a row cannot be visible in a listing but unreadable at its own point
+    route, or the reverse.
+
+    ``also_require`` carries any further requirements that do NOT vary by row, so they are
+    evaluated once and, when unmet, short-circuit to a constant ``False``. A listing whose rows
+    lead to a sub-resource states that here, as an ordinary requirement:
+
+        also_require=[Requirement(RESOURCE_TYPE_LOGGED_MODEL, "*", ACTION_NOT_DENIED)]
+
+    The relationship stays at the call site and in the same vocabulary every route uses, rather
+    than being named by this signature -- nothing here knows or asserts which types are parents of
+    which. A veto is spelled out as ``ACTION_NOT_DENIED`` because that is what the route means;
+    a positive action would be honoured too, and reads honestly if a caller ever needs one.
+
+    The row requirement falls back to the workspace tier, which is what the loader this replaced
+    did by folding ``(workspace, "*")`` rows in for every resource type. Tier override makes that
+    strictly safer than before: a grant on the row's own key now decides, so
+    ``(experiment, "*", DENY)`` is honoured, where previously any workspace-level grant that could
+    read still listed everything.
+
+    NOTE a pre-existing inconsistency this preserves rather than introduces: master folds a
+    workspace grant into a POINT permission only at ``MANAGE``
+    (``get_role_permission_for_resource``, mirrored here by ``is_workspace_admin_grant``), but its
+    predicate loader folded workspace rows in at ANY level. So ``(workspace, "*", USE)`` lists
+    experiments it cannot then read. Closing that would deny a caller master allows, so it is left
+    alone and reported as design feedback.
+    """
+    workspace_fallback = ((RESOURCE_TYPE_WORKSPACE, "*"),)
+    row_template = Requirement(resource_type, "*", "read", fallback_if_no_grant=workspace_fallback)
+    gate = retention_gate(username, (RESOURCE_TYPE_WORKSPACE, "*"), [row_template, *also_require])
+    for requirement in also_require:
+        if not gate.retains(requirement.resource_type, requirement.resource_id):
+            return lambda _resource_id: False
+    return lambda resource_id: gate.retains(resource_type, resource_id)
 
 
 def filter_experiment_ids(experiment_ids: list[str]) -> list[str]:
@@ -1642,7 +3145,11 @@ def filter_experiment_ids(experiment_ids: list[str]) -> list[str]:
     try:
         if sender_is_admin():
             return experiment_ids
-        predicate = _role_based_read_predicate(authenticate_request().username, "experiment")
+        predicate = _role_based_read_predicate(
+            authenticate_request().username,
+            "experiment",
+            also_require=[Requirement(RESOURCE_TYPE_RUN, "*", ACTION_NOT_DENIED)],
+        )
         return [exp_id for exp_id in experiment_ids if predicate(exp_id)]
     except (RuntimeError, AttributeError):
         # Auth system not fully initialized, skip filtering
@@ -1691,27 +3198,74 @@ def validate_can_delete_user():
 
 
 def validate_can_read_gateway_secret():
-    return _get_permission_from_gateway_secret_id().can_read
+    msg = _get_request_message(GetGatewaySecretInfo())
+    return _get_gateway_secret_permission(msg.secret_id).can_read
 
 
 def validate_can_update_gateway_secret():
-    return _get_permission_from_gateway_secret_id().can_update
+    msg = _get_request_message(UpdateGatewaySecret())
+    return _get_gateway_secret_permission(msg.secret_id).can_update
 
 
 def validate_can_delete_gateway_secret():
-    return _get_permission_from_gateway_secret_id().can_delete
+    msg = _get_request_message(DeleteGatewaySecret())
+    return _get_gateway_secret_permission(msg.secret_id).can_delete
 
 
 def validate_can_manage_gateway_secret():
     return _get_permission_from_gateway_secret_id().can_manage
 
 
+def validate_can_create_gateway_secret():
+    # Persisting a provider credential is a workspace-scoped create, like experiments and
+    # registered models. The after-request MANAGE grant only records ownership.
+    return _user_can_create_in_workspace() and _workspace_create_not_denied(
+        RESOURCE_TYPE_GATEWAY_SECRET
+    )
+
+
 def validate_can_read_gateway_endpoint():
-    return _get_permission_from_gateway_endpoint_id().can_read
+    msg = _get_request_message(GetGatewayEndpoint())
+    endpoint_id = msg.endpoint_id
+    if not endpoint_id and msg.name:
+        endpoint_id = _get_tracking_store().get_gateway_endpoint(name=msg.name).endpoint_id
+    return _get_gateway_endpoint_permission(endpoint_id).can_read
 
 
 def validate_can_delete_gateway_endpoint():
-    return _get_permission_from_gateway_endpoint_id().can_delete
+    msg = _get_request_message(DeleteGatewayEndpoint())
+    return _get_gateway_endpoint_permission(msg.endpoint_id).can_delete
+
+
+def _validate_can_update_gateway_endpoint_from_request(request_message) -> bool:
+    msg = _get_request_message(request_message)
+    return _get_gateway_endpoint_permission(msg.endpoint_id).can_update
+
+
+def validate_can_add_guardrail_to_gateway_endpoint():
+    # A Guardrail carries a full ScorerVersion, so attaching one exposes that scorer's definition
+    # through the endpoint. The endpoint tier stays the positive gate; the scorer tier vetoes.
+    msg = _get_request_message(AddGuardrailToEndpoint())
+    if not _get_gateway_endpoint_permission(msg.endpoint_id).can_update:
+        return False
+    return _guardrail_scorer_not_denied(msg.guardrail_id)
+
+
+def validate_can_remove_guardrail_from_gateway_endpoint():
+    return _validate_can_update_gateway_endpoint_from_request(RemoveGuardrailFromEndpoint())
+
+
+def validate_can_update_gateway_endpoint_guardrail_config():
+    # Same exposure as attaching: the config names the guardrail whose scorer is served.
+    msg = _get_request_message(UpdateEndpointGuardrailConfig())
+    if not _get_gateway_endpoint_permission(msg.endpoint_id).can_update:
+        return False
+    return _guardrail_scorer_not_denied(msg.guardrail_id)
+
+
+def validate_can_read_gateway_endpoint_guardrail_configs():
+    msg = _get_request_message(ListEndpointGuardrailConfigs())
+    return _get_gateway_endpoint_permission(msg.endpoint_id).can_read
 
 
 def validate_can_manage_gateway_endpoint():
@@ -1719,11 +3273,13 @@ def validate_can_manage_gateway_endpoint():
 
 
 def validate_can_read_gateway_model_definition():
-    return _get_permission_from_gateway_model_definition_id().can_read
+    msg = _get_request_message(GetGatewayModelDefinition())
+    return _get_gateway_model_definition_permission(msg.model_definition_id).can_read
 
 
 def validate_can_delete_gateway_model_definition():
-    return _get_permission_from_gateway_model_definition_id().can_delete
+    msg = _get_request_message(DeleteGatewayModelDefinition())
+    return _get_gateway_model_definition_permission(msg.model_definition_id).can_delete
 
 
 def validate_can_manage_gateway_model_definition():
@@ -1735,24 +3291,15 @@ def validate_can_create_gateway_model_definition():
     Validate that the user can create a gateway model definition.
     This requires USE permission on the referenced secret.
     """
-    body = request.json or {}
-    secret_id = body.get("secret_id")
+    if not _workspace_create_not_denied(RESOURCE_TYPE_GATEWAY_MODEL_DEFINITION):
+        return False
+    msg = _get_request_message(CreateGatewayModelDefinition())
+    secret_id = msg.secret_id
     if not secret_id:
         # If no secret is provided, allow creation (will fail in handler)
         return True
 
-    username = authenticate_request().username
-    permission = _get_role_permission_or_default(
-        _role_permission_for(
-            username=username,
-            resource_type="gateway_secret",
-            resource_key=secret_id,
-            workspace_lookup_id=secret_id,
-            workspace_fetcher=lambda sid: _get_tracking_store().get_secret_info(secret_id=sid),
-            workspace_label="gateway secret",
-        ),
-    )
-    return permission.can_use
+    return _get_gateway_secret_permission(secret_id).can_use
 
 
 def validate_can_update_gateway_model_definition():
@@ -1761,32 +3308,44 @@ def validate_can_update_gateway_model_definition():
     This requires UPDATE permission on the model definition AND
     USE permission on any new secret being referenced.
     """
+    msg = _get_request_message(UpdateGatewayModelDefinition())
     # First check update permission on the model definition
-    if not _get_permission_from_gateway_model_definition_id().can_update:
+    if not _get_gateway_model_definition_permission(msg.model_definition_id).can_update:
         return False
 
     # If updating the secret, check USE permission on the new secret
-    body = request.json or {}
-    secret_id = body.get("secret_id")
+    secret_id = msg.secret_id
     if not secret_id:
         # No secret being changed, just return True
         return True
 
-    username = authenticate_request().username
-    permission = _get_role_permission_or_default(
-        _role_permission_for(
-            username=username,
-            resource_type="gateway_secret",
-            resource_key=secret_id,
-            workspace_lookup_id=secret_id,
-            workspace_fetcher=lambda sid: _get_tracking_store().get_secret_info(secret_id=sid),
-            workspace_label="gateway secret",
-        ),
-    )
-    return permission.can_use
+    return _get_gateway_secret_permission(secret_id).can_use
 
 
-def _validate_can_use_model_definitions(model_configs: list[dict[str, Any]]) -> bool:
+def validate_can_invoke_issue_detection():
+    """
+    Issue detection creates a run in the request's experiment and, when ``secret_id`` is
+    given, decrypts that gateway secret into the job environment. Require UPDATE on the
+    experiment and USE on the secret, mirroring model-definition creation. The run it
+    creates puts this on the same create shape as ``validate_can_create_run``.
+    """
+    if not _authorize_create_in_experiment(_get_request_param("experiment_id"), RESOURCE_TYPE_RUN):
+        return False
+    body = request.get_json(silent=True)
+    secret_id = body.get("secret_id") if isinstance(body, dict) else None
+    # An absent or empty secret_id is also a no-op in the handler (no credentials fetched).
+    if not secret_id:
+        return True
+    return _get_gateway_secret_permission(secret_id).can_use
+
+
+def validate_can_invoke_genai_evaluate():
+    return _authorize_create_in_experiment(_get_request_param("experiment_id"), RESOURCE_TYPE_RUN)
+
+
+def _validate_can_use_model_definitions(
+    model_configs: Sequence[GatewayEndpointModelConfig],
+) -> bool:
     """
     Helper to validate USE permission on all model definitions in model_configs.
     Returns True if all model definitions have USE permission, False otherwise.
@@ -1795,40 +3354,27 @@ def _validate_can_use_model_definitions(model_configs: list[dict[str, Any]]) -> 
         return True
 
     model_def_ids = [
-        config.get("model_definition_id")
-        for config in model_configs
-        if config.get("model_definition_id")
+        config.model_definition_id for config in model_configs if config.model_definition_id
     ]
 
     if not model_def_ids:
         return True
 
-    username = authenticate_request().username
     for model_def_id in model_def_ids:
-        permission = _get_role_permission_or_default(
-            _role_permission_for(
-                username=username,
-                resource_type="gateway_model_definition",
-                resource_key=model_def_id,
-                workspace_lookup_id=model_def_id,
-                workspace_fetcher=lambda mdid: _get_tracking_store().get_gateway_model_definition(
-                    model_definition_id=mdid
-                ),
-                workspace_label="gateway model definition",
-            ),
-        )
-        if not permission.can_use:
+        if not _get_gateway_model_definition_permission(model_def_id).can_use:
             return False
 
     return True
 
 
-def _validate_can_use_model_definitions_for_create(model_configs: list[dict[str, Any]]) -> bool:
+def _validate_can_use_model_definitions_for_create(
+    model_configs: Sequence[GatewayEndpointModelConfig],
+) -> bool:
     """
     Create-only helper that enforces workspace USE permission when no model definitions
     are provided, otherwise validates USE permission on referenced model definitions.
     """
-    if not model_configs or not any(config.get("model_definition_id") for config in model_configs):
+    if not model_configs or not any(config.model_definition_id for config in model_configs):
         if not MLFLOW_ENABLE_WORKSPACES.get():
             return True
         workspace_name = workspace_context.get_request_workspace()
@@ -1836,9 +3382,7 @@ def _validate_can_use_model_definitions_for_create(model_configs: list[dict[str,
             return False
         username = authenticate_request().username
         user = store.get_user(username)
-        workspace_perm = store.get_role_permission_for_resource(
-            user.id, "workspace", "*", workspace_name
-        )
+        workspace_perm = _role_grant_for_resource(user.id, "workspace", "*", workspace_name)
         if workspace_perm is not None and workspace_perm.can_use:
             return True
         # Honor ``grant_default_workspace_access``: an ungranted user in the
@@ -1851,14 +3395,27 @@ def _validate_can_use_model_definitions_for_create(model_configs: list[dict[str,
     return _validate_can_use_model_definitions(model_configs)
 
 
+def _gateway_endpoint_experiment_not_denied(experiment_id: str) -> bool:
+    return _gateway_resources_not_denied([
+        Requirement(RESOURCE_TYPE_EXPERIMENT, experiment_id or "*", ACTION_NOT_DENIED)
+    ])
+
+
 def validate_can_create_gateway_endpoint():
     """
     Validate that the user can create a gateway endpoint.
     This requires USE permission on all referenced model definitions.
     """
-    body = request.json or {}
-    model_configs = body.get("model_configs", [])
-    return _validate_can_use_model_definitions_for_create(model_configs)
+    msg = _get_request_message(CreateGatewayEndpoint())
+    if not _validate_can_use_model_definitions_for_create(msg.model_configs):
+        return False
+    if not _workspace_create_not_denied(RESOURCE_TYPE_GATEWAY_ENDPOINT):
+        return False
+    # Usage tracking defaults ON, so an omitted field still reaches the auto-create.
+    tracking_on = msg.usage_tracking if msg.HasField("usage_tracking") else True
+    if not msg.experiment_id and not tracking_on:
+        return True
+    return _gateway_endpoint_experiment_not_denied(msg.experiment_id)
 
 
 def validate_can_update_gateway_endpoint():
@@ -1867,47 +3424,126 @@ def validate_can_update_gateway_endpoint():
     This requires UPDATE permission on the endpoint AND
     USE permission on any new model definitions being referenced.
     """
-    if not _get_permission_from_gateway_endpoint_id().can_update:
+    msg = _get_request_message(UpdateGatewayEndpoint())
+    if not _get_gateway_endpoint_permission(msg.endpoint_id).can_update:
         return False
 
-    body = request.json or {}
-    model_configs = body.get("model_configs", [])
-    return _validate_can_use_model_definitions(model_configs)
+    if not _validate_can_use_model_definitions(msg.model_configs):
+        return False
+    # The body can also re-point the endpoint at an experiment, which master does not gate, so the
+    # experiment vetoes rather than carrying a positive level.
+    if msg.experiment_id:
+        return _gateway_endpoint_experiment_not_denied(msg.experiment_id)
+    # Turning tracking on without naming one auto-creates an experiment, but only while the endpoint
+    # has none attached -- so the fetch is confined to exactly that case.
+    if not (msg.HasField("usage_tracking") and msg.usage_tracking):
+        return True
+    endpoint = _fetch_or_none(_get_tracking_store().get_gateway_endpoint, msg.endpoint_id)
+    if endpoint is not None and endpoint.experiment_id:
+        return True
+    return _gateway_endpoint_experiment_not_denied("")
 
 
-def _get_permission_from_run_id_or_uuid() -> Permission:
-    """
-    Get permission for Flask routes that use either run_id or run_uuid parameter.
-    """
+def _guardrail_scorer_not_denied(guardrail_id: str) -> bool:
+    guardrail = _fetch_or_none(_get_tracking_store().get_gateway_guardrail, guardrail_id)
+    if guardrail is None:
+        return False
+    experiment_id, scorer_pattern = _scorer_row_keys(guardrail.scorer)
+    scorer = (RESOURCE_TYPE_SCORER, scorer_pattern)
+    return authorize(
+        authenticate_request().username,
+        # Anchored on the scorer's experiment, as ``_scorer_version_not_denied`` is: the anchor only
+        # names the workspace whose grants apply, and cross-workspace requests are unreachable.
+        (RESOURCE_TYPE_EXPERIMENT, experiment_id),
+        [
+            Requirement(*scorer, ACTION_NOT_DENIED),
+            Requirement(
+                RESOURCE_TYPE_SCORER_VERSION,
+                "*",
+                ACTION_NOT_DENIED,
+                fallback_if_no_grant=(scorer,),
+            ),
+        ],
+    )
+
+
+def validate_can_attach_model_to_gateway_endpoint():
+    msg = _get_request_message(AttachModelToGatewayEndpoint())
+    if not _get_gateway_endpoint_permission(msg.endpoint_id).can_update:
+        return False
+
+    if not msg.HasField("model_config"):
+        return True
+    model_definition_id = msg.model_config.model_definition_id
+    if not model_definition_id:
+        return True
+    return _get_gateway_model_definition_permission(model_definition_id).can_use
+
+
+def _gateway_resources_not_denied(requirements) -> bool:
+    if not requirements:
+        return True
+    return authorize(
+        authenticate_request().username, (RESOURCE_TYPE_WORKSPACE, "*"), list(requirements)
+    )
+
+
+def validate_can_detach_model_from_gateway_endpoint():
+    msg = _get_request_message(DetachModelFromGatewayEndpoint())
+    if not _get_gateway_endpoint_permission(msg.endpoint_id).can_update:
+        return False
+    if not msg.model_definition_id:
+        return True
+    return _gateway_resources_not_denied([
+        Requirement(
+            RESOURCE_TYPE_GATEWAY_MODEL_DEFINITION,
+            msg.model_definition_id,
+            ACTION_NOT_DENIED,
+        )
+    ])
+
+
+def validate_can_create_gateway_endpoint_binding():
+    return _validate_can_update_gateway_endpoint_from_request(CreateGatewayEndpointBinding())
+
+
+def validate_can_delete_gateway_endpoint_binding():
+    return _validate_can_update_gateway_endpoint_from_request(DeleteGatewayEndpointBinding())
+
+
+def validate_can_list_gateway_endpoint_bindings():
+    msg = _get_request_message(ListGatewayEndpointBindings())
+    if not msg.endpoint_id:
+        return sender_is_admin()
+    return _get_gateway_endpoint_permission(msg.endpoint_id).can_read
+
+
+def validate_can_set_gateway_endpoint_tag():
+    return _validate_can_update_gateway_endpoint_from_request(SetGatewayEndpointTag())
+
+
+def validate_can_delete_gateway_endpoint_tag():
+    return _validate_can_update_gateway_endpoint_from_request(DeleteGatewayEndpointTag())
+
+
+def _run_id_or_uuid_param() -> str:
     run_id = request.args.get("run_id") or request.args.get("run_uuid")
     if not run_id:
         raise MlflowException(
             "Request must specify run_id or run_uuid parameter",
             INVALID_PARAMETER_VALUE,
         )
-    run = _get_tracking_store().get_run(run_id)
-    experiment_id = run.info.experiment_id
-    username = authenticate_request().username
-    return _get_role_permission_or_default(
-        _role_permission_for(
-            username=username,
-            resource_type="experiment",
-            resource_key=experiment_id,
-            workspace_lookup_id=experiment_id,
-            workspace_fetcher=_get_tracking_store().get_experiment,
-            workspace_label="experiment",
-        ),
-    )
+    return run_id
 
 
 def validate_can_read_run_artifact():
     """Checks READ permission on run artifacts."""
-    return _get_permission_from_run_id_or_uuid().can_read
+    return _authorize_run_id(_run_id_or_uuid_param(), "read")
 
 
 def validate_can_update_run_artifact():
     """Checks UPDATE permission on run artifacts."""
-    return _get_permission_from_run_id_or_uuid().can_update
+    return _authorize_run_id(_run_id_or_uuid_param(), "update")
 
 
 def _get_permission_from_model_version() -> Permission:
@@ -1935,156 +3571,525 @@ def _get_permission_from_model_version() -> Permission:
 
 
 def validate_can_read_model_version_artifact():
-    """Checks READ permission on model version artifacts."""
-    return _get_permission_from_model_version().can_read
+    """Checks READ permission on model version artifacts.
+
+    The artifact IS the version's content -- the handler resolves
+    ``get_model_version_download_uri(name, version)`` and streams it -- so the version tier is
+    consulted here for the same reason it is on the scorer point routes. Resolving the registered
+    model alone left ``(registered_model_version, *, DENY)`` unable to withhold anything, on the
+    route whose entire subject is a version. A response filter cannot help: the body is a byte
+    stream, not a proto.
+
+    Veto only, falling back to the named container, so the parent tier stays the positive gate and
+    an absent version grant changes nothing.
+
+    The container is CLASSIFIED rather than assumed: a prompt is a registered model carrying a tag
+    and `_get_sql_model_version` has no prompt guard, so a prompt version reaches this route and its
+    artifact must be vetoed by `prompt_version`, not `registered_model_version`. Same classification
+    `validate_can_read_model_or_prompt_version` makes for the point read of the same object.
+
+    The positive gate is left as master's, which resolves the `registered_model` tier for a prompt's
+    name too; correcting THAT would change which grant admits a prompt artifact at all, which is
+    parent-tier work and is left alone here.
+    """
+    if not _get_permission_from_model_version().can_read:
+        return False
+    target = _registered_model_or_prompt_target()
+    if target is None:
+        return False
+    container_type, name = target
+    version_type = (
+        RESOURCE_TYPE_PROMPT_VERSION
+        if container_type == RESOURCE_TYPE_PROMPT
+        else RESOURCE_TYPE_REGISTERED_MODEL_VERSION
+    )
+    container = (container_type, name)
+    return authorize(
+        authenticate_request().username,
+        container,
+        [
+            Requirement(
+                version_type,
+                "*",
+                ACTION_NOT_DENIED,
+                fallback_if_no_grant=(container,),
+            )
+        ],
+    )
 
 
-def _get_permission_from_trace_request_id() -> Permission:
+def validate_can_read_trace_artifact():
+    """Checks READ permission on trace artifacts.
+
+    The artifact IS the trace payload -- spans, inputs and outputs -- so this resolves the
+    trace tier like every other trace read. Resolving the experiment alone left
+    ``(trace, *, DENY)`` blocking GetTrace, batch, search and tags while still serving the
+    same content through this alternate interface. A response filter cannot help here: the
+    body is an artifact stream, not a proto.
+    """
     request_id = request.args.get("request_id")
     if not request_id:
         raise MlflowException(
             "Request must specify request_id parameter",
             INVALID_PARAMETER_VALUE,
         )
-    trace = _get_tracking_store().get_trace_info(request_id)
-    return _get_experiment_permission(trace.experiment_id, authenticate_request().username)
-
-
-def validate_can_read_trace_artifact():
-    """Checks READ permission on trace artifacts."""
-    return _get_permission_from_trace_request_id().can_read
-
-
-def _get_permission_from_trace(trace_id: str, username: str) -> Permission:
-    try:
-        trace = _get_tracking_store().get_trace_info(trace_id)
-    except MlflowException as e:
-        if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
-            return NO_PERMISSIONS
-        raise
-    return _get_experiment_permission(trace.experiment_id, username)
+    return _authorize_trace(request_id, "read")
 
 
 def validate_can_read_trace_by_request_id():
-    return _get_permission_from_trace(
-        _get_request_param("request_id"), authenticate_request().username
-    ).can_read
+    return _authorize_trace(_get_request_param("request_id"), "read")
 
 
 def validate_can_read_trace_by_trace_id():
-    return _get_permission_from_trace(
-        _get_request_param("trace_id"), authenticate_request().username
-    ).can_read
+    return _authorize_trace(_get_request_param("trace_id"), "read")
+
+
+def _trace_search_selects_on_tiers(
+    filter_strings: "Sequence[str]" = (), order_by: "Sequence[str]" = ()
+) -> "frozenset[str]":
+    """Which sub-resource tiers a trace search reaches, through its filter or through its sort.
+
+    A sort key is the same oracle as a filter, one comparison at a time, and ``order_by`` normalizes
+    exactly as a filter does -- ``run_id DESC`` parses to ``request_metadata.`mlflow.sourceRun``` --
+    so the row order tells the caller how the denied metadata ranks across rows even when the field
+    itself is withheld from every row.
+    """
+    from mlflow.tracing.constant import TraceMetadataKey
+    from mlflow.utils.search_utils import SearchTraceUtils
+
+    metadata_tiers = {
+        TraceMetadataKey.SOURCE_RUN: RESOURCE_TYPE_RUN,
+        TraceMetadataKey.MODEL_ID: RESOURCE_TYPE_LOGGED_MODEL,
+    }
+    every_tier = frozenset({RESOURCE_TYPE_ASSESSMENT, *metadata_tiers.values()})
+    tiers = set()
+    for filter_string in filter_strings:
+        if not filter_string:
+            continue
+        try:
+            parsed = SearchTraceUtils.parse_search_filter_for_search_traces(filter_string)
+        except Exception:
+            return every_tier
+        for comparison in parsed:
+            key_type = comparison.get("type")
+            key_name = comparison.get("key")
+            if SearchTraceUtils.is_assessment(key_type, key_name, comparison.get("comparator")):
+                tiers.add(RESOURCE_TYPE_ASSESSMENT)
+            elif key_type == "request_metadata" and key_name in metadata_tiers:
+                tiers.add(metadata_tiers[key_name])
+    for clause in order_by:
+        if not clause:
+            continue
+        try:
+            key_type, key_name, _ = SearchTraceUtils.parse_order_by_for_search_traces(clause)
+        except Exception:
+            return every_tier
+        if key_type == "request_metadata" and key_name in metadata_tiers:
+            tiers.add(metadata_tiers[key_name])
+    return frozenset(tiers)
+
+
+def _authorize_trace_search(
+    experiment_ids, *filter_strings: str, order_by: "Sequence[str]" = ()
+) -> bool:
+    """Trace search requires read on each named experiment, unlike its sibling listings.
+
+    Every listing built on ``_role_based_read_predicate`` -- experiments, runs, logged models,
+    registered models, model versions -- falls back to the workspace tier at the row action, so
+    ``(workspace, "*", USE)`` alone lists them all while their point routes still return 403.
+    Trace search resolves experiment read directly instead, so it denies that caller; the
+    divergence is deliberate, since closing it on the others would deny callers master allows.
+    """
+    resolved = _bulk_requirements_in_experiments(experiment_ids, RESOURCE_TYPE_TRACE, "read")
+    if resolved is None:
+        return False
+    anchor, requirements = resolved
+    tiers = _trace_search_selects_on_tiers(filter_strings, order_by)
+    return authorize(
+        authenticate_request().username,
+        anchor,
+        [
+            *requirements,
+            *(
+                Requirement(
+                    tier,
+                    "*",
+                    "read",
+                    fallback_if_no_grant=((RESOURCE_TYPE_EXPERIMENT, experiment_id),),
+                )
+                for experiment_id in experiment_ids
+                for tier in tiers
+            ),
+        ],
+    )
 
 
 def validate_can_search_traces():
-    experiment_ids = request.args.to_dict(flat=False).get("experiment_ids", [])
-    username = authenticate_request().username
-    return bool(experiment_ids) and all(
-        _get_experiment_permission(eid, username).can_read for eid in experiment_ids
+    args = request.args.to_dict(flat=False)
+    experiment_ids = args.get("experiment_ids", [])
+    return _authorize_trace_search(
+        experiment_ids, request.args.get("filter", ""), order_by=args.get("order_by", [])
     )
 
 
 def validate_can_search_traces_v3():
-    locations = (request.json or {}).get("locations", [])
-    # Only mlflow_experiment locations carry an experiment_id we can permission-check;
-    # inference_table and other future location types don't map to a local experiment so
-    # they are intentionally excluded and requests containing only those locations are
-    # denied (fail-closed) via the bool(experiment_ids) guard below.
+    """Only ``mlflow_experiment`` locations carry an experiment_id we can permission-check.
+
+    ``inference_table`` and future location types map to no local experiment, so they are excluded
+    and a request carrying only those is denied through
+    ``_bulk_requirements_in_experiments`` returning ``None``.
+
+    Read from the parsed proto rather than raw JSON. The handler parses with ``ParseDict``, which
+    accepts lowerCamelCase aliases per list element, so a body mixing one snake_case location with
+    one ``mlflowExperiment``/``experimentId`` location would hide the second experiment from
+    authorization while the handler searched both.
+    """
+    message = _get_request_message(SearchTracesV3())
     experiment_ids = [
-        eid
-        for loc in locations
-        if isinstance(loc, dict)
-        if isinstance(ml_exp := loc.get("mlflow_experiment"), dict)
-        if (eid := ml_exp.get("experiment_id"))
+        location.mlflow_experiment.experiment_id
+        for location in message.locations
+        if location.HasField("mlflow_experiment")
+        if location.mlflow_experiment.experiment_id
     ]
-    username = authenticate_request().username
-    return bool(experiment_ids) and all(
-        _get_experiment_permission(eid, username).can_read for eid in experiment_ids
-    )
+    return _authorize_trace_search(experiment_ids, message.filter, order_by=message.order_by)
 
 
 def validate_can_batch_get_traces():
+    # Derives experiment ownership by reverse-looking-up each trace_id's
+    # experiment_id and requires read permission on all of them (all-or-
+    # nothing). This predates and is independent of the request's own
+    # ``experiment_ids`` field (added for pre-request auth scoping, see
+    # #24964): that field is currently wired through only as far as the
+    # store layer (proto -> handlers -> SqlAlchemyStore / RestStore), and
+    # this validator neither reads nor benefits from it yet.
     if request.method == "GET":
         trace_ids = request.args.to_dict(flat=False).get("trace_ids", [])
     else:
         trace_ids = (request.json or {}).get("trace_ids", [])
-    username = authenticate_request().username
     tracking_store = _get_tracking_store()
     try:
-        experiment_ids = {tracking_store.get_trace_info(tid).experiment_id for tid in trace_ids}
+        experiment_ids = [tracking_store.get_trace_info(tid).experiment_id for tid in trace_ids]
     except MlflowException as e:
         if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
             return False
         raise
-    return bool(experiment_ids) and all(
-        _get_experiment_permission(eid, username).can_read for eid in experiment_ids
-    )
+    return _authorize_bulk_in_experiments(experiment_ids, RESOURCE_TYPE_TRACE, "read")
 
 
 def validate_can_delete_traces():
-    return _get_experiment_permission(
-        _get_request_param("experiment_id"), authenticate_request().username
-    ).can_delete
+    """DeleteTraces: ``delete`` on the trace tier, falling back to the experiment.
+
+    Destroys the traces and, through the assessments FK (ondelete=CASCADE), their assessments, so
+    both tiers carry ``delete``. The experiment baseline is ``read``, as on every other
+    sub-resource route, rather than ``delete``: a ``delete`` baseline leaves a grant on the trace
+    tier able only to SUBTRACT, never to confer the one right it exists to confer, which is not
+    what ``MANAGE`` means anywhere else in the model. ``DeleteRun`` already lets
+    ``(run, *, MANAGE)`` delete a run with experiment ``read``; the trace tier now matches.
+
+    Nothing that previously required experiment ``MANAGE`` is loosened. A caller holding no trace
+    grant falls back to experiment ``delete``, and the assessment rung still demands authority
+    over the assessments the cascade destroys, inheriting experiment ``update`` exactly as
+    ``validate_can_delete_assessment`` does. The route is therefore deliberately NOT gated
+    identically to ``DeleteExperiment`` any more: destroying an experiment's traces is a narrower
+    act than destroying the experiment, so a tier grant may authorize it.
+    """
+    experiment_id = _get_request_param("experiment_id")
+    experiment = (RESOURCE_TYPE_EXPERIMENT, experiment_id)
+    return authorize(
+        authenticate_request().username,
+        experiment,
+        [
+            Requirement(RESOURCE_TYPE_EXPERIMENT, experiment_id, "read"),
+            Requirement(
+                RESOURCE_TYPE_TRACE,
+                "*",
+                "delete",
+                fallback_if_no_grant=(
+                    Requirement(RESOURCE_TYPE_EXPERIMENT, experiment_id, "delete"),
+                ),
+            ),
+            Requirement(
+                RESOURCE_TYPE_ASSESSMENT,
+                "*",
+                "delete",
+                fallback_if_no_grant=(
+                    Requirement(RESOURCE_TYPE_EXPERIMENT, experiment_id, "update"),
+                ),
+            ),
+        ],
+    )
+
+
+def _authorize_trace(trace_id: str, action: str) -> bool:
+    trace = _fetch_or_none(_get_tracking_store().get_trace_info, trace_id)
+    if trace is None:
+        return False
+    experiment = (RESOURCE_TYPE_EXPERIMENT, trace.experiment_id)
+    # Experiment READ baseline -- see _run_requirement.
+    return authorize(
+        authenticate_request().username,
+        experiment,
+        [
+            Requirement(RESOURCE_TYPE_EXPERIMENT, trace.experiment_id, "read"),
+            Requirement(RESOURCE_TYPE_TRACE, "*", action, fallback_if_no_grant=(experiment,)),
+        ],
+    )
 
 
 def validate_can_update_trace_by_trace_id():
-    return _get_permission_from_trace(
-        _get_request_param("trace_id"), authenticate_request().username
-    ).can_update
+    return _authorize_trace(_get_request_param("trace_id"), "update")
 
 
 def validate_can_update_trace_by_request_id():
-    return _get_permission_from_trace(
-        _get_request_param("request_id"), authenticate_request().username
-    ).can_update
+    return _authorize_trace(_get_request_param("request_id"), "update")
+
+
+def _bulk_requirements_in_experiments(
+    experiment_ids: "Sequence[str]", child_type: str, action: str
+) -> "tuple[tuple[str, str], list[Requirement]] | None":
+    distinct = list(dict.fromkeys(str(experiment_id) for experiment_id in experiment_ids))
+    if not distinct:
+        # An unscoped bulk request denies, as each of these routes already did.
+        return None
+    requirements: list[Requirement] = []
+    for experiment_id in distinct:
+        experiment = (RESOURCE_TYPE_EXPERIMENT, experiment_id)
+        requirements.append(Requirement(RESOURCE_TYPE_EXPERIMENT, experiment_id, "read"))
+        requirements.append(
+            Requirement(child_type, "*", action, fallback_if_no_grant=(experiment,))
+        )
+    return (RESOURCE_TYPE_WORKSPACE, "*"), requirements
+
+
+def _authorize_bulk_in_experiments(
+    experiment_ids: "Sequence[str]", child_type: str, action: str
+) -> bool:
+    resolved = _bulk_requirements_in_experiments(experiment_ids, child_type, action)
+    if resolved is None:
+        return False
+    anchor, requirements = resolved
+    return authorize(authenticate_request().username, anchor, requirements)
+
+
+def validate_can_create_logged_model():
+    msg = _get_request_message(CreateLoggedModel())
+    if not _authorize_create_in_experiment(msg.experiment_id, RESOURCE_TYPE_LOGGED_MODEL):
+        return False
+    return not msg.source_run_id or _authorize_run_id(msg.source_run_id, "read")
+
+
+def _assessment_trace_context(trace_id: str) -> "tuple[tuple[str, str], str] | None":
+    trace = _fetch_or_none(_get_tracking_store().get_trace_info, trace_id)
+    if trace is None:
+        return None
+    return (RESOURCE_TYPE_EXPERIMENT, trace.experiment_id), trace.experiment_id
+
+
+def validate_can_get_assessment():
+    """
+    Reading one assessment directly. The assessment IS the subject, so a denied assessment
+    tier refuses the route rather than redacting -- redaction would leave nothing to return.
+    """
+    resolved = _assessment_trace_context(_get_request_param("trace_id"))
+    if resolved is None:
+        return False
+    experiment, experiment_id = resolved
+    return authorize(
+        authenticate_request().username,
+        experiment,
+        [
+            Requirement(RESOURCE_TYPE_EXPERIMENT, experiment_id, "read"),
+            Requirement(RESOURCE_TYPE_TRACE, "*", "read", fallback_if_no_grant=(experiment,)),
+            Requirement(RESOURCE_TYPE_ASSESSMENT, "*", "read", fallback_if_no_grant=(experiment,)),
+        ],
+    )
+
+
+def validate_can_query_trace_metrics():
+    message = _get_request_message(QueryTraceMetrics())
+    experiment_ids = list(message.experiment_ids)
+    resolved = _bulk_requirements_in_experiments(experiment_ids, RESOURCE_TYPE_TRACE, "read")
+    if resolved is None:
+        return False
+    anchor, requirements = resolved
+    return authorize(
+        authenticate_request().username,
+        anchor,
+        [
+            *requirements,
+            *(
+                Requirement(
+                    RESOURCE_TYPE_ASSESSMENT,
+                    "*",
+                    "read",
+                    fallback_if_no_grant=((RESOURCE_TYPE_EXPERIMENT, experiment_id),),
+                )
+                for experiment_id in experiment_ids
+                if message.view_type == MetricViewType.Value("ASSESSMENTS")
+            ),
+        ],
+    )
+
+
+def validate_can_create_assessment():
+    """CreateAssessment: the experiment confers the write, or a trace-tier grant does.
+
+    Two paths, which is why this is not a plain requirement list: experiment ``update`` with
+    neither tier denied, OR experiment ``read`` plus trace ``update``. ``authorize`` is a
+    conjunction, so the disjunction is evaluated here -- over ONE grants load, since the duplicated
+    keys deduplicate.
+
+    Stated as a conjunction it is ``exp read`` and ``trace readable`` and ``assessment not denied``
+    and (``exp update`` or ``trace update``), which is the same thing: ``exp update`` implies
+    ``exp read``, and ``trace update`` implies the trace is not denied.
+
+    The point of the disjunction is that a positive-but-insufficient trace grant must not DOWNGRADE
+    an experiment EDIT holder. Carrying one requirement with the trace first would let
+    ``(trace, *, READ)`` govern and refuse a caller the experiment already authorizes, because the
+    first key holding any grant decides. The tier may confer the write or veto it, never weaken it.
+    """
+    resolved = _assessment_trace_context(_get_request_param("trace_id"))
+    if resolved is None:
+        return False
+    experiment, experiment_id = resolved
+    requirements = [
+        # Addressing: the route resolves the experiment FROM the trace id, so the caller has to be
+        # able to read both. ``read`` and ``not_denied`` admit the same grants (every grantable
+        # positive carries ``can_read``); ``read`` states the requirement the route actually has.
+        Requirement(RESOURCE_TYPE_EXPERIMENT, experiment_id, "read"),
+        Requirement(RESOURCE_TYPE_TRACE, "*", "read", fallback_if_no_grant=(experiment,)),
+        # A create is never authorized by a grant on the type being created; the tier only vetoes.
+        Requirement(RESOURCE_TYPE_ASSESSMENT, "*", ACTION_NOT_DENIED),
+        # Either of these confers the write. No fallback on the trace rung: an absent trace grant
+        # must leave the experiment rung to speak, not inherit and answer twice.
+        Requirement(RESOURCE_TYPE_EXPERIMENT, experiment_id, "update"),
+        Requirement(RESOURCE_TYPE_TRACE, "*", "update"),
+    ]
+    permissions = resolve_requirements(authenticate_request().username, experiment, requirements)
+    if permissions is None:
+        return False
+    met = [requirement_met(r, p) for r, p in zip(requirements, permissions)]
+    *addressing, experiment_write, trace_write = met
+    return all(addressing) and (experiment_write or trace_write)
+
+
+def validate_can_update_assessment():
+    """UpdateAssessment: ``update`` on the assessment tier, inheriting the experiment.
+
+    The experiment is the assessment's parent resource, so it is the only rung of the assessment
+    chain. The trace is how the route ADDRESSES the assessment -- the experiment is resolved FROM
+    the trace id -- so it carries a ``read`` requirement for the resolution itself rather than a
+    judgment on the assessment, matching ``validate_can_get_assessment`` and
+    ``validate_can_delete_assessment``.
+    """
+    resolved = _assessment_trace_context(_get_request_param("trace_id"))
+    if resolved is None:
+        return False
+    experiment, experiment_id = resolved
+    return authorize(
+        authenticate_request().username,
+        experiment,
+        [
+            Requirement(RESOURCE_TYPE_EXPERIMENT, experiment_id, "read"),
+            Requirement(RESOURCE_TYPE_TRACE, "*", "read", fallback_if_no_grant=(experiment,)),
+            Requirement(
+                RESOURCE_TYPE_ASSESSMENT, "*", "update", fallback_if_no_grant=(experiment,)
+            ),
+        ],
+    )
+
+
+def validate_can_delete_assessment():
+    """DeleteAssessment: ``delete`` on the assessment tier, inheriting experiment ``update``.
+
+    An explicit ``(assessment, *, EDIT)`` must not delete -- ``EDIT.can_delete`` is false and a
+    grant on the tier is the narrower judgment. A caller holding no assessment grant inherits
+    master's level for this route, which is ``update``: master mapped it to
+    ``validate_can_update_trace_by_trace_id``, not to anything requiring ``delete``. The two
+    cases differ by WHICH rung governs rather than by the permission it yields, which is why the
+    experiment rung names its own action.
+
+    The trace is only how the route ADDRESSES the assessment -- the experiment is resolved FROM
+    the trace id -- so it carries a ``read`` requirement for that resolution, not a rung of the
+    assessment chain.
+    """
+    resolved = _assessment_trace_context(_get_request_param("trace_id"))
+    if resolved is None:
+        return False
+    experiment, experiment_id = resolved
+    return authorize(
+        authenticate_request().username,
+        experiment,
+        [
+            Requirement(RESOURCE_TYPE_EXPERIMENT, experiment_id, "read"),
+            Requirement(RESOURCE_TYPE_TRACE, "*", "read", fallback_if_no_grant=(experiment,)),
+            Requirement(
+                RESOURCE_TYPE_ASSESSMENT,
+                "*",
+                "delete",
+                fallback_if_no_grant=(
+                    Requirement(RESOURCE_TYPE_EXPERIMENT, experiment_id, "update"),
+                ),
+            ),
+        ],
+    )
+
+
+def validate_can_start_trace():
+    return _authorize_create_in_experiment(_get_request_param("experiment_id"), RESOURCE_TYPE_TRACE)
 
 
 def validate_can_read_traces_by_experiment_ids():
-    experiment_ids = (request.json or {}).get("experiment_ids", [])
-    username = authenticate_request().username
-    return bool(experiment_ids) and all(
-        _get_experiment_permission(eid, username).can_read for eid in experiment_ids
+    """CalculateTraceFilterCorrelation: npmi and the four counts are computed over whatever the
+    two filters select, so an assessment-backed filter makes those numbers assessment-derived.
+
+    Parsed as a proto rather than read off the raw JSON because the handler parses it with
+    ``ParseDict``, which accepts the lowerCamelCase aliases as well: a request spelling
+    ``filterString1`` would execute a filter this gate never saw. Reading the same message the
+    handler reads makes the two agree on every accepted spelling by construction.
+    """
+    message = _get_request_message(CalculateTraceFilterCorrelation())
+    return _authorize_trace_search(
+        list(message.experiment_ids),
+        message.filter_string1,
+        message.filter_string2,
+        message.base_filter,
     )
 
 
 def validate_can_start_trace_v3():
-    body = request.json or {}
-    match body:
-        case {
-            "trace": {
-                "trace_info": {"trace_location": {"mlflow_experiment": {"experiment_id": str(eid)}}}
-            }
-        } if eid:
-            return _get_experiment_permission(eid, authenticate_request().username).can_update
-        case _:
-            return False
+    # Read from the parsed proto, as the handler does: a structural match on raw JSON rejected the
+    # lowerCamelCase spelling the handler accepts, refusing valid requests.
+    message = _get_request_message(StartTraceV3())
+    experiment_id = message.trace.trace_info.trace_location.mlflow_experiment.experiment_id
+    if not experiment_id:
+        return False
+    # ``store.start_trace`` persists ``trace_info.assessments``, and the SDK routes
+    # ``log_assessment`` on an active trace through here instead of ``CreateAssessment``, so
+    # without this veto a denied assessment tier is bypassed by the ordinary logging path.
+    extra = (
+        (Requirement(RESOURCE_TYPE_ASSESSMENT, "*", ACTION_NOT_DENIED),)
+        if message.trace.trace_info.assessments
+        else ()
+    )
+    return _authorize_create_in_experiment(experiment_id, RESOURCE_TYPE_TRACE, extra)
 
 
 def validate_can_link_traces_to_run():
     tracking_store = _get_tracking_store()
-    username = authenticate_request().username
     run_id = _get_request_param("run_id")
-    try:
-        run = tracking_store.get_run(run_id)
-    except MlflowException as e:
-        if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
-            return False
-        raise
-    if not _get_experiment_permission(run.info.experiment_id, username).can_update:
+    if not _authorize_run_id(run_id, "update"):
         return False
     trace_ids = (request.json or {}).get("trace_ids", [])
     try:
-        trace_experiment_ids = {
+        trace_experiment_ids = [
             tracking_store.get_trace_info(tid).experiment_id for tid in trace_ids
-        }
+        ]
     except MlflowException as e:
         if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
             return False
         raise
-    return bool(trace_experiment_ids) and all(
-        _get_experiment_permission(eid, username).can_read for eid in trace_experiment_ids
-    )
+    return _authorize_bulk_in_experiments(trace_experiment_ids, RESOURCE_TYPE_TRACE, "read")
 
 
 def validate_can_read_metric_history_bulk(run_ids=None):
@@ -2102,26 +4107,10 @@ def validate_can_read_metric_history_bulk(run_ids=None):
             INVALID_PARAMETER_VALUE,
         )
 
-    username = authenticate_request().username
     tracking_store = _get_tracking_store()
-
-    for run_id in run_ids:
-        run = tracking_store.get_run(run_id)
-        experiment_id = run.info.experiment_id
-        permission = _get_role_permission_or_default(
-            _role_permission_for(
-                username=username,
-                resource_type="experiment",
-                resource_key=experiment_id,
-                workspace_lookup_id=experiment_id,
-                workspace_fetcher=_get_tracking_store().get_experiment,
-                workspace_label="experiment",
-            ),
-        )
-        if not permission.can_read:
-            return False
-
-    return True
+    # A missing run RAISES here rather than denying, as it always has on this route.
+    experiment_ids = [tracking_store.get_run(run_id).info.experiment_id for run_id in run_ids]
+    return _authorize_bulk_in_experiments(experiment_ids, RESOURCE_TYPE_RUN, "read")
 
 
 def validate_can_read_metric_history_bulk_interval():
@@ -2170,7 +4159,11 @@ def validate_can_search_datasets():
 
 
 def validate_can_create_promptlab_run():
-    """Checks UPDATE permission on the experiment."""
+    """UPDATE on the experiment, vetoed by the run tier.
+
+    The route name does not say so, but the handler creates a run, so this is a run create and
+    takes the same shape as ``validate_can_create_run``.
+    """
     data = request.json
     experiment_id = data.get("experiment_id")
     if not experiment_id:
@@ -2179,18 +4172,7 @@ def validate_can_create_promptlab_run():
             INVALID_PARAMETER_VALUE,
         )
 
-    username = authenticate_request().username
-    permission = _get_role_permission_or_default(
-        _role_permission_for(
-            username=username,
-            resource_type="experiment",
-            resource_key=experiment_id,
-            workspace_lookup_id=experiment_id,
-            workspace_fetcher=_get_tracking_store().get_experiment,
-            workspace_label="experiment",
-        ),
-    )
-    return permission.can_update
+    return _authorize_create_in_experiment(experiment_id, RESOURCE_TYPE_RUN)
 
 
 def validate_gateway_proxy():
@@ -2211,10 +4193,38 @@ def validate_gateway_proxy():
 # (set / reopen status) requires EDIT plus membership in the queue's assigned-user
 # pool; reads require experiment READ, with per-queue visibility narrowed by
 # ``filter_list_review_queues``.
+def _review_queue_permission_in_experiment(experiment_id: str, username: str) -> Permission:
+    experiment = (RESOURCE_TYPE_EXPERIMENT, experiment_id)
+    baseline = Requirement(RESOURCE_TYPE_EXPERIMENT, experiment_id, "read")
+    permissions = resolve_requirements(
+        username,
+        experiment,
+        [
+            Requirement(
+                RESOURCE_TYPE_REVIEW_QUEUE,
+                "*",
+                ACTION_NOT_DENIED,
+                fallback_if_no_grant=(experiment,),
+            ),
+            baseline,
+        ],
+    )
+    # An unresolvable workspace denies, like every other anchor failure.
+    if permissions is None:
+        return NO_PERMISSIONS
+    queue_permission, experiment_permission = permissions
+    if not requirement_met(baseline, experiment_permission):
+        return NO_PERMISSIONS
+    return queue_permission
+
+
+def _review_queue_permission(queue, username: str) -> Permission:
+    return _review_queue_permission_in_experiment(queue.experiment_id, username)
+
+
 def _get_permission_from_review_queue_id() -> Permission:
     queue = _get_tracking_store().get_review_queue(_get_request_param("queue_id"))
-    username = authenticate_request().username
-    return _get_experiment_permission(queue.experiment_id, username)
+    return _review_queue_permission(queue, authenticate_request().username)
 
 
 def _get_permission_from_label_schema_id() -> Permission:
@@ -2240,7 +4250,7 @@ def _can_own_or_manage_review_queue(queue, username: str) -> bool:
     you own the queue (``created_by``). Ownership amplifies EDIT — it is never a
     substitute for it.
     """
-    perm = _get_experiment_permission(queue.experiment_id, username)
+    perm = _review_queue_permission(queue, username)
     if perm.can_manage:
         return True
     return perm.can_update and _is_review_queue_owner(queue, username)
@@ -2254,7 +4264,7 @@ def _can_delete_or_prune_review_queue(queue, username: str) -> bool:
     """
     from mlflow.genai.review_queues import ReviewQueueType
 
-    perm = _get_experiment_permission(queue.experiment_id, username)
+    perm = _review_queue_permission(queue, username)
     if perm.can_manage:
         return True
     return (
@@ -2331,8 +4341,11 @@ def _reject_rename_review_queue_shadowing_user(queue, message):
 
 
 def validate_can_create_review_queue():
-    # Creating (and thereby owning) a queue requires experiment EDIT.
-    permission = _get_permission_from_experiment_id().can_update
+    # Creating (and thereby owning) a queue requires experiment EDIT, and is vetoable on the
+    # review_queue type -- the queue being created cannot itself authorize it.
+    permission = _authorize_create_in_experiment(
+        _get_request_param("experiment_id"), RESOURCE_TYPE_REVIEW_QUEUE
+    )
     # A custom queue may not take a registered username, which would shadow that
     # user's personal queue. Only enforced once the caller is authorized.
     if permission:
@@ -2348,7 +4361,7 @@ def validate_can_update_review_queue():
     queue = _get_tracking_store().get_review_queue(_get_request_param("queue_id"))
     message = _parse_update_review_queue_request()
     if message.HasField("new_owner"):
-        permission = _get_experiment_permission(queue.experiment_id, username).can_manage
+        permission = _review_queue_permission(queue, username).can_manage
     else:
         permission = _can_own_or_manage_review_queue(queue, username)
     # A rename can't take a registered username either (same shadowing concern).
@@ -2394,15 +4407,15 @@ def validate_can_add_items_to_review_queue():
 
 
 def validate_can_get_or_create_user_queue():
-    return _get_permission_from_experiment_id().can_update
+    return _authorize_create_in_experiment(
+        _get_request_param("experiment_id"), RESOURCE_TYPE_REVIEW_QUEUE
+    )
 
 
 def validate_can_view_review_queue():
-    # Detail-tier read: experiment READ plus MANAGE, owner, or membership. Mirrors
-    # the row predicate in ``filter_list_review_queues``.
     username = authenticate_request().username
     queue = _get_tracking_store().get_review_queue(_get_request_param("queue_id"))
-    perm = _get_experiment_permission(queue.experiment_id, username)
+    perm = _review_queue_permission(queue, username)
     if not perm.can_read:
         return False
     if perm.can_manage or _review_queue_has_member(queue, username):
@@ -2413,7 +4426,7 @@ def validate_can_view_review_queue():
 def validate_can_view_review_queue_by_name():
     experiment_id = _get_request_param("experiment_id")
     username = authenticate_request().username
-    perm = _get_experiment_permission(experiment_id, username)
+    perm = _review_queue_permission_in_experiment(experiment_id, username)
     if not perm.can_read:
         return False
     if perm.can_manage:
@@ -2427,12 +4440,11 @@ def validate_can_view_review_queue_by_name():
 
 
 def validate_can_review_queue_item():
-    # Submitting / reopening review work: experiment EDIT plus membership in the
-    # queue's assigned-user pool (even a manager must assign themselves first).
-    # Fetch the queue once and resolve the experiment permission from it.
+    # Submitting / reopening review work: EDIT on the queue plus membership in its
+    # assigned-user pool (even a manager must assign themselves first).
     username = authenticate_request().username
     queue = _get_tracking_store().get_review_queue(_get_request_param("queue_id"))
-    perm = _get_experiment_permission(queue.experiment_id, username)
+    perm = _review_queue_permission(queue, username)
     return perm.can_update and _review_queue_has_member(queue, username)
 
 
@@ -2451,11 +4463,20 @@ def validate_can_manage_label_schema():
 def filter_list_review_queues(resp: Response) -> None:
     """Narrow a ``ListReviewQueues`` response to queues the caller may see.
 
-    A server admin or any user with experiment EDIT (or MANAGE) sees every
-    queue (the list tier is intentionally broad — clicking into a queue is
-    separately gated by ``validate_can_view_review_queue``). A READ-only user
-    sees only queues they are assigned to (their personal queue plus any custom
-    queue whose assigned-user pool contains them).
+    A server admin, or any caller whose governing permission carries EDIT (or MANAGE), sees every
+    queue. The list tier is deliberately BROADER than the detail tier -- a row exposes only a
+    queue's name, type, owner, timestamps, assigned users and schema ids, while opening one is
+    separately gated by ``validate_can_view_review_queue``. A READ-only caller sees only queues
+    they are assigned to.
+
+    That deliberate breadth means the two are NOT mirrors: an experiment EDITor is listed queues
+    they can neither manage, own, nor belong to, and opening those 403s. Upstream behaves the same
+    way, so it is left alone here.
+
+    What this DOES share with the detail gate is the tier: both resolve
+    ``_review_queue_permission_in_experiment``, so a queue-tier grant reaches both. Otherwise
+    ``(review_queue, "*", DENY)`` would 403 every open while still listing every row, and a queue
+    MANAGE grant would open queues the list had hidden.
     """
     if sender_is_admin():
         return
@@ -2464,14 +4485,18 @@ def filter_list_review_queues(resp: Response) -> None:
     parse_dict(resp.json, response_message)
 
     username = authenticate_request().username
-    # One shared experiment, so resolve the grant once: EDIT/MANAGE see all rows,
-    # READ-only users see only queues they're assigned to.
+    # Every row shares the request's experiment and review_queue grain is wildcard-only, so one
+    # resolution governs the whole response.
     experiment_id = _get_request_param("experiment_id")
-    perm = _get_experiment_permission(experiment_id, username)
-    if perm.can_update:
+    perm = _review_queue_permission_in_experiment(experiment_id, username)
+    if perm.can_read and perm.can_update:
         return
 
-    visible = [q for q in response_message.review_queues if _review_queue_has_member(q, username)]
+    visible = (
+        [q for q in response_message.review_queues if _review_queue_has_member(q, username)]
+        if perm.can_read
+        else []
+    )
     response_message.ClearField("review_queues")
     response_message.review_queues.extend(visible)
     resp.data = message_to_json(response_message)
@@ -2488,49 +4513,60 @@ BEFORE_REQUEST_HANDLERS = {
     SetExperimentTag: validate_can_update_experiment,
     DeleteExperimentTag: validate_can_update_experiment,
     # Routes for runs
-    CreateRun: validate_can_update_experiment,
+    CreateRun: validate_can_create_run,
     GetRun: validate_can_read_run,
     DeleteRun: validate_can_delete_run,
     RestoreRun: validate_can_delete_run,
     UpdateRun: validate_can_update_run,
-    LogMetric: validate_can_update_run,
-    LogBatch: validate_can_update_run,
-    LogInputs: validate_can_update_run,
+    LogMetric: validate_can_log_metric,
+    LogBatch: validate_can_log_batch,
+    LogInputs: validate_can_log_inputs,
     LogModel: validate_can_update_run,
-    LogOutputs: validate_can_update_run,
+    LogOutputs: validate_can_log_outputs,
     SetTag: validate_can_update_run,
     DeleteTag: validate_can_update_run,
     LogParam: validate_can_update_run,
     GetMetricHistory: validate_can_read_run,
     ListArtifacts: validate_can_read_run,
+    # Minting a presigned download URL grants direct read access to a run's
+    # artifacts, so it requires the same per-run READ permission as the
+    # proxied artifact download paths.
+    CreatePresignedDownloadUrl: validate_can_read_run,
+    # Minting a presigned upload URL grants direct WRITE access to the owning
+    # resource's artifacts (a run's or a logged model's), so it requires the
+    # corresponding UPDATE permission.
+    CreatePresignedUploadUrl: validate_can_update_run_or_logged_model,
     # Routes for model registry (shared with prompts — dispatch via
     # `_get_permission_from_registered_model_or_prompt_name`).
     CreateRegisteredModel: validate_can_create_registered_model,
     GetRegisteredModel: _validate_can_read_registered_model_or_prompt,
-    DeleteRegisteredModel: _validate_can_delete_registered_model_or_prompt,
+    DeleteRegisteredModel: validate_can_delete_registered_model_or_prompt_cascade,
     UpdateRegisteredModel: _validate_can_update_registered_model_or_prompt,
     RenameRegisteredModel: _validate_can_update_registered_model_or_prompt,
-    GetLatestVersions: _validate_can_read_registered_model_or_prompt,
+    GetLatestVersions: validate_can_read_model_or_prompt_version,
     CreateModelVersion: validate_can_create_model_version,
-    GetModelVersion: _validate_can_read_registered_model_or_prompt,
-    DeleteModelVersion: _validate_can_delete_registered_model_or_prompt,
-    UpdateModelVersion: _validate_can_update_registered_model_or_prompt,
-    TransitionModelVersionStage: _validate_can_update_registered_model_or_prompt,
-    GetModelVersionDownloadUri: _validate_can_read_registered_model_or_prompt,
+    GetModelVersion: validate_can_read_model_or_prompt_version,
+    SearchModelVersions: validate_can_search_model_versions,
+    ListGatewayModelDefinitions: validate_can_list_gateway_model_definitions,
+    DeleteModelVersion: validate_can_delete_model_or_prompt_version,
+    UpdateModelVersion: validate_can_update_model_or_prompt_version,
+    TransitionModelVersionStage: validate_can_update_model_or_prompt_version,
+    GetModelVersionDownloadUri: validate_can_read_model_or_prompt_version,
     SetRegisteredModelTag: _validate_can_update_registered_model_or_prompt,
     DeleteRegisteredModelTag: _validate_can_update_registered_model_or_prompt,
-    SetModelVersionTag: _validate_can_update_registered_model_or_prompt,
-    DeleteModelVersionTag: _validate_can_delete_registered_model_or_prompt,
-    SetRegisteredModelAlias: _validate_can_update_registered_model_or_prompt,
-    DeleteRegisteredModelAlias: _validate_can_delete_registered_model_or_prompt,
-    GetModelVersionByAlias: _validate_can_read_registered_model_or_prompt,
+    SetModelVersionTag: validate_can_update_model_or_prompt_version,
+    DeleteModelVersionTag: validate_can_delete_model_or_prompt_version,
+    SetRegisteredModelAlias: validate_can_set_model_or_prompt_version_alias,
+    DeleteRegisteredModelAlias: validate_can_delete_model_or_prompt_version_alias,
+    GetModelVersionByAlias: validate_can_read_model_or_prompt_version,
     # Routes for scorers
-    RegisterScorer: validate_can_update_experiment,
+    RegisterScorer: validate_can_register_scorer,
     ListScorers: validate_can_read_scorer_list,
     GetScorer: validate_can_read_scorer,
     DeleteScorer: validate_can_delete_scorer,
     ListScorerVersions: validate_can_read_scorer,
     # Routes for gateway secrets
+    CreateGatewaySecret: validate_can_create_gateway_secret,
     GetGatewaySecretInfo: validate_can_read_gateway_secret,
     UpdateGatewaySecret: validate_can_update_gateway_secret,
     DeleteGatewaySecret: validate_can_delete_gateway_secret,
@@ -2544,28 +4580,41 @@ BEFORE_REQUEST_HANDLERS = {
     GetGatewayModelDefinition: validate_can_read_gateway_model_definition,
     UpdateGatewayModelDefinition: validate_can_update_gateway_model_definition,
     DeleteGatewayModelDefinition: validate_can_delete_gateway_model_definition,
-    # Routes for gateway budget policies
+    # Budget-policy writes are admin-only; reads (get/list/windows) stay open to any
+    # authenticated user, matching the behavior established in #21120.
     CreateGatewayBudgetPolicy: sender_is_admin,
     UpdateGatewayBudgetPolicy: sender_is_admin,
     DeleteGatewayBudgetPolicy: sender_is_admin,
+    GetGatewayBudgetPolicy: _allow_authenticated,
+    ListGatewayBudgetPolicies: _allow_authenticated,
+    ListGatewayBudgetWindows: _allow_authenticated,
+    # Standalone guardrail CRUD is admin-only; endpoint-attached routes gate on the endpoint.
+    CreateGatewayGuardrail: sender_is_admin,
+    GetGatewayGuardrail: sender_is_admin,
+    ListGatewayGuardrails: sender_is_admin,
+    DeleteGatewayGuardrail: sender_is_admin,
+    AddGuardrailToEndpoint: validate_can_add_guardrail_to_gateway_endpoint,
+    RemoveGuardrailFromEndpoint: validate_can_remove_guardrail_from_gateway_endpoint,
+    UpdateEndpointGuardrailConfig: validate_can_update_gateway_endpoint_guardrail_config,
+    ListEndpointGuardrailConfigs: validate_can_read_gateway_endpoint_guardrail_configs,
     # Routes for gateway endpoint-model mappings
-    AttachModelToGatewayEndpoint: validate_can_update_gateway_endpoint,
-    DetachModelFromGatewayEndpoint: validate_can_update_gateway_endpoint,
+    AttachModelToGatewayEndpoint: validate_can_attach_model_to_gateway_endpoint,
+    DetachModelFromGatewayEndpoint: validate_can_detach_model_from_gateway_endpoint,
     # Routes for gateway endpoint bindings
-    CreateGatewayEndpointBinding: validate_can_update_gateway_endpoint,
-    DeleteGatewayEndpointBinding: validate_can_update_gateway_endpoint,
-    ListGatewayEndpointBindings: validate_can_read_gateway_endpoint,
+    CreateGatewayEndpointBinding: validate_can_create_gateway_endpoint_binding,
+    DeleteGatewayEndpointBinding: validate_can_delete_gateway_endpoint_binding,
+    ListGatewayEndpointBindings: validate_can_list_gateway_endpoint_bindings,
     # Routes for gateway endpoint tags
-    SetGatewayEndpointTag: validate_can_update_gateway_endpoint,
-    DeleteGatewayEndpointTag: validate_can_update_gateway_endpoint,
+    SetGatewayEndpointTag: validate_can_set_gateway_endpoint_tag,
+    DeleteGatewayEndpointTag: validate_can_delete_gateway_endpoint_tag,
     # Routes for prompt optimization jobs
-    CreatePromptOptimizationJob: validate_can_update_experiment,
+    CreatePromptOptimizationJob: validate_can_create_prompt_optimization_job,
     GetPromptOptimizationJob: validate_can_read_prompt_optimization_job,
     SearchPromptOptimizationJobs: validate_can_read_experiment,
     CancelPromptOptimizationJob: validate_can_update_prompt_optimization_job,
     DeletePromptOptimizationJob: validate_can_delete_prompt_optimization_job,
     # Routes for traces
-    StartTrace: validate_can_update_experiment,
+    StartTrace: validate_can_start_trace,
     StartTraceV3: validate_can_start_trace_v3,
     EndTrace: validate_can_update_trace_by_request_id,
     GetTraceInfo: validate_can_read_trace_by_request_id,
@@ -2584,11 +4633,11 @@ BEFORE_REQUEST_HANDLERS = {
     LinkTracesToRun: validate_can_link_traces_to_run,
     LinkPromptsToTrace: validate_can_update_trace_by_trace_id,
     CalculateTraceFilterCorrelation: validate_can_read_traces_by_experiment_ids,
-    QueryTraceMetrics: validate_can_read_traces_by_experiment_ids,
-    CreateAssessment: validate_can_update_trace_by_trace_id,
-    GetAssessmentRequest: validate_can_read_trace_by_trace_id,
-    UpdateAssessment: validate_can_update_trace_by_trace_id,
-    DeleteAssessment: validate_can_update_trace_by_trace_id,
+    QueryTraceMetrics: validate_can_query_trace_metrics,
+    CreateAssessment: validate_can_create_assessment,
+    GetAssessmentRequest: validate_can_get_assessment,
+    UpdateAssessment: validate_can_update_assessment,
+    DeleteAssessment: validate_can_delete_assessment,
     # Routes for review queues
     CreateReviewQueue: validate_can_create_review_queue,
     GetReviewQueue: validate_can_view_review_queue,
@@ -2634,6 +4683,9 @@ BEFORE_REQUEST_VALIDATORS = {
     (http_path, method): handler
     for http_path, handler, methods in get_endpoints(get_before_request_handler)
     for method in methods
+    # Online scoring config endpoints are registered with view functions in the
+    # handler slot, so they cannot flow through this comprehension. Explicit
+    # validators for them are added in the update block below.
     if "/scorers/online-config" not in http_path
     # ``get_endpoints`` hardcodes the view function as the handler for explicitly
     # defined endpoints (e.g. ``/mlflow/issues/invoke``), ignoring the selector we
@@ -2722,11 +4774,46 @@ BEFORE_REQUEST_VALIDATORS.update({
     (GET_TRACE_ARTIFACT_V3, "GET"): validate_can_read_trace_artifact,
     (GET_METRIC_HISTORY_BULK, "GET"): validate_can_read_metric_history_bulk,
     (GET_METRIC_HISTORY_BULK_INTERVAL, "GET"): validate_can_read_metric_history_bulk_interval,
+    (GET_METRIC_HISTORY_BULK_INTERVAL_REST, "GET"): validate_can_read_metric_history_bulk_interval,
     (SEARCH_DATASETS, "POST"): validate_can_search_datasets,
     (CREATE_PROMPTLAB_RUN, "POST"): validate_can_create_promptlab_run,
     (GATEWAY_PROXY, "GET"): validate_gateway_proxy,
     (GATEWAY_PROXY, "POST"): validate_gateway_proxy,
-    (INVOKE_SCORER, "POST"): validate_gateway_proxy,
+    # INVOKE_SCORER applies a scorer to EXISTING traces and creates no run, despite what
+    # the grouping below suggests; it reads traces and may write assessments.
+    (INVOKE_SCORER, "POST"): validate_can_invoke_scorer,
+    # Issue detection may also consume a gateway secret -> additionally require USE on it.
+    (INVOKE_ISSUE_DETECTION, "POST"): validate_can_invoke_issue_detection,
+    (INVOKE_GENAI_EVALUATE, "POST"): validate_can_invoke_genai_evaluate,
+    # Demo: generate is open to any authenticated user; delete is admin-only.
+    (DEMO_GENERATE, "POST"): _allow_authenticated,
+    (DEMO_DELETE, "POST"): sender_is_admin,
+    # Discovery + config back the gateway UI for any signed-in user: static capability
+    # lists and provider/secret setup shapes, with no tenant-scoped secret material.
+    (GATEWAY_SUPPORTED_PROVIDERS, "GET"): _allow_authenticated,
+    (GATEWAY_SUPPORTED_MODELS, "GET"): _allow_authenticated,
+    (GATEWAY_PROVIDER_CONFIG, "GET"): _allow_authenticated,
+    (GATEWAY_SECRETS_CONFIG, "GET"): _allow_authenticated,
+    # The web UI itself, for any signed-in user: the SPA shell, the server version
+    # string the bundle reads, and the UI's own telemetry config. None carries
+    # tenant-scoped data, and none has a permission that could sensibly be checked.
+    # These are plain Flask routes on ``app`` rather than handler endpoints, so
+    # ``get_endpoints`` never surfaced them to the coverage guard and no decision was
+    # registered; the fail-closed net then denies them, and a non-admin's browser gets
+    # "Permission denied" instead of MLflow. ``/static-files/<path>`` already serves
+    # that same shell unauthenticated via ``_UNPROTECTED_PATH_PREFIXES``.
+    #
+    # HOME and SERVER_VERSION are bare paths and take the static prefix here;
+    # UI_TELEMETRY comes from ``_get_ajax_path``, which has already applied it.
+    (_add_static_prefix(HOME), "GET"): _allow_authenticated,
+    (_add_static_prefix(SERVER_VERSION), "GET"): _allow_authenticated,
+    (UI_TELEMETRY, "GET"): _allow_authenticated,
+    (UI_TELEMETRY, "POST"): _allow_authenticated,
+    # Online scoring configuration (excluded from the auto generated map above).
+    (ONLINE_SCORING_CONFIGS, "GET"): validate_can_read_online_scoring_configs,
+    (AJAX_ONLINE_SCORING_CONFIGS, "GET"): validate_can_read_online_scoring_configs,
+    (ONLINE_SCORING_CONFIG, "PUT"): validate_can_update_online_scoring_config,
+    (AJAX_ONLINE_SCORING_CONFIG, "PUT"): validate_can_update_online_scoring_config,
 })
 
 # Trace endpoints with path parameters (e.g. /mlflow/traces/<request_id>/tags) require
@@ -2739,7 +4826,10 @@ TRACE_PARAMETERIZED_BEFORE_REQUEST_VALIDATORS = {
 }
 
 LOGGED_MODEL_BEFORE_REQUEST_HANDLERS = {
-    CreateLoggedModel: validate_can_update_experiment,
+    CreateLoggedModel: validate_can_create_logged_model,
+    # Row-level authorization is `filter_search_logged_models`; this gates only the
+    # `source_run_id` selector, which redaction cannot cover.
+    SearchLoggedModels: validate_can_search_logged_models,
     GetLoggedModel: validate_can_read_logged_model,
     DeleteLoggedModel: validate_can_delete_logged_model,
     FinalizeLoggedModel: validate_can_update_logged_model,
@@ -2792,10 +4882,233 @@ WEBHOOK_BEFORE_REQUEST_VALIDATORS = {
     for method in methods
 }
 
-_AJAX_API_PATH_PREFIX = "/ajax-api/2.0"
+
+# Evaluation datasets are experiment-scoped: derive permissions from the associated
+# experiment(s), like runs and traces.
+def _dataset_experiment_permissions():
+    dataset_id = _get_request_param("dataset_id")
+    username = authenticate_request().username
+    try:
+        experiment_ids = _get_tracking_store().get_dataset_experiment_ids(dataset_id)
+    except MlflowException as e:
+        if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+            return [], []
+        raise
+    return experiment_ids, [_get_experiment_permission(eid, username) for eid in experiment_ids]
+
+
+def validate_can_read_dataset():
+    experiment_ids, permissions = _dataset_experiment_permissions()
+    return bool(experiment_ids) and all(p.can_read for p in permissions)
+
+
+def validate_can_update_dataset():
+    experiment_ids, permissions = _dataset_experiment_permissions()
+    return bool(experiment_ids) and all(p.can_update for p in permissions)
+
+
+def validate_can_delete_dataset():
+    experiment_ids, permissions = _dataset_experiment_permissions()
+    return bool(experiment_ids) and all(p.can_delete for p in permissions)
+
+
+def _experiment_ids_from_request():
+    # Read experiment_ids from JSON when present, else query args (like _get_request_param).
+    if request.is_json:
+        body = request.get_json(silent=True)
+        if isinstance(body, dict):
+            return list(body.get("experiment_ids", []))
+    return request.args.getlist("experiment_ids")
+
+
+def validate_can_create_dataset():
+    experiment_ids = _experiment_ids_from_request()
+    username = authenticate_request().username
+    return bool(experiment_ids) and all(
+        _get_experiment_permission(eid, username).can_update for eid in experiment_ids
+    )
+
+
+def validate_can_search_evaluation_datasets():
+    # Require the caller to scope the search to experiment(s) they can read, so an
+    # empty request cannot enumerate every dataset on the server.
+    experiment_ids = _experiment_ids_from_request()
+    username = authenticate_request().username
+    return bool(experiment_ids) and all(
+        _get_experiment_permission(eid, username).can_read for eid in experiment_ids
+    )
+
+
+def validate_can_add_dataset_to_experiments():
+    # Also require UPDATE on the experiment(s) being attached, not just the dataset's
+    # current ones, so a caller can't link an experiment they don't control.
+    if not validate_can_update_dataset():
+        return False
+    username = authenticate_request().username
+    added = _experiment_ids_from_request()
+    return bool(added) and all(
+        _get_experiment_permission(eid, username).can_update for eid in added
+    )
+
+
+# {dataset_id}-based routes; regex-matched (path parameters).
+DATASET_BEFORE_REQUEST_HANDLERS = {
+    GetDataset: validate_can_read_dataset,
+    DeleteDataset: validate_can_delete_dataset,
+    SetDatasetTags: validate_can_update_dataset,
+    DeleteDatasetTag: validate_can_update_dataset,
+    UpsertDatasetRecords: validate_can_update_dataset,
+    GetDatasetRecords: validate_can_read_dataset,
+    DeleteDatasetRecords: validate_can_update_dataset,
+    GetDatasetExperimentIds: validate_can_read_dataset,
+    AddDatasetToExperiments: validate_can_add_dataset_to_experiments,
+    RemoveDatasetFromExperiments: validate_can_update_dataset,
+}
+
+
+def get_dataset_before_request_handler(request_class):
+    return DATASET_BEFORE_REQUEST_HANDLERS.get(request_class)
+
+
+DATASET_BEFORE_REQUEST_VALIDATORS = {
+    (_re_compile_path(http_path), method): handler
+    for http_path, handler, methods in get_endpoints(get_dataset_before_request_handler)
+    for method in methods
+    if handler in DATASET_BEFORE_REQUEST_HANDLERS.values()
+}
+
+
+# create/search have no path parameters; register them in the exact-match table so the
+# {dataset_id} regex can't shadow /datasets/search or /datasets/create.
+DATASET_EXACT_BEFORE_REQUEST_HANDLERS = {
+    CreateDataset: validate_can_create_dataset,
+    SearchEvaluationDatasets: validate_can_search_evaluation_datasets,
+}
+
+
+def get_dataset_exact_before_request_handler(request_class):
+    return DATASET_EXACT_BEFORE_REQUEST_HANDLERS.get(request_class)
+
+
+BEFORE_REQUEST_VALIDATORS.update({
+    (http_path, method): handler
+    for http_path, handler, methods in get_endpoints(get_dataset_exact_before_request_handler)
+    for method in methods
+    if handler in DATASET_EXACT_BEFORE_REQUEST_HANDLERS.values()
+})
+
+
+# Issues are experiment-scoped: authorize from the associated experiment.
+def _issue_experiment_permission():
+    issue_id = _get_request_param("issue_id")
+    username = authenticate_request().username
+    experiment_id = _get_tracking_store().get_issue(issue_id).experiment_id
+    return _get_experiment_permission(experiment_id, username)
+
+
+def validate_can_read_issue():
+    try:
+        return _issue_experiment_permission().can_read
+    except MlflowException as e:
+        if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+            return False
+        raise
+
+
+def validate_can_update_issue():
+    try:
+        return _issue_experiment_permission().can_update
+    except MlflowException as e:
+        if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+            return False
+        raise
+
+
+def validate_can_create_issue():
+    # Use the same normalizer as the handler so a legacy double-encoded body is decoded
+    # rather than crashing the auth check with a 500 (a str has no .get).
+    experiment_id = _get_normalized_request_json().get("experiment_id")
+    if not experiment_id:
+        return False
+    username = authenticate_request().username
+    return _get_experiment_permission(experiment_id, username).can_update
+
+
+def validate_can_search_issues():
+    """Read the parsed proto rather than the raw JSON.
+
+    The field is ``filter_string``, not ``filter``, and the handler parses with ``ParseDict``, which
+    also accepts the ``filterString`` alias. Reading ``filter`` off the body therefore saw nothing
+    for either real spelling, so a normal ``source_run_id`` selector ran without the veto. Reading
+    the same message the handler reads makes the two agree on every accepted spelling.
+    """
+    message = _get_request_message(SearchIssues())
+    if not message.experiment_id:
+        return False
+    username = authenticate_request().username
+    if not _get_experiment_permission(message.experiment_id, username).can_read:
+        return False
+    # `source_run_id` names a run, so filtering on it is a run-membership oracle regardless of
+    # whether `issue` is itself a grantable type.
+    if not _issue_filter_selects_run(message.filter_string):
+        return True
+    return _run_tier_not_denied_in_workspace(username)
+
+
+ISSUE_BEFORE_REQUEST_HANDLERS = {
+    GetIssue: validate_can_read_issue,
+    UpdateIssue: validate_can_update_issue,
+}
+
+
+def get_issue_before_request_handler(request_class):
+    return ISSUE_BEFORE_REQUEST_HANDLERS.get(request_class)
+
+
+# Regex-matched (path parameter).
+ISSUE_BEFORE_REQUEST_VALIDATORS = {
+    (_re_compile_path(http_path), method): handler
+    for http_path, handler, methods in get_endpoints(get_issue_before_request_handler)
+    for method in methods
+    if handler in ISSUE_BEFORE_REQUEST_HANDLERS.values()
+}
+
+
+ISSUE_EXACT_BEFORE_REQUEST_HANDLERS = {
+    CreateIssue: validate_can_create_issue,
+    SearchIssues: validate_can_search_issues,
+}
+
+
+def get_issue_exact_before_request_handler(request_class):
+    return ISSUE_EXACT_BEFORE_REQUEST_HANDLERS.get(request_class)
+
+
+# Create/search have no path parameters -> exact-match table.
+BEFORE_REQUEST_VALIDATORS.update({
+    (http_path, method): handler
+    for http_path, handler, methods in get_endpoints(get_issue_exact_before_request_handler)
+    for method in methods
+    if handler in ISSUE_EXACT_BEFORE_REQUEST_HANDLERS.values()
+})
 
 
 _AJAX_API_PATH_PREFIX = "/ajax-api/2.0"
+
+
+def _is_native_fastapi_proxy_artifact_path(path: str, method: str) -> bool:
+    # Only artifact download/upload routes are served natively by FastAPI. List,
+    # delete, presigned, and MPU routes still fall through to Flask and must
+    # rely on Flask's existing auth flow to avoid double-invoking custom auth
+    # functions.
+    if method not in {"GET", "PUT"}:
+        return False
+
+    prefixes = [
+        f"{_REST_API_PATH_PREFIX}/mlflow-artifacts/artifacts/",
+        f"{_AJAX_API_PATH_PREFIX}/mlflow-artifacts/artifacts/",
+    ]
+    return any(path.startswith(prefix) for prefix in prefixes)
 
 
 def _is_proxy_artifact_path(path: str) -> bool:
@@ -2806,7 +5119,13 @@ def _is_proxy_artifact_path(path: str) -> bool:
         f"{_AJAX_API_PATH_PREFIX}/mlflow-artifacts/artifacts",
         f"{_REST_API_PATH_PREFIX}/mlflow-artifacts/mpu/",
         f"{_AJAX_API_PATH_PREFIX}/mlflow-artifacts/mpu/",
+        # GetPresignedDownloadUrl mints a direct cloud-storage download URL and must
+        # require the same experiment artifact READ permission as the proxied
+        # /mlflow-artifacts/artifacts download path.
+        f"{_REST_API_PATH_PREFIX}/mlflow-artifacts/presigned/",
+        f"{_AJAX_API_PATH_PREFIX}/mlflow-artifacts/presigned/",
     ]
+    prefixes += [_add_static_prefix(prefix) for prefix in prefixes]
     return any(path.startswith(prefix) for prefix in prefixes)
 
 
@@ -2854,12 +5173,22 @@ def authenticate_request_basic_auth() -> Authorization | Response:
     # _authenticate_cached does for the sake of cache-population — the Flask
     # path only cares about the yes/no auth decision.
     if _USER_AUTH_CACHE is None:
-        if store.authenticate_user(username, password):
+        if store.authenticate_user(username, password) and not _is_disabled_legacy_admin_login(
+            username, password
+        ):
             return request.authorization
     elif _authenticate_cached(username, password):
         return request.authorization
     # let user attempt login again
     return make_basic_auth_response()
+
+
+# Job routes carry a <job_id> path parameter, so they need regex matching. Both the
+# per-id fetch and cancel routes are gated on job ownership.
+JOB_BEFORE_REQUEST_VALIDATORS = {
+    (_re_compile_path(JOB_GET), "GET"): validate_is_job_owner,
+    (_re_compile_path(JOB_CANCEL), "PATCH"): validate_is_job_owner,
+}
 
 
 def _find_validator(req: Request) -> Callable[[], bool] | None:
@@ -2893,6 +5222,49 @@ def _find_validator(req: Request) -> Callable[[], bool] | None:
     if validator := BEFORE_REQUEST_VALIDATORS.get((req.path, req.method)):
         return validator
 
+    # Whole /mlflow/datasets/ family; unknown paths under the prefix fail closed.
+    if "/mlflow/datasets/" in req.path:
+        validator = next(
+            (
+                v
+                for (pat, method), v in DATASET_BEFORE_REQUEST_VALIDATORS.items()
+                if pat.fullmatch(req.path) and method == req.method
+            ),
+            None,
+        )
+        return validator if validator is not None else lambda: False
+
+    # Job routes (/mlflow/jobs/<job_id>, cancel), ownership-gated. The /mlflow/jobs/ substring
+    # is a coarse gate: any path under it that isn't a real job route (including a crafted
+    # /prefix/mlflow/jobs/... path) fails closed here rather than falling through, which is the
+    # safe direction. Matches the sibling dataset/issue branches.
+    if "/mlflow/jobs/" in req.path:
+        route_validator = next(
+            (
+                handler
+                for (pat, method), handler in JOB_BEFORE_REQUEST_VALIDATORS.items()
+                if pat.fullmatch(req.path) and method == req.method
+            ),
+            None,
+        )
+        return route_validator if route_validator is not None else lambda: False
+
+    # Whole /mlflow/issues/ family; unknown paths fail closed, except the not-yet-gated
+    # routes tracked in _KNOWN_UNGATED_ROUTE_MARKERS (e.g. invoke), which fall through.
+    if "/mlflow/issues/" in req.path:
+        validator = next(
+            (
+                v
+                for (pat, method), v in ISSUE_BEFORE_REQUEST_VALIDATORS.items()
+                if pat.fullmatch(req.path) and method == req.method
+            ),
+            None,
+        )
+        if validator is not None:
+            return validator
+        if not _is_known_ungated_route(req.path):
+            return lambda: False
+
     # Trace routes with path parameters (e.g. /mlflow/traces/<request_id>/tags).
     # Unknown paths under this prefix are denied (fail-closed) rather than skipped.
     if "/mlflow/traces/" in req.path:
@@ -2907,6 +5279,91 @@ def _find_validator(req: Request) -> Callable[[], bool] | None:
         return validator if validator is not None else lambda: False
 
     return None
+
+
+# Fail-closed net (opt-in via MLFLOW_BASIC_AUTH_FAIL_CLOSED).
+_PUBLIC_ROUTE_SUFFIXES = (
+    # Public capability discovery. No login. Do not add tenant data here.
+    "/mlflow/server-info",
+)
+
+# Routes that self-authorize (e.g. filter results by the caller) rather than via a
+# before-request validator.
+_HANDLER_INTERNAL_AUTHZ_SUFFIXES = (
+    "/mlflow/runs/search",
+    "/graphql",
+)
+
+# Empty: every route family is gated, so the fail-closed flag can be flipped on. Add
+# an entry only as a temporary, tracked exception for a route awaiting a validator.
+_KNOWN_UNGATED_ROUTE_MARKERS = ()
+
+# Native FastAPI routes (served by the FastAPI permission middleware, not _before_request)
+# that lack an authorization validator. Empty today — a coverage test asserts every native
+# route resolves a validator. Runtime fail-closed enforcement for FastAPI is a follow-up.
+_KNOWN_UNGATED_FASTAPI_ROUTE_MARKERS = ()
+
+
+def _is_known_ungated_route(path: str) -> bool:
+    # Anchor markers to a segment boundary: "/mlflow/issues" matches "/mlflow/issues"
+    # and "/mlflow/issues/..." but not "/mlflow/issues-other".
+    for marker in _KNOWN_UNGATED_ROUTE_MARKERS:
+        if marker.endswith("/"):
+            if marker in path:
+                return True
+            continue
+        start = 0
+        while (idx := path.find(marker, start)) != -1:
+            end = idx + len(marker)
+            if end == len(path) or path[end] == "/":
+                return True
+            start = idx + 1
+    return False
+
+
+_API_VERSION_PREFIX_RE = re.compile(r"/(?:ajax-)?api/\d+\.\d+")
+
+
+def _matches_route_suffix(path: str, suffixes: tuple[str, ...]) -> bool:
+    # Match a suffix only as a whole path (e.g. /graphql) or directly under an API
+    # version prefix — never as an incidental tail of an unrelated route.
+    for suffix in suffixes:
+        if path == suffix:
+            return True
+        if path.endswith(suffix) and _API_VERSION_PREFIX_RE.fullmatch(path[: -len(suffix)]):
+            return True
+    return False
+
+
+def _strip_static_prefix(path: str) -> str:
+    static_prefix = os.environ.get(STATIC_PREFIX_ENV_VAR, "").rstrip("/")
+    if static_prefix and path.startswith(static_prefix):
+        return path[len(static_prefix) :]
+    return path
+
+
+def _authorized_outside_before_request(req) -> bool:
+    # Authorized outside a before-request validator: public allowlist, a
+    # self-authorizing handler, or an after-request filter.
+    path = req.path
+    method = req.method
+    # Suffix matching anchors on the API version prefix, so strip any configured
+    # static prefix first (mirroring _find_fastapi_validator); otherwise public/internal
+    # routes would wrongly fail closed under --static-prefix.
+    unprefixed = _strip_static_prefix(path)
+    if _matches_route_suffix(unprefixed, _PUBLIC_ROUTE_SUFFIXES):
+        return True
+    if _matches_route_suffix(unprefixed, _HANDLER_INTERNAL_AUTHZ_SUFFIXES):
+        return True
+    # Only response filters authorize a route on their own. Ownership grants and
+    # permission cleanups run after an already-authorized write, so their presence must
+    # not exempt a route that lacks a before-request validator from the fail-closed net.
+    if AFTER_REQUEST_HANDLERS.get((path, method)) in _SELF_AUTHORIZING_AFTER_REQUEST_HANDLERS:
+        return True
+    return any(
+        pat.fullmatch(path) and m == method and handler in _SELF_AUTHORIZING_AFTER_REQUEST_HANDLERS
+        for (pat, m), handler in PARAMETERIZED_AFTER_REQUEST_HANDLERS.items()
+    )
 
 
 @catch_mlflow_exception
@@ -2940,9 +5397,20 @@ def _before_request():
         if not validator():
             return make_forbidden_response()
     elif _is_proxy_artifact_path(request.path):
-        if validator := _get_proxy_artifact_validator(request.method, request.view_args):
-            if not validator():
+        proxy_validator = _get_proxy_artifact_validator(request.method, request.view_args)
+        if proxy_validator is None:
+            # Unrecognized method on a proxy-artifact URL: fail closed when the flag is on.
+            if MLFLOW_BASIC_AUTH_FAIL_CLOSED.get():
                 return make_forbidden_response()
+        elif not proxy_validator():
+            return make_forbidden_response()
+    elif (
+        MLFLOW_BASIC_AUTH_FAIL_CLOSED.get()
+        and not _authorized_outside_before_request(request)
+        and not _is_known_ungated_route(request.path)
+    ):
+        # No authorization decision resolved for this route: deny (fail-closed).
+        return make_forbidden_response()
 
 
 def set_can_manage_experiment_permission(resp: Response):
@@ -3340,7 +5808,11 @@ def filter_search_logged_models(resp: Response) -> None:
     parse_dict(resp.json, response_proto)
 
     username = authenticate_request().username
-    can_read = _role_based_read_predicate(username, "experiment")
+    can_read = _role_based_read_predicate(
+        username,
+        "experiment",
+        also_require=[Requirement(RESOURCE_TYPE_LOGGED_MODEL, "*", ACTION_NOT_DENIED)],
+    )
     # Remove unreadable models
     for m in list(response_proto.models):
         if not can_read(m.info.experiment_id):
@@ -3357,8 +5829,8 @@ def filter_search_logged_models(resp: Response) -> None:
                 {
                     "field_name": ob.field_name,
                     "ascending": ob.ascending,
-                    "dataset_name": ob.dataset_name,
-                    "dataset_digest": ob.dataset_digest,
+                    "dataset_name": ob.dataset_name or None,
+                    "dataset_digest": ob.dataset_digest or None,
                 }
                 for ob in request_proto.order_by
             ]
@@ -3374,15 +5846,19 @@ def filter_search_logged_models(resp: Response) -> None:
         )
         is_last_page = batch.token is None
         offset = Token.decode(next_page_token).offset if next_page_token else 0
-        last_index = len(batch) - 1
         for index, model in enumerate(batch):
             if not can_read(model.experiment_id):
                 continue
             response_proto.models.append(model.to_proto())
             if len(response_proto.models) >= max_results:
+                # Only issue a token if a readable row could still follow. On the last page the
+                # rows after `index` may all be unreadable, and a token then bought the caller an
+                # extra request that returns nothing. `any([])` is false, so this also covers
+                # `index` being the final row.
                 next_page_token = (
                     None
-                    if is_last_page and index == last_index
+                    if is_last_page
+                    and not any(can_read(m.experiment_id) for m in batch[index + 1 :])
                     else Token(offset=offset + index + 1, **params).encode()
                 )
                 break
@@ -3394,7 +5870,54 @@ def filter_search_logged_models(resp: Response) -> None:
 
     if next_page_token:
         response_proto.next_page_token = next_page_token
+    else:
+        # The handler set its own token before filtering, so suppressing ours has to clear the
+        # field -- leaving the handler's token would hand back a page the filter already consumed.
+        response_proto.ClearField("next_page_token")
+    _withhold_denied_metric_references(
+        [metric for model in response_proto.models for metric in model.data.metrics],
+        username,
+        RESOURCE_TYPE_RUN,
+    )
+    _withhold_denied_model_source_runs(response_proto.models, username)
     resp.data = message_to_json(response_proto)
+
+
+def _withhold_denied_latest_versions(registered_models, username: str) -> bool:
+    can_read = _rm_or_prompt_version_read_predicate(username)
+    withheld = False
+    for registered_model in registered_models:
+        if registered_model.latest_versions and not can_read(registered_model):
+            withheld = True
+            del registered_model.latest_versions[:]
+    return withheld
+
+
+def _redact_registered_model_response(resp: Response, response_message) -> None:
+    if sender_is_admin():
+        return
+    # Rename's handler also sweeps grants and is called on responses that carry no JSON body,
+    # so a missing or non-object body is nothing to redact rather than a parse error.
+    if not isinstance(resp.json, dict):
+        return
+    parse_dict(resp.json, response_message)
+    username = authenticate_request().username
+    models = [response_message.registered_model]
+    withheld = _withhold_denied_latest_versions(models, username)
+    # A version row that survives can still carry a denied run's or logged model's content.
+    withheld |= _withhold_denied_version_siblings(
+        [version for model in models for version in model.latest_versions], username
+    )
+    if withheld:
+        resp.data = message_to_json(response_message)
+
+
+def redact_get_registered_model_versions(resp: Response) -> None:
+    _redact_registered_model_response(resp, GetRegisteredModel.Response())
+
+
+def redact_update_registered_model_versions(resp: Response) -> None:
+    _redact_registered_model_response(resp, UpdateRegisteredModel.Response())
 
 
 def filter_search_registered_models(resp: Response):
@@ -3405,10 +5928,6 @@ def filter_search_registered_models(resp: Response):
     parse_dict(resp.json, response_message)
 
     username = authenticate_request().username
-    # The registered-model REST surface is shared with prompts; classify each
-    # row by its ``mlflow.prompt.is_prompt`` tag and check the correct grant
-    # namespace. Without this, a user holding only a ``(prompt, foo, READ)``
-    # grant would have prompt ``foo`` silently filtered out of the response.
     can_read = _rm_or_prompt_read_predicate(username)
 
     # filter out unreadable
@@ -3437,9 +5956,6 @@ def filter_search_registered_models(resp: Response):
             response_message.next_page_token = ""
             break
 
-        # ``can_read`` accepts both protos and ORM entities; reuse it here so
-        # refetched ORM rows go through the same classification as the initial
-        # JSON-parsed proto rows above.
         refetched_readable_proto = [rm.to_proto() for rm in refetched if can_read(rm)]
         response_message.registered_models.extend(refetched_readable_proto)
 
@@ -3450,6 +5966,18 @@ def filter_search_registered_models(resp: Response):
         final_offset = start_offset + len(refetched)
         response_message.next_page_token = SearchUtils.create_page_token(final_offset)
 
+    # A row the caller may read can still embed versions the version tier withholds.
+    _withhold_denied_latest_versions(response_message.registered_models, username)
+    # And a version row that survives can still carry a denied run's or logged model's content --
+    # the same second pass the point routes make in _redact_registered_model_response.
+    _withhold_denied_version_siblings(
+        [
+            version
+            for model in response_message.registered_models
+            for version in model.latest_versions
+        ],
+        username,
+    )
     resp.data = message_to_json(response_message)
 
 
@@ -3461,16 +5989,17 @@ def filter_search_model_versions(resp: Response):
     parse_dict(resp.json, response_message)
 
     username = authenticate_request().username
-    # Prompt versions and model versions share the same REST surface; classify
-    # each row by its ``mlflow.prompt.is_prompt`` tag so a prompt-version
-    # carrying a ``(prompt, name, READ)`` grant isn't dropped on the floor.
-    can_read = _rm_or_prompt_read_predicate(username)
+    can_read = _rm_or_prompt_version_read_predicate(username)
 
     # filter out model versions whose parent model is unreadable
     for mv in list(response_message.model_versions):
         if not can_read(mv):
             response_message.model_versions.remove(mv)
 
+    # A version the caller may read can still carry a denied run's or model's content.
+    _withhold_denied_version_siblings(
+        response_message.model_versions, authenticate_request().username
+    )
     resp.data = message_to_json(response_message)
 
 
@@ -3483,9 +6012,6 @@ def rename_registered_model_permission(resp: Response):
     ``(prompt, old_name, ...)`` grants. Names are unique within the registry,
     so exactly one of the two renames applies and the other is a no-op.
     """
-    # ``silent=True`` returns ``None`` on missing / unparsable bodies; ``or
-    # {}`` plus the explicit value checks below prevent ``None`` from
-    # propagating to ``resource_pattern`` and silently rewriting rows.
     data = request.get_json(force=True, silent=True) or {}
     old_name = data.get("name")
     new_name = data.get("new_name")
@@ -3496,6 +6022,9 @@ def rename_registered_model_permission(resp: Response):
         )
     store.rename_grants_for_resource("registered_model", old_name, new_name, workspace_scoped=True)
     store.rename_grants_for_resource("prompt", old_name, new_name, workspace_scoped=True)
+    # The renamed model comes back through ``to_mlflow_entity()``, so it carries the same embedded
+    # versions Get and Update do.
+    _redact_registered_model_response(resp, RenameRegisteredModel.Response())
 
 
 def set_can_manage_scorer_permission(resp: Response):
@@ -3528,8 +6057,8 @@ def set_can_manage_gateway_secret_permission(resp: Response):
 
 
 def delete_gateway_secret_permissions_cascade(resp: Response):
-    data = request.get_json(force=True, silent=True)
-    if secret_id := data.get("secret_id"):
+    msg = _get_request_message(DeleteGatewaySecret())
+    if secret_id := msg.secret_id:
         store.delete_grants_for_resource("gateway_secret", secret_id)
 
 
@@ -3539,11 +6068,17 @@ def set_can_manage_gateway_endpoint_permission(resp: Response):
     endpoint_id = response_message.endpoint.endpoint_id
     username = authenticate_request().username
     store.grant_user_permission(username, "gateway_endpoint", endpoint_id, MANAGE.name)
+    # A proto maps to one after-request handler, so the create response's redaction composes here.
+    # The endpoint is the caller's own, but the model definitions it embeds are not.
+    if sender_is_admin():
+        return
+    if _withhold_denied_model_mappings(response_message.endpoint.model_mappings, username):
+        resp.data = message_to_json(response_message)
 
 
 def delete_gateway_endpoint_permissions_cascade(resp: Response):
-    data = request.get_json(force=True, silent=True)
-    if endpoint_id := data.get("endpoint_id"):
+    msg = _get_request_message(DeleteGatewayEndpoint())
+    if endpoint_id := msg.endpoint_id:
         store.delete_grants_for_resource("gateway_endpoint", endpoint_id)
 
 
@@ -3558,9 +6093,61 @@ def set_can_manage_gateway_model_definition_permission(resp: Response):
 
 
 def delete_gateway_model_definition_permissions_cascade(resp: Response):
-    data = request.get_json(force=True, silent=True)
-    if model_definition_id := data.get("model_definition_id"):
+    msg = _get_request_message(DeleteGatewayModelDefinition())
+    if model_definition_id := msg.model_definition_id:
         store.delete_grants_for_resource("gateway_model_definition", model_definition_id)
+
+
+def _scorer_row_keys(scorer) -> "tuple[str, str]":
+    experiment_id = str(scorer.experiment_id)
+    return experiment_id, store._scorer_pattern(experiment_id, scorer.scorer_name)
+
+
+def _withhold_denied_guardrail_scorers(configs) -> bool:
+    workspace_fallback = ((RESOURCE_TYPE_WORKSPACE, "*"),)
+    gate = retention_gate(
+        authenticate_request().username,
+        (RESOURCE_TYPE_WORKSPACE, "*"),
+        [
+            Requirement(RESOURCE_TYPE_SCORER_VERSION, "*", ACTION_NOT_DENIED),
+            Requirement(
+                RESOURCE_TYPE_EXPERIMENT, "*", "read", fallback_if_no_grant=workspace_fallback
+            ),
+            Requirement(RESOURCE_TYPE_SCORER, "*", "read", fallback_if_no_grant=workspace_fallback),
+        ],
+    )
+    withheld = False
+    for config in configs:
+        if not config.guardrail.HasField("scorer"):
+            continue
+        experiment_id, scorer_pattern = _scorer_row_keys(config.guardrail.scorer)
+        if (
+            gate.retains(RESOURCE_TYPE_SCORER_VERSION)
+            and gate.retains(RESOURCE_TYPE_EXPERIMENT, experiment_id)
+            and gate.retains(RESOURCE_TYPE_SCORER, scorer_pattern)
+        ):
+            continue
+        config.guardrail.ClearField("scorer")
+        withheld = True
+    return withheld
+
+
+def redact_list_guardrail_config_scorers(resp: Response) -> None:
+    if sender_is_admin():
+        return
+    response_message = ListEndpointGuardrailConfigs.Response()
+    parse_dict(resp.json, response_message)
+    if _withhold_denied_guardrail_scorers(response_message.configs):
+        resp.data = message_to_json(response_message)
+
+
+def redact_guardrail_config_scorer(resp: Response) -> None:
+    if sender_is_admin():
+        return
+    response_message = AddGuardrailToEndpoint.Response()
+    parse_dict(resp.json, response_message)
+    if _withhold_denied_guardrail_scorers([response_message.config]):
+        resp.data = message_to_json(response_message)
 
 
 def filter_list_scorers(resp: Response) -> None:
@@ -3578,16 +6165,670 @@ def filter_list_scorers(resp: Response) -> None:
     response_message = ListScorers.Response()
     parse_dict(resp.json, response_message)
 
-    username = authenticate_request().username
-    can_read_experiment = _role_based_read_predicate(username, "experiment")
-    can_read_scorer = _role_based_read_predicate(username, "scorer")
-    for scorer in list(response_message.scorers):
-        exp_id = str(scorer.experiment_id)
-        if not can_read_experiment(exp_id):
-            response_message.scorers.remove(scorer)
+    if not response_message.scorers:
+        return
+
+    workspace_fallback = ((RESOURCE_TYPE_WORKSPACE, "*"),)
+    gate = retention_gate(
+        authenticate_request().username,
+        (RESOURCE_TYPE_WORKSPACE, "*"),
+        [
+            Requirement(RESOURCE_TYPE_SCORER_VERSION, "*", ACTION_NOT_DENIED),
+            Requirement(
+                RESOURCE_TYPE_EXPERIMENT, "*", "read", fallback_if_no_grant=workspace_fallback
+            ),
+            Requirement(RESOURCE_TYPE_SCORER, "*", "read", fallback_if_no_grant=workspace_fallback),
+        ],
+    )
+    kept = []
+    for scorer in response_message.scorers:
+        experiment_id, scorer_pattern = _scorer_row_keys(scorer)
+        if (
+            gate.retains(RESOURCE_TYPE_SCORER_VERSION)
+            and gate.retains(RESOURCE_TYPE_EXPERIMENT, experiment_id)
+            and gate.retains(RESOURCE_TYPE_SCORER, scorer_pattern)
+        ):
+            kept.append(scorer)
+    response_message.ClearField("scorers")
+    response_message.scorers.extend(kept)
+    resp.data = message_to_json(response_message)
+
+
+def _withhold_denied_model_mappings(mappings, username: str) -> bool:
+    mappings = list(mappings)
+    if not mappings:
+        # Nothing embedded, so no grants need loading -- an endpoint listing that carries no
+        # mappings costs no extra query.
+        return False
+    gate = retention_gate(
+        username,
+        (RESOURCE_TYPE_WORKSPACE, "*"),
+        [
+            Requirement(RESOURCE_TYPE_GATEWAY_MODEL_DEFINITION, "*", ACTION_NOT_DENIED),
+            Requirement(RESOURCE_TYPE_GATEWAY_SECRET, "*", ACTION_NOT_DENIED),
+        ],
+    )
+    withheld = False
+    for mapping in mappings:
+        definition_id = mapping.model_definition_id or mapping.model_definition.model_definition_id
+        if definition_id and not gate.retains(
+            RESOURCE_TYPE_GATEWAY_MODEL_DEFINITION, definition_id
+        ):
+            mapping.ClearField("model_definition")
+            mapping.ClearField("model_definition_id")
+            withheld = True
             continue
-        if not can_read_scorer(store._scorer_pattern(exp_id, scorer.scorer_name)):
-            response_message.scorers.remove(scorer)
+        secret_id = mapping.model_definition.secret_id
+        if secret_id and not gate.retains(RESOURCE_TYPE_GATEWAY_SECRET, secret_id):
+            mapping.model_definition.ClearField("secret_id")
+            mapping.model_definition.ClearField("secret_name")
+            withheld = True
+    return withheld
+
+
+def _redact_gateway_endpoint_response(resp: Response, response_message) -> None:
+    if sender_is_admin():
+        return
+    if not isinstance(resp.json, dict):
+        return
+    parse_dict(resp.json, response_message)
+    username = authenticate_request().username
+    if _withhold_denied_model_mappings(response_message.endpoint.model_mappings, username):
+        resp.data = message_to_json(response_message)
+
+
+def redact_attached_model_mapping(resp: Response) -> None:
+    """`AttachModelToGatewayEndpoint` echoes the mapping it created, and the mapping embeds the
+    definition's `secret_id`/`secret_name`. The caller needed `can_use` on the DEFINITION to get
+    here, which says nothing about the secret it references.
+    """
+    if sender_is_admin():
+        return
+    if not isinstance(resp.json, dict):
+        return
+    response_message = AttachModelToGatewayEndpoint.Response()
+    parse_dict(resp.json, response_message)
+    if _withhold_denied_model_mappings([response_message.mapping], authenticate_request().username):
+        resp.data = message_to_json(response_message)
+
+
+def redact_get_gateway_endpoint_model_definitions(resp: Response) -> None:
+    _redact_gateway_endpoint_response(resp, GetGatewayEndpoint.Response())
+
+
+def redact_update_gateway_endpoint_model_definitions(resp: Response) -> None:
+    _redact_gateway_endpoint_response(resp, UpdateGatewayEndpoint.Response())
+
+
+def filter_list_gateway_endpoints(resp: Response) -> None:
+    """Filter ``ListGatewayEndpoints`` responses to endpoints the caller can read."""
+    if sender_is_admin():
+        return
+    response_message = ListGatewayEndpoints.Response()
+    parse_dict(resp.json, response_message)
+    can_read = _role_based_read_predicate(authenticate_request().username, "gateway_endpoint")
+    kept = [row for row in response_message.endpoints if can_read(row.endpoint_id)]
+    response_message.ClearField("endpoints")
+    response_message.endpoints.extend(kept)
+    # A row the caller may read can still embed a denied model definition or secret.
+    _withhold_denied_model_mappings(
+        [m for endpoint in response_message.endpoints for m in endpoint.model_mappings],
+        authenticate_request().username,
+    )
+    resp.data = message_to_json(response_message)
+
+
+def _withhold_denied_definition_secrets(definitions, username: str) -> bool:
+    named = [definition for definition in definitions if definition.secret_id]
+    if not named:
+        # No secret named, so no grants need loading.
+        return False
+    gate = retention_gate(
+        username,
+        (RESOURCE_TYPE_WORKSPACE, "*"),
+        [Requirement(RESOURCE_TYPE_GATEWAY_SECRET, "*", ACTION_NOT_DENIED)],
+    )
+    withheld = False
+    for definition in named:
+        secret_id = definition.secret_id
+        if not gate.retains(RESOURCE_TYPE_GATEWAY_SECRET, secret_id):
+            definition.ClearField("secret_id")
+            definition.ClearField("secret_name")
+            withheld = True
+    return withheld
+
+
+def _redact_model_definition_response(resp: Response, response_message) -> None:
+    if sender_is_admin():
+        return
+    if not isinstance(resp.json, dict):
+        return
+    parse_dict(resp.json, response_message)
+    if _withhold_denied_definition_secrets(
+        [response_message.model_definition], authenticate_request().username
+    ):
+        resp.data = message_to_json(response_message)
+
+
+def redact_get_gateway_model_definition_secrets(resp: Response) -> None:
+    _redact_model_definition_response(resp, GetGatewayModelDefinition.Response())
+
+
+def redact_update_gateway_model_definition_secrets(resp: Response) -> None:
+    _redact_model_definition_response(resp, UpdateGatewayModelDefinition.Response())
+
+
+def filter_list_gateway_model_definitions(resp: Response) -> None:
+    """Filter ``ListGatewayModelDefinitions`` responses to rows the caller can read."""
+    if sender_is_admin():
+        return
+    response_message = ListGatewayModelDefinitions.Response()
+    parse_dict(resp.json, response_message)
+    can_read = _role_based_read_predicate(
+        authenticate_request().username, "gateway_model_definition"
+    )
+    kept = [row for row in response_message.model_definitions if can_read(row.model_definition_id)]
+    response_message.ClearField("model_definitions")
+    response_message.model_definitions.extend(kept)
+    # A row the caller may read can still name a secret it may not.
+    _withhold_denied_definition_secrets(
+        response_message.model_definitions, authenticate_request().username
+    )
+    resp.data = message_to_json(response_message)
+
+
+_TRACE_METADATA_SIBLING_TIERS = {
+    "mlflow.sourceRun": RESOURCE_TYPE_RUN,
+    "mlflow.modelId": RESOURCE_TYPE_LOGGED_MODEL,
+}
+
+
+def _denied_sibling_tiers(username: str, resource_types) -> "set[str]":
+    # Memoized per request. A REST redactor runs once per response, but the GraphQL
+    # ``run.modelVersions`` field resolves once per run, so an uncached gate would cost a grants
+    # query per row. Grants cannot change mid-request, so the cached set stays correct.
+    key = (username, tuple(resource_types))
+    cache = g.setdefault("_denied_sibling_tier_cache", {}) if has_request_context() else None
+    if cache is not None and key in cache:
+        return cache[key]
+    gate = retention_gate(
+        username,
+        (RESOURCE_TYPE_WORKSPACE, "*"),
+        [Requirement(resource_type, "*", ACTION_NOT_DENIED) for resource_type in resource_types],
+    )
+    denied = {resource_type for resource_type in resource_types if not gate.retains(resource_type)}
+    if cache is not None:
+        cache[key] = denied
+    return denied
+
+
+_MODEL_VERSION_SIBLING_FIELDS = {
+    RESOURCE_TYPE_RUN: ("run_id", "run_link"),
+    RESOURCE_TYPE_LOGGED_MODEL: ("model_id", "model_params", "model_metrics"),
+}
+
+
+def _withhold_denied_version_siblings(versions, username: str) -> bool:
+    watched = [
+        version
+        for version in versions
+        if any(
+            getattr(version, field)
+            for fields in _MODEL_VERSION_SIBLING_FIELDS.values()
+            for field in fields
+        )
+    ]
+    if not watched:
+        return False
+    denied = _denied_sibling_tiers(username, tuple(_MODEL_VERSION_SIBLING_FIELDS))
+    if not denied:
+        return False
+    withheld = False
+    for version in watched:
+        for tier in denied:
+            for field in _MODEL_VERSION_SIBLING_FIELDS[tier]:
+                if getattr(version, field):
+                    version.ClearField(field)
+                    withheld = True
+    return withheld
+
+
+_METRIC_SIBLING_FIELD = {
+    RESOURCE_TYPE_LOGGED_MODEL: "model_id",
+    RESOURCE_TYPE_RUN: "run_id",
+}
+
+
+def _withhold_denied_metric_references(metrics, username: str, tier: str) -> bool:
+    field = _METRIC_SIBLING_FIELD[tier]
+    named = [metric for metric in metrics if getattr(metric, field)]
+    if not named:
+        return False
+    if tier not in _denied_sibling_tiers(username, (tier,)):
+        return False
+    for metric in named:
+        metric.ClearField(field)
+    return True
+
+
+def _withhold_denied_run_model_links(runs, username: str) -> bool:
+    linked = [run for run in runs if run.inputs.model_inputs or run.outputs.model_outputs]
+    metrics = [metric for run in runs for metric in run.data.metrics if metric.model_id]
+    if not linked and not metrics:
+        return False
+    if RESOURCE_TYPE_LOGGED_MODEL not in _denied_sibling_tiers(
+        username, (RESOURCE_TYPE_LOGGED_MODEL,)
+    ):
+        return False
+    for run in linked:
+        run.inputs.ClearField("model_inputs")
+        run.outputs.ClearField("model_outputs")
+    for metric in metrics:
+        metric.ClearField("model_id")
+    return True
+
+
+def _withhold_denied_trace_metadata_siblings(metadata_fields, username: str) -> bool:
+    present = [field for field in metadata_fields if len(field)]
+    if not present:
+        return False
+    denied = _denied_sibling_tiers(username, tuple(set(_TRACE_METADATA_SIBLING_TIERS.values())))
+    strip = {key for key, tier in _TRACE_METADATA_SIBLING_TIERS.items() if tier in denied}
+    if not strip:
+        return False
+    withheld = False
+    for field in present:
+        if hasattr(field, "keys"):
+            for key in strip & set(field.keys()):
+                del field[key]
+                withheld = True
+            continue
+        for index in range(len(field) - 1, -1, -1):
+            if field[index].key in strip:
+                del field[index]
+                withheld = True
+    return withheld
+
+
+def _redact_run_response(resp: Response, response_message, runs_of) -> None:
+    if sender_is_admin():
+        return
+    if not isinstance(resp.json, dict):
+        return
+    parse_dict(resp.json, response_message)
+    if _withhold_denied_run_model_links(runs_of(response_message), authenticate_request().username):
+        resp.data = message_to_json(response_message)
+
+
+def _withhold_denied_issue_source_runs(issues, username: str) -> bool:
+    named = [issue for issue in issues if issue.source_run_id]
+    if not named:
+        return False
+    if RESOURCE_TYPE_RUN not in _denied_sibling_tiers(username, (RESOURCE_TYPE_RUN,)):
+        return False
+    for issue in named:
+        issue.ClearField("source_run_id")
+    return True
+
+
+def _redact_issue_response(resp: Response, response_message, issues_of) -> None:
+    """An issue names the run it came from, so it leaks a denied run id even with no selector.
+
+    ``issue`` is not itself a grantable type, but ``source_run_id`` is a run reference like a model
+    version's ``run_id``, so it follows the run tier.
+    """
+    if sender_is_admin():
+        return
+    if not isinstance(resp.json, dict):
+        return
+    parse_dict(resp.json, response_message)
+    if _withhold_denied_issue_source_runs(
+        issues_of(response_message), authenticate_request().username
+    ):
+        resp.data = message_to_json(response_message)
+
+
+def redact_get_issue_source_run(resp: Response) -> None:
+    _redact_issue_response(resp, GetIssue.Response(), lambda m: [m.issue])
+
+
+def redact_created_issue_source_run(resp: Response) -> None:
+    # The caller supplied this id, so it is not news to them; registered for uniformity across the
+    # Issue-bearing responses rather than to close a leak.
+    _redact_issue_response(resp, CreateIssue.Response(), lambda m: [m.issue])
+
+
+def redact_updated_issue_source_run(resp: Response) -> None:
+    _redact_issue_response(resp, UpdateIssue.Response(), lambda m: [m.issue])
+
+
+def redact_search_issues_source_runs(resp: Response) -> None:
+    _redact_issue_response(resp, SearchIssues.Response(), lambda m: m.issues)
+
+
+def redact_metric_history_model_ids(resp: Response) -> None:
+    if sender_is_admin():
+        return
+    if not isinstance(resp.json, dict):
+        return
+    response_message = GetMetricHistory.Response()
+    parse_dict(resp.json, response_message)
+    if _withhold_denied_metric_references(
+        response_message.metrics, authenticate_request().username, RESOURCE_TYPE_LOGGED_MODEL
+    ):
+        resp.data = message_to_json(response_message)
+
+
+def _withhold_denied_model_source_runs(models, username: str) -> bool:
+    """A logged model names the run that created it, so it leaks a denied run id with no selector.
+
+    The sibling metric redaction clears ``metric.run_id`` on the same responses, which would be
+    pointless if the id were readable one field over.
+    """
+    named = [model for model in models if model.info.source_run_id]
+    if not named:
+        return False
+    if RESOURCE_TYPE_RUN not in _denied_sibling_tiers(username, (RESOURCE_TYPE_RUN,)):
+        return False
+    for model in named:
+        model.info.ClearField("source_run_id")
+    return True
+
+
+def _redact_logged_model_response(resp: Response, response_message, models_of) -> None:
+    if sender_is_admin():
+        return
+    if not isinstance(resp.json, dict):
+        return
+    parse_dict(resp.json, response_message)
+    username = authenticate_request().username
+    models = list(models_of(response_message))
+    metrics = [metric for model in models for metric in model.data.metrics]
+    # Both run, so a response carrying only one of the two references is still cleaned.
+    cleared_metrics = _withhold_denied_metric_references(metrics, username, RESOURCE_TYPE_RUN)
+    cleared_sources = _withhold_denied_model_source_runs(models, username)
+    if cleared_metrics or cleared_sources:
+        resp.data = message_to_json(response_message)
+
+
+def redact_get_logged_model_run_ids(resp: Response) -> None:
+    _redact_logged_model_response(resp, GetLoggedModel.Response(), lambda m: [m.model])
+
+
+def redact_created_logged_model_run_ids(resp: Response) -> None:
+    # The caller supplied this source run, and validate_can_create_logged_model already requires
+    # read on it, so this closes no leak; registered so every logged-model response path is covered.
+    _redact_logged_model_response(resp, CreateLoggedModel.Response(), lambda m: [m.model])
+
+
+def redact_finalize_logged_model_run_ids(resp: Response) -> None:
+    _redact_logged_model_response(resp, FinalizeLoggedModel.Response(), lambda m: [m.model])
+
+
+def redact_set_logged_model_tags_run_ids(resp: Response) -> None:
+    _redact_logged_model_response(resp, SetLoggedModelTags.Response(), lambda m: [m.model])
+
+
+def _redact_version_response(resp: Response, response_message, versions_of) -> None:
+    if sender_is_admin():
+        return
+    if not isinstance(resp.json, dict):
+        return
+    parse_dict(resp.json, response_message)
+    if _withhold_denied_version_siblings(
+        versions_of(response_message), authenticate_request().username
+    ):
+        resp.data = message_to_json(response_message)
+
+
+def redact_model_version_siblings(resp: Response) -> None:
+    _redact_version_response(resp, GetModelVersion.Response(), lambda m: [m.model_version])
+
+
+def redact_created_model_version_siblings(resp: Response) -> None:
+    _redact_version_response(resp, CreateModelVersion.Response(), lambda m: [m.model_version])
+
+
+def redact_updated_model_version_siblings(resp: Response) -> None:
+    _redact_version_response(resp, UpdateModelVersion.Response(), lambda m: [m.model_version])
+
+
+def redact_transitioned_model_version_siblings(resp: Response) -> None:
+    _redact_version_response(
+        resp, TransitionModelVersionStage.Response(), lambda m: [m.model_version]
+    )
+
+
+def redact_model_version_by_alias_siblings(resp: Response) -> None:
+    _redact_version_response(resp, GetModelVersionByAlias.Response(), lambda m: [m.model_version])
+
+
+def redact_latest_versions_siblings(resp: Response) -> None:
+    _redact_version_response(resp, GetLatestVersions.Response(), lambda m: m.model_versions)
+
+
+def redact_get_run_model_links(resp: Response) -> None:
+    _redact_run_response(resp, GetRun.Response(), lambda message: [message.run])
+
+
+def redact_search_runs_model_links(resp: Response) -> None:
+    _redact_run_response(resp, SearchRuns.Response(), lambda message: message.runs)
+
+
+def _redact_trace_metadata_response(resp: Response, response_message, metadata_of) -> None:
+    if sender_is_admin():
+        return
+    if not isinstance(resp.json, dict):
+        return
+    parse_dict(resp.json, response_message)
+    if _withhold_denied_trace_metadata_siblings(
+        metadata_of(response_message), authenticate_request().username
+    ):
+        resp.data = message_to_json(response_message)
+
+
+def redact_start_trace_v3_metadata(resp: Response) -> None:
+    _redact_trace_metadata_response(
+        resp, StartTraceV3.Response(), lambda m: [m.trace.trace_info.trace_metadata]
+    )
+
+
+def redact_trace_info_metadata(resp: Response) -> None:
+    _redact_trace_metadata_response(
+        resp, GetTraceInfo.Response(), lambda m: [m.trace_info.request_metadata]
+    )
+
+
+def redact_start_trace_metadata(resp: Response) -> None:
+    _redact_trace_metadata_response(
+        resp, StartTrace.Response(), lambda m: [m.trace_info.request_metadata]
+    )
+
+
+def redact_end_trace_metadata(resp: Response) -> None:
+    _redact_trace_metadata_response(
+        resp, EndTrace.Response(), lambda m: [m.trace_info.request_metadata]
+    )
+
+
+def redact_search_traces_metadata(resp: Response) -> None:
+    _redact_trace_metadata_response(
+        resp, SearchTraces.Response(), lambda m: [t.request_metadata for t in m.traces]
+    )
+
+
+def _withhold_denied_assessments(trace_infos) -> bool:
+    username = authenticate_request().username
+    gates: dict[str, RetentionGate] = {}
+    withheld = False
+    for trace_info in trace_infos:
+        if not trace_info.assessments:
+            continue
+        experiment_id = trace_info.trace_location.mlflow_experiment.experiment_id
+        gate = gates.get(experiment_id)
+        if gate is None:
+            experiment = (RESOURCE_TYPE_EXPERIMENT, experiment_id)
+            # The fallback is the compatibility guarantee: absent an assessment grant the
+            # experiment governs, so only an explicit grant -- including DENY -- narrows anything.
+            gate = retention_gate(
+                username,
+                experiment,
+                [
+                    Requirement(
+                        RESOURCE_TYPE_ASSESSMENT,
+                        "*",
+                        "read",
+                        fallback_if_no_grant=(experiment,),
+                    )
+                ],
+            )
+            gates[experiment_id] = gate
+        if not gate.retains(RESOURCE_TYPE_ASSESSMENT):
+            trace_info.ClearField("assessments")
+            withheld = True
+    return withheld
+
+
+def redact_trace_assessments(resp: Response) -> None:
+    if sender_is_admin():
+        return
+    response_message = GetTrace.Response()
+    parse_dict(resp.json, response_message)
+    username = authenticate_request().username
+    trace_infos = [response_message.trace.trace_info]
+    withheld = _withhold_denied_assessments(trace_infos)
+    withheld |= _withhold_denied_trace_metadata_siblings(
+        [info.trace_metadata for info in trace_infos], username
+    )
+    if withheld:
+        resp.data = message_to_json(response_message)
+
+
+def redact_trace_info_v3_assessments(resp: Response) -> None:
+    if sender_is_admin():
+        return
+    response_message = GetTraceInfoV3.Response()
+    parse_dict(resp.json, response_message)
+    username = authenticate_request().username
+    trace_infos = [response_message.trace.trace_info]
+    withheld = _withhold_denied_assessments(trace_infos)
+    withheld |= _withhold_denied_trace_metadata_siblings(
+        [info.trace_metadata for info in trace_infos], username
+    )
+    if withheld:
+        resp.data = message_to_json(response_message)
+
+
+def redact_batch_trace_assessments(resp: Response) -> None:
+    if sender_is_admin():
+        return
+    response_message = BatchGetTraces.Response()
+    parse_dict(resp.json, response_message)
+    trace_infos = [t.trace_info for t in response_message.traces]
+    withheld = _withhold_denied_assessments(trace_infos)
+    withheld |= _withhold_denied_trace_metadata_siblings(
+        [info.trace_metadata for info in trace_infos], authenticate_request().username
+    )
+    if withheld:
+        resp.data = message_to_json(response_message)
+
+
+def redact_batch_trace_info_assessments(resp: Response) -> None:
+    if sender_is_admin():
+        return
+    response_message = BatchGetTraceInfos.Response()
+    parse_dict(resp.json, response_message)
+    withheld = _withhold_denied_assessments(response_message.trace_infos)
+    withheld |= _withhold_denied_trace_metadata_siblings(
+        [info.trace_metadata for info in response_message.trace_infos],
+        authenticate_request().username,
+    )
+    if withheld:
+        resp.data = message_to_json(response_message)
+
+
+def redact_search_traces_v3_assessments(resp: Response) -> None:
+    if sender_is_admin():
+        return
+    response_message = SearchTracesV3.Response()
+    parse_dict(resp.json, response_message)
+    username = authenticate_request().username
+    withheld = _withhold_denied_assessments(response_message.traces)
+    withheld |= _withhold_denied_trace_metadata_siblings(
+        [info.trace_metadata for info in response_message.traces], username
+    )
+    if withheld:
+        resp.data = message_to_json(response_message)
+
+
+def filter_list_gateway_secrets(resp: Response) -> None:
+    """Filter ``ListGatewaySecretInfos`` responses to secrets the caller can read."""
+    if sender_is_admin():
+        return
+    response_message = ListGatewaySecretInfos.Response()
+    parse_dict(resp.json, response_message)
+    can_read = _role_based_read_predicate(authenticate_request().username, "gateway_secret")
+    kept = [row for row in response_message.secrets if can_read(row.secret_id)]
+    response_message.ClearField("secrets")
+    response_message.secrets.extend(kept)
+    resp.data = message_to_json(response_message)
+
+
+def redact_secrets_config_for_non_admins(resp: Response) -> None:
+    """Strip ``using_default_passphrase`` from the gateway secrets config for non-admins.
+
+    The endpoint is authenticated-open so the gateway UI can read ``secrets_available``, but
+    ``using_default_passphrase`` reveals whether gateway secrets use the default encryption
+    passphrase — a server security-posture signal that should stay admin-only.
+    """
+    if sender_is_admin():
+        return
+    body = resp.json
+    if isinstance(body, dict) and "using_default_passphrase" in body:
+        resp.data = json.dumps({k: v for k, v in body.items() if k != "using_default_passphrase"})
+
+
+def filter_list_artifacts_proxy(resp: Response) -> None:
+    """Withhold run directories from an experiment-root listing whose run tier denies reads.
+
+    Listing ``<experiment_id>`` returns one entry per run -- the bare ``<run_id>`` directory --
+    beside the ``models`` and ``traces`` folders. The request is authorized against the
+    experiment, so a caller holding ``(run, *, DENY)`` was still handed every run id: an
+    enumeration of runs whose contents are correctly denied. Run grants are wildcard-only, so a
+    single tier decision covers every entry, and an entry is withheld exactly when a point read
+    of it would be denied. The ``models`` and ``traces`` folder names stay: they are tier
+    folders, not resource ids, and listing either is judged against that tier.
+    """
+    if sender_is_admin():
+        return
+    artifact_path = _artifact_proxy_path()
+    if not artifact_path:
+        # The destination root lists experiment directories, which name no run.
+        return
+    canonical = _canonical_artifact_proxy_path(artifact_path)
+    if canonical is None:
+        return
+    experiment_id = _experiment_id_from_canonical_proxy_path(canonical)
+    if experiment_id is None:
+        return
+    remainder = _EXPERIMENT_ID_PATTERN.sub("", f"{canonical.lstrip('/')}/", count=1)
+    if [segment for segment in remainder.split("/") if segment]:
+        # Not the experiment root: the listed directory already names a tier, and the
+        # request-time check judged the request against it.
+        return
+    username = getattr(g, "mlflow_authenticated_user", None) or authenticate_request().username
+    if _authorize_artifact_proxy_resolved(
+        ((RESOURCE_TYPE_RUN,), (RESOURCE_TYPE_EXPERIMENT, experiment_id)),
+        username,
+        "read",
+        _get_permission_from_experiment_id_artifact_proxy,
+    ):
+        return
+    response_message = ListArtifacts.Response()
+    parse_dict(resp.json, response_message)
+    for file_info in list(response_message.files):
+        if _RUN_ID_SEGMENT_PATTERN.fullmatch(file_info.path):
+            response_message.files.remove(file_info)
     resp.data = message_to_json(response_message)
 
 
@@ -3597,11 +6838,44 @@ AFTER_REQUEST_PATH_HANDLERS = {
     DeleteRegisteredModel: delete_can_manage_registered_model_permission,
     SearchExperiments: filter_search_experiments,
     SearchLoggedModels: filter_search_logged_models,
+    GetModelVersion: redact_model_version_siblings,
+    GetModelVersionByAlias: redact_model_version_by_alias_siblings,
+    GetLatestVersions: redact_latest_versions_siblings,
+    CreateModelVersion: redact_created_model_version_siblings,
+    UpdateModelVersion: redact_updated_model_version_siblings,
+    TransitionModelVersionStage: redact_transitioned_model_version_siblings,
+    CreateLoggedModel: redact_created_logged_model_run_ids,
+    FinalizeLoggedModel: redact_finalize_logged_model_run_ids,
+    GetLoggedModel: redact_get_logged_model_run_ids,
+    GetMetricHistory: redact_metric_history_model_ids,
+    SetLoggedModelTags: redact_set_logged_model_tags_run_ids,
+    GetRun: redact_get_run_model_links,
+    SearchRuns: redact_search_runs_model_links,
+    # An Issue names the run it came from, so every Issue-bearing response withholds it.
+    GetIssue: redact_get_issue_source_run,
+    CreateIssue: redact_created_issue_source_run,
+    UpdateIssue: redact_updated_issue_source_run,
+    SearchIssues: redact_search_issues_source_runs,
+    StartTrace: redact_start_trace_metadata,
+    StartTraceV3: redact_start_trace_v3_metadata,
+    EndTrace: redact_end_trace_metadata,
+    GetTraceInfo: redact_trace_info_metadata,
+    SearchTraces: redact_search_traces_metadata,
+    GetTrace: redact_trace_assessments,
+    GetTraceInfoV3: redact_trace_info_v3_assessments,
+    BatchGetTraces: redact_batch_trace_assessments,
+    BatchGetTraceInfos: redact_batch_trace_info_assessments,
+    SearchTracesV3: redact_search_traces_v3_assessments,
     SearchModelVersions: filter_search_model_versions,
+    GetRegisteredModel: redact_get_registered_model_versions,
     SearchRegisteredModels: filter_search_registered_models,
+    UpdateRegisteredModel: redact_update_registered_model_versions,
     RenameRegisteredModel: rename_registered_model_permission,
     RegisterScorer: set_can_manage_scorer_permission,
     ListScorers: filter_list_scorers,
+    ListEndpointGuardrailConfigs: redact_list_guardrail_config_scorers,
+    AddGuardrailToEndpoint: redact_guardrail_config_scorer,
+    UpdateEndpointGuardrailConfig: redact_guardrail_config_scorer,
     DeleteScorer: delete_scorer_permissions_cascade,
     ListReviewQueues: filter_list_review_queues,
     CreateGatewaySecret: set_can_manage_gateway_secret_permission,
@@ -3610,10 +6884,36 @@ AFTER_REQUEST_PATH_HANDLERS = {
     DeleteGatewayEndpoint: delete_gateway_endpoint_permissions_cascade,
     CreateGatewayModelDefinition: set_can_manage_gateway_model_definition_permission,
     DeleteGatewayModelDefinition: delete_gateway_model_definition_permissions_cascade,
+    # Cross-resource gateway list endpoints: filter rows to what the caller can read.
+    AttachModelToGatewayEndpoint: redact_attached_model_mapping,
+    GetGatewayEndpoint: redact_get_gateway_endpoint_model_definitions,
+    UpdateGatewayEndpoint: redact_update_gateway_endpoint_model_definitions,
+    ListGatewayEndpoints: filter_list_gateway_endpoints,
+    GetGatewayModelDefinition: redact_get_gateway_model_definition_secrets,
+    UpdateGatewayModelDefinition: redact_update_gateway_model_definition_secrets,
+    ListGatewayModelDefinitions: filter_list_gateway_model_definitions,
+    ListGatewaySecretInfos: filter_list_gateway_secrets,
     ListWorkspaces: filter_list_workspaces,
     CreateWorkspace: _seed_default_workspace_roles,
     DeleteWorkspace: _cleanup_workspace_permissions,
 }
+
+# After-request handlers that make the authorization decision for their route by
+# filtering or redacting the response. Every other after-request handler is a side
+# effect of a write that a before-request validator must have already authorized.
+_SELF_AUTHORIZING_AFTER_REQUEST_HANDLERS = frozenset({
+    filter_search_experiments,
+    filter_search_logged_models,
+    filter_search_model_versions,
+    filter_search_registered_models,
+    filter_list_scorers,
+    filter_list_review_queues,
+    filter_list_gateway_endpoints,
+    filter_list_gateway_model_definitions,
+    filter_list_gateway_secrets,
+    filter_list_workspaces,
+    redact_secrets_config_for_non_admins,
+})
 
 
 def get_after_request_handler(request_class):
@@ -3637,14 +6937,37 @@ AFTER_REQUEST_HANDLERS = {
     and "/scorers/online-config" not in http_path
     and "/mlflow/server-info" not in http_path
     and http_path not in _AJAX_GATEWAY_PATHS
+    and handler in AFTER_REQUEST_PATH_HANDLERS.values()
 }
 
-# Precompile workspace parameterized paths for after-request handlers.
-WORKSPACE_PARAMETERIZED_AFTER_REQUEST_HANDLERS = {
+# Precompile every parameterized path for after-request handlers. AFTER_REQUEST_HANDLERS is keyed
+# by the Flask rule, so a key like ".../traces/<trace_id>" can never equal a concrete request path
+# and its handler is unreachable by exact match. This table is the regex fallback _after_request
+# needs in order to dispatch them. Scoping it to "/workspaces/" left the response filters on every
+# other parameterized route registered but never run -- authorization still passed, so the route
+# answered 200 with the fields the filter exists to remove.
+PARAMETERIZED_AFTER_REQUEST_HANDLERS = {
     (_re_compile_path(path), method): handler
     for (path, method), handler in AFTER_REQUEST_HANDLERS.items()
-    if "<" in path and "/workspaces/" in path
+    if "<" in path
 }
+
+# GATEWAY_SECRETS_CONFIG is excluded from the auto-built handlers above (it is an ajax gateway
+# path); register its non-admin redaction filter explicitly.
+AFTER_REQUEST_HANDLERS[(GATEWAY_SECRETS_CONFIG, "GET")] = redact_secrets_config_for_non_admins
+
+# The proxied artifact listing is dispatched by path prefix rather than by proto (see
+# `_get_proxy_artifact_validator`), so it is absent from the auto-built table above. Its path is
+# the prefix exactly -- the download route carries a further `/<artifact_path>` segment -- so an
+# exact-match key reaches the listing alone.
+for _artifact_list_path in (
+    f"{_REST_API_PATH_PREFIX}/mlflow-artifacts/artifacts",
+    f"{_AJAX_API_PATH_PREFIX}/mlflow-artifacts/artifacts",
+):
+    AFTER_REQUEST_HANDLERS[(_artifact_list_path, "GET")] = filter_list_artifacts_proxy
+    AFTER_REQUEST_HANDLERS[(_add_static_prefix(_artifact_list_path), "GET")] = (
+        filter_list_artifacts_proxy
+    )
 
 
 @catch_mlflow_exception
@@ -3653,9 +6976,9 @@ def _after_request(resp: Response):
         return resp
 
     handler = AFTER_REQUEST_HANDLERS.get((request.path, request.method))
-    if handler is None and "/workspaces/" in request.path:
-        # Fallback to regex matching for workspace paths.
-        for (path, method), candidate in WORKSPACE_PARAMETERIZED_AFTER_REQUEST_HANDLERS.items():
+    if handler is None:
+        # Fall back to regex matching: a parameterized rule never matches by exact path.
+        for (path, method), candidate in PARAMETERIZED_AFTER_REQUEST_HANDLERS.items():
             if method != request.method:
                 continue
             if path.fullmatch(request.path):
@@ -3667,37 +6990,156 @@ def _after_request(resp: Response):
     return resp
 
 
-def create_admin_user(username, password):
-    if not store.has_user(username):
+# The admin credentials that earlier MLflow versions shipped in basic_auth.ini
+# (https://github.com/advisories/GHSA-gq3w-7jj3-x7gr). The password is never accepted for
+# bootstrapping a new admin user or for logging in as an admin, and deployments where an admin
+# still has it are warned at startup.
+_LEGACY_DEFAULT_ADMIN_USERNAME = "admin"
+_LEGACY_DEFAULT_ADMIN_PASSWORD = "password1234"
+
+
+def _is_disabled_legacy_admin_login(username: str, password: str, user: User | None = None) -> bool:
+    """Whether a credential that passed ``store.authenticate_user`` is the legacy default password
+    on an admin account, which the server no longer accepts.
+
+    Upgraded deployments keep starting so nobody is locked out of the server, but the publicly
+    known admin credential must not stay usable. Rotation needs no working admin login: set
+    ``MLFLOW_AUTH_ADMIN_PASSWORD`` (or ``admin_password``) and restart, see ``create_admin_user``.
+    """
+    if password != _LEGACY_DEFAULT_ADMIN_PASSWORD:
+        return False
+    if user is None:
+        try:
+            user = store.get_user(username)
+        except MlflowException:
+            return False
+    if not user.is_admin:
+        return False
+    _logger.warning(
+        f"Rejected a login by admin user '{username}' with the insecure default password that "
+        "older MLflow versions shipped in basic_auth.ini "
+        "(https://github.com/advisories/GHSA-gq3w-7jj3-x7gr). To rotate it, set "
+        f"{MLFLOW_AUTH_ADMIN_PASSWORD.name} (or `admin_password` in the configuration file "
+        f"referenced by {MLFLOW_AUTH_CONFIG_PATH.name}) to a new password and restart the server."
+    )
+    return True
+
+
+def _validate_bootstrap_admin_username(username: str | None) -> None:
+    if not username:
+        raise MlflowException(
+            "MLflow Authentication needs a username for the admin user, but none is configured "
+            f"(or it is empty). Set the {MLFLOW_AUTH_ADMIN_USERNAME.name} environment variable, "
+            "or set `admin_username` in the configuration file referenced by "
+            f"{MLFLOW_AUTH_CONFIG_PATH.name}, and restart the server."
+        )
+
+
+def _validate_bootstrap_admin_password(username: str, password: str | None) -> None:
+    if not password:
+        raise MlflowException(
+            f"MLflow Authentication needs a password to create the admin user '{username}', "
+            "but none is configured (or it is empty). MLflow ships no default admin password. "
+            "Set the "
+            f"{MLFLOW_AUTH_ADMIN_PASSWORD.name} environment variable, or set `admin_password` "
+            f"in the configuration file referenced by {MLFLOW_AUTH_CONFIG_PATH.name}, and "
+            "restart the server."
+        )
+    if password == _LEGACY_DEFAULT_ADMIN_PASSWORD:
+        raise MlflowException(
+            "Refusing to use the insecure default password that older MLflow versions shipped "
+            f"in basic_auth.ini for the admin user '{username}' "
+            "(https://github.com/advisories/GHSA-gq3w-7jj3-x7gr). Set "
+            f"{MLFLOW_AUTH_ADMIN_PASSWORD.name} or `admin_password` in the configuration file "
+            f"referenced by {MLFLOW_AUTH_CONFIG_PATH.name} to a different password."
+        )
+    # Apply the store's password policy here so a too-short bootstrap password names the
+    # setting to fix, like the other misconfigurations, instead of failing inside create_user.
+    try:
+        _validate_password(password)
+    except MlflowException as e:
+        raise MlflowException(
+            f"The configured password for the admin user '{username}' is invalid: {e.message} "
+            f"Set {MLFLOW_AUTH_ADMIN_PASSWORD.name} or `admin_password` in the configuration "
+            f"file referenced by {MLFLOW_AUTH_CONFIG_PATH.name} to a valid password."
+        ) from e
+
+
+def bootstrap_admin_user() -> None:
+    """Initialize the auth store and create the admin user if it does not exist yet.
+
+    Runs in every worker via ``create_app`` and, before any worker exists, in the
+    ``mlflow server`` process. The uvicorn supervisor restarts workers that die while loading
+    the app, so a bootstrap failure inside a worker would otherwise turn into an endless
+    restart loop instead of one clear error that exits the command.
+    """
+    store.init_db(auth_config.database_uri, read_db_uri=auth_config.read_database_uri)
+    create_admin_user(auth_config.admin_username, auth_config.admin_password)
+
+
+def _warn_if_legacy_default_password_in_use(username: str) -> None:
+    # The configured password only matters for bootstrapping, so inspect the stored credentials
+    # instead. Besides the configured admin, always check the historical `admin` account: an
+    # operator who overrides the bootstrap username on an upgraded deployment must still hear
+    # that the publicly known credential is usable.
+    for candidate in dict.fromkeys((username, _LEGACY_DEFAULT_ADMIN_USERNAME)):
+        if store.authenticate_user(candidate, _LEGACY_DEFAULT_ADMIN_PASSWORD, use_primary=True):
+            _logger.warning(
+                f"The MLflow basic auth user '{candidate}' still uses the insecure default "
+                "password that older MLflow versions shipped in basic_auth.ini "
+                "(https://github.com/advisories/GHSA-gq3w-7jj3-x7gr); admin logins with it are "
+                f"rejected. Rotate it by setting {MLFLOW_AUTH_ADMIN_PASSWORD.name} (or "
+                "`admin_password` in the configuration file) to a new password and restarting "
+                f"the server, or have another admin update it via {UPDATE_USER_PASSWORD} or "
+                "delete the user."
+            )
+
+
+def _init_store_for_app() -> None:
+    if _MLFLOW_AUTH_ADMIN_BOOTSTRAPPED.get():
+        # The `mlflow server` CLI already bootstrapped the admin user and ran the legacy-password
+        # check before spawning this worker, so only the store engine needs initializing here.
+        # This trusts that the CLI resolved the same `database_uri` as this worker. The variable
+        # is private and only the CLI sets it; importing `create_app` directly with it set skips
+        # both checks.
+        store.init_db(auth_config.database_uri, read_db_uri=auth_config.read_database_uri)
+    else:
+        bootstrap_admin_user()
+
+
+def create_admin_user(username: str | None, password: str | None) -> None:
+    _validate_bootstrap_admin_username(username)
+    # Read from the primary database: with a read replica configured, replication lag during a
+    # restart could make an existing admin look absent and fail bootstrap for a missing password.
+    if not store.has_user(username, use_primary=True):
+        _validate_bootstrap_admin_password(username, password)
         try:
             store.create_user(username, password, is_admin=True)
-            _logger.info(
-                f"Created admin user '{username}'. "
-                "It is recommended that you set a new password as soon as possible "
-                f"on {UPDATE_USER_PASSWORD}."
-            )
+            _logger.info(f"Created admin user '{username}'.")
         except MlflowException as e:
-            if isinstance(e.__cause__, sqlalchemy.exc.IntegrityError):
-                # When multiple workers are starting up at the same time, it's possible
-                # that they try to create the admin user at the same time and one of them
-                # will succeed while the others will fail with an IntegrityError.
-                return
-            raise
-
-
-# Must match the admin_password shipped in mlflow/server/auth/basic_auth.ini.
-_DEFAULT_ADMIN_PASSWORD = "password1234"
-
-
-def _warn_if_default_admin_password(password):
-    if password == _DEFAULT_ADMIN_PASSWORD:
+            # When multiple workers are starting up at the same time, it's possible
+            # that they try to create the admin user at the same time and one of them
+            # will succeed while the others will fail with an IntegrityError.
+            if not isinstance(e.__cause__, sqlalchemy.exc.IntegrityError):
+                raise
+    elif (
+        password is not None
+        and password != _LEGACY_DEFAULT_ADMIN_PASSWORD
+        and store.authenticate_user(username, _LEGACY_DEFAULT_ADMIN_PASSWORD, use_primary=True)
+    ):
+        # Upgrade path for deployments bootstrapped with the shipped default: logins with it are
+        # rejected, so the configured bootstrap password doubles as the rotation mechanism that
+        # needs no working admin credential. A configured legacy value is a stale copy of the old
+        # ini rather than a rotation request, so it must not fail startup: the deployment keeps
+        # running with the login block and the warning below.
+        _validate_bootstrap_admin_password(username, password)
+        store.update_user(username, password=password)
         _logger.warning(
-            "The MLflow basic auth admin account is using the default password shipped "
-            "in basic_auth.ini. Change it before exposing this server beyond localhost. "
-            "To override, set the MLFLOW_AUTH_CONFIG_PATH environment variable to point "
-            "to a custom basic_auth.ini with a non-default admin_password, or update the "
-            f"password via {UPDATE_USER_PASSWORD} after startup."
+            f"Replaced the insecure default password of admin user '{username}' with the "
+            f"configured one. Unset {MLFLOW_AUTH_ADMIN_PASSWORD.name} (or remove "
+            "`admin_password` from the configuration file) now that the rotation is done."
         )
+    _warn_if_legacy_default_password_in_use(username)
 
 
 def alert(href: str):
@@ -3936,6 +7378,8 @@ def list_current_user_permissions():
     # Sender == target. Returns every permission grant across every role the
     # user holds, plus ``is_admin`` at the top level so the frontend can show
     # admin status without a second call to ``/users/get``.
+    # ADVISORY ONLY: the UI gates controls on this and silently no-ops a denied action without
+    # issuing the request, so a UI that appears to accept an edit may never have attempted it.
     username = authenticate_request().username
     is_admin, rows = _list_user_role_permissions(username)
     return jsonify({"is_admin": is_admin, "permissions": [asdict(r) for r in rows]})
@@ -4129,7 +7573,11 @@ def _graphql_can_read_experiment(experiment_id: str, username: str) -> bool:
 
 
 def _graphql_can_read_run(run_id: str, username: str) -> bool:
-    return _graphql_get_permission_for_run(run_id, username).can_read
+    resolved = _run_requirement(run_id, "read")
+    if resolved is None:
+        return False
+    anchor, requirements = resolved
+    return authorize(username, anchor, requirements)
 
 
 def _graphql_can_read_model(model_name: str, username: str) -> bool:
@@ -4153,6 +7601,12 @@ class GraphQLAuthorizationMiddleware:
         "mlflowSearchDatasets",
         "mlflowSearchModelVersions",
     }
+    # Nested fields, keyed by (parent GraphQL type, field name). ``run.modelVersions``
+    # (reachable via mlflowGetRun / mlflowSearchRuns) resolves through the unfiltered search
+    # implementation, so it needs the same per-model filter as the top-level search. Keying
+    # on the parent type keeps the same-named, already-filtered sub-field of
+    # ``MlflowSearchModelVersionsResponse`` out of the middleware.
+    PROTECTED_NESTED_FIELDS = {("MlflowRunExtension", "modelVersions")}
 
     def resolve(self, next, root, info, **args):
         """
@@ -4169,7 +7623,10 @@ class GraphQLAuthorizationMiddleware:
         """
         field_name = info.field_name
 
-        if field_name not in self.PROTECTED_FIELDS:
+        if (
+            field_name not in self.PROTECTED_FIELDS
+            and (info.parent_type.name, field_name) not in self.PROTECTED_NESTED_FIELDS
+        ):
             return next(root, info, **args)
 
         try:
@@ -4232,14 +7689,27 @@ class GraphQLAuthorizationMiddleware:
 
         elif field_name in ("mlflowSearchRuns", "mlflowSearchDatasets"):
             if experiment_ids := (getattr(input_obj, "experiment_ids", None) or []):
-                readable_ids = [
-                    exp_id
-                    for exp_id in experiment_ids
-                    if _graphql_can_read_experiment(exp_id, username)
-                ]
+                can_read = _role_based_read_predicate(
+                    username,
+                    "experiment",
+                    also_require=(
+                        [Requirement(RESOURCE_TYPE_RUN, "*", ACTION_NOT_DENIED)]
+                        if field_name == "mlflowSearchRuns"
+                        else []
+                    ),
+                )
+                readable_ids = [exp_id for exp_id in experiment_ids if can_read(exp_id)]
                 if not readable_ids:
                     return False
                 input_obj.experiment_ids = readable_ids
+
+        elif field_name == "mlflowSearchModelVersions":
+            # Row filtering in ``_post_resolve`` cannot cover a ``run_id`` selector: the caller
+            # learns the run a returned version belongs to from the query matching at all, not from
+            # a field. So this refuses the request exactly as REST's
+            # ``validate_can_search_model_versions`` does.
+            if _model_version_filter_selects_run(getattr(input_obj, "filter", None) or ""):
+                return _run_tier_not_denied_in_workspace(username)
 
         return True
 
@@ -4247,15 +7717,42 @@ class GraphQLAuthorizationMiddleware:
         """Apply post-resolution filtering on GraphQL results."""
         if field_name == "mlflowSearchModelVersions":
             return self._filter_model_versions_result(result, username)
+        # A bare field-name match is enough here: ``resolve`` only lets ``modelVersions``
+        # through when its parent type is listed in ``PROTECTED_NESTED_FIELDS``.
+        if field_name == "modelVersions":
+            can_read = self._model_version_read_predicate(username)
+            retained = [mv for mv in result if can_read(mv)]
+            _withhold_denied_version_siblings(retained, username)
+            return retained
+        # The resolvers hand back the same protobuf ``Response`` messages the REST handlers
+        # build, so the REST redaction cores apply unchanged. ``/graphql`` is excluded from
+        # ``AFTER_REQUEST_HANDLERS``, so this is the only place they run for a GraphQL request.
+        if field_name == "mlflowGetRun":
+            _withhold_denied_run_model_links([result.run], username)
+        elif field_name == "mlflowSearchRuns":
+            _withhold_denied_run_model_links(result.runs, username)
         return result
+
+    def _model_version_read_predicate(self, username: str) -> Callable[[Any], bool]:
+        # mlflowSearchRuns resolves ``modelVersions`` once per run, and building the predicate
+        # costs a user lookup plus a grants query, so memoize it for the current request.
+        # Prompt-aware like the REST ``filter_search_model_versions`` so a prompt version is
+        # judged by prompt grants rather than registered-model grants.
+        predicates = g.setdefault("_graphql_model_version_read_predicates", {})
+        if username not in predicates:
+            predicates[username] = _rm_or_prompt_version_read_predicate(username)
+        return predicates[username]
 
     def _filter_model_versions_result(self, result, username: str):
         """Filter model versions the user doesn't have read access to."""
-        can_read = _role_based_read_predicate(username, "registered_model")
+        can_read = self._model_version_read_predicate(username)
         if hasattr(result, "model_versions") and result.model_versions is not None:
-            filtered = [mv for mv in result.model_versions if can_read(mv.name)]
+            filtered = [mv for mv in result.model_versions if can_read(mv)]
             del result.model_versions[:]
             result.model_versions.extend(filtered)
+            # A retained version can still carry a denied run's or model's content, exactly as
+            # in REST's ``filter_search_model_versions``.
+            _withhold_denied_version_siblings(result.model_versions, username)
         return result
 
 
@@ -4281,6 +7778,7 @@ _ROUTES_NEEDING_BODY = frozenset((
     "/gateway/openai/v1/embeddings",
     "/gateway/openai/v1/responses",
     "/gateway/anthropic/v1/messages",
+    "/gateway/typesafe/v1/systemone",
 ))
 
 
@@ -4300,6 +7798,9 @@ def _authenticate_fastapi_request(request: StarletteRequest) -> User | None:
         User object if authentication succeeds, None otherwise.
     """
     request_path = get_routed_asgi_path(request)
+    static_prefix = os.environ.get(STATIC_PREFIX_ENV_VAR, "").rstrip("/")
+    if static_prefix and request_path.startswith(static_prefix):
+        request_path = request_path[len(static_prefix) :]
 
     # On /gateway/ routes, a coding agent's own provider key occupies the standard
     # Authorization header (forwarded upstream), so MLflow credentials ride in a dedicated
@@ -4339,6 +7840,73 @@ def _authenticate_fastapi_request(request: StarletteRequest) -> User | None:
         return _authenticate_cached(username, password)
     except Exception:
         return None
+
+
+def _authenticate_custom_for_fastapi(
+    request: StarletteRequest,
+) -> User | StarletteResponse | None:
+    """Bridge custom authorization_function into the FastAPI middleware path.
+
+    Custom auth functions (configured via ``authorization_function`` in auth config)
+    are written against Flask's request context (``flask.request``). This function
+    creates a synthetic Flask request context from the Starlette request, invokes the
+    custom function within it, and translates the result back.
+
+    Returns:
+        - A ``User`` if authentication succeeds.
+        - A Starlette ``Response`` if the custom auth function returned a Flask Response
+          (converted to preserve status code, headers, and body).
+        - ``None`` if authentication fails (no username / unknown user).
+
+    Raises:
+        MlflowException: If the custom auth function returns an unsupported type,
+            matching Flask ``_before_request`` failure semantics.
+    """
+    headers = dict(request.headers)
+    with app.test_request_context(
+        path=request.url.path,
+        method=request.method,
+        headers=headers,
+        query_string=request.url.query or "",
+    ):
+        authorization = authenticate_request()
+        if isinstance(authorization, Response):
+            return _flask_response_to_starlette(authorization)
+        if not isinstance(authorization, Authorization):
+            # Match Flask `_before_request`: unsupported plugin return types are an
+            # internal misconfiguration, not an authentication failure (401).
+            raise MlflowException(
+                f"Unsupported result type from {auth_config.authorization_function}: "
+                f"'{type(authorization).__name__}'",
+                INTERNAL_ERROR,
+            )
+        username = authorization.username
+        if not username:
+            return None
+        try:
+            return store.get_user(username)
+        except Exception:
+            return None
+
+
+def _flask_response_to_starlette(flask_resp: Response) -> StarletteResponse:
+    """Convert a Flask/Werkzeug Response to a Starlette Response.
+
+    Preserves status code, headers (including multi-value headers like Set-Cookie),
+    and body so custom auth functions can return meaningful error responses
+    (e.g., 403 with a custom message, or a redirect) that get forwarded to the
+    client unchanged.
+    """
+    _hop_by_hop_headers = {"content-length", "transfer-encoding"}
+    response = StarletteResponse(
+        content=flask_resp.get_data(),
+        status_code=flask_resp.status_code,
+    )
+    for key, value in flask_resp.headers:
+        if key.lower() in _hop_by_hop_headers:
+            continue
+        response.headers.append(key, value)
+    return response
 
 
 def _extract_gateway_endpoint_name(path: str, body: dict[str, Any] | None) -> str | None:
@@ -4404,6 +7972,9 @@ def _get_gateway_validator(path: str) -> Callable[[str, StarletteRequest], Await
         True if authorized, or None if no validation is needed for this route.
     """
 
+    if path == "/gateway/mlflow/v1/models":
+        return _get_require_authentication_validator()
+
     async def validator(username: str, request: StarletteRequest) -> bool:
         body = None
         if path in _ROUTES_NEEDING_BODY:
@@ -4424,6 +7995,346 @@ def _get_gateway_validator(path: str) -> Callable[[str, StarletteRequest], Await
     return validator
 
 
+def _mcp_server_suffix(path: str) -> str:
+    for prefix in get_mcp_server_api_route_prefixes():
+        if path.startswith(prefix):
+            return path[len(prefix) :].strip("/")
+    raise MlflowException(f"Not an MCP server path: {path}", error_code=BAD_REQUEST)
+
+
+def _is_mcp_server_version_create_path(parts: list[str]) -> bool:
+    return len(parts) == 3 and parts[2] == "versions"
+
+
+def _mcp_path_targets_an_access_endpoint(parts: list[str]) -> bool:
+    return len(parts) > 2 and parts[2] == "endpoints"
+
+
+def _mcp_endpoint_filter_selects_version_status(filter_string: str) -> bool:
+    if not filter_string:
+        return False
+    from mlflow.utils.search_utils import SearchMCPAccessEndpointUtils
+
+    try:
+        parsed = SearchMCPAccessEndpointUtils.parse_search_filter(filter_string)
+    except Exception:
+        return True
+    return any(c.get("type") == "attribute" and c.get("key") == "status" for c in parsed)
+
+
+async def _mcp_request_selects_a_version(request: StarletteRequest) -> bool:
+    params = request.query_params
+    if params.get("server_version") or params.get("server_alias"):
+        return True
+    # The store resolves this `status` against `SqlMCPServerVersion`, not the endpoint.
+    if _mcp_endpoint_filter_selects_version_status(params.get("filter_string") or ""):
+        return True
+    if request.method not in ("POST", "PATCH"):
+        return False
+    try:
+        body = await request.json()
+    except Exception:
+        # A malformed or absent body selects nothing; the handler will reject it on its own terms.
+        return False
+    # Starlette caches the read, so the route handler still parses its own body.
+    request.state.cached_body = body
+    return isinstance(body, dict) and bool(body.get("server_version") or body.get("server_alias"))
+
+
+async def _mcp_create_body_name(request: StarletteRequest) -> str:
+    # `"*"` when the body carries no usable name: the veto then covers wildcard grants only, which
+    # is all a create with no name to deny can be held to. The handler rejects the body itself.
+    try:
+        body = await request.json()
+    except Exception:
+        return "*"
+    # Starlette caches the read, so the route handler still parses its own body.
+    request.state.cached_body = body
+    name = body.get("name") if isinstance(body, dict) else None
+    return name if isinstance(name, str) and name else "*"
+
+
+def _mcp_path_targets_a_version(parts: list[str]) -> bool:
+    # parts[0:2] is the server name; parts[2:] is the nested path. `aliases/<alias>` resolves to a
+    # version and returns it, so it discloses version content just as `versions/...` does.
+    return len(parts) > 2 and parts[2] in ("versions", "aliases")
+
+
+def _mcp_path_targets_a_version_as_subject(parts: list[str]) -> bool:
+    # Only `versions/...` makes the version the SUBJECT, so only there does the method name the
+    # action taken ON it. An `aliases/<alias>` write mutates the server's alias map and merely
+    # DISCLOSES a version, so its action is pinned to "read" and the server keeps the write gate.
+    return len(parts) > 2 and parts[2] == "versions"
+
+
+def _get_mcp_server_validator(
+    path: str,
+) -> Callable[[str, StarletteRequest], Awaitable[bool]]:
+    suffix = _mcp_server_suffix(path)
+    parts = suffix.split("/") if suffix else []
+
+    if len(parts) < 2:
+
+        async def root_validator(username: str, request: StarletteRequest) -> bool:
+            if request.method == "POST":
+                # The nested auto-create path already vetoes on the exact server name; the root
+                # create carries it in the body, so name it here too rather than only the wildcard.
+                return validate_can_create_mcp_server(
+                    username, await _mcp_create_body_name(request)
+                )
+            # The cross-server endpoint search accepts the same version selectors as the per-server
+            # one, so it vetoes on the same tier; it just has no server to anchor on.
+            if parts[:1] == ["endpoints"] and await _mcp_request_selects_a_version(request):
+                return _mcp_version_tier_not_denied_in_workspace(username)
+            return True
+
+        return root_validator
+
+    # Server name is namespace/slug (first two path segments).
+    name = f"{parts[0]}/{parts[1]}"
+
+    def _server_exists() -> bool:
+        try:
+            _get_tracking_store().get_mcp_server(name)
+            return True
+        except MlflowException as e:
+            if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+                return False
+            raise
+
+    async def validator(username: str, request: StarletteRequest) -> bool:
+        if request.method == "POST" and _is_mcp_server_version_create_path(parts):
+            request.state.mcp_server_can_update_existing_recheck = lambda: (
+                _get_mcp_server_permission(name, username).can_update
+            )
+            parent_missing = not _server_exists()
+            request.state.mcp_server_parent_auto_created = parent_missing
+            if parent_missing:
+                return validate_can_create_mcp_server(username) and _mcp_auto_create_not_denied(
+                    username, name
+                )
+            return _authorize_create_mcp_server_version(username, name)
+        if request.method not in ("GET", "POST", "PATCH", "DELETE"):
+            return False
+        if _mcp_path_targets_a_version_as_subject(parts):
+            # The version is the SUBJECT of these routes, so the server contributes only the READ
+            # baseline and the version tier carries the action. Gating the server at the action
+            # level here as well would let a version grant narrow but never widen, which is not
+            # the tier override the rest of the model implements.
+            return _mcp_server_version_action_allowed(
+                username, name, _mcp_version_action(parts, request.method)
+            )
+        perm = _get_mcp_server_permission(name, username)
+        match request.method:
+            case "GET":
+                allowed = perm.can_read
+            case "POST" | "PATCH":
+                allowed = perm.can_update
+            case "DELETE":
+                allowed = perm.can_delete
+            case _:
+                return False
+        if not allowed:
+            return False
+        if _mcp_path_targets_a_version(parts):
+            # Reached only for `aliases/...`, where the server is the subject and has just been
+            # gated at the action level. The tier still applies because the route discloses the
+            # version the alias resolves to, but at the "read" that disclosure amounts to.
+            return _mcp_server_version_action_allowed(
+                username, name, _mcp_version_action(parts, request.method)
+            )
+        if _mcp_path_targets_an_access_endpoint(parts) and await _mcp_request_selects_a_version(
+            request
+        ):
+            return _mcp_server_version_not_denied(username, name)
+        if request.method == "DELETE":
+            return _mcp_server_version_action_allowed(username, name, "delete")
+        return True
+
+    return validator
+
+
+def _mcp_server_after_create(username: str, request: StarletteRequest) -> None:
+    user = store.get_user(username)
+    if user.is_admin:
+        return
+
+    suffix = _mcp_server_suffix(get_routed_asgi_path(request))
+    parts = suffix.split("/") if suffix else []
+
+    if _is_mcp_server_version_create_path(parts):
+        if not getattr(request.state, "mcp_server_parent_auto_created", False):
+            return
+        name = f"{parts[0]}/{parts[1]}"
+        try:
+            server = _get_tracking_store().get_mcp_server(name)
+        except MlflowException:
+            return
+        if server.created_by != username:
+            return
+        try:
+            store.grant_user_resource_permission(username, "mcp_server", name, MANAGE.name)
+        except MlflowException as e:
+            if e.error_code != ErrorCode.Name(RESOURCE_ALREADY_EXISTS):
+                raise
+        return
+
+    # Only auto-grant MANAGE for create-server (``POST /mcp-servers`` with an
+    # empty suffix). Nested POSTs (``/tags``, ``/aliases``, ``/endpoints``, …)
+    # also reach this after-handler; granting from an arbitrary body ``name``
+    # would let an UPDATE-capable user escalate to MANAGE on another server.
+    if suffix:
+        return
+
+    body = getattr(request.state, "raw_body", None)
+    if not body:
+        return
+    try:
+        name = json.loads(body).get("name")
+    except (json.JSONDecodeError, AttributeError):
+        return
+    if name:
+        store.grant_user_permission(username, "mcp_server", name, MANAGE.name)
+
+
+def _mcp_server_after_delete(username: str, request: StarletteRequest) -> None:
+    suffix = _mcp_server_suffix(get_routed_asgi_path(request))
+    parts = suffix.split("/") if suffix else []
+    if len(parts) == 2:
+        store.delete_grants_for_resource(
+            "mcp_server", f"{parts[0]}/{parts[1]}", workspace_scoped=True
+        )
+
+
+def _backfill_readable_mcp_results(
+    can_read: Callable[[str], bool],
+    readable: list[dict[str, Any]],
+    max_results: int,
+    next_token: str | None,
+    fetch_page: Callable[[str | None], PagedList],
+    get_name: Callable[[Any], str],
+    to_dict: Callable[[Any], dict[str, Any]],
+) -> str | None:
+    while len(readable) < max_results and next_token:
+        start_offset = SearchUtils.parse_start_offset_from_page_token(next_token)
+        page = fetch_page(next_token)
+        if not page:
+            return None
+        consumed = 0
+        for item in page:
+            if len(readable) >= max_results:
+                break
+            consumed += 1
+            if can_read(get_name(item)):
+                readable.append(to_dict(item))
+        if consumed < len(page):
+            next_token = SearchUtils.create_page_token(start_offset + consumed)
+        else:
+            next_token = page.token
+        if isinstance(next_token, bytes):
+            next_token = next_token.decode("utf-8")
+    return next_token
+
+
+def _filter_search_mcp_servers(username: str, body: bytes, request: StarletteRequest) -> bytes:
+    data = json.loads(body)
+    perm_cache: dict[str, Permission] = {}
+
+    def _perm(name: str) -> Permission:
+        if name not in perm_cache:
+            perm_cache[name] = _get_mcp_server_permission(name, username)
+        return perm_cache[name]
+
+    def _stamp(s: dict[str, Any]) -> dict[str, Any]:
+        s["allowed_actions"] = _permission_to_allowed_actions(_perm(s["name"]))
+        return s
+
+    readable = [_stamp(s) for s in data.get("mcp_servers", []) if _perm(s["name"]).can_read]
+
+    params = request.query_params
+    max_results = int(params.get("max_results", 100))
+    filter_string = params.get("filter_string")
+    order_by = params.getlist("order_by") or None
+
+    data["next_page_token"] = _backfill_readable_mcp_results(
+        can_read=lambda name: _perm(name).can_read,
+        readable=readable,
+        max_results=max_results,
+        next_token=data.get("next_page_token"),
+        fetch_page=lambda token: _get_tracking_store().search_mcp_servers(
+            filter_string=filter_string,
+            max_results=max_results,
+            order_by=order_by,
+            page_token=token,
+        ),
+        get_name=lambda s: s.name,
+        to_dict=lambda s: _stamp(MCPServerResponse.from_entity(s).model_dump(mode="json")),
+    )
+    data["mcp_servers"] = readable[:max_results]
+    _withhold_denied_mcp_version_passengers_on_servers(data["mcp_servers"], username)
+    return json.dumps(data).encode()
+
+
+_MCP_VERSION_PASSENGER_FIELDS = ("resolved_version", "tools", "server_version", "server_alias")
+
+
+def _withhold_denied_mcp_version_passengers(
+    endpoints: "list[dict[str, Any]]", username: str
+) -> None:
+    denied: dict[str, bool] = {}
+    for endpoint in endpoints:
+        server_name = endpoint.get("server_name")
+        if server_name not in denied:
+            denied[server_name] = not _mcp_server_version_not_denied(username, server_name)
+        if not denied[server_name]:
+            continue
+        for field in _MCP_VERSION_PASSENGER_FIELDS:
+            # Only clear what the payload already carries: the nested summary has no `tools`, and
+            # adding the key would change the response shape rather than redact it.
+            if field in endpoint:
+                endpoint[field] = None
+
+
+def _withhold_denied_mcp_version_passengers_on_servers(
+    servers: "list[dict[str, Any]]", username: str
+) -> None:
+    for server in servers:
+        _withhold_denied_mcp_version_passengers(server.get("access_endpoints", []), username)
+
+
+def _filter_search_mcp_endpoints(username: str, body: bytes, request: StarletteRequest) -> bytes:
+    data = json.loads(body)
+    can_read = _role_based_read_predicate(username, "mcp_server")
+    readable = [e for e in data.get("mcp_access_endpoints", []) if can_read(e["server_name"])]
+
+    params = request.query_params
+    max_results = int(params.get("max_results", 100))
+    filter_string = params.get("filter_string")
+    order_by = params.getlist("order_by") or None
+    server_version = params.get("server_version")
+    server_alias = params.get("server_alias")
+
+    data["next_page_token"] = _backfill_readable_mcp_results(
+        can_read=can_read,
+        readable=readable,
+        max_results=max_results,
+        next_token=data.get("next_page_token"),
+        fetch_page=lambda token: _get_tracking_store().search_mcp_access_endpoints(
+            filter_string=filter_string,
+            max_results=max_results,
+            order_by=order_by,
+            page_token=token,
+            server_version=server_version,
+            server_alias=server_alias,
+        ),
+        get_name=lambda e: e.server_name,
+        to_dict=lambda e: MCPAccessEndpointResponse.from_entity(e).model_dump(mode="json"),
+    )
+    data["mcp_access_endpoints"] = readable[:max_results]
+    _withhold_denied_mcp_version_passengers(data["mcp_access_endpoints"], username)
+    return json.dumps(data).encode()
+
+
 def _get_require_authentication_validator() -> Callable[[str, StarletteRequest], Awaitable[bool]]:
     """
     Get a validator that requires authentication but grants access to any authenticated user.
@@ -4434,6 +8345,39 @@ def _get_require_authentication_validator() -> Callable[[str, StarletteRequest],
 
     async def validator(username: str, request: StarletteRequest) -> bool:
         return True
+
+    return validator
+
+
+def _job_id_from_path(unprefixed_path: str) -> str | None:
+    # get (/jobs/<id>) and cancel (/jobs/cancel/<id>) carry a job id; submit and search do not.
+    tail = unprefixed_path.split("/ajax-api/3.0/jobs", 1)[-1].strip("/")
+    if not tail or tail == "search":
+        return None
+    if tail.startswith("cancel/"):
+        return tail[len("cancel/") :] or None
+    return tail
+
+
+def _get_job_route_validator(
+    path: str,
+) -> Callable[[str, StarletteRequest], Awaitable[bool]]:
+    # get/cancel by id are ownership-gated (admins bypass upstream); submit/search need only auth
+    # here. /jobs/search is narrowed to the caller's own jobs by ``_filter_search_jobs``.
+    job_id = _job_id_from_path(path)
+
+    async def validator(username: str, request: StarletteRequest) -> bool:
+        if job_id is None:
+            return True
+        from mlflow.server.jobs import get_job
+
+        try:
+            creator = get_job(job_id).creator
+        except MlflowException as e:
+            if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+                return False
+            raise
+        return creator is not None and creator == username
 
     return validator
 
@@ -4451,12 +8395,116 @@ def _get_otel_validator(
             raise MlflowException(
                 "Missing required header: X-Mlflow-Experiment-Id", error_code=BAD_REQUEST
             )
-        return _get_experiment_permission(experiment_id, username).can_update
+        # The handler persists the submitted spans, so this is a trace create and carries the
+        # same veto as StartTrace / StartTraceV3.
+        return _authorize_create_in_experiment_as(username, experiment_id, RESOURCE_TYPE_TRACE)
 
     return validator
 
 
-def _find_fastapi_validator(path: str) -> Callable[[str, StarletteRequest], Awaitable[bool]] | None:
+def _extract_experiment_id_from_artifact_proxy_path(
+    path: str, query_path: str | None = None
+) -> str | None:
+    # Mirror Flask view_args extraction for both simple artifact routes and MPU
+    # control-plane routes (create/complete/abort). FastAPI permission middleware
+    # claims all `_is_proxy_artifact_path` URLs, so experiment ids must be parsed
+    # from /mpu/... as well as /artifacts/....
+    prefixes = (
+        f"{_REST_API_PATH_PREFIX}/mlflow-artifacts/artifacts/",
+        f"{_AJAX_API_PATH_PREFIX}/mlflow-artifacts/artifacts/",
+        f"{_REST_API_PATH_PREFIX}/mlflow-artifacts/mpu/create/",
+        f"{_AJAX_API_PATH_PREFIX}/mlflow-artifacts/mpu/create/",
+        f"{_REST_API_PATH_PREFIX}/mlflow-artifacts/mpu/complete/",
+        f"{_AJAX_API_PATH_PREFIX}/mlflow-artifacts/mpu/complete/",
+        f"{_REST_API_PATH_PREFIX}/mlflow-artifacts/mpu/abort/",
+        f"{_AJAX_API_PATH_PREFIX}/mlflow-artifacts/mpu/abort/",
+    )
+    prefix = next((prefix for prefix in prefixes if path.startswith(prefix)), None)
+    if prefix is not None:
+        if artifact_path := _canonical_artifact_proxy_path(path.removeprefix(prefix)):
+            return _experiment_id_from_canonical_proxy_path(artifact_path)
+
+    # List-artifacts uses GET .../artifacts?path=<experiment_id>/... (Flask parity).
+    if canonical_query_path := (_canonical_artifact_proxy_path(query_path) if query_path else None):
+        return _experiment_id_from_canonical_proxy_path(canonical_query_path)
+    return None
+
+
+def _get_proxy_artifact_permission(
+    path: str, username: str, query_path: str | None = None
+) -> Permission:
+    if experiment_id := _extract_experiment_id_from_artifact_proxy_path(path, query_path):
+        return _get_role_permission_or_default(
+            _role_permission_for(
+                username=username,
+                resource_type="experiment",
+                resource_key=experiment_id,
+                workspace_lookup_id=experiment_id,
+                workspace_fetcher=_get_tracking_store().get_experiment,
+                workspace_label="experiment",
+            ),
+        )
+
+    if MLFLOW_ENABLE_WORKSPACES.get():
+        if workspace_name := workspace_context.get_request_workspace():
+            user = store.get_user(username)
+            perm = _role_grant_for_resource(user.id, "workspace", "*", workspace_name)
+            if perm is not None:
+                return perm
+            # Honor the default-workspace auto-grant when configured.
+            if _user_inherits_default_workspace_grant(workspace_name):
+                return get_permission(auth_config.default_permission)
+        return NO_PERMISSIONS
+
+    return get_permission(auth_config.default_permission)
+
+
+def _artifact_proxy_path_from_request_path(path: str, query_path: "str | None") -> "str | None":
+    prefixes = (
+        f"{_REST_API_PATH_PREFIX}/mlflow-artifacts/",
+        f"{_AJAX_API_PATH_PREFIX}/mlflow-artifacts/",
+    )
+    for prefix in prefixes:
+        if path.startswith(prefix):
+            remainder = path.removeprefix(prefix)
+            # Strip the route family segment (artifacts/, mpu/create/, ...) to leave the
+            # repository-relative path the experiment-id parser matches on.
+            for family in ("artifacts/", "mpu/create/", "mpu/complete/", "mpu/abort/"):
+                if remainder.startswith(family):
+                    return remainder.removeprefix(family) or query_path
+    return query_path
+
+
+def _authorize_fastapi_artifact_proxy(
+    path: str, username: str, query_path: "str | None", action: str
+) -> bool:
+    return _authorize_artifact_proxy_resolved(
+        _artifact_proxy_child(_artifact_proxy_path_from_request_path(path, query_path), action),
+        username,
+        action,
+        lambda: _get_proxy_artifact_permission(path, username, query_path),
+    )
+
+
+def _get_fastapi_proxy_artifact_validator(
+    path: str, method: str
+) -> Callable[[str, StarletteRequest], Awaitable[bool]]:
+    async def validator(username: str, request: StarletteRequest) -> bool:
+        action = {"GET": "read", "PUT": "update", "DELETE": "manage", "POST": "update"}.get(method)
+        if action is None:
+            return False
+        query_path = request.query_params.get("path")
+        # Same gate as the Flask validators, so neither dispatch path is the softer one.
+        return await asyncio.to_thread(
+            _authorize_fastapi_artifact_proxy, path, username, query_path, action
+        )
+
+    return validator
+
+
+def _find_fastapi_validator(
+    path: str, method: str
+) -> Callable[[str, StarletteRequest], Awaitable[bool]] | None:
     """
     Find the validator for a FastAPI route that bypasses Flask.
 
@@ -4470,19 +8518,175 @@ def _find_fastapi_validator(path: str) -> Callable[[str, StarletteRequest], Awai
         An async validator function that takes (username, request) and returns
         True if authorized, or None if the route is handled by Flask (WSGI).
     """
-    if path.startswith("/gateway/"):
-        return _get_gateway_validator(path)
+    static_prefix = os.environ.get(STATIC_PREFIX_ENV_VAR, "").rstrip("/")
+    unprefixed = (
+        path[len(static_prefix) :] if static_prefix and path.startswith(static_prefix) else path
+    )
 
-    if path.startswith("/v1/traces"):
-        return _get_otel_validator(path)
+    if unprefixed.startswith("/gateway/"):
+        return _get_gateway_validator(unprefixed)
 
-    if path.startswith("/ajax-api/3.0/jobs"):
+    if unprefixed.startswith("/v1/traces"):
+        return _get_otel_validator(unprefixed)
+
+    if unprefixed.startswith("/ajax-api/3.0/jobs"):
+        return _get_job_route_validator(unprefixed)
+
+    if unprefixed.startswith("/ajax-api/3.0/mlflow/assistant"):
         return _get_require_authentication_validator()
 
-    if path.startswith("/ajax-api/3.0/mlflow/assistant"):
-        return _get_require_authentication_validator()
+    # `artifact_router` is not registered under `--static-prefix`, so this matches the
+    # raw path; prefixed artifact requests fall through to Flask, which owns their auth.
+    if _is_native_fastapi_proxy_artifact_path(path, method):
+        return _get_fastapi_proxy_artifact_validator(path, method)
+
+    if is_mcp_server_api_path(path):
+        return _get_mcp_server_validator(path)
 
     return None
+
+
+FASTAPI_AFTER_REQUEST_HANDLERS: dict[
+    tuple[str, str],
+    Callable[[str, StarletteRequest], None],
+] = {
+    (prefix, method): handler
+    for prefix in get_mcp_server_api_route_prefixes()
+    for method, handler in (
+        ("POST", _mcp_server_after_create),
+        ("DELETE", _mcp_server_after_delete),
+    )
+}
+
+
+def _find_fastapi_after_request_handler(
+    path: str, method: str
+) -> Callable[[str, StarletteRequest], None] | None:
+    return next(
+        (
+            handler
+            for (prefix, m), handler in FASTAPI_AFTER_REQUEST_HANDLERS.items()
+            if m == method and path.startswith(prefix)
+        ),
+        None,
+    )
+
+
+def _filter_get_mcp_server(username: str, body: bytes, request: StarletteRequest) -> bytes:
+    data = json.loads(body)
+    if name := data.get("name"):
+        perm = _get_mcp_server_permission(name, username)
+        data["allowed_actions"] = _permission_to_allowed_actions(perm)
+    _withhold_denied_mcp_version_passengers(data.get("access_endpoints", []), username)
+    return json.dumps(data).encode()
+
+
+def _filter_mcp_access_endpoint(username: str, body: bytes, request: StarletteRequest) -> bytes:
+    data = json.loads(body)
+    _withhold_denied_mcp_version_passengers([data], username)
+    return json.dumps(data).encode()
+
+
+def _filter_search_server_access_endpoints(
+    username: str, body: bytes, request: StarletteRequest
+) -> bytes:
+    # Every row belongs to the one server the path validator already gated on read, so unlike the
+    # cross-server search there is no row filtering to do -- only the version passenger to withhold.
+    data = json.loads(body)
+    _withhold_denied_mcp_version_passengers(data.get("mcp_access_endpoints", []), username)
+    return json.dumps(data).encode()
+
+
+def _filter_search_jobs(username: str, body: bytes, request: StarletteRequest) -> bytes:
+    # Jobs have no experiment scope, so ownership is the boundary (as on the per-id routes):
+    # non-admins only see jobs they created, and jobs with no recorded creator stay hidden.
+    data = json.loads(body)
+    data["jobs"] = [job for job in data.get("jobs", []) if job.get("creator") == username]
+    return json.dumps(data).encode()
+
+
+def _filter_list_gateway_models(username: str, body: bytes, request: StarletteRequest) -> bytes:
+    data = json.loads(body)
+    # Model discovery is expected to be infrequent. Accept per-endpoint queries
+    # to keep authorization consistent with gateway invocation.
+    data["data"] = [
+        model for model in data["data"] if _validate_gateway_use_permission(model["id"], username)
+    ]
+    return json.dumps(data).encode()
+
+
+FASTAPI_ENDPOINT_RESPONSE_FILTERS: dict[
+    Callable[..., Any],
+    Callable[[str, bytes, StarletteRequest], bytes],
+] = {
+    _search_mcp_servers_endpoint: _filter_search_mcp_servers,
+    _search_all_access_endpoints_endpoint: _filter_search_mcp_endpoints,
+    _get_mcp_server_endpoint: _filter_get_mcp_server,
+    _update_mcp_server_endpoint: _filter_get_mcp_server,
+    _get_mcp_access_endpoint_endpoint: _filter_mcp_access_endpoint,
+    _create_mcp_access_endpoint_endpoint: _filter_mcp_access_endpoint,
+    _update_mcp_access_endpoint_endpoint: _filter_mcp_access_endpoint,
+    _search_server_access_endpoints_endpoint: _filter_search_server_access_endpoints,
+    _search_jobs_endpoint: _filter_search_jobs,
+    _list_gateway_models_endpoint: _filter_list_gateway_models,
+}
+
+
+def _find_fastapi_response_filter(
+    request: StarletteRequest,
+) -> Callable[[str, bytes, StarletteRequest], bytes] | None:
+    # Keyed on the resolved endpoint function, so only the registered collection routes
+    # (GET or POST) are filtered.
+    endpoint = request.scope.get("endpoint")
+    if endpoint is None:
+        return None
+    return FASTAPI_ENDPOINT_RESPONSE_FILTERS.get(endpoint)
+
+
+def _apply_fastapi_response_filter(
+    response_filter: Callable[[str, bytes, StarletteRequest], bytes],
+    username: str,
+    body: bytes,
+    request: StarletteRequest,
+    response,
+    path: str,
+):
+    headers = {k: v for k, v in response.headers.items() if k.lower() != "content-length"}
+    try:
+        filtered_content = response_filter(username, body, request)
+    except MlflowException as e:
+        _logger.exception("response filter failed for %s %s", request.method, path)
+        return JSONResponse(
+            status_code=e.get_http_status_code(),
+            content=json.loads(e.serialize_as_json()),
+        )
+    except Exception:
+        _logger.exception("response filter failed for %s %s", request.method, path)
+        error = MlflowException(
+            "Failed to filter response for protected collection route",
+            error_code=INTERNAL_ERROR,
+        )
+        return JSONResponse(
+            status_code=error.get_http_status_code(),
+            content=json.loads(error.serialize_as_json()),
+        )
+
+    return FilteredResponse(
+        content=filtered_content,
+        status_code=response.status_code,
+        headers=headers,
+        media_type=response.media_type,
+    )
+
+
+def _native_fastapi_routes(app: FastAPI) -> list[BaseRoute]:
+    # Routes served directly by FastAPI, excluding the mounted Flask app (authorized via Flask).
+    return [route for route in app.routes if not isinstance(route, Mount)]
+
+
+def _scope_matches_native_route(native_routes: list[BaseRoute], scope) -> bool:
+    # True if the request matches a native FastAPI route (vs a path delegated to Flask).
+    return any(route.matches(scope)[0] == Match.FULL for route in native_routes)
 
 
 def add_fastapi_permission_middleware(app: FastAPI) -> None:
@@ -4490,45 +8694,68 @@ def add_fastapi_permission_middleware(app: FastAPI) -> None:
     Add permission middleware to FastAPI app for routes not handled by Flask.
 
     This middleware mirrors the high-level logic of ``_before_request`` for routes that are
-    served directly by FastAPI (e.g., ``/gateway/`` routes) and thus bypass Flask's
-    ``before_request`` hooks. It follows the same authorization flow:
+    served directly by FastAPI (e.g., ``/gateway/`` and native artifact routes) and thus
+    bypass Flask's ``before_request`` hooks. It follows the same authorization flow:
 
     1. Skip unprotected routes
     2. Find the appropriate validator for the route
-    3. Reject if custom authorization_function is configured (not supported for FastAPI routes)
-    4. Authenticate the request
-    5. Allow admins full access
-    6. Run the validator
+    3. Authenticate the request (via custom authorization_function bridge or Basic Auth)
+    4. Resolve workspace context before validator execution
+    5. Allow admins to skip validators while still running after-request handlers
+    6. Run the validator for non-admins
+    7. Run after-request handlers on successful responses
+    8. Apply response filters for non-admins
+
+    When a custom ``authorization_function`` is configured, requests are authenticated by
+    constructing a Flask request context and invoking the custom function within it.
+    This bridges Flask-based auth functions into the ASGI middleware path without requiring
+    users to rewrite their auth plugins.
 
     Args:
         app: The FastAPI application instance.
     """
+    # Snapshot native routes so the fail-closed check can tell them from Flask-delegated paths.
+    native_routes = _native_fastapi_routes(app)
 
     @app.middleware("http")
     async def fastapi_permission_middleware(request, call_next):
         path = get_routed_asgi_path(request)
 
-        # Skip unprotected routes
+        # Skip routes that do not require login, including server-info.
         if is_unprotected_route(path):
             return await call_next(request)
 
         # Find validator for this route
-        validator = _find_fastapi_validator(path)
+        validator = _find_fastapi_validator(path, request.method)
         if validator is None:
+            # Fail-closed (opt-in via MLFLOW_BASIC_AUTH_FAIL_CLOSED): deny a native FastAPI
+            # route with no validator. Flask-delegated paths pass through (authorized by Flask).
+            if (
+                MLFLOW_BASIC_AUTH_FAIL_CLOSED.get()
+                and _scope_matches_native_route(native_routes, request.scope)
+                and not any(marker in path for marker in _KNOWN_UNGATED_FASTAPI_ROUTE_MARKERS)
+            ):
+                return PlainTextResponse("Permission denied", status_code=HTTPStatus.FORBIDDEN)
             return await call_next(request)
 
-        # Check for custom authorization_function (only affects routes with validators)
-        if auth_config.authorization_function != DEFAULT_AUTHORIZATION_FUNCTION:
-            return PlainTextResponse(
-                f"Custom authorization_function '{auth_config.authorization_function}' is not "
-                f"supported for FastAPI routes (e.g., /gateway/ endpoints). Only the default "
-                f"Basic Auth function is supported. Please use "
-                f"'{DEFAULT_AUTHORIZATION_FUNCTION}' or disable the AI Gateway feature.",
-                status_code=HTTPStatus.INTERNAL_SERVER_ERROR,
+        # Authenticate using either the custom authorization_function (via Flask
+        # request context bridge) or the native FastAPI Basic Auth path.
+        try:
+            if auth_config.authorization_function != DEFAULT_AUTHORIZATION_FUNCTION:
+                auth_result = _authenticate_custom_for_fastapi(request)
+                if isinstance(auth_result, StarletteResponse):
+                    return auth_result
+                user = auth_result
+            else:
+                user = _authenticate_fastapi_request(request)
+        except MlflowException as e:
+            # Preserve Flask semantics for misconfigured custom auth plugins
+            # (e.g. unsupported return types) instead of collapsing to 401.
+            # Match Flask `catch_mlflow_exception` wire format (JSON body).
+            return JSONResponse(
+                status_code=e.get_http_status_code(),
+                content=json.loads(e.serialize_as_json()),
             )
-
-        # Authenticate user
-        user = _authenticate_fastapi_request(request)
         if user is None:
             return PlainTextResponse(
                 "You are not authenticated. Please see "
@@ -4542,17 +8769,15 @@ def add_fastapi_permission_middleware(app: FastAPI) -> None:
         request.state.username = user.username
         request.state.user_id = user.id
 
-        # Admins have full access
-        if user.is_admin:
-            return await call_next(request)
-
         # The workspace-context middleware registered in ``create_fastapi_app`` runs
         # *inside* this middleware (Starlette runs the most recently added middleware
         # first), so the request workspace is not resolved yet when validators execute.
         # Workspace-scoped lookups inside validators (e.g. resolving a gateway endpoint
         # by name for the USE check) would fail and deny every non-admin request when
         # workspaces are enabled. Resolve and set the workspace for the validator run,
-        # mirroring ``workspace_context_middleware``.
+        # mirroring ``workspace_context_middleware``. Admins skip validators but still
+        # need this resolution so workspace-scoped after-handlers (e.g. MCP grant
+        # cleanup on delete) see the correct active workspace.
         try:
             workspace = resolve_workspace_for_request_if_enabled(
                 path, request.headers.get(WORKSPACE_HEADER_NAME)
@@ -4564,22 +8789,74 @@ def add_fastapi_permission_middleware(app: FastAPI) -> None:
             )
         workspace_context.set_server_request_workspace(workspace.name if workspace else None)
 
-        # Run the validator
-        try:
-            if not await validator(user.username, request):
+        # Pre-read request body for after-request handlers that need it (the
+        # body is cached by Starlette so the route handler can still read it).
+        after_handler = _find_fastapi_after_request_handler(path, request.method)
+        if after_handler is not None:
+            request.state.raw_body = await request.body()
+
+        # Admins have full access: skip validators only. Flask's ``_before_request``
+        # similarly returns early for admins while ``_after_request`` still runs;
+        # mirror that here so delete cleanup (``_mcp_server_after_delete``) cannot
+        # be bypassed — otherwise recreating the same server name would restore
+        # previously authorized users' grants (CWE-862).
+        if not user.is_admin:
+            try:
+                if not await validator(user.username, request):
+                    return PlainTextResponse(
+                        "Permission denied",
+                        status_code=HTTPStatus.FORBIDDEN,
+                    )
+            except MlflowException as e:
                 return PlainTextResponse(
-                    "Permission denied",
-                    status_code=HTTPStatus.FORBIDDEN,
+                    e.message,
+                    status_code=e.get_http_status_code(),
                 )
-        except MlflowException as e:
-            return PlainTextResponse(
-                e.message,
-                status_code=e.get_http_status_code(),
-            )
-        finally:
+            finally:
+                workspace_context.clear_server_request_workspace()
+        else:
             workspace_context.clear_server_request_workspace()
 
-        return await call_next(request)
+        response = await call_next(request)
+
+        if after_handler is not None and response.status_code < 400:
+            # After-handlers such as ``_mcp_server_after_delete`` use
+            # workspace-scoped grant sweeps; re-bind the workspace that was
+            # cleared before ``call_next`` (inner middleware uses a copied
+            # ContextVar context that does not propagate back).
+            workspace_context.set_server_request_workspace(workspace.name if workspace else None)
+            try:
+                after_handler(user.username, request)
+            except Exception:
+                _logger.exception("after-request handler failed for %s %s", request.method, path)
+            finally:
+                workspace_context.clear_server_request_workspace()
+
+        # Response filters are RBAC-based; admins retain unfiltered full access.
+        if not user.is_admin:
+            response_filter = _find_fastapi_response_filter(request)
+            if response_filter is not None and response.status_code < 400:
+                body = bytearray()
+                async for chunk in response.body_iterator:
+                    body.extend(chunk)
+                # Same ContextVar copy issue as after-handlers: re-bind workspace
+                # so RBAC predicates / backfill use the active workspace.
+                workspace_context.set_server_request_workspace(
+                    workspace.name if workspace else None
+                )
+                try:
+                    return _apply_fastapi_response_filter(
+                        response_filter=response_filter,
+                        username=user.username,
+                        body=bytes(body),
+                        request=request,
+                        response=response,
+                        path=path,
+                    )
+                finally:
+                    workspace_context.clear_server_request_workspace()
+
+        return response
 
 
 # Role management routes (RBAC). Each route is exposed at both the REST path (Python
@@ -4607,6 +8884,26 @@ _RBAC_ROUTES: list[tuple[Callable[[], Any], str, str, str]] = [
 ]
 
 
+def get_flask_server_secret_key() -> str:
+    """Return the static secret key the basic-auth app needs for CSRF protection.
+
+    Like ``bootstrap_admin_user``, this runs in every worker via ``create_app`` and, before
+    any worker exists, in the ``mlflow server`` process so a missing key fails the command
+    with one clear error instead of an endless worker restart loop.
+    """
+    secret_key = MLFLOW_FLASK_SERVER_SECRET_KEY.get()
+    if not secret_key:
+        raise MlflowException(
+            "A static secret key needs to be set for CSRF protection. Please set the "
+            "`MLFLOW_FLASK_SERVER_SECRET_KEY` environment variable before starting the "
+            "server. For example:\n\n"
+            "export MLFLOW_FLASK_SERVER_SECRET_KEY='my-secret-key'\n\n"
+            "If you are using multiple servers, please ensure this key is consistent between "
+            "them, in order to prevent validation issues."
+        )
+    return secret_key
+
+
 def create_app(app: Flask = app):
     """
     A factory to enable authentication and authorization for the MLflow server.
@@ -4626,17 +8923,7 @@ def create_app(app: Flask = app):
     # a secret key is required for flashing, and also for
     # CSRF protection. it's important that this is a static key,
     # otherwise CSRF validation won't work across workers.
-    secret_key = MLFLOW_FLASK_SERVER_SECRET_KEY.get()
-    if not secret_key:
-        raise MlflowException(
-            "A static secret key needs to be set for CSRF protection. Please set the "
-            "`MLFLOW_FLASK_SERVER_SECRET_KEY` environment variable before starting the "
-            "server. For example:\n\n"
-            "export MLFLOW_FLASK_SERVER_SECRET_KEY='my-secret-key'\n\n"
-            "If you are using multiple servers, please ensure this key is consistent between "
-            "them, in order to prevent validation issues."
-        )
-    app.secret_key = secret_key
+    app.secret_key = get_flask_server_secret_key()
 
     # we only need to protect the CREATE_USER_UI route, since that's
     # the only browser-accessible route. the rest are client / REST
@@ -4645,12 +8932,7 @@ def create_app(app: Flask = app):
     csrf = CSRFProtect()
     csrf.init_app(app)
 
-    store.init_db(
-        auth_config.database_uri,
-        read_db_uri=auth_config.read_database_uri,
-    )
-    create_admin_user(auth_config.admin_username, auth_config.admin_password)
-    _warn_if_default_admin_password(auth_config.admin_password)
+    _init_store_for_app()
 
     _auth_initialized = True
 

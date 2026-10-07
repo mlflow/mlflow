@@ -15,8 +15,8 @@ import {
 } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 import { isV3ModelTraceInfo, isV4TraceId } from '../../model-trace-explorer/ModelTraceExplorer.utils';
-import { ModelTraceExplorer } from '../../model-trace-explorer/ModelTraceExplorer';
-import { ModelTraceExplorerDrawer } from '../../model-trace-explorer/ModelTraceExplorerDrawer';
+import { ModelTraceExplorer } from '../../model-trace-explorer/ModelTraceExplorerEntrypoint';
+import { ModelTraceExplorerDrawer } from '../../model-trace-explorer/ModelTraceExplorerDrawerEntrypoint';
 import { ModelTraceExplorerSkeleton } from '../../model-trace-explorer/ModelTraceExplorerSkeleton';
 import { shouldUseModelTraceExplorerDrawerUI } from '../../model-trace-explorer/FeatureUtils';
 import { useModelTraceExplorerContext } from '../../model-trace-explorer/ModelTraceExplorerContext';

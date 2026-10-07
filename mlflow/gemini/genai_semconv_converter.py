@@ -121,6 +121,6 @@ def _convert_part(part: Any) -> dict[str, Any]:
         return {
             "type": "tool_call_response",
             "name": fr.get("name", ""),
-            "result": fr.get("response", {}),
+            "response": fr.get("response", {}),
         }
     return {"type": "text", "content": json.dumps(part)}

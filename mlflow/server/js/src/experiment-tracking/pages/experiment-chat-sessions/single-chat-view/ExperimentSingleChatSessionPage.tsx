@@ -13,7 +13,7 @@ import {
 import { useParams, useLocation } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 import invariant from 'invariant';
 import { useGetExperimentQuery } from '../../../hooks/useExperimentQuery';
-import { useCallback, useMemo, useRef, useState, useEffect } from 'react';
+import React, { useCallback, useMemo, useRef, useState, useEffect } from 'react';
 import { ExperimentSingleChatSessionScoreResults } from './ExperimentSingleChatSessionScoreResults';
 import { TracesV3Toolbar } from '../../../components/experiment-page/components/traces-v3/TracesV3Toolbar';
 import type { ModelTrace, ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
@@ -28,6 +28,7 @@ import {
   ModelTraceExplorerUpdateTraceContextProvider,
   ModelTraceExplorerPreferencesProvider,
   shouldEnableAssessmentsInSessions,
+  shouldEnableModelTraceExplorerCustomTraceView,
   shouldUseTracesV4API,
 } from '@databricks/web-shared/model-trace-explorer';
 import {
@@ -40,7 +41,7 @@ import {
   ExperimentSingleChatConversation,
   ExperimentSingleChatConversationSkeleton,
 } from './ExperimentSingleChatConversation';
-import { useDesignSystemTheme } from '@databricks/design-system';
+import { GenericSkeleton, useDesignSystemTheme } from '@databricks/design-system';
 import { SELECTED_TRACE_ID_QUERY_PARAM } from '../../../constants';
 import { useExperimentSingleChatMetrics } from './useExperimentSingleChatMetrics';
 import { ExperimentSingleChatSessionMetrics } from './ExperimentSingleChatSessionMetrics';
@@ -49,16 +50,38 @@ import { ExportTracesToDatasetModal } from '../../experiment-evaluation-datasets
 import { AssistantAwareDrawer } from '@mlflow/mlflow/src/common/components/AssistantAwareDrawer';
 import { first } from 'lodash';
 import { useRunScorerInTracesViewConfiguration } from '../../experiment-scorers/hooks/useRunScorerInTracesViewConfiguration';
+import { useOptionalCustomViewDefinition } from '@databricks/web-shared/model-trace-explorer/custom-view/CustomViewDefinitionContext';
+
+// Custom View pulls in @a2ui (ESM-only) transitively via ExperimentCustomViewProvider.
+// Lazy-load it so the chat-session route only pulls @a2ui into the graph when enabled.
+const LazyExperimentCustomViewProvider = React.lazy(() =>
+  import('../../../components/experiment-page/components/traces-v3/ExperimentCustomViewProvider').then((module) => ({
+    default: module.ExperimentCustomViewProvider,
+  })),
+);
 
 const ContextProviders = ({
   children,
+  experimentId,
   invalidateTraceQuery,
 }: {
   children: React.ReactNode;
+  experimentId: string;
   invalidateTraceQuery?: (traceId?: string) => void;
 }) => {
   const renderCustomExportTracesToDatasetsModal = ExportTracesToDatasetModal;
   const DrawerComponent = AssistantAwareDrawer;
+  const existingCustomViewDefinition = useOptionalCustomViewDefinition();
+  const content =
+    shouldEnableModelTraceExplorerCustomTraceView() && existingCustomViewDefinition === undefined ? (
+      <React.Suspense fallback={<GenericSkeleton css={{ flex: 1, margin: 16 }} />}>
+        <LazyExperimentCustomViewProvider key={experimentId} experimentId={experimentId}>
+          {children}
+        </LazyExperimentCustomViewProvider>
+      </React.Suspense>
+    ) : (
+      children
+    );
 
   return (
     <ModelTraceExplorerPreferencesProvider>
@@ -67,7 +90,7 @@ const ContextProviders = ({
         DrawerComponent={DrawerComponent}
       >
         <ModelTraceExplorerUpdateTraceContextProvider invalidateTraceQuery={invalidateTraceQuery}>
-          {children}
+          {content}
         </ModelTraceExplorerUpdateTraceContextProvider>
       </ModelTraceExplorerContextProvider>
     </ModelTraceExplorerPreferencesProvider>
@@ -145,6 +168,7 @@ const ExperimentSingleChatSessionPageImpl = () => {
   return (
     <ContextProviders
       // prettier-ignore
+      experimentId={experimentId}
       invalidateTraceQuery={invalidateSingleTraceQuery}
     >
       <div css={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>

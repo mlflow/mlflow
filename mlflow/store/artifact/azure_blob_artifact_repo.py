@@ -12,9 +12,13 @@ from mlflow.entities.multipart_upload import (
     MultipartUploadCredential,
 )
 from mlflow.environment_variables import MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT
-from mlflow.exceptions import MlflowException
+from mlflow.exceptions import MlflowException, _UnsupportedMultipartUploadException
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
-from mlflow.store.artifact.artifact_repo import ArtifactRepository, MultipartUploadMixin
+from mlflow.store.artifact.artifact_repo import (
+    ArtifactRepository,
+    MultipartUploadMixin,
+    _is_object_key_within_path,
+)
 from mlflow.utils.credentials import get_default_host_creds
 
 
@@ -223,7 +227,7 @@ class AzureBlobArtifactRepository(ArtifactRepository, MultipartUploadMixin):
 
         try:
             blobs = container_client.list_blobs(name_starts_with=dest_path)
-            blob_list = list(blobs)
+            blob_list = [blob for blob in blobs if _is_object_key_within_path(blob.name, dest_path)]
             if not blob_list:
                 raise MlflowException(f"No such file or directory: '{dest_path}'")
 
@@ -233,6 +237,7 @@ class AzureBlobArtifactRepository(ArtifactRepository, MultipartUploadMixin):
             raise MlflowException(f"No such file or directory: '{dest_path}'")
 
     def create_multipart_upload(self, local_file, num_parts=1, artifact_path=None):
+        from azure.core.exceptions import HttpResponseError
         from azure.storage.blob import BlobSasPermissions, generate_blob_sas
 
         (container, _, dest_path, _) = self.parse_wasbs_uri(self.artifact_uri)
@@ -243,13 +248,35 @@ class AzureBlobArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         # Put Block: https://learn.microsoft.com/en-us/rest/api/storageservices/put-block?tabs=microsoft-entra-id
         # SDK: https://learn.microsoft.com/en-us/python/api/azure-storage-blob/azure.storage.blob.blobclient?view=azure-python#azure-storage-blob-blobclient-stage-block
         blob_url = posixpath.join(self.client.url, container, dest_path)
+        now = datetime.datetime.now(timezone.utc)
+        expiry = now + datetime.timedelta(hours=1)
+        sas_kwargs = {
+            "account_name": self.client.account_name,
+            "container_name": container,
+            "blob_name": dest_path,
+            "permission": BlobSasPermissions(read=True, write=True),
+            "expiry": expiry,
+        }
+        credential = self.client.credential
+        if account_key := getattr(credential, "account_key", None):
+            sas_kwargs["account_key"] = account_key
+        elif hasattr(credential, "get_token"):
+            start = now - datetime.timedelta(minutes=5)
+            try:
+                user_delegation_key = self.client.get_user_delegation_key(start, expiry)
+            except HttpResponseError as e:
+                if (
+                    e.status_code == 403
+                    and getattr(e, "error_code", None) == "AuthorizationPermissionMismatch"
+                ):
+                    raise _UnsupportedMultipartUploadException() from e
+                raise
+            sas_kwargs.update(user_delegation_key=user_delegation_key, start=start)
+        else:
+            raise _UnsupportedMultipartUploadException()
+
         sas_token = generate_blob_sas(
-            account_name=self.client.account_name,
-            container_name=container,
-            blob_name=dest_path,
-            account_key=self.client.credential.account_key,
-            permission=BlobSasPermissions(read=True, write=True),
-            expiry=datetime.datetime.now(timezone.utc) + datetime.timedelta(hours=1),
+            **sas_kwargs,
         )
         credentials = []
         for i in range(1, num_parts + 1):

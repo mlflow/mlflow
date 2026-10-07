@@ -14,8 +14,10 @@ from mlflow.gateway.providers.base import (
     PassthroughAction,
     ProviderAdapter,
     _client_provides_auth,
+    _drop_client_auth_headers,
 )
 from mlflow.gateway.providers.utils import (
+    parse_base64_data_url,
     proxy_root_url,
     rename_payload_keys,
     send_proxy_request,
@@ -28,6 +30,30 @@ from mlflow.tracing.constant import TokenUsageKey
 from mlflow.types.chat import Function, ToolCallDelta
 
 _logger = logging.getLogger(__name__)
+
+
+def _to_anthropic_content_parts(content: list[Any]) -> list[dict[str, Any]]:
+    """Translate OpenAI-format multimodal content parts to Anthropic's shape.
+
+    ``image_url`` base64 data URLs become Anthropic ``image`` blocks with a base64
+    ``source``; text parts pass through. Non-base64 image URLs are left as a text note
+    since the judge image tool only ever emits base64 data URLs.
+    """
+    parts: list[dict[str, Any]] = []
+    for part in content:
+        if part.get("type") == "image_url":
+            url = part.get("image_url", {}).get("url", "")
+            if parsed := parse_base64_data_url(url):
+                mime, data = parsed
+                parts.append({
+                    "type": "image",
+                    "source": {"type": "base64", "media_type": mime, "data": data},
+                })
+            else:
+                parts.append({"type": "text", "text": f"[unsupported image reference: {url}]"})
+        else:
+            parts.append(part)
+    return parts
 
 
 def _normalize_anthropic_input_tokens(
@@ -45,6 +71,61 @@ def _normalize_anthropic_input_tokens(
         if TokenUsageKey.TOTAL_TOKENS in token_usage:
             token_usage[TokenUsageKey.TOTAL_TOKENS] += cache_read + cache_creation
     return token_usage
+
+
+def _extract_anthropic_passthrough_token_usage(result: dict[str, Any]) -> dict[str, int] | None:
+    """
+    Extract token usage from an Anthropic Messages response body.
+
+    Anthropic response format:
+    {
+        "usage": {
+            "input_tokens": int,
+            "output_tokens": int,
+            "cache_read_input_tokens": int,
+            "cache_creation_input_tokens": int
+        }
+    }
+    """
+    token_usage = BaseProvider._extract_token_usage_from_dict(
+        result.get("usage"),
+        "input_tokens",
+        "output_tokens",
+        cache_read_key="cache_read_input_tokens",
+        cache_creation_key="cache_creation_input_tokens",
+    )
+    return _normalize_anthropic_input_tokens(token_usage)
+
+
+def _extract_anthropic_streaming_token_usage(chunk: bytes) -> dict[str, int]:
+    """
+    Extract token usage from an Anthropic Messages streaming chunk.
+
+    Anthropic streaming format:
+    - message_start event: {"message": {"usage": {"input_tokens": X, ...}}}
+    - message_delta event: {"usage": {"output_tokens": Y}}
+
+    Returns:
+        A dictionary with token usage found in this chunk.
+        Total is calculated by the base class after accumulation.
+    """
+    usage: dict[str, int] = {}
+    for data in parse_sse_lines(chunk):
+        match data:
+            case {
+                "type": "message_start",
+                "message": {"usage": dict(msg_usage)},
+            }:
+                if (input_tokens := msg_usage.get("input_tokens")) is not None:
+                    usage[TokenUsageKey.INPUT_TOKENS] = input_tokens
+                if (cached := msg_usage.get("cache_read_input_tokens")) is not None:
+                    usage[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = cached
+                if (created := msg_usage.get("cache_creation_input_tokens")) is not None:
+                    usage[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS] = created
+            case {"type": "message_delta", "usage": {"output_tokens": int(output_tokens)}}:
+                usage[TokenUsageKey.OUTPUT_TOKENS] = output_tokens
+    # Anthropic's input_tokens excludes cache tokens; normalize to include them.
+    return _normalize_anthropic_input_tokens(usage) or usage
 
 
 class _UnsupportedSchemaError(Exception):
@@ -132,6 +213,10 @@ class AnthropicAdapter(ProviderAdapter):
             if m["role"] == "system":
                 continue
             elif m["role"] == "user":
+                # Translate multimodal list content (e.g. an image_url part) to Anthropic's
+                # native blocks; string content passes through unchanged.
+                if isinstance(m.get("content"), list):
+                    m = {**m, "content": _to_anthropic_content_parts(m["content"])}
                 converted_messages.append(m)
             elif m["role"] == "assistant":
                 if m.get("tool_calls") is not None:
@@ -284,7 +369,7 @@ class AnthropicAdapter(ProviderAdapter):
         from mlflow.anthropic.chat import convert_message_to_mlflow_chat
         from mlflow.types.chat import TextContentPart
 
-        stop_reason = "length" if resp["stop_reason"] == "max_tokens" else "stop"
+        stop_reason = cls._to_finish_reason(resp["stop_reason"])
 
         message = convert_message_to_mlflow_chat(resp)
 
@@ -335,7 +420,17 @@ class AnthropicAdapter(ProviderAdapter):
         prompt_tokens_details = None
         if cache_read is not None:
             prompt_tokens_details = chat.PromptTokensDetails(cached_tokens=cache_read)
-        extra = {}
+        extra = {
+            key: value
+            for key, value in usage_data.items()
+            if key
+            not in {
+                "input_tokens",
+                "output_tokens",
+                "cache_read_input_tokens",
+                "cache_creation_input_tokens",
+            }
+        }
         if cache_creation is not None:
             extra["cache_creation_input_tokens"] = cache_creation
         return chat.ChatUsage(
@@ -347,6 +442,10 @@ class AnthropicAdapter(ProviderAdapter):
         )
 
     @classmethod
+    def _to_finish_reason(cls, stop_reason):
+        return {"max_tokens": "length", "tool_use": "tool_calls"}.get(stop_reason, "stop")
+
+    @classmethod
     def chat_streaming_to_model(cls, payload, config):
         return cls.chat_to_model(payload, config)
 
@@ -354,7 +453,7 @@ class AnthropicAdapter(ProviderAdapter):
     def model_to_chat_streaming(cls, resp, config):
         content = resp.get("delta") or resp.get("content_block") or {}
         if (stop_reason := content.get("stop_reason")) is not None:
-            stop_reason = "length" if stop_reason == "max_tokens" else "stop"
+            stop_reason = cls._to_finish_reason(stop_reason)
 
         # example of function calling delta message format:
         # https://platform.openai.com/docs/guides/function-calling#streaming
@@ -362,7 +461,7 @@ class AnthropicAdapter(ProviderAdapter):
             delta = chat.StreamDelta(
                 tool_calls=[
                     ToolCallDelta(
-                        index=0,
+                        index=resp.get("_tool_index", 0),
                         id=content.get("id"),
                         type="function",
                         function=Function(name=content.get("name")),
@@ -372,7 +471,10 @@ class AnthropicAdapter(ProviderAdapter):
         elif content.get("type") == "input_json_delta":
             delta = chat.StreamDelta(
                 tool_calls=[
-                    ToolCallDelta(index=0, function=Function(arguments=content.get("partial_json")))
+                    ToolCallDelta(
+                        index=resp.get("_tool_index", 0),
+                        function=Function(arguments=content.get("partial_json")),
+                    )
                 ]
             )
         else:
@@ -392,7 +494,7 @@ class AnthropicAdapter(ProviderAdapter):
             model=resp["model"],
             choices=[
                 chat.StreamChoice(
-                    index=resp["index"],
+                    index=0,
                     finish_reason=stop_reason,
                     delta=delta,
                 )
@@ -538,6 +640,10 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
                 # Preserve the client's own credentials for subscription-based tools
                 # (e.g. Claude Code, Codex, Gemini CLI) instead of using the server key.
                 result_headers.pop("x-api-key", None)
+            else:
+                # Never forward client auth headers: they would be sent alongside the
+                # provider credential (e.g. Vertex AI's OAuth bearer token) and shadow it.
+                client_headers = _drop_client_auth_headers(client_headers)
             result_headers = client_headers | result_headers
 
         return result_headers
@@ -578,7 +684,7 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
             payload=payload,
         )
 
-        indices = []
+        tool_indices: dict[int, int] = {}  # content block index -> tool call index
         metadata = {}
         usage_data = {}  # Track usage across events
         async for chunk in stream:
@@ -615,9 +721,13 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
             ):
                 continue
 
-            index = resp.get("index")
-            if index is not None and index not in indices:
-                indices.append(index)
+            block_index = resp.get("index")
+            if resp["type"] == "content_block_start" and (
+                resp["content_block"].get("type") == "tool_use"
+            ):
+                tool_indices[block_index] = len(tool_indices)
+            if block_index in tool_indices:
+                resp["_tool_index"] = tool_indices[block_index]
 
             resp.update(metadata)
             if resp["type"] == "message_delta":
@@ -626,11 +736,7 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
                     usage_data["output_tokens"] = delta_usage.get("output_tokens")
                 # Include accumulated usage in the response
                 resp["_usage_data"] = usage_data
-                for index in indices:
-                    yield AnthropicAdapter.model_to_chat_streaming(
-                        {**resp, "index": index},
-                        self.config,
-                    )
+                yield AnthropicAdapter.model_to_chat_streaming(resp, self.config)
             else:
                 yield AnthropicAdapter.model_to_chat_streaming(resp, self.config)
 
@@ -686,57 +792,10 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
     def _extract_passthrough_token_usage(
         self, action: PassthroughAction, result: dict[str, Any]
     ) -> dict[str, int] | None:
-        """
-        Extract token usage from Anthropic passthrough response.
-
-        Anthropic response format:
-        {
-            "usage": {
-                "input_tokens": int,
-                "output_tokens": int,
-                "cache_read_input_tokens": int,
-                "cache_creation_input_tokens": int
-            }
-        }
-        """
-        token_usage = self._extract_token_usage_from_dict(
-            result.get("usage"),
-            "input_tokens",
-            "output_tokens",
-            cache_read_key="cache_read_input_tokens",
-            cache_creation_key="cache_creation_input_tokens",
-        )
-        return _normalize_anthropic_input_tokens(token_usage)
+        return _extract_anthropic_passthrough_token_usage(result)
 
     def _extract_streaming_token_usage(self, chunk: bytes) -> dict[str, int]:
-        """
-        Extract token usage from Anthropic streaming chunks.
-
-        Anthropic streaming format:
-        - message_start event: {"message": {"usage": {"input_tokens": X, ...}}}
-        - message_delta event: {"usage": {"output_tokens": Y}}
-
-        Returns:
-            A dictionary with token usage found in this chunk.
-            Total is calculated by the base class after accumulation.
-        """
-        usage: dict[str, int] = {}
-        for data in parse_sse_lines(chunk):
-            match data:
-                case {
-                    "type": "message_start",
-                    "message": {"usage": dict(msg_usage)},
-                }:
-                    if (input_tokens := msg_usage.get("input_tokens")) is not None:
-                        usage[TokenUsageKey.INPUT_TOKENS] = input_tokens
-                    if (cached := msg_usage.get("cache_read_input_tokens")) is not None:
-                        usage[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = cached
-                    if (created := msg_usage.get("cache_creation_input_tokens")) is not None:
-                        usage[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS] = created
-                case {"type": "message_delta", "usage": {"output_tokens": int(output_tokens)}}:
-                    usage[TokenUsageKey.OUTPUT_TOKENS] = output_tokens
-        # Anthropic's input_tokens excludes cache tokens; normalize to include them.
-        return _normalize_anthropic_input_tokens(usage) or usage
+        return _extract_anthropic_streaming_token_usage(chunk)
 
     async def _proxy(
         self,

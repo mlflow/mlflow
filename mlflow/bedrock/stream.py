@@ -12,6 +12,7 @@ from mlflow.bedrock.utils import (
 from mlflow.entities.span import LiveSpan
 from mlflow.entities.span_event import SpanEvent
 from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.tracing.utils import TraceJSONEncoder
 
 _logger = logging.getLogger(__name__)
 
@@ -115,7 +116,10 @@ class InvokeModelStreamWrapper(BaseEventStreamWrapper):
     def _handle_event(self, span, event):
         """Process streaming event and buffer token usage."""
         chunk = json.loads(event["chunk"]["bytes"])
-        self._span.add_event(SpanEvent(name=chunk["type"], attributes={"json": json.dumps(chunk)}))
+        # Only Anthropic chunks carry "type"; OpenAI, Nova and Llama chunks do not.
+        self._span.add_event(
+            SpanEvent(name=chunk.get("type", "chunk"), attributes={"json": json.dumps(chunk)})
+        )
 
         # Buffer usage information from streaming chunks
         self._buffer_token_usage_from_chunk(chunk)
@@ -152,7 +156,11 @@ class ConverseStreamWrapper(BaseEventStreamWrapper):
         self._response_builder.process_event(event_name, event[event_name])
         # Record raw event as a span event
         self._span.add_event(
-            SpanEvent(name=event_name, attributes={"json": json.dumps(event[event_name])})
+            SpanEvent(
+                name=event_name,
+                # reasoningContent.redactedContent arrives as bytes
+                attributes={"json": json.dumps(event[event_name], cls=TraceJSONEncoder)},
+            )
         )
 
     @capture_exception("Failed to record the accumulated response in the span")
