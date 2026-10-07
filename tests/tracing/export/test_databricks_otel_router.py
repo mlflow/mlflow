@@ -275,34 +275,42 @@ def test_async_server_failure_replays_after_flush_and_pins_rest(monkeypatch, sta
 
 
 @pytest.mark.parametrize(
-    ("outcome", "sticky", "replayed"),
+    ("outcome", "sticky"),
     [
-        (_response(408), False, True),
-        (_response(413), False, True),
-        (_response(429), False, True),
-        (_response(400, b"bad request"), True, True),
-        (_response(403, b"forbidden"), True, True),
-        (_response(404, b"not found"), True, True),
-        (_response(401, b"unauthorized"), True, True),
-        (ZerobusOtelTokenError("mint failed"), False, True),
-        (ZerobusOtelTokenRefreshError("refresh failed"), True, True),
-        (_connection_reset_error(), True, True),
-        (requests.ReadTimeout("read timed out"), True, True),
-        (_response(500, b"server error"), True, True),
+        (_response(408), False),
+        (_response(413), False),
+        (_response(429), False),
+        (_response(400, b"bad request"), True),
+        (_response(403, b"forbidden"), True),
+        (_response(404, b"not found"), True),
+        (_response(401, b"unauthorized"), True),
+        (ZerobusOtelTokenError("mint failed"), False),
+        (ZerobusOtelTokenRefreshError("refresh failed"), True),
+        (_connection_reset_error(), True),
+        (requests.ReadTimeout("read timed out"), True),
+        (_response(500, b"server error"), True),
+        (_response(502, b"bad gateway"), True),
+        (_response(503, b"service unavailable"), True),
+        (_response(504, b"gateway timeout"), True),
     ],
 )
-def test_routing_matrix(monkeypatch, outcome, sticky, replayed):
+def test_routing_matrix(monkeypatch, outcome, sticky):
     router, collector, metadata = _make_router(monkeypatch, outcomes=[outcome, _response(200)])
     first = [create_mock_otel_span(trace_id=4, span_id=4)]
     second = [create_mock_otel_span(trace_id=5, span_id=5)]
 
-    router.export(first)
-    router.export(second)
+    with mock.patch(f"{_MODULE}._logger") as logger:
+        router.export(first)
+        router.export(second)
 
     assert len(metadata.write_calls) == (2 if sticky else 1)
     assert len(collector.send_calls) == (1 if sticky else 2)
     assert router.collector_rejected is sticky
-    assert replayed
+    assert metadata.write_calls[0][1][0].span_id == Span(first[0]).span_id
+
+    if getattr(outcome, "status_code", None) in (500, 502, 503, 504):
+        warning = " ".join(str(arg) for arg in logger.warning.call_args.args)
+        assert "duplicate" in warning.lower()
 
 
 def test_connection_establishment_failure_is_sticky_safe_replay(monkeypatch):
@@ -356,7 +364,9 @@ def test_concurrent_ambiguous_failures_replay_both_batches_and_warn_once(monkeyp
     assert len(metadata.write_calls) == 3
     assert router.collector_rejected
     assert logger.warning.call_count == 1
-    assert "duplicate" in logger.warning.call_args.args[0]
+    warning = logger.warning.call_args.args[0]
+    assert "duplicate" in warning
+    assert "concurrent exports already in progress may still contact the collector" in warning
 
 
 @pytest.mark.parametrize("rejected_spans", [2])
@@ -399,12 +409,16 @@ def test_successful_200_invalid_body_drops_current_and_pins_rest(monkeypatch):
         monkeypatch,
         outcomes=[_response(200, b"malformed response"), _response(200)],
     )
-    router.export([create_mock_otel_span(trace_id=12, span_id=1)])
-    router.export([create_mock_otel_span(trace_id=13, span_id=2)])
+    with mock.patch(f"{_MODULE}._logger") as logger:
+        router.export([create_mock_otel_span(trace_id=12, span_id=1)])
+        router.export([create_mock_otel_span(trace_id=13, span_id=2)])
 
     assert len(collector.send_calls) == 1
     assert len(metadata.write_calls) == 1
     assert router.collector_rejected
+    warning = " ".join(str(arg) for arg in logger.warning.call_args.args)
+    assert "dropped instead of replayed" in warning
+    assert "could duplicate" in warning
 
 
 def test_rest_fallback_always_uses_pinned_table(monkeypatch):

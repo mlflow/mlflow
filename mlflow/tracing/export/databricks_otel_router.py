@@ -114,9 +114,7 @@ class DatabricksOtelSpanRouter(SpanExporter):
 
         self._collector_rejected = False
         self._state_lock = threading.RLock()
-        self._has_warned_fallback = False
-        self._has_warned_ambiguous_fallback = False
-        self._has_warned_ambiguous_drop = False
+        self._warned_events: set[str] = set()
         self._async_components_terminated = False
         self._shutdown = False
 
@@ -190,19 +188,10 @@ class DatabricksOtelSpanRouter(SpanExporter):
         else:
             self._send_batch_to_collector(spans)
 
-    def _warn_fallback_once(self, message: str, *args) -> None:
+    def _warn_once(self, key: str, message: str, *args) -> None:
         with self._state_lock:
-            already_warned = self._has_warned_fallback
-            self._has_warned_fallback = True
-        if already_warned:
-            _logger.debug(message, *args)
-        else:
-            _logger.warning(message, *args)
-
-    def _warn_ambiguous_fallback_once(self, message: str, *args) -> None:
-        with self._state_lock:
-            already_warned = self._has_warned_ambiguous_fallback
-            self._has_warned_ambiguous_fallback = True
+            already_warned = key in self._warned_events
+            self._warned_events.add(key)
         if already_warned:
             _logger.debug(message, *args)
         else:
@@ -214,7 +203,7 @@ class DatabricksOtelSpanRouter(SpanExporter):
 
     def _fallback_to_rest(self, spans: Sequence[ReadableSpan | Span], reason: str, *args) -> None:
         self._set_collector_rejected()
-        self._warn_fallback_once(reason, *args)
+        self._warn_once("fallback", reason, *args)
         self._write_spans_to_table(spans)
 
     def _replay_batch_via_rest(
@@ -227,18 +216,25 @@ class DatabricksOtelSpanRouter(SpanExporter):
         self, spans: Sequence[ReadableSpan | Span], reason: str, *args
     ) -> None:
         self._set_collector_rejected()
-        self._warn_ambiguous_fallback_once(reason, *args)
+        self._warn_once(
+            "ambiguous_fallback",
+            reason + " The collector may have already ingested this batch, so replaying it through "
+            "the MLflow tracing server path may create duplicate spans. New span batches "
+            "will use the MLflow tracing server path; concurrent exports already in progress "
+            "may still contact the collector.",
+            *args,
+        )
         self._write_spans_to_table(spans)
 
     def _ambiguous_drop(self, reason: str, *args) -> None:
         self._set_collector_rejected()
-        with self._state_lock:
-            already_warned = self._has_warned_ambiguous_drop
-            self._has_warned_ambiguous_drop = True
-        if already_warned:
-            _logger.debug(reason, *args)
-        else:
-            _logger.warning(reason, *args)
+        self._warn_once(
+            "ambiguous_drop",
+            reason + " Delivery is ambiguous, so the spans were dropped instead of replayed over "
+            "the MLflow tracing server path, which could duplicate them. Future span "
+            "batches will use the MLflow tracing server path.",
+            *args,
+        )
 
     def _handle_collector_exception(self, exc: BaseException, spans: Sequence[Span]) -> None:
         if isinstance(exc, ZerobusOtelTokenError):
@@ -263,10 +259,7 @@ class DatabricksOtelSpanRouter(SpanExporter):
         else:
             self._ambiguous_fallback_to_rest(
                 spans,
-                "The Databricks OTel collector span export request failed: %s. The collector "
-                "may have already ingested this batch; replaying it through the MLflow "
-                "tracing server path can create duplicate spans. New span batches will use "
-                "that path.",
+                "The Databricks OTel collector span export request failed: %s.",
                 exc,
             )
 
@@ -281,9 +274,7 @@ class DatabricksOtelSpanRouter(SpanExporter):
             response_message.ParseFromString(response.content)
         except Exception as exc:
             self._ambiguous_drop(
-                "The Databricks OTel collector returned an invalid HTTP 200 response: %s. "
-                "Delivery is ambiguous; dropping this batch and using the MLflow tracing "
-                "server path for future batches.",
+                "The Databricks OTel collector returned an invalid HTTP 200 response: %s.",
                 exc,
             )
             return
@@ -293,16 +284,15 @@ class DatabricksOtelSpanRouter(SpanExporter):
             return
         if rejected_spans < 0 or rejected_spans > len(spans):
             self._ambiguous_drop(
-                "The Databricks OTel collector reported %d rejected spans for a batch of %d "
-                "spans. Delivery is ambiguous; dropping this batch and using the MLflow "
-                "tracing server path for future batches.",
+                "The Databricks OTel collector reported %d rejected spans for a batch of %d spans.",
                 rejected_spans,
                 len(spans),
             )
             return
         if rejected_spans == len(spans):
             self._set_collector_rejected()
-            self._warn_fallback_once(
+            self._warn_once(
+                "fallback",
                 "The Databricks OTel collector rejected all %d spans in a successful HTTP 200 "
                 "partial response (%s). Replaying this batch through the MLflow tracing "
                 "server path and using that path for future batches.",
@@ -316,7 +306,8 @@ class DatabricksOtelSpanRouter(SpanExporter):
         # could duplicate the subset accepted by the collector, so drop it while
         # pinning future batches to REST.
         self._set_collector_rejected()
-        self._warn_fallback_once(
+        self._warn_once(
+            "fallback",
             "The Databricks OTel collector partially accepted a span batch: %d of %d spans "
             "were rejected (%s). Future batches will use the MLflow tracing server path.",
             rejected_spans,
@@ -380,10 +371,7 @@ class DatabricksOtelSpanRouter(SpanExporter):
         if 500 <= status_code < 600:
             self._ambiguous_fallback_to_rest(
                 spans,
-                "The Databricks OTel collector span export failed with HTTP %d: %r. The "
-                "collector may have already ingested this batch; replaying it through the "
-                "MLflow tracing server path can create duplicate spans. New span batches "
-                "will use that path.",
+                "The Databricks OTel collector span export failed with HTTP %d: %r.",
                 status_code,
                 response.content[:_BODY_SNIPPET_BYTES],
             )

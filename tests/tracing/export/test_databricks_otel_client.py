@@ -17,7 +17,6 @@ from mlflow.tracing.export.databricks_otel_client import (
     ZerobusOtelTokenError,
     ZerobusOtelTokenRefreshError,
     _resolve_collector_credentials,
-    _resolved_endpoints,
     build_databricks_otel_collector_token_source,
     build_table_authorization_details,
     is_databricks_otel_collector_host,
@@ -43,15 +42,10 @@ def _reset_collector_config_warning():
     import mlflow.tracing.export.databricks_otel_client as client_module
 
     client_module._collector_config_failure_warned = False
+    client_module._resolved_endpoints.clear()
     yield
     client_module._collector_config_failure_warned = False
-
-
-@pytest.fixture
-def clear_resolved_endpoints():
-    _resolved_endpoints.clear()
-    yield
-    _resolved_endpoints.clear()
+    client_module._resolved_endpoints.clear()
 
 
 def _make_json_response(body, status_code=200):
@@ -563,9 +557,19 @@ def test_databricks_otel_client_does_not_replace_injected_workspace_credentials(
     assert client.config_warned
 
 
-def test_databricks_otel_client_resolves_endpoint_lazily_once_per_workspace(
-    monkeypatch, clear_resolved_endpoints
-):
+def test_databricks_otel_client_explicit_endpoint_override_takes_precedence(monkeypatch):
+    explicit_endpoint = f"https://{_ENDPOINT}/"
+    monkeypatch.setenv("MLFLOW_DATABRICKS_OTEL_COLLECTOR_ENDPOINT", "badhost.example.com")
+    client = _make_client(endpoint=explicit_endpoint)
+
+    with mock.patch(f"{_MODULE}._resolve_collector_endpoint_from_metastore") as mock_resolve:
+        assert client.ensure_ready()
+
+    mock_resolve.assert_not_called()
+    assert client._collector_url == f"https://{_ENDPOINT}/v1/traces"
+
+
+def test_databricks_otel_client_resolves_endpoint_lazily_once_per_workspace(monkeypatch):
     monkeypatch.delenv("MLFLOW_DATABRICKS_OTEL_COLLECTOR_ENDPOINT", raising=False)
     with mock.patch(
         f"{_MODULE}._resolve_collector_endpoint_from_metastore", return_value=_ENDPOINT

@@ -281,9 +281,10 @@ def resolve_databricks_otel_collector_endpoint(
     workspace_id: str,
     client_id: str | None = None,
     client_secret: str | None = None,
+    endpoint_override: str | None = None,
 ) -> str | None:
     """Resolve and validate the collector endpoint for a workspace."""
-    if override := MLFLOW_DATABRICKS_OTEL_COLLECTOR_ENDPOINT.get():
+    if override := endpoint_override or MLFLOW_DATABRICKS_OTEL_COLLECTOR_ENDPOINT.get():
         if is_databricks_otel_collector_host(override, workspace_id):
             return _normalize_collector_endpoint(override)
         _warn_collector_config_failure(
@@ -294,7 +295,25 @@ def resolve_databricks_otel_collector_endpoint(
         )
         return None
 
-    return _resolve_collector_endpoint_from_metastore(host, workspace_id, client_id, client_secret)
+    cache_key = (host, workspace_id)
+    with _resolved_endpoints_lock:
+        cached = _resolved_endpoints.get(cache_key)
+    if cached is not None:
+        return _normalize_collector_endpoint(cached)
+
+    resolved = _resolve_collector_endpoint_from_metastore(
+        host=host,
+        workspace_id=workspace_id,
+        client_id=client_id,
+        client_secret=client_secret,
+    )
+    if resolved is None:
+        return None
+
+    normalized = _normalize_collector_endpoint(resolved)
+    with _resolved_endpoints_lock:
+        cached = _resolved_endpoints.setdefault(cache_key, normalized)
+    return _normalize_collector_endpoint(cached)
 
 
 def build_table_authorization_details(tables: list[str]) -> str:
@@ -512,37 +531,20 @@ class DatabricksOTelClient:
                     self._config_warned = True
                     return self._mark_config_failed()
 
-            if configured_override:
-                if not is_databricks_otel_collector_host(configured_override, self._workspace_id):
-                    _warn_collector_config_failure(
-                        "MLFLOW_DATABRICKS_OTEL_COLLECTOR_ENDPOINT override %r failed host "
-                        "validation for workspace_id=%r; ignoring override.",
-                        configured_override,
-                        self._workspace_id,
-                    )
-                    self._config_warned = True
-                    return self._mark_config_failed()
-                self._collector_endpoint = _normalize_collector_endpoint(configured_override)
-            else:
+            if not configured_override:
                 if not self._host:
                     return self._mark_config_failed()
-                cache_key = (self._host, self._workspace_id)
-                with _resolved_endpoints_lock:
-                    cached = _resolved_endpoints.get(cache_key)
-                if cached is None:
-                    resolved = _resolve_collector_endpoint_from_metastore(
-                        host=self._host,
-                        workspace_id=self._workspace_id,
-                        client_id=self._client_id,
-                        client_secret=self._client_secret,
-                    )
-                    if resolved is None:
-                        self._config_warned = True
-                        return self._mark_config_failed()
-                    normalized = _normalize_collector_endpoint(resolved)
-                    with _resolved_endpoints_lock:
-                        cached = _resolved_endpoints.setdefault(cache_key, normalized)
-                self._collector_endpoint = _normalize_collector_endpoint(cached)
+
+            self._collector_endpoint = resolve_databricks_otel_collector_endpoint(
+                host=self._host or "",
+                workspace_id=self._workspace_id,
+                client_id=self._client_id,
+                client_secret=self._client_secret,
+                endpoint_override=configured_override,
+            )
+            if self._collector_endpoint is None:
+                self._config_warned = True
+                return self._mark_config_failed()
 
             self._collector_url = f"https://{self._collector_endpoint}{OTLP_TRACES_PATH}"
             self._ready = True
