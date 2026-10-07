@@ -376,10 +376,18 @@ def test_process_transcript_tracks_token_usage(mock_transcript_file_with_usage):
     assert trace.info.token_usage["total_tokens"] == 175
 
 
-def test_process_transcript_preserves_cache_tokens(tmp_path):
-    """Verify cache_read/cache_creation fields from Anthropic usage survive on the
-    CHAT_USAGE span attribute so prompt-cache hit rate is observable.
-    """
+@pytest.mark.parametrize(
+    ("cache_tokens", "expected_input_tokens"),
+    [
+        ({}, 36),
+        ({"cache_read_input_tokens": None, "cache_creation_input_tokens": None}, 36),
+        ({"cache_read_input_tokens": 0, "cache_creation_input_tokens": 0}, 36),
+        ({"cache_read_input_tokens": 139035}, 139071),
+        ({"cache_creation_input_tokens": 23554}, 23590),
+        ({"cache_read_input_tokens": 139035, "cache_creation_input_tokens": 23554}, 162625),
+    ],
+)
+def test_process_transcript_preserves_cache_tokens(tmp_path, cache_tokens, expected_input_tokens):
     transcript_entries = [
         {
             "type": "user",
@@ -395,9 +403,8 @@ def test_process_transcript_preserves_cache_tokens(tmp_path):
                 "model": "claude-sonnet-4-20250514",
                 "usage": {
                     "input_tokens": 36,
-                    "cache_creation_input_tokens": 23554,
-                    "cache_read_input_tokens": 139035,
                     "output_tokens": 3344,
+                    **cache_tokens,
                 },
             },
             "timestamp": "2025-01-15T10:00:01.000Z",
@@ -415,15 +422,15 @@ def test_process_transcript_preserves_cache_tokens(tmp_path):
     llm_spans = [s for s in trace.search_spans() if s.span_type == SpanType.LLM]
     assert len(llm_spans) == 1
 
-    # input_tokens is the non-cached input the Anthropic API reports, matching
-    # mlflow.anthropic.autolog. Cache fields are exposed as separate keys so
-    # consumers can compute cache hit rate.
-    token_usage = llm_spans[0].get_attribute(SpanAttributeKey.CHAT_USAGE)
-    assert token_usage["input_tokens"] == 36
-    assert token_usage["output_tokens"] == 3344
-    assert token_usage["total_tokens"] == 36 + 3344
-    assert token_usage["cache_read_input_tokens"] == 139035
-    assert token_usage["cache_creation_input_tokens"] == 23554
+    expected_usage = {
+        "input_tokens": expected_input_tokens,
+        "output_tokens": 3344,
+        "total_tokens": expected_input_tokens + 3344,
+        **{key: value for key, value in cache_tokens.items() if value is not None},
+    }
+    assert llm_spans[0].get_attribute(SpanAttributeKey.CHAT_USAGE) == expected_usage
+    assert trace.info.token_usage == expected_usage
+    assert mlflow.get_trace(trace.info.trace_id).info.token_usage == expected_usage
 
 
 # ============================================================================
@@ -584,19 +591,16 @@ def test_process_sdk_messages_cache_tokens():
     assert trace is not None
     root_span = trace.data.spans[0]
 
-    # input_tokens is the non-cached input the Anthropic API reports, matching
-    # mlflow.anthropic.autolog. Cache fields are exposed as separate keys so
-    # consumers can compute cache hit rate without scraping transcripts.
-    token_usage = root_span.get_attribute(SpanAttributeKey.CHAT_USAGE)
-    assert token_usage["input_tokens"] == 36
-    assert token_usage["output_tokens"] == 3344
-    assert token_usage["total_tokens"] == 36 + 3344
-    assert token_usage["cache_read_input_tokens"] == 139035
-    assert token_usage["cache_creation_input_tokens"] == 23554
-
-    # Trace-level aggregation should match
-    assert trace.info.token_usage["input_tokens"] == 36
-    assert trace.info.token_usage["output_tokens"] == 3344
+    expected_usage = {
+        "input_tokens": 36 + 139035 + 23554,
+        "output_tokens": 3344,
+        "total_tokens": 36 + 139035 + 23554 + 3344,
+        "cache_read_input_tokens": 139035,
+        "cache_creation_input_tokens": 23554,
+    }
+    assert root_span.get_attribute(SpanAttributeKey.CHAT_USAGE) == expected_usage
+    assert trace.info.token_usage == expected_usage
+    assert mlflow.get_trace(trace.info.trace_id).info.token_usage == expected_usage
 
 
 # ============================================================================
