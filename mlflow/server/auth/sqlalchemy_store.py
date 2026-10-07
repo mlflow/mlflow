@@ -2114,6 +2114,24 @@ class SqlAlchemyStore:
     # Conditions subtract from what grants allow and never confer access, so an
     # empty table reproduces the pre-conditions behaviour exactly.
 
+    @staticmethod
+    def _filter_or_none(filter_string: "str | None") -> "str | None":
+        """Blank is ABSENT, not a filter.
+
+        ``parse_condition`` already treats ``""`` and ``None`` identically -- both parse to
+        zero clauses and constrain nothing. Storing the blank rather than normalizing it
+        let a row exist that holds a condition slot and reads as a configured restriction
+        while permitting every request, which is the worst shape for a security control:
+        the operator believes a restriction is in force and nothing is ever refused.
+
+        Normalizing at the boundary makes a blank behave exactly as its absence does --
+        refused by the add paths when it is the only filter given, and treated by ``update``
+        as clearing that half, which then deletes an object left with neither.
+        """
+        if filter_string is None or not filter_string.strip():
+            return None
+        return filter_string
+
     def add_mutation_condition(
         self,
         role_id: int,
@@ -2137,6 +2155,11 @@ class SqlAlchemyStore:
         # Validate here, not at evaluation time. A condition that failed to parse
         # mid-request would have to either fail open (unsafe) or deny every mutation
         # (an outage), so the only good place to catch it is on the way in.
+        # A blank filter is the same as no filter (see _filter_or_none), so collapse it
+        # before the guard -- otherwise "" slips past the `is None` check below and stores
+        # a restriction that restricts nothing.
+        value_condition = self._filter_or_none(value_condition)
+        target_condition = self._filter_or_none(target_condition)
         validate_condition(value_condition, NAMESPACE_REQUEST, resource_type)
         validate_condition(target_condition, NAMESPACE_RESOURCE, resource_type)
         if value_condition is None and target_condition is None:
@@ -2194,6 +2217,11 @@ class SqlAlchemyStore:
                 container_resource_pattern,
             )
         )
+        # A blank filter is the same as no filter (see _filter_or_none), so collapse it
+        # before the guard -- otherwise "" slips past the `is None` check below and stores
+        # a restriction that restricts nothing.
+        value_condition = self._filter_or_none(value_condition)
+        target_condition = self._filter_or_none(target_condition)
         validate_condition(value_condition, NAMESPACE_REQUEST, resource_type)
         validate_condition(target_condition, NAMESPACE_RESOURCE, resource_type)
         if value_condition is None and target_condition is None:
@@ -2357,9 +2385,11 @@ class SqlAlchemyStore:
             mc = self._get_mutation_condition(session, condition_id)
             resource_type = mc.resource_type
             if update_value_condition:
+                value_condition = self._filter_or_none(value_condition)
                 validate_condition(value_condition, NAMESPACE_REQUEST, resource_type)
                 mc.value_condition = value_condition
             if update_target_condition:
+                target_condition = self._filter_or_none(target_condition)
                 validate_condition(target_condition, NAMESPACE_RESOURCE, resource_type)
                 mc.target_condition = target_condition
             if update_scope:

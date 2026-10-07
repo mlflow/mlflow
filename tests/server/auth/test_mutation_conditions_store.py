@@ -4,6 +4,8 @@
 # runtime loader -- including that per-user conditions are picked up with no
 # special-casing (D10).
 
+import uuid
+
 import pytest
 from sqlalchemy import event
 
@@ -935,3 +937,66 @@ def test_rename_is_a_no_op_when_nothing_is_scoped_to_the_name(store, role):
     )
     store.rename_conditions_for_registry_resource("absent", "new")
     assert store.get_mutation_condition(unscoped.id).resource_pattern == "*"
+
+
+class TestABlankFilterIsNotARestriction:
+    """F-0043. ``parse_condition`` treats "" and None identically -- both constrain
+    nothing -- so a stored blank is a row that holds a condition slot and reads as a
+    configured restriction while refusing no request. That is the worst failure shape for
+    a security control, so a blank is normalized to absent at the boundary.
+    """
+
+    def test_a_blank_value_filter_alone_is_refused(self, store):
+        role = store.create_role("default", f"blank-{uuid.uuid4().hex[:8]}", "t")
+        with pytest.raises(MlflowException, match="at least one of"):
+            store.add_mutation_condition(role.id, "trace", value_condition="")
+
+    def test_whitespace_is_not_a_filter_either(self, store):
+        role = store.create_role("default", f"blank-{uuid.uuid4().hex[:8]}", "t")
+        with pytest.raises(MlflowException, match="at least one of"):
+            store.add_mutation_condition(
+                role.id, "trace", value_condition="   ", target_condition="\t"
+            )
+
+    def test_a_blank_half_is_stored_as_absent(self, store):
+        role = store.create_role("default", f"blank-{uuid.uuid4().hex[:8]}", "t")
+        condition = store.add_mutation_condition(
+            role.id, "trace", value_condition="", target_condition="tags.gate = 'open'"
+        )
+        # Not "" -- absent, so nothing downstream has to decide what a blank means.
+        assert condition.value_condition is None
+        assert condition.target_condition == "tags.gate = 'open'"
+
+    def test_updating_a_half_to_blank_clears_it(self, store):
+        role = store.create_role("default", f"blank-{uuid.uuid4().hex[:8]}", "t")
+        condition = store.add_mutation_condition(
+            role.id,
+            "trace",
+            value_condition="tag_key = 'a'",
+            target_condition="tags.gate = 'open'",
+        )
+        # update_target_condition defaults to True, so it has to be switched OFF to leave
+        # the other half alone -- otherwise both clear and the object is deleted.
+        updated = store.update_mutation_condition(
+            condition.id,
+            value_condition="",
+            update_value_condition=True,
+            update_target_condition=False,
+        )
+        assert updated is not None
+        assert updated.value_condition is None
+        assert updated.target_condition == "tags.gate = 'open'"
+
+    def test_blanking_both_halves_deletes_the_object(self, store):
+        role = store.create_role("default", f"blank-{uuid.uuid4().hex[:8]}", "t")
+        condition = store.add_mutation_condition(role.id, "trace", value_condition="tag_key = 'a'")
+        # Blanking the only filter leaves nothing to restrict, so the row must go rather
+        # than linger as an empty restriction.
+        assert (
+            store.update_mutation_condition(
+                condition.id, value_condition="", update_value_condition=True
+            )
+            is None
+        )
+        with pytest.raises(MlflowException, match="not found"):
+            store.get_mutation_condition(condition.id)
