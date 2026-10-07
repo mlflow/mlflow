@@ -342,6 +342,87 @@ def test_a_resource_condition_does_not_gate_a_create(server, auth_client, monkey
         assert MlflowClient(server).get_registered_model(name).name == name
 
 
+def _exact_name_conditioned_user(auth_client, monkeypatch, resource_type, name, value_condition):
+    """A broad grant on ``resource_type``, narrowed by a condition naming exactly one resource."""
+    username, password = random_str(), random_str(12)
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        auth_client.create_user(username, password)
+        role = auth_client.create_role(workspace=_WORKSPACE, name=f"dev-{random_str()}")
+        auth_client.add_role_permission(role.id, resource_type, "*", "EDIT")
+        auth_client.assign_role(username, role.id)
+        auth_client.add_mutation_condition(
+            role.id,
+            resource_type,
+            resource_pattern=name,
+            value_condition=value_condition,
+        )
+    return username, password
+
+
+def test_an_exact_name_value_condition_gates_that_model_create(server, auth_client, monkeypatch):
+    """A registry resource IS its name, so a create names the resource it will become.
+
+    Scoping a value condition to one model name has to constrain creating that name.
+    Otherwise the restriction is trivially avoidable: delete the model and recreate it
+    with exactly the tags the condition forbids. Unlike an experiment or a run -- whose
+    ids the server assigns, so a create genuinely names nothing -- the registry keys on
+    a caller-supplied name that is known before the handler runs.
+    """
+    name = f"m-{random_str()}"
+    sibling = f"m-{random_str()}"
+    username, password = _exact_name_conditioned_user(
+        auth_client, monkeypatch, "registered_model", name, "tag_key != 'lifecycle'"
+    )
+
+    _assert_denied(
+        lambda: _create_model(server, username, password, monkeypatch, name, {"lifecycle": "prod"})
+    )
+    # The same forbidden tag on a name the row does not govern: the scope still narrows.
+    _create_model(server, username, password, monkeypatch, sibling, {"lifecycle": "prod"})
+
+
+def test_an_exact_name_value_condition_gates_a_recreate_of_that_model(
+    server, auth_client, monkeypatch
+):
+    """The avoidance route the previous test names: delete, then recreate with the tag."""
+    name = f"m-{random_str()}"
+    username, password = _exact_name_conditioned_user(
+        auth_client, monkeypatch, "registered_model", name, "tag_key != 'lifecycle'"
+    )
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        MlflowClient(server).create_registered_model(name)
+        MlflowClient(server).delete_registered_model(name)
+
+    _assert_denied(
+        lambda: _create_model(server, username, password, monkeypatch, name, {"lifecycle": "prod"})
+    )
+
+
+def test_an_exact_name_value_condition_gates_that_prompt_create(server, auth_client, monkeypatch):
+    """The same, on the other family the shared create route can produce."""
+    name = f"p-{random_str()}"
+    username, password = _exact_name_conditioned_user(
+        auth_client, monkeypatch, "prompt", name, "tag_key != 'lifecycle'"
+    )
+
+    def _create(target):
+        return requests.post(
+            f"{server}/api/2.0/mlflow/registered-models/create",
+            json={
+                "name": target,
+                "tags": [
+                    {"key": "lifecycle", "value": "prod"},
+                    {"key": IS_PROMPT_TAG_KEY, "value": "true"},
+                ],
+            },
+            auth=(username, password),
+            timeout=60,
+        )
+
+    assert _create(name).status_code == 403
+    assert _create(f"p-{random_str()}").status_code == 200
+
+
 def test_a_registered_model_condition_does_not_gate_a_prompt_create(
     server, auth_client, monkeypatch
 ):

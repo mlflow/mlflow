@@ -3858,9 +3858,9 @@ def validate_can_create_registered_model() -> bool:
     created_type = (
         RESOURCE_TYPE_PROMPT if _entity_is_prompt(msg) else RESOURCE_TYPE_REGISTERED_MODEL
     )
-    # CREATE scope, and no resource id: nothing exists yet, so only the request
-    # conditions apply. A resource condition is vacuous on a create by construction --
-    # there is no prior state for it to describe -- rather than by a special case here.
+    # CREATE scope: nothing exists yet, so only the request conditions apply. A resource
+    # condition is vacuous on a create by construction -- there is no prior state for it
+    # to describe -- rather than by a special case here.
     # ``created_type`` is the family the body will actually produce, so a prompt
     # condition governs a prompt create and not an ordinary model create (D2).
     #
@@ -3872,7 +3872,18 @@ def validate_can_create_registered_model() -> bool:
     return _workspace_create_not_denied(
         created_type,
         msg.name,
-        conditions=[context_for(created_type, None, ConditionScope.CREATE, request_values)],
+        conditions=[
+            # `msg.name` and not `None`: a registry resource IS its name, so this create
+            # does name the resource it will become, and an exact-scope row has to be able
+            # to govern it. Every other create passes `None` correctly -- an experiment,
+            # run or version id is assigned by the handler, so there is genuinely nothing
+            # to match -- which is why the id here looked like it should be absent too.
+            #
+            # Naming it cannot pull in a target condition: the target loop only walks
+            # MUTATE contexts, so a resource condition stays vacuous on a create by
+            # construction and no target fetch happens for a resource that does not exist.
+            context_for(created_type, msg.name, ConditionScope.CREATE, request_values)
+        ],
     )
 
 
