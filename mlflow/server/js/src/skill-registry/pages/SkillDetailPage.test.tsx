@@ -475,9 +475,7 @@ describe('SkillDetailPage', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Create skill version' }));
     expect(screen.getByRole('dialog', { name: 'Create skill version' })).toBeInTheDocument();
-    expect(
-      screen.getByText(/Adding a version to @acme\/code-review. Its content can come from anywhere/),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/Adding a version to @acme\/code-review, or/)).toBeInTheDocument();
     expect(screen.queryByLabelText('Name')).not.toBeInTheDocument();
     expect(screen.getByLabelText('Location')).toHaveValue('https://github.com/acme/skills');
     expect(screen.getByLabelText('Branch, tag or commit')).toHaveValue('main');

@@ -472,7 +472,7 @@ const RegisterSkillDialog = ({ onClose, skill, sourceVersion, onRegistered }: Re
           <Typography.Text color="secondary">
             {isVersion ? (
               <FormattedMessage
-                defaultMessage="Adding a version to {identity}. Its content can come from anywhere, not just where the previous version lives. Or {apiLink}"
+                defaultMessage="Adding a version to {identity}, or {apiLink}"
                 description="Intro for adding an external skill version"
                 values={{ identity: fixedIdentity, apiLink }}
               />

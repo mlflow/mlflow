@@ -655,10 +655,6 @@
     "defaultMessage": "A draft is passed over whenever any active version exists. A draft can always be reached by an explicit version pin or an alias.",
     "description": "Hint for the initial skill version status"
   },
-  "0UjEHT": {
-    "defaultMessage": "Free-text search matches name and description through {searchText}. Structured filters are sent as {filterString} clauses.",
-    "description": "Tooltip explaining Skill Registry catalog search"
-  },
   "0W7Pi4": {
     "defaultMessage": "Tag{count, plural, =0 {} other { · #}}",
     "description": "Button to open the tags filter popover in the experiments page. Shows an interpunct (·) followed by the count of active tag filters when any are applied."
@@ -4098,6 +4094,10 @@
   "Dma9ZE": {
     "defaultMessage": "Versions",
     "description": "Header for the version column in the registered prompts table"
+  },
+  "DpfEr5": {
+    "defaultMessage": "Adding a version to {identity}, or {apiLink}",
+    "description": "Intro for adding an external skill version"
   },
   "Druqym": {
     "defaultMessage": "Filters",
@@ -8903,6 +8903,10 @@
     "defaultMessage": "Configure OpenTelemetry export",
     "description": "Step 1 title for OpenTelemetry traces onboarding"
   },
+  "W8Q4ks": {
+    "defaultMessage": "Type text to search skill names and descriptions. To search by tags or by names and tags,{newline}use a simplified version of the SQL {whereBold} clause.",
+    "description": "Tooltip explaining how to search skills in the registry"
+  },
   "W8bOkn": {
     "defaultMessage": "250",
     "description": "Label for 250 first runs visible in run count selector within runs compare configuration modal"
@@ -11882,10 +11886,6 @@
   "h2SXjO": {
     "defaultMessage": "Key",
     "description": "Tag assignment modal > Key label"
-  },
-  "h2aMKK": {
-    "defaultMessage": "Adding a version to {identity}. Its content can come from anywhere, not just where the previous version lives. Or {apiLink}",
-    "description": "Intro for adding an external skill version"
   },
   "h3GmoO": {
     "defaultMessage": "Metrics",
