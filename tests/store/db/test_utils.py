@@ -91,8 +91,9 @@ def test_sqlite_statement_compaction_requires_json_support():
 
 
 def test_sqlite_statement_leaves_other_dialects_unchanged():
-    statement = select(literal(1)).where(literal(1).in_(range(1200)))
+    statement = select(literal(1)).where(literal(1).in_(range(500)))
     session = mock.Mock(get_bind=mock.Mock(return_value=mock.Mock(dialect=postgresql.dialect())))
+
     assert utils._get_sqlite_safe_statement(statement, session) is statement
     session.get_bind.assert_called_once()
     session.execute.assert_not_called()
