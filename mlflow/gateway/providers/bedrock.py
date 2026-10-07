@@ -623,18 +623,25 @@ class AmazonBedrockProvider(BaseProvider):
             case _:
                 return "stop"
 
-    def _parse_stream_event(self, event: dict[str, Any]) -> chat.StreamResponsePayload | None:
+    def _parse_stream_event(
+        self, event: dict[str, Any], tool_indices: dict[int, int] | None = None
+    ) -> chat.StreamResponsePayload | None:
+        # Maps contentBlockIndex to the tool call's own index, so text blocks don't shift it.
+        if tool_indices is None:
+            tool_indices = {}
         if "contentBlockStart" in event:
             start = event["contentBlockStart"].get("start", {})
             if "toolUse" in start:
                 tool_use = start["toolUse"]
+                block_index = event["contentBlockStart"].get("contentBlockIndex", 0)
+                tool_indices[block_index] = len(tool_indices)
                 return self._make_stream_chunk(
                     delta=chat.StreamDelta(
                         role=None,
                         content=None,
                         tool_calls=[
                             chat.ToolCallDelta(
-                                index=event["contentBlockStart"].get("contentBlockIndex", 0),
+                                index=tool_indices[block_index],
                                 id=tool_use.get("toolUseId"),
                                 type="function",
                                 function=chat.Function(
@@ -663,7 +670,9 @@ class AmazonBedrockProvider(BaseProvider):
                         content=None,
                         tool_calls=[
                             chat.ToolCallDelta(
-                                index=event["contentBlockDelta"].get("contentBlockIndex", 0),
+                                index=tool_indices.get(
+                                    event["contentBlockDelta"].get("contentBlockIndex", 0), 0
+                                ),
                                 function=chat.Function(arguments=arguments),
                             )
                         ],
@@ -763,13 +772,14 @@ class AmazonBedrockProvider(BaseProvider):
         # events are read from the queue below. Not awaited intentionally.
         loop.run_in_executor(None, _consume_stream)
 
+        tool_indices: dict[int, int] = {}
         while True:
             event = await loop.run_in_executor(None, event_queue.get)
             if event is _SENTINEL:
                 if _stream_error:
                     raise _stream_error[0]
                 break
-            if chunk := self._parse_stream_event(event):
+            if chunk := self._parse_stream_event(event, tool_indices):
                 yield chunk
 
     async def _embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
