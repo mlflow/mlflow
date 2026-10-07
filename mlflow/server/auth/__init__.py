@@ -6174,7 +6174,21 @@ def validate_can_link_traces_to_run():
     run_id = _get_request_param("run_id")
     if not _authorize_run_id(run_id, "update"):
         return False
-    trace_ids = list(dict.fromkeys((request.json or {}).get("trace_ids", [])))
+    # Only STRING ids, and only then deduplicated. A JSON object or array is unhashable, so
+    # deduplicating the raw body faulted the gate on a malformed request and surfaced as a
+    # 500 ahead of the handler's own schema check. Filtering rather than rejecting keeps the
+    # client error where it belongs: the handler applies ``_assert_item_type_string`` to
+    # ``trace_ids`` and refuses the whole body before reaching the store, so nothing a
+    # dropped element would have named can be written unauthorized. Same remedy as F-0017.
+    raw_trace_ids = (request.json or {}).get("trace_ids", [])
+    if not isinstance(raw_trace_ids, list):
+        # Also the handler's to reject (``_assert_array``); declaring nothing here leaves
+        # the run requirement above as the only gate, which is correct for a body that
+        # names no trace.
+        raw_trace_ids = []
+    trace_ids = list(
+        dict.fromkeys(item for item in raw_trace_ids if isinstance(item, str) and item)
+    )
     # One batched resolution rather than one store call per trace; it also seeds the memo,
     # so the requirement build below is free.
     auth_resources.prefetch_trace_infos(trace_ids)

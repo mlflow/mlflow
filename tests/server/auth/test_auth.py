@@ -6727,6 +6727,38 @@ def test_create_model_version_logged_model_condition_is_scoped_to_its_experiment
     assert response.status_code == 200
 
 
+def test_link_traces_to_run_does_not_crash_on_a_malformed_trace_id(fastapi_client, monkeypatch):
+    """F-0047. An unhashable element in ``trace_ids`` must not fault the gate.
+
+    The validator deduplicated the RAW json with ``dict.fromkeys`` before anything had
+    checked element types, and a JSON object or array is unhashable -- so a malformed body
+    raised TypeError inside authorization and surfaced as a 500, ahead of the client error
+    the handler's own ``_assert_item_type_string`` produces. Same shape as F-0017.
+
+    The caller must hold run UPDATE or the gate refuses before reaching the dedup and the
+    crash is unreachable, which is why this grants EDIT rather than asserting as admin
+    (validators are skipped for admins entirely).
+    """
+    from mlflow.server.auth.client import AuthServiceClient
+
+    auth_client = AuthServiceClient(fastapi_client.tracking_uri)
+    user, password = create_user(fastapi_client.tracking_uri)
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        experiment_id = fastapi_client.create_experiment(f"link-malformed-{random_str()}")
+        run = fastapi_client.create_run(experiment_id=experiment_id)
+        role = auth_client.create_role("default", f"link-malformed-{random_str()}", "test")
+        auth_client.add_role_permission(role.id, "experiment", "*", EDIT.name)
+        auth_client.assign_role(user, role.id)
+
+    response = requests.post(
+        url=fastapi_client.tracking_uri + "/api/2.0/mlflow/traces/link-to-run",
+        json={"run_id": run.info.run_id, "trace_ids": [{"a": 1}, [1, 2]]},
+        auth=(user, password),
+    )
+    # The handler's schema error, not a fault raised inside the gate.
+    assert response.status_code == 400, response.text
+
+
 def test_link_traces_to_run_is_not_gated_by_a_trace_condition(fastapi_client, monkeypatch):
     """Linking writes an association, not a trace mutation, so trace conditions must NOT
     apply -- a condition is scoped to the exact resource it names.
