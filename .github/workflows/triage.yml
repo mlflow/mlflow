@@ -6,12 +6,8 @@ on:
   workflow_dispatch:
     inputs:
       issue_number:
-        description: "Issue number to triage"
-        required: false
-        type: number
-      issue_url:
-        description: "Issue URL to triage (must be in mlflow/mlflow)"
-        required: false
+        description: "Issue number or URL in mlflow/mlflow to triage"
+        required: true
         type: string
       model:
         description: "AI Gateway Claude model for the triage agent"
@@ -28,7 +24,7 @@ on:
         default: true
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.issue.number || inputs.issue_number || inputs.issue_url }}
+  group: ${{ github.workflow }}-${{ github.event.issue.number || inputs.issue_number }}
   cancel-in-progress: false
 
 defaults:
@@ -58,23 +54,15 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
-          ISSUE_NUMBER: ${{ inputs.issue_number }}
-          ISSUE_URL: ${{ inputs.issue_url }}
+          ISSUE_INPUT: ${{ inputs.issue_number }}
         run: |
           if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then
-            if [ -n "$ISSUE_NUMBER" ] && [ -n "$ISSUE_URL" ]; then
-              echo "Provide either issue_number or issue_url, not both." >&2
-              exit 1
-            fi
-            if [ -n "$ISSUE_URL" ]; then
-              if [[ "$ISSUE_URL" =~ ^https://github\.com/mlflow/mlflow/issues/([1-9][0-9]*)/?$ ]]; then
-                ISSUE_NUMBER="${BASH_REMATCH[1]}"
-              else
-                echo "issue_url must be an issue URL in https://github.com/mlflow/mlflow." >&2
-                exit 1
-              fi
-            elif [[ ! "$ISSUE_NUMBER" =~ ^[1-9][0-9]*$ ]]; then
-              echo "Provide a valid issue_number or issue_url." >&2
+            if [[ "$ISSUE_INPUT" =~ ^https://github\.com/mlflow/mlflow/issues/([1-9][0-9]*)/?$ ]]; then
+              ISSUE_NUMBER="${BASH_REMATCH[1]}"
+            elif [[ "$ISSUE_INPUT" =~ ^[1-9][0-9]*$ ]]; then
+              ISSUE_NUMBER="$ISSUE_INPUT"
+            else
+              echo "Provide an issue number or a URL in https://github.com/mlflow/mlflow/issues/." >&2
               exit 1
             fi
             issue=$(gh api "repos/$REPO/issues/$ISSUE_NUMBER")
