@@ -880,7 +880,20 @@ def test_process_transcript_captures_claude_code_version(tmp_path):
     assert trace.info.trace_metadata.get(METADATA_KEY_CLAUDE_CODE_VERSION) == "2.1.34"
 
 
-def test_process_transcript_end_time_skips_trailing_entries_without_timestamp(tmp_path):
+@pytest.mark.parametrize(
+    ("assistant_timestamp", "expected_duration_s"),
+    [
+        # The last timestamped entry is used even when later entries have no timestamp.
+        ("2025-01-15T10:00:45.000Z", 45),
+        # No timestamped entry after the user prompt: fall back to the default duration.
+        (None, 10),
+        # The last timestamp precedes the start: fall back to the default duration.
+        ("2025-01-15T09:59:00.000Z", 10),
+    ],
+)
+def test_process_transcript_end_time_skips_trailing_entries_without_timestamp(
+    tmp_path, assistant_timestamp, expected_duration_s
+):
     transcript = [
         {
             "type": "user",
@@ -893,7 +906,7 @@ def test_process_transcript_end_time_skips_trailing_entries_without_timestamp(tm
                 "role": "assistant",
                 "content": [{"type": "text", "text": "Hi there!"}],
             },
-            "timestamp": "2025-01-15T10:00:45.000Z",
+            "timestamp": assistant_timestamp,
         },
         {"type": "last-prompt", "timestamp": None},
         {"type": "cost-state", "timestamp": None},
@@ -905,7 +918,7 @@ def test_process_transcript_end_time_skips_trailing_entries_without_timestamp(tm
 
     assert trace is not None
     root = next(span for span in trace.data.spans if span.parent_id is None)
-    assert root.end_time_ns - root.start_time_ns == 45 * 1_000_000_000
+    assert root.end_time_ns - root.start_time_ns == expected_duration_s * 1_000_000_000
 
 
 def test_process_transcript_no_version_field(mock_transcript_file):
