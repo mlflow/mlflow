@@ -1055,11 +1055,15 @@ def _get_request_json(flask_request=request):
 
 def _get_scoped_request_data(flask_request: Request, key: str) -> dict[str, Any] | None:
     # Authorization overrides belong only to the active request, not an explicit alternate request.
-    if has_request_context() and (
-        flask_request is request or flask_request is request._get_current_object()
-    ):
+    if _is_active_flask_request(flask_request):
         return g.get(key)
     return None
+
+
+def _is_active_flask_request(flask_request: Request) -> bool:
+    return has_request_context() and (
+        flask_request is request or flask_request is request._get_current_object()
+    )
 
 
 def _get_normalized_request_json(flask_request: Request = request) -> dict[str, Any]:
@@ -1228,6 +1232,13 @@ def _get_request_message(request_message, flask_request=request, schema=None):
                 request_json[field.name] = value
         if scoped_request_overrides:
             request_json.update(scoped_request_overrides)
+        removed_fields = (
+            g.get("mlflow_scoped_request_removed_fields", ())
+            if _is_active_flask_request(flask_request)
+            else ()
+        )
+        for field in removed_fields:
+            request_json.pop(field, None)
     else:
         request_json = _get_normalized_request_json(flask_request)
 

@@ -21,9 +21,13 @@ from mlflow.server import auth as auth_module
 from mlflow.server.auth.permissions import get_permission
 from mlflow.server.fastapi_app import add_mcp_exception_handlers
 from mlflow.server.mcp_server_api import (
+    CreateMCPServerRequest,
+    UpdateMCPServerRequest,
     _ensure_version_create_parent_access,
+    create_mcp_server,
     get_mcp_server_api_route_prefixes,
     mcp_server_router,
+    update_mcp_server,
 )
 from mlflow.store.tracking.dbmodels.models import SqlMCPServer
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
@@ -408,8 +412,10 @@ def test_search_servers_scopes_request_before_storage(store):
         mock.patch(
             "mlflow.server.auth._role_based_read_predicate", return_value=lambda _name: True
         ) as can_read,
-        mock.patch("mlflow.server.auth._get_mcp_server_permission"),
-        mock.patch("mlflow.server.auth._permission_to_allowed_actions", return_value=[]),
+        mock.patch("mlflow.server.auth._get_mcp_server_permission") as permission_resolver,
+        mock.patch(
+            "mlflow.server.auth._permission_to_allowed_actions", return_value=[]
+        ) as action_resolver,
         mock.patch.object(store, "search_mcp_servers", wraps=store.search_mcp_servers) as search,
     ):
         response = TestClient(app).get(
@@ -422,6 +428,8 @@ def test_search_servers_scopes_request_before_storage(store):
         "name != 'com.example/beta' AND name IN ('com.example/alpha')"
     )
     can_read.assert_called_once_with("alice", "mcp_server")
+    permission_resolver.assert_not_called()
+    action_resolver.assert_not_called()
 
 
 def test_search_all_endpoints_scopes_request_before_storage(store):
@@ -579,6 +587,28 @@ def test_server_responses_return_allowed_actions_for_authenticated_user(
         can_read.assert_called_once_with("alice", "mcp_server")
 
 
+@pytest.mark.parametrize("operation", ["create", "update"])
+def test_mutation_responses_return_allowed_actions_from_request_state(store, operation):
+    actions = ["USE", "UPDATE"]
+    request = SimpleNamespace(
+        state=SimpleNamespace(
+            username="alice",
+            mcp_server_allowed_actions=lambda _name: actions,
+        )
+    )
+
+    with mock.patch("mlflow.server.handlers._get_tracking_store", return_value=store):
+        if operation == "create":
+            response = create_mcp_server(CreateMCPServerRequest(name="com.example/alpha"), request)
+        else:
+            store.create_mcp_server(name="com.example/alpha")
+            response = update_mcp_server(
+                "com.example/alpha", UpdateMCPServerRequest(description="updated"), request
+            )
+
+    assert response.allowed_actions == actions
+
+
 @pytest.mark.parametrize("suffix", ["", "/com.example/alpha"])
 def test_server_responses_return_all_actions_for_admin(store, suffix):
     store.create_mcp_server(name="com.example/alpha")
@@ -612,6 +642,11 @@ def test_server_responses_return_all_actions_for_admin(store, suffix):
 def test_server_responses_return_all_actions_without_auth(client, suffix):
     response = client.post(PREFIX, json={"name": "com.example/alpha"})
     assert response.status_code == 200
+    assert response.json()["allowed_actions"] == ["USE", "UPDATE", "DELETE", "MANAGE"]
+
+    response = client.patch(PREFIX + "/com.example/alpha", json={"description": "updated"})
+    assert response.status_code == 200
+    assert response.json()["allowed_actions"] == ["USE", "UPDATE", "DELETE", "MANAGE"]
 
     response = client.get(PREFIX + suffix)
 

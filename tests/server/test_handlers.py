@@ -751,6 +751,14 @@ def test_can_parse_get_json_with_unknown_fields():
     assert msg.name == "hello"
 
 
+def test_get_request_message_removes_scoped_get_fields():
+    with app.test_request_context(method="GET", query_string={"name": "hello"}):
+        g.mlflow_scoped_request_removed_fields = {"name"}
+        msg = _get_request_message(CreateExperiment())
+
+    assert msg.name == ""
+
+
 # Previous versions of the client sent a doubly string encoded JSON blob,
 # so this test ensures continued compliance with such clients.
 def test_can_parse_json_string():

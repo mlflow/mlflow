@@ -4,6 +4,8 @@ import re
 
 import pytest
 import sqlparse
+from sqlalchemy import String, column, select
+from sqlalchemy.dialects import mssql
 
 from mlflow.entities import (
     Dataset,
@@ -96,6 +98,20 @@ def test_search_filter_with_scope_supports_not_in():
         {"type": "attribute", "key": "server_name", "comparator": "=", "value": "visible"},
         {"type": "attribute", "key": "server_name", "comparator": "NOT IN", "value": ("denied",)},
     ]
+
+
+def test_large_authorization_scope_uses_mssql_literals():
+    scope = SearchModelUtils.parse_search_filter(
+        SearchFilterWithScope("", "name", {f"model-{index}" for index in range(501)})
+    )[0]["value"]
+    name = column("name", String())
+    statement = select(name).where(SearchUtils.get_sql_comparison_func("IN", "mssql")(name, scope))
+
+    compiled = statement.compile(
+        dialect=mssql.dialect(), compile_kwargs={"render_postcompile": True}
+    )
+
+    assert not compiled.params
 
 
 @pytest.mark.parametrize(

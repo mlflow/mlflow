@@ -3137,7 +3137,8 @@ def _get_readable_resource_ids(username: str, resource_type: str) -> set[str] | 
         not MLFLOW_ENABLE_WORKSPACES.get() or _user_inherits_default_workspace_grant(workspace_name)
     ):
         return None
-    return readable
+    can_read = _role_based_read_predicate(username, resource_type)
+    return {resource_id for resource_id in readable if can_read(resource_id)}
 
 
 @dataclass(frozen=True)
@@ -3210,7 +3211,7 @@ def get_readable_resource_ids_for_user(username: str, resource_type: str) -> set
         if store.get_user(username).is_admin:
             return None
         return _get_readable_resource_ids(username, resource_type)
-    except (RuntimeError, AttributeError, MlflowException):
+    except (RuntimeError, MlflowException):
         _logger.exception("Failed to resolve request authorization scope; denying access")
         return set()
 
@@ -3250,8 +3251,12 @@ def _get_readable_experiment_ids_for_user(username: str) -> set[str] | None:
     if readable_ids is None:
         return None
 
+    return _valid_experiment_ids(readable_ids)
+
+
+def _valid_experiment_ids(experiment_ids: set[str]) -> set[str]:
     valid_ids = set()
-    for experiment_id in readable_ids:
+    for experiment_id in experiment_ids:
         try:
             _parse_experiment_id(experiment_id)
         except MlflowException:
@@ -3311,8 +3316,13 @@ def _scope_search_experiments(request_json: dict[str, Any], username: str) -> No
         return
     # MLflow-generated experiment IDs are non-negative. An empty finite scope must still produce
     # a valid request filter so the generic handler can execute without auth-specific branches.
-    values = scope.resource_ids or {"-1"}
+    values = _valid_experiment_ids(scope.resource_ids) or {"-1"}
     _append_request_filter(request_json, "experiment_id", values, scope.comparator)
+
+
+def _scope_search_logged_models(request_json: dict[str, Any], username: str) -> None:
+    if _request_field(request_json, "experiment_ids") is not None:
+        _scope_experiment_ids(request_json, username)
 
 
 def _scope_model_search(request_json: dict[str, Any], username: str) -> None:
@@ -3326,7 +3336,14 @@ def _scope_model_search(request_json: dict[str, Any], username: str) -> None:
         # scope, so the response filter remains the enforcement layer for this
         # mixed shape.
         return
-    values = model_scope.resource_ids | prompt_scope.resource_ids
+    if model_scope.comparator == "IN":
+        values = model_scope.resource_ids | prompt_scope.resource_ids
+    else:
+        # A name denied in only one namespace can still identify a readable row
+        # in the other namespace, so only deny names shared by both namespaces.
+        values = model_scope.resource_ids & prompt_scope.resource_ids
+        if not values:
+            return
     _append_request_filter(request_json, "name", values or {""}, model_scope.comparator)
 
 
@@ -3343,6 +3360,8 @@ def _scope_list_scorers(request_json: dict[str, Any], username: str) -> None:
         if experiment_id in readable_ids:
             return
         request_json.pop(name)
+        if has_request_context():
+            g.mlflow_scoped_request_removed_fields = {"experiment_id"}
         request_json["experiment_ids"] = []
         return
     _scope_experiment_ids(request_json, username)
@@ -4037,8 +4056,14 @@ def validate_can_batch_get_traces():
     # query, avoiding per-trace ownership lookups. A user with no readable
     # experiments receives 403; otherwise unreadable trace IDs yield an empty
     # result after request-side scoping.
-    readable = _get_readable_resource_ids(authenticate_request().username, "experiment")
-    return readable is None or bool(readable)
+    username = authenticate_request().username
+    can_read_trace = _role_based_read_predicate(
+        username,
+        RESOURCE_TYPE_EXPERIMENT,
+        also_require=[Requirement(RESOURCE_TYPE_TRACE, "*", ACTION_NOT_DENIED)],
+    )
+    readable = _get_readable_resource_ids(username, RESOURCE_TYPE_EXPERIMENT)
+    return can_read_trace("*") if readable is None else any(map(can_read_trace, readable))
 
 
 def validate_can_delete_traces():
@@ -4937,7 +4962,7 @@ REQUEST_SCOPE_HANDLERS = {
     SearchExperiments: _scope_search_experiments,
     SearchRegisteredModels: _scope_model_search,
     SearchModelVersions: _scope_model_search,
-    SearchLoggedModels: _scope_experiment_ids,
+    SearchLoggedModels: _scope_search_logged_models,
     BatchGetTraces: _scope_experiment_ids,
     BatchGetTraceInfos: _scope_experiment_ids,
     ListScorers: _scope_list_scorers,
@@ -6058,6 +6083,48 @@ def _withhold_denied_latest_versions(registered_models, username: str) -> bool:
     return withheld
 
 
+def filter_search_experiments(resp: Response) -> None:
+    if sender_is_admin():
+        return
+
+    response_message = SearchExperiments.Response()
+    parse_dict(resp.json, response_message)
+    username = authenticate_request().username
+    can_read = _role_based_read_predicate(username, RESOURCE_TYPE_EXPERIMENT)
+    for experiment in list(response_message.experiments):
+        if not can_read(experiment.experiment_id):
+            response_message.experiments.remove(experiment)
+
+    request_message = _get_request_message(SearchExperiments())
+    while (
+        len(response_message.experiments) < request_message.max_results
+        and response_message.next_page_token != ""
+    ):
+        refetched = _get_tracking_store().search_experiments(
+            view_type=request_message.view_type,
+            max_results=request_message.max_results,
+            order_by=request_message.order_by,
+            filter_string=request_message.filter,
+            page_token=response_message.next_page_token,
+        )
+        refetched = refetched[: request_message.max_results - len(response_message.experiments)]
+        if not refetched:
+            response_message.next_page_token = ""
+            break
+
+        response_message.experiments.extend(
+            experiment.to_proto() for experiment in refetched if can_read(experiment.experiment_id)
+        )
+        start_offset = SearchUtils.parse_start_offset_from_page_token(
+            response_message.next_page_token
+        )
+        response_message.next_page_token = SearchUtils.create_page_token(
+            start_offset + len(refetched)
+        )
+
+    resp.data = message_to_json(response_message)
+
+
 def filter_search_logged_models(resp: Response) -> None:
     """Filter unreadable models and redact denied run references."""
     if sender_is_admin():
@@ -6066,7 +6133,11 @@ def filter_search_logged_models(resp: Response) -> None:
     response_proto = SearchLoggedModels.Response()
     parse_dict(resp.json, response_proto)
     username = authenticate_request().username
-    can_read_experiment = _role_based_read_predicate(username, "experiment")
+    can_read_experiment = _role_based_read_predicate(
+        username,
+        RESOURCE_TYPE_EXPERIMENT,
+        also_require=[Requirement(RESOURCE_TYPE_LOGGED_MODEL, "*", ACTION_NOT_DENIED)],
+    )
     for model in list(response_proto.models):
         if not can_read_experiment(model.info.experiment_id):
             response_proto.models.remove(model)
@@ -6975,7 +7046,11 @@ def redact_batch_trace_assessments(resp: Response) -> None:
         return
     response_message = BatchGetTraces.Response()
     parse_dict(resp.json, response_message)
-    can_read_experiment = _role_based_read_predicate(authenticate_request().username, "experiment")
+    can_read_experiment = _role_based_read_predicate(
+        authenticate_request().username,
+        RESOURCE_TYPE_EXPERIMENT,
+        also_require=[Requirement(RESOURCE_TYPE_TRACE, "*", ACTION_NOT_DENIED)],
+    )
     withheld = False
     for trace in list(response_message.traces):
         if not can_read_experiment(trace.trace_info.trace_location.mlflow_experiment.experiment_id):
@@ -6995,7 +7070,11 @@ def redact_batch_trace_info_assessments(resp: Response) -> None:
         return
     response_message = BatchGetTraceInfos.Response()
     parse_dict(resp.json, response_message)
-    can_read_experiment = _role_based_read_predicate(authenticate_request().username, "experiment")
+    can_read_experiment = _role_based_read_predicate(
+        authenticate_request().username,
+        RESOURCE_TYPE_EXPERIMENT,
+        also_require=[Requirement(RESOURCE_TYPE_TRACE, "*", ACTION_NOT_DENIED)],
+    )
     withheld = False
     for trace_info in list(response_message.trace_infos):
         if not can_read_experiment(trace_info.trace_location.mlflow_experiment.experiment_id):
@@ -7097,6 +7176,7 @@ def filter_list_artifacts_proxy(resp: Response) -> None:
 
 AFTER_REQUEST_PATH_HANDLERS = {
     CreateExperiment: set_can_manage_experiment_permission,
+    SearchExperiments: filter_search_experiments,
     CreateRegisteredModel: set_can_manage_registered_model_permission,
     SearchLoggedModels: filter_search_logged_models,
     DeleteRegisteredModel: delete_can_manage_registered_model_permission,

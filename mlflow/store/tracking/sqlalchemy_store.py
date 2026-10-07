@@ -278,6 +278,7 @@ from mlflow.utils.search_utils import (
     SearchLoggedModelsPaginationToken,
     SearchTraceUtils,
     SearchUtils,
+    _AuthorizationScopeValues,
 )
 from mlflow.utils.string_utils import is_string_type
 from mlflow.utils.time import get_current_time_millis
@@ -10235,11 +10236,15 @@ def _get_search_experiments_filter_clauses(parsed_filters, dialect):
                     raise MlflowException.invalid_parameter_value(
                         f"Invalid comparator for experiment_id: {comparator}"
                     )
-                value = (
-                    tuple(_parse_experiment_id(v) for v in value)
-                    if isinstance(value, tuple)
-                    else _parse_experiment_id(value)
-                )
+                if isinstance(value, tuple):
+                    parsed_values = tuple(_parse_experiment_id(v) for v in value)
+                    value = (
+                        _AuthorizationScopeValues(parsed_values)
+                        if isinstance(value, _AuthorizationScopeValues)
+                        else parsed_values
+                    )
+                else:
+                    value = _parse_experiment_id(value)
             else:
                 if SearchExperimentsUtils.is_string_attribute(
                     type_, key, comparator
