@@ -261,9 +261,18 @@ class AWSBearerToken(AWSBaseConfig):
     aws_bearer_token: str
 
 
+class AmazonBedrockGuardrailConfig(pydantic.BaseModel):
+    guardrail_identifier: str
+    guardrail_version: str
+    trace: Literal["enabled", "disabled"] | None = None
+
+
 class AmazonBedrockConfig(ConfigModel):
     # order here is important, at least for pydantic<2
     aws_config: AWSBearerToken | AWSRole | AWSIdAndKey | AWSBaseConfig
+    # Optional Amazon Bedrock guardrail applied to Converse (chat) requests. When set,
+    # it is forwarded as the Converse API's ``guardrailConfig``.
+    guardrail_config: AmazonBedrockGuardrailConfig | None = None
 
 
 class MistralConfig(ConfigModel):
