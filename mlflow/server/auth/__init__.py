@@ -524,6 +524,7 @@ from mlflow.store import condition_pushdown as condition_pushdown
 from mlflow.store.artifact.utils.models import _parse_model_uri
 from mlflow.store.entities import PagedList
 from mlflow.store.workspace.utils import get_default_workspace_optional
+from mlflow.tracing.constant import AssessmentMetadataKey
 from mlflow.utils import workspace_context
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.rest_utils import _REST_API_PATH_PREFIX
@@ -3100,6 +3101,8 @@ def _authorize_run_id_as(
     run_id: str,
     action: str,
     tags: "tuple[tuple[str, str | None], ...]" = (),
+    *,
+    extra: "Sequence[Requirement]" = (),
 ) -> bool:
     # Takes the username explicitly for the FastAPI validators, which are handed one rather
     # than running inside a Flask request context. Same split, and same reason, as
@@ -3115,7 +3118,7 @@ def _authorize_run_id_as(
     return authorize(
         username,
         anchor,
-        requirements,
+        [*requirements, *extra],
         conditions=_mutation_contexts(
             action,
             context_for(
@@ -3133,15 +3136,19 @@ def _authorize_run_id(
     run_id: str,
     action: str,
     tags: "tuple[tuple[str, str | None], ...]" = (),
+    *,
+    extra: "Sequence[Requirement]" = (),
 ) -> bool:
-    return _authorize_run_id_as(authenticate_request().username, run_id, action, tags)
+    return _authorize_run_id_as(authenticate_request().username, run_id, action, tags, extra=extra)
 
 
 def _authorize_run(
     action: str,
     tags: "tuple[tuple[str, str | None], ...]" = (),
+    *,
+    extra: "Sequence[Requirement]" = (),
 ) -> bool:
-    return _authorize_run_id(_get_request_param("run_id"), action, tags)
+    return _authorize_run_id(_get_request_param("run_id"), action, tags, extra=extra)
 
 
 def validate_can_update_run():
@@ -3361,7 +3368,31 @@ def validate_can_log_outputs():
 
 
 def validate_can_delete_run():
-    return _authorize_run("delete")
+    """DELETE on the run -- and the assessment tier, which the delete also destroys.
+
+    ``_mark_run_deleted`` hard-deletes every ``SqlAssessments`` row whose metadata names
+    this run as its source, so a run delete removes assessments as a side effect. Those
+    rows are gone for good: the run is soft-deleted and restorable, the assessments are
+    not, and ``restore_run`` makes no attempt to bring them back.
+
+    ``DeleteExperiment`` already pays for this -- ``RESOURCE_TYPE_ASSESSMENT`` is in
+    ``_EXPERIMENT_CASCADE_TIERS`` -- and this route reaches the same store path without
+    it, so a role whose assessment tier is explicitly DENIED could still wipe assessments
+    by deleting a run.
+
+    ``ACTION_NOT_DENIED`` rather than ``delete``: the experiment cascade can demand the
+    stronger tier because its fallback is the experiment the caller is already deleting,
+    whereas here the direct route's fallback is experiment ``update``, which a caller
+    holding only a run-scoped delete grant need not have. The veto closes the hole without
+    denying a run delete that works today.
+
+    No condition context for the assessments: ``assessment`` owns no tag or alias
+    vocabulary and is deliberately not a conditionable type, so the grant tier is the only
+    control surface there.
+    """
+    return _authorize_run(
+        "delete", extra=(Requirement(RESOURCE_TYPE_ASSESSMENT, "*", ACTION_NOT_DENIED),)
+    )
 
 
 def validate_can_manage_run():
@@ -5646,7 +5677,7 @@ def _authorize_trace(
     )
 
 
-def _authorize_existing_traces_as(username, submitted, action, *, mutates=False):
+def _authorize_existing_traces_as(username, submitted, action):
     """Authorize a mutation of traces that ALREADY exist, each on its OWN experiment.
 
     The routes that ingest spans or start a trace take a caller-supplied trace id. An id
@@ -5671,9 +5702,6 @@ def _authorize_existing_traces_as(username, submitted, action, *, mutates=False)
     writes the batch as a unit, so a partial refusal would leave the caller unable to tell
     what was persisted.
 
-    ``mutates`` declares the contexts while leaving the grant tier at ``action``, for a
-    route whose grant contract is a read but whose store call still writes to the trace.
-    See :func:`_authorize_logged_model_id` for the same device and the reasoning.
     """
     if not submitted:
         return True
@@ -5687,7 +5715,7 @@ def _authorize_existing_traces_as(username, submitted, action, *, mutates=False)
     anchor, requirements = resolved
     conditions = (
         []
-        if action == READ_ACTION and not mutates
+        if action == READ_ACTION
         else [
             context_for(
                 RESOURCE_TYPE_TRACE,
@@ -5870,6 +5898,45 @@ def validate_can_query_trace_metrics():
     )
 
 
+def _assessment_source_run_id(assessment_proto) -> "str | None":
+    """The run a body names as the assessment's source, or ``None``.
+
+    ``Assessment`` lifts this metadata key into its own ``run_id`` field, and
+    ``SqlAssessments`` has a ``run_id`` column, so it is a first-class association rather
+    than loose annotation -- and the server does not police the reserved ``mlflow.*``
+    prefix here, so the value is whatever the caller sent.
+    """
+    metadata = dict(assessment_proto.metadata or {})
+    return metadata.get(AssessmentMetadataKey.SOURCE_RUN_ID) or None
+
+
+def _assessment_source_run_permits(run_id: str) -> bool:
+    """The named source run's tier must not be DENIED.
+
+    Naming a run as an assessment's source writes into that run: the association decides
+    what a run's evaluation results contain, and ``_mark_run_deleted`` uses it to decide
+    which assessments a run delete destroys. Stamping a run the caller has no standing
+    over therefore pollutes its result set and hands its deleters the power to remove the
+    assessment.
+
+    A veto, not a positive action: the run is not the subject of the request, so a caller
+    without any run grant must not be refused -- only one the role explicitly denies.
+    Anchored on the RUN's own experiment, which need not be the trace's.
+
+    A nonexistent run denies uniformly (``_run_requirement`` returns ``None``), so the
+    response cannot be used as an oracle for which run ids exist.
+
+    Deliberately declares NO run condition context. Conditioning the run would be the
+    consistent extension -- an association naming a run is a run-side write, which is how
+    ``LinkTracesToRun`` is judged -- but the decision taken was the grant veto alone.
+    """
+    resolved = _run_requirement(run_id, ACTION_NOT_DENIED)
+    if resolved is None:
+        return False
+    run_anchor, requirements = resolved
+    return authorize(authenticate_request().username, run_anchor, requirements)
+
+
 def validate_can_create_assessment():
     """CreateAssessment: the experiment confers the write, or a trace-tier grant does.
 
@@ -5911,6 +5978,9 @@ def validate_can_create_assessment():
     *addressing, experiment_write, trace_write = met
     if not (all(addressing) and (experiment_write or trace_write)):
         return False
+    source_run_id = _assessment_source_run_id(_get_request_message(CreateAssessment()).assessment)
+    if source_run_id and not _assessment_source_run_permits(source_run_id):
+        return False
     return _assessment_trace_conditions(_get_request_param("trace_id"), experiment_id)
 
 
@@ -5927,6 +5997,15 @@ def validate_can_update_assessment():
     if resolved is None:
         return False
     experiment, experiment_id = resolved
+    # A body that REWRITES the source run is the step that turns update authority into
+    # delete authority: stamp a run you may delete, then delete it, and the assessment
+    # goes with it. Only checked when the update actually carries metadata -- an update
+    # touching only `rationale` names no run and must not be made to prove one.
+    message = _get_request_message(UpdateAssessment())
+    if "metadata" in set(message.update_mask.paths):
+        source_run_id = _assessment_source_run_id(message.assessment)
+        if source_run_id and not _assessment_source_run_permits(source_run_id):
+            return False
     return authorize(
         authenticate_request().username,
         experiment,
@@ -6073,18 +6152,24 @@ def validate_can_start_trace_v3():
 
 
 def validate_can_link_traces_to_run():
-    """UPDATE on the run, and the traces' own conditions.
+    """UPDATE on the run, plus ``read`` on every trace named.
 
-    ``store.link_traces_to_run`` writes an association row per trace, so each trace is
-    mutated -- and a trace target condition answers which traces this role may mutate at
-    all. The OTLP ingest path reaches the SAME store call through ``X-Mlflow-Run-Id`` and
-    already evaluates those conditions; this route did not, which made the explicit route
-    the weaker of the two ways to perform one write.
+    ``store.link_traces_to_run`` writes only ``SqlEntityAssociation`` rows -- a
+    ``(trace -> run)`` edge. It touches no trace column, tag or metadata, so linking is a
+    write to the RUN's membership, not a mutation of the traces. The run therefore carries
+    the conditions, which ``_authorize_run_id`` declares; the traces carry a ``read``
+    requirement with the experiment fallback, which is what refuses a denied trace tier.
 
-    The trace GRANT tier stays ``read``, deliberately. Raising it to ``update`` would be a
-    change to this route's pre-existing authorization contract rather than to condition
-    enforcement, and it is left for a separate decision -- so the two routes still differ
-    at the grant rung while agreeing on conditions.
+    No trace MUTATE context is declared, deliberately. A condition is scoped to the exact
+    resource it names, and the resource created here is an association -- not a
+    conditionable type. Declaring the traces' contexts would let a restriction like
+    ``tags.env = 'dev'`` refuse attaching a prod trace to a run, which mutates nothing
+    about that trace.
+
+    The OTLP ingest path is NOT a counter-example, though it looks like one: it reaches
+    this same store call via ``X-Mlflow-Run-Id`` and does evaluate trace conditions -- but
+    those are for the SPANS it appends, which really do mutate the trace. For the
+    association alone it requires exactly what this route does, ``update`` on the run.
     """
     run_id = _get_request_param("run_id")
     if not _authorize_run_id(run_id, "update"):
@@ -6101,11 +6186,7 @@ def validate_can_link_traces_to_run():
             # oracle -- the same choice the previous RESOURCE_DOES_NOT_EXIST branch made.
             return False
         submitted[trace_id] = (str(trace.experiment_id), ())
-    # No request values: the body names trace ids and a run, and sets no trace tag or
-    # alias, so every value clause is vacuous (D13).
-    return _authorize_existing_traces_as(
-        authenticate_request().username, submitted, "read", mutates=True
-    )
+    return _authorize_existing_traces_as(authenticate_request().username, submitted, "read")
 
 
 def validate_can_read_metric_history_bulk(run_ids=None):
