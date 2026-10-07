@@ -1846,6 +1846,16 @@ class SqlAlchemyStore(AbstractStore):
     # optional: a version's discriminator is ``version``, which repeats across models,
     # so an unscoped subquery would let a sibling model's satisfying version acquit this
     # model's failing one.
+    #: The column a cascade can be narrowed by, per entity. ``TransitionModelVersionStage``
+    #: with ``archive_existing_versions`` reaches only the versions already in the stage
+    #: being transitioned into, not every version of the model. Declared separately from
+    #: ``_CASCADE_PUSHDOWN_ENTITIES`` so an entity without a stage is absent here and the
+    #: store refuses to express a window rather than silently answering about the parent.
+    _CASCADE_PUSHDOWN_STAGE_COLUMNS = {
+        "registered_model_version": SqlModelVersion.current_stage,
+        "prompt_version": SqlModelVersion.current_stage,
+    }
+
     _CASCADE_PUSHDOWN_ENTITIES = {
         "registered_model_version": (
             SqlModelVersion,
@@ -1870,7 +1880,7 @@ class SqlAlchemyStore(AbstractStore):
     }
 
     def find_failing_resource(
-        self, entity, clauses, *, ids=None, parent_id=None, max_timestamp_ms=None
+        self, entity, clauses, *, ids=None, parent_id=None, max_timestamp_ms=None, stage=None
     ):
         """Push a conjunctive tag/alias predicate into SQL.
 
@@ -1887,6 +1897,11 @@ class SqlAlchemyStore(AbstractStore):
         its versions, sharing :func:`condition_pushdown.find_failing_child` with the
         tracking store.
         """
+        if stage is not None and parent_id is None:
+            raise ValueError(
+                "find_failing_resource takes `stage` only with `parent_id`; an enumerated "
+                "`ids` population is already exactly what the mutation reaches."
+            )
         if max_timestamp_ms is not None:
             # No registry mutation deletes a timestamp slice of a parent's children, so
             # there is no column to express this against. Declining is the fail-closed
@@ -1905,7 +1920,23 @@ class SqlAlchemyStore(AbstractStore):
             mapping = self._CASCADE_PUSHDOWN_ENTITIES.get(entity)
             if mapping is None:
                 raise condition_pushdown.cannot_express(self, entity, "it has no cascade mapping")
-            return condition_pushdown.find_failing_child(self, mapping, parent_id, clauses)
+            extra_filters = ()
+            if stage is not None:
+                stage_column = self._CASCADE_PUSHDOWN_STAGE_COLUMNS.get(entity)
+                if stage_column is None:
+                    raise condition_pushdown.cannot_express(
+                        self, entity, "it has no stage column to narrow the cascade by"
+                    )
+                # The same comparison `transition_model_version_stage` builds for the rows
+                # it archives, so the probe's population is the mutation's own rather than
+                # an approximation of it. Deliberately NOT excluding the version being
+                # transitioned: it is judged by its own MUTATE context against the same
+                # clauses, so including it only ever makes this population a superset --
+                # "nothing in the stage fails" still implies "no archived sibling fails".
+                extra_filters = (stage_column == stage,)
+            return condition_pushdown.find_failing_child(
+                self, mapping, parent_id, clauses, extra_filters=extra_filters
+            )
 
         namespaces = self._PUSHDOWN_NAMESPACES.get(entity)
         if namespaces is None:

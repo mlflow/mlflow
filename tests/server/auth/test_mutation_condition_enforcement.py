@@ -1547,6 +1547,118 @@ def test_a_target_condition_gates_a_stage_transition(
             transition()
 
 
+def _model_with_two_versions(server, monkeypatch, *, v1_tags, v2_tags, v1_stage=None):
+    """A model with versions 1 and 2, each carrying its own tags.
+
+    ``v1_stage`` parks version 1 in a stage as ADMIN, so a later transition of version 2
+    into that stage is what triggers the archive cascade over version 1.
+    """
+    name = _model_with_version(server, monkeypatch)
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        client = MlflowClient(server)
+        for key, value in v1_tags.items():
+            client.set_model_version_tag(name, "1", key, value)
+        client.create_model_version(name=name, source="s3://bucket/path")
+        for key, value in v2_tags.items():
+            client.set_model_version_tag(name, "2", key, value)
+        if v1_stage is not None:
+            client.transition_model_version_stage(name, "1", v1_stage)
+    return name
+
+
+def test_archiving_siblings_is_refused_when_a_sibling_fails_its_condition(
+    server, auth_client, monkeypatch
+):
+    """F-0040. ``archive_existing_versions`` mutates versions the request never names.
+
+    The store moves every OTHER version of the model already in the target stage to
+    ``Archived``. Version 2 passes the condition and version 1 does not, so transitioning
+    2 into Staging while archiving 1 must be refused -- otherwise the stages API archives a
+    version the role is forbidden to touch.
+    """
+    username, password = _version_conditioned_user(
+        auth_client, monkeypatch, target_condition="tags.lifecycle = 'dev'"
+    )
+    name = _model_with_two_versions(
+        server,
+        monkeypatch,
+        v1_tags={"lifecycle": "prod"},
+        v2_tags={"lifecycle": "dev"},
+        v1_stage="Staging",
+    )
+    with User(username, password, monkeypatch):
+        with pytest.raises(MlflowException, match=r"Permission denied"):
+            MlflowClient(server).transition_model_version_stage(
+                name, "2", "Staging", archive_existing_versions=True
+            )
+
+
+def test_archiving_siblings_is_permitted_when_every_sibling_passes(
+    server, auth_client, monkeypatch
+):
+    """The same request with a sibling the condition admits must still go through."""
+    username, password = _version_conditioned_user(
+        auth_client, monkeypatch, target_condition="tags.lifecycle = 'dev'"
+    )
+    name = _model_with_two_versions(
+        server,
+        monkeypatch,
+        v1_tags={"lifecycle": "dev"},
+        v2_tags={"lifecycle": "dev"},
+        v1_stage="Staging",
+    )
+    with User(username, password, monkeypatch):
+        MlflowClient(server).transition_model_version_stage(
+            name, "2", "Staging", archive_existing_versions=True
+        )
+
+
+def test_a_failing_sibling_outside_the_target_stage_does_not_refuse(
+    server, auth_client, monkeypatch
+):
+    """The cascade is narrowed to the stage the archive actually reaches.
+
+    Version 1 fails the condition but sits in NO stage, so no archive can touch it.
+    Judging the transition against every version of the model would refuse a request that
+    mutates nothing objectionable -- the same over-refusal the timestamp window exists to
+    prevent for ``DeleteTraces``.
+    """
+    username, password = _version_conditioned_user(
+        auth_client, monkeypatch, target_condition="tags.lifecycle = 'dev'"
+    )
+    name = _model_with_two_versions(
+        server,
+        monkeypatch,
+        v1_tags={"lifecycle": "prod"},
+        v2_tags={"lifecycle": "dev"},
+        v1_stage=None,
+    )
+    with User(username, password, monkeypatch):
+        MlflowClient(server).transition_model_version_stage(
+            name, "2", "Staging", archive_existing_versions=True
+        )
+
+
+def test_a_transition_without_the_archive_flag_ignores_siblings(server, auth_client, monkeypatch):
+    """No archive, no cascade. A plain transition mutates only the version it names, so a
+    failing sibling in the target stage is irrelevant to it.
+    """
+    username, password = _version_conditioned_user(
+        auth_client, monkeypatch, target_condition="tags.lifecycle = 'dev'"
+    )
+    name = _model_with_two_versions(
+        server,
+        monkeypatch,
+        v1_tags={"lifecycle": "prod"},
+        v2_tags={"lifecycle": "dev"},
+        v1_stage="Staging",
+    )
+    with User(username, password, monkeypatch):
+        MlflowClient(server).transition_model_version_stage(
+            name, "2", "Staging", archive_existing_versions=False
+        )
+
+
 def test_a_value_condition_cannot_refuse_a_stage_transition(server, auth_client, monkeypatch):
     """The other half of the same split, and the part D15/D16 actually decided.
 

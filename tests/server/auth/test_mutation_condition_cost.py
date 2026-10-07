@@ -570,14 +570,14 @@ class CountingPushdown:
         self.cascade_calls = []
 
     def find_failing_resource(
-        self, entity, clauses, *, ids=None, parent_id=None, max_timestamp_ms=None
+        self, entity, clauses, *, ids=None, parent_id=None, max_timestamp_ms=None, stage=None
     ):
         # One method, two selectors -- so the counters split on which selector was used
         # rather than on which method was called. The cascade's optional window is recorded
         # with it: narrowing the population must not change the NUMBER of queries, which is
         # what this suite measures.
         if parent_id is not None:
-            self.cascade_calls.append((entity, parent_id, list(clauses), max_timestamp_ms))
+            self.cascade_calls.append((entity, parent_id, list(clauses), max_timestamp_ms, stage))
             return self._child_fails
         self.filter_calls.append((entity, list(ids), list(clauses)))
         return self._named_fails
@@ -778,7 +778,9 @@ def _recording_pushdown_store(monkeypatch, answer=None):
 
     calls = []
 
-    def find_failing_resource(entity, clauses, *, ids=None, parent_id=None, max_timestamp_ms=None):
+    def find_failing_resource(
+        entity, clauses, *, ids=None, parent_id=None, max_timestamp_ms=None, stage=None
+    ):
         calls.append((entity, list(ids), list(clauses)))
         # ``None`` is the new "nothing failed", so a caller asking for the default
         # answer gets a pass rather than an echo of the ids.

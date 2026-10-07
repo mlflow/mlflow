@@ -2185,6 +2185,7 @@ class AbstractStore(MCPServerRegistryMixin, GatewayStoreMixin):
         ids: "Sequence[str | tuple[str, ...]] | None" = None,
         parent_id: "str | None" = None,
         max_timestamp_ms: "int | None" = None,
+        stage: "str | None" = None,
     ) -> "str | tuple[str, ...] | None":
         """Find a resource that fails a conjunctive tag/alias predicate.
 

@@ -10113,7 +10113,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
     }
 
     def find_failing_resource(
-        self, entity, clauses, *, ids=None, parent_id=None, max_timestamp_ms=None
+        self, entity, clauses, *, ids=None, parent_id=None, max_timestamp_ms=None, stage=None
     ):
         """Push a conjunctive tag/alias predicate into SQL.
 
@@ -10128,6 +10128,13 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         table is never touched. With ``parent_id`` it is unknown and possibly
         unbounded, so the children must be found in SQL.
         """
+        if stage is not None:
+            # No tracking entity has a stage -- it is a registry concept -- so there is no
+            # column to narrow by. Declining rather than ignoring it keeps a caller that
+            # asked about one stage from being silently answered about the whole parent.
+            raise condition_pushdown.cannot_express(
+                self, entity, "a stage window is a registry concept and has no column here"
+            )
         if (ids is None) == (parent_id is None):
             raise ValueError(
                 "find_failing_resource needs exactly one of `ids` or `parent_id`, "

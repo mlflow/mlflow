@@ -616,6 +616,22 @@ class ConditionContext(NamedTuple):
     #: Only meaningful alongside ``parent_resource_id``, and only for a type whose rows carry
     #: a timestamp -- the store refuses to express it for any other.
     cascade_max_timestamp_ms: int | None = None
+    #: Narrows a cascade to the children currently in one stage.
+    #:
+    #: ``TransitionModelVersionStage`` with ``archive_existing_versions`` archives the
+    #: versions already sitting in the stage being transitioned into -- not every version of
+    #: the model -- so judging it against the whole parent would refuse a transition over a
+    #: stage holding nothing objectionable.
+    #:
+    #: The stage is the mutation's OWN predicate: the store filters on
+    #: ``current_stage == get_canonical_stage(stage)``, and the probe carries the same
+    #: comparison. The version being transitioned is deliberately NOT excluded -- it is
+    #: judged by its own MUTATE context against the same clauses, so leaving it in only makes
+    #: the probed population a superset.
+    #:
+    #: Only meaningful alongside ``parent_resource_id``, and only for a type whose rows carry
+    #: a stage -- the store refuses to express it for any other.
+    cascade_stage: str | None = None
 
 
 class MutationConditionSpec(NamedTuple):
@@ -1293,6 +1309,8 @@ def context_for(
     request: RequestValues | None = None,
     parent_resource_id: str | None = None,
     allow_unscoped_parent: bool = False,
+    cascade_max_timestamp_ms: int | None = None,
+    cascade_stage: str | None = None,
 ) -> ConditionContext:
     """Build a context, treating a wildcard id as "no specific resource".
 
@@ -1352,4 +1370,6 @@ def context_for(
         request=request,
         resource_ids=ids,
         parent_resource_id=parent_resource_id,
+        cascade_max_timestamp_ms=cascade_max_timestamp_ms,
+        cascade_stage=cascade_stage,
     )

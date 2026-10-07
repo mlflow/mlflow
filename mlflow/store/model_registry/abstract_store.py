@@ -1313,9 +1313,12 @@ class AbstractStore:
         return False
 
     def find_failing_resource(
-        self, entity, clauses, *, ids=None, parent_id=None, max_timestamp_ms=None
+        self, entity, clauses, *, ids=None, parent_id=None, max_timestamp_ms=None, stage=None
     ):
         """Find a resource that fails a conjunctive tag/alias predicate.
+
+        ``stage`` narrows a ``parent_id`` cascade to the versions currently in one stage,
+        which is the population ``archive_existing_versions`` reaches.
 
         The registry's half of the authorization pushdown hook; see
         :meth:`mlflow.store.tracking.abstract_store.AbstractStore.find_failing_resource`

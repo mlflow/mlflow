@@ -53,6 +53,10 @@ from mlflow import MlflowException
 from mlflow.entities import Experiment
 from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.model_registry import RegisteredModel
+from mlflow.entities.model_registry.model_version_stages import (
+    DEFAULT_STAGES_FOR_GET_LATEST_VERSIONS,
+    get_canonical_stage,
+)
 from mlflow.environment_variables import (
     _MLFLOW_AUTH_ADMIN_BOOTSTRAPPED,
     _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN,
@@ -1237,7 +1241,7 @@ def _target_denial_detail(context, row, resource_id) -> "str | None":
     return None
 
 
-def _cascade_target_pushdown(context, target_rows, *, parent_id, max_timestamp_ms=None):
+def _cascade_target_pushdown(context, target_rows, *, parent_id, max_timestamp_ms=None, stage=None):
     """Ask the store whether a parent holds a child failing one of this context's rows.
 
     The cascade half of target evaluation. A cascade reaches children the request never
@@ -1303,6 +1307,7 @@ def _cascade_target_pushdown(context, target_rows, *, parent_id, max_timestamp_m
             clauses,
             parent_id=parent_id,
             max_timestamp_ms=max_timestamp_ms,
+            stage=stage,
         )
         if failing is not None:
             # The children were never enumerated, so there is no id mapping to invert --
@@ -1560,6 +1565,7 @@ def _authorize_on_conditions(
                 # The mutation's own predicate, when it reaches only a slice of the parent's
                 # children rather than all of them.
                 max_timestamp_ms=context.cascade_max_timestamp_ms,
+                stage=context.cascade_stage,
             )
             if pushed is not None:
                 # Some child fails, and the store named which. Deny directly rather than
@@ -2954,7 +2960,9 @@ def _parent_for(resource_type: str, parent_id: "str | None") -> "str | None":
     return parent_id if resource_type in PARENT_RESOURCE_TYPES else None
 
 
-def _cascade_contexts(parent_id: str, tiers: "Sequence[str]") -> "list[ConditionContext]":
+def _cascade_contexts(
+    parent_id: str, tiers: "Sequence[str]", *, stage: "str | None" = None
+) -> "list[ConditionContext]":
     """MUTATE contexts for the children a cascade transitions.
 
     A cascade delete or restore reaches rows the request never mentions -- every run in an
@@ -2982,6 +2990,7 @@ def _cascade_contexts(parent_id: str, tiers: "Sequence[str]") -> "list[Condition
                 ConditionScope.MUTATE,
                 request_values_shape(tier)(),
                 parent_resource_id=parent_id,
+                cascade_stage=stage,
             )
         )
     return contexts
@@ -3636,6 +3645,8 @@ def validate_can_delete_model_or_prompt_version_alias() -> bool:
 def _authorize_version_action(
     action: str,
     tags: "tuple[tuple[str, str | None], ...]" = (),
+    *,
+    extra_conditions: "Sequence[ConditionContext]" = (),
 ) -> bool:
     """Authorize a shared model/prompt-version route: grants and conditions, one call.
 
@@ -3671,7 +3682,8 @@ def _authorize_version_action(
                 ConditionScope.MUTATE,
                 request_values_shape(version_type)(tags=tags),
                 parent_resource_id=name,
-            )
+            ),
+            *extra_conditions,
         ],
     )
 
@@ -3811,6 +3823,49 @@ def validate_can_read_model_or_prompt_version():
             Requirement(version_type, "*", ACTION_NOT_DENIED),
         ],
     )
+
+
+def validate_can_transition_model_or_prompt_version_stage():
+    """``TransitionModelVersionStage`` -- which mutates more versions than it names.
+
+    With ``archive_existing_versions`` the store moves every OTHER version of this model
+    currently in the stage being transitioned into to ``Archived``:
+
+        SqlModelVersion.name == name,
+        SqlModelVersion.version != version,
+        SqlModelVersion.current_stage == get_canonical_stage(stage)
+
+    Those versions are mutated by a request that never names them, so a target condition
+    has to govern them too -- otherwise a role restricted to, say,
+    ``tags.lifecycle = 'dev'`` is honoured for the version it transitions and bypassed for
+    every version it archives, and the stages API becomes a way around a restriction that
+    holds for every other write.
+
+    The cascade is narrowed to the stage, because that is the population the archive
+    actually reaches. Judging it against every version of the model would refuse a
+    transition into a stage holding nothing objectionable.
+
+    Only declared when the archive will actually happen. The flag alone is not enough: the
+    store REFUSES ``archive_existing_versions`` for a non-active stage, so asking about a
+    cascade there would gate a request that is about to be rejected anyway -- and would
+    judge versions no archive can reach.
+    """
+    msg = _get_request_message(TransitionModelVersionStage())
+    extra: "list[ConditionContext]" = []
+    if msg.archive_existing_versions:
+        canonical = get_canonical_stage(msg.stage)
+        if canonical in DEFAULT_STAGES_FOR_GET_LATEST_VERSIONS:
+            target = _registered_model_or_prompt_target()
+            if target is None:
+                return False
+            container_type, name = target
+            version_type = (
+                RESOURCE_TYPE_PROMPT_VERSION
+                if container_type == RESOURCE_TYPE_PROMPT
+                else RESOURCE_TYPE_REGISTERED_MODEL_VERSION
+            )
+            extra = _cascade_contexts(name, (version_type,), stage=canonical)
+    return _authorize_version_action("update", extra_conditions=tuple(extra))
 
 
 def validate_can_update_model_or_prompt_version():
@@ -6514,7 +6569,7 @@ BEFORE_REQUEST_HANDLERS = {
     ListGatewayModelDefinitions: validate_can_list_gateway_model_definitions,
     DeleteModelVersion: validate_can_delete_model_or_prompt_version,
     UpdateModelVersion: validate_can_update_model_or_prompt_version,
-    TransitionModelVersionStage: validate_can_update_model_or_prompt_version,
+    TransitionModelVersionStage: validate_can_transition_model_or_prompt_version_stage,
     GetModelVersionDownloadUri: validate_can_read_model_or_prompt_version,
     SetRegisteredModelTag: _validate_can_set_registered_model_or_prompt_tag,
     DeleteRegisteredModelTag: _validate_can_delete_registered_model_or_prompt_tag,

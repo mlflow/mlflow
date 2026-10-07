@@ -56,7 +56,9 @@ def answering_store(values=None, *, failing_child=None, calls=None):
         state = dict(values or {})
         resolve = lambda entity, resource_id: state.get((entity, resource_id))  # noqa: E731
 
-    def find_failing_resource(entity, clauses, *, ids=None, parent_id=None, max_timestamp_ms=None):
+    def find_failing_resource(
+        entity, clauses, *, ids=None, parent_id=None, max_timestamp_ms=None, stage=None
+    ):
         if (ids is None) == (parent_id is None):
             raise ValueError("exactly one of ids or parent_id")
         if parent_id is not None:
@@ -65,10 +67,12 @@ def answering_store(values=None, *, failing_child=None, calls=None):
             # test assert the bound actually reached the store, which is the whole point
             # of narrowing a predicate-mode cascade.
             if calls is not None:
-                calls.append(("parent", entity, parent_id, max_timestamp_ms))
+                calls.append(("parent", entity, parent_id, max_timestamp_ms, stage))
             return failing_child
         if max_timestamp_ms is not None:
             raise ValueError("max_timestamp_ms is only valid with parent_id")
+        if stage is not None:
+            raise ValueError("stage is only valid with parent_id")
         if calls is not None:
             calls.append(("ids", entity, tuple(ids)))
         parsed = _clauses_of(clauses)
