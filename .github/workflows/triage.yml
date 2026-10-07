@@ -807,7 +807,7 @@ jobs:
   trace:
     needs: [issue, triage]
     if: always() && needs.triage.result != 'skipped' && vars.TRIAGE_MLFLOW_EXPERIMENT_ID != ''
-    runs-on: ubuntu-slim
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
       contents: read
@@ -838,11 +838,20 @@ jobs:
           SESSION_FILE: ${{ runner.temp }}/triage-session/triage-session.jsonl
           SESSION_ID: triage-${{ needs.issue.outputs.number }}-${{ github.run_id }}-${{ github.run_attempt }}
         run: |
+          # process_transcript reads the trace back right after logging it, which returns None
+          # for UC-linked experiments until ingestion catches up. Real failures are written to
+          # its log file instead of being raised, so check that for errors.
           uv run --no-sync python -c '
-          import os, sys
+          import os
           from mlflow.claude_code.tracing import process_transcript
           trace = process_transcript(os.environ["SESSION_FILE"], os.environ["SESSION_ID"])
-          if trace is None:
-              sys.exit("process_transcript did not produce a trace")
-          print(f"Logged trace {trace.info.trace_id}")
+          print(f"Logged trace {trace.info.trace_id}" if trace else "Logged trace (not yet readable)")
           '
+          log=.claude/mlflow/claude_tracing.log
+          if [ -f "$log" ]; then
+            cat "$log"
+            if grep -q ' - ERROR - ' "$log"; then
+              echo "::error::Failed to log the triage session as an MLflow trace"
+              exit 1
+            fi
+          fi
