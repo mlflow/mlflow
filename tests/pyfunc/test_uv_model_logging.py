@@ -6,9 +6,11 @@ from pathlib import Path
 from unittest import mock
 
 import pytest
+from sklearn.linear_model import LinearRegression
 
 import mlflow
 import mlflow.pyfunc
+import mlflow.sklearn
 from mlflow.utils.os import is_windows
 from mlflow.utils.uv_utils import (
     _PYPROJECT_FILE,
@@ -523,9 +525,9 @@ def test_pyfunc_log_model_with_legacy_uv_project_path(
             uv_project_path=str(tmp_uv_project),
         )
 
-    client = mlflow.MlflowClient()
-    run_data = client.get_run(run.info.run_id)
-    artifact_dir = Path(run_data.info.artifact_uri.replace("file://", "")) / "m"
+    artifact_dir = Path(
+        mlflow.artifacts.download_artifacts(run_id=run.info.run_id, artifact_path="m")
+    )
     assert (artifact_dir / _UV_LOCK_FILE).exists()
     assert (artifact_dir / _PYPROJECT_FILE).exists()
 
@@ -608,3 +610,44 @@ def test_legacy_and_uvconfig_produce_equivalent_requirements(
     legacy_reqs = (legacy_path / _REQUIREMENTS_FILE_NAME).read_text()
     new_reqs = (new_path / _REQUIREMENTS_FILE_NAME).read_text()
     assert legacy_reqs == new_reqs
+
+
+# --- UvConfig without project_path, and flavors other than pyfunc ---
+
+
+@requires_uv
+def test_pyfunc_log_model_uvconfig_without_project_path_uses_detected_project(
+    tmp_uv_project, python_model, monkeypatch
+):
+    monkeypatch.chdir(tmp_uv_project)
+    monkeypatch.setenv("MLFLOW_UV_AUTO_DETECT", "true")
+
+    with mlflow.start_run() as run:
+        mlflow.pyfunc.log_model(name="model", python_model=python_model, uv=UvConfig())
+
+        artifact_dir = Path(
+            mlflow.artifacts.download_artifacts(run_id=run.info.run_id, artifact_path="model")
+        )
+
+    assert (artifact_dir / _UV_LOCK_FILE).exists()
+    assert (artifact_dir / _PYPROJECT_FILE).exists()
+    assert "numpy" in (artifact_dir / _REQUIREMENTS_FILE_NAME).read_text().lower()
+
+
+@requires_uv
+def test_sklearn_save_model_with_uvconfig_copies_uv_artifacts(
+    tmp_path, tmp_uv_project, monkeypatch
+):
+    work_dir = tmp_path / "work"
+    work_dir.mkdir()
+    monkeypatch.chdir(work_dir)
+    monkeypatch.setenv("MLFLOW_UV_AUTO_DETECT", "false")
+    model = LinearRegression().fit([[0.0], [1.0]], [0.0, 1.0])
+    model_path = tmp_path / "sklearn_model"
+
+    mlflow.sklearn.save_model(model, model_path, uv=UvConfig(project_path=tmp_uv_project))
+
+    assert (model_path / _UV_LOCK_FILE).exists()
+    assert (model_path / _PYPROJECT_FILE).exists()
+    assert "test_uv_project" in (model_path / _PYPROJECT_FILE).read_text()
+    assert (model_path / _REQUIREMENTS_FILE_NAME).exists()

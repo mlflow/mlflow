@@ -17,7 +17,7 @@ from typing import NamedTuple
 
 from packaging.version import Version
 
-from mlflow.environment_variables import MLFLOW_LOG_UV_FILES
+from mlflow.environment_variables import MLFLOW_LOG_UV_FILES, MLFLOW_UV_AUTO_DETECT
 
 _logger = logging.getLogger(__name__)
 
@@ -64,28 +64,26 @@ class UvConfig:
     extras: list[str] | None = None
 
 
-def resolve_uv_params(uv: UvConfig | None = None) -> UvConfig:
-    """Resolve the effective UvConfig for model saving.
+def resolve_uv_source_dir(uv: UvConfig | None) -> Path | None:
+    """Resolve the uv project directory to export requirements from and copy files out of.
 
-    If an explicit UvConfig is provided, returns it directly. If not, checks
-    ``MLFLOW_UV_AUTO_DETECT`` and returns a UvConfig with ``project_path``
-    set to cwd when auto-detect is enabled. Returns an empty UvConfig when
-    uv is disabled.
+    An explicit ``UvConfig.project_path`` always wins. Without one, the current
+    working directory is used when ``MLFLOW_UV_AUTO_DETECT`` is enabled, whether or
+    not a ``UvConfig`` was passed, so ``UvConfig(groups=...)`` still picks up the
+    project it is run from. Returns ``None`` when uv should not be used, in which
+    case callers skip copying uv files.
 
     Args:
-        uv: Optional explicit configuration. Returned as-is when provided.
+        uv: The caller's uv configuration, or None.
 
     Returns:
-        A resolved UvConfig instance.
+        The directory to look for ``uv.lock`` and ``pyproject.toml`` in, or None.
     """
-    if uv is not None:
-        return uv
-
-    from mlflow.environment_variables import MLFLOW_UV_AUTO_DETECT
-
+    if uv is not None and uv.project_path is not None:
+        return Path(uv.project_path)
     if MLFLOW_UV_AUTO_DETECT.get():
-        return UvConfig(project_path=os.getcwd())
-    return UvConfig()
+        return Path.cwd()
+    return None
 
 
 def _resolve_uv_param_compat(
@@ -94,6 +92,7 @@ def _resolve_uv_param_compat(
     uv_groups: "list[str] | None",
     uv_extras: "list[str] | None",
     stacklevel: int = 3,
+    project_path_param: str = "uv_project_path",
 ) -> "UvConfig | None":
     """Collapse legacy uv_project_path/uv_groups/uv_extras into a UvConfig.
 
@@ -116,13 +115,16 @@ def _resolve_uv_param_compat(
             points at the user's call site rather than this helper. The default
             of 3 is correct for a single layer of wrapping (public flavor API
             -> this helper).
+        project_path_param: Name of the caller's legacy project-path parameter, used
+            in the deprecation message. ``infer_pip_requirements`` shipped it as
+            ``uv_project_dir``; the pyfunc APIs shipped it as ``uv_project_path``.
 
     Returns:
         The effective ``UvConfig`` to pass to downstream uv logic, or ``None``
         if neither path was used (auto-detect path remains in effect).
     """
     legacy = {
-        "uv_project_path": uv_project_path,
+        project_path_param: uv_project_path,
         "uv_groups": uv_groups,
         "uv_extras": uv_extras,
     }

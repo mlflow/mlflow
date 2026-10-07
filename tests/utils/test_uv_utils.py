@@ -1,4 +1,5 @@
 import subprocess
+from pathlib import Path
 from unittest import mock
 
 import pytest
@@ -20,6 +21,7 @@ from mlflow.utils.uv_utils import (
     get_uv_version,
     has_uv_lock_artifact,
     is_uv_available,
+    resolve_uv_source_dir,
     run_uv_sync,
     setup_uv_sync_environment,
 )
@@ -926,5 +928,102 @@ def test_infer_pip_requirements_mixing_legacy_and_uv_raises():
             "models:/dummy",
             "sklearn",
             uv=UvConfig(project_path="/tmp/x"),
-            uv_project_path="/tmp/x",
+            uv_project_dir="/tmp/x",
+        )
+
+
+# --- resolve_uv_source_dir tests ---
+
+
+def test_resolve_uv_source_dir_prefers_explicit_project_path(tmp_path, monkeypatch):
+    monkeypatch.setenv("MLFLOW_UV_AUTO_DETECT", "false")
+
+    assert resolve_uv_source_dir(UvConfig(project_path=str(tmp_path))) == tmp_path
+
+
+@pytest.mark.parametrize("uv", [None, UvConfig(), UvConfig(groups=["serving"], extras=["gpu"])])
+def test_resolve_uv_source_dir_uses_cwd_when_auto_detect_enabled(tmp_path, monkeypatch, uv):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("MLFLOW_UV_AUTO_DETECT", "true")
+
+    assert resolve_uv_source_dir(uv) == Path.cwd()
+
+
+@pytest.mark.parametrize("uv", [None, UvConfig(), UvConfig(groups=["serving"], extras=["gpu"])])
+def test_resolve_uv_source_dir_returns_none_when_auto_detect_disabled(monkeypatch, uv):
+    monkeypatch.setenv("MLFLOW_UV_AUTO_DETECT", "false")
+
+    assert resolve_uv_source_dir(uv) is None
+
+
+def test_infer_pip_requirements_uvconfig_without_project_path_auto_detects_cwd(
+    tmp_path, monkeypatch
+):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("MLFLOW_UV_AUTO_DETECT", "true")
+    (tmp_path / _UV_LOCK_FILE).touch()
+    (tmp_path / _PYPROJECT_FILE).touch()
+
+    mock_result = mock.Mock()
+    mock_result.stdout = "gunicorn==22.0.0\n"
+
+    with (
+        mock.patch("mlflow.utils.uv_utils._get_uv_binary", return_value="/usr/bin/uv"),
+        mock.patch("mlflow.utils.uv_utils.subprocess.run", return_value=mock_result) as mock_run,
+    ):
+        result = infer_pip_requirements(
+            str(tmp_path), "sklearn", uv=UvConfig(groups=["serving"], extras=["gpu"])
+        )
+
+    assert "gunicorn==22.0.0" in result
+    cmd = mock_run.call_args.args[0]
+    assert cmd[cmd.index("--group") + 1] == "serving"
+    assert cmd[cmd.index("--extra") + 1] == "gpu"
+    assert mock_run.call_args.kwargs["cwd"] == Path.cwd()
+
+
+# --- Deprecated uv_project_dir alias on infer_pip_requirements (3.11 surface) ---
+
+
+def test_resolve_uv_param_compat_names_the_caller_parameter():
+    with pytest.warns(FutureWarning, match=r"\['uv_project_dir'\]"):
+        result = _resolve_uv_param_compat(
+            None, "/p", None, None, project_path_param="uv_project_dir"
+        )
+
+    assert result == UvConfig(project_path="/p")
+
+
+def test_infer_pip_requirements_uv_project_dir_is_deprecated_alias(tmp_path, monkeypatch):
+    work_dir = tmp_path / "work"
+    work_dir.mkdir()
+    monkeypatch.chdir(work_dir)
+    monkeypatch.setenv("MLFLOW_UV_AUTO_DETECT", "false")
+
+    uv_project = tmp_path / "my_project"
+    uv_project.mkdir()
+    (uv_project / _UV_LOCK_FILE).touch()
+    (uv_project / _PYPROJECT_FILE).touch()
+
+    mock_result = mock.Mock()
+    mock_result.stdout = "requests==2.28.0\n"
+
+    with (
+        mock.patch("mlflow.utils.uv_utils._get_uv_binary", return_value="/usr/bin/uv"),
+        mock.patch("mlflow.utils.uv_utils.subprocess.run", return_value=mock_result) as mock_run,
+        pytest.warns(FutureWarning, match="uv_project_dir"),
+    ):
+        result = infer_pip_requirements(str(tmp_path), "sklearn", uv_project_dir=uv_project)
+
+    assert "requests==2.28.0" in result
+    assert mock_run.call_args.kwargs["cwd"] == uv_project
+
+
+def test_infer_pip_requirements_uv_project_dir_with_uv_raises():
+    with pytest.raises(MlflowException, match="Cannot specify both"):
+        infer_pip_requirements(
+            "models:/dummy",
+            "sklearn",
+            uv=UvConfig(project_path="/tmp/x"),
+            uv_project_dir="/tmp/y",
         )

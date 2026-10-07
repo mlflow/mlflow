@@ -591,7 +591,7 @@ from mlflow.utils.requirements_utils import (
     warn_dependency_requirement_mismatches,
 )
 from mlflow.utils.spark_utils import is_spark_connect_mode
-from mlflow.utils.uv_utils import copy_uv_project_files
+from mlflow.utils.uv_utils import copy_uv_project_files, resolve_uv_source_dir
 from mlflow.utils.virtualenv import _get_python_env, _get_virtualenv_name
 from mlflow.utils.warnings_utils import color_warning
 
@@ -3757,10 +3757,7 @@ def _save_model_with_loader_module_and_data_path(
     Returns:
         Model configuration containing model info.
     """
-    from mlflow.utils.uv_utils import resolve_uv_params
-
-    resolved_uv = resolve_uv_params(uv)
-    uv_source_dir = resolved_uv.project_path
+    uv_source_dir = resolve_uv_source_dir(uv)
 
     data = None
 
@@ -3809,7 +3806,7 @@ def _save_model_with_loader_module_and_data_path(
                 FLAVOR_NAME,
                 fallback=default_reqs,
                 extra_env_vars=extra_env_vars,
-                uv=resolved_uv,
+                uv=uv,
             )
             default_reqs = sorted(set(inferred_reqs).union(default_reqs))
         else:

@@ -47,6 +47,7 @@ from mlflow.utils.requirements_utils import (
 )
 from mlflow.utils.timeout import MlflowTimeoutError, run_with_timeout
 from mlflow.utils.uv_utils import (
+    _resolve_uv_param_compat,
     detect_uv_project,
     export_uv_requirements,
     extract_index_urls_from_uv_lock,
@@ -413,7 +414,7 @@ def infer_pip_requirements(
     fallback=None,
     timeout=None,
     extra_env_vars=None,
-    uv_project_path=None,
+    uv_project_dir=None,
     uv_groups=None,
     uv_extras=None,
     uv=None,
@@ -434,7 +435,7 @@ def infer_pip_requirements(
         timeout: If specified, the inference operation is bound by the timeout (in seconds).
         extra_env_vars: A dictionary of extra environment variables to pass to the subprocess.
             Default to None.
-        uv_project_path: Deprecated. Use ``uv=UvConfig(project_path=...)`` instead.
+        uv_project_dir: Deprecated. Use ``uv=UvConfig(project_path=...)`` instead.
             Kept for backwards compatibility with MLflow 3.11 and will be removed
             in a future release.
         uv_groups: Deprecated. Use ``uv=UvConfig(groups=...)`` instead. Kept for
@@ -452,9 +453,9 @@ def infer_pip_requirements(
         A list of inferred pip requirements (e.g. ``["scikit-learn==0.24.2", ...]``).
 
     """
-    from mlflow.utils.uv_utils import _resolve_uv_param_compat
-
-    uv = _resolve_uv_param_compat(uv, uv_project_path, uv_groups, uv_extras)
+    uv = _resolve_uv_param_compat(
+        uv, uv_project_dir, uv_groups, uv_extras, project_path_param="uv_project_dir"
+    )
 
     uv_project_dir = uv.project_path if uv is not None else None
     uv_groups = uv.groups if uv is not None else None

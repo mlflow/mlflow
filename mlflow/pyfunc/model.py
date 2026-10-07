@@ -98,7 +98,7 @@ from mlflow.utils.file_utils import TempDir, get_total_file_size, write_to
 from mlflow.utils.model_utils import _get_flavor_configuration, _validate_infer_and_copy_code_paths
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 from mlflow.utils.uri import validate_path_within_directory
-from mlflow.utils.uv_utils import copy_uv_project_files
+from mlflow.utils.uv_utils import copy_uv_project_files, resolve_uv_source_dir
 
 CONFIG_KEY_ARTIFACTS = "artifacts"
 CONFIG_KEY_ARTIFACT_RELATIVE_PATH = "path"
@@ -1323,10 +1323,7 @@ def _save_model_with_class_artifacts_params(
     # `mlflow_model.code` is updated, re-generate `MLmodel` file.
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
-    from mlflow.utils.uv_utils import resolve_uv_params
-
-    resolved_uv = resolve_uv_params(uv)
-    uv_source_dir = resolved_uv.project_path
+    uv_source_dir = resolve_uv_source_dir(uv)
 
     if conda_env is None:
         if pip_requirements is None:
@@ -1343,7 +1340,7 @@ def _save_model_with_class_artifacts_params(
                 mlflow.pyfunc.FLAVOR_NAME,
                 fallback=default_reqs,
                 extra_env_vars=extra_env_vars,
-                uv=resolved_uv,
+                uv=uv,
             )
             default_reqs = sorted(set(inferred_reqs).union(default_reqs))
         else:
