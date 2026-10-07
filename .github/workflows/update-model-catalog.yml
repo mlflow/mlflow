@@ -50,9 +50,6 @@ jobs:
           persist-credentials: false
 
       - uses: ./.github/actions/setup-python
-        with:
-          pin-micro-version: false
-
       - uses: ./.github/actions/setup-node
 
       - name: Fetch and transform model catalog
