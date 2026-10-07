@@ -202,8 +202,7 @@ def list_scorers(
     scorer_data = [{"name": scorer.name, "description": scorer.description} for scorer in scorers]
     if output == "json":
         click.echo(json.dumps({"scorers": scorer_data}, indent=2))
-    else:
-        table = [[s["name"], s["description"] or ""] for s in scorer_data]
+    elif table := [[s["name"], s["description"] or ""] for s in scorer_data]:
         click.echo(_create_table(table, headers=["Scorer Name", "Description"]))
 
 

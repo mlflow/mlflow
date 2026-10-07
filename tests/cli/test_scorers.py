@@ -164,8 +164,7 @@ def test_list_scorers_empty_experiment(
         output_json = json.loads(result.output)
         assert output_json == expected_output
     else:
-        # Empty table produces minimal output
-        assert result.output.strip() == expected_output
+        assert result.output == expected_output
 
 
 def test_list_scorers_with_experiment_id_env_var(
