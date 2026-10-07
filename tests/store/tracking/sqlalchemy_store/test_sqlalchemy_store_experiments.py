@@ -948,15 +948,21 @@ def test_create_experiments(store: SqlAlchemyStore):
 
 @pytest.mark.parametrize("name", [" ", "\t\n", "\u2003"])
 def test_experiment_name_cannot_be_whitespace(store: SqlAlchemyStore, name):
-    with pytest.raises(MlflowException, match="Invalid experiment name") as exc:
+    with pytest.raises(
+        MlflowException,
+        match="Invalid experiment name",
+        check=lambda e: e.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE),
+    ):
         store.create_experiment(name)
-    assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
     assert len(store.search_experiments()) == 1
 
     experiment_id = store.create_experiment(" valid name ")
-    with pytest.raises(MlflowException, match="Invalid experiment name") as exc:
+    with pytest.raises(
+        MlflowException,
+        match="Invalid experiment name",
+        check=lambda e: e.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE),
+    ):
         store.rename_experiment(experiment_id, name)
-    assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
     assert store.get_experiment(experiment_id).name == " valid name "
 
 
