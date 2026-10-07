@@ -1,5 +1,8 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "env": {
+    "PYTEST_ADDOPTS": "--color=no"
+  },
   "statusLine": {
     "type": "command",
     "command": "$CLAUDE_PROJECT_DIR/.claude/scripts/statusline.sh"
