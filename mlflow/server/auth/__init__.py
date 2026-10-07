@@ -2192,10 +2192,18 @@ def _authorize_logged_model_id(
     )
 
 
-def _prompt_optimization_job_experiment_id() -> str | None:
-    job_entity = get_job(_get_request_param("job_id"))
-    experiment_id = json.loads(job_entity.params).get("experiment_id")
-    return experiment_id or None
+def _prompt_optimization_job_scope() -> "tuple[str, str | None] | None":
+    """The job's experiment and its backing run, from one job read.
+
+    Both come out of the job's ``params``, which is exactly where the handler reads them
+    (``_build_prompt_optimization_job_from_entity``), so the gate and the handler cannot
+    disagree about which run is at stake. ``None`` when the job names no experiment.
+    """
+    params = json.loads(get_job(_get_request_param("job_id")).params)
+    experiment_id = params.get("experiment_id")
+    if not experiment_id:
+        return None
+    return experiment_id, params.get("run_id") or None
 
 
 def _get_permission_from_prompt_optimization_job_id() -> Permission:
@@ -3186,18 +3194,42 @@ def validate_can_read_prompt_optimization_job():
 
 
 def _authorize_prompt_optimization_job(action: str) -> bool:
-    experiment_id = _prompt_optimization_job_experiment_id()
-    if experiment_id is None:
+    """Authorize a job lifecycle route, and the backing run it reaches past the job into.
+
+    Both routes mutate a second resource: cancel terminates the run
+    (``update_run_info(KILLED)``) and delete removes it (``delete_run``). The run is a
+    target in its own right, so an applicable run condition has to be evaluated against
+    it -- and anchored on the run's OWN experiment rather than the one the job claims,
+    which is what ``_authorize_run_id`` does.
+
+    Order matters for delete: the handler removes the job record BEFORE it touches the
+    run, so a denial discovered afterwards could not be retried -- the job is already
+    gone and the run is still there.
+    """
+    scope = _prompt_optimization_job_scope()
+    if scope is None:
         return False
+    experiment_id, run_id = scope
     experiment = (RESOURCE_TYPE_EXPERIMENT, experiment_id)
-    return authorize(
+    if not authorize(
         authenticate_request().username,
         experiment,
         [
             Requirement(RESOURCE_TYPE_EXPERIMENT, experiment_id, action),
             Requirement(RESOURCE_TYPE_RUN, "*", ACTION_NOT_DENIED),
         ],
-    )
+    ):
+        return False
+    if run_id is None:
+        # No backing run, so nothing beyond the job record is touched.
+        return True
+    if auth_resources.fetch_run(run_id) is None:
+        # The run is already gone -- `fetch_run` returns ``None`` only for
+        # RESOURCE_DOES_NOT_EXIST, so this is "no such run", not "the lookup failed".
+        # Nothing protected can be mutated, and the handler's own run step is a tolerated
+        # no-op in exactly this case; denying here would strand the job instead.
+        return True
+    return _authorize_run_id(run_id, action)
 
 
 def validate_can_update_prompt_optimization_job():

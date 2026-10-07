@@ -134,6 +134,13 @@ def recorder(monkeypatch):
         "fetch_logged_model",
         lambda model_id: SimpleNamespace(experiment_id="1", model_id=model_id),
     )
+    # A prompt-optimization job whose params name both the experiment and the run the
+    # lifecycle routes reach into.
+    monkeypatch.setattr(
+        auth_module,
+        "get_job",
+        lambda job_id: SimpleNamespace(params=json.dumps({"experiment_id": "1", "run_id": "r-1"})),
+    )
     monkeypatch.setattr(auth_module, "_entity_is_prompt", lambda msg: False)
     monkeypatch.setattr(auth_module, "_request_targets_prompt", lambda *a, **k: False)
     return rec
@@ -355,6 +362,26 @@ _WIRED_MUTATIONS = [
         "experiment",
         ConditionScope.CREATE,
     ),
+    # Prompt-optimization job lifecycle. Both routes reach past the job record into its
+    # backing run -- cancel terminates it, delete removes it -- so the run is a target and
+    # must be conditioned. Delete especially: the handler drops the job record BEFORE
+    # touching the run, so a denial found later could not be retried.
+    (
+        "validate_can_update_prompt_optimization_job",
+        "/api/3.0/mlflow/prompt-optimization/jobs/<job_id>/cancel",
+        "POST",
+        {"job_id": "j-1"},
+        "run",
+        ConditionScope.MUTATE,
+    ),
+    (
+        "validate_can_delete_prompt_optimization_job",
+        "/api/3.0/mlflow/prompt-optimization/jobs/<job_id>",
+        "DELETE",
+        {"job_id": "j-1"},
+        "run",
+        ConditionScope.MUTATE,
+    ),
 ]
 
 
@@ -477,6 +504,11 @@ def test_every_wired_mutation_extracts_its_values(
         "validate_can_create_assessment",
         "validate_can_update_assessment",
         "validate_can_delete_assessment",
+        # A job lifecycle body names a job, not a tag. The run context exists for the
+        # TARGET condition: the question is whether this run may be terminated or deleted
+        # at all, not what values are being written to it.
+        "validate_can_update_prompt_optimization_job",
+        "validate_can_delete_prompt_optimization_job",
     }
 
     with auth_module.app.test_request_context(path, method=method, json=body):
@@ -1194,3 +1226,77 @@ def test_deleting_an_experiment_does_not_enumerate_without_a_child_condition(mon
     assert _delete_experiment() is True
     asked = [c for c in calls if c[1] != "experiment"]
     assert asked == [], f"asked the store about a child tier with no condition on it; {asked}"
+
+
+def test_a_rejecting_run_condition_blocks_the_job_lifecycle(recorder, monkeypatch):
+    """The backing run is judged against the run's OWN experiment, not the job's claim.
+
+    A job's params say which experiment it belongs to, but the run the handler terminates
+    or deletes is resolved independently -- so a job claiming experiment 1 cannot get its
+    run judged as though it lived there. The anchor comes from the run.
+    """
+    monkeypatch.setattr(
+        auth_module,
+        "get_job",
+        lambda job_id: SimpleNamespace(params=json.dumps({"experiment_id": "1", "run_id": "r-9"})),
+    )
+    monkeypatch.setattr(
+        auth_resources,
+        "fetch_run",
+        lambda run_id: SimpleNamespace(info=SimpleNamespace(experiment_id="7", run_id=run_id)),
+    )
+
+    for path, method, validator in (
+        ("/api/3.0/mlflow/prompt-optimization/jobs/<job_id>/cancel", "POST", "update"),
+        ("/api/3.0/mlflow/prompt-optimization/jobs/<job_id>", "DELETE", "delete"),
+    ):
+        recorder.contexts.clear()
+        with auth_module.app.test_request_context(path, method=method, json={"job_id": "j-1"}):
+            getattr(auth_module, f"validate_can_{validator}_prompt_optimization_job")()
+        runs = [
+            c
+            for c in recorder.contexts
+            if c.resource_type == "run" and c.scope is ConditionScope.MUTATE
+        ]
+        assert runs, f"{validator} declared no run MUTATE context"
+        assert all(c.parent_resource_id == "7" for c in runs), (
+            "the run context must be anchored on the run's own experiment, not the job's; "
+            f"got {[c.parent_resource_id for c in runs]}"
+        )
+        assert all("r-9" in c.resource_ids for c in runs), (
+            f"the run context must name the backing run; got {[c.resource_ids for c in runs]}"
+        )
+
+
+def test_a_job_with_no_backing_run_declares_no_run_condition(recorder, monkeypatch):
+    """Nothing beyond the job record is touched, so there is no second target."""
+    monkeypatch.setattr(
+        auth_module,
+        "get_job",
+        lambda job_id: SimpleNamespace(params=json.dumps({"experiment_id": "1"})),
+    )
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/prompt-optimization/jobs/<job_id>", method="DELETE", json={"job_id": "j-1"}
+    ):
+        assert auth_module.validate_can_delete_prompt_optimization_job() is True
+    assert not [c for c in recorder.contexts if c.resource_type == "run"]
+
+
+def test_an_already_deleted_backing_run_does_not_strand_the_job(recorder, monkeypatch):
+    """`fetch_run` returns None only for RESOURCE_DOES_NOT_EXIST, so this is "no such run".
+
+    Nothing protected can be mutated and the handler's own run step is a tolerated no-op,
+    so denying here would make the job permanently undeletable instead.
+    """
+    monkeypatch.setattr(
+        auth_module,
+        "get_job",
+        lambda job_id: SimpleNamespace(
+            params=json.dumps({"experiment_id": "1", "run_id": "r-gone"})
+        ),
+    )
+    monkeypatch.setattr(auth_resources, "fetch_run", lambda run_id: None)
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/prompt-optimization/jobs/<job_id>", method="DELETE", json={"job_id": "j-1"}
+    ):
+        assert auth_module.validate_can_delete_prompt_optimization_job() is True
