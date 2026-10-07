@@ -5,6 +5,32 @@ description: GitHub Actions workflow and composite action conventions for MLflow
 
 # GitHub Actions Workflow Guidelines
 
+## Name Steps When the Name Adds Information
+
+GitHub Actions UI shows only the first line of an unnamed `run:` step. Add a short,
+action-oriented `name:` when it explains the whole step better than that line,
+even if the first command is clear:
+
+```yaml
+# Bad: the GitHub Actions UI shows only the condition.
+- run: |
+    if [ "$RUN_TESTS" = true ]; then
+      npm test
+    fi
+
+# Good: the name explains the step.
+- name: Run tests
+  run: |
+    if [ "$RUN_TESTS" = true ]; then
+      npm test
+    fi
+```
+
+Omit a name that merely restates a self-explanatory command, such as
+`Install dependencies` for `npm ci`. An action path like
+`./.github/actions/setup-python` can also speak for itself. Keep names concise;
+the job name often supplies enough context.
+
 ## Reinvent the Wheel When It's Cheap
 
 Prefer a small `run:` step or repository script over a third-party action when
@@ -32,13 +58,13 @@ be costly or error-prone to reproduce.
 
 ## Use `ubuntu-slim` for Lightweight Tasks
 
-Prefer `ubuntu-slim` over `ubuntu-latest` for simple jobs (e.g., labeling, commenting, notifications).
+Prefer `ubuntu-slim` over `ubuntu-24.04` for simple jobs (e.g., labeling, commenting, notifications).
 
-Note: `ubuntu-slim` has a 15-minute timeout limit. Use `ubuntu-latest` for long-running jobs (e.g., polling).
+Note: `ubuntu-slim` has a 15-minute timeout limit. Use `ubuntu-24.04` for long-running jobs (e.g., polling).
 
 ```yaml
 # Bad
-runs-on: ubuntu-latest
+runs-on: ubuntu-24.04
 
 # Good
 runs-on: ubuntu-slim

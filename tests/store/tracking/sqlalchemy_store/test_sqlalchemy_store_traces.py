@@ -78,7 +78,7 @@ from mlflow.tracing.constant import (
     TraceSizeStatsKey,
     TraceTagKey,
 )
-from mlflow.tracing.utils import TraceJSONEncoder
+from mlflow.tracing.utils import TraceJSONEncoder, dump_span_attribute_value
 from mlflow.utils.file_utils import TempDir, local_file_uri_to_path
 from mlflow.utils.mlflow_tags import MLFLOW_ARTIFACT_LOCATION
 from mlflow.utils.time import get_current_time_millis
@@ -430,6 +430,50 @@ def test_search_traces_order_by(store_with_traces, order_by, expected_ids):
 
 
 @pytest.mark.parametrize(
+    ("order_by", "needs_null_ordering"),
+    [
+        ("timestamp ASC", False),
+        ("timestamp DESC", False),
+        ("experiment_id", False),
+        ("status", False),
+        ("execution_time DESC", True),
+        ("name", True),
+        ("tag.nonexistent", True),
+        ("run_id", True),
+    ],
+)
+def test_search_traces_order_by_null_handling(store, order_by, needs_null_ordering):
+    with store.ManagedSessionMaker() as session:
+        selects, clauses, joins = sqlalchemy_store_module._get_orderby_clauses_for_search_traces(
+            [order_by], session
+        )
+        query = session.query(SqlTraceInfo, *selects)
+        for join in joins:
+            query = query.outerjoin(join, SqlTraceInfo.request_id == join.c.request_id)
+        statement = str(query.order_by(*clauses).statement.compile(dialect=postgresql.dialect()))
+
+    assert ("CASE WHEN" in statement) == needs_null_ordering
+    assert statement.endswith("trace_info.request_id ASC") or statement.endswith(
+        "trace_info.request_id"
+    )
+    if order_by.startswith("timestamp"):
+        direction = " DESC" if order_by.endswith("DESC") else ""
+        assert f"ORDER BY trace_info.timestamp_ms{direction}, trace_info.request_id" in statement
+
+
+@pytest.mark.parametrize("direction", ["ASC", "DESC"])
+def test_search_traces_order_by_nullable_attribute(store, direction):
+    exp_id = store.create_experiment("nullable-ordering")
+    _create_trace(store, "tr-missing", exp_id, execution_duration=None)
+    _create_trace(store, "tr-fast", exp_id, execution_duration=1)
+    _create_trace(store, "tr-slow", exp_id, execution_duration=2)
+
+    traces, _ = store.search_traces([exp_id], order_by=[f"execution_time {direction}"])
+    ordered_ids = ["tr-fast", "tr-slow"] if direction == "ASC" else ["tr-slow", "tr-fast"]
+    assert [trace.trace_id for trace in traces] == [*ordered_ids, "tr-missing"]
+
+
+@pytest.mark.parametrize(
     ("filter_string", "expected_ids"),
     [
         # Search by name
@@ -665,7 +709,8 @@ def test_search_traces_pagination(store_with_traces):
     assert token is None
 
 
-def test_search_traces_pagination_tie_breaker(store):
+@pytest.mark.parametrize("order_by", [None, ["timestamp DESC"]])
+def test_search_traces_pagination_tie_breaker(store, order_by):
     # This test is for ensuring the tie breaker for ordering traces with the same timestamp
     # works correctly.
     exp1 = store.create_experiment("exp1")
@@ -682,13 +727,13 @@ def test_search_traces_pagination_tie_breaker(store):
     for rid in trace_ids:
         _create_trace(store, rid, exp1, request_time=1)
 
-    traces, token = store.search_traces([exp1], max_results=3)
+    traces, token = store.search_traces([exp1], max_results=3, order_by=order_by)
     assert [t.trace_id for t in traces] == ["tr-5", "tr-6", "tr-7"]
-    traces, token = store.search_traces([exp1], max_results=3, page_token=token)
+    traces, token = store.search_traces([exp1], max_results=3, page_token=token, order_by=order_by)
     assert [t.trace_id for t in traces] == ["tr-8", "tr-9", "tr-0"]
-    traces, token = store.search_traces([exp1], max_results=3, page_token=token)
+    traces, token = store.search_traces([exp1], max_results=3, page_token=token, order_by=order_by)
     assert [t.trace_id for t in traces] == ["tr-1", "tr-2", "tr-3"]
-    traces, token = store.search_traces([exp1], max_results=3, page_token=token)
+    traces, token = store.search_traces([exp1], max_results=3, page_token=token, order_by=order_by)
     assert [t.trace_id for t in traces] == ["tr-4"]
 
 
@@ -905,6 +950,42 @@ def test_search_traces_with_full_text_filter(store: SqlAlchemyStore):
     traces, _ = store.search_traces([exp_id], filter_string='trace.text LIKE "%90%%"')
     assert len(traces) == 1
     assert traces[0].trace_id == trace3_id
+
+
+@pytest.mark.skipif(IS_MSSQL, reason="MSSQL stores span content with non-ASCII escaped.")
+@pytest.mark.parametrize("text", ["café", "¿Qué es MLflow?", "什么是MLflow", "🚀 launch"])
+@pytest.mark.parametrize("key", ["trace.text", "span.content"])
+def test_search_traces_with_full_text_filter_non_ascii(store: SqlAlchemyStore, key, text):
+    exp_id = store.create_experiment("test_non_ascii_text_search")
+    trace_id = "trace_non_ascii"
+    _create_trace(store, trace_id, exp_id)
+    _create_trace(store, "trace_ascii", exp_id)
+
+    def make_span(trace_id, span_id, inputs):
+        # Serialize inputs the way the tracing SDK does, rather than with `json.dumps`
+        # defaults like `create_test_span`, which would already escape non-ASCII text.
+        otel_span = OTelReadableSpan(
+            name="chat",
+            context=create_mock_span_context(12345, span_id),
+            attributes={
+                SpanAttributeKey.REQUEST_ID: json.dumps(trace_id),
+                SpanAttributeKey.SPAN_TYPE: json.dumps("LLM"),
+                SpanAttributeKey.INPUTS: dump_span_attribute_value(inputs),
+            },
+            start_time=1_000_000_000,
+            end_time=2_000_000_000,
+            resource=_OTelResource.get_empty(),
+        )
+        return create_mlflow_span(otel_span, trace_id, "LLM")
+
+    store.log_spans(exp_id, [make_span(trace_id, 111, {"question": text})])
+    store.log_spans(exp_id, [make_span("trace_ascii", 222, {"question": "ascii only"})])
+
+    for comparator in ("LIKE", "ILIKE"):
+        traces, _ = store.search_traces([exp_id], filter_string=f'{key} {comparator} "%{text}%"')
+        assert [t.trace_id for t in traces] == [trace_id]
+
+    assert store.get_trace(trace_id).data.spans[0].inputs == {"question": text}
 
 
 def test_search_traces_with_invalid_span_attribute(store: SqlAlchemyStore):

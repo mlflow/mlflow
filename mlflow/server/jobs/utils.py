@@ -22,6 +22,7 @@ from mlflow.entities._job_status import JobStatus
 from mlflow.environment_variables import (
     MLFLOW_ENABLE_WORKSPACES,
     MLFLOW_LOGGING_LEVEL,
+    MLFLOW_SERVER_JOB_EXECUTION_ENGINE,
     MLFLOW_SERVER_JOB_FLUSH_PERIODIC_LOCKS_ON_STARTUP,
     MLFLOW_SERVER_JOB_HUEY_REDIS_URL,
     MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_BASE_DELAY,
@@ -36,6 +37,7 @@ from mlflow.tracing.trace_archival_service import (
     _run_trace_archival_scheduler,
     _should_run_trace_archival_scheduler,
 )
+from mlflow.utils import PYTHON_VERSION
 from mlflow.utils.environment import _PythonEnv
 from mlflow.utils.import_hooks import register_post_import_hook
 from mlflow.utils.process import _exec_cmd
@@ -45,6 +47,7 @@ from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 if TYPE_CHECKING:
     from huey import Huey
 
+    from mlflow.entities._job import Job
     from mlflow.store.jobs.abstract_store import AbstractJobStore
 
 _logger = logging.getLogger(__name__)
@@ -78,7 +81,7 @@ def _exponential_backoff_retry(retry_count: int) -> None:
 
 
 @dataclass
-class JobResult:
+class _SubprocessJobResult:
     succeeded: bool
     result: str | None = None  # serialized JSON string
     is_transient_error: bool | None = None
@@ -87,17 +90,19 @@ class JobResult:
     @classmethod
     def from_error(
         cls, e: Exception, transient_error_classes: list[type[Exception]] | None = None
-    ) -> "JobResult":
+    ) -> "_SubprocessJobResult":
         from mlflow.server.jobs import TransientError
 
         if isinstance(e, TransientError):
-            return JobResult(succeeded=False, is_transient_error=True, error=repr(e.origin_error))
+            return _SubprocessJobResult(
+                succeeded=False, is_transient_error=True, error=repr(e.origin_error)
+            )
 
         if transient_error_classes:
             if e.__class__ in transient_error_classes:
-                return JobResult(succeeded=False, is_transient_error=True, error=repr(e))
+                return _SubprocessJobResult(succeeded=False, is_transient_error=True, error=repr(e))
 
-        return JobResult(
+        return _SubprocessJobResult(
             succeeded=False,
             is_transient_error=False,
             error=repr(e),
@@ -108,9 +113,29 @@ class JobResult:
             json.dump(asdict(self), fp)
 
     @classmethod
-    def load(cls, path: str) -> "JobResult":
+    def load(cls, path: str) -> "_SubprocessJobResult":
         with open(path) as fp:
-            return JobResult(**json.load(fp))
+            return _SubprocessJobResult(**json.load(fp))
+
+
+def _kill_own_process_group() -> None:
+    """SIGKILL the caller's process group when the caller leads that group.
+
+    Local-executor job subprocesses are started with ``start_new_session=True``,
+    so each leads its own process group; killing that group tears down any
+    descendants the job spawned. ``killpg`` delivers ``SIGKILL`` to the caller
+    too, so callers that also need to guarantee termination of a non-leader
+    process should still fall back to ``os._exit`` afterwards.
+    """
+    try:
+        pgid = os.getpgid(0)
+    except OSError:
+        return
+    if pgid == os.getpid():
+        try:
+            os.killpg(pgid, signal.SIGKILL)
+        except OSError:
+            pass
 
 
 def _exit_when_orphaned(poll_interval: float = 1) -> None:
@@ -123,9 +148,59 @@ def _exit_when_orphaned(poll_interval: float = 1) -> None:
         parent_pid = os.getppid()
     while True:
         current_parent_pid = os.getppid()
-        if current_parent_pid == 1 or current_parent_pid != parent_pid:
+        # Detect orphaning by comparing against the original parent pid rather than
+        # testing ``current_parent_pid == 1``: when the original parent legitimately
+        # runs as PID 1 (e.g. the MLflow server as a container's init process) a
+        # healthy child also observes ``getppid() == 1``, and treating that as
+        # orphaned would kill a running job's whole process group.
+        if current_parent_pid != parent_pid:
+            # Kill the whole process group so descendants spawned by an orphaned
+            # job do not outlive it. For non-leaders this is a no-op and os._exit
+            # still terminates this process.
+            _kill_own_process_group()
             os._exit(1)
         time.sleep(poll_interval)
+
+
+def _normalize_python_env(python_env: _PythonEnv | None) -> _PythonEnv | None:
+    """Pin the interpreter to the server's Python version, preserving deps.
+
+    Returns a copy so callers never mutate the caller-supplied ``_PythonEnv``.
+    """
+    if python_env is None:
+        return None
+
+    return _PythonEnv(
+        python=PYTHON_VERSION,
+        build_dependencies=list(python_env.build_dependencies),
+        dependencies=list(python_env.dependencies),
+    )
+
+
+def _kill_process(process: subprocess.Popen | None) -> bool:
+    """SIGKILL the process group led by ``process``.
+
+    Returns True only when a signal was delivered to a still-running group leader.
+    """
+    if process is None or process.returncode is not None:
+        return False
+    try:
+        if os.getpgid(process.pid) == process.pid:
+            os.killpg(process.pid, signal.SIGKILL)
+            return True
+    except ProcessLookupError:
+        return False
+    return False
+
+
+def _reap_process(process: subprocess.Popen | None) -> None:
+    """Wait on ``process`` to release its zombie entry, ignoring double-reap."""
+    if process is None:
+        return
+    try:
+        process.wait()
+    except ChildProcessError:
+        pass
 
 
 def is_process_alive(pid: int) -> bool:
@@ -180,36 +255,47 @@ def _start_huey_consumer_proc(
 _JOB_ENTRY_MODULE = "mlflow.server.jobs._job_subproc_entry"
 
 
+_JOB_ENV_SETUP_MODULE = "mlflow.server.jobs._job_env_setup"
+
+
 _JOB_STATUS_POLL_INTERVAL = 1
 
 
-def _exec_job_in_subproc(
+@dataclass(frozen=True)
+class _PreparedJobSetupCommand:
+    command: list[str]
+    cwd: str | None = None
+    extra_env: dict[str, str] | None = None
+
+
+@dataclass(frozen=True)
+class _PreparedJobSubprocess:
+    command: list[str]
+    env: dict[str, str]
+    result_path: str
+    setup_commands: tuple[_PreparedJobSetupCommand, ...] = ()
+
+
+def _prepare_job_subprocess(
     function_fullname: str,
     params: dict[str, Any],
     python_env: _PythonEnv | None,
     transient_error_classes: list[type[Exception]] | None,
-    timeout: float | None,
     tmpdir: str,
-    job_store: "AbstractJobStore",
     job_id: str,
     job_name: str,
     workspace: str | None,
     extra_envs: dict[str, str] | None = None,
-) -> JobResult | None:
-    """
-    Executes the job function in a subprocess,
-    If the job execution time exceeds timeout, the subprocess is killed and return None,
-    otherwise return `JobResult` instance,
-    """
-    from mlflow.utils.process import _exec_cmd, _join_commands
+) -> _PreparedJobSubprocess:
+    from mlflow.server.jobs._job_env_setup import _get_incomplete_marker_path
+    from mlflow.utils.process import _join_commands
     from mlflow.utils.virtualenv import (
         _get_mlflow_virtualenv_root,
-        _get_uv_env_creation_command,
         _get_virtualenv_activate_cmd,
-        _get_virtualenv_extra_env_vars,
         _get_virtualenv_name,
     )
 
+    setup_commands = []
     if python_env is not None:
         if shutil.which("uv") is None:
             raise MlflowException(
@@ -217,27 +303,40 @@ def _exec_job_in_subproc(
                 "but 'uv' is not installed."
             )
 
-        # set up virtual python environment
         virtual_envs_root_path = Path(_get_mlflow_virtualenv_root())
         env_name = _get_virtualenv_name(python_env, None)
         env_dir = virtual_envs_root_path / env_name
         activate_cmd = _get_virtualenv_activate_cmd(env_dir)
 
-        if not env_dir.exists():
-            _logger.info(f"Creating a python virtual environment in {env_dir}.")
-            # create python environment
-            env_creation_cmd = _get_uv_env_creation_command(env_dir, python_env.python)
-            _exec_cmd(env_creation_cmd, capture_output=False)
-
-            # install dependencies
-            tmp_req_file = "requirements.txt"
-            (Path(tmpdir) / tmp_req_file).write_text("\n".join(python_env.dependencies))
-            cmd = _join_commands(activate_cmd, f"uv pip install -r {tmp_req_file}")
-            _exec_cmd(
-                cmd,
-                cwd=tmpdir,
-                extra_env=_get_virtualenv_extra_env_vars(),
-                capture_output=False,
+        if not env_dir.exists() or _get_incomplete_marker_path(env_dir).exists():
+            _logger.info(f"Creating or repairing a python virtual environment in {env_dir}.")
+            requirements_file = Path(tmpdir) / "requirements.txt"
+            requirements_file.write_text("\n".join(python_env.dependencies))
+            setup_command = [
+                sys.executable,
+                "-m",
+                _JOB_ENV_SETUP_MODULE,
+                "--env-dir",
+                str(env_dir),
+                "--python-version",
+                python_env.python,
+                "--requirements-file",
+                str(requirements_file),
+            ]
+            # Install build dependencies (e.g. pinned pip/setuptools/wheel)
+            # before the regular dependencies, mirroring the canonical MLflow
+            # environment-restore ordering.
+            if python_env.build_dependencies:
+                build_requirements_file = Path(tmpdir) / "build-requirements.txt"
+                build_requirements_file.write_text("\n".join(python_env.build_dependencies))
+                setup_command += ["--build-requirements-file", str(build_requirements_file)]
+            # Record the original parent pid so the setup subprocess can exit (and
+            # release its environment lock) if the server dies and it is reparented.
+            setup_commands.append(
+                _PreparedJobSetupCommand(
+                    command=setup_command,
+                    extra_env={MLFLOW_ORIGINAL_PARENT_PID_ENV_VAR: str(os.getpid())},
+                )
             )
         else:
             _logger.debug(f"The python environment {env_dir} already exists.")
@@ -265,12 +364,60 @@ def _exec_job_in_subproc(
         **(extra_envs or {}),
     }
 
-    if workspace:
+    if workspace is None:
+        job_env.pop(MLFLOW_WORKSPACE.name, None)
+    else:
         job_env[MLFLOW_WORKSPACE.name] = workspace
 
-    with subprocess.Popen(
-        job_cmd,
+    return _PreparedJobSubprocess(
+        command=job_cmd,
         env=job_env,
+        result_path=result_file,
+        setup_commands=tuple(setup_commands),
+    )
+
+
+def _exec_job_in_subproc(
+    function_fullname: str,
+    params: dict[str, Any],
+    python_env: _PythonEnv | None,
+    transient_error_classes: list[type[Exception]] | None,
+    timeout: float | None,
+    tmpdir: str,
+    job_store: "AbstractJobStore",
+    job_id: str,
+    job_name: str,
+    workspace: str | None,
+    extra_envs: dict[str, str] | None = None,
+) -> _SubprocessJobResult | None:
+    """
+    Executes the job function in a subprocess,
+    If the job execution time exceeds timeout, the subprocess is killed and return None,
+    otherwise return `_SubprocessJobResult` instance,
+    """
+    prepared_subprocess = _prepare_job_subprocess(
+        function_fullname=function_fullname,
+        params=params,
+        python_env=python_env,
+        transient_error_classes=transient_error_classes,
+        tmpdir=tmpdir,
+        job_id=job_id,
+        job_name=job_name,
+        workspace=workspace,
+        extra_envs=extra_envs,
+    )
+
+    for setup_command in prepared_subprocess.setup_commands:
+        _exec_cmd(
+            setup_command.command,
+            cwd=setup_command.cwd,
+            extra_env=setup_command.extra_env,
+            capture_output=False,
+        )
+
+    with subprocess.Popen(
+        prepared_subprocess.command,
+        env=prepared_subprocess.env,
     ) as popen:
         beg_time = time.time()
         while popen.poll() is None:
@@ -289,12 +436,12 @@ def _exec_job_in_subproc(
                     return None
 
         if popen.returncode == 0:
-            return JobResult.load(result_file)
+            return _SubprocessJobResult.load(prepared_subprocess.result_path)
 
-        return JobResult.from_error(
+        return _SubprocessJobResult.from_error(
             RuntimeError(
                 f"The subprocess that executes job function {function_fullname} "
-                f"exists with error code {popen.returncode}"
+                f"exited with error code {popen.returncode}"
             )
         )
 
@@ -313,6 +460,27 @@ def _compute_exclusive_lock_key(job_name: str, params: dict[str, Any]) -> str:
     params_json = json.dumps(params, sort_keys=True)
     params_hash = hashlib.sha256(params_json.encode()).hexdigest()[:16]
     return f"{job_name}:{params_hash}"
+
+
+def _compute_job_lock_key(
+    job_name: str, params: dict[str, Any], exclusive: bool | list[str], workspace: str | None
+) -> str:
+    """Compute the exclusive lock key for a job.
+
+    Shared by both execution engines (the Huey ``_exec_job`` and the executor scheduler) so their
+    key derivation cannot drift: ``exclusive=True`` locks on all params, a list of names locks on
+    only those params, and the key is namespaced by workspace when workspaces are enabled. Callers
+    check ``exclusive`` is truthy before calling.
+    """
+    lock_params = (
+        {k: v for k, v in params.items() if k in exclusive}
+        if isinstance(exclusive, list)
+        else params
+    )
+    lock_key_job_name = job_name
+    if MLFLOW_ENABLE_WORKSPACES.get():
+        lock_key_job_name = f"{workspace or DEFAULT_WORKSPACE_NAME}:{job_name}"
+    return _compute_exclusive_lock_key(lock_key_job_name, lock_params)
 
 
 def _exec_job(
@@ -352,17 +520,7 @@ def _exec_job(
             from huey.exceptions import TaskLockedException
 
             huey_instance = _get_or_init_huey_instance(job_name).instance
-            # If exclusive is a list, filter params to only those specified
-            lock_params = (
-                {k: v for k, v in params.items() if k in exclusive}
-                if isinstance(exclusive, list)
-                else params
-            )
-
-            lock_key_job_name = job_name
-            if MLFLOW_ENABLE_WORKSPACES.get():
-                lock_key_job_name = f"{workspace or DEFAULT_WORKSPACE_NAME}:{job_name}"
-            lock_key = _compute_exclusive_lock_key(lock_key_job_name, lock_params)
+            lock_key = _compute_job_lock_key(job_name, params, exclusive, workspace)
             lock = huey_instance.lock_task(lock_key)
             try:
                 lock.acquire()
@@ -635,6 +793,58 @@ def _launch_job_runner(env_map, server_proc_pid):
     )
 
 
+# MLFLOW_SERVER_JOB_EXECUTION_ENGINE is an opt-in: unset -> the default engine (Huey today), or
+# "executor" to opt into the executor framework. "huey" is intentionally not settable by name
+# (see get_job_execution_engine), so nothing has to change when Huey is retired.
+_DEFAULT_JOB_EXECUTION_ENGINE = "huey"
+_EXECUTOR_JOB_EXECUTION_ENGINE = "executor"
+
+
+def get_job_execution_engine() -> str:
+    """Return the job execution engine to use.
+
+    ``MLFLOW_SERVER_JOB_EXECUTION_ENGINE`` is an opt-in switch: leave it unset to use the default
+    engine (currently Huey), or set it to ``"executor"`` to route job execution through the
+    ``AbstractJobExecutor`` framework. It is intentionally *not* settable to ``"huey"`` — pinning
+    the current default by name would silently break once Huey is retired — so any explicit value
+    other than ``"executor"`` is rejected rather than silently accepted.
+    """
+    if not MLFLOW_SERVER_JOB_EXECUTION_ENGINE.is_set():
+        return _DEFAULT_JOB_EXECUTION_ENGINE
+    engine = MLFLOW_SERVER_JOB_EXECUTION_ENGINE.get().strip().lower()
+    if engine != _EXECUTOR_JOB_EXECUTION_ENGINE:
+        raise MlflowException.invalid_parameter_value(
+            f"{MLFLOW_SERVER_JOB_EXECUTION_ENGINE.name} may only be set to "
+            f"{_EXECUTOR_JOB_EXECUTION_ENGINE!r} to opt into the executor engine; unset it to use "
+            f"the default engine (got {engine!r})."
+        )
+    return engine
+
+
+def _launch_executor_runner(env_map, server_proc_pid):
+    server_up_time = str(int(time.time() * 1000))
+    return subprocess.Popen(
+        [
+            sys.executable,
+            "-m",
+            "mlflow.server.jobs._executor_runner",
+        ],
+        env={
+            **os.environ,
+            **env_map,
+            "MLFLOW_SERVER_PID": str(server_proc_pid),
+            MLFLOW_SERVER_UP_TIME: server_up_time,
+        },
+    )
+
+
+def _launch_job_execution_runner(env_map, server_proc_pid):
+    """Launch the job runner for the configured execution engine."""
+    if get_job_execution_engine() == "executor":
+        return _launch_executor_runner(env_map, server_proc_pid)
+    return _launch_job_runner(env_map, server_proc_pid)
+
+
 def _start_watcher_to_kill_job_runner_if_mlflow_server_dies(check_interval: float = 1.0) -> None:
     mlflow_server_pid = int(os.environ.get("MLFLOW_SERVER_PID"))
 
@@ -689,42 +899,60 @@ def _workspace_contexts_for_recovery() -> list[ContextManager[str | None]]:
     return [WorkspaceContext(workspace.name) for workspace in store.list_workspaces()]
 
 
+def _for_each_unfinished_job(
+    job_store: "AbstractJobStore",
+    statuses: list[JobStatus],
+    end_timestamp: int,
+    handler: "Callable[[Job, str | None], None]",
+) -> None:
+    """Apply ``handler`` to each unfinished job created at/before ``end_timestamp``, per workspace.
+
+    Shared by both engines' startup recovery. It owns the per-workspace iteration and the
+    launch-time bound (so a job submitted to the freshly started server is never touched); the
+    status set and the per-job action stay with each caller, since the engines act differently
+    (Huey resets then re-enqueues; the executor only resets and lets the scheduler re-claim).
+    """
+    for workspace_ctx in _workspace_contexts_for_recovery():
+        with workspace_ctx as workspace:
+            for job in list(job_store.list_jobs(statuses=statuses, end_timestamp=end_timestamp)):
+                handler(job, workspace)
+
+
 def _enqueue_unfinished_jobs(server_launching_timestamp: int) -> None:
     from mlflow.server.handlers import _get_job_store
 
     job_store = _get_job_store()
 
-    for workspace_ctx in _workspace_contexts_for_recovery():
-        with workspace_ctx as workspace:
-            unfinished_jobs = job_store.list_jobs(
-                statuses=[JobStatus.PENDING, JobStatus.RUNNING],
-                # filter out jobs created after the server is launched.
-                end_timestamp=server_launching_timestamp,
-            )
+    def _reset_and_enqueue(job: "Job", workspace: str | None) -> None:
+        if job.status in {JobStatus.RUNNING, JobStatus.NEEDS_RECOVERY}:
+            job_store.reset_job(job.job_id)  # reset the job status to PENDING
 
-            for job in unfinished_jobs:
-                if job.status == JobStatus.RUNNING:
-                    job_store.reset_job(job.job_id)  # reset the job status to PENDING
+        params = json.loads(job.params)
+        timeout = job.timeout
+        # Only propagate workspace to subprocess when workspaces are enabled
+        if MLFLOW_ENABLE_WORKSPACES.get():
+            job_workspace = job.workspace or workspace or DEFAULT_WORKSPACE_NAME
+        else:
+            job_workspace = None
+        # Look up exclusive flag from function metadata
+        fn_fullname = get_job_fn_fullname(job.job_name)
+        fn_metadata = _load_function(fn_fullname)._job_fn_metadata
+        # enqueue job
+        _get_or_init_huey_instance(job.job_name).submit_task(
+            job.job_id,
+            job_workspace,
+            job.job_name,
+            params,
+            timeout,
+            fn_metadata.exclusive,
+        )
 
-                params = json.loads(job.params)
-                timeout = job.timeout
-                # Only propagate workspace to subprocess when workspaces are enabled
-                if MLFLOW_ENABLE_WORKSPACES.get():
-                    job_workspace = job.workspace or workspace or DEFAULT_WORKSPACE_NAME
-                else:
-                    job_workspace = None
-                # Look up exclusive flag from function metadata
-                fn_fullname = get_job_fn_fullname(job.job_name)
-                fn_metadata = _load_function(fn_fullname)._job_fn_metadata
-                # enqueue job
-                _get_or_init_huey_instance(job.job_name).submit_task(
-                    job.job_id,
-                    job_workspace,
-                    job.job_name,
-                    params,
-                    timeout,
-                    fn_metadata.exclusive,
-                )
+    _for_each_unfinished_job(
+        job_store,
+        [JobStatus.PENDING, JobStatus.RUNNING, JobStatus.NEEDS_RECOVERY],
+        server_launching_timestamp,
+        _reset_and_enqueue,
+    )
 
 
 def _validate_function_parameters(function: Callable[..., Any], params: dict[str, Any]) -> None:

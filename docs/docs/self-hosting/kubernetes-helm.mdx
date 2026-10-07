@@ -36,7 +36,16 @@ helm install mlflow oci://ghcr.io/mlflow/charts/mlflow \
   --create-namespace
 ```
 
-Available versions are listed under the [mlflow organization packages](https://github.com/orgs/mlflow/packages). New chart versions are published by the MLflow release automation.
+Available versions are listed under the [mlflow organization packages](https://github.com/orgs/mlflow/packages).
+Each stable MLflow release publishes a chart after its Docker images succeed;
+release candidates do not publish charts. Chart version and `appVersion` both
+match the MLflow version, so chart `X.Y.Z` defaults to image
+`ghcr.io/mlflow/mlflow:vX.Y.Z-full`.
+
+Release-aligned versions replace the original `0.1.x` chart numbering. Existing
+`0.1.x` artifacts remain available, but update any `0.1.x` version constraints
+to receive new releases. Check the published versions before installing; older
+MLflow releases may not have a corresponding chart.
 
 Alternatively, download [the chart source](https://github.com/mlflow/mlflow/tree/master/charts) to your current working directory and install from the local path:
 

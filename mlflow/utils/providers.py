@@ -235,7 +235,7 @@ def _catalog_pkg() -> Path:
 def _list_provider_names() -> list[str]:
     """Return provider names available in the bundled catalog (cheap directory listing)."""
     try:
-        return [p.stem for p in _catalog_pkg().glob("*.json") if p.is_file()]
+        return sorted(p.stem for p in _catalog_pkg().glob("*.json") if p.is_file())
     except (FileNotFoundError, TypeError):
         return []
 
@@ -824,6 +824,12 @@ _PROVIDER_AUTH_MODES: dict[str, dict[str, AuthModeDict]] = {
                     "description": "TypeSafe API Key",
                     "secret": True,
                     "required": True,
+                },
+                {
+                    "name": "api_base",
+                    "description": "TypeSafe API Base URL (defaults to https://api.typesafe.ai/v1)",
+                    "secret": False,
+                    "required": False,
                 },
             ],
         },

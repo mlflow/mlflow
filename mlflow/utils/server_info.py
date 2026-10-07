@@ -10,6 +10,7 @@ from typing import Any
 from mlflow.utils.rest_utils import MlflowHostCreds, http_request
 
 SERVER_INFO_ENDPOINT = "/api/3.0/mlflow/server-info"
+SERVER_FEATURES_ENDPOINT = "/api/3.0/mlflow/server-features"
 
 SERVER_INFO_STORE_TYPE = "store_type"
 SERVER_INFO_WORKSPACES_ENABLED = "workspaces_enabled"
@@ -81,11 +82,11 @@ def _cache_success_locked(key: str, response: ServerInfoResponse) -> None:
         _SERVER_INFO_CACHE.popitem(last=False)
 
 
-def _fetch_server_info_uncached(host_creds: MlflowHostCreds) -> ServerInfoResponse:
+def _fetch_server_info_response(host_creds: MlflowHostCreds, endpoint: str) -> ServerInfoResponse:
     try:
         response = http_request(
             host_creds=host_creds,
-            endpoint=SERVER_INFO_ENDPOINT,
+            endpoint=endpoint,
             method="GET",
             timeout=3,
             max_retries=0,
@@ -98,18 +99,24 @@ def _fetch_server_info_uncached(host_creds: MlflowHostCreds) -> ServerInfoRespon
         try:
             data = response.json()
         except ValueError as exc:
-            raise ServerInfoRequestError(
-                f"Invalid JSON returned by {SERVER_INFO_ENDPOINT}"
-            ) from exc
+            raise ServerInfoRequestError(f"Invalid JSON returned by {endpoint}") from exc
 
         if not isinstance(data, dict):
             raise ServerInfoRequestError(
-                f"Expected a JSON object from {SERVER_INFO_ENDPOINT}, got {type(data).__name__}"
+                f"Expected a JSON object from {endpoint}, got {type(data).__name__}"
             )
 
         return ServerInfoResponse(status_code=200, data=data)
 
     return ServerInfoResponse(status_code=response.status_code, text=response.text)
+
+
+def _fetch_server_info_uncached(host_creds: MlflowHostCreds) -> ServerInfoResponse:
+    return _fetch_server_info_response(host_creds, SERVER_INFO_ENDPOINT)
+
+
+def _fetch_server_features(host_creds: MlflowHostCreds) -> ServerInfoResponse:
+    return _fetch_server_info_response(host_creds, SERVER_FEATURES_ENDPOINT)
 
 
 def fetch_server_info(host_creds: MlflowHostCreds) -> ServerInfoResponse:
