@@ -12,7 +12,7 @@ action-oriented `name:` when it explains the whole step better than that line,
 even if the first command is clear:
 
 ```yaml
-# Bad: GitHub shows only the condition.
+# Bad: the GitHub Actions UI shows only the condition.
 - run: |
     if [ "$RUN_TESTS" = true ]; then
       npm test
