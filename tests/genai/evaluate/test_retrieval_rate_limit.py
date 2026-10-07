@@ -66,14 +66,15 @@ def request_limiting_sdk(monkeypatch):
     # installed SDKs. Real SDK transport/retry behavior is covered in its suite.
     sdk = pytest.importorskip("databricks.agents.evals.judges")
     active_limiter = contextvars.ContextVar("test_sdk_request_limiter", default=None)
-    state = SimpleNamespace(throttle_once=False)
+    state = SimpleNamespace(throttle_once=False, enabled=True, context_entries=0)
     lock = threading.Lock()
 
     @contextmanager
     def use_judge_request_rate_limiter(limiter):
-        token = active_limiter.set(limiter)
+        state.context_entries += 1
+        token = active_limiter.set(limiter if state.enabled is True else None)
         try:
-            yield
+            yield state.enabled
         finally:
             active_limiter.reset(token)
 
@@ -113,9 +114,16 @@ def make_item(trace):
 @databricks_only
 @pytest.mark.parametrize("model", [None, "databricks"])
 @pytest.mark.parametrize("sdk_supports_limiting", [False, True])
+@pytest.mark.parametrize("workspace_enabled", [False, True])
 def test_retrieval_charges_requests_or_falls_back_to_invocations(
-    request_limiting_sdk, sample_rag_trace, model, sdk_supports_limiting, monkeypatch
+    request_limiting_sdk,
+    sample_rag_trace,
+    model,
+    sdk_supports_limiting,
+    workspace_enabled,
+    monkeypatch,
 ):
+    request_limiting_sdk.state.enabled = workspace_enabled
     if not sdk_supports_limiting:
         monkeypatch.delattr(request_limiting_sdk.module, "use_judge_request_rate_limiter")
     limiter = RecordingLimiter()
@@ -130,9 +138,10 @@ def test_retrieval_charges_requests_or_falls_back_to_invocations(
     assert sorted(a.rationale for a in chunks) == ["content_1", "content_2", "content_3"]
     assert all(a.value == "yes" and a.error is None for a in chunks)
     assert len(result.assessments) == 5
-    assert limiter.admissions == (3 if sdk_supports_limiting else 1)
+    request_limiting_enabled = sdk_supports_limiting and workspace_enabled
+    assert limiter.admissions == (3 if request_limiting_enabled else 1)
     assert limiter.successes == limiter.admissions
-    assert limiter.clock.now == (0.5 if sdk_supports_limiting else 0.0)
+    assert limiter.clock.now == (0.5 if request_limiting_enabled else 0.0)
 
 
 @databricks_only
@@ -193,6 +202,18 @@ def test_zero_rate_keeps_request_limiting_disabled(request_limiting_sdk, sample_
     assert len(result.assessments) == 5
     assert all(a.error is None for a in result.assessments)
     assert request_limiting_sdk.active_limiter.get() is None
+    assert request_limiting_sdk.state.context_entries == 0
+
+
+@databricks_only
+@pytest.mark.parametrize("activation_result", [None, "true", 1])
+def test_sdk_must_explicitly_confirm_request_admission(request_limiting_sdk, activation_result):
+    request_limiting_sdk.state.enabled = activation_result
+    limiter = RecordingLimiter()
+    with scorer_rate_limit_context(RetrievalRelevance(model="databricks"), limiter) as invocation:
+        invocation.acquire()
+        assert request_limiting_sdk.active_limiter.get() is None
+    assert limiter.admissions == 1
 
 
 @databricks_only

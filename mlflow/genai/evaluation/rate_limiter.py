@@ -188,7 +188,7 @@ class NoOpRateLimiter(RateLimiter):
 
 @contextlib.contextmanager
 def scorer_rate_limit_context(scorer: Scorer, rate_limiter: RateLimiter) -> Iterator[RateLimiter]:
-    """Move admission to Databricks retrieval requests when the SDK supports it."""
+    """Move admission to Databricks retrieval requests when the SDK activates it."""
     if isinstance(rate_limiter, NoOpRateLimiter):
         yield rate_limiter
         return
@@ -213,10 +213,11 @@ def scorer_rate_limit_context(scorer: Scorer, rate_limiter: RateLimiter) -> Iter
         yield rate_limiter
         return
 
-    with use_judge_request_rate_limiter(rate_limiter):
-        # The SDK charges each HTTP attempt and reports throttles/successes,
-        # including independent chunk retries. Do not charge the scorer again.
-        yield NoOpRateLimiter()
+    with use_judge_request_rate_limiter(rate_limiter) as request_limiting_enabled:
+        # Only skip invocation admission when the SDK confirms that it is charging
+        # each HTTP attempt. A disabled or unavailable workspace setting retains
+        # the existing scorer limiter.
+        yield NoOpRateLimiter() if request_limiting_enabled is True else rate_limiter
 
 
 def call_with_retry(
