@@ -14,11 +14,11 @@ function removeInvisibleCharacters(text) {
 }
 
 function sanitizeInput(text) {
-  return removeInvisibleCharacters(removeControlCharacters(removeHtmlComments(text)));
+  return removeHtmlComments(removeInvisibleCharacters(removeControlCharacters(text)));
 }
 
 function sanitizeOutput(text) {
-  return removeInvisibleCharacters(removeControlCharacters(removeHtmlComments(text)));
+  return removeHtmlComments(removeInvisibleCharacters(removeControlCharacters(text)));
 }
 
 module.exports = {
