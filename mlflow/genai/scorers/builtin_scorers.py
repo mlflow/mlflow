@@ -92,6 +92,8 @@ from mlflow.genai.scorers.base import (
     Scorer,
     ScorerKind,
     SerializedScorer,
+    _dump_quality_threshold,
+    _restore_quality_threshold,
 )
 from mlflow.genai.scorers.scorer_utils import (
     get_tool_call_signature,
@@ -337,7 +339,7 @@ class BuiltInScorer(Judge):
 
     def model_dump(self, **kwargs) -> dict[str, Any]:
         """Override model_dump to handle builtin scorer serialization."""
-        # `quality_threshold` is applied by `evaluate`, not persisted with the scorer.
+        # `quality_threshold` is saved below in its JSON form, and only when it is set.
         exclude = kwargs.pop("exclude", None)
         if isinstance(exclude, dict):
             exclude = {**exclude, "quality_threshold": True}
@@ -347,6 +349,10 @@ class BuiltInScorer(Judge):
             self, mode="json", exclude=exclude, **kwargs
         )
         pydantic_model_data["instructions"] = self.instructions
+        if self.quality_threshold is not None:
+            pydantic_model_data["quality_threshold"] = _dump_quality_threshold(
+                self.quality_threshold
+            )
 
         serialized = SerializedScorer(
             name=self.name,
@@ -391,9 +397,10 @@ class BuiltInScorer(Judge):
                 error_class="ATTRIBUTE_NOT_FOUND",
             )
 
-        constructor_args = serialized.builtin_scorer_pydantic_data or {}
+        constructor_args = dict(serialized.builtin_scorer_pydantic_data or {})
+        quality_threshold = constructor_args.pop("quality_threshold", None)
 
-        return scorer_class(**constructor_args)
+        return _restore_quality_threshold(scorer_class(**constructor_args), quality_threshold)
 
     def validate_columns(self, columns: set[str]) -> None:
         if missing_columns := self.required_columns - columns:

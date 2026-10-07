@@ -33,6 +33,8 @@ from mlflow.genai.scorers.base import (
     _SERIALIZATION_VERSION,
     ScorerKind,
     SerializedScorer,
+    _dump_quality_threshold,
+    _restore_quality_threshold,
 )
 from mlflow.genai.utils.trace_utils import (
     resolve_expectations_from_trace,
@@ -356,6 +358,10 @@ class MemoryAugmentedJudge(Judge):
             "semantic_memory": [g.model_dump() for g in self._semantic_memory],
             **{field: getattr(self, f"_{field}") for field in _CONFIG_FIELDS},
         }
+        if self.quality_threshold is not None:
+            memory_augmented_data["quality_threshold"] = _dump_quality_threshold(
+                self.quality_threshold
+            )
 
         serialized = SerializedScorer(
             name=self.name,
@@ -394,7 +400,7 @@ class MemoryAugmentedJudge(Judge):
         instance._semantic_memory = [Guideline(**g) for g in data["semantic_memory"]]
         instance._episodic_trace_ids = data.get("episodic_trace_ids") or []
 
-        return instance
+        return _restore_quality_threshold(instance, data.get("quality_threshold"))
 
     def _create_copy(self) -> "MemoryAugmentedJudge":
         """
@@ -415,6 +421,7 @@ class MemoryAugmentedJudge(Judge):
         )
         judge_copy._semantic_memory = copy.deepcopy(self._semantic_memory)
         judge_copy._episodic_trace_ids = self._episodic_trace_ids.copy()
+        judge_copy.quality_threshold = self.quality_threshold
 
         return judge_copy
 

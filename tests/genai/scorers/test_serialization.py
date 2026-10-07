@@ -10,7 +10,7 @@ import mlflow
 from mlflow.entities import Feedback
 from mlflow.entities.scorer import ScorerVersion
 from mlflow.exceptions import MlflowException
-from mlflow.genai.scorers import Scorer, scorer
+from mlflow.genai.scorers import QualityThreshold, Scorer, scorer
 from mlflow.genai.scorers.base import SerializedScorer
 from mlflow.genai.scorers.builtin_scorers import Guidelines
 from mlflow.genai.scorers.scorer_utils import THIRD_PARTY_SCORER_ALLOWED_MODULES
@@ -78,25 +78,79 @@ def test_builtin_scorer_serialization_format():
     assert serialized["original_func_name"] is None
 
 
-def test_quality_threshold_is_not_serialized():
+def _saved_kinds():
     from mlflow.genai.judges import make_judge
+    from mlflow.genai.scorers import make_scorer_ensemble
     from mlflow.genai.scorers.builtin_scorers import RelevanceToQuery
-
-    @scorer
-    def decorated(outputs) -> bool:
-        return True
 
     judge = make_judge(
         name="tone", instructions="Is {{ outputs }} polite?", feedback_value_type=bool
     )
-    decorated, judge, builtin = (
-        s.with_quality_threshold(0.9) for s in [decorated, judge, RelevanceToQuery()]
+    ensemble = make_scorer_ensemble(
+        name="ensemble", scorers=[RelevanceToQuery()], ensemble_fn="agg_all"
     )
+    return [
+        (RelevanceToQuery(), "builtin_scorer_pydantic_data"),
+        (Guidelines(guidelines=["Be polite"]), "builtin_scorer_pydantic_data"),
+        (judge, "instructions_judge_pydantic_data"),
+        (ensemble, "ensemble_scorer_data"),
+    ]
 
-    for serialized in [decorated.model_dump(), judge.model_dump(), builtin.model_dump()]:
-        assert "quality_threshold" not in json.dumps(serialized)
 
-    assert Scorer.model_validate(builtin.model_dump()).quality_threshold is None
+@pytest.mark.parametrize(
+    ("value", "saved"),
+    [
+        (0.9, 0.9),
+        (
+            QualityThreshold(at_most=2.0, aggregation="p90"),
+            {"at_least": None, "at_most": 2.0, "aggregation": "p90"},
+        ),
+    ],
+)
+@pytest.mark.parametrize(("original", "data_key"), _saved_kinds(), ids=lambda x: str(x)[:20])
+def test_quality_threshold_round_trips_inside_scorer_data(original, data_key, value, saved):
+    dumped = original.with_quality_threshold(value).model_dump()
+
+    assert dumped[data_key]["quality_threshold"] == saved
+    assert "quality_threshold" not in dumped
+    assert Scorer.model_validate(dumped).quality_threshold == value
+    assert Scorer.model_validate_json(json.dumps(dumped)).quality_threshold == value
+
+
+@pytest.mark.parametrize(("original", "data_key"), _saved_kinds(), ids=lambda x: str(x)[:20])
+def test_scorer_without_quality_threshold_saves_no_key(original, data_key):
+    dumped = original.model_dump()
+
+    assert "quality_threshold" not in json.dumps(dumped)
+    assert Scorer.model_validate(dumped).quality_threshold is None
+
+
+def test_decorator_scorer_does_not_save_quality_threshold():
+    @scorer
+    def decorated(outputs) -> bool:
+        return True
+
+    dumped = decorated.with_quality_threshold(0.9).model_dump()
+
+    assert "quality_threshold" not in json.dumps(dumped)
+
+
+def test_unreadable_saved_quality_threshold_is_ignored_on_load():
+    from mlflow.genai.scorers.builtin_scorers import RelevanceToQuery
+
+    dumped = RelevanceToQuery().with_quality_threshold(0.9).model_dump()
+    dumped["builtin_scorer_pydantic_data"]["quality_threshold"] = {
+        "at_least": 0.9,
+        "aggregation": "p99",
+    }
+
+    with patch("mlflow.genai.scorers.base._logger.warning") as mock_warning:
+        loaded = Scorer.model_validate(dumped)
+
+    assert isinstance(loaded, RelevanceToQuery)
+    assert loaded.quality_threshold is None
+    mock_warning.assert_called_once()
+    assert "Ignoring the saved `quality_threshold`" in mock_warning.call_args[0][0]
 
 
 @pytest.mark.parametrize("exclude", [{"required_columns"}, {"required_columns": True}])
@@ -110,7 +164,7 @@ def test_builtin_scorer_model_dump_merges_caller_exclude(exclude):
     )
 
     assert "required_columns" not in pydantic_data
-    assert "quality_threshold" not in pydantic_data
+    assert pydantic_data["quality_threshold"] == 0.9
 
 
 # ============================================================================

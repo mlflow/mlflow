@@ -511,6 +511,21 @@ def test_scorer_model_validate_routes_to_memory_augmented_judge(sample_judge, sa
         assert restored.name == sample_judge.name
 
 
+def test_memory_augmented_judge_saves_quality_threshold(sample_judge, sample_traces):
+    with mock_apis(guidelines=[]):
+        aligned_judge = MemAlignOptimizer().align(sample_judge, sample_traces[:1])
+        thresholded = aligned_judge.with_quality_threshold(0.7)
+
+        dumped = thresholded.model_dump()
+        restored = Scorer.model_validate(dumped)
+
+    assert dumped["memory_augmented_judge_data"]["quality_threshold"] == 0.7
+    assert isinstance(restored, MemoryAugmentedJudge)
+    assert restored.quality_threshold == 0.7
+    assert thresholded._create_copy().quality_threshold == 0.7
+    assert "quality_threshold" not in json.dumps(aligned_judge.model_dump())
+
+
 def test_scorer_model_validate_json_routes_to_memory_augmented_judge(sample_judge, sample_traces):
     with mock_apis(guidelines=[]):
         optimizer = MemAlignOptimizer()

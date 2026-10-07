@@ -4,7 +4,7 @@ import { APILink } from "@site/src/components/APILink";
 
 A quality threshold is the bar a scorer's run-level metric must clear for an evaluation run to count as passing. Declare it on the scorer, and <APILink fn="mlflow.genai.evaluate">`mlflow.genai.evaluate`</APILink> records it on the evaluation run alongside the metrics it applies to.
 
-Thresholds belong to a run, not an experiment. When you change a scorer, for example by moving from v1 to v2 of a judge, each run keeps the bar it was evaluated against.
+Thresholds belong to a run, not an experiment. Each run keeps a copy of the bar it was evaluated against, so changing a scorer later, for example by moving from v1 to v2 of a judge, never changes an old run's result.
 
 :::info[Experimental Feature]
 Quality thresholds are experimental in MLflow 3.17.1. The API and behavior may change in future releases.
@@ -55,13 +55,30 @@ MLflow always computes the aggregation a threshold uses, even if it isn't in the
 - **Ensembles**: set the threshold on the scorer returned by <APILink fn="mlflow.genai.scorers.make_scorer_ensemble">`make_scorer_ensemble`</APILink>. A sub-scorer has no metric of its own on the run, so a threshold on a sub-scorer is ignored with a warning.
 - **Third-party scorers**: the quality threshold is separate from the library's own per-row `threshold` argument, which decides whether a single row passes.
 
-Thresholds aren't saved when you register a scorer. To use one with a registered scorer, set it after loading:
+## Save a threshold with a registered scorer
+
+When you register a built-in scorer, a judge, or an ensemble, its threshold is saved with that scorer version. Each version keeps its own threshold, and loading a version restores it:
 
 ```python
+from mlflow.genai.judges import make_judge
 from mlflow.genai.scorers import get_scorer
 
-registered = get_scorer(name="my_scorer").with_quality_threshold(0.85)
+make_judge(name="tone", instructions=v1_prompt).with_quality_threshold(0.6).register()
+make_judge(name="tone", instructions=v2_prompt).with_quality_threshold(0.8).register()
+
+tone = get_scorer(name="tone", version=2)  # tone.quality_threshold == 0.8
+mlflow.genai.evaluate(data=eval_data, scorers=[tone])  # judged against at least 0.8
 ```
+
+A new threshold creates a new scorer version, because scorer versions can't be changed. The scores don't change.
+
+To use a different threshold for one evaluation, override it in code. The registered version keeps its saved threshold:
+
+```python
+mlflow.genai.evaluate(data=eval_data, scorers=[tone.with_quality_threshold(0.9)])
+```
+
+Thresholds on custom `@scorer` functions and third-party scorers aren't saved when you register them. Set them in code each time you evaluate.
 
 ## Read thresholds from a run
 
@@ -79,7 +96,7 @@ for rule in thresholds["rules"]:
 # correctness/mean GTE 0.9 0.93
 ```
 
-`comparator` is `GTE` for `at_least` and `LTE` for `at_most`. No tag is written when no scorer has a threshold.
+`comparator` is `GTE` for `at_least` and `LTE` for `at_most`. A rule for a registered scorer also has `scorerVersion`, the version of the scorer that was evaluated. No tag is written when no scorer has a threshold.
 
 ## Limitations
 

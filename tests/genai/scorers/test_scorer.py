@@ -35,7 +35,7 @@ from mlflow.genai.scorers.base import (
     _serialized_scorer_is_custom_code,
     _UnexecutedDecoratorScorer,
 )
-from mlflow.genai.scorers.registry import get_scorer, list_scorers
+from mlflow.genai.scorers.registry import get_scorer, list_scorer_versions, list_scorers
 from mlflow.utils.timeout import MlflowTimeoutError
 
 
@@ -956,12 +956,74 @@ def test_scorer_copy_preserves_quality_threshold():
     assert Correctness().with_quality_threshold(0.9)._create_copy().quality_threshold == 0.9
 
 
-def test_register_warns_that_quality_threshold_is_not_saved():
-    experiment_id = mlflow.create_experiment("test_quality_threshold_register")
+def test_registered_versions_keep_their_own_quality_threshold():
+    experiment_id = mlflow.create_experiment("test_quality_threshold_versions")
+    tone = make_judge(
+        name="tone", instructions="Is {{ outputs }} polite?", feedback_value_type=bool
+    )
+    v2_threshold = QualityThreshold(at_least=0.8, aggregation="min")
 
     with patch("mlflow.genai.scorers.base._logger.warning") as mock_warning:
-        Correctness().with_quality_threshold(0.9).register(experiment_id=experiment_id)
+        tone.with_quality_threshold(0.6).register(experiment_id=experiment_id)
+        tone.with_quality_threshold(v2_threshold).register(experiment_id=experiment_id)
+
+    assert [c[0][0] for c in mock_warning.call_args_list] == [
+        "`quality_threshold` (at least 0.6 on the mean) is saved with version 1 of scorer "
+        "'tone'. A new threshold creates a new scorer version.",
+        "`quality_threshold` (at least 0.8 on the min) is saved with version 2 of scorer "
+        "'tone'. A new threshold creates a new scorer version.",
+    ]
+    v1 = get_scorer(name="tone", experiment_id=experiment_id, version=1)
+    v2 = get_scorer(name="tone", experiment_id=experiment_id, version=2)
+    assert (v1.scorer_version, v1.quality_threshold) == (1, 0.6)
+    assert (v2.scorer_version, v2.quality_threshold) == (2, v2_threshold)
+    assert [
+        (version, s.quality_threshold)
+        for s, version in list_scorer_versions(name="tone", experiment_id=experiment_id)
+    ] == [(1, 0.6), (2, v2_threshold)]
+    [latest] = list_scorers(experiment_id=experiment_id)
+    assert latest.quality_threshold == v2_threshold
+
+
+def test_register_warns_that_decorator_quality_threshold_is_not_saved(monkeypatch):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS", "true")
+    experiment_id = mlflow.create_experiment("test_quality_threshold_decorator")
+
+    @scorer
+    def is_concise(outputs) -> bool:
+        return len(outputs) < 100
+
+    with patch("mlflow.genai.scorers.base._logger.warning") as mock_warning:
+        is_concise.with_quality_threshold(0.9).register(experiment_id=experiment_id)
 
     mock_warning.assert_called_once()
     assert "is not saved with the registered scorer" in mock_warning.call_args[0][0]
-    assert get_scorer(name="correctness", experiment_id=experiment_id).quality_threshold is None
+    assert get_scorer(name="is_concise", experiment_id=experiment_id).quality_threshold is None
+
+
+def test_databricks_register_sends_definition_that_changes_only_with_threshold():
+    sent = []
+
+    def upsert(experiment_id, config):
+        sent.append(json.loads(config.serialized_scorer))
+        return [config]
+
+    with (
+        patch(
+            "mlflow.tracking._tracking_service.utils.get_tracking_uri", return_value="databricks"
+        ),
+        patch(
+            "mlflow.genai.scorers.registry.DatabricksStore._upsert_registered_scorer_config",
+            side_effect=upsert,
+        ),
+        patch("mlflow.genai.scorers.registry.DatabricksStore._resolve_experiment_id"),
+    ):
+        Correctness().register()
+        for threshold in [0.6, 0.6, 0.8]:
+            Correctness().with_quality_threshold(threshold).register()
+
+    without, first, unchanged, changed = sent
+    assert "quality_threshold" not in json.dumps(without)
+    assert unchanged == first
+    assert changed != first
+    assert changed["builtin_scorer_pydantic_data"]["quality_threshold"] == 0.8

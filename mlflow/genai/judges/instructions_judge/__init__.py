@@ -43,6 +43,7 @@ from mlflow.genai.scorers.base import (
     _SERIALIZATION_VERSION,
     ScorerKind,
     SerializedScorer,
+    _dump_quality_threshold,
 )
 from mlflow.genai.utils.trace_utils import (
     resolve_conversation_from_session,
@@ -965,6 +966,8 @@ class InstructionsJudge(Judge):
         # deserialization defaults this back to False when the key is absent.
         if self._generate_rationale_first:
             pydantic_data["generate_rationale_first"] = self._generate_rationale_first
+        if self.quality_threshold is not None:
+            pydantic_data["quality_threshold"] = _dump_quality_threshold(self.quality_threshold)
 
         serialized_scorer = SerializedScorer(
             name=self.name,
