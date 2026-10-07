@@ -1,13 +1,23 @@
+import datetime
 import os
 import posixpath
+import urllib.parse
 from unittest import mock
 
 import pytest
 import requests
-from google.auth.exceptions import DefaultCredentialsError
+from google.auth import crypt
+from google.auth.credentials import AnonymousCredentials
+from google.auth.exceptions import DefaultCredentialsError, TransportError
+from google.cloud import storage as gcs_storage
 from google.cloud.storage import client as gcs_client
+from google.oauth2 import credentials as user_credentials
+from google.oauth2 import service_account
 
 from mlflow.entities.multipart_upload import MultipartUploadPart
+from mlflow.exceptions import MlflowException, _UnsupportedPresignedDownloadException
+from mlflow.protos.databricks_pb2 import NOT_IMPLEMENTED, RESOURCE_DOES_NOT_EXIST, ErrorCode
+from mlflow.store.artifact.artifact_repo import MultipartDownloadMixin
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.artifact.gcs_artifact_repo import GCSArtifactRepository, GCSMPUArguments
 
@@ -571,3 +581,162 @@ def test_retryable_log_artifacts(throw, tmp_path):
             gcs_refreshed_bucket_mock.blob.assert_not_called()
             mock_gcs_client_factory.assert_not_called()
             mock_gcs_credentials_factory.assert_not_called()
+
+
+class _FakeSigner(crypt.Signer):
+    key_id = "key-id"
+
+    def sign(self, message):
+        return b"signature"
+
+
+def _make_gcs_client(credentials):
+    return gcs_storage.Client(project="project", credentials=credentials)
+
+
+def _make_signing_credentials():
+    return service_account.Credentials(
+        _FakeSigner(), "sa@project.iam.gserviceaccount.com", "https://oauth2.googleapis.com/token"
+    )
+
+
+def test_gcs_repo_supports_presigned_download():
+    repo = GCSArtifactRepository("gs://test_bucket/some/path", client=mock.MagicMock())
+    assert isinstance(repo, MultipartDownloadMixin)
+
+
+def test_get_download_presigned_url(mock_client):
+    repo = GCSArtifactRepository("gs://test_bucket/some/path", client=mock_client)
+    mock_bucket = mock_client.bucket.return_value
+    mock_blob = mock_bucket.get_blob.return_value
+    mock_blob.size = 123
+    mock_blob.generate_signed_url.return_value = "https://storage.googleapis.com/signed-get"
+
+    response = repo.get_download_presigned_url("dir/model.pkl")
+
+    mock_client.bucket.assert_called_once_with("test_bucket")
+    mock_bucket.get_blob.assert_called_once_with("some/path/dir/model.pkl")
+    mock_blob.generate_signed_url.assert_called_once_with(
+        method="GET",
+        version="v4",
+        expiration=datetime.timedelta(seconds=300),
+        response_disposition='attachment; filename="model.pkl"',
+    )
+    assert response.url == "https://storage.googleapis.com/signed-get"
+    assert response.headers == {}
+    assert response.file_size == 123
+
+
+def test_get_download_presigned_url_custom_expiration(mock_client):
+    repo = GCSArtifactRepository("gs://test_bucket/some/path", client=mock_client)
+    mock_blob = mock_client.bucket.return_value.get_blob.return_value
+
+    repo.get_download_presigned_url("model.pkl", expiration=60)
+
+    _, kwargs = mock_blob.generate_signed_url.call_args
+    assert kwargs["expiration"] == datetime.timedelta(seconds=60)
+
+
+def test_get_download_presigned_url_without_artifact_path(mock_client):
+    repo = GCSArtifactRepository("gs://test_bucket/some/path", client=mock_client)
+    mock_bucket = mock_client.bucket.return_value
+
+    repo.get_download_presigned_url("")
+
+    mock_bucket.get_blob.assert_called_once_with("some/path")
+
+
+def test_get_download_presigned_url_non_ascii_filename(mock_client):
+    repo = GCSArtifactRepository("gs://test_bucket/some/path", client=mock_client)
+    mock_blob = mock_client.bucket.return_value.get_blob.return_value
+
+    repo.get_download_presigned_url("r\u00e9sum\u00e9.txt")
+
+    _, kwargs = mock_blob.generate_signed_url.call_args
+    assert kwargs["response_disposition"] == "attachment; filename*=UTF-8''r%C3%A9sum%C3%A9.txt"
+
+
+def test_get_download_presigned_url_with_signing_credentials():
+    # Sign with real google-cloud-storage URL generation (no network access needed).
+    repo = GCSArtifactRepository(
+        "gs://test_bucket/some/path", client=_make_gcs_client(_make_signing_credentials())
+    )
+    blob = repo.client.bucket("test_bucket").blob("some/path/model.pkl")
+    blob._properties["size"] = "123"
+    with mock.patch.object(gcs_storage.Bucket, "get_blob", return_value=blob):
+        response = repo.get_download_presigned_url("model.pkl", expiration=60)
+
+    parsed = urllib.parse.urlparse(response.url)
+    query = urllib.parse.parse_qs(parsed.query)
+    assert parsed.netloc == "storage.googleapis.com"
+    assert parsed.path == "/test_bucket/some/path/model.pkl"
+    assert query["X-Goog-Algorithm"] == ["GOOG4-RSA-SHA256"]
+    assert query["X-Goog-Expires"] == ["60"]
+    assert query["response-content-disposition"] == ['attachment; filename="model.pkl"']
+    assert response.file_size == 123
+
+
+def test_get_download_presigned_url_missing_blob_raises(mock_client):
+    repo = GCSArtifactRepository("gs://test_bucket/some/path", client=mock_client)
+    mock_client.bucket.return_value.get_blob.return_value = None
+
+    with pytest.raises(MlflowException, match="No such file or directory") as exc_info:
+        repo.get_download_presigned_url("missing.pkl")
+
+    assert exc_info.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+
+
+@pytest.mark.parametrize(
+    "credentials",
+    [
+        # Credentials without a private key, e.g. from `gcloud auth application-default login`
+        # or a bare access token. google-cloud-storage raises AttributeError for these.
+        user_credentials.Credentials("token"),
+        AnonymousCredentials(),
+    ],
+    ids=["user_credentials", "anonymous_credentials"],
+)
+def test_get_download_presigned_url_raises_not_implemented_for_credentials_without_private_key(
+    credentials,
+):
+    repo = GCSArtifactRepository("gs://test_bucket/some/path", client=_make_gcs_client(credentials))
+    blob = repo.client.bucket("test_bucket").blob("some/path/model.pkl")
+    with (
+        mock.patch.object(gcs_storage.Bucket, "get_blob", return_value=blob),
+        pytest.raises(
+            _UnsupportedPresignedDownloadException,
+            match=_UnsupportedPresignedDownloadException.MESSAGE,
+        ) as exc_info,
+    ):
+        repo.get_download_presigned_url("model.pkl")
+
+    assert exc_info.value.error_code == ErrorCode.Name(NOT_IMPLEMENTED)
+    assert "private key" in str(exc_info.value.__cause__)
+
+
+def test_get_download_presigned_url_raises_not_implemented_when_remote_signing_fails(mock_client):
+    # e.g. impersonated credentials whose IAM `signBlob` call is denied
+    repo = GCSArtifactRepository("gs://test_bucket/some/path", client=mock_client)
+    mock_blob = mock_client.bucket.return_value.get_blob.return_value
+    error = TransportError("Error calling sign_bytes: permission denied")
+    mock_blob.generate_signed_url.side_effect = error
+
+    with pytest.raises(
+        _UnsupportedPresignedDownloadException,
+        match=_UnsupportedPresignedDownloadException.MESSAGE,
+    ) as exc_info:
+        repo.get_download_presigned_url("model.pkl")
+
+    assert exc_info.value.__cause__ is error
+
+
+def test_get_download_presigned_url_propagates_other_signing_errors(mock_client):
+    repo = GCSArtifactRepository("gs://test_bucket/some/path", client=mock_client)
+    mock_blob = mock_client.bucket.return_value.get_blob.return_value
+    error = TypeError("Expected an integer timestamp, datetime, or timedelta.")
+    mock_blob.generate_signed_url.side_effect = error
+
+    with pytest.raises(TypeError, match="Expected an integer timestamp") as exc_info:
+        repo.get_download_presigned_url("model.pkl")
+
+    assert exc_info.value is error
