@@ -58,7 +58,8 @@ export const listSkillFiles = async (rootPath: string) => {
         if (entry.is_dir) {
           next.push(path);
         } else if (files.length < MAX_LISTED_SKILL_FILES) {
-          files.push({ path, size: entry.file_size });
+          // The listing leaves out the size of an empty file.
+          files.push({ path, size: entry.file_size ?? 0 });
         } else {
           truncated = true;
         }

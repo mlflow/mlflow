@@ -402,7 +402,7 @@ export const SkillVersionDetail = ({
       <div
         css={{
           display: 'grid',
-          gridTemplateColumns: '140px 1fr',
+          gridTemplateColumns: '140px minmax(0, 1fr)',
           gridAutoRows: `minmax(${theme.typography.lineHeightLg}, auto)`,
           alignItems: 'flex-start',
           rowGap: theme.spacing.xs,

@@ -7347,10 +7347,6 @@
     "defaultMessage": "The location, ref, or path is too long.",
     "description": "Validation error when a skill source field exceeds the length limit"
   },
-  "QFbprt": {
-    "defaultMessage": "This skill does not have any versions yet.",
-    "description": "Description for an empty Skill version list"
-  },
   "QGiy9C": {
     "defaultMessage": "About this run",
     "description": "Title for the details/metadata section on the run details page"

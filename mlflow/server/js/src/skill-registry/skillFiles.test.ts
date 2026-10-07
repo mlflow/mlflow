@@ -66,6 +66,18 @@ describe('skillFiles', () => {
     listArtifacts.mockRestore();
   });
 
+  it('lists an empty file, which the listing gives no size, as 0 bytes', async () => {
+    const listArtifacts = jest
+      .spyOn(SkillRegistryApi, 'listArtifacts')
+      .mockResolvedValue({ files: [{ path: 'empty.txt', is_dir: false }] });
+
+    const result = await listSkillFiles('root');
+
+    expect(result.files).toEqual([{ path: 'empty.txt', size: 0 }]);
+    expect(formatFileSize(result.files[0].size)).toBe('0 B');
+    listArtifacts.mockRestore();
+  });
+
   it('lists the directories of a level in parallel', async () => {
     let inFlight = 0;
     let maxInFlight = 0;

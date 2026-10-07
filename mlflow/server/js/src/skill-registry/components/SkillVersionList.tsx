@@ -68,12 +68,8 @@ export const SkillVersionList = ({
           title={
             <FormattedMessage defaultMessage="No versions" description="Empty state when a Skill has no versions" />
           }
-          description={
-            <FormattedMessage
-              defaultMessage="This skill does not have any versions yet."
-              description="Description for an empty Skill version list"
-            />
-          }
+          // The list leaves out deleted versions, so it can't tell a new skill from one whose versions were deleted.
+          description={null}
         />
       }
       isLoading={isLoading}

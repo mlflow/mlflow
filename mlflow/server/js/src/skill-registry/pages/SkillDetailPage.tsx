@@ -85,6 +85,8 @@ const SkillDetailHeader = ({
     <>
       <Header
         breadcrumbs={breadcrumbs}
+        // A long name wraps within the title instead of pushing the actions onto their own line.
+        allowTitleWrap={false}
         title={
           <span css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
             <span css={headerIconStyles(theme)}>
