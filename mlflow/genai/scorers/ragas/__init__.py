@@ -32,7 +32,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.builtin import _MODEL_API_DOC
 from mlflow.genai.judges.utils import CategoricalRating, get_default_model
 from mlflow.genai.scorers import FRAMEWORK_METADATA_KEY
-from mlflow.genai.scorers.base import QualityThreshold, Scorer, ScorerKind
+from mlflow.genai.scorers.base import Scorer, ScorerKind
 from mlflow.genai.scorers.ragas.models import (
     create_default_embeddings,
     create_ragas_model,
@@ -78,14 +78,13 @@ class RagasScorer(Scorer):
         self,
         metric_name: str | None = None,
         model: str | None = None,
-        quality_threshold: float | QualityThreshold | None = None,
         **metric_kwargs,
     ):
         if metric_name is None:
             metric_name = self.metric_name
 
         self._validate_args(metric_name, model)
-        super().__init__(name=metric_name, quality_threshold=quality_threshold)
+        super().__init__(name=metric_name)
         self._metric_name = metric_name
         self._metric_kwargs = dict(metric_kwargs)
         accepts_model = requires_llm_in_constructor(metric_name) or requires_llm_at_score_time(

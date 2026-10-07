@@ -202,14 +202,3 @@ def test_phoenix_scorer_tracking_class_name(mock_model, scorer_class, expected_c
         scorer = scorer_class(model="openai:/gpt-4")
 
     assert _get_scorer_class_name_for_tracking(scorer) == expected_class
-
-
-def test_quality_threshold_is_kept_off_the_phoenix_evaluator(mock_model):
-    with patch(
-        "mlflow.genai.scorers.phoenix.create_phoenix_model", return_value=mock_model
-    ) as mock_create:
-        scorer = Hallucination(model="openai:/gpt-4", quality_threshold=0.9)
-
-    assert scorer.quality_threshold == 0.9
-    assert scorer._metric_kwargs == {}
-    mock_create.assert_called_once_with("openai:/gpt-4")

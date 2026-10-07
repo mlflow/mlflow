@@ -82,17 +82,16 @@ def test_quality_threshold_is_not_serialized():
     from mlflow.genai.judges import make_judge
     from mlflow.genai.scorers.builtin_scorers import RelevanceToQuery
 
-    @scorer(quality_threshold=0.9)
+    @scorer
     def decorated(outputs) -> bool:
         return True
 
     judge = make_judge(
-        name="tone",
-        instructions="Is {{ outputs }} polite?",
-        feedback_value_type=bool,
-        quality_threshold=0.9,
+        name="tone", instructions="Is {{ outputs }} polite?", feedback_value_type=bool
     )
-    builtin = RelevanceToQuery(quality_threshold=0.9)
+    decorated, judge, builtin = (
+        s.with_quality_threshold(0.9) for s in [decorated, judge, RelevanceToQuery()]
+    )
 
     for serialized in [decorated.model_dump(), judge.model_dump(), builtin.model_dump()]:
         assert "quality_threshold" not in json.dumps(serialized)
@@ -104,9 +103,11 @@ def test_quality_threshold_is_not_serialized():
 def test_builtin_scorer_model_dump_merges_caller_exclude(exclude):
     from mlflow.genai.scorers.builtin_scorers import RelevanceToQuery
 
-    pydantic_data = RelevanceToQuery(quality_threshold=0.9).model_dump(exclude=exclude)[
-        "builtin_scorer_pydantic_data"
-    ]
+    pydantic_data = (
+        RelevanceToQuery()
+        .with_quality_threshold(0.9)
+        .model_dump(exclude=exclude)["builtin_scorer_pydantic_data"]
+    )
 
     assert "required_columns" not in pydantic_data
     assert "quality_threshold" not in pydantic_data

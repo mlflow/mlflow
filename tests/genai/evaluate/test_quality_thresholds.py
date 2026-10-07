@@ -14,11 +14,11 @@ from mlflow.utils.validation import MAX_TAG_VAL_LENGTH
 
 
 def _make_scorer(name, quality_threshold=None):
-    @scorer(name=name, quality_threshold=quality_threshold)
+    @scorer(name=name)
     def _scorer(outputs) -> float:
         return 1.0
 
-    return _scorer
+    return _scorer.with_quality_threshold(quality_threshold)
 
 
 def _build_tag(scorers):
@@ -95,8 +95,7 @@ def test_build_tag_accepts_threshold_on_ensemble():
         name="ensemble",
         scorers=[_make_scorer("sub"), _make_scorer("other")],
         ensemble_fn="mean",
-        quality_threshold=0.7,
-    )
+    ).with_quality_threshold(0.7)
     [rule] = json.loads(_build_tag([ensemble]))["rules"]
     assert rule["metricKey"] == "ensemble/mean"
 

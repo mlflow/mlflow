@@ -270,6 +270,16 @@ def test_deepeval_scorer_register_blocked_on_databricks():
         mock_is_dbx.assert_called()
 
 
+def test_deepeval_scorer_with_quality_threshold_on_databricks():
+    with patch("mlflow.genai.scorers.base.is_databricks_uri", return_value=True):
+        scorer = ExactMatch().with_quality_threshold(0.9)
+
+    assert isinstance(scorer, ExactMatch)
+    assert scorer.quality_threshold == 0.9
+    result = scorer(outputs="MLflow", expectations={"expected_output": "MLflow"})
+    assert result.value == CategoricalRating.YES
+
+
 def test_deepeval_scorer_serialization_round_trip():
     scorer = ExactMatch()
     dump = scorer.model_dump()
@@ -553,12 +563,3 @@ def test_high_level_scorer_call_chain():
     assert feedback.value is not None
     assert feedback.source.source_type == AssessmentSourceType.LLM_JUDGE
     assert feedback.source.source_id == "openai:/gpt-4"
-
-
-def test_quality_threshold_is_kept_off_the_deepeval_metric():
-    scorer = ExactMatch(threshold=0.3, quality_threshold=0.9)
-
-    assert scorer.quality_threshold == 0.9
-    assert scorer._metric.threshold == 0.3
-    assert "quality_threshold" not in scorer._metric_kwargs
-    assert scorer._create_copy().quality_threshold == 0.9

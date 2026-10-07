@@ -27,7 +27,7 @@ from mlflow.entities.trace import Trace
 from mlflow.genai.judges.builtin import _MODEL_API_DOC
 from mlflow.genai.judges.utils import CategoricalRating, get_default_model
 from mlflow.genai.scorers import FRAMEWORK_METADATA_KEY
-from mlflow.genai.scorers.base import QualityThreshold, Scorer, ScorerKind
+from mlflow.genai.scorers.base import Scorer, ScorerKind
 from mlflow.genai.scorers.trulens.models import create_trulens_provider
 from mlflow.genai.scorers.trulens.registry import get_feedback_method_name
 from mlflow.genai.scorers.trulens.utils import (
@@ -65,13 +65,12 @@ class TruLensScorer(Scorer):
         metric_name: str | None = None,
         model: str | None = None,
         threshold: float = _DEFAULT_THRESHOLD,
-        quality_threshold: float | QualityThreshold | None = None,
         **kwargs: Any,
     ):
         if metric_name is None:
             metric_name = self.metric_name
 
-        super().__init__(name=metric_name, quality_threshold=quality_threshold)
+        super().__init__(name=metric_name)
         model = model or get_default_model()
         self._model = model
         self._threshold = threshold

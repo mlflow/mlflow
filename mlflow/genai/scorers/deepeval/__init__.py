@@ -28,7 +28,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.builtin import _MODEL_API_DOC
 from mlflow.genai.judges.utils import CategoricalRating, get_default_model
 from mlflow.genai.scorers import FRAMEWORK_METADATA_KEY
-from mlflow.genai.scorers.base import QualityThreshold, Scorer, ScorerKind
+from mlflow.genai.scorers.base import Scorer, ScorerKind
 from mlflow.genai.scorers.deepeval.models import create_deepeval_model
 from mlflow.genai.scorers.deepeval.registry import (
     get_metric_class,
@@ -70,14 +70,13 @@ class DeepEvalScorer(Scorer):
         metric_name: str | None = None,
         model: str | None = None,
         model_kwargs: dict[str, Any] | None = None,
-        quality_threshold: float | QualityThreshold | None = None,
         **metric_kwargs: Any,
     ):
         # Use class attribute if metric_name not provided
         if metric_name is None:
             metric_name = self.metric_name
 
-        super().__init__(name=metric_name, quality_threshold=quality_threshold)
+        super().__init__(name=metric_name)
 
         metric_class = get_metric_class(metric_name)
 

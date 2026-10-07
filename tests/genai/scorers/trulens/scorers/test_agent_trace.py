@@ -153,16 +153,3 @@ def test_scorer_error_handling(mock_provider, sample_agent_trace):
     assert result.error is not None
     assert "Evaluation failed" in str(result.error)
     assert result.metadata == {"mlflow.scorer.framework": "trulens"}
-
-
-def test_quality_threshold_is_kept_off_the_trulens_provider(mock_provider):
-    from mlflow.genai.scorers.trulens import LogicalConsistency
-
-    with patch(
-        "mlflow.genai.scorers.trulens.scorers.agent_trace.create_trulens_provider",
-        return_value=mock_provider,
-    ) as mock_create:
-        scorer = LogicalConsistency(model="openai:/gpt-4", quality_threshold=0.9)
-
-    assert scorer.quality_threshold == 0.9
-    mock_create.assert_called_once_with("openai:/gpt-4")

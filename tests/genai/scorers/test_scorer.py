@@ -27,6 +27,8 @@ from mlflow.genai.scorers import (
     make_scorer_ensemble,
 )
 from mlflow.genai.scorers.base import (
+    ScorerSamplingConfig,
+    ScorerStatus,
     SerializedScorer,
     _is_tracking_server_process,
     _job_executor_scorer_context,
@@ -886,21 +888,41 @@ def test_quality_threshold_rejects_invalid_bounds(kwargs, match):
         QualityThreshold(**kwargs)
 
 
-@pytest.mark.parametrize("value", [0.9, 1, QualityThreshold(at_most=2.0, aggregation="p90")])
-def test_scorer_quality_threshold_value_preserved(value):
-    @scorer(quality_threshold=value)
-    def s(outputs) -> float:
+def _threshold_scorers():
+    @scorer
+    def decorated(outputs) -> float:
         return 1.0
 
-    assert s.quality_threshold == value
-    assert Correctness(quality_threshold=value).quality_threshold == value
     judge = make_judge(
-        name="tone",
-        instructions="Is {{ outputs }} polite?",
-        feedback_value_type=bool,
-        quality_threshold=value,
+        name="tone", instructions="Is {{ outputs }} polite?", feedback_value_type=bool
     )
-    assert judge.quality_threshold == value
+    ensemble = make_scorer_ensemble(name="ensemble", scorers=[Correctness()], ensemble_fn="agg_all")
+    return [decorated, Correctness(), judge, ensemble]
+
+
+@pytest.mark.parametrize("value", [0.9, 1, QualityThreshold(at_most=2.0, aggregation="p90")])
+@pytest.mark.parametrize("original", _threshold_scorers(), ids=lambda s: s.name)
+def test_with_quality_threshold_returns_copy_with_threshold(original, value):
+    copy = original.with_quality_threshold(value)
+
+    assert type(copy) is type(original)
+    assert copy.quality_threshold == value
+    assert original.quality_threshold is None
+    assert copy.with_quality_threshold(None).quality_threshold is None
+
+
+def test_with_quality_threshold_keeps_registration_metadata():
+    sampling_config = ScorerSamplingConfig(sample_rate=0.5)
+    registered = Correctness()._set_registration_metadata(
+        backend="tracking", experiment_id="123", sampling_config=sampling_config, scorer_version=2
+    )
+
+    copy = registered.with_quality_threshold(0.9)
+
+    assert copy.scorer_version == 2
+    assert copy.status == ScorerStatus.STARTED
+    assert copy._experiment_id == "123"
+    assert copy._sampling_config == sampling_config
 
 
 def test_scorer_quality_threshold_defaults_to_none():
@@ -913,35 +935,32 @@ def test_scorer_quality_threshold_defaults_to_none():
 
 
 @pytest.mark.parametrize("bad", [True, "0.9", float("nan")])
-def test_scorer_rejects_invalid_quality_threshold(bad):
+def test_with_quality_threshold_rejects_invalid_value(bad):
     with pytest.raises(MlflowException, match="must be a finite number"):
+        Correctness().with_quality_threshold(bad)
 
-        @scorer(quality_threshold=bad)
-        def s(outputs) -> bool:
-            return True
 
-    with pytest.raises(MlflowException, match="must be a finite number"):
-        Correctness(quality_threshold=bad)
+@pytest.mark.parametrize("factory", [scorer, make_judge, make_scorer_ensemble])
+def test_scorer_factories_do_not_accept_quality_threshold(factory):
+    with pytest.raises(TypeError, match="quality_threshold"):
+        factory(quality_threshold=0.9)
 
 
 def test_scorer_copy_preserves_quality_threshold():
     threshold = QualityThreshold(at_most=0.2)
     ensemble = make_scorer_ensemble(
-        name="ensemble",
-        scorers=[Correctness()],
-        ensemble_fn="agg_all",
-        quality_threshold=threshold,
-    )
+        name="ensemble", scorers=[Correctness()], ensemble_fn="agg_all"
+    ).with_quality_threshold(threshold)
 
     assert ensemble._create_copy().quality_threshold == threshold
-    assert Correctness(quality_threshold=0.9)._create_copy().quality_threshold == 0.9
+    assert Correctness().with_quality_threshold(0.9)._create_copy().quality_threshold == 0.9
 
 
 def test_register_warns_that_quality_threshold_is_not_saved():
     experiment_id = mlflow.create_experiment("test_quality_threshold_register")
 
     with patch("mlflow.genai.scorers.base._logger.warning") as mock_warning:
-        Correctness(quality_threshold=0.9).register(experiment_id=experiment_id)
+        Correctness().with_quality_threshold(0.9).register(experiment_id=experiment_id)
 
     mock_warning.assert_called_once()
     assert "is not saved with the registered scorer" in mock_warning.call_args[0][0]
