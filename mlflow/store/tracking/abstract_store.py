@@ -2184,8 +2184,16 @@ class AbstractStore(MCPServerRegistryMixin, GatewayStoreMixin):
         *,
         ids: "Sequence[str | tuple[str, ...]] | None" = None,
         parent_id: "str | None" = None,
+        max_timestamp_ms: "int | None" = None,
     ) -> "str | tuple[str, ...] | None":
         """Find a resource that fails a conjunctive tag/alias predicate.
+
+        ``max_timestamp_ms`` narrows a ``parent_id`` cascade to the children a mutation
+        will actually reach, and is only valid with that selector. A cascade normally
+        reaches every child, but a predicate-mode mutation reaches a slice -- deleting the
+        traces at or before a timestamp -- and judging it against the whole parent refuses
+        mutations over windows that contain nothing objectionable. A store whose rows for
+        ``entity`` carry no such timestamp must decline rather than ignore the bound.
 
         An optional pushdown hook for a caller that must decide whether it may mutate
         a set of resources without loading them. It answers the only question such a

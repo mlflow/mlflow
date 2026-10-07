@@ -1033,6 +1033,72 @@ def test_deleting_traces_by_id_is_gated_on_each_trace(server, auth_client, monke
         MlflowClient(server).delete_traces(experiment_id, trace_ids=[trace_id])
 
 
+def _two_traces(server, monkeypatch):
+    """Two finished traces in ONE experiment, the second strictly later than the first."""
+    import time
+
+    import mlflow
+
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        mlflow.set_tracking_uri(server)
+        experiment_id = MlflowClient(server).create_experiment(f"exp-{random_str()}")
+        mlflow.set_experiment(experiment_id=experiment_id)
+        with mlflow.start_span(name="older"):
+            pass
+        # The window bound is a millisecond timestamp, so the two traces have to land in
+        # different milliseconds for the bound to separate them at all.
+        time.sleep(0.05)
+        with mlflow.start_span(name="newer"):
+            pass
+        traces = sorted(
+            MlflowClient(server).search_traces([experiment_id]),
+            key=lambda trace: trace.info.request_time,
+        )
+    assert traces[0].info.request_time < traces[1].info.request_time
+    return experiment_id, traces[0].info, traces[1].info
+
+
+def test_deleting_traces_by_timestamp_ignores_a_failing_trace_outside_the_window(
+    server, auth_client, monkeypatch
+):
+    """The precision the parent pushdown is for: judge the traces the delete can reach.
+
+    Asking the parent "does this experiment hold ANY trace that fails?" refuses a delete
+    whose window contains nothing objectionable, purely because something objectionable
+    exists elsewhere in the experiment. The delete's own predicate bounds the population,
+    so the probe carries it: here the newer trace fails the condition but sits outside the
+    window, and the delete proceeds.
+    """
+    experiment_id, older, newer = _two_traces(server, monkeypatch)
+    username, password = _trace_conditioned_user(
+        auth_client, monkeypatch, target_condition="tags.reviewed = 'yes'", permission="MANAGE"
+    )
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        # The older trace satisfies the condition; the newer one never gets the tag.
+        MlflowClient(server).set_trace_tag(older.trace_id, "reviewed", "yes")
+
+    with User(username, password, monkeypatch):
+        MlflowClient(server).delete_traces(experiment_id, max_timestamp_millis=older.request_time)
+
+
+def test_deleting_traces_by_timestamp_refuses_a_failing_trace_inside_the_window(
+    server, auth_client, monkeypatch
+):
+    """The other half: widening the window to cover the failing trace refuses the delete."""
+    experiment_id, older, newer = _two_traces(server, monkeypatch)
+    username, password = _trace_conditioned_user(
+        auth_client, monkeypatch, target_condition="tags.reviewed = 'yes'", permission="MANAGE"
+    )
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        MlflowClient(server).set_trace_tag(older.trace_id, "reviewed", "yes")
+
+    with pytest.raises(MlflowException, match=r"Permission denied"):
+        with User(username, password, monkeypatch):
+            MlflowClient(server).delete_traces(
+                experiment_id, max_timestamp_millis=newer.request_time
+            )
+
+
 def test_deleting_traces_by_timestamp_is_refused_when_a_trace_fails_the_condition(
     server, auth_client, monkeypatch
 ):

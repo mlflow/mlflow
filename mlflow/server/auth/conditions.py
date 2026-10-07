@@ -604,6 +604,18 @@ class ConditionContext(NamedTuple):
     request: RequestValues
     resource_ids: tuple[str, ...] = ()
     parent_resource_id: str | None = None
+    #: Narrows a cascade to the subset a predicate-mode mutation will actually reach.
+    #:
+    #: A cascade asks the parent "does any child fail?", which is right for a mutation that
+    #: reaches every child -- deleting an experiment -- but too broad for one that reaches a
+    #: slice. ``DeleteTraces`` in timestamp mode deletes traces at or before a bound, so
+    #: without it a trace the delete could never touch refuses the whole request.
+    #:
+    #: The bound is the mutation's OWN predicate, not a guess: the store filters on
+    #: ``timestamp_ms <= max_timestamp_millis``, and the probe carries the same comparison.
+    #: Only meaningful alongside ``parent_resource_id``, and only for a type whose rows carry
+    #: a timestamp -- the store refuses to express it for any other.
+    cascade_max_timestamp_ms: int | None = None
 
 
 class MutationConditionSpec(NamedTuple):

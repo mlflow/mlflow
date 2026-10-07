@@ -1236,7 +1236,9 @@ def _target_denial_detail(context, row, resource_id) -> "str | None":
     return None
 
 
-def _target_pushdown(context, target_rows, *, resource_ids=None, parent_id=None):
+def _target_pushdown(
+    context, target_rows, *, resource_ids=None, parent_id=None, max_timestamp_ms=None
+):
     """Ask the store for a resource that fails one of this context's target rows.
 
     One question with two ways of naming the population, which is why this is one
@@ -1301,7 +1303,10 @@ def _target_pushdown(context, target_rows, *, resource_ids=None, parent_id=None)
                     "against every sibling"
                 )
             failing = store_.find_failing_resource(
-                context.resource_type, clauses, parent_id=parent_id
+                context.resource_type,
+                clauses,
+                parent_id=parent_id,
+                max_timestamp_ms=max_timestamp_ms,
             )
             if failing is not None:
                 # The children were never enumerated, so unlike the named path below there
@@ -1463,7 +1468,14 @@ def _authorize_on_conditions(
             # query, and the only way to answer it without enumerating a population the
             # request never named and the caller may not be able to bound. The children's
             # ids are never learned -- the store returns at most the first failing one.
-            pushed = _target_pushdown(context, target_rows, parent_id=context.parent_resource_id)
+            pushed = _target_pushdown(
+                context,
+                target_rows,
+                parent_id=context.parent_resource_id,
+                # The mutation's own predicate, when it reaches only a slice of the parent's
+                # children rather than all of them.
+                max_timestamp_ms=context.cascade_max_timestamp_ms,
+            )
             if pushed is not None:
                 # Some child fails, and the store named which. Deny directly rather than
                 # appending to `results` -- there is no per-child result for `combine` to
@@ -5283,6 +5295,13 @@ def validate_can_delete_traces():
                 request=TraceRequestValues(),
                 resource_ids=trace_ids,
                 parent_resource_id=experiment_id,
+                # Timestamp mode's own bound, so the probe judges the traces this delete
+                # can actually reach. `HasField` rather than a truthiness check: the field
+                # has explicit presence, and an absent bound is not the same statement as
+                # a bound of 0.
+                cascade_max_timestamp_ms=(
+                    msg.max_timestamp_millis if msg.HasField("max_timestamp_millis") else None
+                ),
             )
         ],
     )

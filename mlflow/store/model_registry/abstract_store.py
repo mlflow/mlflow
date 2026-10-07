@@ -1312,7 +1312,9 @@ class AbstractStore:
         """Return whether this model registry store supports workspace-aware operations."""
         return False
 
-    def find_failing_resource(self, entity, clauses, *, ids=None, parent_id=None):
+    def find_failing_resource(
+        self, entity, clauses, *, ids=None, parent_id=None, max_timestamp_ms=None
+    ):
         """Find a resource that fails a conjunctive tag/alias predicate.
 
         The registry's half of the authorization pushdown hook; see

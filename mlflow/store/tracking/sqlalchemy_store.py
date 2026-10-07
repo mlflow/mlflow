@@ -10060,6 +10060,15 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
     #
     # An entity absent here declines rather than guessing: adding one is opt-in, and a
     # typo cannot answer for the wrong table.
+    #: The column a predicate-mode mutation bounds its population by, per cascade entity.
+    #: Only traces have one: ``DeleteTraces`` is the only route that deletes a timestamp
+    #: slice of a parent's children rather than all of them. Declared separately from
+    #: ``_CASCADE_PUSHDOWN_ENTITIES`` so an entity without a window is simply absent here
+    #: and the store refuses to express one, rather than silently ignoring the bound.
+    _CASCADE_PUSHDOWN_WINDOW_COLUMNS = {
+        "trace": SqlTraceInfo.timestamp_ms,
+    }
+
     _CASCADE_PUSHDOWN_ENTITIES = {
         "run": (
             SqlRun,
@@ -10103,7 +10112,9 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         ),
     }
 
-    def find_failing_resource(self, entity, clauses, *, ids=None, parent_id=None):
+    def find_failing_resource(
+        self, entity, clauses, *, ids=None, parent_id=None, max_timestamp_ms=None
+    ):
         """Push a conjunctive tag/alias predicate into SQL.
 
         See :meth:`AbstractStore.find_failing_resource`. Neither selector loads a
@@ -10123,7 +10134,17 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 f"got ids={ids!r} and parent_id={parent_id!r}"
             )
         if parent_id is not None:
-            return self._find_failing_child(entity, parent_id, clauses)
+            return self._find_failing_child(
+                entity, parent_id, clauses, max_timestamp_ms=max_timestamp_ms
+            )
+        if max_timestamp_ms is not None:
+            # The named path already knows exactly which resources are at stake, so a
+            # window would be a second, redundant way to say it -- and a contradictory one
+            # if the two disagreed. A caller passing both is a wiring bug.
+            raise ValueError(
+                "find_failing_resource takes `max_timestamp_ms` only with `parent_id`; "
+                "the `ids` selector already names the population"
+            )
         return self._find_failing_named(entity, ids, clauses)
 
     def _pushdown_id_chunks(self, ordered, id_columns, value):
@@ -10190,7 +10211,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                             return candidate
         return None
 
-    def _find_failing_child(self, entity, parent_id, clauses):
+    def _find_failing_child(self, entity, parent_id, clauses, *, max_timestamp_ms=None):
         """The ``parent_id`` selector: the population is unknown and may be unbounded.
 
         The SQL lives in :func:`condition_pushdown.find_failing_child`, shared with the
@@ -10201,7 +10222,19 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         mapping = self._CASCADE_PUSHDOWN_ENTITIES.get(entity)
         if mapping is None:
             raise condition_pushdown.cannot_express(self, entity, "it has no cascade mapping")
-        return condition_pushdown.find_failing_child(self, mapping, parent_id, clauses)
+        extra_filters = ()
+        if max_timestamp_ms is not None:
+            window_column = self._CASCADE_PUSHDOWN_WINDOW_COLUMNS.get(entity)
+            if window_column is None:
+                raise condition_pushdown.cannot_express(
+                    self, entity, "it has no timestamp column to narrow the cascade by"
+                )
+            # The same comparison `_delete_traces` builds, so the probe's population is
+            # exactly the mutation's rather than an approximation of it.
+            extra_filters = (window_column <= max_timestamp_ms,)
+        return condition_pushdown.find_failing_child(
+            self, mapping, parent_id, clauses, extra_filters=extra_filters
+        )
 
 
 def _get_sqlalchemy_filter_clauses(parsed, session, dialect):

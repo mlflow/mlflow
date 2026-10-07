@@ -121,7 +121,7 @@ def resolve_clauses(namespaces, models, clauses):
     return resolved
 
 
-def find_failing_child(store, mapping, parent_id, clauses):
+def find_failing_child(store, mapping, parent_id, clauses, extra_filters=()):
     """Find one child of ``parent_id`` that fails the clauses, without enumerating them.
 
     Answers the question a cascading mutation actually asks -- "may I touch all of
@@ -147,6 +147,14 @@ def find_failing_child(store, mapping, parent_id, clauses):
 
     The query selects the child's full id, so naming the offending child in a
     denial costs nothing -- it is already the row being tested for existence.
+
+    ``extra_filters`` narrows the population to the children a mutation will actually
+    reach. A cascade usually reaches all of them, but a predicate-mode mutation reaches a
+    slice -- ``DeleteTraces`` deletes traces at or before a timestamp -- and judging it
+    against the whole parent refuses deletes over windows containing nothing objectionable.
+    The filters belong on the OUTER query only: they describe which children are at stake,
+    not which satisfy the condition, and adding them to the satisfying subquery would
+    shrink that set and so fail children the mutation never touches.
     """
     (
         child_model,
@@ -217,7 +225,7 @@ def find_failing_child(store, mapping, parent_id, clauses):
             store
             ._get_query(session, child_model)
             .with_entities(*child_ids)
-            .filter(parent_column == parent_id, sqlalchemy.or_(*fails_a_clause))
+            .filter(parent_column == parent_id, *extra_filters, sqlalchemy.or_(*fails_a_clause))
             .limit(1)
             .first()
         )

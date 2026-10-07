@@ -1869,7 +1869,9 @@ class SqlAlchemyStore(AbstractStore):
         ),
     }
 
-    def find_failing_resource(self, entity, clauses, *, ids=None, parent_id=None):
+    def find_failing_resource(
+        self, entity, clauses, *, ids=None, parent_id=None, max_timestamp_ms=None
+    ):
         """Push a conjunctive tag/alias predicate into SQL.
 
         See :meth:`AbstractStore.find_failing_resource`. Only the satisfying set is
@@ -1885,6 +1887,15 @@ class SqlAlchemyStore(AbstractStore):
         its versions, sharing :func:`condition_pushdown.find_failing_child` with the
         tracking store.
         """
+        if max_timestamp_ms is not None:
+            # No registry mutation deletes a timestamp slice of a parent's children, so
+            # there is no column to express this against. Declining is the fail-closed
+            # direction: ignoring the bound would judge a narrow mutation against the whole
+            # parent and refuse it, and silently widening a caller's question is worse than
+            # telling them the store cannot answer it.
+            raise condition_pushdown.cannot_express(
+                self, entity, "no registry cascade is bounded by a timestamp"
+            )
         if (ids is None) == (parent_id is None):
             raise ValueError(
                 "find_failing_resource needs exactly one of `ids` or `parent_id`, "
