@@ -880,19 +880,25 @@ def test_process_transcript_captures_claude_code_version(tmp_path):
     assert trace.info.trace_metadata.get(METADATA_KEY_CLAUDE_CODE_VERSION) == "2.1.34"
 
 
+_ASSISTANT_ENTRY = {
+    "type": "assistant",
+    "message": {"role": "assistant", "content": [{"type": "text", "text": "Hi there!"}]},
+}
+
+
 @pytest.mark.parametrize(
-    ("assistant_timestamp", "expected_duration_s"),
+    ("middle_entries", "expected_duration_s"),
     [
         # The last timestamped entry is used even when later entries have no timestamp.
-        ("2025-01-15T10:00:45.000Z", 45),
+        ([{**_ASSISTANT_ENTRY, "timestamp": "2025-01-15T10:00:45.000Z"}], 45),
         # No timestamped entry after the user prompt: fall back to the default duration.
-        (None, 10),
+        ([], 10),
         # The last timestamp precedes the start: fall back to the default duration.
-        ("2025-01-15T09:59:00.000Z", 10),
+        ([{**_ASSISTANT_ENTRY, "timestamp": "2025-01-15T09:59:00.000Z"}], 10),
     ],
 )
 def test_process_transcript_end_time_skips_trailing_entries_without_timestamp(
-    tmp_path, assistant_timestamp, expected_duration_s
+    tmp_path, middle_entries, expected_duration_s
 ):
     transcript = [
         {
@@ -900,14 +906,7 @@ def test_process_transcript_end_time_skips_trailing_entries_without_timestamp(
             "message": {"role": "user", "content": "Hello!"},
             "timestamp": "2025-01-15T10:00:00.000Z",
         },
-        {
-            "type": "assistant",
-            "message": {
-                "role": "assistant",
-                "content": [{"type": "text", "text": "Hi there!"}],
-            },
-            "timestamp": assistant_timestamp,
-        },
+        *middle_entries,
         {"type": "last-prompt", "timestamp": None},
         {"type": "cost-state", "timestamp": None},
     ]
