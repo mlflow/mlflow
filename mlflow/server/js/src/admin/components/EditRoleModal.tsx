@@ -289,49 +289,14 @@ export const EditRoleModal = ({ open, onClose, roleId }: EditRoleModalProps) => 
       }
     }
 
-    // 2. Permissions add.
-    for (const p of diff.permissionsToAdd) {
-      try {
-        await addPermission.mutateAsync({
-          role_id: roleId,
-          resource_type: p.resourceType,
-          resource_pattern: parseResourcePattern(p.resourcePattern),
-          permission: p.permission,
-        });
-      } catch (e: any) {
-        failures.push(
-          `Adding ${p.resourceType}:${p.resourcePattern} → ${p.permission} failed: ${e?.message ?? 'unknown error'}`,
-        );
-      }
-    }
-    // 3. Permissions remove.
-    for (const id of diff.permissionIdsToRemove) {
-      try {
-        await removePermission.mutateAsync(id);
-      } catch (e: any) {
-        const label = permissionByIdLabel.get(id) ?? `permission #${id}`;
-        failures.push(`Removing ${label} failed: ${e?.message ?? 'unknown error'}`);
-      }
-    }
+    // The remaining order is a safety property, not housekeeping. Permissions add access
+    // and conditions subtract it, and assigning a user to this role hands them everything
+    // it carries -- so a restriction is created before the capability it narrows, and a
+    // capability is removed before the restriction that was covering it. Each step is
+    // best-effort within itself (separate requests, no transaction), so the two gates
+    // below are what keep a partial failure fail-closed.
 
-    // 4. Users assign.
-    for (const u of diff.usersToAssign) {
-      try {
-        await assignRole.mutateAsync(u);
-      } catch (e: any) {
-        failures.push(`Assigning ${u} failed: ${e?.message ?? 'unknown error'}`);
-      }
-    }
-    // 5. Users unassign.
-    for (const u of diff.usersToUnassign) {
-      try {
-        await unassignRole.mutateAsync(u);
-      } catch (e: any) {
-        failures.push(`Unassigning ${u} failed: ${e?.message ?? 'unknown error'}`);
-      }
-    }
-
-    // 6. Conditions add.
+    // 2. Conditions add, ahead of anything that widens access.
     for (const c of diff.conditionsToAdd) {
       try {
         await addCondition.mutateAsync({
@@ -350,13 +315,65 @@ export const EditRoleModal = ({ open, onClose, roleId }: EditRoleModalProps) => 
         failures.push(`Adding condition ${formatStagedCondition(c)} failed: ${e?.message ?? 'unknown error'}`);
       }
     }
-    // 7. Conditions remove.
-    for (const id of diff.conditionIdsToRemove) {
+    const restrictionsFailed = failures.length > 0;
+
+    // 3. Capability REMOVALS -- these only narrow, and must precede any condition removal.
+    const failuresBeforeRemovals = failures.length;
+    for (const id of diff.permissionIdsToRemove) {
       try {
-        await removeCondition.mutateAsync(id);
+        await removePermission.mutateAsync(id);
       } catch (e: any) {
-        const label = conditionByIdLabel.get(id) ?? `condition #${id}`;
-        failures.push(`Removing condition ${label} failed: ${e?.message ?? 'unknown error'}`);
+        const label = permissionByIdLabel.get(id) ?? `permission #${id}`;
+        failures.push(`Removing ${label} failed: ${e?.message ?? 'unknown error'}`);
+      }
+    }
+    for (const u of diff.usersToUnassign) {
+      try {
+        await unassignRole.mutateAsync(u);
+      } catch (e: any) {
+        failures.push(`Unassigning ${u} failed: ${e?.message ?? 'unknown error'}`);
+      }
+    }
+    const capabilityRemovalFailed = failures.length > failuresBeforeRemovals;
+
+    // 4. Capability ADDITIONS, only once every staged restriction is in place. Adding a
+    // permission -- or assigning a user, which hands them the whole role -- when step 2
+    // failed would grant exactly the unrestricted access the admin was trying to narrow.
+    if (!restrictionsFailed) {
+      for (const p of diff.permissionsToAdd) {
+        try {
+          await addPermission.mutateAsync({
+            role_id: roleId,
+            resource_type: p.resourceType,
+            resource_pattern: parseResourcePattern(p.resourcePattern),
+            permission: p.permission,
+          });
+        } catch (e: any) {
+          failures.push(
+            `Adding ${p.resourceType}:${p.resourcePattern} → ${p.permission} failed: ${e?.message ?? 'unknown error'}`,
+          );
+        }
+      }
+      for (const u of diff.usersToAssign) {
+        try {
+          await assignRole.mutateAsync(u);
+        } catch (e: any) {
+          failures.push(`Assigning ${u} failed: ${e?.message ?? 'unknown error'}`);
+        }
+      }
+    }
+
+    // 5. Conditions remove, last. A restriction is only lifted once the capability it was
+    // covering is actually gone -- if a removal above failed, dropping the condition would
+    // leave that permission live and unrestricted for everyone holding this role.
+    if (!capabilityRemovalFailed) {
+      for (const id of diff.conditionIdsToRemove) {
+        try {
+          await removeCondition.mutateAsync(id);
+        } catch (e: any) {
+          const label = conditionByIdLabel.get(id) ?? `condition #${id}`;
+          failures.push(`Removing condition ${label} failed: ${e?.message ?? 'unknown error'}`);
+        }
       }
     }
 

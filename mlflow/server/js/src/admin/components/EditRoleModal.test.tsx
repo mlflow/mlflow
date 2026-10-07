@@ -9,10 +9,11 @@ import { EditRoleModal } from './EditRoleModal';
 const mockUseResourceOptionsQuery = jest.fn<(...args: any[]) => any>();
 const mockUseWorkspacesEnabled = jest.fn<() => { workspacesEnabled: boolean }>();
 const mockAddConditionMutateAsync = jest.fn<(...args: any[]) => any>();
+const mockAddPermissionMutateAsync = jest.fn<(...args: any[]) => any>();
 
 jest.mock('../hooks', () => ({
   useUpdateRole: () => ({ mutateAsync: jest.fn() }),
-  useAddPermission: () => ({ mutateAsync: jest.fn() }),
+  useAddPermission: () => ({ mutateAsync: mockAddPermissionMutateAsync }),
   useRemovePermission: () => ({ mutateAsync: jest.fn() }),
   useAssignRole: () => ({ mutateAsync: jest.fn() }),
   useUnassignRole: () => ({ mutateAsync: jest.fn() }),
@@ -41,6 +42,8 @@ beforeEach(() => {
   mockUseWorkspacesEnabled.mockReturnValue({ workspacesEnabled: false });
   mockAddConditionMutateAsync.mockReset();
   mockAddConditionMutateAsync.mockResolvedValue({});
+  mockAddPermissionMutateAsync.mockReset();
+  mockAddPermissionMutateAsync.mockResolvedValue({});
 });
 
 describe('EditRoleModal — workspace targeting on the resource picker', () => {
@@ -90,5 +93,53 @@ describe('EditRoleModal — condition scope on the wire', () => {
         container_resource_pattern: '*',
       }),
     );
+  });
+});
+
+describe('EditRoleModal — restrictions land before capability', () => {
+  // A role's conditions apply to everyone holding it, and adding a permission widens that
+  // role for all of them. The submit chain used to add permissions and assign users first
+  // and conditions last, so a condition that failed left the widened role in force.
+
+  const stageConditionAndPermission = () => {
+    fireEvent.change(screen.getByPlaceholderText("tags.lifecycle != 'prod'"), {
+      target: { value: "tags.env = 'dev'" },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Add mutation condition' }));
+    fireEvent.click(screen.getByRole('radio', { name: /^All experiments$/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^Add$/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^Review changes$/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^Apply changes$/ }));
+  };
+
+  it('adds the condition before the permission it narrows', async () => {
+    const order: string[] = [];
+    mockAddConditionMutateAsync.mockImplementation(async () => {
+      order.push('condition');
+      return {};
+    });
+    mockAddPermissionMutateAsync.mockImplementation(async () => {
+      order.push('permission');
+      return {};
+    });
+    const onClose = jest.fn();
+    renderWithDesignSystem(<EditRoleModal open onClose={onClose} roleId={1} />);
+
+    expect(await screen.findByText('Add a mutation condition')).toBeInTheDocument();
+    stageConditionAndPermission();
+
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    expect(order).toEqual(['condition', 'permission']);
+  });
+
+  it('does not add the permission when the condition could not be created', async () => {
+    mockAddConditionMutateAsync.mockRejectedValue(new Error('slot exhausted'));
+    renderWithDesignSystem(<EditRoleModal open onClose={jest.fn()} roleId={1} />);
+
+    expect(await screen.findByText('Add a mutation condition')).toBeInTheDocument();
+    stageConditionAndPermission();
+
+    await waitFor(() => expect(mockAddConditionMutateAsync).toHaveBeenCalledTimes(1));
+    expect(mockAddPermissionMutateAsync).not.toHaveBeenCalled();
   });
 });

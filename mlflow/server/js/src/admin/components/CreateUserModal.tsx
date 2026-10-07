@@ -151,6 +151,50 @@ export const CreateUserModal = ({ open, onClose }: CreateUserModalProps) => {
     // The user exists. Treat the follow-up steps as best-effort: surface
     // partial failures inline rather than rolling back the user.
     const failures: string[] = [];
+
+    if (wantsConditions) {
+      // Conditions go FIRST among the follow-ups, after `createUser` only because this add
+      // is addressed by username and the server 404s an unknown one.
+      //
+      // They used to run last, on the reasoning that a condition with no matching grant is
+      // valid and inert -- which is true, and is the wrong way round. The risk is not an
+      // unmatched condition, it is an unmatched GRANT: between granting and restricting,
+      // and permanently if the restriction fails, the user holds exactly the unrestricted
+      // access the admin was trying to narrow. So the restriction lands first and the
+      // capability steps below are skipped if it could not be created.
+      for (const c of conditions) {
+        try {
+          await addCondition.mutateAsync({
+            request: {
+              username: trimmedUsername,
+              resource_type: c.resourceType,
+              resource_pattern: c.resourcePattern,
+              container_resource_type: c.containerResourceType,
+              container_resource_pattern: c.containerResourcePattern,
+              value_condition: c.valueCondition,
+              target_condition: c.targetCondition,
+            },
+            workspace: grantWorkspaceForRequest,
+          });
+        } catch (e: any) {
+          failures.push(`Mutation condition on ${c.resourceType} failed: ${e?.message ?? 'unknown error'}`);
+        }
+      }
+    }
+
+    // A user with no access is a safe outcome; a user with unrestricted access is not. So
+    // a failed condition stops every capability step, and the message says so.
+    const restrictionsFailed = failures.length > 0;
+    if (restrictionsFailed) {
+      setError(
+        `User ${trimmedUsername} was created, but their mutation conditions could not be applied, ` +
+          `so no roles, permissions, or admin status were granted:\n${failures.join('\n')}\n` +
+          `Open the user's detail page and click "Edit access" to retry.`,
+      );
+      setSubmitting(false);
+      return;
+    }
+
     if (isAdmin) {
       try {
         await AdminApi.updateAdmin({ username: trimmedUsername, is_admin: true });
@@ -189,37 +233,6 @@ export const CreateUserModal = ({ open, onClose }: CreateUserModalProps) => {
           failures.push(
             `Direct permission ${p.resourceType}:${p.resourceId} → ${p.permission} failed: ${e?.message ?? 'unknown error'}`,
           );
-        }
-      }
-    }
-
-    if (wantsConditions) {
-      // Last, for two different reasons.
-      //
-      // The user MUST exist: this add is addressed by username and the server 404s an
-      // unknown one, so running before ``createUser`` would be a guaranteed failure.
-      //
-      // Being after the *grants*, though, is only ergonomics -- a failed grant is then
-      // reported before the condition meant to narrow it. It is not a correctness
-      // requirement: a condition with no matching grant is valid and inert, because
-      // ``authorize`` checks grants first and returns on failure without loading a single
-      // condition. Such a condition simply starts applying once a grant arrives.
-      for (const c of conditions) {
-        try {
-          await addCondition.mutateAsync({
-            request: {
-              username: trimmedUsername,
-              resource_type: c.resourceType,
-              resource_pattern: c.resourcePattern,
-              container_resource_type: c.containerResourceType,
-              container_resource_pattern: c.containerResourcePattern,
-              value_condition: c.valueCondition,
-              target_condition: c.targetCondition,
-            },
-            workspace: grantWorkspaceForRequest,
-          });
-        } catch (e: any) {
-          failures.push(`Mutation condition on ${c.resourceType} failed: ${e?.message ?? 'unknown error'}`);
         }
       }
     }

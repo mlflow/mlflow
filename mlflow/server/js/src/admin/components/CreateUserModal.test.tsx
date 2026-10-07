@@ -281,8 +281,8 @@ describe('CreateUserModal — direct mutation conditions', () => {
 
   it('creates the user before applying conditions, not after', async () => {
     // The add is addressed by username and the server 404s an unknown user, so running
-    // it before ``createUser`` fails every time. (Ordering it after the *grants* is
-    // merely tidier error reporting -- a grantless condition is valid and inert.)
+    // it before ``createUser`` fails every time. It now runs immediately after, BEFORE
+    // the grants -- see the ordering cases below.
     const order: string[] = [];
     mockCreateUserMutateAsync.mockImplementation(async () => {
       order.push('createUser');
@@ -337,5 +337,60 @@ describe('CreateUserModal — direct mutation conditions', () => {
 
     expect(await screen.findByText('Discard unsaved entry?')).toBeInTheDocument();
     expect(mockCreateUserMutateAsync).not.toHaveBeenCalled();
+  });
+});
+
+describe('CreateUserModal — restrictions land before capability', () => {
+  beforeEach(() => {
+    mockCreateUserMutateAsync.mockReset();
+    mockCreateUserMutateAsync.mockResolvedValue({ user: { username: 'newbie' } });
+    mockGrantPermissionMutateAsync.mockReset();
+    mockGrantPermissionMutateAsync.mockResolvedValue({});
+    mockAddConditionMutateAsync.mockReset();
+    mockAddConditionMutateAsync.mockResolvedValue({});
+  });
+
+  const stageConditionAndGrant = async () => {
+    await userEvent.click(screen.getByRole('button', { name: /Direct mutation conditions/ }));
+    await userEvent.type(screen.getByPlaceholderText("tags.lifecycle != 'prod'"), "tags.env = 'dev'");
+    await userEvent.click(screen.getByRole('button', { name: 'Add mutation condition' }));
+    await userEvent.click(screen.getByRole('button', { name: /Direct permissions/ }));
+    await userEvent.click(screen.getByRole('radio', { name: /^All experiments$/ }));
+    await userEvent.click(screen.getByRole('button', { name: /^Add$/ }));
+    fillCredentials();
+    await userEvent.click(screen.getByRole('button', { name: /^Create user and grant access$/ }));
+  };
+
+  it('applies the condition before the grant it narrows', async () => {
+    // The risk is not an unmatched condition (valid and inert) but an unmatched GRANT:
+    // between granting and restricting, the user holds the unrestricted access the admin
+    // was trying to narrow.
+    const order: string[] = [];
+    mockAddConditionMutateAsync.mockImplementation(async () => {
+      order.push('condition');
+      return {};
+    });
+    mockGrantPermissionMutateAsync.mockImplementation(async () => {
+      order.push('grant');
+      return {};
+    });
+    renderWithDesignSystem(<CreateUserModal open onClose={jest.fn()} />);
+
+    await stageConditionAndGrant();
+
+    await waitFor(() => expect(order).toEqual(['condition', 'grant']));
+  });
+
+  it('grants nothing when the condition could not be applied', async () => {
+    // A user with no access is a safe outcome; a user with unrestricted access is not.
+    mockAddConditionMutateAsync.mockRejectedValue(new Error('filter syntax error'));
+    const onClose = jest.fn();
+    renderWithDesignSystem(<CreateUserModal open onClose={onClose} />);
+
+    await stageConditionAndGrant();
+
+    expect(await screen.findByText(/no roles, permissions, or admin status were granted/)).toBeInTheDocument();
+    expect(mockGrantPermissionMutateAsync).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
   });
 });

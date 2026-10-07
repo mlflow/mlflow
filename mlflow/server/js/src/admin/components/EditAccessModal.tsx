@@ -344,77 +344,19 @@ export const EditAccessModal = ({ open, onClose, username }: EditAccessModalProp
     setSubmitting(true);
     const failures: string[] = [];
 
-    // 1. Admin status (do this first so a failed promotion shows up before
-    // any role changes that may depend on the new privilege).
-    if (diff.adminChange) {
-      try {
-        await AdminApi.updateAdmin({ username, is_admin: isAdmin });
-        queryClient.invalidateQueries({ queryKey: AdminQueryKeys.users });
-      } catch (e: any) {
-        failures.push(`${isAdmin ? 'Granting' : 'Revoking'} admin status failed: ${e?.message ?? 'unknown error'}`);
-      }
-    }
+    // The order of these steps is a safety property, not housekeeping. Grants add access
+    // and conditions subtract it, so at no point may capability exist without the
+    // restriction the admin paired with it. That gives two rules:
+    //
+    //   - a restriction is created BEFORE the capability it narrows, and if it fails the
+    //     capability is not granted at all;
+    //   - a capability is removed BEFORE the restriction that was covering it, and if the
+    //     removal fails the restriction stays in place.
+    //
+    // Each step is still best-effort within itself -- these are separate requests with no
+    // transaction -- so the gates are what keep a partial failure fail-closed.
 
-    // 2. Role assignments (assign new + unassign removed).
-    const roleIdsTouched = new Set<number>();
-    for (const roleId of diff.rolesToAssign) {
-      roleIdsTouched.add(roleId);
-      try {
-        await AdminApi.assignRole(username, roleId);
-      } catch (e: any) {
-        failures.push(`Assigning ${renderRoleId(roleId)} failed: ${e?.message ?? 'unknown error'}`);
-      }
-    }
-    for (const roleId of diff.rolesToUnassign) {
-      roleIdsTouched.add(roleId);
-      try {
-        await AdminApi.unassignRole(username, roleId);
-      } catch (e: any) {
-        failures.push(`Unassigning ${renderRoleId(roleId)} failed: ${e?.message ?? 'unknown error'}`);
-      }
-    }
-    if (roleIdsTouched.size > 0) {
-      queryClient.invalidateQueries({ queryKey: AccountQueryKeys.userRoles(username) });
-      // The Admin Users tab eager-loads each user's roles via
-      // ``useUsersQuery``; invalidate so the per-row Roles cell refreshes.
-      queryClient.invalidateQueries({ queryKey: AdminQueryKeys.users });
-      for (const roleId of roleIdsTouched) {
-        queryClient.invalidateQueries({ queryKey: AdminQueryKeys.roleUsers(roleId) });
-      }
-    }
-
-    // 3. Direct permissions (grant new + revoke removed).
-    for (const p of diff.directToGrant) {
-      try {
-        await grantPermission.mutateAsync({
-          resource_type: p.resourceType,
-          resource_id: p.resourceId,
-          username,
-          permission: p.permission,
-          workspace: grantWorkspaceForRequest,
-        });
-      } catch (e: any) {
-        failures.push(
-          `Granting ${p.resourceType}:${p.resourceId} → ${p.permission} failed: ${e?.message ?? 'unknown error'}`,
-        );
-      }
-    }
-    for (const p of diff.directToRevoke) {
-      try {
-        await revokePermission.mutateAsync({
-          resource_type: p.resourceType,
-          resource_id: p.resourceId,
-          username,
-          workspace: grantWorkspaceForRequest,
-        });
-      } catch (e: any) {
-        failures.push(
-          `Revoking ${p.resourceType}:${p.resourceId} (${p.permission}) failed: ${e?.message ?? 'unknown error'}`,
-        );
-      }
-    }
-
-    // Direct conditions, on the synthetic role that backs the direct grants.
+    // 1. Conditions to add, first of everything.
     for (const c of diff.conditionsToAdd) {
       try {
         await addCondition.mutateAsync({
@@ -436,12 +378,103 @@ export const EditAccessModal = ({ open, onClose, username }: EditAccessModalProp
         failures.push(`Adding condition ${formatStagedCondition(c)} failed: ${e?.message ?? 'unknown error'}`);
       }
     }
-    // A stored condition implies the role exists, so removal stays id-addressed.
-    for (const id of diff.conditionIdsToRemove) {
+    const restrictionsFailed = failures.length > 0;
+
+    // 2. Capability REMOVALS. These only narrow access, so they are safe whatever else
+    // happened, and they must precede any condition removal below.
+    const failuresBeforeRemovals = failures.length;
+    const roleIdsTouched = new Set<number>();
+    if (diff.adminChange && !isAdmin) {
       try {
-        await removeCondition.mutateAsync(id);
+        await AdminApi.updateAdmin({ username, is_admin: false });
+        queryClient.invalidateQueries({ queryKey: AdminQueryKeys.users });
       } catch (e: any) {
-        failures.push(`Removing condition #${id} failed: ${e?.message ?? 'unknown error'}`);
+        failures.push(`Revoking admin status failed: ${e?.message ?? 'unknown error'}`);
+      }
+    }
+    for (const roleId of diff.rolesToUnassign) {
+      roleIdsTouched.add(roleId);
+      try {
+        await AdminApi.unassignRole(username, roleId);
+      } catch (e: any) {
+        failures.push(`Unassigning ${renderRoleId(roleId)} failed: ${e?.message ?? 'unknown error'}`);
+      }
+    }
+    for (const p of diff.directToRevoke) {
+      try {
+        await revokePermission.mutateAsync({
+          resource_type: p.resourceType,
+          resource_id: p.resourceId,
+          username,
+          workspace: grantWorkspaceForRequest,
+        });
+      } catch (e: any) {
+        failures.push(
+          `Revoking ${p.resourceType}:${p.resourceId} (${p.permission}) failed: ${e?.message ?? 'unknown error'}`,
+        );
+      }
+    }
+    const capabilityRemovalFailed = failures.length > failuresBeforeRemovals;
+
+    // 3. Capability ADDITIONS, only once every staged restriction is in place. Granting
+    // here when step 1 failed would hand out exactly the unrestricted access the admin
+    // was trying to narrow.
+    if (!restrictionsFailed) {
+      // Admin first among the additions, so a failed promotion is reported before role
+      // changes that may depend on the new privilege.
+      if (diff.adminChange && isAdmin) {
+        try {
+          await AdminApi.updateAdmin({ username, is_admin: true });
+          queryClient.invalidateQueries({ queryKey: AdminQueryKeys.users });
+        } catch (e: any) {
+          failures.push(`Granting admin status failed: ${e?.message ?? 'unknown error'}`);
+        }
+      }
+      for (const roleId of diff.rolesToAssign) {
+        roleIdsTouched.add(roleId);
+        try {
+          await AdminApi.assignRole(username, roleId);
+        } catch (e: any) {
+          failures.push(`Assigning ${renderRoleId(roleId)} failed: ${e?.message ?? 'unknown error'}`);
+        }
+      }
+      for (const p of diff.directToGrant) {
+        try {
+          await grantPermission.mutateAsync({
+            resource_type: p.resourceType,
+            resource_id: p.resourceId,
+            username,
+            permission: p.permission,
+            workspace: grantWorkspaceForRequest,
+          });
+        } catch (e: any) {
+          failures.push(
+            `Granting ${p.resourceType}:${p.resourceId} → ${p.permission} failed: ${e?.message ?? 'unknown error'}`,
+          );
+        }
+      }
+    }
+    if (roleIdsTouched.size > 0) {
+      queryClient.invalidateQueries({ queryKey: AccountQueryKeys.userRoles(username) });
+      // The Admin Users tab eager-loads each user's roles via
+      // ``useUsersQuery``; invalidate so the per-row Roles cell refreshes.
+      queryClient.invalidateQueries({ queryKey: AdminQueryKeys.users });
+      for (const roleId of roleIdsTouched) {
+        queryClient.invalidateQueries({ queryKey: AdminQueryKeys.roleUsers(roleId) });
+      }
+    }
+
+    // 4. Condition removals, last. A restriction is only lifted once the capability it
+    // was covering is actually gone -- if a revoke above failed, dropping the condition
+    // would leave that grant live and unrestricted.
+    if (!capabilityRemovalFailed) {
+      // A stored condition implies the role exists, so removal stays id-addressed.
+      for (const id of diff.conditionIdsToRemove) {
+        try {
+          await removeCondition.mutateAsync(id);
+        } catch (e: any) {
+          failures.push(`Removing condition #${id} failed: ${e?.message ?? 'unknown error'}`);
+        }
       }
     }
 
