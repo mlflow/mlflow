@@ -1,3 +1,4 @@
+import { getArtifactChunkedText } from '../common/utils/ArtifactUtils';
 import { fetchAPI, fetchOrFail, getAjaxUrl, HTTPMethods } from '../common/utils/FetchUtils';
 import { buildSearchParams } from '../common/utils/SearchUtils';
 import type {
@@ -22,9 +23,21 @@ import type {
   UpdateSkillVersionStatusRequest,
   UpdateSkillVersionStatusResponse,
   UploadedSkillVersionRequest,
+  CreateSkillRequest,
+  Skill,
 } from './types';
 
 const BASE_URL = 'ajax-api/3.0/mlflow/skills';
+// Uploaded skill content lives in MLflow artifact storage and is read through the artifact proxy.
+const ARTIFACTS_URL = 'ajax-api/2.0/mlflow-artifacts/artifacts';
+
+export interface SkillArtifactFileInfo {
+  path: string;
+  is_dir?: boolean;
+  file_size?: number;
+}
+
+const encodeArtifactPath = (path: string) => path.split('/').map(encodeURIComponent).join('/');
 
 export const buildSkillIdentityPath = (name: string, organization = ''): string => {
   const encodedName = encodeURIComponent(name);
@@ -45,8 +58,8 @@ export const buildSkillMultipartBody = (
   content: Blob,
 ) => {
   const body = new FormData();
-  // A Blob is required to preserve the RFC's application/json part type. The backend
-  // must therefore receive metadata as an UploadFile rather than a string Form field.
+  // A Blob keeps the metadata part's application/json type. The backend therefore
+  // receives metadata as an UploadFile rather than a string Form field.
   body.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }), 'metadata.json');
   const gzipContent =
     content.type === 'application/gzip' ? content : content.slice(0, content.size, 'application/gzip');
@@ -138,11 +151,25 @@ export const SkillRegistryApi = {
     return fetchAPI(getAjaxUrl(skillUrl(name, organization))) as Promise<GetSkillResponse>;
   },
 
+  /** Creates a skill without versions; fails with RESOURCE_ALREADY_EXISTS when the name is taken. */
+  createSkill: (request: CreateSkillRequest): Promise<Skill> => {
+    return fetchAPI(getAjaxUrl(BASE_URL), {
+      method: HTTPMethods.POST,
+      body: request,
+    }) as Promise<Skill>;
+  },
+
   updateSkill: (name: string, request: UpdateSkillRequest, organization = ''): Promise<UpdateSkillResponse> => {
     return fetchAPI(getAjaxUrl(skillUrl(name, organization)), {
       method: HTTPMethods.PATCH,
       body: request,
     }) as Promise<UpdateSkillResponse>;
+  },
+
+  deleteSkill: (name: string, organization = ''): Promise<SkillMutationResponse> => {
+    return fetchAPI(getAjaxUrl(skillUrl(name, organization)), {
+      method: HTTPMethods.DELETE,
+    }) as Promise<SkillMutationResponse>;
   },
 
   createSkillVersion,
@@ -234,5 +261,16 @@ export const SkillRegistryApi = {
     return fetchAPI(getAjaxUrl(`${skillUrl(name, organization)}/aliases/${encodeURIComponent(alias)}`), {
       method: HTTPMethods.DELETE,
     }) as Promise<SkillMutationResponse>;
+  },
+
+  /** Lists one directory; `path` is relative to the artifact root, as stored in a version's source. */
+  listArtifacts: (path: string): Promise<{ files?: SkillArtifactFileInfo[] }> => {
+    return fetchAPI(getAjaxUrl(`${ARTIFACTS_URL}?path=${encodeURIComponent(path)}`)) as Promise<{
+      files?: SkillArtifactFileInfo[];
+    }>;
+  },
+
+  getArtifactText: (path: string): Promise<string> => {
+    return getArtifactChunkedText(getAjaxUrl(`${ARTIFACTS_URL}/${encodeArtifactPath(path)}`));
   },
 };

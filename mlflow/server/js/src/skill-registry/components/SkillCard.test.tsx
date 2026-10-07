@@ -61,20 +61,50 @@ describe('SkillCard', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Use' }));
 
-    expect(await screen.findByText('Use cluster-inventory')).toBeInTheDocument();
-    expect(screen.getByText('mlflow skills pull @ocp-admin/cluster-inventory')).toBeInTheDocument();
+    expect(await screen.findByText('Use @ocp-admin/cluster-inventory')).toBeInTheDocument();
+    expect(screen.getByText('Pinned version: v2')).toBeInTheDocument();
+    expect(screen.getByText('Active')).toBeInTheDocument();
+    expect(document.body.textContent).toContain('skills:/@ocp-admin/cluster-inventory/2');
+    expect(document.body.textContent).toContain('mlflow skills pull skills:/@ocp-admin/cluster-inventory/2');
+    expect(document.body.textContent).toContain('--destination .claude/skills');
   });
 
   it('closes the use modal without navigating to the skill details page', async () => {
     renderCard(createMockSkill({ name: 'cluster-inventory', organization: 'ocp-admin' }));
 
     await userEvent.click(screen.getByRole('button', { name: 'Use' }));
-    expect(await screen.findByText('Use cluster-inventory')).toBeInTheDocument();
+    expect(await screen.findByText('Use @ocp-admin/cluster-inventory')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Use' }).parentElement?.parentElement?.children).toHaveLength(2);
 
     await userEvent.click(await screen.findByRole('button', { name: /close/i }));
 
-    expect(screen.queryByText('Use cluster-inventory')).not.toBeInTheDocument();
+    expect(screen.queryByText('Use @ocp-admin/cluster-inventory')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Use' })).toBeInTheDocument();
+  });
+
+  describe('name tooltip', () => {
+    const hoverName = async (
+      name: string,
+      { scrollWidth, clientWidth }: { scrollWidth: number; clientWidth: number },
+    ) => {
+      const nameElement = screen.getByText(name).parentElement as HTMLElement;
+      Object.defineProperty(nameElement, 'scrollWidth', { configurable: true, value: scrollWidth });
+      Object.defineProperty(nameElement, 'clientWidth', { configurable: true, value: clientWidth });
+      await userEvent.hover(nameElement);
+    };
+
+    it('shows no tooltip for a name that fits', async () => {
+      renderCard(createMockSkill({ name: 'short' }));
+      await hoverName('short', { scrollWidth: 50, clientWidth: 100 });
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
+    });
+
+    it('shows the full name when the ellipsis cuts it off', async () => {
+      const name = 'a-very-long-skill-name-that-does-not-fit-on-the-card';
+      renderCard(createMockSkill({ name }));
+      await hoverName(name, { scrollWidth: 400, clientWidth: 100 });
+      expect(await screen.findByRole('tooltip')).toHaveTextContent(name);
+    });
   });
 });

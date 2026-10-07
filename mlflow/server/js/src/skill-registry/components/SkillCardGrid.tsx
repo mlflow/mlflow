@@ -11,6 +11,7 @@ export const SkillCardGrid = ({
   skills,
   isLoading,
   isFiltered,
+  onCreateSkill,
   hasNextPage,
   hasPreviousPage,
   onNextPage,
@@ -20,6 +21,7 @@ export const SkillCardGrid = ({
   skills?: Skill[];
   isLoading?: boolean;
   isFiltered?: boolean;
+  onCreateSkill?: () => void;
   hasNextPage: boolean;
   hasPreviousPage: boolean;
   onNextPage: () => void;
@@ -58,7 +60,7 @@ export const SkillCardGrid = ({
           ))}
         </div>
       ) : (
-        <SkillsEmptyState isFiltered={isFiltered} />
+        <SkillsEmptyState isFiltered={isFiltered} onCreateSkill={onCreateSkill} />
       )}
       {(skills?.length || hasNextPage || hasPreviousPage) && (
         <div

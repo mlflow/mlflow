@@ -1,6 +1,12 @@
 import type { DocumentTitleHandle } from '../common/utils/RoutingUtils';
 import { createLazyRouteElement } from '../common/utils/RoutingUtils';
 import { SkillRegistryPageId, SkillRegistryRoutePaths } from './routes';
+import { formatSkillIdentity, parseSkillRouteParams } from './utils';
+
+const skillDetailTitle: DocumentTitleHandle['getPageTitle'] = (params) => {
+  const { name, organization } = parseSkillRouteParams(params);
+  return `Skill: ${formatSkillIdentity(name, organization)}`;
+};
 
 export const getSkillRegistryRouteDefs = () => {
   return [
@@ -14,21 +20,13 @@ export const getSkillRegistryRouteDefs = () => {
       path: SkillRegistryRoutePaths.skillDetailPageWithOrganization,
       element: createLazyRouteElement(() => import('./pages/SkillDetailPage')),
       pageId: SkillRegistryPageId.skillDetailPage,
-      handle: {
-        getPageTitle: (params) => {
-          const organization = decodeURIComponent(params['organization'] || '').replace(/^@/, '');
-          const name = decodeURIComponent(params['skillName'] || '');
-          return `Skill: @${organization}/${name}`;
-        },
-      } satisfies DocumentTitleHandle,
+      handle: { getPageTitle: skillDetailTitle } satisfies DocumentTitleHandle,
     },
     {
       path: SkillRegistryRoutePaths.skillDetailPage,
       element: createLazyRouteElement(() => import('./pages/SkillDetailPage')),
       pageId: SkillRegistryPageId.skillDetailPage,
-      handle: {
-        getPageTitle: (params) => `Skill: ${decodeURIComponent(params['skillName'] || '')}`,
-      } satisfies DocumentTitleHandle,
+      handle: { getPageTitle: skillDetailTitle } satisfies DocumentTitleHandle,
     },
   ];
 };

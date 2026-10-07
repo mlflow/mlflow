@@ -45,7 +45,7 @@ describe('MCPRegistryPage', () => {
   it('renders page title', async () => {
     renderPage();
     await waitFor(() => {
-      expect(screen.getByText('MCP Registry')).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: /^Model Context Protocol\b/ })).toBeInTheDocument();
     });
   });
 
@@ -84,6 +84,21 @@ describe('MCPRegistryPage', () => {
     });
   });
 
+  it('keeps the header create button hidden while the first page loads', async () => {
+    server.use(
+      rest.get(getAjaxUrl('ajax-api/3.0/mlflow/mcp-servers'), (_req, res, ctx) =>
+        res(ctx.delay(300), ctx.json({ mcp_servers: [] })),
+      ),
+    );
+    renderPage();
+
+    expect(await screen.findByText('Loading servers...')).toBeInTheDocument();
+    expect(screen.queryByText('Create MCP server')).not.toBeInTheDocument();
+    expect(await screen.findByText('Register and catalog MCP servers for your organization.')).toBeInTheDocument();
+    // Only the empty state's title and button.
+    expect(screen.getAllByText('Create MCP server')).toHaveLength(2);
+  });
+
   it('does not show header create button in empty state', async () => {
     renderPage();
     await waitFor(() => {
@@ -98,7 +113,7 @@ describe('MCPRegistryPage', () => {
   it('shows empty state in list view when no servers exist', async () => {
     renderPage();
     await waitFor(() => {
-      expect(screen.getByText('MCP Registry')).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: /^Model Context Protocol\b/ })).toBeInTheDocument();
     });
 
     await userEvent.click(screen.getByLabelText('List view'));
@@ -232,7 +247,7 @@ describe('MCPRegistryPage', () => {
       server.use(getMockedSearchMCPServersResponse([]), getMockedCurrentUserResponse({ isAdmin: false }));
       renderPage();
       await waitFor(() => {
-        expect(screen.getByText('MCP Registry')).toBeInTheDocument();
+        expect(screen.getByRole('heading', { name: /^Model Context Protocol\b/ })).toBeInTheDocument();
       });
 
       await userEvent.click(screen.getByText('Active'));

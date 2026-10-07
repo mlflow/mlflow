@@ -85,6 +85,8 @@ export const findLatestEndpoint = (server: MCPServer): MCPAccessEndpoint | undef
     ? (server.access_endpoints ?? []).find((e) => e.resolved_version?.version === server.latest_version)
     : server.access_endpoints?.[0];
 
+export const formatStatusLabel = (status: MCPStatus) => status.charAt(0).toUpperCase() + status.slice(1);
+
 export const isServerDimmed = (server: MCPServer): boolean => server.status !== MCPStatus.ACTIVE;
 
 export const formatEndpointTarget = (endpoint: Pick<MCPAccessEndpoint, 'server_alias' | 'server_version'>): string =>
