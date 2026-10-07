@@ -552,7 +552,8 @@ def _finalize_trace(
 
 def _flush_trace_async_logging() -> None:
     try:
-        if hasattr(_get_trace_exporter(), "_async_queue"):
+        exporter = _get_trace_exporter()
+        if hasattr(exporter, "_async_queue") or hasattr(exporter, "flush_async_components"):
             mlflow.flush_trace_async_logging()
     except Exception as e:
         get_logger().debug("Failed to flush trace async logging: %s", e)

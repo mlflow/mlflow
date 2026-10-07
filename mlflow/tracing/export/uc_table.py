@@ -7,6 +7,7 @@ from mlflow.entities.span import Span
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.environment_variables import MLFLOW_ENABLE_ASYNC_TRACE_LOGGING
 from mlflow.tracing.client import TracingClient
+from mlflow.tracing.export.async_export_queue import AsyncTraceExportQueue
 from mlflow.tracing.export.mlflow_v3 import MlflowV3SpanExporter
 from mlflow.tracing.export.span_batcher import SpanBatcher
 from mlflow.tracing.export.utils import flush_exporter
@@ -38,16 +39,34 @@ class DatabricksUCTableSpanExporter(MlflowV3SpanExporter):
     An exporter implementation that logs the traces to Databricks Unity Catalog table.
     """
 
-    def __init__(self, tracking_uri: str | None = None) -> None:
+    def __init__(self, tracking_uri: str | None = None, *, metadata_only: bool = False) -> None:
         super().__init__(tracking_uri)
 
+        self._metadata_only = metadata_only
         self._span_writer = DatabricksUCSpanWriter()
 
-        if hasattr(self, "_async_queue"):
+        if not metadata_only and hasattr(self, "_async_queue"):
             self._span_batcher = SpanBatcher(
                 async_task_queue=self._async_queue,
                 log_spans_func=self._log_spans,
             )
+
+    @property
+    def async_queue(self) -> AsyncTraceExportQueue | None:
+        return getattr(self, "_async_queue", None)
+
+    def should_log_async(self) -> bool:
+        return self._should_log_async()
+
+    def write_spans_to_table(self, location: str, spans: list[Span]) -> None:
+        self._span_writer.log_spans(self._client, location, spans)
+
+    def export(self, spans: Sequence[ReadableSpan]) -> None:
+        if self._metadata_only:
+            self._export_traces(spans)
+            return
+
+        super().export(spans)
 
     def _export_spans_incrementally(self, spans: Sequence[ReadableSpan]) -> None:
         """
@@ -73,7 +92,7 @@ class DatabricksUCTableSpanExporter(MlflowV3SpanExporter):
             self._log_spans(location, spans)
 
     def _log_spans(self, location: str, spans: list[Span]) -> None:
-        self._span_writer.log_spans(self._client, location, spans)
+        self.write_spans_to_table(location, spans)
 
     def _should_enable_async_logging(self) -> bool:
         return MLFLOW_ENABLE_ASYNC_TRACE_LOGGING.get()

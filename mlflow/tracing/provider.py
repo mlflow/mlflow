@@ -835,8 +835,8 @@ def _get_span_processors(disabled: bool = False) -> list[SpanProcessor]:
     if trace_destination:
         # In PrPr, users must set the destination to a Unity Catalog location to export traces.
         if isinstance(trace_destination, (UCSchemaLocation, UnityCatalog)):
-            from mlflow.tracing.export.databricks_otel_collector import (
-                get_databricks_otel_collector_span_exporter,
+            from mlflow.tracing.export.databricks_otel_router import (
+                get_databricks_otel_span_router,
             )
             from mlflow.tracing.export.uc_table import DatabricksUCTableSpanExporter
             from mlflow.tracing.processor.uc_table import DatabricksUCTableSpanProcessor
@@ -849,10 +849,10 @@ def _get_span_processors(disabled: bool = False) -> list[SpanProcessor]:
                 uc_tracking_uri and is_databricks_uri(uc_tracking_uri)
             ):
                 uc_tracking_uri = "databricks"
-            # The collector exporter checks credentials on its first span batch and uses
+            # The router checks collector credentials on its first span batch and uses
             # the tracing-server path if they are unavailable. Disabled and legacy UC
             # destinations use the standard UC table exporter directly.
-            exporter = get_databricks_otel_collector_span_exporter(
+            exporter = get_databricks_otel_span_router(
                 trace_destination, uc_tracking_uri
             ) or DatabricksUCTableSpanExporter(tracking_uri=uc_tracking_uri)
             processor = DatabricksUCTableSpanProcessor(span_exporter=exporter)

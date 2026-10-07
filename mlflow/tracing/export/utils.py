@@ -90,6 +90,10 @@ def flush_exporter(exporter: "SpanExporter", terminate: bool = False) -> None:
         exporter: The span exporter to drain.
         terminate: If True, shut the exporter's logging threads down after flushing.
     """
+    if flush_async_components := getattr(exporter, "flush_async_components", None):
+        flush_async_components(terminate=terminate)
+        return
+
     if span_batcher := getattr(exporter, "_span_batcher", None):
         # SpanBatcher.shutdown() is permanent - add_span() drops spans once the stop
         # event is set - so it is only used when the caller asked to terminate.

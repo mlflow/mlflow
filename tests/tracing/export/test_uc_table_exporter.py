@@ -7,6 +7,7 @@ import pytest
 import mlflow
 from mlflow.entities.span import Span
 from mlflow.tracing.export.uc_table import DatabricksUCTableSpanExporter
+from mlflow.tracing.export.utils import flush_exporter
 from mlflow.tracing.processor.base_mlflow import (
     BaseMlflowSpanProcessor,
     retire_batch_processor,
@@ -414,3 +415,80 @@ def test_retire_batch_processor_drains_span_batcher(monkeypatch):
     assert location == "catalog.schema.spans"
     assert len(spans) == 1
     assert processor._batch_delegate is None
+
+
+def test_metadata_only_export_writes_trace_metadata_once_without_artifacts(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", "false")
+    exporter = DatabricksUCTableSpanExporter(metadata_only=True)
+    exporter._client = mock.MagicMock()
+
+    otel_span = create_mock_otel_span(trace_id=12345, span_id=1)
+    trace_id = generate_trace_id_v4(otel_span, "catalog.schema")
+    span = Span(otel_span)
+    trace_info = create_test_trace_info_with_uc_table(trace_id, "catalog", "schema")
+    trace_manager = InMemoryTraceManager.get_instance()
+    trace_manager.register_trace(otel_span.context.trace_id, trace_info)
+    trace_manager.register_span(span)
+
+    with mock.patch("mlflow.tracing.utils.add_size_stats_to_trace_metadata"):
+        exporter.export([otel_span])
+
+    exporter._client.start_trace.assert_called_once_with(trace_info)
+    exporter._client.log_spans.assert_not_called()
+    exporter._client._upload_trace_data.assert_not_called()
+
+
+def test_default_export_still_writes_spans_and_trace_metadata(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", "false")
+    exporter = DatabricksUCTableSpanExporter()
+    exporter._client = mock.MagicMock()
+
+    otel_span = create_mock_otel_span(trace_id=12345, span_id=1)
+    trace_id = generate_trace_id_v4(otel_span, "catalog.schema")
+    span = Span(otel_span)
+    trace_info = create_test_trace_info_with_uc_table(trace_id, "catalog", "schema")
+    trace_manager = InMemoryTraceManager.get_instance()
+    trace_manager.register_trace(otel_span.context.trace_id, trace_info)
+    trace_manager.register_span(span)
+
+    with (
+        mock.patch(
+            "mlflow.tracing.export.uc_table.get_active_spans_table_name",
+            return_value="catalog.schema.spans",
+        ),
+        mock.patch("mlflow.tracing.utils.add_size_stats_to_trace_metadata"),
+    ):
+        exporter.export([otel_span])
+
+    exporter._client.log_spans.assert_called_once()
+    exporter._client.start_trace.assert_called_once_with(trace_info)
+
+
+def test_metadata_only_exporter_exposes_router_interfaces(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", "true")
+    exporter = DatabricksUCTableSpanExporter(metadata_only=True)
+
+    assert exporter.async_queue is exporter._async_queue
+    assert not hasattr(exporter, "_span_batcher")
+    assert exporter.should_log_async()
+
+    exporter._client = mock.MagicMock()
+    span = Span(create_mock_otel_span(trace_id=12345, span_id=1))
+    exporter.write_spans_to_table("catalog.schema.spans", [span])
+    exporter._client.log_spans.assert_called_once_with("catalog.schema.spans", [span])
+
+    exporter.flush(terminate=True)
+
+
+def test_flush_exporter_uses_explicit_async_components_hook():
+    exporter = mock.Mock()
+    exporter.flush_async_components = mock.Mock()
+    exporter._span_batcher = mock.Mock()
+    exporter._async_queue = mock.Mock()
+
+    flush_exporter(exporter, terminate=True)
+
+    exporter.flush_async_components.assert_called_once_with(terminate=True)
+    exporter._span_batcher.flush.assert_not_called()
+    exporter._span_batcher.shutdown.assert_not_called()
+    exporter._async_queue.flush.assert_not_called()

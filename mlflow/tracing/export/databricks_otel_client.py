@@ -1,9 +1,9 @@
-"""Low-level client for the Databricks Zerobus OTLP ingest endpoint.
+"""Low-level client for the Databricks OTLP ingest endpoint.
 
-The tracing exporter deliberately owns serialization, batching, and delivery
-classification.  This module owns the Zerobus wire contract: local credential
-and workspace discovery, endpoint resolution, OAuth token management, and the
-authenticated HTTP request.
+The collector router owns batching and delivery classification. This module
+owns the transport wire contract: local credential and workspace discovery,
+endpoint resolution, OAuth token management, and the authenticated HTTP
+request.
 """
 
 import json
@@ -412,8 +412,8 @@ def _resolve_collector_credentials(tracking_uri: str | None):
     return host, str(workspace_id), client_id, client_secret
 
 
-class ZerobusOtelClient:
-    """Lazy, authenticated HTTP client for Databricks Zerobus OTLP ingest."""
+class DatabricksOTelClient:
+    """Lazy, authenticated HTTP client for Databricks OTLP ingest."""
 
     def __init__(
         self,

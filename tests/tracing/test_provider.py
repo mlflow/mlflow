@@ -21,7 +21,7 @@ from mlflow.environment_variables import (
 )
 from mlflow.exceptions import MlflowException, MlflowTracingException
 from mlflow.tracing.destination import Databricks, MlflowExperiment
-from mlflow.tracing.export.databricks_otel_collector import DatabricksOtelCollectorSpanExporter
+from mlflow.tracing.export.databricks_otel_router import DatabricksOtelSpanRouter
 from mlflow.tracing.export.inference_table import (
     _TRACE_BUFFER,
     InferenceTableSpanExporter,
@@ -53,7 +53,12 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_EXPERIMENT_DATABRICKS_TRACE_SPAN_STORAGE_TABLE,
 )
 
-from tests.tracing.helper import get_traces, purge_traces, skip_when_testing_trace_sdk
+from tests.tracing.helper import (
+    create_mock_otel_span,
+    get_traces,
+    purge_traces,
+    skip_when_testing_trace_sdk,
+)
 
 
 @pytest.fixture
@@ -1308,7 +1313,7 @@ def _uc_destination_experiment():
     )
 
 
-def test_uc_destination_uses_lazy_collector_exporter(monkeypatch):
+def test_uc_destination_uses_lazy_collector_router(monkeypatch):
     monkeypatch.delenv(MLFLOW_ENABLE_DATABRICKS_OTEL_COLLECTOR_EXPORT.name, raising=False)
     monkeypatch.delenv("MLFLOW_DATABRICKS_OTEL_COLLECTOR_ENDPOINT", raising=False)
     from mlflow.tracing.provider import _MLFLOW_TRACE_USER_DESTINATION
@@ -1338,7 +1343,7 @@ def test_uc_destination_uses_lazy_collector_exporter(monkeypatch):
         processors = tracer.span_processor._span_processors
 
         assert len(processors) == 1
-        assert type(processors[0].span_exporter) is DatabricksOtelCollectorSpanExporter
+        assert type(processors[0].span_exporter) is DatabricksOtelSpanRouter
         # Tracer initialization performs no credential or network I/O on the
         # collector path. All collector prerequisites are resolved lazily on the
         # first span export.
@@ -1346,6 +1351,45 @@ def test_uc_destination_uses_lazy_collector_exporter(monkeypatch):
         mock_ws_client.assert_not_called()
         mock_resolve_credentials.assert_not_called()
         mock_resolve_endpoint.assert_not_called()
+
+    mlflow.tracing.reset()
+    _MLFLOW_TRACE_USER_DESTINATION.reset()
+
+
+def test_uc_destination_without_sp_credentials_uses_rest_without_collector_network(monkeypatch):
+    monkeypatch.delenv(MLFLOW_ENABLE_DATABRICKS_OTEL_COLLECTOR_EXPORT.name, raising=False)
+    monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", "false")
+    from mlflow.tracing.provider import _MLFLOW_TRACE_USER_DESTINATION
+
+    _MLFLOW_TRACE_USER_DESTINATION.reset()
+    mlflow.tracing.reset()
+
+    with (
+        mock.patch("mlflow.tracing.provider.mlflow.get_tracking_uri", return_value="databricks"),
+        mock.patch("mlflow.tracking.fluent._get_experiment_id", return_value="123"),
+        mock.patch("mlflow.tracking._tracking_service.utils._get_store") as mock_store_fn,
+        mock.patch(
+            "mlflow.tracing.export.databricks_otel_client._resolve_collector_credentials",
+            return_value=None,
+        ) as mock_credentials,
+        mock.patch(
+            "mlflow.tracing.export.databricks_otel_client._resolve_collector_endpoint_from_metastore"
+        ) as mock_resolve_endpoint,
+        mock.patch(
+            "mlflow.tracing.export.databricks_otel_client.DatabricksOTelClient.post"
+        ) as mock_post,
+        mock.patch.object(DatabricksUCTableSpanExporter, "write_spans_to_table") as mock_rest,
+    ):
+        mock_store_fn.return_value.get_experiment.return_value = _uc_destination_experiment()
+        exporter = _get_tracer("test").span_processor._span_processors[0].span_exporter
+        exporter.export([create_mock_otel_span(trace_id=123, span_id=1)])
+
+        assert type(exporter) is DatabricksOtelSpanRouter
+        mock_credentials.assert_called_once()
+        mock_resolve_endpoint.assert_not_called()
+        mock_post.assert_not_called()
+        mock_rest.assert_called_once()
+        assert mock_rest.call_args.args[0] == "cat.sch.pfx_otel_spans"
 
     mlflow.tracing.reset()
     _MLFLOW_TRACE_USER_DESTINATION.reset()
