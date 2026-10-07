@@ -1106,6 +1106,48 @@ def test_recursively_deleting_the_experiment_root_judges_each_child(monkeypatch)
     assert _proxy("1/", "manage") is False
 
 
+def test_recursively_deleting_the_experiment_root_declares_the_experiment(monkeypatch):
+    """The root subtree contains the experiment's OWN artifacts as well as every child's.
+
+    The path is classified into child tiers, and the resolver declared contexts for those
+    tiers only -- so an experiment target condition did not gate a delete that removes
+    experiment-level files. The empty-`child_types` branch (a point write under the root)
+    already declared the experiment, so the two paths disagreed about whose resource it is.
+    """
+    _child_restricted(monkeypatch, "experiment", "tags.keep != 'y'", ("1",), failing=("1",))
+    assert _proxy("1/", "manage") is False
+
+
+def test_recursively_deleting_an_experiment_level_path_declares_the_experiment(monkeypatch):
+    """`<exp>/<name>` where `<name>` is not a tier folder is an experiment-level artifact.
+
+    A recursive delete of it "removes whatever subtree the name covers" and is classified
+    as a run for the grant half, which left the same gap: experiment-level content deleted
+    with no experiment context declared.
+    """
+    _child_restricted(monkeypatch, "experiment", "tags.keep != 'y'", ("1",), failing=("1",))
+    assert _proxy("1/somedir", "manage") is False
+
+
+def test_recursively_deleting_the_experiment_root_permits_a_passing_experiment(monkeypatch):
+    """The experiment satisfies its condition, so the delete proceeds -- the new context
+    must not make every experiment's artifact root undeletable.
+    """
+    _child_restricted(monkeypatch, "experiment", "tags.keep != 'y'", ("1",))
+    assert _proxy("1/", "manage") is True
+
+
+def test_point_writing_a_run_artifact_does_not_declare_the_experiment(monkeypatch):
+    """The boundary of the fix: a run's artifact is the RUN's payload, not the experiment's.
+
+    An experiment target condition must not gate it, exactly as it does not gate
+    `UpdateRun`. Declaring the experiment on every proxy write would have been the easy
+    fix and would have silently restricted far more than the finding.
+    """
+    _child_restricted(monkeypatch, "experiment", "tags.keep != 'y'", ("1",), failing=("1",))
+    assert _proxy("1/r1/artifacts/f.txt", "update") is True
+
+
 def test_reading_an_artifact_declares_no_condition(monkeypatch):
     """Reads are unconditioned. A failing run condition must not block a download."""
     _child_restricted(monkeypatch, "run", "tags.keep != 'y'", ("r1",), failing=("r1",))

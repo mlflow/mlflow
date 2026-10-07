@@ -1829,19 +1829,58 @@ _ARTIFACT_PROXY_CAN = {"read": "can_read", "update": "can_update", "manage": "ca
 _ARTIFACT_PROXY_RECURSIVE_ACTIONS = frozenset({"manage"})
 
 
+def _artifact_proxy_target(
+    child_types, experiment_id: str, child_ids=None, *, covers_experiment: bool = False
+):
+    """Build the tuple ``_authorize_artifact_proxy_resolved`` consumes.
+
+    A factory rather than tuple literals at each site, because the shape has broken twice
+    now: the resolver unpacks positionally, so a site that builds one by hand turns an
+    arity change into a ``ValueError`` raised out of the after-request hook -- a 500 on
+    every non-admin artifact listing, not a failed authorization.
+    """
+    return (
+        tuple(child_types),
+        (RESOURCE_TYPE_EXPERIMENT, experiment_id),
+        dict(child_ids or {}),
+        covers_experiment,
+    )
+
+
+def _artifact_proxy_covers_experiment(artifact_path: str) -> bool:
+    """Does this path cover the experiment's OWN artifacts?
+
+    True for the experiment artifact root and for an experiment-level name under it -- the
+    two paths whose subtree includes files belonging to the experiment rather than to any
+    child tier. A path reaching into a specific tier (``<run_id>/artifacts``, ``models/``,
+    ``traces/``) is that child's payload and not the experiment's.
+
+    Those are exactly the paths whose POINT classification names no child tier, which is
+    the same test the resolver's empty-``child_types`` branch already applies. Expressed in
+    terms of that classifier rather than re-deriving the path grammar, so the two cannot
+    drift apart.
+    """
+    return not _artifact_proxy_child_types(artifact_path, recursive=False)
+
+
 def _artifact_proxy_child(artifact_path: "str | None", action: str):
     """Resolve an artifact proxy path to the sub-resources the request is judged against.
 
-    Returns ``(child_types, experiment_key, child_ids)``, ``None`` when the path names no
-    experiment at all -- the destination root, or an unrecognised first segment, neither of
-    which has a resource to judge -- or ``_ARTIFACT_PROXY_UNPARSABLE`` when the path cannot be
-    canonicalized, which must deny rather than fall through.
+    Returns ``(child_types, experiment_key, child_ids, covers_experiment)``, ``None`` when
+    the path names no experiment at all -- the destination root, or an unrecognised first
+    segment, neither of which has a resource to judge -- or ``_ARTIFACT_PROXY_UNPARSABLE``
+    when the path cannot be canonicalized, which must deny rather than fall through.
 
     ``child_types`` is EMPTY for an artifact written directly under the experiment root: there
     is no tier to carry the action, but the experiment itself is the target. That case used to
     return ``None`` too, which discarded the experiment id the pattern had just matched and
     with it any chance of conditioning the write -- the caller fell through to a bare
     permission check that never reached ``authorize()``.
+
+    ``covers_experiment`` says the path's subtree includes the experiment's own artifacts.
+    It is independent of ``child_types``: a recursive delete of the experiment root is
+    judged against every child tier AND removes experiment-level files, so both the child
+    contexts and the experiment context apply.
 
     ``action`` is needed because a recursive delete reaches tiers a point read does not.
     """
@@ -1857,12 +1896,14 @@ def _artifact_proxy_child(artifact_path: "str | None", action: str):
     child_types = _artifact_proxy_child_types(
         canonical, recursive=action in _ARTIFACT_PROXY_RECURSIVE_ACTIONS
     )
+    covers_experiment = _artifact_proxy_covers_experiment(canonical)
     if not child_types:
-        return ((), experiment, {})
-    return (
+        return _artifact_proxy_target((), experiment[1], covers_experiment=covers_experiment)
+    return _artifact_proxy_target(
         child_types,
-        experiment,
+        experiment[1],
         _artifact_proxy_child_ids(canonical, child_types),
+        covers_experiment=covers_experiment,
     )
 
 
@@ -1889,7 +1930,7 @@ def _authorize_artifact_proxy_resolved(
         # No experiment either -- the destination root, or an unrecognised first segment.
         # There is no resource to judge, so there is nothing to condition.
         return getattr(experiment_permission(), _ARTIFACT_PROXY_CAN[action])
-    child_types, experiment, child_ids = child
+    child_types, experiment, child_ids, covers_experiment = child
     if not child_types:
         if not getattr(experiment_permission(), _ARTIFACT_PROXY_CAN[action]):
             return False
@@ -1911,7 +1952,21 @@ def _authorize_artifact_proxy_resolved(
                 for child_type in child_types
             ),
         ],
-        conditions=_artifact_proxy_contexts(child_types, child_ids, experiment[1], action),
+        conditions=[
+            *_artifact_proxy_contexts(child_types, child_ids, experiment[1], action),
+            # A recursive delete of the experiment root -- or of an experiment-level name
+            # under it -- removes the experiment's OWN artifacts as well as its children's.
+            # It is judged against the child tiers it reaches, which is what kept the broad
+            # path from being the softer one, but the experiment is a target here too and
+            # an experiment condition has to govern it. The empty-`child_types` branch
+            # above already declared it for the point case, so without this the two paths
+            # disagreed about whose resource the files are.
+            *(
+                _artifact_proxy_experiment_contexts(experiment[1], action)
+                if covers_experiment
+                else ()
+            ),
+        ],
     )
 
 
@@ -8505,11 +8560,13 @@ def filter_list_artifacts_proxy(resp: Response) -> None:
         return
     username = getattr(g, "mlflow_authenticated_user", None) or authenticate_request().username
     if _authorize_artifact_proxy_resolved(
-        # Hand-built because the tier is known without parsing: an experiment-root listing
-        # is judged against the run tier. The empty ``child_ids`` is required -- the resolver
-        # unpacks three elements, and a two-element tuple raised ``ValueError`` out of the
-        # after-request hook, turning every non-admin root listing into a 500.
-        ((RESOURCE_TYPE_RUN,), (RESOURCE_TYPE_EXPERIMENT, experiment_id), {}),
+        # Built directly because the tier is known without parsing: an experiment-root
+        # listing is judged against the run tier, which the path classifier would not say
+        # for a non-recursive read. Through the factory so the tuple's shape is not
+        # restated here -- doing that by hand has twice turned an arity change into a 500
+        # out of the after-request hook. ``covers_experiment`` is immaterial for a read
+        # (reads declare no condition) but is true of this path.
+        _artifact_proxy_target((RESOURCE_TYPE_RUN,), experiment_id, covers_experiment=True),
         username,
         "read",
         _get_permission_from_experiment_id_artifact_proxy,
