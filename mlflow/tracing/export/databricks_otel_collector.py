@@ -2,7 +2,7 @@
 
 Spans are serialized to OTLP protobuf and sent to the Databricks Zerobus
 collector when a Unity Catalog destination has service-principal credentials.
-Trace-level metadata continues to flow through the inherited MLflow REST path.
+Trace-level metadata continues through the MLflow V3 exporter path.
 
 The collector client is initialized without network I/O. Credential, workspace,
 and endpoint discovery happen on the first span export; see
@@ -19,14 +19,21 @@ from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTrace
 from opentelemetry.sdk.trace import ReadableSpan
 
 from mlflow.entities.span import Span
+from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_location import UnityCatalog
-from mlflow.environment_variables import MLFLOW_ENABLE_DATABRICKS_OTEL_COLLECTOR_EXPORT
+from mlflow.environment_variables import (
+    MLFLOW_ENABLE_ASYNC_TRACE_LOGGING,
+    MLFLOW_ENABLE_DATABRICKS_OTEL_COLLECTOR_EXPORT,
+)
 from mlflow.tracing.export.databricks_otel_client import (
     ZerobusOtelClient,
     ZerobusOtelTokenError,
     ZerobusOtelTokenRefreshError,
 )
-from mlflow.tracing.export.uc_table import DatabricksUCTableSpanExporter
+from mlflow.tracing.export.mlflow_v3 import MlflowV3SpanExporter
+from mlflow.tracing.export.span_batcher import SpanBatcher
+from mlflow.tracing.export.uc_table import DatabricksUCSpanWriter
+from mlflow.tracing.export.utils import flush_exporter
 from mlflow.tracing.utils.otlp import build_otlp_export_request
 
 _logger = logging.getLogger(__name__)
@@ -66,7 +73,7 @@ def _is_connection_not_established(exc: BaseException) -> bool:
     return False
 
 
-class DatabricksOtelCollectorSpanExporter(DatabricksUCTableSpanExporter):
+class DatabricksOtelCollectorSpanExporter(MlflowV3SpanExporter):
     """Export UC table spans through Databricks' OTLP collector when available.
 
     On ambiguous delivery (5xx, read timeout, or a reset after sending), the
@@ -88,6 +95,7 @@ class DatabricksOtelCollectorSpanExporter(DatabricksUCTableSpanExporter):
         super().__init__(tracking_uri=tracking_uri)
         self._tracking_uri = tracking_uri
         self._table_name = table_name
+        self._span_writer = DatabricksUCSpanWriter()
         self._zerobus_client = ZerobusOtelClient(
             tracking_uri=tracking_uri,
             token_source=token_source,
@@ -100,17 +108,26 @@ class DatabricksOtelCollectorSpanExporter(DatabricksUCTableSpanExporter):
         )
 
         # Set when the collector path is unusable or a batch's delivery is
-        # uncertain. Later batches go straight to the inherited REST path.
+        # uncertain. Later batches go straight to the UC REST span writer.
         self._collector_rejected = False
         self._has_warned_ambiguous_drop = False
         self._has_warned_ambiguous_fallback = False
         self._ambiguous_fallback_warning_lock = threading.Lock()
 
-        # Reuse the inherited batcher so flush_exporter drains collector batches
-        # during provider flush and retirement.
-        self._collector_span_batcher = getattr(self, "_span_batcher", None)
-        if self._collector_span_batcher is not None:
-            self._collector_span_batcher._log_spans_func = self._export_batch
+        if hasattr(self, "_async_queue"):
+            self._span_batcher = SpanBatcher(
+                async_task_queue=self._async_queue,
+                log_spans_func=self._export_batch,
+            )
+
+    def _log_spans(self, location: str, spans: list[Span]) -> None:
+        self._span_writer.log_spans(self._client, location, spans)
+
+    def _should_enable_async_logging(self) -> bool:
+        return MLFLOW_ENABLE_ASYNC_TRACE_LOGGING.get()
+
+    def _should_log_spans_to_artifacts(self, trace_info: TraceInfo) -> bool:
+        return False
 
     def _as_mlflow_spans(self, spans: Sequence[ReadableSpan | Span]) -> list[Span]:
         return [span if isinstance(span, Span) else Span(span) for span in spans]
@@ -121,13 +138,11 @@ class DatabricksOtelCollectorSpanExporter(DatabricksUCTableSpanExporter):
         *,
         from_collector_batch: bool = False,
     ) -> None:
-        """Send *spans* to the inherited REST path for this exporter's table."""
+        """Send *spans* to the UC REST writer for this exporter's table."""
         spans = self._as_mlflow_spans(spans)
         if self._should_log_async() and not from_collector_batch:
             for span in spans:
                 self._span_batcher.add_span(location=self._table_name, span=span)
-        elif from_collector_batch:
-            super()._log_spans(self._table_name, spans)
         else:
             self._log_spans(self._table_name, spans)
 
@@ -346,20 +361,20 @@ class DatabricksOtelCollectorSpanExporter(DatabricksUCTableSpanExporter):
 
     def _export_batch(self, location: str, spans: list[Span]) -> None:
         if self._collector_rejected:
-            super()._log_spans(location, spans)
+            self._log_spans(location, spans)
         else:
             self._export_spans_to_collector(spans, from_collector_batch=True)
 
     def _export_spans_incrementally(self, spans: Sequence[ReadableSpan]) -> None:
-        """Send spans to Zerobus while preserving the inherited metadata path."""
+        """Send spans to Zerobus while preserving the V3 metadata path."""
         if not spans:
             return
         try:
             if self._collector_rejected:
                 self._send_spans_via_rest(spans)
-            elif self._collector_span_batcher and self._should_log_async():
+            elif self._should_log_async():
                 for span in self._as_mlflow_spans(spans):
-                    self._collector_span_batcher.add_span(location=self._table_name, span=span)
+                    self._span_batcher.add_span(location=self._table_name, span=span)
             else:
                 self._export_spans_to_collector(spans)
         except Exception as exc:
@@ -368,6 +383,10 @@ class DatabricksOtelCollectorSpanExporter(DatabricksUCTableSpanExporter):
                 "to the collector; trace metadata export via the MLflow backend is unaffected.",
                 exc,
             )
+
+    def flush(self, terminate: bool = False) -> None:
+        """Drain the span batcher and async queue used by this exporter."""
+        flush_exporter(self, terminate=terminate)
 
     def shutdown(self) -> None:
         try:

@@ -6,12 +6,31 @@ from opentelemetry.sdk.trace import ReadableSpan
 from mlflow.entities.span import Span
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.environment_variables import MLFLOW_ENABLE_ASYNC_TRACE_LOGGING
+from mlflow.tracing.client import TracingClient
 from mlflow.tracing.export.mlflow_v3 import MlflowV3SpanExporter
 from mlflow.tracing.export.span_batcher import SpanBatcher
 from mlflow.tracing.export.utils import flush_exporter
 from mlflow.tracing.utils import get_active_spans_table_name
 
 _logger = logging.getLogger(__name__)
+
+
+class DatabricksUCSpanWriter:
+    """Write spans to a Unity Catalog table with best-effort error handling."""
+
+    def __init__(self) -> None:
+        # Track if we've raised an error for span export to avoid raising it multiple times.
+        self._has_raised_span_export_error = False
+
+    def log_spans(self, client: TracingClient, location: str, spans: list[Span]) -> None:
+        try:
+            client.log_spans(location, spans)
+        except Exception as e:
+            if self._has_raised_span_export_error:
+                _logger.debug(f"Failed to log spans to the trace server: {e}", exc_info=True)
+            else:
+                _logger.warning(f"Failed to log spans to the trace server: {e}")
+                self._has_raised_span_export_error = True
 
 
 class DatabricksUCTableSpanExporter(MlflowV3SpanExporter):
@@ -22,8 +41,7 @@ class DatabricksUCTableSpanExporter(MlflowV3SpanExporter):
     def __init__(self, tracking_uri: str | None = None) -> None:
         super().__init__(tracking_uri)
 
-        # Track if we've raised an error for span export to avoid raising it multiple times.
-        self._has_raised_span_export_error = False
+        self._span_writer = DatabricksUCSpanWriter()
 
         if hasattr(self, "_async_queue"):
             self._span_batcher = SpanBatcher(
@@ -55,14 +73,7 @@ class DatabricksUCTableSpanExporter(MlflowV3SpanExporter):
             self._log_spans(location, spans)
 
     def _log_spans(self, location: str, spans: list[Span]) -> None:
-        try:
-            self._client.log_spans(location, spans)
-        except Exception as e:
-            if self._has_raised_span_export_error:
-                _logger.debug(f"Failed to log spans to the trace server: {e}", exc_info=True)
-            else:
-                _logger.warning(f"Failed to log spans to the trace server: {e}")
-                self._has_raised_span_export_error = True
+        self._span_writer.log_spans(self._client, location, spans)
 
     def _should_enable_async_logging(self) -> bool:
         return MLFLOW_ENABLE_ASYNC_TRACE_LOGGING.get()

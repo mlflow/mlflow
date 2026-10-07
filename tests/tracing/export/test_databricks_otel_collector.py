@@ -36,6 +36,7 @@ from mlflow.tracing.export.databricks_otel_collector import (
     _is_connection_not_established,
     get_databricks_otel_collector_span_exporter,
 )
+from mlflow.tracing.export.mlflow_v3 import MlflowV3SpanExporter
 from mlflow.tracing.export.uc_table import DatabricksUCTableSpanExporter
 from mlflow.tracing.export.utils import flush_exporter
 
@@ -1369,7 +1370,7 @@ def test_exporter_async_collector_post_does_not_block_span_end_and_batches(monke
         assert not export_thread.is_alive()
 
         release_post.set()
-        exporter._collector_span_batcher.flush()
+        exporter._span_batcher.flush()
         exporter._async_queue.flush(terminate=True)
 
         session.post.assert_called_once()
@@ -1377,8 +1378,8 @@ def test_exporter_async_collector_post_does_not_block_span_end_and_batches(monke
         assert len(request.resource_spans[0].scope_spans[0].spans) == 2
     finally:
         release_post.set()
-        if collector_batcher := getattr(exporter, "_collector_span_batcher", None):
-            collector_batcher.shutdown()
+        if span_batcher := getattr(exporter, "_span_batcher", None):
+            span_batcher.shutdown()
         otel_provider.shutdown()
 
 
@@ -1420,7 +1421,7 @@ def test_exporter_shutdown_drains_pending_collector_batches_before_closing_sessi
 
     assert events == ["post", "close"]
     assert session.post.call_count == 1
-    assert exporter._collector_span_batcher._span_queue.empty()
+    assert exporter._span_batcher._span_queue.empty()
     assert exporter._async_queue._queue.empty()
 
 
@@ -1612,7 +1613,7 @@ _CLASSIFICATION_CASES = [
 def test_exporter_failure_classification(monkeypatch, post_side_effect_factory, expected):
     post_side_effect = post_side_effect_factory()
     exporter, session, _ = _make_exporter(monkeypatch)
-    # Exercise the inherited REST path all the way through the client's
+    # Exercise the composed UC REST writer all the way through the client's
     # ``log_spans`` call. This verifies that a replay is actually issued to the
     # legacy sink instead of only calling an exporter helper.
     mock_client = mock.MagicMock()
@@ -1674,7 +1675,7 @@ def test_exporter_401_after_refresh_falls_back_to_rest(monkeypatch):
         exporter._export_spans_incrementally([otel_span])
 
     # A 401 that survives the refresh retry is a definitive rejection: exactly one
-    # retry, then the batch goes through the parent REST path.
+    # retry, then the batch goes through the composed UC REST writer.
     assert session.post.call_count == 2
     token_source.refresh.assert_called_once()
     mock_log.warning.assert_called_once()
@@ -1699,7 +1700,7 @@ def test_exporter_400_falls_back_to_rest_and_is_sticky(monkeypatch):
         exporter._export_spans_incrementally([otel_span])
 
     assert session.post.call_count == 1
-    # Both batches were replayed through the parent REST path.
+    # Both batches were replayed through the composed UC REST writer.
     assert mock_log_spans.call_count == 2
     # Exactly one fallback warning for the whole exporter lifetime.
     mock_log.warning.assert_called_once()
@@ -1801,8 +1802,30 @@ def test_exporter_connection_error_falls_back_to_rest_and_metadata_still_exporte
     exporter._export_traces.assert_called_once_with([otel_span])
 
 
+def test_collector_composes_uc_writer_for_fallback_and_metadata(monkeypatch):
+    exporter, session, _ = _make_exporter(monkeypatch)
+    mock_client = mock.MagicMock()
+    exporter._client = mock_client
+    exporter._export_traces = mock.MagicMock()
+    session.post.side_effect = _new_connection_error()
+    otel_span = create_mock_otel_span(trace_id=6, span_id=6)
+
+    assert isinstance(exporter, MlflowV3SpanExporter)
+    assert not isinstance(exporter, DatabricksUCTableSpanExporter)
+
+    exporter.export([otel_span])
+
+    session.post.assert_called_once()
+    mock_client.log_spans.assert_called_once()
+    location, spans = mock_client.log_spans.call_args.args
+    assert location == _TABLE_NAME
+    assert len(spans) == 1
+    assert isinstance(spans[0], Span)
+    exporter._export_traces.assert_called_once_with([otel_span])
+
+
 def test_exporter_connection_error_falls_back_through_span_batcher_when_async(monkeypatch):
-    # With async logging enabled, the fallback must reuse the parent's SpanBatcher
+    # With async logging enabled, the fallback must reuse the collector's SpanBatcher
     # path rather than calling the REST API synchronously.
     monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", "true")
     monkeypatch.setenv("MLFLOW_ASYNC_TRACE_LOGGING_MAX_SPAN_BATCH_SIZE", "1")  # no batching
@@ -1924,8 +1947,8 @@ def test_exporter_async_500_replays_current_batch_and_uses_rest_later(monkeypatc
             exporter._export_spans_incrementally([create_mock_otel_span(trace_id=51, span_id=1)])
             exporter.flush()
             session.post.assert_called_once()
-            # The collector worker replays the failed batch through the inherited
-            # REST client before the next batch is submitted.
+            # The collector worker replays the failed batch through the composed
+            # UC REST writer before the next batch is submitted.
             exporter._client.log_spans.assert_called_once()
 
             exporter._export_spans_incrementally([create_mock_otel_span(trace_id=52, span_id=2)])
@@ -2044,7 +2067,7 @@ def test_exporter_no_op_on_empty_spans(monkeypatch):
 def test_shutdown_closes_session(monkeypatch):
     exporter, session, _ = _make_exporter(monkeypatch)
 
-    with mock.patch.object(DatabricksUCTableSpanExporter, "shutdown") as mock_super_shutdown:
+    with mock.patch.object(MlflowV3SpanExporter, "shutdown") as mock_super_shutdown:
         exporter.shutdown()
 
     mock_super_shutdown.assert_called_once()
@@ -2056,7 +2079,7 @@ def test_shutdown_closes_session_even_when_parent_shutdown_raises(monkeypatch):
 
     with (
         mock.patch.object(
-            DatabricksUCTableSpanExporter, "shutdown", side_effect=RuntimeError("shutdown failed")
+            MlflowV3SpanExporter, "shutdown", side_effect=RuntimeError("shutdown failed")
         ),
         pytest.raises(RuntimeError, match="shutdown failed"),
     ):
