@@ -311,10 +311,8 @@ jobs:
           persist-credentials: false
           sparse-checkout: |
             .github/actions/setup-gateway
-            .github/actions/setup-node
             .github/workflows/sanitize.js
           sparse-checkout-cone-mode: false
-      - uses: ./.github/actions/setup-node
       - name: Clean issue content
         env:
           TITLE: ${{ needs.issue.outputs.title }}
