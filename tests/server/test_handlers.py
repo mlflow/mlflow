@@ -282,6 +282,7 @@ from mlflow.store.artifact.artifact_repo import (
     PresignedUploadMixin,
 )
 from mlflow.store.artifact.azure_blob_artifact_repo import AzureBlobArtifactRepository
+from mlflow.store.artifact.gcs_artifact_repo import GCSArtifactRepository
 from mlflow.store.artifact.local_artifact_repo import LocalArtifactRepository
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.store.entities.paged_list import PagedList
@@ -2537,6 +2538,79 @@ def test_create_presigned_download_url_unsupported_repo():
     ):
         mock_store.return_value.get_run.return_value = mock_run
         response = _create_presigned_download_url()
+
+    assert response.status_code == 501
+    json_response = json.loads(response.get_data())
+    assert json_response["error_code"] == ErrorCode.Name(NOT_IMPLEMENTED)
+    assert "presigned download" in json_response["message"].lower()
+
+
+def _gcs_repo_that_cannot_sign():
+    client = mock.MagicMock()
+    blob = client.bucket.return_value.get_blob.return_value
+    # What google-cloud-storage raises for credentials without a private key
+    blob.generate_signed_url.side_effect = AttributeError("you need a private key to sign")
+    return GCSArtifactRepository("gs://bucket/0/abc123/artifacts", client=client)
+
+
+def _azure_repo_that_cannot_sign():
+    client = mock.MagicMock()
+    client.credential = None  # e.g. a SAS-token connection string: cannot mint a SAS
+    return AzureBlobArtifactRepository(
+        "wasbs://container@account.blob.core.windows.net/0/abc123/artifacts", client=client
+    )
+
+
+@pytest.mark.parametrize(
+    "repo_factory", [_gcs_repo_that_cannot_sign, _azure_repo_that_cannot_sign], ids=["gcs", "azure"]
+)
+def test_create_presigned_download_url_returns_501_when_signing_fails(repo_factory):
+    mock_run = mock.MagicMock()
+    mock_run.info.artifact_uri = "gs://bucket/0/abc123/artifacts"
+
+    from mlflow.protos.service_pb2 import CreatePresignedDownloadUrl
+
+    request_proto = CreatePresignedDownloadUrl()
+    request_proto.run_id = "abc123"
+    request_proto.path = "model.pkl"
+
+    with (
+        app.test_request_context(method="POST", content_type="application/json"),
+        mock.patch(
+            "mlflow.server.handlers._get_request_message",
+            return_value=request_proto,
+        ),
+        mock.patch(
+            "mlflow.server.handlers._get_tracking_store",
+        ) as mock_store,
+        mock.patch(
+            "mlflow.server.handlers._get_artifact_repo",
+            return_value=repo_factory(),
+        ),
+    ):
+        mock_store.return_value.get_run.return_value = mock_run
+        response = _create_presigned_download_url()
+
+    assert response.status_code == 501
+    json_response = json.loads(response.get_data())
+    assert json_response["error_code"] == ErrorCode.Name(NOT_IMPLEMENTED)
+    assert "presigned download" in json_response["message"].lower()
+
+
+@pytest.mark.parametrize(
+    "repo_factory", [_gcs_repo_that_cannot_sign, _azure_repo_that_cannot_sign], ids=["gcs", "azure"]
+)
+def test_get_presigned_download_url_returns_501_when_signing_fails(
+    enable_serve_artifacts, repo_factory
+):
+    with (
+        app.test_request_context(method="GET"),
+        mock.patch(
+            "mlflow.server.handlers._get_artifact_repo_mlflow_artifacts",
+            return_value=repo_factory(),
+        ),
+    ):
+        response = _get_presigned_download_url("some/artifact/path")
 
     assert response.status_code == 501
     json_response = json.loads(response.get_data())
