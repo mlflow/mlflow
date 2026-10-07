@@ -45,14 +45,19 @@ const getSkillTableColumnFlex = (columnId: string) => {
 const SkillNameCell = ({ row }: CellContext<Skill, unknown>) => {
   const { theme } = useDesignSystemTheme();
   return (
-    <span css={flexRowStyles(theme)}>
+    <span css={{ ...flexRowStyles(theme), minWidth: 0, width: '100%' }}>
       <SkillIcon icons={row.original.icons} name={row.original.name} />
-      <Link
-        componentId="mlflow.skill_registry.table.name_link"
-        to={SkillRegistryRoutes.getSkillDetailRoute(row.original.name, row.original.organization)}
-      >
-        {row.original.name}
-      </Link>
+      <Tooltip content={row.original.name} componentId="mlflow.skill_registry.table.name_tooltip">
+        <span css={{ minWidth: 0, flex: 1, ...textEllipsisStyles }}>
+          <Link
+            componentId="mlflow.skill_registry.table.name_link"
+            to={SkillRegistryRoutes.getSkillDetailRoute(row.original.name, row.original.organization)}
+            css={{ ...textEllipsisStyles, display: 'block' }}
+          >
+            {row.original.name}
+          </Link>
+        </span>
+      </Tooltip>
     </span>
   );
 };
@@ -196,6 +201,7 @@ export const SkillListTable = ({
   hasPreviousPage,
   isLoading,
   isFiltered,
+  onCreateSkill,
   onNextPage,
   onPreviousPage,
   pageSizeSelect,
@@ -205,6 +211,7 @@ export const SkillListTable = ({
   hasPreviousPage: boolean;
   isLoading?: boolean;
   isFiltered?: boolean;
+  onCreateSkill?: () => void;
   onNextPage: () => void;
   onPreviousPage: () => void;
   pageSizeSelect?: CursorPaginationProps['pageSizeSelect'];
@@ -220,7 +227,7 @@ export const SkillListTable = ({
   });
 
   const isEmptyList = !isLoading && (!skills || skills.length === 0);
-  const emptyState = isEmptyList ? <SkillsEmptyState isFiltered={isFiltered} /> : null;
+  const emptyState = isEmptyList ? <SkillsEmptyState isFiltered={isFiltered} onCreateSkill={onCreateSkill} /> : null;
 
   return (
     <Table
@@ -259,7 +266,12 @@ export const SkillListTable = ({
               {row.getAllCells().map((cell) => (
                 <TableCell
                   key={cell.id}
-                  css={{ alignItems: 'center', ...(cell.column.id === 'use' ? noShrinkStyles : {}) }}
+                  css={{
+                    alignItems: 'center',
+                    minWidth: 0,
+                    overflow: 'hidden',
+                    ...(cell.column.id === 'use' ? noShrinkStyles : {}),
+                  }}
                   align="left"
                   style={{
                     flex: getSkillTableColumnFlex(cell.column.id),

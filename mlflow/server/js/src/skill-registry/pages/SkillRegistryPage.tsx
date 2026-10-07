@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   Alert,
+  Button,
   Empty,
   GridIcon,
   Header,
   ListIcon,
   LockIcon,
+  PlusIcon,
   SegmentedControlButton,
   SegmentedControlGroup,
   PuzzleIcon,
@@ -17,6 +19,7 @@ import { PermissionError } from '@databricks/web-shared/errors';
 import { useDebounce } from 'use-debounce';
 
 import { ScrollablePageWrapper } from '../../common/components/ScrollablePageWrapper';
+import { useNavigate } from '../../common/utils/RoutingUtils';
 import { withErrorBoundary } from '../../common/utils/withErrorBoundary';
 import ErrorUtils from '../../common/utils/ErrorUtils';
 import { useSkillsListQuery } from '../hooks/useSkillsListQuery';
@@ -24,7 +27,9 @@ import { SkillCardGrid } from '../components/SkillCardGrid';
 import { SkillListTable } from '../components/SkillListTable';
 import { SkillListFilters } from '../components/SkillListFilters';
 import { SkillRegistryBetaTag } from '../components/SkillRegistryBetaTag';
+import { RegisterSkillModal } from '../components/RegisterSkillModal';
 import { flexColumnContainerStyles, headerIconStyles } from '../styles';
+import SkillRegistryRoutes from '../routes';
 import { hasSkillCatalogFilters } from '../utils';
 import type { SkillSourceType } from '../types';
 
@@ -36,6 +41,8 @@ const isPermissionDeniedError = (error: Error | undefined) =>
 const SkillRegistryPage = () => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
+  const navigate = useNavigate();
+  const [registerOpen, setRegisterOpen] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [searchFilter, setSearchFilter] = useState('');
   const [filterActive, setFilterActive] = useState(false);
@@ -66,6 +73,11 @@ const SkillRegistryPage = () => {
 
   const hasActiveFilters = hasSkillCatalogFilters(catalogFilters);
   const isPermissionDenied = isPermissionDeniedError(error);
+  const isCatalogEmpty = !isLoading && !error && !skills?.length && !hasActiveFilters && !hasPreviousPage;
+  // Like the MCP registry, an empty catalog offers Create in its empty state instead. The header button waits
+  // until the list shows there is something to add to, so it doesn't flash while the first page loads.
+  const showHeaderCreate = Boolean(error) || hasActiveFilters || hasPreviousPage || Boolean(skills?.length);
+  const openRegister = () => setRegisterOpen(true);
 
   useEffect(() => {
     let added = false;
@@ -92,6 +104,18 @@ const SkillRegistryPage = () => {
             <FormattedMessage defaultMessage="Skills" description="Skill Registry page title" />
             <SkillRegistryBetaTag />
           </span>
+        }
+        buttons={
+          showHeaderCreate ? (
+            <Button
+              componentId="mlflow.skill_registry.create"
+              type="primary"
+              icon={<PlusIcon />}
+              onClick={openRegister}
+            >
+              <FormattedMessage defaultMessage="Create skill" description="Button that opens skill registration" />
+            </Button>
+          ) : undefined
         }
       />
       <Spacer shrinks={false} />
@@ -191,6 +215,7 @@ const SkillRegistryPage = () => {
                   skills={skills}
                   isLoading={isLoading}
                   isFiltered={hasActiveFilters}
+                  onCreateSkill={isCatalogEmpty ? openRegister : undefined}
                   hasNextPage={hasNextPage}
                   hasPreviousPage={hasPreviousPage}
                   onNextPage={onNextPage}
@@ -204,6 +229,7 @@ const SkillRegistryPage = () => {
                   hasPreviousPage={hasPreviousPage}
                   isLoading={isLoading}
                   isFiltered={hasActiveFilters}
+                  onCreateSkill={isCatalogEmpty ? openRegister : undefined}
                   onNextPage={onNextPage}
                   onPreviousPage={onPreviousPage}
                   pageSizeSelect={pageSizeSelect}
@@ -212,6 +238,13 @@ const SkillRegistryPage = () => {
           </>
         )}
       </div>
+      <RegisterSkillModal
+        visible={registerOpen}
+        onClose={() => setRegisterOpen(false)}
+        onRegistered={(version) =>
+          navigate(SkillRegistryRoutes.getSkillDetailRoute(version.name, version.organization, version.version))
+        }
+      />
     </ScrollablePageWrapper>
   );
 };

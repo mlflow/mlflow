@@ -92,3 +92,38 @@ export const overlayButtonStyles = (theme: ThemeType) => ({
   right: theme.spacing.xs,
   zIndex: 1,
 });
+
+export const tagListStyles = (theme: ThemeType) => ({
+  display: 'flex',
+  flexWrap: 'wrap' as const,
+  alignItems: 'center',
+  gap: theme.spacing.xs,
+});
+
+export const flexColumnGapStyles = (theme: ThemeType, gap = theme.spacing.sm) => ({
+  display: 'flex',
+  flexDirection: 'column' as const,
+  gap,
+});
+
+export const flexRowWrapStyles = (theme: ThemeType) => ({
+  display: 'flex',
+  alignItems: 'center',
+  gap: theme.spacing.sm,
+  flexWrap: 'wrap' as const,
+});
+
+export const inlineCodeStyles = (theme: ThemeType) => ({
+  display: 'inline-block' as const,
+  width: 'fit-content',
+  maxWidth: '100%',
+  overflowWrap: 'anywhere' as const,
+  verticalAlign: 'middle' as const,
+  fontFamily: 'SFMono-Regular, Consolas, "Liberation Mono", Menlo, Courier, monospace',
+  fontSize: theme.typography.fontSizeSm,
+  lineHeight: theme.typography.lineHeightSm,
+  backgroundColor: theme.colors.backgroundSecondary,
+  color: theme.colors.textPrimary,
+  padding: `${theme.spacing.xs / 2}px ${theme.spacing.xs}px`,
+  borderRadius: theme.borders.borderRadiusSm,
+});

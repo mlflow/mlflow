@@ -111,6 +111,13 @@ export type RegisterExternalSkillRequest = ExternalSkillVersionRequest & Registe
 export type RegisterUploadedSkillRequest = UploadedSkillVersionRequest & RegisterSkillIdentity;
 export type RegisterSkillRequest = RegisterExternalSkillRequest | RegisterUploadedSkillRequest;
 
+export interface CreateSkillRequest {
+  name: string;
+  organization?: string;
+  description?: string;
+  icons?: RegistryIcon[];
+}
+
 export interface UpdateSkillRequest {
   description?: string | null;
   icons?: RegistryIcon[] | null;
