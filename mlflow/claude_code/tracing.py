@@ -646,9 +646,17 @@ def process_transcript(
         final_response = find_final_assistant_response(transcript, last_user_idx + 1)
         user_prompt_text = extract_text_content(last_user_prompt)
 
-        # Calculate end time based on last entry or use default duration
-        last_entry = transcript[-1] if transcript else last_user_entry
-        conv_end_ns = parse_timestamp_to_ns(last_entry.get(MESSAGE_FIELD_TIMESTAMP))
+        # Calculate end time from the last timestamped entry or use default duration.
+        # Claude Code ends transcripts with bookkeeping entries (e.g. `last-prompt`,
+        # `cost-state`) that have a null timestamp, so skip those.
+        conv_end_ns = next(
+            (
+                ts
+                for entry in reversed(transcript)
+                if (ts := parse_timestamp_to_ns(entry.get(MESSAGE_FIELD_TIMESTAMP)))
+            ),
+            None,
+        )
         if not conv_end_ns or conv_end_ns <= conv_start_ns:
             conv_end_ns = conv_start_ns + int(10 * NANOSECONDS_PER_S)
 

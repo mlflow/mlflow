@@ -880,6 +880,34 @@ def test_process_transcript_captures_claude_code_version(tmp_path):
     assert trace.info.trace_metadata.get(METADATA_KEY_CLAUDE_CODE_VERSION) == "2.1.34"
 
 
+def test_process_transcript_end_time_skips_trailing_entries_without_timestamp(tmp_path):
+    transcript = [
+        {
+            "type": "user",
+            "message": {"role": "user", "content": "Hello!"},
+            "timestamp": "2025-01-15T10:00:00.000Z",
+        },
+        {
+            "type": "assistant",
+            "message": {
+                "role": "assistant",
+                "content": [{"type": "text", "text": "Hi there!"}],
+            },
+            "timestamp": "2025-01-15T10:00:45.000Z",
+        },
+        {"type": "last-prompt", "timestamp": None},
+        {"type": "cost-state", "timestamp": None},
+    ]
+
+    transcript_path = tmp_path / "trailing_entries_transcript.jsonl"
+    transcript_path.write_text("\n".join(json.dumps(entry) for entry in transcript) + "\n")
+    trace = process_transcript(str(transcript_path), "test-trailing-entries-session")
+
+    assert trace is not None
+    root = next(span for span in trace.data.spans if span.parent_id is None)
+    assert root.end_time_ns - root.start_time_ns == 45 * 1_000_000_000
+
+
 def test_process_transcript_no_version_field(mock_transcript_file):
     trace = process_transcript(mock_transcript_file, "test-session-no-version")
 
