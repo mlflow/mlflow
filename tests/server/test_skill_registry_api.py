@@ -1,4 +1,5 @@
 import asyncio
+import builtins
 import io
 import json
 from pathlib import Path
@@ -1093,6 +1094,39 @@ def test_register_remote_skill_version_creates_parent(tmp_path: Path, db_uri: st
     assert response.json()["name"] == "code-review"
     assert response.json()["version"] == 1
     assert store.get_skill("code-review").created_by is None
+
+
+def test_registry_registration_and_deletion_work_without_optional_auth(tmp_path: Path, db_uri: str):
+    client, store = _create_client(tmp_path, db_uri)
+    original_import = builtins.__import__
+
+    def without_flask_wtf(name, globals=None, locals=None, fromlist=(), level=0):
+        if name == "mlflow.server" and "auth" in fromlist:
+            raise ModuleNotFoundError("No module named 'flask_wtf'", name="flask_wtf")
+        return original_import(name, globals, locals, fromlist, level)
+
+    registration = {"source": "https://example.com/skill.zip"}
+    bulk_registration = {
+        "skills": [
+            {
+                "name": "bulk",
+                "source": "https://example.com/repo.git",
+                "ref": "main",
+                "digest": "a" * 64,
+            }
+        ]
+    }
+    with (
+        mock.patch("mlflow.server.handlers._get_tracking_store", return_value=store),
+        mock.patch("builtins.__import__", side_effect=without_flask_wtf),
+    ):
+        responses = [
+            client.post(f"{PREFIX}/register", json={"name": "registered", **registration}),
+            client.post(f"{PREFIX}/registered/versions", json=registration),
+            client.post(f"{PREFIX}/bulk-register", json=bulk_registration),
+            client.delete(f"{PREFIX}/registered"),
+        ]
+    assert [response.status_code for response in responses] == [200, 200, 200, 200]
 
 
 def test_register_local_skill_version_parses_multipart_request(tmp_path: Path, db_uri: str):

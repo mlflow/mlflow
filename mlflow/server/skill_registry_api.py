@@ -370,12 +370,12 @@ def _ensure_tracking_server_enabled() -> None:
 
 def _authorize_registration(request: Request, organization: str, name: str) -> bool:
     """Return whether registration will create the parent, after checking its grant."""
-    from mlflow.server import auth
-
     username = getattr(request.state, "username", None)
     if username is None:
         # Authentication is supplied by the basic-auth FastAPI middleware when enabled.
         return False
+    from mlflow.server import auth
+
     parent_exists = auth._skill_exists_for_auth(organization, name)
     if not auth.validate_can_register_skill(
         username, organization, name, parent_exists=parent_exists
@@ -637,10 +637,16 @@ def _delete_skill(name: str, organization: str = "") -> dict[str, Any]:
     from mlflow.server.skill_registry.deletion import delete_skill
 
     _validate_skill_path_identity(organization, name)
+    try:
+        from mlflow.server import auth
+    except ModuleNotFoundError as e:
+        if e.name != "flask_wtf":
+            raise
+        # Basic auth is an optional extra. A plain MLflow server has no grants to clean.
+        auth = None
     delete_skill(name=name, organization=organization)
-    from mlflow.server import auth
 
-    if auth.is_auth_enabled():
+    if auth is not None and auth.is_auth_enabled():
         auth.delete_skill_permissions(organization, name)
     return {}
 
