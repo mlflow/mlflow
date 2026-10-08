@@ -51,8 +51,9 @@ runs:
             else
               python_version="3.12.13"
             fi
-          else
-            echo "Invalid python version: '$python_version'. Must be '3.10', '3.11', or '3.12'."
+          elif [[ "$python_version" != "3.13" && "$python_version" != "3.14" ]]; then
+            # 3.13 and 3.14 use the runner's cached minor version (no patch pin).
+            echo "Invalid python version: '$python_version'. Must be '3.10', '3.11', '3.12', '3.13', or '3.14'."
             exit 1
           fi
         fi

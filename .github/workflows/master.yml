@@ -78,6 +78,7 @@ jobs:
       fail-fast: false
       matrix:
         group: [1, 2, 3, 4]
+        python-version: ["3.10", "3.13", "3.14"]
         include:
           - splits: 4
     steps:
@@ -89,6 +90,7 @@ jobs:
       - uses: ./.github/actions/free-disk-space
       - uses: ./.github/actions/setup-python
         with:
+          python-version: ${{ matrix.python-version }}
           pin-micro-version: true
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
