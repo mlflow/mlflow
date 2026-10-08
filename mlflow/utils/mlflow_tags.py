@@ -46,7 +46,7 @@ MLFLOW_ISSUE_DETECTION_JOB_ID = "mlflow.issueDetection.jobId"
 # The ID of the job that is running the UI-triggered mlflow.genai.evaluate flow
 MLFLOW_GENAI_EVALUATE_JOB_ID = "mlflow.genaiEvaluate.jobId"
 
-# Lineage of a mlflow.genai.evaluate run.
+# Lineage of a mlflow.genai.evaluate run. These tag formats are experimental and may change.
 # JSON object {"digest": "sha256:<hex>", "registered": <int>, "total": <int>} over the registered
 # scorer versions. The digest is omitted when no scorer is registered.
 MLFLOW_GENAI_EVALUATE_SCORERS_DIGEST = "mlflow.genaiEvaluate.scorersDigest"
