@@ -1864,7 +1864,7 @@ def test_register_local_skill(
         snapshot = sdk_digest.call_args.args[0]
         assert snapshot != skill_tree
         assert not snapshot.parent.exists()
-        assert inspect.call_args_list == [mock.call(skill_tree), mock.call(snapshot)]
+        inspect.assert_called_once_with(snapshot)
     else:
         inspect.assert_not_called()
         sdk_digest.assert_not_called()

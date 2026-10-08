@@ -137,7 +137,6 @@ def register_skill(
 
     client = MlflowClient()
     with fetch_source(source) as fetched:
-        manifest = inspect_skill_dir(fetched.root)
         if resolved.is_local:
             with TemporaryDirectory(prefix="mlflow-skill-register-") as tmp:
                 archive = package_skill_tree(fetched.root, os.path.join(tmp, "content.tar.gz"))
@@ -152,6 +151,8 @@ def register_skill(
                     digest=compute_tree_digest(snapshot),
                     status=status,
                 )
+
+        manifest = inspect_skill_dir(fetched.root)
         digest = compute_tree_digest(fetched.root)
 
     return client.create_skill_version(
