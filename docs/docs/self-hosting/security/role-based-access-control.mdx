@@ -207,9 +207,110 @@ container, which is what steps 3 and 5 cover.
    explicit deny would void it. See
    [Workspace isolation](#workspace-isolation) for when the floor applies in
    multi-workspace mode.
+7. **Mutation conditions** - once the steps above have _allowed_ the operation, any
+   [mutation conditions](#mutation-conditions) on the user's roles are evaluated.
+   Conditions only ever subtract: they can refuse an operation the grants permitted,
+   and can never permit one the grants refused. They are evaluated **only for
+   creates and mutations** - a read is never conditioned - and every condition that
+   applies must pass, across all of the user's roles. A role with no conditions is
+   unaffected, so a deployment that configures none behaves exactly as it did before
+   the feature existed.
 
 Steps 5 and 6 are what make a tier grant optional: with no grant on the tier, the
 container decides exactly as it did before these types existed.
+
+Step 7 runs last, and only on the allow path. The admin bypasses in steps 1 and 2
+precede it, so a Platform Admin and a Workspace Manager are not subject to
+conditions.
+
+## Mutation conditions
+
+A grant says _which resources_ a user may act on. A **mutation condition** narrows
+_what they may do to them_, by inspecting the request or the resource at the moment
+of the write. Conditions are attached to a role, alongside its permissions.
+
+Conditions never confer access. A role must already hold the grant for an
+operation; a condition can only take that operation away. A role with no conditions
+is unconstrained, so adding the feature changes nothing until a condition is
+written.
+
+Each condition carries up to two independent filters:
+
+- A **value condition** constrains the values a request is _setting_. It is checked
+  against the request body, so it governs creates and writes of new values -
+  "nobody on this team may set the `pii` tag", "nobody may assign the `champion`
+  alias".
+- A **target condition** constrains _which existing resources_ may be mutated. It is
+  checked against the resource's current state, so it governs updates and deletes -
+  "nothing tagged `lifecycle=prod` may be modified". On a create it is vacuous,
+  because there is no prior state to read.
+
+Both filters use the same syntax as the corresponding MLflow search filter, so
+`tags.lifecycle != 'prod'` selects what it would in a search box. The comparators
+are `=`, `!=`, `LIKE`, `ILIKE`, `IN` and `NOT IN`, and comparisons may be joined with
+`AND` only — `OR` is rejected when the condition is saved, so a condition is always a
+conjunction of restrictions. Multiple conditions, whether on one role or across
+several of the user's roles, are likewise combined with AND: every condition that
+applies must pass.
+
+### Supported resource types
+
+Every conditionable type supports both filters. The fields available differ, because
+only some types own aliases:
+
+| Resource type              | Value condition fields                        | Target condition fields        |
+| -------------------------- | --------------------------------------------- | ------------------------------ |
+| `experiment`               | `tag_key`, `tag_value`, `tags.<key>`          | `tags.<key>`                   |
+| `run`                      | `tag_key`, `tag_value`, `tags.<key>`          | `tags.<key>`                   |
+| `trace`                    | `tag_key`, `tag_value`, `tags.<key>`          | `tags.<key>`                   |
+| `logged_model`             | `tag_key`, `tag_value`, `tags.<key>`          | `tags.<key>`                   |
+| `registered_model`         | `tag_key`, `tag_value`, `tags.<key>`, `alias` | `tags.<key>`, `aliases.<name>` |
+| `registered_model_version` | `tag_key`, `tag_value`, `tags.<key>`          | `tags.<key>`                   |
+| `prompt`                   | `tag_key`, `tag_value`, `tags.<key>`, `alias` | `tags.<key>`, `aliases.<name>` |
+| `prompt_version`           | `tag_key`, `tag_value`, `tags.<key>`          | `tags.<key>`                   |
+| `mcp_server`               | `tag_key`, `tag_value`, `tags.<key>`, `alias` | `tags.<key>`, `aliases.<name>` |
+| `mcp_server_version`       | `tag_key`, `tag_value`, `tags.<key>`          | `tags.<key>`                   |
+
+`tag_key` and `tag_value` match any tag the request writes; `tags.<key>` binds a
+specific key to its value. An alias field is rejected on a type that does not own
+aliases, rather than silently never matching - and an alias condition belongs on the
+registry entry (`registered_model`, `prompt`, `mcp_server`), not on a version, because
+that is where aliases are stored.
+
+Resource types that own no tags or aliases cannot be conditioned, because there would
+be nothing for a filter to name. `assessment` is the notable one: assessment writes
+are conditioned against the **trace** that owns them.
+
+### Scoping a condition to one container
+
+By default a condition applies to every resource of its type in the workspace. Give
+it a container to narrow it - `container_resource_type="experiment"` with
+`container_resource_pattern="42"` restricts a `trace` condition to the traces in
+experiment 42. This is how conditions reach into a container without inheritance:
+the condition still governs the _trace_, the container only selects which conditions
+load.
+
+### Absence behaves differently per filter, by design
+
+This is the one asymmetry worth internalising before writing a condition:
+
+- A **value condition is vacuous** when the request sets nothing it names. A write
+  that touches no tags is not refused by `tag_key != 'pii'`, because it sets no
+  `pii` - it sets nothing.
+- A **target condition fails** when the resource lacks what it names. A run with no
+  `lifecycle` tag is refused by `tags.lifecycle != 'prod'`, because the tag is
+  _absent_ rather than _not prod_.
+
+The asymmetry is deliberate: treating absence the same way in both namespaces opens
+a hole in one direction or the other. Vacuous-on-absence for resources would let an
+untagged resource slip past every `tags.*` restriction, and fail-on-absence for
+requests would deny ordinary value-free writes.
+
+The practical consequence is that `tags.lifecycle != 'prod'` is stricter than it
+reads: it permits only resources explicitly tagged with some other value. If you
+want untagged resources to remain editable, say so -
+`tags.lifecycle != 'prod' OR tags.lifecycle IS NULL` is not supported, so model it
+the other way round and tag what you intend to protect.
 
 ## Workspace isolation
 
@@ -568,6 +669,134 @@ auth_client.assign_role(username="dave", role_id=role.id)
 Dave can update runs and log to them, but renaming or deleting the experiment is refused —
 the run tier decides run operations outright rather than being max'd against its parent.
 
+### 7. Let a team manage models but never move the `champion` alias
+
+A **value condition** constrains what a request may set. Here the team keeps `EDIT`
+on registered models — they can register versions, retag, and move other aliases —
+but promoting anything to `champion` is refused, because that alias is what the
+serving stack reads.
+
+```mermaid
+flowchart LR
+    Team[ML team] --> R["model-editor<br/>role"]
+    R --> P1["registered_model *<br/>EDIT"]
+    R --> C1["condition: value<br/>alias != 'champion'"]
+```
+
+<Tabs groupId="rbac-flow">
+<TabItem value="ui" label="Admin UI">
+
+1. Navigate to `/admin` → **Roles** → **Create role**, named `model-editor`.
+2. Add a permission: **Resource type** `Registered model`, scope _All_, **Permission** `EDIT`.
+3. Under **Mutation conditions**, add a condition on `Registered model` with a
+   **value condition** of `alias != 'champion'`, then click
+   **Add mutation condition**.
+4. Assign the team's users to the role → review changes → apply.
+
+</TabItem>
+<TabItem value="api" label="Role API">
+
+```python
+role = auth_client.create_role(name="model-editor", workspace="ml-research")
+auth_client.add_role_permission(
+    role_id=role.id, resource_type="registered_model", resource_pattern="*", permission="EDIT"
+)
+auth_client.add_mutation_condition(
+    role_id=role.id,
+    resource_type="registered_model",
+    value_condition="alias != 'champion'",
+)
+auth_client.assign_role(username="erin", role_id=role.id)
+```
+
+</TabItem>
+</Tabs>
+
+Setting `staging` or `baseline` succeeds; setting `champion` returns `403`. The
+condition is on `registered_model` rather than `registered_model_version` because an
+alias is stored on the registry entry, and a request naming a version is judged
+against the entry that owns the alias.
+
+Note that this governs the alias a request **sets**. It does not stop the team
+deleting a model version that currently holds `champion` — to protect existing
+state, use a target condition, as in the next scenario.
+
+### 8. Freeze production runs against further changes
+
+A **target condition** constrains which existing resources may be mutated. Here an
+engineer keeps `EDIT` on runs, but any run tagged `lifecycle=prod` is frozen: its
+tags, metrics, params and **artifacts** are all refused, because an artifact write is
+authorized against the run that owns it.
+
+```mermaid
+flowchart LR
+    Eng[Engineer] --> R["run-editor<br/>role"]
+    R --> P1["experiment *<br/>READ"]
+    R --> P2["run *<br/>EDIT"]
+    R --> C1["condition: target<br/>tags.lifecycle != 'prod'"]
+```
+
+<Tabs groupId="rbac-flow">
+<TabItem value="ui" label="Admin UI">
+
+1. Navigate to `/admin` → **Roles** → **Create role**, named `run-editor`.
+2. Add permissions: `Experiment` _All_ `READ`, and `Run` `EDIT`.
+3. Under **Mutation conditions**, add a condition on `Run` with a **target
+   condition** of `tags.lifecycle != 'prod'`, then click
+   **Add mutation condition**.
+4. Assign `frank` to the role → review changes → apply.
+
+</TabItem>
+<TabItem value="api" label="Role API">
+
+```python
+role = auth_client.create_role(name="run-editor", workspace="ml-research")
+auth_client.add_role_permission(
+    role_id=role.id, resource_type="experiment", resource_pattern="*", permission="READ"
+)
+auth_client.add_role_permission(
+    role_id=role.id, resource_type="run", resource_pattern="*", permission="EDIT"
+)
+auth_client.add_mutation_condition(
+    role_id=role.id,
+    resource_type="run",
+    target_condition="tags.lifecycle != 'prod'",
+)
+auth_client.assign_role(username="frank", role_id=role.id)
+```
+
+To scope the freeze to one experiment rather than the whole workspace, give the
+condition a container:
+
+```python
+auth_client.add_mutation_condition(
+    role_id=role.id,
+    resource_type="run",
+    container_resource_type="experiment",
+    container_resource_pattern="42",
+    target_condition="tags.lifecycle != 'prod'",
+)
+```
+
+</TabItem>
+</Tabs>
+
+Reading a `prod` run still works — conditions are never evaluated for reads — and so
+does creating a new run, because a target condition has no prior state to read on a
+create.
+
+:::warning[A target condition also refuses untagged runs]
+
+`tags.lifecycle != 'prod'` permits only runs explicitly tagged with some other
+value. A run with **no** `lifecycle` tag is refused, because the tag is absent rather
+than not-`prod` (see
+[Absence behaves differently per filter](#absence-behaves-differently-per-filter-by-design)).
+If untagged runs should stay editable, tag the ones you intend to protect and write
+the condition positively — for example `tags.lifecycle = 'dev'` on a fleet where
+every run carries the tag.
+
+:::
+
 ## Admin UI
 
 The admin UI is the operator-facing surface for managing users, roles and
@@ -598,13 +827,49 @@ previewed in a Review step before they're applied.
 
 The Roles tab lists roles in the active scope (all roles for Platform Admins;
 the active workspace's roles for Workspace Managers). **Create role** opens a
-single-page form with three sections (_Role details_, _Permissions_,
-_Assigned users_) and submits them in one shot. **Edit role** on the role
+single-page form with four sections (_Role details_, _Permissions_,
+_Mutation conditions_, _Assigned users_) and submits them in one shot.
+See [Mutation conditions](#mutation-conditions) for what the conditions
+section does. **Edit role** on the role
 detail page mirrors the same shape.
 
 ![Roles tab listing roles across workspaces](/images/self-hosting/rbac-roles-tab.png)
 
 ![Edit role form with Role details and Permissions sections](/images/self-hosting/rbac-edit-role-form.png)
+
+### Managing Conditions
+
+A role's detail page carries a **Mutation conditions** tab beside _Permissions_ and
+_Assigned users_. It lists every condition on the role: the resource type, the scope
+it applies to, and each of the two filters, with `—` where a filter is not set.
+
+![Role detail page showing the Mutation conditions tab](/images/self-hosting/rbac-conditions-tab.png)
+
+Reading this table alongside the _Permissions_ tab is how you see a role's real
+reach, because the two compose: the permissions say what the role can touch, and the
+conditions subtract from it. A role with `MANAGE` on every resource type is still
+unable to set a `bob` tag anywhere if a value condition says so.
+
+Conditions are edited through **Edit role**, in the _Mutation conditions_ section.
+Existing conditions are pre-filled; the `✕` on a row stages it for removal. The
+**Add a mutation condition** form below builds a new one:
+
+![Edit role modal with the add-a-condition form, scoped to all experiments](/images/self-hosting/rbac-conditions-add-experiment.png)
+
+- **Resource type** chooses what the condition governs, and determines which filters
+  are meaningful — only `Registered model`, `Prompt` and `MCP server` accept an
+  `alias` field (see [Supported resource types](#supported-resource-types)).
+- **Scope** is where container scoping is set. The choices are worded for the type:
+  for `Experiment` it is _All experiments in the workspace_ or _Only one experiment_.
+- **Value condition** and **Target condition** are independent, and at least one must
+  be filled. The placeholders show the shape each expects — `tag_value != 'prod'` for
+  a value filter, `tags.lifecycle != 'prod'` for a target filter.
+
+For a type that lives inside a container, choosing the narrower scope reveals a
+picker for the container itself. A `Run` condition scoped to one experiment is
+searchable by experiment name and id:
+
+![Add-condition form with a Run condition scoped to a single experiment](/images/self-hosting/rbac-conditions-add-run-scope.png)
 
 ## Default roles
 
