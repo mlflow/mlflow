@@ -10,6 +10,8 @@ import OpenAiLogo from '../../common/static/logos/openai.svg';
 import OpenAiLogoDark from '../../common/static/logos/openai-dark.svg';
 import LangChainLogo from '../../common/static/logos/langchain.svg';
 import LangChainLogoDark from '../../common/static/logos/langchain-dark.png';
+import LangGraphLogo from '../../common/static/logos/langgraph.svg';
+import LangGraphLogoDark from '../../common/static/logos/langgraph-dark.svg';
 import AnthropicLogo from '../../common/static/logos/anthropic.svg';
 import AnthropicLogoDark from '../../common/static/logos/anthropic-dark.png';
 import GeminiLogo from '../../common/static/logos/gemini.png';
@@ -45,6 +47,7 @@ describe('LogTracesDrawer', () => {
     const frameworks = [
       { name: 'OpenAI', logo: OpenAiLogo, lightLogo: OpenAiLogoDark },
       { name: 'LangChain', logo: LangChainLogo, lightLogo: LangChainLogoDark },
+      { name: 'LangGraph', logo: LangGraphLogo, lightLogo: LangGraphLogoDark },
       { name: 'Anthropic', logo: AnthropicLogo, lightLogo: AnthropicLogoDark },
     ];
     const getIcon = (name: string) => screen.getByRole('button', { name }).querySelector('img');
@@ -53,7 +56,6 @@ describe('LogTracesDrawer', () => {
     for (const { name, logo, lightLogo } of frameworks) {
       expect(getIcon(name)).toHaveAttribute('src', isDarkMode ? lightLogo : logo);
     }
-    expect(getIcon('LangGraph')).toHaveStyle({ filter: isDarkMode ? 'invert(1)' : '' });
     expect(getIcon('Gemini')).toHaveAttribute('src', GeminiLogo);
     expect(getIcon('Gemini')).toHaveStyle({ filter: '' });
 
@@ -62,8 +64,6 @@ describe('LogTracesDrawer', () => {
       expect(getIcon(name)).toHaveAttribute('src', lightLogo);
     }
 
-    await userEvent.click(screen.getByRole('button', { name: 'LangGraph' }));
-    expect(getIcon('LangGraph')).toHaveStyle({ filter: 'invert(1)' });
     expect(getIcon('Gemini')).toHaveAttribute('src', GeminiLogo);
     expect(getIcon('Gemini')).toHaveStyle({ filter: '' });
   });
