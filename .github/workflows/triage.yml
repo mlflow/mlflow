@@ -831,7 +831,7 @@ jobs:
   post_triage:
     needs: [issue, label, start_triage, triage]
     if: always() && needs.issue.result == 'success' && needs.start_triage.result == 'success'
-    runs-on: ubuntu-slim
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
       issues: write
