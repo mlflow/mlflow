@@ -8,8 +8,10 @@ from fastapi import APIRouter, FastAPI, Request
 from fastapi.testclient import TestClient
 from starlette.responses import PlainTextResponse
 
+from mlflow.exceptions import MlflowException
 from mlflow.server.assistant.api import (
     _AssistantAPIRoute,
+    _is_restricted_caller,
     _remote_access_policy,
     _RemoteAccessPolicy,
     assistant_router,
@@ -18,6 +20,7 @@ from mlflow.server.assistant.identity import (
     AssistantAuthError,
     auth_plugin_active,
     resolve_authenticated_username,
+    user_is_admin,
 )
 
 
@@ -191,3 +194,58 @@ def test_route_reuses_middleware_username_without_reauthenticating(auth_enabled)
 
     assert response.json() == {"username": "alice"}
     auth_enabled.authenticate_fastapi_request_user.assert_not_called()
+
+
+def _auth_module_with_admins(admins: set[str]):
+    module = _fake_auth_module(initialized=True)
+
+    def _get_user(username):
+        if username == "ghost":
+            raise MlflowException("User with username=ghost not found")
+        return types.SimpleNamespace(is_admin=username in admins)
+
+    module.store = types.SimpleNamespace(get_user=_get_user)
+    return module
+
+
+def test_user_is_admin(monkeypatch):
+    monkeypatch.setitem(sys.modules, "mlflow.server.auth", _auth_module_with_admins({"admin"}))
+
+    assert user_is_admin("admin") is True
+    assert user_is_admin("alice") is False
+    # A user missing from the auth store (e.g. from a custom authorization_function) is not an
+    # admin, rather than an error.
+    assert user_is_admin("ghost") is False
+    assert user_is_admin(None) is False
+
+
+def _caller(host: str, username: str | None):
+    return types.SimpleNamespace(
+        client=types.SimpleNamespace(host=host),
+        state=types.SimpleNamespace(assistant_username=username),
+    )
+
+
+@pytest.mark.parametrize(
+    ("host", "username", "auth_on", "sandbox_on", "expected"),
+    [
+        # A remote caller is always restricted.
+        ("10.0.0.5", "admin", True, True, True),
+        # On an auth server with the sandbox on, a local non-admin is restricted too...
+        ("127.0.0.1", "alice", True, True, True),
+        # ...but a local admin is not.
+        ("127.0.0.1", "admin", True, True, False),
+        # Without the sandbox, local callers keep the host behavior of earlier releases.
+        ("127.0.0.1", "alice", True, False, False),
+        # Without auth there is no admin distinction.
+        ("127.0.0.1", None, False, True, False),
+    ],
+)
+def test_is_restricted_caller(monkeypatch, host, username, auth_on, sandbox_on, expected):
+    if auth_on:
+        monkeypatch.setitem(sys.modules, "mlflow.server.auth", _auth_module_with_admins({"admin"}))
+    else:
+        monkeypatch.delitem(sys.modules, "mlflow.server.auth", raising=False)
+    monkeypatch.setattr("mlflow.server.assistant.api.assistant_sandbox_enabled", lambda: sandbox_on)
+
+    assert _is_restricted_caller(_caller(host, username)) is expected

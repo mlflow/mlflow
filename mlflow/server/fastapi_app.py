@@ -32,6 +32,7 @@ from mlflow.server import app as flask_app
 from mlflow.server.artifact_router import artifact_router
 from mlflow.server.asgi_utils import get_routed_asgi_path
 from mlflow.server.assistant.api import assistant_router
+from mlflow.server.assistant.identity import auth_plugin_active
 from mlflow.server.fastapi_security import init_fastapi_security
 from mlflow.server.gateway_api import gateway_router
 from mlflow.server.handlers import STATIC_PREFIX_ENV_VAR, _add_static_prefix
@@ -240,6 +241,13 @@ async def _lifespan(app: FastAPI):
             "(no `docker` executable found, or MLFLOW_ENABLE_ASSISTANT_SANDBOX=false); the "
             "assistant will run its Bash tool on the server host. Install Docker, or set "
             "MLFLOW_ENABLE_ASSISTANT_SANDBOX=true to require the sandbox."
+        )
+    if auth_plugin_active() and not assistant_sandbox_enabled():
+        _logger.warning(
+            "Auth is enabled but the MLflow Assistant sandbox is not active, so the Assistant runs "
+            "every user's tools, including non-admins', on the server host. Set "
+            "MLFLOW_ENABLE_ASSISTANT_SANDBOX=true (requires Docker) to run non-admin users' tools "
+            "in the sandbox, without full access."
         )
     yield
 
