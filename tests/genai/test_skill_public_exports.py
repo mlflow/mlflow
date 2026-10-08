@@ -1,7 +1,7 @@
 from mlflow import genai
 
 
-def test_skill_types_exported_from_genai():
+def test_skill_exports_from_genai():
     for name in [
         "Skill",
         "SkillVersion",
@@ -11,6 +11,9 @@ def test_skill_types_exported_from_genai():
         "MlflowSource",
         "OCISource",
         "ZipSource",
+        "import_skills",
+        "register_skill",
+        "search_skills",
         "AgentPlugin",
         "AgentPluginVersion",
     ]:

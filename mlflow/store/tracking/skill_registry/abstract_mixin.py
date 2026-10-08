@@ -5,9 +5,7 @@ from typing import Any
 from mlflow.entities.skill import RegistryIcon, Skill, SkillStatus
 from mlflow.entities.skill_version import SkillVersion
 from mlflow.store.entities.paged_list import PagedList
-from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
-
-NOT_SET = object()
+from mlflow.store.tracking import NOT_SET, SEARCH_MAX_RESULTS_DEFAULT
 
 
 class SkillRegistryMixin:

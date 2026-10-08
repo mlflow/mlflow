@@ -17,7 +17,7 @@ from mlflow.utils.annotations import experimental
 from mlflow.utils.workspace_utils import resolve_entity_workspace_name
 
 
-@experimental(version="3.16.0")
+@experimental(version="3.18.0")
 @dataclass
 class SkillVersion:
     name: str

@@ -21,7 +21,7 @@ from mlflow.protos.databricks_pb2 import (
     ErrorCode,
 )
 from mlflow.store.entities.paged_list import PagedList
-from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
+from mlflow.store.tracking import NOT_SET, SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking.dbmodels.models import (
     SqlAgentPluginVersion,
     SqlAgentPluginVersionMember,
@@ -31,7 +31,6 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlSkillVersion,
     SqlSkillVersionTag,
 )
-from mlflow.store.tracking.skill_registry.abstract_mixin import NOT_SET
 from mlflow.store.tracking.skill_registry.artifact_paths import owned_skill_upload_path
 from mlflow.store.tracking.skill_registry.constants import (
     SKILL_VERSION_DIGEST_LENGTH,
