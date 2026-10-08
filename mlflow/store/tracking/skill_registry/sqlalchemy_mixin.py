@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
-from typing import Any, Callable
+from typing import Any
 
 import sqlalchemy as sa
 from sqlalchemy import func
@@ -83,11 +84,13 @@ def _skill_identity_predicate(identities: list[tuple[str, str]], dialect: str):
                 sa.func.JSON_VALUE(rows.c.value, "$.name") == SqlSkill.name,
             )
         )
+    if dialect != "mssql":
+        # Row-value IN keeps large, multi-organization filters as one predicate.
+        return sa.tuple_(SqlSkill.organization, SqlSkill.name).in_(identities)
     names_by_organization: dict[str, set[str]] = {}
     for organization, name in identities:
         names_by_organization.setdefault(organization, set()).add(name)
-    # One branch per organization keeps common large grant sets from producing
-    # one OR branch per skill while retaining portable SQL across store dialects.
+    # SQL Server has no row-value IN. Group its smaller sets by organization.
     return sa.or_(
         sa.false(),
         *(
@@ -430,11 +433,22 @@ class SqlAlchemySkillRegistryMixin:
         max_results: int = SEARCH_MAX_RESULTS_DEFAULT,
         order_by: list[str] | None = None,
         page_token: str | None = None,
-        allowed_identities: list[tuple[str, str]] | None = None,
-        denied_identities: list[tuple[str, str]] | None = None,
+        include_skill_identities: list[tuple[str, str]] | None = None,
+        exclude_skill_identities: list[tuple[str, str]] | None = None,
     ) -> PagedList[Skill]:
         validate_max_results(max_results)
         token_scope = f"workspace:{self._get_active_workspace()}:{self.SKILL_SEARCH_TOKEN_SCOPE}"
+        if include_skill_identities is not None or exclude_skill_identities:
+            identity_scope = json.dumps(
+                [
+                    sorted(include_skill_identities)
+                    if include_skill_identities is not None
+                    else None,
+                    sorted(exclude_skill_identities or []),
+                ],
+                separators=(",", ":"),
+            )
+            token_scope += f":{hashlib.sha256(identity_scope.encode()).hexdigest()}"
         offset = self._page_token_offset(page_token, filter_string, order_by, token_scope)
         parsed_filters = SearchSkillUtils.parse_search_filter(filter_string)
         with self.ManagedSessionMaker() as session:
@@ -464,14 +478,14 @@ class SqlAlchemySkillRegistryMixin:
                 tag_join_keys=["workspace", "organization", "name"],
                 dialect=self._get_dialect(),
             )
-            if allowed_identities is not None:
+            if include_skill_identities is not None:
                 # Identity includes organization: the same name may exist in several orgs.
                 query = query.filter(
-                    _skill_identity_predicate(allowed_identities, self._get_dialect())
+                    _skill_identity_predicate(include_skill_identities, self._get_dialect())
                 )
-            if denied_identities:
+            if exclude_skill_identities:
                 query = query.filter(
-                    ~_skill_identity_predicate(denied_identities, self._get_dialect())
+                    ~_skill_identity_predicate(exclude_skill_identities, self._get_dialect())
                 )
             rows = query.order_by(*order_clauses).offset(offset).limit(max_results + 1).all()
             skills = [skill.to_mlflow_entity() for skill in rows]
@@ -490,8 +504,7 @@ class SqlAlchemySkillRegistryMixin:
         name: str,
         organization: str,
         created_by: str | None = None,
-        authorize_existing: Callable[[str, str, str], None] | None = None,
-        authorize_missing: Callable[[str, str], None] | None = None,
+        expected_parent_exists: bool | None = None,
     ) -> SqlSkill:
         skill = (
             self
@@ -499,13 +512,13 @@ class SqlAlchemySkillRegistryMixin:
             .filter(SqlSkill.name == name, SqlSkill.organization == organization)
             .one_or_none()
         )
+        if expected_parent_exists is not None and (skill is not None) != expected_parent_exists:
+            raise MlflowException(
+                f"Skill '{name}' changed after registration preflight; retry the request",
+                RESOURCE_CONFLICT,
+            )
         if skill is not None:
-            if authorize_existing is not None:
-                authorize_existing(organization, name, skill.workspace)
             return skill
-
-        if authorize_missing is not None:
-            authorize_missing(organization, name)
         skill = self._with_workspace_field(
             SqlSkill(
                 name=name,
@@ -538,8 +551,7 @@ class SqlAlchemySkillRegistryMixin:
         digest: str | None = None,
         status: str = SkillStatus.ACTIVE.value,
         created_by: str | None = None,
-        authorize_existing: Callable[[str, str, str], None] | None = None,
-        authorize_missing: Callable[[str, str], None] | None = None,
+        expected_parent_exists: bool | None = None,
     ) -> SkillVersion:
         self._validate_skill_identity(name, organization)
         self._validate_skill_version_source(source_type, source, ref, subpath, digest)
@@ -551,8 +563,7 @@ class SqlAlchemySkillRegistryMixin:
             name,
             organization,
             created_by=created_by,
-            authorize_existing=authorize_existing,
-            authorize_missing=authorize_missing,
+            expected_parent_exists=expected_parent_exists,
         )
         now = get_current_time_millis()
         skill_version = SqlSkillVersion(
@@ -592,8 +603,7 @@ class SqlAlchemySkillRegistryMixin:
         digest: str | None = None,
         status: str = SkillStatus.ACTIVE.value,
         created_by: str | None = None,
-        authorize_existing: Callable[[str, str, str], None] | None = None,
-        authorize_missing: Callable[[str, str], None] | None = None,
+        expected_parent_exists: bool | None = None,
     ) -> SkillVersion:
         self._validate_skill_identity(name, organization)
         self._validate_skill_version_source(source_type, source, ref, subpath, digest)
@@ -615,8 +625,7 @@ class SqlAlchemySkillRegistryMixin:
                     digest=digest,
                     status=status,
                     created_by=created_by,
-                    authorize_existing=authorize_existing,
-                    authorize_missing=authorize_missing,
+                    expected_parent_exists=expected_parent_exists,
                 )
             except MlflowException as e:
                 if e.error_code != ErrorCode.Name(RESOURCE_ALREADY_EXISTS):
@@ -660,8 +669,7 @@ class SqlAlchemySkillRegistryMixin:
         skill_definitions: list[dict[str, Any]],
         organization: str = "",
         created_by: str | None = None,
-        authorize_existing: Callable[[str, str, str], None] | None = None,
-        authorize_missing: Callable[[str, str], None] | None = None,
+        expected_parent_exists: dict[str, bool] | None = None,
     ) -> list[SkillVersion]:
         if not isinstance(skill_definitions, list) or not skill_definitions:
             raise MlflowException.invalid_parameter_value(
@@ -717,8 +725,7 @@ class SqlAlchemySkillRegistryMixin:
                     organization,
                     created_by,
                     status,
-                    authorize_existing,
-                    authorize_missing,
+                    expected_parent_exists,
                 )
             except MlflowException as e:
                 # Persistence helpers chain IntegrityError for creation/allocation collisions;
@@ -731,7 +738,7 @@ class SqlAlchemySkillRegistryMixin:
                     raise
 
     def _bulk_register_skills_once(
-        self, definitions, organization, created_by, status, authorize_existing, authorize_missing
+        self, definitions, organization, created_by, status, expected_parent_exists
     ):
         results = {}
         with self.ManagedSessionMaker(read_only=False) as session:
@@ -759,11 +766,15 @@ class SqlAlchemySkillRegistryMixin:
                         name,
                         organization,
                         created_by,
-                        authorize_existing=authorize_existing,
-                        authorize_missing=authorize_missing,
+                        expected_parent_exists=(
+                            expected_parent_exists.get(name) if expected_parent_exists else None
+                        ),
                     )
-                elif authorize_existing is not None:
-                    authorize_existing(organization, name, parent.workspace)
+                elif expected_parent_exists is not None and not expected_parent_exists.get(name):
+                    raise MlflowException(
+                        f"Skill '{name}' changed after registration preflight; retry the request",
+                        RESOURCE_CONFLICT,
+                    )
 
             for name in names:
                 self._assert_name_not_a_packaged_member(session, name, organization)

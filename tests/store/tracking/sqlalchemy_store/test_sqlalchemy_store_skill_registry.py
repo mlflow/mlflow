@@ -20,8 +20,8 @@ from mlflow.entities.skill_source import (
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,
-    PERMISSION_DENIED,
     RESOURCE_ALREADY_EXISTS,
+    RESOURCE_CONFLICT,
     TEMPORARILY_UNAVAILABLE,
     ErrorCode,
 )
@@ -102,22 +102,31 @@ def test_search_skills_filters_qualified_identities_before_pagination(store):
     store.create_skill("writer")
 
     allowed = [("acme", "reviewer"), ("", "writer")]
-    first = store.search_skills(max_results=1, allowed_identities=allowed)
-    second = store.search_skills(max_results=1, page_token=first.token, allowed_identities=allowed)
+    first = store.search_skills(max_results=1, include_skill_identities=allowed)
+    second = store.search_skills(
+        max_results=1, page_token=first.token, include_skill_identities=allowed
+    )
 
     assert [(skill.organization, skill.name) for skill in first] == [("", "writer")]
     assert [(skill.organization, skill.name) for skill in second] == [("acme", "reviewer")]
     assert second.token is None
-    assert list(store.search_skills(allowed_identities=[])) == []
+    assert list(store.search_skills(include_skill_identities=[])) == []
     assert [
         (skill.organization, skill.name)
-        for skill in store.search_skills(denied_identities=[("acme", "reviewer")])
+        for skill in store.search_skills(exclude_skill_identities=[("acme", "reviewer")])
     ] == [("", "reviewer"), ("", "writer"), ("example", "reviewer")]
+
+    with pytest.raises(MlflowException, match="different query scope"):
+        store.search_skills(
+            max_results=1,
+            page_token=first.token,
+            include_skill_identities=[("example", "reviewer")],
+        )
 
     many_allowed = [("acme", f"missing-{index}") for index in range(500)] + allowed
     assert [
         (skill.organization, skill.name)
-        for skill in store.search_skills(allowed_identities=many_allowed)
+        for skill in store.search_skills(include_skill_identities=many_allowed)
     ] == [("", "writer"), ("acme", "reviewer")]
 
 
@@ -1100,20 +1109,16 @@ def test_bulk_register_skills_later_failure_rolls_back_every_new_parent_and_vers
         assert store._get_query(session, SqlSkillVersion).count() == 0
 
 
-def test_bulk_register_skills_rechecks_existing_parent_before_writing(store):
+def test_bulk_register_skills_rejects_changed_parent_state_before_writing(store):
     store.create_skill("writer", created_by="owner")
 
-    def authorize_existing(organization, name, workspace):
-        if name == "writer":
-            raise MlflowException("Permission denied", PERMISSION_DENIED)
-
-    with pytest.raises(MlflowException, match="Permission denied") as exc:
+    with pytest.raises(MlflowException, match="changed after registration preflight") as exc:
         store.bulk_register_skills(
             [_bulk_definition(), _bulk_definition("writer")],
-            authorize_existing=authorize_existing,
+            expected_parent_exists={"reviewer": False, "writer": False},
         )
 
-    assert exc.value.error_code == ErrorCode.Name(PERMISSION_DENIED)
+    assert exc.value.error_code == ErrorCode.Name(RESOURCE_CONFLICT)
     with store.ManagedSessionMaker() as session:
         assert store._get_query(session, SqlSkill).count() == 1
         assert store._get_query(session, SqlSkillVersion).count() == 0

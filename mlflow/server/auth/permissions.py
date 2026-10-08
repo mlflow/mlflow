@@ -170,7 +170,6 @@ TYPE: dict[str, frozenset[PatternKind]] = {
     RESOURCE_TYPE_GATEWAY_MODEL_DEFINITION: WILDCARD_AND_ID,
     RESOURCE_TYPE_MCP_SERVER: WILDCARD_AND_ID,
     RESOURCE_TYPE_SKILL: WILDCARD_AND_ID,
-    RESOURCE_TYPE_AGENT_PLUGIN: WILDCARD_AND_ID,
     RESOURCE_TYPE_RUN: WILDCARD_ONLY,
     RESOURCE_TYPE_TRACE: WILDCARD_ONLY,
     RESOURCE_TYPE_ASSESSMENT: WILDCARD_ONLY,
@@ -218,10 +217,8 @@ RESOURCE_GRANTABLE_PERMISSIONS = frozenset({
     DENY.name,
 })
 
-# Skill Registry resources intentionally expose only the permission levels named
-# in RFC-0008. ``USE`` has no Skill-specific operation, so accepting it
-# would create a misleading grant that behaves like READ for these resources.
-SKILL_REGISTRY_GRANTABLE_PERMISSIONS = frozenset({READ.name, EDIT.name, MANAGE.name})
+# ``USE`` has no Skill-specific operation. ``DENY`` is the shared RBAC veto.
+SKILL_REGISTRY_GRANTABLE_PERMISSIONS = frozenset({READ.name, EDIT.name, MANAGE.name, DENY.name})
 SKILL_REGISTRY_RESOURCE_TYPES = frozenset({
     RESOURCE_TYPE_SKILL,
 })
@@ -268,7 +265,7 @@ def _validate_permission_for_resource_type(permission: str, resource_type: str) 
     - ``resource_type='workspace'`` accepts ``USE`` or ``MANAGE`` — the workspace-wide
       grant slot. ``USE`` is the regular member tier; ``MANAGE`` additionally grants
       role/user administration.
-    - Skill Registry resource types accept only ``READ`` / ``EDIT`` / ``MANAGE``.
+    - Skill Registry resources accept ``READ`` / ``EDIT`` / ``MANAGE`` / ``DENY``.
     - Other concrete resource types accept any of ``READ`` / ``USE`` / ``EDIT`` /
       ``MANAGE``. ``NO_PERMISSIONS`` is rejected: an absent grant combined with
       the configured ``default_permission`` already expresses "no access".

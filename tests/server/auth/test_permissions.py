@@ -189,7 +189,12 @@ def test_grantable_permission_sets_pin_simplified_model():
     # DENY is NOT grantable workspace-wide: an admin-wide veto has no use case and
     # would be unremovable once roles relied on it.
     assert DENY.name not in WORKSPACE_GRANTABLE_PERMISSIONS
-    assert SKILL_REGISTRY_GRANTABLE_PERMISSIONS == {READ.name, EDIT.name, MANAGE.name}
+    assert SKILL_REGISTRY_GRANTABLE_PERMISSIONS == {
+        READ.name,
+        EDIT.name,
+        MANAGE.name,
+        DENY.name,
+    }
 
 
 @pytest.mark.parametrize(
@@ -204,8 +209,8 @@ def test_validate_resource_grant_accepts_grantable(permission):
     _validate_permission_for_resource_type(permission, "mcp_server")
 
 
-@pytest.mark.parametrize("permission", [READ.name, EDIT.name, MANAGE.name])
-def test_validate_skill_resource_grant_accepts_rfc_tiers(permission):
+@pytest.mark.parametrize("permission", [READ.name, EDIT.name, MANAGE.name, DENY.name])
+def test_validate_skill_resource_grant_accepts_rbac_tiers(permission):
     _validate_permission_for_resource_type(permission, RESOURCE_TYPE_SKILL)
 
 

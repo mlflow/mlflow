@@ -5,7 +5,7 @@ import re
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import BinaryIO, Callable
+from typing import BinaryIO
 
 from mlflow.entities.skill import SkillStatus
 from mlflow.entities.skill_source import GitSource, OCISource, SkillSourceType, ZipSource
@@ -100,8 +100,7 @@ def register_skill_version(
     *,
     content: BinaryIO | None = None,
     multipart: bool = False,
-    authorize_existing: Callable[[str, str, str], None] | None = None,
-    authorize_missing: Callable[[str, str], None] | None = None,
+    expected_parent_exists: bool | None = None,
 ) -> SkillVersion:
     """
     Register a skill version from a request that carries metadata and, for a local skill, the
@@ -131,19 +130,18 @@ def register_skill_version(
                 "multipart/form-data body with a 'content' part. To register a remote skill, "
                 "set 'source' to its git, oci, or zip location."
             )
-        return _register_uploaded(registration, content, authorize_existing, authorize_missing)
+        return _register_uploaded(registration, content, expected_parent_exists)
     if multipart or content is not None:
         raise MlflowException.invalid_parameter_value(
             "A registration with a remote 'source' must use an application/json body; it "
             "cannot also carry uploaded content. Omit 'source' to upload content instead."
         )
-    return _register_remote(registration, authorize_existing, authorize_missing)
+    return _register_remote(registration, expected_parent_exists)
 
 
 def bulk_register_skill_versions(
     registrations: list[SkillVersionRegistration],
-    authorize_existing: Callable[[str, str, str], None] | None = None,
-    authorize_missing: Callable[[str, str], None] | None = None,
+    expected_parent_exists: dict[str, bool] | None = None,
 ) -> list[SkillVersion]:
     """Normalize remote Git registrations and register the batch atomically.
 
@@ -203,8 +201,7 @@ def bulk_register_skill_versions(
         definitions,
         organization=organization,
         created_by=created_by,
-        authorize_existing=authorize_existing,
-        authorize_missing=authorize_missing,
+        expected_parent_exists=expected_parent_exists,
     )
 
 
@@ -238,8 +235,7 @@ def _validate_metadata(registration: SkillVersionRegistration) -> None:
 
 def _register_remote(
     registration: SkillVersionRegistration,
-    authorize_existing: Callable[[str, str, str], None] | None,
-    authorize_missing: Callable[[str, str], None] | None,
+    expected_parent_exists: bool | None,
 ) -> SkillVersion:
     from mlflow.server.handlers import _get_tracking_store
 
@@ -254,8 +250,7 @@ def _register_remote(
         digest=registration.digest,
         status=registration.status,
         created_by=registration.created_by,
-        authorize_existing=authorize_existing,
-        authorize_missing=authorize_missing,
+        expected_parent_exists=expected_parent_exists,
     )
 
 
@@ -329,8 +324,7 @@ def _type_named_by_scheme(source: str) -> str | None:
 def _register_uploaded(
     registration: SkillVersionRegistration,
     content: BinaryIO,
-    authorize_existing: Callable[[str, str, str], None] | None,
-    authorize_missing: Callable[[str, str], None] | None,
+    expected_parent_exists: bool | None,
 ) -> SkillVersion:
     from mlflow.server.handlers import _get_tracking_store
 
@@ -375,8 +369,7 @@ def _register_uploaded(
             digest=registration.digest,
             status=registration.status,
             created_by=registration.created_by,
-            authorize_existing=authorize_existing,
-            authorize_missing=authorize_missing,
+            expected_parent_exists=expected_parent_exists,
         )
     except MlflowException as e:
         if e.error_code in _DEFINITE_REJECTIONS:

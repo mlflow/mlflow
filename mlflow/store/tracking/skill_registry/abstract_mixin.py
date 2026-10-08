@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Callable
+from typing import Any
 
 from mlflow.entities.skill import RegistryIcon, Skill, SkillStatus
 from mlflow.entities.skill_version import SkillVersion
@@ -60,9 +60,10 @@ class SkillRegistryMixin:
         max_results: int = SEARCH_MAX_RESULTS_DEFAULT,
         order_by: list[str] | None = None,
         page_token: str | None = None,
-        allowed_identities: list[tuple[str, str]] | None = None,
-        denied_identities: list[tuple[str, str]] | None = None,
+        include_skill_identities: list[tuple[str, str]] | None = None,
+        exclude_skill_identities: list[tuple[str, str]] | None = None,
     ) -> PagedList[Skill]:
+        """Search with optional exact ``(organization, name)`` filters before pagination."""
         raise NotImplementedError(self.__class__.__name__)
 
     def create_skill_version(
@@ -76,8 +77,7 @@ class SkillRegistryMixin:
         digest: str | None = None,
         status: str = "active",
         created_by: str | None = None,
-        authorize_existing: Callable[[str, str, str], None] | None = None,
-        authorize_missing: Callable[[str, str], None] | None = None,
+        expected_parent_exists: bool | None = None,
     ) -> SkillVersion:
         raise NotImplementedError(self.__class__.__name__)
 
@@ -86,8 +86,7 @@ class SkillRegistryMixin:
         skill_definitions: list[dict[str, Any]],
         organization: str = "",
         created_by: str | None = None,
-        authorize_existing: Callable[[str, str, str], None] | None = None,
-        authorize_missing: Callable[[str, str], None] | None = None,
+        expected_parent_exists: dict[str, bool] | None = None,
     ) -> list[SkillVersion]:
         """Atomically register standalone skills from one Git repository and ref.
 

@@ -7,9 +7,39 @@ from mlflow.server import auth, handlers, skill_registry_api
 from mlflow.server.auth.permissions import EDIT, MANAGE, NO_PERMISSIONS, READ
 from mlflow.server.auth.sqlalchemy_store import SqlAlchemyStore as AuthStore
 from mlflow.server.fastapi_app import add_registry_exception_handlers
-from mlflow.server.skill_registry_api import skill_registry_router
+from mlflow.server.skill_registry_api import (
+    _require_skill_create,
+    _require_skill_manage,
+    _require_skill_read,
+    _require_skill_update,
+    skill_registry_router,
+)
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore as TrackingStore
 from mlflow.utils.workspace_context import ServerWorkspaceContext
+
+
+def test_skill_routes_declare_their_permissions():
+    permission_dependencies = {
+        _require_skill_create,
+        _require_skill_read,
+        _require_skill_update,
+        _require_skill_manage,
+    }
+    registration_paths = {
+        "/register",
+        "/bulk-register",
+        "/{name}/versions",
+        "/@{organization}/{name}/versions",
+    }
+    for route in skill_registry_router.routes:
+        declared = {dep.call for dep in route.dependant.dependencies} & permission_dependencies
+        if route.path == "" and route.methods == {"POST"}:
+            assert declared == {_require_skill_create}
+        elif route.path == "" or (route.path in registration_paths and "POST" in route.methods):
+            # Registration checks the parent identity after parsing the request.
+            assert not declared
+        else:
+            assert len(declared) == 1, (route.path, route.methods)
 
 
 def test_skill_rest_enforces_grants_and_filters_before_pagination(tmp_path, monkeypatch):
@@ -103,7 +133,7 @@ def test_skill_rest_enforces_grants_and_filters_before_pagination(tmp_path, monk
                 json={"name": "race", "source": "https://example.com/skill.zip"},
                 headers=headers,
             )
-        assert raced.status_code == 403, raced.text
+        assert raced.status_code == 409, raced.text
         assert list(tracking_store.search_skill_versions(name="race")) == []
 
         auth_store.grant_user_permission(reader.username, "skill", "@acme/reviewer", READ.name)
@@ -133,6 +163,26 @@ def test_skill_rest_enforces_grants_and_filters_before_pagination(tmp_path, monk
         )
         tracking_store.set_skill_alias("reviewer", "stable", 1, organization="acme")
         version_path = f"{target}/versions/1"
+        assert (
+            client.post(
+                f"{target}/tags", json={"key": "team", "value": "review"}, headers=headers
+            ).status_code
+            == 200
+        )
+        assert client.delete(f"{target}/tags/team", headers=headers).status_code == 200
+        assert (
+            client.post(
+                f"{version_path}/tags", json={"key": "team", "value": "review"}, headers=headers
+            ).status_code
+            == 200
+        )
+        assert client.delete(f"{version_path}/tags/team", headers=headers).status_code == 403
+        assert (
+            client.delete(
+                f"{version_path}/tags/team", headers={"x-user": owner.username}
+            ).status_code
+            == 200
+        )
         assert client.delete(version_path, headers=headers).status_code == 403
         assert (
             client.patch(version_path, json={"status": "deleted"}, headers=headers).status_code

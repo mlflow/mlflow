@@ -715,8 +715,7 @@ def test_bulk_registration_normalizes_before_one_store_call(
         ],
         organization="acme",
         created_by="importer",
-        authorize_existing=None,
-        authorize_missing=None,
+        expected_parent_exists=None,
     )
     reviewer, editor = versions
     assert reviewer.name == "reviewer"

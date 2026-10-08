@@ -301,8 +301,8 @@ from mlflow.server.auth.permissions import (
     RESOURCE_TYPE_RUN,
     RESOURCE_TYPE_SCORER,
     RESOURCE_TYPE_SCORER_VERSION,
-    RESOURCE_TYPE_TRACE,
     RESOURCE_TYPE_SKILL,
+    RESOURCE_TYPE_TRACE,
     RESOURCE_TYPE_WORKSPACE,
     USE,
     GrantLoadKey,
@@ -471,10 +471,7 @@ from mlflow.server.mcp_server_api import (
 from mlflow.server.mcp_server_api import (
     update_mcp_server as _update_mcp_server_endpoint,
 )
-from mlflow.server.skill_registry_api import (
-    get_skill_registry_api_route_prefixes,
-    is_skill_registry_api_path,
-)
+from mlflow.server.skill_registry_api import is_skill_registry_api_path
 from mlflow.server.workspace_helpers import (
     WORKSPACE_HEADER_NAME,
     _get_workspace_store,
@@ -1209,6 +1206,41 @@ def _canonical_artifact_proxy_path(artifact_path: str) -> "str | None":
         return None
 
 
+@dataclass(frozen=True)
+class _ArtifactAuthTarget:
+    relative_path: str | None = None
+    workspace: str | None = None
+    skill: SkillArtifactIdentity | None = None
+    skill_namespace: bool = False
+    experiment_id: str | None = None
+    invalid: bool = False
+
+
+def _parse_artifact_auth_target(artifact_path: str | None) -> _ArtifactAuthTarget:
+    """Interpret the path the artifact handler will serve for either auth middleware."""
+    if artifact_path is None:
+        return _ArtifactAuthTarget()
+    canonical = _canonical_artifact_proxy_path(artifact_path)
+    if canonical is None:
+        return _ArtifactAuthTarget(invalid=True)
+    segments = canonical.strip("/").split("/")
+    workspace = None
+    relative_path = canonical
+    if segments[0] == "workspaces":
+        if len(segments) < 3 or segments[1] in ("", ".", ".."):
+            return _ArtifactAuthTarget(invalid=True)
+        workspace = segments[1]
+        relative_path = "/".join(segments[2:])
+    skill = _parse_skill_upload_path_for_auth(canonical)
+    return _ArtifactAuthTarget(
+        relative_path=relative_path,
+        workspace=workspace,
+        skill=skill,
+        skill_namespace=is_skill_upload_namespace(canonical),
+        experiment_id=_experiment_id_from_canonical_proxy_path(relative_path),
+    )
+
+
 _ARTIFACT_PROXY_UNPARSABLE = object()
 
 _ARTIFACT_PROXY_CAN = {"read": "can_read", "update": "can_update", "manage": "can_manage"}
@@ -1229,18 +1261,17 @@ def _artifact_proxy_child(artifact_path: "str | None", action: str):
     """
     if not artifact_path:
         return None
-    canonical = _canonical_artifact_proxy_path(artifact_path)
-    if canonical is None:
+    target = _parse_artifact_auth_target(artifact_path)
+    if target.invalid:
         return _ARTIFACT_PROXY_UNPARSABLE
-    match = _EXPERIMENT_ID_PATTERN.match(f"{canonical.lstrip('/')}/")
-    if match is None:
+    if target.experiment_id is None or target.relative_path is None:
         return None
     child_types = _artifact_proxy_child_types(
-        canonical, recursive=action in _ARTIFACT_PROXY_RECURSIVE_ACTIONS
+        target.relative_path, recursive=action in _ARTIFACT_PROXY_RECURSIVE_ACTIONS
     )
     if not child_types:
         return None
-    return child_types, (RESOURCE_TYPE_EXPERIMENT, match.group(1))
+    return child_types, (RESOURCE_TYPE_EXPERIMENT, target.experiment_id)
 
 
 def _authorize_artifact_proxy_resolved(
@@ -1297,10 +1328,7 @@ def _get_experiment_id_from_view_args():
     # `%31/plain.txt` and names no experiment while naming experiment 1 to the handler. An unparsed
     # id is not a denial -- the caller falls through to the workspace or default permission below --
     # so failing to canonicalize here is a privilege escalation, not a broken request.
-    if artifact_path := _artifact_proxy_path():
-        if canonical := _canonical_artifact_proxy_path(artifact_path):
-            return _experiment_id_from_canonical_proxy_path(canonical)
-    return None
+    return _parse_artifact_auth_target(_artifact_proxy_path()).experiment_id
 
 
 def _parse_skill_upload_path_for_auth(artifact_path: str) -> SkillArtifactIdentity | None:
@@ -1343,35 +1371,32 @@ def _parse_skill_upload_path_for_auth(artifact_path: str) -> SkillArtifactIdenti
 
 
 def _get_skill_identity_from_view_args() -> SkillArtifactIdentity | None:
-    view_args = request.view_args or {}
-    if artifact_path := (view_args.get("artifact_path") or request.args.get("path")):
-        return _parse_skill_upload_path_for_auth(artifact_path)
-    return None
+    return _parse_artifact_auth_target(_artifact_proxy_path()).skill
 
 
-def _get_permission_from_experiment_id_artifact_proxy() -> Permission:
-    # Flask artifact proxy routes have already authenticated in `_before_request`.
-    # Reuse that username so custom auth functions are not invoked twice on
-    # Flask-served list/delete/presigned/MPU requests.
-    username = getattr(g, "mlflow_authenticated_user", None) or authenticate_request().username
+def _permission_for_artifact_target(target: _ArtifactAuthTarget, username: str) -> Permission:
+    if target.invalid:
+        return NO_PERMISSIONS
+    if (
+        target.workspace is not None
+        and MLFLOW_ENABLE_WORKSPACES.get()
+        and target.workspace != workspace_context.get_request_workspace()
+    ):
+        return NO_PERMISSIONS
+    if target.skill is not None:
+        return _get_skill_permission(target.skill.organization, target.skill.name, username)
+    # The root and organization directories name no single Skill ACL. Their
+    # listing could reveal names, so only admins bypass this permission check.
+    if target.skill_namespace:
+        return NO_PERMISSIONS
 
-    if skill_identity := _get_skill_identity_from_view_args():
-        return _get_skill_permission(skill_identity.organization, skill_identity.name, username)
-
-    # The root and organization directories have no single Skill ACL. Listing either
-    # reveals Skill names. Platform admins bypass this validator in middleware.
-    view_args = request.view_args or {}
-    if artifact_path := (view_args.get("artifact_path") or request.args.get("path")):
-        if is_skill_upload_namespace(artifact_path):
-            return NO_PERMISSIONS
-
-    if experiment_id := _get_experiment_id_from_view_args():
+    if target.experiment_id is not None:
         return _get_role_permission_or_default(
             _role_permission_for(
                 username=username,
                 resource_type="experiment",
-                resource_key=experiment_id,
-                workspace_lookup_id=experiment_id,
+                resource_key=target.experiment_id,
+                workspace_lookup_id=target.experiment_id,
                 workspace_fetcher=_get_tracking_store().get_experiment,
                 workspace_label="experiment",
             ),
@@ -1389,6 +1414,14 @@ def _get_permission_from_experiment_id_artifact_proxy() -> Permission:
         return NO_PERMISSIONS
 
     return get_permission(auth_config.default_permission)
+
+
+def _get_permission_from_experiment_id_artifact_proxy() -> Permission:
+    # Flask has already authenticated; avoid invoking custom auth twice.
+    username = getattr(g, "mlflow_authenticated_user", None) or authenticate_request().username
+    return _permission_for_artifact_target(
+        _parse_artifact_auth_target(_artifact_proxy_path()), username
+    )
 
 
 def _get_permission_from_experiment_name() -> Permission:
@@ -5602,8 +5635,7 @@ def grant_manage_for_created_skills(
         (RESOURCE_TYPE_SKILL, _format_skill_registry_resource_key(organization, name), MANAGE.name)
         for name in names
     ]
-    with store.ManagedSessionMaker(read_only=False) as session:
-        store.grant_user_permissions_in_session(session, username, grants, upsert=True)
+    store.grant_user_permissions(username, grants, upsert=True)
 
 
 def delete_skill_permissions(organization: str | None, name: str) -> None:
@@ -8153,13 +8185,6 @@ def _mcp_server_suffix(path: str) -> str:
     raise MlflowException(f"Not an MCP server path: {path}", error_code=BAD_REQUEST)
 
 
-def _skill_registry_suffix(path: str) -> str:
-    for prefix in get_skill_registry_api_route_prefixes():
-        if path == prefix or path.startswith(f"{prefix}/"):
-            return path[len(prefix) :].strip("/")
-    raise MlflowException(f"Not a Skill Registry path: {path}", error_code=BAD_REQUEST)
-
-
 def _skill_exists_for_auth(organization: str, name: str) -> bool:
     try:
         _get_tracking_store().get_skill(name=name, organization=organization)
@@ -8183,20 +8208,6 @@ def validate_can_register_skill(
     return validate_can_create_skill(username)
 
 
-def validate_can_update_existing_skill(
-    username: str, organization: str, name: str, workspace: str
-) -> bool:
-    """Recheck an existing parent inside the registration transaction."""
-    if MLFLOW_ENABLE_WORKSPACES.get() and workspace != workspace_context.get_request_workspace():
-        return False
-    if store.get_user(username).is_admin:
-        return True
-    resource_key = _format_skill_registry_resource_key(organization, name)
-    return _get_role_permission_or_default(
-        _role_permission_for_known_workspace(username, RESOURCE_TYPE_SKILL, resource_key, workspace)
-    ).can_update
-
-
 def skill_search_permission_scope(
     username: str,
 ) -> tuple[list[tuple[str, str]] | None, list[tuple[str, str]]]:
@@ -8212,74 +8223,33 @@ def skill_search_permission_scope(
     if workspace_name is None:
         return [], []
 
-    if workspace_name in store.list_workspace_admin_workspaces(user.id):
+    grants = store.list_grants(user.id, workspace_name, {RESOURCE_TYPE_SKILL})
+    if any(is_workspace_admin_grant(grant) for grant in grants):
         return None, []
-    fallback_read = get_permission(auth_config.default_permission).can_read and (
-        not MLFLOW_ENABLE_WORKSPACES.get() or _user_inherits_default_workspace_grant(workspace_name)
+
+    def can_read(resource_id: str, selected_grants=grants) -> bool:
+        permission = fold_grants_for_key(
+            selected_grants, GrantLoadKey(RESOURCE_TYPE_SKILL, resource_id)
+        )
+        if permission is None:
+            permission = _absent_permission(workspace_name)
+        elif not permission.denied:
+            permission = floor_positive_permission(permission, auth_config.default_permission)
+        return permission.can_read
+
+    wildcard_grants = [grant for grant in grants if grant.resource_pattern == "*"]
+    baseline_read = can_read("*", wildcard_grants)
+    identities = {
+        _parse_skill_registry_resource_key(grant.resource_pattern)
+        for grant in grants
+        if grant.resource_type == RESOURCE_TYPE_SKILL and grant.resource_pattern != "*"
+    }
+    exceptions = sorted(
+        identity
+        for identity in identities
+        if can_read(_format_skill_registry_resource_key(*identity)) != baseline_read
     )
-    readable = set()
-    denied = set()
-    wildcard_read = False
-    wildcard_deny = False
-    for kind, pattern, permission in store.list_typed_role_grants_for_user_in_workspace(
-        user.id, workspace_name, RESOURCE_TYPE_SKILL
-    ):
-        if kind == RESOURCE_TYPE_WORKSPACE and permission != MANAGE.name:
-            continue
-        can_read = get_permission(permission).can_read
-        if pattern == "*":
-            wildcard_read |= can_read
-            wildcard_deny |= not can_read
-        elif can_read:
-            readable.add(_parse_skill_registry_resource_key(pattern))
-        else:
-            denied.add(_parse_skill_registry_resource_key(pattern))
-    if wildcard_read:
-        return None, []
-    if wildcard_deny or not fallback_read:
-        return sorted(readable), []
-    return None, sorted(denied - readable)
-
-
-def _get_skill_registry_validator(path: str) -> Callable[[str, StarletteRequest], Awaitable[bool]]:
-    parts = _skill_registry_suffix(path).split("/")
-
-    async def validator(username: str, request: StarletteRequest) -> bool:
-        if parts == [""]:
-            return request.method == "GET" or (
-                request.method == "POST" and validate_can_create_skill(username)
-            )
-        if (
-            request.method == "POST"
-            and parts[0] in ("register", "bulk-register")
-            and len(parts) == 1
-        ):
-            # Registration bodies may be multipart. The route parses them and calls
-            # validate_can_register_skill before touching artifacts or persistence.
-            return True
-
-        organization = parts[0][1:] if parts[0].startswith("@") else ""
-        name_index = 1 if organization else 0
-        if len(parts) <= name_index or not parts[name_index]:
-            return False
-        name = parts[name_index]
-        tail = parts[name_index + 1 :]
-        if request.method == "POST" and tail == ["versions"]:
-            return validate_can_register_skill(username, organization, name)
-        permission = _get_skill_permission(organization, name, username)
-        if request.method == "GET":
-            return permission.can_read
-        if request.method in ("POST", "PATCH"):
-            return permission.can_update
-        if request.method == "DELETE":
-            if (len(tail) >= 2 and tail[0] == "tags") or (
-                len(tail) >= 4 and tail[0] == "versions" and tail[2] == "tags"
-            ):
-                return permission.can_update
-            return permission.can_manage
-        return False
-
-    return validator
+    return (None, exceptions) if baseline_read else (exceptions, [])
 
 
 def _is_mcp_server_version_create_path(parts: list[str]) -> bool:
@@ -8682,21 +8652,28 @@ def _get_otel_validator(
     return validator
 
 
-def _artifact_proxy_path_suffix(path: str, include_presigned: bool = False) -> str | None:
-    operations = ("artifacts/", "mpu/create/", "mpu/complete/", "mpu/abort/")
-    if include_presigned:
-        operations += ("presigned/",)
-    for api_prefix in (_REST_API_PATH_PREFIX, _AJAX_API_PATH_PREFIX):
-        for operation in operations:
-            prefix = f"{api_prefix}/mlflow-artifacts/{operation}"
-            if path.startswith(prefix):
-                return path[len(prefix) :]
+def _artifact_proxy_path_suffix(path: str) -> str | None:
+    prefixes = (
+        f"{_REST_API_PATH_PREFIX}/mlflow-artifacts/artifacts/",
+        f"{_REST_API_PATH_PREFIX}/mlflow-artifacts/mpu/create/",
+        f"{_REST_API_PATH_PREFIX}/mlflow-artifacts/mpu/complete/",
+        f"{_REST_API_PATH_PREFIX}/mlflow-artifacts/mpu/abort/",
+        f"{_REST_API_PATH_PREFIX}/mlflow-artifacts/presigned/",
+        f"{_AJAX_API_PATH_PREFIX}/mlflow-artifacts/artifacts/",
+        f"{_AJAX_API_PATH_PREFIX}/mlflow-artifacts/mpu/create/",
+        f"{_AJAX_API_PATH_PREFIX}/mlflow-artifacts/mpu/complete/",
+        f"{_AJAX_API_PATH_PREFIX}/mlflow-artifacts/mpu/abort/",
+        f"{_AJAX_API_PATH_PREFIX}/mlflow-artifacts/presigned/",
+    )
+    for prefix in prefixes:
+        if path.startswith(prefix):
+            return path[len(prefix) :]
     return None
 
 
 def _effective_artifact_proxy_path(path: str, query_path: str | None = None) -> str | None:
     # Concrete artifact operations use the URL path. Only the list endpoint reads ?path=.
-    if (artifact_path := _artifact_proxy_path_suffix(path, include_presigned=True)) is not None:
+    if (artifact_path := _artifact_proxy_path_suffix(path)) is not None:
         return artifact_path
     for api_prefix in (_REST_API_PATH_PREFIX, _AJAX_API_PATH_PREFIX):
         if path.rstrip("/") == f"{api_prefix}/mlflow-artifacts/artifacts":
@@ -8707,96 +8684,29 @@ def _effective_artifact_proxy_path(path: str, query_path: str | None = None) -> 
 def _extract_experiment_id_from_artifact_proxy_path(
     path: str, query_path: str | None = None
 ) -> str | None:
-    # Mirror Flask view_args extraction for both simple artifact routes and MPU
-    # control-plane routes (create/complete/abort). FastAPI permission middleware
-    # claims all `_is_proxy_artifact_path` URLs, so experiment ids must be parsed
-    # from /mpu/... as well as /artifacts/....
-    prefixes = (
-        f"{_REST_API_PATH_PREFIX}/mlflow-artifacts/artifacts/",
-        f"{_AJAX_API_PATH_PREFIX}/mlflow-artifacts/artifacts/",
-        f"{_REST_API_PATH_PREFIX}/mlflow-artifacts/mpu/create/",
-        f"{_AJAX_API_PATH_PREFIX}/mlflow-artifacts/mpu/create/",
-        f"{_REST_API_PATH_PREFIX}/mlflow-artifacts/mpu/complete/",
-        f"{_AJAX_API_PATH_PREFIX}/mlflow-artifacts/mpu/complete/",
-        f"{_REST_API_PATH_PREFIX}/mlflow-artifacts/mpu/abort/",
-        f"{_AJAX_API_PATH_PREFIX}/mlflow-artifacts/mpu/abort/",
-    )
-    prefix = next((prefix for prefix in prefixes if path.startswith(prefix)), None)
-    if prefix is not None:
-        if artifact_path := _canonical_artifact_proxy_path(path.removeprefix(prefix)):
-            return _experiment_id_from_canonical_proxy_path(artifact_path)
-
-    # List-artifacts uses GET .../artifacts?path=<experiment_id>/... (Flask parity).
-    if canonical_query_path := (_canonical_artifact_proxy_path(query_path) if query_path else None):
-        return _experiment_id_from_canonical_proxy_path(canonical_query_path)
-    return None
+    target = _parse_artifact_auth_target(_effective_artifact_proxy_path(path, query_path))
+    return target.experiment_id
 
 
 def _extract_skill_identity_from_artifact_proxy_path(
     path: str, query_path: str | None = None
 ) -> SkillArtifactIdentity | None:
-    if (artifact_path := _effective_artifact_proxy_path(path, query_path)) is not None:
-        return _parse_skill_upload_path_for_auth(artifact_path)
-    return None
+    return _parse_artifact_auth_target(_effective_artifact_proxy_path(path, query_path)).skill
 
 
 def _get_proxy_artifact_permission(
     path: str, username: str, query_path: str | None = None
 ) -> Permission:
-    if skill_identity := _extract_skill_identity_from_artifact_proxy_path(path, query_path):
-        return _get_skill_permission(skill_identity.organization, skill_identity.name, username)
-
-    if (artifact_path := _effective_artifact_proxy_path(path, query_path)) is not None:
-        if is_skill_upload_namespace(artifact_path):
-            return NO_PERMISSIONS
-
-    if experiment_id := _extract_experiment_id_from_artifact_proxy_path(path, query_path):
-        return _get_role_permission_or_default(
-            _role_permission_for(
-                username=username,
-                resource_type="experiment",
-                resource_key=experiment_id,
-                workspace_lookup_id=experiment_id,
-                workspace_fetcher=_get_tracking_store().get_experiment,
-                workspace_label="experiment",
-            ),
-        )
-
-    if MLFLOW_ENABLE_WORKSPACES.get():
-        if workspace_name := workspace_context.get_request_workspace():
-            user = store.get_user(username)
-            perm = _role_grant_for_resource(user.id, "workspace", "*", workspace_name)
-            if perm is not None:
-                return perm
-            # Honor the default-workspace auto-grant when configured.
-            if _user_inherits_default_workspace_grant(workspace_name):
-                return get_permission(auth_config.default_permission)
-        return NO_PERMISSIONS
-
-    return get_permission(auth_config.default_permission)
-
-
-def _artifact_proxy_path_from_request_path(path: str, query_path: "str | None") -> "str | None":
-    prefixes = (
-        f"{_REST_API_PATH_PREFIX}/mlflow-artifacts/",
-        f"{_AJAX_API_PATH_PREFIX}/mlflow-artifacts/",
+    return _permission_for_artifact_target(
+        _parse_artifact_auth_target(_effective_artifact_proxy_path(path, query_path)), username
     )
-    for prefix in prefixes:
-        if path.startswith(prefix):
-            remainder = path.removeprefix(prefix)
-            # Strip the route family segment (artifacts/, mpu/create/, ...) to leave the
-            # repository-relative path the experiment-id parser matches on.
-            for family in ("artifacts/", "mpu/create/", "mpu/complete/", "mpu/abort/"):
-                if remainder.startswith(family):
-                    return remainder.removeprefix(family) or query_path
-    return query_path
 
 
 def _authorize_fastapi_artifact_proxy(
     path: str, username: str, query_path: "str | None", action: str
 ) -> bool:
     return _authorize_artifact_proxy_resolved(
-        _artifact_proxy_child(_artifact_proxy_path_from_request_path(path, query_path), action),
+        _artifact_proxy_child(_effective_artifact_proxy_path(path, query_path), action),
         username,
         action,
         lambda: _get_proxy_artifact_permission(path, username, query_path),
@@ -8861,7 +8771,7 @@ def _find_fastapi_validator(
         return _get_mcp_server_validator(path)
 
     if is_skill_registry_api_path(path):
-        return _get_skill_registry_validator(path)
+        return _get_require_authentication_validator()
 
     return None
 

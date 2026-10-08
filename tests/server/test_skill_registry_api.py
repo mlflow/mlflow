@@ -523,8 +523,8 @@ def test_search_skills_forwards_query_parameters(tmp_path: Path, db_uri: str):
         max_results=20,
         order_by=["name ASC", "organization ASC"],
         page_token="token-1",
-        allowed_identities=None,
-        denied_identities=None,
+        include_skill_identities=None,
+        exclude_skill_identities=None,
     )
 
 
@@ -1312,8 +1312,6 @@ def test_bulk_registration_grants_only_parents_created_by_requester():
     ]
     with (
         mock.patch.object(skill_registry_api, "_authorize_registration", return_value=True),
-        mock.patch.object(skill_registry_api, "_existing_skill_authorizer", return_value=None),
-        mock.patch.object(skill_registry_api, "_missing_skill_authorizer", return_value=None),
         mock.patch.object(
             skill_registry_api, "bulk_register_skill_versions", return_value=versions
         ),
@@ -1324,7 +1322,7 @@ def test_bulk_registration_grants_only_parents_created_by_requester():
 
     assert [version.name for version in response.skill_versions] == ["owned", "raced"]
     tracking.search_skills.assert_called_once_with(
-        max_results=2, allowed_identities=[("acme", "owned"), ("acme", "raced")]
+        max_results=2, include_skill_identities=[("acme", "owned"), ("acme", "raced")]
     )
     grant.assert_called_once_with("alice", "acme", ["owned"])
 

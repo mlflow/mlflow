@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Annotated, Any
 
@@ -23,7 +23,6 @@ from mlflow.entities.skill_version import SkillVersion
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
     PERMISSION_DENIED,
-    RESOURCE_CONFLICT,
     TEMPORARILY_UNAVAILABLE,
 )
 from mlflow.server.constants import ARTIFACTS_ONLY_ENV_VAR
@@ -368,6 +367,43 @@ def _ensure_tracking_server_enabled() -> None:
         )
 
 
+def _require_skill_capability(
+    request: Request, name: str, organization: str, capability: str
+) -> None:
+    username = getattr(request.state, "username", None)
+    if username is None:
+        return
+    from mlflow.server import auth
+
+    if auth.store.get_user(username).is_admin:
+        return
+    permission = auth._get_skill_permission(organization, name, username)
+    if not getattr(permission, f"can_{capability}"):
+        raise MlflowException("Permission denied", PERMISSION_DENIED)
+
+
+def _require_skill_read(request: Request, name: SkillNamePath, organization: str = "") -> None:
+    _require_skill_capability(request, name, organization, "read")
+
+
+def _require_skill_update(request: Request, name: SkillNamePath, organization: str = "") -> None:
+    _require_skill_capability(request, name, organization, "update")
+
+
+def _require_skill_manage(request: Request, name: SkillNamePath, organization: str = "") -> None:
+    _require_skill_capability(request, name, organization, "manage")
+
+
+def _require_skill_create(request: Request) -> None:
+    username = getattr(request.state, "username", None)
+    if username is None:
+        return
+    from mlflow.server import auth
+
+    if not auth.store.get_user(username).is_admin and not auth.validate_can_create_skill(username):
+        raise MlflowException("Permission denied", PERMISSION_DENIED)
+
+
 def _authorize_registration(request: Request, organization: str, name: str) -> bool:
     """Return whether registration will create the parent, after checking its grant."""
     username = getattr(request.state, "username", None)
@@ -382,43 +418,6 @@ def _authorize_registration(request: Request, organization: str, name: str) -> b
     ):
         raise MlflowException("Permission denied", PERMISSION_DENIED)
     return not parent_exists
-
-
-def _existing_skill_authorizer(request: Request) -> Callable[[str, str, str], None] | None:
-    username = getattr(request.state, "username", None)
-    if username is None:
-        return None
-
-    def authorize(organization: str, name: str, workspace: str) -> None:
-        from mlflow.server import auth
-
-        if not auth.validate_can_update_existing_skill(username, organization, name, workspace):
-            raise MlflowException("Permission denied", PERMISSION_DENIED)
-
-    return authorize
-
-
-def _missing_skill_authorizer(
-    request: Request, expected_missing: set[str]
-) -> Callable[[str, str], None] | None:
-    username = getattr(request.state, "username", None)
-    if username is None:
-        return None
-
-    def authorize(organization: str, name: str) -> None:
-        from mlflow.server import auth
-
-        if name not in expected_missing:
-            raise MlflowException(
-                f"Skill '{name}' disappeared after registration authorization; retry the request",
-                RESOURCE_CONFLICT,
-            )
-        if not auth.store.get_user(username).is_admin and not auth.validate_can_create_skill(
-            username
-        ):
-            raise MlflowException("Permission denied", PERMISSION_DENIED)
-
-    return authorize
 
 
 def _grant_creator_if_new(request: Request, organization: str, name: str, new: bool) -> None:
@@ -449,9 +448,8 @@ async def _create_skill_version(
             registration,
             content=content,
             multipart=multipart,
-            authorize_existing=_existing_skill_authorizer(request),
-            authorize_missing=_missing_skill_authorizer(
-                request, {name} if parent_missing else set()
+            expected_parent_exists=(
+                not parent_missing if getattr(request.state, "username", None) else None
             ),
         )
     _grant_creator_if_new(request, organization, name, parent_missing)
@@ -851,7 +849,9 @@ skill_registry_router = APIRouter(
 )
 
 
-@skill_registry_router.post("", response_model=SkillResponse)
+@skill_registry_router.post(
+    "", response_model=SkillResponse, dependencies=[Depends(_require_skill_create)]
+)
 def create_skill(body: CreateSkillRequest, request: Request) -> SkillResponse:
     from mlflow.server.handlers import _get_tracking_store
 
@@ -900,19 +900,21 @@ def search_skills(
 ) -> SearchSkillsResponse:
     from mlflow.server.handlers import _get_tracking_store
 
-    allowed_identities = None
-    denied_identities = None
+    include_skill_identities = None
+    exclude_skill_identities = None
     if username := getattr(request.state, "username", None):
         from mlflow.server import auth
 
-        allowed_identities, denied_identities = auth.skill_search_permission_scope(username)
+        include_skill_identities, exclude_skill_identities = auth.skill_search_permission_scope(
+            username
+        )
     results = _get_tracking_store().search_skills(
         filter_string=filter_string,
         max_results=max_results,
         order_by=order_by,
         page_token=page_token,
-        allowed_identities=allowed_identities,
-        denied_identities=denied_identities,
+        include_skill_identities=include_skill_identities,
+        exclude_skill_identities=exclude_skill_identities,
     )
     return SearchSkillsResponse(
         skills=[SkillResponse.from_entity(skill) for skill in results],
@@ -920,13 +922,19 @@ def search_skills(
     )
 
 
-@skill_registry_router.get("/@{organization}/{name}", response_model=SkillResponse)
+@skill_registry_router.get(
+    "/@{organization}/{name}",
+    response_model=SkillResponse,
+    dependencies=[Depends(_require_skill_read)],
+)
 def get_organization_skill(organization: str, name: SkillNamePath) -> SkillResponse:
     return _get_skill(name=name, organization=organization)
 
 
 @skill_registry_router.get(
-    "/@{organization}/{name}/versions", response_model=SearchSkillVersionsResponse
+    "/@{organization}/{name}/versions",
+    response_model=SearchSkillVersionsResponse,
+    dependencies=[Depends(_require_skill_read)],
 )
 def search_organization_skill_versions(
     organization: str,
@@ -946,7 +954,11 @@ def search_organization_skill_versions(
     )
 
 
-@skill_registry_router.get("/{name}/versions", response_model=SearchSkillVersionsResponse)
+@skill_registry_router.get(
+    "/{name}/versions",
+    response_model=SearchSkillVersionsResponse,
+    dependencies=[Depends(_require_skill_read)],
+)
 def search_skill_versions(
     name: SkillNamePath,
     filter_string: str | None = Query(None),
@@ -963,7 +975,9 @@ def search_skill_versions(
     )
 
 
-@skill_registry_router.post("/@{organization}/{name}/tags")
+@skill_registry_router.post(
+    "/@{organization}/{name}/tags", dependencies=[Depends(_require_skill_update)]
+)
 def set_organization_skill_tag(
     organization: str,
     name: SkillNamePath,
@@ -977,7 +991,9 @@ def set_organization_skill_tag(
     )
 
 
-@skill_registry_router.delete("/@{organization}/{name}/tags/{key:path}")
+@skill_registry_router.delete(
+    "/@{organization}/{name}/tags/{key:path}", dependencies=[Depends(_require_skill_update)]
+)
 def delete_organization_skill_tag(
     organization: str,
     name: SkillNamePath,
@@ -986,7 +1002,10 @@ def delete_organization_skill_tag(
     return _delete_skill_tag(name=name, organization=organization, key=key)
 
 
-@skill_registry_router.post("/@{organization}/{name}/versions/{version}/tags")
+@skill_registry_router.post(
+    "/@{organization}/{name}/versions/{version}/tags",
+    dependencies=[Depends(_require_skill_update)],
+)
 def set_organization_skill_version_tag(
     organization: str,
     name: SkillNamePath,
@@ -1002,7 +1021,10 @@ def set_organization_skill_version_tag(
     )
 
 
-@skill_registry_router.delete("/@{organization}/{name}/versions/{version}/tags/{key:path}")
+@skill_registry_router.delete(
+    "/@{organization}/{name}/versions/{version}/tags/{key:path}",
+    dependencies=[Depends(_require_skill_manage)],
+)
 def delete_organization_skill_version_tag(
     organization: str,
     name: SkillNamePath,
@@ -1017,17 +1039,21 @@ def delete_organization_skill_version_tag(
     )
 
 
-@skill_registry_router.post("/{name}/tags")
+@skill_registry_router.post("/{name}/tags", dependencies=[Depends(_require_skill_update)])
 def set_skill_tag(name: SkillNamePath, body: SetTagRequest) -> dict[str, Any]:
     return _set_skill_tag(name=name, key=body.key, value=body.value)
 
 
-@skill_registry_router.delete("/{name}/tags/{key:path}")
+@skill_registry_router.delete(
+    "/{name}/tags/{key:path}", dependencies=[Depends(_require_skill_update)]
+)
 def delete_skill_tag(name: SkillNamePath, key: str) -> dict[str, Any]:
     return _delete_skill_tag(name=name, key=key)
 
 
-@skill_registry_router.post("/{name}/versions/{version}/tags")
+@skill_registry_router.post(
+    "/{name}/versions/{version}/tags", dependencies=[Depends(_require_skill_update)]
+)
 def set_skill_version_tag(
     name: SkillNamePath,
     version: int,
@@ -1041,7 +1067,10 @@ def set_skill_version_tag(
     )
 
 
-@skill_registry_router.delete("/{name}/versions/{version}/tags/{key:path}")
+@skill_registry_router.delete(
+    "/{name}/versions/{version}/tags/{key:path}",
+    dependencies=[Depends(_require_skill_manage)],
+)
 def delete_skill_version_tag(
     name: SkillNamePath,
     version: int,
@@ -1050,7 +1079,9 @@ def delete_skill_version_tag(
     return _delete_skill_version_tag(name=name, version=version, key=key)
 
 
-@skill_registry_router.patch("/{name}", response_model=SkillResponse)
+@skill_registry_router.patch(
+    "/{name}", response_model=SkillResponse, dependencies=[Depends(_require_skill_update)]
+)
 def update_skill(
     name: SkillNamePath,
     body: UpdateSkillRequest,
@@ -1059,7 +1090,11 @@ def update_skill(
     return _update_skill(name=name, body=body, request=request)
 
 
-@skill_registry_router.patch("/@{organization}/{name}", response_model=SkillResponse)
+@skill_registry_router.patch(
+    "/@{organization}/{name}",
+    response_model=SkillResponse,
+    dependencies=[Depends(_require_skill_update)],
+)
 def update_organization_skill(
     organization: str,
     name: SkillNamePath,
@@ -1083,7 +1118,9 @@ def _get_skill(name: str, organization: str = "") -> SkillResponse:
     )
 
 
-@skill_registry_router.get("/{name}", response_model=SkillResponse)
+@skill_registry_router.get(
+    "/{name}", response_model=SkillResponse, dependencies=[Depends(_require_skill_read)]
+)
 def get_skill(name: SkillNamePath) -> SkillResponse:
     return _get_skill(name=name)
 
@@ -1132,9 +1169,8 @@ async def register_skill(request: Request) -> SkillVersionResponse:
             registration,
             content=content,
             multipart=multipart,
-            authorize_existing=_existing_skill_authorizer(request),
-            authorize_missing=_missing_skill_authorizer(
-                request, {registration.name} if parent_missing else set()
+            expected_parent_exists=(
+                not parent_missing if getattr(request.state, "username", None) else None
             ),
         )
     _grant_creator_if_new(request, registration.organization, registration.name, parent_missing)
@@ -1173,8 +1209,14 @@ async def bulk_register_skills(
     versions = await asyncio.to_thread(
         bulk_register_skill_versions,
         registrations,
-        authorize_existing=_existing_skill_authorizer(request),
-        authorize_missing=_missing_skill_authorizer(request, set(new_parents)),
+        expected_parent_exists=(
+            {
+                registration.name: registration.name not in new_parents
+                for registration in registrations
+            }
+            if username
+            else None
+        ),
     )
     if new_parents and username:
         from mlflow.server import auth
@@ -1184,7 +1226,7 @@ async def bulk_register_skills(
         # ownership in one query, then commit the creator grants in one auth transaction.
         parents = _get_tracking_store().search_skills(
             max_results=len(new_parents),
-            allowed_identities=[(body.organization, name) for name in new_parents],
+            include_skill_identities=[(body.organization, name) for name in new_parents],
         )
         owned_names = [parent.name for parent in parents if parent.created_by == username]
         auth.grant_manage_for_created_skills(username, body.organization, owned_names)
@@ -1193,13 +1235,19 @@ async def bulk_register_skills(
     )
 
 
-@skill_registry_router.get("/{name}/versions/{version}", response_model=SkillVersionResponse)
+@skill_registry_router.get(
+    "/{name}/versions/{version}",
+    response_model=SkillVersionResponse,
+    dependencies=[Depends(_require_skill_read)],
+)
 def get_skill_version(name: SkillNamePath, version: int) -> SkillVersionResponse:
     return _get_skill_version(name=name, version=version)
 
 
 @skill_registry_router.get(
-    "/@{organization}/{name}/versions/{version}", response_model=SkillVersionResponse
+    "/@{organization}/{name}/versions/{version}",
+    response_model=SkillVersionResponse,
+    dependencies=[Depends(_require_skill_read)],
 )
 def get_organization_skill_version(
     organization: str,
@@ -1209,13 +1257,19 @@ def get_organization_skill_version(
     return _get_skill_version(name=name, organization=organization, version=version)
 
 
-@skill_registry_router.get("/{name}/aliases/{alias}", response_model=SkillVersionResponse)
+@skill_registry_router.get(
+    "/{name}/aliases/{alias}",
+    response_model=SkillVersionResponse,
+    dependencies=[Depends(_require_skill_read)],
+)
 def get_skill_version_by_alias(name: SkillNamePath, alias: str) -> SkillVersionResponse:
     return _get_skill_version_by_alias(name=name, alias=alias)
 
 
 @skill_registry_router.get(
-    "/@{organization}/{name}/aliases/{alias}", response_model=SkillVersionResponse
+    "/@{organization}/{name}/aliases/{alias}",
+    response_model=SkillVersionResponse,
+    dependencies=[Depends(_require_skill_read)],
 )
 def get_organization_skill_version_by_alias(
     organization: str,
@@ -1229,7 +1283,7 @@ def get_organization_skill_version_by_alias(
     )
 
 
-@skill_registry_router.post("/{name}/aliases")
+@skill_registry_router.post("/{name}/aliases", dependencies=[Depends(_require_skill_update)])
 def set_skill_alias(name: SkillNamePath, body: SetSkillAliasRequest) -> dict[str, Any]:
     return _set_skill_alias(
         name=name,
@@ -1238,7 +1292,9 @@ def set_skill_alias(name: SkillNamePath, body: SetSkillAliasRequest) -> dict[str
     )
 
 
-@skill_registry_router.post("/@{organization}/{name}/aliases")
+@skill_registry_router.post(
+    "/@{organization}/{name}/aliases", dependencies=[Depends(_require_skill_update)]
+)
 def set_organization_skill_alias(
     organization: str,
     name: SkillNamePath,
@@ -1252,12 +1308,16 @@ def set_organization_skill_alias(
     )
 
 
-@skill_registry_router.delete("/{name}/aliases/{alias}")
+@skill_registry_router.delete(
+    "/{name}/aliases/{alias}", dependencies=[Depends(_require_skill_manage)]
+)
 def delete_skill_alias(name: SkillNamePath, alias: str) -> dict[str, Any]:
     return _delete_skill_alias(name=name, alias=alias)
 
 
-@skill_registry_router.delete("/@{organization}/{name}/aliases/{alias}")
+@skill_registry_router.delete(
+    "/@{organization}/{name}/aliases/{alias}", dependencies=[Depends(_require_skill_manage)]
+)
 def delete_organization_skill_alias(
     organization: str,
     name: SkillNamePath,
@@ -1266,12 +1326,16 @@ def delete_organization_skill_alias(
     return _delete_skill_alias(name=name, organization=organization, alias=alias)
 
 
-@skill_registry_router.delete("/{name}/versions/{version}")
+@skill_registry_router.delete(
+    "/{name}/versions/{version}", dependencies=[Depends(_require_skill_manage)]
+)
 def delete_skill_version(name: SkillNamePath, version: int, request: Request) -> dict[str, Any]:
     return _delete_skill_version(name=name, version=version, request=request)
 
 
-@skill_registry_router.delete("/@{organization}/{name}/versions/{version}")
+@skill_registry_router.delete(
+    "/@{organization}/{name}/versions/{version}", dependencies=[Depends(_require_skill_manage)]
+)
 def delete_organization_skill_version(
     organization: str,
     name: SkillNamePath,
@@ -1286,17 +1350,23 @@ def delete_organization_skill_version(
     )
 
 
-@skill_registry_router.delete("/{name}")
+@skill_registry_router.delete("/{name}", dependencies=[Depends(_require_skill_manage)])
 def delete_skill(name: SkillNamePath) -> dict[str, Any]:
     return _delete_skill(name=name)
 
 
-@skill_registry_router.delete("/@{organization}/{name}")
+@skill_registry_router.delete(
+    "/@{organization}/{name}", dependencies=[Depends(_require_skill_manage)]
+)
 def delete_organization_skill(organization: str, name: SkillNamePath) -> dict[str, Any]:
     return _delete_skill(name=name, organization=organization)
 
 
-@skill_registry_router.patch("/{name}/versions/{version}", response_model=SkillVersionResponse)
+@skill_registry_router.patch(
+    "/{name}/versions/{version}",
+    response_model=SkillVersionResponse,
+    dependencies=[Depends(_require_skill_update)],
+)
 def update_skill_version(
     name: SkillNamePath,
     version: int,
@@ -1312,7 +1382,9 @@ def update_skill_version(
 
 
 @skill_registry_router.patch(
-    "/@{organization}/{name}/versions/{version}", response_model=SkillVersionResponse
+    "/@{organization}/{name}/versions/{version}",
+    response_model=SkillVersionResponse,
+    dependencies=[Depends(_require_skill_update)],
 )
 def update_organization_skill_version(
     organization: str,
