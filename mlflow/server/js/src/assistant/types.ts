@@ -379,6 +379,8 @@ export interface AssistantConfig {
   skills_location?: string;
   /** Whether the currently selected provider can be used from a non-localhost client */
   remote_access_allowed?: boolean;
+  /** Whether the caller may change server-wide settings (projects, skills, API keys, full access) */
+  can_edit_server_settings?: boolean;
 }
 
 /**

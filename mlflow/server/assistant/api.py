@@ -203,34 +203,20 @@ def _current_username(request: Request) -> str | None:
     return request.state.assistant_username
 
 
-def _touches_server_settings(update: "ConfigUpdateRequest") -> bool:
-    if update.projects:
-        return True
-    for provider_data in (update.providers or {}).values():
-        if not isinstance(provider_data, dict):
-            continue
-        permissions = provider_data.get("permissions")
-        if (
-            provider_data.get("api_key")
-            or provider_data.get("gateway_vendor")
-            or (isinstance(permissions, dict) and permissions.get("full_access"))
-        ):
-            return True
-    return False
-
-
 def _server_settings_restriction(request: Request) -> str | None:
     """Why the caller may not change server-wide Assistant settings, or None if they may.
 
     Project directories, skills installs and gateway connections (API keys) apply to every user of
     the server, and full access lets the Assistant run any command on the server host. They can only
-    be changed from the MLflow server host, and on a server with auth, only by an admin: any
-    authenticated user can reach the host, so being local is not enough to trust a caller. Returns
-    the phrase ending the denial message ("can only be ... <phrase>").
+    be changed from the MLflow server host, and not by a restricted caller (see
+    ``_is_restricted_caller``): on a sandboxed server with auth, only an admin may change them. On a
+    server without the sandbox, local users keep full control of these settings, matching how
+    their tools run on the host. Returns the phrase ending the denial message ("can only be ...
+    <phrase>").
     """
     if not _is_localhost(request):
         return "from the MLflow server host"
-    if auth_plugin_active() and not user_is_admin(_current_username(request)):
+    if is_remote_caller():
         return "by an administrator"
     return None
 
@@ -350,6 +336,7 @@ class ConfigResponse(BaseModel):
     providers: dict[str, Any] = Field(default_factory=dict)
     projects: dict[str, Any] = Field(default_factory=dict)
     remote_access_allowed: bool = False
+    can_edit_server_settings: bool = False
 
 
 class ConfigUpdateRequest(BaseModel):
@@ -852,10 +839,10 @@ async def get_config(request: Request) -> ConfigResponse:
         provider_data.pop("api_key", None)
 
     projects = {exp_id: p.model_dump() for exp_id, p in config.projects.items()}
+    can_edit_server_settings = _server_settings_restriction(request) is None
     # Project paths are host filesystem paths, so they are left out for callers who may not
     # configure them. This is not a secret boundary: a caller's tools still run in that directory.
-    # The restriction may look the caller up in the auth store, so it runs off the event loop.
-    if projects and await asyncio.to_thread(_server_settings_restriction, request):
+    if not can_edit_server_settings:
         for project_data in projects.values():
             project_data.pop("location", None)
 
@@ -863,6 +850,7 @@ async def get_config(request: Request) -> ConfigResponse:
         providers=providers,
         projects=projects,
         remote_access_allowed=_provider_allows_remote_access(provider),
+        can_edit_server_settings=can_edit_server_settings,
     )
 
 
@@ -884,11 +872,7 @@ async def update_config(request: ConfigUpdateRequest, http_request: Request) -> 
     Returns:
         Updated configuration.
     """
-    # Only check the caller when the request touches a server-wide setting, so a per-user provider
-    # change never depends on the admin lookup.
-    if _touches_server_settings(request) and (
-        restriction := await asyncio.to_thread(_server_settings_restriction, http_request)
-    ):
+    if restriction := _server_settings_restriction(http_request):
         if request.projects:
             raise HTTPException(
                 status_code=403,
@@ -1004,7 +988,7 @@ async def install_skills_endpoint(
         HTTPException 403: If the caller may not change server-wide settings.
     """
     # Skills are installed on the server host's filesystem for every user.
-    if restriction := await asyncio.to_thread(_server_settings_restriction, http_request):
+    if restriction := _server_settings_restriction(http_request):
         raise HTTPException(status_code=403, detail=f"Skills can only be installed {restriction}.")
     config = AssistantConfig.load()
 
