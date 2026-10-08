@@ -174,8 +174,7 @@ def _invoke_openai_responses_judge(
     if not any(
         param.kind is inspect.Parameter.VAR_KEYWORD for param in signature.parameters.values()
     ):
-        unavailable = set(params).difference(signature.parameters)
-        if unavailable:
+        if unavailable := set(params).difference(signature.parameters):
             raise MlflowException.invalid_parameter_value(
                 "The installed openai package does not support these Responses inference_params: "
                 f"{', '.join(sorted(unavailable))}. Update openai or remove these parameters."
