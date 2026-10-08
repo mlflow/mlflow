@@ -1311,3 +1311,38 @@ class AbstractStore:
     def supports_workspaces(self) -> bool:
         """Return whether this model registry store supports workspace-aware operations."""
         return False
+
+    def find_failing_resource(
+        self, entity, clauses, *, ids=None, parent_id=None, max_timestamp_ms=None, stage=None
+    ):
+        """Find a resource that fails a conjunctive tag/alias predicate.
+
+        ``stage`` narrows a ``parent_id`` cascade to the versions currently in one stage,
+        which is the population ``archive_existing_versions`` reaches.
+
+        The registry's half of the authorization pushdown hook; see
+        :meth:`mlflow.store.tracking.abstract_store.AbstractStore.find_failing_resource`
+        for the full contract. In short: a clause is a
+        ``(namespace, key, comparator, value)`` tuple; clauses are conjunctive and a
+        store that cannot express one declines the whole call; an absent tag or alias
+        satisfies nothing, including ``!=`` and ``NOT IN``; a composite-keyed entity
+        such as a version is addressed by its decomposed parts; exactly one selector
+        must be given.
+
+        Returns:
+            The first failing resource's id, or ``None`` if every resource satisfies
+            every clause (including when there is nothing to judge).
+
+            There is no third verdict: a store either answers or raises
+            ``NotImplementedError``. See the tracking contract for why the decline
+            path was removed. An implementation that answers MUST agree with
+            :func:`~mlflow.server.auth.conditions.evaluate_resource` on every
+            comparator and on absence.
+        """
+        raise NotImplementedError(
+            f"{type(self).__name__} cannot answer a target condition. Target conditions are "
+            "evaluated by the store, so they need a SQL tracking/registry backend "
+            "(--backend-store-uri pointing at a database). Value conditions are unaffected "
+            "and work on any backend. Note this is NOT a missing-database problem for the "
+            "auth plugin itself, whose `database_uri` is always configured."
+        )
