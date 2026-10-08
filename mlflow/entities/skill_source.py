@@ -19,7 +19,7 @@ class SkillSourceType(str, Enum):
         return self.value
 
 
-@experimental(version="3.16.0")
+@experimental(version="3.18.0")
 @dataclass(frozen=True)
 class GitSource:
     url: str
@@ -44,7 +44,7 @@ class GitSource:
         return cls(url=url, ref=data.get("ref"), subpath=data.get("subpath"))
 
 
-@experimental(version="3.16.0")
+@experimental(version="3.18.0")
 @dataclass(frozen=True)
 class OCISource:
     image: str
@@ -66,7 +66,7 @@ class OCISource:
         return cls(image=image, subpath=data.get("subpath"))
 
 
-@experimental(version="3.16.0")
+@experimental(version="3.18.0")
 @dataclass(frozen=True)
 class ZipSource:
     url: str
@@ -88,7 +88,7 @@ class ZipSource:
         return cls(url=url, subpath=data.get("subpath"))
 
 
-@experimental(version="3.16.0")
+@experimental(version="3.18.0")
 @dataclass(frozen=True)
 class MlflowSource:
     artifact_path: str
