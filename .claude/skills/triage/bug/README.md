@@ -25,6 +25,13 @@ follow "Running the UI" in `SKILL.md` and record the observed behavior. Capture
 an image or short recording under `$out_dir/media` only when it helps a reader see
 the symptom; cite the exact path in the comment as described in `SKILL.md`.
 
+If the symptom is not obvious in the screenshot, use `agent-browser eval` to add temporary
+JavaScript overlays such as an arrow, outline, or short label pointing out the bug, then
+capture the annotated screenshot. Keep annotations limited to what helps explain the
+observed symptom, preserving the UI and its displayed values. Save the annotated image
+under `$out_dir/media` and cite its exact path in the comment. Remove the overlays before
+continuing to interact with the page.
+
 Run it against the current checkout, which is what a fix would land on. Only if it does not
 reproduce there, run it against the reported version (when it is on PyPI) to tell "already
 fixed" apart from "could not reproduce".
