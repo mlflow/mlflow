@@ -837,6 +837,68 @@ detail page mirrors the same shape.
 
 ![Edit role form with Role details and Permissions sections](/images/self-hosting/rbac-edit-role-form.png)
 
+### Managing Conditions
+
+A role's detail page carries a **Mutation conditions** tab beside _Permissions_ and
+_Assigned users_. It lists every condition on the role: the resource type, the scope
+it applies to, and each of the two filters, with `—` where a filter is not set.
+
+![Role detail page showing the Mutation conditions tab](/images/self-hosting/rbac-conditions-tab.png)
+
+Reading this table alongside the _Permissions_ tab is how you see a role's real
+reach, because the two compose: the permissions say what the role can touch, and the
+conditions subtract from it. A role with `MANAGE` on every resource type is still
+unable to set a `bob` tag anywhere if a value condition says so.
+
+Conditions are edited through **Edit role**, in the _Mutation conditions_ section.
+Existing conditions are pre-filled; the `✕` on a row stages it for removal. The
+**Add a mutation condition** form below builds a new one:
+
+![Edit role modal with the add-a-condition form, scoped to all experiments](/images/self-hosting/rbac-conditions-add-experiment.png)
+
+- **Resource type** chooses what the condition governs, and determines which filters
+  are meaningful — only `Registered model`, `Prompt` and `MCP server` accept an
+  `alias` field (see [Supported resource types](#supported-resource-types)).
+- **Scope** is where container scoping is set. The choices are worded for the type:
+  for `Experiment` it is _All experiments in the workspace_ or _Only one experiment_.
+- **Value condition** and **Target condition** are independent, and at least one must
+  be filled. The placeholders show the shape each expects — `tag_value != 'prod'` for
+  a value filter, `tags.lifecycle != 'prod'` for a target filter.
+
+For a type that lives inside a container, choosing the narrower scope reveals a
+picker for the container itself. A `Run` condition scoped to one experiment is
+searchable by experiment name and id:
+
+![Add-condition form with a Run condition scoped to a single experiment](/images/self-hosting/rbac-conditions-add-run-scope.png)
+
+:::note[Click Add before leaving the form]
+
+A condition you have typed is not staged until you click **Add mutation condition**.
+If you move on to **Review changes** with a half-filled form, MLflow asks whether to
+discard the draft rather than dropping it silently — the permissions on the same
+submit would otherwise be granted without the condition meant to narrow them.
+
+:::
+
+The submit order is deliberate and worth knowing when a save partially fails,
+because the modal makes several API calls rather than one transaction:
+
+1. **Condition additions go first**, before the permissions they narrow. If a
+   condition cannot be created, the permission is not granted either — so a failure
+   leaves the role no broader than it was.
+2. **Capability removals come before condition removals.** A restriction is only
+   lifted once the grant it was covering is actually gone. A condition removal is
+   skipped if either a condition addition or a capability removal failed — editing a
+   condition is an add plus a remove, so the first of those is what stops a failed
+   replacement from dropping the old restriction and leaving nothing in its place.
+   The consequence to expect: an unrelated condition removal in the same submit is
+   held back too. That is the fail-closed direction — the restriction stays in force
+   and you retry — rather than a partial edit that quietly widens the role.
+
+Every failure is reported back on the form with the rest of the submit's outcome, so
+a partial save is visible rather than silent. Re-opening **Edit role** shows the state
+that actually persisted.
+
 ## Default roles
 
 When `MLFLOW_RBAC_SEED_DEFAULT_ROLES` is on (it is, by default), MLflow seeds
