@@ -219,10 +219,12 @@ def create_review_queue(
     Returns:
         The created :py:class:`ReviewQueue`.
     """
-    body: dict[str, Any] = {
-        "display_name": display_name,
-        "queue_type": ReviewQueueType(queue_type).value,
-    }
+    queue_type = ReviewQueueType(queue_type)
+    body: dict[str, Any] = {"display_name": display_name, "queue_type": queue_type.value}
+    if queue_type == ReviewQueueType.USER:
+        # The server takes a USER queue's reviewer from `owner` and ignores
+        # `display_name`; without `owner` it creates the caller's own queue.
+        body["owner"] = display_name
     if question_ids:
         body["question_names"] = [_question(experiment_id, q) for q in question_ids]
     resp = _client.call("POST", f"{_experiment(experiment_id)}/reviewQueues", json=body)

@@ -159,6 +159,20 @@ def test_create_review_queue():
     assert queue.queue_type == ReviewQueueType.CUSTOM
 
 
+def test_create_review_queue_user_sets_owner():
+    with mock.patch(_CALL, return_value={**_QUEUE, "queue_type": "USER"}) as mock_call:
+        create_review_queue("1", "alice@example.com", queue_type="USER")
+    mock_call.assert_called_once_with(
+        "POST",
+        "experiments/1/reviewQueues",
+        json={
+            "display_name": "alice@example.com",
+            "queue_type": "USER",
+            "owner": "alice@example.com",
+        },
+    )
+
+
 def test_get_review_queue():
     with mock.patch(_CALL, return_value=_QUEUE) as mock_call:
         queue = get_review_queue("1", "rq1")
