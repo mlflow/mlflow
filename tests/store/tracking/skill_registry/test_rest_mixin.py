@@ -522,6 +522,31 @@ def test_invalid_path_parameters_cannot_change_target(registry_client, method, k
         assert db_store.get_skill_version(**identity, version=1) == version
 
 
+@pytest.mark.parametrize("value", [".", "..", 123, None, True, 1.0, b"key", [], {}])
+@pytest.mark.parametrize(
+    ("method", "kwargs", "parameter"),
+    [
+        ("delete_skill_tag", {}, "key"),
+        ("delete_skill_version_tag", {"version": 1}, "key"),
+        ("delete_skill_alias", {}, "alias"),
+        ("get_skill_version_by_alias", {}, "alias"),
+    ],
+)
+def test_skill_rest_rejects_invalid_path_parameters(store, method, kwargs, parameter, value):
+    message = (
+        "Path parameters must not be"
+        if isinstance(value, str)
+        else "Path parameters must be strings"
+    )
+    with (
+        mock.patch("mlflow.store.tracking.skill_registry.rest_mixin.http_request") as request,
+        pytest.raises(MlflowException, match=message) as exc,
+    ):
+        getattr(store, method)(name="review", **kwargs, **{parameter: value})
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+    request.assert_not_called()
+
+
 @pytest.mark.parametrize("api", ["client", "genai"])
 def test_search_skills_filters_ordering_and_pagination(registry_client, api):
     client, _ = registry_client

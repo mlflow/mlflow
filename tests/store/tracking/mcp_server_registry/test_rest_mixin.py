@@ -133,7 +133,7 @@ def test_rest_client_url_encodes_slashed_name():
     )
 
 
-@pytest.mark.parametrize("value", [".", ".."])
+@pytest.mark.parametrize("value", [".", "..", 123, None, True, 1.0, b"key", [], {}])
 @pytest.mark.parametrize(
     ("method", "kwargs", "parameter"),
     [
@@ -142,11 +142,16 @@ def test_rest_client_url_encodes_slashed_name():
         ("delete_mcp_server_alias", {}, "alias"),
     ],
 )
-def test_rest_client_rejects_dot_path_parameters(method, kwargs, parameter, value):
+def test_rest_client_rejects_invalid_path_parameters(method, kwargs, parameter, value):
     client = _TestRestClient(TestClient(FastAPI()))
+    message = (
+        "Path parameters must not be"
+        if isinstance(value, str)
+        else "Path parameters must be strings"
+    )
     with (
         mock.patch("mlflow.store.tracking.mcp_server_registry.rest_mixin.http_request") as request,
-        pytest.raises(MlflowException, match="Path parameters must not be") as exc_info,
+        pytest.raises(MlflowException, match=message) as exc_info,
     ):
         getattr(client, method)(name="io.github.user/my-server", **kwargs, **{parameter: value})
     assert exc_info.value.error_code == "INVALID_PARAMETER_VALUE"

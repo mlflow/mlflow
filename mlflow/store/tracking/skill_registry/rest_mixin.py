@@ -20,7 +20,10 @@ _SKILL_API_PREFIX = "/api/3.0/mlflow/skills"
 
 
 def _encode_path_param(value: str) -> str:
-    value = str(value)
+    if not isinstance(value, str):
+        raise MlflowException.invalid_parameter_value(
+            f"Path parameters must be strings, got {type(value).__name__}."
+        )
     if value in (".", ".."):
         raise MlflowException.invalid_parameter_value("Path parameters must not be '.' or '..'.")
     return quote(value, safe="")
