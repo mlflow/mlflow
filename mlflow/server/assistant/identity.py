@@ -66,3 +66,21 @@ def resolve_authenticated_username(request: Request) -> str | None:
             "Valid MLflow credentials are required to use the MLflow Assistant."
         )
     return result.username
+
+
+def user_is_admin(username: str | None) -> bool:
+    """Whether ``username`` is an MLflow admin. Only meaningful when the auth plugin is active.
+
+    A user missing from the auth store (for example one authenticated by a custom
+    ``authorization_function``) is not an admin.
+    """
+    if not username:
+        return False
+    # Imported lazily for the same reason as in ``resolve_authenticated_username``.
+    from mlflow.exceptions import MlflowException
+    from mlflow.server.auth import store
+
+    try:
+        return store.get_user(username).is_admin
+    except MlflowException:
+        return False

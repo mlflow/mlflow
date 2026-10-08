@@ -40,7 +40,7 @@ from mlflow.assistant.providers.base import (
     assistant_sandbox_enabled,
     clear_config_cache,
 )
-from mlflow.assistant.providers.tool_executor import set_remote_caller
+from mlflow.assistant.providers.tool_executor import is_remote_caller, set_remote_caller
 from mlflow.assistant.skill_installer import install_skills, list_installed_skills
 from mlflow.assistant.types import EventType
 from mlflow.environment_variables import MLFLOW_ENABLE_REMOTE_ASSISTANT
@@ -48,7 +48,9 @@ from mlflow.server.asgi_utils import get_server_base_url
 from mlflow.server.assistant.identity import (
     BASIC_AUTH_CHALLENGE_HEADERS,
     AssistantAuthError,
+    auth_plugin_active,
     resolve_authenticated_username,
+    user_is_admin,
 )
 from mlflow.server.assistant.session import (
     Session,
@@ -156,7 +158,25 @@ def _remote_access_policy(policy: _RemoteAccessPolicy):
 def _get_route_provider(request: Request) -> AssistantProvider | None:
     if provider_name := request.path_params.get("provider"):
         return _get_provider(provider_name)
-    return _resolve_provider(remote=not _is_localhost(request))
+    return _resolve_provider(remote=is_remote_caller())
+
+
+def _is_restricted_caller(request: Request) -> bool:
+    """Whether the caller gets the same tool restrictions as a remote caller.
+
+    That is a remote caller, or, on a server with auth and the sandbox on, a caller who is not an
+    admin: any authenticated user can reach the server host, so being local does not make them the
+    operator. Restricted callers run tools only in the sandbox, never with full access, and cannot
+    use the coding-agent CLI providers. Without the sandbox, local callers keep the host behavior
+    of earlier releases.
+    """
+    if not _is_localhost(request):
+        return True
+    return (
+        assistant_sandbox_enabled()
+        and auth_plugin_active()
+        and not user_is_admin(request.state.assistant_username)
+    )
 
 
 def _current_username(request: Request) -> str | None:
@@ -228,9 +248,9 @@ class _AssistantAPIRoute(APIRoute):
             # asyncio context, so it also applies while the streaming response body runs; each
             # request runs in its own context, so this does not leak across requests.
             set_config_user(request.state.assistant_username)
-            # Cap a remote (non-localhost) caller at the restricted tool-permission profile, so
-            # server-side tool execution cannot be driven with full_access over the network.
-            set_remote_caller(not _is_localhost(request))
+            # Cap a restricted caller (see _is_restricted_caller) at the restricted tool-permission
+            # profile, so server-side tool execution cannot be driven with full_access.
+            set_remote_caller(_is_restricted_caller(request))
             if policy != _RemoteAccessPolicy.NONE and not _is_localhost(request):
                 if policy == _RemoteAccessPolicy.DENY or not MLFLOW_ENABLE_REMOTE_ASSISTANT.get():
                     raise HTTPException(status_code=403, detail=_BLOCK_REMOTE_ACCESS_ERROR_MSG)
@@ -540,7 +560,7 @@ async def stream_response(request: Request, session_id: str) -> StreamingRespons
     # This assumes the assistant is accessing the same MLflow server that serves this API.
     # TODO: Extend this to support remote/proxy scenarios where the tracking URI may differ.
     tracking_uri = get_server_base_url(request)
-    is_remote = not _is_localhost(request)
+    is_remote = is_remote_caller()
 
     async def event_generator() -> AsyncGenerator[str, None]:
         nonlocal session

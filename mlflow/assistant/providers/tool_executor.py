@@ -2,6 +2,7 @@ import asyncio
 import contextvars
 import logging
 import os
+import re
 import shlex
 import subprocess
 from pathlib import Path
@@ -14,13 +15,13 @@ from mlflow.assistant.providers.base import assistant_sandbox_enabled
 
 _logger = logging.getLogger(__name__)
 
-# Whether the current request comes from a non-localhost (remote) caller. Set per request by the
-# Assistant route layer. Remote callers are capped at the restricted permission profile (no
-# full_access) as defense-in-depth: remote access already requires the sandbox (enforced in the
-# API layer), so remote tool calls run isolated in a container rather than on the host, and this
-# cap additionally stops a remote caller's stored config or an interactive approval from unlocking
-# full_access inside it. A local caller (operator on the server host) keeps their configured
-# permissions. Defaults to False so non-request contexts (e.g. the local CLI) are unrestricted.
+# Whether the current request comes from a restricted caller: a non-localhost (remote) caller, or,
+# on a server with auth and the sandbox on, a caller who is not an admin (see
+# ``_is_restricted_caller`` in the Assistant API). Set per request by the Assistant route layer.
+# Restricted callers are capped at the restricted permission profile (no full_access): their tool
+# calls run in the sandbox, and this cap also stops their stored config or an interactive approval
+# from unlocking full_access there. Other callers keep their configured permissions. Defaults to
+# False so non-request contexts (e.g. the local CLI) are unrestricted.
 _remote_caller: contextvars.ContextVar[bool] = contextvars.ContextVar(
     "mlflow_assistant_remote_caller", default=False
 )
@@ -69,6 +70,15 @@ def _uri_without_credentials(name: str, uri: str) -> str | None:
 _FILE_TOOLS = {"Read", "Write", "Edit"}
 # Restricted mode only permits MLflow CLI and Python; anything else needs Full Access.
 _ALLOWED_BASH_COMMANDS = {"mlflow", "python3", "python"}
+# In the sandbox, restricted commands run through a shell, so they may be combined with pipes,
+# ``&&``/``||``/``;`` and redirects. Every command in the chain must then be allowed: the commands
+# above, or one of these text tools. None of them can start another program (unlike sed, awk,
+# find or xargs, which are left out).
+_SANDBOX_TEXT_COMMANDS = {"cat", "cut", "echo", "grep", "head", "sort", "tail", "tr", "uniq", "wc"}
+_SHELL_COMMAND_SEPARATORS = {"|", "||", "&&", ";"}
+# Shell syntax that runs a command the checks below would never see: command and process
+# substitution, and newlines (which separate commands like ``;``).
+_UNCHECKED_SHELL_SYNTAX = re.compile(r"`|\$\(|[<>]\(|\n")
 
 # Tools executed on the CLIENT (browser), not the server: the assistant loop pauses the turn and
 # waits for a client-submitted result instead of routing the call through execute_tool/the static
@@ -125,6 +135,8 @@ def static_permission_error(
             # below, escaping this function instead of returning a denial.
             return "Permission denied: malformed command"
         command = command.strip()
+        if assistant_sandbox_enabled():
+            return _sandbox_shell_permission_error(command, perms, cwd)
         try:
             argv = shlex.split(command)
         except ValueError:
@@ -166,6 +178,64 @@ def static_permission_error(
             if not _is_path_within(target, cwd):
                 return f"Permission denied: path {raw_path} is outside the workspace {cwd}"
 
+    return None
+
+
+def _command_permission_error(command_name: str, cwd: Path | None) -> str | None:
+    if command_name not in _ALLOWED_BASH_COMMANDS:
+        return None
+    # python/python3 can run arbitrary code, including reading any file the process can access,
+    # so they need a configured project directory, as on the host (see static_permission_error).
+    if command_name in {"python", "python3"} and cwd is None:
+        return f"Permission denied: {command_name} requires a configured project directory"
+    return None
+
+
+def _sandbox_shell_permission_error(
+    command: str, perms: PermissionsConfig, cwd: Path | None
+) -> str | None:
+    """Check a restricted command that runs through a shell in the sandbox.
+
+    Splits the command into the commands chained by pipes and ``&&``/``||``/``;`` and checks each
+    one, so a shell cannot run anything the restricted allowlist would refuse. Rejects shell syntax
+    that would run commands these checks never see, and output redirects when file edits are not
+    allowed.
+    """
+    allowed = sorted(_ALLOWED_BASH_COMMANDS | _SANDBOX_TEXT_COMMANDS)
+    if _UNCHECKED_SHELL_SYNTAX.search(command):
+        return "Permission denied: command substitution and multi-line commands are not allowed"
+    lexer = shlex.shlex(command, posix=True, punctuation_chars=True)
+    lexer.whitespace_split = True
+    try:
+        tokens = list(lexer)
+    except ValueError:
+        return "Permission denied: malformed command"
+
+    segments: list[list[str]] = [[]]
+    for token in tokens:
+        if token in _SHELL_COMMAND_SEPARATORS:
+            segments.append([])
+        elif set(token) <= set("();<>|&"):
+            if "(" in token or ")" in token or token in {"&", "|&"}:
+                return "Permission denied: subshells and background commands are not allowed"
+            if ">" in token and not perms.allow_edit_files:
+                return "Permission denied: writing files is not allowed"
+            segments[-1].append(token)
+        else:
+            segments[-1].append(token)
+
+    for segment in segments:
+        # Skip redirects written before the command name, e.g. ``2>/dev/null mlflow ...``.
+        words = list(segment)
+        while words and set(words[0]) <= set("<>&"):
+            words = words[2:]
+        if not words:
+            return "Permission denied: malformed command"
+        name = words[0]
+        if name not in _ALLOWED_BASH_COMMANDS and name not in _SANDBOX_TEXT_COMMANDS:
+            return f"Permission denied: only {', '.join(allowed)} commands are allowed"
+        if error := _command_permission_error(name, cwd):
+            return error
     return None
 
 
@@ -220,7 +290,7 @@ async def _execute_bash(
         return "No command provided", True
 
     if assistant_sandbox_enabled():
-        return await _execute_bash_in_sandbox(command, cwd, tracking_uri, full_access)
+        return await _execute_bash_in_sandbox(command, cwd, tracking_uri)
     return await _execute_bash_on_host(command, cwd, tracking_uri, full_access)
 
 
@@ -281,14 +351,13 @@ async def _execute_bash_in_sandbox(
     command: str,
     cwd: Path | None,
     tracking_uri: str | None,
-    full_access: bool,
 ) -> tuple[str, bool]:
     """Run the command inside a hardened Docker container instead of on the host.
 
-    The restricted/full-access distinction is preserved: full access runs the command
-    through a shell (there is no allowlist to bypass), while restricted mode runs the
-    already-validated argv directly with no shell, matching the host path. The container
-    itself is the hard boundary; the static permission policy remains defense-in-depth.
+    The command always runs through a shell, so pipes, redirects and ``&&`` work in restricted
+    mode too. That is safe because, with the sandbox on, the static permission check
+    (``_sandbox_shell_permission_error``) checks every command in the chain, not just the first
+    one. On the host, restricted mode still runs the argv with no shell.
     """
     from mlflow.server.sandbox import (
         SandboxUnavailableError,
@@ -308,26 +377,15 @@ async def _execute_bash_in_sandbox(
         if (value := os.environ.get(var)) and (safe := _uri_without_credentials(var, value)):
             env[var] = to_container_host_uri(safe)
 
-    if full_access:
-        sandbox_command = [command]
-        use_shell = True
-    else:
-        try:
-            argv = shlex.split(command)
-        except ValueError:
-            return "Permission denied: malformed command", True
-        sandbox_command = argv
-        use_shell = False
-
     try:
         # run_in_sandbox uses the blocking docker-py client, so run it off the event loop.
         result = await asyncio.to_thread(
             run_in_sandbox,
-            sandbox_command,
+            [command],
             workdir=cwd,
             environment=env,
             timeout=120,
-            use_shell=use_shell,
+            use_shell=True,
         )
     except SandboxUnavailableError as e:
         # Do not silently fall back to host execution: that would defeat the sandbox the
