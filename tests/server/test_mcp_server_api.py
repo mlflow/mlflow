@@ -10,14 +10,24 @@ import pytest
 from fastapi import FastAPI
 from starlette.testclient import TestClient
 
-from mlflow.entities.mcp_server import MCPTool
+from mlflow.entities.mcp_server import MCPStatus, MCPTool
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import PERMISSION_DENIED, RESOURCE_ALREADY_EXISTS, ErrorCode
+from mlflow.protos.databricks_pb2 import (
+    PERMISSION_DENIED,
+    RESOURCE_ALREADY_EXISTS,
+    ErrorCode,
+)
+from mlflow.server import auth as auth_module
+from mlflow.server.auth.permissions import get_permission
 from mlflow.server.fastapi_app import add_mcp_exception_handlers
 from mlflow.server.mcp_server_api import (
+    CreateMCPServerRequest,
+    UpdateMCPServerRequest,
     _ensure_version_create_parent_access,
+    create_mcp_server,
     get_mcp_server_api_route_prefixes,
     mcp_server_router,
+    update_mcp_server,
 )
 from mlflow.store.tracking.dbmodels.models import SqlMCPServer
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
@@ -383,6 +393,487 @@ def test_search_servers(client):
     r2 = client.get(PREFIX, params={"max_results": 2, "page_token": data["next_page_token"]})
     assert r2.status_code == 200
     assert len(r2.json()["mcp_servers"]) == 1
+
+
+def test_search_servers_scopes_request_before_storage(store):
+    app = _create_registry_fastapi_app()
+    auth_module.add_fastapi_permission_middleware(app)
+
+    with (
+        mock.patch("mlflow.server.handlers._get_tracking_store", return_value=store),
+        mock.patch(
+            "mlflow.server.auth._authenticate_fastapi_request",
+            return_value=SimpleNamespace(username="alice", id=1, is_admin=False),
+        ),
+        mock.patch(
+            "mlflow.server.auth.get_readable_resource_ids_for_user",
+            return_value={"com.example/alpha"},
+        ),
+        mock.patch(
+            "mlflow.server.auth._role_based_read_predicate", return_value=lambda _name: True
+        ) as can_read,
+        mock.patch("mlflow.server.auth._get_mcp_server_permission") as permission_resolver,
+        mock.patch(
+            "mlflow.server.auth._permission_to_allowed_actions", return_value=[]
+        ) as action_resolver,
+        mock.patch.object(store, "search_mcp_servers", wraps=store.search_mcp_servers) as search,
+    ):
+        response = TestClient(app).get(
+            PREFIX, params={"filter_string": "name != 'com.example/beta'"}
+        )
+
+    assert response.status_code == 200
+    assert response.json()["mcp_servers"] == []
+    assert search.call_args.kwargs["filter_string"] == (
+        "name != 'com.example/beta' AND name IN ('com.example/alpha')"
+    )
+    can_read.assert_called_once_with("alice", "mcp_server")
+    permission_resolver.assert_not_called()
+    action_resolver.assert_not_called()
+
+
+def test_search_all_endpoints_scopes_request_before_storage(store):
+    allowed = "com.example/allowed"
+    denied = "com.example/denied"
+    for name in (allowed, denied):
+        store.create_mcp_server(name=name)
+        store.create_mcp_server_version(_server_json(name, "1.0.0"), status=MCPStatus.ACTIVE)
+        store.create_mcp_access_endpoint(
+            name, f"https://mcp.example.com/{name}", server_version="1.0.0"
+        )
+
+    app = _create_registry_fastapi_app()
+    auth_module.add_fastapi_permission_middleware(app)
+
+    with (
+        mock.patch("mlflow.server.handlers._get_tracking_store", return_value=store),
+        mock.patch(
+            "mlflow.server.auth._authenticate_fastapi_request",
+            return_value=SimpleNamespace(username="alice", id=1, is_admin=False),
+        ),
+        mock.patch("mlflow.server.auth.get_readable_resource_ids_for_user", return_value={allowed}),
+        mock.patch(
+            "mlflow.server.auth._role_based_read_predicate", return_value=lambda _name: True
+        ) as can_read,
+        mock.patch(
+            "mlflow.server.auth._mcp_server_version_not_denied", return_value=True
+        ) as version,
+        mock.patch.object(
+            store, "search_mcp_access_endpoints", wraps=store.search_mcp_access_endpoints
+        ) as search,
+    ):
+        response = TestClient(app).get(
+            f"{PREFIX}/endpoints", params={"filter_string": f"server_name != '{denied}'"}
+        )
+
+    assert response.status_code == 200
+    assert [endpoint["server_name"] for endpoint in response.json()["mcp_access_endpoints"]] == [
+        allowed
+    ]
+    assert search.call_args.kwargs["filter_string"] == (
+        f"server_name != '{denied}' AND server_name IN ('{allowed}')"
+    )
+    version.assert_called_once_with("alice", allowed)
+    can_read.assert_called_once_with("alice", "mcp_server")
+
+
+def test_search_servers_keeps_wildcard_scope_unrestricted(store):
+    store.create_mcp_server(name="com.example/alpha")
+    app = _create_registry_fastapi_app()
+    auth_module.add_fastapi_permission_middleware(app)
+
+    with (
+        mock.patch("mlflow.server.handlers._get_tracking_store", return_value=store),
+        mock.patch(
+            "mlflow.server.auth._authenticate_fastapi_request",
+            return_value=SimpleNamespace(username="alice", id=1, is_admin=False),
+        ),
+        mock.patch("mlflow.server.auth.get_readable_resource_ids_for_user", return_value=None),
+        mock.patch(
+            "mlflow.server.auth._get_mcp_server_wildcard_search_scope",
+            return_value=(set(), "NOT IN"),
+        ) as wildcard_scope,
+        mock.patch("mlflow.server.auth._get_mcp_server_permission"),
+        mock.patch("mlflow.server.auth._permission_to_allowed_actions", return_value=[]),
+        mock.patch.object(store, "search_mcp_servers", wraps=store.search_mcp_servers) as search,
+    ):
+        response = TestClient(app).get(PREFIX)
+
+    assert response.status_code == 200
+    assert [server["name"] for server in response.json()["mcp_servers"]] == ["com.example/alpha"]
+    assert search.call_args.kwargs["filter_string"] is None
+    wildcard_scope.assert_called_once_with("alice")
+
+
+def test_search_servers_returns_only_allowed_servers(store):
+    store.create_mcp_server(name="com.example/allowed")
+    store.create_mcp_server(name="com.example/denied")
+    app = _create_registry_fastapi_app()
+
+    @app.middleware("http")
+    async def set_authenticated_user(request, call_next):
+        request.state.username = "alice"
+        from mlflow.server.auth import _scope_mcp_server_search_query
+
+        _scope_mcp_server_search_query(request, "alice")
+        return await call_next(request)
+
+    with (
+        mock.patch("mlflow.server.handlers._get_tracking_store", return_value=store),
+        mock.patch(
+            "mlflow.server.auth.get_readable_resource_ids_for_user",
+            return_value={"com.example/allowed"},
+        ),
+        mock.patch(
+            "mlflow.server.auth._role_based_read_predicate", return_value=lambda _name: True
+        ) as can_read,
+        mock.patch("mlflow.server.auth._get_mcp_server_permission"),
+        mock.patch("mlflow.server.auth._permission_to_allowed_actions", return_value=[]),
+    ):
+        response = TestClient(app).get(PREFIX)
+
+    assert response.status_code == 200
+    names = [s["name"] for s in response.json()["mcp_servers"]]
+    assert names == ["com.example/allowed"]
+    can_read.assert_called_once_with("alice", "mcp_server")
+
+
+@pytest.mark.parametrize("suffix", ["", "/com.example/alpha"])
+@pytest.mark.parametrize(
+    ("permission", "actions"),
+    [
+        ("READ", []),
+        ("USE", ["USE"]),
+        ("EDIT", ["USE", "UPDATE"]),
+        ("MANAGE", ["USE", "UPDATE", "DELETE", "MANAGE"]),
+    ],
+)
+def test_server_responses_return_allowed_actions_for_authenticated_user(
+    store, suffix, permission, actions
+):
+    store.create_mcp_server(name="com.example/alpha")
+    app = _create_registry_fastapi_app()
+
+    auth_module.add_fastapi_permission_middleware(app)
+
+    with (
+        mock.patch("mlflow.server.handlers._get_tracking_store", return_value=store),
+        mock.patch(
+            "mlflow.server.auth._authenticate_fastapi_request",
+            return_value=SimpleNamespace(username="alice", id=1, is_admin=False),
+        ),
+        mock.patch(
+            "mlflow.server.auth.get_readable_resource_ids_for_user",
+            return_value={"com.example/alpha"},
+        ),
+        mock.patch(
+            "mlflow.server.auth._role_based_read_predicate", return_value=lambda _name: True
+        ) as can_read,
+        mock.patch(
+            "mlflow.server.auth._get_mcp_server_permission",
+            return_value=get_permission(permission),
+        ) as permission_resolver,
+    ):
+        response = TestClient(app).get(PREFIX + suffix)
+
+    assert response.status_code == 200
+    server = response.json() if suffix else response.json()["mcp_servers"][0]
+    assert server["name"] == "com.example/alpha"
+    assert server["allowed_actions"] == actions
+    permission_resolver.assert_called_with("com.example/alpha", "alice")
+    if suffix:
+        can_read.assert_not_called()
+    else:
+        can_read.assert_called_once_with("alice", "mcp_server")
+
+
+@pytest.mark.parametrize("operation", ["create", "update"])
+def test_mutation_responses_return_allowed_actions_from_request_state(store, operation):
+    actions = ["USE", "UPDATE"]
+    request = SimpleNamespace(
+        state=SimpleNamespace(
+            username="alice",
+            mcp_server_allowed_actions=lambda _name: actions,
+        )
+    )
+
+    with mock.patch("mlflow.server.handlers._get_tracking_store", return_value=store):
+        if operation == "create":
+            response = create_mcp_server(CreateMCPServerRequest(name="com.example/alpha"), request)
+        else:
+            store.create_mcp_server(name="com.example/alpha")
+            response = update_mcp_server(
+                "com.example/alpha", UpdateMCPServerRequest(description="updated"), request
+            )
+
+    assert response.allowed_actions == actions
+
+
+@pytest.mark.parametrize("suffix", ["", "/com.example/alpha"])
+def test_server_responses_return_all_actions_for_admin(store, suffix):
+    store.create_mcp_server(name="com.example/alpha")
+    app = _create_registry_fastapi_app()
+    auth_module.add_fastapi_permission_middleware(app)
+
+    with (
+        mock.patch("mlflow.server.handlers._get_tracking_store", return_value=store),
+        mock.patch(
+            "mlflow.server.auth._authenticate_fastapi_request",
+            return_value=SimpleNamespace(username="admin", id=1, is_admin=True),
+        ),
+        mock.patch("mlflow.server.auth.get_readable_resource_ids_for_user") as resolver,
+        mock.patch("mlflow.server.auth._get_mcp_server_permission") as permission_resolver,
+    ):
+        response = TestClient(app).get(PREFIX + suffix)
+
+    assert response.status_code == 200
+    server = response.json() if suffix else response.json()["mcp_servers"][0]
+    assert server["allowed_actions"] == [
+        "USE",
+        "UPDATE",
+        "DELETE",
+        "MANAGE",
+    ]
+    resolver.assert_not_called()
+    permission_resolver.assert_not_called()
+
+
+@pytest.mark.parametrize("suffix", ["", "/com.example/alpha"])
+def test_server_responses_return_all_actions_without_auth(client, suffix):
+    response = client.post(PREFIX, json={"name": "com.example/alpha"})
+    assert response.status_code == 200
+    assert response.json()["allowed_actions"] == ["USE", "UPDATE", "DELETE", "MANAGE"]
+
+    response = client.patch(PREFIX + "/com.example/alpha", json={"description": "updated"})
+    assert response.status_code == 200
+    assert response.json()["allowed_actions"] == ["USE", "UPDATE", "DELETE", "MANAGE"]
+
+    response = client.get(PREFIX + suffix)
+
+    assert response.status_code == 200
+    server = response.json() if suffix else response.json()["mcp_servers"][0]
+    assert server["allowed_actions"] == ["USE", "UPDATE", "DELETE", "MANAGE"]
+
+
+@pytest.mark.parametrize("suffix", ["", "/com.example/alpha"])
+@pytest.mark.parametrize("plugin_actions", [None, ["USE"]])
+def test_server_responses_with_independent_identity_middleware(store, suffix, plugin_actions):
+    store.create_mcp_server(name="com.example/alpha")
+    app = _create_registry_fastapi_app()
+    action_resolver = mock.Mock(return_value=plugin_actions)
+
+    @app.middleware("http")
+    async def external_identity(request, call_next):
+        request.state.username = "external-auth-user"
+        if plugin_actions is not None:
+            request.state.mcp_server_allowed_actions = action_resolver
+        return await call_next(request)
+
+    with (
+        mock.patch("mlflow.server.handlers._get_tracking_store", return_value=store) as tracking,
+        mock.patch("mlflow.server.auth._auth_initialized", False),
+        mock.patch("mlflow.server.auth._get_mcp_server_permission") as permission_resolver,
+    ):
+        response = TestClient(app).get(PREFIX + suffix)
+
+    assert response.status_code == 200
+    server = response.json() if suffix else response.json()["mcp_servers"][0]
+    assert server["name"] == "com.example/alpha"
+    assert server["allowed_actions"] == (
+        plugin_actions if plugin_actions is not None else ["USE", "UPDATE", "DELETE", "MANAGE"]
+    )
+    tracking.assert_called_once()
+    permission_resolver.assert_not_called()
+    if plugin_actions is None:
+        action_resolver.assert_not_called()
+    else:
+        action_resolver.assert_called_once_with("com.example/alpha")
+
+
+def test_search_servers_scopes_empty_auth_scope_before_storage(store):
+    app = _create_registry_fastapi_app()
+
+    @app.middleware("http")
+    async def set_authenticated_user(request, call_next):
+        request.state.username = "alice"
+        from mlflow.server.auth import _scope_mcp_server_search_query
+
+        _scope_mcp_server_search_query(request, "alice")
+        return await call_next(request)
+
+    with (
+        mock.patch("mlflow.server.handlers._get_tracking_store", return_value=store),
+        mock.patch("mlflow.server.auth.get_readable_resource_ids_for_user", return_value=set()),
+        mock.patch(
+            "mlflow.server.auth._role_based_read_predicate", return_value=lambda _name: False
+        ) as can_read,
+        mock.patch.object(store, "search_mcp_servers", wraps=store.search_mcp_servers) as search,
+    ):
+        response = TestClient(app).get(PREFIX)
+
+    assert response.status_code == 200
+    assert response.json()["mcp_servers"] == []
+    assert search.call_args.kwargs["filter_string"] == "name IN ('')"
+    can_read.assert_called_once_with("alice", "mcp_server")
+
+
+@pytest.mark.parametrize("caller_filter", [None, "name = 'com.example/visible-a'"])
+@pytest.mark.parametrize("scope_size", [800, 3400])
+def test_search_servers_scopes_oversized_auth_scope_on_sqlite(
+    store, caller_filter, scope_size, limit_sqlite_variables
+):
+    for name in ("hidden", "visible-a", "visible-b"):
+        store.create_mcp_server(name=f"com.example/{name}")
+    app = _create_registry_fastapi_app()
+    auth_module.add_fastapi_permission_middleware(app)
+    oversized_names = {f"com.example/server-{i}" for i in range(scope_size)} | {
+        "com.example/visible-a",
+        "com.example/visible-b",
+    }
+    limit_sqlite_variables(store.engine)
+    if scope_size == 800:
+        caller_filter = (
+            caller_filter + " AND " if caller_filter else ""
+        ) + f"name IN ({', '.join(repr(name) for name in sorted(oversized_names))})"
+    with (
+        mock.patch("mlflow.server.handlers._get_tracking_store", return_value=store) as tracking,
+        mock.patch(
+            "mlflow.server.auth._authenticate_fastapi_request",
+            return_value=SimpleNamespace(username="alice", id=1, is_admin=False),
+        ) as authenticate,
+        mock.patch(
+            "mlflow.server.auth.get_readable_resource_ids_for_user", return_value=oversized_names
+        ) as readable,
+        mock.patch(
+            "mlflow.server.auth._role_based_read_predicate", return_value=lambda _name: True
+        ) as can_read,
+        mock.patch(
+            "mlflow.server.auth._get_mcp_server_permission", return_value=get_permission("READ")
+        ) as permission,
+    ):
+        client = TestClient(app)
+        params = {"max_results": 1}
+        if caller_filter:
+            params["filter_string"] = caller_filter
+        names = []
+        while True:
+            response = client.get(PREFIX, params=params)
+            assert response.status_code == 200, response.text
+            names.extend(server["name"] for server in response.json()["mcp_servers"])
+            if not (token := response.json().get("next_page_token")):
+                break
+            params["page_token"] = token
+
+    assert names == (
+        ["com.example/visible-a"]
+        if caller_filter and "name = " in caller_filter
+        else ["com.example/visible-a", "com.example/visible-b"]
+    )
+    tracking.assert_called()
+    authenticate.assert_called()
+    readable.assert_called_with("alice", "mcp_server")
+    assert can_read.call_args_list == [mock.call("alice", "mcp_server")] * len(names)
+    permission.assert_called()
+
+
+def test_search_all_endpoints_scopes_oversized_auth_scope_on_sqlite(store, limit_sqlite_variables):
+    visible_names = ["com.example/visible-a", "com.example/visible-b"]
+    for name in visible_names:
+        store.create_mcp_server(name=name)
+        store.create_mcp_server_version(_server_json(name, "1.0.0"), status=MCPStatus.ACTIVE)
+        store.create_mcp_access_endpoint(
+            name, f"https://mcp.example.com/{name}", server_version="1.0.0"
+        )
+
+    app = _create_registry_fastapi_app()
+    auth_module.add_fastapi_permission_middleware(app)
+    oversized_names = {f"com.example/server-{i}" for i in range(3400)} | set(visible_names)
+    limit_sqlite_variables(store.engine)
+
+    with (
+        mock.patch("mlflow.server.handlers._get_tracking_store", return_value=store),
+        mock.patch(
+            "mlflow.server.auth._authenticate_fastapi_request",
+            return_value=SimpleNamespace(username="alice", id=1, is_admin=False),
+        ),
+        mock.patch(
+            "mlflow.server.auth.get_readable_resource_ids_for_user", return_value=oversized_names
+        ),
+        mock.patch(
+            "mlflow.server.auth._role_based_read_predicate", return_value=lambda _name: True
+        ) as can_read,
+        mock.patch(
+            "mlflow.server.auth._mcp_server_version_not_denied", return_value=True
+        ) as version,
+    ):
+        client = TestClient(app)
+        names = []
+        params = {"max_results": 1}
+        while True:
+            response = client.get(f"{PREFIX}/endpoints", params=params)
+            assert response.status_code == 200, response.text
+            names.extend(
+                endpoint["server_name"] for endpoint in response.json()["mcp_access_endpoints"]
+            )
+            if not (token := response.json().get("next_page_token")):
+                break
+            params["page_token"] = token
+
+    assert len(names) == len(visible_names)
+    assert set(names) == set(visible_names)
+    assert can_read.call_args_list == [mock.call("alice", "mcp_server")] * len(names)
+    assert {call.args[1] for call in version.call_args_list} == set(visible_names)
+
+
+def test_search_all_endpoints_scopes_combined_sqlite_in_filters(store, limit_sqlite_variables):
+    visible_names = ["com.example/visible-a", "com.example/visible-b"]
+    for name in visible_names:
+        store.create_mcp_server(name=name)
+        store.create_mcp_server_version(_server_json(name, "1.0.0"), status=MCPStatus.ACTIVE)
+        store.create_mcp_access_endpoint(
+            name, f"https://mcp.example.com/{name}", server_version="1.0.0"
+        )
+
+    app = _create_registry_fastapi_app()
+    auth_module.add_fastapi_permission_middleware(app)
+    readable_names = {f"com.example/readable-{i}" for i in range(498)} | set(visible_names)
+    caller_names = {f"com.example/caller-{i}" for i in range(498)} | set(visible_names)
+    caller_filter = f"server_name IN ({', '.join(repr(name) for name in sorted(caller_names))})"
+    limit_sqlite_variables(store.engine)
+
+    with (
+        mock.patch("mlflow.server.handlers._get_tracking_store", return_value=store),
+        mock.patch(
+            "mlflow.server.auth._authenticate_fastapi_request",
+            return_value=SimpleNamespace(username="alice", id=1, is_admin=False),
+        ),
+        mock.patch(
+            "mlflow.server.auth.get_readable_resource_ids_for_user", return_value=readable_names
+        ),
+        mock.patch(
+            "mlflow.server.auth._role_based_read_predicate", return_value=lambda _name: True
+        ) as can_read,
+        mock.patch(
+            "mlflow.server.auth._mcp_server_version_not_denied", return_value=True
+        ) as version,
+    ):
+        client = TestClient(app)
+        names = []
+        params = {"filter_string": caller_filter, "max_results": 1}
+        while True:
+            response = client.get(f"{PREFIX}/endpoints", params=params)
+            assert response.status_code == 200, response.text
+            names.extend(
+                endpoint["server_name"] for endpoint in response.json()["mcp_access_endpoints"]
+            )
+            if not (token := response.json().get("next_page_token")):
+                break
+            params["page_token"] = token
+
+    assert len(names) == len(visible_names)
+    assert set(names) == set(visible_names)
+    assert can_read.call_args_list == [mock.call("alice", "mcp_server")] * len(names)
+    assert {call.args[1] for call in version.call_args_list} == set(visible_names)
 
 
 def test_search_servers_returns_resolved_icon_source(client):

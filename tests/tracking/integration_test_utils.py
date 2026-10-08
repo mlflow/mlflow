@@ -20,11 +20,15 @@ from tests.helper_functions import LOCALHOST, get_safe_port
 _logger = logging.getLogger(__name__)
 
 
-def _await_server_up_or_die(port: int, timeout: int = 30) -> None:
+def _await_server_up_or_die(port: int, process: Popen | None = None, timeout: int = 30) -> None:
     """Waits until the local flask server is listening on the given port."""
     _logger.info(f"Awaiting server to be up on {LOCALHOST}:{port}")
     start_time = time.time()
     while time.time() - start_time < timeout:
+        if process is not None and (returncode := process.poll()) is not None:
+            raise RuntimeError(
+                f"Server process exited with code {returncode} before becoming ready"
+            )
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
             sock.settimeout(2)
             if sock.connect_ex((LOCALHOST, port)) == 0:
@@ -59,46 +63,52 @@ def _init_server(
         The string URL of the server.
     """
     mlflow.set_tracking_uri(None)
-    server_port = get_safe_port()
+    for attempt in range(3):
+        server_port = get_safe_port()
+        if server_type == "fastapi":
+            cmd = [
+                sys.executable,
+                "-m",
+                "uvicorn",
+                app or "mlflow.server.fastapi_app:app",
+                "--host",
+                LOCALHOST,
+                "--port",
+                str(server_port),
+            ]
+        else:
+            cmd = [
+                sys.executable,
+                "-m",
+                "flask",
+                "--app",
+                app or "mlflow.server:app",
+                "run",
+                "--host",
+                LOCALHOST,
+                "--port",
+                str(server_port),
+            ]
 
-    if server_type == "fastapi":
-        # Use uvicorn for FastAPI
-        cmd = [
-            sys.executable,
-            "-m",
-            "uvicorn",
-            app or "mlflow.server.fastapi_app:app",
-            "--host",
-            LOCALHOST,
-            "--port",
-            str(server_port),
-        ]
-    else:
-        # Default to Flask
-        cmd = [
-            sys.executable,
-            "-m",
-            "flask",
-            "--app",
-            app or "mlflow.server:app",
-            "run",
-            "--host",
-            LOCALHOST,
-            "--port",
-            str(server_port),
-        ]
-
-    with Popen(
-        cmd,
-        env={
-            **os.environ,
-            BACKEND_STORE_URI_ENV_VAR: backend_uri,
-            ARTIFACT_ROOT_ENV_VAR: root_artifact_uri,
-            **(extra_env or {}),
-        },
-    ) as proc:
+        proc = Popen(
+            cmd,
+            env={
+                **os.environ,
+                BACKEND_STORE_URI_ENV_VAR: backend_uri,
+                ARTIFACT_ROOT_ENV_VAR: root_artifact_uri,
+                **(extra_env or {}),
+            },
+        )
         try:
-            _await_server_up_or_die(server_port)
+            _await_server_up_or_die(server_port, process=proc)
+        except RuntimeError:
+            proc.terminate()
+            proc.wait()
+            if attempt == 2:
+                raise
+            _logger.warning("Server exited during startup; retrying with a new port")
+            continue
+        try:
             url = f"http://{LOCALHOST}:{server_port}"
             _logger.info(
                 f"Launching tracking server on {url} with backend URI {backend_uri} and "
@@ -107,6 +117,8 @@ def _init_server(
             yield url
         finally:
             proc.terminate()
+            proc.wait()
+        return
 
 
 def _send_rest_tracking_post_request(tracking_server_uri, api_path, json_payload, auth=None):

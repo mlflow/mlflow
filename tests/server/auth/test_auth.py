@@ -1494,6 +1494,43 @@ def test_search_logged_models_source_run_filter_honors_the_run_tier(client, monk
     [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
     indirect=True,
 )
+def test_model_searches_accept_readable_multiline_names(client, monkeypatch):
+    owner, owner_password = create_user(client.tracking_uri)
+    reader, reader_password = create_user(client.tracking_uri)
+    readable_names = ["plain-model", "model\nwith-newline", "model\rwith-carriage-return"]
+    with User(owner, owner_password, monkeypatch):
+        experiment_id = client.create_experiment("multiline-model-search")
+        run = client.create_run(experiment_id)
+        for name in [*readable_names, "hidden-model"]:
+            client.create_registered_model(name)
+            client.create_model_version(
+                name, f"runs:/{run.info.run_id}/model", run_id=run.info.run_id
+            )
+    for name in readable_names:
+        grant_role_permission(client.tracking_uri, reader, "registered_model", name, "READ")
+
+    with User(reader, reader_password, monkeypatch):
+        assert sorted(model.name for model in client.search_registered_models()) == sorted(
+            readable_names
+        )
+        assert sorted(version.name for version in client.search_model_versions()) == sorted(
+            readable_names
+        )
+        assert [
+            model.name
+            for model in client.search_registered_models(filter_string="name = 'plain-model'")
+        ] == ["plain-model"]
+        assert [
+            version.name
+            for version in client.search_model_versions(filter_string="name = 'plain-model'")
+        ] == ["plain-model"]
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
 def test_search_model_versions(client, monkeypatch):
     username1, password1 = create_user(client.tracking_uri)
     username2, password2 = create_user(client.tracking_uri)
@@ -6839,7 +6876,8 @@ def test_trace_batch_get_permission(client, monkeypatch):
 
     trace_id = _create_trace(client.tracking_uri, experiment_id, (user1, password1))
 
-    # user2 has no grant; default_permission=NO_PERMISSIONS denies access
+    # user2 has no experiment grants at all; the validator checks whether the
+    # caller has any readable experiments and denies with 403 if the set is empty.
 
     def batch_get(auth):
         return requests.post(
@@ -6850,6 +6888,15 @@ def test_trace_batch_get_permission(client, monkeypatch):
 
     assert batch_get((user2, password2)).status_code == 403
     assert batch_get((user1, password1)).status_code == 200
+
+    with User(user1, password1, monkeypatch):
+        unrelated_experiment_id = client.create_experiment("unrelated_trace_batch_get_test")
+    _grant_experiment_permission(
+        client.tracking_uri, unrelated_experiment_id, user2, "READ", (user1, password1)
+    )
+    response = batch_get((user2, password2))
+    assert response.status_code == 200
+    assert response.json().get("trace_infos", []) == []
 
     _grant_experiment_permission(
         client.tracking_uri, experiment_id, user2, "READ", (user1, password1)
@@ -7391,20 +7438,9 @@ def test_response_filter_matches_endpoint_functions(endpoint_fn):
     assert _find_fastapi_response_filter(request) is not None
 
 
-def test_response_filter_stamps_allowed_actions_on_single_server_get(monkeypatch):
+def test_server_detail_uses_a_response_filter():
     request = SimpleNamespace(scope={"endpoint": get_mcp_server})
-    handler = _find_fastapi_response_filter(request)
-    assert handler is not None
-    monkeypatch.setattr(
-        auth_module,
-        "_get_mcp_server_permission",
-        lambda name, username: READ,
-    )
-    request = SimpleNamespace()
-    body = json.dumps({"name": "com.test/server"}).encode()
-    result = json.loads(handler("testuser", body, request))
-    assert result["name"] == "com.test/server"
-    assert result["allowed_actions"] == []
+    assert _find_fastapi_response_filter(request) is not None
 
 
 def test_response_filter_skips_sub_resource_endpoints():
@@ -8309,12 +8345,136 @@ def test_mcp_server_endpoint_search_filters_by_parent(fastapi_client, monkeypatc
     indirect=True,
 )
 @pytest.mark.parametrize("prefix", [_MCP_AJAX_PREFIX, _MCP_REST_PREFIX])
-def test_mcp_server_search_backfills_after_filtering(fastapi_client, monkeypatch, prefix):
+def test_mcp_endpoint_search_honors_server_specific_deny(fastapi_client, monkeypatch, prefix):
+    reader, reader_pw = create_user(fastapi_client.tracking_uri)
+    admin_auth = (ADMIN_USERNAME, ADMIN_PASSWORD)
+    visible = "com.test/wildcard-visible"
+    denied = "com.test/wildcard-denied"
+
+    for name in (visible, denied):
+        requests.post(
+            url=fastapi_client.tracking_uri + prefix,
+            json={"name": name},
+            auth=admin_auth,
+        ).raise_for_status()
+        requests.post(
+            url=f"{fastapi_client.tracking_uri}{prefix}/{name}/versions",
+            json=_version_create_body(name),
+            auth=admin_auth,
+        ).raise_for_status()
+        requests.post(
+            url=f"{fastapi_client.tracking_uri}{prefix}/{name}/endpoints",
+            json={"server_version": "1.0.0", "url": f"https://example.com/{name}"},
+            auth=admin_auth,
+        ).raise_for_status()
+
+    grant_role_permission(fastapi_client.tracking_uri, reader, "mcp_server", "*", "READ")
+    grant_role_permission(fastapi_client.tracking_uri, reader, "mcp_server", denied, "DENY")
+
+    with User(reader, reader_pw, monkeypatch):
+        response = requests.get(
+            url=f"{fastapi_client.tracking_uri}{prefix}/endpoints", auth=(reader, reader_pw)
+        )
+
+    assert response.status_code == 200
+    assert {endpoint["server_name"] for endpoint in response.json()["mcp_access_endpoints"]} == {
+        visible
+    }
+
+
+@pytest.mark.parametrize(
+    "fastapi_client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+@pytest.mark.parametrize("prefix", [_MCP_AJAX_PREFIX, _MCP_REST_PREFIX])
+def test_mcp_endpoint_search_honors_wildcard_deny(fastapi_client, monkeypatch, prefix):
+    reader, reader_pw = create_user(fastapi_client.tracking_uri)
+    admin_auth = (ADMIN_USERNAME, ADMIN_PASSWORD)
+    name = "com.test/wildcard-denied"
+
+    requests.post(
+        url=fastapi_client.tracking_uri + prefix,
+        json={"name": name},
+        auth=admin_auth,
+    ).raise_for_status()
+    requests.post(
+        url=f"{fastapi_client.tracking_uri}{prefix}/{name}/versions",
+        json=_version_create_body(name),
+        auth=admin_auth,
+    ).raise_for_status()
+    requests.post(
+        url=f"{fastapi_client.tracking_uri}{prefix}/{name}/endpoints",
+        json={"server_version": "1.0.0", "url": f"https://example.com/{name}"},
+        auth=admin_auth,
+    ).raise_for_status()
+
+    grant_role_permission(fastapi_client.tracking_uri, reader, "mcp_server", "*", "READ")
+    grant_role_permission(fastapi_client.tracking_uri, reader, "mcp_server", "*", "DENY")
+
+    with User(reader, reader_pw, monkeypatch):
+        response = requests.get(
+            url=f"{fastapi_client.tracking_uri}{prefix}/endpoints", auth=(reader, reader_pw)
+        )
+
+    assert response.status_code == 200
+    assert response.json()["mcp_access_endpoints"] == []
+
+
+@pytest.mark.parametrize(
+    "fastapi_client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+@pytest.mark.parametrize("prefix", [_MCP_AJAX_PREFIX, _MCP_REST_PREFIX])
+def test_mcp_endpoint_search_honors_conflicting_exact_grants(fastapi_client, monkeypatch, prefix):
+    reader, reader_pw = create_user(fastapi_client.tracking_uri)
+    admin_auth = (ADMIN_USERNAME, ADMIN_PASSWORD)
+    name = "com.test/exact-denied"
+
+    requests.post(
+        url=fastapi_client.tracking_uri + prefix,
+        json={"name": name},
+        auth=admin_auth,
+    ).raise_for_status()
+    requests.post(
+        url=f"{fastapi_client.tracking_uri}{prefix}/{name}/versions",
+        json=_version_create_body(name),
+        auth=admin_auth,
+    ).raise_for_status()
+    requests.post(
+        url=f"{fastapi_client.tracking_uri}{prefix}/{name}/endpoints",
+        json={"server_version": "1.0.0", "url": f"https://example.com/{name}"},
+        auth=admin_auth,
+    ).raise_for_status()
+
+    grant_role_permission(fastapi_client.tracking_uri, reader, "mcp_server", name, "READ")
+    grant_role_permission(fastapi_client.tracking_uri, reader, "mcp_server", name, "DENY")
+
+    with User(reader, reader_pw, monkeypatch):
+        response = requests.get(
+            url=f"{fastapi_client.tracking_uri}{prefix}/endpoints", auth=(reader, reader_pw)
+        )
+
+    assert response.status_code == 200
+    assert response.json()["mcp_access_endpoints"] == []
+
+
+@pytest.mark.parametrize(
+    "fastapi_client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+@pytest.mark.parametrize("prefix", [_MCP_AJAX_PREFIX, _MCP_REST_PREFIX])
+def test_mcp_server_search_paginates_over_request_scoped_results(
+    fastapi_client, monkeypatch, prefix
+):
     reader, reader_pw = create_user(fastapi_client.tracking_uri)
     admin_auth = (ADMIN_USERNAME, ADMIN_PASSWORD)
 
-    # 3 readable servers so backfill must break mid-backend-page and still
-    # return z-read3 on the next client request (not skip it).
+    # Hidden servers sort before readable ones. Request-side scoping must remove
+    # them before pagination so the first page is full and the second returns
+    # the remaining readable server.
     readable = ["com.test/z-read1", "com.test/z-read2", "com.test/z-read3"]
     hidden = ["com.test/a-hid1", "com.test/a-hid2"]
     for name in readable + hidden:
@@ -8339,8 +8499,8 @@ def test_mcp_server_search_backfills_after_filtering(fastapi_client, monkeypatch
     for name in readable:
         grant_role_permission(fastapi_client.tracking_uri, reader, "mcp_server", name, "READ")
 
-    # Request max_results=2. Without backfill the first page might contain a
-    # mix of readable/hidden servers and return fewer than 2 readable rows.
+    # Request max_results=2. The first page must contain two readable servers;
+    # hidden servers must not affect the result count or page token.
     with User(reader, reader_pw, monkeypatch):
         all_readable = []
         page_token = None

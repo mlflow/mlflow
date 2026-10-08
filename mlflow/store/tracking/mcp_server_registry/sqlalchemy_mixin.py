@@ -24,7 +24,12 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_ALREADY_EXISTS,
     RESOURCE_DOES_NOT_EXIST,
 )
-from mlflow.store.db.db_types import MYSQL
+from mlflow.store.db.db_types import MYSQL, SQLITE
+from mlflow.store.db.utils import (
+    _SQLITE_LARGE_IN_THRESHOLD,
+    _get_large_sqlite_in_subquery,
+    _get_sqlite_safe_statement,
+)
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking.dbmodels.models import (
@@ -209,10 +214,16 @@ class SqlAlchemyMCPServerRegistryMixin:
         with self.ManagedSessionMaker() as session:
             query = self._mcp_server_query(session)
             if filter_string:
-                query = _apply_mcp_server_filter(query, filter_string, self._get_dialect())
+                query = _apply_mcp_server_filter(query, filter_string, self._get_dialect(), session)
             order_clauses = _parse_search_mcp_servers_order_by(order_by)
             query = query.order_by(*order_clauses).offset(offset).limit(max_results + 1)
-            server_rows = query.all()
+            server_rows = (
+                session
+                .execute(_get_sqlite_safe_statement(query.statement, session))
+                .unique()
+                .scalars()
+                .all()
+            )
             resolved_versions = self._get_nested_endpoint_resolved_versions(session, server_rows)
             servers = [server.to_mlflow_entity(resolved_versions) for server in server_rows]
             next_token = None
@@ -753,10 +764,19 @@ class SqlAlchemyMCPServerRegistryMixin:
                 server_alias=server_alias,
             )
             if filter_string:
-                query = _apply_mcp_access_endpoint_filter(query, filter_string, self._get_dialect())
+                query = _apply_mcp_access_endpoint_filter(
+                    query, filter_string, self._get_dialect(), session
+                )
             order_clauses = _parse_search_mcp_access_endpoints_order_by(order_by)
             query = query.order_by(*order_clauses).offset(offset).limit(max_results + 1)
-            endpoints = [e.to_mlflow_entity() for e in query.all()]
+            endpoints = [
+                endpoint.to_mlflow_entity()
+                for endpoint in session
+                .execute(_get_sqlite_safe_statement(query.statement, session))
+                .unique()
+                .scalars()
+                .all()
+            ]
             next_token = None
             if len(endpoints) > max_results:
                 next_token = SearchUtils.create_page_token(offset + max_results)
@@ -1241,7 +1261,7 @@ def _resolved_endpoint_targets_subquery(
     return stmt.subquery("resolved_endpoint_targets")
 
 
-def _apply_mcp_server_filter(query, filter_string, dialect):
+def _apply_mcp_server_filter(query, filter_string, dialect, session):
     parsed = SearchMCPServerUtils.parse_search_filter(filter_string)
     attribute_filters = []
     tag_filters = {}
@@ -1282,9 +1302,19 @@ def _apply_mcp_server_filter(query, filter_string, dialect):
                 )
             else:
                 attr = getattr(SqlMCPServer, key)
-                attribute_filters.append(
-                    SearchUtils.get_sql_comparison_func(comparator, dialect)(attr, value)
-                )
+                if (
+                    dialect == SQLITE
+                    and comparator in ("IN", "NOT IN")
+                    and isinstance(value, tuple)
+                    and len(value) > _SQLITE_LARGE_IN_THRESHOLD
+                ):
+                    # Bind the values as one JSON array to avoid SQLite's host-parameter limit.
+                    in_filter = attr.in_(_get_large_sqlite_in_subquery(session, value))
+                    attribute_filters.append(~in_filter if comparator == "NOT IN" else in_filter)
+                else:
+                    attribute_filters.append(
+                        SearchUtils.get_sql_comparison_func(comparator, dialect)(attr, value)
+                    )
         elif type_ == "tag":
             if comparator not in _VALID_FILTER_COMPARATORS:
                 raise MlflowException(
@@ -1330,7 +1360,7 @@ def _apply_mcp_server_filter(query, filter_string, dialect):
     return query
 
 
-def _apply_mcp_access_endpoint_filter(query, filter_string, dialect):
+def _apply_mcp_access_endpoint_filter(query, filter_string, dialect, session):
     parsed = SearchMCPAccessEndpointUtils.parse_search_filter(filter_string)
     for f in parsed:
         type_ = f["type"]
@@ -1348,7 +1378,19 @@ def _apply_mcp_access_endpoint_filter(query, filter_string, dialect):
                 error_code=INVALID_PARAMETER_VALUE,
             )
         attr = SqlMCPServerVersion.status if key == "status" else getattr(SqlMCPAccessEndpoint, key)
-        query = query.filter(SearchUtils.get_sql_comparison_func(comparator, dialect)(attr, value))
+        if (
+            dialect == SQLITE
+            and comparator in ("IN", "NOT IN")
+            and isinstance(value, tuple)
+            and len(value) > _SQLITE_LARGE_IN_THRESHOLD
+        ):
+            # Bind the values as one JSON array to avoid SQLite's host-parameter limit.
+            in_filter = attr.in_(_get_large_sqlite_in_subquery(session, value))
+            query = query.filter(~in_filter if comparator == "NOT IN" else in_filter)
+        else:
+            query = query.filter(
+                SearchUtils.get_sql_comparison_func(comparator, dialect)(attr, value)
+            )
     return query
 
 

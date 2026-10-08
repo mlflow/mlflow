@@ -3,8 +3,10 @@ from pathlib import Path
 from unittest import mock
 
 import pytest
-from sqlalchemy import select
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy import create_engine, literal, select
+from sqlalchemy.dialects import postgresql, sqlite
+from sqlalchemy.exc import OperationalError
+from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import NullPool
 from sqlalchemy.pool.impl import QueuePool
 
@@ -12,6 +14,89 @@ from mlflow.exceptions import MlflowException
 from mlflow.store.db import utils
 from mlflow.store.db.db_types import MSSQL, MYSQL, POSTGRES, SQLITE
 from mlflow.utils.time import get_current_time_millis
+
+
+@pytest.mark.parametrize("value", [17, "quoted'\\\nvalue"])
+@pytest.mark.parametrize("comparator", ["IN", "NOT IN"])
+def test_sqlite_statement_combined_in_filters(db_uri, limit_sqlite_variables, value, comparator):
+    engine = create_engine(db_uri)
+    limit_sqlite_variables(engine)
+    scope = [value, *range(1000, 1600)]
+    caller = [value, *range(2000, 2600)] if comparator == "IN" else list(range(2000, 2600))
+    attr = literal(value)
+    caller_filter = attr.in_(caller) if comparator == "IN" else attr.not_in(caller)
+    statement = select(attr).where(attr.in_(scope), caller_filter).offset(0).limit(1)
+    try:
+        with Session(engine) as session:
+            safe_statement = utils._get_sqlite_safe_statement(statement, session)
+            assert session.execute(safe_statement).scalars().all() == [value]
+    finally:
+        engine.dispose()
+
+
+def test_sqlite_statement_counts_non_list_parameters(db_uri, limit_sqlite_variables):
+    engine = create_engine(db_uri)
+    limit_sqlite_variables(engine)
+    statement = (
+        select(literal(1))
+        .where(literal(1).in_(range(800)), *(literal(True) for _ in range(200)))
+        .offset(0)
+        .limit(1)
+    )
+    try:
+        with Session(engine) as session:
+            assert (
+                session.execute(utils._get_sqlite_safe_statement(statement, session)).scalar() == 1
+            )
+    finally:
+        engine.dispose()
+
+
+def test_sqlite_statement_below_limit_preserves_expanded_in(db_uri, limit_sqlite_variables):
+    engine = create_engine(db_uri)
+    limit_sqlite_variables(engine)
+    statement = select(literal(1)).where(literal(1).in_(range(800)))
+    try:
+        with Session(engine) as session:
+            assert utils._get_sqlite_safe_statement(statement, session) is statement
+            assert session.execute(statement).scalar() == 1
+    finally:
+        engine.dispose()
+
+
+def test_sqlite_statement_without_compactable_lists_rejects_overflow(db_uri):
+    engine = create_engine(db_uri)
+    statement = select(*(literal(index) for index in range(1000)))
+    try:
+        with Session(engine) as session:
+            with pytest.raises(MlflowException, match="999 bound parameters") as exc:
+                utils._get_sqlite_safe_statement(statement, session)
+            assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+    finally:
+        engine.dispose()
+
+
+def test_sqlite_statement_compaction_requires_json_support():
+    statement = select(literal(1)).where(literal(1).in_(range(600)), literal(1).in_(range(600)))
+    session = mock.Mock(
+        get_bind=mock.Mock(return_value=mock.Mock(dialect=sqlite.dialect())),
+        execute=mock.Mock(
+            side_effect=OperationalError("SELECT", {}, Exception("no such function: json_valid"))
+        ),
+    )
+    with pytest.raises(MlflowException, match="require SQLite JSON support"):
+        utils._get_sqlite_safe_statement(statement, session)
+    session.get_bind.assert_called_once()
+    session.execute.assert_called_once()
+
+
+def test_sqlite_statement_leaves_other_dialects_unchanged():
+    statement = select(literal(1)).where(literal(1).in_(range(500)))
+    session = mock.Mock(get_bind=mock.Mock(return_value=mock.Mock(dialect=postgresql.dialect())))
+
+    assert utils._get_sqlite_safe_statement(statement, session) is statement
+    session.get_bind.assert_called_once()
+    session.execute.assert_not_called()
 
 
 def test_create_sqlalchemy_engine_inject_pool_options(monkeypatch):

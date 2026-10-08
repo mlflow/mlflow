@@ -117,6 +117,11 @@ from mlflow.protos.databricks_pb2 import (
 from mlflow.store.analytics import trace_correlation
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.db.db_types import MSSQL, MYSQL
+from mlflow.store.db.utils import (
+    _SQLITE_LARGE_IN_THRESHOLD,
+    _get_large_sqlite_in_subquery,
+    _get_sqlite_safe_statement,
+)
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import (
     MAX_RESULTS_QUERY_TRACE_METRICS,
@@ -273,6 +278,7 @@ from mlflow.utils.search_utils import (
     SearchLoggedModelsPaginationToken,
     SearchTraceUtils,
     SearchUtils,
+    _AuthorizationScopeValues,
 )
 from mlflow.utils.string_utils import is_string_type
 from mlflow.utils.time import get_current_time_millis
@@ -693,7 +699,12 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 .offset(offset)
                 .limit(max_results + 1)
             )
-            queried_experiments = session.execute(stmt).scalars(SqlExperiment).all()
+            queried_experiments = (
+                session
+                .execute(_get_sqlite_safe_statement(stmt, session))
+                .scalars(SqlExperiment)
+                .all()
+            )
             experiments = [
                 self._to_experiment(e, effective_retention_context) for e in queried_experiments
             ]
@@ -710,7 +721,11 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         page_token=None,
     ):
         experiments, next_page_token = self._search_experiments(
-            view_type, max_results, filter_string, order_by, page_token
+            view_type,
+            max_results,
+            filter_string,
+            order_by,
+            page_token,
         )
         return PagedList(experiments, next_page_token)
 
@@ -3779,10 +3794,21 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             )
             models = models.join(subquery)
 
-        experiment_ids = _parse_experiment_ids(experiment_ids)
+        parsed_experiment_ids = _parse_experiment_ids(experiment_ids)
+        if not parsed_experiment_ids:
+            exp_filter = sqlalchemy.false()
+        elif (
+            self._get_dialect() == "sqlite"
+            and len(parsed_experiment_ids) > _SQLITE_LARGE_IN_THRESHOLD
+        ):
+            exp_filter = SqlLoggedModel.experiment_id.in_(
+                _get_large_sqlite_in_subquery(session, parsed_experiment_ids)
+            )
+        else:
+            exp_filter = SqlLoggedModel.experiment_id.in_(parsed_experiment_ids)
         return models.filter(
             SqlLoggedModel.lifecycle_stage != LifecycleStage.DELETED,
-            SqlLoggedModel.experiment_id.in_(experiment_ids),
+            exp_filter,
             *attr_filters,
         )
 
@@ -3826,6 +3852,12 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 )
                 .offset(offset)
                 .limit(max_results + 1)
+            )
+            models = (
+                session
+                .execute(_get_sqlite_safe_statement(models.statement, session))
+                .unique()
+                .scalars()
                 .all()
             )
 
@@ -10204,11 +10236,15 @@ def _get_search_experiments_filter_clauses(parsed_filters, dialect):
                     raise MlflowException.invalid_parameter_value(
                         f"Invalid comparator for experiment_id: {comparator}"
                     )
-                value = (
-                    tuple(_parse_experiment_id(v) for v in value)
-                    if isinstance(value, tuple)
-                    else _parse_experiment_id(value)
-                )
+                if isinstance(value, tuple):
+                    parsed_values = tuple(_parse_experiment_id(v) for v in value)
+                    value = (
+                        _AuthorizationScopeValues(parsed_values)
+                        if isinstance(value, _AuthorizationScopeValues)
+                        else parsed_values
+                    )
+                else:
+                    value = _parse_experiment_id(value)
             else:
                 if SearchExperimentsUtils.is_string_attribute(
                     type_, key, comparator

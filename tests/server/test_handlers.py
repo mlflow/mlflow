@@ -7,7 +7,7 @@ from types import SimpleNamespace
 from unittest import mock
 
 import pytest
-from flask import Response, request
+from flask import Request, Response, g, request
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 from werkzeug.exceptions import RequestedRangeNotSatisfiable
 
@@ -647,6 +647,35 @@ def test_can_parse_json():
     assert msg.name == "hello"
 
 
+@pytest.mark.parametrize("method", ["GET", "POST"])
+@pytest.mark.parametrize("request_source", ["proxy", "current", "alternate"])
+def test_get_request_message_applies_scope_only_to_current_request(method, request_source):
+    kwargs = (
+        {"query_string": {"filter": "original"}}
+        if method == "GET"
+        else {"json": {"filter": "original"}}
+    )
+    with app.test_request_context(method=method, **kwargs):
+        g.mlflow_scoped_request_json = {"filter": "scoped"}
+        g.mlflow_scoped_request_overrides = {"filter": "scoped"}
+        match request_source:
+            case "proxy":
+                flask_request = request
+            case "current":
+                flask_request = request._get_current_object()
+            case "alternate":
+                alternate_kwargs = (
+                    {"query_string": {"filter": "alternate"}}
+                    if method == "GET"
+                    else {"json": {"filter": "alternate"}}
+                )
+                flask_request = Request.from_values(method=method, **alternate_kwargs)
+
+        msg = _get_request_message(SearchExperiments(), flask_request=flask_request)
+
+    assert msg.filter == ("alternate" if request_source == "alternate" else "scoped")
+
+
 def test_can_parse_post_json_with_unknown_fields():
     request = mock.MagicMock()
     request.method = "POST"
@@ -720,6 +749,14 @@ def test_can_parse_get_json_with_unknown_fields():
     request.args = {"name": "hello", "superDuperUnknown": "field"}
     msg = _get_request_message(CreateExperiment(), flask_request=request)
     assert msg.name == "hello"
+
+
+def test_get_request_message_removes_scoped_get_fields():
+    with app.test_request_context(method="GET", query_string={"name": "hello"}):
+        g.mlflow_scoped_request_removed_fields = {"name"}
+        msg = _get_request_message(CreateExperiment())
+
+    assert msg.name == ""
 
 
 # Previous versions of the client sent a doubly string encoded JSON blob,
@@ -4674,6 +4711,28 @@ def test_raw_request_has_field_get_query_string():
 
     with app.test_request_context(method="GET"):
         assert _raw_request_has_field(experiment_ids_field) is False
+
+
+@pytest.mark.parametrize("scope_field", ["experiment_ids", "experimentIds"])
+@pytest.mark.parametrize("query_field", ["trace_ids", "experiment_ids", "experimentIds"])
+def test_raw_request_has_field_preserves_get_fields_with_scope_overrides(scope_field, query_field):
+    descriptor = BatchGetTraces.DESCRIPTOR
+    with app.test_request_context(method="GET", query_string={query_field: "1"}):
+        g.mlflow_scoped_request_overrides = {scope_field: []}
+
+        assert _raw_request_has_field(descriptor.fields_by_name["experiment_ids"]) is True
+        assert _raw_request_has_field(descriptor.fields_by_name["trace_ids"]) is (
+            query_field == "trace_ids"
+        )
+
+
+@pytest.mark.parametrize("query_field", ["experiment_ids", "experimentIds"])
+def test_raw_request_has_field_falls_back_to_get_query_when_not_overridden(query_field):
+    experiment_ids_field = BatchGetTraces.DESCRIPTOR.fields_by_name["experiment_ids"]
+    with app.test_request_context(method="GET", query_string={query_field: "1"}):
+        g.mlflow_scoped_request_overrides = {"filter": "scoped"}
+
+        assert _raw_request_has_field(experiment_ids_field) is True
 
 
 def test_raw_request_has_field_post_json_body():
