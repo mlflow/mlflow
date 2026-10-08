@@ -27,6 +27,7 @@ const fillCredentials = () => {
 // signature is ``() => never``, which would reject the payload.
 const mockCreateUserMutateAsync = jest.fn<(...args: any[]) => any>();
 const mockGrantPermissionMutateAsync = jest.fn<(...args: any[]) => any>();
+const mockAddConditionMutateAsync = jest.fn<(...args: any[]) => any>();
 const mockUseWorkspacesEnabled = jest.fn<() => { workspacesEnabled: boolean }>();
 const mockUseActiveWorkspace = jest.fn<() => string | null>();
 
@@ -40,6 +41,7 @@ jest.mock('../hooks', () => ({
   useCreateUser: () => ({ mutateAsync: mockCreateUserMutateAsync }),
   useCurrentUserIsAdmin: () => true,
   useGrantUserPermission: () => ({ mutateAsync: mockGrantPermissionMutateAsync }),
+  useAddUserMutationCondition: () => ({ mutateAsync: mockAddConditionMutateAsync }),
   // ``useResourceOptionsQuery`` is reached by ``DirectPermissionForm`` even
   // when its parent section is collapsed (``hidden`` keeps it mounted), so
   // the stub has to exist; only the shape matters.
@@ -143,7 +145,7 @@ describe('CreateUserModal — discard-confirm gate on unsaved direct-grant draft
     await userEvent.click(submit);
 
     // Confirm dialog appears; ``createUser`` hasn't been called yet.
-    expect(await screen.findByText('Discard unsaved direct permission?')).toBeInTheDocument();
+    expect(await screen.findByText('Discard unsaved entry?')).toBeInTheDocument();
     expect(mockCreateUserMutateAsync).not.toHaveBeenCalled();
 
     // Confirm "Continue" → submit proceeds.
@@ -167,7 +169,7 @@ describe('CreateUserModal — discard-confirm gate on unsaved direct-grant draft
     fillCredentials();
 
     await userEvent.click(screen.getByRole('button', { name: /^Create user and grant access$|^Create user$/ }));
-    expect(await screen.findByText('Discard unsaved direct permission?')).toBeInTheDocument();
+    expect(await screen.findByText('Discard unsaved entry?')).toBeInTheDocument();
 
     // ``Back`` is unique to the discard-confirm dialog — the outer modal's
     // secondary button is still labelled ``Cancel``, so the role+name query
@@ -235,5 +237,160 @@ describe('CreateUserModal — workspace targeting on direct grants', () => {
 
     await waitFor(() => expect(mockGrantPermissionMutateAsync).toHaveBeenCalledTimes(1));
     expect(mockGrantPermissionMutateAsync.mock.calls[0][0].workspace).toBe('team-a');
+  });
+});
+
+describe('CreateUserModal — direct mutation conditions', () => {
+  beforeEach(() => {
+    mockCreateUserMutateAsync.mockReset();
+    mockGrantPermissionMutateAsync.mockReset();
+    mockAddConditionMutateAsync.mockReset();
+    mockAddConditionMutateAsync.mockResolvedValue({});
+  });
+
+  it('applies a staged condition after the user is created, addressed by username', async () => {
+    // The user does not exist when the condition is staged, so there is no role to
+    // address. The user-addressed add resolves and creates the per-user role
+    // server-side, which is the whole reason a condition can be staged here at all.
+    mockCreateUserMutateAsync.mockResolvedValue({ user: { username: 'newbie' } });
+    renderWithDesignSystem(<CreateUserModal open onClose={jest.fn()} />);
+
+    await userEvent.click(screen.getByRole('button', { name: /Direct mutation conditions/ }));
+    await userEvent.type(screen.getByPlaceholderText("tags.lifecycle != 'prod'"), "tags.env = 'dev'");
+    await userEvent.click(screen.getByRole('button', { name: 'Add mutation condition' }));
+
+    fillCredentials();
+    await userEvent.click(screen.getByRole('button', { name: /^Create user and grant access$/ }));
+
+    await waitFor(() => expect(mockAddConditionMutateAsync).toHaveBeenCalledTimes(1));
+    expect(mockAddConditionMutateAsync).toHaveBeenCalledWith(
+      expect.objectContaining({
+        request: expect.objectContaining({
+          username: 'newbie',
+          resource_type: 'experiment',
+          target_condition: "tags.env = 'dev'",
+          // Defaults travel explicitly rather than being omitted: the wire shape has no
+          // nullable scope, so "everything" is the wildcard, not an absent field.
+          resource_pattern: '*',
+          container_resource_type: 'workspace',
+          container_resource_pattern: '*',
+        }),
+      }),
+    );
+  });
+
+  it('creates the user before applying conditions, not after', async () => {
+    // The add is addressed by username and the server 404s an unknown user, so running
+    // it before ``createUser`` fails every time. It now runs immediately after, BEFORE
+    // the grants -- see the ordering cases below.
+    const order: string[] = [];
+    mockCreateUserMutateAsync.mockImplementation(async () => {
+      order.push('createUser');
+      return { user: { username: 'newbie' } };
+    });
+    mockAddConditionMutateAsync.mockImplementation(async () => {
+      order.push('addCondition');
+      return {};
+    });
+    renderWithDesignSystem(<CreateUserModal open onClose={jest.fn()} />);
+
+    await userEvent.click(screen.getByRole('button', { name: /Direct mutation conditions/ }));
+    await userEvent.type(screen.getByPlaceholderText("tags.lifecycle != 'prod'"), "tags.env = 'dev'");
+    await userEvent.click(screen.getByRole('button', { name: 'Add mutation condition' }));
+
+    fillCredentials();
+    await userEvent.click(screen.getByRole('button', { name: /^Create user and grant access$/ }));
+
+    await waitFor(() => expect(order).toEqual(['createUser', 'addCondition']));
+  });
+
+  it('reports a failed condition without rolling back the user', async () => {
+    // Same best-effort contract the grants follow: the user survives and the admin is
+    // told what to retry, because a created user is not something to silently undo.
+    mockCreateUserMutateAsync.mockResolvedValue({ user: { username: 'newbie' } });
+    mockAddConditionMutateAsync.mockRejectedValue(new Error('filter syntax error'));
+    const onClose = jest.fn();
+    renderWithDesignSystem(<CreateUserModal open onClose={onClose} />);
+
+    await userEvent.click(screen.getByRole('button', { name: /Direct mutation conditions/ }));
+    await userEvent.type(screen.getByPlaceholderText("tags.lifecycle != 'prod'"), "tags.env = 'dev'");
+    await userEvent.click(screen.getByRole('button', { name: 'Add mutation condition' }));
+
+    fillCredentials();
+    await userEvent.click(screen.getByRole('button', { name: /^Create user and grant access$/ }));
+
+    expect(await screen.findByText(/Mutation condition on experiment failed/)).toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('gates submit behind the discard confirm for an unsaved condition draft', async () => {
+    // The gate previously watched only the permissions draft, so a touched-but-unadded
+    // condition would have been dropped silently.
+    mockCreateUserMutateAsync.mockResolvedValue({ user: { username: 'newbie' } });
+    renderWithDesignSystem(<CreateUserModal open onClose={jest.fn()} />);
+
+    await userEvent.click(screen.getByRole('button', { name: /Direct mutation conditions/ }));
+    await userEvent.type(screen.getByPlaceholderText("tags.lifecycle != 'prod'"), "tags.env = 'dev'");
+
+    fillCredentials();
+    await userEvent.click(screen.getByRole('button', { name: /^Create user$|^Create user and grant access$/ }));
+
+    expect(await screen.findByText('Discard unsaved entry?')).toBeInTheDocument();
+    expect(mockCreateUserMutateAsync).not.toHaveBeenCalled();
+  });
+});
+
+describe('CreateUserModal — restrictions land before capability', () => {
+  beforeEach(() => {
+    mockCreateUserMutateAsync.mockReset();
+    mockCreateUserMutateAsync.mockResolvedValue({ user: { username: 'newbie' } });
+    mockGrantPermissionMutateAsync.mockReset();
+    mockGrantPermissionMutateAsync.mockResolvedValue({});
+    mockAddConditionMutateAsync.mockReset();
+    mockAddConditionMutateAsync.mockResolvedValue({});
+  });
+
+  const stageConditionAndGrant = async () => {
+    await userEvent.click(screen.getByRole('button', { name: /Direct mutation conditions/ }));
+    await userEvent.type(screen.getByPlaceholderText("tags.lifecycle != 'prod'"), "tags.env = 'dev'");
+    await userEvent.click(screen.getByRole('button', { name: 'Add mutation condition' }));
+    await userEvent.click(screen.getByRole('button', { name: /Direct permissions/ }));
+    await userEvent.click(screen.getByRole('radio', { name: /^All experiments$/ }));
+    await userEvent.click(screen.getByRole('button', { name: /^Add$/ }));
+    fillCredentials();
+    await userEvent.click(screen.getByRole('button', { name: /^Create user and grant access$/ }));
+  };
+
+  it('applies the condition before the grant it narrows', async () => {
+    // The risk is not an unmatched condition (valid and inert) but an unmatched GRANT:
+    // between granting and restricting, the user holds the unrestricted access the admin
+    // was trying to narrow.
+    const order: string[] = [];
+    mockAddConditionMutateAsync.mockImplementation(async () => {
+      order.push('condition');
+      return {};
+    });
+    mockGrantPermissionMutateAsync.mockImplementation(async () => {
+      order.push('grant');
+      return {};
+    });
+    renderWithDesignSystem(<CreateUserModal open onClose={jest.fn()} />);
+
+    await stageConditionAndGrant();
+
+    await waitFor(() => expect(order).toEqual(['condition', 'grant']));
+  });
+
+  it('grants nothing when the condition could not be applied', async () => {
+    // A user with no access is a safe outcome; a user with unrestricted access is not.
+    mockAddConditionMutateAsync.mockRejectedValue(new Error('filter syntax error'));
+    const onClose = jest.fn();
+    renderWithDesignSystem(<CreateUserModal open onClose={onClose} />);
+
+    await stageConditionAndGrant();
+
+    expect(await screen.findByText(/no roles, permissions, or admin status were granted/)).toBeInTheDocument();
+    expect(mockGrantPermissionMutateAsync).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
   });
 });
