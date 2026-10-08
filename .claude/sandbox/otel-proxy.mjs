@@ -1,6 +1,6 @@
-// Forwards Claude Code's OTLP traces and logs to the Databricks OTel ingest endpoint, adding the
+// Forwards Claude Code's OTLP traces, logs, and metrics to the Databricks OTel ingest endpoint, adding the
 // bearer token and Unity Catalog table headers so the sandboxed agent never sees the token. Only
-// the two fixed routes are served, so the agent cannot use the token for any other API or table.
+// the fixed routes are served, so the agent cannot use the token for any other API or table.
 import http from "node:http";
 import https from "node:https";
 
@@ -28,6 +28,7 @@ if (!/^[A-Za-z0-9_]+\.[A-Za-z0-9_]+\.[A-Za-z0-9_]+$/.test(location)) {
 const routes = {
   "/v1/traces": { path: "/api/2.0/otel/v1/traces", table: `${location}_otel_spans` },
   "/v1/logs": { path: "/api/2.0/otel/v1/logs", table: `${location}_otel_logs` },
+  "/v1/metrics": { path: "/api/2.0/otel/v1/metrics", table: `${location}_otel_metrics` },
 };
 
 function handle(request, response) {

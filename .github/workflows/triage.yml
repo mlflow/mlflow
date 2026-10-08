@@ -718,16 +718,17 @@ jobs:
           ISSUE_PATH: ${{ runner.temp }}/sanitized-issue/sanitized_issue.json
           ISSUE_TYPE: ${{ needs.label.outputs.type }}
           # OpenTelemetry export through the telemetry proxy. Spans need the enhanced telemetry beta;
-          # logs carry per-call cost and the final response. The OTEL_LOG_* flags include prompt,
+          # logs carry per-call cost and the final response; metrics carry session counters. The OTEL_LOG_* flags include prompt,
           # response, and tool content, which are redacted by default.
           CLAUDE_CODE_ENABLE_TELEMETRY: ${{ steps.telemetry.outcome == 'success' && '1' || '0' }}
           CLAUDE_CODE_ENHANCED_TELEMETRY_BETA: ${{ steps.telemetry.outcome == 'success' && '1' || '0' }}
           OTEL_TRACES_EXPORTER: otlp
           OTEL_LOGS_EXPORTER: otlp
-          OTEL_METRICS_EXPORTER: none
+          OTEL_METRICS_EXPORTER: otlp
           OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
           OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: http://localhost:8081/v1/traces
           OTEL_EXPORTER_OTLP_LOGS_ENDPOINT: http://localhost:8081/v1/logs
+          OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: http://localhost:8081/v1/metrics
           OTEL_LOG_USER_PROMPTS: "1"
           OTEL_LOG_ASSISTANT_RESPONSES: "1"
           OTEL_LOG_TOOL_DETAILS: "1"
