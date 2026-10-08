@@ -25,6 +25,8 @@ def isolated(tmp_path, monkeypatch):
     monkeypatch.setattr(config_module, "MLFLOW_ASSISTANT_HOME", home)
     monkeypatch.setattr(config_module, "CONFIG_PATH", home / "config.json")
     monkeypatch.setenv("MLFLOW_ENABLE_REMOTE_ASSISTANT", "true")
+    # Pinned off so results do not depend on whether Docker is installed; see ``sandbox_on``.
+    monkeypatch.setattr("mlflow.server.assistant.api.assistant_sandbox_enabled", lambda: False)
     set_config_user(None)
     clear_config_cache()
     yield
@@ -48,6 +50,11 @@ def auth_enabled(monkeypatch):
         get_user=lambda username: types.SimpleNamespace(is_admin=username == "admin")
     )
     monkeypatch.setitem(sys.modules, "mlflow.server.auth", module)
+
+
+@pytest.fixture
+def sandbox_on(monkeypatch):
+    monkeypatch.setattr("mlflow.server.assistant.api.assistant_sandbox_enabled", lambda: True)
 
 
 def _client(monkeypatch, localhost: bool) -> TestClient:
@@ -149,8 +156,10 @@ _SERVER_WIDE_WRITES = [
 
 
 @pytest.mark.parametrize("payload", _SERVER_WIDE_WRITES)
-def test_localhost_non_admin_cannot_change_server_wide_settings(auth_enabled, monkeypatch, payload):
-    # On a server with auth, reaching the host does not make a caller the operator: any
+def test_localhost_non_admin_cannot_change_server_wide_settings(
+    auth_enabled, sandbox_on, monkeypatch, payload
+):
+    # On a sandboxed server with auth, reaching the host does not make a caller the operator: any
     # authenticated user can, so server-wide settings also require an admin.
     client = _client(monkeypatch, localhost=True)
     response = client.put(CONFIG_URL, json=payload, headers=_auth("alice"))
@@ -158,7 +167,24 @@ def test_localhost_non_admin_cannot_change_server_wide_settings(auth_enabled, mo
     assert "by an administrator" in response.json()["detail"]
 
 
-def test_localhost_admin_can_configure_projects(auth_enabled, tmp_path, monkeypatch):
+@pytest.mark.parametrize("payload", _SERVER_WIDE_WRITES)
+def test_localhost_non_admin_changes_server_wide_settings_without_the_sandbox(
+    auth_enabled, tmp_path, monkeypatch, payload
+):
+    # Without the sandbox, local users' tools run on the host anyway, so they keep full control
+    # of these settings, as before the sandbox existed.
+    if "projects" in payload:
+        payload = {"projects": {"exp1": {"location": str(tmp_path)}}}
+    monkeypatch.setattr(
+        "mlflow.server.assistant.api.ensure_gateway_connection",
+        lambda vendor, api_key: "mlflow-assistant-openai",
+    )
+    client = _client(monkeypatch, localhost=True)
+    response = client.put(CONFIG_URL, json=payload, headers=_auth("alice"))
+    assert response.status_code == 200
+
+
+def test_localhost_admin_can_configure_projects(auth_enabled, sandbox_on, tmp_path, monkeypatch):
     proj = tmp_path / "proj"
     proj.mkdir()
     client = _client(monkeypatch, localhost=True)
@@ -171,15 +197,28 @@ def test_localhost_admin_can_configure_projects(auth_enabled, tmp_path, monkeypa
     assert AssistantConfig.load().projects["exp1"] == ProjectConfig(location=str(proj))
 
 
-@pytest.mark.parametrize(("username", "sees_location"), [("alice", False), ("admin", True)])
-def test_localhost_get_config_shows_project_location_only_to_admins(
-    auth_enabled, tmp_path, monkeypatch, username, sees_location
+@pytest.mark.parametrize(
+    ("username", "sandbox", "can_edit"),
+    [("alice", True, False), ("admin", True, True), ("alice", False, True)],
+)
+def test_localhost_get_config_reports_who_can_edit_server_settings(
+    auth_enabled, tmp_path, monkeypatch, username, sandbox, can_edit
 ):
+    monkeypatch.setattr("mlflow.server.assistant.api.assistant_sandbox_enabled", lambda: sandbox)
     AssistantConfig(projects={"exp1": ProjectConfig(location=str(tmp_path))}).save()
     client = _client(monkeypatch, localhost=True)
     response = client.get(CONFIG_URL, headers=_auth(username))
     assert response.status_code == 200
-    assert ("location" in response.json()["projects"]["exp1"]) is sees_location
+    assert response.json()["can_edit_server_settings"] is can_edit
+    # Project locations are shown only to callers who may change them.
+    assert ("location" in response.json()["projects"]["exp1"]) is can_edit
+
+
+def test_remote_get_config_cannot_edit_server_settings(auth_enabled, monkeypatch):
+    client = _client(monkeypatch, localhost=False)
+    response = client.get(CONFIG_URL, headers=_auth("admin"))
+    assert response.status_code == 200
+    assert response.json()["can_edit_server_settings"] is False
 
 
 def test_localhost_non_admin_writes_own_provider_config(auth_enabled, monkeypatch):
@@ -195,7 +234,7 @@ def test_localhost_non_admin_writes_own_provider_config(auth_enabled, monkeypatc
     assert AssistantConfig.load().providers["mlflow_gateway"].model == "gpt-x"
 
 
-def test_localhost_non_admin_cannot_install_skills(auth_enabled, monkeypatch):
+def test_localhost_non_admin_cannot_install_skills(auth_enabled, sandbox_on, monkeypatch):
     client = _client(monkeypatch, localhost=True)
     response = client.post(
         "/ajax-api/3.0/mlflow/assistant/skills/install",
@@ -222,13 +261,11 @@ def test_user_missing_from_the_auth_store_saves_own_provider_config(auth_enabled
     assert response.status_code == 200
 
 
-def test_own_provider_config_write_skips_the_admin_lookup(auth_enabled, monkeypatch):
+def test_no_admin_lookup_without_the_sandbox(auth_enabled, monkeypatch):
     def _get_user(username):
-        raise AssertionError("a per-user change must not look up the caller")
+        raise AssertionError("the caller must not be looked up when the sandbox is off")
 
     monkeypatch.setattr(sys.modules["mlflow.server.auth"].store, "get_user", _get_user)
-    # With the sandbox on, the route itself checks for an admin to restrict the caller's tools.
-    monkeypatch.setattr("mlflow.server.assistant.api.assistant_sandbox_enabled", lambda: False)
     client = _client(monkeypatch, localhost=True)
     response = client.put(
         CONFIG_URL,

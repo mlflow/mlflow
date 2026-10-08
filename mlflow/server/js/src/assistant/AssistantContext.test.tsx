@@ -73,8 +73,6 @@ jest.mock('./AssistantPageContext', () => ({
 
 jest.mock('../account/hooks', () => ({
   useCurrentUserQuery: jest.fn(),
-  useIsAuthAvailable: () => false,
-  useCurrentUserIsAdmin: () => false,
 }));
 
 const mockUseCurrentUserQuery = jest.mocked(useCurrentUserQuery);
@@ -705,6 +703,22 @@ describe('AssistantProvider setup state from provider discovery', () => {
         },
       },
     });
+  });
+
+  test.each([true, false])('takes whether server-wide settings are editable from the config (%s)', async (canEdit) => {
+    mockGetConfig.mockResolvedValue({ providers: {}, projects: {}, can_edit_server_settings: canEdit });
+
+    const result = await renderAndWaitForConfig();
+
+    expect(result.current.canEditServerSettings).toBe(canEdit);
+  });
+
+  test('cannot edit server-wide settings when the config fails to load', async () => {
+    mockGetConfig.mockRejectedValue(new Error('boom'));
+
+    const result = await renderAndWaitForConfig();
+
+    expect(result.current.canEditServerSettings).toBe(false);
   });
 
   test('allows provider selection on a permitted remote client', async () => {

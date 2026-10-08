@@ -36,7 +36,6 @@ import {
 import { getClientToolHandler } from './clientToolHandlers';
 import { getLocalStorageItem, setLocalStorageItem, useLocalStorage } from '@databricks/web-shared/hooks';
 import { useCurrentUserQuery } from '../account/hooks';
-import { useCanEditServerSettings } from './hooks/useCanEditServerSettings';
 import { useAssistantPageContextActions } from './AssistantPageContext';
 import { GATEWAY_PROVIDER_ID } from './constants';
 
@@ -336,7 +335,9 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   const [isLoadingConfig, setIsLoadingConfig] = useState(true);
   const [remoteAccessAllowed, setRemoteAccessAllowed] = useState(false);
   const canUseAssistant = isLocalServer || remoteAccessAllowed;
-  const canEditServerSettings = useCanEditServerSettings(isLocalServer);
+  // Reported by the server, which applies the same rule when it saves. False until the config
+  // loads, so server-wide inputs are never shown to a caller who may not change them.
+  const [canEditServerSettings, setCanEditServerSettings] = useState(false);
 
   // Whether the (possibly optimistically-picked) provider still needs an API key
   // before it can chat. Derived from discovery so a dropdown switch flips it
@@ -575,6 +576,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       const resolved = resolveSetupFromProviders(providersResponse);
       setSetupComplete(resolved.setupComplete);
       setRemoteAccessAllowed(config.remote_access_allowed ?? false);
+      setCanEditServerSettings(config.can_edit_server_settings ?? false);
       setProviders(providersResponse.providers);
       setGatewayVendorOptions(providersResponse.gateway_vendor_options ?? {});
       // Don't clobber an uncommitted optimistic pick with the resolved provider;
@@ -586,6 +588,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       // On error, assume setup is not complete
       setSetupComplete(false);
       setRemoteAccessAllowed(false);
+      setCanEditServerSettings(false);
       setProviders([]);
       setGatewayVendorOptions({});
       if (!pendingProviderSelectionRef.current) {
