@@ -4,6 +4,7 @@ import React from 'react';
 import { QueryClient, QueryClientProvider } from '@databricks/web-shared/query-client';
 
 import { AccountApi } from '../../account/api';
+import { useCurrentUserQuery } from '../../account/hooks';
 import { useCanEditServerSettings } from './useCanEditServerSettings';
 
 jest.mock('../../account/api', () => ({
@@ -21,8 +22,16 @@ const makeWrapper = () => {
   );
 };
 
+// Also returns whether the current-user query has settled, so a test can tell "false because the
+// user is not an admin" from "false because the user is still loading".
 const renderForUser = (isLocalServer: boolean) =>
-  renderHook(() => useCanEditServerSettings(isLocalServer), { wrapper: makeWrapper() });
+  renderHook(
+    () => ({
+      canEdit: useCanEditServerSettings(isLocalServer),
+      isSettled: !useCurrentUserQuery().isLoading,
+    }),
+    { wrapper: makeWrapper() },
+  );
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -34,7 +43,7 @@ describe('useCanEditServerSettings', () => {
 
     const { result } = renderForUser(true);
 
-    expect(result.current).toBe(false);
+    expect(result.current).toEqual({ canEdit: false, isSettled: false });
   });
 
   it('is true for an admin on the server host', async () => {
@@ -45,7 +54,7 @@ describe('useCanEditServerSettings', () => {
 
     const { result } = renderForUser(true);
 
-    await waitFor(() => expect(result.current).toBe(true));
+    await waitFor(() => expect(result.current).toEqual({ canEdit: true, isSettled: true }));
   });
 
   it('is false for a non-admin on the server host', async () => {
@@ -56,8 +65,8 @@ describe('useCanEditServerSettings', () => {
 
     const { result } = renderForUser(true);
 
-    await waitFor(() => expect(mockedApi.getCurrentUser).toHaveBeenCalled());
-    await waitFor(() => expect(result.current).toBe(false));
+    await waitFor(() => expect(result.current.isSettled).toBe(true));
+    expect(result.current.canEdit).toBe(false);
   });
 
   it('is true on the server host when the server has no auth', async () => {
@@ -66,7 +75,7 @@ describe('useCanEditServerSettings', () => {
 
     const { result } = renderForUser(true);
 
-    await waitFor(() => expect(result.current).toBe(true));
+    await waitFor(() => expect(result.current).toEqual({ canEdit: true, isSettled: true }));
   });
 
   it('is false for a remote caller, even an admin', async () => {
@@ -77,7 +86,7 @@ describe('useCanEditServerSettings', () => {
 
     const { result } = renderForUser(false);
 
-    await waitFor(() => expect(mockedApi.getCurrentUser).toHaveBeenCalled());
-    expect(result.current).toBe(false);
+    await waitFor(() => expect(result.current.isSettled).toBe(true));
+    expect(result.current.canEdit).toBe(false);
   });
 });

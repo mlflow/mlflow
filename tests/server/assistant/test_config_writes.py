@@ -220,3 +220,19 @@ def test_user_missing_from_the_auth_store_saves_own_provider_config(auth_enabled
         headers=_auth("sso-user"),
     )
     assert response.status_code == 200
+
+
+def test_own_provider_config_write_skips_the_admin_lookup(auth_enabled, monkeypatch):
+    def _get_user(username):
+        raise AssertionError("a per-user change must not look up the caller")
+
+    monkeypatch.setattr(sys.modules["mlflow.server.auth"].store, "get_user", _get_user)
+    # With the sandbox on, the route itself checks for an admin to restrict the caller's tools.
+    monkeypatch.setattr("mlflow.server.assistant.api.assistant_sandbox_enabled", lambda: False)
+    client = _client(monkeypatch, localhost=True)
+    response = client.put(
+        CONFIG_URL,
+        json={"providers": {"mlflow_gateway": {"model": "gpt-x", "selected": True}}},
+        headers=_auth("alice"),
+    )
+    assert response.status_code == 200

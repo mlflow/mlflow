@@ -833,7 +833,8 @@ async def get_config(request: Request) -> ConfigResponse:
 
     projects = {exp_id: p.model_dump() for exp_id, p in config.projects.items()}
     # Project paths are host filesystem paths; only callers who may configure them see them.
-    if projects and _server_settings_restriction(request):
+    # The restriction may look the caller up in the auth store, so it runs off the event loop.
+    if projects and await asyncio.to_thread(_server_settings_restriction, request):
         for project_data in projects.values():
             project_data.pop("location", None)
 
@@ -865,7 +866,7 @@ async def update_config(request: ConfigUpdateRequest, http_request: Request) -> 
     # Only check the caller when the request touches a server-wide setting, so a per-user provider
     # change never depends on the admin lookup.
     if _touches_server_settings(request) and (
-        restriction := _server_settings_restriction(http_request)
+        restriction := await asyncio.to_thread(_server_settings_restriction, http_request)
     ):
         if request.projects:
             raise HTTPException(
@@ -982,7 +983,7 @@ async def install_skills_endpoint(
         HTTPException 403: If the caller may not change server-wide settings.
     """
     # Skills are installed on the server host's filesystem for every user.
-    if restriction := _server_settings_restriction(http_request):
+    if restriction := await asyncio.to_thread(_server_settings_restriction, http_request):
         raise HTTPException(status_code=403, detail=f"Skills can only be installed {restriction}.")
     config = AssistantConfig.load()
 
