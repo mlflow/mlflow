@@ -93,12 +93,13 @@ def _resolve_provider(
 
 
 def _no_provider_message(restricted: bool) -> str:
-    # A restricted caller's selected provider is dropped when it runs on the server host (e.g. the
-    # Claude Code or Codex CLI), so say that instead of claiming none is configured.
+    # A restricted caller's selected provider is dropped when it is only available on the server
+    # host (e.g. the Claude Code or Codex CLI, or a local Ollama), so say that instead of claiming
+    # none is configured.
     selected = _get_selected_provider() if restricted else None
     if selected is not None and not selected.allows_remote_access:
         return (
-            f"The {selected.display_name} provider runs tools directly on the MLflow server host, "
+            f"The {selected.display_name} provider is only available on the MLflow server host, "
             "so it is not available to you on this server. Select another provider, such as the "
             "MLflow AI Gateway, in the Assistant settings."
         )
