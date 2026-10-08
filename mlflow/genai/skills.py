@@ -36,7 +36,7 @@ from mlflow.utils.validation import (
 )
 
 
-@experimental(version="3.16.0")
+@experimental(version="3.18.0")
 def search_skills(
     *,
     filter_string: str | None = None,
@@ -75,7 +75,7 @@ def search_skills(
     )
 
 
-@experimental(version="3.16.0")
+@experimental(version="3.18.0")
 def register_skill(
     *,
     source: GitSource | OCISource | ZipSource | str,
@@ -218,7 +218,7 @@ def _filter_and_validate_skill_directories(
     return manifests
 
 
-@experimental(version="3.16.0")
+@experimental(version="3.18.0")
 def import_skills(
     *,
     source: GitSource | str,
