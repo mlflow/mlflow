@@ -4,6 +4,13 @@ from mlflow.utils.mime_type_utils import _guess_mime_type
 from mlflow.utils.os import is_windows
 
 
+@pytest.mark.parametrize(
+    "extension", ["LOG", "Log", "JSON", "Json", "YAML", "Yaml", "IPYNB", "Ipynb"]
+)
+def test_guess_mime_type_text_extensions_ignore_case(extension):
+    assert _guess_mime_type(f"artifact.{extension}") == "text/plain"
+
+
 @pytest.mark.skipif(is_windows(), reason="This test fails on Windows")
 @pytest.mark.parametrize(
     ("file_path", "expected_mime_type"),
