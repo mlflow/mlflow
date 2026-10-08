@@ -72,22 +72,6 @@ class MockScorer(Scorer):
         return {"score": 1.0}
 
 
-def test_list_scorers_raises_when_agents_not_installed():
-    with patch(
-        "mlflow.tracking._tracking_service.utils.get_tracking_uri", return_value="databricks"
-    ):
-        with pytest.raises(ImportError, match="The `databricks-agents` package is required"):
-            list_scorers(experiment_id="test_experiment")
-
-
-def test_get_scorer_raises_when_agents_not_installed():
-    with patch(
-        "mlflow.tracking._tracking_service.utils.get_tracking_uri", return_value="databricks"
-    ):
-        with pytest.raises(ImportError, match="The `databricks-agents` package is required"):
-            get_scorer(name="test_scorer", experiment_id="test_experiment")
-
-
 def test_delete_scorer_raises_when_agents_not_installed():
     with patch(
         "mlflow.tracking._tracking_service.utils.get_tracking_uri", return_value="databricks"
@@ -156,6 +140,24 @@ def test_versioned_scorer_operations_do_not_require_agents_sdk(scorer_http):
     assert exact.name == "test_scorer"
     assert [version for _, version in versions] == [1]
     assert scorer_http.call_args_list[-1].kwargs["method"] == "DELETE"
+
+
+def test_current_scorer_reads_do_not_require_agents_sdk(scorer_http):
+    config = _scorer_config()
+    scorer_http.side_effect = [
+        _scheduled_scorers_response([config]),
+        _scheduled_scorers_response([config]),
+    ]
+
+    with patch("mlflow.genai.scorers.registry._get_store") as mock_tracking_store:
+        mock_tracking_store.return_value.get_experiment.return_value = mock.Mock(
+            experiment_id="test_experiment", lifecycle_stage="active"
+        )
+        listed = list_scorers(experiment_id="test_experiment")
+    current = get_scorer(name="test_scorer", experiment_id="test_experiment")
+
+    assert [s.name for s in listed] == ["test_scorer"]
+    assert current.scorer_version == 1
 
 
 def test_register_scorer_does_not_require_agents_sdk(scorer_http):
