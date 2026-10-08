@@ -61,16 +61,12 @@ def test_inspect_skill_dir_reads_fields(tmp_path):
 
 @pytest.mark.parametrize("subpath", ["child", "AAA/deep-child"])
 @pytest.mark.parametrize("content", ["---\nname: child\n---\n", "Invalid child manifest"])
-def test_inspect_skill_dir_rejects_nested_manifest(tmp_path, subpath, content):
+def test_inspect_skill_dir_ignores_nested_manifest(tmp_path, subpath, content):
     root = _skill_dir(tmp_path, "demo", "---\nname: demo\n---\n")
     nested = root / subpath
     nested.mkdir(parents=True)
     (nested / SKILL_MANIFEST_FILE).write_text(content)
-    with pytest.raises(MlflowException, match="Nested skill roots") as exc:
-        inspect_skill_dir(root)
-    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
-    assert f"'{subpath}/SKILL.md'" in exc.value.message
-    assert str(root) in exc.value.message
+    assert inspect_skill_dir(root).name == "demo"
 
 
 def test_inspect_skill_dir_allows_nested_supporting_files(tmp_path):
@@ -82,7 +78,7 @@ def test_inspect_skill_dir_allows_nested_supporting_files(tmp_path):
 
 
 @pytest.mark.parametrize("directory", [False, True])
-def test_inspect_skill_dir_rejects_case_insensitive_nested_manifest(tmp_path, directory):
+def test_inspect_skill_dir_ignores_case_insensitive_nested_manifest(tmp_path, directory):
     root = _skill_dir(tmp_path, "demo", "---\nname: demo\n---\n")
     nested = root / "child"
     nested.mkdir()
@@ -93,24 +89,23 @@ def test_inspect_skill_dir_rejects_case_insensitive_nested_manifest(tmp_path, di
         manifest.write_text("---\nname: child\n---\n")
     if not (nested / SKILL_MANIFEST_FILE).exists():
         pytest.skip("Requires a case-insensitive filesystem")
-    message = "must be a file, not a directory" if directory else "Nested skill roots"
-    with pytest.raises(MlflowException, match=message) as exc:
-        inspect_skill_dir(root)
-    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+    assert inspect_skill_dir(root).name == "demo"
 
 
 @pytest.mark.parametrize("subpath", ["", "assets", "assets/examples"])
-def test_inspect_skill_dir_rejects_manifest_directory(tmp_path, subpath):
+def test_inspect_skill_dir_requires_only_root_manifest_to_be_file(tmp_path, subpath):
     root = _skill_dir(tmp_path, "demo", "---\nname: demo\n---\n")
     if not subpath:
         (root / SKILL_MANIFEST_FILE).unlink()
     directory = root / subpath / SKILL_MANIFEST_FILE
     directory.mkdir(parents=True)
     (directory / "notes.txt").write_text("Supporting content\n")
-    message = "must be a file, not a directory" if subpath else "does not contain a SKILL.md"
-    with pytest.raises(MlflowException, match=message) as exc:
-        inspect_skill_dir(root)
-    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+    if subpath:
+        assert inspect_skill_dir(root).name == "demo"
+    else:
+        with pytest.raises(MlflowException, match="does not contain a SKILL.md") as exc:
+            inspect_skill_dir(root)
+        assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
 
 
 @pytest.mark.parametrize("directory_link", [False, True])
@@ -129,16 +124,14 @@ def test_inspect_skill_dir_does_not_follow_supporting_links(tmp_path, directory_
 @pytest.mark.skipif(
     os.name == "nt" or os.geteuid() == 0, reason="permission bits are not enforced here"
 )
-def test_inspect_skill_dir_rejects_unreadable_subdirectory(tmp_path):
+def test_inspect_skill_dir_does_not_read_subdirectories(tmp_path):
     root = _skill_dir(tmp_path, "demo", "---\nname: demo\n---\n")
     nested = root / "nested"
     nested.mkdir()
     (nested / SKILL_MANIFEST_FILE).write_text("---\nname: child\n---\n")
     nested.chmod(0)
     try:
-        with pytest.raises(MlflowException, match="Cannot read skill content") as exc:
-            inspect_skill_dir(root)
-        assert exc.value.error_code == "PERMISSION_DENIED"
+        assert inspect_skill_dir(root).name == "demo"
     finally:
         nested.chmod(0o755)
 

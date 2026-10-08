@@ -14,7 +14,12 @@ from mlflow.genai.skill_content.archive import (
 from mlflow.genai.skill_content.digest import compute_tree_digest
 from mlflow.genai.skill_content.errors import invalid_content
 from mlflow.genai.skill_content.fetchers import FetchedContent, fetch_source
-from mlflow.genai.skill_content.paths import normalize_subpath, tree_size
+from mlflow.genai.skill_content.paths import (
+    _fail_on_walk_error,
+    _is_link_like,
+    normalize_subpath,
+    tree_size,
+)
 from mlflow.genai.skill_content.skill_md import (
     SKILL_MANIFEST_FILE,
     SkillManifest,
@@ -83,8 +88,8 @@ def register_skill(
     An explicit name overrides the name declared in ``SKILL.md`` for registry identity,
     without modifying the content. The manifest, including its declared name, is still
     validated and the content digest is computed even when an explicit name is supplied.
-    The directory must have a root ``SKILL.md`` and no nested ``SKILL.md`` files or
-    directories named ``SKILL.md``.
+    The directory must have a root ``SKILL.md``. Nested manifests are included as supporting
+    content without being inspected or registered separately.
     Existing parent metadata is preserved; new parents have no description or icons.
     Names belonging to packaged plugin members cannot be registered independently.
 
@@ -170,10 +175,23 @@ def _filter_and_validate_skill_directories(
     fetched: FetchedContent, requested_skills: set[str] | None
 ) -> list[SkillManifest]:
     """Inspect discovered skills and return a validated selection in manifest-path order."""
+    roots = []
+    for dirpath, dirnames, _ in os.walk(
+        fetched.root, topdown=True, onerror=_fail_on_walk_error, followlinks=False
+    ):
+        root = Path(dirpath)
+        dirnames[:] = sorted(name for name in dirnames if not _is_link_like(root / name))
+        path = root / SKILL_MANIFEST_FILE
+        if path.is_dir():
+            raise invalid_content(f"'{path}' must be a file, not a directory.")
+        if path.is_file():
+            roots.append(root)
+            dirnames.clear()
+
     discovered = set()
     manifests = []
-    for path in sorted(fetched.root.rglob(SKILL_MANIFEST_FILE)):
-        manifest = inspect_skill_dir(path.parent)
+    for root in sorted(roots):
+        manifest = inspect_skill_dir(root)
         if manifest.name in discovered:
             raise MlflowException.invalid_parameter_value(
                 f"Duplicate discovered Skill name: {manifest.name!r}."
@@ -213,8 +231,9 @@ def import_skills(
     Fetch the repository once using the caller's credentials and recursively inspect
     ``SKILL.md`` files beneath the discovery root. Names come from their manifests, not
     directory names. Duplicate discovered names and missing requested names are errors.
-    Nested skill roots beneath the discovery root are rejected, even when name filtering
-    would select only one of them. Directories named ``SKILL.md`` are also rejected.
+    Discovery stops descending when it finds a skill root, even if that skill is filtered out.
+    Nested manifests remain part of that skill's content and are not inspected or registered
+    separately. Directories named ``SKILL.md`` encountered during discovery are rejected.
     All selected content is validated and digested before submitting a single batch.
 
     Each selected skill is limited by ``MLFLOW_SKILL_CONTENT_MAX_DECOMPRESSED_SIZE``

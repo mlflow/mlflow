@@ -1,5 +1,6 @@
 import io
 import json
+import os
 import shutil
 import subprocess
 import tarfile
@@ -26,9 +27,11 @@ from mlflow.exceptions import MlflowException
 from mlflow.genai import import_skills, register_skill, search_skills
 from mlflow.genai.skill_content.archive import package_skill_tree
 from mlflow.genai.skill_content.digest import compute_tree_digest
+from mlflow.genai.skill_content.fetchers import FetchedContent
 from mlflow.genai.skill_content.paths import tree_size
 from mlflow.genai.skill_content.skill_md import inspect_skill_dir
 from mlflow.genai.skill_content.sources import resolve_source_type
+from mlflow.genai.skills import _filter_and_validate_skill_directories
 from mlflow.protos.databricks_pb2 import PERMISSION_DENIED
 from mlflow.server import ARTIFACTS_DESTINATION_ENV_VAR, SERVE_ARTIFACTS_ENV_VAR, handlers
 from mlflow.server.fastapi_app import add_registry_exception_handlers
@@ -1269,8 +1272,8 @@ def test_import_preserves_internal_subpath_whitespace(
 
 
 @pytest.mark.parametrize("directory", [False, True])
-def test_import_rejects_case_insensitive_nested_manifest(
-    registry_client, store, skill_repository, remote_repository, directory
+def test_import_ignores_case_insensitive_nested_manifest(
+    registry_client, skill_repository, remote_repository, directory
 ):
     root = skill_repository / "skills/a-review/child"
     root.mkdir()
@@ -1282,63 +1285,121 @@ def test_import_rejects_case_insensitive_nested_manifest(
     if not (root / "SKILL.md").exists():
         pytest.skip("Requires a case-insensitive filesystem")
     fetch, roots = remote_repository
-    message = "must be a file, not a directory" if directory else "Nested skill roots"
-    with (
-        mock.patch("mlflow.genai.skills.compute_tree_digest") as digest,
-        mock.patch.object(store, "_skill_request") as request,
-        pytest.raises(MlflowException, match=message) as exc,
-    ):
-        import_skills(source="https://example.com/skills.git")
-    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
-    digest.assert_not_called()
-    request.assert_not_called()
-    assert registry_client[1].search_skills() == []
+    versions = import_skills(source="https://example.com/skills.git")
+    assert [version.name for version in versions] == ["review", "docs"]
+    assert versions[0].digest == compute_tree_digest(skill_repository / "skills/a-review")
     fetch.assert_called_once()
     assert all(not root.exists() for root in roots)
 
 
 @pytest.mark.parametrize("nested_path", ["child", "AAA/deep-child"])
 @pytest.mark.parametrize("skill_names", [None, ["review"], ["child"], ["docs"]])
-def test_import_rejects_nested_skill_roots(
-    registry_client, store, skill_repository, remote_repository, nested_path, skill_names
+@pytest.mark.parametrize(
+    "content", ["---\nname: child\n---\n", "Invalid child manifest", "---\nname: docs\n---\n"]
+)
+def test_import_stops_discovery_at_skill_roots(
+    registry_client, store, skill_repository, remote_repository, nested_path, skill_names, content
 ):
     root = skill_repository / "skills/a-review" / nested_path
     root.mkdir(parents=True)
-    (root / "SKILL.md").write_text("---\nname: child\n---\n")
+    (root / "SKILL.md").write_text(content)
     fetch, roots = remote_repository
     with (
-        mock.patch("mlflow.genai.skills.compute_tree_digest") as digest,
-        mock.patch.object(store, "_skill_request") as request,
-        pytest.raises(MlflowException, match="Nested skill roots") as exc,
+        mock.patch("mlflow.genai.skills.inspect_skill_dir", wraps=inspect_skill_dir) as inspect,
+        mock.patch.object(store, "_skill_request", wraps=store._skill_request) as request,
     ):
-        import_skills(source="https://example.com/skills.git", skill_names=skill_names)
-    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
-    assert f"'{nested_path}/SKILL.md'" in exc.value.message
-    assert str(roots[0] / "skills/a-review") in exc.value.message
-    digest.assert_not_called()
-    request.assert_not_called()
-    assert registry_client[1].search_skills() == []
+        if skill_names == ["child"]:
+            with pytest.raises(MlflowException, match="Requested skills were not found: child"):
+                import_skills(source="https://example.com/skills.git", skill_names=skill_names)
+            request.assert_not_called()
+            assert registry_client[1].search_skills() == []
+        else:
+            versions = import_skills(
+                source="https://example.com/skills.git", skill_names=skill_names
+            )
+            assert [version.name for version in versions] == (skill_names or ["review", "docs"])
+            for version in versions:
+                assert version.digest == compute_tree_digest(
+                    skill_repository / version.source.subpath
+                )
+            request.assert_called_once()
+    assert inspect.call_args_list == [
+        mock.call(roots[0] / "skills/a-review"),
+        mock.call(roots[0] / "skills/nested/z-docs"),
+    ]
     fetch.assert_called_once()
     assert all(not root.exists() for root in roots)
 
 
-def test_import_rejects_nested_skill_under_discovery_root(
+def test_discovery_prunes_walk_beneath_unselected_skills(skill_repository):
+    child = skill_repository / "skills/a-review/child"
+    child.mkdir()
+    (child / "SKILL.md").write_text("---\nname: child\n---\n")
+    visited = []
+    original_walk = os.walk
+
+    def walk(*args, **kwargs):
+        for entry in original_walk(*args, **kwargs):
+            visited.append(Path(entry[0]))
+            yield entry
+
+    fetched = FetchedContent(
+        skill_repository, resolve_source_type("https://example.com/skills.git")
+    )
+    with mock.patch("mlflow.genai.skills.os.walk", side_effect=walk) as walk_mock:
+        manifests = _filter_and_validate_skill_directories(fetched, {"docs"})
+    walk_mock.assert_called_once_with(
+        skill_repository, topdown=True, onerror=mock.ANY, followlinks=False
+    )
+    assert [manifest.name for manifest in manifests] == ["docs"]
+    assert child not in visited
+    assert skill_repository / "skills/a-review" in visited
+    assert skill_repository / "skills/nested/z-docs" in visited
+
+
+def test_import_can_target_nested_skill_with_discovery_subpath(
+    registry_client, skill_repository, remote_repository
+):
+    subpath = "skills/a-review/child"
+    child = skill_repository / subpath
+    child.mkdir()
+    (child / "SKILL.md").write_text("---\nname: child\n---\n")
+    versions = import_skills(
+        source=GitSource("https://example.com/skills.git", subpath=subpath), skill_names=["child"]
+    )
+    assert [version.name for version in versions] == ["child"]
+    assert versions[0].source.subpath == subpath
+    assert versions[0].digest == compute_tree_digest(child)
+
+
+def test_import_does_not_skip_invalid_parent_manifest(
+    registry_client, store, skill_repository, remote_repository
+):
+    (skill_repository / "SKILL.md").write_text("---\nname: INVALID\n---\n")
+    with (
+        mock.patch.object(store, "_skill_request") as request,
+        pytest.raises(MlflowException, match="Invalid skill name"),
+    ):
+        import_skills(source="https://example.com/skills.git", skill_names=["review"])
+    request.assert_not_called()
+
+
+def test_import_stops_at_manifest_in_discovery_root(
     registry_client, skill_repository, remote_repository
 ):
     (skill_repository / "SKILL.md").write_text("---\nname: root-skill\n---\n")
-    with (
-        mock.patch("mlflow.genai.skills.compute_tree_digest") as digest,
-        mock.patch("mlflow.genai.skills.MlflowClient") as client,
-        pytest.raises(MlflowException, match="Nested skill roots"),
-    ):
-        import_skills(source="https://example.com/skills.git", skill_names=["root-skill"])
-    digest.assert_not_called()
-    client.assert_not_called()
+    fetch, roots = remote_repository
+    with mock.patch("mlflow.genai.skills.inspect_skill_dir", wraps=inspect_skill_dir) as inspect:
+        versions = import_skills(source="https://example.com/skills.git")
+    assert [version.name for version in versions] == ["root-skill"]
+    assert versions[0].source.subpath is None
+    assert versions[0].digest == compute_tree_digest(skill_repository)
+    inspect.assert_called_once_with(roots[0])
+    fetch.assert_called_once()
+    assert not roots[0].exists()
 
 
-@pytest.mark.parametrize(
-    "path", ["SKILL.md", "skills/a-review/SKILL.md", "skills/a-review/assets/SKILL.md"]
-)
+@pytest.mark.parametrize("path", ["SKILL.md", "skills/a-review/SKILL.md"])
 @pytest.mark.parametrize("skill_names", [None, ["docs"]])
 def test_import_rejects_manifest_directory(
     registry_client, store, skill_repository, remote_repository, path, skill_names
@@ -1907,31 +1968,18 @@ def test_register_explicit_name_still_validates_content(
 
 @pytest.mark.parametrize("local", [False, True])
 @pytest.mark.parametrize("name", [None, "custom-review"])
-@pytest.mark.parametrize(
-    ("kind", "message"),
-    [
-        ("nested-file", "Nested skill roots"),
-        ("nested-directory", "must be a file, not a directory"),
-        ("root-directory", "does not contain a SKILL.md"),
-    ],
-)
-def test_register_rejects_invalid_skill_structure_before_digest(
-    registry_client, store, skill_tree, remote_content, local, name, kind, message
+def test_register_rejects_root_manifest_directory_before_digest(
+    registry_client, store, skill_tree, remote_content, local, name
 ):
-    invalid = skill_tree / ("SKILL.md" if kind == "root-directory" else "nested/SKILL.md")
-    if kind == "root-directory":
-        invalid.unlink()
-    if kind == "nested-file":
-        invalid.parent.mkdir()
-        invalid.write_text("---\nname: child\n---\n")
-    else:
-        invalid.mkdir(parents=True)
-        (invalid / "notes.txt").write_text("Supporting content\n")
+    invalid = skill_tree / "SKILL.md"
+    invalid.unlink()
+    invalid.mkdir()
+    (invalid / "notes.txt").write_text("Supporting content\n")
     fetch, roots = remote_content
     with (
         mock.patch("mlflow.genai.skills.compute_tree_digest") as digest,
         mock.patch.object(store, "_skill_request") as request,
-        pytest.raises(MlflowException, match=message) as exc,
+        pytest.raises(MlflowException, match="does not contain a SKILL.md") as exc,
     ):
         register_skill(
             source=str(skill_tree) if local else "https://example.com/repo.git", name=name
@@ -1943,6 +1991,31 @@ def test_register_rejects_invalid_skill_structure_before_digest(
     assert fetch.call_count == (0 if local else 1)
     assert all(not root.exists() for root in roots)
     assert invalid.exists()
+
+
+@pytest.mark.parametrize("local", [False, True])
+@pytest.mark.parametrize("name", [None, "custom-review"])
+@pytest.mark.parametrize("kind", ["manifest", "invalid-manifest", "directory"])
+def test_register_includes_nested_manifest_content(
+    registry_client, skill_tree, remote_content, skill_artifacts, local, name, kind
+):
+    nested = skill_tree / "examples/SKILL.md"
+    nested.parent.mkdir()
+    if kind == "directory":
+        nested.mkdir()
+        nested = nested / "notes.txt"
+    content = "---\nname: child\n---\n" if kind == "manifest" else "Supporting content\n"
+    nested.write_text(content)
+    version = register_skill(
+        source=str(skill_tree) if local else "https://example.com/repo.git", name=name
+    )
+    assert version.name == (name or "review")
+    assert version.digest == compute_tree_digest(skill_tree)
+    if local:
+        stored = skill_artifacts / version.source.artifact_path.removeprefix("mlflow-artifacts:/")
+        assert (stored / nested.relative_to(skill_tree)).read_text() == content
+        assert compute_tree_digest(stored) == version.digest
+    assert registry_client[1].get_skill_version(version.name, version.version) == version
 
 
 @pytest.mark.parametrize("local", [False, True])
