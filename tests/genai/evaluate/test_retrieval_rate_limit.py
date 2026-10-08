@@ -1,8 +1,9 @@
 import contextvars
 import sys
 import threading
+import time
 from concurrent.futures import ThreadPoolExecutor
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from types import ModuleType, SimpleNamespace
 
 import pytest
@@ -44,8 +45,8 @@ class RecordingLimiter(RPSRateLimiter):
         self.throttles = 0
         self.record_lock = threading.Lock()
 
-    def acquire(self):
-        super().acquire()
+    def acquire(self, **kwargs):
+        super().acquire(**kwargs)
         with self.record_lock:
             self.admissions += 1
 
@@ -66,25 +67,36 @@ def request_limiting_sdk(monkeypatch):
     # installed SDKs. Real SDK transport/retry behavior is covered in its suite.
     sdk = pytest.importorskip("databricks.agents.evals.judges")
     active_limiter = contextvars.ContextVar("test_sdk_request_limiter", default=None)
-    state = SimpleNamespace(throttle_once=False, enabled=True, context_entries=0)
+    state = SimpleNamespace(
+        throttle_once=False,
+        enabled=True,
+        context_entries=0,
+        after_admission=lambda: None,
+        attempts=0,
+        finished=threading.Event(),
+    )
     lock = threading.Lock()
 
     @contextmanager
-    def use_judge_request_rate_limiter(limiter):
+    def use_judge_request_execution(limiter, execution):
         state.context_entries += 1
-        token = active_limiter.set(limiter if state.enabled is True else None)
+        token = active_limiter.set(execution if state.enabled is True else None)
         try:
             yield state.enabled
         finally:
             active_limiter.reset(token)
 
     module = ModuleType("databricks.rag_eval.clients.managedrag.request_limiter")
-    module.use_judge_request_rate_limiter = use_judge_request_rate_limiter
+    module.use_judge_request_execution = use_judge_request_execution
     monkeypatch.setitem(sys.modules, module.__name__, module)
 
     def chunk_relevance(*, request, retrieved_context, assessment_name):
         def score_chunk(chunk):
             limiter = active_limiter.get()
+            with limiter.worker() if limiter is not None else nullcontext():
+                return request_chunk(chunk, limiter)
+
+        def request_chunk(chunk, limiter):
             if limiter is not None:
                 limiter.acquire()
                 with lock:
@@ -93,15 +105,24 @@ def request_limiting_sdk(monkeypatch):
                 if throttled:
                     limiter.report_throttle()
                     limiter.acquire()
+            with lock:
+                state.attempts += 1
+            state.after_admission()
+            if limiter is not None:
                 limiter.report_success()
             return Feedback(name=assessment_name, value="yes", rationale=chunk["content"])
 
-        with ThreadPoolExecutor(max_workers=4, thread_name_prefix="TestRetrievalChunk") as pool:
-            futures = [
-                pool.submit(contextvars.copy_context().run, score_chunk, chunk)
-                for chunk in retrieved_context
-            ]
-            return [future.result() for future in futures]
+        limiter = active_limiter.get()
+        try:
+            with ThreadPoolExecutor(max_workers=4, thread_name_prefix="TestRetrievalChunk") as pool:
+                futures = [
+                    pool.submit(contextvars.copy_context().run, score_chunk, chunk)
+                    for chunk in retrieved_context
+                ]
+                with limiter.waiting_for_workers() if limiter is not None else nullcontext():
+                    return [future.result() for future in futures]
+        finally:
+            state.finished.set()
 
     monkeypatch.setattr(sdk, "chunk_relevance", chunk_relevance)
     return SimpleNamespace(module=module, active_limiter=active_limiter, state=state)
@@ -125,7 +146,7 @@ def test_retrieval_charges_requests_or_falls_back_to_invocations(
 ):
     request_limiting_sdk.state.enabled = workspace_enabled
     if not sdk_supports_limiting:
-        monkeypatch.delattr(request_limiting_sdk.module, "use_judge_request_rate_limiter")
+        monkeypatch.delattr(request_limiting_sdk.module, "use_judge_request_execution")
     limiter = RecordingLimiter()
     result = _compute_eval_scores(
         eval_item=make_item(sample_rag_trace),
@@ -222,11 +243,49 @@ def test_request_context_is_restored_after_exception(request_limiting_sdk):
     outer = RecordingLimiter()
     inner = RecordingLimiter()
     with scorer_rate_limit_context(judge, outer):
+        outer_execution = request_limiting_sdk.active_limiter.get()
         with pytest.raises(ValueError, match="failed"):
             with scorer_rate_limit_context(judge, inner):
                 raise ValueError("failed")
-        assert request_limiting_sdk.active_limiter.get() is outer
+        assert request_limiting_sdk.active_limiter.get() is outer_execution
+        request_limiting_sdk.active_limiter.get().acquire()
     assert request_limiting_sdk.active_limiter.get() is None
+    assert outer.admissions == 1
+    assert inner.admissions == 0
+
+
+@databricks_only
+def test_healthy_retrieval_pacing_does_not_consume_timeout(request_limiting_sdk, sample_rag_trace):
+    start = time.monotonic()
+    result = _compute_eval_scores(
+        eval_item=make_item(sample_rag_trace),
+        scorers=[RetrievalRelevance(model="databricks", timeout=0.2)],
+        rate_limiter=RPSRateLimiter(2),
+    )
+    assert time.monotonic() - start >= 0.5
+    assert len(result.assessments) == 5
+    assert all(a.error is None for a in result.assessments)
+    assert request_limiting_sdk.state.attempts == 3
+
+
+@databricks_only
+def test_slow_judge_times_out_and_cancels_queued_requests(request_limiting_sdk, sample_rag_trace):
+    release = threading.Event()
+    request_limiting_sdk.state.after_admission = lambda: release.wait(5)
+    try:
+        result = _compute_eval_scores(
+            eval_item=make_item(sample_rag_trace),
+            scorers=[RetrievalRelevance(model="databricks", timeout=0.2)],
+            rate_limiter=RPSRateLimiter(1),
+        )
+        assert len(result.assessments) == 1
+        assert result.assessments[0].error.error_code == "SCORER_ERROR"
+        assert "timed out" in result.assessments[0].error.error_message
+        assert request_limiting_sdk.state.attempts == 1
+    finally:
+        release.set()
+        assert request_limiting_sdk.state.finished.wait(2)
+    assert request_limiting_sdk.state.attempts == 1
 
 
 @pytest.mark.parametrize("rate", ["2", "auto"])
