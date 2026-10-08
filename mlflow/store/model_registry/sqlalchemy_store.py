@@ -1954,8 +1954,8 @@ class SqlAlchemyStore(AbstractStore):
         dialect = self._get_dialect()
         ordered = sorted(requested)
         with self.ManagedSessionMaker() as session:
+            equal_key = condition_pushdown.key_comparison(dialect)
             for model, id_columns, key_column, value_column, key, comparator, value in resolved:
-                comparison = SearchUtils.get_sql_comparison_func(comparator, dialect)
                 # Ids bind one parameter each -- more for a composite -- and the clause
                 # binds the key plus one per compared value, which for ``IN`` is the
                 # whole list. Subtract those so the backend's cap stays a property of
@@ -1970,9 +1970,11 @@ class SqlAlchemyStore(AbstractStore):
                         ._get_query(session, model)
                         .with_entities(*id_columns)
                         .filter(
-                            condition_pushdown.id_predicate(id_columns, chunk),
-                            key_column == key,
-                            comparison(value_column, value),
+                            condition_pushdown.id_predicate(id_columns, chunk, dialect),
+                            equal_key(key_column, key),
+                            condition_pushdown.compare_value(
+                                value_column, comparator, value, dialect
+                            ),
                         )
                         .all()
                     )

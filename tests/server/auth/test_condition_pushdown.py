@@ -1715,3 +1715,129 @@ def test_the_sentinel_is_gone():
 
     assert not hasattr(cp, "DECLINED")
     assert not hasattr(cp, "Declined")
+
+
+# Every suite above runs on SQLite, which is case-sensitive, has no trouble with a
+# row-value ``IN``, and tolerates a cast column. Three classes of defect therefore
+# cannot show up there at all, and all three were live: a clause that crashed only on
+# MySQL, a clause that was silently case-insensitive only on MySQL/MSSQL, and a
+# predicate that was a syntax error only on MSSQL. These tests compile the predicates
+# against each dialect rather than executing them, so they need no server.
+
+_DIALECTS = ("sqlite", "postgresql", "mysql", "mssql")
+
+
+def _dialect(name):
+    from sqlalchemy.dialects import mssql, mysql, postgresql, sqlite
+
+    return {"sqlite": sqlite, "postgresql": postgresql, "mysql": mysql, "mssql": mssql}[
+        name
+    ].dialect()
+
+
+def _compiled(clause, dialect_name):
+    return str(
+        clause.compile(dialect=_dialect(dialect_name), compile_kwargs={"literal_binds": True})
+    )
+
+
+@pytest.mark.parametrize("dialect", _DIALECTS)
+@pytest.mark.parametrize("comparator", ["=", "!=", "LIKE", "ILIKE", "IN", "NOT IN"])
+def test_a_cast_column_compares_on_every_dialect(dialect, comparator):
+    """A clause whose column needs casting must be expressible on every backend.
+
+    An alias clause compares against ``version``, an ``INTEGER``, so ``comparable``
+    hands the comparison a ``Cast``. A ``Cast`` reports a ``String`` type and so passes
+    the dialect helper's type guard, but has no ``class_`` for its MySQL branch to read
+    a table name from -- which raised ``AttributeError`` and failed the mutation with an
+    internal error instead of evaluating the clause.
+    """
+    from mlflow.store.condition_pushdown import comparable, compare_value
+    from mlflow.store.model_registry.dbmodels.models import SqlRegisteredModelAlias
+
+    column = comparable(SqlRegisteredModelAlias.version)
+    value = ("1", "2") if comparator in ("IN", "NOT IN") else "1"
+    # Compiles, rather than raising, is the whole assertion.
+    assert _compiled(compare_value(column, comparator, value, dialect), dialect)
+
+
+@pytest.mark.parametrize("dialect", _DIALECTS)
+def test_the_key_comparison_is_case_sensitive(dialect):
+    """The key a clause names must match exactly, on every backend.
+
+    MySQL and MSSQL collate case-insensitively by default, so a plain ``==`` let a row
+    keyed ``Lifecycle`` answer a clause about ``lifecycle``. On the target side that is
+    fail-open: the key the condition names is absent, which must fail, but the
+    near-miss row joins the satisfying set and acquits the mutation.
+    """
+    from mlflow.store.condition_pushdown import key_comparison
+    from mlflow.store.model_registry.dbmodels.models import SqlRegisteredModelTag
+
+    sql_text = _compiled(key_comparison(dialect)(SqlRegisteredModelTag.key, "lifecycle"), dialect)
+    if dialect == "mysql":
+        assert "BINARY" in sql_text
+    elif dialect == "mssql":
+        assert "COLLATE" in sql_text
+        assert "_CS_" in sql_text
+    else:
+        # Already case-sensitive, so no decoration is expected or wanted.
+        assert "BINARY" not in sql_text
+        assert "COLLATE" not in sql_text
+
+
+@pytest.mark.parametrize("dialect", _DIALECTS)
+def test_a_composite_id_predicate_avoids_row_values_on_mssql(dialect):
+    """SQL Server has no row-value constructor, so ``(a, b) IN ((..), (..))`` is a syntax
+    error there. Every named target condition on a model, prompt or MCP server version
+    takes this branch, so those mutations failed outright rather than being evaluated.
+    """
+    from mlflow.store.condition_pushdown import id_predicate
+    from mlflow.store.model_registry.dbmodels.models import SqlModelVersion
+
+    columns = (SqlModelVersion.name, SqlModelVersion.version)
+    sql_text = _compiled(id_predicate(columns, [("m", "1"), ("m", "2")], dialect), dialect)
+    if dialect == "mssql":
+        # Distributed into an OR of per-key ANDs instead.
+        assert ") IN (" not in sql_text
+        assert " OR " in sql_text
+        assert " AND " in sql_text
+    else:
+        assert " IN (" in sql_text
+
+
+def test_a_composite_id_predicate_on_mssql_groups_its_or():
+    # ``AND`` binds tighter than ``OR``, so the distributed form is only correct while it
+    # stays parenthesised once ``filter()`` conjoins it with the key and value clauses.
+    # Unparenthesised, ``key = 'x' AND a AND b OR c AND d`` would match rows the
+    # condition never selected.
+    from sqlalchemy.orm import Session
+
+    from mlflow.store.condition_pushdown import comparable, compare_value, id_predicate
+    from mlflow.store.model_registry.dbmodels.models import SqlModelVersionTag
+
+    columns = (SqlModelVersionTag.name, SqlModelVersionTag.version)
+    query = (
+        Session()
+        .query(SqlModelVersionTag)
+        .with_entities(*columns)
+        .filter(
+            id_predicate(columns, [("m", "1"), ("m", "2")], "mssql"),
+            SqlModelVersionTag.key == "lifecycle",
+            compare_value(comparable(SqlModelVersionTag.value), "=", "dev", "mssql"),
+        )
+    )
+    where = str(
+        query.statement.compile(dialect=_dialect("mssql"), compile_kwargs={"literal_binds": True})
+    ).split("WHERE", 1)[1]
+    assert where.strip().startswith("(")
+
+
+@pytest.mark.parametrize("dialect", _DIALECTS)
+def test_a_single_column_id_predicate_is_unchanged(dialect):
+    # Only the composite branch needed a dialect, so the common case must not have moved.
+    from mlflow.store.condition_pushdown import id_predicate
+    from mlflow.store.model_registry.dbmodels.models import SqlModelVersion
+
+    sql_text = _compiled(id_predicate((SqlModelVersion.name,), ["a", "b"], dialect), dialect)
+    assert " IN (" in sql_text
+    assert " OR " not in sql_text

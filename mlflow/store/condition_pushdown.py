@@ -30,6 +30,7 @@ such a column to text so SQL and memory agree.
 
 import sqlalchemy
 
+from mlflow.store.db.db_types import MSSQL
 from mlflow.utils.search_utils import SearchUtils
 
 
@@ -86,11 +87,83 @@ def comparable(column):
     return column
 
 
-def id_predicate(id_columns, keys):
-    """Match a chunk of ids: by column for a single key, by row value for a composite."""
+def key_comparison(dialect):
+    """Case-sensitive equality for the key a clause names.
+
+    MySQL and MSSQL collate case-insensitively by default, so a plain ``==`` lets a
+    row keyed ``Lifecycle`` answer a clause about ``lifecycle``. On the target side
+    that is the fail-open direction: the key the condition names is absent, which
+    must fail, but the near-miss row lands in the satisfying set and acquits the
+    mutation. The same slip on the request side would compare a submitted key
+    against the wrong clause.
+
+    This is how the filter queries beside us compare a key already --
+    ``_get_search_registered_model_filter_query``,
+    ``_get_search_model_versions_filter_clauses`` and
+    ``_get_sqlalchemy_filter_clauses`` all route theirs through this function -- so
+    the condition path is held to the same standard rather than a new one.
+    """
+    return SearchUtils.get_sql_comparison_func("=", dialect)
+
+
+def compare_value(column, comparator, value, dialect):
+    """Compare a clause's value against ``column``, tolerating a cast column.
+
+    A text column goes through ``get_sql_comparison_func``, which restores
+    case-sensitive comparison on the two case-insensitive backends.
+
+    :func:`comparable` may have handed us a ``Cast`` instead: a condition value is
+    always a string, so a non-text column is rendered as text to compare against one
+    -- an alias clause compares against ``version``, an ``INTEGER``. A ``Cast``
+    reports a ``String`` type and so passes that function's type guard, but it has no
+    ``class_``, and the MySQL branch builds its predicate textually from
+    ``column.class_.__tablename__``. The result was ``AttributeError`` -- the
+    mutation failed with an internal error instead of the clause being evaluated, and
+    only on MySQL, and only for the alias clauses nothing else exercises.
+
+    A cast integer renders as digits, which have no case, so the case-sensitive and
+    plain comparisons agree on it. Taking the dialect-agnostic path for a cast column
+    is therefore not a relaxation -- there is no case for it to be insensitive to.
+    """
+    if isinstance(column, sqlalchemy.Cast):
+        if comparator == "LIKE":
+            return column.like(value)
+        if comparator == "ILIKE":
+            return column.ilike(value)
+        if comparator == "IN":
+            return column.in_(value)
+        if comparator == "NOT IN":
+            return ~column.in_(value)
+        return SearchUtils.get_comparison_func(comparator)(column, value)
+    return SearchUtils.get_sql_comparison_func(comparator, dialect)(column, value)
+
+
+def id_predicate(id_columns, keys, dialect=None):
+    """Match a chunk of ids: by column for a single key, by row value for a composite.
+
+    ``dialect`` selects how a composite key is expressed. A row-value ``IN`` --
+    ``(name, version) IN (('m', '1'), ...)`` -- is the compact form and the one
+    MySQL, PostgreSQL and SQLite accept, but SQL Server has no row-value constructor
+    and rejects it as a syntax error. Every named target condition on a model, prompt
+    or MCP server version takes this branch, so on MSSQL those mutations failed
+    outright rather than being evaluated.
+
+    The MSSQL form is the same predicate distributed: an ``OR`` of per-key ``AND``\\ s.
+    It binds the same number of parameters -- one per column per key -- so the
+    chunking arithmetic that keeps a statement under the backend's parameter cap is
+    unaffected.
+
+    Omitting ``dialect`` keeps the row-value form, which is what every backend except
+    SQL Server wants.
+    """
     if len(id_columns) == 1:
         return id_columns[0].in_(keys)
     casted = tuple(comparable(column) for column in id_columns)
+    if dialect == MSSQL:
+        return sqlalchemy.or_(*[
+            sqlalchemy.and_(*[column == part for column, part in zip(casted, tuple(key))])
+            for key in keys
+        ])
     return sqlalchemy.sql.tuple_(*casted).in_([tuple(key) for key in keys])
 
 
@@ -200,11 +273,13 @@ def find_failing_child(store, mapping, parent_id, clauses, extra_filters=()):
     dialect = store._get_dialect()
     with store.ManagedSessionMaker() as session:
         fails_a_clause = []
+        equal_key = key_comparison(dialect)
         for namespace, key, comparator, value in clauses:
-            comparison = SearchUtils.get_sql_comparison_func(comparator, dialect)
             filters = [
-                getattr(tag_model, tag_key_name) == key,
-                comparison(comparable(getattr(tag_model, tag_value_name)), value),
+                equal_key(getattr(tag_model, tag_key_name), key),
+                compare_value(
+                    comparable(getattr(tag_model, tag_value_name)), comparator, value, dialect
+                ),
             ]
             if tag_parent_name is not None:
                 filters.append(getattr(tag_model, tag_parent_name) == parent_id)

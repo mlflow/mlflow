@@ -85,6 +85,21 @@ ALLOWED_COMPARATORS = frozenset({"=", "!=", "LIKE", "ILIKE", "IN", "NOT IN"})
 #: read at a glance is one they cannot reason about, and every clause is an AND.
 MAX_CLAUSES = 5
 
+#: How many values one ``IN``/``NOT IN`` list may carry, and how many a whole
+#: condition may carry across its clauses.
+#:
+#: Unlike :data:`MAX_CLAUSES` this *is* a backend bound. Every value in an ``IN`` list
+#: becomes its own bind parameter, and a cascade query combines all of a condition's
+#: clauses into one statement, so an unbounded list can exceed a backend's parameter
+#: cap -- SQLite's is 32766. Over that line the mutation fails with an internal error
+#: instead of being evaluated. It fails closed, which is the safe direction, but a
+#: condition an admin is allowed to save must not be one the store cannot run.
+#:
+#: Checked at save time, not at evaluation time: the condition is stored in a ``Text``
+#: column that would accept a list of any length, and refusing it on write is the only
+#: point where the admin is present to be told.
+MAX_CLAUSE_VALUES = 500
+
 #: Per the RFC: how many condition objects a role may hold for one resource type.
 #:
 #: A storage bound, not an evaluation bound. Scope selects before combination, so a
@@ -991,6 +1006,25 @@ def parse_condition(filter_string: str | None, namespace: str) -> tuple[Clause, 
     if len(clauses) > MAX_CLAUSES:
         raise MlflowException(
             f"Condition has {len(clauses)} clauses, which exceeds the maximum of {MAX_CLAUSES}.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    # Bound the bind parameters a cascade query will ask the backend for. Per clause
+    # first, so the message names the offending one, then in total, since a cascade
+    # combines every clause into a single statement.
+    total_values = 0
+    for clause in clauses:
+        count = len(clause.value) if isinstance(clause.value, tuple) else 1
+        if count > MAX_CLAUSE_VALUES:
+            raise MlflowException(
+                f"Clause '{clause.key}' lists {count} values, which exceeds the maximum of "
+                f"{MAX_CLAUSE_VALUES}.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        total_values += count
+    if total_values > MAX_CLAUSE_VALUES:
+        raise MlflowException(
+            f"Condition lists {total_values} values across its clauses, which exceeds the "
+            f"maximum of {MAX_CLAUSE_VALUES}.",
             error_code=INVALID_PARAMETER_VALUE,
         )
     return clauses

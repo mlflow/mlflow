@@ -10194,17 +10194,19 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         dialect = self._get_dialect()
         ordered = sorted(requested)
         with self.ManagedSessionMaker() as session:
+            equal_key = condition_pushdown.key_comparison(dialect)
             for model, id_columns, key_column, value_column, key, comparator, value in resolved:
-                comparison = SearchUtils.get_sql_comparison_func(comparator, dialect)
                 for chunk in self._pushdown_id_chunks(ordered, id_columns, value):
                     rows = (
                         self
                         ._get_query(session, model)
                         .with_entities(*id_columns)
                         .filter(
-                            condition_pushdown.id_predicate(id_columns, chunk),
-                            key_column == key,
-                            comparison(value_column, value),
+                            condition_pushdown.id_predicate(id_columns, chunk, dialect),
+                            equal_key(key_column, key),
+                            condition_pushdown.compare_value(
+                                value_column, comparator, value, dialect
+                            ),
                         )
                         .all()
                     )

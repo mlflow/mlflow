@@ -11,6 +11,7 @@ from mlflow.server.auth import permissions
 from mlflow.server.auth.conditions import (
     ALIAS_OWNING_RESOURCE_TYPES,
     ALLOWED_COMPARATORS,
+    MAX_CLAUSE_VALUES,
     MAX_CLAUSES,
     NAMESPACE_REQUEST,
     NAMESPACE_RESOURCE,
@@ -1128,3 +1129,50 @@ def test_an_alias_identifier_is_still_rejected_on_the_request_side():
     """
     with pytest.raises(MlflowException, match=r"resource-condition identifier"):
         parse_condition("aliases.champion = 'x'", NAMESPACE_REQUEST)
+
+
+# A condition the admin is allowed to save must be one the store can actually run.
+# Every value in an ``IN`` list becomes its own bind parameter and a cascade query
+# combines all of a condition's clauses into one statement, so an unbounded list can
+# exceed a backend's parameter cap -- SQLite's is 32766. Past that the mutation fails
+# with an internal error instead of being evaluated. It fails closed, which is the safe
+# direction, but the admin should be told at save time, which is the only moment they
+# are present to be told.
+
+
+def _in_clause(key, n):
+    return f"tags.{key} IN (" + ",".join(f"'v{i}'" for i in range(n)) + ")"
+
+
+def test_an_in_list_at_the_cap_is_accepted():
+    clauses = parse_condition(_in_clause("env", MAX_CLAUSE_VALUES), NAMESPACE_RESOURCE)
+    assert len(clauses) == 1
+    assert len(clauses[0].value) == MAX_CLAUSE_VALUES
+
+
+def test_an_in_list_over_the_cap_is_rejected():
+    with pytest.raises(MlflowException, match=r"lists 501 values"):
+        parse_condition(_in_clause("env", MAX_CLAUSE_VALUES + 1), NAMESPACE_RESOURCE)
+
+
+def test_values_are_capped_across_clauses_not_only_within_one():
+    """Three clauses of 200 are each legal alone but exceed the cap together.
+
+    The cascade query binds every clause in one statement, so the total is what the
+    backend actually sees -- a per-clause check alone would let three legal clauses
+    build an illegal statement.
+    """
+    condition = " AND ".join(_in_clause(f"k{j}", 200) for j in range(3))
+    with pytest.raises(MlflowException, match=r"600 values across its clauses"):
+        parse_condition(condition, NAMESPACE_RESOURCE)
+
+
+def test_values_under_the_total_cap_are_accepted():
+    condition = " AND ".join(_in_clause(f"k{j}", 200) for j in range(2))
+    assert len(parse_condition(condition, NAMESPACE_RESOURCE)) == 2
+
+
+def test_the_cap_does_not_disturb_ordinary_conditions():
+    # The bound is a backstop, not a budget an admin should ever notice.
+    assert len(parse_condition("tags.env = 'dev'", NAMESPACE_RESOURCE)) == 1
+    assert len(parse_condition("tags.env IN ('a','b','c')", NAMESPACE_RESOURCE)) == 1
