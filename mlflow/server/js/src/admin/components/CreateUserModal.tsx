@@ -19,6 +19,7 @@ import {
   AdminQueryKeys,
   useCreateUser,
   useCurrentUserIsAdmin,
+  useAddUserMutationCondition,
   useGrantUserPermission,
   useWorkspaceOptions,
 } from '../hooks';
@@ -29,6 +30,7 @@ import { useWorkspacesEnabled } from '../../experiment-tracking/hooks/useServerI
 import { DEFAULT_WORKSPACE_NAME } from '../types';
 import { RoleAssignmentForm, ROLE_ASSIGNMENT_DEFAULT, type RoleAssignmentValue } from './RoleAssignmentForm';
 import { DirectPermissionsSection, type StagedDirectPermission } from './DirectPermissionsSection';
+import { MutationConditionsSection, type StagedMutationCondition } from './MutationConditionsSection';
 
 export interface CreateUserModalProps {
   open: boolean;
@@ -65,6 +67,12 @@ export const CreateUserModal = ({ open, onClose }: CreateUserModalProps) => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [roleValue, setRoleValue] = useState<RoleAssignmentValue>(ROLE_ASSIGNMENT_DEFAULT);
   const [directPermissions, setDirectPermissions] = useState<StagedDirectPermission[]>([]);
+  const [conditions, setConditions] = useState<StagedMutationCondition[]>([]);
+  // The role id is unknown here -- the user does not exist yet, so neither does the
+  // per-user role the conditions land on. The user-addressed add resolves and creates it
+  // server-side, which is what lets a condition be staged at creation time at all; the
+  // role-keyed invalidation this hook also does is a no-op for an id that never existed.
+  const addCondition = useAddUserMutationCondition(username, Number.NaN);
   const [grantWorkspace, setGrantWorkspace] = useState<string>(initialGrantWorkspace);
   // In single-tenant mode there is no workspace dimension — pass ``undefined``
   // so the ``X-MLFLOW-WORKSPACE`` header is omitted (the server rejects any
@@ -76,6 +84,7 @@ export const CreateUserModal = ({ open, onClose }: CreateUserModalProps) => {
   // drop a half-filled permission, but submit is NOT disabled — the admin
   // can always click through.
   const [hasUnsavedDirectDraft, setHasUnsavedDirectDraft] = useState(false);
+  const [hasUnsavedConditionDraft, setHasUnsavedConditionDraft] = useState(false);
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -92,6 +101,7 @@ export const CreateUserModal = ({ open, onClose }: CreateUserModalProps) => {
       setIsAdmin(false);
       setRoleValue(ROLE_ASSIGNMENT_DEFAULT);
       setDirectPermissions([]);
+      setConditions([]);
       setGrantWorkspace(initialGrantWorkspace);
       // ``hasUnsavedDirectDraft`` isn't reset here — the ``key={String(open)}``
       // on ``DirectPermissionsSection`` below remounts the section on every
@@ -111,6 +121,7 @@ export const CreateUserModal = ({ open, onClose }: CreateUserModalProps) => {
 
   const wantsRoles = roleValue.roleIds.length > 0;
   const wantsDirect = directPermissions.length > 0;
+  const wantsConditions = conditions.length > 0;
   // Retry mode skips the credential guard (the fields are also disabled).
   const canSubmit = createdUsername !== null || Boolean(username.trim() && password);
 
@@ -140,6 +151,58 @@ export const CreateUserModal = ({ open, onClose }: CreateUserModalProps) => {
     // The user exists. Treat the follow-up steps as best-effort: surface
     // partial failures inline rather than rolling back the user.
     const failures: string[] = [];
+
+    if (wantsConditions) {
+      // Conditions go FIRST among the follow-ups, after `createUser` only because this add
+      // is addressed by username and the server 404s an unknown one.
+      //
+      // They used to run last, on the reasoning that a condition with no matching grant is
+      // valid and inert -- which is true, and is the wrong way round. The risk is not an
+      // unmatched condition, it is an unmatched GRANT: between granting and restricting,
+      // and permanently if the restriction fails, the user holds exactly the unrestricted
+      // access the admin was trying to narrow. So the restriction lands first and the
+      // capability steps below are skipped if it could not be created.
+      // Only the conditions not already applied. On a retry the user already exists and
+      // the create step is skipped; replaying an add that succeeded would allocate a
+      // second slot for the same restriction rather than deduplicating it, so an
+      // applied condition is identified by the id stamped on it below.
+      for (const c of conditions.filter((s) => s.id == null)) {
+        try {
+          const created = await addCondition.mutateAsync({
+            request: {
+              username: trimmedUsername,
+              resource_type: c.resourceType,
+              resource_pattern: c.resourcePattern,
+              container_resource_type: c.containerResourceType,
+              container_resource_pattern: c.containerResourcePattern,
+              value_condition: c.valueCondition,
+              target_condition: c.targetCondition,
+            },
+            workspace: grantWorkspaceForRequest,
+          });
+          const createdId = created?.mutation_conditions?.id;
+          if (createdId != null) {
+            setConditions((prev) => prev.map((s) => (s === c ? { ...s, id: createdId } : s)));
+          }
+        } catch (e: any) {
+          failures.push(`Mutation condition on ${c.resourceType} failed: ${e?.message ?? 'unknown error'}`);
+        }
+      }
+    }
+
+    // A user with no access is a safe outcome; a user with unrestricted access is not. So
+    // a failed condition stops every capability step, and the message says so.
+    const restrictionsFailed = failures.length > 0;
+    if (restrictionsFailed) {
+      setError(
+        `User ${trimmedUsername} was created, but their mutation conditions could not be applied, ` +
+          `so no roles, permissions, or admin status were granted:\n${failures.join('\n')}\n` +
+          `Open the user's detail page and click "Edit access" to retry.`,
+      );
+      setSubmitting(false);
+      return;
+    }
+
     if (isAdmin) {
       try {
         await AdminApi.updateAdmin({ username: trimmedUsername, is_admin: true });
@@ -199,6 +262,9 @@ export const CreateUserModal = ({ open, onClose }: CreateUserModalProps) => {
     wantsDirect,
     roleValue.roleIds,
     directPermissions,
+    wantsConditions,
+    conditions,
+    addCondition,
     grantWorkspaceForRequest,
     createdUsername,
     createUser,
@@ -225,13 +291,15 @@ export const CreateUserModal = ({ open, onClose }: CreateUserModalProps) => {
             // Submit isn't blocked on an unsaved draft — instead we gate on
             // it via a discard-confirm dialog so the admin can either go
             // back and click Add, or knowingly drop the draft and proceed.
-            onClick={() => (hasUnsavedDirectDraft ? setShowDiscardConfirm(true) : handleSubmit())}
+            onClick={() =>
+              hasUnsavedDirectDraft || hasUnsavedConditionDraft ? setShowDiscardConfirm(true) : handleSubmit()
+            }
             loading={submitting}
             disabled={!canSubmit}
           >
             {createdUsername !== null
               ? 'Retry failed grants'
-              : isAdmin || wantsRoles || wantsDirect
+              : isAdmin || wantsRoles || wantsDirect || wantsConditions
                 ? 'Create user and grant access'
                 : 'Create user'}
           </Button>
@@ -327,6 +395,27 @@ export const CreateUserModal = ({ open, onClose }: CreateUserModalProps) => {
           onUnsavedDraftChange={setHasUnsavedDirectDraft}
         />
       </LongFormSection>
+      <LongFormSection
+        title="Direct mutation conditions"
+        collapsible
+        defaultCollapsed
+        hideDivider={!isCurrentUserAdmin}
+      >
+        <Typography.Text color="secondary" css={{ display: 'block', marginBottom: theme.spacing.sm }}>
+          Narrow what the user may set or change. Conditions only ever subtract from the access granted above, and never
+          apply to reads.
+        </Typography.Text>
+        {/* ``key={String(open)}`` for the same reason as the section above: the dialog stays
+            mounted across close, so without a remount an abandoned draft would persist. */}
+        <MutationConditionsSection
+          key={String(open)}
+          value={conditions}
+          onChange={setConditions}
+          workspace={grantWorkspaceForRequest}
+          disabled={submitting}
+          onUnsavedDraftChange={setHasUnsavedConditionDraft}
+        />
+      </LongFormSection>
       {isCurrentUserAdmin && (
         // Intentionally not ``collapsible``: ``Admin status`` is a single
         // Switch row, so hiding it behind a toggle adds an extra click for
@@ -350,9 +439,9 @@ export const CreateUserModal = ({ open, onClose }: CreateUserModalProps) => {
           submit itself stays enabled so the admin can always click through. */}
       <ConfirmationModal
         componentId="admin.create_user_modal.discard_unsaved_draft"
-        title="Discard unsaved direct permission?"
+        title="Discard unsaved entry?"
         visible={showDiscardConfirm}
-        message="You started adding a direct permission but didn't click Add. Continuing will discard it. Go back to either click Add to stage it, or Clear to drop the draft on the spot."
+        message="You started adding a direct permission or mutation condition but didn't click Add. Continuing will discard it. Go back to either click Add to stage it, or Clear to drop the draft on the spot."
         okText="Continue"
         cancelText="Back"
         // ``danger=false`` because the OK verb is neutral ("Continue") — the

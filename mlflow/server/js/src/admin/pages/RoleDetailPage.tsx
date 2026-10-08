@@ -17,10 +17,17 @@ import {
 import { ScrollablePageWrapper } from '@mlflow/mlflow/src/common/components/ScrollablePageWrapper';
 import { Link, useParams, useSearchParams } from '../../common/utils/RoutingUtils';
 import AdminRoutes from '../routes';
-import { useRoleDetailQuery, useRoleUsersQuery, useUsersQuery, useWithSettingsReturnTo } from '../hooks';
+import {
+  useRoleDetailQuery,
+  useRoleMutationConditionsQuery,
+  useRoleUsersQuery,
+  useUsersQuery,
+  useWithSettingsReturnTo,
+} from '../hooks';
 import { useWorkspacesEnabled } from '../../experiment-tracking/hooks/useServerInfo';
 import { formatResourcePattern, isWorkspaceAdminRole } from '../types';
 import { EditRoleModal } from '../components/EditRoleModal';
+import { ConditionsTable } from '../components/ConditionsTable';
 
 const PermissionsSection = ({ roleId }: { roleId: number }) => {
   const { theme } = useDesignSystemTheme();
@@ -70,6 +77,18 @@ const PermissionsSection = ({ roleId }: { roleId: number }) => {
         </TableRow>
       ))}
     </Table>
+  );
+};
+
+const ConditionsSection = ({ roleId }: { roleId: number }) => {
+  const { data, isLoading, error } = useRoleMutationConditionsQuery(roleId);
+  return (
+    <ConditionsTable
+      conditions={data?.mutation_conditions ?? []}
+      isLoading={isLoading}
+      error={error}
+      emptyDescription="Use Edit role to add mutation conditions to this role."
+    />
   );
 };
 
@@ -167,7 +186,7 @@ const RoleDetailPage = () => {
   const withReturnTo = useWithSettingsReturnTo();
   const [searchParams, setSearchParams] = useSearchParams();
   const tabFromUrl = searchParams.get('tab');
-  const activeTab = tabFromUrl === 'users' ? 'users' : 'permissions';
+  const activeTab = tabFromUrl === 'users' || tabFromUrl === 'conditions' ? tabFromUrl : 'permissions';
   const [editRoleOpen, setEditRoleOpen] = useState(false);
 
   const role = roleData?.role;
@@ -281,10 +300,14 @@ const RoleDetailPage = () => {
         >
           <Tabs.List>
             <Tabs.Trigger value="permissions">Permissions</Tabs.Trigger>
+            <Tabs.Trigger value="conditions">Mutation conditions</Tabs.Trigger>
             <Tabs.Trigger value="users">Assigned users</Tabs.Trigger>
           </Tabs.List>
           <Tabs.Content value="permissions" css={{ paddingTop: theme.spacing.md }}>
             <PermissionsSection roleId={roleId} />
+          </Tabs.Content>
+          <Tabs.Content value="conditions" css={{ paddingTop: theme.spacing.md }}>
+            <ConditionsSection roleId={roleId} />
           </Tabs.Content>
           <Tabs.Content value="users" css={{ paddingTop: theme.spacing.md }}>
             <AssignedUsersSection roleId={roleId} />
