@@ -844,7 +844,8 @@ async def get_config(request: Request) -> ConfigResponse:
         provider_data.pop("api_key", None)
 
     projects = {exp_id: p.model_dump() for exp_id, p in config.projects.items()}
-    # Project paths are host filesystem paths; only callers who may configure them see them.
+    # Project paths are host filesystem paths, so they are left out for callers who may not
+    # configure them. This is not a secret boundary: a caller's tools still run in that directory.
     # The restriction may look the caller up in the auth store, so it runs off the event loop.
     if projects and await asyncio.to_thread(_server_settings_restriction, request):
         for project_data in projects.values():
