@@ -94,12 +94,13 @@ def _resolve_provider(
 
 
 def _no_provider_message(restricted: bool) -> str:
-    # A restricted caller's selected provider is dropped when it runs on the server host (e.g. the
-    # Claude Code or Codex CLI), so say that instead of claiming none is configured.
+    # A restricted caller's selected provider is dropped when it is only available on the server
+    # host (e.g. the Claude Code or Codex CLI, or a local Ollama), so say that instead of claiming
+    # none is configured.
     selected = _get_selected_provider() if restricted else None
     if selected is not None and not selected.allows_remote_access:
         return (
-            f"The {selected.display_name} provider runs tools directly on the MLflow server host, "
+            f"The {selected.display_name} provider is only available on the MLflow server host, "
             "so it is not available to you on this server. Select another provider, such as the "
             "MLflow AI Gateway, in the Assistant settings."
         )
@@ -851,7 +852,8 @@ async def get_config(request: Request) -> ConfigResponse:
         provider_data.pop("api_key", None)
 
     projects = {exp_id: p.model_dump() for exp_id, p in config.projects.items()}
-    # Project paths are host filesystem paths; only callers who may configure them see them.
+    # Project paths are host filesystem paths, so they are left out for callers who may not
+    # configure them. This is not a secret boundary: a caller's tools still run in that directory.
     # The restriction may look the caller up in the auth store, so it runs off the event loop.
     if projects and await asyncio.to_thread(_server_settings_restriction, request):
         for project_data in projects.values():

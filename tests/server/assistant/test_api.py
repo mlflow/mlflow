@@ -1467,7 +1467,7 @@ def test_list_provider_models_returns_404_for_unsupported_provider(client):
 @pytest.mark.parametrize(
     ("restricted", "message"),
     [
-        (True, "runs tools directly on the MLflow server host"),
+        (True, "is only available on the MLflow server host"),
         (False, "No assistant provider is configured or available."),
     ],
 )

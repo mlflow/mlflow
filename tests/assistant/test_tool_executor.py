@@ -592,7 +592,7 @@ def test_restricted_bash_in_sandbox_allows_non_writing_redirects_without_file_ed
         result = _run(execute_tool("Bash", {"command": command}, permissions=perms))
 
     assert result == ("ok", False)
-    run.assert_called_once()
+    assert run.call_args.args[0] == [command]
 
 
 def test_execute_bash_in_sandbox_nonzero_exit_is_error():
