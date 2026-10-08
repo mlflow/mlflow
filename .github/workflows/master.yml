@@ -88,6 +88,8 @@ jobs:
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/free-disk-space
       - uses: ./.github/actions/setup-python
+        with:
+          pin-micro-version: true
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
@@ -263,6 +265,8 @@ jobs:
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/free-disk-space
       - uses: ./.github/actions/setup-python
+        with:
+          pin-micro-version: true
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
@@ -296,6 +300,8 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
+        with:
+          pin-micro-version: true
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
@@ -393,6 +399,8 @@ jobs:
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/free-disk-space
       - uses: ./.github/actions/setup-python
+        with:
+          pin-micro-version: true
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
