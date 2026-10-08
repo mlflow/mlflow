@@ -575,6 +575,58 @@ jobs:
           done
           echo "::error::Gateway proxy did not become ready"
           exit 1
+      # Claude Code exports OpenTelemetry traces and logs to MLflow through a local proxy that holds
+      # the token, like the gateway proxy. Disabled unless TRIAGE_MLFLOW_TRACE_LOCATION is set to the
+      # <catalog>.<schema>.<table_prefix> of a UC-linked experiment.
+      - id: telemetry
+        name: Mint telemetry token
+        if: vars.TRIAGE_MLFLOW_TRACE_LOCATION != ''
+        env:
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          DATABRICKS_CLIENT_ID: ${{ secrets.DATABRICKS_CLIENT_ID }}
+          DATABRICKS_CLIENT_SECRET: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
+        run: |
+          # The OTLP ingest endpoint rejects narrower scopes such as ai-gateway or mlflow. The proxy
+          # only forwards to the two OTLP routes, so the agent can't use the token elsewhere.
+          response=$(curl -sS --max-time 15 \
+            -u "$DATABRICKS_CLIENT_ID:$DATABRICKS_CLIENT_SECRET" \
+            -d grant_type=client_credentials -d scope=all-apis \
+            "$DATABRICKS_HOST/oidc/v1/token")
+          token=$(jq -r '.access_token // empty' <<< "$response")
+          if [ -z "$token" ]; then
+            echo "::error::Telemetry token exchange failed: $(jq -r '.error_description // .error // "no access_token"' <<< "$response")"
+            exit 1
+          fi
+          echo "::add-mask::$token"
+          echo "token=$token" >> "$GITHUB_OUTPUT"
+      - name: Start telemetry proxy
+        if: steps.telemetry.outcome == 'success'
+        env:
+          TELEMETRY_TOKEN: ${{ steps.telemetry.outputs.token }}
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          TRACE_LOCATION: ${{ vars.TRIAGE_MLFLOW_TRACE_LOCATION }}
+          TELEMETRY_SOCKET: ${{ runner.temp }}/triage-telemetry.sock
+        run: |
+          umask 077
+          printf '%s\n' "$TELEMETRY_TOKEN" | env -u TELEMETRY_TOKEN \
+            DATABRICKS_HOST="$DATABRICKS_HOST" TRACE_LOCATION="$TRACE_LOCATION" \
+            TELEMETRY_SOCKET="$TELEMETRY_SOCKET" node .claude/sandbox/otel-proxy.mjs \
+            > "$RUNNER_TEMP/triage-telemetry-proxy.log" 2>&1 &
+          proxy_pid=$!
+          unset TELEMETRY_TOKEN
+          printf '%s\n' "$proxy_pid" > "$RUNNER_TEMP/triage-telemetry-proxy.pid"
+          for _ in $(seq 1 30); do
+            if ! kill -0 "$proxy_pid" 2>/dev/null; then
+              break
+            fi
+            if [ -S "$TELEMETRY_SOCKET" ] && curl -fsS http://127.0.0.1:8081/healthz > /dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          cat "$RUNNER_TEMP/triage-telemetry-proxy.log"
+          echo "::error::Telemetry proxy did not become ready"
+          exit 1
       - name: Prepare sandbox paths
         run: |
           # srt skips write rules for paths that don't exist yet.
@@ -618,6 +670,29 @@ jobs:
             echo "::error::Could not check gateway proxy environment"
             exit 1
           fi
+          if [ -f "$RUNNER_TEMP/triage-telemetry-proxy.pid" ]; then
+            telemetry_pid=$(cat "$RUNNER_TEMP/triage-telemetry-proxy.pid")
+            if ! kill -0 "$telemetry_pid" 2>/dev/null; then
+              echo "::error::Telemetry proxy is not running"
+              exit 1
+            fi
+            if grep -azq '^TELEMETRY_TOKEN=' "/proc/$telemetry_pid/environ"; then
+              echo "::error::Telemetry proxy inherited TELEMETRY_TOKEN"
+              exit 1
+            elif [ "$?" -ne 1 ]; then
+              echo "::error::Could not check telemetry proxy environment"
+              exit 1
+            fi
+            TELEMETRY_SOCKET="$RUNNER_TEMP/triage-telemetry.sock" \
+              srt --settings .claude/sandbox/srt.json -- bash -c '
+                socat TCP-LISTEN:8081,bind=127.0.0.1,reuseaddr "UNIX-CONNECT:$TELEMETRY_SOCKET" &
+                for _ in $(seq 1 10); do
+                  curl --noproxy "*" -fsS http://127.0.0.1:8081/healthz > /dev/null && exit 0
+                  sleep 0.5
+                done
+                exit 1
+              ' || { echo "::error::Telemetry proxy is unreachable from the sandbox"; exit 1; }
+          fi
           # srt masks a denied directory with an empty one, so check for visible entries.
           for command in \
             'curl -sf https://example.com' \
@@ -642,13 +717,37 @@ jobs:
           MODEL: ${{ inputs.model || 'databricks-claude-opus-5-5' }}
           ISSUE_PATH: ${{ runner.temp }}/sanitized-issue/sanitized_issue.json
           ISSUE_TYPE: ${{ needs.label.outputs.type }}
+          # OpenTelemetry export through the telemetry proxy. Spans need the enhanced telemetry beta;
+          # logs carry per-call cost and the final response; metrics carry session counters. The OTEL_LOG_* flags include prompt,
+          # response, and tool content, which are redacted by default.
+          CLAUDE_CODE_ENABLE_TELEMETRY: ${{ steps.telemetry.outcome == 'success' && '1' || '0' }}
+          CLAUDE_CODE_ENHANCED_TELEMETRY_BETA: ${{ steps.telemetry.outcome == 'success' && '1' || '0' }}
+          OTEL_TRACES_EXPORTER: otlp
+          OTEL_LOGS_EXPORTER: otlp
+          OTEL_METRICS_EXPORTER: otlp
+          OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+          OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: http://localhost:8081/v1/traces
+          OTEL_EXPORTER_OTLP_LOGS_ENDPOINT: http://localhost:8081/v1/logs
+          OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: http://localhost:8081/v1/metrics
+          OTEL_LOG_USER_PROMPTS: "1"
+          OTEL_LOG_ASSISTANT_RESPONSES: "1"
+          OTEL_LOG_TOOL_DETAILS: "1"
+          OTEL_LOG_TOOL_CONTENT: "1"
+          TELEMETRY_SOCKET: ${{ runner.temp }}/triage-telemetry.sock
+          OTEL_RESOURCE_ATTRIBUTES: github.issue_number=${{ needs.issue.outputs.number }},github.issue_url=${{ needs.issue.outputs.url }},github.run_url=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           mkdir -p "$AGENT_BROWSER_SCREENSHOT_DIR"
           mkdir -p "${TMPDIR:-/tmp}"
           token=$(cat /proc/sys/kernel/random/uuid)
           echo "::stop-commands::$token"
+          # Claude Code's OTel exporter may connect to localhost:8081 directly rather than through
+          # srt's HTTP proxy, so relay that port inside the sandbox to the telemetry proxy's socket.
+          relay=()
+          if [ -S "$TELEMETRY_SOCKET" ]; then
+            relay=(bash -c 'socat TCP-LISTEN:8081,bind=127.0.0.1,fork,reuseaddr "UNIX-CONNECT:$0" & exec "$@"' "$TELEMETRY_SOCKET")
+          fi
           timeout 30m srt --settings .claude/sandbox/srt.json -- \
-            env -u NO_PROXY -u no_proxy claude \
+            "${relay[@]}" env -u NO_PROXY -u no_proxy claude \
             --model "$MODEL" \
             --effort high \
             --max-budget-usd 5 \
@@ -719,6 +818,15 @@ jobs:
           if [ -f "$RUNNER_TEMP/triage-gateway-proxy.pid" ]; then
             proxy_pid=$(cat "$RUNNER_TEMP/triage-gateway-proxy.pid")
             kill "$proxy_pid" 2>/dev/null || true
+          fi
+      - name: Stop telemetry proxy
+        if: always() && steps.telemetry.outcome == 'success'
+        run: |
+          if [ -s "$RUNNER_TEMP/triage-telemetry-proxy.log" ]; then
+            cat "$RUNNER_TEMP/triage-telemetry-proxy.log"
+          fi
+          if [ -f "$RUNNER_TEMP/triage-telemetry-proxy.pid" ]; then
+            kill "$(cat "$RUNNER_TEMP/triage-telemetry-proxy.pid")" 2>/dev/null || true
           fi
   post_triage:
     needs: [issue, label, start_triage, triage]
