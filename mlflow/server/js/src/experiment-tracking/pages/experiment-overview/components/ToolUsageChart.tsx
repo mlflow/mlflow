@@ -16,7 +16,7 @@ import {
   useScrollableLegendProps,
 } from './OverviewChartComponents';
 import { ItemSelector } from './ItemSelector';
-import { formatCount, useLegendHighlight, useChartColors } from '../utils/chartUtils';
+import { formatCount, TOOL_CHART_TIMESTAMP_KEY, useLegendHighlight, useChartColors } from '../utils/chartUtils';
 
 /**
  * Chart showing tool usage over time as a stacked bar chart.
@@ -89,7 +89,7 @@ export const ToolUsageChart: React.FC = () => {
         {hasData && displayedItems.length > 0 ? (
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
-              <XAxis dataKey="timestamp" {...xAxisProps} />
+              <XAxis dataKey={TOOL_CHART_TIMESTAMP_KEY} {...xAxisProps} />
               <YAxis {...yAxisProps} />
               <Tooltip
                 content={

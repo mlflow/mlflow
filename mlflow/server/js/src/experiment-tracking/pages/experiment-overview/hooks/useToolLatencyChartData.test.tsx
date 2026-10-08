@@ -7,6 +7,7 @@ import type { ReactNode } from 'react';
 import { setupServer } from '../../../../common/utils/setup-msw';
 import { rest } from 'msw';
 import { OverviewChartProvider } from '../OverviewChartContext';
+import { TOOL_CHART_TIMESTAMP_KEY } from '../utils/chartUtils';
 import { getAjaxUrl } from '@mlflow/mlflow/src/common/utils/FetchUtils';
 
 // Helper to create a tool latency data point
@@ -181,10 +182,25 @@ describe('useToolLatencyChartData', () => {
       });
 
       expect(result.current.chartData).toHaveLength(3);
-      expect(result.current.chartData[0]).toHaveProperty('timestamp');
+      expect(result.current.chartData[0]).toHaveProperty(TOOL_CHART_TIMESTAMP_KEY);
       expect(result.current.chartData[0]).toHaveProperty('tool_a', 100);
       expect(result.current.chartData[1]).toHaveProperty('tool_a', 150);
       expect(result.current.chartData[2]).toHaveProperty('tool_a', 200);
+    });
+
+    it('should keep the time label when a tool is named timestamp', async () => {
+      setupTraceMetricsHandler([createToolLatencyDataPoint('2025-12-22T10:00:00Z', 'timestamp', 100)]);
+
+      const { result } = renderHook(() => useToolLatencyChartData(), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      expect(result.current.chartData[0]).toHaveProperty('timestamp', 100);
+      expect(typeof result.current.chartData[0][TOOL_CHART_TIMESTAMP_KEY]).toBe('string');
     });
 
     it('should fill missing time buckets with zeros', async () => {
