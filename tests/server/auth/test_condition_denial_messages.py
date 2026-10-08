@@ -66,6 +66,25 @@ def _row(
     )
 
 
+@pytest.fixture(autouse=True)
+def _isolate_denial_state():
+    """Clear the recorded denial around every test in this module.
+
+    The reason lives in a ContextVar and the FIRST detail recorded wins, so a test that
+    records one silently prevents the next from recording its own. A ContextVar is not
+    torn down between tests -- ``resources`` says so where it declares them -- so without
+    this the module passes only in an order where some later test's ``clear_cache()``
+    happens to clean up in between. That is exactly how
+    ``test_a_condition_denial_detail_reaches_the_message_field`` passed in file order and
+    failed under CI's randomized order, reporting an earlier test's reason instead of its
+    own. Resetting here rather than in that one test keeps the next test added to this
+    module from reintroducing it.
+    """
+    auth_resources.clear_cache()
+    yield
+    auth_resources.clear_cache()
+
+
 @pytest.fixture
 def gate(monkeypatch):
     """Run the condition gate with given rows, returning ``(allowed, message)``.
