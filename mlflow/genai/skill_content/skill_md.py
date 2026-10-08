@@ -80,9 +80,10 @@ def inspect_skill_dir(
     """
     Read the content-derived fields of the skill rooted at ``root``.
 
-    The directory must contain a ``SKILL.md`` regular file. The skill name is declared in the
-    frontmatter ``name`` field; the directory name is never used because fetched content lands
-    in an arbitrary temporary directory. Import adapters that synthesize names for legacy
+    The directory must contain a ``SKILL.md`` regular file at its root. Nested manifests
+    are supporting content and are not inspected. The skill name is declared in
+    the frontmatter ``name`` field; the directory name is never used because fetched content
+    lands in an arbitrary temporary directory. Import adapters that synthesize names for legacy
     layouts may pass ``fallback_name`` explicitly. The name is validated against the Agent
     Skills naming rules, and ``description`` is read when present. Any other frontmatter
     key is ignored, whatever its shape, so a ``SKILL.md`` written for other tooling still

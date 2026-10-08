@@ -56,7 +56,7 @@ def _aliases_to_dict(aliases: Any) -> dict[str, Any]:
     return {a["alias"]: a["version"] for a in aliases}
 
 
-@experimental(version="3.16.0")
+@experimental(version="3.18.0")
 @dataclass
 class Skill:
     name: str
