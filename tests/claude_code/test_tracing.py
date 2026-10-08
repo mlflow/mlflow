@@ -150,7 +150,7 @@ def test_flush_trace_async_logging_calls_flush(monkeypatch):
 
 
 def test_flush_trace_async_logging_calls_flush_for_router(monkeypatch):
-    mock_exporter = type("MockRouter", (), {"flush_async_components": True})()
+    mock_exporter = type("MockExporter", (), {"_flush_async_components": True})()
     monkeypatch.setattr(tracing_module, "_get_trace_exporter", lambda: mock_exporter)
     flushed = []
     monkeypatch.setattr(mlflow, "flush_trace_async_logging", lambda: flushed.append(True))

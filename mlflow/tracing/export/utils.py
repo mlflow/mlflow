@@ -90,7 +90,7 @@ def flush_exporter(exporter: "SpanExporter", terminate: bool = False) -> None:
         exporter: The span exporter to drain.
         terminate: If True, shut the exporter's logging threads down after flushing.
     """
-    if flush_async_components := getattr(exporter, "flush_async_components", None):
+    if flush_async_components := getattr(exporter, "_flush_async_components", None):
         flush_async_components(terminate=terminate)
         return
 

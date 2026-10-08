@@ -10,14 +10,15 @@ from mlflow.entities.span import Span
 from mlflow.entities.trace_location import UCSchemaLocation, UnityCatalog
 from mlflow.environment_variables import MLFLOW_ENABLE_DATABRICKS_OTEL_COLLECTOR_EXPORT
 from mlflow.tracing.export.databricks_otel_client import (
-    ZerobusOtelTokenError,
-    ZerobusOtelTokenRefreshError,
+    DatabricksOtelTokenError,
+    DatabricksOtelTokenRefreshError,
+    DatabricksOtelUnavailableError,
 )
-from mlflow.tracing.export.databricks_otel_router import (
+from mlflow.tracing.export.databricks_otel_collector import (
+    DatabricksOtelExporter,
     DatabricksOtelSerializationError,
-    DatabricksOtelSpanRouter,
     _is_connection_not_established,
-    get_databricks_otel_span_router,
+    get_databricks_otel_exporter,
 )
 from mlflow.tracing.export.uc_table import DatabricksUCTableSpanExporter
 from mlflow.tracing.export.utils import flush_exporter
@@ -29,7 +30,7 @@ from mlflow.tracing.utils import generate_trace_id_v4
 
 from tests.tracing.helper import create_mock_otel_span, create_test_trace_info_with_uc_table
 
-_MODULE = "mlflow.tracing.export.databricks_otel_router"
+_MODULE = "mlflow.tracing.export.databricks_otel_collector"
 _TABLE = "catalog.schema.otel_spans"
 
 
@@ -109,11 +110,8 @@ class _Collector:
         self.outcomes = list(outcomes)
         self.send_calls = []
         self.close_calls = 0
-        self.config_warned = False
-        self.host = "collector.example"
-        self.workspace_id = "workspace"
 
-    def send_batch(self, spans):
+    def export_spans(self, spans):
         self.send_calls.append(list(spans))
         if not self.outcomes:
             return _response(200)
@@ -132,11 +130,10 @@ def _make_router(monkeypatch, outcomes=(), async_enabled=False):
     if async_enabled:
         _Batcher.instances.clear()
         monkeypatch.setattr(f"{_MODULE}.SpanBatcher", _Batcher)
-    router = DatabricksOtelSpanRouter(
-        tracking_uri="databricks",
+    router = DatabricksOtelExporter(
         table_name=_TABLE,
-        collector=collector,
-        uc_exporter=metadata,
+        otel_client=collector,
+        fallback_exporter=metadata,
     )
     return router, collector, metadata
 
@@ -222,11 +219,10 @@ def test_router_keeps_batcher_when_request_time_async_policy_changes(monkeypatch
     collector = _Collector()
     _Batcher.instances.clear()
     monkeypatch.setattr(f"{_MODULE}.SpanBatcher", _Batcher)
-    router = DatabricksOtelSpanRouter(
-        tracking_uri="databricks",
+    router = DatabricksOtelExporter(
         table_name=_TABLE,
-        collector=collector,
-        uc_exporter=metadata,
+        otel_client=collector,
+        fallback_exporter=metadata,
     )
 
     metadata.async_enabled = True
@@ -240,7 +236,7 @@ def test_router_keeps_batcher_when_request_time_async_policy_changes(monkeypatch
 def test_export_routes_before_metadata_and_exports_metadata_for_empty_batch(monkeypatch):
     router, collector, metadata = _make_router(monkeypatch)
     events = []
-    collector.send_batch = lambda spans: events.append("collector") or _response(200)
+    collector.export_spans = lambda spans: events.append("collector") or _response(200)
     metadata.export = lambda spans: events.append("metadata")
 
     router.export([create_mock_otel_span(trace_id=16, span_id=1)])
@@ -265,7 +261,7 @@ def test_async_server_failure_replays_after_flush_and_pins_rest(monkeypatch, sta
     router.flush()
     assert len(collector.send_calls) == 1
     assert len(metadata.write_calls) == 1
-    assert router.collector_rejected
+    assert router.using_legacy_exporter
 
     router.export(second)
     router.flush()
@@ -284,8 +280,8 @@ def test_async_server_failure_replays_after_flush_and_pins_rest(monkeypatch, sta
         (_response(403, b"forbidden"), True),
         (_response(404, b"not found"), True),
         (_response(401, b"unauthorized"), True),
-        (ZerobusOtelTokenError("mint failed"), False),
-        (ZerobusOtelTokenRefreshError("refresh failed"), True),
+        (DatabricksOtelTokenError("mint failed"), False),
+        (DatabricksOtelTokenRefreshError("refresh failed"), True),
         (_connection_reset_error(), True),
         (requests.ReadTimeout("read timed out"), True),
         (_response(500, b"server error"), True),
@@ -305,7 +301,7 @@ def test_routing_matrix(monkeypatch, outcome, sticky):
 
     assert len(metadata.write_calls) == (2 if sticky else 1)
     assert len(collector.send_calls) == (1 if sticky else 2)
-    assert router.collector_rejected is sticky
+    assert router.using_legacy_exporter is sticky
     assert metadata.write_calls[0][1][0].span_id == Span(first[0]).span_id
 
     if getattr(outcome, "status_code", None) in (500, 502, 503, 504):
@@ -323,7 +319,7 @@ def test_connection_establishment_failure_is_sticky_safe_replay(monkeypatch):
 
     assert len(collector.send_calls) == 1
     assert len(metadata.write_calls) == 2
-    assert router.collector_rejected
+    assert router.using_legacy_exporter
 
 
 def test_concurrent_ambiguous_failures_replay_both_batches_and_warn_once(monkeypatch):
@@ -333,7 +329,7 @@ def test_concurrent_ambiguous_failures_replay_both_batches_and_warn_once(monkeyp
     )
     collector.barrier = threading.Barrier(2)
 
-    def concurrent_send_batch(spans):
+    def concurrent_export_spans(spans):
         collector.send_calls.append(list(spans))
         collector.barrier.wait(timeout=5)
         outcome = collector.outcomes.pop(0)
@@ -341,7 +337,7 @@ def test_concurrent_ambiguous_failures_replay_both_batches_and_warn_once(monkeyp
             raise outcome
         return outcome
 
-    collector.send_batch = concurrent_send_batch
+    collector.export_spans = concurrent_export_spans
     spans = [
         [create_mock_otel_span(trace_id=71, span_id=1)],
         [create_mock_otel_span(trace_id=72, span_id=2)],
@@ -362,7 +358,7 @@ def test_concurrent_ambiguous_failures_replay_both_batches_and_warn_once(monkeyp
     assert all(not thread.is_alive() for thread in threads)
     assert len(collector.send_calls) == 2
     assert len(metadata.write_calls) == 3
-    assert router.collector_rejected
+    assert router.using_legacy_exporter
     assert logger.warning.call_count == 1
     warning = logger.warning.call_args.args[0]
     assert "duplicate" in warning
@@ -383,7 +379,7 @@ def test_successful_200_all_rejected_replays_and_pins_rest(monkeypatch, rejected
 
     assert len(collector.send_calls) == 1
     assert len(metadata.write_calls) == 2
-    assert router.collector_rejected
+    assert router.using_legacy_exporter
 
 
 @pytest.mark.parametrize("rejected_spans", [1, -1, 3])
@@ -401,7 +397,7 @@ def test_successful_200_partial_or_invalid_drops_current_and_pins_rest(monkeypat
     assert len(collector.send_calls) == 1
     assert len(metadata.write_calls) == 1
     assert metadata.write_calls[0][0] == _TABLE
-    assert router.collector_rejected
+    assert router.using_legacy_exporter
 
 
 def test_successful_200_invalid_body_drops_current_and_pins_rest(monkeypatch):
@@ -415,7 +411,7 @@ def test_successful_200_invalid_body_drops_current_and_pins_rest(monkeypatch):
 
     assert len(collector.send_calls) == 1
     assert len(metadata.write_calls) == 1
-    assert router.collector_rejected
+    assert router.using_legacy_exporter
     warning = " ".join(str(arg) for arg in logger.warning.call_args.args)
     assert "dropped instead of replayed" in warning
     assert "could duplicate" in warning
@@ -435,13 +431,14 @@ def test_successful_non_200_response_is_accepted(monkeypatch):
 
     assert len(collector.send_calls) == 1
     assert metadata.write_calls == []
-    assert not router.collector_rejected
+    assert not router.using_legacy_exporter
 
 
 @pytest.mark.parametrize("enabled", [False, True])
 def test_config_unavailable_warning_follows_explicit_flag(monkeypatch, enabled):
-    router, collector, metadata = _make_router(monkeypatch, outcomes=[None])
-    collector.config_warned = False
+    router, collector, metadata = _make_router(
+        monkeypatch, outcomes=[DatabricksOtelUnavailableError("collector unavailable")]
+    )
     if enabled:
         monkeypatch.setenv(MLFLOW_ENABLE_DATABRICKS_OTEL_COLLECTOR_EXPORT.name, "true")
     else:
@@ -463,7 +460,7 @@ def test_serialization_failure_does_not_replay_or_pin(monkeypatch):
         router.export([create_mock_otel_span(trace_id=19, span_id=1)])
 
     assert metadata.write_calls == []
-    assert not router.collector_rejected
+    assert not router.using_legacy_exporter
     logger.warning.assert_called_once()
 
 
@@ -530,11 +527,10 @@ def _make_real_metadata_router(monkeypatch, outcome):
     metadata = DatabricksUCTableSpanExporter(tracking_uri="databricks", metadata_only=True)
     metadata._client = mock.MagicMock()
     collector = _Collector([outcome])
-    router = DatabricksOtelSpanRouter(
-        tracking_uri="databricks",
+    router = DatabricksOtelExporter(
         table_name=_TABLE,
-        collector=collector,
-        uc_exporter=metadata,
+        otel_client=collector,
+        fallback_exporter=metadata,
     )
     return router, collector, metadata
 
@@ -582,14 +578,26 @@ def test_factory_is_default_on_only_for_unity_catalog(monkeypatch):
     destination._otel_spans_table_name = _TABLE
     monkeypatch.delenv(MLFLOW_ENABLE_DATABRICKS_OTEL_COLLECTOR_EXPORT.name, raising=False)
 
-    with mock.patch(f"{_MODULE}.DatabricksOtelSpanRouter") as router_cls:
-        result = get_databricks_otel_span_router(destination, "databricks")
+    with (
+        mock.patch(f"{_MODULE}.DatabricksOtelExporter") as exporter_cls,
+        mock.patch(f"{_MODULE}.DatabricksOTelClient") as client_cls,
+        mock.patch(f"{_MODULE}.DatabricksUCTableSpanExporter") as fallback_cls,
+    ):
+        result = get_databricks_otel_exporter(destination, "databricks")
 
-    assert result is router_cls.return_value
-    router_cls.assert_called_once_with(tracking_uri="databricks", table_name=_TABLE)
+    assert result is exporter_cls.return_value
+    client_cls.assert_called_once_with(
+        tracking_uri="databricks", token_source=None, table_name=_TABLE
+    )
+    fallback_cls.assert_called_once_with(tracking_uri="databricks", metadata_only=True)
+    exporter_cls.assert_called_once_with(
+        table_name=_TABLE,
+        otel_client=client_cls.return_value,
+        fallback_exporter=fallback_cls.return_value,
+    )
 
     schema_destination = UCSchemaLocation(catalog_name="catalog", schema_name="schema")
-    assert get_databricks_otel_span_router(schema_destination, "databricks") is None
+    assert get_databricks_otel_exporter(schema_destination, "databricks") is None
 
 
 @pytest.mark.parametrize("enabled", [False, True])
@@ -601,7 +609,7 @@ def test_factory_missing_table_warning_follows_explicit_flag(monkeypatch, enable
         monkeypatch.delenv(MLFLOW_ENABLE_DATABRICKS_OTEL_COLLECTOR_EXPORT.name, raising=False)
 
     with mock.patch(f"{_MODULE}._logger") as logger:
-        assert get_databricks_otel_span_router(destination, "databricks") is None
+        assert get_databricks_otel_exporter(destination, "databricks") is None
 
     (logger.warning if enabled else logger.debug).assert_called_once()
     (logger.debug if enabled else logger.warning).assert_not_called()
@@ -612,6 +620,6 @@ def test_factory_respects_explicit_disable(monkeypatch):
     destination._otel_spans_table_name = _TABLE
     monkeypatch.setenv(MLFLOW_ENABLE_DATABRICKS_OTEL_COLLECTOR_EXPORT.name, "false")
 
-    with mock.patch(f"{_MODULE}.DatabricksOtelSpanRouter") as router_cls:
-        assert get_databricks_otel_span_router(destination, "databricks") is None
-    router_cls.assert_not_called()
+    with mock.patch(f"{_MODULE}.DatabricksOtelExporter") as exporter_cls:
+        assert get_databricks_otel_exporter(destination, "databricks") is None
+    exporter_cls.assert_not_called()

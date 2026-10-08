@@ -1,9 +1,8 @@
-"""Low-level client for the Databricks OTLP ingest endpoint.
+"""Client for exporting MLflow spans to the Databricks OTLP ingest endpoint.
 
-The collector router owns batching and delivery classification. This module
-owns the transport wire contract: local credential and workspace discovery,
-endpoint resolution, OAuth token management, and the authenticated HTTP
-request.
+The OTel exporter owns batching and delivery classification. This module
+owns local credential and workspace discovery, endpoint resolution, OTLP
+serialization, OAuth token management, and the authenticated HTTP request.
 """
 
 import json
@@ -13,14 +12,16 @@ import threading
 from contextlib import nullcontext
 from datetime import datetime, timedelta
 from types import MethodType
+from typing import Sequence
 
 import requests
 
+from mlflow.entities.span import Span
 from mlflow.environment_variables import (
     MLFLOW_DATABRICKS_OTEL_COLLECTOR_ENDPOINT,
     MLFLOW_ENABLE_DB_SDK,
 )
-from mlflow.tracing.utils.otlp import OTLP_TRACES_PATH
+from mlflow.tracing.utils.otlp import OTLP_TRACES_PATH, build_otlp_export_request
 from mlflow.utils.databricks_utils import _get_databricks_creds_config
 from mlflow.utils.uri import get_db_info_from_uri
 
@@ -64,25 +65,326 @@ _CLOUD_DOMAIN = {
     "gcp": "gcp.databricks.com",
 }
 
-# Resolved endpoints are shared by exporter/client instances because tracer
-# providers may be recreated during a process lifetime.
-_resolved_endpoints: dict[tuple[str, str], str] = {}
-_resolved_endpoints_lock = threading.Lock()
-
 # Configuration failures are unusual for qualified users and should produce a
-# single warning per process.  The client records whether its own failure was a
-# qualified configuration failure so the exporter can keep the not-applicable
-# path quiet.
+# single warning per process.
 _collector_config_failure_warned = False
 _collector_config_failure_lock = threading.Lock()
 
 
-class ZerobusOtelTokenError(RuntimeError):
-    """A token could not be minted before a Zerobus request was sent."""
+class DatabricksOtelTokenError(RuntimeError):
+    """A token could not be minted before a Databricks OTel request was sent."""
 
 
-class ZerobusOtelTokenRefreshError(RuntimeError):
-    """A Zerobus token could not be refreshed after a 401 response."""
+class DatabricksOtelTokenRefreshError(RuntimeError):
+    """A Databricks OTel token could not be refreshed after a 401 response."""
+
+
+class DatabricksOtelUnavailableError(RuntimeError):
+    """The Databricks OTel collector is not applicable or available."""
+
+
+class DatabricksOtelConfigurationError(DatabricksOtelUnavailableError):
+    """A qualified Databricks OTel collector configuration could not be used."""
+
+
+class DatabricksOtelSerializationError(RuntimeError):
+    """An OTLP span batch could not be serialized for collector delivery."""
+
+
+class DatabricksOTelClient:
+    """Lazy, authenticated HTTP client for Databricks OTLP ingest."""
+
+    # Resolved endpoints are shared by exporter/client instances because tracer
+    # providers may be recreated during a process lifetime.
+    _resolved_endpoints: dict[tuple[str, str], str] = {}
+    _resolved_endpoints_lock = threading.Lock()
+
+    def __init__(
+        self,
+        tracking_uri: str | None,
+        token_source,
+        table_name: str,
+        host: str | None = None,
+        workspace_id: str | None = None,
+        client_id: str | None = None,
+        client_secret: str | None = None,
+        endpoint: str | None = None,
+    ) -> None:
+        # This constructor intentionally performs no credential, workspace, or
+        # endpoint network lookup.  The first collector batch calls export_spans.
+        self._tracking_uri = tracking_uri
+        self._token_source = token_source
+        self._table_name = table_name
+        self._host = host
+        self._workspace_id = str(workspace_id or "")
+        self._client_id = client_id
+        self._client_secret = client_secret
+        self._endpoint_override = _normalize_collector_endpoint(endpoint) if endpoint else None
+        self._collector_endpoint: str | None = None
+        self._collector_url: str | None = None
+        self._initialized = False
+        self._initialization_error: DatabricksOtelUnavailableError | None = None
+        self._initialization_lock = threading.Lock()
+        self._session = requests.Session()
+
+    def export_spans(self, spans: Sequence[Span]) -> requests.Response:
+        """Serialize and export MLflow spans to the Databricks OTel collector."""
+        self._ensure_initialized()
+
+        try:
+            request = build_otlp_export_request(list(spans))
+        except Exception as exc:
+            raise DatabricksOtelSerializationError(
+                "Failed to build the Databricks OTel collector span export request"
+            ) from exc
+
+        try:
+            payload = request.SerializeToString()
+        except Exception as exc:
+            raise DatabricksOtelSerializationError(
+                "Failed to serialize the Databricks OTel collector span export request"
+            ) from exc
+
+        return self._post(payload)
+
+    def close(self) -> None:
+        """Close the client's HTTP connection pool."""
+        self._session.close()
+
+    def _initialize(self) -> None:
+        configured_override = self._endpoint_override or (
+            MLFLOW_DATABRICKS_OTEL_COLLECTOR_ENDPOINT.get()
+        )
+
+        # Keep an explicitly supplied token source and workspace together;
+        # ambient credentials may belong to a different workspace.
+        needs_credentials = not (self._host and self._workspace_id) or (
+            self._token_source is None and not (self._client_id and self._client_secret)
+        )
+        if needs_credentials:
+            credentials = _resolve_collector_credentials(self._tracking_uri)
+            if credentials is None:
+                raise DatabricksOtelUnavailableError(
+                    "Databricks OTel collector credentials are unavailable"
+                )
+            self._host, self._workspace_id, self._client_id, self._client_secret = credentials
+
+        if not self._workspace_id:
+            raise DatabricksOtelUnavailableError(
+                "Databricks OTel collector workspace configuration is unavailable"
+            )
+
+        if self._token_source is None:
+            if not (self._host and self._client_id and self._client_secret):
+                raise DatabricksOtelUnavailableError(
+                    "Databricks OTel collector service-principal credentials are unavailable"
+                )
+            try:
+                self._token_source = build_databricks_otel_collector_token_source(
+                    host=self._host,
+                    client_id=self._client_id,
+                    client_secret=self._client_secret,
+                    workspace_id=self._workspace_id,
+                    tables=[self._table_name],
+                )
+            except Exception as exc:
+                _warn_collector_config_failure(
+                    "Failed to build the Databricks OTel collector token source: %s", exc
+                )
+                raise DatabricksOtelConfigurationError(
+                    "Failed to build the Databricks OTel collector token source"
+                ) from exc
+
+        if not configured_override and not self._host:
+            raise DatabricksOtelUnavailableError("Databricks OTel collector host is unavailable")
+
+        self._collector_endpoint = self._resolve_endpoint(configured_override)
+        if self._collector_endpoint is None:
+            raise DatabricksOtelConfigurationError(
+                "Failed to resolve the Databricks OTel collector endpoint"
+            )
+
+        self._collector_url = f"https://{self._collector_endpoint}{OTLP_TRACES_PATH}"
+
+    def _ensure_initialized(self) -> None:
+        if self._initialized:
+            return
+        if self._initialization_error is not None:
+            raise self._initialization_error
+
+        with self._initialization_lock:
+            if self._initialized:
+                return
+            if self._initialization_error is not None:
+                raise self._initialization_error
+
+            try:
+                self._initialize()
+            except DatabricksOtelUnavailableError as exc:
+                self._initialization_error = exc
+                raise
+            except Exception as exc:
+                _warn_collector_config_failure(
+                    "Failed to initialize the Databricks OTel collector client: %s", exc
+                )
+                error = DatabricksOtelConfigurationError(
+                    "Failed to initialize the Databricks OTel collector client"
+                )
+                self._initialization_error = error
+                raise error from exc
+            self._initialized = True
+
+    def _get_metastore_summary(self) -> dict[str, object]:
+        """Read the workspace metastore summary using bounded HTTP requests."""
+        client_id = self._client_id
+        client_secret = self._client_secret
+        if not (client_id and client_secret):
+            raise ValueError("Service-principal credentials are required for collector discovery")
+
+        host = self._host or ""
+        token = _retrieve_token_with_timeout(
+            client_id,
+            client_secret,
+            f"{host.rstrip('/')}{_OIDC_TOKEN_PATH}",
+            {"grant_type": "client_credentials", "scope": "all-apis"},
+            use_header=True,
+        )
+        response = requests.get(
+            f"{host.rstrip('/')}/api/2.1/unity-catalog/metastore_summary",
+            headers={
+                "Accept": "application/json",
+                "Authorization": f"{token.token_type} {token.access_token}",
+                "X-Databricks-Workspace-Id": self._workspace_id,
+            },
+            timeout=_SDK_HTTP_TIMEOUT_SECONDS,
+        )
+        response.raise_for_status()
+        summary = response.json()
+        if not isinstance(summary, dict):
+            raise ValueError("Metastore summary is not a JSON object")
+        return summary
+
+    def _resolve_collector_endpoint_from_metastore(self) -> str | None:
+        """Resolve a collector host from workspace metastore metadata."""
+        try:
+            summary = self._get_metastore_summary()
+        except Exception as exc:
+            _warn_collector_config_failure(
+                "Failed to fetch metastore summary for collector endpoint resolution: %s", exc
+            )
+            return None
+
+        region = summary.get("region")
+        cloud_raw = summary.get("cloud")
+        if not region:
+            _warn_collector_config_failure(
+                "Metastore summary returned empty region; cannot resolve collector endpoint."
+            )
+            return None
+
+        if not cloud_raw:
+            gid = str(summary.get("global_metastore_id") or "")
+            parts = gid.split(":")
+            cloud_raw = parts[0] if parts else ""
+
+        cloud_raw = str(cloud_raw or "").lower()
+        domain = _CLOUD_DOMAIN.get(cloud_raw)
+        if not domain:
+            _warn_collector_config_failure(
+                "Unrecognised cloud %r from metastore summary; cannot resolve collector endpoint.",
+                cloud_raw,
+            )
+            return None
+
+        env_segment = "staging." if ".staging." in (self._host or "") else ""
+        endpoint = f"{self._workspace_id}{_COLLECTOR_HOST_SEGMENT}{region}.{env_segment}{domain}"
+        if not is_databricks_otel_collector_host(endpoint, self._workspace_id):
+            _warn_collector_config_failure(
+                "Assembled collector endpoint %r failed host validation.", endpoint
+            )
+            return None
+        return _normalize_collector_endpoint(endpoint)
+
+    def _resolve_endpoint(self, endpoint_override: str | None = None) -> str | None:
+        """Resolve and validate the collector endpoint for this workspace."""
+        if override := endpoint_override or MLFLOW_DATABRICKS_OTEL_COLLECTOR_ENDPOINT.get():
+            if is_databricks_otel_collector_host(override, self._workspace_id):
+                return _normalize_collector_endpoint(override)
+            _warn_collector_config_failure(
+                "MLFLOW_DATABRICKS_OTEL_COLLECTOR_ENDPOINT override %r failed host validation "
+                "for workspace_id=%r; ignoring override.",
+                override,
+                self._workspace_id,
+            )
+            return None
+
+        cache_key = (self._host or "", self._workspace_id)
+        with self._resolved_endpoints_lock:
+            cached = self._resolved_endpoints.get(cache_key)
+        if cached is not None:
+            return _normalize_collector_endpoint(cached)
+
+        resolved = self._resolve_collector_endpoint_from_metastore()
+        if resolved is None:
+            return None
+
+        normalized = _normalize_collector_endpoint(resolved)
+        with self._resolved_endpoints_lock:
+            cached = self._resolved_endpoints.setdefault(cache_key, normalized)
+        return _normalize_collector_endpoint(cached)
+
+    def _force_token_refresh(self):
+        """Mint a fresh token and update SDK token caches when available."""
+        new_token = self._token_source.refresh()
+        try:
+            if hasattr(self._token_source, "_update_token"):
+                with getattr(self._token_source, "_lock", nullcontext()):
+                    self._token_source._update_token(new_token)
+            elif hasattr(self._token_source, "_token"):
+                with getattr(self._token_source, "_lock", nullcontext()):
+                    self._token_source._token = new_token
+        except Exception:
+            _logger.debug(
+                "Failed to cache the refreshed collector token on the token source; "
+                "later exports will mint a new one.",
+                exc_info=True,
+            )
+        return new_token
+
+    def _post_with_token(self, payload: bytes, token) -> requests.Response:
+        """POST one payload using the supplied token."""
+        return self._session.post(
+            self._collector_url,
+            data=payload,
+            headers={
+                _HEADER_AUTHORIZATION: f"Bearer {token.access_token}",
+                _HEADER_CONTENT_TYPE: _CONTENT_TYPE_PROTOBUF,
+                _COLLECTOR_TABLE_NAME_HEADER: self._table_name,
+            },
+            timeout=_REQUEST_TIMEOUT_SECONDS,
+        )
+
+    def _post(self, payload: bytes) -> requests.Response:
+        """POST one payload, retrying exactly once after a 401 token response."""
+        try:
+            token = self._token_source.token()
+        except Exception as exc:
+            raise DatabricksOtelTokenError(
+                "Minting the Databricks OTel collector token failed"
+            ) from exc
+
+        response = self._post_with_token(payload, token)
+        if response.status_code != 401:
+            return response
+
+        try:
+            refreshed = self._force_token_refresh()
+        except Exception as exc:
+            raise DatabricksOtelTokenRefreshError(
+                "Refreshing the Databricks OTel collector token after HTTP 401 failed"
+            ) from exc
+
+        return self._post_with_token(payload, refreshed)
 
 
 def _normalize_collector_endpoint(endpoint: str) -> str:
@@ -183,39 +485,6 @@ def is_databricks_otel_collector_host(endpoint: str, workspace_id: str) -> bool:
     return bool(region_part) and not region_part.endswith(".")
 
 
-def _get_metastore_summary(
-    host: str,
-    workspace_id: str,
-    client_id: str | None,
-    client_secret: str | None,
-) -> dict[str, object]:
-    """Read the workspace metastore summary using bounded HTTP requests."""
-    if not (client_id and client_secret):
-        raise ValueError("Service-principal credentials are required for collector discovery")
-
-    token = _retrieve_token_with_timeout(
-        client_id,
-        client_secret,
-        f"{host.rstrip('/')}{_OIDC_TOKEN_PATH}",
-        {"grant_type": "client_credentials", "scope": "all-apis"},
-        use_header=True,
-    )
-    response = requests.get(
-        f"{host.rstrip('/')}/api/2.1/unity-catalog/metastore_summary",
-        headers={
-            "Accept": "application/json",
-            "Authorization": f"{token.token_type} {token.access_token}",
-            "X-Databricks-Workspace-Id": workspace_id,
-        },
-        timeout=_SDK_HTTP_TIMEOUT_SECONDS,
-    )
-    response.raise_for_status()
-    summary = response.json()
-    if not isinstance(summary, dict):
-        raise ValueError("Metastore summary is not a JSON object")
-    return summary
-
-
 def _warn_collector_config_failure(reason: str, *args) -> None:
     """Warn once per process about a collector config or resolution failure."""
     global _collector_config_failure_warned
@@ -227,93 +496,6 @@ def _warn_collector_config_failure(reason: str, *args) -> None:
         _logger.debug(message, *args)
     else:
         _logger.warning(message, *args)
-
-
-def _resolve_collector_endpoint_from_metastore(
-    host: str,
-    workspace_id: str,
-    client_id: str | None,
-    client_secret: str | None,
-) -> str | None:
-    """Resolve a collector host from workspace metastore metadata."""
-    try:
-        summary = _get_metastore_summary(host, workspace_id, client_id, client_secret)
-    except Exception as exc:
-        _warn_collector_config_failure(
-            "Failed to fetch metastore summary for collector endpoint resolution: %s", exc
-        )
-        return None
-
-    region = summary.get("region")
-    cloud_raw = summary.get("cloud")
-    if not region:
-        _warn_collector_config_failure(
-            "Metastore summary returned empty region; cannot resolve collector endpoint."
-        )
-        return None
-
-    if not cloud_raw:
-        gid = str(summary.get("global_metastore_id") or "")
-        parts = gid.split(":")
-        cloud_raw = parts[0] if parts else ""
-
-    cloud_raw = str(cloud_raw or "").lower()
-    domain = _CLOUD_DOMAIN.get(cloud_raw)
-    if not domain:
-        _warn_collector_config_failure(
-            "Unrecognised cloud %r from metastore summary; cannot resolve collector endpoint.",
-            cloud_raw,
-        )
-        return None
-
-    env_segment = "staging." if ".staging." in host else ""
-    endpoint = f"{workspace_id}{_COLLECTOR_HOST_SEGMENT}{region}.{env_segment}{domain}"
-    if not is_databricks_otel_collector_host(endpoint, workspace_id):
-        _warn_collector_config_failure(
-            "Assembled collector endpoint %r failed host validation.", endpoint
-        )
-        return None
-    return _normalize_collector_endpoint(endpoint)
-
-
-def resolve_databricks_otel_collector_endpoint(
-    host: str,
-    workspace_id: str,
-    client_id: str | None = None,
-    client_secret: str | None = None,
-    endpoint_override: str | None = None,
-) -> str | None:
-    """Resolve and validate the collector endpoint for a workspace."""
-    if override := endpoint_override or MLFLOW_DATABRICKS_OTEL_COLLECTOR_ENDPOINT.get():
-        if is_databricks_otel_collector_host(override, workspace_id):
-            return _normalize_collector_endpoint(override)
-        _warn_collector_config_failure(
-            "MLFLOW_DATABRICKS_OTEL_COLLECTOR_ENDPOINT override %r failed host validation "
-            "for workspace_id=%r; ignoring override.",
-            override,
-            workspace_id,
-        )
-        return None
-
-    cache_key = (host, workspace_id)
-    with _resolved_endpoints_lock:
-        cached = _resolved_endpoints.get(cache_key)
-    if cached is not None:
-        return _normalize_collector_endpoint(cached)
-
-    resolved = _resolve_collector_endpoint_from_metastore(
-        host=host,
-        workspace_id=workspace_id,
-        client_id=client_id,
-        client_secret=client_secret,
-    )
-    if resolved is None:
-        return None
-
-    normalized = _normalize_collector_endpoint(resolved)
-    with _resolved_endpoints_lock:
-        cached = _resolved_endpoints.setdefault(cache_key, normalized)
-    return _normalize_collector_endpoint(cached)
 
 
 def build_table_authorization_details(tables: list[str]) -> str:
@@ -429,180 +611,3 @@ def _resolve_collector_credentials(tracking_uri: str | None):
         _logger.debug("Workspace ID is unavailable for collector export.")
         return None
     return host, str(workspace_id), client_id, client_secret
-
-
-class DatabricksOTelClient:
-    """Lazy, authenticated HTTP client for Databricks OTLP ingest."""
-
-    def __init__(
-        self,
-        tracking_uri: str | None,
-        token_source,
-        table_name: str,
-        host: str | None = None,
-        workspace_id: str | None = None,
-        client_id: str | None = None,
-        client_secret: str | None = None,
-        endpoint: str | None = None,
-    ) -> None:
-        # This constructor intentionally performs no credential, workspace, or
-        # endpoint network lookup.  The first collector batch calls ensure_ready.
-        self._tracking_uri = tracking_uri
-        self._token_source = token_source
-        self._table_name = table_name
-        self._host = host
-        self._workspace_id = str(workspace_id or "")
-        self._client_id = client_id
-        self._client_secret = client_secret
-        self._endpoint_override = _normalize_collector_endpoint(endpoint) if endpoint else None
-        self._collector_endpoint: str | None = None
-        self._collector_url: str | None = None
-        self._config_failed = False
-        self._config_warned = False
-        self._ready = False
-        self._ready_lock = threading.Lock()
-        self._session = requests.Session()
-
-    @property
-    def config_warned(self) -> bool:
-        """Whether this client emitted a qualified configuration warning."""
-        return self._config_warned
-
-    @property
-    def host(self) -> str | None:
-        """The Databricks workspace host, after lazy credential discovery."""
-        return self._host
-
-    @property
-    def workspace_id(self) -> str:
-        """The Databricks workspace ID, after lazy credential discovery."""
-        return self._workspace_id
-
-    def _mark_config_failed(self) -> bool:
-        self._config_failed = True
-        return False
-
-    def ensure_ready(self) -> bool:
-        """Resolve credentials, endpoint, and token source on first use."""
-        if self._ready:
-            return True
-        if self._config_failed:
-            return False
-
-        with self._ready_lock:
-            if self._ready:
-                return True
-            if self._config_failed:
-                return False
-
-            configured_override = self._endpoint_override or (
-                MLFLOW_DATABRICKS_OTEL_COLLECTOR_ENDPOINT.get()
-            )
-
-            # Keep an explicitly supplied token source and workspace together;
-            # ambient credentials may belong to a different workspace.
-            needs_credentials = not (self._host and self._workspace_id) or (
-                self._token_source is None and not (self._client_id and self._client_secret)
-            )
-            if needs_credentials:
-                credentials = _resolve_collector_credentials(self._tracking_uri)
-                if credentials is None:
-                    return self._mark_config_failed()
-                self._host, self._workspace_id, self._client_id, self._client_secret = credentials
-
-            if not self._workspace_id:
-                return self._mark_config_failed()
-
-            if self._token_source is None:
-                if not (self._host and self._client_id and self._client_secret):
-                    return self._mark_config_failed()
-                try:
-                    self._token_source = build_databricks_otel_collector_token_source(
-                        host=self._host,
-                        client_id=self._client_id,
-                        client_secret=self._client_secret,
-                        workspace_id=self._workspace_id,
-                        tables=[self._table_name],
-                    )
-                except Exception as exc:
-                    _warn_collector_config_failure(
-                        "Failed to build the Databricks OTel collector token source: %s", exc
-                    )
-                    self._config_warned = True
-                    return self._mark_config_failed()
-
-            if not configured_override:
-                if not self._host:
-                    return self._mark_config_failed()
-
-            self._collector_endpoint = resolve_databricks_otel_collector_endpoint(
-                host=self._host or "",
-                workspace_id=self._workspace_id,
-                client_id=self._client_id,
-                client_secret=self._client_secret,
-                endpoint_override=configured_override,
-            )
-            if self._collector_endpoint is None:
-                self._config_warned = True
-                return self._mark_config_failed()
-
-            self._collector_url = f"https://{self._collector_endpoint}{OTLP_TRACES_PATH}"
-            self._ready = True
-            return True
-
-    def _force_token_refresh(self):
-        """Mint a fresh token and update SDK token caches when available."""
-        new_token = self._token_source.refresh()
-        try:
-            if hasattr(self._token_source, "_update_token"):
-                with getattr(self._token_source, "_lock", nullcontext()):
-                    self._token_source._update_token(new_token)
-            elif hasattr(self._token_source, "_token"):
-                with getattr(self._token_source, "_lock", nullcontext()):
-                    self._token_source._token = new_token
-        except Exception:
-            _logger.debug(
-                "Failed to cache the refreshed collector token on the token source; "
-                "later exports will mint a new one.",
-                exc_info=True,
-            )
-        return new_token
-
-    def _post_with_token(self, payload: bytes, token) -> requests.Response:
-        """POST one payload using the supplied token."""
-        return self._session.post(
-            self._collector_url,
-            data=payload,
-            headers={
-                _HEADER_AUTHORIZATION: f"Bearer {token.access_token}",
-                _HEADER_CONTENT_TYPE: _CONTENT_TYPE_PROTOBUF,
-                _COLLECTOR_TABLE_NAME_HEADER: self._table_name,
-            },
-            timeout=_REQUEST_TIMEOUT_SECONDS,
-        )
-
-    def post(self, payload: bytes) -> requests.Response:
-        """POST one payload, retrying exactly once after a 401 token response."""
-        try:
-            token = self._token_source.token()
-        except Exception as exc:
-            raise ZerobusOtelTokenError(
-                "Minting the Databricks OTel collector token failed"
-            ) from exc
-
-        response = self._post_with_token(payload, token)
-        if response.status_code != 401:
-            return response
-
-        try:
-            refreshed = self._force_token_refresh()
-        except Exception as exc:
-            raise ZerobusOtelTokenRefreshError(
-                "Refreshing the Databricks OTel collector token after HTTP 401 failed"
-            ) from exc
-
-        return self._post_with_token(payload, refreshed)
-
-    def close(self) -> None:
-        """Close the client's HTTP connection pool."""
-        self._session.close()

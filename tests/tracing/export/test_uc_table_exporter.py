@@ -482,13 +482,13 @@ def test_metadata_only_exporter_exposes_router_interfaces(monkeypatch):
 
 def test_flush_exporter_uses_explicit_async_components_hook():
     exporter = mock.Mock()
-    exporter.flush_async_components = mock.Mock()
+    exporter._flush_async_components = mock.Mock()
     exporter._span_batcher = mock.Mock()
     exporter._async_queue = mock.Mock()
 
     flush_exporter(exporter, terminate=True)
 
-    exporter.flush_async_components.assert_called_once_with(terminate=True)
+    exporter._flush_async_components.assert_called_once_with(terminate=True)
     exporter._span_batcher.flush.assert_not_called()
     exporter._span_batcher.shutdown.assert_not_called()
     exporter._async_queue.flush.assert_not_called()

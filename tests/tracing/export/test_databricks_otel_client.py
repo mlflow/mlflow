@@ -14,17 +14,15 @@ from mlflow.tracing.export.databricks_otel_client import (
     _SDK_HTTP_TIMEOUT_SECONDS,
     _TOKEN_REQUEST_TIMEOUT_SECONDS,
     DatabricksOTelClient,
-    ZerobusOtelTokenError,
-    ZerobusOtelTokenRefreshError,
+    DatabricksOtelConfigurationError,
+    DatabricksOtelSerializationError,
+    DatabricksOtelTokenError,
+    DatabricksOtelTokenRefreshError,
+    DatabricksOtelUnavailableError,
     _resolve_collector_credentials,
     build_databricks_otel_collector_token_source,
     build_table_authorization_details,
     is_databricks_otel_collector_host,
-    resolve_databricks_otel_collector_endpoint,
-)
-from mlflow.tracing.export.databricks_otel_collector import (
-    DatabricksOtelCollectorSpanExporter,
-    DatabricksOtelSerializationError,
 )
 
 from tests.tracing.helper import create_mock_otel_span
@@ -42,10 +40,10 @@ def _reset_collector_config_warning():
     import mlflow.tracing.export.databricks_otel_client as client_module
 
     client_module._collector_config_failure_warned = False
-    client_module._resolved_endpoints.clear()
+    DatabricksOTelClient._resolved_endpoints.clear()
     yield
     client_module._collector_config_failure_warned = False
-    client_module._resolved_endpoints.clear()
+    DatabricksOTelClient._resolved_endpoints.clear()
 
 
 def _make_json_response(body, status_code=200):
@@ -120,6 +118,15 @@ def test_resolve_endpoint_assembles_host_from_metastore_summary(
     monkeypatch, region, cloud, host, expected_endpoint
 ):
     monkeypatch.delenv("MLFLOW_DATABRICKS_OTEL_COLLECTOR_ENDPOINT", raising=False)
+    client = DatabricksOTelClient(
+        tracking_uri="databricks",
+        token_source=_make_mock_token_source(),
+        table_name=_TABLE_NAME,
+        host=host,
+        workspace_id=_WORKSPACE_ID,
+        client_id="sp-client-id",
+        client_secret="sp-secret",
+    )
     token_response = _make_json_response({
         "access_token": "metadata-token",
         "expires_in": 3600,
@@ -130,12 +137,7 @@ def test_resolve_endpoint_assembles_host_from_metastore_summary(
         mock.patch(f"{_MODULE}.requests.post", return_value=token_response) as mock_post,
         mock.patch(f"{_MODULE}.requests.get", return_value=summary_response) as mock_get,
     ):
-        result = resolve_databricks_otel_collector_endpoint(
-            host=host,
-            workspace_id="12345678",
-            client_id="sp-client-id",
-            client_secret="sp-secret",
-        )
+        result = client._resolve_endpoint()
 
     assert result == expected_endpoint
     mock_post.assert_called_once_with(
@@ -158,14 +160,12 @@ def test_resolve_endpoint_assembles_host_from_metastore_summary(
 def test_resolve_endpoint_override_takes_precedence(monkeypatch):
     valid_override = "12345678.zerobus.eu-west-1.cloud.databricks.com"
     monkeypatch.setenv("MLFLOW_DATABRICKS_OTEL_COLLECTOR_ENDPOINT", valid_override)
+    client = _make_client(endpoint=None)
     with (
         mock.patch(f"{_MODULE}.requests.post") as mock_post,
         mock.patch(f"{_MODULE}.requests.get") as mock_get,
     ):
-        result = resolve_databricks_otel_collector_endpoint(
-            host=_HOST,
-            workspace_id=_WORKSPACE_ID,
-        )
+        result = client._resolve_endpoint()
 
     assert result == valid_override
     mock_post.assert_not_called()
@@ -182,7 +182,7 @@ def test_resolve_endpoint_override_normalizes_https_prefix(monkeypatch):
         mock.patch(f"{_MODULE}.requests.post") as mock_post,
         mock.patch(f"{_MODULE}.requests.get") as mock_get,
     ):
-        result = resolve_databricks_otel_collector_endpoint(_HOST, _WORKSPACE_ID)
+        result = _make_client(endpoint=None)._resolve_endpoint()
 
     assert result == "12345678.zerobus.eu-west-1.cloud.databricks.com"
     mock_post.assert_not_called()
@@ -195,7 +195,7 @@ def test_resolve_endpoint_invalid_override_returns_none(monkeypatch):
         mock.patch(f"{_MODULE}.requests.post") as mock_post,
         mock.patch(f"{_MODULE}.requests.get") as mock_get,
     ):
-        result = resolve_databricks_otel_collector_endpoint(_HOST, _WORKSPACE_ID)
+        result = _make_client(endpoint=None)._resolve_endpoint()
 
     assert result is None
     mock_post.assert_not_called()
@@ -204,8 +204,9 @@ def test_resolve_endpoint_invalid_override_returns_none(monkeypatch):
 
 def test_resolve_endpoint_invalid_override_warns_once(monkeypatch):
     monkeypatch.setenv("MLFLOW_DATABRICKS_OTEL_COLLECTOR_ENDPOINT", "badhost.example.com")
+    client = _make_client(endpoint=None)
     with mock.patch(f"{_MODULE}._logger") as mock_log:
-        result = resolve_databricks_otel_collector_endpoint(_HOST, _WORKSPACE_ID)
+        result = client._resolve_endpoint()
 
     assert result is None
     mock_log.warning.assert_called_once()
@@ -213,6 +214,11 @@ def test_resolve_endpoint_invalid_override_warns_once(monkeypatch):
 
 def test_resolve_endpoint_cloud_from_global_metastore_id(monkeypatch):
     monkeypatch.delenv("MLFLOW_DATABRICKS_OTEL_COLLECTOR_ENDPOINT", raising=False)
+    client = _make_client(
+        endpoint=None,
+        client_id="sp-client-id",
+        client_secret="sp-secret",
+    )
     token_response = _make_json_response({
         "access_token": "metadata-token",
         "expires_in": 3600,
@@ -225,9 +231,7 @@ def test_resolve_endpoint_cloud_from_global_metastore_id(monkeypatch):
         mock.patch(f"{_MODULE}.requests.post", return_value=token_response) as mock_post,
         mock.patch(f"{_MODULE}.requests.get", return_value=summary_response) as mock_get,
     ):
-        result = resolve_databricks_otel_collector_endpoint(
-            _HOST, _WORKSPACE_ID, "sp-client-id", "sp-secret"
-        )
+        result = client._resolve_endpoint()
 
     assert result == "12345678.zerobus.us-west-2.cloud.databricks.com"
     mock_post.assert_called_once()
@@ -236,15 +240,18 @@ def test_resolve_endpoint_cloud_from_global_metastore_id(monkeypatch):
 
 def test_resolve_endpoint_metastore_error_returns_none(monkeypatch):
     monkeypatch.delenv("MLFLOW_DATABRICKS_OTEL_COLLECTOR_ENDPOINT", raising=False)
+    client = _make_client(
+        endpoint=None,
+        client_id="sp-client-id",
+        client_secret="sp-secret",
+    )
     with (
         mock.patch(
             f"{_MODULE}.requests.post", side_effect=RuntimeError("connection refused")
         ) as mock_post,
         mock.patch(f"{_MODULE}.requests.get") as mock_get,
     ):
-        result = resolve_databricks_otel_collector_endpoint(
-            _HOST, _WORKSPACE_ID, "sp-client-id", "sp-secret"
-        )
+        result = client._resolve_endpoint()
 
     assert result is None
     mock_post.assert_called_once()
@@ -262,15 +269,18 @@ def test_resolve_endpoint_metastore_error_returns_none(monkeypatch):
 )
 def test_resolve_endpoint_failure_warns_once(monkeypatch, summary_setup):
     monkeypatch.delenv("MLFLOW_DATABRICKS_OTEL_COLLECTOR_ENDPOINT", raising=False)
+    client = _make_client(
+        endpoint=None,
+        client_id="sp-client-id",
+        client_secret="sp-secret",
+    )
     summary_patch = (
-        mock.patch(f"{_MODULE}._get_metastore_summary", side_effect=RuntimeError("boom"))
+        mock.patch.object(client, "_get_metastore_summary", side_effect=RuntimeError("boom"))
         if summary_setup.get("__raise__")
-        else mock.patch(f"{_MODULE}._get_metastore_summary", return_value=summary_setup)
+        else mock.patch.object(client, "_get_metastore_summary", return_value=summary_setup)
     )
     with summary_patch, mock.patch(f"{_MODULE}._logger") as mock_log:
-        result = resolve_databricks_otel_collector_endpoint(
-            _HOST, _WORKSPACE_ID, "sp-client-id", "sp-secret"
-        )
+        result = client._resolve_endpoint()
 
     assert result is None
     mock_log.warning.assert_called_once()
@@ -278,16 +288,17 @@ def test_resolve_endpoint_failure_warns_once(monkeypatch, summary_setup):
 
 def test_resolve_endpoint_failure_warns_once_per_process(monkeypatch):
     monkeypatch.delenv("MLFLOW_DATABRICKS_OTEL_COLLECTOR_ENDPOINT", raising=False)
+    client = _make_client(
+        endpoint=None,
+        client_id="sp-client-id",
+        client_secret="sp-secret",
+    )
     with (
-        mock.patch(f"{_MODULE}._get_metastore_summary", side_effect=RuntimeError("boom")),
+        mock.patch.object(client, "_get_metastore_summary", side_effect=RuntimeError("boom")),
         mock.patch(f"{_MODULE}._logger") as mock_log,
     ):
-        first = resolve_databricks_otel_collector_endpoint(
-            _HOST, _WORKSPACE_ID, "sp-client-id", "sp-secret"
-        )
-        second = resolve_databricks_otel_collector_endpoint(
-            _HOST, _WORKSPACE_ID, "sp-client-id", "sp-secret"
-        )
+        first = client._resolve_endpoint()
+        second = client._resolve_endpoint()
 
     assert first is None
     assert second is None
@@ -487,18 +498,31 @@ def _make_response(status_code: int, content: bytes = b""):
     return response
 
 
-def _make_client(token_source=None, endpoint=_ENDPOINT):
+def _make_client(
+    token_source=None,
+    endpoint=_ENDPOINT,
+    host=_HOST,
+    workspace_id=_WORKSPACE_ID,
+    client_id=None,
+    client_secret=None,
+):
     client = DatabricksOTelClient(
         tracking_uri="databricks",
         token_source=token_source or _make_mock_token_source(),
         table_name=_TABLE_NAME,
-        host=_HOST,
-        workspace_id=_WORKSPACE_ID,
+        host=host,
+        workspace_id=workspace_id,
+        client_id=client_id,
+        client_secret=client_secret,
         endpoint=endpoint,
     )
     client._session = mock.MagicMock()
     client._session.post.return_value = _make_response(200)
     return client
+
+
+def _make_span(trace_id=1, span_id=2):
+    return Span(create_mock_otel_span(trace_id=trace_id, span_id=span_id))
 
 
 def test_databricks_otel_client_constructor_is_network_free():
@@ -510,9 +534,10 @@ def test_databricks_otel_client_constructor_is_network_free():
         )
 
     mock_get.assert_not_called()
-    assert client.config_warned is False
-    assert client.host is None
-    assert client.workspace_id == ""
+    assert client._initialized is False
+    assert client._initialization_error is None
+    assert client._host is None
+    assert client._workspace_id == ""
     client.close()
 
 
@@ -521,9 +546,8 @@ def test_databricks_otel_client_wraps_pre_send_token_failure():
     token_source.token.side_effect = requests.Timeout("token mint timed out")
     client = _make_client(token_source)
 
-    assert client.ensure_ready()
-    with pytest.raises(ZerobusOtelTokenError, match="Minting") as exc_info:
-        client.post(b"payload")
+    with pytest.raises(DatabricksOtelTokenError, match="Minting") as exc_info:
+        client.export_spans([_make_span()])
 
     assert isinstance(exc_info.value.__cause__, requests.Timeout)
     client._session.post.assert_not_called()
@@ -541,20 +565,19 @@ def test_databricks_otel_client_does_not_replace_injected_workspace_credentials(
 
     with (
         mock.patch(f"{_MODULE}._resolve_collector_credentials") as mock_credentials,
-        mock.patch(
-            f"{_MODULE}._resolve_collector_endpoint_from_metastore", return_value=None
+        mock.patch.object(
+            client, "_resolve_collector_endpoint_from_metastore", return_value=None
         ) as mock_endpoint,
     ):
-        assert not client.ensure_ready()
+        with pytest.raises(
+            DatabricksOtelConfigurationError,
+            match="Failed to resolve the Databricks OTel collector endpoint",
+        ):
+            client.export_spans([_make_span()])
 
     mock_credentials.assert_not_called()
-    mock_endpoint.assert_called_once_with(
-        host=_HOST,
-        workspace_id=_WORKSPACE_ID,
-        client_id=None,
-        client_secret=None,
-    )
-    assert client.config_warned
+    mock_endpoint.assert_called_once_with()
+    assert isinstance(client._initialization_error, DatabricksOtelUnavailableError)
 
 
 def test_databricks_otel_client_explicit_endpoint_override_takes_precedence(monkeypatch):
@@ -562,8 +585,8 @@ def test_databricks_otel_client_explicit_endpoint_override_takes_precedence(monk
     monkeypatch.setenv("MLFLOW_DATABRICKS_OTEL_COLLECTOR_ENDPOINT", "badhost.example.com")
     client = _make_client(endpoint=explicit_endpoint)
 
-    with mock.patch(f"{_MODULE}._resolve_collector_endpoint_from_metastore") as mock_resolve:
-        assert client.ensure_ready()
+    with mock.patch.object(client, "_resolve_collector_endpoint_from_metastore") as mock_resolve:
+        client.export_spans([_make_span()])
 
     mock_resolve.assert_not_called()
     assert client._collector_url == f"https://{_ENDPOINT}/v1/traces"
@@ -572,32 +595,27 @@ def test_databricks_otel_client_explicit_endpoint_override_takes_precedence(monk
 def test_databricks_otel_client_resolves_endpoint_lazily_once_per_workspace(monkeypatch):
     monkeypatch.delenv("MLFLOW_DATABRICKS_OTEL_COLLECTOR_ENDPOINT", raising=False)
     with mock.patch(
-        f"{_MODULE}._resolve_collector_endpoint_from_metastore", return_value=_ENDPOINT
+        f"{_MODULE}.DatabricksOTelClient._resolve_collector_endpoint_from_metastore",
+        return_value=_ENDPOINT,
     ) as mock_resolve:
         client1 = _make_client(endpoint=None)
         client2 = _make_client(endpoint=None)
-        assert client1.ensure_ready()
-        assert client1.ensure_ready()
-        assert client2.ensure_ready()
+        client1.export_spans([_make_span()])
+        client1.export_spans([_make_span()])
+        client2.export_spans([_make_span()])
 
-    mock_resolve.assert_called_once_with(
-        host=_HOST,
-        workspace_id=_WORKSPACE_ID,
-        client_id=None,
-        client_secret=None,
-    )
+    mock_resolve.assert_called_once()
     assert client1._collector_url == f"https://{_ENDPOINT}/v1/traces"
     assert client2._collector_url == f"https://{_ENDPOINT}/v1/traces"
 
 
 def test_databricks_otel_client_posts_expected_headers_and_timeout():
     client = _make_client()
-    assert client.ensure_ready()
-    client.post(b"payload")
+    client.export_spans([_make_span()])
 
     client._session.post.assert_called_once_with(
         f"https://{_ENDPOINT}/v1/traces",
-        data=b"payload",
+        data=mock.ANY,
         headers={
             "Authorization": "Bearer test-access-token",
             "Content-Type": "application/x-protobuf",
@@ -605,6 +623,8 @@ def test_databricks_otel_client_posts_expected_headers_and_timeout():
         },
         timeout=_REQUEST_TIMEOUT_SECONDS,
     )
+    request = ExportTraceServiceRequest.FromString(client._session.post.call_args.kwargs["data"])
+    assert request.resource_spans[0].scope_spans[0].spans[0].name == "test_span"
 
 
 def test_databricks_otel_client_retries_once_on_401_and_caches_refresh():
@@ -621,14 +641,13 @@ def test_databricks_otel_client_retries_once_on_401_and_caches_refresh():
         _make_response(200),
         _make_response(200),
     ]
-    assert client.ensure_ready()
 
     with mock.patch(
         "databricks.sdk.oauth.retrieve_token",
         side_effect=[Token(access_token="token-1"), Token(access_token="token-2")],
     ) as mock_retrieve:
-        client.post(b"payload")
-        client.post(b"payload")
+        client.export_spans([_make_span()])
+        client.export_spans([_make_span()])
 
     assert client._session.post.call_count == 3
     assert [
@@ -670,10 +689,9 @@ def test_databricks_otel_client_retries_401_with_legacy_token_source():
         _make_response(200),
         _make_response(200),
     ]
-    assert client.ensure_ready()
 
-    client.post(b"payload")
-    client.post(b"payload")
+    client.export_spans([_make_span()])
+    client.export_spans([_make_span()])
 
     assert client._session.post.call_count == 3
     assert [
@@ -686,9 +704,8 @@ def test_databricks_otel_client_retries_401_with_cacheless_token_source():
     token_source = _CachelessTokenSource([_make_token("token-a"), _make_token("token-b")])
     client = _make_client(token_source)
     client._session.post.side_effect = [_make_response(401), _make_response(200)]
-    assert client.ensure_ready()
 
-    client.post(b"payload")
+    client.export_spans([_make_span()])
 
     assert client._session.post.call_count == 2
     assert [
@@ -701,9 +718,8 @@ def test_databricks_otel_client_returns_second_401_after_one_refresh():
     client = _make_client(token_source)
     response = _make_response(401, b"denied")
     client._session.post.side_effect = [response, response]
-    assert client.ensure_ready()
 
-    assert client.post(b"payload") is response
+    assert client.export_spans([_make_span()]) is response
     token_source.refresh.assert_called_once()
     assert client._session.post.call_count == 2
 
@@ -713,60 +729,41 @@ def test_databricks_otel_client_propagates_refresh_failure():
     token_source.refresh.side_effect = requests.Timeout("token refresh timed out")
     client = _make_client(token_source)
     client._session.post.return_value = _make_response(401)
-    assert client.ensure_ready()
 
-    with pytest.raises(ZerobusOtelTokenRefreshError, match="Refreshing") as exc_info:
-        client.post(b"payload")
+    with pytest.raises(DatabricksOtelTokenRefreshError, match="Refreshing") as exc_info:
+        client.export_spans([_make_span()])
 
     assert isinstance(exc_info.value.__cause__, requests.Timeout)
     assert client._session.post.call_count == 1
 
 
-def _make_transport(token_source=None, endpoint=_ENDPOINT):
-    transport = DatabricksOtelCollectorSpanExporter(
-        tracking_uri="databricks",
-        token_source=token_source or _make_mock_token_source(),
-        table_name=_TABLE_NAME,
-        host=_HOST,
-        workspace_id=_WORKSPACE_ID,
-        endpoint=endpoint,
-    )
-    transport._client._session = mock.MagicMock()
-    transport._client._session.post.return_value = _make_response(200)
-    return transport
+def test_databricks_otel_client_serializes_mlflow_spans():
+    client = _make_client()
 
+    response = client.export_spans([_make_span()])
 
-def test_collector_transport_sends_serialized_mlflow_spans():
-    transport = _make_transport()
-    span = Span(create_mock_otel_span(trace_id=1, span_id=2))
-
-    response = transport.send_batch([span])
-
-    assert response is transport._client._session.post.return_value
-    transport._client._session.post.assert_called_once()
-    request = ExportTraceServiceRequest.FromString(
-        transport._client._session.post.call_args.kwargs["data"]
-    )
+    assert response is client._session.post.return_value
+    client._session.post.assert_called_once()
+    request = ExportTraceServiceRequest.FromString(client._session.post.call_args.kwargs["data"])
     assert len(request.resource_spans) == 1
     assert len(request.resource_spans[0].scope_spans[0].spans) == 1
     assert request.resource_spans[0].scope_spans[0].spans[0].name == "test_span"
 
 
 @pytest.mark.parametrize("failure", ["build", "serialize"])
-def test_collector_transport_wraps_serialization_failures(failure):
-    transport = _make_transport()
-    span = Span(create_mock_otel_span(trace_id=7, span_id=8))
+def test_databricks_otel_client_wraps_serialization_failures(failure):
+    client = _make_client()
 
     if failure == "build":
         patcher = mock.patch(
-            "mlflow.tracing.export.databricks_otel_collector.build_otlp_export_request",
+            f"{_MODULE}.build_otlp_export_request",
             side_effect=ValueError("invalid span"),
         )
     else:
         request = mock.MagicMock()
         request.SerializeToString.side_effect = ValueError("invalid protobuf")
         patcher = mock.patch(
-            "mlflow.tracing.export.databricks_otel_collector.build_otlp_export_request",
+            f"{_MODULE}.build_otlp_export_request",
             return_value=request,
         )
 
@@ -776,51 +773,51 @@ def test_collector_transport_wraps_serialization_failures(failure):
             DatabricksOtelSerializationError, match="Failed to (build|serialize)"
         ) as exc_info,
     ):
-        transport.send_batch([span])
+        client.export_spans([_make_span(trace_id=7, span_id=8)])
 
     assert isinstance(exc_info.value.__cause__, ValueError)
-    transport._client._session.post.assert_not_called()
+    client._session.post.assert_not_called()
 
 
-def test_collector_transport_returns_none_when_client_unavailable():
-    transport = _make_transport()
-    transport._client.ensure_ready = mock.MagicMock(return_value=False)
-    transport._client.post = mock.MagicMock()
+def test_databricks_otel_client_does_not_post_when_unavailable():
+    client = DatabricksOTelClient(
+        tracking_uri="databricks",
+        token_source=None,
+        table_name=_TABLE_NAME,
+    )
+    client._session = mock.MagicMock()
 
-    assert transport.send_batch([]) is None
-    transport._client.post.assert_not_called()
+    with (
+        mock.patch(f"{_MODULE}._resolve_collector_credentials", return_value=None),
+        pytest.raises(DatabricksOtelUnavailableError, match="credentials are unavailable"),
+    ):
+        client.export_spans([_make_span()])
+
+    client._session.post.assert_not_called()
 
 
-def test_collector_transport_propagates_network_errors():
-    transport = _make_transport()
+def test_databricks_otel_client_propagates_network_errors():
+    client = _make_client()
     error = requests.ConnectionError("collector unavailable")
-    transport._client.post = mock.MagicMock(side_effect=error)
-    span = Span(create_mock_otel_span(trace_id=3, span_id=4))
+    client._session.post = mock.MagicMock(side_effect=error)
 
     with pytest.raises(requests.ConnectionError, match="collector unavailable") as exc_info:
-        transport.send_batch([span])
+        client.export_spans([_make_span(trace_id=3, span_id=4)])
 
     assert exc_info.value is error
 
 
-def test_collector_transport_returns_http_response_untouched():
-    transport = _make_transport()
+def test_databricks_otel_client_returns_http_response_untouched():
+    client = _make_client()
     response = _make_response(503, b"server error")
-    transport._client.post = mock.MagicMock(return_value=response)
-    span = Span(create_mock_otel_span(trace_id=5, span_id=6))
+    client._session.post = mock.MagicMock(return_value=response)
 
-    assert transport.send_batch([span]) is response
+    assert client.export_spans([_make_span(trace_id=5, span_id=6)]) is response
 
 
-def test_collector_transport_forwards_client_properties_and_close():
-    transport = _make_transport()
-    transport._client._config_warned = True
-    transport._client._host = "https://example.databricks.com"
-    transport._client._workspace_id = "workspace"
+def test_databricks_otel_client_closes_session():
+    client = _make_client()
 
-    assert transport.config_warned is True
-    assert transport.host == "https://example.databricks.com"
-    assert transport.workspace_id == "workspace"
+    client.close()
 
-    transport.close()
-    transport._client._session.close.assert_called_once()
+    client._session.close.assert_called_once()
