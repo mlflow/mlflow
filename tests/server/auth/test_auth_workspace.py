@@ -9374,3 +9374,35 @@ def test_retention_gate_memoizes_and_fails_closed(workspace_permission_setup):
             [template],
         )
     assert closed.retains(auth_module.RESOURCE_TYPE_ASSESSMENT) is False
+
+
+def test_a_request_naming_two_role_identifiers_is_refused(role_auth_setup):
+    """Two identifiers must be refused, not silently resolved by precedence.
+
+    The resolution order put ``role_id`` ahead of ``condition_id``, so a request carrying
+    both was authorized against the ROLE's workspace while the handler -- which reads only
+    ``condition_id`` -- acted on the condition's. A workspace admin could therefore manage
+    another workspace's conditions by attaching an otherwise-unused ``role_id`` from their
+    own, and removing a condition widens access.
+
+    The guard runs before any lookup, so the ``condition_id`` here need not exist: a
+    request of this shape is refused on its shape alone.
+    """
+    role_auth_setup["login_as"]("ws_admin_foo")
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/roles/mutation-conditions/remove",
+        method="DELETE",
+        json={"condition_id": 1, "role_id": role_auth_setup["role_foo_id"]},
+    ):
+        with pytest.raises(MlflowException, match="exactly one of"):
+            auth_module.validate_can_manage_roles()
+
+
+def test_each_single_role_identifier_is_still_accepted(role_auth_setup):
+    # The guard must reject only the ambiguous shape. Every route in production names
+    # exactly one identifier, so all of those must keep resolving.
+    role_auth_setup["login_as"]("ws_admin_foo")
+    with _request_context_for_shape("role_id", role_auth_setup, "foo"):
+        assert auth_module.validate_can_manage_roles() is True
+    with _request_context_for_shape("role_permission_id", role_auth_setup, "foo"):
+        assert auth_module.validate_can_manage_roles() is True

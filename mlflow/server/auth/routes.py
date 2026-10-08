@@ -80,10 +80,19 @@ AJAX_LIST_ROLE_PERMISSIONS = _get_ajax_path("/mlflow/roles/permissions/list", ve
 UPDATE_ROLE_PERMISSION = _get_rest_path("/mlflow/roles/permissions/update", version=3)
 AJAX_UPDATE_ROLE_PERMISSION = _get_ajax_path("/mlflow/roles/permissions/update", version=3)
 
-# Mutation conditions (condition-based access control). Addressed by
-# (role_id, resource_type) rather than a surrogate id: that pair is the natural key
-# and is unique, so an admin can author and amend a condition without first looking
-# up a row id.
+# Mutation conditions (condition-based access control). Addressed two ways, because
+# (role_id, resource_type) is NOT unique: a role may carry up to
+# MAX_CONDITIONS_PER_ROLE_TYPE conditions of a type, each in its own slot and each
+# optionally scoped to a different container.
+#
+# - add and list are role-addressed, by (role_id, resource_type): adding needs no id
+#   because the row does not exist yet, and listing is naturally per role.
+# - get, update and remove are addressed by the condition's own ``condition_id``,
+#   which is the only identifier that names one of several sibling slots.
+#
+# Authorization for the id-addressed routes resolves the workspace THROUGH the
+# condition to its owning role, so a request must name exactly one role identifier --
+# see ``_get_role_workspace_from_request``.
 ADD_MUTATION_CONDITIONS = _get_rest_path("/mlflow/roles/mutation-conditions/add", version=3)
 AJAX_ADD_MUTATION_CONDITIONS = _get_ajax_path("/mlflow/roles/mutation-conditions/add", version=3)
 GET_MUTATION_CONDITIONS = _get_rest_path("/mlflow/roles/mutation-conditions/get", version=3)

@@ -46,15 +46,20 @@ delete those objects first and so make the loss explicit.
 import sqlalchemy as sa
 from alembic import op
 
-from mlflow.server.auth.conditions import MAX_CONDITIONS_PER_ROLE_TYPE
-
 # revision identifiers, used by Alembic.
 revision = "c9d0e1f2a3b4"
 down_revision = "b7c8d9e0f1a2"
 branch_labels = None
 depends_on = None
 
-_SLOT_RANGE_CHECK = f"condition_slot BETWEEN 1 AND {MAX_CONDITIONS_PER_ROLE_TYPE}"
+# Frozen at the value ``MAX_CONDITIONS_PER_ROLE_TYPE`` held when this revision was
+# written, deliberately NOT imported from it. A migration has to describe the schema it
+# produced: importing the live constant would make a fresh database replaying this
+# revision build a different CHECK than every database already migrated, and would leave
+# a later revision unable to assume the bound it is widening from. Raising the limit means
+# adding a revision that alters this constraint, not editing this line.
+_SLOT_RANGE_LIMIT = 100
+_SLOT_RANGE_CHECK = f"condition_slot BETWEEN 1 AND {_SLOT_RANGE_LIMIT}"
 _CONTAINER_WORKSPACE_CHECK = (
     "container_resource_type <> 'workspace' OR container_resource_pattern = '*'"
 )

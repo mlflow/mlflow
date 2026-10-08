@@ -1176,3 +1176,24 @@ def test_the_cap_does_not_disturb_ordinary_conditions():
     # The bound is a backstop, not a budget an admin should ever notice.
     assert len(parse_condition("tags.env = 'dev'", NAMESPACE_RESOURCE)) == 1
     assert len(parse_condition("tags.env IN ('a','b','c')", NAMESPACE_RESOURCE)) == 1
+
+
+def test_the_annotation_unions_cover_every_declared_shape():
+    """The unions are annotations, so a missing member is invisible until a type check.
+
+    Both MCP shapes were declared in the maps and constructed by the MCP validators while
+    being absent from the unions, so static checking rejected correct production call
+    sites. Deriving the assertion from the maps means a new resource type cannot be added
+    to one and forgotten in the other.
+    """
+    from typing import get_args
+
+    from mlflow.server.auth.conditions import (
+        REQUEST_VALUES_SHAPES,
+        RESOURCE_VALUES_SHAPES,
+        RequestValues,
+        ResourceValues,
+    )
+
+    assert set(get_args(RequestValues)) == set(REQUEST_VALUES_SHAPES.values())
+    assert set(get_args(ResourceValues)) == set(RESOURCE_VALUES_SHAPES.values())

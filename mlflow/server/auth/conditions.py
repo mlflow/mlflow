@@ -562,6 +562,8 @@ RequestValues = (
     | RegisteredModelVersionRequestValues
     | PromptRequestValues
     | PromptVersionRequestValues
+    | McpServerRequestValues
+    | McpServerVersionRequestValues
 )
 ResourceValues = (
     ExperimentResourceValues
@@ -572,6 +574,8 @@ ResourceValues = (
     | RegisteredModelVersionResourceValues
     | PromptResourceValues
     | PromptVersionResourceValues
+    | McpServerResourceValues
+    | McpServerVersionResourceValues
 )
 
 

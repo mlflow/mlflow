@@ -1245,6 +1245,22 @@ def _target_denial_detail(context, row, resource_id) -> "str | None":
     return None
 
 
+class _TargetPushdownUnsupported(Exception):
+    """The active backend store cannot evaluate a target condition at all.
+
+    Distinct from the ``NotImplementedError`` raised below for a clause that cannot be
+    pushed down. That one means a stored row got past authoring validation and is a bug
+    worth surfacing loudly; this one is a deployment fact -- target conditions are
+    evaluated in SQL, so a non-SQL tracking or registry backend cannot answer them, and
+    its abstract default says so by raising.
+
+    Raised by the pushdown helpers and converted to a denial by the gate. Previously the
+    store's ``NotImplementedError`` escaped the validator and became a 500. That refused
+    the mutation, so it was never fail-open -- but an operator saw a server error rather
+    than being told a condition had refused, and nothing distinguished it from a crash.
+    """
+
+
 def _cascade_target_pushdown(context, target_rows, *, parent_id, max_timestamp_ms=None, stage=None):
     """Ask the store whether a parent holds a child failing one of this context's rows.
 
@@ -1306,13 +1322,16 @@ def _cascade_target_pushdown(context, target_rows, *, parent_id, max_timestamp_m
                 "apply to one child, and a query over 'any child' would charge them "
                 "against every sibling"
             )
-        failing = store_.find_failing_resource(
-            context.resource_type,
-            clauses,
-            parent_id=parent_id,
-            max_timestamp_ms=max_timestamp_ms,
-            stage=stage,
-        )
+        try:
+            failing = store_.find_failing_resource(
+                context.resource_type,
+                clauses,
+                parent_id=parent_id,
+                max_timestamp_ms=max_timestamp_ms,
+                stage=stage,
+            )
+        except NotImplementedError as e:
+            raise _TargetPushdownUnsupported(str(e)) from e
         if failing is not None:
             # The children were never enumerated, so there is no id mapping to invert --
             # the store's key has to be converted back.
@@ -1387,9 +1406,12 @@ def _batched_target_pushdown(named):
         if not bucket:
             # This row governs none of the ids in play, so it has nothing to say here.
             continue
-        failing = _condition_store(resource_type).find_failing_resource(
-            resource_type, clauses, ids=list(bucket)
-        )
+        try:
+            failing = _condition_store(resource_type).find_failing_resource(
+                resource_type, clauses, ids=list(bucket)
+            )
+        except NotImplementedError as e:
+            raise _TargetPushdownUnsupported(str(e)) from e
         if failing is None:
             continue
         # The id either failed a clause or does not exist. Both deny, and deliberately
@@ -1562,15 +1584,25 @@ def _authorize_on_conditions(
             # query, and the only way to answer it without enumerating a population the
             # request never named and the caller may not be able to bound. The children's
             # ids are never learned -- the store returns at most the first failing one.
-            pushed = _cascade_target_pushdown(
-                context,
-                target_rows,
-                parent_id=context.parent_resource_id,
-                # The mutation's own predicate, when it reaches only a slice of the parent's
-                # children rather than all of them.
-                max_timestamp_ms=context.cascade_max_timestamp_ms,
-                stage=context.cascade_stage,
-            )
+            try:
+                pushed = _cascade_target_pushdown(
+                    context,
+                    target_rows,
+                    parent_id=context.parent_resource_id,
+                    # The mutation's own predicate, when it reaches only a slice of the
+                    # parent's children rather than all of them.
+                    max_timestamp_ms=context.cascade_max_timestamp_ms,
+                    stage=context.cascade_stage,
+                )
+            except _TargetPushdownUnsupported:
+                # A configured condition that cannot be evaluated has to refuse. Denying
+                # is the same verdict the escaping NotImplementedError already produced
+                # via a 500, but it is reported as what it is, and the detail says why so
+                # an operator is pointed at the backend rather than at a stack trace.
+                auth_resources.note_condition_denial(
+                    "the active backend store cannot evaluate a target condition"
+                )
+                return False
             if pushed is not None:
                 # Some child fails, and the store named which. Deny directly rather than
                 # appending to `results` -- there is no per-child result for `combine` to
@@ -1605,7 +1637,14 @@ def _authorize_on_conditions(
         # follows the configuration rather than the number of targets. The resources' tags
         # never cross the wire: the store either answers or raises, which is what keeps SQL
         # the single evaluator of a target condition.
-        pushed = _batched_target_pushdown(named)
+        try:
+            pushed = _batched_target_pushdown(named)
+        except _TargetPushdownUnsupported:
+            # See the cascade branch: unevaluable means refused, said plainly.
+            auth_resources.note_condition_denial(
+                "the active backend store cannot evaluate a target condition"
+            )
+            return False
         if pushed is not None:
             # There is no per-id result for `combine` to weigh, so deny directly --
             # after naming the clause the offending resource broke.
@@ -4389,6 +4428,20 @@ def _get_role_workspace_from_request() -> str | None:
     that as unauthorized rather than leaking existence via a 404.
     """
     params = _request_params()
+    # Exactly one identifier. The resolution below is ordered, so a request naming two
+    # would be authorized against whichever comes first while the handler acts on the
+    # other: a ``condition_id`` owned by a role in one workspace plus an otherwise-unused
+    # ``role_id`` in another resolved to the ROLE's workspace, so a workspace admin was
+    # authorized there and the handler then read, rewrote, or deleted the condition in the
+    # other workspace -- and deleting a condition widens access. Refusing costs nothing:
+    # every caller names exactly the identifier its route is addressed by, so no legitimate
+    # request carries two.
+    named = [key for key in ("role_id", "role_permission_id", "condition_id") if key in params]
+    if len(named) > 1:
+        raise MlflowException.invalid_parameter_value(
+            "Request must name exactly one of 'role_id', 'role_permission_id', "
+            f"'condition_id'; got {', '.join(repr(k) for k in named)}."
+        )
     try:
         if "role_id" in params:
             return store.get_role(_coerce_int_param("role_id", params["role_id"])).workspace

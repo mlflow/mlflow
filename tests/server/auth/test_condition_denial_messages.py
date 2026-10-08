@@ -93,7 +93,9 @@ def gate(monkeypatch):
     detail directly, because the body a caller actually receives is the contract.
     """
 
-    def run(contexts, rows, *, store_answer=None, values=None, failing_child=None):
+    def run(
+        contexts, rows, *, store_answer=None, values=None, failing_child=None, store_raises=None
+    ):
         class Store:
             def get_user(self, username):
                 return SimpleNamespace(id=1, username=username, is_admin=False)
@@ -109,7 +111,13 @@ def gate(monkeypatch):
         # The store decides the verdict. ``store_answer`` forces a specific failing id;
         # otherwise the fake answers from ``values`` using the real evaluator, which is
         # what the deleted Python fallback did.
-        if store_answer is not None:
+        if store_raises is not None:
+
+            def _refuse_to_answer(*a, **k):
+                raise store_raises
+
+            fake = SimpleNamespace(find_failing_resource=_refuse_to_answer)
+        elif store_answer is not None:
             fake = SimpleNamespace(find_failing_resource=lambda *a, **k: store_answer)
         else:
             fake = answering_store(supplied, failing_child=failing_child)
@@ -566,3 +574,50 @@ def test_a_scoped_value_condition_also_narrows(gate):
         ],
     )
     assert allowed
+
+
+# A backend that cannot evaluate a target condition at all, which is a deployment fact
+# rather than a bug: target conditions are answered in SQL, so a non-SQL tracking or
+# registry store raises ``NotImplementedError`` from the abstract default.
+
+
+def test_a_store_that_cannot_evaluate_a_target_condition_denies(gate):
+    """Unevaluable must mean refused, and must say so.
+
+    The store's ``NotImplementedError`` used to escape the validator and surface as a
+    500. That refused the mutation, so it was never fail-open -- but the caller could not
+    tell a configured restriction from a crashed server, and an operator had no pointer
+    to the real cause.
+    """
+    allowed, message = gate(
+        [_mutate(ids=("r-1",))],
+        [_row(target_condition=f"tags.{TAG_KEY} = 'dev'")],
+        store_raises=NotImplementedError("FileStore cannot answer a target condition"),
+    )
+    assert allowed is False
+    assert "condition" in message
+    assert "cannot evaluate a target condition" in message
+
+
+def test_a_cascade_over_a_store_that_cannot_evaluate_denies(gate):
+    # The cascade branch reaches the store by a different path than the named-id branch,
+    # so it needs its own conversion or a parent-scoped mutation still 500s.
+    allowed, message = gate(
+        [_mutate(ids=(), parent="e-1")],
+        [_row(target_condition=f"tags.{TAG_KEY} = 'dev'")],
+        store_raises=NotImplementedError("FileStore cannot answer a target condition"),
+    )
+    assert allowed is False
+    assert "cannot evaluate a target condition" in message
+
+
+def test_the_store_message_is_not_quoted_back_to_the_caller(gate):
+    # The store names its own class and the backend flag that would fix it. That is
+    # deployment detail, and a denial is not the place to publish it.
+    _, message = gate(
+        [_mutate(ids=("r-1",))],
+        [_row(target_condition=f"tags.{TAG_KEY} = 'dev'")],
+        store_raises=NotImplementedError("FileStore cannot answer a target condition"),
+    )
+    assert "FileStore" not in message
+    assert "backend-store-uri" not in message
