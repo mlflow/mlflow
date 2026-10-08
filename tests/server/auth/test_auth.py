@@ -6477,6 +6477,87 @@ def test_a_json_otlp_batch_is_judged_like_a_protobuf_one(fastapi_client, monkeyp
     assert ingest(json.dumps(document), (user, password), "application/json").status_code == 200
 
 
+def _relocation_role(auth_client, user, source_exp, dest_exp, **condition):
+    """EDIT on both experiments, plus one trace condition scoped to the DESTINATION."""
+    role = auth_client.create_role("default", f"reloc-{random_str()}", "test")
+    auth_client.add_role_permission(role.id, "experiment", "*", EDIT.name)
+    auth_client.add_mutation_condition(
+        role.id,
+        "trace",
+        container_resource_type="experiment",
+        container_resource_pattern=str(dest_exp),
+        **condition,
+    )
+    auth_client.assign_role(user, role.id)
+    return role
+
+
+def test_relocating_a_trace_applies_the_destination_target_condition(fastapi_client, monkeypatch):
+    """F-0046. The destination's TARGET condition must judge the trace being moved in.
+
+    An existing trace id makes `start_trace` reassign the trace's experiment and reparent
+    its spans and assessments, so the body relocates it. The destination check declared a
+    bare CREATE context -- no resource id -- and target filters only evaluate at MUTATE
+    scope, so a destination-scoped target condition loaded and never applied: the move was
+    judged purely on the values in the body.
+    """
+    from mlflow.server.auth.client import AuthServiceClient
+
+    auth_client = AuthServiceClient(fastapi_client.tracking_uri)
+    user, password = create_user(fastapi_client.tracking_uri)
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        source = fastapi_client.create_experiment(f"reloc-src-{random_str()}")
+        dest = fastapi_client.create_experiment(f"reloc-dst-{random_str()}")
+    trace_id = _create_trace(fastapi_client.tracking_uri, source, (ADMIN_USERNAME, ADMIN_PASSWORD))
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        fastapi_client.set_trace_tag(trace_id, "gate", "shut")
+        # The destination demands `gate = 'open'` of any trace it governs.
+        _relocation_role(auth_client, user, source, dest, target_condition="tags.gate = 'open'")
+
+    # Moving it into the destination must be refused: its CURRENT state fails.
+    assert (
+        _start_trace_v3(
+            fastapi_client.tracking_uri, dest, (user, password), trace_id=trace_id
+        ).status_code
+        == 403
+    )
+    # Rewriting it in place, where the destination condition does not apply, is permitted.
+    assert (
+        _start_trace_v3(
+            fastapi_client.tracking_uri, source, (user, password), trace_id=trace_id
+        ).status_code
+        == 200
+    )
+
+
+def test_relocating_a_trace_judges_the_tags_it_carries(fastapi_client, monkeypatch):
+    """F-0046, second half. A carried tag the body never mentions still arrives.
+
+    `start_trace` merges the submitted tags over the existing rows and deletes none, so
+    every tag the trace already has moves with it. Projecting only the body let a
+    destination value condition be satisfied by simply omitting the offending tag.
+    """
+    from mlflow.server.auth.client import AuthServiceClient
+
+    auth_client = AuthServiceClient(fastapi_client.tracking_uri)
+    user, password = create_user(fastapi_client.tracking_uri)
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        source = fastapi_client.create_experiment(f"carry-src-{random_str()}")
+        dest = fastapi_client.create_experiment(f"carry-dst-{random_str()}")
+    trace_id = _create_trace(fastapi_client.tracking_uri, source, (ADMIN_USERNAME, ADMIN_PASSWORD))
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        fastapi_client.set_trace_tag(trace_id, "pii", "yes")
+        _relocation_role(auth_client, user, source, dest, value_condition="tag_key != 'pii'")
+
+    # The body carries no tags at all, yet `pii` travels with the trace.
+    assert (
+        _start_trace_v3(
+            fastapi_client.tracking_uri, dest, (user, password), trace_id=trace_id
+        ).status_code
+        == 403
+    )
+
+
 def test_start_trace_v3_with_no_trace_id_is_still_an_ordinary_create(fastapi_client, monkeypatch):
     """A body carrying no id -- or a placeholder the store will replace -- names no
     existing trace, so it must keep taking the create path rather than failing closed.
@@ -6798,12 +6879,15 @@ def test_starting_a_trace_requires_read_on_a_named_source_run(fastapi_client, mo
     # on authority the caller need not hold.
     with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
         run_permission = auth_client.add_role_permission(role.id, "run", "*", READ.name)
-    assert _start_trace_v3(
-        fastapi_client.tracking_uri,
-        experiment_id,
-        (user, password),
-        metadata={"mlflow.sourceRun": run.info.run_id},
-    ).status_code == 200
+    assert (
+        _start_trace_v3(
+            fastapi_client.tracking_uri,
+            experiment_id,
+            (user, password),
+            metadata={"mlflow.sourceRun": run.info.run_id},
+        ).status_code
+        == 200
+    )
 
     # Deny the run tier: the same association must now be refused.
     with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):

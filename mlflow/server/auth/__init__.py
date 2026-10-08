@@ -6172,8 +6172,40 @@ def validate_can_start_trace_v3():
             # destination check that used to run, so it is restored explicitly here: a
             # relocation needs BOTH ends.
             if source_experiment_id != str(experiment_id):
+                # The trace EXISTS, so the destination's conditions have real state to
+                # read. A bare create context carries no resource id and target filters
+                # only evaluate at MUTATE scope, so a destination-scoped target condition
+                # would load and never apply -- the relocation would be judged solely on
+                # the values in the body. Declare the trace at MUTATE scope anchored on the
+                # DESTINATION as well, which is the same resource (the trace being moved)
+                # scoped to the other container; the destination experiment itself is never
+                # conditioned, only used to select which trace conditions load.
+                #
+                # Tags are the RESULTING state, not the body's. `start_trace` merges the
+                # submitted tags over the existing rows and deletes none, so every tag the
+                # trace already carries arrives in the destination -- a destination value
+                # condition that saw only the body could be satisfied by omitting the
+                # offending tag from the request while the store moved it anyway. The
+                # SOURCE context keeps body tags on purpose: there, the carried tags are
+                # not being set, they are current state, and the source's own target
+                # condition is what judges them.
+                carried = dict(existing.tags or {})
+                carried.update(dict(tags))
+                resulting_tags = tuple(carried.items())
                 return _authorize_create_in_experiment(
-                    experiment_id, RESOURCE_TYPE_TRACE, extra=extra, tags=tags
+                    experiment_id,
+                    RESOURCE_TYPE_TRACE,
+                    extra=extra,
+                    tags=resulting_tags,
+                    extra_conditions=(
+                        context_for(
+                            RESOURCE_TYPE_TRACE,
+                            trace_id,
+                            ConditionScope.MUTATE,
+                            TraceRequestValues(tags=resulting_tags),
+                            parent_resource_id=str(experiment_id),
+                        ),
+                    ),
                 )
             return True
 
