@@ -262,6 +262,15 @@ export const useUserMutationConditionsQuery = (username: string, options: { enab
     })),
   });
 
+  // Keyed on when each query's data last changed, not only on its status: an
+  // invalidated query refetches in the background and stays `success` the whole time,
+  // so a status-only key left the table and count showing the previous policy after a
+  // condition was added or removed. Hoisted into a named variable because a dependency
+  // array may not hold a complex expression -- the rule cannot check one statically.
+  const conditionsFingerprint = conditionQueries
+    .map((q) => `${q.status}:${q.dataUpdatedAt}:${q.errorUpdatedAt}`)
+    .join(',');
+
   const groups = useMemo(
     () =>
       roles.map((role: Role, i: number) => ({
@@ -271,11 +280,7 @@ export const useUserMutationConditionsQuery = (username: string, options: { enab
         error: conditionQueries[i]?.error ?? null,
       })),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- query array identity changes every render
-    // Keyed on when each query's data last changed, not only on its status: an
-    // invalidated query refetches in the background and stays `success` the whole
-    // time, so a status-only key left the table and count showing the previous
-    // policy after a condition was added or removed.
-    [roles, conditionQueries.map((q) => `${q.status}:${q.dataUpdatedAt}:${q.errorUpdatedAt}`).join(',')],
+    [roles, conditionsFingerprint],
   );
 
   return {
