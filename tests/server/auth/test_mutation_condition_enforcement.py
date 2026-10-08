@@ -9,6 +9,8 @@
 # extraction, the condition load, request-condition evaluation, resource fetch through
 # the request-scoped cache, and resource-condition evaluation.
 
+import time
+
 import pytest
 import requests
 
@@ -77,7 +79,8 @@ def _conditioned_user(
     grant allows. ``permission`` is ``MANAGE`` for the routes that check ``can_delete``,
     which ``EDIT`` does not carry.
     """
-    username, password = random_str(), random_str(12)
+    username = random_str()
+    password = random_str(12)
     with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
         auth_client.create_user(username, password)
         role = auth_client.create_role(workspace=_WORKSPACE, name=f"dev-{random_str()}")
@@ -212,7 +215,8 @@ def test_conditions_never_confer_access(server, auth_client, monkeypatch):
     """A condition that would *pass* cannot substitute for a missing grant: the base
     check runs first and conditions only ever subtract.
     """
-    username, password = random_str(), random_str(12)
+    username = random_str()
+    password = random_str(12)
     with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
         auth_client.create_user(username, password)
         role = auth_client.create_role(workspace=_WORKSPACE, name=f"dev-{random_str()}")
@@ -344,7 +348,8 @@ def test_a_resource_condition_does_not_gate_a_create(server, auth_client, monkey
 
 def _exact_name_conditioned_user(auth_client, monkeypatch, resource_type, name, value_condition):
     """A broad grant on ``resource_type``, narrowed by a condition naming exactly one resource."""
-    username, password = random_str(), random_str(12)
+    username = random_str()
+    password = random_str(12)
     with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
         auth_client.create_user(username, password)
         role = auth_client.create_role(workspace=_WORKSPACE, name=f"dev-{random_str()}")
@@ -429,7 +434,8 @@ def test_a_registered_model_condition_does_not_gate_a_prompt_create(
     """D2. The create route is shared, and the family comes from the body, so a
     condition on `registered_model` must not govern a prompt create.
     """
-    username, password = random_str(), random_str(12)
+    username = random_str()
+    password = random_str(12)
     with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
         auth_client.create_user(username, password)
         role = auth_client.create_role(workspace=_WORKSPACE, name=f"dev-{random_str()}")
@@ -676,7 +682,8 @@ def _version_conditioned_user(
     The registered_model grant is the container READ the version routes also require; the
     condition is attached to the version type alone, so any denial comes from it.
     """
-    username, password = random_str(), random_str(12)
+    username = random_str()
+    password = random_str(12)
     with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
         auth_client.create_user(username, password)
         role = auth_client.create_role(workspace=_WORKSPACE, name=f"dev-{random_str()}")
@@ -788,7 +795,8 @@ def test_a_renamed_model_keeps_the_conditions_scoped_to_its_versions(
     """
     old_name = f"m-{random_str()}"
     new_name = f"m-{random_str()}"
-    username, password = random_str(), random_str(12)
+    username = random_str()
+    password = random_str(12)
     with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
         auth_client.create_user(username, password)
         role = auth_client.create_role(workspace=_WORKSPACE, name=f"dev-{random_str()}")
@@ -814,7 +822,8 @@ def test_a_registered_model_condition_does_not_gate_a_version_tag(server, auth_c
     """D2 across the parent/child boundary: the two are distinct resource types, so a
     condition on the entry must not travel to its versions.
     """
-    username, password = random_str(), random_str(12)
+    username = random_str()
+    password = random_str(12)
     with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
         auth_client.create_user(username, password)
         role = auth_client.create_role(workspace=_WORKSPACE, name=f"dev-{random_str()}")
@@ -835,7 +844,8 @@ def test_a_registered_model_condition_does_not_gate_a_version_tag(server, auth_c
 
 def _run_conditioned_user(auth_client, monkeypatch, *, value_condition=None, target_condition=None):
     """A user who can mutate every run in the workspace, narrowed by a run condition."""
-    username, password = random_str(), random_str(12)
+    username = random_str()
+    password = random_str(12)
     with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
         auth_client.create_user(username, password)
         role = auth_client.create_role(workspace=_WORKSPACE, name=f"dev-{random_str()}")
@@ -1074,7 +1084,8 @@ def test_creating_a_run_without_tags_holds_under_a_positive_clause(
 def _trace_conditioned_user(
     auth_client, monkeypatch, *, value_condition=None, target_condition=None, permission="EDIT"
 ):
-    username, password = random_str(), random_str(12)
+    username = random_str()
+    password = random_str(12)
     with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
         auth_client.create_user(username, password)
         role = auth_client.create_role(workspace=_WORKSPACE, name=f"dev-{random_str()}")
@@ -1098,7 +1109,8 @@ def _experiment_scoped_trace_conditioned_user(
     ``parent_resource_id`` makes the store match only UNSCOPED conditions, so a condition
     written like this was silently never loaded and never evaluated.
     """
-    username, password = random_str(), random_str(12)
+    username = random_str()
+    password = random_str(12)
     with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
         auth_client.create_user(username, password)
         role = auth_client.create_role(workspace=_WORKSPACE, name=f"dev-{random_str()}")
@@ -1172,8 +1184,6 @@ def test_deleting_traces_by_id_is_gated_on_each_trace(server, auth_client, monke
 
 def _two_traces(server, monkeypatch):
     """Two finished traces in ONE experiment, the second strictly later than the first."""
-    import time
-
     import mlflow
 
     with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
@@ -1359,7 +1369,8 @@ def _typed_conditioned_user(
     """A user granted `permission` on `resource_type` (plus any `extra` grants), with a
     condition attached to that type alone.
     """
-    username, password = random_str(), random_str(12)
+    username = random_str()
+    password = random_str(12)
     with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
         auth_client.create_user(username, password)
         role = auth_client.create_role(workspace=_WORKSPACE, name=f"dev-{random_str()}")
@@ -1462,7 +1473,8 @@ def test_reads_are_never_gated_across_every_wired_type(server, auth_client, monk
     every read untouched, on each type now wired -- otherwise wiring a route has silently
     restricted the read path beside it.
     """
-    username, password = random_str(), random_str(12)
+    username = random_str()
+    password = random_str(12)
     with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
         auth_client.create_user(username, password)
         role = auth_client.create_role(workspace=_WORKSPACE, name=f"dev-{random_str()}")

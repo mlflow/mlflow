@@ -67,8 +67,6 @@ def _store_permits(monkeypatch):
     Autouse but not binding: a test that wants a particular answer patches the store
     again, and its own patch wins -- see ``_resource_state``.
     """
-    from types import SimpleNamespace
-
     from mlflow.server import auth as auth_module
 
     declining = SimpleNamespace(

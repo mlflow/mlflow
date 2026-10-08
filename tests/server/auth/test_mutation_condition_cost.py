@@ -772,8 +772,6 @@ def _recording_pushdown_store(monkeypatch, answer=None):
 
     Overrides the autouse permissive store, whose own docstring invites exactly this.
     """
-    from types import SimpleNamespace
-
     from mlflow.server import auth as auth_module
 
     calls = []

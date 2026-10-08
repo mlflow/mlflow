@@ -768,7 +768,7 @@ def test_context_for_refuses_a_child_type_without_a_parent():
     that omits it produces a context no scoped condition matches. The admin's
     restriction silently stops biting -- and unlike a denial, nothing surfaces.
 
-    Raising mirrors the request-values shape check: a mis-wired validator fails in
+    Raising mirrors the request-values shape check: an incorrectly wired validator fails in
     the tests that exercise its route rather than in production, and fails closed if
     one slips through.
     """
@@ -823,7 +823,7 @@ def test_clause_describe_round_trips_readably():
 )
 def test_context_rejects_aliases_for_a_type_that_owns_none(resource_type):
     """`RequestValues` is one shape shared by every type, so it cannot express that a run
-    has no alias to set. A mis-wired validator must therefore fail here rather than
+    has no alias to set. An incorrectly wired validator must therefore fail here rather than
     populate a field that silently goes unread.
 
     A raise, not a denial: this is a wiring bug and should surface in the tests that
@@ -874,7 +874,7 @@ def test_every_supported_type_declares_both_shapes():
 
 
 def test_each_type_declares_a_distinct_shape():
-    """One shape per type, not shared between types. Sharing would make a mis-wiring
+    """One shape per type, not shared between types. Sharing would make a miswiring
     between two types that happen to carry the same fields undetectable.
     """
     assert len(set(REQUEST_VALUES_SHAPES.values())) == len(SUPPORTED_RESOURCE_TYPES)

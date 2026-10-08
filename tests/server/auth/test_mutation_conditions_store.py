@@ -659,7 +659,7 @@ class TestTheUserAddressedAdd:
         with pytest.raises(MlflowException, match="at least one of"):
             store.add_user_mutation_condition("alice", "run")
 
-    def test_refuses_an_unparseable_filter_without_creating_the_role(self, store, user):
+    def test_refuses_an_unparsable_filter_without_creating_the_role(self, store, user):
         """Validation runs BEFORE the role is created.
 
         Otherwise a rejected request leaves behind a role the caller never asked for,

@@ -2205,7 +2205,7 @@ class SqlAlchemyStore:
         with no model behind it -- the role is an implementation detail of how per-user
         access is stored, not something the caller asked for.
 
-        Validation is shared with the role-addressed path, so an unparseable filter or a
+        Validation is shared with the role-addressed path, so an unparsable filter or a
         filterless object is refused here too, before any role is created.
         """
         validate_condition_resource_type(resource_type)

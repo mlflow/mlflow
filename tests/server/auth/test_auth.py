@@ -2,6 +2,7 @@ import asyncio
 import base64
 import json
 import logging
+import os
 import re
 import subprocess
 import sys
@@ -5787,9 +5788,6 @@ def _otlp_payload(
     that unions every block would be stricter than the store and refuse a write the handler
     accepts.
     """
-    import json as _json
-    import os as _os
-    import time as _time
 
     from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceRequest
     from opentelemetry.proto.common.v1.common_pb2 import AnyValue, KeyValue
@@ -5803,7 +5801,7 @@ def _otlp_payload(
         return [
             KeyValue(
                 key=f"{SpanAttributeKey.TRACE_TAG_PREFIX}{key}",
-                value=AnyValue(string_value=_json.dumps(value)),
+                value=AnyValue(string_value=json.dumps(value)),
             )
             for key, value in (mapping or {}).items()
         ]
@@ -5811,9 +5809,9 @@ def _otlp_payload(
     attributes = tag_attrs(tags)
     for key, value in (extra_attributes or {}).items():
         attributes.append(KeyValue(key=key, value=AnyValue(string_value=value)))
-    now = int(_time.time() * 1e9)
-    resolved_trace_id = trace_id or _os.urandom(16)
-    root_span_id = _os.urandom(8)
+    now = int(time.time() * 1e9)
+    resolved_trace_id = trace_id or os.urandom(16)
+    root_span_id = os.urandom(8)
     spans = [
         ProtoSpan(
             trace_id=resolved_trace_id,
@@ -5829,7 +5827,7 @@ def _otlp_payload(
         spans.append(
             ProtoSpan(
                 trace_id=resolved_trace_id,
-                span_id=_os.urandom(8),
+                span_id=os.urandom(8),
                 parent_span_id=root_span_id,
                 name="child",
                 attributes=tag_attrs(child_tags),
@@ -5841,7 +5839,7 @@ def _otlp_payload(
         spans.append(
             ProtoSpan(
                 trace_id=resolved_trace_id,
-                span_id=_os.urandom(8),
+                span_id=os.urandom(8),
                 parent_span_id=b"",
                 name="root-2",
                 attributes=tag_attrs(second_root_tags),
@@ -5872,7 +5870,7 @@ def _otlp_payload(
                         spans=[
                             ProtoSpan(
                                 trace_id=resolved_trace_id,
-                                span_id=_os.urandom(8),
+                                span_id=os.urandom(8),
                                 parent_span_id=root_span_id,
                                 name="child-in-second-block",
                                 start_time_unix_nano=now,
@@ -6337,7 +6335,6 @@ def _resolve_otlp_trace_id(fastapi_client, monkeypatch, experiment_id, raw_trace
 
 def _otlp_mixed_payload(existing_trace_id, new_tags=None):
     """One batch carrying a root span for an EXISTING trace and one for a new trace."""
-    import os as _os
 
     from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceRequest
 
@@ -6348,7 +6345,6 @@ def _otlp_mixed_payload(existing_trace_id, new_tags=None):
     other = ExportTraceServiceRequest()
     other.ParseFromString(second)
     merged.MergeFrom(other)
-    assert _os  # keep the import meaningful if the helper is extended
     return merged.SerializeToString(), new_id
 
 
@@ -6404,8 +6400,6 @@ def test_a_json_otlp_batch_is_judged_like_a_protobuf_one(fastapi_client, monkeyp
     A gate that judged only the protobuf encoding would be bypassed by re-encoding the
     same payload, so the JSON path has to classify and refuse identically.
     """
-    import base64
-    import json
 
     from google.protobuf.json_format import MessageToJson
     from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceRequest
@@ -6673,7 +6667,6 @@ def test_otlp_authorizes_a_trace_reached_by_child_spans_alone(fastapi_client, mo
     but authorizing on that set let a batch of CHILD spans append to a trace in another
     experiment with nothing checked against it.
     """
-    import os as _os
 
     from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceRequest
 
@@ -6712,7 +6705,7 @@ def test_otlp_authorizes_a_trace_reached_by_child_spans_alone(fastapi_client, mo
     for resource_span in parsed.resource_spans:
         for scope_span in resource_span.scope_spans:
             for span in scope_span.spans:
-                span.parent_span_id = _os.urandom(8)
+                span.parent_span_id = os.urandom(8)
     child_only = parsed.SerializeToString()
 
     assert ingest(child_only, mine, (user, password)).status_code == 403

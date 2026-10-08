@@ -1358,11 +1358,8 @@ class TestTheSelectorContract:
         with pytest.raises(ValueError, match="exactly one"):
             store.find_failing_resource("run", [], **kwargs)
 
-    def test_the_registry_enforces_it_too(self, monkeypatch):
-        import tempfile
-
-        d = tempfile.mkdtemp()
-        registry = RegistrySqlAlchemyStore(f"sqlite:///{d}/registry.db")
+    def test_the_registry_enforces_it_too(self, tmp_path):
+        registry = RegistrySqlAlchemyStore(f"sqlite:///{tmp_path}/registry.db")
         with pytest.raises(ValueError, match="exactly one"):
             registry.find_failing_resource("registered_model", [], ids=["m"], parent_id="p")
 

@@ -1338,7 +1338,7 @@ def context_for(
     *forgetting* a parent cannot silently take it.
 
     Also the one place a validator's request values are checked against the type it
-    declared, so the mis-wiring the shared shape cannot prevent fails loudly here
+    declared, so the miswiring the shared shape cannot prevent fails loudly here
     instead of silently going unread.
     """
     validate_condition_resource_type(resource_type)

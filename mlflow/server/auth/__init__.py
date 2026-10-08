@@ -25,7 +25,7 @@ import urllib.parse
 from collections.abc import Hashable, Sequence
 from dataclasses import asdict, dataclass
 from http import HTTPStatus
-from typing import Any, Awaitable, Callable, NamedTuple
+from typing import TYPE_CHECKING, Any, Awaitable, Callable, NamedTuple
 
 import sqlalchemy
 from cachetools import TTLCache
@@ -532,6 +532,9 @@ from mlflow.utils.search_utils import SearchUtils
 from mlflow.utils.uri import is_models_uri, validate_path_is_safe
 from mlflow.utils.validation import _validate_password
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
+
+if TYPE_CHECKING:
+    from mlflow.server.auth.sqlalchemy_store import MutationConditionRow
 
 try:
     from flask_wtf.csrf import CSRFProtect
@@ -1480,7 +1483,7 @@ def _authorize_on_conditions(
     if store.is_workspace_admin(user.id, workspace):
         return True
 
-    by_type: dict[str, list] = {}
+    by_type: dict[str, list["MutationConditionRow"]] = {}
     for row in rows:
         by_type.setdefault(row.resource_type, []).append(row)
 
@@ -2603,7 +2606,7 @@ def _submitted_trace_ids(body) -> "tuple[str, ...]":
     return tuple(dict.fromkeys(item for item in raw if isinstance(item, str) and item))
 
 
-def _submitted_trace_contexts(experiment_id: str, body) -> list:
+def _submitted_trace_contexts(experiment_id: str, body) -> "list[ConditionContext]":
     """A trace MUTATE context for the existing traces an async job will write to.
 
     These routes submit a job and return; the worker then writes trace tags and
@@ -6146,8 +6149,7 @@ def validate_can_start_trace_v3():
     # another.
     #
     # So classify the id first. Only a MISSING id is a create.
-    trace_id = message.trace.trace_info.trace_id
-    if trace_id:
+    if trace_id := message.trace.trace_info.trace_id:
         existing = auth_resources.fetch_trace_info(trace_id)
         if existing is not None:
             # Judged on the experiment the trace is in NOW, not the one the body asks for.
@@ -10492,7 +10494,7 @@ def _mcp_path_targets_a_version(parts: list[str]) -> bool:
     return len(parts) > 2 and parts[2] in ("versions", "aliases")
 
 
-async def _mcp_body(request: StarletteRequest) -> dict:
+async def _mcp_body(request: StarletteRequest) -> dict[str, Any]:
     """The request's JSON object, or ``{}``.
 
     Starlette caches the read, so the route handler still parses its own body; the cached
@@ -10506,8 +10508,9 @@ async def _mcp_body(request: StarletteRequest) -> dict:
     return body if isinstance(body, dict) else {}
 
 
-def _mcp_tag_pair_from_body(body: dict) -> "tuple[tuple[str, str | None], ...]":
-    key, value = body.get("key"), body.get("value")
+def _mcp_tag_pair_from_body(body: dict[str, Any]) -> "tuple[tuple[str, str | None], ...]":
+    key = body.get("key")
+    value = body.get("value")
     if not isinstance(key, str) or not key:
         # Nothing for a condition to judge. Returning no pair keeps it vacuous rather than
         # inventing a value that would then be judged; the handler rejects the body itself.
@@ -10527,7 +10530,8 @@ async def _mcp_condition_context(
     Nested segments (``parts[2:]``) are what distinguish the routes; ``parts[0:2]`` is the
     ``namespace/slug`` server name the caller has already composed.
     """
-    nested, method = parts[2:], request.method
+    nested = parts[2:]
+    method = request.method
 
     # `tags` on the server itself: `POST <server>/tags`, `DELETE <server>/tags/<key>`.
     if nested[:1] == ["tags"]:
