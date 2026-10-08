@@ -713,10 +713,23 @@ describe('AssistantProvider setup state from provider discovery', () => {
     expect(result.current.canEditServerSettings).toBe(canEdit);
   });
 
-  test('cannot edit server-wide settings when the config fails to load', async () => {
-    mockGetConfig.mockRejectedValue(new Error('boom'));
+  test('cannot edit server-wide settings when the server does not report it', async () => {
+    mockGetConfig.mockResolvedValue({ providers: {}, projects: {} });
 
     const result = await renderAndWaitForConfig();
+
+    expect(result.current.canEditServerSettings).toBe(false);
+  });
+
+  test('stops allowing server-wide edits when a config refresh fails', async () => {
+    mockGetConfig.mockResolvedValue({ providers: {}, projects: {}, can_edit_server_settings: true });
+    const result = await renderAndWaitForConfig();
+    expect(result.current.canEditServerSettings).toBe(true);
+
+    mockGetConfig.mockRejectedValue(new Error('boom'));
+    await act(async () => {
+      await result.current.refreshConfig();
+    });
 
     expect(result.current.canEditServerSettings).toBe(false);
   });
