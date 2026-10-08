@@ -15891,6 +15891,10 @@
     "defaultMessage": "Issue detection",
     "description": "Type pill text for an issue-detection run in the evaluation runs table"
   },
+  "z6ZiTE": {
+    "defaultMessage": "Mutation Conditions",
+    "description": "Tab trigger for the mutation conditions restricting the user"
+  },
   "z6qX4/": {
     "defaultMessage": "This endpoint may have been deleted",
     "description": "Tooltip for deleted endpoint"
