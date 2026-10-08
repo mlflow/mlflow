@@ -182,6 +182,17 @@ def test_agent_tags_for_to_predict_fn_record_only_the_remote_target():
     }
 
 
+def test_agent_tags_for_partial_of_to_predict_fn():
+    def predict_fn(**kwargs):
+        pass
+
+    setattr(predict_fn, AGENT_URI_ATTR, "endpoints:/agent")
+
+    assert get_agent_tags(functools.partial(predict_fn, temperature=0)) == {
+        MLFLOW_GENAI_EVALUATE_AGENT_URI: "endpoints:/agent"
+    }
+
+
 def test_agent_tags_for_to_predict_fn_omit_empty_served_entities():
     def predict_fn(**kwargs):
         pass
@@ -213,5 +224,7 @@ def test_log_lineage_tags_skips_values_over_the_limit(caplog):
 def test_log_lineage_tags_never_raises():
     with mock.patch(
         "mlflow.genai.evaluation.lineage.MlflowClient.log_batch", side_effect=Exception("boom")
-    ):
+    ) as mock_log_batch:
         log_lineage_tags("run-id", [_make_scorer("adhoc")], {})
+
+    mock_log_batch.assert_called_once()

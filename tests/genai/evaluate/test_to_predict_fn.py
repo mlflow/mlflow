@@ -676,6 +676,17 @@ def test_to_predict_fn_copies_trace_when_experiment_differs(
             },
             [{"name": "chat"}],
         ),
+        (
+            {
+                "config": {
+                    "served_entities": [{"name": "agent-1"}, {"entity_name": "unnamed"}],
+                    "traffic_config": {
+                        "routes": [{"traffic_percentage": 30}, {"served_entity_name": "agent-1"}]
+                    },
+                }
+            },
+            [{"name": "agent-1"}, {"entityName": "unnamed"}],
+        ),
         ({"endpoint_type": "FOUNDATION_MODEL_API"}, []),
         ({"config": {"served_entities": "not-a-list"}}, []),
         (mock.MagicMock(), []),
