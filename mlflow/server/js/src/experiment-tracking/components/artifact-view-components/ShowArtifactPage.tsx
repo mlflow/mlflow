@@ -57,8 +57,10 @@ type ShowArtifactPageProps = {
 class ShowArtifactPage extends Component<ShowArtifactPageProps> {
   render() {
     if (this.props.path) {
-      const { loggedModelId, isLoggedModelsMode, path, runUuid, experimentId, entityTags } = this.props;
+      const { artifactRootUri, loggedModelId, isLoggedModelsMode, path, runUuid, experimentId, entityTags } =
+        this.props;
       const commonArtifactProps = {
+        artifactRootUri,
         loggedModelId,
         isLoggedModelsMode,
         path,
@@ -106,6 +108,7 @@ class ShowArtifactPage extends Component<ShowArtifactPageProps> {
         } else if (MARKDOWN_EXTENSIONS.has(normalizedExtension.toLowerCase())) {
           return (
             <LazyShowArtifactMarkdownView
+              artifactRootUri={artifactRootUri}
               loggedModelId={loggedModelId}
               isLoggedModelsMode={isLoggedModelsMode}
               path={path}

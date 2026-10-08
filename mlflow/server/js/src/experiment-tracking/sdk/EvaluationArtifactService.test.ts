@@ -8,6 +8,15 @@ jest.mock('../../common/utils/ArtifactUtils', () => ({
   getArtifactChunkedText: () => mockGetArtifactChunkedText(),
 }));
 
+jest.mock('../utils/PresignedArtifactUtils', () => ({
+  fetchRunArtifactWithPresignedUrl: (
+    _runUuid: string,
+    _path: string,
+    legacyArtifactLocation: string,
+    getArtifactData: (artifactLocation: string) => Promise<string>,
+  ) => getArtifactData(legacyArtifactLocation),
+}));
+
 describe('fetchEvaluationTableArtifact', () => {
   const MOCK_RESPONSE = {
     columns: ['inputs', 'outputs', 'targets'],

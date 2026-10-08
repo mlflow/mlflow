@@ -18,6 +18,15 @@ jest.mock('../../../../common/utils/ArtifactUtils', () => ({
   getArtifactChunkedText: jest.fn(),
 }));
 
+jest.mock('../../../utils/PresignedArtifactUtils', () => ({
+  fetchRunArtifactWithPresignedUrl: (
+    _runUuid: string,
+    _path: string,
+    legacyArtifactLocation: string,
+    getArtifactData: (artifactLocation: string) => Promise<string>,
+  ) => getArtifactData(legacyArtifactLocation),
+}));
+
 jest.mock('../../../actions', () => ({
   getEvaluationTableArtifact: jest.fn(),
   uploadArtifactApi: jest.fn(),

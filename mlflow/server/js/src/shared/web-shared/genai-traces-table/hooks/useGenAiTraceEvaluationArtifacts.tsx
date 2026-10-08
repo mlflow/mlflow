@@ -11,7 +11,9 @@ import type {
   RawGenaiEvaluationArtifactResponse,
 } from '../types';
 import { mergeMetricsAndAssessmentsWithEvaluations, parseRawTableArtifact } from '../utils/EvaluationDataParseUtils';
-import { getAjaxUrl, makeRequest } from '../utils/FetchUtils';
+import { getAjaxUrl } from '../utils/FetchUtils';
+import { getArtifactChunkedText } from '@mlflow/mlflow/src/common/utils/ArtifactUtils';
+import { fetchRunArtifactWithPresignedUrl } from '@mlflow/mlflow/src/experiment-tracking/utils/PresignedArtifactUtils';
 
 type UseGetTraceEvaluationArtifactQueryKey = [
   'GET_TRACE_EVALUATION_ARTIFACT',
@@ -23,16 +25,24 @@ const getQueryKey = (
   artifactFile: GenAiTraceEvaluationArtifactFile,
 ): UseGetTraceEvaluationArtifactQueryKey => ['GET_TRACE_EVALUATION_ARTIFACT', { runUuid, artifactFile }];
 
-const queryFn = async ({
-  queryKey: [, { runUuid, artifactFile }],
-}: QueryFunctionContext<UseGetTraceEvaluationArtifactQueryKey>): Promise<RawGenaiEvaluationArtifactResponse> => {
+export const fetchGenAiTraceEvaluationArtifact = async (
+  runUuid: string,
+  artifactFile: GenAiTraceEvaluationArtifactFile,
+): Promise<RawGenaiEvaluationArtifactResponse> => {
   const queryParams = new URLSearchParams({ run_uuid: runUuid, path: artifactFile });
   const url = [getAjaxUrl('ajax-api/2.0/mlflow/get-artifact'), queryParams].join('?');
-  return makeRequest(url, 'GET').then((data) => ({
-    ...data,
-    filename: artifactFile,
-  }));
+  return fetchRunArtifactWithPresignedUrl(runUuid, artifactFile, url, getArtifactChunkedText).then(
+    (artifactContents) => ({
+      ...JSON.parse(artifactContents),
+      filename: artifactFile,
+    }),
+  );
 };
+
+const queryFn = ({
+  queryKey: [, { runUuid, artifactFile }],
+}: QueryFunctionContext<UseGetTraceEvaluationArtifactQueryKey>) =>
+  fetchGenAiTraceEvaluationArtifact(runUuid, artifactFile);
 
 const allArtifactFiles = [
   GenAiTraceEvaluationArtifactFile.Assessments,

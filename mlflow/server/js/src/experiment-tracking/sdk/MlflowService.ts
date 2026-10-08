@@ -45,13 +45,33 @@ type GetCredentialsForLoggedModelArtifactReadResult = {
       type: string;
       signed_uri: string;
       path: string;
+      headers?: Record<string, string> | { name: string; value: string }[];
     };
   }[];
+};
+
+export type MultipartUploadCredential = {
+  url: string;
+  part_number: number;
+  headers?: Record<string, string>;
+};
+
+export type MultipartUploadPart = {
+  part_number: number;
+  etag?: string;
+  url?: string;
 };
 
 const searchRunsPath = () => 'ajax-api/2.0/mlflow/runs/search';
 
 const encodePathForRoute = (path: string) => path.split('/').map(encodeURIComponent).join('/');
+
+const getMlflowArtifactsUrl = (action: string, path: string, artifactServiceBaseUrl?: string) => {
+  const route = `${artifactServiceBaseUrl ? 'api' : 'ajax-api'}/2.0/mlflow-artifacts/${action}/${encodePathForRoute(
+    path,
+  )}`;
+  return artifactServiceBaseUrl ? new URL(route, artifactServiceBaseUrl).toString() : route;
+};
 
 // eslint-disable-next-line @typescript-eslint/no-extraneous-class -- TODO(FEINF-4274)
 export class MlflowService {
@@ -112,14 +132,63 @@ export class MlflowService {
     }>;
 
   /**
+   * Create a presigned URL for uploading directly to a run or logged-model artifact store.
+   */
+  static createPresignedUploadUrl = (data: { run_id?: string; model_id?: string; path: string }) =>
+    postJson({
+      relativeUrl: 'ajax-api/2.0/mlflow/artifacts/presigned-upload-url',
+      data,
+      retries: 0,
+    }) as Promise<{
+      presigned_url?: string;
+      headers?: Record<string, string>;
+    }>;
+
+  /**
    * Create a presigned URL for downloading an artifact served through the mlflow-artifacts proxy.
    */
-  static getMlflowArtifactsPresignedDownloadUrl = (path: string) =>
-    getJson({ relativeUrl: `ajax-api/2.0/mlflow-artifacts/presigned/${encodePathForRoute(path)}` }) as Promise<{
+  static getMlflowArtifactsPresignedDownloadUrl = (path: string, artifactServiceBaseUrl?: string) =>
+    getJson({ relativeUrl: getMlflowArtifactsUrl('presigned', path, artifactServiceBaseUrl) }) as Promise<{
       url?: string;
       headers?: Record<string, string>;
       file_size?: number;
     }>;
+
+  static createMlflowArtifactsMultipartUpload = (
+    artifactPath: string,
+    data: { path: string; num_parts: number },
+    artifactServiceBaseUrl?: string,
+  ) =>
+    postJson({
+      relativeUrl: getMlflowArtifactsUrl('mpu/create', artifactPath, artifactServiceBaseUrl),
+      data,
+      retries: 0,
+    }) as Promise<{
+      upload_id?: string;
+      credentials?: MultipartUploadCredential[];
+    }>;
+
+  static completeMlflowArtifactsMultipartUpload = (
+    artifactPath: string,
+    data: { path: string; upload_id?: string; parts: MultipartUploadPart[] },
+    artifactServiceBaseUrl?: string,
+  ) =>
+    postJson({
+      relativeUrl: getMlflowArtifactsUrl('mpu/complete', artifactPath, artifactServiceBaseUrl),
+      data,
+      retries: 0,
+    });
+
+  static abortMlflowArtifactsMultipartUpload = (
+    artifactPath: string,
+    data: { path: string; upload_id?: string },
+    artifactServiceBaseUrl?: string,
+  ) =>
+    postJson({
+      relativeUrl: getMlflowArtifactsUrl('mpu/abort', artifactPath, artifactServiceBaseUrl),
+      data,
+      retries: 0,
+    });
 
   /**
    * Search datasets used in experiments

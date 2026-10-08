@@ -1,9 +1,10 @@
-import { jest, describe, test, expect, beforeEach } from '@jest/globals';
+import { jest, describe, test, expect, beforeEach, afterEach } from '@jest/globals';
 import { act, render, screen, waitFor } from '../../../common/utils/TestUtils.react18';
 import ShowArtifactAudioView from './ShowArtifactAudioView';
 
 import { IntlProvider } from 'react-intl';
 import WaveSurfer from 'wavesurfer.js';
+import { MlflowService } from '../../sdk/MlflowService';
 
 jest.mock('wavesurfer.js', () => {
   const mWaveSurfer = {
@@ -27,8 +28,13 @@ const mockGetArtifact = jest.fn((_artifactUrl: string) => Promise.resolve(fakeBl
 
 beforeEach(() => {
   jest.clearAllMocks();
+  jest.spyOn(MlflowService, 'getCredentialsForLoggedModelArtifactRead').mockResolvedValue({ credentials: [] });
   global.URL.createObjectURL = jest.fn(() => fakeBlobUrl) as any;
   global.URL.revokeObjectURL = jest.fn() as any;
+});
+
+afterEach(() => {
+  jest.restoreAllMocks();
 });
 
 const minimalProps = {

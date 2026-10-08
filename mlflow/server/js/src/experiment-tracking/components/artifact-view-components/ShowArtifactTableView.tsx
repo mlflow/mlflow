@@ -29,6 +29,7 @@ const ShowArtifactTableView = ({
   loggedModelId,
   experimentId,
   entityTags,
+  artifactRootUri,
 }: Props) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState();
@@ -43,7 +44,7 @@ const ShowArtifactTableView = ({
 
     function fetchArtifacts() {
       fetchArtifactUnified?.(
-        { runUuid, path, isLoggedModelsMode, loggedModelId, experimentId, entityTags },
+        { runUuid, path, artifactRootUri, isLoggedModelsMode, loggedModelId, experimentId, entityTags },
         getArtifact,
       )
         .then((artifactText: any) => {
@@ -75,7 +76,7 @@ const ShowArtifactTableView = ({
     }
 
     fetchArtifacts();
-  }, [runUuid, path, getArtifact, isLoggedModelsMode, loggedModelId, experimentId, entityTags]);
+  }, [runUuid, path, getArtifact, isLoggedModelsMode, loggedModelId, experimentId, entityTags, artifactRootUri]);
 
   function resetState() {
     // @ts-expect-error TS(2554): Expected 1 arguments, but got 0.
