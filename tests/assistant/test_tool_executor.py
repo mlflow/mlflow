@@ -504,6 +504,9 @@ def test_restricted_bash_in_sandbox_supports_pipes_and_redirects():
         # Operators the checker does not model are refused rather than passed through.
         ("echo a;; sh", "other shell syntax"),
         ("echo a&;sh", "other shell syntax"),
+        # dash has no &> redirect: it backgrounds the first command and runs the next one.
+        ("echo x &>/dev/null sh", "other shell syntax"),
+        ("echo x &>>out.txt sh", "other shell syntax"),
         # ${...} expansions can assign variables such as PATH.
         ("echo ${PATH:=/tmp}; mlflow --version", "command substitution"),
     ],

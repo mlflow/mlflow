@@ -8,6 +8,7 @@ from fastapi import APIRouter, FastAPI, Request
 from fastapi.testclient import TestClient
 from starlette.responses import PlainTextResponse
 
+from mlflow.assistant.providers.tool_executor import is_remote_caller
 from mlflow.exceptions import MlflowException
 from mlflow.server.assistant.api import (
     _AssistantAPIRoute,
@@ -249,3 +250,29 @@ def test_is_restricted_caller(monkeypatch, host, username, auth_on, sandbox_on, 
     monkeypatch.setattr("mlflow.server.assistant.api.assistant_sandbox_enabled", lambda: sandbox_on)
 
     assert _is_restricted_caller(_caller(host, username)) is expected
+
+
+@pytest.mark.parametrize(("username", "restricted"), [("alice", True), ("admin", False)])
+def test_route_marks_local_non_admin_as_restricted_with_sandbox_on(
+    monkeypatch, username, restricted
+):
+    auth_module = _auth_module_with_admins({"admin"})
+    auth_module.authenticate_fastapi_request_user = mock.MagicMock(
+        return_value=types.SimpleNamespace(username=username)
+    )
+    monkeypatch.setitem(sys.modules, "mlflow.server.auth", auth_module)
+    monkeypatch.setattr("mlflow.server.assistant.api.assistant_sandbox_enabled", lambda: True)
+
+    router = APIRouter(route_class=_AssistantAPIRoute)
+
+    @router.get("/_probe")
+    @_remote_access_policy(_RemoteAccessPolicy.NONE)
+    async def _probe():
+        return {"restricted": is_remote_caller()}
+
+    app = FastAPI()
+    app.include_router(router)
+    with mock.patch("mlflow.server.assistant.api._is_localhost", return_value=True):
+        response = TestClient(app).get("/_probe", headers={"Authorization": "Basic x"})
+
+    assert response.json() == {"restricted": restricted}

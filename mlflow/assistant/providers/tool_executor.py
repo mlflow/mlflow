@@ -76,7 +76,9 @@ _ALLOWED_BASH_COMMANDS = {"mlflow", "python3", "python"}
 # (unlike sed, awk, find, xargs, or GNU sort's ``--compress-program``, which are left out).
 _SANDBOX_TEXT_COMMANDS = {"cat", "cut", "echo", "grep", "head", "tail", "tr", "uniq", "wc"}
 _SHELL_COMMAND_SEPARATORS = {"|", "||", "&&", ";"}
-_SHELL_REDIRECTS = {"<", ">", ">>", ">|", "<>", "&>", "&>>", ">&", "<&", "<<<"}
+# Redirects as /bin/sh (dash) parses them. bash's ``&>`` is not one: dash reads ``cmd &> f next`` as
+# ``cmd &`` and then runs ``next`` as a separate command.
+_SHELL_REDIRECTS = {"<", ">", ">>", ">|", "<>", ">&", "<&", "<<<"}
 # Shell syntax that runs a command the checks below would never see: command and process
 # substitution, ``${...}`` expansions (which can assign variables such as PATH), and newlines
 # (which separate commands like ``;``).

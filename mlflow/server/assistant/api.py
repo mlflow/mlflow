@@ -249,8 +249,9 @@ class _AssistantAPIRoute(APIRoute):
             # request runs in its own context, so this does not leak across requests.
             set_config_user(request.state.assistant_username)
             # Cap a restricted caller (see _is_restricted_caller) at the restricted tool-permission
-            # profile, so server-side tool execution cannot be driven with full_access.
-            set_remote_caller(_is_restricted_caller(request))
+            # profile, so server-side tool execution cannot be driven with full_access. Off the
+            # event loop, since it may look the caller up in the auth store.
+            set_remote_caller(await asyncio.to_thread(_is_restricted_caller, request))
             if policy != _RemoteAccessPolicy.NONE and not _is_localhost(request):
                 if policy == _RemoteAccessPolicy.DENY or not MLFLOW_ENABLE_REMOTE_ASSISTANT.get():
                     raise HTTPException(status_code=403, detail=_BLOCK_REMOTE_ACCESS_ERROR_MSG)
@@ -773,7 +774,7 @@ async def get_config(request: Request) -> ConfigResponse:
     """
     config = AssistantConfig.load()
     providers = {name: p.model_dump() for name, p in config.providers.items()}
-    is_remote = not _is_localhost(request)
+    is_remote = is_remote_caller()
     selected_provider = _get_selected_provider(config)
     provider = selected_provider or resolve_default_provider(
         remote=is_remote, include_gateway=False
