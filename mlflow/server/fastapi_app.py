@@ -242,10 +242,10 @@ async def _lifespan(app: FastAPI):
             "assistant will run its Bash tool on the server host. Install Docker, or set "
             "MLFLOW_ENABLE_ASSISTANT_SANDBOX=true to require the sandbox."
         )
-    if auth_plugin_active() and not assistant_sandbox_enabled():
-        _logger.warning(
-            "Auth is enabled but the MLflow Assistant sandbox is not active, so the Assistant runs "
-            "every user's tools, including non-admins', on the server host. Set "
+    elif auth_plugin_active() and not assistant_sandbox_enabled():
+        _logger.info(
+            "Auth is enabled but the MLflow Assistant sandbox is not active, so local users' "
+            "Assistant tools, including non-admins', run on the server host. Set "
             "MLFLOW_ENABLE_ASSISTANT_SANDBOX=true (requires Docker) to run non-admin users' tools "
             "in the sandbox, without full access."
         )

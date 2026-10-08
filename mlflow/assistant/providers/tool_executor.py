@@ -72,13 +72,17 @@ _FILE_TOOLS = {"Read", "Write", "Edit"}
 _ALLOWED_BASH_COMMANDS = {"mlflow", "python3", "python"}
 # In the sandbox, restricted commands run through a shell, so they may be combined with pipes,
 # ``&&``/``||``/``;`` and redirects. Every command in the chain must then be allowed: the commands
-# above, or one of these text tools. None of them can start another program (unlike sed, awk,
-# find or xargs, which are left out).
-_SANDBOX_TEXT_COMMANDS = {"cat", "cut", "echo", "grep", "head", "sort", "tail", "tr", "uniq", "wc"}
+# above, or one of these text tools. None of them has an option that starts another program
+# (unlike sed, awk, find, xargs, or GNU sort's ``--compress-program``, which are left out).
+_SANDBOX_TEXT_COMMANDS = {"cat", "cut", "echo", "grep", "head", "tail", "tr", "uniq", "wc"}
 _SHELL_COMMAND_SEPARATORS = {"|", "||", "&&", ";"}
+# Redirects as /bin/sh (dash) parses them. bash's ``&>`` is not one: dash reads ``cmd &> f next`` as
+# ``cmd &`` and then runs ``next`` as a separate command.
+_SHELL_REDIRECTS = {"<", ">", ">>", ">|", "<>", ">&", "<&", "<<<"}
 # Shell syntax that runs a command the checks below would never see: command and process
-# substitution, and newlines (which separate commands like ``;``).
-_UNCHECKED_SHELL_SYNTAX = re.compile(r"`|\$\(|[<>]\(|\n")
+# substitution, ``${...}`` expansions (which can assign variables such as PATH), and newlines
+# (which separate commands like ``;``).
+_UNCHECKED_SHELL_SYNTAX = re.compile(r"`|\$\(|\$\{|[<>]\(|\n")
 
 # Tools executed on the CLIENT (browser), not the server: the assistant loop pauses the turn and
 # waits for a client-submitted result instead of routing the call through execute_tool/the static
@@ -206,6 +210,9 @@ def _sandbox_shell_permission_error(
         return "Permission denied: command substitution and multi-line commands are not allowed"
     lexer = shlex.shlex(command, posix=True, punctuation_chars=True)
     lexer.whitespace_split = True
+    # shlex would treat a '#' inside a word as the start of a comment and drop the rest of the
+    # line, while the shell does not, so it would miss any command after it.
+    lexer.commenters = ""
     try:
         tokens = list(lexer)
     except ValueError:
@@ -216,8 +223,11 @@ def _sandbox_shell_permission_error(
         if token in _SHELL_COMMAND_SEPARATORS:
             segments.append([])
         elif set(token) <= set("();<>|&"):
-            if "(" in token or ")" in token or token in {"&", "|&"}:
-                return "Permission denied: subshells and background commands are not allowed"
+            if token not in _SHELL_REDIRECTS:
+                return (
+                    "Permission denied: subshells, background commands and other shell syntax "
+                    "are not allowed"
+                )
             if ">" in token and not perms.allow_edit_files:
                 return "Permission denied: writing files is not allowed"
             segments[-1].append(token)

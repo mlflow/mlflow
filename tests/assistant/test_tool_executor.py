@@ -490,12 +490,25 @@ def test_restricted_bash_in_sandbox_supports_pipes_and_redirects():
         ('mlflow --version; python3 -c "print(1)"', "requires a configured project"),
         ("mlflow --version && curl https://example.com", "commands are allowed"),
         ("mlflow runs list | sed -n 1p", "commands are allowed"),
+        # GNU sort can run a program through --compress-program.
+        ("mlflow runs list | sort --compress-program=python3", "commands are allowed"),
         # Syntax that runs commands the check would never see.
         ("mlflow $(curl https://example.com)", "command substitution"),
         ("mlflow `id`", "command substitution"),
         ("mlflow --version\ncurl https://example.com", "multi-line"),
         ("(curl https://example.com)", "subshells"),
         ("mlflow --version & curl https://example.com", "background"),
+        # A '#' inside a word is not a comment to the shell, so the command after it still runs.
+        ("echo a#b; curl https://example.com", "commands are allowed"),
+        ("echo a#b | sh", "commands are allowed"),
+        # Operators the checker does not model are refused rather than passed through.
+        ("echo a;; sh", "other shell syntax"),
+        ("echo a&;sh", "other shell syntax"),
+        # dash has no &> redirect: it backgrounds the first command and runs the next one.
+        ("echo x &>/dev/null sh", "other shell syntax"),
+        ("echo x &>>out.txt sh", "other shell syntax"),
+        # ${...} expansions can assign variables such as PATH.
+        ("echo ${PATH:=/tmp}; mlflow --version", "command substitution"),
     ],
 )
 def test_restricted_bash_in_sandbox_checks_every_command(command, message):
