@@ -30,7 +30,7 @@ const routes = {
   "/v1/logs": { path: "/api/2.0/otel/v1/logs", table: `${location}_otel_logs` },
 };
 
-const server = http.createServer((request, response) => {
+function handle(request, response) {
   let local;
   try {
     local = new URL(request.url ?? "/", "http://localhost");
@@ -92,5 +92,11 @@ const server = http.createServer((request, response) => {
     });
     outgoing.end(body);
   });
-});
-server.listen(8081, "127.0.0.1");
+}
+
+// TCP for exporters that go through the sandbox's HTTP proxy, and a Unix socket for those that
+// connect directly: srt allows Unix sockets, and a relay in the sandbox forwards to it.
+http.createServer(handle).listen(8081, "127.0.0.1");
+if (process.env.TELEMETRY_SOCKET) {
+  http.createServer(handle).listen(process.env.TELEMETRY_SOCKET);
+}

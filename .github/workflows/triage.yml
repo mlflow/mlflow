@@ -605,11 +605,12 @@ jobs:
           TELEMETRY_TOKEN: ${{ steps.telemetry.outputs.token }}
           DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
           TRACE_LOCATION: ${{ vars.TRIAGE_MLFLOW_TRACE_LOCATION }}
+          TELEMETRY_SOCKET: ${{ runner.temp }}/triage-telemetry.sock
         run: |
           umask 077
           printf '%s\n' "$TELEMETRY_TOKEN" | env -u TELEMETRY_TOKEN \
             DATABRICKS_HOST="$DATABRICKS_HOST" TRACE_LOCATION="$TRACE_LOCATION" \
-            node .claude/sandbox/otel-proxy.mjs \
+            TELEMETRY_SOCKET="$TELEMETRY_SOCKET" node .claude/sandbox/otel-proxy.mjs \
             > "$RUNNER_TEMP/triage-telemetry-proxy.log" 2>&1 &
           proxy_pid=$!
           unset TELEMETRY_TOKEN
@@ -618,7 +619,7 @@ jobs:
             if ! kill -0 "$proxy_pid" 2>/dev/null; then
               break
             fi
-            if curl -fsS http://127.0.0.1:8081/healthz > /dev/null; then
+            if [ -S "$TELEMETRY_SOCKET" ] && curl -fsS http://127.0.0.1:8081/healthz > /dev/null; then
               exit 0
             fi
             sleep 2
@@ -682,6 +683,15 @@ jobs:
               echo "::error::Could not check telemetry proxy environment"
               exit 1
             fi
+            TELEMETRY_SOCKET="$RUNNER_TEMP/triage-telemetry.sock" \
+              srt --settings .claude/sandbox/srt.json -- bash -c '
+                socat TCP-LISTEN:8081,bind=127.0.0.1,reuseaddr "UNIX-CONNECT:$TELEMETRY_SOCKET" &
+                for _ in $(seq 1 10); do
+                  curl --noproxy "*" -fsS http://127.0.0.1:8081/healthz > /dev/null && exit 0
+                  sleep 0.5
+                done
+                exit 1
+              ' || { echo "::error::Telemetry proxy is unreachable from the sandbox"; exit 1; }
           fi
           # srt masks a denied directory with an empty one, so check for visible entries.
           for command in \
@@ -722,14 +732,21 @@ jobs:
           OTEL_LOG_ASSISTANT_RESPONSES: "1"
           OTEL_LOG_TOOL_DETAILS: "1"
           OTEL_LOG_TOOL_CONTENT: "1"
+          TELEMETRY_SOCKET: ${{ runner.temp }}/triage-telemetry.sock
           OTEL_RESOURCE_ATTRIBUTES: github.issue_number=${{ needs.issue.outputs.number }},github.run_url=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           mkdir -p "$AGENT_BROWSER_SCREENSHOT_DIR"
           mkdir -p "${TMPDIR:-/tmp}"
           token=$(cat /proc/sys/kernel/random/uuid)
           echo "::stop-commands::$token"
+          # Claude Code's OTel exporter may connect to localhost:8081 directly rather than through
+          # srt's HTTP proxy, so relay that port inside the sandbox to the telemetry proxy's socket.
+          relay=()
+          if [ -S "$TELEMETRY_SOCKET" ]; then
+            relay=(bash -c 'socat TCP-LISTEN:8081,bind=127.0.0.1,fork,reuseaddr "UNIX-CONNECT:$0" & exec "$@"' "$TELEMETRY_SOCKET")
+          fi
           timeout 30m srt --settings .claude/sandbox/srt.json -- \
-            env -u NO_PROXY -u no_proxy claude \
+            "${relay[@]}" env -u NO_PROXY -u no_proxy claude \
             --model "$MODEL" \
             --effort high \
             --max-budget-usd 5 \
