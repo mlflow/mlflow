@@ -10,12 +10,12 @@ import {
   createSpanFilter,
 } from '@databricks/web-shared/model-trace-explorer';
 import { useTraceMetricsQuery } from './useTraceMetricsQuery';
-import { formatTimestampForTraceMetrics, TOOL_CHART_TIMESTAMP_KEY } from '../utils/chartUtils';
+import { formatTimestampForTraceMetrics } from '../utils/chartUtils';
 import { useOverviewChartContext } from '../OverviewChartContext';
 
 export interface ToolUsageDataPoint {
-  [TOOL_CHART_TIMESTAMP_KEY]: string;
-  [toolName: string]: string | number;
+  timestamp: string;
+  values: Record<string, number>;
 }
 
 export interface UseToolUsageChartDataResult {
@@ -88,13 +88,9 @@ export function useToolUsageChartData({ enabled = true }: { enabled?: boolean } 
     const chartDataResult = timeBuckets.map((timestampMs) => {
       const toolCounts = dataByTimestamp.get(timestampMs);
       const dataPoint: ToolUsageDataPoint = {
-        [TOOL_CHART_TIMESTAMP_KEY]: formatTimestampForTraceMetrics(timestampMs, timeIntervalSeconds),
+        timestamp: formatTimestampForTraceMetrics(timestampMs, timeIntervalSeconds),
+        values: Object.fromEntries(sortedToolNames.map((toolName) => [toolName, toolCounts?.get(toolName) || 0])),
       };
-
-      // Add count for each tool (0 if not present)
-      for (const toolName of sortedToolNames) {
-        dataPoint[toolName] = toolCounts?.get(toolName) || 0;
-      }
 
       return dataPoint;
     });

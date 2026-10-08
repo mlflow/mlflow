@@ -2,7 +2,7 @@ import React, { useCallback } from 'react';
 import { ChartLineIcon, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { useToolUsageChartData } from '../hooks/useToolUsageChartData';
+import { useToolUsageChartData, type ToolUsageDataPoint } from '../hooks/useToolUsageChartData';
 import { useItemSelection } from '../hooks/useItemSelection';
 import {
   OverviewChartLoadingState,
@@ -16,7 +16,7 @@ import {
   useScrollableLegendProps,
 } from './OverviewChartComponents';
 import { ItemSelector } from './ItemSelector';
-import { formatCount, TOOL_CHART_TIMESTAMP_KEY, useLegendHighlight, useChartColors } from '../utils/chartUtils';
+import { formatCount, useLegendHighlight, useChartColors } from '../utils/chartUtils';
 
 /**
  * Chart showing tool usage over time as a stacked bar chart.
@@ -89,7 +89,7 @@ export const ToolUsageChart: React.FC = () => {
         {hasData && displayedItems.length > 0 ? (
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
-              <XAxis dataKey={TOOL_CHART_TIMESTAMP_KEY} {...xAxisProps} />
+              <XAxis dataKey="timestamp" {...xAxisProps} />
               <YAxis {...yAxisProps} />
               <Tooltip
                 content={
@@ -106,7 +106,8 @@ export const ToolUsageChart: React.FC = () => {
                 return (
                   <Bar
                     key={toolName}
-                    dataKey={toolName}
+                    name={toolName}
+                    dataKey={(dataPoint: ToolUsageDataPoint) => dataPoint.values[toolName]}
                     stackId="tools"
                     fill={getChartColor(originalIndex)}
                     fillOpacity={getOpacity(toolName)}

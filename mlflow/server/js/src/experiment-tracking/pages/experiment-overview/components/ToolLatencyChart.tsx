@@ -2,7 +2,7 @@ import React, { useCallback } from 'react';
 import { LightningIcon, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { useToolLatencyChartData } from '../hooks/useToolLatencyChartData';
+import { useToolLatencyChartData, type ToolLatencyDataPoint } from '../hooks/useToolLatencyChartData';
 import { useItemSelection } from '../hooks/useItemSelection';
 import {
   OverviewChartLoadingState,
@@ -16,7 +16,7 @@ import {
   useScrollableLegendProps,
 } from './OverviewChartComponents';
 import { ItemSelector } from './ItemSelector';
-import { formatLatency, TOOL_CHART_TIMESTAMP_KEY, useLegendHighlight, useChartColors, getLineDotStyle } from '../utils/chartUtils';
+import { formatLatency, useLegendHighlight, useChartColors, getLineDotStyle } from '../utils/chartUtils';
 
 /**
  * Chart showing average latency comparison for each tool over time as a line chart.
@@ -92,7 +92,7 @@ export const ToolLatencyChart: React.FC = () => {
         {hasData && displayedItems.length > 0 ? (
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
-              <XAxis dataKey={TOOL_CHART_TIMESTAMP_KEY} {...xAxisProps} />
+              <XAxis dataKey="timestamp" {...xAxisProps} />
               <YAxis {...yAxisProps} />
               <Tooltip
                 content={
@@ -110,7 +110,8 @@ export const ToolLatencyChart: React.FC = () => {
                   <Line
                     key={toolName}
                     type="monotone"
-                    dataKey={toolName}
+                    name={toolName}
+                    dataKey={(dataPoint: ToolLatencyDataPoint) => dataPoint.values[toolName]}
                     stroke={getChartColor(originalIndex)}
                     strokeWidth={2}
                     strokeOpacity={getOpacity(toolName)}

@@ -404,6 +404,3 @@ export function useChartZoom<T>(data: T[], labelKey: keyof T): ChartZoomState<T>
     zoomOut,
   };
 }
-
-/** Key holding the formatted X-axis label in tool chart data points; kept distinct from tool names, which are used as keys. */
-export const TOOL_CHART_TIMESTAMP_KEY = '__timestamp__';
