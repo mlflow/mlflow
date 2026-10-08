@@ -381,9 +381,10 @@ class OpenAICompatibleProvider(AssistantProvider):
         context: dict[str, Any] | None = None,
     ) -> AsyncGenerator[Event, None]:
         config = self._load_config()
-        # Remote callers are capped at the restricted profile: their config full_access is dropped
-        # and they are not offered the interactive full-access grant below (which could only elevate
-        # to a level a remote caller is not allowed to reach). Local callers are unaffected.
+        # Restricted callers (remote users, and non-admins on a sandboxed auth server) are capped at
+        # the restricted profile: their config full_access is dropped and they are not offered the
+        # interactive full-access grant below (which could only elevate to a level they are not
+        # allowed to reach). Other callers are unaffected.
         remote = is_remote_caller()
         caller_permissions = restrict_permissions_for_remote(config.permissions)
         base_url = (config.base_url or self._default_base_url or "").rstrip("/") or None

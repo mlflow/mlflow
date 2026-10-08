@@ -43,9 +43,9 @@ _CODEX_BINARY = "codex"
 
 
 def _codex_sandbox_mode() -> str:
-    # A remote caller is capped at the restricted profile: codex runs confined to the workspace
-    # rather than with full host access, even inside the assistant's sandbox container. A local
-    # caller (operator on the server host) keeps full access.
+    # A restricted caller (a remote user, or a non-admin on a sandboxed auth server) is capped at
+    # the restricted profile: codex runs confined to the workspace rather than with full host
+    # access, even inside the assistant's sandbox container. Other callers keep full access.
     return "workspace-write" if is_remote_caller() else "danger-full-access"
 
 
