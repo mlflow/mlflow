@@ -1424,3 +1424,28 @@ def test_list_provider_models_returns_404_for_unsupported_provider(client):
 
     assert response.status_code == 404
     assert "not supported" in response.json()["detail"]
+
+
+@pytest.mark.parametrize(
+    ("restricted", "message"),
+    [
+        (True, "runs tools directly on the MLflow server host"),
+        (False, "No assistant provider is configured or available."),
+    ],
+)
+def test_stream_explains_a_host_only_provider_to_restricted_callers(restricted, message):
+    app = FastAPI()
+    app.include_router(assistant_router)
+
+    with (
+        patch("mlflow.server.assistant.api._get_selected_provider", return_value=MockProvider()),
+        patch("mlflow.server.assistant.api._resolve_provider", return_value=None),
+        patch("mlflow.server.assistant.api._is_restricted_caller", return_value=restricted),
+        patch("mlflow.server.assistant.api._is_localhost", return_value=True),
+    ):
+        client = TestClient(app)
+        r = client.post("/ajax-api/3.0/mlflow/assistant/message", json={"message": "Hi"})
+        response = client.get(r.json()["stream_url"])
+
+    assert response.status_code == 200
+    assert message in response.text
