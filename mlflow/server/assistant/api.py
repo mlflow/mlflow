@@ -50,6 +50,7 @@ from mlflow.server.assistant.identity import (
     AssistantAuthError,
     auth_plugin_active,
     resolve_authenticated_username,
+    user_is_admin,
 )
 from mlflow.server.assistant.session import (
     Session,
@@ -167,6 +168,38 @@ def _get_route_provider(request: Request) -> AssistantProvider | None:
 def _current_username(request: Request) -> str | None:
     # Set by _AssistantAPIRoute.route_handler before any endpoint runs; None on a no-auth server.
     return request.state.assistant_username
+
+
+def _touches_server_settings(update: "ConfigUpdateRequest") -> bool:
+    if update.projects:
+        return True
+    for provider_data in (update.providers or {}).values():
+        if not isinstance(provider_data, dict):
+            continue
+        permissions = provider_data.get("permissions")
+        if (
+            provider_data.get("api_key")
+            or provider_data.get("gateway_vendor")
+            or (isinstance(permissions, dict) and permissions.get("full_access"))
+        ):
+            return True
+    return False
+
+
+def _server_settings_restriction(request: Request) -> str | None:
+    """Why the caller may not change server-wide Assistant settings, or None if they may.
+
+    Project directories, skills installs and gateway connections (API keys) apply to every user of
+    the server, and full access lets the Assistant run any command on the server host. They can only
+    be changed from the MLflow server host, and on a server with auth, only by an admin: any
+    authenticated user can reach the host, so being local is not enough to trust a caller. Returns
+    the phrase ending the denial message ("can only be ... <phrase>").
+    """
+    if not _is_localhost(request):
+        return "from the MLflow server host"
+    if auth_plugin_active() and not user_is_admin(_current_username(request)):
+        return "by an administrator"
+    return None
 
 
 def _session_owned_by(session: Session, username: str | None) -> bool:
@@ -780,7 +813,8 @@ async def get_config(request: Request) -> ConfigResponse:
         provider_data.pop("api_key", None)
 
     projects = {exp_id: p.model_dump() for exp_id, p in config.projects.items()}
-    if not _is_localhost(request):
+    # Project paths are host filesystem paths; only callers who may configure them see them.
+    if _server_settings_restriction(request):
         for project_data in projects.values():
             project_data.pop("location", None)
 
@@ -797,10 +831,10 @@ async def update_config(request: ConfigUpdateRequest, http_request: Request) -> 
     """
     Update the assistant configuration.
 
-    A remote (authenticated) caller may only change their own per-user provider settings (selected
-    provider, model, permissions, base URL), which are saved to their own config. Server-level
-    changes -- registering project directories, and creating gateway LLM connections (API keys) --
-    stay localhost-only, since they affect the whole server rather than one user.
+    Any caller may change their own per-user provider settings (selected provider, model,
+    permissions, base URL), which are saved to their own config. Registering project directories,
+    creating gateway LLM connections (API keys), and enabling full access need a caller allowed to
+    change server-wide settings (see ``_server_settings_restriction``).
 
     Args:
         request: Partial configuration update.
@@ -809,31 +843,30 @@ async def update_config(request: ConfigUpdateRequest, http_request: Request) -> 
     Returns:
         Updated configuration.
     """
-    if not _is_localhost(http_request):
+    # Only check the caller when the request touches a server-wide setting, so a per-user provider
+    # change never depends on the admin lookup.
+    if _touches_server_settings(request) and (
+        restriction := _server_settings_restriction(http_request)
+    ):
         if request.projects:
             raise HTTPException(
                 status_code=403,
-                detail="Project directories can only be configured from the MLflow server host.",
+                detail=f"Project directories can only be configured {restriction}.",
             )
         for provider_data in (request.providers or {}).values():
-            # `providers` values are typed `Any`, so a malformed remote payload may not be a dict.
-            # Reject it up front instead of letting `.get` raise an unhandled 500.
             if not isinstance(provider_data, dict):
                 raise HTTPException(status_code=400, detail="Invalid provider configuration.")
             if provider_data.get("api_key") or provider_data.get("gateway_vendor"):
                 raise HTTPException(
                     status_code=403,
-                    detail="Gateway connections (API keys) can only be configured from the "
-                    "MLflow server host.",
+                    detail=f"Gateway connections (API keys) can only be configured {restriction}.",
                 )
-            # Full access bypasses all permission checks, so it is host-only like the fields above.
-            # The runtime clamp already neutralizes it for remote tool execution; rejecting the
-            # write keeps the persisted config honest and the enforcement in one place.
+            # Full access bypasses all permission checks, so it is restricted like the fields above.
             permissions = provider_data.get("permissions")
             if isinstance(permissions, dict) and permissions.get("full_access"):
                 raise HTTPException(
                     status_code=403,
-                    detail="Full access can only be enabled from the MLflow server host.",
+                    detail=f"Full access can only be enabled {restriction}.",
                 )
 
     config = AssistantConfig.load()
@@ -842,8 +875,7 @@ async def update_config(request: ConfigUpdateRequest, http_request: Request) -> 
     if request.providers:
         for name, provider_data in request.providers.items():
             # `providers` values are typed `Any`; a malformed payload (e.g. a bare string) would
-            # make the `.get` calls below raise an unhandled 500. A remote caller was already
-            # rejected above, but a localhost caller reaches here unchecked.
+            # make the `.get` calls below raise an unhandled 500.
             if not isinstance(provider_data, dict):
                 raise HTTPException(status_code=400, detail="Invalid provider configuration.")
             existing = config.providers.get(name)
@@ -912,7 +944,9 @@ async def update_config(request: ConfigUpdateRequest, http_request: Request) -> 
 
 @assistant_router.post("/skills/install")
 @_remote_access_policy(_RemoteAccessPolicy.DENY)
-async def install_skills_endpoint(request: SkillsInstallRequest) -> SkillsInstallResponse:
+async def install_skills_endpoint(
+    request: SkillsInstallRequest, http_request: Request
+) -> SkillsInstallResponse:
     """
     Install skills bundled with MLflow.
     This endpoint only handles installation. Config updates should be done via PUT /config.
@@ -925,7 +959,13 @@ async def install_skills_endpoint(request: SkillsInstallRequest) -> SkillsInstal
 
     Raises:
         HTTPException 400: If custom type without custom_path or project type without experiment_id.
+        HTTPException 403: If the caller may not change server-wide settings.
     """
+    # Skills are installed on the server host's filesystem for every user.
+    if restriction := _server_settings_restriction(http_request):
+        raise HTTPException(
+            status_code=403, detail=f"Skills can only be installed {restriction}."
+        )
     config = AssistantConfig.load()
 
     project_path: Path | None = None

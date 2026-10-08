@@ -335,6 +335,9 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   const [isLoadingConfig, setIsLoadingConfig] = useState(true);
   const [remoteAccessAllowed, setRemoteAccessAllowed] = useState(false);
   const canUseAssistant = isLocalServer || remoteAccessAllowed;
+  // Mirrors the server's rule for server-wide settings. Without auth there is no current user, and
+  // the local operator may change them.
+  const canEditServerSettings = isLocalServer && (!currentUser?.user || currentUser.user.is_admin);
 
   // Whether the (possibly optimistically-picked) provider still needs an API key
   // before it can chat. Derived from discovery so a dropdown switch flips it
@@ -1362,6 +1365,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     pendingPermission,
     pendingClientToolCall,
     canUseAssistant,
+    canEditServerSettings,
     tokenUsage,
     // Actions
     openPanel,
@@ -1409,6 +1413,7 @@ const disabledAssistantContext: AssistantAgentContextType = {
   pendingPermission: null,
   pendingClientToolCall: null,
   canUseAssistant: false,
+  canEditServerSettings: false,
   tokenUsage: { promptTokens: 0, completionTokens: 0, totalTokens: 0, cacheReadTokens: 0, costUsd: null },
   openPanel: () => {},
   closePanel: () => {},

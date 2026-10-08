@@ -277,6 +277,11 @@ export interface AssistantAgentState {
   pendingClientToolCall: PendingClientToolCall | null;
   /** Whether the Assistant can be used from this client, considering server-side remote-access settings */
   canUseAssistant: boolean;
+  /**
+   * Whether the caller may change server-wide settings (project paths, skills, API keys, full access):
+   * only from the server host, and on a server with auth, only as an admin
+   */
+  canEditServerSettings: boolean;
   /** Cumulative token usage for the session (best-effort; only some providers report it) */
   tokenUsage: TokenUsage;
 }

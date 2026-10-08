@@ -43,6 +43,9 @@ def auth_enabled(monkeypatch):
     module = types.ModuleType("mlflow.server.auth")
     module.is_auth_enabled = lambda: True
     module.authenticate_fastapi_request_user = _authenticate
+    module.store = types.SimpleNamespace(
+        get_user=lambda username: types.SimpleNamespace(is_admin=username == "admin")
+    )
     monkeypatch.setitem(sys.modules, "mlflow.server.auth", module)
 
 
@@ -135,3 +138,57 @@ def test_localhost_can_configure_projects(tmp_path, monkeypatch):
     response = client.put(CONFIG_URL, json={"projects": {"exp1": {"location": str(proj)}}})
     assert response.status_code == 200
     assert AssistantConfig.load().projects["exp1"] == ProjectConfig(location=str(proj))
+
+
+_SERVER_WIDE_WRITES = [
+    {"projects": {"exp1": {"location": "/srv/proj"}}},
+    {"providers": {"mlflow_gateway": {"api_key": "sk-secret", "gateway_vendor": "openai"}}},
+    {"providers": {"claude_code": {"permissions": {"full_access": True}}}},
+]
+
+
+@pytest.mark.parametrize("payload", _SERVER_WIDE_WRITES)
+def test_localhost_non_admin_cannot_change_server_wide_settings(auth_enabled, monkeypatch, payload):
+    # On a server with auth, reaching the host does not make a caller the operator: any
+    # authenticated user can, so server-wide settings also require an admin.
+    client = _client(monkeypatch, localhost=True)
+    response = client.put(CONFIG_URL, json=payload, headers=_auth("alice"))
+    assert response.status_code == 403
+    assert "by an administrator" in response.json()["detail"]
+
+
+def test_localhost_admin_can_configure_projects(auth_enabled, tmp_path, monkeypatch):
+    proj = tmp_path / "proj"
+    proj.mkdir()
+    client = _client(monkeypatch, localhost=True)
+    response = client.put(
+        CONFIG_URL,
+        json={"projects": {"exp1": {"location": str(proj)}}},
+        headers=_auth("admin"),
+    )
+    assert response.status_code == 200
+    assert AssistantConfig.load().projects["exp1"] == ProjectConfig(location=str(proj))
+
+
+def test_localhost_non_admin_writes_own_provider_config(auth_enabled, monkeypatch):
+    client = _client(monkeypatch, localhost=True)
+    response = client.put(
+        CONFIG_URL,
+        json={"providers": {"mlflow_gateway": {"model": "gpt-x", "selected": True}}},
+        headers=_auth("alice"),
+    )
+    assert response.status_code == 200
+
+    set_config_user("alice")
+    assert AssistantConfig.load().providers["mlflow_gateway"].model == "gpt-x"
+
+
+def test_localhost_non_admin_cannot_install_skills(auth_enabled, monkeypatch):
+    client = _client(monkeypatch, localhost=True)
+    response = client.post(
+        "/ajax-api/3.0/mlflow/assistant/skills/install",
+        json={"type": "global"},
+        headers=_auth("alice"),
+    )
+    assert response.status_code == 403
+    assert "by an administrator" in response.json()["detail"]
