@@ -14,6 +14,7 @@ from typing import Any
 from mlflow.entities.span import Span, SpanType
 from mlflow.tracing.constant import CostKey, SpanAttributeKey, TokenUsageKey
 from mlflow.tracing.otel.translation.base import OtelSchemaTranslator
+from mlflow.tracing.otel.translation.claude_code import ClaudeCodeTranslator
 from mlflow.tracing.otel.translation.gemini_cli import GeminiCliTranslator
 from mlflow.tracing.otel.translation.genai_semconv import GenAiTranslator
 from mlflow.tracing.otel.translation.google_adk import GoogleADKTranslator
@@ -36,6 +37,7 @@ _logger = logging.getLogger(__name__)
 _TRANSLATORS: list[OtelSchemaTranslator] = [
     OpenInferenceTranslator(),
     GeminiCliTranslator(),
+    ClaudeCodeTranslator(),
     GenAiTranslator(),
     SpringAiTranslator(),
     TraceloopTranslator(),
@@ -51,6 +53,7 @@ _TRANSLATORS: list[OtelSchemaTranslator] = [
 _EVENT_TRANSLATORS = [
     SpringAiTranslator(),
     LiveKitTranslator(),
+    ClaudeCodeTranslator(),
 ]
 
 
