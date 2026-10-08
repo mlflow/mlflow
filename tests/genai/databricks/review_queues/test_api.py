@@ -161,7 +161,7 @@ def test_create_review_queue():
 
 def test_create_review_queue_user_sets_owner():
     with mock.patch(_CALL, return_value={**_QUEUE, "queue_type": "USER"}) as mock_call:
-        create_review_queue("1", "alice@example.com", queue_type="USER")
+        queue = create_review_queue("1", "alice@example.com", queue_type="USER")
     mock_call.assert_called_once_with(
         "POST",
         "experiments/1/reviewQueues",
@@ -171,6 +171,7 @@ def test_create_review_queue_user_sets_owner():
             "owner": "alice@example.com",
         },
     )
+    assert queue.queue_type == ReviewQueueType.USER
 
 
 def test_get_review_queue():
