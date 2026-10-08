@@ -89,10 +89,13 @@ export const AssistantSettingsForm = ({
   backLabel = 'Back',
 }: AssistantSettingsFormProps) => {
   const { theme } = useDesignSystemTheme();
-  const { isLocalServer, canEditServerSettings } = useAssistant();
+  const { isLocalServer } = useAssistant();
   // How the server restricts its server-wide settings for this caller, used in the notes below.
   const serverSettingsRestriction = isLocalServer ? 'by an administrator' : 'from the MLflow server host';
   const { config, isLoading: isLoadingConfig, refetch: refetchConfig } = useAssistantConfigQuery();
+  // Read from the same config the form saves against, so a save never drops settings the caller
+  // is allowed to keep (e.g. an admin's full access).
+  const canEditServerSettings = config?.can_edit_server_settings ?? false;
 
   const [projectPath, setProjectPath] = useState<string>('');
   // Permissions state

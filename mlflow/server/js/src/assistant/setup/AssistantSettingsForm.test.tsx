@@ -25,7 +25,10 @@ jest.mock('../AssistantContext', () => ({
 
 jest.mock('../hooks/useAssistantConfigQuery', () => ({
   useAssistantConfigQuery: () => ({
-    config: mockConfig,
+    config: mockConfig && {
+      ...mockConfig,
+      can_edit_server_settings: mockCanEditServerSettings ?? mockIsLocalServer,
+    },
     isLoading: false,
     refetch: mockRefetchConfig,
   }),

@@ -215,9 +215,20 @@ def _server_settings_restriction(request: Request) -> str | None:
     """
     if not _is_localhost(request):
         return "from the MLflow server host"
+    # The ContextVar holds the restricted-caller result for this request (set by the route class).
     if is_remote_caller():
         return "by an administrator"
     return None
+
+
+def _visible_projects(config: AssistantConfig, can_edit_server_settings: bool) -> dict[str, Any]:
+    projects = {exp_id: p.model_dump() for exp_id, p in config.projects.items()}
+    # Project paths are host filesystem paths, so they are left out for callers who may not
+    # configure them. This is not a secret boundary: a caller's tools still run in that directory.
+    if not can_edit_server_settings:
+        for project_data in projects.values():
+            project_data.pop("location", None)
+    return projects
 
 
 def _session_owned_by(session: Session, username: str | None) -> bool:
@@ -285,8 +296,9 @@ class _AssistantAPIRoute(APIRoute):
             # request runs in its own context, so this does not leak across requests.
             set_config_user(request.state.assistant_username)
             # Cap a restricted caller (see _is_restricted_caller) at the restricted tool-permission
-            # profile, so server-side tool execution cannot be driven with full_access. Off the
-            # event loop, since it may look the caller up in the auth store.
+            # profile, so server-side tool execution cannot be driven with full_access; the same
+            # flag decides who may change server-wide settings (_server_settings_restriction). Off
+            # the event loop, since it may look the caller up in the auth store.
             set_remote_caller(await asyncio.to_thread(_is_restricted_caller, request))
             if policy != _RemoteAccessPolicy.NONE and not _is_localhost(request):
                 if policy == _RemoteAccessPolicy.DENY or not MLFLOW_ENABLE_REMOTE_ASSISTANT.get():
@@ -831,17 +843,11 @@ async def get_config(request: Request) -> ConfigResponse:
     for provider_data in providers.values():
         provider_data.pop("api_key", None)
 
-    projects = {exp_id: p.model_dump() for exp_id, p in config.projects.items()}
     can_edit_server_settings = _server_settings_restriction(request) is None
-    # Project paths are host filesystem paths, so they are left out for callers who may not
-    # configure them. This is not a secret boundary: a caller's tools still run in that directory.
-    if not can_edit_server_settings:
-        for project_data in projects.values():
-            project_data.pop("location", None)
 
     return ConfigResponse(
         providers=providers,
-        projects=projects,
+        projects=_visible_projects(config, can_edit_server_settings),
         remote_access_allowed=_provider_allows_remote_access(provider),
         can_edit_server_settings=can_edit_server_settings,
     )
@@ -865,7 +871,8 @@ async def update_config(request: ConfigUpdateRequest, http_request: Request) -> 
     Returns:
         Updated configuration.
     """
-    if restriction := _server_settings_restriction(http_request):
+    restriction = _server_settings_restriction(http_request)
+    if restriction:
         if request.projects:
             raise HTTPException(
                 status_code=403,
@@ -955,8 +962,9 @@ async def update_config(request: ConfigUpdateRequest, http_request: Request) -> 
 
     return ConfigResponse(
         providers=providers,
-        projects={exp_id: p.model_dump() for exp_id, p in config.projects.items()},
+        projects=_visible_projects(config, restriction is None),
         remote_access_allowed=_provider_allows_remote_access(_get_selected_provider(config)),
+        can_edit_server_settings=restriction is None,
     )
 
 

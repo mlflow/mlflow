@@ -26,7 +26,7 @@ def isolated(tmp_path, monkeypatch):
     monkeypatch.setattr(config_module, "CONFIG_PATH", home / "config.json")
     monkeypatch.setenv("MLFLOW_ENABLE_REMOTE_ASSISTANT", "true")
     # Pinned off so results do not depend on whether Docker is installed; see ``sandbox_on``.
-    monkeypatch.setattr("mlflow.server.assistant.api.assistant_sandbox_enabled", lambda: False)
+    monkeypatch.setenv("MLFLOW_ENABLE_ASSISTANT_SANDBOX", "false")
     set_config_user(None)
     clear_config_cache()
     yield
@@ -54,7 +54,7 @@ def auth_enabled(monkeypatch):
 
 @pytest.fixture
 def sandbox_on(monkeypatch):
-    monkeypatch.setattr("mlflow.server.assistant.api.assistant_sandbox_enabled", lambda: True)
+    monkeypatch.setenv("MLFLOW_ENABLE_ASSISTANT_SANDBOX", "true")
 
 
 def _client(monkeypatch, localhost: bool) -> TestClient:
@@ -182,6 +182,27 @@ def test_localhost_non_admin_changes_server_wide_settings_without_the_sandbox(
     client = _client(monkeypatch, localhost=True)
     response = client.put(CONFIG_URL, json=payload, headers=_auth("alice"))
     assert response.status_code == 200
+    assert response.json()["can_edit_server_settings"] is True
+
+    set_config_user("alice")
+    saved = AssistantConfig.load()
+    if "projects" in payload:
+        assert saved.projects["exp1"] == ProjectConfig(location=str(tmp_path))
+    elif "claude_code" in payload["providers"]:
+        assert saved.providers["claude_code"].permissions.full_access is True
+    else:
+        assert saved.providers["mlflow_gateway"].model == "mlflow-assistant-openai"
+
+
+def test_localhost_non_admin_can_install_skills_without_the_sandbox(auth_enabled, monkeypatch):
+    client = _client(monkeypatch, localhost=True)
+    response = client.post(
+        "/ajax-api/3.0/mlflow/assistant/skills/install",
+        json={"type": "global"},
+        headers=_auth("alice"),
+    )
+    # Past the server-settings check; refused only because no provider is selected yet.
+    assert response.status_code == 412
 
 
 def test_localhost_admin_can_configure_projects(auth_enabled, sandbox_on, tmp_path, monkeypatch):
@@ -204,7 +225,7 @@ def test_localhost_admin_can_configure_projects(auth_enabled, sandbox_on, tmp_pa
 def test_localhost_get_config_reports_who_can_edit_server_settings(
     auth_enabled, tmp_path, monkeypatch, username, sandbox, can_edit
 ):
-    monkeypatch.setattr("mlflow.server.assistant.api.assistant_sandbox_enabled", lambda: sandbox)
+    monkeypatch.setenv("MLFLOW_ENABLE_ASSISTANT_SANDBOX", str(sandbox).lower())
     AssistantConfig(projects={"exp1": ProjectConfig(location=str(tmp_path))}).save()
     client = _client(monkeypatch, localhost=True)
     response = client.get(CONFIG_URL, headers=_auth(username))
@@ -212,6 +233,13 @@ def test_localhost_get_config_reports_who_can_edit_server_settings(
     assert response.json()["can_edit_server_settings"] is can_edit
     # Project locations are shown only to callers who may change them.
     assert ("location" in response.json()["projects"]["exp1"]) is can_edit
+
+
+def test_localhost_get_config_can_edit_server_settings_without_auth(sandbox_on, monkeypatch):
+    client = _client(monkeypatch, localhost=True)
+    response = client.get(CONFIG_URL)
+    assert response.status_code == 200
+    assert response.json()["can_edit_server_settings"] is True
 
 
 def test_remote_get_config_cannot_edit_server_settings(auth_enabled, monkeypatch):
