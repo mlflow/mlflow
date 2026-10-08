@@ -439,7 +439,10 @@ def path_to_local_sqlite_uri(path):
     """
     Convert local filesystem path to sqlite uri.
     """
-    path = posixpath.abspath(pathname2url(os.path.abspath(path)))
+    # SQLAlchemy does not url-decode sqlite paths, so the path must not be percent-encoded.
+    path = os.path.abspath(path).replace(os.sep, "/")
+    if not path.startswith("/"):
+        path = "/" + path
     prefix = "sqlite://" if sys.platform == "win32" else "sqlite:///"
     return prefix + path
 
