@@ -774,6 +774,43 @@ async def test_bedrock_converse_chat_omits_guardrail_config_when_unset():
 
 
 @pytest.mark.asyncio
+async def test_bedrock_token_auth_converse_passes_guardrail_config():
+    config = {
+        "name": "chat",
+        "endpoint_type": "llm/v1/chat",
+        "model": {
+            "provider": "bedrock",
+            "name": "us.anthropic.claude-3-5-sonnet-20241022-v2:0",
+            "config": {
+                "aws_config": {
+                    "aws_bearer_token": "bedrock-api-key",
+                    "aws_region": "us-east-1",
+                },
+                "guardrail_config": {
+                    "guardrail_identifier": "gr-abc123",
+                    "guardrail_version": "DRAFT",
+                    "trace": "enabled",
+                },
+            },
+        },
+    }
+    provider = AmazonBedrockProvider(EndpointConfig(**config))
+
+    with mock.patch(
+        "mlflow.gateway.providers.bedrock.send_request",
+        return_value=_converse_response(),
+    ) as mock_send_request:
+        await provider.chat(chat.RequestPayload(messages=[{"role": "user", "content": "Hello"}]))
+
+    mock_send_request.assert_called_once()
+    assert mock_send_request.call_args.kwargs["payload"]["guardrailConfig"] == {
+        "guardrailIdentifier": "gr-abc123",
+        "guardrailVersion": "DRAFT",
+        "trace": "enabled",
+    }
+
+
+@pytest.mark.asyncio
 async def test_bedrock_embeddings():
 
     config = {
