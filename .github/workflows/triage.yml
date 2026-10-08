@@ -463,9 +463,7 @@ jobs:
     needs: [issue, label, safety]
     if: >-
       needs.safety.outputs.decision == 'safe' &&
-      needs.label.outputs.type == 'bug' &&
-      (github.event_name == 'workflow_dispatch' ||
-       contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), needs.issue.outputs.author_association))
+      needs.label.outputs.type == 'bug'
     runs-on: ubuntu-slim
     timeout-minutes: 5
     permissions:
