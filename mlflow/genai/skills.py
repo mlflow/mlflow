@@ -105,7 +105,7 @@ def register_skill(
             requires repository access when pulling, or copy the skill files to a directory
             without Git metadata to upload a snapshot, including uncommitted changes.
         name: Registry name. If omitted, use the name declared in ``SKILL.md``.
-        organization: Registry organization, or the empty string for an unscoped skill.
+        organization: An optional organization to scope the skill.
         status: Initial version status, either ``active`` (default) or ``draft``.
 
     Returns:
