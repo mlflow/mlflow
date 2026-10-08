@@ -1,13 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import WaveSurfer from 'wavesurfer.js';
-import {
-  getArtifactBlob,
-  getArtifactLocationUrl,
-  getLoggedModelArtifactLocationUrl,
-} from '../../../common/utils/ArtifactUtils';
-import type { LoggedModelArtifactViewerProps } from './ArtifactViewComponents.types';
+import { getArtifactBlob } from '../../../common/utils/ArtifactUtils';
 import { ArtifactViewErrorState } from './ArtifactViewErrorState';
 import { ArtifactViewSkeleton } from './ArtifactViewSkeleton';
+import type { LoggedModelArtifactViewerProps } from './ArtifactViewComponents.types';
+import { fetchArtifactUnified } from './utils/fetchArtifactUnified';
 
 const waveSurferStyling = {
   waveColor: '#1890ff',
@@ -19,14 +16,17 @@ export type ShowArtifactAudioViewProps = {
   runUuid: string;
   path: string;
   getArtifact?: (...args: any[]) => any;
-} & LoggedModelArtifactViewerProps;
+} & Omit<LoggedModelArtifactViewerProps, 'experimentId'> & { experimentId?: string };
 
 const ShowArtifactAudioView = ({
   runUuid,
   path,
   getArtifact = getArtifactBlob,
+  artifactRootUri,
   isLoggedModelsMode,
   loggedModelId,
+  experimentId,
+  entityTags,
 }: ShowArtifactAudioViewProps) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const wsRef = useRef<WaveSurfer | null>(null);
@@ -43,15 +43,14 @@ const ShowArtifactAudioView = ({
     let blobUrl: string | undefined;
     let cancelled = false;
 
-    const artifactUrl =
-      isLoggedModelsMode && loggedModelId
-        ? getLoggedModelArtifactLocationUrl(path, loggedModelId)
-        : getArtifactLocationUrl(path, runUuid);
-    getArtifact(artifactUrl)
-      .then((blob: Blob) => {
+    fetchArtifactUnified(
+      { runUuid, path, artifactRootUri, isLoggedModelsMode, loggedModelId, experimentId, entityTags },
+      getArtifact,
+    )
+      .then((result) => {
         if (cancelled || !containerRef.current) return;
 
-        blobUrl = URL.createObjectURL(blob);
+        blobUrl = URL.createObjectURL(result as Blob);
 
         const ws = WaveSurfer.create({
           mediaControls: true,
@@ -94,7 +93,17 @@ const ShowArtifactAudioView = ({
         URL.revokeObjectURL(blobUrl);
       }
     };
-  }, [containerRef, path, runUuid, getArtifact, isLoggedModelsMode, loggedModelId]);
+  }, [
+    containerRef,
+    path,
+    runUuid,
+    getArtifact,
+    artifactRootUri,
+    isLoggedModelsMode,
+    loggedModelId,
+    experimentId,
+    entityTags,
+  ]);
 
   const showLoading = loading && !error;
 

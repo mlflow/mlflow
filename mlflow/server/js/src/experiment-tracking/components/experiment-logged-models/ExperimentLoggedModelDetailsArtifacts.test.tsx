@@ -25,10 +25,14 @@ const getWorkspacesEnabledSyncMock = jest.mocked(getWorkspacesEnabledSync);
 
 describe('ExperimentLoggedModelDetailsArtifacts integration test', () => {
   const { history } = setupTestRouter();
-  let capturedRequests: { url: string; workspaceHeader: string | null }[] = [];
+  let capturedRequests: { url: string; workspaceHeader: string | null; storageHeader: string | null }[] = [];
   const server = setupServer(
     rest.get(/\/?ajax-api\/2\.0\/mlflow\/logged-models\/[^/]+\/artifacts\/directories/, (req, res, ctx) => {
-      capturedRequests.push({ url: req.url.toString(), workspaceHeader: req.headers.get('X-MLFLOW-WORKSPACE') });
+      capturedRequests.push({
+        url: req.url.toString(),
+        workspaceHeader: req.headers.get('X-MLFLOW-WORKSPACE'),
+        storageHeader: req.headers.get('x-storage-header'),
+      });
       return res(
         ctx.json({
           root_uri: 'dbfs:/databricks/mlflow-tracking/123/logged_models/test-model-id/artifacts',
@@ -47,13 +51,40 @@ describe('ExperimentLoggedModelDetailsArtifacts integration test', () => {
         }),
       );
     }),
-    rest.get(/\/?ajax-api\/2\.0\/mlflow\/logged-models\/[^/]+\/artifacts\/files/, (req, res, ctx) => {
-      capturedRequests.push({ url: req.url.toString(), workspaceHeader: req.headers.get('X-MLFLOW-WORKSPACE') });
-      return res(ctx.text('this is text file content of ' + req.url.searchParams.get('artifact_file_path')));
-    }),
-    rest.get(/\/?get-artifact/, (req, res, ctx) => {
-      capturedRequests.push({ url: req.url.toString(), workspaceHeader: req.headers.get('X-MLFLOW-WORKSPACE') });
-      return res(ctx.text('this is text file content of ' + req.url.searchParams.get('path')));
+    rest.post(
+      /\/?ajax-api\/2\.0\/mlflow\/logged-models\/[^/]+\/artifacts\/credentials-for-download/,
+      async (req, res, ctx) => {
+        capturedRequests.push({
+          url: req.url.toString(),
+          workspaceHeader: req.headers.get('X-MLFLOW-WORKSPACE'),
+          storageHeader: req.headers.get('x-storage-header'),
+        });
+        const body = (await req.json()) as { paths: string[] };
+        const path = body.paths[0];
+        return res(
+          ctx.json({
+            credentials: [
+              {
+                credential_info: {
+                  type: 'AWS_PRESIGNED_URL',
+                  signed_uri: `https://storage.example/artifacts/${encodeURIComponent(path)}`,
+                  path,
+                  headers: [{ name: 'x-storage-header', value: 'required' }],
+                },
+              },
+            ],
+          }),
+        );
+      },
+    ),
+    rest.get(/^https:\/\/storage\.example\/artifacts\//, (req, res, ctx) => {
+      capturedRequests.push({
+        url: req.url.toString(),
+        workspaceHeader: req.headers.get('X-MLFLOW-WORKSPACE'),
+        storageHeader: req.headers.get('x-storage-header'),
+      });
+      const path = decodeURIComponent(req.url.pathname.split('/').pop() ?? '');
+      return res(ctx.text('this is text file content of ' + path));
     }),
   );
 
@@ -122,10 +153,16 @@ describe('ExperimentLoggedModelDetailsArtifacts integration test', () => {
       expect(getByText('this is text file content of requirements.txt')).toBeInTheDocument();
     });
 
-    // Verify all requests included the workspace header
-    expect(capturedRequests.length).toBeGreaterThan(0);
-    for (const req of capturedRequests) {
+    const trackingServerRequests = capturedRequests.filter((req) => !req.url.startsWith('https://storage.example/'));
+    expect(trackingServerRequests.length).toBeGreaterThan(0);
+    for (const req of trackingServerRequests) {
       expect(req.workspaceHeader).toBe('team-a');
     }
+    expect(
+      capturedRequests.some((req) => req.url.includes('/artifacts/files') || req.url.includes('/get-artifact')),
+    ).toBe(false);
+    expect(capturedRequests.find((req) => req.url.startsWith('https://storage.example/'))).toEqual(
+      expect.objectContaining({ workspaceHeader: null, storageHeader: 'required' }),
+    );
   });
 });

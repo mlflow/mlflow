@@ -4,7 +4,7 @@ import { render, screen, waitFor } from '../../../common/utils/TestUtils.react18
 import { ShowArtifactLoggedTableView } from './ShowArtifactLoggedTableView';
 import { IntlProvider } from 'react-intl';
 import { DesignSystemProvider } from '@databricks/design-system';
-import { getArtifactContent } from '../../../common/utils/ArtifactUtils';
+import { getArtifactBlob, getArtifactContent } from '../../../common/utils/ArtifactUtils';
 
 // eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(90000); // Larger timeout for integration testing (table rendering)
@@ -22,10 +22,12 @@ const testArtifactData = {
 
 jest.mock('../../../common/utils/ArtifactUtils', () => ({
   ...jest.requireActual<typeof import('../../../common/utils/ArtifactUtils')>('../../../common/utils/ArtifactUtils'),
+  getArtifactBlob: jest.fn(),
   getArtifactContent: jest.fn(),
 }));
 
 describe('ShowArtifactLoggedTableView', () => {
+  const originalRevokeObjectURL = (URL as any).revokeObjectURL;
   const renderComponent = () => {
     render(
       <ShowArtifactLoggedTableView
@@ -69,10 +71,12 @@ describe('ShowArtifactLoggedTableView', () => {
       },
       get() {},
     });
+    (URL as any).revokeObjectURL = jest.fn();
   });
 
   afterAll(() => {
     Object.defineProperty(window.Image.prototype, 'src', originalImageSrc);
+    (URL as any).revokeObjectURL = originalRevokeObjectURL;
   });
 
   afterEach(() => {
@@ -245,6 +249,8 @@ describe('ShowArtifactLoggedTableView', () => {
 
     // @ts-expect-error Type 'Promise<string>' is not assignable to type 'Promise<R>'
     jest.mocked(getArtifactContent).mockImplementation(() => Promise.resolve(JSON.stringify(testImageTable)));
+    jest.mocked(getArtifactBlob).mockResolvedValue(new Blob(['image']));
+    jest.spyOn(URL, 'createObjectURL').mockReturnValue('blob:artifact-image');
     renderComponent();
 
     // Wait for the table headers to render
@@ -253,18 +259,19 @@ describe('ShowArtifactLoggedTableView', () => {
     });
 
     await waitFor(() => {
-      expect(document.body.innerHTML).toContain('get-artifact?path=');
+      expect(getArtifactBlob).toHaveBeenCalledWith(
+        expect.stringContaining('get-artifact?path=fakePathUncompressed&run_uuid=test-run-uuid'),
+      );
+      expect(getArtifactBlob).toHaveBeenCalledWith(
+        expect.stringContaining('get-artifact?path=fakePath&run_uuid=test-run-uuid'),
+      );
     });
 
     // Wait for the table cells to render
     await waitFor(() => {
       const images = screen.getAllByRole('img');
       expect(images.length).toBeGreaterThan(0);
-      expect(
-        images.some((image) =>
-          image.getAttribute('src')?.includes('get-artifact?path=fakePath&run_uuid=test-run-uuid'),
-        ),
-      ).toBe(true);
+      expect(images.some((image) => image.getAttribute('src') === 'blob:artifact-image')).toBe(true);
     });
   });
 

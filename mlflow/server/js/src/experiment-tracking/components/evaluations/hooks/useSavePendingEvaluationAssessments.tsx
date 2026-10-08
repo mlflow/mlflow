@@ -13,6 +13,7 @@ import { isArray, isEqual } from 'lodash';
 import Utils from '../../../../common/utils/Utils';
 import { fulfilled } from '../../../../common/utils/ActionUtils';
 import { ASSESSMENTS_ARTIFACT_FILE_NAME } from '../constants';
+import { fetchRunArtifactWithPresignedUrl } from '../../../utils/PresignedArtifactUtils';
 
 /**
  * Local utility function to fetch existing raw assessments artifact data.
@@ -20,9 +21,12 @@ import { ASSESSMENTS_ARTIFACT_FILE_NAME } from '../constants';
 const fetchExistingRawAssessmentsArtifactData = async (runUuid: string): Promise<RawEvaluationArtifact> => {
   const fullArtifactSrcPath = getArtifactLocationUrl(ASSESSMENTS_ARTIFACT_FILE_NAME, runUuid);
 
-  const fileContents = await getArtifactChunkedText(fullArtifactSrcPath).then((artifactContent) =>
-    JSON.parse(artifactContent),
-  );
+  const fileContents = await fetchRunArtifactWithPresignedUrl(
+    runUuid,
+    ASSESSMENTS_ARTIFACT_FILE_NAME,
+    fullArtifactSrcPath,
+    getArtifactChunkedText,
+  ).then((artifactContent) => JSON.parse(artifactContent));
 
   if (!isArray(fileContents.data) || !isArray(fileContents.columns)) {
     throw new Error('Artifact is malformed and/or not valid JSON');

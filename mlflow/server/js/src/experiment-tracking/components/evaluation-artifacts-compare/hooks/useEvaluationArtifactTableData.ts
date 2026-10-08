@@ -226,6 +226,9 @@ export const useEvaluationArtifactTableData = (
                 cellsEntry[runUuid] = {
                   url: getArtifactLocationUrl(filepath, runUuid),
                   compressed_url: getArtifactLocationUrl(compressed_filepath, runUuid),
+                  runUuid,
+                  filepath,
+                  compressedFilepath: compressed_filepath,
                 };
               } else {
                 cellsEntry[runUuid] = JSON.stringify(cellsEntry[runUuid]);

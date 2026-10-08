@@ -6,11 +6,7 @@
  */
 
 import React, { Component } from 'react';
-import {
-  getArtifactContent,
-  getArtifactLocationUrl,
-  getLoggedModelArtifactLocationUrl,
-} from '../../../common/utils/ArtifactUtils';
+import { getArtifactContent } from '../../../common/utils/ArtifactUtils';
 import './ShowArtifactHtmlView.css';
 import Iframe from 'react-iframe';
 import { ArtifactViewSkeleton } from './ArtifactViewSkeleton';
@@ -90,10 +86,13 @@ class ShowArtifactHtmlView extends Component<ShowArtifactHtmlViewProps, ShowArti
 
   /** Fetches artifacts and updates component state with the result */
   fetchArtifacts() {
-    const { path, runUuid, isLoggedModelsMode, loggedModelId, experimentId, entityTags } = this.props;
+    const { artifactRootUri, path, runUuid, isLoggedModelsMode, loggedModelId, experimentId, entityTags } = this.props;
 
     this.props
-      .getArtifact?.({ path, runUuid, isLoggedModelsMode, loggedModelId, experimentId, entityTags }, getArtifactContent)
+      .getArtifact?.(
+        { artifactRootUri, path, runUuid, isLoggedModelsMode, loggedModelId, experimentId, entityTags },
+        getArtifactContent,
+      )
       .then((html: string) => {
         this.setState({ html: html, loading: false, path: this.props.path });
       })
