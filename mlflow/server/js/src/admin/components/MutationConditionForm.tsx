@@ -197,7 +197,12 @@ export const MutationConditionForm = ({
                   css={{ display: 'block', marginBottom: theme.spacing.xs }}
                   data-testid="admin.mutation_condition_form.parent_required_error"
                 >
-                  Select a {scopeLabel?.toLowerCase()} or switch the scope to{' '}
+                  {/* "Select a specific X" keeps the "a" article correct regardless of
+                      the container label, the same way the permission forms do it --
+                      "a experiment" and "a mcp server" are both reachable here, and
+                      experiment is the common case since runs, traces and logged models
+                      all scope by one. */}
+                  Select a specific {scopeLabel?.toLowerCase()} or switch the scope to{' '}
                   <strong>All {typeLabel.toLowerCase()}s in the workspace</strong>.
                 </Typography.Text>
               )}
