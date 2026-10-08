@@ -1085,6 +1085,8 @@ export const normalizeConversation = (input: any, messageFormat?: string): Model
         const openAIMessages = normalizeOpenAIFormats(input) ?? normalizeOpenAIResponsesInput(input);
         if (openAIMessages) return openAIMessages;
         break;
+      case 'openai_decisions':
+        return null;
       case 'dspy':
         const dspyMessages = normalizeDspyChatInput(input) ?? normalizeDspyChatOutput(input);
         if (dspyMessages) return dspyMessages;

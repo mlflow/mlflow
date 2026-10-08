@@ -6,7 +6,7 @@ import { render } from '@databricks/web-shared/test-utils/render';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { IntlProvider } from '@databricks/i18n';
 
-import { resolveTypeSafeDecision, TypeSafeDecisionAnswers, TypeSafeDecisionInputs } from './TypeSafeDecisionView';
+import { DecisionAnswers, DecisionInputs, resolveTypeSafeDecision } from './DecisionView';
 
 const Wrapper = ({ children }: { children: React.ReactNode }) => (
   <IntlProvider locale="en">
@@ -42,7 +42,7 @@ describe('TypeSafe decision view', () => {
     expect(decision).not.toBeNull();
 
     render(
-      <TypeSafeDecisionInputs
+      <DecisionInputs
         decision={decision!}
         fields={Object.entries(inputs).map(([key, value]) => ({ key, value: JSON.stringify(value) }))}
       />,
@@ -82,7 +82,7 @@ describe('TypeSafe decision view', () => {
     );
     expect(decision?.answers).toHaveLength(3);
 
-    render(<TypeSafeDecisionAnswers decision={decision!} />, { wrapper: Wrapper });
+    render(<DecisionAnswers decision={decision!} />, { wrapper: Wrapper });
     const answers = within(screen.getByTestId('decision-answers'));
     const summary = (id: string) => answers.getByText(id).closest('summary') as HTMLElement;
     expect(answers.getAllByRole('listitem')).toHaveLength(3);
@@ -136,7 +136,7 @@ describe('TypeSafe decision view', () => {
     );
     expect(decision?.answers).toHaveLength(3);
 
-    render(<TypeSafeDecisionAnswers decision={decision!} />, { wrapper: Wrapper });
+    render(<DecisionAnswers decision={decision!} />, { wrapper: Wrapper });
     const answers = within(screen.getByTestId('decision-answers'));
     const summary = (id: string) => answers.getByText(id).closest('summary') as HTMLElement;
     expect(summary('brokenChoice')).toHaveTextContent('Raw answer');
