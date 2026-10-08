@@ -993,128 +993,138 @@ def test_a_user_tag_is_still_judged_alongside_a_managed_one():
     assert evaluate_request(clauses, values) is False
 
 
-class TestAKeyedRequestClauseBindsOneTagKeyToItsValues:
-    """``tags.<key>`` in a VALUE condition: "if this key is being set, its value must
-    satisfy the comparator".
+# ``tags.<key>`` in a VALUE condition: "if this key is being set, its value must
+#     satisfy the comparator".
+#
+#     The flat ``tag_key``/``tag_value`` pair cannot express this. Its clauses are
+#     independent and each applies to every tag in the body, so naming two keys and six
+#     values yields the CROSS PRODUCT -- ``tag_key IN ('a','b') AND tag_value IN
+#     ('x','y','z','t','u','v')`` permits ``a=t``, which an admin writing it would read as
+#     forbidden. That is a leak, not an over-restriction, which is the dangerous direction:
+#     over-restriction is noticed immediately, a permitted write is not.
+#
+#     A keyed clause names the key in the identifier, so the key and the value are bound.
+#
+#     **Absence stays vacuous (D13).** A body that does not write this key is unconstrained,
+#     and so is a deletion, which carries the key with no value. That is the opposite of the
+#     same syntax on the RESOURCE side, where absence FAILS (D20) -- the one trap worth
+#     knowing: `tags.a = 'x'` as a value condition permits a body with no `a` tag, while as
+#     a target condition it refuses a resource with no `a` tag.
+#
 
-    The flat ``tag_key``/``tag_value`` pair cannot express this. Its clauses are
-    independent and each applies to every tag in the body, so naming two keys and six
-    values yields the CROSS PRODUCT -- ``tag_key IN ('a','b') AND tag_value IN
-    ('x','y','z','t','u','v')`` permits ``a=t``, which an admin writing it would read as
-    forbidden. That is a leak, not an over-restriction, which is the dangerous direction:
-    over-restriction is noticed immediately, a permitted write is not.
 
-    A keyed clause names the key in the identifier, so the key and the value are bound.
+@staticmethod
+def _allows(condition, tags):
+    clauses = parse_condition(condition, NAMESPACE_REQUEST)
+    return evaluate_request(clauses, RunRequestValues(tags=tags))
 
-    **Absence stays vacuous (D13).** A body that does not write this key is unconstrained,
-    and so is a deletion, which carries the key with no value. That is the opposite of the
-    same syntax on the RESOURCE side, where absence FAILS (D20) -- the one trap worth
-    knowing: `tags.a = 'x'` as a value condition permits a body with no `a` tag, while as
-    a target condition it refuses a resource with no `a` tag.
+
+def test_the_syntax_is_accepted_in_a_request_condition():
+    clauses = parse_condition("tags.a IN ('x','y','z')", NAMESPACE_REQUEST)
+    assert [(c.identifier, c.key, c.comparator, c.value) for c in clauses] == [
+        ("tags", "a", "IN", ("x", "y", "z"))
+    ]
+
+
+@pytest.mark.parametrize(
+    ("tags", "allowed"),
+    [
+        ((("a", "x"),), True),
+        ((("a", "q"),), False),
+        ((("b", "anything"),), True),  # a key the condition does not name is free
+        ((), True),  # vacuous
+        ((("a", None),), True),  # a deletion names no value to constrain
+    ],
+)
+def test_only_the_named_key_is_constrained(tags, allowed):
+    assert _allows("tags.a IN ('x','y','z')", tags) is allowed
+
+
+@pytest.mark.parametrize(
+    ("tags", "allowed"),
+    [
+        ((("a", "x"),), True),
+        ((("b", "t"),), True),
+        ((("a", "x"), ("b", "t")), True),
+        ((("a", "t"),), False),  # the cross pairing the flat form leaks
+        ((("b", "x"),), False),
+        ((("c", "q"),), True),  # unnamed key stays free
+    ],
+)
+def test_two_keyed_clauses_give_each_key_its_own_vocabulary(tags, allowed):
+    condition = "tags.a IN ('x','y','z') AND tags.b IN ('t','u','v')"
+    assert _allows(condition, tags) is allowed
+
+
+@pytest.mark.parametrize(
+    ("tags", "allowed"),
+    [
+        ((("a", "x"),), True),
+        ((("a", "q"),), False),  # value not permitted for a
+        ((("b", "t"),), False),  # key not permitted at all
+        ((("a", "x"), ("b", "t")), False),
+        ((), True),
+        ((("a", None),), True),  # may delete a
+        ((("b", None),), False),  # may not delete b (D12: a delete is gated by key)
+    ],
+)
+def test_a_keyed_clause_composes_with_tag_key_to_close_the_key_set(tags, allowed):
+    """``tags.a IN (...) AND tag_key IN ('a')`` -- only ``a`` may be set, and only to
+    those values. The keyed clause binds the vocabulary; ``tag_key`` closes the set of
+    keys, which a keyed clause alone deliberately does not do.
     """
+    condition = "tags.a IN ('x','y','z') AND tag_key IN ('a')"
+    assert _allows(condition, tags) is allowed
 
-    @staticmethod
-    def _allows(condition, tags):
-        clauses = parse_condition(condition, NAMESPACE_REQUEST)
-        return evaluate_request(clauses, RunRequestValues(tags=tags))
 
-    def test_the_syntax_is_accepted_in_a_request_condition(self):
-        clauses = parse_condition("tags.a IN ('x','y','z')", NAMESPACE_REQUEST)
-        assert [(c.identifier, c.key, c.comparator, c.value) for c in clauses] == [
-            ("tags", "a", "IN", ("x", "y", "z"))
-        ]
+@pytest.mark.parametrize(
+    ("tags", "allowed"),
+    [
+        ((("a", "x"), ("b", "t")), True),
+        ((("a", "t"),), False),
+        ((("b", "x"),), False),
+        ((("c", "q"),), False),  # closed key set
+        ((("a", "x"), ("c", "q")), False),
+    ],
+)
+def test_the_full_form_closes_the_key_set_and_binds_each_vocabulary(tags, allowed):
+    condition = "tags.a IN ('x','y','z') AND tags.b IN ('t','u','v') AND tag_key IN ('a','b')"
+    assert _allows(condition, tags) is allowed
 
-    @pytest.mark.parametrize(
-        ("tags", "allowed"),
-        [
-            ((("a", "x"),), True),
-            ((("a", "q"),), False),
-            ((("b", "anything"),), True),  # a key the condition does not name is free
-            ((), True),  # vacuous
-            ((("a", None),), True),  # a deletion names no value to constrain
-        ],
-    )
-    def test_only_the_named_key_is_constrained(self, tags, allowed):
-        assert self._allows("tags.a IN ('x','y','z')", tags) is allowed
 
-    @pytest.mark.parametrize(
-        ("tags", "allowed"),
-        [
-            ((("a", "x"),), True),
-            ((("b", "t"),), True),
-            ((("a", "x"), ("b", "t")), True),
-            ((("a", "t"),), False),  # the cross pairing the flat form leaks
-            ((("b", "x"),), False),
-            ((("c", "q"),), True),  # unnamed key stays free
-        ],
-    )
-    def test_two_keyed_clauses_give_each_key_its_own_vocabulary(self, tags, allowed):
-        condition = "tags.a IN ('x','y','z') AND tags.b IN ('t','u','v')"
-        assert self._allows(condition, tags) is allowed
+def test_an_equality_comparator_works_too():
+    assert _allows("tags.a = 'x'", (("a", "x"),)) is True
+    assert _allows("tags.a = 'x'", (("a", "y"),)) is False
+    assert _allows("tags.a = 'x'", (("b", "y"),)) is True
 
-    @pytest.mark.parametrize(
-        ("tags", "allowed"),
-        [
-            ((("a", "x"),), True),
-            ((("a", "q"),), False),  # value not permitted for a
-            ((("b", "t"),), False),  # key not permitted at all
-            ((("a", "x"), ("b", "t")), False),
-            ((), True),
-            ((("a", None),), True),  # may delete a
-            ((("b", None),), False),  # may not delete b (D12: a delete is gated by key)
-        ],
-    )
-    def test_a_keyed_clause_composes_with_tag_key_to_close_the_key_set(self, tags, allowed):
-        """``tags.a IN (...) AND tag_key IN ('a')`` -- only ``a`` may be set, and only to
-        those values. The keyed clause binds the vocabulary; ``tag_key`` closes the set of
-        keys, which a keyed clause alone deliberately does not do.
-        """
-        condition = "tags.a IN ('x','y','z') AND tag_key IN ('a')"
-        assert self._allows(condition, tags) is allowed
 
-    @pytest.mark.parametrize(
-        ("tags", "allowed"),
-        [
-            ((("a", "x"), ("b", "t")), True),
-            ((("a", "t"),), False),
-            ((("b", "x"),), False),
-            ((("c", "q"),), False),  # closed key set
-            ((("a", "x"), ("c", "q")), False),
-        ],
-    )
-    def test_the_full_form_closes_the_key_set_and_binds_each_vocabulary(self, tags, allowed):
-        condition = "tags.a IN ('x','y','z') AND tags.b IN ('t','u','v') AND tag_key IN ('a','b')"
-        assert self._allows(condition, tags) is allowed
+def test_the_key_is_case_sensitive():
+    """Only the ``tags`` prefix is a fixed word. A tag key is user data, so
+    ``tags.Stage`` must not silently constrain ``stage`` -- an admin would be
+    restricting a key nobody writes while believing the real one was covered.
+    """
+    clauses = parse_condition("tags.Stage = 'x'", NAMESPACE_REQUEST)
+    assert clauses[0].key == "Stage"
+    assert _allows("tags.Stage = 'x'", (("Stage", "x"),)) is True
+    assert _allows("tags.Stage = 'x'", (("Stage", "y"),)) is False
+    # The differently-cased key is a different key, so it is unconstrained.
+    assert _allows("tags.Stage = 'x'", (("stage", "y"),)) is True
 
-    def test_an_equality_comparator_works_too(self):
-        assert self._allows("tags.a = 'x'", (("a", "x"),)) is True
-        assert self._allows("tags.a = 'x'", (("a", "y"),)) is False
-        assert self._allows("tags.a = 'x'", (("b", "y"),)) is True
 
-    def test_the_key_is_case_sensitive(self):
-        """Only the ``tags`` prefix is a fixed word. A tag key is user data, so
-        ``tags.Stage`` must not silently constrain ``stage`` -- an admin would be
-        restricting a key nobody writes while believing the real one was covered.
-        """
-        clauses = parse_condition("tags.Stage = 'x'", NAMESPACE_REQUEST)
-        assert clauses[0].key == "Stage"
-        assert self._allows("tags.Stage = 'x'", (("Stage", "x"),)) is True
-        assert self._allows("tags.Stage = 'x'", (("Stage", "y"),)) is False
-        # The differently-cased key is a different key, so it is unconstrained.
-        assert self._allows("tags.Stage = 'x'", (("stage", "y"),)) is True
+def test_a_reserved_key_is_still_refused():
+    """D4 applies to the key wherever it is written."""
+    with pytest.raises(MlflowException, match=r"reserved tag keys"):
+        parse_condition("tags.mlflow.runName = 'x'", NAMESPACE_REQUEST)
 
-    def test_a_reserved_key_is_still_refused(self):
-        """D4 applies to the key wherever it is written."""
-        with pytest.raises(MlflowException, match=r"reserved tag keys"):
-            parse_condition("tags.mlflow.runName = 'x'", NAMESPACE_REQUEST)
 
-    def test_a_reserved_key_is_exempt_from_evaluation_too(self):
-        """MLflow's own writes must not fail a clause that does not name them."""
-        assert self._allows("tags.a = 'x'", (("mlflow.user", "bob"), ("a", "x"))) is True
+def test_a_reserved_key_is_exempt_from_evaluation_too():
+    """MLflow's own writes must not fail a clause that does not name them."""
+    assert _allows("tags.a = 'x'", (("mlflow.user", "bob"), ("a", "x"))) is True
 
-    def test_an_alias_identifier_is_still_rejected_on_the_request_side(self):
-        """Only ``tags.<key>`` gains a request meaning. ``aliases.<name>`` has none: the
-        request's alias is a bare value, which ``alias`` already covers.
-        """
-        with pytest.raises(MlflowException, match=r"resource-condition identifier"):
-            parse_condition("aliases.champion = 'x'", NAMESPACE_REQUEST)
+
+def test_an_alias_identifier_is_still_rejected_on_the_request_side():
+    """Only ``tags.<key>`` gains a request meaning. ``aliases.<name>`` has none: the
+    request's alias is a bare value, which ``alias`` already covers.
+    """
+    with pytest.raises(MlflowException, match=r"resource-condition identifier"):
+        parse_condition("aliases.champion = 'x'", NAMESPACE_REQUEST)
