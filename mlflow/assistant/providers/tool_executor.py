@@ -72,9 +72,9 @@ _FILE_TOOLS = {"Read", "Write", "Edit"}
 _ALLOWED_BASH_COMMANDS = {"mlflow", "python3", "python"}
 # In the sandbox, restricted commands run through a shell, so they may be combined with pipes,
 # ``&&``/``||``/``;`` and redirects. Every command in the chain must then be allowed: the commands
-# above, or one of these text tools. None of them can start another program (unlike sed, awk,
-# find or xargs, which are left out).
-_SANDBOX_TEXT_COMMANDS = {"cat", "cut", "echo", "grep", "head", "sort", "tail", "tr", "uniq", "wc"}
+# above, or one of these text tools. None of them has an option that starts another program
+# (unlike sed, awk, find, xargs, or GNU sort's ``--compress-program``, which are left out).
+_SANDBOX_TEXT_COMMANDS = {"cat", "cut", "echo", "grep", "head", "tail", "tr", "uniq", "wc"}
 _SHELL_COMMAND_SEPARATORS = {"|", "||", "&&", ";"}
 # Shell syntax that runs a command the checks below would never see: command and process
 # substitution, and newlines (which separate commands like ``;``).

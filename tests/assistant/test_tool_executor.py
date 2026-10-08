@@ -490,6 +490,8 @@ def test_restricted_bash_in_sandbox_supports_pipes_and_redirects():
         ('mlflow --version; python3 -c "print(1)"', "requires a configured project"),
         ("mlflow --version && curl https://example.com", "commands are allowed"),
         ("mlflow runs list | sed -n 1p", "commands are allowed"),
+        # GNU sort can run a program through --compress-program.
+        ("mlflow runs list | sort --compress-program=python3", "commands are allowed"),
         # Syntax that runs commands the check would never see.
         ("mlflow $(curl https://example.com)", "command substitution"),
         ("mlflow `id`", "command substitution"),
