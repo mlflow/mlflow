@@ -832,7 +832,7 @@ async def get_config(request: Request) -> ConfigResponse:
 
     projects = {exp_id: p.model_dump() for exp_id, p in config.projects.items()}
     # Project paths are host filesystem paths; only callers who may configure them see them.
-    if _server_settings_restriction(request):
+    if projects and _server_settings_restriction(request):
         for project_data in projects.values():
             project_data.pop("location", None)
 
@@ -981,9 +981,7 @@ async def install_skills_endpoint(
     """
     # Skills are installed on the server host's filesystem for every user.
     if restriction := _server_settings_restriction(http_request):
-        raise HTTPException(
-            status_code=403, detail=f"Skills can only be installed {restriction}."
-        )
+        raise HTTPException(status_code=403, detail=f"Skills can only be installed {restriction}.")
     config = AssistantConfig.load()
 
     project_path: Path | None = None

@@ -325,7 +325,9 @@ export const AssistantSettingsForm = ({
                     if (error) setError(null);
                   }}
                 >
-                  <Typography.Text color={!canEditServerSettings ? 'secondary' : undefined}>Full access</Typography.Text>
+                  <Typography.Text color={!canEditServerSettings ? 'secondary' : undefined}>
+                    Full access
+                  </Typography.Text>
                 </Checkbox>
                 <Tooltip
                   componentId="mlflow.assistant.setup.project.perm_full_tooltip"

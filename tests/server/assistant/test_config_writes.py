@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 import mlflow.assistant.config as config_module
 from mlflow.assistant.config import AssistantConfig, ProjectConfig, set_config_user
 from mlflow.assistant.providers.base import clear_config_cache
+from mlflow.exceptions import MlflowException
 from mlflow.server.assistant.api import assistant_router
 
 CONFIG_URL = "/ajax-api/3.0/mlflow/assistant/config"
@@ -192,3 +193,19 @@ def test_localhost_non_admin_cannot_install_skills(auth_enabled, monkeypatch):
     )
     assert response.status_code == 403
     assert "by an administrator" in response.json()["detail"]
+
+
+def test_user_missing_from_the_auth_store_saves_own_provider_config(auth_enabled, monkeypatch):
+    # A user the auth store does not know (e.g. from a custom authorization_function) is treated
+    # as a non-admin, not as an error, so they can still save their own provider settings.
+    def _missing_user(username):
+        raise MlflowException(f"User with username={username} not found")
+
+    monkeypatch.setattr(sys.modules["mlflow.server.auth"].store, "get_user", _missing_user)
+    client = _client(monkeypatch, localhost=True)
+    response = client.put(
+        CONFIG_URL,
+        json={"providers": {"mlflow_gateway": {"model": "gpt-x", "selected": True}}},
+        headers=_auth("sso-user"),
+    )
+    assert response.status_code == 200

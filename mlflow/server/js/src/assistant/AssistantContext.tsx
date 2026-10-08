@@ -36,6 +36,7 @@ import {
 import { getClientToolHandler } from './clientToolHandlers';
 import { getLocalStorageItem, setLocalStorageItem, useLocalStorage } from '@databricks/web-shared/hooks';
 import { useCurrentUserQuery } from '../account/hooks';
+import { useCanEditServerSettings } from './hooks/useCanEditServerSettings';
 import { useAssistantPageContextActions } from './AssistantPageContext';
 import { GATEWAY_PROVIDER_ID } from './constants';
 
@@ -335,9 +336,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   const [isLoadingConfig, setIsLoadingConfig] = useState(true);
   const [remoteAccessAllowed, setRemoteAccessAllowed] = useState(false);
   const canUseAssistant = isLocalServer || remoteAccessAllowed;
-  // Mirrors the server's rule for server-wide settings. Without auth there is no current user, and
-  // the local operator may change them.
-  const canEditServerSettings = isLocalServer && (!currentUser?.user || currentUser.user.is_admin);
+  const canEditServerSettings = useCanEditServerSettings(isLocalServer);
 
   // Whether the (possibly optimistically-picked) provider still needs an API key
   // before it can chat. Derived from discovery so a dropdown switch flips it
