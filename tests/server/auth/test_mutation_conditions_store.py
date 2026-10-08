@@ -255,7 +255,7 @@ def test_a_keyed_value_condition_is_accepted(store, role):
 
 
 def test_a_keyed_value_condition_still_refuses_a_reserved_key(store, role):
-    """D4 is enforced on the KEY wherever `tags` is the identifier."""
+    # D4 is enforced on the KEY wherever `tags` is the identifier.
     with pytest.raises(MlflowException, match=r"reserved tag keys"):
         store.add_mutation_condition(role.id, "run", value_condition="tags.mlflow.runName = 'x'")
 
@@ -357,7 +357,7 @@ def test_alias_condition_accepted_for_the_registry_entry_types(store, role):
 
 
 def test_reserved_key_rejected_in_target_condition_too(store, role):
-    """D4 is symmetric at the store boundary as well as the parser's."""
+    # D4 is symmetric at the store boundary as well as the parser's.
     with pytest.raises(MlflowException, match="reserved tag keys"):
         store.add_mutation_condition(
             role.id,
@@ -619,7 +619,7 @@ def _synthetic_role(store, user_id):
 
 
 def test_creates_the_synthetic_role_on_demand(store, user):
-    """The headline: no direct grant has to exist first."""
+    # The headline: no direct grant has to exist first.
     assert _synthetic_role(store, user.id) is None
 
     mc = store.add_user_mutation_condition(
@@ -633,7 +633,7 @@ def test_creates_the_synthetic_role_on_demand(store, user):
 
 
 def test_reuses_the_role_a_direct_grant_already_created(store, user):
-    """It must land on the SAME role the direct grants use, not a second one."""
+    # It must land on the SAME role the direct grants use, not a second one.
     store.grant_user_resource_permission("alice", "experiment", "*", "EDIT")
     role = _synthetic_role(store, user.id)
     assert role is not None
@@ -643,7 +643,7 @@ def test_reuses_the_role_a_direct_grant_already_created(store, user):
 
 
 def test_the_condition_is_visible_through_the_role_addressed_list(store, user):
-    """Remove and list stay role-addressed, so the two paths have to agree."""
+    # Remove and list stay role-addressed, so the two paths have to agree.
     mc = store.add_user_mutation_condition("alice", "run", target_condition="tags.x = 'y'")
     role = _synthetic_role(store, user.id)
     assert [c.id for c in store.list_mutation_conditions(role.id)] == [mc.id]
@@ -701,7 +701,7 @@ def test_missing_user_raises(store):
 
 
 def test_the_condition_reaches_the_runtime_loader(store, user):
-    """D10: a per-user condition is picked up with no special-casing."""
+    # D10: a per-user condition is picked up with no special-casing.
     store.add_user_mutation_condition("alice", "run", target_condition="tags.x = 'y'")
     rows = store.list_mutation_conditions_for_user(user.id, _WORKSPACE, ["run"])
     assert [r.target_condition for r in rows] == ["tags.x = 'y'"]
@@ -752,7 +752,7 @@ def test_omitting_everything_is_the_whole_workspace(store, role):
 
 
 def test_a_wildcard_container_collapses_to_the_workspace(store, role):
-    """One stored form per meaning, so the loader's SQL needs no wildcard branch."""
+    # One stored form per meaning, so the loader's SQL needs no wildcard branch.
     created = store.add_mutation_condition(
         role.id,
         "run",
@@ -821,7 +821,7 @@ def test_the_runtime_loader_carries_the_pattern(store, role):
 
 
 def test_the_loader_filters_the_container_in_sql(store, role):
-    """The container axis *is* resolved before the query, so it is filtered there."""
+    # The container axis *is* resolved before the query, so it is filtered there.
     store.create_user("bob-scope", "password1234")
     user = store.get_user("bob-scope")
     store.assign_role_to_user(user.id, role.id)
@@ -852,7 +852,7 @@ def test_update_replaces_the_scope_as_a_whole(store, role):
 
 
 def test_update_without_the_flag_leaves_the_scope_alone(store, role):
-    """A client echoing the object back must not widen a scope it never touched."""
+    # A client echoing the object back must not widen a scope it never touched.
     created = store.add_mutation_condition(
         role.id, "experiment", resource_pattern="7", target_condition="tags.a = 'b'"
     )

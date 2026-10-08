@@ -1,19 +1,18 @@
-"""Parity between pushed-down and in-memory evaluation of a target condition.
-
-``AbstractStore.find_failing_resource`` lets a store answer "is there a resource
-here that fails this tag predicate" without loading the resources. That makes
-**two** implementations of one semantic: the store's SQL predicate and the
-auth layer's :func:`evaluate_resource`. Nothing in the type system forces them
-to agree, and a disagreement is not symmetric -- a pushdown that accepts a
-resource the matcher would reject **grants a mutation the condition forbids**.
-
-So every comparator is checked against every tag state here, and the state that
-matters most is the third one: a resource with *no* such tag. D20 makes absence
-fail on the target side, so ``!=`` and ``NOT IN`` must EXCLUDE an untagged
-resource. That is the reading a hand-written SQL predicate gets wrong by
-default, because ``NOT (value = 'x')`` over a join quietly drops to "no row
-matched" and lets the untagged resource through.
-"""
+# Parity between pushed-down and in-memory evaluation of a target condition.
+#
+# ``AbstractStore.find_failing_resource`` lets a store answer "is there a resource
+# here that fails this tag predicate" without loading the resources. That makes
+# **two** implementations of one semantic: the store's SQL predicate and the
+# auth layer's :func:`evaluate_resource`. Nothing in the type system forces them
+# to agree, and a disagreement is not symmetric -- a pushdown that accepts a
+# resource the matcher would reject **grants a mutation the condition forbids**.
+#
+# So every comparator is checked against every tag state here, and the state that
+# matters most is the third one: a resource with *no* such tag. D20 makes absence
+# fail on the target side, so ``!=`` and ``NOT IN`` must EXCLUDE an untagged
+# resource. That is the reading a hand-written SQL predicate gets wrong by
+# default, because ``NOT (value = 'x')`` over a join quietly drops to "no row
+# matched" and lets the untagged resource through.
 
 import tempfile
 from types import SimpleNamespace
@@ -163,7 +162,7 @@ def test_an_untagged_resource_satisfies_no_comparator(
 
 
 def test_every_clause_must_hold(store_with_runs):
-    """Clauses are conjunctive, matching ``combine``'s AND-only semantics."""
+    # Clauses are conjunctive, matching ``combine``'s AND-only semantics.
     store, _, ids = store_with_runs
     clauses = [("tags", TAG_KEY, "=", "prod"), ("tags", TAG_KEY, "=", "dev")]
     assert _satisfying(store, "run", list(ids.values()), clauses) == set(), (
@@ -363,7 +362,7 @@ def test_an_untagged_child_fails(monkeypatch):
 
 
 def test_a_parent_with_no_children_passes(monkeypatch):
-    """Vacuous, and distinct from "could not enumerate", which denied."""
+    # Vacuous, and distinct from "could not enumerate", which denied.
     store, experiment_id = _store_with(monkeypatch, [])
     assert _answer(store, experiment_id) is None
 
@@ -374,7 +373,7 @@ def test_no_clauses_cannot_fail(store_with_runs):
 
 
 def test_a_child_failing_only_the_second_clause_is_found(monkeypatch):
-    """Clauses are conjunctive, so failing any one of them fails the child."""
+    # Clauses are conjunctive, so failing any one of them fails the child.
     store, experiment_id = _store_with(monkeypatch, [("a", "dev")])
     assert (
         store.find_failing_resource(
@@ -534,7 +533,7 @@ def test_an_alias_clause_converts():
 
 
 def test_a_row_mixing_tags_and_aliases_converts_whole():
-    """Both halves in one call, so the conjunction is never split."""
+    # Both halves in one call, so the conjunction is never split.
     pushed = _pushed(f"tags.{TAG_KEY} != 'prod' AND aliases.production = 'yes'")
     assert pushed == [
         ("tags", TAG_KEY, "!=", "prod"),
@@ -559,7 +558,7 @@ def test_an_unrecognised_identifier_declines_the_whole_row():
 
 
 def test_a_clause_with_no_key_declines():
-    """A flat request-style clause has ``key is None`` and names no column."""
+    # A flat request-style clause has ``key is None`` and names no column.
     from mlflow.server.auth import _pushable_clauses
 
     rows = [Clause(identifier="tags", key=None, comparator="=", value="v")]
@@ -604,7 +603,7 @@ def test_mcp_server_tags_push_down(mcp_store):
 
 
 def test_an_untagged_mcp_server_satisfies_no_negative_comparator(mcp_store):
-    """D20 again, on a type whose id is a name rather than a uuid."""
+    # D20 again, on a type whose id is a name rather than a uuid.
     assert _satisfying(mcp_store, "mcp_server", ALL_SERVERS, [("tags", TAG_KEY, "!=", "prod")]) == {
         DEV_SERVER
     }
@@ -628,7 +627,7 @@ def test_an_absent_alias_satisfies_nothing(mcp_store):
 
 
 def test_tags_and_aliases_are_conjunctive_in_one_call(mcp_store):
-    """The reason both namespaces share a call rather than two methods."""
+    # The reason both namespaces share a call rather than two methods.
     both_hold = [("tags", TAG_KEY, "=", "prod"), ("aliases", "champion", "=", "1.0.0")]
     assert _satisfying(mcp_store, "mcp_server", ALL_SERVERS, both_hold) == {PROD_SERVER}
     one_fails = [("tags", TAG_KEY, "=", "dev"), ("aliases", "champion", "=", "1.0.0")]
@@ -636,7 +635,7 @@ def test_tags_and_aliases_are_conjunctive_in_one_call(mcp_store):
 
 
 def test_an_mcp_version_is_matched_by_its_decomposed_id(mcp_store):
-    """A composite id arrives as parts, so the store never parses ``name/version``."""
+    # A composite id arrives as parts, so the store never parses ``name/version``.
     ids = [(name, "1.0.0") for name in ALL_SERVERS]
     assert _satisfying(mcp_store, "mcp_server_version", ids, [("tags", TAG_KEY, "=", "prod")]) == {
         (PROD_SERVER, "1.0.0")
@@ -644,7 +643,7 @@ def test_an_mcp_version_is_matched_by_its_decomposed_id(mcp_store):
 
 
 def test_an_mcp_version_id_must_match_both_parts(mcp_store):
-    """The half-match a plain ``IN`` on the name column would wrongly accept."""
+    # The half-match a plain ``IN`` on the name column would wrongly accept.
     assert (
         _satisfying(
             mcp_store,
@@ -657,7 +656,7 @@ def test_an_mcp_version_id_must_match_both_parts(mcp_store):
 
 
 def test_an_alias_clause_on_an_mcp_version_declines(mcp_store):
-    """D18: a version's aliases live on its parent, so it exposes no alias table."""
+    # D18: a version's aliases live on its parent, so it exposes no alias table.
     with pytest.raises(NotImplementedError, match=_CANNOT_ANSWER):
         mcp_store.find_failing_resource(
             "mcp_server_version",
@@ -759,7 +758,7 @@ ALL_MODELS = ["m-prod", "m-dev", "m-bare"]
 def test_every_comparator_agrees_with_in_memory_on_registry_pushdown(
     pushdown_registry, comparator, value
 ):
-    """The parity contract, re-proved on the pushdown_registry's own tables."""
+    # The parity contract, re-proved on the pushdown_registry's own tables.
     clauses = [("tags", TAG_KEY, comparator, value)]
     # The pushdown_registry store must push this down; it would RAISE if it could not.
     pushdown_registry.find_failing_resource("registered_model", clauses, ids=ALL_MODELS)
@@ -773,21 +772,21 @@ def test_every_comparator_agrees_with_in_memory_on_registry_pushdown(
 
 
 def test_an_untagged_model_satisfies_no_negative_comparator(pushdown_registry):
-    """D20 on the pushdown_registry side."""
+    # D20 on the pushdown_registry side.
     assert _satisfying(
         pushdown_registry, "registered_model", ALL_MODELS, [("tags", TAG_KEY, "!=", "prod")]
     ) == {"m-dev"}
 
 
 def test_an_integer_version_compares_as_the_string_it_was_written_as(pushdown_registry):
-    """The cast. Uncast this returns nothing and denies every mutation."""
+    # The cast. Uncast this returns nothing and denies every mutation.
     assert _satisfying(
         pushdown_registry, "registered_model", ALL_MODELS, [("aliases", "champion", "=", "1")]
     ) == {"m-prod"}
 
 
 def test_an_integer_version_supports_the_text_comparators_too(pushdown_registry):
-    """``LIKE`` on an INTEGER column only works because the cast makes it text."""
+    # ``LIKE`` on an INTEGER column only works because the cast makes it text.
     assert _satisfying(
         pushdown_registry, "registered_model", ALL_MODELS, [("aliases", "champion", "LIKE", "1%")]
     ) == {"m-prod"}
@@ -830,7 +829,7 @@ def test_a_model_version_id_must_match_both_parts(pushdown_registry):
 
 
 def test_an_alias_clause_on_a_model_version_declines(pushdown_registry):
-    """D18: a version's aliases belong to its parent, so it exposes no alias table."""
+    # D18: a version's aliases belong to its parent, so it exposes no alias table.
     with pytest.raises(NotImplementedError, match=_CANNOT_ANSWER):
         pushdown_registry.find_failing_resource(
             "registered_model_version",
@@ -840,7 +839,7 @@ def test_an_alias_clause_on_a_model_version_declines(pushdown_registry):
 
 
 def test_an_unmapped_entity_declines(pushdown_registry):
-    """A tracking type must not be answered from pushdown_registry tables."""
+    # A tracking type must not be answered from pushdown_registry tables.
     with pytest.raises(NotImplementedError, match=_CANNOT_ANSWER):
         pushdown_registry.find_failing_resource("run", [("tags", TAG_KEY, "=", "x")], ids=["r1"])
 
@@ -873,7 +872,7 @@ def test_an_integer_column_is_cast_to_text():
 
 
 def test_a_text_column_is_left_alone():
-    """No gratuitous cast: it would defeat an index for no benefit."""
+    # No gratuitous cast: it would defeat an index for no benefit.
     from mlflow.store import condition_pushdown
     from mlflow.store.model_registry.dbmodels.models import SqlRegisteredModelTag
 
@@ -883,7 +882,7 @@ def test_a_text_column_is_left_alone():
 
 
 def test_a_composite_id_predicate_casts_its_integer_part():
-    """The id side needs it too, not just the compared value."""
+    # The id side needs it too, not just the compared value.
     from mlflow.store import condition_pushdown
     from mlflow.store.model_registry.dbmodels.models import SqlModelVersionTag
 
@@ -894,7 +893,7 @@ def test_a_composite_id_predicate_casts_its_integer_part():
 
 
 def test_the_tracking_tag_tables_need_no_cast():
-    """Every tracking tag value is already text, so nothing is wrapped there."""
+    # Every tracking tag value is already text, so nothing is wrapped there.
     from mlflow.store import condition_pushdown
     from mlflow.store.tracking.dbmodels.models import SqlTag
 
@@ -974,7 +973,7 @@ def test_an_unsatisfied_id_denies_without_loading(monkeypatch):
 
 
 def test_an_absent_id_denies_like_a_failed_clause(monkeypatch):
-    """Indistinguishable by design: a 404 would reveal which ids exist."""
+    # Indistinguishable by design: a 404 would reveal which ids exist.
     allowed, _ = _gate_for_explicit_ids(monkeypatch, fails="r-1")
     assert allowed is False
 
@@ -1000,7 +999,7 @@ def test_a_composite_id_is_pushed_as_parts(monkeypatch):
 
 
 def test_one_unpushable_row_falls_back_for_the_whole_context(monkeypatch):
-    """A conjunction must not be answered from the half the store understood."""
+    # A conjunction must not be answered from the half the store understood.
     from mlflow.server import auth as auth_module
 
     pushed = {"called": False}
@@ -1083,7 +1082,7 @@ def test_a_registry_entry_asks_the_registry_store(monkeypatch):
 
 
 def test_a_prompt_asks_the_registry_store(monkeypatch):
-    """A prompt is stored as a registered model, so it is the registry's to answer."""
+    # A prompt is stored as a registered model, so it is the registry's to answer.
     assert _which_store_was_asked(monkeypatch, "prompt", "p-1") == ["registry"]
 
 
@@ -1092,7 +1091,7 @@ def test_a_run_asks_the_tracking_store(monkeypatch):
 
 
 def test_an_mcp_server_asks_the_tracking_store(monkeypatch):
-    """MCP lives in the tracking store despite being a registry in name."""
+    # MCP lives in the tracking store despite being a registry in name.
     assert _which_store_was_asked(monkeypatch, "mcp_server", "com.example/s") == ["tracking"]
 
 
@@ -1199,7 +1198,7 @@ def test_an_id_pattern_governs_only_the_resource_it_names():
 
 
 def test_a_wildcard_pattern_governs_every_resource_including_unnamed():
-    """The pre-scope behaviour, and what makes restricting a create possible at all."""
+    # The pre-scope behaviour, and what makes restricting a create possible at all.
     row = _row("*")
     for asked in ("abc", "xyz", None):
         assert auth_module._row_governs(row, asked) is True
@@ -1254,7 +1253,7 @@ def test_an_unscoped_cascade_row_is_still_pushed(monkeypatch):
 
 
 def test_one_scoped_row_among_unscoped_ones_still_refuses(monkeypatch):
-    """Rows are conjunctive, so one unpushable row refuses the whole context."""
+    # Rows are conjunctive, so one unpushable row refuses the whole context.
     ask, _ = _cascade_pushdown(monkeypatch, [_row("*"), _row("abc")])
     with pytest.raises(NotImplementedError, match=r"scoped"):
         ask()
@@ -1516,7 +1515,7 @@ def test_the_cascade_judges_only_its_own_parents_versions(cascade_registry):
 
 
 def test_an_untagged_version_still_fails(cascade_registry):
-    """D20 on the cascade path: absence satisfies nothing."""
+    # D20 on the cascade path: absence satisfies nothing.
     failing = cascade_registry.find_failing_resource(
         "registered_model_version", SATISFY_DEV, parent_id="m-bare"
     )
@@ -1571,7 +1570,7 @@ def test_the_registry_cascade_scopes_the_satisfying_set_too(cascade_registry, mo
 
 
 def test_an_mcp_server_version_cascade_is_answered(monkeypatch, tmp_path):
-    """The third tier, on the tracking store, whose version column is a VARCHAR."""
+    # The third tier, on the tracking store, whose version column is a VARCHAR.
     store = SqlAlchemyStore(f"sqlite:///{tmp_path}/mcp.db", str(tmp_path))
     store.create_mcp_server("demo/gateway")
     for version, tag in (("1.0.0", "prod"), ("2.0.0", "dev")):
@@ -1711,7 +1710,7 @@ def test_an_alias_clause_on_a_cascade_raises(monkeypatch):
 
 
 def test_the_sentinel_is_gone():
-    """Nothing may reintroduce a third verdict: the method answers or raises."""
+    # Nothing may reintroduce a third verdict: the method answers or raises.
     import mlflow.store.condition_pushdown as cp
 
     assert not hasattr(cp, "DECLINED")

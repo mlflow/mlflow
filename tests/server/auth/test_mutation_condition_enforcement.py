@@ -118,7 +118,7 @@ def _assert_denied(fn):
 
 
 def test_request_condition_denies_the_disallowed_tag_key(server, auth_client, monkeypatch):
-    """The RFC's headline case: a role may set tags, but not the ones an admin reserves."""
+    # The RFC's headline case: a role may set tags, but not the ones an admin reserves.
     username, password = _conditioned_user(
         auth_client, monkeypatch, value_condition="tag_key != 'lifecycle'"
     )
@@ -130,7 +130,7 @@ def test_request_condition_denies_the_disallowed_tag_key(server, auth_client, mo
 
 
 def test_request_condition_allows_an_unrelated_tag_key(server, auth_client, monkeypatch):
-    """The other half of the same condition -- it must subtract only what it names."""
+    # The other half of the same condition -- it must subtract only what it names.
     username, password = _conditioned_user(
         auth_client, monkeypatch, value_condition="tag_key != 'lifecycle'"
     )
@@ -192,7 +192,7 @@ def test_resource_condition_denies_a_model_missing_the_tag_entirely(
 
 
 def test_no_conditions_configured_behaves_exactly_as_before(server, auth_client, monkeypatch):
-    """An empty table must reproduce today's server. This is the compatibility claim."""
+    # An empty table must reproduce today's server. This is the compatibility claim.
     username, password = _conditioned_user(auth_client, monkeypatch)
     name = _model_with_tags(server, monkeypatch)
 
@@ -200,7 +200,7 @@ def test_no_conditions_configured_behaves_exactly_as_before(server, auth_client,
 
 
 def test_admin_bypasses_conditions(server, auth_client, monkeypatch):
-    """Conditions restrict delegated authority; they are not a way to constrain admins."""
+    # Conditions restrict delegated authority; they are not a way to constrain admins.
     username, password = _conditioned_user(
         auth_client, monkeypatch, value_condition="tag_key != 'lifecycle'"
     )
@@ -300,7 +300,7 @@ def test_create_allows_a_body_whose_tags_all_pass(server, auth_client, monkeypat
 
 
 def test_create_denies_when_any_one_tag_of_several_fails(server, auth_client, monkeypatch):
-    """A bulk body must not be a way around a restriction that holds for a single tag."""
+    # A bulk body must not be a way around a restriction that holds for a single tag.
     username, password = _conditioned_user(
         auth_client, monkeypatch, value_condition="tag_key != 'lifecycle'"
     )
@@ -389,7 +389,7 @@ def test_an_exact_name_value_condition_gates_that_model_create(server, auth_clie
 def test_an_exact_name_value_condition_gates_a_recreate_of_that_model(
     server, auth_client, monkeypatch
 ):
-    """The avoidance route the previous test names: delete, then recreate with the tag."""
+    # The avoidance route the previous test names: delete, then recreate with the tag.
     name = f"m-{random_str()}"
     username, password = _exact_name_conditioned_user(
         auth_client, monkeypatch, "registered_model", name, "tag_key != 'lifecycle'"
@@ -404,7 +404,7 @@ def test_an_exact_name_value_condition_gates_a_recreate_of_that_model(
 
 
 def test_an_exact_name_value_condition_gates_that_prompt_create(server, auth_client, monkeypatch):
-    """The same, on the other family the shared create route can produce."""
+    # The same, on the other family the shared create route can produce.
     name = f"p-{random_str()}"
     username, password = _exact_name_conditioned_user(
         auth_client, monkeypatch, "prompt", name, "tag_key != 'lifecycle'"
@@ -577,7 +577,7 @@ def _set_alias(server, username, password, monkeypatch, name, alias, version="1"
 
 
 def test_setting_a_restricted_alias_is_denied(server, auth_client, monkeypatch):
-    """The RFC's use case 3: an alias the condition reserves cannot be published."""
+    # The RFC's use case 3: an alias the condition reserves cannot be published.
     username, password = _conditioned_user(
         auth_client, monkeypatch, value_condition="alias != 'champion'"
     )
@@ -642,7 +642,7 @@ def test_a_tag_clause_does_not_gate_an_alias_route(server, auth_client, monkeypa
 
 
 def test_an_alias_clause_does_not_gate_a_tag_route(server, auth_client, monkeypatch):
-    """The mirror of the above: a tag route sets no alias."""
+    # The mirror of the above: a tag route sets no alias.
     username, password = _conditioned_user(
         auth_client, monkeypatch, value_condition="alias != 'champion'"
     )
@@ -701,7 +701,7 @@ def _version_conditioned_user(
 
 
 def test_a_restricted_version_tag_is_denied(server, auth_client, monkeypatch):
-    """§7.1 case 8."""
+    # §7.1 case 8.
     username, password = _version_conditioned_user(
         auth_client, monkeypatch, value_condition="tag_key != 'validated'"
     )
@@ -726,7 +726,7 @@ def test_an_unrestricted_version_tag_is_allowed(server, auth_client, monkeypatch
 
 
 def test_deleting_a_restricted_version_tag_is_denied(server, auth_client, monkeypatch):
-    """D12 on the version surface, which checks can_delete rather than can_update."""
+    # D12 on the version surface, which checks can_delete rather than can_update.
     username, password = _version_conditioned_user(
         auth_client, monkeypatch, value_condition="tag_key != 'validated'", permission="MANAGE"
     )
@@ -868,7 +868,7 @@ def _a_run(server, monkeypatch, tags=None):
 
 
 def test_a_restricted_run_tag_is_denied(server, auth_client, monkeypatch):
-    """§7.1 case 2."""
+    # §7.1 case 2.
     username, password = _run_conditioned_user(
         auth_client, monkeypatch, value_condition="tag_key != 'approved'"
     )
@@ -950,7 +950,7 @@ def test_a_log_batch_carrying_a_restricted_tag_is_denied(server, auth_client, mo
 
 
 def test_a_log_batch_is_denied_when_any_one_of_several_tags_fails(server, auth_client, monkeypatch):
-    """A bulk body must not dilute a restriction that holds for one tag."""
+    # A bulk body must not dilute a restriction that holds for one tag.
     username, password = _run_conditioned_user(
         auth_client, monkeypatch, value_condition="tag_key != 'approved'"
     )
@@ -964,7 +964,7 @@ def test_a_log_batch_is_denied_when_any_one_of_several_tags_fails(server, auth_c
 
 
 def test_creating_a_run_with_a_restricted_tag_is_denied(server, auth_client, monkeypatch):
-    """§7.1 case 4, at CREATE scope."""
+    # §7.1 case 4, at CREATE scope.
     username, password = _run_conditioned_user(
         auth_client, monkeypatch, value_condition="tag_key != 'approved'"
     )
@@ -1063,7 +1063,7 @@ def test_vacuity_holds_under_a_positive_clause(server, auth_client, monkeypatch)
 def test_creating_a_run_without_tags_holds_under_a_positive_clause(
     server, auth_client, monkeypatch
 ):
-    """The same discrimination at CREATE scope."""
+    # The same discrimination at CREATE scope.
     username, password = _run_conditioned_user(
         auth_client, monkeypatch, value_condition="tag_key = 'notes'"
     )
@@ -1164,7 +1164,7 @@ def test_an_unrestricted_trace_tag_is_allowed(server, auth_client, monkeypatch):
 
 
 def test_deleting_traces_by_id_is_gated_on_each_trace(server, auth_client, monkeypatch):
-    """§7.1 case 9a. The named traces are conditioned on their own current state."""
+    # §7.1 case 9a. The named traces are conditioned on their own current state.
     username, password = _trace_conditioned_user(
         auth_client, monkeypatch, target_condition="tags.reviewed = 'yes'", permission="MANAGE"
     )
@@ -1231,7 +1231,7 @@ def test_deleting_traces_by_timestamp_ignores_a_failing_trace_outside_the_window
 def test_deleting_traces_by_timestamp_refuses_a_failing_trace_inside_the_window(
     server, auth_client, monkeypatch
 ):
-    """The other half: widening the window to cover the failing trace refuses the delete."""
+    # The other half: widening the window to cover the failing trace refuses the delete.
     experiment_id, older, newer = _two_traces(server, monkeypatch)
     username, password = _trace_conditioned_user(
         auth_client, monkeypatch, target_condition="tags.reviewed = 'yes'", permission="MANAGE"
@@ -1608,7 +1608,7 @@ def test_archiving_siblings_is_refused_when_a_sibling_fails_its_condition(
 def test_archiving_siblings_is_permitted_when_every_sibling_passes(
     server, auth_client, monkeypatch
 ):
-    """The same request with a sibling the condition admits must still go through."""
+    # The same request with a sibling the condition admits must still go through.
     username, password = _version_conditioned_user(
         auth_client, monkeypatch, target_condition="tags.lifecycle = 'dev'"
     )

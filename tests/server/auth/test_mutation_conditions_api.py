@@ -215,7 +215,7 @@ def test_reserved_tag_key_rejected_in_value_condition(client, monkeypatch, role)
 
 
 def test_reserved_tag_key_rejected_in_target_condition_too(client, monkeypatch, role):
-    """D4 is symmetric: a reserved key is refused in either namespace."""
+    # D4 is symmetric: a reserved key is refused in either namespace.
     with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
         with pytest.raises(MlflowException, match="reserved tag keys"):
             client.add_mutation_condition(
@@ -407,7 +407,7 @@ def test_user_addressed_add_creates_the_per_user_role(client, monkeypatch):
 
 
 def test_user_addressed_add_reuses_the_role_a_direct_grant_made(client, monkeypatch):
-    """It must land on the same role the direct grants use, not a second one."""
+    # It must land on the same role the direct grants use, not a second one.
     with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
         username = f"u-{random_str()}"
         client.create_user(username, "password1234")

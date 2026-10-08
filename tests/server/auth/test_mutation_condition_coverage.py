@@ -769,7 +769,7 @@ def _conditioned_store(**kwargs):
 
 
 def test_the_gate_evaluates_a_request_condition_with_no_flask_context(monkeypatch):
-    """The OTel-ingest shape: a CREATE-scope decision taken outside any request context."""
+    # The OTel-ingest shape: a CREATE-scope decision taken outside any request context.
     from flask import has_request_context
 
     assert not has_request_context(), "this test must run outside a request context"
@@ -1172,7 +1172,7 @@ def test_a_condition_denial_says_so(monkeypatch):
 
 
 def test_a_grant_denial_stays_generic(monkeypatch):
-    """Nothing was refused by a condition, so the message must not claim one was."""
+    # Nothing was refused by a condition, so the message must not claim one was.
     _child_restricted(monkeypatch, "run", "tags.keep != 'y'", ("r1",))
     assert _proxy("1/r1/artifacts/f.txt", "update") is True
     assert auth_resources.condition_denied() is False
@@ -1260,7 +1260,7 @@ def test_recursively_deleting_a_bare_run_id_declares_the_run(monkeypatch):
 
 
 def test_recursively_deleting_the_experiment_root_judges_each_child(monkeypatch):
-    """The root names no id, so this is the cascade case: enumerate the tier, lazily."""
+    # The root names no id, so this is the cascade case: enumerate the tier, lazily.
     _child_restricted(monkeypatch, "run", "tags.keep != 'y'", ("r1", "r2"), failing=("r2",))
     assert _proxy("1/", "manage") is False
 
@@ -1308,7 +1308,7 @@ def test_point_writing_a_run_artifact_does_not_declare_the_experiment(monkeypatc
 
 
 def test_reading_an_artifact_declares_no_condition(monkeypatch):
-    """Reads are unconditioned. A failing run condition must not block a download."""
+    # Reads are unconditioned. A failing run condition must not block a download.
     _child_restricted(monkeypatch, "run", "tags.keep != 'y'", ("r1",), failing=("r1",))
     assert _proxy("1/r1/artifacts/f.txt", "read") is True
 
@@ -1396,7 +1396,7 @@ def test_a_rejecting_run_condition_blocks_the_job_lifecycle(recorder, monkeypatc
 
 
 def test_a_job_with_no_backing_run_declares_no_run_condition(recorder, monkeypatch):
-    """Nothing beyond the job record is touched, so there is no second target."""
+    # Nothing beyond the job record is touched, so there is no second target.
     monkeypatch.setattr(
         auth_module,
         "get_job",

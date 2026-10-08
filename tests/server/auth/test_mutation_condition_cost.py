@@ -150,7 +150,7 @@ def _mutate(resource_type, resource_id, request):
 
 
 def test_no_contexts_touches_no_store(gate):
-    """A route that declares nothing does not even resolve the user."""
+    # A route that declares nothing does not even resolve the user.
     run, state = gate
     assert run([]) is True
     assert state["store"].user_loads == 0
@@ -248,7 +248,7 @@ def test_a_request_denial_short_circuits_before_reading(gate):
 
 
 def test_a_target_condition_reads_the_resource_once(gate):
-    """One read for one resource -- not one per clause and not one per role."""
+    # One read for one resource -- not one per clause and not one per role.
     run, state = gate
     allowed = run(
         [_mutate("run", "r1", RunRequestValues())],
@@ -386,7 +386,7 @@ def test_many_roles_and_types_still_load_in_one_query(gate):
 
 
 def test_the_user_is_resolved_once(gate):
-    """Several contexts share one user lookup."""
+    # Several contexts share one user lookup.
     run, state = gate
     run([
         _mutate("run", "r1", RunRequestValues()),
@@ -661,7 +661,7 @@ def test_a_denying_cascade_reads_only_the_child_it_names(gate, pushdown):
 
 
 def test_cost_scales_with_conditions_not_with_children(gate, pushdown):
-    """Two conditions is two queries, independent of how many children exist."""
+    # Two conditions is two queries, independent of how many children exist.
     run, _ = gate
     store = pushdown(CountingPushdown(child_fails=None))
     enumerated = []
@@ -678,7 +678,7 @@ def test_cost_scales_with_conditions_not_with_children(gate, pushdown):
 
 
 def test_an_explicit_batch_costs_one_pushdown_call_and_no_read(gate, pushdown):
-    """The common case: the request names its ids, so nothing is loaded."""
+    # The common case: the request names its ids, so nothing is loaded.
     run, state = gate
     store = pushdown(CountingPushdown(named_fails=None))
     allowed = run(
@@ -699,7 +699,7 @@ def test_an_explicit_batch_costs_one_pushdown_call_and_no_read(gate, pushdown):
 
 
 def test_many_ids_are_still_one_call(gate, pushdown):
-    """The bulk-delete shape (D11), where per-id cost was the original complaint."""
+    # The bulk-delete shape (D11), where per-id cost was the original complaint.
     run, state = gate
     store = pushdown(CountingPushdown(named_fails=None))
     ids = tuple(f"r-{i}" for i in range(500))
@@ -719,7 +719,7 @@ def test_many_ids_are_still_one_call(gate, pushdown):
 
 
 def test_an_admin_asks_the_store_no_predicate(gate, pushdown):
-    """Admin bypass precedes everything, including the pushdown."""
+    # Admin bypass precedes everything, including the pushdown.
     run, _ = gate
     store = pushdown(CountingPushdown(named_fails=None, child_fails=None))
     enumerated = []
@@ -734,7 +734,7 @@ def test_an_admin_asks_the_store_no_predicate(gate, pushdown):
 
 
 def test_a_request_only_condition_asks_the_store_no_predicate(gate, pushdown):
-    """No target condition means no resource question, so nothing is pushed."""
+    # No target condition means no resource question, so nothing is pushed.
     run, _ = gate
     store = pushdown(CountingPushdown(named_fails=None, child_fails=None))
     allowed = run(
@@ -747,7 +747,7 @@ def test_a_request_only_condition_asks_the_store_no_predicate(gate, pushdown):
 
 
 def test_a_request_denial_short_circuits_before_any_predicate(gate, pushdown):
-    """Request conditions are pure, so a denial there must not reach the database."""
+    # Request conditions are pure, so a denial there must not reach the database.
     run, _ = gate
     store = pushdown(CountingPushdown(named_fails=None))
     allowed = run(
@@ -892,7 +892,7 @@ def _otlp_shaped_contexts(count, experiment_id="1"):
 
 
 def test_query_count_is_independent_of_how_many_traces_are_submitted(gate, monkeypatch):
-    """Fifty traces must cost what one trace costs: one call per (type, row)."""
+    # Fifty traces must cost what one trace costs: one call per (type, row).
     run, _state = gate
     rows = [MutationConditionSpec("trace", target_condition=f"tags.k{i} = 'v'") for i in range(4)]
 
@@ -909,7 +909,7 @@ def test_query_count_is_independent_of_how_many_traces_are_submitted(gate, monke
 
 
 def test_every_submitted_trace_still_reaches_the_query(gate, monkeypatch):
-    """Batching must not drop a target. Cheap is worthless if it is also blind."""
+    # Batching must not drop a target. Cheap is worthless if it is also blind.
     run, _state = gate
     calls = _recording_pushdown_store(monkeypatch)
     assert (

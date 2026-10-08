@@ -934,7 +934,7 @@ _RESOURCE_PROBES = {
 
 
 def test_every_request_identifier_has_a_probe():
-    """If a new identifier is added, it must be enrolled below rather than skipped."""
+    # If a new identifier is added, it must be enrolled below rather than skipped.
     assert set(_REQUEST_PROBES) == set(REQUEST_IDENTIFIERS)
 
 
@@ -978,7 +978,7 @@ def test_a_managed_tag_does_not_fail_an_unrelated_positive_clause():
 
 
 def test_a_managed_tag_value_does_not_fail_an_unrelated_value_clause():
-    """The same for `tag_value`, which the authoring check does not cover at all."""
+    # The same for `tag_value`, which the authoring check does not cover at all.
     clauses = parse_condition("tag_value = 'ml'", NAMESPACE_REQUEST)
     values = RunRequestValues(tags=(("team", "ml"), ("mlflow.source.name", "train.py")))
     assert evaluate_request(clauses, values) is True
@@ -1112,13 +1112,13 @@ def test_the_key_is_case_sensitive():
 
 
 def test_a_reserved_key_is_still_refused():
-    """D4 applies to the key wherever it is written."""
+    # D4 applies to the key wherever it is written.
     with pytest.raises(MlflowException, match=r"reserved tag keys"):
         parse_condition("tags.mlflow.runName = 'x'", NAMESPACE_REQUEST)
 
 
 def test_a_reserved_key_is_exempt_from_evaluation_too():
-    """MLflow's own writes must not fail a clause that does not name them."""
+    # MLflow's own writes must not fail a clause that does not name them.
     assert _allows("tags.a = 'x'", (("mlflow.user", "bob"), ("a", "x"))) is True
 
 

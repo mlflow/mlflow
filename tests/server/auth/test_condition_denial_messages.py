@@ -1,25 +1,24 @@
-"""What a 403 tells a caller when a mutation condition refused the request.
-
-A condition denial used to say only that one happened. That is a dead end: the caller
-holds a permission level that allows the operation, the thing that refused is a filter
-string on a role they may not have written, and nothing in the response says which
-filter or -- for a cascade -- which of a parent's children tripped it. Deleting an
-experiment with three thousand runs reported "a condition refused" and left the caller
-to guess which run.
-
-So the denial names the clause, and for a target condition the resource that broke it.
-
-Disclosing that leaks nothing. Conditions are consulted only AFTER a base grant has
-passed, and every grant that permits a mutation also permits a read -- ``EDIT`` and
-``MANAGE`` both carry ``can_read`` -- so a caller who reaches a condition check can
-already fetch the state being quoted back at them. The condition rows themselves are
-readable too: neither ``roles/list`` nor the condition listing is scoped to the caller.
-
-Attribution is best-effort by construction. The store reports *which resource* failed,
-which it can do over an unbounded population; naming the *clause* needs one more read of
-that one resource, and a resource that vanished in between leaves the class of refusal
-stated without the clause. That degrades to the old message rather than to a wrong one.
-"""
+# What a 403 tells a caller when a mutation condition refused the request.
+#
+# A condition denial used to say only that one happened. That is a dead end: the caller
+# holds a permission level that allows the operation, the thing that refused is a filter
+# string on a role they may not have written, and nothing in the response says which
+# filter or -- for a cascade -- which of a parent's children tripped it. Deleting an
+# experiment with three thousand runs reported "a condition refused" and left the caller
+# to guess which run.
+#
+# So the denial names the clause, and for a target condition the resource that broke it.
+#
+# Disclosing that leaks nothing. Conditions are consulted only AFTER a base grant has
+# passed, and every grant that permits a mutation also permits a read -- ``EDIT`` and
+# ``MANAGE`` both carry ``can_read`` -- so a caller who reaches a condition check can
+# already fetch the state being quoted back at them. The condition rows themselves are
+# readable too: neither ``roles/list`` nor the condition listing is scoped to the caller.
+#
+# Attribution is best-effort by construction. The store reports *which resource* failed,
+# which it can do over an unbounded population; naming the *clause* needs one more read of
+# that one resource, and a resource that vanished in between leaves the class of refusal
+# stated without the clause. That degrades to the old message rather than to a wrong one.
 
 import json
 from types import SimpleNamespace
@@ -381,7 +380,7 @@ def test_the_first_detail_wins(gate):
 
 
 def test_a_detail_without_a_denial_is_not_reported(gate):
-    """``denial_message`` keys on the denial flag, not on the detail being present."""
+    # ``denial_message`` keys on the denial flag, not on the detail being present.
     auth_resources.clear_cache()
     assert auth_module.denial_message() == "Permission denied"
 
@@ -469,7 +468,7 @@ def _contexts():
 
 
 def test_a_row_scoped_to_one_experiment_judges_only_that_experiments_runs(gate):
-    """The failing run lives in B, and the row governs A. It must not be consulted."""
+    # The failing run lives in B, and the row governs A. It must not be consulted.
     allowed, _ = gate(
         _contexts(),
         [
@@ -489,7 +488,7 @@ def test_a_row_scoped_to_one_experiment_judges_only_that_experiments_runs(gate):
 
 
 def test_the_same_row_still_judges_a_run_in_its_own_experiment(gate):
-    """The other side: narrowing must not become a bypass."""
+    # The other side: narrowing must not become a bypass.
     allowed, message = gate(
         _contexts(),
         [
@@ -510,7 +509,7 @@ def test_the_same_row_still_judges_a_run_in_its_own_experiment(gate):
 
 
 def test_a_workspace_wide_row_judges_every_container(gate):
-    """The pre-scoping default, and still the common case."""
+    # The pre-scoping default, and still the common case.
     allowed, message = gate(
         _contexts(),
         [_row(target_condition=f"tags.{TAG_KEY} = 'dev'")],

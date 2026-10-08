@@ -194,7 +194,7 @@ async def test_the_value_is_judged_and_not_only_the_key(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_no_condition_leaves_the_route_as_it_was(monkeypatch):
-    """The empty-table case, on this surface as on the Flask one."""
+    # The empty-table case, on this surface as on the Flask one.
     _configure(monkeypatch)
     allowed = await _run(f"{_PREFIX}/{_SERVER}/tags", "POST", {"key": "owner", "value": "alice"})
     assert allowed is True
@@ -231,7 +231,7 @@ async def test_a_resource_condition_reads_the_server_state(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_both_conditions_must_pass(monkeypatch):
-    """Configured together they AND, so satisfying one is not enough."""
+    # Configured together they AND, so satisfying one is not enough.
     _configure(
         monkeypatch, value_condition="tag_key != 'owner'", target_condition="tags.stage = 'dev'"
     )
@@ -247,7 +247,7 @@ async def test_both_conditions_must_pass(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_reading_the_server_is_never_gated(monkeypatch):
-    """Conditions gate mutations only. An unsatisfiable one must not make a GET fail."""
+    # Conditions gate mutations only. An unsatisfiable one must not make a GET fail.
     _configure(monkeypatch, value_condition="tag_key = 'impossible'", permission=READ)
     assert (await _run(f"{_PREFIX}/{_SERVER}", "GET", None)) is True
 
@@ -370,7 +370,7 @@ async def test_an_alias_condition_does_not_gate_a_tag_route(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_a_tag_condition_does_not_gate_an_alias_route(monkeypatch):
-    """And the other way around."""
+    # And the other way around.
     _configure(monkeypatch, value_condition="tag_key = 'notes'")
     assert (
         await _run(f"{_PREFIX}/{_SERVER}/aliases", "POST", {"alias": "staging", "version": "1.0.0"})
