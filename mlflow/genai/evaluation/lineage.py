@@ -93,10 +93,9 @@ def get_served_entities(endpoint_info: Any) -> list[dict[str, Any]]:
         config = endpoint_info.get("config") or {}
         routes = (config.get("traffic_config") or {}).get("routes") or []
         traffic = {
-            route.get("served_entity_name") or route.get("served_model_name"): route.get(
-                "traffic_percentage"
-            )
+            name: route.get("traffic_percentage")
             for route in routes
+            if (name := route.get("served_entity_name") or route.get("served_model_name"))
         }
         served_entities = []
         for entity in config.get("served_entities") or config.get("served_models") or []:
@@ -113,14 +112,10 @@ def get_served_entities(endpoint_info: Any) -> list[dict[str, Any]]:
         return []
 
 
-def _resolve_agent_target(predict_fn: Callable[..., Any]) -> Any:
-    target = predict_fn
-    while isinstance(target, functools.partial):
-        target = target.func
-    if not (inspect.isroutine(target) or inspect.isclass(target)):
-        # A callable instance is identified by its class.
-        target = type(target)
-    return target
+def _unwrap_partial(predict_fn: Callable[..., Any]) -> Callable[..., Any]:
+    while isinstance(predict_fn, functools.partial):
+        predict_fn = predict_fn.func
+    return predict_fn
 
 
 def get_agent_tags(predict_fn: Callable[..., Any] | None) -> dict[str, str]:
@@ -128,14 +123,17 @@ def get_agent_tags(predict_fn: Callable[..., Any] | None) -> dict[str, str]:
     if predict_fn is None:
         return {}
     try:
-        if (uri := getattr(predict_fn, AGENT_URI_ATTR, None)) is not None:
+        target = _unwrap_partial(predict_fn)
+        if (uri := getattr(target, AGENT_URI_ATTR, None)) is not None:
             # The `to_predict_fn` wrapper is not the agent, so record only the remote target.
             tags = {MLFLOW_GENAI_EVALUATE_AGENT_URI: uri}
-            if served_entities := getattr(predict_fn, SERVED_ENTITIES_ATTR, None):
+            if served_entities := getattr(target, SERVED_ENTITIES_ATTR, None):
                 tags[MLFLOW_GENAI_EVALUATE_AGENT_SERVED_ENTITIES] = json.dumps(served_entities)
             return tags
 
-        target = _resolve_agent_target(predict_fn)
+        if not (inspect.isroutine(target) or inspect.isclass(target)):
+            # A callable instance is identified by its class.
+            target = type(target)
         tags = {}
         module = getattr(target, "__module__", None)
         qualname = getattr(target, "__qualname__", None)
