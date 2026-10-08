@@ -56,6 +56,18 @@ def test_noop_without_username(monkeypatch, auth_store):
     auth_store.grant_user_permission.assert_not_called()
 
 
+def test_noop_with_workspaces_enabled(monkeypatch, auth_store):
+    # The grant would land in whatever workspace the request names, which may not be one the
+    # caller belongs to, so it is skipped when workspaces are on.
+    monkeypatch.setenv("MLFLOW_ENABLE_WORKSPACES", "true")
+    monkeypatch.setattr(gp, "auth_plugin_active", lambda: True)
+    _patch_endpoints(monkeypatch, [_endpoint("mlflow-assistant-openai", "e1")])
+
+    gp.ensure_assistant_gateway_use_permission("alice")
+
+    auth_store.grant_user_permission.assert_not_called()
+
+
 def test_grants_use_on_managed_endpoints_only(monkeypatch, auth_store):
     monkeypatch.setattr(gp, "auth_plugin_active", lambda: True)
     _patch_endpoints(

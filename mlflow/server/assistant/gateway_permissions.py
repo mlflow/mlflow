@@ -12,6 +12,7 @@ infrastructure: any user permitted to use the Assistant may use it.
 import logging
 
 from mlflow.assistant.gateway_connection import managed_gateway_endpoint_names
+from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
 from mlflow.server.assistant.identity import auth_plugin_active
 
 _logger = logging.getLogger(__name__)
@@ -30,14 +31,11 @@ def ensure_assistant_gateway_use_permission(username: str | None) -> None:
     lookup error, a transient auth-store error) must not break the turn. The gateway's own USE
     check stays the authoritative gate and surfaces a clear 403 if the user still lacks access.
 
-    Known limitation: with ``MLFLOW_ENABLE_WORKSPACES`` on, the auth store resolves the active
-    workspace from request context, which this background thread does not carry, so the auth-store
-    calls raise and are caught here -- the grant is skipped (the caller keeps getting the gateway's
-    403) rather than landing in the wrong workspace. Because the very first auth-store read raises,
-    no partial grant is written and no write repeats per turn. Granting in the endpoint's workspace
-    is a follow-up; workspaces are off by default.
+    Skipped when ``MLFLOW_ENABLE_WORKSPACES`` is on. The grant would run in whatever workspace the
+    request names, and the Assistant does not check that the caller belongs to that workspace, so
+    a user could grant themselves access to another workspace's endpoints.
     """
-    if not username or not auth_plugin_active():
+    if not username or not auth_plugin_active() or MLFLOW_ENABLE_WORKSPACES.get():
         return
 
     # Imported lazily and only when the plugin is active, so a no-auth server never pulls in the
