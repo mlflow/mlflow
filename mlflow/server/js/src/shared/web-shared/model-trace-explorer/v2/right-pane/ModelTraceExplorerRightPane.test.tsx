@@ -263,45 +263,65 @@ describe('ModelTraceExplorerRightPane', () => {
   });
 
   it('renders OpenAI Decisions in the v2 content tab and keeps the complete response in JSON', async () => {
+    // Captured from live OpenAI Decisions autolog trace tr-c04a0836a38a4411c8bae358e4bd52ad.
     const inputs = {
-      input: 'Does this answer follow the policy?',
-      questions: [{ type: 'predicate', name: 'policy', instructions: 'Check policy compliance.' }],
       model: 'gpt-6-luna',
+      input: 'Question: What is 2 + 2? Proposed answer: 4.',
+      questions: [
+        { type: 'predicate', name: 'correct', instructions: 'Is the proposed answer mathematically correct?' },
+      ],
     };
     const outputs = {
-      answers: [{ type: 'predicate', name: 'policy', probability: 0.79 }],
+      answers: [{ name: 'correct', probability: 1, type: 'predicate' }],
       model: 'gpt-6-luna',
-      usage: { input_tokens: 42, output_tokens: 0 },
+      usage: {
+        input_tokens: 172,
+        input_tokens_details: { cache_write_tokens: 0, cached_tokens: 0 },
+        output_tokens: 0,
+        output_tokens_details: { reasoning_tokens: 0 },
+        total_tokens: 172,
+      },
+    };
+    const tokenUsage = {
+      input_tokens: 172,
+      output_tokens: 0,
+      total_tokens: 172,
+      cache_read_input_tokens: 0,
+      cache_creation_input_tokens: 0,
     };
     const span = normalizeNewSpanData(
       {
         ...DEFAULT_SPAN,
-        name: 'openai.decisions',
+        name: 'Decisions',
         attributes: {
           'mlflow.spanType': JSON.stringify('LLM'),
           'mlflow.spanInputs': JSON.stringify(inputs),
           'mlflow.spanOutputs': JSON.stringify(outputs),
           'mlflow.message.format': JSON.stringify('openai_decisions'),
           'mlflow.llm.model': JSON.stringify('gpt-6-luna'),
+          'mlflow.chat.tokenUsage': JSON.stringify(tokenUsage),
         },
       },
       0,
       0,
       [],
       {},
-      'openai-decisions-trace',
+      'tr-c04a0836a38a4411c8bae358e4bd52ad',
     );
     expect(span.chatMessageFormat).toBe('openai_decisions');
+    expect(span.inputs).toEqual(inputs);
+    expect(span.outputs).toEqual(outputs);
+    expect(span.tokenUsage).toEqual(tokenUsage);
 
     render(<ModelTraceExplorerContentTab activeSpan={span} searchFilter="" activeMatch={null} />, {
       wrapper: Wrapper,
     });
     const contentTab = screen.getByTestId('model-trace-explorer-content-tab');
-    expect(contentTab).toHaveTextContent('Does this answer follow the policy?');
-    expect(within(screen.getByTestId('decision-questions')).getByText('policy')).toBeInTheDocument();
-    const answerSummary = within(screen.getByTestId('decision-answers')).getByText('policy').closest('summary');
+    expect(contentTab).toHaveTextContent('Question: What is 2 + 2? Proposed answer: 4.');
+    expect(within(screen.getByTestId('decision-questions')).getByText('correct')).toBeInTheDocument();
+    const answerSummary = within(screen.getByTestId('decision-answers')).getByText('correct').closest('summary');
     expect(answerSummary).toHaveTextContent('Predicate');
-    expect(answerSummary).toHaveTextContent('79%');
+    expect(answerSummary).toHaveTextContent('100%');
     expect(contentTab).not.toHaveTextContent('input_tokens');
 
     await userEvent.click(screen.getAllByText('Pretty')[1]);
@@ -310,6 +330,7 @@ describe('ModelTraceExplorerRightPane', () => {
     expect(contentTab).toHaveTextContent('answers');
     expect(contentTab).toHaveTextContent('input_tokens');
     expect(contentTab).toHaveTextContent('gpt-6-luna');
+    expect(contentTab).toHaveTextContent('172');
   });
 
   it('shows malformed OpenAI Decisions responses as raw fields', () => {
