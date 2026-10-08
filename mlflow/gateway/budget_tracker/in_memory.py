@@ -3,10 +3,15 @@
 from __future__ import annotations
 
 import threading
+from collections.abc import Collection
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
-from mlflow.entities.gateway_budget_policy import BudgetAction, GatewayBudgetPolicy
+from mlflow.entities.gateway_budget_policy import (
+    BudgetAction,
+    BudgetTargetScope,
+    GatewayBudgetPolicy,
+)
 from mlflow.gateway.budget_tracker import (
     BudgetTracker,
     BudgetWindow,
@@ -72,6 +77,7 @@ class InMemoryBudgetTracker(BudgetTracker):
         workspace: str | None = None,
         endpoint_id: str | None = None,
         username: str | None = None,
+        role_ids: Collection[str] = (),
     ) -> list[BudgetWindow]:
         """Record a cost against all applicable policies.
 
@@ -80,6 +86,7 @@ class InMemoryBudgetTracker(BudgetTracker):
             workspace: The workspace the request was made from.
             endpoint_id: The gateway endpoint the request was routed to.
             username: The authenticated username the request was made by.
+            role_ids: IDs of the auth roles assigned to the requesting user.
 
         Returns:
             List of windows that were newly exceeded (limit exceeded for the first
@@ -99,7 +106,11 @@ class InMemoryBudgetTracker(BudgetTracker):
                     window.exceeded = False
 
                 if not _policy_applies(
-                    window.policy, workspace, endpoint_id=endpoint_id, username=username
+                    window.policy,
+                    workspace,
+                    endpoint_id=endpoint_id,
+                    username=username,
+                    role_ids=role_ids,
                 ):
                     continue
 
@@ -116,6 +127,7 @@ class InMemoryBudgetTracker(BudgetTracker):
         workspace: str | None = None,
         endpoint_id: str | None = None,
         username: str | None = None,
+        role_ids: Collection[str] = (),
     ) -> tuple[bool, BudgetWindow | None]:
         """Check if any REJECT-capable policy is exceeded.
 
@@ -123,6 +135,7 @@ class InMemoryBudgetTracker(BudgetTracker):
             workspace: The workspace to check against.
             endpoint_id: The gateway endpoint to check against.
             username: The authenticated username to check against.
+            role_ids: IDs of the auth roles assigned to the requesting user.
 
         Returns:
             Tuple of (exceeded, window). If exceeded is True, window is the
@@ -136,7 +149,11 @@ class InMemoryBudgetTracker(BudgetTracker):
                     continue
 
                 if not _policy_applies(
-                    window.policy, workspace, endpoint_id=endpoint_id, username=username
+                    window.policy,
+                    workspace,
+                    endpoint_id=endpoint_id,
+                    username=username,
+                    role_ids=role_ids,
                 ):
                     continue
 
@@ -161,6 +178,12 @@ class InMemoryBudgetTracker(BudgetTracker):
                     continue
                 window.cumulative_spend = max(window.cumulative_spend, spend)
                 window.exceeded = window.cumulative_spend >= window.policy.budget_amount
+
+    def has_role_policies(self) -> bool:
+        with self._lock:
+            return any(
+                w.policy.target_scope == BudgetTargetScope.ROLE for w in self._windows.values()
+            )
 
     def get_all_windows(self) -> list[BudgetWindow]:
         with self._lock:

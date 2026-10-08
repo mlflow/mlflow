@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+from collections.abc import Collection
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
@@ -266,6 +267,7 @@ class RedisBudgetTracker(BudgetTracker):
         workspace: str | None = None,
         endpoint_id: str | None = None,
         username: str | None = None,
+        role_ids: Collection[str] = (),
     ) -> list[BudgetWindow]:
         now = datetime.now(timezone.utc)
         newly_exceeded: list[BudgetWindow] = []
@@ -279,7 +281,9 @@ class RedisBudgetTracker(BudgetTracker):
                     continue
                 policy = _deserialize_policy(policy_data)
 
-            if not _policy_applies(policy, workspace, endpoint_id=endpoint_id, username=username):
+            if not _policy_applies(
+                policy, workspace, endpoint_id=endpoint_id, username=username, role_ids=role_ids
+            ):
                 continue
 
             window, _created = self._ensure_window(policy, now)
@@ -307,6 +311,7 @@ class RedisBudgetTracker(BudgetTracker):
         workspace: str | None = None,
         endpoint_id: str | None = None,
         username: str | None = None,
+        role_ids: Collection[str] = (),
     ) -> tuple[bool, BudgetWindow | None]:
         now = datetime.now(timezone.utc)
 
@@ -318,7 +323,9 @@ class RedisBudgetTracker(BudgetTracker):
                     continue
                 policy = _deserialize_policy(policy_data)
 
-            if not _policy_applies(policy, workspace, endpoint_id=endpoint_id, username=username):
+            if not _policy_applies(
+                policy, workspace, endpoint_id=endpoint_id, username=username, role_ids=role_ids
+            ):
                 continue
 
             if policy.budget_action != BudgetAction.REJECT:
@@ -360,6 +367,11 @@ class RedisBudgetTracker(BudgetTracker):
             pipe.hset(wkey, mapping={"cumulative_spend": str(spend), "exceeded": exceeded})
 
         pipe.execute()
+
+    def has_role_policies(self) -> bool:
+        # The in-process cache mirrors the policies loaded on the last refresh, which is
+        # also when ROLE policies become visible to this process.
+        return any(p.target_scope == BudgetTargetScope.ROLE for p in self._policy_cache.values())
 
     def get_all_windows(self) -> list[BudgetWindow]:
         return [

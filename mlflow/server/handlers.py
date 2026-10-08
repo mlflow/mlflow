@@ -6975,14 +6975,20 @@ def _delete_gateway_endpoint_tag():
 # =============================================================================
 
 
-_TARGETED_BUDGET_SCOPES = (BudgetTargetScope.ENDPOINT, BudgetTargetScope.USER)
+_TARGETED_BUDGET_SCOPES = (
+    BudgetTargetScope.ENDPOINT,
+    BudgetTargetScope.USER,
+    BudgetTargetScope.ROLE,
+)
+# Scopes whose target is an auth principal, so they can only match with auth enabled.
+_AUTH_BUDGET_SCOPES = (BudgetTargetScope.USER, BudgetTargetScope.ROLE)
 
 
 def _validate_budget_target_scope(target_scope, target_value):
     """Validate the target_value / target_scope relationship for budget policies.
 
-    ENDPOINT- and USER-scoped policies must carry a ``target_value`` (the endpoint ID
-    or username to match); policies with any other scope must not.
+    ENDPOINT-, USER-, and ROLE-scoped policies must carry a ``target_value`` (the
+    endpoint ID, username, or role ID to match); policies with any other scope must not.
     """
     if target_scope in _TARGETED_BUDGET_SCOPES:
         if not target_value:
@@ -6992,7 +6998,7 @@ def _validate_budget_target_scope(target_scope, target_value):
             )
     elif target_value:
         raise MlflowException(
-            message="target_value can only be set when target_scope is ENDPOINT or USER.",
+            message="target_value can only be set when target_scope is ENDPOINT, USER, or ROLE.",
             error_code=INVALID_PARAMETER_VALUE,
         )
 
@@ -7001,29 +7007,44 @@ def _is_server_auth_enabled() -> bool:
     """Whether MLflow server authentication is active.
 
     Checked without importing the auth app (mirrors ``gateway_api``): the gateway
-    only populates ``request.state.username`` when auth is initialized, so USER-scoped
-    budgets cannot attribute spend to a user unless this is True.
+    only populates ``request.state.username`` when auth is initialized, so USER- and
+    ROLE-scoped budgets cannot attribute spend to a user unless this is True.
     """
     auth_mod = sys.modules.get("mlflow.server.auth")
     return bool(auth_mod and auth_mod.is_auth_enabled())
 
 
-def _assert_user_scope_enforceable(target_scope: BudgetTargetScope) -> None:
-    """Reject USER-scoped budgets when auth is off, since they would never match.
+def _assert_auth_scope_enforceable(target_scope: BudgetTargetScope) -> None:
+    """Reject USER- and ROLE-scoped budgets when auth is off, since they would never match.
 
-    Without authentication the gateway has no request username, so a USER-scoped
-    policy is silently inert (a REJECT cap never rejects, an ALERT never fires).
-    Fail loudly at write time rather than let an admin create a non-functional cap.
+    Without authentication the gateway has no request username, so such a policy is
+    silently inert (a REJECT cap never rejects, an ALERT never fires). Fail loudly at
+    write time rather than let an admin create a non-functional cap.
     """
-    if target_scope == BudgetTargetScope.USER and not _is_server_auth_enabled():
+    if target_scope in _AUTH_BUDGET_SCOPES and not _is_server_auth_enabled():
         raise MlflowException(
             message=(
-                "USER-scoped budget policies require server authentication to be enabled. "
-                "Without auth the gateway cannot attribute requests to a user, so the "
-                "policy would never take effect."
+                f"{target_scope.value}-scoped budget policies require server authentication "
+                "to be enabled. Without auth the gateway cannot attribute requests to a "
+                "user, so the policy would never take effect."
             ),
             error_code=INVALID_PARAMETER_VALUE,
         )
+
+
+def _validate_budget_role_target(role_id: str) -> None:
+    """Require a ROLE target to be the ID of an existing auth role.
+
+    A ROLE policy referencing a nonexistent role would never match any request (a
+    REJECT cap that silently never rejects), so the role must exist up front. The ID
+    must also be in canonical form, since it is matched as a string at request time.
+    """
+    if not role_id.isdecimal() or str(int(role_id)) != role_id:
+        raise MlflowException(
+            message=f"target_value must be a role ID for ROLE scope, got {role_id!r}.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    sys.modules["mlflow.server.auth"].store.get_role(int(role_id))
 
 
 @catch_mlflow_exception
@@ -7074,7 +7095,9 @@ def _create_budget_policy():
         )
     target_value = request_message.target_value or None
     _validate_budget_target_scope(target_scope, target_value)
-    _assert_user_scope_enforceable(target_scope)
+    _assert_auth_scope_enforceable(target_scope)
+    if target_scope == BudgetTargetScope.ROLE:
+        _validate_budget_role_target(target_value)
     store = _get_tracking_store()
     policy = store.create_budget_policy(
         budget_unit=budget_unit,
@@ -7167,7 +7190,7 @@ def _update_budget_policy():
     # Validate the *effective* scope/target_value after the partial update is applied,
     # mirroring the create-handler guards: clients that echo back the current scope (or
     # update one field alone) are not rejected, while updates that would produce a
-    # targeted (ENDPOINT/USER) policy without a target_value — a silently non-enforcing
+    # targeted (ENDPOINT/USER/ROLE) policy without a target_value — a silently non-enforcing
     # policy — still are. A target only carries over within the same scope: an endpoint
     # ID is meaningless as a username and vice versa, so switching scope requires an
     # explicit new target_value.
@@ -7179,7 +7202,9 @@ def _update_budget_policy():
         )
         effective_target = target_value if target_value_provided else inherited_target
         _validate_budget_target_scope(effective_scope, effective_target)
-        _assert_user_scope_enforceable(effective_scope)
+        _assert_auth_scope_enforceable(effective_scope)
+        if effective_scope == BudgetTargetScope.ROLE and target_value_provided:
+            _validate_budget_role_target(effective_target)
     policy = store.update_budget_policy(
         budget_policy_id=request_message.budget_policy_id,
         budget_unit=budget_unit,
@@ -7265,9 +7290,9 @@ def _list_budget_windows():
     if workspace is not None:
         # GLOBAL policies are always shown. Every other scope is filtered to the
         # requesting workspace by the policy's owning workspace, so current-spend
-        # figures never leak across workspaces. WORKSPACE/ENDPOINT/USER policies all
-        # carry an owning workspace even when enforcement matches on target_value
-        # (an endpoint ID or a username) rather than on the workspace itself.
+        # figures never leak across workspaces. WORKSPACE/ENDPOINT/USER/ROLE policies
+        # all carry an owning workspace even when enforcement matches on target_value
+        # (an endpoint ID, a username, or a role ID) rather than on the workspace itself.
         windows = [
             w
             for w in windows

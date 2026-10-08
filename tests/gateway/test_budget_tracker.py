@@ -835,3 +835,57 @@ def test_user_scoped_exceeded_flips_once_then_keeps_accumulating():
     window = tracker._get_window_info("bp-test")
     assert window.cumulative_spend == 200.0
     assert window.exceeded is True
+
+
+# --- ROLE scope tests ---
+
+
+def test_policy_applies_role_match():
+    policy = _make_policy(target_scope=BudgetTargetScope.ROLE, target_value="7")
+    assert _policy_applies(policy, None, role_ids={"3", "7"}) is True
+    # workspace is irrelevant for a ROLE-scoped policy
+    assert _policy_applies(policy, "ws1", role_ids={"7"}) is True
+
+
+def test_policy_applies_role_no_match():
+    policy = _make_policy(target_scope=BudgetTargetScope.ROLE, target_value="7")
+    assert _policy_applies(policy, None, username="alice", role_ids={"3"}) is False
+    assert _policy_applies(policy, None, username="alice") is False
+
+
+def test_policy_applies_role_policy_without_target_never_matches():
+    policy = _make_policy(target_scope=BudgetTargetScope.ROLE, target_value=None)
+    assert _policy_applies(policy, None, role_ids={"7"}) is False
+
+
+def test_role_scoped_budget_is_shared_by_members():
+    tracker = InMemoryBudgetTracker()
+    tracker.refresh_policies([
+        _make_policy(
+            target_scope=BudgetTargetScope.ROLE,
+            target_value="7",
+            budget_amount=100.0,
+            budget_action=BudgetAction.REJECT,
+        )
+    ])
+
+    tracker.record_cost(60.0, username="alice", role_ids={"7"})
+    tracker.record_cost(500.0, username="carol", role_ids={"3"})
+    assert tracker.should_reject_request(username="bob", role_ids={"7"}) == (False, None)
+
+    tracker.record_cost(40.0, username="bob", role_ids={"7"})
+    assert tracker._get_window_info("bp-test").cumulative_spend == 100.0
+    # Once the members' combined spend reaches the limit, every member is rejected.
+    assert tracker.should_reject_request(username="alice", role_ids={"7"})[0] is True
+    assert tracker.should_reject_request(username="bob", role_ids={"7"})[0] is True
+    # Non-members are unaffected.
+    assert tracker.should_reject_request(username="carol", role_ids={"3"}) == (False, None)
+
+
+def test_has_role_policies():
+    tracker = InMemoryBudgetTracker()
+    tracker.refresh_policies([_make_policy(target_scope=BudgetTargetScope.USER, target_value="a")])
+    assert tracker.has_role_policies() is False
+
+    tracker.refresh_policies([_make_policy(target_scope=BudgetTargetScope.ROLE, target_value="7")])
+    assert tracker.has_role_policies() is True

@@ -2926,6 +2926,59 @@ def test_update_budget_policy_switch_to_user_without_target_raises(store: SqlAlc
     assert fetched.target_value is None
 
 
+def test_create_budget_policy_role_scope(store: SqlAlchemyStore):
+    policy = store.create_budget_policy(
+        budget_unit=BudgetUnit.USD,
+        budget_amount=25.0,
+        duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
+        target_scope=BudgetTargetScope.ROLE,
+        budget_action=BudgetAction.REJECT,
+        target_value="7",
+    )
+    assert policy.target_scope == BudgetTargetScope.ROLE
+    assert policy.target_value == "7"
+
+    fetched = store.get_budget_policy(budget_policy_id=policy.budget_policy_id)
+    assert fetched.target_scope == BudgetTargetScope.ROLE
+    assert fetched.target_value == "7"
+
+
+def test_create_budget_policy_role_scope_without_target_raises(store: SqlAlchemyStore):
+    with pytest.raises(MlflowException, match="target_value is required when target_scope is ROLE"):
+        store.create_budget_policy(
+            budget_unit=BudgetUnit.USD,
+            budget_amount=25.0,
+            duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
+            target_scope=BudgetTargetScope.ROLE,
+            budget_action=BudgetAction.REJECT,
+        )
+
+
+def test_update_budget_policy_switch_user_to_role_requires_new_target(store: SqlAlchemyStore):
+    created = store.create_budget_policy(
+        budget_unit=BudgetUnit.USD,
+        budget_amount=25.0,
+        duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
+        target_scope=BudgetTargetScope.USER,
+        budget_action=BudgetAction.REJECT,
+        target_value="alice@example.com",
+    )
+    # A username is meaningless as a role ID, so it is never carried over.
+    with pytest.raises(MlflowException, match="target_value is required when target_scope is ROLE"):
+        store.update_budget_policy(
+            budget_policy_id=created.budget_policy_id,
+            target_scope=BudgetTargetScope.ROLE,
+        )
+
+    updated = store.update_budget_policy(
+        budget_policy_id=created.budget_policy_id,
+        target_scope=BudgetTargetScope.ROLE,
+        target_value="7",
+    )
+    assert updated.target_scope == BudgetTargetScope.ROLE
+    assert updated.target_value == "7"
+
+
 # =============================================================================
 # Guardrail Tests
 # =============================================================================
