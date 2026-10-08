@@ -92,6 +92,19 @@ def _resolve_provider(
     return resolve_default_provider(remote=remote)
 
 
+def _no_provider_message(restricted: bool) -> str:
+    # A restricted caller's selected provider is dropped when it runs on the server host (e.g. the
+    # Claude Code or Codex CLI), so say that instead of claiming none is configured.
+    selected = _get_selected_provider() if restricted else None
+    if selected is not None and not selected.allows_remote_access:
+        return (
+            f"The {selected.display_name} provider runs tools directly on the MLflow server host, "
+            "so it is not available to you on this server. Select another provider, such as the "
+            "MLflow AI Gateway, in the Assistant settings."
+        )
+    return "No assistant provider is configured or available."
+
+
 _BLOCK_REMOTE_ACCESS_ERROR_MSG = (
     "Assistant API is only accessible from the same host where the MLflow server is running."
 )
@@ -569,9 +582,8 @@ async def stream_response(request: Request, session_id: str) -> StreamingRespons
         if provider is None:
             from mlflow.assistant.types import Event
 
-            yield Event.from_error(
-                "No assistant provider is configured or available."
-            ).to_sse_event()
+            message = await asyncio.to_thread(_no_provider_message, is_remote)
+            yield Event.from_error(message).to_sse_event()
             return
         async for event in provider.astream(
             prompt=prompt,

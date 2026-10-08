@@ -72,13 +72,17 @@ _FILE_TOOLS = {"Read", "Write", "Edit"}
 _ALLOWED_BASH_COMMANDS = {"mlflow", "python3", "python"}
 # In the sandbox, restricted commands run through a shell, so they may be combined with pipes,
 # ``&&``/``||``/``;`` and redirects. Every command in the chain must then be allowed: the commands
-# above, or one of these text tools. None of them has an option that starts another program
-# (unlike sed, awk, find, xargs, or GNU sort's ``--compress-program``, which are left out).
-_SANDBOX_TEXT_COMMANDS = {"cat", "cut", "echo", "grep", "head", "tail", "tr", "uniq", "wc"}
+# above, or one of these text tools. None of them can start another program or write a file
+# (unlike sed, awk, find, xargs, GNU sort's ``--compress-program`` or uniq's OUTPUT argument, which
+# are left out).
+_SANDBOX_TEXT_COMMANDS = {"cat", "cut", "echo", "grep", "head", "tail", "tr", "wc"}
 _SHELL_COMMAND_SEPARATORS = {"|", "||", "&&", ";"}
 # Redirects as /bin/sh (dash) parses them. bash's ``&>`` is not one: dash reads ``cmd &> f next`` as
 # ``cmd &`` and then runs ``next`` as a separate command.
-_SHELL_REDIRECTS = {"<", ">", ">>", ">|", "<>", ">&", "<&", "<<<"}
+_SHELL_REDIRECTS = {"<", ">", ">>", ">|", "<>", ">&", "<&"}
+# Redirects that open their target for writing. ``>&``/``<&`` only duplicate a file descriptor.
+_SHELL_WRITE_REDIRECTS = {">", ">>", ">|", "<>"}
+_FILE_DESCRIPTOR = re.compile(r"\d+")
 # Shell syntax that runs a command the checks below would never see: command and process
 # substitution, ``${...}`` expansions (which can assign variables such as PATH), and newlines
 # (which separate commands like ``;``).
@@ -150,14 +154,8 @@ def static_permission_error(
                 f"Permission denied: only {', '.join(sorted(_ALLOWED_BASH_COMMANDS))} "
                 "commands are allowed"
             )
-        # python/python3 can run arbitrary code, including reading any file the
-        # process can access, so require the same configured project directory
-        # Read/Write/Edit do below. Without this, GHSA-27c7-qx3r-x4f8's impact
-        # (arbitrary file read when cwd is None) is reachable via
-        # Bash("python3 -c \"print(open(path).read())\"") even though Read
-        # itself is denied.
-        if argv[0] in {"python", "python3"} and cwd is None:
-            return f"Permission denied: {argv[0]} requires a configured project directory"
+        if error := _command_permission_error(argv[0], cwd):
+            return error
 
     if tool_name in _FILE_TOOLS and not perms.allow_edit_files:
         return f"Permission denied: {tool_name} is not allowed"
@@ -186,10 +184,10 @@ def static_permission_error(
 
 
 def _command_permission_error(command_name: str, cwd: Path | None) -> str | None:
-    if command_name not in _ALLOWED_BASH_COMMANDS:
-        return None
-    # python/python3 can run arbitrary code, including reading any file the process can access,
-    # so they need a configured project directory, as on the host (see static_permission_error).
+    # python/python3 can run arbitrary code, including reading any file the process can access, so
+    # require the same configured project directory Read/Write/Edit do. Without this,
+    # GHSA-27c7-qx3r-x4f8's impact (arbitrary file read when cwd is None) is reachable via
+    # Bash("python3 -c \"print(open(path).read())\"") even though Read itself is denied.
     if command_name in {"python", "python3"} and cwd is None:
         return f"Permission denied: {command_name} requires a configured project directory"
     return None
@@ -218,27 +216,41 @@ def _sandbox_shell_permission_error(
     except ValueError:
         return "Permission denied: malformed command"
 
+    def is_operator(token: str) -> bool:
+        return set(token) <= set("();<>|&")
+
+    # The words of each chained command, without its redirects (operator, target and any file
+    # descriptor number before the operator), so a redirect written before the command name, e.g.
+    # ``2>/dev/null mlflow ...``, does not hide the name.
     segments: list[list[str]] = [[]]
-    for token in tokens:
+    tokens_iter = iter(tokens)
+    for token in tokens_iter:
         if token in _SHELL_COMMAND_SEPARATORS:
             segments.append([])
-        elif set(token) <= set("();<>|&"):
+        elif is_operator(token):
             if token not in _SHELL_REDIRECTS:
                 return (
                     "Permission denied: subshells, background commands and other shell syntax "
                     "are not allowed"
                 )
-            if ">" in token and not perms.allow_edit_files:
+            target = next(tokens_iter, None)
+            if target is None or is_operator(target):
+                return "Permission denied: malformed command"
+            if token in {">&", "<&"} and target != "-" and not _FILE_DESCRIPTOR.fullmatch(target):
+                return "Permission denied: malformed command"
+            if (
+                token in _SHELL_WRITE_REDIRECTS
+                and target != "/dev/null"
+                and not perms.allow_edit_files
+            ):
                 return "Permission denied: writing files is not allowed"
-            segments[-1].append(token)
+            # shlex splits ``2>`` into ``2`` and ``>``; the number is the descriptor, not a word.
+            if segments[-1] and _FILE_DESCRIPTOR.fullmatch(segments[-1][-1]):
+                segments[-1].pop()
         else:
             segments[-1].append(token)
 
-    for segment in segments:
-        # Skip redirects written before the command name, e.g. ``2>/dev/null mlflow ...``.
-        words = list(segment)
-        while words and set(words[0]) <= set("<>&"):
-            words = words[2:]
+    for words in segments:
         if not words:
             return "Permission denied: malformed command"
         name = words[0]

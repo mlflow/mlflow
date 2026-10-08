@@ -509,6 +509,14 @@ def test_restricted_bash_in_sandbox_supports_pipes_and_redirects():
         ("echo x &>>out.txt sh", "other shell syntax"),
         # ${...} expansions can assign variables such as PATH.
         ("echo ${PATH:=/tmp}; mlflow --version", "command substitution"),
+        # uniq writes its optional OUTPUT argument.
+        ("echo x | uniq - out.txt", "commands are allowed"),
+        # Here-documents and bash here-strings are not modeled.
+        ("cat <<EOF", "other shell syntax"),
+        ("cat <<< x", "other shell syntax"),
+        # A descriptor duplication needs a descriptor number, not a file name.
+        ("mlflow --version >& out.txt", "malformed command"),
+        ("mlflow --version >", "malformed command"),
     ],
 )
 def test_restricted_bash_in_sandbox_checks_every_command(command, message):
@@ -539,16 +547,52 @@ def test_restricted_bash_in_sandbox_allows_python_in_a_project(workspace):
 
 
 @pytest.mark.usefixtures("sandbox_on")
-def test_restricted_bash_in_sandbox_refuses_redirects_without_file_edits():
+@pytest.mark.parametrize(
+    "command",
+    [
+        "mlflow --version > out.txt",
+        "mlflow --version 2>out.txt",
+        "mlflow --version >> out.txt",
+        "mlflow --version >| out.txt",
+        "cat <> out.txt",
+        "> out.txt mlflow --version",
+    ],
+)
+def test_restricted_bash_in_sandbox_refuses_file_writes_without_file_edits(command):
     perms = PermissionsConfig(allow_edit_files=False)
     with mock.patch("mlflow.server.sandbox.run_in_sandbox") as run:
-        result, is_error = _run(
-            execute_tool("Bash", {"command": "mlflow --version > out.txt"}, permissions=perms)
-        )
+        result, is_error = _run(execute_tool("Bash", {"command": command}, permissions=perms))
 
     assert is_error
     assert "writing files is not allowed" in result
     run.assert_not_called()
+
+
+@pytest.mark.usefixtures("sandbox_on")
+@pytest.mark.parametrize(
+    "command",
+    [
+        # Redirects before the command name, with and without a descriptor number.
+        "2>/dev/null mlflow --version",
+        ">/dev/null mlflow --version",
+        # Descriptor duplication and /dev/null do not write files.
+        "mlflow runs list 2>&1 | head -n 5",
+        "mlflow --version >&2",
+        "mlflow --version 2>&-",
+        "mlflow --version > /dev/null",
+        "mlflow --version < /dev/null",
+    ],
+)
+def test_restricted_bash_in_sandbox_allows_non_writing_redirects_without_file_edits(command):
+    perms = PermissionsConfig(allow_edit_files=False)
+    with mock.patch(
+        "mlflow.server.sandbox.run_in_sandbox",
+        return_value=SandboxResult(exit_code=0, output="ok"),
+    ) as run:
+        result = _run(execute_tool("Bash", {"command": command}, permissions=perms))
+
+    assert result == ("ok", False)
+    run.assert_called_once()
 
 
 def test_execute_bash_in_sandbox_nonzero_exit_is_error():
