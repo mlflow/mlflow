@@ -219,39 +219,32 @@ def import_skills(
     skill_names: list[str] | None = None,
     status: str = "active",
 ) -> list[SkillVersion]:
-    """Discover and atomically register standalone skills from a Git repository.
+    """Import skills from a Git repository. If validation fails, no skills are registered.
 
-    Fetch the repository once using the caller's credentials and recursively inspect
-    ``SKILL.md`` files beneath the discovery root. Names come from their manifests, not
-    directory names. Duplicate discovered names and missing requested names are errors.
-    Discovery stops descending when it finds a skill root, even if that skill is filtered out.
-    Nested manifests remain part of that skill's content and are not inspected or registered
-    separately. Directories named ``SKILL.md`` encountered during discovery are rejected.
-    All selected content is validated and digested before submitting a single batch.
+    Each directory where the search finds a ``SKILL.md`` file becomes a root skill. The search
+    skips directories inside that root skill, even if it is not selected, and continues
+    elsewhere. Nested skill manifests remain part of the root skill's content and are not
+    imported separately. Names come from the ``name`` field in each root skill's ``SKILL.md``
+    file. The import fails if names are duplicated or no skills are found.
 
-    Each selected skill is limited by ``MLFLOW_SKILL_CONTENT_MAX_DECOMPRESSED_SIZE``
-    (default 25 MiB). The discovery budget is that limit multiplied by the maximum number
-    of skills allowed in a bulk import, regardless of how many skills are selected.
-    It includes all materialized content beneath the discovery root, including unselected
-    skills and unrelated files. It does not cap Git network traffic. Use a source subpath
-    to narrow discovery.
+    Each selected skill has a size limit of 25 MiB by default. Set
+    ``MLFLOW_SKILL_CONTENT_MAX_DECOMPRESSED_SIZE`` to change this limit. The total content
+    searched, including unselected files, is limited to this size multiplied by the maximum
+    number of skills allowed in one import. Use a subpath to search a smaller directory.
 
     Args:
-        source: Git source or an unambiguous Git URL. Use ``GitSource`` to specify a
-            ref and a discovery subpath. Without a subpath, search the repository root.
-        organization: Registry organization, or the empty string for unscoped skills.
-        skill_names: Declared names to select, or ``None`` to import all discovered skills.
-            All discovered manifests within the discovery root are validated before filtering.
-            An invalid manifest causes import to fail even if its skill is not selected.
-            An empty list or discovery with no skills is rejected. Selection preserves
-            discovery order (sorted manifest paths), regardless of this list's order.
-            The maximum bulk-import batch size applies to selected skills.
-        status: Initial status for all newly created versions, either ``active`` (default)
-            or ``draft``. Existing matching versions are reused with their status unchanged.
+        source: Git URL or ``GitSource``. Use ``GitSource`` to specify a branch, tag, or commit
+            and a subpath. Uses your Git credentials. Without a subpath, searches from the
+            repository root.
+        organization: An optional organization to scope the skills.
+        skill_names: Names to import, or ``None`` to import all skills found. The list must not
+            be empty, and each name must match a skill's ``name`` field. All ``SKILL.md`` files
+            found by the search are validated, including those for skills not selected.
+        status: Status for new versions: ``active`` (default) or ``draft``. Existing matching
+            versions are reused without changing their status.
 
     Returns:
-        The server's SkillVersions in batch order, including reused versions. Each source
-        subpath is relative to the repository root and retains the discovery-root prefix.
+        Created or reused skill versions, sorted by the path to each ``SKILL.md`` file.
 
     Example:
         .. code-block:: python
