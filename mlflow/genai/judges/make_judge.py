@@ -121,6 +121,7 @@ def make_judge(
     extra_headers: dict[str, str] | None = None,
     include_timing_in_conversation: bool = False,
     generate_rationale_first: bool = False,
+    model_api: Literal["chat_completions", "responses", "decisions"] | None = None,
 ) -> Judge:
     """
     Create a custom MLflow judge instance.
@@ -181,6 +182,15 @@ def make_judge(
                         (the default, for backward compatibility), the result value is emitted
                         first. Setting this to True can produce more consistent results by
                         preventing the value from contradicting its own rationale.
+        model_api: API to use for an ``openai:/`` model. ``None`` keeps the existing
+                        Chat Completions behavior. ``"responses"`` uses structured output
+                        from the Responses API. ``"decisions"`` uses the Decisions API and
+                        requires ``feedback_value_type=bool`` or a finite
+                        ``Literal`` of strings or booleans. Decisions return probabilities
+                        but no rationale. The Responses and Decisions options support
+                        evaluations based on inputs, outputs, expectations, or conversations;
+                        they do not support ``{{ trace }}`` tool calling. Responses does
+                        not support ``dict[str, ...]`` feedback value types.
 
     Returns:
         An InstructionsJudge instance configured with the provided parameters
@@ -291,4 +301,5 @@ def make_judge(
         inference_params=inference_params,
         base_url=base_url,
         extra_headers=extra_headers,
+        model_api=model_api,
     )

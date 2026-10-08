@@ -662,6 +662,7 @@ class Scorer(BaseModel):
                     feedback_value_type=feedback_value_type,
                     generate_rationale_first=data.get("generate_rationale_first", False),
                     inference_params=data.get("inference_params"),
+                    model_api=data.get("model_api"),
                     aggregations=serialized.aggregations,
                 )
             except Exception as e:
