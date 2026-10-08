@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 from typing import Any, Callable
 
@@ -61,7 +62,27 @@ from mlflow.utils.validation import (
 _logger = logging.getLogger(__name__)
 
 
-def _skill_identity_predicate(identities: list[tuple[str, str]]):
+def _skill_identity_predicate(identities: list[tuple[str, str]], dialect: str):
+    if dialect == "mssql" and len(identities) > 400:
+        # SQL Server limits a statement to 2,100 parameters. Pass large ACL sets
+        # as one JSON parameter and join them before pagination instead of
+        # expanding each identity into bound parameters. Two smaller allow/deny
+        # sets each contribute at most 800 parameters, leaving room for filters.
+        rows = sa.func.OPENJSON(
+            sa.literal(
+                json.dumps([{"organization": org, "name": name} for org, name in identities]),
+                type_=sa.UnicodeText(),
+            )
+        ).table_valued("key", "value", "type")
+        return sa.exists(
+            sa
+            .select(1)
+            .select_from(rows)
+            .where(
+                sa.func.JSON_VALUE(rows.c.value, "$.organization") == SqlSkill.organization,
+                sa.func.JSON_VALUE(rows.c.value, "$.name") == SqlSkill.name,
+            )
+        )
     names_by_organization: dict[str, set[str]] = {}
     for organization, name in identities:
         names_by_organization.setdefault(organization, set()).add(name)
@@ -445,9 +466,13 @@ class SqlAlchemySkillRegistryMixin:
             )
             if allowed_identities is not None:
                 # Identity includes organization: the same name may exist in several orgs.
-                query = query.filter(_skill_identity_predicate(allowed_identities))
+                query = query.filter(
+                    _skill_identity_predicate(allowed_identities, self._get_dialect())
+                )
             if denied_identities:
-                query = query.filter(~_skill_identity_predicate(denied_identities))
+                query = query.filter(
+                    ~_skill_identity_predicate(denied_identities, self._get_dialect())
+                )
             rows = query.order_by(*order_clauses).offset(offset).limit(max_results + 1).all()
             skills = [skill.to_mlflow_entity() for skill in rows]
             return paginate_results(

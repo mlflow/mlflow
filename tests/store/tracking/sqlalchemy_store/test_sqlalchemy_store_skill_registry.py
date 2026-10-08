@@ -34,7 +34,10 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlSkillVersion,
     SqlSkillVersionTag,
 )
-from mlflow.store.tracking.skill_registry.sqlalchemy_mixin import SqlAlchemySkillRegistryMixin
+from mlflow.store.tracking.skill_registry.sqlalchemy_mixin import (
+    SqlAlchemySkillRegistryMixin,
+    _skill_identity_predicate,
+)
 from mlflow.store.tracking.skill_registry_pagination import SkillRegistryPaginationToken
 from mlflow.store.tracking.sqlalchemy_store import _DB_WRITE_MAX_DEADLOCK_RETRIES
 from mlflow.utils.validation import (
@@ -116,6 +119,15 @@ def test_search_skills_filters_qualified_identities_before_pagination(store):
         (skill.organization, skill.name)
         for skill in store.search_skills(allowed_identities=many_allowed)
     ] == [("", "writer"), ("acme", "reviewer")]
+
+
+def test_large_skill_identity_scope_uses_bounded_sql_server_parameters():
+    identities = [("acme", f"skill-{index}") for index in range(2500)]
+    query = sqlalchemy.select(SqlSkill.name).where(_skill_identity_predicate(identities, "mssql"))
+    compiled = query.compile(dialect=mssql.dialect())
+
+    assert "OPENJSON" in str(compiled)
+    assert len(compiled.params) < 2100
 
 
 def test_get_skill_not_found_raises(store):

@@ -12,7 +12,6 @@ from mlflow.server.auth.permissions import (
     EDIT,
     MANAGE,
     READ,
-    RESOURCE_TYPE_AGENT_PLUGIN,
     RESOURCE_TYPE_EXPERIMENT,
     RESOURCE_TYPE_SKILL,
     RESOURCE_TYPE_WORKSPACE,
@@ -25,7 +24,7 @@ from mlflow.server.auth.permissions import (
 # form). Those two carry their own validation rules and are exercised by
 # scope-specific tests rather than the shared parametrised matrix below.
 _CONCRETE_RESOURCE_TYPES = sorted(VALID_RESOURCE_TYPES - {"workspace", "*"})
-_SKILL_REGISTRY_RESOURCE_TYPES = {RESOURCE_TYPE_SKILL, RESOURCE_TYPE_AGENT_PLUGIN}
+_SKILL_REGISTRY_RESOURCE_TYPES = {RESOURCE_TYPE_SKILL}
 _COMMON_CONCRETE_RESOURCE_TYPES = sorted(
     set(_CONCRETE_RESOURCE_TYPES) - _SKILL_REGISTRY_RESOURCE_TYPES
 )
@@ -445,7 +444,7 @@ def test_grant_user_permissions_in_session_commits_with_outer_transaction(store,
             user.username,
             [
                 (RESOURCE_TYPE_SKILL, "demo-skill", MANAGE.name),
-                (RESOURCE_TYPE_AGENT_PLUGIN, "@acme/demo-plugin", MANAGE.name),
+                (RESOURCE_TYPE_SKILL, "@acme/other-skill", MANAGE.name),
             ],
         )
 
@@ -458,8 +457,8 @@ def test_grant_user_permissions_in_session_commits_with_outer_transaction(store,
     assert (
         store.get_role_permission_for_resource(
             user.id,
-            RESOURCE_TYPE_AGENT_PLUGIN,
-            "@acme/demo-plugin",
+            RESOURCE_TYPE_SKILL,
+            "@acme/other-skill",
             DEFAULT_WORKSPACE_NAME,
         )
         == MANAGE
@@ -703,16 +702,16 @@ def test_session_grants_share_tracking_transaction_when_databases_are_colocated(
         tracking_store.engine.dispose()
 
 
-@pytest.mark.parametrize("resource_type", [RESOURCE_TYPE_SKILL, RESOURCE_TYPE_AGENT_PLUGIN])
 @pytest.mark.parametrize("resource_pattern", ["acme/name", "@", "@acme/", "@acme/name/extra"])
 def test_skill_registry_grant_rejects_invalid_resource_pattern(
     store,
     user,
-    resource_type,
     resource_pattern,
 ):
     with pytest.raises(MlflowException, match="Invalid Skill Registry resource_id"):
-        store.grant_user_permission(user.username, resource_type, resource_pattern, MANAGE.name)
+        store.grant_user_permission(
+            user.username, RESOURCE_TYPE_SKILL, resource_pattern, MANAGE.name
+        )
 
 
 def test_skill_registry_session_grant_rejects_invalid_resource_pattern(store, user):
@@ -757,7 +756,7 @@ def test_grant_user_permissions_in_session_rolls_back_partial_batch_on_duplicate
                 [
                     (RESOURCE_TYPE_SKILL, "new-before-duplicate", MANAGE.name),
                     (RESOURCE_TYPE_SKILL, "existing-skill", MANAGE.name),
-                    (RESOURCE_TYPE_AGENT_PLUGIN, "new-after-duplicate", MANAGE.name),
+                    (RESOURCE_TYPE_SKILL, "new-after-duplicate", MANAGE.name),
                 ],
             )
 
@@ -775,15 +774,13 @@ def test_grant_user_permissions_in_session_rolls_back_partial_batch_on_duplicate
     )
     assert (
         store.get_role_permission_for_resource(
-            user.id, RESOURCE_TYPE_AGENT_PLUGIN, "new-after-duplicate", DEFAULT_WORKSPACE_NAME
+            user.id, RESOURCE_TYPE_SKILL, "new-after-duplicate", DEFAULT_WORKSPACE_NAME
         )
         is None
     )
 
 
-def test_grant_user_resource_permission_in_session_savepoint_keeps_session_usable(
-    store, user
-):
+def test_grant_user_resource_permission_in_session_savepoint_keeps_session_usable(store, user):
     store.grant_user_permission(user.username, RESOURCE_TYPE_SKILL, "existing-skill", READ.name)
 
     class _HiddenRolePermissionQuery:
@@ -815,7 +812,7 @@ def test_grant_user_resource_permission_in_session_savepoint_keeps_session_usabl
         store.grant_user_resource_permission_in_session(
             session,
             user.username,
-            RESOURCE_TYPE_AGENT_PLUGIN,
+            RESOURCE_TYPE_SKILL,
             "new-after-integrity-error",
             MANAGE.name,
         )
@@ -829,7 +826,7 @@ def test_grant_user_resource_permission_in_session_savepoint_keeps_session_usabl
     assert (
         store.get_role_permission_for_resource(
             user.id,
-            RESOURCE_TYPE_AGENT_PLUGIN,
+            RESOURCE_TYPE_SKILL,
             "new-after-integrity-error",
             DEFAULT_WORKSPACE_NAME,
         )
@@ -853,11 +850,7 @@ def test_grant_user_permission_in_session_recovers_from_upsert_insert_race(store
 
         def query(*entities, **kwargs):
             nonlocal hidden_queries
-            if (
-                len(entities) == 1
-                and entities[0] is SqlRolePermission
-                and hidden_queries == 0
-            ):
+            if len(entities) == 1 and entities[0] is SqlRolePermission and hidden_queries == 0:
                 hidden_queries += 1
                 return _HiddenRolePermissionQuery()
             return original_query(*entities, **kwargs)
@@ -896,9 +889,7 @@ def test_grant_user_permission_rejects_workspace_resource_type(store, user):
         store.grant_user_permission(user.username, RESOURCE_TYPE_WORKSPACE, "*", MANAGE.name)
 
 
-def test_grant_user_resource_permission_in_session_does_not_overwrite_existing_grant(
-    store, user
-):
+def test_grant_user_resource_permission_in_session_does_not_overwrite_existing_grant(store, user):
     store.grant_user_permission(user.username, RESOURCE_TYPE_SKILL, "demo-skill", READ.name)
 
     with pytest.raises(MlflowException, match="already exists"):

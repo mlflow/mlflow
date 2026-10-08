@@ -53,6 +53,7 @@ from mlflow import MlflowException
 from mlflow.entities import Experiment
 from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.model_registry import RegisteredModel
+from mlflow.entities.skill import Skill
 from mlflow.environment_variables import (
     _MLFLOW_AUTH_ADMIN_BOOTSTRAPPED,
     _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN,
@@ -285,7 +286,6 @@ from mlflow.server.auth.permissions import (
     MANAGE,
     NO_PERMISSIONS,
     RESOURCE_TYPE_ASSESSMENT,
-    RESOURCE_TYPE_AGENT_PLUGIN,
     RESOURCE_TYPE_EXPERIMENT,
     RESOURCE_TYPE_GATEWAY_ENDPOINT,
     RESOURCE_TYPE_GATEWAY_MODEL_DEFINITION,
@@ -1359,11 +1359,11 @@ def _get_permission_from_experiment_id_artifact_proxy() -> Permission:
         return _get_skill_permission(skill_identity.organization, skill_identity.name, username)
 
     # The root and organization directories have no single Skill ACL. Listing either
-    # reveals Skill names, so only a platform admin may inspect them through artifacts.
+    # reveals Skill names. Platform admins bypass this validator in middleware.
     view_args = request.view_args or {}
     if artifact_path := (view_args.get("artifact_path") or request.args.get("path")):
         if is_skill_upload_namespace(artifact_path):
-            return MANAGE if store.get_user(username).is_admin else NO_PERMISSIONS
+            return NO_PERMISSIONS
 
     if experiment_id := _get_experiment_id_from_view_args():
         return _get_role_permission_or_default(
@@ -1893,24 +1893,6 @@ def _get_skill_permission(organization: str | None, name: str, username: str) ->
             workspace_lookup_id=resource_key,
             workspace_fetcher=_get_skill_for_auth,
             workspace_label="skill",
-        ),
-    )
-
-
-def _get_agent_plugin_permission(
-    organization: str | None,
-    name: str,
-    username: str,
-) -> Permission:
-    resource_key = _format_skill_registry_resource_key(organization, name)
-    return _get_role_permission_or_default(
-        _role_permission_for(
-            username=username,
-            resource_type=RESOURCE_TYPE_AGENT_PLUGIN,
-            resource_key=resource_key,
-            workspace_lookup_id=resource_key,
-            workspace_fetcher=_get_agent_plugin_for_auth,
-            workspace_label="agent plugin",
         ),
     )
 
@@ -2643,10 +2625,6 @@ def validate_can_create_skill(username: str) -> bool:
     return _can_create_in_workspace(username)
 
 
-def validate_can_create_agent_plugin(username: str) -> bool:
-    return _can_create_in_workspace(username)
-
-
 def validate_can_view_workspace() -> bool:
     if not MLFLOW_ENABLE_WORKSPACES.get():
         return True
@@ -2939,14 +2917,7 @@ def _reject_workspace_resource_type(resource_type: str) -> None:
         )
 
 
-@dataclass(frozen=True)
-class _SkillRegistryAuthParent:
-    """Minimal parent shape used by auth after resolving a Skill Registry row."""
-
-    workspace: str
-
-
-def _skill_registry_auth_workspace(resource_type: str, resource_id: str) -> str:
+def _skill_auth_workspace(resource_id: str) -> str:
     workspace_name = (
         workspace_context.get_request_workspace()
         if MLFLOW_ENABLE_WORKSPACES.get()
@@ -2954,46 +2925,30 @@ def _skill_registry_auth_workspace(resource_type: str, resource_id: str) -> str:
     )
     if workspace_name is None:
         raise MlflowException(
-            f"Cannot resolve workspace for {resource_type} '{resource_id}' without "
-            "an active workspace.",
+            f"Cannot resolve workspace for skill '{resource_id}' without an active workspace.",
             RESOURCE_DOES_NOT_EXIST,
         )
     return workspace_name
 
 
-def _get_skill_registry_parent_for_auth(
-    resource_type: str,
-    resource_id: str,
-) -> _SkillRegistryAuthParent:
+def _get_skill_for_auth(resource_id: str) -> Skill:
     organization, name = _parse_skill_registry_resource_key(resource_id)
     tracking_store = _get_tracking_store()
-    workspace_name = _skill_registry_auth_workspace(resource_type, resource_id)
+    workspace_name = _skill_auth_workspace(resource_id)
 
-    getter_name = {
-        RESOURCE_TYPE_SKILL: "get_skill",
-        RESOURCE_TYPE_AGENT_PLUGIN: "get_agent_plugin",
-    }[resource_type]
-    getter = getattr(tracking_store, getter_name, None)
+    getter = getattr(tracking_store, "get_skill", None)
     if getter is None:
         raise MlflowException(
-            f"Cannot load {resource_type} '{resource_id}' from the tracking store.",
+            f"Cannot load skill '{resource_id}' from the tracking store.",
             RESOURCE_DOES_NOT_EXIST,
         )
     parent = getter(name=name, organization=organization)
     if parent.workspace != workspace_name:
         raise MlflowException(
-            f"{resource_type} '{resource_id}' does not exist.",
+            f"skill '{resource_id}' does not exist.",
             RESOURCE_DOES_NOT_EXIST,
         )
-    return _SkillRegistryAuthParent(workspace=parent.workspace)
-
-
-def _get_skill_for_auth(resource_id: str) -> _SkillRegistryAuthParent:
-    return _get_skill_registry_parent_for_auth(RESOURCE_TYPE_SKILL, resource_id)
-
-
-def _get_agent_plugin_for_auth(resource_id: str) -> _SkillRegistryAuthParent:
-    return _get_skill_registry_parent_for_auth(RESOURCE_TYPE_AGENT_PLUGIN, resource_id)
+    return parent
 
 
 # Maps each resource_type to ``(workspace_label, workspace_fetcher_factory)``.
@@ -3027,10 +2982,6 @@ _RESOURCE_WORKSPACE_FETCHER: dict[str, tuple[str, Callable[[], Callable[[str], A
     RESOURCE_TYPE_SKILL: (
         "skill",
         lambda: _get_skill_for_auth,
-    ),
-    RESOURCE_TYPE_AGENT_PLUGIN: (
-        "agent plugin",
-        lambda: _get_agent_plugin_for_auth,
     ),
 }
 
@@ -3066,7 +3017,7 @@ def _resource_dispatch_keys(resource_type: str, resource_id: str) -> _ResourceDi
     if spec is None:
         return None
     label, fetcher_factory = spec
-    if resource_type in {RESOURCE_TYPE_SKILL, RESOURCE_TYPE_AGENT_PLUGIN}:
+    if resource_type == RESOURCE_TYPE_SKILL:
         # Validate the composite id and format it into the canonical grant key.
         organization, name = _parse_skill_registry_resource_key(resource_id)
         resource_id = _format_skill_registry_resource_key(organization, name)
@@ -5642,39 +5593,22 @@ def delete_can_manage_registered_model_permission(resp: Response):
     store.delete_grants_for_resource("prompt", name, workspace_scoped=True)
 
 
-def grant_manage_for_created_skill(username: str, organization: str | None, name: str) -> None:
-    store.grant_user_permission(
-        username,
-        RESOURCE_TYPE_SKILL,
-        _format_skill_registry_resource_key(organization, name),
-        MANAGE.name,
-    )
-
-
-def grant_manage_for_created_agent_plugin(
-    username: str,
-    organization: str | None,
-    name: str,
+def grant_manage_for_created_skills(
+    username: str, organization: str | None, names: list[str]
 ) -> None:
-    store.grant_user_permission(
-        username,
-        RESOURCE_TYPE_AGENT_PLUGIN,
-        _format_skill_registry_resource_key(organization, name),
-        MANAGE.name,
-    )
+    if not names:
+        return
+    grants = [
+        (RESOURCE_TYPE_SKILL, _format_skill_registry_resource_key(organization, name), MANAGE.name)
+        for name in names
+    ]
+    with store.ManagedSessionMaker(read_only=False) as session:
+        store.grant_user_permissions_in_session(session, username, grants, upsert=True)
 
 
 def delete_skill_permissions(organization: str | None, name: str) -> None:
     store.delete_grants_for_resource(
         RESOURCE_TYPE_SKILL,
-        _format_skill_registry_resource_key(organization, name),
-        workspace_scoped=True,
-    )
-
-
-def delete_agent_plugin_permissions(organization: str | None, name: str) -> None:
-    store.delete_grants_for_resource(
-        RESOURCE_TYPE_AGENT_PLUGIN,
         _format_skill_registry_resource_key(organization, name),
         workspace_scoped=True,
     )
@@ -8338,6 +8272,10 @@ def _get_skill_registry_validator(path: str) -> Callable[[str, StarletteRequest]
         if request.method in ("POST", "PATCH"):
             return permission.can_update
         if request.method == "DELETE":
+            if (len(tail) >= 2 and tail[0] == "tags") or (
+                len(tail) >= 4 and tail[0] == "versions" and tail[2] == "tags"
+            ):
+                return permission.can_update
             return permission.can_manage
         return False
 
@@ -8810,7 +8748,7 @@ def _get_proxy_artifact_permission(
 
     if (artifact_path := _effective_artifact_proxy_path(path, query_path)) is not None:
         if is_skill_upload_namespace(artifact_path):
-            return MANAGE if store.get_user(username).is_admin else NO_PERMISSIONS
+            return NO_PERMISSIONS
 
     if experiment_id := _extract_experiment_id_from_artifact_proxy_path(path, query_path):
         return _get_role_permission_or_default(

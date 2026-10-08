@@ -430,7 +430,7 @@ def _grant_creator_if_new(request: Request, organization: str, name: str, new: b
         # The caller must never inherit MANAGE on a parent that won that race.
         parent = _get_tracking_store().get_skill(name=name, organization=organization)
         if parent.created_by == username:
-            auth.grant_manage_for_created_skill(username, organization, name)
+            auth.grant_manage_for_created_skills(username, organization, [name])
 
 
 async def _create_skill_version(
@@ -639,8 +639,12 @@ def _delete_skill(name: str, organization: str = "") -> dict[str, Any]:
     _validate_skill_path_identity(organization, name)
     try:
         from mlflow.server import auth
-    except ModuleNotFoundError as e:
-        if e.name != "flask_wtf":
+    except ImportError as e:
+        missing_module = e if isinstance(e, ModuleNotFoundError) else e.__cause__
+        if (
+            not isinstance(missing_module, ModuleNotFoundError)
+            or missing_module.name != "flask_wtf"
+        ):
             raise
         # Basic auth is an optional extra. A plain MLflow server has no grants to clean.
         auth = None
@@ -1172,8 +1176,18 @@ async def bulk_register_skills(
         authorize_existing=_existing_skill_authorizer(request),
         authorize_missing=_missing_skill_authorizer(request, set(new_parents)),
     )
-    for name in new_parents:
-        _grant_creator_if_new(request, body.organization, name, True)
+    if new_parents and username:
+        from mlflow.server import auth
+        from mlflow.server.handlers import _get_tracking_store
+
+        # A parent may have been created by another request after preflight. Resolve
+        # ownership in one query, then commit the creator grants in one auth transaction.
+        parents = _get_tracking_store().search_skills(
+            max_results=len(new_parents),
+            allowed_identities=[(body.organization, name) for name in new_parents],
+        )
+        owned_names = [parent.name for parent in parents if parent.created_by == username]
+        auth.grant_manage_for_created_skills(username, body.organization, owned_names)
     return BulkRegisterSkillsResponse(
         skill_versions=[SkillVersionResponse.from_entity(version) for version in versions]
     )

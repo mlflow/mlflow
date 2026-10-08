@@ -113,7 +113,6 @@ RESOURCE_TYPE_GATEWAY_ENDPOINT = "gateway_endpoint"
 RESOURCE_TYPE_GATEWAY_MODEL_DEFINITION = "gateway_model_definition"
 RESOURCE_TYPE_MCP_SERVER = "mcp_server"
 RESOURCE_TYPE_SKILL = "skill"
-RESOURCE_TYPE_AGENT_PLUGIN = "agent_plugin"
 
 # Workspace-wide permissions slot. ``resource_pattern`` must be ``"*"``. The
 # permission level distinguishes member from admin:
@@ -220,12 +219,11 @@ RESOURCE_GRANTABLE_PERMISSIONS = frozenset({
 })
 
 # Skill Registry resources intentionally expose only the permission levels named
-# in RFC-0008. ``USE`` has no skill/plugin-specific operation, so accepting it
+# in RFC-0008. ``USE`` has no Skill-specific operation, so accepting it
 # would create a misleading grant that behaves like READ for these resources.
 SKILL_REGISTRY_GRANTABLE_PERMISSIONS = frozenset({READ.name, EDIT.name, MANAGE.name})
 SKILL_REGISTRY_RESOURCE_TYPES = frozenset({
     RESOURCE_TYPE_SKILL,
-    RESOURCE_TYPE_AGENT_PLUGIN,
 })
 
 
@@ -284,7 +282,7 @@ def _validate_permission_for_resource_type(permission: str, resource_type: str) 
                 f"Workspace-wide grants accept only: "
                 f"{tuple(sorted(WORKSPACE_GRANTABLE_PERMISSIONS))}.",
                 INVALID_PARAMETER_VALUE,
-        )
+            )
         return
     if resource_type in SKILL_REGISTRY_RESOURCE_TYPES:
         if permission not in SKILL_REGISTRY_GRANTABLE_PERMISSIONS:

@@ -19,7 +19,6 @@ from mlflow.server.auth.permissions import (
     MANAGE,
     NO_PERMISSIONS,
     READ,
-    RESOURCE_TYPE_AGENT_PLUGIN,
     RESOURCE_TYPE_SKILL,
     USE,
     _format_skill_registry_resource_key,
@@ -234,7 +233,6 @@ class _TrackingStore:
         gateway_model_def_workspaces: dict[str, str] | None = None,
         mcp_server_workspaces: dict[str, str] | None = None,
         skill_workspaces: dict[tuple[str, str], str] | None = None,
-        agent_plugin_workspaces: dict[tuple[str, str], str] | None = None,
         engine=None,
         ManagedSessionMaker=None,
     ):
@@ -248,7 +246,6 @@ class _TrackingStore:
         self._gateway_model_def_workspaces = gateway_model_def_workspaces or {}
         self._mcp_server_workspaces = mcp_server_workspaces or {}
         self._skill_workspaces = skill_workspaces or {}
-        self._agent_plugin_workspaces = agent_plugin_workspaces or {}
         self.engine = engine
         self.ManagedSessionMaker = ManagedSessionMaker
 
@@ -339,15 +336,6 @@ class _TrackingStore:
                 error_code=RESOURCE_DOES_NOT_EXIST,
             )
         return SimpleNamespace(workspace=self._skill_workspaces[key])
-
-    def get_agent_plugin(self, name: str, organization: str = ""):
-        key = (organization, name)
-        if key not in self._agent_plugin_workspaces:
-            raise MlflowException(
-                f"Agent plugin not found ({organization}/{name})",
-                error_code=RESOURCE_DOES_NOT_EXIST,
-            )
-        return SimpleNamespace(workspace=self._agent_plugin_workspaces[key])
 
     def _create_mock_session(self):
         """Create a mock session that can query gateway SQL models."""
@@ -464,10 +452,6 @@ def workspace_permission_setup(tmp_path, monkeypatch):
             ("", "skill-1"): "team-a",
             ("acme", "skill-2"): "team-a",
         },
-        agent_plugin_workspaces={
-            ("", "plugin-1"): "team-a",
-            ("acme", "plugin-2"): "team-a",
-        },
         engine=MagicMock(),  # Mock engine for SQL model queries
     )
     # Set ManagedSessionMaker after creating the store
@@ -564,6 +548,8 @@ def test_skill_rest_validator_maps_parent_and_inherited_permissions(
         (prefix, "PATCH", expected[1]),
         (f"{prefix}/versions", "POST", expected[1]),
         (f"{prefix}/tags", "POST", expected[1]),
+        (f"{prefix}/tags/team", "DELETE", expected[1]),
+        (f"{prefix}/versions/1/tags/team/owner", "DELETE", expected[1]),
         (prefix, "DELETE", expected[2]),
         (f"{prefix}/aliases/latest", "DELETE", expected[2]),
     ]:
@@ -1015,7 +1001,6 @@ def test_use_workspace_permission_allows_create_but_blocks_reads_and_writes_on_o
         assert auth_module.validate_can_create_registered_model()
         assert auth_module.validate_can_create_mcp_server(username)
         assert auth_module.validate_can_create_skill(username)
-        assert auth_module.validate_can_create_agent_plugin(username)
 
     with auth_module.app.test_request_context(
         "/api/2.0/mlflow/experiments/get", method="GET", query_string={"experiment_id": "exp-1"}
@@ -1047,7 +1032,6 @@ def test_use_workspace_permission_allows_create_but_blocks_reads_and_writes_on_o
 
     with workspace_context.WorkspaceContext("team-a"):
         assert not auth_module._get_skill_permission("", "skill-1", username).can_read
-        assert not auth_module._get_agent_plugin_permission("", "plugin-1", username).can_read
 
 
 def test_no_permissions_blocks_create(workspace_permission_setup):
@@ -1062,7 +1046,6 @@ def test_no_permissions_blocks_create(workspace_permission_setup):
         assert not auth_module.validate_can_create_mcp_server(username)
         assert not auth_module.validate_can_create_gateway_secret()
         assert not auth_module.validate_can_create_skill(username)
-        assert not auth_module.validate_can_create_agent_plugin(username)
 
 
 def test_gateway_secret_create_requires_workspace_create_grant(workspace_permission_setup):
@@ -1310,11 +1293,6 @@ def test_skill_artifact_ancestor_listing_does_not_reveal_names(
         query_string={"path": ancestor_path},
     ):
         assert not auth_module.validate_can_read_experiment_artifact_proxy()
-
-    store.create_user("admin", "supersecurepassword", is_admin=True)
-    assert auth_module._get_proxy_artifact_permission(
-        "/api/2.0/mlflow-artifacts/artifacts", "admin", query_path=ancestor_path
-    ).can_read
 
 
 def test_filter_experiment_ids_respects_workspace_permissions(
@@ -4368,18 +4346,6 @@ def test_role_in_other_workspace_does_not_grant_mcp_server_access(workspace_perm
             "skill-2",
             auth_module._get_skill_permission,
         ),
-        (
-            RESOURCE_TYPE_AGENT_PLUGIN,
-            "",
-            "plugin-1",
-            auth_module._get_agent_plugin_permission,
-        ),
-        (
-            RESOURCE_TYPE_AGENT_PLUGIN,
-            "acme",
-            "plugin-2",
-            auth_module._get_agent_plugin_permission,
-        ),
     ],
 )
 @pytest.mark.parametrize(
@@ -4423,8 +4389,6 @@ def test_role_grant_on_skill_registry_parent_gates_capabilities(
     [
         (RESOURCE_TYPE_SKILL, "skill-1"),
         (RESOURCE_TYPE_SKILL, "@acme/skill-2"),
-        (RESOURCE_TYPE_AGENT_PLUGIN, "plugin-1"),
-        (RESOURCE_TYPE_AGENT_PLUGIN, "@acme/plugin-2"),
     ],
 )
 def test_validate_can_manage_resource_supports_skill_registry_resource_ids(
@@ -4453,12 +4417,6 @@ def test_validate_can_manage_resource_supports_skill_registry_resource_ids(
     ("resource_type", "permission_getter", "organization", "name"),
     [
         (RESOURCE_TYPE_SKILL, auth_module._get_skill_permission, "", "skill-1"),
-        (
-            RESOURCE_TYPE_AGENT_PLUGIN,
-            auth_module._get_agent_plugin_permission,
-            "",
-            "plugin-1",
-        ),
     ],
 )
 def test_role_in_other_workspace_does_not_grant_skill_registry_access(
@@ -4492,14 +4450,6 @@ def test_role_in_other_workspace_does_not_grant_skill_registry_access(
             "ACME",
             "Skill-2",
         ),
-        (
-            RESOURCE_TYPE_AGENT_PLUGIN,
-            auth_module._get_agent_plugin_permission,
-            "acme",
-            "plugin-2",
-            "ACME",
-            "Plugin-2",
-        ),
     ],
 )
 def test_skill_registry_resource_keys_match_canonical_case(
@@ -4523,15 +4473,7 @@ def test_skill_registry_resource_keys_match_canonical_case(
         skill_workspaces={
             (lower_org, lower_name): "team-a",
             (upper_org, upper_name): "team-a",
-        }
-        if resource_type == RESOURCE_TYPE_SKILL
-        else {},
-        agent_plugin_workspaces={
-            (lower_org, lower_name): "team-a",
-            (upper_org, upper_name): "team-a",
-        }
-        if resource_type == RESOURCE_TYPE_AGENT_PLUGIN
-        else {},
+        },
     )
     monkeypatch.setattr(auth_module, "_get_tracking_store", lambda: tracking_store)
 
@@ -4561,9 +4503,7 @@ def test_skill_registry_parent_primary_getter_rejects_other_workspace(
     monkeypatch.setattr(auth_module, "_get_tracking_store", lambda: tracking_store)
 
     with pytest.raises(MlflowException, match="other-workspace-skill.*does not exist") as exc:
-        auth_module._get_skill_registry_parent_for_auth(
-            RESOURCE_TYPE_SKILL, "other-workspace-skill"
-        )
+        auth_module._get_skill_for_auth("other-workspace-skill")
 
     assert exc.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
 
@@ -4574,7 +4514,7 @@ def test_skill_registry_parent_requires_store_getter(monkeypatch):
 
     with workspace_context.WorkspaceContext("team-a"):
         with pytest.raises(MlflowException, match="Cannot load skill") as exc:
-            auth_module._get_skill_registry_parent_for_auth(RESOURCE_TYPE_SKILL, "skill-1")
+            auth_module._get_skill_for_auth("skill-1")
 
     assert exc.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
 
@@ -6745,37 +6685,7 @@ def test_mcp_server_delete_grants_workspace_isolated(tmp_path, monkeypatch):
     auth_store.engine.dispose()
 
 
-@pytest.mark.parametrize(
-    ("grant_func", "delete_func", "resource_type", "organization", "name", "resource_key"),
-    [
-        (
-            auth_module.grant_manage_for_created_skill,
-            auth_module.delete_skill_permissions,
-            RESOURCE_TYPE_SKILL,
-            "",
-            "shared-name",
-            "shared-name",
-        ),
-        (
-            auth_module.grant_manage_for_created_agent_plugin,
-            auth_module.delete_agent_plugin_permissions,
-            RESOURCE_TYPE_AGENT_PLUGIN,
-            "acme",
-            "shared-name",
-            "@acme/shared-name",
-        ),
-    ],
-)
-def test_skill_registry_creator_grants_and_delete_cleanup_are_workspace_isolated(
-    tmp_path,
-    monkeypatch,
-    grant_func,
-    delete_func,
-    resource_type,
-    organization,
-    name,
-    resource_key,
-):
+def test_skill_creator_grants_and_delete_cleanup_are_workspace_isolated(tmp_path, monkeypatch):
     monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
 
     db_uri = f"sqlite:///{tmp_path / 'auth-skill-registry-iso.db'}"
@@ -6786,26 +6696,48 @@ def test_skill_registry_creator_grants_and_delete_cleanup_are_workspace_isolated
     username = "alice"
     auth_store.create_user(username, "supersecurepassword", is_admin=False)
     user = auth_store.get_user(username)
+    organization, name = "", "shared-name"
 
     with workspace_context.WorkspaceContext("team-a"):
-        grant_func(username, organization, name)
+        auth_module.grant_manage_for_created_skills(username, organization, [name])
 
     with workspace_context.WorkspaceContext("team-b"):
-        grant_func(username, organization, name)
+        auth_module.grant_manage_for_created_skills(username, organization, [name])
 
     with workspace_context.WorkspaceContext("team-a"):
-        delete_func(organization, name)
+        auth_module.delete_skill_permissions(organization, name)
 
     assert (
-        auth_store.get_role_permission_for_resource(user.id, resource_type, resource_key, "team-a")
+        auth_store.get_role_permission_for_resource(user.id, RESOURCE_TYPE_SKILL, name, "team-a")
         is None
     )
     assert (
-        auth_store.get_role_permission_for_resource(user.id, resource_type, resource_key, "team-b")
+        auth_store.get_role_permission_for_resource(user.id, RESOURCE_TYPE_SKILL, name, "team-b")
         == MANAGE
     )
 
     auth_store.engine.dispose()
+
+
+def test_bulk_skill_creator_grants_roll_back_together(workspace_permission_setup):
+    auth_store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+
+    with pytest.raises(MlflowException, match="Invalid Skill Registry resource_id"):
+        auth_module.grant_manage_for_created_skills(username, "acme", ["reviewer", "invalid/name"])
+
+    user = auth_store.get_user(username)
+    grants = auth_store.list_typed_role_grants_for_user_in_workspace(
+        user.id, "team-a", RESOURCE_TYPE_SKILL
+    )
+    assert (RESOURCE_TYPE_SKILL, "@acme/reviewer", MANAGE.name) not in grants
+
+    auth_module.grant_manage_for_created_skills(username, "acme", ["reviewer", "writer"])
+    grants = auth_store.list_typed_role_grants_for_user_in_workspace(
+        user.id, "team-a", RESOURCE_TYPE_SKILL
+    )
+    assert (RESOURCE_TYPE_SKILL, "@acme/reviewer", MANAGE.name) in grants
+    assert (RESOURCE_TYPE_SKILL, "@acme/writer", MANAGE.name) in grants
 
 
 def test_skill_registry_creator_manage_survives_cached_missing_parent(
@@ -6846,7 +6778,7 @@ def test_skill_registry_creator_manage_survives_cached_missing_parent(
             with tracking_store.ManagedSessionMaker(read_only=False) as session:
                 session.add(SqlSkill(workspace="team-a", organization=organization, name=name))
 
-            auth_module.grant_manage_for_created_skill(username, organization, name)
+            auth_module.grant_manage_for_created_skills(username, organization, [name])
             assert auth_module._get_skill_permission(organization, name, username) == MANAGE
     finally:
         auth_module._RESOURCE_WORKSPACE_CACHE.clear()

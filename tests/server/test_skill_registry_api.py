@@ -3,6 +3,7 @@ import builtins
 import io
 import json
 from pathlib import Path
+from types import SimpleNamespace
 from unittest import mock
 
 import pytest
@@ -1096,13 +1097,19 @@ def test_register_remote_skill_version_creates_parent(tmp_path: Path, db_uri: st
     assert store.get_skill("code-review").created_by is None
 
 
-def test_registry_registration_and_deletion_work_without_optional_auth(tmp_path: Path, db_uri: str):
+@pytest.mark.parametrize("wrapped", [False, True])
+def test_registry_registration_and_deletion_work_without_optional_auth(
+    tmp_path: Path, db_uri: str, wrapped: bool
+):
     client, store = _create_client(tmp_path, db_uri)
     original_import = builtins.__import__
 
     def without_flask_wtf(name, globals=None, locals=None, fromlist=(), level=0):
         if name == "mlflow.server" and "auth" in fromlist:
-            raise ModuleNotFoundError("No module named 'flask_wtf'", name="flask_wtf")
+            missing = ModuleNotFoundError("No module named 'flask_wtf'", name="flask_wtf")
+            if wrapped:
+                raise ImportError("The MLflow basic auth app requires Flask-WTF") from missing
+            raise missing
         return original_import(name, globals, locals, fromlist, level)
 
     registration = {"source": "https://example.com/skill.zip"}
@@ -1280,6 +1287,46 @@ def test_bulk_register_skill_versions_forwards_client_prepared_batch(
     ]
     assert all(registration.created_by is None for registration in registrations)
     assert all(registration.organization == "acme" for registration in registrations)
+
+
+def test_bulk_registration_grants_only_parents_created_by_requester():
+    from mlflow.server import auth
+
+    request = Request({"type": "http", "method": "POST", "path": f"{PREFIX}/bulk-register"})
+    request.state.username = "alice"
+    body = skill_registry_api.BulkRegisterSkillsRequest.model_validate({
+        "organization": "acme",
+        "skills": [
+            {"name": name, "source": "https://example.com/repo.git", "digest": "a" * 64}
+            for name in ("owned", "raced")
+        ],
+    })
+    versions = [
+        SkillVersion(name=name, version=1, organization="acme", status=SkillStatus.ACTIVE)
+        for name in ("owned", "raced")
+    ]
+    tracking = mock.Mock()
+    tracking.search_skills.return_value = [
+        SimpleNamespace(name="owned", created_by="alice"),
+        SimpleNamespace(name="raced", created_by="bob"),
+    ]
+    with (
+        mock.patch.object(skill_registry_api, "_authorize_registration", return_value=True),
+        mock.patch.object(skill_registry_api, "_existing_skill_authorizer", return_value=None),
+        mock.patch.object(skill_registry_api, "_missing_skill_authorizer", return_value=None),
+        mock.patch.object(
+            skill_registry_api, "bulk_register_skill_versions", return_value=versions
+        ),
+        mock.patch("mlflow.server.handlers._get_tracking_store", return_value=tracking),
+        mock.patch.object(auth, "grant_manage_for_created_skills") as grant,
+    ):
+        response = asyncio.run(skill_registry_api.bulk_register_skills(body, request))
+
+    assert [version.name for version in response.skill_versions] == ["owned", "raced"]
+    tracking.search_skills.assert_called_once_with(
+        max_results=2, allowed_identities=[("acme", "owned"), ("acme", "raced")]
+    )
+    grant.assert_called_once_with("alice", "acme", ["owned"])
 
 
 def test_bulk_register_skill_versions_rejects_oversized_batch(tmp_path: Path, db_uri: str):
