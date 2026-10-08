@@ -104,7 +104,7 @@ def register_skill(
             rejected. Use ``GitSource`` to register committed content by reference, which
             requires repository access when pulling, or copy the skill files to a directory
             without Git metadata to upload a snapshot, including uncommitted changes.
-        name: Registry name. If omitted, use the name declared in ``SKILL.md``.
+        name: The skill's name. Defaults to the name declared in ``SKILL.md``.
         organization: An optional organization to scope the skill.
         status: Initial version status, either ``active`` (default) or ``draft``.
 
