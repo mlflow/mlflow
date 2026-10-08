@@ -192,7 +192,8 @@ export const LogTracesDrawer = () => {
           >
             {frameworks.map((framework) => {
               const isSelected = framework.id === selectedFramework;
-              const logoSrc = isSelected && framework.selectedLogo ? framework.selectedLogo : framework.logo;
+              const useLightLogo = isSelected || theme.isDarkMode;
+              const logoSrc = useLightLogo && framework.selectedLogo ? framework.selectedLogo : framework.logo;
               return (
                 <button
                   key={framework.id}
@@ -226,7 +227,17 @@ export const LogTracesDrawer = () => {
                   }}
                 >
                   {logoSrc && (
-                    <img src={logoSrc} width={28} height={28} alt="icon" aria-hidden css={{ display: 'block' }} />
+                    <img
+                      src={logoSrc}
+                      width={28}
+                      height={28}
+                      alt="icon"
+                      aria-hidden
+                      style={{
+                        display: 'block',
+                        filter: framework.id === 'langgraph' && useLightLogo ? 'invert(1)' : undefined,
+                      }}
+                    />
                   )}
                   {framework.message}
                 </button>
