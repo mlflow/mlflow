@@ -21,12 +21,16 @@ and gated behind an experimental flag.
 
 import logging
 import os
+import re
+import shutil
 import tempfile
 import urllib.parse
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
 import requests
+from packaging.version import Version
 
 from mlflow.environment_variables import (
     _MLFLOW_SERVER_BOOT_ID,
@@ -34,6 +38,7 @@ from mlflow.environment_variables import (
     MLFLOW_SANDBOX_EGRESS_PROXY,
 )
 from mlflow.utils import PYTHON_VERSION, get_major_minor_py_version
+from mlflow.version import VERSION
 
 _logger = logging.getLogger(__name__)
 
@@ -52,6 +57,22 @@ _WORKSPACE_MOUNT = "/workspace"
 
 # Marker exit code used when the container is killed for exceeding its timeout.
 _TIMEOUT_EXIT_CODE = -1
+
+# How many lines of ``docker build`` output to include when the fallback image build fails.
+_BUILD_LOG_TAIL_LINES = 30
+
+# The ``mlflow`` package directory this module belongs to. For a source checkout, its parent is
+# the checkout root.
+_MLFLOW_PACKAGE_DIR = Path(__file__).resolve().parents[2]
+_MLFLOW_PROJECT_NAME = re.compile(r'^name = "mlflow"$', re.MULTILINE)
+# What ``pip install`` needs from an MLflow source tree, besides the ``mlflow`` package itself.
+_SOURCE_INSTALL_FILES = ("pyproject.toml", "README.md", "LICENSE.txt")
+# Never copied from a source tree into the image: frontend sources and builds the sandbox does not
+# serve, caches, and local data such as a server's SQLite tracking or auth database.
+_SOURCE_COPY_IGNORE = shutil.ignore_patterns(
+    "node_modules", "build", ".*", "__pycache__", "*.pyc", "*.db", "mlruns", "mlartifacts"
+)
+_SOURCE_DIR_IN_CONTEXT = "mlflow-source"
 
 # Labels stamped on every sandbox container. The first marks it as a sandbox container; the
 # second carries the server's boot id so startup cleanup removes only containers from a
@@ -165,21 +186,74 @@ def _get_client():
     return client
 
 
+def _mlflow_source_root() -> Path | None:
+    """Return the root of the MLflow source checkout the server runs from, or ``None``.
+
+    Only a development build running from a checkout (for example an editable install) has one.
+    A released version, or a development build installed into site-packages, returns ``None``.
+    """
+    if not Version(VERSION).is_devrelease:
+        return None
+    root = _MLFLOW_PACKAGE_DIR.parent
+    pyproject = root / "pyproject.toml"
+    if pyproject.is_file() and _MLFLOW_PROJECT_NAME.search(pyproject.read_text()):
+        return root
+    return None
+
+
+def _copy_mlflow_source(source_root: Path, context_dir: str) -> str:
+    """Copy what ``pip install`` needs from an MLflow source tree into the build context.
+
+    Only the package and its build metadata are copied, never the whole tree: a checkout a server
+    runs from can also hold that server's local data (for example ``mlflow.db``), which must not
+    end up in an image that runs untrusted code. Returns the copy's path in the context.
+    """
+    destination = Path(context_dir, _SOURCE_DIR_IN_CONTEXT)
+    destination.mkdir()
+    for name in _SOURCE_INSTALL_FILES:
+        shutil.copy2(source_root / name, destination / name)
+    shutil.copytree(source_root / "mlflow", destination / "mlflow", ignore=_SOURCE_COPY_IGNORE)
+    return _SOURCE_DIR_IN_CONTEXT
+
+
 def _minimal_sandbox_dockerfile(context_dir: str) -> str:
     """Build the Dockerfile for the fallback sandbox image, matched to the server's environment.
 
     The image is built to match the server that launches it, so a sandboxed ``mlflow`` command
     speaks the same API as the server rather than whatever the base image ships or the latest PyPI
-    release happens to be: the base image uses the server's Python minor version, and MLflow is
-    installed the same way the model-build and job backends install it (from ``MLFLOW_HOME`` or the
-    development branch for a source build, otherwise pinned to the server's released version). The
-    install step may copy source into ``context_dir`` for the ``MLFLOW_HOME`` case.
+    release happens to be: the base image uses the server's Python minor version. A released
+    version installs the same MLflow version from PyPI. A development build installs from
+    ``MLFLOW_HOME`` if set, otherwise from the checkout the server runs from, and only falls back
+    to MLflow's development branch when neither exists. A source install copies the package into
+    ``context_dir``.
     """
     from mlflow.models.docker_utils import PYTHON_SLIM_BASE_IMAGE, _pip_mlflow_install_step
 
     base_image = PYTHON_SLIM_BASE_IMAGE.format(version=get_major_minor_py_version(PYTHON_VERSION))
-    install_step = _pip_mlflow_install_step(context_dir, os.environ.get("MLFLOW_HOME"))
+    mlflow_home = os.environ.get("MLFLOW_HOME")
+    source_root = Path(mlflow_home) if mlflow_home else _mlflow_source_root()
+    if source_root is not None:
+        source_dir = _copy_mlflow_source(source_root, context_dir)
+        install_step = f"COPY {source_dir} /opt/mlflow\nRUN pip install /opt/mlflow"
+    else:
+        if Version(VERSION).is_devrelease:
+            _logger.warning(
+                "MLflow %s is a development build that is not running from a source checkout, so "
+                "the sandbox image installs MLflow's development branch, which may not match this "
+                "server. Set MLFLOW_HOME to this server's MLflow source tree to match it.",
+                VERSION,
+            )
+        install_step = _pip_mlflow_install_step(context_dir, None)
     return f"FROM {base_image}\n{install_step}\n"
+
+
+def _build_log_tail(build_log: Iterable[dict[str, object]] | None) -> str:
+    """Return the last lines of ``docker build`` output from ``BuildError.build_log``."""
+    lines = []
+    for chunk in build_log or []:
+        if isinstance(text := chunk.get("stream"), str):
+            lines.extend(line for line in text.splitlines() if line.strip())
+    return "\n".join(lines[-_BUILD_LOG_TAIL_LINES:])
 
 
 def _ensure_image(client, image: str) -> None:
@@ -192,7 +266,11 @@ def _ensure_image(client, image: str) -> None:
     except docker.errors.ImageNotFound:
         pass
 
-    _logger.info("Sandbox image %s not found locally; building a minimal one.", image)
+    _logger.info(
+        "Sandbox image %s not found locally; building a minimal one. It is not rebuilt when MLflow "
+        "changes: delete the image to rebuild it.",
+        image,
+    )
     # This fallback build does not forward the operator's PIP_INDEX_URL/PIP_EXTRA_INDEX_URL: a
     # private-index URL can embed credentials (https://user:pass@mirror/...) and Docker records
     # build args in the image history, so forwarding them would persist those credentials in the
@@ -200,7 +278,14 @@ def _ensure_image(client, image: str) -> None:
     # provide their own image instead.
     with tempfile.TemporaryDirectory(prefix="mlflow-sandbox-image-") as ctx:
         Path(ctx, "Dockerfile").write_text(_minimal_sandbox_dockerfile(ctx))
-        client.images.build(path=ctx, tag=image, rm=True)
+        try:
+            client.images.build(path=ctx, tag=image, rm=True)
+        except docker.errors.BuildError as e:
+            # The error itself only names the failed step; the reason (for example pip's error)
+            # is in the build output.
+            raise SandboxUnavailableError(
+                f"{e.msg}\nBuild output:\n{_build_log_tail(e.build_log)}"
+            ) from e
 
 
 def to_container_host_uri(uri: str | None) -> str | None:
