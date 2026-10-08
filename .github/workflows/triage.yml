@@ -517,7 +517,6 @@ jobs:
           - uses: ./.github/actions/setup-python
           - uses: ./.github/actions/setup-node
           - name: Install sandbox dependencies
-            timeout-minutes: 10
             run: |
               sudo apt-get update
               sudo apt-get install -y bubblewrap socat ripgrep
@@ -525,7 +524,6 @@ jobs:
                 sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
               fi
           - name: Install Claude Code
-            timeout-minutes: 10
             run: |
               .claude/scripts/install-claude.sh
               claude --version
@@ -541,7 +539,6 @@ jobs:
           key: ${{ steps.build-cache-key.outputs.key }}
       # Needs setup-node.
       - name: Install sandbox runtime
-        timeout-minutes: 10
         run: |
           export npm_config_before="$(date -u -d '7 days ago' +%Y-%m-%d)"
           npm install -g @anthropic-ai/sandbox-runtime@0.0.77
