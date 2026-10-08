@@ -2,7 +2,7 @@ import json
 from datetime import datetime, timezone
 from types import SimpleNamespace
 from typing import Any
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import pandas as pd
 import pytest
@@ -19,7 +19,11 @@ from mlflow.genai.datasets.databricks_evaluation_dataset_source import (
     DatabricksUCTableDatasetSource,
 )
 from mlflow.genai.datasets.entities import EvaluationDatasetVersion
-from mlflow.genai.datasets.evaluation_dataset import EvaluationDataset
+from mlflow.genai.datasets.evaluation_dataset import (
+    DATASET_IDENTITY_ATTR,
+    EvaluationDataset,
+    compute_records_sha256,
+)
 
 
 def create_test_source_json(table_name: str = "main.default.testtable") -> str:
@@ -313,3 +317,95 @@ def test_classify_input_fields(
     dataset = _create_mlflow_evaluation_dataset()
     result = dataset._classify_input_fields(input_keys)
     assert result == expected_granularity
+
+
+def test_evaluation_dataset_pinned_version_is_kept(mock_managed_dataset):
+    mock_managed_dataset.version = 2
+    dataset = EvaluationDataset(mock_managed_dataset)
+
+    assert json.loads(dataset._to_mlflow_entity().source)["version"] == 2
+    mock_managed_dataset.list_versions.assert_not_called()
+
+
+def test_evaluation_dataset_latest_handle_resolves_newest_version(mock_managed_dataset):
+    mock_managed_dataset.list_versions.return_value = [
+        SimpleNamespace(version=1),
+        SimpleNamespace(version=3),
+        SimpleNamespace(version=2),
+    ]
+    dataset = EvaluationDataset(mock_managed_dataset)
+
+    assert dataset.version is None
+    assert dataset.source.version == 3
+    assert json.loads(dataset._to_mlflow_entity().source)["version"] == 3
+    mock_managed_dataset.list_versions.assert_called_once_with()
+
+
+def test_evaluation_dataset_latest_version_lookup_failure_omits_version(mock_managed_dataset):
+    mock_managed_dataset.list_versions.side_effect = Exception("boom")
+    dataset = EvaluationDataset(mock_managed_dataset)
+
+    assert "version" not in json.loads(dataset._to_mlflow_entity().source)
+
+
+def test_evaluation_dataset_oss_store_source_is_unchanged():
+    mlflow_dataset = _create_mlflow_evaluation_dataset()
+    dataset = EvaluationDataset(mlflow_dataset)
+
+    assert dataset.source is mlflow_dataset.source
+
+
+def test_evaluation_dataset_to_df_records_identity(mock_managed_dataset):
+    mock_managed_dataset.list_versions.return_value = [SimpleNamespace(version=5)]
+    dataset = EvaluationDataset(mock_managed_dataset)
+
+    df = dataset.to_df()
+
+    identity = df.attrs[DATASET_IDENTITY_ATTR]
+    assert identity == {
+        "name": "catalog.schema.table",
+        "digest": "test-digest",
+        "source_type": "databricks-uc-table",
+        "source": dataset.source.to_json(),
+        "schema": "test-schema",
+        "profile": "test-profile",
+        "records_sha256": compute_records_sha256(df),
+    }
+    assert json.loads(identity["source"]) == {
+        "table_name": "catalog.schema.table",
+        "dataset_id": "test-dataset-id",
+        "version": 5,
+    }
+    json.dumps(identity)
+
+
+def test_evaluation_dataset_to_df_identity_with_computed_digest(mock_managed_dataset):
+    mock_managed_dataset.digest = None
+    dataset = EvaluationDataset(mock_managed_dataset)
+
+    df = dataset.to_df()
+
+    assert df.attrs[DATASET_IDENTITY_ATTR]["digest"] == dataset.digest
+    mock_managed_dataset.to_df.assert_called_once()
+
+
+def test_evaluation_dataset_oss_store_to_df_records_identity():
+    mlflow_dataset = _create_mlflow_evaluation_dataset()
+    records = pd.DataFrame({"inputs": [{"q": "a"}], "expectations": [{"e": 1}]})
+    dataset = EvaluationDataset(mlflow_dataset)
+
+    with patch.object(MLflowEvaluationDataset, "to_df", return_value=records):
+        df = dataset.to_df()
+
+    identity = df.attrs[DATASET_IDENTITY_ATTR]
+    assert identity["name"] == "test-dataset"
+    assert identity["digest"] == "test-digest"
+    assert identity["source"] == mlflow_dataset.source.to_json()
+    assert identity["records_sha256"] == compute_records_sha256(df)
+
+
+def test_compute_records_sha256_hashes_dict_columns():
+    df = pd.DataFrame({"inputs": [{"q": "a"}]})
+    edited = pd.DataFrame({"inputs": [{"q": "b"}]})
+
+    assert compute_records_sha256(df) != compute_records_sha256(edited)

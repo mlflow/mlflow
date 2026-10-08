@@ -1,8 +1,10 @@
+import json
 import threading
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any, Literal
 from unittest import mock
 from unittest.mock import ANY, MagicMock
@@ -18,6 +20,7 @@ from mlflow.entities.trace import Trace
 from mlflow.entities.trace_data import TraceData
 from mlflow.exceptions import MlflowException
 from mlflow.genai.datasets import EvaluationDataset, create_dataset
+from mlflow.genai.datasets.evaluation_dataset import DATASET_IDENTITY_ATTR
 from mlflow.genai.evaluation.entities import EvalItem, EvalResult, EvaluationResult
 from mlflow.genai.evaluation.harness import (
     AUTO_INITIAL_RPS,
@@ -2335,3 +2338,58 @@ def test_run_multi_turn_filters_none_trace_items_from_session(mlflow_experiment_
     mock_eval_session.assert_called_once()
     assert mock_eval_session.call_args.kwargs["session_items"] == [valid_item]
     assert multi_turn_eval_results == {"tr-123": mock_eval_session.return_value}
+
+
+def _managed_dataset_with_records():
+    managed_dataset = MagicMock()
+    managed_dataset.dataset_id = "d-123"
+    managed_dataset.name = "main.evals.support"
+    managed_dataset.digest = "abc123"
+    managed_dataset.schema = None
+    managed_dataset.profile = None
+    managed_dataset.source_type = "databricks-uc-table"
+    managed_dataset.version = None
+    managed_dataset.list_versions.return_value = [SimpleNamespace(version=4)]
+    managed_dataset.to_df.return_value = pd.DataFrame({
+        "inputs": [{"question": "What is MLflow?"}, {"question": "What is Spark?"}],
+        "outputs": ["MLflow is a tool for ML", "Spark is a fast data processing engine"],
+    })
+    return EvaluationDataset(managed_dataset)
+
+
+@scorer
+def has_output(outputs):
+    return bool(outputs)
+
+
+def test_evaluate_with_dataset_to_df_logs_managed_dataset():
+    dataset = _managed_dataset_with_records()
+
+    result = mlflow.genai.evaluate(data=dataset.to_df(), scorers=[has_output])
+
+    [dataset_input] = mlflow.get_run(result.run_id).inputs.dataset_inputs
+    assert dataset_input.dataset.name == "main.evals.support"
+    assert dataset_input.dataset.digest == "abc123"
+    assert dataset_input.dataset.source_type == "databricks-uc-table"
+    assert json.loads(dataset_input.dataset.source) == {
+        "table_name": "main.evals.support",
+        "dataset_id": "d-123",
+        "version": 4,
+    }
+
+
+def _edit_inputs(df):
+    edited = df.copy()
+    edited.at[0, "inputs"] = {"question": "What is Delta?"}
+    return edited
+
+
+@pytest.mark.parametrize("edit", [_edit_inputs, lambda df: df.iloc[:1]])
+def test_evaluate_with_edited_dataset_to_df_logs_anonymous_dataset(edit):
+    data = edit(_managed_dataset_with_records().to_df())
+    assert DATASET_IDENTITY_ATTR in data.attrs
+
+    result = mlflow.genai.evaluate(data=data, scorers=[has_output])
+
+    [dataset_input] = mlflow.get_run(result.run_id).inputs.dataset_inputs
+    assert dataset_input.dataset.name == "dataset"
