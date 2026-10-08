@@ -4,6 +4,7 @@ from unittest.mock import patch
 
 import pytest
 
+from mlflow.entities import LifecycleStage
 from mlflow.genai.datasets import create_dataset, delete_dataset, get_dataset
 from mlflow.genai.scorers import (
     Guidelines,
@@ -151,7 +152,7 @@ def test_current_scorer_reads_do_not_require_agents_sdk(scorer_http):
 
     with patch("mlflow.genai.scorers.registry._get_store") as mock_tracking_store:
         mock_tracking_store.return_value.get_experiment.return_value = mock.Mock(
-            experiment_id="test_experiment", lifecycle_stage="active"
+            experiment_id="test_experiment", lifecycle_stage=LifecycleStage.ACTIVE
         )
         listed = list_scorers(experiment_id="test_experiment")
     current = get_scorer(name="test_scorer", experiment_id="test_experiment")

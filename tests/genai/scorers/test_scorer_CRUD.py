@@ -143,7 +143,12 @@ def test_databricks_backend_list_and_get_use_scheduled_scorer_configs():
         )
 
         scorers = list_scorers(experiment_id="exp_123")
+        mock_tracking_store.return_value.get_experiment.assert_called_once_with("exp_123")
+        mock_tracking_store.return_value.get_experiment.reset_mock()
+
         retrieved_scorer = get_scorer(name="test_databricks_scorer", experiment_id="exp_123")
+        # Like the versioned path, loading a single scorer doesn't check the experiment state.
+        mock_tracking_store.return_value.get_experiment.assert_not_called()
 
     assert len(scorers) == 1
     for loaded in (scorers[0], retrieved_scorer):
@@ -155,7 +160,6 @@ def test_databricks_backend_list_and_get_use_scheduled_scorer_configs():
         assert loaded.scorer_version == 4
         assert loaded.canonical_resource_name == expected_resource_name
         assert loaded.canonical_resource_name_type == SCORER_CANONICAL_RESOURCE_TYPE_DATABRICKS
-    mock_tracking_store.return_value.get_experiment.assert_called_once_with("exp_123")
     assert [call.kwargs["method"] for call in mock_http.call_args_list] == ["GET", "GET"]
     assert {call.kwargs["endpoint"] for call in mock_http.call_args_list} == {
         "/api/2.0/managed-evals/scheduled-scorers/exp_123"
