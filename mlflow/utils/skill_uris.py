@@ -30,7 +30,7 @@ _AGENT_PLUGIN_SCHEME = "agent-plugins:/"
 _SKILL_VERSION_RE = re.compile(r"^[1-9][0-9]*$")
 
 
-@experimental(version="3.16.0")
+@experimental(version="3.18.0")
 @dataclass(frozen=True)
 class ParsedSkillUri:
     name: str
@@ -127,7 +127,7 @@ def _format_uri(
     return result
 
 
-@experimental(version="3.16.0")
+@experimental(version="3.18.0")
 def parse_skill_uri(uri: str) -> ParsedSkillUri:
     organization, name, version_str, alias = _split_uri(uri, _SKILL_SCHEME)
     _validate_organization_name(organization)
@@ -153,7 +153,7 @@ def parse_skill_uri(uri: str) -> ParsedSkillUri:
     return ParsedSkillUri(name=name, organization=organization, version=version, alias=alias)
 
 
-@experimental(version="3.16.0")
+@experimental(version="3.18.0")
 def format_skill_uri(parsed: ParsedSkillUri) -> str:
     return _format_uri(
         _SKILL_SCHEME, parsed.organization, parsed.name, parsed.version, parsed.alias

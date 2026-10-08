@@ -29,8 +29,9 @@ from mlflow.server.skill_registry.registration import (
     get_max_upload_size,
     register_skill_version,
 )
-from mlflow.store.tracking.skill_registry.abstract_mixin import NOT_SET
+from mlflow.store.tracking import NOT_SET
 from mlflow.utils.validation import (
+    _MAX_BULK_REGISTER_SKILLS,
     _MAX_REGISTRY_ICONS_PER_LIST,
     _validate_icon_mime_type,
     _validate_icon_url,
@@ -54,7 +55,6 @@ _MULTIPART_REQUEST_OVERHEAD = 2 * 1024 * 1024
 _MAX_REGISTRATION_METADATA_SIZE = 1 * 1024 * 1024
 _MAX_MULTIPART_FILES = 2
 _MAX_MULTIPART_FIELDS = 1
-_MAX_BULK_REGISTER_SKILLS = 500
 
 
 def get_skill_registry_api_route_prefixes() -> tuple[str, ...]:

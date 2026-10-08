@@ -91,9 +91,13 @@ from mlflow.genai.scorers import (
     scorer,
 )
 from mlflow.genai.simulators import ConversationSimulator
+from mlflow.genai.skills import import_skills, register_skill, search_skills
 from mlflow.tracing.utils.session_hierarchy import set_session_hierarchy
 
 __all__ = [
+    "import_skills",
+    "register_skill",
+    "search_skills",
     "datasets",
     "test_agent",
     "evaluate",
