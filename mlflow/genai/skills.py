@@ -90,8 +90,6 @@ def register_skill(
     validated and the content digest is computed even when an explicit name is supplied.
     The directory must have a root ``SKILL.md``. Nested manifests are included as supporting
     content without being inspected or registered separately.
-    Existing parent metadata is preserved; new parents have no description or icons.
-    Names belonging to packaged plugin members cannot be registered independently.
 
     Args:
         source: Required Git, OCI, or ZIP source, or a local directory path. Must not be
