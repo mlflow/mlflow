@@ -409,3 +409,9 @@ def test_compute_records_sha256_hashes_dict_columns():
     edited = pd.DataFrame({"inputs": [{"q": "b"}]})
 
     assert compute_records_sha256(df) != compute_records_sha256(edited)
+
+
+def test_compute_records_sha256_ignores_column_order():
+    df = pd.DataFrame({"inputs": [{"q": "a"}], "outputs": ["x"]})
+
+    assert compute_records_sha256(df) == compute_records_sha256(df[["outputs", "inputs"]])

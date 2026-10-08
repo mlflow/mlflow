@@ -26,7 +26,8 @@ DATASET_IDENTITY_ATTR = "mlflow.genaiEvaluate.datasetIdentity"
 
 def compute_records_sha256(df: "pd.DataFrame") -> str:
     # `compute_pandas_digest` skips dict columns such as `inputs`, so hash every record instead.
-    records = df.to_json(orient="records", default_handler=str)
+    # Sort the columns so that reordering them doesn't change the hash.
+    records = df[sorted(df.columns, key=str)].to_json(orient="records", default_handler=str)
     return hashlib.sha256(records.encode("utf-8")).hexdigest()
 
 
