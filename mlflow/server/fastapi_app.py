@@ -256,6 +256,22 @@ def create_fastapi_app(flask_app: Flask = flask_app):
     if "{" in static_prefix or "}" in static_prefix:
         raise MlflowException(f"{STATIC_PREFIX_ENV_VAR} must not contain '{{' or '}}'.")
 
+    # FastAPI >= 0.142 natively instruments requests and exports spans to
+    # OTEL_EXPORTER_OTLP_ENDPOINT, which can point back at this server's `/v1/traces`
+    # endpoint and create a feedback loop. Disable it for the tracking server.
+    extra_kwargs = (
+        {
+            "telemetry": {
+                "tracing": False,
+                "metrics": False,
+                "logs": False,
+                "auto_configure": False,
+            }
+        }
+        if "telemetry" in inspect.signature(FastAPI.__init__).parameters
+        else {}
+    )
+
     # Create FastAPI app with metadata
     fastapi_app = FastAPI(
         title="MLflow Tracking Server",
@@ -267,6 +283,7 @@ def create_fastapi_app(flask_app: Flask = flask_app):
         redoc_url=None,
         openapi_url=None,
         lifespan=_lifespan,
+        **extra_kwargs,
     )
 
     # Initialize security middleware BEFORE adding routes
