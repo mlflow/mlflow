@@ -971,6 +971,7 @@ async def install_skills_endpoint(
 
     Args:
         request: SkillsInstallRequest with type, custom_path, and experiment_id.
+        http_request: The FastAPI request object, used to check who the caller is.
 
     Returns:
         SkillsInstallResponse with installed skill names and directory.
