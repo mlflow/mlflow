@@ -35,7 +35,14 @@ def ensure_assistant_gateway_use_permission(username: str | None) -> None:
     request names, and the Assistant does not check that the caller belongs to that workspace, so
     a user could grant themselves access to another workspace's endpoints.
     """
-    if not username or not auth_plugin_active() or MLFLOW_ENABLE_WORKSPACES.get():
+    if not username or not auth_plugin_active():
+        return
+    if MLFLOW_ENABLE_WORKSPACES.get():
+        _logger.debug(
+            "Workspaces are enabled, so %s is not granted USE on the Assistant's gateway endpoints;"
+            " an administrator must grant it",
+            username,
+        )
         return
 
     # Imported lazily and only when the plugin is active, so a no-auth server never pulls in the
