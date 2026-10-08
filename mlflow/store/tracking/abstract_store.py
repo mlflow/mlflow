@@ -2,6 +2,7 @@ import asyncio
 import bisect
 import json
 from abc import ABCMeta, abstractmethod
+from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any, Literal
 
 from mlflow.entities import (
@@ -2175,3 +2176,100 @@ class AbstractStore(MCPServerRegistryMixin, GatewayStoreMixin):
             MlflowException(INVALID_PARAMETER_VALUE): on validation failure.
         """
         raise NotImplementedError(self.__class__.__name__)
+
+    def find_failing_resource(
+        self,
+        entity: str,
+        clauses: Sequence[tuple[str, str, str, str | tuple[str, ...]]],
+        *,
+        ids: "Sequence[str | tuple[str, ...]] | None" = None,
+        parent_id: "str | None" = None,
+        max_timestamp_ms: "int | None" = None,
+        stage: "str | None" = None,
+    ) -> "str | tuple[str, ...] | None":
+        """Find a resource that fails a conjunctive tag/alias predicate.
+
+        ``max_timestamp_ms`` narrows a ``parent_id`` cascade to the children a mutation
+        will actually reach, and is only valid with that selector. A cascade normally
+        reaches every child, but a predicate-mode mutation reaches a slice -- deleting the
+        traces at or before a timestamp -- and judging it against the whole parent refuses
+        mutations over windows that contain nothing objectionable. A store whose rows for
+        ``entity`` carry no such timestamp must decline rather than ignore the bound.
+
+        An optional pushdown hook for a caller that must decide whether it may mutate
+        a set of resources without loading them. It answers the only question such a
+        caller asks -- "is there one here that fails?" -- so the two ways of naming
+        the set are two selectors on one method rather than two methods:
+
+        ``ids``
+            The resources are enumerated by the caller. This is the usual case: a
+            request names what it will touch.
+        ``parent_id``
+            The resources are every child of that parent, and the caller does not
+            know them. A cascading delete or restore reaches rows the request never
+            mentions, and the population may be unbounded, so only the store can
+            answer without enumerating it.
+
+        Exactly one selector must be given; both or neither is a programming error
+        and raises. ``ids`` may be arbitrarily long -- ``DeleteTraces`` caps nothing
+        -- so an implementation must chunk rather than assume a statement can carry
+        the whole list.
+
+        A clause is a ``(namespace, key, comparator, value)`` tuple, where
+        ``namespace`` is ``"tags"`` or ``"aliases"``, ``comparator`` is one of ``=``,
+        ``!=``, ``LIKE``, ``ILIKE``, ``IN``, ``NOT IN``, and ``value`` is a string,
+        or a tuple for the two list comparators. Clauses are conjunctive: a resource
+        fails if it fails **any** of them.
+
+        Both namespaces are asked in one call deliberately. Answering only the part a
+        store can express would judge a conjunction against a subset of itself -- and
+        the dropped clause is the one that would have denied. A store that cannot
+        express any clause in the list must decline the whole call.
+
+        A resource satisfies a clause only if it **has** an entry under that key whose
+        value compares true. An absent tag or alias therefore satisfies nothing,
+        including ``!=`` and ``NOT IN`` -- such a resource *fails* rather than being
+        vacuously permitted. Note this cannot be implemented by inverting the
+        comparator: with absence failing, the complement of ``!= 'x'`` is not
+        ``= 'x'``, since an untagged resource satisfies neither and must still fail.
+        Asking which resources *satisfy* and negating that set membership is the only
+        formulation that keeps absence failing.
+
+        An id is normally a string. For an entity whose identity is composite -- a
+        model or prompt version, addressed by name *and* version -- the caller passes
+        the parts as a tuple and gets a tuple back. The composite id *format* belongs
+        to the caller, so a store matches parts and never parses a joined id.
+
+        Returns:
+            The first failing resource's id, or ``None`` if every resource satisfies
+            every clause.
+
+            Only ONE id is returned even when several fail. The caller needs a denial
+            and a reason, not an inventory, and stopping at the first lets an
+            implementation skip the rest of an unbounded population.
+
+            There is no third verdict. A store either answers or raises
+            ``NotImplementedError`` -- the caller has no fallback, so returning
+            anything that is not an id must mean *nothing failed*. An earlier design
+            let a store decline and had the caller evaluate the clauses in Python;
+            that made two evaluators of one semantic, where any drift between them is
+            a difference in who may write what.
+
+            An empty ``ids``, an empty ``clauses``, or a parent with no children all
+            return ``None``: nothing can fail. For the parent selector that is
+            vacuous permission rather than a refusal. A *failure* to answer is the
+            raise, never ``None``.
+
+            An implementation that answers MUST agree with
+            :func:`~mlflow.server.auth.conditions.evaluate_resource` on every
+            comparator and on absence. That function survives only to name the clause
+            a denial broke, so a drift is now a wrong *explanation* rather than a
+            wrong verdict -- but it is still a bug.
+        """
+        raise NotImplementedError(
+            f"{type(self).__name__} cannot answer a target condition. Target conditions are "
+            "evaluated by the store, so they need a SQL tracking/registry backend "
+            "(--backend-store-uri pointing at a database). Value conditions are unaffected "
+            "and work on any backend. Note this is NOT a missing-database problem for the "
+            "auth plugin itself, whose `database_uri` is always configured."
+        )

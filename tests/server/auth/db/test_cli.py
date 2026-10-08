@@ -9,6 +9,18 @@ from mlflow.server.auth.db import cli
 from mlflow.server.auth.db.utils import _get_alembic_config
 
 
+def _alembic_head() -> str:
+    """The current head revision, read from the migration chain.
+
+    Derived rather than hardcoded so adding a migration does not require editing
+    assertions that only care that a database reached head.
+    """
+    from alembic.script import ScriptDirectory
+
+    (head,) = ScriptDirectory.from_config(_get_alembic_config("sqlite://")).get_heads()
+    return head
+
+
 def test_upgrade(tmp_path: Path) -> None:
     runner = CliRunner()
     db = tmp_path / "test.db"
@@ -29,6 +41,7 @@ def test_upgrade(tmp_path: Path) -> None:
         ("roles",),
         ("role_permissions",),
         ("user_role_assignments",),
+        ("mutation_conditions",),
         ("experiment_permissions",),
         ("registered_model_permissions",),
         ("scorer_permissions",),
@@ -145,7 +158,11 @@ def test_upgrade_from_legacy_database(tmp_path: Path) -> None:
     assert "scorer_permissions" in tables
     assert "registered_model_permissions" in tables
     assert "workspace_permissions" in tables
-    assert version[0] == "f1a2b3c4d5e6"
+    assert "mutation_conditions" in tables
+    # Derived from the migration chain rather than hardcoded, so adding a revision
+    # does not require editing this assertion. What matters here is that a legacy
+    # database is brought all the way to head, not which revision head happens to be.
+    assert version[0] == _alembic_head()
     assert user == ("testuser", 1)
 
 
