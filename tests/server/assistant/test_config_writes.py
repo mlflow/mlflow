@@ -171,6 +171,17 @@ def test_localhost_admin_can_configure_projects(auth_enabled, tmp_path, monkeypa
     assert AssistantConfig.load().projects["exp1"] == ProjectConfig(location=str(proj))
 
 
+@pytest.mark.parametrize(("username", "sees_location"), [("alice", False), ("admin", True)])
+def test_localhost_get_config_shows_project_location_only_to_admins(
+    auth_enabled, tmp_path, monkeypatch, username, sees_location
+):
+    AssistantConfig(projects={"exp1": ProjectConfig(location=str(tmp_path))}).save()
+    client = _client(monkeypatch, localhost=True)
+    response = client.get(CONFIG_URL, headers=_auth(username))
+    assert response.status_code == 200
+    assert ("location" in response.json()["projects"]["exp1"]) is sees_location
+
+
 def test_localhost_non_admin_writes_own_provider_config(auth_enabled, monkeypatch):
     client = _client(monkeypatch, localhost=True)
     response = client.put(
