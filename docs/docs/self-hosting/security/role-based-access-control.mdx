@@ -871,34 +871,6 @@ searchable by experiment name and id:
 
 ![Add-condition form with a Run condition scoped to a single experiment](/images/self-hosting/rbac-conditions-add-run-scope.png)
 
-:::note[Click Add before leaving the form]
-
-A condition you have typed is not staged until you click **Add mutation condition**.
-If you move on to **Review changes** with a half-filled form, MLflow asks whether to
-discard the draft rather than dropping it silently — the permissions on the same
-submit would otherwise be granted without the condition meant to narrow them.
-
-:::
-
-The submit order is deliberate and worth knowing when a save partially fails,
-because the modal makes several API calls rather than one transaction:
-
-1. **Condition additions go first**, before the permissions they narrow. If a
-   condition cannot be created, the permission is not granted either — so a failure
-   leaves the role no broader than it was.
-2. **Capability removals come before condition removals.** A restriction is only
-   lifted once the grant it was covering is actually gone. A condition removal is
-   skipped if either a condition addition or a capability removal failed — editing a
-   condition is an add plus a remove, so the first of those is what stops a failed
-   replacement from dropping the old restriction and leaving nothing in its place.
-   The consequence to expect: an unrelated condition removal in the same submit is
-   held back too. That is the fail-closed direction — the restriction stays in force
-   and you retry — rather than a partial edit that quietly widens the role.
-
-Every failure is reported back on the form with the rest of the submit's outcome, so
-a partial save is visible rather than silent. Re-opening **Edit role** shows the state
-that actually persisted.
-
 ## Default roles
 
 When `MLFLOW_RBAC_SEED_DEFAULT_ROLES` is on (it is, by default), MLflow seeds
