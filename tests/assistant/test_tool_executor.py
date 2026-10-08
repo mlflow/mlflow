@@ -562,6 +562,23 @@ def test_execute_bash_in_sandbox_nonzero_exit_is_error():
     assert "boom" in result
 
 
+def test_execute_bash_in_sandbox_forwards_the_delegation_credential():
+    delegation_env = {"MLFLOW_TRACKING_AUTH": "assistant_delegation"}
+    with (
+        mock.patch(
+            "mlflow.assistant.providers.tool_executor._assistant_delegation_env",
+            return_value=delegation_env,
+        ),
+        mock.patch(
+            "mlflow.server.sandbox.run_in_sandbox",
+            return_value=SandboxResult(exit_code=0, output="ok"),
+        ) as run,
+    ):
+        _run(_execute_bash_in_sandbox("mlflow --version", None, None))
+
+    assert run.call_args.kwargs["environment"].items() >= delegation_env.items()
+
+
 def test_execute_bash_in_sandbox_timeout():
     with mock.patch(
         "mlflow.server.sandbox.run_in_sandbox",
