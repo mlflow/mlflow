@@ -1933,28 +1933,6 @@ def test_register_rejects_invalid_source_before_fetch(source):
     fetch.assert_not_called()
 
 
-@pytest.mark.parametrize("git_entry", ["directory", "file"])
-def test_register_rejects_local_git_metadata(skill_tree, git_entry):
-    metadata = skill_tree / ".git"
-    if git_entry == "directory":
-        metadata.mkdir()
-        (metadata / "config").write_text("[core]\nrepositoryformatversion = 0\n")
-    else:
-        metadata.write_text("gitdir: /repository/.git/worktrees/review\n")
-
-    with (
-        mock.patch("mlflow.genai.skills.MlflowClient") as client_factory,
-        mock.patch("mlflow.genai.skills.fetch_source") as fetch,
-        pytest.raises(MlflowException, match="GitSource") as exc,
-    ):
-        register_skill(source=str(skill_tree))
-
-    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
-    client_factory.assert_not_called()
-    fetch.assert_not_called()
-    assert metadata.exists()
-
-
 def test_register_skill_source_is_required():
     with pytest.raises(TypeError, match="source"):
         register_skill()

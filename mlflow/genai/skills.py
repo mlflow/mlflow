@@ -135,14 +135,6 @@ def register_skill(
             "chosen by the server and cannot be supplied as a source."
         )
 
-    if resolved.is_local and (Path(resolved.source) / ".git").exists():
-        raise MlflowException.invalid_parameter_value(
-            "Local skill uploads cannot contain a '.git' entry at the skill root. "
-            "Register the repository using GitSource(url=..., ref=..., subpath=...) "
-            "to reference its committed content, or copy the skill files to a directory "
-            "without Git metadata to upload a snapshot."
-        )
-
     client = MlflowClient()
     with fetch_source(source) as fetched:
         manifest = inspect_skill_dir(fetched.root)
