@@ -21,9 +21,9 @@ classifiers = [
   "Topic :: Software Development :: Libraries :: Python Modules",
   "License :: OSI Approved :: Apache Software License",
   "Operating System :: OS Independent",
-  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
 ]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 # Dependency version ranges express compatibility, not security. We do not raise version
 # floors to exclude dependency versions with known CVEs; patched versions are already
 # installable within the existing ranges, and pinning them is the responsibility of the

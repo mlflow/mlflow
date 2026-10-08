@@ -1,5 +1,5 @@
 # /// script
-# requires-python = ">=3.10"
+# requires-python = ">=3.11"
 # dependencies = ["fastapi>=0.115.0,<1", "uvicorn[standard]>=0.30.0,<1"]
 # ///
 """Fake OpenAI-compatible server for benchmarking.

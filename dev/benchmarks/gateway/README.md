@@ -6,7 +6,7 @@ so results reflect pure MLflow processing time rather than provider variance.
 
 ## Prerequisites
 
-- Python 3.10+ with [`uv`](https://docs.astral.sh/uv/) — all scripts must be run via `uv run`, which handles dependency installation automatically via inline script metadata
+- Python 3.11+ with [`uv`](https://docs.astral.sh/uv/) — all scripts must be run via `uv run`, which handles dependency installation automatically via inline script metadata
 - Docker (required for `--database postgres` and `multi` mode)
 
 ## Quick start

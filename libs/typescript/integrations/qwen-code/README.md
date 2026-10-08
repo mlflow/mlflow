@@ -23,7 +23,7 @@ pip install mlflow
 mlflow server --port 5000
 ```
 
-Self-hosting MLflow server requires Python 3.10 or higher. If you don't have one, you can also use [managed MLflow service](https://mlflow.org/#get-started) for free to get started quickly.
+Self-hosting MLflow server requires Python 3.11 or higher. If you don't have one, you can also use [managed MLflow service](https://mlflow.org/#get-started) for free to get started quickly.
 
 Run the interactive setup. It registers a Qwen Code `Stop` hook and writes your tracking URI / experiment ID into Qwen Code's config directory:
 

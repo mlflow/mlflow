@@ -140,7 +140,7 @@ cd docs && npm run serve --port 8080
 ## Important Files
 
 - `pyproject.toml`: Package configuration and tool settings
-- `.python-version`: Minimum Python version (3.10)
+- `.python-version`: Minimum Python version (3.11)
 - `requirements/`: Dependency specifications
 - `mlflow/ml-package-versions.yml`: Supported ML framework versions
 

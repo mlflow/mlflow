@@ -23,9 +23,9 @@ classifiers = [
   "Topic :: Software Development :: Libraries :: Python Modules",
   "License :: OSI Approved :: Apache Software License",
   "Operating System :: OS Independent",
-  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
 ]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 # Dependency version ranges express compatibility, not security. We do not raise version
 # floors to exclude dependency versions with known CVEs; patched versions are already
 # installable within the existing ranges, and pinning them is the responsibility of the
@@ -299,7 +299,7 @@ explicit = true
 
 [tool.ruff]
 line-length = 100
-target-version = "py310"
+target-version = "py311"
 required-version = "0.16.8"
 force-exclude = true
 extend-include = ["*.ipynb"]
@@ -594,7 +594,7 @@ timeout = "1200"
 
 # Currently, type checking is only enabled for `dev/clint` and `.claude/skills`.
 [tool.mypy]
-python_version = "3.10"
+python_version = "3.11"
 strict = true
 exclude_gitignore = true
 

@@ -114,6 +114,6 @@ cat .claude/settings.json
 
 ## Requirements
 
-- Python 3.10+ (required by MLflow)
+- Python 3.11+ (required by MLflow)
 - MLflow installed (`pip install mlflow`)
 - Claude Code CLI installed
