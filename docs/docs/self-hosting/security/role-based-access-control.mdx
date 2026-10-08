@@ -207,7 +207,7 @@ container, which is what steps 3 and 5 cover.
    explicit deny would void it. See
    [Workspace isolation](#workspace-isolation) for when the floor applies in
    multi-workspace mode.
-7. **Mutation conditions** - once the steps above have *allowed* the operation, any
+7. **Mutation conditions** - once the steps above have _allowed_ the operation, any
    [mutation conditions](#mutation-conditions) on the user's roles are evaluated.
    Conditions only ever subtract: they can refuse an operation the grants permitted,
    and can never permit one the grants refused. They are evaluated **only for
@@ -225,8 +225,8 @@ conditions.
 
 ## Mutation conditions
 
-A grant says *which resources* a user may act on. A **mutation condition** narrows
-*what they may do to them*, by inspecting the request or the resource at the moment
+A grant says _which resources_ a user may act on. A **mutation condition** narrows
+_what they may do to them_, by inspecting the request or the resource at the moment
 of the write. Conditions are attached to a role, alongside its permissions.
 
 Conditions never confer access. A role must already hold the grant for an
@@ -236,11 +236,11 @@ written.
 
 Each condition carries up to two independent filters:
 
-- A **value condition** constrains the values a request is *setting*. It is checked
+- A **value condition** constrains the values a request is _setting_. It is checked
   against the request body, so it governs creates and writes of new values -
   "nobody on this team may set the `pii` tag", "nobody may assign the `champion`
   alias".
-- A **target condition** constrains *which existing resources* may be mutated. It is
+- A **target condition** constrains _which existing resources_ may be mutated. It is
   checked against the resource's current state, so it governs updates and deletes -
   "nothing tagged `lifecycle=prod` may be modified". On a create it is vacuous,
   because there is no prior state to read.
@@ -287,7 +287,7 @@ By default a condition applies to every resource of its type in the workspace. G
 it a container to narrow it - `container_resource_type="experiment"` with
 `container_resource_pattern="42"` restricts a `trace` condition to the traces in
 experiment 42. This is how conditions reach into a container without inheritance:
-the condition still governs the *trace*, the container only selects which conditions
+the condition still governs the _trace_, the container only selects which conditions
 load.
 
 ### Absence behaves differently per filter, by design
@@ -299,7 +299,7 @@ This is the one asymmetry worth internalising before writing a condition:
   `pii` - it sets nothing.
 - A **target condition fails** when the resource lacks what it names. A run with no
   `lifecycle` tag is refused by `tags.lifecycle != 'prod'`, because the tag is
-  *absent* rather than *not prod*.
+  _absent_ rather than _not prod_.
 
 The asymmetry is deliberate: treating absence the same way in both namespaces opens
 a hole in one direction or the other. Vacuous-on-absence for resources would let an
