@@ -10,6 +10,13 @@ SETUP_SCRIPT = Path(__file__).parents[2] / "mlflow" / "agent" / "setup" / "setup
 
 def run_shell(body: str, *args: str) -> subprocess.CompletedProcess[str]:
     command = f"""
+_normalize_test_path() {{
+    if command -v cygpath >/dev/null 2>&1; then
+        cygpath -u "$1"
+    else
+        printf '%s' "$1"
+    fi
+}}
 MLFLOW_SETUP_SKIP_MAIN=1
 export MLFLOW_SETUP_SKIP_MAIN
 . "$1"
@@ -96,14 +103,16 @@ printf '%s\n' "$TRACKING_URI" "$EXPERIMENT_NAME" "$AGENT_NAME"
     ],
 )
 def test_choose_agent_without_prompting(tmp_path: Path, installed, requested, expected):
+    agent_dir = tmp_path / "fake agents"
+    agent_dir.mkdir()
     for name in installed:
-        executable = tmp_path / name
+        executable = agent_dir / name
         executable.write_text("#!/bin/sh\nexit 99\n")
         executable.chmod(0o755)
 
     result = run_shell(
         """
-PATH=$1
+PATH=$(_normalize_test_path "$1")
 shift
 parse_args "$@"
 validate_agent_name
@@ -112,7 +121,7 @@ show_manual_setup() { printf 'manual\\n'; }
 choose_agent
 printf '%s\\n' "$agent_choice"
 """,
-        str(tmp_path),
+        str(agent_dir),
         *(["--agent", requested] if requested else []),
     )
 
@@ -123,15 +132,17 @@ printf '%s\\n' "$agent_choice"
 
 @pytest.mark.parametrize("agent", ["claude", "codex", "opencode"])
 def test_choose_agent_rejects_missing_explicit_agent(tmp_path: Path, agent: str):
+    agent_dir = tmp_path / "fake agents"
+    agent_dir.mkdir()
     result = run_shell(
         """
-PATH=$1
+PATH=$(_normalize_test_path "$1")
 shift
 parse_args "$@"
 validate_agent_name
 choose_agent
 """,
-        str(tmp_path),
+        str(agent_dir),
         "--agent",
         agent,
     )
