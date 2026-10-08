@@ -29,6 +29,10 @@ _SPAN_TYPE_PREFIX = "claude_code."
 _INTERACTION = "claude_code.interaction"
 _LLM_REQUEST = "claude_code.llm_request"
 _TOOL = "claude_code.tool"
+_TOOL_EXECUTION = "claude_code.tool.execution"
+_TOOL_BLOCKED_ON_USER = "claude_code.tool.blocked_on_user"
+_TOOL_TYPES = {_TOOL, _TOOL_EXECUTION, _TOOL_BLOCKED_ON_USER}
+_KNOWN_SPAN_TYPES = {_INTERACTION, _LLM_REQUEST} | _TOOL_TYPES
 _REDACTED = "<REDACTED>"
 _TOOL_OUTPUT_EVENT = "tool.output"
 _TOOL_OUTPUT_EVENT_KEYS = ["output", "content", "diff"]
@@ -41,6 +45,8 @@ class ClaudeCodeTranslator(OtelSchemaTranslator):
         _INTERACTION: SpanType.AGENT,
         _LLM_REQUEST: SpanType.LLM,
         _TOOL: SpanType.TOOL,
+        _TOOL_EXECUTION: SpanType.TOOL,
+        _TOOL_BLOCKED_ON_USER: SpanType.TOOL,
     }
     INPUT_TOKEN_KEY = "input_tokens"
     OUTPUT_TOKEN_KEY = "output_tokens"
@@ -49,9 +55,15 @@ class ClaudeCodeTranslator(OtelSchemaTranslator):
 
     def _get_claude_code_span_type(self, attributes: dict[str, Any]) -> str | None:
         span_type = try_json_loads(attributes.get(self.SPAN_KIND_ATTRIBUTE_KEY))
-        if isinstance(span_type, str) and span_type.startswith(_SPAN_TYPE_PREFIX):
-            return span_type
-        return None
+        if not isinstance(span_type, str):
+            return None
+        if span_type.startswith(_SPAN_TYPE_PREFIX):
+            return span_type if span_type in _KNOWN_SPAN_TYPES else None
+        # Older/newer Claude Code versions emit bare span.type values ("interaction",
+        # "llm_request", "tool", "tool.execution", "tool.blocked_on_user") while only
+        # the span name carries the "claude_code." prefix. Normalize them here.
+        normalized = _SPAN_TYPE_PREFIX + span_type
+        return normalized if normalized in _KNOWN_SPAN_TYPES else None
 
     def _get_content(self, attributes: dict[str, Any], key: str) -> Any:
         value = self._get_and_check_attribute_value(attributes, key)
@@ -60,8 +72,8 @@ class ClaudeCodeTranslator(OtelSchemaTranslator):
         return value
 
     def translate_span_type(self, attributes: dict[str, Any]) -> str | None:
-        if self._get_claude_code_span_type(attributes):
-            return super().translate_span_type(attributes)
+        if span_type := self._get_claude_code_span_type(attributes):
+            return self.SPAN_KIND_TO_MLFLOW_TYPE[span_type]
         return None
 
     def get_input_tokens(self, attributes: dict[str, Any]) -> int | None:
@@ -109,7 +121,7 @@ class ClaudeCodeTranslator(OtelSchemaTranslator):
             )
         if span_type == _LLM_REQUEST:
             return self._get_content(attributes, "new_context")
-        if span_type == _TOOL:
+        if span_type in _TOOL_TYPES:
             if tool_input := self._get_content(attributes, "tool_input"):
                 return tool_input
             details = {
@@ -124,7 +136,7 @@ class ClaudeCodeTranslator(OtelSchemaTranslator):
         span_type = self._get_claude_code_span_type(attributes)
         if span_type == _LLM_REQUEST:
             return self._get_content(attributes, "response.model_output")
-        if span_type == _TOOL:
+        if span_type in _TOOL_TYPES:
             return self._get_content(attributes, "new_context")
         return None
 

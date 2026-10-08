@@ -1076,6 +1076,14 @@ def _translate_claude_code_span(attributes, events=None):
         ("claude_code.interaction", SpanType.AGENT),
         ("claude_code.llm_request", SpanType.LLM),
         ("claude_code.tool", SpanType.TOOL),
+        ("claude_code.tool.execution", SpanType.TOOL),
+        ("claude_code.tool.blocked_on_user", SpanType.TOOL),
+        # Real Claude Code telemetry emits bare values; the prefix appears only on span names
+        ("interaction", SpanType.AGENT),
+        ("llm_request", SpanType.LLM),
+        ("tool", SpanType.TOOL),
+        ("tool.execution", SpanType.TOOL),
+        ("tool.blocked_on_user", SpanType.TOOL),
     ],
 )
 def test_claude_code_translator_maps_span_types(span_type, expected_type):
@@ -1085,9 +1093,8 @@ def test_claude_code_translator_maps_span_types(span_type, expected_type):
 @pytest.mark.parametrize(
     "attributes",
     [
-        {"span.type": "claude_code.tool.execution"},
-        {"span.type": "claude_code.tool.blocked_on_user"},
         {"span.type": "some_other.tool"},
+        {"span.type": "hook"},
     ],
 )
 def test_claude_code_translator_does_not_map(attributes):
