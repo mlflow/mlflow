@@ -1281,6 +1281,42 @@ def test_skill_artifact_proxy_requires_skill_read_permission(workspace_permissio
     assert _skill_artifact_read_decisions(username) == [True] * 6
 
 
+@pytest.mark.parametrize(
+    "ancestor_path",
+    [
+        "skills",
+        "skills/@acme",
+        "workspaces/team-a/skills",
+        "workspaces/team-a/skills/@acme",
+    ],
+)
+def test_skill_artifact_ancestor_listing_does_not_reveal_names(
+    workspace_permission_setup, ancestor_path
+):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+
+    for api_prefix in ("/api/2.0", "/ajax-api/2.0"):
+        assert not auth_module._get_proxy_artifact_permission(
+            f"{api_prefix}/mlflow-artifacts/artifacts",
+            username,
+            query_path=ancestor_path,
+        ).can_read
+
+    with auth_module.app.test_request_context(
+        "/ajax-api/2.0/mlflow-artifacts/artifacts",
+        method="GET",
+        query_string={"path": ancestor_path},
+    ):
+        assert not auth_module.validate_can_read_experiment_artifact_proxy()
+
+    store.create_user("admin", "supersecurepassword", is_admin=True)
+    assert auth_module._get_proxy_artifact_permission(
+        "/api/2.0/mlflow-artifacts/artifacts", "admin", query_path=ancestor_path
+    ).can_read
+
+
 def test_filter_experiment_ids_respects_workspace_permissions(
     workspace_permission_setup, monkeypatch
 ):

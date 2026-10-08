@@ -484,6 +484,7 @@ from mlflow.store.artifact.utils.models import _parse_model_uri
 from mlflow.store.entities import PagedList
 from mlflow.store.tracking.skill_registry.artifact_paths import (
     SkillArtifactIdentity,
+    is_skill_upload_namespace,
     parse_skill_upload_path,
 )
 from mlflow.store.workspace.utils import get_default_workspace_optional
@@ -1356,6 +1357,13 @@ def _get_permission_from_experiment_id_artifact_proxy() -> Permission:
 
     if skill_identity := _get_skill_identity_from_view_args():
         return _get_skill_permission(skill_identity.organization, skill_identity.name, username)
+
+    # The root and organization directories have no single Skill ACL. Listing either
+    # reveals Skill names, so only a platform admin may inspect them through artifacts.
+    view_args = request.view_args or {}
+    if artifact_path := (view_args.get("artifact_path") or request.args.get("path")):
+        if is_skill_upload_namespace(artifact_path):
+            return MANAGE if store.get_user(username).is_admin else NO_PERMISSIONS
 
     if experiment_id := _get_experiment_id_from_view_args():
         return _get_role_permission_or_default(
@@ -8799,6 +8807,10 @@ def _get_proxy_artifact_permission(
 ) -> Permission:
     if skill_identity := _extract_skill_identity_from_artifact_proxy_path(path, query_path):
         return _get_skill_permission(skill_identity.organization, skill_identity.name, username)
+
+    if (artifact_path := _effective_artifact_proxy_path(path, query_path)) is not None:
+        if is_skill_upload_namespace(artifact_path):
+            return MANAGE if store.get_user(username).is_admin else NO_PERMISSIONS
 
     if experiment_id := _extract_experiment_id_from_artifact_proxy_path(path, query_path):
         return _get_role_permission_or_default(
