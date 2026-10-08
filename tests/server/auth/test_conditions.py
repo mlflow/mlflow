@@ -4,6 +4,8 @@
 # No store, no request, no Flask. These tests are the security core: every other
 # phase trusts that a parsed condition means what it says here.
 
+from typing import get_args
+
 import pytest
 
 from mlflow.exceptions import MlflowException
@@ -27,6 +29,8 @@ from mlflow.server.auth.conditions import (
     ConditionScope,
     RegisteredModelRequestValues,
     RegisteredModelResourceValues,
+    RequestValues,
+    ResourceValues,
     RunRequestValues,
     RunResourceValues,
     combine,
@@ -1186,14 +1190,5 @@ def test_the_annotation_unions_cover_every_declared_shape():
     sites. Deriving the assertion from the maps means a new resource type cannot be added
     to one and forgotten in the other.
     """
-    from typing import get_args
-
-    from mlflow.server.auth.conditions import (
-        REQUEST_VALUES_SHAPES,
-        RESOURCE_VALUES_SHAPES,
-        RequestValues,
-        ResourceValues,
-    )
-
     assert set(get_args(RequestValues)) == set(REQUEST_VALUES_SHAPES.values())
     assert set(get_args(ResourceValues)) == set(RESOURCE_VALUES_SHAPES.values())
