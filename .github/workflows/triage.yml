@@ -733,7 +733,7 @@ jobs:
           OTEL_LOG_TOOL_DETAILS: "1"
           OTEL_LOG_TOOL_CONTENT: "1"
           TELEMETRY_SOCKET: ${{ runner.temp }}/triage-telemetry.sock
-          OTEL_RESOURCE_ATTRIBUTES: github.issue_number=${{ needs.issue.outputs.number }},github.run_url=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          OTEL_RESOURCE_ATTRIBUTES: github.issue_number=${{ needs.issue.outputs.number }},github.issue_url=${{ needs.issue.outputs.url }},github.run_url=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           mkdir -p "$AGENT_BROWSER_SCREENSHOT_DIR"
           mkdir -p "${TMPDIR:-/tmp}"
