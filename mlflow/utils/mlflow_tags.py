@@ -46,6 +46,19 @@ MLFLOW_ISSUE_DETECTION_JOB_ID = "mlflow.issueDetection.jobId"
 # The ID of the job that is running the UI-triggered mlflow.genai.evaluate flow
 MLFLOW_GENAI_EVALUATE_JOB_ID = "mlflow.genaiEvaluate.jobId"
 
+# Lineage of a mlflow.genai.evaluate run.
+# JSON object {"digest": "sha256:<hex>", "registered": <int>, "total": <int>} over the registered
+# scorer versions. The digest is omitted when no scorer is registered.
+MLFLOW_GENAI_EVALUATE_SCORERS_DIGEST = "mlflow.genaiEvaluate.scorersDigest"
+# "<module>.<qualname>" of the evaluated predict function.
+MLFLOW_GENAI_EVALUATE_AGENT_FUNCTION = "mlflow.genaiEvaluate.agent.function"
+# The URI given to `mlflow.genai.to_predict_fn`, e.g. "endpoints:/my-agent".
+MLFLOW_GENAI_EVALUATE_AGENT_URI = "mlflow.genaiEvaluate.agent.uri"
+# "sha256:<hex>" of the source code of the evaluated predict function.
+MLFLOW_GENAI_EVALUATE_AGENT_DIGEST = "mlflow.genaiEvaluate.agent.digest"
+# JSON array of the served entities behind an evaluated serving endpoint.
+MLFLOW_GENAI_EVALUATE_AGENT_SERVED_ENTITIES = "mlflow.genaiEvaluate.agent.servedEntities"
+
 MLFLOW_DATABRICKS_NOTEBOOK_ID = "mlflow.databricks.notebookID"
 MLFLOW_DATABRICKS_NOTEBOOK_PATH = "mlflow.databricks.notebookPath"
 MLFLOW_DATABRICKS_WEBAPP_URL = "mlflow.databricks.webappURL"

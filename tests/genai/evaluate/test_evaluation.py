@@ -1,3 +1,5 @@
+import hashlib
+import inspect
 import json
 import threading
 import uuid
@@ -32,13 +34,19 @@ from mlflow.genai.evaluation.harness import (
     backpressure_buffer,
 )
 from mlflow.genai.evaluation.rate_limiter import RPSRateLimiter
-from mlflow.genai.scorers.base import scorer
+from mlflow.genai.scorers.base import SCORER_BACKEND_TRACKING, scorer
 from mlflow.genai.scorers.builtin_scorers import RelevanceToQuery
 from mlflow.genai.simulators import ConversationSimulator
 from mlflow.server import handlers
 from mlflow.server.fastapi_app import app
 from mlflow.server.handlers import initialize_backend_stores
 from mlflow.tracing.constant import AssessmentMetadataKey, TraceMetadataKey
+from mlflow.utils.mlflow_tags import (
+    MLFLOW_GENAI_EVALUATE_AGENT_DIGEST,
+    MLFLOW_GENAI_EVALUATE_AGENT_FUNCTION,
+    MLFLOW_GENAI_EVALUATE_AGENT_URI,
+    MLFLOW_GENAI_EVALUATE_SCORERS_DIGEST,
+)
 
 from tests.helper_functions import get_safe_port
 from tests.tracing.helper import (
@@ -2393,3 +2401,58 @@ def test_evaluate_with_edited_dataset_to_df_logs_anonymous_dataset(edit):
 
     [dataset_input] = mlflow.get_run(result.run_id).inputs.dataset_inputs
     assert dataset_input.dataset.name == "dataset"
+
+
+def lineage_agent(question):
+    return f"An answer to {question}"
+
+
+def test_evaluate_logs_lineage_tags():
+    @scorer
+    def registered(outputs):
+        return True
+
+    registered._set_registration_metadata(
+        backend=SCORER_BACKEND_TRACKING,
+        experiment_id="1",
+        sampling_config=None,
+        scorer_version=2,
+    )
+    data = [{"inputs": {"question": "What is MLflow?"}}]
+
+    result = mlflow.genai.evaluate(
+        data=data, predict_fn=lineage_agent, scorers=[registered, has_output]
+    )
+
+    tags = mlflow.get_run(result.run_id).data.tags
+    expected_digest = hashlib.sha256(b"experiments/1/scorers/registered/versions/2").hexdigest()
+    assert json.loads(tags[MLFLOW_GENAI_EVALUATE_SCORERS_DIGEST]) == {
+        "digest": f"sha256:{expected_digest}",
+        "registered": 1,
+        "total": 2,
+    }
+    assert tags[MLFLOW_GENAI_EVALUATE_AGENT_FUNCTION] == f"{__name__}.lineage_agent"
+    source_digest = hashlib.sha256(inspect.getsource(lineage_agent).encode("utf-8")).hexdigest()
+    assert tags[MLFLOW_GENAI_EVALUATE_AGENT_DIGEST] == f"sha256:{source_digest}"
+    assert MLFLOW_GENAI_EVALUATE_AGENT_URI not in tags
+
+
+def test_evaluate_without_predict_fn_logs_no_agent_tags():
+    data = [{"inputs": {"question": "What is MLflow?"}, "outputs": "MLflow is a tool for ML"}]
+
+    result = mlflow.genai.evaluate(data=data, scorers=[has_output])
+
+    tags = mlflow.get_run(result.run_id).data.tags
+    assert json.loads(tags[MLFLOW_GENAI_EVALUATE_SCORERS_DIGEST]) == {"registered": 0, "total": 1}
+    assert not any(key.startswith("mlflow.genaiEvaluate.agent.") for key in tags)
+
+
+def test_evaluate_succeeds_when_lineage_fails():
+    data = [{"inputs": {"question": "What is MLflow?"}, "outputs": "MLflow is a tool for ML"}]
+
+    with mock.patch(
+        "mlflow.genai.evaluation.lineage.get_scorers_digest", side_effect=Exception("boom")
+    ):
+        result = mlflow.genai.evaluate(data=data, scorers=[has_output])
+
+    assert MLFLOW_GENAI_EVALUATE_SCORERS_DIGEST not in mlflow.get_run(result.run_id).data.tags
