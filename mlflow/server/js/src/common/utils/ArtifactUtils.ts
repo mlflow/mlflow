@@ -8,16 +8,32 @@
 import { ErrorWrapper } from './ErrorWrapper';
 import { getAjaxUrl, getDefaultHeaders, HTTPMethods } from './FetchUtils';
 
+export type ArtifactRequestOptions = {
+  /**
+   * Headers required by a presigned URL. When supplied, these replace the
+   * tracking-server headers because credentials for one origin must not be
+   * forwarded to object storage.
+   */
+  headers?: HeadersInit;
+  /** Convert the response to an ArrayBuffer instead of text. */
+  isBinary?: boolean;
+};
+
 /**
  * Async function to fetch and return the specified artifact blob from response.
  * Throw exception if the request fails.
  */
-export async function getArtifactBlob(artifactLocation: any) {
+export async function getArtifactBlob(artifactLocation: any, options?: ArtifactRequestOptions) {
   const getArtifactRequest = new Request(artifactLocation, {
     method: HTTPMethods.GET,
     redirect: 'follow',
     // TODO: fix types
-    headers: new Headers(getDefaultHeaders(document.cookie) as any),
+    headers: new Headers(
+      options?.headers !== undefined
+        ? options.headers
+        : // Tracking-server requests need the standard cookie-derived and workspace headers.
+          (getDefaultHeaders(document.cookie) as any),
+    ),
   });
   // eslint-disable-next-line no-restricted-globals -- See go/spog-fetch
   const response = await fetch(getArtifactRequest);
@@ -35,12 +51,14 @@ class TextArtifactTooLargeError extends Error {}
  * Async function to fetch and return the specified text artifact.
  * Avoids unnecessary conversion to blob, parses chunked responses directly to text.
  */
-export const getArtifactChunkedText = async (artifactLocation: string) =>
+export const getArtifactChunkedText = async (artifactLocation: string, options?: ArtifactRequestOptions) =>
   new Promise<string>(async (resolve, reject) => {
     const getArtifactRequest = new Request(artifactLocation, {
       method: HTTPMethods.GET,
       redirect: 'follow',
-      headers: new Headers(getDefaultHeaders(document.cookie) as HeadersInit),
+      headers: new Headers(
+        options?.headers !== undefined ? options.headers : (getDefaultHeaders(document.cookie) as HeadersInit),
+      ),
     });
     // eslint-disable-next-line no-restricted-globals -- See go/spog-fetch
     const response = await fetch(getArtifactRequest);
@@ -78,10 +96,17 @@ export const getArtifactChunkedText = async (artifactLocation: string) =>
  * the raw content converted to text of the artifact if the fetch is
  * successful, and rejects otherwise
  */
-export function getArtifactContent<R = unknown>(artifactLocation: string, isBinary = false): Promise<R> {
+export function getArtifactContent<R = unknown>(
+  artifactLocation: string,
+  isBinaryOrOptions: boolean | ArtifactRequestOptions = false,
+  requestOptions?: ArtifactRequestOptions,
+): Promise<R> {
   return new Promise<R>(async (resolve, reject) => {
     try {
-      const blob = await getArtifactBlob(artifactLocation);
+      const isBinary =
+        typeof isBinaryOrOptions === 'boolean' ? isBinaryOrOptions : (isBinaryOrOptions.isBinary ?? false);
+      const options = typeof isBinaryOrOptions === 'boolean' ? requestOptions : isBinaryOrOptions;
+      const blob = await getArtifactBlob(artifactLocation, options);
 
       const fileReader = new FileReader();
       fileReader.onload = (event) => {
@@ -108,8 +133,8 @@ export function getArtifactContent<R = unknown>(artifactLocation: string, isBina
  * Fetches the specified artifact, returning a Promise that resolves with
  * the raw content in bytes of the artifact if the fetch is successful, and rejects otherwise
  */
-export function getArtifactBytesContent(artifactLocation: any) {
-  return getArtifactContent(artifactLocation, true);
+export function getArtifactBytesContent(artifactLocation: any, options?: ArtifactRequestOptions) {
+  return getArtifactContent(artifactLocation, true, options);
 }
 
 export const getLoggedModelArtifactLocationUrl = (path: string, loggedModelId: string) => {

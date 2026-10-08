@@ -444,8 +444,13 @@ export interface ArtifactLogTableImageObject {
 }
 
 export interface EvaluateCellImage {
-  url: string;
-  compressed_url: string;
+  /** Legacy tracking-server URLs retained for backwards-compatible rendering. */
+  url?: string;
+  compressed_url?: string;
+  /** Run-scoped paths used by the presigned image loader. */
+  runUuid?: string;
+  filepath?: string;
+  compressedFilepath?: string;
 }
 
 export interface GetRunApiResponse {

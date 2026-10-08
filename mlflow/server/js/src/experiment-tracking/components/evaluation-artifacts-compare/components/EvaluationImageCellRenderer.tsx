@@ -3,7 +3,10 @@ import type { ICellRendererParams } from '@ag-grid-community/core';
 import { FormattedMessage } from 'react-intl';
 import type { RunRowType } from '../../experiment-page/utils/experimentPage.row-types';
 import type { UseEvaluationArtifactTableDataResult } from '../hooks/useEvaluationArtifactTableData';
-import { ImagePlot } from '@mlflow/mlflow/src/experiment-tracking/components/runs-charts/components/charts/ImageGridPlot.common';
+import {
+  ImagePlot,
+  RunArtifactImagePlot,
+} from '@mlflow/mlflow/src/experiment-tracking/components/runs-charts/components/charts/ImageGridPlot.common';
 import type { EvaluateCellImage } from '@mlflow/mlflow/src/experiment-tracking/types';
 
 interface EvaluationImageCellRendererProps extends ICellRendererParams {
@@ -20,10 +23,16 @@ interface EvaluationImageCellRendererProps extends ICellRendererParams {
 /**
  * Component used to render a single text cell in the evaluation artifacts comparison table.
  */
-export const EvaluationImageCellRenderer = ({ value }: EvaluationImageCellRendererProps) => {
+export const EvaluationImageCellRenderer = ({ value, run }: EvaluationImageCellRendererProps) => {
   const { theme } = useDesignSystemTheme();
 
   const backgroundColor = theme.colors.backgroundPrimary;
+  const runArtifactImage =
+    value?.runUuid && value.filepath && value.compressedFilepath
+      ? { runUuid: value.runUuid, filepath: value.filepath, compressedFilepath: value.compressedFilepath }
+      : undefined;
+  const legacyImage =
+    value?.url && value.compressed_url ? { imageUrl: value.url, compressedImageUrl: value.compressed_url } : undefined;
 
   return (
     <div
@@ -40,7 +49,7 @@ export const EvaluationImageCellRenderer = ({ value }: EvaluationImageCellRender
         },
       }}
     >
-      {!value || !value.url || !value.compressed_url ? (
+      {!runArtifactImage && !legacyImage ? (
         <Typography.Text color="info" css={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
           <FormattedMessage
             defaultMessage="(empty)"
@@ -59,7 +68,11 @@ export const EvaluationImageCellRenderer = ({ value }: EvaluationImageCellRender
             height: '100%',
           }}
         >
-          <ImagePlot imageUrl={value.url} compressedImageUrl={value.compressed_url} />
+          {runArtifactImage ? (
+            <RunArtifactImagePlot {...runArtifactImage} artifactRootUri={run?.runInfo?.artifactUri} />
+          ) : (
+            legacyImage && <ImagePlot {...legacyImage} />
+          )}
         </span>
       )}
     </div>

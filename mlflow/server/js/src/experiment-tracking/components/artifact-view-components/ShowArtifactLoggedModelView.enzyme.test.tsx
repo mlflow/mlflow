@@ -12,6 +12,14 @@ import ShowArtifactLoggedModelView, { ShowArtifactLoggedModelViewImpl } from './
 import { mountWithIntl, shallowWithInjectIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.enzyme';
 import { DesignSystemProvider } from '@databricks/design-system';
 
+jest.mock('../../utils/PresignedArtifactUtils', () => ({
+  fetchArtifactWithPresignedUrl: (
+    _params: unknown,
+    legacyArtifactLocation: string,
+    getArtifactData: (artifactLocation: string) => Promise<unknown>,
+  ) => getArtifactData(legacyArtifactLocation),
+}));
+
 describe('ShowArtifactLoggedModelView', () => {
   let wrapper: any;
   let instance;

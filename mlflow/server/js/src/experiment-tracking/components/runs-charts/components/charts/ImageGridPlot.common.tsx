@@ -1,8 +1,13 @@
 import { ImageIcon, Spinner, Tooltip } from '@databricks/design-system';
 import { useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
-import { getArtifactLocationUrl } from '@mlflow/mlflow/src/common/utils/ArtifactUtils';
+import { getArtifactBlob, getArtifactLocationUrl } from '@mlflow/mlflow/src/common/utils/ArtifactUtils';
+import Utils from '@mlflow/mlflow/src/common/utils/Utils';
 import type { ImageEntity } from '@mlflow/mlflow/src/experiment-tracking/types';
+import {
+  fetchArtifactWithPresignedUrl,
+  fetchRunArtifactWithPresignedUrl,
+} from '@mlflow/mlflow/src/experiment-tracking/utils/PresignedArtifactUtils';
 import { useState, useEffect } from 'react';
 import { Typography } from '@databricks/design-system';
 import { ImagePreviewGroup, Image } from '../../../../../shared/building_blocks/Image';
@@ -143,16 +148,77 @@ export const ImagePlot = ({ imageUrl, compressedImageUrl, imageSize, maxImageSiz
   );
 };
 
+export const RunArtifactImagePlot = ({
+  runUuid,
+  filepath,
+  compressedFilepath,
+  artifactRootUri,
+  imageSize,
+  maxImageSize,
+}: {
+  runUuid: string;
+  filepath: string;
+  compressedFilepath: string;
+  artifactRootUri?: string;
+  imageSize?: number;
+  maxImageSize?: number;
+}) => {
+  const [urls, setUrls] = useState<{ imageUrl: string; compressedImageUrl: string }>();
+
+  useEffect(() => {
+    let cancelled = false;
+    let imageUrl: string | undefined;
+    let compressedImageUrl: string | undefined;
+    setUrls(undefined);
+
+    const fetchImageArtifact = (path: string) => {
+      const legacyArtifactLocation = getArtifactLocationUrl(path, runUuid);
+      return artifactRootUri
+        ? fetchArtifactWithPresignedUrl({ runUuid, path, artifactRootUri }, legacyArtifactLocation, getArtifactBlob)
+        : fetchRunArtifactWithPresignedUrl(runUuid, path, legacyArtifactLocation, getArtifactBlob);
+    };
+
+    Promise.all([fetchImageArtifact(filepath), fetchImageArtifact(compressedFilepath)])
+      .then(([imageBlob, compressedImageBlob]) => {
+        if (cancelled) {
+          return;
+        }
+        imageUrl = URL.createObjectURL(imageBlob);
+        compressedImageUrl = URL.createObjectURL(compressedImageBlob);
+        setUrls({ imageUrl, compressedImageUrl });
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          Utils.logErrorAndNotifyUser(error);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+      if (imageUrl) {
+        URL.revokeObjectURL(imageUrl);
+      }
+      if (compressedImageUrl) {
+        URL.revokeObjectURL(compressedImageUrl);
+      }
+    };
+  }, [artifactRootUri, compressedFilepath, filepath, runUuid]);
+
+  return urls ? <ImagePlot {...urls} imageSize={imageSize} maxImageSize={maxImageSize} /> : null;
+};
+
 export const ImagePlotWithHistory = ({
   metadataByStep,
   imageSize,
   step,
   runUuid,
+  artifactRootUri,
 }: {
   metadataByStep: Record<number, ImageEntity>;
   imageSize?: number;
   step: number;
   runUuid: string;
+  artifactRootUri?: string;
 }) => {
   const { theme } = useDesignSystemTheme();
 
@@ -180,9 +246,11 @@ export const ImagePlotWithHistory = ({
     );
   }
   return (
-    <ImagePlot
-      imageUrl={getArtifactLocationUrl(metadataByStep[step].filepath, runUuid)}
-      compressedImageUrl={getArtifactLocationUrl(metadataByStep[step].compressed_filepath, runUuid)}
+    <RunArtifactImagePlot
+      runUuid={runUuid}
+      filepath={metadataByStep[step].filepath}
+      compressedFilepath={metadataByStep[step].compressed_filepath}
+      artifactRootUri={artifactRootUri}
       imageSize={imageSize}
     />
   );
