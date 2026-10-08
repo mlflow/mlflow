@@ -162,9 +162,13 @@ export const CreateUserModal = ({ open, onClose }: CreateUserModalProps) => {
       // and permanently if the restriction fails, the user holds exactly the unrestricted
       // access the admin was trying to narrow. So the restriction lands first and the
       // capability steps below are skipped if it could not be created.
-      for (const c of conditions) {
+      // Only the conditions not already applied. On a retry the user already exists and
+      // the create step is skipped; replaying an add that succeeded would allocate a
+      // second slot for the same restriction rather than deduplicating it, so an
+      // applied condition is identified by the id stamped on it below.
+      for (const c of conditions.filter((s) => s.id == null)) {
         try {
-          await addCondition.mutateAsync({
+          const created = await addCondition.mutateAsync({
             request: {
               username: trimmedUsername,
               resource_type: c.resourceType,
@@ -176,6 +180,10 @@ export const CreateUserModal = ({ open, onClose }: CreateUserModalProps) => {
             },
             workspace: grantWorkspaceForRequest,
           });
+          const createdId = created?.mutation_conditions?.id;
+          if (createdId != null) {
+            setConditions((prev) => prev.map((s) => (s === c ? { ...s, id: createdId } : s)));
+          }
         } catch (e: any) {
           failures.push(`Mutation condition on ${c.resourceType} failed: ${e?.message ?? 'unknown error'}`);
         }

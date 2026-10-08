@@ -164,4 +164,30 @@ describe('EditRoleModal — restrictions land before capability', () => {
     await waitFor(() => expect(mockAddConditionMutateAsync).toHaveBeenCalledTimes(1));
     expect(mockAddPermissionMutateAsync).not.toHaveBeenCalled();
   });
+
+  it('does not re-add a condition that already landed when a later step is retried', async () => {
+    // The staged row used to keep no id, so the add list -- which selects on a missing
+    // id -- still contained a condition the server had already created. A later step
+    // failing leaves the modal open and re-submittable, and the retry replayed the add.
+    // Every add allocates a fresh slot rather than deduplicating, so the replay left a
+    // duplicate restriction behind and spent the per-type limit; enough retries and
+    // later grants are refused for want of a slot.
+    mockAddConditionMutateAsync.mockResolvedValue({ mutation_conditions: { id: 7 } });
+    mockAddPermissionMutateAsync.mockRejectedValue(new Error('transient'));
+    renderWithDesignSystem(<EditRoleModal open onClose={jest.fn()} roleId={1} />);
+
+    expect(await screen.findByText('Add a mutation condition')).toBeInTheDocument();
+    stageConditionAndPermission();
+
+    await waitFor(() => expect(mockAddPermissionMutateAsync).toHaveBeenCalledTimes(1));
+    expect(mockAddConditionMutateAsync).toHaveBeenCalledTimes(1);
+
+    // Retry. A failed submit returns to the edit step, so the retry goes back through
+    // review. The permission is attempted again -- it never landed -- but the condition
+    // must not be, because it did.
+    fireEvent.click(screen.getByRole('button', { name: /^Review changes$/ }));
+    fireEvent.click(await screen.findByRole('button', { name: /^Apply changes$/ }));
+    await waitFor(() => expect(mockAddPermissionMutateAsync).toHaveBeenCalledTimes(2));
+    expect(mockAddConditionMutateAsync).toHaveBeenCalledTimes(1);
+  });
 });

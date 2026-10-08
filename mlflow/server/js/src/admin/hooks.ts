@@ -271,7 +271,11 @@ export const useUserMutationConditionsQuery = (username: string, options: { enab
         error: conditionQueries[i]?.error ?? null,
       })),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- query array identity changes every render
-    [roles, conditionQueries.map((q) => `${q.status}`).join(',')],
+    // Keyed on when each query's data last changed, not only on its status: an
+    // invalidated query refetches in the background and stays `success` the whole
+    // time, so a status-only key left the table and count showing the previous
+    // policy after a condition was added or removed.
+    [roles, conditionQueries.map((q) => `${q.status}:${q.dataUpdatedAt}:${q.errorUpdatedAt}`).join(',')],
   );
 
   return {

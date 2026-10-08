@@ -359,7 +359,7 @@ export const EditAccessModal = ({ open, onClose, username }: EditAccessModalProp
     // 1. Conditions to add, first of everything.
     for (const c of diff.conditionsToAdd) {
       try {
-        await addCondition.mutateAsync({
+        const created = await addCondition.mutateAsync({
           request: {
             username,
             resource_type: c.resourceType,
@@ -374,6 +374,16 @@ export const EditAccessModal = ({ open, onClose, username }: EditAccessModalProp
           },
           workspace: grantWorkspaceForRequest,
         });
+        // Stamp the server-assigned id onto the staged row. The add list selects rows
+        // with no id, so this is what makes a retry idempotent: a later step failing
+        // leaves the modal open and re-submittable, and without the id this add
+        // replays. Every add allocates a fresh slot rather than deduplicating, so a
+        // replay leaves a duplicate restriction behind and spends the per-type limit --
+        // enough retries and later grants are refused for want of a slot.
+        const createdId = created?.mutation_conditions?.id;
+        if (createdId != null) {
+          setConditions((prev) => prev.map((s) => (s === c ? { ...s, id: createdId } : s)));
+        }
       } catch (e: any) {
         failures.push(`Adding condition ${formatStagedCondition(c)} failed: ${e?.message ?? 'unknown error'}`);
       }
