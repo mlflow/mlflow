@@ -15,7 +15,14 @@ from mlflow.environment_variables import MLFLOW_GENAI_EVAL_MAX_WORKERS
 from mlflow.exceptions import MlflowException
 from mlflow.genai.datasets.evaluation_dataset import EvaluationDataset
 from mlflow.genai.evaluation.constant import InputDatasetColumn
-from mlflow.genai.evaluation.lineage import get_dataset_entity_from_attrs
+from mlflow.genai.evaluation.lineage import (
+    AGENT_URI_ATTR,
+    SERVED_ENTITIES_ATTR,
+    get_agent_tags,
+    get_dataset_entity_from_attrs,
+    get_served_entities,
+    log_lineage_tags,
+)
 from mlflow.genai.evaluation.session_utils import validate_session_level_evaluation_inputs
 from mlflow.genai.evaluation.utils import (
     _convert_to_eval_set,
@@ -315,6 +322,8 @@ def _run_harness(data, scorers, predict_fn, model_id) -> tuple["EvaluationResult
     from mlflow.genai.evaluation import harness
 
     scorers = validate_scorers(scorers)
+    # Identify the agent before `predict_fn` is wrapped or cleared for simulation.
+    agent_tags = get_agent_tags(predict_fn)
 
     # Handle ConversationSimulator: prepare for simulation, but run it inside the run context
     # so that traces are logged to the correct run.
@@ -433,6 +442,7 @@ def _run_harness(data, scorers, predict_fn, model_id) -> tuple["EvaluationResult
         # NB: Set this tag before run finishes to suppress the generic run URL printing.
         if run.data.tags.get(MLFLOW_RUN_TYPE) is None:
             MlflowClient().set_tag(run_id, MLFLOW_RUN_TYPE, MLFLOW_RUN_TYPE_GENAI_EVALUATE)
+        log_lineage_tags(run_id, scorers, agent_tags)
 
         result = harness.run(
             predict_fn=predict_fn,
@@ -623,13 +633,15 @@ def to_predict_fn(endpoint_uri: str) -> Callable[..., Any]:
     match schema:
         case "apps":
             app_config = _setup_databricks_app_client(path)
-            return _create_app_predict_fn(app_config.app_invocation_url, app_config.config)
+            predict_fn = _create_app_predict_fn(app_config.app_invocation_url, app_config.config)
         case "endpoints":
-            return _create_endpoint_predict_fn(endpoint_uri, path)
+            predict_fn = _create_endpoint_predict_fn(endpoint_uri, path)
         case _:
             raise ValueError(
                 f"Unsupported endpoint schema: {schema}. Expected 'endpoints' or 'apps'."
             )
+    setattr(predict_fn, AGENT_URI_ATTR, endpoint_uri)
+    return predict_fn
 
 
 def _create_endpoint_predict_fn(endpoint_uri: str, endpoint: str) -> Callable[..., Any]:
@@ -720,4 +732,5 @@ Args:
         For example, if the endpoint accepts a JSON object with a `messages` key,
         the function also expects to get `messages` as an argument.
     """
+    setattr(predict_fn, SERVED_ENTITIES_ATTR, get_served_entities(endpoint_info))
     return predict_fn
