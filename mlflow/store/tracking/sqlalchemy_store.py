@@ -3708,7 +3708,21 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         for comp in comparisons:
             comp_func = SearchUtils.get_sql_comparison_func(comp.op, dialect)
             if comp.entity.type == EntityType.ATTRIBUTE:
-                attr_filters.append(comp_func(getattr(SqlLoggedModel, comp.entity.key), comp.value))
+                value = comp.value
+                if comp.entity.key == "status":
+                    if comp.op not in ("=", "!=", "IN", "NOT IN"):
+                        raise MlflowException.invalid_parameter_value(
+                            f"Invalid comparison operator for status: {comp.op}"
+                        )
+                    values = value if comp.op in ("IN", "NOT IN") else (value,)
+                    try:
+                        statuses = [LoggedModelStatus(status).to_int() for status in values]
+                    except ValueError as e:
+                        raise MlflowException.invalid_parameter_value(
+                            f"Unknown model status in filter: {value!r}"
+                        ) from e
+                    value = statuses if comp.op in ("IN", "NOT IN") else statuses[0]
+                attr_filters.append(comp_func(getattr(SqlLoggedModel, comp.entity.key), value))
             elif comp.entity.type == EntityType.METRIC:
                 has_metric_filters = True
                 metric_filters = [
