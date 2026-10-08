@@ -3,6 +3,10 @@
     "defaultMessage": "Relevant",
     "description": "Evaluation results > retrieval relevancy assessment > positive value label. Displayed if evaluation result is considered as relevant to the query."
   },
+  "++BSfo": {
+    "defaultMessage": "Only an administrator can add the {provider} API key on this server. Ask an administrator, or pick another provider below.",
+    "description": "Inline assistant API key prompt shown to a non-admin user, who cannot add API keys"
+  },
   "+/Zrmm": {
     "defaultMessage": "Temperature",
     "description": "Label for temperature input"
@@ -218,6 +222,10 @@
   "+tURAJ": {
     "defaultMessage": "Cancel",
     "description": "Button text for canceling evaluation"
+  },
+  "+uJ+jl": {
+    "defaultMessage": "The {provider} API key can only be added from the MLflow server host. Pick another provider below.",
+    "description": "Inline assistant API key prompt shown to a remote user, who cannot add API keys"
   },
   "+w9a+1": {
     "defaultMessage": "Open runs in this group in the new tab",

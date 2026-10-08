@@ -36,6 +36,7 @@ import {
 import { getClientToolHandler } from './clientToolHandlers';
 import { getLocalStorageItem, setLocalStorageItem, useLocalStorage } from '@databricks/web-shared/hooks';
 import { useCurrentUserQuery } from '../account/hooks';
+import { useCanEditServerSettings } from './hooks/useCanEditServerSettings';
 import { useAssistantPageContextActions } from './AssistantPageContext';
 import { GATEWAY_PROVIDER_ID } from './constants';
 
@@ -335,6 +336,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   const [isLoadingConfig, setIsLoadingConfig] = useState(true);
   const [remoteAccessAllowed, setRemoteAccessAllowed] = useState(false);
   const canUseAssistant = isLocalServer || remoteAccessAllowed;
+  const canEditServerSettings = useCanEditServerSettings(isLocalServer);
 
   // Whether the (possibly optimistically-picked) provider still needs an API key
   // before it can chat. Derived from discovery so a dropdown switch flips it
@@ -1362,6 +1364,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     pendingPermission,
     pendingClientToolCall,
     canUseAssistant,
+    canEditServerSettings,
     tokenUsage,
     // Actions
     openPanel,
@@ -1409,6 +1412,7 @@ const disabledAssistantContext: AssistantAgentContextType = {
   pendingPermission: null,
   pendingClientToolCall: null,
   canUseAssistant: false,
+  canEditServerSettings: false,
   tokenUsage: { promptTokens: 0, completionTokens: 0, totalTokens: 0, cacheReadTokens: 0, costUsd: null },
   openPanel: () => {},
   closePanel: () => {},

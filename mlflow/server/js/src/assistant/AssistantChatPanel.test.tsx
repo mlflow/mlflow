@@ -93,6 +93,7 @@ jest.mock('./AssistantContext', () => ({
     pendingComposerFocus: mockPendingComposerFocus,
     pendingAutomaticMessage: mockPendingAutomaticMessage,
     canUseAssistant: mockCanUseAssistant,
+    canEditServerSettings: true,
     tokenUsage: mockTokenUsage,
     openPanel: jest.fn(),
     closePanel: jest.fn(),

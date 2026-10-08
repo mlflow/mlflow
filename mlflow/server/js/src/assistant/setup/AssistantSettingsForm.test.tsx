@@ -10,11 +10,17 @@ import * as AssistantService from '../AssistantService';
 import type { AssistantConfig } from '../types';
 
 let mockIsLocalServer = true;
+// Defaults to following mockIsLocalServer (no auth, or an admin); a test sets it false for a
+// non-admin on the server host.
+let mockCanEditServerSettings: boolean | null = null;
 const mockRefetchConfig = jest.fn();
 let mockConfig: AssistantConfig | null = null;
 
 jest.mock('../AssistantContext', () => ({
-  useAssistant: () => ({ isLocalServer: mockIsLocalServer }),
+  useAssistant: () => ({
+    isLocalServer: mockIsLocalServer,
+    canEditServerSettings: mockCanEditServerSettings ?? mockIsLocalServer,
+  }),
 }));
 
 jest.mock('../hooks/useAssistantConfigQuery', () => ({
@@ -52,6 +58,7 @@ describe('AssistantSettingsForm', () => {
     mockInstallSkills.mockClear();
     mockRefetchConfig.mockClear();
     mockIsLocalServer = true;
+    mockCanEditServerSettings = null;
     mockConfig = {
       providers: {
         claude_code: {
@@ -131,5 +138,25 @@ describe('AssistantSettingsForm', () => {
     await user.click(screen.getByRole('checkbox', { name: /Read MLflow doc/ }));
     expect(screen.queryByText(/Full access can only be enabled/)).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Finish' })).not.toBeDisabled();
+  });
+
+  test('a non-admin on the server host cannot change server-wide settings', async () => {
+    const user = userEvent.setup();
+    mockCanEditServerSettings = false;
+    renderForm();
+
+    expect(screen.getByRole('checkbox', { name: /Full access/ })).toBeDisabled();
+    expect(screen.queryByPlaceholderText('/Users/me/projects/my-llm-project')).not.toBeInTheDocument();
+    expect(screen.getByText(/Project paths .* can only be configured by an administrator/)).toBeInTheDocument();
+    expect(screen.getByText(/Skills .* can only be configured by an administrator/)).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Finish' }));
+
+    await waitFor(() => expect(mockUpdateConfig).toHaveBeenCalledTimes(1));
+    const payload = mockUpdateConfig.mock.calls[0][0];
+    // Their own provider settings are saved, but nothing server-wide.
+    expect(payload.providers?.['claude_code'].permissions?.full_access).toBe(false);
+    expect(payload.projects).toBeUndefined();
+    expect(mockInstallSkills).not.toHaveBeenCalled();
   });
 });

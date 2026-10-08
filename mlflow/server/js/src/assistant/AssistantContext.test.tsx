@@ -73,6 +73,8 @@ jest.mock('./AssistantPageContext', () => ({
 
 jest.mock('../account/hooks', () => ({
   useCurrentUserQuery: jest.fn(),
+  useIsAuthAvailable: () => false,
+  useCurrentUserIsAdmin: () => false,
 }));
 
 const mockUseCurrentUserQuery = jest.mocked(useCurrentUserQuery);

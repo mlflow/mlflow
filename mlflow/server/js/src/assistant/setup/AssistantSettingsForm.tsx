@@ -89,7 +89,9 @@ export const AssistantSettingsForm = ({
   backLabel = 'Back',
 }: AssistantSettingsFormProps) => {
   const { theme } = useDesignSystemTheme();
-  const { isLocalServer } = useAssistant();
+  const { isLocalServer, canEditServerSettings } = useAssistant();
+  // How the server restricts its server-wide settings for this caller, used in the notes below.
+  const serverSettingsRestriction = isLocalServer ? 'by an administrator' : 'from the MLflow server host';
   const { config, isLoading: isLoadingConfig, refetch: refetchConfig } = useAssistantConfigQuery();
 
   const [projectPath, setProjectPath] = useState<string>('');
@@ -142,17 +144,17 @@ export const AssistantSettingsForm = ({
             permissions: {
               allow_edit_files: editFiles,
               allow_read_docs: readDocs,
-              // Full access is a host-only setting; a remote caller cannot grant it.
-              full_access: isLocalServer ? fullPermission : false,
+              // Full access is a server-wide setting; a caller who cannot change those cannot grant it.
+              full_access: canEditServerSettings ? fullPermission : false,
             },
           },
         },
       };
 
-      // Project mappings and skills point at paths on the server host's filesystem, so they
-      // are only configurable from the host. A remote caller edits provider settings only;
-      // the server rejects project/skills writes from a non-local request.
-      if (isLocalServer && experimentId) {
+      // Project mappings and skills point at paths on the server host's filesystem and apply to
+      // every user, so only a caller allowed to change server-wide settings sends them; the
+      // server rejects them from anyone else.
+      if (canEditServerSettings && experimentId) {
         if (projectPath.trim()) {
           configUpdate.projects = {
             [experimentId]: { type: 'local' as const, location: projectPath.trim() },
@@ -169,7 +171,7 @@ export const AssistantSettingsForm = ({
 
       // Install skills based on selected location. Providers that don't load
       // skills at runtime (e.g. Ollama, MLflow Gateway) skip this entirely.
-      if (isLocalServer && PROVIDERS_WITH_SKILLS.has(provider)) {
+      if (canEditServerSettings && PROVIDERS_WITH_SKILLS.has(provider)) {
         try {
           await installSkills(
             skillsLocation,
@@ -199,7 +201,7 @@ export const AssistantSettingsForm = ({
     editFiles,
     readDocs,
     fullPermission,
-    isLocalServer,
+    canEditServerSettings,
   ]);
 
   if (isLoadingConfig) {
@@ -316,21 +318,23 @@ export const AssistantSettingsForm = ({
               <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
                 <Checkbox
                   componentId="mlflow.assistant.setup.project.perm_full"
-                  isChecked={isLocalServer && fullPermission}
-                  disabled={!isLocalServer}
+                  isChecked={canEditServerSettings && fullPermission}
+                  disabled={!canEditServerSettings}
                   onChange={(checked) => {
                     setFullPermission(checked);
                     if (error) setError(null);
                   }}
                 >
-                  <Typography.Text color={!isLocalServer ? 'secondary' : undefined}>Full access</Typography.Text>
+                  <Typography.Text color={!canEditServerSettings ? 'secondary' : undefined}>
+                    Full access
+                  </Typography.Text>
                 </Checkbox>
                 <Tooltip
                   componentId="mlflow.assistant.setup.project.perm_full_tooltip"
                   content={
-                    isLocalServer
+                    canEditServerSettings
                       ? 'Bypass all permission checks. Use with caution.'
-                      : 'Full access can only be enabled from the MLflow server host.'
+                      : `Full access can only be enabled ${serverSettingsRestriction}.`
                   }
                 >
                   <QuestionMarkIcon
@@ -351,10 +355,10 @@ export const AssistantSettingsForm = ({
               context.
             </Typography.Text>
 
-            {!isLocalServer ? (
+            {!canEditServerSettings ? (
               <InfoNote>
-                Project paths point at the MLflow server host&apos;s filesystem and can only be configured from the
-                host.
+                Project paths point at the MLflow server host&apos;s filesystem and can only be configured{' '}
+                {serverSettingsRestriction}.
               </InfoNote>
             ) : experimentId ? (
               <Input
@@ -390,10 +394,10 @@ export const AssistantSettingsForm = ({
                 to find list of skills to be installed.
               </Typography.Text>
 
-              {!isLocalServer ? (
+              {!canEditServerSettings ? (
                 <InfoNote>
-                  Skills are installed on the MLflow server host&apos;s filesystem and can only be configured from the
-                  host.
+                  Skills are installed on the MLflow server host&apos;s filesystem and can only be configured{' '}
+                  {serverSettingsRestriction}.
                 </InfoNote>
               ) : (
                 <Radio.Group

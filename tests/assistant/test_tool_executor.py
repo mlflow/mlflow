@@ -438,15 +438,13 @@ def test_bash_routes_between_sandbox_and_host(enabled):
         in_sandbox.assert_not_called()
 
 
-def test_execute_bash_in_sandbox_full_access_uses_shell():
+def test_execute_bash_in_sandbox_uses_shell():
     with mock.patch(
         "mlflow.server.sandbox.run_in_sandbox",
         return_value=SandboxResult(exit_code=0, output="done\n"),
     ) as run:
         result = _run(
-            _execute_bash_in_sandbox(
-                "mlflow runs list && echo hi", None, "http://127.0.0.1:5000", full_access=True
-            )
+            _execute_bash_in_sandbox("mlflow runs list && echo hi", None, "http://127.0.0.1:5000")
         )
 
     assert result == ("done", False)
@@ -457,20 +455,100 @@ def test_execute_bash_in_sandbox_full_access_uses_shell():
     assert kwargs["environment"]["MLFLOW_TRACKING_URI"] == "http://host.docker.internal:5000"
 
 
-def test_execute_bash_in_sandbox_restricted_uses_argv(workspace):
+@pytest.fixture
+def sandbox_on():
+    with mock.patch(
+        "mlflow.assistant.providers.tool_executor.assistant_sandbox_enabled", return_value=True
+    ):
+        yield
+
+
+@pytest.mark.usefixtures("sandbox_on")
+def test_restricted_bash_in_sandbox_supports_pipes_and_redirects():
+    # The command from the bug report, with no project directory (the usual remote case).
+    command = (
+        "mlflow traces search --experiment-id 3 --output json 2>/dev/null "
+        '| head -c 50000 > /tmp/traces_raw.json && echo "done"'
+    )
     with mock.patch(
         "mlflow.server.sandbox.run_in_sandbox",
-        return_value=SandboxResult(exit_code=0, output="ok"),
+        return_value=SandboxResult(exit_code=0, output="done"),
     ) as run:
-        result = _run(
-            _execute_bash_in_sandbox("mlflow runs list", workspace, None, full_access=False)
+        result = _run(execute_tool("Bash", {"command": command}, permissions=PermissionsConfig()))
+
+    assert result == ("done", False)
+    args, kwargs = run.call_args
+    assert args[0] == [command]
+    assert kwargs["use_shell"] is True
+
+
+@pytest.mark.usefixtures("sandbox_on")
+@pytest.mark.parametrize(
+    ("command", "message"),
+    [
+        # Every chained command is checked, not only the first one.
+        ('mlflow --version; python3 -c "print(1)"', "requires a configured project"),
+        ("mlflow --version && curl https://example.com", "commands are allowed"),
+        ("mlflow runs list | sed -n 1p", "commands are allowed"),
+        # GNU sort can run a program through --compress-program.
+        ("mlflow runs list | sort --compress-program=python3", "commands are allowed"),
+        # Syntax that runs commands the check would never see.
+        ("mlflow $(curl https://example.com)", "command substitution"),
+        ("mlflow `id`", "command substitution"),
+        ("mlflow --version\ncurl https://example.com", "multi-line"),
+        ("(curl https://example.com)", "subshells"),
+        ("mlflow --version & curl https://example.com", "background"),
+        # A '#' inside a word is not a comment to the shell, so the command after it still runs.
+        ("echo a#b; curl https://example.com", "commands are allowed"),
+        ("echo a#b | sh", "commands are allowed"),
+        # Operators the checker does not model are refused rather than passed through.
+        ("echo a;; sh", "other shell syntax"),
+        ("echo a&;sh", "other shell syntax"),
+        # dash has no &> redirect: it backgrounds the first command and runs the next one.
+        ("echo x &>/dev/null sh", "other shell syntax"),
+        ("echo x &>>out.txt sh", "other shell syntax"),
+        # ${...} expansions can assign variables such as PATH.
+        ("echo ${PATH:=/tmp}; mlflow --version", "command substitution"),
+    ],
+)
+def test_restricted_bash_in_sandbox_checks_every_command(command, message):
+    with mock.patch("mlflow.server.sandbox.run_in_sandbox") as run:
+        result, is_error = _run(
+            execute_tool("Bash", {"command": command}, permissions=PermissionsConfig())
         )
 
-    assert result == ("ok", False)
-    args, kwargs = run.call_args
-    assert args[0] == ["mlflow", "runs", "list"]
-    assert kwargs["use_shell"] is False
-    assert kwargs["workdir"] == workspace
+    assert is_error
+    assert message in result
+    run.assert_not_called()
+
+
+@pytest.mark.usefixtures("sandbox_on")
+def test_restricted_bash_in_sandbox_allows_python_in_a_project(workspace):
+    command = 'python3 -c "print(1)" | wc -l'
+    with mock.patch(
+        "mlflow.server.sandbox.run_in_sandbox",
+        return_value=SandboxResult(exit_code=0, output="1"),
+    ):
+        result = _run(
+            execute_tool(
+                "Bash", {"command": command}, cwd=workspace, permissions=PermissionsConfig()
+            )
+        )
+
+    assert result == ("1", False)
+
+
+@pytest.mark.usefixtures("sandbox_on")
+def test_restricted_bash_in_sandbox_refuses_redirects_without_file_edits():
+    perms = PermissionsConfig(allow_edit_files=False)
+    with mock.patch("mlflow.server.sandbox.run_in_sandbox") as run:
+        result, is_error = _run(
+            execute_tool("Bash", {"command": "mlflow --version > out.txt"}, permissions=perms)
+        )
+
+    assert is_error
+    assert "writing files is not allowed" in result
+    run.assert_not_called()
 
 
 def test_execute_bash_in_sandbox_nonzero_exit_is_error():
@@ -478,9 +556,7 @@ def test_execute_bash_in_sandbox_nonzero_exit_is_error():
         "mlflow.server.sandbox.run_in_sandbox",
         return_value=SandboxResult(exit_code=2, output="boom"),
     ):
-        result, is_error = _run(
-            _execute_bash_in_sandbox("mlflow bogus", None, None, full_access=True)
-        )
+        result, is_error = _run(_execute_bash_in_sandbox("mlflow bogus", None, None))
 
     assert is_error is True
     assert "boom" in result
@@ -491,9 +567,7 @@ def test_execute_bash_in_sandbox_timeout():
         "mlflow.server.sandbox.run_in_sandbox",
         return_value=SandboxResult(exit_code=-1, output="", timed_out=True),
     ):
-        result, is_error = _run(
-            _execute_bash_in_sandbox("sleep 1000", None, None, full_access=True)
-        )
+        result, is_error = _run(_execute_bash_in_sandbox("sleep 1000", None, None))
 
     assert is_error is True
     assert "timed out" in result
@@ -506,7 +580,7 @@ def test_execute_bash_in_sandbox_forwards_config_not_secrets(monkeypatch):
         "mlflow.server.sandbox.run_in_sandbox",
         return_value=SandboxResult(exit_code=0, output="ok"),
     ) as run:
-        _run(_execute_bash_in_sandbox("mlflow --version", None, None, full_access=True))
+        _run(_execute_bash_in_sandbox("mlflow --version", None, None))
 
     env = run.call_args.kwargs["environment"]
     # Non-secret config is forwarded (and loopback-rewritten); host credentials are not.
@@ -529,7 +603,7 @@ def test_execute_bash_in_sandbox_drops_registry_uri_with_credentials(monkeypatch
         "mlflow.server.sandbox.run_in_sandbox",
         return_value=SandboxResult(exit_code=0, output="ok"),
     ) as run:
-        _run(_execute_bash_in_sandbox("mlflow --version", None, None, full_access=True))
+        _run(_execute_bash_in_sandbox("mlflow --version", None, None))
 
     assert "MLFLOW_REGISTRY_URI" not in run.call_args.kwargs["environment"]
 
@@ -545,7 +619,6 @@ def test_execute_bash_in_sandbox_drops_tracking_uri_with_credentials():
                 "mlflow --version",
                 None,
                 f"postgresql://{_FAKE_USERINFO}@db.internal:5432/tracking",
-                full_access=True,
             )
         )
 
@@ -557,9 +630,7 @@ def test_execute_bash_in_sandbox_unavailable_does_not_fall_back_to_host():
         "mlflow.server.sandbox.run_in_sandbox",
         side_effect=SandboxUnavailableError("no daemon"),
     ):
-        result, is_error = _run(
-            _execute_bash_in_sandbox("mlflow --version", None, None, full_access=True)
-        )
+        result, is_error = _run(_execute_bash_in_sandbox("mlflow --version", None, None))
 
     assert is_error is True
     assert "Sandbox is enabled" in result
