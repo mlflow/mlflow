@@ -109,7 +109,7 @@
       "pricing": {
         "input_per_million_tokens": 2.2,
         "output_per_million_tokens": 11.0,
-        "cache_read_per_million_tokens": 0.22,
+        "cache_read_per_million_tokens": 0.11,
         "cache_write_per_million_tokens": 2.75,
         "cache_write_1hr_per_million_tokens": 4.4,
         "tooling": {
@@ -127,7 +127,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-29"
+      "last_updated_at": "2026-10-08"
     },
     "deepseek.v3.1": {
       "mode": "chat",
@@ -941,7 +941,7 @@
       "pricing": {
         "input_per_million_tokens": 2.4,
         "output_per_million_tokens": 12.0,
-        "cache_read_per_million_tokens": 0.24,
+        "cache_read_per_million_tokens": 0.12,
         "cache_write_per_million_tokens": 3.0,
         "cache_write_1hr_per_million_tokens": 4.8
       },
@@ -952,7 +952,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-29"
+      "last_updated_at": "2026-10-08"
     },
     "us-gov-west-1/google.gemma-4-26b-a4b": {
       "mode": "chat",

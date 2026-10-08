@@ -82,8 +82,17 @@ Only start the UI when the issue involves it.
        --artifacts-destination $out_dir/work/artifacts
      ```
 
-   - Otherwise run `HOST=localhost CI=false uv run dev/run_dev_server.py` (it installs the
-     frontend dependencies and uses a temporary store) and use the frontend URL it prints.
+   - Otherwise run the following from the repository root (it installs the frontend
+     dependencies and uses a temporary store), and use the frontend URL it prints:
+
+     ```bash
+     YARN_HTTP_PROXY="$HTTP_PROXY" \
+     YARN_HTTPS_PROXY="$HTTPS_PROXY" \
+     NO_PROXY=localhost,127.0.0.1 \
+     no_proxy=localhost,127.0.0.1 \
+     HOST=localhost CI=false \
+     uv run dev/run_dev_server.py
+     ```
 
 2. Wait until the UI responds to `curl --noproxy '*'`.
 3. Drive it with `agent-browser`: `open <url>` and `snapshot -i` to inspect the page, then
