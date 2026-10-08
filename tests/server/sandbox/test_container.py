@@ -20,9 +20,11 @@ pytestmark = pytest.mark.skipif(
 
 
 @pytest.fixture(autouse=True)
-def _no_source_checkout(tmp_path_factory, monkeypatch):
-    # Tests run from a dev checkout, so without this the fallback image build would copy this
-    # repository into each test's build context. Tests of checkout detection override it.
+def _no_source_tree(tmp_path_factory, monkeypatch):
+    # Tests run from a dev checkout, and CI sets MLFLOW_HOME to it, so without this the fallback
+    # image build would copy this repository into each test's build context. Tests of source
+    # installs set their own source tree.
+    monkeypatch.delenv("MLFLOW_HOME", raising=False)
     package_dir = tmp_path_factory.mktemp("not-a-checkout") / "mlflow"
     monkeypatch.setattr(container_mod, "_MLFLOW_PACKAGE_DIR", package_dir)
 
@@ -220,9 +222,6 @@ def test_run_in_sandbox_fallback_build_does_not_forward_index_credentials(monkey
     # so the fallback build must not forward PIP_INDEX_URL at all — neither as a build arg nor in
     # the Dockerfile. Operators behind a private mirror provide their own image instead.
     monkeypatch.setenv("PIP_INDEX_URL", "https://user:pass@mirror.internal/simple")
-    # Isolate from a developer's MLFLOW_HOME so the fallback does not copy a source tree here
-    # (checkout detection is disabled by the autouse fixture).
-    monkeypatch.delenv("MLFLOW_HOME", raising=False)
     client, _ = _mock_client()
     client.images.get.side_effect = docker.errors.ImageNotFound("missing")
     captured = {}
@@ -272,7 +271,6 @@ def test_minimal_sandbox_dockerfile_installs_mlflow_from_source_home(tmp_path, m
 
 
 def test_minimal_sandbox_dockerfile_installs_from_the_server_checkout(tmp_path, monkeypatch):
-    monkeypatch.delenv("MLFLOW_HOME", raising=False)
     checkout = _make_source_tree(tmp_path / "checkout")
     monkeypatch.setattr(container_mod, "_mlflow_source_root", lambda: checkout)
     context = tmp_path / "context"
@@ -305,9 +303,12 @@ def test_source_copy_leaves_out_server_data_and_frontend_files(tmp_path, monkeyp
     (source / "basic_auth.db").touch()
     (source / "mlartifacts").mkdir()
     (source / "mlflow" / "stray.db").touch()
-    (source / "mlflow" / "server" / "js" / "node_modules").mkdir(parents=True)
-    (source / "mlflow" / "server" / "js" / "build").mkdir()
+    (source / "mlflow" / "stray.db-wal").touch()
+    (source / "mlflow" / "store.sqlite").touch()
+    (source / "mlflow" / "server" / "js" / "build").mkdir(parents=True)
+    (source / "mlflow" / "java").mkdir()
     (source / "mlflow" / "__pycache__").mkdir()
+    (source / "mlflow" / "outside").symlink_to(tmp_path / "src" / "README.md")
     monkeypatch.setenv("MLFLOW_HOME", str(source))
     context = tmp_path / "context"
     context.mkdir()
@@ -321,36 +322,50 @@ def test_source_copy_leaves_out_server_data_and_frontend_files(tmp_path, monkeyp
         "mlflow",
         "pyproject.toml",
     ]
-    assert not (copied / "mlflow" / "stray.db").exists()
-    assert not (copied / "mlflow" / "server" / "js" / "node_modules").exists()
-    assert not (copied / "mlflow" / "server" / "js" / "build").exists()
-    assert not (copied / "mlflow" / "__pycache__").exists()
+    assert sorted(p.name for p in (copied / "mlflow").iterdir()) == [
+        "__init__.py",
+        "outside",
+        "server",
+    ]
+    assert sorted(p.name for p in (copied / "mlflow" / "server").iterdir()) == ["handlers.py"]
+    # A symlink stays a link, so its target's contents are never copied into the image.
+    assert (copied / "mlflow" / "outside").is_symlink()
 
 
 def test_minimal_sandbox_dockerfile_without_a_source_tree_uses_the_install_step(
     tmp_path, monkeypatch
 ):
-    monkeypatch.delenv("MLFLOW_HOME", raising=False)
-    with mock.patch(
-        "mlflow.models.docker_utils._pip_mlflow_install_step",
-        return_value="RUN pip install mlflow==9.9.9",
-    ) as step:
+    monkeypatch.setattr(container_mod, "VERSION", "9.9.9")
+    with (
+        mock.patch(
+            "mlflow.models.docker_utils._pip_mlflow_install_step",
+            return_value="RUN pip install mlflow==9.9.9",
+        ) as step,
+        mock.patch.object(container_mod._logger, "warning") as warning,
+    ):
         dockerfile = container_mod._minimal_sandbox_dockerfile(str(tmp_path))
 
     step.assert_called_once_with(str(tmp_path), None)
     assert dockerfile.endswith("RUN pip install mlflow==9.9.9\n")
+    # A released version installs its own version from PyPI, so there is nothing to warn about.
+    warning.assert_not_called()
 
 
 def test_minimal_sandbox_dockerfile_warns_when_a_dev_build_installs_the_dev_branch(
     tmp_path, monkeypatch
 ):
-    monkeypatch.delenv("MLFLOW_HOME", raising=False)
     monkeypatch.setattr(container_mod, "VERSION", "9.9.9.dev0")
     with mock.patch.object(container_mod._logger, "warning") as warning:
         container_mod._minimal_sandbox_dockerfile(str(tmp_path))
 
     warning.assert_called_once()
     assert "MLFLOW_HOME" in warning.call_args.args[0]
+
+
+def test_mlflow_project_name_matches_the_repository_pyproject():
+    pyproject = Path(container_mod.__file__).resolve().parents[3] / "pyproject.toml"
+
+    assert container_mod._MLFLOW_PROJECT_NAME.search(pyproject.read_text())
 
 
 def test_mlflow_source_root_finds_the_checkout_of_a_dev_build(tmp_path, monkeypatch):

@@ -67,10 +67,24 @@ _MLFLOW_PACKAGE_DIR = Path(__file__).resolve().parents[2]
 _MLFLOW_PROJECT_NAME = re.compile(r'^name = "mlflow"$', re.MULTILINE)
 # What ``pip install`` needs from an MLflow source tree, besides the ``mlflow`` package itself.
 _SOURCE_INSTALL_FILES = ("pyproject.toml", "README.md", "LICENSE.txt")
-# Never copied from a source tree into the image: frontend sources and builds the sandbox does not
-# serve, caches, and local data such as a server's SQLite tracking or auth database.
+# Never copied from a source tree into the image: the non-Python parts of the package (the
+# frontend and the Java and R clients), caches, and local data such as a server's SQLite tracking
+# or auth database.
 _SOURCE_COPY_IGNORE = shutil.ignore_patterns(
-    "node_modules", "build", ".*", "__pycache__", "*.pyc", "*.db", "mlruns", "mlartifacts"
+    "js",
+    "java",
+    "R",
+    "node_modules",
+    ".*",
+    "__pycache__",
+    "*.pyc",
+    "*.db",
+    "*.db-*",
+    "*.sqlite",
+    "*.sqlite3",
+    "*.sqlite-*",
+    "mlruns",
+    "mlartifacts",
 )
 _SOURCE_DIR_IN_CONTEXT = "mlflow-source"
 
@@ -212,7 +226,13 @@ def _copy_mlflow_source(source_root: Path, context_dir: str) -> str:
     destination.mkdir()
     for name in _SOURCE_INSTALL_FILES:
         shutil.copy2(source_root / name, destination / name)
-    shutil.copytree(source_root / "mlflow", destination / "mlflow", ignore=_SOURCE_COPY_IGNORE)
+    # Keep symlinks as links so a link pointing outside the tree never copies its target.
+    shutil.copytree(
+        source_root / "mlflow",
+        destination / "mlflow",
+        symlinks=True,
+        ignore=_SOURCE_COPY_IGNORE,
+    )
     return _SOURCE_DIR_IN_CONTEXT
 
 
@@ -221,11 +241,11 @@ def _minimal_sandbox_dockerfile(context_dir: str) -> str:
 
     The image is built to match the server that launches it, so a sandboxed ``mlflow`` command
     speaks the same API as the server rather than whatever the base image ships or the latest PyPI
-    release happens to be: the base image uses the server's Python minor version. A released
-    version installs the same MLflow version from PyPI. A development build installs from
-    ``MLFLOW_HOME`` if set, otherwise from the checkout the server runs from, and only falls back
-    to MLflow's development branch when neither exists. A source install copies the package into
-    ``context_dir``.
+    release happens to be: the base image uses the server's Python minor version. MLflow is
+    installed from ``MLFLOW_HOME`` if set. Otherwise a released version installs the same MLflow
+    version from PyPI, and a development build installs from the checkout the server runs from,
+    falling back to MLflow's development branch only when there is none. A source install copies
+    the package into ``context_dir``.
     """
     from mlflow.models.docker_utils import PYTHON_SLIM_BASE_IMAGE, _pip_mlflow_install_step
 
@@ -233,6 +253,7 @@ def _minimal_sandbox_dockerfile(context_dir: str) -> str:
     mlflow_home = os.environ.get("MLFLOW_HOME")
     source_root = Path(mlflow_home) if mlflow_home else _mlflow_source_root()
     if source_root is not None:
+        _logger.info("Installing MLflow into the sandbox image from %s.", source_root)
         source_dir = _copy_mlflow_source(source_root, context_dir)
         install_step = f"COPY {source_dir} /opt/mlflow\nRUN pip install /opt/mlflow"
     else:
