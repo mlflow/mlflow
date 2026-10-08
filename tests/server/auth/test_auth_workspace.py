@@ -1149,7 +1149,9 @@ def test_create_model_version_source_read_blocks_cross_workspace(
         "_registered_model_or_prompt_target",
         lambda: (auth_module.RESOURCE_TYPE_REGISTERED_MODEL, "model-xyz"),
     )
-    monkeypatch.setattr(auth_module, "_authorize_create_version", lambda _target: True)
+    monkeypatch.setattr(
+        auth_module, "_authorize_create_version", lambda _target, *_args, **_kwargs: True
+    )
     with auth_module.app.test_request_context(
         "/api/2.0/mlflow/model-versions/create",
         method="POST",
@@ -5519,6 +5521,83 @@ def test_list_current_user_permissions_returns_caller_rows_and_admin_flag(tmp_pa
     assert payload["permissions"][0]["role_name"] == "viewer"
 
 
+def test_list_current_user_mutation_conditions_returns_caller_rows(tmp_path, monkeypatch):
+    """``/users/current/mutation-conditions`` is the self path for "what restricts me?".
+
+    Self-scoped by construction, exactly like ``/users/current/permissions``: the subject
+    comes from ``authenticate_request()`` and there is no parameter naming a role, so
+    there is nothing to point at someone else's policy. That is what lets it be gated
+    ``lambda: True`` while the role-keyed endpoint needs an authorization check.
+
+    Rows carry the role they came from, because the question a user has is "why was my
+    write refused?" and they do not know which of their roles carries the condition.
+    """
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+    db_uri = f"sqlite:///{tmp_path / 'auth-store.db'}"
+    auth_store = SqlAlchemyStore()
+    auth_store.init_db(db_uri)
+    monkeypatch.setattr(auth_module, "store", auth_store, raising=False)
+
+    alice = auth_store.create_user("alice", "supersecurepassword", is_admin=False)
+    role = auth_store.create_role(name="viewer", workspace="team-a")
+    auth_store.add_role_permission(role.id, "experiment", "*", READ.name)
+    auth_store.add_mutation_condition(role.id, "run", value_condition="tag_key != 'bob'")
+    auth_store.assign_role_to_user(alice.id, role.id)
+
+    # A role alice does NOT hold, whose condition must not appear.
+    other = auth_store.create_role(name="other", workspace="team-a")
+    auth_store.add_mutation_condition(other.id, "run", value_condition="tag_key != 'carol'")
+
+    monkeypatch.setattr(
+        auth_module, "authenticate_request", lambda: SimpleNamespace(username="alice")
+    )
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/users/current/mutation-conditions", method="GET"
+    ):
+        response = auth_module.list_current_user_mutation_conditions()
+    payload = json.loads(response.get_data(as_text=True))
+    rows = payload["mutation_conditions"]
+    assert len(rows) == 1, f"only the held role's condition may appear: {rows}"
+    assert rows[0]["role_name"] == "viewer"
+    assert rows[0]["workspace"] == "team-a"
+    assert rows[0]["resource_type"] == "run"
+    assert rows[0]["value_condition"] == "tag_key != 'bob'"
+    assert rows[0]["target_condition"] is None
+
+
+def test_a_users_direct_condition_is_attributed_to_them_not_a_role(tmp_path, monkeypatch):
+    """A per-user condition lives on the synthetic ``__user_<id>__`` role (D10).
+
+    That role is a real ``roles`` row, so it needs no special case to be listed -- and
+    the frontend tells it apart by name to render the source as "Direct" rather than
+    showing an internal role name to the user.
+    """
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+    db_uri = f"sqlite:///{tmp_path / 'auth-store.db'}"
+    auth_store = SqlAlchemyStore()
+    auth_store.init_db(db_uri)
+    monkeypatch.setattr(auth_module, "store", auth_store, raising=False)
+
+    auth_store.create_user("alice", "supersecurepassword", is_admin=False)
+    with workspace_context.WorkspaceContext("team-a"):
+        auth_store.add_user_mutation_condition("alice", "run", value_condition="tag_key != 'bob'")
+
+    monkeypatch.setattr(
+        auth_module, "authenticate_request", lambda: SimpleNamespace(username="alice")
+    )
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/users/current/mutation-conditions", method="GET"
+    ):
+        response = auth_module.list_current_user_mutation_conditions()
+    rows = json.loads(response.get_data(as_text=True))["mutation_conditions"]
+    assert len(rows) == 1, rows
+    assert rows[0]["role_name"].startswith("__user_"), (
+        f"a direct condition must still report its synthetic role, which is how the UI "
+        f"renders it as Direct: {rows[0]}"
+    )
+    assert rows[0]["value_condition"] == "tag_key != 'bob'"
+
+
 def test_default_permission_floors_lesser_role_grant(monkeypatch):
     monkeypatch.setattr(
         auth_module,
@@ -8883,7 +8962,7 @@ def test_registered_model_delete_requires_delete_on_its_versions(workspace_permi
     ):
         assert auth_module.validate_can_delete_registered_model_or_prompt_cascade() is False
         # The alias route destroys no version and keeps the plain parent check.
-        assert auth_module._validate_can_delete_registered_model_or_prompt() is True
+        assert auth_module._authorize_registry_entry("delete") is True
 
 
 def _run_version_route(validator, name="model-xyz", method="POST"):

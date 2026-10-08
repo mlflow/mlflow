@@ -25,6 +25,7 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_ALREADY_EXISTS,
     RESOURCE_DOES_NOT_EXIST,
 )
+from mlflow.store import condition_pushdown
 from mlflow.store.artifact.utils.models import _parse_model_uri
 from mlflow.store.db.utils import (
     _all_tables_exist,
@@ -1795,3 +1796,192 @@ class SqlAlchemyStore(AbstractStore):
             return webhook
 
         raise MlflowException(f"Webhook with ID {webhook_id} not found.", RESOURCE_DOES_NOT_EXIST)
+
+    # A pushable namespace is described by its table, the column(s) holding the
+    # owning resource's id, the column holding the clause key, and the column
+    # holding the compared value. A tag row and an alias row have the same shape,
+    # so one query builder serves both.
+    #
+    # There are no prompt tables: a prompt IS a registered model, discriminated
+    # only by the reserved ``mlflow.prompt.is_prompt`` tag. So ``prompt`` resolves
+    # to the same rows as ``registered_model``, and the type selects nothing but
+    # the table. The discriminator is deliberately absent from the predicate --
+    # the ids come from the request, so a request naming a prompt supplies prompt
+    # names and nothing else can enter the set. It is also unwritable as a
+    # condition, because ``mlflow.*`` is banned in both namespaces (D4).
+    #
+    # Only the alias-owning types list ``aliases`` (D18): a version's alias list
+    # names aliases stored on its parent, so a version must not be gated on one.
+    _PUSHDOWN_NAMESPACES = {
+        "registered_model": {
+            "tags": ("SqlRegisteredModelTag", ("name",), "key", "value"),
+            "aliases": ("SqlRegisteredModelAlias", ("name",), "alias", "version"),
+        },
+        "prompt": {
+            "tags": ("SqlRegisteredModelTag", ("name",), "key", "value"),
+            "aliases": ("SqlRegisteredModelAlias", ("name",), "alias", "version"),
+        },
+        "registered_model_version": {
+            "tags": ("SqlModelVersionTag", ("name", "version"), "key", "value"),
+        },
+        "prompt_version": {
+            "tags": ("SqlModelVersionTag", ("name", "version"), "key", "value"),
+        },
+    }
+
+    _PUSHDOWN_MODELS = {
+        "SqlRegisteredModelTag": SqlRegisteredModelTag,
+        "SqlRegisteredModelAlias": SqlRegisteredModelAlias,
+        "SqlModelVersionTag": SqlModelVersionTag,
+    }
+
+    _PUSHDOWN_ID_CHUNK = 900
+
+    # An entry's versions, for the cascade selector. Both version types resolve to the
+    # same tables: a prompt *is* a registered model (T12.9), so there are no prompt
+    # tables and ``prompt_version`` is the same rows under a different condition type.
+    #
+    # Shape and meaning are documented on ``find_failing_child``. The trailing ``name``
+    # is the parent column on the TAG table, and it is required here rather than
+    # optional: a version's discriminator is ``version``, which repeats across models,
+    # so an unscoped subquery would let a sibling model's satisfying version acquit this
+    # model's failing one.
+    #: The column a cascade can be narrowed by, per entity. ``TransitionModelVersionStage``
+    #: with ``archive_existing_versions`` reaches only the versions already in the stage
+    #: being transitioned into, not every version of the model. Declared separately from
+    #: ``_CASCADE_PUSHDOWN_ENTITIES`` so an entity without a stage is absent here and the
+    #: store refuses to express a window rather than silently answering about the parent.
+    _CASCADE_PUSHDOWN_STAGE_COLUMNS = {
+        "registered_model_version": SqlModelVersion.current_stage,
+        "prompt_version": SqlModelVersion.current_stage,
+    }
+
+    _CASCADE_PUSHDOWN_ENTITIES = {
+        "registered_model_version": (
+            SqlModelVersion,
+            ("name", "version"),
+            "name",
+            SqlModelVersionTag,
+            ("name", "version"),
+            "key",
+            "value",
+            "name",
+        ),
+        "prompt_version": (
+            SqlModelVersion,
+            ("name", "version"),
+            "name",
+            SqlModelVersionTag,
+            ("name", "version"),
+            "key",
+            "value",
+            "name",
+        ),
+    }
+
+    def find_failing_resource(
+        self, entity, clauses, *, ids=None, parent_id=None, max_timestamp_ms=None, stage=None
+    ):
+        """Push a conjunctive tag/alias predicate into SQL.
+
+        See :meth:`AbstractStore.find_failing_resource`. Only the satisfying set is
+        queried -- no values are returned and the resources themselves are never
+        loaded -- and the first id missing from it is the answer.
+
+        Every query goes through :meth:`_get_query`, which is where workspace scoping
+        is applied. That is not optional here: every table this method touches carries
+        a ``workspace`` column, because each is keyed by *name* and a name is not
+        unique across workspaces.
+
+        Both selectors are answered. The ``parent_id`` one serves an entry's cascade to
+        its versions, sharing :func:`condition_pushdown.find_failing_child` with the
+        tracking store.
+        """
+        if stage is not None and parent_id is None:
+            raise ValueError(
+                "find_failing_resource takes `stage` only with `parent_id`; an enumerated "
+                "`ids` population is already exactly what the mutation reaches."
+            )
+        if max_timestamp_ms is not None:
+            # No registry mutation deletes a timestamp slice of a parent's children, so
+            # there is no column to express this against. Declining is the fail-closed
+            # direction: ignoring the bound would judge a narrow mutation against the whole
+            # parent and refuse it, and silently widening a caller's question is worse than
+            # telling them the store cannot answer it.
+            raise condition_pushdown.cannot_express(
+                self, entity, "no registry cascade is bounded by a timestamp"
+            )
+        if (ids is None) == (parent_id is None):
+            raise ValueError(
+                "find_failing_resource needs exactly one of `ids` or `parent_id`, "
+                f"got ids={ids!r} and parent_id={parent_id!r}"
+            )
+        if parent_id is not None:
+            mapping = self._CASCADE_PUSHDOWN_ENTITIES.get(entity)
+            if mapping is None:
+                raise condition_pushdown.cannot_express(self, entity, "it has no cascade mapping")
+            extra_filters = ()
+            if stage is not None:
+                stage_column = self._CASCADE_PUSHDOWN_STAGE_COLUMNS.get(entity)
+                if stage_column is None:
+                    raise condition_pushdown.cannot_express(
+                        self, entity, "it has no stage column to narrow the cascade by"
+                    )
+                # The same comparison `transition_model_version_stage` builds for the rows
+                # it archives, so the probe's population is the mutation's own rather than
+                # an approximation of it. Deliberately NOT excluding the version being
+                # transitioned: it is judged by its own MUTATE context against the same
+                # clauses, so including it only ever makes this population a superset --
+                # "nothing in the stage fails" still implies "no archived sibling fails".
+                extra_filters = (stage_column == stage,)
+            return condition_pushdown.find_failing_child(
+                self, mapping, parent_id, clauses, extra_filters=extra_filters
+            )
+
+        namespaces = self._PUSHDOWN_NAMESPACES.get(entity)
+        if namespaces is None:
+            raise condition_pushdown.cannot_express(self, entity, "it has no id-selector mapping")
+        requested = {condition_pushdown.as_pushdown_key(i) for i in ids}
+        if not requested or not clauses:
+            # Nothing to judge, or nothing to judge it against. Either way nothing fails.
+            return None
+        resolved = condition_pushdown.resolve_clauses(namespaces, self._PUSHDOWN_MODELS, clauses)
+        if resolved is None:
+            raise condition_pushdown.cannot_express(
+                self, entity, "a clause names a namespace this entity does not own"
+            )
+
+        dialect = self._get_dialect()
+        ordered = sorted(requested)
+        with self.ManagedSessionMaker() as session:
+            equal_key = condition_pushdown.key_comparison(dialect)
+            for model, id_columns, key_column, value_column, key, comparator, value in resolved:
+                # Ids bind one parameter each -- more for a composite -- and the clause
+                # binds the key plus one per compared value, which for ``IN`` is the
+                # whole list. Subtract those so the backend's cap stays a property of
+                # the statement rather than a limit on how many ids a caller may ask
+                # about.
+                clause_params = 1 + (len(value) if isinstance(value, tuple) else 1)
+                chunk_size = max(1, (self._PUSHDOWN_ID_CHUNK - clause_params) // len(id_columns))
+                for start in range(0, len(ordered), chunk_size):
+                    chunk = ordered[start : start + chunk_size]
+                    rows = (
+                        self
+                        ._get_query(session, model)
+                        .with_entities(*id_columns)
+                        .filter(
+                            condition_pushdown.id_predicate(id_columns, chunk, dialect),
+                            equal_key(key_column, key),
+                            condition_pushdown.compare_value(
+                                value_column, comparator, value, dialect
+                            ),
+                        )
+                        .all()
+                    )
+                    matched = {condition_pushdown.as_pushdown_key(tuple(r)) for r in rows}
+                    for candidate in chunk:
+                        if candidate not in matched:
+                            # First failure settles it; the remaining chunks and
+                            # clauses cannot change the verdict.
+                            return candidate
+        return None

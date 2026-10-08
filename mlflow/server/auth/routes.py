@@ -13,6 +13,15 @@ GET_CURRENT_USER = _get_rest_path("/mlflow/users/current")
 AJAX_GET_CURRENT_USER = _get_ajax_path("/mlflow/users/current")
 LIST_CURRENT_USER_PERMISSIONS = _get_rest_path("/mlflow/users/current/permissions", version=3)
 AJAX_LIST_CURRENT_USER_PERMISSIONS = _get_ajax_path("/mlflow/users/current/permissions", version=3)
+# The self path for "what restricts me?". Self-scoped by construction like the one above:
+# the subject comes from the authenticated caller, and no parameter names a role, so it
+# cannot be pointed at anyone else's policy.
+LIST_CURRENT_USER_MUTATION_CONDITIONS = _get_rest_path(
+    "/mlflow/users/current/mutation-conditions", version=3
+)
+AJAX_LIST_CURRENT_USER_MUTATION_CONDITIONS = _get_ajax_path(
+    "/mlflow/users/current/mutation-conditions", version=3
+)
 LIST_USER_PERMISSIONS = _get_rest_path("/mlflow/users/permissions/list", version=3)
 AJAX_LIST_USER_PERMISSIONS = _get_ajax_path("/mlflow/users/permissions/list", version=3)
 # Unified per-user grant convenience APIs. ``grant`` / ``revoke`` write to the
@@ -70,6 +79,32 @@ LIST_ROLE_PERMISSIONS = _get_rest_path("/mlflow/roles/permissions/list", version
 AJAX_LIST_ROLE_PERMISSIONS = _get_ajax_path("/mlflow/roles/permissions/list", version=3)
 UPDATE_ROLE_PERMISSION = _get_rest_path("/mlflow/roles/permissions/update", version=3)
 AJAX_UPDATE_ROLE_PERMISSION = _get_ajax_path("/mlflow/roles/permissions/update", version=3)
+
+# Mutation conditions (condition-based access control). Addressed by
+# (role_id, resource_type) rather than a surrogate id: that pair is the natural key
+# and is unique, so an admin can author and amend a condition without first looking
+# up a row id.
+ADD_MUTATION_CONDITIONS = _get_rest_path("/mlflow/roles/mutation-conditions/add", version=3)
+AJAX_ADD_MUTATION_CONDITIONS = _get_ajax_path("/mlflow/roles/mutation-conditions/add", version=3)
+GET_MUTATION_CONDITIONS = _get_rest_path("/mlflow/roles/mutation-conditions/get", version=3)
+AJAX_GET_MUTATION_CONDITIONS = _get_ajax_path("/mlflow/roles/mutation-conditions/get", version=3)
+UPDATE_MUTATION_CONDITIONS = _get_rest_path("/mlflow/roles/mutation-conditions/update", version=3)
+AJAX_UPDATE_MUTATION_CONDITIONS = _get_ajax_path(
+    "/mlflow/roles/mutation-conditions/update", version=3
+)
+REMOVE_MUTATION_CONDITIONS = _get_rest_path("/mlflow/roles/mutation-conditions/remove", version=3)
+AJAX_REMOVE_MUTATION_CONDITIONS = _get_ajax_path(
+    "/mlflow/roles/mutation-conditions/remove", version=3
+)
+LIST_MUTATION_CONDITIONS = _get_rest_path("/mlflow/roles/mutation-conditions/list", version=3)
+AJAX_LIST_MUTATION_CONDITIONS = _get_ajax_path("/mlflow/roles/mutation-conditions/list", version=3)
+# User-addressed add, the counterpart of GRANT_USER_PERMISSION: resolves (and creates)
+# the caller-invisible synthetic role that backs a user's direct grants, so a direct
+# condition does not require a direct grant to exist first.
+ADD_USER_MUTATION_CONDITION = _get_rest_path("/mlflow/users/mutation-conditions/add", version=3)
+AJAX_ADD_USER_MUTATION_CONDITION = _get_ajax_path(
+    "/mlflow/users/mutation-conditions/add", version=3
+)
 ASSIGN_ROLE = _get_rest_path("/mlflow/roles/assign", version=3)
 AJAX_ASSIGN_ROLE = _get_ajax_path("/mlflow/roles/assign", version=3)
 UNASSIGN_ROLE = _get_rest_path("/mlflow/roles/unassign", version=3)
