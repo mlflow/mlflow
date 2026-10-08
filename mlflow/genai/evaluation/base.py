@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any, Callable, NamedTuple
 
 import mlflow
 from mlflow.data.dataset import Dataset
+from mlflow.entities import Dataset as DatasetEntity
 from mlflow.entities.dataset_input import DatasetInput
 from mlflow.entities.evaluation_dataset import EvaluationDataset as EntityEvaluationDataset
 from mlflow.entities.logged_model_input import LoggedModelInput
@@ -14,6 +15,7 @@ from mlflow.environment_variables import MLFLOW_GENAI_EVAL_MAX_WORKERS
 from mlflow.exceptions import MlflowException
 from mlflow.genai.datasets.evaluation_dataset import EvaluationDataset
 from mlflow.genai.evaluation.constant import InputDatasetColumn
+from mlflow.genai.evaluation.lineage import get_dataset_entity_from_attrs
 from mlflow.genai.evaluation.session_utils import validate_session_level_evaluation_inputs
 from mlflow.genai.evaluation.utils import (
     _convert_to_eval_set,
@@ -369,6 +371,8 @@ def _run_harness(data, scorers, predict_fn, model_id) -> tuple["EvaluationResult
         # Validate session-level input if session-level scorers are present
         validate_session_level_evaluation_inputs(scorers, predict_fn)
 
+        # A DataFrame from `EvaluationDataset.to_df()` keeps the dataset identity if unchanged.
+        dataset_entity = None if is_managed_dataset else get_dataset_entity_from_attrs(data)
         df = _convert_to_eval_set(data)
 
         builtin_scorers = [
@@ -405,6 +409,9 @@ def _run_harness(data, scorers, predict_fn, model_id) -> tuple["EvaluationResult
         if isinstance(data, (EvaluationDataset, EntityEvaluationDataset)):
             mlflow_dataset = data
             df = data.to_df()
+        elif dataset_entity is not None:
+            mlflow_dataset = dataset_entity
+            df = data
         else:
             # Use precomputed name from ConversationSimulator, or default "dataset" for
             # other sources. Pass precomputed_digest if available (from ConversationSimulator).
@@ -432,7 +439,7 @@ def _run_harness(data, scorers, predict_fn, model_id) -> tuple["EvaluationResult
             eval_df=df,
             scorers=scorers,
             run_id=run_id,
-            dataset=mlflow_dataset if is_managed_dataset else None,
+            dataset=mlflow_dataset if is_managed_dataset or dataset_entity is not None else None,
         )
 
     try:
@@ -444,12 +451,13 @@ def _run_harness(data, scorers, predict_fn, model_id) -> tuple["EvaluationResult
 
 
 def _log_dataset_input(
-    data: Dataset,
+    data: Dataset | DatasetEntity,
     run_id: str,
     model_id: str | None = None,
 ):
     client = MlflowClient()
-    dataset_input = DatasetInput(dataset=data._to_mlflow_entity())
+    entity = data if isinstance(data, DatasetEntity) else data._to_mlflow_entity()
+    dataset_input = DatasetInput(dataset=entity)
     client.log_inputs(
         run_id=run_id,
         datasets=[dataset_input],
