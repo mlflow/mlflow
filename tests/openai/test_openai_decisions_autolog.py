@@ -1,7 +1,11 @@
 import json
+import sys
+from types import ModuleType, SimpleNamespace
 
 import openai
 import pytest
+from packaging.version import Version
+from pydantic import BaseModel
 
 import mlflow
 from mlflow.entities import SpanType
@@ -9,14 +13,68 @@ from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 
 from tests.tracing.helper import get_traces
 
-pytest.importorskip("openai.resources.decisions")
-httpx2 = pytest.importorskip("httpx2")
+_USES_REAL_DECISIONS = Version(openai.__version__) >= Version("3.26.0")
+if _USES_REAL_DECISIONS:
+    import httpx2
+
+
+class _InputTokenDetails(BaseModel):
+    cached_tokens: int
+    cache_write_tokens: int
+
+
+class _Usage(BaseModel):
+    input_tokens: int
+    input_tokens_details: _InputTokenDetails
+    output_tokens: int
+    output_tokens_details: dict
+    total_tokens: int
+
+
+class _Answer(BaseModel):
+    type: str
+    name: str
+    probability: float
+
+
+class _Decision(BaseModel):
+    model: str
+    answers: list[_Answer]
+    usage: _Usage
+
+
+class _Decisions:
+    def __init__(self, handler):
+        self.handler = handler
+
+    def create(self, **kwargs):
+        return self.handler(kwargs)
+
+
+class _AsyncDecisions:
+    def __init__(self, handler):
+        self.handler = handler
+
+    async def create(self, **kwargs):
+        return self.handler(kwargs)
 
 
 @pytest.fixture(scope="module")
 def mock_openai():
-    # These tests use MockTransport instead of the shared socket-based mock server.
-    pass
+    if _USES_REAL_DECISIONS:
+        yield  # The real SDK tests use MockTransport instead of the shared server.
+        return
+
+    resources = ModuleType("openai.resources.decisions")
+    resources.Decisions = _Decisions
+    resources.AsyncDecisions = _AsyncDecisions
+    types = ModuleType("openai.types.decision")
+    types.Decision = _Decision
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setitem(sys.modules, resources.__name__, resources)
+        patch.setitem(sys.modules, types.__name__, types)
+        yield
+        mlflow.openai.autolog(disable=True)
 
 
 _QUESTIONS = [
@@ -40,6 +98,15 @@ _RESPONSE = {
 
 
 def _client(is_async, handler):
+    if not _USES_REAL_DECISIONS:
+        if is_async:
+
+            async def close():
+                pass
+
+            return SimpleNamespace(decisions=_AsyncDecisions(handler), close=close)
+        return SimpleNamespace(decisions=_Decisions(handler), close=lambda: None)
+
     transport = httpx2.MockTransport(handler)
     http_client = httpx2.AsyncClient if is_async else httpx2.Client
     openai_client = openai.AsyncOpenAI if is_async else openai.OpenAI
@@ -51,6 +118,14 @@ def _client(is_async, handler):
     )
 
 
+def _response(status, payload):
+    if _USES_REAL_DECISIONS:
+        return httpx2.Response(status, json=payload)
+    if status >= 400:
+        raise ValueError(payload["error"]["message"])
+    return _Decision.model_validate(payload)
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize("is_async", [False, True], ids=["sync", "async"])
 async def test_decisions_autolog(is_async):
@@ -59,7 +134,7 @@ async def test_decisions_autolog(is_async):
 
     def handler(request):
         requests.append(request)
-        return httpx2.Response(200, json=_RESPONSE)
+        return _response(200, _RESPONSE)
 
     client = _client(is_async, handler)
     try:
@@ -78,8 +153,11 @@ async def test_decisions_autolog(is_async):
 
     assert result.answers[0].probability == 0.93
     assert len(requests) == 1
-    assert requests[0].url.path == "/v1/decisions"
-    assert json.loads(requests[0].content)["questions"] == _QUESTIONS
+    if _USES_REAL_DECISIONS:
+        assert requests[0].url.path == "/v1/decisions"
+        assert json.loads(requests[0].content)["questions"] == _QUESTIONS
+    else:
+        assert requests[0]["questions"] == _QUESTIONS
 
     traces = get_traces()
     assert len(traces) == 1
@@ -111,9 +189,9 @@ async def test_decisions_error_autolog(is_async):
     mlflow.openai.autolog()
 
     def handler(request):
-        return httpx2.Response(
+        return _response(
             400,
-            json={"error": {"message": "Invalid question", "type": "invalid_request_error"}},
+            {"error": {"message": "Invalid question", "type": "invalid_request_error"}},
         )
 
     async def invoke(client):
@@ -123,7 +201,8 @@ async def test_decisions_error_autolog(is_async):
 
     client = _client(is_async, handler)
     try:
-        with pytest.raises(openai.BadRequestError, match="Invalid question"):
+        error_type = openai.BadRequestError if _USES_REAL_DECISIONS else ValueError
+        with pytest.raises(error_type, match="Invalid question"):
             await invoke(client)
     finally:
         if is_async:

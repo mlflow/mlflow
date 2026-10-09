@@ -193,7 +193,7 @@ Responses API is supported since MLflow 2.22.0.
 #### Decisions API (Python)
 
 `mlflow.openai.autolog()` traces synchronous and asynchronous `client.decisions.create()` calls
-when the installed OpenAI Python SDK provides the Decisions resource. The trace records the
+with the Decisions resource (`openai>=3.26.0`). The trace records the
 request, the returned answers and probabilities, the response model, and token usage.
 
 #### Agents SDK
