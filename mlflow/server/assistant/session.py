@@ -16,6 +16,10 @@ _logger = logging.getLogger(__name__)
 
 SESSION_DIR = Path(tempfile.gettempdir()) / "mlflow-assistant-sessions"
 
+# Sessions with no activity within this window expire. Every turn rewrites the session file, so
+# its mtime is the time of the last activity (reap_stale_sandbox_homes keeps the mtime when it
+# rewrites one).
+_SESSION_MAX_AGE_SECONDS = 24 * 60 * 60
 # Per-session sandbox $HOME directories with no activity within this window are reaped.
 _SANDBOX_HOME_MAX_AGE_SECONDS = 24 * 60 * 60
 
@@ -28,8 +32,9 @@ class Session:
     # only ever loaded on behalf of their owner (see the API layer), so the session id alone is
     # not enough to read or drive another user's conversation. Sessions written on a no-auth
     # server (owner None) become unowned once auth is enabled: no authenticated user matches None,
-    # so they are no longer loadable through the API. That is intentional (ephemeral tempdir
-    # sessions, reaped within a day), not a claim path for the first caller.
+    # so they are no longer loadable through the API. That is intentional (ephemeral sessions that
+    # expire a day after their last activity, see _SESSION_MAX_AGE_SECONDS), not a claim path for
+    # the first caller.
     owner: str | None = None
     context: dict[str, Any] = field(default_factory=dict)
     messages: list[Message] = field(default_factory=list)
@@ -195,9 +200,16 @@ class SessionManager:
             session_file = SessionManager.get_session_file(session_id)
         except ValueError:
             return None
-        if not session_file.exists():
+        try:
+            if session_file.stat().st_mtime < time.time() - _SESSION_MAX_AGE_SECONDS:
+                # A hard deadline, independent of the OS cleaning its temp directory: an old
+                # session can never be resumed, e.g. by a later user given the same username.
+                _expire_session(session_id)
+                return None
+            data = json.loads(session_file.read_text())
+        except FileNotFoundError:
+            # Missing, or removed by a concurrent expiry.
             return None
-        data = json.loads(session_file.read_text())
         return Session.from_dict(data)
 
     @staticmethod
@@ -318,8 +330,8 @@ def get_session_sandbox_home(session_id: str) -> Path:
 
     Persists the CLI's ``--resume`` state and caches across turns of a session. It is created
     here (owned by the server user) so the container, which runs as that same uid:gid, can
-    write to it. These directories accumulate per session; reaping stale ones is handled by
-    the session-lifecycle work.
+    write to it. Stale ones are removed by ``reap_stale_sandbox_homes``, and with their session
+    when it expires.
     """
     SessionManager.validate_session_id(session_id)
     home = SESSION_DIR / "sandbox-home" / session_id
@@ -333,6 +345,56 @@ def get_session_sandbox_home(session_id: str) -> Path:
     # the directory's own mtime.
     os.utime(home, None)
     return home
+
+
+def _expire_session(session_id: str) -> None:
+    """Delete an expired session's file and everything kept for it, so a new session created
+    with the same id starts clean (including its sandbox ``$HOME``). Best-effort.
+    """
+    _logger.debug("Assistant session %s expired; removing it", session_id)
+    paths = [
+        SessionManager.get_session_file(session_id),
+        get_process_file(session_id),
+        get_container_file(session_id),
+    ]
+    for path in paths:
+        try:
+            path.unlink(missing_ok=True)
+        except OSError:
+            _logger.debug("Could not remove %s for expired session %s", path, session_id)
+    shutil.rmtree(SESSION_DIR / "sandbox-home" / session_id, ignore_errors=True)
+
+
+def reap_stale_sessions() -> int:
+    """Delete sessions with no activity within ``_SESSION_MAX_AGE_SECONDS``. Best-effort: returns
+    the number removed.
+
+    ``SessionManager.load`` already refuses an expired session; this removes the files a server
+    would otherwise leave on disk.
+    """
+    cutoff = time.time() - _SESSION_MAX_AGE_SECONDS
+    removed = 0
+    try:
+        # Session files are ``<id>.json``; ``<id>.process.json`` and ``<id>.container.json`` are
+        # removed with their session.
+        entries = [e for e in SESSION_DIR.glob("*.json") if "." not in e.stem]
+    except OSError:
+        return 0
+    for entry in entries:
+        try:
+            if entry.is_symlink() or not entry.is_file() or entry.stat().st_mtime >= cutoff:
+                continue
+        except OSError:
+            continue
+        try:
+            _expire_session(entry.stem)
+        except ValueError:
+            # Not a valid session id, so nothing else is kept for it.
+            entry.unlink(missing_ok=True)
+        removed += 1
+    if removed:
+        _logger.info("Removed %d expired Assistant sessions.", removed)
+    return removed
 
 
 def reap_stale_sandbox_homes(max_age_seconds: float = _SANDBOX_HOME_MAX_AGE_SECONDS) -> int:
@@ -371,8 +433,12 @@ def reap_stale_sandbox_homes(max_age_seconds: float = _SANDBOX_HOME_MAX_AGE_SECO
         try:
             session = SessionManager.load(entry.name)
             if session and session.provider_session_id is not None:
+                session_file = SessionManager.get_session_file(entry.name)
+                last_activity = session_file.stat()
                 session.provider_session_id = None
                 SessionManager.save(entry.name, session)
+                # Not user activity, so keep the session's expiry where it was.
+                os.utime(session_file, (last_activity.st_atime, last_activity.st_mtime))
         except Exception:
             _logger.debug("Could not clear provider session id for reaped session %s", entry.name)
     if removed:
