@@ -64,7 +64,9 @@ class GenAiTranslator(OtelSchemaTranslator):
                 pass
         return value
 
-    def get_input_value_from_events(self, events: list[dict[str, Any]]) -> Any:
+    def get_input_value_from_events(
+        self, events: list[dict[str, Any]], attributes: dict[str, Any] | None = None
+    ) -> Any:
         """
         Get input value from GenAI semantic convention events.
 
@@ -75,6 +77,7 @@ class GenAiTranslator(OtelSchemaTranslator):
 
         Args:
             events: List of span events
+            attributes: Span attributes (unused)
 
         Returns:
             JSON-serialized list of input messages or None if not found
@@ -102,7 +105,9 @@ class GenAiTranslator(OtelSchemaTranslator):
 
         return json.dumps(messages) if messages else None
 
-    def get_output_value_from_events(self, events: list[dict[str, Any]]) -> Any:
+    def get_output_value_from_events(
+        self, events: list[dict[str, Any]], attributes: dict[str, Any] | None = None
+    ) -> Any:
         """
         Get output value from GenAI semantic convention events.
 
@@ -111,6 +116,7 @@ class GenAiTranslator(OtelSchemaTranslator):
 
         Args:
             events: List of span events
+            attributes: Span attributes (unused)
 
         Returns:
             JSON-serialized list of output messages or None if not found

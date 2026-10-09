@@ -270,7 +270,7 @@ def test_retrieval_relevance_invokes_typesafe():
     inference_params = {"temperature": 0}
     extra_headers = {"X-Test": "value"}
     with patch(
-        "mlflow.genai.scorers.builtin_scorers._invoke_typesafe_judge",
+        "mlflow.genai.judges.structured_judge._invoke_typesafe_judge",
         return_value=Feedback(name="retrieval_relevance", value="yes"),
     ) as mock_invoke:
         RetrievalRelevance(
@@ -639,6 +639,48 @@ def test_correctness():
         expected_response="expected answer",
         name="custom_correctness",
         model="openai:/gpt-4.1-mini",
+        extra_headers=None,
+    )
+
+
+@pytest.mark.parametrize("use_trace", [False, True])
+@pytest.mark.parametrize(
+    "model",
+    ["databricks", "openai:/gpt-4.1-mini", "anthropic:/claude-3-opus", "gemini:/gemini-2.5-flash"],
+)
+def test_correctness_with_multipart_response(use_trace, model):
+    inputs = {"question": "How do I configure retention?"}
+    outputs = {
+        "output": [
+            {
+                "type": "message",
+                "role": "assistant",
+                "content": [
+                    {"type": "output_text", "text": "Open settings."},
+                    {"type": "output_text", "text": "\nSet retention to 30 days."},
+                    {"type": "output_text", "text": "\nSave the changes."},
+                ],
+            }
+        ]
+    }
+    kwargs = (
+        {"trace": create_simple_trace(inputs=inputs, outputs=outputs)}
+        if use_trace
+        else {"inputs": inputs, "outputs": outputs}
+    )
+
+    with patch("mlflow.genai.judges.is_correct") as mock_is_correct:
+        Correctness(model=model)(
+            **kwargs, expectations={"expected_facts": ["Retention is set to 30 days"]}
+        )
+
+    mock_is_correct.assert_called_once_with(
+        request="{'question': 'How do I configure retention?'}",
+        response="Open settings.\nSet retention to 30 days.\nSave the changes.",
+        expected_facts=["Retention is set to 30 days"],
+        expected_response=None,
+        name="correctness",
+        model=model,
         extra_headers=None,
     )
 
@@ -2511,7 +2553,7 @@ def test_equivalence_invokes_typesafe():
     inference_params = {"temperature": 0}
     extra_headers = {"X-Test": "value"}
     with patch(
-        "mlflow.genai.scorers.builtin_scorers._invoke_typesafe_judge",
+        "mlflow.genai.judges.structured_judge._invoke_typesafe_judge",
         return_value=Feedback(name="equivalence", value="yes"),
     ) as mock_invoke:
         Equivalence(

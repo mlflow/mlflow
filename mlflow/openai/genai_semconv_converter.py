@@ -122,7 +122,11 @@ class OpenAIResponsesConverter(GenAiSemconvConverter):
             return {
                 "role": "tool",
                 "parts": [
-                    {"type": "tool_call_response", "id": item["call_id"], "result": item["output"]}
+                    {
+                        "type": "tool_call_response",
+                        "id": item["call_id"],
+                        "response": item["output"],
+                    }
                 ],
             }
         else:
@@ -242,7 +246,7 @@ def _convert_tool_response(
     result = parts[0].get("content") if parts else None
     return {
         "role": role,
-        "parts": [{"type": "tool_call_response", "id": tool_call_id, "result": result}],
+        "parts": [{"type": "tool_call_response", "id": tool_call_id, "response": result}],
     }
 
 

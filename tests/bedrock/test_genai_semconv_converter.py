@@ -159,7 +159,7 @@ def test_autolog_with_tool_calls(capture_otel_export):
     assert input_msgs[2]["parts"][0] == {
         "type": "tool_call_response",
         "id": "tool_1",
-        "result": '{"temp": 72}',
+        "response": '{"temp": 72}',
     }
 
     tool_defs = json.loads(chat_span.attributes[GenAiSemconvKey.TOOL_DEFINITIONS])

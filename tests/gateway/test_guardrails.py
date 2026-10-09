@@ -9,7 +9,11 @@ import mlflow
 from mlflow.entities import SpanType
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.gateway_guardrail import GuardrailAction, GuardrailStage
-from mlflow.gateway.guardrails import GuardrailViolation, JudgeGuardrail
+from mlflow.gateway.guardrails import (
+    GuardrailViolation,
+    JudgeGuardrail,
+    UnsupportedGuardrailScorerError,
+)
 from mlflow.tracing.client import TracingClient
 from mlflow.types.chat import ChatCompletionResponse
 
@@ -452,7 +456,7 @@ async def test_empty_choices_response():
 
 @pytest.mark.asyncio
 async def test_from_entity():
-    mock_serialized_scorer = mock.MagicMock()
+    mock_serialized_scorer = {"name": "safety-guard"}
     mock_scorer_version = mock.MagicMock()
     mock_scorer_version.serialized_scorer = mock_serialized_scorer
 
@@ -481,7 +485,7 @@ async def test_from_entity():
 
 
 def test_from_entity_with_action_endpoint():
-    mock_serialized_scorer = mock.MagicMock()
+    mock_serialized_scorer = {"name": "sanitizer-guard"}
     mock_scorer_version = mock.MagicMock()
     mock_scorer_version.serialized_scorer = mock_serialized_scorer
 
@@ -500,6 +504,21 @@ def test_from_entity_with_action_endpoint():
 
     assert guard.action_llm_url == "http://localhost:5000"
     assert guard.action_endpoint_name == "my-ep"
+
+
+def test_from_entity_rejects_custom_code_scorer():
+    entity = mock.MagicMock()
+    entity.scorer.serialized_scorer = {
+        "name": "custom",
+        "call_source": "return True",
+        "call_signature": "(outputs)",
+        "original_func_name": "custom",
+    }
+    entity.stage = GuardrailStage.BEFORE
+    entity.action = GuardrailAction.VALIDATION
+
+    with pytest.raises(UnsupportedGuardrailScorerError, match="gateway guardrails do not support"):
+        JudgeGuardrail.from_entity(entity)
 
 
 def test_from_entity_rewrites_gateway_model_uri():
