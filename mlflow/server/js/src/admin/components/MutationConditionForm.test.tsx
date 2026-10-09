@@ -1,6 +1,8 @@
 import { describe, it, expect, jest } from '@jest/globals';
 import React from 'react';
-import { renderWithDesignSystem, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
+import { fireEvent, renderWithDesignSystem, screen, waitFor } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
+import { PointerEventsCheckLevel } from '@testing-library/user-event';
+import userEventGlobal from '@testing-library/user-event';
 
 import {
   MutationConditionForm,
@@ -10,6 +12,8 @@ import {
   MUTATION_CONDITION_DRAFT_DEFAULT,
   type MutationConditionDraft,
 } from './MutationConditionForm';
+
+const userEvent = userEventGlobal.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });
 
 const draft = (overrides: Partial<MutationConditionDraft> = {}): MutationConditionDraft => ({
   ...MUTATION_CONDITION_DRAFT_DEFAULT,
@@ -144,15 +148,41 @@ describe('MutationConditionForm — the absence rule is stated on both fields', 
     expect(hint.textContent).toMatch(/does not have the tag is refused/i);
   });
 
-  it('tells the admin the keyed form exists, since it is the only way to free other keys', () => {
-    renderForm();
-    const hint = screen.getByTestId('admin.mutation_condition_form.value_condition_hint');
-    expect(hint.textContent).toContain('tags.a IN');
-  });
-
   it('warns that the same clause differs between the two fields', () => {
     renderForm();
     const hint = screen.getByTestId('admin.mutation_condition_form.target_condition_hint');
     expect(hint.textContent).toMatch(/opposite|different things/i);
+  });
+
+  // The rest of each field's explanation is hover help on the label, so that the two
+  // absence rules above stay the shortest thing in the form and remain comparable at a
+  // glance. These assertions open the tooltip the way a user does rather than reading the
+  // prop, so a hint that renders but never reveals still fails.
+  it('explains the keyed form on hover, since it is the only way to free other keys', async () => {
+    renderForm();
+
+    await userEvent.hover(screen.getByRole('img', { name: 'More information about value conditions' }));
+
+    await waitFor(() => expect(screen.getByRole('tooltip').textContent).toContain("tags.a IN ('x','y')"));
+  });
+
+  it('explains on hover that a target condition never blocks a create', async () => {
+    renderForm();
+
+    await userEvent.hover(screen.getByRole('img', { name: 'More information about target conditions' }));
+
+    await waitFor(() => expect(screen.getByRole('tooltip').textContent).toMatch(/never blocks a create/i));
+  });
+
+  it('reveals the hover help on keyboard focus, not only on hover', async () => {
+    // The explanation is the only place the keyed form is documented in the UI, so it has
+    // to be reachable without a pointer.
+    renderForm();
+    const icon = screen.getByRole('img', { name: 'More information about value conditions' });
+
+    expect(icon).toHaveAttribute('tabindex', '0');
+    fireEvent.focus(icon);
+
+    await waitFor(() => expect(screen.getByRole('tooltip').textContent).toContain('tags.a IN'));
   });
 });

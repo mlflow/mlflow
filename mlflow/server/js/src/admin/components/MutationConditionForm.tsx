@@ -300,7 +300,20 @@ export const MutationConditionForm = ({
       ) : null}
 
       <div>
-        <FieldLabel>Value condition</FieldLabel>
+        <FieldLabel
+          componentId="admin.mutation_condition_form.value_condition_help"
+          hintIconTitle="More information about value conditions"
+          hint={
+            <>
+              Constrains the values being set. Use <code>tag_key</code> to limit which keys may be written and{' '}
+              <code>tag_value</code> to limit their values &mdash; but note each clause applies to <em>every</em> tag in
+              the request. To pin one key to its own values and leave other keys free, name the key:{' '}
+              <code>tags.a IN (&#39;x&#39;,&#39;y&#39;)</code>.
+            </>
+          }
+        >
+          Value condition
+        </FieldLabel>
         <Input
           componentId="admin.mutation_condition_form.value_condition"
           value={value.valueCondition}
@@ -309,13 +322,8 @@ export const MutationConditionForm = ({
           disabled={disabled}
         />
         <FieldHint testId="admin.mutation_condition_form.value_condition_hint">
-          Constrains the values being set. Use <code>tag_key</code> to limit which keys may be written and{' '}
-          <code>tag_value</code> to limit their values &mdash; but note each clause applies to <em>every</em> tag in the
-          request. To pin one key to its own values and leave other keys free, name the key:{' '}
-          <code>tags.a IN (&#39;x&#39;,&#39;y&#39;)</code>. <strong>A request that does not set the key passes</strong>,
-          so this never refuses a mutation that writes nothing of this kind.
-          <br />
-          {typeLabel} accepts: {renderIdentifiers(getConditionRequestIdentifiers(value.resourceType))}.
+          <strong>A request that does not set the key passes.</strong> {typeLabel} accepts:{' '}
+          {renderIdentifiers(getConditionRequestIdentifiers(value.resourceType))}.
         </FieldHint>
         {unsupportedValueIdentifiers.length > 0 && (
           <Typography.Text
@@ -329,7 +337,18 @@ export const MutationConditionForm = ({
       </div>
 
       <div>
-        <FieldLabel>Target condition</FieldLabel>
+        <FieldLabel
+          componentId="admin.mutation_condition_form.target_condition_help"
+          hintIconTitle="More information about target conditions"
+          hint={
+            <>
+              Constrains which existing resources may be mutated, by their current state. Applies to updates and
+              deletes; a resource being created has no state yet, so this never blocks a create.
+            </>
+          }
+        >
+          Target condition
+        </FieldLabel>
         <Input
           componentId="admin.mutation_condition_form.target_condition"
           value={value.targetCondition}
@@ -338,12 +357,9 @@ export const MutationConditionForm = ({
           disabled={disabled}
         />
         <FieldHint testId="admin.mutation_condition_form.target_condition_hint">
-          Constrains which existing resources may be mutated, by their current state. Applies to updates and deletes; a
-          resource being created has no state yet, so this never blocks a create.{' '}
           <strong>A resource that does not have the tag is refused</strong> &mdash; the opposite of the value condition
-          above, so the same clause means different things in the two fields.
-          <br />
-          {typeLabel} accepts: {renderIdentifiers(getConditionResourceIdentifiers(value.resourceType))}.
+          above, so the same clause means different things in the two fields. {typeLabel} accepts:{' '}
+          {renderIdentifiers(getConditionResourceIdentifiers(value.resourceType))}.
         </FieldHint>
         {unsupportedTargetIdentifiers.length > 0 && (
           <Typography.Text
