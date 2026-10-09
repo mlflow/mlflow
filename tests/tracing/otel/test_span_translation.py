@@ -1076,14 +1076,10 @@ def _translate_claude_code_span(attributes, events=None):
         ("claude_code.interaction", SpanType.AGENT),
         ("claude_code.llm_request", SpanType.LLM),
         ("claude_code.tool", SpanType.TOOL),
-        ("claude_code.tool.execution", SpanType.TOOL),
-        ("claude_code.tool.blocked_on_user", SpanType.TOOL),
         # Real Claude Code telemetry emits bare values; the prefix appears only on span names
         ("interaction", SpanType.AGENT),
         ("llm_request", SpanType.LLM),
         ("tool", SpanType.TOOL),
-        ("tool.execution", SpanType.TOOL),
-        ("tool.blocked_on_user", SpanType.TOOL),
     ],
 )
 def test_claude_code_translator_maps_span_types(span_type, expected_type):
@@ -1095,6 +1091,10 @@ def test_claude_code_translator_maps_span_types(span_type, expected_type):
     [
         {"span.type": "some_other.tool"},
         {"span.type": "hook"},
+        {"span.type": "tool.blocked_on_user"},
+        {"span.type": "claude_code.tool.blocked_on_user"},
+        {"span.type": "tool.execution"},
+        {"span.type": "claude_code.tool.execution"},
     ],
 )
 def test_claude_code_translator_does_not_map(attributes):
@@ -1168,3 +1168,19 @@ def test_claude_code_translator_prefers_serialized_tool_input():
         "full_command": "ls",
     })
     assert json.loads(attributes[SpanAttributeKey.INPUTS]) == {"command": "ls"}
+
+
+@pytest.mark.parametrize("attributes", [{}, {"span.type": "claude_code.llm_request"}])
+def test_claude_code_translator_ignores_tool_output_event_on_other_spans(attributes):
+    attributes = _translate_claude_code_span(
+        attributes, events=[{"name": "tool.output", "attributes": {"output": "a.txt"}}]
+    )
+    assert SpanAttributeKey.OUTPUTS not in attributes
+
+
+def test_claude_code_translator_skips_redacted_tool_output_event():
+    attributes = _translate_claude_code_span(
+        {"span.type": "tool"},
+        events=[{"name": "tool.output", "attributes": {"output": "<REDACTED>"}}],
+    )
+    assert SpanAttributeKey.OUTPUTS not in attributes

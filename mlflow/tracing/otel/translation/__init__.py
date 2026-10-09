@@ -236,7 +236,7 @@ def _get_input_value(attributes: dict[str, Any], events: list[dict[str, Any]] | 
     if events:
         for translator in _EVENT_TRANSLATORS:
             if hasattr(translator, "get_input_value_from_events"):
-                if value := translator.get_input_value_from_events(events):
+                if value := translator.get_input_value_from_events(events, attributes):
                     return value
 
 
@@ -265,7 +265,7 @@ def _get_output_value(
     if events:
         for translator in _EVENT_TRANSLATORS:
             if hasattr(translator, "get_output_value_from_events"):
-                if value := translator.get_output_value_from_events(events):
+                if value := translator.get_output_value_from_events(events, attributes):
                     return value
 
 
