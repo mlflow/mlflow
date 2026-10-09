@@ -22,12 +22,14 @@ from mlflow.genai.judges.instructions_judge.constants import (
     INSTRUCTIONS_JUDGE_SYSTEM_PROMPT,
     INSTRUCTIONS_JUDGE_TRACE_PROMPT_TEMPLATE,
 )
+from mlflow.genai.judges.model_api import ModelAPI, _parse_model_api, _resolve_model_api
 from mlflow.genai.judges.structured_judge import (
     _invoke_gateway_judge,
     _is_gateway_model,
     _is_gateway_system_one_rejection,
 )
 from mlflow.genai.judges.typesafe import (
+    _GatewayEndpointNotSystemOne,
     _invoke_typesafe_judge,
     _is_typesafe_model,
 )
@@ -99,9 +101,8 @@ class InstructionsJudge(Judge):
     _base_url: str | None = PrivateAttr(default=None)
     _extra_headers: dict[str, str] | None = PrivateAttr(default=None)
     _include_timing_in_conversation: bool = PrivateAttr(default=False)
-    _model_api: Literal["chat_completions", "responses", "decisions"] | None = PrivateAttr(
-        default=None
-    )
+    _model_api: ModelAPI = PrivateAttr(default=ModelAPI.DEFAULT)
+    _resolved_model_api: ModelAPI = PrivateAttr(default=ModelAPI.CHAT_COMPLETIONS)
 
     def __init__(
         self,
@@ -116,7 +117,7 @@ class InstructionsJudge(Judge):
         base_url: str | None = None,
         extra_headers: dict[str, str] | None = None,
         include_timing_in_conversation: bool = False,
-        model_api: Literal["chat_completions", "responses", "decisions"] | None = None,
+        model_api: ModelAPI | str = ModelAPI.DEFAULT,
         **kwargs,
     ):
         """
@@ -147,7 +148,8 @@ class InstructionsJudge(Judge):
             include_timing_in_conversation: If True, append timing information (duration and
                            slowest spans) to assistant responses in conversation. Useful for
                            latency-aware evaluation. Default is False for backward compatibility.
-            model_api: API for ``openai:/`` models. ``None`` preserves the existing behavior.
+            model_api: API route to use for the model. ``ModelAPI.DEFAULT`` selects the
+                           provider's usual route and detects System One Gateway endpoints.
             kwargs: Additional configuration parameters
         """
         aggregations = kwargs.pop("aggregations", None)
@@ -262,8 +264,8 @@ class InstructionsJudge(Judge):
         return self._inference_params
 
     @property
-    def model_api(self) -> Literal["chat_completions", "responses", "decisions"] | None:
-        """Get the selected OpenAI API, if explicitly set."""
+    def model_api(self) -> ModelAPI:
+        """Get the requested model API."""
         return self._model_api
 
     def get_input_fields(self) -> list[JudgeField]:
@@ -638,9 +640,9 @@ class InstructionsJudge(Judge):
             self._TEMPLATE_VARIABLE_TRACE in self.template_variables or is_fallback_to_trace_mode
         )
 
-        if is_trace_based and self._model_api in ("responses", "decisions"):
+        if is_trace_based and self._resolved_model_api is ModelAPI.DECISIONS:
             raise MlflowException.invalid_parameter_value(
-                f"OpenAI {self._model_api} judges do not support trace-based tool calling. "
+                "Decision API judges do not support trace-based tool calling. "
                 "Provide the inputs and outputs referenced by the instructions."
             )
 
@@ -684,47 +686,43 @@ class InstructionsJudge(Judge):
                 extra_headers=self._extra_headers,
             )
 
-        if self._model_api == "decisions":
-            from mlflow.genai.judges.openai_api import _invoke_openai_decisions_judge
+        if self._resolved_model_api is ModelAPI.DECISIONS:
+            if _is_typesafe_model(self._model) or _is_gateway_model(self._model):
+                try:
+                    feedback = _invoke_typesafe_judge(
+                        self._model,
+                        instructions=self._instructions,
+                        state=state,
+                        feedback_value_type=self._feedback_value_type,
+                        assessment_name=self.name,
+                        inference_params=self._inference_params,
+                        base_url=self._base_url,
+                        extra_headers=self._extra_headers,
+                    )
+                except _GatewayEndpointNotSystemOne:
+                    raise MlflowException.invalid_parameter_value(
+                        "This Gateway endpoint does not serve a System One model. "
+                        "Use model_api='chat_completions' or select a System One endpoint."
+                    ) from None
+            else:
+                from mlflow.genai.judges.decisions import _invoke_openai_decisions_judge
 
-            feedback = _invoke_openai_decisions_judge(
-                self._model,
-                instructions=self._instructions,
-                input_text=self._build_user_message(inputs, outputs, expectations, conversation),
-                feedback_value_type=self._feedback_value_type,
-                assessment_name=self.name,
-                base_url=self._base_url,
-                extra_headers=self._extra_headers,
-            )
-        elif self._model_api == "responses":
-            from mlflow.genai.judges.openai_api import _invoke_openai_responses_judge
-
-            feedback = _invoke_openai_responses_judge(
-                self._model,
-                system_prompt=self._build_system_message(False),
-                user_prompt=self._build_user_message(inputs, outputs, expectations, conversation),
-                response_format=self._create_response_format_model(),
-                assessment_name=self.name,
-                inference_params=self._inference_params,
-                base_url=self._base_url,
-                extra_headers=self._extra_headers,
-            )
-        elif _is_typesafe_model(self._model):
-            if is_trace_based:
-                raise MlflowException.invalid_parameter_value(
-                    "TypeSafe judge models do not support trace-based evaluation."
+                feedback = _invoke_openai_decisions_judge(
+                    self._model,
+                    instructions=self._instructions,
+                    input_text=self._build_user_message(
+                        inputs, outputs, expectations, conversation
+                    ),
+                    feedback_value_type=self._feedback_value_type,
+                    assessment_name=self.name,
+                    base_url=self._base_url,
+                    extra_headers=self._extra_headers,
                 )
-            feedback = _invoke_typesafe_judge(
-                self._model,
-                instructions=self._instructions,
-                state=state,
-                feedback_value_type=self._feedback_value_type,
-                assessment_name=self.name,
-                inference_params=self._inference_params,
-                base_url=self._base_url,
-                extra_headers=self._extra_headers,
-            )
-        elif _is_gateway_model(self._model) and not is_trace_based:
+        elif (
+            _is_gateway_model(self._model)
+            and self._resolved_model_api is ModelAPI.DEFAULT
+            and not is_trace_based
+        ):
             # gateway:/ endpoints may serve System One (jev) models. Prefer chat so non-jev
             # endpoints see no regression, and fall back to System One when chat is rejected.
             # jev has no trace support, so trace-based judges stay on chat only.
@@ -783,39 +781,27 @@ class InstructionsJudge(Judge):
         validate_judge_model(self._model)
 
     def _validate_model_api(self) -> None:
-        if self._model_api is None:
+        self._resolved_model_api = _resolve_model_api(self._model, self._model_api)
+        self._model_api = _parse_model_api(self._model_api)
+        if self._resolved_model_api is not ModelAPI.DECISIONS:
             return
-        if self._model_api not in ("chat_completions", "responses", "decisions"):
+        if self._TEMPLATE_VARIABLE_TRACE in self.template_variables:
             raise MlflowException.invalid_parameter_value(
-                "model_api must be 'chat_completions', 'responses', or 'decisions'."
+                "Decision API judges do not support {{ trace }} tool calling."
             )
-        if not self._model.startswith("openai:/"):
-            raise MlflowException.invalid_parameter_value(
-                "model_api is supported only for openai:/ judge models."
-            )
-        if self._model_api in ("responses", "decisions") and (
-            self._TEMPLATE_VARIABLE_TRACE in self.template_variables
-        ):
-            raise MlflowException.invalid_parameter_value(
-                f"OpenAI {self._model_api} judges do not support {{{{ trace }}}} tool calling."
-            )
-        if self._model_api == "responses":
-            from mlflow.genai.judges.openai_api import _validate_responses_feedback_value_type
-
-            _validate_responses_feedback_value_type(self._feedback_value_type)
-        if self._model_api == "decisions":
-            from mlflow.genai.judges.openai_api import _decision_question
+        if self._model.startswith("openai:/"):
+            from mlflow.genai.judges.decisions import _decision_question
 
             _decision_question(self._instructions, self._feedback_value_type)
-            if self._generate_rationale_first:
-                raise MlflowException.invalid_parameter_value(
-                    "OpenAI Decisions do not return a rationale; "
-                    "generate_rationale_first is not supported."
-                )
-            if self._inference_params is not None:
-                raise MlflowException.invalid_parameter_value(
-                    "OpenAI Decisions do not support inference_params."
-                )
+        if self._generate_rationale_first:
+            raise MlflowException.invalid_parameter_value(
+                "Decision API judges do not return a rationale; "
+                "generate_rationale_first is not supported."
+            )
+        if self._inference_params is not None:
+            raise MlflowException.invalid_parameter_value(
+                "Decision API judges do not support inference_params."
+            )
 
     def _validate_instructions_template(self) -> None:
         """
@@ -1039,8 +1025,8 @@ class InstructionsJudge(Judge):
             )
         if self._inference_params is not None:
             pydantic_data["inference_params"] = self._inference_params
-        if self._model_api is not None:
-            pydantic_data["model_api"] = self._model_api
+        if self._model_api is not ModelAPI.DEFAULT:
+            pydantic_data["model_api"] = self._model_api.value
         # Only serialize when enabled to keep existing (result-first) payloads unchanged;
         # deserialization defaults this back to False when the key is absent.
         if self._generate_rationale_first:

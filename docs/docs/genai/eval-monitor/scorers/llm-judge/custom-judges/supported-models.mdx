@@ -45,18 +45,27 @@ Judges configured with direct model providers require credentials to be availabl
 
 TypeSafe judge models use TypeSafe's System One evaluation API rather than a chat-completion API. Use `typesafe:/` model URIs only with the supported `bool` and finite `Literal[...]` outputs described in [TypeSafe Judge Models](/genai/eval-monitor/scorers/llm-judge/custom-judges/typesafe).
 
-### OpenAI Responses and Decisions
+### Decision models
 
-An `openai:/` judge uses Chat Completions by default. Set `model_api="responses"` to use structured Responses output, including a result and rationale. Set `model_api="decisions"` for a typed decision with a probability. Both options call OpenAI directly and require `OPENAI_API_KEY`. Decisions requires `openai>=3.26.0` and currently supports `gpt-6-luna`.
+`make_judge()` chooses the API from the model provider when `model_api` is omitted:
+
+| Model URI | Default API | Explicit `model_api` choices |
+| --- | --- | --- |
+| `openai:/` | Chat Completions | `CHAT_COMPLETIONS`, `DECISIONS` |
+| `typesafe:/` | TypeSafe System One | `DECISIONS` |
+| `gateway:/` | Detect the endpoint type | `CHAT_COMPLETIONS`, `DECISIONS` |
+| Other supported providers | Chat Completions | `CHAT_COMPLETIONS` |
+
+Use `ModelAPI.DECISIONS` with an OpenAI model that supports the Decision API. This requires `OPENAI_API_KEY` and `openai>=3.26.0`. The example below uses `gpt-6-luna`:
 
 ```python
-from mlflow.genai.judges import make_judge
+from mlflow.genai.judges import ModelAPI, make_judge
 
 correctness = make_judge(
     name="answer_correctness",
     instructions="Is {{ outputs }} the correct answer to {{ inputs }}?",
     model="openai:/gpt-6-luna",
-    model_api="decisions",
+    model_api=ModelAPI.DECISIONS,
     feedback_value_type=bool,
 )
 
@@ -65,9 +74,9 @@ print(feedback.value)  # True when the predicate probability is at least 0.5
 print(feedback.metadata["openai.decisions.probability"])
 ```
 
-For categorical Decisions judges, use a `Literal` with at least two string or boolean values. MLflow stores the selected choice in `feedback.value` and the full distribution in `openai.decisions.probabilities`. A refusal raises an evaluation error; it is never treated as `False`. Decisions do not return a rationale and do not accept `inference_params`.
+For an OpenAI categorical Decision judge, use a `Literal` with at least two string or boolean values. MLflow stores the selected choice in `feedback.value` and the full distribution in `openai.decisions.probabilities`. A refusal raises an evaluation error; it is never treated as `False`. Decision models do not return a rationale, accept `inference_params`, or support `{{ trace }}` tool calling. They can evaluate `{{ inputs }}`, `{{ outputs }}`, `{{ expectations }}`, or `{{ conversation }}`. You can still pass a trace to a field-based judge to evaluate values extracted from its root span.
 
-Use `model_api="responses"` with a primitive, `Literal`, optional primitive, or list feedback value type. OpenAI's structured output schema does not support MLflow's `dict[str, ...]` feedback type. The result is `feedback.value`, and the model's explanation is `feedback.rationale`. Responses accepts `inference_params` such as `temperature`, `top_p`, and `max_output_tokens`; request fields that could replace the judge's model, evidence, or output schema are rejected. Both Responses and Decisions support judges that reference `{{ inputs }}`, `{{ outputs }}`, `{{ expectations }}`, or `{{ conversation }}`. They do not support `{{ trace }}` tool calling. Pass a trace to a field-based judge to evaluate values extracted from its root span.
+For `typesafe:/` models, MLflow uses System One automatically. For `gateway:/` endpoints, MLflow tries chat first and switches to System One when the endpoint identifies itself as a decision model. Set `model_api=ModelAPI.DECISIONS` to call a System One Gateway endpoint directly, or `model_api=ModelAPI.CHAT_COMPLETIONS` to require the chat route. An explicit choice that the provider cannot serve is rejected.
 
 Gateway endpoints backed by TypeSafe provider models or OpenRouter Jev decision models (such as `typesafe/jev-1.13`) can also back structured MLflow judges. OpenRouter `typesafe/jev-router` is a chat model and remains on normal chat routes. Do not send Jev decision models to chat-completion APIs.
 

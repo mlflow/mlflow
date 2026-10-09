@@ -1,15 +1,12 @@
-"""OpenAI Responses and Decisions invocation for instructions judges."""
+"""Decision API invocation for instructions judges."""
 
 from __future__ import annotations
 
-import inspect
 import json
 import math
 import os
 import re
 from typing import Any, Literal, get_args, get_origin
-
-import pydantic
 
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
@@ -20,21 +17,6 @@ from mlflow.tracing.constant import AssessmentMetadataKey
 
 _QUESTION_NAME = "evaluation"
 _REFERENCE_PATTERN = re.compile(r"\{\{\s*([a-z_]+)\s*\}\}")
-_RESPONSES_INFERENCE_PARAMS = frozenset({
-    "max_output_tokens",
-    "temperature",
-    "top_p",
-    "reasoning",
-    "verbosity",
-    "service_tier",
-    "truncation",
-    "safety_identifier",
-    "prompt_cache_key",
-    "prompt_cache_options",
-    "prompt_cache_retention",
-    "store",
-    "user",
-})
 
 
 def _openai_client(base_url: str | None, extra_headers: dict[str, str] | None):
@@ -42,12 +24,12 @@ def _openai_client(base_url: str | None, extra_headers: dict[str, str] | None):
         import openai
     except ImportError:
         raise MlflowException.invalid_parameter_value(
-            "Install the openai package to use OpenAI Responses or Decisions judges."
+            "Install the openai package to use OpenAI Decisions judges."
         ) from None
 
     if not hasattr(openai, "OpenAI"):
         raise MlflowException.invalid_parameter_value(
-            "Update the openai package to use OpenAI Responses or Decisions judges."
+            "Update the openai package to use OpenAI Decisions judges."
         )
 
     client_kwargs = {}
@@ -74,7 +56,7 @@ def _model_name(model_uri: str) -> str:
     provider, model_name = _parse_model_uri(model_uri)
     if provider != "openai":
         raise MlflowException.invalid_parameter_value(
-            "OpenAI Responses and Decisions require an openai:/ model URI."
+            "OpenAI Decisions require an openai:/ model URI."
         )
     return model_name
 
@@ -83,13 +65,12 @@ def _feedback(
     model_uri: str,
     assessment_name: str,
     value: Any,
-    rationale: str | None,
     metadata: dict[str, str],
 ) -> Feedback:
     return Feedback(
         name=assessment_name,
         value=value,
-        rationale=rationale,
+        rationale=None,
         source=AssessmentSource(
             source_type=AssessmentSourceType.LLM_JUDGE,
             source_id=model_uri,
@@ -120,10 +101,6 @@ def _invalid_response(subject: str) -> MlflowException:
     )
 
 
-def _reject_nonfinite(value: str) -> None:
-    raise ValueError(f"Non-finite JSON number: {value}")
-
-
 def _call_openai(action: str, callback):
     import openai
 
@@ -138,81 +115,6 @@ def _call_openai(action: str, callback):
         raise MlflowException(
             f"Could not connect to the OpenAI {action} API.", error_code=INTERNAL_ERROR
         ) from e
-
-
-def _invoke_openai_responses_judge(
-    model_uri: str,
-    *,
-    system_prompt: str,
-    user_prompt: str,
-    response_format: type[pydantic.BaseModel],
-    assessment_name: str,
-    inference_params: dict[str, Any] | None = None,
-    base_url: str | None = None,
-    extra_headers: dict[str, str] | None = None,
-) -> Feedback:
-    """Use structured Responses output for a field-based judge."""
-    client = _openai_client(base_url, extra_headers)
-    if not callable(getattr(getattr(client, "responses", None), "parse", None)):
-        raise MlflowException.invalid_parameter_value(
-            "Update the openai package to use model_api='responses'."
-        )
-
-    params = dict(inference_params or {})
-    if unsupported := set(params).difference(_RESPONSES_INFERENCE_PARAMS):
-        raise MlflowException.invalid_parameter_value(
-            "Unsupported inference_params for an OpenAI Responses judge: "
-            f"{', '.join(sorted(unsupported))}."
-        )
-    parse = client.responses.parse
-    try:
-        signature = inspect.signature(parse)
-    except (TypeError, ValueError) as e:
-        raise MlflowException.invalid_parameter_value(
-            "Could not determine which Responses parameters the installed openai package supports."
-        ) from e
-    if not any(
-        param.kind is inspect.Parameter.VAR_KEYWORD for param in signature.parameters.values()
-    ):
-        if unavailable := set(params).difference(signature.parameters):
-            raise MlflowException.invalid_parameter_value(
-                "The installed openai package does not support these Responses inference_params: "
-                f"{', '.join(sorted(unavailable))}. Update openai or remove these parameters."
-            )
-
-    response = _call_openai(
-        "Responses",
-        lambda: parse(
-            model=_model_name(model_uri),
-            input=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ],
-            text_format=response_format,
-            **params,
-        ),
-    )
-    if getattr(response, "status", None) != "completed" or not isinstance(
-        getattr(response, "output_parsed", None), response_format
-    ):
-        raise MlflowException(
-            "OpenAI Responses did not return a completed structured evaluation. "
-            "The model may have refused the request.",
-            error_code=BAD_REQUEST,
-        )
-    # The SDK's parsed model can coerce a string like "false" to bool. Validate the raw
-    # structured output strictly so a malformed answer cannot become normal judge feedback.
-    try:
-        raw = json.loads(response.output_text, parse_constant=_reject_nonfinite)
-        if not isinstance(raw, dict) or set(raw) != {"result", "rationale"}:
-            raise ValueError
-        parsed = response_format.model_validate(raw, strict=True)
-    except (AttributeError, TypeError, ValueError, pydantic.ValidationError):
-        raise _invalid_response("Responses") from None
-    metadata = _usage_metadata(getattr(response, "usage", None))
-    if isinstance(model := getattr(response, "model", None), str) and model:
-        metadata["openai.responses.model"] = model
-    return _feedback(model_uri, assessment_name, parsed.result, parsed.rationale, metadata)
 
 
 def _decision_question(instructions: str, feedback_value_type: Any) -> dict[str, Any]:
@@ -234,14 +136,6 @@ def _decision_question(instructions: str, feedback_value_type: Any) -> dict[str,
             "OpenAI Decisions choice judges require at least two string or boolean Literal values."
         )
     return {**question, "type": "choice", "choices": [{"value": value} for value in values]}
-
-
-def _validate_responses_feedback_value_type(feedback_value_type: Any) -> None:
-    if get_origin(feedback_value_type) is dict:
-        raise MlflowException.invalid_parameter_value(
-            "OpenAI Responses structured outputs do not support dict feedback value types. "
-            "Use a primitive, Literal, or list feedback value type."
-        )
 
 
 def _probability(value: Any) -> float:
@@ -336,4 +230,4 @@ def _invoke_openai_decisions_judge(
     ):
         raise _invalid_response("Decisions")
     metadata.update(usage_metadata)
-    return _feedback(model_uri, assessment_name, value, None, metadata)
+    return _feedback(model_uri, assessment_name, value, metadata)

@@ -76,7 +76,7 @@ For a complete tutorial, see [Create a custom judge using make_judge()](/genai/e
 
 MLflow can use TypeSafe System One models as direct `make_judge()` models with `model="typesafe:/jev-latest"`. This workflow supports `bool` and finite `Literal[...]` outputs and records TypeSafe probabilities in assessment metadata. See [TypeSafe Judge Models](/genai/eval-monitor/scorers/llm-judge/custom-judges/typesafe) for setup, limitations, and examples.
 
-For OpenAI judges, set `model_api="responses"` to use structured Responses output or `model_api="decisions"` to return a typed decision and probability. See [OpenAI Responses and Decisions](/genai/eval-monitor/scorers/llm-judge/custom-judges/supported-models/#openai-responses-and-decisions) for an example and supported output types.
+For OpenAI models that support the Decision API, set `model_api=ModelAPI.DECISIONS` to return a typed result and its probability. See [Decision models](/genai/eval-monitor/scorers/llm-judge/custom-judges/supported-models/#decision-models) for an example and supported providers.
 
 ## Selecting Judge Models
 
