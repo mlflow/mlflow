@@ -751,7 +751,7 @@ jobs:
             --effort high \
             --max-budget-usd 5 \
             --permission-mode auto \
-            --disallowed-tools WebSearch \
+            --disallowed-tools WebSearch Artifact ArtifactComments ArtifactData \
             --print \
             --verbose \
             --output-format stream-json \

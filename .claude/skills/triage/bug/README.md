@@ -45,22 +45,6 @@ Shrink the reproduction once it works: drop every step the bug does not need, th
 confirm it still fails the same way. Stop after a few honest attempts. A clear "could not
 reproduce, and here is what I tried" is a useful result.
 
-Once it reproduces, if the symptom is hard to grasp from text alone, add one diagram showing
-how the bug happens: the path from the user's call to the failing line, a value changing across
-layers, or expected vs actual side by side. Draw only what the bug depends on, use real function
-and field names, and label every arrow. Skip it when a traceback or a sentence already makes it
-clear.
-
-Draw it as an inline `<svg>` in a self-contained HTML file under `$out_dir/work` (no scripts or
-external resources; white background, one accent color for the failing part, short labels), then
-screenshot it and cite it like other media:
-
-```bash
-agent-browser open "file://$out_dir/work/diagram.html"
-agent-browser set viewport 1280 720 2
-agent-browser screenshot svg "$out_dir/media/diagram.png"
-```
-
 ## 3. Suggest a fix
 
 Only when the bug reproduces at the current checkout. Find the line that is wrong and why, not
@@ -70,6 +54,22 @@ symptom goes away without breaking the tests that cover that code.
 Keep the fix minimal and in the style of the surrounding code. When the right fix is a design
 decision (a public API, a default, or a storage schema), describe the options instead of
 picking one.
+
+If the mechanism is hard to grasp from text alone, add one diagram of it: the path from the
+user's call to the failing line, a value changing across layers, or expected vs actual side by
+side. Skip it when a traceback or a sentence already makes it clear. Load the
+`artifact-diagramming` skill and follow it to draw the diagram as an inline `<svg>` in
+`$out_dir/work/diagram.html`, with a white background so the image reads in both GitHub themes.
+Do not publish it; screenshot it instead (`agent-browser` may open this local file):
+
+```bash
+agent-browser open "file://$out_dir/work/diagram.html"
+agent-browser set viewport 1280 720 2
+agent-browser screenshot svg "$out_dir/media/diagram.png"
+```
+
+Cite the image like other media, under "Suggested fix", or under "Summary" when it contrasts
+expected and actual behavior.
 
 ## 4. Decide the verdict
 

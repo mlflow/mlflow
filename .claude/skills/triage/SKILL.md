@@ -96,8 +96,7 @@ Only start the UI when the issue involves it.
 
 2. Wait until the UI responds to `curl --noproxy '*'`.
 3. Drive it with `agent-browser`: `open <url>` and `snapshot -i` to inspect the page, then
-   interact with it to reproduce the reported behavior. Only navigate to local MLflow URLs and
-   diagram files under `$out_dir/work`.
+   interact with it to reproduce the reported behavior. Only navigate to local MLflow URLs.
 
 If the server or browser fails to start, report the specific error instead of retrying
 indefinitely.
