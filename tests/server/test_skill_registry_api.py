@@ -7,6 +7,7 @@ from unittest import mock
 
 import pytest
 from fastapi import FastAPI, HTTPException
+from requests import Response
 from starlette.requests import Request
 from starlette.testclient import TestClient
 
@@ -32,7 +33,9 @@ from mlflow.server.skill_registry_api import (
 )
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import NOT_SET
+from mlflow.store.tracking.databricks_rest_store import DatabricksTracingRestStore
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+from mlflow.utils.rest_utils import MlflowHostCreds
 from mlflow.utils.validation import _MAX_REGISTRY_ICONS_PER_LIST
 
 PREFIX = "/ajax-api/3.0/mlflow/skills"
@@ -495,9 +498,74 @@ def test_update_skill_distinguishes_omitted_and_explicit_null_fields(
 )
 def test_search_skills_rejects_invalid_identity_selector(tmp_path: Path, db_uri: str, selector):
     client, store = _create_client(tmp_path, db_uri)
-    with mock.patch("mlflow.server.handlers._get_tracking_store", return_value=store):
+    with mock.patch("mlflow.server.handlers._get_tracking_store", return_value=store) as get_store:
         response = client.get(PREFIX, params={"include_skill_identities": selector})
     assert response.status_code == 400, response.text
+    get_store.assert_not_called()
+
+
+@pytest.mark.parametrize("endpoint", ["search", "register", "versions", "bulk-register"])
+@pytest.mark.parametrize("constrained", [False, True])
+def test_skill_routes_with_rest_tracking_backend(endpoint, constrained):
+    store = DatabricksTracingRestStore(lambda: MlflowHostCreds("https://registry.example.com"))
+    app = _create_registry_fastapi_app()
+
+    @app.middleware("http")
+    async def set_preconditions(request, call_next):
+        if constrained:
+            request.state.skill_identity_scope = ([("acme", "reviewer")], [])
+            request.state.skill_expected_parent_exists = (
+                {"reviewer": True} if endpoint == "bulk-register" else True
+            )
+        return await call_next(request)
+
+    version = {"name": "reviewer", "organization": "acme", "version": 1}
+    remote_body = (
+        {"skills": [], "next_page_token": None}
+        if endpoint == "search"
+        else {"skill_versions": [version]}
+        if endpoint == "bulk-register"
+        else version
+    )
+    remote_response = Response()
+    remote_response.status_code = 200
+    remote_response._content = json.dumps(remote_body).encode()
+    definition = {
+        "name": "reviewer",
+        "source": "https://example.com/repo.git",
+        "ref": "main",
+        "digest": "a" * 64,
+    }
+    with (
+        TestClient(app) as client,
+        mock.patch("mlflow.server.handlers._get_tracking_store", return_value=store) as get_store,
+        mock.patch(
+            "mlflow.store.tracking.skill_registry.rest_mixin.http_request",
+            return_value=remote_response,
+        ) as remote_request,
+    ):
+        if endpoint == "search":
+            response = client.get(PREFIX, params={"include_skill_identities": '["@acme/reviewer"]'})
+        elif endpoint == "bulk-register":
+            response = client.post(
+                f"{PREFIX}/bulk-register",
+                json={"organization": "acme", "skills": [definition]},
+            )
+        else:
+            path = "/@acme/reviewer/versions" if endpoint == "versions" else "/register"
+            response = client.post(f"{PREFIX}{path}", json={**definition, "organization": "acme"})
+    get_store.assert_called_once_with()
+    if constrained:
+        assert response.status_code == 501, response.text
+        assert response.json()["error_code"] == "NOT_IMPLEMENTED"
+        remote_request.assert_not_called()
+    else:
+        assert response.status_code == 200, response.text
+        remote_request.assert_called_once()
+        if endpoint == "search":
+            assert remote_request.call_args.kwargs["params"]["include_skill_identities"] == (
+                '["@acme/reviewer"]'
+            )
 
 
 def test_search_skills_forwards_query_parameters(tmp_path: Path, db_uri: str):

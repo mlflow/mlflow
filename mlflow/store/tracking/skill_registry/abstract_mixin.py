@@ -72,6 +72,9 @@ class SkillRegistryMixin:
         the caller's selector. ``exclude_skill_identities`` removes exact identities.
         The latter two constraints can change between pages and do not bind the token;
         auth apps use them to apply the current request's permissions.
+        Stores that cannot enforce an internal constraint must reject it before fetching
+        results, rather than ignoring it or filtering a page after retrieval. The REST store
+        supports the public selector but rejects internal authorization constraints.
         """
         raise NotImplementedError(self.__class__.__name__)
 
@@ -95,6 +98,8 @@ class SkillRegistryMixin:
         and ``None`` leaves either state valid. A mismatch raises ``RESOURCE_CONFLICT``
         before creating a parent or version. This is a storage consistency check;
         the caller must authorize the expected operation separately.
+        Stores that cannot enforce the precondition atomically, including the REST store,
+        must reject a non-``None`` expectation before writing.
         """
         raise NotImplementedError(self.__class__.__name__)
 
@@ -124,6 +129,8 @@ class SkillRegistryMixin:
                 ``True`` requires an existing parent and ``False`` requires a missing one;
                 omitted names are unconstrained. A mismatch raises ``RESOURCE_CONFLICT``
                 and rolls back the entire batch before any result is committed.
+                Stores that cannot enforce these preconditions atomically, including the
+                REST store, must reject a nonempty map before writing.
 
         Returns:
             Reused or created versions in input order, potentially with different statuses.

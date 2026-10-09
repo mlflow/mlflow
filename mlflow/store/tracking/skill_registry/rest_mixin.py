@@ -6,7 +6,7 @@ from urllib.parse import quote
 
 from mlflow.entities.skill import RegistryIcon, Skill, SkillStatus
 from mlflow.entities.skill_version import SkillVersion
-from mlflow.exceptions import MlflowException
+from mlflow.exceptions import MlflowException, MlflowNotImplementedException
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import NOT_SET, SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.utils.rest_utils import http_request, verify_rest_response
@@ -113,7 +113,16 @@ class RestSkillRegistryMixin:
         order_by: list[str] | None = None,
         page_token: str | None = None,
         include_skill_identities: list[tuple[str, str]] | None = None,
+        exclude_skill_identities: list[tuple[str, str]] | None = None,
+        scoped_skill_identities: list[tuple[str, str]] | None = None,
     ) -> PagedList[Skill]:
+        # The public selector cannot carry a changing auth scope: it binds page tokens.
+        # Never drop internal filters or apply them after the remote server paginates.
+        if scoped_skill_identities is not None or exclude_skill_identities:
+            raise MlflowNotImplementedException(
+                "REST-backed Skill search cannot enforce an internal authorization scope. "
+                "Use a SQL tracking backend for server-side Skill authorization."
+            )
         params: dict[str, Any] = {"max_results": max_results}
         if filter_string is not None:
             params["filter_string"] = filter_string
@@ -162,7 +171,13 @@ class RestSkillRegistryMixin:
         digest: str | None = None,
         status: str = "active",
         created_by: str | None = None,
+        expected_parent_exists: bool | None = None,
     ) -> SkillVersion:
+        if expected_parent_exists is not None:
+            raise MlflowNotImplementedException(
+                "REST-backed Skill registration cannot atomically enforce a parent-existence "
+                "precondition. Use a SQL tracking backend for server-side Skill authorization."
+            )
         body = {
             "source_type": source_type,
             "source": source,
@@ -180,7 +195,13 @@ class RestSkillRegistryMixin:
         skill_definitions: list[dict[str, Any]],
         organization: str = "",
         created_by: str | None = None,
+        expected_parent_exists: dict[str, bool] | None = None,
     ) -> list[SkillVersion]:
+        if expected_parent_exists:
+            raise MlflowNotImplementedException(
+                "REST-backed bulk Skill registration cannot atomically enforce parent-existence "
+                "preconditions. Use a SQL tracking backend for server-side Skill authorization."
+            )
         data = self._skill_request(
             "POST",
             "/bulk-register",

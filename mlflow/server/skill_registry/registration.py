@@ -23,6 +23,7 @@ from mlflow.genai.skill_content.sources import (
 )
 from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,
+    NOT_IMPLEMENTED,
     PERMISSION_DENIED,
     RESOURCE_ALREADY_EXISTS,
     RESOURCE_CONFLICT,
@@ -62,6 +63,7 @@ _DEFINITE_REJECTIONS = frozenset(
     ErrorCode.Name(code)
     for code in (
         INVALID_PARAMETER_VALUE,
+        NOT_IMPLEMENTED,
         PERMISSION_DENIED,
         RESOURCE_ALREADY_EXISTS,
         RESOURCE_CONFLICT,

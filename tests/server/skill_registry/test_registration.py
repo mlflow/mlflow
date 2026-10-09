@@ -17,7 +17,12 @@ from mlflow.environment_variables import (
     MLFLOW_SKILL_CONTENT_MAX_DECOMPRESSED_SIZE,
 )
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, PERMISSION_DENIED, RESOURCE_ALREADY_EXISTS
+from mlflow.protos.databricks_pb2 import (
+    INTERNAL_ERROR,
+    NOT_IMPLEMENTED,
+    PERMISSION_DENIED,
+    RESOURCE_ALREADY_EXISTS,
+)
 from mlflow.server import handlers
 from mlflow.server.skill_registry import (
     SkillVersionRegistration,
@@ -417,7 +422,9 @@ def test_storage_failure_leaves_no_version_and_cleans_the_partial_write(store, a
     assert len(attempted) == 1
 
 
-@pytest.mark.parametrize("error_code", [RESOURCE_ALREADY_EXISTS, PERMISSION_DENIED])
+@pytest.mark.parametrize(
+    "error_code", [RESOURCE_ALREADY_EXISTS, PERMISSION_DENIED, NOT_IMPLEMENTED]
+)
 def test_definite_commit_rejection_reclaims_the_stored_content(store, artifact_root, error_code):
     rejection = MlflowException("giving up", error_code=error_code)
     with mock.patch.object(store, "create_skill_version", side_effect=rejection) as create:

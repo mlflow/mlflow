@@ -70,6 +70,32 @@ def mocked_skill_client():
 @pytest.mark.parametrize(
     ("method", "kwargs"),
     [
+        ("search_skills", {"scoped_skill_identities": []}),
+        ("search_skills", {"scoped_skill_identities": [("acme", "reviewer")]}),
+        ("search_skills", {"exclude_skill_identities": [("acme", "reviewer")]}),
+        ("create_skill_version", {"name": "reviewer", "expected_parent_exists": False}),
+        ("create_skill_version", {"name": "reviewer", "expected_parent_exists": True}),
+        (
+            "bulk_register_skills",
+            {"skill_definitions": [], "expected_parent_exists": {"reviewer": False}},
+        ),
+        (
+            "bulk_register_skills",
+            {"skill_definitions": [], "expected_parent_exists": {"reviewer": True}},
+        ),
+    ],
+)
+def test_rest_store_rejects_internal_constraints_before_request(store, method, kwargs):
+    with mock.patch.object(store, "_skill_request") as request:
+        with pytest.raises(MlflowException, match="Use a SQL tracking backend") as exc:
+            getattr(store, method)(**kwargs)
+    assert exc.value.error_code == "NOT_IMPLEMENTED"
+    request.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("method", "kwargs"),
+    [
         ("create_skill", {}),
         ("create_skill_version", {}),
         ("update_skill", {}),
