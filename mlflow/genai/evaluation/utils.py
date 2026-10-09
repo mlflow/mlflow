@@ -13,6 +13,7 @@ from mlflow.genai.evaluation.constant import (
     AgentEvaluationReserverKey,
 )
 from mlflow.genai.scorers import Scorer
+from mlflow.genai.scorers.scorer_utils import get_scorer_definition_digest
 from mlflow.models import EvaluationMetric
 from mlflow.tracing.constant import AssessmentMetadataKey
 from mlflow.tracing.utils.search import traces_to_df
@@ -409,18 +410,22 @@ def standardize_scorer_value(scorer_name: str, value: Any) -> list[Feedback]:
 
 
 def add_scorer_metadata(scorer: "Scorer", feedbacks: list[Feedback]) -> None:
-    """Attach registered scorer provenance to generated feedbacks."""
-    if (scorer_version := getattr(scorer, "scorer_version", None)) is None:
+    """
+    Attach scorer provenance to generated feedbacks: the definition digest of every scorer, plus
+    the name, version and resource name of a registered scorer.
+    """
+    metadata = {}
+    if scorer_digest := get_scorer_definition_digest(scorer):
+        metadata[AssessmentMetadataKey.SCORER_DIGEST] = scorer_digest
+    if (scorer_version := getattr(scorer, "scorer_version", None)) is not None:
+        metadata[AssessmentMetadataKey.SCORER_NAME] = scorer.name
+        metadata[AssessmentMetadataKey.SCORER_VERSION] = str(scorer_version)
+        if scorer_resource_name := getattr(scorer, "canonical_resource_name", None):
+            metadata[AssessmentMetadataKey.SCORER_RESOURCE_NAME] = scorer_resource_name
+        if scorer_resource_name_type := getattr(scorer, "canonical_resource_name_type", None):
+            metadata[AssessmentMetadataKey.SCORER_RESOURCE_NAME_TYPE] = scorer_resource_name_type
+    if not metadata:
         return
-
-    metadata = {
-        AssessmentMetadataKey.SCORER_NAME: scorer.name,
-        AssessmentMetadataKey.SCORER_VERSION: str(scorer_version),
-    }
-    if scorer_resource_name := getattr(scorer, "canonical_resource_name", None):
-        metadata[AssessmentMetadataKey.SCORER_RESOURCE_NAME] = scorer_resource_name
-    if scorer_resource_name_type := getattr(scorer, "canonical_resource_name_type", None):
-        metadata[AssessmentMetadataKey.SCORER_RESOURCE_NAME_TYPE] = scorer_resource_name_type
 
     for feedback in feedbacks:
         feedback.metadata = {

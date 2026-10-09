@@ -36,6 +36,7 @@ from mlflow.genai.evaluation.harness import (
 from mlflow.genai.evaluation.rate_limiter import RPSRateLimiter
 from mlflow.genai.scorers.base import SCORER_BACKEND_TRACKING, scorer
 from mlflow.genai.scorers.builtin_scorers import RelevanceToQuery
+from mlflow.genai.scorers.scorer_utils import get_scorer_definition_digest
 from mlflow.genai.simulators import ConversationSimulator
 from mlflow.server import handlers
 from mlflow.server.fastapi_app import app
@@ -2425,10 +2426,11 @@ def test_evaluate_logs_lineage_tags():
     )
 
     tags = mlflow.get_run(result.run_id).data.tags
-    expected_digest = hashlib.sha256(b"experiments/1/scorers/registered/versions/2").hexdigest()
+    scorer_digests = sorted(get_scorer_definition_digest(s) for s in [registered, has_output])
+    expected_digest = hashlib.sha256("\n".join(scorer_digests).encode("utf-8")).hexdigest()
     assert json.loads(tags[MLFLOW_GENAI_EVALUATE_SCORERS_DIGEST]) == {
         "digest": f"sha256:{expected_digest}",
-        "registered": 1,
+        "hashed": 2,
         "total": 2,
     }
     assert tags[MLFLOW_GENAI_EVALUATE_AGENT_FUNCTION] == f"{__name__}.lineage_agent"
@@ -2443,8 +2445,13 @@ def test_evaluate_without_predict_fn_logs_no_agent_tags():
     result = mlflow.genai.evaluate(data=data, scorers=[has_output])
 
     tags = mlflow.get_run(result.run_id).data.tags
-    assert json.loads(tags[MLFLOW_GENAI_EVALUATE_SCORERS_DIGEST]) == {"registered": 0, "total": 1}
+    assert json.loads(tags[MLFLOW_GENAI_EVALUATE_SCORERS_DIGEST])["hashed"] == 1
     assert not any(key.startswith("mlflow.genaiEvaluate.agent.") for key in tags)
+    [trace] = mlflow.search_traces(run_id=result.run_id, return_type="list")
+    [feedback] = [a for a in trace.info.assessments if a.name == "has_output"]
+    assert feedback.metadata[AssessmentMetadataKey.SCORER_DIGEST] == (
+        get_scorer_definition_digest(has_output)
+    )
 
 
 def test_evaluate_succeeds_when_lineage_fails():

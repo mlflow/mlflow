@@ -47,8 +47,8 @@ MLFLOW_ISSUE_DETECTION_JOB_ID = "mlflow.issueDetection.jobId"
 MLFLOW_GENAI_EVALUATE_JOB_ID = "mlflow.genaiEvaluate.jobId"
 
 # Lineage of a mlflow.genai.evaluate run. These tag formats are experimental and may change.
-# JSON object {"digest": "sha256:<hex>", "registered": <int>, "total": <int>} over the registered
-# scorer versions. The digest is omitted when no scorer is registered.
+# JSON object {"digest": "sha256:<hex>", "hashed": <int>, "total": <int>} over the scorer
+# definitions. The digest is omitted when no scorer definition can be hashed.
 MLFLOW_GENAI_EVALUATE_SCORERS_DIGEST = "mlflow.genaiEvaluate.scorersDigest"
 # "<module>.<qualname>" of the evaluated predict function.
 MLFLOW_GENAI_EVALUATE_AGENT_FUNCTION = "mlflow.genaiEvaluate.agent.function"

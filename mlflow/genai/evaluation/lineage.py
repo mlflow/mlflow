@@ -10,6 +10,7 @@ from typing import Any, Callable
 from mlflow.entities import Dataset as DatasetEntity
 from mlflow.entities import RunTag
 from mlflow.genai.datasets.evaluation_dataset import DATASET_IDENTITY_ATTR, compute_records_sha256
+from mlflow.genai.scorers.scorer_utils import get_scorer_definition_digest
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils.mlflow_tags import (
     MLFLOW_GENAI_EVALUATE_AGENT_DIGEST,
@@ -58,29 +59,18 @@ def get_dataset_entity_from_attrs(data: Any) -> DatasetEntity | None:
         return None
 
 
-def _scorer_identity(scorer: Any) -> str | None:
-    if resource_name := getattr(scorer, "canonical_resource_name", None):
-        return resource_name
-    version = getattr(scorer, "scorer_version", None)
-    experiment_id = getattr(scorer, "_experiment_id", None)
-    if version is not None and experiment_id is not None:
-        return f"experiments/{experiment_id}/scorers/{scorer.name}/versions/{version}"
-    return None
-
-
 def get_scorers_digest(scorers: list[Any]) -> dict[str, Any] | None:
     """
-    Digest the registered scorer versions of an evaluation. Unregistered scorers have no
-    stable identity, so they are only counted, and the digest is partial when
-    ``registered < total``.
+    Digest the definitions of the scorers of an evaluation, registered or not. A scorer whose
+    definition can't be hashed is only counted, so the digest is partial when ``hashed < total``.
     """
     if not scorers:
         return None
-    identities = [identity for scorer in scorers if (identity := _scorer_identity(scorer))]
+    digests = [digest for scorer in scorers if (digest := get_scorer_definition_digest(scorer))]
     value: dict[str, Any] = {}
-    if identities:
-        value["digest"] = _sha256("\n".join(sorted(identities)))
-    value["registered"] = len(identities)
+    if digests:
+        value["digest"] = _sha256("\n".join(sorted(digests)))
+    value["hashed"] = len(digests)
     value["total"] = len(scorers)
     return value
 
