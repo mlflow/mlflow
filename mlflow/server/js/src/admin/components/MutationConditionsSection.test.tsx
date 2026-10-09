@@ -157,3 +157,59 @@ describe('conditionKey', () => {
     expect(conditionKey(asValue)).not.toBe(conditionKey(asTarget));
   });
 });
+
+describe("MutationConditionsSection — the type's vocabulary gates staging", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('refuses to stage an alias clause on a type that owns no aliases', async () => {
+    // The default type is Experiment, which owns no aliases, so the backend would refuse
+    // this condition. Blocking it here is the difference between a field-level message and
+    // a staged row that reads as configured policy until submit fails.
+    renderWithDesignSystem(<MutationConditionsSection value={[]} onChange={onChange} />);
+    await userEvent.type(screen.getByPlaceholderText("tag_value != 'prod'"), "alias != 'champion'");
+
+    const add = screen.getByRole('button', { name: 'Add mutation condition' });
+    await waitFor(() => expect(add).toBeDisabled());
+    expect(screen.getByTestId('admin.mutation_condition_form.value_condition_vocabulary_error')).toHaveTextContent(
+      "'alias' is not available on Experiment",
+    );
+
+    await userEvent.click(add);
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('refuses a flat request identifier in the target condition', async () => {
+    // The two fields accept overlapping syntax, so a clause copied from one to the other
+    // looks right; `tag_key` has no resource-side meaning.
+    renderWithDesignSystem(<MutationConditionsSection value={[]} onChange={onChange} />);
+    await userEvent.type(screen.getByPlaceholderText("tags.lifecycle != 'prod'"), "tag_key != 'pii'");
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Add mutation condition' })).toBeDisabled());
+    expect(screen.getByTestId('admin.mutation_condition_form.target_condition_vocabulary_error')).toHaveTextContent(
+      "'tag_key' is not available on Experiment",
+    );
+  });
+
+  it("stages the condition once the clause uses the type's vocabulary", async () => {
+    renderWithDesignSystem(<MutationConditionsSection value={[]} onChange={onChange} />);
+    const field = screen.getByPlaceholderText("tag_value != 'prod'");
+    await userEvent.type(field, "alias != 'champion'");
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Add mutation condition' })).toBeDisabled());
+
+    await userEvent.clear(field);
+    await userEvent.type(field, "tag_value != 'prod'");
+    const add = screen.getByRole('button', { name: 'Add mutation condition' });
+    await waitFor(() => expect(add).toBeEnabled());
+    expect(
+      screen.queryByTestId('admin.mutation_condition_form.value_condition_vocabulary_error'),
+    ).not.toBeInTheDocument();
+
+    await userEvent.click(add);
+    await waitFor(() => expect(onChange).toHaveBeenCalledTimes(1));
+    expect(onChange.mock.calls[0][0]).toEqual([
+      expect.objectContaining({ resourceType: 'experiment', valueCondition: "tag_value != 'prod'" }),
+    ]);
+  });
+});
