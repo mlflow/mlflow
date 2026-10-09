@@ -168,6 +168,15 @@ class MutationConditionRow(NamedTuple):
 #: by an unbounded loop holding a write transaction open.
 _SLOT_ALLOCATION_ATTEMPTS = 5
 
+#: The registry families a rename can address, each mapped to the version type that names
+#: that family as its ``container_resource_type``. The pairing is what keeps a rename of one
+#: family from retargeting the other's version rows, and the map is the single place the two
+#: families are enumerated, so a third registry family cannot be added to one half only.
+_REGISTRY_RENAME_VERSION_TYPES: dict[str, str] = {
+    RESOURCE_TYPE_REGISTERED_MODEL: RESOURCE_TYPE_REGISTERED_MODEL_VERSION,
+    RESOURCE_TYPE_PROMPT: RESOURCE_TYPE_PROMPT_VERSION,
+}
+
 
 class SqlAlchemyStore:
     @classmethod
@@ -648,7 +657,9 @@ class SqlAlchemyStore:
                 synchronize_session=False,
             )
 
-    def rename_conditions_for_registry_resource(self, old_name: str, new_name: str) -> None:
+    def rename_conditions_for_registry_resource(
+        self, old_name: str, new_name: str, resource_families: tuple[str, ...]
+    ) -> None:
         """Follow a registered-model/prompt rename with the conditions scoped to that name.
 
         The companion to :meth:`rename_grants_for_resource`, and necessary for the same
@@ -667,14 +678,20 @@ class SqlAlchemyStore:
           which are wildcard-only on their own axis and name the model as their
           ``container_resource_pattern`` instead.
 
-        Both families are swept unconditionally, following the grant hook: names are unique
-        across the registry, so exactly one matches and the other is a no-op -- cheaper and
-        more robust than classifying the family from the response. Each version type is
-        paired with its own container type, which is defence in depth rather than what
-        provides the isolation: the per-type ``resource_type ==`` filter already partitions
-        the rows, and :func:`normalize_condition_scope` refuses to store a row whose
-        container is not its type's declared one. It costs nothing and keeps a corrupt row
-        from being retargeted.
+        ``resource_families`` selects which families to rewrite, and the caller passes the
+        one that was actually renamed. Sweeping both unconditionally -- which this did,
+        following the grant hook -- is wrong, because conditions are not existence-bound:
+        a ``prompt`` row naming the string a ``registered_model`` currently holds is a
+        legitimate pre-created policy rather than debris, and moving it leaves a prompt
+        later created under the old name unrestricted. Names being unique across the
+        registry makes "exactly one family matches" true of the *resource* and not of the
+        *policy*, which is where the old reasoning broke.
+
+        Each selected family's version type is paired with its own container type. That
+        pairing is defence in depth rather than what provides the isolation: the per-type
+        ``resource_type ==`` filter already partitions the rows, and
+        :func:`normalize_condition_scope` refuses to store a row whose container is not its
+        type's declared one. It costs nothing and keeps a corrupt row from being retargeted.
 
         Scoped to the active workspace, like the grant rename: a name identifies a
         different resource in a different workspace, so rewriting beyond it would retarget
@@ -690,6 +707,16 @@ class SqlAlchemyStore:
         ``(role_id, resource_type, condition_slot)``, and two rows scoped to the same name
         are harmless anyway because every applicable condition must pass.
         """
+        families = tuple(resource_families)
+        unknown = [family for family in families if family not in _REGISTRY_RENAME_VERSION_TYPES]
+        if not families or unknown:
+            # Refused rather than defaulted: a silent no-op would drop every restriction on
+            # the renamed resource, which is the fail-open this method exists to prevent.
+            raise MlflowException.invalid_parameter_value(
+                "'resource_families' must be a non-empty selection of "
+                f"{', '.join(repr(f) for f in _REGISTRY_RENAME_VERSION_TYPES)}; got "
+                f"{', '.join(repr(f) for f in families) if families else 'nothing'}."
+            )
         with self.ManagedSessionMaker(read_only=False) as session:
             workspace = self._get_active_workspace_name()
             role_ids = [
@@ -703,23 +730,17 @@ class SqlAlchemyStore:
                 return
             session.query(SqlMutationConditions).filter(
                 SqlMutationConditions.role_id.in_(role_ids),
-                SqlMutationConditions.resource_type.in_((
-                    RESOURCE_TYPE_REGISTERED_MODEL,
-                    RESOURCE_TYPE_PROMPT,
-                )),
+                SqlMutationConditions.resource_type.in_(families),
                 SqlMutationConditions.resource_pattern == old_name,
             ).update(
                 {SqlMutationConditions.resource_pattern: new_name},
                 synchronize_session=False,
             )
-            for version_type, container_type in (
-                (RESOURCE_TYPE_REGISTERED_MODEL_VERSION, RESOURCE_TYPE_REGISTERED_MODEL),
-                (RESOURCE_TYPE_PROMPT_VERSION, RESOURCE_TYPE_PROMPT),
-            ):
+            for family in families:
                 session.query(SqlMutationConditions).filter(
                     SqlMutationConditions.role_id.in_(role_ids),
-                    SqlMutationConditions.resource_type == version_type,
-                    SqlMutationConditions.container_resource_type == container_type,
+                    SqlMutationConditions.resource_type == _REGISTRY_RENAME_VERSION_TYPES[family],
+                    SqlMutationConditions.container_resource_type == family,
                     SqlMutationConditions.container_resource_pattern == old_name,
                 ).update(
                     {SqlMutationConditions.container_resource_pattern: new_name},

@@ -1837,6 +1837,73 @@ def test_rename_registered_model_permission_rejects_missing_fields(
             auth_module.rename_registered_model_permission(Response(status=200))
 
 
+def _rename_response(*, is_prompt: bool) -> Response:
+    """A ``RenameRegisteredModel`` response body for the renamed entity.
+
+    Prompts and registered models are the same row distinguished by a tag, so the tag is
+    the only thing that tells the two renames apart.
+    """
+    tags = [{"key": IS_PROMPT_TAG_KEY, "value": "true"}] if is_prompt else []
+    return Response(
+        json.dumps({"registered_model": {"name": "bar", "tags": tags}}),
+        status=200,
+        content_type="application/json",
+    )
+
+
+@pytest.mark.parametrize(
+    ("is_prompt", "expected"),
+    [(True, ("prompt",)), (False, ("registered_model",))],
+)
+def test_renamed_registry_families_classifies_from_the_renamed_entity(is_prompt, expected):
+    assert auth_module._renamed_registry_families(_rename_response(is_prompt=is_prompt)) == expected
+
+
+def test_renamed_registry_families_falls_back_to_both_without_a_json_body():
+    # Off the live path -- ``_after_request`` skips 4xx/5xx and a successful rename always
+    # returns the model. Both is the right fallback anyway: at worst it moves a policy in
+    # the other family, where guessing one family wrongly would orphan every condition on
+    # the resource that was actually renamed.
+    assert auth_module._renamed_registry_families(Response(status=200)) == (
+        "registered_model",
+        "prompt",
+    )
+
+
+def test_rename_moves_conditions_of_only_the_renamed_family(
+    workspace_permission_setup, monkeypatch
+):
+    """A model rename leaves a same-named prompt policy alone.
+
+    Conditions are not existence-bound, so the ``(prompt, "foo")`` row is a policy
+    pre-created for a prompt that does not exist yet -- not debris from the model being
+    renamed. Sweeping it away leaves that prompt unrestricted once someone creates it,
+    which is fail-open and reachable by anyone who can rename.
+
+    Redaction is stubbed out: it needs an authenticated sender and is not what this pins.
+    """
+    monkeypatch.setattr(auth_module, "_redact_registered_model_response", lambda *a, **k: None)
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    role_id = store.list_user_roles(store.get_user(username).id)[0].id
+    model = store.add_mutation_condition(
+        role_id, "registered_model", resource_pattern="foo", value_condition="tag_key != 'a'"
+    )
+    prompt = store.add_mutation_condition(
+        role_id, "prompt", resource_pattern="foo", value_condition="tag_key != 'b'"
+    )
+
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/registered-models/rename",
+        method="POST",
+        json={"name": "foo", "new_name": "bar"},
+    ):
+        auth_module.rename_registered_model_permission(_rename_response(is_prompt=False))
+
+    assert store.get_mutation_condition(model.id).resource_pattern == "bar"
+    assert store.get_mutation_condition(prompt.id).resource_pattern == "foo"
+
+
 def test_validate_can_view_workspace_requires_access(workspace_permission_setup):
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]

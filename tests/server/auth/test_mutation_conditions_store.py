@@ -10,7 +10,11 @@ import pytest
 from sqlalchemy import event
 
 from mlflow.exceptions import MlflowException
-from mlflow.server.auth.sqlalchemy_store import SqlAlchemyStore
+from mlflow.server.auth.conditions import RESOURCE_VALUES_SHAPES
+from mlflow.server.auth.sqlalchemy_store import (
+    _REGISTRY_RENAME_VERSION_TYPES,
+    SqlAlchemyStore,
+)
 
 _PASSWORD = "password1234"
 _WORKSPACE = "default"
@@ -895,7 +899,7 @@ def test_rename_moves_only_the_rows_addressed_by_the_old_name(store, role):
         value_condition="tag_key != 'e'",
     )
 
-    store.rename_conditions_for_registry_resource("old", "new")
+    store.rename_conditions_for_registry_resource("old", "new", ("registered_model",))
 
     assert store.get_mutation_condition(scoped.id).resource_pattern == "new"
     assert store.get_mutation_condition(version.id).container_resource_pattern == "new"
@@ -906,48 +910,118 @@ def test_rename_moves_only_the_rows_addressed_by_the_old_name(store, role):
 
 
 def test_rename_does_not_cross_registry_families(store, role):
-    """Each version type keeps its own container type across a rename.
+    """A rename touches only the family that was renamed, parent rows and version rows.
 
-    Both families are swept unconditionally -- names are unique across the registry, so
-    one matches and the other is a no-op. The isolation comes from the per-type
-    ``resource_type ==`` filter, which already partitions the rows; the paired
-    ``container_resource_type`` is defence in depth, the same relationship
-    ``_scope_predicates`` documents. What this pins is the outcome: a rename moves the
-    container *pattern* and never the container *type*, so no row can end up addressed by
-    the other family's container.
+    The case the old unconditional sweep got wrong. A condition does not require its
+    resource to exist, so a ``prompt`` row naming the string a ``registered_model``
+    currently holds is a policy pre-created for a prompt nobody has created yet -- not
+    debris from this model. Moving it with the model's rename leaves that prompt
+    unrestricted the moment it is created, which is fail-open and reachable by anyone who
+    can rename. Names being unique across the registry makes "one family matches" true of
+    the resource, not of the policy.
+
+    Pinned on both axes, because they are filtered separately: the parent rows by
+    ``resource_type``, the version rows by their paired ``container_resource_type``.
     """
-    prompt_version = store.add_mutation_condition(
-        role.id,
-        "prompt_version",
-        container_resource_type="prompt",
-        container_resource_pattern="shared",
-        value_condition="tag_key != 'a'",
+    model = store.add_mutation_condition(
+        role.id, "registered_model", resource_pattern="shared", value_condition="tag_key != 'a'"
+    )
+    prompt = store.add_mutation_condition(
+        role.id, "prompt", resource_pattern="shared", value_condition="tag_key != 'b'"
     )
     model_version = store.add_mutation_condition(
         role.id,
         "registered_model_version",
         container_resource_type="registered_model",
         container_resource_pattern="shared",
-        value_condition="tag_key != 'b'",
+        value_condition="tag_key != 'c'",
+    )
+    prompt_version = store.add_mutation_condition(
+        role.id,
+        "prompt_version",
+        container_resource_type="prompt",
+        container_resource_pattern="shared",
+        value_condition="tag_key != 'd'",
     )
 
-    store.rename_conditions_for_registry_resource("shared", "renamed")
+    store.rename_conditions_for_registry_resource("shared", "renamed", ("registered_model",))
 
-    # Both move, because each matched its OWN family's container type -- and the sweep
-    # covers both families. What must not happen is one row taking the other's container.
+    # The renamed family moves, parent and version alike.
+    assert store.get_mutation_condition(model.id).resource_pattern == "renamed"
+    assert store.get_mutation_condition(model_version.id).container_resource_pattern == "renamed"
+    # The prompt family is left alone -- it was never what got renamed.
+    assert store.get_mutation_condition(prompt.id).resource_pattern == "shared"
+    assert store.get_mutation_condition(prompt_version.id).container_resource_pattern == "shared"
+    # And a rename never rewrites a container *type*, only its pattern.
     assert store.get_mutation_condition(prompt_version.id).container_resource_type == "prompt"
     assert (
         store.get_mutation_condition(model_version.id).container_resource_type == "registered_model"
     )
+
+
+def test_renaming_a_prompt_moves_the_prompt_family_and_not_the_model_family(store, role):
+    # The mirror of the test above: ``RenameRegisteredModel`` renames prompts too, so the
+    # isolation has to hold in both directions.
+    model = store.add_mutation_condition(
+        role.id, "registered_model", resource_pattern="shared", value_condition="tag_key != 'a'"
+    )
+    prompt = store.add_mutation_condition(
+        role.id, "prompt", resource_pattern="shared", value_condition="tag_key != 'b'"
+    )
+    prompt_version = store.add_mutation_condition(
+        role.id,
+        "prompt_version",
+        container_resource_type="prompt",
+        container_resource_pattern="shared",
+        value_condition="tag_key != 'c'",
+    )
+
+    store.rename_conditions_for_registry_resource("shared", "renamed", ("prompt",))
+
+    assert store.get_mutation_condition(prompt.id).resource_pattern == "renamed"
     assert store.get_mutation_condition(prompt_version.id).container_resource_pattern == "renamed"
-    assert store.get_mutation_condition(model_version.id).container_resource_pattern == "renamed"
+    assert store.get_mutation_condition(model.id).resource_pattern == "shared"
+
+
+@pytest.mark.parametrize("families", [(), ("experiment",), ("registered_model", "experiment")])
+def test_rename_refuses_a_family_that_is_not_a_registry_family(store, role, families):
+    """Refused, not silently ignored.
+
+    A no-op would drop every restriction on the renamed resource while leaving its grants
+    intact, which is the exact fail-open this sweep exists to close, so an unusable
+    selection has to be loud rather than default to something.
+    """
+    scoped = store.add_mutation_condition(
+        role.id, "registered_model", resource_pattern="old", value_condition="tag_key != 'a'"
+    )
+    with pytest.raises(MlflowException, match="resource_families"):
+        store.rename_conditions_for_registry_resource("old", "new", families)
+    assert store.get_mutation_condition(scoped.id).resource_pattern == "old"
+
+
+def test_every_registry_family_pairs_with_its_own_version_type():
+    """Derived from the map so the two halves of a family cannot drift apart.
+
+    Each key is a parent type whose ``resource_pattern`` is the name; each value is the
+    version type that names that parent as its ``container_resource_type``. Asserted
+    against the condition vocabulary rather than restated, so adding a registry family to
+    one and not the other fails here.
+    """
+    assert set(_REGISTRY_RENAME_VERSION_TYPES) == {
+        "registered_model",
+        "prompt",
+    }
+    for parent, version in _REGISTRY_RENAME_VERSION_TYPES.items():
+        assert parent in RESOURCE_VALUES_SHAPES
+        assert version in RESOURCE_VALUES_SHAPES
+        assert version == f"{parent}_version"
 
 
 def test_rename_is_a_no_op_when_nothing_is_scoped_to_the_name(store, role):
     unscoped = store.add_mutation_condition(
         role.id, "registered_model", value_condition="tag_key != 'a'"
     )
-    store.rename_conditions_for_registry_resource("absent", "new")
+    store.rename_conditions_for_registry_resource("absent", "new", ("registered_model",))
     assert store.get_mutation_condition(unscoped.id).resource_pattern == "*"
 
 

@@ -8405,12 +8405,36 @@ def filter_search_model_versions(resp: Response):
     resp.data = message_to_json(response_message)
 
 
+def _renamed_registry_families(resp: Response) -> tuple[str, ...]:
+    """Which registry family ``RenameRegisteredModel`` just renamed.
+
+    The route is shared between registered models and prompts, and the two are the same
+    row in ``registered_models`` distinguished by a tag, so the family has to be read off
+    the renamed entity. ``_entity_is_prompt`` is how every other handler on this route
+    family decides (see :func:`set_can_manage_registered_model_permission`), and the
+    response carries the entity through ``to_mlflow_entity()``, tags included.
+
+    Falls back to both families when the response has no JSON object to classify from --
+    which only happens off the live path, since ``_after_request`` skips 4xx/5xx and a
+    successful rename always returns the model. Both is the right fallback: it is the old
+    behaviour, so at worst it moves a policy in the other family, whereas guessing one
+    family wrongly would orphan every condition on the resource that was renamed.
+    """
+    if not isinstance(resp.json, dict):
+        return (RESOURCE_TYPE_REGISTERED_MODEL, RESOURCE_TYPE_PROMPT)
+    message = RenameRegisteredModel.Response()
+    parse_dict(resp.json, message)
+    if _entity_is_prompt(message.registered_model):
+        return (RESOURCE_TYPE_PROMPT,)
+    return (RESOURCE_TYPE_REGISTERED_MODEL,)
+
+
 def rename_registered_model_permission(resp: Response):
     """
     Propagate a registered-model rename to RBAC grants and mutation conditions.
 
     ``RenameRegisteredModel`` is shared between registered models and prompts;
-    sweep both namespaces so a prompt rename doesn't orphan its
+    sweep both grant namespaces so a prompt rename doesn't orphan its
     ``(prompt, old_name, ...)`` grants. Names are unique within the registry,
     so exactly one of the two renames applies and the other is a no-op.
     """
@@ -8428,7 +8452,17 @@ def rename_registered_model_permission(resp: Response):
     # the resource while leaving the grants they narrowed intact -- fail-open, and reachable
     # by anyone who can rename. Covers the parent rows and its versions' container scope in
     # one transaction.
-    store.rename_conditions_for_registry_resource(old_name, new_name)
+    #
+    # Only the family that was actually renamed, unlike the grant sweep above. A condition
+    # does not require its resource to exist, so a row in the other family naming the same
+    # string is a policy pre-created for a resource not created yet, not a leftover of this
+    # one; moving it would leave that resource unrestricted when it does get created. The
+    # grant sweep keeps its own behaviour here deliberately -- changing it is an upstream
+    # concern (#23426) with the opposite failure direction, since a misplaced grant denies
+    # access while a misplaced condition removes a restriction.
+    store.rename_conditions_for_registry_resource(
+        old_name, new_name, _renamed_registry_families(resp)
+    )
     # The renamed model comes back through ``to_mlflow_entity()``, so it carries the same embedded
     # versions Get and Update do.
     _redact_registered_model_response(resp, RenameRegisteredModel.Response())
