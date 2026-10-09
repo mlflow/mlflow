@@ -403,8 +403,8 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "deprecation_date": "2026-10-02",
-      "last_updated_at": "2026-09-17"
+      "deprecation_date": "2027-03-15",
+      "last_updated_at": "2026-10-09"
     },
     "gemini-2.5-flash-lite": {
       "mode": "chat",
@@ -719,7 +719,8 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-09-25"
+      "deprecation_date": "2026-11-17",
+      "last_updated_at": "2026-10-09"
     },
     "gemini-3-flash-preview": {
       "mode": "chat",
@@ -1867,8 +1868,8 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "deprecation_date": "2026-09-30",
-      "last_updated_at": "2026-08-31"
+      "deprecation_date": "2026-10-22",
+      "last_updated_at": "2026-10-09"
     },
     "gemini-pro-latest": {
       "mode": "chat",

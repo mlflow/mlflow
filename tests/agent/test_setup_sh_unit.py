@@ -103,7 +103,8 @@ def test_choose_agent_without_prompting(tmp_path: Path, installed, requested, ex
 
     result = run_shell(
         """
-PATH=$1
+# Use the POSIX form so a Windows drive colon (C:) does not split PATH.
+PATH=$(cd "$1" && pwd)
 shift
 parse_args "$@"
 validate_agent_name
@@ -125,7 +126,8 @@ printf '%s\\n' "$agent_choice"
 def test_choose_agent_rejects_missing_explicit_agent(tmp_path: Path, agent: str):
     result = run_shell(
         """
-PATH=$1
+# Use the POSIX form so a Windows drive colon (C:) does not split PATH.
+PATH=$(cd "$1" && pwd)
 shift
 parse_args "$@"
 validate_agent_name

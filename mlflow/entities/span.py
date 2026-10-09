@@ -653,13 +653,21 @@ class Span:
 
         # Convert links to OTLP proto format
         for link in self.links:
-            proto_link = otel_span.links.add()
             # Convert MLflow trace ID (tr-xxx or trace:/loc/xxx) back to OTel bytes
             link_trace_id_hex = parse_trace_id_v4(link.trace_id)[1].removeprefix(
                 TRACE_REQUEST_ID_PREFIX
             )
-            proto_link.trace_id = decode_id(link_trace_id_hex).to_bytes(16, "big")
-            proto_link.span_id = decode_id(link.span_id).to_bytes(8, "big")
+            link_trace_id = decode_id(link_trace_id_hex)
+            link_span_id = decode_id(link.span_id)
+            # Some producers (e.g. Claude Code detailed beta tracing) emit IDs wider than the
+            # 16-byte trace / 8-byte span IDs OTLP allows. Drop such links rather than failing
+            # the whole trace.
+            if link_trace_id.bit_length() > 128 or link_span_id.bit_length() > 64:
+                _logger.debug("Skipping link with out-of-range IDs on span '%s'.", self.name)
+                continue
+            proto_link = otel_span.links.add()
+            proto_link.trace_id = link_trace_id.to_bytes(16, "big")
+            proto_link.span_id = link_span_id.to_bytes(8, "big")
 
             # Add link attributes
             if link.attributes:

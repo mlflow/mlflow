@@ -36,7 +36,9 @@ cache-mode: none
 
 jobs:
   issue:
-    if: github.repository == 'mlflow/mlflow'
+    # Set the TRIAGE_DISABLED repository Actions variable to "true" to pause new triage runs.
+    # Delete it or set it to "false" to restore normal behavior.
+    if: github.repository == 'mlflow/mlflow' && vars.TRIAGE_DISABLED != 'true'
     runs-on: ubuntu-slim
     timeout-minutes: 5
     permissions:
@@ -517,7 +519,6 @@ jobs:
           - uses: ./.github/actions/setup-python
           - uses: ./.github/actions/setup-node
           - name: Install sandbox dependencies
-            timeout-minutes: 10
             run: |
               sudo apt-get update
               sudo apt-get install -y bubblewrap socat ripgrep
@@ -525,7 +526,6 @@ jobs:
                 sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
               fi
           - name: Install Claude Code
-            timeout-minutes: 10
             run: |
               .claude/scripts/install-claude.sh
               claude --version
@@ -541,7 +541,6 @@ jobs:
           key: ${{ steps.build-cache-key.outputs.key }}
       # Needs setup-node.
       - name: Install sandbox runtime
-        timeout-minutes: 10
         run: |
           export npm_config_before="$(date -u -d '7 days ago' +%Y-%m-%d)"
           npm install -g @anthropic-ai/sandbox-runtime@0.0.77
@@ -831,7 +830,7 @@ jobs:
   post_triage:
     needs: [issue, label, start_triage, triage]
     if: always() && needs.issue.result == 'success' && needs.start_triage.result == 'success'
-    runs-on: ubuntu-slim
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
       issues: write
