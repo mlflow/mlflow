@@ -1,6 +1,7 @@
 import asyncio
 import io
 import json
+from unittest import mock
 
 import pytest
 from fastapi import FastAPI
@@ -17,6 +18,7 @@ from mlflow.server.auth.sqlalchemy_store import SqlAlchemyStore as AuthStore
 from mlflow.server.fastapi_app import add_registry_exception_handlers
 from mlflow.server.skill_registry_api import skill_registry_router
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore as TrackingStore
+from mlflow.utils.validation import _MAX_BULK_REGISTER_SKILLS
 from mlflow.utils.workspace_context import ServerWorkspaceContext
 
 
@@ -90,6 +92,52 @@ def test_creation_rejects_malformed_authorization_identity(workspace_registry, p
     client, _, tracking_store, _ = workspace_registry
     response = client.post(f"/api/3.0/mlflow/skills{path}", json=body)
     assert response.status_code == 400, response.text
+    assert list(tracking_store.search_skills()) == []
+
+
+@pytest.mark.parametrize("path", ["", "/bulk-register"])
+@pytest.mark.parametrize("body", [b'{"name":', b"null", b"[]"])
+def test_invalid_creation_body_is_rejected_by_downstream_validation(workspace_registry, path, body):
+    client, _, tracking_store, _ = workspace_registry
+    with (
+        mock.patch.object(auth, "_skill_exists_for_auth") as parent_lookup,
+        mock.patch.object(auth, "validate_can_create_skill") as create_permission,
+        mock.patch.object(auth, "validate_can_register_skill") as register_permission,
+        mock.patch.object(tracking_store, "create_skill") as create,
+        mock.patch.object(skill_registry_api, "bulk_register_skill_versions") as register,
+    ):
+        response = client.post(
+            f"/api/3.0/mlflow/skills{path}",
+            content=body,
+            headers={"Content-Type": "application/json"},
+        )
+    assert response.status_code == 400, response.text
+    assert response.json()["error_code"] == "INVALID_PARAMETER_VALUE"
+    parent_lookup.assert_not_called()
+    create_permission.assert_not_called()
+    register_permission.assert_not_called()
+    create.assert_not_called()
+    register.assert_not_called()
+
+
+def test_oversized_bulk_registration_skips_parent_lookups(workspace_registry):
+    client, _, tracking_store, _ = workspace_registry
+    skills = [
+        {"name": f"skill-{i}", "source": "https://example.com/repo.git", "digest": "a" * 64}
+        for i in range(_MAX_BULK_REGISTER_SKILLS + 1)
+    ]
+    with (
+        mock.patch.object(auth, "_skill_exists_for_auth") as parent_lookup,
+        mock.patch.object(auth, "validate_can_register_skill") as permission,
+        mock.patch.object(skill_registry_api, "bulk_register_skill_versions") as register,
+    ):
+        response = client.post("/api/3.0/mlflow/skills/bulk-register", json={"skills": skills})
+    assert response.status_code == 400, response.text
+    assert response.json()["error_code"] == "INVALID_PARAMETER_VALUE"
+    assert str(_MAX_BULK_REGISTER_SKILLS) in response.json()["message"]
+    parent_lookup.assert_not_called()
+    permission.assert_not_called()
+    register.assert_not_called()
     assert list(tracking_store.search_skills()) == []
 
 

@@ -493,6 +493,7 @@ from mlflow.utils.rest_utils import _REST_API_PATH_PREFIX
 from mlflow.utils.search_utils import SearchUtils
 from mlflow.utils.uri import _decode, is_models_uri, validate_path_is_safe
 from mlflow.utils.validation import (
+    _MAX_BULK_REGISTER_SKILLS,
     _validate_organization_name,
     _validate_password,
     _validate_skill_name,
@@ -8241,19 +8242,18 @@ def _skill_identity_for_auth(name, organization="") -> tuple[str, str]:
     return organization, name
 
 
-async def _skill_auth_body(request: StarletteRequest) -> dict:
+async def _skill_auth_body(request: StarletteRequest) -> dict | None:
     try:
         body = await request.json()
-    except ValueError as e:
-        raise MlflowException.invalid_parameter_value("Expected a JSON object.") from e
-    if not isinstance(body, dict):
-        raise MlflowException.invalid_parameter_value("Expected a JSON object.")
-    return body
+    except ValueError:
+        return None
+    # FastAPI rejects invalid JSON and non-object bodies before invoking these handlers.
+    return body if isinstance(body, dict) else None
 
 
 async def _skill_registration_targets(
     request: StarletteRequest, endpoint, path_params: dict
-) -> list[tuple[str, str]]:
+) -> list[tuple[str, str]] | None:
     if endpoint in (
         _skill_registry_api.create_skill_version,
         _skill_registry_api.create_organization_skill_version,
@@ -8261,9 +8261,14 @@ async def _skill_registration_targets(
         return [_skill_identity_for_auth(path_params["name"], path_params.get("organization", ""))]
 
     body = await _skill_auth_body(request)
+    if body is None:
+        return None
     skills = body.get("skills")
     if not isinstance(skills, list) or not skills:
         raise MlflowException.invalid_parameter_value("'skills' must be a nonempty list.")
+    if len(skills) > _MAX_BULK_REGISTER_SKILLS:
+        # Let the request model reject the batch before doing any per-Skill auth work.
+        return None
     organization = body.get("organization", "")
     targets = []
     for skill in skills:
@@ -8286,12 +8291,16 @@ def _get_skill_registry_validator(
             return True
         if operation == "create":
             body = await _skill_auth_body(request)
+            if body is None:
+                return True  # Defer invalid bodies to FastAPI validation; no handler can run.
             organization, name = _skill_identity_for_auth(
                 body.get("name"), body.get("organization", "")
             )
             return validate_can_create_skill(username, organization, name)
         if operation == "register":
             targets = await _skill_registration_targets(request, route.endpoint, path_params)
+            if targets is None:
+                return True  # Invalid bodies and oversized batches cannot reach the handler.
             expected = {}
             for organization, name in targets:
                 parent_exists = _skill_exists_for_auth(organization, name)
