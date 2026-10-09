@@ -71,7 +71,7 @@ jobs:
         run: |
           marker="<!-- copilot-agent-pr:${PR_NUMBER} -->"
           body=$(printf '%s\n' \
-            "Copilot opened #${PR_NUMBER} for this issue. Test the fix with:" \
+            "Thanks for reporting this issue! Copilot opened #${PR_NUMBER} for this issue. Test the fix with:" \
             '' \
             '```bash' \
             "pip install -U 'git+https://github.com/${REPO}.git@refs/pull/${PR_NUMBER}/merge'" \
