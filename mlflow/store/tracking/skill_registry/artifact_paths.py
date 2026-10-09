@@ -39,6 +39,19 @@ AGENT_PLUGIN_UPLOAD_ROOT = "agent-plugins"
 _TOKEN_PATTERN = re.compile(r"[0-9a-f]{32}")
 
 
+def is_skill_upload_namespace(artifact_path: str) -> bool:
+    """Whether a proxy path can resolve into the server-owned Skill upload tree."""
+    try:
+        decoded = _decode(artifact_path)
+    except ValueError:
+        # The artifact handler rejects paths that cannot be fully decoded.
+        return False
+    segments = [segment for segment in decoded.split("/") if segment not in ("", ".")]
+    if len(segments) >= 2 and segments[0].lower() == "workspaces":
+        segments = segments[2:]
+    return bool(segments and segments[0].lower() == SKILL_UPLOAD_ROOT)
+
+
 def _identity_prefix(root: str, name: str, organization: str) -> str:
     if organization:
         return f"{root}/@{organization}/{name}"

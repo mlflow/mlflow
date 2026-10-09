@@ -112,6 +112,7 @@ RESOURCE_TYPE_GATEWAY_SECRET = "gateway_secret"
 RESOURCE_TYPE_GATEWAY_ENDPOINT = "gateway_endpoint"
 RESOURCE_TYPE_GATEWAY_MODEL_DEFINITION = "gateway_model_definition"
 RESOURCE_TYPE_MCP_SERVER = "mcp_server"
+RESOURCE_TYPE_SKILL = "skill"
 
 # Workspace-wide permissions slot. ``resource_pattern`` must be ``"*"``. The
 # permission level distinguishes member from admin:
@@ -168,6 +169,7 @@ TYPE: dict[str, frozenset[PatternKind]] = {
     RESOURCE_TYPE_GATEWAY_ENDPOINT: WILDCARD_AND_ID,
     RESOURCE_TYPE_GATEWAY_MODEL_DEFINITION: WILDCARD_AND_ID,
     RESOURCE_TYPE_MCP_SERVER: WILDCARD_AND_ID,
+    RESOURCE_TYPE_SKILL: WILDCARD_AND_ID,
     RESOURCE_TYPE_RUN: WILDCARD_ONLY,
     RESOURCE_TYPE_TRACE: WILDCARD_ONLY,
     RESOURCE_TYPE_ASSESSMENT: WILDCARD_ONLY,
@@ -215,6 +217,30 @@ RESOURCE_GRANTABLE_PERMISSIONS = frozenset({
     DENY.name,
 })
 
+# ``USE`` has no Skill-specific operation. ``DENY`` is the shared RBAC veto.
+SKILL_REGISTRY_GRANTABLE_PERMISSIONS = frozenset({READ.name, EDIT.name, MANAGE.name, DENY.name})
+SKILL_REGISTRY_RESOURCE_TYPES = frozenset({
+    RESOURCE_TYPE_SKILL,
+})
+
+
+def _format_skill_registry_resource_key(organization: str | None, name: str) -> str:
+    return f"@{organization}/{name}" if organization else name
+
+
+def _parse_skill_registry_resource_key(resource_id: str) -> tuple[str, str]:
+    if resource_id.startswith("@"):
+        organization, sep, name = resource_id[1:].partition("/")
+        if sep and organization and name and "/" not in name:
+            return organization, name
+    elif resource_id and "/" not in resource_id:
+        return "", resource_id
+
+    raise MlflowException(
+        "Invalid Skill Registry resource_id. Expected 'name' or '@organization/name'.",
+        INVALID_PARAMETER_VALUE,
+    )
+
 
 def _validate_permission(permission: str):
     if permission not in ALL_PERMISSIONS:
@@ -239,9 +265,10 @@ def _validate_permission_for_resource_type(permission: str, resource_type: str) 
     - ``resource_type='workspace'`` accepts ``USE`` or ``MANAGE`` — the workspace-wide
       grant slot. ``USE`` is the regular member tier; ``MANAGE`` additionally grants
       role/user administration.
-    - Concrete resource types accept any of ``READ`` / ``USE`` / ``EDIT`` / ``MANAGE``.
-      ``NO_PERMISSIONS`` is rejected: an absent grant combined with the configured
-      ``default_permission`` already expresses "no access".
+    - Skill Registry resources accept ``READ`` / ``EDIT`` / ``MANAGE`` / ``DENY``.
+    - Other concrete resource types accept any of ``READ`` / ``USE`` / ``EDIT`` /
+      ``MANAGE``. ``NO_PERMISSIONS`` is rejected: an absent grant combined with
+      the configured ``default_permission`` already expresses "no access".
     """
     _validate_permission(permission)
     _validate_resource_type(resource_type)
@@ -251,6 +278,15 @@ def _validate_permission_for_resource_type(permission: str, resource_type: str) 
                 f"Invalid permission '{permission}' for resource_type='{RESOURCE_TYPE_WORKSPACE}'. "
                 f"Workspace-wide grants accept only: "
                 f"{tuple(sorted(WORKSPACE_GRANTABLE_PERMISSIONS))}.",
+                INVALID_PARAMETER_VALUE,
+            )
+        return
+    if resource_type in SKILL_REGISTRY_RESOURCE_TYPES:
+        if permission not in SKILL_REGISTRY_GRANTABLE_PERMISSIONS:
+            raise MlflowException(
+                f"Invalid permission '{permission}' for resource_type='{resource_type}'. "
+                f"Skill Registry grants accept only: "
+                f"{tuple(sorted(SKILL_REGISTRY_GRANTABLE_PERMISSIONS))}.",
                 INVALID_PARAMETER_VALUE,
             )
         return

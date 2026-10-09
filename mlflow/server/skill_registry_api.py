@@ -33,6 +33,7 @@ from mlflow.store.tracking import NOT_SET
 from mlflow.utils.validation import (
     _MAX_BULK_REGISTER_SKILLS,
     _MAX_REGISTRY_ICONS_PER_LIST,
+    _parse_skill_identities,
     _validate_icon_mime_type,
     _validate_icon_url,
     _validate_organization_name,
@@ -212,10 +213,6 @@ class CreateSkillVersionRequest(BaseModel):
     status: str = SkillStatus.ACTIVE.value
 
 
-class RegisterSkillRequest(CreateSkillVersionRequest):
-    pass
-
-
 class BulkRegisterSkillRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -308,14 +305,8 @@ class BulkRegisterSkillsResponse(BaseModel):
     skill_versions: list[SkillVersionResponse]
 
 
-def _skill_version_create_openapi_extra(*, require_name: bool = False) -> dict[str, Any]:
+def _skill_version_create_openapi_extra() -> dict[str, Any]:
     json_schema = CreateSkillVersionRequest.model_json_schema()
-    if require_name:
-        json_schema["required"] = ["name"]
-        json_schema["properties"]["name"] = {
-            "type": "string",
-            "title": "Name",
-        }
 
     return {
         "requestBody": {
@@ -340,7 +331,6 @@ def _skill_version_create_openapi_extra(*, require_name: bool = False) -> dict[s
 
 
 _SKILL_VERSION_CREATE_OPENAPI_EXTRA = _skill_version_create_openapi_extra()
-_REGISTER_SKILL_OPENAPI_EXTRA = _skill_version_create_openapi_extra(require_name=True)
 
 
 def _icons_to_entities(icons: list[SkillIconRequestPayload] | None) -> list[RegistryIcon] | None:
@@ -369,6 +359,7 @@ async def _create_skill_version(
     request: Request,
     organization: str = "",
 ) -> SkillVersionResponse:
+    expected_parent_exists = getattr(request.state, "skill_expected_parent_exists", None)
     async with _parse_registration_request(
         request,
         name=name,
@@ -379,7 +370,10 @@ async def _create_skill_version(
             registration,
             content=content,
             multipart=multipart,
+            expected_parent_exists=expected_parent_exists,
         )
+    if expected_parent_exists is False:
+        request.state.skill_created_parents = [(organization, name)]
     return SkillVersionResponse.from_entity(version)
 
 
@@ -558,11 +552,15 @@ def _delete_skill_version(
     return {}
 
 
-def _delete_skill(name: str, organization: str = "") -> dict[str, Any]:
+def _delete_skill(name: str, request: Request, organization: str = "") -> dict[str, Any]:
     from mlflow.server.skill_registry.deletion import delete_skill
 
     _validate_skill_path_identity(organization, name)
-    delete_skill(name=name, organization=organization)
+    delete_skill(
+        name=name,
+        organization=organization,
+        before_commit=getattr(request.state, "skill_delete_before_commit", None),
+    )
     return {}
 
 
@@ -593,8 +591,8 @@ def _update_skill_version(
 def _registration_from_metadata(
     metadata: bytes | str | dict[str, Any],
     username: str | None,
-    name: str | None = None,
-    organization: str | None = None,
+    name: str,
+    organization: str,
 ) -> SkillVersionRegistration:
     if isinstance(metadata, (bytes, str)):
         try:
@@ -604,19 +602,18 @@ def _registration_from_metadata(
                 "The 'metadata' part must contain a valid JSON object."
             ) from e
     try:
-        registration = RegisterSkillRequest.model_validate(metadata)
+        registration = CreateSkillVersionRequest.model_validate(metadata)
     except ValueError as e:
         raise MlflowException.invalid_parameter_value(f"Invalid registration metadata: {e}") from e
-    resolved_name = registration.name if name is None else name
-    resolved_organization = registration.organization if organization is None else organization
-    if resolved_name is None:
-        raise MlflowException.invalid_parameter_value(
-            "'name' must be provided explicitly for registration."
-        )
-    _validate_skill_path_identity(resolved_organization, resolved_name)
+    for field, expected in (("name", name), ("organization", organization)):
+        if field in registration.model_fields_set and getattr(registration, field) != expected:
+            raise MlflowException.invalid_parameter_value(
+                f"Registration metadata '{field}' must match the path identity."
+            )
+    _validate_skill_path_identity(organization, name)
     return SkillVersionRegistration(
-        name=resolved_name,
-        organization=resolved_organization,
+        name=name,
+        organization=organization,
         source_type=registration.source_type,
         source=registration.source,
         ref=registration.ref,
@@ -685,8 +682,8 @@ def _request_with_multipart_size_limit(request: Request) -> Request:
 @asynccontextmanager
 async def _parse_registration_request(
     request: Request,
-    name: str | None = None,
-    organization: str | None = None,
+    name: str,
+    organization: str = "",
 ) -> AsyncIterator[tuple[SkillVersionRegistration, Any | None, bool]]:
     content_type = request.headers.get("content-type", "").split(";", 1)[0].lower()
     username = getattr(request.state, "username", None)
@@ -767,6 +764,7 @@ def create_skill(body: CreateSkillRequest, request: Request) -> SkillResponse:
         icons=_icons_to_entities(body.icons),
         created_by=username,
     )
+    request.state.skill_created_parents = [(body.organization, body.name)]
     return SkillResponse.from_entity(skill)
 
 
@@ -794,18 +792,41 @@ def _update_skill(
 
 @skill_registry_router.get("", response_model=SearchSkillsResponse)
 def search_skills(
+    request: Request,
     filter_string: str | None = Query(None),
     max_results: int = Query(100),
     order_by: list[str] | None = Query(None),
     page_token: str | None = Query(None),
+    include_skill_identities: Annotated[
+        list[str] | None,
+        Query(
+            description=(
+                "Repeat this argument to select identities such as reviewer and @acme/reviewer. "
+                "Omit it to select all Skills; a single empty value selects none."
+            )
+        ),
+    ] = None,
 ) -> SearchSkillsResponse:
     from mlflow.server.handlers import _get_tracking_store
 
+    if include_skill_identities == [""]:
+        include_skill_identities = []
+    selected_identities = _parse_skill_identities(include_skill_identities)
+    scoped_skill_identities, exclude_skill_identities = getattr(
+        request.state, "skill_identity_scope", (None, None)
+    )
+    if scoped_skill_identities is not None:
+        scope = set(scoped_skill_identities)
+        selected_identities = sorted(
+            scope if selected_identities is None else scope.intersection(selected_identities)
+        )
     results = _get_tracking_store().search_skills(
         filter_string=filter_string,
         max_results=max_results,
         order_by=order_by,
         page_token=page_token,
+        include_skill_identities=selected_identities,
+        exclude_skill_identities=exclude_skill_identities,
     )
     return SearchSkillsResponse(
         skills=[SkillResponse.from_entity(skill) for skill in results],
@@ -1011,22 +1032,6 @@ async def create_organization_skill_version(
 
 
 @skill_registry_router.post(
-    "/register",
-    response_model=SkillVersionResponse,
-    openapi_extra=_REGISTER_SKILL_OPENAPI_EXTRA,
-)
-async def register_skill(request: Request) -> SkillVersionResponse:
-    async with _parse_registration_request(request) as (registration, content, multipart):
-        version = await asyncio.to_thread(
-            register_skill_version,
-            registration,
-            content=content,
-            multipart=multipart,
-        )
-    return SkillVersionResponse.from_entity(version)
-
-
-@skill_registry_router.post(
     "/bulk-register",
     response_model=BulkRegisterSkillsResponse,
 )
@@ -1035,6 +1040,7 @@ async def bulk_register_skills(
     request: Request,
 ) -> BulkRegisterSkillsResponse:
     username = getattr(request.state, "username", None)
+    expected_parent_exists = getattr(request.state, "skill_expected_parent_exists", None)
     registrations = []
     for skill in body.skills:
         _validate_skill_path_identity(body.organization, skill.name)
@@ -1052,7 +1058,17 @@ async def bulk_register_skills(
             )
         )
 
-    versions = await asyncio.to_thread(bulk_register_skill_versions, registrations)
+    versions = await asyncio.to_thread(
+        bulk_register_skill_versions,
+        registrations,
+        expected_parent_exists=expected_parent_exists,
+    )
+    if expected_parent_exists is not None:
+        request.state.skill_created_parents = [
+            (body.organization, name)
+            for name, parent_exists in expected_parent_exists.items()
+            if not parent_exists
+        ]
     return BulkRegisterSkillsResponse(
         skill_versions=[SkillVersionResponse.from_entity(version) for version in versions]
     )
@@ -1152,13 +1168,15 @@ def delete_organization_skill_version(
 
 
 @skill_registry_router.delete("/{name}")
-def delete_skill(name: SkillNamePath) -> dict[str, Any]:
-    return _delete_skill(name=name)
+def delete_skill(name: SkillNamePath, request: Request) -> dict[str, Any]:
+    return _delete_skill(name=name, request=request)
 
 
 @skill_registry_router.delete("/@{organization}/{name}")
-def delete_organization_skill(organization: str, name: SkillNamePath) -> dict[str, Any]:
-    return _delete_skill(name=name, organization=organization)
+def delete_organization_skill(
+    organization: str, name: SkillNamePath, request: Request
+) -> dict[str, Any]:
+    return _delete_skill(name=name, organization=organization, request=request)
 
 
 @skill_registry_router.patch("/{name}/versions/{version}", response_model=SkillVersionResponse)

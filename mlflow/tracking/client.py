@@ -155,6 +155,7 @@ from mlflow.utils.mlflow_tags import (
 from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.uri import is_databricks_unity_catalog_uri, is_databricks_uri
 from mlflow.utils.validation import (
+    _parse_skill_identities,
     _validate_alias_name,
     _validate_list_param,
     _validate_model_name,
@@ -7087,12 +7088,21 @@ class MlflowClient:
         max_results: int = 100,
         order_by: list[str] | None = None,
         page_token: str | None = None,
+        include_skill_identities: list[str] | None = None,
     ) -> PagedList[Skill]:
+        """Search Skills, optionally selecting ``reviewer`` or ``@acme/reviewer`` identities.
+
+        ``None`` leaves the selection unrestricted; an empty list selects no Skills.
+        Use the same filter and ordering when continuing with a page token. Identity selectors
+        may change between pages; pagination is best effort when the result set changes.
+        Results are also restricted by the caller's current permissions.
+        """
         return self._tracking_client.store.search_skills(
             filter_string=filter_string,
             max_results=max_results,
             order_by=order_by,
             page_token=page_token,
+            include_skill_identities=_parse_skill_identities(include_skill_identities),
         )
 
     def update_skill(

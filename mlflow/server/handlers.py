@@ -4009,6 +4009,16 @@ def _download_artifact(artifact_path):
         raise
 
 
+def _reject_skill_artifact_mutation(artifact_path: str) -> None:
+    from mlflow.store.tracking.skill_registry.artifact_paths import is_skill_upload_namespace
+
+    if is_skill_upload_namespace(artifact_path):
+        raise MlflowException(
+            "Skill upload content is immutable; register a new version instead",
+            error_code=PERMISSION_DENIED,
+        )
+
+
 @catch_mlflow_exception
 @_disable_unless_serve_artifacts
 def _upload_artifact(artifact_path):
@@ -4017,6 +4027,7 @@ def _upload_artifact(artifact_path):
     to `artifact_path` (a relative path from the root artifact directory).
     """
     artifact_path = validate_path_is_safe(artifact_path)
+    _reject_skill_artifact_mutation(artifact_path)
     artifact_path = _get_workspace_scoped_repo_path_if_enabled(artifact_path)
     head, tail = posixpath.split(artifact_path)
     artifact_repo = _get_artifact_repo_mlflow_artifacts()
@@ -4065,6 +4076,7 @@ def _delete_artifact_mlflow_artifacts(artifact_path):
     `path` (a relative path from the root artifact directory).
     """
     artifact_path = validate_path_is_safe(artifact_path)
+    _reject_skill_artifact_mutation(artifact_path)
     artifact_path = _get_workspace_scoped_repo_path_if_enabled(artifact_path)
     _get_request_message(DeleteArtifact())
     artifact_repo = _get_artifact_repo_mlflow_artifacts()
@@ -4269,6 +4281,7 @@ def _create_multipart_upload_artifact(artifact_path):
     to `artifact_path` (a relative path from the root artifact directory).
     """
     artifact_path = validate_path_is_safe(artifact_path)
+    _reject_skill_artifact_mutation(artifact_path)
     artifact_path = _get_workspace_scoped_repo_path_if_enabled(artifact_path)
 
     request_message = _get_request_message(
@@ -4278,8 +4291,9 @@ def _create_multipart_upload_artifact(artifact_path):
             "num_parts": [_assert_intlike],
         },
     )
-    path = request_message.path
+    path = validate_path_is_safe(request_message.path)
     num_parts = request_message.num_parts
+    _reject_skill_artifact_mutation(posixpath.join(artifact_path, path))
 
     artifact_repo = _get_artifact_repo_mlflow_artifacts()
     _validate_support_multipart_upload(artifact_repo)
@@ -4303,6 +4317,7 @@ def _complete_multipart_upload_artifact(artifact_path):
     to `artifact_path` (a relative path from the root artifact directory).
     """
     artifact_path = validate_path_is_safe(artifact_path)
+    _reject_skill_artifact_mutation(artifact_path)
     artifact_path = _get_workspace_scoped_repo_path_if_enabled(artifact_path)
 
     request_message = _get_request_message(
@@ -4313,9 +4328,10 @@ def _complete_multipart_upload_artifact(artifact_path):
             "parts": [_assert_required],
         },
     )
-    path = request_message.path
+    path = validate_path_is_safe(request_message.path)
     upload_id = request_message.upload_id
     parts = [MultipartUploadPart.from_proto(part) for part in request_message.parts]
+    _reject_skill_artifact_mutation(posixpath.join(artifact_path, path))
 
     artifact_repo = _get_artifact_repo_mlflow_artifacts()
     _validate_support_multipart_upload(artifact_repo)
@@ -4337,6 +4353,7 @@ def _abort_multipart_upload_artifact(artifact_path):
     to `artifact_path` (a relative path from the root artifact directory).
     """
     artifact_path = validate_path_is_safe(artifact_path)
+    _reject_skill_artifact_mutation(artifact_path)
     artifact_path = _get_workspace_scoped_repo_path_if_enabled(artifact_path)
 
     request_message = _get_request_message(
@@ -4346,8 +4363,9 @@ def _abort_multipart_upload_artifact(artifact_path):
             "upload_id": [_assert_string],
         },
     )
-    path = request_message.path
+    path = validate_path_is_safe(request_message.path)
     upload_id = request_message.upload_id
+    _reject_skill_artifact_mutation(posixpath.join(artifact_path, path))
 
     artifact_repo = _get_artifact_repo_mlflow_artifacts()
     _validate_support_multipart_upload(artifact_repo)

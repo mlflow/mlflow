@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+import json
 import logging
+from collections.abc import Callable
 from typing import Any
 
 import sqlalchemy as sa
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import subqueryload
+from sqlalchemy.orm import Session, subqueryload
 
 from mlflow.entities.skill import VALID_SKILL_STATUS_TRANSITIONS, RegistryIcon, Skill, SkillStatus
 from mlflow.entities.skill_source import SkillSourceType
@@ -59,6 +61,44 @@ from mlflow.utils.validation import (
 )
 
 _logger = logging.getLogger(__name__)
+
+
+def _skill_identity_predicate(identities: list[tuple[str, str]], dialect: str):
+    if dialect == "mssql" and len(identities) > 300:
+        # SQL Server limits a statement to 2,100 parameters. Pass large ACL sets
+        # as one JSON parameter and join them before pagination instead of
+        # expanding each identity into bound parameters. The caller selector,
+        # scope, and exclusion sets each contribute at most 600 parameters,
+        # leaving room for filters and pagination.
+        rows = sa.func.OPENJSON(
+            sa.literal(
+                json.dumps([{"organization": org, "name": name} for org, name in identities]),
+                type_=sa.UnicodeText(),
+            )
+        ).table_valued("key", "value", "type")
+        return sa.exists(
+            sa
+            .select(1)
+            .select_from(rows)
+            .where(
+                sa.func.JSON_VALUE(rows.c.value, "$.organization") == SqlSkill.organization,
+                sa.func.JSON_VALUE(rows.c.value, "$.name") == SqlSkill.name,
+            )
+        )
+    if dialect != "mssql":
+        # Row-value IN keeps large, multi-organization filters as one predicate.
+        return sa.tuple_(SqlSkill.organization, SqlSkill.name).in_(identities)
+    names_by_organization: dict[str, set[str]] = {}
+    for organization, name in identities:
+        names_by_organization.setdefault(organization, set()).add(name)
+    # SQL Server has no row-value IN. Group its smaller sets by organization.
+    return sa.or_(
+        sa.false(),
+        *(
+            sa.and_(SqlSkill.organization == organization, SqlSkill.name.in_(sorted(names)))
+            for organization, names in names_by_organization.items()
+        ),
+    )
 
 
 class SqlAlchemySkillRegistryMixin:
@@ -280,7 +320,12 @@ class SqlAlchemySkillRegistryMixin:
     def delete_skill(self, name: str, organization: str = "") -> None:
         self.delete_skill_and_collect_artifacts(name, organization)
 
-    def delete_skill_and_collect_artifacts(self, name: str, organization: str = "") -> list[str]:
+    def delete_skill_and_collect_artifacts(
+        self,
+        name: str,
+        organization: str = "",
+        before_commit: Callable[[Session], None] | None = None,
+    ) -> list[str]:
         self._validate_skill_identity(name, organization)
         with self.ManagedSessionMaker(read_only=False) as session:
             # Lock the parent row before reading anything, so the versions captured below are
@@ -334,6 +379,8 @@ class SqlAlchemySkillRegistryMixin:
                     "being deleted; nothing was removed. Retry the delete.",
                     error_code=RESOURCE_CONFLICT,
                 ) from e
+            if before_commit is not None:
+                before_commit(session)
             # The session commits when this block exits; the paths are only handed back
             # once the rows are gone, so a rolled-back delete never reclaims anything.
         return owned_paths
@@ -394,6 +441,8 @@ class SqlAlchemySkillRegistryMixin:
         max_results: int = SEARCH_MAX_RESULTS_DEFAULT,
         order_by: list[str] | None = None,
         page_token: str | None = None,
+        include_skill_identities: list[tuple[str, str]] | None = None,
+        exclude_skill_identities: list[tuple[str, str]] | None = None,
     ) -> PagedList[Skill]:
         validate_max_results(max_results)
         token_scope = f"workspace:{self._get_active_workspace()}:{self.SKILL_SEARCH_TOKEN_SCOPE}"
@@ -426,6 +475,14 @@ class SqlAlchemySkillRegistryMixin:
                 tag_join_keys=["workspace", "organization", "name"],
                 dialect=self._get_dialect(),
             )
+            if include_skill_identities is not None:
+                query = query.filter(
+                    _skill_identity_predicate(include_skill_identities, self._get_dialect())
+                )
+            if exclude_skill_identities:
+                query = query.filter(
+                    ~_skill_identity_predicate(exclude_skill_identities, self._get_dialect())
+                )
             rows = query.order_by(*order_clauses).offset(offset).limit(max_results + 1).all()
             skills = [skill.to_mlflow_entity() for skill in rows]
             return paginate_results(
@@ -443,6 +500,7 @@ class SqlAlchemySkillRegistryMixin:
         name: str,
         organization: str,
         created_by: str | None = None,
+        expected_parent_exists: bool | None = None,
     ) -> SqlSkill:
         skill = (
             self
@@ -450,9 +508,17 @@ class SqlAlchemySkillRegistryMixin:
             .filter(SqlSkill.name == name, SqlSkill.organization == organization)
             .one_or_none()
         )
+        if expected_parent_exists is not None and (skill is not None) != expected_parent_exists:
+            raise MlflowException(
+                (
+                    f"Skill '{name}' no longer exists; this registration expected to update it."
+                    if expected_parent_exists
+                    else f"Skill '{name}' already exists; this registration expected to create it."
+                ),
+                RESOURCE_CONFLICT,
+            )
         if skill is not None:
             return skill
-
         skill = self._with_workspace_field(
             SqlSkill(
                 name=name,
@@ -485,6 +551,7 @@ class SqlAlchemySkillRegistryMixin:
         digest: str | None = None,
         status: str = SkillStatus.ACTIVE.value,
         created_by: str | None = None,
+        expected_parent_exists: bool | None = None,
     ) -> SkillVersion:
         self._validate_skill_identity(name, organization)
         self._validate_skill_version_source(source_type, source, ref, subpath, digest)
@@ -492,7 +559,11 @@ class SqlAlchemySkillRegistryMixin:
         status = self._validate_skill_version_status(status)
 
         skill = self._get_or_create_skill_for_version(
-            session, name, organization, created_by=created_by
+            session,
+            name,
+            organization,
+            created_by=created_by,
+            expected_parent_exists=expected_parent_exists,
         )
         now = get_current_time_millis()
         skill_version = SqlSkillVersion(
@@ -532,6 +603,7 @@ class SqlAlchemySkillRegistryMixin:
         digest: str | None = None,
         status: str = SkillStatus.ACTIVE.value,
         created_by: str | None = None,
+        expected_parent_exists: bool | None = None,
     ) -> SkillVersion:
         self._validate_skill_identity(name, organization)
         self._validate_skill_version_source(source_type, source, ref, subpath, digest)
@@ -553,6 +625,7 @@ class SqlAlchemySkillRegistryMixin:
                     digest=digest,
                     status=status,
                     created_by=created_by,
+                    expected_parent_exists=expected_parent_exists,
                 )
             except MlflowException as e:
                 if e.error_code != ErrorCode.Name(RESOURCE_ALREADY_EXISTS):
@@ -596,6 +669,7 @@ class SqlAlchemySkillRegistryMixin:
         skill_definitions: list[dict[str, Any]],
         organization: str = "",
         created_by: str | None = None,
+        expected_parent_exists: dict[str, bool] | None = None,
     ) -> list[SkillVersion]:
         if not isinstance(skill_definitions, list) or not skill_definitions:
             raise MlflowException.invalid_parameter_value(
@@ -646,7 +720,12 @@ class SqlAlchemySkillRegistryMixin:
         for attempt in range(self.CREATE_SKILL_VERSION_RETRIES):
             try:
                 return self._run_with_deadlock_retry(
-                    self._bulk_register_skills_once, definitions, organization, created_by, status
+                    self._bulk_register_skills_once,
+                    definitions,
+                    organization,
+                    created_by,
+                    status,
+                    expected_parent_exists,
                 )
             except MlflowException as e:
                 # Persistence helpers chain IntegrityError for creation/allocation collisions;
@@ -658,7 +737,9 @@ class SqlAlchemySkillRegistryMixin:
                 ):
                     raise
 
-    def _bulk_register_skills_once(self, definitions, organization, created_by, status):
+    def _bulk_register_skills_once(
+        self, definitions, organization, created_by, status, expected_parent_exists
+    ):
         results = {}
         with self.ManagedSessionMaker(read_only=False) as session:
             names = sorted(definitions)
@@ -680,7 +761,22 @@ class SqlAlchemySkillRegistryMixin:
                     .one_or_none()
                 )
                 if parent is None:
-                    self._get_or_create_skill_for_version(session, name, organization, created_by)
+                    self._get_or_create_skill_for_version(
+                        session,
+                        name,
+                        organization,
+                        created_by,
+                        expected_parent_exists=(
+                            expected_parent_exists.get(name) if expected_parent_exists else None
+                        ),
+                    )
+                elif (
+                    expected_parent_exists is not None and expected_parent_exists.get(name) is False
+                ):
+                    raise MlflowException(
+                        f"Skill '{name}' already exists; this registration expected to create it.",
+                        RESOURCE_CONFLICT,
+                    )
 
             for name in names:
                 self._assert_name_not_a_packaged_member(session, name, organization)

@@ -1,11 +1,16 @@
 from __future__ import annotations
 
-from typing import Any
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any
 
 from mlflow.entities.skill import RegistryIcon, Skill, SkillStatus
 from mlflow.entities.skill_version import SkillVersion
+from mlflow.exceptions import MlflowNotImplementedException
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import NOT_SET, SEARCH_MAX_RESULTS_DEFAULT
+
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
 
 
 class SkillRegistryMixin:
@@ -43,7 +48,12 @@ class SkillRegistryMixin:
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def delete_skill_and_collect_artifacts(self, name: str, organization: str = "") -> list[str]:
+    def delete_skill_and_collect_artifacts(
+        self,
+        name: str,
+        organization: str = "",
+        before_commit: Callable[[Session], None] | None = None,
+    ) -> list[str]:
         """
         Hard-delete a skill like ``delete_skill`` and return the artifact paths its versions owned.
 
@@ -51,7 +61,16 @@ class SkillRegistryMixin:
         captured and the row deletion committed in one transaction, and the caller reclaims the
         returned paths afterwards, best-effort. Only paths written by the standalone upload flow
         are returned; a version that references a package tree owns nothing.
+
+        ``before_commit`` runs with the SQL transaction after integrity checks and deletion
+        have flushed, while the parent lock still prevents identity reuse. Any exception
+        rolls back the deletion. Backends unable to enforce this must reject the callback.
         """
+        if before_commit is not None:
+            raise MlflowNotImplementedException(
+                "This tracking backend cannot enforce Skill deletion cleanup before commit. "
+                "Use a SQL tracking backend for server-side Skill authorization."
+            )
         raise NotImplementedError(self.__class__.__name__)
 
     def search_skills(
@@ -60,7 +79,19 @@ class SkillRegistryMixin:
         max_results: int = SEARCH_MAX_RESULTS_DEFAULT,
         order_by: list[str] | None = None,
         page_token: str | None = None,
+        include_skill_identities: list[tuple[str, str]] | None = None,
+        exclude_skill_identities: list[tuple[str, str]] | None = None,
     ) -> PagedList[Skill]:
+        """Search with exact ``(organization, name)`` filters before pagination.
+
+        ``include_skill_identities`` is the effective selector: ``None`` selects all Skills,
+        and an empty list selects none. The API handler intersects the caller's selector
+        with the auth app's scope before calling this method. ``exclude_skill_identities``
+        removes exact identities. Both filters apply before pagination and may change
+        between pages; tokens bind to the workspace, query filter, and ordering only.
+        The REST store can subtract exclusions from a finite include selector; it rejects
+        exclusions from an unrestricted result set before fetching results.
+        """
         raise NotImplementedError(self.__class__.__name__)
 
     def create_skill_version(
@@ -74,7 +105,18 @@ class SkillRegistryMixin:
         digest: str | None = None,
         status: str = "active",
         created_by: str | None = None,
+        expected_parent_exists: bool | None = None,
     ) -> SkillVersion:
+        """Create a version, creating its parent Skill when necessary.
+
+        ``expected_parent_exists`` guards the parent state observed by the caller:
+        ``True`` requires an existing parent, ``False`` requires a missing parent,
+        and ``None`` leaves either state valid. A mismatch raises ``RESOURCE_CONFLICT``
+        before creating a parent or version. This is a storage consistency check;
+        the caller must authorize the expected operation separately.
+        Stores that cannot enforce the precondition atomically, including the REST store,
+        must reject a non-``None`` expectation before writing.
+        """
         raise NotImplementedError(self.__class__.__name__)
 
     def bulk_register_skills(
@@ -82,6 +124,7 @@ class SkillRegistryMixin:
         skill_definitions: list[dict[str, Any]],
         organization: str = "",
         created_by: str | None = None,
+        expected_parent_exists: dict[str, bool] | None = None,
     ) -> list[SkillVersion]:
         """Atomically register standalone skills from one Git repository and ref.
 
@@ -98,6 +141,12 @@ class SkillRegistryMixin:
                 newly created versions.
             organization: Organization shared by all definitions.
             created_by: Authenticated creator for new records.
+            expected_parent_exists: Optional map of Skill names to required parent states.
+                ``True`` requires an existing parent and ``False`` requires a missing one;
+                omitted names are unconstrained. A mismatch raises ``RESOURCE_CONFLICT``
+                and rolls back the entire batch before any result is committed.
+                Stores that cannot enforce these preconditions atomically, including the
+                REST store, must reject a nonempty map before writing.
 
         Returns:
             Reused or created versions in input order, potentially with different statuses.

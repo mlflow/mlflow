@@ -99,13 +99,14 @@ async function fetchSkillMultipartJson<T>(url: string, body: FormData): Promise<
 function registerSkill(request: RegisterExternalSkillRequest): Promise<RegisterSkillResponse>;
 function registerSkill(request: RegisterUploadedSkillRequest, content: Blob): Promise<RegisterSkillResponse>;
 function registerSkill(request: RegisterSkillRequest, content?: Blob): Promise<RegisterSkillResponse> {
+  const url = getAjaxUrl(`${skillUrl(request.name, request.organization)}/versions`);
   if (content) {
     return fetchSkillMultipartJson<RegisterSkillResponse>(
-      getAjaxUrl(`${BASE_URL}/register`),
+      url,
       buildSkillMultipartBody(request as RegisterUploadedSkillRequest, content),
     );
   }
-  return fetchAPI(getAjaxUrl(`${BASE_URL}/register`), {
+  return fetchAPI(url, {
     method: HTTPMethods.POST,
     body: request,
   }) as Promise<RegisterSkillResponse>;
