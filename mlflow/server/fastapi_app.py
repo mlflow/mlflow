@@ -232,6 +232,12 @@ async def _lifespan(app: FastAPI):
         await anyio.to_thread.run_sync(reap_stale_sandbox_homes)
     except Exception:
         _logger.warning("Assistant sandbox home cleanup failed", exc_info=True)
+    try:
+        from mlflow.server.assistant.session import reap_stale_sessions
+
+        await anyio.to_thread.run_sync(reap_stale_sessions)
+    except Exception:
+        _logger.warning("Assistant session cleanup failed", exc_info=True)
 
     # Remote mode but no sandbox means the assistant runs its work on the host; surface that once
     # at startup rather than silently, since it is a weaker isolation posture for a shared server.
