@@ -45,7 +45,8 @@ def search_skills(
     page_token: str | None = None,
     include_skill_identities: list[str] | None = None,
 ) -> PagedList[Skill]:
-    """Search registered skills with optional filtering, ordering, and pagination.
+    """
+    Search registered skills with optional filtering, ordering, and pagination.
 
     Args:
         filter_string: SQL-like filter expression, such as ``"organization = 'acme'"``.
@@ -89,7 +90,8 @@ def register_skill(
     organization: str = "",
     status: str = "active",
 ) -> SkillVersion:
-    """Inspect skill content and register a new version, creating the parent if needed.
+    """
+    Inspect skill content and register a new version, creating the parent if needed.
 
     An explicit name overrides the name declared in ``SKILL.md`` for registry identity,
     without modifying the content. The manifest, including its declared name, is still
@@ -223,7 +225,8 @@ def import_skills(
     skill_names: list[str] | None = None,
     status: str = "active",
 ) -> list[SkillVersion]:
-    """Import skills from a Git repository. If validation fails, no skills are registered.
+    """
+    Import skills from a Git repository. If validation fails, no skills are registered.
 
     Each directory where the search finds a ``SKILL.md`` file becomes a root skill. The search
     skips directories inside that root skill, even if it is not selected, and continues

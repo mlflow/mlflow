@@ -813,7 +813,8 @@ def _parse_skill_identities(identities: list[str] | None) -> list[tuple[str, str
         )
     result = []
     for identity in identities:
-        organization, name = "", identity
+        organization = ""
+        name = identity
         if identity.startswith("@"):
             organization, separator, name = identity[1:].partition("/")
             if not separator or not organization:

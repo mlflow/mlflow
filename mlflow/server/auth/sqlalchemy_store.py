@@ -602,18 +602,31 @@ class SqlAlchemyStore:
         workspace — for resources whose pattern can collide across workspaces
         (e.g. registered-model names). Admin-created roles are never touched.
         """
+        with self.ManagedSessionMaker(read_only=False) as session:
+            self.delete_grants_for_resource_in_session(
+                session, resource_type, resource_pattern, workspace_scoped=workspace_scoped
+            )
+
+    def delete_grants_for_resource_in_session(
+        self,
+        session,
+        resource_type: str,
+        resource_pattern: str,
+        *,
+        workspace_scoped: bool = False,
+    ) -> None:
+        """Delete synthetic grants in a caller-owned transaction on the auth database."""
         _validate_resource_type(resource_type)
         resource_pattern = self._validate_resource_pattern(resource_type, resource_pattern)
-        with self.ManagedSessionMaker(read_only=False) as session:
-            workspace = self._get_active_workspace_name() if workspace_scoped else None
-            role_ids = self._synthetic_role_ids(session, workspace=workspace)
-            if not role_ids:
-                return
-            session.query(SqlRolePermission).filter(
-                SqlRolePermission.role_id.in_(role_ids),
-                SqlRolePermission.resource_type == resource_type,
-                SqlRolePermission.resource_pattern == resource_pattern,
-            ).delete(synchronize_session=False)
+        workspace = self._get_active_workspace_name() if workspace_scoped else None
+        role_ids = self._synthetic_role_ids(session, workspace=workspace)
+        if not role_ids:
+            return
+        session.query(SqlRolePermission).filter(
+            SqlRolePermission.role_id.in_(role_ids),
+            SqlRolePermission.resource_type == resource_type,
+            SqlRolePermission.resource_pattern == resource_pattern,
+        ).delete(synchronize_session=False)
 
     def rename_grants_for_resource(
         self,

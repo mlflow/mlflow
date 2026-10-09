@@ -150,7 +150,7 @@ describe('SkillRegistryPage', () => {
     let requestBody: Record<string, unknown> | undefined;
     server.use(
       rest.get(/skills\/@acme\/oci-skill$/, (_req, res, ctx) => res(ctx.status(404), ctx.json({}))),
-      rest.post(getAjaxUrl(`${BASE_URL}/register`), async (req, res, ctx) => {
+      rest.post(getAjaxUrl(`${BASE_URL}/@acme/oci-skill/versions`), async (req, res, ctx) => {
         requestBody = await req.json();
         return res(ctx.status(500), ctx.json({ message: 'stop here' }));
       }),
@@ -482,7 +482,7 @@ describe('SkillRegistryPage', () => {
       rest.get(/skills\/@acme\/network-policy-architect$/, (_req, res, ctx) =>
         registered ? undefined : res(ctx.status(404), ctx.json({ error_code: 'RESOURCE_DOES_NOT_EXIST' })),
       ),
-      rest.post(getAjaxUrl(`${BASE_URL}/register`), async (req, res, ctx) => {
+      rest.post(getAjaxUrl(`${BASE_URL}/@acme/network-policy-architect/versions`), async (req, res, ctx) => {
         requestBody = await req.json();
         registered = true;
         return res(ctx.json(version));
@@ -557,7 +557,7 @@ describe('SkillRegistryPage', () => {
     let registerCalled = false;
     server.use(
       getMockedGetSkillResponse(createMockSkill({ name: 'skills-developer', organization: 'redhat-ai' })),
-      rest.post(getAjaxUrl(`${BASE_URL}/register`), (_req, res, ctx) => {
+      rest.post(getAjaxUrl(`${BASE_URL}/@redhat-ai/skills-developer/versions`), (_req, res, ctx) => {
         registerCalled = true;
         return res(ctx.json({}));
       }),
@@ -713,7 +713,7 @@ describe('SkillRegistryPage', () => {
       rest.get(/skills\/@redhat-ai\/skills-developer$/, (_req, res, ctx) =>
         res(ctx.status(500), ctx.json({ error_code: 'INTERNAL_ERROR', message: 'Database unavailable' })),
       ),
-      rest.post(getAjaxUrl(`${BASE_URL}/register`), (_req, res, ctx) => {
+      rest.post(getAjaxUrl(`${BASE_URL}/@redhat-ai/skills-developer/versions`), (_req, res, ctx) => {
         registerCalled = true;
         return res(ctx.json({}));
       }),
@@ -751,7 +751,7 @@ describe('SkillRegistryPage', () => {
   it('keeps the form and shows the server error when registration is denied', async () => {
     server.use(
       rest.get(/skills\/@redhat-ai\/skills-developer$/, (_req, res, ctx) => res(ctx.status(404), ctx.json({}))),
-      rest.post(getAjaxUrl(`${BASE_URL}/register`), (_req, res, ctx) =>
+      rest.post(getAjaxUrl(`${BASE_URL}/@redhat-ai/skills-developer/versions`), (_req, res, ctx) =>
         res(ctx.status(403), ctx.json({ error_code: 'PERMISSION_DENIED', message: 'Not allowed to create skills' })),
       ),
     );

@@ -120,6 +120,9 @@ def register_skill_version(
             ``UploadFile`` that is its ``.file``, not the upload object, whose ``read`` is
             async), or ``None`` when the request has none.
         multipart: Whether the request body was ``multipart/form-data``.
+        expected_parent_exists: Expected parent state at the transaction boundary. ``True``
+            requires an existing parent, ``False`` a missing parent, and ``None`` either.
+            A changed state is rejected with ``RESOURCE_CONFLICT`` before creating rows.
 
     Returns:
         The committed ``SkillVersion``. Every rejection happens before a version row exists.
@@ -159,6 +162,8 @@ def bulk_register_skill_versions(
             The caller must populate ``created_by`` from the authenticated principal, never
             from the request body. Sources must identify the same repository and ref after
             normalization; skill subpaths may differ.
+        expected_parent_exists: Expected existence keyed by Skill name. A mismatch rejects
+            the entire batch with ``RESOURCE_CONFLICT``. ``None`` imposes no precondition.
 
     Returns:
         Skill versions in input order. Each entry is either the highest non-deleted exact

@@ -12,6 +12,7 @@ from starlette.testclient import TestClient
 from mlflow.entities.skill import SkillStatus
 from mlflow.entities.skill_version import SkillVersion
 from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import TEMPORARILY_UNAVAILABLE
 from mlflow.server import auth, handlers, skill_registry_api
 from mlflow.server.auth.permissions import DENY, EDIT, MANAGE, NO_PERMISSIONS, READ, USE
 from mlflow.server.auth.sqlalchemy_store import SqlAlchemyStore as AuthStore
@@ -142,14 +143,14 @@ def test_oversized_bulk_registration_skips_parent_lookups(workspace_registry):
 
 
 @pytest.fixture
-def workspace_registry(tmp_path, monkeypatch):
+def workspace_registry(tmp_path, monkeypatch, db_uri, request):
     monkeypatch.setenv("MLFLOW_ENABLE_WORKSPACES", "true")
     monkeypatch.setenv("MLFLOW_WORKSPACE", "default")
     auth_store = AuthStore()
-    auth_store.init_db(f"sqlite:///{tmp_path / 'auth.db'}")
-    tracking_store = TrackingStore(
-        f"sqlite:///{tmp_path / 'tracking.db'}", str(tmp_path / "artifacts")
+    auth_store.init_db(
+        db_uri if getattr(request, "param", False) else f"sqlite:///{tmp_path / 'auth.db'}"
     )
+    tracking_store = TrackingStore(db_uri, str(tmp_path / "artifacts"))
     creator = auth_store.create_user("creator", "strong-password", is_admin=False)
     auth_store.set_workspace_permission("default", creator.username, USE.name)
     monkeypatch.setattr(auth, "store", auth_store)
@@ -170,6 +171,74 @@ def workspace_registry(tmp_path, monkeypatch):
     finally:
         auth_store.engine.dispose()
         tracking_store.engine.dispose()
+
+
+@pytest.mark.parametrize("workspace_registry", [False, True], indirect=True)
+@pytest.mark.parametrize("admin_delete", [False, True])
+def test_permission_cleanup_failure_rolls_back_delete_and_can_be_retried(
+    workspace_registry, monkeypatch, admin_delete
+):
+    client, auth_store, tracking_store, creator = workspace_registry
+    prefix = "/api/3.0/mlflow/skills"
+    reader = auth_store.create_user("reader", "strong-password")
+    auth_store.set_workspace_permission("default", reader.username, USE.name)
+    assert client.post(prefix, json={"name": "private"}).status_code == 200
+    auth_store.grant_user_permission(reader.username, "skill", "private", READ.name)
+    if admin_delete:
+        admin = auth_store.create_user("admin", "strong-password", is_admin=True)
+        monkeypatch.setattr(auth, "_authenticate_fastapi_request", lambda request: admin)
+
+    with mock.patch.object(
+        auth_store,
+        "delete_grants_for_resource_in_session",
+        side_effect=MlflowException("Auth store unavailable", TEMPORARILY_UNAVAILABLE),
+    ) as cleanup:
+        response = client.delete(f"{prefix}/private")
+    cleanup.assert_called_once()
+    assert response.status_code == 503, response.text
+    assert tracking_store.get_skill("private").created_by == creator.username
+    assert (
+        auth_store.get_role_permission_for_resource(reader.id, "skill", "private", "default")
+        == READ
+    )
+
+    # Retrying DELETE still addresses the original parent and clears grants before reuse.
+    response = client.delete(f"{prefix}/private")
+    assert response.status_code == 200, response.text
+    assert list(tracking_store.search_skills()) == []
+    assert (
+        auth_store.get_role_permission_for_resource(reader.id, "skill", "private", "default")
+        is None
+    )
+    monkeypatch.setattr(auth, "_authenticate_fastapi_request", lambda request: creator)
+    assert client.post(prefix, json={"name": "private"}).status_code == 200
+    monkeypatch.setattr(auth, "_authenticate_fastapi_request", lambda request: reader)
+    assert client.get(f"{prefix}/private").status_code == 403
+
+
+@pytest.mark.parametrize("workspace_registry", [False, True], indirect=True)
+def test_tracking_rollback_after_permission_cleanup(workspace_registry, monkeypatch, request):
+    client, auth_store, tracking_store, _ = workspace_registry
+    prefix = "/api/3.0/mlflow/skills"
+    reader = auth_store.create_user("reader", "strong-password")
+    assert client.post(prefix, json={"name": "private"}).status_code == 200
+    auth_store.grant_user_permission(reader.username, "skill", "private", READ.name)
+    cleanup = auth._skill_delete_before_commit
+
+    def fail_after_cleanup(organization, name, session):
+        cleanup(organization, name, session)
+        raise MlflowException("Tracking transaction failed", TEMPORARILY_UNAVAILABLE)
+
+    monkeypatch.setattr(auth, "_skill_delete_before_commit", fail_after_cleanup)
+    response = client.delete(f"{prefix}/private")
+    assert response.status_code == 503, response.text
+    assert tracking_store.get_skill("private").name == "private"
+    # A shared database rolls back both changes; a separate auth database retains revocation.
+    expected_permission = READ if request.node.callspec.params["workspace_registry"] else None
+    assert (
+        auth_store.get_role_permission_for_resource(reader.id, "skill", "private", "default")
+        == expected_permission
+    )
 
 
 @pytest.mark.parametrize("pattern", ["*", "@acme/private"])
@@ -281,13 +350,13 @@ def test_search_selector_intersects_current_authorization(workspace_registry):
 
 
 @pytest.mark.parametrize("prefix", ["/api/3.0/mlflow/skills", "/ajax-api/3.0/mlflow/skills"])
-def test_skill_rest_enforces_grants_and_filters_before_pagination(tmp_path, monkeypatch, prefix):
+def test_skill_rest_enforces_grants_and_filters_before_pagination(
+    tmp_path, monkeypatch, prefix, db_uri
+):
     monkeypatch.setenv("MLFLOW_ENABLE_WORKSPACES", "false")
     auth_store = AuthStore()
     auth_store.init_db(f"sqlite:///{tmp_path / 'auth.db'}")
-    tracking_store = TrackingStore(
-        f"sqlite:///{tmp_path / 'tracking.db'}", str(tmp_path / "artifacts")
-    )
+    tracking_store = TrackingStore(db_uri, str(tmp_path / "artifacts"))
     owner = auth_store.create_user("owner", "strong-password", is_admin=False)
     reader = auth_store.create_user("reader", "strong-password", is_admin=False)
     admin = auth_store.create_user("admin2", "strong-password", is_admin=True)
@@ -589,14 +658,14 @@ def test_skill_rest_enforces_grants_and_filters_before_pagination(tmp_path, monk
 
 @pytest.mark.parametrize("endpoint", ["versions", "bulk-register"])
 @pytest.mark.parametrize("is_admin", [False, True])
-def test_registration_creator_grants_with_workspaces(tmp_path, monkeypatch, endpoint, is_admin):
+def test_registration_creator_grants_with_workspaces(
+    tmp_path, monkeypatch, endpoint, is_admin, db_uri
+):
     monkeypatch.setenv("MLFLOW_ENABLE_WORKSPACES", "true")
     monkeypatch.setenv("MLFLOW_WORKSPACE", "default")
     auth_store = AuthStore()
     auth_store.init_db(f"sqlite:///{tmp_path / 'auth.db'}")
-    tracking_store = TrackingStore(
-        f"sqlite:///{tmp_path / 'tracking.db'}", str(tmp_path / "artifacts")
-    )
+    tracking_store = TrackingStore(db_uri, str(tmp_path / "artifacts"))
     creator = auth_store.create_user("creator", "strong-password", is_admin=is_admin)
     if not is_admin:
         auth_store.set_workspace_permission("default", creator.username, MANAGE.name)

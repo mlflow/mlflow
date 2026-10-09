@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import json
 import logging
+from collections.abc import Callable
 from typing import Any
 
 import sqlalchemy as sa
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import subqueryload
+from sqlalchemy.orm import Session, subqueryload
 
 from mlflow.entities.skill import VALID_SKILL_STATUS_TRANSITIONS, RegistryIcon, Skill, SkillStatus
 from mlflow.entities.skill_source import SkillSourceType
@@ -319,7 +320,12 @@ class SqlAlchemySkillRegistryMixin:
     def delete_skill(self, name: str, organization: str = "") -> None:
         self.delete_skill_and_collect_artifacts(name, organization)
 
-    def delete_skill_and_collect_artifacts(self, name: str, organization: str = "") -> list[str]:
+    def delete_skill_and_collect_artifacts(
+        self,
+        name: str,
+        organization: str = "",
+        before_commit: Callable[[Session], None] | None = None,
+    ) -> list[str]:
         self._validate_skill_identity(name, organization)
         with self.ManagedSessionMaker(read_only=False) as session:
             # Lock the parent row before reading anything, so the versions captured below are
@@ -373,6 +379,8 @@ class SqlAlchemySkillRegistryMixin:
                     "being deleted; nothing was removed. Retry the delete.",
                     error_code=RESOURCE_CONFLICT,
                 ) from e
+            if before_commit is not None:
+                before_commit(session)
             # The session commits when this block exits; the paths are only handed back
             # once the rows are gone, so a rolled-back delete never reclaims anything.
         return owned_paths

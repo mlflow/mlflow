@@ -13,6 +13,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.prompt.constants import IS_PROMPT_TAG_KEY
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, ErrorCode
 from mlflow.server import auth as auth_module
+from mlflow.server import handlers
 from mlflow.server.auth.permissions import (
     DENY,
     EDIT,
@@ -575,6 +576,30 @@ def test_noncanonical_skill_artifact_path_cannot_use_default_permission(
     with pytest.raises(MlflowException, match="Invalid Skill artifact path") as error:
         auth_module._get_proxy_artifact_permission(path, "reader")
     assert error.value.get_http_status_code() in (400, 403)
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "Skills/private/token/SKILL.md",
+        "sKiLlS/private/token/SKILL.md",
+        "Workspaces/team-a/skills/private/token/SKILL.md",
+        "workspaces/team-a/Skills/private/token/SKILL.md",
+        "%57orkspaces/team-a/%53kills/private/token/SKILL.md",
+    ],
+)
+def test_mixed_case_skill_artifacts_cannot_fall_back_or_be_mutated(path, monkeypatch):
+    monkeypatch.setenv("MLFLOW_ENABLE_WORKSPACES", "false")
+    monkeypatch.setattr(
+        auth_module, "auth_config", auth_module.auth_config._replace(default_permission=MANAGE.name)
+    )
+    permission = auth_module._get_proxy_artifact_permission(
+        f"/api/2.0/mlflow-artifacts/artifacts/{path}", "reader"
+    )
+    assert not permission.can_read
+    with pytest.raises(MlflowException, match="immutable") as error:
+        handlers._reject_skill_artifact_mutation(path)
+    assert error.value.get_http_status_code() == 403
 
 
 def test_skill_rest_create_requires_workspace_create_grant(workspace_permission_setup):
@@ -6692,6 +6717,7 @@ def test_bulk_skill_creator_grants_roll_back_together(workspace_permission_setup
 def test_skill_registry_creator_manage_survives_cached_missing_parent(
     tmp_path,
     monkeypatch,
+    db_uri,
 ):
     monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
     monkeypatch.setattr(
@@ -6704,7 +6730,7 @@ def test_skill_registry_creator_manage_survives_cached_missing_parent(
     auth_store = SqlAlchemyStore()
     auth_store.init_db(f"sqlite:///{tmp_path / 'auth-created-after-miss.db'}")
     tracking_store = TrackingSqlAlchemyStore(
-        f"sqlite:///{tmp_path / 'tracking-created-after-miss.db'}",
+        db_uri,
         str(tmp_path / "artifacts"),
     )
     monkeypatch.setattr(auth_module, "store", auth_store, raising=False)

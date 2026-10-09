@@ -8242,7 +8242,7 @@ def _skill_identity_for_auth(name, organization="") -> tuple[str, str]:
     return organization, name
 
 
-async def _skill_auth_body(request: StarletteRequest) -> dict | None:
+async def _skill_auth_body(request: StarletteRequest) -> dict[str, Any] | None:
     try:
         body = await request.json()
     except ValueError:
@@ -8252,7 +8252,7 @@ async def _skill_auth_body(request: StarletteRequest) -> dict | None:
 
 
 async def _skill_registration_targets(
-    request: StarletteRequest, endpoint, path_params: dict
+    request: StarletteRequest, endpoint, path_params: dict[str, str]
 ) -> list[tuple[str, str]] | None:
     if endpoint in (
         _skill_registry_api.create_skill_version,
@@ -8607,13 +8607,26 @@ def _skill_after_create(username: str, request: StarletteRequest) -> None:
         grant_manage_for_created_skills(username, organization, owned_names)
 
 
-def _skill_after_delete(username: str, request: StarletteRequest) -> None:
-    route, path_params = _match_skill_route(get_routed_asgi_path(request), request)
-    if route is not None and route.endpoint in (
-        _skill_registry_api.delete_skill,
-        _skill_registry_api.delete_organization_skill,
-    ):
-        delete_skill_permissions(path_params.get("organization", ""), path_params["name"])
+def _skill_delete_before_commit(organization: str, name: str, session) -> None:
+    # Share the transaction when both stores use the same database. In particular, a
+    # second SQLite writer would deadlock against the tracking transaction's delete.
+    tracking_engine = session.get_bind()
+    same_database = tracking_engine is store.engine or (
+        tracking_engine.url == store.engine.url
+        and tracking_engine.url.database not in (None, "", ":memory:")
+    )
+    if same_database:
+        store.delete_grants_for_resource_in_session(
+            session,
+            RESOURCE_TYPE_SKILL,
+            _format_skill_registry_resource_key(organization, name),
+            workspace_scoped=True,
+        )
+    else:
+        # Commit revocation before the tracking store releases the identity. If cleanup
+        # fails, the parent deletion rolls back and can be retried. If the tracking commit
+        # subsequently fails, grants stay revoked: access may need restoring by an admin.
+        delete_skill_permissions(organization, name)
 
 
 def _backfill_readable_mcp_results(
@@ -8940,7 +8953,7 @@ def _find_fastapi_after_request_handler(
     path: str, method: str
 ) -> Callable[[str, StarletteRequest], None] | None:
     if is_skill_registry_api_path(path):
-        return {"POST": _skill_after_create, "DELETE": _skill_after_delete}.get(method)
+        return _skill_after_create if method == "POST" else None
     return next(
         (
             handler
@@ -9197,6 +9210,18 @@ def add_fastapi_permission_middleware(app: FastAPI) -> None:
                 workspace_context.clear_server_request_workspace()
         else:
             workspace_context.clear_server_request_workspace()
+
+        if request.method == "DELETE" and is_skill_registry_api_path(path):
+            route, path_params = _match_skill_route(path, request)
+            if route is not None and route.endpoint in (
+                _skill_registry_api.delete_skill,
+                _skill_registry_api.delete_organization_skill,
+            ):
+                request.state.skill_delete_before_commit = functools.partial(
+                    _skill_delete_before_commit,
+                    path_params.get("organization", ""),
+                    path_params["name"],
+                )
 
         response = await call_next(request)
 

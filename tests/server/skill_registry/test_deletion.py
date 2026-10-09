@@ -113,6 +113,19 @@ def test_cleanup_failure_does_not_restore_rows_or_fail_the_delete(store, artifac
     assert leaked == [repo_delete_calls[0]]
 
 
+def test_before_commit_failure_keeps_parent_versions_and_artifacts(store, artifact_root):
+    _, path = _upload()
+    with mock.patch.object(deletion_module, "delete_artifact_tree_best_effort") as artifact_cleanup:
+        callback = mock.Mock(side_effect=MlflowException("Permission cleanup failed"))
+        with pytest.raises(MlflowException, match="Permission cleanup failed"):
+            delete_skill("reviewer", organization="acme", before_commit=callback)
+    callback.assert_called_once()
+    artifact_cleanup.assert_not_called()
+    assert store.get_skill("reviewer", organization="acme").name == "reviewer"
+    assert version_rows(store) == 1
+    assert stored_files(artifact_root / path) == sorted(SKILL_FILES)
+
+
 def test_delete_skill_never_deletes_a_referenced_package_tree(store, artifact_root):
     # The member is the last reference to the plugin's tree; deleting the skill still leaves
     # it alone, because the tree belongs to the plugin version, not to the skill.

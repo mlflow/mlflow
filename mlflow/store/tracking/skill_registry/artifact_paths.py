@@ -47,9 +47,9 @@ def is_skill_upload_namespace(artifact_path: str) -> bool:
         # The artifact handler rejects paths that cannot be fully decoded.
         return False
     segments = [segment for segment in decoded.split("/") if segment not in ("", ".")]
-    if len(segments) >= 2 and segments[0] == "workspaces":
+    if len(segments) >= 2 and segments[0].lower() == "workspaces":
         segments = segments[2:]
-    return bool(segments and segments[0] == SKILL_UPLOAD_ROOT)
+    return bool(segments and segments[0].lower() == SKILL_UPLOAD_ROOT)
 
 
 def _identity_prefix(root: str, name: str, organization: str) -> str:

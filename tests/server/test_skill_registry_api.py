@@ -842,7 +842,9 @@ def test_organization_parent_update_and_delete_forward_identity(tmp_path: Path, 
 
         response = client.delete(f"{PREFIX}/@acme/code-review")
         assert response.status_code == 200, response.text
-        delete_skill.assert_called_once_with(name="code-review", organization="acme")
+        delete_skill.assert_called_once_with(
+            name="code-review", organization="acme", before_commit=None
+        )
 
 
 def test_deletion_routes_forward_parent_identity(tmp_path: Path, db_uri: str):
@@ -866,7 +868,9 @@ def test_deletion_routes_forward_parent_identity(tmp_path: Path, db_uri: str):
         response = client.delete(f"{PREFIX}/code-review")
         assert response.status_code == 200, response.text
         assert response.json() == {}
-        delete_skill.assert_called_once_with(name="code-review", organization="")
+        delete_skill.assert_called_once_with(
+            name="code-review", organization="", before_commit=None
+        )
 
 
 def test_create_get_and_update_skill_version(tmp_path: Path, db_uri: str):

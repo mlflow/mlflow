@@ -71,6 +71,10 @@ def mocked_skill_client():
     ("method", "kwargs"),
     [
         ("search_skills", {"exclude_skill_identities": [("acme", "reviewer")]}),
+        (
+            "delete_skill_and_collect_artifacts",
+            {"name": "reviewer", "before_commit": lambda session: None},
+        ),
         ("create_skill_version", {"name": "reviewer", "expected_parent_exists": False}),
         ("create_skill_version", {"name": "reviewer", "expected_parent_exists": True}),
         (

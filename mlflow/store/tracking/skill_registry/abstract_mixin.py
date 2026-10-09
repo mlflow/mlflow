@@ -1,11 +1,16 @@
 from __future__ import annotations
 
-from typing import Any
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any
 
 from mlflow.entities.skill import RegistryIcon, Skill, SkillStatus
 from mlflow.entities.skill_version import SkillVersion
+from mlflow.exceptions import MlflowNotImplementedException
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import NOT_SET, SEARCH_MAX_RESULTS_DEFAULT
+
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
 
 
 class SkillRegistryMixin:
@@ -43,7 +48,12 @@ class SkillRegistryMixin:
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def delete_skill_and_collect_artifacts(self, name: str, organization: str = "") -> list[str]:
+    def delete_skill_and_collect_artifacts(
+        self,
+        name: str,
+        organization: str = "",
+        before_commit: Callable[[Session], None] | None = None,
+    ) -> list[str]:
         """
         Hard-delete a skill like ``delete_skill`` and return the artifact paths its versions owned.
 
@@ -51,7 +61,16 @@ class SkillRegistryMixin:
         captured and the row deletion committed in one transaction, and the caller reclaims the
         returned paths afterwards, best-effort. Only paths written by the standalone upload flow
         are returned; a version that references a package tree owns nothing.
+
+        ``before_commit`` runs with the SQL transaction after integrity checks and deletion
+        have flushed, while the parent lock still prevents identity reuse. Any exception
+        rolls back the deletion. Backends unable to enforce this must reject the callback.
         """
+        if before_commit is not None:
+            raise MlflowNotImplementedException(
+                "This tracking backend cannot enforce Skill deletion cleanup before commit. "
+                "Use a SQL tracking backend for server-side Skill authorization."
+            )
         raise NotImplementedError(self.__class__.__name__)
 
     def search_skills(
