@@ -55,21 +55,15 @@ Keep the fix minimal and in the style of the surrounding code. When the right fi
 decision (a public API, a default, or a storage schema), describe the options instead of
 picking one.
 
-If the mechanism is hard to grasp from text alone, add one diagram of it: the path from the
-user's call to the failing line, a value changing across layers, or expected vs actual side by
-side. Skip it when a traceback or a sentence already makes it clear. Load the
-`artifact-diagramming` skill and follow it to draw the diagram as an inline `<svg>` in
-`$out_dir/work/diagram.html`, with a white background so the image reads in both GitHub themes.
-Do not publish it; screenshot it instead (`agent-browser` may open this local file):
+If the mechanism is hard to follow from prose, add one visual aid. Draw it with the
+`artifact-diagramming` skill in `$out_dir/work/visual-aid.html` (white background, not published),
+then screenshot it and cite it like other media:
 
 ```bash
-agent-browser open "file://$out_dir/work/diagram.html"
+agent-browser open "file://$out_dir/work/visual-aid.html"
 agent-browser set viewport 1280 720 2
-agent-browser screenshot svg "$out_dir/media/diagram.png"
+agent-browser screenshot svg "$out_dir/media/visual-aid.png"
 ```
-
-Cite the image like other media, under "Suggested fix", or under "Summary" when it contrasts
-expected and actual behavior.
 
 ## 4. Decide the verdict
 

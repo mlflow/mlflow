@@ -35,6 +35,8 @@ properties:
       - Fails at: <only for Reproduced: permalink to the line that raises or returns the wrong value>
       - Missing information: <what the reporter should add>
 
+      <optional: the visual aid, cited as media>
+
       ### How to reproduce
 
       Tested on MLflow <version and commit>, Python <version from `python --version`>, <OS>.
