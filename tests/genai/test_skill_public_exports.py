@@ -12,6 +12,7 @@ def test_skill_exports_from_genai():
         "OCISource",
         "ZipSource",
         "import_skills",
+        "pull",
         "register_skill",
         "search_skills",
         "AgentPlugin",

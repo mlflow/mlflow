@@ -80,7 +80,9 @@ def download_with_budget(url: str, target: Path, *, max_bytes: int) -> Path:
                         )
                     out.write(chunk)
     except requests.RequestException as e:
-        raise source_unavailable(url, str(e), error_code=TEMPORARILY_UNAVAILABLE)
+        # Raised from None: the original names the redirect target, which may be a signed URL,
+        # and would otherwise be chained on and printed with any traceback.
+        raise source_unavailable(url, str(e), error_code=TEMPORARILY_UNAVAILABLE) from None
     finally:
         session.close()
     return target

@@ -22,6 +22,14 @@ from mlflow.protos.databricks_pb2 import UNAUTHENTICATED, ErrorCode
         ("header Basic dXNlcjpwYXNzd29yZA==", "header Basic ***"),
         ("Bearer abc", "Bearer ***"),
         ("basic dTpw", "basic ***"),
+        (
+            "Max retries exceeded with url: /cdn/s.zip?X-Amz-Signature=abc&X-Amz-Credential=k "
+            "(Caused by NewConnectionError(...))",
+            "Max retries exceeded with url: /cdn/s.zip?*** (Caused by NewConnectionError(...))",
+        ),
+        ("url: '/s.zip?sig=abc'", "url: '/s.zip?***'"),
+        ("https://cdn.example.com/s.zip?sig=abc", "https://cdn.example.com/s.zip?***"),
+        ("HTTP 404 for /skills/demo", "HTTP 404 for /skills/demo"),
         ("nothing secret here", "nothing secret here"),
         ("git@github.com:acme/skills.git", "git@github.com:acme/skills.git"),
     ],
