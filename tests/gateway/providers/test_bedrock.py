@@ -454,48 +454,46 @@ def test_bedrock_aws_client(provider, config, aws_config):
             )
 
 
-def test_bedrock_config_endpoint_url_defaults_to_none():
-    config = AmazonBedrockConfig.model_validate(
-        {"aws_config": {"aws_region": "us-east-1", "aws_role_arn": "test-aws-role-arn"}}
-    )
-    assert config.endpoint_url is None
+def test_bedrock_config_api_base_defaults_to_none():
+    config = AmazonBedrockConfig.model_validate({
+        "aws_config": {"aws_region": "us-east-1", "aws_role_arn": "test-aws-role-arn"}
+    })
+    assert config.api_base is None
 
 
-def test_bedrock_config_accepts_endpoint_url():
-    config = AmazonBedrockConfig.model_validate(
-        {
-            "aws_config": {"aws_region": "us-east-1", "aws_role_arn": "test-aws-role-arn"},
-            "endpoint_url": "https://bedrock-runtime.example-vpce.amazonaws.com",
-        }
-    )
-    assert config.endpoint_url == "https://bedrock-runtime.example-vpce.amazonaws.com"
+def test_bedrock_config_accepts_api_base():
+    config = AmazonBedrockConfig.model_validate({
+        "aws_config": {"aws_region": "us-east-1", "aws_role_arn": "test-aws-role-arn"},
+        "api_base": "https://bedrock-runtime.example-vpce.amazonaws.com",
+    })
+    assert config.api_base == "https://bedrock-runtime.example-vpce.amazonaws.com"
 
 
-def test_bedrock_client_passes_endpoint_url_when_set():
+def test_bedrock_client_maps_api_base_to_endpoint_url_when_set():
     fixture = bedrock_model_provider_fixtures[0]
     aws_config = {
         "aws_region": "us-east-1",
         "aws_access_key_id": "test-access-key-id",
         "aws_secret_access_key": "test-secret-access-key",
     }
-    endpoint_url = "https://bedrock-runtime.example-vpce.amazonaws.com"
+    api_base = "https://bedrock-runtime.example-vpce.amazonaws.com"
 
     with mock.patch("boto3.Session") as mock_session:
         mock_client = mock.Mock()
         mock_session.return_value.client = mock_client
 
         endpoint_config = _merge_model_and_aws_config(fixture["config"], aws_config)
-        endpoint_config["model"]["config"]["endpoint_url"] = endpoint_url
+        endpoint_config["model"]["config"]["api_base"] = api_base
 
         provider = AmazonBedrockProvider(EndpointConfig(**endpoint_config))
         provider.get_bedrock_client()
 
         _assert_any_call_at_least(
-            mock_client, service_name="bedrock-runtime", endpoint_url=endpoint_url
+            mock_client, service_name="bedrock-runtime", endpoint_url=api_base
         )
 
 
-def test_bedrock_client_omits_endpoint_url_when_unset():
+def test_bedrock_client_omits_endpoint_url_when_api_base_unset():
     fixture = bedrock_model_provider_fixtures[0]
     aws_config = {
         "aws_region": "us-east-1",

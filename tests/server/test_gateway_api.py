@@ -26,6 +26,7 @@ from mlflow.entities.trace_state import TraceState
 from mlflow.environment_variables import MLFLOW_GATEWAY_MAX_DECOMPRESSED_REQUEST_SIZE
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import (
+    AmazonBedrockConfig,
     EndpointType,
     GatewayRequestType,
     GeminiConfig,
@@ -183,6 +184,36 @@ def test_build_endpoint_config_typesafe_reads_api_base_from_auth_config():
 
     assert isinstance(config.model.config, TypeSafeConfig)
     assert config.model.config.typesafe_api_base == "https://typesafe.example.com/v1"
+
+
+def test_build_endpoint_config_bedrock_reads_api_base_from_auth_config():
+    model_config = GatewayModelConfig(
+        model_definition_id="md-test",
+        provider="bedrock",
+        model_name="anthropic.claude-v2",
+        secret_value={"api_key": "bedrock-api-key"},
+        auth_config={
+            "auth_mode": "api_key",
+            "aws_region_name": "us-east-1",
+            "api_base": "https://bedrock-runtime.example-vpce.amazonaws.com",
+        },
+    )
+    config = _build_endpoint_config("test-ep", model_config, EndpointType.LLM_V1_CHAT)
+    assert isinstance(config.model.config, AmazonBedrockConfig)
+    assert config.model.config.api_base == "https://bedrock-runtime.example-vpce.amazonaws.com"
+
+
+def test_build_endpoint_config_bedrock_api_base_defaults_to_none():
+    model_config = GatewayModelConfig(
+        model_definition_id="md-test",
+        provider="bedrock",
+        model_name="anthropic.claude-v2",
+        secret_value={"api_key": "bedrock-api-key"},
+        auth_config={"auth_mode": "api_key", "aws_region_name": "us-east-1"},
+    )
+    config = _build_endpoint_config("test-ep", model_config, EndpointType.LLM_V1_CHAT)
+    assert isinstance(config.model.config, AmazonBedrockConfig)
+    assert config.model.config.api_base is None
 
 
 def test_create_provider_from_endpoint_name_openai(store: SqlAlchemyStore):

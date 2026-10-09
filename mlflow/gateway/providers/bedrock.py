@@ -304,8 +304,8 @@ class AmazonBedrockProvider(BaseProvider):
 
         try:
             client_args = self._construct_client_args(session)
-            if self.bedrock_config.endpoint_url:
-                client_args["endpoint_url"] = self.bedrock_config.endpoint_url
+            if self.bedrock_config.api_base:
+                client_args["endpoint_url"] = self.bedrock_config.api_base
             self._client = session.client(service_name="bedrock-runtime", **client_args)
             self._client_created = time.monotonic_ns()
             return self._client
