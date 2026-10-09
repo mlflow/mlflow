@@ -35,6 +35,8 @@ def cluster_by_llm(
     model: str,
     categories: list[str] | None = None,
     token_counter: _TokenCounter | None = None,
+    *,
+    enforce_limit: bool = True,
 ) -> list[list[int]]:
     """
     Use an LLM to group failure labels by execution path and symptom.
@@ -46,10 +48,14 @@ def cluster_by_llm(
 
     Args:
         labels: Failure labels to cluster.
-        max_issues: Maximum number of groups to produce.
+        max_issues: Final issue limit, also used as the LLM grouping target.
+            Intermediate refinement calls may exceed this limit with enforce_limit=False;
+            the pipeline caps the final issues after refinement.
         model: Model URI for the clustering LLM.
         categories: Optional issue categories to use as a grouping signal.
         token_counter: Optional token counter for tracking LLM usage.
+        enforce_limit: Whether to cap the returned groups at max_issues. Set to False
+            to defer selection until after refinement.
 
     Returns:
         List of index lists, where each inner list is a cluster of label indices.
@@ -75,8 +81,9 @@ def cluster_by_llm(
             "(finish_reason=%s), falling back to singletons",
             response.choices[0].finish_reason,
         )
-        return [[i] for i in range(len(labels))]
-    result = _ClusterResponse(**json.loads(content))
+        result = _ClusterResponse(groups=[])
+    else:
+        result = _ClusterResponse(**json.loads(content))
 
     # Validate indices and collect groups; orphaned indices become singletons
     clustered_indices: set[int] = set()
@@ -89,7 +96,7 @@ def cluster_by_llm(
     cluster_groups.extend([i] for i in range(len(labels)) if i not in clustered_indices)
 
     # Enforce max_issues limit by keeping the largest groups
-    if len(cluster_groups) > max_issues:
+    if enforce_limit and len(cluster_groups) > max_issues:
         cluster_groups.sort(key=len, reverse=True)
         cluster_groups = cluster_groups[:max_issues]
 
@@ -183,7 +190,8 @@ def recluster_singletons(
         analysis_labels: Mapping from analysis index to its first label string.
         analyses: All conversation analyses from the pipeline.
         model: Model URI for clustering and summarization.
-        max_issues: Maximum number of groups to produce.
+        max_issues: Maximum number of groups to request from the LLM. Excess groups
+            are retained for final issue selection by severity.
         categories: List of valid category names to filter extracted categories.
         token_counter: Optional token counter for tracking LLM usage.
 
@@ -198,7 +206,10 @@ def recluster_singletons(
         idx = singleton.example_indices[0]
         singleton_labels.append(analysis_labels.get(idx, singleton.name))
 
-    new_groups = cluster_by_llm(singleton_labels, max_issues, model, token_counter=token_counter)
+    # Preserve candidates so the final cutoff can compare their severities.
+    new_groups = cluster_by_llm(
+        singleton_labels, max_issues, model, token_counter=token_counter, enforce_limit=False
+    )
 
     result: list[_IdentifiedIssue] = []
     for group in new_groups:
