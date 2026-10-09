@@ -74,8 +74,6 @@ class Skill:
     last_updated_by: str | None = None
     creation_timestamp: int | None = None
     last_updated_timestamp: int | None = None
-    # Internal storage precondition; not exposed by the REST response schema.
-    generation_id: str | None = field(default=None, repr=False, compare=False)
 
     def __post_init__(self):
         self.workspace = resolve_entity_workspace_name(self.workspace)

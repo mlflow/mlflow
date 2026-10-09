@@ -1,4 +1,3 @@
-import uuid
 from unittest import mock
 
 import pytest
@@ -554,10 +553,10 @@ def test_delete_workspace_fails_on_naming_conflict(workspace_store):
 def _insert_skill(session, *, workspace, organization, name):
     session.execute(
         sa.text(
-            "INSERT INTO skills (workspace, organization, name, generation_id, created_at, "
-            "last_updated_at) VALUES (:ws, :org, :name, :generation_id, 0, 0)"
+            "INSERT INTO skills (workspace, organization, name, created_at, "
+            "last_updated_at) VALUES (:ws, :org, :name, 0, 0)"
         ),
-        {"ws": workspace, "org": organization, "name": name, "generation_id": uuid.uuid4().hex},
+        {"ws": workspace, "org": organization, "name": name},
     )
 
 

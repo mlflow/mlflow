@@ -176,7 +176,6 @@ CREATE TABLE skills (
 	workspace VARCHAR(63) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT ('default') NOT NULL,
 	organization VARCHAR(64) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT ('') NOT NULL,
 	name VARCHAR(128) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
-	generation_id VARCHAR(32) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	description VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	icons NVARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	search_text VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",

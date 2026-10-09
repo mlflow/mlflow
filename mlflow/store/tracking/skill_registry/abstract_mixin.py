@@ -87,7 +87,6 @@ class SkillRegistryMixin:
         status: str = "active",
         created_by: str | None = None,
         expected_parent_exists: bool | None = None,
-        expected_parent_generation: str | None = None,
     ) -> SkillVersion:
         """Create a version, creating its parent Skill when necessary.
 
@@ -96,9 +95,6 @@ class SkillRegistryMixin:
         and ``None`` leaves either state valid. A mismatch raises ``RESOURCE_CONFLICT``
         before creating a parent or version. This is a storage consistency check;
         the caller must authorize the expected operation separately.
-        ``expected_parent_generation`` additionally requires the original parent instance
-        returned by ``get_skill``. It survives metadata updates but changes on recreation;
-        a missing or replaced parent raises ``RESOURCE_CONFLICT``. ``None`` skips this check.
         """
         raise NotImplementedError(self.__class__.__name__)
 
@@ -108,7 +104,6 @@ class SkillRegistryMixin:
         organization: str = "",
         created_by: str | None = None,
         expected_parent_exists: dict[str, bool] | None = None,
-        expected_parent_generation: dict[str, str] | None = None,
     ) -> list[SkillVersion]:
         """Atomically register standalone skills from one Git repository and ref.
 
@@ -129,9 +124,6 @@ class SkillRegistryMixin:
                 ``True`` requires an existing parent and ``False`` requires a missing one;
                 omitted names are unconstrained. A mismatch raises ``RESOURCE_CONFLICT``
                 and rolls back the entire batch before any result is committed.
-            expected_parent_generation: Optional map of Skill names to the generation IDs
-                returned by ``get_skill``. Missing or replaced parents raise
-                ``RESOURCE_CONFLICT`` and roll back the batch. Omitted names are unconstrained.
 
         Returns:
             Reused or created versions in input order, potentially with different statuses.
