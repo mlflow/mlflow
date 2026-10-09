@@ -502,11 +502,13 @@ class SqlAlchemySkillRegistryMixin:
         organization: str,
         created_by: str | None = None,
         expected_parent_exists: bool | None = None,
+        expected_parent_generation: str | None = None,
     ) -> SqlSkill:
         skill = (
             self
             ._get_query(session, SqlSkill)
             .filter(SqlSkill.name == name, SqlSkill.organization == organization)
+            .with_for_update()
             .one_or_none()
         )
         if expected_parent_exists is not None and (skill is not None) != expected_parent_exists:
@@ -516,6 +518,13 @@ class SqlAlchemySkillRegistryMixin:
                     if expected_parent_exists
                     else f"Skill '{name}' already exists; this registration expected to create it."
                 ),
+                RESOURCE_CONFLICT,
+            )
+        if expected_parent_generation is not None and (
+            skill is None or skill.generation_id != expected_parent_generation
+        ):
+            raise MlflowException(
+                f"Skill '{name}' was replaced; this registration expected the original Skill.",
                 RESOURCE_CONFLICT,
             )
         if skill is not None:
@@ -553,6 +562,7 @@ class SqlAlchemySkillRegistryMixin:
         status: str = SkillStatus.ACTIVE.value,
         created_by: str | None = None,
         expected_parent_exists: bool | None = None,
+        expected_parent_generation: str | None = None,
     ) -> SkillVersion:
         self._validate_skill_identity(name, organization)
         self._validate_skill_version_source(source_type, source, ref, subpath, digest)
@@ -565,6 +575,7 @@ class SqlAlchemySkillRegistryMixin:
             organization,
             created_by=created_by,
             expected_parent_exists=expected_parent_exists,
+            expected_parent_generation=expected_parent_generation,
         )
         now = get_current_time_millis()
         skill_version = SqlSkillVersion(
@@ -605,6 +616,7 @@ class SqlAlchemySkillRegistryMixin:
         status: str = SkillStatus.ACTIVE.value,
         created_by: str | None = None,
         expected_parent_exists: bool | None = None,
+        expected_parent_generation: str | None = None,
     ) -> SkillVersion:
         self._validate_skill_identity(name, organization)
         self._validate_skill_version_source(source_type, source, ref, subpath, digest)
@@ -627,6 +639,7 @@ class SqlAlchemySkillRegistryMixin:
                     status=status,
                     created_by=created_by,
                     expected_parent_exists=expected_parent_exists,
+                    expected_parent_generation=expected_parent_generation,
                 )
             except MlflowException as e:
                 if e.error_code != ErrorCode.Name(RESOURCE_ALREADY_EXISTS):
@@ -650,6 +663,15 @@ class SqlAlchemySkillRegistryMixin:
     def _create_skill_version_once(self, name: str, organization: str, **kwargs) -> SkillVersion:
         # Retry allocation and persistence together in a fresh transaction after a deadlock.
         with self.ManagedSessionMaker(read_only=False) as session:
+            if kwargs.get("expected_parent_generation") is not None:
+                # Keep the authorized parent locked before any snapshot reads.
+                # A no-op UPDATE also locks on SQL Server and SQLite, where
+                # FOR UPDATE alone does not protect the generation check.
+                self._get_query(session, SqlSkill).filter(
+                    SqlSkill.name == name, SqlSkill.organization == organization
+                ).update(
+                    {SqlSkill.last_updated_at: SqlSkill.last_updated_at}, synchronize_session=False
+                )
             max_version = (
                 self
                 ._get_query(session, SqlSkillVersion)
@@ -671,6 +693,7 @@ class SqlAlchemySkillRegistryMixin:
         organization: str = "",
         created_by: str | None = None,
         expected_parent_exists: dict[str, bool] | None = None,
+        expected_parent_generation: dict[str, str] | None = None,
     ) -> list[SkillVersion]:
         if not isinstance(skill_definitions, list) or not skill_definitions:
             raise MlflowException.invalid_parameter_value(
@@ -727,6 +750,7 @@ class SqlAlchemySkillRegistryMixin:
                     created_by,
                     status,
                     expected_parent_exists,
+                    expected_parent_generation,
                 )
             except MlflowException as e:
                 # Persistence helpers chain IntegrityError for creation/allocation collisions;
@@ -739,7 +763,13 @@ class SqlAlchemySkillRegistryMixin:
                     raise
 
     def _bulk_register_skills_once(
-        self, definitions, organization, created_by, status, expected_parent_exists
+        self,
+        definitions,
+        organization,
+        created_by,
+        status,
+        expected_parent_exists,
+        expected_parent_generation,
     ):
         results = {}
         with self.ManagedSessionMaker(read_only=False) as session:
@@ -754,30 +784,18 @@ class SqlAlchemySkillRegistryMixin:
                     {SqlSkill.last_updated_at: SqlSkill.last_updated_at}, synchronize_session=False
                 )
             for name in names:
-                parent = (
-                    self
-                    ._get_query(session, SqlSkill)
-                    .filter(SqlSkill.name == name, SqlSkill.organization == organization)
-                    .with_for_update()
-                    .one_or_none()
+                self._get_or_create_skill_for_version(
+                    session,
+                    name,
+                    organization,
+                    created_by,
+                    expected_parent_exists=(
+                        expected_parent_exists.get(name) if expected_parent_exists else None
+                    ),
+                    expected_parent_generation=(
+                        expected_parent_generation.get(name) if expected_parent_generation else None
+                    ),
                 )
-                if parent is None:
-                    self._get_or_create_skill_for_version(
-                        session,
-                        name,
-                        organization,
-                        created_by,
-                        expected_parent_exists=(
-                            expected_parent_exists.get(name) if expected_parent_exists else None
-                        ),
-                    )
-                elif (
-                    expected_parent_exists is not None and expected_parent_exists.get(name) is False
-                ):
-                    raise MlflowException(
-                        f"Skill '{name}' already exists; this registration expected to create it.",
-                        RESOURCE_CONFLICT,
-                    )
 
             for name in names:
                 self._assert_name_not_a_packaged_member(session, name, organization)

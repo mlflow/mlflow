@@ -78,6 +78,46 @@ def test_create_and_get_skill(store):
     assert retrieved == created
 
 
+@pytest.mark.parametrize("bulk", [False, True])
+def test_registration_generation_survives_updates_but_rejects_replacement(store, monkeypatch, bulk):
+    # Recreation can happen within one timestamp tick, including by the same owner.
+    monkeypatch.setattr(
+        "mlflow.store.tracking.skill_registry.sqlalchemy_mixin.get_current_time_millis", lambda: 1
+    )
+    parent = store.create_skill("reviewer", organization="acme", created_by="owner")
+    store.update_skill("reviewer", organization="acme", description="Updated")
+    assert store.get_skill("reviewer", organization="acme").generation_id == parent.generation_id
+
+    def register():
+        if bulk:
+            return store.bulk_register_skills(
+                [_bulk_definition("aaa-new"), _bulk_definition()],
+                organization="acme",
+                expected_parent_exists={"reviewer": True, "aaa-new": False},
+                expected_parent_generation={"reviewer": parent.generation_id},
+            )
+        return store.create_skill_version(
+            "reviewer",
+            organization="acme",
+            expected_parent_exists=True,
+            expected_parent_generation=parent.generation_id,
+        )
+
+    register()
+    if bulk:
+        store.delete_skill("aaa-new", organization="acme")
+    store.delete_skill("reviewer", organization="acme")
+    replacement = store.create_skill("reviewer", organization="acme", created_by="owner")
+    assert replacement.creation_timestamp == parent.creation_timestamp
+    assert replacement.generation_id != parent.generation_id
+    with pytest.raises(MlflowException, match="was replaced") as exc:
+        register()
+    assert exc.value.error_code == ErrorCode.Name(RESOURCE_CONFLICT)
+    with store.ManagedSessionMaker() as session:
+        assert store._get_query(session, SqlSkill).count() == 1
+        assert store._get_query(session, SqlSkillVersion).count() == 0
+
+
 def test_create_skill_duplicate_raises(store):
     store.create_skill("reviewer", organization="acme")
 

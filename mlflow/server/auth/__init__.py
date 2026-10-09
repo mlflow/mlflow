@@ -8163,13 +8163,12 @@ def _mcp_server_suffix(path: str) -> str:
     raise MlflowException(f"Not an MCP server path: {path}", error_code=BAD_REQUEST)
 
 
-def _skill_exists_for_auth(organization: str, name: str) -> bool:
+def _get_registration_parent_for_auth(organization: str, name: str) -> Skill | None:
     try:
-        _get_tracking_store().get_skill(name=name, organization=organization)
-        return True
+        return _get_skill_for_auth(_format_skill_registry_resource_key(organization, name))
     except MlflowException as e:
         if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
-            return False
+            return None
         raise
 
 
@@ -8296,17 +8295,32 @@ def _get_skill_registry_validator(
             if targets is None:
                 return True
             expected = {}
+            generations = {}
             for organization, name in targets:
-                parent_exists = _skill_exists_for_auth(organization, name)
+                parent = _get_registration_parent_for_auth(organization, name)
+                parent_exists = parent is not None
                 if not validate_can_register_skill(
                     username, organization, name, parent_exists=parent_exists
                 ):
                     return False
                 expected[name] = parent_exists
+                if parent is not None:
+                    if not parent.generation_id:
+                        raise MlflowException(
+                            "The tracking store must provide a Skill generation ID "
+                            "for registration.",
+                            INTERNAL_ERROR,
+                        )
+                    generations[name] = parent.generation_id
             request.state.skill_expected_parent_exists = (
                 expected
                 if route.endpoint == _skill_registry_api.bulk_register_skills
                 else next(iter(expected.values()))
+            )
+            request.state.skill_expected_parent_generation = (
+                generations
+                if route.endpoint == _skill_registry_api.bulk_register_skills
+                else generations.get(targets[0][1])
             )
             return True
         if operation not in ("read", "update", "manage"):

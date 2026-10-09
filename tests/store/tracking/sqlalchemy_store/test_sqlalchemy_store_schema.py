@@ -161,6 +161,41 @@ def test_store_generated_schema_matches_base(tmp_path, db_url):
     )
 
 
+def test_skill_generation_migration_preserves_existing_registry(db_url):
+    engine = sqlalchemy.create_engine(db_url)
+    InitialBase.metadata.create_all(engine)
+    config = _get_alembic_config(db_url)
+    command.upgrade(config, "e7d1f4b2a9c6")
+    child_tables = ["skill_versions", "skill_tags", "skill_version_tags", "skill_aliases"]
+    with engine.begin() as conn:
+        _insert_row(conn, "skills", "default", seed=1)
+        _insert_row(conn, "skills", "team-a", seed=1)
+        _insert_row(conn, "skills", "default", seed=2)
+        for table in child_tables:
+            _insert_row(conn, table, "default", seed=1)
+        before = {
+            table: conn.execute(sqlalchemy.text(f"SELECT * FROM {table}")).all()
+            for table in child_tables
+        }
+
+    command.upgrade(config, "a6d4e8b2c901")
+
+    with engine.connect() as conn:
+        generations = (
+            conn.execute(sqlalchemy.text("SELECT generation_id FROM skills")).scalars().all()
+        )
+        assert len(set(generations)) == 3
+        assert all(len(value) == 32 for value in generations)
+        for table in child_tables:
+            assert conn.execute(sqlalchemy.text(f"SELECT * FROM {table}")).all() == before[table]
+        assert conn.execute(sqlalchemy.text("PRAGMA foreign_key_check")).all() == []
+    column = next(
+        c for c in sqlalchemy.inspect(engine).get_columns("skills") if c["name"] == "generation_id"
+    )
+    assert not column["nullable"]
+    engine.dispose()
+
+
 def test_create_index_on_run_uuid(tmp_path, db_url):
     # Test for mlflow/store/db_migrations/versions/bd07f7e963c5_create_index_on_run_uuid.py
     SqlAlchemyStore(db_url, tmp_path.joinpath("ARTIFACTS").as_uri())
@@ -647,6 +682,8 @@ def _insert_row(conn, table_name, workspace, overrides=None, seed=1):
             values["version_patch"] = parsed.patch
         if "version_prerelease_sort_key" in table.c:
             values["version_prerelease_sort_key"] = encode_prerelease_sort_key(parsed)
+    if table_name == "skills" and "generation_id" in table.c:
+        values["generation_id"] = f"{seed:032x}"
     values.update(overrides)
     conn.execute(table.insert().values(**values))
 

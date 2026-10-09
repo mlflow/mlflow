@@ -4765,6 +4765,7 @@ class SqlSkill(Base):
     )
     organization = Column(String(64), nullable=False, default="", server_default=sa.text("''"))
     name = Column(String(128), nullable=False)
+    generation_id = Column(String(32), nullable=False, default=lambda: uuid.uuid4().hex)
     description = Column(Text, nullable=True)
     icons = Column(JSON, nullable=True)
     search_text = Column(Text, nullable=True)
@@ -4898,6 +4899,7 @@ class SqlSkill(Base):
             last_updated_by=self.last_updated_by,
             creation_timestamp=self.created_at,
             last_updated_timestamp=self.last_updated_at,
+            generation_id=self.generation_id,
         )
 
 

@@ -371,6 +371,7 @@ async def _create_skill_version(
     organization: str = "",
 ) -> SkillVersionResponse:
     expected_parent_exists = getattr(request.state, "skill_expected_parent_exists", None)
+    expected_parent_generation = getattr(request.state, "skill_expected_parent_generation", None)
     async with _parse_registration_request(
         request,
         name=name,
@@ -382,6 +383,7 @@ async def _create_skill_version(
             content=content,
             multipart=multipart,
             expected_parent_exists=expected_parent_exists,
+            expected_parent_generation=expected_parent_generation,
         )
     if expected_parent_exists is False:
         request.state.skill_created_parents = [(organization, name)]
@@ -1061,6 +1063,7 @@ async def create_organization_skill_version(
 )
 async def register_skill(request: Request) -> SkillVersionResponse:
     expected_parent_exists = getattr(request.state, "skill_expected_parent_exists", None)
+    expected_parent_generation = getattr(request.state, "skill_expected_parent_generation", None)
     async with _parse_registration_request(request) as (registration, content, multipart):
         version = await asyncio.to_thread(
             register_skill_version,
@@ -1068,6 +1071,7 @@ async def register_skill(request: Request) -> SkillVersionResponse:
             content=content,
             multipart=multipart,
             expected_parent_exists=expected_parent_exists,
+            expected_parent_generation=expected_parent_generation,
         )
     if expected_parent_exists is False:
         request.state.skill_created_parents = [(registration.organization, registration.name)]
@@ -1084,6 +1088,7 @@ async def bulk_register_skills(
 ) -> BulkRegisterSkillsResponse:
     username = getattr(request.state, "username", None)
     expected_parent_exists = getattr(request.state, "skill_expected_parent_exists", None)
+    expected_parent_generation = getattr(request.state, "skill_expected_parent_generation", None)
     registrations = []
     for skill in body.skills:
         _validate_skill_path_identity(body.organization, skill.name)
@@ -1105,6 +1110,7 @@ async def bulk_register_skills(
         bulk_register_skill_versions,
         registrations,
         expected_parent_exists=expected_parent_exists,
+        expected_parent_generation=expected_parent_generation,
     )
     if expected_parent_exists is not None:
         request.state.skill_created_parents = [

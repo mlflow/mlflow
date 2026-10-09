@@ -177,6 +177,7 @@ CREATE TABLE skills (
 	workspace VARCHAR(63) DEFAULT 'default'::character varying NOT NULL,
 	organization VARCHAR(64) DEFAULT ''::character varying NOT NULL,
 	name VARCHAR(128) NOT NULL,
+	generation_id VARCHAR(32) NOT NULL,
 	description TEXT,
 	icons JSON,
 	search_text TEXT,

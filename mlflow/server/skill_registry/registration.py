@@ -101,6 +101,7 @@ def register_skill_version(
     content: BinaryIO | None = None,
     multipart: bool = False,
     expected_parent_exists: bool | None = None,
+    expected_parent_generation: str | None = None,
 ) -> SkillVersion:
     """
     Register a skill version from a request that carries metadata and, for a local skill, the
@@ -118,6 +119,9 @@ def register_skill_version(
             ``UploadFile`` that is its ``.file``, not the upload object, whose ``read`` is
             async), or ``None`` when the request has none.
         multipart: Whether the request body was ``multipart/form-data``.
+        expected_parent_exists: Optional parent existence precondition checked before writing.
+        expected_parent_generation: Optional parent generation precondition checked under the
+            storage lock, rejecting deletion or replacement after authorization.
 
     Returns:
         The committed ``SkillVersion``. Every rejection happens before a version row exists.
@@ -130,18 +134,21 @@ def register_skill_version(
                 "multipart/form-data body with a 'content' part. To register a remote skill, "
                 "set 'source' to its git, oci, or zip location."
             )
-        return _register_uploaded(registration, content, expected_parent_exists)
+        return _register_uploaded(
+            registration, content, expected_parent_exists, expected_parent_generation
+        )
     if multipart or content is not None:
         raise MlflowException.invalid_parameter_value(
             "A registration with a remote 'source' must use an application/json body; it "
             "cannot also carry uploaded content. Omit 'source' to upload content instead."
         )
-    return _register_remote(registration, expected_parent_exists)
+    return _register_remote(registration, expected_parent_exists, expected_parent_generation)
 
 
 def bulk_register_skill_versions(
     registrations: list[SkillVersionRegistration],
     expected_parent_exists: dict[str, bool] | None = None,
+    expected_parent_generation: dict[str, str] | None = None,
 ) -> list[SkillVersion]:
     """Normalize remote Git registrations and register the batch atomically.
 
@@ -157,6 +164,9 @@ def bulk_register_skill_versions(
             The caller must populate ``created_by`` from the authenticated principal, never
             from the request body. Sources must identify the same repository and ref after
             normalization; skill subpaths may differ.
+        expected_parent_exists: Optional parent existence preconditions keyed by Skill name.
+        expected_parent_generation: Optional parent generation preconditions keyed by Skill
+            name. A missing or replaced parent rolls back the entire batch.
 
     Returns:
         Skill versions in input order. Each entry is either the highest non-deleted exact
@@ -202,6 +212,7 @@ def bulk_register_skill_versions(
         organization=organization,
         created_by=created_by,
         expected_parent_exists=expected_parent_exists,
+        expected_parent_generation=expected_parent_generation,
     )
 
 
@@ -236,6 +247,7 @@ def _validate_metadata(registration: SkillVersionRegistration) -> None:
 def _register_remote(
     registration: SkillVersionRegistration,
     expected_parent_exists: bool | None,
+    expected_parent_generation: str | None,
 ) -> SkillVersion:
     from mlflow.server.handlers import _get_tracking_store
 
@@ -251,6 +263,7 @@ def _register_remote(
         status=registration.status,
         created_by=registration.created_by,
         expected_parent_exists=expected_parent_exists,
+        expected_parent_generation=expected_parent_generation,
     )
 
 
@@ -325,6 +338,7 @@ def _register_uploaded(
     registration: SkillVersionRegistration,
     content: BinaryIO,
     expected_parent_exists: bool | None,
+    expected_parent_generation: str | None,
 ) -> SkillVersion:
     from mlflow.server.handlers import _get_tracking_store
 
@@ -370,6 +384,7 @@ def _register_uploaded(
             status=registration.status,
             created_by=registration.created_by,
             expected_parent_exists=expected_parent_exists,
+            expected_parent_generation=expected_parent_generation,
         )
     except MlflowException as e:
         if e.error_code in _DEFINITE_REJECTIONS:
