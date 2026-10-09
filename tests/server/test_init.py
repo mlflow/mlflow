@@ -210,8 +210,7 @@ def test_run_server_rejects_invalid_enabled_rollup_schedule(mock_exec_cmd, monke
     monkeypatch.setenv("MLFLOW_TRACE_ROLLUPS_SCHEDULE", "invalid")
 
     with (
-        # The job backend rejects Windows via os.name (not sys.platform), so patch os.name.
-        mock.patch("os.name", "posix"),
+        mock.patch("mlflow.server.jobs.local_executor.LocalJobExecutor.check_requirements"),
         mock.patch("mlflow.server.jobs.utils._check_requirements"),
         pytest.raises(MlflowException, match="five-field UTC cron"),
     ):
@@ -242,8 +241,7 @@ def test_run_server_rejects_invalid_enabled_rollup_limits(
     monkeypatch.setenv(variable, value)
 
     with (
-        # The job backend rejects Windows via os.name (not sys.platform), so patch os.name.
-        mock.patch("os.name", "posix"),
+        mock.patch("mlflow.server.jobs.local_executor.LocalJobExecutor.check_requirements"),
         mock.patch("mlflow.server.jobs.utils._check_requirements"),
         pytest.raises(MlflowException, match=variable),
     ):
@@ -362,8 +360,7 @@ def test_run_server_passes_public_store_config_to_job_runner(
     mock_exec_cmd.return_value.pid = 123
 
     with (
-        # The job backend rejects Windows via os.name (not sys.platform), so patch os.name.
-        mock.patch("os.name", "posix"),
+        mock.patch("mlflow.server.jobs.local_executor.LocalJobExecutor.check_requirements"),
         mock.patch("mlflow.server.jobs.utils._check_requirements") as check_requirements,
         mock.patch("mlflow.server.jobs.utils._launch_job_runner") as launch_job_runner,
         mock.patch(
