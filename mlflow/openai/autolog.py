@@ -169,6 +169,22 @@ def _autolog(
         safe_patch(FLAVOR_NAME, AsyncResponses, "parse", async_patched_call)
         safe_patch(FLAVOR_NAME, Responses, "parse", patched_call)
 
+    try:
+        from openai.resources.decisions import AsyncDecisions, Decisions
+    except ImportError:
+        pass
+    else:
+        safe_patch(FLAVOR_NAME, Decisions, "create", patched_call)
+        safe_patch(FLAVOR_NAME, AsyncDecisions, "create", async_patched_call)
+
+
+def _is_decisions_api(task: type) -> bool:
+    try:
+        from openai.resources.decisions import AsyncDecisions, Decisions
+    except ImportError:
+        return False
+    return issubclass(task, (Decisions, AsyncDecisions))
+
 
 def _get_span_type(task: type) -> str:
     from openai.resources.chat.completions import AsyncCompletions as AsyncChatCompletions
@@ -215,6 +231,9 @@ def _get_span_type(task: type) -> str:
         span_type_mapping[AsyncResponses] = SpanType.CHAT_MODEL
     except ImportError:
         pass
+
+    if _is_decisions_api(task):
+        return SpanType.LLM
 
     # Walk the MRO so subclasses (e.g. third-party wrappers like
     # `DatabricksOpenAI`'s `ChatCompletions`) resolve to the right type.
@@ -308,7 +327,9 @@ def _start_span(
     span_type = _get_span_type(instance.__class__)
     # Record input parameters to attributes
     attributes = {k: v for k, v in inputs.items() if k not in ("messages", "input")}
-    if span_type in (SpanType.CHAT_MODEL, SpanType.LLM):
+    if _is_decisions_api(instance.__class__):
+        attributes[SpanAttributeKey.MESSAGE_FORMAT] = "openai_decisions"
+    elif span_type in (SpanType.CHAT_MODEL, SpanType.LLM):
         attributes[SpanAttributeKey.MESSAGE_FORMAT] = "openai"
 
     # If there is an active span, create a child span under it, otherwise create a new trace
