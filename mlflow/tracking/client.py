@@ -7087,12 +7087,22 @@ class MlflowClient:
         max_results: int = 100,
         order_by: list[str] | None = None,
         page_token: str | None = None,
+        include_skill_identities: list[str] | None = None,
     ) -> PagedList[Skill]:
+        """Search Skills, optionally selecting ``reviewer`` or ``@acme/reviewer`` identities.
+
+        ``None`` leaves the selection unrestricted; an empty list selects no Skills.
+        Use the same selector, filter, and ordering when continuing with a page token.
+        Results are also restricted by the caller's current permissions.
+        """
+        from mlflow.utils.validation import _parse_skill_identities
+
         return self._tracking_client.store.search_skills(
             filter_string=filter_string,
             max_results=max_results,
             order_by=order_by,
             page_token=page_token,
+            include_skill_identities=_parse_skill_identities(include_skill_identities),
         )
 
     def update_skill(

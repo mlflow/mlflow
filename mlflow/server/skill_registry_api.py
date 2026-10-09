@@ -33,6 +33,7 @@ from mlflow.store.tracking import NOT_SET
 from mlflow.utils.validation import (
     _MAX_BULK_REGISTER_SKILLS,
     _MAX_REGISTRY_ICONS_PER_LIST,
+    _parse_skill_identities,
     _validate_icon_mime_type,
     _validate_icon_url,
     _validate_organization_name,
@@ -362,26 +363,6 @@ def _ensure_tracking_server_enabled() -> None:
             "`mlflow server` without `--artifacts-only`.",
             error_code=TEMPORARILY_UNAVAILABLE,
         )
-
-
-def _skill_read_operation() -> None:
-    """Mark a route's Skill operation for the installed auth middleware."""
-
-
-def _skill_update_operation() -> None:
-    """Mark a route's Skill operation for the installed auth middleware."""
-
-
-def _skill_manage_operation() -> None:
-    """Mark a route's Skill operation for the installed auth middleware."""
-
-
-def _skill_create_operation() -> None:
-    """Mark a route's Skill operation for the installed auth middleware."""
-
-
-def _skill_register_operation() -> None:
-    """Mark a route whose parent may be created by registration."""
 
 
 async def _create_skill_version(
@@ -778,9 +759,7 @@ skill_registry_router = APIRouter(
 )
 
 
-@skill_registry_router.post(
-    "", response_model=SkillResponse, dependencies=[Depends(_skill_create_operation)]
-)
+@skill_registry_router.post("", response_model=SkillResponse)
 def create_skill(body: CreateSkillRequest, request: Request) -> SkillResponse:
     from mlflow.server.handlers import _get_tracking_store
 
@@ -826,10 +805,25 @@ def search_skills(
     max_results: int = Query(100),
     order_by: list[str] | None = Query(None),
     page_token: str | None = Query(None),
+    include_skill_identities: Annotated[
+        str | None,
+        Query(description='JSON array of Skill identities, e.g. ["reviewer", "@acme/reviewer"].'),
+    ] = None,
 ) -> SearchSkillsResponse:
     from mlflow.server.handlers import _get_tracking_store
 
-    include_skill_identities, exclude_skill_identities = getattr(
+    try:
+        selector = None
+        if include_skill_identities is not None:
+            selector = json.loads(include_skill_identities)
+            if selector is None:
+                raise ValueError("Expected a JSON array")
+        selected_identities = _parse_skill_identities(selector)
+    except ValueError as e:
+        raise MlflowException.invalid_parameter_value(
+            "include_skill_identities must be a JSON array of Skill identity strings."
+        ) from e
+    scoped_skill_identities, exclude_skill_identities = getattr(
         request.state, "skill_identity_scope", (None, None)
     )
     results = _get_tracking_store().search_skills(
@@ -837,8 +831,9 @@ def search_skills(
         max_results=max_results,
         order_by=order_by,
         page_token=page_token,
-        include_skill_identities=include_skill_identities,
+        include_skill_identities=selected_identities,
         exclude_skill_identities=exclude_skill_identities,
+        scoped_skill_identities=scoped_skill_identities,
     )
     return SearchSkillsResponse(
         skills=[SkillResponse.from_entity(skill) for skill in results],
@@ -849,7 +844,6 @@ def search_skills(
 @skill_registry_router.get(
     "/@{organization}/{name}",
     response_model=SkillResponse,
-    dependencies=[Depends(_skill_read_operation)],
 )
 def get_organization_skill(organization: str, name: SkillNamePath) -> SkillResponse:
     return _get_skill(name=name, organization=organization)
@@ -858,7 +852,6 @@ def get_organization_skill(organization: str, name: SkillNamePath) -> SkillRespo
 @skill_registry_router.get(
     "/@{organization}/{name}/versions",
     response_model=SearchSkillVersionsResponse,
-    dependencies=[Depends(_skill_read_operation)],
 )
 def search_organization_skill_versions(
     organization: str,
@@ -881,7 +874,6 @@ def search_organization_skill_versions(
 @skill_registry_router.get(
     "/{name}/versions",
     response_model=SearchSkillVersionsResponse,
-    dependencies=[Depends(_skill_read_operation)],
 )
 def search_skill_versions(
     name: SkillNamePath,
@@ -899,9 +891,7 @@ def search_skill_versions(
     )
 
 
-@skill_registry_router.post(
-    "/@{organization}/{name}/tags", dependencies=[Depends(_skill_update_operation)]
-)
+@skill_registry_router.post("/@{organization}/{name}/tags")
 def set_organization_skill_tag(
     organization: str,
     name: SkillNamePath,
@@ -915,9 +905,7 @@ def set_organization_skill_tag(
     )
 
 
-@skill_registry_router.delete(
-    "/@{organization}/{name}/tags/{key:path}", dependencies=[Depends(_skill_update_operation)]
-)
+@skill_registry_router.delete("/@{organization}/{name}/tags/{key:path}")
 def delete_organization_skill_tag(
     organization: str,
     name: SkillNamePath,
@@ -928,7 +916,6 @@ def delete_organization_skill_tag(
 
 @skill_registry_router.post(
     "/@{organization}/{name}/versions/{version}/tags",
-    dependencies=[Depends(_skill_update_operation)],
 )
 def set_organization_skill_version_tag(
     organization: str,
@@ -947,7 +934,6 @@ def set_organization_skill_version_tag(
 
 @skill_registry_router.delete(
     "/@{organization}/{name}/versions/{version}/tags/{key:path}",
-    dependencies=[Depends(_skill_manage_operation)],
 )
 def delete_organization_skill_version_tag(
     organization: str,
@@ -963,21 +949,17 @@ def delete_organization_skill_version_tag(
     )
 
 
-@skill_registry_router.post("/{name}/tags", dependencies=[Depends(_skill_update_operation)])
+@skill_registry_router.post("/{name}/tags")
 def set_skill_tag(name: SkillNamePath, body: SetTagRequest) -> dict[str, Any]:
     return _set_skill_tag(name=name, key=body.key, value=body.value)
 
 
-@skill_registry_router.delete(
-    "/{name}/tags/{key:path}", dependencies=[Depends(_skill_update_operation)]
-)
+@skill_registry_router.delete("/{name}/tags/{key:path}")
 def delete_skill_tag(name: SkillNamePath, key: str) -> dict[str, Any]:
     return _delete_skill_tag(name=name, key=key)
 
 
-@skill_registry_router.post(
-    "/{name}/versions/{version}/tags", dependencies=[Depends(_skill_update_operation)]
-)
+@skill_registry_router.post("/{name}/versions/{version}/tags")
 def set_skill_version_tag(
     name: SkillNamePath,
     version: int,
@@ -993,7 +975,6 @@ def set_skill_version_tag(
 
 @skill_registry_router.delete(
     "/{name}/versions/{version}/tags/{key:path}",
-    dependencies=[Depends(_skill_manage_operation)],
 )
 def delete_skill_version_tag(
     name: SkillNamePath,
@@ -1003,9 +984,7 @@ def delete_skill_version_tag(
     return _delete_skill_version_tag(name=name, version=version, key=key)
 
 
-@skill_registry_router.patch(
-    "/{name}", response_model=SkillResponse, dependencies=[Depends(_skill_update_operation)]
-)
+@skill_registry_router.patch("/{name}", response_model=SkillResponse)
 def update_skill(
     name: SkillNamePath,
     body: UpdateSkillRequest,
@@ -1017,7 +996,6 @@ def update_skill(
 @skill_registry_router.patch(
     "/@{organization}/{name}",
     response_model=SkillResponse,
-    dependencies=[Depends(_skill_update_operation)],
 )
 def update_organization_skill(
     organization: str,
@@ -1042,9 +1020,7 @@ def _get_skill(name: str, organization: str = "") -> SkillResponse:
     )
 
 
-@skill_registry_router.get(
-    "/{name}", response_model=SkillResponse, dependencies=[Depends(_skill_read_operation)]
-)
+@skill_registry_router.get("/{name}", response_model=SkillResponse)
 def get_skill(name: SkillNamePath) -> SkillResponse:
     return _get_skill(name=name)
 
@@ -1053,7 +1029,6 @@ def get_skill(name: SkillNamePath) -> SkillResponse:
     "/{name}/versions",
     response_model=SkillVersionResponse,
     openapi_extra=_SKILL_VERSION_CREATE_OPENAPI_EXTRA,
-    dependencies=[Depends(_skill_register_operation)],
 )
 async def create_skill_version(
     name: SkillNamePath,
@@ -1066,7 +1041,6 @@ async def create_skill_version(
     "/@{organization}/{name}/versions",
     response_model=SkillVersionResponse,
     openapi_extra=_SKILL_VERSION_CREATE_OPENAPI_EXTRA,
-    dependencies=[Depends(_skill_register_operation)],
 )
 async def create_organization_skill_version(
     organization: str,
@@ -1084,7 +1058,6 @@ async def create_organization_skill_version(
     "/register",
     response_model=SkillVersionResponse,
     openapi_extra=_REGISTER_SKILL_OPENAPI_EXTRA,
-    dependencies=[Depends(_skill_register_operation)],
 )
 async def register_skill(request: Request) -> SkillVersionResponse:
     expected_parent_exists = getattr(request.state, "skill_expected_parent_exists", None)
@@ -1104,7 +1077,6 @@ async def register_skill(request: Request) -> SkillVersionResponse:
 @skill_registry_router.post(
     "/bulk-register",
     response_model=BulkRegisterSkillsResponse,
-    dependencies=[Depends(_skill_register_operation)],
 )
 async def bulk_register_skills(
     body: BulkRegisterSkillsRequest,
@@ -1148,7 +1120,6 @@ async def bulk_register_skills(
 @skill_registry_router.get(
     "/{name}/versions/{version}",
     response_model=SkillVersionResponse,
-    dependencies=[Depends(_skill_read_operation)],
 )
 def get_skill_version(name: SkillNamePath, version: int) -> SkillVersionResponse:
     return _get_skill_version(name=name, version=version)
@@ -1157,7 +1128,6 @@ def get_skill_version(name: SkillNamePath, version: int) -> SkillVersionResponse
 @skill_registry_router.get(
     "/@{organization}/{name}/versions/{version}",
     response_model=SkillVersionResponse,
-    dependencies=[Depends(_skill_read_operation)],
 )
 def get_organization_skill_version(
     organization: str,
@@ -1170,7 +1140,6 @@ def get_organization_skill_version(
 @skill_registry_router.get(
     "/{name}/aliases/{alias}",
     response_model=SkillVersionResponse,
-    dependencies=[Depends(_skill_read_operation)],
 )
 def get_skill_version_by_alias(name: SkillNamePath, alias: str) -> SkillVersionResponse:
     return _get_skill_version_by_alias(name=name, alias=alias)
@@ -1179,7 +1148,6 @@ def get_skill_version_by_alias(name: SkillNamePath, alias: str) -> SkillVersionR
 @skill_registry_router.get(
     "/@{organization}/{name}/aliases/{alias}",
     response_model=SkillVersionResponse,
-    dependencies=[Depends(_skill_read_operation)],
 )
 def get_organization_skill_version_by_alias(
     organization: str,
@@ -1193,7 +1161,7 @@ def get_organization_skill_version_by_alias(
     )
 
 
-@skill_registry_router.post("/{name}/aliases", dependencies=[Depends(_skill_update_operation)])
+@skill_registry_router.post("/{name}/aliases")
 def set_skill_alias(name: SkillNamePath, body: SetSkillAliasRequest) -> dict[str, Any]:
     return _set_skill_alias(
         name=name,
@@ -1202,9 +1170,7 @@ def set_skill_alias(name: SkillNamePath, body: SetSkillAliasRequest) -> dict[str
     )
 
 
-@skill_registry_router.post(
-    "/@{organization}/{name}/aliases", dependencies=[Depends(_skill_update_operation)]
-)
+@skill_registry_router.post("/@{organization}/{name}/aliases")
 def set_organization_skill_alias(
     organization: str,
     name: SkillNamePath,
@@ -1218,16 +1184,12 @@ def set_organization_skill_alias(
     )
 
 
-@skill_registry_router.delete(
-    "/{name}/aliases/{alias}", dependencies=[Depends(_skill_manage_operation)]
-)
+@skill_registry_router.delete("/{name}/aliases/{alias}")
 def delete_skill_alias(name: SkillNamePath, alias: str) -> dict[str, Any]:
     return _delete_skill_alias(name=name, alias=alias)
 
 
-@skill_registry_router.delete(
-    "/@{organization}/{name}/aliases/{alias}", dependencies=[Depends(_skill_manage_operation)]
-)
+@skill_registry_router.delete("/@{organization}/{name}/aliases/{alias}")
 def delete_organization_skill_alias(
     organization: str,
     name: SkillNamePath,
@@ -1236,16 +1198,12 @@ def delete_organization_skill_alias(
     return _delete_skill_alias(name=name, organization=organization, alias=alias)
 
 
-@skill_registry_router.delete(
-    "/{name}/versions/{version}", dependencies=[Depends(_skill_manage_operation)]
-)
+@skill_registry_router.delete("/{name}/versions/{version}")
 def delete_skill_version(name: SkillNamePath, version: int, request: Request) -> dict[str, Any]:
     return _delete_skill_version(name=name, version=version, request=request)
 
 
-@skill_registry_router.delete(
-    "/@{organization}/{name}/versions/{version}", dependencies=[Depends(_skill_manage_operation)]
-)
+@skill_registry_router.delete("/@{organization}/{name}/versions/{version}")
 def delete_organization_skill_version(
     organization: str,
     name: SkillNamePath,
@@ -1260,14 +1218,12 @@ def delete_organization_skill_version(
     )
 
 
-@skill_registry_router.delete("/{name}", dependencies=[Depends(_skill_manage_operation)])
+@skill_registry_router.delete("/{name}")
 def delete_skill(name: SkillNamePath) -> dict[str, Any]:
     return _delete_skill(name=name)
 
 
-@skill_registry_router.delete(
-    "/@{organization}/{name}", dependencies=[Depends(_skill_manage_operation)]
-)
+@skill_registry_router.delete("/@{organization}/{name}")
 def delete_organization_skill(organization: str, name: SkillNamePath) -> dict[str, Any]:
     return _delete_skill(name=name, organization=organization)
 
@@ -1275,7 +1231,6 @@ def delete_organization_skill(organization: str, name: SkillNamePath) -> dict[st
 @skill_registry_router.patch(
     "/{name}/versions/{version}",
     response_model=SkillVersionResponse,
-    dependencies=[Depends(_skill_update_operation)],
 )
 def update_skill_version(
     name: SkillNamePath,
@@ -1294,7 +1249,6 @@ def update_skill_version(
 @skill_registry_router.patch(
     "/@{organization}/{name}/versions/{version}",
     response_model=SkillVersionResponse,
-    dependencies=[Depends(_skill_update_operation)],
 )
 def update_organization_skill_version(
     organization: str,

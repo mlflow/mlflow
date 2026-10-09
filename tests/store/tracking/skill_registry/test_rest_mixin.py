@@ -571,6 +571,24 @@ def test_search_skills_filters_ordering_and_pagination(registry_client, api):
 
 
 @pytest.mark.parametrize("api", ["client", "genai"])
+def test_search_skills_selects_qualified_identities(registry_client, api):
+    client, _ = registry_client
+    search = client.search_skills if api == "client" else search_skills
+    for organization in ("", "acme", "other"):
+        client.create_skill(name="reviewer", organization=organization)
+    selector = ["reviewer", "@acme/reviewer"]
+    first = search(include_skill_identities=selector, max_results=1)
+    assert [(s.organization, s.name) for s in first] == [("", "reviewer")]
+    assert first.token is not None
+    second = search(include_skill_identities=list(reversed(selector)), page_token=first.token)
+    assert [(s.organization, s.name) for s in second] == [("acme", "reviewer")]
+    assert second.token is None
+    assert list(search(include_skill_identities=[])) == []
+    with pytest.raises(MlflowException, match="different query scope"):
+        search(include_skill_identities=["@other/reviewer"], page_token=first.token)
+
+
+@pytest.mark.parametrize("api", ["client", "genai"])
 @pytest.mark.parametrize(
     ("query", "message"),
     [

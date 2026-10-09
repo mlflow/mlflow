@@ -64,11 +64,12 @@ _logger = logging.getLogger(__name__)
 
 
 def _skill_identity_predicate(identities: list[tuple[str, str]], dialect: str):
-    if dialect == "mssql" and len(identities) > 400:
+    if dialect == "mssql" and len(identities) > 300:
         # SQL Server limits a statement to 2,100 parameters. Pass large ACL sets
         # as one JSON parameter and join them before pagination instead of
-        # expanding each identity into bound parameters. Two smaller allow/deny
-        # sets each contribute at most 800 parameters, leaving room for filters.
+        # expanding each identity into bound parameters. The caller selector,
+        # scope, and exclusion sets each contribute at most 600 parameters,
+        # leaving room for filters and pagination.
         rows = sa.func.OPENJSON(
             sa.literal(
                 json.dumps([{"organization": org, "name": name} for org, name in identities]),
@@ -435,17 +436,13 @@ class SqlAlchemySkillRegistryMixin:
         page_token: str | None = None,
         include_skill_identities: list[tuple[str, str]] | None = None,
         exclude_skill_identities: list[tuple[str, str]] | None = None,
+        scoped_skill_identities: list[tuple[str, str]] | None = None,
     ) -> PagedList[Skill]:
         validate_max_results(max_results)
         token_scope = f"workspace:{self._get_active_workspace()}:{self.SKILL_SEARCH_TOKEN_SCOPE}"
-        if include_skill_identities is not None or exclude_skill_identities:
+        if include_skill_identities is not None:
             identity_scope = json.dumps(
-                [
-                    sorted(include_skill_identities)
-                    if include_skill_identities is not None
-                    else None,
-                    sorted(exclude_skill_identities or []),
-                ],
+                sorted(set(include_skill_identities)),
                 separators=(",", ":"),
             )
             token_scope += f":{hashlib.sha256(identity_scope.encode()).hexdigest()}"
@@ -478,11 +475,11 @@ class SqlAlchemySkillRegistryMixin:
                 tag_join_keys=["workspace", "organization", "name"],
                 dialect=self._get_dialect(),
             )
-            if include_skill_identities is not None:
-                # Identity includes organization: the same name may exist in several orgs.
-                query = query.filter(
-                    _skill_identity_predicate(include_skill_identities, self._get_dialect())
-                )
+            # Intersect the caller's selector with the request scope before pagination.
+            # Only the stable caller selector binds the token; authorization may change.
+            for identities in (include_skill_identities, scoped_skill_identities):
+                if identities is not None:
+                    query = query.filter(_skill_identity_predicate(identities, self._get_dialect()))
             if exclude_skill_identities:
                 query = query.filter(
                     ~_skill_identity_predicate(exclude_skill_identities, self._get_dialect())
@@ -514,7 +511,11 @@ class SqlAlchemySkillRegistryMixin:
         )
         if expected_parent_exists is not None and (skill is not None) != expected_parent_exists:
             raise MlflowException(
-                f"Skill '{name}' changed after registration preflight; retry the request",
+                (
+                    f"Skill '{name}' no longer exists; this registration expected to update it."
+                    if expected_parent_exists
+                    else f"Skill '{name}' already exists; this registration expected to create it."
+                ),
                 RESOURCE_CONFLICT,
             )
         if skill is not None:
@@ -770,9 +771,11 @@ class SqlAlchemySkillRegistryMixin:
                             expected_parent_exists.get(name) if expected_parent_exists else None
                         ),
                     )
-                elif expected_parent_exists is not None and not expected_parent_exists.get(name):
+                elif (
+                    expected_parent_exists is not None and expected_parent_exists.get(name) is False
+                ):
                     raise MlflowException(
-                        f"Skill '{name}' changed after registration preflight; retry the request",
+                        f"Skill '{name}' already exists; this registration expected to create it.",
                         RESOURCE_CONFLICT,
                     )
 

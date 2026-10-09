@@ -529,9 +529,17 @@ def test_concrete_artifact_path_cannot_be_replaced_by_query_identity(prefix, met
     monkeypatch.setattr(auth_module, "_get_skill_permission", lambda *args: EDIT)
     path = f"{prefix}/mlflow-artifacts/artifacts/17/run/artifacts/model.pkl"
     assert (
-        auth_module._extract_skill_identity_from_artifact_proxy_path(path, "skills/owned") is None
+        auth_module._parse_artifact_auth_target(
+            auth_module._effective_artifact_proxy_path(path, "skills/owned")
+        ).skill
+        is None
     )
-    assert auth_module._extract_experiment_id_from_artifact_proxy_path(path, "skills/owned") == "17"
+    assert (
+        auth_module._parse_artifact_auth_target(
+            auth_module._effective_artifact_proxy_path(path, "skills/owned")
+        ).experiment_id
+        == "17"
+    )
     assert not auth_module._get_proxy_artifact_permission(path, "editor", "skills/owned").can_read
     request = StarletteRequest({
         "type": "http",
@@ -3406,9 +3414,11 @@ def test_fastapi_artifact_proxy_root_listing_resolves_the_experiment(query_path)
     three lines above it already appended the separator.
     """
     assert (
-        auth_module._extract_experiment_id_from_artifact_proxy_path(
-            "/api/2.0/mlflow-artifacts/artifacts", query_path=query_path
-        )
+        auth_module._parse_artifact_auth_target(
+            auth_module._effective_artifact_proxy_path(
+                "/api/2.0/mlflow-artifacts/artifacts", query_path=query_path
+            )
+        ).experiment_id
         == "1"
     )
 
@@ -6664,17 +6674,19 @@ def test_bulk_skill_creator_grants_roll_back_together(workspace_permission_setup
         auth_module.grant_manage_for_created_skills(username, "acme", ["reviewer", "invalid/name"])
 
     user = auth_store.get_user(username)
-    grants = auth_store.list_typed_role_grants_for_user_in_workspace(
-        user.id, "team-a", RESOURCE_TYPE_SKILL
+    grants = auth_store.list_grants(user.id, "team-a", {RESOURCE_TYPE_SKILL})
+    assert not any(
+        grant.resource_type == RESOURCE_TYPE_SKILL and grant.resource_pattern == "@acme/reviewer"
+        for grant in grants
     )
-    assert (RESOURCE_TYPE_SKILL, "@acme/reviewer", MANAGE.name) not in grants
 
     auth_module.grant_manage_for_created_skills(username, "acme", ["reviewer", "writer"])
-    grants = auth_store.list_typed_role_grants_for_user_in_workspace(
-        user.id, "team-a", RESOURCE_TYPE_SKILL
-    )
-    assert (RESOURCE_TYPE_SKILL, "@acme/reviewer", MANAGE.name) in grants
-    assert (RESOURCE_TYPE_SKILL, "@acme/writer", MANAGE.name) in grants
+    grants = auth_store.list_grants(user.id, "team-a", {RESOURCE_TYPE_SKILL})
+    assert {"@acme/reviewer", "@acme/writer"} <= {
+        grant.resource_pattern
+        for grant in grants
+        if grant.resource_type == RESOURCE_TYPE_SKILL and grant.permission == MANAGE.name
+    }
 
 
 def test_skill_registry_creator_manage_survives_cached_missing_parent(

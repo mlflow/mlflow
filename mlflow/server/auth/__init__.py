@@ -1321,18 +1321,6 @@ def _artifact_proxy_path() -> "str | None":
     return (request.view_args or {}).get("artifact_path") or request.args.get("path")
 
 
-def _get_experiment_id_from_view_args():
-    # For download/upload/delete artifact endpoints, artifact_path is a URL path parameter.
-    # For the list-artifacts endpoint, the path is a query parameter named "path".
-    #
-    # Matched against the CANONICAL path for the same reason the child half is: the handler applies
-    # `validate_path_is_safe`, which decodes again, so `%2531/plain.txt` arrives here as
-    # `%31/plain.txt` and names no experiment while naming experiment 1 to the handler. An unparsed
-    # id is not a denial -- the caller falls through to the workspace or default permission below --
-    # so failing to canonicalize here is a privilege escalation, not a broken request.
-    return _parse_artifact_auth_target(_artifact_proxy_path()).experiment_id
-
-
 def _parse_skill_upload_path_for_auth(artifact_path: str) -> SkillArtifactIdentity | None:
     if identity := parse_skill_upload_path(artifact_path):
         return identity
@@ -1370,10 +1358,6 @@ def _parse_skill_upload_path_for_auth(artifact_path: str) -> SkillArtifactIdenti
                 f"Invalid Skill artifact path {artifact_path!r}."
             )
     return None
-
-
-def _get_skill_identity_from_view_args() -> SkillArtifactIdentity | None:
-    return _parse_artifact_auth_target(_artifact_proxy_path()).skill
 
 
 def _permission_for_artifact_target(target: _ArtifactAuthTarget, username: str) -> Permission:
@@ -2656,8 +2640,10 @@ def validate_can_create_mcp_server(username: str, name: str = "*") -> bool:
     )
 
 
-def validate_can_create_skill(username: str) -> bool:
-    return _can_create_in_workspace(username)
+def validate_can_create_skill(username: str, organization: str = "", name: str = "*") -> bool:
+    return _can_create_in_workspace(username) and _create_not_denied(
+        username, RESOURCE_TYPE_SKILL, _format_skill_registry_resource_key(organization, name)
+    )
 
 
 def validate_can_view_workspace() -> bool:
@@ -2952,25 +2938,15 @@ def _reject_workspace_resource_type(resource_type: str) -> None:
         )
 
 
-def _skill_auth_workspace(resource_id: str) -> str:
-    workspace_name = (
-        workspace_context.get_request_workspace()
-        if MLFLOW_ENABLE_WORKSPACES.get()
-        else DEFAULT_WORKSPACE_NAME
-    )
+def _get_skill_for_auth(resource_id: str) -> Skill:
+    organization, name = _parse_skill_registry_resource_key(resource_id)
+    tracking_store = _get_tracking_store()
+    workspace_name = _request_auth_workspace()
     if workspace_name is None:
         raise MlflowException(
             f"Cannot resolve workspace for skill '{resource_id}' without an active workspace.",
             RESOURCE_DOES_NOT_EXIST,
         )
-    return workspace_name
-
-
-def _get_skill_for_auth(resource_id: str) -> Skill:
-    organization, name = _parse_skill_registry_resource_key(resource_id)
-    tracking_store = _get_tracking_store()
-    workspace_name = _skill_auth_workspace(resource_id)
-
     getter = getattr(tracking_store, "get_skill", None)
     if getter is None:
         raise MlflowException(
@@ -3064,8 +3040,8 @@ def _resource_dispatch_keys(resource_type: str, resource_id: str) -> _ResourceDi
     )
 
 
-def _wildcard_grant_workspace() -> "str | None":
-    """The workspace a wildcard grant is written to and read from.
+def _request_auth_workspace() -> "str | None":
+    """The workspace used for authorization in the active request.
 
     A ``"*"`` pattern names no resource, so there is nothing to fetch a workspace from. The
     store's write path already resolves this from the request rather than the resource
@@ -3093,7 +3069,7 @@ def _resolve_user_permission_for_resource(
         # grain the sub-resource tiers have, and it is also how ``experiment``/``*`` is reached.
         return _get_role_permission_or_default(
             _role_permission_for_known_workspace(
-                username, resource_type, "*", _wildcard_grant_workspace()
+                username, resource_type, "*", _request_auth_workspace()
             )
         )
     dispatch = _resource_dispatch_keys(resource_type, resource_id)
@@ -3136,7 +3112,7 @@ def validate_can_manage_resource() -> bool:
         user = store.get_user(requester)
         if user.is_admin:
             return True
-        workspace = _wildcard_grant_workspace()
+        workspace = _request_auth_workspace()
         return workspace is not None and _is_workspace_admin(user.id, workspace)
     return _resolve_user_permission_for_resource(requester, resource_type, resource_id).can_manage
 
@@ -3147,7 +3123,7 @@ def _workspace_for_resource(resource_type: str, resource_id: str) -> str | None:
     None so authorization gates deny rather than leak across workspaces.
     """
     if resource_id == "*":
-        return _wildcard_grant_workspace()
+        return _request_auth_workspace()
     try:
         dispatch = _resource_dispatch_keys(resource_type, resource_id)
     except MlflowException:
@@ -5637,7 +5613,7 @@ def grant_manage_for_created_skills(
         (RESOURCE_TYPE_SKILL, _format_skill_registry_resource_key(organization, name), MANAGE.name)
         for name in names
     ]
-    store.grant_user_permissions(username, grants, upsert=True)
+    store.grant_user_permissions(username, grants)
 
 
 def delete_skill_permissions(organization: str | None, name: str) -> None:
@@ -8198,11 +8174,40 @@ def _skill_exists_for_auth(organization: str, name: str) -> bool:
 
 
 _SKILL_ROUTE_OPERATIONS = {
-    _skill_registry_api._skill_read_operation: "read",
-    _skill_registry_api._skill_update_operation: "update",
-    _skill_registry_api._skill_manage_operation: "manage",
-    _skill_registry_api._skill_create_operation: "create",
-    _skill_registry_api._skill_register_operation: "register",
+    _skill_registry_api.search_skills: "search",
+    _skill_registry_api.create_skill: "create",
+    _skill_registry_api.register_skill: "register",
+    _skill_registry_api.bulk_register_skills: "register",
+    _skill_registry_api.create_skill_version: "register",
+    _skill_registry_api.create_organization_skill_version: "register",
+    _skill_registry_api.get_skill: "read",
+    _skill_registry_api.get_organization_skill: "read",
+    _skill_registry_api.search_skill_versions: "read",
+    _skill_registry_api.search_organization_skill_versions: "read",
+    _skill_registry_api.get_skill_version: "read",
+    _skill_registry_api.get_organization_skill_version: "read",
+    _skill_registry_api.get_skill_version_by_alias: "read",
+    _skill_registry_api.get_organization_skill_version_by_alias: "read",
+    _skill_registry_api.update_skill: "update",
+    _skill_registry_api.update_organization_skill: "update",
+    _skill_registry_api.update_skill_version: "update",
+    _skill_registry_api.update_organization_skill_version: "update",
+    _skill_registry_api.set_skill_tag: "update",
+    _skill_registry_api.set_organization_skill_tag: "update",
+    _skill_registry_api.delete_skill_tag: "update",
+    _skill_registry_api.delete_organization_skill_tag: "update",
+    _skill_registry_api.set_skill_version_tag: "update",
+    _skill_registry_api.set_organization_skill_version_tag: "update",
+    _skill_registry_api.set_skill_alias: "update",
+    _skill_registry_api.set_organization_skill_alias: "update",
+    _skill_registry_api.delete_skill: "manage",
+    _skill_registry_api.delete_organization_skill: "manage",
+    _skill_registry_api.delete_skill_version: "manage",
+    _skill_registry_api.delete_organization_skill_version: "manage",
+    _skill_registry_api.delete_skill_version_tag: "manage",
+    _skill_registry_api.delete_organization_skill_version_tag: "manage",
+    _skill_registry_api.delete_skill_alias: "manage",
+    _skill_registry_api.delete_organization_skill_alias: "manage",
 }
 
 
@@ -8275,19 +8280,17 @@ def _get_skill_registry_validator(
         route, path_params = _match_skill_route(path, request)
         if route is None:
             return False
-        if route.path == "" and request.method == "GET":
+        operation = _SKILL_ROUTE_OPERATIONS.get(route.endpoint)
+        if operation == "search":
             request.state.skill_identity_scope = skill_search_permission_scope(username)
             return True
-        operation = next(
-            (
-                _SKILL_ROUTE_OPERATIONS[dependency.call]
-                for dependency in route.dependant.dependencies
-                if dependency.call in _SKILL_ROUTE_OPERATIONS
-            ),
-            None,
-        )
         if operation == "create":
-            return validate_can_create_skill(username)
+            try:
+                body = _skill_registry_api.CreateSkillRequest.model_validate(await request.json())
+            except ValueError:
+                # FastAPI rejects malformed bodies before entering the handler.
+                return True
+            return validate_can_create_skill(username, body.organization, body.name)
         if operation == "register":
             targets = await _skill_registration_targets(request, route.endpoint, path_params)
             if targets is None:
@@ -8332,16 +8335,12 @@ def _get_skill_registry_validator(
 
 
 def validate_can_register_skill(
-    username: str, organization: str, name: str, *, parent_exists: bool | None = None
+    username: str, organization: str, name: str, *, parent_exists: bool
 ) -> bool:
     """Check the parent before registration can write artifacts or rows."""
-    if store.get_user(username).is_admin:
-        return True
-    if parent_exists is None:
-        parent_exists = _skill_exists_for_auth(organization, name)
     if parent_exists:
         return _get_skill_permission(organization, name, username).can_update
-    return validate_can_create_skill(username)
+    return validate_can_create_skill(username, organization, name)
 
 
 def skill_search_permission_scope(
@@ -8351,11 +8350,7 @@ def skill_search_permission_scope(
     user = store.get_user(username)
     if user.is_admin:
         return None, []
-    workspace_name = (
-        workspace_context.get_request_workspace()
-        if MLFLOW_ENABLE_WORKSPACES.get()
-        else DEFAULT_WORKSPACE_NAME
-    )
+    workspace_name = _request_auth_workspace()
     if workspace_name is None:
         return [], []
 
@@ -8363,18 +8358,15 @@ def skill_search_permission_scope(
     if any(is_workspace_admin_grant(grant) for grant in grants):
         return None, []
 
-    def can_read(resource_id: str, selected_grants=grants) -> bool:
-        permission = fold_grants_for_key(
-            selected_grants, GrantLoadKey(RESOURCE_TYPE_SKILL, resource_id)
-        )
+    def can_read(resource_id: str) -> bool:
+        permission = fold_grants_for_key(grants, GrantLoadKey(RESOURCE_TYPE_SKILL, resource_id))
         if permission is None:
             permission = _absent_permission(workspace_name)
         elif not permission.denied:
             permission = floor_positive_permission(permission, auth_config.default_permission)
         return permission.can_read
 
-    wildcard_grants = [grant for grant in grants if grant.resource_pattern == "*"]
-    baseline_read = can_read("*", wildcard_grants)
+    baseline_read = can_read("*")
     identities = {
         _parse_skill_registry_resource_key(grant.resource_pattern)
         for grant in grants
@@ -8817,14 +8809,14 @@ def _get_otel_validator(
 def _artifact_proxy_path_suffix(path: str) -> str | None:
     prefixes = (
         f"{_REST_API_PATH_PREFIX}/mlflow-artifacts/artifacts/",
-        f"{_REST_API_PATH_PREFIX}/mlflow-artifacts/mpu/create/",
-        f"{_REST_API_PATH_PREFIX}/mlflow-artifacts/mpu/complete/",
-        f"{_REST_API_PATH_PREFIX}/mlflow-artifacts/mpu/abort/",
-        f"{_REST_API_PATH_PREFIX}/mlflow-artifacts/presigned/",
         f"{_AJAX_API_PATH_PREFIX}/mlflow-artifacts/artifacts/",
+        f"{_REST_API_PATH_PREFIX}/mlflow-artifacts/mpu/create/",
         f"{_AJAX_API_PATH_PREFIX}/mlflow-artifacts/mpu/create/",
+        f"{_REST_API_PATH_PREFIX}/mlflow-artifacts/mpu/complete/",
         f"{_AJAX_API_PATH_PREFIX}/mlflow-artifacts/mpu/complete/",
+        f"{_REST_API_PATH_PREFIX}/mlflow-artifacts/mpu/abort/",
         f"{_AJAX_API_PATH_PREFIX}/mlflow-artifacts/mpu/abort/",
+        f"{_REST_API_PATH_PREFIX}/mlflow-artifacts/presigned/",
         f"{_AJAX_API_PATH_PREFIX}/mlflow-artifacts/presigned/",
     )
     for prefix in prefixes:
@@ -8841,19 +8833,6 @@ def _effective_artifact_proxy_path(path: str, query_path: str | None = None) -> 
         if path.rstrip("/") == f"{api_prefix}/mlflow-artifacts/artifacts":
             return query_path
     return None
-
-
-def _extract_experiment_id_from_artifact_proxy_path(
-    path: str, query_path: str | None = None
-) -> str | None:
-    target = _parse_artifact_auth_target(_effective_artifact_proxy_path(path, query_path))
-    return target.experiment_id
-
-
-def _extract_skill_identity_from_artifact_proxy_path(
-    path: str, query_path: str | None = None
-) -> SkillArtifactIdentity | None:
-    return _parse_artifact_auth_target(_effective_artifact_proxy_path(path, query_path)).skill
 
 
 def _get_proxy_artifact_permission(

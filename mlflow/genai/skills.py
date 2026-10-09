@@ -43,6 +43,7 @@ def search_skills(
     max_results: int = 100,
     order_by: list[str] | None = None,
     page_token: str | None = None,
+    include_skill_identities: list[str] | None = None,
 ) -> PagedList[Skill]:
     """Search registered skills with optional filtering, ordering, and pagination.
 
@@ -51,7 +52,10 @@ def search_skills(
         max_results: Maximum number of skills to return in one page. Defaults to 100.
         order_by: Fields and optional sort directions, such as ``["name ASC"]``.
         page_token: Token from a previous page's ``token`` attribute. Use the same
-            filter and ordering when requesting subsequent pages.
+            filter, ordering, and identity selector when requesting subsequent pages.
+        include_skill_identities: Optional list of exact identities, such as
+            ``["reviewer", "@acme/reviewer"]``. ``None`` selects all readable Skills;
+            an empty list selects none. This selection never widens the caller's permissions.
 
     Returns:
         A PagedList of Skill entities. Its ``token`` is ``None`` when no more results remain.
@@ -72,6 +76,7 @@ def search_skills(
         max_results=max_results,
         order_by=order_by,
         page_token=page_token,
+        include_skill_identities=include_skill_identities,
     )
 
 

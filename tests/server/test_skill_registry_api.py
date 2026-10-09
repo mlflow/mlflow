@@ -490,6 +490,16 @@ def test_update_skill_distinguishes_omitted_and_explicit_null_fields(
         assert response.json()["icons"] is None
 
 
+@pytest.mark.parametrize(
+    "selector", ["null", "{}", "[123]", '["@/reviewer"]', '["@acme/reviewer/extra"]']
+)
+def test_search_skills_rejects_invalid_identity_selector(tmp_path: Path, db_uri: str, selector):
+    client, store = _create_client(tmp_path, db_uri)
+    with mock.patch("mlflow.server.handlers._get_tracking_store", return_value=store):
+        response = client.get(PREFIX, params={"include_skill_identities": selector})
+    assert response.status_code == 400, response.text
+
+
 def test_search_skills_forwards_query_parameters(tmp_path: Path, db_uri: str):
     client, store = _create_client(tmp_path, db_uri)
     results = PagedList(
@@ -509,6 +519,7 @@ def test_search_skills_forwards_query_parameters(tmp_path: Path, db_uri: str):
                 ("order_by", "name ASC"),
                 ("order_by", "organization ASC"),
                 ("page_token", "token-1"),
+                ("include_skill_identities", '["code-review", "@acme/code-review"]'),
             ],
         )
 
@@ -522,8 +533,9 @@ def test_search_skills_forwards_query_parameters(tmp_path: Path, db_uri: str):
         max_results=20,
         order_by=["name ASC", "organization ASC"],
         page_token="token-1",
-        include_skill_identities=None,
+        include_skill_identities=[("", "code-review"), ("acme", "code-review")],
         exclude_skill_identities=None,
+        scoped_skill_identities=None,
     )
 
 

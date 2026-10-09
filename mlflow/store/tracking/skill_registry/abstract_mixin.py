@@ -62,8 +62,17 @@ class SkillRegistryMixin:
         page_token: str | None = None,
         include_skill_identities: list[tuple[str, str]] | None = None,
         exclude_skill_identities: list[tuple[str, str]] | None = None,
+        scoped_skill_identities: list[tuple[str, str]] | None = None,
     ) -> PagedList[Skill]:
-        """Search with optional exact ``(organization, name)`` filters before pagination."""
+        """Search with exact ``(organization, name)`` filters before pagination.
+
+        ``include_skill_identities`` is the caller's selector: ``None`` selects all Skills,
+        and an empty list selects none. Pagination tokens bind to this selector.
+        ``scoped_skill_identities`` is an additional internal constraint, intersected with
+        the caller's selector. ``exclude_skill_identities`` removes exact identities.
+        The latter two constraints can change between pages and do not bind the token;
+        auth apps use them to apply the current request's permissions.
+        """
         raise NotImplementedError(self.__class__.__name__)
 
     def create_skill_version(
@@ -79,6 +88,14 @@ class SkillRegistryMixin:
         created_by: str | None = None,
         expected_parent_exists: bool | None = None,
     ) -> SkillVersion:
+        """Create a version, creating its parent Skill when necessary.
+
+        ``expected_parent_exists`` guards the parent state observed by the caller:
+        ``True`` requires an existing parent, ``False`` requires a missing parent,
+        and ``None`` leaves either state valid. A mismatch raises ``RESOURCE_CONFLICT``
+        before creating a parent or version. This is a storage consistency check;
+        the caller must authorize the expected operation separately.
+        """
         raise NotImplementedError(self.__class__.__name__)
 
     def bulk_register_skills(
@@ -103,6 +120,10 @@ class SkillRegistryMixin:
                 newly created versions.
             organization: Organization shared by all definitions.
             created_by: Authenticated creator for new records.
+            expected_parent_exists: Optional map of Skill names to required parent states.
+                ``True`` requires an existing parent and ``False`` requires a missing one;
+                omitted names are unconstrained. A mismatch raises ``RESOURCE_CONFLICT``
+                and rolls back the entire batch before any result is committed.
 
         Returns:
             Reused or created versions in input order, potentially with different statuses.

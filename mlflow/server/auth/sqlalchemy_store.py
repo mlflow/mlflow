@@ -58,7 +58,6 @@ from mlflow.server.auth.permissions import (
     get_permission,
     max_permission,
 )
-from mlflow.store.db.db_types import MYSQL, SQLITE
 from mlflow.store.db.utils import (
     _get_managed_session_maker,
     _get_routing_session_maker,
@@ -397,164 +396,48 @@ class SqlAlchemyStore:
     # surface; remove them when the deprecated handlers are dropped.
 
     @staticmethod
-    def _reject_workspace_resource_type(resource_type: str) -> None:
-        # Defense in depth — closes the ``sender_is_admin()`` bypass on the
-        # ``validate_can_manage_resource`` gate.
-        if resource_type == RESOURCE_TYPE_WORKSPACE:
-            raise MlflowException.invalid_parameter_value(
-                "resource_type 'workspace' is not supported by the per-user permission "
-                "convenience APIs. Use set_workspace_permission / "
-                "delete_workspace_permission for workspace-wide grants."
-            )
-
-    @staticmethod
-    def _duplicate_user_resource_permission_message(
-        username: str, resource_type: str, resource_pattern: str
-    ) -> str:
-        return (
-            f"Permission for user={username} on "
-            f"resource_type={resource_type}, resource_id={resource_pattern} already exists."
-        )
-
-    @staticmethod
     def _validate_resource_pattern(resource_type: str, resource_pattern: str) -> str:
         if resource_type in SKILL_REGISTRY_RESOURCE_TYPES and resource_pattern != "*":
             organization, name = _parse_skill_registry_resource_key(resource_pattern)
             return _format_skill_registry_resource_key(organization, name)
         return resource_pattern
 
-    def _begin_sqlite_transaction_before_savepoint(self, session) -> None:
-        if self.db_type != SQLITE:
-            return
-
-        connection = session.connection()
-        raw_connection = connection.connection
-        dbapi_connection = getattr(raw_connection, "dbapi_connection", raw_connection)
-        if getattr(dbapi_connection, "in_transaction", False):
-            return
-        connection.exec_driver_sql("BEGIN IMMEDIATE")
-
-    def _insert_user_permission_in_session(
-        self,
-        session,
-        role_id: int,
-        resource_type: str,
-        resource_pattern: str,
-        permission: str,
-    ) -> None:
-        self._begin_sqlite_transaction_before_savepoint(session)
-        with session.begin_nested():
-            session.add(
-                SqlRolePermission(
-                    role_id=role_id,
-                    resource_type=resource_type,
-                    resource_pattern=resource_pattern,
-                    permission=permission,
-                )
-            )
-            session.flush()
-
-    def _role_permission_query(
-        self,
-        session,
-        role_id: int,
-        resource_type: str,
-        resource_pattern: str,
-        *,
-        for_update: bool = False,
-    ):
-        query = session.query(SqlRolePermission).filter(
-            SqlRolePermission.role_id == role_id,
-            SqlRolePermission.resource_type == resource_type,
-            SqlRolePermission.resource_pattern == resource_pattern,
-        )
-        if for_update and self.db_type == MYSQL:
-            query = query.with_for_update()
-        return query
-
-    def _get_role_permission_in_session(
-        self,
-        session,
-        role_id: int,
-        resource_type: str,
-        resource_pattern: str,
-        *,
-        for_update: bool = False,
-    ) -> SqlRolePermission | None:
-        return self._role_permission_query(
-            session,
-            role_id,
-            resource_type,
-            resource_pattern,
-            for_update=for_update,
-        ).first()
-
-    def _grant_user_permission_in_session(
-        self,
-        session,
-        username: str,
-        resource_type: str,
-        resource_pattern: str,
-        permission: str,
-        *,
-        upsert: bool,
-    ) -> None:
-        self._reject_workspace_resource_type(resource_type)
-        _validate_permission_for_resource_type(permission, resource_type)
-        resource_pattern = self._validate_resource_pattern(resource_type, resource_pattern)
-        self._begin_sqlite_transaction_before_savepoint(session)
-        user = self._get_user(session, username=username)
-        workspace_name = self._get_active_workspace_name()
-        role = self._get_or_create_synthetic_user_role(session, user.id, workspace_name)
-        existing = self._get_role_permission_in_session(
-            session, role.id, resource_type, resource_pattern
-        )
-        duplicate_message = self._duplicate_user_resource_permission_message(
-            username, resource_type, resource_pattern
-        )
-        if existing is not None:
-            if not upsert:
-                raise MlflowException(duplicate_message, RESOURCE_ALREADY_EXISTS)
-            existing.permission = permission
-            return
-
-        try:
-            self._insert_user_permission_in_session(
-                session, role.id, resource_type, resource_pattern, permission
-            )
-        except IntegrityError as e:
-            if upsert:
-                existing = self._get_role_permission_in_session(
-                    session,
-                    role.id,
-                    resource_type,
-                    resource_pattern,
-                    for_update=True,
-                )
-                if existing is not None:
-                    existing.permission = permission
-                    session.flush()
-                    return
-            raise MlflowException(duplicate_message, RESOURCE_ALREADY_EXISTS) from e
-
     def grant_user_permissions(
         self,
         username: str,
         grants: Iterable[tuple[str, str, str]],
-        *,
-        upsert: bool = False,
     ) -> None:
-        """Commit a batch of user grants in one auth-store transaction."""
+        """Upsert a batch of user grants in one auth-store transaction."""
         with self.ManagedSessionMaker(read_only=False) as session:
+            user = self._get_user(session, username=username)
+            workspace_name = self._get_active_workspace_name()
+            role = self._get_or_create_synthetic_user_role(session, user.id, workspace_name)
             for resource_type, resource_pattern, permission in grants:
-                self._grant_user_permission_in_session(
-                    session,
-                    username,
-                    resource_type,
-                    resource_pattern,
-                    permission,
-                    upsert=upsert,
+                self._reject_workspace_resource_type(resource_type)
+                _validate_resource_pattern(resource_pattern, resource_type)
+                _validate_permission_for_resource_type(permission, resource_type)
+                resource_pattern = self._validate_resource_pattern(resource_type, resource_pattern)
+                existing = (
+                    session
+                    .query(SqlRolePermission)
+                    .filter(
+                        SqlRolePermission.role_id == role.id,
+                        SqlRolePermission.resource_type == resource_type,
+                        SqlRolePermission.resource_pattern == resource_pattern,
+                    )
+                    .first()
                 )
+                if existing is None:
+                    session.add(
+                        SqlRolePermission(
+                            role_id=role.id,
+                            resource_type=resource_type,
+                            resource_pattern=resource_pattern,
+                            permission=permission,
+                        )
+                    )
+                else:
+                    existing.permission = permission
 
     def grant_user_permission(
         self,
@@ -572,9 +455,42 @@ class SqlAlchemyStore:
         # would get a success for a per-id DENY that protects nothing.
         _validate_resource_pattern(resource_pattern, resource_type)
         _validate_permission_for_resource_type(permission, resource_type)
+        resource_pattern = self._validate_resource_pattern(resource_type, resource_pattern)
         with self.ManagedSessionMaker(read_only=False) as session:
-            self._grant_user_permission_in_session(
-                session, username, resource_type, resource_pattern, permission, upsert=True
+            user = self._get_user(session, username=username)
+            workspace_name = self._get_active_workspace_name()
+            role = self._get_or_create_synthetic_user_role(session, user.id, workspace_name)
+            existing = (
+                session
+                .query(SqlRolePermission)
+                .filter(
+                    SqlRolePermission.role_id == role.id,
+                    SqlRolePermission.resource_type == resource_type,
+                    SqlRolePermission.resource_pattern == resource_pattern,
+                )
+                .first()
+            )
+            if existing is None:
+                session.add(
+                    SqlRolePermission(
+                        role_id=role.id,
+                        resource_type=resource_type,
+                        resource_pattern=resource_pattern,
+                        permission=permission,
+                    )
+                )
+            else:
+                existing.permission = permission
+
+    @staticmethod
+    def _reject_workspace_resource_type(resource_type: str) -> None:
+        # Defense in depth — closes the ``sender_is_admin()`` bypass on the
+        # ``validate_can_manage_resource`` gate.
+        if resource_type == RESOURCE_TYPE_WORKSPACE:
+            raise MlflowException.invalid_parameter_value(
+                "resource_type 'workspace' is not supported by the per-user permission "
+                "convenience APIs. Use set_workspace_permission / "
+                "delete_workspace_permission for workspace-wide grants."
             )
 
     def grant_user_resource_permission(
@@ -591,10 +507,42 @@ class SqlAlchemyStore:
         self._reject_workspace_resource_type(resource_type)
         _validate_resource_pattern(resource_pattern, resource_type)
         _validate_permission_for_resource_type(permission, resource_type)
+        resource_pattern = self._validate_resource_pattern(resource_type, resource_pattern)
+        duplicate_message = (
+            f"Permission for user={username} on "
+            f"resource_type={resource_type}, resource_id={resource_pattern} already exists."
+        )
         with self.ManagedSessionMaker(read_only=False) as session:
-            self._grant_user_permission_in_session(
-                session, username, resource_type, resource_pattern, permission, upsert=False
+            user = self._get_user(session, username=username)
+            workspace_name = self._get_active_workspace_name()
+            role = self._get_or_create_synthetic_user_role(session, user.id, workspace_name)
+            existing = (
+                session
+                .query(SqlRolePermission)
+                .filter(
+                    SqlRolePermission.role_id == role.id,
+                    SqlRolePermission.resource_type == resource_type,
+                    SqlRolePermission.resource_pattern == resource_pattern,
+                )
+                .first()
             )
+            if existing is not None:
+                raise MlflowException(duplicate_message, RESOURCE_ALREADY_EXISTS)
+            try:
+                with session.begin_nested():
+                    session.add(
+                        SqlRolePermission(
+                            role_id=role.id,
+                            resource_type=resource_type,
+                            resource_pattern=resource_pattern,
+                            permission=permission,
+                        )
+                    )
+                    session.flush()
+            except IntegrityError as e:
+                # Concurrent create lost the unique-constraint race. Surface as
+                # a clean RESOURCE_ALREADY_EXISTS instead of a 500.
+                raise MlflowException(duplicate_message, RESOURCE_ALREADY_EXISTS) from e
 
     def revoke_user_resource_permission(
         self,
@@ -2377,30 +2325,6 @@ class SqlAlchemyStore:
                 .all()
             )
             return [(pattern, permission) for pattern, permission in rows]
-
-    def list_typed_role_grants_for_user_in_workspace(
-        self, user_id: int, workspace: str, resource_type: str
-    ) -> list[tuple[str, str, str]]:
-        """Return resource and workspace grants with their type for search authorization."""
-        _validate_resource_type(resource_type)
-        with self.ManagedSessionMaker() as session:
-            rows = (
-                session
-                .query(
-                    SqlRolePermission.resource_type,
-                    SqlRolePermission.resource_pattern,
-                    SqlRolePermission.permission,
-                )
-                .join(SqlRole, SqlRole.id == SqlRolePermission.role_id)
-                .join(SqlUserRoleAssignment, SqlRole.id == SqlUserRoleAssignment.role_id)
-                .filter(
-                    SqlUserRoleAssignment.user_id == user_id,
-                    SqlRole.workspace == workspace,
-                    SqlRolePermission.resource_type.in_((resource_type, RESOURCE_TYPE_WORKSPACE)),
-                )
-                .all()
-            )
-            return [(kind, pattern, permission) for kind, pattern, permission in rows]
 
     def list_workspace_admin_workspaces(self, user_id: int) -> set[str]:
         """

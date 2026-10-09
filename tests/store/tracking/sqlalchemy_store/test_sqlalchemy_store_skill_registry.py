@@ -129,13 +129,38 @@ def test_search_skills_filters_qualified_identities_before_pagination(store):
         for skill in store.search_skills(include_skill_identities=many_allowed)
     ] == [("", "writer"), ("acme", "reviewer")]
 
+    # Exercise all predicates in the database, including SQL Server's NOT EXISTS
+    # OPENJSON branch, with same-name Skills spanning several organizations.
+    many_selected = many_allowed + [("", "reviewer"), ("example", "reviewer")]
+    many_excluded = [("acme", f"excluded-{index}") for index in range(500)] + [
+        ("", "reviewer"),
+        ("", "writer"),
+    ]
+    query = {
+        "include_skill_identities": many_selected,
+        "scoped_skill_identities": many_selected,
+        "exclude_skill_identities": many_excluded,
+        "max_results": 1,
+    }
+    first = store.search_skills(**query)
+    assert [(skill.organization, skill.name) for skill in first] == [("acme", "reviewer")]
+    assert first.token is not None
+    second = store.search_skills(**query, page_token=first.token)
+    assert [(skill.organization, skill.name) for skill in second] == [("example", "reviewer")]
+    assert second.token is None
 
-def test_large_skill_identity_scope_uses_bounded_sql_server_parameters():
-    identities = [("acme", f"skill-{index}") for index in range(2500)]
-    query = sqlalchemy.select(SqlSkill.name).where(_skill_identity_predicate(identities, "mssql"))
-    compiled = query.compile(dialect=mssql.dialect())
 
-    assert "OPENJSON" in str(compiled)
+@pytest.mark.parametrize("size", [300, 301, 2500])
+def test_large_skill_identity_scope_uses_bounded_sql_server_parameters(size):
+    identities = [(f"org-{index}", "reviewer") for index in range(size)]
+    query = sqlalchemy.select(SqlSkill.name).where(
+        _skill_identity_predicate(identities, "mssql"),
+        _skill_identity_predicate(identities, "mssql"),
+        ~_skill_identity_predicate(identities, "mssql"),
+    )
+    compiled = query.compile(dialect=mssql.dialect(), compile_kwargs={"render_postcompile": True})
+
+    assert ("OPENJSON" in str(compiled)) is (size > 300)
     assert len(compiled.params) < 2100
 
 
@@ -1112,7 +1137,9 @@ def test_bulk_register_skills_later_failure_rolls_back_every_new_parent_and_vers
 def test_bulk_register_skills_rejects_changed_parent_state_before_writing(store):
     store.create_skill("writer", created_by="owner")
 
-    with pytest.raises(MlflowException, match="changed after registration preflight") as exc:
+    with pytest.raises(
+        MlflowException, match="already exists; this registration expected to create it"
+    ) as exc:
         store.bulk_register_skills(
             [_bulk_definition(), _bulk_definition("writer")],
             expected_parent_exists={"reviewer": False, "writer": False},
@@ -1121,6 +1148,26 @@ def test_bulk_register_skills_rejects_changed_parent_state_before_writing(store)
     assert exc.value.error_code == ErrorCode.Name(RESOURCE_CONFLICT)
     with store.ManagedSessionMaker() as session:
         assert store._get_query(session, SqlSkill).count() == 1
+        assert store._get_query(session, SqlSkillVersion).count() == 0
+
+
+@pytest.mark.parametrize("bulk", [False, True])
+@pytest.mark.parametrize("expected_parent_exists", [False, True])
+def test_registration_conflict_describes_parent_state(store, bulk, expected_parent_exists):
+    if not expected_parent_exists:
+        store.create_skill("reviewer")
+    message = (
+        "no longer exists; this registration expected to update it"
+        if expected_parent_exists
+        else "already exists; this registration expected to create it"
+    )
+    register = store.bulk_register_skills if bulk else store.create_skill_version
+    args = [_bulk_definition()] if bulk else "reviewer"
+    expectation = {"reviewer": expected_parent_exists} if bulk else expected_parent_exists
+    with pytest.raises(MlflowException, match=message) as exc:
+        register(args, expected_parent_exists=expectation)
+    assert exc.value.error_code == ErrorCode.Name(RESOURCE_CONFLICT)
+    with store.ManagedSessionMaker() as session:
         assert store._get_query(session, SqlSkillVersion).count() == 0
 
 

@@ -1,53 +1,186 @@
+import asyncio
 import io
 import json
 
 import pytest
 from fastapi import FastAPI
+from fastapi.routing import APIRoute
+from starlette.requests import Request
 from starlette.testclient import TestClient
 
 from mlflow.entities.skill import SkillStatus
 from mlflow.entities.skill_version import SkillVersion
 from mlflow.exceptions import MlflowException
 from mlflow.server import auth, handlers, skill_registry_api
-from mlflow.server.auth.permissions import EDIT, MANAGE, NO_PERMISSIONS, READ
+from mlflow.server.auth.permissions import DENY, EDIT, MANAGE, NO_PERMISSIONS, READ, USE
 from mlflow.server.auth.sqlalchemy_store import SqlAlchemyStore as AuthStore
 from mlflow.server.fastapi_app import add_registry_exception_handlers
-from mlflow.server.skill_registry_api import (
-    _skill_create_operation,
-    _skill_manage_operation,
-    _skill_read_operation,
-    _skill_register_operation,
-    _skill_update_operation,
-    skill_registry_router,
-)
+from mlflow.server.skill_registry_api import skill_registry_router
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore as TrackingStore
 from mlflow.utils.workspace_context import ServerWorkspaceContext
 
 
-def test_skill_routes_declare_auth_neutral_operations():
-    permission_dependencies = {
-        _skill_create_operation,
-        _skill_read_operation,
-        _skill_update_operation,
-        _skill_manage_operation,
-        _skill_register_operation,
+def test_every_skill_route_has_one_auth_policy():
+    endpoints = [route.endpoint for route in skill_registry_router.routes]
+    assert len(endpoints) == len(set(endpoints))
+    assert set(endpoints) == set(auth._SKILL_ROUTE_OPERATIONS)
+    assert set(auth._SKILL_ROUTE_OPERATIONS.values()) == {
+        "read",
+        "update",
+        "manage",
+        "create",
+        "register",
+        "search",
     }
-    registration_paths = {
-        "/register",
-        "/bulk-register",
-        "/{name}/versions",
-        "/@{organization}/{name}/versions",
-    }
-    for route in skill_registry_router.routes:
-        declared = {dep.call for dep in route.dependant.dependencies} & permission_dependencies
-        if route.path == "" and route.methods == {"POST"}:
-            assert declared == {_skill_create_operation}
-        elif route.path == "":
-            assert not declared
-        elif route.path in registration_paths and "POST" in route.methods:
-            assert declared == {_skill_register_operation}
+
+
+def test_unmapped_skill_route_fails_closed(monkeypatch):
+    monkeypatch.setattr(
+        skill_registry_router,
+        "routes",
+        [*skill_registry_router.routes, APIRoute("/unmapped/operation", lambda: {})],
+    )
+    path = "/api/3.0/mlflow/skills/unmapped/operation"
+    request = Request({"type": "http", "method": "GET", "path": path})
+    assert not asyncio.run(auth._get_skill_registry_validator(path)("reader", request))
+
+
+@pytest.fixture
+def workspace_registry(tmp_path, monkeypatch):
+    monkeypatch.setenv("MLFLOW_ENABLE_WORKSPACES", "true")
+    monkeypatch.setenv("MLFLOW_WORKSPACE", "default")
+    auth_store = AuthStore()
+    auth_store.init_db(f"sqlite:///{tmp_path / 'auth.db'}")
+    tracking_store = TrackingStore(
+        f"sqlite:///{tmp_path / 'tracking.db'}", str(tmp_path / "artifacts")
+    )
+    creator = auth_store.create_user("creator", "strong-password", is_admin=False)
+    auth_store.set_workspace_permission("default", creator.username, USE.name)
+    monkeypatch.setattr(auth, "store", auth_store)
+    monkeypatch.setattr(auth, "_get_tracking_store", lambda: tracking_store)
+    monkeypatch.setattr(handlers, "_get_tracking_store", lambda: tracking_store)
+    monkeypatch.setattr(
+        auth, "auth_config", auth.auth_config._replace(default_permission=NO_PERMISSIONS.name)
+    )
+    monkeypatch.setattr(auth, "_auth_initialized", True)
+    monkeypatch.setattr(auth, "_authenticate_fastapi_request", lambda request: creator)
+    app = FastAPI()
+    app.include_router(skill_registry_router, prefix="/api/3.0/mlflow/skills")
+    add_registry_exception_handlers(app)
+    auth.add_fastapi_permission_middleware(app)
+    try:
+        with ServerWorkspaceContext("default"), TestClient(app) as client:
+            yield client, auth_store, tracking_store, creator
+    finally:
+        auth_store.engine.dispose()
+        tracking_store.engine.dispose()
+
+
+@pytest.mark.parametrize("pattern", ["*", "@acme/private"])
+@pytest.mark.parametrize(
+    "endpoint", ["create", "register", "versions", "bulk-register", "multipart"]
+)
+def test_skill_deny_vetoes_creation(workspace_registry, monkeypatch, pattern, endpoint):
+    client, auth_store, tracking_store, creator = workspace_registry
+    auth_store.grant_user_permission(creator.username, "skill", pattern, DENY.name)
+    prefix = "/api/3.0/mlflow/skills"
+
+    def unexpected_write(*args, **kwargs):
+        raise AssertionError("Denied creation reached registration or persistence")
+
+    with monkeypatch.context() as patch:
+        patch.setattr(skill_registry_api, "register_skill_version", unexpected_write)
+        patch.setattr(skill_registry_api, "bulk_register_skill_versions", unexpected_write)
+        patch.setattr(tracking_store, "create_skill", unexpected_write)
+        if endpoint == "create":
+            response = client.post(prefix, json={"name": "private", "organization": "acme"})
+        elif endpoint == "bulk-register":
+            response = client.post(
+                f"{prefix}/bulk-register",
+                json={
+                    "organization": "acme",
+                    "skills": [
+                        {
+                            "name": name,
+                            "source": "https://example.com/repo.git",
+                            "ref": "main",
+                            "digest": "a" * 64,
+                        }
+                        for name in ("allowed", "private")
+                    ],
+                },
+            )
+        elif endpoint == "multipart":
+            response = client.post(
+                f"{prefix}/register",
+                files={
+                    "metadata": (None, json.dumps({"name": "private", "organization": "acme"})),
+                    "content": ("skill.tar.gz", b"denied upload", "application/gzip"),
+                },
+            )
         else:
-            assert len(declared) == 1, (route.path, route.methods)
+            url = (
+                f"{prefix}/@acme/private/versions"
+                if endpoint == "versions"
+                else f"{prefix}/register"
+            )
+            response = client.post(
+                url,
+                json={
+                    "name": "private",
+                    "organization": "acme",
+                    "source": "https://example.com/skill.zip",
+                },
+            )
+    assert response.status_code == 403, response.text
+    assert list(tracking_store.search_skills()) == []
+    if pattern != "*":
+        # The same name in another organization is not covered by this DENY.
+        response = client.post(prefix, json={"name": "private", "organization": "other"})
+        assert response.status_code == 200, response.text
+
+
+def test_search_selector_intersects_current_authorization(workspace_registry):
+    client, auth_store, tracking_store, creator = workspace_registry
+    prefix = "/api/3.0/mlflow/skills"
+    for organization in ("acme", "example", "other"):
+        tracking_store.create_skill("reviewer", organization=organization)
+    auth_store.grant_user_permission(creator.username, "skill", "@acme/reviewer", READ.name)
+    auth_store.grant_user_permission(creator.username, "skill", "@example/reviewer", READ.name)
+    selector = json.dumps(["@acme/reviewer", "@example/reviewer", "@other/reviewer"])
+    query = {"include_skill_identities": selector, "max_results": 1}
+    first = client.get(prefix, params=query)
+    assert first.status_code == 200, first.text
+    assert [s["organization"] for s in first.json()["skills"]] == ["acme"]
+    token = first.json()["next_page_token"]
+    assert token is not None
+
+    # New grants between pages do not invalidate the caller's selector or token.
+    auth_store.grant_user_permission(creator.username, "skill", "@other/reviewer", READ.name)
+    second = client.get(prefix, params={**query, "page_token": token})
+    assert second.status_code == 200, second.text
+    assert [s["organization"] for s in second.json()["skills"]] == ["example"]
+    assert second.json()["next_page_token"] is not None
+
+    # DENY remains effective even when the caller explicitly selects the Skill.
+    auth_store.grant_user_permission(creator.username, "skill", "*", READ.name)
+    auth_store.grant_user_permission(creator.username, "skill", "@acme/reviewer", DENY.name)
+    excluded = client.get(prefix, params={**query, "page_token": token})
+    assert excluded.status_code == 200, excluded.text
+    assert [s["organization"] for s in excluded.json()["skills"]] == ["other"]
+    assert excluded.json()["next_page_token"] is None
+    denied_only = client.get(
+        prefix,
+        params={
+            "include_skill_identities": json.dumps(["@acme/reviewer"]),
+            "max_results": 1,
+        },
+    )
+    assert denied_only.json() == {"skills": [], "next_page_token": None}
+    assert client.get(prefix, params={"include_skill_identities": "[]"}).json() == {
+        "skills": [],
+        "next_page_token": None,
+    }
 
 
 @pytest.mark.parametrize("prefix", ["/api/3.0/mlflow/skills", "/ajax-api/3.0/mlflow/skills"])

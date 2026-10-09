@@ -112,6 +112,7 @@ class RestSkillRegistryMixin:
         max_results: int = SEARCH_MAX_RESULTS_DEFAULT,
         order_by: list[str] | None = None,
         page_token: str | None = None,
+        include_skill_identities: list[tuple[str, str]] | None = None,
     ) -> PagedList[Skill]:
         params: dict[str, Any] = {"max_results": max_results}
         if filter_string is not None:
@@ -120,6 +121,11 @@ class RestSkillRegistryMixin:
             params["order_by"] = order_by
         if page_token is not None:
             params["page_token"] = page_token
+        if include_skill_identities is not None:
+            params["include_skill_identities"] = json.dumps([
+                f"@{organization}/{name}" if organization else name
+                for organization, name in include_skill_identities
+            ])
         data = self._skill_request("GET", "", params=params)
         return PagedList(
             [Skill.from_dict(skill) for skill in data["skills"]], data.get("next_page_token")
