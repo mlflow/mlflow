@@ -429,6 +429,7 @@ module.exports = {
   "admin.edit_role_modal": "",
   "admin.edit_role_modal.back": "",
   "admin.edit_role_modal.cancel": "",
+  "admin.edit_role_modal.conditions_error": "",
   "admin.edit_role_modal.confirm": "",
   "admin.edit_role_modal.description": "",
   "admin.edit_role_modal.diff_tag": "",

@@ -82,3 +82,41 @@ describe('MutationConditionsSection', () => {
     expect(screen.queryByText('None of your roles carry a mutation condition.')).not.toBeInTheDocument();
   });
 });
+
+describe('MutationConditionsSection — naming the workspace a restriction comes from', () => {
+  it('appends the workspace to the source label when workspaces are enabled', () => {
+    // The self endpoint deliberately returns conditions from every workspace, and role
+    // names repeat across them, so the role name alone does not identify the restriction.
+    renderWithDesignSystem(
+      <MutationConditionsSection
+        conditions={[
+          condition({ id: 1, role_id: 1, role_name: 'writers', workspace: 'team-a' }),
+          condition({ id: 2, role_id: 2, role_name: 'writers', workspace: 'team-b' }),
+        ]}
+        workspacesEnabled
+      />,
+    );
+    expect(screen.getByText('writers (team-a)')).toBeInTheDocument();
+    expect(screen.getByText('writers (team-b)')).toBeInTheDocument();
+  });
+
+  it('leaves the label bare when workspaces are disabled', () => {
+    // A single-workspace deployment has nothing to disambiguate, and the suffix would be
+    // noise on every row.
+    renderWithDesignSystem(
+      <MutationConditionsSection conditions={[condition({ role_name: 'writers', workspace: 'default' })]} />,
+    );
+    expect(screen.getByText('writers')).toBeInTheDocument();
+    expect(screen.queryByText('writers (default)')).not.toBeInTheDocument();
+  });
+
+  it('names a direct condition by what it is, with its workspace', () => {
+    renderWithDesignSystem(
+      <MutationConditionsSection
+        conditions={[condition({ role_name: '__user_1__', workspace: 'team-a' })]}
+        workspacesEnabled
+      />,
+    );
+    expect(screen.getByText('Direct grants (team-a)')).toBeInTheDocument();
+  });
+});

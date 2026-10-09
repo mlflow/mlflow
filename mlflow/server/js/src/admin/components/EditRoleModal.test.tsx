@@ -9,6 +9,7 @@ import { EditRoleModal } from './EditRoleModal';
 const mockUseResourceOptionsQuery = jest.fn<(...args: any[]) => any>();
 const mockUseWorkspacesEnabled = jest.fn<() => { workspacesEnabled: boolean }>();
 const mockAddConditionMutateAsync = jest.fn<(...args: any[]) => any>();
+const mockUseRoleMutationConditionsQuery = jest.fn<() => any>();
 const mockAddPermissionMutateAsync = jest.fn<(...args: any[]) => any>();
 
 jest.mock('../hooks', () => ({
@@ -24,7 +25,7 @@ jest.mock('../hooks', () => ({
   useRoleUsersQuery: () => ({ data: { assignments: [] }, isLoading: false }),
   // Conditions now share these modals; stub them so the cases below keep testing
   // what they were written for.
-  useRoleMutationConditionsQuery: () => ({ data: { mutation_conditions: [] }, isLoading: false, error: null }),
+  useRoleMutationConditionsQuery: () => mockUseRoleMutationConditionsQuery(),
   useAddMutationCondition: () => ({ mutateAsync: mockAddConditionMutateAsync, isLoading: false }),
   useRemoveMutationCondition: () => ({ mutateAsync: jest.fn(), isLoading: false }),
   useUsersQuery: () => ({ data: { users: [] }, isLoading: false, error: null }),
@@ -42,6 +43,12 @@ beforeEach(() => {
   mockUseWorkspacesEnabled.mockReturnValue({ workspacesEnabled: false });
   mockAddConditionMutateAsync.mockReset();
   mockAddConditionMutateAsync.mockResolvedValue({});
+  mockUseRoleMutationConditionsQuery.mockReset();
+  mockUseRoleMutationConditionsQuery.mockReturnValue({
+    data: { mutation_conditions: [] },
+    isLoading: false,
+    error: null,
+  });
   mockAddPermissionMutateAsync.mockReset();
   mockAddPermissionMutateAsync.mockResolvedValue({});
 });
@@ -189,5 +196,32 @@ describe('EditRoleModal — restrictions land before capability', () => {
     fireEvent.click(await screen.findByRole('button', { name: /^Apply changes$/ }));
     await waitFor(() => expect(mockAddPermissionMutateAsync).toHaveBeenCalledTimes(2));
     expect(mockAddConditionMutateAsync).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('EditRoleModal — an unknown condition policy blocks the form', () => {
+  it('blocks editing and submitting when the conditions fetch failed', async () => {
+    // An errored fetch is an UNKNOWN list, not an empty one. Pre-filling `[]` shows a role
+    // whose restrictions failed to load as a role carrying none, and the admin then reviews
+    // and applies name, permission and assignment changes against that false picture.
+    mockUseRoleMutationConditionsQuery.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      error: new Error('conditions endpoint unavailable'),
+    });
+    renderWithDesignSystem(<EditRoleModal open onClose={jest.fn()} roleId={1} />);
+
+    expect(await screen.findByText('Failed to load mutation conditions')).toBeInTheDocument();
+    expect(screen.getByText('conditions endpoint unavailable')).toBeInTheDocument();
+    // The form itself is gone, so there is nothing to edit against the wrong picture.
+    expect(screen.queryByText('Add a mutation condition')).not.toBeInTheDocument();
+    expect(screen.queryByText('Add a permission')).not.toBeInTheDocument();
+  });
+
+  it('renders the form normally when the fetch succeeded', async () => {
+    renderWithDesignSystem(<EditRoleModal open onClose={jest.fn()} roleId={1} />);
+
+    expect(await screen.findByText('Add a mutation condition')).toBeInTheDocument();
+    expect(screen.queryByText('Failed to load mutation conditions')).not.toBeInTheDocument();
   });
 });
