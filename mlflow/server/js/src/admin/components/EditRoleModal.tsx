@@ -83,7 +83,11 @@ export const EditRoleModal = ({ open, onClose, roleId }: EditRoleModalProps) => 
   const { data: roleData, isLoading: roleLoading } = useRoleDetailQuery(roleId);
   const { data: assignmentsData, isLoading: assignmentsLoading } = useRoleUsersQuery(roleId);
   const { data: usersData, isLoading: usersLoading } = useUsersQuery();
-  const { data: conditionsData, isLoading: conditionsLoading } = useRoleMutationConditionsQuery(roleId);
+  const {
+    data: conditionsData,
+    isLoading: conditionsLoading,
+    error: conditionsError,
+  } = useRoleMutationConditionsQuery(roleId);
 
   const userIdToUsername = useMemo(() => {
     const m = new Map<number, string>();
@@ -150,6 +154,13 @@ export const EditRoleModal = ({ open, onClose, roleId }: EditRoleModalProps) => 
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
 
   const stateLoaded = !roleLoading && !assignmentsLoading && !usersLoading && !conditionsLoading;
+
+  // An errored conditions fetch is an UNKNOWN policy, not an empty one, so the form is
+  // blocked rather than pre-filled with ``[]``. Without this the modal shows a role whose
+  // restrictions failed to load as a role carrying none, and an admin reviews and applies
+  // name, permission and assignment changes against that false picture. ``EditAccessModal``
+  // blocks on the same reasoning.
+  const loadError = conditionsError;
 
   // ``prefilledRef`` gates the data-fill effect against background
   // refetches that would clobber in-progress edits.
@@ -450,7 +461,7 @@ export const EditRoleModal = ({ open, onClose, roleId }: EditRoleModalProps) => 
                 setError(null);
                 setStep('review');
               }}
-              disabled={!hasAnyChange || !stateLoaded || !name.trim()}
+              disabled={!hasAnyChange || !stateLoaded || Boolean(loadError) || !name.trim()}
             >
               Review changes
             </Button>
@@ -513,6 +524,16 @@ export const EditRoleModal = ({ open, onClose, roleId }: EditRoleModalProps) => 
             >
               <Spinner size="small" />
             </div>
+          ) : loadError ? (
+            <Alert
+              componentId="admin.edit_role_modal.conditions_error"
+              type="error"
+              message="Failed to load mutation conditions"
+              description={
+                (loadError instanceof Error ? loadError.message : null) ||
+                "An error occurred while fetching this role's mutation conditions. Close the modal and try again."
+              }
+            />
           ) : (
             <>
               <LongFormSection title="Role details">

@@ -9,6 +9,13 @@ interface Props {
   isLoading?: boolean;
   /** Surfaced by the table itself: a failed fetch and an empty list mean opposite things. */
   error?: unknown;
+  /**
+   * Name each row's workspace alongside its role. The self endpoint deliberately returns
+   * conditions from EVERY workspace, and role names and resource ids both repeat across
+   * them, so without this a user cannot tell which workspace a restriction governs -- the
+   * same reason the Permissions tab keeps workspace on every row.
+   */
+  workspacesEnabled?: boolean;
 }
 
 /**
@@ -20,7 +27,7 @@ interface Props {
  *
  * The carrying role is a column rather than a grouping, matching the admin's per-user tab.
  */
-export const MutationConditionsSection = ({ conditions, isLoading, error }: Props) => {
+export const MutationConditionsSection = ({ conditions, isLoading, error, workspacesEnabled }: Props) => {
   // ``rowSuffix`` receives a bare condition, which carries ``role_id`` but not the role
   // name, so the mapping is built here -- the same shape the admin's user tab uses.
   const roleNameById = useMemo(() => {
@@ -29,10 +36,11 @@ export const MutationConditionsSection = ({ conditions, isLoading, error }: Prop
       // A condition attached directly to the user sits on the synthetic
       // ``__user_<id>__`` role. Name it for what it is rather than leaking the
       // internal name.
-      byId.set(condition.role_id, isSyntheticUserRole(condition.role_name) ? 'Direct grants' : condition.role_name);
+      const source = isSyntheticUserRole(condition.role_name) ? 'Direct grants' : condition.role_name;
+      byId.set(condition.role_id, workspacesEnabled ? `${source} (${condition.workspace})` : source);
     }
     return byId;
-  }, [conditions]);
+  }, [conditions, workspacesEnabled]);
 
   return (
     <ConditionsTable

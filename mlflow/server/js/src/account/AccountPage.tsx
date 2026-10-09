@@ -462,6 +462,7 @@ const AccountPage = () => {
                 conditions={conditionsQuery.data?.mutation_conditions ?? []}
                 isLoading={conditionsQuery.isLoading}
                 error={conditionsQuery.error}
+                workspacesEnabled={workspacesEnabled}
               />
             </Tabs.Content>
           </Tabs.Root>

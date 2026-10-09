@@ -17,6 +17,7 @@ const mockUseActiveWorkspace = jest.fn<() => string | null>();
 const mockAddConditionMutateAsync = jest.fn<(...args: any[]) => any>();
 const mockRemoveConditionMutateAsync = jest.fn<(...args: any[]) => any>();
 const mockUseRoleMutationConditionsQuery = jest.fn<() => any>();
+const mockRefetchQueries = jest.fn<(...args: any[]) => Promise<void>>();
 
 jest.mock('../hooks', () => ({
   // Conditions now share these modals; stub them so the cases below keep testing
@@ -28,6 +29,7 @@ jest.mock('../hooks', () => ({
     users: ['admin_users'],
     roles: ['admin_roles'],
     roleUsers: (roleId: number) => ['admin_role_users', roleId],
+    roleConditions: (roleId: number) => ['admin_role_conditions', roleId],
     resourceOptions: (resourceType: string) => ['admin_resource_options', resourceType],
   },
   useCurrentUserIsAdmin: () => false,
@@ -57,7 +59,7 @@ jest.mock('../../experiment-tracking/hooks/useServerInfo', () => ({
 }));
 
 jest.mock('@mlflow/mlflow/src/common/utils/reactQueryHooks', () => ({
-  useQueryClient: () => ({ invalidateQueries: jest.fn() }),
+  useQueryClient: () => ({ invalidateQueries: jest.fn(), refetchQueries: mockRefetchQueries }),
 }));
 
 beforeEach(() => {
@@ -74,6 +76,8 @@ beforeEach(() => {
   mockAddConditionMutateAsync.mockResolvedValue({});
   mockRemoveConditionMutateAsync.mockReset();
   mockRemoveConditionMutateAsync.mockResolvedValue({});
+  mockRefetchQueries.mockReset();
+  mockRefetchQueries.mockResolvedValue(undefined);
 });
 
 // Direct grants surface through the synthetic ``__user_<id>__`` role
@@ -540,5 +544,99 @@ describe('EditAccessModal — restrictions land before capability', () => {
 
     await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
     expect(mockRemoveConditionMutateAsync).toHaveBeenCalledWith(existingCondition.id);
+  });
+});
+
+describe('EditAccessModal — a partial failure re-seeds from fresh server state', () => {
+  // The re-seed after a partial failure reads the conditions query. Every mutation above
+  // invalidates WITHOUT awaiting, so clearing the pre-fill latch while the refetch is still
+  // in flight pre-fills the PRE-mutation list and then latches; the arriving refetch is
+  // then ignored because the latch matches. The staged list is missing a condition the
+  // server now holds, and the diff reads that difference as a REMOVAL -- so the modal sits
+  // there with a pending change that deletes the restriction which was just created, and
+  // whoever clicks Apply next grants the capability unrestricted.
+
+  const created = {
+    id: 7,
+    role_id: 99,
+    condition_slot: 1,
+    resource_type: 'experiment',
+    resource_pattern: '*',
+    container_resource_type: 'workspace',
+    container_resource_pattern: '*',
+    value_condition: null,
+    target_condition: "tags.env = 'dev'",
+  };
+
+  // ``landed`` is what the server holds; ``visible`` is what the query has fetched. The gap
+  // between them IS the race, and only a refetch closes it.
+  let landed: any[] = [];
+  let visible: any[] = [];
+
+  beforeEach(() => {
+    landed = [];
+    visible = [];
+    mockUseUserRolesQuery.mockReset();
+    mockUseUserRolesQuery.mockReturnValue({
+      data: { roles: [syntheticUserRole('default')] },
+      isLoading: false,
+      error: null,
+    });
+    mockUseRoleMutationConditionsQuery.mockImplementation(() => ({
+      data: { mutation_conditions: visible },
+      isLoading: false,
+      error: null,
+    }));
+    mockRefetchQueries.mockImplementation(async () => {
+      visible = [...landed];
+    });
+    mockAddConditionMutateAsync.mockReset();
+    mockAddConditionMutateAsync.mockImplementation(async () => {
+      landed.push(created);
+      return { mutation_conditions: created };
+    });
+    mockGrantPermissionMutateAsync.mockReset();
+    mockGrantPermissionMutateAsync.mockRejectedValue(new Error('grant refused'));
+    mockRevokePermissionMutateAsync.mockReset();
+    mockRevokePermissionMutateAsync.mockResolvedValue({});
+  });
+
+  const stageAndApply = () => {
+    fireEvent.change(screen.getByPlaceholderText("tags.lifecycle != 'prod'"), {
+      target: { value: "tags.env = 'dev'" },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Add mutation condition' }));
+    fireEvent.click(screen.getByRole('radio', { name: /^All experiments$/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^Add$/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^Review changes$/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^Apply changes$/ }));
+  };
+
+  it('leaves no pending change after the failure, so the created condition is not queued for removal', async () => {
+    renderWithDesignSystem(<EditAccessModal open onClose={jest.fn()} username="alice" />);
+    stageAndApply();
+
+    // The condition landed, the grant was refused, and the modal is back on the edit step
+    // showing the failure.
+    await waitFor(() => expect(screen.getByText(/grant refused/)).toBeInTheDocument());
+    expect(mockAddConditionMutateAsync).toHaveBeenCalledTimes(1);
+    // The re-seed awaited the refetch, which is what makes it read the created row.
+    expect(mockRefetchQueries).toHaveBeenCalled();
+
+    // Nothing left to apply: the staged list matches the server. A pending change here
+    // would be the spurious removal.
+    await waitFor(() => expect(screen.getByRole('button', { name: /^Review changes$/ })).toBeDisabled());
+    expect(mockRemoveConditionMutateAsync).not.toHaveBeenCalled();
+  });
+
+  it('shows the created condition as current state rather than dropping it from the list', async () => {
+    renderWithDesignSystem(<EditAccessModal open onClose={jest.fn()} username="alice" />);
+    stageAndApply();
+
+    await waitFor(() => expect(screen.getByText(/grant refused/)).toBeInTheDocument());
+    // The re-seeded editable list holds the condition, so the admin sees what actually
+    // landed instead of a list that silently lost it. It renders as a staged row, not as
+    // the draft input, which was cleared when the row was added.
+    await waitFor(() => expect(screen.getByText("tags.env = 'dev'")).toBeInTheDocument());
   });
 });

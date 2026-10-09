@@ -499,6 +499,22 @@ export const EditAccessModal = ({ open, onClose, username }: EditAccessModalProp
       return;
     }
     setError(failures.join('\n'));
+    // A partial failure means editable state no longer matches what landed, so the modal
+    // re-seeds from the server by clearing the latch below. That re-seed has to read FRESH
+    // data: every mutation above invalidates without awaiting, so clearing the latch while
+    // a refetch is still in flight pre-fills the PRE-mutation list and then latches, and the
+    // arriving refetch is ignored because the latch now matches. A condition that really was
+    // created then reads as one the admin removed, and retrying grants the capability while
+    // deleting the restriction meant to narrow it.
+    //
+    // Awaiting both queries the pre-fill reads is what makes the re-seed truthful. The
+    // conditions query is skipped when the user has no synthetic role: it is disabled in
+    // that case, and the roles refetch is what makes it appear, after which ``conditionsReady``
+    // holds the pre-fill until the first fetch lands.
+    await queryClient.refetchQueries({ queryKey: AccountQueryKeys.userRoles(username) });
+    if (Number.isFinite(syntheticRoleId)) {
+      await queryClient.refetchQueries({ queryKey: AdminQueryKeys.roleConditions(syntheticRoleId) });
+    }
     filledForWorkspaceRef.current = null;
     setStep('edit');
     setSubmitting(false);
@@ -508,6 +524,7 @@ export const EditAccessModal = ({ open, onClose, username }: EditAccessModalProp
     addCondition,
     removeCondition,
     username,
+    syntheticRoleId,
     grantWorkspaceForRequest,
     queryClient,
     grantPermission,

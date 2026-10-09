@@ -37,6 +37,7 @@ import { isSyntheticUserRole, isWorkspaceAdminRole } from '../types';
  * that is where the admin has to go to change it.
  */
 const UserConditionsSection = ({ username }: { username: string }) => {
+  const { workspacesEnabled } = useWorkspacesEnabled();
   const { groups, isLoading, error } = useUserMutationConditionsQuery(username);
   const conditions = useMemo(() => groups.flatMap((g) => g.conditions), [groups]);
   const roleNameById = useMemo(() => {
@@ -44,10 +45,14 @@ const UserConditionsSection = ({ username }: { username: string }) => {
     for (const g of groups) {
       // A direct grant is backed by a synthetic ``__user_<id>__`` role. Name it for
       // what it is rather than leaking the internal name.
-      m.set(g.role.id, isSyntheticUserRole(g.role.name) ? 'Direct grants' : g.role.name);
+      const source = isSyntheticUserRole(g.role.name) ? 'Direct grants' : g.role.name;
+      // The query can return roles from several workspaces, and both role names and
+      // resource ids repeat across them, so the workspace is part of identifying which
+      // condition governs what -- as the roles table on this page already does.
+      m.set(g.role.id, workspacesEnabled ? `${source} (${g.role.workspace})` : source);
     }
     return m;
-  }, [groups]);
+  }, [groups, workspacesEnabled]);
 
   return (
     <ConditionsTable
