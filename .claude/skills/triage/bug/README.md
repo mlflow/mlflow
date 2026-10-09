@@ -68,11 +68,11 @@ Prefer code to prose: give commands and code a reader can paste and run, not ste
 to follow by hand. Keep the comment tight.
 
 For a Reproduced bug, add one visual aid showing how it happens, and cut the prose it makes
-redundant. Draw it with the `artifact-diagramming` skill in `$out_dir/work/visual-aid.html`
-(white background, not published), then screenshot it and cite it like other media:
+redundant. Draw it in `$out_dir/work/viz-aid.html` following `viz-aid.md` in this directory,
+then screenshot it and cite it like other media:
 
 ```bash
-agent-browser open "file://$out_dir/work/visual-aid.html"
+agent-browser open "file://$out_dir/work/viz-aid.html"
 agent-browser set viewport 1280 720 2
-agent-browser screenshot svg "$out_dir/media/visual-aid.png"
+agent-browser screenshot svg "$out_dir/media/viz-aid.png"
 ```
