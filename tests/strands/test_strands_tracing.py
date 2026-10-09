@@ -2,6 +2,7 @@ import json
 from collections.abc import AsyncIterator, Sequence
 from typing import Any
 
+import pytest
 from opentelemetry import trace as otel_trace
 from strands import Agent
 from strands.models.model import Model
@@ -11,6 +12,7 @@ import mlflow
 from mlflow.entities import SpanType
 from mlflow.environment_variables import MLFLOW_USE_DEFAULT_TRACER_PROVIDER
 from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.tracing.export.mlflow_v3 import MlflowV3SpanExporter
 from mlflow.tracing.provider import trace_disabled
 
 from tests.tracing.helper import get_traces
@@ -325,6 +327,41 @@ def test_strands_autolog_shared_provider_no_recursion(monkeypatch):
     assert len(traces) == 1
     spans = traces[0].data.spans
     agent_span = next(span for span in spans if span.span_type == SpanType.AGENT)
+    assert agent_span.inputs == [{"role": "user", "content": [{"text": "hello"}]}]
+    assert agent_span.outputs.strip() == "hi"
+
+
+@pytest.mark.parametrize("init_tracing_before_autolog", [False, True])
+def test_strands_autolog_shared_provider_exports_each_span_once(
+    monkeypatch, init_tracing_before_autolog
+):
+    monkeypatch.setenv(MLFLOW_USE_DEFAULT_TRACER_PROVIDER.name, "false")
+
+    if init_tracing_before_autolog:
+        # Registers MLflow's span processor on the shared provider before Strands' processor.
+        with mlflow.start_span(name="warmup"):
+            pass
+
+    mlflow.strands.autolog()
+
+    exported_span_ids = []
+    original_export = MlflowV3SpanExporter.export
+
+    def counting_export(self, spans):
+        exported_span_ids.extend(span.context.span_id for span in spans)
+        return original_export(self, spans)
+
+    monkeypatch.setattr(MlflowV3SpanExporter, "export", counting_export)
+
+    agent = Agent(model=DummyModel("hi"), name="agent")
+    agent("hello")
+    with mlflow.start_span(name="manual"):
+        pass
+
+    assert len(exported_span_ids) == len(set(exported_span_ids))
+
+    agent_trace = next(t for t in get_traces() if t.data.spans[0].name == "invoke_agent agent")
+    agent_span = next(s for s in agent_trace.data.spans if s.span_type == SpanType.AGENT)
     assert agent_span.inputs == [{"role": "user", "content": [{"text": "hello"}]}]
     assert agent_span.outputs.strip() == "hi"
 
