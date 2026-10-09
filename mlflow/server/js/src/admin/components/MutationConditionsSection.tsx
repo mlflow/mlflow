@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Button,
   CloseIcon,
@@ -11,7 +11,12 @@ import {
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { FieldLabel } from './FieldLabel';
-import { CONDITION_CONTAINER_WORKSPACE, CONDITION_WILDCARD_PATTERN, getResourceTypeLabel } from '../types';
+import {
+  CONDITION_CONTAINER_WORKSPACE,
+  CONDITION_WILDCARD_PATTERN,
+  findUnsupportedConditionIdentifiers,
+  getResourceTypeLabel,
+} from '../types';
 import {
   draftToStagedCondition,
   isMutationConditionDraftDirty,
@@ -103,7 +108,22 @@ export const MutationConditionsSection = ({
   const { theme } = useDesignSystemTheme();
   const [draft, setDraft] = useState<MutationConditionDraft>(MUTATION_CONDITION_DRAFT_DEFAULT);
 
-  const canAdd = isMutationConditionDraftFillable(draft);
+  // A clause naming an identifier the type does not own is refused by the server, so it is
+  // caught before staging rather than at submit -- a staged row that cannot be saved reads
+  // as configured policy in the review step.
+  const unsupportedValueIdentifiers = useMemo(
+    () => findUnsupportedConditionIdentifiers(draft.valueCondition, draft.resourceType, 'request'),
+    [draft.valueCondition, draft.resourceType],
+  );
+  const unsupportedTargetIdentifiers = useMemo(
+    () => findUnsupportedConditionIdentifiers(draft.targetCondition, draft.resourceType, 'resource'),
+    [draft.targetCondition, draft.resourceType],
+  );
+
+  const canAdd =
+    isMutationConditionDraftFillable(draft) &&
+    unsupportedValueIdentifiers.length === 0 &&
+    unsupportedTargetIdentifiers.length === 0;
   const dirty = isMutationConditionDraftDirty(draft);
   // Narrow each reminder to the field actually missing, rather than just refusing.
   const showFilterRequired = dirty && !draft.valueCondition.trim() && !draft.targetCondition.trim();
@@ -215,6 +235,8 @@ export const MutationConditionsSection = ({
           disabled={disabled}
           showFilterRequiredError={showFilterRequired}
           showScopeRequiredError={showScopeRequired}
+          unsupportedValueIdentifiers={unsupportedValueIdentifiers}
+          unsupportedTargetIdentifiers={unsupportedTargetIdentifiers}
         />
         <div css={{ display: 'flex', justifyContent: 'flex-end', gap: theme.spacing.sm }}>
           {dirty && (

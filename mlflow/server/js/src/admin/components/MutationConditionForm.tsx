@@ -24,6 +24,8 @@ import {
   CONDITION_WILDCARD_PATTERN,
   CONDITION_CONTAINER_WORKSPACE,
   isConditionEmpty,
+  getConditionRequestIdentifiers,
+  getConditionResourceIdentifiers,
 } from '../types';
 
 /**
@@ -90,7 +92,27 @@ export interface MutationConditionFormProps {
   showFilterRequiredError?: boolean;
   /** Render the inline reminder that an id must be picked for ``scope === 'scoped'``. */
   showScopeRequiredError?: boolean;
+  /**
+   * Identifiers in each filter that the selected type does not accept, computed by the
+   * staging section so the same answer gates its Add button -- a form that only *showed*
+   * the problem would still let the condition be staged and then refused by the server.
+   */
+  unsupportedValueIdentifiers?: string[];
+  unsupportedTargetIdentifiers?: string[];
 }
+
+/** ``a``, ``b`` and ``c`` as inline code, for a vocabulary list. */
+const renderIdentifiers = (identifiers: string[]) =>
+  identifiers.map((identifier, i) => (
+    <span key={identifier}>
+      {i > 0 && (i === identifiers.length - 1 ? ' and ' : ', ')}
+      <code>{identifier}</code>
+    </span>
+  ));
+
+const describeUnsupported = (unsupported: string[], typeLabel: string): string =>
+  `${unsupported.map((i) => `'${i}'`).join(', ')} ${unsupported.length === 1 ? 'is' : 'are'} not available on ` +
+  `${typeLabel}. The server refuses a condition naming it, so it cannot be saved.`;
 
 /**
  * Add a mutation condition to a role. Shaped like ``RolePermissionForm`` so the two
@@ -103,6 +125,8 @@ export const MutationConditionForm = ({
   disabled,
   showFilterRequiredError = false,
   showScopeRequiredError = false,
+  unsupportedValueIdentifiers = [],
+  unsupportedTargetIdentifiers = [],
 }: MutationConditionFormProps) => {
   const { theme } = useDesignSystemTheme();
   const [parentSearch, setParentSearch] = useState('');
@@ -290,7 +314,18 @@ export const MutationConditionForm = ({
           request. To pin one key to its own values and leave other keys free, name the key:{' '}
           <code>tags.a IN (&#39;x&#39;,&#39;y&#39;)</code>. <strong>A request that does not set the key passes</strong>,
           so this never refuses a mutation that writes nothing of this kind.
+          <br />
+          {typeLabel} accepts: {renderIdentifiers(getConditionRequestIdentifiers(value.resourceType))}.
         </FieldHint>
+        {unsupportedValueIdentifiers.length > 0 && (
+          <Typography.Text
+            color="error"
+            size="sm"
+            data-testid="admin.mutation_condition_form.value_condition_vocabulary_error"
+          >
+            {describeUnsupported(unsupportedValueIdentifiers, typeLabel)}
+          </Typography.Text>
+        )}
       </div>
 
       <div>
@@ -307,7 +342,18 @@ export const MutationConditionForm = ({
           resource being created has no state yet, so this never blocks a create.{' '}
           <strong>A resource that does not have the tag is refused</strong> &mdash; the opposite of the value condition
           above, so the same clause means different things in the two fields.
+          <br />
+          {typeLabel} accepts: {renderIdentifiers(getConditionResourceIdentifiers(value.resourceType))}.
         </FieldHint>
+        {unsupportedTargetIdentifiers.length > 0 && (
+          <Typography.Text
+            color="error"
+            size="sm"
+            data-testid="admin.mutation_condition_form.target_condition_vocabulary_error"
+          >
+            {describeUnsupported(unsupportedTargetIdentifiers, typeLabel)}
+          </Typography.Text>
+        )}
       </div>
 
       {showFilterRequiredError && (

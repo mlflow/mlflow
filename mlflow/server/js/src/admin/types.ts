@@ -386,9 +386,85 @@ export const formatConditionScope = (condition: MutationCondition): string => {
   return 'All in workspace';
 };
 
-/** The request-value identifiers a condition on this type may filter on. */
+/** Which filter a vocabulary question is about. */
+export type ConditionFilterSide = 'request' | 'resource';
+
+/**
+ * The identifiers a **value** condition on this type may use, in the form an admin types
+ * them. Mirrors the server's request vocabulary: two flat names that match any tag the
+ * request writes, a dotted form that binds one key, and ``alias`` only on the types that
+ * own aliases.
+ */
 export const getConditionRequestIdentifiers = (resourceType: string): string[] =>
-  isConditionAliasOwningType(resourceType) ? ['tag_key', 'tag_value', 'alias'] : ['tag_key', 'tag_value'];
+  isConditionAliasOwningType(resourceType)
+    ? ['tag_key', 'tag_value', 'tags.<key>', 'alias']
+    : ['tag_key', 'tag_value', 'tags.<key>'];
+
+/**
+ * The identifiers a **target** condition on this type may use.
+ *
+ * Dotted only: a resource clause names which tag or alias is being tested, so there is no
+ * flat equivalent of ``tag_key`` here -- a resource has every tag it has, and a clause
+ * over "any of them" would have no meaning the server could evaluate.
+ */
+export const getConditionResourceIdentifiers = (resourceType: string): string[] =>
+  isConditionAliasOwningType(resourceType) ? ['tags.<key>', 'aliases.<name>'] : ['tags.<key>'];
+
+/** Flat identifiers accepted on the request side. The resource side accepts none. */
+const conditionFlatIdentifiers = (resourceType: string, side: ConditionFilterSide): Set<string> => {
+  if (side === 'resource') return new Set<string>();
+  return new Set(
+    isConditionAliasOwningType(resourceType) ? ['tag_key', 'tag_value', 'alias'] : ['tag_key', 'tag_value'],
+  );
+};
+
+/** Dotted namespaces accepted on each side. Aliases are resource-side and type-dependent. */
+const conditionDottedNamespaces = (resourceType: string, side: ConditionFilterSide): Set<string> => {
+  if (side === 'request') return new Set(['tags']);
+  return new Set(isConditionAliasOwningType(resourceType) ? ['tags', 'aliases'] : ['tags']);
+};
+
+// Single-quoted literals are blanked before scanning, so a VALUE that happens to look like
+// a clause (`tags.a = 'alias = x'`) cannot be read as one.
+const stripConditionFilterLiterals = (filter: string): string => filter.replace(/'[^']*'/g, "''");
+
+// The left-hand side of a comparison: a bare word, optionally followed by a dotted key,
+// immediately before a comparator. Keys may be quoted, which the grammar allows for names
+// that are not bare words.
+const CONDITION_CLAUSE_LHS_RE =
+  /([A-Za-z_]\w*)((?:\.(?:`[^`]*`|"[^"]*"|[\w./:-]+))?)\s*(?:!=|<=|>=|=|<|>|\bNOT\s+IN\b|\bIN\b|\bI?LIKE\b)/gi;
+
+/**
+ * Identifiers used in ``filter`` that a condition on ``resourceType`` cannot use.
+ *
+ * A guard against the mistakes the vocabulary makes easy -- naming ``alias`` on a type that
+ * owns none, or ``tag_key`` in a target condition -- and deliberately NOT a second
+ * implementation of the server's parser. It reads the left-hand side of each comparison and
+ * checks it against the type's vocabulary; a filter it cannot parse yields nothing, and the
+ * server remains the authority on syntax, clause counts and everything else. Offending
+ * identifiers come back as the admin typed them so the message can quote them.
+ */
+export const findUnsupportedConditionIdentifiers = (
+  filter: string,
+  resourceType: string,
+  side: ConditionFilterSide,
+): string[] => {
+  const flat = conditionFlatIdentifiers(resourceType, side);
+  const namespaces = conditionDottedNamespaces(resourceType, side);
+  const unsupported: string[] = [];
+  const seen = new Set<string>();
+  for (const match of stripConditionFilterLiterals(filter).matchAll(CONDITION_CLAUSE_LHS_RE)) {
+    const base = match[1];
+    const suffix = match[2] ?? '';
+    const lhs = `${base}${suffix}`;
+    const accepted = suffix ? namespaces.has(base) : flat.has(base);
+    if (!accepted && !seen.has(lhs)) {
+      seen.add(lhs);
+      unsupported.push(lhs);
+    }
+  }
+  return unsupported;
+};
 
 /**
  * True when the two filters together express nothing. The server refuses such an
