@@ -574,14 +574,10 @@ def test_skill_rest_create_requires_workspace_create_grant(workspace_permission_
     username = workspace_permission_setup["username"]
     _set_workspace_permission(auth_store, username, NO_PERMISSIONS.name)
 
-    from mlflow.server.skill_registry_api import _authorize_registration, _require_skill_create
-
-    request = SimpleNamespace(state=SimpleNamespace(username=username))
-    with pytest.raises(MlflowException, match="Permission denied"):
-        _require_skill_create(request)
-
-    with pytest.raises(MlflowException, match="Permission denied"):
-        _authorize_registration(request, "", "new-skill")
+    assert not auth_module.validate_can_create_skill(username)
+    assert not auth_module.validate_can_register_skill(
+        username, "", "new-skill", parent_exists=False
+    )
 
 
 def _set_workspace_permission(store: SqlAlchemyStore, username: str, permission: str):

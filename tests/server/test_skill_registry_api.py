@@ -3,7 +3,6 @@ import builtins
 import io
 import json
 from pathlib import Path
-from types import SimpleNamespace
 from unittest import mock
 
 import pytest
@@ -1289,11 +1288,10 @@ def test_bulk_register_skill_versions_forwards_client_prepared_batch(
     assert all(registration.organization == "acme" for registration in registrations)
 
 
-def test_bulk_registration_grants_only_parents_created_by_requester():
-    from mlflow.server import auth
-
+def test_bulk_registration_passes_auth_neutral_parent_expectation():
     request = Request({"type": "http", "method": "POST", "path": f"{PREFIX}/bulk-register"})
     request.state.username = "alice"
+    request.state.skill_expected_parent_exists = {"owned": False, "raced": True}
     body = skill_registry_api.BulkRegisterSkillsRequest.model_validate({
         "organization": "acme",
         "skills": [
@@ -1305,26 +1303,16 @@ def test_bulk_registration_grants_only_parents_created_by_requester():
         SkillVersion(name=name, version=1, organization="acme", status=SkillStatus.ACTIVE)
         for name in ("owned", "raced")
     ]
-    tracking = mock.Mock()
-    tracking.search_skills.return_value = [
-        SimpleNamespace(name="owned", created_by="alice"),
-        SimpleNamespace(name="raced", created_by="bob"),
-    ]
-    with (
-        mock.patch.object(skill_registry_api, "_authorize_registration", return_value=True),
-        mock.patch.object(
-            skill_registry_api, "bulk_register_skill_versions", return_value=versions
-        ),
-        mock.patch("mlflow.server.handlers._get_tracking_store", return_value=tracking),
-        mock.patch.object(auth, "grant_manage_for_created_skills") as grant,
-    ):
+    with mock.patch.object(
+        skill_registry_api, "bulk_register_skill_versions", return_value=versions
+    ) as bulk_register:
         response = asyncio.run(skill_registry_api.bulk_register_skills(body, request))
 
     assert [version.name for version in response.skill_versions] == ["owned", "raced"]
-    tracking.search_skills.assert_called_once_with(
-        max_results=2, include_skill_identities=[("acme", "owned"), ("acme", "raced")]
-    )
-    grant.assert_called_once_with("alice", "acme", ["owned"])
+    assert bulk_register.call_args.kwargs["expected_parent_exists"] == {
+        "owned": False,
+        "raced": True,
+    }
 
 
 def test_bulk_register_skill_versions_rejects_oversized_batch(tmp_path: Path, db_uri: str):

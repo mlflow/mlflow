@@ -30,6 +30,7 @@ from typing import Any, Awaitable, Callable
 import sqlalchemy
 from cachetools import TTLCache
 from fastapi import FastAPI
+from fastapi import HTTPException as FastAPIHTTPException
 from fastapi.responses import JSONResponse, PlainTextResponse
 from fastapi.responses import Response as FilteredResponse
 from flask import (
@@ -275,6 +276,7 @@ from mlflow.protos.webhooks_pb2 import (
     WebhookService,
 )
 from mlflow.server import app
+from mlflow.server import skill_registry_api as _skill_registry_api
 from mlflow.server.asgi_utils import get_routed_asgi_path
 from mlflow.server.auth.config import DEFAULT_AUTHORIZATION_FUNCTION, read_auth_config
 from mlflow.server.auth.entities import GetUserPermissionResult, User
@@ -8195,6 +8197,140 @@ def _skill_exists_for_auth(organization: str, name: str) -> bool:
         raise
 
 
+_SKILL_ROUTE_OPERATIONS = {
+    _skill_registry_api._skill_read_operation: "read",
+    _skill_registry_api._skill_update_operation: "update",
+    _skill_registry_api._skill_manage_operation: "manage",
+    _skill_registry_api._skill_create_operation: "create",
+    _skill_registry_api._skill_register_operation: "register",
+}
+
+
+def _match_skill_route(path: str, request: StarletteRequest):
+    prefix = next(
+        prefix
+        for prefix in _skill_registry_api.get_skill_registry_api_route_prefixes()
+        if path == prefix or path.startswith(f"{prefix}/")
+    )
+    relative_scope = {
+        "type": "http",
+        "path": path[len(prefix) :],
+        "method": request.method,
+        "root_path": "",
+    }
+    for route in _skill_registry_api.skill_registry_router.routes:
+        match, route_scope = route.matches(relative_scope)
+        if match == Match.FULL:
+            return route, route_scope.get("path_params", {})
+    return None, {}
+
+
+async def _skill_registration_targets(
+    request: StarletteRequest, endpoint, path_params: dict
+) -> list[tuple[str, str]] | None:
+    if endpoint in (
+        _skill_registry_api.create_skill_version,
+        _skill_registry_api.create_organization_skill_version,
+    ):
+        return [(path_params.get("organization", ""), path_params["name"])]
+    if endpoint == _skill_registry_api.bulk_register_skills:
+        try:
+            body = _skill_registry_api.BulkRegisterSkillsRequest.model_validate(
+                await request.json()
+            )
+        except ValueError:
+            # FastAPI rejects malformed bodies before entering the handler.
+            return None
+        return [(body.organization, skill.name) for skill in body.skills]
+
+    if request.headers.get("content-type", "").split(";", 1)[0].lower() == "multipart/form-data":
+        # Inspect metadata before any write while preserving the body for the handler.
+        # The same size limit used by registration bounds this cached copy.
+        limited = _skill_registry_api._request_with_multipart_size_limit(request)
+        body = await limited.body()
+        request._body = body
+        sent = False
+
+        async def replay_body():
+            nonlocal sent
+            chunk = body if not sent else b""
+            sent = True
+            return {"type": "http.request", "body": chunk, "more_body": False}
+
+        metadata_request = StarletteRequest(request.scope, receive=replay_body)
+    else:
+        metadata_request = request
+    async with _skill_registry_api._parse_registration_request(metadata_request) as (
+        registration,
+        _,
+        _,
+    ):
+        return [(registration.organization, registration.name)]
+
+
+def _get_skill_registry_validator(
+    path: str,
+) -> Callable[[str, StarletteRequest], Awaitable[bool]]:
+    async def validator(username: str, request: StarletteRequest) -> bool:
+        route, path_params = _match_skill_route(path, request)
+        if route is None:
+            return False
+        if route.path == "" and request.method == "GET":
+            request.state.skill_identity_scope = skill_search_permission_scope(username)
+            return True
+        operation = next(
+            (
+                _SKILL_ROUTE_OPERATIONS[dependency.call]
+                for dependency in route.dependant.dependencies
+                if dependency.call in _SKILL_ROUTE_OPERATIONS
+            ),
+            None,
+        )
+        if operation == "create":
+            return validate_can_create_skill(username)
+        if operation == "register":
+            targets = await _skill_registration_targets(request, route.endpoint, path_params)
+            if targets is None:
+                return True
+            expected = {}
+            for organization, name in targets:
+                parent_exists = _skill_exists_for_auth(organization, name)
+                if not validate_can_register_skill(
+                    username, organization, name, parent_exists=parent_exists
+                ):
+                    return False
+                expected[name] = parent_exists
+            request.state.skill_expected_parent_exists = (
+                expected
+                if route.endpoint == _skill_registry_api.bulk_register_skills
+                else next(iter(expected.values()))
+            )
+            return True
+        if operation not in ("read", "update", "manage"):
+            return False
+        permission = _get_skill_permission(
+            path_params.get("organization", ""), path_params["name"], username
+        )
+        if (
+            operation == "update"
+            and route.endpoint
+            in (
+                _skill_registry_api.update_skill_version,
+                _skill_registry_api.update_organization_skill_version,
+            )
+            and request.method == "PATCH"
+        ):
+            try:
+                body = await request.json()
+            except ValueError:
+                body = None
+            if isinstance(body, dict) and body.get("status") == "deleted":
+                operation = "manage"
+        return getattr(permission, f"can_{operation}")
+
+    return validator
+
+
 def validate_can_register_skill(
     username: str, organization: str, name: str, *, parent_exists: bool | None = None
 ) -> bool:
@@ -8454,6 +8590,32 @@ def _mcp_server_after_delete(username: str, request: StarletteRequest) -> None:
         store.delete_grants_for_resource(
             "mcp_server", f"{parts[0]}/{parts[1]}", workspace_scoped=True
         )
+
+
+def _skill_after_create(username: str, request: StarletteRequest) -> None:
+    candidates = getattr(request.state, "skill_created_parents", ())
+    if not candidates or store.get_user(username).is_admin:
+        return
+    names_by_organization: dict[str, set[str]] = {}
+    for organization, name in candidates:
+        names_by_organization.setdefault(organization, set()).add(name)
+    for organization, names in names_by_organization.items():
+        # A competing creator must never receive this requester's MANAGE grant.
+        parents = _get_tracking_store().search_skills(
+            max_results=len(names),
+            include_skill_identities=[(organization, name) for name in sorted(names)],
+        )
+        owned_names = [parent.name for parent in parents if parent.created_by == username]
+        grant_manage_for_created_skills(username, organization, owned_names)
+
+
+def _skill_after_delete(username: str, request: StarletteRequest) -> None:
+    route, path_params = _match_skill_route(get_routed_asgi_path(request), request)
+    if route is not None and route.endpoint in (
+        _skill_registry_api.delete_skill,
+        _skill_registry_api.delete_organization_skill,
+    ):
+        delete_skill_permissions(path_params.get("organization", ""), path_params["name"])
 
 
 def _backfill_readable_mcp_results(
@@ -8771,7 +8933,7 @@ def _find_fastapi_validator(
         return _get_mcp_server_validator(path)
 
     if is_skill_registry_api_path(path):
-        return _get_require_authentication_validator()
+        return _get_skill_registry_validator(path)
 
     return None
 
@@ -8792,6 +8954,8 @@ FASTAPI_AFTER_REQUEST_HANDLERS: dict[
 def _find_fastapi_after_request_handler(
     path: str, method: str
 ) -> Callable[[str, StarletteRequest], None] | None:
+    if is_skill_registry_api_path(path):
+        return {"POST": _skill_after_create, "DELETE": _skill_after_delete}.get(method)
     return next(
         (
             handler
@@ -9022,7 +9186,7 @@ def add_fastapi_permission_middleware(app: FastAPI) -> None:
         # Pre-read request body for after-request handlers that need it (the
         # body is cached by Starlette so the route handler can still read it).
         after_handler = _find_fastapi_after_request_handler(path, request.method)
-        if after_handler is not None:
+        if after_handler is not None and not is_skill_registry_api_path(path):
             request.state.raw_body = await request.body()
 
         # Admins have full access: skip validators only. Flask's ``_before_request``
@@ -9042,6 +9206,8 @@ def add_fastapi_permission_middleware(app: FastAPI) -> None:
                     e.message,
                     status_code=e.get_http_status_code(),
                 )
+            except FastAPIHTTPException as e:
+                return PlainTextResponse(str(e.detail), status_code=e.status_code)
             finally:
                 workspace_context.clear_server_request_workspace()
         else:

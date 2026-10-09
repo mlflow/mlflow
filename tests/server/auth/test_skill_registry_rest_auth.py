@@ -1,29 +1,36 @@
+import io
+import json
+
 import pytest
 from fastapi import FastAPI
 from starlette.testclient import TestClient
 
+from mlflow.entities.skill import SkillStatus
+from mlflow.entities.skill_version import SkillVersion
 from mlflow.exceptions import MlflowException
 from mlflow.server import auth, handlers, skill_registry_api
 from mlflow.server.auth.permissions import EDIT, MANAGE, NO_PERMISSIONS, READ
 from mlflow.server.auth.sqlalchemy_store import SqlAlchemyStore as AuthStore
 from mlflow.server.fastapi_app import add_registry_exception_handlers
 from mlflow.server.skill_registry_api import (
-    _require_skill_create,
-    _require_skill_manage,
-    _require_skill_read,
-    _require_skill_update,
+    _skill_create_operation,
+    _skill_manage_operation,
+    _skill_read_operation,
+    _skill_register_operation,
+    _skill_update_operation,
     skill_registry_router,
 )
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore as TrackingStore
 from mlflow.utils.workspace_context import ServerWorkspaceContext
 
 
-def test_skill_routes_declare_their_permissions():
+def test_skill_routes_declare_auth_neutral_operations():
     permission_dependencies = {
-        _require_skill_create,
-        _require_skill_read,
-        _require_skill_update,
-        _require_skill_manage,
+        _skill_create_operation,
+        _skill_read_operation,
+        _skill_update_operation,
+        _skill_manage_operation,
+        _skill_register_operation,
     }
     registration_paths = {
         "/register",
@@ -34,15 +41,17 @@ def test_skill_routes_declare_their_permissions():
     for route in skill_registry_router.routes:
         declared = {dep.call for dep in route.dependant.dependencies} & permission_dependencies
         if route.path == "" and route.methods == {"POST"}:
-            assert declared == {_require_skill_create}
-        elif route.path == "" or (route.path in registration_paths and "POST" in route.methods):
-            # Registration checks the parent identity after parsing the request.
+            assert declared == {_skill_create_operation}
+        elif route.path == "":
             assert not declared
+        elif route.path in registration_paths and "POST" in route.methods:
+            assert declared == {_skill_register_operation}
         else:
             assert len(declared) == 1, (route.path, route.methods)
 
 
-def test_skill_rest_enforces_grants_and_filters_before_pagination(tmp_path, monkeypatch):
+@pytest.mark.parametrize("prefix", ["/api/3.0/mlflow/skills", "/ajax-api/3.0/mlflow/skills"])
+def test_skill_rest_enforces_grants_and_filters_before_pagination(tmp_path, monkeypatch, prefix):
     monkeypatch.setenv("MLFLOW_ENABLE_WORKSPACES", "false")
     auth_store = AuthStore()
     auth_store.init_db(f"sqlite:///{tmp_path / 'auth.db'}")
@@ -66,11 +75,10 @@ def test_skill_rest_enforces_grants_and_filters_before_pagination(tmp_path, monk
     )
 
     app = FastAPI()
-    app.include_router(skill_registry_router, prefix="/api/3.0/mlflow/skills")
+    app.include_router(skill_registry_router, prefix=prefix)
     add_registry_exception_handlers(app)
     auth.add_fastapi_permission_middleware(app)
     client = TestClient(app)
-    prefix = "/api/3.0/mlflow/skills"
     try:
         for organization in ("", "acme", "other"):
             response = client.post(
@@ -79,6 +87,35 @@ def test_skill_rest_enforces_grants_and_filters_before_pagination(tmp_path, monk
                 headers={"x-user": owner.username},
             )
             assert response.status_code == 200, response.text
+
+        # Middleware reads multipart metadata for authorization, and the handler
+        # must still receive the original upload stream afterwards.
+        captured_uploads = []
+
+        def capture_registration(registration, **kwargs):
+            captured_uploads.append(kwargs["content"].read())
+            return SkillVersion(
+                name=registration.name,
+                organization=registration.organization,
+                version=1,
+                status=SkillStatus.ACTIVE,
+            )
+
+        upload = {
+            "metadata": (
+                "metadata.json",
+                json.dumps({"name": "reviewer", "organization": "acme"}),
+                "application/json",
+            ),
+            "content": ("skill.tar.gz", io.BytesIO(b"skill archive"), "application/gzip"),
+        }
+        with monkeypatch.context() as patch:
+            patch.setattr(skill_registry_api, "register_skill_version", capture_registration)
+            upload_response = client.post(
+                f"{prefix}/register", files=upload, headers={"x-user": owner.username}
+            )
+        assert upload_response.status_code == 200, upload_response.text
+        assert captured_uploads == [b"skill archive"]
 
         for name in ("register", "bulk-register"):
             special = f"{prefix}/{name}"
@@ -103,6 +140,22 @@ def test_skill_rest_enforces_grants_and_filters_before_pagination(tmp_path, monk
         )
         target = f"{prefix}/@acme/reviewer"
         headers = {"x-user": reader.username}
+        with monkeypatch.context() as patch:
+            patch.setattr(skill_registry_api, "register_skill_version", capture_registration)
+            denied_upload = client.post(
+                f"{prefix}/register",
+                files={
+                    "metadata": (
+                        "metadata.json",
+                        json.dumps({"name": "reviewer", "organization": "acme"}),
+                        "application/json",
+                    ),
+                    "content": ("skill.tar.gz", io.BytesIO(b"denied"), "application/gzip"),
+                },
+                headers=headers,
+            )
+        assert denied_upload.status_code == 403
+        assert captured_uploads == [b"skill archive"]
         assert client.get(target, headers=headers).status_code == 403
         assert client.post(f"{target}/versions", json={}, headers=headers).status_code == 403
         assert (
@@ -287,13 +340,31 @@ def test_skill_rest_enforces_grants_and_filters_before_pagination(tmp_path, monk
             )
             is None
         )
+        assert (
+            client.post(
+                prefix, json={"name": "admin-cleanup"}, headers={"x-user": owner.username}
+            ).status_code
+            == 200
+        )
+        auth_store.grant_user_permission(reader.username, "skill", "admin-cleanup", READ.name)
+        assert (
+            client.delete(f"{prefix}/admin-cleanup", headers={"x-user": admin.username}).status_code
+            == 200
+        )
+        assert (
+            auth_store.get_role_permission_for_resource(
+                reader.id, "skill", "admin-cleanup", "default"
+            )
+            is None
+        )
     finally:
         auth_store.engine.dispose()
         tracking_store.engine.dispose()
 
 
 @pytest.mark.parametrize("endpoint", ["register", "versions", "bulk-register"])
-def test_platform_admin_can_register_without_workspace_grant(tmp_path, monkeypatch, endpoint):
+@pytest.mark.parametrize("is_admin", [False, True])
+def test_registration_creator_grants_with_workspaces(tmp_path, monkeypatch, endpoint, is_admin):
     monkeypatch.setenv("MLFLOW_ENABLE_WORKSPACES", "true")
     monkeypatch.setenv("MLFLOW_WORKSPACE", "default")
     auth_store = AuthStore()
@@ -301,7 +372,9 @@ def test_platform_admin_can_register_without_workspace_grant(tmp_path, monkeypat
     tracking_store = TrackingStore(
         f"sqlite:///{tmp_path / 'tracking.db'}", str(tmp_path / "artifacts")
     )
-    auth_store.create_user("admin2", "strong-password", is_admin=True)
+    creator = auth_store.create_user("creator", "strong-password", is_admin=is_admin)
+    if not is_admin:
+        auth_store.set_workspace_permission("default", creator.username, MANAGE.name)
     monkeypatch.setattr(auth, "store", auth_store)
     monkeypatch.setattr(auth, "_get_tracking_store", lambda: tracking_store)
     monkeypatch.setattr(handlers, "_get_tracking_store", lambda: tracking_store)
@@ -324,10 +397,10 @@ def test_platform_admin_can_register_without_workspace_grant(tmp_path, monkeypat
     auth.add_fastapi_permission_middleware(app)
     client = TestClient(app)
     prefix = "/api/3.0/mlflow/skills"
-    headers = {"x-user": "admin2"}
+    headers = {"x-user": creator.username}
     try:
         with ServerWorkspaceContext("default"):
-            assert not auth.validate_can_create_skill("admin2")
+            assert auth.validate_can_create_skill(creator.username) is (not is_admin)
             if endpoint == "bulk-register":
                 response = client.post(
                     f"{prefix}/bulk-register",
@@ -352,7 +425,13 @@ def test_platform_admin_can_register_without_workspace_grant(tmp_path, monkeypat
                     body["name"] = "private"
                 response = client.post(url, json=body, headers=headers)
             assert response.status_code == 200, response.text
-            assert tracking_store.get_skill("private").created_by == "admin2"
+            assert tracking_store.get_skill("private").created_by == creator.username
+            permission = auth_store.get_role_permission_for_resource(
+                creator.id, "skill", "private", "default"
+            )
+            assert (permission.name if permission else None) == (
+                MANAGE.name if not is_admin else None
+            )
     finally:
         auth_store.engine.dispose()
         tracking_store.engine.dispose()
