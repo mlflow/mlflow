@@ -958,6 +958,19 @@ def test_schema_enforcement_for_optional_columns():
         _enforce_schema(pd_data, signature.inputs)
 
 
+def test_inferred_signature_accepts_optional_integer_values():
+    data = [{"a": 1}, {"a": 2, "b": 3}]
+    signature = infer_signature(data)
+
+    assert signature.inputs == Schema([
+        ColSpec(DataType.long, "a"),
+        ColSpec(DataType.double, "b", required=False),
+    ])
+    enforced = _enforce_schema(data, signature.inputs)
+
+    pd.testing.assert_frame_equal(enforced, pd.DataFrame(data))
+
+
 def test_schema_enforcement_for_list_inputs_back_compatibility_check():
     # Test Dict[str, scalar or List[str]]
     test_signature = {
