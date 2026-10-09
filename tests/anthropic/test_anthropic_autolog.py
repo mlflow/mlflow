@@ -196,6 +196,8 @@ def test_messages_autolog(is_async, mock_litellm_cost):
     span.outputs.pop("container", None)
     # Remove 'stop_details' key added in anthropic v0.88.0
     span.outputs.pop("stop_details", None)
+    if "diagnostics" in Message.model_fields:
+        assert span.outputs.pop("diagnostics") is None
     assert span.outputs == DUMMY_CREATE_MESSAGE_RESPONSE.to_dict()
 
     assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
@@ -389,6 +391,8 @@ def test_messages_autolog_with_thinking(is_async, mock_litellm_cost):
     span.outputs.pop("container", None)
     # Remove 'stop_details' key added in anthropic v0.88.0
     span.outputs.pop("stop_details", None)
+    if "diagnostics" in Message.model_fields:
+        assert span.outputs.pop("diagnostics") is None
     assert span.outputs == DUMMY_CREATE_MESSAGE_WITH_THINKING_RESPONSE.to_dict()
 
     assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
@@ -413,6 +417,22 @@ def test_messages_autolog_with_thinking(is_async, mock_litellm_cost):
         "output_tokens": 18,
         "total_tokens": 28,
     }
+
+
+def test_messages_autolog_with_diagnostics(is_async):
+    if "diagnostics" not in Message.model_fields:
+        pytest.skip("anthropic SDK does not support message diagnostics")
+    from anthropic.types import Diagnostics
+
+    diagnostics = Diagnostics(cache_miss_reason=None)
+    response = DUMMY_CREATE_MESSAGE_RESPONSE.model_copy(update={"diagnostics": diagnostics})
+    mlflow.anthropic.autolog()
+
+    _call_anthropic(DUMMY_CREATE_MESSAGE_REQUEST, response, is_async)
+
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].data.spans[0].outputs["diagnostics"] == diagnostics.model_dump()
 
 
 DUMMY_CREATE_MESSAGE_WITH_CACHE_RESPONSE = Message(

@@ -283,6 +283,8 @@ from mlflow.utils.uri import (
     resolve_uri_if_local,
 )
 from mlflow.utils.validation import (
+    _parse_experiment_id,
+    _parse_experiment_ids,
     _resolve_experiment_ids_and_locations,
     _validate_batch_log_data,
     _validate_batch_log_limits,
@@ -782,7 +784,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         stages = LifecycleStage.view_type_to_stages(view_type)
         query_options = self._get_eager_experiment_query_options() if eager else []
 
-        experiment_id_int = self._parse_experiment_id(experiment_id)
+        experiment_id_int = _parse_experiment_id(experiment_id)
 
         experiment = (
             self
@@ -827,16 +829,6 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             )
             .all()
         ]
-
-    @staticmethod
-    def _parse_experiment_id(experiment_id: str) -> int:
-        try:
-            return int(experiment_id)
-        except (ValueError, TypeError):
-            raise MlflowException(
-                f"Invalid experiment ID '{experiment_id}'. Experiment ID must be a valid integer.",
-                INVALID_PARAMETER_VALUE,
-            )
 
     def _filter_entity_ids(
         self, session, entity_type: EntityAssociationType, entity_ids: list[str]
@@ -957,13 +949,14 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             # Rollup tables deliberately have no experiment foreign key. Remove their rows in the
             # same transaction so backends that reuse integer experiment ids (notably SQLite)
             # cannot expose aggregates or rebuild state from the deleted experiment.
+            experiment_id_int = _parse_experiment_id(experiment_id)
             for model in (
                 SqlTraceRollupRebuild,
                 SqlTraceMetricDailyRollup,
                 SqlSpanCostDailyRollup,
                 SqlAssessmentDailyRollup,
             ):
-                session.query(model).filter(model.experiment_id == int(experiment_id)).delete(
+                session.query(model).filter(model.experiment_id == experiment_id_int).delete(
                     synchronize_session=False
                 )
             session.delete(experiment)
@@ -1026,7 +1019,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         return (
             self
             ._get_query(session, SqlRun)
-            .filter(SqlRun.experiment_id == int(experiment_id))
+            .filter(SqlRun.experiment_id == _parse_experiment_id(experiment_id))
             .all()
         )
 
@@ -2011,7 +2004,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         """
 
         MAX_DATASET_SUMMARIES_RESULTS = 1000
-        experiment_ids = [int(e) for e in experiment_ids]
+        experiment_ids = _parse_experiment_ids(experiment_ids)
         with self.ManagedSessionMaker() as session:
             experiment_ids = self._filter_experiment_ids(session, experiment_ids)
             # Note that the join with the input tag table is a left join. This is required so if an
@@ -2166,7 +2159,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             filtered_tags = (
                 session
                 .query(SqlExperimentTag)
-                .filter_by(experiment_id=int(experiment_id), key=key)
+                .filter_by(experiment_id=_parse_experiment_id(experiment_id), key=key)
                 .all()
             )
             if len(filtered_tags) == 0:
@@ -2356,7 +2349,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 stmt = stmt.outerjoin(j)
 
             offset = SearchUtils.parse_start_offset_from_page_token(page_token)
-            experiment_ids = [int(e) for e in experiment_ids]
+            experiment_ids = _parse_experiment_ids(experiment_ids)
             experiment_ids = self._filter_experiment_ids(session, experiment_ids)
             stmt = (
                 stmt
@@ -3040,13 +3033,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         # rejects the comparison ("operator does not exist:
         # integer = character varying"). Coerce with the same error contract
         # as ``_get_experiment``.
-        try:
-            experiment_ids = [int(experiment_id) for experiment_id in experiment_ids]
-        except (ValueError, TypeError):
-            raise MlflowException(
-                "Invalid experiment IDs: experiment IDs must be valid integers.",
-                INVALID_PARAMETER_VALUE,
-            )
+        experiment_ids = _parse_experiment_ids(experiment_ids)
         with self.ManagedSessionMaker() as session:
             scorer_ids: list[str] = []
             for chunk_start in range(0, len(experiment_ids), self._ID_CHUNK_SIZE):
@@ -3110,7 +3097,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
     def filter_active_experiment_ids(self, experiment_ids: list[str]) -> list[str]:
         if not experiment_ids:
             return []
-        parsed_ids = [self._parse_experiment_id(e) for e in experiment_ids]
+        parsed_ids = _parse_experiment_ids(experiment_ids)
         with self.ManagedSessionMaker() as session:
             active_ids: list[str] = []
             for chunk_start in range(0, len(parsed_ids), self._ID_CHUNK_SIZE):
@@ -3503,7 +3490,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 online_scoring_config_id=uuid.uuid4().hex,
                 scorer_id=scorer.scorer_id,
                 sample_rate=sample_rate,
-                experiment_id=int(experiment_id),
+                experiment_id=_parse_experiment_id(experiment_id),
                 filter_string=filter_string,
             )
             session.add(config)
@@ -3721,7 +3708,21 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         for comp in comparisons:
             comp_func = SearchUtils.get_sql_comparison_func(comp.op, dialect)
             if comp.entity.type == EntityType.ATTRIBUTE:
-                attr_filters.append(comp_func(getattr(SqlLoggedModel, comp.entity.key), comp.value))
+                value = comp.value
+                if comp.entity.key == "status":
+                    if comp.op not in ("=", "!=", "IN", "NOT IN"):
+                        raise MlflowException.invalid_parameter_value(
+                            f"Invalid comparison operator for status: {comp.op}"
+                        )
+                    values = value if comp.op in ("IN", "NOT IN") else (value,)
+                    try:
+                        statuses = [LoggedModelStatus(status).to_int() for status in values]
+                    except ValueError as e:
+                        raise MlflowException.invalid_parameter_value(
+                            f"Unknown model status in filter: {value!r}"
+                        ) from e
+                    value = statuses if comp.op in ("IN", "NOT IN") else statuses[0]
+                attr_filters.append(comp_func(getattr(SqlLoggedModel, comp.entity.key), value))
             elif comp.entity.type == EntityType.METRIC:
                 has_metric_filters = True
                 metric_filters = [
@@ -3778,7 +3779,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             )
             models = models.join(subquery)
 
-        experiment_ids = [int(e) for e in experiment_ids]
+        experiment_ids = _parse_experiment_ids(experiment_ids)
         return models.filter(
             SqlLoggedModel.lifecycle_stage != LifecycleStage.DELETED,
             SqlLoggedModel.experiment_id.in_(experiment_ids),
@@ -4369,7 +4370,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             session_id ASC).
         """
         with self.ManagedSessionMaker() as session:
-            experiment_id_int = self._parse_experiment_id(experiment_id)
+            experiment_id_int = _parse_experiment_id(experiment_id)
 
             experiment_ids = self._filter_experiment_ids(session, [experiment_id_int])
             if not experiment_ids:
@@ -4638,7 +4639,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             # statements. Establish their shared snapshot before the first database read.
             configure_rollup_read_snapshot(session, self.db_type)
             experiment_ids_int = self._filter_experiment_ids(
-                session, [int(exp_id) for exp_id in experiment_ids]
+                session, _parse_experiment_ids(experiment_ids)
             )
 
             def raw_query():
@@ -4805,10 +4806,11 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         Returns:
             The number of traces deleted.
         """
+        experiment_id_int = _parse_experiment_id(experiment_id)
         deleted_db_backed_count = 0
         selected_archived_traces: list[_TraceDeleteSelection] = []
         with self.ManagedSessionMaker(read_only=False) as session:
-            filters = [SqlTraceInfo.experiment_id == int(experiment_id)]
+            filters = [SqlTraceInfo.experiment_id == experiment_id_int]
             if max_timestamp_millis is not None:
                 filters.append(SqlTraceInfo.timestamp_ms <= max_timestamp_millis)
             if trace_ids:
@@ -4836,7 +4838,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
 
             if use_rollups:
                 self._enqueue_rollup_rebuilds_for_trace_delete(
-                    session, int(experiment_id), selected_trace_ids
+                    session, experiment_id_int, selected_trace_ids
                 )
                 selected_trace_ids = self._lock_trace_ids_for_delete(session, selected_trace_ids)
                 if not selected_trace_ids:
@@ -4875,7 +4877,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
 
         with self.ManagedSessionMaker(read_only=False) as session:
             self._enqueue_rollup_rebuilds_for_trace_delete(
-                session, int(experiment_id), deleted_archived_trace_ids
+                session, experiment_id_int, deleted_archived_trace_ids
             )
             deleted_archived_count = (
                 session
@@ -5543,7 +5545,9 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         """
 
         with self.ManagedSessionMaker() as session:
-            experiment_ids = self._filter_experiment_ids(session, [int(e) for e in experiment_ids])
+            experiment_ids = self._filter_experiment_ids(
+                session, _parse_experiment_ids(experiment_ids)
+            )
             # Keep IDs as integers when filtering trace_info.experiment_id. psycopg v3
             # rejects VARCHAR parameters compared with this INTEGER column.
 
@@ -5767,7 +5771,13 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                     # Get cost for span metrics
                     span_cost = span_attributes.get(SpanAttributeKey.LLM_COST)
 
-                content_json = json.dumps(span_dict, cls=TraceJSONEncoder)
+                # Keep non-ASCII text unescaped so `trace.text` / `span.content` LIKE filters
+                # can match it: stored as a \uXXXX escape, it never matches the text users type.
+                # MSSQL keeps the escaped form: its `spans.content` column is a non-Unicode
+                # VARCHAR, which would replace characters outside its code page with "?".
+                content_json = json.dumps(
+                    span_dict, cls=TraceJSONEncoder, ensure_ascii=self.db_type == MSSQL
+                )
 
                 model_name = bounded_model_dimension(
                     _try_parse_json_string(span_attributes.get(SpanAttributeKey.MODEL))
@@ -6467,7 +6477,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         unique_trace_ids = list(trace_id_order)
         experiment_id_chunks: list[list[int] | None] = [None]
         if experiment_ids is not None:
-            parsed_ids = list(dict.fromkeys(self._parse_experiment_id(e) for e in experiment_ids))
+            parsed_ids = list(dict.fromkeys(_parse_experiment_ids(experiment_ids)))
             experiment_id_chunks = [
                 parsed_ids[i : i + self._TRACE_BATCH_QUERY_ID_CHUNK_SIZE]
                 for i in range(0, len(parsed_ids), self._TRACE_BATCH_QUERY_ID_CHUNK_SIZE)
@@ -8680,7 +8690,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             # Create SqlIssue record
             sql_issue = SqlIssue(
                 issue_id=issue_id,
-                experiment_id=int(experiment_id),
+                experiment_id=_parse_experiment_id(experiment_id),
                 name=name,
                 description=description,
                 status=status.value,
@@ -8823,8 +8833,8 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                     .group_by(SqlIssue.issue_id)
                 )
 
-            if experiment_id:
-                query = query.filter(SqlIssue.experiment_id == int(experiment_id))
+            if experiment_id is not None:
+                query = query.filter(SqlIssue.experiment_id == _parse_experiment_id(experiment_id))
 
             if filter_string:
                 parsed_filters = SearchIssuesUtils.parse_search_filter(filter_string)
@@ -10195,9 +10205,9 @@ def _get_search_experiments_filter_clauses(parsed_filters, dialect):
                         f"Invalid comparator for experiment_id: {comparator}"
                     )
                 value = (
-                    tuple(SqlAlchemyStore._parse_experiment_id(v) for v in value)
+                    tuple(_parse_experiment_id(v) for v in value)
                     if isinstance(value, tuple)
-                    else SqlAlchemyStore._parse_experiment_id(value)
+                    else _parse_experiment_id(value)
                 )
             else:
                 if SearchExperimentsUtils.is_string_attribute(
@@ -10379,8 +10389,10 @@ def _get_orderby_clauses_for_search_traces(order_by_list: list[str], session):
                 f"Ordering by reserved metadata '{key}' is not supported because it is "
                 "represented by multiple columns."
             )
+        needs_null_ordering = True
         if SearchTraceUtils.is_attribute(key_type, key, "="):
             order_value = getattr(SqlTraceInfo, key)
+            needs_null_ordering = order_value.nullable
         elif SearchTraceUtils.is_tag(key_type, "=") and key == TraceTagKey.TRACE_NAME:
             order_value = SqlTraceInfo.trace_name
         elif (
@@ -10403,9 +10415,10 @@ def _get_orderby_clauses_for_search_traces(order_by_list: list[str], session):
             ordering_joins.append(subquery)
             order_value = subquery.c.value
 
-        case = sql.case((order_value.is_(None), 1), else_=0).label(f"clause_{clause_id}")
-        clauses.append(case.name)
-        select_clauses.append(case)
+        if needs_null_ordering:
+            case = sql.case((order_value.is_(None), 1), else_=0).label(f"clause_{clause_id}")
+            clauses.append(case.name)
+            select_clauses.append(case)
         select_clauses.append(order_value)
 
         if (key_type, key) in observed_order_by_clauses:
@@ -10776,9 +10789,11 @@ def _get_search_datasets_filter_clauses(parsed_filters, dialect):
         value = f["value"]
 
         if type_ == "attribute":
-            if SearchEvaluationDatasetsUtils.is_string_attribute(
-                type_, key, comparator
-            ) and comparator not in ("=", "!=", "LIKE", "ILIKE"):
+            if (
+                SearchEvaluationDatasetsUtils.is_string_attribute(type_, key, comparator)
+                and comparator not in ("=", "!=", "LIKE", "ILIKE")
+                and not (key == "name" and comparator == "IN")
+            ):
                 raise MlflowException.invalid_parameter_value(
                     f"Invalid comparator for string attribute: {comparator}"
                 )

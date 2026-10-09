@@ -14,8 +14,11 @@ on:
       - ".github/workflows/copilot-*.yml"
       - ".github/workflows/docs.yml"
       - ".github/workflows/preview-docs.yml"
+      - ".github/workflows/triage.yml"
       - "mlflow/server/js/**"
       - ".github/workflows/js.yml"
+      - "libs/typescript/**"
+      - ".github/workflows/typescript.yml"
       - ".claude/**"
   workflow_dispatch:
     inputs:
@@ -50,6 +53,7 @@ jobs:
         with:
           persist-credentials: false
           ref: ${{ github.event.inputs.ref }}
+          submodules: true
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
       - if: matrix.type == 'dev'
