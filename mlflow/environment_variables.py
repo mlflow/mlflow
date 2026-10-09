@@ -1800,6 +1800,13 @@ MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS = _BooleanEnvironmentVariable(
     "MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS", False
 )
 
+#: Internal marker set only inside a job-executor subprocess while it deserializes a scorer, so
+#: that reconstructing a custom ``@scorer`` (which executes its stored source via ``exec()``) is
+#: confined to the executor. The tracking server process never sets it, so the server deserializes
+#: custom scorers as non-executing metadata only and never runs their code. Not intended to be set
+#: by users. (default: ``False``)
+_MLFLOW_IN_JOB_EXECUTOR = _BooleanEnvironmentVariable("_MLFLOW_IN_JOB_EXECUTOR", False)
+
 #: Opt-in switch for the executor job-execution engine. Leave unset to use the default engine
 #: (currently the built-in Huey consumers); set to ``"executor"`` to route job execution through
 #: the ``AbstractJobExecutor`` framework (``LocalJobExecutor`` by default). It is intentionally

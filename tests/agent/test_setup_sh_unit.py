@@ -1,3 +1,4 @@
+import json
 import os
 import subprocess
 from pathlib import Path
@@ -78,6 +79,194 @@ printf '%s\n' "$TRACKING_URI" "$EXPERIMENT_NAME" "$AGENT_NAME"
         "mlflow.example.com/",
         "tracing-test",
         "codex",
+    ]
+
+
+@pytest.mark.parametrize(
+    ("installed", "requested", "expected"),
+    [
+        (("claude", "codex", "opencode"), "", "claude"),
+        (("codex", "opencode"), "", "codex"),
+        (("opencode",), "", "opencode"),
+        ((), "", "manual"),
+        (("claude", "codex", "opencode"), "codex", "codex"),
+        (("claude", "codex", "opencode"), "opencode", "opencode"),
+        (("claude", "codex", "opencode"), "manual", "manual"),
+        ((), "manual", "manual"),
+    ],
+)
+def test_choose_agent_without_prompting(tmp_path: Path, installed, requested, expected):
+    for name in installed:
+        executable = tmp_path / name
+        executable.write_text("#!/bin/sh\nexit 99\n")
+        executable.chmod(0o755)
+
+    result = run_shell(
+        """
+# Use the POSIX form so a Windows drive colon (C:) does not split PATH.
+PATH=$(cd "$1" && pwd)
+shift
+parse_args "$@"
+validate_agent_name
+select_option() { exit 98; }
+show_manual_setup() { printf 'manual\\n'; }
+choose_agent
+printf '%s\\n' "$agent_choice"
+""",
+        str(tmp_path),
+        *(["--agent", requested] if requested else []),
+    )
+
+    assert result.returncode == 0
+    assert result.stdout.strip() == expected
+    assert "Choose a coding agent" not in result.stderr
+
+
+@pytest.mark.parametrize("agent", ["claude", "codex", "opencode"])
+def test_choose_agent_rejects_missing_explicit_agent(tmp_path: Path, agent: str):
+    result = run_shell(
+        """
+# Use the POSIX form so a Windows drive colon (C:) does not split PATH.
+PATH=$(cd "$1" && pwd)
+shift
+parse_args "$@"
+validate_agent_name
+choose_agent
+""",
+        str(tmp_path),
+        "--agent",
+        agent,
+    )
+
+    assert result.returncode != 0
+    assert f"Coding agent '{agent}' is not installed." in result.stderr
+
+
+@pytest.mark.parametrize(
+    ("config", "expected"),
+    [
+        (None, False),
+        ("", False),
+        ("# [DEFAULT]\n# host = https://workspace.example.com\n", False),
+        ("[DEFAULT]\ntoken = token\n", False),
+        ("host = https://workspace.example.com\n", False),
+        ("[DEFAULT]\nhost = \n", False),
+        ("[DEFAULT]\nhost = # workspace URL\n", False),
+        ("[DEFAULT]\nhost = ; workspace URL\n", False),
+        ("[DEFAULT]\nhost = https://workspace.example.com\n", True),
+        ("[team-profile]\n  host = https://workspace.example.com\n", True),
+        ("[first]\ntoken = token\n[second]\nhost = https://workspace.example.com\n", True),
+    ],
+)
+def test_has_databricks_profile(tmp_path: Path, config, expected: bool):
+    config_path = tmp_path / "databrickscfg"
+    if config is not None:
+        config_path.write_text(config)
+
+    result = run_shell(
+        """
+DATABRICKS_CONFIG_FILE=$1
+has_databricks_profile
+""",
+        str(config_path),
+    )
+
+    assert result.returncode == (0 if expected else 1)
+
+
+@pytest.mark.parametrize(
+    ("has_profile", "config_profile", "host"),
+    [
+        (True, "", ""),
+        (False, "selected", ""),
+        (False, "", "https://workspace.example.com"),
+    ],
+)
+def test_choose_backend_uses_databricks_configuration(
+    tmp_path: Path, has_profile: bool, config_profile: str, host: str
+):
+    config_path = tmp_path / "databrickscfg"
+    if has_profile:
+        config_path.write_text("[DEFAULT]\nhost = https://workspace.example.com\n")
+
+    result = run_shell(
+        """
+DATABRICKS_CONFIG_FILE=$1
+DATABRICKS_CONFIG_PROFILE=$2
+DATABRICKS_HOST=$3
+MLFLOW_TRACKING_URI=
+select_option() { exit 98; }
+choose_backend
+printf '%s\\n' "$backend"
+""",
+        str(config_path),
+        config_profile,
+        host,
+    )
+
+    assert result.returncode == 0
+    assert result.stdout.strip() == "databricks"
+
+
+@pytest.mark.parametrize("source", ["flag", "environment"])
+def test_choose_backend_tracking_uri_overrides_saved_profile(tmp_path: Path, source: str):
+    config_path = tmp_path / "databrickscfg"
+    config_path.write_text("[DEFAULT]\nhost = https://workspace.example.com\n")
+    tracking_uri = "https://mlflow.example.com"
+
+    result = run_shell(
+        """
+DATABRICKS_CONFIG_FILE=$1
+DATABRICKS_CONFIG_PROFILE=
+DATABRICKS_HOST=
+MLFLOW_TRACKING_URI=
+if [ "$2" = flag ]; then
+    parse_args --tracking-uri "$3"
+else
+    MLFLOW_TRACKING_URI=$3
+fi
+select_option() { exit 98; }
+choose_backend
+printf '%s\\n' "$backend" "$TRACKING_URI"
+""",
+        str(config_path),
+        source,
+        tracking_uri,
+    )
+
+    assert result.returncode == 0
+    assert result.stdout.splitlines() == ["remote", tracking_uri]
+
+
+@pytest.mark.parametrize(
+    ("choice", "expected"), [("0", "databricks"), ("1", "remote"), ("2", "local")]
+)
+def test_choose_backend_prompts_without_configuration(tmp_path: Path, choice: str, expected: str):
+    result = run_shell(
+        """
+DATABRICKS_CONFIG_FILE=$1
+DATABRICKS_CONFIG_PROFILE=
+DATABRICKS_HOST=
+MLFLOW_TRACKING_URI=
+backend_choice=$2
+select_option() {
+    printf '%s\\n' "$@"
+    selected_index=$backend_choice
+}
+choose_backend
+printf '%s\\n' "$backend"
+""",
+        str(tmp_path / "missing-config"),
+        choice,
+    )
+
+    assert result.returncode == 0
+    assert result.stdout.splitlines() == [
+        "Where should MLflow store traces?",
+        "Databricks",
+        "Existing OSS MLflow server",
+        "New local MLflow server",
+        expected,
     ]
 
 
@@ -197,6 +386,63 @@ build_agent_prompt
 
     assert result.returncode == 0, result.stderr
     assert "DATABRICKS_HOST=https://workspace.example.com" in result.stdout
+    assert "Discover available SQL warehouses" not in result.stdout
+
+
+def test_build_databricks_prompt_defers_uc_storage_until_warehouse_is_selected():
+    result = run_shell(
+        """
+backend=databricks
+PROFILE=selected
+TRACKING_URI=databricks://selected
+EXPERIMENT_ID=42
+EXPERIMENT_NAME=/Users/test/tracing-test
+UC_SCHEMA=catalog.schema
+trace_destination=
+uc_trace_storage_pending=true
+build_agent_prompt
+"""
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "- Unity Catalog destination to configure: catalog.schema.42" in result.stdout
+    assert "- Unity Catalog trace destination:" not in result.stdout
+    assert "Discover available SQL warehouses" in result.stdout
+    assert "same authentication profile/host as the tracking URI" in result.stdout
+    assert "preferring a running warehouse" in result.stdout
+    assert "Set MLFLOW_TRACING_SQL_WAREHOUSE_ID to its ID" in result.stdout
+    assert "trace tables have not been created or linked yet" in result.stdout
+    assert "Complete this before enabling tracing, including for non-Python" in result.stdout
+    assert 'experiment_id="42"' in result.stdout
+    assert 'catalog_name="catalog"' in result.stdout
+    assert 'schema_name="schema"' in result.stdout
+    assert 'table_prefix="42"' in result.stdout
+
+
+def test_manual_databricks_setup_explains_pending_uc_storage():
+    result = run_shell(
+        """
+backend=databricks
+PROFILE=selected
+WORKSPACE_URL=https://workspace.example.com
+DATABRICKS_BIN=databricks
+TRACKING_URI=databricks://selected
+EXPERIMENT_ID=42
+UC_SCHEMA=catalog.schema
+trace_destination=
+uc_trace_storage_pending=true
+manual_setup_docs=https://mlflow.org/docs/latest/genai/tracing/quickstart/
+show_manual_setup
+"""
+    )
+
+    assert result.returncode == 0, result.stderr
+    output = " ".join(result.stderr.replace("│", "").split())
+    assert "Choose an available SQL warehouse" in output
+    assert "MLFLOW_TRACING_SQL_WAREHOUSE_ID" in output
+    assert "Configure Unity Catalog trace storage in catalog.schema with table prefix 42" in output
+    assert 'mlflow.set_experiment(experiment_id="42"' in output
+    assert 'catalog_name="catalog", schema_name="schema", table_prefix="42"' in output
 
 
 def test_json_tag_value():
@@ -213,73 +459,6 @@ printf '%s\n' '{
 
     assert result.returncode == 0, result.stderr
     assert result.stdout == "catalog.schema.prefix\n"
-
-
-@pytest.mark.parametrize(
-    "warehouse_json",
-    [
-        pytest.param(
-            """{
-  "warehouses": [
-    {
-      "id": "stopped-1",
-      "name": "Stopped Warehouse",
-      "state": "STOPPED"
-    },
-    {
-      "id": "running-1",
-      "name": "First Running Warehouse",
-      "state": "RUNNING"
-    },
-    {
-      "id": "running-2",
-      "name": "Second Running Warehouse",
-      "state": "RUNNING"
-    },
-    {
-      "id": "stopped-2",
-      "name": "Another Stopped Warehouse",
-      "state": "STOPPED"
-    }
-  ]
-}""",
-            id="pretty",
-        ),
-        pytest.param(
-            '{"warehouses": [{"id": "stopped-1", "name": "Stopped Warehouse", '
-            '"state": "STOPPED"}, {"id": "running-1", '
-            '"name": "First Running Warehouse", "state": "RUNNING"}, '
-            '{"id": "running-2", "name": "Second Running Warehouse", '
-            '"state": "RUNNING"}, {"id": "stopped-2", '
-            '"name": "Another Stopped Warehouse", "state": "STOPPED"}]}',
-            id="compact",
-        ),
-        pytest.param(
-            """{
-  "warehouses": [
-    {"state": "STOPPED", "name": "Stopped Warehouse", "id": "stopped-1"},
-    {"name": "First Running Warehouse", "state": "RUNNING", "id": "running-1"},
-    {"state": "RUNNING", "id": "running-2", "name": "Second Running Warehouse"},
-    {"name": "Another Stopped Warehouse", "id": "stopped-2", "state": "STOPPED"}
-  ]
-}""",
-            id="reordered-fields",
-        ),
-    ],
-)
-def test_json_warehouse_rows_lists_running_warehouses_first(warehouse_json: str):
-    result = run_shell(
-        """printf '%s\n' "$1" | json_warehouse_rows""",
-        warehouse_json,
-    )
-
-    assert result.returncode == 0, result.stderr
-    assert result.stdout.splitlines() == [
-        "running-1|First Running Warehouse|RUNNING",
-        "running-2|Second Running Warehouse|RUNNING",
-        "stopped-1|Stopped Warehouse|STOPPED",
-        "stopped-2|Another Stopped Warehouse|STOPPED",
-    ]
 
 
 @pytest.mark.parametrize("value", ["catalog.schema.extra", ".schema", "catalog."])
@@ -575,17 +754,73 @@ PATH=
 curl() { :; }
 run_with_spinner() { :; }
 success() { :; }
-EXPERIMENT_NAME=test
+configure_remote() { printf '%s\n' "$TRACKING_URI"; }
 configure_local
 """
     )
 
     assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "http://127.0.0.1:5000"
     assert "mlflow server --port 5000" in result.stderr
     assert "uvx" not in result.stderr
 
 
-def test_existing_uc_experiment_selects_warehouse_without_reconfiguring_storage():
+@pytest.mark.parametrize("experiment_id", ["", "existing-id"])
+def test_local_setup_resolves_experiment_without_prompting(tmp_path: Path, experiment_id: str):
+    requests_path = tmp_path / "requests"
+    result = run_shell(
+        """
+backend=local
+repo_name=project
+EXPERIMENT_ID=$1
+requests_path=$2
+lsof() { return 1; }
+curl() { :; }
+select_option() { return 98; }
+prompt_text() { return 99; }
+oss_curl() {
+    case "$*" in
+        */experiments/search)
+            printf '200'
+            ;;
+        */experiments/get*)
+            while [ "$1" != "-o" ]; do shift; done
+            printf '%s' '{"experiment":{"name":"existing"}}' > "$2"
+            printf '200'
+            ;;
+        */experiments/create)
+            while [ "$1" != "-d" ]; do shift; done
+            printf '%s' "$2" > "$requests_path"
+            printf '%s' '{"experiment_id":"new-id"}'
+            ;;
+        *) return 97 ;;
+    esac
+}
+configure_local
+build_agent_prompt
+""",
+        experiment_id,
+        str(requests_path),
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "Do not start another server" in result.stdout
+    assert "- Tracking URI: http://127.0.0.1:5000" in result.stdout
+    assert f"- Experiment ID: {experiment_id or 'new-id'}" in result.stdout
+    if experiment_id:
+        assert "- Experiment name: existing" in result.stdout
+        assert not requests_path.exists()
+    else:
+        request = json.loads(requests_path.read_text())
+        assert request["name"].startswith("project-")
+        assert f"- Experiment name: {request['name']}" in result.stdout
+        assert request["tags"] == [{"key": "mlflow.experimentKind", "value": "genai_development"}]
+
+
+@pytest.mark.parametrize("warehouse_id", ["", "warehouse-id"])
+def test_existing_uc_experiment_preserves_warehouse_flag_without_reconfiguring_storage(
+    warehouse_id: str,
+):
     result = run_shell(
         """
 ensure_databricks_cli() { :; }
@@ -595,15 +830,16 @@ resolve_databricks_experiment() {
     experiment_created=false
     trace_destination=catalog.schema.prefix
 }
-select_warehouse() { WAREHOUSE_ID=warehouse-id; }
+WAREHOUSE_ID=$1
 link_uc_trace_storage() { return 98; }
 configure_databricks
 printf '%s\n' "$UC_SCHEMA" "$WAREHOUSE_ID"
-"""
+""",
+        warehouse_id,
     )
 
     assert result.returncode == 0, result.stderr
-    assert result.stdout.splitlines() == ["catalog.schema", "warehouse-id"]
+    assert result.stdout.splitlines() == ["catalog.schema", warehouse_id]
 
 
 def test_existing_workspace_experiment_skips_uc_configuration():
@@ -616,7 +852,6 @@ resolve_databricks_experiment() {
     experiment_created=false
     trace_destination=
 }
-select_warehouse() { return 98; }
 link_uc_trace_storage() { return 99; }
 configure_databricks
 """

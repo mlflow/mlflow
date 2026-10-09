@@ -20,6 +20,7 @@ from packaging.version import Version
 from mlflow.environment_variables import (
     _MLFLOW_ASSISTANT_DELEGATION_SIGNING_KEY,
     _MLFLOW_AUTH_ADMIN_BOOTSTRAPPED,
+    _MLFLOW_IN_JOB_EXECUTOR,
     _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN,
     _MLFLOW_SERVER_BOOT_ID,
     _MLFLOW_SGI_NAME,
@@ -409,6 +410,11 @@ def _run_server(
     # this server generation from orphans left by a previous one during startup cleanup.
     env_map[_MLFLOW_SERVER_BOOT_ID.name] = uuid.uuid4().hex
 
+    # This marker permits reconstructing custom scorer code, which the server process must never
+    # do. It is meant to be set only inside job-executor subprocesses, so force it off for the
+    # server workers in case it is present in the ambient environment.
+    env_map[_MLFLOW_IN_JOB_EXECUTOR.name] = "false"
+
     # Determine which server we're using (only one should be true)
     using_gunicorn = gunicorn_opts is not None
     using_waitress = waitress_opts is not None
@@ -559,7 +565,7 @@ def _run_server(
         from mlflow.environment_variables import MLFLOW_GATEWAY_URI, MLFLOW_TRACKING_URI
         from mlflow.server.jobs.utils import _launch_job_execution_runner
 
-        server_uri = f"http://{host}:{port}"
+        server_uri = f"http://{host}:{port}{static_prefix or ''}"
         job_env = {
             **env_map,
             # Periodic services initialize the primary store once from the supported public
