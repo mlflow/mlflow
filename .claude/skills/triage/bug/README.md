@@ -67,9 +67,9 @@ Write the comment using the template in `comment.description` of `payload.schema
 Prefer code to prose: give commands and code a reader can paste and run, not steps
 to follow by hand. Keep the comment tight.
 
-If the mechanism is hard to follow from prose, add one visual aid. Draw it with the
-`artifact-diagramming` skill in `$out_dir/work/visual-aid.html` (white background, not published),
-then screenshot it and cite it like other media:
+For a Reproduced bug, add one visual aid showing how it happens, and cut the prose it makes
+redundant. Draw it with the `artifact-diagramming` skill in `$out_dir/work/visual-aid.html`
+(white background, not published), then screenshot it and cite it like other media:
 
 ```bash
 agent-browser open "file://$out_dir/work/visual-aid.html"
