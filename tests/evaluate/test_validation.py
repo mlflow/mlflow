@@ -879,6 +879,33 @@ def test_validation_relative_threshold_uses_baseline_magnitude(
             mlflow.validate_evaluation_results(**kwargs)
 
 
+@pytest.mark.parametrize("greater_is_better", [True, False])
+@pytest.mark.parametrize(
+    ("baseline", "candidate"),
+    [
+        (0.8, float("nan")),
+        (float("nan"), 0.9),
+        (float("nan"), float("nan")),
+        (float("inf"), float("inf")),
+    ],
+)
+def test_validation_relative_threshold_fails_on_undefined_change(
+    greater_is_better, baseline, candidate
+):
+    with pytest.raises(
+        ModelValidationFailedException, match="minimum relative change check failed"
+    ):
+        mlflow.validate_evaluation_results(
+            validation_thresholds={
+                "metric": MetricThreshold(
+                    min_relative_change=0.05, greater_is_better=greater_is_better
+                )
+            },
+            candidate_result=EvaluationResult(metrics={"metric": candidate}, artifacts={}),
+            baseline_result=EvaluationResult(metrics={"metric": baseline}, artifacts={}),
+        )
+
+
 @pytest.fixture
 def multi_thresholds_test_spec(request):
     """

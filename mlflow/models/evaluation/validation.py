@@ -423,8 +423,8 @@ def _validate(
                 relative_change = (baseline_metric_value - candidate_metric_value) / abs(
                     baseline_metric_value
                 )
-            validation_result.min_relative_change_failed = (
-                relative_change < metric_threshold.min_relative_change
+            validation_result.min_relative_change_failed = not (
+                relative_change >= metric_threshold.min_relative_change
             )
 
     failure_messages = []
