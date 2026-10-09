@@ -521,7 +521,10 @@ class RegistryClient:
                     timeout=_REQUEST_TIMEOUT_SECONDS,
                 )
         except requests.RequestException as e:
-            raise source_unavailable(url, str(e), error_code=TEMPORARILY_UNAVAILABLE)
+            # Raised from None, here and on the streaming paths below: blob pulls are
+            # redirected to signed URLs, and the original exception names that URL in full.
+            # Chained on, it would be printed with any traceback despite the redacted message.
+            raise source_unavailable(url, str(e), error_code=TEMPORARILY_UNAVAILABLE) from None
         if response.status_code >= 400:
             response.close()
             raise source_unavailable(
@@ -543,7 +546,7 @@ def _fetch_manifest(client: RegistryClient, ref: ImageReference) -> tuple[dict[s
         # by the client.
         raise source_unavailable(
             f"{client.base_url}{path}", str(e), error_code=TEMPORARILY_UNAVAILABLE
-        )
+        ) from None
     if ref.reference.startswith("sha256:"):
         actual = f"sha256:{hashlib.sha256(body).hexdigest()}"
         if actual != ref.reference:
@@ -654,7 +657,7 @@ def _download_blob(
     except requests.RequestException as e:
         raise source_unavailable(
             f"{client.base_url}{url}", str(e), error_code=TEMPORARILY_UNAVAILABLE
-        )
+        ) from None
     if f"sha256:{hasher.hexdigest()}" != digest:
         raise invalid_content(f"OCI layer {digest} did not match its digest after download.")
 
