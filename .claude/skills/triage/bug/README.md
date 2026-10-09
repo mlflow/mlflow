@@ -55,16 +55,6 @@ Keep the fix minimal and in the style of the surrounding code. When the right fi
 decision (a public API, a default, or a storage schema), describe the options instead of
 picking one.
 
-If the mechanism is hard to follow from prose, add one visual aid. Draw it with the
-`artifact-diagramming` skill in `$out_dir/work/visual-aid.html` (white background, not published),
-then screenshot it and cite it like other media:
-
-```bash
-agent-browser open "file://$out_dir/work/visual-aid.html"
-agent-browser set viewport 1280 720 2
-agent-browser screenshot svg "$out_dir/media/visual-aid.png"
-```
-
 ## 4. Decide the verdict
 
 Pick exactly one verdict using the label descriptions in `payload.schema.yml`, and set the
@@ -76,3 +66,13 @@ Write the comment using the template in `comment.description` of `payload.schema
 
 Prefer code to prose: give commands and code a reader can paste and run, not steps
 to follow by hand. Keep the comment tight.
+
+If the mechanism is hard to follow from prose, add one visual aid. Draw it with the
+`artifact-diagramming` skill in `$out_dir/work/visual-aid.html` (white background, not published),
+then screenshot it and cite it like other media:
+
+```bash
+agent-browser open "file://$out_dir/work/visual-aid.html"
+agent-browser set viewport 1280 720 2
+agent-browser screenshot svg "$out_dir/media/visual-aid.png"
+```
