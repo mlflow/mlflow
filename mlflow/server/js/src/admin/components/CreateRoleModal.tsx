@@ -25,6 +25,11 @@ import {
 } from '../types';
 import { RolePermissionsSection, type StagedRolePermission } from './RolePermissionsSection';
 import { RoleUsersSection } from './RoleUsersSection';
+import {
+  MutationConditionsSection,
+  formatStagedCondition,
+  type StagedMutationCondition,
+} from './MutationConditionsSection';
 
 export interface CreateRoleModalProps {
   open: boolean;
@@ -58,10 +63,16 @@ export const CreateRoleModal = ({ open, onClose }: CreateRoleModalProps) => {
   const [description, setDescription] = useState('');
   const [permissions, setPermissions] = useState<StagedRolePermission[]>([]);
   const [usernames, setUsernames] = useState<string[]>([]);
-  // Reported by ``RolePermissionsSection`` whenever the in-progress draft is
-  // dirty. Drives a discard-confirm dialog on ``Create role`` so the admin
-  // can't silently abandon a partially-filled permission.
-  const [hasUnsavedDraft, setHasUnsavedDraft] = useState(false);
+  const [conditions, setConditions] = useState<StagedMutationCondition[]>([]);
+  // Reported by ``RolePermissionsSection`` and ``MutationConditionsSection``
+  // whenever their in-progress draft is dirty. Drives a discard-confirm dialog
+  // on ``Create role`` so the admin can't silently abandon a partially-filled
+  // permission or condition. Tracked per section because either can be dirty
+  // independently, and a single flag would let one section's ``false`` clear
+  // the other's ``true``.
+  const [hasUnsavedPermissionDraft, setHasUnsavedPermissionDraft] = useState(false);
+  const [hasUnsavedConditionDraft, setHasUnsavedConditionDraft] = useState(false);
+  const hasUnsavedDraft = hasUnsavedPermissionDraft || hasUnsavedConditionDraft;
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -84,6 +95,7 @@ export const CreateRoleModal = ({ open, onClose }: CreateRoleModalProps) => {
       setDescription('');
       setPermissions([]);
       setUsernames([]);
+      setConditions([]);
       // ``hasUnsavedDraft`` isn't reset here — the ``key={String(open)}`` on
       // ``RolePermissionsSection`` below remounts the section on every open
       // and its first commit-time effect fires ``false`` from the default
@@ -129,42 +141,85 @@ export const CreateRoleModal = ({ open, onClose }: CreateRoleModalProps) => {
 
     // Best-effort: partial failures are surfaced, but the role itself
     // already exists by this point.
-    const permFailures: string[] = [];
-    for (const p of permissions) {
+    //
+    // The order below is a safety property, not housekeeping. A new role grants
+    // nothing until a permission is added to it, and nothing reaches a user until
+    // they are assigned -- so every staged restriction is created FIRST, and both
+    // widening steps are skipped if any of them failed. Otherwise an admin building
+    // a deliberately-narrowed role would hand assigned users exactly the
+    // unrestricted access the conditions were meant to take away, and would have to
+    // notice the failure and reopen the role to fix it.
+    const conditionFailures: string[] = [];
+    for (const c of conditions) {
+      // Rows that already carry an id landed on a previous attempt. Each add
+      // allocates a fresh slot rather than deduplicating, so replaying one on retry
+      // would leave a duplicate restriction behind and spend the per-type limit.
+      if (c.id != null) continue;
       try {
-        await AdminApi.addPermission({
+        const created = await AdminApi.addMutationCondition({
           role_id: roleId,
-          resource_type: p.resourceType,
-          resource_pattern: parseResourcePattern(p.resourcePattern),
-          permission: p.permission,
+          resource_type: c.resourceType,
+          // The scope travels explicitly: an absent ``resource_pattern`` is
+          // normalised server-side to the wildcard, which would widen a condition
+          // scoped to one resource into one covering the whole workspace.
+          resource_pattern: c.resourcePattern,
+          container_resource_type: c.containerResourceType,
+          container_resource_pattern: c.containerResourcePattern,
+          value_condition: c.valueCondition,
+          target_condition: c.targetCondition,
         });
+        const createdId = created?.mutation_conditions?.id;
+        if (createdId != null) {
+          setConditions((prev) => prev.map((s) => (s === c ? { ...s, id: createdId } : s)));
+        }
       } catch (e: any) {
-        permFailures.push(
-          `${p.resourceType}:${formatResourcePattern(p.resourcePattern)} → ${p.permission} (${e?.message ?? 'unknown'})`,
-        );
-      }
-    }
-    const userFailures: string[] = [];
-    for (const u of usernames) {
-      try {
-        await AdminApi.assignRole(u, roleId);
-      } catch (e: any) {
-        userFailures.push(`${u} (${e?.message ?? 'unknown'})`);
+        conditionFailures.push(`${formatStagedCondition(c)} (${e?.message ?? 'unknown'})`);
       }
     }
 
-    if (permFailures.length === 0 && userFailures.length === 0) {
+    const permFailures: string[] = [];
+    const userFailures: string[] = [];
+    if (conditionFailures.length === 0) {
+      for (const p of permissions) {
+        try {
+          await AdminApi.addPermission({
+            role_id: roleId,
+            resource_type: p.resourceType,
+            resource_pattern: parseResourcePattern(p.resourcePattern),
+            permission: p.permission,
+          });
+        } catch (e: any) {
+          permFailures.push(
+            `${p.resourceType}:${formatResourcePattern(p.resourcePattern)} → ${p.permission} (${e?.message ?? 'unknown'})`,
+          );
+        }
+      }
+      for (const u of usernames) {
+        try {
+          await AdminApi.assignRole(u, roleId);
+        } catch (e: any) {
+          userFailures.push(`${u} (${e?.message ?? 'unknown'})`);
+        }
+      }
+    }
+
+    if (conditionFailures.length === 0 && permFailures.length === 0 && userFailures.length === 0) {
       onClose();
       return;
     }
     setError(
       `Role "${trimmedName}" created, but some follow-ups failed:\n` +
+        (conditionFailures.length > 0
+          ? `Mutation conditions: ${conditionFailures.join('; ')}\n` +
+            `No permission was added and no user was assigned, so the role grants ` +
+            `nothing yet. Retry to apply the rest.\n`
+          : '') +
         (permFailures.length > 0 ? `Permissions: ${permFailures.join('; ')}\n` : '') +
         (userFailures.length > 0 ? `Users: ${userFailures.join('; ')}` : '') +
         `\nFinish wiring up the role from the role detail page.`,
     );
     setSubmitting(false);
-  }, [name, workspace, description, permissions, usernames, createdRoleId, createRole, onClose]);
+  }, [name, workspace, description, permissions, usernames, conditions, createdRoleId, createRole, onClose]);
 
   return (
     <Modal
@@ -270,7 +325,23 @@ export const CreateRoleModal = ({ open, onClose }: CreateRoleModalProps) => {
           onChange={setPermissions}
           workspace={resourcePickerWorkspace}
           disabled={submitting}
-          onUnsavedDraftChange={setHasUnsavedDraft}
+          onUnsavedDraftChange={setHasUnsavedPermissionDraft}
+        />
+      </LongFormSection>
+      <LongFormSection title="Mutation conditions" collapsible defaultCollapsed>
+        <Typography.Text color="secondary" css={{ display: 'block', marginBottom: theme.spacing.sm }}>
+          Narrow what this role can change. Conditions never grant access — they only take operations away from the
+          permissions above. They are applied before any permission or user assignment, so the role is never live
+          unrestricted.
+        </Typography.Text>
+        {/* Fresh mount per reopen, for the same reason as the section above. */}
+        <MutationConditionsSection
+          key={String(open)}
+          value={conditions}
+          onChange={setConditions}
+          workspace={resourcePickerWorkspace}
+          disabled={submitting}
+          onUnsavedDraftChange={setHasUnsavedConditionDraft}
         />
       </LongFormSection>
       <LongFormSection title="Assign users" hideDivider collapsible defaultCollapsed>
