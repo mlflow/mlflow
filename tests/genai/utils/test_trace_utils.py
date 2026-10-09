@@ -47,6 +47,7 @@ from mlflow.tracing import set_span_chat_tools
 from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracing.utils import build_otel_context
 from mlflow.types.chat import ChatTool, FunctionToolDefinition
+from mlflow.types.responses import ResponsesAgentResponse
 
 from tests.tracing.helper import create_test_trace_info, get_traces, purge_traces
 
@@ -629,6 +630,146 @@ def test_parse_inputs_to_str(input_data, expected):
 )
 def test_parse_outputs_to_str(output_data, expected):
     assert parse_outputs_to_str(output_data) == expected
+
+
+@pytest.mark.parametrize("response_format", ["dict", "model", "list"])
+def test_parse_outputs_to_str_responses_api_multiple_text_parts(response_format):
+    output = {
+        "output": [
+            {
+                "id": "msg_previous",
+                "type": "message",
+                "role": "assistant",
+                "content": [{"type": "output_text", "text": "Previous answer"}],
+            },
+            {
+                "id": "msg_final",
+                "type": "message",
+                "role": "assistant",
+                "content": [
+                    {"type": "output_text", "text": ""},
+                    {"type": "output_text", "text": "First sentence."},
+                    {"type": "output_text", "text": " "},
+                    {"type": "output_text", "text": "Second sentence.\n"},
+                    {"type": "output_text", "text": "Final sentence."},
+                ],
+            },
+        ]
+    }
+    if response_format == "model":
+        output = ResponsesAgentResponse(**output)
+    elif response_format == "list":
+        output = [output]
+
+    assert parse_outputs_to_str(output) == "First sentence. Second sentence.\nFinal sentence."
+
+
+def test_parse_outputs_to_str_responses_api_mixed_content():
+    output = {
+        "output": [
+            {
+                "type": "message",
+                "role": "assistant",
+                "content": [
+                    {"type": "text", "text": "Before "},
+                    {"type": "image", "image_url": "https://example.com/image.png"},
+                    {"type": "output_text", "text": "and after."},
+                ],
+            }
+        ]
+    }
+
+    assert parse_outputs_to_str(output) == "Before and after."
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        [],
+        [{"type": "image", "image_url": "https://example.com/image.png"}],
+        [{"type": "output_text"}],
+        [{"type": "output_text", "text": None}],
+        [{"type": "output_text", "text": "Valid text"}, {"type": "output_text", "text": 42}],
+    ],
+)
+def test_parse_outputs_to_str_responses_api_fallback(content):
+    output = [{"type": "message", "role": "assistant", "content": content}]
+
+    assert parse_outputs_to_str({"output": output}) == json.dumps(output)
+
+
+@pytest.mark.parametrize(
+    "output",
+    [
+        pytest.param(
+            {
+                "type": "message",
+                "role": "assistant",
+                "content": [
+                    {"type": "text", "text": "First part."},
+                    {"type": "text", "text": "Second part."},
+                ],
+            },
+            id="anthropic",
+        ),
+        pytest.param(
+            {
+                "candidates": [
+                    {
+                        "content": {
+                            "role": "model",
+                            "parts": [{"text": "First part."}, {"text": "Second part."}],
+                        }
+                    }
+                ]
+            },
+            id="gemini",
+        ),
+        pytest.param(
+            {
+                "output": {
+                    "message": {
+                        "role": "assistant",
+                        "content": [{"text": "First part."}, {"text": "Second part."}],
+                    }
+                }
+            },
+            id="bedrock-converse",
+        ),
+        pytest.param(
+            {
+                "choices": [
+                    {
+                        "message": {
+                            "role": "assistant",
+                            "content": [
+                                {"type": "text", "text": "First part."},
+                                {"type": "text", "text": "Second part."},
+                            ],
+                        }
+                    }
+                ]
+            },
+            id="chat-completions-content-blocks",
+        ),
+        pytest.param(
+            {
+                "messages": [
+                    {
+                        "role": "assistant",
+                        "content": [
+                            {"type": "text", "text": "First part."},
+                            {"type": "text", "text": "Second part."},
+                        ],
+                    }
+                ]
+            },
+            id="messages-content-blocks",
+        ),
+    ],
+)
+def test_parse_outputs_to_str_preserves_multipart_fallback(output):
+    assert json.loads(parse_outputs_to_str(output)) == output
 
 
 @pytest.mark.parametrize(

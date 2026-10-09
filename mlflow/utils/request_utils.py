@@ -115,8 +115,12 @@ def augmented_raise_for_status(response):
             raise e
 
 
-def download_chunk(*, range_start, range_end, headers, download_path, http_uri):
+def download_chunk(*, range_start, range_end, headers, download_path, http_uri, verify=None):
     combined_headers = {**headers, "Range": f"bytes={range_start}-{range_end}"}
+
+    request_kwargs = {}
+    if verify is not None:
+        request_kwargs["verify"] = verify
 
     with cloud_storage_http_request(
         "get",
@@ -124,6 +128,7 @@ def download_chunk(*, range_start, range_end, headers, download_path, http_uri):
         stream=False,
         headers=combined_headers,
         timeout=10,
+        **request_kwargs,
     ) as response:
         expected_length = response.headers.get("Content-Length")
         if expected_length is not None:

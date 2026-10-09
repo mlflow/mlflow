@@ -40,6 +40,11 @@ In the code snippet below, we start an mlflow run and train a random forest mode
 relevant hyper-parameters, the model mean-squared-error (MSE), and finally log and register the
 model itself.
 
+The default scikit-learn serialization format is `skops`. This random forest uses the
+`sklearn.tree._tree.Tree` type, so the example explicitly trusts it. Only trust types you have
+reviewed; see the [Pickle-Free Model format](/ml/tracking/pickle-free-models) documentation for
+more information.
+
 ```python
 from sklearn.datasets import make_regression
 from sklearn.ensemble import RandomForestRegressor
@@ -67,8 +72,9 @@ with mlflow.start_run() as run:
     mlflow.sklearn.log_model(
         sk_model=model,
         name="sklearn-model",
-        input_example=X_train,
+        input_example=X_train[:2],
         registered_model_name="sk-learn-random-forest-reg-model",
+        skops_trusted_types=["sklearn.tree._tree.Tree"],
     )
 ```
 

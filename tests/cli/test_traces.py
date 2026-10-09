@@ -171,6 +171,19 @@ def test_delete_command(runner):
         assert "Deleted 5 trace(s)" in result.output
 
 
+def test_delete_command_strips_spaces_in_trace_ids(runner):
+    with mock.patch("mlflow.cli.traces.TracingClient") as mock_client:
+        mock_client.return_value.delete_traces.return_value = 2
+        result = runner.invoke(
+            commands,
+            ["delete", "--experiment-id", "1", "--trace-ids", "tr-1, tr-2"],
+        )
+
+    assert result.exit_code == 0
+    _, kwargs = mock_client.return_value.delete_traces.call_args
+    assert kwargs["trace_ids"] == ["tr-1", "tr-2"]
+
+
 def test_field_validation_error(runner):
     trace_location = TraceLocation(
         type=TraceLocationType.MLFLOW_EXPERIMENT,

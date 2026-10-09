@@ -26,7 +26,7 @@ from datetime import date, datetime, timezone
 from typing import Any, Literal
 
 import sqlalchemy as sa
-from sqlalchemy import case, func, or_, true
+from sqlalchemy import func, or_, true
 from sqlalchemy.orm import Session, aliased, sessionmaker
 
 from mlflow.entities.trace_metrics import MetricViewType
@@ -241,23 +241,44 @@ def _span_day_start_expr(db_type: str):
     return get_time_bucket_expression(MetricViewType.SPANS, DAILY_INTERVAL_SECONDS, db_type)
 
 
-def _trace_is_unsettled(trace_id_column, cutoff_ms: int):
-    """Return a correlated predicate for an incomplete or recently active trace."""
-    trace_info = aliased(SqlTraceInfo)
+def _partition_has_active_span(partition_traces, trace_id_column, cutoff_ms: int) -> bool:
     any_span = aliased(SqlSpan)
-    complete_trace = sa.exists().where(
-        trace_info.request_id == trace_id_column,
-        trace_info.status.in_(_COMPLETE_TRACE_STATUSES),
-        trace_info.timestamp_ms <= cutoff_ms,
+    # A scalar LIMIT probe stays correlated on PostgreSQL. EXISTS inside an OR can instead
+    # become a hashed subplan that scans the entire spans table for every partition.
+    active_span = (
+        sa
+        .select(sa.literal(1))
+        .where(
+            any_span.trace_id == trace_id_column,
+            or_(
+                any_span.end_time_unix_nano.is_(None),
+                any_span.end_time_unix_nano > cutoff_ms * 1_000_000,
+            ),
+        )
+        .limit(1)
+        .scalar_subquery()
     )
-    active_span = sa.exists().where(
-        any_span.trace_id == trace_id_column,
-        or_(
-            any_span.end_time_unix_nano.is_(None),
-            any_span.end_time_unix_nano > cutoff_ms * 1_000_000,
-        ),
+    return partition_traces.filter(active_span.isnot(None)).first() is not None
+
+
+def _partition_has_unsettled_trace(partition_traces, trace_id_column, cutoff_ms: int) -> bool:
+    trace_info = aliased(SqlTraceInfo)
+    # Keep this lookup local too: an anti-join could otherwise read all historical traces
+    # just to establish that this partition has no incomplete contributing traces.
+    complete_trace = (
+        sa
+        .select(sa.literal(1))
+        .where(
+            trace_info.request_id == trace_id_column,
+            trace_info.status.in_(_COMPLETE_TRACE_STATUSES),
+            trace_info.timestamp_ms <= cutoff_ms,
+        )
+        .limit(1)
+        .scalar_subquery()
     )
-    return or_(~complete_trace, active_span)
+    return partition_traces.filter(complete_trace.is_(None)).first() is not None or (
+        _partition_has_active_span(partition_traces, trace_id_column, cutoff_ms)
+    )
 
 
 def _trace_partition_state(
@@ -272,17 +293,14 @@ def _trace_partition_state(
         SqlTraceInfo.timestamp_ms < hi,
     )
     has_rows = partition_traces.first() is not None
-    has_unsettled_trace = (
-        session
-        .query(sa.literal(1))
-        .filter(
-            SqlTraceInfo.experiment_id == experiment_id,
-            SqlTraceInfo.timestamp_ms >= lo,
-            SqlTraceInfo.timestamp_ms < hi,
-            _trace_is_unsettled(SqlTraceInfo.request_id, cutoff_ms),
+    has_unsettled_trace = partition_traces.filter(
+        or_(
+            SqlTraceInfo.status.is_(None),
+            SqlTraceInfo.status.notin_(_COMPLETE_TRACE_STATUSES),
+            SqlTraceInfo.timestamp_ms > cutoff_ms,
         )
-        .first()
-        is not None
+    ).first() is not None or _partition_has_active_span(
+        partition_traces, SqlTraceInfo.request_id, cutoff_ms
     )
     return not has_unsettled_trace, has_rows
 
@@ -299,9 +317,8 @@ def _assessment_partition_state(
         SqlAssessments.trace_timestamp_ms < hi,
     )
     has_rows = assessments.first() is not None
-    has_unsettled_trace = (
-        assessments.filter(_trace_is_unsettled(SqlAssessments.trace_id, cutoff_ms)).first()
-        is not None
+    has_unsettled_trace = _partition_has_unsettled_trace(
+        assessments, SqlAssessments.trace_id, cutoff_ms
     )
     return not has_unsettled_trace, has_rows
 
@@ -317,34 +334,23 @@ def _span_cost_partition_state(
         SqlSpan.start_time_unix_nano >= lo_ns,
         SqlSpan.start_time_unix_nano < hi_ns,
     )
-    count_value = (
-        session
-        .query(
-            func.count(
-                case((
-                    or_(
-                        SqlSpan.input_cost.isnot(None),
-                        SqlSpan.output_cost.isnot(None),
-                        SqlSpan.total_cost.isnot(None),
-                    ),
-                    1,
-                ))
+    has_rows = (
+        partition_spans.filter(
+            or_(
+                SqlSpan.input_cost.isnot(None),
+                SqlSpan.output_cost.isnot(None),
+                SqlSpan.total_cost.isnot(None),
             )
-        )
-        .filter(
-            SqlSpan.experiment_id == experiment_id,
-            SqlSpan.start_time_unix_nano >= lo_ns,
-            SqlSpan.start_time_unix_nano < hi_ns,
-        )
-        .scalar()
+        ).first()
+        is not None
     )
-    has_unsettled_trace = (
-        partition_spans.filter(_trace_is_unsettled(SqlSpan.trace_id, cutoff_ms)).first() is not None
+    has_unsettled_trace = _partition_has_unsettled_trace(
+        partition_spans, SqlSpan.trace_id, cutoff_ms
     )
     # Eligibility follows each contributing trace across all of its spans, not just the spans that
     # started in this UTC day. A trace must be complete and every span in that trace must be closed
     # and past the inactivity cutoff before any of its span-cost partitions can be published.
-    return not has_unsettled_trace, bool(count_value)
+    return not has_unsettled_trace, has_rows
 
 
 def _partition_state(
@@ -497,24 +503,44 @@ def _aggregate_assessment(
     ]
 
 
-def _aggregate_span_cost(
-    session: Session, experiment_id: int, day_bucket: int
-) -> list[SqlSpanCostDailyRollup]:
-    lo_ns = day_bucket * MS_PER_DAY * 1_000_000
-    hi_ns = (day_bucket + 1) * MS_PER_DAY * 1_000_000
-    day = _bucket_to_date(day_bucket)
-    base_filters = [
-        SqlSpan.experiment_id == experiment_id,
-        SqlSpan.start_time_unix_nano >= lo_ns,
-        SqlSpan.start_time_unix_nano < hi_ns,
-    ]
+def _span_cost_grouped_results(session: Session, base_filters):
     groupings = (
         (GroupingSet.GLOBAL, ()),
         (GroupingSet.MODEL, (SqlSpan.model_name,)),
         (GroupingSet.PROVIDER, (SqlSpan.model_provider,)),
         (GroupingSet.MODEL_PROVIDER, (SqlSpan.model_name, SqlSpan.model_provider)),
     )
-    rows: list[SqlSpanCostDailyRollup] = []
+    if session.get_bind().dialect.name == "postgresql":
+        model = SqlSpan.model_name
+        provider = SqlSpan.model_provider
+        query = (
+            session
+            .query(
+                model.label("model_name"),
+                provider.label("model_provider"),
+                func.grouping(model, provider).label("grouping_mask"),
+                *_aggregate_columns(_SPAN_COST_METRIC_SPECS),
+            )
+            .filter(*base_filters)
+            .group_by(func.grouping_sets(*(sa.tuple_(*columns) for _, columns in groupings)))
+        )
+        grouping_by_mask = {
+            3: GroupingSet.GLOBAL,
+            1: GroupingSet.MODEL,
+            2: GroupingSet.PROVIDER,
+            0: GroupingSet.MODEL_PROVIDER,
+        }
+        for result in query:
+            grouping_set = grouping_by_mask[result.grouping_mask]
+            # GROUPING distinguishes a rolled-up dimension from an actual source NULL. Raw
+            # grouped metrics exclude NULL dimensions, but global metrics include those rows.
+            if result.grouping_mask & 2 == 0 and result.model_name is None:
+                continue
+            if result.grouping_mask & 1 == 0 and result.model_provider is None:
+                continue
+            yield grouping_set, result.model_name, result.model_provider, result
+        return
+
     for grouping_set, group_columns in groupings:
         select_columns = [column.label(f"group_{i}") for i, column in enumerate(group_columns)]
         query = session.query(*select_columns, *_aggregate_columns(_SPAN_COST_METRIC_SPECS)).filter(
@@ -537,26 +563,51 @@ def _aggregate_span_cost(
                 model_name = result.group_0
                 model_provider = result.group_1
 
-            for spec in _SPAN_COST_METRIC_SPECS:
-                sample_count = getattr(result, f"{spec.metric_name}__n") or 0
-                # Do not publish an empty row for a metric with no source values. Readers will
-                # correctly fall back to raw for that metric/day.
-                if sample_count == 0:
-                    continue
-                rows.append(
-                    SqlSpanCostDailyRollup(
-                        experiment_id=experiment_id,
-                        rollup_day=day,
-                        metric_name=spec.metric_name,
-                        grouping_set=grouping_set.value,
-                        model_name=model_name,
-                        model_provider=model_provider,
-                        sample_count=sample_count,
-                        sum_value=getattr(result, f"{spec.metric_name}__s"),
-                        min_value=getattr(result, f"{spec.metric_name}__mn"),
-                        max_value=getattr(result, f"{spec.metric_name}__mx"),
-                    )
+            yield grouping_set, model_name, model_provider, result
+
+
+def _aggregate_span_cost(
+    session: Session, experiment_id: int, day_bucket: int
+) -> list[SqlSpanCostDailyRollup]:
+    lo_ns = day_bucket * MS_PER_DAY * 1_000_000
+    hi_ns = (day_bucket + 1) * MS_PER_DAY * 1_000_000
+    day = _bucket_to_date(day_bucket)
+    base_filters = [
+        SqlSpan.experiment_id == experiment_id,
+        SqlSpan.start_time_unix_nano >= lo_ns,
+        SqlSpan.start_time_unix_nano < hi_ns,
+        # Rows without any cost cannot contribute to a published cost metric. This also
+        # matches the predicate of PostgreSQL's covering cost index.
+        or_(
+            SqlSpan.input_cost.isnot(None),
+            SqlSpan.output_cost.isnot(None),
+            SqlSpan.total_cost.isnot(None),
+        ),
+    ]
+    rows: list[SqlSpanCostDailyRollup] = []
+    for grouping_set, model_name, model_provider, result in _span_cost_grouped_results(
+        session, base_filters
+    ):
+        for spec in _SPAN_COST_METRIC_SPECS:
+            sample_count = getattr(result, f"{spec.metric_name}__n") or 0
+            # Do not publish an empty row for a metric with no source values. Readers will
+            # correctly fall back to raw for that metric/day.
+            if sample_count == 0:
+                continue
+            rows.append(
+                SqlSpanCostDailyRollup(
+                    experiment_id=experiment_id,
+                    rollup_day=day,
+                    metric_name=spec.metric_name,
+                    grouping_set=grouping_set.value,
+                    model_name=model_name,
+                    model_provider=model_provider,
+                    sample_count=sample_count,
+                    sum_value=getattr(result, f"{spec.metric_name}__s"),
+                    min_value=getattr(result, f"{spec.metric_name}__mn"),
+                    max_value=getattr(result, f"{spec.metric_name}__mx"),
                 )
+            )
     return rows
 
 
@@ -760,58 +811,52 @@ def _new_candidates_for_experiment(
             source_experiment_id,
             source_timestamp,
             timestamp_units_per_ms,
-            day_start_ms,
+            _,
             source_filters,
         ) = _source_discovery_parts(family, db_type)
         rollup_model = FAMILY_MODEL[family]
-        queued_days = (
-            session
-            .query(
-                _rollup_day_bucket_expression(db_type, SqlTraceRollupRebuild.rollup_day).label(
-                    "day_start_ms"
-                )
-            )
-            .filter(
+        queued_days = {
+            _date_to_bucket(day)
+            for (day,) in session.query(SqlTraceRollupRebuild.rollup_day).filter(
                 SqlTraceRollupRebuild.rollup_family == family.value,
                 SqlTraceRollupRebuild.experiment_id == experiment_id,
             )
-            .subquery()
-        )
-        latest_day_start_ms = (
+        }
+        latest_day = (
             session
-            .query(func.max(_rollup_day_bucket_expression(db_type, rollup_model.rollup_day)))
+            .query(func.max(rollup_model.rollup_day))
             .filter(rollup_model.experiment_id == experiment_id)
             .scalar()
         )
+        units_per_day = MS_PER_DAY * timestamp_units_per_ms
+        lower_bound = (
+            (_date_to_bucket(latest_day) + 1) * units_per_day
+            if latest_day is not None
+            else _MIN_SOURCE_TIMESTAMP
+        )
         query = (
             session
-            .query(day_start_ms.label("day_start_ms"))
+            .query(source_timestamp)
             .select_from(source_model)
-            .outerjoin(
-                queued_days,
-                queued_days.c.day_start_ms == day_start_ms,
-            )
             .filter(
                 source_experiment_id == experiment_id,
                 *source_filters,
-                source_timestamp < frozen_day_bucket * MS_PER_DAY * timestamp_units_per_ms,
-                queued_days.c.day_start_ms.is_(None),
+                source_timestamp < frozen_day_bucket * units_per_day,
             )
-            .group_by(day_start_ms)
-            .order_by(day_start_ms)
+            .order_by(source_timestamp)
         )
-        if latest_day_start_ms is not None:
-            query = query.filter(
-                source_timestamp >= (int(latest_day_start_ms) + MS_PER_DAY) * timestamp_units_per_ms
-            )
-        rows, overflow = _bounded_query_rows(query, limit)
-    return (
-        [
-            (family, (experiment_id, int(day_start_ms_value) // MS_PER_DAY))
-            for (day_start_ms_value,) in rows
-        ],
-        overflow,
-    )
+        candidates = []
+        # Seek to the first source row of each next day instead of grouping all remaining
+        # source rows on every quota round. The raw timestamp range uses the source-time index.
+        while len(candidates) <= limit:
+            row = query.filter(source_timestamp >= lower_bound).first()
+            if row is None:
+                break
+            day_bucket = int(row[0]) // units_per_day
+            lower_bound = (day_bucket + 1) * units_per_day
+            if day_bucket not in queued_days:
+                candidates.append((family, (experiment_id, day_bucket)))
+    return candidates[:limit], len(candidates) > limit
 
 
 def _group_candidates_by_experiment(candidates: list[_Candidate]):

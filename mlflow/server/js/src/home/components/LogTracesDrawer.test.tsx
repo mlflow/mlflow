@@ -1,10 +1,20 @@
 import { describe, expect, it, jest } from '@jest/globals';
 import React from 'react';
 import userEvent from '@testing-library/user-event';
-import { renderWithDesignSystem, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
+import { DesignSystemProvider, DesignSystemThemeProvider } from '@databricks/design-system';
+import { renderWithDesignSystem, renderWithIntl, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import { MemoryRouter } from '../../common/utils/RoutingUtils';
 import { LogTracesDrawer } from './LogTracesDrawer';
 import { useHomePageViewState } from '../HomePageViewStateContext';
+import OpenAiLogo from '../../common/static/logos/openai.svg';
+import OpenAiLogoDark from '../../common/static/logos/openai-dark.svg';
+import LangChainLogo from '../../common/static/logos/langchain.svg';
+import LangChainLogoDark from '../../common/static/logos/langchain-dark.png';
+import LangGraphLogo from '../../common/static/logos/langgraph.svg';
+import LangGraphLogoDark from '../../common/static/logos/langgraph-dark.svg';
+import AnthropicLogo from '../../common/static/logos/anthropic.svg';
+import AnthropicLogoDark from '../../common/static/logos/anthropic-dark.png';
+import GeminiLogo from '../../common/static/logos/gemini.png';
 
 jest.mock('@mlflow/mlflow/src/experiment-tracking/components/traces/quickstart/TraceTableGenericQuickstart', () => ({
   TraceTableGenericQuickstart: ({ flavorName, baseComponentId }: { flavorName: string; baseComponentId: string }) => (
@@ -21,6 +31,43 @@ const OpenOnMount = () => {
 };
 
 describe('LogTracesDrawer', () => {
+  it.each([false, true])('uses contrasting framework icons with isDarkMode=%s', async (isDarkMode) => {
+    renderWithIntl(
+      // eslint-disable-next-line react/forbid-elements
+      <DesignSystemThemeProvider isDarkMode={isDarkMode}>
+        <DesignSystemProvider>
+          <MemoryRouter>
+            <OpenOnMount />
+            <LogTracesDrawer />
+          </MemoryRouter>
+        </DesignSystemProvider>
+      </DesignSystemThemeProvider>,
+    );
+
+    const frameworks = [
+      { name: 'OpenAI', logo: OpenAiLogo, lightLogo: OpenAiLogoDark },
+      { name: 'LangChain', logo: LangChainLogo, lightLogo: LangChainLogoDark },
+      { name: 'LangGraph', logo: LangGraphLogo, lightLogo: LangGraphLogoDark },
+      { name: 'Anthropic', logo: AnthropicLogo, lightLogo: AnthropicLogoDark },
+    ];
+    const getIcon = (name: string) => screen.getByRole('button', { name }).querySelector('img');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Gemini' }));
+    for (const { name, logo, lightLogo } of frameworks) {
+      expect(getIcon(name)).toHaveAttribute('src', isDarkMode ? lightLogo : logo);
+    }
+    expect(getIcon('Gemini')).toHaveAttribute('src', GeminiLogo);
+    expect(getIcon('Gemini')).toHaveStyle({ filter: '' });
+
+    for (const { name, lightLogo } of frameworks) {
+      await userEvent.click(screen.getByRole('button', { name }));
+      expect(getIcon(name)).toHaveAttribute('src', lightLogo);
+    }
+
+    expect(getIcon('Gemini')).toHaveAttribute('src', GeminiLogo);
+    expect(getIcon('Gemini')).toHaveStyle({ filter: '' });
+  });
+
   it('renders the drawer with default framework selected', () => {
     renderWithDesignSystem(
       <MemoryRouter>

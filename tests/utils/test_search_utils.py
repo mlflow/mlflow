@@ -168,6 +168,101 @@ def test_numeric_attribute_values_are_parsed_as_integers(search_utils, filter_st
     assert isinstance(condition["value"], int)
 
 
+def test_evaluation_dataset_name_in_filter():
+    assert SearchEvaluationDatasetsUtils.parse_search_filter(
+        "name IN ('dataset-a', 'dataset-b')"
+    ) == [
+        {
+            "type": "attribute",
+            "key": "name",
+            "comparator": "IN",
+            "value": ("dataset-a", "dataset-b"),
+        }
+    ]
+
+
+@pytest.mark.parametrize("comparator", ["=", "!=", "LIKE", "ILIKE"])
+@pytest.mark.parametrize("names", ["('dataset-a')", "('dataset-a', 'dataset-b')"])
+def test_evaluation_dataset_name_list_requires_in(comparator, names):
+    with pytest.raises(
+        MlflowException,
+        match="List values for 'name' are only supported with the IN comparator",
+        check=lambda e: e.error_code == "INVALID_PARAMETER_VALUE",
+    ):
+        SearchEvaluationDatasetsUtils.parse_search_filter(f"name {comparator} {names}")
+
+
+@pytest.mark.parametrize("key", ["created_by", "last_updated_by"])
+def test_evaluation_dataset_in_filter_rejects_other_string_attributes(key):
+    with pytest.raises(MlflowException, match="Only .* attributes support comparison with a list"):
+        SearchEvaluationDatasetsUtils.parse_search_filter(f"{key} IN ('user-a', 'user-b')")
+
+
+@pytest.mark.parametrize(
+    ("filter_string", "expected"),
+    [
+        ("server_name = 'Com.Example/MyServer'", [("server_name", "=", "Com.Example/MyServer")]),
+        (
+            "server_name IN ('Com.Example/MyServer', 'com.example/other')",
+            [("server_name", "IN", ("Com.Example/MyServer", "com.example/other"))],
+        ),
+        (
+            "server_name NOT IN ('Com.Example/MyServer')",
+            [("server_name", "NOT IN", ("Com.Example/MyServer",))],
+        ),
+        (
+            "transport_type = 'sse' AND server_name = 'Com.Example/MyServer'",
+            [("transport_type", "=", "sse"), ("server_name", "=", "Com.Example/MyServer")],
+        ),
+        (
+            "server_name = 'Com.Example/MyServer' AND transport_type = 'sse'",
+            [("server_name", "=", "Com.Example/MyServer"), ("transport_type", "=", "sse")],
+        ),
+    ],
+)
+def test_mcp_access_endpoint_server_name_filter(filter_string, expected):
+    parsed = SearchMCPAccessEndpointUtils.parse_search_filter(filter_string)
+    assert [
+        (condition["key"], condition["comparator"], condition["value"]) for condition in parsed
+    ] == expected
+
+
+def test_mcp_access_endpoint_server_name_rejects_or():
+    with pytest.raises(MlflowException, match="Invalid clause"):
+        SearchMCPAccessEndpointUtils.parse_search_filter(
+            "server_name = 'com.example/one' OR transport_type = 'sse'"
+        )
+
+
+@pytest.mark.parametrize("comparator", ["=", "!=", "<", "<=", ">", ">="])
+def test_mcp_server_version_filter(comparator):
+    [condition] = SearchMCPServerVersionUtils.parse_search_filter(
+        f"version {comparator} '1.0.0-Alpha+Build'"
+    )
+
+    assert condition == {
+        "type": "attribute",
+        "key": "version",
+        "comparator": comparator,
+        "value": "1.0.0-Alpha+Build",
+    }
+
+
+@pytest.mark.parametrize(
+    ("filter_string", "match"),
+    [
+        ("version = '1.0.0' OR status = 'draft'", "Invalid clause.*'OR'"),
+        ("version IN ('1.0.0', '2.0.0')", r"Only \['status'\] attributes support comparison"),
+        ("select = '1.0.0'", "Invalid clause.*'select'"),
+    ],
+)
+def test_mcp_server_version_rejects_invalid_filters(filter_string, match):
+    with pytest.raises(MlflowException, match=match) as exc:
+        SearchMCPServerVersionUtils.parse_search_filter(filter_string)
+
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+
+
 def test_float_numeric_attribute_value_is_parsed_as_float():
     [condition] = SearchUtils.parse_search_filter("attributes.start_time > 1234.5")
 

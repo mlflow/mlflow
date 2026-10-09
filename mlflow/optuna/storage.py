@@ -514,6 +514,15 @@ class MlflowStorage(BaseStorage):
     def set_trial_state_values(
         self, trial_id, state: TrialState, values: Sequence[float] | None = None
     ) -> bool:
+        # Optuna uses a False return to indicate that a RUNNING trial could not
+        # be claimed. A WAITING trial is eligible for this transition.
+        if state == TrialState.RUNNING:
+            current_state = mlflow_optuna_status_map[
+                self._mlflow_client.get_run(trial_id).info.status
+            ]
+            if current_state != TrialState.WAITING:
+                return False
+
         # Update trial state
         if state.is_finished():
             self._mlflow_client.set_terminated(trial_id, status=optuna_mlflow_status_map[state])
@@ -532,9 +541,6 @@ class MlflowStorage(BaseStorage):
                 metrics = [Metric("value", values[0], timestamp, 1)]
 
             self._queue_batch_operation(trial_id, metrics=metrics)
-
-        if state == TrialState.RUNNING and state != TrialState.WAITING:
-            return False
         return True
 
     def set_trial_intermediate_value(self, trial_id, step: int, intermediate_value: float) -> None:
