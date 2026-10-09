@@ -754,9 +754,9 @@ describe('TracesV4PageContent', () => {
       };
       renderPage();
       expect(await findTraceRow('p1-000')).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: 'Next page' })).toBeEnabled();
+      expect(screen.getByLabelText('Next page', { selector: 'button' })).toBeEnabled();
 
-      await user.click(screen.getByRole('button', { name: 'Next page' }));
+      await user.click(screen.getByLabelText('Next page', { selector: 'button' }));
 
       // The distinct end-of-results state renders — NOT the initial "No traces yet" empty state…
       expect(await screen.findByText('No more results')).toBeInTheDocument();
@@ -764,11 +764,11 @@ describe('TracesV4PageContent', () => {
       // …the pagination bar is still present (page-size selector lives in it)…
       expect(screen.getByLabelText('Rows per page')).toBeInTheDocument();
       // …Prev is enabled (back to page 1), Next is disabled (the empty page is terminal).
-      expect(screen.getByRole('button', { name: 'Previous page' })).toBeEnabled();
-      expect(screen.getByRole('button', { name: 'Next page' })).toBeDisabled();
+      expect(screen.getByLabelText('Previous page', { selector: 'button' })).toBeEnabled();
+      expect(screen.getByLabelText('Next page', { selector: 'button' })).toBeDisabled();
 
       // Stepping back returns to page 1's rows (served from cache, no refetch needed).
-      await user.click(screen.getByRole('button', { name: 'Previous page' }));
+      await user.click(screen.getByLabelText('Previous page', { selector: 'button' }));
       expect(await findTraceRow('p1-000')).toBeInTheDocument();
       // Full-page renders + two paginations are slow under parallel jsdom load; per-test timeout
       // avoids the lint-forbidden global jest.setTimeout.

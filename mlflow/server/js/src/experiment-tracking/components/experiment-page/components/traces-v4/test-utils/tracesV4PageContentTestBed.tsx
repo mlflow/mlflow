@@ -94,8 +94,11 @@ export const renderPage = ({ initialUrl = URL }: { initialUrl?: string } = {}) =
 };
 
 // Trace ID is hidden by default, so locate a row by its linked Input cell (a default-visible column).
-export const findTraceRow = (traceId: string) => screen.findByRole('link', { name: `Open trace ${traceId} — input` });
-export const queryTraceRow = (traceId: string) => screen.queryByRole('link', { name: `Open trace ${traceId} — input` });
+// Label queries avoid computing the accessible name of every link in the full table on each poll.
+export const findTraceRow = (traceId: string) =>
+  screen.findByLabelText(`Open trace ${traceId} — input`, { selector: 'a' });
+export const queryTraceRow = (traceId: string) =>
+  screen.queryByLabelText(`Open trace ${traceId} — input`, { selector: 'a' });
 
 // AntD's `onPressEnter` (wired to commit the search) is gated on the legacy `keyCode === 13`, which
 // userEvent's keyboard synthesis doesn't set — fire keyDown directly to exercise that path.
@@ -107,8 +110,9 @@ export const pressEnter = (input: HTMLElement) =>
 // Radix submenus open on click of their SubTrigger (role="menuitem"). The Sort and Row-height triggers
 // append their current value as a hint (e.g. "SortTime"), so match by the leading label via regex.
 export const openDisplaySubmenu = async (user: ReturnType<typeof userEvent.setup>, submenu: RegExp) => {
-  await user.click(screen.getByRole('button', { name: 'Display' }));
-  await user.click(await screen.findByRole('menuitem', { name: submenu }));
+  await user.click(screen.getByLabelText('Display', { selector: 'button' }));
+  const menu = await screen.findByRole('menu', { name: 'Display' });
+  await user.click(within(menu).getByRole('menuitem', { name: submenu }));
 };
 
 // Click a checkbox/radio item inside an open Display submenu. Radix menu items in a SubContent don't
