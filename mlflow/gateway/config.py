@@ -226,6 +226,7 @@ class PaLMConfig(ConfigModel):
 
 class GeminiConfig(ConfigModel):
     gemini_api_key: str
+    gemini_api_base: str = "https://generativelanguage.googleapis.com/v1beta/models"
 
     @field_validator("gemini_api_key", mode="before")
     def validate_gemini_api_key(cls, value):

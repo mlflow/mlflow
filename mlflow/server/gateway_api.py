@@ -432,9 +432,12 @@ def _build_endpoint_config(
             typesafe_config["typesafe_api_base"] = model_config.auth_config[_AuthConfigKey.API_BASE]
         provider_config = TypeSafeConfig(**typesafe_config)
     elif model_config.provider == Provider.GEMINI:
-        provider_config = GeminiConfig(
-            gemini_api_key=model_config.secret_value.get(_AuthConfigKey.API_KEY),
-        )
+        gemini_config = {
+            "gemini_api_key": model_config.secret_value.get(_AuthConfigKey.API_KEY),
+        }
+        if model_config.auth_config and _AuthConfigKey.API_BASE in model_config.auth_config:
+            gemini_config["gemini_api_base"] = model_config.auth_config[_AuthConfigKey.API_BASE]
+        provider_config = GeminiConfig(**gemini_config)
     elif model_config.provider in {
         Provider.GROQ,
         Provider.DEEPSEEK,

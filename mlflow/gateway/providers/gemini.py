@@ -14,6 +14,7 @@ from mlflow.gateway.providers.base import (
 )
 from mlflow.gateway.providers.utils import (
     parse_base64_data_url,
+    proxy_root_url,
     rename_payload_keys,
     send_proxy_request,
     send_request,
@@ -803,7 +804,14 @@ class GeminiProvider(BaseProvider):
 
     @property
     def base_url(self):
-        return "https://generativelanguage.googleapis.com/v1beta/models"
+        # Accept an API origin, a versioned API root, or a full models base.
+        base_url = self.gemini_config.gemini_api_base.rstrip("/")
+        versions = ("/v1", "/v1beta", "/v1alpha")
+        if base_url.endswith(tuple(f"{version}/models" for version in versions)):
+            return base_url
+        if base_url.endswith(versions):
+            return f"{base_url}/models"
+        return f"{base_url}/v1beta/models"
 
     @property
     def adapter_class(self):
@@ -1018,10 +1026,10 @@ class GeminiProvider(BaseProvider):
         payload: dict[str, Any],
         headers: dict[str, str] | None = None,
     ) -> dict[str, Any] | AsyncIterable[Any]:
-        # base_url includes /v1beta/models; the caller's path already starts with
-        # v1beta/models/..., so use the bare origin to avoid double-prefixing.
-        api_origin = "https://generativelanguage.googleapis.com"
-        gen = send_proxy_request(self._get_headers(None, headers), api_origin, path, payload)
+        # Strip the models and version suffixes, retaining any relay path prefix.
+        # Raw proxy callers already supply the full versioned API path.
+        api_root = proxy_root_url(proxy_root_url(self.base_url))
+        gen = send_proxy_request(self._get_headers(None, headers), api_root, path, payload)
         meta = await gen.__anext__()
         if meta["is_streaming"]:
             return gen

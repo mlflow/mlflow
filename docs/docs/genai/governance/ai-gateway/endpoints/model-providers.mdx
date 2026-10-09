@@ -169,6 +169,17 @@ See [Anthropic API Reference](https://docs.anthropic.com/en/api) for complete do
 
 Access Gemini models through Google's API format:
 
+To use a Gemini-native-compatible relay, set **API Base URL** in the connection settings
+(`auth_config["api_base"]`, or `gemini_api_base` in gateway YAML). You can specify an
+origin or relay prefix such as `https://relay.example.com/gemini`, a versioned root
+such as `https://relay.example.com/gemini/v1beta`, or the full models base ending in
+`/v1beta/models`. Origins and relay prefixes default to `/v1beta/models`; versioned
+roots ending in `/v1`, `/v1beta`, or `/v1alpha` use that version and append `/models`.
+Trailing slashes are ignored. This setting applies to generation, embeddings, streaming,
+and native passthrough. Raw proxy requests retain the configured host and relay prefix
+and use the versioned API path supplied by the caller. If omitted, the gateway uses Google's
+`https://generativelanguage.googleapis.com/v1beta/models` base.
+
 **Base URL:** `http://localhost:5000/gateway/gemini`
 
 **Supported Endpoints:**
