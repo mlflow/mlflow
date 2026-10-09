@@ -831,6 +831,25 @@ def test_skill_version_errors(registry_client):
         assert exc_info.value.error_code == "RESOURCE_DOES_NOT_EXIST"
 
 
+@pytest.mark.parametrize("deleted_versions", [0, 2], ids=["no-versions", "every-version-deleted"])
+def test_get_latest_skill_version_without_a_live_version(registry_client, deleted_versions):
+    client, _ = registry_client
+    client.create_skill(name="review")
+    for _ in range(deleted_versions):
+        version = client.create_skill_version(
+            name="review", source="https://example.com/repo.git", status="draft"
+        )
+        client.delete_skill_version(name="review", version=version.version)
+
+    with pytest.raises(MlflowException, match="No resolved latest") as exc_info:
+        client.get_latest_skill_version(name="review")
+    assert exc_info.value.error_code == "RESOURCE_DOES_NOT_EXIST"
+    # The parent stays readable; it just resolves to no version.
+    skill = client.get_skill(name="review")
+    assert skill.latest_version is None
+    assert skill.status is None
+
+
 @pytest.mark.parametrize(
     ("source_type", "source", "ref", "expected"),
     [
@@ -1824,6 +1843,35 @@ def test_register_remote_skill(registry_client, store, skill_tree, remote_conten
     assert parent.description is None
     assert parent.icons is None
     assert all(not root.exists() for root in roots)
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        GitSource("https://example.com/repo", ref="v2", subpath="skills/review"),
+        OCISource("oci://ghcr.io/acme/skills:v1", subpath="skills/review"),
+        ZipSource("https://example.com/archive", subpath="skills/review"),
+    ],
+    ids=["git", "oci", "zip"],
+)
+@pytest.mark.parametrize(
+    "high_level", [True, False], ids=["register_skill", "create_skill_version"]
+)
+def test_remote_registration_defaults_to_active(
+    registry_client, remote_content, source, high_level
+):
+    client, db_store = registry_client
+    fetch, _ = remote_content
+    if high_level:
+        version = register_skill(source=source)
+        fetch.assert_called_once()
+    else:
+        version = client.create_skill_version(name="review", source=source)
+        fetch.assert_not_called()
+
+    assert version.status == SkillStatus.ACTIVE
+    assert db_store.get_skill_version("review", version.version).status == SkillStatus.ACTIVE
+    assert client.get_latest_skill_version(name="review") == version
 
 
 @pytest.mark.parametrize("name", [None, "custom-review"])
