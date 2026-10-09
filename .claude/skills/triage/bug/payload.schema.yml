@@ -67,7 +67,7 @@ properties:
       - body
     properties:
       title:
-        description: One-line PR title, e.g. "Fix `log_model` crash when `signature` is None".
+        description: One-line PR title.
         type: string
         pattern: "^[^\\r\\n]+$"
         minLength: 1
