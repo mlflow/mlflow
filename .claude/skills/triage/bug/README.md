@@ -66,3 +66,18 @@ Write the comment using the template in `comment.description` of `payload.schema
 
 Prefer code to prose: give commands and code a reader can paste and run, not steps
 to follow by hand. Keep the comment tight.
+
+When the symptom is hard to grasp from text alone, add one diagram showing how the bug
+happens: the path from the user's call to the failing line, a value changing across layers, or
+expected vs actual side by side. Draw only what the bug depends on, use real function and field
+names, and label every arrow. Skip it when a traceback or a sentence already makes it clear.
+
+Draw it as an inline `<svg>` in a self-contained HTML file under `$out_dir/work` (no scripts or
+external resources; white background, one accent color for the failing part, short labels), then
+screenshot it and cite it like other media:
+
+```bash
+agent-browser open "file://$out_dir/work/diagram.html"
+agent-browser set viewport 1280 720 2
+agent-browser screenshot svg "$out_dir/media/diagram.png"
+```
