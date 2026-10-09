@@ -548,7 +548,7 @@ describe('TracesV4PageContent', () => {
       await selectSubmenuItem('menuitemcheckbox', 'Assessments');
       await waitFor(() => expect(screen.queryByRole('columnheader', { name: 'relevance' })).not.toBeInTheDocument());
       expect(screen.queryByRole('columnheader', { name: 'correctness' })).not.toBeInTheDocument();
-    }, 20000);
+    }, 60000);
 
     test('toggling an assessment off hides its column and the choice persists', async () => {
       const user = userEvent.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });
@@ -566,8 +566,8 @@ describe('TracesV4PageContent', () => {
       renderPage();
       await findTraceRow('tr-000');
       expect(screen.queryByRole('columnheader', { name: 'relevance' })).not.toBeInTheDocument();
-      // Two full page renders (mount + remount) under parallel jsdom load — bump off the 5s default.
-    }, 20000);
+      // The menu interaction and remount exceed 20s under parallel CI load.
+    }, 60000);
   });
 
   describe('tags column', () => {
@@ -770,9 +770,8 @@ describe('TracesV4PageContent', () => {
       // Stepping back returns to page 1's rows (served from cache, no refetch needed).
       await user.click(screen.getByLabelText('Previous page', { selector: 'button' }));
       expect(await findTraceRow('p1-000')).toBeInTheDocument();
-      // Full-page renders + two paginations are slow under parallel jsdom load; per-test timeout
-      // avoids the lint-forbidden global jest.setTimeout.
-    }, 30000);
+      // Two full-page paginations exceed 30s under parallel CI load; keep a per-test limit.
+    }, 60000);
 
     test('shows the "{n} of {total}" count — current page rows out of the metrics total', async () => {
       // 3 rows on the page; the trace-metrics endpoint reports 42 total.
