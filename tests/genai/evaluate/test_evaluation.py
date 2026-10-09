@@ -461,6 +461,28 @@ def test_evaluate_warns_when_quality_threshold_metric_is_missing():
     assert "the run has no 'label/mean' metric" in mock_warning.call_args[0][0]
 
 
+def test_evaluate_clears_quality_thresholds_tag_on_reused_run(server_config):
+    @scorer
+    def is_good(outputs) -> bool:
+        return outputs == "good"
+
+    with mlflow.start_run() as run:
+        first = mlflow.genai.evaluate(
+            data=[{"inputs": {"q": "x"}, "outputs": "good"}],
+            scorers=[is_good.with_quality_threshold(0.9)],
+        )
+        assert QUALITY_THRESHOLDS_TAG in mlflow.get_run(run.info.run_id).data.tags
+
+        second = mlflow.genai.evaluate(
+            data=[{"inputs": {"q": "x"}, "outputs": "good"}], scorers=[is_good]
+        )
+
+    assert first.run_id == second.run_id == run.info.run_id
+    # The second evaluation sets no thresholds, so the tag from the first is gone
+    # rather than judging the new metrics against a stale bar.
+    assert QUALITY_THRESHOLDS_TAG not in mlflow.get_run(run.info.run_id).data.tags
+
+
 def test_evaluate_without_quality_thresholds_logs_no_tag(server_config):
     @scorer
     def is_good(outputs) -> bool:

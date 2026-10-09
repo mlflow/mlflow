@@ -439,11 +439,16 @@ def _run_harness(data, scorers, predict_fn, model_id) -> tuple["EvaluationResult
         if run.data.tags.get(MLFLOW_RUN_TYPE) is None:
             MlflowClient().set_tag(run_id, MLFLOW_RUN_TYPE, MLFLOW_RUN_TYPE_GENAI_EVALUATE)
         # NB: Record the thresholds before the harness runs, so a run that fails partway still
-        # shows the bar it was evaluated against (its thresholds read as incomplete).
+        # shows the bar it was evaluated against (its thresholds read as incomplete). The tags
+        # are read from the store rather than `run.data.tags` because a reused active run can
+        # predate a tag written by an earlier `evaluate` on the same run.
+        client = MlflowClient()
         if quality_thresholds is not None:
-            MlflowClient().set_tag(
-                run_id, MLFLOW_GENAI_EVALUATE_QUALITY_THRESHOLDS, quality_thresholds
-            )
+            client.set_tag(run_id, MLFLOW_GENAI_EVALUATE_QUALITY_THRESHOLDS, quality_thresholds)
+        elif MLFLOW_GENAI_EVALUATE_QUALITY_THRESHOLDS in client.get_run(run_id).data.tags:
+            # This call sets no thresholds, so a tag from an earlier `evaluate` on this run
+            # would judge the new metrics against a stale bar.
+            client.delete_tag(run_id, MLFLOW_GENAI_EVALUATE_QUALITY_THRESHOLDS)
 
         result = harness.run(
             predict_fn=predict_fn,

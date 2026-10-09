@@ -118,7 +118,7 @@ class ScorerSamplingConfig:
 AggregationFunc = Callable[[list[float]], float]  # List of per-row value -> aggregated value
 
 
-@experimental(version="3.18.0")
+@experimental(version="3.17.1")
 @dataclass(frozen=True)
 class QualityThreshold:
     """
@@ -520,7 +520,7 @@ class Scorer(BaseModel):
         """
         return self._pass_if
 
-    @experimental(version="3.18.0")
+    @experimental(version="3.17.1")
     def with_quality_threshold(
         self, quality_threshold: float | QualityThreshold | None
     ) -> "Scorer":
