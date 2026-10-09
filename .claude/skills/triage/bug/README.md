@@ -68,7 +68,7 @@ Prefer code to prose: give commands and code a reader can paste and run, not ste
 to follow by hand. Keep the comment tight.
 
 For a Reproduced bug, add one visual aid showing how it happens, and cut the prose it makes
-redundant. Draw it in `$out_dir/work/viz-aid.html` following `viz-aid.md` in this directory,
+redundant. Draw it in `$out_dir/work/viz-aid.html` following `.claude/skills/triage/viz-aid.md`,
 then screenshot it and cite it like other media:
 
 ```bash

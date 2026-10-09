@@ -1,8 +1,13 @@
+<!--
+Adapted from the `artifact-diagramming` skill bundled with Claude Code. That skill does not load in
+triage runs, so the parts that apply to a static PNG are kept here.
+-->
+
 # Drawing the visual aid
 
-The visual aid lets a maintainer see how the bug happens without assembling it from the comment:
-which call leads to the failing line, what each component holds or waits on, how a value changes
-between layers. If a sentence says it faster, write the sentence instead.
+A visual aid in a triage comment lets a maintainer see a mechanism without assembling it from
+prose: which call leads to the failing line, what each component holds or waits on, how a value
+changes between layers. If a sentence says it faster, write the sentence instead.
 
 ## What to draw
 
@@ -24,7 +29,8 @@ between layers. If a sentence says it faster, write the sentence instead.
 
 Write one self-contained HTML file with a single inline `<svg>`:
 
-- White page background and dark text, so the PNG reads on both GitHub themes.
+- Dark page background (for example `#0d1117`) with light text and strokes. Pick an accent red
+  that stays readable on it (for example `#ff7b72`).
 - Size it with `viewBox` and let CSS scale it (`width: 100%; height: auto`). Lay wide flows out
   left to right and layered stacks top to bottom.
 - Draw with native shapes (`rect`, `line`, `path`, `polygon`) and `<text>`. Make arrowheads with

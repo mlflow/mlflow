@@ -25,7 +25,7 @@ Read `$type/README.md` and follow it. If `$type/` does not exist, the type is no
 yet: stop without writing a payload.
 
 To support a new type, add its subdirectory and let the workflow pass that type. Keep anything
-shared across types in this file.
+shared across types in this file, or next to it like `viz-aid.md` (how to draw a visual aid).
 
 ## Untrusted input
 
