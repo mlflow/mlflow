@@ -27,7 +27,7 @@ class _Usage(BaseModel):
     input_tokens: int
     input_tokens_details: _InputTokenDetails
     output_tokens: int
-    output_tokens_details: dict
+    output_tokens_details: dict[str, int]
     total_tokens: int
 
 
