@@ -113,6 +113,8 @@ def jsonpath_extract_values(obj: dict[str, Any], path: str) -> list[Any]:
             # Regular key
             if isinstance(current, dict) and part in current:
                 return traverse(current[part], rest)
+            elif isinstance(current, list) and part.isdigit() and int(part) < len(current):
+                return traverse(current[int(part)], rest)
             else:
                 return []
 
@@ -178,6 +180,11 @@ def find_matching_paths(data: dict[str, Any], wildcard_path: str) -> list[str]:
             if isinstance(current_data, dict) and part in current_data:
                 new_path = f"{current_path}.{part}"
                 return find_paths(current_data[part], remaining, new_path)
+            elif (
+                isinstance(current_data, list) and part.isdigit() and int(part) < len(current_data)
+            ):
+                new_path = f"{current_path}.{part}"
+                return find_paths(current_data[int(part)], remaining, new_path)
             return []
 
     return find_paths(data, parts)
