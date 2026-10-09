@@ -1,3 +1,5 @@
+# Use an upstream branch (not a fork) when changing this workflow or the files it runs, so the
+# change can be tested with `gh workflow run triage.yml --ref <branch>` before merging.
 name: Triage
 
 on:
