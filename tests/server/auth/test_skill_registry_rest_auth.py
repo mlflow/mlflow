@@ -45,6 +45,54 @@ def test_unmapped_skill_route_fails_closed(monkeypatch):
     assert not asyncio.run(auth._get_skill_registry_validator(path)("reader", request))
 
 
+@pytest.mark.parametrize("path", ["reviewer", "@acme/reviewer"])
+@pytest.mark.parametrize("allowed", [False, True])
+def test_named_registration_authorizes_without_reading_upload(monkeypatch, path, allowed):
+    path = f"/api/3.0/mlflow/skills/{path}/versions"
+
+    async def unexpected_receive():
+        raise AssertionError("Authorization read the upload body")
+
+    request = Request(
+        {
+            "type": "http",
+            "method": "POST",
+            "path": path,
+            "headers": [(b"content-type", b"multipart/form-data; boundary=boundary")],
+        },
+        unexpected_receive,
+    )
+    checked = []
+
+    def check(username, organization, name, *, parent_exists):
+        checked.append((username, organization, name, parent_exists))
+        return allowed
+
+    monkeypatch.setattr(auth, "_skill_exists_for_auth", lambda *args: True)
+    monkeypatch.setattr(auth, "validate_can_register_skill", check)
+    assert asyncio.run(auth._get_skill_registry_validator(path)("editor", request)) is allowed
+    assert checked == [("editor", "acme" if "@acme" in path else "", "reviewer", True)]
+
+
+@pytest.mark.parametrize(
+    ("path", "body"),
+    [
+        ("", []),
+        ("", {"name": 123}),
+        ("", {"name": "reviewer", "organization": None}),
+        ("/bulk-register", {"skills": {"name": "reviewer"}}),
+        ("/bulk-register", {"skills": []}),
+        ("/bulk-register", {"skills": ["reviewer"]}),
+        ("/bulk-register", {"skills": [{"name": "reviewer"}, {"name": None}]}),
+    ],
+)
+def test_creation_rejects_malformed_authorization_identity(workspace_registry, path, body):
+    client, _, tracking_store, _ = workspace_registry
+    response = client.post(f"/api/3.0/mlflow/skills{path}", json=body)
+    assert response.status_code == 400, response.text
+    assert list(tracking_store.search_skills()) == []
+
+
 @pytest.fixture
 def workspace_registry(tmp_path, monkeypatch):
     monkeypatch.setenv("MLFLOW_ENABLE_WORKSPACES", "true")
@@ -77,9 +125,7 @@ def workspace_registry(tmp_path, monkeypatch):
 
 
 @pytest.mark.parametrize("pattern", ["*", "@acme/private"])
-@pytest.mark.parametrize(
-    "endpoint", ["create", "register", "versions", "bulk-register", "multipart"]
-)
+@pytest.mark.parametrize("endpoint", ["create", "versions", "bulk-register", "multipart"])
 def test_skill_deny_vetoes_creation(workspace_registry, monkeypatch, pattern, endpoint):
     client, auth_store, tracking_store, creator = workspace_registry
     auth_store.grant_user_permission(creator.username, "skill", pattern, DENY.name)
@@ -112,18 +158,14 @@ def test_skill_deny_vetoes_creation(workspace_registry, monkeypatch, pattern, en
             )
         elif endpoint == "multipart":
             response = client.post(
-                f"{prefix}/register",
+                f"{prefix}/@acme/private/versions",
                 files={
                     "metadata": (None, json.dumps({"name": "private", "organization": "acme"})),
                     "content": ("skill.tar.gz", b"denied upload", "application/gzip"),
                 },
             )
         else:
-            url = (
-                f"{prefix}/@acme/private/versions"
-                if endpoint == "versions"
-                else f"{prefix}/register"
-            )
+            url = f"{prefix}/@acme/private/versions"
             response = client.post(
                 url,
                 json={
@@ -147,7 +189,7 @@ def test_search_selector_intersects_current_authorization(workspace_registry):
         tracking_store.create_skill("reviewer", organization=organization)
     auth_store.grant_user_permission(creator.username, "skill", "@acme/reviewer", READ.name)
     auth_store.grant_user_permission(creator.username, "skill", "@example/reviewer", READ.name)
-    selector = json.dumps(["@acme/reviewer", "@example/reviewer", "@other/reviewer"])
+    selector = ["@acme/reviewer", "@example/reviewer", "@other/reviewer"]
     query = {"include_skill_identities": selector, "max_results": 1}
     first = client.get(prefix, params=query)
     assert first.status_code == 200, first.text
@@ -155,12 +197,19 @@ def test_search_selector_intersects_current_authorization(workspace_registry):
     token = first.json()["next_page_token"]
     assert token is not None
 
-    # New grants between pages do not invalidate the caller's selector or token.
+    # New grants between pages do not invalidate the token.
     auth_store.grant_user_permission(creator.username, "skill", "@other/reviewer", READ.name)
     second = client.get(prefix, params={**query, "page_token": token})
     assert second.status_code == 200, second.text
     assert [s["organization"] for s in second.json()["skills"]] == ["example"]
     assert second.json()["next_page_token"] is not None
+
+    # Revoking the next result is enforced with the same token and finite grants.
+    auth_store.grant_user_permission(creator.username, "skill", "@example/reviewer", DENY.name)
+    revoked = client.get(prefix, params={**query, "page_token": token})
+    assert revoked.status_code == 200, revoked.text
+    assert [s["organization"] for s in revoked.json()["skills"]] == ["other"]
+    auth_store.grant_user_permission(creator.username, "skill", "@example/reviewer", READ.name)
 
     # DENY remains effective even when the caller explicitly selects the Skill.
     auth_store.grant_user_permission(creator.username, "skill", "*", READ.name)
@@ -172,12 +221,12 @@ def test_search_selector_intersects_current_authorization(workspace_registry):
     denied_only = client.get(
         prefix,
         params={
-            "include_skill_identities": json.dumps(["@acme/reviewer"]),
+            "include_skill_identities": ["@acme/reviewer"],
             "max_results": 1,
         },
     )
     assert denied_only.json() == {"skills": [], "next_page_token": None}
-    assert client.get(prefix, params={"include_skill_identities": "[]"}).json() == {
+    assert client.get(prefix, params={"include_skill_identities": ""}).json() == {
         "skills": [],
         "next_page_token": None,
     }
@@ -221,8 +270,7 @@ def test_skill_rest_enforces_grants_and_filters_before_pagination(tmp_path, monk
             )
             assert response.status_code == 200, response.text
 
-        # Middleware reads multipart metadata for authorization, and the handler
-        # must still receive the original upload stream afterwards.
+        # Authorization uses the path identity; the handler receives the untouched upload.
         captured_uploads = []
 
         def capture_registration(registration, **kwargs):
@@ -245,7 +293,9 @@ def test_skill_rest_enforces_grants_and_filters_before_pagination(tmp_path, monk
         with monkeypatch.context() as patch:
             patch.setattr(skill_registry_api, "register_skill_version", capture_registration)
             upload_response = client.post(
-                f"{prefix}/register", files=upload, headers={"x-user": owner.username}
+                f"{prefix}/@acme/reviewer/versions",
+                files=upload,
+                headers={"x-user": owner.username},
             )
         assert upload_response.status_code == 200, upload_response.text
         assert captured_uploads == [b"skill archive"]
@@ -276,7 +326,7 @@ def test_skill_rest_enforces_grants_and_filters_before_pagination(tmp_path, monk
         with monkeypatch.context() as patch:
             patch.setattr(skill_registry_api, "register_skill_version", capture_registration)
             denied_upload = client.post(
-                f"{prefix}/register",
+                f"{target}/versions",
                 files={
                     "metadata": (
                         "metadata.json",
@@ -293,7 +343,7 @@ def test_skill_rest_enforces_grants_and_filters_before_pagination(tmp_path, monk
         assert client.post(f"{target}/versions", json={}, headers=headers).status_code == 403
         assert (
             client.post(
-                f"{prefix}/register",
+                f"{target}/versions",
                 json={
                     "name": "reviewer",
                     "organization": "acme",
@@ -315,7 +365,7 @@ def test_skill_rest_enforces_grants_and_filters_before_pagination(tmp_path, monk
         with monkeypatch.context() as patch:
             patch.setattr(skill_registry_api, "register_skill_version", create_other_parent_first)
             raced = client.post(
-                f"{prefix}/register",
+                f"{prefix}/race/versions",
                 json={"name": "race", "source": "https://example.com/skill.zip"},
                 headers=headers,
             )
@@ -413,7 +463,7 @@ def test_skill_rest_enforces_grants_and_filters_before_pagination(tmp_path, monk
 
         # If the owner deletes an existing parent after registration preflight,
         # the transaction must not recreate it using the stale EDIT decision.
-        for endpoint in ("register", "versions", "bulk-register"):
+        for endpoint in ("versions", "bulk-register"):
             race_name = f"raced-{endpoint}"
             assert (
                 client.post(
@@ -451,14 +501,8 @@ def test_skill_rest_enforces_grants_and_filters_before_pagination(tmp_path, monk
                     ]
                 }
             else:
-                url = (
-                    f"{prefix}/{race_name}/versions"
-                    if endpoint == "versions"
-                    else f"{prefix}/register"
-                )
+                url = f"{prefix}/{race_name}/versions"
                 body = {"source": "https://example.com/skill.zip"}
-                if endpoint == "register":
-                    body["name"] = race_name
             with monkeypatch.context() as patch:
                 patch.setattr(skill_registry_api, target_function, delete_after_preflight)
                 response = client.post(url, json=body, headers=headers)
@@ -495,7 +539,7 @@ def test_skill_rest_enforces_grants_and_filters_before_pagination(tmp_path, monk
         tracking_store.engine.dispose()
 
 
-@pytest.mark.parametrize("endpoint", ["register", "versions", "bulk-register"])
+@pytest.mark.parametrize("endpoint", ["versions", "bulk-register"])
 @pytest.mark.parametrize("is_admin", [False, True])
 def test_registration_creator_grants_with_workspaces(tmp_path, monkeypatch, endpoint, is_admin):
     monkeypatch.setenv("MLFLOW_ENABLE_WORKSPACES", "true")
@@ -550,12 +594,8 @@ def test_registration_creator_grants_with_workspaces(tmp_path, monkeypatch, endp
                     headers=headers,
                 )
             else:
-                url = (
-                    f"{prefix}/private/versions" if endpoint == "versions" else f"{prefix}/register"
-                )
+                url = f"{prefix}/private/versions"
                 body = {"source": "https://example.com/skill.zip"}
-                if endpoint == "register":
-                    body["name"] = "private"
                 response = client.post(url, json=body, headers=headers)
             assert response.status_code == 200, response.text
             assert tracking_store.get_skill("private").created_by == creator.username

@@ -70,8 +70,6 @@ def mocked_skill_client():
 @pytest.mark.parametrize(
     ("method", "kwargs"),
     [
-        ("search_skills", {"scoped_skill_identities": []}),
-        ("search_skills", {"scoped_skill_identities": [("acme", "reviewer")]}),
         ("search_skills", {"exclude_skill_identities": [("acme", "reviewer")]}),
         ("create_skill_version", {"name": "reviewer", "expected_parent_exists": False}),
         ("create_skill_version", {"name": "reviewer", "expected_parent_exists": True}),
@@ -91,6 +89,31 @@ def test_rest_store_rejects_internal_constraints_before_request(store, method, k
             getattr(store, method)(**kwargs)
     assert exc.value.error_code == "NOT_IMPLEMENTED"
     request.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("included", "excluded", "expected"),
+    [
+        (None, None, None),
+        ([], None, [""]),
+        ([("", "reviewer"), ("acme", "reviewer")], None, ["reviewer", "@acme/reviewer"]),
+        ([("", "reviewer"), ("acme", "reviewer")], [("", "reviewer")], ["@acme/reviewer"]),
+        ([("", "reviewer")], [("", "reviewer")], [""]),
+    ],
+)
+def test_search_skills_encodes_identity_query_values(store, included, excluded, expected):
+    response = Response()
+    response.status_code = 200
+    response._content = b'{"skills": [], "next_page_token": null}'
+    with mock.patch(
+        "mlflow.store.tracking.skill_registry.rest_mixin.http_request", return_value=response
+    ) as request:
+        store.search_skills(include_skill_identities=included, exclude_skill_identities=excluded)
+    params = request.call_args.kwargs["params"]
+    if expected is None:
+        assert "include_skill_identities" not in params
+    else:
+        assert params["include_skill_identities"] == expected
 
 
 @pytest.mark.parametrize(
@@ -610,8 +633,10 @@ def test_search_skills_selects_qualified_identities(registry_client, api):
     assert [(s.organization, s.name) for s in second] == [("acme", "reviewer")]
     assert second.token is None
     assert list(search(include_skill_identities=[])) == []
-    with pytest.raises(MlflowException, match="different query scope"):
-        search(include_skill_identities=["@other/reviewer"], page_token=first.token)
+    # A changed selector uses the existing offset and does not invalidate the token.
+    changed = search(include_skill_identities=["@other/reviewer"], page_token=first.token)
+    assert list(changed) == []
+    assert changed.token is None
 
 
 @pytest.mark.parametrize("api", ["client", "genai"])
@@ -1914,7 +1939,10 @@ def test_register_local_skill(
         sdk_digest.assert_not_called()
     digest.assert_not_called()
     request.assert_called_once()
-    assert request.call_args.args == ("POST", "/register")
+    assert request.call_args.args == (
+        "POST",
+        f"{_skill_path(name or 'review', organization)}/versions",
+    )
     files = request.call_args.kwargs["files"]
     assert json.loads(files["metadata"][1]) == {
         "name": name or "review",
@@ -2132,7 +2160,7 @@ def test_register_multipart_preserves_transport_context(store, workspace):
         request.assert_called_once()
         assert request.call_args.args[:2] == (
             "POST",
-            "https://registry.example.com/api/3.0/mlflow/skills/register",
+            "https://registry.example.com/api/3.0/mlflow/skills/review/versions",
         )
         kwargs = request.call_args.kwargs
         assert kwargs["headers"]["Authorization"] == "Bearer test-token"

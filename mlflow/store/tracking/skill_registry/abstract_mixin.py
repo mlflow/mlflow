@@ -62,19 +62,16 @@ class SkillRegistryMixin:
         page_token: str | None = None,
         include_skill_identities: list[tuple[str, str]] | None = None,
         exclude_skill_identities: list[tuple[str, str]] | None = None,
-        scoped_skill_identities: list[tuple[str, str]] | None = None,
     ) -> PagedList[Skill]:
         """Search with exact ``(organization, name)`` filters before pagination.
 
-        ``include_skill_identities`` is the caller's selector: ``None`` selects all Skills,
-        and an empty list selects none. Pagination tokens bind to this selector.
-        ``scoped_skill_identities`` is an additional internal constraint, intersected with
-        the caller's selector. ``exclude_skill_identities`` removes exact identities.
-        The latter two constraints can change between pages and do not bind the token;
-        auth apps use them to apply the current request's permissions.
-        Stores that cannot enforce an internal constraint must reject it before fetching
-        results, rather than ignoring it or filtering a page after retrieval. The REST store
-        supports the public selector but rejects internal authorization constraints.
+        ``include_skill_identities`` is the effective selector: ``None`` selects all Skills,
+        and an empty list selects none. The API handler intersects the caller's selector
+        with the auth app's scope before calling this method. ``exclude_skill_identities``
+        removes exact identities. Both filters apply before pagination and may change
+        between pages; tokens bind to the workspace, query filter, and ordering only.
+        The REST store can subtract exclusions from a finite include selector; it rejects
+        exclusions from an unrestricted result set before fetching results.
         """
         raise NotImplementedError(self.__class__.__name__)
 

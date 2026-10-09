@@ -213,10 +213,6 @@ class CreateSkillVersionRequest(BaseModel):
     status: str = SkillStatus.ACTIVE.value
 
 
-class RegisterSkillRequest(CreateSkillVersionRequest):
-    pass
-
-
 class BulkRegisterSkillRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -309,14 +305,8 @@ class BulkRegisterSkillsResponse(BaseModel):
     skill_versions: list[SkillVersionResponse]
 
 
-def _skill_version_create_openapi_extra(*, require_name: bool = False) -> dict[str, Any]:
+def _skill_version_create_openapi_extra() -> dict[str, Any]:
     json_schema = CreateSkillVersionRequest.model_json_schema()
-    if require_name:
-        json_schema["required"] = ["name"]
-        json_schema["properties"]["name"] = {
-            "type": "string",
-            "title": "Name",
-        }
 
     return {
         "requestBody": {
@@ -341,7 +331,6 @@ def _skill_version_create_openapi_extra(*, require_name: bool = False) -> dict[s
 
 
 _SKILL_VERSION_CREATE_OPENAPI_EXTRA = _skill_version_create_openapi_extra()
-_REGISTER_SKILL_OPENAPI_EXTRA = _skill_version_create_openapi_extra(require_name=True)
 
 
 def _icons_to_entities(icons: list[SkillIconRequestPayload] | None) -> list[RegistryIcon] | None:
@@ -598,8 +587,8 @@ def _update_skill_version(
 def _registration_from_metadata(
     metadata: bytes | str | dict[str, Any],
     username: str | None,
-    name: str | None = None,
-    organization: str | None = None,
+    name: str,
+    organization: str,
 ) -> SkillVersionRegistration:
     if isinstance(metadata, (bytes, str)):
         try:
@@ -609,19 +598,18 @@ def _registration_from_metadata(
                 "The 'metadata' part must contain a valid JSON object."
             ) from e
     try:
-        registration = RegisterSkillRequest.model_validate(metadata)
+        registration = CreateSkillVersionRequest.model_validate(metadata)
     except ValueError as e:
         raise MlflowException.invalid_parameter_value(f"Invalid registration metadata: {e}") from e
-    resolved_name = registration.name if name is None else name
-    resolved_organization = registration.organization if organization is None else organization
-    if resolved_name is None:
-        raise MlflowException.invalid_parameter_value(
-            "'name' must be provided explicitly for registration."
-        )
-    _validate_skill_path_identity(resolved_organization, resolved_name)
+    for field, expected in (("name", name), ("organization", organization)):
+        if field in registration.model_fields_set and getattr(registration, field) != expected:
+            raise MlflowException.invalid_parameter_value(
+                f"Registration metadata '{field}' must match the path identity."
+            )
+    _validate_skill_path_identity(organization, name)
     return SkillVersionRegistration(
-        name=resolved_name,
-        organization=resolved_organization,
+        name=name,
+        organization=organization,
         source_type=registration.source_type,
         source=registration.source,
         ref=registration.ref,
@@ -690,8 +678,8 @@ def _request_with_multipart_size_limit(request: Request) -> Request:
 @asynccontextmanager
 async def _parse_registration_request(
     request: Request,
-    name: str | None = None,
-    organization: str | None = None,
+    name: str,
+    organization: str = "",
 ) -> AsyncIterator[tuple[SkillVersionRegistration, Any | None, bool]]:
     content_type = request.headers.get("content-type", "").split(";", 1)[0].lower()
     username = getattr(request.state, "username", None)
@@ -806,26 +794,28 @@ def search_skills(
     order_by: list[str] | None = Query(None),
     page_token: str | None = Query(None),
     include_skill_identities: Annotated[
-        str | None,
-        Query(description='JSON array of Skill identities, e.g. ["reviewer", "@acme/reviewer"].'),
+        list[str] | None,
+        Query(
+            description=(
+                "Repeat this argument to select identities such as reviewer and @acme/reviewer. "
+                "Omit it to select all Skills; a single empty value selects none."
+            )
+        ),
     ] = None,
 ) -> SearchSkillsResponse:
     from mlflow.server.handlers import _get_tracking_store
 
-    try:
-        selector = None
-        if include_skill_identities is not None:
-            selector = json.loads(include_skill_identities)
-            if selector is None:
-                raise ValueError("Expected a JSON array")
-        selected_identities = _parse_skill_identities(selector)
-    except ValueError as e:
-        raise MlflowException.invalid_parameter_value(
-            "include_skill_identities must be a JSON array of Skill identity strings."
-        ) from e
+    if include_skill_identities == [""]:
+        include_skill_identities = []
+    selected_identities = _parse_skill_identities(include_skill_identities)
     scoped_skill_identities, exclude_skill_identities = getattr(
         request.state, "skill_identity_scope", (None, None)
     )
+    if scoped_skill_identities is not None:
+        scope = set(scoped_skill_identities)
+        selected_identities = sorted(
+            scope if selected_identities is None else scope.intersection(selected_identities)
+        )
     results = _get_tracking_store().search_skills(
         filter_string=filter_string,
         max_results=max_results,
@@ -833,7 +823,6 @@ def search_skills(
         page_token=page_token,
         include_skill_identities=selected_identities,
         exclude_skill_identities=exclude_skill_identities,
-        scoped_skill_identities=scoped_skill_identities,
     )
     return SearchSkillsResponse(
         skills=[SkillResponse.from_entity(skill) for skill in results],
@@ -841,17 +830,13 @@ def search_skills(
     )
 
 
-@skill_registry_router.get(
-    "/@{organization}/{name}",
-    response_model=SkillResponse,
-)
+@skill_registry_router.get("/@{organization}/{name}", response_model=SkillResponse)
 def get_organization_skill(organization: str, name: SkillNamePath) -> SkillResponse:
     return _get_skill(name=name, organization=organization)
 
 
 @skill_registry_router.get(
-    "/@{organization}/{name}/versions",
-    response_model=SearchSkillVersionsResponse,
+    "/@{organization}/{name}/versions", response_model=SearchSkillVersionsResponse
 )
 def search_organization_skill_versions(
     organization: str,
@@ -871,10 +856,7 @@ def search_organization_skill_versions(
     )
 
 
-@skill_registry_router.get(
-    "/{name}/versions",
-    response_model=SearchSkillVersionsResponse,
-)
+@skill_registry_router.get("/{name}/versions", response_model=SearchSkillVersionsResponse)
 def search_skill_versions(
     name: SkillNamePath,
     filter_string: str | None = Query(None),
@@ -914,9 +896,7 @@ def delete_organization_skill_tag(
     return _delete_skill_tag(name=name, organization=organization, key=key)
 
 
-@skill_registry_router.post(
-    "/@{organization}/{name}/versions/{version}/tags",
-)
+@skill_registry_router.post("/@{organization}/{name}/versions/{version}/tags")
 def set_organization_skill_version_tag(
     organization: str,
     name: SkillNamePath,
@@ -932,9 +912,7 @@ def set_organization_skill_version_tag(
     )
 
 
-@skill_registry_router.delete(
-    "/@{organization}/{name}/versions/{version}/tags/{key:path}",
-)
+@skill_registry_router.delete("/@{organization}/{name}/versions/{version}/tags/{key:path}")
 def delete_organization_skill_version_tag(
     organization: str,
     name: SkillNamePath,
@@ -973,9 +951,7 @@ def set_skill_version_tag(
     )
 
 
-@skill_registry_router.delete(
-    "/{name}/versions/{version}/tags/{key:path}",
-)
+@skill_registry_router.delete("/{name}/versions/{version}/tags/{key:path}")
 def delete_skill_version_tag(
     name: SkillNamePath,
     version: int,
@@ -993,10 +969,7 @@ def update_skill(
     return _update_skill(name=name, body=body, request=request)
 
 
-@skill_registry_router.patch(
-    "/@{organization}/{name}",
-    response_model=SkillResponse,
-)
+@skill_registry_router.patch("/@{organization}/{name}", response_model=SkillResponse)
 def update_organization_skill(
     organization: str,
     name: SkillNamePath,
@@ -1055,26 +1028,6 @@ async def create_organization_skill_version(
 
 
 @skill_registry_router.post(
-    "/register",
-    response_model=SkillVersionResponse,
-    openapi_extra=_REGISTER_SKILL_OPENAPI_EXTRA,
-)
-async def register_skill(request: Request) -> SkillVersionResponse:
-    expected_parent_exists = getattr(request.state, "skill_expected_parent_exists", None)
-    async with _parse_registration_request(request) as (registration, content, multipart):
-        version = await asyncio.to_thread(
-            register_skill_version,
-            registration,
-            content=content,
-            multipart=multipart,
-            expected_parent_exists=expected_parent_exists,
-        )
-    if expected_parent_exists is False:
-        request.state.skill_created_parents = [(registration.organization, registration.name)]
-    return SkillVersionResponse.from_entity(version)
-
-
-@skill_registry_router.post(
     "/bulk-register",
     response_model=BulkRegisterSkillsResponse,
 )
@@ -1117,17 +1070,13 @@ async def bulk_register_skills(
     )
 
 
-@skill_registry_router.get(
-    "/{name}/versions/{version}",
-    response_model=SkillVersionResponse,
-)
+@skill_registry_router.get("/{name}/versions/{version}", response_model=SkillVersionResponse)
 def get_skill_version(name: SkillNamePath, version: int) -> SkillVersionResponse:
     return _get_skill_version(name=name, version=version)
 
 
 @skill_registry_router.get(
-    "/@{organization}/{name}/versions/{version}",
-    response_model=SkillVersionResponse,
+    "/@{organization}/{name}/versions/{version}", response_model=SkillVersionResponse
 )
 def get_organization_skill_version(
     organization: str,
@@ -1137,17 +1086,13 @@ def get_organization_skill_version(
     return _get_skill_version(name=name, organization=organization, version=version)
 
 
-@skill_registry_router.get(
-    "/{name}/aliases/{alias}",
-    response_model=SkillVersionResponse,
-)
+@skill_registry_router.get("/{name}/aliases/{alias}", response_model=SkillVersionResponse)
 def get_skill_version_by_alias(name: SkillNamePath, alias: str) -> SkillVersionResponse:
     return _get_skill_version_by_alias(name=name, alias=alias)
 
 
 @skill_registry_router.get(
-    "/@{organization}/{name}/aliases/{alias}",
-    response_model=SkillVersionResponse,
+    "/@{organization}/{name}/aliases/{alias}", response_model=SkillVersionResponse
 )
 def get_organization_skill_version_by_alias(
     organization: str,
@@ -1228,10 +1173,7 @@ def delete_organization_skill(organization: str, name: SkillNamePath) -> dict[st
     return _delete_skill(name=name, organization=organization)
 
 
-@skill_registry_router.patch(
-    "/{name}/versions/{version}",
-    response_model=SkillVersionResponse,
-)
+@skill_registry_router.patch("/{name}/versions/{version}", response_model=SkillVersionResponse)
 def update_skill_version(
     name: SkillNamePath,
     version: int,
@@ -1247,8 +1189,7 @@ def update_skill_version(
 
 
 @skill_registry_router.patch(
-    "/@{organization}/{name}/versions/{version}",
-    response_model=SkillVersionResponse,
+    "/@{organization}/{name}/versions/{version}", response_model=SkillVersionResponse
 )
 def update_organization_skill_version(
     organization: str,

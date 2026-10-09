@@ -116,12 +116,13 @@ def test_search_skills_filters_qualified_identities_before_pagination(store):
         for skill in store.search_skills(exclude_skill_identities=[("acme", "reviewer")])
     ] == [("", "reviewer"), ("", "writer"), ("example", "reviewer")]
 
-    with pytest.raises(MlflowException, match="different query scope"):
-        store.search_skills(
-            max_results=1,
-            page_token=first.token,
-            include_skill_identities=[("example", "reviewer")],
-        )
+    changed = store.search_skills(
+        max_results=1,
+        page_token=first.token,
+        include_skill_identities=[("example", "reviewer")],
+    )
+    assert list(changed) == []
+    assert changed.token is None
 
     many_allowed = [("acme", f"missing-{index}") for index in range(500)] + allowed
     assert [
@@ -138,7 +139,6 @@ def test_search_skills_filters_qualified_identities_before_pagination(store):
     ]
     query = {
         "include_skill_identities": many_selected,
-        "scoped_skill_identities": many_selected,
         "exclude_skill_identities": many_excluded,
         "max_results": 1,
     }
@@ -154,7 +154,6 @@ def test_search_skills_filters_qualified_identities_before_pagination(store):
 def test_large_skill_identity_scope_uses_bounded_sql_server_parameters(size):
     identities = [(f"org-{index}", "reviewer") for index in range(size)]
     query = sqlalchemy.select(SqlSkill.name).where(
-        _skill_identity_predicate(identities, "mssql"),
         _skill_identity_predicate(identities, "mssql"),
         ~_skill_identity_predicate(identities, "mssql"),
     )

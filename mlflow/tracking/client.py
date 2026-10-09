@@ -7092,7 +7092,8 @@ class MlflowClient:
         """Search Skills, optionally selecting ``reviewer`` or ``@acme/reviewer`` identities.
 
         ``None`` leaves the selection unrestricted; an empty list selects no Skills.
-        Use the same selector, filter, and ordering when continuing with a page token.
+        Use the same filter and ordering when continuing with a page token. Identity selectors
+        may change between pages; pagination is best effort when the result set changes.
         Results are also restricted by the caller's current permissions.
         """
         from mlflow.utils.validation import _parse_skill_identities

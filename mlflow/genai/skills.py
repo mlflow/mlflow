@@ -52,7 +52,8 @@ def search_skills(
         max_results: Maximum number of skills to return in one page. Defaults to 100.
         order_by: Fields and optional sort directions, such as ``["name ASC"]``.
         page_token: Token from a previous page's ``token`` attribute. Use the same
-            filter, ordering, and identity selector when requesting subsequent pages.
+            filter and ordering when requesting subsequent pages. Identity selection may
+            change between pages; pagination uses best-effort offsets.
         include_skill_identities: Optional list of exact identities, such as
             ``["reviewer", "@acme/reviewer"]``. ``None`` selects all readable Skills;
             an empty list selects none. This selection never widens the caller's permissions.

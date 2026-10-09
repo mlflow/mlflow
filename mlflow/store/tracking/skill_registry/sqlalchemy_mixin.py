@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import hashlib
 import json
 import logging
 from typing import Any
@@ -436,16 +435,9 @@ class SqlAlchemySkillRegistryMixin:
         page_token: str | None = None,
         include_skill_identities: list[tuple[str, str]] | None = None,
         exclude_skill_identities: list[tuple[str, str]] | None = None,
-        scoped_skill_identities: list[tuple[str, str]] | None = None,
     ) -> PagedList[Skill]:
         validate_max_results(max_results)
         token_scope = f"workspace:{self._get_active_workspace()}:{self.SKILL_SEARCH_TOKEN_SCOPE}"
-        if include_skill_identities is not None:
-            identity_scope = json.dumps(
-                sorted(set(include_skill_identities)),
-                separators=(",", ":"),
-            )
-            token_scope += f":{hashlib.sha256(identity_scope.encode()).hexdigest()}"
         offset = self._page_token_offset(page_token, filter_string, order_by, token_scope)
         parsed_filters = SearchSkillUtils.parse_search_filter(filter_string)
         with self.ManagedSessionMaker() as session:
@@ -475,11 +467,10 @@ class SqlAlchemySkillRegistryMixin:
                 tag_join_keys=["workspace", "organization", "name"],
                 dialect=self._get_dialect(),
             )
-            # Intersect the caller's selector with the request scope before pagination.
-            # Only the stable caller selector binds the token; authorization may change.
-            for identities in (include_skill_identities, scoped_skill_identities):
-                if identities is not None:
-                    query = query.filter(_skill_identity_predicate(identities, self._get_dialect()))
+            if include_skill_identities is not None:
+                query = query.filter(
+                    _skill_identity_predicate(include_skill_identities, self._get_dialect())
+                )
             if exclude_skill_identities:
                 query = query.filter(
                     ~_skill_identity_predicate(exclude_skill_identities, self._get_dialect())

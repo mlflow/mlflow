@@ -80,7 +80,7 @@ class RestSkillRegistryMixin:
 
         data = self._skill_request(
             "POST",
-            "/register",
+            f"{_skill_path(name, organization)}/versions",
             files={
                 "metadata": (None, json.dumps(metadata), "application/json"),
                 "content": ("content.tar.gz", content, "application/gzip"),
@@ -114,15 +114,18 @@ class RestSkillRegistryMixin:
         page_token: str | None = None,
         include_skill_identities: list[tuple[str, str]] | None = None,
         exclude_skill_identities: list[tuple[str, str]] | None = None,
-        scoped_skill_identities: list[tuple[str, str]] | None = None,
     ) -> PagedList[Skill]:
-        # The public selector cannot carry a changing auth scope: it binds page tokens.
-        # Never drop internal filters or apply them after the remote server paginates.
-        if scoped_skill_identities is not None or exclude_skill_identities:
+        # The REST API cannot express exclusions from an unrestricted result set.
+        if exclude_skill_identities and include_skill_identities is None:
             raise MlflowNotImplementedException(
-                "REST-backed Skill search cannot enforce an internal authorization scope. "
+                "REST-backed Skill search cannot enforce exclusions without an include selector. "
                 "Use a SQL tracking backend for server-side Skill authorization."
             )
+        if include_skill_identities is not None and exclude_skill_identities:
+            excluded = set(exclude_skill_identities)
+            include_skill_identities = [
+                identity for identity in include_skill_identities if identity not in excluded
+            ]
         params: dict[str, Any] = {"max_results": max_results}
         if filter_string is not None:
             params["filter_string"] = filter_string
@@ -131,10 +134,10 @@ class RestSkillRegistryMixin:
         if page_token is not None:
             params["page_token"] = page_token
         if include_skill_identities is not None:
-            params["include_skill_identities"] = json.dumps([
+            params["include_skill_identities"] = [
                 f"@{organization}/{name}" if organization else name
                 for organization, name in include_skill_identities
-            ])
+            ] or [""]
         data = self._skill_request("GET", "", params=params)
         return PagedList(
             [Skill.from_dict(skill) for skill in data["skills"]], data.get("next_page_token")
