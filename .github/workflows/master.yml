@@ -9,8 +9,11 @@ on:
       - ".github/workflows/copilot-*.yml"
       - ".github/workflows/docs.yml"
       - ".github/workflows/preview-docs.yml"
+      - ".github/workflows/triage.yml"
       - "mlflow/server/js/**"
       - ".github/workflows/js.yml"
+      - "libs/typescript/**"
+      - ".github/workflows/typescript.yml"
       - ".claude/**"
   push:
     branches:
@@ -85,6 +88,8 @@ jobs:
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/free-disk-space
       - uses: ./.github/actions/setup-python
+        with:
+          pin-micro-version: true
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
@@ -170,17 +175,23 @@ jobs:
 
       - name: Run migration check
         run: |
-          set +e
-          err=0
-          trap 'err=1' ERR
-
           ./tests/db/compose.sh down --volumes --remove-orphans
+          results=()
+          failed=0
           for service in $(./tests/db/compose.sh config --services | grep '^migration-')
           do
-            ./tests/db/compose.sh run --rm --no-TTY $service
+            if ./tests/db/compose.sh run --rm --no-TTY "$service"; then
+              results+=("$service: ✅")
+            else
+              status=$?
+              results+=("$service: ❌ (exit code $status)")
+              echo "::error::Migration check failed for $service (exit code $status)"
+              failed=1
+            fi
           done
 
-          test $err = 0
+          printf '%s\n' "${results[@]}"
+          exit "$failed"
 
       - name: Clean up
         run: |
@@ -254,6 +265,8 @@ jobs:
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/free-disk-space
       - uses: ./.github/actions/setup-python
+        with:
+          pin-micro-version: true
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
@@ -287,6 +300,8 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
+        with:
+          pin-micro-version: true
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
@@ -384,6 +399,8 @@ jobs:
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/free-disk-space
       - uses: ./.github/actions/setup-python
+        with:
+          pin-micro-version: true
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
       - name: Install dependencies

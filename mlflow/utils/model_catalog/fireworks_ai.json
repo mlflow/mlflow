@@ -1157,14 +1157,14 @@
         "max_tokens": 393216
       },
       "pricing": {
-        "input_per_million_tokens": 0.22,
-        "output_per_million_tokens": 0.66,
-        "cache_read_per_million_tokens": 0.007,
+        "input_per_million_tokens": 0.3,
+        "output_per_million_tokens": 1.2,
+        "cache_read_per_million_tokens": 0.006,
         "service_tiers": {
           "priority": {
-            "input_per_million_tokens": 0.275,
-            "output_per_million_tokens": 0.825,
-            "cache_read_per_million_tokens": 0.00875
+            "input_per_million_tokens": 0.375,
+            "output_per_million_tokens": 1.5,
+            "cache_read_per_million_tokens": 0.0075
           }
         }
       },
@@ -1175,7 +1175,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-15"
+      "last_updated_at": "2026-10-02"
     },
     "accounts/fireworks/models/devstral-small-2505": {
       "mode": "chat",
@@ -1285,7 +1285,14 @@
       "pricing": {
         "input_per_million_tokens": 3.0,
         "output_per_million_tokens": 15.0,
-        "cache_read_per_million_tokens": 0.3
+        "cache_read_per_million_tokens": 0.3,
+        "service_tiers": {
+          "priority": {
+            "input_per_million_tokens": 3.75,
+            "output_per_million_tokens": 18.75,
+            "cache_read_per_million_tokens": 0.375
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -1294,7 +1301,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-24"
+      "last_updated_at": "2026-10-01"
     },
     "accounts/fireworks/models/ernie-4p5-21b-a3b-pt": {
       "mode": "chat",
@@ -2000,7 +2007,14 @@
       "pricing": {
         "input_per_million_tokens": 1.0,
         "output_per_million_tokens": 4.05,
-        "cache_read_per_million_tokens": 0.17
+        "cache_read_per_million_tokens": 0.17,
+        "service_tiers": {
+          "priority": {
+            "input_per_million_tokens": 1.0,
+            "output_per_million_tokens": 4.05,
+            "cache_read_per_million_tokens": 0.17
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -2009,7 +2023,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-04"
+      "last_updated_at": "2026-10-02"
     },
     "accounts/fireworks/models/internvl3-38b": {
       "mode": "chat",
@@ -3447,7 +3461,14 @@
       "pricing": {
         "input_per_million_tokens": 0.6,
         "output_per_million_tokens": 2.4,
-        "cache_read_per_million_tokens": 0.12
+        "cache_read_per_million_tokens": 0.12,
+        "service_tiers": {
+          "priority": {
+            "input_per_million_tokens": 0.75,
+            "output_per_million_tokens": 3.0,
+            "cache_read_per_million_tokens": 0.15
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -3456,7 +3477,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-08-25"
+      "last_updated_at": "2026-10-01"
     },
     "accounts/fireworks/models/nemotron-lightning-3p5-30b-a3b": {
       "mode": "chat",
@@ -3468,7 +3489,14 @@
       "pricing": {
         "input_per_million_tokens": 0.05,
         "output_per_million_tokens": 0.2,
-        "cache_read_per_million_tokens": 0.01
+        "cache_read_per_million_tokens": 0.01,
+        "service_tiers": {
+          "priority": {
+            "input_per_million_tokens": 0.0625,
+            "output_per_million_tokens": 0.25,
+            "cache_read_per_million_tokens": 0.0125
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -3477,7 +3505,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-08-25"
+      "last_updated_at": "2026-10-01"
     },
     "accounts/fireworks/models/nemotron-nano-v2-12b-vl": {
       "mode": "chat",
@@ -5646,6 +5674,28 @@
       },
       "last_updated_at": "2026-04-24"
     },
+    "accounts/fireworks/routers/auto": {
+      "mode": "chat",
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-09-29"
+    },
+    "accounts/fireworks/routers/auto-instant": {
+      "mode": "chat",
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-09-29"
+    },
     "accounts/fireworks/routers/deepseek-v4p1-flash-us": {
       "mode": "chat",
       "context_window": {
@@ -5656,7 +5706,14 @@
       "pricing": {
         "input_per_million_tokens": 0.45,
         "output_per_million_tokens": 1.8,
-        "cache_read_per_million_tokens": 0.009
+        "cache_read_per_million_tokens": 0.009,
+        "service_tiers": {
+          "priority": {
+            "input_per_million_tokens": 0.5625,
+            "output_per_million_tokens": 2.25,
+            "cache_read_per_million_tokens": 0.01125
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -5665,7 +5722,18 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-25"
+      "last_updated_at": "2026-09-28"
+    },
+    "accounts/fireworks/routers/firerouter": {
+      "mode": "chat",
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-09-29"
     },
     "accounts/fireworks/routers/glm-5p1-fast": {
       "mode": "chat",
@@ -5761,7 +5829,14 @@
       "pricing": {
         "input_per_million_tokens": 0.225,
         "output_per_million_tokens": 0.75,
-        "cache_read_per_million_tokens": 0.045
+        "cache_read_per_million_tokens": 0.045,
+        "service_tiers": {
+          "priority": {
+            "input_per_million_tokens": 0.28125,
+            "output_per_million_tokens": 0.9375,
+            "cache_read_per_million_tokens": 0.05625
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -5770,7 +5845,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-25"
+      "last_updated_at": "2026-10-01"
     },
     "accounts/fireworks/routers/glm-5p3-us": {
       "mode": "chat",
@@ -5782,7 +5857,14 @@
       "pricing": {
         "input_per_million_tokens": 2.1,
         "output_per_million_tokens": 6.6,
-        "cache_read_per_million_tokens": 0.39
+        "cache_read_per_million_tokens": 0.39,
+        "service_tiers": {
+          "priority": {
+            "input_per_million_tokens": 2.625,
+            "output_per_million_tokens": 8.25,
+            "cache_read_per_million_tokens": 0.4875
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -5791,7 +5873,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-25"
+      "last_updated_at": "2026-10-01"
     },
     "accounts/fireworks/routers/kimi-k2p6-fast": {
       "mode": "chat",
@@ -6020,14 +6102,14 @@
         "max_tokens": 393216
       },
       "pricing": {
-        "input_per_million_tokens": 0.22,
-        "output_per_million_tokens": 0.66,
-        "cache_read_per_million_tokens": 0.007,
+        "input_per_million_tokens": 0.3,
+        "output_per_million_tokens": 1.2,
+        "cache_read_per_million_tokens": 0.006,
         "service_tiers": {
           "priority": {
-            "input_per_million_tokens": 0.275,
-            "output_per_million_tokens": 0.825,
-            "cache_read_per_million_tokens": 0.00875
+            "input_per_million_tokens": 0.375,
+            "output_per_million_tokens": 1.5,
+            "cache_read_per_million_tokens": 0.0075
           }
         }
       },
@@ -6038,7 +6120,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-15"
+      "last_updated_at": "2026-10-02"
     },
     "deepseek-v4p1-flash-us": {
       "mode": "chat",
@@ -6050,7 +6132,14 @@
       "pricing": {
         "input_per_million_tokens": 0.45,
         "output_per_million_tokens": 1.8,
-        "cache_read_per_million_tokens": 0.009
+        "cache_read_per_million_tokens": 0.009,
+        "service_tiers": {
+          "priority": {
+            "input_per_million_tokens": 0.5625,
+            "output_per_million_tokens": 2.25,
+            "cache_read_per_million_tokens": 0.01125
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -6059,7 +6148,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-25"
+      "last_updated_at": "2026-09-28"
     },
     "glm-4p7": {
       "mode": "chat",
@@ -6281,7 +6370,14 @@
       "pricing": {
         "input_per_million_tokens": 0.225,
         "output_per_million_tokens": 0.75,
-        "cache_read_per_million_tokens": 0.045
+        "cache_read_per_million_tokens": 0.045,
+        "service_tiers": {
+          "priority": {
+            "input_per_million_tokens": 0.28125,
+            "output_per_million_tokens": 0.9375,
+            "cache_read_per_million_tokens": 0.05625
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -6290,7 +6386,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-25"
+      "last_updated_at": "2026-10-01"
     },
     "glm-5p3-us": {
       "mode": "chat",
@@ -6302,7 +6398,14 @@
       "pricing": {
         "input_per_million_tokens": 2.1,
         "output_per_million_tokens": 6.6,
-        "cache_read_per_million_tokens": 0.39
+        "cache_read_per_million_tokens": 0.39,
+        "service_tiers": {
+          "priority": {
+            "input_per_million_tokens": 2.625,
+            "output_per_million_tokens": 8.25,
+            "cache_read_per_million_tokens": 0.4875
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -6311,7 +6414,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-25"
+      "last_updated_at": "2026-10-01"
     },
     "gpt-oss-120b": {
       "mode": "chat",
@@ -6669,7 +6772,14 @@
       "pricing": {
         "input_per_million_tokens": 0.6,
         "output_per_million_tokens": 2.4,
-        "cache_read_per_million_tokens": 0.12
+        "cache_read_per_million_tokens": 0.12,
+        "service_tiers": {
+          "priority": {
+            "input_per_million_tokens": 0.75,
+            "output_per_million_tokens": 3.0,
+            "cache_read_per_million_tokens": 0.15
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -6678,7 +6788,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-08-25"
+      "last_updated_at": "2026-10-01"
     },
     "nemotron-lightning-3p5-30b-a3b": {
       "mode": "chat",
@@ -6690,7 +6800,14 @@
       "pricing": {
         "input_per_million_tokens": 0.05,
         "output_per_million_tokens": 0.2,
-        "cache_read_per_million_tokens": 0.01
+        "cache_read_per_million_tokens": 0.01,
+        "service_tiers": {
+          "priority": {
+            "input_per_million_tokens": 0.0625,
+            "output_per_million_tokens": 0.25,
+            "cache_read_per_million_tokens": 0.0125
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -6699,7 +6816,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-08-25"
+      "last_updated_at": "2026-10-01"
     },
     "qwen3p7-plus": {
       "mode": "chat",

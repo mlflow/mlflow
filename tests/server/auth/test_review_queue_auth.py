@@ -51,6 +51,22 @@ def _setup(
         lambda p: {"queue_id": "q1", "schema_id": "s1", "experiment_id": "123", "name": "Q"}[p],
     )
     monkeypatch.setattr(auth, "_get_experiment_permission", lambda _exp, _user: perm)
+    # A queue's permission now comes from the review_queue tier (its own grant, else the
+    # experiment's) rather than straight from the experiment. These tests pin how the
+    # validators COMBINE that permission with queue state, so the tier resolution itself is
+    # stubbed here; the tier's own precedence is covered in test_requirement_model.
+    monkeypatch.setattr(auth, "_review_queue_permission", lambda _queue, _user: perm)
+    # filter_list_review_queues has no queue object to key on, so it resolves the tier by
+    # experiment id. Stubbed to the same permission for the same reason as above.
+    monkeypatch.setattr(
+        auth, "_review_queue_permission_in_experiment", lambda _experiment_id, _user: perm
+    )
+    # Create is gated on the experiment with a veto on the review_queue type; stubbed to the
+    # experiment's verdict so these tests keep pinning the shadow-check interaction rather
+    # than the gate.
+    monkeypatch.setattr(
+        auth, "_authorize_create_in_experiment", lambda _exp, _type: perm.can_update
+    )
     monkeypatch.setattr(auth, "_get_tracking_store", lambda: store)
     # The owner-reassignment gate parses the live request body; stub it so the
     # real `_update_review_queue_reassigns_owner` detection runs against it.

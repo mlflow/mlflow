@@ -263,10 +263,16 @@ describe('validateTemplate feedback form pairing', () => {
 describe('validateAndPrepareMessages catalog allowlist', () => {
   it('accepts valid basic and custom catalog components', () => {
     const result = prepare([
-      { id: 'root', component: 'Column', children: ['row', 'txt'], align: 'stretch' },
+      { id: 'root', component: 'Column', children: ['row', 'txt', 'image'], align: 'stretch' },
       { id: 'row', component: 'Row', children: ['stat'], align: 'stretch' },
       { id: 'stat', component: 'StatCard', value: '14', label: 'Tool calls', icon: 'wrench', weight: 1 },
       { id: 'txt', component: 'Text', text: 'Summary', variant: 'h4', weight: 1 },
+      {
+        id: 'image',
+        component: 'TraceImage',
+        uri: 'mlflow-attachment://image-id?content_type=image%2Fjpeg&trace_id=tr-123',
+        title: 'Generated image',
+      },
     ]);
     expect(result).toEqual({ ok: true, messages: expect.any(Array) });
   });
@@ -398,6 +404,35 @@ describe('validateTemplate catalog allowlist', () => {
       templateWith([{ id: 'root', component: 'Text', text: { $source: 'spanField', spanRef: 'root', field: 'name' } }]),
     );
     expect(result).toEqual({ ok: true, messages: expect.any(Array) });
+  });
+
+  it('accepts a TraceImage whose uri holds a spanField binding marker', () => {
+    const result = validateTemplate(
+      templateWith([
+        {
+          id: 'root',
+          component: 'TraceImage',
+          uri: { $source: 'spanField', spanRef: 'root', field: 'inputs', path: ['reference_image'] },
+        },
+      ]),
+    );
+    expect(result).toEqual({ ok: true, messages: expect.any(Array) });
+  });
+
+  it('rejects a TraceImage whose uri is a literal attachment URI', () => {
+    const result = validateTemplate(
+      templateWith([
+        {
+          id: 'root',
+          component: 'TraceImage',
+          uri: 'mlflow-attachment://image-id?content_type=image%2Fjpeg&trace_id=tr-123',
+        },
+      ]),
+    );
+    expect(result).toMatchObject({
+      ok: false,
+      error: expect.stringContaining('must bind "uri" to a valid spanField marker'),
+    });
   });
 
   it('rejects a component whose type collides with an Object.prototype member', () => {
