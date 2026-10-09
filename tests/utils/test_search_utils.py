@@ -31,9 +31,31 @@ from mlflow.utils.search_utils import (
     SearchMCPAccessEndpointUtils,
     SearchMCPServerUtils,
     SearchMCPServerVersionUtils,
+    SearchModelUtils,
+    SearchModelVersionUtils,
     SearchTraceUtils,
     SearchUtils,
 )
+
+
+@pytest.mark.parametrize(
+    ("search_utils", "search_type"),
+    [
+        (SearchModelUtils, "registered model"),
+        (SearchModelVersionUtils, "model version"),
+    ],
+)
+@pytest.mark.parametrize("identifier", ["tags.stage", "name"])
+@pytest.mark.parametrize("comparator", ["IS NULL", "IS NOT NULL", "is null", "is not null"])
+def test_model_registry_search_rejects_null_comparisons(
+    search_utils, search_type, identifier, comparator
+):
+    with pytest.raises(
+        MlflowException,
+        match=f"IS NULL / IS NOT NULL is not supported for {search_type} search",
+    ) as exc:
+        search_utils.parse_search_filter(f"{identifier} {comparator}")
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
 
 
 @pytest.mark.parametrize(
