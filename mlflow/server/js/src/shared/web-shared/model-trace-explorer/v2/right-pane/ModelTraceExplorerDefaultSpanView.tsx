@@ -18,7 +18,8 @@ import { ModelTraceExplorerFieldRenderer } from '../field-renderers/ModelTraceEx
 import { ModelTraceExplorerChatSections } from './ModelTraceExplorerChatSections';
 import { ModelTraceExplorerChatTool } from './ModelTraceExplorerChatTool';
 import { ModelTraceExplorerConversation } from './ModelTraceExplorerConversation';
-import { DecisionAnswers, DecisionInputs, resolveDecision } from './DecisionView';
+import { DecisionAnswers, DecisionInputs } from './DecisionView';
+import { resolveDecision } from './decision-utils';
 
 type ModelTraceExplorerSectionRenderMode = 'pretty' | Extract<ModelTraceExplorerRenderMode, 'json' | 'yaml'>;
 

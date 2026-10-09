@@ -58,15 +58,6 @@ By clicking on a trace ID `tr-...` or the request link in the trace table, you c
 
 <ImageBox src="/images/llms/tracing/trace-ui-detail-view.png" alt="Browsing single trace" />
 
-### OpenAI Decisions spans
-
-Select a Decisions span to see its questions and answers in **Pretty** mode. Predicate cards show
-the reported probability of true. Choice and score cards expand to show their probability
-distributions and confidence; refusals are marked **Refused**. Switch **Inputs** or **Outputs** to
-**JSON** or **YAML** to inspect the complete request or response, including model and usage fields.
-If an answer has an invalid or unrecognized shape, MLflow displays the raw fields instead of
-decision cards.
-
 :::tip[Multimodal Content and Attachments]
 MLflow renders images, audio, and supported attachment types inline in the trace viewer. For supported formats,
 framework examples, and how to use the `Attachment` class for binary content, see

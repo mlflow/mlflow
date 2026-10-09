@@ -6,7 +6,8 @@ import { render } from '@databricks/web-shared/test-utils/render';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { IntlProvider } from '@databricks/i18n';
 
-import { DecisionAnswers, DecisionInputs, resolveOpenAIDecision } from './DecisionView';
+import { DecisionAnswers, DecisionInputs } from './DecisionView';
+import { resolveOpenAIDecision } from './decision-utils/openai';
 
 const Wrapper = ({ children }: { children: React.ReactNode }) => (
   <IntlProvider locale="en">
