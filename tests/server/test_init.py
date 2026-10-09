@@ -191,7 +191,6 @@ def test_build_uvicorn_command_with_env_file():
     assert env_file_path_idx < app_name_idx
 
 
-@skip_on_windows
 def test_run_server(mock_exec_cmd, monkeypatch):
     monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "false")
     server._run_server(
@@ -207,15 +206,13 @@ def test_run_server(mock_exec_cmd, monkeypatch):
     mock_exec_cmd.assert_called_once()
 
 
+@skip_on_windows
 def test_run_server_rejects_invalid_enabled_rollup_schedule(mock_exec_cmd, monkeypatch):
     monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
     monkeypatch.setenv("MLFLOW_SQL_TRACE_ROLLUPS_ENABLED", "true")
     monkeypatch.setenv("MLFLOW_TRACE_ROLLUPS_SCHEDULE", "invalid")
 
     with (
-        mock.patch(
-            "mlflow.server.jobs.local_executor.LocalJobExecutor.check_requirements"
-        ) as check_executor_requirements,
         mock.patch("mlflow.server.jobs.utils._check_requirements"),
         pytest.raises(MlflowException, match="five-field UTC cron"),
     ):
@@ -230,10 +227,10 @@ def test_run_server_rejects_invalid_enabled_rollup_schedule(mock_exec_cmd, monke
             port="5000",
         )
 
-    check_executor_requirements.assert_called_once()
     mock_exec_cmd.assert_not_called()
 
 
+@skip_on_windows
 @pytest.mark.parametrize(
     "variable",
     ["MLFLOW_TRACE_ROLLUPS_MAX_PARTITIONS_PER_RUN", "MLFLOW_TRACE_ROLLUPS_MAX_WORKERS"],
@@ -247,9 +244,6 @@ def test_run_server_rejects_invalid_enabled_rollup_limits(
     monkeypatch.setenv(variable, value)
 
     with (
-        mock.patch(
-            "mlflow.server.jobs.local_executor.LocalJobExecutor.check_requirements"
-        ) as check_executor_requirements,
         mock.patch("mlflow.server.jobs.utils._check_requirements"),
         pytest.raises(MlflowException, match=variable),
     ):
@@ -264,10 +258,10 @@ def test_run_server_rejects_invalid_enabled_rollup_limits(
             port="5000",
         )
 
-    check_executor_requirements.assert_called_once()
     mock_exec_cmd.assert_not_called()
 
 
+@skip_on_windows
 def test_run_server_rejects_missing_job_backend_when_rollups_are_enabled(
     mock_exec_cmd, monkeypatch
 ):
@@ -295,6 +289,7 @@ def test_run_server_rejects_missing_job_backend_when_rollups_are_enabled(
     mock_exec_cmd.assert_not_called()
 
 
+@skip_on_windows
 def test_run_server_rejects_disabled_rollups_when_materialized_rows_exist(
     mock_exec_cmd, monkeypatch, tmp_path
 ):
@@ -317,10 +312,7 @@ def test_run_server_rejects_disabled_rollups_when_materialized_rows_exist(
     monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "false")
     monkeypatch.setenv("MLFLOW_SQL_TRACE_ROLLUPS_ENABLED", "false")
 
-    with (
-        mock.patch("sys.platform", return_value="linux"),
-        pytest.raises(MlflowException, match="mlflow db delete-trace-rollups"),
-    ):
+    with pytest.raises(MlflowException, match="mlflow db delete-trace-rollups"):
         server._run_server(
             file_store_path=database_uri,
             registry_store_uri="",
@@ -335,6 +327,7 @@ def test_run_server_rejects_disabled_rollups_when_materialized_rows_exist(
     mock_exec_cmd.assert_not_called()
 
 
+@skip_on_windows
 def test_run_server_allows_disabled_rollups_for_a_new_sql_database(
     mock_exec_cmd, monkeypatch, tmp_path
 ):
@@ -342,17 +335,16 @@ def test_run_server_allows_disabled_rollups_for_a_new_sql_database(
     monkeypatch.setenv("MLFLOW_SQL_TRACE_ROLLUPS_ENABLED", "false")
     database_path = tmp_path / "new.db"
 
-    with mock.patch("sys.platform", return_value="linux"):
-        server._run_server(
-            file_store_path=f"sqlite:///{database_path}",
-            registry_store_uri="",
-            default_artifact_root="",
-            serve_artifacts="",
-            artifacts_only="",
-            artifacts_destination="",
-            host="localhost",
-            port="5000",
-        )
+    server._run_server(
+        file_store_path=f"sqlite:///{database_path}",
+        registry_store_uri="",
+        default_artifact_root="",
+        serve_artifacts="",
+        artifacts_only="",
+        artifacts_destination="",
+        host="localhost",
+        port="5000",
+    )
 
     mock_exec_cmd.assert_called_once()
     assert not database_path.exists()
@@ -415,7 +407,6 @@ def test_run_server_win32(mock_exec_cmd, monkeypatch):
     mock_exec_cmd.assert_called_once()
 
 
-@skip_on_windows
 def test_run_server_with_uvicorn(mock_exec_cmd, monkeypatch):
     monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "false")
     server._run_server(
