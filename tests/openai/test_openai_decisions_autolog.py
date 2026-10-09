@@ -13,6 +13,12 @@ pytest.importorskip("openai.resources.decisions")
 httpx2 = pytest.importorskip("httpx2")
 
 
+@pytest.fixture(scope="module")
+def mock_openai():
+    # These tests use MockTransport instead of the shared socket-based mock server.
+    pass
+
+
 _QUESTIONS = [
     {
         "type": "predicate",
