@@ -1878,7 +1878,7 @@ async def test_gemini_proxy(api_base, expected_root, streaming):
 async def test_gemini_query_parameters(streaming, passthrough):
     config = chat_config()
     config["model"]["config"]["gemini_api_base"] = (
-        "https://gemini.example.com/relay/v1beta?tenant=acme"
+        "https://gemini.example.com/relay/v1beta?flag=&tenant=acme"
     )
     provider = GeminiProvider(EndpointConfig(**config))
     response_body = fake_chat_response()
@@ -1908,7 +1908,7 @@ async def test_gemini_query_parameters(streaming, passthrough):
 
     mock_session.assert_called_once()
     action_name = "streamGenerateContent" if streaming else "generateContent"
-    query = "tenant=acme&alt=sse" if streaming else "tenant=acme"
+    query = "flag=&tenant=acme&alt=sse" if streaming else "flag=&tenant=acme"
     mock_client.post.assert_called_once_with(
         f"https://gemini.example.com/relay/v1beta/models/gemini-2.0-flash:{action_name}?{query}",
         json=mock.ANY,
