@@ -212,9 +212,12 @@ container, which is what steps 3 and 5 cover.
    Conditions only ever subtract: they can refuse an operation the grants permitted,
    and can never permit one the grants refused. They are evaluated **only for
    creates and mutations** - a read is never conditioned - and every condition that
-   applies must pass, across all of the user's roles. A role with no conditions is
-   unaffected, so a deployment that configures none behaves exactly as it did before
-   the feature existed.
+   applies must pass, across all of the user's roles. Note that this is a property of
+   the *user*, not of a role: because conditions compose across every role a user
+   holds, a condition on one role restricts a grant that came from another, and adding
+   an unconditioned role does not escape it. What reproduces the old behaviour exactly
+   is having no applicable conditions at all - which is what a deployment that
+   configures none has.
 
 Steps 5 and 6 are what make a tier grant optional: with no grant on the tier, the
 container decides exactly as it did before these types existed.
@@ -229,10 +232,19 @@ A grant says _which resources_ a user may act on. A **mutation condition** narro
 _what they may do to them_, by inspecting the request or the resource at the moment
 of the write. Conditions are attached to a role, alongside its permissions.
 
-Conditions never confer access. A role must already hold the grant for an
-operation; a condition can only take that operation away. A role with no conditions
-is unconstrained, so adding the feature changes nothing until a condition is
-written.
+Conditions never confer access. The user must already hold the grant for an
+operation; a condition can only take that operation away. Both halves compose at the
+level of the *user*, and they compose differently: grants are a union across the
+user's roles, while conditions are an AND. So the grant that allows an operation and
+the condition that narrows it need not come from the same role, and a user with no
+applicable conditions is unconstrained - adding the feature changes nothing until a
+condition is written.
+
+A condition can also be attached directly to a user rather than to a named role, the
+same way a direct permission grant is. The admin UI lists those under *Direct
+grants*, and the API exposes them through the per-user endpoint; they are stored on
+the synthetic role that backs the user's direct grants, so everything below applies
+to them unchanged.
 
 Each condition carries up to two independent filters:
 
@@ -718,8 +730,13 @@ alias is stored on the registry entry, and a request naming a version is judged
 against the entry that owns the alias.
 
 Note that this governs the alias a request **sets**. It does not stop the team
-deleting a model version that currently holds `champion` — to protect existing
-state, use a target condition, as in the next scenario.
+deleting a model version that currently holds `champion`, and no condition can:
+deleting a version is judged against `registered_model_version`, whose resource
+vocabulary is `tags.<key>` only, while `aliases.<name>` lives on the registry entry
+one level up. There is no clause that reads "the alias pointing at this version", so
+if deletion must be restricted, condition on state the version itself owns - a
+`tags.<key>` target condition, as in the next scenario - and tag the versions you
+need to protect.
 
 ### 8. Freeze production runs against further changes
 
@@ -845,10 +862,16 @@ it applies to, and each of the two filters, with `—` where a filter is not set
 
 ![Role detail page showing the Mutation conditions tab](/images/self-hosting/rbac-conditions-tab.png)
 
-Reading this table alongside the _Permissions_ tab is how you see a role's real
-reach, because the two compose: the permissions say what the role can touch, and the
-conditions subtract from it. A role with `MANAGE` on every resource type is still
-unable to set a `bob` tag anywhere if a value condition says so.
+Reading this table alongside the _Permissions_ tab is how you see what this role
+contributes, because the two compose: the permissions say what the role can touch,
+and the conditions subtract from it. A role with `MANAGE` on every resource type is
+still unable to set a `bob` tag anywhere if a value condition says so.
+
+It is not the whole picture for any particular user, though. Grants union across a
+user's roles and conditions AND across them, so a user holding this role may be
+allowed more than it grants and restricted by a condition it does not carry. The
+_Mutation Conditions_ tab on a user (and the one on their own account page) is the
+view that answers "what restricts this user".
 
 Conditions are edited through **Edit role**, in the _Mutation conditions_ section.
 Existing conditions are pre-filled; the `✕` on a row stages it for removal. The
