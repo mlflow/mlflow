@@ -213,7 +213,7 @@ container, which is what steps 3 and 5 cover.
    and can never permit one the grants refused. They are evaluated **only for
    creates and mutations** - a read is never conditioned - and every condition that
    applies must pass, across all of the user's roles. Note that this is a property of
-   the *user*, not of a role: because conditions compose across every role a user
+   the _user_, not of a role: because conditions compose across every role a user
    holds, a condition on one role restricts a grant that came from another, and adding
    an unconditioned role does not escape it. What reproduces the old behaviour exactly
    is having no applicable conditions at all - which is what a deployment that
@@ -234,15 +234,15 @@ of the write. Conditions are attached to a role, alongside its permissions.
 
 Conditions never confer access. The user must already hold the grant for an
 operation; a condition can only take that operation away. Both halves compose at the
-level of the *user*, and they compose differently: grants are a union across the
+level of the _user_, and they compose differently: grants are a union across the
 user's roles, while conditions are an AND. So the grant that allows an operation and
 the condition that narrows it need not come from the same role, and a user with no
 applicable conditions is unconstrained - adding the feature changes nothing until a
 condition is written.
 
 A condition can also be attached directly to a user rather than to a named role, the
-same way a direct permission grant is. The admin UI lists those under *Direct
-grants*, and the API exposes them through the per-user endpoint; they are stored on
+same way a direct permission grant is. The admin UI lists those under _Direct
+grants_, and the API exposes them through the per-user endpoint; they are stored on
 the synthetic role that backs the user's direct grants, so everything below applies
 to them unchanged.
 
