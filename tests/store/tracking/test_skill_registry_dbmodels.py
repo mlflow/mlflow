@@ -13,6 +13,7 @@ from pathlib import Path
 import pytest
 import sqlalchemy as sa
 from alembic import command
+from alembic.script import ScriptDirectory
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -656,8 +657,11 @@ def test_migration_downgrade_and_reupgrade(store, db_uri):
     config = _get_alembic_config(db_uri)
     assert _SKILL_REGISTRY_TABLES <= set(sa.inspect(store.engine).get_table_names())
 
-    # Downgrade removes exactly this migration's tables (FK-safe drop order).
-    command.downgrade(config, "b7e2c1a4d9f3")
+    # Downgrade removes exactly this migration's tables (FK-safe drop order). The target is
+    # read from the migration rather than hardcoded, so the downgrade undoes only this
+    # migration even after other migrations are added beneath it.
+    parent = ScriptDirectory.from_config(config).get_revision("e7d1f4b2a9c6").down_revision
+    command.downgrade(config, parent)
     assert _SKILL_REGISTRY_TABLES.isdisjoint(set(sa.inspect(store.engine).get_table_names()))
 
     # Re-upgrade restores them, proving the up/down pair round-trips.
