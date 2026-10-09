@@ -140,13 +140,24 @@ def _hash_array_like_obj_as_bytes(data):
     elif isinstance(data, np.ndarray) and len(data) > 0 and isinstance(data[0], list):
         # convert numpy array of lists into numpy array of the string representation of the lists
         # because lists are not hashable
-        hashable = np.array(str(val) for val in data)
+        hashable = np.array([str(val) for val in data])
         return _hash_ndarray_as_bytes(hashable)
-    elif isinstance(data, np.ndarray) and len(data) > 0 and isinstance(data[0], np.ndarray):
+    elif isinstance(data, np.ndarray) and any(isinstance(row, np.ndarray) for row in data):
         # convert numpy array of numpy arrays into 2d numpy arrays
-        # because numpy array of numpy arrays are not hashable
-        hashable = np.array(data.tolist())
-        return _hash_ndarray_as_bytes(hashable)
+        # because numpy array of numpy arrays are not hashable. Check every row rather
+        # than just the first, since the first row may be a missing value (None or NaN).
+        try:
+            hashable = np.array(data.tolist())
+            return _hash_ndarray_as_bytes(hashable)
+        except ValueError:
+            # Ragged nested arrays can't be stacked; hash each row along with its size
+            # so that different row boundaries produce different hashes. `np.size` (not
+            # `len`) handles non-array rows such as None or NaN for missing values.
+            return b"".join(
+                _hash_data_as_bytes(row)
+                + _hash_uint64_ndarray_as_bytes(np.array([np.size(row)], dtype="uint64"))
+                for row in data
+            )
     elif isinstance(data, np.ndarray):
         return _hash_ndarray_as_bytes(data)
     elif isinstance(data, list):
