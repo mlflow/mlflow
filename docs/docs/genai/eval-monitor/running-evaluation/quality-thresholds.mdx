@@ -85,4 +85,5 @@ for rule in thresholds["rules"]:
 
 - **Unique names**: a scorer with a threshold must not share its name with another scorer in the same evaluation. `evaluate` raises before the run starts.
 - **Numeric values only**: the threshold applies to an aggregated metric, so the scorer must return booleans, numbers, or yes/no values. Scorers that return other values (for example, categorical labels) or emit `Feedback` under a different name produce no matching metric. MLflow logs a warning and the threshold can't be checked.
+- **`EvaluationResult.passed` ignores thresholds**: `passed` requires every scorer's value to pass on every row. A run can therefore fail `passed` while still meeting its thresholds — for example, 95 of 100 rows correct against `at_least=0.9` fails `passed` (5 rows scored no) but meets the threshold. To check the thresholds in Python, read the run tag and compare each rule's `metricKey` against `results.metrics`, as shown above.
 - **Size**: the serialized thresholds must fit in a run tag (8,000 characters), which is enough for well over a dozen scorers.
