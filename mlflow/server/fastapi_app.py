@@ -208,16 +208,17 @@ def add_mcp_exception_handlers(fastapi_app: FastAPI) -> None:
 
 @asynccontextmanager
 async def _lifespan(app: FastAPI):
-    # On startup, clean up assistant sandbox artifacts orphaned by a previous server generation:
-    # containers whose in-process stream is gone, and stale per-session $HOME directories. Runs in
+    # On startup, clean up assistant artifacts orphaned by a previous server generation: sandbox
+    # containers whose in-process stream is gone, stale per-session $HOME directories, and expired
+    # sessions (which loading also refuses, so this only frees disk space). Runs in
     # every uvicorn worker but only removes containers from a *previous* boot id, so it is safe
     # across workers. Note: this only runs under uvicorn (the default ASGI server); gunicorn and
     # waitress use the Flask app, which has no lifespan.
     #
     # Container reaping is NOT gated on the sandbox being enabled in this process: a server that
     # crashed with a sandbox container running and was restarted with the sandbox now off must
-    # still reap that orphan, so it runs whenever a `docker` executable is present. The two reapers
-    # run under separate error boundaries so one failing does not skip the other.
+    # still reap that orphan, so it runs whenever a `docker` executable is present. The reapers run
+    # under separate error boundaries so one failing does not skip the others.
     if shutil.which("docker") is not None:
         try:
             from mlflow.server.sandbox import reap_orphaned_sandbox_containers
