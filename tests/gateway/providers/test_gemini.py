@@ -75,6 +75,14 @@ def api_base(request):
         ("https://gemini.example.com/v1beta/", "https://gemini.example.com/v1beta/models"),
         ("https://gemini.example.com/v1/models/", "https://gemini.example.com/v1/models"),
         ("https://gemini.example.com/v1beta/models/", "https://gemini.example.com/v1beta/models"),
+        (
+            "https://gemini.example.com/relay/v1beta/?tenant=acme",
+            "https://gemini.example.com/relay/v1beta/models?tenant=acme",
+        ),
+        (
+            "https://gemini.example.com/relay/v1beta/models/?tenant=acme",
+            "https://gemini.example.com/relay/v1beta/models?tenant=acme",
+        ),
     ],
 )
 def test_gemini_base_url(api_base, expected_base):
@@ -83,13 +91,15 @@ def test_gemini_base_url(api_base, expected_base):
     provider = GeminiProvider(EndpointConfig(**config))
 
     assert provider.base_url == expected_base
+    base_path, _, query = expected_base.partition("?")
+    query_suffix = f"?{query}" if query else ""
     assert (
         provider.get_endpoint_url("llm/v1/chat")
-        == f"{expected_base}/gemini-2.0-flash:generateContent"
+        == f"{base_path}/gemini-2.0-flash:generateContent{query_suffix}"
     )
     assert (
         provider.get_endpoint_url("llm/v1/embeddings")
-        == f"{expected_base}/gemini-2.0-flash:embedContent"
+        == f"{base_path}/gemini-2.0-flash:embedContent{query_suffix}"
     )
 
 
@@ -1815,6 +1825,10 @@ async def test_passthrough_gemini_stream_generate_content(api_base):
         ("https://gemini.example.com/relay/", "https://gemini.example.com/relay"),
         ("https://gemini.example.com/relay/v1/", "https://gemini.example.com/relay"),
         ("https://gemini.example.com/relay/v1beta/models/", "https://gemini.example.com/relay"),
+        (
+            "https://gemini.example.com/relay/v1beta/?tenant=acme",
+            "https://gemini.example.com/relay?tenant=acme",
+        ),
     ],
 )
 async def test_gemini_proxy(api_base, expected_root, streaming):
@@ -1845,9 +1859,59 @@ async def test_gemini_proxy(api_base, expected_root, streaming):
             assert response == response_body
 
     mock_session.assert_called_once()
+    root_path, _, query = expected_root.partition("?")
+    request_path, _, request_query = path.partition("?")
+    expected_url = f"{root_path}/{request_path}"
+    if combined_query := "&".join(filter(None, [query, request_query])):
+        expected_url += f"?{combined_query}"
     mock_client.post.assert_called_once_with(
-        f"{expected_root}/{path}",
+        expected_url,
         json=payload,
+        timeout=mock.ANY,
+        allow_redirects=False,
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("streaming", [False, True])
+@pytest.mark.parametrize("passthrough", [False, True])
+async def test_gemini_query_parameters(streaming, passthrough):
+    config = chat_config()
+    config["model"]["config"]["gemini_api_base"] = (
+        "https://gemini.example.com/relay/v1beta?tenant=acme"
+    )
+    provider = GeminiProvider(EndpointConfig(**config))
+    response_body = fake_chat_response()
+    chunks = passthrough_stream_generate_content_response()
+    upstream_response = (
+        MockAsyncStreamingResponse(chunks, headers={"Content-Type": "text/event-stream"})
+        if streaming
+        else MockAsyncResponse(response_body)
+    )
+    mock_client = mock_http_client(upstream_response)
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client) as mock_session:
+        if passthrough:
+            action = (
+                PassthroughAction.GEMINI_STREAM_GENERATE_CONTENT
+                if streaming
+                else PassthroughAction.GEMINI_GENERATE_CONTENT
+            )
+            response = await provider.passthrough(action, {"contents": []})
+        else:
+            payload = chat.RequestPayload(messages=[{"role": "user", "content": "Hello"}])
+            response = provider.chat_stream(payload) if streaming else await provider.chat(payload)
+        if streaming:
+            assert [chunk async for chunk in response]
+        else:
+            assert response
+
+    mock_session.assert_called_once()
+    action_name = "streamGenerateContent" if streaming else "generateContent"
+    query = "tenant=acme&alt=sse" if streaming else "tenant=acme"
+    mock_client.post.assert_called_once_with(
+        f"https://gemini.example.com/relay/v1beta/models/gemini-2.0-flash:{action_name}?{query}",
+        json=mock.ANY,
         timeout=mock.ANY,
         allow_redirects=False,
     )
