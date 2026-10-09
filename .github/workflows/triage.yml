@@ -36,7 +36,9 @@ cache-mode: none
 
 jobs:
   issue:
-    if: github.repository == 'mlflow/mlflow'
+    # Set the TRIAGE_DISABLED repository Actions variable to "true" to pause new triage runs.
+    # Delete it or set it to "false" to restore normal behavior.
+    if: github.repository == 'mlflow/mlflow' && vars.TRIAGE_DISABLED != 'true'
     runs-on: ubuntu-slim
     timeout-minutes: 5
     permissions:
