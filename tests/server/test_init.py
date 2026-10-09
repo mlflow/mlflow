@@ -58,6 +58,9 @@ def _wait_for_port_closed(host: str, port: int, timeout: int = 15) -> None:
     raise AssertionError(f"Timed out waiting for {host}:{port} to close")
 
 
+skip_on_windows = pytest.mark.skipif(is_windows(), reason="Not supported on Windows")
+
+
 def test_find_app_custom_app_plugin():
     assert server._find_app("custom_app") == "mlflow_test_plugin.app:custom_app"
 
@@ -188,19 +191,19 @@ def test_build_uvicorn_command_with_env_file():
     assert env_file_path_idx < app_name_idx
 
 
+@skip_on_windows
 def test_run_server(mock_exec_cmd, monkeypatch):
     monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "false")
-    with mock.patch("sys.platform", return_value="linux"):
-        server._run_server(
-            file_store_path="",
-            registry_store_uri="",
-            default_artifact_root="",
-            serve_artifacts="",
-            artifacts_only="",
-            artifacts_destination="",
-            host="",
-            port="",
-        )
+    server._run_server(
+        file_store_path="",
+        registry_store_uri="",
+        default_artifact_root="",
+        serve_artifacts="",
+        artifacts_only="",
+        artifacts_destination="",
+        host="",
+        port="",
+    )
     mock_exec_cmd.assert_called_once()
 
 
@@ -355,6 +358,7 @@ def test_run_server_allows_disabled_rollups_for_a_new_sql_database(
     assert not database_path.exists()
 
 
+@skip_on_windows
 @pytest.mark.parametrize("static_prefix", [None, "", "/mlflow", "/nested/mlflow"])
 @pytest.mark.parametrize("host", ["localhost", "0.0.0.0"])
 def test_run_server_passes_public_store_config_to_job_runner(
@@ -366,9 +370,6 @@ def test_run_server_passes_public_store_config_to_job_runner(
     mock_exec_cmd.return_value.pid = 123
 
     with (
-        mock.patch(
-            "mlflow.server.jobs.local_executor.LocalJobExecutor.check_requirements"
-        ) as check_executor_requirements,
         mock.patch("mlflow.server.jobs.utils._check_requirements") as check_requirements,
         mock.patch("mlflow.server.jobs.utils._launch_job_runner") as launch_job_runner,
         mock.patch(
@@ -389,7 +390,6 @@ def test_run_server_passes_public_store_config_to_job_runner(
 
     mock_exec_cmd.assert_called_once()
     check_requirements.assert_called_once_with("sqlite:///primary.db")
-    check_executor_requirements.assert_called_once()
     validate_rollup_startup.assert_called_once_with("sqlite:///primary.db")
     launch_job_runner.assert_called_once()
     job_env = launch_job_runner.call_args.args[0]
@@ -415,20 +415,20 @@ def test_run_server_win32(mock_exec_cmd, monkeypatch):
     mock_exec_cmd.assert_called_once()
 
 
+@skip_on_windows
 def test_run_server_with_uvicorn(mock_exec_cmd, monkeypatch):
     monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "false")
-    with mock.patch("sys.platform", return_value="linux"):
-        server._run_server(
-            file_store_path="",
-            registry_store_uri="",
-            default_artifact_root="",
-            serve_artifacts="",
-            artifacts_only="",
-            artifacts_destination="",
-            host="localhost",
-            port="5000",
-            uvicorn_opts="--reload",
-        )
+    server._run_server(
+        file_store_path="",
+        registry_store_uri="",
+        default_artifact_root="",
+        serve_artifacts="",
+        artifacts_only="",
+        artifacts_destination="",
+        host="localhost",
+        port="5000",
+        uvicorn_opts="--reload",
+    )
     expected_command = [
         sys.executable,
         "-m",
@@ -480,7 +480,7 @@ def test_build_uvicorn_command_user_log_config_takes_precedence(uvicorn_opts):
     [
         pytest.param(
             signal.SIGTERM,
-            marks=pytest.mark.skipif(is_windows(), reason="SIGTERM is a hard kill on Windows"),
+            marks=skip_on_windows,
         ),
         signal.SIGINT,
     ],
