@@ -63,6 +63,9 @@ export const state: ServerState = {
 export const env = {
   lastSearch: '',
   metricsTotalCount: 42,
+  sessionsTotalCount: 7,
+  // `metric_name` of each trace-metrics request, in call order.
+  metricsCalls: [] as string[],
 };
 
 const LocationSpy = () => {
@@ -128,6 +131,15 @@ export const sortByTime = async (
   await user.click(await screen.findByRole('menuitem', { name: `Sort ${direction}` }));
 };
 
+// Answers with the session total for `session_count` (grouped-by-session footer) and the trace total
+// otherwise, recording which metric each request asked for.
+const metricsHandler: Parameters<typeof rest.post>[1] = async (req, res, ctx) => {
+  const { metric_name: metricName = '' } = (await req.json()) as { metric_name?: string };
+  env.metricsCalls.push(metricName);
+  const count = metricName === 'session_count' ? env.sessionsTotalCount : env.metricsTotalCount;
+  return res(ctx.json({ data_points: [{ metric_name: metricName, values: { COUNT: count } }] }));
+};
+
 export const server = setupServer(
   // OSS uses the synchronous V3 search endpoint. Record the request body (assertions target this),
   // look up the page by token, and return { traces, next_page_token }.
@@ -147,12 +159,8 @@ export const server = setupServer(
   // The footer "{n} of {total}" count reads the total from the trace-metrics endpoint. The endpoint
   // version depends on `shouldUseTracesV4API()` (3.0 when off, 4.0 when on), so mock both — the V4
   // tab uses 4.0 when the flag is enabled.
-  rest.post('/ajax-api/3.0/mlflow/traces/metrics', (_req, res, ctx) =>
-    res(ctx.json({ data_points: [{ metric_name: 'trace_count', values: { COUNT: env.metricsTotalCount } }] })),
-  ),
-  rest.post('/ajax-api/4.0/mlflow/traces/metrics', (_req, res, ctx) =>
-    res(ctx.json({ data_points: [{ metric_name: 'trace_count', values: { COUNT: env.metricsTotalCount } }] })),
-  ),
+  rest.post('/ajax-api/3.0/mlflow/traces/metrics', metricsHandler),
+  rest.post('/ajax-api/4.0/mlflow/traces/metrics', metricsHandler),
 );
 
 export const { history } = setupTestRouter();
@@ -174,6 +182,8 @@ beforeEach(() => {
   state.searchShouldFail = false;
   state.searchErrorMessage = 'search boom';
   env.metricsTotalCount = 42;
+  env.sessionsTotalCount = 7;
+  env.metricsCalls = [];
 });
 
 afterEach(() => {

@@ -44,7 +44,10 @@ export interface UseTracesV4ControllerResult {
   columns: ReturnType<typeof useTracesV4Columns>;
   assessments: ReturnType<typeof useTracesV4AssessmentColumns>;
   columnSizing: ReturnType<typeof useTracesV4ColumnSizing>;
-  /** "{n} of {total}" footer count — current page rows out of the experiment total. */
+  /**
+   * "{n} of {total}" footer count — current page rows out of the experiment total, or session groups
+   * out of the session total when grouped by session.
+   */
   traceCount: ReturnType<typeof useTracesV4TraceCount>;
   customColumns: TracesV4CustomColumns;
   /** Mixed display order across standard + assessment columns (drag/keyboard reorder + persistence). */
@@ -184,13 +187,25 @@ export const useTracesV4Controller = ({ experimentId }: UseTracesV4ControllerPar
   const columns = useTracesV4Columns(experimentId, { hasSessionOnPage });
   const assessments = useTracesV4AssessmentColumns(experimentId, page.traces);
   const columnSizing = useTracesV4ColumnSizing(experimentId);
-  const traceCount = useTracesV4TraceCount(experimentId, page.traces.length, timeRange, {
-    isExactTraceIdSearch: isExactTraceIdSearch(url.search),
-    // The page's row count is the exact-id result only once the row query has settled on the current
-    // filter. `isPreviousData` covers the tick where `url.search` has committed the trace-id but the
-    // row query is still serving the prior page's rows and hasn't flipped `isFetching` yet.
-    isResultLoading: page.isLoading || page.isFetching || page.isPreviousData,
-  });
+  // Grouped mode counts session groups (standalone traces carry no session, so they aren't counted),
+  // matching the `session_count` metric used for the total.
+  const sessionGroupsOnPage = useMemo(
+    () => new Set(page.traces.map((trace) => trace.trace_metadata?.[SESSION_ID_METADATA_KEY]).filter(Boolean)).size,
+    [page.traces],
+  );
+  const traceCount = useTracesV4TraceCount(
+    experimentId,
+    isGroupedBySession ? sessionGroupsOnPage : page.traces.length,
+    timeRange,
+    {
+      isExactTraceIdSearch: isExactTraceIdSearch(url.search),
+      // The page's row count is the exact-id result only once the row query has settled on the current
+      // filter. `isPreviousData` covers the tick where `url.search` has committed the trace-id but the
+      // row query is still serving the prior page's rows and hasn't flipped `isFetching` yet.
+      isResultLoading: page.isLoading || page.isFetching || page.isPreviousData,
+      countSessions: isGroupedBySession,
+    },
+  );
   const customColumns = useTracesV4CustomColumns(
     page.traces,
     columns.dynamicVisibilityById,
