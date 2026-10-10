@@ -3,20 +3,24 @@ import type { SearchRunsApiResponse } from '@mlflow/mlflow/src/experiment-tracki
 import { MlflowService } from '../../../sdk/MlflowService';
 import { useMemo } from 'react';
 
+export const SEARCH_RUNS_QUERY_KEY = 'SEARCH_RUNS';
+
 export const useExperimentEvaluationRunsData = ({
   experimentId,
   enabled,
   filter,
+  fetchAllPages = false,
 }: {
   experimentId: string;
   enabled: boolean;
   filter: string;
+  fetchAllPages?: boolean;
 }) => {
   const { data, fetchNextPage, hasNextPage, isLoading, isFetching, refetch, error } = useInfiniteQuery<
     SearchRunsApiResponse,
     Error
   >({
-    queryKey: ['SEARCH_RUNS', experimentId, filter],
+    queryKey: [SEARCH_RUNS_QUERY_KEY, experimentId, filter, fetchAllPages],
     queryFn: async ({ pageParam = undefined }) => {
       const requestBody = {
         experiment_ids: [experimentId],
@@ -27,7 +31,15 @@ export const useExperimentEvaluationRunsData = ({
         page_token: pageParam,
       };
 
-      return MlflowService.searchRuns(requestBody);
+      let response = await MlflowService.searchRuns(requestBody);
+      if (!fetchAllPages) return response;
+
+      const runs = [...(response.runs ?? [])];
+      while (response.next_page_token) {
+        response = await MlflowService.searchRuns({ ...requestBody, page_token: response.next_page_token });
+        runs.push(...(response.runs ?? []));
+      }
+      return { ...response, runs, next_page_token: undefined };
     },
     cacheTime: 0,
     refetchOnWindowFocus: false,

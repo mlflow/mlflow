@@ -50,6 +50,17 @@ const ExperimentPageSideNavGenAIConfig = {
     {
       label: (
         <FormattedMessage
+          defaultMessage="Dashboard"
+          description="Label for the dashboard tab in the MLflow experiment navbar"
+        />
+      ),
+      icon: <ChartLineIcon />,
+      tabName: ExperimentPageTabName.Dashboard,
+      componentId: 'mlflow.experiment-side-nav.genai.dashboard',
+    },
+    {
+      label: (
+        <FormattedMessage
           defaultMessage="Sessions"
           description="Label for the chat sessions tab in the MLflow experiment navbar"
         />
@@ -213,9 +224,10 @@ export const useExperimentPageSideNavConfig = ({
     experimentKind === ExperimentKind.GENAI_DEVELOPMENT ||
     experimentKind === ExperimentKind.GENAI_DEVELOPMENT_INFERRED
   ) {
+    const overviewEnabled = shouldEnableExperimentOverviewTab(hasV4Location);
     const baseConfig = {
       'top-level': [
-        ...(shouldEnableExperimentOverviewTab(hasV4Location)
+        ...(overviewEnabled
           ? [
               {
                 label: (
@@ -247,6 +259,11 @@ export const useExperimentPageSideNavConfig = ({
           : []),
       ],
       ...ExperimentPageSideNavGenAIConfig,
+      observability: overviewEnabled
+        ? ExperimentPageSideNavGenAIConfig.observability
+        : ExperimentPageSideNavGenAIConfig.observability.filter(
+            ({ tabName }) => tabName !== ExperimentPageTabName.Dashboard,
+          ),
       'prompts-versions': gatewayEnabled
         ? ExperimentPageSideNavGenAIConfig['prompts-versions']
         : ExperimentPageSideNavGenAIConfig['prompts-versions'].filter(

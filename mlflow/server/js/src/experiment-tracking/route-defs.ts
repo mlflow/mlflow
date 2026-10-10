@@ -60,15 +60,43 @@ const getExperimentPageRouteDefs = () => {
       handle: { getPageTitle: (params) => `Experiment ${params['experimentId']}` } satisfies RouteHandle,
       children: [
         {
+          path: RoutePaths.experimentPageTabJourneyOverview,
+          pageId: PageId.experimentPageTabJourneyOverview,
+          element: createLazyRouteElement(
+            () => import('./pages/experiment-overview/ExperimentGenAIJourneyOverviewPage'),
+          ),
+          handle: {
+            getPageTitle: (params) => `Overview - Experiment ${params['experimentId']}`,
+            getAssistantPrompts: () => [
+              'How do I get started with MLflow for my agent?',
+              'Find common failure modes in recent traces.',
+              'How do I set up evaluation?',
+            ],
+          } satisfies RouteHandle,
+        },
+        {
           path: RoutePaths.experimentPageTabOverview,
           pageId: PageId.experimentPageTabOverview,
           element: createLazyRouteElement(() => import('./pages/experiment-overview/ExperimentGenAIOverviewPage')),
           handle: {
-            getPageTitle: (params) => `Overview - Experiment ${params['experimentId']}`,
+            getPageTitle: (params) => `Dashboard - Experiment ${params['experimentId']}`,
             getAssistantPrompts: () => [
-              'How do I get started with MLflow GenAI?',
               'What is the trend of token usage?',
               'Why did the error rate spike?',
+              'Which tools are slowest?',
+            ],
+          } satisfies RouteHandle,
+        },
+        {
+          path: RoutePaths.experimentPageTabDashboard,
+          pageId: PageId.experimentPageTabDashboard,
+          element: createLazyRouteElement(() => import('./pages/experiment-overview/ExperimentGenAIOverviewPage')),
+          handle: {
+            getPageTitle: (params) => `Dashboard - Experiment ${params['experimentId']}`,
+            getAssistantPrompts: () => [
+              'What is the trend of token usage?',
+              'Why did the error rate spike?',
+              'Which tools are slowest?',
             ],
           } satisfies RouteHandle,
         },

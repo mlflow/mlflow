@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   Modal,
   Button,
@@ -20,6 +20,7 @@ import { useApiKeyConfiguration } from '../../../../../gateway/components/model-
 import { ALL_ISSUE_CATEGORIES } from './IssueDetectionCategories';
 import { useInvokeIssueDetection } from './hooks/useInvokeIssueDetection';
 import { recordSubmittedIssueDetectionJob } from './IssueDetectionJobNotifications';
+import type { SubmittedIssueDetectionJob } from './IssueDetectionJobNotifications';
 import { estimateIssueDetectionCostUsd, formatEstimatedCostUsd } from './issueDetectionCostEstimate';
 import {
   ISSUE_DETECTION_PROVIDERS,
@@ -30,6 +31,7 @@ import heroImg from '../../../../../common/static/issue-detection-empty.svg';
 
 interface IssueDetectionModalProps {
   onClose: () => void;
+  onJobStarted?: (job: SubmittedIssueDetectionJob) => void;
   experimentId?: string;
   initialSelectedTraceIds?: string[];
   availableTraceIds?: string[];
@@ -45,6 +47,7 @@ type ModalView = 'main' | 'apiKey';
 
 export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
   onClose,
+  onJobStarted,
   experimentId,
   initialSelectedTraceIds = [],
   availableTraceIds = [],
@@ -59,10 +62,18 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
       ? initialSelectedTraceIds
       : availableTraceIds.slice(0, QUICK_SELECT_TRACE_COUNT);
   });
+  const hasSeededDefaultSelectionRef = useRef(initialSelectedTraceIds.length > 0 || availableTraceIds.length > 0);
   const [selection, setSelection] = useState<IssueDetectionModelSelection | null>(null);
   const [view, setView] = useState<ModalView>('main');
   const [apiKeyDraft, setApiKeyDraft] = useState('');
   const [isSelectTracesModalOpen, setIsSelectTracesModalOpen] = useState(false);
+
+  useEffect(() => {
+    if (!hasSeededDefaultSelectionRef.current && availableTraceIds.length > 0) {
+      hasSeededDefaultSelectionRef.current = true;
+      setSelectedTraceIds(availableTraceIds.slice(0, QUICK_SELECT_TRACE_COUNT));
+    }
+  }, [availableTraceIds]);
 
   const { data: endpoints, isLoading: isLoadingEndpoints } = useEndpointsQuery();
 
@@ -138,12 +149,13 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
         onSuccess: (response) => {
           const traceCount = selectedTraceIds.length;
           onClose();
-          recordSubmittedIssueDetectionJob({
+          const submittedJob = recordSubmittedIssueDetectionJob({
             experimentId,
             jobId: response.job_id,
             runId: response.run_id,
             traceCount,
           });
+          onJobStarted?.(submittedJob);
         },
       },
     );
