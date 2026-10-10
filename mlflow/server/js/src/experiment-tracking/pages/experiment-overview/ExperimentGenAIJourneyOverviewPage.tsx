@@ -517,7 +517,7 @@ export const ExperimentGenAIJourneyOverviewPage = () => {
               />
             )}
           </Typography.Title>
-          {!showTracingOnboarding && (
+          {!showTracingOnboarding && canUseAssistant && (
             <GenAIOverviewPromptBox
               chartContext={promptChartContext}
               onClearChartContext={() => setPromptChartContext(undefined)}
@@ -674,7 +674,7 @@ export const ExperimentGenAIJourneyOverviewPage = () => {
                     <GenAIOverviewTraceActivityChart
                       activity={traceState.activity}
                       experimentId={experimentId}
-                      onAskAssistant={setPromptChartContext}
+                      onAskAssistant={canUseAssistant ? setPromptChartContext : undefined}
                     />
                   ) : undefined
                 }
@@ -716,7 +716,7 @@ export const ExperimentGenAIJourneyOverviewPage = () => {
                     analyzeState.status === 'completed' ? (
                       <GenAIOverviewIssueSeverityChart
                         activity={analyzeState.activity}
-                        onAskAssistant={setPromptChartContext}
+                        onAskAssistant={canUseAssistant ? setPromptChartContext : undefined}
                         issuesRoute={
                           latestIssueDetectionRunRoute ??
                           Routes.getExperimentPageTabRoute(experimentId, ExperimentPageTabName.EvaluationRuns)
@@ -773,7 +773,7 @@ export const ExperimentGenAIJourneyOverviewPage = () => {
                       experimentId={experimentId}
                       assessmentScoreNames={evalState.assessmentScoreNames}
                       scorePoints={evalState.scorePoints}
-                      onAskAssistant={setPromptChartContext}
+                      onAskAssistant={canUseAssistant ? setPromptChartContext : undefined}
                     />
                   ) : undefined
                 }
@@ -862,7 +862,7 @@ export const ExperimentGenAIJourneyOverviewPage = () => {
                       trendByScorerName={monitorState.trendByScorerName ?? new Map()}
                       isLoading={monitorState.isTrendLoading}
                       activeScorerName={activeMonitorScorerName}
-                      onAskAssistant={setPromptChartContext}
+                      onAskAssistant={canUseAssistant ? setPromptChartContext : undefined}
                     />
                   ) : undefined
                 }

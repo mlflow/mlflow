@@ -70,21 +70,22 @@ jest.mock('../experiment-page-tabs/SqlWarehouseContext', () => ({
 }));
 
 jest.mock('./components/GenAIOverviewTraceActivityChart', () => ({
-  GenAIOverviewTraceActivityChart: ({ onAskAssistant }: { onAskAssistant: (context: unknown) => void }) => (
-    <button
-      onClick={() =>
-        onAskAssistant({
-          stage: 'trace',
-          label: 'Trace requests · Aug 1–8',
-          startTimeMs: Date.UTC(2026, 7, 1),
-          endTimeMsExclusive: Date.UTC(2026, 7, 8),
-          traceCount: 12,
-        })
-      }
-    >
-      Attach trace chart
-    </button>
-  ),
+  GenAIOverviewTraceActivityChart: ({ onAskAssistant }: { onAskAssistant?: (context: unknown) => void }) =>
+    onAskAssistant ? (
+      <button
+        onClick={() =>
+          onAskAssistant({
+            stage: 'trace',
+            label: 'Trace requests · Aug 1–8',
+            startTimeMs: Date.UTC(2026, 7, 1),
+            endTimeMsExclusive: Date.UTC(2026, 7, 8),
+            traceCount: 12,
+          })
+        }
+      >
+        Attach trace chart
+      </button>
+    ) : null,
 }));
 
 jest.mock('../../components/experiment-page/components/traces-v3/IssueDetectionModal', () => ({
@@ -183,6 +184,22 @@ describe('ExperimentGenAIJourneyOverviewPage', () => {
       expect.stringContaining('## Selected Overview chart context'),
     );
     expect(mockSendAssistantMessage).toHaveBeenCalledWith(expect.stringContaining('"traceCount": 12'));
+  });
+
+  test('hides Assistant actions when the Assistant is unavailable', async () => {
+    mockUseAssistant.mockReturnValue({
+      canUseAssistant: false,
+      openPanel: mockOpenAssistantPanel,
+      prefillPrompt: mockPrefillAssistantPrompt,
+      sendMessageWhenReady: mockSendAssistantMessage,
+    });
+
+    renderPage();
+
+    expect(await screen.findByRole('heading', { name: "Let's improve your agent with MLflow" })).toBeVisible();
+    expect(screen.queryByRole('textbox', { name: 'Ask MLflow about this agent' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Attach trace chart' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Detect Issues' })).not.toBeInTheDocument();
   });
 
   test('prefills the Assistant when native issue detection is unavailable', async () => {
