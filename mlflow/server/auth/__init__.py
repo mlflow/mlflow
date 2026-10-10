@@ -5143,8 +5143,41 @@ def _get_proxy_artifact_validator(
     }.get(method)
 
 
+def _authenticate_flask_delegation_token() -> Authorization | None:
+    """Authenticate a Flask request by a signed, user-scoped Assistant delegation credential.
+
+    The Flask counterpart of ``_authenticate_internal_delegation_token``: the classic MLflow REST
+    API (experiments, runs, models, ...) is served by Flask, so an Assistant tool's ``mlflow`` calls
+    reach these routes and must authenticate as the session owner here too. Returns an
+    ``Authorization`` naming the delegated user so every downstream ``authenticate_request()`` call
+    (in ``_before_request`` and in the per-route validators) sees the same identity, or ``None``
+    when the header is absent or invalid, so the request falls through to configured authentication.
+    """
+    # Imported lazily so core auth does not depend on the optional Assistant feature modules at
+    # import time; both are cached after the first request.
+    from mlflow.server.assistant.delegation import verify_delegation_credential
+    from mlflow.tracking.request_auth.assistant_delegation_request_auth_provider import (
+        ASSISTANT_DELEGATION_HEADER,
+    )
+
+    username = verify_delegation_credential(request.headers.get(ASSISTANT_DELEGATION_HEADER))
+    if username is None:
+        return None
+    # A valid signature for a user that no longer exists must not authenticate.
+    try:
+        store.get_user(username)
+    except Exception:
+        return None
+    return Authorization("basic", data={"username": username, "password": ""})
+
+
 def authenticate_request() -> Authorization | Response:
     """Use configured authorization function to get request authorization."""
+    # An Assistant tool subprocess carries a delegation credential instead of Basic credentials, and
+    # it is honored ahead of (and independent of) the configured authorization function, mirroring
+    # the FastAPI path (see ``_authenticate_internal_delegation_token``).
+    if delegated := _authenticate_flask_delegation_token():
+        return delegated
     auth_func = get_auth_func(auth_config.authorization_function)
     return auth_func()
 
@@ -7782,6 +7815,68 @@ _ROUTES_NEEDING_BODY = frozenset((
 ))
 
 
+def _authenticate_internal_gateway_token(request: StarletteRequest) -> User | None:
+    """Trust a server-internal caller on a ``/gateway/`` route by the internal gateway token.
+
+    The server generates a random token at startup and shares it with all worker processes and job
+    subprocesses via ``_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN``. A caller that presents it as the
+    Basic password (in the dedicated ``X-MLflow-Authorization`` header) on a ``/gateway/`` route is
+    trusted as the named user without ``store.authenticate_user()``. This is independent of the
+    configured ``authorization_function``, so server-internal callers (job subprocesses such as
+    online scoring, and the MLflow Assistant's gateway provider) work on custom-auth deployments
+    too. Restricted to ``/gateway/`` so the token is never a master password on other endpoints;
+    returns ``None`` otherwise, so the caller falls through to the configured authentication.
+    """
+    internal_token = _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.get()
+    if not internal_token:
+        return None
+    request_path = get_routed_asgi_path(request)
+    static_prefix = os.environ.get(STATIC_PREFIX_ENV_VAR, "").rstrip("/")
+    if static_prefix and request_path.startswith(static_prefix):
+        request_path = request_path[len(static_prefix) :]
+    if not request_path.startswith("/gateway/"):
+        return None
+    auth = request.headers.get(MLFLOW_GATEWAY_AUTH_HEADER) or request.headers.get("Authorization")
+    if not auth:
+        return None
+    try:
+        scheme, credentials = auth.split()
+        if scheme.lower() != "basic":
+            return None
+        username, _, password = base64.b64decode(credentials).decode("ascii").partition(":")
+        if secrets.compare_digest(password, internal_token):
+            return store.get_user(username)
+    except Exception:
+        return None
+    return None
+
+
+def _authenticate_internal_delegation_token(request: StarletteRequest) -> User | None:
+    """Trust a server-internal caller by a signed, user-scoped Assistant delegation credential.
+
+    The MLflow Assistant injects this credential into a tool subprocess so the tool's MLflow API
+    calls run as the session owner (see ``mlflow/server/assistant/delegation.py``). Unlike the
+    gateway token it is bound to one username by an HMAC signature and expires, so it is honored on
+    any route: a leaked value impersonates only that user, briefly, and the signing key never
+    leaves the server. Returns None when absent or invalid, so the caller falls through to the
+    configured authentication.
+    """
+    # Imported lazily so core auth does not depend on the optional Assistant feature modules at
+    # import time; both are cached after the first request.
+    from mlflow.server.assistant.delegation import verify_delegation_credential
+    from mlflow.tracking.request_auth.assistant_delegation_request_auth_provider import (
+        ASSISTANT_DELEGATION_HEADER,
+    )
+
+    username = verify_delegation_credential(request.headers.get(ASSISTANT_DELEGATION_HEADER))
+    if username is None:
+        return None
+    try:
+        return store.get_user(username)
+    except Exception:
+        return None
+
+
 def _authenticate_fastapi_request(request: StarletteRequest) -> User | None:
     """
     Authenticate request using Basic Auth.
@@ -7789,7 +7884,7 @@ def _authenticate_fastapi_request(request: StarletteRequest) -> User | None:
     External clients send real username/password credentials. Server-spawned job
     subprocesses (e.g., online scoring) send the internal gateway token as the
     password; when it matches, the user is trusted without calling
-    ``store.authenticate_user()``.
+    ``store.authenticate_user()`` (see ``_authenticate_internal_gateway_token``).
 
     Args:
         request: The Starlette/FastAPI Request object.
@@ -7797,6 +7892,11 @@ def _authenticate_fastapi_request(request: StarletteRequest) -> User | None:
     Returns:
         User object if authentication succeeds, None otherwise.
     """
+    if user := _authenticate_internal_gateway_token(request):
+        return user
+    if user := _authenticate_internal_delegation_token(request):
+        return user
+
     request_path = get_routed_asgi_path(request)
     static_prefix = os.environ.get(STATIC_PREFIX_ENV_VAR, "").rstrip("/")
     if static_prefix and request_path.startswith(static_prefix):
@@ -7822,21 +7922,6 @@ def _authenticate_fastapi_request(request: StarletteRequest) -> User | None:
             return None
         decoded = base64.b64decode(credentials).decode("ascii")
         username, _, password = decoded.partition(":")
-
-        # Check if this is a trusted internal request from a job subprocess.
-        # The server generates a random token at startup and passes it to workers
-        # via _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN. When the password matches that
-        # token, we trust the username without calling store.authenticate_user().
-        # Restrict to /gateway/ routes only so the token cannot be used as a
-        # master password on other endpoints (e.g. /v1/traces, /ajax-api/).
-        internal_token = _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.get()
-        if (
-            internal_token
-            and request_path.startswith("/gateway/")
-            and secrets.compare_digest(password, internal_token)
-        ):
-            return store.get_user(username)
-
         return _authenticate_cached(username, password)
     except Exception:
         return None
@@ -8709,6 +8794,13 @@ def authenticate_fastapi_request_user(
         MlflowException: If a custom auth function returns an unsupported type.
     """
     if auth_config.authorization_function != DEFAULT_AUTHORIZATION_FUNCTION:
+        # A custom authorization_function does not consult the internal gateway token, so check it
+        # here first: a server-internal caller (a job subprocess, the Assistant's gateway provider)
+        # presenting the token on a /gateway/ route is trusted regardless of the configured auth.
+        if user := _authenticate_internal_gateway_token(request):
+            return user
+        if user := _authenticate_internal_delegation_token(request):
+            return user
         return _authenticate_custom_for_fastapi(request)
     return _authenticate_fastapi_request(request)
 
