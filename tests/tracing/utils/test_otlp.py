@@ -7,17 +7,17 @@ import pytest
 from fastapi import HTTPException
 
 import mlflow
-from mlflow.entities.span import SpanType
+from mlflow.entities.span import Span, SpanType
 from mlflow.environment_variables import MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT
 from mlflow.tracing.processor.mlflow_v3 import MlflowV3SpanProcessor
 from mlflow.tracing.processor.otel import OtelSpanProcessor
 from mlflow.tracing.provider import _get_trace_exporter, _get_tracer
 from mlflow.tracing.provider import provider as mlflow_provider
-from mlflow.tracing.utils.otlp import _set_otel_proto_anyvalue
+from mlflow.tracing.utils.otlp import _set_otel_proto_anyvalue, build_otlp_export_request
 from mlflow.tracking import MlflowClient
 from mlflow.utils.os import is_windows
 
-from tests.tracing.helper import get_traces
+from tests.tracing.helper import create_mock_otel_span, get_traces
 
 # OTLP exporters are not installed in some CI jobs
 try:
@@ -327,3 +327,20 @@ def test_set_otel_proto_anyvalue_sanitizes_lone_surrogate_dict_key():
 
     assert value.kvlist_value.values[0].key == "bad?"
     assert value.kvlist_value.values[0].value.string_value == "ok"
+
+
+def test_build_otlp_export_request_from_mlflow_spans():
+    otel_span = create_mock_otel_span(trace_id=1, span_id=1)
+    # MLflow stores span attributes JSON-encoded on the raw OTel span; the request
+    # must carry the decoded values (no surrounding JSON quotes).
+    otel_span.set_attribute("mlflow.spanType", '"UNKNOWN"')
+
+    request = build_otlp_export_request([Span(otel_span)])
+
+    assert len(request.resource_spans) == 1
+    assert len(request.resource_spans[0].scope_spans) == 1
+    pb_span = request.resource_spans[0].scope_spans[0].spans[0]
+    assert pb_span.name == "test_span"
+    attrs = {attr.key: attr.value for attr in pb_span.attributes}
+    assert attrs["mlflow.spanType"].WhichOneof("value") == "string_value"
+    assert attrs["mlflow.spanType"].string_value == "UNKNOWN"

@@ -1052,6 +1052,29 @@ MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT = _BooleanEnvironmentVariable(
 #: (default: ``True``)
 MLFLOW_ENABLE_OTLP_EXPORTER = _BooleanEnvironmentVariable("MLFLOW_ENABLE_OTLP_EXPORTER", True)
 
+#: When ``True`` (default) and the trace destination is a Unity Catalog location with
+#: service-principal credentials, MLflow exports trace spans directly to the Databricks
+#: OTel collector instead of the MLflow tracing server. Trace-level metadata (TraceInfo)
+#: still flows through the MLflow backend. Set to ``False`` to always use the MLflow
+#: tracing server span export path. If a collector request fails after it may have
+#: reached the collector, MLflow resends that batch through the tracing server and
+#: uses the tracing server for batches started after the fallback. Concurrent
+#: exports already in progress may still reach the collector. This favors
+#: delivery but may write duplicate spans if the collector already ingested the
+#: failed request.
+#: (default: ``True``)
+MLFLOW_ENABLE_DATABRICKS_OTEL_COLLECTOR_EXPORT = _BooleanEnvironmentVariable(
+    "MLFLOW_ENABLE_DATABRICKS_OTEL_COLLECTOR_EXPORT", True
+)
+
+#: Explicit Databricks OTel collector ingest endpoint override. When set, the endpoint
+#: resolver uses this value instead of auto-assembling it from workspace metadata. The
+#: value must pass the ``is_databricks_otel_collector_host`` validator.
+#: (default: ``None``)
+MLFLOW_DATABRICKS_OTEL_COLLECTOR_ENDPOINT = _EnvironmentVariable(
+    "MLFLOW_DATABRICKS_OTEL_COLLECTOR_ENDPOINT", str, None
+)
+
 #: By default, MLflow uses an isolated TracerProvider instance to generate traces, instead of the
 #: OpenTelemetry's singleton TracerProvider. Set this to False to let MLflow share the same OTel
 # TracerProvider and allow mixing MLflow SDK and Otel SDK to generate a single trace.

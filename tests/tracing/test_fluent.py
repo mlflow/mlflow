@@ -3270,7 +3270,8 @@ def test_tracing_context_enabled_is_thread_safe():
 
 
 def test_flush_trace_async_logging_calls_flush_when_async_queue_exists():
-    mock_exporter = mock.MagicMock()
+    mock_exporter = mock.Mock(spec=["_async_queue"])
+    mock_exporter._async_queue = mock.Mock()
     with mock.patch("mlflow.tracking.fluent._get_trace_exporter", return_value=mock_exporter):
         mlflow.flush_trace_async_logging(terminate=False)
     mock_exporter._async_queue.flush.assert_called_once_with(terminate=False)

@@ -127,15 +127,14 @@ def flush_all_batch_processors(timeout_millis: float = 30000, terminate: bool = 
 
 
 def retire_batch_processor(processor: "BaseMlflowSpanProcessor") -> None:
-    """Flush then shut down a batch processor and drop it from the registry.
+    """Flush then shut down a processor and its exporter before replacing its provider.
 
     The outgoing provider's ``BatchSpanProcessor`` daemon thread is never stopped
     by GC, so replacing a provider without this leaks a thread per cycle (#24209).
+    Direct processors can also have exporter-owned span batchers and async queues.
     Flush before shutdown: OTel's ``shutdown()`` makes a later ``force_flush()`` a
     no-op, so flushing first is what prevents dropping queued spans.
     """
-    if processor._batch_delegate is None:
-        return
     # Wait for in-flight on_end calls so their spans reach the queue before the
     # flush, mirroring flush_all_batch_processors().
     with processor._pending_on_end_condition:
