@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type ComponentProps } from 'react';
 import {
   MarkdownIcon,
   SegmentedControlButton,
@@ -16,9 +16,20 @@ import { ArtifactViewErrorState } from './ArtifactViewErrorState';
 import type { LoggedModelArtifactViewerProps } from './ArtifactViewComponents.types';
 import { fetchArtifactUnified } from './utils/fetchArtifactUnified';
 import { GenAIMarkdownRenderer } from '../../../shared/web-shared/genai-markdown-renderer';
+import { CodeBlock } from '../../../shared/web-shared/genai-markdown-renderer/GenAIMarkdownRenderer';
 import { defaultUrlTransform } from 'react-markdown-10';
+import MermaidDiagram from './MermaidDiagram';
 
 const LARGE_MARKDOWN_SIZE = 100 * 1024;
+
+const ArtifactCodeBlock = (props: ComponentProps<typeof CodeBlock>) =>
+  props.language?.toLowerCase() === 'mermaid' ? (
+    <MermaidDiagram>{props.children}</MermaidDiagram>
+  ) : (
+    <CodeBlock {...props} />
+  );
+
+const markdownComponents = { codeBlock: ArtifactCodeBlock };
 
 interface ShowArtifactMarkdownViewProps extends Omit<LoggedModelArtifactViewerProps, 'experimentId' | 'entityTags'> {
   runUuid: string;
@@ -125,7 +136,9 @@ const ShowArtifactMarkdownView = ({
       </div>
       <div css={{ flex: 1, overflow: 'auto', padding: theme.spacing.md }}>
         {showRendered ? (
-          <GenAIMarkdownRenderer urlTransform={defaultUrlTransform}>{mdContent}</GenAIMarkdownRenderer>
+          <GenAIMarkdownRenderer components={markdownComponents} urlTransform={defaultUrlTransform}>
+            {mdContent}
+          </GenAIMarkdownRenderer>
         ) : (
           <SyntaxHighlighter
             language={isLargeFile ? 'text' : 'markdown'}
