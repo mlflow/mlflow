@@ -49,9 +49,70 @@ if TYPE_CHECKING:
 _logger = logging.getLogger(__name__)
 
 _MAX_METADATA_LENGTH = 250
+
+
+class _InvalidPredictResultError(MlflowException):
+    pass
+
+
 _EXPECTED_TEST_CASE_KEYS = {"goal", "persona", "context", "expectations", "simulation_guidelines"}
 _REQUIRED_TEST_CASE_KEYS = {"goal"}
 _RESERVED_CONTEXT_KEYS = {"input", "messages", "mlflow_session_id"}
+
+
+@experimental(version="3.15.0")
+@dataclass(frozen=True)
+class PredictResult:
+    """
+    Explicit return type for ``predict_fn`` when the agent runs out-of-process
+    and manages its own MLflow tracing.
+
+    Wrap your ``predict_fn`` return value in this class to supply the trace ID
+    of the remotely-created trace to the simulator. The simulator will use that
+    ID when fetching traces and attaching assessments, instead of looking up the
+    last trace created in the local process.
+
+    This is the **only** way to pass an external trace ID — the simulator does
+    not inspect plain tuples.
+
+    Args:
+        response: The agent's response (same object you would return without
+            this wrapper — the simulator extracts the assistant message from it).
+        trace_id: The MLflow trace ID of the trace created by the remote agent.
+            Must be a non-empty string. Pass ``None`` to fall back to the
+            thread-local trace ID (equivalent to not using ``PredictResult``).
+
+    Example:
+        .. code-block:: python
+
+            import uuid
+            import requests
+            import mlflow
+            from mlflow.genai.simulators import ConversationSimulator, PredictResult
+
+
+            def predict_fn(input: list[dict], **kwargs) -> PredictResult:
+                correlation_id = str(uuid.uuid4())
+                response = requests.post(
+                    "http://my-agent/",
+                    headers={"baggage": f"correlation_id={correlation_id}"},
+                    json={"messages": input},
+                ).json()
+                # search for the trace the remote agent wrote using correlation_id
+                trace_id = _find_trace_by_correlation_id(correlation_id)
+                return PredictResult(response=response, trace_id=trace_id)
+
+
+            simulator = ConversationSimulator(
+                test_cases=[{"goal": "Get a summary of last quarter's sales"}],
+                max_turns=5,
+            )
+            traces = simulator.simulate(predict_fn)
+    """
+
+    response: Any
+    trace_id: str | None = None
+
 
 PGBAR_FORMAT = (
     "{l_bar}{bar}| {n_fmt}/{total_fmt} [Elapsed: {elapsed}, Remaining: {remaining}] {postfix}"
@@ -392,7 +453,13 @@ class ConversationSimulator:
     - Receives an ``mlflow_session_id`` parameter that uniquely identifies the conversation
       session. This ID is consistent across all turns in the same conversation, allowing you
       to associate related traces or maintain stateful context (e.g., for thread-based agents).
-    - Should return a response (the assistant's message content will be extracted)
+    - Should return either:
+
+      * A response dict/object (the assistant's message content will be extracted), **or**
+      * A :py:class:`PredictResult` wrapping the response and an explicit ``trace_id``, for
+        agents that run out-of-process and manage their own MLflow tracing (e.g. A2A agents
+        called over HTTP). Using ``PredictResult`` is the **only** way to supply an external
+        trace ID — the simulator does not inspect plain tuples.
 
     Args:
         test_cases: List of test case dicts, a DataFrame, or an EvaluationDataset,
@@ -660,6 +727,8 @@ class ConversationSimulator:
                     idx = futures[future]
                     try:
                         all_trace_ids[idx] = future.result()
+                    except _InvalidPredictResultError:
+                        raise
                     except Exception as e:
                         _logger.error(
                             f"Failed to run conversation for test case "
@@ -745,6 +814,8 @@ class ConversationSimulator:
                     _logger.debug(f"Stopping conversation: goal achieved at turn {turn}")
                     break
 
+            except _InvalidPredictResultError:
+                raise
             except Exception as e:
                 _logger.error(f"Error during turn {turn}: {e}", exc_info=True)
                 break
@@ -753,7 +824,7 @@ class ConversationSimulator:
 
     def _invoke_predict_fn(
         self,
-        predict_fn: Callable[..., dict[str, Any]],
+        predict_fn: Callable[..., Any],
         input_messages: list[dict[str, Any]],
         trace_session_id: str,
         goal: str,
@@ -762,7 +833,7 @@ class ConversationSimulator:
         context: dict[str, Any],
         expectations: dict[str, Any] | None,
         turn: int,
-    ) -> tuple[dict[str, Any], str | None]:
+    ) -> tuple[Any, str | None]:
         sig = inspect.signature(predict_fn)
         input_key = "messages" if "messages" in sig.parameters else "input"
         predict_kwargs = {
@@ -791,8 +862,24 @@ class ConversationSimulator:
             metadata=trace_metadata,
         ):
             prev_trace_id = mlflow.get_last_active_trace_id(thread_local=True)
-            response = predict_fn(**predict_kwargs)
-            trace_id = mlflow.get_last_active_trace_id(thread_local=True)
+            raw_result = predict_fn(**predict_kwargs)
+
+            if isinstance(raw_result, PredictResult):
+                # Explicit opt-in: predict_fn is managing its own remote trace.
+                response = raw_result.response
+                external_trace_id = raw_result.trace_id
+                if external_trace_id is not None and not isinstance(external_trace_id, str):
+                    raise _InvalidPredictResultError(
+                        f"PredictResult.trace_id must be a string, got {type(external_trace_id)}"
+                    )
+                if external_trace_id is not None and not external_trace_id.strip():
+                    raise _InvalidPredictResultError(
+                        "PredictResult.trace_id must not be a blank string"
+                    )
+                trace_id = external_trace_id or mlflow.get_last_active_trace_id(thread_local=True)
+            else:
+                response = raw_result
+                trace_id = mlflow.get_last_active_trace_id(thread_local=True)
 
             # If predict_fn didn't create a new trace, create one so that
             # evaluation still works for untraced predict functions.
