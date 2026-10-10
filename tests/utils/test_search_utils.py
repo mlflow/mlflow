@@ -27,6 +27,7 @@ from mlflow.utils.mlflow_tags import MLFLOW_DATASET_CONTEXT
 from mlflow.utils.search_utils import (
     SearchEvaluationDatasetsUtils,
     SearchExperimentsUtils,
+    SearchLoggedModelsPaginationToken,
     SearchLoggedModelsUtils,
     SearchMCPAccessEndpointUtils,
     SearchMCPServerUtils,
@@ -1073,3 +1074,33 @@ def test_search_trace_utils_filter_metadata_is_null():
 
     result = SearchTraceUtils.filter(traces, "metadata.session IS NOT NULL")
     assert {t.trace_id for t in result} == {"t1"}
+
+
+@pytest.mark.parametrize(
+    ("filter_string", "order_by"),
+    [("", None), (None, []), ("", [])],
+)
+def test_search_logged_models_pagination_token_validates_empty_values(
+    filter_string, order_by
+):
+    # Regression test for https://github.com/mlflow/mlflow/issues/26215:
+    # `decode()` normalizes "" / [] to None, so `validate()` must normalize
+    # the request the same way instead of comparing against the raw values.
+    token = SearchLoggedModelsPaginationToken(
+        experiment_ids=["1"],
+        filter_string=filter_string,
+        order_by=order_by,
+        offset=100,
+    ).encode()
+    # Must not raise: the token was issued for this exact request.
+    SearchLoggedModelsPaginationToken.decode(token).validate(
+        ["1"], filter_string, order_by
+    )
+
+
+def test_search_logged_models_pagination_token_rejects_mismatched_filter():
+    token = SearchLoggedModelsPaginationToken(
+        experiment_ids=["1"], filter_string="a > 1", order_by=None, offset=100
+    ).encode()
+    with pytest.raises(MlflowException, match="does not match"):
+        SearchLoggedModelsPaginationToken.decode(token).validate(["1"], "b > 2", None)

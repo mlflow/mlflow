@@ -2759,6 +2759,12 @@ class SearchLoggedModelsPaginationToken:
         filter_string: str | None,
         order_by: list[dict[str, Any]] | None,
     ) -> None:
+        # `decode()` normalizes empty values to None, so normalize the request
+        # the same way. Otherwise a request with `filter_string=""` or
+        # `order_by=[]` never matches its own page token.
+        # See https://github.com/mlflow/mlflow/issues/26215.
+        filter_string = filter_string or None
+        order_by = order_by or None
         if self.experiment_ids != experiment_ids:
             raise MlflowException.invalid_parameter_value(
                 f"Experiment IDs in the page token do not match the requested experiment IDs. "
