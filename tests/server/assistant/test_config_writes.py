@@ -64,7 +64,9 @@ def _client(monkeypatch, localhost: bool) -> TestClient:
     return TestClient(app)
 
 
-def test_remote_authenticated_user_writes_own_provider_config(auth_enabled, monkeypatch):
+def test_remote_authenticated_user_writes_own_provider_config(
+    auth_enabled, sandbox_on, monkeypatch
+):
     client = _client(monkeypatch, localhost=False)
     response = client.put(
         CONFIG_URL,
@@ -88,45 +90,69 @@ def test_remote_config_write_denied_on_no_auth_server(monkeypatch):
     assert response.status_code == 403
 
 
-def test_remote_user_cannot_configure_projects(auth_enabled, monkeypatch):
+_HOST_ONLY_WRITES = [
+    pytest.param(
+        {"projects": {"exp1": {"location": "/srv/proj"}}}, "Project directories", id="projects"
+    ),
+    pytest.param({"projects": {"exp1": None}}, "Project directories", id="remove-project"),
+    pytest.param(
+        {"providers": {"mlflow_gateway": {"api_key": "sk-secret", "gateway_vendor": "openai"}}},
+        "Gateway connections",
+        id="api-key",
+    ),
+    pytest.param(
+        {"providers": {"claude_code": {"permissions": {"full_access": True}}}},
+        "Full access",
+        id="full-access",
+    ),
+]
+
+
+@pytest.mark.parametrize("username", ["alice", "admin"])
+@pytest.mark.parametrize(("payload", "setting"), _HOST_ONLY_WRITES)
+def test_remote_caller_cannot_change_server_wide_settings(
+    auth_enabled, monkeypatch, username, payload, setting
+):
+    # Even an admin: these settings can only be changed from the MLflow server host.
     client = _client(monkeypatch, localhost=False)
-    response = client.put(
-        CONFIG_URL,
-        json={"projects": {"exp1": {"location": "/srv/proj"}}},
-        headers=_auth("alice"),
-    )
+    response = client.put(CONFIG_URL, json=payload, headers=_auth(username))
     assert response.status_code == 403
+    assert response.json()["detail"].startswith(setting)
+    assert "from the MLflow server host" in response.json()["detail"]
 
 
-def test_remote_user_cannot_set_api_key(auth_enabled, monkeypatch):
+def test_remote_caller_can_save_full_access_off(auth_enabled, monkeypatch):
+    # The frontend always sends full_access=false for a caller who cannot enable it.
     client = _client(monkeypatch, localhost=False)
-    response = client.put(
-        CONFIG_URL,
-        json={
-            "providers": {"mlflow_gateway": {"api_key": "sk-secret", "gateway_vendor": "openai"}}
-        },
-        headers=_auth("alice"),
-    )
-    assert response.status_code == 403
-
-
-def test_remote_user_cannot_grant_full_access(auth_enabled, monkeypatch):
-    # Full access bypasses all permission checks, so it is host-only like projects and API keys.
-    client = _client(monkeypatch, localhost=False)
-    response = client.put(
-        CONFIG_URL,
-        json={"providers": {"claude_code": {"permissions": {"full_access": True}}}},
-        headers=_auth("alice"),
-    )
-    assert response.status_code == 403
-
-    # The legitimate frontend payload always sends full_access=false, which is accepted.
     response = client.put(
         CONFIG_URL,
         json={"providers": {"claude_code": {"permissions": {"full_access": False}}}},
         headers=_auth("alice"),
     )
     assert response.status_code == 200
+
+
+def test_remote_caller_cannot_select_a_host_only_provider(auth_enabled, sandbox_on, monkeypatch):
+    # Once selected, the UI would only show that the Assistant is unavailable, with no way back.
+    client = _client(monkeypatch, localhost=False)
+    response = client.put(
+        CONFIG_URL,
+        json={"providers": {"claude_code": {"selected": True}}},
+        headers=_auth("alice"),
+    )
+    assert response.status_code == 403
+    assert "cannot be used from a remote client" in response.json()["detail"]
+
+
+def test_remote_config_write_denied_when_remote_access_is_off(auth_enabled, monkeypatch):
+    monkeypatch.setenv("MLFLOW_ENABLE_REMOTE_ASSISTANT", "false")
+    client = _client(monkeypatch, localhost=False)
+    response = client.put(
+        CONFIG_URL,
+        json={"providers": {"mlflow_gateway": {"model": "gpt-x"}}},
+        headers=_auth("alice"),
+    )
+    assert response.status_code == 403
 
 
 def test_remote_write_requires_credentials_when_auth_enabled(auth_enabled, monkeypatch):
@@ -150,6 +176,7 @@ def test_localhost_can_configure_projects(tmp_path, monkeypatch):
 
 _SERVER_WIDE_WRITES = [
     {"projects": {"exp1": {"location": "/srv/proj"}}},
+    {"projects": {"exp1": None}},
     {"providers": {"mlflow_gateway": {"api_key": "sk-secret", "gateway_vendor": "openai"}}},
     {"providers": {"claude_code": {"permissions": {"full_access": True}}}},
 ]
@@ -167,31 +194,48 @@ def test_localhost_non_admin_cannot_change_server_wide_settings(
     assert "by an administrator" in response.json()["detail"]
 
 
-@pytest.mark.parametrize("payload", _SERVER_WIDE_WRITES)
-def test_localhost_non_admin_changes_server_wide_settings_without_the_sandbox(
-    auth_enabled, tmp_path, monkeypatch, payload
+# Without the sandbox, local users' tools run on the host anyway, so they keep full control of
+# server-wide settings, as before the sandbox existed.
+def test_localhost_non_admin_sets_a_project_without_the_sandbox(
+    auth_enabled, tmp_path, monkeypatch
 ):
-    # Without the sandbox, local users' tools run on the host anyway, so they keep full control
-    # of these settings, as before the sandbox existed.
-    if "projects" in payload:
-        payload = {"projects": {"exp1": {"location": str(tmp_path)}}}
+    client = _client(monkeypatch, localhost=True)
+    response = client.put(
+        CONFIG_URL,
+        json={"projects": {"exp1": {"location": str(tmp_path)}}},
+        headers=_auth("alice"),
+    )
+    assert response.status_code == 200
+    assert response.json()["can_edit_server_settings"] is True
+    assert AssistantConfig.load().projects["exp1"] == ProjectConfig(location=str(tmp_path))
+
+
+def test_localhost_non_admin_sets_an_api_key_without_the_sandbox(auth_enabled, monkeypatch):
     monkeypatch.setattr(
         "mlflow.server.assistant.api.ensure_gateway_connection",
         lambda vendor, api_key: "mlflow-assistant-openai",
     )
     client = _client(monkeypatch, localhost=True)
-    response = client.put(CONFIG_URL, json=payload, headers=_auth("alice"))
+    response = client.put(
+        CONFIG_URL,
+        json={"providers": {"mlflow_gateway": {"api_key": "sk-x", "gateway_vendor": "openai"}}},
+        headers=_auth("alice"),
+    )
     assert response.status_code == 200
-    assert response.json()["can_edit_server_settings"] is True
-
     set_config_user("alice")
-    saved = AssistantConfig.load()
-    if "projects" in payload:
-        assert saved.projects["exp1"] == ProjectConfig(location=str(tmp_path))
-    elif "claude_code" in payload["providers"]:
-        assert saved.providers["claude_code"].permissions.full_access is True
-    else:
-        assert saved.providers["mlflow_gateway"].model == "mlflow-assistant-openai"
+    assert AssistantConfig.load().providers["mlflow_gateway"].model == "mlflow-assistant-openai"
+
+
+def test_localhost_non_admin_enables_full_access_without_the_sandbox(auth_enabled, monkeypatch):
+    client = _client(monkeypatch, localhost=True)
+    response = client.put(
+        CONFIG_URL,
+        json={"providers": {"claude_code": {"permissions": {"full_access": True}}}},
+        headers=_auth("alice"),
+    )
+    assert response.status_code == 200
+    set_config_user("alice")
+    assert AssistantConfig.load().providers["claude_code"].permissions.full_access is True
 
 
 def test_localhost_non_admin_can_install_skills_without_the_sandbox(auth_enabled, monkeypatch):

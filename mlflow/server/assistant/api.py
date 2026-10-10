@@ -222,7 +222,9 @@ def _server_settings_restriction(request: Request) -> str | None:
     return None
 
 
-def _visible_projects(config: AssistantConfig, can_edit_server_settings: bool) -> dict[str, Any]:
+def _visible_projects(
+    config: AssistantConfig, can_edit_server_settings: bool
+) -> dict[str, dict[str, str]]:
     projects = {exp_id: p.model_dump() for exp_id, p in config.projects.items()}
     # Project paths are host filesystem paths, so they are left out for callers who may not
     # configure them. This is not a secret boundary: a caller's tools still run in that directory.
@@ -866,10 +868,12 @@ async def update_config(request: ConfigUpdateRequest, http_request: Request) -> 
     """
     Update the assistant configuration.
 
-    Any caller may change their own per-user provider settings (selected provider, model,
-    permissions, base URL), which are saved to their own config. Registering project directories,
-    creating gateway LLM connections (API keys), and enabling full access need a caller allowed to
-    change server-wide settings (see ``_server_settings_restriction``).
+    A caller who may use this endpoint (any local caller, or an authenticated remote caller on a
+    server with auth and remote access enabled) may change their own per-user provider settings
+    (selected provider, model, permissions, base URL), which are saved to their own config.
+    Registering project directories, creating gateway LLM connections (API keys), and enabling
+    full access need a caller allowed to change server-wide settings (see
+    ``_server_settings_restriction``).
 
     Args:
         request: Partial configuration update.
@@ -878,6 +882,20 @@ async def update_config(request: ConfigUpdateRequest, http_request: Request) -> 
     Returns:
         Updated configuration.
     """
+    if not _is_localhost(http_request):
+        # Refuse a provider a remote client cannot use: once selected, the UI would only show
+        # that the Assistant is unavailable, with no way to switch back.
+        for name, provider_data in (request.providers or {}).items():
+            if (
+                isinstance(provider_data, dict)
+                and provider_data.get("selected")
+                and not _provider_allows_remote_access(_get_provider(name))
+            ):
+                raise HTTPException(
+                    status_code=403,
+                    detail=f"The {name} provider cannot be used from a remote client.",
+                )
+
     restriction = _server_settings_restriction(http_request)
     if restriction:
         if request.projects:
@@ -957,7 +975,7 @@ async def update_config(request: ConfigUpdateRequest, http_request: Request) -> 
                     location=str(project_path),
                 )
 
-    config.save()
+    config.save(write_projects=bool(request.projects))
 
     # Clear caches so provider and project path lookups pick up new settings
     clear_config_cache()

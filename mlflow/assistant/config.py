@@ -129,7 +129,7 @@ class AssistantConfig(BaseModel):
         """
         return cls.load_for_user(get_config_user())
 
-    def save(self) -> None:
+    def save(self, *, write_projects: bool = True) -> None:
         """Save the assistant configuration for the current request's user.
 
         The config holds only non-secret settings (selected provider, model, permissions, project
@@ -139,6 +139,12 @@ class AssistantConfig(BaseModel):
         On a no-auth server this writes the single shared file. On an authenticated server the
         user's provider settings go to their own file, and ``projects`` are written back to the
         shared global file (server-level), leaving other users' providers untouched.
+
+        Args:
+            write_projects: On an authenticated server, whether to write ``projects`` to the
+                shared file. Pass False for a save that only changes the caller's providers, so it
+                never touches the shared file: ``projects`` here may be a stale copy, and writing
+                it back could revert or wipe another caller's change.
         """
         username = get_config_user()
         if not username:
@@ -149,12 +155,11 @@ class AssistantConfig(BaseModel):
         # destroy other users' / no-auth providers).
         global_config = self._read_file(CONFIG_PATH)
         self._save_file(_user_config_path(username), AssistantConfig(providers=self.providers))
-        # Only rewrite the shared global file when projects actually changed. A remote caller can
-        # change only its own providers (projects stay localhost-only), so a remote provider save
-        # skips the shared write entirely and never races another writer for it. That keeps the
-        # shared file written only by localhost callers -- the reason its unlocked read-modify-write
-        # is safe -- and avoids a redundant rewrite on every provider-only save.
-        if self.projects != global_config.projects:
+        # Rewrite the shared global file only for a save that changes projects, and only when they
+        # differ. A provider-only save (every save by a caller who may not change server-wide
+        # settings) never writes it, so only those allowed to change projects race on its unlocked
+        # read-modify-write.
+        if write_projects and self.projects != global_config.projects:
             global_config.projects = self.projects
             self._save_file(CONFIG_PATH, global_config)
 
