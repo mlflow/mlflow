@@ -214,8 +214,8 @@ class MlflowArtifactsRepository(HttpArtifactRepository):
                     )
                     return
             except HTTPError as e:
-                # When auto-detected via server-info, presigned failures indicate a
-                # server misconfiguration — raise immediately.
+                # When auto-detected via server-info, presigned failures other than 501
+                # indicate a server misconfiguration — raise immediately.
                 # When user forced via env var, fall back gracefully for legacy compat.
                 if MLFLOW_ENABLE_PROXY_MULTIPART_DOWNLOAD.is_set():
                     if e.response is not None and e.response.status_code in (
@@ -231,6 +231,21 @@ class MlflowArtifactsRepository(HttpArtifactRepository):
                         )
                     else:
                         raise
+                elif (
+                    e.response is not None and e.response.status_code == HTTPStatus.NOT_IMPLEMENTED
+                ):
+                    # The server advertises presigned downloads based on its artifact repository
+                    # type, but may still be unable to sign a URL (e.g. the storage credentials
+                    # cannot sign). Fall back to the proxied download and stop probing.
+                    _logger.warning(
+                        "The server could not generate a presigned download URL (HTTP 501). "
+                        "Falling back to proxied download."
+                    )
+                    with self._server_capabilities_lock:
+                        self._server_capabilities = {
+                            **(self._server_capabilities or {}),
+                            SERVER_INFO_MULTIPART_DOWNLOADS_ENABLED: False,
+                        }
                 else:
                     raise
 

@@ -27,6 +27,7 @@ from mlflow.store.artifact.http_artifact_repo import HttpArtifactRepository
 from mlflow.store.artifact.mlflow_artifacts_repo import MlflowArtifactsRepository
 from mlflow.utils.credentials import get_default_host_creds
 from mlflow.utils.rest_utils import MlflowHostCreds
+from mlflow.utils.server_info import SERVER_INFO_MULTIPART_DOWNLOADS_ENABLED
 
 
 @pytest.mark.parametrize("scheme", ["http", "https"])
@@ -703,6 +704,74 @@ def test_download_file_fallback_when_presigned_not_supported(
             "GET",
             stream=True,
         )
+
+
+def _presigned_not_implemented_error():
+    mock_response = mock.MagicMock()
+    mock_response.status_code = 501
+    mock_response.headers = {"Content-Type": "application/json"}
+    return HTTPError(response=mock_response)
+
+
+def test_download_file_falls_back_when_auto_detected_presigned_download_is_not_implemented(
+    mlflow_artifact_repo_for_download, tmp_path, monkeypatch
+):
+    # The server advertises multipart downloads via /server-info, but cannot sign a URL
+    # (e.g. GCS/Azure credentials without signing permission) and responds with 501.
+    monkeypatch.delenv("MLFLOW_ENABLE_PROXY_MULTIPART_DOWNLOAD", raising=False)
+    server_info = mock.Mock(
+        status_code=200,
+        data={SERVER_INFO_MULTIPART_DOWNLOADS_ENABLED: True},
+    )
+
+    with (
+        mock.patch(
+            "mlflow.store.artifact.mlflow_artifacts_repo.fetch_server_info",
+            return_value=server_info,
+        ) as mock_fetch_server_info,
+        mock.patch.object(
+            mlflow_artifact_repo_for_download,
+            "_get_presigned_download_url",
+            side_effect=_presigned_not_implemented_error(),
+        ) as mock_get_presigned,
+        mock.patch(
+            "mlflow.store.artifact.http_artifact_repo.http_request",
+            return_value=MockStreamResponse("data", 200),
+        ) as mock_http_request,
+    ):
+        for name in ("a.txt", "b.txt"):
+            mlflow_artifact_repo_for_download._download_file(name, str(tmp_path / name))
+
+    # The first download probes the presigned endpoint; the second goes straight to the proxy.
+    mock_get_presigned.assert_called_once_with("a.txt")
+    mock_fetch_server_info.assert_called_once()
+    assert mock_http_request.call_count == 2
+    assert (tmp_path / "b.txt").read_text() == "data"
+
+
+def test_download_file_raises_on_other_auto_detected_presigned_download_errors(
+    mlflow_artifact_repo_for_download, tmp_path, monkeypatch
+):
+    monkeypatch.delenv("MLFLOW_ENABLE_PROXY_MULTIPART_DOWNLOAD", raising=False)
+    server_info = mock.Mock(
+        status_code=200,
+        data={SERVER_INFO_MULTIPART_DOWNLOADS_ENABLED: True},
+    )
+    error_response = mock.MagicMock(status_code=500)
+
+    with (
+        mock.patch(
+            "mlflow.store.artifact.mlflow_artifacts_repo.fetch_server_info",
+            return_value=server_info,
+        ),
+        mock.patch.object(
+            mlflow_artifact_repo_for_download,
+            "_get_presigned_download_url",
+            side_effect=HTTPError("500 Server Error", response=error_response),
+        ),
+        pytest.raises(HTTPError, match="500 Server Error"),
+    ):
+        mlflow_artifact_repo_for_download._download_file("a.txt", str(tmp_path / "a.txt"))
 
 
 def test_download_file_multipart_disabled_uses_proxy(

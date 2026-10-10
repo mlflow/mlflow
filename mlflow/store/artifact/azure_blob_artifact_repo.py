@@ -11,14 +11,21 @@ from mlflow.entities.multipart_upload import (
     CreateMultipartUploadResponse,
     MultipartUploadCredential,
 )
+from mlflow.entities.presigned_download import PresignedDownloadUrlResponse
 from mlflow.environment_variables import MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT
-from mlflow.exceptions import MlflowException, _UnsupportedMultipartUploadException
+from mlflow.exceptions import (
+    MlflowException,
+    _UnsupportedMultipartUploadException,
+    _UnsupportedPresignedDownloadException,
+)
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.store.artifact.artifact_repo import (
     ArtifactRepository,
+    MultipartDownloadMixin,
     MultipartUploadMixin,
     _is_object_key_within_path,
 )
+from mlflow.store.artifact.s3_artifact_repo import _attachment_content_disposition
 from mlflow.utils.credentials import get_default_host_creds
 
 
@@ -34,7 +41,7 @@ def decode_base64(encoded: str) -> str:
     return decoded_bytes.decode("utf-8")
 
 
-class AzureBlobArtifactRepository(ArtifactRepository, MultipartUploadMixin):
+class AzureBlobArtifactRepository(ArtifactRepository, MultipartUploadMixin, MultipartDownloadMixin):
     """
     Stores artifacts on Azure Blob Storage.
 
@@ -317,3 +324,80 @@ class AzureBlobArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         # See https://docs.microsoft.com/en-us/rest/api/storageservices/put-block-list#remarks
         # The blob may already exist so we cannot delete it either.
         pass
+
+    def _generate_sas_token(self, container, blob_name, permission, expiry, **kwargs):
+        """Generate a SAS token for a blob, raising a NOT_IMPLEMENTED error if it cannot be signed.
+
+        Uses the account key if the client has one, otherwise a short-lived user delegation key
+        (Microsoft Entra ID credentials). Credentials that cannot mint a SAS token (SAS token or
+        anonymous credentials, or an Entra ID identity that is not allowed to request a user
+        delegation key) raise ``_UnsupportedPresignedDownloadException``.
+        """
+        from azure.core.exceptions import HttpResponseError
+        from azure.storage.blob import generate_blob_sas
+
+        now = datetime.datetime.now(timezone.utc)
+        sas_kwargs = {
+            "account_name": self.client.account_name,
+            "container_name": container,
+            "blob_name": blob_name,
+            "permission": permission,
+            "expiry": expiry,
+            **kwargs,
+        }
+        credential = self.client.credential
+        if account_key := getattr(credential, "account_key", None):
+            sas_kwargs["account_key"] = account_key
+        elif hasattr(credential, "get_token"):
+            start = now - datetime.timedelta(minutes=5)
+            try:
+                user_delegation_key = self.client.get_user_delegation_key(start, expiry)
+            except HttpResponseError as e:
+                if (
+                    e.status_code == 403
+                    and getattr(e, "error_code", None) == "AuthorizationPermissionMismatch"
+                ):
+                    raise _UnsupportedPresignedDownloadException() from e
+                raise
+            sas_kwargs.update(user_delegation_key=user_delegation_key, start=start)
+        else:
+            raise _UnsupportedPresignedDownloadException()
+
+        return generate_blob_sas(**sas_kwargs)
+
+    def get_download_presigned_url(self, artifact_path, expiration=300):
+        """Generate a presigned URL for downloading an artifact directly from Azure Blob Storage.
+
+        Raises:
+            MlflowException: ``RESOURCE_DOES_NOT_EXIST`` if the blob does not exist.
+            _UnsupportedPresignedDownloadException: If the client's credentials cannot sign
+                a SAS token (``NOT_IMPLEMENTED``, i.e. HTTP 501 from the server).
+        """
+        from azure.core.exceptions import ResourceNotFoundError
+        from azure.storage.blob import BlobSasPermissions
+
+        (container, _, dest_path, _) = self.parse_wasbs_uri(self.artifact_uri)
+        dest_path = posixpath.join(dest_path, artifact_path) if artifact_path else dest_path
+
+        blob_client = self.client.get_blob_client(container, dest_path)
+        try:
+            properties = blob_client.get_blob_properties()
+        except ResourceNotFoundError as e:
+            raise MlflowException(
+                f"No such file or directory: '{dest_path}'",
+                error_code=RESOURCE_DOES_NOT_EXIST,
+            ) from e
+
+        expiry = datetime.datetime.now(timezone.utc) + datetime.timedelta(seconds=expiration)
+        # Serve the blob as a download with the artifact's own filename, same
+        # rationale as S3ArtifactRepository.get_download_presigned_url.
+        sas_token = self._generate_sas_token(
+            container,
+            dest_path,
+            BlobSasPermissions(read=True),
+            expiry,
+            content_disposition=_attachment_content_disposition(posixpath.basename(dest_path)),
+        )
+        return PresignedDownloadUrlResponse(
+            url=f"{blob_client.url}?{sas_token}", headers={}, file_size=properties.size
+        )
