@@ -150,10 +150,14 @@ def _enforce_remote_access(request: Request, provider: AssistantProvider | None)
 # Per-route remote-access policy:
 #   ONLY_SAFE_PROVIDER — gate on the provider identified by a {provider} path parameter,
 #                        falling back to whichever provider the user has currently selected
+#   AUTHENTICATED      — allow a remote caller only on an authenticated server (so the request has
+#                        an identity to attribute it to); used for per-user config writes, which
+#                        are not tool execution and so are not gated on a safe provider/the sandbox
 #   DENY               — always block remote access (stays localhost-only regardless of mode)
 #   NONE               — no gating (e.g. GET /config, which redacts secrets instead)
 class _RemoteAccessPolicy(str, enum.Enum):
     ONLY_SAFE_PROVIDER = "only_safe_provider"
+    AUTHENTICATED = "authenticated"
     DENY = "deny"
     NONE = "none"
 
@@ -196,6 +200,37 @@ def _is_restricted_caller(request: Request) -> bool:
 def _current_username(request: Request) -> str | None:
     # Set by _AssistantAPIRoute.route_handler before any endpoint runs; None on a no-auth server.
     return request.state.assistant_username
+
+
+def _server_settings_restriction(request: Request) -> str | None:
+    """Why the caller may not change server-wide Assistant settings, or None if they may.
+
+    Project directories, skills installs and gateway connections (API keys) apply to every user of
+    the server, and full access lets the Assistant run any command on the server host. They can only
+    be changed from the MLflow server host, and not by a restricted caller (see
+    ``_is_restricted_caller``): on a sandboxed server with auth, only an admin may change them. On a
+    server without the sandbox, local users keep full control of these settings, matching how
+    their tools run on the host. Returns the phrase ending the denial message ("can only be ...
+    <phrase>").
+    """
+    if not _is_localhost(request):
+        return "from the MLflow server host"
+    # The ContextVar holds the restricted-caller result for this request (set by the route class).
+    if is_remote_caller():
+        return "by an administrator"
+    return None
+
+
+def _visible_projects(
+    config: AssistantConfig, can_edit_server_settings: bool
+) -> dict[str, dict[str, str]]:
+    projects = {exp_id: p.model_dump() for exp_id, p in config.projects.items()}
+    # Project paths are host filesystem paths, so they are left out for callers who may not
+    # configure them. This is not a secret boundary: a caller's tools still run in that directory.
+    if not can_edit_server_settings:
+        for project_data in projects.values():
+            project_data.pop("location", None)
+    return projects
 
 
 def _session_owned_by(session: Session, username: str | None) -> bool:
@@ -263,17 +298,26 @@ class _AssistantAPIRoute(APIRoute):
             # request runs in its own context, so this does not leak across requests.
             set_config_user(request.state.assistant_username)
             # Cap a restricted caller (see _is_restricted_caller) at the restricted tool-permission
-            # profile, so server-side tool execution cannot be driven with full_access. Off the
-            # event loop, since it may look the caller up in the auth store.
+            # profile, so server-side tool execution cannot be driven with full_access; the same
+            # flag decides who may change server-wide settings (_server_settings_restriction). Off
+            # the event loop, since it may look the caller up in the auth store.
             set_remote_caller(await asyncio.to_thread(_is_restricted_caller, request))
             if policy != _RemoteAccessPolicy.NONE and not _is_localhost(request):
                 if policy == _RemoteAccessPolicy.DENY or not MLFLOW_ENABLE_REMOTE_ASSISTANT.get():
                     raise HTTPException(status_code=403, detail=_BLOCK_REMOTE_ACCESS_ERROR_MSG)
-                provider = _get_route_provider(request)
-                # A {provider} path param that doesn't resolve to a known provider is a
-                # 404, not a remote-access decision; let the endpoint handle it.
-                if not ("provider" in request.path_params and provider is None):
-                    _enforce_remote_access(request, provider)
+                if policy == _RemoteAccessPolicy.AUTHENTICATED:
+                    # Per-user config writes: allowed remotely only on an authenticated server, so
+                    # the write can be attributed to a user (a no-auth server has no identity and
+                    # stays localhost-only). No provider/sandbox gate -- this is not tool execution.
+                    # The identity resolution above rejects an unauthenticated remote caller (401).
+                    if not auth_plugin_active():
+                        raise HTTPException(status_code=403, detail=_BLOCK_REMOTE_ACCESS_ERROR_MSG)
+                else:
+                    provider = _get_route_provider(request)
+                    # A {provider} path param that doesn't resolve to a known provider is a
+                    # 404, not a remote-access decision; let the endpoint handle it.
+                    if not ("provider" in request.path_params and provider is None):
+                        _enforce_remote_access(request, provider)
             return await original_route_handler(request)
 
         return route_handler
@@ -305,6 +349,7 @@ class ConfigResponse(BaseModel):
     providers: dict[str, Any] = Field(default_factory=dict)
     projects: dict[str, Any] = Field(default_factory=dict)
     remote_access_allowed: bool = False
+    can_edit_server_settings: bool = False
 
 
 class ConfigUpdateRequest(BaseModel):
@@ -800,35 +845,82 @@ async def get_config(request: Request) -> ConfigResponse:
     for provider_data in providers.values():
         provider_data.pop("api_key", None)
 
-    projects = {exp_id: p.model_dump() for exp_id, p in config.projects.items()}
-    if not _is_localhost(request):
-        for project_data in projects.values():
-            project_data.pop("location", None)
+    can_edit_server_settings = _server_settings_restriction(request) is None
 
     return ConfigResponse(
         providers=providers,
-        projects=projects,
+        projects=_visible_projects(config, can_edit_server_settings),
         remote_access_allowed=_provider_allows_remote_access(provider),
+        can_edit_server_settings=can_edit_server_settings,
     )
 
 
 @assistant_router.put("/config")
-@_remote_access_policy(_RemoteAccessPolicy.DENY)
-async def update_config(request: ConfigUpdateRequest) -> ConfigResponse:
+@_remote_access_policy(_RemoteAccessPolicy.AUTHENTICATED)
+async def update_config(request: ConfigUpdateRequest, http_request: Request) -> ConfigResponse:
     """
     Update the assistant configuration.
 
+    A caller who may use this endpoint (any local caller, or an authenticated remote caller on a
+    server with auth and remote access enabled) may change their own per-user provider settings
+    (selected provider, model, permissions, base URL), which are saved to their own config.
+    Registering project directories, creating gateway LLM connections (API keys), and enabling
+    full access need a caller allowed to change server-wide settings (see
+    ``_server_settings_restriction``).
+
     Args:
         request: Partial configuration update.
+        http_request: The FastAPI request object, used to distinguish local from remote callers.
 
     Returns:
         Updated configuration.
     """
+    if not _is_localhost(http_request):
+        # Refuse a provider a remote client cannot use: once selected, the UI would only show
+        # that the Assistant is unavailable, with no way to switch back.
+        for name, provider_data in (request.providers or {}).items():
+            if (
+                isinstance(provider_data, dict)
+                and provider_data.get("selected")
+                and not _provider_allows_remote_access(_get_provider(name))
+            ):
+                raise HTTPException(
+                    status_code=403,
+                    detail=f"The {name} provider cannot be used from a remote client.",
+                )
+
+    restriction = _server_settings_restriction(http_request)
+    if restriction:
+        if request.projects:
+            raise HTTPException(
+                status_code=403,
+                detail=f"Project directories can only be configured {restriction}.",
+            )
+        for provider_data in (request.providers or {}).values():
+            if not isinstance(provider_data, dict):
+                raise HTTPException(status_code=400, detail="Invalid provider configuration.")
+            if provider_data.get("api_key") or provider_data.get("gateway_vendor"):
+                raise HTTPException(
+                    status_code=403,
+                    detail=f"Gateway connections (API keys) can only be configured {restriction}.",
+                )
+            # Full access bypasses all permission checks, so it is restricted like the fields above.
+            permissions = provider_data.get("permissions")
+            if isinstance(permissions, dict) and permissions.get("full_access"):
+                raise HTTPException(
+                    status_code=403,
+                    detail=f"Full access can only be enabled {restriction}.",
+                )
+
     config = AssistantConfig.load()
 
     # Update providers
     if request.providers:
         for name, provider_data in request.providers.items():
+            # `providers` values are typed `Any`; a malformed payload (e.g. a bare string) would
+            # make the `.get` calls below raise an unhandled 500.
+            if not isinstance(provider_data, dict):
+                raise HTTPException(status_code=400, detail="Invalid provider configuration.")
             existing = config.providers.get(name)
             model = provider_data.get("model") or (existing.model if existing else "default")
             base_url = provider_data.get("base_url")
@@ -837,6 +929,10 @@ async def update_config(request: ConfigUpdateRequest) -> ConfigResponse:
             permissions = None
             if "permissions" in provider_data:
                 perm_data = provider_data["permissions"]
+                if not isinstance(perm_data, dict):
+                    raise HTTPException(
+                        status_code=400, detail="Provider 'permissions' must be an object."
+                    )
                 permissions = PermissionsConfig(
                     allow_edit_files=perm_data.get("allow_edit_files", True),
                     allow_read_docs=perm_data.get("allow_read_docs", True),
@@ -872,7 +968,7 @@ async def update_config(request: ConfigUpdateRequest) -> ConfigResponse:
                     location=str(project_path),
                 )
 
-    config.save()
+    config.save(write_projects=bool(request.projects))
 
     # Clear caches so provider and project path lookups pick up new settings
     clear_config_cache()
@@ -884,27 +980,35 @@ async def update_config(request: ConfigUpdateRequest) -> ConfigResponse:
 
     return ConfigResponse(
         providers=providers,
-        projects={exp_id: p.model_dump() for exp_id, p in config.projects.items()},
+        projects=_visible_projects(config, restriction is None),
         remote_access_allowed=_provider_allows_remote_access(_get_selected_provider(config)),
+        can_edit_server_settings=restriction is None,
     )
 
 
 @assistant_router.post("/skills/install")
 @_remote_access_policy(_RemoteAccessPolicy.DENY)
-async def install_skills_endpoint(request: SkillsInstallRequest) -> SkillsInstallResponse:
+async def install_skills_endpoint(
+    request: SkillsInstallRequest, http_request: Request
+) -> SkillsInstallResponse:
     """
     Install skills bundled with MLflow.
     This endpoint only handles installation. Config updates should be done via PUT /config.
 
     Args:
         request: SkillsInstallRequest with type, custom_path, and experiment_id.
+        http_request: The FastAPI request object, used to check who the caller is.
 
     Returns:
         SkillsInstallResponse with installed skill names and directory.
 
     Raises:
         HTTPException 400: If custom type without custom_path or project type without experiment_id.
+        HTTPException 403: If the caller may not change server-wide settings.
     """
+    # Skills are installed on the server host's filesystem for every user.
+    if restriction := _server_settings_restriction(http_request):
+        raise HTTPException(status_code=403, detail=f"Skills can only be installed {restriction}.")
     config = AssistantConfig.load()
 
     project_path: Path | None = None
