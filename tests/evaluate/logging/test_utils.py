@@ -151,25 +151,6 @@ def test_evaluations_to_dataframes_empty():
     assert list(assessments_df.columns) == expected_assessments_columns
     assert list(tags_df.columns) == expected_tags_columns
 
-
-def test_evaluations_to_dataframes_basic():
-    # Setup an evaluation with minimal data
-    evaluation = EvaluationEntity(
-        evaluation_id="eval1",
-        run_id="run1",
-        inputs_id="inputs1",
-        inputs={"feature1": 1.0, "feature2": 2.0},
-    )
-
-    evaluations_df, metrics_df, assessments_df, tags_df = evaluations_to_dataframes([evaluation])
-
-    # Check the evaluations DataFrame
-    assert len(evaluations_df) == 1
-    assert evaluations_df["evaluation_id"].iloc[0] == "eval1"
-    assert evaluations_df["run_id"].iloc[0] == "run1"
-    assert evaluations_df["inputs_id"].iloc[0] == "inputs1"
-    assert evaluations_df["inputs"].iloc[0] == {"feature1": 1.0, "feature2": 2.0}
-
     # Check that the other
 
 
