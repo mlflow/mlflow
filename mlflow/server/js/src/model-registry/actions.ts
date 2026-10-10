@@ -11,6 +11,12 @@ import { getArtifactContent } from '../common/utils/ArtifactUtils';
 import yaml from 'js-yaml';
 import type { ModelVersionInfoEntity } from '../experiment-tracking/types';
 import type { KeyValueEntity } from '../common/types';
+import {
+  fetchArtifactWithPresignedUrl,
+  fetchRunArtifactWithPresignedUrl,
+} from '../experiment-tracking/utils/PresignedArtifactUtils';
+import { getProtoField } from './utils';
+import { extractArtifactPathFromModelSource, extractLoggedModelIdFromModelSource } from './utils/VersionUtils';
 
 const CREATE_REGISTERED_MODEL = 'CREATE_REGISTERED_MODEL';
 // @ts-expect-error TS(7006): Parameter 'name' implicitly has an 'any' type.
@@ -109,14 +115,49 @@ export const createModelVersionApi = (
 });
 
 export const GET_MODEL_VERSION_ARTIFACT = 'GET_MODEL_VERSION_ARTIFACT';
-export const getModelVersionArtifactApi = (modelName: any, version: any, id = getUUID()) => {
+export const fetchModelVersionArtifact = async (modelName: any, version: any) => {
   const baseUri = 'model-versions/get-artifact?path=MLmodel';
   const uriEncodedModelName = `name=${encodeURIComponent(modelName)}`;
   const uriEncodedModelVersion = `version=${encodeURIComponent(version)}`;
   const artifactLocation = `${baseUri}&${uriEncodedModelName}&${uriEncodedModelVersion}`;
+
+  let modelVersionResponse: any;
+  try {
+    modelVersionResponse = await Services.getModelVersion({ name: modelName, version });
+  } catch {
+    return getArtifactContent(artifactLocation);
+  }
+
+  const modelVersion = modelVersionResponse[getProtoField('model_version')];
+  const modelSource = modelVersion?.source as string | undefined;
+  const loggedModelId = modelVersion?.model_id ?? extractLoggedModelIdFromModelSource(modelSource);
+  if (loggedModelId) {
+    return fetchArtifactWithPresignedUrl(
+      {
+        runUuid: '',
+        path: 'MLmodel',
+        isLoggedModelsMode: true,
+        loggedModelId,
+      },
+      artifactLocation,
+      getArtifactContent,
+    );
+  }
+
+  const runId = modelVersion?.run_id as string | undefined;
+  const modelArtifactPath = runId && modelSource ? extractArtifactPathFromModelSource(modelSource, runId) : undefined;
+  if (runId && modelArtifactPath !== undefined) {
+    const mlModelPath = [modelArtifactPath, 'MLmodel'].filter(Boolean).join('/');
+    return fetchRunArtifactWithPresignedUrl(runId, mlModelPath, artifactLocation, getArtifactContent);
+  }
+
+  return getArtifactContent(artifactLocation);
+};
+
+export const getModelVersionArtifactApi = (modelName: any, version: any, id = getUUID()) => {
   return {
     type: GET_MODEL_VERSION_ARTIFACT,
-    payload: getArtifactContent(artifactLocation),
+    payload: fetchModelVersionArtifact(modelName, version),
     meta: { id, modelName, version },
   };
 };

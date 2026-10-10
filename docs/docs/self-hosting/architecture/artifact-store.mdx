@@ -268,6 +268,11 @@ from the Tracking Server and navigates the browser to it, letting the storage se
 None of the data will pass through the Tracking Server. The URL is generated with a `Content-Disposition: attachment`
 response header so that browsers save the artifact as a file instead of rendering it.
 
+Artifact previews and supported UI uploads fetch presigned storage URLs from browser code. Configure the object
+store's CORS policy to allow the MLflow UI origin, the required `GET` and `PUT` methods, and any headers included in
+the signed credentials. When the server still permits legacy proxy transfers, the UI falls back to the proxy if a
+browser network or CORS error prevents the direct request.
+
 If the artifacts are not stored directly on supported storage (for example, with
 [proxied artifact access](/self-hosting/architecture/tracking-server#tracking-server-artifact-store), the default
 configuration), the UI falls back to downloading the artifact through the Tracking Server.

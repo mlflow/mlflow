@@ -37,6 +37,14 @@ jest.mock('../../../common/utils/ArtifactUtils', () => ({
   getArtifactBytesContent: jest.fn().mockResolvedValue(),
 }));
 
+jest.mock('../../utils/PresignedArtifactUtils', () => ({
+  fetchArtifactWithPresignedUrl: (
+    _params: unknown,
+    legacyArtifactLocation: string,
+    getArtifactData: (artifactLocation: string) => Promise<unknown>,
+  ) => getArtifactData(legacyArtifactLocation),
+}));
+
 describe('ShowArtifactPage', () => {
   let wrapper: any;
   let minimalProps: any;

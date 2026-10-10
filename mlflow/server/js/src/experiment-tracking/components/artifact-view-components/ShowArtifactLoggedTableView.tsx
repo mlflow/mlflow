@@ -17,7 +17,7 @@ import {
 } from '@databricks/design-system';
 import { isArray, isObject, isUndefined } from 'lodash';
 import { FormattedMessage, useIntl } from 'react-intl';
-import { getArtifactContent, getArtifactLocationUrl } from '../../../common/utils/ArtifactUtils';
+import { getArtifactBlob, getArtifactContent } from '../../../common/utils/ArtifactUtils';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { SortingState, PaginationState } from '@tanstack/react-table';
 import { flexRender, getCoreRowModel, getSortedRowModel, getPaginationRowModel } from '@tanstack/react-table';
@@ -46,7 +46,73 @@ const DEFAULT_PAGINATION_COMPONENT_HEIGHT = 48;
 const sanitizeColumnId = (columnName: string, columnIndex: number) =>
   columnName === '' ? `column-${columnIndex + 1}` : String(columnName);
 
-const LoggedTable = ({ data, runUuid }: { data: { columns: string[]; data: any[][] }; runUuid: string }) => {
+const LoggedTableArtifactImage = ({
+  runUuid,
+  filepath,
+  compressedFilepath,
+  maxImageSize,
+  artifactRootUri,
+  isLoggedModelsMode,
+  loggedModelId,
+}: {
+  runUuid: string;
+  filepath: string;
+  compressedFilepath: string;
+  maxImageSize: number;
+  artifactRootUri?: string;
+  isLoggedModelsMode?: boolean;
+  loggedModelId?: string;
+}) => {
+  const [urls, setUrls] = useState<{ imageUrl: string; compressedImageUrl: string }>();
+
+  useEffect(() => {
+    let cancelled = false;
+    let imageUrl: string | undefined;
+    let compressedImageUrl: string | undefined;
+    Promise.all([
+      fetchArtifactUnified(
+        { runUuid, path: filepath, artifactRootUri, isLoggedModelsMode, loggedModelId },
+        getArtifactBlob,
+      ),
+      fetchArtifactUnified(
+        { runUuid, path: compressedFilepath, artifactRootUri, isLoggedModelsMode, loggedModelId },
+        getArtifactBlob,
+      ),
+    ])
+      .then(([imageBlob, compressedImageBlob]) => {
+        if (cancelled) return;
+        imageUrl = URL.createObjectURL(imageBlob as Blob);
+        compressedImageUrl = URL.createObjectURL(compressedImageBlob as Blob);
+        setUrls({ imageUrl, compressedImageUrl });
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          Utils.logErrorAndNotifyUser(error);
+        }
+      });
+    return () => {
+      cancelled = true;
+      if (imageUrl) URL.revokeObjectURL(imageUrl);
+      if (compressedImageUrl) URL.revokeObjectURL(compressedImageUrl);
+    };
+  }, [artifactRootUri, compressedFilepath, filepath, isLoggedModelsMode, loggedModelId, runUuid]);
+
+  return urls ? <ImagePlot {...urls} maxImageSize={maxImageSize} /> : null;
+};
+
+const LoggedTable = ({
+  data,
+  runUuid,
+  artifactRootUri,
+  isLoggedModelsMode,
+  loggedModelId,
+}: {
+  data: { columns: string[]; data: any[][] };
+  runUuid: string;
+  artifactRootUri?: string;
+  isLoggedModelsMode?: boolean;
+  loggedModelId?: string;
+}) => {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [isCompactView, setIsCompactView] = useState(false);
   const intl = useIntl();
@@ -131,13 +197,15 @@ const LoggedTable = ({ data, runUuid }: { data: { columns: string[]; data: any[]
                 try {
                   const parsedRowValue = JSON.parse(row.getValue());
                   const { filepath, compressed_filepath } = parsedRowValue as ArtifactLogTableImageObject;
-                  const imageUrl = getArtifactLocationUrl(filepath, runUuid);
-                  const compressedImageUrl = getArtifactLocationUrl(compressed_filepath, runUuid);
                   return (
-                    <ImagePlot
-                      imageUrl={imageUrl}
-                      compressedImageUrl={compressedImageUrl}
+                    <LoggedTableArtifactImage
+                      runUuid={runUuid}
+                      filepath={filepath}
+                      compressedFilepath={compressed_filepath}
                       maxImageSize={MAX_IMAGE_SIZE}
+                      artifactRootUri={artifactRootUri}
+                      isLoggedModelsMode={isLoggedModelsMode}
+                      loggedModelId={loggedModelId}
                     />
                   );
                 } catch {
@@ -154,7 +222,7 @@ const LoggedTable = ({ data, runUuid }: { data: { columns: string[]; data: any[]
             minSize: MIN_COLUMN_WIDTH,
           };
         }),
-    [columns, MAX_IMAGE_SIZE, imageColumns, runUuid, hiddenColumns],
+    [columns, MAX_IMAGE_SIZE, imageColumns, runUuid, hiddenColumns, artifactRootUri, isLoggedModelsMode, loggedModelId],
   );
   const tableData = useMemo(
     () =>
@@ -395,6 +463,7 @@ export const ShowArtifactLoggedTableView = React.memo(
     loggedModelId,
     experimentId,
     entityTags,
+    artifactRootUri,
   }: ShowArtifactLoggedTableViewProps) => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<Error>();
@@ -404,7 +473,7 @@ export const ShowArtifactLoggedTableView = React.memo(
     useEffect(() => {
       setLoading(true);
       fetchArtifactUnified(
-        { runUuid, path, isLoggedModelsMode, loggedModelId, experimentId, entityTags },
+        { runUuid, path, artifactRootUri, isLoggedModelsMode, loggedModelId, experimentId, entityTags },
         getArtifactContent,
       )
         .then((value) => {
@@ -422,7 +491,7 @@ export const ShowArtifactLoggedTableView = React.memo(
           setLoading(false);
         });
       setCurPath(path);
-    }, [path, runUuid, isLoggedModelsMode, loggedModelId, experimentId, entityTags]);
+    }, [path, runUuid, isLoggedModelsMode, loggedModelId, experimentId, entityTags, artifactRootUri]);
 
     const data = useMemo<{
       columns: string[];
@@ -476,7 +545,15 @@ export const ShowArtifactLoggedTableView = React.memo(
           />,
         );
       }
-      return <LoggedTable data={data} runUuid={runUuid} />;
+      return (
+        <LoggedTable
+          data={data}
+          runUuid={runUuid}
+          artifactRootUri={artifactRootUri}
+          isLoggedModelsMode={isLoggedModelsMode}
+          loggedModelId={loggedModelId}
+        />
+      );
     }
     return renderErrorState(null);
   },

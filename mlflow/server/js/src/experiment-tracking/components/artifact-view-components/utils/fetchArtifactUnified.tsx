@@ -1,22 +1,28 @@
 import { useCallback } from 'react';
 import {
+  type ArtifactRequestOptions,
   type getArtifactBytesContent,
   getArtifactContent,
   getArtifactLocationUrl,
   getLoggedModelArtifactLocationUrl,
 } from '../../../../common/utils/ArtifactUtils';
 import type { KeyValueEntity } from '../../../../common/types';
+import { fetchArtifactWithPresignedUrl } from '../../../utils/PresignedArtifactUtils';
 
-type FetchArtifactParams = {
+export type FetchArtifactParams = {
   experimentId?: string;
   runUuid: string;
   path: string;
   isLoggedModelsMode?: boolean;
   loggedModelId?: string;
   entityTags?: Partial<KeyValueEntity>[];
+  artifactRootUri?: string;
 };
 
-type GetArtifactContentFn = typeof getArtifactContent | typeof getArtifactBytesContent;
+type GetArtifactContentFn = (
+  artifactLocation: string,
+  options?: ArtifactRequestOptions,
+) => ReturnType<typeof getArtifactContent | typeof getArtifactBytesContent>;
 
 // Internal util, strips leading slash from the path if it exists
 const normalizeArtifactPath = (path: string) => (path.startsWith('/') ? path.substring(1) : path);
@@ -39,7 +45,7 @@ export const fetchArtifactUnified = (
 ) => {
   const workspaceAPIArtifactLocation = getWorkspaceArtifactLocationUrl(params);
 
-  return getArtifactDataFn(workspaceAPIArtifactLocation);
+  return fetchArtifactWithPresignedUrl(params, workspaceAPIArtifactLocation, getArtifactDataFn);
 };
 
 export type FetchArtifactUnifiedFn<T = string> = (
