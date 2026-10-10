@@ -3,6 +3,7 @@ from unittest import mock
 
 import pytest
 from fastapi.encoders import jsonable_encoder
+from pydantic import ValidationError
 
 from mlflow.gateway.config import EndpointConfig
 from mlflow.gateway.exceptions import AIGatewayException
@@ -74,7 +75,12 @@ def api_base(request):
         ("https://gemini.example.com/v1alpha", "https://gemini.example.com/v1alpha/models"),
         ("https://gemini.example.com/v1beta/", "https://gemini.example.com/v1beta/models"),
         ("https://gemini.example.com/v1/models/", "https://gemini.example.com/v1/models"),
+        ("https://gemini.example.com/v1alpha/models", "https://gemini.example.com/v1alpha/models"),
         ("https://gemini.example.com/v1beta/models/", "https://gemini.example.com/v1beta/models"),
+        (
+            "https://gemini.example.com/v1beta1",
+            "https://gemini.example.com/v1beta1/v1beta/models",
+        ),
         (
             "https://gemini.example.com/relay/v1beta/?tenant=acme",
             "https://gemini.example.com/relay/v1beta/models?tenant=acme",
@@ -101,6 +107,26 @@ def test_gemini_base_url(api_base, expected_base):
         provider.get_endpoint_url("llm/v1/embeddings")
         == f"{base_path}/gemini-2.0-flash:embedContent{query_suffix}"
     )
+
+
+@pytest.mark.parametrize(
+    "api_base",
+    [
+        "https://gemini.example.com/models",
+        "https://gemini.example.com/gemini/models",
+        "https://gemini.example.com/gemini/models///?flag=&tenant=acme",
+        "https://gemini.example.com/v1beta1/models",
+    ],
+)
+def test_gemini_api_base_rejects_unversioned_models(api_base):
+    config = chat_config()
+    config["model"]["config"]["gemini_api_base"] = api_base
+
+    with pytest.raises(
+        ValidationError,
+        match="gemini_api_base ending in /models must include a supported API version",
+    ):
+        EndpointConfig(**config)
 
 
 def fake_single_embedding_response():

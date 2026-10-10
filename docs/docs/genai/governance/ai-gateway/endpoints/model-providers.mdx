@@ -175,6 +175,9 @@ origin or relay prefix such as `https://relay.example.com/gemini`, a versioned r
 such as `https://relay.example.com/gemini/v1beta`, or the full models base ending in
 `/v1beta/models`. Origins and relay prefixes default to `/v1beta/models`; versioned
 roots ending in `/v1`, `/v1beta`, or `/v1alpha` use that version and append `/models`.
+Bases ending in `/models` must have one of these versions immediately before `/models`;
+otherwise, configuration raises an error. Other suffixes, including `/v1beta1`, are treated
+as relay prefixes and get `/v1beta/models` appended, not as API versions.
 Trailing slashes are ignored. This setting applies to generation, embeddings, streaming,
 and native passthrough. Raw proxy requests retain the configured host and relay prefix
 and use the versioned API path supplied by the caller. If omitted, the gateway uses Google's
