@@ -2075,6 +2075,10 @@
     "defaultMessage": "Total: {total}%",
     "description": "Total weight display"
   },
+  "6g9B30": {
+    "defaultMessage": "Show absolute timestamps",
+    "description": "Runs table date header action to display absolute timestamps"
+  },
   "6gMnCj": {
     "defaultMessage": "Rows per page",
     "description": "Label for the traces table page-size selector"
@@ -3046,6 +3050,10 @@
   "AEK/2K": {
     "defaultMessage": "Please enter instructions to run the judge",
     "description": "Tooltip message when instructions are missing"
+  },
+  "AEj1Ou": {
+    "defaultMessage": "Show relative timestamps",
+    "description": "Runs table date header action to display relative timestamps"
   },
   "AEzy9w": {
     "defaultMessage": "After creation, you can register logged models as new versions.&nbsp;",

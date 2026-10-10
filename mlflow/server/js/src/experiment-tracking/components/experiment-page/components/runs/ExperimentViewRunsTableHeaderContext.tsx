@@ -6,6 +6,8 @@ const ExperimentViewRunsTableHeaderContext = React.createContext({
   useGroupedValuesInCharts: true,
   usingCustomVisibility: false,
   allRunsHidden: false,
+  displayAbsoluteTime: false,
+  setDisplayAbsoluteTime: (_value: boolean): void => undefined,
 });
 
 /**
@@ -34,14 +36,17 @@ export const ExperimentViewRunsTableHeaderContextProvider = ({
    */
   allRunsHidden?: boolean;
 }) => {
+  const [displayAbsoluteTime, setDisplayAbsoluteTime] = React.useState(false);
   const contextValue = useMemo(
     () => ({
       runsHiddenMode,
       useGroupedValuesInCharts: useGroupedValuesInCharts ?? true,
       usingCustomVisibility: usingCustomVisibility ?? false,
       allRunsHidden: allRunsHidden ?? false,
+      displayAbsoluteTime,
+      setDisplayAbsoluteTime,
     }),
-    [runsHiddenMode, useGroupedValuesInCharts, usingCustomVisibility, allRunsHidden],
+    [runsHiddenMode, useGroupedValuesInCharts, usingCustomVisibility, allRunsHidden, displayAbsoluteTime],
   );
   return (
     <ExperimentViewRunsTableHeaderContext.Provider value={contextValue}>

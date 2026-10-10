@@ -4,6 +4,7 @@ import Utils from '../../../../../../common/utils/Utils';
 import type { RunRowDateAndNestInfo } from '../../../utils/experimentPage.row-types';
 import { RunStatusIcon } from '../../../../RunStatusIcon';
 import { useIntl } from 'react-intl';
+import { useExperimentViewRunsTableHeaderContext } from '../ExperimentViewRunsTableHeaderContext';
 
 export interface DateCellRendererProps {
   value: RunRowDateAndNestInfo;
@@ -13,6 +14,7 @@ export interface DateCellRendererProps {
 export const DateCellRenderer = React.memo(({ value }: DateCellRendererProps) => {
   const { startTime, referenceTime, runStatus } = value || {};
   const intl = useIntl();
+  const { displayAbsoluteTime } = useExperimentViewRunsTableHeaderContext();
   if (!startTime) {
     return <>-</>;
   }
@@ -20,7 +22,7 @@ export const DateCellRenderer = React.memo(({ value }: DateCellRendererProps) =>
   return (
     <span css={styles.cellWrapper} title={Utils.formatTimestamp(startTime, intl)}>
       <RunStatusIcon status={runStatus} />
-      {Utils.timeSinceStr(startTime, referenceTime)}
+      {displayAbsoluteTime ? Utils.formatTimestamp(startTime, intl) : Utils.timeSinceStr(startTime, referenceTime)}
     </span>
   );
 });

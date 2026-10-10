@@ -1,10 +1,22 @@
-import { SortAscendingIcon, SortDescendingIcon, useDesignSystemTheme } from '@databricks/design-system';
+import {
+  Button,
+  ClockIcon,
+  SortAscendingIcon,
+  SortDescendingIcon,
+  useDesignSystemTheme,
+} from '@databricks/design-system';
+import type { Column, ColumnApi } from '@ag-grid-community/core';
+import { useIntl } from 'react-intl';
+import { ATTRIBUTE_COLUMN_SORT_KEY } from '../../../../../constants';
+import { useExperimentViewRunsTableHeaderContext } from '../ExperimentViewRunsTableHeaderContext';
 import { useUpdateExperimentPageSearchFacets } from '../../../hooks/useExperimentPageSearchFacets';
 
 export interface ColumnHeaderCellProps {
   enableSorting: boolean;
   displayName: string;
   canonicalSortKey: string;
+  column?: Column;
+  columnApi?: ColumnApi;
   context: {
     orderByKey: string;
     orderByAsc: boolean;
@@ -15,11 +27,24 @@ export const ColumnHeaderCell = ({
   enableSorting,
   canonicalSortKey,
   displayName,
+  column,
+  columnApi,
   context: tableContext,
 }: ColumnHeaderCellProps) => {
   const { orderByKey, orderByAsc } = tableContext || {};
   const updateSearchFacets = useUpdateExperimentPageSearchFacets();
   const selectedCanonicalSortKey = canonicalSortKey;
+  const intl = useIntl();
+  const { displayAbsoluteTime, setDisplayAbsoluteTime } = useExperimentViewRunsTableHeaderContext();
+  const timestampToggleLabel = displayAbsoluteTime
+    ? intl.formatMessage({
+        defaultMessage: 'Show relative timestamps',
+        description: 'Runs table date header action to display relative timestamps',
+      })
+    : intl.formatMessage({
+        defaultMessage: 'Show absolute timestamps',
+        description: 'Runs table date header action to display absolute timestamps',
+      });
 
   const handleSortBy = () => {
     let newOrderByAsc = !orderByAsc;
@@ -77,6 +102,23 @@ export const ColumnHeaderCell = ({
           )
         ) : null}
       </div>
+      {canonicalSortKey === ATTRIBUTE_COLUMN_SORT_KEY.DATE && (
+        <Button
+          componentId="mlflow.experiment_view_runs_table.column_header.date.toggle_format"
+          type="tertiary"
+          size="small"
+          icon={<ClockIcon />}
+          aria-label={timestampToggleLabel}
+          aria-pressed={displayAbsoluteTime}
+          title={timestampToggleLabel}
+          onClick={() => {
+            if (!displayAbsoluteTime && column && columnApi) {
+              columnApi.setColumnWidth(column, Math.max(column.getActualWidth(), 240));
+            }
+            setDisplayAbsoluteTime(!displayAbsoluteTime);
+          }}
+        />
+      )}
     </div>
   );
 };

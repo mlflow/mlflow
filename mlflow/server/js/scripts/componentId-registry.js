@@ -1185,6 +1185,7 @@ module.exports = {
   "mlflow.experiment_view.header.trace_archival_badge_tooltip": "",
 
   // -- mlflow.experiment_view_runs_table --
+  "mlflow.experiment_view_runs_table.column_header.date.toggle_format": "",
   "mlflow.experiment_view_runs_table.column_header.models.tooltip": "",
 
   // -- mlflow.export-traces-to-dataset-modal --
