@@ -37,8 +37,10 @@ from mlflow.assistant.providers.base import (
     CLINotInstalledError,
     NotAuthenticatedError,
     ProviderNotConfiguredError,
+    assistant_sandbox_enabled,
     clear_config_cache,
 )
+from mlflow.assistant.providers.tool_executor import is_remote_caller, set_remote_caller
 from mlflow.assistant.skill_installer import install_skills, list_installed_skills
 from mlflow.assistant.types import EventType
 from mlflow.environment_variables import MLFLOW_ENABLE_REMOTE_ASSISTANT
@@ -46,7 +48,9 @@ from mlflow.server.asgi_utils import get_server_base_url
 from mlflow.server.assistant.identity import (
     BASIC_AUTH_CHALLENGE_HEADERS,
     AssistantAuthError,
+    auth_plugin_active,
     resolve_authenticated_username,
+    user_is_admin,
 )
 from mlflow.server.assistant.session import (
     Session,
@@ -88,6 +92,20 @@ def _resolve_provider(
     return resolve_default_provider(remote=remote)
 
 
+def _no_provider_message(restricted: bool) -> str:
+    # A restricted caller's selected provider is dropped when it is only available on the server
+    # host (e.g. the Claude Code or Codex CLI, or a local Ollama), so say that instead of claiming
+    # none is configured.
+    selected = _get_selected_provider() if restricted else None
+    if selected is not None and not selected.allows_remote_access:
+        return (
+            f"The {selected.display_name} provider is only available on the MLflow server host, "
+            "so it is not available to you on this server. Select another provider, such as the "
+            "MLflow AI Gateway, in the Assistant settings."
+        )
+    return "No assistant provider is configured or available."
+
+
 _BLOCK_REMOTE_ACCESS_ERROR_MSG = (
     "Assistant API is only accessible from the same host where the MLflow server is running."
 )
@@ -110,7 +128,16 @@ def _is_localhost(request: Request) -> bool:
 def _provider_allows_remote_access(provider: AssistantProvider | None) -> bool:
     if provider is None:
         return False
-    return MLFLOW_ENABLE_REMOTE_ASSISTANT.get() and provider.allows_remote_access
+    # Remote access requires the sandbox: the Assistant's server-side tools (Bash and the file
+    # tools, including python) run on the host without it, so a remote caller could execute
+    # arbitrary code there. With the sandbox on, tool execution runs isolated in a container. The
+    # CLI providers already gate their own allows_remote_access on the sandbox; requiring it here
+    # makes the gateway provider require it too, so remote tool execution is always sandboxed.
+    return (
+        MLFLOW_ENABLE_REMOTE_ASSISTANT.get()
+        and assistant_sandbox_enabled()
+        and provider.allows_remote_access
+    )
 
 
 def _enforce_remote_access(request: Request, provider: AssistantProvider | None) -> None:
@@ -145,7 +172,25 @@ def _remote_access_policy(policy: _RemoteAccessPolicy):
 def _get_route_provider(request: Request) -> AssistantProvider | None:
     if provider_name := request.path_params.get("provider"):
         return _get_provider(provider_name)
-    return _resolve_provider(remote=not _is_localhost(request))
+    return _resolve_provider(remote=is_remote_caller())
+
+
+def _is_restricted_caller(request: Request) -> bool:
+    """Whether the caller gets the same tool restrictions as a remote caller.
+
+    That is a remote caller, or, on a server with auth and the sandbox on, a caller who is not an
+    admin: any authenticated user can reach the server host, so being local does not make them the
+    operator. Restricted callers run tools only in the sandbox, never with full access, and cannot
+    use the coding-agent CLI providers. Without the sandbox, local callers keep the host behavior
+    of earlier releases.
+    """
+    if not _is_localhost(request):
+        return True
+    return (
+        assistant_sandbox_enabled()
+        and auth_plugin_active()
+        and not user_is_admin(request.state.assistant_username)
+    )
 
 
 def _current_username(request: Request) -> str | None:
@@ -217,6 +262,10 @@ class _AssistantAPIRoute(APIRoute):
             # asyncio context, so it also applies while the streaming response body runs; each
             # request runs in its own context, so this does not leak across requests.
             set_config_user(request.state.assistant_username)
+            # Cap a restricted caller (see _is_restricted_caller) at the restricted tool-permission
+            # profile, so server-side tool execution cannot be driven with full_access. Off the
+            # event loop, since it may look the caller up in the auth store.
+            set_remote_caller(await asyncio.to_thread(_is_restricted_caller, request))
             if policy != _RemoteAccessPolicy.NONE and not _is_localhost(request):
                 if policy == _RemoteAccessPolicy.DENY or not MLFLOW_ENABLE_REMOTE_ASSISTANT.get():
                     raise HTTPException(status_code=403, detail=_BLOCK_REMOTE_ACCESS_ERROR_MSG)
@@ -526,7 +575,7 @@ async def stream_response(request: Request, session_id: str) -> StreamingRespons
     # This assumes the assistant is accessing the same MLflow server that serves this API.
     # TODO: Extend this to support remote/proxy scenarios where the tracking URI may differ.
     tracking_uri = get_server_base_url(request)
-    is_remote = not _is_localhost(request)
+    is_remote = is_remote_caller()
 
     async def event_generator() -> AsyncGenerator[str, None]:
         nonlocal session
@@ -534,9 +583,8 @@ async def stream_response(request: Request, session_id: str) -> StreamingRespons
         if provider is None:
             from mlflow.assistant.types import Event
 
-            yield Event.from_error(
-                "No assistant provider is configured or available."
-            ).to_sse_event()
+            message = await asyncio.to_thread(_no_provider_message, is_remote)
+            yield Event.from_error(message).to_sse_event()
             return
         async for event in provider.astream(
             prompt=prompt,
@@ -739,7 +787,7 @@ async def get_config(request: Request) -> ConfigResponse:
     """
     config = AssistantConfig.load()
     providers = {name: p.model_dump() for name, p in config.providers.items()}
-    is_remote = not _is_localhost(request)
+    is_remote = is_remote_caller()
     selected_provider = _get_selected_provider(config)
     provider = selected_provider or resolve_default_provider(
         remote=is_remote, include_gateway=False

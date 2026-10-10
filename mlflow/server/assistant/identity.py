@@ -17,6 +17,8 @@ import sys
 from fastapi import Request
 from starlette.responses import Response as StarletteResponse
 
+from mlflow.exceptions import MlflowException
+
 # Sent when the auth plugin is active but the request has no valid credentials, so a browser or
 # client knows to present basic-auth (matching the Flask auth plugin's challenge).
 BASIC_AUTH_CHALLENGE_HEADERS = {"WWW-Authenticate": 'Basic realm="mlflow"'}
@@ -66,3 +68,20 @@ def resolve_authenticated_username(request: Request) -> str | None:
             "Valid MLflow credentials are required to use the MLflow Assistant."
         )
     return result.username
+
+
+def user_is_admin(username: str | None) -> bool:
+    """Whether ``username`` is an MLflow admin. Only meaningful when the auth plugin is active.
+
+    A user missing from the auth store (for example one authenticated by a custom
+    ``authorization_function``) is not an admin.
+    """
+    if not username:
+        return False
+    # Imported lazily for the same reason as in ``resolve_authenticated_username``.
+    from mlflow.server.auth import store
+
+    try:
+        return store.get_user(username).is_admin
+    except MlflowException:
+        return False
