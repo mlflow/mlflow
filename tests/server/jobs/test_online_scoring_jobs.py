@@ -63,12 +63,9 @@ def test_run_online_trace_scorer_job_calls_processor():
         mock_processor.process_traces.assert_called_once()
 
 
-def test_run_online_trace_scorer_job_runs_exclusively_per_experiment(monkeypatch, tmp_path: Path):
-    """
-    Test that online trace scorer jobs are exclusive per experiment_id.
-    When two jobs are submitted for the same experiment with different scorers,
-    only one should run and the other should be canceled due to exclusivity.
-    """
+def test_run_online_trace_scorer_job_reuses_unfinished_job_per_experiment(
+    monkeypatch, tmp_path: Path
+):
     with _setup_job_runner(
         monkeypatch,
         tmp_path,
@@ -105,21 +102,13 @@ def test_run_online_trace_scorer_job_runs_exclusively_per_experiment(monkeypatch
         # Submit two jobs with same experiment_id but different scorers
         job1_id = submit_job(run_online_trace_scorer_job, params1).job_id
         job2_id = submit_job(run_online_trace_scorer_job, params2).job_id
+        assert job1_id == job2_id
 
         wait_job_finalize(job1_id)
-        wait_job_finalize(job2_id)
 
         job1 = get_job(job1_id)
-        job2 = get_job(job2_id)
-
-        # One job is canceled (skipped due to exclusive lock on experiment_id),
-        # the other either succeeds or fails (we only care about exclusivity, not job success)
-        statuses = {job1.status, job2.status}
-        assert JobStatus.CANCELED in statuses
-        # The non-canceled job should have attempted to run (either SUCCEEDED or FAILED)
-        non_canceled_statuses = statuses - {JobStatus.CANCELED}
-        assert len(non_canceled_statuses) == 1
-        assert non_canceled_statuses.pop() in {JobStatus.SUCCEEDED, JobStatus.FAILED}
+        assert job1.status in {JobStatus.SUCCEEDED, JobStatus.FAILED}
+        assert run_online_trace_scorer_job._job_fn_metadata.exclusive == ["experiment_id"]
 
 
 def test_run_online_session_scorer_job_calls_processor():
