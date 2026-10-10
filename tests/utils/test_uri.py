@@ -326,6 +326,12 @@ def test_append_to_uri_throws_for_malicious_query_string_in_uri(uri):
             [("new_param", "new_value")],
             "s3://bucket/key?existing_param=existing_value&new_param=new_value",
         ),
+        (
+            "https://example.com?flag=&key=value",
+            "",
+            [("new_key", "new_value")],
+            "https://example.com?flag=&key=value&new_key=new_value",
+        ),
     ],
 )
 def test_append_to_uri_query_params_appends_as_expected(
