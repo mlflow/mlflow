@@ -24,7 +24,8 @@ can be loaded in R. This method by default searches for a flavor supported by R/
 \details{
 The URI scheme must be supported by MLflow - i.e. there has to be an MLflow artifact
          repository corresponding to the scheme of the URI. The content is expected to point to a
-         directory containing MLmodel. The following are examples of valid model uris:
+         directory containing MLmodel. Model registry URIs can reference versions, stages,
+         or aliases. Aliases use `@`. The following are examples of valid model uris:
 
                  - ``file:///absolute/path/to/local/model``
                  - ``file:relative/path/to/local/model``
@@ -32,7 +33,14 @@ The URI scheme must be supported by MLflow - i.e. there has to be an MLflow arti
                  - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
                  - ``models:/<model_name>/<model_version>``
                  - ``models:/<model_name>/<stage>``
+                 - ``models:/<model_name>@<alias>``
+                 - ``models:/<catalog>.<schema>.<model>@<alias>``
 
  For more information about supported URI schemes, see the Artifacts Documentation at
  https://www.mlflow.org/docs/latest/tracking.html#artifact-stores.
+}
+\examples{
+\dontrun{
+mlflow_load_model("models:/catalog.schema.model@champion")
+}
 }
