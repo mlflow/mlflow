@@ -5379,6 +5379,10 @@
     "defaultMessage": "Save",
     "description": "Edit server modal save button"
   },
+  "K0u3F5": {
+    "defaultMessage": "Audio unavailable",
+    "description": "Fallback shown when a custom trace view audio binding is missing or invalid"
+  },
   "K1JLVU": {
     "defaultMessage": "Latency",
     "description": "Label for the latency section"
