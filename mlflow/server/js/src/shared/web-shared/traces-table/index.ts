@@ -90,6 +90,7 @@ export {
   FilterOp,
   EMPTY_FILTER_MODEL,
   isClauseComplete,
+  isNullFilterOperator,
   countActiveFilters,
   makeEmptyClause,
   type FilterClause,

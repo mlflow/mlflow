@@ -66,14 +66,14 @@ describe('compileFilterModel', () => {
         expected: `request_metadata."mlflow.source.name" ILIKE '%app%'`,
       },
       {
-        name: 'input → span.content ILIKE substring',
+        name: 'input → trace.request ILIKE substring',
         clause: { field: 'input', operator: FilterOp.CONTAINS, value: 'hello' },
-        expected: "span.content ILIKE '%hello%'",
+        expected: "trace.request ILIKE '%hello%'",
       },
       {
-        name: 'output → span.content ILIKE substring',
+        name: 'output → trace.response ILIKE substring',
         clause: { field: 'output', operator: FilterOp.CONTAINS, value: 'world' },
-        expected: "span.content ILIKE '%world%'",
+        expected: "trace.response ILIKE '%world%'",
       },
       {
         name: 'span name equals → span.name ILIKE exact (case-insensitive, no CONTAINS token)',
@@ -324,4 +324,24 @@ describe('single-quote escaping in compiled clauses', () => {
   ])('escapes the value for $name', ({ clause, expected }) => {
     expect(compileFilterModel([clause])).toEqual([expected]);
   });
+});
+
+test.each([
+  ['input', 'request'],
+  ['output', 'response'],
+])('compiles %s null filters without a value', (field, backendField) => {
+  for (const operator of [FilterOp.IS_NULL, FilterOp.IS_NOT_NULL]) {
+    expect(compileFilterModel([{ field, operator, value: '' }])).toEqual([`trace.${backendField} ${operator}`]);
+  }
+});
+
+test.each([
+  ['input', 'request'],
+  ['output', 'response'],
+])('compiles %s value comparisons', (field, backendField) => {
+  for (const operator of [FilterOp.EQUALS, FilterOp.NOT_EQUALS, FilterOp.RLIKE]) {
+    expect(compileFilterModel([{ field, operator, value: 'Hello' }])).toEqual([
+      `trace.${backendField} ${operator} 'Hello'`,
+    ]);
+  }
 });

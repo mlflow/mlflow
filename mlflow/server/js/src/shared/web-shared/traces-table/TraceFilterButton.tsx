@@ -29,6 +29,7 @@ import {
   type FilterOp,
   type TraceFilterModel,
   makeEmptyClause,
+  isNullFilterOperator,
 } from './filterModel';
 import { ToolbarCollapsibleLabel } from './TracesToolbarResponsive';
 
@@ -255,55 +256,57 @@ const FilterClauseRow = ({ clause, index, fields, onChangeClause, onDelete }: Fi
         </SimpleSelect>
       </div>
 
-      <div css={{ display: 'flex', flexDirection: 'column' }}>
-        <FormUI.Label htmlFor={valueId}>
-          <FormattedMessage defaultMessage="Value" description="Label for the value input in the traces filter" />
-        </FormUI.Label>
-        {field?.valueInput === 'select' ? (
-          <SimpleSelect
-            id={valueId}
-            componentId={`${COMPONENT_ID}.filter.value-select`}
-            aria-label={intl.formatMessage({
-              defaultMessage: 'Filter value',
-              description: 'Aria label for the trace filter value selector',
-            })}
-            width={160}
-            contentProps={contentProps}
-            value={clause.value}
-            placeholder={intl.formatMessage({
-              defaultMessage: 'Select',
-              description: 'Placeholder for the trace filter value selector',
-            })}
-            onChange={(e) => onChangeClause(index, { ...clause, value: e.target.value })}
-          >
-            {(field.options ?? []).map((option) => (
-              <SimpleSelectOption key={option.value} value={option.value}>
-                {option.label}
-              </SimpleSelectOption>
-            ))}
-          </SimpleSelect>
-        ) : (
-          <Input
-            id={valueId}
-            componentId={`${COMPONENT_ID}.filter.value`}
-            aria-label={intl.formatMessage({
-              defaultMessage: 'Filter value',
-              description: 'Aria label for the trace filter value input',
-            })}
-            css={{ width: 160 }}
-            type={field?.valueInput === 'number' ? 'number' : 'text'}
-            placeholder={
-              field?.valuePlaceholder ??
-              intl.formatMessage({
-                defaultMessage: 'Value',
-                description: 'Placeholder for a filter value input',
-              })
-            }
-            value={clause.value}
-            onChange={(e) => onChangeClause(index, { ...clause, value: e.target.value })}
-          />
-        )}
-      </div>
+      {!isNullFilterOperator(clause.operator) && (
+        <div css={{ display: 'flex', flexDirection: 'column' }}>
+          <FormUI.Label htmlFor={valueId}>
+            <FormattedMessage defaultMessage="Value" description="Label for the value input in the traces filter" />
+          </FormUI.Label>
+          {field?.valueInput === 'select' ? (
+            <SimpleSelect
+              id={valueId}
+              componentId={`${COMPONENT_ID}.filter.value-select`}
+              aria-label={intl.formatMessage({
+                defaultMessage: 'Filter value',
+                description: 'Aria label for the trace filter value selector',
+              })}
+              width={160}
+              contentProps={contentProps}
+              value={clause.value}
+              placeholder={intl.formatMessage({
+                defaultMessage: 'Select',
+                description: 'Placeholder for the trace filter value selector',
+              })}
+              onChange={(e) => onChangeClause(index, { ...clause, value: e.target.value })}
+            >
+              {(field.options ?? []).map((option) => (
+                <SimpleSelectOption key={option.value} value={option.value}>
+                  {option.label}
+                </SimpleSelectOption>
+              ))}
+            </SimpleSelect>
+          ) : (
+            <Input
+              id={valueId}
+              componentId={`${COMPONENT_ID}.filter.value`}
+              aria-label={intl.formatMessage({
+                defaultMessage: 'Filter value',
+                description: 'Aria label for the trace filter value input',
+              })}
+              css={{ width: 160 }}
+              type={field?.valueInput === 'number' ? 'number' : 'text'}
+              placeholder={
+                field?.valuePlaceholder ??
+                intl.formatMessage({
+                  defaultMessage: 'Value',
+                  description: 'Placeholder for a filter value input',
+                })
+              }
+              value={clause.value}
+              onChange={(e) => onChangeClause(index, { ...clause, value: e.target.value })}
+            />
+          )}
+        </div>
+      )}
 
       <Button
         componentId={`${COMPONENT_ID}.filter.delete-clause`}
