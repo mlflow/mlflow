@@ -1241,6 +1241,250 @@ def test_scorer_validators_workspace_use_blocks_reads_and_writes(workspace_permi
         assert not auth_module.validate_can_manage_scorer_permission()
 
 
+def _scoped_list_scorers_request(request_json):
+    with auth_module.app.test_request_context("/api/3.0/mlflow/scorers/list", method="GET"):
+        auth_module._scope_list_scorers(request_json, "alice")
+        return auth_module.g.get("mlflow_scoped_request_overrides")
+
+
+def test_list_scorer_grants_are_scoped_to_active_workspace(workspace_permission_setup):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    scorer_key = "exp-1/score-1"
+    _set_workspace_permission(store, username, NO_PERMISSIONS.name)
+    _grant(
+        store,
+        username,
+        "team-a",
+        [("experiment", "exp-1", READ.name), ("scorer", scorer_key, READ.name)],
+    )
+
+    with workspace_context.WorkspaceContext("team-a"):
+        assert _scoped_list_scorers_request({}) == {
+            "experiment_id": "",
+            "experiment_ids": [],
+            "scorer_keys": [scorer_key],
+        }
+
+    with workspace_context.WorkspaceContext("team-b"):
+        assert _scoped_list_scorers_request({}) == {
+            "experiment_id": "",
+            "experiment_ids": [],
+            "scorer_keys": [],
+        }
+
+
+# Scorer tier open (wildcard READ), experiment tier names the readable experiments. A named
+# DENY on either tier cannot be expressed as a selector; the response filter drops those rows.
+_EXPERIMENT_SCOPED_GRANTS = [
+    ("experiment", "10", READ.name),
+    ("experiment", "exp-a", READ.name),
+    ("experiment", "7", READ.name),
+    ("scorer", "*", READ.name),
+    ("scorer", "10/blocked", DENY.name),
+]
+# Scorer tier names the readable scorers; only those in a readable experiment survive.
+_SCORER_SCOPED_GRANTS = [
+    ("experiment", "10", READ.name),
+    ("experiment", "exp-a", READ.name),
+    ("experiment", "3", READ.name),
+    ("scorer", "10/covered", READ.name),
+    ("scorer", "10/denied", DENY.name),
+    ("scorer", "exp-a/with%2Fslash", READ.name),
+    ("scorer", "2/toxicity", READ.name),
+    # Not a canonical key: must be ignored rather than break listing.
+    ("scorer", "3/*", READ.name),
+]
+
+
+@pytest.mark.parametrize(
+    ("grants", "request_json", "expected_experiment_ids", "expected_scorer_keys"),
+    [
+        (_EXPERIMENT_SCOPED_GRANTS, {}, ["10", "exp-a"], []),
+        (_EXPERIMENT_SCOPED_GRANTS, {"experiment_id": ""}, ["10", "exp-a"], []),
+        (_EXPERIMENT_SCOPED_GRANTS, {"experiment_id": "10"}, ["10"], []),
+        (_EXPERIMENT_SCOPED_GRANTS, {"experiment_id": "7"}, [], []),
+        (_EXPERIMENT_SCOPED_GRANTS, {"experiment_ids": ["99", "exp-a", "7"]}, ["exp-a"], []),
+        (_EXPERIMENT_SCOPED_GRANTS, {"experiment_ids": []}, [], []),
+        (
+            _EXPERIMENT_SCOPED_GRANTS,
+            {"scorer_keys": ["10/anything", "2/x", "exp-a/y"]},
+            [],
+            ["10/anything", "exp-a/y"],
+        ),
+        (
+            _EXPERIMENT_SCOPED_GRANTS,
+            {"experiment_ids": ["10"], "scorer_keys": ["10/anything", "exp-a/y", "2/x"]},
+            ["10"],
+            ["exp-a/y"],
+        ),
+        (_SCORER_SCOPED_GRANTS, {}, [], ["10/covered", "exp-a/with%2Fslash"]),
+        (_SCORER_SCOPED_GRANTS, {"experiment_id": "10"}, [], ["10/covered"]),
+        (_SCORER_SCOPED_GRANTS, {"experiment_id": "2"}, [], []),
+        (_SCORER_SCOPED_GRANTS, {"experiment_ids": ["exp-a", "2"]}, [], ["exp-a/with%2Fslash"]),
+        (
+            _SCORER_SCOPED_GRANTS,
+            {"scorer_keys": ["10/covered", "10/other", "2/toxicity"]},
+            [],
+            ["10/covered"],
+        ),
+        (
+            _SCORER_SCOPED_GRANTS,
+            {"experiment_id": "10", "scorer_keys": ["10/covered", "10/other"]},
+            [],
+            ["10/covered"],
+        ),
+        # Empty (or otherwise non-overlapping) `scorer_keys` must not drop
+        # scorers in the requested experiment that are readable only through
+        # an individual grant: `scorer_keys` is additive to the experiment
+        # selector, not a replacement for it.
+        (
+            _SCORER_SCOPED_GRANTS,
+            {"experiment_id": "10", "scorer_keys": []},
+            [],
+            ["10/covered"],
+        ),
+        (
+            _SCORER_SCOPED_GRANTS,
+            {"experiment_id": "10", "scorer_keys": ["exp-a/with%2Fslash"]},
+            [],
+            ["10/covered", "exp-a/with%2Fslash"],
+        ),
+    ],
+)
+def test_scope_list_scorers_narrows_request_to_grants(
+    workspace_permission_setup, grants, request_json, expected_experiment_ids, expected_scorer_keys
+):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, NO_PERMISSIONS.name)
+    _grant(store, username, "team-a", grants)
+    # From a second role: DENY wins over READ on the same key.
+    _grant(store, username, "team-a", [("experiment", "7", DENY.name)])
+
+    assert _scoped_list_scorers_request(request_json) == {
+        "experiment_id": "",
+        "experiment_ids": expected_experiment_ids,
+        "scorer_keys": expected_scorer_keys,
+    }
+
+
+def test_scope_list_scorers_leaves_unbounded_callers_alone(workspace_permission_setup):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    # A workspace grant is the fallback for both tiers, so nothing narrows the query.
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [("scorer", "10/blocked", DENY.name)])
+
+    assert _scoped_list_scorers_request({}) is None
+    # Conflicting selectors are left for the handler's 400.
+    _set_workspace_permission(store, username, NO_PERMISSIONS.name)
+    _grant(store, username, "team-a", [("experiment", "10", READ.name)])
+    assert _scoped_list_scorers_request({"experiment_id": "10", "experiment_ids": ["10"]}) is None
+
+
+def test_scope_list_scorers_rejects_malformed_experiment_ids_for_bounded_callers(
+    workspace_permission_setup,
+):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, NO_PERMISSIONS.name)
+    _grant(store, username, "team-a", [("experiment", "10", READ.name), ("scorer", "*", READ.name)])
+
+    # A malformed id must 400 regardless of the caller's grants: it's a format
+    # error, not an authorization decision, so it can't be silently dropped by
+    # the grant intersection the way an unauthorized-but-valid id ("99") is.
+    with pytest.raises(MlflowException, match="Invalid experiment ID"):
+        _scoped_list_scorers_request({"experiment_ids": ["invalid id", "10"]})
+
+    # Valid but unauthorized ids are still filtered, not rejected.
+    assert _scoped_list_scorers_request({"experiment_ids": ["99", "10"]}) == {
+        "experiment_id": "",
+        "experiment_ids": ["10"],
+        "scorer_keys": [],
+    }
+
+
+def test_scope_list_scorers_empties_on_scorer_version_deny(workspace_permission_setup):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [("scorer_version", "*", DENY.name)])
+
+    assert _scoped_list_scorers_request({}) == {
+        "experiment_id": "",
+        "experiment_ids": [],
+        "scorer_keys": [],
+    }
+
+
+@pytest.mark.parametrize(
+    ("request_json", "expected_synthesized"),
+    [
+        ({}, True),
+        ({"experiment_id": "10"}, True),
+        ({"scorer_keys": ["10/anything"]}, True),
+        ({"experiment_ids": ["10"]}, False),
+    ],
+)
+def test_scope_list_scorers_flags_only_client_supplied_plural_field(
+    workspace_permission_setup, request_json, expected_synthesized
+):
+    # The handler must only enforce a backend's "plural experiment_ids not
+    # supported" rejection when the client itself asked for the plural
+    # selector -- not when auth scoping injects `experiment_ids` to express a
+    # singular/exact-key-only/unrestricted request as a bounded batch.
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, NO_PERMISSIONS.name)
+    _grant(store, username, "team-a", [("experiment", "10", READ.name)])
+
+    with auth_module.app.test_request_context("/api/3.0/mlflow/scorers/list", method="GET"):
+        auth_module._scope_list_scorers(request_json, username)
+        assert auth_module.g.get("mlflow_auth_synthesized_experiment_ids") is expected_synthesized
+
+
+def test_scope_list_scorers_rejects_malformed_requested_key(workspace_permission_setup):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, NO_PERMISSIONS.name)
+    _grant(store, username, "team-a", [("experiment", "10", READ.name)])
+
+    with pytest.raises(MlflowException, match="Invalid scorer key"):
+        _scoped_list_scorers_request({"scorer_keys": ["2/not/canonical"]})
+
+
+def test_validate_can_read_scorer_list_keeps_singular_experiment_gate(workspace_permission_setup):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, NO_PERMISSIONS.name)
+    _grant(
+        store,
+        username,
+        "team-a",
+        [("experiment", "exp-1", READ.name), ("scorer", "exp-1/score-1", READ.name)],
+    )
+
+    def _validate(query_string):
+        with auth_module.app.test_request_context(
+            "/api/3.0/mlflow/scorers/list", method="GET", query_string=query_string
+        ):
+            allowed = auth_module.validate_can_read_scorer_list()
+            return allowed, auth_module.g.get("mlflow_scoped_request_overrides")
+
+    assert _validate({"experiment_id": "exp-2"}) == (False, None)
+    assert _validate({"experiment_id": "unknown"}) == (False, None)
+    assert _validate({"experiment_id": "exp-1"}) == (
+        True,
+        {"experiment_id": "", "experiment_ids": [], "scorer_keys": ["exp-1/score-1"]},
+    )
+    # A plural selector filters rather than forbids.
+    assert _validate({"experiment_ids": ["exp-2"]}) == (
+        True,
+        {"experiment_id": "", "experiment_ids": [], "scorer_keys": []},
+    )
+
+
 def test_registered_model_validators_require_manage_for_writes(workspace_permission_setup):
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]

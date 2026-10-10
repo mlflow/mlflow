@@ -29,6 +29,7 @@ from mlflow.entities import (
     Param,
     RoutingStrategy,
     RunTag,
+    ScorerVersion,
     SourceType,
     ViewType,
 )
@@ -2862,6 +2863,54 @@ def test_list_scorers():
             message_to_json(ListScorers(experiment_id=experiment_id)),
             endpoint="/api/3.0/mlflow/scorers/list",
         )
+
+
+def test_list_scorers_across_experiments_forwards_and_applies_scorer_keys():
+    store = RestStore(lambda: None)
+    response = mock.MagicMock()
+    response.scorers = [
+        ScorerVersion("1", "in-experiment", 1, "{}", 1).to_proto(),
+        ScorerVersion("2", "exact-match", 1, "{}", 1).to_proto(),
+        ScorerVersion("2", "not-selected", 1, "{}", 1).to_proto(),
+    ]
+
+    with mock.patch.object(store, "_call_endpoint", return_value=response) as call_endpoint:
+        scorers = store.list_scorers_across_experiments(["1"], ["2/exact-match"])
+
+    assert [(scorer.experiment_id, scorer.scorer_name) for scorer in scorers] == [
+        ("1", "in-experiment"),
+        ("2", "exact-match"),
+    ]
+    call_endpoint.assert_called_once_with(
+        ListScorers,
+        message_to_json(ListScorers(experiment_ids=["1", "2"], scorer_keys=["2/exact-match"])),
+        endpoint="/api/3.0/mlflow/scorers/list",
+    )
+
+
+def test_list_scorers_across_experiments_filters_older_server_results_locally():
+    store = RestStore(lambda: None)
+    response = mock.MagicMock()
+    response.scorers = [ScorerVersion("1", "in-experiment", 1, "{}", 1).to_proto()]
+    fallback_response = mock.MagicMock()
+    fallback_response.scorers = [
+        ScorerVersion("2", "exact-match", 1, "{}", 1).to_proto(),
+        ScorerVersion("2", "not-selected", 1, "{}", 1).to_proto(),
+    ]
+
+    response.scorers.extend(fallback_response.scorers)
+    with mock.patch.object(store, "_call_endpoint", return_value=response) as call_endpoint:
+        scorers = store.list_scorers_across_experiments(["1"], ["2/exact-match"])
+
+    assert [(scorer.experiment_id, scorer.scorer_name) for scorer in scorers] == [
+        ("1", "in-experiment"),
+        ("2", "exact-match"),
+    ]
+    call_endpoint.assert_called_once_with(
+        ListScorers,
+        message_to_json(ListScorers(experiment_ids=["1", "2"], scorer_keys=["2/exact-match"])),
+        endpoint="/api/3.0/mlflow/scorers/list",
+    )
 
 
 def test_list_scorer_versions():

@@ -5214,6 +5214,13 @@ message ListScorers {
   // Not supported against a Databricks-hosted backend.
   repeated string experiment_ids = 2;
 
+  // Optional list of exact scorer keys in the form
+  // ``<experiment_id>/<URL-encoded-scorer-name>``. Scorers matching these
+  // experiment/name pairs are returned in addition to every scorer in the
+  // experiments selected by ``experiment_id`` or ``experiment_ids``. When
+  // neither experiment selector is given, only the listed scorers are returned.
+  repeated string scorer_keys = 3;
+
   message Response {
     // List of scorer entities (latest version for each scorer name).
     repeated Scorer scorers = 1;

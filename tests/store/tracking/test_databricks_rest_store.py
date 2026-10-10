@@ -8,7 +8,7 @@ from google.protobuf.json_format import MessageToDict
 from opentelemetry.proto.trace.v1.trace_pb2 import Span as OTelProtoSpan
 
 import mlflow
-from mlflow.entities import Span
+from mlflow.entities import ScorerVersion, Span
 from mlflow.entities.assessment import (
     AssessmentSource,
     AssessmentSourceType,
@@ -2234,6 +2234,16 @@ def mock_ensure_running():
 
 def _store():
     return DatabricksTracingRestStore(lambda: MlflowHostCreds("https://test"))
+
+
+def test_list_scorers_across_experiments_uses_single_experiment_api():
+    store = _store()
+    scorer = ScorerVersion("123", "accuracy", 1, "{}", 1)
+
+    with mock.patch.object(store, "list_scorers", return_value=[scorer]) as list_scorers:
+        assert store.list_scorers_across_experiments(["123"]) == [scorer]
+
+    list_scorers.assert_called_once_with("123")
 
 
 def test_resolve_sql_warehouse_id_calls_ensure_running(sql_warehouse_id, mock_ensure_running):

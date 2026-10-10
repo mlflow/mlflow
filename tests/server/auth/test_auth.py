@@ -2989,6 +2989,80 @@ def test_scorer_read_permission(client, monkeypatch):
             response.raise_for_status()
 
 
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_list_scorers_narrows_to_experiment_and_scorer_grants(client, monkeypatch):
+    username, password = create_user(client.tracking_uri)
+    admin_auth = (ADMIN_USERNAME, ADMIN_PASSWORD)
+    experiment_response = requests.post(
+        client.tracking_uri + "/api/2.0/mlflow/experiments/create",
+        json={"name": f"scorer-list-{random_str()}"},
+        auth=admin_auth,
+    )
+    experiment_response.raise_for_status()
+    experiment_id = experiment_response.json()["experiment_id"]
+    unauthorized_experiment_response = requests.post(
+        client.tracking_uri + "/api/2.0/mlflow/experiments/create",
+        json={"name": f"unauthorized-scorer-list-{random_str()}"},
+        auth=admin_auth,
+    )
+    unauthorized_experiment_response.raise_for_status()
+    unauthorized_experiment_id = unauthorized_experiment_response.json()["experiment_id"]
+    for name in ("granted", "other"):
+        response = requests.post(
+            client.tracking_uri + "/api/3.0/mlflow/scorers/register",
+            json={
+                "experiment_id": experiment_id,
+                "name": name,
+                "serialized_scorer": json.dumps({"name": name}),
+            },
+            auth=admin_auth,
+        )
+        response.raise_for_status()
+
+    scorer_key = f"{experiment_id}/granted"
+    list_url = client.tracking_uri + "/api/3.0/mlflow/scorers/list"
+
+    def _list(**params):
+        response = requests.get(list_url, params=params, auth=(username, password))
+        response.raise_for_status()
+        return sorted(scorer["scorer_name"] for scorer in response.json().get("scorers", []))
+
+    # A scorer grant alone does not surface the row: the experiment tier is not readable.
+    grant_role_permission(client.tracking_uri, username, "scorer", scorer_key, "READ")
+    with User(username, password, monkeypatch):
+        assert _list() == []
+        response = requests.get(
+            list_url, params={"experiment_id": experiment_id}, auth=(username, password)
+        )
+        assert response.status_code == 403
+
+    # Experiment READ plus one scorer READ: only that scorer, in every request shape.
+    grant_role_permission(client.tracking_uri, username, "experiment", experiment_id, "READ")
+    with User(username, password, monkeypatch):
+        assert _list() == ["granted"]
+        assert _list(experiment_id="") == ["granted"]
+        assert _list(experiment_id=experiment_id) == ["granted"]
+        assert _list(experiment_ids=[experiment_id, unauthorized_experiment_id]) == ["granted"]
+        assert _list(experiment_ids=[unauthorized_experiment_id]) == []
+        assert _list(scorer_keys=[scorer_key, f"{experiment_id}/other"]) == ["granted"]
+        response = requests.get(
+            list_url,
+            params={"experiment_id": unauthorized_experiment_id},
+            auth=(username, password),
+        )
+        assert response.status_code == 403
+
+    # A wildcard scorer READ opens the whole granted experiment, and nothing beyond it.
+    grant_role_permission(client.tracking_uri, username, "scorer", "*", "READ")
+    with User(username, password, monkeypatch):
+        assert _list() == ["granted", "other"]
+        assert _list(experiment_ids=[unauthorized_experiment_id]) == []
+
+
 def _graphql_query(tracking_uri, query, variables=None, auth=None):
     return requests.post(
         f"{tracking_uri}/graphql",

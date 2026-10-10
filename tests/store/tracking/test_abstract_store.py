@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 import pytest
 
-from mlflow.entities import Metric
+from mlflow.entities import LifecycleStage, Metric, ScorerVersion
 from mlflow.entities.metric import MetricWithRunId
 from mlflow.store.tracking.abstract_store import AbstractStore
 
@@ -41,6 +41,49 @@ def test_supports_workspaces_defaults_to_false(store):
 
 def test_supports_trace_archival_defaults_to_false(store):
     assert store.supports_trace_archival is False
+
+
+def test_list_scorers_across_experiments_sorts_non_numeric_ids(store):
+    def list_scorers(experiment_id):
+        return [ScorerVersion(experiment_id, "score", 1, "{}", 1)]
+
+    with (
+        mock.patch.object(
+            store, "get_experiment", return_value=mock.Mock(lifecycle_stage=LifecycleStage.ACTIVE)
+        ) as get_experiment,
+        mock.patch.object(store, "list_scorers", side_effect=list_scorers) as list_mock,
+    ):
+        scorers = store.list_scorers_across_experiments(["10", "2"], ["exp-a/score"])
+
+    assert [scorer.experiment_id for scorer in scorers] == ["2", "10", "exp-a"]
+    get_experiment.assert_called_once_with("exp-a")
+    assert list_mock.call_args_list == [mock.call("2"), mock.call("10"), mock.call("exp-a")]
+
+
+def test_list_scorers_across_experiments_skips_inactive_experiments(store):
+    def get_experiment(experiment_id):
+        lifecycle_stage = (
+            LifecycleStage.DELETED if experiment_id == "exp-deleted" else LifecycleStage.ACTIVE
+        )
+        return mock.Mock(lifecycle_stage=lifecycle_stage)
+
+    with (
+        mock.patch.object(store, "get_experiment", side_effect=get_experiment) as get_mock,
+        mock.patch.object(
+            store,
+            "list_scorers",
+            return_value=[ScorerVersion("exp-active", "score", 1, "{}", 1)],
+        ) as list_mock,
+    ):
+        scorers = store.list_scorers_across_experiments(
+            [], ["exp-active/score", "exp-deleted/score"]
+        )
+
+    assert [(scorer.experiment_id, scorer.scorer_name) for scorer in scorers] == [
+        ("exp-active", "score")
+    ]
+    assert get_mock.call_args_list == [mock.call("exp-active"), mock.call("exp-deleted")]
+    list_mock.assert_called_once_with("exp-active")
 
 
 class _SyncOnlySpanStore(AbstractStore, ABC):

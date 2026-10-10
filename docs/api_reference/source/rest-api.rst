@@ -1383,6 +1383,10 @@ List all scorers, optionally scoped to one or more experiments.
 | experiment_ids | An array of ``STRING`` | Optional list of experiment IDs to scope the query. When provided, only scorers from these experiments are returned. Mutually exclusive with               |
 |                |                        | ``experiment_id`` -- specifying both is an error. Not supported against a Databricks-hosted backend.                                                       |
 +----------------+------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| scorer_keys    | An array of ``STRING`` | Optional list of exact scorer keys in the form ``<experiment_id>/<URL-encoded-scorer-name>``. Scorers matching these experiment/name pairs are returned in |
+|                |                        | addition to every scorer in the experiments selected by ``experiment_id`` or ``experiment_ids``. When neither experiment selector is given, only the       |
+|                |                        | listed scorers are returned.                                                                                                                               |
++----------------+------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------+
 
 .. _mlflowListScorersResponse:
 

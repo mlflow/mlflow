@@ -5828,6 +5828,7 @@ class ListScorers(_message.Message):
 
     EXPERIMENT_ID_FIELD_NUMBER: _builtins.int
     EXPERIMENT_IDS_FIELD_NUMBER: _builtins.int
+    SCORER_KEYS_FIELD_NUMBER: _builtins.int
     experiment_id: _builtins.str
     """A single experiment ID. Kept for backward compatibility; prefer
     ``experiment_ids`` for multi-experiment queries. Mutually exclusive
@@ -5842,15 +5843,25 @@ class ListScorers(_message.Message):
         Not supported against a Databricks-hosted backend.
         """
 
+    @_builtins.property
+    def scorer_keys(self) -> _containers.RepeatedScalarFieldContainer[_builtins.str]:
+        """Optional list of exact scorer keys in the form
+        ``<experiment_id>/<URL-encoded-scorer-name>``. Scorers matching these
+        experiment/name pairs are returned in addition to every scorer in the
+        experiments selected by ``experiment_id`` or ``experiment_ids``. When
+        neither experiment selector is given, only the listed scorers are returned.
+        """
+
     def __init__(
         self,
         *,
         experiment_id: _builtins.str | None = ...,
         experiment_ids: _abc.Iterable[_builtins.str] | None = ...,
+        scorer_keys: _abc.Iterable[_builtins.str] | None = ...,
     ) -> None: ...
     _HasFieldArgType: _TypeAlias = _typing.Literal["experiment_id", b"experiment_id"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["experiment_id", b"experiment_id", "experiment_ids", b"experiment_ids"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["experiment_id", b"experiment_id", "experiment_ids", b"experiment_ids", "scorer_keys", b"scorer_keys"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 

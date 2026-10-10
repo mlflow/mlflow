@@ -14,6 +14,7 @@ from mlflow.entities import (
     Issue,
     IssueSeverity,
     IssueStatus,
+    ScorerVersion,
     Span,
     Trace,
     TraceInfo,
@@ -67,6 +68,7 @@ from mlflow.protos.databricks_tracing_pb2 import TraceInfo as ProtoTraceInfo
 from mlflow.protos.service_pb2 import GetOnlineTraceDetails, MlflowService, SearchUnifiedTraces
 from mlflow.store.entities import PagedList
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
+from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.store.tracking.rest_store import RestStore
 from mlflow.tracing.utils import parse_trace_id_v4
 from mlflow.tracing.utils.otlp import OTLP_TRACES_PATH, resource_to_otel_proto
@@ -307,10 +309,15 @@ class DatabricksTracingRestStore(RestStore):
         return TraceInfo.from_proto(response_proto)
 
     def filter_active_experiment_ids(self, experiment_ids: list[str]) -> list[str]:
-        raise MlflowException.invalid_parameter_value(
+        raise MlflowNotImplementedException(
             "`experiment_ids` is not supported by `list_scorers` against the "
             "Databricks-hosted backend."
         )
+
+    def list_scorers_across_experiments(
+        self, experiment_ids: list[str], scorer_keys: list[str] | None = None
+    ) -> list[ScorerVersion]:
+        return AbstractStore.list_scorers_across_experiments(self, experiment_ids, scorer_keys)
 
     def batch_get_traces(
         self,

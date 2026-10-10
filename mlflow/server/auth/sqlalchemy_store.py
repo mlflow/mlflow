@@ -2,7 +2,7 @@ import logging
 import re
 from collections.abc import Collection, Iterable
 from typing import NamedTuple
-from urllib.parse import quote, unquote
+from urllib.parse import unquote
 
 from sqlalchemy import and_, or_, select, text
 from sqlalchemy.exc import IntegrityError, MultipleResultsFound, NoResultFound
@@ -61,6 +61,7 @@ from mlflow.store.db.utils import (
     create_sqlalchemy_engine_with_retry,
 )
 from mlflow.utils import workspace_context
+from mlflow.utils.scorer_keys import format_scorer_key
 from mlflow.utils.uri import extract_db_type_from_uri
 from mlflow.utils.validation import _validate_password, _validate_username
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
@@ -1151,12 +1152,9 @@ class SqlAlchemyStore:
 
     @staticmethod
     def _scorer_pattern(experiment_id: str, scorer_name: str) -> str:
-        # Scorer names may contain arbitrary characters including ``/`` (see
-        # ``validate_scorer_name``, which only forbids empty/whitespace). We
-        # URL-encode the name component so the pattern ``<experiment_id>/<name>``
-        # is unambiguous; the migration (``e5f6a7b8c9d0``) uses the same
-        # encoding, so post-migration and live grants line up.
-        return f"{experiment_id}/{quote(scorer_name, safe='')}"
+        # The migration (``e5f6a7b8c9d0``) uses the same encoding as
+        # ``format_scorer_key``, so post-migration and live grants line up.
+        return format_scorer_key(experiment_id, scorer_name)
 
     def create_scorer_permission(
         self, experiment_id: str, scorer_name: str, username: str, permission: str
