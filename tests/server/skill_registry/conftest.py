@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from mlflow.server import ARTIFACTS_DESTINATION_ENV_VAR, SERVE_ARTIFACTS_ENV_VAR, handlers
-from mlflow.store.tracking.dbmodels.models import SqlSkillVersion
+from mlflow.store.tracking.dbmodels.models import SqlSkill, SqlSkillVersion
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 
 SKILL_FILES = {
@@ -37,6 +37,39 @@ def store(tmp_path: Path, db_uri: str, monkeypatch) -> SqlAlchemyStore:
 
 
 @pytest.fixture
+def skill_registry_api_prefixes() -> tuple[str, ...]:
+    """Return the public REST prefixes served by the Skill Registry API."""
+    from mlflow.server.skill_registry_api import get_skill_registry_api_route_prefixes
+
+    return get_skill_registry_api_route_prefixes()
+
+
+@pytest.fixture
+def skill_registry_client():
+    """Create a direct HTTP client for the Skill Registry FastAPI routes.
+
+    The fixture imports the API lazily so the lower-level registration and deletion tests in this
+    package remain runnable on a checkout that predates the REST endpoint implementation.
+    """
+    from fastapi import FastAPI
+    from starlette.testclient import TestClient
+
+    from mlflow.server.fastapi_app import add_registry_exception_handlers
+    from mlflow.server.skill_registry_api import (
+        get_skill_registry_api_route_prefixes,
+        skill_registry_router,
+    )
+
+    app = FastAPI()
+    add_registry_exception_handlers(app)
+    for prefix in get_skill_registry_api_route_prefixes():
+        app.include_router(skill_registry_router, prefix=prefix)
+
+    with TestClient(app) as client:
+        yield client
+
+
+@pytest.fixture
 def artifact_root(tmp_path: Path, monkeypatch) -> Path:
     """A server that serves artifacts from a local directory."""
     root = tmp_path / "artifacts-destination"
@@ -59,6 +92,11 @@ def no_artifact_serving(monkeypatch) -> None:
 def version_rows(store: SqlAlchemyStore) -> int:
     with store.ManagedSessionMaker() as session:
         return session.query(SqlSkillVersion).count()
+
+
+def skill_rows(store: SqlAlchemyStore) -> int:
+    with store.ManagedSessionMaker() as session:
+        return session.query(SqlSkill).count()
 
 
 def stored_files(root: Path) -> list[str]:
