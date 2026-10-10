@@ -3,6 +3,7 @@ from unittest import mock
 
 import pytest
 from fastapi.encoders import jsonable_encoder
+from pydantic import ValidationError
 
 from mlflow.gateway.config import EndpointConfig
 from mlflow.gateway.exceptions import AIGatewayException
@@ -57,6 +58,75 @@ def embedding_config():
             },
         },
     }
+
+
+@pytest.fixture(params=[None, "https://gemini.example.com/relay/v1beta/models"])
+def api_base(request):
+    return request.param
+
+
+@pytest.mark.parametrize(
+    ("api_base", "expected_base"),
+    [
+        ("https://gemini.example.com", "https://gemini.example.com/v1beta/models"),
+        ("https://gemini.example.com/", "https://gemini.example.com/v1beta/models"),
+        ("https://gemini.example.com/relay/", "https://gemini.example.com/relay/v1beta/models"),
+        ("https://gemini.example.com/relay/v1/", "https://gemini.example.com/relay/v1/models"),
+        ("https://gemini.example.com/v1alpha", "https://gemini.example.com/v1alpha/models"),
+        ("https://gemini.example.com/v1beta/", "https://gemini.example.com/v1beta/models"),
+        ("https://gemini.example.com/v1/models/", "https://gemini.example.com/v1/models"),
+        ("https://gemini.example.com/v1alpha/models", "https://gemini.example.com/v1alpha/models"),
+        ("https://gemini.example.com/v1beta/models/", "https://gemini.example.com/v1beta/models"),
+        (
+            "https://gemini.example.com/v1beta1",
+            "https://gemini.example.com/v1beta1/v1beta/models",
+        ),
+        (
+            "https://gemini.example.com/relay/v1beta/?tenant=acme",
+            "https://gemini.example.com/relay/v1beta/models?tenant=acme",
+        ),
+        (
+            "https://gemini.example.com/relay/v1beta/models/?tenant=acme",
+            "https://gemini.example.com/relay/v1beta/models?tenant=acme",
+        ),
+    ],
+)
+def test_gemini_base_url(api_base, expected_base):
+    config = chat_config()
+    config["model"]["config"]["gemini_api_base"] = api_base
+    provider = GeminiProvider(EndpointConfig(**config))
+
+    assert provider.base_url == expected_base
+    base_path, _, query = expected_base.partition("?")
+    query_suffix = f"?{query}" if query else ""
+    assert (
+        provider.get_endpoint_url("llm/v1/chat")
+        == f"{base_path}/gemini-2.0-flash:generateContent{query_suffix}"
+    )
+    assert (
+        provider.get_endpoint_url("llm/v1/embeddings")
+        == f"{base_path}/gemini-2.0-flash:embedContent{query_suffix}"
+    )
+
+
+@pytest.mark.parametrize(
+    "api_base",
+    [
+        "https://gemini.example.com/models",
+        "https://gemini.example.com/gemini/models",
+        "https://gemini.example.com/gemini/models///?flag=&tenant=acme",
+        "https://gemini.example.com/v1beta1/models",
+    ],
+)
+def test_gemini_api_base_rejects_unversioned_models(api_base):
+    config = chat_config()
+    config["model"]["config"]["gemini_api_base"] = api_base
+
+    with pytest.raises(
+        ValidationError,
+        match="gemini_api_base ending in /models must include a supported API version",
+    ):
+        EndpointConfig(**config)
 
 
 def fake_single_embedding_response():
@@ -145,15 +215,16 @@ def test_get_headers_preserves_client_key_for_credential_agents(user_agent):
 
 
 @pytest.mark.asyncio
-async def test_gemini_single_embedding():
+async def test_gemini_single_embedding(api_base):
     config = embedding_config()
+    if api_base is not None:
+        config["model"]["config"]["gemini_api_base"] = api_base
     provider = GeminiProvider(EndpointConfig(**config))
     payload = {"input": "This is a test embedding."}
 
     expected_payload = {"content": {"parts": [{"text": "This is a test embedding."}]}}
-    expected_url = (
-        "https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent"
-    )
+    expected_base = api_base or "https://generativelanguage.googleapis.com/v1beta/models"
+    expected_url = f"{expected_base}/text-embedding-004:embedContent"
 
     with mock.patch(
         "aiohttp.ClientSession.post",
@@ -226,8 +297,10 @@ async def test_gemini_batch_embedding():
 
 
 @pytest.mark.asyncio
-async def test_gemini_completions():
+async def test_gemini_completions(api_base):
     config = completions_config()
+    if api_base is not None:
+        config["model"]["config"]["gemini_api_base"] = api_base
     provider = GeminiProvider(EndpointConfig(**config))
     payload = {
         "prompt": "Tell me a joke",
@@ -250,9 +323,8 @@ async def test_gemini_completions():
             "topK": 40,
         },
     }
-    expected_url = (
-        "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
-    )
+    expected_base = api_base or "https://generativelanguage.googleapis.com/v1beta/models"
+    expected_url = f"{expected_base}/gemini-2.0-flash:generateContent"
 
     with (
         mock.patch("time.time", return_value=1234567890),
@@ -1326,8 +1398,10 @@ def chat_stream_response_incomplete():
 
 @pytest.mark.parametrize("resp", [chat_stream_response(), chat_stream_response_incomplete()])
 @pytest.mark.asyncio
-async def test_gemini_chat_stream(resp):
+async def test_gemini_chat_stream(resp, api_base):
     config = chat_config()
+    if api_base is not None:
+        config["model"]["config"]["gemini_api_base"] = api_base
     mock_client = mock_http_client(MockAsyncStreamingResponse(resp))
     provider = GeminiProvider(EndpointConfig(**config))
     payload = {"messages": [{"role": "user", "content": "Tell me a joke"}]}
@@ -1382,10 +1456,8 @@ async def test_gemini_chat_stream(resp):
 
     mock_build_client.assert_called_once()
 
-    expected_url = (
-        "https://generativelanguage.googleapis.com/v1beta/models/"
-        "gemini-2.0-flash:streamGenerateContent?alt=sse"
-    )
+    expected_base = api_base or "https://generativelanguage.googleapis.com/v1beta/models"
+    expected_url = f"{expected_base}/gemini-2.0-flash:streamGenerateContent?alt=sse"
 
     mock_client.post.assert_called_once_with(
         expected_url,
@@ -1666,9 +1738,11 @@ def passthrough_stream_generate_content_response():
 
 
 @pytest.mark.asyncio
-async def test_passthrough_gemini_generate_content():
+async def test_passthrough_gemini_generate_content(api_base):
     resp = passthrough_generate_content_response()
     config = chat_config()
+    if api_base is not None:
+        config["model"]["config"]["gemini_api_base"] = api_base
 
     captured_session_headers = {}
     mock_session_client = mock_http_client(MockAsyncResponse(resp))
@@ -1701,7 +1775,8 @@ async def test_passthrough_gemini_generate_content():
 
         mock_session_client.post.assert_called_once()
         call_args = mock_session_client.post.call_args
-        assert "gemini-2.0-flash:generateContent" in call_args[0][0]
+        expected_base = api_base or "https://generativelanguage.googleapis.com/v1beta/models"
+        assert call_args[0][0] == f"{expected_base}/gemini-2.0-flash:generateContent"
         assert call_args[1]["json"]["contents"] == [{"role": "user", "parts": [{"text": "Hello"}]}]
 
         # Verify provider headers are propagated correctly
@@ -1717,9 +1792,11 @@ async def test_passthrough_gemini_generate_content():
 
 
 @pytest.mark.asyncio
-async def test_passthrough_gemini_stream_generate_content():
+async def test_passthrough_gemini_stream_generate_content(api_base):
     resp = passthrough_stream_generate_content_response()
     config = chat_config()
+    if api_base is not None:
+        config["model"]["config"]["gemini_api_base"] = api_base
 
     captured_session_headers = {}
     mock_session_client = mock_http_client(MockAsyncStreamingResponse(resp))
@@ -1753,7 +1830,8 @@ async def test_passthrough_gemini_stream_generate_content():
 
         mock_session_client.post.assert_called_once()
         call_args = mock_session_client.post.call_args
-        assert "gemini-2.0-flash:streamGenerateContent?alt=sse" in call_args[0][0]
+        expected_base = api_base or "https://generativelanguage.googleapis.com/v1beta/models"
+        assert call_args[0][0] == f"{expected_base}/gemini-2.0-flash:streamGenerateContent?alt=sse"
         assert call_args[1]["json"]["contents"] == [{"role": "user", "parts": [{"text": "Hello"}]}]
 
         # Verify provider headers are propagated correctly
@@ -1761,6 +1839,108 @@ async def test_passthrough_gemini_stream_generate_content():
 
         # Verify custom headers are propagated correctly
         assert captured_session_headers["X-Stream-Context"] == "gemini-stream"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("streaming", [False, True])
+@pytest.mark.parametrize(
+    ("api_base", "expected_root"),
+    [
+        (None, "https://generativelanguage.googleapis.com"),
+        ("https://gemini.example.com/", "https://gemini.example.com"),
+        ("https://gemini.example.com/relay/", "https://gemini.example.com/relay"),
+        ("https://gemini.example.com/relay/v1/", "https://gemini.example.com/relay"),
+        ("https://gemini.example.com/relay/v1beta/models/", "https://gemini.example.com/relay"),
+        (
+            "https://gemini.example.com/relay/v1beta/?tenant=acme",
+            "https://gemini.example.com/relay?tenant=acme",
+        ),
+    ],
+)
+async def test_gemini_proxy(api_base, expected_root, streaming):
+    config = chat_config()
+    if api_base is not None:
+        config["model"]["config"]["gemini_api_base"] = api_base
+    provider = GeminiProvider(EndpointConfig(**config))
+    payload = {"contents": [{"role": "user", "parts": [{"text": "Hello"}]}]}
+    response_body = passthrough_generate_content_response()
+    chunks = passthrough_stream_generate_content_response()
+    upstream_response = (
+        MockAsyncStreamingResponse(chunks, headers={"Content-Type": "text/event-stream"})
+        if streaming
+        else MockAsyncResponse(response_body)
+    )
+    mock_client = mock_http_client(upstream_response)
+    path = (
+        "v1beta/models/gemini-2.0-flash:streamGenerateContent?alt=sse"
+        if streaming
+        else "v1beta/models/gemini-2.0-flash:generateContent"
+    )
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client) as mock_session:
+        response = await provider.proxy(path, payload)
+        if streaming:
+            assert [chunk async for chunk in response] == chunks
+        else:
+            assert response == response_body
+
+    mock_session.assert_called_once()
+    root_path, _, query = expected_root.partition("?")
+    request_path, _, request_query = path.partition("?")
+    expected_url = f"{root_path}/{request_path}"
+    if combined_query := "&".join(filter(None, [query, request_query])):
+        expected_url += f"?{combined_query}"
+    mock_client.post.assert_called_once_with(
+        expected_url,
+        json=payload,
+        timeout=mock.ANY,
+        allow_redirects=False,
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("streaming", [False, True])
+@pytest.mark.parametrize("passthrough", [False, True])
+async def test_gemini_query_parameters(streaming, passthrough):
+    config = chat_config()
+    config["model"]["config"]["gemini_api_base"] = (
+        "https://gemini.example.com/relay/v1beta?flag=&tenant=acme"
+    )
+    provider = GeminiProvider(EndpointConfig(**config))
+    response_body = fake_chat_response()
+    chunks = passthrough_stream_generate_content_response()
+    upstream_response = (
+        MockAsyncStreamingResponse(chunks, headers={"Content-Type": "text/event-stream"})
+        if streaming
+        else MockAsyncResponse(response_body)
+    )
+    mock_client = mock_http_client(upstream_response)
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client) as mock_session:
+        if passthrough:
+            action = (
+                PassthroughAction.GEMINI_STREAM_GENERATE_CONTENT
+                if streaming
+                else PassthroughAction.GEMINI_GENERATE_CONTENT
+            )
+            response = await provider.passthrough(action, {"contents": []})
+        else:
+            payload = chat.RequestPayload(messages=[{"role": "user", "content": "Hello"}])
+            response = provider.chat_stream(payload) if streaming else await provider.chat(payload)
+        if streaming:
+            assert [chunk async for chunk in response]
+        else:
+            assert response
+
+    mock_session.assert_called_once()
+    action_name = "streamGenerateContent" if streaming else "generateContent"
+    query = "flag=&tenant=acme&alt=sse" if streaming else "flag=&tenant=acme"
+    mock_client.post.assert_called_once_with(
+        f"https://gemini.example.com/relay/v1beta/models/gemini-2.0-flash:{action_name}?{query}",
+        json=mock.ANY,
+        timeout=mock.ANY,
+        allow_redirects=False,
+    )
 
 
 @pytest.mark.asyncio
