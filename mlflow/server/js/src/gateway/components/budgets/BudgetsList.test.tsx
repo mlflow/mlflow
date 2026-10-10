@@ -4,10 +4,12 @@ import { renderWithDesignSystem, screen } from '../../../common/utils/TestUtils.
 import { BudgetsList } from './BudgetsList';
 import { useBudgetPoliciesQuery } from '../../hooks/useBudgetPoliciesQuery';
 import { useBudgetWindowsQuery } from '../../hooks/useBudgetWindowsQuery';
+import { useEndpointsQuery } from '../../hooks/useEndpointsQuery';
 import { MemoryRouter } from '../../../common/utils/RoutingUtils';
 
 jest.mock('../../hooks/useBudgetPoliciesQuery');
 jest.mock('../../hooks/useBudgetWindowsQuery');
+jest.mock('../../hooks/useEndpointsQuery');
 
 const now = Date.now() / 1000;
 
@@ -42,6 +44,12 @@ describe('BudgetsList', () => {
       isLoading: false,
       error: undefined,
     });
+    jest.mocked(useEndpointsQuery).mockReturnValue({
+      data: [{ endpoint_id: 'e-1', name: 'my-endpoint' }],
+      isLoading: false,
+      error: undefined,
+      refetch: jest.fn(),
+    } as any);
   });
 
   test('renders loading state', () => {
@@ -98,6 +106,118 @@ describe('BudgetsList', () => {
     expect(screen.getByText('Monthly')).toBeInTheDocument();
     expect(screen.getByText('Reject')).toBeInTheDocument();
     expect(screen.getByText('Alert')).toBeInTheDocument();
+    // GLOBAL and WORKSPACE policies both display as applying to everything.
+    expect(screen.getAllByText('All endpoints and users')).toHaveLength(2);
+  });
+
+  test('renders endpoint name for ENDPOINT-scoped policy', () => {
+    jest.mocked(useBudgetPoliciesQuery).mockReturnValue({
+      data: [
+        {
+          ...mockPolicies[0],
+          budget_policy_id: 'bp-ep',
+          target_scope: 'ENDPOINT' as const,
+          target_value: 'e-1',
+        },
+      ],
+      isLoading: false,
+      error: undefined,
+      refetch: jest.fn(),
+    } as any);
+
+    renderWithDesignSystem(
+      <MemoryRouter>
+        <BudgetsList />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText('my-endpoint')).toBeInTheDocument();
+    expect(screen.queryByText('All endpoints and users')).not.toBeInTheDocument();
+  });
+
+  test('marks the endpoint id as deleted when the endpoint no longer exists', () => {
+    jest.mocked(useBudgetPoliciesQuery).mockReturnValue({
+      data: [
+        {
+          ...mockPolicies[0],
+          budget_policy_id: 'bp-ep',
+          target_scope: 'ENDPOINT' as const,
+          target_value: 'e-deleted',
+        },
+      ],
+      isLoading: false,
+      error: undefined,
+      refetch: jest.fn(),
+    } as any);
+
+    renderWithDesignSystem(
+      <MemoryRouter>
+        <BudgetsList />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText('e-deleted')).toBeInTheDocument();
+    expect(screen.getByText('(deleted)')).toBeInTheDocument();
+  });
+
+  test.each([
+    ['still loading', { data: [], isLoading: true, error: undefined }],
+    ['failed', { data: [], isLoading: false, error: new Error('nope') }],
+  ])('does not mark an endpoint deleted when the endpoints request is %s', (_label, endpointsQuery) => {
+    jest.mocked(useEndpointsQuery).mockReturnValue({ ...endpointsQuery, refetch: jest.fn() } as any);
+    jest.mocked(useBudgetPoliciesQuery).mockReturnValue({
+      data: [
+        {
+          ...mockPolicies[0],
+          budget_policy_id: 'bp-ep',
+          target_scope: 'ENDPOINT' as const,
+          target_value: 'e-1',
+        },
+      ],
+      isLoading: false,
+      error: undefined,
+      refetch: jest.fn(),
+    } as any);
+
+    renderWithDesignSystem(
+      <MemoryRouter>
+        <BudgetsList />
+      </MemoryRouter>,
+    );
+
+    // 'e-1' is live; we just can't resolve its name yet.
+    expect(screen.getByText('e-1')).toBeInTheDocument();
+    expect(screen.queryByText('(deleted)')).not.toBeInTheDocument();
+  });
+
+  test('renders the applies-to column for user and non-user policies', () => {
+    jest.mocked(useBudgetPoliciesQuery).mockReturnValue({
+      data: [
+        mockPolicies[0],
+        {
+          ...mockPolicies[0],
+          budget_policy_id: 'bp-user',
+          target_scope: 'USER' as const,
+          target_value: 'alice',
+        },
+      ],
+      isLoading: false,
+      error: undefined,
+      refetch: jest.fn(),
+    } as any);
+
+    renderWithDesignSystem(
+      <MemoryRouter>
+        <BudgetsList />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText('Applies to')).toBeInTheDocument();
+    // The GLOBAL policy applies to everyone; the USER policy shows its username
+    // behind a "User" tag so it can't be read as an endpoint name.
+    expect(screen.getByText('All endpoints and users')).toBeInTheDocument();
+    expect(screen.getByText('alice')).toBeInTheDocument();
+    expect(screen.getByText('User')).toBeInTheDocument();
   });
 
   test('renders window columns with spend data when available', () => {
