@@ -1032,7 +1032,10 @@ def search_traces(
 
     Args:
         experiment_ids: List of experiment ids to scope the search.
-        filter_string: A search filter string.
+        filter_string: A search filter string. SQLite and PostgreSQL support ``=``, ``!=``,
+            ``LIKE``, ``ILIKE``, and ``RLIKE`` on ``trace.request`` and ``trace.response``,
+            comparing the complete serialized root-span inputs or outputs. Other SQL backends
+            raise an error for these value comparisons.
         max_results: Maximum number of traces desired. If None, all traces matching the search
             expressions will be returned.
         order_by: List of order_by clauses.

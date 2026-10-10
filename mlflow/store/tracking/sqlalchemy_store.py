@@ -6,6 +6,7 @@ import json
 import logging
 import math
 import random
+import re
 import threading
 import time
 import uuid
@@ -116,7 +117,7 @@ from mlflow.protos.databricks_pb2 import (
 )
 from mlflow.store.analytics import trace_correlation
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
-from mlflow.store.db.db_types import MSSQL, MYSQL
+from mlflow.store.db.db_types import MSSQL, MYSQL, POSTGRES, SQLITE
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import (
     MAX_RESULTS_QUERY_TRACE_METRICS,
@@ -10464,6 +10465,48 @@ def _get_session_scoped_trace_ids(scoped_trace_query: Query, assessment_filters)
     )
 
 
+def _get_trace_content_value(field, dialect):
+    content = (
+        sqlalchemy.cast(SqlSpan.content, sqlalchemy.JSON)
+        if dialect == POSTGRES
+        else sqlalchemy.type_coerce(SqlSpan.content, sqlalchemy.JSON)
+    )
+    return func.coalesce(
+        *(
+            content["attributes"][key].as_string()
+            for key in SearchTraceUtils.TRACE_CONTENT_ATTRIBUTE_KEYS[field]
+        )
+    )
+
+
+def _get_trace_content_filter(field, comparator, value, dialect):
+    if dialect not in (SQLITE, POSTGRES):
+        raise MlflowException.invalid_parameter_value(
+            f"trace.{field} {comparator} is supported only with SQLite and PostgreSQL tracking "
+            f"stores; current database is '{dialect}'."
+        )
+
+    content = _get_trace_content_value(field, dialect)
+    if dialect == SQLITE and comparator in ("LIKE", "ILIKE"):
+        # SQLite LIKE is case-insensitive by default; REGEXP preserves the operator semantics.
+        pieces = []
+        characters = iter(value)
+        for character in characters:
+            if character == "\\":
+                escaped = next(characters, None)
+                if escaped is None:
+                    raise MlflowException.invalid_parameter_value(
+                        f"trace.{field} {comparator} pattern cannot end with an escape character."
+                    )
+                pieces.append(re.escape(escaped))
+            else:
+                pieces.append({"%": ".*", "_": "."}.get(character, re.escape(character)))
+        pattern = "".join(pieces)
+        flags = "(?is)" if comparator == "ILIKE" else "(?s)"
+        return content.op("REGEXP")(rf"{flags}\A{pattern}\Z")
+    return SearchTraceUtils.get_sql_comparison_func(comparator, dialect)(content, value)
+
+
 def _get_filter_clauses_for_search_traces(filter_string, session, dialect, scoped_trace_query):
     """
     Creates trace attribute filters and subqueries that will be inner-joined
@@ -10508,6 +10551,17 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect, scope
                 .subquery()
             )
             span_filters.append(issue_subquery)
+            continue
+
+        if SearchTraceUtils.is_trace_content(key_type, key_name, comparator):
+            content_filter = _get_trace_content_filter(key_name, comparator, value, dialect)
+            root_matches = exists().where(
+                SqlSpan.trace_id == SqlTraceInfo.request_id,
+                SqlSpan.experiment_id == SqlTraceInfo.experiment_id,
+                SqlSpan.parent_span_id.is_(None),
+                content_filter,
+            )
+            attribute_filters.append(root_matches)
             continue
 
         if SearchTraceUtils.is_attribute(key_type, key_name, comparator):
