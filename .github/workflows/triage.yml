@@ -50,6 +50,11 @@ jobs:
       url: ${{ fromJSON(steps.issue.outputs.json).html_url }}
       author_association: ${{ fromJSON(steps.issue.outputs.json).author_association }}
       dry_run: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
+      # Pull requests are only opened for maintainers' issues for now. Set the TRIAGE_PR_DISABLED
+      # repository Actions variable to "true" to stop opening them entirely.
+      pr_enabled: >-
+        ${{ vars.TRIAGE_PR_DISABLED != 'true' &&
+        contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), fromJSON(steps.issue.outputs.json).author_association) }}
     steps:
       - name: Load issue
         id: issue
@@ -716,7 +721,7 @@ jobs:
           MODEL: ${{ inputs.model || 'databricks-claude-opus-5-5' }}
           ISSUE_PATH: ${{ runner.temp }}/sanitized-issue/sanitized_issue.json
           ISSUE_TYPE: ${{ needs.label.outputs.type }}
-          PR_DISABLED: ${{ vars.TRIAGE_PR_DISABLED == 'true' }}
+          PR_DISABLED: ${{ needs.issue.outputs.pr_enabled != 'true' }}
           # OpenTelemetry export through the telemetry proxy. Spans need the enhanced telemetry beta;
           # logs carry per-call cost and the final response; metrics carry session counters. The OTEL_LOG_* flags include prompt,
           # response, and tool content, which are redacted by default.
@@ -980,9 +985,8 @@ jobs:
   create_pr:
     needs: [issue, label, triage, post_triage]
     # Branch from the default branch only, so the PR's base matches the commit triage ran on.
-    # Set the TRIAGE_PR_DISABLED repository Actions variable to "true" to stop opening pull requests.
     if: >-
-      vars.TRIAGE_PR_DISABLED != 'true' &&
+      needs.issue.outputs.pr_enabled == 'true' &&
       needs.triage.result == 'success' &&
       needs.post_triage.result == 'success' &&
       github.ref_name == github.event.repository.default_branch
