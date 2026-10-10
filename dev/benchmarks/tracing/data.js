@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791625703807,
+  "lastUpdate": 1791629922068,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "qian.yucheng@gmail.com",
-            "name": "Yucheng Qian",
-            "username": "qyc"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "9aee3d75a72731a8e25221a91dc70238d616064b",
-          "message": "Honor declared ONNX execution providers at load time (#24232)\n\nSigned-off-by: Yucheng Qian <yucheng.qian@databricks.com>\nSigned-off-by: qyc <7042909+qyc@users.noreply.github.com>\nCo-authored-by: Yucheng Qian <yucheng.qian@databricks.com>\nCo-authored-by: qyc <7042909+qyc@users.noreply.github.com>",
-          "timestamp": "2026-07-08T07:43:26Z",
-          "tree_id": "15be63f512dc295b01167d669b88368c7141c9d9",
-          "url": "https://github.com/mlflow/mlflow/commit/9aee3d75a72731a8e25221a91dc70238d616064b"
-        },
-        "date": 1783496816830,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 139.6121476499964,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 23.77550948484995,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 20.711471698414172,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 22.474106107143907,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 23.35568144642914,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 9.557026799996038,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 10.34388580000325,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "41898282+github-actions[bot]@users.noreply.github.com",
+            "name": "github-actions[bot]",
+            "username": "github-actions[bot]"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a4d5f3e7b929b60abda621d1cdc20b1d46c47545",
+          "message": "Accept lowercase comparators in `search_experiments` for SQL stores (#26619)\n\nSigned-off-by: github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Harutaka Kawamura <hkawamura0130@gmail.com>",
+          "timestamp": "2026-10-10T10:55:33Z",
+          "tree_id": "875be4011b3e8b8b9d893f0c3624269f940985ad",
+          "url": "https://github.com/mlflow/mlflow/commit/a4d5f3e7b929b60abda621d1cdc20b1d46c47545"
+        },
+        "date": 1791629919043,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 39.98725360000179,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 4.4840183444441735,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 3.6417242975613537,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 4.638905805971328,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 3.9615198186817286,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 3.784744999995837,
             "unit": "ms"
           }
         ]
