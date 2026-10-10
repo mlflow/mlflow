@@ -283,6 +283,7 @@ from mlflow.utils.uri import (
     resolve_uri_if_local,
 )
 from mlflow.utils.validation import (
+    MAX_TAG_VAL_LENGTH,
     _parse_experiment_id,
     _parse_experiment_ids,
     _resolve_experiment_ids_and_locations,
@@ -292,6 +293,7 @@ from mlflow.utils.validation import (
     _validate_experiment_artifact_location_length,
     _validate_experiment_name,
     _validate_experiment_tag,
+    _validate_length_limit,
     _validate_logged_model_name,
     _validate_metric,
     _validate_param,
@@ -2423,11 +2425,28 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             run = self._get_run(run_uuid=run_id, session=session)
             self._check_run_is_active(run)
             if previous_tag := [t for t in run.tags if t.key == MLFLOW_LOGGED_MODELS]:
-                value = json.dumps(json.loads(previous_tag[0].value) + [model_dict])
+                model_history = json.loads(previous_tag[0].value)
             else:
-                value = json.dumps([model_dict])
+                model_history = []
+            model_history.append(model_dict)
+            value = json.dumps(model_history)
+            num_dropped = 0
+            while len(value) > MAX_TAG_VAL_LENGTH and len(model_history) > 1:
+                model_history.pop(0)
+                num_dropped += 1
+                value = json.dumps(model_history)
+
+            _validate_length_limit("Logged model history", MAX_TAG_VAL_LENGTH, value)
             _validate_tag(MLFLOW_LOGGED_MODELS, value)
             session.merge(SqlTag(key=MLFLOW_LOGGED_MODELS, value=value, run_uuid=run_id))
+        if num_dropped:
+            _logger.warning(
+                "Dropped %d oldest logged model history entries from run %s to keep the tag "
+                "within %d characters.",
+                num_dropped,
+                run_id,
+                MAX_TAG_VAL_LENGTH,
+            )
 
     def log_inputs(
         self,
