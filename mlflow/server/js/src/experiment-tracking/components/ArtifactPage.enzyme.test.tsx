@@ -123,6 +123,23 @@ describe('ArtifactPage', () => {
       done();
     });
   });
+  // eslint-disable-next-line jest/no-done-callback -- TODO(FEINF-1337)
+  test('passes the run artifact root URI to listArtifactsApi', (done) => {
+    const mock = jest.fn();
+    const artifactRootUri = 'http://localhost/api/2.0/mlflow-artifacts/artifacts/my-root';
+    const props = {
+      ...minimalProps,
+      apis: {},
+      artifactRootUri,
+      listArtifactsApi: mock,
+      searchModelVersionsApi: jest.fn(),
+    };
+    wrapper = shallowWithIntl(<ArtifactPageImpl {...props} />).dive();
+    setImmediate(() => {
+      expect(mock.mock.calls[0][5]).toBe(artifactRootUri);
+      done();
+    });
+  });
   test('ArtifactPage renders error message when listArtifacts request fails', () => {
     jest.spyOn(console, 'error').mockImplementation(() => {});
     const props = { ...minimalProps, apis: {}, searchModelVersionsApi: jest.fn() };

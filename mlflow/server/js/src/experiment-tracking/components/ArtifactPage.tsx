@@ -141,6 +141,7 @@ export class ArtifactPageImpl extends Component<ArtifactPageImplProps, ArtifactP
         this.listArtifactRequestIds[0],
         this.props.experimentId,
         this.props.entityTags,
+        this.props.artifactRootUri,
       );
     }
     if (this.props.initialSelectedArtifactPath) {
@@ -170,6 +171,7 @@ export class ArtifactPageImpl extends Component<ArtifactPageImplProps, ArtifactP
             this.listArtifactRequestIds[i + 1],
             this.props.experimentId,
             this.props.entityTags,
+            this.props.artifactRootUri,
           );
         }
         pathSoFar += '/';
