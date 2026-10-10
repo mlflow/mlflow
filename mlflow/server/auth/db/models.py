@@ -202,7 +202,6 @@ class SqlMutationConditions(Base):
             "container_resource_type",
             "container_resource_pattern",
         ),
-        Index("idx_mutation_conditions_role_id", "role_id"),
     )
 
     def to_mlflow_entity(self):

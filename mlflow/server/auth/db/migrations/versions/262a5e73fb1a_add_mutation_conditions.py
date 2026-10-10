@@ -119,12 +119,8 @@ def upgrade() -> None:
         ["role_id", "resource_type", "container_resource_type", "container_resource_pattern"],
         unique=False,
     )
-    op.create_index(
-        "idx_mutation_conditions_role_id", "mutation_conditions", ["role_id"], unique=False
-    )
 
 
 def downgrade() -> None:
-    op.drop_index("idx_mutation_conditions_role_id", table_name="mutation_conditions")
     op.drop_index("idx_mutation_conditions_lookup", table_name="mutation_conditions")
     op.drop_table("mutation_conditions")
