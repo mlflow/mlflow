@@ -5,6 +5,13 @@ import pytest
 from mlflow.server import fastapi_app
 
 
+@pytest.fixture(autouse=True)
+def reap_sessions():
+    # Keep the real sweep away from the machine's temp directory.
+    with mock.patch("mlflow.server.assistant.session.reap_stale_sessions") as reap:
+        yield reap
+
+
 @pytest.mark.asyncio
 async def test_lifespan_reaps_containers_when_docker_present():
     with (
@@ -86,3 +93,18 @@ async def test_lifespan_warns_when_remote_but_not_sandboxed(monkeypatch, caplog)
     assert any(
         "remote mode but the Docker sandbox is not active" in r.message for r in caplog.records
     )
+
+
+@pytest.mark.asyncio
+async def test_lifespan_reaps_expired_sessions_even_if_home_reap_fails(reap_sessions):
+    with (
+        mock.patch("mlflow.server.fastapi_app.shutil.which", return_value=None),
+        mock.patch(
+            "mlflow.server.assistant.session.reap_stale_sandbox_homes",
+            side_effect=Exception("boom"),
+        ),
+    ):
+        async with fastapi_app._lifespan(mock.MagicMock()):
+            pass
+
+    reap_sessions.assert_called_once()

@@ -22,6 +22,7 @@ import OpenAiLogoDark from '../../common/static/logos/openai-dark.svg';
 import LangChainLogo from '../../common/static/logos/langchain.svg';
 import LangChainLogoDark from '../../common/static/logos/langchain-dark.png';
 import LangGraphLogo from '../../common/static/logos/langgraph.svg';
+import LangGraphLogoDark from '../../common/static/logos/langgraph-dark.svg';
 import AnthropicLogo from '../../common/static/logos/anthropic.svg';
 import AnthropicLogoDark from '../../common/static/logos/anthropic-dark.png';
 import DspyLogo from '../../common/static/logos/dspy.png';
@@ -59,6 +60,7 @@ const frameworks: FrameworkDefinition[] = [
     id: 'langgraph',
     message: 'LangGraph',
     logo: LangGraphLogo,
+    selectedLogo: LangGraphLogoDark,
   },
   {
     id: 'dspy',
@@ -192,7 +194,8 @@ export const LogTracesDrawer = () => {
           >
             {frameworks.map((framework) => {
               const isSelected = framework.id === selectedFramework;
-              const logoSrc = isSelected && framework.selectedLogo ? framework.selectedLogo : framework.logo;
+              const useLightLogo = isSelected || theme.isDarkMode;
+              const logoSrc = useLightLogo && framework.selectedLogo ? framework.selectedLogo : framework.logo;
               return (
                 <button
                   key={framework.id}

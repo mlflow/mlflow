@@ -47,8 +47,6 @@ jobs:
           persist-credentials: true
           token: ${{ steps.app-token.outputs.token || github.token }}
       - uses: ./.github/actions/setup-python
-        with:
-          pin-micro-version: false
       - name: Run uv lock --upgrade
         run: |
           uv lock --upgrade 2>&1 | tee /tmp/uv-lock-output.txt

@@ -55,6 +55,18 @@ def test_capture_function_input_args_does_not_raise():
     assert mock_input_args.call_count > 0
 
 
+def test_capture_function_input_args_excludes_falsy_self():
+    class Queue:
+        def __len__(self):
+            return 0
+
+        def push(self, item):
+            pass
+
+    queue = Queue()
+    assert capture_function_input_args(Queue.push, (queue, "a"), {}) == {"item": "a"}
+
+
 def test_duplicate_span_names():
     span_names = ["red", "red", "blue", "red", "green", "blue"]
 

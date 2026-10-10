@@ -32,6 +32,7 @@ from mlflow.server import app as flask_app
 from mlflow.server.artifact_router import artifact_router
 from mlflow.server.asgi_utils import get_routed_asgi_path
 from mlflow.server.assistant.api import assistant_router
+from mlflow.server.assistant.identity import auth_plugin_active
 from mlflow.server.fastapi_security import init_fastapi_security
 from mlflow.server.gateway_api import gateway_router
 from mlflow.server.handlers import STATIC_PREFIX_ENV_VAR, _add_static_prefix
@@ -208,16 +209,17 @@ def add_mcp_exception_handlers(fastapi_app: FastAPI) -> None:
 
 @asynccontextmanager
 async def _lifespan(app: FastAPI):
-    # On startup, clean up assistant sandbox artifacts orphaned by a previous server generation:
-    # containers whose in-process stream is gone, and stale per-session $HOME directories. Runs in
+    # On startup, clean up assistant artifacts orphaned by a previous server generation: sandbox
+    # containers whose in-process stream is gone, stale per-session $HOME directories, and expired
+    # sessions (which loading also refuses, so this only frees disk space). Runs in
     # every uvicorn worker but only removes containers from a *previous* boot id, so it is safe
     # across workers. Note: this only runs under uvicorn (the default ASGI server); gunicorn and
     # waitress use the Flask app, which has no lifespan.
     #
     # Container reaping is NOT gated on the sandbox being enabled in this process: a server that
     # crashed with a sandbox container running and was restarted with the sandbox now off must
-    # still reap that orphan, so it runs whenever a `docker` executable is present. The two reapers
-    # run under separate error boundaries so one failing does not skip the other.
+    # still reap that orphan, so it runs whenever a `docker` executable is present. The reapers run
+    # under separate error boundaries so one failing does not skip the others.
     if shutil.which("docker") is not None:
         try:
             from mlflow.server.sandbox import reap_orphaned_sandbox_containers
@@ -232,6 +234,12 @@ async def _lifespan(app: FastAPI):
         await anyio.to_thread.run_sync(reap_stale_sandbox_homes)
     except Exception:
         _logger.warning("Assistant sandbox home cleanup failed", exc_info=True)
+    try:
+        from mlflow.server.assistant.session import reap_stale_sessions
+
+        await anyio.to_thread.run_sync(reap_stale_sessions)
+    except Exception:
+        _logger.warning("Assistant session cleanup failed", exc_info=True)
 
     # Remote mode but no sandbox means the assistant runs its work on the host; surface that once
     # at startup rather than silently, since it is a weaker isolation posture for a shared server.
@@ -241,6 +249,13 @@ async def _lifespan(app: FastAPI):
             "(no `docker` executable found, or MLFLOW_ENABLE_ASSISTANT_SANDBOX=false); the "
             "assistant will run its Bash tool on the server host. Install Docker, or set "
             "MLFLOW_ENABLE_ASSISTANT_SANDBOX=true to require the sandbox."
+        )
+    elif auth_plugin_active() and not assistant_sandbox_enabled():
+        _logger.info(
+            "Auth is enabled but the MLflow Assistant sandbox is not active, so local users' "
+            "Assistant tools, including non-admins', run on the server host. Set "
+            "MLFLOW_ENABLE_ASSISTANT_SANDBOX=true (requires Docker) to run non-admin users' tools "
+            "in the sandbox, without full access."
         )
     yield
 
@@ -256,6 +271,22 @@ def create_fastapi_app(flask_app: Flask = flask_app):
     if "{" in static_prefix or "}" in static_prefix:
         raise MlflowException(f"{STATIC_PREFIX_ENV_VAR} must not contain '{{' or '}}'.")
 
+    # FastAPI >= 0.142 natively instruments requests and exports spans to
+    # OTEL_EXPORTER_OTLP_ENDPOINT, which can point back at this server's `/v1/traces`
+    # endpoint and create a feedback loop. Disable it for the tracking server.
+    extra_kwargs = (
+        {
+            "telemetry": {
+                "tracing": False,
+                "metrics": False,
+                "logs": False,
+                "auto_configure": False,
+            }
+        }
+        if "telemetry" in inspect.signature(FastAPI.__init__).parameters
+        else {}
+    )
+
     # Create FastAPI app with metadata
     fastapi_app = FastAPI(
         title="MLflow Tracking Server",
@@ -267,6 +298,7 @@ def create_fastapi_app(flask_app: Flask = flask_app):
         redoc_url=None,
         openapi_url=None,
         lifespan=_lifespan,
+        **extra_kwargs,
     )
 
     # Initialize security middleware BEFORE adding routes
