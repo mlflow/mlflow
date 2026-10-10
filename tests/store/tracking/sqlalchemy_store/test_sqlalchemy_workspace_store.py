@@ -1613,6 +1613,29 @@ def test_search_traces_without_locations_is_workspace_scoped_for_span_filters(
         assert results[0].trace_id == "trace-b"
 
 
+def test_search_traces_with_service_name_filter_is_workspace_scoped(workspace_tracking_store):
+    with WorkspaceContext("team-service-search-a"):
+        exp_a = workspace_tracking_store.create_experiment("exp-service-search-a")
+        _create_trace(workspace_tracking_store, "trace-a", exp_a)
+        workspace_tracking_store.log_spans(
+            exp_a,
+            [create_test_span("trace-a", span_id=111, service_name="shared-service")],
+        )
+
+    with WorkspaceContext("team-service-search-b"):
+        exp_b = workspace_tracking_store.create_experiment("exp-service-search-b")
+        _create_trace(workspace_tracking_store, "trace-b", exp_b)
+        workspace_tracking_store.log_spans(
+            exp_b,
+            [create_test_span("trace-b", span_id=222, service_name="shared-service")],
+        )
+
+        results, _ = workspace_tracking_store.search_traces(
+            filter_string='span.service_name = "shared-service"'
+        )
+        assert [trace.trace_id for trace in results] == ["trace-b"]
+
+
 def test_search_traces_with_assessment_numeric_filters_is_workspace_scoped(
     workspace_tracking_store,
 ):

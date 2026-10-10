@@ -36,6 +36,21 @@ describe('compileFilterModel', () => {
         expected: "attributes.name ILIKE '%chat%'",
       },
       {
+        name: 'service name equality → span.service_name',
+        clause: { field: 'service_name', operator: FilterOp.EQUALS, value: 'my-service' },
+        expected: "span.service_name = 'my-service'",
+      },
+      {
+        name: 'service name not-equals → span.service_name',
+        clause: { field: 'service_name', operator: FilterOp.NOT_EQUALS, value: 'other' },
+        expected: "span.service_name != 'other'",
+      },
+      {
+        name: 'service name contains → span.service_name LIKE substring',
+        clause: { field: 'service_name', operator: FilterOp.CONTAINS, value: 'service' },
+        expected: "span.service_name LIKE '%service%'",
+      },
+      {
         name: 'user → quoted request_metadata user',
         clause: { field: 'user', operator: FilterOp.EQUALS, value: 'alice' },
         expected: `request_metadata."mlflow.trace.user" = 'alice'`,
@@ -262,7 +277,7 @@ describe('useMlflowTraceFilterFields', () => {
     const { result } = renderHook(() => useMlflowTraceFilterFields(), { wrapper });
 
     expect(result.current.map((field) => field.id)).toEqual(
-      expect.arrayContaining(['span_name', 'span_type', 'span_status', 'tag', 'metadata']),
+      expect.arrayContaining(['service_name', 'span_name', 'span_type', 'span_status', 'tag', 'metadata']),
     );
     // Tag and Metadata carry the free-text key sub-input; the other fields do not.
     expect(result.current.find((field) => field.id === 'tag')?.requiresKey).toBe(true);

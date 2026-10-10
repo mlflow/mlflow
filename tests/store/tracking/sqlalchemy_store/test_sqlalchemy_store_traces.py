@@ -873,6 +873,72 @@ def test_search_traces_with_span_name_filter(store: SqlAlchemyStore):
     assert len(traces) == 0
 
 
+def test_search_traces_with_service_name_filter(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_service_name_search")
+    _create_trace(store, "distributed", exp_id)
+    store.log_spans(
+        exp_id,
+        [
+            create_test_span(
+                "distributed",
+                name="checkout",
+                span_id=111,
+                span_type="CHAIN",
+                service_name="checkout-service",
+            ),
+            create_test_span(
+                "distributed",
+                name="charge-card",
+                span_id=222,
+                parent_id=111,
+                span_type="RETRIEVER",
+                service_name="payments-service",
+            ),
+        ],
+    )
+
+    _create_trace(store, "checkout-only", exp_id)
+    store.log_spans(
+        exp_id,
+        [create_test_span("checkout-only", span_id=333, service_name="checkout-service")],
+    )
+
+    _create_trace(store, "missing-service", exp_id)
+    store.log_spans(
+        exp_id,
+        [create_test_span("missing-service", span_id=444)],
+    )
+
+    # A trace tag with the same spelling is not a substitute for a per-span resource attribute.
+    _create_trace(store, "tag-only", exp_id, tags={"service.name": "payments-service"})
+
+    traces, _ = store.search_traces(
+        [exp_id], filter_string='span.service_name = "payments-service"'
+    )
+    assert [trace.trace_id for trace in traces] == ["distributed"]
+
+    traces, _ = store.search_traces([exp_id], filter_string='span.service_name LIKE "checkout-%"')
+    assert {trace.trace_id for trace in traces} == {"distributed", "checkout-only"}
+
+    # NULL service names do not satisfy SQL's != comparator.
+    traces, _ = store.search_traces(
+        [exp_id], filter_string='span.service_name != "checkout-service"'
+    )
+    assert [trace.trace_id for trace in traces] == ["distributed"]
+
+    traces, _ = store.search_traces(
+        [exp_id],
+        filter_string=('span.service_name = "payments-service" AND span.type = "RETRIEVER"'),
+    )
+    assert [trace.trace_id for trace in traces] == ["distributed"]
+
+    traces, _ = store.search_traces(
+        [exp_id],
+        filter_string='span.service_name = "payments-service" AND span.type = "CHAIN"',
+    )
+    assert traces == []
+
+
 def test_search_traces_with_full_text_filter(store: SqlAlchemyStore):
     exp_id = store.create_experiment("test_plain_text_search")
 
@@ -995,8 +1061,8 @@ def test_search_traces_with_invalid_span_attribute(store: SqlAlchemyStore):
     with pytest.raises(
         MlflowException,
         match=(
-            "Invalid span attribute 'duration'. Supported attributes: name, status, "
-            "type, attributes.<attribute_name>."
+            "Invalid span attribute 'duration'. Supported attributes: name, service_name, "
+            "status, type, attributes.<attribute_name>."
         ),
     ):
         store.search_traces([exp_id], filter_string='span.duration = "1000"')
@@ -1004,8 +1070,8 @@ def test_search_traces_with_invalid_span_attribute(store: SqlAlchemyStore):
     with pytest.raises(
         MlflowException,
         match=(
-            "Invalid span attribute 'parent_id'. Supported attributes: name, status, "
-            "type, attributes.<attribute_name>."
+            "Invalid span attribute 'parent_id'. Supported attributes: name, service_name, "
+            "status, type, attributes.<attribute_name>."
         ),
     ):
         store.search_traces([exp_id], filter_string='span.parent_id = "123"')

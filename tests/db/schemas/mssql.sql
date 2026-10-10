@@ -794,6 +794,7 @@ CREATE TABLE spans (
 	total_cost FLOAT(53),
 	model_name NVARCHAR(500) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	model_provider NVARCHAR(500) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	service_name NVARCHAR(max) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	CONSTRAINT spans_pk PRIMARY KEY (trace_id, span_id),
 	CONSTRAINT fk_spans_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id),
 	CONSTRAINT fk_spans_trace_id FOREIGN KEY(trace_id) REFERENCES trace_info (request_id) ON DELETE CASCADE

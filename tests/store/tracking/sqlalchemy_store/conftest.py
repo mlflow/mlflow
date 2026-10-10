@@ -303,6 +303,7 @@ def create_test_span(
     trace_num=12345,
     attributes=None,
     links=None,
+    service_name=None,
 ) -> Span:
     context = create_mock_span_context(trace_num, span_id)
     parent_context = create_mock_span_context(trace_num, parent_id) if parent_id else None
@@ -320,7 +321,11 @@ def create_test_span(
         start_time=start_ns,
         end_time=end_ns,
         status=trace_api.Status(status, status_desc),
-        resource=_OTelResource.get_empty(),
+        resource=(
+            _OTelResource({"service.name": service_name})
+            if service_name is not None
+            else _OTelResource.get_empty()
+        ),
     )
     span = create_mlflow_span(otel_span, trace_id, span_type)
     if links:

@@ -2261,6 +2261,11 @@ class SqlSpan(Base):
     Span status: `String` (limit 50 characters).
     """
 
+    service_name = Column(Text().with_variant(NVARCHAR(None), "mssql"), nullable=True)
+    """
+    OpenTelemetry service name for the resource that emitted this span.
+    """
+
     start_time_unix_nano = Column(BigInteger, nullable=False)
     """
     Start time in nanoseconds since Unix epoch: `BigInteger`.
