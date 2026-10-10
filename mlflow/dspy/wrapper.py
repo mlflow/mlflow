@@ -90,22 +90,13 @@ class DspyModelWrapper(PythonModel):
                     yield output.toDict()
                 else:
                     yield output
-
+                    
     def _get_model_input(self, inputs: Any) -> str | dict[str, Any]:
-        """Convert the PythonModel input into the DSPy program input
-
-        Examples of expected conversions:
-        - str -> str
-        - dict -> dict
-        - np.ndarray with one element -> single element
-        - pd.DataFrame with one row and string column -> single row dict
-        - pd.DataFrame with one row and non-string column -> single element
-        - list -> raises an exception
-        - np.ndarray with more than one element -> raises an exception
-        - pd.DataFrame with more than one row -> raises an exception
-        """
         import numpy as np
         import pandas as pd
+
+        if isinstance(inputs, pd.Series):
+            inputs = inputs.to_dict()
 
         supported_input_types = (np.ndarray, pd.DataFrame, str, dict)
         if not isinstance(inputs, supported_input_types):
@@ -114,16 +105,15 @@ class DspyModelWrapper(PythonModel):
                 f"received type: {type(inputs)}.",
                 INVALID_PARAMETER_VALUE,
             )
+
         if isinstance(inputs, pd.DataFrame):
             if len(inputs) != 1:
                 raise MlflowException(
                     _INVALID_SIZE_MESSAGE,
                     INVALID_PARAMETER_VALUE,
                 )
-            if all(isinstance(col, str) for col in inputs.columns):
-                inputs = inputs.to_dict(orient="records")[0]
-            else:
-                inputs = inputs.values[0]
+            inputs = inputs.iloc[0].to_dict()
+
         if isinstance(inputs, np.ndarray):
             if len(inputs) != 1:
                 raise MlflowException(
