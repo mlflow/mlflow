@@ -51,6 +51,9 @@ Only when the bug reproduces at the current checkout. Find the line that is wron
 just where the error surfaces, then verify: patch the code, rerun the reproduction, and confirm the
 symptom goes away without breaking the tests that cover that code.
 
+For frontend fixes, use the dev server with hot reload; do not run `yarn build` just to verify
+the fix.
+
 Keep the fix minimal and in the style of the surrounding code. When the right fix is a design
 decision (a public API, a default, or a storage schema), describe the options instead of
 picking one.
