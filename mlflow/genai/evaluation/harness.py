@@ -803,7 +803,15 @@ def run(
         result_df=construct_eval_result_df(run_id, traces, eval_results),
         metrics=aggregated_metrics,
         pass_criteria=pass_criteria,
+        expectation_names=_get_expectation_names(traces),
     )
+
+
+def _get_expectation_names(traces: list[Trace]) -> set[str]:
+    assessments = [a for trace in traces for a in trace.info.assessments]
+    feedback_names = {a.name for a in assessments if isinstance(a, Feedback)}
+    # A name shared with a feedback keeps being asserted so it cannot hide a scorer verdict.
+    return {a.name for a in assessments if isinstance(a, Expectation)} - feedback_names
 
 
 def _run_predict(

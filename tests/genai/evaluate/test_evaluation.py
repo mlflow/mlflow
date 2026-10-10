@@ -439,6 +439,35 @@ def test_evaluate_errored_scorer_fails_not_silently_passes(server_config):
     assert "kaboom" in result.reason
 
 
+def test_evaluate_passed_ignores_dataset_expectations(server_config):
+    @scorer
+    def always_yes(outputs):
+        return "yes"
+
+    @scorer
+    def always_no(outputs):
+        return "no"
+
+    data = [
+        {
+            "inputs": {"q": "x"},
+            "outputs": "good",
+            "expectations": {"expected_response": "good", "max_length": 10},
+        }
+    ]
+
+    result = mlflow.genai.evaluate(data=data, scorers=[always_yes])
+    assert result.passed, result.reason
+    assert result.expectation_names == {"expected_response", "max_length"}
+    # Expectations stay in result_df for comparison; they are just not asserted.
+    assert "expected_response/value" in result.result_df.columns
+
+    failing = mlflow.genai.evaluate(data=data, scorers=[always_yes, always_no])
+    assert not failing.passed
+    assert "always_no" in failing.reason
+    assert "expected_response" not in failing.reason
+
+
 def test_evaluate_reason_includes_scorer_rationale(server_config):
     @scorer
     def judged(outputs):
