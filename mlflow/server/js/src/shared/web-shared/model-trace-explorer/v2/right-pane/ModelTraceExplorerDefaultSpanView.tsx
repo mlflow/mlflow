@@ -18,6 +18,7 @@ import { ModelTraceExplorerFieldRenderer } from '../field-renderers/ModelTraceEx
 import { ModelTraceExplorerChatSections } from './ModelTraceExplorerChatSections';
 import { ModelTraceExplorerChatTool } from './ModelTraceExplorerChatTool';
 import { ModelTraceExplorerConversation } from './ModelTraceExplorerConversation';
+import { resolveTypeSafeDecision, TypeSafeDecisionAnswers, TypeSafeDecisionInputs } from './TypeSafeDecisionView';
 
 type ModelTraceExplorerSectionRenderMode = 'pretty' | Extract<ModelTraceExplorerRenderMode, 'json' | 'yaml'>;
 
@@ -55,42 +56,49 @@ const removeInputMessagesPrefix = (
   return outputMessages;
 };
 
-const getInputChatMessages = (activeSpan: ModelTraceSpanNode | undefined): ModelTraceChatMessage[] => {
+const getInputChatMessages = (
+  activeSpan: ModelTraceSpanNode | undefined,
+): { messages: ModelTraceChatMessage[]; hasTopLevelChatPayload: boolean } => {
   if (!activeSpan) {
-    return [];
+    return { messages: [], hasTopLevelChatPayload: false };
   }
 
   const inputMessages = normalizeConversation(activeSpan.inputs, activeSpan.chatMessageFormat) ?? [];
   if (inputMessages.length > 0) {
-    return inputMessages;
+    return { messages: inputMessages, hasTopLevelChatPayload: true };
   }
 
-  return activeSpan.chatMessages?.filter((message) => message.role === 'user' || message.role === 'system') ?? [];
+  return {
+    messages: activeSpan.chatMessages?.filter((message) => message.role === 'user' || message.role === 'system') ?? [],
+    hasTopLevelChatPayload: false,
+  };
 };
 
 const getOutputChatMessages = (
   activeSpan: ModelTraceSpanNode | undefined,
   inputChatMessages: ModelTraceChatMessage[],
-): ModelTraceChatMessage[] => {
+): { messages: ModelTraceChatMessage[]; hasTopLevelChatPayload: boolean } => {
   if (!activeSpan) {
-    return [];
+    return { messages: [], hasTopLevelChatPayload: false };
   }
 
   const outputMessages = normalizeConversation(activeSpan.outputs, activeSpan.chatMessageFormat) ?? [];
   const outputOnlyMessages = removeInputMessagesPrefix(outputMessages, inputChatMessages);
   if (outputOnlyMessages.length > 0) {
-    return outputOnlyMessages;
+    return { messages: outputOnlyMessages, hasTopLevelChatPayload: true };
   }
 
   if (inputChatMessages.length > 0 && typeof activeSpan.outputs === 'string' && activeSpan.outputs.length > 0) {
-    return [{ role: 'assistant', content: activeSpan.outputs }];
+    return { messages: [{ role: 'assistant', content: activeSpan.outputs }], hasTopLevelChatPayload: true };
   }
 
-  return (
-    activeSpan.chatMessages?.filter(
-      (message) => message.role === 'assistant' || message.role === 'tool' || message.role === 'function',
-    ) ?? []
-  );
+  return {
+    messages:
+      activeSpan.chatMessages?.filter(
+        (message) => message.role === 'assistant' || message.role === 'tool' || message.role === 'function',
+      ) ?? [],
+    hasTopLevelChatPayload: false,
+  };
 };
 
 export function ModelTraceExplorerDefaultSpanView({
@@ -116,11 +124,16 @@ export function ModelTraceExplorerDefaultSpanView({
   const [openSectionRenderModeDropdown, setOpenSectionRenderModeDropdown] = useState<'inputs' | 'outputs' | null>(null);
   const inputList = useMemo(() => createListFromObject(activeSpan?.inputs), [activeSpan]);
   const outputList = useMemo(() => createListFromObject(activeSpan?.outputs), [activeSpan]);
-  const inputChatMessages = useMemo(() => getInputChatMessages(activeSpan), [activeSpan]);
-  const outputChatMessages = useMemo(
+  const inputChatMessagesResult = useMemo(() => getInputChatMessages(activeSpan), [activeSpan]);
+  const inputChatMessages = inputChatMessagesResult.messages;
+  const inputHasTopLevelChatPayload = inputChatMessagesResult.hasTopLevelChatPayload;
+  const outputChatMessagesResult = useMemo(
     () => getOutputChatMessages(activeSpan, inputChatMessages),
     [activeSpan, inputChatMessages],
   );
+  const outputChatMessages = outputChatMessagesResult.messages;
+  const outputHasTopLevelChatPayload = outputChatMessagesResult.hasTopLevelChatPayload;
+  const typeSafeDecision = useMemo(() => resolveTypeSafeDecision(activeSpan), [activeSpan]);
 
   if (isNil(activeSpan)) {
     return null;
@@ -210,31 +223,55 @@ export function ModelTraceExplorerDefaultSpanView({
     </DropdownMenu.Root>
   );
 
-  const renderPrettyFields = (section: 'inputs' | 'outputs', fields: typeof inputList) => (
-    <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
-      {fields.map(({ key, value }, index) => (
-        <ModelTraceExplorerFieldRenderer
-          key={key || index}
-          title={key}
-          data={value}
-          renderMode="default"
-          assessments={activeSpan?.assessments}
-          searchFilter={searchFilter}
-          activeMatch={activeMatch}
-          containsActiveMatch={isActiveMatchSpan && activeMatch?.section === section && activeMatch.key === key}
-        />
-      ))}
-    </div>
-  );
+  const renderPrettyFields = (section: 'inputs' | 'outputs', fields: typeof inputList) => {
+    if (!searchFilter && typeSafeDecision) {
+      if (section === 'outputs') {
+        return <TypeSafeDecisionAnswers decision={typeSafeDecision} />;
+      }
+      return (
+        <TypeSafeDecisionInputs decision={typeSafeDecision} fields={fields} assessments={activeSpan.assessments} />
+      );
+    }
 
-  const renderNonChatFields = (section: 'inputs' | 'outputs', fields: typeof inputList) => {
-    const nonChatFields = fields.filter(({ key }) => !CHAT_FIELD_KEYS[section].has(key.toLowerCase()));
+    return (
+      <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
+        {fields.map(({ key, value }, index) => (
+          <ModelTraceExplorerFieldRenderer
+            key={key || index}
+            title={key}
+            data={value}
+            renderMode="default"
+            assessments={activeSpan?.assessments}
+            searchFilter={searchFilter}
+            activeMatch={activeMatch}
+            containsActiveMatch={isActiveMatchSpan && activeMatch?.section === section && activeMatch.key === key}
+          />
+        ))}
+      </div>
+    );
+  };
+
+  const filterNonChatFields = (
+    section: 'inputs' | 'outputs',
+    fields: typeof inputList,
+    skipAnonymousTopLevelField = false,
+  ) =>
+    fields.filter(
+      ({ key }) => !(skipAnonymousTopLevelField && key === '') && !CHAT_FIELD_KEYS[section].has(key.toLowerCase()),
+    );
+
+  const renderNonChatFields = (
+    section: 'inputs' | 'outputs',
+    fields: typeof inputList,
+    skipAnonymousTopLevelField = false,
+  ) => {
+    const nonChatFields = filterNonChatFields(section, fields, skipAnonymousTopLevelField);
     return nonChatFields.length > 0 ? renderPrettyFields(section, nonChatFields) : null;
   };
 
   const renderSectionPayload = (section: 'inputs' | 'outputs', data: unknown) => {
     if (sectionRenderModes[section] === 'pretty') {
-      if (isActiveMatchSpan && activeMatch.section === section) {
+      if (typeSafeDecision && !searchFilter) {
         return renderPrettyFields(section, section === 'inputs' ? inputList : outputList);
       }
 
@@ -242,7 +279,7 @@ export function ModelTraceExplorerDefaultSpanView({
         return (
           <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
             <ModelTraceExplorerChatSections messages={inputChatMessages} />
-            {renderNonChatFields(section, inputList)}
+            {renderNonChatFields(section, inputList, inputHasTopLevelChatPayload)}
           </div>
         );
       }
@@ -251,7 +288,7 @@ export function ModelTraceExplorerDefaultSpanView({
         return (
           <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
             <ModelTraceExplorerConversation messages={outputChatMessages} />
-            {renderNonChatFields(section, outputList)}
+            {renderNonChatFields(section, outputList, outputHasTopLevelChatPayload)}
           </div>
         );
       }

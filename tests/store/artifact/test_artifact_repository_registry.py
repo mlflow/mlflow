@@ -4,11 +4,23 @@ from unittest import mock
 import pytest
 
 import mlflow
+from mlflow.exceptions import MlflowException
 from mlflow.store.artifact import artifact_repository_registry
-from mlflow.store.artifact.artifact_repository_registry import ArtifactRepositoryRegistry
+from mlflow.store.artifact.artifact_repository_registry import (
+    ArtifactRepositoryRegistry,
+    get_artifact_repository,
+)
+from mlflow.store.artifact.ftp_artifact_repo import FTPArtifactRepository
+from mlflow.store.artifact.host_policy import _SERVER_ARTIFACT_ROOT_ENV_VAR
 
 
-def test_standard_artifact_registry():
+def test_standard_artifact_registry(monkeypatch):
+    # Restore the original registry after the reload replaces this module global.
+    monkeypatch.setattr(
+        artifact_repository_registry,
+        "_artifact_repository_registry",
+        artifact_repository_registry._artifact_repository_registry,
+    )
     mock_entrypoint = mock.Mock()
     mock_entrypoint.name = "mock-scheme"
 
@@ -114,3 +126,32 @@ def test_plugin_registration_failure_via_entrypoints(exception):
 
     mock_entrypoint.load.assert_called_once()
     mock_get_group_all.assert_called_once_with("mlflow.artifact_repository")
+
+
+def test_server_process_refuses_foreign_host_artifact_uri(monkeypatch):
+    monkeypatch.setenv(_SERVER_ARTIFACT_ROOT_ENV_VAR, "ftp://ftp-host:21/pub")
+
+    with pytest.raises(MlflowException, match="does not connect to artifact location"):
+        get_artifact_repository("ftp://other-host/pub/run/artifacts")
+
+    repo = get_artifact_repository("ftp://ftp-host/pub/run/artifacts")
+    assert isinstance(repo, FTPArtifactRepository)
+
+
+def test_server_process_refuses_foreign_host_behind_runs_uri(monkeypatch):
+    monkeypatch.setenv(_SERVER_ARTIFACT_ROOT_ENV_VAR, "./mlruns")
+
+    with (
+        mock.patch(
+            "mlflow.store.artifact.runs_artifact_repo.RunsArtifactRepository.get_underlying_uri",
+            return_value="sftp://other-host/data/run/artifacts/model",
+        ),
+        pytest.raises(MlflowException, match="does not connect to artifact location"),
+    ):
+        get_artifact_repository("runs:/run/model")
+
+
+def test_client_process_builds_repositories_for_any_host(monkeypatch):
+    monkeypatch.delenv(_SERVER_ARTIFACT_ROOT_ENV_VAR, raising=False)
+    repo = get_artifact_repository("ftp://other-host/pub/run/artifacts")
+    assert isinstance(repo, FTPArtifactRepository)

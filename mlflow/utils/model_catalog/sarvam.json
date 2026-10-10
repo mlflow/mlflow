@@ -12,7 +12,8 @@
         "input_per_million_tokens": 0,
         "output_per_million_tokens": 0,
         "cache_read_per_million_tokens": 0,
-        "cache_write_per_million_tokens": 0
+        "cache_write_per_million_tokens": 0,
+        "cache_write_1hr_per_million_tokens": 0
       },
       "capabilities": {
         "function_calling": false,
@@ -21,7 +22,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-09-18"
     }
   }
 }

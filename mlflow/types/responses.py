@@ -1,4 +1,5 @@
 import json
+import re
 from collections.abc import Sequence
 from itertools import tee
 from typing import Any, Generator, Iterator
@@ -29,6 +30,12 @@ from mlflow.types.schema import Schema
 from mlflow.types.type_hints import _infer_schema_from_type_hint
 from mlflow.utils.autologging_utils.logging_and_warnings import (
     MlflowEventsAndWarningsBehaviorGlobally,
+)
+from mlflow.utils.logging_utils import suppress_logs
+
+_EXPECTED_UNION_INFERENCE_WARNING = re.compile(
+    r"^Union type hint (?:with multiple non-None types )?is inferred as AnyType, "
+    r"and MLflow doesn't validate the data against its element types\.$"
 )
 
 
@@ -123,10 +130,13 @@ class ResponsesAgentStreamEvent(BaseModel):
         return self
 
 
-with MlflowEventsAndWarningsBehaviorGlobally(
-    reroute_warnings=False,
-    disable_event_logs=True,
-    disable_warnings=True,
+with (
+    MlflowEventsAndWarningsBehaviorGlobally(
+        reroute_warnings=False,
+        disable_event_logs=True,
+        disable_warnings=True,
+    ),
+    suppress_logs("mlflow.types.type_hints", filter_regex=_EXPECTED_UNION_INFERENCE_WARNING),
 ):
     properties = _infer_schema_from_type_hint(ResponsesAgentRequest).to_dict()[0]["properties"]
     formatted_properties = [{**prop, "name": name} for name, prop in properties.items()]

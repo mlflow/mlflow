@@ -14,6 +14,15 @@ knowledge.
 <answer>{{output}}</answer>\
 """
 
+RELEVANCE_TO_QUERY_TYPESAFE_PROMPT_INSTRUCTIONS = (
+    RELEVANCE_TO_QUERY_PROMPT_INSTRUCTIONS
+    + """
+
+The result is "yes" if the answer contains information that is relevant to the question, and \
+"no" otherwise.\
+"""
+)
+
 RELEVANCE_TO_QUERY_PROMPT_OUTPUT = """
 
 Please indicate whether the answer contains information that is relevant to the question using only the following json format. Do not use any markdown formatting or output additional lines.
