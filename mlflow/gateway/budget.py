@@ -85,15 +85,46 @@ def calculate_existing_cost_for_windows(
     return result
 
 
+def _get_registry_store():
+    """Return the model registry store used for webhook delivery, or None."""
+    from mlflow.server.handlers import _get_model_registry_store
+
+    try:
+        return _get_model_registry_store()
+    except Exception:
+        return None
+
+
 def maybe_refresh_budget_policies(store: SqlAlchemyStore) -> None:
-    """Refresh budget policies from the database if stale."""
+    """Refresh budget policies from the database if stale.
+
+    Seeding a window from trace history can carry it past its limit without any single
+    request observing the crossing, so the windows that crossed here are alerted on too.
+    Otherwise the flag would already be set by the time the next request records a cost,
+    and the transition ``record_cost`` reports would never happen.
+    """
     tracker = get_budget_tracker()
     if tracker.needs_refresh():
         try:
             policies = store.list_budget_policies()
             windows = tracker.refresh_policies(policies)
             existing_spend = calculate_existing_cost_for_windows(store, windows)
-            tracker.backfill_spend(existing_spend)
+            if newly_exceeded := tracker.backfill_spend(existing_spend):
+                # The flag is committed by the time we get here, so delivery is
+                # best-effort: if it fails the window stays muted. This is the tradeoff
+                # ``record_cost`` already makes, where the flag flips atomically and
+                # ``on_complete`` then delivers. Making delivery recoverable needs
+                # "already alerted" persisted apart from "currently exceeded", which is
+                # a larger change than this fix.
+                if registry_store := _get_registry_store():
+                    # No request workspace here: the payload falls back to the policy's own.
+                    fire_budget_exceeded_webhooks(newly_exceeded, None, registry_store)
+                else:
+                    _logger.debug(
+                        "%d budget window(s) crossed their limit during refresh, but no "
+                        "model registry store is available to deliver the webhook",
+                        len(newly_exceeded),
+                    )
         except Exception:
             _logger.debug("Failed to refresh budget policies", exc_info=True)
 
@@ -210,12 +241,7 @@ def make_budget_on_complete(
     username: str | None = None,
 ):
     """Create an on_complete callback that records budget cost from child span attributes."""
-    from mlflow.server.handlers import _get_model_registry_store
-
-    try:
-        registry_store = _get_model_registry_store()
-    except Exception:
-        registry_store = None
+    registry_store = _get_registry_store()
 
     def on_complete():
         try:
