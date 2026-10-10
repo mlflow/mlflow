@@ -276,3 +276,5 @@ export const ReferenceArea = ({ x1, x2 }: { x1?: string | number; x2?: string | 
 export const ReferenceLine = ({ label }: { label?: { value?: string } }) => (
   <div data-testid="reference-line" data-label={label?.value} />
 );
+
+export const ReferenceArea = () => <div data-testid="reference-area" />;
