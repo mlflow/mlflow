@@ -40,7 +40,7 @@ import { LazyShowArtifactVideoView } from './LazyShowArtifactVideoView';
 import type { KeyValueEntity } from '../../../common/types';
 import { LazyShowArtifactMarkdownView } from './LazyShowArtifactMarkdownView';
 
-const MAX_PREVIEW_ARTIFACT_SIZE_MB = 50;
+const MAX_PREVIEW_ARTIFACT_SIZE_MB = 20;
 
 type ShowArtifactPageProps = {
   runUuid: string;
