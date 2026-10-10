@@ -270,6 +270,16 @@ def test_deepeval_scorer_register_blocked_on_databricks():
         mock_is_dbx.assert_called()
 
 
+def test_deepeval_scorer_with_quality_threshold_on_databricks():
+    with patch("mlflow.genai.scorers.base.is_databricks_uri", return_value=True):
+        scorer = ExactMatch().with_quality_threshold(0.9)
+
+    assert isinstance(scorer, ExactMatch)
+    assert scorer.quality_threshold == 0.9
+    result = scorer(outputs="MLflow", expectations={"expected_output": "MLflow"})
+    assert result.value == CategoricalRating.YES
+
+
 def test_deepeval_scorer_serialization_round_trip():
     scorer = ExactMatch()
     dump = scorer.model_dump()

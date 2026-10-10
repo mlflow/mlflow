@@ -678,6 +678,11 @@ const sidebarsGenAI: SidebarsConfig = {
               label: 'Evaluate Traces',
             },
             {
+              type: 'doc',
+              id: 'eval-monitor/running-evaluation/quality-thresholds',
+              label: 'Quality Thresholds',
+            },
+            {
               type: 'category',
               label: 'Evaluate Conversations',
               items: [
