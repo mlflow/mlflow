@@ -42,6 +42,14 @@ describe('buildCustomViewAuthoringGuide', () => {
     expect(guide).toContain('Example — a multi-dimension human-feedback form');
   });
 
+  test('documents trace image attachments and reusable bindings', () => {
+    const guide = buildCustomViewAuthoringGuide();
+    expect(guide).toContain('"TraceImage"');
+    expect(guide).toContain('mlflow-attachment://');
+    expect(guide).toContain('NEVER paste an attachment URI');
+    expect(guide).toContain('before/after image requests');
+  });
+
   // A StatCard's `icon`/`tone` are static enums the host never re-resolves, while
   // its `value` is always a bound marker. An example that asserts a verdict —
   // a success check on a status, a warning tint on a latency — teaches the model

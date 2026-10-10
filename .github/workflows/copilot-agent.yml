@@ -2,7 +2,7 @@ name: Copilot Agent
 
 on:
   pull_request_target:
-    types: [review_requested]
+    types: [opened, review_requested]
 
 concurrency:
   group: ${{ github.run_id }}
@@ -16,14 +16,15 @@ permissions: {}
 cache-mode: none
 
 jobs:
-  # The coding agent signals it is done by requesting a review on its own PR
-  # while that PR is still a draft.
+  # A PR opened with changes is ready to publish. When Copilot opens an empty
+  # draft, wait until it requests a review after finishing the task.
   publish-draft:
     if: >-
       github.event.pull_request.draft == true
       && github.event.pull_request.user.login == 'Copilot'
       && github.event.pull_request.user.type == 'Bot'
-      && github.event.sender.login == 'Copilot'
+      && ((github.event.action == 'opened' && github.event.pull_request.changed_files > 0)
+      || (github.event.action == 'review_requested' && github.event.sender.login == 'Copilot'))
     runs-on: ubuntu-slim
     timeout-minutes: 5
     steps:
@@ -69,7 +70,14 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           marker="<!-- copilot-agent-pr:${PR_NUMBER} -->"
-          body=$(printf 'Copilot opened #%s for this issue.\n\n%s' "$PR_NUMBER" "$marker")
+          body=$(printf '%s\n' \
+            "Thanks for reporting this issue! Copilot opened #${PR_NUMBER} for this issue. You can try the fix with:" \
+            '' \
+            '```bash' \
+            "pip install -U 'git+https://github.com/${REPO}.git@refs/pull/${PR_NUMBER}/merge'" \
+            '```' \
+            '' \
+            "$marker")
           response=$(gh api graphql -F owner="$OWNER" -F name="${REPO#*/}" -F number="$PR_NUMBER" -f query='
             query($owner: String!, $name: String!, $number: Int!) {
               repository(owner: $owner, name: $name) {
@@ -77,6 +85,9 @@ jobs:
                   closingIssuesReferences(first: 10) {
                     nodes {
                       number
+                      author {
+                        login
+                      }
                       comments(last: 100) {
                         nodes {
                           body
@@ -90,14 +101,18 @@ jobs:
           issues=$(printf '%s' "$response" | jq --arg marker "$marker" -r '
             .data.repository.pullRequest.closingIssuesReferences.nodes[]
             | select(any(.comments.nodes[]; .body | contains($marker)) | not)
-            | .number')
+            | [.number, (.author.login // "")] | @tsv')
 
           if [ -z "$issues" ]; then
             echo "No linked issues."
             exit 0
           fi
 
-          for issue in $issues; do
+          while IFS=$'\t' read -r issue author; do
+            comment="$body"
+            if [ -n "$author" ]; then
+              comment="@${author} ${body}"
+            fi
             gh issue comment "$issue" --repo "$REPO" \
-              --body "$body"
-          done
+              --body "$comment"
+          done <<< "$issues"
