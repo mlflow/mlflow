@@ -111,8 +111,8 @@ Create `$out_dir` first, then write `$out_dir/payload.json`:
 
 Read `$type/payload.schema.yml` before writing the payload; it defines the required fields and
 their constraints. Choose `label` from its allowed values. A type may also accept an optional
-`pull_request`, paired with `$out_dir/fix.patch`, for the workflow to open as a draft pull
-request; its README says when. `comment` is the Markdown comment for the issue. It:
+`pull_request`, paired with `$out_dir/fix.patch`; its README says when. `comment` is the
+Markdown comment for the issue. It:
 
 - Follows the type's template, written for a reader who has read the issue: lead with
   conclusions, not the investigation trail.
