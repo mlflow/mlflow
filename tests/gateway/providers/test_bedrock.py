@@ -663,6 +663,46 @@ async def test_bedrock_converse_chat_stream():
     mock_client.converse_stream.assert_called_once()
 
 
+def _tool_stream_events(*blocks):
+    events = [{"messageStart": {"role": "assistant"}}]
+    for i, block in enumerate(blocks):
+        if block == "text":
+            delta = {"text": "Let me check."}
+            events.append({"contentBlockDelta": {"contentBlockIndex": i, "delta": delta}})
+        else:
+            start = {"toolUse": {"toolUseId": f"tool_{i}", "name": block}}
+            events.append({"contentBlockStart": {"contentBlockIndex": i, "start": start}})
+            delta = {"toolUse": {"input": "{}"}}
+            events.append({"contentBlockDelta": {"contentBlockIndex": i, "delta": delta}})
+        events.append({"contentBlockStop": {"contentBlockIndex": i}})
+    events.append({"messageStop": {"stopReason": "tool_use"}})
+    return {"stream": iter(events)}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("blocks", "expected"),
+    [
+        (("text", "get_weather"), [(0, "tool_1"), (0, None)]),
+        (
+            ("text", "get_weather", "get_time"),
+            [(0, "tool_1"), (0, None), (1, "tool_2"), (1, None)],
+        ),
+    ],
+)
+async def test_bedrock_converse_chat_stream_tool_call_index(blocks, expected):
+    provider = _make_converse_provider()
+    mock_client = mock.Mock()
+    mock_client.converse_stream.return_value = _tool_stream_events(*blocks)
+
+    with mock.patch.object(provider, "get_bedrock_client", return_value=mock_client):
+        payload = chat.RequestPayload(messages=[{"role": "user", "content": "Hello"}])
+        chunks = [jsonable_encoder(chunk) async for chunk in provider.chat_stream(payload)]
+
+    tool_calls = [tc for c in chunks for tc in c["choices"][0]["delta"].get("tool_calls") or []]
+    assert [(tc["index"], tc.get("id")) for tc in tool_calls] == expected
+
+
 @pytest.mark.asyncio
 async def test_bedrock_embeddings():
 
