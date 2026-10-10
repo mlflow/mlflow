@@ -45,9 +45,9 @@ def test_provider_only_save_does_not_rewrite_the_shared_file():
     set_config_user(None)
     AssistantConfig(projects={"e1": ProjectConfig(location="/srv/p")}).save()
 
-    # A user saving only their providers must not rewrite the shared file (projects unchanged), so
-    # concurrent remote provider saves never race it. Verify the shared file is not written, and
-    # that the shared projects and the user's providers both persist.
+    # A user saving only their providers (write_projects=False) must not rewrite the shared file.
+    # Verify the shared file is not written, and that the shared projects and the user's
+    # providers both persist.
     set_config_user("alice")
     cfg = AssistantConfig.load()
     cfg.providers = {"gw": _provider("m1")}
@@ -60,13 +60,31 @@ def test_provider_only_save_does_not_rewrite_the_shared_file():
         return original_save_file(path, config)
 
     with mock.patch.object(AssistantConfig, "_save_file", staticmethod(_spy)):
-        cfg.save()
+        cfg.save(write_projects=False)
     assert config_module.CONFIG_PATH not in saved_paths
 
     set_config_user(None)
     assert AssistantConfig.load().projects == {"e1": ProjectConfig(location="/srv/p")}
     set_config_user("alice")
     assert AssistantConfig.load().providers["gw"].model == "m1"
+
+
+def test_provider_only_save_does_not_revert_a_concurrent_project_change():
+    set_config_user(None)
+    AssistantConfig(projects={"e1": ProjectConfig(location="/srv/p")}).save()
+
+    set_config_user("alice")
+    stale = AssistantConfig.load()
+    # Another caller changes the shared projects after alice loaded her copy.
+    set_config_user(None)
+    AssistantConfig(projects={"e2": ProjectConfig(location="/srv/q")}).save()
+
+    set_config_user("alice")
+    stale.providers = {"gw": _provider("m1")}
+    stale.save(write_projects=False)
+
+    set_config_user(None)
+    assert AssistantConfig.load().projects == {"e2": ProjectConfig(location="/srv/q")}
 
 
 def test_no_user_reads_and_writes_the_global_file():

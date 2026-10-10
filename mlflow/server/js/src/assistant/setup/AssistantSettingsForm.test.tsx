@@ -13,22 +13,24 @@ let mockIsLocalServer = true;
 // Defaults to following mockIsLocalServer (no auth, or an admin); a test sets it false for a
 // non-admin on the server host.
 let mockCanEditServerSettings: boolean | null = null;
+// False to mimic a server that does not report can_edit_server_settings.
+let mockReportsCanEdit = true;
 const mockRefetchConfig = jest.fn();
 let mockConfig: AssistantConfig | null = null;
 
 jest.mock('../AssistantContext', () => ({
   useAssistant: () => ({
     isLocalServer: mockIsLocalServer,
-    canEditServerSettings: mockCanEditServerSettings ?? mockIsLocalServer,
   }),
 }));
 
 jest.mock('../hooks/useAssistantConfigQuery', () => ({
   useAssistantConfigQuery: () => ({
-    config: mockConfig && {
-      ...mockConfig,
-      can_edit_server_settings: mockCanEditServerSettings ?? mockIsLocalServer,
-    },
+    config:
+      mockConfig &&
+      (mockReportsCanEdit
+        ? { ...mockConfig, can_edit_server_settings: mockCanEditServerSettings ?? mockIsLocalServer }
+        : mockConfig),
     isLoading: false,
     refetch: mockRefetchConfig,
   }),
@@ -62,6 +64,7 @@ describe('AssistantSettingsForm', () => {
     mockRefetchConfig.mockClear();
     mockIsLocalServer = true;
     mockCanEditServerSettings = null;
+    mockReportsCanEdit = true;
     mockConfig = {
       providers: {
         claude_code: {
@@ -158,6 +161,21 @@ describe('AssistantSettingsForm', () => {
     await waitFor(() => expect(mockUpdateConfig).toHaveBeenCalledTimes(1));
     const payload = mockUpdateConfig.mock.calls[0][0];
     // Their own provider settings are saved, but nothing server-wide.
+    expect(payload.providers?.['claude_code'].permissions?.full_access).toBe(false);
+    expect(payload.projects).toBeUndefined();
+    expect(mockInstallSkills).not.toHaveBeenCalled();
+  });
+
+  test('treats a server that does not report the flag as not allowing server-wide changes', async () => {
+    const user = userEvent.setup();
+    mockReportsCanEdit = false;
+    renderForm();
+
+    expect(screen.getByRole('checkbox', { name: /Full access/ })).toBeDisabled();
+    await user.click(screen.getByRole('button', { name: 'Finish' }));
+
+    await waitFor(() => expect(mockUpdateConfig).toHaveBeenCalledTimes(1));
+    const payload = mockUpdateConfig.mock.calls[0][0];
     expect(payload.providers?.['claude_code'].permissions?.full_access).toBe(false);
     expect(payload.projects).toBeUndefined();
     expect(mockInstallSkills).not.toHaveBeenCalled();

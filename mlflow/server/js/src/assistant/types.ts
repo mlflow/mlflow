@@ -279,7 +279,8 @@ export interface AssistantAgentState {
   canUseAssistant: boolean;
   /**
    * Whether the caller may change server-wide settings (project paths, skills, API keys, full access):
-   * only from the server host, and on a server with auth, only as an admin
+   * only from the server host, and on a server with auth and the sandbox on, only as an admin.
+   * Reported by the server.
    */
   canEditServerSettings: boolean;
   /** Cumulative token usage for the session (best-effort; only some providers report it) */
