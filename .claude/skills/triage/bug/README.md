@@ -82,8 +82,9 @@ The last command must list only the files in the patch. Then add `pull_request` 
 using the template in `pull_request` of `payload.schema.yml`. The comment's suggested fix
 still describes the change in full.
 
-For visible UI fixes, include a before/after comparison (with screenshots stacked vertically, not side-by-side) in the PR body when it helps
-reviewers assess the change. Capture the broken behavior before applying the fix and the
+For visible UI fixes, include a before/after comparison in the PR body when it helps
+reviewers assess the change. Stack screenshots vertically with **Before** above **After**, rather than
+side-by-side. Capture the broken behavior before applying the fix and the
 fixed behavior with the same data, page state, and viewport. Label the captures **Before**
 and **After**, save them under `$out_dir/media`, and cite their exact paths as described in
 `SKILL.md`.
