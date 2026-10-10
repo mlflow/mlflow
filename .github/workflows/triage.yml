@@ -52,6 +52,11 @@ jobs:
       url: ${{ fromJSON(steps.issue.outputs.json).html_url }}
       author_association: ${{ fromJSON(steps.issue.outputs.json).author_association }}
       dry_run: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
+      # Pull requests are only opened for maintainers' issues for now. Set the TRIAGE_PR_DISABLED
+      # repository Actions variable to "true" to stop opening them entirely.
+      pr_enabled: >-
+        ${{ vars.TRIAGE_PR_DISABLED != 'true' &&
+        contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), fromJSON(steps.issue.outputs.json).author_association) }}
     steps:
       - name: Load issue
         id: issue
@@ -718,6 +723,7 @@ jobs:
           MODEL: ${{ inputs.model || 'databricks-claude-opus-5-5' }}
           ISSUE_PATH: ${{ runner.temp }}/sanitized-issue/sanitized_issue.json
           ISSUE_TYPE: ${{ needs.label.outputs.type }}
+          PR_DISABLED: ${{ needs.issue.outputs.pr_enabled != 'true' }}
           # OpenTelemetry export through the telemetry proxy. Spans need the enhanced telemetry beta;
           # logs carry per-call cost and the final response; metrics carry session counters. The OTEL_LOG_* flags include prompt,
           # response, and tool content, which are redacted by default.
@@ -784,6 +790,10 @@ jobs:
           report_fd = os.open("/tmp/triage-out", flags | os.O_DIRECTORY)
           try:
               copy_regular(report_fd, "payload.json", stage / "payload.json")
+              try:
+                  copy_regular(report_fd, "fix.patch", stage / "fix.patch")
+              except FileNotFoundError:
+                  pass
               try:
                   media_fd = os.open("media", flags | os.O_DIRECTORY, dir_fd=report_fd)
               except FileNotFoundError:
@@ -974,3 +984,141 @@ jobs:
             gh api "repos/$REPO/issues/comments/$COMMENT_ID" -X PATCH \
               -f body="Automated triage did not complete. [Follow the workflow run]($RUN_URL). $marker"
           fi
+  create_pr:
+    needs: [issue, label, triage, post_triage]
+    # Branch from the default branch only, so the PR's base matches the commit triage ran on.
+    if: >-
+      needs.issue.outputs.pr_enabled == 'true' &&
+      needs.triage.result == 'success' &&
+      needs.post_triage.result == 'success' &&
+      github.ref_name == github.event.repository.default_branch
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: ./.github/actions/setup-python
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: triage-report-${{ github.run_id }}-${{ github.run_attempt }}
+          path: /tmp/triage-out
+      - name: Check proposed fix
+        id: check
+        env:
+          ISSUE_TYPE: ${{ needs.label.outputs.type }}
+          OUT_DIR: /tmp/triage-out
+        run: |
+          payload="$OUT_DIR/payload.json"
+          uvx check-jsonschema@0.37.4 \
+            --schemafile ".claude/skills/triage/$ISSUE_TYPE/payload.schema.yml" "$payload"
+          has_pr=$(jq 'has("pull_request")' "$payload")
+          has_patch=$([ -f "$OUT_DIR/fix.patch" ] && echo true || echo false)
+          if [ "$has_pr" = false ] && [ "$has_patch" = false ]; then
+            echo "No pull request proposed." >> "$GITHUB_STEP_SUMMARY"
+            echo "proposed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ "$has_pr" != "$has_patch" ]; then
+            echo "::error::pull_request and fix.patch must be provided together"
+            exit 1
+          fi
+          jq -j .pull_request.body "$payload" |
+            uv run --quiet --directory .claude/skills --package skills skills embed-media \
+              --check --dir "$OUT_DIR/media"
+          echo "proposed=true" >> "$GITHUB_OUTPUT"
+      # Before the fix is applied, so no agent-written code is in the tree while the upload token is.
+      - name: Embed pull request media
+        if: steps.check.outputs.proposed == 'true'
+        env:
+          GH_TOKEN: ${{ needs.issue.outputs.dry_run == 'false' && secrets.UPLOAD_MEDIA_TOKEN || '' }}
+          REPOSITORY_ID: ${{ github.repository_id }}
+          OUT_DIR: /tmp/triage-out
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            # Dry run: keep the local paths in the preview.
+            jq -j .pull_request.body "$OUT_DIR/payload.json" > "$RUNNER_TEMP/pr-body-media.md"
+            exit 0
+          fi
+          jq -j .pull_request.body "$OUT_DIR/payload.json" |
+            uv run --directory .claude/skills --package skills skills embed-media \
+              --dir "$OUT_DIR/media" --repository-id "$REPOSITORY_ID" > "$RUNNER_TEMP/pr-body-media.md"
+      - name: Apply fix
+        if: steps.check.outputs.proposed == 'true'
+        env:
+          OUT_DIR: /tmp/triage-out
+        run: |
+          git apply --index "$OUT_DIR/fix.patch"
+          # --no-renames lists both sides of a rename.
+          outside=$(git diff --cached --no-renames --name-only -- . ':!mlflow/' ':!tests/')
+          if [ -n "$outside" ]; then
+            echo "::error::fix.patch changes files outside mlflow/ and tests/:"
+            printf '%s\n' "$outside"
+            exit 1
+          fi
+          if git diff --cached --quiet; then
+            echo "::error::fix.patch changes no files"
+            exit 1
+          fi
+      - name: Prepare pull request
+        if: steps.check.outputs.proposed == 'true'
+        env:
+          OUT_DIR: /tmp/triage-out
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}
+          SHOULD_POST: ${{ needs.issue.outputs.dry_run == 'false' }}
+        run: |
+          jq -j .pull_request.title "$OUT_DIR/payload.json" |
+            node .github/workflows/sanitize.js output > "$RUNNER_TEMP/pr-title.txt"
+          if ! grep -q '[^[:space:]]' "$RUNNER_TEMP/pr-title.txt"; then
+            echo "::error::pull request title is empty after sanitization"
+            exit 1
+          fi
+          node .github/workflows/sanitize.js output \
+            < "$RUNNER_TEMP/pr-body-media.md" > "$RUNNER_TEMP/pr-body-agent.md"
+          {
+            printf '> [!NOTE]\n> Drafted by [automated triage](%s). Please review carefully before marking it ready.\n\n' "$RUN_URL"
+            cat "$RUNNER_TEMP/pr-body-agent.md"
+          } > "$RUNNER_TEMP/pr-body.md"
+          if [ "$SHOULD_POST" = true ]; then
+            state="Opening a draft pull request with this fix."
+          else
+            state="Pull request not opened (dry run). Media was not uploaded; local media paths below are not working GitHub links."
+          fi
+          {
+            echo "### Pull request preview"
+            echo
+            echo "$state"
+            echo
+            jq -Rr '"Title: <code>\(@html)</code>"' "$RUNNER_TEMP/pr-title.txt"
+            echo
+            jq -Rsr '"<pre>\(@html)</pre>"' "$RUNNER_TEMP/pr-body.md"
+            echo
+            # Context lines start with a space, which can still close a Markdown fence, so escape instead.
+            jq -Rsr '"<pre>\(@html)</pre>"' "$OUT_DIR/fix.patch"
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Open pull request
+        if: steps.check.outputs.proposed == 'true' && needs.issue.outputs.dry_run == 'false'
+        env:
+          # Not an app token: CI on PRs opened with GITHUB_TOKEN waits for maintainer approval,
+          # so agent-written code doesn't run in CI unreviewed.
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          BASE: ${{ github.event.repository.default_branch }}
+          ISSUE_NUMBER: ${{ needs.issue.outputs.number }}
+        run: |
+          branch="triage/issue-$ISSUE_NUMBER-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          # The check step already applied the patch to the index.
+          git switch -c "$branch"
+          git commit -s -F "$RUNNER_TEMP/pr-title.txt"
+          git push "https://x-access-token:$GH_TOKEN@github.com/$REPO.git" "HEAD:refs/heads/$branch"
+          pr_url=$(gh pr create --repo "$REPO" --draft \
+            --base "$BASE" --head "$branch" \
+            --title "$(cat "$RUNNER_TEMP/pr-title.txt")" \
+            --body-file "$RUNNER_TEMP/pr-body.md")
+          echo "Opened $pr_url" >> "$GITHUB_STEP_SUMMARY"

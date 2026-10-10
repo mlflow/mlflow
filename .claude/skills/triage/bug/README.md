@@ -55,12 +55,45 @@ Keep the fix minimal and in the style of the surrounding code. When the right fi
 decision (a public API, a default, or a storage schema), describe the options instead of
 picking one.
 
-## 4. Decide the verdict
+## 4. Propose a pull request
+
+Propose a pull request only when all of these hold:
+
+- The `PR_DISABLED` environment variable is not `true`.
+- The verdict is Reproduced and the issue is simple.
+- The fix is straightforward, verified as in step 3, and needs no decisions: no design choice,
+  no trade-off between plausible fixes, nothing a maintainer should weigh in on first.
+- Every changed file is under `mlflow/` or `tests/`.
+
+Otherwise, skip this step: the comment's suggested fix is enough.
+
+When it applies, add a regression test that fails without the fix and passes with it, next to
+the existing tests for that code, and run it together with those tests. Then leave only the fix
+and the test changed in the checkout (revert anything else you edited there) and write the
+patch:
+
+```bash
+git add -N mlflow tests
+git diff HEAD -- mlflow tests > "$out_dir/fix.patch"
+git diff HEAD --stat
+```
+
+The last command must list only the files in the patch. Then add `pull_request` to the payload
+using the template in `pull_request` of `payload.schema.yml`. The comment's suggested fix
+still describes the change in full.
+
+For visible UI fixes, include a before/after comparison in the PR body when it helps
+reviewers assess the change. Capture the broken behavior before applying the fix and the
+fixed behavior with the same data, page state, and viewport. Label the captures **Before**
+and **After**, save them under `$out_dir/media`, and cite their exact paths as described in
+`SKILL.md`.
+
+## 5. Decide the verdict
 
 Pick exactly one verdict using the label descriptions in `payload.schema.yml`, and set the
 payload's `label` to that exact `const` value.
 
-## 5. Comment
+## 6. Comment
 
 Write the comment using the template in `comment.description` of `payload.schema.yml`.
 
