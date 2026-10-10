@@ -1063,6 +1063,10 @@ jobs:
         run: |
           jq -j .pull_request.title "$OUT_DIR/payload.json" |
             node .github/workflows/sanitize.js output > "$RUNNER_TEMP/pr-title.txt"
+          if ! grep -q '[^[:space:]]' "$RUNNER_TEMP/pr-title.txt"; then
+            echo "::error::pull request title is empty after sanitization"
+            exit 1
+          fi
           node .github/workflows/sanitize.js output \
             < "$RUNNER_TEMP/pr-body-media.md" > "$RUNNER_TEMP/pr-body-agent.md"
           {
