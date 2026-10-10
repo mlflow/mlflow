@@ -334,10 +334,13 @@ def _infer_schema(data: Any) -> Schema:
             # if col exists in item but its value is None, then it is not required
             requiredness[col] = all(item.get(col) is not None for item in data)
 
-        schema = Schema([
-            ColSpec(_infer_colspec_type(values).dtype, name=name, required=requiredness[name])
-            for name, values in col_data_mapping.items()
-        ])
+        schema_inputs = []
+        for name, values in col_data_mapping.items():
+            dtype = _infer_colspec_type(values).dtype
+            if not requiredness[name] and dtype in (DataType.integer, DataType.long):
+                dtype = DataType.double
+            schema_inputs.append(ColSpec(dtype, name=name, required=requiredness[name]))
+        schema = Schema(schema_inputs)
 
     elif isinstance(data, dict):
         # dictionary of (name -> numpy.ndarray)
