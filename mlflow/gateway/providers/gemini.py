@@ -99,7 +99,7 @@ class GeminiAdapter(ProviderAdapter):
     @staticmethod
     def _join_text_parts(parts):
         """Concatenate the text of every part; Gemini may split one reply across parts."""
-        return "".join(part.get("text") or "" for part in parts)
+        return "".join(part.get("text") or "" for part in parts or [])
 
     @classmethod
     def _normalize_finish_reason(cls, finish_reason):
