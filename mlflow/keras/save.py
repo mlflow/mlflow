@@ -112,6 +112,7 @@ def save_model(
     extra_pip_requirements=None,
     save_model_kwargs=None,
     metadata=None,
+    uv=None,
 ):
     """
     Save a Keras model along with metadata.
@@ -136,6 +137,7 @@ def save_model(
         save_model_kwargs: A dict of kwargs to pass to `keras.Model.save`
             method.
         metadata: {{ metadata }}
+        uv: {{ uv }}
 
     .. code-block:: python
         :caption: Example
@@ -246,7 +248,7 @@ def save_model(
             default_reqs = get_default_pip_requirements()
             # To ensure `_load_pyfunc` can successfully load the model during the dependency
             # inference, `mlflow_model.save` must be called beforehand to save an MLmodel file.
-            inferred_reqs = infer_pip_requirements(path, FLAVOR_NAME, fallback=default_reqs)
+            inferred_reqs = infer_pip_requirements(path, FLAVOR_NAME, fallback=default_reqs, uv=uv)
             default_reqs = sorted(set(inferred_reqs).union(default_reqs))
         else:
             default_reqs = None
@@ -267,6 +269,14 @@ def save_model(
 
     # Save `requirements.txt`.
     write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
+
+    # Copy uv project files if configured
+    if uv is not None:
+        from mlflow.utils.uv_utils import copy_uv_project_files, resolve_uv_source_dir
+
+        uv_source = resolve_uv_source_dir(uv)
+        if uv_source is not None:
+            copy_uv_project_files(dest_dir=path, source_dir=uv_source)
 
     _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
 
@@ -291,6 +301,7 @@ def log_model(
     model_type: str | None = None,
     step: int = 0,
     model_id: str | None = None,
+    uv=None,
 ):
     """
     Log a Keras model along with metadata to MLflow.
@@ -327,6 +338,7 @@ def log_model(
         model_type: {{ model_type }}
         step: {{ step }}
         model_id: {{ model_id }}
+        uv: {{ uv }}
 
     .. code-block:: python
         :caption: Example
@@ -362,4 +374,5 @@ def log_model(
         model_type=model_type,
         step=step,
         model_id=model_id,
+        uv=uv,
     )

@@ -144,6 +144,7 @@ def save_model(
     persist_dir=None,
     model_config=None,
     streamable: bool | None = None,
+    uv=None,
 ):
     """
     Save a LangChain model to a path on the local file system.
@@ -249,6 +250,7 @@ def save_model(
         streamable: A boolean value indicating if the model supports streaming prediction. If
             True, the model must implement `stream` method. If None, streamable is
             set to True if the model implements `stream` method. Default to `None`.
+        uv: {{ uv }}
     """
     import langchain
 
@@ -413,7 +415,7 @@ def save_model(
                 else None
             )
             inferred_reqs = mlflow.models.infer_pip_requirements(
-                str(path), FLAVOR_NAME, fallback=default_reqs, extra_env_vars=extra_env_vars
+                str(path), FLAVOR_NAME, fallback=default_reqs, extra_env_vars=extra_env_vars, uv=uv
             )
             default_reqs = sorted(set(inferred_reqs).union(default_reqs))
         else:
@@ -431,6 +433,14 @@ def save_model(
         write_to(os.path.join(path, _CONSTRAINTS_FILE_NAME), "\n".join(pip_constraints))
 
     write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
+
+    # Copy uv project files if configured
+    if uv is not None:
+        from mlflow.utils.uv_utils import copy_uv_project_files, resolve_uv_source_dir
+
+        uv_source = resolve_uv_source_dir(uv)
+        if uv_source is not None:
+            copy_uv_project_files(dest_dir=path, source_dir=uv_source)
 
     _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
 
@@ -463,6 +473,7 @@ def log_model(
     model_type: str | None = None,
     step: int = 0,
     model_id: str | None = None,
+    uv=None,
 ):
     """
     Log a LangChain model as an MLflow artifact for the current run.
@@ -591,6 +602,7 @@ def log_model(
         model_type: {{ model_type }}
         step: {{ step }}
         model_id: {{ model_id }}
+        uv: {{ uv }}
 
     Returns:
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
@@ -622,6 +634,7 @@ def log_model(
         model_type=model_type,
         step=step,
         model_id=model_id,
+        uv=uv,
     )
 
 
