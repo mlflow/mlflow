@@ -565,7 +565,7 @@
     "openai.gpt-6.1-sol": {
       "mode": "responses",
       "context_window": {
-        "max_input": 1050000,
+        "max_input": 1000000,
         "max_output": 131072,
         "max_tokens": 131072
       },
@@ -591,7 +591,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-30"
+      "last_updated_at": "2026-10-09"
     },
     "openai.gpt-daybreak-blue-5.6-sol": {
       "mode": "responses",
