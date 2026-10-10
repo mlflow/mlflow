@@ -76,6 +76,10 @@ The `search_traces` API uses a SQL-like Domain Specific Language (DSL) for query
 | **Feedback**                              | `feedback.<name>`                                                    | `=`, `!=`, `LIKE`, `ILIKE`, `RLIKE`                           | feedback.rating = "excellent"               |
 | **Expectations**                          | `expectation.<name>`                                                 | `=`, `!=`, `LIKE`, `ILIKE`, `RLIKE`                           | expectation.result = "pass"                 |
 | **Full Text** (OSS SQLAlchemy store only) | `trace.text`                                                         | `LIKE` (with `%` wildcards)                                   | trace.text LIKE "%tell me a story"          |
+| **Trace Request/Response** (SQL-backed store or Databricks UC) | `trace.request`, `trace.response` | `=`, `!=`, `LIKE`, `ILIKE`, `RLIKE` | trace.response LIKE "%error%" |
+
+For OSS `trace.request` and `trace.response`, value comparisons (`=`, `!=`, `LIKE`, `ILIKE`,
+`RLIKE`) are supported only with SQLite or PostgreSQL.
 
 **Value Syntax:**
 
@@ -102,6 +106,31 @@ mlflow.search_traces(filter_string="trace.text LIKE '%authentication error%'")
 
 # Search for multiple terms
 mlflow.search_traces(filter_string="trace.text LIKE '%timeout%'")
+```
+
+#### Filter by Request or Response Content
+
+With SQLite or PostgreSQL, compare the recorded root-span request or response using `=`, `!=`,
+`LIKE`, `ILIKE`, or `RLIKE`. Filters search the complete serialized payload, including JSON quotes
+and escaping. Equality comparisons require the exact serialized value. Child-span content is
+excluded, and missing values do not match value comparisons, including `!=`. These filters
+require stored root spans and are not supported by the File Store or archived traces whose
+spans have been removed from the SQL store.
+
+```python
+mlflow.search_traces(filter_string="trace.request LIKE '%weather%'")
+mlflow.search_traces(filter_string="trace.response RLIKE 'error|failed'")
+```
+
+`LIKE` is case-sensitive and `ILIKE` is case-insensitive; use a backslash to escape literal
+`%`, `_`, or backslashes in their patterns. `RLIKE` uses Python regular-expression
+syntax on SQLite and PostgreSQL regular-expression syntax on PostgreSQL.
+
+On MySQL or SQL Server, these value comparisons raise an `INVALID_PARAMETER_VALUE` error naming
+the unsupported database and the supported stores. For example, MySQL returns:
+
+```text
+trace.response RLIKE is supported only with SQLite and PostgreSQL tracking stores; current database is 'mysql'.
 ```
 
 #### Filter by Name
