@@ -986,7 +986,8 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
-      contents: read
+      contents: write
+      pull-requests: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -1090,28 +1091,19 @@ jobs:
             # Context lines start with a space, which can still close a Markdown fence, so escape instead.
             jq -Rsr '"<pre>\(@html)</pre>"' "$OUT_DIR/fix.patch"
           } >> "$GITHUB_STEP_SUMMARY"
-      - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
-        id: app-token
-        # GITHUB_TOKEN pushes don't trigger workflows, so the PR would get no CI.
-        if: steps.check.outputs.proposed == 'true' && needs.issue.outputs.dry_run == 'false'
-        with:
-          client-id: ${{ secrets.APP_CLIENT_ID }}
-          private-key: ${{ secrets.APP_PRIVATE_KEY }}
-          owner: mlflow
-          repositories: mlflow
-          permission-contents: write
-          permission-pull-requests: write
       - name: Open pull request
         if: steps.check.outputs.proposed == 'true' && needs.issue.outputs.dry_run == 'false'
         env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          # Not an app token: CI on PRs opened with GITHUB_TOKEN waits for maintainer approval,
+          # so agent-written code doesn't run in CI unreviewed.
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
           BASE: ${{ github.event.repository.default_branch }}
           ISSUE_NUMBER: ${{ needs.issue.outputs.number }}
         run: |
           branch="triage/issue-$ISSUE_NUMBER-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
-          git config user.name 'mlflow-app[bot]'
-          git config user.email 'mlflow-app[bot]@users.noreply.github.com'
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           # The check step already applied the patch to the index.
           git switch -c "$branch"
           git commit -s -F "$RUNNER_TEMP/pr-title.txt"
