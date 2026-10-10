@@ -13,6 +13,7 @@ import {
 } from './ModelTraceExplorerViewStateContext';
 import { ModelTraceExplorerPreferencesProvider } from './ModelTraceExplorerPreferencesContext';
 import { SimplifiedAssessmentView, SIMPLIFIED_ASSESSMENT_VIEW_MIN_WIDTH } from './right-pane/SimplifiedAssessmentView';
+import { TraceArtifactLocationContextProvider } from '../contexts/TraceArtifactLocationContext';
 
 const TRACE_DETAILS_MIN_WIDTH = 400;
 
@@ -68,9 +69,11 @@ export const SimplifiedModelTraceExplorerImpl = ({
   return (
     <ContextProviders traceId={traceId}>
       <ModelTraceExplorerPreferencesProvider>
-        <ModelTraceExplorerViewStateProvider modelTrace={initialModelTrace} assessmentsPaneEnabled={false}>
-          <SimplifiedModelTraceExplorerContent assessments={assessments} modelTraceInfo={initialModelTrace.info} />
-        </ModelTraceExplorerViewStateProvider>
+        <TraceArtifactLocationContextProvider modelTrace={initialModelTrace}>
+          <ModelTraceExplorerViewStateProvider modelTrace={initialModelTrace} assessmentsPaneEnabled={false}>
+            <SimplifiedModelTraceExplorerContent assessments={assessments} modelTraceInfo={initialModelTrace.info} />
+          </ModelTraceExplorerViewStateProvider>
+        </TraceArtifactLocationContextProvider>
       </ModelTraceExplorerPreferencesProvider>
     </ContextProviders>
   );
