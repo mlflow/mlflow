@@ -175,6 +175,51 @@ def test_trace_info_v4():
     assert TraceInfo.from_proto(proto_trace_info_v4) == trace_info_v4
 
 
+def test_trace_info_ignores_unknown_assessment_value_type():
+    known_assessment = Feedback(
+        trace_id="trace:/catalog.schema/test_trace_id",
+        name="known",
+        value=True,
+    )
+    trace_info = TraceInfo(
+        trace_id="trace:/catalog.schema/test_trace_id",
+        trace_location=TraceLocation.from_databricks_uc_schema(
+            catalog_name="catalog", schema_name="schema"
+        ),
+        request_time=0,
+        state=TraceState.OK,
+        assessments=[known_assessment],
+    )
+    proto = trace_info.to_proto()
+    unknown_assessment = proto.assessments.add()
+    unknown_assessment.assessment_id = "unknown-assessment"
+    unknown_assessment.assessment_name = "introduced_by_newer_server"
+    unknown_assessment.trace_id = "test_trace_id"
+
+    parsed = TraceInfo.from_proto(proto)
+
+    assert parsed.assessments == [known_assessment]
+
+
+def test_trace_info_from_dict_ignores_unknown_assessment_value_type():
+    trace_info = TraceInfo(
+        trace_id="tr-123",
+        trace_location=TraceLocation.from_experiment_id("123"),
+        request_time=0,
+        state=TraceState.OK,
+    )
+    trace_info_dict = trace_info.to_dict()
+    trace_info_dict["assessments"] = [
+        {
+            "assessment_id": "unknown-assessment",
+            "assessment_name": "introduced_by_newer_server",
+            "future_value_type": {"value": "new"},
+        }
+    ]
+
+    assert TraceInfo.from_dict(trace_info_dict) == trace_info
+
+
 @pytest.mark.parametrize("client_request_id", [None, "client_request_id"])
 @pytest.mark.parametrize(
     "assessments",
