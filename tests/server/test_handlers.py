@@ -1,4 +1,5 @@
 import json
+import sys
 import urllib.parse
 import uuid
 from dataclasses import asdict
@@ -9069,6 +9070,177 @@ def test_list_budget_windows_workspace_scoped_filters_user_policies():
     # workspace context so its current-spend figures don't leak across workspaces,
     # even though the two policies target the same username.
     assert policy_ids == {"bp-global", "bp-user-team-a"}
+
+
+# ==================== Per-role (ROLE scope) budget policy handler tests ====================
+
+
+def _role_policy(budget_policy_id="bp-role", target_value="7", last_updated_at=1):
+    return GatewayBudgetPolicy(
+        budget_policy_id=budget_policy_id,
+        budget_unit=BudgetUnit.USD,
+        budget_amount=25.0,
+        duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
+        target_scope=BudgetTargetScope.ROLE,
+        budget_action=BudgetAction.REJECT,
+        created_at=1,
+        last_updated_at=last_updated_at,
+        target_value=target_value,
+    )
+
+
+def _fake_auth_module(existing_role_ids=(7,)):
+    def get_role(role_id):
+        if role_id not in existing_role_ids:
+            raise MlflowException(
+                f"Role with id={role_id} not found", error_code=RESOURCE_DOES_NOT_EXIST
+            )
+        return SimpleNamespace(id=role_id)
+
+    return SimpleNamespace(is_auth_enabled=lambda: True, store=SimpleNamespace(get_role=get_role))
+
+
+_CREATE_ROLE_POLICY_BODY = {
+    "budget_unit": "USD",
+    "budget_amount": 25.0,
+    "duration": {"unit": "DAYS", "value": 1},
+    "target_scope": "ROLE",
+    "budget_action": "REJECT",
+    "target_value": "7",
+}
+
+
+def test_create_budget_policy_role_scope_success():
+    with (
+        app.test_client() as c,
+        mock.patch("mlflow.server.handlers._get_tracking_store") as mock_store,
+        mock.patch("mlflow.server.handlers.get_budget_tracker"),
+        mock.patch("mlflow.server.handlers.maybe_refresh_budget_policies"),
+        mock.patch.dict(sys.modules, {"mlflow.server.auth": _fake_auth_module()}),
+    ):
+        mock_store.return_value.create_budget_policy.return_value = _role_policy()
+        response = c.post(
+            "/ajax-api/3.0/mlflow/gateway/budgets/create", json=_CREATE_ROLE_POLICY_BODY
+        )
+
+    assert response.status_code == 200
+    assert response.json["budget_policy"]["target_scope"] == "ROLE"
+    assert response.json["budget_policy"]["target_value"] == "7"
+    assert mock_store.return_value.create_budget_policy.call_args.kwargs["target_value"] == "7"
+
+
+def test_create_budget_policy_role_scope_requires_auth():
+    with (
+        app.test_client() as c,
+        mock.patch("mlflow.server.handlers._get_tracking_store") as mock_store,
+        mock.patch("mlflow.server.handlers.get_budget_tracker"),
+        mock.patch("mlflow.server.handlers.maybe_refresh_budget_policies"),
+        mock.patch("mlflow.server.handlers._is_server_auth_enabled", return_value=False),
+    ):
+        response = c.post(
+            "/ajax-api/3.0/mlflow/gateway/budgets/create", json=_CREATE_ROLE_POLICY_BODY
+        )
+
+    assert response.status_code == 400
+    assert "ROLE-scoped budget policies require server authentication" in (response.json["message"])
+    mock_store.return_value.create_budget_policy.assert_not_called()
+
+
+@pytest.mark.parametrize("target_value", ["admins", "07", "-7", "7.0"])
+def test_create_budget_policy_role_scope_rejects_non_canonical_role_id(target_value):
+    with (
+        app.test_client() as c,
+        mock.patch("mlflow.server.handlers._get_tracking_store") as mock_store,
+        mock.patch("mlflow.server.handlers.get_budget_tracker"),
+        mock.patch("mlflow.server.handlers.maybe_refresh_budget_policies"),
+        mock.patch.dict(sys.modules, {"mlflow.server.auth": _fake_auth_module()}),
+    ):
+        response = c.post(
+            "/ajax-api/3.0/mlflow/gateway/budgets/create",
+            json={**_CREATE_ROLE_POLICY_BODY, "target_value": target_value},
+        )
+
+    assert response.status_code == 400
+    assert "target_value must be a role ID" in response.json["message"]
+    mock_store.return_value.create_budget_policy.assert_not_called()
+
+
+def test_create_budget_policy_role_scope_requires_existing_role():
+    with (
+        app.test_client() as c,
+        mock.patch("mlflow.server.handlers._get_tracking_store") as mock_store,
+        mock.patch("mlflow.server.handlers.get_budget_tracker"),
+        mock.patch("mlflow.server.handlers.maybe_refresh_budget_policies"),
+        mock.patch.dict(sys.modules, {"mlflow.server.auth": _fake_auth_module()}),
+    ):
+        response = c.post(
+            "/ajax-api/3.0/mlflow/gateway/budgets/create",
+            json={**_CREATE_ROLE_POLICY_BODY, "target_value": "8"},
+        )
+
+    assert response.status_code == 404
+    assert "Role with id=8 not found" in response.json["message"]
+    mock_store.return_value.create_budget_policy.assert_not_called()
+
+
+def test_update_budget_policy_role_target_requires_existing_role():
+    with (
+        app.test_client() as c,
+        mock.patch("mlflow.server.handlers._get_tracking_store") as mock_store,
+        mock.patch("mlflow.server.handlers.get_budget_tracker"),
+        mock.patch("mlflow.server.handlers.maybe_refresh_budget_policies"),
+        mock.patch.dict(sys.modules, {"mlflow.server.auth": _fake_auth_module()}),
+    ):
+        mock_store.return_value.get_budget_policy.return_value = _role_policy()
+        response = c.post(
+            "/ajax-api/3.0/mlflow/gateway/budgets/update",
+            json={"budget_policy_id": "bp-role", "target_value": "8"},
+        )
+
+    assert response.status_code == 404
+    mock_store.return_value.update_budget_policy.assert_not_called()
+
+
+def test_update_budget_policy_switch_to_role():
+    with (
+        app.test_client() as c,
+        mock.patch("mlflow.server.handlers._get_tracking_store") as mock_store,
+        mock.patch("mlflow.server.handlers.get_budget_tracker"),
+        mock.patch("mlflow.server.handlers.maybe_refresh_budget_policies"),
+        mock.patch.dict(sys.modules, {"mlflow.server.auth": _fake_auth_module()}),
+    ):
+        mock_store.return_value.get_budget_policy.return_value = _user_policy()
+        mock_store.return_value.update_budget_policy.return_value = _role_policy(last_updated_at=2)
+        response = c.post(
+            "/ajax-api/3.0/mlflow/gateway/budgets/update",
+            json={"budget_policy_id": "bp-user", "target_scope": "ROLE", "target_value": "7"},
+        )
+
+    assert response.status_code == 200
+    kwargs = mock_store.return_value.update_budget_policy.call_args.kwargs
+    assert kwargs["target_scope"] == BudgetTargetScope.ROLE
+    assert kwargs["target_value"] == "7"
+
+
+def test_update_budget_policy_switch_to_role_requires_target_value():
+    # A username is meaningless as a role ID, so switching USER -> ROLE without an
+    # explicit new target must be rejected rather than inherit "alice".
+    with (
+        app.test_client() as c,
+        mock.patch("mlflow.server.handlers._get_tracking_store") as mock_store,
+        mock.patch("mlflow.server.handlers.get_budget_tracker"),
+        mock.patch("mlflow.server.handlers.maybe_refresh_budget_policies"),
+        mock.patch.dict(sys.modules, {"mlflow.server.auth": _fake_auth_module()}),
+    ):
+        mock_store.return_value.get_budget_policy.return_value = _user_policy()
+        response = c.post(
+            "/ajax-api/3.0/mlflow/gateway/budgets/update",
+            json={"budget_policy_id": "bp-user", "target_scope": "ROLE"},
+        )
+
+    assert response.status_code == 400
+    assert "target_value is required" in response.json["message"]
+    mock_store.return_value.update_budget_policy.assert_not_called()
 
 
 def test_create_issue_with_all_fields():

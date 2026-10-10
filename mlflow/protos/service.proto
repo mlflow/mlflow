@@ -5606,6 +5606,9 @@ enum BudgetTargetScope {
   ENDPOINT = 3;
   // Applies only to requests made by a specific authenticated user
   USER = 4;
+  // Applies to requests made by any member of a specific auth role; members share
+  // one budget
+  ROLE = 5;
 }
 
 // Action to take when a budget is exceeded
@@ -5843,7 +5846,7 @@ message GatewayBudgetPolicy {
   optional double budget_amount = 3;
   // Fixed time window (unit + length pair)
   optional BudgetDuration duration = 4;
-  // Scope of the budget (GLOBAL, WORKSPACE, ENDPOINT, or USER)
+  // Scope of the budget (GLOBAL, WORKSPACE, ENDPOINT, USER, or ROLE)
   optional BudgetTargetScope target_scope = 5;
   // Action when budget is exceeded
   optional BudgetAction budget_action = 6;
@@ -5856,8 +5859,8 @@ message GatewayBudgetPolicy {
   // Last update timestamp in milliseconds
   optional int64 last_updated_at = 10;
   // Target the policy applies to, interpreted per target_scope: a gateway endpoint ID
-  // for ENDPOINT scope, a username for USER scope. Required for those
-  // scopes; unset for GLOBAL and WORKSPACE.
+  // for ENDPOINT scope, a username for USER scope, a role ID for ROLE scope. Required
+  // for those scopes; unset for GLOBAL and WORKSPACE.
   optional string target_value = 11;
 }
 
@@ -5869,7 +5872,7 @@ message CreateGatewayBudgetPolicy {
   optional BudgetAction budget_action = 5;
   optional string created_by = 6;
   // Target the policy applies to (endpoint ID for ENDPOINT scope, username for USER
-  // scope). Required for those scopes.
+  // scope, role ID for ROLE scope). Required for those scopes.
   optional string target_value = 7;
 
   message Response {
@@ -5894,7 +5897,7 @@ message UpdateGatewayBudgetPolicy {
   optional BudgetAction budget_action = 6;
   optional string updated_by = 7;
   // Target the policy applies to (endpoint ID for ENDPOINT scope, username for USER
-  // scope). Required for those scopes.
+  // scope, role ID for ROLE scope). Required for those scopes.
   optional string target_value = 8;
 
   message Response {

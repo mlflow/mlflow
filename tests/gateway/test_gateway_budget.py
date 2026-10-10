@@ -1,3 +1,5 @@
+import sys
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import fastapi
@@ -913,3 +915,130 @@ async def test_user_budget_overshoots_crossing_request_then_rejects_next():
 
     # A different user is unaffected by alice's overspend.
     check_budget_limit(store, _NO_TRACE_CONFIG, username="bob")
+
+
+# --- per-role (ROLE scope) tests ---
+
+
+@pytest.fixture
+def auth_store():
+    # alice and bob are members of role 7; carol is only in role 3.
+    users = {
+        "alice": SimpleNamespace(id=1, username="alice"),
+        "bob": SimpleNamespace(id=2, username="bob"),
+        "carol": SimpleNamespace(id=3, username="carol"),
+    }
+    roles_by_user = {1: [7], 2: [7, 3], 3: [3]}
+    store = MagicMock()
+    store.get_user.side_effect = lambda username: users[username]
+    store.list_users.return_value = list(users.values())
+    store.list_user_roles.side_effect = lambda user_id: [
+        SimpleNamespace(id=role_id) for role_id in roles_by_user[user_id]
+    ]
+    store.list_role_users.side_effect = lambda role_id: [
+        SimpleNamespace(user_id=user_id)
+        for user_id, role_ids in roles_by_user.items()
+        if role_id in role_ids
+    ]
+    auth_mod = SimpleNamespace(is_auth_enabled=lambda: True, store=store)
+    with patch.dict(sys.modules, {"mlflow.server.auth": auth_mod}):
+        yield store
+
+
+def test_check_budget_limit_role_scope_rejects_all_members(auth_store):
+    policy = _make_policy(
+        budget_amount=100.0,
+        budget_action=BudgetAction.REJECT,
+        target_scope=BudgetTargetScope.ROLE,
+        target_value="7",
+    )
+    store = _make_store(policies=[policy])
+    maybe_refresh_budget_policies(store)
+    get_budget_tracker().record_cost(150.0, role_ids={"7"})
+
+    for member in ["alice", "bob"]:
+        with pytest.raises(fastapi.HTTPException, match="Request rejected"):
+            check_budget_limit(store, _NO_TRACE_CONFIG, username=member)
+
+    # Non-members and unauthenticated requests are not rejected by the role's budget.
+    check_budget_limit(store, _NO_TRACE_CONFIG, username="carol")
+    check_budget_limit(store, _NO_TRACE_CONFIG, username=None)
+
+
+@pytest.mark.asyncio
+async def test_budget_on_complete_role_scope_pools_member_spend(auth_store):
+    policy = _make_policy(
+        budget_amount=100.0, target_scope=BudgetTargetScope.ROLE, target_value="7"
+    )
+    store = _make_store(policies=[policy])
+
+    for username in ["alice", "bob", "carol"]:
+        on_complete = make_budget_on_complete(store, workspace=None, username=username)
+        await maybe_traced_call(_provider_with_cost, _make_endpoint_config(), on_complete)
+
+    # Only alice's and bob's requests count toward role 7's shared budget.
+    window = get_budget_tracker()._get_window_info("bp-test")
+    assert window.cumulative_spend == pytest.approx(0.15)
+
+
+@pytest.mark.asyncio
+async def test_budget_on_complete_role_webhook_includes_role_id(auth_store):
+    with patch(_DELIVER_FUNC) as mock_deliver:
+        policy = _make_policy(
+            budget_amount=0.05,
+            budget_action=BudgetAction.ALERT,
+            target_scope=BudgetTargetScope.ROLE,
+            target_value="7",
+        )
+        store = _make_store(policies=[policy])
+
+        on_complete = make_budget_on_complete(store, workspace=None, username="alice")
+        await maybe_traced_call(_provider_with_cost, _make_endpoint_config(), on_complete)
+
+        mock_deliver.assert_called_once()
+        payload = mock_deliver.call_args.kwargs["payload"]
+        assert payload["target_scope"] == "ROLE"
+        assert payload["target_value"] == "7"
+
+
+def test_role_lookup_skipped_without_role_policies(auth_store):
+    policy = _make_policy(target_scope=BudgetTargetScope.USER, target_value="alice")
+    store = _make_store(policies=[policy])
+
+    check_budget_limit(store, _NO_TRACE_CONFIG, username="alice")
+
+    auth_store.get_user.assert_not_called()
+    auth_store.list_user_roles.assert_not_called()
+
+
+def test_check_budget_limit_role_scope_ignored_when_auth_disabled():
+    policy = _make_policy(
+        budget_amount=0.0,
+        budget_action=BudgetAction.REJECT,
+        target_scope=BudgetTargetScope.ROLE,
+        target_value="7",
+    )
+    store = _make_store(policies=[policy])
+
+    with patch.dict(sys.modules, {"mlflow.server.auth": None}):
+        check_budget_limit(store, _NO_TRACE_CONFIG, username="alice")
+
+
+def test_calculate_existing_cost_role_scope_sums_member_spend(auth_store):
+    tracker = get_budget_tracker()
+    windows = tracker.refresh_policies([
+        _make_policy(target_scope=BudgetTargetScope.ROLE, target_value="7", budget_amount=100.0)
+    ])
+
+    store = MagicMock()
+    store.sum_gateway_trace_cost.side_effect = lambda **kwargs: {"alice": 10.0, "bob": 5.0}[
+        kwargs["username"]
+    ]
+
+    existing_spend = calculate_existing_cost_for_windows(store, windows)
+    tracker.backfill_spend(existing_spend)
+
+    auth_store.list_role_users.assert_called_once_with(7)
+    usernames = {c.kwargs["username"] for c in store.sum_gateway_trace_cost.call_args_list}
+    assert usernames == {"alice", "bob"}
+    assert tracker._get_window_info("bp-test").cumulative_spend == 15.0
