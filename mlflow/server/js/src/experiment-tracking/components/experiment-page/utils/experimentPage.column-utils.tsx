@@ -6,7 +6,6 @@ import type {
   IsFullWidthRowParams,
   SuppressKeyboardEventParams,
 } from '@ag-grid-community/core';
-import type { SpinnerProps } from '@databricks/design-system';
 import { Spinner, useDesignSystemTheme } from '@databricks/design-system';
 import type React from 'react';
 import { useEffect, useMemo, useRef } from 'react';
@@ -76,9 +75,7 @@ export const createParamFieldName = (key: string) => `${EXPERIMENT_FIELD_PREFIX_
 const createMetricFieldName = (key: string) => `${EXPERIMENT_FIELD_PREFIX_METRIC}-${key}`;
 const createTagFieldName = (key: string) => `${EXPERIMENT_FIELD_PREFIX_TAG}-${key}`;
 
-const UntrackedSpinner: React.FC<React.PropsWithChildren<SpinnerProps>> = ({ loading, ...props }) => {
-  return Spinner({ loading: false, ...props });
-};
+const UntrackedSpinner = () => <Spinner loading={false} />;
 
 /**
  * A default listener that suppresses default agGrid keyboard events on the row actions cell renderer.

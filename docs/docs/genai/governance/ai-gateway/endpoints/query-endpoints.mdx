@@ -12,15 +12,17 @@ Once you've created an endpoint, you can call it through several different API s
 
 ## Supported API Styles
 
-The following table summarizes all the ways you can query gateway endpoints:
+The following table summarizes the available gateway APIs:
 
 | Category        | API Style                          | URL Pattern                                                                                                                 | Description                                                                                                                        |
 | --------------- | ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
 | **Unified**     | MLflow Invocations                 | `POST /gateway/{endpoint_name}/mlflow/invocations`                                                                          | Native MLflow interface supporting chat completions and embeddings. Handles routing features like traffic splitting and fallbacks. |
 | **Unified**     | OpenAI-compatible Chat Completions | `POST /gateway/mlflow/v1/chat/completions`                                                                                  | Drop-in replacement for the OpenAI chat completions API. Use the endpoint name as the `model` parameter.                           |
+| **Unified**     | OpenAI-compatible Models           | `GET /gateway/mlflow/v1/models`                                                                                             | List configured gateway endpoint names in the OpenAI models format.                                                                |
 | **Passthrough** | OpenAI                             | `POST /gateway/openai/v1/chat/completions`<br/>`POST /gateway/openai/v1/embeddings`<br/>`POST /gateway/openai/v1/responses` | Full OpenAI API access including Chat Completions, Embeddings, and Responses endpoints.                                            |
 | **Passthrough** | Anthropic                          | `POST /gateway/anthropic/v1/messages`                                                                                       | Direct access to Anthropic's Messages API.                                                                                         |
 | **Passthrough** | Google Gemini                      | `POST /gateway/gemini/v1beta/models/{endpoint_name}:generateContent`                                                        | Google Gemini's native generateContent API.                                                                                        |
+| **Passthrough** | TypeSafe                           | `POST /gateway/typesafe/v1/systemone`                                                                                       | Raw TypeSafe System One structured evaluation requests.                                                                            |
 
 ## Viewing Usage Examples
 
@@ -199,11 +201,65 @@ print(response.choices[0].message.content)
 </TabItem>
 </Tabs>
 
+### OpenAI-Compatible Models API
+
+Use `GET /gateway/mlflow/v1/models` to discover named gateway endpoints in the active workspace. The response follows the OpenAI models list format. Each model's `id` is a gateway endpoint name that you can pass as the `model` parameter when querying the endpoint.
+
+When MLflow authentication is enabled, users must authenticate and can list only endpoints they have `USE` permission on. Administrators can list all named endpoints in the active workspace.
+
+The following examples assume the server does not require authentication:
+
+<Tabs>
+<TabItem value="curl" label="cURL" default>
+
+```bash
+curl http://localhost:5000/gateway/mlflow/v1/models
+```
+
+</TabItem>
+<TabItem value="python" label="Python">
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="http://localhost:5000/gateway/mlflow/v1",
+    api_key="not-required",
+)
+
+for model in client.models.list():
+    print(model.id)
+```
+
+</TabItem>
+</Tabs>
+
 ## Passthrough APIs
 
 The Passthrough API relays requests to the provider's LLM endpoint using its native formats, allowing you to use their native client SDKs with the MLflow Gateway. While unified APIs work for most use cases, passthrough APIs give you full access to provider-specific features that may not be available through the unified interface.
 
 For detailed information on passthrough APIs for each provider, see [Model Providers](/genai/governance/ai-gateway/endpoints/model-providers).
+
+### TypeSafe Passthrough
+
+System One passthrough endpoints accept requests at `POST /gateway/typesafe/v1/systemone`. These endpoints support TypeSafe provider models and OpenRouter Jev decision models (such as `typesafe/jev-1.13`). They do not support chat completions, embeddings, mixed System One/chat routing, or streaming. OpenRouter `typesafe/jev-router` remains a chat model.
+
+```bash
+curl -X POST http://localhost:5000/gateway/typesafe/v1/systemone \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "jev-evaluator",
+    "state": {"answer": "Select Forgot password on the sign-in page."},
+    "questions": {
+      "helpful": {
+        "type": "noul",
+        "instructions": "Does state.answer help the user reset a password?"
+      }
+    }
+  }'
+```
+
+The `model` value is the MLflow Gateway endpoint name. Supported structured MLflow judges can use a direct TypeSafe model URI such as `model="typesafe:/jev-latest"` or a System One Gateway endpoint such as `model="gateway:/jev-evaluator"`.
 
 ### OpenAI Passthrough
 
@@ -491,7 +547,7 @@ The workspace header applies to all gateway API endpoints, including:
 
 - MLflow Invocations API (`/gateway/{endpoint_name}/mlflow/invocations`)
 - OpenAI-compatible API (`/gateway/mlflow/v1/*`)
-- Passthrough APIs (`/gateway/openai/v1/*`, `/gateway/anthropic/v1/*`, `/gateway/gemini/v1beta/models/{endpoint_name}:*`)
+- Passthrough APIs (`/gateway/openai/v1/*`, `/gateway/anthropic/v1/*`, `/gateway/gemini/v1beta/models/{endpoint_name}:*`, `/gateway/typesafe/v1/systemone`)
 
 For more details on workspace configuration and management, see the [Workspaces documentation](/self-hosting/workspaces/getting-started).
 

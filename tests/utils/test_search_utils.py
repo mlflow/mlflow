@@ -9,6 +9,7 @@ from mlflow.entities import (
     DatasetInput,
     InputTag,
     LifecycleStage,
+    LoggedModel,
     Metric,
     Param,
     Run,
@@ -23,7 +24,38 @@ from mlflow.entities import (
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.exceptions import MlflowException
 from mlflow.utils.mlflow_tags import MLFLOW_DATASET_CONTEXT
-from mlflow.utils.search_utils import SearchTraceUtils, SearchUtils
+from mlflow.utils.search_utils import (
+    SearchEvaluationDatasetsUtils,
+    SearchExperimentsUtils,
+    SearchLoggedModelsUtils,
+    SearchMCPAccessEndpointUtils,
+    SearchMCPServerUtils,
+    SearchMCPServerVersionUtils,
+    SearchModelUtils,
+    SearchModelVersionUtils,
+    SearchTraceUtils,
+    SearchUtils,
+)
+
+
+@pytest.mark.parametrize(
+    ("search_utils", "search_type"),
+    [
+        (SearchModelUtils, "registered model"),
+        (SearchModelVersionUtils, "model version"),
+    ],
+)
+@pytest.mark.parametrize("identifier", ["tags.stage", "name"])
+@pytest.mark.parametrize("comparator", ["IS NULL", "IS NOT NULL", "is null", "is not null"])
+def test_model_registry_search_rejects_null_comparisons(
+    search_utils, search_type, identifier, comparator
+):
+    with pytest.raises(
+        MlflowException,
+        match=f"IS NULL / IS NOT NULL is not supported for {search_type} search",
+    ) as exc:
+        search_utils.parse_search_filter(f"{identifier} {comparator}")
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
 
 
 @pytest.mark.parametrize(
@@ -100,7 +132,7 @@ from mlflow.utils.search_utils import SearchTraceUtils, SearchUtils
         ),
         (
             "attribute.start_time >= 1234",
-            [{"type": "attribute", "comparator": ">=", "key": "start_time", "value": "1234"}],
+            [{"type": "attribute", "comparator": ">=", "key": "start_time", "value": 1234}],
         ),
         (
             "run.status = 'RUNNING'",
@@ -137,6 +169,155 @@ from mlflow.utils.search_utils import SearchTraceUtils, SearchUtils
 )
 def test_filter(filter_string, parsed_filter):
     assert SearchUtils.parse_search_filter(filter_string) == parsed_filter
+
+
+@pytest.mark.parametrize(
+    ("search_utils", "filter_string"),
+    [
+        (SearchUtils, "attributes.start_time > 1234"),
+        (SearchExperimentsUtils, "creation_time > 1234"),
+        (SearchEvaluationDatasetsUtils, "created_time > 1234"),
+        (SearchLoggedModelsUtils, "creation_timestamp > 1234"),
+        (SearchMCPServerUtils, "created_at > 1234"),
+        (SearchMCPServerVersionUtils, "created_at > 1234"),
+        (SearchMCPAccessEndpointUtils, "created_at > 1234"),
+    ],
+)
+def test_numeric_attribute_values_are_parsed_as_integers(search_utils, filter_string):
+    [condition] = search_utils.parse_search_filter(filter_string)
+
+    assert condition["value"] == 1234
+    assert isinstance(condition["value"], int)
+
+
+def test_evaluation_dataset_name_in_filter():
+    assert SearchEvaluationDatasetsUtils.parse_search_filter(
+        "name IN ('dataset-a', 'dataset-b')"
+    ) == [
+        {
+            "type": "attribute",
+            "key": "name",
+            "comparator": "IN",
+            "value": ("dataset-a", "dataset-b"),
+        }
+    ]
+
+
+@pytest.mark.parametrize("comparator", ["=", "!=", "LIKE", "ILIKE"])
+@pytest.mark.parametrize("names", ["('dataset-a')", "('dataset-a', 'dataset-b')"])
+def test_evaluation_dataset_name_list_requires_in(comparator, names):
+    with pytest.raises(
+        MlflowException,
+        match="List values for 'name' are only supported with the IN comparator",
+        check=lambda e: e.error_code == "INVALID_PARAMETER_VALUE",
+    ):
+        SearchEvaluationDatasetsUtils.parse_search_filter(f"name {comparator} {names}")
+
+
+@pytest.mark.parametrize("key", ["created_by", "last_updated_by"])
+def test_evaluation_dataset_in_filter_rejects_other_string_attributes(key):
+    with pytest.raises(MlflowException, match="Only .* attributes support comparison with a list"):
+        SearchEvaluationDatasetsUtils.parse_search_filter(f"{key} IN ('user-a', 'user-b')")
+
+
+@pytest.mark.parametrize(
+    ("filter_string", "expected"),
+    [
+        ("server_name = 'Com.Example/MyServer'", [("server_name", "=", "Com.Example/MyServer")]),
+        (
+            "server_name IN ('Com.Example/MyServer', 'com.example/other')",
+            [("server_name", "IN", ("Com.Example/MyServer", "com.example/other"))],
+        ),
+        (
+            "server_name NOT IN ('Com.Example/MyServer')",
+            [("server_name", "NOT IN", ("Com.Example/MyServer",))],
+        ),
+        (
+            "transport_type = 'sse' AND server_name = 'Com.Example/MyServer'",
+            [("transport_type", "=", "sse"), ("server_name", "=", "Com.Example/MyServer")],
+        ),
+        (
+            "server_name = 'Com.Example/MyServer' AND transport_type = 'sse'",
+            [("server_name", "=", "Com.Example/MyServer"), ("transport_type", "=", "sse")],
+        ),
+    ],
+)
+def test_mcp_access_endpoint_server_name_filter(filter_string, expected):
+    parsed = SearchMCPAccessEndpointUtils.parse_search_filter(filter_string)
+    assert [
+        (condition["key"], condition["comparator"], condition["value"]) for condition in parsed
+    ] == expected
+
+
+def test_mcp_access_endpoint_server_name_rejects_or():
+    with pytest.raises(MlflowException, match="Invalid clause"):
+        SearchMCPAccessEndpointUtils.parse_search_filter(
+            "server_name = 'com.example/one' OR transport_type = 'sse'"
+        )
+
+
+@pytest.mark.parametrize("comparator", ["=", "!=", "<", "<=", ">", ">="])
+def test_mcp_server_version_filter(comparator):
+    [condition] = SearchMCPServerVersionUtils.parse_search_filter(
+        f"version {comparator} '1.0.0-Alpha+Build'"
+    )
+
+    assert condition == {
+        "type": "attribute",
+        "key": "version",
+        "comparator": comparator,
+        "value": "1.0.0-Alpha+Build",
+    }
+
+
+@pytest.mark.parametrize(
+    ("filter_string", "match"),
+    [
+        ("version = '1.0.0' OR status = 'draft'", "Invalid clause.*'OR'"),
+        ("version IN ('1.0.0', '2.0.0')", r"Only \['status'\] attributes support comparison"),
+        ("select = '1.0.0'", "Invalid clause.*'select'"),
+    ],
+)
+def test_mcp_server_version_rejects_invalid_filters(filter_string, match):
+    with pytest.raises(MlflowException, match=match) as exc:
+        SearchMCPServerVersionUtils.parse_search_filter(filter_string)
+
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+
+
+def test_float_numeric_attribute_value_is_parsed_as_float():
+    [condition] = SearchUtils.parse_search_filter("attributes.start_time > 1234.5")
+
+    assert condition["value"] == 1234.5
+    assert isinstance(condition["value"], float)
+
+
+@pytest.mark.parametrize(
+    ("filter_string", "expected_model_ids"),
+    [
+        ("creation_timestamp = 1.5", []),
+        ("creation_timestamp > 1.5", ["model-2"]),
+        ("creation_timestamp >= 1.5", ["model-2"]),
+    ],
+)
+def test_float_numeric_attribute_is_not_truncated_for_logged_models(
+    filter_string, expected_model_ids
+):
+    models = [
+        LoggedModel(
+            experiment_id="0",
+            model_id=f"model-{timestamp}",
+            name=f"model-{timestamp}",
+            artifact_location=f"file:///tmp/model-{timestamp}",
+            creation_timestamp=timestamp,
+            last_updated_timestamp=timestamp,
+        )
+        for timestamp in (1, 2)
+    ]
+
+    filtered = SearchLoggedModelsUtils.filter_logged_models(models, filter_string)
+
+    assert [model.model_id for model in filtered] == expected_model_ids
 
 
 @pytest.mark.parametrize(
@@ -473,6 +654,7 @@ def test_filter_runs_by_start_time():
     assert SearchUtils.filter(runs, "attribute.start_time >= 0") == runs
     assert SearchUtils.filter(runs, "attribute.start_time > 1") == runs[2:]
     assert SearchUtils.filter(runs, "attribute.start_time = 2") == runs[2:]
+    assert SearchUtils.filter(runs, "attribute.start_time = 1.5") == []
 
 
 def test_filter_runs_by_user_id():

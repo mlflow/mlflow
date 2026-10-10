@@ -64,6 +64,7 @@ def setup_env(tmp_path: Path) -> dict[str, str]:
 
     env = os.environ.copy()
     for name in (
+        "DATABRICKS_CONFIG_FILE",
         "DATABRICKS_CONFIG_PROFILE",
         "DATABRICKS_HOST",
         "MLFLOW_TRACKING_PASSWORD",
@@ -190,6 +191,9 @@ def _run_setup(cwd: Path, env: dict[str, str], *args: str) -> subprocess.Complet
 def test_interactive_remote_setup_creates_experiment_and_launches_agent(
     project: Path, setup_env: dict[str, str], mlflow_server: str
 ):
+    client = MlflowClient(tracking_uri=mlflow_server)
+    existing_experiment_id = client.create_experiment(project.name)
+
     exit_code, output = run_interactive(
         [str(SETUP_SCRIPT)],
         project,
@@ -197,28 +201,53 @@ def test_interactive_remote_setup_creates_experiment_and_launches_agent(
         [
             ("Where should MLflow store traces?", b"\x1b[B\r"),
             ("MLflow tracking server URL", f"{mlflow_server}\r".encode()),
-            ("Choose an experiment", b"\r"),
-            ("Experiment name", b"setup-sh-e2e\r"),
-            ("Choose a coding agent", b"\r"),
         ],
     )
 
     assert exit_code == 0, output
-    experiment = MlflowClient(tracking_uri=mlflow_server).get_experiment_by_name("setup-sh-e2e")
-    assert experiment is not None
-    assert experiment.tags["mlflow.experimentKind"] == "genai_development"
-
+    assert "Choose an experiment" not in output
+    assert "Experiment name" not in output
+    assert "Choose a coding agent" not in output
     prompt = Path(setup_env["MLFLOW_TEST_PROMPT_PATH"]).read_text()
+    experiment_id = next(
+        line.removeprefix("- Experiment ID: ")
+        for line in prompt.splitlines()
+        if line.startswith("- Experiment ID: ")
+    )
+    experiment = client.get_experiment(experiment_id)
+    assert experiment.experiment_id != existing_experiment_id
+    assert experiment.name.startswith(f"{project.name}-")
+    assert experiment.tags["mlflow.experimentKind"] == "genai_development"
     assert f"- Tracking URI: {mlflow_server}" in prompt
-    assert f"- Experiment ID: {experiment.experiment_id}" in prompt
+    assert f"- Experiment name: {experiment.name}" in prompt
+
+    result = _run_setup(project, setup_env, "--tracking-uri", mlflow_server, "--agent", "codex")
+
+    assert result.returncode == 0, result.stderr
+    repeated_prompt = Path(setup_env["MLFLOW_TEST_PROMPT_PATH"]).read_text()
+    repeated_experiment_id = next(
+        line.removeprefix("- Experiment ID: ")
+        for line in repeated_prompt.splitlines()
+        if line.startswith("- Experiment ID: ")
+    )
+    repeated_experiment = client.get_experiment(repeated_experiment_id)
+    assert repeated_experiment.experiment_id not in {
+        experiment.experiment_id,
+        existing_experiment_id,
+    }
+    assert repeated_experiment.name != experiment.name
+    assert repeated_experiment.name.startswith(f"{project.name}-")
+    assert repeated_experiment.tags["mlflow.experimentKind"] == "genai_development"
 
 
 @pytest.mark.timeout(30)
-def test_existing_experiment_is_reused(
-    project: Path, setup_env: dict[str, str], mlflow_server: str
+@pytest.mark.parametrize("create_existing", [True, False])
+def test_explicit_experiment_name_is_resolved(
+    project: Path, setup_env: dict[str, str], mlflow_server: str, create_existing: bool
 ):
     client = MlflowClient(tracking_uri=mlflow_server)
-    experiment_id = client.create_experiment("existing-setup-sh-e2e")
+    experiment_name = f"named-setup-sh-e2e-{create_existing}"
+    existing_experiment_id = client.create_experiment(experiment_name) if create_existing else None
 
     result = _run_setup(
         project,
@@ -226,15 +255,23 @@ def test_existing_experiment_is_reused(
         "--tracking-uri",
         mlflow_server,
         "--experiment-name",
-        "existing-setup-sh-e2e",
+        experiment_name,
         "--agent",
         "codex",
     )
 
     assert result.returncode == 0, result.stderr
-    assert "Experiment created" not in result.stderr
+    experiment = client.get_experiment_by_name(experiment_name)
+    assert experiment is not None
+    if create_existing:
+        assert experiment.experiment_id == existing_experiment_id
+        assert "Experiment created" not in result.stderr
+    else:
+        assert experiment.tags["mlflow.experimentKind"] == "genai_development"
+        assert "Experiment created" in result.stderr
     prompt = Path(setup_env["MLFLOW_TEST_PROMPT_PATH"]).read_text()
-    assert f"- Experiment ID: {experiment_id}" in prompt
+    assert f"- Experiment ID: {experiment.experiment_id}" in prompt
+    assert f"- Experiment name: {experiment_name}" in prompt
 
 
 @pytest.mark.timeout(30)
@@ -311,6 +348,9 @@ def test_cli_arguments_skip_interactive_prompts(
 ):
     client = MlflowClient(tracking_uri=mlflow_server)
     experiment_id = client.create_experiment("cli-setup-sh-e2e")
+    config_path = project.parent / "databrickscfg"
+    config_path.write_text("[DEFAULT]\nhost = https://workspace.example.com\n")
+    setup_env["DATABRICKS_CONFIG_FILE"] = str(config_path)
 
     result = _run_setup(
         project,
@@ -333,20 +373,27 @@ def test_cli_arguments_skip_interactive_prompts(
 
 
 @pytest.mark.timeout(30)
+@pytest.mark.parametrize("explicit_manual", [True, False])
 def test_manual_setup_prints_instructions(
-    project: Path, setup_env: dict[str, str], mlflow_server: str
+    project: Path, setup_env: dict[str, str], mlflow_server: str, explicit_manual: bool
 ):
+    command = [
+        str(SETUP_SCRIPT),
+        "--tracking-uri",
+        mlflow_server,
+        "--experiment-name",
+        f"manual-setup-sh-e2e-{explicit_manual}",
+    ]
+    if explicit_manual:
+        command.extend(["--agent", "manual"])
+    else:
+        (Path(setup_env["PATH"].split(os.pathsep)[0]) / "codex").unlink()
+
     exit_code, output = run_interactive(
-        [
-            str(SETUP_SCRIPT),
-            "--tracking-uri",
-            mlflow_server,
-            "--experiment-name",
-            "manual-setup-sh-e2e",
-        ],
+        command,
         project,
         setup_env,
-        [("Choose a coding agent", b"\x1b[B\r")],
+        [],
     )
 
     assert exit_code == 0, output
@@ -354,6 +401,7 @@ def test_manual_setup_prints_instructions(
     assert f"Set MLFLOW_TRACKING_URI={mlflow_server}" in output
     assert "MLflow Tracing quickstart:" in output
     assert "Setup complete" in output
+    assert "Choose a coding agent" not in output
     assert not Path(setup_env["MLFLOW_TEST_PROMPT_PATH"]).exists()
 
 

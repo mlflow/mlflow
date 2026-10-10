@@ -18,6 +18,7 @@ from sklearn.model_selection import train_test_split
 import mlflow.paddle
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow import pyfunc
+from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelSignature
 from mlflow.models.utils import _read_example, load_serving_example
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
@@ -138,6 +139,47 @@ def test_model_save_load(pd_model, model_path):
         reloaded_pyfunc.predict(pd_model.inference_dataframe),
         decimal=5,
     )
+
+
+@pytest.mark.parametrize("load_fn", [mlflow.paddle.load_model, pyfunc.load_model])
+def test_load_model_disallows_pickle_deserialization(pd_model, model_path, monkeypatch, load_fn):
+    mlflow.paddle.save_model(pd_model=pd_model.model, path=model_path)
+
+    monkeypatch.setenv("MLFLOW_ALLOW_PICKLE_DESERIALIZATION", "false")
+    with pytest.raises(MlflowException, match="MLFLOW_ALLOW_PICKLE_DESERIALIZATION"):
+        load_fn(model_path)
+
+    monkeypatch.setenv("MLFLOW_ALLOW_PICKLE_DESERIALIZATION", "true")
+    load_fn(model_path)
+
+
+@pytest.mark.parametrize("load_fn", [mlflow.paddle.load_model, pyfunc.load_model])
+@pytest.mark.parametrize(
+    "databricks_env_fn", ["is_in_databricks_runtime", "is_in_databricks_model_serving_environment"]
+)
+def test_load_model_allows_pickle_deserialization_in_databricks(
+    pd_model, model_path, monkeypatch, databricks_env_fn, load_fn
+):
+    mlflow.paddle.save_model(pd_model=pd_model.model, path=model_path)
+
+    monkeypatch.setenv("MLFLOW_ALLOW_PICKLE_DESERIALIZATION", "false")
+    with mock.patch(f"mlflow.paddle.{databricks_env_fn}", return_value=True):
+        load_fn(model_path)
+
+
+def test_load_model_with_paddle_model_disallows_pickle_deserialization(
+    pd_model_built_in_high_level_api, model_path, monkeypatch
+):
+    mlflow.paddle.save_model(
+        pd_model=pd_model_built_in_high_level_api.model, path=model_path, training=True
+    )
+
+    monkeypatch.setenv("MLFLOW_ALLOW_PICKLE_DESERIALIZATION", "false")
+    with pytest.raises(MlflowException, match="MLFLOW_ALLOW_PICKLE_DESERIALIZATION"):
+        mlflow.paddle.load_model(model_uri=model_path, model=paddle.Model(UCIHousing()))
+
+    monkeypatch.setenv("MLFLOW_ALLOW_PICKLE_DESERIALIZATION", "true")
+    mlflow.paddle.load_model(model_uri=model_path, model=paddle.Model(UCIHousing()))
 
 
 def test_model_load_from_remote_uri_succeeds(pd_model, model_path, mock_s3_bucket):
