@@ -4,7 +4,7 @@ import json
 import logging
 import posixpath
 import re
-from typing import Any, AsyncGenerator, Iterator
+from typing import Any, AsyncGenerator, Iterator, Literal
 from urllib.parse import urlparse
 
 from fastapi import HTTPException
@@ -375,9 +375,41 @@ def to_sse_error_chunk(error: Exception) -> str:
     return to_sse_chunk(json.dumps(error_data))
 
 
+# Anthropic error types by HTTP status: https://docs.claude.com/en/api/errors
+_ANTHROPIC_ERROR_TYPES = {
+    400: "invalid_request_error",
+    401: "authentication_error",
+    403: "permission_error",
+    404: "not_found_error",
+    413: "request_too_large",
+    429: "rate_limit_error",
+    500: "api_error",
+    529: "overloaded_error",
+}
+
+
+def to_anthropic_sse_error_chunk(error: Exception) -> str:
+    """Create an SSE-formatted error chunk in Anthropic's shape.
+
+    Anthropic clients dispatch on the SSE event name and drop an event they cannot name, so a
+    streaming error only reaches them as a named ``error`` event.
+    """
+    status_code = getattr(error, "status_code", None)
+    detail = getattr(error, "detail", None)
+    error_data = {
+        "type": "error",
+        "error": {
+            "type": _ANTHROPIC_ERROR_TYPES.get(status_code, "api_error"),
+            "message": str(error if detail is None else detail),
+        },
+    }
+    return f"event: error\n{to_sse_chunk(json.dumps(error_data))}"
+
+
 async def safe_stream(
     stream: AsyncGenerator[str | bytes, None],
     as_bytes: bool = False,
+    message_format: Literal["anthropic"] | None = None,
 ) -> AsyncGenerator[bytes | str, None]:
     """
     Wrap a streaming generator with exception handling.
@@ -391,6 +423,9 @@ async def safe_stream(
         stream: The async generator to wrap.
         as_bytes: If True, encode the error chunk as bytes. Use this when the
             stream yields bytes (e.g., passthrough endpoints).
+        message_format: Wire format the stream speaks. ``"anthropic"`` emits the error as a
+            named ``error`` event, the only form Anthropic clients surface. ``None`` emits the
+            OpenAI-shaped chunk, which OpenAI and Gemini clients read.
 
     Yields:
         Chunks from the stream, or an error chunk if an exception occurs.
@@ -400,7 +435,11 @@ async def safe_stream(
             yield chunk
     except Exception as e:
         _logger.exception("Error during streaming response")
-        error_chunk = to_sse_error_chunk(e)
+        error_chunk = (
+            to_anthropic_sse_error_chunk(e)
+            if message_format == "anthropic"
+            else to_sse_error_chunk(e)
+        )
         yield error_chunk.encode("utf-8") if as_bytes else error_chunk
 
 
