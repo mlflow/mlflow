@@ -478,6 +478,24 @@
       },
       "last_updated_at": "2026-09-07"
     },
+    "Qwen/Qwen3.8-27B": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 262144
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.45,
+        "output_per_million_tokens": 3.0
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-10-02"
+    },
     "deepseek-ai/DeepSeek-R1": {
       "mode": "chat",
       "context_window": {
@@ -637,6 +655,44 @@
         "response_schema": false
       },
       "last_updated_at": "2026-09-07"
+    },
+    "deepseek-ai/DeepSeek-V4-Pro-0813": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 979000
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.32,
+        "output_per_million_tokens": 3.96
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-10-02"
+    },
+    "deepseek-ai/DeepSeek-V4.1-Flash": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048000,
+        "max_output": 384000,
+        "max_tokens": 384000
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.3,
+        "output_per_million_tokens": 1.2
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-10-02"
     },
     "google/gemma-3-27b-it": {
       "mode": "chat",
@@ -1117,6 +1173,25 @@
       },
       "last_updated_at": "2026-09-07"
     },
+    "zai-org/GLM-5.3": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1024000,
+        "max_tokens": 1024000
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.4,
+        "output_per_million_tokens": 4.4
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-10-02"
+    },
     "zai-org/GLM-5.3-Flash": {
       "mode": "chat",
       "context_window": {
@@ -1130,12 +1205,12 @@
       },
       "capabilities": {
         "function_calling": true,
-        "vision": false,
+        "vision": true,
         "reasoning": true,
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-09-07"
+      "last_updated_at": "2026-10-02"
     }
   }
 }

@@ -15,6 +15,7 @@ import mlflow
 from mlflow.entities import (
     FallbackConfig,
     FallbackStrategy,
+    GatewayEndpoint,
     GatewayEndpointModelConfig,
     GatewayModelLinkageType,
     RoutingStrategy,
@@ -33,6 +34,7 @@ from mlflow.gateway.config import (
     OpenAIAPIType,
     OpenAIConfig,
     PortkeyConfig,
+    TypeSafeConfig,
     VertexAIConfig,
 )
 from mlflow.gateway.constants import MLFLOW_GATEWAY_DURATION_HEADER, MLFLOW_GATEWAY_OVERHEAD_HEADER
@@ -167,6 +169,20 @@ def test_build_endpoint_config_vertex_ai_reads_anthropic_betas_from_auth_config(
     config = _build_endpoint_config("test-ep", model_config, EndpointType.LLM_V1_CHAT)
     assert isinstance(config.model.config, VertexAIConfig)
     assert config.model.config.vertex_anthropic_betas == expected
+
+
+def test_build_endpoint_config_typesafe_reads_api_base_from_auth_config():
+    model_config = GatewayModelConfig(
+        model_definition_id="md-test",
+        provider="typesafe",
+        model_name="jev-1.13.0",
+        secret_value={"api_key": "typesafe-test-key"},
+        auth_config={"api_base": "https://typesafe.example.com/v1"},
+    )
+    config = _build_endpoint_config("test-ep", model_config, EndpointType.LLM_V1_CHAT)
+
+    assert isinstance(config.model.config, TypeSafeConfig)
+    assert config.model.config.typesafe_api_base == "https://typesafe.example.com/v1"
 
 
 def test_create_provider_from_endpoint_name_openai(store: SqlAlchemyStore):
@@ -1635,6 +1651,42 @@ async def test_chat_completions_endpoint_missing_model_parameter(store: SqlAlche
         await chat_completions(mock_request)
 
     assert exc_info.value.status_code == 400
+
+
+@pytest.mark.parametrize(
+    ("endpoint_names", "expected_ids"),
+    [([], []), (["beta", "alpha", None], ["alpha", "beta"])],
+)
+def test_list_models_endpoint(store: SqlAlchemyStore, endpoint_names, expected_ids):
+    endpoints = [
+        GatewayEndpoint(
+            endpoint_id=f"endpoint-{index}",
+            name=name,
+            created_at=1234567890123,
+            last_updated_at=1234567890123,
+        )
+        for index, name in enumerate(endpoint_names)
+    ]
+    app = FastAPI()
+    app.include_router(gateway_router)
+
+    with (
+        patch("mlflow.server.gateway_api._get_store", return_value=store),
+        patch.object(
+            store, "list_gateway_endpoints", return_value=endpoints
+        ) as mock_list_gateway_endpoints,
+    ):
+        response = TestClient(app).get("/gateway/mlflow/v1/models")
+
+    mock_list_gateway_endpoints.assert_called_once_with()
+    assert response.status_code == 200
+    assert response.json() == {
+        "object": "list",
+        "data": [
+            {"id": name, "object": "model", "created": 1234567890, "owned_by": "mlflow"}
+            for name in expected_ids
+        ],
+    }
 
 
 @pytest.mark.asyncio
@@ -3737,6 +3789,33 @@ async def test_real_db_pre_llm_guardrail_blocks(store: SqlAlchemyStore):
 
     assert not mock_chat.called
     assert blocking_scorer.call_count == 1
+
+
+@pytest.mark.asyncio
+async def test_real_db_custom_scorer_guardrail_fails_request(store: SqlAlchemyStore):
+    # A guardrail whose stored scorer is a custom @scorer cannot run in the server. The request
+    # must fail with a server error naming the guardrail, rather than reaching the provider
+    # without the guardrail.
+    endpoint = _setup_guardrail_endpoint(store, "real-ep-custom-scorer")
+    _setup_db_guardrail(store, "real-ep-custom-scorer", "BEFORE", "VALIDATION")
+
+    mock_request = _make_guardrail_mock_request({
+        "messages": [{"role": "user", "content": "hello"}]
+    })
+
+    with (
+        patch("mlflow.genai.scorers.base._serialized_scorer_is_custom_code", return_value=True),
+        patch(
+            "mlflow.gateway.providers.openai.OpenAIProvider.chat",
+            AsyncMock(),
+        ) as mock_chat,
+    ):
+        with pytest.raises(HTTPException, match="500") as exc_info:
+            await invocations(endpoint.name, mock_request)
+
+    assert exc_info.value.status_code == 500
+    assert "uses a custom scorer" in exc_info.value.detail["message"]
+    assert not mock_chat.called
 
 
 @pytest.mark.asyncio

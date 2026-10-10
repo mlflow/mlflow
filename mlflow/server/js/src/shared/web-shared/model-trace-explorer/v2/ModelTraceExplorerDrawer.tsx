@@ -191,9 +191,10 @@ export const ModelTraceExplorerDrawer = ({
   );
   const isResizingRef = useRef(false);
 
-  const location = useLocation();
-  const locationPath = `${location.pathname}${location.search}${location.hash}`;
-  const shareUrl = `${window.location.origin}${locationPath}`;
+  // Subscribe to route changes so the link stays current, but read `window.location.href`: under a
+  // hash router the router location omits the `#` and any path prefix the app is served from.
+  useLocation();
+  const shareUrl = window.location.href;
   const {
     copy: copyShareLink,
     tooltipMessage,

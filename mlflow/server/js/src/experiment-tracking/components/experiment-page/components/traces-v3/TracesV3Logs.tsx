@@ -531,6 +531,7 @@ const TracesV3LogsImpl = React.memo(
     const countInfo = useCountInfo({
       experimentIds,
       timeRange,
+      loggedModelId,
       traceInfos,
       metadataTraceInfos: evaluatedTraces
         .map((trace) => trace.traceInfo)
@@ -580,6 +581,7 @@ const TracesV3LogsImpl = React.memo(
     const assessmentCountMetrics = useAssessmentCountMetrics({
       experimentIds,
       timeRange,
+      loggedModelId,
       disabled: isQueryDisabled,
     });
 

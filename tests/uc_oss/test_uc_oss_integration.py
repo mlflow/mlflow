@@ -80,6 +80,7 @@ def test_integration(setup_servers, tmp_path):
             # its predicted output.
             input_example=input_example,
             registered_model_name=model_name,
+            skops_trusted_types=["sklearn.tree._tree.Tree"],
         )
 
     model_version = 1

@@ -191,6 +191,13 @@ def _parse_usage(output: Any) -> dict[str, int] | None:
                 usage_dict[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = cached
             if (created := getattr(usage, "cache_creation_input_tokens", None)) is not None:
                 usage_dict[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS] = created
+            # cache_creation carries a per-TTL breakdown; capture the 1-hour portion (a subset
+            # of cache_creation_input_tokens) so cost can price it at the 1-hour rate.
+            if (cache_creation_details := getattr(usage, "cache_creation", None)) is not None:
+                if (
+                    above_1hr := getattr(cache_creation_details, "ephemeral_1h_input_tokens", None)
+                ) is not None:
+                    usage_dict[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS_ABOVE_1HR] = above_1hr
             # Anthropic reports input_tokens excluding cache tokens. Normalize to
             # include them, consistent with OpenAI/Gemini and cost_per_token().
             # Same logic as _normalize_anthropic_input_tokens in gateway/providers/anthropic.py.

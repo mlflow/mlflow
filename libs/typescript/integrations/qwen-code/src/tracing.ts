@@ -44,6 +44,11 @@ import {
 
 const SUCCESS_STATUS = 'success';
 
+// Keep local: integrations are independent packages and must support older @mlflow/core floors.
+function getCurrentUser(): string {
+  return process.env.USER || process.env.USERNAME || '';
+}
+
 /**
  * Process a Qwen Code transcript and create an MLflow trace for the last turn.
  */
@@ -113,7 +118,7 @@ export async function processTranscript(
       trace.info.traceMetadata = {
         ...trace.info.traceMetadata,
         [TraceMetadataKey.TRACE_SESSION]: resolvedSessionId,
-        [TraceMetadataKey.TRACE_USER]: process.env.USER ?? '',
+        [TraceMetadataKey.TRACE_USER]: getCurrentUser(),
       };
     }
   }

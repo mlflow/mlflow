@@ -1,13 +1,13 @@
 name: "setup-python"
-description: "Ensures to install a python version that's available on Anaconda"
+description: "Sets up Python and uv, optionally pinning a compatible patch version for conda/pyenv environment recreation"
 inputs:
   python-version:
     description: "The python version to install. If unspecified, install the minimum python version mlflow supports."
     required: false
   pin-micro-version:
-    description: "Whether to pin to a specific micro version for Anaconda compatibility. Set to false for workflows that don't need conda/pyenv to hit the runner's pre-installed Python cache and avoid a ~9s download."
+    description: "Optionally pin a compatible Python patch version for conda/pyenv. Defaults to false to use the runner's cached minor version; enable for workflows that recreate model environments."
     required: false
-    default: "true"
+    default: "false"
 outputs:
   python-version:
     description: "The installed python version"
@@ -60,12 +60,23 @@ runs:
     - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
       with:
         python-version: ${{ steps.get-python-version.outputs.version }}
-    - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+    - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
       with:
         version-file: ${{ github.action_path }}/../../../pyproject.toml
         resolution-strategy: lowest
         # Caching disabled to avoid cache-poisoning exposure across CI workflows.
         enable-cache: false
+    - name: Check uv Python support
+      shell: bash
+      env:
+        PYTHON_VERSION: ${{ steps.get-python-version.outputs.version }}
+      run: |
+        downloads=$(uv python list "$PYTHON_VERSION" --all-versions --only-downloads)
+        if [[ -z "$downloads" ]]; then
+          echo "::error::$(uv --version) cannot download Python $PYTHON_VERSION for this platform. Update required-version in pyproject.toml."
+          exit 1
+        fi
+        echo "$downloads"
     - run: |
         # The default `first-index` strategy is too strict. Use `unsafe-first-match` instead.
         # https://docs.astral.sh/uv/configuration/environment/#uv_index_strategy

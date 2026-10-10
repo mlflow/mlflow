@@ -13,6 +13,15 @@ expected format (e.g., JSON structure, list format, sentence structure).
 <expected_output>{{expected_output}}</expected_output>\
 """
 
+EQUIVALENCE_TYPESAFE_PROMPT_INSTRUCTIONS = (
+    EQUIVALENCE_PROMPT_INSTRUCTIONS
+    + """
+
+The result is "yes" if the outputs are semantically equivalent and their formats match, and \
+"no" otherwise.\
+"""
+)
+
 EQUIVALENCE_PROMPT_OUTPUT = """
 
 Please indicate whether the actual output is equivalent to the expected output using only the following json format. Do not use any markdown formatting or output additional lines.
