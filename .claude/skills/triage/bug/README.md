@@ -63,6 +63,7 @@ The workflow opens a draft pull request from your fix only when all of these hol
 - The fix is straightforward, verified as in step 3, and needs no decisions: no design choice,
   no trade-off between plausible fixes, nothing a maintainer should weigh in on first.
 - Every changed file is under `mlflow/` or `tests/`.
+- The `PR_DISABLED` environment variable is not `true`.
 
 Otherwise, skip this step: the comment's suggested fix is enough.
 
