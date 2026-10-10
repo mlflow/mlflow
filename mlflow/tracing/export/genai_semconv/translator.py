@@ -71,7 +71,11 @@ def translate_span_to_genai(span: ReadableSpan) -> ReadableSpan:
             try:
                 genai_attrs.update(converter.translate(inputs, outputs))
             except Exception:
-                _logger.debug("Failed to convert messages for format %r, skipping", message_format)
+                _logger.debug(
+                    "Failed to convert messages for format %r, skipping",
+                    message_format,
+                    exc_info=True,
+                )
 
     # Fallback: carry mlflow.chat.tools → gen_ai.tool.definitions if converter didn't set it
     if GenAiSemconvKey.TOOL_DEFINITIONS not in genai_attrs:
