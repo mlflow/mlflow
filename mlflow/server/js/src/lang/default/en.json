@@ -4535,6 +4535,10 @@
     "defaultMessage": "Are you sure you want to delete the webhook \"{name}\"? This action cannot be undone.",
     "description": "Delete webhook confirmation message"
   },
+  "GdFpfr": {
+    "defaultMessage": "We couldn't check for traces outside this time range. Try viewing all traces.",
+    "description": "Message shown when checking for traces outside the time range fails"
+  },
   "GdtTc/": {
     "defaultMessage": "Run evaluation",
     "description": "Home page quick action title for running evaluations"
@@ -15054,6 +15058,10 @@
   "vmiE+n": {
     "defaultMessage": "Add description",
     "description": "Run page > Overview > Description section > Add description button"
+  },
+  "vqPD44": {
+    "defaultMessage": "Checking for traces outside this time range",
+    "description": "Status while checking whether traces exist outside the selected time range"
   },
   "vqWexj": {
     "defaultMessage": "Back to experiment list",
