@@ -1,5 +1,6 @@
 import json
 import logging
+from queue import Queue
 from unittest import mock
 from unittest.mock import Mock, patch
 
@@ -53,6 +54,48 @@ def test_capture_function_input_args_does_not_raise():
 
     assert args is None
     assert mock_input_args.call_count > 0
+
+
+def test_capture_function_input_args_drops_falsy_self():
+    # https://github.com/mlflow/mlflow/issues/26616
+    # `self` must be dropped whenever it is bound, not only when it is truthy:
+    # a class defining `__len__` returning 0 or `__bool__` returning False makes
+    # the instance falsy, and the truthiness check left it in the span inputs.
+    class FalsyObject:
+        def __len__(self):
+            return 0
+
+        def method(self, item):
+            pass
+
+    obj = FalsyObject()
+    args = capture_function_input_args(FalsyObject.method, (obj, "a"), {})
+    assert args == {"item": "a"}
+
+    class FalseObject:
+        def __bool__(self):
+            return False
+
+        def method(self, item):
+            pass
+
+    obj = FalseObject()
+    args = capture_function_input_args(FalseObject.method, (obj, "a"), {})
+    assert args == {"item": "a"}
+
+
+def test_capture_function_input_args_drops_self_named_parameter_consistently():
+    # The drop is keyed on the first parameter being named `self`, never on the
+    # value's truthiness — a plain function with a user-defined `self` parameter
+    # behaves the same whether the value is truthy or falsy.
+    def fn(self, item):
+        pass
+
+    args = capture_function_input_args(fn, (Queue(), "a"), {})
+    assert args == {"item": "a"}
+
+    args2 = capture_function_input_args(fn, (None, "a"), {})
+    assert args2 == {"item": "a"}
 
 
 def test_duplicate_span_names():

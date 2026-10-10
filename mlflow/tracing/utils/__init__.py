@@ -48,13 +48,17 @@ def capture_function_input_args(func, args, kwargs) -> dict[str, Any] | None:
         bound_arguments = func_signature.bind(*args, **kwargs)
         bound_arguments.apply_defaults()
 
-        # Remove `self` from bound arguments if it exists
-        if bound_arguments.arguments.get("self"):
+        # Remove `self` from bound arguments if it is the first bound parameter.
+        # Keyed on the parameter name and position rather than truthiness: a
+        # falsy instance (e.g. a class whose `__len__` returns 0 or `__bool__`
+        # returns False) must still be dropped. See issue 26616.
+        params = list(bound_arguments.arguments.keys())
+        if params and params[0] == "self":
             del bound_arguments.arguments["self"]
+            params = params[1:]
 
         # Remove `cls` from bound arguments if it's the first parameter and it's a type
         # This detects classmethods more reliably
-        params = list(bound_arguments.arguments.keys())
         if params and params[0] == "cls" and isinstance(bound_arguments.arguments["cls"], type):
             del bound_arguments.arguments["cls"]
 
