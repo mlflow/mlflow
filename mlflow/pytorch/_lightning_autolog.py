@@ -685,6 +685,26 @@ def patched_fit(original, self, *args, **kwargs):
 
             mlflow.log_artifact(local_path=summary_file)
 
+        log_datasets = get_autologging_config(mlflow.pytorch.FLAVOR_NAME, "log_datasets", True)
+        if log_datasets:
+            try:
+                from mlflow.data.torch_dataset import from_torch
+
+                # In PyTorch Lightning, `train_dataloader` is a method on the Trainer that
+                # returns the DataLoader used for the training loop.
+                train_loader = None
+                if hasattr(self, "train_dataloader") and callable(self.train_dataloader):
+                    train_loader = self.train_dataloader()
+                if train_loader is not None:
+                    torch_dataset = from_torch(train_loader)
+                    mlflow.log_input(torch_dataset, context="training")
+            except Exception as e:
+                _logger.warning(
+                    "Failed to log training dataset via autologging. "
+                    f"root cause: {e!r}.",
+                    exc_info=True,
+                )
+
         if log_models:
             registered_model_name = get_autologging_config(
                 mlflow.pytorch.FLAVOR_NAME, "registered_model_name", None
