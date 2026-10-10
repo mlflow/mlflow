@@ -909,6 +909,7 @@ mlflow.genai.Scorer.run
 mlflow.genai.Scorer.start
 mlflow.genai.Scorer.stop
 mlflow.genai.Scorer.update
+mlflow.genai.Scorer.with_quality_threshold
 mlflow.genai.ScorerScheduleConfig
 mlflow.genai.agent_server.AgentServer
 mlflow.genai.agent_server.AgentServer.run
@@ -1177,6 +1178,7 @@ mlflow.genai.scorers.KnowledgeRetention.model_post_init
 mlflow.genai.scorers.PIIDetection
 mlflow.genai.scorers.PIIDetection.get_input_fields
 mlflow.genai.scorers.PIIDetection.model_post_init
+mlflow.genai.scorers.QualityThreshold
 mlflow.genai.scorers.RegexMatch
 mlflow.genai.scorers.RegexMatch.get_input_fields
 mlflow.genai.scorers.RegexMatch.model_post_init
@@ -1214,6 +1216,7 @@ mlflow.genai.scorers.UserFrustration
 mlflow.genai.scorers.UserFrustration.model_post_init
 mlflow.genai.scorers.agg_all
 mlflow.genai.scorers.agg_any
+mlflow.genai.scorers.base.QualityThreshold
 mlflow.genai.scorers.base.Scorer
 mlflow.genai.scorers.base.ScorerSamplingConfig
 mlflow.genai.scorers.builtin_scorers.Completeness

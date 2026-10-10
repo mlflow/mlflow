@@ -46,6 +46,9 @@ MLFLOW_ISSUE_DETECTION_JOB_ID = "mlflow.issueDetection.jobId"
 # The ID of the job that is running the UI-triggered mlflow.genai.evaluate flow
 MLFLOW_GENAI_EVALUATE_JOB_ID = "mlflow.genaiEvaluate.jobId"
 
+# JSON-encoded quality thresholds declared on the scorers passed to mlflow.genai.evaluate
+MLFLOW_GENAI_EVALUATE_QUALITY_THRESHOLDS = "mlflow.genaiEvaluate.qualityThresholds"
+
 MLFLOW_DATABRICKS_NOTEBOOK_ID = "mlflow.databricks.notebookID"
 MLFLOW_DATABRICKS_NOTEBOOK_PATH = "mlflow.databricks.notebookPath"
 MLFLOW_DATABRICKS_WEBAPP_URL = "mlflow.databricks.webappURL"

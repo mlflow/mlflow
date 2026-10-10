@@ -14,6 +14,11 @@ from mlflow.environment_variables import MLFLOW_GENAI_EVAL_MAX_WORKERS
 from mlflow.exceptions import MlflowException
 from mlflow.genai.datasets.evaluation_dataset import EvaluationDataset
 from mlflow.genai.evaluation.constant import InputDatasetColumn
+from mlflow.genai.evaluation.quality_thresholds import (
+    build_quality_threshold_rules,
+    build_quality_thresholds_tag,
+    warn_on_unmeasured_quality_thresholds,
+)
 from mlflow.genai.evaluation.session_utils import validate_session_level_evaluation_inputs
 from mlflow.genai.evaluation.utils import (
     _convert_to_eval_set,
@@ -43,7 +48,11 @@ from mlflow.tracing.utils.copy import copy_trace_to_experiment
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.fluent import _get_experiment_id, _set_active_model
 from mlflow.utils.databricks_utils import invoke_databricks_app
-from mlflow.utils.mlflow_tags import MLFLOW_RUN_TYPE, MLFLOW_RUN_TYPE_GENAI_EVALUATE
+from mlflow.utils.mlflow_tags import (
+    MLFLOW_GENAI_EVALUATE_QUALITY_THRESHOLDS,
+    MLFLOW_RUN_TYPE,
+    MLFLOW_RUN_TYPE_GENAI_EVALUATE,
+)
 
 if TYPE_CHECKING:
     from mlflow.genai.evaluation.entities import EvaluationResult
@@ -313,6 +322,9 @@ def _run_harness(data, scorers, predict_fn, model_id) -> tuple["EvaluationResult
     from mlflow.genai.evaluation import harness
 
     scorers = validate_scorers(scorers)
+    # Validate before the run starts so a bad threshold doesn't leave an empty run behind.
+    quality_threshold_rules = build_quality_threshold_rules(scorers)
+    quality_thresholds = build_quality_thresholds_tag(quality_threshold_rules)
 
     # Handle ConversationSimulator: prepare for simulation, but run it inside the run context
     # so that traces are logged to the correct run.
@@ -426,6 +438,17 @@ def _run_harness(data, scorers, predict_fn, model_id) -> tuple["EvaluationResult
         # NB: Set this tag before run finishes to suppress the generic run URL printing.
         if run.data.tags.get(MLFLOW_RUN_TYPE) is None:
             MlflowClient().set_tag(run_id, MLFLOW_RUN_TYPE, MLFLOW_RUN_TYPE_GENAI_EVALUATE)
+        # NB: Record the thresholds before the harness runs, so a run that fails partway still
+        # shows the bar it was evaluated against (its thresholds read as incomplete). The tags
+        # are read from the store rather than `run.data.tags` because a reused active run can
+        # predate a tag written by an earlier `evaluate` on the same run.
+        client = MlflowClient()
+        if quality_thresholds is not None:
+            client.set_tag(run_id, MLFLOW_GENAI_EVALUATE_QUALITY_THRESHOLDS, quality_thresholds)
+        elif MLFLOW_GENAI_EVALUATE_QUALITY_THRESHOLDS in client.get_run(run_id).data.tags:
+            # This call sets no thresholds, so a tag from an earlier `evaluate` on this run
+            # would judge the new metrics against a stale bar.
+            client.delete_tag(run_id, MLFLOW_GENAI_EVALUATE_QUALITY_THRESHOLDS)
 
         result = harness.run(
             predict_fn=predict_fn,
@@ -434,6 +457,7 @@ def _run_harness(data, scorers, predict_fn, model_id) -> tuple["EvaluationResult
             run_id=run_id,
             dataset=mlflow_dataset if is_managed_dataset else None,
         )
+        warn_on_unmeasured_quality_thresholds(quality_threshold_rules, result.metrics)
 
     try:
         display_evaluation_output(run_id)

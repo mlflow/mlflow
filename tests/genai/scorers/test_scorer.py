@@ -17,17 +17,26 @@ from mlflow.entities.assessment_error import AssessmentError
 from mlflow.environment_variables import _MLFLOW_IN_JOB_EXECUTOR
 from mlflow.exceptions import MlflowException
 from mlflow.genai import Scorer, scorer
+from mlflow.genai.evaluation.quality_thresholds import build_quality_threshold_rules
 from mlflow.genai.judges import make_judge
 from mlflow.genai.judges.utils import CategoricalRating
-from mlflow.genai.scorers import Correctness, Guidelines, RetrievalGroundedness
+from mlflow.genai.scorers import (
+    Correctness,
+    Guidelines,
+    QualityThreshold,
+    RetrievalGroundedness,
+    make_scorer_ensemble,
+)
 from mlflow.genai.scorers.base import (
+    ScorerSamplingConfig,
+    ScorerStatus,
     SerializedScorer,
     _is_tracking_server_process,
     _job_executor_scorer_context,
     _serialized_scorer_is_custom_code,
     _UnexecutedDecoratorScorer,
 )
-from mlflow.genai.scorers.registry import get_scorer, list_scorers
+from mlflow.genai.scorers.registry import get_scorer, list_scorer_versions, list_scorers
 from mlflow.utils.timeout import MlflowTimeoutError
 
 
@@ -853,3 +862,186 @@ def test_scorer_timeout_becomes_error_feedback_in_evaluate(sample_data, is_in_da
     metrics = results.metrics.keys()
     assert any("fast_scorer" in metric for metric in metrics)
     assert all("slow_scorer" not in metric for metric in metrics)
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [{"at_least": 0.9}, {"at_most": 2}, {"at_least": 0.5, "aggregation": "p90"}],
+)
+def test_quality_threshold_accepts_valid_bounds(kwargs):
+    assert QualityThreshold(**kwargs)
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "match"),
+    [
+        ({}, "exactly one of `at_least` or `at_most`"),
+        ({"at_least": 0.1, "at_most": 0.9}, "exactly one of `at_least` or `at_most`"),
+        ({"at_least": True}, "must be a finite number"),
+        ({"at_least": "0.9"}, "must be a finite number"),
+        ({"at_most": float("nan")}, "must be a finite number"),
+        ({"at_least": float("inf")}, "must be a finite number"),
+        ({"at_least": 0.9, "aggregation": "sum"}, "`aggregation` must be one of"),
+    ],
+)
+def test_quality_threshold_rejects_invalid_bounds(kwargs, match):
+    with pytest.raises(MlflowException, match=match):
+        QualityThreshold(**kwargs)
+
+
+def _threshold_scorers():
+    @scorer
+    def decorated(outputs) -> float:
+        return 1.0
+
+    judge = make_judge(
+        name="tone", instructions="Is {{ outputs }} polite?", feedback_value_type=bool
+    )
+    ensemble = make_scorer_ensemble(name="ensemble", scorers=[Correctness()], ensemble_fn="agg_all")
+    return [decorated, Correctness(), judge, ensemble]
+
+
+@pytest.mark.parametrize("value", [0.9, 1, QualityThreshold(at_most=2.0, aggregation="p90")])
+@pytest.mark.parametrize("original", _threshold_scorers(), ids=lambda s: s.name)
+def test_with_quality_threshold_returns_copy_with_threshold(original, value):
+    copy = original.with_quality_threshold(value)
+
+    assert type(copy) is type(original)
+    assert copy.quality_threshold == value
+    assert original.quality_threshold is None
+    assert copy.with_quality_threshold(None).quality_threshold is None
+
+
+def test_with_quality_threshold_keeps_registration_metadata():
+    sampling_config = ScorerSamplingConfig(sample_rate=0.5)
+    registered = Correctness()._set_registration_metadata(
+        backend="tracking", experiment_id="123", sampling_config=sampling_config, scorer_version=2
+    )
+
+    copy = registered.with_quality_threshold(0.9)
+
+    assert copy.scorer_version == 2
+    assert copy.status == ScorerStatus.STARTED
+    assert copy._experiment_id == "123"
+    assert copy._sampling_config == sampling_config
+
+
+def test_scorer_quality_threshold_defaults_to_none():
+    @scorer
+    def s(outputs) -> bool:
+        return True
+
+    assert s.quality_threshold is None
+    assert Correctness().quality_threshold is None
+
+
+@pytest.mark.parametrize("bad", [True, "0.9", float("nan")])
+def test_with_quality_threshold_rejects_invalid_value(bad):
+    with pytest.raises(MlflowException, match="must be a finite number"):
+        Correctness().with_quality_threshold(bad)
+
+
+@pytest.mark.parametrize("factory", [scorer, make_judge, make_scorer_ensemble])
+def test_scorer_factories_do_not_accept_quality_threshold(factory):
+    with pytest.raises(TypeError, match="quality_threshold"):
+        factory(quality_threshold=0.9)
+
+
+def test_scorer_copy_preserves_quality_threshold():
+    threshold = QualityThreshold(at_most=0.2)
+    ensemble = make_scorer_ensemble(
+        name="ensemble", scorers=[Correctness()], ensemble_fn="agg_all"
+    ).with_quality_threshold(threshold)
+
+    assert ensemble._create_copy().quality_threshold == threshold
+    assert Correctness().with_quality_threshold(0.9)._create_copy().quality_threshold == 0.9
+
+
+def test_registered_versions_keep_their_own_quality_threshold():
+    experiment_id = mlflow.create_experiment("test_quality_threshold_versions")
+    tone = make_judge(
+        name="tone", instructions="Is {{ outputs }} polite?", feedback_value_type=bool
+    )
+    v2_threshold = QualityThreshold(at_least=0.8, aggregation="min")
+
+    with patch("mlflow.genai.scorers.base._logger.warning") as mock_warning:
+        tone.with_quality_threshold(0.6).register(experiment_id=experiment_id)
+        tone.with_quality_threshold(v2_threshold).register(experiment_id=experiment_id)
+
+    assert [c[0][0] for c in mock_warning.call_args_list] == [
+        "`quality_threshold` (at least 0.6 on the mean) is saved with version 1 of scorer "
+        "'tone'. Changing the threshold later creates a new scorer version.",
+        "`quality_threshold` (at least 0.8 on the min) is saved with version 2 of scorer "
+        "'tone'. Changing the threshold later creates a new scorer version.",
+    ]
+    v1 = get_scorer(name="tone", experiment_id=experiment_id, version=1)
+    v2 = get_scorer(name="tone", experiment_id=experiment_id, version=2)
+    assert (v1.scorer_version, v1.quality_threshold) == (1, 0.6)
+    assert (v2.scorer_version, v2.quality_threshold) == (2, v2_threshold)
+    assert [
+        (version, s.quality_threshold)
+        for s, version in list_scorer_versions(name="tone", experiment_id=experiment_id)
+    ] == [(1, 0.6), (2, v2_threshold)]
+    [latest] = list_scorers(experiment_id=experiment_id)
+    assert latest.quality_threshold == v2_threshold
+
+
+def test_loaded_scorer_with_saved_threshold_can_be_reused_in_an_ensemble():
+    experiment_id = mlflow.create_experiment("test_quality_threshold_ensemble_reuse")
+    Correctness().with_quality_threshold(0.8).register(experiment_id=experiment_id)
+    loaded = get_scorer(name="correctness", experiment_id=experiment_id)
+    ensemble = make_scorer_ensemble(
+        name="ens", scorers=[loaded], ensemble_fn="agg_all"
+    ).with_quality_threshold(0.9)
+
+    with patch("mlflow.genai.evaluation.quality_thresholds._logger.warning") as mock_warning:
+        rules = build_quality_threshold_rules([ensemble])
+
+    assert loaded.quality_threshold == 0.8
+    assert [(rule["metricKey"], rule["threshold"]) for rule in rules] == [("ens/mean", 0.9)]
+    mock_warning.assert_called_once()
+    assert "a sub-scorer of the ensemble 'ens'" in mock_warning.call_args[0][0]
+
+
+def test_register_warns_that_decorator_quality_threshold_is_not_saved(monkeypatch):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS", "true")
+    experiment_id = mlflow.create_experiment("test_quality_threshold_decorator")
+
+    @scorer
+    def is_concise(outputs) -> bool:
+        return len(outputs) < 100
+
+    with patch("mlflow.genai.scorers.base._logger.warning") as mock_warning:
+        is_concise.with_quality_threshold(0.9).register(experiment_id=experiment_id)
+
+    mock_warning.assert_called_once()
+    assert "is not saved with the registered scorer" in mock_warning.call_args[0][0]
+    assert get_scorer(name="is_concise", experiment_id=experiment_id).quality_threshold is None
+
+
+def test_databricks_register_sends_definition_that_changes_only_with_threshold():
+    sent = []
+
+    def upsert(experiment_id, config):
+        sent.append(json.loads(config.serialized_scorer))
+        return [config]
+
+    with (
+        patch(
+            "mlflow.tracking._tracking_service.utils.get_tracking_uri", return_value="databricks"
+        ),
+        patch(
+            "mlflow.genai.scorers.registry.DatabricksStore._upsert_registered_scorer_config",
+            side_effect=upsert,
+        ),
+        patch("mlflow.genai.scorers.registry.DatabricksStore._resolve_experiment_id"),
+    ):
+        Correctness().register()
+        for threshold in [0.6, 0.6, 0.8]:
+            Correctness().with_quality_threshold(threshold).register()
+
+    without, first, unchanged, changed = sent
+    assert "quality_threshold" not in json.dumps(without)
+    assert unchanged == first
+    assert changed != first
+    assert changed["builtin_scorer_pydantic_data"]["quality_threshold"] == 0.8
