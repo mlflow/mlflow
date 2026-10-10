@@ -1,0 +1,8 @@
+{"kind": "Prompt", "message_id": "msg-001", "content": [{"kind": "text", "data": "Read the file a.py"}], "meta": {"timestamp": 1736946000}}
+{"kind": "AssistantMessage", "message_id": "msg-002", "content": [{"kind": "text", "data": "Let me read that file."}, {"kind": "toolUse", "data": {"toolUseId": "tu-001", "name": "fsRead", "input": {"path": "a.py"}}}]}
+{"kind": "ToolResults", "message_id": "msg-003", "content": [{"kind": "toolResult", "data": {"toolUseId": "tu-001", "content": [{"kind": "text", "data": "print('hello')"}], "status": "success"}}]}
+{"kind": "AssistantMessage", "message_id": "msg-004", "content": [{"kind": "text", "data": "The file contains a simple print statement."}]}
+{"kind": "Prompt", "message_id": "msg-005", "content": [{"kind": "text", "data": "Now write a test for it"}], "meta": {"timestamp": 1736946020}}
+{"kind": "AssistantMessage", "message_id": "msg-006", "content": [{"kind": "toolUse", "data": {"toolUseId": "tu-002", "name": "fsWrite", "input": {"path": "test_a.py", "text": "def test_hello(): pass"}}}]}
+{"kind": "ToolResults", "message_id": "msg-007", "content": [{"kind": "toolResult", "data": {"toolUseId": "tu-002", "content": [{"kind": "text", "data": "File written successfully"}], "status": "success"}}]}
+{"kind": "AssistantMessage", "message_id": "msg-008", "content": [{"kind": "text", "data": "I've created the test file."}]}
