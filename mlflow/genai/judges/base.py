@@ -48,6 +48,10 @@ class JudgeField(BaseModel):
     name: str = Field(..., description="Name of the field")
     description: str = Field(..., description="Description of what the field represents")
     value_type: Any = Field(default=str, description="Type of the field's value")
+    required: bool = Field(
+        default=True,
+        description="Whether this field must be present for the judge to be evaluated",
+    )
 
 
 class Judge(Scorer):
