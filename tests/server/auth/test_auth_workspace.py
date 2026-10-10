@@ -11,6 +11,7 @@ from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
 from mlflow.exceptions import MlflowException
 from mlflow.prompt.constants import IS_PROMPT_TAG_KEY
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
+from mlflow.protos.model_registry_pb2 import SearchModelVersions, SearchRegisteredModels
 from mlflow.server import auth as auth_module
 from mlflow.server.auth.permissions import DENY, EDIT, MANAGE, NO_PERMISSIONS, READ, USE
 from mlflow.server.auth.requirements import ACTION_NOT_DENIED, Requirement
@@ -1371,6 +1372,27 @@ def test_registered_model_grant_does_not_satisfy_prompt_request(
             assert not auth_module.validate_can_read_prompt()
 
 
+def test_search_registered_models_scopes_prompt_rows_by_prompt_grant(
+    workspace_permission_setup, monkeypatch
+):
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, NO_PERMISSIONS.name)
+    _grant(store, username, "team-a", [("registered_model", "*", READ.name)])
+
+    def scoped_prompt_filter():
+        request_message = SearchRegisteredModels(filter=f"tags.`{IS_PROMPT_TAG_KEY}` = 'true'")
+        with auth_module.app.test_request_context("/api/2.0/mlflow/registered-models/search"):
+            auth_module.scope_model_registry_search(request_message, "prompt")
+        return request_message.filter
+
+    assert scoped_prompt_filter().endswith("name IN ('')")
+
+    _grant(store, username, "team-a", [("prompt", "prompt-xyz", READ.name)])
+    assert scoped_prompt_filter().endswith("name IN ('prompt-xyz')")
+
+
 @pytest.mark.parametrize(
     ("is_prompt", "deny_tier", "allowed"),
     [
@@ -1507,108 +1529,6 @@ def test_request_targets_prompt_propagates_unexpected_errors(
                 auth_module._request_targets_prompt()
 
 
-def test_filter_search_registered_models_uses_prompt_grant_for_prompt_rows(
-    workspace_permission_setup, monkeypatch
-):
-    # A user holding only ``(prompt, foo, READ)`` previously had prompt ``foo``
-    # silently filtered out of ``SearchRegisteredModels`` results because the
-    # filter checked the ``registered_model`` namespace exclusively. With the
-    # per-row classify, the prompt grant satisfies the prompt row.
-    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
-    store = workspace_permission_setup["store"]
-    username = workspace_permission_setup["username"]
-    _set_workspace_permission(store, username, NO_PERMISSIONS.name)
-    role = store.create_role(name="prompt-reader", workspace="team-a")
-    store.add_role_permission(role.id, "prompt", "foo", READ.name)
-    store.assign_role_to_user(store.get_user(username).id, role.id)
-
-    payload = json.dumps({
-        "registered_models": [
-            {"name": "foo", "tags": [{"key": IS_PROMPT_TAG_KEY, "value": "true"}]},
-            {"name": "bar", "tags": []},
-        ],
-        "next_page_token": "",
-    })
-    flask_resp = Response(payload, mimetype="application/json")
-
-    with auth_module.app.test_request_context(
-        "/api/2.0/mlflow/registered-models/search",
-        method="GET",
-        query_string={"max_results": "100"},
-    ):
-        auth_module.filter_search_registered_models(flask_resp)
-
-    out = json.loads(flask_resp.get_data(as_text=True))
-    names = [rm["name"] for rm in out.get("registered_models", [])]
-    # Prompt ``foo`` is kept (grant satisfies prompt namespace); ``bar`` is filtered out.
-    assert names == ["foo"]
-
-
-def test_filter_search_registered_models_does_not_satisfy_prompt_with_rm_grant(
-    workspace_permission_setup, monkeypatch
-):
-    # Inverse direction: a ``(registered_model, foo, READ)`` grant must NOT
-    # leak through and make a prompt row readable. Pins cross-namespace
-    # isolation on the response-filtering path.
-    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
-    store = workspace_permission_setup["store"]
-    username = workspace_permission_setup["username"]
-    _set_workspace_permission(store, username, NO_PERMISSIONS.name)
-    role = store.create_role(name="rm-reader", workspace="team-a")
-    store.add_role_permission(role.id, "registered_model", "foo", READ.name)
-    store.assign_role_to_user(store.get_user(username).id, role.id)
-
-    payload = json.dumps({
-        "registered_models": [
-            {"name": "foo", "tags": [{"key": IS_PROMPT_TAG_KEY, "value": "true"}]},
-        ],
-        "next_page_token": "",
-    })
-    flask_resp = Response(payload, mimetype="application/json")
-
-    with auth_module.app.test_request_context(
-        "/api/2.0/mlflow/registered-models/search",
-        method="GET",
-        query_string={"max_results": "100"},
-    ):
-        auth_module.filter_search_registered_models(flask_resp)
-
-    out = json.loads(flask_resp.get_data(as_text=True))
-    assert out.get("registered_models", []) == []
-
-
-def test_filter_search_model_versions_uses_prompt_grant_for_prompt_versions(
-    workspace_permission_setup, monkeypatch
-):
-    # Same gap on ``SearchModelVersions``: prompt versions carry the
-    # ``mlflow.prompt.is_prompt`` tag and must be checked against ``prompt``
-    # grants, not ``registered_model`` grants.
-    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
-    store = workspace_permission_setup["store"]
-    username = workspace_permission_setup["username"]
-    _set_workspace_permission(store, username, NO_PERMISSIONS.name)
-    role = store.create_role(name="prompt-reader", workspace="team-a")
-    store.add_role_permission(role.id, "prompt", "foo", READ.name)
-    store.assign_role_to_user(store.get_user(username).id, role.id)
-
-    payload = json.dumps({
-        "model_versions": [
-            {"name": "foo", "tags": [{"key": IS_PROMPT_TAG_KEY, "value": "true"}]},
-            {"name": "bar", "tags": []},
-        ],
-    })
-    flask_resp = Response(payload, mimetype="application/json")
-
-    with auth_module.app.test_request_context(
-        "/api/2.0/mlflow/model-versions/search", method="GET"
-    ):
-        auth_module.filter_search_model_versions(flask_resp)
-
-    out = json.loads(flask_resp.get_data(as_text=True))
-    names = [mv["name"] for mv in out.get("model_versions", [])]
-    assert names == ["foo"]
-
-
 def test_rename_registered_model_permission_sweeps_prompt_namespace(
     workspace_permission_setup,
 ):
@@ -1740,54 +1660,14 @@ def test_set_can_manage_registered_model_permission_grants_registered_model_for_
     assert ("prompt", "my-model", MANAGE.name) not in grants
 
 
-def test_filter_search_registered_models_classifies_refetched_rows(
+def test_redact_search_registered_model_versions_preserves_scoped_page_token(
     workspace_permission_setup, monkeypatch
 ):
-    # The initial filter pass works on protos; if it doesn't fill
-    # ``max_results``, the loop refetches more rows as ORM
-    # ``RegisteredModel`` entities. Those ORM rows have ``.tags`` that hide
-    # the ``mlflow.prompt.is_prompt`` key, so naive ``_proto_is_prompt`` on
-    # them would misclassify every prompt as a registered_model. Pins that
-    # ``_entity_is_prompt`` dispatches to ``_is_prompt()`` on the ORM side.
-    from mlflow.entities.model_registry import RegisteredModel
-    from mlflow.entities.model_registry.registered_model_tag import RegisteredModelTag
-    from mlflow.store.entities import PagedList
-    from mlflow.utils.search_utils import SearchUtils
-
     monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
-    store = workspace_permission_setup["store"]
-    username = workspace_permission_setup["username"]
-    _set_workspace_permission(store, username, NO_PERMISSIONS.name)
-    role = store.create_role(name="prompt-reader", workspace="team-a")
-    store.add_role_permission(role.id, "prompt", "refetched-prompt", READ.name)
-    store.assign_role_to_user(store.get_user(username).id, role.id)
-
-    # Initial response is empty + has a next_page_token so the refetch loop
-    # runs. Then a fake registry returns one prompt + one registered_model.
-    refetched_rows = [
-        RegisteredModel(
-            name="refetched-prompt",
-            tags=[RegisteredModelTag(key=IS_PROMPT_TAG_KEY, value="true")],
-        ),
-        RegisteredModel(name="refetched-model", tags=[]),
-    ]
-    # First refetch returns the seed rows; subsequent calls return an empty
-    # page so the loop terminates instead of spinning on the same fake page.
-    calls = {"count": 0}
-
-    def fake_search(**_kwargs):
-        calls["count"] += 1
-        return PagedList(refetched_rows if calls["count"] == 1 else [], token=None)
-
-    fake_registry = SimpleNamespace(search_registered_models=fake_search)
-    monkeypatch.setattr(auth_module, "_get_model_registry_store", lambda: fake_registry)
-
-    # ``SearchUtils.parse_start_offset_from_page_token`` requires a real
-    # base64-encoded JSON token; use the project's helper so the loop's
-    # offset-bookkeeping doesn't reject our seed.
-    seed_token = SearchUtils.create_page_token(1).decode("utf-8")
+    registry = Mock()
+    monkeypatch.setattr(auth_module, "_get_model_registry_store", lambda: registry)
     flask_resp = Response(
-        json.dumps({"registered_models": [], "next_page_token": seed_token}),
+        json.dumps({"registered_models": [], "next_page_token": "scoped-token"}),
         mimetype="application/json",
     )
     with auth_module.app.test_request_context(
@@ -1795,13 +1675,10 @@ def test_filter_search_registered_models_classifies_refetched_rows(
         method="GET",
         query_string={"max_results": "10"},
     ):
-        auth_module.filter_search_registered_models(flask_resp)
+        auth_module.redact_search_registered_model_versions(flask_resp)
 
-    out = json.loads(flask_resp.get_data(as_text=True))
-    names = [rm["name"] for rm in out.get("registered_models", [])]
-    # The refetched prompt row is kept (prompt grant satisfies it); the
-    # plain registered_model row is filtered out.
-    assert names == ["refetched-prompt"]
+    assert flask_resp.json["next_page_token"] == "scoped-token"
+    registry.search_registered_models.assert_not_called()
 
 
 def test_delete_can_manage_registered_model_permission_rejects_missing_name(
@@ -2336,7 +2213,6 @@ def test_create_prompt_optimization_job_allows_a_source_prompt_with_no_denial(
         ("run_id = 'run-1'", True),
         ("run_id IN ('run-1','run-2')", True),
         ("run_id != 'run-1'", True),
-        ("garbage((", True),
     ],
 )
 def test_search_model_versions_gates_a_filter_that_selects_a_run(
@@ -2346,7 +2222,7 @@ def test_search_model_versions_gates_a_filter_that_selects_a_run(
     MATCH is itself the disclosure: `run_id = '<id>'` confirms a version came from that run even
     when the field comes back empty. Same reasoning as `_authorize_trace_search`.
 
-    An unparsable filter counts as selecting, so the most restrictive reading applies.
+    Malformed filters are rejected by request normalization before this gate.
     """
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
@@ -2387,7 +2263,6 @@ def test_search_model_versions_gates_a_filter_that_selects_a_run(
             ("status = 'OPEN'", False),
             ("source_run_id = 'run-1'", True),
             ("source_run_id != 'run-1'", True),
-            ("garbage((", True),
         )
     ],
 )
@@ -2456,7 +2331,7 @@ def test_source_run_id_selectors_are_veto_only(
         assert getattr(auth_module, validator)() is True
 
 
-@pytest.mark.parametrize("filter_string", ["run_id = 'run-1'", "garbage(("])
+@pytest.mark.parametrize("filter_string", ["run_id = 'run-1'"])
 def test_search_model_versions_run_filter_is_veto_only(
     workspace_permission_setup, monkeypatch, filter_string
 ):
@@ -2921,8 +2796,6 @@ def test_graphql_model_version_search_selector_allowed_without_a_run_deny(
 
 def _graphql_post_resolve(username, field_name, result):
     middleware = auth_module.GraphQLAuthorizationMiddleware()
-    # The row filter is out of scope here; these tests cover sibling redaction on RETAINED rows.
-    middleware._model_version_read_predicate = lambda _username: lambda _mv: True
     with auth_module.app.test_request_context("/graphql", method="POST"):
         return middleware._post_resolve(field_name, result, username)
 
@@ -3002,9 +2875,8 @@ def test_graphql_get_run_keeps_model_links_without_a_logged_model_deny(
 def test_graphql_model_version_search_withholds_denied_siblings(
     workspace_permission_setup, denied_tier, cleared, kept
 ):
-    """REST's filter_search_model_versions drops unreadable rows AND clears denied siblings on the
-    rows it keeps. GraphQL did only the first half, so a readable version still carried a denied
-    run's id or a denied model's content. Each tier clears only its own fields.
+    """Readable versions must not carry a denied run's id or a denied model's content.
+    GraphQL must apply the same sibling redaction as REST. Each tier clears only its own fields.
     """
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
@@ -3056,7 +2928,7 @@ def _search_model_versions_names(rows):
     with auth_module.app.test_request_context(
         "/api/2.0/mlflow/model-versions/search", method="GET"
     ):
-        auth_module.filter_search_model_versions(flask_resp)
+        auth_module.redact_search_model_version_siblings(flask_resp)
     out = json.loads(flask_resp.get_data(as_text=True))
     return [mv["name"] for mv in out.get("model_versions", [])]
 
@@ -3069,7 +2941,7 @@ def _search_registered_models_names(rows):
         method="GET",
         query_string={"max_results": "100"},
     ):
-        auth_module.filter_search_registered_models(flask_resp)
+        auth_module.redact_search_registered_model_versions(flask_resp)
     out = json.loads(flask_resp.get_data(as_text=True))
     return [rm["name"] for rm in out.get("registered_models", [])]
 
@@ -3489,10 +3361,6 @@ def test_version_point_reads_still_inherit_from_the_parent(workspace_permission_
 
 
 def test_version_read_filters_honor_a_version_deny(workspace_permission_setup, monkeypatch):
-    """The version tier withholds VERSION rows without hiding their parents from a model list --
-    which is why the veto lives in a version-specific predicate rather than the shared one that
-    also filters registered-model rows.
-    """
     monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
@@ -3507,8 +3375,12 @@ def test_version_read_filters_honor_a_version_deny(workspace_permission_setup, m
         ],
     )
 
-    assert _search_model_versions_names([{"name": "model-xyz", "tags": []}]) == []
-    # The parent list is untouched by a version denial.
+    request_message = SearchModelVersions()
+    request_message.filter = f"tags.`{IS_PROMPT_TAG_KEY}` != 'true'"
+    with auth_module.app.test_request_context("/api/2.0/mlflow/model-versions/search"):
+        auth_module.scope_model_registry_search(request_message, "registered_model")
+    assert request_message.filter.endswith("name IN ('')")
+
     assert _search_registered_models_names([{"name": "model-xyz", "tags": []}]) == ["model-xyz"]
 
 
@@ -7695,7 +7567,7 @@ def test_search_registered_models_latest_versions_lose_denied_siblings(
         "/api/2.0/mlflow/registered-models/search", method="GET"
     ):
         with workspace_context.WorkspaceContext("team-a"):
-            auth_module.filter_search_registered_models(flask_resp)
+            auth_module.redact_search_registered_model_versions(flask_resp)
     body = json.loads(flask_resp.get_data(as_text=True))
     version = body["registered_models"][0]["latest_versions"][0]
 
@@ -8383,7 +8255,7 @@ def test_id_grain_types_honor_deny_in_response_filtering(
 
     `_role_based_read_predicate` is what `filter_search_experiments`,
     `filter_list_gateway_model_definitions`, `filter_list_gateway_endpoints`,
-    `filter_list_gateway_secrets`, `filter_search_registered_models`, `filter_list_scorers` and the
+    `filter_list_gateway_secrets`, `filter_list_scorers` and the
     MCP filters all build their per-row decision from, so one assertion covers the response side
     for the whole family.
     """
@@ -8802,7 +8674,7 @@ def test_search_registered_models_redacts_embedded_versions(
         method="GET",
         query_string={"max_results": "100"},
     ):
-        auth_module.filter_search_registered_models(flask_resp)
+        auth_module.redact_search_registered_model_versions(flask_resp)
     out = json.loads(flask_resp.get_data(as_text=True))
     assert [rm["name"] for rm in out["registered_models"]] == ["model-xyz"]
     assert out["registered_models"][0].get("latest_versions", []) == []

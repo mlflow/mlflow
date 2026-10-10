@@ -25,7 +25,7 @@ import urllib.parse
 from collections.abc import Sequence
 from dataclasses import asdict, dataclass
 from http import HTTPStatus
-from typing import Any, Awaitable, Callable
+from typing import Any, Awaitable, Callable, Literal
 
 import sqlalchemy
 from cachetools import TTLCache
@@ -52,7 +52,6 @@ from werkzeug.datastructures import Authorization
 from mlflow import MlflowException
 from mlflow.entities import Experiment
 from mlflow.entities.logged_model import LoggedModel
-from mlflow.entities.model_registry import RegisteredModel
 from mlflow.environment_variables import (
     _MLFLOW_AUTH_ADMIN_BOOTSTRAPPED,
     _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN,
@@ -919,7 +918,7 @@ def authorize(
 
 
 class RetentionGate:
-    """Which resources a response may retain, decided on demand from ONE grants load.
+    """Which resources a search may select or a response retain, from ONE grants load.
 
     Built from requirement TEMPLATES, one per resource type. ``retains(type)`` uses the
     template's own id, which is the whole answer for a wildcard-only tier; ``retains(type, id)``
@@ -975,6 +974,24 @@ class RetentionGate:
         if key not in self._folded:
             self._folded[key] = fold_grants_for_key(self._grants, key)
         return self._folded[key]
+
+    def name_filter(self, resource_type: str) -> str:
+        """Express a registry namespace's grants as an IN or NOT IN search clause."""
+        wildcard_readable = self.retains(resource_type, "*")
+        names = sorted({
+            grant.resource_pattern
+            for grant in self._grants
+            if grant.resource_type == resource_type
+            and grant.resource_pattern != "*"
+            and self.retains(resource_type, grant.resource_pattern) != wildcard_readable
+        })
+        if wildcard_readable and not names:
+            return ""
+        # Registry names cannot be empty. This keeps an empty scope unmatchable while allowing
+        # the store to validate the rest of the request normally. List filters use literal_eval.
+        values = ", ".join(repr(name) for name in names) or "''"
+        comparator = "NOT IN" if wildcard_readable else "IN"
+        return f"name {comparator} ({values})"
 
 
 def retention_gate(
@@ -2324,7 +2341,7 @@ def validate_can_search_logged_models():
 
 
 def validate_can_search_model_versions():
-    """The rows are filtered after the fact, so this gates only what redaction cannot hide."""
+    """Gate run selectors before name scoping and sibling redaction in the search path."""
     # Read it the way the handler does: this route accepts both GET query args and a POST body.
     filter_string = _get_request_message(SearchModelVersions()).filter
     if not _model_version_filter_selects_run(filter_string):
@@ -3034,29 +3051,12 @@ def _prompt_marker_in_tags(tags) -> "bool | None":
 def _entity_is_prompt(entity) -> bool:
     """True if a ``RegisteredModel`` / ``ModelVersion`` entity is prompt-flagged.
 
-    Unifies the two response-filtering paths in ``filter_search_*`` — initial
-    response rows arrive as protos (via ``parse_dict``), refetched rows arrive
-    as ORM entities (``PagedList[RegisteredModel]`` / ``[ModelVersion]``).
-    Both ORM entities expose ``_is_prompt()``; protos don't, so we fall back
+    Both registry entities expose ``_is_prompt()``; protos don't, so we fall back
     to scanning the repeated ``.tags`` field for the prompt marker.
     """
     if hasattr(entity, "_is_prompt"):
         return entity._is_prompt()
     return _prompt_marker_in_tags(entity.tags) is True
-
-
-def _rm_or_prompt_read_predicate(username: str) -> Callable[[Any], bool]:
-    """Build a ``p(entity) -> bool`` for filtering shared registered-model /
-    model-version search responses. Classifies each row by its
-    ``mlflow.prompt.is_prompt`` tag and consults the matching grant namespace.
-    """
-    can_read_rm = _role_based_read_predicate(username, "registered_model")
-    can_read_prompt = _role_based_read_predicate(username, "prompt")
-
-    def can_read(entity) -> bool:
-        return (can_read_prompt if _entity_is_prompt(entity) else can_read_rm)(entity.name)
-
-    return can_read
 
 
 def _rm_or_prompt_version_read_predicate(username: str) -> Callable[[Any], bool]:
@@ -3122,6 +3122,36 @@ def _role_based_read_predicate(
         if not gate.retains(requirement.resource_type, requirement.resource_id):
             return lambda _resource_id: False
     return lambda resource_id: gate.retains(resource_type, resource_id)
+
+
+def scope_model_registry_search(
+    request_message: SearchRegisteredModels | SearchModelVersions,
+    resource_type: Literal["prompt", "registered_model"],
+) -> None:
+    """Scope a normalized registry search before REST or GraphQL queries the store."""
+    if sender_is_admin():
+        return
+    requirements = [
+        Requirement(
+            resource_type, "*", "read", fallback_if_no_grant=((RESOURCE_TYPE_WORKSPACE, "*"),)
+        )
+    ]
+    if isinstance(request_message, SearchModelVersions):
+        version_type = (
+            RESOURCE_TYPE_PROMPT_VERSION
+            if resource_type == RESOURCE_TYPE_PROMPT
+            else RESOURCE_TYPE_REGISTERED_MODEL_VERSION
+        )
+        requirements.append(Requirement(version_type, "*", ACTION_NOT_DENIED))
+    gate = retention_gate(
+        authenticate_request().username, (RESOURCE_TYPE_WORKSPACE, "*"), requirements
+    )
+    if any(not gate.retains(r.resource_type, r.resource_id) for r in requirements[1:]):
+        name_filter = "name IN ('')"
+    else:
+        name_filter = gate.name_filter(resource_type)
+    if name_filter:
+        request_message.filter = f"{request_message.filter} AND {name_filter}"
 
 
 def filter_experiment_ids(experiment_ids: list[str]) -> list[str]:
@@ -5291,6 +5321,7 @@ _PUBLIC_ROUTE_SUFFIXES = (
 # before-request validator.
 _HANDLER_INTERNAL_AUTHZ_SUFFIXES = (
     "/mlflow/runs/search",
+    "/mlflow/registered-models/search",
     "/graphql",
 )
 
@@ -5920,7 +5951,7 @@ def redact_update_registered_model_versions(resp: Response) -> None:
     _redact_registered_model_response(resp, UpdateRegisteredModel.Response())
 
 
-def filter_search_registered_models(resp: Response):
+def redact_search_registered_model_versions(resp: Response):
     if sender_is_admin():
         return
 
@@ -5928,44 +5959,6 @@ def filter_search_registered_models(resp: Response):
     parse_dict(resp.json, response_message)
 
     username = authenticate_request().username
-    can_read = _rm_or_prompt_read_predicate(username)
-
-    # filter out unreadable
-    for rm in list(response_message.registered_models):
-        if not can_read(rm):
-            response_message.registered_models.remove(rm)
-
-    # re-fetch to fill max results
-    request_message = _get_request_message(SearchRegisteredModels())
-    while (
-        len(response_message.registered_models) < request_message.max_results
-        and response_message.next_page_token != ""
-    ):
-        refetched: PagedList[RegisteredModel] = (
-            _get_model_registry_store().search_registered_models(
-                filter_string=request_message.filter,
-                max_results=request_message.max_results,
-                order_by=request_message.order_by,
-                page_token=response_message.next_page_token,
-            )
-        )
-        refetched = refetched[
-            : request_message.max_results - len(response_message.registered_models)
-        ]
-        if len(refetched) == 0:
-            response_message.next_page_token = ""
-            break
-
-        refetched_readable_proto = [rm.to_proto() for rm in refetched if can_read(rm)]
-        response_message.registered_models.extend(refetched_readable_proto)
-
-        # recalculate next page token
-        start_offset = SearchUtils.parse_start_offset_from_page_token(
-            response_message.next_page_token
-        )
-        final_offset = start_offset + len(refetched)
-        response_message.next_page_token = SearchUtils.create_page_token(final_offset)
-
     # A row the caller may read can still embed versions the version tier withholds.
     _withhold_denied_latest_versions(response_message.registered_models, username)
     # And a version row that survives can still carry a denied run's or logged model's content --
@@ -5981,7 +5974,7 @@ def filter_search_registered_models(resp: Response):
     resp.data = message_to_json(response_message)
 
 
-def filter_search_model_versions(resp: Response):
+def redact_search_model_version_siblings(resp: Response):
     if sender_is_admin():
         return
 
@@ -5989,17 +5982,8 @@ def filter_search_model_versions(resp: Response):
     parse_dict(resp.json, response_message)
 
     username = authenticate_request().username
-    can_read = _rm_or_prompt_version_read_predicate(username)
-
-    # filter out model versions whose parent model is unreadable
-    for mv in list(response_message.model_versions):
-        if not can_read(mv):
-            response_message.model_versions.remove(mv)
-
     # A version the caller may read can still carry a denied run's or model's content.
-    _withhold_denied_version_siblings(
-        response_message.model_versions, authenticate_request().username
-    )
+    _withhold_denied_version_siblings(response_message.model_versions, username)
     resp.data = message_to_json(response_message)
 
 
@@ -6866,9 +6850,9 @@ AFTER_REQUEST_PATH_HANDLERS = {
     BatchGetTraces: redact_batch_trace_assessments,
     BatchGetTraceInfos: redact_batch_trace_info_assessments,
     SearchTracesV3: redact_search_traces_v3_assessments,
-    SearchModelVersions: filter_search_model_versions,
+    SearchModelVersions: redact_search_model_version_siblings,
     GetRegisteredModel: redact_get_registered_model_versions,
-    SearchRegisteredModels: filter_search_registered_models,
+    SearchRegisteredModels: redact_search_registered_model_versions,
     UpdateRegisteredModel: redact_update_registered_model_versions,
     RenameRegisteredModel: rename_registered_model_permission,
     RegisterScorer: set_can_manage_scorer_permission,
@@ -6904,8 +6888,6 @@ AFTER_REQUEST_PATH_HANDLERS = {
 _SELF_AUTHORIZING_AFTER_REQUEST_HANDLERS = frozenset({
     filter_search_experiments,
     filter_search_logged_models,
-    filter_search_model_versions,
-    filter_search_registered_models,
     filter_list_scorers,
     filter_list_review_queues,
     filter_list_gateway_endpoints,
@@ -7602,8 +7584,8 @@ class GraphQLAuthorizationMiddleware:
         "mlflowSearchModelVersions",
     }
     # Nested fields, keyed by (parent GraphQL type, field name). ``run.modelVersions``
-    # (reachable via mlflowGetRun / mlflowSearchRuns) resolves through the unfiltered search
-    # implementation, so it needs the same per-model filter as the top-level search. Keying
+    # (reachable via mlflowGetRun / mlflowSearchRuns) needs the same sibling redaction as
+    # the top-level search. The shared search implementation scopes names before querying. Keying
     # on the parent type keeps the same-named, already-filtered sub-field of
     # ``MlflowSearchModelVersionsResponse`` out of the middleware.
     PROTECTED_NESTED_FIELDS = {("MlflowRunExtension", "modelVersions")}
@@ -7704,7 +7686,7 @@ class GraphQLAuthorizationMiddleware:
                 input_obj.experiment_ids = readable_ids
 
         elif field_name == "mlflowSearchModelVersions":
-            # Row filtering in ``_post_resolve`` cannot cover a ``run_id`` selector: the caller
+            # Sibling redaction in ``_post_resolve`` cannot cover a ``run_id`` selector: the caller
             # learns the run a returned version belongs to from the query matching at all, not from
             # a field. So this refuses the request exactly as REST's
             # ``validate_can_search_model_versions`` does.
@@ -7716,14 +7698,10 @@ class GraphQLAuthorizationMiddleware:
     def _post_resolve(self, field_name: str, result, username: str):
         """Apply post-resolution filtering on GraphQL results."""
         if field_name == "mlflowSearchModelVersions":
-            return self._filter_model_versions_result(result, username)
-        # A bare field-name match is enough here: ``resolve`` only lets ``modelVersions``
-        # through when its parent type is listed in ``PROTECTED_NESTED_FIELDS``.
-        if field_name == "modelVersions":
-            can_read = self._model_version_read_predicate(username)
-            retained = [mv for mv in result if can_read(mv)]
-            _withhold_denied_version_siblings(retained, username)
-            return retained
+            _withhold_denied_version_siblings(result.model_versions, username)
+        # The shared search implementation already scopes names, including nested searches.
+        elif field_name == "modelVersions":
+            _withhold_denied_version_siblings(result, username)
         # The resolvers hand back the same protobuf ``Response`` messages the REST handlers
         # build, so the REST redaction cores apply unchanged. ``/graphql`` is excluded from
         # ``AFTER_REQUEST_HANDLERS``, so this is the only place they run for a GraphQL request.
@@ -7731,28 +7709,6 @@ class GraphQLAuthorizationMiddleware:
             _withhold_denied_run_model_links([result.run], username)
         elif field_name == "mlflowSearchRuns":
             _withhold_denied_run_model_links(result.runs, username)
-        return result
-
-    def _model_version_read_predicate(self, username: str) -> Callable[[Any], bool]:
-        # mlflowSearchRuns resolves ``modelVersions`` once per run, and building the predicate
-        # costs a user lookup plus a grants query, so memoize it for the current request.
-        # Prompt-aware like the REST ``filter_search_model_versions`` so a prompt version is
-        # judged by prompt grants rather than registered-model grants.
-        predicates = g.setdefault("_graphql_model_version_read_predicates", {})
-        if username not in predicates:
-            predicates[username] = _rm_or_prompt_version_read_predicate(username)
-        return predicates[username]
-
-    def _filter_model_versions_result(self, result, username: str):
-        """Filter model versions the user doesn't have read access to."""
-        can_read = self._model_version_read_predicate(username)
-        if hasattr(result, "model_versions") and result.model_versions is not None:
-            filtered = [mv for mv in result.model_versions if can_read(mv)]
-            del result.model_versions[:]
-            result.model_versions.extend(filtered)
-            # A retained version can still carry a denied run's or model's content, exactly as
-            # in REST's ``filter_search_model_versions``.
-            _withhold_denied_version_siblings(result.model_versions, username)
         return result
 
 

@@ -14,7 +14,7 @@ import unicodedata
 import urllib
 from collections.abc import Iterable
 from functools import partial, wraps
-from typing import Any, Callable
+from typing import Any, Callable, Literal
 from zlib import adler32
 
 import requests
@@ -406,6 +406,7 @@ from mlflow.utils.providers import (
     get_models,
     get_provider_config_response,
 )
+from mlflow.utils.search_utils import SearchModelUtils, SearchModelVersionUtils
 from mlflow.utils.server_info import (
     SERVER_INFO_FEATURES_ENABLED,
     SERVER_INFO_MULTIPART_DOWNLOADS_ENABLED,
@@ -1195,6 +1196,9 @@ def _get_request_message(request_message, flask_request=request, schema=None):
         proto_parsing_succeeded = False
 
     _validate_request_json_with_schema(request_json, schema, proto_parsing_succeeded)
+
+    if isinstance(request_message, (SearchRegisteredModels, SearchModelVersions)):
+        _normalize_model_registry_search(request_message)
 
     return request_message
 
@@ -3020,6 +3024,7 @@ def _search_registered_models():
             "page_token": [_assert_string],
         },
     )
+    _prepare_model_registry_search(request_message)
     store = _get_model_registry_store()
     registered_models = store.search_registered_models(
         filter_string=request_message.filter,
@@ -3602,7 +3607,51 @@ def _search_model_versions():
     return _wrap_response(response_message)
 
 
+def _normalize_model_registry_search(
+    request_message: SearchRegisteredModels | SearchModelVersions,
+) -> Literal["prompt", "registered_model"]:
+    search_utils = (
+        SearchModelVersionUtils
+        if isinstance(request_message, SearchModelVersions)
+        else SearchModelUtils
+    )
+    predicates = [
+        clause
+        for clause in search_utils.parse_search_filter(request_message.filter)
+        if clause["type"] == "tag" and clause["key"] == IS_PROMPT_TAG_KEY
+    ]
+    is_prompt = any(
+        (clause["comparator"] == "=" and clause["value"].lower() == "true")
+        or (clause["comparator"] == "!=" and clause["value"].lower() == "false")
+        for clause in predicates
+    )
+    comparator = "=" if is_prompt else "!="
+    # Put the resource selector first so every store and auth plugin sees the same namespace,
+    # including when the caller supplied several predicates on the prompt tag.
+    if not predicates or predicates[0] != {
+        "type": "tag",
+        "key": IS_PROMPT_TAG_KEY,
+        "comparator": comparator,
+        "value": "true",
+    }:
+        selector = f"tags.`{IS_PROMPT_TAG_KEY}` {comparator} 'true'"
+        request_message.filter = (
+            f"{selector} AND {request_message.filter}" if request_message.filter else selector
+        )
+    return "prompt" if is_prompt else "registered_model"
+
+
+def _prepare_model_registry_search(request_message):
+    resource_type = _normalize_model_registry_search(request_message)
+    if _is_server_auth_enabled():
+        # Auth imports handlers, so importing here avoids a circular dependency.
+        from mlflow.server.auth import scope_model_registry_search
+
+        scope_model_registry_search(request_message, resource_type)
+
+
 def search_model_versions_impl(request_message):
+    _prepare_model_registry_search(request_message)
     store = _get_model_registry_store()
     model_versions = store.search_model_versions(
         filter_string=request_message.filter,
