@@ -648,7 +648,8 @@ class SqlAlchemyJobStore(AbstractJobStore):
         Returns:
             Iterator of Job entities that match the filters, ordered by creation time (oldest first)
         """
-        offset = 0
+        last_creation_time = None
+        last_job_id = None
 
         def filter_by_params(job_params: dict[str, Any]) -> bool:
             for key in params:
@@ -679,13 +680,20 @@ class SqlAlchemyJobStore(AbstractJobStore):
                 if end_timestamp is not None:
                     query = query.filter(SqlJob.creation_time <= end_timestamp)
 
+                if last_creation_time is not None:
+                    query = query.filter(
+                        sqlalchemy.or_(
+                            SqlJob.creation_time > last_creation_time,
+                            sqlalchemy.and_(
+                                SqlJob.creation_time == last_creation_time,
+                                SqlJob.id > last_job_id,
+                            ),
+                        )
+                    )
+
                 # Order by creation time (oldest first) and apply pagination
                 jobs = (
-                    query
-                    .order_by(SqlJob.creation_time)
-                    .offset(offset)
-                    .limit(_LIST_JOB_PAGE_SIZE)
-                    .all()
+                    query.order_by(SqlJob.creation_time, SqlJob.id).limit(_LIST_JOB_PAGE_SIZE).all()
                 )
 
                 # If no jobs returned, we've reached the end
@@ -705,8 +713,9 @@ class SqlAlchemyJobStore(AbstractJobStore):
                 if len(jobs) < _LIST_JOB_PAGE_SIZE:
                     break
 
-                # Move to next page
-                offset += _LIST_JOB_PAGE_SIZE
+                # Keyset pagination remains stable when recovery changes job statuses.
+                last_creation_time = jobs[-1].creation_time
+                last_job_id = jobs[-1].id
 
     def _get_sql_job(self, session, job_id, *, populate_existing: bool = False) -> SqlJob:
         query = self._get_query(session, SqlJob).filter(SqlJob.id == job_id)

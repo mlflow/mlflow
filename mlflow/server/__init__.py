@@ -525,11 +525,7 @@ def _run_server(
     if job_execution_enabled:
         # The `HUEY_STORAGE_PATH_ENV_VAR` is used by both MLflow server handler workers and
         # huey job runner (huey_consumer).
-        env_map[HUEY_STORAGE_PATH_ENV_VAR] = (
-            tempfile.mkdtemp(dir="/dev/shm")  # Use in-memory file system if possible
-            if os.path.exists("/dev/shm")
-            else tempfile.mkdtemp()
-        )
+        env_map[HUEY_STORAGE_PATH_ENV_VAR] = tempfile.mkdtemp()
 
     server_proc = _exec_cmd(
         full_command,

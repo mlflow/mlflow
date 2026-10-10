@@ -914,7 +914,7 @@ def _for_each_unfinished_job(
     """
     for workspace_ctx in _workspace_contexts_for_recovery():
         with workspace_ctx as workspace:
-            for job in list(job_store.list_jobs(statuses=statuses, end_timestamp=end_timestamp)):
+            for job in job_store.list_jobs(statuses=statuses, end_timestamp=end_timestamp):
                 handler(job, workspace)
 
 
@@ -924,6 +924,11 @@ def _enqueue_unfinished_jobs(server_launching_timestamp: int) -> None:
     job_store = _get_job_store()
 
     def _reset_and_enqueue(job: "Job", workspace: str | None) -> None:
+        # Periodic online scoring resumes from its checkpoint on the next scheduling pass.
+        # Replaying old submissions would run stale scorer configurations and flood the queue.
+        if job.job_name in {"run_online_trace_scorer", "run_online_session_scorer"}:
+            job_store.cancel_job(job.job_id)
+            return
         if job.status in {JobStatus.RUNNING, JobStatus.NEEDS_RECOVERY}:
             job_store.reset_job(job.job_id)  # reset the job status to PENDING
 

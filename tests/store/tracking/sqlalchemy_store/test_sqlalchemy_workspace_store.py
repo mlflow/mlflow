@@ -2617,14 +2617,26 @@ def test_get_active_online_scorers_workspace_scoped(workspace_tracking_store):
             sample_rate=0.5,
         )
 
-        active_scorers = workspace_tracking_store.get_active_online_scorers()
+        with mock.patch.object(
+            workspace_tracking_store,
+            "get_gateway_endpoint",
+            return_value=_mock_gateway_endpoint(),
+        ) as get_endpoint:
+            active_scorers = workspace_tracking_store.get_active_online_scorers()
+        get_endpoint.assert_called_once_with("test-endpoint-id")
         assert len(active_scorers) == 1
         assert active_scorers[0].name == "scorer-b"
         assert active_scorers[0].scorer_version == 1
         assert active_scorers[0].online_config.experiment_id == exp_b
 
     with WorkspaceContext("team-active-a"):
-        active_scorers = workspace_tracking_store.get_active_online_scorers()
+        with mock.patch.object(
+            workspace_tracking_store,
+            "get_gateway_endpoint",
+            return_value=_mock_gateway_endpoint(),
+        ) as get_endpoint:
+            active_scorers = workspace_tracking_store.get_active_online_scorers()
+        get_endpoint.assert_called_once_with("test-endpoint-id")
         assert len(active_scorers) == 1
         assert active_scorers[0].name == "scorer-a"
         assert active_scorers[0].scorer_version == 1

@@ -867,7 +867,11 @@ def test_get_active_online_scorers_filters_by_sample_rate(store: SqlAlchemyStore
         sample_rate=0.0,
     )
 
-    active_scorers = store.get_active_online_scorers()
+    with mock.patch.object(
+        store, "get_gateway_endpoint", return_value=_mock_gateway_endpoint()
+    ) as get_endpoint:
+        active_scorers = store.get_active_online_scorers()
+    get_endpoint.assert_called_once_with("test-endpoint-id")
     # Filter to only scorers we created in this test using name and experiment_id
     test_scorers = [
         s
@@ -892,7 +896,11 @@ def test_get_active_online_scorers_returns_scorer_fields(store: SqlAlchemyStore)
         filter_string="status = 'OK'",
     )
 
-    active_scorers = store.get_active_online_scorers()
+    with mock.patch.object(
+        store, "get_gateway_endpoint", return_value=_mock_gateway_endpoint()
+    ) as get_endpoint:
+        active_scorers = store.get_active_online_scorers()
+    get_endpoint.assert_called_once_with("test-endpoint-id")
     active_scorer = next(
         s
         for s in active_scorers
@@ -921,7 +929,11 @@ def test_get_active_online_scorers_filters_non_gateway_model(store: SqlAlchemySt
     )
 
     # Verify scorer is returned initially (max version uses gateway model)
-    active_scorers = store.get_active_online_scorers()
+    with mock.patch.object(
+        store, "get_gateway_endpoint", return_value=_mock_gateway_endpoint()
+    ) as get_endpoint:
+        active_scorers = store.get_active_online_scorers()
+    get_endpoint.assert_called_once_with("test-endpoint-id")
     test_scorers = [
         s
         for s in active_scorers

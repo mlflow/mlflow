@@ -18,7 +18,11 @@ from mlflow.environment_variables import (
     MLFLOW_WORKSPACE,
 )
 from mlflow.exceptions import MlflowException
-from mlflow.genai.scorers.job import invoke_scorer_job
+from mlflow.genai.scorers.job import (
+    invoke_scorer_job,
+    run_online_session_scorer_job,
+    run_online_trace_scorer_job,
+)
 from mlflow.server import handlers
 from mlflow.server.handlers import _get_job_store
 from mlflow.server.job_api import Job as JobApiResponse
@@ -1593,6 +1597,128 @@ def test_reenqueued_needs_recovery_jobs_are_reset_and_resubmitted(monkeypatch, d
 
     mock_submit.assert_called_once()
     assert job_store.get_job(job.job_id).status == JobStatus.PENDING
+
+
+@pytest.mark.parametrize("failure_stage", ["initialization", "submission"])
+def test_submit_job_enqueue_failure_is_terminal(
+    monkeypatch, db_uri, workspaces_enabled, failure_stage
+):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
+    monkeypatch.delenv("MLFLOW_SERVER_JOB_EXECUTION_ENGINE", raising=False)
+    job_store = (
+        WorkspaceAwareSqlAlchemyJobStore(db_uri)
+        if workspaces_enabled
+        else SqlAlchemyJobStore(db_uri)
+    )
+    huey = mock.Mock()
+    error = OSError("database or disk is full")
+    if failure_stage == "submission":
+        huey.submit_task.side_effect = error
+    with (
+        mock.patch("mlflow.server.jobs._get_job_store", return_value=job_store) as get_store,
+        mock.patch("mlflow.server.jobs._ALLOWED_JOB_NAME_LIST", ["basic_job_fun"]),
+        mock.patch("mlflow.server.jobs.utils._check_requirements") as check_requirements,
+        mock.patch(
+            "mlflow.server.jobs.utils._get_or_init_huey_instance",
+            return_value=huey,
+            side_effect=error if failure_stage == "initialization" else None,
+        ) as get_huey,
+    ):
+        with pytest.raises(OSError, match="database or disk is full"):
+            submit_job(basic_job_fun, {"x": 1, "y": 2})
+    get_store.assert_called_once()
+    check_requirements.assert_called_once()
+    get_huey.assert_called_once_with("basic_job_fun")
+    if failure_stage == "submission":
+        huey.submit_task.assert_called_once()
+    else:
+        huey.submit_task.assert_not_called()
+    jobs = list(job_store.list_jobs())
+    assert len(jobs) == 1
+    assert jobs[0].status == JobStatus.FAILED
+    assert "database or disk is full" in jobs[0].result
+
+
+@pytest.mark.parametrize("function", [run_online_trace_scorer_job, run_online_session_scorer_job])
+@pytest.mark.parametrize("status", [JobStatus.PENDING, JobStatus.RUNNING, JobStatus.NEEDS_RECOVERY])
+def test_submit_online_scoring_reuses_unfinished_job(
+    monkeypatch, db_uri, workspaces_enabled, function, status
+):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
+    monkeypatch.delenv("MLFLOW_SERVER_JOB_EXECUTION_ENGINE", raising=False)
+    job_store = (
+        WorkspaceAwareSqlAlchemyJobStore(db_uri)
+        if workspaces_enabled
+        else SqlAlchemyJobStore(db_uri)
+    )
+    params = {"experiment_id": "1", "online_scorers": []}
+    existing = job_store.create_job(function._job_fn_metadata.name, json.dumps(params))
+    with job_store.ManagedSessionMaker() as session:
+        session.query(SqlJob).filter(SqlJob.id == existing.job_id).update({
+            SqlJob.status: status.to_int()
+        })
+    with (
+        mock.patch("mlflow.server.jobs._get_job_store", return_value=job_store) as get_store,
+        mock.patch("mlflow.server.jobs.utils._check_requirements") as check_requirements,
+        mock.patch("mlflow.server.jobs.utils._get_or_init_huey_instance") as get_huey,
+    ):
+        reused = submit_job(function, {**params, "online_scorers": [{"name": "updated"}]})
+        assert reused.job_id == existing.job_id
+        get_huey.assert_not_called()
+        other = submit_job(function, {**params, "experiment_id": "2"})
+        assert other.job_id != existing.job_id
+        get_huey.assert_called_once_with(function._job_fn_metadata.name)
+        get_huey.return_value.submit_task.assert_called_once()
+    assert get_store.call_count == 2
+    assert check_requirements.call_count == 2
+    assert len(list(job_store.list_jobs())) == 2
+
+
+def test_recovery_cancels_online_scoring_backlog_across_pages(
+    monkeypatch, db_uri, workspaces_enabled
+):
+    job_store = SqlAlchemyJobStore(db_uri)
+    online_jobs = [
+        job_store.create_job(
+            "run_online_trace_scorer" if i % 2 else "run_online_session_scorer",
+            '{"experiment_id": "1", "online_scorers": []}',
+        )
+        for i in range(105)
+    ]
+    ordinary = job_store.create_job("basic_job_fun", '{"x": 1, "y": 2}')
+    future = job_store.create_job("run_online_trace_scorer", "{}")
+    with job_store.ManagedSessionMaker() as session:
+        session.query(SqlJob).update({SqlJob.creation_time: 1})
+        session.query(SqlJob).filter(SqlJob.id == future.job_id).update({SqlJob.creation_time: 3})
+        for index, job_entity in enumerate(online_jobs):
+            status = [JobStatus.PENDING, JobStatus.RUNNING, JobStatus.NEEDS_RECOVERY][index % 3]
+            session.query(SqlJob).filter(SqlJob.id == job_entity.job_id).update({
+                SqlJob.status: status.to_int()
+            })
+    with (
+        mock.patch("mlflow.server.handlers._get_job_store", return_value=job_store) as get_store,
+        mock.patch(
+            "mlflow.server.jobs.utils.get_job_fn_fullname",
+            return_value="tests.server.jobs.test_jobs.basic_job_fun",
+        ) as get_function,
+        mock.patch("mlflow.server.jobs.utils._load_function", return_value=basic_job_fun) as load,
+        mock.patch("mlflow.server.jobs.utils._get_or_init_huey_instance") as get_huey,
+    ):
+        _enqueue_unfinished_jobs(2)
+    get_store.assert_called_once()
+    get_function.assert_called_once_with("basic_job_fun")
+    load.assert_called_once_with("tests.server.jobs.test_jobs.basic_job_fun")
+    get_huey.assert_called_once_with("basic_job_fun")
+    get_huey.return_value.submit_task.assert_called_once_with(
+        ordinary.job_id,
+        DEFAULT_WORKSPACE_NAME if workspaces_enabled else None,
+        "basic_job_fun",
+        {"x": 1, "y": 2},
+        None,
+        False,
+    )
+    assert all(job_store.get_job(job.job_id).status == JobStatus.CANCELED for job in online_jobs)
+    assert job_store.get_job(future.job_id).status == JobStatus.PENDING
 
 
 def test_update_status_details(tmp_path: Path):
