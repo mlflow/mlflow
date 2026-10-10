@@ -1,11 +1,14 @@
 # This file contains utility functions for scorer functionality.
 
 import ast
+import hashlib
 import inspect
 import json
 import logging
 from textwrap import dedent
 from typing import TYPE_CHECKING, Any, Callable, NamedTuple
+
+from pydantic import BaseModel
 
 from mlflow.exceptions import INVALID_PARAMETER_VALUE, MlflowException
 
@@ -489,3 +492,48 @@ def scorer_params_use_direct_provider_model(job_name: str, params: dict[str, Any
             if provider not in _GATEWAY_BACKED_SCHEMES:
                 return True
     return False
+
+
+# Version fields change on every MLflow upgrade, and `timeout` is a run limit rather than scoring
+# logic (a scorer registered before the field existed loads with 0 where a fresh copy has None).
+_DEFINITION_DIGEST_IGNORED_KEYS = frozenset({"mlflow_version", "serialization_version", "timeout"})
+
+
+def _drop_ignored_keys(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {
+            key: _drop_ignored_keys(item)
+            for key, item in value.items()
+            if key not in _DEFINITION_DIGEST_IGNORED_KEYS
+        }
+    if isinstance(value, list):
+        return [_drop_ignored_keys(item) for item in value]
+    return value
+
+
+def get_scorer_definition_digest(scorer: Any) -> str | None:
+    """
+    Hash the serialized definition of a scorer, so that the same definition has the same digest
+    whether or not it is registered. Returns None when the definition can't be hashed.
+    """
+    try:
+        try:
+            definition = scorer.model_dump()
+        except Exception:
+            scorer_class = type(scorer)
+            if scorer_class.__module__.startswith("mlflow."):
+                # Every scorer of this class would share the class source, so it isn't an identity.
+                return None
+            definition = {
+                "name": scorer.name,
+                "class_source": inspect.getsource(scorer_class),
+                "fields": BaseModel.model_dump(scorer, mode="json"),
+            }
+        try:
+            text = json.dumps(_drop_ignored_keys(definition), sort_keys=True, separators=(",", ":"))
+        except TypeError:
+            return None
+        return "sha256:" + hashlib.sha256(text.encode("utf-8")).hexdigest()
+    except Exception:
+        _logger.debug("Failed to compute the scorer definition digest", exc_info=True)
+        return None

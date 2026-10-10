@@ -1,8 +1,12 @@
+import hashlib
+import inspect
+import json
 import threading
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any, Literal
 from unittest import mock
 from unittest.mock import ANY, MagicMock
@@ -18,6 +22,7 @@ from mlflow.entities.trace import Trace
 from mlflow.entities.trace_data import TraceData
 from mlflow.exceptions import MlflowException
 from mlflow.genai.datasets import EvaluationDataset, create_dataset
+from mlflow.genai.datasets.evaluation_dataset import DATASET_IDENTITY_ATTR
 from mlflow.genai.evaluation.entities import EvalItem, EvalResult, EvaluationResult
 from mlflow.genai.evaluation.harness import (
     AUTO_INITIAL_RPS,
@@ -29,13 +34,20 @@ from mlflow.genai.evaluation.harness import (
     backpressure_buffer,
 )
 from mlflow.genai.evaluation.rate_limiter import RPSRateLimiter
-from mlflow.genai.scorers.base import scorer
+from mlflow.genai.scorers.base import SCORER_BACKEND_TRACKING, scorer
 from mlflow.genai.scorers.builtin_scorers import RelevanceToQuery
+from mlflow.genai.scorers.scorer_utils import get_scorer_definition_digest
 from mlflow.genai.simulators import ConversationSimulator
 from mlflow.server import handlers
 from mlflow.server.fastapi_app import app
 from mlflow.server.handlers import initialize_backend_stores
 from mlflow.tracing.constant import AssessmentMetadataKey, TraceMetadataKey
+from mlflow.utils.mlflow_tags import (
+    MLFLOW_GENAI_EVALUATE_AGENT_DIGEST,
+    MLFLOW_GENAI_EVALUATE_AGENT_FUNCTION,
+    MLFLOW_GENAI_EVALUATE_AGENT_URI,
+    MLFLOW_GENAI_EVALUATE_SCORERS_DIGEST,
+)
 
 from tests.helper_functions import get_safe_port
 from tests.tracing.helper import (
@@ -2335,3 +2347,119 @@ def test_run_multi_turn_filters_none_trace_items_from_session(mlflow_experiment_
     mock_eval_session.assert_called_once()
     assert mock_eval_session.call_args.kwargs["session_items"] == [valid_item]
     assert multi_turn_eval_results == {"tr-123": mock_eval_session.return_value}
+
+
+def _managed_dataset_with_records():
+    managed_dataset = MagicMock()
+    managed_dataset.dataset_id = "d-123"
+    managed_dataset.name = "main.evals.support"
+    managed_dataset.digest = "abc123"
+    managed_dataset.schema = None
+    managed_dataset.profile = None
+    managed_dataset.source_type = "databricks-uc-table"
+    managed_dataset.version = None
+    managed_dataset.list_versions.return_value = [SimpleNamespace(version=4)]
+    managed_dataset.to_df.return_value = pd.DataFrame({
+        "inputs": [{"question": "What is MLflow?"}, {"question": "What is Spark?"}],
+        "outputs": ["MLflow is a tool for ML", "Spark is a fast data processing engine"],
+    })
+    return EvaluationDataset(managed_dataset)
+
+
+@scorer
+def has_output(outputs):
+    return bool(outputs)
+
+
+def test_evaluate_with_dataset_to_df_logs_managed_dataset():
+    dataset = _managed_dataset_with_records()
+
+    result = mlflow.genai.evaluate(data=dataset.to_df(), scorers=[has_output])
+
+    [dataset_input] = mlflow.get_run(result.run_id).inputs.dataset_inputs
+    assert dataset_input.dataset.name == "main.evals.support"
+    assert dataset_input.dataset.digest == "abc123"
+    assert dataset_input.dataset.source_type == "databricks-uc-table"
+    assert json.loads(dataset_input.dataset.source) == {
+        "table_name": "main.evals.support",
+        "dataset_id": "d-123",
+        "version": 4,
+    }
+
+
+def _edit_inputs(df):
+    edited = df.copy()
+    edited.at[0, "inputs"] = {"question": "What is Delta?"}
+    return edited
+
+
+@pytest.mark.parametrize("edit", [_edit_inputs, lambda df: df.iloc[:1]])
+def test_evaluate_with_edited_dataset_to_df_logs_anonymous_dataset(edit):
+    data = edit(_managed_dataset_with_records().to_df())
+    assert DATASET_IDENTITY_ATTR in data.attrs
+
+    result = mlflow.genai.evaluate(data=data, scorers=[has_output])
+
+    [dataset_input] = mlflow.get_run(result.run_id).inputs.dataset_inputs
+    assert dataset_input.dataset.name == "dataset"
+
+
+def lineage_agent(question):
+    return f"An answer to {question}"
+
+
+def test_evaluate_logs_lineage_tags():
+    @scorer
+    def registered(outputs):
+        return True
+
+    registered._set_registration_metadata(
+        backend=SCORER_BACKEND_TRACKING,
+        experiment_id="1",
+        sampling_config=None,
+        scorer_version=2,
+    )
+    data = [{"inputs": {"question": "What is MLflow?"}}]
+
+    result = mlflow.genai.evaluate(
+        data=data, predict_fn=lineage_agent, scorers=[registered, has_output]
+    )
+
+    tags = mlflow.get_run(result.run_id).data.tags
+    scorer_digests = sorted(get_scorer_definition_digest(s) for s in [registered, has_output])
+    expected_digest = hashlib.sha256("\n".join(scorer_digests).encode("utf-8")).hexdigest()
+    assert json.loads(tags[MLFLOW_GENAI_EVALUATE_SCORERS_DIGEST]) == {
+        "digest": f"sha256:{expected_digest}",
+        "hashed": 2,
+        "total": 2,
+    }
+    assert tags[MLFLOW_GENAI_EVALUATE_AGENT_FUNCTION] == f"{__name__}.lineage_agent"
+    source_digest = hashlib.sha256(inspect.getsource(lineage_agent).encode("utf-8")).hexdigest()
+    assert tags[MLFLOW_GENAI_EVALUATE_AGENT_DIGEST] == f"sha256:{source_digest}"
+    assert MLFLOW_GENAI_EVALUATE_AGENT_URI not in tags
+
+
+def test_evaluate_without_predict_fn_logs_no_agent_tags():
+    data = [{"inputs": {"question": "What is MLflow?"}, "outputs": "MLflow is a tool for ML"}]
+
+    result = mlflow.genai.evaluate(data=data, scorers=[has_output])
+
+    tags = mlflow.get_run(result.run_id).data.tags
+    assert json.loads(tags[MLFLOW_GENAI_EVALUATE_SCORERS_DIGEST])["hashed"] == 1
+    assert not any(key.startswith("mlflow.genaiEvaluate.agent.") for key in tags)
+    [trace] = mlflow.search_traces(run_id=result.run_id, return_type="list")
+    [feedback] = [a for a in trace.info.assessments if a.name == "has_output"]
+    assert feedback.metadata[AssessmentMetadataKey.SCORER_DIGEST] == (
+        get_scorer_definition_digest(has_output)
+    )
+
+
+def test_evaluate_succeeds_when_lineage_fails():
+    data = [{"inputs": {"question": "What is MLflow?"}, "outputs": "MLflow is a tool for ML"}]
+
+    with mock.patch(
+        "mlflow.genai.evaluation.lineage.get_scorers_digest", side_effect=Exception("boom")
+    ):
+        result = mlflow.genai.evaluate(data=data, scorers=[has_output])
+
+    assert MLFLOW_GENAI_EVALUATE_SCORERS_DIGEST not in mlflow.get_run(result.run_id).data.tags

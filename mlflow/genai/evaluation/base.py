@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any, Callable, NamedTuple
 
 import mlflow
 from mlflow.data.dataset import Dataset
+from mlflow.entities import Dataset as DatasetEntity
 from mlflow.entities.dataset_input import DatasetInput
 from mlflow.entities.evaluation_dataset import EvaluationDataset as EntityEvaluationDataset
 from mlflow.entities.logged_model_input import LoggedModelInput
@@ -14,6 +15,14 @@ from mlflow.environment_variables import MLFLOW_GENAI_EVAL_MAX_WORKERS
 from mlflow.exceptions import MlflowException
 from mlflow.genai.datasets.evaluation_dataset import EvaluationDataset
 from mlflow.genai.evaluation.constant import InputDatasetColumn
+from mlflow.genai.evaluation.lineage import (
+    AGENT_URI_ATTR,
+    SERVED_ENTITIES_ATTR,
+    get_agent_tags,
+    get_dataset_entity_from_attrs,
+    get_served_entities,
+    log_lineage_tags,
+)
 from mlflow.genai.evaluation.session_utils import validate_session_level_evaluation_inputs
 from mlflow.genai.evaluation.utils import (
     _convert_to_eval_set,
@@ -313,6 +322,8 @@ def _run_harness(data, scorers, predict_fn, model_id) -> tuple["EvaluationResult
     from mlflow.genai.evaluation import harness
 
     scorers = validate_scorers(scorers)
+    # Identify the agent before `predict_fn` is wrapped or cleared for simulation.
+    agent_tags = get_agent_tags(predict_fn)
 
     # Handle ConversationSimulator: prepare for simulation, but run it inside the run context
     # so that traces are logged to the correct run.
@@ -369,6 +380,8 @@ def _run_harness(data, scorers, predict_fn, model_id) -> tuple["EvaluationResult
         # Validate session-level input if session-level scorers are present
         validate_session_level_evaluation_inputs(scorers, predict_fn)
 
+        # A DataFrame from `EvaluationDataset.to_df()` keeps the dataset identity if unchanged.
+        dataset_entity = None if is_managed_dataset else get_dataset_entity_from_attrs(data)
         df = _convert_to_eval_set(data)
 
         builtin_scorers = [
@@ -405,6 +418,9 @@ def _run_harness(data, scorers, predict_fn, model_id) -> tuple["EvaluationResult
         if isinstance(data, (EvaluationDataset, EntityEvaluationDataset)):
             mlflow_dataset = data
             df = data.to_df()
+        elif dataset_entity is not None:
+            mlflow_dataset = dataset_entity
+            df = data
         else:
             # Use precomputed name from ConversationSimulator, or default "dataset" for
             # other sources. Pass precomputed_digest if available (from ConversationSimulator).
@@ -426,13 +442,14 @@ def _run_harness(data, scorers, predict_fn, model_id) -> tuple["EvaluationResult
         # NB: Set this tag before run finishes to suppress the generic run URL printing.
         if run.data.tags.get(MLFLOW_RUN_TYPE) is None:
             MlflowClient().set_tag(run_id, MLFLOW_RUN_TYPE, MLFLOW_RUN_TYPE_GENAI_EVALUATE)
+        log_lineage_tags(run_id, scorers, agent_tags)
 
         result = harness.run(
             predict_fn=predict_fn,
             eval_df=df,
             scorers=scorers,
             run_id=run_id,
-            dataset=mlflow_dataset if is_managed_dataset else None,
+            dataset=mlflow_dataset if is_managed_dataset or dataset_entity is not None else None,
         )
 
     try:
@@ -444,12 +461,13 @@ def _run_harness(data, scorers, predict_fn, model_id) -> tuple["EvaluationResult
 
 
 def _log_dataset_input(
-    data: Dataset,
+    data: Dataset | DatasetEntity,
     run_id: str,
     model_id: str | None = None,
 ):
     client = MlflowClient()
-    dataset_input = DatasetInput(dataset=data._to_mlflow_entity())
+    entity = data if isinstance(data, DatasetEntity) else data._to_mlflow_entity()
+    dataset_input = DatasetInput(dataset=entity)
     client.log_inputs(
         run_id=run_id,
         datasets=[dataset_input],
@@ -615,13 +633,15 @@ def to_predict_fn(endpoint_uri: str) -> Callable[..., Any]:
     match schema:
         case "apps":
             app_config = _setup_databricks_app_client(path)
-            return _create_app_predict_fn(app_config.app_invocation_url, app_config.config)
+            predict_fn = _create_app_predict_fn(app_config.app_invocation_url, app_config.config)
         case "endpoints":
-            return _create_endpoint_predict_fn(endpoint_uri, path)
+            predict_fn = _create_endpoint_predict_fn(endpoint_uri, path)
         case _:
             raise ValueError(
                 f"Unsupported endpoint schema: {schema}. Expected 'endpoints' or 'apps'."
             )
+    setattr(predict_fn, AGENT_URI_ATTR, endpoint_uri)
+    return predict_fn
 
 
 def _create_endpoint_predict_fn(endpoint_uri: str, endpoint: str) -> Callable[..., Any]:
@@ -712,4 +732,5 @@ Args:
         For example, if the endpoint accepts a JSON object with a `messages` key,
         the function also expects to get `messages` as an argument.
     """
+    setattr(predict_fn, SERVED_ENTITIES_ATTR, get_served_entities(endpoint_info))
     return predict_fn

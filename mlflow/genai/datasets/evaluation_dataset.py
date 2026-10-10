@@ -1,3 +1,5 @@
+import hashlib
+import logging
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
@@ -14,6 +16,19 @@ from mlflow.genai.datasets.entities import EvaluationDatasetVersion
 if TYPE_CHECKING:
     import pandas as pd
     import pyspark.sql
+
+_logger = logging.getLogger(__name__)
+
+# `DataFrame.attrs` key under which `to_df()` records the dataset identity, so that
+# `mlflow.genai.evaluate(data=dataset.to_df())` can log the dataset instead of an anonymous one.
+DATASET_IDENTITY_ATTR = "mlflow.genaiEvaluate.datasetIdentity"
+
+
+def compute_records_sha256(df: "pd.DataFrame") -> str:
+    # `compute_pandas_digest` skips dict columns such as `inputs`, so hash every record instead.
+    # Sort the columns so that reordering them doesn't change the hash.
+    records = df[sorted(df.columns, key=str)].to_json(orient="records", default_handler=str)
+    return hashlib.sha256(records.encode("utf-8")).hexdigest()
 
 
 def _parse_datetime(value: Any) -> datetime | None:
@@ -82,6 +97,8 @@ class EvaluationDataset(Dataset, PyFuncConvertibleDatasetMixin):
             self._databricks_dataset = dataset
             self._mlflow_dataset = None
         self._df = None
+        self._latest_version = None
+        self._latest_version_resolved = False
 
     def __eq__(self, other):
         """Check equality with another dataset."""
@@ -161,8 +178,23 @@ class EvaluationDataset(Dataset, PyFuncConvertibleDatasetMixin):
         return DatabricksEvaluationDatasetSource(
             table_name=self.name,
             dataset_id=self.dataset_id,
-            version=self.version,
+            version=self._resolve_version(),
         )
+
+    def _resolve_version(self) -> int | None:
+        """Return the pinned version, or the newest version for a latest Databricks handle."""
+        if self.version is not None or self._mlflow_dataset is not None:
+            return self.version
+        if not self._latest_version_resolved:
+            self._latest_version_resolved = True
+            # The newest version is looked up after the records are read, so a write in between
+            # can label this handle with a newer version than the records it read. This is
+            # accepted to avoid a backend change.
+            try:
+                self._latest_version = max((v.version for v in self.list_versions()), default=None)
+            except Exception:
+                _logger.debug("Failed to resolve the latest dataset version", exc_info=True)
+        return self._latest_version
 
     @property
     def source_type(self) -> str | None:
@@ -267,14 +299,32 @@ class EvaluationDataset(Dataset, PyFuncConvertibleDatasetMixin):
     def to_df(self) -> "pd.DataFrame":
         """Convert the dataset to a pandas DataFrame."""
         if self._mlflow_dataset:
-            return self._mlflow_dataset.to_df()
+            return self._attach_identity(self._mlflow_dataset.to_df())
 
         if self._df is None:
             from mlflow.genai.datasets import _databricks_profile_env
 
             with _databricks_profile_env():
                 self._df = self._databricks_dataset.to_df()
+            # Attach after `self._df` is set: the digest fallback calls `to_df()`.
+            self._attach_identity(self._df)
         return self._df
+
+    def _attach_identity(self, df: "pd.DataFrame") -> "pd.DataFrame":
+        try:
+            entity = self._to_mlflow_entity()
+            df.attrs[DATASET_IDENTITY_ATTR] = {
+                "name": entity.name,
+                "digest": entity.digest,
+                "source_type": entity.source_type,
+                "source": entity.source,
+                "schema": entity.schema,
+                "profile": entity.profile,
+                "records_sha256": compute_records_sha256(df),
+            }
+        except Exception:
+            _logger.debug("Failed to attach the dataset identity to the DataFrame", exc_info=True)
+        return df
 
     def has_records(self) -> bool:
         """Check if dataset records are loaded without triggering a load."""

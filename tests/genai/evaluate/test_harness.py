@@ -3,6 +3,7 @@ from mlflow.genai import scorer
 from mlflow.genai.evaluation.entities import EvalItem
 from mlflow.genai.evaluation.harness import _compute_eval_scores
 from mlflow.genai.scorers.base import SCORER_BACKEND_DATABRICKS
+from mlflow.genai.scorers.scorer_utils import get_scorer_definition_digest
 from mlflow.tracing.constant import AssessmentMetadataKey
 
 
@@ -25,6 +26,7 @@ def test_compute_eval_scores_adds_registered_scorer_metadata():
 
     assert result.assessments[0].metadata == {
         "existing": "value",
+        AssessmentMetadataKey.SCORER_DIGEST: get_scorer_definition_digest(quality_judge),
         AssessmentMetadataKey.SCORER_NAME: "quality_judge",
         AssessmentMetadataKey.SCORER_VERSION: "4",
         AssessmentMetadataKey.SCORER_RESOURCE_NAME: (
@@ -52,6 +54,7 @@ def test_compute_eval_scores_adds_registered_scorer_metadata_to_errors():
     result = _compute_eval_scores(eval_item=eval_item, scorers=[broken_judge])
 
     assert result.assessments[0].metadata == {
+        AssessmentMetadataKey.SCORER_DIGEST: get_scorer_definition_digest(broken_judge),
         AssessmentMetadataKey.SCORER_NAME: "broken_judge",
         AssessmentMetadataKey.SCORER_VERSION: "2",
         AssessmentMetadataKey.SCORER_RESOURCE_NAME: (

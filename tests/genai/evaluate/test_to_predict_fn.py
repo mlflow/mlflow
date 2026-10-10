@@ -599,3 +599,114 @@ def test_to_predict_fn_copies_trace_when_experiment_differs(
         assert trace_info.trace_id != sample_rag_trace.info.trace_id
         mock_tracing_client._upload_trace_data.assert_called_once()
         mock_get_experiment_id.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    ("endpoint_info", "expected"),
+    [
+        (
+            {
+                "name": "support-agent",
+                "config": {
+                    "served_entities": [
+                        {
+                            "name": "support-agent-3",
+                            "entity_name": "main.agents.support",
+                            "entity_version": "3",
+                        },
+                        {
+                            "name": "support-agent-4",
+                            "entity_name": "main.agents.support",
+                            "entity_version": "4",
+                        },
+                    ],
+                    "traffic_config": {
+                        "routes": [
+                            {"served_model_name": "support-agent-3", "traffic_percentage": 80},
+                            {"served_entity_name": "support-agent-4", "traffic_percentage": 20},
+                        ]
+                    },
+                },
+            },
+            [
+                {
+                    "name": "support-agent-3",
+                    "entityName": "main.agents.support",
+                    "entityVersion": "3",
+                    "trafficPercentage": 80,
+                },
+                {
+                    "name": "support-agent-4",
+                    "entityName": "main.agents.support",
+                    "entityVersion": "4",
+                    "trafficPercentage": 20,
+                },
+            ],
+        ),
+        (
+            {
+                "config": {
+                    "served_models": [
+                        {"name": "legacy-1", "model_name": "legacy_model", "model_version": "1"}
+                    ],
+                    "traffic_config": {
+                        "routes": [{"served_model_name": "legacy-1", "traffic_percentage": 100}]
+                    },
+                }
+            },
+            [
+                {
+                    "name": "legacy-1",
+                    "entityName": "legacy_model",
+                    "entityVersion": "1",
+                    "trafficPercentage": 100,
+                }
+            ],
+        ),
+        (
+            {
+                "config": {
+                    "served_entities": [
+                        {
+                            "name": "chat",
+                            "external_model": {"name": "gpt-4o", "provider": "openai"},
+                        }
+                    ]
+                }
+            },
+            [{"name": "chat"}],
+        ),
+        (
+            {
+                "config": {
+                    "served_entities": [{"name": "agent-1"}, {"entity_name": "unnamed"}],
+                    "traffic_config": {
+                        "routes": [{"traffic_percentage": 30}, {"served_entity_name": "agent-1"}]
+                    },
+                }
+            },
+            [{"name": "agent-1"}, {"entityName": "unnamed"}],
+        ),
+        ({"endpoint_type": "FOUNDATION_MODEL_API"}, []),
+        ({"config": {"served_entities": "not-a-list"}}, []),
+        (mock.MagicMock(), []),
+    ],
+)
+def test_to_predict_fn_records_endpoint_lineage(mock_deploy_client, endpoint_info, expected):
+    mock_deploy_client.get_endpoint.return_value = endpoint_info
+
+    predict_fn = to_predict_fn("endpoints:/support-agent")
+
+    assert predict_fn._mlflow_agent_uri == "endpoints:/support-agent"
+    assert predict_fn._mlflow_served_entities == expected
+
+
+def test_to_predict_fn_records_app_uri():
+    mock_workspace_client = mock.MagicMock()
+    mock_workspace_client.apps.get.return_value.url = "https://agent-app.databricksapps.com"
+
+    with mock.patch("databricks.sdk.WorkspaceClient", return_value=mock_workspace_client):
+        predict_fn = to_predict_fn("apps:/agent-app")
+
+    assert predict_fn._mlflow_agent_uri == "apps:/agent-app"
+    assert not hasattr(predict_fn, "_mlflow_served_entities")
