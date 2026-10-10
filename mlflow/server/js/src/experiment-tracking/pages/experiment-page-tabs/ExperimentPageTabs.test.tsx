@@ -12,10 +12,11 @@ import { TestApolloProvider } from '../../../common/utils/TestApolloProvider';
 import { MockedReduxStoreProvider } from '../../../common/utils/TestUtils';
 import { NOTE_CONTENT_TAG } from '../../utils/NoteUtils';
 import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
-import { ExperimentKind } from '../../constants';
+import { ExperimentKind, ExperimentPageTabName } from '../../constants';
 import { createLazyRouteElement, createRouteElement, createMLflowRoutePath } from '../../../common/utils/RoutingUtils';
+import { shouldEnableWorkflowBasedNavigation } from '../../../common/utils/FeatureUtils';
 import { PageId, RoutePaths } from '../../routes';
-import ExperimentPageTabs from './ExperimentPageTabs';
+import ExperimentPageTabs, { getExperimentDocumentTitle } from './ExperimentPageTabs';
 
 // eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(60000); // Larger timeout for integration testing
@@ -47,6 +48,11 @@ jest.mock('../experiment-runs/ExperimentRunsPage', () => ({
   // mock default export
   __esModule: true,
   default: () => <div>Experiment runs page</div>,
+}));
+
+jest.mock('../experiment-settings/ExperimentSettingsPage', () => ({
+  __esModule: true,
+  default: () => <div>Experiment settings page</div>,
 }));
 
 describe('ExperimentLoggedModelListPage', () => {
@@ -123,6 +129,13 @@ describe('ExperimentLoggedModelListPage', () => {
                           pageId: PageId.experimentPageTabRuns,
                           element: createLazyRouteElement(() => import('../experiment-runs/ExperimentRunsPage')),
                         },
+                        {
+                          path: RoutePaths.experimentPageTabSettings,
+                          pageId: PageId.experimentPageTabSettings,
+                          element: createLazyRouteElement(
+                            () => import('../experiment-settings/ExperimentSettingsPage'),
+                          ),
+                        },
                       ],
                     },
                   ]}
@@ -144,6 +157,7 @@ describe('ExperimentLoggedModelListPage', () => {
 
   beforeEach(() => {
     server.resetHandlers();
+    jest.mocked(shouldEnableWorkflowBasedNavigation).mockReturnValue(false);
   });
 
   test('should display experiment title when fetched', async () => {
@@ -158,7 +172,66 @@ describe('ExperimentLoggedModelListPage', () => {
     });
   });
 
-  test('integration test: should display popover about inferred experiment kind', async () => {
+  test('uses the revamped breadcrumb shell for GenAI experiments', async () => {
+    jest.mocked(shouldEnableWorkflowBasedNavigation).mockReturnValue(true);
+    server.resetHandlers(
+      graphql.query('MlflowGetExperimentQuery', (req, res, ctx) =>
+        res(
+          ctx.data(
+            createTestExperimentResponse(
+              createTestExperiment('12345678', 'Test experiment name', [
+                { key: 'mlflow.experimentKind', value: ExperimentKind.GENAI_DEVELOPMENT },
+              ]),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    renderTestComponent('/experiments/12345678/traces');
+
+    expect(await screen.findByRole('navigation', { name: 'Breadcrumb' })).toBeInTheDocument();
+    expect(screen.queryByText('Observability')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Experiment Settings' })).toBeInTheDocument();
+  });
+
+  test('keeps the legacy header and hides revamp-only controls for ML experiments', async () => {
+    renderTestComponent();
+
+    expect(await screen.findByText('Test experiment name')).toBeInTheDocument();
+    expect(screen.queryByRole('navigation', { name: 'Breadcrumb' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Settings' })).not.toBeInTheDocument();
+  });
+
+  test('shows the experiment Settings route inside the revamped shell', async () => {
+    jest.mocked(shouldEnableWorkflowBasedNavigation).mockReturnValue(true);
+    server.resetHandlers(
+      graphql.query('MlflowGetExperimentQuery', (req, res, ctx) =>
+        res(
+          ctx.data(
+            createTestExperimentResponse(
+              createTestExperiment('12345678', 'Test experiment name', [
+                { key: 'mlflow.experimentKind', value: ExperimentKind.GENAI_DEVELOPMENT },
+              ]),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    renderTestComponent('/experiments/12345678/settings');
+
+    expect(await screen.findByText('Experiment settings page')).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Experiment Settings' })).toBeInTheDocument();
+  });
+
+  test('formats the experiment name and active page for the document title', () => {
+    expect(getExperimentDocumentTitle('/Users/test/Test experiment name', ExperimentPageTabName.Models)).toBe(
+      'MLflow - Test experiment name > Logged Models',
+    );
+  });
+
+  test('integration test: should silently persist an inferred GenAI experiment kind', async () => {
     const confirmTagApiSpy = jest.fn();
 
     server.resetHandlers(
@@ -186,23 +259,20 @@ describe('ExperimentLoggedModelListPage', () => {
 
     renderTestComponent();
 
-    // Check that the popover is displayed
-    expect(
-      await screen.findByText(
-        "We've automatically detected the experiment type to be 'GenAI apps & agents'. You can either confirm or change the type.",
-        undefined,
-      ),
-    ).toBeInTheDocument();
-
     // Since we started on the /models tab, we should remain on the models tab (no redirect)
     expect(await screen.findByText('ExperimentLoggedModelListPage')).toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole('button', { name: 'Confirm' }));
-
-    expect(confirmTagApiSpy).toHaveBeenCalledWith({
-      experiment_id: '12345678',
-      key: 'mlflow.experimentKind',
-      value: ExperimentKind.GENAI_DEVELOPMENT,
+    expect(
+      screen.queryByText(
+        "We've automatically detected the experiment type to be 'Agents and LLM apps'. You can either confirm or change the type.",
+      ),
+    ).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(confirmTagApiSpy).toHaveBeenCalledWith({
+        experiment_id: '12345678',
+        key: 'mlflow.experimentKind',
+        value: ExperimentKind.GENAI_DEVELOPMENT,
+      });
     });
   });
 
@@ -239,7 +309,7 @@ describe('ExperimentLoggedModelListPage', () => {
 
     const modal = screen.getByRole('dialog');
 
-    // GenAI apps & agents is selected by default, just click Confirm
+    // Agents and LLM apps is selected by default, just click Confirm
     await userEvent.click(within(modal).getByRole('button', { name: 'Confirm' }));
 
     await waitFor(() => {

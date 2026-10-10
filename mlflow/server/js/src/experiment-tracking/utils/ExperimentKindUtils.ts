@@ -58,16 +58,16 @@ export const normalizeInferredExperimentKind = (experimentKind: ExperimentKind):
 
 export const ExperimentKindDropdownLabels: Record<ExperimentKind, MessageDescriptor> = {
   [ExperimentKind.GENAI_DEVELOPMENT]: defineMessage({
-    defaultMessage: 'GenAI apps & agents',
-    description: 'Label for experiments focused on generative AI model development',
+    defaultMessage: 'Agents and LLM apps',
+    description: 'Label for experiments focused on agent and LLM app development',
   }),
   [ExperimentKind.CUSTOM_MODEL_DEVELOPMENT]: defineMessage({
     defaultMessage: 'Machine learning',
     description: 'Label for custom experiments focused on machine learning',
   }),
   [ExperimentKind.GENAI_DEVELOPMENT_INFERRED]: defineMessage({
-    defaultMessage: 'GenAI apps & agents',
-    description: 'Label for experiments automatically identified as generative AI development',
+    defaultMessage: 'Agents and LLM apps',
+    description: 'Label for experiments automatically identified as agent or LLM app development',
   }),
   [ExperimentKind.CUSTOM_MODEL_DEVELOPMENT_INFERRED]: defineMessage({
     defaultMessage: 'Machine learning',
@@ -105,17 +105,17 @@ export const ExperimentKindDropdownLabels: Record<ExperimentKind, MessageDescrip
 
 export const ExperimentKindShortLabels: Record<ExperimentKind, MessageDescriptor> = {
   [ExperimentKind.GENAI_DEVELOPMENT]: defineMessage({
-    defaultMessage: 'GenAI apps & agents',
-    description: 'A short label for custom experiments focused on generative AI app and agent development',
+    defaultMessage: 'Agents and LLM apps',
+    description: 'A short label for custom experiments focused on agent and LLM app development',
   }),
   [ExperimentKind.CUSTOM_MODEL_DEVELOPMENT]: defineMessage({
     defaultMessage: 'Machine learning',
     description: 'A short label for custom experiments focused on machine learning',
   }),
   [ExperimentKind.GENAI_DEVELOPMENT_INFERRED]: defineMessage({
-    defaultMessage: 'GenAI apps & agents',
+    defaultMessage: 'Agents and LLM apps',
     description:
-      'A short label for custom experiments automatically identified as being focused on generative AI app and agent development',
+      'A short label for custom experiments automatically identified as being focused on agent or LLM app development',
   }),
   [ExperimentKind.CUSTOM_MODEL_DEVELOPMENT_INFERRED]: defineMessage({
     defaultMessage: 'Machine learning',

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useExperimentContainsTraces } from '../../traces/hooks/useExperimentContainsTraces';
 import { ExperimentKind, ExperimentPageTabName } from '../../../constants';
 import { useExperimentContainsTrainingRuns } from '../../traces/hooks/useExperimentContainsTrainingRuns';
-import { isEditableExperimentKind } from '../../../utils/ExperimentKindUtils';
+import { isEditableExperimentKind, normalizeInferredExperimentKind } from '../../../utils/ExperimentKindUtils';
 import { matchPath, useLocation } from '../../../../common/utils/RoutingUtils';
 import { RoutePaths } from '../../../routes';
 import {
@@ -49,7 +49,7 @@ export const useInferExperimentKind = ({
     if (enableWorkflowBasedNavigation || !shouldInfer || isLoading || isDismissed) {
       return undefined;
     }
-    if (containsTraces) {
+    if (containsTraces || hasV4Location) {
       return ExperimentKind.GENAI_DEVELOPMENT_INFERRED;
     }
     if (containsRuns) {
@@ -63,6 +63,7 @@ export const useInferExperimentKind = ({
     isDismissed,
     isLoading,
     containsTraces,
+    hasV4Location,
     containsRuns,
   ]);
 
@@ -85,10 +86,19 @@ export const useInferExperimentKind = ({
     return undefined;
   }, [inferredExperimentKind, isOnExperimentPageWithoutTab, enableExperimentOverviewTab]);
 
-  // automatically update the experiment type if it's not user-editable
+  // Automatically persist non-editable inferred types and GenAI inference. Runs-only
+  // experiments remain confirmable so ML experiments are not silently relabeled.
   useEffect(() => {
-    if (!enableWorkflowBasedNavigation && inferredExperimentKind && !isEditableExperimentKind(inferredExperimentKind)) {
-      updateExperimentKind({ experimentId: experimentId ?? '', kind: inferredExperimentKind });
+    if (!enableWorkflowBasedNavigation && inferredExperimentKind) {
+      const shouldWrite =
+        !isEditableExperimentKind(inferredExperimentKind) ||
+        inferredExperimentKind === ExperimentKind.GENAI_DEVELOPMENT_INFERRED;
+      if (shouldWrite) {
+        updateExperimentKind({
+          experimentId: experimentId ?? '',
+          kind: normalizeInferredExperimentKind(inferredExperimentKind),
+        });
+      }
     }
   }, [enableWorkflowBasedNavigation, experimentId, inferredExperimentKind, updateExperimentKind]);
 

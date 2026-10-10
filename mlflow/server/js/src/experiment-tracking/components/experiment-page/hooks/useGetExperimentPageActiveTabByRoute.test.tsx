@@ -42,6 +42,12 @@ describe('useGetExperimentPageActiveTabByRoute', () => {
       expectedTopLevelTabName: ExperimentPageTabName.Traces,
     },
     {
+      name: 'should return Traces tab when on trace detail route',
+      pathname: '/experiments/123/traces/trace-1',
+      expectedTabName: ExperimentPageTabName.Traces,
+      expectedTopLevelTabName: ExperimentPageTabName.Traces,
+    },
+    {
       name: 'should return Models tab when on models route',
       pathname: '/experiments/123/models',
       expectedTabName: ExperimentPageTabName.Models,
