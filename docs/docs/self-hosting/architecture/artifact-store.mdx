@@ -286,3 +286,37 @@ The browser must have network access to the storage endpoint for the direct down
 where end users cannot reach the storage directly, use proxied artifact access so that downloads flow through the
 Tracking Server. Also note that anyone holding a presigned URL can fetch the artifact until the URL expires.
 :::
+
+## Presigned URLs for direct artifact uploads \{#presigned-upload-urls}
+
+Clients can request a short-lived presigned URL from the Tracking Server and upload an artifact directly to the
+storage with an HTTP `PUT`, so that none of the data passes through the Tracking Server. Send
+`POST /api/2.0/mlflow/artifacts/presigned-upload-url` with a `run_id` (or `model_id`), the artifact `path`, and an
+optional `expiration` in seconds (Default: 900). The response contains the `presigned_url` and the `headers` that
+must be sent with the `PUT` request.
+
+This is available when the artifacts are stored directly on supported storage, not with
+[proxied artifact access](/self-hosting/architecture/tracking-server#tracking-server-artifact-store).
+MLflow supports presigned URL uploads for the following storage:
+
+- Amazon S3
+- Google Cloud Storage
+- Azure Blob Storage
+
+Presigned URLs are signed by the Tracking Server using the credentials it uses to access the storage, so those
+credentials must be able to sign:
+
+- **Google Cloud Storage**: the credentials must include a private key, for example a service account key file
+  (`GOOGLE_APPLICATION_CREDENTIALS`). Credentials without a private key, such as user credentials from
+  `gcloud auth application-default login` or the Compute Engine/GKE metadata server, cannot sign URLs. The
+  `PUT` request must send the returned `Content-Type` header.
+- **Azure Blob Storage**: use an account key (`AZURE_STORAGE_ACCESS_KEY` or `AZURE_STORAGE_CONNECTION_STRING` with an
+  account key), or Microsoft Entra ID credentials (such as `DefaultAzureCredential`) for an identity allowed to
+  request a user delegation key, for example one with the
+  [Storage Blob Delegator](https://learn.microsoft.com/en-us/azure/role-based-access-control/built-in-roles/storage#storage-blob-delegator)
+  role. The SAS token only grants write access to the blob itself, so the identity must also be allowed to write
+  blobs in the container. SAS token and anonymous credentials cannot sign. The `PUT` request must send the returned
+  `x-ms-blob-type` and `Content-Type` headers.
+
+If the credentials cannot sign, or the storage does not support presigned uploads, the Tracking Server responds with
+HTTP 501 (`NOT_IMPLEMENTED`) and the client should upload the artifact through the Tracking Server instead.

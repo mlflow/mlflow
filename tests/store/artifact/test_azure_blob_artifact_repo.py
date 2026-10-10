@@ -1,7 +1,9 @@
 import base64
+import datetime
 import json
 import os
 import posixpath
+import urllib.parse
 from unittest import mock
 
 import pytest
@@ -14,8 +16,10 @@ from mlflow.exceptions import (
     MlflowException,
     MlflowTraceDataCorrupted,
     _UnsupportedMultipartUploadException,
+    _UnsupportedPresignedUploadException,
 )
-from mlflow.store.artifact.artifact_repo import try_read_trace_data
+from mlflow.protos.databricks_pb2 import NOT_IMPLEMENTED, ErrorCode
+from mlflow.store.artifact.artifact_repo import PresignedUploadMixin, try_read_trace_data
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.artifact.azure_blob_artifact_repo import AzureBlobArtifactRepository
 
@@ -688,3 +692,175 @@ def test_delete_artifacts_folder_with_nested_folders_and_files(mock_client):
     mock_client.get_container_client().delete_blob.assert_any_call(blob_props_1.name)
     mock_client.get_container_client().delete_blob.assert_any_call(blob_props_2.name)
     mock_client.get_container_client().delete_blob.assert_any_call(blob_props_3.name)
+
+
+def test_azure_repo_supports_presigned_upload(mock_client):
+    repo = AzureBlobArtifactRepository(TEST_URI, client=mock_client)
+    assert isinstance(repo, PresignedUploadMixin)
+
+
+def test_create_presigned_upload_url_with_account_key(mock_client):
+    repo = AzureBlobArtifactRepository(TEST_URI, client=mock_client)
+    mock_client.account_name = "some-account"
+    account_key = base64.b64encode(b"some-key").decode("utf-8")
+    mock_client.credential.account_key = account_key
+    mock_client.get_blob_client.return_value.url = "some-url/container/some/path/dir/model.pkl"
+
+    with mock.patch("azure.storage.blob.generate_blob_sas", return_value="sas") as generate_sas:
+        response = repo.create_presigned_upload_url("dir/model.pkl", expiration=60)
+
+    mock_client.get_blob_client.assert_called_once_with("container", "some/path/dir/model.pkl")
+    assert response.presigned_url == "some-url/container/some/path/dir/model.pkl?sas"
+    # .pkl has no standard MIME type, so it falls back to application/octet-stream
+    assert response.headers == {
+        "x-ms-blob-type": "BlockBlob",
+        "Content-Type": "application/octet-stream",
+    }
+    kwargs = generate_sas.call_args.kwargs
+    assert kwargs["account_name"] == "some-account"
+    assert kwargs["container_name"] == "container"
+    assert kwargs["blob_name"] == "some/path/dir/model.pkl"
+    assert kwargs["account_key"] == account_key
+    assert kwargs["permission"].write is True
+    assert kwargs["permission"].read is False
+    assert kwargs["expiry"].tzinfo is not None
+    remaining = kwargs["expiry"] - datetime.datetime.now(datetime.timezone.utc)
+    assert datetime.timedelta(seconds=55) < remaining <= datetime.timedelta(seconds=60)
+    mock_client.get_user_delegation_key.assert_not_called()
+
+
+def test_create_presigned_upload_url_with_known_content_type(mock_client):
+    repo = AzureBlobArtifactRepository(TEST_URI, client=mock_client)
+    mock_client.credential.account_key = "key"
+
+    with mock.patch("azure.storage.blob.generate_blob_sas", return_value="sas"):
+        response = repo.create_presigned_upload_url("data.json")
+
+    assert response.headers["Content-Type"] == "application/json"
+    assert response.headers["x-ms-blob-type"] == "BlockBlob"
+
+
+def test_create_presigned_upload_url_default_expiration(mock_client):
+    repo = AzureBlobArtifactRepository(TEST_URI, client=mock_client)
+    mock_client.credential.account_key = "key"
+
+    with mock.patch("azure.storage.blob.generate_blob_sas", return_value="sas") as generate_sas:
+        repo.create_presigned_upload_url("model.pkl")
+
+    remaining = generate_sas.call_args.kwargs["expiry"] - datetime.datetime.now(
+        datetime.timezone.utc
+    )
+    assert datetime.timedelta(seconds=895) < remaining <= datetime.timedelta(seconds=900)
+
+
+def test_create_presigned_upload_url_with_real_sas_signing():
+    # Sign with the real azure-storage-blob SAS generation (no network access needed).
+    account_key = base64.b64encode(b"some-key").decode("utf-8")
+    client = BlobServiceClient(
+        account_url="https://account.blob.core.windows.net", credential=account_key
+    )
+    repo = AzureBlobArtifactRepository(TEST_URI, client=client)
+
+    response = repo.create_presigned_upload_url("my model.pkl")
+
+    parsed = urllib.parse.urlparse(response.presigned_url)
+    query = urllib.parse.parse_qs(parsed.query)
+    assert parsed.netloc == "account.blob.core.windows.net"
+    assert parsed.path == "/container/some/path/my%20model.pkl"
+    assert query["sp"] == ["w"]
+    assert query["sr"] == ["b"]
+    assert "se" in query
+    assert "sig" in query
+
+
+def test_create_presigned_upload_url_with_token_credential(mock_client):
+    repo = AzureBlobArtifactRepository(TEST_URI, client=mock_client)
+    mock_client.credential = mock.Mock(spec=["get_token"])
+    mock_client.get_blob_client.return_value.url = "some-url/container/some/path/model.pkl"
+    user_delegation_key = mock_client.get_user_delegation_key.return_value
+
+    with mock.patch("azure.storage.blob.generate_blob_sas", return_value="sas") as generate_sas:
+        response = repo.create_presigned_upload_url("model.pkl")
+
+    assert response.presigned_url == "some-url/container/some/path/model.pkl?sas"
+    kwargs = generate_sas.call_args.kwargs
+    assert kwargs["user_delegation_key"] is user_delegation_key
+    assert "account_key" not in kwargs
+    assert kwargs["start"].tzinfo is not None
+    assert kwargs["start"] < kwargs["expiry"]
+    mock_client.get_user_delegation_key.assert_called_once_with(kwargs["start"], kwargs["expiry"])
+
+
+def test_create_presigned_upload_url_raises_not_implemented_when_delegation_key_is_forbidden(
+    mock_client,
+):
+    repo = AzureBlobArtifactRepository(TEST_URI, client=mock_client)
+    mock_client.credential = mock.Mock(spec=["get_token"])
+    error = HttpResponseError(response=mock.Mock(status_code=403))
+    error.error_code = "AuthorizationPermissionMismatch"
+    mock_client.get_user_delegation_key.side_effect = error
+
+    with pytest.raises(
+        _UnsupportedPresignedUploadException,
+        match=_UnsupportedPresignedUploadException.MESSAGE,
+    ) as exc_info:
+        repo.create_presigned_upload_url("model.pkl")
+
+    assert exc_info.value.error_code == ErrorCode.Name(NOT_IMPLEMENTED)
+    assert exc_info.value.__cause__ is error
+
+
+def test_create_presigned_upload_url_propagates_other_forbidden_errors(mock_client):
+    repo = AzureBlobArtifactRepository(TEST_URI, client=mock_client)
+    mock_client.credential = mock.Mock(spec=["get_token"])
+    error = HttpResponseError(response=mock.Mock(status_code=403))
+    error.error_code = "AuthorizationFailure"
+    mock_client.get_user_delegation_key.side_effect = error
+
+    with pytest.raises(HttpResponseError, match="Operation returned an invalid status") as exc_info:
+        repo.create_presigned_upload_url("model.pkl")
+
+    assert exc_info.value is error
+
+
+def test_create_presigned_upload_url_propagates_other_delegation_key_errors(mock_client):
+    repo = AzureBlobArtifactRepository(TEST_URI, client=mock_client)
+    mock_client.credential = mock.Mock(spec=["get_token"])
+    error = HttpResponseError(response=mock.Mock(status_code=500))
+    mock_client.get_user_delegation_key.side_effect = error
+
+    with pytest.raises(HttpResponseError, match="Operation returned an invalid status") as exc_info:
+        repo.create_presigned_upload_url("model.pkl")
+
+    assert exc_info.value is error
+
+
+@pytest.mark.parametrize("credential", [None, object(), AzureSasCredential("sas")])
+def test_create_presigned_upload_url_raises_not_implemented_for_unsupported_credentials(
+    mock_client, credential
+):
+    repo = AzureBlobArtifactRepository(TEST_URI, client=mock_client)
+    mock_client.credential = credential
+
+    with pytest.raises(
+        _UnsupportedPresignedUploadException,
+        match=_UnsupportedPresignedUploadException.MESSAGE,
+    ) as exc_info:
+        repo.create_presigned_upload_url("model.pkl")
+
+    assert exc_info.value.error_code == ErrorCode.Name(NOT_IMPLEMENTED)
+    mock_client.get_user_delegation_key.assert_not_called()
+
+
+def test_create_presigned_upload_url_raises_not_implemented_for_connection_string_with_sas():
+    # A connection string with a SharedAccessSignature yields a client with no credential object
+    client = BlobServiceClient.from_connection_string(
+        "BlobEndpoint=https://account.blob.core.windows.net;SharedAccessSignature=sv=2021&sig=abc"
+    )
+    repo = AzureBlobArtifactRepository(TEST_URI, client=client)
+
+    with pytest.raises(
+        _UnsupportedPresignedUploadException,
+        match=_UnsupportedPresignedUploadException.MESSAGE,
+    ):
+        repo.create_presigned_upload_url("model.pkl")

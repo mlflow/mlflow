@@ -2,6 +2,7 @@ import datetime
 import os
 import posixpath
 import urllib.parse
+from mimetypes import guess_type
 from typing import Any, NamedTuple
 
 from packaging.version import Version
@@ -11,15 +12,20 @@ from mlflow.entities.multipart_upload import (
     CreateMultipartUploadResponse,
     MultipartUploadCredential,
 )
+from mlflow.entities.presigned_upload import CreatePresignedUploadResponse
 from mlflow.environment_variables import (
     MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT,
     MLFLOW_GCS_DOWNLOAD_CHUNK_SIZE,
     MLFLOW_GCS_UPLOAD_CHUNK_SIZE,
 )
-from mlflow.exceptions import _UnsupportedMultipartUploadException
+from mlflow.exceptions import (
+    _UnsupportedMultipartUploadException,
+    _UnsupportedPresignedUploadException,
+)
 from mlflow.store.artifact.artifact_repo import (
     ArtifactRepository,
     MultipartUploadMixin,
+    PresignedUploadMixin,
     _is_object_key_within_path,
     _retry_with_new_creds,
 )
@@ -34,7 +40,7 @@ class GCSMPUArguments(NamedTuple):
     content_type: str
 
 
-class GCSArtifactRepository(ArtifactRepository, MultipartUploadMixin):
+class GCSArtifactRepository(ArtifactRepository, MultipartUploadMixin, PresignedUploadMixin):
     """
     Stores artifacts on Google Cloud Storage.
 
@@ -192,6 +198,43 @@ class GCSArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         for blob in blobs:
             if _is_object_key_within_path(blob.name, dest_path):
                 blob.delete()
+
+    def create_presigned_upload_url(self, artifact_path, expiration=900):
+        """Generate a presigned URL for uploading an artifact directly to GCS.
+
+        The client must send the returned ``Content-Type`` header with the ``PUT`` request.
+
+        Raises:
+            _UnsupportedPresignedUploadException: If the client's credentials cannot sign
+                URLs (``NOT_IMPLEMENTED``, i.e. HTTP 501 from the server).
+        """
+        from google.auth.exceptions import GoogleAuthError
+
+        (bucket, dest_path) = self.parse_gcs_uri(self.artifact_uri)
+        dest_path = posixpath.join(dest_path, artifact_path)
+
+        content_type, _ = guess_type(artifact_path)
+        if not content_type:
+            content_type = "application/octet-stream"
+
+        blob = self._get_bucket(bucket).blob(dest_path)
+        try:
+            presigned_url = blob.generate_signed_url(
+                method="PUT",
+                version="v4",
+                expiration=datetime.timedelta(seconds=expiration),
+                content_type=content_type,
+            )
+        except (AttributeError, GoogleAuthError) as e:
+            # Signing needs credentials with a private key (e.g. a service account key).
+            # google-cloud-storage raises AttributeError for credentials that cannot sign
+            # (user, Compute Engine / GKE metadata, or anonymous credentials) and
+            # google.auth.exceptions.GoogleAuthError subclasses when remote signing fails.
+            raise _UnsupportedPresignedUploadException() from e
+        return CreatePresignedUploadResponse(
+            presigned_url=presigned_url,
+            headers={"Content-Type": content_type},
+        )
 
     @staticmethod
     def _validate_support_mpu():
