@@ -833,6 +833,65 @@ def test_search_traces_with_run_id_and_other_filters(store: SqlAlchemyStore):
         ("response", "mlflow.spanOutputs", "output.value"),
     ],
 )
+def test_search_traces_root_content_null_filters(store, field, primary, fallback):
+    exp_id = store.create_experiment("root_content_null")
+    cases = {
+        "missing": {},
+        "explicit-null": {primary: None},
+        "empty": {primary: ""},
+        "serialized-null": {primary: "null"},
+        "populated": {primary: "content"},
+        "large": {primary: "x" * 5000},
+        "fallback": {fallback: "content"},
+        "null-with-fallback": {primary: None, fallback: "content"},
+        "child-only": {},
+    }
+    for index, (trace_id, attributes) in enumerate(cases.items(), 1):
+        _create_trace(store, trace_id, exp_id)
+        root = create_test_span(trace_id, name=trace_id, span_id=index, attributes=attributes)
+        store.log_spans(exp_id, [root])
+        if trace_id in ("explicit-null", "null-with-fallback"):
+            # Simulate a SQL/JSON null from an external span writer, rather than the string "null".
+            with store.ManagedSessionMaker(read_only=False) as session:
+                row = session.query(SqlSpan).filter(SqlSpan.trace_id == trace_id).one()
+                content = json.loads(row.content)
+                content["attributes"][primary] = None
+                row.content = json.dumps(content)
+        if trace_id == "child-only":
+            child = create_test_span(
+                trace_id, span_id=100, parent_id=index, attributes={primary: "child content"}
+            )
+            store.log_spans(exp_id, [child])
+
+    _create_trace(store, "no-stored-spans", exp_id)
+    other_exp = store.create_experiment("other_root_content_null")
+    _create_trace(store, "other-experiment", other_exp)
+    store.log_spans(other_exp, [create_test_span("other-experiment")])
+
+    def search(operator):
+        traces, _ = store.search_traces(
+            locations=[exp_id], filter_string=f"trace.{field} {operator} AND trace.status = 'OK'"
+        )
+        return {trace.trace_id for trace in traces}
+
+    assert search("IS NULL") == {"missing", "explicit-null", "child-only"}
+    assert search("IS NOT NULL") == {
+        "empty",
+        "serialized-null",
+        "populated",
+        "large",
+        "fallback",
+        "null-with-fallback",
+    }
+
+
+@pytest.mark.parametrize(
+    ("field", "primary", "fallback"),
+    [
+        ("request", "mlflow.spanInputs", "input.value"),
+        ("response", "mlflow.spanOutputs", "output.value"),
+    ],
+)
 def test_search_traces_root_content_value_filters(store, field, primary, fallback):
     if store._get_dialect() not in (SQLITE, POSTGRES):
         pytest.skip("Value comparisons require SQLite or PostgreSQL.")
@@ -926,6 +985,25 @@ def test_search_traces_root_content_rejects_unsupported_operator(store, field):
     exp_id = store.create_experiment("root_content_invalid")
     with pytest.raises(MlflowException, match="Unsupported operator.*Supported operators"):
         store.search_traces(locations=[exp_id], filter_string=f"trace.{field} > 'value'")
+
+
+@pytest.mark.parametrize("dialect", [postgresql.dialect(), mysql.dialect(), mssql.dialect()])
+@pytest.mark.parametrize("operator", ["IS NULL", "IS NOT NULL"])
+def test_search_traces_root_content_filter_sql(store, dialect, operator):
+    with store.ManagedSessionMaker() as session:
+        filters, *_ = sqlalchemy_store_module._get_filter_clauses_for_search_traces(
+            f"trace.response {operator}", session, dialect.name, store._trace_query(session)
+        )
+        query = store._trace_query(session).filter(*filters)
+        compiled = str(
+            query.statement.compile(dialect=dialect, compile_kwargs={"literal_binds": True})
+        )
+    assert "spans.parent_span_id IS NULL" in compiled
+    assert "spans.trace_id = trace_info.request_id" in compiled
+    assert "spans.experiment_id = trace_info.experiment_id" in compiled
+    if dialect.name == MSSQL:
+        assert "openjson" in compiled.lower()
+        assert "JSON_VALUE" not in compiled
 
 
 def test_search_traces_with_span_name_filter(store: SqlAlchemyStore):

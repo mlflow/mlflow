@@ -1076,7 +1076,17 @@ def test_search_trace_utils_filter_metadata_is_null():
 
 
 @pytest.mark.parametrize("field", ["request", "response"])
-@pytest.mark.parametrize("operator", ["=", "!=", "LIKE", "ILIKE", "RLIKE"])
+@pytest.mark.parametrize("operator", ["IS NULL", "IS NOT NULL"])
+def test_search_trace_utils_parse_root_content_null(field, operator):
+    assert SearchTraceUtils.parse_search_filter_for_search_traces(f"trace.{field} {operator}") == [
+        {"type": "attribute", "key": field, "comparator": operator, "value": None}
+    ]
+
+
+@pytest.mark.parametrize("field", ["request", "response"])
+@pytest.mark.parametrize(
+    "operator", ["=", "!=", "LIKE", "ILIKE", "RLIKE", "IS NULL", "IS NOT NULL"]
+)
 def test_search_trace_utils_root_content_requires_stored_spans(field, operator):
     trace = TraceInfo(
         trace_id="trace",
@@ -1084,7 +1094,9 @@ def test_search_trace_utils_root_content_requires_stored_spans(field, operator):
         request_time=0,
         state=TraceState.OK,
     )
-    clause = f"trace.{field} {operator} 'value'"
+    clause = f"trace.{field} {operator}" + (
+        " 'value'" if operator not in ("IS NULL", "IS NOT NULL") else ""
+    )
     with pytest.raises(MlflowException, match="requires stored root spans"):
         SearchTraceUtils.filter([trace], clause)
 

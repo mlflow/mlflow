@@ -10465,6 +10465,24 @@ def _get_session_scoped_trace_ids(scoped_trace_query: Query, assessment_filters)
     )
 
 
+def _get_trace_content_presence_filter(field, dialect):
+    keys = SearchTraceUtils.TRACE_CONTENT_ATTRIBUTE_KEYS[field]
+    if dialect == MSSQL:
+        # JSON_VALUE returns NULL for strings over 4,000 characters; OPENJSON preserves them.
+        attributes = func.openjson(SqlSpan.content, "$.attributes").table_valued(
+            "key", "value", "type"
+        )
+        return (
+            select(1)
+            .select_from(attributes)
+            .where(attributes.c.key.in_(keys), attributes.c.type != 0)
+            .correlate(SqlSpan)
+            .exists()
+        )
+
+    return _get_trace_content_value(field, dialect).isnot(None)
+
+
 def _get_trace_content_value(field, dialect):
     content = (
         sqlalchemy.cast(SqlSpan.content, sqlalchemy.JSON)
@@ -10480,10 +10498,15 @@ def _get_trace_content_value(field, dialect):
 
 
 def _get_trace_content_filter(field, comparator, value, dialect):
+    if comparator in ("IS NULL", "IS NOT NULL"):
+        present = _get_trace_content_presence_filter(field, dialect)
+        return ~present if comparator == "IS NULL" else present
+
     if dialect not in (SQLITE, POSTGRES):
         raise MlflowException.invalid_parameter_value(
             f"trace.{field} {comparator} is supported only with SQLite and PostgreSQL tracking "
-            f"stores; current database is '{dialect}'."
+            f"stores; current database is '{dialect}'. IS NULL and IS NOT NULL are available "
+            "on this database."
         )
 
     content = _get_trace_content_value(field, dialect)
