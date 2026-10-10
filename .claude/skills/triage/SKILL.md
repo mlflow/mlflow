@@ -123,8 +123,10 @@ Markdown comment for the issue. It:
 - When a screenshot or recording helps show the bug, save it under `$out_dir/media`
   and cite its exact absolute path in the comment, for example
   `![Broken UI](/tmp/triage-out/media/broken-ui.png)`. Put video citations on their own line.
-  The workflow uploads only cited files and rewrites the local paths after triage. A
-  `pull_request` body may cite media the same way, for example to show the fixed behavior.
+  The workflow uploads only cited files and rewrites the local paths after triage.
+- When media would help reviewers assess the proposed change, include useful visual evidence
+  in the `pull_request` body too, citing it the same way. Prefer a before/after comparison for
+  fixes that visibly change the UI, so reviewers can see both the bug and the result of the fix.
 
 Validate before finishing:
 
