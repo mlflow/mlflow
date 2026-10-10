@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791641935162,
+  "lastUpdate": 1791644341333,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "pattara.sk127@gmail.com",
-            "name": "Pat Sukprasert",
-            "username": "PattaraS"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "d9b364075e5f2ea20bde45ea5f79770e513fdd3e",
-          "message": "Fix `spark_udf` `InvalidVersion` on Databricks Serverless for `{major}.x` runtime image strings (#24336)\n\nSigned-off-by: Pat Sukprasert <pattara.sk127@gmail.com>\nCo-authored-by: Claude <noreply@anthropic.com>",
-          "timestamp": "2026-07-09T07:02:14Z",
-          "tree_id": "e8e6b3b93ddc49eb029b599ceda742492b95abfd",
-          "url": "https://github.com/mlflow/mlflow/commit/d9b364075e5f2ea20bde45ea5f79770e513fdd3e"
-        },
-        "date": 1783580780903,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 38.13792460000016,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 23.59650148571372,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 21.934963934425888,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 22.904363245613656,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 24.664460316665544,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 41.14094619999946,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 12.096375000001558,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "113824357+Zhuoxi2000@users.noreply.github.com",
+            "name": "Edson",
+            "username": "Zhuoxi2000"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b7a5c98c19edde5adc503ca36db8eaef23790566",
+          "message": "Export list-form OpenAI system message content to `gen_ai.system_instructions` (#26470)\n\nSigned-off-by: Edson <zhuoxi2000@gmail.com>\nCo-authored-by: Aaron Teo <atwkdeveloper@gmail.com>",
+          "timestamp": "2026-10-10T14:55:49Z",
+          "tree_id": "f786d333da1f1a7a40d6839e348e6463d4045c29",
+          "url": "https://github.com/mlflow/mlflow/commit/b7a5c98c19edde5adc503ca36db8eaef23790566"
+        },
+        "date": 1791644338790,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 62.1477825999996,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 7.992183980392144,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 6.884555982456276,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 6.889541871794798,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 7.580428696969085,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 10.07963419999669,
             "unit": "ms"
           }
         ]
