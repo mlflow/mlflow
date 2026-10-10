@@ -1,0 +1,12 @@
+{"timestamp":"2026-09-12T21:00:00Z","type":"session_meta","payload":{"id":"test-session-tool-only","timestamp":"2026-09-12T21:00:00Z","cwd":"/tmp/test","originator":"codex-exec","cli_version":"0.257.0","source":"exec"}}
+{"timestamp":"2026-09-12T21:00:01Z","type":"event_msg","payload":{"type":"task_started"}}
+{"timestamp":"2026-09-12T21:00:02Z","type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"inspect the repository"}]}}
+{"timestamp":"2026-09-12T21:00:03Z","type":"response_item","payload":{"type":"custom_tool_call","name":"exec","call_id":"call_1","input":"await tools.exec_command({\"cmd\":\"pwd\"});","status":"completed"}}
+{"timestamp":"2026-09-12T21:00:04Z","type":"response_item","payload":{"type":"custom_tool_call_output","call_id":"call_1","output":[{"type":"input_text","text":"Script completed\nOutput:\n/tmp/test\n"}]}}
+{"timestamp":"2026-09-12T21:00:05Z","type":"event_msg","payload":{"type":"token_count","info":{"last_token_usage":{"input_tokens":100,"cached_input_tokens":80,"output_tokens":10,"total_tokens":110}}}}
+{"timestamp":"2026-09-12T21:00:06Z","type":"response_item","payload":{"type":"custom_tool_call","name":"exec","call_id":"call_2","input":"await tools.exec_command({\"cmd\":\"git status --short\"});","status":"completed"}}
+{"timestamp":"2026-09-12T21:00:07Z","type":"response_item","payload":{"type":"custom_tool_call_output","call_id":"call_2","output":[{"type":"input_text","text":"Script completed\nOutput:\n"}]}}
+{"timestamp":"2026-09-12T21:00:08Z","type":"event_msg","payload":{"type":"token_count","info":{"last_token_usage":{"input_tokens":120,"cached_input_tokens":96,"output_tokens":15,"total_tokens":135}}}}
+{"timestamp":"2026-09-12T21:00:09Z","type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"The repository is clean."}]}}
+{"timestamp":"2026-09-12T21:00:10Z","type":"event_msg","payload":{"type":"token_count","info":{"last_token_usage":{"input_tokens":140,"cached_input_tokens":112,"output_tokens":20,"total_tokens":160}}}}
+{"timestamp":"2026-09-12T21:00:11Z","type":"event_msg","payload":{"type":"task_complete"}}
