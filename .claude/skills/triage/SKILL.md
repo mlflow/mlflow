@@ -110,8 +110,9 @@ Create `$out_dir` first, then write `$out_dir/payload.json`:
 ```
 
 Read `$type/payload.schema.yml` before writing the payload; it defines the required fields and
-their constraints. Choose `label` from its allowed values. `comment` is the Markdown comment for
-the issue. It:
+their constraints. Choose `label` from its allowed values. A type may also accept an optional
+`pull_request`, paired with `$out_dir/fix.patch`; its README says when. `comment` is the
+Markdown comment for the issue. It:
 
 - Follows the type's template, written for a reader who has read the issue: lead with
   conclusions, not the investigation trail.
@@ -123,6 +124,9 @@ the issue. It:
   and cite its exact absolute path in the comment, for example
   `![Broken UI](/tmp/triage-out/media/broken-ui.png)`. Put video citations on their own line.
   The workflow uploads only cited files and rewrites the local paths after triage.
+- When media would help reviewers assess the proposed change, include useful visual evidence
+  in the `pull_request` body too, citing it the same way. Prefer a before/after comparison for
+  fixes that visibly change the UI, so reviewers can see both the bug and the result of the fix.
 
 Validate before finishing:
 
@@ -134,10 +138,11 @@ uvx check-jsonschema@0.37.4 \
 Fix any errors and rerun until it passes. If you wrote media, also check its citations:
 
 ```bash
-jq -j .comment "$out_dir/payload.json" |
+jq -r '.comment, .pull_request.body // ""' "$out_dir/payload.json" |
   uv run --directory .claude/skills --package skills skills embed-media \
     --check --dir "$out_dir/media"
 ```
 
 Fix any media check errors before finishing. Do not upload media yourself.
-Do not comment on, label, or close the issue. Stop after writing and validating the payload.
+Do not comment on, label, or close the issue, and do not commit, push, or open a pull request.
+Stop after writing and validating the payload.
