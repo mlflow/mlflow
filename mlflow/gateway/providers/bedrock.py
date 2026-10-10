@@ -624,11 +624,9 @@ class AmazonBedrockProvider(BaseProvider):
                 return "stop"
 
     def _parse_stream_event(
-        self, event: dict[str, Any], tool_indices: dict[int, int] | None = None
+        self, event: dict[str, Any], tool_indices: dict[int, int]
     ) -> chat.StreamResponsePayload | None:
         # Maps contentBlockIndex to the tool call's own index, so text blocks don't shift it.
-        if tool_indices is None:
-            tool_indices = {}
         if "contentBlockStart" in event:
             start = event["contentBlockStart"].get("start", {})
             if "toolUse" in start:
