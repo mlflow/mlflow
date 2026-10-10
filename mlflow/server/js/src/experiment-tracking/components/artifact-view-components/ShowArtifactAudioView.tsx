@@ -1,6 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import WaveSurfer from 'wavesurfer.js';
-import { getArtifactBlob, getArtifactLocationUrl } from '../../../common/utils/ArtifactUtils';
+import {
+  getArtifactBlob,
+  getArtifactLocationUrl,
+  getLoggedModelArtifactLocationUrl,
+} from '../../../common/utils/ArtifactUtils';
+import type { LoggedModelArtifactViewerProps } from './ArtifactViewComponents.types';
 import { ArtifactViewErrorState } from './ArtifactViewErrorState';
 import { ArtifactViewSkeleton } from './ArtifactViewSkeleton';
 
@@ -14,9 +19,15 @@ export type ShowArtifactAudioViewProps = {
   runUuid: string;
   path: string;
   getArtifact?: (...args: any[]) => any;
-};
+} & LoggedModelArtifactViewerProps;
 
-const ShowArtifactAudioView = ({ runUuid, path, getArtifact = getArtifactBlob }: ShowArtifactAudioViewProps) => {
+const ShowArtifactAudioView = ({
+  runUuid,
+  path,
+  getArtifact = getArtifactBlob,
+  isLoggedModelsMode,
+  loggedModelId,
+}: ShowArtifactAudioViewProps) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const wsRef = useRef<WaveSurfer | null>(null);
 
@@ -32,7 +43,10 @@ const ShowArtifactAudioView = ({ runUuid, path, getArtifact = getArtifactBlob }:
     let blobUrl: string | undefined;
     let cancelled = false;
 
-    const artifactUrl = getArtifactLocationUrl(path, runUuid);
+    const artifactUrl =
+      isLoggedModelsMode && loggedModelId
+        ? getLoggedModelArtifactLocationUrl(path, loggedModelId)
+        : getArtifactLocationUrl(path, runUuid);
     getArtifact(artifactUrl)
       .then((blob: Blob) => {
         if (cancelled || !containerRef.current) return;
@@ -80,7 +94,7 @@ const ShowArtifactAudioView = ({ runUuid, path, getArtifact = getArtifactBlob }:
         URL.revokeObjectURL(blobUrl);
       }
     };
-  }, [containerRef, path, runUuid, getArtifact]);
+  }, [containerRef, path, runUuid, getArtifact, isLoggedModelsMode, loggedModelId]);
 
   const showLoading = loading && !error;
 
