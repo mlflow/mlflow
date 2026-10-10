@@ -30,6 +30,24 @@ describe('useGetExperimentPageActiveTabByRoute', () => {
 
   const testCases = [
     {
+      name: 'should return Overview tab for the journey overview route',
+      pathname: '/experiments/123/overview',
+      expectedTabName: ExperimentPageTabName.Overview,
+      expectedTopLevelTabName: ExperimentPageTabName.Overview,
+    },
+    {
+      name: 'should return Dashboard tab for the dashboard route',
+      pathname: '/experiments/123/dashboard/usage',
+      expectedTabName: ExperimentPageTabName.Dashboard,
+      expectedTopLevelTabName: ExperimentPageTabName.Dashboard,
+    },
+    {
+      name: 'should map the legacy overview chart route to Dashboard',
+      pathname: '/experiments/123/overview/usage',
+      expectedTabName: ExperimentPageTabName.Dashboard,
+      expectedTopLevelTabName: ExperimentPageTabName.Dashboard,
+    },
+    {
       name: 'should return Runs tab when on runs route',
       pathname: '/experiments/123/runs',
       expectedTabName: ExperimentPageTabName.Runs,

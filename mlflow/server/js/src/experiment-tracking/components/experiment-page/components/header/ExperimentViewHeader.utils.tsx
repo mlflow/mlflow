@@ -41,6 +41,7 @@ export const getTabDisplayIcon = (tabName: ExperimentPageTabName | undefined) =>
 
   switch (tabName) {
     case ExperimentPageTabName.Overview:
+    case ExperimentPageTabName.Dashboard:
       return <ChartLineIcon />;
     case ExperimentPageTabName.Runs:
       return <ListIcon />;
@@ -107,6 +108,13 @@ const getMLTabDisplayName = (tabName: ExperimentPageTabName) => {
         <FormattedMessage
           defaultMessage="Overview"
           description="Label for the overview tab in the MLflow experiment navbar"
+        />
+      );
+    case ExperimentPageTabName.Dashboard:
+      return (
+        <FormattedMessage
+          defaultMessage="Dashboard"
+          description="Label for the dashboard tab in the MLflow experiment navbar"
         />
       );
     case ExperimentPageTabName.Runs:

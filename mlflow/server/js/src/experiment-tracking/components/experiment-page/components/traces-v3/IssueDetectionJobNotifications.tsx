@@ -174,6 +174,7 @@ export const recordSubmittedIssueDetectionJob = (
     appendSubmittedJob(getSubmittedIssueDetectionJobsForExperiment(submittedJob.experimentId), submittedJob),
   );
   window.dispatchEvent(new CustomEvent(ISSUE_DETECTION_JOB_SUBMITTED_EVENT, { detail: submittedJob }));
+  return submittedJob;
 };
 
 const getIssueDetectionRunRoute = (experimentId: string, runId: string, issueCount?: number) => {

@@ -11,7 +11,7 @@ import { shouldUseTracesV4API } from '@databricks/web-shared/genai-traces-table'
 import { shouldEnableBatchedTokenMetricQueries } from '../../../../common/utils/FeatureUtils';
 import { useSqlWarehouseContextSafe } from '../../experiment-page-tabs/SqlWarehouseContext';
 
-const TRACE_METRICS_QUERY_KEY = 'traceMetrics';
+export const TRACE_METRICS_QUERY_KEY = 'traceMetrics';
 
 /**
  * Query aggregated trace metrics for experiments
@@ -73,6 +73,8 @@ interface UseTraceMetricsQueryParams {
   dimensions?: string[];
   /** Optional: Whether the query is enabled. Defaults to true. */
   enabled?: boolean;
+  /** Optional: Poll while the query has no metric values. */
+  refetchIntervalWhileEmptyMs?: number;
 }
 
 export function useTraceMetricsQuery({
@@ -87,6 +89,7 @@ export function useTraceMetricsQuery({
   filters,
   dimensions,
   enabled = true,
+  refetchIntervalWhileEmptyMs,
 }: UseTraceMetricsQueryParams) {
   const useV4 = shouldUseTracesV4API();
   const sqlWarehouseContext = useSqlWarehouseContextSafe();
@@ -142,6 +145,15 @@ export function useTraceMetricsQuery({
       return queryTraceMetrics(queryParams);
     },
     enabled: queryEnabled,
+    refetchInterval: (queryData: QueryTraceMetricsResponse | undefined) => {
+      if (!refetchIntervalWhileEmptyMs) {
+        return false;
+      }
+      const hasMetricValues = queryData?.data_points?.some((dataPoint) =>
+        Object.values(dataPoint.values ?? {}).some((value) => value > 0),
+      );
+      return hasMetricValues ? false : refetchIntervalWhileEmptyMs;
+    },
     refetchOnWindowFocus: false,
   });
 
