@@ -2139,10 +2139,9 @@ def test_submit_leaves_backend_unset_on_default_engine(monkeypatch, tmp_path):
         assert get_job(submitted.job_id).executor_backend is None
 
 
-def test_submit_rejects_differing_custom_scorer_backend(monkeypatch, tmp_path):
-    # Routing custom scorers to a backend that differs from the default is rejected until the
-    # runner dispatches per job (today it always runs on the default backend), so the persisted
-    # per-job backend would never be honored.
+def test_submit_routes_custom_scorer_to_separate_backend(monkeypatch, tmp_path):
+    # With a separate custom-scorer backend configured, a custom scorer job records that backend
+    # (the runner dispatches on it) while other jobs stay on the default backend.
     from mlflow.server.jobs.executor import AbstractJobExecutor, JobExecutorConfig
     from mlflow.server.jobs.executor_registry import (
         get_executor_registry,
@@ -2176,8 +2175,10 @@ def test_submit_rejects_differing_custom_scorer_backend(monkeypatch, tmp_path):
             get_executor_registry().register("custom-sandbox", _FakeLocal(JobExecutorConfig()))
             monkeypatch.setenv("MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND", "custom-sandbox")
 
-            with pytest.raises(MlflowException, match="not supported yet"):
-                submit_job(invoke_scorer_job, _custom_scorer_params())
+            custom = submit_job(invoke_scorer_job, _custom_scorer_params())
+            builtin = submit_job(invoke_scorer_job, _builtin_scorer_params())
+            assert get_job(custom.job_id).executor_backend == "custom-sandbox"
+            assert get_job(builtin.job_id).executor_backend == "local"
         finally:
             shutdown_executor_registry()
 

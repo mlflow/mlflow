@@ -1777,17 +1777,43 @@ MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND = _EnvironmentVariable(
     "MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND", str, "local"
 )
 
-#: Executor backend used for custom scorer jobs. This is forward-looking configuration for
-#: per-job dispatch: until the runner dispatches jobs per backend, this must equal
-#: ``MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND`` (or be left unset). Setting it to a different backend
-#: does not route jobs there yet; it causes custom scorer job submissions to be rejected.
-#: Validated at startup. Note this only selects *where* a custom scorer would run -- running one
-#: at all still requires ``MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS`` to be enabled (it is off by
-#: default), otherwise custom scorer jobs are rejected regardless of this backend.
+#: Executor backend used for custom scorer jobs, such as ``docker`` (experimental) to run them in a
+#: container without network access. Requires the executor job-execution engine
+#: (``MLFLOW_SERVER_JOB_EXECUTION_ENGINE=executor``). A custom scorer job the backend does not
+#: support stays on ``MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND``; the ``docker`` backend runs only
+#: on-demand scorer runs made only of custom ``@scorer`` scorers. Validated at startup. Note this
+#: only selects *where* a custom scorer runs -- running one at all still requires
+#: ``MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS`` to be enabled (it is off by default), otherwise custom
+#: scorer jobs are rejected regardless of this backend.
 #: (default: unset, i.e. the default backend)
 MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND = _EnvironmentVariable(
     "MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND", str, None
 )
+
+#: Docker image for job containers run by the ``docker`` job executor backend. The image must
+#: already contain MLflow (the same version as the server) and any packages the scorer imports,
+#: because job containers have no network access. A configured image that is not present locally
+#: is pulled when the job runner starts. When unset, a minimal image matching the server's Python
+#: and MLflow versions is built when the job runner starts. Resource limits per job type can be
+#: set with ``MLFLOW_JOB_RESOURCE_LIMITS_<job_name>``, a JSON object such as
+#: ``{"cpu": "500m", "memory": "1Gi"}`` (default: 1 CPU and 1 GiB of memory).
+#: **Experimental**: subject to change or removal in a future release.
+#: (default: unset)
+MLFLOW_JOB_IMAGE = _EnvironmentVariable("MLFLOW_JOB_IMAGE", str, None)
+
+#: Docker daemon URL for the ``docker`` job executor backend (for example
+#: ``unix:///var/run/docker.sock`` or a Podman socket). The daemon must run on the same host as the
+#: MLflow server, because job inputs and results are exchanged through bind-mounted files.
+#: **Experimental**: subject to change or removal in a future release.
+#: (default: unset, i.e. the Docker client's default from the environment)
+MLFLOW_JOBS_DOCKER_HOST = _EnvironmentVariable("MLFLOW_JOBS_DOCKER_HOST", str, None)
+
+#: Extra labels for job containers run by the ``docker`` job executor backend, as a JSON object of
+#: string keys and values (for example ``{"team": "ml-platform"}``). The ``mlflow.job_id`` and
+#: ``mlflow.job_name`` labels are always applied and cannot be overridden.
+#: **Experimental**: subject to change or removal in a future release.
+#: (default: unset)
+MLFLOW_JOB_EXTRA_LABELS = _EnvironmentVariable("MLFLOW_JOB_EXTRA_LABELS", str, None)
 
 #: Whether the server may run custom scorers defined with the ``@scorer`` decorator. A custom
 #: scorer carries its function source in its serialized form, and that source is executed (via

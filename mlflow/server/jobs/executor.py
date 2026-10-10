@@ -154,6 +154,14 @@ class AbstractJobExecutor(ABC):
         """
         return False
 
+    def supports_job(self, job_name: str, params: dict[str, Any]) -> bool:
+        """Whether this executor can run a job with the given job function name and parameters.
+
+        Consulted when routing a custom scorer job to a separate custom-scorer backend: a job that
+        backend does not support runs on the default backend instead. Defaults to ``True``.
+        """
+        return True
+
     def check_requirements(self) -> None:
         """Optional fail-fast validation run during server startup.
 
