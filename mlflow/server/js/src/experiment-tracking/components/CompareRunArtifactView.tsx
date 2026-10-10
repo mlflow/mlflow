@@ -8,14 +8,27 @@ import { FormattedMessage } from 'react-intl';
 import { ArtifactViewTree } from './ArtifactViewTree';
 import { getBasename } from '../../common/utils/FileUtils';
 
+/**
+ * Minimum height for the artifact comparison container.
+ * Ensures embedded viewers (HTML iframes, PDF viewers) have enough
+ * vertical space to render meaningful content.
+ */
+const ARTIFACT_VIEW_MIN_HEIGHT = 320;
+
+/**
+ * Maximum height for the artifact comparison container expressed as a
+ * viewport-height fraction.  Using 70vh instead of 100vh prevents the
+ * artifact panel from overflowing the collapsible section that wraps it
+ * in the compare-runs page.
+ */
+const ARTIFACT_VIEW_MAX_HEIGHT = '70vh';
+
 export const CompareRunArtifactView = ({
   runUuids,
   runInfos,
-  colWidth,
 }: {
   runUuids: string[];
   runInfos: RunInfoEntity[];
-  colWidth: number;
 }) => {
   const { theme } = useDesignSystemTheme();
   const [artifactPath, setArtifactPath] = useState<string | undefined>();
@@ -38,16 +51,22 @@ export const CompareRunArtifactView = ({
       css={{
         display: 'flex',
         flexDirection: 'row',
-        height: '100vh',
+        minHeight: ARTIFACT_VIEW_MIN_HEIGHT,
+        maxHeight: ARTIFACT_VIEW_MAX_HEIGHT,
+        height: ARTIFACT_VIEW_MAX_HEIGHT,
+        border: `1px solid ${theme.colors.borderDecorative}`,
+        borderRadius: theme.borders.borderRadiusMd,
+        overflow: 'hidden',
       }}
     >
+      {/* ── Tree sidebar: intrinsic width, full height ── */}
       <div
         css={{
           backgroundColor: theme.colors.backgroundPrimary,
           color: theme.colors.textPrimary,
-          flex: '1 1 0%',
+          flex: '0 0 auto',
           whiteSpace: 'nowrap',
-          border: `1px solid ${theme.colors.grey300}`,
+          borderRight: `1px solid ${theme.colors.borderDecorative}`,
           overflowY: 'auto',
         }}
       >
@@ -60,25 +79,75 @@ export const CompareRunArtifactView = ({
           onToggleTreebeard={({ id }) => setArtifactPath(id)}
         />
       </div>
+
+      {/* ── Artifact content area: fills remaining space ── */}
       <div
         css={{
-          border: `1px solid ${theme.colors.grey300}`,
-          borderLeft: 'none',
           display: 'flex',
           flexDirection: 'column',
+          flex: 1,
+          minWidth: 0,
           overflow: 'hidden',
         }}
       >
-        <div css={{ display: 'flex', flexDirection: 'row', flexWrap: 'wrap', width: '100%' }}>
+        {/* Run‑identifier header row */}
+        <div
+          css={{
+            display: 'flex',
+            flexDirection: 'row',
+            borderBottom: `1px solid ${theme.colors.borderDecorative}`,
+            backgroundColor: theme.colors.backgroundSecondary,
+          }}
+        >
+          {runUuids.map((runUuid, index) => (
+            <div
+              key={`header-${runUuid}`}
+              css={{
+                flex: '1 1 0%',
+                minWidth: 0,
+                padding: `${theme.spacing.xs}px ${theme.spacing.sm}px`,
+                borderLeft: index > 0 ? `1px solid ${theme.colors.borderDecorative}` : 'none',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                fontWeight: theme.typography.typographyBoldFontWeight,
+                fontSize: theme.typography.fontSizeSm,
+                color: theme.colors.textSecondary,
+              }}
+              title={runUuid}
+            >
+              <FormattedMessage
+                defaultMessage="Run {index}"
+                description="Header label for a run column in the artifact comparison view"
+                values={{ index: index + 1 }}
+              />
+              {': '}
+              <span css={{ fontWeight: 'normal' }}>{runUuid.slice(0, 8)}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* Artifact viewer columns */}
+        <div
+          css={{
+            display: 'flex',
+            flexDirection: 'row',
+            flex: 1,
+            minHeight: 0,
+            width: '100%',
+          }}
+        >
           {runUuids.map((runUuid, index) => (
             <div
               key={runUuid}
-              style={{
-                flex: `1 1 ${colWidth}px`,
-                minWidth: `${colWidth}px`,
-                borderBottom: `1px solid ${theme.colors.grey300}`,
+              css={{
+                flex: '1 1 0%',
+                minWidth: 0,
+                borderLeft: index > 0 ? `1px solid ${theme.colors.borderDecorative}` : 'none',
                 padding: !artifactPath ? theme.spacing.md : 0,
                 overflow: 'auto',
+                display: 'flex',
+                flexDirection: 'column',
               }}
             >
               <ShowArtifactPage
