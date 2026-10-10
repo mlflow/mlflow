@@ -135,9 +135,18 @@ describe('TracesTableView', () => {
   });
 
   test('no-more-results keeps the pagination bar so the user can step back', async () => {
-    await renderWithProviders(<TracesTableView {...baseProps({ viewState: 'no-more-results', hasPrev: true })} />);
+    const user = userEvent.setup();
+    const onPageChange = jest.fn();
+    await renderWithProviders(
+      <TracesTableView {...baseProps({ viewState: 'no-more-results', pageIndex: 2, hasPrev: true, onPageChange })} />,
+    );
     expect(screen.getByText(/No more results/)).toBeInTheDocument();
     expect(screen.getByText(/Rows per page/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Next page' })).toBeDisabled();
+    const previous = screen.getByRole('button', { name: 'Previous page' });
+    expect(previous).toBeEnabled();
+    await user.click(previous);
+    expect(onPageChange).toHaveBeenCalledWith(1);
   });
 
   test('wraps the pagination bar in PaginationBarWrapper when provided', async () => {

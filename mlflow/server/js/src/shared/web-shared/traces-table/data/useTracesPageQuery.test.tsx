@@ -59,17 +59,17 @@ describe('useTracesPageQuery', () => {
     expect(result.current.hasNext).toBe(false);
   });
 
-  test('a full page enables Next; paging forward sends the recorded cursor', async () => {
+  test.each([0, 1])('pages from a full page to a terminal page with %i rows and back from cache', async (rowCount) => {
     const seenTokens: (string | undefined)[] = [];
     server.use(
       rest.post(SEARCH_URL, async (req, res, ctx) => {
         const body = (await req.json()) as { page_token?: string };
         seenTokens.push(body.page_token);
-        // Page 1 (no token) → full page + a cursor. Page 2 (tok-2) → short page (last).
+        // An exactly-full last page can only be recognized by fetching the next, empty page.
         if (!body.page_token) {
           return res(ctx.json({ traces: makeTraces(2), next_page_token: 'tok-2' }));
         }
-        return res(ctx.json({ traces: makeTraces(1, 'p2'), next_page_token: '' }));
+        return res(ctx.json({ traces: makeTraces(rowCount, 'p2'), next_page_token: '' }));
       }),
     );
 
@@ -98,11 +98,21 @@ describe('useTracesPageQuery', () => {
     expect(page).toBe(2);
     rerender({ pageIndex: 2 });
 
-    await waitFor(() => expect(result.current.traces).toHaveLength(1));
+    await waitFor(() => expect(result.current.traces).toHaveLength(rowCount));
     // Page 2's request used the cursor recorded from page 1's response.
     expect(seenTokens).toContain('tok-2');
     expect(result.current.hasPrev).toBe(true);
     expect(result.current.hasNext).toBe(false);
+
+    act(() => result.current.goToPage(1));
+    expect(page).toBe(1);
+    rerender({ pageIndex: 1 });
+
+    await waitFor(() => expect(result.current.traces).toHaveLength(2));
+    expect(result.current.hasPrev).toBe(false);
+    expect(result.current.hasNext).toBe(true);
+    expect(result.current.isFetching).toBe(false);
+    expect(seenTokens).toEqual([undefined, 'tok-2']);
   });
 
   test('uses the progressive transport when useProgressiveSearch is set; token cache still drives nav', async () => {
