@@ -1032,10 +1032,13 @@ def search_traces(
 
     Args:
         experiment_ids: List of experiment ids to scope the search.
-        filter_string: A search filter string. SQLite and PostgreSQL support ``=``, ``!=``,
-            ``LIKE``, ``ILIKE``, and ``RLIKE`` on ``trace.request`` and ``trace.response``,
-            comparing the complete serialized root-span inputs or outputs. Other SQL backends
-            raise an error for these value comparisons.
+        filter_string: A search filter string. For SQL-backed stores and Databricks UC traces,
+            use ``trace.request IS NULL`` or ``trace.response IS NULL`` to find traces with
+            missing root-span inputs or outputs. ``IS NOT NULL`` selects recorded values,
+            including empty strings and the text ``"null"``. SQLite and PostgreSQL also support
+            ``=``, ``!=``, ``LIKE``, ``ILIKE``, and ``RLIKE`` on these fields, comparing
+            the complete serialized root-span inputs or outputs. Other SQL backends raise an
+            error for those value comparisons.
         max_results: Maximum number of traces desired. If None, all traces matching the search
             expressions will be returned.
         order_by: List of order_by clauses.

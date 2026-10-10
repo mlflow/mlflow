@@ -1595,6 +1595,8 @@ def test_search_traces_is_workspace_scoped(workspace_tracking_store, order_by):
 @pytest.mark.parametrize(
     ("operator", "value"),
     [
+        ("IS NULL", None),
+        ("IS NOT NULL", None),
         ("=", '"content"'),
         ("!=", '"other"'),
         ("LIKE", "%content%"),
@@ -1605,12 +1607,12 @@ def test_search_traces_is_workspace_scoped(workspace_tracking_store, order_by):
 def test_search_traces_root_content_filters_are_workspace_scoped(
     workspace_tracking_store, field, operator, value
 ):
-    if workspace_tracking_store._get_dialect() not in (
+    if value is not None and workspace_tracking_store._get_dialect() not in (
         "sqlite",
         "postgresql",
     ):
         pytest.skip("Value comparisons require SQLite or PostgreSQL.")
-    clause = f"trace.{field} {operator} '{value}'"
+    clause = f"trace.{field} {operator}" + (f" '{value}'" if value is not None else "")
     key = "mlflow.spanInputs" if field == "request" else "mlflow.spanOutputs"
     experiments = {}
     for workspace in ("root-null-a", "root-null-b"):
@@ -1625,7 +1627,7 @@ def test_search_traces_root_content_filters_are_workspace_scoped(
 
     with WorkspaceContext("root-null-b"):
         traces, _ = workspace_tracking_store.search_traces(filter_string=clause)
-        assert {trace.trace_id for trace in traces} == {"root-null-b-True"}
+        assert {trace.trace_id for trace in traces} == {f"root-null-b-{operator != 'IS NULL'}"}
         traces, _ = workspace_tracking_store.search_traces(
             locations=[experiments["root-null-a"]], filter_string=clause
         )

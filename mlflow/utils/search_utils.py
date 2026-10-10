@@ -1810,6 +1810,8 @@ class SearchTraceUtils(SearchUtils):
         "LIKE",
         "ILIKE",
         "RLIKE",
+        "IS NULL",
+        "IS NOT NULL",
     }
     _SPAN_CONTENT_KEY = "content"
     VALID_SPAN_CONTENT_COMPARATORS = {"LIKE", "ILIKE"}
