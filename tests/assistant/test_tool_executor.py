@@ -1,5 +1,6 @@
 import asyncio
 import subprocess
+from pathlib import Path
 from unittest import mock
 from unittest.mock import AsyncMock
 
@@ -10,6 +11,7 @@ from mlflow.assistant.providers.base import assistant_sandbox_enabled
 from mlflow.assistant.providers.tool_executor import (
     _execute_bash_in_sandbox,
     _execute_bash_on_host,
+    _execute_file_tool_in_sandbox,
     execute_tool,
 )
 from mlflow.server.sandbox import SandboxResult, SandboxUnavailableError
@@ -369,6 +371,67 @@ def test_write_in_sandbox_passes_content_via_env_and_skips_host(workspace, monke
     assert env["MLF_FILE"] == "out.txt"
     # The write happened in the container, not on the host.
     assert not (workspace / "out.txt").exists()
+
+
+@pytest.mark.parametrize(
+    ("exit_code", "expected"),
+    [(0, ("Edited notes.txt", False)), (3, ("old_string not found in notes.txt", True))],
+)
+def test_edit_in_sandbox(workspace, monkeypatch, exit_code, expected):
+    monkeypatch.setattr(
+        "mlflow.assistant.providers.tool_executor.assistant_sandbox_enabled", lambda: True
+    )
+    (workspace / "notes.txt").write_text("old text")
+    fake = SandboxResult(exit_code=exit_code, output="")
+    with mock.patch("mlflow.server.sandbox.run_in_sandbox", return_value=fake) as run_sandbox:
+        result = _run(
+            execute_tool(
+                "Edit",
+                {"file_path": "notes.txt", "old_string": "old", "new_string": "new"},
+                cwd=workspace,
+            )
+        )
+
+    assert result == expected
+    env = run_sandbox.call_args.kwargs["environment"]
+    assert (env["MLF_FILE"], env["MLF_OLD"], env["MLF_NEW"]) == ("notes.txt", "old", "new")
+    # The edit runs in the container; the host file is untouched.
+    assert (workspace / "notes.txt").read_text() == "old text"
+
+
+@pytest.mark.parametrize(
+    ("use_cwd", "path", "message"),
+    [
+        (False, "notes.txt", "requires a configured project directory"),
+        (True, "../outside.txt", "malformed path"),
+        (True, "/etc/passwd", "malformed path"),
+    ],
+)
+def test_file_tool_in_sandbox_stays_in_the_workspace(workspace, use_cwd, path, message):
+    with mock.patch("mlflow.server.sandbox.run_in_sandbox") as run_sandbox:
+        result, is_error = _run(
+            _execute_file_tool_in_sandbox(
+                "Read", {"file_path": path}, workspace if use_cwd else None
+            )
+        )
+
+    assert is_error
+    assert message in result
+    run_sandbox.assert_not_called()
+
+
+def test_file_tool_in_sandbox_maps_an_absolute_workspace_path(workspace):
+    fake = SandboxResult(exit_code=0, output="content")
+    with mock.patch("mlflow.server.sandbox.run_in_sandbox", return_value=fake) as run_sandbox:
+        result = _run(
+            _execute_file_tool_in_sandbox(
+                "Read", {"file_path": str(workspace / "sub" / "notes.txt")}, workspace
+            )
+        )
+
+    assert result == ("content", False)
+    # The container mounts the workspace as its workdir, so the path is passed relative to it.
+    assert run_sandbox.call_args.kwargs["environment"]["MLF_FILE"] == str(Path("sub", "notes.txt"))
 
 
 @pytest.mark.parametrize(

@@ -28,19 +28,27 @@ _remote_caller: contextvars.ContextVar[bool] = contextvars.ContextVar(
 
 
 def set_remote_caller(remote: bool) -> None:
-    """Bind whether the current request is from a remote (non-localhost) caller."""
+    """Bind whether the current request is from a restricted caller.
+
+    A restricted caller is a remote (non-localhost) caller, or a local non-admin on a server with
+    auth and the sandbox on (see ``_is_restricted_caller`` in the Assistant API). This is not a
+    network-locality flag: use ``_is_localhost`` in the API for that.
+    """
     _remote_caller.set(remote)
 
 
 def is_remote_caller() -> bool:
+    """Whether the current request is from a restricted caller (see ``set_remote_caller``)."""
     return _remote_caller.get()
 
 
 def restrict_permissions_for_remote(perms: PermissionsConfig) -> PermissionsConfig:
-    """Cap ``perms`` at the restricted profile for a remote caller; a no-op for a local caller.
+    """Cap ``perms`` at the restricted profile for a restricted caller (see
+    ``set_remote_caller``); a no-op for any other caller.
 
     ``full_access`` is the arbitrary-code / out-of-workspace escape hatch, so it is the field a
-    remote caller must never obtain; the workspace-confined file and CLI allowances are unchanged.
+    restricted caller must never obtain; the workspace-confined file and CLI allowances are
+    unchanged.
     """
     if not is_remote_caller() or not perms.full_access:
         return perms
