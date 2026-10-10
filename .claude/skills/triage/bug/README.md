@@ -57,7 +57,7 @@ picking one.
 
 ## 4. Propose a pull request
 
-The workflow opens a draft pull request from your fix only when all of these hold:
+Propose a pull request only when all of these hold:
 
 - The verdict is Reproduced and the issue is simple.
 - The fix is straightforward, verified as in step 3, and needs no decisions: no design choice,
