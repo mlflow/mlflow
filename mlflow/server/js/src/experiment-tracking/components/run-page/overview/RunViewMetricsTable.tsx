@@ -24,6 +24,8 @@ import { flexRender, getCoreRowModel } from '@tanstack/react-table';
 import type { UseGetRunQueryResponseRunInfo } from '../hooks/useGetRunQuery';
 import { isUndefined } from 'lodash';
 import { useExperimentTrackingDetailsPageLayoutStyles } from '../../../hooks/useExperimentTrackingDetailsPageLayoutStyles';
+import Utils from '../../../../common/utils/Utils';
+import { useSmartNumberFormattingEnabled } from '../../experiment-page/utils/useSmartNumberFormatting';
 
 const { systemMetricsLabel, modelMetricsLabel } = defineMessages({
   systemMetricsLabel: {
@@ -57,6 +59,7 @@ const RunViewMetricsTableSection = ({
   table: TableDef<MetricEntityWithLoggedModels>;
 }) => {
   const { theme } = useDesignSystemTheme();
+  const smartFormatting = useSmartNumberFormattingEnabled();
   const [{ column: keyColumn }, ...otherColumns] = table.getLeafHeaders();
 
   const valueColumn = otherColumns.find((column) => column.id === 'value')?.column;
@@ -104,7 +107,7 @@ const RunViewMetricsTableSection = ({
                 flex: valueColumn?.getCanResize() ? valueColumn.getSize() / 100 : undefined,
               }}
             >
-              {value.toString()}
+              {smartFormatting ? Utils.formatMetric(value) : value.toString()}
             </TableCell>
             {anyRowHasModels && (
               <TableCell

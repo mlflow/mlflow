@@ -9,6 +9,7 @@ import type {
 import { compact, isNumber, isString, isUndefined, orderBy, throttle, uniq } from 'lodash';
 import type { LegendLabelData } from '../components/RunsMetricsLegend';
 import type { RunsChartsLineChartXAxisType } from '../components/RunsCharts.common';
+import type { ColumnFormatSpec } from '../../experiment-page/utils/metricColumnFormat';
 
 // Plotly-specific selectors for finding particular elements of interest in the plot DOM structure
 const PLOTLY_SVG_SELECTOR = '.main-svg';
@@ -47,6 +48,7 @@ export const useRunsMultipleTracesTooltipData = ({
   setHoveredPointIndex,
   xAxisScaleType = 'linear',
   positionInSection = 0,
+  globalFormatSpec,
 }: Pick<RunsMetricsLinePlotProps, 'runsData' | 'onHover' | 'onUnhover'> & {
   plotData: LineChartTraceData[];
   legendLabelData: LegendLabelData[];
@@ -57,6 +59,7 @@ export const useRunsMultipleTracesTooltipData = ({
   setHoveredPointIndex: (value: number) => void;
   xAxisScaleType?: 'linear' | 'log';
   positionInSection?: number;
+  globalFormatSpec?: ColumnFormatSpec;
 }) => {
   // Save current boundaries/dimensions of the plot in the mutable ref object
   const chartBoundaries = useRef<{
@@ -102,6 +105,7 @@ export const useRunsMultipleTracesTooltipData = ({
   const immediatePlotData = useRef(plotData);
   const immediateXValuesData = useRef(visibleXValues);
   const immediateFigure = useRef(initializedFigure);
+  const immediateFormatSpec = useRef(globalFormatSpec);
 
   // Update the mutable ref objects when the input data changes
   immediateLegendLabelData.current = legendLabelData;
@@ -109,6 +113,7 @@ export const useRunsMultipleTracesTooltipData = ({
   immediatePlotData.current = plotData;
   immediateXValuesData.current = visibleXValues;
   immediateFigure.current = initializedFigure;
+  immediateFormatSpec.current = globalFormatSpec;
 
   // Setup the boundaries of the plot
   const setupBoundaries = useCallback((figure: Readonly<Figure>) => {
@@ -324,6 +329,7 @@ export const useRunsMultipleTracesTooltipData = ({
           xValue: closestXValue,
           xAxisKey,
           xAxisKeyLabel,
+          formatSpec: immediateFormatSpec.current,
         };
       },
       TOOLTIP_DATA_UPDATE_INTERVAL,
