@@ -59,11 +59,11 @@ picking one.
 
 Propose a pull request only when all of these hold:
 
+- The `PR_DISABLED` environment variable is not `true`.
 - The verdict is Reproduced and the issue is simple.
 - The fix is straightforward, verified as in step 3, and needs no decisions: no design choice,
   no trade-off between plausible fixes, nothing a maintainer should weigh in on first.
 - Every changed file is under `mlflow/` or `tests/`.
-- The `PR_DISABLED` environment variable is not `true`.
 
 Otherwise, skip this step: the comment's suggested fix is enough.
 
