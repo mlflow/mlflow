@@ -1075,7 +1075,13 @@ export const createMlflowSearchFilter = (
           break;
         case INPUTS_COLUMN_ID:
         case RESPONSE_COLUMN_ID:
-          filter.push(`${networkFilter.column} ${networkFilter.operator} '${networkFilter.value}'`);
+          filter.push(
+            isNullOperator(networkFilter.operator)
+              ? `${networkFilter.column} ${networkFilter.operator}`
+              : networkFilter.operator === FilterOperator.CONTAINS
+                ? `${networkFilter.column} ILIKE '%${networkFilter.value}%'`
+                : `${networkFilter.column} ${networkFilter.operator} '${networkFilter.value}'`,
+          );
           break;
         case SPAN_TYPE_COLUMN_ID:
           if (networkFilter.operator === '=') {

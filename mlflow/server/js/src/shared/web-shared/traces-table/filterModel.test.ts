@@ -87,3 +87,9 @@ describe('filterModel', () => {
     });
   });
 });
+
+test.each([FilterOp.IS_NULL, FilterOp.IS_NOT_NULL])('null operator %s needs no value', (operator) => {
+  expect(isClauseComplete({ field: 'output', operator, value: '' })).toBe(true);
+  expect(countActiveFilters([{ field: 'output', operator, value: '' }])).toBe(1);
+  expect(isClauseComplete({ field: 'tag', operator, value: '', key: '' })).toBe(false);
+});
