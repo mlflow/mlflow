@@ -928,9 +928,17 @@ MLFLOW_GENAI_EVAL_PREDICT_RATE_LIMIT = _EnvironmentVariable(
     "MLFLOW_GENAI_EVAL_PREDICT_RATE_LIMIT", str, "auto"
 )
 
-#: Maximum scorer calls per second during mlflow.genai.evaluate. A token-bucket
-#: rate limiter throttles individual scorer invocations across all worker threads.
-#: Accepted values: a positive number (fixed rate) or ``0`` to disable.
+#: Shared scorer budget per second during mlflow.genai.evaluate. A token-bucket
+#: rate limiter throttles scorer invocations across all worker threads. With a
+#: compatible databricks-agents SDK and backend,
+#: Databricks RetrievalRelevance consumes this budget per judge HTTP attempt
+#: (including chunk retries), instead of once per scorer invocation. Request-level
+#: accounting defaults on for supported workspaces. Disabled or unavailable workspace
+#: settings and other scorers retain invocation-level admission.
+#: Waiting solely for request capacity does not consume the retrieval scorer's timeout;
+#: active judge work still does. Timeout cancels queued requests and retry waits.
+#: Accepted values: ``auto`` (adaptive rate starting at 10 rps), a positive number
+#: (fixed rate), or ``0`` to disable. The token bucket allows a one-second burst.
 #: When unset, the scorer rate is auto-derived as predict_rate x num_scorers.
 MLFLOW_GENAI_EVAL_SCORER_RATE_LIMIT = _EnvironmentVariable(
     "MLFLOW_GENAI_EVAL_SCORER_RATE_LIMIT", str, None
