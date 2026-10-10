@@ -70,6 +70,12 @@ jest.mock('../experiment-overview/ExperimentGenAIOverviewPage', () => ({
   default: () => <div>Experiment overview page</div>,
 }));
 
+jest.mock('../experiment-overview/ExperimentGenAIJourneyOverviewPage', () => ({
+  // mock default export
+  __esModule: true,
+  default: () => <div>Experiment overview page</div>,
+}));
+
 jest.mock('../experiment-runs/ExperimentRunsPage', () => ({
   // mock default export
   __esModule: true,
@@ -128,6 +134,13 @@ describe('ExperimentLoggedModelListPage', () => {
                         withWorkflowType ? ExperimentPageTabsWithWorkflowType : ExperimentPageTabs,
                       ),
                       children: [
+                        {
+                          path: RoutePaths.experimentPageTabJourneyOverview,
+                          pageId: PageId.experimentPageTabJourneyOverview,
+                          element: createLazyRouteElement(
+                            () => import('../experiment-overview/ExperimentGenAIJourneyOverviewPage'),
+                          ),
+                        },
                         {
                           path: RoutePaths.experimentPageTabOverview,
                           pageId: PageId.experimentPageTabOverview,
