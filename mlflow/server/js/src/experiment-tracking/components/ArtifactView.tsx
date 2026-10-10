@@ -60,12 +60,16 @@ import type { LoggedModelArtifactViewerProps } from './artifact-view-components/
 import { MlflowService } from '../sdk/MlflowService';
 import type { KeyValueEntity } from '../../common/types';
 import { getMultipartDownloadsEnabledSync } from '../hooks/useServerInfo';
+import {
+  ARTIFACT_PROXY_ROUTE_ANCHORS,
+  getArtifactProxyDownloadUrl,
+  isEligibleArtifactProxyUri,
+} from '../../common/utils/artifactProxy';
 
 const { Text } = Typography;
-const MLFLOW_ARTIFACTS_ROUTE_ANCHORS = [
-  'api/2.0/mlflow-artifacts/artifacts/',
-  'ajax-api/2.0/mlflow-artifacts/artifacts/',
-];
+// Derived from the shared anchors so the two artifact-proxy URI parsers in the
+// UI cannot drift apart. This form matches against a leading-slash-stripped path.
+const MLFLOW_ARTIFACTS_ROUTE_ANCHORS = ARTIFACT_PROXY_ROUTE_ANCHORS.map((anchor) => `${anchor.replace(/^\//, '')}/`);
 const PRESIGNED_DOWNLOAD_FALLBACK_STATUSES = [400, 404, 501, 503];
 
 const joinArtifactPaths = (rootPath: string, artifactPath: string) =>
@@ -118,6 +122,12 @@ type ArtifactViewImplProps = DesignSystemHocProps & {
   initialSelectedArtifactPath?: string;
   artifactNode: any; // TODO: PropTypes.instanceOf(ArtifactNode)
   artifactRootUri: string;
+  /**
+   * The logged model's own artifact root, supplied when a run page falls back to
+   * showing a logged model's artifacts. In that case `artifactRootUri` is still the
+   * run's root, which is a different location.
+   */
+  loggedModelArtifactUri?: string;
   listArtifactsApi: (...args: any[]) => any;
   listArtifactsLoggedModelApi: typeof listArtifactsLoggedModelApi;
   modelVersionsBySource: any;
@@ -353,9 +363,24 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
           }
         }
       }
-      await this.downloadArtifactViaBlob(getArtifactLocationUrl(artifactPath, runUuid), artifactPath);
+      // Inside this branch the artifact root belongs to the run itself (the logged-model
+      // fallback is handled below), so an eligible proxy URI can be read directly.
+      const { artifactRootUri } = this.props;
+      const downloadUrl = isEligibleArtifactProxyUri(artifactRootUri)
+        ? getArtifactProxyDownloadUrl(artifactRootUri, artifactPath)
+        : getArtifactLocationUrl(artifactPath, runUuid);
+      await this.downloadArtifactViaBlob(downloadUrl, artifactPath);
     } else if (loggedModelId) {
-      await this.downloadArtifactViaBlob(getLoggedModelArtifactLocationUrl(artifactPath, loggedModelId), artifactPath);
+      // On a logged model's own page `artifactRootUri` is the model's root; when a run
+      // page falls back to logged model artifacts it is still the run's, so the model's
+      // root has to come from the dedicated prop.
+      const loggedModelRootUri = isFallbackToLoggedModelArtifacts
+        ? this.props.loggedModelArtifactUri
+        : this.props.artifactRootUri;
+      const downloadUrl = isEligibleArtifactProxyUri(loggedModelRootUri)
+        ? getArtifactProxyDownloadUrl(loggedModelRootUri, artifactPath)
+        : getLoggedModelArtifactLocationUrl(artifactPath, loggedModelId);
+      await this.downloadArtifactViaBlob(downloadUrl, artifactPath);
     }
   }
 
@@ -468,9 +493,18 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
           this.props.experimentId,
           undefined,
           this.props.entityTags,
+          // In fallback mode the artifact root belongs to the run, not the model.
+          this.props.isFallbackToLoggedModelArtifacts ? undefined : this.props.artifactRootUri,
         );
       } else {
-        this.props.listArtifactsApi(this.props.runUuid, id, undefined, this.props.experimentId, this.props.entityTags);
+        this.props.listArtifactsApi(
+          this.props.runUuid,
+          id,
+          undefined,
+          this.props.experimentId,
+          this.props.entityTags,
+          this.props.artifactRootUri,
+        );
       }
     }
     this.setState({
@@ -665,6 +699,7 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
             loggedModelId={loggedModelId}
             isLoggedModelsMode={isLoggedModelsMode}
             entityTags={this.props.entityTags}
+            isFallbackToLoggedModelArtifacts={this.props.isFallbackToLoggedModelArtifacts}
           />
         </div>
       </div>
