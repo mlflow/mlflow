@@ -4,8 +4,6 @@ import pytest
 
 from mlflow.exceptions import MlflowException
 from mlflow.utils.search_utils import (
-    SearchAgentPluginUtils,
-    SearchAgentPluginVersionUtils,
     SearchSkillUtils,
     SearchSkillVersionUtils,
     SearchUtils,
@@ -88,8 +86,6 @@ def test_skill_filter_preserves_dotted_tag_key():
 _ALL_SEARCH_UTILS = [
     SearchSkillUtils,
     SearchSkillVersionUtils,
-    SearchAgentPluginUtils,
-    SearchAgentPluginVersionUtils,
 ]
 
 
@@ -199,63 +195,6 @@ def test_skill_version_filter_rejects_name():
 
 
 # ---------------------------------------------------------------------------
-# SearchAgentPluginUtils — valid filters
-# ---------------------------------------------------------------------------
-
-
-def test_agent_plugin_filter_parses_member_name():
-    parsed = SearchAgentPluginUtils.parse_search_filter("member_name = 'code-review'")
-    assert len(parsed) == 1
-    assert parsed[0]["key"] == "member_name"
-    assert parsed[0]["value"] == "code-review"
-
-
-@pytest.mark.parametrize(
-    "filter_string",
-    [
-        "member_name LIKE 'code%'",
-        "member_name ILIKE 'CODE%'",
-        "member_name != 'code-review'",
-    ],
-)
-def test_agent_plugin_filter_rejects_non_equality_member_name(filter_string):
-    # Member search matches membership rows by exact name, so only = is supported.
-    with pytest.raises(MlflowException, match=r"Supported comparators: \['='\]") as exc:
-        SearchAgentPluginUtils.parse_search_filter(filter_string)
-    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
-
-
-def test_agent_plugin_filter_parses_search_text():
-    parsed = SearchAgentPluginUtils.parse_search_filter("search_text ILIKE '%deploy%'")
-    assert len(parsed) == 1
-    assert parsed[0]["key"] == "search_text"
-
-
-# ---------------------------------------------------------------------------
-# SearchAgentPluginVersionUtils — valid filters
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.parametrize(
-    ("filter_string", "expected_key"),
-    [
-        ("status = 'active'", "status"),
-        ("organization = 'acme'", "organization"),
-        ("source_type = 'oci'", "source_type"),
-    ],
-)
-def test_agent_plugin_version_filter_parses_valid(filter_string, expected_key):
-    parsed = SearchAgentPluginVersionUtils.parse_search_filter(filter_string)
-    assert len(parsed) == 1
-    assert parsed[0]["key"] == expected_key
-
-
-def test_agent_plugin_version_filter_rejects_member_name():
-    with pytest.raises(MlflowException, match=r"(?i)invalid"):
-        SearchAgentPluginVersionUtils.parse_search_filter("member_name = 'review'")
-
-
-# ---------------------------------------------------------------------------
 # Value shape: only IN and NOT IN take a list
 # ---------------------------------------------------------------------------
 
@@ -354,11 +293,6 @@ def test_skill_version_filter_rejects_non_numeric_version():
         SearchSkillVersionUtils.parse_search_filter("version LIKE '1%'")
 
 
-@pytest.mark.parametrize(
-    "utils", [SearchSkillUtils, SearchAgentPluginUtils, SearchAgentPluginVersionUtils]
-)
-def test_version_filter_rejected_on_other_surfaces(utils):
-    # Agent plugin versions are SemVer strings, so version filtering there needs
-    # SemVer comparisons rather than the numeric path used by skill versions.
+def test_version_filter_rejected_on_parent_search():
     with pytest.raises(MlflowException, match=r"(?i)invalid attribute key 'version'"):
-        utils.parse_search_filter("version = 1")
+        SearchSkillUtils.parse_search_filter("version = 1")
