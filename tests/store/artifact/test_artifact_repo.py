@@ -1,12 +1,14 @@
 import logging
 import posixpath
 import time
+from pathlib import Path
 from unittest import mock
 
 import pytest
 
 from mlflow.entities import FileInfo
 from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import PERMISSION_DENIED, RESOURCE_DOES_NOT_EXIST, ErrorCode
 from mlflow.store.artifact.artifact_repo import (
     ArtifactRepository,
     _is_object_key_within_path,
@@ -403,3 +405,148 @@ def test_download_artifacts_prevents_empty_dir_path_traversal(malicious_dir):
             ):
                 repo.download_artifacts("", dst_path=tmp.path())
         list_artifacts_mock.assert_called()
+
+
+class ObjectStoreArtifactRepositoryImpl(ArtifactRepository):
+    """
+    In-memory implementation of ArtifactRepository that behaves like an object store: a key can be
+    both an object and the prefix of other objects, and directories exist only as prefixes.
+    """
+
+    def __init__(self, objects, missing_error=None):
+        super().__init__("memory://root")
+        self.objects = objects
+        self.missing_error = missing_error or FileNotFoundError("Not Found")
+        self.listed_paths = []
+        self.downloaded_paths = []
+
+    def log_artifact(self, local_file, artifact_path=None):
+        raise NotImplementedError()
+
+    def log_artifacts(self, local_dir, artifact_path=None):
+        raise NotImplementedError()
+
+    def list_artifacts(self, path=None):
+        self.listed_paths.append(path)
+        prefix = f"{path.rstrip('/')}/" if path else ""
+        infos = {}
+        for key, data in self.objects.items():
+            if key.startswith(prefix):
+                child, sep, _ = key.removeprefix(prefix).partition("/")
+                infos[child] = FileInfo(prefix + child, bool(sep), None if sep else len(data))
+        return sorted(infos.values(), key=lambda f: f.path)
+
+    def _download_file(self, remote_file_path, local_path):
+        self.downloaded_paths.append(remote_file_path)
+        if remote_file_path not in self.objects:
+            raise self.missing_error
+        Path(local_path).write_bytes(self.objects[remote_file_path])
+
+
+def test_download_artifact_file_calls_download_artifacts_by_default(tmp_path):
+    repo = ArtifactRepositoryImpl(_PARENT_DIR)
+    with mock.patch.object(
+        repo, "download_artifacts", return_value=str(tmp_path / _MODEL_FILE)
+    ) as download_mock:
+        assert repo._download_artifact_file(_MODEL_FILE, str(tmp_path)) == str(
+            tmp_path / _MODEL_FILE
+        )
+    download_mock.assert_called_once_with(_MODEL_FILE, str(tmp_path))
+
+
+@pytest.mark.parametrize("artifact_path", ["file.txt", "a/b/file.txt"])
+def test_download_artifact_file_before_listing_skips_listing_for_file(tmp_path, artifact_path):
+    repo = ObjectStoreArtifactRepositoryImpl({artifact_path: b"content"})
+
+    local_path = repo._download_artifact_file_before_listing(artifact_path, str(tmp_path))
+
+    assert local_path == str(tmp_path.joinpath(artifact_path))
+    assert Path(local_path).read_bytes() == b"content"
+    assert repo.downloaded_paths == [artifact_path]
+    assert repo.listed_paths == []
+
+
+def test_download_artifact_file_before_listing_downloads_directory(tmp_path):
+    repo = ObjectStoreArtifactRepositoryImpl({"dir/a.txt": b"a", "dir/sub/b.txt": b"b"})
+
+    local_path = repo._download_artifact_file_before_listing("dir", str(tmp_path))
+
+    assert local_path == str(tmp_path / "dir")
+    assert (tmp_path / "dir" / "a.txt").read_bytes() == b"a"
+    assert (tmp_path / "dir" / "sub" / "b.txt").read_bytes() == b"b"
+
+
+def test_download_artifact_file_before_listing_prefers_object_over_prefix(tmp_path):
+    repo = ObjectStoreArtifactRepositoryImpl({"both": b"object", "both/child.txt": b"child"})
+
+    local_path = repo._download_artifact_file_before_listing("both", str(tmp_path))
+
+    assert Path(local_path).read_bytes() == b"object"
+    assert repo.listed_paths == []
+
+
+@pytest.mark.parametrize(
+    ("missing_error", "expected_error_code"),
+    [
+        (FileNotFoundError("Not Found"), "INTERNAL_ERROR"),
+        (
+            MlflowException("Not Found", error_code=RESOURCE_DOES_NOT_EXIST),
+            ErrorCode.Name(RESOURCE_DOES_NOT_EXIST),
+        ),
+    ],
+)
+def test_download_artifact_file_before_listing_raises_download_artifacts_error_for_missing_file(
+    tmp_path, missing_error, expected_error_code
+):
+    repo = ObjectStoreArtifactRepositoryImpl({"other.txt": b"other"}, missing_error=missing_error)
+    with pytest.raises(MlflowException, match="Not Found") as expected:
+        repo.download_artifacts("missing.txt", str(tmp_path))
+    repo.listed_paths.clear()
+
+    with pytest.raises(MlflowException, match="Not Found") as actual:
+        repo._download_artifact_file_before_listing("missing.txt", str(tmp_path))
+
+    assert actual.value.message == expected.value.message
+    assert actual.value.error_code == expected.value.error_code == expected_error_code
+    assert repo.listed_paths == ["missing.txt"]
+
+
+def test_download_artifact_file_before_listing_propagates_listing_error(tmp_path):
+    repo = ObjectStoreArtifactRepositoryImpl({})
+    listing_error = MlflowException("Access Denied", error_code=PERMISSION_DENIED)
+
+    with (
+        mock.patch.object(repo, "list_artifacts", side_effect=listing_error),
+        pytest.raises(MlflowException, match="Access Denied") as exc,
+    ):
+        repo._download_artifact_file_before_listing("missing.txt", str(tmp_path))
+
+    assert exc.value is listing_error
+
+
+@pytest.mark.parametrize("artifact_path", ["", "dir/"])
+def test_download_artifact_file_before_listing_downloads_directory_paths_directly(
+    tmp_path, artifact_path
+):
+    repo = ObjectStoreArtifactRepositoryImpl({"dir/a.txt": b"a"})
+
+    with mock.patch.object(
+        repo, "download_artifacts", wraps=repo.download_artifacts
+    ) as download_mock:
+        repo._download_artifact_file_before_listing(artifact_path, str(tmp_path))
+
+    download_mock.assert_called_once_with(artifact_path, str(tmp_path))
+    assert (tmp_path / "dir" / "a.txt").read_bytes() == b"a"
+    assert repo.downloaded_paths == ["dir/a.txt"]
+
+
+def test_download_artifact_file_before_listing_prevents_path_traversal(tmp_path):
+    repo = ObjectStoreArtifactRepositoryImpl({"../evil.txt": b"evil"})
+
+    with pytest.raises(
+        MlflowException, match="Invalid path: resolved path is outside the artifact directory"
+    ):
+        repo._download_artifact_file_before_listing("../evil.txt", str(tmp_path))
+
+    assert repo.downloaded_paths == []
+    assert repo.listed_paths == []

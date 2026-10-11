@@ -1369,7 +1369,7 @@ def _send_artifact(artifact_repository, path):
     tmp_dir = tempfile.TemporaryDirectory()
     try:
         file_path = os.path.abspath(
-            artifact_repository.download_artifacts(path, dst_path=tmp_dir.name)
+            artifact_repository._download_artifact_file(path, dst_path=tmp_dir.name)
         )
         return _create_temp_artifact_file_response(file_path, path, tmp_dir.cleanup)
     except Exception:
@@ -3998,7 +3998,7 @@ def _download_artifact(artifact_path):
 
     tmp_dir = tempfile.TemporaryDirectory()
     try:
-        dst = os.path.abspath(artifact_repo.download_artifacts(artifact_path, tmp_dir.name))
+        dst = os.path.abspath(artifact_repo._download_artifact_file(artifact_path, tmp_dir.name))
         return _create_temp_artifact_file_response(dst, artifact_path, tmp_dir.cleanup)
     except Exception:
         tmp_dir.cleanup()

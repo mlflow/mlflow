@@ -6819,7 +6819,7 @@ def test_send_artifact_prefers_local_path(tmp_path):
     assert response.get_data() == test_data
     assert response.headers["Content-Disposition"] == "attachment; filename=model.pkl"
     mock_artifact_repo.get_local_path.assert_called_once_with(artifact_path)
-    mock_artifact_repo.download_artifacts.assert_not_called()
+    mock_artifact_repo._download_artifact_file.assert_not_called()
     mock_tmp_dir.assert_not_called()
 
 
@@ -6831,7 +6831,7 @@ def test_send_artifact_falls_back_to_download_when_local_path_unavailable(tmp_pa
 
     mock_artifact_repo = mock.MagicMock()
     mock_artifact_repo.get_local_path.return_value = None
-    mock_artifact_repo.download_artifacts.return_value = str(test_file)
+    mock_artifact_repo._download_artifact_file.return_value = str(test_file)
 
     with app.test_request_context(method="GET"):
         response = _send_artifact(mock_artifact_repo, artifact_path)
@@ -6840,7 +6840,9 @@ def test_send_artifact_falls_back_to_download_when_local_path_unavailable(tmp_pa
     assert response.get_data() == test_data
     assert response.headers["Content-Disposition"] == "attachment; filename=model.pkl"
     mock_artifact_repo.get_local_path.assert_called_once_with(artifact_path)
-    mock_artifact_repo.download_artifacts.assert_called_once_with(artifact_path, dst_path=mock.ANY)
+    mock_artifact_repo._download_artifact_file.assert_called_once_with(
+        artifact_path, dst_path=mock.ANY
+    )
 
 
 def test_create_artifact_file_response_uses_local_path_mimetype_and_artifact_name(tmp_path):
@@ -6973,7 +6975,7 @@ def test_download_artifact_uses_local_path_fast_path(enable_serve_artifacts, tmp
     assert response.get_data() == test_data
     assert response.headers["Content-Disposition"] == "attachment; filename=model.pkl"
     mock_artifact_repo.get_local_path.assert_called_once_with(artifact_path)
-    mock_artifact_repo.download_artifacts.assert_not_called()
+    mock_artifact_repo._download_artifact_file.assert_not_called()
     mock_tmp_dir.assert_not_called()
 
 
@@ -7042,7 +7044,7 @@ def test_download_artifact_streams_in_chunks(enable_serve_artifacts, tmp_path):
 
         mock_artifact_repo = mock.MagicMock()
         mock_artifact_repo.get_local_path.return_value = None
-        mock_artifact_repo.download_artifacts.return_value = str(test_file)
+        mock_artifact_repo._download_artifact_file.return_value = str(test_file)
         mock_repo.return_value = mock_artifact_repo
 
         # Call the function and capture the response
@@ -7065,7 +7067,9 @@ def test_download_artifact_streams_in_chunks(enable_serve_artifacts, tmp_path):
         streamed_data = b"".join(response_chunks)
         assert streamed_data == test_data
         mock_artifact_repo.get_local_path.assert_called_once_with(artifact_path)
-        mock_artifact_repo.download_artifacts.assert_called_once_with(artifact_path, str(tmp_path))
+        mock_artifact_repo._download_artifact_file.assert_called_once_with(
+            artifact_path, str(tmp_path)
+        )
 
 
 def test_download_artifact_cleans_up_tmp_dir_when_download_fails(enable_serve_artifacts, tmp_path):
@@ -7082,14 +7086,14 @@ def test_download_artifact_cleans_up_tmp_dir_when_download_fails(enable_serve_ar
 
         mock_artifact_repo = mock.MagicMock()
         mock_artifact_repo.get_local_path.return_value = None
-        mock_artifact_repo.download_artifacts.side_effect = RuntimeError("boom")
+        mock_artifact_repo._download_artifact_file.side_effect = RuntimeError("boom")
         mock_repo.return_value = mock_artifact_repo
 
         with pytest.raises(RuntimeError, match="boom"):
             _download_artifact(artifact_path)
 
     mock_artifact_repo.get_local_path.assert_called_once_with(artifact_path)
-    mock_artifact_repo.download_artifacts.assert_called_once_with(artifact_path, str(tmp_path))
+    mock_artifact_repo._download_artifact_file.assert_called_once_with(artifact_path, str(tmp_path))
     mock_tmp_dir_instance.cleanup.assert_called_once()
 
 
@@ -7117,6 +7121,91 @@ def test_download_artifact_returns_404_for_missing_azure_blob(enable_serve_artif
 
     assert response.status_code == 404
     assert json.loads(response.get_data())["error_code"] == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+
+
+@pytest.fixture
+def s3_artifact_repo(mock_s3_bucket):
+    artifact_repo = S3ArtifactRepository(f"s3://{mock_s3_bucket}/root")
+    s3_client = artifact_repo._get_s3_client()
+    for key, body in {
+        "model/MLmodel": b"flavors: {}",
+        "model/data/weights.bin": b"weights",
+    }.items():
+        s3_client.put_object(Bucket=mock_s3_bucket, Key=f"root/{key}", Body=body)
+    yield artifact_repo
+    artifact_repo.thread_pool.shutdown()
+
+
+def test_download_artifact_serves_s3_file_without_listing(enable_serve_artifacts, s3_artifact_repo):
+    with (
+        app.test_request_context(method="GET"),
+        mock.patch(
+            "mlflow.server.handlers._get_artifact_repo_mlflow_artifacts",
+            return_value=s3_artifact_repo,
+        ),
+        mock.patch.object(
+            s3_artifact_repo, "list_artifacts", wraps=s3_artifact_repo.list_artifacts
+        ) as list_artifacts_mock,
+    ):
+        response = _download_artifact("model/MLmodel")
+
+    response.direct_passthrough = False
+    assert response.status_code == 200
+    assert response.get_data() == b"flavors: {}"
+    assert response.headers["Content-Disposition"] == "attachment; filename=MLmodel"
+    response.close()
+    list_artifacts_mock.assert_not_called()
+
+
+def test_download_artifact_rejects_s3_directory(enable_serve_artifacts, s3_artifact_repo):
+    with (
+        app.test_request_context(method="GET"),
+        mock.patch(
+            "mlflow.server.handlers._get_artifact_repo_mlflow_artifacts",
+            return_value=s3_artifact_repo,
+        ),
+    ):
+        response = _download_artifact("model/data")
+
+    assert response.status_code == 400
+    body = json.loads(response.get_data())
+    assert body["error_code"] == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+    assert "Artifact path refers to a directory, not a file: 'model/data'" in body["message"]
+
+
+def test_download_artifact_missing_s3_file_returns_download_artifacts_error(
+    enable_serve_artifacts, s3_artifact_repo, tmp_path
+):
+    with pytest.raises(MlflowException, match="Not Found") as expected:
+        s3_artifact_repo.download_artifacts("model/missing.txt", str(tmp_path))
+
+    with (
+        app.test_request_context(method="GET"),
+        mock.patch(
+            "mlflow.server.handlers._get_artifact_repo_mlflow_artifacts",
+            return_value=s3_artifact_repo,
+        ),
+    ):
+        response = _download_artifact("model/missing.txt")
+
+    assert response.status_code == expected.value.get_http_status_code()
+    assert json.loads(response.get_data())["error_code"] == expected.value.error_code
+
+
+def test_send_artifact_serves_s3_file_without_listing(s3_artifact_repo):
+    with (
+        app.test_request_context(method="GET"),
+        mock.patch.object(
+            s3_artifact_repo, "list_artifacts", wraps=s3_artifact_repo.list_artifacts
+        ) as list_artifacts_mock,
+    ):
+        response = _send_artifact(s3_artifact_repo, "model/data/weights.bin")
+
+    response.direct_passthrough = False
+    assert response.status_code == 200
+    assert response.get_data() == b"weights"
+    response.close()
+    list_artifacts_mock.assert_not_called()
 
 
 @pytest.mark.parametrize(

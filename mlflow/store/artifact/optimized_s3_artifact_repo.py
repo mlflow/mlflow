@@ -396,6 +396,11 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
             orig_creds=s3_client,
         )
 
+    def _download_artifact_file(self, artifact_path, dst_path):
+        # Skip the `ListObjectsV2` directory probe that `download_artifacts` runs before the
+        # download. For a file, that listing is always empty.
+        return self._download_artifact_file_before_listing(artifact_path, dst_path)
+
     def delete_artifacts(self, artifact_path=None):
         dest_path = self.bucket_path
         if artifact_path:

@@ -96,7 +96,7 @@ async def download_artifact(artifact_path: str):
         try:
             dst = os.path.abspath(
                 await asyncio.to_thread(
-                    artifact_repo.download_artifacts, artifact_path, tmp_dir.name
+                    artifact_repo._download_artifact_file, artifact_path, tmp_dir.name
                 )
             )
         except Exception:

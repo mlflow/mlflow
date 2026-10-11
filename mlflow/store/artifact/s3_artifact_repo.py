@@ -540,6 +540,11 @@ class S3ArtifactRepository(
         )
         s3_client.download_file(bucket, s3_full_path, local_path, **download_kwargs)
 
+    def _download_artifact_file(self, artifact_path, dst_path):
+        # Skip the `ListObjectsV2` directory probe that `download_artifacts` runs before the
+        # download. For a file, that listing is always empty.
+        return self._download_artifact_file_before_listing(artifact_path, dst_path)
+
     def delete_artifacts(self, artifact_path=None):
         (bucket, dest_path) = self.parse_s3_compliant_uri(self.artifact_uri)
         if artifact_path:
