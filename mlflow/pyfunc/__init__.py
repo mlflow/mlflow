@@ -590,7 +590,11 @@ from mlflow.utils.requirements_utils import (
 )
 from mlflow.utils.spark_utils import is_spark_connect_mode
 from mlflow.utils.uv_utils import copy_uv_project_files
-from mlflow.utils.virtualenv import _get_python_env, _get_virtualenv_name
+from mlflow.utils.virtualenv import (
+    _get_python_env,
+    _get_virtualenv_name,
+    _normalize_env_symlinks,
+)
 from mlflow.utils.warnings_utils import color_warning
 
 try:
@@ -1900,6 +1904,7 @@ def _prebuild_env_internal(local_model_path, archive_name, save_path, env_manage
         if os.path.exists(cache_path):
             shutil.rmtree(cache_path)
 
+        _normalize_env_symlinks(env_root_dir)
         return archive_directory(env_root_dir, archive_path)
     finally:
         shutil.rmtree(env_root_dir, ignore_errors=True)
@@ -2020,8 +2025,8 @@ def build_model_env(model_uri, save_path, env_manager=_EnvManager.VIRTUALENV):
     # Archive the environment directory as a `tar.gz` format archive file,
     # and then move the archive file to the destination directory.
     # Note:
-    # - all symlink files in the input directory are kept as it is in the
-    #  archive file.
+    # - internal symlinks are relative, and external symlink targets are copied
+    #  into the environment before archiving for safe extraction by Spark.
     # - the destination directory could be UC-volume fuse mounted directory
     #  which only supports limited filesystem operations, so to ensure it works,
     #  we generate the archive file under /tmp and then move it into the
