@@ -14,7 +14,7 @@ import logging
 import uuid
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any, AsyncGenerator
+from typing import Any, AsyncGenerator, Literal
 
 import aiohttp
 
@@ -28,8 +28,11 @@ from mlflow.assistant.providers.base import (
 )
 from mlflow.assistant.providers.prompts import ASSISTANT_SYSTEM_PROMPT
 from mlflow.assistant.providers.tool_executor import (
+    CLIENT_TOOLS,
     build_tools_schema,
     execute_tool,
+    is_remote_caller,
+    restrict_permissions_for_remote,
     static_permission_error,
 )
 from mlflow.assistant.types import Event, Message, ToolResultBlock, ToolUseBlock
@@ -288,6 +291,12 @@ class OpenAICompatibleProvider(AssistantProvider):
     def allows_remote_access(self) -> bool:
         return self._allows_remote_access
 
+    @property
+    def client_tool_delivery(self) -> Literal["tool"]:
+        # Schema-based providers: the tool loop below pauses on a CLIENT_TOOLS call
+        # and resumes on the next stream once a result is posted (see astream()).
+        return "tool"
+
     def is_available(self) -> bool:
         return True
 
@@ -372,6 +381,12 @@ class OpenAICompatibleProvider(AssistantProvider):
         context: dict[str, Any] | None = None,
     ) -> AsyncGenerator[Event, None]:
         config = self._load_config()
+        # Restricted callers (remote users, and non-admins on a sandboxed auth server) are capped at
+        # the restricted profile: their config full_access is dropped and they are not offered the
+        # interactive full-access grant below (which could only elevate to a level they are not
+        # allowed to reach). Other callers are unaffected.
+        remote = is_remote_caller()
+        caller_permissions = restrict_permissions_for_remote(config.permissions)
         base_url = (config.base_url or self._default_base_url or "").rstrip("/") or None
         chat_url = self._chat_url_builder(base_url, tracking_uri)
         if not chat_url:
@@ -421,17 +436,22 @@ class OpenAICompatibleProvider(AssistantProvider):
             messages.append({"role": "system", "content": sys_content})
 
         tool_decisions = (context or {}).get("tool_decisions") or {}
+        # tool_call_id -> {"content": str, "is_error": bool}, delivered by the client
+        # after it executed a CLIENT_TOOLS call (e.g. render_custom_view).
+        client_tool_results = (context or {}).get("client_tool_results") or {}
         # A history whose last assistant turn carries tool_calls without results is
-        # a turn paused at a permission prompt. We resume it (applying the decisions
-        # in `tool_decisions`) ONLY when a decision was actually delivered. Deriving
-        # this from history alone is unsafe: if the user cancels at the prompt (a
-        # no-op for this provider, so the unresolved tool_calls stay in history) and
-        # then sends a new message, we must start a fresh turn — not silently
-        # re-resume the abandoned calls and drop their message.
+        # a turn paused at a permission prompt or a client-executed tool call. We
+        # resume it (applying `tool_decisions`/`client_tool_results`) ONLY when one was
+        # actually delivered. Deriving this from history alone is unsafe: if the user
+        # cancels at the prompt (a no-op for this provider, so the unresolved
+        # tool_calls stay in history) and then sends a new message, we must start a
+        # fresh turn — not silently re-resume the abandoned calls and drop their message.
         tool_calls_awaiting_decision = _pending_tool_calls(messages)
         # TODO (joshuawong-db) This should be refactored into a helper function when
         # more providers support tool calls as it has a close coupling with api.py logic.
-        is_resuming = bool(tool_decisions) and bool(tool_calls_awaiting_decision)
+        is_resuming = bool(tool_decisions or client_tool_results) and bool(
+            tool_calls_awaiting_decision
+        )
         if not is_resuming:
             # Close out any orphaned tool_calls (e.g. cancelled at a prompt) before
             # the new user message: OpenAI requires a result for every tool_call, so
@@ -619,6 +639,56 @@ class OpenAICompatibleProvider(AssistantProvider):
                             )
                         except json.JSONDecodeError:
                             tool_input = {}
+                        if not isinstance(tool_input, dict):
+                            # A model can emit syntactically valid JSON that isn't an
+                            # object (e.g. "[]", "null", "123"), which json.loads decodes
+                            # without raising. Every downstream use (ToolUseBlock's
+                            # input, static_permission_error, execute_tool) requires a
+                            # dict, so this must be normalized here rather than left to
+                            # surface as a validation/attribute error further down.
+                            tool_input = {}
+
+                        if tool_name in CLIENT_TOOLS:
+                            # Client-executed tool: never runs server-side and never goes
+                            # through the permission gate below. First time this call is
+                            # seen, surface it and pause the turn for the client to render
+                            # (via a client_tool_call event) and report a result on resume.
+                            client_result = client_tool_results.get(tc["id"])
+                            if client_result is None:
+                                yield Event.from_message(
+                                    Message(
+                                        role="assistant",
+                                        content=[
+                                            ToolUseBlock(
+                                                id=tc["id"], name=tool_name, input=tool_input
+                                            )
+                                        ],
+                                    )
+                                )
+                                yield Event.from_client_tool_call(tc["id"], tool_name, tool_input)
+                                paused = True
+                                break
+
+                            content = client_result.get("content", "")
+                            is_error = bool(client_result.get("is_error"))
+                            yield Event.from_message(
+                                Message(
+                                    role="user",
+                                    content=[
+                                        ToolResultBlock(
+                                            tool_use_id=tc["id"],
+                                            content=content,
+                                            is_error=is_error,
+                                        )
+                                    ],
+                                )
+                            )
+                            messages.append({
+                                "role": "tool",
+                                "tool_call_id": tc["id"],
+                                "content": content,
+                            })
+                            continue
 
                         # Permission gating. With full access (config) tools run without
                         # prompting. Otherwise we prompt only for a call that BOTH has a session
@@ -632,11 +702,12 @@ class OpenAICompatibleProvider(AssistantProvider):
                         # gated (no session, or a statically-allowed call) is left to the static
                         # policy enforced by execute_tool.
                         needs_prompt = (
-                            static_permission_error(tool_name, tool_input, config.permissions, cwd)
+                            static_permission_error(tool_name, tool_input, caller_permissions, cwd)
                             is not None
                         )
                         gated = (
-                            not config.permissions.full_access
+                            not remote
+                            and not caller_permissions.full_access
                             and bool(mlflow_session_id)
                             and needs_prompt
                         )
@@ -684,7 +755,7 @@ class OpenAICompatibleProvider(AssistantProvider):
                             continue
 
                         effective_permissions = (
-                            PermissionsConfig(full_access=True) if gated else config.permissions
+                            PermissionsConfig(full_access=True) if gated else caller_permissions
                         )
                         result_str, is_error = await execute_tool(
                             tool_name,

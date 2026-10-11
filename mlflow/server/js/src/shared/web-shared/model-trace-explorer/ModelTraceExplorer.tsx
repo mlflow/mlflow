@@ -38,6 +38,10 @@ export const ModelTraceExplorerImpl = ({
    */
   collapseAssessmentPane?: boolean | 'force-open';
   showLoadingState?: boolean;
+  // Accepted for prop-shape parity with the redesigned (v2) explorer so the shared entrypoint can
+  // forward one prop set to either implementation; the legacy explorer does not use these.
+  initialShowTimelineTreeGantt?: boolean;
+  enableGraphView?: boolean;
 }) => {
   const [modelTrace, setModelTrace] = useState(initialModelTrace);
   const [forceDisplay, setForceDisplay] = useState(false);

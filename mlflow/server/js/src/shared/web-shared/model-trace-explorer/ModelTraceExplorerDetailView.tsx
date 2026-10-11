@@ -110,11 +110,14 @@ export const ModelTraceExplorerDetailView = ({
     rootNode,
     activeTab,
     setActiveTab,
+    setSelectedNodeAndTab,
     showGraph,
     setShowGraph,
     updatePaneSizeRatios,
     getPaneSizeRatios,
     topLevelNodes,
+    selectedNode: viewStateSelectedNode,
+    setSelectedNode: setViewStateSelectedNode,
   } = useModelTraceExplorerViewState();
 
   const activeLayoutConfig = isGraphExpanded ? EXPANDED_WORKFLOW_LAYOUT_CONFIG : DEFAULT_WORKFLOW_LAYOUT_CONFIG;
@@ -135,7 +138,12 @@ export const ModelTraceExplorerDetailView = ({
     handleNavigateSpan,
     selectedNode,
     setSelectedNode,
-  } = useGraphTreeLinkedState(workflowLayout.nodes);
+  } = useGraphTreeLinkedState({
+    workflowNodes: workflowLayout.nodes,
+    selectedNode: viewStateSelectedNode,
+    setSelectedNode: setViewStateSelectedNode,
+    topLevelNodes,
+  });
   const graphAvailable = Boolean(rootNode) && workflowLayout.nodes.length > 0;
   const hasGraph = showGraph && graphAvailable;
 
@@ -257,7 +265,7 @@ export const ModelTraceExplorerDetailView = ({
     treeNodes: topLevelNodes,
     selectedNode,
     setSelectedNode,
-    setActiveTab,
+    setSelectedNodeAndTab,
     setExpandedKeys,
     modelTraceInfo,
   });

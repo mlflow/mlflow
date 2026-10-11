@@ -1,5 +1,6 @@
 """Huey job functions for async scorer invocation."""
 
+import json
 import logging
 import os
 import random
@@ -25,7 +26,11 @@ from mlflow.genai.evaluation.session_utils import (
     evaluate_session_level_scorers,
     get_first_trace_in_session,
 )
-from mlflow.genai.scorers.base import Scorer
+from mlflow.genai.scorers.base import (
+    SCORER_BACKEND_TRACKING,
+    Scorer,
+    _job_executor_scorer_context,
+)
 from mlflow.genai.scorers.online import (
     OnlineScorer,
     OnlineScoringConfig,
@@ -33,6 +38,7 @@ from mlflow.genai.scorers.online import (
     OnlineTraceScoringProcessor,
 )
 from mlflow.genai.scorers.online.trace_loader import OnlineTraceLoader
+from mlflow.genai.scorers.scorer_utils import custom_scorer_execution_blocked
 from mlflow.server.handlers import _get_tracking_store
 from mlflow.server.jobs import job, submit_job
 from mlflow.store.tracking.abstract_store import AbstractStore
@@ -42,6 +48,7 @@ from mlflow.utils.workspace_context import WorkspaceContext
 _logger = logging.getLogger(__name__)
 
 # Constants for job names that are referenced in multiple locations
+INVOKE_SCORER_JOB_NAME = "invoke_scorer"
 ONLINE_TRACE_SCORER_JOB_NAME = "run_online_trace_scorer"
 ONLINE_SESSION_SCORER_JOB_NAME = "run_online_session_scorer"
 
@@ -94,13 +101,18 @@ def run_online_trace_scorer_job(
             name=scorer_dict["name"],
             serialized_scorer=scorer_dict["serialized_scorer"],
             online_config=OnlineScoringConfig(**scorer_dict["online_config"]),
+            scorer_version=scorer_dict.get("scorer_version"),
         )
         for scorer_dict in online_scorers
     ]
 
     tracking_store = _get_tracking_store()
-    processor = OnlineTraceScoringProcessor.create(experiment_id, scorer_objects, tracking_store)
-    processor.process_traces()
+    # Reconstructing custom scorers executes their code, which is permitted only in the executor.
+    with _job_executor_scorer_context():
+        processor = OnlineTraceScoringProcessor.create(
+            experiment_id, scorer_objects, tracking_store
+        )
+        processor.process_traces()
 
 
 @job(
@@ -128,22 +140,28 @@ def run_online_session_scorer_job(
             name=scorer_dict["name"],
             serialized_scorer=scorer_dict["serialized_scorer"],
             online_config=OnlineScoringConfig(**scorer_dict["online_config"]),
+            scorer_version=scorer_dict.get("scorer_version"),
         )
         for scorer_dict in online_scorers
     ]
 
     tracking_store = _get_tracking_store()
-    processor = OnlineSessionScoringProcessor.create(experiment_id, scorer_objects, tracking_store)
-    processor.process_sessions()
+    # Reconstructing custom scorers executes their code, which is permitted only in the executor.
+    with _job_executor_scorer_context():
+        processor = OnlineSessionScoringProcessor.create(
+            experiment_id, scorer_objects, tracking_store
+        )
+        processor.process_sessions()
 
 
-@job(name="invoke_scorer", max_workers=MLFLOW_SERVER_JUDGE_INVOKE_MAX_WORKERS.get())
+@job(name=INVOKE_SCORER_JOB_NAME, max_workers=MLFLOW_SERVER_JUDGE_INVOKE_MAX_WORKERS.get())
 def invoke_scorer_job(
     experiment_id: str,
     serialized_scorer: str,
     trace_ids: list[str],
     log_assessments: bool = True,
     username: str | None = None,
+    scorer_version: int | None = None,
 ) -> dict[str, Any]:
     """
     Huey job function for async scorer invocation.
@@ -158,6 +176,7 @@ def invoke_scorer_job(
         log_assessments: Whether to log assessments to the traces.
         username: The authenticated user who triggered the job, propagated to
             gateway requests so they are authorised as this user.
+        scorer_version: The registered scorer version, if invoking a registered scorer.
 
     Returns:
         Dict mapping trace_id to TraceResult (assessments and failures).
@@ -170,8 +189,17 @@ def invoke_scorer_job(
         if internal_token := _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.get():
             os.environ["MLFLOW_TRACKING_PASSWORD"] = internal_token
 
-    # Deserialize scorer
-    scorer = Scorer.model_validate_json(serialized_scorer)
+    # Deserialize scorer. Reconstructing a custom scorer executes its code, which is permitted
+    # only in the executor (never in the tracking server process).
+    with _job_executor_scorer_context():
+        scorer = Scorer.model_validate_json(serialized_scorer)
+    if scorer_version is not None:
+        scorer._set_registration_metadata(
+            backend=SCORER_BACKEND_TRACKING,
+            experiment_id=experiment_id,
+            sampling_config=None,
+            scorer_version=scorer_version,
+        )
 
     tracking_store = _get_tracking_store()
 
@@ -467,7 +495,18 @@ def run_online_scoring_scheduler() -> None:
 
                 for scorer in scorers:
                     try:
-                        scorer_obj = Scorer.model_validate_json(scorer.serialized_scorer)
+                        serialized_data = json.loads(scorer.serialized_scorer)
+                        # A custom @scorer whose execution is disabled (flag off) is rejected at
+                        # submit time; submitting it would raise and abort the whole scheduling
+                        # pass, so skip it here (the server deserializes it as non-executing
+                        # metadata, so the rejection no longer surfaces during this classification).
+                        if custom_scorer_execution_blocked(serialized_data):
+                            _logger.warning(
+                                f"Skipping custom scorer '{scorer.name}'; custom scorer execution "
+                                "is disabled (set MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS to enable)."
+                            )
+                            continue
+                        scorer_obj = Scorer.model_validate(serialized_data)
                         if scorer_obj.is_session_level_scorer:
                             session_level_scorers.append(scorer)
                         else:

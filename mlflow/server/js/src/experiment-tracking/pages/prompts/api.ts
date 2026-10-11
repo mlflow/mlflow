@@ -111,7 +111,9 @@ export const RegisteredPromptsApi = {
       body: JSON.stringify({
         name: promptName,
         description,
-        // Put a placeholder source here for now to satisfy the API validation
+        // Put a placeholder source here for now to satisfy the API validation.
+        // The server only accepts the placeholders listed in _PROMPT_SOURCE_PLACEHOLDERS
+        // (mlflow/prompt/constants.py) for prompt versions, so keep this value in sync.
         // TODO: remove source after it's no longer needed
         source: 'dummy-source',
         tags: [

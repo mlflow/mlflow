@@ -9,13 +9,22 @@ from unittest import mock
 import pytest
 
 import mlflow.store.jobs.sqlalchemy_store
+from mlflow.entities._job import Job, JobProgress, JobScopedPermission
 from mlflow.entities._job_status import JobStatus
-from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES, MLFLOW_WORKSPACE
+from mlflow.environment_variables import (
+    MLFLOW_ENABLE_WORKSPACES,
+    MLFLOW_ENV_ROOT,
+    MLFLOW_SERVER_JOB_ENABLE_PERIODIC_TASKS,
+    MLFLOW_WORKSPACE,
+)
 from mlflow.exceptions import MlflowException
+from mlflow.genai.scorers.job import invoke_scorer_job
 from mlflow.server import handlers
 from mlflow.server.handlers import _get_job_store
+from mlflow.server.job_api import Job as JobApiResponse
 from mlflow.server.jobs import (
     TransientError,
+    _job_runner,
     cancel_job,
     get_job,
     job,
@@ -32,10 +41,15 @@ from mlflow.server.jobs.utils import (
     _exec_job,
     _exec_job_in_subproc,
     _exit_when_orphaned,
+    _prepare_job_subprocess,
+    _PreparedJobSetupCommand,
+    _PreparedJobSubprocess,
     _start_huey_consumer_proc,
 )
+from mlflow.store.jobs.abstract_store import JobTerminalStateUpdateException, JobUpdateStatus
 from mlflow.store.jobs.sqlalchemy_store import SqlAlchemyJobStore
 from mlflow.store.jobs.sqlalchemy_workspace_store import WorkspaceAwareSqlAlchemyJobStore
+from mlflow.store.tracking.dbmodels.models import SqlJob, SqlJobLock
 from mlflow.utils.workspace_context import WorkspaceContext
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
@@ -71,6 +85,22 @@ def basic_job_fun(x, y, sleep_secs=0):
     if sleep_secs > 0:
         time.sleep(sleep_secs)
     return x + y
+
+
+def test_job_runner_periodic_tasks_can_be_disabled(monkeypatch):
+    monkeypatch.setenv(MLFLOW_SERVER_JOB_ENABLE_PERIODIC_TASKS.name, "false")
+    with mock.patch.object(_job_runner, "_launch_periodic_tasks_consumer") as launch_consumer:
+        _job_runner._launch_periodic_tasks_consumer_if_enabled()
+
+    launch_consumer.assert_not_called()
+
+
+def test_job_runner_periodic_tasks_are_enabled_by_default(monkeypatch):
+    monkeypatch.delenv(MLFLOW_SERVER_JOB_ENABLE_PERIODIC_TASKS.name, raising=False)
+    with mock.patch.object(_job_runner, "_launch_periodic_tasks_consumer") as launch_consumer:
+        _job_runner._launch_periodic_tasks_consumer_if_enabled()
+
+    launch_consumer.assert_called_once()
 
 
 def test_basic_job(monkeypatch, tmp_path):
@@ -140,6 +170,7 @@ def test_error_job(monkeypatch, tmp_path):
         assert job.job_name == "err_fun"
         assert job.params == '{"data": null}'
         assert job.result.startswith("RuntimeError()")
+        assert job.error_message.startswith("RuntimeError()")
         assert job.status == JobStatus.FAILED
         assert job.retry_count == 0
 
@@ -364,6 +395,7 @@ def test_job_retry_on_transient_error(monkeypatch, tmp_path):
         job1 = store.get_job(job1_id)
         assert job1.status == JobStatus.FAILED
         assert job1.result == "RuntimeError('test transient error.')"
+        assert job1.error_message == "RuntimeError('test transient error.')"
         assert job1.retry_count == 2
 
         # Test 2: Job that fails once then succeeds should succeed with retry_count=1
@@ -376,6 +408,7 @@ def test_job_retry_on_transient_error(monkeypatch, tmp_path):
         job2 = store.get_job(job2_id)
         assert job2.status == JobStatus.SUCCEEDED
         assert job2.result == "100"
+        assert job2.error_message is None
         assert job2.retry_count == 1
 
         # Test 3: Same as test 2 but with custom transient_error_classes
@@ -388,7 +421,594 @@ def test_job_retry_on_transient_error(monkeypatch, tmp_path):
         job3 = store.get_job(job3_id)
         assert job3.status == JobStatus.SUCCEEDED
         assert job3.result == "100"
+        assert job3.error_message is None
         assert job3.retry_count == 1
+
+
+def test_retry_or_fail_job_clears_transient_fields_on_exhaustion(monkeypatch, tmp_path: Path):
+    monkeypatch.setenv("MLFLOW_SERVER_JOB_TRANSIENT_ERROR_MAX_RETRIES", "0")
+    backend_store_uri = f"sqlite:///{tmp_path / 'test.db'}"
+    store = SqlAlchemyJobStore(backend_store_uri)
+
+    job = store.create_job("test_job", "{}")
+    store.start_job(job.job_id)
+
+    with store.ManagedSessionMaker(read_only=False) as session:
+        session.query(SqlJob).filter(SqlJob.id == job.job_id).update({
+            SqlJob.lease_expires_at: int(time.time() * 1000),
+            SqlJob.status_message: "running",
+            SqlJob.progress: {"completed": 1, "total": 2},
+            SqlJob.progress_updated_at: int(time.time() * 1000),
+            SqlJob.token_hash: "abc123",
+            SqlJob.scoped_permissions: [
+                {
+                    "resource_type": "experiment",
+                    "resource_identifier": "1",
+                    "workspace": None,
+                    "permission": "EDIT",
+                }
+            ],
+        })
+
+    retry_count = store.retry_or_fail_job(job.job_id, "retry exhausted")
+    assert retry_count is None
+
+    updated_job = store.get_job(job.job_id)
+    assert updated_job.status == JobStatus.FAILED
+    assert updated_job.result == "retry exhausted"
+    assert updated_job.error_message == "retry exhausted"
+    assert updated_job.status_message is None
+    assert updated_job.progress is None
+    assert updated_job.progress_updated_at is None
+
+    with store.ManagedSessionMaker() as session:
+        sql_job = session.query(SqlJob).filter(SqlJob.id == job.job_id).one()
+        assert sql_job.lease_expires_at is None
+        assert sql_job.token_hash is None
+        assert sql_job.scoped_permissions is None
+
+
+def test_retry_or_fail_job_rejects_needs_recovery_jobs(monkeypatch, tmp_path: Path):
+    monkeypatch.setenv("MLFLOW_SERVER_JOB_TRANSIENT_ERROR_MAX_RETRIES", "0")
+    backend_store_uri = f"sqlite:///{tmp_path / 'test.db'}"
+    store = SqlAlchemyJobStore(backend_store_uri)
+
+    job = store.create_job("test_job", "{}")
+    store.claim_job(job.job_id, lease_duration=30.0)
+    assert store.reattach_job(job.job_id, lease_duration=30.0) == JobUpdateStatus.WRONG_STATE
+    assert store.requeue_job(job.job_id) == JobUpdateStatus.WRONG_STATE
+    assert store.mark_job_needs_recovery(job.job_id) == JobUpdateStatus.APPLIED
+
+    with pytest.raises(MlflowException, match="cannot fail \\(must be RUNNING\\)"):
+        store.retry_or_fail_job(job.job_id, "retry exhausted")
+
+
+def test_retry_or_fail_job_rejects_pending_jobs(monkeypatch, tmp_path: Path):
+    monkeypatch.setenv("MLFLOW_SERVER_JOB_TRANSIENT_ERROR_MAX_RETRIES", "0")
+    backend_store_uri = f"sqlite:///{tmp_path / 'test.db'}"
+    store = SqlAlchemyJobStore(backend_store_uri)
+
+    job = store.create_job("test_job", "{}")
+
+    with pytest.raises(MlflowException, match="cannot fail \\(must be RUNNING\\)"):
+        store.retry_or_fail_job(job.job_id, "retry exhausted")
+
+
+def test_retry_or_fail_job_returns_incremented_retry_count(monkeypatch, tmp_path: Path):
+    monkeypatch.setenv("MLFLOW_SERVER_JOB_TRANSIENT_ERROR_MAX_RETRIES", "2")
+    backend_store_uri = f"sqlite:///{tmp_path / 'test.db'}"
+    store = SqlAlchemyJobStore(backend_store_uri)
+
+    job = store.create_job("test_job", "{}")
+    store.claim_job(job.job_id, lease_duration=30.0)
+
+    retry_count = store.retry_or_fail_job(job.job_id, "retry me")
+
+    assert retry_count == 1
+    assert store.get_job(job.job_id).retry_count == 1
+
+
+def test_transient_retry_backoff_seconds_is_exponential_and_capped(monkeypatch):
+    from mlflow.store.jobs.sqlalchemy_store import _transient_retry_backoff_seconds
+
+    monkeypatch.setenv("MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_BASE_DELAY", "10")
+    monkeypatch.setenv("MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_MAX_DELAY", "60")
+
+    assert _transient_retry_backoff_seconds(1) == 10  # 10 * 2**0
+    assert _transient_retry_backoff_seconds(2) == 20  # 10 * 2**1
+    assert _transient_retry_backoff_seconds(3) == 40  # 10 * 2**2
+    assert _transient_retry_backoff_seconds(4) == 60  # 80 clamped to the max
+    assert _transient_retry_backoff_seconds(10) == 60  # stays clamped
+
+
+def test_retry_or_fail_job_stamps_future_next_attempt_at(monkeypatch, tmp_path: Path):
+    monkeypatch.setenv("MLFLOW_SERVER_JOB_TRANSIENT_ERROR_MAX_RETRIES", "2")
+    monkeypatch.setenv("MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_BASE_DELAY", "30")
+    monkeypatch.setenv("MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_MAX_DELAY", "60")
+    store = SqlAlchemyJobStore(f"sqlite:///{tmp_path / 'test.db'}")
+
+    job = store.create_job("test_job", "{}")
+    store.claim_job(job.job_id, lease_duration=30.0)
+
+    before = int(time.time() * 1000)
+    store.retry_or_fail_job(job.job_id, "temp")
+
+    with store.ManagedSessionMaker() as session:
+        sql_job = session.query(SqlJob).filter(SqlJob.id == job.job_id).one()
+        # retry_count 1 -> 30s backoff, so the job is not claimable until ~30s from now.
+        assert sql_job.next_attempt_at is not None
+        assert sql_job.next_attempt_at >= before + 30_000
+
+
+def test_claim_job_defers_until_next_attempt_at(tmp_path: Path):
+    store = SqlAlchemyJobStore(f"sqlite:///{tmp_path / 'test.db'}")
+    job = store.create_job("test_job", "{}")
+
+    future = int(time.time() * 1000) + 3_600_000
+    with store.ManagedSessionMaker(read_only=False) as session:
+        session.query(SqlJob).filter(SqlJob.id == job.job_id).update({
+            SqlJob.next_attempt_at: future
+        })
+
+    # A PENDING job whose next_attempt_at is in the future is withheld from claiming.
+    assert store.claim_job(job.job_id, lease_duration=30.0) == JobUpdateStatus.WRONG_STATE
+    assert store.get_job(job.job_id).status == JobStatus.PENDING
+
+    # Once the deadline has passed, the same job is claimable.
+    with store.ManagedSessionMaker(read_only=False) as session:
+        session.query(SqlJob).filter(SqlJob.id == job.job_id).update({
+            SqlJob.next_attempt_at: int(time.time() * 1000) - 1_000
+        })
+    assert store.claim_job(job.job_id, lease_duration=30.0) == JobUpdateStatus.APPLIED
+    assert store.get_job(job.job_id).status == JobStatus.RUNNING
+
+
+def test_reset_job_clears_next_attempt_at(tmp_path: Path):
+    store = SqlAlchemyJobStore(f"sqlite:///{tmp_path / 'test.db'}")
+    job = store.create_job("test_job", "{}")
+    store.claim_job(job.job_id, lease_duration=30.0)
+
+    # Stamp a future deadline as a transient retry would, then reset the job back to PENDING.
+    with store.ManagedSessionMaker(read_only=False) as session:
+        session.query(SqlJob).filter(SqlJob.id == job.job_id).update({
+            SqlJob.next_attempt_at: int(time.time() * 1000) + 3_600_000
+        })
+    store.reset_job(job.job_id)
+
+    with store.ManagedSessionMaker() as session:
+        sql_job = session.query(SqlJob).filter(SqlJob.id == job.job_id).one()
+        assert sql_job.next_attempt_at is None
+    # A reset job carries no deadline, so it is immediately claimable.
+    assert store.claim_job(job.job_id, lease_duration=30.0) == JobUpdateStatus.APPLIED
+
+
+def test_claim_job_and_renew_lease(tmp_path: Path):
+    backend_store_uri = f"sqlite:///{tmp_path / 'test.db'}"
+    store = SqlAlchemyJobStore(backend_store_uri)
+
+    job = store.create_job("test_job", "{}")
+
+    with pytest.raises(MlflowException, match="must be provided when renewing a job lease"):
+        store.renew_job_lease(job.job_id, None)
+
+    assert store.renew_job_lease(job.job_id, 30.0) == JobUpdateStatus.WRONG_STATE
+    assert store.claim_job(job.job_id, lease_duration=5.0) == JobUpdateStatus.APPLIED
+    assert store.claim_job(job.job_id, lease_duration=5.0) == JobUpdateStatus.WRONG_STATE
+
+    claimed_job = store.get_job(job.job_id)
+    assert claimed_job.status == JobStatus.RUNNING
+    assert claimed_job.lease_expires_at is not None
+    assert claimed_job.lease_expires_at > int(time.time() * 1000)
+
+    first_lease_expiration = claimed_job.lease_expires_at
+    assert store.renew_job_lease(job.job_id, 30.0) == JobUpdateStatus.APPLIED
+
+    renewed_job = store.get_job(job.job_id)
+    assert renewed_job.lease_expires_at is not None
+    assert renewed_job.lease_expires_at > first_lease_expiration
+
+
+def test_claim_job_respects_workspace_isolation(tmp_path: Path, workspaces_enabled):
+    backend_store_uri = f"sqlite:///{tmp_path / 'test.db'}"
+    store_cls = WorkspaceAwareSqlAlchemyJobStore if workspaces_enabled else SqlAlchemyJobStore
+    store = store_cls(backend_store_uri)
+
+    if workspaces_enabled:
+        with WorkspaceContext("workspace-b"):
+            job = store.create_job("test_job", "{}")
+
+        with pytest.raises(MlflowException, match=f"Job with ID {job.job_id} not found"):
+            store.claim_job(job.job_id, lease_duration=5.0)
+
+        with WorkspaceContext("workspace-b"):
+            assert store.claim_job(job.job_id, lease_duration=5.0) == JobUpdateStatus.APPLIED
+    else:
+        job = store.create_job("test_job", "{}")
+        assert store.claim_job(job.job_id, lease_duration=5.0) == JobUpdateStatus.APPLIED
+
+
+def test_claim_job_is_atomic(tmp_path: Path, workspaces_enabled):
+    backend_store_uri = f"sqlite:///{tmp_path / 'test.db'}"
+    store_cls = WorkspaceAwareSqlAlchemyJobStore if workspaces_enabled else SqlAlchemyJobStore
+    store = store_cls(backend_store_uri)
+
+    job = store.create_job("test.function", '{"param": "value"}')
+    assert job.status == JobStatus.PENDING
+
+    with concurrent.futures.ThreadPoolExecutor(
+        max_workers=5, thread_name_prefix="test-concurrent-claims"
+    ) as executor:
+        futures = [executor.submit(store.claim_job, job.job_id, 5.0) for _ in range(5)]
+        results = [f.result() for f in concurrent.futures.as_completed(futures)]
+
+    assert results.count(JobUpdateStatus.APPLIED) == 1
+    assert results.count(JobUpdateStatus.WRONG_STATE) == 4
+    assert store.get_job(job.job_id).status == JobStatus.RUNNING
+
+
+def test_lifecycle_transitions_raise_for_missing_job(tmp_path: Path):
+    backend_store_uri = f"sqlite:///{tmp_path / 'test.db'}"
+    store = SqlAlchemyJobStore(backend_store_uri)
+    missing_job_id = "missing-job-id"
+
+    with pytest.raises(MlflowException, match=f"Job with ID {missing_job_id} not found"):
+        store.claim_job(missing_job_id, lease_duration=5.0)
+
+    with pytest.raises(MlflowException, match=f"Job with ID {missing_job_id} not found"):
+        store.renew_job_lease(missing_job_id, 5.0)
+
+    with pytest.raises(MlflowException, match=f"Job with ID {missing_job_id} not found"):
+        store.mark_job_needs_recovery(missing_job_id)
+
+    with pytest.raises(MlflowException, match=f"Job with ID {missing_job_id} not found"):
+        store.reattach_job(missing_job_id, lease_duration=5.0)
+
+    with pytest.raises(MlflowException, match=f"Job with ID {missing_job_id} not found"):
+        store.requeue_job(missing_job_id)
+
+
+def test_retry_job_clears_transient_fields(tmp_path: Path):
+    backend_store_uri = f"sqlite:///{tmp_path / 'test.db'}"
+    store = SqlAlchemyJobStore(backend_store_uri)
+
+    job = store.create_job("test_job", "{}")
+    store.claim_job(job.job_id, lease_duration=30.0)
+
+    with store.ManagedSessionMaker(read_only=False) as session:
+        session.query(SqlJob).filter(SqlJob.id == job.job_id).update({
+            SqlJob.status_message: "running",
+            SqlJob.progress: {"completed": 1, "total": 2},
+            SqlJob.progress_updated_at: int(time.time() * 1000),
+            SqlJob.token_hash: "abc123",
+            SqlJob.scoped_permissions: [
+                {
+                    "resource_type": "experiment",
+                    "resource_identifier": "1",
+                    "workspace": None,
+                    "permission": "EDIT",
+                }
+            ],
+        })
+
+    retry_count = store.retry_job(job.job_id)
+    assert retry_count == 1
+
+    updated_job = store.get_job(job.job_id)
+    assert updated_job.status == JobStatus.PENDING
+    assert updated_job.retry_count == 1
+    assert updated_job.result is None
+    assert updated_job.status_message is None
+    assert updated_job.progress is None
+    assert updated_job.progress_updated_at is None
+    assert updated_job.token_hash is None
+    assert updated_job.scoped_permissions is None
+    assert updated_job.lease_expires_at is None
+
+
+def test_report_job_result_clears_transient_fields(tmp_path: Path):
+    backend_store_uri = f"sqlite:///{tmp_path / 'test.db'}"
+    store = SqlAlchemyJobStore(backend_store_uri)
+
+    job = store.create_job("test_job", "{}")
+    store.claim_job(job.job_id, lease_duration=30.0)
+
+    with store.ManagedSessionMaker(read_only=False) as session:
+        session.query(SqlJob).filter(SqlJob.id == job.job_id).update({
+            SqlJob.status_message: "running",
+            SqlJob.progress: {"completed": 1, "total": 2},
+            SqlJob.progress_updated_at: int(time.time() * 1000),
+            SqlJob.token_hash: "abc123",
+            SqlJob.scoped_permissions: [
+                {
+                    "resource_type": "experiment",
+                    "resource_identifier": "1",
+                    "workspace": None,
+                    "permission": "EDIT",
+                }
+            ],
+        })
+
+    assert store.report_job_result(job.job_id, JobStatus.SUCCEEDED, result='{"ok": true}') is None
+
+    with pytest.raises(MlflowException, match="already finalized"):
+        store.report_job_result(job.job_id, JobStatus.SUCCEEDED, result='{"ok": true}')
+
+    updated_job = store.get_job(job.job_id)
+    assert updated_job.status == JobStatus.SUCCEEDED
+    assert updated_job.parsed_result == {"ok": True}
+    assert updated_job.status_message is None
+    assert updated_job.progress is None
+    assert updated_job.progress_updated_at is None
+    assert updated_job.token_hash is None
+    assert updated_job.scoped_permissions is None
+    assert updated_job.lease_expires_at is None
+
+
+def test_recovery_transitions_preserve_and_clear_expected_fields(tmp_path: Path):
+    backend_store_uri = f"sqlite:///{tmp_path / 'test.db'}"
+    store = SqlAlchemyJobStore(backend_store_uri)
+
+    job = store.create_job("test_job", "{}")
+    store.claim_job(job.job_id, lease_duration=30.0)
+
+    with store.ManagedSessionMaker(read_only=False) as session:
+        session.query(SqlJob).filter(SqlJob.id == job.job_id).update({
+            SqlJob.status_message: "running",
+            SqlJob.progress: {"phase": "scoring", "completed": 1, "total": 2, "unit": "trace"},
+            SqlJob.progress_updated_at: int(time.time() * 1000),
+            SqlJob.token_hash: "abc123",
+            SqlJob.scoped_permissions: [
+                {
+                    "resource_type": "experiment",
+                    "resource_identifier": "1",
+                    "workspace": None,
+                    "permission": "EDIT",
+                }
+            ],
+        })
+
+    assert store.mark_job_needs_recovery(job.job_id) == JobUpdateStatus.APPLIED
+
+    recovery_job = store.get_job(job.job_id)
+    assert recovery_job.status == JobStatus.NEEDS_RECOVERY
+    assert recovery_job.lease_expires_at is None
+    assert recovery_job.status_message == "running"
+    assert recovery_job.progress == JobProgress(phase="scoring", completed=1, total=2, unit="trace")
+    assert recovery_job.token_hash == "abc123"
+    assert recovery_job.scoped_permissions == [
+        JobScopedPermission(
+            resource_type="experiment",
+            resource_identifier="1",
+            workspace=None,
+            permission="EDIT",
+        )
+    ]
+
+    assert store.reattach_job(job.job_id, lease_duration=30.0) == JobUpdateStatus.APPLIED
+    running_job = store.get_job(job.job_id)
+    assert running_job.status == JobStatus.RUNNING
+    assert running_job.lease_expires_at is not None
+
+    assert store.mark_job_needs_recovery(job.job_id) == JobUpdateStatus.APPLIED
+    assert store.requeue_job(job.job_id) == JobUpdateStatus.APPLIED
+
+    pending_job = store.get_job(job.job_id)
+    assert pending_job.status == JobStatus.PENDING
+    assert pending_job.result is None
+    assert pending_job.status_message is None
+    assert pending_job.progress is None
+    assert pending_job.progress_updated_at is None
+    assert pending_job.token_hash is None
+    assert pending_job.scoped_permissions is None
+    assert pending_job.lease_expires_at is None
+
+
+def test_job_progress_hydrates_to_dataclass(tmp_path: Path):
+    backend_store_uri = f"sqlite:///{tmp_path / 'test.db'}"
+    store = SqlAlchemyJobStore(backend_store_uri)
+
+    job = store.create_job("test_job", "{}")
+    with store.ManagedSessionMaker(read_only=False) as session:
+        session.query(SqlJob).filter(SqlJob.id == job.job_id).update({
+            SqlJob.progress: {
+                "phase": "scoring",
+                "completed": 2,
+                "total": 5,
+                "unit": "traces",
+            }
+        })
+
+    updated_job = store.get_job(job.job_id)
+    assert updated_job.progress == JobProgress(
+        phase="scoring",
+        completed=2,
+        total=5,
+        unit="traces",
+    )
+
+
+def test_job_progress_round_trips_to_proto():
+    progress = JobProgress(phase="scoring", completed=2, total=5, unit="traces")
+
+    proto = progress.to_proto()
+    assert JobProgress.from_proto(proto) == progress
+
+
+def test_job_progress_round_trips_empty_strings_to_proto():
+    progress = JobProgress(phase="", unit="")
+
+    proto = progress.to_proto()
+    assert proto.HasField("phase")
+    assert proto.HasField("unit")
+    assert JobProgress.from_proto(proto) == progress
+
+
+def test_job_api_response_keeps_null_progress_keys():
+    job = Job(
+        job_id="job-123",
+        creation_time=1234567890000,
+        job_name="test_job",
+        params="{}",
+        timeout=None,
+        status=JobStatus.RUNNING,
+        result=None,
+        retry_count=0,
+        last_update_time=1234567890000,
+        progress=JobProgress(phase="scoring"),
+    )
+
+    response = JobApiResponse.from_job_entity(job).model_dump()
+    assert response["progress"] == {
+        "phase": "scoring",
+        "completed": None,
+        "total": None,
+        "unit": None,
+    }
+
+
+def test_job_rejects_invalid_progress_type():
+    with pytest.raises(MlflowException, match="`progress` must be a JobProgress, dict, or None"):
+        Job(
+            job_id="job-123",
+            creation_time=1234567890000,
+            job_name="test_job",
+            params="{}",
+            timeout=None,
+            status=JobStatus.PENDING,
+            result=None,
+            retry_count=0,
+            last_update_time=1234567890000,
+            progress=["bad-payload"],
+        )
+
+
+def test_job_scoped_permissions_payload_hydrates_to_dataclass(tmp_path: Path):
+    backend_store_uri = f"sqlite:///{tmp_path / 'test.db'}"
+    store = SqlAlchemyJobStore(backend_store_uri)
+
+    job = store.create_job("test_job", "{}")
+    with store.ManagedSessionMaker(read_only=False) as session:
+        session.query(SqlJob).filter(SqlJob.id == job.job_id).update({
+            SqlJob.scoped_permissions: [
+                {
+                    "resource_type": "experiment",
+                    "resource_identifier": "2",
+                    "workspace": "team-a",
+                    "permission": "EDIT",
+                },
+                {
+                    "resource_type": "gateway_endpoint",
+                    "resource_identifier": "endpoint-1",
+                    "workspace": "team-a",
+                    "permission": "USE",
+                },
+            ]
+        })
+
+    updated_job = store.get_job(job.job_id)
+    assert updated_job.scoped_permissions == [
+        JobScopedPermission(
+            resource_type="experiment",
+            resource_identifier="2",
+            workspace="team-a",
+            permission="EDIT",
+        ),
+        JobScopedPermission(
+            resource_type="gateway_endpoint",
+            resource_identifier="endpoint-1",
+            workspace="team-a",
+            permission="USE",
+        ),
+    ]
+
+
+def test_job_scoped_permissions_payload_defaults_permission_to_read(tmp_path: Path):
+    backend_store_uri = f"sqlite:///{tmp_path / 'test.db'}"
+    store = SqlAlchemyJobStore(backend_store_uri)
+
+    job = store.create_job("test_job", "{}")
+    with store.ManagedSessionMaker(read_only=False) as session:
+        session.query(SqlJob).filter(SqlJob.id == job.job_id).update({
+            SqlJob.scoped_permissions: [
+                {
+                    "resource_type": "experiment",
+                    "resource_identifier": "2",
+                    "workspace": "team-a",
+                }
+            ]
+        })
+
+    updated_job = store.get_job(job.job_id)
+    assert updated_job.scoped_permissions == [
+        JobScopedPermission(
+            resource_type="experiment",
+            resource_identifier="2",
+            workspace="team-a",
+            permission="READ",
+        )
+    ]
+
+
+def test_job_scoped_permissions_mixed_inputs_are_normalized():
+    job = Job(
+        job_id="job-123",
+        creation_time=1234567890000,
+        job_name="test_job",
+        params="{}",
+        timeout=None,
+        status=JobStatus.PENDING,
+        result=None,
+        retry_count=0,
+        last_update_time=1234567890000,
+        scoped_permissions=[
+            JobScopedPermission(
+                resource_type="experiment",
+                resource_identifier="2",
+                workspace="team-a",
+                permission="EDIT",
+            ),
+            {
+                "resource_type": "gateway_endpoint",
+                "resource_identifier": "endpoint-1",
+                "workspace": "team-a",
+                "permission": "USE",
+            },
+        ],
+    )
+
+    assert job.scoped_permissions == [
+        JobScopedPermission(
+            resource_type="experiment",
+            resource_identifier="2",
+            workspace="team-a",
+            permission="EDIT",
+        ),
+        JobScopedPermission(
+            resource_type="gateway_endpoint",
+            resource_identifier="endpoint-1",
+            workspace="team-a",
+            permission="USE",
+        ),
+    ]
+
+
+def test_job_rejects_invalid_scoped_permissions_entry():
+    with pytest.raises(
+        MlflowException,
+        match="`scoped_permissions` entries must be JobScopedPermission or dict",
+    ):
+        Job(
+            job_id="job-123",
+            creation_time=1234567890000,
+            job_name="test_job",
+            params="{}",
+            timeout=None,
+            status=JobStatus.PENDING,
+            result=None,
+            retry_count=0,
+            last_update_time=1234567890000,
+            scoped_permissions=["bad-permission"],
+        )
 
 
 # `submit_job` API is designed to be called inside MLflow server handler,
@@ -461,8 +1081,22 @@ def test_job_timeout(monkeypatch, tmp_path):
         assert job.job_name == "sleep_fun"
         assert job.timeout == 3.0
         assert job.result is None
+        assert job.error_message is None
         assert job.status == JobStatus.TIMEOUT
         assert job.retry_count == 0
+
+
+def test_update_status_details_raises_specific_exception_for_terminal_job(tmp_path: Path):
+    backend_store_uri = f"sqlite:///{tmp_path / 'test.db'}"
+    store = SqlAlchemyJobStore(backend_store_uri)
+
+    job = store.create_job("test_job", "{}")
+    store.fail_job(job.job_id, "boom")
+
+    with pytest.raises(JobTerminalStateUpdateException, match="already finalized"):
+        store.update_status_details(job.job_id, {"stage": "late-heartbeat"})
+
+    assert store.get_job(job.job_id).status_details is None
 
 
 def test_list_job_pagination(monkeypatch, tmp_path):
@@ -560,6 +1194,7 @@ def check_python_env_fn():
 
 def test_job_with_python_env(monkeypatch, tmp_path):
     monkeypatch.setenv("MLFLOW_HOME", _get_mlflow_repo_home())
+    monkeypatch.setenv(MLFLOW_ENV_ROOT.name, str(tmp_path / "envs"))
 
     with _setup_job_runner(
         monkeypatch,
@@ -677,11 +1312,22 @@ def test_delete_jobs_only_deletes_finalized(tmp_path: Path):
     store.mark_job_timed_out(timeout_job.job_id)
     timeout_job = store.get_job(timeout_job.job_id)
     assert timeout_job.status == JobStatus.TIMEOUT
+    assert timeout_job.error_message is None
 
     canceled_job = store.create_job("canceled_job", "{}")
     store.cancel_job(canceled_job.job_id)
     canceled_job = store.get_job(canceled_job.job_id)
     assert canceled_job.status == JobStatus.CANCELED
+
+    needs_recovery_job = store.create_job("needs_recovery_job", "{}")
+    store.start_job(needs_recovery_job.job_id)
+    with store.ManagedSessionMaker(read_only=False) as session:
+        session.query(SqlJob).filter(SqlJob.id == needs_recovery_job.job_id).update({
+            SqlJob.status: JobStatus.NEEDS_RECOVERY.to_int(),
+            SqlJob.last_update_time: int(time.time() * 1000),
+        })
+    needs_recovery_job = store.get_job(needs_recovery_job.job_id)
+    assert needs_recovery_job.status == JobStatus.NEEDS_RECOVERY
 
     deleted_ids = store.delete_jobs()
 
@@ -695,6 +1341,7 @@ def test_delete_jobs_only_deletes_finalized(tmp_path: Path):
     # Non-finalized jobs should still exist
     assert store.get_job(pending_job.job_id).status == JobStatus.PENDING
     assert store.get_job(running_job.job_id).status == JobStatus.RUNNING
+    assert store.get_job(needs_recovery_job.job_id).status == JobStatus.NEEDS_RECOVERY
 
     # Finalized jobs should be deleted
     with pytest.raises(MlflowException, match=r"Job .+ not found"):
@@ -920,6 +1567,34 @@ def test_reenqueued_jobs_respect_workspace_disabled(monkeypatch, db_uri):
         assert workspace is None
 
 
+def test_reenqueued_needs_recovery_jobs_are_reset_and_resubmitted(monkeypatch, db_uri):
+    job_store = SqlAlchemyJobStore(db_uri)
+    job = job_store.create_job("basic_job_fun", '{"x": 1, "y": 2}', None)
+    job_store.start_job(job.job_id)
+
+    with job_store.ManagedSessionMaker() as session:
+        session.query(SqlJob).filter(SqlJob.id == job.job_id).update({
+            SqlJob.status: JobStatus.NEEDS_RECOVERY.to_int()
+        })
+
+    with (
+        mock.patch("mlflow.server.handlers._get_job_store", return_value=job_store),
+        mock.patch(
+            "mlflow.server.jobs.utils.get_job_fn_fullname",
+            return_value="tests.server.jobs.test_jobs.basic_job_fun",
+        ),
+        mock.patch("mlflow.server.jobs.utils._load_function", return_value=basic_job_fun),
+        mock.patch("mlflow.server.jobs.utils._get_or_init_huey_instance") as mock_huey,
+    ):
+        mock_submit = mock.Mock()
+        mock_huey.return_value.submit_task = mock_submit
+
+        _enqueue_unfinished_jobs(int(time.time() * 1000))
+
+    mock_submit.assert_called_once()
+    assert job_store.get_job(job.job_id).status == JobStatus.PENDING
+
+
 def test_update_status_details(tmp_path: Path):
     backend_store_uri = f"sqlite:///{tmp_path / 'test.db'}"
     store = SqlAlchemyJobStore(backend_store_uri)
@@ -930,10 +1605,190 @@ def test_update_status_details(tmp_path: Path):
     store.update_status_details(job.job_id, {"stage": "preprocessing"})
     updated_job = store.get_job(job.job_id)
     assert updated_job.status_details == {"stage": "preprocessing"}
+    assert updated_job.status_message is None
+    assert updated_job.progress is None
+    assert updated_job.progress_updated_at is None
 
     store.update_status_details(job.job_id, {"stage": "processing", "progress": "50%"})
     updated_job = store.get_job(job.job_id)
     assert updated_job.status_details == {"stage": "processing", "progress": "50%"}
+    assert updated_job.status_message is None
+    assert updated_job.progress is None
+    assert updated_job.progress_updated_at is None
+
+
+def test_update_status_details_rejects_finalized_job(tmp_path: Path):
+    backend_store_uri = f"sqlite:///{tmp_path / 'test.db'}"
+    store = SqlAlchemyJobStore(backend_store_uri)
+
+    job = store.create_job("test_job", '{"param": "value"}')
+    store.start_job(job.job_id)
+    store.finish_job(job.job_id, "done")
+
+    with pytest.raises(MlflowException, match="already finalized"):
+        store.update_status_details(job.job_id, {"stage": "should-fail"})
+
+
+def test_update_job_progress(tmp_path: Path):
+    backend_store_uri = f"sqlite:///{tmp_path / 'test.db'}"
+    store = SqlAlchemyJobStore(backend_store_uri)
+
+    job = store.create_job("test_job", '{"param": "value"}')
+
+    store.update_job_progress(
+        job.job_id,
+        message="Processing traces",
+        progress=JobProgress(phase="scoring", completed=42, total=100, unit="traces"),
+    )
+    updated_job = store.get_job(job.job_id)
+    assert updated_job.status_message == "Processing traces"
+    assert updated_job.progress == JobProgress(
+        phase="scoring", completed=42, total=100, unit="traces"
+    )
+    assert updated_job.progress_updated_at is not None
+
+
+def test_update_job_progress_preserves_omitted_fields(tmp_path: Path):
+    backend_store_uri = f"sqlite:///{tmp_path / 'test.db'}"
+    store = SqlAlchemyJobStore(backend_store_uri)
+
+    job = store.create_job("test_job", '{"param": "value"}')
+    store.update_job_progress(
+        job.job_id,
+        message="Processing traces",
+        progress=JobProgress(phase="scoring", completed=42, total=100, unit="traces"),
+    )
+    first_updated_at = store.get_job(job.job_id).progress_updated_at
+
+    store.update_job_progress(job.job_id, message="Uploading artifacts")
+    updated_job = store.get_job(job.job_id)
+    assert updated_job.status_message == "Uploading artifacts"
+    assert updated_job.progress == JobProgress(
+        phase="scoring", completed=42, total=100, unit="traces"
+    )
+    assert updated_job.progress_updated_at is not None
+    assert updated_job.progress_updated_at >= first_updated_at
+
+
+def test_update_job_progress_ignores_none_message_updates(tmp_path: Path):
+    backend_store_uri = f"sqlite:///{tmp_path / 'test.db'}"
+    store = SqlAlchemyJobStore(backend_store_uri)
+
+    job = store.create_job("test_job", '{"param": "value"}')
+    store.update_job_progress(
+        job.job_id,
+        message="Processing traces",
+        progress=JobProgress(phase="scoring", completed=42, total=100, unit="traces"),
+    )
+    first_updated_at = store.get_job(job.job_id).progress_updated_at
+
+    store.update_job_progress(
+        job.job_id,
+        message=None,
+        progress=JobProgress(phase="uploading", completed=1, total=2, unit="artifacts"),
+    )
+    updated_job = store.get_job(job.job_id)
+    assert updated_job.status_message == "Processing traces"
+    assert updated_job.progress == JobProgress(
+        phase="uploading", completed=1, total=2, unit="artifacts"
+    )
+    assert updated_job.progress_updated_at is not None
+    assert updated_job.progress_updated_at >= first_updated_at
+
+
+def test_update_job_progress_refreshes_timestamp_for_same_heartbeat(tmp_path: Path):
+    backend_store_uri = f"sqlite:///{tmp_path / 'test.db'}"
+    store = SqlAlchemyJobStore(backend_store_uri)
+
+    job = store.create_job("test_job", '{"param": "value"}')
+    store.update_job_progress(
+        job.job_id,
+        message="Processing traces",
+        progress=JobProgress(phase="scoring", completed=42, total=100, unit="traces"),
+    )
+    first_updated_at = store.get_job(job.job_id).progress_updated_at
+
+    store.update_job_progress(
+        job.job_id,
+        message="Processing traces",
+        progress=JobProgress(phase="scoring", completed=42, total=100, unit="traces"),
+    )
+    updated_job = store.get_job(job.job_id)
+    assert updated_job.progress_updated_at is not None
+    assert updated_job.progress_updated_at >= first_updated_at
+
+
+def test_update_job_progress_with_no_fields_is_noop(tmp_path: Path):
+    backend_store_uri = f"sqlite:///{tmp_path / 'test.db'}"
+    store = SqlAlchemyJobStore(backend_store_uri)
+
+    job = store.create_job("test_job", '{"param": "value"}')
+    store.update_job_progress(
+        job.job_id,
+        message="Processing traces",
+        progress=JobProgress(phase="scoring", completed=42, total=100, unit="traces"),
+    )
+    first_job = store.get_job(job.job_id)
+
+    store.update_job_progress(job.job_id)
+    updated_job = store.get_job(job.job_id)
+    assert updated_job.status_message == first_job.status_message
+    assert updated_job.progress == first_job.progress
+    assert updated_job.progress_updated_at == first_job.progress_updated_at
+
+
+def test_update_job_progress_rejects_finalized_job(tmp_path: Path):
+    backend_store_uri = f"sqlite:///{tmp_path / 'test.db'}"
+    store = SqlAlchemyJobStore(backend_store_uri)
+
+    job = store.create_job("test_job", '{"param": "value"}')
+    store.start_job(job.job_id)
+    store.finish_job(job.job_id, "done")
+
+    with pytest.raises(MlflowException, match="already finalized"):
+        store.update_job_progress(job.job_id, message="should-fail")
+
+    updated_job = store.get_job(job.job_id)
+    assert updated_job.status_message is None
+    assert updated_job.progress is None
+    assert updated_job.progress_updated_at is None
+
+
+def test_delete_jobs_cascades_job_locks(tmp_path: Path):
+    backend_store_uri = f"sqlite:///{tmp_path / 'test.db'}"
+    store = SqlAlchemyJobStore(backend_store_uri)
+
+    job = store.create_job("finished_job", "{}")
+    store.start_job(job.job_id)
+    store.finish_job(job.job_id, "result")
+
+    with store.ManagedSessionMaker(read_only=False) as session:
+        session.add(
+            SqlJobLock(
+                lock_key="finished_job:1234",
+                job_id=job.job_id,
+                acquired_at=int(time.time() * 1000),
+            )
+        )
+
+    deleted_ids = store.delete_jobs(job_ids=[job.job_id])
+    assert deleted_ids == [job.job_id]
+
+    with store.ManagedSessionMaker() as session:
+        remaining_locks = session.query(SqlJobLock).filter(SqlJobLock.job_id == job.job_id).count()
+        assert remaining_locks == 0
+
+
+def test_finalized_jobs_cannot_be_retransitioned(tmp_path: Path):
+    backend_store_uri = f"sqlite:///{tmp_path / 'test.db'}"
+    store = SqlAlchemyJobStore(backend_store_uri)
+
+    job = store.create_job("finished_job", "{}")
+    store.start_job(job.job_id)
+    store.finish_job(job.job_id, "result")
+
+    with pytest.raises(MlflowException, match="already finalized"):
+        store.cancel_job(job.job_id)
 
 
 def test_update_status_details_merges_with_existing(tmp_path: Path):
@@ -945,14 +1800,23 @@ def test_update_status_details_merges_with_existing(tmp_path: Path):
     store.update_status_details(job.job_id, {"stage": "preprocessing", "step": "1"})
     updated_job = store.get_job(job.job_id)
     assert updated_job.status_details == {"stage": "preprocessing", "step": "1"}
+    assert updated_job.status_message is None
+    assert updated_job.progress is None
+    assert updated_job.progress_updated_at is None
 
     store.update_status_details(job.job_id, {"stage": "processing", "progress": "50%"})
     updated_job = store.get_job(job.job_id)
     assert updated_job.status_details == {"stage": "processing", "step": "1", "progress": "50%"}
+    assert updated_job.status_message is None
+    assert updated_job.progress is None
+    assert updated_job.progress_updated_at is None
 
     store.update_status_details(job.job_id, {"progress": "100%"})
     updated_job = store.get_job(job.job_id)
     assert updated_job.status_details == {"stage": "processing", "step": "1", "progress": "100%"}
+    assert updated_job.status_message is None
+    assert updated_job.progress is None
+    assert updated_job.progress_updated_at is None
 
 
 def test_update_status_details_on_nonexistent_job(tmp_path: Path):
@@ -972,6 +1836,8 @@ def test_exit_when_orphaned_exits_when_parent_pid_changes():
         ),
         mock.patch("mlflow.server.jobs.utils.os.getppid", side_effect=[123, 123, 456]),
         mock.patch("mlflow.server.jobs.utils.time.sleep"),
+        # Neutralize the process-group kill so it cannot signal the test runner.
+        mock.patch("mlflow.server.jobs.utils.os.killpg"),
         mock.patch("mlflow.server.jobs.utils.os._exit", side_effect=SystemExit(1)) as mock_exit,
         pytest.raises(SystemExit, match="1"),
     ):
@@ -988,12 +1854,39 @@ def test_exit_when_orphaned_exits_when_already_orphaned():
             clear=False,
         ),
         mock.patch("mlflow.server.jobs.utils.os.getppid", return_value=1),
+        # Neutralize the process-group kill so it cannot signal the test runner.
+        mock.patch("mlflow.server.jobs.utils.os.killpg"),
         mock.patch("mlflow.server.jobs.utils.os._exit", side_effect=SystemExit(1)) as mock_exit,
         pytest.raises(SystemExit, match="1"),
     ):
         _exit_when_orphaned(poll_interval=0)
 
     mock_exit.assert_called_once_with(1)
+
+
+def test_exit_when_orphaned_does_not_exit_when_server_runs_as_pid_one():
+    # When the original parent legitimately runs as PID 1 (e.g. the MLflow server
+    # as a container's init process), a healthy child also observes getppid()==1,
+    # so the watcher must not treat that as orphaning and kill the process group.
+    class _StopLoop(Exception):
+        pass
+
+    with (
+        mock.patch.dict(
+            "mlflow.server.jobs.utils.os.environ",
+            {MLFLOW_ORIGINAL_PARENT_PID_ENV_VAR: "1"},
+            clear=False,
+        ),
+        mock.patch("mlflow.server.jobs.utils.os.getppid", return_value=1),
+        mock.patch("mlflow.server.jobs.utils.time.sleep", side_effect=_StopLoop("stop loop")),
+        mock.patch("mlflow.server.jobs.utils.os.killpg") as mock_killpg,
+        mock.patch("mlflow.server.jobs.utils.os._exit") as mock_exit,
+        pytest.raises(_StopLoop, match="stop loop"),
+    ):
+        _exit_when_orphaned(poll_interval=0)
+
+    mock_exit.assert_not_called()
+    mock_killpg.assert_not_called()
 
 
 def test_exit_when_orphaned_ignores_invalid_parent_pid_env():
@@ -1005,6 +1898,8 @@ def test_exit_when_orphaned_ignores_invalid_parent_pid_env():
         ),
         mock.patch("mlflow.server.jobs.utils.os.getppid", side_effect=[123, 123, 456]),
         mock.patch("mlflow.server.jobs.utils.time.sleep"),
+        # Neutralize the process-group kill so it cannot signal the test runner.
+        mock.patch("mlflow.server.jobs.utils.os.killpg"),
         mock.patch("mlflow.server.jobs.utils.os._exit", side_effect=SystemExit(1)) as mock_exit,
         pytest.raises(SystemExit, match="1"),
     ):
@@ -1059,6 +1954,75 @@ def test_exec_job_in_subproc_passes_original_parent_pid(tmp_path: Path):
     assert popen.call_args.kwargs["env"][MLFLOW_ORIGINAL_PARENT_PID_ENV_VAR] == "654"
 
 
+def test_exec_job_in_subproc_runs_prepared_setup_commands(tmp_path: Path):
+    result_path = tmp_path / "result.json"
+    result_path.write_text(
+        json.dumps({"succeeded": True, "result": "3", "is_transient_error": None, "error": None})
+    )
+    setup_command = _PreparedJobSetupCommand(
+        command=["uv", "venv", "/tmp/job-env"],
+        cwd=str(tmp_path),
+        extra_env={"UV_TEST": "true"},
+    )
+    prepared_subprocess = _PreparedJobSubprocess(
+        command=["python", "-m", "mlflow.server.jobs._job_subproc_entry"],
+        env={},
+        result_path=str(result_path),
+        setup_commands=(setup_command,),
+    )
+    mock_popen = mock.MagicMock()
+    mock_popen.__enter__.return_value = mock_popen
+    mock_popen.__exit__.return_value = False
+    mock_popen.poll.return_value = 0
+    mock_popen.returncode = 0
+
+    with (
+        mock.patch(
+            "mlflow.server.jobs.utils._prepare_job_subprocess",
+            return_value=prepared_subprocess,
+        ),
+        mock.patch("mlflow.server.jobs.utils._exec_cmd") as exec_cmd,
+        mock.patch("mlflow.server.jobs.utils.subprocess.Popen", return_value=mock_popen),
+    ):
+        result = _exec_job_in_subproc(
+            function_fullname="tests.server.jobs.test_jobs.basic_job_fun",
+            params={"x": 1, "y": 2},
+            python_env=None,
+            transient_error_classes=None,
+            timeout=None,
+            tmpdir=str(tmp_path),
+            job_store=mock.Mock(),
+            job_id="job-1",
+            job_name="basic_job_fun",
+            workspace=None,
+        )
+
+    assert result.succeeded is True
+    exec_cmd.assert_called_once_with(
+        setup_command.command,
+        cwd=setup_command.cwd,
+        extra_env=setup_command.extra_env,
+        capture_output=False,
+    )
+
+
+def test_prepare_job_subprocess_clears_inherited_workspace(monkeypatch, tmp_path: Path):
+    monkeypatch.setenv(MLFLOW_WORKSPACE.name, "inherited-workspace")
+
+    prepared_subprocess = _prepare_job_subprocess(
+        function_fullname="tests.server.jobs.test_jobs.basic_job_fun",
+        params={"x": 1, "y": 2},
+        python_env=None,
+        transient_error_classes=None,
+        tmpdir=str(tmp_path),
+        job_id="job-1",
+        job_name="basic_job_fun",
+        workspace=None,
+    )
+
+    assert MLFLOW_WORKSPACE.name not in prepared_subprocess.env
+
+
 def test_subproc_entry_telemetry(tmp_path, monkeypatch):
     result_path = str(tmp_path / "result.json")
     transient_error_path = tmp_path / "transient_errors.txt"
@@ -1088,3 +2052,234 @@ def test_subproc_entry_telemetry(tmp_path, monkeypatch):
 
     mock_set_telemetry.assert_called_once()
     mock_client.flush.assert_called_once()
+
+
+def test_create_job_records_creator(tmp_path: Path, workspaces_enabled):
+    # creator round-trips through both stores; optional when unauthenticated.
+    backend_store_uri = f"sqlite:///{tmp_path / 'test.db'}"
+    store_cls = WorkspaceAwareSqlAlchemyJobStore if workspaces_enabled else SqlAlchemyJobStore
+    store = store_cls(backend_store_uri)
+
+    job = store.create_job("test.function", "{}", creator="alice")
+    assert job.creator == "alice"
+    assert store.get_job(job.job_id).creator == "alice"
+
+    # creator is optional (job created without authentication)
+    anon = store.create_job("test.function", "{}")
+    assert anon.creator is None
+    assert store.get_job(anon.job_id).creator is None
+
+
+def test_create_job_persists_executor_backend(tmp_path: Path):
+    store = SqlAlchemyJobStore(f"sqlite:///{tmp_path / 'test.db'}")
+    job = store.create_job("invoke_scorer", "{}", None, executor_backend="local")
+    assert store.get_job(job.job_id).executor_backend == "local"
+
+
+def test_create_job_executor_backend_defaults_to_none(tmp_path: Path):
+    store = SqlAlchemyJobStore(f"sqlite:///{tmp_path / 'test.db'}")
+    job = store.create_job("invoke_scorer", "{}", None)
+    assert store.get_job(job.job_id).executor_backend is None
+
+
+def _custom_scorer_params():
+    return {
+        "experiment_id": "e",
+        "trace_ids": ["t1"],
+        "serialized_scorer": json.dumps({
+            "name": "c",
+            "call_source": "    return 1\n",
+            "call_signature": "(inputs, outputs)",
+            "original_func_name": "c",
+        }),
+    }
+
+
+def _builtin_scorer_params():
+    return {
+        "experiment_id": "e",
+        "trace_ids": ["t1"],
+        "serialized_scorer": json.dumps({"name": "b"}),
+    }
+
+
+def test_submit_custom_scorer_rejected_when_flag_off(monkeypatch, tmp_path):
+    monkeypatch.delenv("MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS", raising=False)
+    with _setup_job_runner(
+        monkeypatch,
+        tmp_path,
+        supported_job_functions=["mlflow.genai.scorers.job.invoke_scorer_job"],
+        allowed_job_names=["invoke_scorer"],
+    ):
+        with pytest.raises(MlflowException, match="disabled on this server"):
+            submit_job(invoke_scorer_job, _custom_scorer_params())
+
+
+def test_submit_persists_default_backend(monkeypatch, tmp_path):
+    with _setup_job_runner(
+        monkeypatch,
+        tmp_path,
+        supported_job_functions=["mlflow.genai.scorers.job.invoke_scorer_job"],
+        allowed_job_names=["invoke_scorer"],
+    ):
+        monkeypatch.setenv("MLFLOW_SERVER_JOB_EXECUTION_ENGINE", "executor")
+        submitted = submit_job(invoke_scorer_job, _builtin_scorer_params())
+        assert get_job(submitted.job_id).executor_backend == "local"
+
+
+def test_submit_leaves_backend_unset_on_default_engine(monkeypatch, tmp_path):
+    with _setup_job_runner(
+        monkeypatch,
+        tmp_path,
+        supported_job_functions=["mlflow.genai.scorers.job.invoke_scorer_job"],
+        allowed_job_names=["invoke_scorer"],
+    ):
+        monkeypatch.delenv("MLFLOW_SERVER_JOB_EXECUTION_ENGINE", raising=False)
+        submitted = submit_job(invoke_scorer_job, _builtin_scorer_params())
+        assert get_job(submitted.job_id).executor_backend is None
+
+
+def test_submit_rejects_differing_custom_scorer_backend(monkeypatch, tmp_path):
+    # Routing custom scorers to a backend that differs from the default is rejected until the
+    # runner dispatches per job (today it always runs on the default backend), so the persisted
+    # per-job backend would never be honored.
+    from mlflow.server.jobs.executor import AbstractJobExecutor, JobExecutorConfig
+    from mlflow.server.jobs.executor_registry import (
+        get_executor_registry,
+        shutdown_executor_registry,
+    )
+
+    class _FakeLocal(AbstractJobExecutor):
+        def submit_job(self, *args, **kwargs): ...
+
+        def wait_for_job(self, job_id): ...
+
+        def cancel_job(self, job_id): ...
+
+        def recover_jobs(self, ids):
+            return []
+
+        @property
+        def remote_execution(self):
+            return False
+
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS", "true")
+    with _setup_job_runner(
+        monkeypatch,
+        tmp_path,
+        supported_job_functions=["mlflow.genai.scorers.job.invoke_scorer_job"],
+        allowed_job_names=["invoke_scorer"],
+    ):
+        try:
+            monkeypatch.setenv("MLFLOW_SERVER_JOB_EXECUTION_ENGINE", "executor")
+            shutdown_executor_registry()
+            get_executor_registry().register("custom-sandbox", _FakeLocal(JobExecutorConfig()))
+            monkeypatch.setenv("MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND", "custom-sandbox")
+
+            with pytest.raises(MlflowException, match="not supported yet"):
+                submit_job(invoke_scorer_job, _custom_scorer_params())
+        finally:
+            shutdown_executor_registry()
+
+
+def test_remote_backend_allows_direct_provider_when_executor_opts_in(monkeypatch, tmp_path):
+    # A remote executor that provisions provider credentials itself can opt in via
+    # supports_direct_provider_models, so the direct-provider rejection does not apply to it.
+    from mlflow.server.jobs.executor import AbstractJobExecutor, JobExecutorConfig
+    from mlflow.server.jobs.executor_registry import (
+        get_executor_registry,
+        shutdown_executor_registry,
+    )
+
+    class _FakeRemoteWithDirectProviders(AbstractJobExecutor):
+        def submit_job(self, *args, **kwargs): ...
+
+        def wait_for_job(self, job_id): ...
+
+        def cancel_job(self, job_id): ...
+
+        def recover_jobs(self, ids):
+            return []
+
+        @property
+        def remote_execution(self):
+            return True
+
+        @property
+        def supports_direct_provider_models(self):
+            return True
+
+    with _setup_job_runner(
+        monkeypatch,
+        tmp_path,
+        supported_job_functions=["mlflow.genai.scorers.job.invoke_scorer_job"],
+        allowed_job_names=["invoke_scorer"],
+    ):
+        try:
+            monkeypatch.setenv("MLFLOW_SERVER_JOB_EXECUTION_ENGINE", "executor")
+            shutdown_executor_registry()
+            get_executor_registry().register(
+                "fake-remote-direct", _FakeRemoteWithDirectProviders(JobExecutorConfig())
+            )
+            monkeypatch.setenv("MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND", "fake-remote-direct")
+
+            params = {
+                "experiment_id": "e",
+                "trace_ids": ["t1"],
+                "serialized_scorer": json.dumps({
+                    "name": "j",
+                    "instructions_judge_pydantic_data": {"model": "openai:/gpt-4"},
+                }),
+            }
+            # Not rejected: the job is created (PENDING) despite the direct-provider model.
+            submitted = submit_job(invoke_scorer_job, params)
+            assert get_job(submitted.job_id).status == JobStatus.PENDING
+        finally:
+            shutdown_executor_registry()
+
+
+def test_remote_backend_rejects_direct_provider_scorer(monkeypatch, tmp_path):
+    from mlflow.server.jobs.executor import AbstractJobExecutor, JobExecutorConfig
+    from mlflow.server.jobs.executor_registry import (
+        get_executor_registry,
+        shutdown_executor_registry,
+    )
+
+    class _FakeRemote(AbstractJobExecutor):
+        def submit_job(self, *args, **kwargs): ...
+
+        def wait_for_job(self, job_id): ...
+
+        def cancel_job(self, job_id): ...
+
+        def recover_jobs(self, ids):
+            return []
+
+        @property
+        def remote_execution(self):
+            return True
+
+    with _setup_job_runner(
+        monkeypatch,
+        tmp_path,
+        supported_job_functions=["mlflow.genai.scorers.job.invoke_scorer_job"],
+        allowed_job_names=["invoke_scorer"],
+    ):
+        try:
+            monkeypatch.setenv("MLFLOW_SERVER_JOB_EXECUTION_ENGINE", "executor")
+            shutdown_executor_registry()
+            get_executor_registry().register("fake-remote", _FakeRemote(JobExecutorConfig()))
+            monkeypatch.setenv("MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND", "fake-remote")
+
+            params = {
+                "experiment_id": "e",
+                "trace_ids": ["t1"],
+                "serialized_scorer": json.dumps({
+                    "name": "j",
+                    "instructions_judge_pydantic_data": {"model": "openai:/gpt-4"},
+                }),
+            }
+            with pytest.raises(MlflowException, match="direct-provider model"):
+                submit_job(invoke_scorer_job, params)
+        finally:
+            shutdown_executor_registry()

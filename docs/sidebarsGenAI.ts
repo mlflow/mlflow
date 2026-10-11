@@ -109,6 +109,11 @@ const sidebarsGenAI: SidebarsConfig = {
                 },
                 {
                   type: 'doc',
+                  id: 'tracing/observe-with-traces/custom-views',
+                  label: 'Custom Trace Views',
+                },
+                {
+                  type: 'doc',
                   id: 'tracing/search-traces',
                   label: 'Search Traces',
                 },
@@ -505,6 +510,11 @@ const sidebarsGenAI: SidebarsConfig = {
                 },
                 {
                   type: 'doc',
+                  id: 'tracing/integrations/listing/typesafe',
+                  label: 'TypeSafe AI',
+                },
+                {
+                  type: 'doc',
                   id: 'tracing/integrations/listing/xai-grok',
                   label: 'xAI / Grok',
                 },
@@ -839,6 +849,11 @@ const sidebarsGenAI: SidebarsConfig = {
                   type: 'doc',
                   id: 'eval-monitor/scorers/llm-judge/custom-judges/create-custom-judge',
                   label: 'Create a Custom Judge',
+                },
+                {
+                  type: 'doc',
+                  id: 'eval-monitor/scorers/llm-judge/custom-judges/typesafe',
+                  label: 'TypeSafe Judge Models',
                 },
               ],
               collapsed: false,

@@ -10,7 +10,11 @@ from mlflow.gateway.providers.openai_compatible import (
 )
 from mlflow.gateway.providers.utils import send_request, send_stream_request
 from mlflow.gateway.schemas import chat
-from mlflow.gateway.utils import normalize_databricks_base_url
+from mlflow.gateway.utils import (
+    _DATABRICKS_AI_GATEWAY_PATH,
+    _is_unity_catalog_model_name,
+    normalize_databricks_base_url,
+)
 
 _SUPPORTED_CONTENT_PART_TYPES = {"text", "image_url", "input_audio"}
 _GEMINI_ACTIONS = {
@@ -63,6 +67,20 @@ class DatabricksAdapter(OpenAICompatibleAdapter):
                 msg["content"] = cls._normalize_content(msg.get("content"))
         return super().model_to_chat(resp, config)
 
+    @classmethod
+    def model_to_chat_streaming(
+        cls, resp: dict[str, Any], config: EndpointConfig
+    ) -> chat.StreamResponsePayload:
+        # Streaming deltas can also carry a list of typed parts (e.g. a "reasoning"
+        # part), but the stream schema only accepts string content, so keep the text.
+        for choice in resp.get("choices", []):
+            delta = choice.get("delta") or {}
+            if isinstance(content := delta.get("content"), list):
+                delta["content"] = (
+                    "".join(p.get("text", "") for p in content if p.get("type") == "text") or None
+                )
+        return super().model_to_chat_streaming(resp, config)
+
 
 class DatabricksProvider(OpenAICompatibleProvider):
     """Databricks provider using the Databricks SDK for authentication.
@@ -113,6 +131,9 @@ class DatabricksProvider(OpenAICompatibleProvider):
     def _api_base(self) -> str:
         client = self._get_workspace_client()
         host = client.config.host.rstrip("/")
+        model_name = self.config.model.name
+        if _is_unity_catalog_model_name(model_name):
+            return f"{host}/{_DATABRICKS_AI_GATEWAY_PATH}"
         return normalize_databricks_base_url(host)
 
     def get_endpoint_url(self, route_type: str) -> str:

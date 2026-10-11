@@ -309,6 +309,7 @@ export const DatasetDetailPageContent = ({ experimentId, datasetId, dataset }: D
           <DatasetsBreadcrumbs
             experimentId={experimentId}
             datasetName={dataset.name}
+            dataset={dataset}
             rightActions={<DatasetDetailKebabMenu experimentId={experimentId} dataset={dataset} notify={notify} />}
           />
 

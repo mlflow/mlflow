@@ -55,10 +55,16 @@ def calculate_existing_cost_for_windows(
                 else None
             )
             # The policy's target_value is interpreted per scope: it filters trace
-            # history by gateway endpoint for ENDPOINT policies.
+            # history by gateway endpoint for ENDPOINT policies and by recorded auth
+            # username for USER policies.
             endpoint_id = (
                 window.policy.target_value
                 if window.policy.target_scope == BudgetTargetScope.ENDPOINT
+                else None
+            )
+            username = (
+                window.policy.target_value
+                if window.policy.target_scope == BudgetTargetScope.USER
                 else None
             )
             spend = store.sum_gateway_trace_cost(
@@ -66,6 +72,7 @@ def calculate_existing_cost_for_windows(
                 end_time_ms=end_ms,
                 workspace=workspace,
                 endpoint_id=endpoint_id,
+                username=username,
             )
             if spend > 0:
                 result[window.policy.budget_policy_id] = spend
@@ -167,6 +174,7 @@ def check_budget_limit(
     store: SqlAlchemyStore,
     endpoint_config: GatewayEndpointConfig,
     workspace: str | None = None,
+    username: str | None = None,
 ) -> None:
     """Check if any REJECT-capable budget policy is exceeded.
 
@@ -175,7 +183,7 @@ def check_budget_limit(
     maybe_refresh_budget_policies(store)
     tracker = get_budget_tracker()
     exceeded, window = tracker.should_reject_request(
-        workspace=workspace, endpoint_id=endpoint_config.endpoint_id
+        workspace=workspace, endpoint_id=endpoint_config.endpoint_id, username=username
     )
     if exceeded:
         policy = window.policy
@@ -199,6 +207,7 @@ def make_budget_on_complete(
     store: SqlAlchemyStore,
     workspace: str | None,
     endpoint_id: str | None = None,
+    username: str | None = None,
 ):
     """Create an on_complete callback that records budget cost from child span attributes."""
     from mlflow.server.handlers import _get_model_registry_store
@@ -221,7 +230,7 @@ def make_budget_on_complete(
             maybe_refresh_budget_policies(store)
             tracker = get_budget_tracker()
             if newly_exceeded := tracker.record_cost(
-                total_cost, workspace=workspace, endpoint_id=endpoint_id
+                total_cost, workspace=workspace, endpoint_id=endpoint_id, username=username
             ):
                 if registry_store:
                     fire_budget_exceeded_webhooks(newly_exceeded, workspace, registry_store)

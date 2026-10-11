@@ -11,6 +11,8 @@ import {
   type AssistantPart,
   type ChatMessage,
   type PermissionRequest,
+  type PendingClientToolCall,
+  type PendingAutomaticMessage,
   type AssistantProviderSelection,
   type ProviderInfo,
   type ProvidersResponse,
@@ -18,6 +20,7 @@ import {
   type ToolUseInfo,
   type ToolResultInfo,
   type TokenUsage,
+  type SendMessageOptions,
 } from './types';
 import {
   cancelSession as cancelSessionApi,
@@ -25,11 +28,14 @@ import {
   getConfig,
   getProviders,
   resumeStream,
+  submitClientToolResult as submitClientToolResultApi,
   updateConfig,
   type SendMessageStreamCallbacks,
   type SendMessageStreamResult,
 } from './AssistantService';
-import { useLocalStorage } from '@databricks/web-shared/hooks';
+import { getClientToolHandler } from './clientToolHandlers';
+import { getLocalStorageItem, setLocalStorageItem, useLocalStorage } from '@databricks/web-shared/hooks';
+import { useCurrentUserQuery } from '../account/hooks';
 import { useAssistantPageContextActions } from './AssistantPageContext';
 import { GATEWAY_PROVIDER_ID } from './constants';
 
@@ -38,6 +44,19 @@ const AssistantReactContext = createContext<AssistantAgentContextType | null>(nu
 // Cap the persisted transcript by JSON string length (UTF-16 code units — what localStorage counts),
 // keeping it well under the ~5 MB localStorage limit.
 const MAX_PERSISTED_CHARS = 1_500_000;
+// Structured providers only parse the response envelope on the server. The browser owns
+// semantic A2UI validation and this bounded repair lifecycle.
+const MAX_STRUCTURED_CUSTOM_VIEW_REPAIRS = 2;
+const MAX_CUSTOM_VIEW_ERROR_CHARS = 4000;
+
+const buildCustomViewRepairPrompt = (error: string, attempt: number): string => {
+  const boundedError = error.slice(0, MAX_CUSTOM_VIEW_ERROR_CHARS);
+  return [
+    `The browser rejected the Custom View from your previous response (automatic repair ${attempt}/${MAX_STRUCTURED_CUSTOM_VIEW_REPAIRS}).`,
+    `Validation error: ${JSON.stringify(boundedError)}`,
+    "Regenerate the complete Custom View and fix this error. Preserve the user's requested design and the current template where possible. Return the corrected view using the structured Custom View response format; do not merely explain the error.",
+  ].join('\n\n');
+};
 
 // Exported as base + version (not a precomputed key) so this module does no work at import time:
 // `useLocalStorage` builds the full key from these, and tests build it via `buildStorageKey`.
@@ -96,8 +115,9 @@ const withGuard = (isCurrent: () => boolean, callbacks: SendMessageStreamCallbac
       typeof fn === 'function'
         ? (...args: unknown[]) => {
             if (isCurrent()) {
-              fn(...args);
+              return fn(...args);
             }
+            return undefined;
           }
         : fn,
     ]),
@@ -150,6 +170,8 @@ const activeProviderFromSelection = (
       auto_selected: false,
       requires_api_key: selection.requiresApiKey ?? false,
       has_api_key: selection.hasApiKey ?? true,
+      // The gateway is always backed by OpenAICompatibleProvider server-side.
+      client_tool_delivery: 'tool',
       model_provider: selection.gatewayVendor,
       provider_model: selection.providerModel ?? null,
       model_options: selection.modelOptions ?? [],
@@ -163,6 +185,7 @@ const activeProviderFromSelection = (
     auto_selected: false,
     requires_api_key: provider?.requires_api_key ?? false,
     has_api_key: provider?.has_api_key ?? false,
+    client_tool_delivery: provider?.client_tool_delivery ?? 'unsupported',
     model_options: provider?.model_options ?? [],
   };
 };
@@ -257,6 +280,14 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   // Detect if server is local - memoized since hostname doesn't change
   const isLocalServer = useMemo(() => checkIsLocalServer(), []);
 
+  // Namespace the persisted transcript by the authenticated user so a shared browser origin never
+  // shows one user's conversation to the next. When auth is off there is no username and all traffic
+  // is the single local operator, so the base key is used.
+  const { data: currentUser, isLoading: isCurrentUserLoading } = useCurrentUserQuery();
+  const chatStorageKey = currentUser?.user?.username
+    ? `${CHAT_STORAGE_KEY_BASE}.${currentUser.user.username}`
+    : CHAT_STORAGE_KEY_BASE;
+
   // Panel state - persisted to localStorage
   const [isPanelOpen, setIsPanelOpen] = useLocalStorage({
     key: 'mlflow.assistant.panelOpen',
@@ -264,23 +295,36 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     initialValue: false,
   });
 
-  // Conversation - persisted to localStorage so it survives reloads as a single conversation.
-  const [persistedChat, setPersistedChat] = useLocalStorage<PersistedChat>({
-    key: CHAT_STORAGE_KEY_BASE,
-    version: CHAT_STORAGE_VERSION,
-    initialValue: { messages: [], tokenUsage: EMPTY_TOKEN_USAGE },
-  });
-
-  // Chat state - messages/tokenUsage seeded once from the persisted conversation on first mount.
+  // Chat state - messages/tokenUsage are seeded from the current user's persisted conversation
+  // once their identity is known (see the seeding block below), not synchronously at mount, so a
+  // shared browser never paints the previous user's transcript before identity resolves.
   const [sessionId, setSessionId] = useState<string | null>(null);
-  const [messages, setMessages] = useState<ChatMessage[]>(() => reviveMessages(persistedChat.messages));
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentStatus, setCurrentStatus] = useState<string | null>(null);
   const [activeTools, setActiveTools] = useState<ToolUseInfo[]>([]);
   const [pendingPermission, setPendingPermission] = useState<PermissionRequest | null>(null);
+  const [pendingClientToolCall, setPendingClientToolCall] = useState<PendingClientToolCall | null>(null);
   const [pendingPrompt, setPendingPrompt] = useState<string | null>(null);
-  const [tokenUsage, setTokenUsage] = useState<TokenUsage>(() => normalizeTokenUsage(persistedChat.tokenUsage));
+  const [pendingComposerFocus, setPendingComposerFocus] = useState(false);
+  const [pendingAutomaticMessage, setPendingAutomaticMessage] = useState<PendingAutomaticMessage | null>(null);
+  const [tokenUsage, setTokenUsage] = useState<TokenUsage>(EMPTY_TOKEN_USAGE);
+  const [seededChatKey, setSeededChatKey] = useState<string | null>(null);
+
+  // Seed (and re-seed on identity change) the transcript from the CURRENT user's own storage key.
+  // Done during render, before paint, so a shared browser never shows the previous user's messages;
+  // useLocalStorage reads its key only once and cannot react to a live identity switch, so read the
+  // per-user key directly here. The ref-guard makes this run once per identity.
+  if (!isCurrentUserLoading && seededChatKey !== chatStorageKey) {
+    const persisted = getLocalStorageItem<PersistedChat>(chatStorageKey, CHAT_STORAGE_VERSION, false, {
+      messages: [],
+      tokenUsage: EMPTY_TOKEN_USAGE,
+    });
+    setSeededChatKey(chatStorageKey);
+    setMessages(reviveMessages(persisted.messages));
+    setTokenUsage(normalizeTokenUsage(persisted.tokenUsage));
+  }
 
   // Setup state
   const [setupComplete, setSetupComplete] = useState(false);
@@ -325,6 +369,36 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   // Token identifying the in-flight send; reset/cancel invalidates it so a late POST's
   // guarded callbacks no-op and its stream is closed instead of leaking into new state.
   const activeRequestRef = useRef<symbol | null>(null);
+
+  // Structured Custom View errors start hidden repair turns. This ref bounds the
+  // retries for one user-initiated turn and resets at every terminal/user action.
+  const structuredRepairAttemptsRef = useRef(0);
+
+  // Keep every automatic repair bound to the authoring context and apply target
+  // captured for the original user turn, even if the live selection changes.
+  const structuredRepairContextRef = useRef<Record<string, unknown> | null>(null);
+
+  // Automatic repair reuses the ordinary callback set, but its tool handler is
+  // itself one of those callbacks. A ref breaks that dependency cycle.
+  const streamCallbacksRef = useRef<SendMessageStreamCallbacks | null>(null);
+
+  // Begin a new in-flight send: stamp a fresh token in closure,
+  // return a checker for whether this send is still the active one.
+  const beginRequest = useCallback(() => {
+    const token = Symbol();
+    activeRequestRef.current = token;
+    return () => activeRequestRef.current === token;
+  }, []);
+
+  // Store the resolved stream if its send is still current, otherwise close the orphan.
+  const attachStreamIfCurrent = useCallback((isCurrent: () => boolean, result: SendMessageStreamResult): boolean => {
+    if (!isCurrent()) {
+      result.eventSource?.close();
+      return false;
+    }
+    eventSourceRef.current = result.eventSource;
+    return true;
+  }, []);
 
   // Throttle streaming updates to avoid overwhelming React with re-renders
   const rafPendingRef = useRef<number | null>(null);
@@ -412,6 +486,9 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     setCurrentStatus(null);
     setActiveTools([]);
     setPendingPermission(null);
+    setPendingClientToolCall(null);
+    structuredRepairAttemptsRef.current = 0;
+    structuredRepairContextRef.current = null;
   }, [closeStreamingMessage]);
 
   const handleStatus = useCallback((status: string) => {
@@ -597,8 +674,17 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     if (isStreaming) {
       return;
     }
-    setPersistedChat({ messages: trimForStorage(messages), tokenUsage });
-  }, [isStreaming, messages, tokenUsage, setPersistedChat]);
+    // Only persist once the transcript has been seeded for the current identity, so the
+    // identity-loading window (empty messages) cannot clobber a stored conversation, and a
+    // live identity switch cannot write the previous user's messages to the new user's key.
+    if (seededChatKey !== chatStorageKey) {
+      return;
+    }
+    setLocalStorageItem<PersistedChat>(chatStorageKey, CHAT_STORAGE_VERSION, false, {
+      messages: trimForStorage(messages),
+      tokenUsage,
+    });
+  }, [isStreaming, messages, tokenUsage, chatStorageKey, seededChatKey]);
 
   const failStreamingTurn = useCallback(
     (errorMsg: string, code?: string) => {
@@ -609,6 +695,9 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       eventSourceRef.current = null;
       setActiveTools([]);
       setPendingPermission(null);
+      setPendingClientToolCall(null);
+      structuredRepairAttemptsRef.current = 0;
+      structuredRepairContextRef.current = null;
       closeStreamingMessage({ reason: TurnEndReason.Failed, error: errorMsg });
     },
     [closeStreamingMessage],
@@ -619,6 +708,9 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     setCurrentStatus(null);
     setActiveTools([]);
     setPendingPermission(null);
+    setPendingClientToolCall(null);
+    structuredRepairAttemptsRef.current = 0;
+    structuredRepairContextRef.current = null;
     eventSourceRef.current = null;
     if (rafPendingRef.current !== null) {
       cancelAnimationFrame(rafPendingRef.current);
@@ -626,6 +718,86 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     }
     closeStreamingMessage({ reason: TurnEndReason.Interrupted });
   }, [closeStreamingMessage]);
+
+  const handleClientToolCall = useCallback(
+    async (request: PendingClientToolCall) => {
+      if (request.continuation !== 'terminal') {
+        setPendingClientToolCall(request);
+        return;
+      }
+
+      const originatingRequest = activeRequestRef.current;
+      const isOriginatingRequestCurrent = () =>
+        originatingRequest !== null && activeRequestRef.current === originatingRequest;
+      const handler = getClientToolHandler(request.toolName);
+      if (!handler) {
+        if (isOriginatingRequestCurrent()) {
+          resolveToolCall({
+            toolUseId: request.requestId,
+            content: `No handler is registered for client tool "${request.toolName}".`,
+            isError: true,
+          });
+        }
+        return;
+      }
+
+      let result;
+      try {
+        result = await handler(request.toolInput);
+      } catch (err) {
+        result = {
+          content: err instanceof Error ? err.message : 'Client tool execution failed',
+          isError: true,
+          retryable: false,
+        };
+      }
+      if (!isOriginatingRequestCurrent()) {
+        return;
+      }
+
+      resolveToolCall({
+        toolUseId: request.requestId,
+        content: result.content,
+        isError: Boolean(result.isError),
+      });
+
+      if (!result.isError || !result.retryable) {
+        return;
+      }
+      if (structuredRepairAttemptsRef.current >= MAX_STRUCTURED_CUSTOM_VIEW_REPAIRS) {
+        return;
+      }
+
+      const pageContext = structuredRepairContextRef.current;
+      const callbacks = streamCallbacksRef.current;
+      if (!pageContext?.['customTraceView'] || !callbacks) {
+        return;
+      }
+
+      structuredRepairAttemptsRef.current += 1;
+      const attempt = structuredRepairAttemptsRef.current;
+      setActiveTools([]);
+      setCurrentStatus(`Repairing custom view (${attempt}/${MAX_STRUCTURED_CUSTOM_VIEW_REPAIRS})`);
+      const isCurrent = beginRequest();
+      try {
+        const repairResult = await sendMessageStream(
+          {
+            session_id: request.sessionId,
+            message: buildCustomViewRepairPrompt(result.content, attempt),
+            experiment_id: pageContext['experimentId'] as string | undefined,
+            context: pageContext,
+          },
+          withGuard(isCurrent, callbacks),
+        );
+        attachStreamIfCurrent(isCurrent, repairResult);
+      } catch (err) {
+        if (isCurrent()) {
+          failStreamingTurn(err instanceof Error ? err.message : 'Failed to repair the custom view');
+        }
+      }
+    },
+    [attachStreamIfCurrent, beginRequest, failStreamingTurn, resolveToolCall],
+  );
 
   // Shared SSE callback wiring for startChat, handleSendMessage, respondToPermission and
   // regenerate. Each call site wraps this in `withGuard(isCurrent, streamCallbacks)` so a
@@ -642,6 +814,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       onInterrupted: interruptStreamingTurn,
       onUsage: handleUsage,
       onPermissionRequest: handlePermissionRequest,
+      onClientToolCall: handleClientToolCall,
     }),
     [
       writeStreamedText,
@@ -654,8 +827,13 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       interruptStreamingTurn,
       handleUsage,
       handlePermissionRequest,
+      handleClientToolCall,
     ],
   );
+
+  useEffect(() => {
+    streamCallbacksRef.current = streamCallbacks;
+  }, [streamCallbacks]);
 
   // Actions
   const openPanel = useCallback(() => {
@@ -671,12 +849,20 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     // Drop any queued prompt — closing the panel is an abandon, so a stale seed shouldn't
     // inject into an unrelated chat opened later.
     setPendingPrompt(null);
+    setPendingComposerFocus(false);
+    setPendingAutomaticMessage(null);
   }, [setIsPanelOpen]);
 
   const prefillPrompt = useCallback((prompt: string) => setPendingPrompt(prompt), []);
   const clearPendingPrompt = useCallback(() => setPendingPrompt(null), []);
+  const requestComposerFocus = useCallback(() => setPendingComposerFocus(true), []);
+  const clearComposerFocusRequest = useCallback(() => setPendingComposerFocus(false), []);
 
-  const reset = useCallback(() => {
+  // Tear down the active session boundary (the backend session id, any in-flight stream, and the
+  // per-turn state) without touching the persisted transcript. Shared by `reset()`, which also
+  // clears the transcript, and by the identity-change effect below, which must keep the transcript
+  // it just seeded for the new user.
+  const resetSessionBoundary = useCallback(() => {
     // Invalidate any in-flight send still awaiting its POST: its captured token no longer matches,
     // so its guarded callbacks no-op and its EventSource is closed when the await resolves.
     activeRequestRef.current = null;
@@ -690,40 +876,56 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       rafPendingRef.current = null;
     }
     setSessionId(null);
-    setMessages([]);
     setIsStreaming(false);
     setError(null);
     setErrorCode(null);
     setCurrentStatus(null);
     setActiveTools([]);
-    setTokenUsage(EMPTY_TOKEN_USAGE);
-    setPersistedChat({ messages: [], tokenUsage: EMPTY_TOKEN_USAGE });
     openTextBufferRef.current = '';
     setPendingPermission(null);
-  }, [setPersistedChat]);
-
-  // Begin a new in-flight send: stamp a fresh token in closure,
-  // return a checker for whether this send is
-  // still the active one (i.e. not superseded by a reset/cancel that ran during its POST).
-  const beginRequest = useCallback(() => {
-    const token = Symbol();
-    activeRequestRef.current = token;
-    return () => activeRequestRef.current === token;
+    setPendingClientToolCall(null);
+    // Intentionally preserve pendingComposerFocus: a new-session Custom View
+    // build requests focus before reset, and the fresh composer consumes it.
+    setPendingAutomaticMessage(null);
+    structuredRepairAttemptsRef.current = 0;
+    structuredRepairContextRef.current = null;
   }, []);
 
-  // Store the resolved stream if its send is still current, otherwise close the orphan. Returns
-  // whether it was attached
-  const attachStreamIfCurrent = useCallback((isCurrent: () => boolean, result: SendMessageStreamResult): boolean => {
-    if (!isCurrent()) {
-      result.eventSource?.close();
-      return false;
+  const reset = useCallback(() => {
+    resetSessionBoundary();
+    setMessages([]);
+    setTokenUsage(EMPTY_TOKEN_USAGE);
+    setLocalStorageItem<PersistedChat>(chatStorageKey, CHAT_STORAGE_VERSION, false, {
+      messages: [],
+      tokenUsage: EMPTY_TOKEN_USAGE,
+    });
+  }, [resetSessionBoundary, chatStorageKey]);
+
+  // On a live identity switch (a different user becomes active without a page reload) the seed block
+  // above re-seeds the transcript for the new user, but the backend session id and any active stream
+  // still belong to the previous user, so the next send could continue the previous user's Assistant
+  // session. Reset the session boundary (not the just-seeded transcript) whenever the resolved
+  // identity changes. Gated on a resolved identity like the seed block, so the loading-to-resolved
+  // transition on a cold load is not mistaken for a switch: the first resolved identity becomes the
+  // baseline with no prior session to tear down.
+  const previousChatKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (isCurrentUserLoading) {
+      return;
     }
-    eventSourceRef.current = result.eventSource;
-    return true;
-  }, []);
+    const previousChatKey = previousChatKeyRef.current;
+    previousChatKeyRef.current = chatStorageKey;
+    if (previousChatKey !== null && previousChatKey !== chatStorageKey) {
+      resetSessionBoundary();
+      // Drop a prompt the previous user prefilled into the composer so it never surfaces for the new
+      // user. reset() keeps pendingPrompt for its own new-session prefill flow, so clear it only here.
+      setPendingPrompt(null);
+    }
+  }, [chatStorageKey, isCurrentUserLoading, resetSessionBoundary]);
 
   const startChat = useCallback(
     async (prompt?: string) => {
+      structuredRepairAttemptsRef.current = 0;
       const isCurrent = beginRequest();
 
       setError(null);
@@ -733,6 +935,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       // here drops the stale Allow/Deny so it can't resume the abandoned turn; the
       // backend closes the orphaned tool call out as cancelled.
       setPendingPermission(null);
+      setPendingClientToolCall(null);
 
       // Add user message if prompt provided
       if (prompt) {
@@ -769,10 +972,10 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
           await flushPendingProvider();
         }
         const pageContext = getPageContext();
+        structuredRepairContextRef.current = pageContext['customTraceView'] ? pageContext : null;
         const result = await sendMessageStream(
           {
             message: prompt || '',
-            session_id: sessionId ?? undefined,
             experiment_id: pageContext['experimentId'] as string | undefined,
             context: pageContext,
           },
@@ -788,15 +991,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
         failStreamingTurn(err instanceof Error ? err.message : 'Failed to start chat');
       }
     },
-    [
-      sessionId,
-      beginRequest,
-      attachStreamIfCurrent,
-      flushPendingProvider,
-      getPageContext,
-      streamCallbacks,
-      failStreamingTurn,
-    ],
+    [beginRequest, attachStreamIfCurrent, flushPendingProvider, getPageContext, streamCallbacks, failStreamingTurn],
   );
 
   const respondToPermission = useCallback(
@@ -828,19 +1023,95 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     [pendingPermission, beginRequest, attachStreamIfCurrent, streamCallbacks, failStreamingTurn],
   );
 
+  const submitClientToolResult = useCallback(
+    (content: string, isError = false) => {
+      if (!pendingClientToolCall) {
+        return;
+      }
+      // Target the request's originating session, not the current one, so a
+      // session change while the call was pending can't resolve the wrong turn.
+      const { sessionId: requestSessionId, requestId } = pendingClientToolCall;
+      setPendingClientToolCall(null);
+      setError(null);
+      setErrorCode(null);
+      setIsStreaming(true);
+
+      // The paused assistant placeholder keeps streaming — no new message; the
+      // resume stream continues accumulating into it until done.
+      const isCurrent = beginRequest();
+      submitClientToolResultApi(requestSessionId, requestId, content, isError, withGuard(isCurrent, streamCallbacks))
+        .then((result) => {
+          attachStreamIfCurrent(isCurrent, result);
+        })
+        .catch((err) => {
+          if (isCurrent()) {
+            failStreamingTurn(err instanceof Error ? err.message : 'Failed to resume');
+          }
+        });
+    },
+    [pendingClientToolCall, beginRequest, attachStreamIfCurrent, streamCallbacks, failStreamingTurn],
+  );
+
+  // A paused client_tool_call needs no user interaction (unlike a permission prompt):
+  // look up the feature-registered handler for the tool name (see
+  // clientToolHandlers.ts), run it, and report the result to resume the stream.
+  // No registered handler (e.g. the owning feature isn't mounted) reports an
+  // error so the paused turn doesn't hang forever. Terminal structured-output
+  // calls are handled after the provider's done event and never enter this slot.
+  useEffect(() => {
+    if (!pendingClientToolCall) {
+      return;
+    }
+    let cancelled = false;
+    const { toolName, toolInput } = pendingClientToolCall;
+    const handler = getClientToolHandler(toolName);
+    if (!handler) {
+      submitClientToolResult(`No handler is registered for client tool "${toolName}".`, true);
+      return;
+    }
+    handler(toolInput)
+      .then((result) => {
+        if (!cancelled) {
+          submitClientToolResult(result.content, result.isError);
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          submitClientToolResult(err instanceof Error ? err.message : 'Client tool execution failed', true);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [pendingClientToolCall, submitClientToolResult]);
+
   const handleSendMessage = useCallback(
-    async (message: string) => {
+    async (message: string, options?: SendMessageOptions) => {
+      // A direct send supersedes any prompt queued for the composer, regardless
+      // of whether it starts a fresh thread or continues the current one.
+      setPendingPrompt(null);
+      setPendingAutomaticMessage(null);
+      if (options?.newSession) {
+        // Reset and start through the explicit fresh-chat path in the same
+        // action. Calling reset() followed by the regular session-aware branch
+        // would still see this render's stale sessionId closure.
+        reset();
+        startChat(message);
+        return;
+      }
       if (!sessionId) {
         startChat(message);
         return;
       }
 
+      structuredRepairAttemptsRef.current = 0;
       const isCurrent = beginRequest();
 
       setError(null);
       setErrorCode(null);
       setIsStreaming(true);
       setPendingPermission(null);
+      setPendingClientToolCall(null);
 
       // Add user message
       setMessages((prev) => [
@@ -875,6 +1146,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
 
         // Send message and stream response
         const pageContext = getPageContext();
+        structuredRepairContextRef.current = pageContext['customTraceView'] ? pageContext : null;
         const result = await sendMessageStream(
           {
             session_id: sessionId,
@@ -894,6 +1166,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     },
     [
       sessionId,
+      reset,
       startChat,
       beginRequest,
       attachStreamIfCurrent,
@@ -903,6 +1176,43 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       failStreamingTurn,
     ],
   );
+
+  const forceSendPendingAutomaticMessage = useCallback(() => {
+    if (!pendingAutomaticMessage) {
+      return;
+    }
+    const { message, options } = pendingAutomaticMessage;
+    setPendingAutomaticMessage(null);
+    handleSendMessage(message, options);
+  }, [pendingAutomaticMessage, handleSendMessage]);
+
+  const sendMessageWhenReady = useCallback((message: string, options?: SendMessageOptions) => {
+    // Automatic delivery is distinct from composer prefilling: retain the
+    // message and its session options until the selected provider can send it.
+    setPendingPrompt(null);
+    setPendingAutomaticMessage({ message, options });
+  }, []);
+
+  useEffect(() => {
+    if (
+      pendingAutomaticMessage &&
+      canUseAssistant &&
+      !isLoadingConfig &&
+      setupComplete &&
+      activeProvider &&
+      !needsApiKey
+    ) {
+      forceSendPendingAutomaticMessage();
+    }
+  }, [
+    pendingAutomaticMessage,
+    canUseAssistant,
+    isLoadingConfig,
+    setupComplete,
+    activeProvider,
+    needsApiKey,
+    forceSendPendingAutomaticMessage,
+  ]);
 
   const handleCancelSession = useCallback(() => {
     if (!sessionId || !isStreaming) return;
@@ -936,6 +1246,9 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     setCurrentStatus(null);
     setActiveTools([]);
     setPendingPermission(null);
+    setPendingClientToolCall(null);
+    structuredRepairAttemptsRef.current = 0;
+    structuredRepairContextRef.current = null;
   }, [sessionId, isStreaming, closeStreamingMessage]);
 
   const regenerateLastMessage = useCallback(async () => {
@@ -950,6 +1263,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       return; // No user message to regenerate from
     }
 
+    structuredRepairAttemptsRef.current = 0;
     const isCurrent = beginRequest();
 
     const userMessageContent = messages[lastUserMessageIndex].content;
@@ -993,6 +1307,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
 
       // Re-send the last user message
       const pageContext = getPageContext();
+      structuredRepairContextRef.current = pageContext['customTraceView'] ? pageContext : null;
       const result = await sendMessageStream(
         {
           session_id: sessionId ?? undefined,
@@ -1039,22 +1354,30 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     gatewayVendorOptions,
     needsApiKey,
     pendingPrompt,
+    pendingComposerFocus,
+    pendingAutomaticMessage,
     pendingPermission,
+    pendingClientToolCall,
     canUseAssistant,
     tokenUsage,
     // Actions
     openPanel,
     closePanel,
     sendMessage: handleSendMessage,
+    sendMessageWhenReady,
+    forceSendPendingAutomaticMessage,
     selectProvider,
     prefillPrompt,
     clearPendingPrompt,
+    requestComposerFocus,
+    clearComposerFocusRequest,
     regenerateLastMessage,
     reset,
     cancelSession: handleCancelSession,
     refreshConfig,
     completeSetup,
     respondToPermission,
+    submitClientToolResult,
   };
 
   return <AssistantReactContext.Provider value={value}>{children}</AssistantReactContext.Provider>;
@@ -1078,21 +1401,29 @@ const disabledAssistantContext: AssistantAgentContextType = {
   gatewayVendorOptions: {},
   needsApiKey: false,
   pendingPrompt: null,
+  pendingComposerFocus: false,
+  pendingAutomaticMessage: null,
   pendingPermission: null,
+  pendingClientToolCall: null,
   canUseAssistant: false,
   tokenUsage: { promptTokens: 0, completionTokens: 0, totalTokens: 0, cacheReadTokens: 0, costUsd: null },
   openPanel: () => {},
   closePanel: () => {},
   sendMessage: () => {},
+  sendMessageWhenReady: () => {},
+  forceSendPendingAutomaticMessage: () => {},
   selectProvider: () => {},
   prefillPrompt: () => {},
   clearPendingPrompt: () => {},
+  requestComposerFocus: () => {},
+  clearComposerFocusRequest: () => {},
   regenerateLastMessage: () => {},
   reset: () => {},
   cancelSession: () => {},
   refreshConfig: () => Promise.resolve(),
   completeSetup: () => {},
   respondToPermission: () => {},
+  submitClientToolResult: () => {},
 };
 
 /**

@@ -168,21 +168,24 @@ def test_autolog_throws_error_with_negative_max_tuning_runs():
 
 
 @pytest.mark.parametrize(
-    ("max_tuning_runs", "total_runs", "output_statement"),
+    ("max_tuning_runs", "total_runs", "logging_phrase", "omitting_phrase"),
     [
-        (0, 4, "Logging no runs, all will be omitted"),
-        (0, 1, "Logging no runs, one run will be omitted"),
-        (1, 1, "Logging the best run, no runs will be omitted"),
-        (5, 4, "Logging all runs, no runs will be omitted"),
-        (4, 4, "Logging all runs, no runs will be omitted"),
-        (2, 5, "Logging the 2 best runs, 3 runs will be omitted"),
+        (0, 4, "no runs", "4 runs"),
+        (0, 1, "no runs", "one run"),
+        (1, 1, "the best run", "no runs"),
+        (5, 4, "the 4 best runs", "no runs"),
+        (4, 4, "the 4 best runs", "no runs"),
+        (2, 5, "the 2 best runs", "3 runs"),
     ],
 )
-def test_autolog_max_tuning_runs_logs_info_correctly(max_tuning_runs, total_runs, output_statement):
+def test_autolog_max_tuning_runs_logs_info_correctly(
+    max_tuning_runs, total_runs, logging_phrase, omitting_phrase
+):
     with mock.patch("mlflow.sklearn.utils._logger.info") as mock_info:
         _log_child_runs_info(max_tuning_runs, total_runs)
-        mock_info.assert_called_once()
-        mock_info.called_once_with(output_statement)
+        mock_info.assert_called_once_with(
+            "Logging %s, %s will be omitted.", logging_phrase, omitting_phrase
+        )
 
 
 def test_autolog_does_not_terminate_active_run():
@@ -671,6 +674,8 @@ def test_autolog_emits_warning_message_when_score_fails():
     mlflow.sklearn.autolog()
 
     model = sklearn.cluster.KMeans()
+    # `score` is inherited, and which base class defines it varies across scikit-learn versions
+    score_qualname = model.score.__qualname__
 
     @functools.wraps(model.score)
     def throwing_score(X, y=None, sample_weight=None):
@@ -680,9 +685,8 @@ def test_autolog_emits_warning_message_when_score_fails():
 
     with mlflow.start_run(), mock.patch("mlflow.sklearn.utils._logger.warning") as mock_warning:
         model.fit(*get_iris())
-        mock_warning.assert_called_once()
-        mock_warning.called_once_with(
-            "KMeans.score failed. The 'training_score' metric will not be recorded. "
+        mock_warning.assert_called_once_with(
+            f"{score_qualname} failed. The 'training_score' metric will not be recorded. "
             "Scoring error: EXCEPTION"
         )
 
@@ -696,19 +700,18 @@ def test_autolog_emits_warning_message_when_metric_fails():
     model = sklearn.svm.SVC()
 
     @functools.wraps(sklearn.metrics.precision_score)
-    def throwing_metrics(y_true, y_pred):
+    def throwing_metrics(*args, **kwargs):
         raise Exception("EXCEPTION")
 
+    # Patch with `new`, not a mock: the warning message reads the metric's `__qualname__`
     with (
         mlflow.start_run(),
         mock.patch("mlflow.sklearn.utils._logger.warning") as mock_warning,
-        mock.patch("sklearn.metrics.precision_score", side_effect=throwing_metrics),
+        mock.patch("sklearn.metrics.precision_score", new=throwing_metrics),
     ):
         model.fit(*get_iris())
-        mock_warning.assert_called_once()
-        mock_warning.called_once_with(
-            "SVC.precision_score failed. "
-            "The 'precision_score' metric will not be recorded. "
+        mock_warning.assert_called_once_with(
+            "precision_score failed. The metric training_precision_score will not be recorded. "
             "Metric error: EXCEPTION"
         )
 

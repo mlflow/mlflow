@@ -17,12 +17,14 @@ from urllib.parse import quote
 from pydantic import BaseModel, ConfigDict, ValidationError
 from typing_extensions import Self
 
-from mlflow.entities import LifecycleStage
+from mlflow.entities import LifecycleStage, ScorerVersion
 from mlflow.exceptions import MlflowException, RestException
 from mlflow.genai.scorers.base import (
     SCORER_BACKEND_DATABRICKS,
     SCORER_BACKEND_TRACKING,
+    SCORER_CANONICAL_RESOURCE_TYPE_DATABRICKS,
     Scorer,
+    ScorerCanonicalResourceType,
     ScorerSamplingConfig,
 )
 from mlflow.protos.databricks_pb2 import (
@@ -43,6 +45,7 @@ if TYPE_CHECKING:
     from mlflow.genai.scorers.online.entities import OnlineScoringConfig
 
 _T = TypeVar("_T")
+_SCORER_VERSION_ATTRIBUTE = "scorer_version"
 
 
 class _DatabricksManagedScorerPayload(BaseModel):
@@ -314,16 +317,16 @@ class MlflowTrackingStore(AbstractScorerStore):
     def register_scorer(self, experiment_id: str | None, scorer: Scorer) -> int | None:
         serialized_scorer = json.dumps(scorer.model_dump())
         experiment_id = experiment_id or _get_experiment_id()
-        version = self._tracking_store.register_scorer(
+        scorer_version = self._tracking_store.register_scorer(
             experiment_id, scorer.name, serialized_scorer
         )
-        self._hydrate_scorer(scorer, experiment_id, online_config=None)
-        return version
+        self._hydrate_scorer(scorer, scorer_version, online_config=None)
+        return scorer_version
 
     def _hydrate_scorer(
         self,
         scorer: Scorer,
-        experiment_id: str,
+        scorer_version: ScorerVersion,
         online_config: Optional["OnlineScoringConfig"] = None,
     ) -> None:
         """
@@ -331,16 +334,21 @@ class MlflowTrackingStore(AbstractScorerStore):
 
         Args:
             scorer: The scorer to hydrate.
-            experiment_id: The experiment ID the scorer belongs to.
+            scorer_version: The registered scorer version entity.
             online_config: Optional OnlineScoringConfig from the tracking store.
         """
-        scorer._registered_backend = SCORER_BACKEND_TRACKING
-        scorer._experiment_id = experiment_id
+        sampling_config = None
         if online_config is not None:
-            scorer._sampling_config = ScorerSamplingConfig(
+            sampling_config = ScorerSamplingConfig(
                 sample_rate=online_config.sample_rate,
                 filter_string=online_config.filter_string,
             )
+        scorer._set_registration_metadata(
+            backend=SCORER_BACKEND_TRACKING,
+            experiment_id=scorer_version.experiment_id,
+            sampling_config=sampling_config,
+            scorer_version=scorer_version.scorer_version,
+        )
 
     def list_scorers(self, experiment_id) -> list["Scorer"]:
         from mlflow.genai.scorers import Scorer
@@ -357,7 +365,7 @@ class MlflowTrackingStore(AbstractScorerStore):
         for scorer_version in scorer_versions:
             scorer = Scorer.model_validate(scorer_version.serialized_scorer)
             online_config = online_configs.get(scorer_version.scorer_id)
-            self._hydrate_scorer(scorer, experiment_id, online_config)
+            self._hydrate_scorer(scorer, scorer_version, online_config)
             scorers.append(scorer)
         return scorers
 
@@ -372,7 +380,7 @@ class MlflowTrackingStore(AbstractScorerStore):
         # Each scorer has at most one online configuration, guaranteed by the server
         online_config = online_configs_list[0] if online_configs_list else None
         scorer = Scorer.model_validate(scorer_version.serialized_scorer)
-        self._hydrate_scorer(scorer, experiment_id, online_config)
+        self._hydrate_scorer(scorer, scorer_version, online_config)
         return scorer
 
     def list_scorer_versions(self, experiment_id, name) -> list[tuple[Scorer, int]]:
@@ -390,7 +398,7 @@ class MlflowTrackingStore(AbstractScorerStore):
         for scorer_version in scorer_versions:
             scorer = Scorer.model_validate(scorer_version.serialized_scorer)
             online_config = online_configs.get(scorer_version.scorer_id)
-            self._hydrate_scorer(scorer, experiment_id, online_config)
+            self._hydrate_scorer(scorer, scorer_version, online_config)
             scorers.append((scorer, scorer_version.scorer_version))
         return scorers
 
@@ -514,6 +522,39 @@ class DatabricksStore(AbstractScorerStore):
     @staticmethod
     def _scorer_resource_key(name: str) -> str:
         return urlsafe_b64encode(name.encode("utf-8")).decode("ascii").rstrip("=")
+
+    @classmethod
+    def _scorer_version_resource_name(cls, experiment_id: str, name: str, version: int) -> str:
+        version = cls._validate_version(version)
+        return (
+            f"experiments/{experiment_id}/scorers/{cls._scorer_resource_key(name)}"
+            f"/versions/{version}"
+        )
+
+    @staticmethod
+    def _scheduled_scorer_version(config: Any) -> int | None:
+        scorer_version = getattr(config, _SCORER_VERSION_ATTRIBUTE, None)
+        if isinstance(scorer_version, bool) or not isinstance(scorer_version, int):
+            return None
+        return scorer_version
+
+    def _canonical_resource_name(
+        self,
+        experiment_id: str,
+        config: Any,
+    ) -> str | None:
+        scorer_version = self._scheduled_scorer_version(config)
+        if scorer_version is None:
+            return None
+        return self._scorer_version_resource_name(experiment_id, config.name, scorer_version)
+
+    def _canonical_resource_name_type(
+        self,
+        config: Any,
+    ) -> ScorerCanonicalResourceType | None:
+        if self._scheduled_scorer_version(config) is None:
+            return None
+        return SCORER_CANONICAL_RESOURCE_TYPE_DATABRICKS
 
     def _scheduled_scorers_endpoint(self, experiment_id: str) -> str:
         return (
@@ -758,6 +799,9 @@ class DatabricksStore(AbstractScorerStore):
                         sample_rate=config.sample_rate,
                         filter_string=config.filter_string,
                     ),
+                    scorer_version=self._scheduled_scorer_version(config),
+                    canonical_resource_name=self._canonical_resource_name(experiment_id, config),
+                    canonical_resource_name_type=self._canonical_resource_name_type(config),
                 )
         raise MlflowException(f"Updated scheduled scorer response did not include '{name}'.")
 
@@ -784,6 +828,9 @@ class DatabricksStore(AbstractScorerStore):
                 sample_rate=response_config.sample_rate,
                 filter_string=response_config.filter_string,
             ),
+            scorer_version=self._scheduled_scorer_version(response_config),
+            canonical_resource_name=self._canonical_resource_name(experiment_id, response_config),
+            canonical_resource_name_type=self._canonical_resource_name_type(response_config),
         )
         return response_config.scorer_version
 
@@ -802,6 +849,11 @@ class DatabricksStore(AbstractScorerStore):
                     sample_rate=scheduled_scorer.sample_rate,
                     filter_string=scheduled_scorer.filter_string,
                 ),
+                scorer_version=self._scheduled_scorer_version(scheduled_scorer),
+                canonical_resource_name=self._canonical_resource_name(
+                    experiment_id, scheduled_scorer
+                ),
+                canonical_resource_name_type=self._canonical_resource_name_type(scheduled_scorer),
             )
             for scheduled_scorer in scheduled_scorers
         ]
@@ -831,6 +883,11 @@ class DatabricksStore(AbstractScorerStore):
                     sample_rate=current_config.sample_rate,
                     filter_string=current_config.filter_string,
                 ),
+                scorer_version=version_config.scorer_version,
+                # The scorer-version endpoint returns the canonical Databricks resource
+                # name; keep it verbatim rather than reconstructing it from request inputs.
+                canonical_resource_name=version_config.name,
+                canonical_resource_name_type=SCORER_CANONICAL_RESOURCE_TYPE_DATABRICKS,
             )
 
         # Get the scheduled scorer from the server
@@ -850,6 +907,9 @@ class DatabricksStore(AbstractScorerStore):
                 sample_rate=scheduled_scorer.sample_rate,
                 filter_string=scheduled_scorer.filter_string,
             ),
+            scorer_version=self._scheduled_scorer_version(scheduled_scorer),
+            canonical_resource_name=self._canonical_resource_name(experiment_id, scheduled_scorer),
+            canonical_resource_name_type=self._canonical_resource_name_type(scheduled_scorer),
         )
 
     def list_scorer_versions(self, experiment_id, name) -> list[tuple["Scorer", int]]:
@@ -872,6 +932,11 @@ class DatabricksStore(AbstractScorerStore):
                         sample_rate=current_config.sample_rate,
                         filter_string=current_config.filter_string,
                     ),
+                    scorer_version=config.scorer_version,
+                    # The scorer-version list endpoint returns the canonical Databricks resource
+                    # name; keep it verbatim rather than reconstructing it from request inputs.
+                    canonical_resource_name=config.name,
+                    canonical_resource_name_type=SCORER_CANONICAL_RESOURCE_TYPE_DATABRICKS,
                 ),
                 config.scorer_version,
             )

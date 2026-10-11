@@ -718,6 +718,36 @@ def test_call_trace_based_judge_ignores_inputs_outputs(mock_trace, mock_invoke_j
     assert captured_args["trace"] == mock_trace
 
 
+def test_trace_based_gateway_judge_rejects_system_one_endpoint(mock_trace):
+    # A trace-based judge on a gateway System One (Jev) endpoint cannot run (Jev has no trace
+    # support). The chat attempt is rejected as System One; surface the clear trace-based
+    # message instead of the raw gateway rejection.
+    from mlflow.gateway.constants import SYSTEM_ONE_CHAT_ROUTE_REJECTION_DETAIL
+    from mlflow.genai.judges.adapters.utils import ChatCompletionError
+
+    cause = ChatCompletionError(
+        status_code=400,
+        message=json.dumps({"detail": SYSTEM_ONE_CHAT_ROUTE_REJECTION_DETAIL}),
+    )
+    rejection = MlflowException(f"Failed to invoke judge model: {cause.message}")
+    rejection.__cause__ = cause
+
+    judge = make_judge(
+        name="trace_judge",
+        instructions="Analyze this {{ trace }}",
+        model="gateway:/jev-endpoint",
+        feedback_value_type=bool,
+    )
+
+    with (
+        mock.patch(
+            "mlflow.genai.judges.instructions_judge.invoke_judge_model", side_effect=rejection
+        ),
+        pytest.raises(MlflowException, match="do not support trace-based evaluation"),
+    ):
+        judge(trace=mock_trace)
+
+
 def test_call_with_no_inputs_or_outputs():
     judge = make_judge(
         name="test_judge",
@@ -965,6 +995,40 @@ def test_prompt_formatting_with_all_reserved_variable_types(mock_invoke_judge_mo
     assert expected_inputs_json in user_msg.content
     assert expected_outputs_json in user_msg.content
     assert expected_expectations_json in user_msg.content
+
+
+def test_typesafe_invocation_preserves_raw_field_values(monkeypatch):
+    instructions = "Compare {{ outputs }} with {{ inputs }} and {{ expectations }}"
+    feedback_value_type = Literal["pass", "fail"]
+    judge = make_judge(
+        name="structured_judge",
+        instructions=instructions,
+        feedback_value_type=feedback_value_type,
+        model="typesafe:/jev-latest",
+    )
+    inputs = {"messages": [{"role": "user", "content": "hello"}]}
+    outputs = [{"answer": "hi"}, {"confidence": 0.9}]
+    expectations = {"allowed": ["hi", "hello"]}
+
+    invoke = mock.Mock(return_value=Feedback(name="structured_judge", value="pass"))
+    monkeypatch.setattr(mlflow.genai.judges.instructions_judge, "_invoke_typesafe_judge", invoke)
+
+    judge(inputs=inputs, outputs=outputs, expectations=expectations)
+
+    invoke.assert_called_once()
+    args, kwargs = invoke.call_args
+    assert args == ("typesafe:/jev-latest",)
+    assert kwargs["instructions"] == instructions
+    assert kwargs["state"] == {
+        "inputs": inputs,
+        "outputs": outputs,
+        "expectations": expectations,
+    }
+    assert kwargs["state"]["inputs"] is inputs
+    assert kwargs["state"]["outputs"] is outputs
+    assert kwargs["state"]["expectations"] is expectations
+    assert kwargs["feedback_value_type"] == feedback_value_type
+    assert kwargs["assessment_name"] == "structured_judge"
 
 
 def test_output_format_instructions_added(mock_invoke_judge_model):
@@ -2945,6 +3009,59 @@ def test_make_judge_serialization_with_feedback_value_type():
     assert typing.get_args(restored_list._feedback_value_type) == (str,)
 
 
+def test_typesafe_model_round_trip_uses_instructions_judge_serialization():
+    judge = make_judge(
+        name="typesafe_judge",
+        instructions="Is {{ outputs }} correct?",
+        model="typesafe:/jev-latest",
+        feedback_value_type=Literal["yes", "no"],
+    )
+
+    serialized = judge.model_dump()
+    assert serialized["instructions_judge_pydantic_data"] == {
+        "instructions": "Is {{ outputs }} correct?",
+        "model": "typesafe:/jev-latest",
+        "feedback_value_type": {
+            "type": "string",
+            "enum": ["yes", "no"],
+            "title": "Result",
+        },
+    }
+    assert serialized["builtin_scorer_class"] is None
+    assert serialized["builtin_scorer_pydantic_data"] is None
+
+    restored = Scorer.model_validate(serialized)
+    restored_from_json = Scorer.model_validate_json(json.dumps(serialized))
+    for restored_judge in (restored, restored_from_json):
+        assert isinstance(restored_judge, InstructionsJudge)
+        assert restored_judge.model == "typesafe:/jev-latest"
+        assert restored_judge.instructions == "Is {{ outputs }} correct?"
+        assert typing.get_args(restored_judge.feedback_value_type) == ("yes", "no")
+
+
+@pytest.mark.parametrize(
+    ("feedback_value_type", "expected_values"),
+    [
+        (Literal["only"], ("only",)),
+        (Literal["pass", 0], ("pass", 0)),
+    ],
+)
+def test_literal_edge_cases_round_trip(feedback_value_type, expected_values):
+    judge = make_judge(
+        name="typesafe_judge",
+        instructions="Evaluate {{ outputs }}",
+        model="typesafe:/jev-latest",
+        feedback_value_type=feedback_value_type,
+    )
+
+    for restored in (
+        Scorer.model_validate(judge.model_dump()),
+        Scorer.model_validate_json(json.dumps(judge.model_dump())),
+    ):
+        assert typing.get_origin(restored.feedback_value_type) is Literal
+        assert typing.get_args(restored.feedback_value_type) == expected_values
+
+
 def test_judge_with_literal_type_serialization():
     literal_type = Literal["good", "bad"]
     judge = make_judge(
@@ -3714,6 +3831,48 @@ def test_instructions_judge_generate_rationale_first():
     assert output_fields_default[1].value_type == str
     assert output_fields_rationale_first[0].value_type == str  # rationale
     assert output_fields_rationale_first[1].value_type == Literal["good", "bad"]  # result
+
+
+def test_make_judge_generate_rationale_first():
+    # Default (False): result is emitted before rationale.
+    judge_default = make_judge(
+        name="test_judge",
+        instructions="Evaluate {{ outputs }}",
+        model="openai:/gpt-4",
+        feedback_value_type=bool,
+    )
+    assert judge_default._generate_rationale_first is False
+    assert [f.name for f in judge_default.get_output_fields()] == ["result", "rationale"]
+
+    # Opt in: rationale is emitted before result so the verdict follows the reasoning.
+    judge_rationale_first = make_judge(
+        name="test_judge_rationale_first",
+        instructions="Evaluate {{ outputs }}",
+        model="openai:/gpt-4",
+        feedback_value_type=bool,
+        generate_rationale_first=True,
+    )
+    assert judge_rationale_first._generate_rationale_first is True
+    assert [f.name for f in judge_rationale_first.get_output_fields()] == ["rationale", "result"]
+
+
+@pytest.mark.parametrize("generate_rationale_first", [True, False])
+def test_make_judge_generate_rationale_first_survives_serialization(generate_rationale_first):
+    judge = make_judge(
+        name="test_judge",
+        instructions="Evaluate {{ outputs }}",
+        model="openai:/gpt-4",
+        feedback_value_type=bool,
+        generate_rationale_first=generate_rationale_first,
+    )
+
+    deserialized = Scorer.model_validate(judge.model_dump())
+
+    assert deserialized._generate_rationale_first is generate_rationale_first
+    expected_order = (
+        ["rationale", "result"] if generate_rationale_first else ["result", "rationale"]
+    )
+    assert [f.name for f in deserialized.get_output_fields()] == expected_order
 
 
 @pytest.mark.parametrize(

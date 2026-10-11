@@ -826,6 +826,111 @@ def test_onnx_model_load_coerces_string_provider_metadata(onnx_model, model_path
     assert kwargs["providers"] == ["CUDAExecutionProvider"]
 
 
+def test_onnx_model_load_supports_provider_options_entries(onnx_model, model_path, caplog):
+    # (name, options) entries come back from the MLmodel YAML as two-element lists; the
+    # loader must pass them to onnxruntime as tuples and not misreport them as dropped.
+    mlflow.onnx.save_model(
+        onnx_model,
+        model_path,
+        onnx_execution_providers=[
+            ("CUDAExecutionProvider", {"device_id": 0}),
+            "CPUExecutionProvider",
+        ],
+    )
+    onnx_logger = logging.getLogger("mlflow.onnx")
+    onnx_logger.addHandler(caplog.handler)
+    try:
+        with (
+            mock.patch("onnxruntime.InferenceSession") as mock_session,
+            mock.patch(
+                "onnxruntime.get_available_providers",
+                return_value=["CUDAExecutionProvider", "CPUExecutionProvider"],
+            ),
+            caplog.at_level("WARNING", logger="mlflow.onnx"),
+        ):
+            _stub_session(
+                mock_session,
+                active_providers=["CUDAExecutionProvider", "CPUExecutionProvider"],
+            )
+            mlflow.pyfunc.load_model(model_path)
+    finally:
+        onnx_logger.removeHandler(caplog.handler)
+    _, kwargs = mock_session.call_args
+    assert kwargs["providers"] == [
+        ("CUDAExecutionProvider", {"device_id": 0}),
+        "CPUExecutionProvider",
+    ]
+    # The three loader warnings must not fire; match their messages instead of asserting
+    # caplog is empty, since unrelated loggers can leak into caplog in full-file runs.
+    assert "unavailable in this onnxruntime build" not in caplog.text
+    assert "failed to initialize" not in caplog.text
+    assert "activated only" not in caplog.text
+
+
+def test_onnx_model_load_filters_unavailable_provider_options_entry(onnx_model, model_path, caplog):
+    mlflow.onnx.save_model(
+        onnx_model,
+        model_path,
+        onnx_execution_providers=[
+            ("TensorrtExecutionProvider", {"trt_max_workspace_size": 2147483648}),
+            "CPUExecutionProvider",
+        ],
+    )
+    onnx_logger = logging.getLogger("mlflow.onnx")
+    onnx_logger.addHandler(caplog.handler)
+    try:
+        with (
+            mock.patch("onnxruntime.InferenceSession") as mock_session,
+            mock.patch(
+                "onnxruntime.get_available_providers",
+                return_value=["CPUExecutionProvider"],
+            ),
+            caplog.at_level("WARNING", logger="mlflow.onnx"),
+        ):
+            _stub_session(mock_session)
+            mlflow.pyfunc.load_model(model_path)
+    finally:
+        onnx_logger.removeHandler(caplog.handler)
+    _, kwargs = mock_session.call_args
+    assert kwargs["providers"] == ["CPUExecutionProvider"]
+    assert "TensorrtExecutionProvider" in caplog.text
+
+
+def test_onnx_model_load_warns_on_malformed_provider_metadata_entry(onnx_model, model_path, caplog):
+    # Provider entries that are neither a name nor a (name, options) pair can only come
+    # from hand-edited metadata; the loader must treat them as unavailable.
+    mlflow.onnx.save_model(
+        onnx_model, model_path, onnx_execution_providers=["CPUExecutionProvider"]
+    )
+    mlmodel_path = os.path.join(model_path, "MLmodel")
+    with open(mlmodel_path) as f:
+        mlmodel = yaml.safe_load(f)
+    mlmodel["flavors"]["onnx"]["providers"] = [
+        {"CUDAExecutionProvider": {"device_id": 0}},
+        "CPUExecutionProvider",
+    ]
+    with open(mlmodel_path, "w") as f:
+        yaml.safe_dump(mlmodel, f)
+    onnx_logger = logging.getLogger("mlflow.onnx")
+    onnx_logger.addHandler(caplog.handler)
+    try:
+        with (
+            mock.patch("onnxruntime.InferenceSession") as mock_session,
+            mock.patch(
+                "onnxruntime.get_available_providers",
+                return_value=["CUDAExecutionProvider", "CPUExecutionProvider"],
+            ),
+            caplog.at_level("WARNING", logger="mlflow.onnx"),
+        ):
+            _stub_session(mock_session)
+            mlflow.pyfunc.load_model(model_path)
+    finally:
+        onnx_logger.removeHandler(caplog.handler)
+    _, kwargs = mock_session.call_args
+    assert kwargs["providers"] == ["CPUExecutionProvider"]
+    assert "unavailable" in caplog.text
+
+
 def test_onnx_model_load_warns_on_runtime_provider_fallback(onnx_model, model_path, caplog):
     # A requested provider can be compiled into onnxruntime (so it appears in
     # get_available_providers()) yet fail to initialize at runtime -- e.g. a CUDA

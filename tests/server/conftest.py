@@ -4,7 +4,15 @@ from flask import Flask
 from starlette.testclient import TestClient
 from werkzeug.test import Client
 
+import mlflow.server.assistant.session as assistant_session
 from mlflow.server.fastapi_security import init_fastapi_security
+
+
+@pytest.fixture(autouse=True)
+def isolated_assistant_session_dir(tmp_path, monkeypatch):
+    # The FastAPI app's startup removes expired Assistant sessions and stale sandbox homes; keep
+    # that away from the machine's real temp directory.
+    monkeypatch.setattr(assistant_session, "SESSION_DIR", tmp_path / "assistant-sessions")
 
 
 @pytest.fixture

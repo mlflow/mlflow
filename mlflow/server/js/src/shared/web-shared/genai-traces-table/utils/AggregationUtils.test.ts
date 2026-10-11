@@ -444,6 +444,125 @@ describe('getAssessmentInfos', () => {
 
     expect(mixedAssessmentInfo?.isSessionLevelAssessment).toBe(true);
   });
+
+  describe('scorer description in tooltip', () => {
+    const codeSource: RunEvaluationResultAssessmentSource = {
+      sourceType: 'CODE',
+      sourceId: 'my_custom_scorer',
+      metadata: {},
+    };
+
+    it('falls back to generic message when no scorerDescriptionsByName is provided', () => {
+      const currentEvaluationResults = makeTracesFromAssessments([
+        {
+          responseAssessmentsByName: {
+            my_custom_scorer: [{ name: 'my_custom_scorer', booleanValue: true, source: codeSource }],
+          },
+        },
+      ]);
+
+      const result = getAssessmentInfos(intl, currentEvaluationResults, undefined);
+      const info = result.find((r) => r.name === 'my_custom_scorer');
+
+      expect(info?.description).toBe('This assessment is produced by a custom metric.');
+    });
+
+    it('falls back to generic message when scorer is not in scorerDescriptionsByName', () => {
+      const currentEvaluationResults = makeTracesFromAssessments([
+        {
+          responseAssessmentsByName: {
+            my_custom_scorer: [{ name: 'my_custom_scorer', booleanValue: true, source: codeSource }],
+          },
+        },
+      ]);
+
+      const result = getAssessmentInfos(intl, currentEvaluationResults, undefined, { other_scorer: 'Other desc' });
+      const info = result.find((r) => r.name === 'my_custom_scorer');
+
+      expect(info?.description).toBe('This assessment is produced by a custom metric.');
+    });
+
+    it('shows scorer name and description when scorerDescriptionsByName has an entry for the scorer', () => {
+      const currentEvaluationResults = makeTracesFromAssessments([
+        {
+          responseAssessmentsByName: {
+            my_custom_scorer: [{ name: 'my_custom_scorer', booleanValue: true, source: codeSource }],
+          },
+        },
+      ]);
+
+      const scorerDescriptionsByName = { my_custom_scorer: 'Checks whether the response is accurate.' };
+      const result = getAssessmentInfos(intl, currentEvaluationResults, undefined, scorerDescriptionsByName);
+      const info = result.find((r) => r.name === 'my_custom_scorer');
+
+      expect(info?.description).toBe('my_custom_scorer \u2014 Checks whether the response is accurate.');
+    });
+
+    it('prefers a CODE scorer description over a built-in judge when their names collide', () => {
+      // A user can register a custom CODE scorer with a name that matches a built-in judge
+      // (for example "correctness"). The registered description must win over the built-in text.
+      const collidingSource: RunEvaluationResultAssessmentSource = {
+        sourceType: 'CODE',
+        sourceId: 'correctness',
+        metadata: {},
+      };
+      const currentEvaluationResults = makeTracesFromAssessments([
+        {
+          responseAssessmentsByName: {
+            correctness: [{ name: 'correctness', booleanValue: true, source: collidingSource }],
+          },
+        },
+      ]);
+
+      const scorerDescriptionsByName = { correctness: 'My project-specific accuracy check.' };
+      const result = getAssessmentInfos(intl, currentEvaluationResults, undefined, scorerDescriptionsByName);
+      const info = result.find((r) => r.name === 'correctness');
+
+      expect(info?.description).toBe('correctness — My project-specific accuracy check.');
+    });
+
+    it('prefers an AI_JUDGE scorer description over a built-in judge when their names collide', () => {
+      const collidingSource: RunEvaluationResultAssessmentSource = {
+        sourceType: 'AI_JUDGE',
+        sourceId: 'correctness',
+        metadata: {},
+      };
+      const currentEvaluationResults = makeTracesFromAssessments([
+        {
+          responseAssessmentsByName: {
+            correctness: [{ name: 'correctness', booleanValue: true, source: collidingSource }],
+          },
+        },
+      ]);
+
+      const scorerDescriptionsByName = { correctness: 'My registered LLM accuracy judge.' };
+      const result = getAssessmentInfos(intl, currentEvaluationResults, undefined, scorerDescriptionsByName);
+      const info = result.find((r) => r.name === 'correctness');
+
+      expect(info?.description).toBe('correctness — My registered LLM accuracy judge.');
+    });
+
+    it('does not use scorerDescriptionsByName for HUMAN-sourced assessments', () => {
+      const humanSource: RunEvaluationResultAssessmentSource = {
+        sourceType: 'HUMAN',
+        sourceId: 'human_annotator',
+        metadata: {},
+      };
+      const currentEvaluationResults = makeTracesFromAssessments([
+        {
+          responseAssessmentsByName: {
+            human_annotator: [{ name: 'human_annotator', booleanValue: true, source: humanSource }],
+          },
+        },
+      ]);
+
+      const scorerDescriptionsByName = { human_annotator: 'Should not appear' };
+      const result = getAssessmentInfos(intl, currentEvaluationResults, undefined, scorerDescriptionsByName);
+      const info = result.find((r) => r.name === 'human_annotator');
+
+      expect(info?.description).toBe('This assessment is produced by a human judge.');
+    });
+  });
 });
 
 describe('getAssessmentAggregateOverallFraction', () => {

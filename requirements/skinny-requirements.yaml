@@ -4,6 +4,16 @@
 # and Databricks. When we release a new major/minor version, this file is automatically
 # updated as a part of the release process.
 
+anyio:
+  pip_release: anyio
+  # Imported directly by mlflow/server/fastapi_app.py and pulled in transitively via
+  # starlette's WSGI bridge. anyio 4.15.0 dropped `from_thread` from its top-level
+  # lazy-import shim, which breaks starlette's WSGIResponder.start_response and makes
+  # the server /health endpoint return 500 (readiness probes then fail).
+  minimum: "3.6.2"
+  max_major_version: 4
+  unsupported: ["4.15.0"]
+
 click:
   pip_release: click
   minimum: "7.0"

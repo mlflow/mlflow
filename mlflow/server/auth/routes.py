@@ -1,6 +1,8 @@
 from mlflow.server.handlers import _add_static_prefix, _get_ajax_path, _get_rest_path
 
 HOME = "/"
+# Bare like HOME: callers apply the static prefix themselves.
+SERVER_VERSION = "/version"
 SIGNUP = "/signup"
 CREATE_USER = _get_rest_path("/mlflow/users/create")
 AJAX_CREATE_USER = _get_ajax_path("/mlflow/users/create")
@@ -41,6 +43,8 @@ GET_TRACE_ARTIFACT = _get_ajax_path("/mlflow/get-trace-artifact")
 GET_TRACE_ARTIFACT_V3 = _get_ajax_path("/mlflow/get-trace-artifact", version=3)
 GET_METRIC_HISTORY_BULK = _get_ajax_path("/mlflow/metrics/get-history-bulk")
 GET_METRIC_HISTORY_BULK_INTERVAL = _get_ajax_path("/mlflow/metrics/get-history-bulk-interval")
+# The interval route is also served under the REST (/api/2.0) prefix; both need a validator.
+GET_METRIC_HISTORY_BULK_INTERVAL_REST = _get_rest_path("/mlflow/metrics/get-history-bulk-interval")
 SEARCH_DATASETS = _get_ajax_path("/mlflow/experiments/search-datasets")
 CREATE_PROMPTLAB_RUN = _get_ajax_path("/mlflow/runs/create-promptlab-run")
 GATEWAY_PROXY = _get_ajax_path("/mlflow/gateway-proxy")
@@ -88,3 +92,10 @@ GATEWAY_SUPPORTED_MODELS = _get_ajax_path("/mlflow/gateway/supported-models", ve
 GATEWAY_PROVIDER_CONFIG = _get_ajax_path("/mlflow/gateway/provider-config", version=3)
 GATEWAY_SECRETS_CONFIG = _get_ajax_path("/mlflow/gateway/secrets/config", version=3)
 INVOKE_SCORER = _get_ajax_path("/mlflow/scorer/invoke", version=3)
+JOB_GET = _get_ajax_path("/mlflow/jobs/<job_id>", version=3)
+JOB_CANCEL = _get_ajax_path("/mlflow/jobs/cancel/<job_id>", version=3)
+INVOKE_ISSUE_DETECTION = _get_ajax_path("/mlflow/issues/invoke", version=3)
+INVOKE_GENAI_EVALUATE = _get_ajax_path("/mlflow/genai/evaluate/invoke", version=3)
+DEMO_GENERATE = _get_ajax_path("/mlflow/demo/generate", version=3)
+DEMO_DELETE = _get_ajax_path("/mlflow/demo/delete", version=3)
+UI_TELEMETRY = _get_ajax_path("/mlflow/ui-telemetry", version=3)

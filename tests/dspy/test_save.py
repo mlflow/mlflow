@@ -33,6 +33,9 @@ skip_if_2_6_23_or_older = pytest.mark.skipif(
 
 _REASONING_KEYWORD = "rationale" if _DSPY_UNDER_2_6 else "reasoning"
 
+# dspy 3.3.0 changed CoT's output field order: reasoning now precedes answer
+_DSPY_3_3_OR_NEWER = _DSPY_VERSION >= Version("3.3.0")
+
 
 @pytest.fixture
 def dummy_model():
@@ -450,10 +453,16 @@ def test_infer_signature_from_input_examples(dummy_model):
 
         loaded_model = Model.load(model_info.model_uri)
         assert loaded_model.signature.inputs == Schema([ColSpec("string")])
-        assert loaded_model.signature.outputs == Schema([
-            ColSpec(name="answer", type="string"),
-            ColSpec(name=_REASONING_KEYWORD, type="string"),
-        ])
+        if _DSPY_3_3_OR_NEWER:
+            assert loaded_model.signature.outputs == Schema([
+                ColSpec(name=_REASONING_KEYWORD, type="string"),
+                ColSpec(name="answer", type="string"),
+            ])
+        else:
+            assert loaded_model.signature.outputs == Schema([
+                ColSpec(name="answer", type="string"),
+                ColSpec(name=_REASONING_KEYWORD, type="string"),
+            ])
 
 
 @skip_if_2_6_23_or_older

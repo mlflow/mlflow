@@ -312,10 +312,11 @@ export const KnownEvaluationResultAssessmentOutputLabel: Record<string, MessageD
 };
 
 export const EXPECTED_FACTS_FIELD_NAME = 'expected_facts';
+export const EXPECTED_OUTPUT_FIELD_NAME = 'expected_response';
 
 // eslint-disable-next-line @databricks/no-const-object-record-string -- TODO(FEINF-2058)
 export const KnownEvaluationResultAssessmentTargetLabel: Record<string, MessageDescriptor> = {
-  expected_response: defineMessage({
+  [EXPECTED_OUTPUT_FIELD_NAME]: defineMessage({
     defaultMessage: 'Expected output',
     description: 'Evaluation review > Response section > expected output > title',
   }),

@@ -6,6 +6,7 @@ import mlflow.mistral
 from mlflow.entities import SpanType
 from mlflow.mistral.chat import convert_tool_to_mlflow_chat_tool
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
+from mlflow.tracing.distributed import _get_tracing_headers_from_span
 from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
 from mlflow.tracing.utils import (
     set_span_chat_tools,
@@ -30,6 +31,7 @@ def _construct_full_inputs(func, *args, **kwargs):
 def patched_class_call(original, self, *args, **kwargs):
     """Synchronous wrapper that traces Mistral SDK calls using a context manager."""
     with TracingSession(original, self, args, kwargs) as manager:
+        _inject_tracing_headers(kwargs, manager.span)
         output = original(self, *args, **kwargs)
         manager.output = output
         return output
@@ -38,6 +40,7 @@ def patched_class_call(original, self, *args, **kwargs):
 async def async_patched_class_call(original, self, *args, **kwargs):
     """Async wrapper that traces Mistral SDK calls using a context manager."""
     async with TracingSession(original, self, args, kwargs) as manager:
+        _inject_tracing_headers(kwargs, manager.span)
         output = await original(self, *args, **kwargs)
         manager.output = output
         return output
@@ -114,6 +117,18 @@ class TracingSession:
 
         # End the span with captured outputs. Keep original object for backward compatibility.
         self.span.end(outputs=self.output)
+
+
+def _inject_tracing_headers(kwargs, span):
+    if span is None:
+        return
+    try:
+        if tracing_headers := _get_tracing_headers_from_span(span):
+            existing = kwargs.get("http_headers") or {}
+            # Replace the mapping so inputs captured before injection keep the user's headers.
+            kwargs["http_headers"] = tracing_headers | dict(existing)
+    except Exception:
+        _logger.debug("Failed to inject tracing headers", exc_info=True)
 
 
 def _parse_usage(output):

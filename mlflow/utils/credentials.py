@@ -88,6 +88,15 @@ def login(backend: str = "databricks", interactive: bool = True) -> None:
             input will be requested if no credentials are found, otherwise an exception will be
             raised if no credentials are found.
 
+    .. note::
+        When credentials resolve from ``~/.databrickscfg`` (rather than from environment
+        variables, OIDC, the Azure CLI, or another unified-auth source), this function uses
+        the ``DEFAULT`` profile, or the profile named by the ``DATABRICKS_CONFIG_PROFILE``
+        environment variable. If you have multiple named profiles, for example one created
+        by ``databricks auth login`` (which names the profile after the workspace host, not
+        ``DEFAULT``), set ``DATABRICKS_CONFIG_PROFILE=<name>`` before calling this function,
+        or call ``mlflow.set_tracking_uri("databricks://<name>")`` explicitly.
+
     .. code-block:: python
         :caption: Example
 

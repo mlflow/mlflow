@@ -20,6 +20,7 @@ from mlflow.entities.model_registry.prompt_version import (
 from mlflow.entities.webhook import Webhook, WebhookEvent, WebhookStatus, WebhookTestResult
 from mlflow.exceptions import MlflowException
 from mlflow.prompt.constants import (
+    _STORE_PROMPT_SOURCE_PLACEHOLDER,
     IS_PROMPT_TAG_KEY,
     PROMPT_EXPERIMENT_IDS_TAG_KEY,
     PROMPT_MODEL_CONFIG_TAG_KEY,
@@ -821,7 +822,7 @@ class AbstractStore:
         # Create model version
         mv = self.create_model_version(
             name=name,
-            source="prompt-template",  # Required field for ModelVersion
+            source=_STORE_PROMPT_SOURCE_PLACEHOLDER,  # Required field, unused for prompts
             tags=version_tags,
             description=description,
         )

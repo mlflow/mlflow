@@ -22,12 +22,42 @@ from mlflow.utils.proto_json_utils import (
     cast_df_types_according_to_schema,
     dataframe_from_parsed_json,
     dataframe_from_raw_json,
+    dump_input_data,
     message_to_json,
     parse_dict,
     parse_tf_serving_input,
 )
 
 from tests.protos.test_message_pb2 import SampleMessage
+
+
+@pytest.mark.parametrize(
+    ("data", "expected"),
+    [
+        ({"x": np.array([1, 2])}, {"inputs": {"x": [1, 2]}}),
+        (
+            {"ab": np.array([[1, 2], [3, 4]]), "column": np.array([5.0])},
+            {"inputs": {"ab": [[1, 2], [3, 4]], "column": [5.0]}},
+        ),
+    ],
+)
+def test_dump_input_data_dict(data, expected):
+    assert json.loads(dump_input_data(data)) == expected
+
+
+def test_dump_input_data_dict_with_custom_key_and_params():
+    data = {"x": np.array([1, 2])}
+    assert json.loads(
+        dump_input_data(data, inputs_key="instances", params={"temperature": 0.5})
+    ) == {
+        "instances": {"x": [1, 2]},
+        "params": {"temperature": 0.5},
+    }
+
+
+def test_dump_input_data_dict_rejects_unsupported_value():
+    with pytest.raises(MlflowException, match="Incompatible input type:.* for input x"):
+        dump_input_data({"x": [1, 2]})
 
 
 def test_message_to_json():
@@ -522,13 +552,26 @@ def test_dataframe_from_json():
     )
     expected = pd.DataFrame(
         {
-            "datetime": pd.to_datetime([
-                "2022-01-01T00:00:00",
-                "2022-01-02T03:04:05",
-            ])
+            "datetime": np.array(
+                ["2022-01-01T00:00:00", "2022-01-02T03:04:05"],
+                dtype=DataType.datetime.to_pandas(),
+            )
         },
     )
     pd.testing.assert_frame_equal(parsed, expected)
+
+
+@pytest.mark.parametrize(
+    "value",
+    ["2022-01-01T00:00:00", "2022-01-01", "2022-01-01T00:00:00+02:00"],
+)
+def test_dataframe_from_json_parses_datetime_as_nanoseconds(value):
+    parsed = dataframe_from_raw_json(
+        json.dumps([{"datetime": value}]),
+        pandas_orient="records",
+        schema=Schema([ColSpec("datetime", "datetime")]),
+    )
+    assert getattr(parsed["datetime"].dt, "unit", "ns") == "ns"
 
 
 @pytest.mark.parametrize(

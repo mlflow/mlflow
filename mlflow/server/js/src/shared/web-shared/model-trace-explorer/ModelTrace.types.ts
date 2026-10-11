@@ -455,7 +455,7 @@ export type RawModelTraceChatMessage = Omit<ModelTraceChatMessage, 'content'> & 
 };
 
 export type ModelTraceChatToolParamProperty = {
-  type?: string;
+  type?: string | string[];
   description?: string;
   enum?: string[];
 };

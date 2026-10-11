@@ -4,7 +4,6 @@
 
 image:
   repository: ghcr.io/mlflow/mlflow
-  tag: "v3.11.1-full"
 
 replicaCount: 1
 

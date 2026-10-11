@@ -3,7 +3,12 @@ import importlib
 import inspect
 import json
 import logging
-from contextvars import ContextVar
+import math
+import os
+import sys
+import threading
+from contextlib import contextmanager
+from contextvars import ContextVar, copy_context
 from dataclasses import asdict, dataclass, fields
 from enum import Enum
 from typing import Any, Callable, ClassVar, Literal, TypeAlias, TypeVar, overload
@@ -14,6 +19,11 @@ import mlflow
 from mlflow.entities import Assessment, Feedback
 from mlflow.entities.assessment import DEFAULT_FEEDBACK_NAME
 from mlflow.entities.trace import Trace
+from mlflow.environment_variables import (
+    _MLFLOW_IN_JOB_EXECUTOR,
+    _MLFLOW_SERVER_BOOT_ID,
+    MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.genai.scorers.ensemble import (
     BOOL_ENSEMBLES,
@@ -26,6 +36,8 @@ from mlflow.genai.scorers.scorer_utils import (
     DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR,
     THIRD_PARTY_SCORER_ALLOWED_MODULES,
     THIRD_PARTY_SCORER_REGISTRATION_NOT_SUPPORTED_ON_DATABRICKS_ERROR,
+    _obj_has_call_source,
+    _parse_serialized_scorer,
 )
 from mlflow.telemetry.events import ScorerCallEvent
 from mlflow.telemetry.track import record_usage_event
@@ -33,18 +45,29 @@ from mlflow.tracking._tracking_service.utils import get_tracking_uri
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import is_databricks_uri
+from mlflow.utils.timeout import MlflowTimeoutError
+from mlflow.utils.uri import is_http_uri
 
 _logger = logging.getLogger(__name__)
 
 # Backend identifiers for registered scorers
 SCORER_BACKEND_TRACKING = "tracking"
 SCORER_BACKEND_DATABRICKS = "databricks"
+SCORER_CANONICAL_RESOURCE_TYPE_DATABRICKS = "databricks_scorer_version"
+ScorerCanonicalResourceType: TypeAlias = Literal["databricks_scorer_version"]
 
 # Context variable to track if we're in a scorer call (prevents nested telemetry)
 _in_scorer_call: ContextVar[bool] = ContextVar("mlflow_scorer_call_context", default=False)
 
+# Set while a scorer runs inside its timeout worker thread, so the re-entrant `run()` there
+# doesn't spawn another timeout thread.
+_in_scorer_timeout: ContextVar[bool] = ContextVar("mlflow_scorer_timeout", default=False)
+
 # Serialization version for tracking changes to the serialization format
 _SERIALIZATION_VERSION = 1
+
+# Default per-invocation timeout (seconds) for @scorer scorers that don't set an explicit timeout.
+DEFAULT_SCORER_TIMEOUT = 300
 _AggregationFunc: TypeAlias = Callable[[list[int | float]], float]
 _AggregationType: TypeAlias = (
     Literal["min", "max", "mean", "median", "variance", "p90"] | _AggregationFunc
@@ -163,6 +186,9 @@ class SerializedScorer:
     aggregations: list[str] | None = None
     description: str | None = None
     is_session_level_scorer: bool = False
+    # Per-invocation timeout (seconds). Defaults to `0` (no timeout) so scorers serialized before
+    # this field existed (legacy scorers) stay unbounded; a fresh scorer serializes `None`.
+    timeout: int | float | None = 0
 
     # Version metadata
     mlflow_version: str = mlflow.__version__
@@ -287,15 +313,90 @@ def _record_scorer_call_with_context(func):
     return wrapper
 
 
+def _in_job_executor() -> bool:
+    """True while running inside a job-executor subprocess permitted to reconstruct scorer code."""
+    return _MLFLOW_IN_JOB_EXECUTOR.get()
+
+
+def _is_tracking_server_process() -> bool:
+    """True in the tracking server process or a subprocess it spawned.
+
+    ``mlflow server`` sets ``_MLFLOW_SERVER_BOOT_ID`` at startup, and worker and job subprocesses
+    inherit it. A server started by importing the app directly (for example
+    ``gunicorn mlflow.server:app`` or ``uvicorn mlflow.server.fastapi_app:app``) has no boot id, so
+    also honor ``mlflow.server``'s own ``is_running_as_server`` detection when that module is
+    already loaded. Otherwise such a server would be misclassified as a client and reconstruct
+    custom scorer code in the server process, defeating the confinement.
+    """
+    if _MLFLOW_SERVER_BOOT_ID.get() is not None:
+        return True
+    server_module = sys.modules.get("mlflow.server")
+    return bool(server_module is not None and getattr(server_module, "is_running_as_server", False))
+
+
+def _should_reconstruct_scorer_code() -> bool:
+    """Whether this process may reconstruct (execute the stored source of) a custom ``@scorer``.
+
+    Reconstruction runs the scorer's source via ``exec()``. It is allowed everywhere except the
+    tracking server process itself: a client reconstructs a scorer locally to run it, and a
+    job-executor subprocess reconstructs it to run the job, but the server must never execute
+    untrusted scorer code. In the server a custom scorer is kept as non-executing metadata and
+    forwarded to the executor instead.
+    """
+    return _in_job_executor() or not _is_tracking_server_process()
+
+
+@contextmanager
+def _job_executor_scorer_context():
+    """Mark the current region as a job executor permitted to reconstruct custom scorer code.
+
+    Only job-executor entrypoints enter this; the tracking server process never does.
+    """
+    previous = os.environ.get(_MLFLOW_IN_JOB_EXECUTOR.name)
+    os.environ[_MLFLOW_IN_JOB_EXECUTOR.name] = "true"
+    try:
+        yield
+    finally:
+        if previous is None:
+            os.environ.pop(_MLFLOW_IN_JOB_EXECUTOR.name, None)
+        else:
+            os.environ[_MLFLOW_IN_JOB_EXECUTOR.name] = previous
+
+
+def _serialized_scorer_is_custom_code(
+    serialized_scorer: "str | dict[str, Any] | SerializedScorer",
+) -> bool:
+    """Whether a serialized scorer is a custom ``@scorer`` whose stored source runs via ``exec()``.
+
+    Used to keep such scorers off paths that would execute them in the tracking server process
+    (for example, gateway guardrails). Accepts a ``SerializedScorer``, a JSON string, or a dict
+    (callers pass different forms), and never executes the scorer. Raises on a malformed JSON
+    string. Detection recurses, so a custom sub-scorer nested in an ensemble is caught too.
+    """
+    if isinstance(serialized_scorer, SerializedScorer):
+        data = asdict(serialized_scorer)
+    elif isinstance(serialized_scorer, str):
+        data = _parse_serialized_scorer(serialized_scorer)
+    else:
+        data = serialized_scorer
+    return _obj_has_call_source(data)
+
+
 class Scorer(BaseModel):
     name: str
     aggregations: list[_AggregationType] | None = None
     description: str | None = None
+    # Per-invocation timeout (seconds) enforced by `run()`. `None` (default) uses
+    # DEFAULT_SCORER_TIMEOUT; `0` disables the timeout.
+    timeout: int | float | None = None
 
     _cached_dump: dict[str, Any] | None = PrivateAttr(default=None)
     _sampling_config: ScorerSamplingConfig | None = PrivateAttr(default=None)
     _registered_backend: str | None = PrivateAttr(default=None)
     _experiment_id: str | None = PrivateAttr(default=None)
+    _scorer_version: int | None = PrivateAttr(default=None)
+    _canonical_resource_name: str | None = PrivateAttr(default=None)
+    _canonical_resource_name_type: ScorerCanonicalResourceType | None = PrivateAttr(default=None)
     # Predicate deciding whether this scorer's value counts as passing in an
     # assertion (``EvaluationResult.passed``). In-process only: it is a local
     # testing concern and is intentionally not serialized. ``None`` falls back to
@@ -321,7 +422,7 @@ class Scorer(BaseModel):
 
     @property
     def is_session_level_scorer(self) -> bool:
-        """Get whether this scorer is a session-level scorer.
+        """Whether this scorer is a session-level scorer.
 
         Defaults to False. Child classes can override this property to return True
         or compute the value dynamically based on their configuration.
@@ -338,17 +439,30 @@ class Scorer(BaseModel):
         """
         return self._pass_if
 
-    @experimental(version="3.9.0")
     @property
     def sample_rate(self) -> float | None:
         """Get the sample rate for this scorer. Available when registered for monitoring."""
         return self._sampling_config.sample_rate if self._sampling_config else None
 
-    @experimental(version="3.9.0")
     @property
     def filter_string(self) -> str | None:
         """Get the filter string for this scorer."""
         return self._sampling_config.filter_string if self._sampling_config else None
+
+    @property
+    def scorer_version(self) -> int | None:
+        """Get the registered version of this scorer, if available."""
+        return self._scorer_version
+
+    @property
+    def canonical_resource_name(self) -> str | None:
+        """Get the canonical backend resource name for this scorer version, if available."""
+        return self._canonical_resource_name
+
+    @property
+    def canonical_resource_name_type(self) -> ScorerCanonicalResourceType | None:
+        """Get the backend-specific canonical resource name type, if available."""
+        return self._canonical_resource_name_type
 
     @property
     def status(self) -> ScorerStatus:
@@ -365,10 +479,16 @@ class Scorer(BaseModel):
         backend: str,
         experiment_id: str | None,
         sampling_config: ScorerSamplingConfig | None,
+        scorer_version: int | None = None,
+        canonical_resource_name: str | None = None,
+        canonical_resource_name_type: ScorerCanonicalResourceType | None = None,
     ) -> "Scorer":
         self._registered_backend = backend
         self._experiment_id = experiment_id
         self._sampling_config = sampling_config
+        self._scorer_version = scorer_version
+        self._canonical_resource_name = canonical_resource_name
+        self._canonical_resource_name_type = canonical_resource_name_type
         return self
 
     def __repr__(self) -> str:
@@ -429,6 +549,7 @@ class Scorer(BaseModel):
             description=self.description,
             aggregations=self.aggregations,
             is_session_level_scorer=self.is_session_level_scorer,
+            timeout=self.timeout,
             mlflow_version=mlflow.__version__,
             serialization_version=_SERIALIZATION_VERSION,
             call_source=source_info.get("call_source"),
@@ -491,6 +612,12 @@ class Scorer(BaseModel):
 
         # Handle decorator scorers
         elif serialized.call_source and serialized.call_signature and serialized.original_func_name:
+            # Reconstructing a custom scorer executes its stored source via exec(). The tracking
+            # server must never do that: it returns a non-executing handle that carries the
+            # scorer's metadata and serialized form and forwards it to the job executor, which
+            # reconstructs and runs it. Clients still reconstruct locally to run scorers directly.
+            if not _should_reconstruct_scorer_code():
+                return cls._deserialize_decorator_scorer_metadata(serialized)
             return cls._reconstruct_decorator_scorer(serialized)
 
         # Handle InstructionsJudge scorers
@@ -533,6 +660,7 @@ class Scorer(BaseModel):
                     instructions=data["instructions"],
                     model=data["model"],
                     feedback_value_type=feedback_value_type,
+                    generate_rationale_first=data.get("generate_rationale_first", False),
                     inference_params=data.get("inference_params"),
                     aggregations=serialized.aggregations,
                 )
@@ -552,10 +680,10 @@ class Scorer(BaseModel):
             module_path = data.get("module") or ""
             class_name = data.get("class")
             metric_name = data.get("metric_name")
-            if not any(
-                module_path == m or module_path.startswith(m + ".")
-                for m in THIRD_PARTY_SCORER_ALLOWED_MODULES
-            ):
+            # Exact match only: a dotted descendant of an allow-listed package can be a
+            # caller-placed file (e.g. a run artifact under a `file://` experiment root),
+            # and `import_module` would execute it before the class check below.
+            if module_path not in THIRD_PARTY_SCORER_ALLOWED_MODULES:
                 raise MlflowException.invalid_parameter_value(
                     f"Third-party scorer '{serialized.name}': module '{module_path}' is not "
                     f"in the allow-list {sorted(THIRD_PARTY_SCORER_ALLOWED_MODULES)}."
@@ -564,6 +692,21 @@ class Scorer(BaseModel):
                 raise MlflowException.invalid_parameter_value(
                     f"Third-party scorer '{serialized.name}': missing required fields in "
                     f"third_party_scorer_data (class, metric_name)."
+                )
+            # The wrappers resolve unknown metric names by splicing them into an import
+            # path (`ragas.metrics.collections.<metric_name>`, `deepeval.metrics.<metric_name>`),
+            # so a dotted name would reach a caller-placed module the same way.
+            if not metric_name.isidentifier():
+                raise MlflowException.invalid_parameter_value(
+                    f"Third-party scorer '{serialized.name}': metric_name '{metric_name}' "
+                    "must be a plain identifier."
+                )
+            # Concrete subclasses pin `metric_name` via ClassVar and inherit the wrapper's
+            # `__init__`, so a `metric_name` kwarg would override the validated value above.
+            if "metric_name" in (data.get("kwargs") or {}):
+                raise MlflowException.invalid_parameter_value(
+                    f"Third-party scorer '{serialized.name}': kwargs must not contain "
+                    "'metric_name'; set it at the top level of third_party_scorer_data."
                 )
             try:
                 module = importlib.import_module(module_path)
@@ -577,6 +720,11 @@ class Scorer(BaseModel):
                 raise MlflowException.invalid_parameter_value(
                     f"Third-party scorer '{serialized.name}': class '{class_name}' not "
                     f"found in module '{module_path}'."
+                )
+            if not (inspect.isclass(scorer_class) and issubclass(scorer_class, Scorer)):
+                raise MlflowException.invalid_parameter_value(
+                    f"Third-party scorer '{serialized.name}': '{module_path}.{class_name}' "
+                    "is not a Scorer subclass."
                 )
             init_kwargs: dict[str, Any] = dict(data.get("kwargs") or {})
             # Two shapes of third-party class: (a) base wrappers (`RagasScorer` etc.)
@@ -669,11 +817,27 @@ class Scorer(BaseModel):
     def _reconstruct_decorator_scorer(cls, serialized: SerializedScorer) -> "Scorer":
         from mlflow.genai.scorers.scorer_utils import recreate_function
 
+        # Defense in depth: reconstruction executes the scorer's stored source via exec(). It must
+        # never run in the tracking server process, even if a caller reaches this method directly.
+        # Only a job-executor subprocess or a client may reconstruct; the server keeps custom
+        # scorers as non-executing metadata (see model_validate) and forwards them to the executor.
+        if not _should_reconstruct_scorer_code():
+            raise MlflowException(
+                f"Custom scorer '{serialized.name}' cannot be reconstructed in the MLflow "
+                "tracking server process because doing so would execute its code. Custom scorer "
+                "code runs only inside the job executor."
+            )
+
         # NB: Custom (@scorer) scorers use exec() during deserialization, which poses a code
-        # execution risk. Only allow loading when connected to a Databricks workspace, where
-        # registration is gated behind authentication. OSS backends don't have this guarantee,
-        # so block loading to prevent executing untrusted code.
-        if not is_databricks_uri(get_tracking_uri()):
+        # execution risk. Only allow loading when connected to a Databricks workspace (where
+        # registration is gated behind authentication) or when the operator has explicitly opted
+        # in via MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS. Otherwise block loading to prevent executing
+        # untrusted code. This guard runs wherever a scorer is deserialized (client or server),
+        # reading the flag from that process's environment.
+        if (
+            not is_databricks_uri(get_tracking_uri())
+            and not MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS.get()
+        ):
             code_snippet = (
                 "\n\nfrom mlflow.genai import scorer\n\n"
                 f"@scorer\ndef {serialized.original_func_name}{serialized.call_signature}:\n"
@@ -709,13 +873,44 @@ class Scorer(BaseModel):
             name=serialized.name,
             description=serialized.description,
             aggregations=serialized.aggregations,
+            timeout=serialized.timeout,
         )
         # Cache the serialized data to prevent re-serialization issues with dynamic functions
         original_serialized_data = asdict(serialized)
         object.__setattr__(scorer_instance, "_cached_dump", original_serialized_data)
         return scorer_instance
 
+    @classmethod
+    def _deserialize_decorator_scorer_metadata(cls, serialized: SerializedScorer) -> "Scorer":
+        """Deserialize a custom ``@scorer`` without executing its stored source.
+
+        Returns a handle carrying the scorer's metadata and serialized form so callers can inspect
+        it (for example, read ``is_session_level_scorer``) and forward it to the job executor, but
+        whose invocation raises. Used in the tracking server process, which must never run custom
+        scorer code.
+        """
+        handle = _UnexecutedDecoratorScorer(
+            name=serialized.name,
+            aggregations=serialized.aggregations,
+            description=serialized.description,
+            timeout=serialized.timeout,
+        )
+        object.__setattr__(handle, "_is_session_level", serialized.is_session_level_scorer)
+        object.__setattr__(handle, "_cached_dump", asdict(serialized))
+        return handle
+
     def run(self, *, inputs=None, outputs=None, expectations=None, trace=None, session=None):
+        if not _in_scorer_timeout.get():
+            if timeout := (DEFAULT_SCORER_TIMEOUT if self.timeout is None else self.timeout):
+                return self._run_with_timeout(
+                    timeout,
+                    inputs=inputs,
+                    outputs=outputs,
+                    expectations=expectations,
+                    trace=trace,
+                    session=session,
+                )
+
         from mlflow.evaluation import Assessment as LegacyAssessment
 
         merged = {
@@ -769,6 +964,36 @@ class Scorer(BaseModel):
 
         return result
 
+    def _run_with_timeout(self, timeout: int | float, **kwargs: Any) -> Any:
+        # Daemon thread re-enters run() (guarded by _in_scorer_timeout) instead of calling the
+        # scorer directly, so a Scorer.run frame stays on its stack for telemetry callsite lookup.
+        ctx = copy_context()
+        outcome: dict[str, Any] = {}
+
+        def _target() -> None:
+            _in_scorer_timeout.set(True)
+            try:
+                outcome["value"] = self.run(**kwargs)
+            except BaseException as e:  # re-surface whatever the scorer raised on the caller
+                outcome["error"] = e
+
+        thread = threading.Thread(
+            target=lambda: ctx.run(_target), name=f"MlflowScorer-{self.name}", daemon=True
+        )
+        thread.start()
+        # Thread.join rejects values above TIMEOUT_MAX; clamp so a huge timeout just means "wait".
+        thread.join(min(timeout, threading.TIMEOUT_MAX))
+        if thread.is_alive():
+            # Warn so a climbing thread count from timed-out scorers is diagnosable.
+            _logger.warning("Scorer '%s' timed out after %s seconds.", self.name, timeout)
+            raise MlflowTimeoutError(
+                f"Scorer '{self.name}' timed out after {timeout} seconds. Set a longer timeout "
+                f"with `@scorer(timeout=...)`, or `timeout=0` to disable the timeout."
+            )
+        if "error" in outcome:
+            raise outcome["error"]
+        return outcome["value"]
+
     def __call__(
         self,
         *,
@@ -780,7 +1005,6 @@ class Scorer(BaseModel):
     ) -> int | float | bool | str | Feedback | list[Feedback]:
         """
         Implement the custom scorer's logic here.
-
 
         The scorer will be called for each row in the input evaluation dataset.
 
@@ -916,7 +1140,8 @@ class Scorer(BaseModel):
 
 
                 registered_custom = custom_length_check.register(
-                    name="output_length_checker", experiment_id="12345"
+                    name="output_length_checker",
+                    experiment_id="12345",
                 )
         """
         # Get the current tracking store
@@ -942,7 +1167,6 @@ class Scorer(BaseModel):
             new_scorer._registered_backend = SCORER_BACKEND_TRACKING
         return new_scorer
 
-    @experimental(version="3.9.0")
     def start(
         self,
         *,
@@ -1029,7 +1253,6 @@ class Scorer(BaseModel):
             filter_string=sampling_config.filter_string,
         )
 
-    @experimental(version="3.9.0")
     def update(
         self,
         *,
@@ -1118,7 +1341,6 @@ class Scorer(BaseModel):
             filter_string=sampling_config.filter_string,
         )
 
-    @experimental(version="3.9.0")
     def stop(self, *, name: str | None = None, experiment_id: str | None = None) -> "Scorer":
         """
         Stop registered scoring by setting sample rate to 0.
@@ -1238,11 +1460,20 @@ class Scorer(BaseModel):
             for sub_scorer in self._scorers:
                 sub_scorer._check_can_be_registered(error_message)
 
-        # NB: Custom (@scorer) scorers use exec() during deserialization, which poses a code
-        # execution risk. Only allow registration when using Databricks tracking URI.
-        # Registration itself is safe (just stores code), but we restrict it to Databricks
-        # to ensure loaded scorers can only be executed in controlled environments.
-        if self.kind == ScorerKind.DECORATOR and not is_databricks_uri(get_tracking_uri()):
+        # NB: Custom (@scorer) scorers use exec() when they run, which poses a code execution
+        # risk, so registration is restricted to environments that accept that risk. Against a
+        # remote (HTTP) server the server's own `_register_scorer` handler enforces the flag, so
+        # we defer to it here -- a remote client should not have to set a server variable. This
+        # client-side guard therefore only blocks local, in-process registration (no server to
+        # defer to) that has not opted in via MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS; Databricks is
+        # always allowed (registration there is gated behind authentication).
+        tracking_uri = get_tracking_uri()
+        if (
+            self.kind == ScorerKind.DECORATOR
+            and not is_databricks_uri(tracking_uri)
+            and not is_http_uri(tracking_uri)
+            and not MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS.get()
+        ):
             raise MlflowException.invalid_parameter_value(
                 DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR
             )
@@ -1266,6 +1497,28 @@ class Scorer(BaseModel):
             )
 
 
+class _UnexecutedDecoratorScorer(Scorer):
+    """A custom ``@scorer`` deserialized without executing its stored source.
+
+    Produced in the tracking server process, which must not run custom scorer code. It preserves
+    the scorer's metadata and serialized form (via ``_cached_dump``, so it re-serializes and can be
+    forwarded to the job executor) but invoking it raises: the code runs only in the executor.
+    """
+
+    _is_session_level: bool = PrivateAttr(default=False)
+
+    @property
+    def is_session_level_scorer(self) -> bool:
+        return self._is_session_level
+
+    def __call__(self, *args, **kwargs):
+        raise MlflowException(
+            f"Custom scorer '{self.name}' was loaded without its code in the MLflow tracking "
+            "server process and cannot be run here. Custom scorer code runs only inside the job "
+            "executor."
+        )
+
+
 _F = TypeVar("_F", bound=Callable[..., Any])
 
 
@@ -1277,6 +1530,7 @@ def scorer(
     description: str | None = None,
     aggregations: list[_AggregationType] | None = None,
     pass_if: Callable[[Any], bool] | None = None,
+    timeout: int | float | None = None,
 ) -> Scorer: ...
 
 
@@ -1288,6 +1542,7 @@ def scorer(
     description: str | None = None,
     aggregations: list[_AggregationType] | None = None,
     pass_if: Callable[[Any], bool] | None = None,
+    timeout: int | float | None = None,
 ) -> Callable[[_F], Scorer]: ...
 
 
@@ -1298,6 +1553,7 @@ def scorer(
     description: str | None = None,
     aggregations: list[_AggregationType] | None = None,
     pass_if: Callable[[Any], bool] | None = None,
+    timeout: int | float | None = None,
 ) -> Scorer | Callable[[_F], Scorer]:
     """
     A decorator to define a custom scorer that can be used in ``mlflow.genai.evaluate()``.
@@ -1384,6 +1640,9 @@ def scorer(
             Use it for scorers whose value is not a ``yes``/``no`` rating or a ``bool``
             (e.g. a numeric score): ``@scorer(pass_if=lambda v: v >= 0.8)``. When omitted,
             the default rule applies (a ``yes`` rating or ``True`` passes).
+        timeout: Maximum seconds a single scorer invocation may run during
+            ``mlflow.genai.evaluate`` and monitoring before it is recorded as a
+            ``SCORER_ERROR`` failure. Defaults to ``None`` (300 seconds); ``0`` disables it.
 
     Example:
 
@@ -1465,6 +1724,17 @@ def scorer(
             )
     """
 
+    if timeout is not None and not (
+        isinstance(timeout, (int, float))
+        and not isinstance(timeout, bool)
+        and math.isfinite(timeout)
+        and timeout >= 0
+    ):
+        raise MlflowException.invalid_parameter_value(
+            f"`timeout` must be a non-negative, finite number of seconds or None "
+            f"(use 0 to disable the timeout), got {timeout!r}."
+        )
+
     if func is None:
         return functools.partial(
             scorer,
@@ -1472,6 +1742,7 @@ def scorer(
             description=description,
             aggregations=aggregations,
             pass_if=pass_if,
+            timeout=timeout,
         )
 
     func_params = set(inspect.signature(func).parameters.keys())
@@ -1525,6 +1796,7 @@ def scorer(
         name=name or func.__name__,
         description=description,
         aggregations=aggregations,
+        timeout=timeout,
     )
 
 
@@ -1662,7 +1934,7 @@ class EnsembleScorer(Scorer):
         return Feedback(name=self.name, value=result, metadata=sub_metadata)
 
 
-@experimental(version="3.15.0")
+@experimental(version="3.16.0")
 def make_scorer_ensemble(
     *,
     name: str,

@@ -13,6 +13,7 @@ from mlflow.utils import logging_utils
 from mlflow.utils.logging_utils import (
     LOGGING_LINE_FORMAT,
     SensitiveQueryParamFilter,
+    _configure_mlflow_loggers,
     _redact_sensitive_query_params,
     eprint,
     suppress_logs,
@@ -285,3 +286,97 @@ assert actual_format == {actual_format!r}, actual_format
             "MLFLOW_CONFIGURE_LOGGING": configure_logging,
         },
     )
+
+
+def _logging_configured_env() -> dict[str, str]:
+    """
+    Subprocess environment guaranteeing `_configure_mlflow_loggers` runs on import,
+    so the regression tests below cannot pass vacuously. The deprecated alias takes
+    precedence over `MLFLOW_CONFIGURE_LOGGING`, so it has to be cleared as well.
+    """
+    env = os.environ.copy()
+    env.pop("MLFLOW_LOGGING_CONFIGURE_LOGGING", None)
+    env["MLFLOW_CONFIGURE_LOGGING"] = "1"
+    return env
+
+
+# Guards against a vacuous pass if the import ever stops configuring logging.
+_ASSERT_LOGGING_CONFIGURED = """
+assert logging.getLogger("mlflow").handlers, "mlflow did not configure logging"
+"""
+
+
+def test_import_mlflow_preserves_disabled_loggers() -> None:
+    """
+    Importing mlflow must not re-enable loggers the host application disabled.
+    The Databricks notebook kernel disables `pyspark.sql.connect.logging` at
+    startup; re-enabling it dumps raw gRPC tracebacks into cell output.
+    """
+    code = f"""
+import logging
+
+connect_logger = logging.getLogger("pyspark.sql.connect.logging")
+connect_logger.disabled = True
+unrelated_logger = logging.getLogger("some.third.party")
+unrelated_logger.disabled = True
+
+import mlflow
+{_ASSERT_LOGGING_CONFIGURED}
+assert connect_logger.disabled, "mlflow re-enabled pyspark.sql.connect.logging"
+assert unrelated_logger.disabled, "mlflow re-enabled some.third.party"
+"""
+    subprocess.check_call([sys.executable, "-c", code], env=_logging_configured_env())
+
+
+def test_import_mlflow_preserves_existing_child_logger_config() -> None:
+    """
+    Descendants of the loggers mlflow configures (`mlflow`, `sqlalchemy.engine`,
+    `alembic`, `huey`) must keep any level, handlers, and propagate flag that
+    were set before the import.
+    """
+    code = f"""
+import logging
+
+CHILDREN = ("mlflow.tracking.fluent", "sqlalchemy.engine.Engine")
+handler = logging.NullHandler()
+for name in CHILDREN:
+    child = logging.getLogger(name)
+    child.setLevel(logging.ERROR)
+    child.addHandler(handler)
+    child.propagate = False
+
+import mlflow
+{_ASSERT_LOGGING_CONFIGURED}
+for name in CHILDREN:
+    child = logging.getLogger(name)
+    assert child.level == logging.ERROR, (name, child.level)
+    assert child.handlers == [handler], (name, child.handlers)
+    assert not child.propagate, name
+"""
+    subprocess.check_call([sys.executable, "-c", code], env=_logging_configured_env())
+
+
+def test_configure_mlflow_loggers_is_idempotent() -> None:
+    configured_loggers = ["mlflow", "sqlalchemy.engine", "alembic", "huey"]
+
+    for _ in range(3):
+        _configure_mlflow_loggers("mlflow")
+        for name in configured_loggers:
+            handlers = logging.getLogger(name).handlers
+            assert len(handlers) == 1, (name, handlers)
+
+
+def test_configure_mlflow_loggers_replaces_existing_handlers() -> None:
+    """
+    Handlers already attached to the loggers MLflow configures are replaced, not
+    appended to. Appending would emit every record twice, once through MLflow's
+    handler and once through the pre-existing one.
+    """
+    logger = logging.getLogger("alembic")
+    pre_existing = logging.StreamHandler(StringIO())
+    logger.addHandler(pre_existing)
+
+    _configure_mlflow_loggers("mlflow")
+
+    assert pre_existing not in logger.handlers
+    assert len(logger.handlers) == 1

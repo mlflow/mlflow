@@ -8,7 +8,6 @@ ONNX (native) format
     Produced for use by generic pyfunc-based deployment tools and batch inference.
 """
 
-# TEMPORARY: Trigger CI - remove this comment after CI runs
 import logging
 import os
 from pathlib import Path
@@ -134,7 +133,8 @@ def save_model(
         input_example: {{ input_example }}
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
-        onnx_execution_providers: List of strings defining onnxruntime execution providers.
+        onnx_execution_providers: List of onnxruntime execution providers, each either
+            a provider name or a ``(name, options)`` tuple.
             Defaults to example:
             ``['CUDAExecutionProvider', 'CPUExecutionProvider']``
             This uses GPU preferentially over CPU.
@@ -253,6 +253,14 @@ def _load_model(model_file):
     return onnx.load(model_file)
 
 
+def _provider_entry_name(entry):
+    # Non-string names (hand-written metadata) map to None so the set-membership
+    # checks in the loader never hash an unhashable value.
+    if isinstance(entry, (list, tuple)):
+        entry = entry[0] if entry else None
+    return entry if isinstance(entry, str) else None
+
+
 class _OnnxModelWrapper:
     def __init__(self, path, providers=None):
         import onnxruntime
@@ -276,6 +284,10 @@ class _OnnxModelWrapper:
             providers = [providers]
         elif not providers:
             providers = ONNX_EXECUTION_PROVIDERS
+
+        # (name, options) entries round-trip through the MLmodel YAML as two-element
+        # lists; onnxruntime only accepts the tuple form, so convert them back.
+        providers = [tuple(p) if isinstance(p, list) else p for p in providers]
 
         sess_options = onnxruntime.SessionOptions()
         if options := model_meta.flavors.get(FLAVOR_NAME).get("onnx_session_options"):
@@ -302,8 +314,8 @@ class _OnnxModelWrapper:
         # 1.9 relic. On onnxruntime >= 1.9 the no-providers constructor succeeds on CPU, so
         # the retry never fired and declared GPU providers were silently dropped.
         available = set(onnxruntime.get_available_providers())
-        usable = [p for p in providers if p in available]
-        if missing := [p for p in providers if p not in available]:
+        usable = [p for p in providers if _provider_entry_name(p) in available]
+        if missing := [p for p in providers if _provider_entry_name(p) not in available]:
             _logger.warning(
                 "ONNX model declares execution providers %s but %s are unavailable in "
                 "this onnxruntime build; serving with %s. GPU acceleration will not be "
@@ -343,7 +355,9 @@ class _OnnxModelWrapper:
         # acceleration depends on which providers survived: dropping TensorRT while CUDA
         # remains still runs on GPU, but dropping every non-CPU provider means CPU-only.
         active_providers = self.rt.get_providers()
-        if inactive_providers := [p for p in requested_providers if p not in active_providers]:
+        if inactive_providers := [
+            p for p in requested_providers if _provider_entry_name(p) not in active_providers
+        ]:
             still_accelerated = any(p != "CPUExecutionProvider" for p in active_providers)
             _logger.warning(
                 "ONNX model requested execution providers %s but onnxruntime activated only "
@@ -553,7 +567,8 @@ def log_model(
             waits for five minutes. Specify 0 or None to skip waiting.
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
-        onnx_execution_providers: List of strings defining onnxruntime execution providers.
+        onnx_execution_providers: List of onnxruntime execution providers, each either
+            a provider name or a ``(name, options)`` tuple.
             Defaults to example:
             ['CUDAExecutionProvider', 'CPUExecutionProvider']
             This uses GPU preferentially over CPU.

@@ -11,14 +11,25 @@ const makeNode = (node: Partial<ModelTraceSpanNode> & { key: string; start: numb
   node as unknown as ModelTraceSpanNode;
 
 const nodeMap = {
-  root: makeNode({ key: 'root', start: 0, title: 'agent', type: ModelSpanType.AGENT }),
+  root: makeNode({
+    key: 'root',
+    start: 0,
+    title: 'agent',
+    type: ModelSpanType.AGENT,
+    inputs: {
+      reference_image: 'mlflow-attachment://before?content_type=image%2Fjpeg&trace_id=tr-123',
+    },
+  }),
   tool0: makeNode({
     key: 'tool0',
     start: 10,
     parentId: 'root',
     title: 'run_sql_query',
     type: ModelSpanType.TOOL,
-    outputs: { choices: [{ message: { content: 'The answer is 42.' } }] },
+    outputs: {
+      choices: [{ message: { content: 'The answer is 42.' } }],
+      image: 'mlflow-attachment://after?content_type=image%2Fjpeg&trace_id=tr-123',
+    },
   }),
 } satisfies Record<string, ModelTraceSpanNode>;
 
@@ -101,6 +112,34 @@ describe('resolveTemplate', () => {
     expect(markdown.title).toBe('Model answer');
   });
 
+  it('resolves before and after TraceImage bindings to attachment URIs', () => {
+    const resolved = resolveTemplate(
+      [
+        updateComponents([
+          {
+            id: 'before',
+            component: 'TraceImage',
+            uri: { $source: 'spanField', spanRef: 'root', field: 'inputs', path: ['reference_image'] },
+          },
+          {
+            id: 'after',
+            component: 'TraceImage',
+            uri: {
+              $source: 'spanField',
+              spanRef: { type: 'TOOL', nth: 0 },
+              field: 'outputs',
+              path: ['image'],
+            },
+          },
+        ]),
+      ],
+      ctx,
+    );
+    const [before, after] = componentsOf(resolved);
+    expect(before.uri).toBe('mlflow-attachment://before?content_type=image%2Fjpeg&trace_id=tr-123');
+    expect(after.uri).toBe('mlflow-attachment://after?content_type=image%2Fjpeg&trace_id=tr-123');
+  });
+
   // Backs the catalog guidance to point a Markdown binding at a SCALAR leaf: a
   // pathless whole-object field still resolves, but only to a raw JSON string.
   it('resolves a pathless spanField binding to a JSON string rather than an object', () => {
@@ -119,16 +158,13 @@ describe('resolveTemplate', () => {
     expect(componentsOf(resolved)[0].text).toBe(JSON.stringify(nodeMap.tool0.outputs));
   });
 
-  // Component type is irrelevant to resolveTemplate (it resolves markers generically,
-  // regardless of catalog membership) — a synthetic name keeps these two cases from
-  // implying any specific real catalog component carries a "spanId" prop.
   it('resolves a $spanRef prop to a concrete span id', () => {
     const resolved = resolveTemplate(
       [
         updateComponents([
           {
             id: 'root',
-            component: 'SpanBoundTestComponent',
+            component: 'FeedbackThumbsUpDownButtons',
             name: 'Helpful',
             spanId: { $spanRef: { type: 'TOOL' } },
           },
@@ -139,13 +175,13 @@ describe('resolveTemplate', () => {
     expect(componentsOf(resolved)[0].spanId).toBe('tool0');
   });
 
-  it('drops an unresolved $spanRef prop instead of pointing at a missing span', () => {
+  it('prunes feedback whose $spanRef target is missing instead of logging it at trace level', () => {
     const resolved = resolveTemplate(
       [
         updateComponents([
           {
             id: 'root',
-            component: 'SpanBoundTestComponent',
+            component: 'FeedbackThumbsUpDownButtons',
             name: 'Helpful',
             spanId: { $spanRef: { type: 'TOOL', nth: 9 } },
           },
@@ -153,7 +189,7 @@ describe('resolveTemplate', () => {
       ],
       ctx,
     );
-    expect('spanId' in componentsOf(resolved)[0]).toBe(false);
+    expect(componentsOf(resolved)).toEqual([{ id: 'root', component: 'Column', children: [] }]);
   });
 
   it('prunes a renderIfSpan subtree when the guard resolves to no span', () => {

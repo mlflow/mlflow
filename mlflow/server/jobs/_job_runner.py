@@ -15,6 +15,7 @@ import logging
 import os
 import time
 
+from mlflow.environment_variables import MLFLOW_SERVER_JOB_ENABLE_PERIODIC_TASKS
 from mlflow.server.constants import MLFLOW_SERVER_UP_TIME
 from mlflow.server.jobs.utils import (
     _enqueue_unfinished_jobs,
@@ -23,6 +24,12 @@ from mlflow.server.jobs.utils import (
     _launch_periodic_tasks_consumer,
     _start_watcher_to_kill_job_runner_if_mlflow_server_dies,
 )
+
+
+def _launch_periodic_tasks_consumer_if_enabled() -> None:
+    if MLFLOW_SERVER_JOB_ENABLE_PERIODIC_TASKS.get():
+        _launch_periodic_tasks_consumer()
+
 
 if __name__ == "__main__":
     logger = logging.getLogger("mlflow.server.jobs._job_runner")
@@ -35,9 +42,9 @@ if __name__ == "__main__":
         except Exception as e:
             logging.warning(f"Launch Huey consumer for {job_name} jobs failed, root cause: {e!r}")
 
-    # Launch dedicated consumer for periodic tasks
-    # (periodic tasks are registered when the consumer starts up)
-    _launch_periodic_tasks_consumer()
+    # Launch dedicated consumer for periodic tasks when enabled. In a multi-replica
+    # deployment, only one instance should enqueue periodic tasks.
+    _launch_periodic_tasks_consumer_if_enabled()
 
     time.sleep(10)  # wait for huey consumer launching
     _enqueue_unfinished_jobs(server_up_time)

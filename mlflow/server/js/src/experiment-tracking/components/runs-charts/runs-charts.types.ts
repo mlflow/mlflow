@@ -800,6 +800,7 @@ export class RunsChartsImageCardConfig extends RunsChartsCardConfig {
   // image keys to show
   imageKeys: string[] = [];
   step = 0;
+  showRunParams = true;
 }
 
 /**

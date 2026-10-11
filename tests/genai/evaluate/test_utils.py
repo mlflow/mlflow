@@ -7,6 +7,7 @@ import pandas as pd
 import pytest
 
 import mlflow
+from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSource
 from mlflow.entities.span import SpanType
 from mlflow.entities.trace import Trace
@@ -17,9 +18,12 @@ from mlflow.genai.evaluation.utils import (
     _convert_scorer_to_legacy_metric,
     _convert_to_eval_set,
     _deserialize_trace_column_if_needed,
+    add_scorer_metadata,
     validate_tags,
 )
+from mlflow.genai.scorers.base import SCORER_BACKEND_DATABRICKS
 from mlflow.genai.scorers.builtin_scorers import RelevanceToQuery
+from mlflow.tracing.constant import AssessmentMetadataKey
 from mlflow.utils.spark_utils import is_spark_connect_mode
 
 from tests.genai.conftest import databricks_only
@@ -50,6 +54,40 @@ def count_rows(data: Any) -> int:
         data = data.to_df()
 
     return len(data)
+
+
+def test_add_scorer_metadata_for_registered_scorer():
+    scorer = RelevanceToQuery(name="registered_scorer")
+    scorer._set_registration_metadata(
+        backend=SCORER_BACKEND_DATABRICKS,
+        experiment_id="123",
+        sampling_config=None,
+        scorer_version=3,
+        canonical_resource_name="experiments/123/scorers/cmVnaXN0ZXJlZF9zY29yZXI/versions/3",
+        canonical_resource_name_type="databricks_scorer_version",
+    )
+    feedback = Feedback(value=True, metadata={"user-key": "user-value"})
+
+    add_scorer_metadata(scorer, [feedback])
+
+    assert feedback.metadata == {
+        "user-key": "user-value",
+        AssessmentMetadataKey.SCORER_NAME: "registered_scorer",
+        AssessmentMetadataKey.SCORER_VERSION: "3",
+        AssessmentMetadataKey.SCORER_RESOURCE_NAME: (
+            "experiments/123/scorers/cmVnaXN0ZXJlZF9zY29yZXI/versions/3"
+        ),
+        AssessmentMetadataKey.SCORER_RESOURCE_NAME_TYPE: "databricks_scorer_version",
+    }
+
+
+def test_add_scorer_metadata_ignores_unregistered_scorer():
+    scorer = RelevanceToQuery(name="unregistered_scorer")
+    feedback = Feedback(value=True)
+
+    add_scorer_metadata(scorer, [feedback])
+
+    assert feedback.metadata is None
 
 
 @pytest.fixture

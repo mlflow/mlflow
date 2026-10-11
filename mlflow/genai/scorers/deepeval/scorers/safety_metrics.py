@@ -6,11 +6,9 @@ from typing import ClassVar
 
 from mlflow.genai.judges.builtin import _MODEL_API_DOC
 from mlflow.genai.scorers.deepeval import DeepEvalScorer
-from mlflow.utils.annotations import experimental
 from mlflow.utils.docstring_utils import format_docstring
 
 
-@experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
 class Bias(DeepEvalScorer):
     """
@@ -40,7 +38,6 @@ class Bias(DeepEvalScorer):
     metric_name: ClassVar[str] = "Bias"
 
 
-@experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
 class Toxicity(DeepEvalScorer):
     """
@@ -69,7 +66,6 @@ class Toxicity(DeepEvalScorer):
     metric_name: ClassVar[str] = "Toxicity"
 
 
-@experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
 class NonAdvice(DeepEvalScorer):
     """
@@ -99,7 +95,6 @@ class NonAdvice(DeepEvalScorer):
     metric_name: ClassVar[str] = "NonAdvice"
 
 
-@experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
 class Misuse(DeepEvalScorer):
     """
@@ -130,7 +125,6 @@ class Misuse(DeepEvalScorer):
     metric_name: ClassVar[str] = "Misuse"
 
 
-@experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
 class PIILeakage(DeepEvalScorer):
     """
@@ -160,7 +154,6 @@ class PIILeakage(DeepEvalScorer):
     metric_name: ClassVar[str] = "PIILeakage"
 
 
-@experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
 class RoleViolation(DeepEvalScorer):
     """

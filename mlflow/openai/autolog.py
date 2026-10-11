@@ -9,14 +9,13 @@ from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatusCode
 from mlflow.exceptions import MlflowException
 from mlflow.openai.constant import FLAVOR_NAME
-from mlflow.openai.utils.chat_schema import set_span_chat_attributes
+from mlflow.openai.utils.chat_schema import _parse_chat_completion_usage, set_span_chat_attributes
 from mlflow.telemetry.events import AutologgingEvent
 from mlflow.telemetry.track import _record_event
 from mlflow.tracing.constant import (
     STREAM_CHUNK_EVENT_NAME_FORMAT,
     STREAM_CHUNK_EVENT_VALUE_KEY,
     SpanAttributeKey,
-    TokenUsageKey,
     TraceMetadataKey,
 )
 from mlflow.tracing.distributed import _get_tracing_headers_from_span
@@ -170,6 +169,22 @@ def _autolog(
         safe_patch(FLAVOR_NAME, AsyncResponses, "parse", async_patched_call)
         safe_patch(FLAVOR_NAME, Responses, "parse", patched_call)
 
+    try:
+        from openai.resources.decisions import AsyncDecisions, Decisions
+    except ImportError:
+        pass
+    else:
+        safe_patch(FLAVOR_NAME, Decisions, "create", patched_call)
+        safe_patch(FLAVOR_NAME, AsyncDecisions, "create", async_patched_call)
+
+
+def _is_decisions_api(task: type) -> bool:
+    try:
+        from openai.resources.decisions import AsyncDecisions, Decisions
+    except ImportError:
+        return False
+    return issubclass(task, (Decisions, AsyncDecisions))
+
 
 def _get_span_type(task: type) -> str:
     from openai.resources.chat.completions import AsyncCompletions as AsyncChatCompletions
@@ -216,6 +231,9 @@ def _get_span_type(task: type) -> str:
         span_type_mapping[AsyncResponses] = SpanType.CHAT_MODEL
     except ImportError:
         pass
+
+    if _is_decisions_api(task):
+        return SpanType.LLM
 
     # Walk the MRO so subclasses (e.g. third-party wrappers like
     # `DatabricksOpenAI`'s `ChatCompletions`) resolve to the right type.
@@ -309,7 +327,9 @@ def _start_span(
     span_type = _get_span_type(instance.__class__)
     # Record input parameters to attributes
     attributes = {k: v for k, v in inputs.items() if k not in ("messages", "input")}
-    if span_type in (SpanType.CHAT_MODEL, SpanType.LLM):
+    if _is_decisions_api(instance.__class__):
+        attributes[SpanAttributeKey.MESSAGE_FORMAT] = "openai_decisions"
+    elif span_type in (SpanType.CHAT_MODEL, SpanType.LLM):
         attributes[SpanAttributeKey.MESSAGE_FORMAT] = "openai"
 
     # If there is an active span, create a child span under it, otherwise create a new trace
@@ -345,10 +365,17 @@ def _end_span_on_success(
         # and then log the outputs as a single artifact when the stream ends
         def _stream_output_logging_hook(stream: Iterator) -> Iterator:
             output = []
-            for i, chunk in enumerate(stream):
-                _add_span_event(span, i, chunk)
-                output.append(chunk)
-                yield chunk
+            chunk = None
+            try:
+                for i, chunk in enumerate(stream):
+                    _add_span_event(span, i, chunk)
+                    output.append(chunk)
+                    yield chunk
+            except Exception as e:
+                # The SDK raises mid-stream (e.g. an error event from the server). End the
+                # span with an error status, otherwise the trace is never exported.
+                _end_span_on_exception(span, e)
+                raise
             _process_last_chunk(span, chunk, inputs, output, is_responses_api)
 
         result._iterator = _stream_output_logging_hook(result._iterator)
@@ -356,10 +383,15 @@ def _end_span_on_success(
 
         async def _stream_output_logging_hook(stream: AsyncIterator) -> AsyncIterator:
             output = []
-            async for chunk in stream:
-                _add_span_event(span, len(output), chunk)
-                output.append(chunk)
-                yield chunk
+            chunk = None
+            try:
+                async for chunk in stream:
+                    _add_span_event(span, len(output), chunk)
+                    output.append(chunk)
+                    yield chunk
+            except Exception as e:
+                _end_span_on_exception(span, e)
+                raise
             _process_last_chunk(span, chunk, inputs, output, is_responses_api)
 
         result._iterator = _stream_output_logging_hook(result._iterator)
@@ -390,17 +422,7 @@ def _process_last_chunk(
             output = _reconstruct_completion_from_stream(completion_chunks)
             # Set usage information on span if available
             if usage := _get_completion_stream_usage(completion_chunks):
-                usage_dict = {
-                    TokenUsageKey.INPUT_TOKENS: usage.prompt_tokens,
-                    TokenUsageKey.OUTPUT_TOKENS: usage.completion_tokens,
-                    TokenUsageKey.TOTAL_TOKENS: usage.total_tokens,
-                }
-
-                # Extract cached tokens if available in the streaming chunk
-                if details := getattr(usage, "prompt_tokens_details", None):
-                    if (cached := getattr(details, "cached_tokens", None)) is not None:
-                        usage_dict[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = cached
-                span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage_dict)
+                span.set_attribute(SpanAttributeKey.CHAT_USAGE, _parse_chat_completion_usage(usage))
 
         _end_span_on_success(span, inputs, output, is_responses_api)
     except Exception as e:

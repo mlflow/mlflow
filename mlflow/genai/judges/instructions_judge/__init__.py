@@ -22,6 +22,15 @@ from mlflow.genai.judges.instructions_judge.constants import (
     INSTRUCTIONS_JUDGE_SYSTEM_PROMPT,
     INSTRUCTIONS_JUDGE_TRACE_PROMPT_TEMPLATE,
 )
+from mlflow.genai.judges.structured_judge import (
+    _invoke_gateway_judge,
+    _is_gateway_model,
+    _is_gateway_system_one_rejection,
+)
+from mlflow.genai.judges.typesafe import (
+    _invoke_typesafe_judge,
+    _is_typesafe_model,
+)
 from mlflow.genai.judges.utils import (
     add_output_format_instructions,
     format_prompt,
@@ -624,29 +633,84 @@ class InstructionsJudge(Judge):
         else:
             _logger.debug("Using standard (non-agentic) judge mode.")
 
-        system_content = self._build_system_message(is_trace_based)
-        user_content = self._build_user_message(inputs, outputs, expectations, conversation)
+        state = {
+            variable: value
+            for variable, value in (
+                (self._TEMPLATE_VARIABLE_INPUTS, inputs),
+                (self._TEMPLATE_VARIABLE_OUTPUTS, outputs),
+                (self._TEMPLATE_VARIABLE_EXPECTATIONS, expectations),
+                (self._TEMPLATE_VARIABLE_CONVERSATION, conversation),
+            )
+            if variable in self.template_variables
+        }
 
-        from mlflow.types.llm import ChatMessage
+        def _invoke_chat():
+            from mlflow.types.llm import ChatMessage
 
-        messages = [
-            ChatMessage(role="system", content=system_content),
-            ChatMessage(role="user", content=user_content),
-        ]
+            messages = [
+                ChatMessage(role="system", content=self._build_system_message(is_trace_based)),
+                ChatMessage(
+                    role="user",
+                    content=self._build_user_message(inputs, outputs, expectations, conversation),
+                ),
+            ]
+            return invoke_judge_model(
+                model_uri=self._model,
+                prompt=messages,
+                assessment_name=self.name,
+                trace=trace if is_trace_based else None,
+                response_format=self._create_response_format_model(),
+                use_case=USE_CASE_AGENTIC_JUDGE,
+                inference_params=self._inference_params,
+                base_url=self._base_url,
+                extra_headers=self._extra_headers,
+            )
 
-        response_format = self._create_response_format_model()
+        if _is_typesafe_model(self._model):
+            if is_trace_based:
+                raise MlflowException.invalid_parameter_value(
+                    "TypeSafe judge models do not support trace-based evaluation."
+                )
+            feedback = _invoke_typesafe_judge(
+                self._model,
+                instructions=self._instructions,
+                state=state,
+                feedback_value_type=self._feedback_value_type,
+                assessment_name=self.name,
+                inference_params=self._inference_params,
+                base_url=self._base_url,
+                extra_headers=self._extra_headers,
+            )
+        elif _is_gateway_model(self._model) and not is_trace_based:
+            # gateway:/ endpoints may serve System One (jev) models. Prefer chat so non-jev
+            # endpoints see no regression, and fall back to System One when chat is rejected.
+            # jev has no trace support, so trace-based judges stay on chat only.
+            feedback = _invoke_gateway_judge(
+                self._model,
+                chat_invoker=_invoke_chat,
+                instructions=self._instructions,
+                state=state,
+                feedback_value_type=self._feedback_value_type,
+                assessment_name=self.name,
+                inference_params=self._inference_params,
+                base_url=self._base_url,
+                extra_headers=self._extra_headers,
+            )
+        elif _is_gateway_model(self._model) and is_trace_based:
+            # jev endpoints can't evaluate traces. Chat endpoints handle trace-based judges
+            # fine, so attempt chat; if the endpoint rejects it as System One, surface the
+            # same clear message as the direct typesafe:/ path rather than the raw rejection.
+            try:
+                feedback = _invoke_chat()
+            except MlflowException as e:
+                if _is_gateway_system_one_rejection(e):
+                    raise MlflowException.invalid_parameter_value(
+                        "TypeSafe judge models do not support trace-based evaluation."
+                    ) from e
+                raise
+        else:
+            feedback = _invoke_chat()
 
-        feedback = invoke_judge_model(
-            model_uri=self._model,
-            prompt=messages,
-            assessment_name=self.name,
-            trace=trace if is_trace_based else None,
-            response_format=response_format,
-            use_case=USE_CASE_AGENTIC_JUDGE,
-            inference_params=self._inference_params,
-            base_url=self._base_url,
-            extra_headers=self._extra_headers,
-        )
         # Surface the judge instructions in assessment metadata so the UI can
         # show the criterion that was evaluated alongside each result.
         feedback.metadata = {**(feedback.metadata or {}), "guideline": self._instructions}
@@ -810,21 +874,34 @@ class InstructionsJudge(Judge):
                 f"primitive type: {serialized}"
             )
 
+        # Handle enum and const before requiring a top-level type. JSON Schema omits
+        # ``type`` for mixed primitive Literals and uses ``const`` for a one-value Literal.
+        if "enum" in serialized:
+            enum_values = serialized["enum"]
+            if (
+                not isinstance(enum_values, list)
+                or not enum_values
+                or any(type(value) not in type_map.values() for value in enum_values)
+            ):
+                raise MlflowException.invalid_parameter_value(
+                    f"Enum must contain primitive values: {serialized}"
+                )
+            return Literal[tuple(enum_values)]
+
+        if "const" in serialized:
+            const_value = serialized["const"]
+            if type(const_value) not in type_map.values():
+                raise MlflowException.invalid_parameter_value(
+                    f"Const must contain a primitive value: {serialized}"
+                )
+            return Literal[const_value]
+
         if "type" not in serialized:
             raise MlflowException.invalid_parameter_value(
                 f"Invalid feedback_value_type serialization: {serialized}"
             )
 
         schema_type = serialized["type"]
-
-        # Handle enum (Literal types)
-        if "enum" in serialized:
-            enum_values = serialized["enum"]
-            if not enum_values:
-                raise MlflowException.invalid_parameter_value(
-                    f"Enum must have at least one value: {serialized}"
-                )
-            return Literal[tuple(enum_values)]
 
         # Handle basic types
         if schema_type in type_map:
@@ -884,6 +961,10 @@ class InstructionsJudge(Judge):
             )
         if self._inference_params is not None:
             pydantic_data["inference_params"] = self._inference_params
+        # Only serialize when enabled to keep existing (result-first) payloads unchanged;
+        # deserialization defaults this back to False when the key is absent.
+        if self._generate_rationale_first:
+            pydantic_data["generate_rationale_first"] = self._generate_rationale_first
 
         serialized_scorer = SerializedScorer(
             name=self.name,

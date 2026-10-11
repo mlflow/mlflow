@@ -6,6 +6,7 @@
  */
 
 import type { TraceInfo } from '../core/entities/trace_info';
+import type { SerializedAssessment } from '../core/entities/assessment';
 import type { SerializedTraceLocation } from '../core/entities/trace_location';
 import { ArtifactCredentialType } from './artifacts/databricks';
 
@@ -147,6 +148,23 @@ export namespace CreateTraceInfoV4 {
  */
 export namespace ExportOtlpTraces {
   export const getEndpoint = (host: string) => `${host}/api/2.0/otel/v1/traces`;
+}
+
+/**
+ * Create an assessment on a trace using the V3 traces API.
+ * Endpoint: POST /api/3.0/mlflow/traces/{trace_id}/assessments
+ */
+export namespace CreateAssessment {
+  export const getEndpoint = (host: string, traceId: string) =>
+    `${host}/api/3.0/mlflow/traces/${encodeURIComponent(traceId)}/assessments`;
+
+  export interface Request {
+    assessment: SerializedAssessment;
+  }
+
+  export interface Response {
+    assessment: SerializedAssessment;
+  }
 }
 
 /**

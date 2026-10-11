@@ -94,6 +94,15 @@ CREATE TABLE jobs (
 	last_update_time BIGINT NOT NULL,
 	workspace VARCHAR(63) DEFAULT 'default' NOT NULL,
 	status_details JSON,
+	creator VARCHAR(255),
+	executor_backend VARCHAR(255),
+	lease_expires_at BIGINT,
+	status_message TEXT,
+	progress JSON,
+	progress_updated_at BIGINT,
+	token_hash VARCHAR(64),
+	scoped_permissions JSON,
+	next_attempt_at BIGINT,
 	PRIMARY KEY (id)
 )
 
@@ -122,6 +131,14 @@ CREATE TABLE registered_models (
 )
 
 
+CREATE TABLE scheduler_leases (
+	lease_key VARCHAR(255) NOT NULL,
+	acquired_at BIGINT NOT NULL,
+	ttl_seconds INTEGER NOT NULL,
+	CONSTRAINT scheduler_leases_pk PRIMARY KEY (lease_key)
+)
+
+
 CREATE TABLE secrets (
 	secret_id VARCHAR(36) NOT NULL,
 	secret_name VARCHAR(255) NOT NULL,
@@ -139,6 +156,62 @@ CREATE TABLE secrets (
 	workspace VARCHAR(63) DEFAULT 'default' NOT NULL,
 	PRIMARY KEY (secret_id),
 	CONSTRAINT uq_secrets_workspace_secret_name UNIQUE (workspace, secret_name)
+)
+
+
+CREATE TABLE sql_assessment_daily_rollups (
+	id BIGINT NOT NULL,
+	experiment_id INTEGER NOT NULL,
+	rollup_day DATE NOT NULL,
+	metric_name VARCHAR(250) NOT NULL,
+	grouping_set VARCHAR(50) NOT NULL,
+	sample_count BIGINT NOT NULL,
+	sum_value DOUBLE,
+	min_value DOUBLE,
+	max_value DOUBLE,
+	PRIMARY KEY (id)
+)
+
+
+CREATE TABLE sql_span_cost_daily_rollups (
+	id BIGINT NOT NULL,
+	experiment_id INTEGER NOT NULL,
+	rollup_day DATE NOT NULL,
+	metric_name VARCHAR(250) NOT NULL,
+	grouping_set VARCHAR(50) NOT NULL,
+	model_name VARCHAR(500),
+	model_provider VARCHAR(500),
+	sample_count BIGINT NOT NULL,
+	sum_value DOUBLE,
+	min_value DOUBLE,
+	max_value DOUBLE,
+	PRIMARY KEY (id)
+)
+
+
+CREATE TABLE sql_trace_metric_daily_rollups (
+	id BIGINT NOT NULL,
+	experiment_id INTEGER NOT NULL,
+	rollup_day DATE NOT NULL,
+	metric_name VARCHAR(250) NOT NULL,
+	grouping_set VARCHAR(50) NOT NULL,
+	trace_status VARCHAR(50),
+	sample_count BIGINT NOT NULL,
+	sum_value DOUBLE,
+	min_value DOUBLE,
+	max_value DOUBLE,
+	p50_value DOUBLE,
+	p90_value DOUBLE,
+	p99_value DOUBLE,
+	PRIMARY KEY (id)
+)
+
+
+CREATE TABLE sql_trace_rollup_rebuild_queue (
+	experiment_id INTEGER NOT NULL,
+	rollup_day DATE NOT NULL,
+	rollup_family VARCHAR(50) NOT NULL,
+	PRIMARY KEY (experiment_id, rollup_day, rollup_family)
 )
 
 
@@ -230,10 +303,19 @@ CREATE TABLE evaluation_dataset_tags (
 
 CREATE TABLE experiment_tags (
 	key VARCHAR(250) NOT NULL,
-	value VARCHAR(5000),
+	value MEDIUMTEXT,
 	experiment_id INTEGER NOT NULL,
 	PRIMARY KEY (key, experiment_id),
 	CONSTRAINT experiment_tags_ibfk_1 FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id)
+)
+
+
+CREATE TABLE job_locks (
+	lock_key VARCHAR(255) NOT NULL,
+	job_id VARCHAR(36) NOT NULL,
+	acquired_at BIGINT NOT NULL,
+	PRIMARY KEY (lock_key),
+	CONSTRAINT fk_job_locks_job_id FOREIGN KEY(job_id) REFERENCES jobs (id) ON DELETE CASCADE
 )
 
 
@@ -322,6 +404,7 @@ CREATE TABLE mcp_server_versions (
 	status VARCHAR(20) DEFAULT 'draft' NOT NULL,
 	tools JSON,
 	source VARCHAR(512),
+	connect_options JSON,
 	created_by VARCHAR(256),
 	last_updated_by VARCHAR(256),
 	created_at BIGINT NOT NULL,
@@ -444,6 +527,17 @@ CREATE TABLE trace_info (
 	request_preview VARCHAR(1000),
 	response_preview VARCHAR(1000),
 	db_payload_generation INTEGER DEFAULT '0' NOT NULL,
+	trace_name VARCHAR(4096),
+	session_id VARCHAR(250),
+	input_tokens BIGINT,
+	output_tokens BIGINT,
+	total_tokens BIGINT,
+	cache_read_input_tokens BIGINT,
+	cache_creation_input_tokens BIGINT,
+	cache_creation_input_tokens_above_1hr BIGINT,
+	input_cost DOUBLE,
+	output_cost DOUBLE,
+	total_cost DOUBLE,
 	PRIMARY KEY (request_id),
 	CONSTRAINT fk_trace_info_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id) ON DELETE CASCADE
 )
@@ -475,6 +569,10 @@ CREATE TABLE assessments (
 	overrides VARCHAR(50),
 	valid TINYINT NOT NULL,
 	assessment_metadata TEXT,
+	experiment_id INTEGER,
+	trace_timestamp_ms BIGINT,
+	aggregate_value DOUBLE,
+	is_numeric_value TINYINT DEFAULT '0' NOT NULL,
 	PRIMARY KEY (assessment_id),
 	CONSTRAINT fk_assessments_trace_id FOREIGN KEY(trace_id) REFERENCES trace_info (request_id) ON DELETE CASCADE
 )
@@ -699,7 +797,11 @@ CREATE TABLE spans (
 	end_time_unix_nano BIGINT,
 	duration_ns BIGINT GENERATED ALWAYS AS (((`end_time_unix_nano` - `start_time_unix_nano`))) STORED,
 	content LONGTEXT NOT NULL,
-	dimension_attributes JSON,
+	input_cost DOUBLE,
+	output_cost DOUBLE,
+	total_cost DOUBLE,
+	model_name VARCHAR(500),
+	model_provider VARCHAR(500),
 	PRIMARY KEY (trace_id, span_id),
 	CONSTRAINT fk_spans_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id),
 	CONSTRAINT fk_spans_trace_id FOREIGN KEY(trace_id) REFERENCES trace_info (request_id) ON DELETE CASCADE

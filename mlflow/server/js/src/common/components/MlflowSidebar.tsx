@@ -33,6 +33,7 @@ import { GatewayLabel, GatewayNewTag } from './GatewayNewTag';
 import { FormattedMessage } from 'react-intl';
 import { useWorkflowType, WorkflowType } from '../contexts/WorkflowTypeContext';
 import { shouldEnableWorkflowBasedNavigation, shouldEnableWorkspaces } from '../utils/FeatureUtils';
+import { SERVER_FEATURE_KEYS, useFeatureEnabled } from '../../experiment-tracking/hooks/useServerInfo';
 import { extractWorkspaceFromSearchParams, useActiveWorkspace } from '../../workspaces/utils/WorkspaceUtils';
 import { SETTINGS_RETURN_TO_PARAM, SETTINGS_SECTION_GENERAL } from '../../settings/settingsSectionConstants';
 import { getSidebarItemStyles, MlflowSidebarLink } from './MlflowSidebarLink';
@@ -46,6 +47,8 @@ import { MlflowSidebarWorkflowSwitch } from './MlflowSidebarWorkflowSwitch';
 
 const isInsideExperiment = (location: Location) =>
   Boolean(matchPath('/experiments/:experimentId/*', location.pathname));
+const isExperimentsListActive = (location: Location) =>
+  Boolean(matchPath({ path: '/experiments', end: true }, location.pathname));
 const isHomeActive = (location: Location) => Boolean(matchPath({ path: '/', end: true }, location.pathname));
 const isExperimentsActive = (location: Location) =>
   Boolean(
@@ -98,6 +101,7 @@ export function MlflowSidebar({
   const [searchParams] = useSearchParams();
   const { theme } = useDesignSystemTheme();
   const enableWorkflowBasedNavigation = shouldEnableWorkflowBasedNavigation();
+  const gatewayEnabled = useFeatureEnabled(SERVER_FEATURE_KEYS.GATEWAY);
   // WorkflowType context is always available, but UI is guarded by feature flag
   const { workflowType, setWorkflowType } = useWorkflowType();
   const { experimentId } = useParams();
@@ -124,6 +128,9 @@ export function MlflowSidebar({
   // Update the ref when we're inside an experiment
   if (experimentId && isInsideExperiment(location)) {
     lastSelectedExperimentIdRef.current = experimentId;
+  } else if (isExperimentsListActive(location)) {
+    // Returning to the experiments list (e.g. via the browser back button) exits the experiment
+    lastSelectedExperimentIdRef.current = null;
   }
 
   // Callback to clear the persisted experiment ID (used by back button)
@@ -233,7 +240,7 @@ export function MlflowSidebar({
             },
           ]
         : []),
-      ...(shouldShowGenAIFeatures(enableWorkflowBasedNavigation, workflowType)
+      ...(shouldShowGenAIFeatures(enableWorkflowBasedNavigation, workflowType) && gatewayEnabled
         ? [
             {
               key: 'gateway',
@@ -263,6 +270,7 @@ export function MlflowSidebar({
       workflowType,
       clearLastSelectedExperiment,
       enableWorkflowBasedNavigation,
+      gatewayEnabled,
       location,
       showSidebar,
     ],

@@ -203,8 +203,6 @@ def _get_classifier_metrics(fitted_estimator, prefix, X, y_true, sample_weight, 
 
     Args:
         fitted_estimator: The already fitted classifier
-        fit_args: Positional arguments given to fit_func.
-        fit_kwargs: Keyword arguments given to fit_func.
 
     Returns:
         dictionary of (function name, computed value)
@@ -327,8 +325,6 @@ def _get_classifier_artifacts(fitted_estimator, prefix, X, y_true, sample_weight
 
     Args:
         fitted_estimator: The already fitted regressor
-        fit_args: Positional arguments given to fit_func.
-        fit_kwargs: Keyword arguments given to fit_func.
 
     Returns:
         List of artifacts to be logged
@@ -434,8 +430,6 @@ def _get_regressor_metrics(fitted_estimator, prefix, X, y_true, sample_weight):
 
     Args:
         fitted_estimator: The already fitted regressor
-        fit_args: Positional arguments given to fit_func.
-        fit_kwargs: Keyword arguments given to fit_func.
 
     Returns:
         dictionary of (function name, computed value)
@@ -757,6 +751,8 @@ def _log_parameter_search_results_as_artifact(cv_results_df, run_id):
 
 # Log how many child runs will be created vs omitted based on `max_tuning_runs`.
 def _log_child_runs_info(max_tuning_runs, total_runs):
+    # More runs can be requested than the search produced, and only the available ones are logged
+    max_tuning_runs = min(max_tuning_runs, total_runs)
     rest = total_runs - max_tuning_runs
 
     # Set logging statement for runs to be logged.

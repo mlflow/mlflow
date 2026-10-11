@@ -1,3 +1,4 @@
+import asyncio
 import bisect
 import json
 from abc import ABCMeta, abstractmethod
@@ -10,6 +11,7 @@ from mlflow.entities import (
     Issue,
     IssueSeverity,
     IssueStatus,
+    LifecycleStage,
     LoggedModel,
     LoggedModelInput,
     LoggedModelOutput,
@@ -40,6 +42,7 @@ from mlflow.entities.trace import Span, Trace
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.workspace import TraceArchivalConfig
 from mlflow.exceptions import MlflowException, MlflowNotImplementedException
+from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, ErrorCode
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import (
     MAX_RESULTS_QUERY_TRACE_METRICS,
@@ -375,13 +378,25 @@ class AbstractStore(MCPServerRegistryMixin, GatewayStoreMixin):
         """
         raise MlflowNotImplementedException()
 
-    def batch_get_traces(self, trace_ids: list[str], location: str | None = None) -> list[Trace]:
+    def batch_get_traces(
+        self,
+        trace_ids: list[str],
+        location: str | None = None,
+        experiment_ids: list[str] | None = None,
+    ) -> list[Trace]:
         """
         Get a batch of complete traces with spans for given trace ids.
 
         Args:
             trace_ids: List of trace IDs to fetch.
             location: Location of the trace. For example, "catalog.schema" for UC schema.
+            experiment_ids: Optional list of experiment IDs to scope the query. When
+                provided, only traces belonging to these experiments are returned.
+                ``SqlAlchemyStore`` enforces this directly against the database.
+                ``RestStore`` forwards it to the remote backend when explicitly set,
+                so it takes effect there if the remote server enforces it. Not
+                supported against a Databricks-hosted backend, since that API has no
+                corresponding field.
 
         Returns:
             List of Trace objects.
@@ -392,7 +407,10 @@ class AbstractStore(MCPServerRegistryMixin, GatewayStoreMixin):
         raise MlflowNotImplementedException()
 
     def batch_get_trace_infos(
-        self, trace_ids: list[str], location: str | None = None
+        self,
+        trace_ids: list[str],
+        location: str | None = None,
+        experiment_ids: list[str] | None = None,
     ) -> list[TraceInfo]:
         """
         Get trace metadata (TraceInfo) for given trace IDs without loading spans.
@@ -403,6 +421,13 @@ class AbstractStore(MCPServerRegistryMixin, GatewayStoreMixin):
         Args:
             trace_ids: List of trace IDs to fetch.
             location: Location of the trace. For example, "catalog.schema" for UC schema.
+            experiment_ids: Optional list of experiment IDs to scope the query. When
+                provided, only traces belonging to these experiments are returned.
+                ``SqlAlchemyStore`` enforces this directly against the database.
+                ``RestStore`` forwards it to the remote backend when explicitly set,
+                so it takes effect there if the remote server enforces it. Not
+                supported against a Databricks-hosted backend, since that API has no
+                corresponding field.
 
         Returns:
             List of TraceInfo objects containing only metadata (no spans).
@@ -779,6 +804,10 @@ class AbstractStore(MCPServerRegistryMixin, GatewayStoreMixin):
         """
         Asynchronously log multiple span entities to the tracking store.
 
+        The default implementation offloads ``log_spans()`` to a worker thread so
+        async callers do not stall the event loop. Stores that implement
+        ``log_spans()`` inherit this behavior.
+
         Args:
             location: The location to log spans to.
             spans: List of Span entities to log. Spans may belong to different traces.
@@ -786,7 +815,7 @@ class AbstractStore(MCPServerRegistryMixin, GatewayStoreMixin):
         Returns:
             List of logged Span entities.
         """
-        raise NotImplementedError
+        return await asyncio.to_thread(self.log_spans, location, spans)
 
     def log_metric(self, run_id, metric):
         """
@@ -1673,6 +1702,30 @@ class AbstractStore(MCPServerRegistryMixin, GatewayStoreMixin):
         result: list[ScorerVersion] = []
         for exp_id in experiment_ids:
             result.extend(self.list_scorers(exp_id))
+        return result
+
+    def filter_active_experiment_ids(self, experiment_ids: list[str]) -> list[str]:
+        """
+        Given a bounded, caller-supplied batch of experiment IDs, return the
+        subset that exist and are ACTIVE. This is NOT a general-purpose search:
+        the caller must already know exactly which IDs it's asking about, and
+        the result size is capped by the input size. For open-ended enumeration
+        (e.g. "all active experiments in a workspace", where the result size is
+        unknown ahead of time), use ``search_experiments`` instead.
+
+        The default impl checks each ID individually via ``get_experiment``;
+        ``SqlAlchemyStore`` overrides with a chunked batch query.
+        """
+        result: list[str] = []
+        for exp_id in experiment_ids:
+            try:
+                experiment = self.get_experiment(exp_id)
+            except MlflowException as exc:
+                if exc.error_code != ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+                    raise
+                continue
+            if experiment.lifecycle_stage == LifecycleStage.ACTIVE:
+                result.append(exp_id)
         return result
 
     def get_scorer(self, experiment_id, name, version=None) -> ScorerVersion:

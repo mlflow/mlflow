@@ -442,6 +442,10 @@ const ChatPanelContent = ({ onOpenSettings }: { onOpenSettings: () => void }) =>
     refreshConfig,
     pendingPrompt,
     clearPendingPrompt,
+    pendingComposerFocus,
+    clearComposerFocusRequest,
+    pendingAutomaticMessage,
+    forceSendPendingAutomaticMessage,
     pendingPermission,
     respondToPermission,
   } = useAssistant();
@@ -477,6 +481,13 @@ const ChatPanelContent = ({ onOpenSettings }: { onOpenSettings: () => void }) =>
     }
   }, [pendingPrompt, clearPendingPrompt]);
 
+  useEffect(() => {
+    if (pendingComposerFocus) {
+      textareaRef.current?.focus();
+      clearComposerFocusRequest();
+    }
+  }, [pendingComposerFocus, clearComposerFocusRequest]);
+
   // Deliver a message, first collecting the resolved provider's API key when it
   // is still missing (the ideal-flow popup: the first send doubles as setup).
   const deliverMessage = useCallback(
@@ -497,14 +508,23 @@ const ChatPanelContent = ({ onOpenSettings }: { onOpenSettings: () => void }) =>
     // so the prompt hides immediately instead of lingering while a refresh runs.
     // (The key is already saved server-side; the send carries it.) If the prompt
     // came from a failed send rather than a queued message, retry that turn.
-    if (message) {
+    if (pendingAutomaticMessage) {
+      forceSendPendingAutomaticMessage();
+    } else if (message) {
       sendMessage(message);
     } else {
       regenerateLastMessage();
     }
     // Update the resolved-provider / needsApiKey state in the background.
     refreshConfig();
-  }, [pendingKeyMessage, sendMessage, regenerateLastMessage, refreshConfig]);
+  }, [
+    pendingKeyMessage,
+    pendingAutomaticMessage,
+    forceSendPendingAutomaticMessage,
+    sendMessage,
+    regenerateLastMessage,
+    refreshConfig,
+  ]);
 
   // If the key prompt is dismissed sideways (e.g. the user switches provider from
   // the picker instead of entering a key), put the stashed message back in the
@@ -600,23 +620,26 @@ const ChatPanelContent = ({ onOpenSettings }: { onOpenSettings: () => void }) =>
         {errorCode && RECOVERABLE_ERROR_CODES.has(errorCode) && (
           <RecoverableErrorCallout errorCode={errorCode} error={error} onOpenSettings={onOpenSettings} />
         )}
-        {(pendingKeyMessage != null || errorCode === AssistantErrorCode.ApiKeyMissing) && activeProvider && (
-          <ApiKeyPrompt
-            providerId={activeProvider.name}
-            providerName={
-              (activeProvider.name === GATEWAY_PROVIDER_ID && activeProvider.model_provider
-                ? getLlmProviderDisplay(activeProvider.model_provider)?.name
-                : undefined) ??
-              getAssistantProvider(activeProvider.name)?.name ??
-              activeProvider.name
-            }
-            gatewayVendor={
-              activeProvider.name === GATEWAY_PROVIDER_ID ? (activeProvider.model_provider ?? undefined) : undefined
-            }
-            providerModel={activeProvider.provider_model}
-            onSaved={handleApiKeySaved}
-          />
-        )}
+        {(pendingKeyMessage != null ||
+          (pendingAutomaticMessage != null && needsApiKey) ||
+          errorCode === AssistantErrorCode.ApiKeyMissing) &&
+          activeProvider && (
+            <ApiKeyPrompt
+              providerId={activeProvider.name}
+              providerName={
+                (activeProvider.name === GATEWAY_PROVIDER_ID && activeProvider.model_provider
+                  ? getLlmProviderDisplay(activeProvider.model_provider)?.name
+                  : undefined) ??
+                getAssistantProvider(activeProvider.name)?.name ??
+                activeProvider.name
+              }
+              gatewayVendor={
+                activeProvider.name === GATEWAY_PROVIDER_ID ? (activeProvider.model_provider ?? undefined) : undefined
+              }
+              providerModel={activeProvider.provider_model}
+              onSaved={handleApiKeySaved}
+            />
+          )}
         <div
           css={{
             display: 'flex',

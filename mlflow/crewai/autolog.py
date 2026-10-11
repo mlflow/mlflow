@@ -1,10 +1,12 @@
 import inspect
 import json
 import logging
+import re
 import warnings
 from contextlib import contextmanager, nullcontext
 from typing import Any
 
+import pydantic
 from packaging.version import Version
 
 import mlflow
@@ -15,6 +17,15 @@ from mlflow.tracing.utils import TraceJSONEncoder
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 
 _logger = logging.getLogger(__name__)
+
+# Matches credential-like keys such as `api_key`, `client_secret`, `Authorization`,
+# `auth_token`, or `accessToken`. Credential keys end with `token`, so `max_tokens`,
+# `tokenizer`, and `token_usage` (legitimate LLM configuration and usage fields) are kept.
+_SENSITIVE_KEY_PATTERN = re.compile(
+    r"(?i:api_?key|secret|password|authorization|credential)"  # anywhere in the key
+    r"|(?<![A-Za-z])(?i:token)$"  # snake_case / standalone `token`
+    r"|(?<=[a-z])Token$"  # camelCase `accessToken`
+)
 
 
 def patched_standalone_call(original, *args, **kwargs):
@@ -35,7 +46,7 @@ def patched_standalone_call(original, *args, **kwargs):
         result = original(*args, **kwargs)
 
         # Need to convert the response of generate_content for better visualization
-        outputs = result.__dict__ if hasattr(result, "__dict__") else result
+        outputs = _sanitize_value(result.__dict__ if hasattr(result, "__dict__") else result)
         span.set_outputs(outputs)
 
         return result
@@ -76,7 +87,7 @@ def patched_class_call(original, self, *args, **kwargs):
             result = original(self, *args, **kwargs)
 
         # Need to convert the response of generate_content for better visualization
-        outputs = result.__dict__ if hasattr(result, "__dict__") else result
+        outputs = _sanitize_value(result.__dict__ if hasattr(result, "__dict__") else result)
 
         if span_type == SpanType.LLM and (usage_dict := _parse_usage(self)):
             span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage_dict)
@@ -287,11 +298,13 @@ def _construct_full_inputs(func, *args, **kwargs):
         arguments.pop("self")
 
     # Avoid non serializable objects and circular references
-    return {
+    inputs = {
         k: v.__dict__ if hasattr(v, "__dict__") else v
         for k, v in arguments.items()
         if v is not None and _is_serializable(v)
     }
+    # Sanitize the whole dict so credential-named arguments are dropped along with nested ones
+    return _sanitize_value(inputs)
 
 
 def _set_span_attributes(span: LiveSpan, instance):
@@ -309,27 +322,25 @@ def _set_span_attributes(span: LiveSpan, instance):
                         value = _parse_tasks(value)
                     elif key == "agents":
                         value = _parse_agents(value)
-                    elif key == "embedder":
-                        value = _sanitize_value(value)
-                    span.set_attribute(key, str(value) if isinstance(value, list) else value)
+                    _set_sanitized_attribute(span, key, value)
 
         elif isinstance(instance, Agent):
             agent = _get_agent_attributes(instance)
             for key, value in agent.items():
                 if value is not None:
-                    span.set_attribute(key, str(value) if isinstance(value, list) else value)
+                    _set_sanitized_attribute(span, key, value)
 
         elif isinstance(instance, Task):
             task = _get_task_attributes(instance)
             for key, value in task.items():
                 if value is not None:
-                    span.set_attribute(key, str(value) if isinstance(value, list) else value)
+                    _set_sanitized_attribute(span, key, value)
 
         elif isinstance(instance, LLM):
             llm = _get_llm_attributes(instance)
             for key, value in llm.items():
                 if value is not None:
-                    span.set_attribute(key, str(value) if isinstance(value, list) else value)
+                    _set_sanitized_attribute(span, key, value)
             # Set model name explicitly using the MODEL attribute key
             if model := getattr(instance, "model", None):
                 span.set_attribute(SpanAttributeKey.MODEL, model)
@@ -341,25 +352,36 @@ def _set_span_attributes(span: LiveSpan, instance):
         elif isinstance(instance, Flow):
             for key, value in instance.__dict__.items():
                 if value is not None:
-                    span.set_attribute(key, str(value) if isinstance(value, list) else value)
+                    _set_sanitized_attribute(span, key, value)
 
         elif Version(crewai.__version__) >= Version("0.83.0"):
             if isinstance(instance, crewai.Knowledge):
                 for key, value in instance.__dict__.items():
                     if value is not None and key != "storage":
-                        span.set_attribute(key, str(value) if isinstance(value, list) else value)
+                        _set_sanitized_attribute(span, key, value)
 
     except AttributeError as e:
         _logger.warn("An exception happens when saving span attributes. Exception: %s", e)
 
 
+def _set_sanitized_attribute(span: LiveSpan, key: str, value: Any):
+    # The key itself may name a credential (e.g. a provider's `auth_token` field), in which
+    # case the value is a plain string that `_sanitize_value` cannot recognize.
+    if _SENSITIVE_KEY_PATTERN.search(key):
+        return
+    value = _sanitize_value(value)
+    span.set_attribute(key, str(value) if isinstance(value, list) else value)
+
+
 def _get_agent_attributes(instance):
     agent = {}
     for key, value in instance.__dict__.items():
+        if _SENSITIVE_KEY_PATTERN.search(key):
+            continue
         if key == "tools":
             value = _parse_tools(value)
-        elif key == "embedder":
-            value = _sanitize_value(value)
+        # Sanitize before stringifying: `str(agent.llm)` would otherwise embed the api_key
+        value = _sanitize_value(value)
         if value is None:
             continue
         agent[key] = str(value)
@@ -370,7 +392,7 @@ def _get_agent_attributes(instance):
 def _get_task_attributes(instance):
     task = {}
     for key, value in instance.__dict__.items():
-        if value is None:
+        if value is None or _SENSITIVE_KEY_PATTERN.search(key):
             continue
         if key == "tools":
             value = _parse_tools(value)
@@ -378,20 +400,20 @@ def _get_task_attributes(instance):
         elif key == "agent":
             task[key] = value.role
         else:
-            task[key] = str(value)
+            task[key] = str(_sanitize_value(value))
     return task
 
 
 def _get_llm_attributes(instance):
     llm = {SpanAttributeKey.MESSAGE_FORMAT: "crewai"}
     for key, value in instance.__dict__.items():
-        if value is None:
+        if value is None or _SENSITIVE_KEY_PATTERN.search(key):
             continue
-        elif key in ["callbacks", "api_key"]:
+        elif key == "callbacks":
             # Skip callbacks until how they should be logged are decided
             continue
         else:
-            llm[key] = str(value)
+            llm[key] = str(_sanitize_value(value))
     return llm
 
 
@@ -451,30 +473,63 @@ def _parse_tools(tools):
     return result
 
 
+def _is_crewai_llm(value) -> bool:
+    try:
+        from crewai.llms.base_llm import BaseLLM
+    except ImportError:
+        from crewai import LLM as BaseLLM
+    return isinstance(value, BaseLLM)
+
+
+def _get_llm_summary(llm) -> str:
+    for attr in ("model", "model_name"):
+        if (model := getattr(llm, attr, None)) is not None:
+            return str(model)
+    return type(llm).__name__
+
+
 def _sanitize_value(val):
     """
-    Sanitize a value to remove sensitive information.
+    Recursively strip credentials from a value before it is attached to a span.
 
-    Args:
-        val: The value to sanitize. Can be None, a dict, a list, or other types.
+    Credential-like dict keys are dropped and crewai LLM objects are reduced to their model
+    name, since both ``str(llm)`` and ``model_dump()`` expose ``api_key``. Other pydantic models
+    (Agent, Task, Crew, agent executors, ...) are expanded field by field so that LLMs nested
+    inside them, e.g. via ``Task.agent`` or ``Crew.agents``, are sanitized as well.
 
-    Returns:
-        The sanitized value.
+    Fails closed: if sanitization itself raises, the value is replaced with a placeholder
+    rather than logged unsanitized or allowed to break the traced call.
     """
-    if val is None:
-        return None
+    try:
+        return _sanitize_value_impl(val, set())
+    except Exception as e:
+        _logger.debug("Failed to sanitize %s for span logging: %s", type(val).__name__, e)
+        return f"<{type(val).__name__}: omitted, sanitization failed>"
 
-    sensitive_keys = ["api_key", "secret", "password", "token"]
 
-    if isinstance(val, dict):
-        sanitized = {}
-        for k, v in val.items():
-            if any(sensitive in k.lower() for sensitive in sensitive_keys):
-                continue
-            sanitized[k] = _sanitize_value(v)
-        return sanitized
+def _sanitize_value_impl(val, ancestors: set[int]):
+    if val is None or isinstance(val, (str, int, float, bool)):
+        return val
 
-    elif isinstance(val, list):
-        return [_sanitize_value(item) for item in val]
-
-    return val
+    if id(val) in ancestors:
+        # Reference cycle, e.g. Agent.crew -> Crew.agents -> Agent
+        return type(val).__name__
+    ancestors.add(id(val))
+    try:
+        if isinstance(val, dict):
+            return {
+                k: _sanitize_value_impl(v, ancestors)
+                for k, v in val.items()
+                if not (isinstance(k, str) and _SENSITIVE_KEY_PATTERN.search(k))
+            }
+        if isinstance(val, (list, tuple, set)):
+            sanitized = [_sanitize_value_impl(item, ancestors) for item in val]
+            # Sets become lists: sanitized items (e.g. expanded models) may be unhashable
+            return tuple(sanitized) if isinstance(val, tuple) else sanitized
+        if _is_crewai_llm(val):
+            return _get_llm_summary(val)
+        if isinstance(val, pydantic.BaseModel):
+            return _sanitize_value_impl(val.__dict__, ancestors)
+        return val
+    finally:
+        ancestors.discard(id(val))

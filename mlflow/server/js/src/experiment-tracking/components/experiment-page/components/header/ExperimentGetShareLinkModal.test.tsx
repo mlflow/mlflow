@@ -187,10 +187,10 @@ describe('ExperimentGetShareLinkModal', () => {
 
   test('surfaces a clear error and writes no tag when the view exceeds the tag size limit', async () => {
     // Turn compression off so the serialized state stays large, and give it a payload that blows
-    // past the 5000-char experiment-tag ceiling.
+    // past the 20000-char experiment-tag ceiling.
     jest.mocked(shouldUseCompressedExperimentViewSharedState).mockImplementation(() => false);
     const errorSpy = jest.spyOn(Utils, 'displayGlobalErrorNotification').mockImplementation(() => {});
-    const hugeSearchState = { ...createExperimentPageSearchFacetsState(), searchFilter: 'x'.repeat(6000) };
+    const hugeSearchState = { ...createExperimentPageSearchFacetsState(), searchFilter: 'x'.repeat(21000) };
     renderModal({ searchFacetsState: hugeSearchState });
 
     await userEvent.click(screen.getByText('open modal'));

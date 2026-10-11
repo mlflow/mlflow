@@ -232,7 +232,7 @@ def get_python_version(
 
 
 def get_runs_on(runs_on: dict[str, str] | None, version: str) -> str:
-    return _get_spec_value(runs_on, version, "ubuntu-latest")
+    return _get_spec_value(runs_on, version, "ubuntu-24.04")
 
 
 def remove_comments(s: str) -> str:
@@ -497,13 +497,17 @@ async def expand_config(
             # Add tracing SDK test with the latest stable version
             if len(versions) > 0 and category == "autologging" and cfg.test_tracing_sdk:
                 version = max(versions)  # Test against the latest stable version
+                # Build install command for `version`, not the last loop iteration's version
+                tracing_reqs = [f"{package_info.pip_release}=={version}"]
+                tracing_reqs.extend(get_matched_requirements(cfg.requirements or {}, str(version)))
+                tracing_install = make_pip_install_command(tracing_reqs)
                 matrix.add(
                     MatrixItem(
                         name=f"{name}-tracing",
                         flavor=flavor,
                         category="tracing-sdk",
                         job_name=f"{name} / tracing-sdk / {version}",
-                        install=install,
+                        install=tracing_install,
                         # --import-mode=importlib is required for testing tracing SDK
                         # (mlflow-tracing) works properly, without being affected by environment.
                         run=run.replace("pytest", "pytest --import-mode=importlib"),

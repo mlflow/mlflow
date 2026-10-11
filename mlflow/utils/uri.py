@@ -84,8 +84,23 @@ def is_databricks_uri(uri):
     Databricks URIs look like 'databricks' (default profile) or 'databricks://profile'
     or 'databricks://secret_scope:secret_key_prefix'.
     """
-    scheme = urllib.parse.urlparse(uri).scheme
-    return scheme == "databricks" or uri == "databricks"
+    return uri == "databricks" or urllib.parse.urlparse(uri).scheme == "databricks"
+
+
+def is_sagemaker_mlflow_tracking_uri(uri: str) -> bool:
+    """Whether the URI has the shape of a SageMaker MLflow tracking-server ARN."""
+    parts = uri.split(":", 5)
+    if len(parts) != 6:
+        return False
+
+    resource_type, separator, resource_id = parts[5].partition("/")
+    return (
+        parts[0] == "arn"
+        and parts[2] == "sagemaker"
+        and resource_type == "mlflow-tracking-server"
+        and separator == "/"
+        and bool(resource_id)
+    )
 
 
 def is_fuse_or_uc_volumes_uri(uri):
@@ -280,6 +295,10 @@ def get_uri_scheme(uri_or_path):
     scheme = urllib.parse.urlparse(uri_or_path).scheme
     if any(scheme.lower().startswith(db) for db in DATABASE_ENGINES):
         return extract_db_type_from_uri(uri_or_path)
+    # Windows absolute paths (e.g. C:\...) are parsed with a single-letter drive scheme.
+    # Treat them as local paths by returning an empty scheme.
+    if len(scheme) == 1 and scheme.isalpha():
+        return ""
     return scheme
 
 
@@ -346,7 +365,7 @@ def append_to_uri_query_params(uri, *query_params: tuple[str, Any]) -> str:
             be a 2-element tuple. For example, ``("key", "value")``.
     """
     parsed_uri = urllib.parse.urlparse(uri)
-    parsed_query = urllib.parse.parse_qsl(parsed_uri.query)
+    parsed_query = urllib.parse.parse_qsl(parsed_uri.query, keep_blank_values=True)
     new_parsed_query = parsed_query + list(query_params)
     new_query = urllib.parse.urlencode(new_parsed_query)
     new_parsed_uri = parsed_uri._replace(query=new_query)

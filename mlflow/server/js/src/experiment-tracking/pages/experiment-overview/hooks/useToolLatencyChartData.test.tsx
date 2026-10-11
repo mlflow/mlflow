@@ -7,6 +7,7 @@ import type { ReactNode } from 'react';
 import { setupServer } from '../../../../common/utils/setup-msw';
 import { rest } from 'msw';
 import { OverviewChartProvider } from '../OverviewChartContext';
+import { formatTimestampForTraceMetrics } from '../utils/chartUtils';
 import { getAjaxUrl } from '@mlflow/mlflow/src/common/utils/FetchUtils';
 
 // Helper to create a tool latency data point
@@ -182,10 +183,32 @@ describe('useToolLatencyChartData', () => {
 
       expect(result.current.chartData).toHaveLength(3);
       expect(result.current.chartData[0]).toHaveProperty('timestamp');
-      expect(result.current.chartData[0]).toHaveProperty('tool_a', 100);
-      expect(result.current.chartData[1]).toHaveProperty('tool_a', 150);
-      expect(result.current.chartData[2]).toHaveProperty('tool_a', 200);
+      expect(result.current.chartData[0]).toHaveProperty(['values', 'tool_a'], 100);
+      expect(result.current.chartData[1]).toHaveProperty(['values', 'tool_a'], 150);
+      expect(result.current.chartData[2]).toHaveProperty(['values', 'tool_a'], 200);
     });
+
+    it.each(['timestamp', '__timestamp__', 'values', '__proto__', 'constructor', 'search.web', 'lookup[0]'])(
+      'should preserve the time label and values for a tool named %s',
+      async (toolName) => {
+        setupTraceMetricsHandler([createToolLatencyDataPoint('2025-12-22T10:00:00Z', toolName, 100)]);
+
+        const { result } = renderHook(() => useToolLatencyChartData(), {
+          wrapper: createWrapper(),
+        });
+
+        await waitFor(() => {
+          expect(result.current.isLoading).toBe(false);
+        });
+
+        expect(result.current.chartData[0]).toHaveProperty(['values', toolName], 100);
+        expect(result.current.chartData[0].timestamp).toBe(
+          formatTimestampForTraceMetrics(new Date('2025-12-22T10:00:00Z').getTime(), 3600),
+        );
+        expect(result.current.chartData[1].values[toolName]).toBe(0);
+        expect(Object.prototype.hasOwnProperty.call(result.current.chartData[0].values, toolName)).toBe(true);
+      },
+    );
 
     it('should fill missing time buckets with zeros', async () => {
       setupTraceMetricsHandler([
@@ -204,10 +227,10 @@ describe('useToolLatencyChartData', () => {
       // Should have all 3 time buckets
       expect(result.current.chartData).toHaveLength(3);
       // First bucket has data
-      expect(result.current.chartData[0]).toHaveProperty('tool_a', 100);
+      expect(result.current.chartData[0]).toHaveProperty(['values', 'tool_a'], 100);
       // Missing buckets should be filled with 0
-      expect(result.current.chartData[1]).toHaveProperty('tool_a', 0);
-      expect(result.current.chartData[2]).toHaveProperty('tool_a', 0);
+      expect(result.current.chartData[1]).toHaveProperty(['values', 'tool_a'], 0);
+      expect(result.current.chartData[2]).toHaveProperty(['values', 'tool_a'], 0);
     });
 
     it('should handle multiple tools with different data availability', async () => {
@@ -229,12 +252,12 @@ describe('useToolLatencyChartData', () => {
       });
 
       expect(result.current.toolNames).toEqual(['tool_a', 'tool_b']);
-      expect(result.current.chartData[0]).toHaveProperty('tool_a', 100);
-      expect(result.current.chartData[0]).toHaveProperty('tool_b', 50);
-      expect(result.current.chartData[1]).toHaveProperty('tool_a', 150);
-      expect(result.current.chartData[1]).toHaveProperty('tool_b', 0);
-      expect(result.current.chartData[2]).toHaveProperty('tool_a', 200);
-      expect(result.current.chartData[2]).toHaveProperty('tool_b', 0);
+      expect(result.current.chartData[0]).toHaveProperty(['values', 'tool_a'], 100);
+      expect(result.current.chartData[0]).toHaveProperty(['values', 'tool_b'], 50);
+      expect(result.current.chartData[1]).toHaveProperty(['values', 'tool_a'], 150);
+      expect(result.current.chartData[1]).toHaveProperty(['values', 'tool_b'], 0);
+      expect(result.current.chartData[2]).toHaveProperty(['values', 'tool_a'], 200);
+      expect(result.current.chartData[2]).toHaveProperty(['values', 'tool_b'], 0);
     });
 
     it('should skip data points with missing tool name', async () => {

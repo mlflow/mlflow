@@ -37,12 +37,24 @@ const endpoint: Endpoint = {
   model_mappings: [],
 };
 
-const TestHarness = ({ experimentId, initialEntry }: { experimentId: string; initialEntry: string }) => {
+const TestHarness = ({
+  experimentId,
+  initialEntry,
+  trafficSplitModels = [],
+  fallbackModels = [],
+  hasChanges = false,
+}: {
+  experimentId: string;
+  initialEntry: string;
+  trafficSplitModels?: EditEndpointFormData['trafficSplitModels'];
+  fallbackModels?: EditEndpointFormData['fallbackModels'];
+  hasChanges?: boolean;
+}) => {
   const form = useForm<EditEndpointFormData>({
     defaultValues: {
       name: endpoint.name,
-      trafficSplitModels: [],
-      fallbackModels: [],
+      trafficSplitModels,
+      fallbackModels,
       usageTracking: Boolean(experimentId),
       experimentId,
     },
@@ -60,7 +72,7 @@ const TestHarness = ({ experimentId, initialEntry }: { experimentId: string; ini
         endpoint={endpoint}
         existingEndpoints={[endpoint]}
         isFormComplete
-        hasChanges={false}
+        hasChanges={hasChanges}
         onSubmit={jest.fn(async () => {})}
         onCancel={jest.fn()}
         onNameUpdate={jest.fn(async () => {})}
@@ -71,6 +83,31 @@ const TestHarness = ({ experimentId, initialEntry }: { experimentId: string; ini
 };
 
 describe('EditEndpointFormRenderer', () => {
+  test('prevents saving a TypeSafe endpoint with a chat model fallback', () => {
+    const model = {
+      modelDefinitionName: 'jev',
+      provider: 'typesafe',
+      modelName: 'jev-latest',
+      secretMode: 'existing' as const,
+      existingSecretId: 'secret-1',
+      newSecret: { name: '', authMode: '', secretFields: {}, configFields: {} },
+    };
+    renderWithDesignSystem(
+      <TestHarness
+        experimentId=""
+        initialEntry="/?tab=overview"
+        trafficSplitModels={[{ ...model, weight: 100 }]}
+        fallbackModels={[{ ...model, provider: 'openai', modelName: 'gpt-4o', fallbackOrder: 1 }]}
+        hasChanges
+      />,
+    );
+
+    expect(
+      screen.getByText('TypeSafe endpoints require all primary and fallback models to use TypeSafe.'),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Save changes' })).toBeDisabled();
+  });
+
   test('disables Guardrails tab when experiment id is missing', () => {
     renderWithDesignSystem(<TestHarness experimentId="" initialEntry="/?tab=overview" />);
     expect(screen.getByRole('tab', { name: 'Guardrails' })).toBeDisabled();

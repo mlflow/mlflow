@@ -1,23 +1,55 @@
+import shutil
 from abc import ABC, abstractmethod
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, AsyncGenerator, Callable
+from typing import Any, AsyncGenerator, Callable, Literal
 
-from mlflow.assistant.config import AssistantConfig, ProviderConfig
+from mlflow.assistant.config import AssistantConfig, ProviderConfig, get_config_user
 from mlflow.assistant.types import Event
+from mlflow.environment_variables import (
+    MLFLOW_ENABLE_ASSISTANT_SANDBOX,
+    MLFLOW_ENABLE_REMOTE_ASSISTANT,
+)
+
+ClientToolDelivery = Literal["tool", "structured", "unsupported"]
 
 
-@lru_cache(maxsize=10)
-def load_config(name: str) -> ProviderConfig:
-    cfg = AssistantConfig.load()
+def assistant_sandbox_enabled() -> bool:
+    """Whether the assistant should run untrusted work in a Docker sandbox instead of on the host.
+
+    ``MLFLOW_ENABLE_ASSISTANT_SANDBOX`` is a tri-state override: ``true`` forces the sandbox on and
+    ``false`` forces it off (letting an operator opt out), regardless of the deployment. When it is
+    unset (the default), sandboxing is derived: on for a remote/multi-user server
+    (``MLFLOW_ENABLE_REMOTE_ASSISTANT``) that has a ``docker`` executable on PATH, off otherwise (a
+    local server runs the work in a host subprocess, as before).
+
+    Only the presence of the ``docker`` CLI is probed here — cheap and non-blocking, so it is safe
+    to call from provider availability checks; an unreachable daemon surfaces later, when the
+    container is actually started.
+    """
+    if (override := MLFLOW_ENABLE_ASSISTANT_SANDBOX.get()) is not None:
+        return override
+    return MLFLOW_ENABLE_REMOTE_ASSISTANT.get() and shutil.which("docker") is not None
+
+
+@lru_cache(maxsize=32)
+def _load_config_cached(name: str, user: str | None) -> ProviderConfig:
+    # Load for the EXPLICIT user (not the request ContextVar), so the cache key and the loaded
+    # data derive from the same ``user`` and cannot diverge (which would serve one user's provider
+    # config under another user's key).
+    cfg = AssistantConfig.load_for_user(user)
     if not cfg or name not in cfg.providers:
         raise RuntimeError(f"Provider configuration not found for {name}")
     return cfg.providers[name]
 
 
+def load_config(name: str) -> ProviderConfig:
+    return _load_config_cached(name, get_config_user())
+
+
 def clear_config_cache() -> None:
     """Clear the config cache to pick up config changes."""
-    load_config.cache_clear()
+    _load_config_cached.cache_clear()
 
 
 def load_config_or_default(name: str) -> ProviderConfig:
@@ -65,6 +97,16 @@ class AssistantProvider(ABC):
     def allows_remote_access(self) -> bool:
         """Whether this provider can serve requests from remote clients."""
         return False
+
+    @property
+    def client_tool_delivery(self) -> ClientToolDelivery:
+        """How this provider delivers actions executed by the client.
+
+        ``tool`` pauses and resumes around a native client-tool call, ``structured`` encodes the
+        action in a schema-constrained final response, and ``unsupported`` cannot request
+        client-executed tools.
+        """
+        return "unsupported"
 
     @abstractmethod
     def check_connection(self, echo: Callable[[str], None] | None = None) -> None:

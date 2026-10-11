@@ -959,8 +959,11 @@ def _enforce_unnamed_col_schema(pf_input: pd.DataFrame, input_schema: Schema):
         # Otherwise, the schema is not valid.
         else:
             new_pf_input[x] = pd.Series(
-                [_enforce_type(obj, input_types[i]) for obj in pf_input[x]], name=x
+                [_enforce_type(obj, input_types[i]) for obj in pf_input[x]],
+                index=pf_input.index,
+                name=x,
             )
+    # pandas aligns these Series by index, so each branch must retain the input index.
     return pd.DataFrame(new_pf_input)
 
 
@@ -986,8 +989,11 @@ def _enforce_named_col_schema(pf_input: pd.DataFrame, input_schema: Schema):
         # Otherwise, the schema is not valid.
         else:
             new_pf_input[name] = pd.Series(
-                [_enforce_type(obj, input_type, required) for obj in pf_input[name]], name=name
+                [_enforce_type(obj, input_type, required) for obj in pf_input[name]],
+                index=pf_input.index,
+                name=name,
             )
+    # pandas aligns these Series by index, so each branch must retain the input index.
     return pd.DataFrame(new_pf_input)
 
 
@@ -999,7 +1005,8 @@ def _reshape_and_cast_pandas_column_values(name, pd_series, tensor_spec):
             f"of {'input ' + name if name else 'the unnamed input'} is {tensor_spec.shape}."
         )
 
-    if np.isscalar(pd_series[0]):
+    first_value = pd_series.iloc[0]
+    if np.isscalar(first_value):
         for shape in [(-1,), (-1, 1)]:
             if tensor_spec.shape == shape:
                 return _enforce_tensor_spec(
@@ -1011,7 +1018,7 @@ def _reshape_and_cast_pandas_column_values(name, pd_series, tensor_spec):
             f"shape of {tensor_spec.shape}.",
             error_code=INVALID_PARAMETER_VALUE,
         )
-    elif isinstance(pd_series[0], list) and np.isscalar(pd_series[0][0]):
+    elif isinstance(first_value, list) and np.isscalar(first_value[0]):
         # If the pandas column contains list type values,
         # in this case, the shape and type information is lost,
         # so do not enforce the shape and type, instead,
@@ -1033,7 +1040,7 @@ def _reshape_and_cast_pandas_column_values(name, pd_series, tensor_spec):
         if len(reshaped_numpy_arr) != len(pd_series):
             raise MlflowException(reshape_err_msg, error_code=INVALID_PARAMETER_VALUE)
         return reshaped_numpy_arr
-    elif isinstance(pd_series[0], np.ndarray):
+    elif isinstance(first_value, np.ndarray):
         reshape_err_msg = (
             f"The value in the Input DataFrame column '{name}' could not be converted to the "
             f"expected shape of: '{tensor_spec.shape}'. Ensure that each of the input numpy "
