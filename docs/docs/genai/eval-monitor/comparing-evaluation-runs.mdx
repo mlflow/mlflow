@@ -50,20 +50,20 @@ print(result.summary())
 
 `summary()` returns a DataFrame with one row per scorer:
 
-| Column                           | Meaning                                                                       |
-| -------------------------------- | ----------------------------------------------------------------------------- |
-| `status`                         | `ok`, or `insufficient_pairs` when fewer than six rows could be compared      |
-| `n_paired`                       | Number of paired rows with a value from both runs                             |
-| `value_type`, `method`           | Whether the scorer was treated as binary or numeric, and the test used        |
-| `baseline_mean`,`candidate_mean` | Mean of each run over the paired rows                                         |
-| `diff`                           | Mean paired difference, candidate minus baseline                              |
-| `ci_low`, `ci_high`              | BCa bootstrap confidence interval of `diff` (95% by default)                  |
-| `p_value`                        | Two-sided p-value of `method`                                                 |
-| `t_test_p_value`                 | Two-sided p-value of the paired t-test (numeric scorers only)                 |
-| `effect_size`                    | Cohen's d<sub>z</sub>: `diff` divided by the standard deviation of the deltas |
-| `ties`                           | Number of pairs where both runs produced the same value                       |
+| Column                           | Meaning                                                                        |
+| -------------------------------- | ------------------------------------------------------------------------------ |
+| `status`                         | `ok`, or `insufficient_pairs` when fewer than six rows could be compared       |
+| `n_paired`                       | Number of paired rows with a value from both runs                              |
+| `value_type`, `method`           | Whether the scorer was treated as binary or numeric, and the test used         |
+| `baseline_mean`,`candidate_mean` | Mean of each run over the paired rows                                          |
+| `diff`                           | Mean paired difference, candidate minus baseline                               |
+| `ci_low`, `ci_high`              | BCa bootstrap confidence interval of `diff` (95% by default)                   |
+| `p_value`                        | Two-sided p-value of `method`                                                  |
+| `t_test_p_value`                 | Two-sided p-value of the paired t-test (numeric scorers only)                  |
+| `effect_size`                    | Cohen's d<sub>z</sub>: `diff` divided by the standard deviation of the deltas  |
+| `ties`                           | Number of pairs where both runs produced the same value                        |
 | `n_nonzero`                      | Number of pairs where the values differ, which is what the test is computed on |
-| `greater_is_better`              | Direction used by `assert_improved`                                           |
+| `greater_is_better`              | Direction used by `assert_improved`                                            |
 
 A result such as "paired difference +0.05, 95% CI [-0.01, +0.11], p = 0.09 on n = 200" tells you the improvement is plausible but not established. That is a statement the two means alone cannot make.
 
@@ -82,9 +82,9 @@ Rows that have no match, or whose key appears more than once in a run, are **not
 
 When a trace holds several feedbacks of one name (for example, from a scorer that returns a list of feedbacks), they are averaged per trace first, as `mlflow.genai.evaluate` averages them into `<scorer>/mean`. The test is then chosen from the paired values themselves, not from the Python type the scorer returned:
 
-| Paired values of both runs | Test (`method`)                                                                                                                                        |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Every value is 0 or 1      | McNemar's test. Exact binomial (`mcnemar_exact`) with fewer than 25 discordant pairs, chi-square with continuity correction (`mcnemar_chi2`) otherwise |
+| Paired values of both runs | Test (`method`)                                                                                                                                                                                                                 |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Every value is 0 or 1      | McNemar's test. Exact binomial (`mcnemar_exact`) with fewer than 25 discordant pairs, chi-square with continuity correction (`mcnemar_chi2`) otherwise                                                                          |
 | Anything else              | Wilcoxon signed-rank test. Exact null distribution (`wilcoxon_exact`) with at most 50 non-zero differences, normal approximation (`wilcoxon_asymptotic`) otherwise. The paired t-test is reported alongside as `t_test_p_value` |
 
 So a scorer that returns `int(x > 0.5)` or `1.0`/`0.0` is tested with McNemar like a boolean scorer, a single boolean among fractional values does not change the test, and a pass/fail scorer whose per-trace averages are fractional falls back to the signed-rank test. `value_type` reports whether the scorer's feedback was pass/fail (`binary`: booleans and `yes`/`no` ratings) or `numeric`, independently of the test.
