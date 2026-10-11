@@ -314,7 +314,6 @@ def test_zero_deltas_are_dropped_by_the_signed_rank_test_and_reported():
     assert comparison.ties == 3
     assert comparison.n_nonzero == 7
     # Zero differences are dropped by the test (zero_method="wilcox") but not by the mean.
-    assert comparison.p_value == pytest.approx(stats.wilcoxon(deltas, method="exact").pvalue)
     assert comparison.p_value == pytest.approx(
         stats.wilcoxon(deltas[deltas != 0], method="exact").pvalue
     )
@@ -336,7 +335,9 @@ def test_signed_rank_method_is_pinned_on_the_number_of_nonzero_deltas(
     assert comparison.method == expected_method
     assert comparison.n_nonzero == n_nonzero
     scipy_method = "exact" if expected_method == "wilcoxon_exact" else "approx"
-    assert comparison.p_value == pytest.approx(stats.wilcoxon(deltas, method=scipy_method).pvalue)
+    assert comparison.p_value == pytest.approx(
+        stats.wilcoxon(deltas[deltas != 0], method=scipy_method).pvalue
+    )
 
 
 @pytest.mark.parametrize("n", [0, 1, 5])

@@ -477,8 +477,10 @@ def _compare_paired_values(
         exact = n_nonzero <= _WILCOXON_EXACT_MAX_NONZERO
         method = "wilcoxon_exact" if exact else "wilcoxon_asymptotic"
         # The signed-rank test discards zero differences and is undefined when all are zero.
+        # They are removed up front because older scipy versions (1.13 and earlier) fall back
+        # to the normal approximation, with a warning, when the exact method is given zeros.
         p_value = (
-            float(stats.wilcoxon(deltas, method="exact" if exact else "approx").pvalue)
+            float(stats.wilcoxon(deltas[deltas != 0], method="exact" if exact else "approx").pvalue)
             if n_nonzero
             else 1.0
         )
