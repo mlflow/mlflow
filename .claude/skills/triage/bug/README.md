@@ -50,6 +50,9 @@ batch times out, retry once in a fresh session, then fall back to screenshots. C
 sheet to confirm the video shows the bug before citing it. The contact sheet skips small changes
 such as an outline, so confirm the outline by extracting a frame
 (`ffmpeg -ss <seconds> -i <video> -frames:v 1 <png>`).
+When you propose a fix for a visible UI bug, record the same steps again after applying it,
+against the dev server from "Running the UI" in `SKILL.md` (the built UI does not reflect code
+changes), and cite both videos in the `pull_request` body as a before/after comparison.
 
 Run it against the current checkout, which is what a fix would land on. Only if it does not
 reproduce there, run it against the reported version (when it is on PyPI) to tell "already
