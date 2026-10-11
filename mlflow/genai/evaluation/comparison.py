@@ -6,22 +6,23 @@ import json
 import logging
 import math
 from dataclasses import asdict, dataclass, field
-from typing import Any, Literal
-
-import numpy as np
-import pandas as pd
-from scipy import stats
+from typing import TYPE_CHECKING, Any, Literal
 
 import mlflow
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.metric import Metric
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
-from mlflow.genai.scorers.aggregation import _cast_assessment_value_to_float
 from mlflow.tracing.constant import TraceTagKey
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils.annotations import experimental
 from mlflow.utils.time import get_current_time_millis
+
+# This module is imported by `import mlflow`, which must work on `mlflow-skinny`, so the data
+# science libraries are only imported inside the functions that use them.
+if TYPE_CHECKING:
+    import numpy as np
+    import pandas as pd
 
 _logger = logging.getLogger(__name__)
 
@@ -116,8 +117,10 @@ class ComparisonResult:
     unpaired_baseline_trace_ids: list[str] = field(default_factory=list)
     unpaired_candidate_trace_ids: list[str] = field(default_factory=list)
 
-    def summary(self) -> pd.DataFrame:
+    def summary(self) -> "pd.DataFrame":
         """Return one row per scorer with its paired statistics."""
+        import pandas as pd
+
         return pd.DataFrame(
             [asdict(comparison) for comparison in self.scorers.values()],
             columns=list(ScorerComparison.__dataclass_fields__),
@@ -256,7 +259,9 @@ def _is_binary(feedback: Feedback) -> bool:
     return isinstance(feedback.value, (bool, str))
 
 
-def _bootstrap_mean_ci(deltas: np.ndarray, confidence_level: float) -> tuple[float, float]:
+def _bootstrap_mean_ci(deltas: "np.ndarray", confidence_level: float) -> tuple[float, float]:
+    import numpy as np
+
     rng = np.random.default_rng(_BOOTSTRAP_SEED)
     n = len(deltas)
     chunk_size = max(1, _BOOTSTRAP_MAX_CHUNK_ELEMENTS // n)
@@ -269,7 +274,10 @@ def _bootstrap_mean_ci(deltas: np.ndarray, confidence_level: float) -> tuple[flo
     return float(low), float(high)
 
 
-def _mcnemar(deltas: np.ndarray) -> tuple[str, float]:
+def _mcnemar(deltas: "np.ndarray") -> tuple[str, float]:
+    import numpy as np
+    from scipy import stats
+
     improved = int(np.sum(deltas > 0))
     regressed = int(np.sum(deltas < 0))
     discordant = improved + regressed
@@ -283,13 +291,16 @@ def _mcnemar(deltas: np.ndarray) -> tuple[str, float]:
 
 def _compare_paired_values(
     scorer: str,
-    baseline: np.ndarray,
-    candidate: np.ndarray,
+    baseline: "np.ndarray",
+    candidate: "np.ndarray",
     *,
     binary: bool,
     greater_is_better: bool = True,
     confidence_level: float = 0.95,
 ) -> ScorerComparison:
+    import numpy as np
+    from scipy import stats
+
     n_paired = len(baseline)
     if n_paired < _MIN_PAIRS:
         return ScorerComparison(
@@ -444,6 +455,11 @@ def compare_evaluations(
         raise MlflowException.invalid_parameter_value(
             f"`confidence_level` must be between 0 and 1, got {confidence_level}."
         )
+    # `mlflow.genai.scorers.aggregation` imports numpy at module level.
+    import numpy as np
+
+    from mlflow.genai.scorers.aggregation import _cast_assessment_value_to_float
+
     greater_is_better = greater_is_better or {}
 
     pairing = _pair_rows(_load_eval_rows(baseline_run_id), _load_eval_rows(candidate_run_id))
