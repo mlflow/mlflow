@@ -122,7 +122,7 @@ Markdown comment for the issue. It:
 - Never @-mentions anyone.
 - When a screenshot or recording helps show the bug, save it under `$out_dir/media`
   and cite its exact absolute path in the comment, for example
-  `![Broken UI](/tmp/triage-out/media/broken-ui.png)`. Put video citations on their own line.
+  `![Broken UI](/tmp/triage-out/media/broken-ui.png)`; cite videos the same way, on their own line.
   The workflow uploads only cited files and rewrites the local paths after triage.
 - When media would help reviewers assess the proposed change, include useful visual evidence
   in the `pull_request` body too, citing it the same way. Prefer a before/after comparison for
