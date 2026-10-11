@@ -733,6 +733,45 @@ def test_a_padded_pattern_is_refused(padded):
         normalize_condition_scope("experiment", padded)
 
 
+@pytest.mark.parametrize("glob", ["team/*", "prefix*", "*suffix", "a*b"])
+def test_a_partial_wildcard_is_refused_rather_than_stored_inert(glob):
+    """Matching is exact, so a glob governs nothing -- and a condition that governs nothing
+    does not withhold access, it silently fails to restrict it. That is the fail-OPEN
+    direction, unlike a blank or padded pattern on a grant, so it is refused on both scope
+    axes rather than stored looking like a deliberate group scope.
+    """
+    with pytest.raises(MlflowException, match="partial wildcards"):
+        normalize_condition_scope("registered_model", glob)
+    with pytest.raises(MlflowException, match="partial wildcards"):
+        normalize_condition_scope("run", None, "experiment", glob)
+
+
+def test_the_bare_wildcard_is_still_accepted_on_both_axes():
+    # The guard above must not catch the one wildcard that does work.
+    assert normalize_condition_scope("registered_model", "*") == ("*", "workspace", "*")
+    assert normalize_condition_scope("run", "*", "experiment", "*") == ("*", "workspace", "*")
+
+
+def test_a_refused_glob_would_only_ever_have_matched_a_literal_name():
+    """Why the refusal is right, stated against the matcher rather than asserted.
+
+    ``team/*`` governs none of the resources an operator writing it means, because
+    matching is exact. The only thing it does match is a resource whose name is literally
+    ``team/*`` -- so refusing the pattern costs that pathological case and buys the far
+    likelier one, where the admin believes a group is restricted and none of it is.
+    """
+    from mlflow.server.auth import _row_governs
+    from mlflow.server.auth.sqlalchemy_store import MutationConditionRow
+
+    row = MutationConditionRow("registered_model", None, "tags.x = '1'", "team/*", "workspace", "*")
+    assert not _row_governs(row, "team/a")
+    assert not _row_governs(row, "team/b")
+    assert _row_governs(row, "team/*")
+
+    with pytest.raises(MlflowException, match="partial wildcards"):
+        normalize_condition_scope("registered_model", "team/*")
+
+
 @pytest.mark.parametrize(
     ("resource_type", "container_type"),
     sorted(PARENT_RESOURCE_TYPES.items()),

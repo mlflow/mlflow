@@ -248,6 +248,22 @@ def _validate_pattern_grain(pattern: str, pattern_type: str, field: str) -> None
             f"when matched, so a padded pattern would read as a scope and match nothing.",
             error_code=INVALID_PARAMETER_VALUE,
         )
+    if WILDCARD_PATTERN in pattern:
+        # A PARTIAL wildcard -- the bare one returned above. Matching is exact
+        # (``_row_governs``), so a pattern like ``team/*`` or ``prefix*`` can only match a
+        # resource whose literal name contains the character, and in practice governs
+        # nothing. That is the same defect as the two guards above, except it is worse
+        # here: a blank or padded pattern at least looks suspect, while a glob reads as a
+        # deliberate scope, and a condition that governs nothing does not withhold access
+        # -- it silently fails to restrict it. Refused rather than stored inert.
+        raise MlflowException(
+            f"A condition's '{field}' does not support partial wildcards: '{pattern}' would "
+            f"be matched exactly and so would restrict nothing. Patterns are an exact id or "
+            f"name, or '{WILDCARD_PATTERN}' for every resource of the type. To restrict a "
+            f"group of resources, write one condition per resource, or scope by container "
+            f"instead.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
     grains = permissions.TYPE.get(pattern_type)
     if grains is None or permissions.PatternKind.ID not in grains:
         raise MlflowException(
