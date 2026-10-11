@@ -12,7 +12,7 @@ import {
   type AssessmentInfo,
   type AssessmentValueType,
 } from '../../types';
-import { AGGREGATE_SCORE_CHANGE_BACKGROUND_COLORS, AGGREGATE_SCORE_CHANGE_TEXT_COLOR } from '../../utils/Colors';
+import { AGGREGATE_SCORE_CHANGE_BACKGROUND_COLORS } from '../../utils/Colors';
 import { getDisplayOverallScoreAndChange } from '../../utils/DisplayUtils';
 import { withAlpha } from '../GenAiEvaluationTracesReview.utils';
 
@@ -133,7 +133,7 @@ export const AssessmentColumnSummary = React.memo(
                   fontSize: theme.typography.fontSizeMd,
                   fontWeight: 'normal',
                   borderRadius: theme.general.borderRadiusBase,
-                  color: AGGREGATE_SCORE_CHANGE_TEXT_COLOR,
+                  color: theme.colors.textPrimary,
                   backgroundColor:
                     changeDirection === 'none'
                       ? ''

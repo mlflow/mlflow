@@ -13,9 +13,6 @@ export const AGGREGATE_SCORE_CHANGE_BACKGROUND_COLORS = {
   down: '#F000400F',
 };
 
-// tagTextCoral
-export const AGGREGATE_SCORE_CHANGE_TEXT_COLOR = '#64172B';
-
 // From https://www.figma.com/design/HvkTlHxw4sKE77wDlRBDt2/Evaluation-UX?node-id=2996-40835&t=uqVDwh0gqqRJI3jS-0
 export const CURRENT_RUN_COLOR = '#077A9D';
 export const COMPARE_TO_RUN_COLOR = '#FFAB00';
