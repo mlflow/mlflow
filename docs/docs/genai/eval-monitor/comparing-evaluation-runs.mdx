@@ -74,6 +74,8 @@ Each row of the candidate run is matched to a row of the baseline run:
 1. On the evaluation request ID of the row's trace (the `mlflow.eval.requestId` tag). This is stable across runs when you evaluate a static dataset of inputs and outputs.
 2. Otherwise, on a stable hash of the row's inputs. Runs that call a `predict_fn` are paired this way, since each prediction gets a fresh request ID.
 
+Inputs are hashed from their JSON form. An input without a JSON form is serialized with `str()`, and when that yields a memory address (`<Query object at 0x...>`) the hash differs between runs, so such rows cannot be paired on their inputs; the warning reports how many unpaired rows are affected. Make the inputs JSON-serializable, or evaluate a static dataset so that rows pair on the request ID.
+
 Rows that have no match, or whose key appears more than once in a run, are **not** included in the statistics. They are reported in `result.unpaired_baseline_trace_ids` and `result.unpaired_candidate_trace_ids`, and a warning is logged. Only scorers that produced feedback in both runs are compared; rows where a scorer errored in either run are skipped for that scorer.
 
 ## Which test is used

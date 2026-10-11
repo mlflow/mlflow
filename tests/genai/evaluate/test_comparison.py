@@ -452,6 +452,46 @@ def test_compare_evaluations_warns_about_no_match_and_duplicate_rows_separately(
     # The candidate copy of the duplicated row and the extra row have no match.
     assert "2 row(s) have no match in the other run" in message
     assert "2 row(s) share their eval request ID or inputs with another row" in message
+    assert "memory address" not in message
+
+
+def test_compare_evaluations_warns_when_inputs_hash_by_memory_address():
+    class Query:
+        def __init__(self, text: str):
+            self.text = text
+
+    def predict_fn(query: Query) -> dict[str, float]:
+        return {"score": len(query.text) / 100}
+
+    # Each run builds its own objects, as separate processes would. The first run's objects are
+    # kept alive so that the second run's objects cannot reuse their addresses.
+    datasets = []
+
+    def run() -> str:
+        datasets.append([{"inputs": {"query": Query(f"question {i}")}} for i in range(6)])
+        return mlflow.genai.evaluate(
+            data=datasets[-1], predict_fn=predict_fn, scorers=[score]
+        ).run_id
+
+    baseline_run_id = run()
+    candidate_run_id = run()
+
+    with mock.patch("mlflow.genai.evaluation.comparison._logger.warning") as mock_warning:
+        result = mlflow.genai.compare_evaluations(
+            candidate_run_id, baseline_run_id, log_results=False
+        )
+
+    assert result.paired_rows == []
+    assert len(result.unpaired_baseline_trace_ids) == 6
+    assert len(result.unpaired_candidate_trace_ids) == 6
+    assert result.scorers["score"].status == "insufficient_pairs"
+    mock_warning.assert_called_once()
+    message = mock_warning.call_args[0][0]
+    assert "12 row(s) have no match in the other run" in message
+    assert (
+        "12 of the unmatched row(s) have inputs that were serialized by their memory address"
+        in (message)
+    )
 
 
 def test_compare_evaluations_pairs_on_inputs_when_request_ids_differ():

@@ -6,6 +6,7 @@ import inspect
 import json
 import logging
 import math
+import re
 import warnings
 from dataclasses import asdict, dataclass, field
 from typing import TYPE_CHECKING, Any, Literal
@@ -47,6 +48,8 @@ _BOOTSTRAP_MAX_BATCH_ELEMENTS = 1_000_000
 _LOGGED_STATS = ("diff", "ci_low", "ci_high", "p_value", "effect_size", "n_paired")
 
 _PairedOn = Literal["eval_request_id", "inputs_hash"]
+# ``str()`` of an object without a JSON form, e.g. ``<Query object at 0x10f3b2d40>``.
+_MEMORY_ADDRESS_PATTERN = re.compile(r" at 0x[0-9a-fA-F]+")
 
 
 def _comparison_key(baseline_run_id: str, *parts: str) -> str:
@@ -196,6 +199,9 @@ class _EvalRow:
     trace_id: str
     eval_request_id: str | None
     inputs_hash: str | None
+    # Whether ``inputs_hash`` differs between runs because an input was serialized by its
+    # memory address, see ``_hash_inputs``.
+    inputs_hash_unstable: bool
     # A trace can hold several feedbacks of one name, e.g. when a scorer returns a list of
     # feedbacks. They are averaged per trace before pairing, see ``_mean_feedback_value``.
     feedbacks: dict[str, list[Feedback]]
@@ -218,12 +224,17 @@ class _Pairing:
     duplicate_key_trace_ids: set[str]
 
 
-def _hash_inputs(trace: Trace) -> str | None:
+def _hash_inputs(trace: Trace) -> tuple[str | None, bool]:
+    """
+    Hash of the root span inputs, and whether it is unstable across runs because an input
+    without a JSON form was serialized by its memory address (``<Foo object at 0x...>``).
+    """
     root_span = trace.data._get_root_span()
     if root_span is None or root_span.inputs is None:
-        return None
+        return None, False
     serialized = json.dumps(root_span.inputs, sort_keys=True, default=str)
-    return hashlib.sha256(serialized.encode()).hexdigest()
+    unstable = _MEMORY_ADDRESS_PATTERN.search(serialized) is not None
+    return hashlib.sha256(serialized.encode()).hexdigest(), unstable
 
 
 def _load_eval_rows(run_id: str) -> list[_EvalRow]:
@@ -241,11 +252,13 @@ def _load_eval_rows(run_id: str) -> list[_EvalRow]:
                 and assessment.run_id in (None, run_id)
             ):
                 feedbacks[assessment.name].append(assessment)
+        inputs_hash, inputs_hash_unstable = _hash_inputs(trace)
         rows.append(
             _EvalRow(
                 trace_id=trace.info.trace_id,
                 eval_request_id=trace.info.tags.get(TraceTagKey.EVAL_REQUEST_ID),
-                inputs_hash=_hash_inputs(trace),
+                inputs_hash=inputs_hash,
+                inputs_hash_unstable=inputs_hash_unstable,
                 feedbacks=dict(feedbacks),
             )
         )
@@ -316,14 +329,21 @@ def _warn_unpaired_rows(pairing: _Pairing) -> None:
     unpaired = [*pairing.unpaired_baseline, *pairing.unpaired_candidate]
     if not unpaired:
         return
-    n_duplicate = sum(row.trace_id in pairing.duplicate_key_trace_ids for row in unpaired)
-    n_no_match = len(unpaired) - n_duplicate
+    no_match = [row for row in unpaired if row.trace_id not in pairing.duplicate_key_trace_ids]
+    n_duplicate = len(unpaired) - len(no_match)
     reasons = []
-    if n_no_match:
+    if no_match:
         reasons.append(
-            f"{n_no_match} row(s) have no match in the other run; evaluate both runs on the "
+            f"{len(no_match)} row(s) have no match in the other run; evaluate both runs on the "
             "same rows, or inspect `unpaired_baseline_trace_ids` and "
             "`unpaired_candidate_trace_ids` for the rows that differ."
+        )
+    if n_unstable := sum(row.inputs_hash_unstable for row in no_match):
+        reasons.append(
+            f"{n_unstable} of the unmatched row(s) have inputs that were serialized by their "
+            "memory address (e.g. '<Query object at 0x...>'), which differs between runs, so "
+            "they cannot be paired on their inputs; make the inputs JSON-serializable, or "
+            "evaluate a static dataset so that rows pair on their eval request ID."
         )
     if n_duplicate:
         reasons.append(
