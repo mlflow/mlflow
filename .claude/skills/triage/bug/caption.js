@@ -8,7 +8,7 @@ window.caption = (text) => {
       "position:fixed;left:50%;bottom:32px;transform:translateX(-50%);z-index:2147483647;" +
       "padding:10px 20px;border-radius:8px;background:rgba(0,0,0,.6);backdrop-filter:blur(6px);" +
       "border:1px solid rgba(255,255,255,.4);box-shadow:0 4px 16px rgba(0,0,0,.4);color:#fff;" +
-      "font:600 20px/1.3 system-ui,sans-serif;pointer-events:none;white-space:nowrap";
+      "font:600 20px/1.3 system-ui,sans-serif;pointer-events:none;width:max-content;max-width:90vw;text-align:center";
     document.documentElement.appendChild(el);
   }
   el.textContent = text || "";
