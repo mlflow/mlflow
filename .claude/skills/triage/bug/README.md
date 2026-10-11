@@ -32,6 +32,24 @@ observed symptom, preserving the UI and its displayed values. Save the annotated
 under `$out_dir/media` and cite its exact path in the comment. Remove the overlays before
 continuing to interact with the page.
 
+If the symptom only shows across a sequence of actions (navigation, typing, timing), record a
+short video instead of screenshots. Rehearse the steps with the selectors you will put in
+`$out_dir/work/steps.json` (snapshot refs such as `@e12` don't carry over to a new session),
+and hide side panels, popups, and onboarding hints that cover the page, then:
+
+```bash
+agent-browser --session <sess> --input-mode human open <url>
+agent-browser --session <sess> record start $out_dir/media/<name>.mp4 --cursor --contact-sheet
+timeout 120 agent-browser --session <sess> batch --bail < $out_dir/work/steps.json  # [["click", "<sel>"], ["wait", "500"], ...]
+agent-browser --session <sess> record stop
+```
+
+If the batch times out, retry once in a fresh session, then fall back to screenshots. Check the
+contact sheet to confirm the video shows the bug before citing it.
+When you propose a fix for a visible UI bug, record the same steps again after applying it,
+against the dev server from "Running the UI" in `SKILL.md` (the built UI does not reflect code
+changes), and cite both videos in the `pull_request` body as a before/after comparison.
+
 Run it against the current checkout, which is what a fix would land on. Only if it does not
 reproduce there, run it against the reported version (when it is on PyPI) to tell "already
 fixed" apart from "could not reproduce".
