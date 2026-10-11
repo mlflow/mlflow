@@ -4,10 +4,10 @@ import { FormattedMessage, useIntl } from '@databricks/i18n';
 import type { Assessment } from '../ModelTrace.types';
 import { ModelTraceExplorerFieldRenderer } from '../field-renderers/ModelTraceExplorerFieldRenderer';
 
-type Entry = { id: string; value: unknown };
-export type TypeSafeDecision = { questions: Entry[] | null; answers: Entry[] };
+import { parseAnswer } from './decision-utils';
+import { asRecord } from './decision-utils/shared';
+import type { Answer, Decision, Entry } from './decision-utils/shared';
 
-type ScoreLevel = { score: number; description?: unknown; probability?: number };
 type DistributionRow = {
   label: string;
   accessibleLabel: string;
@@ -15,94 +15,6 @@ type DistributionRow = {
   emphasized?: boolean;
   description?: unknown;
 };
-type Answer =
-  | { kind: 'noul'; id: string; probabilityTrue: number }
-  | { kind: 'choice'; id: string; choice: string; confidence: number; probabilities: [string, number][] }
-  | { kind: 'score'; id: string; score: number; confidence: number; levels: ScoreLevel[] }
-  | { kind: 'unknown'; id: string; rawAnswer: unknown; declaredType?: string };
-
-const asRecord = (value: unknown): Record<string, unknown> | null =>
-  value !== null && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
-
-const isProbability = (value: unknown): value is number =>
-  typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1;
-
-export const resolveTypeSafeDecision = (
-  span?: { chatMessageFormat?: unknown; inputs?: unknown; outputs?: unknown } | null,
-): TypeSafeDecision | null => {
-  if (span?.chatMessageFormat !== 'typesafe') return null;
-  const answers = asRecord(asRecord(span.outputs)?.['answers']);
-  if (!answers || Object.keys(answers).length === 0) return null;
-
-  const questions = asRecord(asRecord(span.inputs)?.['questions']);
-  return {
-    questions: questions ? Object.entries(questions).map(([id, value]) => ({ id, value })) : null,
-    answers: Object.entries(answers).map(([id, value]) => ({ id, value })),
-  };
-};
-
-const asProbabilities = (value: unknown): [string, number][] | null => {
-  const record = asRecord(value);
-  if (!record) return null;
-  const probabilities: [string, number][] = [];
-  for (const [label, probability] of Object.entries(record)) {
-    if (!isProbability(probability)) return null;
-    probabilities.push([label, probability]);
-  }
-  return probabilities;
-};
-
-const getScoreLevels = (legendValue: unknown, probabilitiesValue: unknown): ScoreLevel[] | null => {
-  const legend = asRecord(legendValue);
-  const probabilities = asRecord(probabilitiesValue);
-  if (!legend || !probabilities) return null;
-
-  const keys = Object.keys(legend);
-  if (keys.length === 0 || keys.length !== Object.keys(probabilities).length) return null;
-
-  const levels: ScoreLevel[] = [];
-  for (const key of keys) {
-    if (!Object.prototype.hasOwnProperty.call(probabilities, key)) return null;
-    const score = Number(key);
-    const probability = probabilities[key];
-    if (!Number.isSafeInteger(score) || score < 0 || !isProbability(probability)) {
-      return null;
-    }
-    levels.push({ score, description: legend[key], probability });
-  }
-  return levels.sort((left, right) => left.score - right.score);
-};
-
-const parseAnswer = ({ id, value }: Entry): Answer => {
-  const raw = asRecord(value);
-  const type = raw?.['type'];
-  if (raw && type === 'noul' && isProbability(raw['noul'])) {
-    return { kind: 'noul', id, probabilityTrue: raw['noul'] };
-  }
-  if (raw && type === 'choice') {
-    const choice = raw['choice'];
-    const confidence = raw['confidence'];
-    const probabilities = asProbabilities(raw['probabilities']);
-    if (typeof choice === 'string' && isProbability(confidence) && probabilities) {
-      return { kind: 'choice', id, choice, confidence, probabilities };
-    }
-  }
-  if (raw && type === 'score') {
-    const score = raw['score'];
-    const confidence = raw['confidence'];
-    const levels = getScoreLevels(raw['legend'], raw['probabilities']);
-    if (typeof score === 'number' && Number.isFinite(score) && isProbability(confidence) && levels) {
-      return { kind: 'score', id, score, confidence, levels };
-    }
-  }
-  return {
-    kind: 'unknown',
-    id,
-    rawAnswer: value,
-    declaredType: typeof type === 'string' ? type : undefined,
-  };
-};
-
 const displayValue = (value: unknown): string => {
   if (typeof value === 'string') return value;
   return JSON.stringify(value, null, 2) ?? String(value);
@@ -304,13 +216,18 @@ const DecisionList = ({ children, testId }: { children: React.ReactNode; testId:
   );
 };
 
-const QuestionRow = ({ entry }: { entry: Entry }) => {
+const QuestionRow = ({ entry, source }: { entry: Entry; source: Decision['source'] }) => {
   const question = asRecord(entry.value);
   const instructions = question?.['instructions'];
   const criteria = question?.['criteria'];
+  const choices = question?.['choices'];
+  const levels = question?.['levels'];
   const declaredType = typeof question?.['type'] === 'string' ? question['type'] : undefined;
   const hasStructuredInstructions = instructions !== undefined && typeof instructions !== 'string';
-  const expandable = hasStructuredInstructions || criteria !== undefined;
+  const showInstructionsInDetails =
+    hasStructuredInstructions || (source === 'openai_decisions' && instructions !== undefined);
+  const expandable =
+    showInstructionsInDetails || criteria !== undefined || choices !== undefined || levels !== undefined;
   const instructionPreview = typeof instructions === 'string' && instructions.trim() ? instructions : undefined;
 
   const summary = (
@@ -346,7 +263,7 @@ const QuestionRow = ({ entry }: { entry: Entry }) => {
       <details>
         <summary>{summary}</summary>
         <div className="decision-detail">
-          {hasStructuredInstructions && (
+          {showInstructionsInDetails && (
             <DetailField
               label={
                 <FormattedMessage
@@ -363,30 +280,42 @@ const QuestionRow = ({ entry }: { entry: Entry }) => {
               value={criteria}
             />
           )}
+          {choices !== undefined && (
+            <DetailField
+              label={<FormattedMessage defaultMessage="Choices" description="Label for decision question choices" />}
+              value={choices}
+            />
+          )}
+          {levels !== undefined && (
+            <DetailField
+              label={<FormattedMessage defaultMessage="Levels" description="Label for decision score levels" />}
+              value={levels}
+            />
+          )}
         </div>
       </details>
     </div>
   );
 };
 
-export const TypeSafeDecisionInputs = ({
+export const DecisionInputs = ({
   decision,
   fields,
   assessments,
 }: {
-  decision: TypeSafeDecision;
+  decision: Decision;
   fields: readonly { key: string; value: string }[];
   assessments?: Assessment[];
 }) => {
   const { theme } = useDesignSystemTheme();
-  const state = fields.find(({ key }) => key === 'state');
+  const evidence = fields.find(({ key }) => key === (decision.source === 'typesafe' ? 'state' : 'input'));
   const rawQuestions = fields.find(({ key }) => key === 'questions');
   return (
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
-      {state && (
+      {evidence && (
         <ModelTraceExplorerFieldRenderer
-          title={state.key}
-          data={state.value}
+          title={evidence.key}
+          data={evidence.value}
           renderMode="default"
           assessments={assessments}
         />
@@ -398,7 +327,7 @@ export const TypeSafeDecisionInputs = ({
           </Typography.Text>
           <DecisionList testId="decision-questions">
             {decision.questions.map((entry, index) => (
-              <QuestionRow key={entry.id + '-' + index} entry={entry} />
+              <QuestionRow key={entry.id + '-' + index} entry={entry} source={decision.source} />
             ))}
           </DecisionList>
         </div>
@@ -478,6 +407,9 @@ const ConfidenceFooter = ({ value }: { value: number }) => {
 };
 
 const AnswerKind = ({ answer }: { answer: Answer }) => {
+  if (answer.kind === 'predicate') {
+    return <FormattedMessage defaultMessage="Predicate" description="Predicate decision answer type" />;
+  }
   if (answer.kind === 'choice') {
     return <FormattedMessage defaultMessage="Choice" description="Choice decision answer type" />;
   }
@@ -486,6 +418,9 @@ const AnswerKind = ({ answer }: { answer: Answer }) => {
   }
   if (answer.kind === 'noul') {
     return <FormattedMessage defaultMessage="Noul" description="Noul decision answer type" />;
+  }
+  if (answer.kind === 'refusal') {
+    return <FormattedMessage defaultMessage="Refusal" description="Refusal decision answer type" />;
   }
   return (
     <>
@@ -497,6 +432,23 @@ const AnswerKind = ({ answer }: { answer: Answer }) => {
 const AnswerSummary = ({ answer }: { answer: Answer }) => {
   const intl = useIntl();
   const percent = (value: number) => intl.formatNumber(value, { style: 'percent', maximumFractionDigits: 1 });
+  if (answer.kind === 'predicate') {
+    return (
+      <>
+        <Typography.Text bold>{percent(answer.probabilityTrue)}</Typography.Text>
+        <Typography.Text size="sm" color="secondary">
+          <FormattedMessage defaultMessage="probability of true" description="Predicate decision probability summary" />
+        </Typography.Text>
+      </>
+    );
+  }
+  if (answer.kind === 'refusal') {
+    return (
+      <Typography.Text color="secondary">
+        <FormattedMessage defaultMessage="Refused" description="Summary for a declined decision question" />
+      </Typography.Text>
+    );
+  }
   if (answer.kind === 'unknown') {
     return (
       <Typography.Text color="secondary">
@@ -564,7 +516,7 @@ const AnswerSummary = ({ answer }: { answer: Answer }) => {
 
 const AnswerDetails = ({ answer }: { answer: Answer }) => {
   const intl = useIntl();
-  if (answer.kind === 'unknown') {
+  if (answer.kind === 'unknown' || answer.kind === 'refusal') {
     return (
       <DetailField
         label={
@@ -584,20 +536,20 @@ const AnswerDetails = ({ answer }: { answer: Answer }) => {
       { label },
     );
   let rows: DistributionRow[];
-  if (answer.kind === 'noul') {
+  if (answer.kind === 'noul' || answer.kind === 'predicate') {
     const predictsTrue = answer.probabilityTrue >= 0.5;
     rows = [
       {
         label: intl.formatMessage({ defaultMessage: 'True', description: 'True outcome in a decision Noul answer' }),
         accessibleLabel: probabilityFor('true'),
         probability: answer.probabilityTrue,
-        emphasized: predictsTrue,
+        emphasized: answer.kind === 'noul' && predictsTrue,
       },
       {
         label: intl.formatMessage({ defaultMessage: 'False', description: 'False outcome in a decision Noul answer' }),
         accessibleLabel: probabilityFor('false'),
         probability: 1 - answer.probabilityTrue,
-        emphasized: !predictsTrue,
+        emphasized: answer.kind === 'noul' && !predictsTrue,
       },
     ];
   } else if (answer.kind === 'choice') {
@@ -666,13 +618,13 @@ const AnswerDetails = ({ answer }: { answer: Answer }) => {
           ))}
         </div>
       </div>
-      {answer.kind !== 'noul' && <ConfidenceFooter value={answer.confidence} />}
+      {(answer.kind === 'choice' || answer.kind === 'score') && <ConfidenceFooter value={answer.confidence} />}
     </>
   );
 };
 
-const AnswerRow = ({ entry }: { entry: Entry }) => {
-  const answer = parseAnswer(entry);
+const AnswerRow = ({ entry, source }: { entry: Entry; source: Decision['source'] }) => {
+  const answer = parseAnswer(entry, source);
   return (
     <div role="listitem">
       <details>
@@ -700,10 +652,10 @@ const AnswerRow = ({ entry }: { entry: Entry }) => {
   );
 };
 
-export const TypeSafeDecisionAnswers = ({ decision }: { decision: TypeSafeDecision }) => (
+export const DecisionAnswers = ({ decision }: { decision: Decision }) => (
   <DecisionList testId="decision-answers">
     {decision.answers.map((entry, index) => (
-      <AnswerRow key={entry.id + '-' + index} entry={entry} />
+      <AnswerRow key={entry.id + '-' + index} entry={entry} source={decision.source} />
     ))}
   </DecisionList>
 );
