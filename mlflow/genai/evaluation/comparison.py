@@ -58,7 +58,7 @@ def _comparison_key(baseline_run_id: str, *parts: str) -> str:
     return "/".join(["compare", baseline_run_id[:_BASELINE_SHORT_ID_LENGTH], *parts])
 
 
-@experimental(version="3.17.0")
+@experimental(version="3.18.0")
 @dataclass
 class ScorerComparison:
     """
@@ -115,7 +115,7 @@ class ScorerComparison:
     n_nonzero: int | None = None
 
 
-@experimental(version="3.17.0")
+@experimental(version="3.18.0")
 @dataclass
 class ComparisonResult:
     """
@@ -476,7 +476,7 @@ def _log_comparison(result: ComparisonResult) -> None:
     )
 
 
-@experimental(version="3.17.0")
+@experimental(version="3.18.0")
 def compare_evaluations(
     candidate_run_id: str,
     baseline_run_id: str,
