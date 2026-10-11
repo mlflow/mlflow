@@ -32,6 +32,30 @@ observed symptom, preserving the UI and its displayed values. Save the annotated
 under `$out_dir/media` and cite its exact path in the comment. Remove the overlays before
 continuing to interact with the page.
 
+If the symptom only shows across a sequence of actions (navigation, typing, timing), record a
+short video instead of screenshots. Rehearse the steps with the selectors you will put in
+`$out_dir/work/steps.json` (snapshot refs such as `@e12` don't carry over to a new session),
+and hide side panels, popups, and onboarding hints that cover the page, then:
+
+```bash
+agent-browser --session <sess> --input-mode human --init-script .claude/skills/triage/bug/caption.js open <url>
+agent-browser --session <sess> record start $out_dir/media/<name>.mp4 --cursor --contact-sheet
+timeout 120 agent-browser --session <sess> batch --bail < $out_dir/work/steps.json  # [["click", "<sel>"], ["wait", "500"], ...]
+agent-browser --session <sess> record stop
+```
+
+The init script defines `caption(text)`, which shows a short caption at the bottom of the page
+(`caption()` hides it; pass `"dark"` as a second argument when the page uses a dark theme).
+Caption each step so viewers can follow along, especially actions that leave no visible trace,
+such as the browser's Back button, a key press, or a wait: add
+`["eval", "caption('Browser Back')"]` and a short wait before the action.
+
+If the batch times out, retry once in a fresh session, then fall back to screenshots. Check the
+contact sheet to confirm the video shows the bug before citing it.
+When you propose a fix for a visible UI bug, record the same steps again after applying it,
+against the dev server from "Running the UI" in `SKILL.md` (the built UI does not reflect code
+changes), and cite both videos in the `pull_request` body as a before/after comparison.
+
 Run it against the current checkout, which is what a fix would land on. Only if it does not
 reproduce there, run it against the reported version (when it is on PyPI) to tell "already
 fixed" apart from "could not reproduce".
@@ -52,7 +76,9 @@ just where the error surfaces, then verify: patch the code, rerun the reproducti
 symptom goes away without breaking the tests that cover that code.
 
 For frontend fixes, use the dev server with hot reload; do not run `yarn build` just to verify
-the fix.
+the fix. For simple visual or UI changes, manual browser inspection of the reproduction before
+and after the fix can be sufficient verification. Run relevant existing tests when they
+meaningfully cover the affected behavior.
 
 Keep the fix minimal and in the style of the surrounding code. When the right fix is a design
 decision (a public API, a default, or a storage schema), describe the options instead of
@@ -70,10 +96,11 @@ Propose a pull request only when all of these hold:
 
 Otherwise, skip this step: the comment's suggested fix is enough.
 
-When it applies, add a regression test that fails without the fix and passes with it, next to
-the existing tests for that code, and run it together with those tests. Then leave only the fix
-and the test changed in the checkout (revert anything else you edited there) and write the
-patch:
+Add regression tests when they add meaningful coverage. Place new regression tests next to
+the existing tests for that code, verify that they fail without the fix and pass with it,
+and run them together with those tests.
+Then leave only the fix and any regression tests changed in the checkout (revert anything else
+you edited there) and write the patch:
 
 ```bash
 git add -N mlflow tests
