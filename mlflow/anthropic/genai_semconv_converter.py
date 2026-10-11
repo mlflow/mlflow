@@ -94,7 +94,7 @@ def _convert_block(block: dict[str, Any]) -> dict[str, Any]:
             return {
                 "type": "tool_call_response",
                 "id": block.get("tool_use_id", ""),
-                "result": block.get("content", ""),
+                "response": block.get("content", ""),
             }
         case _:
             # Fallback to text with dumped content block

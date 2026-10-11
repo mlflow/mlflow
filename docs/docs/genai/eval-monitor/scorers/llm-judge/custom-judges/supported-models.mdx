@@ -40,10 +40,52 @@ MLflow supports calling model providers directly using the format `provider:/mod
 | Databricks     | `databricks:/databricks-claude-sonnet-4-5`                      | [Databricks SDK authentication](https://docs.databricks.com/aws/en/dev-tools/auth/index.html) (e.g. `DATABRICKS_HOST` + `DATABRICKS_TOKEN`, or other supported methods)                 |
 
 :::warning
-Judges configured with direct model providers require credentials to be available locally (typically via environment variables) and **cannot be run from the UI**. For supported chat-completion providers, use AI Gateway endpoints if you want to run judges from the UI. TypeSafe Gateway passthrough endpoints cannot back MLflow judges and are not available in judge model selectors.
+Judges configured with direct model providers require credentials to be available locally (typically via environment variables) and **cannot be run from the UI**. For supported chat-completion providers, use AI Gateway endpoints if you want to run judges from the UI.
 :::
 
-TypeSafe judge models use TypeSafe's System One evaluation API rather than a chat-completion API. Use `typesafe:/` model URIs only with the supported `bool` and finite `Literal[...]` outputs described in [TypeSafe Judge Models](/genai/eval-monitor/scorers/llm-judge/custom-judges/typesafe). TypeSafe AI Gateway passthrough endpoints expose raw System One requests and are not `gateway:/` judge models for `make_judge()`.
+TypeSafe judge models use TypeSafe's System One evaluation API rather than a chat-completion API. Use `typesafe:/` model URIs only with the supported `bool` and finite `Literal[...]` outputs described in [TypeSafe Judge Models](/genai/eval-monitor/scorers/llm-judge/custom-judges/typesafe).
+
+Gateway endpoints backed by TypeSafe provider models or OpenRouter Jev decision models (such as `typesafe/jev-1.13`) can also back structured MLflow judges. OpenRouter `typesafe/jev-router` is a chat model and remains on normal chat routes. Do not send Jev decision models to chat-completion APIs.
+
+### Using TypeSafe and Jev in the UI
+
+In the custom judge creation flow:
+
+1. Choose the evaluation scope and judge name in **General**.
+2. In **Evaluation criteria**, choose the judge, write instructions, and select **Boolean** or **Categorical** output. For **Categorical**, add at least one category option — the judge cannot run without one.
+3. Select a Gateway endpoint in **Model**. TypeSafe and OpenRouter Jev endpoints remain visible in the dropdown.
+
+Use a Gateway endpoint whose model mappings all support System One. If the output type is incompatible, the UI shows the required fix before submission; if the Gateway rejects the request, the error banner explains the next action.
+
+### Using TypeSafe and Jev in the SDK
+
+Use a direct model or a Gateway endpoint:
+
+```python
+from mlflow.genai.judges import make_judge
+
+# Direct TypeSafe model: resolved client-side, needs TYPESAFE_API_KEY locally, cannot run from the UI.
+direct_judge = make_judge(
+    name="direct_jev_judge",
+    instructions="Answer yes or no: Does {{ outputs }} answer {{ inputs }}?",
+    model="typesafe:/jev-latest",
+    feedback_value_type=bool,
+)
+
+# Gateway endpoint: resolved by the Gateway using its stored credentials, and can run from the UI.
+gateway_judge = make_judge(
+    name="gateway_jev_judge",
+    instructions="Answer yes or no: Does {{ outputs }} answer {{ inputs }}?",
+    model="gateway:/jev-evaluator",
+    feedback_value_type=bool,
+)
+```
+
+For a direct TypeSafe model, set `TYPESAFE_API_KEY`. For a Gateway endpoint, MLflow uses the endpoint credentials and requires every model mapping to support System One.
+
+:::note
+A `gateway:/` judge remembers whether an endpoint uses System One for the life of the process; restart the client after switching an endpoint between System One and chat models.
+:::
 
 For any models that are not supported natively, it is also possible to use LiteLLM. Since LiteLLM is not a dependency of MLflow, you'll need to install it separately by running `pip install litellm`. After this, simply specify the provider and model name in the same format as natively supported providers.
 

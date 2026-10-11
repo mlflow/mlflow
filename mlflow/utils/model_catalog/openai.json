@@ -1959,7 +1959,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-23"
+      "deprecation_date": "2027-04-01",
+      "last_updated_at": "2026-10-05"
     },
     "gpt-5.1-2025-11-13": {
       "mode": "chat",
@@ -2342,7 +2343,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-23"
+      "deprecation_date": "2027-04-01",
+      "last_updated_at": "2026-10-05"
     },
     "gpt-5.4": {
       "mode": "chat",
@@ -2564,7 +2566,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-23"
+      "deprecation_date": "2027-04-01",
+      "last_updated_at": "2026-10-05"
     },
     "gpt-5.4-nano-2026-03-17": {
       "mode": "chat",

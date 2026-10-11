@@ -8,6 +8,7 @@ import os
 import re
 from dataclasses import dataclass
 from typing import Any, Literal, get_args, get_origin
+from urllib.parse import urlparse
 
 import requests
 
@@ -19,6 +20,7 @@ from mlflow.gateway.constants import (
     TYPESAFE_API_BASE_URL,
     TYPESAFE_SYSTEM_ONE_PATH,
 )
+from mlflow.genai.utils.gateway_utils import _resolve_gateway_uri
 from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
     INTERNAL_ERROR,
@@ -29,13 +31,42 @@ from mlflow.telemetry.events import InvokeCustomJudgeModelEvent
 from mlflow.telemetry.track import record_usage_event
 from mlflow.tracing.constant import AssessmentMetadataKey
 from mlflow.tracing.utils import TraceJSONEncoder
+from mlflow.utils.credentials import get_default_host_creds
 from mlflow.utils.request_utils import _get_http_response_with_retries
+from mlflow.utils.rest_utils import http_request
+from mlflow.utils.uri import append_to_uri_path
 
-_DIRECT_ENDPOINT = f"{TYPESAFE_API_BASE_URL}/{TYPESAFE_SYSTEM_ONE_PATH}"
 _RETRY_CODES = (408, 429, 500, 502, 503, 504, 529)
+_GATEWAY_PROVIDER = "gateway"
+_TYPESAFE_PROVIDER = "typesafe"
+_SUPPORTED_PROVIDERS = frozenset({_GATEWAY_PROVIDER, _TYPESAFE_PROVIDER})
+# Older gateway servers reject a non-System-One endpoint on the System One route with this
+# legacy wording; current servers return _NON_TYPESAFE_GATEWAY_DETAIL. Both are accepted so a
+# new client keeps detecting "not a System One endpoint" against a server that predates the
+# message change. Drop the legacy string once the minimum supported server version emits only
+# the new one.
+_LEGACY_NON_TYPESAFE_GATEWAY_DETAIL = "Gateway endpoint does not use the TypeSafe provider."
+_NON_TYPESAFE_GATEWAY_DETAIL = (
+    "Gateway endpoint does not use a System One model. Use a TypeSafe or OpenRouter "
+    "Jev decision model."
+)
+_NON_TYPESAFE_GATEWAY_DETAILS = {
+    _LEGACY_NON_TYPESAFE_GATEWAY_DETAIL,
+    _NON_TYPESAFE_GATEWAY_DETAIL,
+}
 _QUESTION_NAME = "evaluation"
 _STATE_REFERENCE_PATTERN = re.compile(r"\{\{\s*([A-Za-z_][A-Za-z0-9_]*)\s*\}\}")
 _TRACE_REFERENCE_PATTERN = re.compile(r"\{\{\s*trace\s*\}\}")
+
+
+class _PreserveAuthorizationHeaderAuth(requests.auth.AuthBase):
+    """Prevent Requests from replacing the selected Authorization header with .netrc auth."""
+
+    def __call__(self, request: requests.PreparedRequest) -> requests.PreparedRequest:
+        return request
+
+
+_PRESERVE_AUTHORIZATION_HEADER_AUTH = _PreserveAuthorizationHeaderAuth()
 
 
 @dataclass
@@ -54,7 +85,11 @@ _AnswerSpec = _NoulSpec | _ChoiceSpec
 
 def _is_typesafe_model(model_uri: str) -> bool:
     provider, separator, _ = model_uri.partition(":/")
-    return bool(separator) and provider == "typesafe"
+    return bool(separator) and provider == _TYPESAFE_PROVIDER
+
+
+class _GatewayEndpointNotSystemOne(Exception):
+    pass
 
 
 @record_usage_event(InvokeCustomJudgeModelEvent)
@@ -74,11 +109,11 @@ def _invoke_typesafe_judge(
     from mlflow.metrics.genai.model_utils import _parse_model_uri
 
     provider, model_name = _parse_model_uri(model_uri)
-    if provider != "typesafe":
+    if provider not in _SUPPORTED_PROVIDERS:
         raise MlflowException.invalid_parameter_value(
-            f"Expected a typesafe:/ model URI, got {model_uri!r}."
+            f"Expected a typesafe:/ or gateway:/ model URI, got {model_uri!r}."
         )
-    _validate_options(inference_params, base_url, extra_headers)
+    _validate_options(provider, inference_params, base_url, extra_headers)
     _validate_input(instructions, state)
 
     question, answer_spec = _build_question(feedback_value_type)
@@ -89,8 +124,14 @@ def _invoke_typesafe_judge(
         "questions": {_QUESTION_NAME: question},
     }
 
-    response = _send_request(payload, num_retries)
-    response_data = _parse_json_response(response)
+    response = (
+        _send_gateway_request(payload, num_retries)
+        if provider == _GATEWAY_PROVIDER
+        else _send_request(payload, num_retries, base_url, extra_headers)
+    )
+    response_data = _parse_json_response(
+        response, allow_gateway_fallback=provider == _GATEWAY_PROVIDER
+    )
     value, metadata, _, _ = _parse_response(response_data, answer_spec)
 
     return Feedback(
@@ -106,23 +147,40 @@ def _invoke_typesafe_judge(
 
 
 def _validate_options(
+    provider: str,
     inference_params: dict[str, Any] | None,
     base_url: str | None,
     extra_headers: dict[str, str] | None,
 ) -> None:
-    unsupported_options = [
-        name
-        for name, value in (
-            ("inference_params", inference_params),
-            ("base_url", base_url),
-            ("extra_headers", extra_headers),
+    unsupported_options = ["inference_params"] if inference_params is not None else []
+    if provider == _GATEWAY_PROVIDER:
+        unsupported_options.extend(
+            name
+            for name, value in (("base_url", base_url), ("extra_headers", extra_headers))
+            if value is not None
         )
-        if value is not None
-    ]
     if unsupported_options:
         raise MlflowException.invalid_parameter_value(
             "TypeSafe judge models do not support " + ", ".join(unsupported_options) + "."
         )
+    if base_url is not None:
+        if not base_url.strip().strip("/"):
+            raise MlflowException.invalid_parameter_value("base_url must be a non-empty string.")
+        try:
+            parsed_base_url = urlparse(base_url)
+            if parsed_base_url.scheme not in {"http", "https"} or not parsed_base_url.hostname:
+                raise ValueError
+            _ = parsed_base_url.port
+            _ = parsed_base_url.hostname.encode("idna")
+        except (UnicodeError, ValueError):
+            raise MlflowException.invalid_parameter_value(
+                "base_url must be an absolute HTTP or HTTPS URL with a valid host and port."
+            ) from None
+        if parsed_base_url.username is not None or parsed_base_url.password is not None:
+            raise MlflowException.invalid_parameter_value(
+                "Credentials in base_url are not supported. Pass an Authorization header in "
+                "extra_headers instead."
+            )
 
 
 def _validate_input(instructions: str, state: dict[str, Any]) -> None:
@@ -144,18 +202,38 @@ def _validate_input(instructions: str, state: dict[str, Any]) -> None:
         )
 
 
-def _send_request(payload: dict[str, Any], num_retries: int):
+def _send_request(
+    payload: dict[str, Any],
+    num_retries: int,
+    base_url: str | None,
+    extra_headers: dict[str, str] | None,
+):
     api_key = os.environ.get("TYPESAFE_API_KEY")
-    if not api_key:
+    headers = dict(extra_headers or {})
+    authorization_headers = [
+        value for name, value in headers.items() if name.lower() == "authorization"
+    ]
+    if authorization_headers and any(
+        not isinstance(value, str) or not value.strip() for value in authorization_headers
+    ):
+        raise MlflowException.invalid_parameter_value(
+            "Authorization header in extra_headers must be non-empty."
+        )
+    if not authorization_headers and api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
+    elif not authorization_headers:
         raise MlflowException(
-            "Set TYPESAFE_API_KEY to invoke a typesafe:/ judge model.",
+            "Set TYPESAFE_API_KEY or pass an Authorization header in extra_headers to invoke "
+            "a typesafe:/ judge model.",
             error_code=INVALID_PARAMETER_VALUE,
         )
+    endpoint = append_to_uri_path(base_url or TYPESAFE_API_BASE_URL, TYPESAFE_SYSTEM_ONE_PATH)
     try:
         return _get_http_response_with_retries(
             method="POST",
-            url=_DIRECT_ENDPOINT,
-            headers={"Authorization": f"Bearer {api_key}"},
+            url=endpoint,
+            headers=headers,
+            auth=_PRESERVE_AUTHORIZATION_HEADER_AUTH,
             json=payload,
             max_retries=num_retries,
             backoff_factor=1,
@@ -170,6 +248,22 @@ def _send_request(payload: dict[str, Any], num_retries: int):
             "Failed to connect to the TypeSafe evaluation endpoint.",
             error_code=INTERNAL_ERROR,
         ) from None
+
+
+def _send_gateway_request(payload: dict[str, Any], num_retries: int):
+    gateway_uri = _resolve_gateway_uri()
+    return http_request(
+        host_creds=get_default_host_creds(gateway_uri),
+        endpoint="/gateway/typesafe/v1/systemone",
+        method="POST",
+        max_retries=num_retries,
+        backoff_factor=1,
+        backoff_jitter=0.1,
+        retry_codes=_RETRY_CODES,
+        timeout=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get(),
+        raise_on_status=False,
+        json=payload,
+    )
 
 
 def _rewrite_state_references(instructions: str, state: dict[str, Any]) -> str:
@@ -258,8 +352,17 @@ def _describe_literal(value: Any) -> str:
     return f"The evaluation result is {_literal_label(value)}."
 
 
-def _parse_json_response(response) -> dict[str, Any]:
+def _parse_json_response(response, *, allow_gateway_fallback: bool = False) -> dict[str, Any]:
     if not 200 <= response.status_code < 300:
+        if allow_gateway_fallback and response.status_code in (404, 422):
+            try:
+                detail = response.json().get("detail")
+            except (AttributeError, ValueError):
+                detail = None
+            if (response.status_code == 404 and detail == "Not Found") or (
+                response.status_code == 422 and detail in _NON_TYPESAFE_GATEWAY_DETAILS
+            ):
+                raise _GatewayEndpointNotSystemOne
         if response.status_code in (401, 403):
             error_code = UNAUTHENTICATED
         elif response.status_code < 500:
@@ -377,4 +480,8 @@ def _invalid_response(answer_type: str) -> MlflowException:
     )
 
 
-__all__ = ["_invoke_typesafe_judge", "_is_typesafe_model"]
+__all__ = [
+    "_GatewayEndpointNotSystemOne",
+    "_invoke_typesafe_judge",
+    "_is_typesafe_model",
+]

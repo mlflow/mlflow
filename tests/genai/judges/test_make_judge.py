@@ -718,6 +718,36 @@ def test_call_trace_based_judge_ignores_inputs_outputs(mock_trace, mock_invoke_j
     assert captured_args["trace"] == mock_trace
 
 
+def test_trace_based_gateway_judge_rejects_system_one_endpoint(mock_trace):
+    # A trace-based judge on a gateway System One (Jev) endpoint cannot run (Jev has no trace
+    # support). The chat attempt is rejected as System One; surface the clear trace-based
+    # message instead of the raw gateway rejection.
+    from mlflow.gateway.constants import SYSTEM_ONE_CHAT_ROUTE_REJECTION_DETAIL
+    from mlflow.genai.judges.adapters.utils import ChatCompletionError
+
+    cause = ChatCompletionError(
+        status_code=400,
+        message=json.dumps({"detail": SYSTEM_ONE_CHAT_ROUTE_REJECTION_DETAIL}),
+    )
+    rejection = MlflowException(f"Failed to invoke judge model: {cause.message}")
+    rejection.__cause__ = cause
+
+    judge = make_judge(
+        name="trace_judge",
+        instructions="Analyze this {{ trace }}",
+        model="gateway:/jev-endpoint",
+        feedback_value_type=bool,
+    )
+
+    with (
+        mock.patch(
+            "mlflow.genai.judges.instructions_judge.invoke_judge_model", side_effect=rejection
+        ),
+        pytest.raises(MlflowException, match="do not support trace-based evaluation"),
+    ):
+        judge(trace=mock_trace)
+
+
 def test_call_with_no_inputs_or_outputs():
     judge = make_judge(
         name="test_judge",
