@@ -1,6 +1,6 @@
 import type { QueryFunctionContext } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { useQuery } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { RegisteredPromptsListResponse } from '../types';
 import { RegisteredPromptsApi } from '../api';
 
@@ -21,6 +21,12 @@ export const usePromptsListQuery = ({
   const previousPageTokens = useRef<(string | undefined)[]>([]);
 
   const [currentPageToken, setCurrentPageToken] = useState<string | undefined>(undefined);
+
+  // Reset pagination when filters change
+  useEffect(() => {
+    setCurrentPageToken(undefined);
+    previousPageTokens.current = [];
+  }, [searchFilter, experimentId]);
 
   const queryResult = useQuery<
     RegisteredPromptsListResponse,

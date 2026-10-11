@@ -247,6 +247,10 @@
     "defaultMessage": "Search records by inputs or expectations",
     "description": "Aria label for the search input on the V2 dataset records page (placeholder is not a label per WCAG 1.3.1)"
   },
+  "/0HEIo": {
+    "defaultMessage": "probability of true",
+    "description": "Predicate decision probability summary"
+  },
   "/2InJv": {
     "defaultMessage": "Grounded",
     "description": "Evaluation results > grounded assessment > positive value label. Displayed if evaluation result is considered as grounded."
@@ -538,6 +542,10 @@
   "054/rv": {
     "defaultMessage": "Close guidance",
     "description": "Aria label for closing the detect issues guidance popover"
+  },
+  "06ZYgN": {
+    "defaultMessage": "Choices",
+    "description": "Label for decision question choices"
   },
   "075RKh": {
     "defaultMessage": "Loaded {name} v{version} with settings",
@@ -2526,6 +2534,10 @@
   "8HwtfM": {
     "defaultMessage": "New password",
     "description": "Label for the new-password field"
+  },
+  "8I1wax": {
+    "defaultMessage": "Predicate",
+    "description": "Predicate decision answer type"
   },
   "8I9ipd": {
     "defaultMessage": "The provided value is not valid JSON",
@@ -4586,6 +4598,10 @@
   "GogRws": {
     "defaultMessage": "Loading judges...",
     "description": "Loading message while fetching experiment judges"
+  },
+  "Gp3lm5": {
+    "defaultMessage": "Refusal",
+    "description": "Refusal decision answer type"
   },
   "GpRBxt": {
     "defaultMessage": "Trace",
@@ -13135,6 +13151,10 @@
     "defaultMessage": "Compact",
     "description": "Traces table row-height option: compact (dense) rows"
   },
+  "nnZvy4": {
+    "defaultMessage": "Refused",
+    "description": "Summary for a declined decision question"
+  },
   "no89vN": {
     "defaultMessage": "Trace archival retention must use the format '<int><unit>', where unit is one of 'm', 'h', or 'd'.",
     "description": "Validation error for invalid trace archival retention format"
@@ -15730,6 +15750,10 @@
   "yM9S/n": {
     "defaultMessage": "Please select a model to run the judge",
     "description": "Tooltip message when model is not selected"
+  },
+  "yMpYfi": {
+    "defaultMessage": "Levels",
+    "description": "Label for decision score levels"
   },
   "yNAZYE": {
     "defaultMessage": "Retry",

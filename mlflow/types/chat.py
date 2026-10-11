@@ -161,6 +161,11 @@ class ParamProperty(ParamType):
     # inner `items` field would be silently stripped and downstream providers
     # would reject the schema with "array schema missing items".
     items: ParamProperty | None = None
+    # Recursive for the same reason as `items`. Without these, a nested object
+    # parameter is reduced to a bare `{"type": "object"}` and the model can only
+    # guess its fields (e.g. Gemini returns `{}` for it).
+    properties: dict[str, ParamProperty] | None = None
+    required: list[str] | None = None
 
 
 class FunctionParams(BaseModel):
