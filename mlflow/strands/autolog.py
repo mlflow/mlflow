@@ -24,7 +24,11 @@ from opentelemetry.trace import (
 from mlflow.entities import SpanType
 from mlflow.entities.span import LiveSpan, create_mlflow_span
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
-from mlflow.tracing.provider import _get_tracer
+from mlflow.tracing.provider import (
+    _add_span_processor_first,
+    _get_tracer,
+    _is_in_span_processor_chain,
+)
 from mlflow.tracing.provider import provider as mlflow_tracer_provider
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import (
@@ -57,7 +61,7 @@ class StrandsSpanProcessor(SimpleSpanProcessor):
             # processors, which register the span themselves; forwarding would do it twice.
             # Except when they were registered just now by _get_tracer: the composite's
             # in-progress dispatch won't reach them, so this span still needs forwarding.
-            if was_initialized and self._is_in_composite(tracer.span_processor):
+            if was_initialized and _is_in_span_processor_chain(self, tracer.span_processor):
                 return
 
             tracer.span_processor.on_start(span, parent_context)
@@ -92,13 +96,10 @@ class StrandsSpanProcessor(SimpleSpanProcessor):
             tracer = _get_tracer(__name__)
             # With a shared provider, the composite that called us goes on to call MLflow's
             # processors itself; forwarding here would export the span a second time.
-            if not self._is_in_composite(tracer.span_processor):
+            if not _is_in_span_processor_chain(self, tracer.span_processor):
                 tracer.span_processor.on_end(span)
         finally:
             self._processing_local.in_on_end = False
-
-    def _is_in_composite(self, span_processor) -> bool:
-        return self in getattr(span_processor, "_span_processors", ())
 
 
 def setup_strands_tracing():
@@ -109,15 +110,11 @@ def setup_strands_tracing():
         new_provider.add_span_processor(processor)
         set_tracer_provider(new_provider)
     else:
-        active = provider._active_span_processor
-        if not any(isinstance(p, StrandsSpanProcessor) for p in active._span_processors):
-            provider.add_span_processor(processor)
-            # Run first, so span attributes are set before MLflow's processors export the span
-            # when they share this provider (MLFLOW_USE_DEFAULT_TRACER_PROVIDER=false).
-            active._span_processors = (
-                processor,
-                *(p for p in active._span_processors if p is not processor),
-            )
+        if not any(
+            isinstance(p, StrandsSpanProcessor)
+            for p in provider._active_span_processor._span_processors
+        ):
+            _add_span_processor_first(provider, processor)
 
 
 def teardown_strands_tracing():

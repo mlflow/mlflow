@@ -17,7 +17,13 @@ from opentelemetry.trace import (
 from mlflow.entities.span import create_mlflow_span
 from mlflow.semantic_kernel.tracing_utils import set_model, set_span_type, set_token_usage
 from mlflow.tracing.constant import SpanAttributeKey
-from mlflow.tracing.provider import _get_tracer, mlflow_runtime_context
+from mlflow.tracing.provider import (
+    _add_span_processor_first,
+    _get_tracer,
+    _is_in_span_processor_chain,
+    mlflow_runtime_context,
+)
+from mlflow.tracing.provider import provider as mlflow_tracer_provider
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import (
     _bypass_attribute_guard,
@@ -78,7 +84,7 @@ def setup_semantic_kernel_tracing():
             isinstance(p, SemanticKernelSpanProcessor)
             for p in provider._active_span_processor._span_processors
         ):
-            provider.add_span_processor(sk_processor)
+            _add_span_processor_first(provider, sk_processor)
 
 
 class SemanticKernelSpanProcessor(SimpleSpanProcessor):
@@ -97,15 +103,21 @@ class SemanticKernelSpanProcessor(SimpleSpanProcessor):
             return
         self._processing_local.in_on_start = True
         try:
-            # Trigger MLflow's span processor
+            was_initialized = mlflow_tracer_provider.once._done
             tracer = _get_tracer(__name__)
-            tracer.span_processor.on_start(span, parent_context)
+            # With a shared provider, the composite that called us also dispatches to MLflow's
+            # processors, which register the span themselves; forwarding would do it twice.
+            # Except when they were registered just now by _get_tracer: the composite's
+            # in-progress dispatch won't reach them, so this span still needs forwarding.
+            if not (was_initialized and _is_in_span_processor_chain(self, tracer.span_processor)):
+                # Trigger MLflow's span processor
+                tracer.span_processor.on_start(span, parent_context)
 
-            trace_id = get_otel_attribute(span, SpanAttributeKey.REQUEST_ID)
-            mlflow_span = create_mlflow_span(span, trace_id)
+                trace_id = get_otel_attribute(span, SpanAttributeKey.REQUEST_ID)
+                mlflow_span = create_mlflow_span(span, trace_id)
 
-            # Register new span in the in-memory trace manager
-            InMemoryTraceManager.get_instance().register_span(mlflow_span)
+                # Register new span in the in-memory trace manager
+                InMemoryTraceManager.get_instance().register_span(mlflow_span)
 
             # Also set this span in MLflow's runtime context so that other autolog integrations
             # (like OpenAI) can correctly parent their spans to Semantic Kernel spans.
@@ -145,8 +157,11 @@ class SemanticKernelSpanProcessor(SimpleSpanProcessor):
                 if should_compute_cost_client_side():
                     set_span_cost_attribute(mlflow_span)
 
-            # Export the span using MLflow's span processor
+            # Export the span using MLflow's span processor. With a shared provider, the composite
+            # that called us goes on to call MLflow's processors itself; forwarding here would
+            # export the span a second time.
             tracer = _get_tracer(__name__)
-            tracer.span_processor.on_end(span)
+            if not _is_in_span_processor_chain(self, tracer.span_processor):
+                tracer.span_processor.on_end(span)
         finally:
             self._processing_local.in_on_end = False

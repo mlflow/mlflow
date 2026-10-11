@@ -21,7 +21,12 @@ from mlflow.entities import LiveSpan, SpanType
 from mlflow.entities.span import create_mlflow_span
 from mlflow.exceptions import MlflowException
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
-from mlflow.tracing.provider import _get_tracer
+from mlflow.tracing.provider import (
+    _add_span_processor_first,
+    _get_tracer,
+    _is_in_span_processor_chain,
+)
+from mlflow.tracing.provider import provider as mlflow_tracer_provider
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import (
     _bypass_attribute_guard,
@@ -66,7 +71,7 @@ def setup_haystack_tracing():
             isinstance(p, HaystackSpanProcessor)
             for p in provider._active_span_processor._span_processors
         ):
-            provider.add_span_processor(hs_processor)
+            _add_span_processor_first(provider, hs_processor)
 
     tracer = trace.get_tracer(__name__)
     enable_tracing(_get_opentelemetry_tracer_class()(tracer))
@@ -126,7 +131,14 @@ class HaystackSpanProcessor(SimpleSpanProcessor):
             return
         self._processing_local.in_on_start = True
         try:
+            was_initialized = mlflow_tracer_provider.once._done
             tracer = _get_tracer(__name__)
+            # With a shared provider, the composite that called us also dispatches to MLflow's
+            # processors, which register the span themselves; forwarding would do it twice.
+            # Except when they were registered just now by _get_tracer: the composite's
+            # in-progress dispatch won't reach them, so this span still needs forwarding.
+            if was_initialized and _is_in_span_processor_chain(self, tracer.span_processor):
+                return
             tracer.span_processor.on_start(span, parent_context)
 
             trace_id = generate_trace_id_v3(span)
@@ -155,7 +167,10 @@ class HaystackSpanProcessor(SimpleSpanProcessor):
                     self.set_component_info(mlflow_span, span)
 
             tracer = _get_tracer(__name__)
-            tracer.span_processor.on_end(span)
+            # With a shared provider, the composite that called us goes on to call MLflow's
+            # processors itself; forwarding here would export the span a second time.
+            if not _is_in_span_processor_chain(self, tracer.span_processor):
+                tracer.span_processor.on_end(span)
         finally:
             self._processing_local.in_on_end = False
 

@@ -594,6 +594,31 @@ def _get_tracer(module_name: str) -> trace.Tracer:
     return provider.get_or_init_tracer(module_name)
 
 
+def _is_in_span_processor_chain(processor: SpanProcessor, span_processor: SpanProcessor) -> bool:
+    """
+    Whether ``span_processor`` is a composite that already contains ``processor``.
+
+    With a shared tracer provider (``MLFLOW_USE_DEFAULT_TRACER_PROVIDER=false``), an autolog
+    span processor and MLflow's own processors sit in the same composite, which dispatches to
+    each of them. Forwarding to that composite from the autolog processor would make MLflow's
+    processors handle the span twice.
+    """
+    return processor in getattr(span_processor, "_span_processors", ())
+
+
+def _add_span_processor_first(tracer_provider: TracerProvider, processor: SpanProcessor) -> None:
+    """
+    Add ``processor`` so it runs before the provider's existing span processors, so an autolog
+    processor sets span attributes before MLflow's processors export the span.
+    """
+    tracer_provider.add_span_processor(processor)
+    active = tracer_provider._active_span_processor
+    active._span_processors = (
+        processor,
+        *(p for p in active._span_processors if p is not processor),
+    )
+
+
 def _get_span_processor():
     """
     Get the MLflow span processor instance from the current tracer provider.
