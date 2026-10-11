@@ -22,10 +22,10 @@ import re
 import secrets
 import threading
 import urllib.parse
-from collections.abc import Sequence
+from collections.abc import Hashable, Sequence
 from dataclasses import asdict, dataclass
 from http import HTTPStatus
-from typing import Any, Awaitable, Callable
+from typing import TYPE_CHECKING, Any, Awaitable, Callable, NamedTuple
 
 import sqlalchemy
 from cachetools import TTLCache
@@ -53,6 +53,10 @@ from mlflow import MlflowException
 from mlflow.entities import Experiment
 from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.model_registry import RegisteredModel
+from mlflow.entities.model_registry.model_version_stages import (
+    DEFAULT_STAGES_FOR_GET_LATEST_VERSIONS,
+    get_canonical_stage,
+)
 from mlflow.environment_variables import (
     _MLFLOW_AUTH_ADMIN_BOOTSTRAPPED,
     _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN,
@@ -71,6 +75,7 @@ from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
     INTERNAL_ERROR,
     INVALID_PARAMETER_VALUE,
+    PERMISSION_DENIED,
     RESOURCE_ALREADY_EXISTS,
     RESOURCE_DOES_NOT_EXIST,
     ErrorCode,
@@ -275,6 +280,35 @@ from mlflow.protos.webhooks_pb2 import (
 )
 from mlflow.server import app
 from mlflow.server.asgi_utils import get_routed_asgi_path
+from mlflow.server.auth import resources as auth_resources
+from mlflow.server.auth.conditions import (
+    _VERSION_RESOURCE_TYPES,
+    CONTAINER_WORKSPACE,
+    NAMESPACE_REQUEST,
+    NAMESPACE_RESOURCE,
+    PARENT_RESOURCE_TYPES,
+    RESOURCE_PREFIX_ALIASES,
+    RESOURCE_PREFIX_TAGS,
+    SUPPORTED_RESOURCE_TYPES,
+    WILDCARD_PATTERN,
+    ConditionContext,
+    ConditionScope,
+    ExperimentRequestValues,
+    LoggedModelRequestValues,
+    McpServerRequestValues,
+    McpServerVersionRequestValues,
+    RunRequestValues,
+    TraceRequestValues,
+    combine,
+    condition_load_parents,
+    condition_load_types,
+    context_for,
+    evaluate_request,
+    evaluate_resource,
+    needs_resource_values,
+    parse_condition,
+    request_values_shape,
+)
 from mlflow.server.auth.config import DEFAULT_AUTHORIZATION_FUNCTION, read_auth_config
 from mlflow.server.auth.entities import GetUserPermissionResult, User
 from mlflow.server.auth.logo import MLFLOW_LOGO
@@ -331,19 +365,26 @@ from mlflow.server.auth.requirements import (
     requirement_to_grant_load_keys as requirement_to_grant_load_keys,
 )
 from mlflow.server.auth.routes import (
+    ADD_MUTATION_CONDITIONS,
     ADD_ROLE_PERMISSION,
+    ADD_USER_MUTATION_CONDITION,
+    AJAX_ADD_MUTATION_CONDITIONS,
     AJAX_ADD_ROLE_PERMISSION,
+    AJAX_ADD_USER_MUTATION_CONDITION,
     AJAX_ASSIGN_ROLE,
     AJAX_CREATE_ROLE,
     AJAX_CREATE_USER,
     AJAX_DELETE_ROLE,
     AJAX_DELETE_USER,
     AJAX_GET_CURRENT_USER,
+    AJAX_GET_MUTATION_CONDITIONS,
     AJAX_GET_ROLE,
     AJAX_GET_USER,
     AJAX_GET_USER_PERMISSION,
     AJAX_GRANT_USER_PERMISSION,
+    AJAX_LIST_CURRENT_USER_MUTATION_CONDITIONS,
     AJAX_LIST_CURRENT_USER_PERMISSIONS,
+    AJAX_LIST_MUTATION_CONDITIONS,
     AJAX_LIST_ROLE_PERMISSIONS,
     AJAX_LIST_ROLE_USERS,
     AJAX_LIST_ROLES,
@@ -352,9 +393,11 @@ from mlflow.server.auth.routes import (
     AJAX_LIST_USERS,
     AJAX_ONLINE_SCORING_CONFIG,
     AJAX_ONLINE_SCORING_CONFIGS,
+    AJAX_REMOVE_MUTATION_CONDITIONS,
     AJAX_REMOVE_ROLE_PERMISSION,
     AJAX_REVOKE_USER_PERMISSION,
     AJAX_UNASSIGN_ROLE,
+    AJAX_UPDATE_MUTATION_CONDITIONS,
     AJAX_UPDATE_ROLE,
     AJAX_UPDATE_ROLE_PERMISSION,
     AJAX_UPDATE_USER_ADMIN,
@@ -379,6 +422,7 @@ from mlflow.server.auth.routes import (
     GET_METRIC_HISTORY_BULK_INTERVAL,
     GET_METRIC_HISTORY_BULK_INTERVAL_REST,
     GET_MODEL_VERSION_ARTIFACT,
+    GET_MUTATION_CONDITIONS,
     GET_ROLE,
     GET_TRACE_ARTIFACT,
     GET_TRACE_ARTIFACT_V3,
@@ -391,7 +435,9 @@ from mlflow.server.auth.routes import (
     INVOKE_SCORER,
     JOB_CANCEL,
     JOB_GET,
+    LIST_CURRENT_USER_MUTATION_CONDITIONS,
     LIST_CURRENT_USER_PERMISSIONS,
+    LIST_MUTATION_CONDITIONS,
     LIST_ROLE_PERMISSIONS,
     LIST_ROLE_USERS,
     LIST_ROLES,
@@ -400,6 +446,7 @@ from mlflow.server.auth.routes import (
     LIST_USERS,
     ONLINE_SCORING_CONFIG,
     ONLINE_SCORING_CONFIGS,
+    REMOVE_MUTATION_CONDITIONS,
     REMOVE_ROLE_PERMISSION,
     REVOKE_USER_PERMISSION,
     SEARCH_DATASETS,
@@ -407,6 +454,7 @@ from mlflow.server.auth.routes import (
     SIGNUP,
     UI_TELEMETRY,
     UNASSIGN_ROLE,
+    UPDATE_MUTATION_CONDITIONS,
     UPDATE_ROLE,
     UPDATE_ROLE_PERMISSION,
     UPDATE_USER_ADMIN,
@@ -472,9 +520,11 @@ from mlflow.server.workspace_helpers import (
     _get_workspace_store,
     resolve_workspace_for_request_if_enabled,
 )
+from mlflow.store import condition_pushdown as condition_pushdown
 from mlflow.store.artifact.utils.models import _parse_model_uri
 from mlflow.store.entities import PagedList
 from mlflow.store.workspace.utils import get_default_workspace_optional
+from mlflow.tracing.constant import AssessmentMetadataKey
 from mlflow.utils import workspace_context
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.rest_utils import _REST_API_PATH_PREFIX
@@ -482,6 +532,9 @@ from mlflow.utils.search_utils import SearchUtils
 from mlflow.utils.uri import is_models_uri, validate_path_is_safe
 from mlflow.utils.validation import _validate_password
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
+
+if TYPE_CHECKING:
+    from mlflow.server.auth.sqlalchemy_store import MutationConditionRow
 
 try:
     from flask_wtf.csrf import CSRFProtect
@@ -620,9 +673,76 @@ def make_basic_auth_response() -> Response:
     return res
 
 
+_GENERIC_DENIAL = "Permission denied"
+_CONDITION_DENIAL_MESSAGE = (
+    "Permission denied by an access condition on this resource. Your permission level "
+    "allows this operation, but a condition configured on one of your roles does not."
+)
+
+
+def denial_message() -> str:
+    """The 403 body: whether a grant or a condition refused the request, and which one.
+
+    A caller holding EDIT who is refused cannot otherwise tell which of the two happened,
+    and they are fixed in completely different places -- a grant is changed on the
+    permission, a condition on the role.
+
+    When the refusing clause could be identified, it is named. That is safe rather than
+    generous: conditions are only consulted after a grant has already passed, and every
+    grant permitting a mutation also permits a read (``EDIT`` and ``MANAGE`` both carry
+    ``can_read``), so a caller who reaches a condition check can already fetch the state
+    being quoted. The condition rows themselves are readable too -- ``roles/list`` and the
+    condition listing are gated on holding *any* role in the workspace, not on holding the
+    role being read (``validate_can_view_roles``, inherited unchanged from upstream) -- so
+    for a caller with a grant in that workspace, withholding the clause would hide nothing
+    while leaving a denial with no stated cause. The safety argument does not rest on that
+    listing, though: it holds from the grant alone, since conditions are consulted only
+    after a grant passes and every mutating grant carries ``can_read``.
+
+    A detail is best-effort. Attribution needs one extra read, and a resource that
+    vanished between the two leaves the class of refusal stated without the clause.
+    """
+    if not auth_resources.condition_denied():
+        return _GENERIC_DENIAL
+    detail = auth_resources.condition_denial_detail()
+    if detail is None:
+        return _CONDITION_DENIAL_MESSAGE
+    return f"{_CONDITION_DENIAL_MESSAGE} The condition that refused: {detail}."
+
+
+def _forbidden_envelope() -> str:
+    """The 403 body, as JSON, shared by the Flask and FastAPI funnels.
+
+    One definition because the two funnels deny for the same reasons and a client should not
+    have to know which one served it. ``denial_message()`` stays the single definition of what
+    a denial *says*; this is the single definition of how it is *framed*.
+
+    Call it where the reason is still set -- both funnels clear the refusing-condition detail
+    in a ``finally``, so building the body later degrades the message to the generic one.
+    """
+    return MlflowException(denial_message(), error_code=PERMISSION_DENIED).serialize_as_json()
+
+
 def make_forbidden_response() -> Response:
-    res = make_response("Permission denied")
+    """A 403 in MLflow's JSON error envelope, so a client can read the reason.
+
+    The body used to be a bare string, which Flask serves as ``text/html``. The web client
+    runs ``JSON.parse`` over an error body and keeps ``null`` when that throws, after which
+    ``getUserVisibleError()`` yields the literal ``'INTERNAL_SERVER_ERROR'`` -- so a correct
+    denial surfaced to the user as a server fault, and the detail ``denial_message()`` works
+    to produce was unreachable outside devtools.
+
+    ``error_code`` and ``message`` are both required: the client's ``renderHttpError`` tests
+    for both before using either. ``PERMISSION_DENIED`` is the code MLflow already maps to
+    403, so the envelope matches what every other API error on the wire looks like and no
+    client needs a special case for the auth plugin.
+
+    The message is unchanged -- ``denial_message()`` stays the single definition of what a
+    denial says, and this function only decides how it is framed.
+    """
+    res = make_response(_forbidden_envelope())
     res.status_code = 403
+    res.mimetype = "application/json"
     return res
 
 
@@ -871,6 +991,39 @@ def resolve_permissions(
     return [fold_grants_for_key(grants, key) for key in keys]
 
 
+def _resolve_requirement_decisions_in_workspace(
+    username: str, workspace_name: str, requirements: "Sequence[Requirement]"
+) -> "list[tuple[Permission, str]]":
+    """The governing permission AND its action per requirement, in a resolved workspace.
+
+    Split from :func:`_resolve_requirement_decisions` for the same reason
+    ``_role_permission_for_known_workspace`` is split from ``_role_permission_for``: a
+    caller that already holds the resource -- because it had to fetch it to classify it
+    -- would otherwise pay a second lookup to rediscover the workspace it already knows.
+    """
+    keys = requirements_to_grant_load_keys(requirements)
+    permissions = dict(zip(keys, resolve_permissions(username, workspace_name, keys)))
+    absent = _absent_permission(workspace_name)
+    return [
+        governing_permission_and_action(
+            requirement, permissions, auth_config.default_permission, absent
+        )
+        for requirement in requirements
+    ]
+
+
+def resolve_requirements_in_workspace(
+    username: str, workspace_name: str, requirements: "Sequence[Requirement]"
+) -> "list[Permission]":
+    """The permission governing each requirement, in an already-resolved workspace."""
+    return [
+        permission
+        for permission, _action in _resolve_requirement_decisions_in_workspace(
+            username, workspace_name, requirements
+        )
+    ]
+
+
 def _resolve_requirement_decisions(
     username: str, anchor: "tuple[str, str]", requirements: "Sequence[Requirement]"
 ) -> "list[tuple[Permission, str]] | None":
@@ -884,15 +1037,7 @@ def _resolve_requirement_decisions(
     workspace_name = get_anchor_workspace(*anchor)
     if workspace_name is None:
         return None
-    keys = requirements_to_grant_load_keys(requirements)
-    permissions = dict(zip(keys, resolve_permissions(username, workspace_name, keys)))
-    absent = _absent_permission(workspace_name)
-    return [
-        governing_permission_and_action(
-            requirement, permissions, auth_config.default_permission, absent
-        )
-        for requirement in requirements
-    ]
+    return _resolve_requirement_decisions_in_workspace(username, workspace_name, requirements)
 
 
 def resolve_requirements(
@@ -909,13 +1054,605 @@ def resolve_requirements(
 
 
 def authorize(
-    username: str, anchor: "tuple[str, str]", requirements: "Sequence[Requirement]"
+    username: str,
+    anchor: "tuple[str, str]",
+    requirements: "Sequence[Requirement]",
+    *,
+    conditions: "Sequence[ConditionContext]" = (),
+    workspace: "str | None" = None,
 ) -> bool:
-    """Allow only if EVERY requirement is met by the permission that governs it."""
-    decisions = _resolve_requirement_decisions(username, anchor, requirements)
-    if decisions is None:
+    """Allow only if EVERY requirement is met, and every applicable condition passes.
+
+    The two halves are not symmetric and must stay in this order. Grants *add*: the
+    requirements decide whether the operation is permitted at all. Conditions
+    *subtract*: they can only narrow what a grant already allowed, never widen it. So
+    the requirement check runs first and a failure returns without loading a single
+    condition or reading a single resource.
+
+    ``conditions`` defaults to empty, which is exactly today's behaviour -- an operation
+    that declares none is unaffected, which is what lets the existing call sites stay
+    as they are.
+
+    ``workspace`` lets a caller that already resolved the workspace -- typically because
+    it fetched the resource to classify it -- skip rediscovering it from the anchor.
+
+    Each requirement is checked against the action its *governing* rung carries, not the
+    action it was written with: a fallback rung may require a different one.
+    """
+    workspace_name = workspace if workspace is not None else get_anchor_workspace(*anchor)
+    if workspace_name is None:
         return False
-    return all(action_met(action, permission) for permission, action in decisions)
+    decisions = _resolve_requirement_decisions_in_workspace(username, workspace_name, requirements)
+    if not all(action_met(action, permission) for permission, action in decisions):
+        return False
+    return authorize_on_conditions(username, workspace_name, conditions)
+
+
+def _parsed_condition(filter_string: str, namespace: str):
+    """Parse a stored condition, memoized for the process.
+
+    Conditions are validated on the way in and are small, bounded strings, so the
+    parse is pure and its result is immutable -- caching it keeps re-parsing off the
+    hot path of every mutating request. Keyed on the namespace too: the same string
+    means different things in the two namespaces.
+    """
+    return _parsed_condition_cached(filter_string, namespace)
+
+
+@functools.lru_cache(maxsize=512)
+def _parsed_condition_cached(filter_string: str, namespace: str):
+    return parse_condition(filter_string, namespace)
+
+
+def authorize_on_conditions(
+    username: str,
+    workspace: "str | None",
+    contexts: "Sequence[ConditionContext]",
+) -> bool:
+    """Evaluate this user's mutation conditions, recording the reason for a denial.
+
+    The reason is recorded HERE, around the whole evaluation, rather than at each of the
+    several ``return False`` points inside it -- a denial added later is then covered
+    automatically instead of silently reporting as a grant denial.
+    """
+    allowed = _authorize_on_conditions(username, workspace, contexts)
+    if not allowed:
+        auth_resources.note_condition_denial()
+    return allowed
+
+
+def _pushable_clauses(clauses):
+    """Convert parsed clauses to store tuples, or ``None`` if any cannot be pushed.
+
+    Both resource namespaces push down, so a row mixing ``tags.*`` and
+    ``aliases.*`` still goes in one call -- which is the point. The clauses are
+    conjunctive, so pushing only the half a store understands would judge the
+    conjunction against a subset of itself, and the dropped clause is the one that
+    would have denied. Anything unrecognised declines the whole row instead.
+    """
+    pushable = []
+    for clause in clauses:
+        if clause.key is None or clause.identifier not in (
+            RESOURCE_PREFIX_TAGS,
+            RESOURCE_PREFIX_ALIASES,
+        ):
+            return None
+        pushable.append((clause.identifier, clause.key, clause.comparator, clause.value))
+    return pushable
+
+
+# Registry entries and versions live in the model-registry store; every other
+# conditionable type in the tracking store. Asking the wrong one would get a safe
+# ``None`` back -- an unmapped entity declines rather than answering from the wrong
+# table -- but it would also silently lose the pushdown, so the split is explicit.
+_REGISTRY_CONDITION_TYPES = frozenset({
+    "registered_model",
+    "registered_model_version",
+    "prompt",
+    "prompt_version",
+})
+
+
+def _condition_store(resource_type):
+    """Return the store that can answer a predicate for this resource type."""
+    if resource_type in _REGISTRY_CONDITION_TYPES:
+        return _get_model_registry_store()
+    return _get_tracking_store()
+
+
+def _condition_pushdown_key(resource_type, resource_id):
+    """Convert an authorization-layer id into the key a store matches on.
+
+    A version is addressed here as ``name/version``, with the name percent-encoded
+    because a name may itself contain ``/`` -- an MCP name is reverse-DNS, so it
+    always does. That format is this layer's invention, so the store is handed the
+    decomposed parts and never asked to parse it; a store that split on ``/``
+    would cut a real name in the wrong place.
+    """
+    if resource_type in _VERSION_RESOURCE_TYPES:
+        return auth_resources._split_version_resource_id(resource_id)
+    return resource_id
+
+
+def _condition_resource_id(resource_type, key):
+    """Inverse of :func:`_condition_pushdown_key`: a store key as this layer addresses it.
+
+    The store answers in the shape it matches on, which for a version is the decomposed
+    ``(name, version)``. Everything above this line -- the denial message, the resource
+    read that attributes it -- addresses a version by the single opaque
+    ``name/version`` id. Converting through the same helper that composed the id keeps a
+    name containing ``/`` intact; an MCP name is reverse-DNS, so joining by hand would
+    produce an id nothing resolves, costing the attribution silently rather than loudly.
+    """
+    if resource_type in _VERSION_RESOURCE_TYPES and isinstance(key, tuple):
+        return auth_resources.version_resource_id(*key)
+    return key
+
+
+def _clause_display(clause) -> str:
+    """How a clause's left-hand side is written in a condition string.
+
+    A resource clause splits into a namespace prefix and a key (``tags`` + ``stage``);
+    a request clause is a single flat identifier (``tag_key``). Rejoining them is what
+    lets a denial quote the condition back in the form the admin wrote it.
+    """
+    return f"{clause.identifier}.{clause.key}" if clause.key is not None else clause.identifier
+
+
+def _value_denial_detail(clauses, values) -> "str | None":
+    """Name the value clause this request broke, for the 403 body.
+
+    Pure -- the request's own values are already in hand -- so unlike the target side
+    this costs nothing and cannot fail.
+    """
+    for clause in clauses:
+        if not evaluate_request([clause], values):
+            return f"the value set for '{_clause_display(clause)}' is not permitted"
+    return None
+
+
+def _target_denial_detail(context, row, resource_id) -> "str | None":
+    """Name the target clause the failing resource broke, for the 403 body.
+
+    The store says *which resource* failed; which *clause* takes one more read, so it
+    happens only on the deny path and only for that one resource -- a batch naming
+    10,000 traces costs exactly the same single fetch as one naming one. Evaluating
+    through the same :func:`evaluate_resource` the fallback uses is what keeps the
+    reason shown from disagreeing with the reason denied.
+
+    Disclosing this leaks nothing: conditions are only consulted after a grant has
+    already passed, and every grant that permits a mutation also permits a read, so a
+    caller reaching here can already fetch the state being quoted.
+
+    Returns ``None`` if the clause cannot be pinned -- the resource vanished between
+    the two reads, say -- so the caller gets the generic condition message rather than
+    a wrong one.
+    """
+    try:
+        values = auth_resources.attrs_for(context.resource_type, resource_id)
+    except Exception:
+        # Attribution is a courtesy on a path that has already decided to deny. It must
+        # never turn a clean 403 into a 500.
+        return None
+    if values is None:
+        return None
+    for clause in _parsed_condition(row.target_condition, NAMESPACE_RESOURCE):
+        if not evaluate_resource([clause], values):
+            return (
+                f"'{_clause_display(clause)}' on {context.resource_type} "
+                f"'{resource_id}' does not satisfy it"
+            )
+    return None
+
+
+class _TargetPushdownUnsupported(Exception):
+    """The active backend store cannot evaluate a target condition at all.
+
+    Distinct from the ``NotImplementedError`` raised below for a clause that cannot be
+    pushed down. That one means a stored row got past authoring validation and is a bug
+    worth surfacing loudly; this one is a deployment fact -- target conditions are
+    evaluated in SQL, so a non-SQL tracking or registry backend cannot answer them, and
+    its abstract default says so by raising.
+
+    Raised by the pushdown helpers and converted to a denial by the gate. Previously the
+    store's ``NotImplementedError`` escaped the validator and became a 500. That refused
+    the mutation, so it was never fail-open -- but an operator saw a server error rather
+    than being told a condition had refused, and nothing distinguished it from a crash.
+    """
+
+
+def _cascade_target_pushdown(context, target_rows, *, parent_id, max_timestamp_ms=None, stage=None):
+    """Ask the store whether a parent holds a child failing one of this context's rows.
+
+    The cascade half of target evaluation. A cascade reaches children the request never
+    named and the caller cannot enumerate cheaply or at all, so the population is named by
+    its parent and the store answers with at most the first failing child -- their ids are
+    never listed. Named-id contexts take the other path,
+    :func:`_batched_target_pushdown`, which can union them into one call per row.
+
+    Each row is a separate condition and all must hold, so each is asked separately and
+    the first failure settles it. A row whose clauses the store cannot express declines the
+    whole context: asking only the rows it understood would judge the conjunction against a
+    subset of itself, and there is no fallback left to evaluate the rest.
+
+    Returns:
+        ``None`` if every child satisfies every row, or a ``(row, resource_id)`` pair naming
+        the condition that refused and the child that broke it. That pair is the whole
+        reason this returns more than a boolean: it is what lets the denial say which.
+
+        There is no third answer. A store that cannot express the predicate raises, and so
+        does this function -- the fallback that used to load every resource and evaluate the
+        clauses in Python is gone.
+    """
+    if parent_id is None:
+        # The gate picks the selector and refuses a context offering neither, because then
+        # nothing identifies what would be judged. Reaching here without a parent is a
+        # wiring bug, and treating an unasked question as a pass is the one direction this
+        # must never fail in.
+        raise ValueError(
+            "_cascade_target_pushdown needs a parent_id; a context naming neither its "
+            "resources nor a parent must be refused by the caller, not asked about"
+        )
+
+    pushed_rows = []
+    for row in target_rows:
+        clauses = _pushable_clauses(_parsed_condition(row.target_condition, NAMESPACE_RESOURCE))
+        if clauses is None:
+            # Unreachable: authoring rejects a clause outside the two resource namespaces,
+            # and a stored row has been through it. Loud rather than silent, because with
+            # no fallback left, skipping the row would permit what it forbids.
+            raise NotImplementedError(
+                f"target condition {row.target_condition!r} on "
+                f"{context.resource_type!r} has a clause that cannot be pushed down"
+            )
+        pushed_rows.append((row, clauses))
+
+    store_ = _condition_store(context.resource_type)
+    for row, clauses in pushed_rows:
+        # A row naming one resource cannot be pushed over a cascade: its clauses apply to
+        # that one child, and a query over "any child" would charge them against every
+        # sibling. Unreachable today -- every cascade-reachable type (run, trace, logged
+        # model, and the three version types) is wildcard-only, so such a row cannot be
+        # authored -- but a future tier with id-grain patterns would otherwise fail
+        # silently and in the fail-open direction.
+        if row.resource_pattern != WILDCARD_PATTERN:
+            raise NotImplementedError(
+                f"a cascade on {context.resource_type!r} cannot be judged against "
+                f"a condition scoped to {row.resource_pattern!r}: its clauses "
+                "apply to one child, and a query over 'any child' would charge them "
+                "against every sibling"
+            )
+        try:
+            failing = store_.find_failing_resource(
+                context.resource_type,
+                clauses,
+                parent_id=parent_id,
+                max_timestamp_ms=max_timestamp_ms,
+                stage=stage,
+            )
+        except NotImplementedError as e:
+            raise _TargetPushdownUnsupported(str(e)) from e
+        if failing is not None:
+            # The children were never enumerated, so there is no id mapping to invert --
+            # the store's key has to be converted back.
+            return (row, _condition_resource_id(context.resource_type, failing))
+    return None
+
+
+def _batched_target_pushdown(named):
+    """Evaluate every named-id target condition in one store call per (type, row).
+
+    The cost shape is the whole point. A route declares one context per target -- OTLP
+    ingestion declares one per trace, a model-targeted ``LogBatch`` one per model -- and
+    asking each context separately made the statement count *contexts x rows*. Fifty
+    traces against a hundred configured rows is five thousand statements, each one
+    carrying a subquery per clause, before a single span is written. A request could
+    saturate the database purely because conditions were enabled, which turns a
+    restriction feature into an availability risk.
+
+    The ids are the query INPUT, so a row's question over many ids is the same question
+    with a longer list. Grouping by ``(resource_type, row)`` and unioning the ids each row
+    governs makes the count proportional to the CONFIGURATION -- types times rows -- and
+    independent of how many resources the request names. The store already chunks a long
+    id list, so the union does not trade a query explosion for a parameter-limit failure.
+
+    Three properties of the per-context path are preserved deliberately:
+
+    - **Container scope.** An id joins a row's list only if that row applies within the id's
+      OWN context, so a row scoped to experiment A never reaches an id from experiment B
+      (F-0022). This is why the grouping key cannot be the type alone.
+    - **Unpushable rows refuse wholesale.** Every applicable row is parsed before any query
+      runs, so a row the store cannot express declines the whole request rather than
+      letting the rows it understood judge a subset of the conjunction.
+    - **First failure settles it.** The store returns one id, and the walk stops there.
+
+    Returns:
+        ``None`` if every named resource satisfies every row, or a
+        ``(context, row, resource_id)`` triple. The context travels with the answer
+        because attribution needs it and the union has mixed several together.
+    """
+    # (resource_type, row) -> {store key: (resource_id, context)}
+    #
+    # Insertion-ordered so evaluation order is deterministic: with two failing rows, the
+    # denial should name the same one on every identical request.
+    grouped: "dict[tuple, dict]" = {}
+    for context, target_rows in named:
+        for row in target_rows:
+            bucket = grouped.setdefault((context.resource_type, row), {})
+            for resource_id in context.resource_ids:
+                if not _row_governs(row, resource_id):
+                    continue
+                key = _condition_pushdown_key(context.resource_type, resource_id)
+                # First context wins for attribution. An id belongs to one parent, so two
+                # contexts naming it agree about the container; the choice only affects
+                # which context the denial quotes, and they are equivalent.
+                bucket.setdefault(key, (resource_id, context))
+
+    # Parse everything first: an unpushable row must refuse before any query is issued.
+    parsed = []
+    for (resource_type, row), bucket in grouped.items():
+        clauses = _pushable_clauses(_parsed_condition(row.target_condition, NAMESPACE_RESOURCE))
+        if clauses is None:
+            # Unreachable: authoring rejects a clause outside the two resource namespaces,
+            # and a stored row has been through it. Loud rather than silent, because with
+            # no fallback left, skipping the row would permit what it forbids.
+            raise NotImplementedError(
+                f"target condition {row.target_condition!r} on {resource_type!r} has a "
+                "clause that cannot be pushed down"
+            )
+        parsed.append((resource_type, row, bucket, clauses))
+
+    for resource_type, row, bucket, clauses in parsed:
+        if not bucket:
+            # This row governs none of the ids in play, so it has nothing to say here.
+            continue
+        try:
+            failing = _condition_store(resource_type).find_failing_resource(
+                resource_type, clauses, ids=list(bucket)
+            )
+        except NotImplementedError as e:
+            raise _TargetPushdownUnsupported(str(e)) from e
+        if failing is None:
+            continue
+        # The id either failed a clause or does not exist. Both deny, and deliberately
+        # indistinguishably -- a 404 here would reveal which ids exist to a caller who
+        # may not read them.
+        resource_id, context = bucket.get(failing, (None, None))
+        if context is None:
+            # The store named something outside the asked set, which should not happen;
+            # convert rather than quote a raw tuple at the caller. Any context of this
+            # type will do for attribution -- they share the type and the row.
+            resource_id = _condition_resource_id(resource_type, failing)
+            context = next(c for c, _ in named if c.resource_type == resource_type)
+        return (context, row, resource_id)
+    return None
+
+
+def _row_governs(row, resource_id: "str | None") -> bool:
+    """Does this row's ``resource_pattern`` govern ``resource_id``?
+
+    A wildcard row governs every resource of its type -- the pre-scope behaviour and the
+    overwhelmingly common case. A pattern naming an id governs exactly that resource.
+
+    ``resource_id is None`` on the *asking* side means the caller has no id to offer: a
+    create, or a cascade before its children are resolved. An id pattern cannot be judged
+    against an unnamed resource, so it does not apply. That is vacuous rather than
+    fail-open -- the row restricts one named resource, and an operation naming no resource
+    is not an operation on that one. Restricting a create is the wildcard's job.
+
+    The container axis is not checked here. The loader filters it in SQL for the request
+    as a whole, and the gate narrows it again per context (``applies_within``), because
+    one request can put several containers in play and a row scoped to one of them must
+    not be charged against the resources in another.
+    """
+    if row.resource_pattern == WILDCARD_PATTERN:
+        return True
+    return resource_id is not None and row.resource_pattern == resource_id
+
+
+def _authorize_on_conditions(
+    username: str,
+    workspace: "str | None",
+    contexts: "Sequence[ConditionContext]",
+) -> bool:
+    """Do the mutation conditions on this user's roles permit the operation?
+
+    The other half of the decision from :func:`authorize`. Grants add and conditions
+    subtract, so this is only ever consulted *after* a base grant check has already
+    passed, and it can only ever turn an allow into a deny -- never the reverse.
+
+    Every applicable condition across *all* the user's roles must pass. There is no
+    precedence and no most-specific-wins: adding a role cannot lift a restriction
+    another role imposes (see :func:`conditions.combine`).
+
+    Ordered so the common cases cost nothing. An admin, a user with no conditions
+    configured, or an operation no context covers all return before any resource is
+    read, and the resource read happens only when a target condition actually exists
+    for a type in play at ``MUTATE`` scope.
+    """
+    if not contexts:
+        return True
+    user = store.get_user(username)
+    # Admin bypass precedes everything, exactly as it does for grants: conditions
+    # restrict delegated authority and are not a mechanism for constraining admins.
+    if user.is_admin:
+        return True
+    if workspace is None:
+        # The base check resolves the workspace before we are reached, so an unknown
+        # workspace here means the grant path already denied. Deny rather than guess:
+        # loading conditions from the wrong workspace could silently skip one.
+        return False
+
+    rows = store.list_mutation_conditions_for_user(
+        user.id,
+        workspace,
+        condition_load_types(contexts),
+        condition_load_parents(contexts),
+    )
+    # The overwhelmingly common case, and the one that makes an empty table behave
+    # exactly like today's server: nothing configured, nothing to enforce.
+    if not rows:
+        return True
+
+    # A workspace admin is not restrictable either. The grant half returns MANAGE for one
+    # ahead of every other rule including DENY, so leaving them subject to conditions would
+    # let a condition override a grant decision that is documented as final -- and would make
+    # conditions a way to constrain an admin, which is precisely what they are not for.
+    #
+    # Checked here rather than beside the system-admin bypass so it costs nothing in the
+    # common case: an empty condition table still returns after exactly one query, and this
+    # extra lookup happens only when conditions actually exist for the types in play.
+    if store.is_workspace_admin(user.id, workspace):
+        return True
+
+    by_type: dict[str, list["MutationConditionRow"]] = {}
+    for row in rows:
+        by_type.setdefault(row.resource_type, []).append(row)
+
+    def applies_within(row, context) -> bool:
+        """Whether a row's container scope covers this particular context.
+
+        The store already narrowed to the containers in play, but it narrowed for the
+        whole REQUEST: a request touching two experiments puts both in play, so a row
+        scoped to one of them comes back and must not be charged against the resources
+        in the other. One `LogBatch` naming logged models in experiments A and B is the
+        concrete case -- an A-scoped logged-model condition would otherwise judge the
+        model in B as well.
+
+        A workspace-wide row covers every context of its type, which is the pre-scoping
+        default and stays the common case.
+        """
+        if row.container_resource_type == CONTAINER_WORKSPACE:
+            return True
+        return (
+            context.parent_resource_id is not None
+            and row.container_resource_pattern == context.parent_resource_id
+        )
+
+    results: list[bool] = []
+
+    # Request conditions first: pure, no I/O, and a denial here saves the resource read.
+    for context in contexts:
+        for row in by_type.get(context.resource_type, ()):
+            if row.value_condition is None:
+                continue
+            if not applies_within(row, context):
+                continue
+            # A row naming one resource constrains what may be set on THAT resource, so it
+            # is charged only against an operation naming it. A create names none, which is
+            # why restricting a create is the wildcard's job.
+            if (
+                row.resource_pattern != WILDCARD_PATTERN
+                and row.resource_pattern not in context.resource_ids
+            ):
+                continue
+            clauses = _parsed_condition(row.value_condition, NAMESPACE_REQUEST)
+            permitted = evaluate_request(clauses, context.request)
+            if not permitted:
+                # Attribute before recording the verdict, so the 403 can name the
+                # clause. Free here: the request's values are already in hand.
+                auth_resources.note_condition_denial(_value_denial_detail(clauses, context.request))
+            results.append(permitted)
+    if not combine(results):
+        return False
+
+    types_with_target = frozenset(
+        resource_type
+        for resource_type, type_rows in by_type.items()
+        if any(row.target_condition is not None for row in type_rows)
+    )
+    if not needs_resource_values(contexts, types_with_target):
+        return True
+
+    # Named-id contexts are collected and evaluated together, below: one store call per
+    # (type, row) instead of one per (context, row). A cascade is already one query over a
+    # population the request never enumerated, so it is answered here, in place.
+    named = []
+    for context in contexts:
+        if context.scope is not ConditionScope.MUTATE:
+            continue
+        target_rows = [
+            row
+            for row in by_type.get(context.resource_type, ())
+            if row.target_condition is not None and applies_within(row, context)
+        ]
+        if not target_rows:
+            continue
+        resource_ids = context.resource_ids
+        if not resource_ids and context.parent_resource_id is not None:
+            # A cascade. "Does this parent hold a child that fails the condition?" is ONE
+            # query, and the only way to answer it without enumerating a population the
+            # request never named and the caller may not be able to bound. The children's
+            # ids are never learned -- the store returns at most the first failing one.
+            try:
+                pushed = _cascade_target_pushdown(
+                    context,
+                    target_rows,
+                    parent_id=context.parent_resource_id,
+                    # The mutation's own predicate, when it reaches only a slice of the
+                    # parent's children rather than all of them.
+                    max_timestamp_ms=context.cascade_max_timestamp_ms,
+                    stage=context.cascade_stage,
+                )
+            except _TargetPushdownUnsupported:
+                # A configured condition that cannot be evaluated has to refuse. Denying
+                # is the same verdict the escaping NotImplementedError already produced
+                # via a 500, but it is reported as what it is, and the detail says why so
+                # an operator is pointed at the backend rather than at a stack trace.
+                auth_resources.note_condition_denial(
+                    "the active backend store cannot evaluate a target condition"
+                )
+                return False
+            if pushed is not None:
+                # Some child fails, and the store named which. Deny directly rather than
+                # appending to `results` -- there is no per-child result for `combine` to
+                # weigh -- but record the clause it broke first, so the caller is told
+                # which child blocked the cascade instead of only that one did.
+                row, failing_id = pushed
+                auth_resources.note_condition_denial(
+                    _target_denial_detail(context, row, failing_id)
+                )
+                return False
+            # Every child satisfies every clause, including the vacuous case where the
+            # parent holds no children of this type at all.
+            continue
+        if not resource_ids:
+            # A target condition exists for a type this operation mutates, but the context
+            # neither names its resources nor its parent, so nothing identifies what would
+            # be judged. The condition cannot be evaluated, so the operation is refused
+            # rather than allowed: iterating an empty id list would pass every clause
+            # vacuously, which is the one direction this gate must never fail in.
+            #
+            # A predicate-mode operation that cannot enumerate its targets is NOT this
+            # case -- it anchors on its parent and cascades instead (D21, amended).
+            #
+            # This is unreachable for a route that names its resource, and every wired
+            # route at MUTATE scope does. It is the backstop for one that cannot, and for
+            # a future wiring bug that forgets to.
+            return False
+        named.append((context, target_rows))
+
+    if named:
+        # One call per (type, row) over the union of the ids that row governs, so the cost
+        # follows the configuration rather than the number of targets. The resources' tags
+        # never cross the wire: the store either answers or raises, which is what keeps SQL
+        # the single evaluator of a target condition.
+        try:
+            pushed = _batched_target_pushdown(named)
+        except _TargetPushdownUnsupported:
+            # See the cascade branch: unevaluable means refused, said plainly.
+            auth_resources.note_condition_denial(
+                "the active backend store cannot evaluate a target condition"
+            )
+            return False
+        if pushed is not None:
+            # There is no per-id result for `combine` to weigh, so deny directly --
+            # after naming the clause the offending resource broke.
+            context, row, failing_id = pushed
+            auth_resources.note_condition_denial(_target_denial_detail(context, row, failing_id))
+            return False
+
+    return combine(results)
 
 
 class RetentionGate:
@@ -1188,6 +1925,47 @@ def _artifact_proxy_child_types(artifact_path: str, *, recursive: bool) -> "tupl
     return (RESOURCE_TYPE_RUN,) if recursive else ()
 
 
+def _artifact_proxy_child_ids(
+    artifact_path: str, child_types: "tuple[str, ...]"
+) -> "dict[str, str]":
+    """The specific child ids ``artifact_path`` names, for the tiers being judged.
+
+    All three child tiers lay artifacts out uniformly under the experiment's artifact root --
+    ``<run_id>/artifacts/``, ``traces/<trace_id>/artifacts/``, ``models/<model_id>/artifacts/``
+    (see ``SqlAlchemyStore``'s artifact location construction) -- so wherever the path reaches
+    into a specific child, that child's id is a path segment. Recovering it is what lets a
+    target condition judge the object actually being written instead of refusing the tier.
+
+    The TIER an id is filed under is load-bearing: the caller looks the id up by type, so
+    filing a model id under ``run`` would judge the run condition against a model id -- a
+    resource that does not exist, which the resource side treats as having no tags and so
+    fails every comparator. Verified by mutation: swapping the tier breaks the model and
+    trace cases.
+
+    Restricting the result to ``child_types`` is defence in depth rather than the thing that
+    provides that safety, since an entry under a tier the caller is not judging is simply
+    never looked up. It is kept so the returned mapping is honest on its own terms, for a
+    future caller that iterates it instead of indexing by type.
+
+    A tier whose id the path does not name is absent from the result, and the caller
+    enumerates that tier instead.
+    """
+    remainder = _EXPERIMENT_ID_PATTERN.sub("", f"{artifact_path.lstrip('/')}/", count=1)
+    segments = [segment for segment in remainder.split("/") if segment]
+    if not segments:
+        # The experiment artifact root names no child; every tier is enumerated.
+        return {}
+    if folder_type := _ARTIFACT_PROXY_CHILD_FOLDERS.get(segments[0]):
+        # A bare ``traces/`` or ``models/`` names the folder but no child within it.
+        if len(segments) > 1 and folder_type in child_types:
+            return {folder_type: segments[1]}
+        return {}
+    if RESOURCE_TYPE_RUN in child_types:
+        # ``<run_id>/artifacts/...``, or the bare ``<run_id>`` a recursive delete reaches.
+        return {RESOURCE_TYPE_RUN: segments[0]}
+    return {}
+
+
 def _canonical_artifact_proxy_path(artifact_path: str) -> "str | None":
     try:
         return validate_path_is_safe(artifact_path)
@@ -1203,13 +1981,58 @@ _ARTIFACT_PROXY_CAN = {"read": "can_read", "update": "can_update", "manage": "ca
 _ARTIFACT_PROXY_RECURSIVE_ACTIONS = frozenset({"manage"})
 
 
+def _artifact_proxy_target(
+    child_types, experiment_id: str, child_ids=None, *, covers_experiment: bool = False
+):
+    """Build the tuple ``_authorize_artifact_proxy_resolved`` consumes.
+
+    A factory rather than tuple literals at each site, because the shape has broken twice
+    now: the resolver unpacks positionally, so a site that builds one by hand turns an
+    arity change into a ``ValueError`` raised out of the after-request hook -- a 500 on
+    every non-admin artifact listing, not a failed authorization.
+    """
+    return (
+        tuple(child_types),
+        (RESOURCE_TYPE_EXPERIMENT, experiment_id),
+        dict(child_ids or {}),
+        covers_experiment,
+    )
+
+
+def _artifact_proxy_covers_experiment(artifact_path: str) -> bool:
+    """Does this path cover the experiment's OWN artifacts?
+
+    True for the experiment artifact root and for an experiment-level name under it -- the
+    two paths whose subtree includes files belonging to the experiment rather than to any
+    child tier. A path reaching into a specific tier (``<run_id>/artifacts``, ``models/``,
+    ``traces/``) is that child's payload and not the experiment's.
+
+    Those are exactly the paths whose POINT classification names no child tier, which is
+    the same test the resolver's empty-``child_types`` branch already applies. Expressed in
+    terms of that classifier rather than re-deriving the path grammar, so the two cannot
+    drift apart.
+    """
+    return not _artifact_proxy_child_types(artifact_path, recursive=False)
+
+
 def _artifact_proxy_child(artifact_path: "str | None", action: str):
     """Resolve an artifact proxy path to the sub-resources the request is judged against.
 
-    Returns ``(child_types, experiment_key)``, ``None`` when no child tier applies -- either the
-    path names no experiment, or it is an experiment-level artifact, and the caller falls through
-    to the experiment -- or ``_ARTIFACT_PROXY_UNPARSABLE`` when the path cannot be canonicalized,
-    which must deny rather than fall through.
+    Returns ``(child_types, experiment_key, child_ids, covers_experiment)``, ``None`` when
+    the path names no experiment at all -- the destination root, or an unrecognised first
+    segment, neither of which has a resource to judge -- or ``_ARTIFACT_PROXY_UNPARSABLE``
+    when the path cannot be canonicalized, which must deny rather than fall through.
+
+    ``child_types`` is EMPTY for an artifact written directly under the experiment root: there
+    is no tier to carry the action, but the experiment itself is the target. That case used to
+    return ``None`` too, which discarded the experiment id the pattern had just matched and
+    with it any chance of conditioning the write -- the caller fell through to a bare
+    permission check that never reached ``authorize()``.
+
+    ``covers_experiment`` says the path's subtree includes the experiment's own artifacts.
+    It is independent of ``child_types``: a recursive delete of the experiment root is
+    judged against every child tier AND removes experiment-level files, so both the child
+    contexts and the experiment context apply.
 
     ``action`` is needed because a recursive delete reaches tiers a point read does not.
     """
@@ -1221,12 +2044,19 @@ def _artifact_proxy_child(artifact_path: "str | None", action: str):
     match = _EXPERIMENT_ID_PATTERN.match(f"{canonical.lstrip('/')}/")
     if match is None:
         return None
+    experiment = (RESOURCE_TYPE_EXPERIMENT, match.group(1))
     child_types = _artifact_proxy_child_types(
         canonical, recursive=action in _ARTIFACT_PROXY_RECURSIVE_ACTIONS
     )
+    covers_experiment = _artifact_proxy_covers_experiment(canonical)
     if not child_types:
-        return None
-    return child_types, (RESOURCE_TYPE_EXPERIMENT, match.group(1))
+        return _artifact_proxy_target((), experiment[1], covers_experiment=covers_experiment)
+    return _artifact_proxy_target(
+        child_types,
+        experiment[1],
+        _artifact_proxy_child_ids(canonical, child_types),
+        covers_experiment=covers_experiment,
+    )
 
 
 def _authorize_artifact_proxy_resolved(
@@ -1238,14 +2068,32 @@ def _authorize_artifact_proxy_resolved(
     gated like any other run mutation: the experiment carries the READ baseline and the run
     tier carries the action, which lets a positive run grant decide exactly as it does on
     ``UpdateRun``. A recursive delete of an ancestor directory carries the action on every tier
-    it reaches, so the broad path is never the softer one. A path naming no child tier keeps the
-    experiment at the action level, since there is no tier to carry it.
+    it reaches, so the broad path is never the softer one.
+
+    A path naming no child tier keeps the experiment at the action level, since there is no
+    tier to carry it -- and the experiment is then the resource a condition judges. The grant
+    half stays the bare ``experiment_permission()`` check it has always been; conditions are
+    evaluated after it, in the same order and with the same meaning as ``authorize()`` gives
+    them, so a grant that already fails never loads one.
     """
     if child is _ARTIFACT_PROXY_UNPARSABLE:
         return False
     if child is None:
+        # No experiment either -- the destination root, or an unrecognised first segment.
+        # There is no resource to judge, so there is nothing to condition.
         return getattr(experiment_permission(), _ARTIFACT_PROXY_CAN[action])
-    child_types, experiment = child
+    child_types, experiment, child_ids, covers_experiment = child
+    if not child_types:
+        if not getattr(experiment_permission(), _ARTIFACT_PROXY_CAN[action]):
+            return False
+        workspace = get_anchor_workspace(*experiment)
+        if workspace is None:
+            return False
+        return authorize_on_conditions(
+            username,
+            workspace,
+            _artifact_proxy_experiment_contexts(experiment[1], action),
+        )
     return authorize(
         username,
         experiment,
@@ -1256,7 +2104,90 @@ def _authorize_artifact_proxy_resolved(
                 for child_type in child_types
             ),
         ],
+        conditions=[
+            *_artifact_proxy_contexts(child_types, child_ids, experiment[1], action),
+            # A recursive delete of the experiment root -- or of an experiment-level name
+            # under it -- removes the experiment's OWN artifacts as well as its children's.
+            # It is judged against the child tiers it reaches, which is what kept the broad
+            # path from being the softer one, but the experiment is a target here too and
+            # an experiment condition has to govern it. The empty-`child_types` branch
+            # above already declared it for the point case, so without this the two paths
+            # disagreed about whose resource the files are.
+            *(
+                _artifact_proxy_experiment_contexts(experiment[1], action)
+                if covers_experiment
+                else ()
+            ),
+        ],
     )
+
+
+# The proxy's write surface. A read declares no condition, as every read does.
+_ARTIFACT_PROXY_MUTATING_ACTIONS = frozenset({"update", "manage"})
+
+
+def _artifact_proxy_experiment_contexts(
+    experiment_id: str,
+    action: str,
+) -> "list[ConditionContext]":
+    """A MUTATE context for an artifact written directly under the experiment root.
+
+    The experiment is both the target and its own container here, so the context carries no
+    parent -- matching ``UpdateExperiment`` and ``DeleteExperiment``, which declare the same
+    shape. Request values are empty: an artifact upload sets no tag, so only a target
+    condition can bite, and a value condition is vacuous by construction rather than by
+    special case.
+    """
+    if action not in _ARTIFACT_PROXY_MUTATING_ACTIONS:
+        return []
+    return [
+        context_for(
+            RESOURCE_TYPE_EXPERIMENT,
+            experiment_id,
+            ConditionScope.MUTATE,
+            ExperimentRequestValues(),
+        )
+    ]
+
+
+def _artifact_proxy_contexts(
+    child_types: "tuple[str, ...]",
+    child_ids: "dict[str, str]",
+    experiment_id: str,
+    action: str,
+) -> "list[ConditionContext]":
+    """MUTATE contexts for the child tiers an artifact write or delete reaches.
+
+    The grant half checks each tier with a wildcard id, because a grant is held per type. A
+    condition is not: it judges a resource's state, so it needs the resource. Where the path
+    names one, that id is used directly. Where it does not -- a recursive delete of the
+    experiment root, or of a ``models/`` directory -- the tier is enumerated, which is exactly
+    the cascade's problem, so it reuses the cascade's contexts and therefore its LAZY resolver:
+    a server with no condition on that tier pays nothing, and a tier that cannot be enumerated
+    is refused rather than let through unjudged.
+
+    An artifact write sets no tags or aliases, so request values are empty and only a target
+    condition can apply.
+    """
+    if action not in _ARTIFACT_PROXY_MUTATING_ACTIONS:
+        return []
+    contexts: "list[ConditionContext]" = []
+    for child_type in child_types:
+        if child_type not in SUPPORTED_RESOURCE_TYPES:
+            continue
+        if child_id := child_ids.get(child_type):
+            contexts.append(
+                context_for(
+                    child_type,
+                    child_id,
+                    ConditionScope.MUTATE,
+                    request_values_shape(child_type)(),
+                    parent_resource_id=experiment_id,
+                )
+            )
+        else:
+            contexts.extend(_cascade_contexts(experiment_id, (child_type,)))
+    return contexts
 
 
 def _authorize_flask_artifact_proxy(action: str) -> bool:
@@ -1343,15 +2274,65 @@ def _get_permission_from_experiment_name() -> Permission:
     )
 
 
-def _authorize_logged_model(action: str) -> bool:
-    return _authorize_logged_model_id(_get_request_param("model_id"), action)
+def _authorize_logged_model(
+    action: str,
+    tags: "tuple[tuple[str, str | None], ...]" = (),
+) -> bool:
+    return _authorize_logged_model_id(_get_request_param("model_id"), action, tags)
 
 
-def _authorize_logged_model_id(model_id: str, action: str) -> bool:
-    model = _fetch_or_none(_get_tracking_store().get_logged_model, model_id)
+READ_ACTION = "read"
+
+
+def _mutation_contexts(action: str, context: "ConditionContext") -> "list[ConditionContext]":
+    """The context list for a helper shared by reading and mutating callers.
+
+    Conditions gate mutations and never reads, so a read must declare NO context at all --
+    not merely one that happens to pass. Declaring a MUTATE context on a read would make a
+    target condition deny the read, since the gate would load the condition and evaluate it
+    against the resource's current state.
+
+    Everything that is not a read is conditioned, rather than matching against a list of
+    known mutation verbs. A new action string then defaults to being gated: the failure mode
+    is a mutation that is conditioned more than intended, not one that escapes conditions
+    silently.
+    """
+    return [] if action == READ_ACTION else [context]
+
+
+def _authorize_logged_model_id(
+    model_id: str,
+    action: str,
+    tags: "tuple[tuple[str, str | None], ...]" = (),
+    *,
+    mutates: bool = False,
+) -> bool:
+    """Authorize an action on a logged model, with its condition context.
+
+    ``mutates`` attaches the MUTATE condition context even when the grant tier is READ.
+    That combination looks odd and is deliberate: a lineage write (the auto-generated
+    ``mlflow.modelVersions`` back-reference a model-version create leaves on its source
+    model) is contracted at READ on the source -- raising it to UPDATE would deny an
+    ordinary cross-user create. But it is still a mutation of that logged model, and a
+    target condition answers "which logged models may this role mutate at all", so it has
+    to be evaluated. Grants and conditions are separate axes; this is the one place their
+    tiers intentionally differ.
+    """
+    model = auth_resources.fetch_logged_model(model_id)
     if model is None:
         return False
     experiment = (RESOURCE_TYPE_EXPERIMENT, model.experiment_id)
+    context = context_for(
+        RESOURCE_TYPE_LOGGED_MODEL,
+        model_id,
+        ConditionScope.MUTATE,
+        LoggedModelRequestValues(tags=tags),
+        parent_resource_id=model.experiment_id,
+    )
+    # A read declares NO context (see _mutation_contexts): declaring one would make a
+    # target condition deny the read. `mutates` is the narrow exception described above --
+    # the grant stays at READ while the condition is still evaluated.
+    conditions = [context] if (mutates or action != READ_ACTION) else []
     # Experiment READ baseline -- see _run_requirement.
     return authorize(
         authenticate_request().username,
@@ -1362,13 +2343,22 @@ def _authorize_logged_model_id(model_id: str, action: str) -> bool:
                 RESOURCE_TYPE_LOGGED_MODEL, "*", action, fallback_if_no_grant=(experiment,)
             ),
         ],
+        conditions=conditions,
     )
 
 
-def _prompt_optimization_job_experiment_id() -> str | None:
-    job_entity = get_job(_get_request_param("job_id"))
-    experiment_id = json.loads(job_entity.params).get("experiment_id")
-    return experiment_id or None
+def _prompt_optimization_job_scope() -> "tuple[str, str | None] | None":
+    """The job's experiment and its backing run, from one job read.
+
+    Both come out of the job's ``params``, which is exactly where the handler reads them
+    (``_build_prompt_optimization_job_from_entity``), so the gate and the handler cannot
+    disagree about which run is at stake. ``None`` when the job names no experiment.
+    """
+    params = json.loads(get_job(_get_request_param("job_id")).params)
+    experiment_id = params.get("experiment_id")
+    if not experiment_id:
+        return None
+    return experiment_id, params.get("run_id") or None
 
 
 def _get_permission_from_prompt_optimization_job_id() -> Permission:
@@ -1427,28 +2417,62 @@ def _get_permission_from_prompt_name() -> Permission:
     )
 
 
+class _RegistryEntryTarget(NamedTuple):
+    """What a registry-entry route is acting on, from one classification.
+
+    The shared registry routes cannot name their resource type statically -- a prompt IS
+    a registered model, distinguished only by a marker tag -- so the entity has to be
+    fetched and classified before grants can be resolved. That fetch also yields the
+    workspace, so both come back together rather than being rediscovered separately.
+    """
+
+    resource_type: str
+    workspace: "str | None"
+
+
+def _registry_entry_target(name: str) -> _RegistryEntryTarget:
+    """Classify a persisted registry entity. Raises if it does not exist."""
+    rm = auth_resources.fetch_registered_model_strict(name)
+    return _RegistryEntryTarget(
+        "prompt" if rm._is_prompt() else "registered_model",
+        getattr(rm, "workspace", None),
+    )
+
+
+def _registry_entry_target_from_request() -> _RegistryEntryTarget:
+    """Classify the entity a shared registry route names, tolerating absence.
+
+    A name that does not resolve falls back to the ``registered_model`` family with an
+    unknown workspace, which is what the pre-conditions code did: there is no marker tag
+    to read on an entity that is not there. An unknown workspace denies, both for grants
+    and for conditions.
+    """
+    try:
+        return _registry_entry_target(_get_request_param("name"))
+    except MlflowException as e:
+        if e.error_code != ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+            raise
+    return _RegistryEntryTarget("registered_model", None)
+
+
 def _get_registered_model_or_prompt_permission(name: str) -> Permission:
     """Resolve a persisted registry entity's permission in its actual namespace."""
-    username = authenticate_request().username
-    rm = _get_model_registry_store().get_registered_model(name)
-    resource_type = "prompt" if rm._is_prompt() else "registered_model"
-    workspace_name = getattr(rm, "workspace", None)
+    target = _registry_entry_target(name)
     return _get_role_permission_or_default(
-        _role_permission_for_known_workspace(username, resource_type, name, workspace_name)
+        _role_permission_for_known_workspace(
+            authenticate_request().username, target.resource_type, name, target.workspace
+        )
     )
 
 
 def _get_permission_from_registered_model_or_prompt_name() -> Permission:
     """Resolve permission for a shared model-registry route in a single DB round-trip."""
     name = _get_request_param("name")
-    try:
-        return _get_registered_model_or_prompt_permission(name)
-    except MlflowException as e:
-        if e.error_code != ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
-            raise
-    username = authenticate_request().username
+    target = _registry_entry_target_from_request()
     return _get_role_permission_or_default(
-        _role_permission_for_known_workspace(username, "registered_model", name, None)
+        _role_permission_for_known_workspace(
+            authenticate_request().username, target.resource_type, name, target.workspace
+        )
     )
 
 
@@ -1609,6 +2633,56 @@ def validate_can_create_prompt_optimization_job():
     return authorize(authenticate_request().username, experiment, requirements)
 
 
+def _submitted_trace_ids(body) -> "tuple[str, ...]":
+    """The traces a job-submission body names, order-preserving-deduplicated.
+
+    Mirrors the handlers' own ``list(dict.fromkeys(...))`` so the gate judges exactly the
+    set the job will act on -- no more (a duplicate id is one trace) and no fewer.
+    """
+    raw = body.get("trace_ids") if isinstance(body, dict) else None
+    if not isinstance(raw, list):
+        return ()
+    return tuple(dict.fromkeys(item for item in raw if isinstance(item, str) and item))
+
+
+def _submitted_trace_contexts(experiment_id: str, body) -> "list[ConditionContext]":
+    """A trace MUTATE context for the existing traces an async job will write to.
+
+    These routes submit a job and return; the worker then writes trace tags and
+    assessments through a privileged client. Conditions are enforced here, at the
+    submission gate, on what is knowable here -- the worker's own writes are not
+    re-validated -- so a trace whose target condition rejects mutation has to be refused
+    before the job is accepted.
+
+    Anchored on the request's experiment. That is sound rather than assumed: the handler
+    binds every submitted id to that experiment (``_validate_trace_ids_in_experiment``
+    raises PERMISSION_DENIED for a trace belonging elsewhere), so no write can reach a
+    trace outside it. A foreign id that reaches this gate is judged against this
+    experiment's rows and then refused downstream regardless -- and since an absent
+    resource satisfies nothing (D20), the pushdown denies it here first.
+
+    ``TraceRequestValues()`` carries no values deliberately: the question these routes
+    raise is whether these traces may be mutated at all, not what is being set on them.
+    The worker's tag keys are not knowable from the submission body.
+
+    Empty when the body names no trace, so a malformed or trace-free body adds no context
+    rather than an empty one -- an empty ``resource_ids`` with a parent reads as a
+    cascade, which would ask about every trace in the experiment instead.
+    """
+    trace_ids = _submitted_trace_ids(body)
+    if not trace_ids:
+        return []
+    return [
+        ConditionContext(
+            resource_type=RESOURCE_TYPE_TRACE,
+            scope=ConditionScope.MUTATE,
+            request=TraceRequestValues(),
+            resource_ids=trace_ids,
+            parent_resource_id=experiment_id,
+        )
+    ]
+
+
 def validate_can_invoke_scorer():
     """Applying a scorer to EXISTING traces. It creates no run."""
     experiment_id = _get_request_param("experiment_id")
@@ -1637,7 +2711,14 @@ def validate_can_invoke_scorer():
         # An inline serialized_scorer names no stored scorer, but the version tier can still
         # be denied wholesale.
         requirements.append(Requirement(RESOURCE_TYPE_SCORER_VERSION, "*", ACTION_NOT_DENIED))
-    return authorize(authenticate_request().username, experiment, requirements)
+    # Only an assessment-logging invocation mutates the traces. A scorer run that just
+    # returns results reads them, and a read declares no condition context.
+    conditions = (
+        _submitted_trace_contexts(experiment_id, body) if body.get("log_assessments") else []
+    )
+    return authorize(
+        authenticate_request().username, experiment, requirements, conditions=conditions
+    )
 
 
 def _get_permission_from_scorer_name() -> Permission:
@@ -1855,7 +2936,107 @@ def validate_can_read_experiment_by_name():
 
 
 def validate_can_update_experiment():
-    return _get_permission_from_experiment_id().can_update
+    """Bodies that set no tag: `UpdateExperiment`.
+
+    It sets no tag, so a request condition is vacuous here -- but a TARGET condition still
+    applies. Renaming an experiment a condition was written to protect is mutating it, so the
+    condition has to be consulted even though the request names no value of its own.
+    """
+    return _get_permission_from_experiment_id().can_update and _experiment_conditions_permit(())
+
+
+def _experiment_conditions_permit(tags: "tuple[tuple[str, str | None], ...]") -> bool:
+    """The conditions half alone, for the legacy experiment surface.
+
+    This surface resolves a `Permission` directly rather than through a `Requirement`
+    list, so there is no `authorize` call to pass conditions to. Calling the conditions
+    half beside it keeps the permission resolution on this hot path untouched, at the cost
+    of the grants-then-conditions ordering being expressed by the caller's `and` rather
+    than structurally. Leaving it unwired instead would leave one of the RFC's three use
+    cases ungated (D1).
+    """
+    experiment_id = _get_request_param("experiment_id")
+    return authorize_on_conditions(
+        authenticate_request().username,
+        get_anchor_workspace(RESOURCE_TYPE_EXPERIMENT, experiment_id),
+        [
+            context_for(
+                RESOURCE_TYPE_EXPERIMENT,
+                experiment_id,
+                ConditionScope.MUTATE,
+                ExperimentRequestValues(tags=tags),
+            )
+        ],
+    )
+
+
+def validate_can_set_experiment_tag():
+    # Grants first, then conditions: a condition may only subtract from what a grant
+    # already allowed, so it is never consulted for an operation the grant denied.
+    #
+    # The GRANT is checked directly rather than through `validate_can_update_experiment`,
+    # which now evaluates conditions of its own: going through it would run the condition
+    # query twice, once with empty values and once with the real tag. Conditions are
+    # evaluated exactly once here, with the values the request actually carries.
+    return _get_permission_from_experiment_id().can_update and _experiment_conditions_permit(
+        _tag_key_and_value_from_request()
+    )
+
+
+def validate_can_delete_experiment_tag():
+    # See `validate_can_set_experiment_tag` on why the grant is checked directly.
+    return _get_permission_from_experiment_id().can_update and _experiment_conditions_permit(
+        _tag_key_from_request()
+    )
+
+
+def _parent_for(resource_type: str, parent_id: "str | None") -> "str | None":
+    """The parent id to declare for ``resource_type``, or ``None`` if it has none.
+
+    Several validators compute their resource type -- a created sub-resource, a
+    version type derived from its container, a cascade tier -- and the same call site
+    can therefore produce a child type or a parentless one. Declaring a parent for a
+    parentless type would be harmless (no scoped condition can name one, since the
+    store refuses to store it) but misleading, so it is dropped here rather than
+    special-cased at each site.
+    """
+    return parent_id if resource_type in PARENT_RESOURCE_TYPES else None
+
+
+def _cascade_contexts(
+    parent_id: str, tiers: "Sequence[str]", *, stage: "str | None" = None
+) -> "list[ConditionContext]":
+    """MUTATE contexts for the children a cascade transitions.
+
+    A cascade delete or restore reaches rows the request never mentions -- every run in an
+    experiment, every version of a registered model. Each of those children is judged on its
+    own: the child transition has to succeed for the parent's to, so if any child's target
+    condition fails, the parent operation fails with it.
+
+    The children are never enumerated. Each context names only the PARENT, and the gate asks
+    the store "does this parent hold a child that fails?" -- one query, reached only once the
+    gate knows a target condition actually exists for that tier, so a cascade on a server with
+    no conditions costs exactly what it did before.
+
+    Tiers outside the condition vocabulary are skipped entirely, since the store rejects them
+    on write and no condition row can exist. Every tier that survives that filter has a cascade
+    mapping in the SQL stores; one that did not would raise rather than pass unjudged.
+    """
+    contexts = []
+    for tier in tiers:
+        if tier not in SUPPORTED_RESOURCE_TYPES:
+            continue
+        contexts.append(
+            context_for(
+                tier,
+                None,
+                ConditionScope.MUTATE,
+                request_values_shape(tier)(),
+                parent_resource_id=parent_id,
+                cascade_stage=stage,
+            )
+        )
+    return contexts
 
 
 # Every experiment-scoped tier. A soft delete marks only the experiment and its runs, but the rest
@@ -1897,6 +3078,16 @@ def validate_can_delete_experiment():
                 for tier in _EXPERIMENT_CASCADE_TIERS
             ),
         ],
+        conditions=[
+            context_for(
+                RESOURCE_TYPE_EXPERIMENT,
+                experiment_id,
+                ConditionScope.MUTATE,
+                ExperimentRequestValues(),
+            ),
+            # The delete transitions every run, trace and logged model the experiment holds.
+            *_cascade_contexts(experiment_id, _EXPERIMENT_CASCADE_TIERS),
+        ],
     )
 
 
@@ -1937,7 +3128,7 @@ def _run_requirement(
 ) -> "tuple[tuple[str, str], list[Requirement]] | None":
     # A missing run denies rather than 404ing, so the response is not an oracle for which
     # run ids exist -- master applies the same reasoning to logged models.
-    run = _fetch_or_none(_get_tracking_store().get_run, run_id)
+    run = auth_resources.fetch_run(run_id)
     if run is None:
         return None
     experiment = (RESOURCE_TYPE_EXPERIMENT, run.info.experiment_id)
@@ -1947,34 +3138,134 @@ def _run_requirement(
     ]
 
 
-def _authorize_run_id(run_id: str, action: str) -> bool:
+def _authorize_run_id_as(
+    username: str,
+    run_id: str,
+    action: str,
+    tags: "tuple[tuple[str, str | None], ...]" = (),
+    *,
+    extra: "Sequence[Requirement]" = (),
+) -> bool:
+    # Takes the username explicitly for the FastAPI validators, which are handed one rather
+    # than running inside a Flask request context. Same split, and same reason, as
+    # ``_authorize_create_in_experiment_as``.
+    #
+    # Anchoring on the run's OWN experiment is the point: a run reached from a FastAPI route
+    # need not live in the experiment that route names, so the anchor has to come from the
+    # run itself. ``_run_requirement`` resolves it.
     resolved = _run_requirement(run_id, action)
     if resolved is None:
         return False
     anchor, requirements = resolved
-    return authorize(authenticate_request().username, anchor, requirements)
+    return authorize(
+        username,
+        anchor,
+        [*requirements, *extra],
+        conditions=_mutation_contexts(
+            action,
+            context_for(
+                RESOURCE_TYPE_RUN,
+                run_id,
+                ConditionScope.MUTATE,
+                RunRequestValues(tags=tags),
+                parent_resource_id=anchor[1],
+            ),
+        ),
+    )
 
 
-def _authorize_run(action: str) -> bool:
-    return _authorize_run_id(_get_request_param("run_id"), action)
+def _authorize_run_id(
+    run_id: str,
+    action: str,
+    tags: "tuple[tuple[str, str | None], ...]" = (),
+    *,
+    extra: "Sequence[Requirement]" = (),
+) -> bool:
+    return _authorize_run_id_as(authenticate_request().username, run_id, action, tags, extra=extra)
+
+
+def _authorize_run(
+    action: str,
+    tags: "tuple[tuple[str, str | None], ...]" = (),
+    *,
+    extra: "Sequence[Requirement]" = (),
+) -> bool:
+    return _authorize_run_id(_get_request_param("run_id"), action, tags, extra=extra)
 
 
 def validate_can_update_run():
+    """Bodies that set no tag: `UpdateRun`, `LogModel`, `LogParam`.
+
+    `LogParam` is the case that matters here: a body carrying a param and no tag must not
+    be denied by a `tag_key` clause, which holds because a request clause is vacuous on
+    absence (D20).
+
+    `UpdateRun` carries `run_name`, which the tracking store persists as the reserved
+    `mlflow.runName` tag (D17). It is not extracted as a tag because D4 exempts the
+    reserved prefix on the request side, so no clause can name it and there is nothing to
+    bypass. A future non-reserved field with the same indirection would need extracting
+    here.
+    """
     return _authorize_run("update")
+
+
+def validate_can_set_run_tag():
+    return _authorize_run("update", _tag_key_and_value_from_request())
+
+
+def validate_can_delete_run_tag():
+    return _authorize_run("update", _tag_key_from_request())
 
 
 def _authorize_create_in_experiment_as(
     username: str,
     experiment_id: str,
     created_type: str,
+    *,
     extra: "Sequence[Requirement]" = (),
+    tags: "tuple[tuple[str, str | None], ...]" = (),
+    extra_conditions: "Sequence[ConditionContext]" = (),
 ) -> bool:
     # Takes the username explicitly for the FastAPI validators, which are handed one rather
     # than running inside a Flask request context.
     #
+    # ``extra_conditions`` is the condition counterpart of ``extra``: a create that also
+    # MUTATES existing resources -- a GenAI evaluation writing tags and assessments onto the
+    # traces it evaluates -- has targets the CREATE context cannot describe, because a
+    # create has no prior state to read. Keyword-only for the same reason as the others.
+    #
+    # ``extra`` and ``tags`` are keyword-only deliberately: they occupy the same argument
+    # slot by position, carry unrelated meanings, and a positional call that bound one to
+    # the other would fail OPEN -- a veto requirement silently read as a tag list declares
+    # no requirement and conditions nothing.
+    #
     # ``extra`` carries a veto for a type the request writes ALONGSIDE the created one, which a
     # create otherwise never mentions. Kept here rather than inlined at the call site so this
     # stays the single definition of what a create in an experiment requires.
+    #
+    # CREATE scope, and no resource id: the thing being created does not exist yet, so a
+    # resource condition has no state to read and is vacuous here by construction rather
+    # than by special case. Only the request condition can apply.
+    #
+    # `created_type` ranges wider than the condition vocabulary -- `review_queue` is a
+    # sub-resource tier the RFC does not cover -- so a condition is declared only for a
+    # type the feature governs. Skipping the rest is not a gap: the store validates
+    # `resource_type` on write, so no condition row can exist for them. `context_for`
+    # stays strict about an unrecognised type, because there the type is a hand-written
+    # constant and a typo is a wiring bug.
+    conditions = (
+        [
+            context_for(
+                created_type,
+                None,
+                ConditionScope.CREATE,
+                request_values_shape(created_type)(tags=tags),
+                parent_resource_id=_parent_for(created_type, experiment_id),
+            )
+        ]
+        if created_type in SUPPORTED_RESOURCE_TYPES
+        else ()
+    )
     return authorize(
         username,
         (RESOURCE_TYPE_EXPERIMENT, experiment_id),
@@ -1983,22 +3274,47 @@ def _authorize_create_in_experiment_as(
             Requirement(created_type, "*", ACTION_NOT_DENIED),
             *extra,
         ],
+        conditions=[*conditions, *extra_conditions],
     )
 
 
 def _authorize_create_in_experiment(
-    experiment_id: str, created_type: str, extra: "Sequence[Requirement]" = ()
+    experiment_id: str,
+    created_type: str,
+    *,
+    extra: "Sequence[Requirement]" = (),
+    tags: "tuple[tuple[str, str | None], ...]" = (),
+    extra_conditions: "Sequence[ConditionContext]" = (),
 ) -> bool:
     return _authorize_create_in_experiment_as(
-        authenticate_request().username, experiment_id, created_type, extra
+        authenticate_request().username,
+        experiment_id,
+        created_type,
+        extra=extra,
+        tags=tags,
+        extra_conditions=extra_conditions,
     )
 
 
 def validate_can_create_run():
-    return _authorize_create_in_experiment(_get_request_param("experiment_id"), RESOURCE_TYPE_RUN)
+    """§7.1 case 4. The run's tags come from the body, so a create can be restricted to
+    bodies whose tags all pass -- every tag, so a multi-tag body cannot smuggle one past.
+
+    `run_name` is not extracted: the store persists it as the reserved `mlflow.runName`
+    tag (D17), which D4 exempts from the request side, so no clause can name it.
+    """
+    msg = _get_request_message(CreateRun())
+    return _authorize_create_in_experiment(
+        _get_request_param("experiment_id"),
+        RESOURCE_TYPE_RUN,
+        tags=tuple((tag.key, tag.value) for tag in msg.tags),
+    )
 
 
-def _validate_can_update_run_and_models(model_ids: set[str]) -> bool:
+def _validate_can_update_run_and_models(
+    model_ids: set[str],
+    tags: "tuple[tuple[str, str | None], ...]" = (),
+) -> bool:
     """UPDATE on the run AND on every logged model the metrics target.
 
     Without the second half, a caller with UPDATE on their own run could inject metrics
@@ -2008,13 +3324,19 @@ def _validate_can_update_run_and_models(model_ids: set[str]) -> bool:
 
     A nonexistent model_id denies uniformly, so the response cannot be used as an oracle
     for which model ids exist.
+
+    The condition is attached to the run, which is the resource whose tags the batch would
+    write. A metrics-only or params-only batch passes an empty tuple and is therefore
+    vacuous under a `tag_key` clause (D20) -- §7.1 case 5b, the case a naive implementation
+    denies.
     """
     resolved = _run_requirement(_get_request_param("run_id"), "update")
     if resolved is None:
         return False
     anchor, requirements = resolved
+    model_contexts = []
     for model_id in sorted(model_ids):
-        model = _fetch_or_none(_get_tracking_store().get_logged_model, model_id)
+        model = auth_resources.fetch_logged_model(model_id)
         if model is None:
             return False
         model_experiment = (RESOURCE_TYPE_EXPERIMENT, model.experiment_id)
@@ -2027,7 +3349,34 @@ def _validate_can_update_run_and_models(model_ids: set[str]) -> bool:
                 fallback_if_no_grant=(model_experiment,),
             )
         )
-    return authorize(authenticate_request().username, anchor, requirements)
+        # Writing a metric or an input to a model mutates that model, so a logged-model
+        # target condition has to govern it -- the grant rung above is not enough. The
+        # request half is vacuous (the body sets metrics and inputs, not model tags), so
+        # this exists for the target condition.
+        model_contexts.append(
+            context_for(
+                RESOURCE_TYPE_LOGGED_MODEL,
+                model_id,
+                ConditionScope.MUTATE,
+                LoggedModelRequestValues(),
+                parent_resource_id=model.experiment_id,
+            )
+        )
+    return authorize(
+        authenticate_request().username,
+        anchor,
+        requirements,
+        conditions=[
+            context_for(
+                RESOURCE_TYPE_RUN,
+                _get_request_param("run_id"),
+                ConditionScope.MUTATE,
+                RunRequestValues(tags=tags),
+                parent_resource_id=anchor[1],
+            ),
+            *model_contexts,
+        ],
+    )
 
 
 def validate_can_log_metric():
@@ -2044,7 +3393,10 @@ def validate_can_log_batch():
     # Parse through the proto (covers the camelCase `modelId` alias on nested metrics).
     msg = _get_request_message(LogBatch())
     model_ids = {m.model_id for m in msg.metrics if m.model_id}
-    return _validate_can_update_run_and_models(model_ids)
+    # Every tag in the batch must pass: a bulk body must not slip past a restriction that
+    # holds for a single tag. A metrics-or-params-only batch yields none (case 5b).
+    tags = tuple((tag.key, tag.value) for tag in msg.tags)
+    return _validate_can_update_run_and_models(model_ids, tags)
 
 
 def validate_can_log_inputs():
@@ -2058,7 +3410,31 @@ def validate_can_log_outputs():
 
 
 def validate_can_delete_run():
-    return _authorize_run("delete")
+    """DELETE on the run -- and the assessment tier, which the delete also destroys.
+
+    ``_mark_run_deleted`` hard-deletes every ``SqlAssessments`` row whose metadata names
+    this run as its source, so a run delete removes assessments as a side effect. Those
+    rows are gone for good: the run is soft-deleted and restorable, the assessments are
+    not, and ``restore_run`` makes no attempt to bring them back.
+
+    ``DeleteExperiment`` already pays for this -- ``RESOURCE_TYPE_ASSESSMENT`` is in
+    ``_EXPERIMENT_CASCADE_TIERS`` -- and this route reaches the same store path without
+    it, so a role whose assessment tier is explicitly DENIED could still wipe assessments
+    by deleting a run.
+
+    ``ACTION_NOT_DENIED`` rather than ``delete``: the experiment cascade can demand the
+    stronger tier because its fallback is the experiment the caller is already deleting,
+    whereas here the direct route's fallback is experiment ``update``, which a caller
+    holding only a run-scoped delete grant need not have. The veto closes the hole without
+    denying a run delete that works today.
+
+    No condition context for the assessments: ``assessment`` owns no tag or alias
+    vocabulary and is deliberately not a conditionable type, so the grant tier is the only
+    control surface there.
+    """
+    return _authorize_run(
+        "delete", extra=(Requirement(RESOURCE_TYPE_ASSESSMENT, "*", ACTION_NOT_DENIED),)
+    )
 
 
 def validate_can_manage_run():
@@ -2071,18 +3447,42 @@ def validate_can_read_prompt_optimization_job():
 
 
 def _authorize_prompt_optimization_job(action: str) -> bool:
-    experiment_id = _prompt_optimization_job_experiment_id()
-    if experiment_id is None:
+    """Authorize a job lifecycle route, and the backing run it reaches past the job into.
+
+    Both routes mutate a second resource: cancel terminates the run
+    (``update_run_info(KILLED)``) and delete removes it (``delete_run``). The run is a
+    target in its own right, so an applicable run condition has to be evaluated against
+    it -- and anchored on the run's OWN experiment rather than the one the job claims,
+    which is what ``_authorize_run_id`` does.
+
+    Order matters for delete: the handler removes the job record BEFORE it touches the
+    run, so a denial discovered afterwards could not be retried -- the job is already
+    gone and the run is still there.
+    """
+    scope = _prompt_optimization_job_scope()
+    if scope is None:
         return False
+    experiment_id, run_id = scope
     experiment = (RESOURCE_TYPE_EXPERIMENT, experiment_id)
-    return authorize(
+    if not authorize(
         authenticate_request().username,
         experiment,
         [
             Requirement(RESOURCE_TYPE_EXPERIMENT, experiment_id, action),
             Requirement(RESOURCE_TYPE_RUN, "*", ACTION_NOT_DENIED),
         ],
-    )
+    ):
+        return False
+    if run_id is None:
+        # No backing run, so nothing beyond the job record is touched.
+        return True
+    if auth_resources.fetch_run(run_id) is None:
+        # The run is already gone -- `fetch_run` returns ``None`` only for
+        # RESOURCE_DOES_NOT_EXIST, so this is "no such run", not "the lookup failed".
+        # Nothing protected can be mutated, and the handler's own run step is a tolerated
+        # no-op in exactly this case; denying here would strand the job instead.
+        return True
+    return _authorize_run_id(run_id, action)
 
 
 def validate_can_update_prompt_optimization_job():
@@ -2099,7 +3499,22 @@ def validate_can_read_logged_model():
 
 
 def validate_can_update_logged_model():
+    """Bodies that set no tag."""
     return _authorize_logged_model("update")
+
+
+def validate_can_set_logged_model_tags():
+    """`SetLoggedModelTags` carries a repeated `tags` field, so every tag must pass."""
+    msg = _get_request_message(SetLoggedModelTags())
+    return _authorize_logged_model("update", tuple((tag.key, tag.value) for tag in msg.tags))
+
+
+def validate_can_delete_logged_model_tag():
+    # The key is a PATH parameter here (`/logged-models/<model_id>/tags/<tag_key>`), and it
+    # is named `tag_key`, not `key`. `_get_request_param` merges `view_args`, so the only
+    # thing that matters is asking for the right name -- asking for `key` raises a 400 on a
+    # route that would otherwise work.
+    return _authorize_logged_model("delete", ((_get_request_param("tag_key"), None),))
 
 
 def validate_can_delete_logged_model():
@@ -2177,7 +3592,7 @@ def _request_targets_prompt() -> bool:
     if not name:
         return False
     try:
-        rm = _get_model_registry_store().get_registered_model(name)
+        rm = auth_resources.fetch_registered_model_strict(name)
     except MlflowException as e:
         if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
             return False
@@ -2189,12 +3604,73 @@ def _validate_can_read_registered_model_or_prompt():
     return _get_permission_from_registered_model_or_prompt_name().can_read
 
 
+def _authorize_registry_entry(
+    action: str,
+    tags: "tuple[tuple[str, str | None], ...]" = (),
+    aliases: "tuple[str, ...]" = (),
+    scope: ConditionScope = ConditionScope.MUTATE,
+) -> bool:
+    """Authorize a shared registry-entry route: grants and conditions, one call.
+
+    Goes through ``authorize`` like the rest of the surface. The two things this route
+    cannot state statically come from the classification: the resource type, because a
+    prompt is distinguishable from a registered model only by a marker tag, and the
+    workspace, which the same fetch already yielded -- passing it avoids rediscovering it
+    through the anchor lookup, which would read the same entity a second time through a
+    different cache.
+
+    ``tags`` and ``aliases`` are supplied by the caller rather than looked up here. The
+    routes sharing this helper carry different bodies -- a set-tag has a key and a value, a
+    delete-tag only a key, an alias route an alias, a rename none of them -- so the values
+    belong at the call site that knows which route it is. Defaulting to empty is safe for a
+    route that sets neither, because a request clause is vacuous on absence (D20).
+
+    An alias is conditioned here, on the registry entry, because that is where it lives
+    (D18): ``SetRegisteredModelAlias`` names a version but mutates the entry's alias map.
+
+    The values are wrapped in the shape the *classified* type declares, rather than in one
+    named here: the same route serves a registered model and a prompt, and each declares
+    its own shape.
+    """
+    target = _registry_entry_target_from_request()
+    name = _get_request_param("name")
+    request_values = request_values_shape(target.resource_type)(tags=tags, aliases=aliases)
+    return authorize(
+        authenticate_request().username,
+        (target.resource_type, name),
+        [Requirement(target.resource_type, name, action)],
+        conditions=[context_for(target.resource_type, name, scope, request_values)],
+        workspace=target.workspace,
+    )
+
+
+def _tag_key_and_value_from_request() -> "tuple[tuple[str, str | None], ...]":
+    """The single ``key``/``value`` pair a Set*Tag body carries."""
+    return ((_get_request_param("key"), _get_request_param("value")),)
+
+
+def _tag_key_from_request() -> "tuple[tuple[str, str | None], ...]":
+    """The ``key`` a Delete*Tag body carries, with no value.
+
+    Deletion is gated too (D12): removing a tag a condition reserves is a way of
+    escaping the restriction it expresses. The value is ``None`` rather than empty, so a
+    ``tag_key`` clause applies while a ``tag_value`` clause stays vacuous -- a deletion
+    names no value to constrain.
+    """
+    return ((_get_request_param("key"), None),)
+
+
 def _validate_can_update_registered_model_or_prompt():
-    return _get_permission_from_registered_model_or_prompt_name().can_update
+    """Bodies that carry no tag or alias: `UpdateRegisteredModel`, `RenameRegisteredModel`."""
+    return _authorize_registry_entry("update")
 
 
-def _validate_can_delete_registered_model_or_prompt():
-    return _get_permission_from_registered_model_or_prompt_name().can_delete
+def _validate_can_set_registered_model_or_prompt_tag():
+    return _authorize_registry_entry("update", _tag_key_and_value_from_request())
+
+
+def _validate_can_delete_registered_model_or_prompt_tag():
+    return _authorize_registry_entry("update", _tag_key_from_request())
 
 
 def _alias_version_requirement_met() -> bool:
@@ -2215,15 +3691,45 @@ def _alias_version_requirement_met() -> bool:
     )
 
 
+def _alias_from_request() -> "tuple[str, ...]":
+    """The single alias a Set/DeleteRegisteredModelAlias body names.
+
+    Named on the delete side too (D12): an alias governed by a condition must not be
+    removable by a caller who could not have set it, which would otherwise let a governed
+    alias be edited in one direction.
+    """
+    return (_get_request_param("alias"),)
+
+
 def validate_can_set_model_or_prompt_version_alias() -> bool:
-    return _validate_can_update_registered_model_or_prompt() and _alias_version_requirement_met()
+    return (
+        _authorize_registry_entry("update", aliases=_alias_from_request())
+        and _alias_version_requirement_met()
+    )
 
 
 def validate_can_delete_model_or_prompt_version_alias() -> bool:
-    return _validate_can_delete_registered_model_or_prompt() and _alias_version_requirement_met()
+    return (
+        _authorize_registry_entry("delete", aliases=_alias_from_request())
+        and _alias_version_requirement_met()
+    )
 
 
-def _authorize_version_action(action: str) -> bool:
+def _authorize_version_action(
+    action: str,
+    tags: "tuple[tuple[str, str | None], ...]" = (),
+    *,
+    extra_conditions: "Sequence[ConditionContext]" = (),
+) -> bool:
+    """Authorize a shared model/prompt-version route: grants and conditions, one call.
+
+    A version is tags-only: its ``aliases`` list names aliases stored on the parent, so an
+    alias is conditioned on the parent instead (D18). The version's declared shape has no
+    alias field at all, so this helper cannot accidentally pass one.
+
+    The condition targets the version by its composed id, not the parent's name, so a
+    resource clause reads the version's own tags rather than the entry's.
+    """
     target = _registered_model_or_prompt_target()
     if target is None:
         return False
@@ -2234,12 +3740,23 @@ def _authorize_version_action(action: str) -> bool:
         else RESOURCE_TYPE_REGISTERED_MODEL_VERSION
     )
     container = (container_type, name)
+    resource_id = auth_resources.version_resource_id(name, _get_request_param("version"))
     return authorize(
         authenticate_request().username,
         container,
         [
             Requirement(container_type, name, "read"),
             Requirement(version_type, "*", action, fallback_if_no_grant=(container,)),
+        ],
+        conditions=[
+            context_for(
+                version_type,
+                resource_id,
+                ConditionScope.MUTATE,
+                request_values_shape(version_type)(tags=tags),
+                parent_resource_id=name,
+            ),
+            *extra_conditions,
         ],
     )
 
@@ -2265,6 +3782,15 @@ def validate_can_delete_registered_model_or_prompt_cascade():
         [
             Requirement(container_type, name, "delete"),
             Requirement(version_type, "*", "delete", fallback_if_no_grant=(container,)),
+        ],
+        conditions=[
+            context_for(
+                container_type,
+                name,
+                ConditionScope.MUTATE,
+                request_values_shape(container_type)(),
+            ),
+            *_cascade_contexts(name, (version_type,)),
         ],
     )
 
@@ -2372,12 +3898,81 @@ def validate_can_read_model_or_prompt_version():
     )
 
 
+def validate_can_transition_model_or_prompt_version_stage():
+    """``TransitionModelVersionStage`` -- which mutates more versions than it names.
+
+    With ``archive_existing_versions`` the store moves every OTHER version of this model
+    currently in the stage being transitioned into to ``Archived``:
+
+        SqlModelVersion.name == name,
+        SqlModelVersion.version != version,
+        SqlModelVersion.current_stage == get_canonical_stage(stage)
+
+    Those versions are mutated by a request that never names them, so a target condition
+    has to govern them too -- otherwise a role restricted to, say,
+    ``tags.lifecycle = 'dev'`` is honoured for the version it transitions and bypassed for
+    every version it archives, and the stages API becomes a way around a restriction that
+    holds for every other write.
+
+    The cascade is narrowed to the stage, because that is the population the archive
+    actually reaches. Judging it against every version of the model would refuse a
+    transition into a stage holding nothing objectionable.
+
+    Only declared when the archive will actually happen. The flag alone is not enough: the
+    store REFUSES ``archive_existing_versions`` for a non-active stage, so asking about a
+    cascade there would gate a request that is about to be rejected anyway -- and would
+    judge versions no archive can reach.
+    """
+    msg = _get_request_message(TransitionModelVersionStage())
+    extra: "list[ConditionContext]" = []
+    if msg.archive_existing_versions:
+        canonical = get_canonical_stage(msg.stage)
+        if canonical in DEFAULT_STAGES_FOR_GET_LATEST_VERSIONS:
+            target = _registered_model_or_prompt_target()
+            if target is None:
+                return False
+            container_type, name = target
+            version_type = (
+                RESOURCE_TYPE_PROMPT_VERSION
+                if container_type == RESOURCE_TYPE_PROMPT
+                else RESOURCE_TYPE_REGISTERED_MODEL_VERSION
+            )
+            extra = _cascade_contexts(name, (version_type,), stage=canonical)
+    return _authorize_version_action("update", extra_conditions=tuple(extra))
+
+
 def validate_can_update_model_or_prompt_version():
+    """Bodies that carry no tag: `UpdateModelVersion`, `TransitionModelVersionStage`.
+
+    Only the VALUE half is unconditioned. These bodies set no tag and no alias, so every
+    request clause is vacuous (D13) and a value condition can never refuse them -- which
+    is what D15/D16 decided, since a stage is not part of the RFC's vocabulary and no
+    clause could govern one.
+
+    A TARGET condition still applies, and this is easy to misread: the shared helper
+    declares a full condition context with the version's resource id, so a resource clause
+    is evaluated against the version's current tags like any other mutation. Verified
+    against a role whose only condition is `tags.lifecycle = 'dev'` on
+    `registered_model_version`: a stage transition is ALLOWED on a version tagged
+    `lifecycle=dev`, DENIED on one tagged `prod`, and DENIED on an untagged one (D20).
+
+    That is deliberate. A target condition answers "which resources may this role mutate
+    at all", and a stage transition is a mutation of the version; exempting it would make
+    the stages API a way around a restriction that holds for every other write.
+    """
     return _authorize_version_action("update")
 
 
 def validate_can_delete_model_or_prompt_version():
     return _authorize_version_action("delete")
+
+
+def validate_can_set_model_or_prompt_version_tag():
+    return _authorize_version_action("update", _tag_key_and_value_from_request())
+
+
+def validate_can_delete_model_or_prompt_version_tag():
+    return _authorize_version_action("delete", _tag_key_from_request())
 
 
 def _validate_can_manage_registered_model_or_prompt():
@@ -2386,25 +3981,52 @@ def _validate_can_manage_registered_model_or_prompt():
 
 def _registered_model_or_prompt_target() -> "tuple[str, str] | None":
     name = _get_request_param("name")
-    rm = _fetch_or_none(_get_model_registry_store().get_registered_model, name)
+    rm = auth_resources.fetch_registered_model(name)
     if rm is None:
         return None
     return (RESOURCE_TYPE_PROMPT if rm._is_prompt() else RESOURCE_TYPE_REGISTERED_MODEL), name
 
 
-def _authorize_create_version(target: "tuple[str, str]") -> bool:
+def _authorize_create_version(
+    target: "tuple[str, str]",
+    tags: "tuple[tuple[str, str | None], ...]" = (),
+    asserted_type: "str | None" = None,
+) -> bool:
+    """Authorize creating a version under `target`.
+
+    `tags` are the request's own tag pairs. They must be declared here because
+    `CreateModelVersion` carries tags that the handler passes straight to the store: without
+    them a condition gating `SetModelVersionTag` would be trivially avoidable by setting the
+    tag at creation time instead of after.
+
+    `asserted_type` mirrors the grant-side veto. When the request asserts the opposite family
+    from its parent, that other tier governs the row being created, so its condition applies
+    too. Both contexts must pass, which is the same direction every other condition takes:
+    they only ever subtract.
+    """
     container_type, name = target
     version_type = (
         RESOURCE_TYPE_PROMPT_VERSION
         if container_type == RESOURCE_TYPE_PROMPT
         else RESOURCE_TYPE_REGISTERED_MODEL_VERSION
     )
+    types = [version_type] if asserted_type is None else [version_type, asserted_type]
     return authorize(
         authenticate_request().username,
         (container_type, name),
         [
             Requirement(container_type, name, "update"),
             Requirement(version_type, "*", ACTION_NOT_DENIED),
+        ],
+        conditions=[
+            context_for(
+                condition_type,
+                None,
+                ConditionScope.CREATE,
+                request_values_shape(condition_type)(tags=tags),
+                parent_resource_id=_parent_for(condition_type, name),
+            )
+            for condition_type in types
         ],
     )
 
@@ -2448,23 +4070,43 @@ def _version_type_asserted_against_parent(msg, container_type: str) -> "str | No
 
 def validate_can_create_model_version():
     target = _registered_model_or_prompt_target()
-    if target is None or not _authorize_create_version(target):
+    if target is None:
         return False
     msg = _get_request_message(CreateModelVersion())
     # Before the source branches: a marker disagreeing with the parent means the OTHER version tier
     # governs the row that gets created, so it vetoes too.
     asserted_type = _version_type_asserted_against_parent(msg, target[0])
+    # Parsed before authorizing, because the create's own tags are part of what is authorized.
+    if not _authorize_create_version(
+        target, tuple((tag.key, tag.value) for tag in msg.tags), asserted_type
+    ):
+        return False
     if asserted_type is not None and not authorize(
         authenticate_request().username,
         target,
         [Requirement(asserted_type, "*", ACTION_NOT_DENIED)],
     ):
         return False
+    # Mirrors the handler's ``_is_prompt_request``: the marker in the REQUEST tags, last
+    # value winning, absent meaning false. A prompt create skips the lineage resolution
+    # entirely, so it writes to no logged model and must not be made to prove it may.
+    creates_prompt = _prompt_marker_in_tags(msg.tags) is True
+
     if is_models_uri(msg.source):
         parsed_source = _parse_model_uri(msg.source)
         if parsed_source.name is not None:
             # A registered model is itself the artifact access boundary. The copied version's
-            # lineage IDs are metadata and do not require separate run/logged-model access.
+            # lineage IDs are metadata and do not require separate run access.
+            # A registered model is itself the artifact access boundary. The copied
+            # version's lineage IDs are metadata and do not require separate
+            # run/logged-model access.
+            #
+            # No logged-model mutation can reach this branch, so it needs no condition.
+            # The handler's lineage resolution either adopts the source version's
+            # ``model_id`` -- not persisted by the SQLAlchemy registry store, so always
+            # None and nothing is written -- or, with an explicit ``model_id``, REFUSES the
+            # request outright because the two must match. Adding a check here would be a
+            # second, unexercised implementation of that rule.
             return _can_read_model_version_source(
                 _get_registered_model_or_prompt_permission, parsed_source.name
             )
@@ -2473,31 +4115,76 @@ def validate_can_create_model_version():
     # denied here rather than being allowed to slip past the guard as if it were absent.
     if msg.HasField("run_id") and not (msg.run_id and _authorize_run_id(msg.run_id, "read")):
         return False
+    # Unless the create is a prompt, the handler writes an ``mlflow.modelVersions`` tag
+    # ONTO this logged model (``set_model_versions_tags``), which is a mutation of a
+    # resource in its own experiment. The grant stays at READ -- that is the contracted
+    # authority for a lineage write, and demanding UPDATE denies an ordinary cross-user
+    # create -- while ``mutates`` attaches the logged-model MUTATE context so a target
+    # condition still governs which models may be written at all. A prompt create resolves
+    # no lineage and writes nothing, so it only reads.
     if msg.HasField("model_id") and not (
-        msg.model_id and _authorize_logged_model_id(msg.model_id, "read")
+        msg.model_id
+        and _authorize_logged_model_id(msg.model_id, "read", mutates=not creates_prompt)
     ):
         return False
+    # READ, deliberately: for a ``models:/<model-id>`` source the lineage resolver returns
+    # the request's own ``model_id`` unchanged, so the embedded id is read as lineage and
+    # never receives the tag write.
     source_model_id = _model_id_from_source_uri(msg.source)
     if source_model_id and not _authorize_logged_model_id(source_model_id, "read"):
         return False
     return True
 
 
-def _create_not_denied(username: str, created_type: str, resource_id: str = "*") -> bool:
+def _create_not_denied(
+    username: str,
+    created_type: str,
+    resource_id: str = "*",
+    *,
+    conditions: "Sequence[ConditionContext]" = (),
+) -> bool:
     return authorize(
         username,
         (RESOURCE_TYPE_WORKSPACE, "*"),
         [Requirement(created_type, resource_id or "*", ACTION_NOT_DENIED)],
+        conditions=conditions,
     )
 
 
-def _workspace_create_not_denied(created_type: str, resource_id: str = "*") -> bool:
-    return _create_not_denied(authenticate_request().username, created_type, resource_id)
+def _workspace_create_not_denied(
+    created_type: str,
+    resource_id: str = "*",
+    *,
+    conditions: "Sequence[ConditionContext]" = (),
+) -> bool:
+    return _create_not_denied(
+        authenticate_request().username, created_type, resource_id, conditions=conditions
+    )
 
 
 def validate_can_create_experiment() -> bool:
-    return _user_can_create_in_workspace() and _workspace_create_not_denied(
-        RESOURCE_TYPE_EXPERIMENT
+    # The container check first: it needs no request body, and keeping it ahead of the parse
+    # preserves the short-circuit callers rely on.
+    if not _user_can_create_in_workspace():
+        return False
+    if not has_request_context():
+        # A non-HTTP caller, so there is no body to read tags from. A request condition is
+        # vacuous on absence (D20), so declaring no context is equivalent here and avoids
+        # asserting an empty tag set that the caller never actually sent.
+        return _workspace_create_not_denied(RESOURCE_TYPE_EXPERIMENT)
+    # CREATE scope: the experiment does not exist yet, so only a request condition can
+    # apply. Its tags come from the body, and every one must pass.
+    msg = _get_request_message(CreateExperiment())
+    return _workspace_create_not_denied(
+        RESOURCE_TYPE_EXPERIMENT,
+        conditions=[
+            context_for(
+                RESOURCE_TYPE_EXPERIMENT,
+                None,
+                ConditionScope.CREATE,
+                ExperimentRequestValues(tags=tuple((tag.key, tag.value) for tag in msg.tags)),
+            )
+        ],
     )
 
 
@@ -2528,7 +4215,33 @@ def validate_can_create_registered_model() -> bool:
     created_type = (
         RESOURCE_TYPE_PROMPT if _entity_is_prompt(msg) else RESOURCE_TYPE_REGISTERED_MODEL
     )
-    return _workspace_create_not_denied(created_type, msg.name)
+    # CREATE scope: nothing exists yet, so only the request conditions apply. A resource
+    # condition is vacuous on a create by construction -- there is no prior state for it
+    # to describe -- rather than by a special case here.
+    # ``created_type`` is the family the body will actually produce, so a prompt
+    # condition governs a prompt create and not an ordinary model create (D2).
+    #
+    # Every tag in the body must satisfy the condition: allowing a bulk create to set a
+    # tag that a single set-tag call could not would make the restriction avoidable.
+    request_values = request_values_shape(created_type)(
+        tags=tuple((tag.key, tag.value) for tag in msg.tags)
+    )
+    return _workspace_create_not_denied(
+        created_type,
+        msg.name,
+        conditions=[
+            # `msg.name` and not `None`: a registry resource IS its name, so this create
+            # does name the resource it will become, and an exact-scope row has to be able
+            # to govern it. Every other create passes `None` correctly -- an experiment,
+            # run or version id is assigned by the handler, so there is genuinely nothing
+            # to match -- which is why the id here looked like it should be absent too.
+            #
+            # Naming it cannot pull in a target condition: the target loop only walks
+            # MUTATE contexts, so a resource condition stays vacuous on a create by
+            # construction and no target fetch happens for a resource that does not exist.
+            context_for(created_type, msg.name, ConditionScope.CREATE, request_values)
+        ],
+    )
 
 
 def validate_can_create_mcp_server(username: str, name: str = "*") -> bool:
@@ -2709,12 +4422,26 @@ def _get_role_workspace_from_request() -> str | None:
     Resolve the workspace the request is targeting for role-authorization purposes.
 
     Requests identify a role either directly (``role_id``), indirectly via a role
-    permission (``role_permission_id``), or by supplying ``workspace`` on create.
-    Returns ``None`` if the referenced role/role_permission does not exist — callers
-    (validators) should treat that as unauthorized rather than leaking existence via
-    a 404.
+    permission (``role_permission_id``) or a mutation condition (``condition_id``), or
+    by supplying ``workspace`` on create. Returns ``None`` if the referenced
+    role/role_permission/condition does not exist — callers (validators) should treat
+    that as unauthorized rather than leaking existence via a 404.
     """
     params = _request_params()
+    # Exactly one identifier. The resolution below is ordered, so a request naming two
+    # would be authorized against whichever comes first while the handler acts on the
+    # other: a ``condition_id`` owned by a role in one workspace plus an otherwise-unused
+    # ``role_id`` in another resolved to the ROLE's workspace, so a workspace admin was
+    # authorized there and the handler then read, rewrote, or deleted the condition in the
+    # other workspace -- and deleting a condition widens access. Refusing costs nothing:
+    # every caller names exactly the identifier its route is addressed by, so no legitimate
+    # request carries two.
+    named = [key for key in ("role_id", "role_permission_id", "condition_id") if key in params]
+    if len(named) > 1:
+        raise MlflowException.invalid_parameter_value(
+            "Request must name exactly one of 'role_id', 'role_permission_id', "
+            f"'condition_id'; got {', '.join(repr(k) for k in named)}."
+        )
     try:
         if "role_id" in params:
             return store.get_role(_coerce_int_param("role_id", params["role_id"])).workspace
@@ -2723,6 +4450,16 @@ def _get_role_workspace_from_request() -> str | None:
                 _coerce_int_param("role_permission_id", params["role_permission_id"])
             )
             return store.get_role(rp.role_id).workspace
+        if "condition_id" in params:
+            # A mutation condition is addressed by its own id, so the owning role --
+            # and therefore the workspace whose admin may manage it -- has to be
+            # resolved through it. Without this branch the role-management check
+            # cannot run at all for these routes, and a workspace admin is refused
+            # with a malformed-request error rather than being authorized.
+            mc = store.get_mutation_condition(
+                _coerce_int_param("condition_id", params["condition_id"])
+            )
+            return store.get_role(mc.role_id).workspace
     except MlflowException as e:
         if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
             return None
@@ -2735,7 +4472,7 @@ def _get_role_workspace_from_request() -> str | None:
             )
         return workspace
     raise MlflowException.invalid_parameter_value(
-        "Request must include one of: role_id, role_permission_id, workspace."
+        "Request must include one of: role_id, role_permission_id, condition_id, workspace."
     )
 
 
@@ -2745,6 +4482,29 @@ def validate_can_manage_roles():
     if user.is_admin:
         return True
     workspace = _get_role_workspace_from_request()
+    if workspace is None:
+        return False
+    return _is_workspace_admin(user.id, workspace)
+
+
+def validate_can_manage_user_conditions():
+    """Authorization for the user-addressed condition add.
+
+    ``validate_can_manage_roles`` cannot serve this route: it resolves the workspace from
+    a ``role_id`` / ``role_permission_id`` / ``condition_id`` in the request, and this
+    route names only a user. Falling through would deny every non-admin with a
+    malformed-request error -- the same defect the ``condition_id`` branch was added to
+    fix.
+
+    The workspace is resolved the way the store's write path resolves it
+    (``add_user_mutation_condition`` -> ``_get_active_workspace_name``), because the two
+    halves must agree about which workspace is being written to.
+    """
+    username = authenticate_request().username
+    user = store.get_user(username)
+    if user.is_admin:
+        return True
+    workspace = _wildcard_grant_workspace()
     if workspace is None:
         return False
     return _is_workspace_admin(user.id, workspace)
@@ -3322,6 +5082,72 @@ def validate_can_update_gateway_model_definition():
     return _get_gateway_secret_permission(secret_id).can_use
 
 
+def _promptlab_run_tags(body: "dict | None") -> "tuple[tuple[str, str | None], ...]":
+    """The tags a PromptLab run create will persist.
+
+    Caller-supplied `{"key": ..., "value": ...}` objects, passed to `create_run` unchanged, so
+    they are request values a condition must judge like any other run create.
+    """
+    if not isinstance(body, dict):
+        return ()
+    tags = body.get("tags") or []
+    if not isinstance(tags, list):
+        return ()
+    return tuple(
+        (tag.get("key"), tag.get("value"))
+        for tag in tags
+        if isinstance(tag, dict) and isinstance(tag.get("key"), str) and tag.get("key")
+    )
+
+
+def _issue_detection_run_tags(body: "dict | None") -> "tuple[tuple[str, str | None], ...]":
+    """The non-reserved tags an issue-detection run create will persist.
+
+    Unlike every other producer, these are DERIVED by the handler rather than passed through,
+    so they have to be reconstructed here. That couples this function to the handler: if it
+    changes which tags it builds, a condition silently stops seeing one. The alternative is
+    leaving the route's tags unjudged, which makes a run tag condition avoidable through it, so
+    the coupling is the lesser cost -- but it is a real one, and the handler is the place to
+    look first if a condition ever appears not to apply here.
+
+    `mlflow.runType` is omitted deliberately: reserved keys are excluded from request
+    evaluation anyway (D4).
+    """
+    if not isinstance(body, dict):
+        return ()
+    categories = body.get("categories") or []
+    endpoint_name = body.get("endpoint_name")
+    model = body.get("model")
+    provider = body.get("provider")
+    raw_trace_ids = body.get("trace_ids") or []
+    # Both normalizations below mirror the handler EXACTLY, and both matter. It lowercases the
+    # provider and deduplicates the trace ids (order-preserving) BEFORE building these tags, so
+    # projecting the raw values would judge a different string than the one persisted:
+    # provider "OpenAI" would be checked as "OpenAI:/gpt" but stored as "openai:/gpt", and
+    # ["t1", "t1"] checked as "2" but stored as "1". A condition would then permit precisely
+    # the value it was written to reject.
+    provider_name = provider.lower() if isinstance(provider, str) and provider else provider
+    # Only hashable entries can be deduplicated, and a JSON body can carry a list or object
+    # here. The handler would fail on such a request too, so nothing is persisted either way --
+    # but it must fail in the handler's validation, not as an unhandled TypeError raised from
+    # authorization before the request is ever judged.
+    trace_ids = (
+        list(dict.fromkeys(i for i in raw_trace_ids if isinstance(i, Hashable)))
+        if isinstance(raw_trace_ids, list)
+        else []
+    )
+    model_name = f"gateway:/{endpoint_name}" if endpoint_name else f"{provider_name}:/{model}"
+    tags = [
+        ("categories", ",".join(categories) if isinstance(categories, list) else str(categories)),
+        ("model", model_name),
+        # An int in the handler; every projected value must be a string.
+        ("total_traces", str(len(trace_ids))),
+    ]
+    if endpoint_name:
+        tags.append(("endpoint_name", str(endpoint_name)))
+    return tuple(tags)
+
+
 def validate_can_invoke_issue_detection():
     """
     Issue detection creates a run in the request's experiment and, when ``secret_id`` is
@@ -3329,9 +5155,13 @@ def validate_can_invoke_issue_detection():
     experiment and USE on the secret, mirroring model-definition creation. The run it
     creates puts this on the same create shape as ``validate_can_create_run``.
     """
-    if not _authorize_create_in_experiment(_get_request_param("experiment_id"), RESOURCE_TYPE_RUN):
-        return False
     body = request.get_json(silent=True)
+    if not _authorize_create_in_experiment(
+        _get_request_param("experiment_id"),
+        RESOURCE_TYPE_RUN,
+        tags=_issue_detection_run_tags(body),
+    ):
+        return False
     secret_id = body.get("secret_id") if isinstance(body, dict) else None
     # An absent or empty secret_id is also a no-op in the handler (no credentials fetched).
     if not secret_id:
@@ -3340,7 +5170,20 @@ def validate_can_invoke_issue_detection():
 
 
 def validate_can_invoke_genai_evaluate():
-    return _authorize_create_in_experiment(_get_request_param("experiment_id"), RESOURCE_TYPE_RUN)
+    """Creates a run, and writes to the existing traces it evaluates.
+
+    The run half is the create shape every run-creating route uses. The trace half is the
+    reason this route needs more: the accepted job links the named traces to its run and
+    writes their tags and assessments through a privileged client, so a trace target
+    condition has to be evaluated before the job is submitted.
+    """
+    experiment_id = _get_request_param("experiment_id")
+    body = request.get_json(silent=True)
+    return _authorize_create_in_experiment(
+        experiment_id,
+        RESOURCE_TYPE_RUN,
+        extra_conditions=_submitted_trace_contexts(experiment_id, body),
+    )
 
 
 def _validate_can_use_model_definitions(
@@ -3795,6 +5638,30 @@ def validate_can_delete_traces():
     """
     experiment_id = _get_request_param("experiment_id")
     experiment = (RESOURCE_TYPE_EXPERIMENT, experiment_id)
+    # §7.1 cases 9a and 9b. The route has two modes: it either names the traces
+    # (``request_ids``) or selects them by timestamp.
+    #
+    # The context is anchored on the experiment in both. That is not decoration: the
+    # loader skips a context whose ``parent_resource_id`` is None, and the store then
+    # matches only UNSCOPED conditions for the type -- so without it an
+    # experiment-scoped trace condition was never loaded, never evaluated, and the
+    # delete ran unconditioned. Workspace-wide conditions still applied, which is what
+    # made the gap invisible.
+    #
+    # With the anchor the two modes resolve differently, both safely. Named ids are
+    # enumerated and conditioned directly -- one bulk attribute fetch, not one query per
+    # id. Timestamp mode cannot enumerate its set before the delete, so it asks the
+    # parent instead, narrowed by the delete's own bound: "does this experiment hold a
+    # trace at or before `max_timestamp_millis` that fails?" in a single pushdown. None
+    # failing means no trace the delete can reach fails either, so it proceeds; the first
+    # one failing refuses the whole delete and names it (D21, amended -- the original
+    # decision refused timestamp mode outright).
+    #
+    # Either way the refusal only bites when a trace target condition actually exists:
+    # with none configured the gate returns before reaching it, so both modes behave
+    # exactly as they do today.
+    msg = _get_request_message(DeleteTraces())
+    trace_ids = tuple(msg.request_ids)
     return authorize(
         authenticate_request().username,
         experiment,
@@ -3817,11 +5684,31 @@ def validate_can_delete_traces():
                 ),
             ),
         ],
+        conditions=[
+            ConditionContext(
+                resource_type=RESOURCE_TYPE_TRACE,
+                scope=ConditionScope.MUTATE,
+                request=TraceRequestValues(),
+                resource_ids=trace_ids,
+                parent_resource_id=experiment_id,
+                # Timestamp mode's own bound, so the probe judges the traces this delete
+                # can actually reach. `HasField` rather than a truthiness check: the field
+                # has explicit presence, and an absent bound is not the same statement as
+                # a bound of 0.
+                cascade_max_timestamp_ms=(
+                    msg.max_timestamp_millis if msg.HasField("max_timestamp_millis") else None
+                ),
+            )
+        ],
     )
 
 
-def _authorize_trace(trace_id: str, action: str) -> bool:
-    trace = _fetch_or_none(_get_tracking_store().get_trace_info, trace_id)
+def _authorize_trace(
+    trace_id: str,
+    action: str,
+    tags: "tuple[tuple[str, str | None], ...]" = (),
+) -> bool:
+    trace = auth_resources.fetch_trace_info(trace_id)
     if trace is None:
         return False
     experiment = (RESOURCE_TYPE_EXPERIMENT, trace.experiment_id)
@@ -3833,15 +5720,109 @@ def _authorize_trace(trace_id: str, action: str) -> bool:
             Requirement(RESOURCE_TYPE_EXPERIMENT, trace.experiment_id, "read"),
             Requirement(RESOURCE_TYPE_TRACE, "*", action, fallback_if_no_grant=(experiment,)),
         ],
+        conditions=_mutation_contexts(
+            action,
+            context_for(
+                RESOURCE_TYPE_TRACE,
+                trace_id,
+                ConditionScope.MUTATE,
+                TraceRequestValues(tags=tags),
+                parent_resource_id=trace.experiment_id,
+            ),
+        ),
     )
 
 
+def _authorize_existing_traces_as(username, submitted, action):
+    """Authorize a mutation of traces that ALREADY exist, each on its OWN experiment.
+
+    The routes that ingest spans or start a trace take a caller-supplied trace id. An id
+    that already exists is not a create: the store appends to that trace, recomputes its
+    aggregates, and can relocate it. The authority required is therefore authority over
+    THAT trace, in the experiment it actually lives in -- not the experiment the request
+    names. Trusting the request's experiment is what let a caller with create rights in
+    one experiment write to a trace in another.
+
+    ``submitted`` maps each existing trace id to ``(real_experiment_id, tags)``, with the
+    experiment resolved from the store rather than read from the body.
+
+    Grants and conditions both anchor there. The grants are the same tiers
+    :func:`_authorize_trace` requires -- experiment ``read`` plus trace ``action`` with an
+    experiment fallback -- gathered across every distinct experiment into ONE requirement
+    list, so a batch spanning several experiments costs one grant load rather than one per
+    trace. Each trace then gets its own MUTATE context anchored on its own experiment, so
+    a condition scoped to that experiment is loaded and judged, and one scoped to a
+    different experiment is not (F-0022).
+
+    All-or-nothing: one trace failing either half denies the whole batch. The handler
+    writes the batch as a unit, so a partial refusal would leave the caller unable to tell
+    what was persisted.
+
+    """
+    if not submitted:
+        return True
+    resolved = _bulk_requirements_in_experiments(
+        [experiment_id for experiment_id, _tags in submitted.values()],
+        RESOURCE_TYPE_TRACE,
+        action,
+    )
+    if resolved is None:
+        return False
+    anchor, requirements = resolved
+    conditions = (
+        []
+        if action == READ_ACTION
+        else [
+            context_for(
+                RESOURCE_TYPE_TRACE,
+                trace_id,
+                ConditionScope.MUTATE,
+                TraceRequestValues(tags=tags),
+                parent_resource_id=experiment_id,
+            )
+            for trace_id, (experiment_id, tags) in sorted(submitted.items())
+        ]
+    )
+    return authorize(username, anchor, requirements, conditions=conditions)
+
+
 def validate_can_update_trace_by_trace_id():
+    """Bodies that set no tag, addressed by `trace_id`."""
     return _authorize_trace(_get_request_param("trace_id"), "update")
 
 
 def validate_can_update_trace_by_request_id():
-    return _authorize_trace(_get_request_param("request_id"), "update")
+    """`EndTrace`, addressed by `request_id`.
+
+    EndTrace does carry tags, and the handler persists them, so they are declared here too --
+    ending a trace is another way to write a tag.
+    """
+    message = _get_request_message(EndTrace())
+    return _authorize_trace(
+        _get_request_param("request_id"),
+        "update",
+        tuple((tag.key, tag.value) for tag in message.tags),
+    )
+
+
+def validate_can_set_trace_tag_by_trace_id():
+    return _authorize_trace(
+        _get_request_param("trace_id"), "update", _tag_key_and_value_from_request()
+    )
+
+
+def validate_can_set_trace_tag_by_request_id():
+    return _authorize_trace(
+        _get_request_param("request_id"), "update", _tag_key_and_value_from_request()
+    )
+
+
+def validate_can_delete_trace_tag_by_trace_id():
+    return _authorize_trace(_get_request_param("trace_id"), "update", _tag_key_from_request())
+
+
+def validate_can_delete_trace_tag_by_request_id():
+    return _authorize_trace(_get_request_param("request_id"), "update", _tag_key_from_request())
 
 
 def _bulk_requirements_in_experiments(
@@ -3873,16 +5854,58 @@ def _authorize_bulk_in_experiments(
 
 def validate_can_create_logged_model():
     msg = _get_request_message(CreateLoggedModel())
-    if not _authorize_create_in_experiment(msg.experiment_id, RESOURCE_TYPE_LOGGED_MODEL):
+    if not _authorize_create_in_experiment(
+        msg.experiment_id,
+        RESOURCE_TYPE_LOGGED_MODEL,
+        tags=tuple((tag.key, tag.value) for tag in msg.tags),
+    ):
         return False
     return not msg.source_run_id or _authorize_run_id(msg.source_run_id, "read")
 
 
 def _assessment_trace_context(trace_id: str) -> "tuple[tuple[str, str], str] | None":
-    trace = _fetch_or_none(_get_tracking_store().get_trace_info, trace_id)
+    trace = auth_resources.fetch_trace_info(trace_id)
     if trace is None:
         return None
     return (RESOURCE_TYPE_EXPERIMENT, trace.experiment_id), trace.experiment_id
+
+
+def _assessment_trace_conditions(trace_id: str, experiment_id: str) -> bool:
+    """The conditions half for an assessment mutation, judged on its TRACE.
+
+    Assessment create, update and delete are authorized against the trace, so a trace
+    TARGET condition is what gates them -- the RFC's worked example is refusing an
+    assessment on a trace tagged ``finalized=true``. ``assessment`` is deliberately
+    not a conditionable type: it owns no tag or alias vocabulary of its own, so the
+    trace is the only thing a condition can name on these routes.
+
+    Request values are empty on purpose. An assessment body sets assessment fields,
+    not trace tags, so no ``tag_key``/``tag_value`` clause could read anything here --
+    only a target condition applies, which is exactly what the RFC describes.
+
+    Called beside the grant check rather than through ``authorize`` for ``create``,
+    whose two-path disjunction is evaluated by the caller and so has no single
+    ``authorize`` call to pass conditions to -- the same shape as the legacy
+    experiment surface.
+    """
+    return authorize_on_conditions(
+        authenticate_request().username,
+        get_anchor_workspace(RESOURCE_TYPE_EXPERIMENT, experiment_id),
+        _assessment_trace_contexts(trace_id, experiment_id),
+    )
+
+
+def _assessment_trace_contexts(trace_id: str, experiment_id: str) -> "list[ConditionContext]":
+    """The trace context an assessment mutation is judged on. See above."""
+    return [
+        context_for(
+            RESOURCE_TYPE_TRACE,
+            trace_id,
+            ConditionScope.MUTATE,
+            TraceRequestValues(),
+            parent_resource_id=experiment_id,
+        )
+    ]
 
 
 def validate_can_get_assessment():
@@ -3931,6 +5954,59 @@ def validate_can_query_trace_metrics():
     )
 
 
+def _assessment_source_run_id(assessment_proto) -> "str | None":
+    """The run a body names as the assessment's source, or ``None``.
+
+    ``Assessment`` lifts this metadata key into its own ``run_id`` field, and
+    ``SqlAssessments`` has a ``run_id`` column, so it is a first-class association rather
+    than loose annotation -- and the server does not police the reserved ``mlflow.*``
+    prefix here, so the value is whatever the caller sent.
+    """
+    metadata = dict(assessment_proto.metadata or {})
+    return metadata.get(AssessmentMetadataKey.SOURCE_RUN_ID) or None
+
+
+def _named_run_permits(run_id: str, action: str) -> bool:
+    """Authorize a run that a request NAMES but does not otherwise act on.
+
+    The id in the body is what identifies the target, so it decides which run is judged.
+    No condition context is declared for it: for ``read`` that is the standing rule (a read
+    declares none), and for a veto there is nothing to condition -- the request mutates no
+    tag or alias of the run, only a reference to it.
+
+    A nonexistent id resolves to nothing and is refused, uniformly, so the response is not
+    an existence oracle for runs in experiments the caller cannot see.
+    """
+    resolved = _run_requirement(run_id, action)
+    if resolved is None:
+        return False
+    run_anchor, requirements = resolved
+    return authorize(authenticate_request().username, run_anchor, requirements)
+
+
+def _assessment_source_run_permits(run_id: str) -> bool:
+    """The named source run's tier must not be DENIED.
+
+    Naming a run as an assessment's source writes into that run: the association decides
+    what a run's evaluation results contain, and ``_mark_run_deleted`` uses it to decide
+    which assessments a run delete destroys. Stamping a run the caller has no standing
+    over therefore pollutes its result set and hands its deleters the power to remove the
+    assessment.
+
+    A veto, not a positive action: the run is not the subject of the request, so a caller
+    without any run grant must not be refused -- only one the role explicitly denies.
+    Anchored on the RUN's own experiment, which need not be the trace's.
+
+    A nonexistent run denies uniformly (``_run_requirement`` returns ``None``), so the
+    response cannot be used as an oracle for which run ids exist.
+
+    Deliberately declares NO run condition context. Conditioning the run would be the
+    consistent extension -- an association naming a run is a run-side write, which is how
+    ``LinkTracesToRun`` is judged -- but the decision taken was the grant veto alone.
+    """
+    return _named_run_permits(run_id, ACTION_NOT_DENIED)
+
+
 def validate_can_create_assessment():
     """CreateAssessment: the experiment confers the write, or a trace-tier grant does.
 
@@ -3970,7 +6046,12 @@ def validate_can_create_assessment():
         return False
     met = [requirement_met(r, p) for r, p in zip(requirements, permissions)]
     *addressing, experiment_write, trace_write = met
-    return all(addressing) and (experiment_write or trace_write)
+    if not (all(addressing) and (experiment_write or trace_write)):
+        return False
+    source_run_id = _assessment_source_run_id(_get_request_message(CreateAssessment()).assessment)
+    if source_run_id and not _assessment_source_run_permits(source_run_id):
+        return False
+    return _assessment_trace_conditions(_get_request_param("trace_id"), experiment_id)
 
 
 def validate_can_update_assessment():
@@ -3986,6 +6067,15 @@ def validate_can_update_assessment():
     if resolved is None:
         return False
     experiment, experiment_id = resolved
+    # A body that REWRITES the source run is the step that turns update authority into
+    # delete authority: stamp a run you may delete, then delete it, and the assessment
+    # goes with it. Only checked when the update actually carries metadata -- an update
+    # touching only `rationale` names no run and must not be made to prove one.
+    message = _get_request_message(UpdateAssessment())
+    if "metadata" in set(message.update_mask.paths):
+        source_run_id = _assessment_source_run_id(message.assessment)
+        if source_run_id and not _assessment_source_run_permits(source_run_id):
+            return False
     return authorize(
         authenticate_request().username,
         experiment,
@@ -3996,6 +6086,7 @@ def validate_can_update_assessment():
                 RESOURCE_TYPE_ASSESSMENT, "*", "update", fallback_if_no_grant=(experiment,)
             ),
         ],
+        conditions=_assessment_trace_contexts(_get_request_param("trace_id"), experiment_id),
     )
 
 
@@ -4032,11 +6123,19 @@ def validate_can_delete_assessment():
                 ),
             ),
         ],
+        conditions=_assessment_trace_contexts(_get_request_param("trace_id"), experiment_id),
     )
 
 
 def validate_can_start_trace():
-    return _authorize_create_in_experiment(_get_request_param("experiment_id"), RESOURCE_TYPE_TRACE)
+    # The body's tags are persisted by the handler, so they are declared here: a condition that
+    # gates SetTraceTag would otherwise be avoidable by naming the tag at trace creation.
+    message = _get_request_message(StartTrace())
+    return _authorize_create_in_experiment(
+        _get_request_param("experiment_id"),
+        RESOURCE_TYPE_TRACE,
+        tags=tuple((tag.key, tag.value) for tag in message.tags),
+    )
 
 
 def validate_can_read_traces_by_experiment_ids():
@@ -4058,6 +6157,11 @@ def validate_can_read_traces_by_experiment_ids():
 
 
 def validate_can_start_trace_v3():
+    # Imported here rather than at module scope, matching the other uses in this module:
+    # ``mlflow.tracing`` pulls in tracing machinery the auth plugin does not need loaded
+    # during app construction.
+    from mlflow.tracing.constant import TraceMetadataKey
+
     # Read from the parsed proto, as the handler does: a structural match on raw JSON rejected the
     # lowerCamelCase spelling the handler accepts, refusing valid requests.
     message = _get_request_message(StartTraceV3())
@@ -4072,24 +6176,152 @@ def validate_can_start_trace_v3():
         if message.trace.trace_info.assessments
         else ()
     )
-    return _authorize_create_in_experiment(experiment_id, RESOURCE_TYPE_TRACE, extra)
+    # V3 carries its tags as a map on TraceInfo rather than a repeated field.
+    tags = tuple(message.trace.trace_info.tags.items())
+
+    # ``mlflow.sourceRun`` in the metadata associates this trace with a run, and the store
+    # upserts the body's metadata verbatim on BOTH the create and the existing-id path. The
+    # id names the target, so it selects the run to judge.
+    #
+    # READ, not update: the SDK stamps this key automatically whenever a trace is logged
+    # inside a run, so requiring update authority would gate the ordinary logging path on a
+    # tier callers need not hold. Read still refuses a run the role explicitly DENIES, which
+    # is what stops a caller attaching a trace to a run they have no standing over -- and
+    # the auth layer already treats the key as access-controlled in the other direction,
+    # stripping it from RESPONSES when the run tier is denied
+    # (``_TRACE_METADATA_SIBLING_TIERS``). No condition context: a read declares none.
+    source_run_id = message.trace.trace_info.trace_metadata.get(TraceMetadataKey.SOURCE_RUN)
+    if source_run_id and not _named_run_permits(source_run_id, READ_ACTION):
+        return False
+
+    # The trace id is CALLER-SUPPLIED, and the store's write is an upsert: handed an id
+    # that already exists it rewrites that trace's info, tags and metadata, re-parents its
+    # spans and assessments, and so can move the trace into the experiment this request
+    # names. That is a mutation of an existing trace, not a create, and authorizing it as
+    # a create let a caller with create rights in one experiment take over a trace in
+    # another.
+    #
+    # So classify the id first. Only a MISSING id is a create.
+    if trace_id := message.trace.trace_info.trace_id:
+        existing = auth_resources.fetch_trace_info(trace_id)
+        if existing is not None:
+            # Judged on the experiment the trace is in NOW, not the one the body asks for.
+            # The assessment veto is retained: `store.start_trace` persists
+            # `trace_info.assessments` on this path too.
+            username = authenticate_request().username
+            source_experiment_id = str(existing.experiment_id)
+            if extra and not authorize(
+                username, (RESOURCE_TYPE_EXPERIMENT, source_experiment_id), list(extra)
+            ):
+                return False
+            if not _authorize_existing_traces_as(
+                username, {trace_id: (source_experiment_id, tags)}, "update"
+            ):
+                return False
+            # The store assigns `trace_info.experiment_id` from THIS body and re-parents
+            # the trace's spans and assessments to it, so a body naming a different
+            # experiment MOVES the trace. That is a write into the destination, and
+            # authority over the source does not grant it -- otherwise a caller could lift
+            # a trace into an experiment they cannot write to, or out of one they are
+            # audited in. Routing an existing id off the create path removed the
+            # destination check that used to run, so it is restored explicitly here: a
+            # relocation needs BOTH ends.
+            if source_experiment_id != str(experiment_id):
+                # The trace EXISTS, so the destination's conditions have real state to
+                # read. A bare create context carries no resource id and target filters
+                # only evaluate at MUTATE scope, so a destination-scoped target condition
+                # would load and never apply -- the relocation would be judged solely on
+                # the values in the body. Declare the trace at MUTATE scope anchored on the
+                # DESTINATION as well, which is the same resource (the trace being moved)
+                # scoped to the other container; the destination experiment itself is never
+                # conditioned, only used to select which trace conditions load.
+                #
+                # Tags are the RESULTING state, not the body's. `start_trace` merges the
+                # submitted tags over the existing rows and deletes none, so every tag the
+                # trace already carries arrives in the destination -- a destination value
+                # condition that saw only the body could be satisfied by omitting the
+                # offending tag from the request while the store moved it anyway. The
+                # SOURCE context keeps body tags on purpose: there, the carried tags are
+                # not being set, they are current state, and the source's own target
+                # condition is what judges them.
+                carried = dict(existing.tags or {})
+                carried.update(dict(tags))
+                resulting_tags = tuple(carried.items())
+                return _authorize_create_in_experiment(
+                    experiment_id,
+                    RESOURCE_TYPE_TRACE,
+                    extra=extra,
+                    tags=resulting_tags,
+                    extra_conditions=(
+                        context_for(
+                            RESOURCE_TYPE_TRACE,
+                            trace_id,
+                            ConditionScope.MUTATE,
+                            TraceRequestValues(tags=resulting_tags),
+                            parent_resource_id=str(experiment_id),
+                        ),
+                    ),
+                )
+            return True
+
+    return _authorize_create_in_experiment(
+        experiment_id,
+        RESOURCE_TYPE_TRACE,
+        extra=extra,
+        tags=tags,
+    )
 
 
 def validate_can_link_traces_to_run():
-    tracking_store = _get_tracking_store()
+    """UPDATE on the run, plus ``read`` on every trace named.
+
+    ``store.link_traces_to_run`` writes only ``SqlEntityAssociation`` rows -- a
+    ``(trace -> run)`` edge. It touches no trace column, tag or metadata, so linking is a
+    write to the RUN's membership, not a mutation of the traces. The run therefore carries
+    the conditions, which ``_authorize_run_id`` declares; the traces carry a ``read``
+    requirement with the experiment fallback, which is what refuses a denied trace tier.
+
+    No trace MUTATE context is declared, deliberately. A condition is scoped to the exact
+    resource it names, and the resource created here is an association -- not a
+    conditionable type. Declaring the traces' contexts would let a restriction like
+    ``tags.env = 'dev'`` refuse attaching a prod trace to a run, which mutates nothing
+    about that trace.
+
+    The OTLP ingest path is NOT a counter-example, though it looks like one: it reaches
+    this same store call via ``X-Mlflow-Run-Id`` and does evaluate trace conditions -- but
+    those are for the SPANS it appends, which really do mutate the trace. For the
+    association alone it requires exactly what this route does, ``update`` on the run.
+    """
     run_id = _get_request_param("run_id")
     if not _authorize_run_id(run_id, "update"):
         return False
-    trace_ids = (request.json or {}).get("trace_ids", [])
-    try:
-        trace_experiment_ids = [
-            tracking_store.get_trace_info(tid).experiment_id for tid in trace_ids
-        ]
-    except MlflowException as e:
-        if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+    # Only STRING ids, and only then deduplicated. A JSON object or array is unhashable, so
+    # deduplicating the raw body faulted the gate on a malformed request and surfaced as a
+    # 500 ahead of the handler's own schema check. Filtering rather than rejecting keeps the
+    # client error where it belongs: the handler applies ``_assert_item_type_string`` to
+    # ``trace_ids`` and refuses the whole body before reaching the store, so nothing a
+    # dropped element would have named can be written unauthorized. Same remedy as F-0017.
+    raw_trace_ids = (request.json or {}).get("trace_ids", [])
+    if not isinstance(raw_trace_ids, list):
+        # Also the handler's to reject (``_assert_array``); declaring nothing here leaves
+        # the run requirement above as the only gate, which is correct for a body that
+        # names no trace.
+        raw_trace_ids = []
+    trace_ids = list(
+        dict.fromkeys(item for item in raw_trace_ids if isinstance(item, str) and item)
+    )
+    # One batched resolution rather than one store call per trace; it also seeds the memo,
+    # so the requirement build below is free.
+    auth_resources.prefetch_trace_infos(trace_ids)
+    submitted: "dict[str, tuple[str, tuple[tuple[str, str | None], ...]]]" = {}
+    for trace_id in trace_ids:
+        trace = auth_resources.fetch_trace_info(trace_id)
+        if trace is None:
+            # Uniform denial for a nonexistent id, so the response is not an existence
+            # oracle -- the same choice the previous RESOURCE_DOES_NOT_EXIST branch made.
             return False
-        raise
-    return _authorize_bulk_in_experiments(trace_experiment_ids, RESOURCE_TYPE_TRACE, "read")
+        submitted[trace_id] = (str(trace.experiment_id), ())
+    return _authorize_existing_traces_as(authenticate_request().username, submitted, "read")
 
 
 def validate_can_read_metric_history_bulk(run_ids=None):
@@ -4172,7 +6404,10 @@ def validate_can_create_promptlab_run():
             INVALID_PARAMETER_VALUE,
         )
 
-    return _authorize_create_in_experiment(experiment_id, RESOURCE_TYPE_RUN)
+    # The caller's own tags, which the handler passes to `create_run` unchanged.
+    return _authorize_create_in_experiment(
+        experiment_id, RESOURCE_TYPE_RUN, tags=_promptlab_run_tags(data)
+    )
 
 
 def validate_gateway_proxy():
@@ -4510,8 +6745,8 @@ BEFORE_REQUEST_HANDLERS = {
     DeleteExperiment: validate_can_delete_experiment,
     RestoreExperiment: validate_can_delete_experiment,
     UpdateExperiment: validate_can_update_experiment,
-    SetExperimentTag: validate_can_update_experiment,
-    DeleteExperimentTag: validate_can_update_experiment,
+    SetExperimentTag: validate_can_set_experiment_tag,
+    DeleteExperimentTag: validate_can_delete_experiment_tag,
     # Routes for runs
     CreateRun: validate_can_create_run,
     GetRun: validate_can_read_run,
@@ -4523,8 +6758,8 @@ BEFORE_REQUEST_HANDLERS = {
     LogInputs: validate_can_log_inputs,
     LogModel: validate_can_update_run,
     LogOutputs: validate_can_log_outputs,
-    SetTag: validate_can_update_run,
-    DeleteTag: validate_can_update_run,
+    SetTag: validate_can_set_run_tag,
+    DeleteTag: validate_can_delete_run_tag,
     LogParam: validate_can_update_run,
     GetMetricHistory: validate_can_read_run,
     ListArtifacts: validate_can_read_run,
@@ -4550,12 +6785,12 @@ BEFORE_REQUEST_HANDLERS = {
     ListGatewayModelDefinitions: validate_can_list_gateway_model_definitions,
     DeleteModelVersion: validate_can_delete_model_or_prompt_version,
     UpdateModelVersion: validate_can_update_model_or_prompt_version,
-    TransitionModelVersionStage: validate_can_update_model_or_prompt_version,
+    TransitionModelVersionStage: validate_can_transition_model_or_prompt_version_stage,
     GetModelVersionDownloadUri: validate_can_read_model_or_prompt_version,
-    SetRegisteredModelTag: _validate_can_update_registered_model_or_prompt,
-    DeleteRegisteredModelTag: _validate_can_update_registered_model_or_prompt,
-    SetModelVersionTag: validate_can_update_model_or_prompt_version,
-    DeleteModelVersionTag: validate_can_delete_model_or_prompt_version,
+    SetRegisteredModelTag: _validate_can_set_registered_model_or_prompt_tag,
+    DeleteRegisteredModelTag: _validate_can_delete_registered_model_or_prompt_tag,
+    SetModelVersionTag: validate_can_set_model_or_prompt_version_tag,
+    DeleteModelVersionTag: validate_can_delete_model_or_prompt_version_tag,
     SetRegisteredModelAlias: validate_can_set_model_or_prompt_version_alias,
     DeleteRegisteredModelAlias: validate_can_delete_model_or_prompt_version_alias,
     GetModelVersionByAlias: validate_can_read_model_or_prompt_version,
@@ -4626,10 +6861,10 @@ BEFORE_REQUEST_HANDLERS = {
     BatchGetTraceInfos: validate_can_batch_get_traces,
     DeleteTraces: validate_can_delete_traces,
     DeleteTracesV3: validate_can_delete_traces,
-    SetTraceTag: validate_can_update_trace_by_request_id,
-    SetTraceTagV3: validate_can_update_trace_by_trace_id,
-    DeleteTraceTag: validate_can_update_trace_by_request_id,
-    DeleteTraceTagV3: validate_can_update_trace_by_trace_id,
+    SetTraceTag: validate_can_set_trace_tag_by_request_id,
+    SetTraceTagV3: validate_can_set_trace_tag_by_trace_id,
+    DeleteTraceTag: validate_can_delete_trace_tag_by_request_id,
+    DeleteTraceTagV3: validate_can_delete_trace_tag_by_trace_id,
     LinkTracesToRun: validate_can_link_traces_to_run,
     LinkPromptsToTrace: validate_can_update_trace_by_trace_id,
     CalculateTraceFilterCorrelation: validate_can_read_traces_by_experiment_ids,
@@ -4708,6 +6943,11 @@ BEFORE_REQUEST_VALIDATORS.update({
     # Same goes for /current/permissions.
     (LIST_CURRENT_USER_PERMISSIONS, "GET"): lambda: True,
     (AJAX_LIST_CURRENT_USER_PERMISSIONS, "GET"): lambda: True,
+    # Open for the same reason: the handler reads the subject from the authenticated
+    # caller rather than a parameter, so it can only ever return the caller's own
+    # conditions. There is nothing to authorize beyond being logged in.
+    (LIST_CURRENT_USER_MUTATION_CONDITIONS, "GET"): lambda: True,
+    (AJAX_LIST_CURRENT_USER_MUTATION_CONDITIONS, "GET"): lambda: True,
     (LIST_USERS, "GET"): validate_can_list_users,
     (AJAX_LIST_USERS, "GET"): validate_can_list_users,
     (CREATE_USER, "POST"): validate_can_create_user,
@@ -4740,6 +6980,20 @@ BEFORE_REQUEST_VALIDATORS.update({
     (AJAX_LIST_ROLE_PERMISSIONS, "GET"): validate_can_view_roles,
     (UPDATE_ROLE_PERMISSION, "PATCH"): validate_can_manage_roles,
     (AJAX_UPDATE_ROLE_PERMISSION, "PATCH"): validate_can_manage_roles,
+    # Mutation conditions are part of a role's definition, so they carry the same
+    # authorization as role permissions: manage to author, view to read.
+    (ADD_MUTATION_CONDITIONS, "POST"): validate_can_manage_roles,
+    (AJAX_ADD_MUTATION_CONDITIONS, "POST"): validate_can_manage_roles,
+    (ADD_USER_MUTATION_CONDITION, "POST"): validate_can_manage_user_conditions,
+    (AJAX_ADD_USER_MUTATION_CONDITION, "POST"): validate_can_manage_user_conditions,
+    (GET_MUTATION_CONDITIONS, "GET"): validate_can_view_roles,
+    (AJAX_GET_MUTATION_CONDITIONS, "GET"): validate_can_view_roles,
+    (UPDATE_MUTATION_CONDITIONS, "PATCH"): validate_can_manage_roles,
+    (AJAX_UPDATE_MUTATION_CONDITIONS, "PATCH"): validate_can_manage_roles,
+    (REMOVE_MUTATION_CONDITIONS, "DELETE"): validate_can_manage_roles,
+    (AJAX_REMOVE_MUTATION_CONDITIONS, "DELETE"): validate_can_manage_roles,
+    (LIST_MUTATION_CONDITIONS, "GET"): validate_can_view_roles,
+    (AJAX_LIST_MUTATION_CONDITIONS, "GET"): validate_can_view_roles,
     (ASSIGN_ROLE, "POST"): validate_can_manage_roles,
     (AJAX_ASSIGN_ROLE, "POST"): validate_can_manage_roles,
     (UNASSIGN_ROLE, "DELETE"): validate_can_manage_roles,
@@ -4833,8 +7087,8 @@ LOGGED_MODEL_BEFORE_REQUEST_HANDLERS = {
     GetLoggedModel: validate_can_read_logged_model,
     DeleteLoggedModel: validate_can_delete_logged_model,
     FinalizeLoggedModel: validate_can_update_logged_model,
-    DeleteLoggedModelTag: validate_can_delete_logged_model,
-    SetLoggedModelTags: validate_can_update_logged_model,
+    DeleteLoggedModelTag: validate_can_delete_logged_model_tag,
+    SetLoggedModelTags: validate_can_set_logged_model_tags,
     ListLoggedModelArtifacts: validate_can_read_logged_model,
     LogLoggedModelParamsRequest: validate_can_update_logged_model,
 }
@@ -5368,6 +7622,27 @@ def _authorized_outside_before_request(req) -> bool:
 
 @catch_mlflow_exception
 def _before_request():
+    """Authorize the request, then drop the request-scoped resource caches.
+
+    The ``finally`` is mandatory rather than stylistic. The caches live in ContextVars
+    (see ``auth_resources``) because the FastAPI path has no Flask ``g``, and unlike
+    ``g`` a ContextVar is not torn down for us -- an uncleared entry persists on the
+    worker thread and would be read by the *next* request served there, which is a
+    cross-request read of mutable resource state.
+
+    It has to be a ``finally`` around the whole body, not a call at the end of the
+    happy path: the authorization flow below has six-plus exit points (the
+    unprotected-route return, the authentication ``Response``, the admin short-circuit,
+    and three ``make_forbidden_response()`` paths), and a denied request is exactly the
+    one whose leftover state matters.
+    """
+    try:
+        return _authorize_before_request()
+    finally:
+        auth_resources.clear_cache()
+
+
+def _authorize_before_request():
     if is_unprotected_route(request.path):
         return
 
@@ -5558,6 +7833,133 @@ def update_role_permission():
     permission = _get_request_param("permission")
     rp = store.update_role_permission(role_permission_id, permission)
     return jsonify({"role_permission": rp.to_json()})
+
+
+# ---- Mutation conditions (condition-based access control) ----
+#
+# Addressed by (role_id, resource_type), the natural key. Every route carries
+# ``role_id``, so ``_get_role_workspace_from_request`` already resolves the
+# workspace for ``validate_can_manage_roles`` with no extension needed.
+
+
+@catch_mlflow_exception
+def add_mutation_conditions():
+    role_id = _get_int_request_param("role_id")
+    resource_type = _get_request_param("resource_type")
+    params = _request_params()
+    mc = store.add_mutation_condition(
+        role_id,
+        resource_type,
+        resource_pattern=_optional_condition_param(params, "resource_pattern"),
+        container_resource_type=_optional_condition_param(params, "container_resource_type"),
+        container_resource_pattern=_optional_condition_param(params, "container_resource_pattern"),
+        value_condition=_optional_condition_param(params, "value_condition"),
+        target_condition=_optional_condition_param(params, "target_condition"),
+    )
+    return jsonify({"mutation_conditions": mc.to_json()})
+
+
+@catch_mlflow_exception
+def get_mutation_conditions():
+    condition_id = _get_int_request_param("condition_id")
+    mc = store.get_mutation_condition(condition_id)
+    return jsonify({"mutation_conditions": mc.to_json()})
+
+
+@catch_mlflow_exception
+def update_mutation_conditions():
+    """Partial update: an omitted field is left alone, an explicit ``null`` clears it.
+
+    The distinction is carried by key *presence*, not by value, because "clear the
+    target condition" and "leave the target condition alone" would otherwise both
+    arrive as ``null`` -- and guessing wrong in the clearing direction silently
+    removes a restriction the admin still wants.
+
+    The scope is replaced as a *whole* -- both axes at once -- when any scope key is
+    present, or when ``update_scope`` is set explicitly. The axes cannot move
+    independently: whether a container is legal depends on the resource type, and whether a
+    wildcard container collapses to the workspace depends on the container, so replacing
+    half a scope would skip that joint check. Within a replaced scope an omitted key takes
+    its default, which is the widest value -- the same rule the add route follows.
+
+    Clearing both filters deletes the object, so the response carries a ``null``
+    ``mutation_conditions``.
+    """
+    condition_id = _get_int_request_param("condition_id")
+    params = _request_params()
+    mc = store.update_mutation_condition(
+        condition_id,
+        value_condition=_optional_condition_param(params, "value_condition"),
+        target_condition=_optional_condition_param(params, "target_condition"),
+        update_value_condition="value_condition" in params,
+        update_target_condition="target_condition" in params,
+        resource_pattern=_optional_condition_param(params, "resource_pattern"),
+        container_resource_type=_optional_condition_param(params, "container_resource_type"),
+        container_resource_pattern=_optional_condition_param(params, "container_resource_pattern"),
+        update_scope=bool(params.get("update_scope"))
+        or any(
+            key in params
+            for key in (
+                "resource_pattern",
+                "container_resource_type",
+                "container_resource_pattern",
+            )
+        ),
+    )
+    return jsonify({"mutation_conditions": mc.to_json() if mc else None})
+
+
+@catch_mlflow_exception
+def remove_mutation_conditions():
+    condition_id = _get_int_request_param("condition_id")
+    store.remove_mutation_condition(condition_id)
+    return make_response({})
+
+
+@catch_mlflow_exception
+def list_mutation_conditions():
+    role_id = _get_int_request_param("role_id")
+    conditions = store.list_mutation_conditions(role_id)
+    return jsonify({"mutation_conditions": [c.to_json() for c in conditions]})
+
+
+@catch_mlflow_exception
+def add_user_mutation_condition():
+    """Add a condition to a user's direct grants, creating their synthetic role if needed.
+
+    Mirrors ``grant_user_permission``: the caller names a user, not the hidden
+    ``__user_<id>__`` role the condition actually lands on.
+    """
+    params = _request_params()
+    username = _get_request_param("username")
+    resource_type = _get_request_param("resource_type")
+    store.get_user(username)
+    condition = store.add_user_mutation_condition(
+        username,
+        resource_type,
+        resource_pattern=_optional_condition_param(params, "resource_pattern"),
+        container_resource_type=_optional_condition_param(params, "container_resource_type"),
+        container_resource_pattern=_optional_condition_param(params, "container_resource_pattern"),
+        value_condition=_optional_condition_param(params, "value_condition"),
+        target_condition=_optional_condition_param(params, "target_condition"),
+    )
+    return jsonify({"mutation_conditions": condition.to_json()})
+
+
+def _optional_condition_param(params: dict[str, Any], name: str) -> str | None:
+    """Read an optional condition filter string, rejecting non-string input.
+
+    A non-string would otherwise reach the parser and fail with a message about
+    filter syntax rather than about the request being malformed.
+    """
+    value = params.get(name)
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise MlflowException.invalid_parameter_value(
+            f"Parameter '{name}' must be a string or null. Got: {value!r}"
+        )
+    return value
 
 
 @catch_mlflow_exception
@@ -6003,12 +8405,36 @@ def filter_search_model_versions(resp: Response):
     resp.data = message_to_json(response_message)
 
 
+def _renamed_registry_families(resp: Response) -> tuple[str, ...]:
+    """Which registry family ``RenameRegisteredModel`` just renamed.
+
+    The route is shared between registered models and prompts, and the two are the same
+    row in ``registered_models`` distinguished by a tag, so the family has to be read off
+    the renamed entity. ``_entity_is_prompt`` is how every other handler on this route
+    family decides (see :func:`set_can_manage_registered_model_permission`), and the
+    response carries the entity through ``to_mlflow_entity()``, tags included.
+
+    Falls back to both families when the response has no JSON object to classify from --
+    which only happens off the live path, since ``_after_request`` skips 4xx/5xx and a
+    successful rename always returns the model. Both is the right fallback: it is the old
+    behaviour, so at worst it moves a policy in the other family, whereas guessing one
+    family wrongly would orphan every condition on the resource that was renamed.
+    """
+    if not isinstance(resp.json, dict):
+        return (RESOURCE_TYPE_REGISTERED_MODEL, RESOURCE_TYPE_PROMPT)
+    message = RenameRegisteredModel.Response()
+    parse_dict(resp.json, message)
+    if _entity_is_prompt(message.registered_model):
+        return (RESOURCE_TYPE_PROMPT,)
+    return (RESOURCE_TYPE_REGISTERED_MODEL,)
+
+
 def rename_registered_model_permission(resp: Response):
     """
-    Propagate a registered-model rename to RBAC grants.
+    Propagate a registered-model rename to RBAC grants and mutation conditions.
 
     ``RenameRegisteredModel`` is shared between registered models and prompts;
-    sweep both namespaces so a prompt rename doesn't orphan its
+    sweep both grant namespaces so a prompt rename doesn't orphan its
     ``(prompt, old_name, ...)`` grants. Names are unique within the registry,
     so exactly one of the two renames applies and the other is a no-op.
     """
@@ -6022,6 +8448,21 @@ def rename_registered_model_permission(resp: Response):
         )
     store.rename_grants_for_resource("registered_model", old_name, new_name, workspace_scoped=True)
     store.rename_grants_for_resource("prompt", old_name, new_name, workspace_scoped=True)
+    # And the conditions addressed by that name, or the rename drops every restriction on
+    # the resource while leaving the grants they narrowed intact -- fail-open, and reachable
+    # by anyone who can rename. Covers the parent rows and its versions' container scope in
+    # one transaction.
+    #
+    # Only the family that was actually renamed, unlike the grant sweep above. A condition
+    # does not require its resource to exist, so a row in the other family naming the same
+    # string is a policy pre-created for a resource not created yet, not a leftover of this
+    # one; moving it would leave that resource unrestricted when it does get created. The
+    # grant sweep keeps its own behaviour here deliberately -- changing it is an upstream
+    # concern (#23426) with the opposite failure direction, since a misplaced grant denies
+    # access while a misplaced condition removes a restriction.
+    store.rename_conditions_for_registry_resource(
+        old_name, new_name, _renamed_registry_families(resp)
+    )
     # The renamed model comes back through ``to_mlflow_entity()``, so it carries the same embedded
     # versions Get and Update do.
     _redact_registered_model_response(resp, RenameRegisteredModel.Response())
@@ -6818,7 +9259,13 @@ def filter_list_artifacts_proxy(resp: Response) -> None:
         return
     username = getattr(g, "mlflow_authenticated_user", None) or authenticate_request().username
     if _authorize_artifact_proxy_resolved(
-        ((RESOURCE_TYPE_RUN,), (RESOURCE_TYPE_EXPERIMENT, experiment_id)),
+        # Built directly because the tier is known without parsing: an experiment-root
+        # listing is judged against the run tier, which the path classifier would not say
+        # for a non-recursive read. Through the factory so the tuple's shape is not
+        # restated here -- doing that by hand has twice turned an arity change into a 500
+        # out of the after-request hook. ``covers_experiment`` is immaterial for a read
+        # (reads declare no condition) but is true of this path.
+        _artifact_proxy_target((RESOURCE_TYPE_RUN,), experiment_id, covers_experiment=True),
         username,
         "read",
         _get_permission_from_experiment_id_artifact_proxy,
@@ -7373,6 +9820,80 @@ def _list_user_role_permissions(username: str) -> tuple[bool, list[_UserRolePerm
     return user.is_admin, rows
 
 
+@dataclass(frozen=True)
+class _UserRoleConditionRow:
+    """One row of ``GET /users/current/mutation-conditions``: a single condition on one
+    of the user's roles, enriched with role identity so the frontend can render the
+    source -- a role name, or "Direct" for the synthetic ``__user_<id>__`` role a
+    per-user condition lives on (D10).
+    """
+
+    # ``id`` and the fields below it are exactly the shape the admin UI's shared
+    # conditions table consumes, so the account view renders through the same component
+    # rather than a parallel one that could drift from it.
+    id: int
+    role_id: int
+    role_name: str
+    workspace: str
+    resource_type: str
+    resource_pattern: str
+    container_resource_type: str
+    container_resource_pattern: str
+    value_condition: "str | None"
+    target_condition: "str | None"
+    condition_slot: "int | None"
+
+
+def _list_user_role_conditions(username: str) -> "list[_UserRoleConditionRow]":
+    """Every condition on every role the user holds, flattened.
+
+    Mirrors ``_list_user_role_permissions`` deliberately, including returning rows for
+    every workspace rather than only the active one: a user asking what restricts them
+    is not asking per workspace, and the row carries its workspace so the caller can
+    group.
+
+    Flat and unordered by design. Conditions AND -- every applicable one must pass -- so
+    there is no precedence to express and nothing to fold.
+    """
+    user = store.get_user(username)
+    return [
+        _UserRoleConditionRow(
+            id=condition.id,
+            role_id=role.id,
+            role_name=role.name,
+            workspace=role.workspace,
+            resource_type=condition.resource_type,
+            resource_pattern=condition.resource_pattern,
+            container_resource_type=condition.container_resource_type,
+            container_resource_pattern=condition.container_resource_pattern,
+            value_condition=condition.value_condition,
+            target_condition=condition.target_condition,
+            condition_slot=condition.condition_slot,
+        )
+        for role in store.list_user_roles(user.id)
+        for condition in store.list_mutation_conditions(role.id)
+    ]
+
+
+@catch_mlflow_exception
+def list_current_user_mutation_conditions():
+    """The conditions that apply to the caller, across every role they hold.
+
+    Sender == target, with no parameter to name anyone else, which is why this is the
+    endpoint a non-admin can be given: the role-keyed ``roles/mutation-conditions/list``
+    answers about a role the caller may have no business reading.
+
+    INFORMATIONAL ONLY, and more strictly so than the permissions equivalent. A grant
+    can be pre-evaluated, so the UI can grey out a control it knows will be refused. A
+    **value** condition cannot: its verdict depends on the values in the request, and
+    ``tag_key != 'bob'`` says nothing until the user has typed a tag. So this answers
+    "what restricts me", never "may I do this".
+    """
+    username = authenticate_request().username
+    rows = _list_user_role_conditions(username)
+    return jsonify({"mutation_conditions": [asdict(r) for r in rows]})
+
+
 @catch_mlflow_exception
 def list_current_user_permissions():
     # Sender == target. Returns every permission grant across every role the
@@ -7541,7 +10062,7 @@ def _graphql_get_permission_for_experiment(experiment_id: str, username: str) ->
 
 
 def _graphql_get_permission_for_run(run_id: str, username: str) -> Permission:
-    run = _get_tracking_store().get_run(run_id)
+    run = auth_resources.fetch_run_strict(run_id)
     experiment_id = run.info.experiment_id
     return _get_role_permission_or_default(
         _role_permission_for(
@@ -8060,6 +10581,150 @@ def _mcp_path_targets_a_version(parts: list[str]) -> bool:
     return len(parts) > 2 and parts[2] in ("versions", "aliases")
 
 
+async def _mcp_body(request: StarletteRequest) -> dict[str, Any]:
+    """The request's JSON object, or ``{}``.
+
+    Starlette caches the read, so the route handler still parses its own body; the cached
+    copy is also stashed on ``request.state`` the way the other MCP validators do it.
+    """
+    try:
+        body = await request.json()
+    except Exception:
+        return {}
+    request.state.cached_body = body
+    return body if isinstance(body, dict) else {}
+
+
+def _mcp_tag_pair_from_body(body: dict[str, Any]) -> "tuple[tuple[str, str | None], ...]":
+    key = body.get("key")
+    value = body.get("value")
+    if not isinstance(key, str) or not key:
+        # Nothing for a condition to judge. Returning no pair keeps it vacuous rather than
+        # inventing a value that would then be judged; the handler rejects the body itself.
+        return ()
+    return ((key, str(value) if value is not None else None),)
+
+
+async def _mcp_condition_context(
+    name: str, parts: "list[str]", request: StarletteRequest
+) -> "ConditionContext | None":
+    """The condition context for an MCP mutation, or ``None`` when none applies.
+
+    Built from the path shape in one place so every mutating route on this surface is
+    enumerated together. The alternative -- a check at each of the validator's six early
+    returns -- makes it easy to add a route later and silently leave it ungated.
+
+    Nested segments (``parts[2:]``) are what distinguish the routes; ``parts[0:2]`` is the
+    ``namespace/slug`` server name the caller has already composed.
+    """
+    nested = parts[2:]
+    method = request.method
+
+    # `tags` on the server itself: `POST <server>/tags`, `DELETE <server>/tags/<key>`.
+    if nested[:1] == ["tags"]:
+        if method == "POST" and len(nested) == 1:
+            tags = _mcp_tag_pair_from_body(await _mcp_body(request))
+        elif method == "DELETE" and len(nested) == 2:
+            # The key is a path segment here, not a body field.
+            tags = ((nested[1], None),)
+        else:
+            return None
+        return context_for(
+            RESOURCE_TYPE_MCP_SERVER,
+            name,
+            ConditionScope.MUTATE,
+            McpServerRequestValues(tags=tags),
+        )
+
+    # `aliases` on the server: an alias names a version but is stored on the server, so it is
+    # conditioned on the server (D18) -- exactly as a registry alias is conditioned on the
+    # registry entry rather than the version it points at.
+    if nested[:1] == ["aliases"]:
+        if method == "POST" and len(nested) == 1:
+            alias = (await _mcp_body(request)).get("alias")
+            aliases = (alias,) if isinstance(alias, str) and alias else ()
+        elif method == "DELETE" and len(nested) == 2:
+            aliases = (nested[1],)
+        else:
+            return None
+        return context_for(
+            RESOURCE_TYPE_MCP_SERVER,
+            name,
+            ConditionScope.MUTATE,
+            McpServerRequestValues(aliases=aliases),
+        )
+
+    # `versions/<version>/tags`: conditioned on the VERSION's own id, not the server's. Reading
+    # the server's state here would widen every version condition to its parent.
+    if nested[:1] == ["versions"] and len(nested) >= 3 and nested[2] == "tags":
+        version = nested[1]
+        if method == "POST" and len(nested) == 3:
+            tags = _mcp_tag_pair_from_body(await _mcp_body(request))
+        elif method == "DELETE" and len(nested) == 4:
+            tags = ((nested[3], None),)
+        else:
+            return None
+        return context_for(
+            RESOURCE_TYPE_MCP_SERVER_VERSION,
+            auth_resources.version_resource_id(name, version),
+            ConditionScope.MUTATE,
+            McpServerVersionRequestValues(tags=tags),
+            parent_resource_id=name,
+        )
+
+    # `versions/<version>` itself: PATCH updates that version, DELETE destroys it. Neither
+    # names a tag, so a request condition is vacuous -- but a TARGET condition still governs,
+    # because mutating a version a condition protects is exactly what it is there to prevent.
+    if nested[:1] == ["versions"] and len(nested) == 2 and method in ("PATCH", "DELETE"):
+        return context_for(
+            RESOURCE_TYPE_MCP_SERVER_VERSION,
+            auth_resources.version_resource_id(name, nested[1]),
+            ConditionScope.MUTATE,
+            McpServerVersionRequestValues(),
+            parent_resource_id=name,
+        )
+
+    # The server itself: PATCH updates it, DELETE destroys it and every version under it.
+    if not nested and method in ("PATCH", "DELETE"):
+        return context_for(
+            RESOURCE_TYPE_MCP_SERVER,
+            name,
+            ConditionScope.MUTATE,
+            McpServerRequestValues(),
+        )
+
+    # Creates are deliberately absent: neither `CreateMCPServerRequest` nor
+    # `CreateMCPServerVersionRequest` carries tags, so there is no value for a request condition
+    # to judge. Declaring a context with empty values would be indistinguishable from a route
+    # whose extraction is broken, and would read as vacuous either way (D20).
+    return None
+
+
+async def _mcp_conditions_permit(
+    username: str, name: str, parts: "list[str]", request: StarletteRequest
+) -> bool:
+    """Evaluate conditions for an MCP mutation. Called only after the grants have allowed it.
+
+    This surface resolves a ``Permission`` directly rather than building a ``Requirement``
+    list, so there is no list for `authorize` to carry conditions alongside -- the same reason
+    the legacy experiment surface composes them this way.
+    """
+    if len(parts) < 2:
+        return True
+    context = await _mcp_condition_context(name, parts, request)
+    if context is None:
+        return True
+    contexts = [context]
+    if request.method == "DELETE" and len(parts) == 2:
+        # Deleting the server destroys every version under it, and the path names none of them.
+        contexts += _cascade_contexts(name, (RESOURCE_TYPE_MCP_SERVER_VERSION,))
+    return authorize_on_conditions(
+        username,
+        get_anchor_workspace(RESOURCE_TYPE_MCP_SERVER, name),
+        contexts,
+    )
+
+
 def _mcp_path_targets_a_version_as_subject(parts: list[str]) -> bool:
     # Only `versions/...` makes the version the SUBJECT, so only there does the method name the
     # action taken ON it. An `aliases/<alias>` write mutates the server's alias map and merely
@@ -8103,6 +10768,14 @@ def _get_mcp_server_validator(
             raise
 
     async def validator(username: str, request: StarletteRequest) -> bool:
+        # Grants first, then conditions: conditions subtract from what a grant allows and can
+        # never add to it, and evaluating them only after an allow keeps that structural rather
+        # than a property of the order the clauses happen to be written in.
+        if not await _grants_permit(username, request):
+            return False
+        return await _mcp_conditions_permit(username, name, parts, request)
+
+    async def _grants_permit(username: str, request: StarletteRequest) -> bool:
         if request.method == "POST" and _is_mcp_server_version_create_path(parts):
             request.state.mcp_server_can_update_existing_recheck = lambda: (
                 _get_mcp_server_permission(name, username).can_update
@@ -8382,6 +11055,181 @@ def _get_job_route_validator(
     return validator
 
 
+def _otlp_try_parse_json_string(value):
+    """Mirror of the store's private ``_try_parse_json_string``.
+
+    Re-implemented rather than imported: the store's copy is a leading-underscore name in
+    ``sqlalchemy_store``, and reaching across that boundary for a private symbol breaks
+    silently when the store is refactored. The behaviour must match exactly, including the
+    last line -- a value that parses to something other than a string falls back to the RAW
+    string, so a numeric attribute is stored as its original text.
+    """
+    try:
+        parsed = json.loads(value)
+    except (json.JSONDecodeError, TypeError):
+        return value
+    return parsed if isinstance(parsed, str) else value
+
+
+def _otlp_scan(
+    raw_body: bytes,
+    content_type: "str | None",
+    content_encoding: "str | None",
+) -> "tuple[list[tuple[str, tuple[tuple[str, str | None], ...]]], list[str]]":
+    """One parse of an OTLP payload, yielding both sets the gate needs.
+
+    Returns ``(projections, all_trace_ids)``: the root-span tag projections, and every
+    distinct trace id the payload writes to. Both come from a single parse so the two can
+    never disagree about what the payload contains, and an unparsable payload fails once.
+
+    ``projections`` is ``(trace_id, tags)`` once per TRACE, carrying every tag the payload
+    sets on it.
+
+    This is the request-side projection for OTel ingest, and it has to agree with what the
+    store actually persists or a condition judges a string that was never written. The parse
+    reuses the handler's own helpers, and the derivation mirrors ``_log_spans_once``, which
+    writes trace tags from TWO sources:
+
+    - the first OTel Resource carrying attributes among the trace's spans, in payload order,
+      minus ``telemetry.sdk.*`` and ``mlflow.*``, each value stringified with ``json.dumps``
+      unless it is already a string. Later blocks' resources are IGNORED by the store, so
+      they are ignored here -- judging them would refuse a write the handler accepts.
+    - every ROOT span's ``mlflow.traceTag.*`` attributes, each unwrapped once, accumulated
+      by key across all roots of the trace.
+
+    Resource attributes are written first and the root tags overlaid, so a user tag wins a
+    key collision; the merge reproduces that order. An earlier version projected one tuple
+    per ROOT and left the caller to collapse them, which dropped a tag whenever one payload
+    carried two roots for the same trace, and omitted resource attributes entirely.
+
+    Both sources are written for every trace in the batch, root present or not, so a batch
+    of CHILD spans alone still sets tags -- which is why this is keyed per trace rather than
+    per root. ``all_trace_ids`` remains the set a payload WRITES to, a superset of the traces
+    it completes.
+
+    An invalid tag is SKIPPED, exactly as the store skips it. Rejecting here would deny a
+    write the handler would have accepted, which is the failure mode of a projection that
+    is stricter than its target rather than equal to it. Reserved ``mlflow.*`` keys need no
+    filtering: the evaluator already drops them from every request-side projection.
+    """
+    # Imported here rather than at module scope: ``otel_api`` imports from
+    # ``mlflow.server.handlers``, and the auth plugin is loaded during app construction.
+    from google.protobuf.json_format import Parse as ParseJsonProto
+    from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceRequest
+
+    from mlflow.entities.span import Span as SpanEntity
+    from mlflow.server.otel_api import _convert_otlp_json_ids_to_base64
+    from mlflow.store.tracking.utils.trace_analytics import validate_trace_name
+    from mlflow.tracing.constant import SpanAttributeKey, TraceTagKey
+    from mlflow.tracing.otel.translation import translate_span_when_storing
+    from mlflow.tracing.utils.otlp import decompress_otlp_body
+    from mlflow.utils.validation import _validate_trace_tag
+
+    media_type = content_type.split(";")[0].strip() if content_type else None
+    body = raw_body
+    if content_encoding:
+        body = decompress_otlp_body(body, content_encoding.lower())
+    parsed_request = ExportTraceServiceRequest()
+    if media_type == "application/json":
+        ParseJsonProto(
+            _convert_otlp_json_ids_to_base64(body), parsed_request, ignore_unknown_fields=True
+        )
+    else:
+        parsed_request.ParseFromString(body)
+
+    def resource_derived_tags(attributes) -> "dict[str, str]":
+        """An OTel Resource's attributes as the store would persist them.
+
+        Mirrors ``_log_spans_once``: skip OTel SDK bookkeeping and the reserved ``mlflow.*``
+        namespace, stringify a non-string value with ``json.dumps``, validate, and drop
+        whatever fails. Note the stringification differs from the root-tag path below, which
+        UNWRAPS a JSON string instead of encoding one -- mirroring one rule for both sources
+        would judge a string the store never writes.
+        """
+        derived: "dict[str, str]" = {}
+        for key, value in attributes.items():
+            if key.startswith(("telemetry.sdk.", "mlflow.")):
+                continue
+            str_value = value if isinstance(value, str) else json.dumps(value)
+            try:
+                key, str_value = _validate_trace_tag(key, str_value)
+            except Exception:
+                continue
+            derived[key] = str_value
+        return derived
+
+    all_trace_ids: "list[str]" = []
+    prefix = SpanAttributeKey.TRACE_TAG_PREFIX
+    # The store writes trace tags from TWO sources with different precedence, so they are
+    # accumulated separately and merged once per trace at the end.
+    resource_tags: "dict[str, dict[str, str]]" = {}
+    root_tags: "dict[str, dict[str, str]]" = {}
+    for resource_span in parsed_request.resource_spans:
+        resource = resource_span.resource
+        for scope_span in resource_span.scope_spans:
+            for proto_span in scope_span.spans:
+                try:
+                    span = SpanEntity.from_otel_proto(proto_span, resource=resource)
+                except Exception:
+                    # The handler skips a span it cannot convert, so it writes nothing for
+                    # it and there is nothing to judge.
+                    continue
+                # Recorded BEFORE the root filter: this is a trace the payload writes to,
+                # which is what has to be authorized, regardless of whether this batch
+                # happens to carry its root.
+                trace_id = str(span.trace_id)
+                all_trace_ids.append(trace_id)
+                # The store binds the FIRST resource carrying attributes among this trace's
+                # spans, in payload order, and ignores every later block -- so a second
+                # block's attributes must NOT be judged, or the gate refuses a write the
+                # handler would accept. Membership is recorded even when the derived map
+                # comes out empty, because the store likewise binds that resource and
+                # persists nothing from it. Read off the CONVERTED span, as the store does:
+                # the proto ``AnyValue`` view and the SDK view are not the same shape.
+                if trace_id not in resource_tags:
+                    span_resource = getattr(span._span, "resource", None)
+                    if span_resource is not None and span_resource.attributes:
+                        resource_tags[trace_id] = resource_derived_tags(span_resource.attributes)
+                if span.parent_id is not None:
+                    continue
+                attributes = translate_span_when_storing(span).get("attributes") or {}
+                # Accumulated by key across EVERY root of this trace, last value winning,
+                # because that is what the store persists. Keeping one root's set instead
+                # dropped a tag whenever a payload carried two roots for one trace.
+                accumulated = root_tags.setdefault(trace_id, {})
+                for attr_key, attr_value in attributes.items():
+                    if not attr_key.startswith(prefix):
+                        continue
+                    tag_key = attr_key[len(prefix) :]
+                    tag_value = str(_otlp_try_parse_json_string(attr_value))
+                    try:
+                        tag_key, tag_value = _validate_trace_tag(tag_key, tag_value)
+                    except Exception:
+                        continue
+                    if tag_key == TraceTagKey.TRACE_NAME:
+                        tag_value = validate_trace_name(tag_value)
+                    accumulated[tag_key] = tag_value
+
+    submitted = list(dict.fromkeys(all_trace_ids))
+    projections: "list[tuple[str, tuple[tuple[str, str | None], ...]]]" = []
+    for trace_id in submitted:
+        # Resource attributes first, root tags over the top: the store writes them in that
+        # order and lets a user tag win a key collision.
+        merged = dict(resource_tags.get(trace_id, {}))
+        merged.update(root_tags.get(trace_id, {}))
+        projections.append((trace_id, tuple(merged.items())))
+    return projections, submitted
+
+
+def _otlp_trace_projections(
+    raw_body: bytes,
+    content_type: "str | None",
+    content_encoding: "str | None",
+) -> "list[tuple[str, tuple[tuple[str, str | None], ...]]]":
+    """The per-trace tag projections for an OTLP payload. See :func:`_otlp_scan`."""
+    return _otlp_scan(raw_body, content_type, content_encoding)[0]
+
+
 def _get_otel_validator(
     path: str,
 ) -> Callable[[str, StarletteRequest], Awaitable[bool]]:
@@ -8395,9 +11243,96 @@ def _get_otel_validator(
             raise MlflowException(
                 "Missing required header: X-Mlflow-Experiment-Id", error_code=BAD_REQUEST
             )
+
+        # Reading the body here is safe: Starlette caches it, so the route handler's own
+        # ``await request.body()`` still sees the payload. Verified against a running
+        # server -- a tagged span ingested after this read still persisted its tag.
+        raw_body = await request.body()
+        try:
+            projections, submitted_ids = _otlp_scan(
+                raw_body,
+                request.headers.get("content-type"),
+                request.headers.get("content-encoding"),
+            )
+        except Exception:
+            # Fail CLOSED on a payload this cannot parse. The handler would reject it too, so
+            # no legitimate traffic is lost, and the alternative is worse: if the two parsers
+            # ever disagree, failing open would let the payload the gate could not read
+            # through unjudged. An EMPTY body is not this case -- it parses to zero spans,
+            # declares nothing, and stays permitted.
+            return False
+
+        # A trace the payload creates is judged on the VALUES it sets; one that already
+        # exists is judged on its STATE, and on the authority the caller holds over the
+        # experiment it ACTUALLY lives in. The same batch can carry both.
+        #
+        # One batched resolution, so classifying fifty submitted traces is one query
+        # rather than fifty. It also seeds the per-request memo, which is what keeps the
+        # per-trace helpers below free.
+        auth_resources.prefetch_trace_infos(submitted_ids)
+        # One projection per trace, carrying both tag sources the store writes, so this
+        # collapse is lossless. A trace reached by CHILD spans alone still gets an entry:
+        # the store persists the batch's resource attributes as tags for every trace it
+        # touches, so such a batch does set values, and judging it as if it set none was
+        # the hole behind F-0045.
+        tags_by_trace = dict(projections)
+        created_tags: "list[tuple[str, str | None]]" = []
+        existing: "dict[str, tuple[str, tuple[tuple[str, str | None], ...]]]" = {}
+        for trace_id in submitted_ids:
+            tags = tags_by_trace.get(trace_id, ())
+            trace = auth_resources.fetch_trace_info(trace_id)
+            if trace is None:
+                created_tags.extend(tags)
+            else:
+                # The trace's OWN experiment, read from the store. The header says where
+                # the caller wants the spans to land; for an id that already exists the
+                # store ignores it and appends to the trace where it is, so the header is
+                # not evidence of anything here.
+                existing[trace_id] = (str(trace.experiment_id), tags)
+
         # The handler persists the submitted spans, so this is a trace create and carries the
-        # same veto as StartTrace / StartTraceV3.
-        return _authorize_create_in_experiment_as(username, experiment_id, RESOURCE_TYPE_TRACE)
+        # same veto as StartTrace / StartTraceV3. The projected tags ride on its CREATE
+        # context, which is what makes a value condition apply here at all.
+        #
+        # Skipped only for a batch that exclusively APPENDS to traces that already exist:
+        # it creates nothing in the header experiment -- the store ignores the header for
+        # an existing id -- so requiring create there would deny an append the caller is
+        # entitled to make, while protecting nothing. Those traces are instead held to the
+        # stronger requirement below, on the experiment they really live in.
+        #
+        # Every other shape still carries it, including an empty payload, so a caller with
+        # no rights in the header experiment is refused exactly as before.
+        appends_only = bool(submitted_ids) and len(existing) == len(submitted_ids)
+        if not appends_only and not _authorize_create_in_experiment_as(
+            username, experiment_id, RESOURCE_TYPE_TRACE, tags=tuple(created_tags)
+        ):
+            return False
+
+        # Appending spans to an existing trace rewrites that trace's aggregates, so it
+        # needs authority over the trace itself -- grants AND conditions, anchored on its
+        # real experiment. Without this a caller who could create traces in the header
+        # experiment could append to any trace in the workspace whose id they knew.
+        if not _authorize_existing_traces_as(username, existing, "update"):
+            return False
+
+        # ``X-Mlflow-Run-Id`` makes the handler associate the ingested traces with that run
+        # through the SAME store call the explicit ``LinkTracesToRun`` route makes, so it
+        # carries the same run requirement -- the grant, and with it the run's conditions,
+        # which ``_authorize_run_id_as`` declares.
+        #
+        # The experiment header cannot stand in for this. The run need not live in the
+        # experiment receiving the spans, and before this check a caller holding experiment
+        # EDIT on their own experiment could write an association onto a run in an experiment
+        # they could not read.
+        #
+        # An unresolvable run denies, matching ``_run_requirement``. That is stricter than the
+        # handler, which logs and swallows a failed link -- so a stale run id now costs the
+        # whole ingest rather than just the association. Fail-open here would make this
+        # route's status code an existence oracle for run ids while the explicit route denies,
+        # which is the property ``_run_requirement`` exists to preserve.
+        if run_id := request.headers.get("x-mlflow-run-id"):
+            return _authorize_run_id_as(username, run_id, "update")
+        return True
 
     return validator
 
@@ -8494,10 +11429,26 @@ def _get_fastapi_proxy_artifact_validator(
         if action is None:
             return False
         query_path = request.query_params.get("path")
+
+        def authorize_and_capture() -> "tuple[bool, bool, str | None]":
+            # ``to_thread`` runs this in a COPY of the context, so a ``ContextVar`` written
+            # here is invisible to the caller. The decision itself returns fine, but the
+            # condition-denial reason would not -- and the middleware builds the 403 body in
+            # the original context, so every condition denial on an artifact route degraded
+            # to the generic grant message. That is worse than terse: it names the wrong one
+            # of the two causes, and a grant and a condition are fixed in different places.
+            allowed = _authorize_fastapi_artifact_proxy(path, username, query_path, action)
+            return (
+                allowed,
+                auth_resources.condition_denied(),
+                auth_resources.condition_denial_detail(),
+            )
+
         # Same gate as the Flask validators, so neither dispatch path is the softer one.
-        return await asyncio.to_thread(
-            _authorize_fastapi_artifact_proxy, path, username, query_path, action
-        )
+        allowed, condition_denied, detail = await asyncio.to_thread(authorize_and_capture)
+        if condition_denied:
+            auth_resources.note_condition_denial(detail)
+        return allowed
 
     return validator
 
@@ -8759,7 +11710,17 @@ def add_fastapi_permission_middleware(app: FastAPI) -> None:
                 and _scope_matches_native_route(native_routes, request.scope)
                 and not any(marker in path for marker in _KNOWN_UNGATED_FASTAPI_ROUTE_MARKERS)
             ):
-                return PlainTextResponse("Permission denied", status_code=HTTPStatus.FORBIDDEN)
+                # Its own message, not ``denial_message()``: nothing was evaluated here, so
+                # claiming a condition refused would be a lie. The envelope is shared with
+                # every other 403 so a client never has to guess the content type.
+                return JSONResponse(
+                    json.loads(
+                        MlflowException(
+                            "Permission denied", error_code=PERMISSION_DENIED
+                        ).serialize_as_json()
+                    ),
+                    status_code=HTTPStatus.FORBIDDEN,
+                )
             return await call_next(request)
 
         # Authenticate using either the custom authorization_function (via Flask
@@ -8824,19 +11785,40 @@ def add_fastapi_permission_middleware(app: FastAPI) -> None:
         if not user.is_admin:
             try:
                 if not await validator(user.username, request):
-                    return PlainTextResponse(
-                        "Permission denied",
+                    # Built before the ``finally`` clears the reason: a return expression is
+                    # evaluated first. Were this moved after the clear, the message would
+                    # degrade to the generic one rather than become wrong.
+                    #
+                    # Same JSON envelope as the Flask funnel's ``make_forbidden_response``.
+                    # This used to be a bare ``PlainTextResponse``, which left every denial
+                    # on a native FastAPI route (the artifact proxy, gateway, jobs, MCP, OTLP
+                    # ingest) unreadable to the web client -- it ``JSON.parse``s an error body
+                    # and reports ``INTERNAL_SERVER_ERROR`` when that throws, so a correct
+                    # condition denial surfaced as a server fault.
+                    return JSONResponse(
+                        json.loads(_forbidden_envelope()),
                         status_code=HTTPStatus.FORBIDDEN,
                     )
             except MlflowException as e:
-                return PlainTextResponse(
-                    e.message,
+                # Matches the other ``MlflowException`` handlers in this funnel, which
+                # already serialize the envelope. A validator raises for a malformed request
+                # (a missing ``X-Mlflow-Experiment-Id``, say), and that reason deserves to be
+                # as readable as a denial.
+                return JSONResponse(
                     status_code=e.get_http_status_code(),
+                    content=json.loads(e.serialize_as_json()),
                 )
             finally:
                 workspace_context.clear_server_request_workspace()
+                # Same reasoning as Flask's ``_before_request``: the resource caches
+                # live in ContextVars, which are not torn down for us, so an uncleared
+                # entry would be read by the next request on this thread. This funnel
+                # bypasses Flask's hook entirely, so it needs its own clear -- missing
+                # it would leak on uvicorn deployments only.
+                auth_resources.clear_cache()
         else:
             workspace_context.clear_server_request_workspace()
+            auth_resources.clear_cache()
 
         response = await call_next(request)
 
@@ -8892,6 +11874,30 @@ _RBAC_ROUTES: list[tuple[Callable[[], Any], str, str, str]] = [
     (remove_role_permission, "DELETE", REMOVE_ROLE_PERMISSION, AJAX_REMOVE_ROLE_PERMISSION),
     (list_role_permissions, "GET", LIST_ROLE_PERMISSIONS, AJAX_LIST_ROLE_PERMISSIONS),
     (update_role_permission, "PATCH", UPDATE_ROLE_PERMISSION, AJAX_UPDATE_ROLE_PERMISSION),
+    # Mutation conditions. Writes are gated by validate_can_manage_roles and reads by
+    # validate_can_view_roles, like the role-permission routes above -- a condition is
+    # part of a role's definition, so it carries the same authorization.
+    (add_mutation_conditions, "POST", ADD_MUTATION_CONDITIONS, AJAX_ADD_MUTATION_CONDITIONS),
+    (
+        add_user_mutation_condition,
+        "POST",
+        ADD_USER_MUTATION_CONDITION,
+        AJAX_ADD_USER_MUTATION_CONDITION,
+    ),
+    (get_mutation_conditions, "GET", GET_MUTATION_CONDITIONS, AJAX_GET_MUTATION_CONDITIONS),
+    (
+        update_mutation_conditions,
+        "PATCH",
+        UPDATE_MUTATION_CONDITIONS,
+        AJAX_UPDATE_MUTATION_CONDITIONS,
+    ),
+    (
+        remove_mutation_conditions,
+        "DELETE",
+        REMOVE_MUTATION_CONDITIONS,
+        AJAX_REMOVE_MUTATION_CONDITIONS,
+    ),
+    (list_mutation_conditions, "GET", LIST_MUTATION_CONDITIONS, AJAX_LIST_MUTATION_CONDITIONS),
     (assign_role, "POST", ASSIGN_ROLE, AJAX_ASSIGN_ROLE),
     (unassign_role, "DELETE", UNASSIGN_ROLE, AJAX_UNASSIGN_ROLE),
     (list_user_roles, "GET", LIST_USER_ROLES, AJAX_LIST_USER_ROLES),
@@ -8989,6 +11995,15 @@ def create_app(app: Flask = app):
         app.add_url_rule(
             rule=rule,
             view_func=get_current_user,
+            methods=["GET"],
+        )
+    for rule in [
+        LIST_CURRENT_USER_MUTATION_CONDITIONS,
+        AJAX_LIST_CURRENT_USER_MUTATION_CONDITIONS,
+    ]:
+        app.add_url_rule(
+            rule=rule,
+            view_func=list_current_user_mutation_conditions,
             methods=["GET"],
         )
     for rule in [LIST_CURRENT_USER_PERMISSIONS, AJAX_LIST_CURRENT_USER_PERMISSIONS]:

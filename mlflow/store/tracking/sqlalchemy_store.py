@@ -114,6 +114,7 @@ from mlflow.protos.databricks_pb2 import (
     TEMPORARILY_UNAVAILABLE,
     ErrorCode,
 )
+from mlflow.store import condition_pushdown
 from mlflow.store.analytics import trace_correlation
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.db.db_types import MSSQL, MYSQL
@@ -150,6 +151,10 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlLoggedModelMetric,
     SqlLoggedModelParam,
     SqlLoggedModelTag,
+    SqlMCPServerAlias,
+    SqlMCPServerTag,
+    SqlMCPServerVersion,
+    SqlMCPServerVersionTag,
     SqlMetric,
     SqlOnlineScoringConfig,
     SqlParam,
@@ -9988,6 +9993,257 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 row.completed_time_ms = now_ms
             session.flush()
             return row.to_mlflow_entity()
+
+    # Ids bind one SQL parameter each. Chosen well below every backend's cap (SQLite's
+    # is ~32k, MySQL and PostgreSQL higher) so one value is safe everywhere rather than
+    # per-dialect, and so a cascade's 2000 children cost two statements, not a failure.
+    _TAG_PUSHDOWN_ID_CHUNK = 900
+
+    # A pushable namespace is described by its table and the columns the predicate
+    # needs: the id column(s), the column holding the clause key, and the column
+    # holding the compared value. Both namespaces have the same shape -- a tag row
+    # is (id, key, value), an alias row is (name, alias, version) -- so one query
+    # builder serves both and ``aliases`` needs no second method.
+    #
+    # ``id_columns`` is a tuple because a version's id is composite: the auth layer
+    # addresses one as ``name/version`` while the table keeps the parts in separate
+    # columns. Such an entity is passed already-decomposed ids (see the contract on
+    # ``AbstractStore.filter_ids_by_clauses``) -- the composite *format* is the auth
+    # layer's invention, so the store matches parts and never parses it.
+    #
+    # An entity, or a namespace within one, absent here declines (``None``) rather
+    # than guessing: adding one is opt-in, and a typo cannot answer for the wrong
+    # table. Only the three alias-owning types list ``aliases`` (D18) -- a version's
+    # alias list names aliases stored on its parent, so a version must not be gated
+    # on one.
+    _PUSHDOWN_NAMESPACES = {
+        "run": {"tags": ("SqlTag", ("run_uuid",), "key", "value")},
+        "experiment": {"tags": ("SqlExperimentTag", ("experiment_id",), "key", "value")},
+        "trace": {"tags": ("SqlTraceTag", ("request_id",), "key", "value")},
+        # ``SqlLoggedModelTag`` names its columns ``tag_key``/``tag_value``, unlike the
+        # other tag tables. Spelled per entity precisely so this can differ.
+        "logged_model": {"tags": ("SqlLoggedModelTag", ("model_id",), "tag_key", "tag_value")},
+        "mcp_server": {
+            "tags": ("SqlMCPServerTag", ("name",), "key", "value"),
+            "aliases": ("SqlMCPServerAlias", ("name",), "alias", "version"),
+        },
+        "mcp_server_version": {
+            "tags": ("SqlMCPServerVersionTag", ("name", "version"), "key", "value"),
+        },
+    }
+
+    _PUSHDOWN_MODELS = {
+        "SqlTag": SqlTag,
+        "SqlExperimentTag": SqlExperimentTag,
+        "SqlTraceTag": SqlTraceTag,
+        "SqlLoggedModelTag": SqlLoggedModelTag,
+        "SqlMCPServerTag": SqlMCPServerTag,
+        "SqlMCPServerAlias": SqlMCPServerAlias,
+        "SqlMCPServerVersionTag": SqlMCPServerVersionTag,
+    }
+
+    # Cascade pushdown needs the child's own table too:
+    # (child model, child id columns, parent column on the child, tag model,
+    #  tag id columns, tag key column, tag value column, parent column on the TAG
+    #  table or None).
+    #
+    # The key/value names are carried rather than assumed to be ``key``/``value``:
+    # ``SqlLoggedModelTag`` calls them ``tag_key``/``tag_value``, and hardcoding the
+    # common names made every logged-model tag write 500 once a logged-model condition
+    # existed.
+    #
+    # The last element is what lets a composite-keyed child be mapped. An experiment
+    # child is identified by one globally unique column, so its subquery needs no
+    # parent filter and the entry is ``None``. A version is identified by
+    # ``(name, version)`` and ``version`` repeats across models, so its tag subquery
+    # must be scoped to the parent as well -- see ``find_failing_child``.
+    #
+    # An entity absent here declines rather than guessing: adding one is opt-in, and a
+    # typo cannot answer for the wrong table.
+    #: The column a predicate-mode mutation bounds its population by, per cascade entity.
+    #: Only traces have one: ``DeleteTraces`` is the only route that deletes a timestamp
+    #: slice of a parent's children rather than all of them. Declared separately from
+    #: ``_CASCADE_PUSHDOWN_ENTITIES`` so an entity without a window is simply absent here
+    #: and the store refuses to express one, rather than silently ignoring the bound.
+    _CASCADE_PUSHDOWN_WINDOW_COLUMNS = {
+        "trace": SqlTraceInfo.timestamp_ms,
+    }
+
+    _CASCADE_PUSHDOWN_ENTITIES = {
+        "run": (
+            SqlRun,
+            ("run_uuid",),
+            "experiment_id",
+            SqlTag,
+            ("run_uuid",),
+            "key",
+            "value",
+            None,
+        ),
+        "trace": (
+            SqlTraceInfo,
+            ("request_id",),
+            "experiment_id",
+            SqlTraceTag,
+            ("request_id",),
+            "key",
+            "value",
+            None,
+        ),
+        "logged_model": (
+            SqlLoggedModel,
+            ("model_id",),
+            "experiment_id",
+            SqlLoggedModelTag,
+            ("model_id",),
+            "tag_key",
+            "tag_value",
+            None,
+        ),
+        "mcp_server_version": (
+            SqlMCPServerVersion,
+            ("name", "version"),
+            "name",
+            SqlMCPServerVersionTag,
+            ("name", "version"),
+            "key",
+            "value",
+            "name",
+        ),
+    }
+
+    def find_failing_resource(
+        self, entity, clauses, *, ids=None, parent_id=None, max_timestamp_ms=None, stage=None
+    ):
+        """Push a conjunctive tag/alias predicate into SQL.
+
+        See :meth:`AbstractStore.find_failing_resource`. Neither selector loads a
+        resource or returns a tag value: the question is answered entirely by set
+        membership over the tag table, so cost depends on the number of clauses rather
+        than on how much the resources contain.
+
+        The two selectors need genuinely different SQL, which is why they share an
+        interface rather than a body. With ``ids`` the population is known, so only the
+        satisfying set is queried and the set arithmetic happens here -- the resource
+        table is never touched. With ``parent_id`` it is unknown and possibly
+        unbounded, so the children must be found in SQL.
+        """
+        if stage is not None:
+            # No tracking entity has a stage -- it is a registry concept -- so there is no
+            # column to narrow by. Declining rather than ignoring it keeps a caller that
+            # asked about one stage from being silently answered about the whole parent.
+            raise condition_pushdown.cannot_express(
+                self, entity, "a stage window is a registry concept and has no column here"
+            )
+        if (ids is None) == (parent_id is None):
+            raise ValueError(
+                "find_failing_resource needs exactly one of `ids` or `parent_id`, "
+                f"got ids={ids!r} and parent_id={parent_id!r}"
+            )
+        if parent_id is not None:
+            return self._find_failing_child(
+                entity, parent_id, clauses, max_timestamp_ms=max_timestamp_ms
+            )
+        if max_timestamp_ms is not None:
+            # The named path already knows exactly which resources are at stake, so a
+            # window would be a second, redundant way to say it -- and a contradictory one
+            # if the two disagreed. A caller passing both is a wiring bug.
+            raise ValueError(
+                "find_failing_resource takes `max_timestamp_ms` only with `parent_id`; "
+                "the `ids` selector already names the population"
+            )
+        return self._find_failing_named(entity, ids, clauses)
+
+    def _pushdown_id_chunks(self, ordered, id_columns, value):
+        """Split ids so one statement's bind parameters stay under the backend's cap.
+
+        Ids bind one parameter each -- more for a composite -- and the clause itself
+        binds the key plus one per compared value, which for ``IN`` is the whole list.
+        Every backend caps how many a statement may carry; SQLite raises "too many SQL
+        variables" below the number of children a cascade can reach. Subtracting the
+        clause's own parameters keeps that cap a property of the statement rather than
+        a limit on how many resources a caller may ask about.
+        """
+        clause_params = 1 + (len(value) if isinstance(value, tuple) else 1)
+        budget = self._TAG_PUSHDOWN_ID_CHUNK - clause_params
+        size = max(1, budget // len(id_columns))
+        for start in range(0, len(ordered), size):
+            yield ordered[start : start + size]
+
+    def _find_failing_named(self, entity, ids, clauses):
+        """The ``ids`` selector: the caller already knows the population.
+
+        Absence is handled by the shape rather than by a special case -- a clause asks
+        which ids *have* a row with that key whose value compares true, so an id with
+        no such row is simply not in the result, for ``!=`` and ``NOT IN`` exactly as
+        for ``=``.
+        """
+        namespaces = self._PUSHDOWN_NAMESPACES.get(entity)
+        if namespaces is None:
+            raise condition_pushdown.cannot_express(self, entity, "it has no id-selector mapping")
+        requested = {condition_pushdown.as_pushdown_key(i) for i in ids}
+        if not requested or not clauses:
+            # Nothing to judge, or nothing to judge it against. Either way nothing fails.
+            return None
+        resolved = condition_pushdown.resolve_clauses(namespaces, self._PUSHDOWN_MODELS, clauses)
+        if resolved is None:
+            raise condition_pushdown.cannot_express(
+                self, entity, "a clause names a namespace this entity does not own"
+            )
+
+        dialect = self._get_dialect()
+        ordered = sorted(requested)
+        with self.ManagedSessionMaker() as session:
+            equal_key = condition_pushdown.key_comparison(dialect)
+            for model, id_columns, key_column, value_column, key, comparator, value in resolved:
+                for chunk in self._pushdown_id_chunks(ordered, id_columns, value):
+                    rows = (
+                        self
+                        ._get_query(session, model)
+                        .with_entities(*id_columns)
+                        .filter(
+                            condition_pushdown.id_predicate(id_columns, chunk, dialect),
+                            equal_key(key_column, key),
+                            condition_pushdown.compare_value(
+                                value_column, comparator, value, dialect
+                            ),
+                        )
+                        .all()
+                    )
+                    matched = {condition_pushdown.as_pushdown_key(tuple(row)) for row in rows}
+                    for candidate in chunk:
+                        if candidate not in matched:
+                            # Stop at the first failure rather than finishing the
+                            # remaining chunks and clauses: an id list is unbounded
+                            # (``DeleteTraces`` caps nothing) and one failing id is the
+                            # whole answer.
+                            return candidate
+        return None
+
+    def _find_failing_child(self, entity, parent_id, clauses, *, max_timestamp_ms=None):
+        """The ``parent_id`` selector: the population is unknown and may be unbounded.
+
+        The SQL lives in :func:`condition_pushdown.find_failing_child`, shared with the
+        registry store, because the two stores answer the same question over
+        same-shaped tables and a drift between two copies would be a difference in
+        *who may write what*.
+        """
+        mapping = self._CASCADE_PUSHDOWN_ENTITIES.get(entity)
+        if mapping is None:
+            raise condition_pushdown.cannot_express(self, entity, "it has no cascade mapping")
+        extra_filters = ()
+        if max_timestamp_ms is not None:
+            window_column = self._CASCADE_PUSHDOWN_WINDOW_COLUMNS.get(entity)
+            if window_column is None:
+                raise condition_pushdown.cannot_express(
+                    self, entity, "it has no timestamp column to narrow the cascade by"
+                )
+            # The same comparison `_delete_traces` builds, so the probe's population is
+            # exactly the mutation's rather than an approximation of it.
+            extra_filters = (window_column <= max_timestamp_ms,)
+        return condition_pushdown.find_failing_child(
+            self, mapping, parent_id, clauses, extra_filters=extra_filters
+        )
 
 
 def _get_sqlalchemy_filter_clauses(parsed, session, dialect):
