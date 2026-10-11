@@ -198,7 +198,7 @@ def test_null_comparison_does_not_reject(seed: int):
         result.assert_improved()
 
 
-@pytest.mark.parametrize("values", [[1.0, 0.0, 1.0, 1.0], [0.2, 0.9, 0.4, 0.4]])
+@pytest.mark.parametrize("values", [[1.0, 0.0, 1.0, 1.0, 0.0, 1.0], [0.2, 0.9, 0.4, 0.4, 0.7, 0.1]])
 def test_identical_values_are_all_ties(values: list[float]):
     values = np.array(values)
 
@@ -206,13 +206,13 @@ def test_identical_values_are_all_ties(values: list[float]):
 
     assert result.status == "ok"
     assert result.diff == 0
-    assert result.ties == 4
+    assert result.ties == 6
     assert result.p_value == 1.0
     assert (result.ci_low, result.ci_high) == (0.0, 0.0)
     assert np.isnan(result.effect_size)
 
 
-@pytest.mark.parametrize(("n", "expected_p_value"), [(3, 0.25), (10, 2 / 2**10)])
+@pytest.mark.parametrize(("n", "expected_p_value"), [(6, 2 / 2**6), (10, 2 / 2**10)])
 def test_constant_nonzero_deltas(n: int, expected_p_value: float):
     baseline = np.arange(n, dtype=float)
     candidate = baseline + 0.5
@@ -232,20 +232,37 @@ def test_constant_nonzero_deltas(n: int, expected_p_value: float):
     assert comparison.p_value == pytest.approx(stats.wilcoxon(candidate, baseline).pvalue)
 
     result = ComparisonResult("candidate", "baseline", {"score": comparison})
-    if expected_p_value < 0.05:
-        result.assert_improved(["score"])
-    else:
+    result.assert_improved(["score"])
+    if expected_p_value > 0.01:
         with pytest.raises(AssertionError, match="score: diff=\\+0.5"):
-            result.assert_improved(["score"])
+            result.assert_improved(["score"], alpha=0.01)
 
 
-@pytest.mark.parametrize("n", [0, 1])
+@pytest.mark.parametrize("n", [0, 1, 5])
 def test_insufficient_pairs(n: int):
     values = np.arange(n, dtype=float)
 
-    result = _compare_paired_values("score", values, values + 1, value_type="numeric")
+    with mock.patch("mlflow.genai.evaluation.comparison._logger.warning") as mock_warning:
+        result = _compare_paired_values("score", values, values + 1, value_type="numeric")
 
     assert result == ScorerComparison(scorer="score", status="insufficient_pairs", n_paired=n)
+    mock_warning.assert_not_called()
+
+
+@pytest.mark.parametrize("n", [6, 9, 10, 20])
+def test_small_samples_warn(n: int):
+    values = np.arange(n, dtype=float)
+
+    with mock.patch("mlflow.genai.evaluation.comparison._logger.warning") as mock_warning:
+        result = _compare_paired_values("score", values, values + 1, value_type="numeric")
+
+    assert result.status == "ok"
+    assert result.n_paired == n
+    if n < 10:
+        mock_warning.assert_called_once()
+        assert f"'score' has only {n} paired rows" in mock_warning.call_args[0][0]
+    else:
+        mock_warning.assert_not_called()
 
 
 def test_compare_evaluations_dispatches_on_value_type():
@@ -293,17 +310,17 @@ def test_compare_evaluations_dispatches_on_value_type():
 
 
 def test_compare_evaluations_reports_unmatched_rows_and_intersects_scorers():
-    rows = _rows([0.1, 0.2, 0.3, 0.4, 0.5, 0.6])
+    rows = _rows([0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8])
     extra_row = {"inputs": {"question": "candidate only"}, "outputs": {"score": 1.0}}
     baseline_run_id = _evaluate(rows, scorers=[score, passed])
-    candidate_run_id = _evaluate([*rows[:4], extra_row], scorers=[score])
+    candidate_run_id = _evaluate([*rows[:6], extra_row], scorers=[score])
 
     result = mlflow.genai.compare_evaluations(candidate_run_id, baseline_run_id, log_results=False)
 
     assert list(result.scorers) == ["score"]
-    assert result.scorers["score"].n_paired == 4
-    assert result.scorers["score"].ties == 4
-    assert len(result.paired_rows) == 4
+    assert result.scorers["score"].n_paired == 6
+    assert result.scorers["score"].ties == 6
+    assert len(result.paired_rows) == 6
     assert len(result.unpaired_baseline_trace_ids) == 2
     assert len(result.unpaired_candidate_trace_ids) == 1
     paired_trace_ids = {row["candidate_trace_id"] for row in result.paired_rows}
@@ -313,7 +330,7 @@ def test_compare_evaluations_reports_unmatched_rows_and_intersects_scorers():
 
 def test_compare_evaluations_pairs_on_inputs_when_request_ids_differ():
     # `predict_fn` runs get a fresh eval request ID per row, so rows pair on the inputs hash.
-    data = [{"inputs": {"question": f"question {i}"}} for i in range(5)]
+    data = [{"inputs": {"question": f"question {i}"}} for i in range(10)]
 
     def run(offset: float) -> str:
         def predict_fn(question: str) -> dict[str, float]:
@@ -329,10 +346,10 @@ def test_compare_evaluations_pairs_on_inputs_when_request_ids_differ():
     assert {row["paired_on"] for row in result.paired_rows} == {"inputs_hash"}
     assert result.unpaired_baseline_trace_ids == []
     assert result.unpaired_candidate_trace_ids == []
-    assert result.scorers["score"].n_paired == 5
+    assert result.scorers["score"].n_paired == 10
     assert result.scorers["score"].diff == pytest.approx(0.25)
     assert [row["scores"]["score"]["delta"] for row in result.paired_rows] == pytest.approx(
-        [0.25] * 5
+        [0.25] * 10
     )
 
 
@@ -456,9 +473,9 @@ def test_compare_evaluations_logs_results_to_candidate_run():
 
 
 def test_compare_evaluations_keeps_results_of_multiple_baselines():
-    first_baseline_run_id = _evaluate(_rows([0.1, 0.2, 0.3, 0.4]))
-    second_baseline_run_id = _evaluate(_rows([0.5, 0.5, 0.6, 0.9]))
-    candidate_run_id = _evaluate(_rows([0.6, 0.7, 0.8, 0.9]))
+    first_baseline_run_id = _evaluate(_rows([0.1, 0.2, 0.3, 0.4, 0.5, 0.6]))
+    second_baseline_run_id = _evaluate(_rows([0.5, 0.5, 0.6, 0.9, 0.85, 1.0]))
+    candidate_run_id = _evaluate(_rows([0.6, 0.7, 0.8, 0.9, 1.0, 1.1]))
 
     first = mlflow.genai.compare_evaluations(candidate_run_id, first_baseline_run_id)
     second = mlflow.genai.compare_evaluations(candidate_run_id, second_baseline_run_id)

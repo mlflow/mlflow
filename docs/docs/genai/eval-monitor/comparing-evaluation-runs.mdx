@@ -52,7 +52,7 @@ print(result.summary())
 
 | Column                           | Meaning                                                                       |
 | -------------------------------- | ----------------------------------------------------------------------------- |
-| `status`                         | `ok`, or `insufficient_pairs` when fewer than two rows could be compared      |
+| `status`                         | `ok`, or `insufficient_pairs` when fewer than six rows could be compared      |
 | `n_paired`                       | Number of paired rows with a value from both runs                             |
 | `value_type`, `method`           | Whether the scorer was treated as binary or numeric, and the test used        |
 | `baseline_mean`,`candidate_mean` | Mean of each run over the paired rows                                         |
@@ -96,6 +96,10 @@ result = mlflow.genai.compare_evaluations(
 )
 ```
 
+## Small samples
+
+A scorer with fewer than **6** paired rows is reported with `status="insufficient_pairs"` and no statistics. Six is the smallest sample at which the exact two-sided signed-rank p-value can fall below 0.05 (2 / 2<sup>6</sup> = 0.03125), so with fewer pairs no result could ever be significant. With 6 to 9 pairs the comparison is computed (`status="ok"`) but a warning is logged: the tests have little power and the bootstrap interval is unreliable at that size.
+
 ## Gating a release in CI
 
 `assert_improved` raises an `AssertionError` unless every listed scorer moved in its better direction with `p_value < alpha`. A scorer with insufficient pairs counts as not improved. When `scorers` is omitted, every compared scorer is checked, and `assert_improved` also raises if no scorers were compared at all (for example, when the two runs share no scorer with valid feedback), so a CI gate cannot pass on an empty comparison.
@@ -135,4 +139,4 @@ Because the baseline is part of the key, comparing one candidate against several
 - **Calibrate with an A/A run.** LLM judges are not deterministic. Evaluate the same application twice and compare the two runs to see how much difference pure noise produces on your dataset before trusting a small effect.
 - **Multiple comparisons.** No correction is applied across scorers. If you test many scorers at `alpha=0.05`, some will appear significant by chance; gate on the few scorers you decided on in advance, or use a stricter `alpha`.
 - **Significance is not importance.** With many rows a tiny difference can be significant. Read `diff`, the confidence interval, and `effect_size` together with the p-value.
-- **Small samples.** With few pairs the tests have little power, and a non-significant result does not show that the runs are equivalent.
+- **Small samples.** With few pairs the tests have little power, and a non-significant result does not show that the runs are equivalent. See [Small samples](#small-samples).

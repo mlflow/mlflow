@@ -27,7 +27,11 @@ if TYPE_CHECKING:
 _logger = logging.getLogger(__name__)
 
 _BASELINE_SHORT_ID_LENGTH = 8
-_MIN_PAIRS = 2
+# The smallest n at which the exact two-sided signed-rank p-value can fall below 0.05
+# (2 / 2**6 = 0.03125). Below it no result could ever be significant.
+_MIN_PAIRS = 6
+# Below this many pairs the result is reported but a warning is logged.
+_SMALL_SAMPLE_PAIRS = 10
 # Below this many discordant pairs the chi-square approximation of McNemar's test is
 # unreliable, so the exact binomial test is used instead.
 _MCNEMAR_EXACT_MAX_DISCORDANT = 25
@@ -56,7 +60,7 @@ class ScorerComparison:
 
     Args:
         scorer: Name of the scorer.
-        status: ``"ok"``, or ``"insufficient_pairs"`` when fewer than two rows have a value
+        status: ``"ok"``, or ``"insufficient_pairs"`` when fewer than six rows have a value
             for this scorer in both runs. All statistics are ``None`` in the latter case.
         n_paired: Number of paired rows with a value for this scorer in both runs.
         greater_is_better: Whether a higher value of this scorer is better.
@@ -332,6 +336,12 @@ def _compare_paired_values(
             n_paired=n_paired,
             greater_is_better=greater_is_better,
         )
+    if n_paired < _SMALL_SAMPLE_PAIRS:
+        _logger.warning(
+            f"Scorer {scorer!r} has only {n_paired} paired rows. With fewer than "
+            f"{_SMALL_SAMPLE_PAIRS} pairs the tests have little power and the confidence "
+            "interval is unreliable; evaluate more rows before trusting the result."
+        )
 
     # The test is chosen from the paired values, not from the Python type of the feedback:
     # McNemar's test applies iff every value of both runs is 0 or 1. An ``int(x > 0.5)`` or
@@ -442,8 +452,10 @@ def compare_evaluations(
     Every scorer also gets the mean paired difference (candidate - baseline), a percentile
     bootstrap confidence interval of that difference (fixed seed, so results are
     reproducible), Cohen's d_z effect size and the number of ties. A scorer with fewer than
-    two paired values is reported with status ``"insufficient_pairs"``. If no scorer produced
-    valid feedback in both runs, a warning is logged and the result has no scorers.
+    six paired values, the smallest sample at which a result can be significant at 0.05, is
+    reported with status ``"insufficient_pairs"``, and a warning is logged for scorers with
+    fewer than ten. If no scorer produced valid feedback in both runs, a warning is logged
+    and the result has no scorers.
 
     No correction for multiple comparisons is applied across scorers.
 
