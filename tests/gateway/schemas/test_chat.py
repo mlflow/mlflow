@@ -127,6 +127,51 @@ def test_chat_request_preserves_nested_array_items():
     assert inner == nested_items
 
 
+def test_chat_request_preserves_nested_object_properties():
+    # Regression test for https://github.com/mlflow/mlflow/issues/26359.
+    # Nested object schemas must round-trip through the request model without
+    # losing `properties` and `required`; otherwise the gateway forwards a bare
+    # `{"type": "object"}` and the model returns empty or guessed arguments for it.
+    nested_object = {
+        "type": "object",
+        "properties": {
+            "url": {"type": "string"},
+            "method": {"type": "string", "enum": ["GET", "POST"]},
+            "auth": {
+                "type": "object",
+                "properties": {"token": {"type": "string"}},
+                "required": ["token"],
+            },
+        },
+        "required": ["url", "method"],
+    }
+    payload = chat.RequestPayload(**{
+        "messages": [{"role": "user", "content": "hi"}],
+        "tools": [
+            {
+                "type": "function",
+                "function": {
+                    "name": "make_request",
+                    "description": "Make an HTTP request.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "request": nested_object,
+                            "batch": {"type": "array", "items": nested_object},
+                        },
+                        "required": ["request"],
+                    },
+                },
+            }
+        ],
+    })
+
+    dumped = payload.model_dump(exclude_none=True)
+    properties = dumped["tools"][0]["function"]["parameters"]["properties"]
+    assert properties["request"] == nested_object
+    assert properties["batch"]["items"] == nested_object
+
+
 def test_chat_request_accepts_json_schema_response_format_envelope():
     schema = {
         "type": "object",
