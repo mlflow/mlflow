@@ -27,6 +27,7 @@ import {
   PROMPT_TYPE_TEXT,
   validateModelConfig,
   validateResponseFormatJson,
+  canEditSchemaVisually,
 } from '../utils';
 import { ChatMessageCreator } from '../components/ChatMessageCreator';
 import { ModelConfigForm } from '../components/ModelConfigForm';
@@ -36,6 +37,8 @@ export enum CreatePromptModalMode {
   CreatePrompt = 'CreatePrompt',
   CreatePromptVersion = 'CreatePromptVersion',
 }
+
+type SchemaEditorMode = 'code' | 'visual';
 
 export const useCreatePromptModal = ({
   mode = CreatePromptModalMode.CreatePromptVersion,
@@ -52,7 +55,7 @@ export const useCreatePromptModal = ({
 }) => {
   const [open, setOpen] = useState(false);
   const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
-  const [schemaEditorMode, setSchemaEditorMode] = useState<'code' | 'visual'>('code');
+  const [schemaEditorMode, setSchemaEditorMode] = useState<SchemaEditorMode>('code');
   const [visualEditorBlocked, setVisualEditorBlocked] = useState(false);
   const intl = useIntl();
 
@@ -94,8 +97,27 @@ export const useCreatePromptModal = ({
       : !watchedDraftValue?.trim();
   const isSubmitDisabled = (isCreatingNewPrompt && !watchedDraftName?.trim()) || isPromptContentEmpty;
 
-  const handleSchemaModeChange = (nextMode: 'code' | 'visual') => {
-    if (nextMode === 'visual' && !validateResponseFormatJson(form.getValues('responseFormatJson')).valid) {
+  // Why the visual editor cannot be opened on the current value, or undefined when it can.
+  const visualEditorBlockReason = (value: string) => {
+    if (!validateResponseFormatJson(value).valid) {
+      return intl.formatMessage({
+        defaultMessage: 'Fix the JSON schema before switching to the visual editor.',
+        description: 'Warning shown when the structured output JSON schema cannot be parsed into the visual editor',
+      });
+    }
+    if (!canEditSchemaVisually(value)) {
+      return intl.formatMessage({
+        defaultMessage:
+          'This schema can only be edited in the code editor. The visual editor needs an object schema with a properties map.',
+        description:
+          'Warning shown when the structured output JSON schema is valid but outside what the visual editor can edit',
+      });
+    }
+    return undefined;
+  };
+
+  const handleSchemaModeChange = (nextMode: SchemaEditorMode) => {
+    if (nextMode === 'visual' && visualEditorBlockReason(form.getValues('responseFormatJson'))) {
       setVisualEditorBlocked(true);
       return;
     }
@@ -106,8 +128,9 @@ export const useCreatePromptModal = ({
   // Narrow subscription (rather than `form.watch(...)`) so the warning can clear itself as soon
   // as the user fixes the JSON, without re-subscribing the whole modal to every keystroke.
   const watchedResponseFormatJson = useWatch({ control: form.control, name: 'responseFormatJson' });
-  const showVisualEditorBlockedWarning =
-    visualEditorBlocked && !validateResponseFormatJson(watchedResponseFormatJson).valid;
+  const visualEditorBlockedWarning = visualEditorBlocked
+    ? visualEditorBlockReason(watchedResponseFormatJson)
+    : undefined;
 
   const modalElement = (
     <FormProvider {...form}>
@@ -364,7 +387,7 @@ export const useCreatePromptModal = ({
               componentId="mlflow.prompts.create.response_format.mode"
               name="mlflow.prompts.create.response_format.mode"
               value={schemaEditorMode}
-              onChange={(e) => handleSchemaModeChange(e.target.value as 'code' | 'visual')}
+              onChange={(e) => handleSchemaModeChange(e.target.value as SchemaEditorMode)}
             >
               <SegmentedControlButton value="code">
                 <FormattedMessage
@@ -379,15 +402,7 @@ export const useCreatePromptModal = ({
                 />
               </SegmentedControlButton>
             </SegmentedControlGroup>
-            {showVisualEditorBlockedWarning && (
-              <FormUI.Message
-                type="warning"
-                message={intl.formatMessage({
-                  defaultMessage: 'Fix the JSON schema before switching to the visual editor.',
-                  description: 'Warning shown when the structured output JSON schema cannot be parsed into the visual editor',
-                })}
-              />
-            )}
+            {visualEditorBlockedWarning && <FormUI.Message type="warning" message={visualEditorBlockedWarning} />}
             <Spacer size="sm" />
 
             {schemaEditorMode === 'visual' ? (

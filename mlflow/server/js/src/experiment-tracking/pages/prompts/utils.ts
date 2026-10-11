@@ -1,14 +1,17 @@
 import type { KeyValueEntity } from '@mlflow/mlflow/src/common/types';
 import { parseJSONSafe } from '@mlflow/mlflow/src/common/utils/TagUtils';
+import { isEqual } from 'lodash';
 import type {
   ChatPromptMessage,
+  EditableSchemaProperty,
   PromptModelConfig,
   PromptModelConfigFormData,
   RegisteredPrompt,
   RegisteredPromptVersion,
   SchemaProperty,
-  SchemaPropertyType,
+  SchemaScalarType,
 } from './types';
+import { SCHEMA_SCALAR_TYPES } from './types';
 import { MLFLOW_LINKED_PROMPTS_TAG } from '../../constants';
 
 export const REGISTERED_PROMPT_CONTENT_TAG_KEY = 'mlflow.prompt.text';
@@ -297,67 +300,283 @@ export const validateResponseFormatJson = (value: string): { valid: boolean; err
 let idCounter = 0;
 export const nextSchemaPropertyId = () => `prop_${Date.now()}_${idCounter++}`;
 
-/**
- * Parse a JSON schema string into a flat list of properties for the visual editor.
- * Returns an empty list if the schema is empty or fails to parse.
- */
-export const jsonSchemaToProperties = (schemaText: string): SchemaProperty[] => {
-  if (!schemaText?.trim()) return [];
-  try {
-    const schema = JSON.parse(schemaText);
-    const props = schema.properties ?? {};
-    const required: string[] = Array.isArray(schema.required) ? schema.required : [];
-    // Read for compatibility with schemas that use Gemini's `propertyOrdering`; never written.
-    const order: string[] = Array.isArray(schema.propertyOrdering) ? schema.propertyOrdering : Object.keys(props);
+// Keywords read by name are listed so they can be accessed with dot notation; all stay `unknown`.
+interface JsonSchema {
+  type?: unknown;
+  items?: unknown;
+  enum?: unknown;
+  properties?: unknown;
+  required?: unknown;
+  propertyOrdering?: unknown;
+  [keyword: string]: unknown;
+}
 
-    return order
-      .filter((name) => name in props)
-      .map((name) => {
-        const def = props[name] ?? {};
-        const isArray = def.type === 'array';
-        const inner = isArray ? (def.items ?? {}) : def;
-        const isEnum = Array.isArray(inner.enum);
-        const knownTypes: SchemaPropertyType[] = ['string', 'number', 'integer', 'boolean'];
-        const type: SchemaPropertyType = isEnum
-          ? 'enum'
-          : knownTypes.includes(inner.type)
-            ? inner.type
-            : 'string';
-        const enumValues: string[] = isEnum ? inner.enum.map(String) : [];
-        return { id: nextSchemaPropertyId(), name, type, isArray, required: required.includes(name), enumValues };
-      });
-  } catch {
-    // Invalid JSON: caller should fall back to the code editor
-    return [];
+const isPlainObject = (value: unknown): value is JsonSchema =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
+// Keywords the visual editor owns; everything else on a definition is carried through on merge.
+const EDITOR_OWNED_KEYWORDS = ['type', 'items', 'enum'];
+
+const UNSUPPORTED_KEYWORDS = ['$ref', 'oneOf', 'anyOf', 'allOf', 'not'];
+
+const ARRAY_ONLY_KEYWORDS = [
+  'minItems',
+  'maxItems',
+  'uniqueItems',
+  'contains',
+  'minContains',
+  'maxContains',
+  'prefixItems',
+  'unevaluatedItems',
+];
+
+// Annotations describe the field itself, so they stay on the property when it becomes an array.
+const ANNOTATION_KEYWORDS = ['description', 'title', 'deprecated', 'readOnly', 'writeOnly', '$comment'];
+
+const STRING_KEYWORDS = ['minLength', 'maxLength', 'pattern', 'format', 'contentEncoding', 'contentMediaType'];
+const NUMERIC_KEYWORDS = ['minimum', 'maximum', 'exclusiveMinimum', 'exclusiveMaximum', 'multipleOf', 'format'];
+// Keywords holding a value of the property's own type.
+const VALUE_KEYWORDS = ['default', 'examples', 'const'];
+
+const ENUM_VALUE_JS_TYPES = ['string', 'number', 'boolean'];
+
+// Stricter than `Number()`, which also accepts hex, binary and blank strings.
+const JSON_NUMBER_PATTERN = /^-?(0|[1-9]\d*)(\.\d+)?([eE][+-]?\d+)?$/;
+
+const keywordsForType = (type: unknown): string[] => {
+  if (type === 'string') return STRING_KEYWORDS;
+  if (type === 'number' || type === 'integer') return NUMERIC_KEYWORDS;
+  return [];
+};
+
+// Keywords that no longer fit once a value changes type; number <-> integer keep their constraints.
+const staleTypeKeywords = (from: unknown, to: unknown): string[] => {
+  if (from === undefined || from === to) return [];
+  const fromKeywords = keywordsForType(from);
+  return [...(keywordsForType(to) === fromKeywords ? [] : fromKeywords), ...VALUE_KEYWORDS];
+};
+
+// Value keywords holding anything the edited enum no longer allows; enum values are scalars, so nesting is flattened.
+const valuesOutsideEnum = (def: JsonSchema, allowed: unknown[]): string[] =>
+  VALUE_KEYWORDS.filter(
+    (keyword) => keyword in def && ![def[keyword]].flat(Infinity).every((v) => allowed.includes(v)),
+  );
+
+const omitKeywords = (def: JsonSchema, keywords: string[]): JsonSchema =>
+  Object.fromEntries(Object.entries(def).filter(([key]) => !keywords.includes(key)));
+
+const pickKeywords = (def: JsonSchema, keywords: string[]): JsonSchema =>
+  Object.fromEntries(Object.entries(def).filter(([key]) => keywords.includes(key)));
+
+const isScalarType = (type: unknown): type is SchemaScalarType =>
+  SCHEMA_SCALAR_TYPES.includes(type as SchemaScalarType);
+
+const isRepresentableValue = (def: unknown): def is JsonSchema => {
+  if (!isPlainObject(def)) return false;
+  if (UNSUPPORTED_KEYWORDS.some((keyword) => keyword in def)) return false;
+  if (Array.isArray(def.enum)) {
+    return def.enum.every((value) => ENUM_VALUE_JS_TYPES.includes(typeof value));
   }
+  return isScalarType(def.type);
+};
+
+const readOnlyLabelOf = (def: unknown): string => {
+  if (!isPlainObject(def)) return 'unsupported';
+  const keyword = UNSUPPORTED_KEYWORDS.find((k) => k in def);
+  if (keyword) return keyword;
+  if (typeof def.type === 'string') return def.type;
+  if (Array.isArray(def.type)) return def.type.join(' | ');
+  return 'unsupported';
+};
+
+const enumValueTypeOf = (def: JsonSchema): SchemaScalarType => {
+  if (isScalarType(def.type)) return def.type;
+  const values: unknown[] = Array.isArray(def.enum) ? def.enum : [];
+  if (values.length > 0 && values.every((value) => typeof value === 'boolean')) return 'boolean';
+  if (values.length > 0 && values.every((value) => typeof value === 'number')) {
+    return values.every((value) => Number.isInteger(value)) ? 'integer' : 'number';
+  }
+  return 'string';
 };
 
 /**
- * Convert a list of visual editor properties back into a JSON schema string.
- * Properties with an empty name are skipped.
+ * Whether the visual editor can be opened on a schema at all. It edits the `properties` map of a
+ * single object schema; anything else (an OpenAI `response_format` wrapper, a `$ref` or combinator
+ * at the root, an array schema) would show no fields and get `properties` attached at the wrong level.
  */
-export const propertiesToJsonSchema = (properties: SchemaProperty[]): string => {
+export const canEditSchemaVisually = (schemaText: string): boolean => {
+  if (!schemaText?.trim()) return true;
+  const parsed = parseJSONSafe(schemaText);
+  if (!isPlainObject(parsed)) return false;
+  if (Object.keys(parsed).length === 0) return true;
+  if (UNSUPPORTED_KEYWORDS.some((keyword) => keyword in parsed)) return false;
+  if (parsed.type !== undefined && parsed.type !== 'object') return false;
+  return parsed.type === 'object' || isPlainObject(parsed.properties);
+};
+
+const toSchemaProperty = (id: string, name: string, def: unknown, required: boolean): SchemaProperty => {
+  const common = { id, name, originalName: name, required };
+  const container = isPlainObject(def) && def.type === 'array' ? def : undefined;
+  const value = container ? (container.items ?? {}) : def;
+  const unsupportedContainer = container !== undefined && UNSUPPORTED_KEYWORDS.some((k) => k in container);
+
+  if (unsupportedContainer || !isRepresentableValue(value)) {
+    return { ...common, kind: 'readOnly', label: readOnlyLabelOf(def) };
+  }
+  const isArray = container !== undefined;
+  if (Array.isArray(value.enum)) {
+    return {
+      ...common,
+      kind: 'editable',
+      type: 'enum',
+      isArray,
+      enumValues: value.enum.map(String),
+      enumValueType: enumValueTypeOf(value),
+    };
+  }
+  return { ...common, kind: 'editable', type: value.type as SchemaScalarType, isArray, enumValues: [] };
+};
+
+/**
+ * Parse a JSON schema string into a flat list of properties for the visual editor. Returns an
+ * empty list if the schema is empty or fails to parse. Definitions outside the editor's model
+ * become read-only rows.
+ */
+export const jsonSchemaToProperties = (schemaText: string): SchemaProperty[] => {
+  const schema = schemaText?.trim() ? parseJSONSafe(schemaText) : undefined;
+  if (!isPlainObject(schema)) return [];
+
+  const props = isPlainObject(schema.properties) ? schema.properties : {};
+  const required: unknown[] = Array.isArray(schema.required) ? schema.required : [];
+  const names = Object.keys(props);
+  // Gemini's `propertyOrdering` may list only some properties, so it only sorts them.
+  const ordering = (Array.isArray(schema.propertyOrdering) ? schema.propertyOrdering : []).filter(
+    (name): name is string => typeof name === 'string' && names.includes(name),
+  );
+  const order = [...ordering, ...names.filter((name) => !ordering.includes(name))];
+
+  return order.map((name) => toSchemaProperty(nextSchemaPropertyId(), name, props[name], required.includes(name)));
+};
+
+// Re-emit enum values in their original JSON type; undefined when a value no longer fits it.
+const coerceEnumValues = (values: string[], valueType: SchemaScalarType): JsonSchema | undefined => {
+  if (valueType === 'boolean') {
+    const coerced = values.map((value) => (value === 'true' ? true : value === 'false' ? false : undefined));
+    return coerced.every((value) => value !== undefined) ? { type: 'boolean', enum: coerced } : undefined;
+  }
+  if (valueType === 'number' || valueType === 'integer') {
+    const coerced = values.map(Number);
+    const fits = values.every(
+      (value, index) =>
+        JSON_NUMBER_PATTERN.test(value) &&
+        Number.isFinite(coerced[index]) &&
+        (valueType === 'number' || Number.isInteger(coerced[index])),
+    );
+    return fits ? { type: valueType, enum: coerced } : undefined;
+  }
+  return undefined;
+};
+
+const editedValueDefinition = (property: EditableSchemaProperty): JsonSchema => {
+  if (property.type !== 'enum') {
+    return { type: property.type };
+  }
+  const valueType = property.enumValueType ?? 'string';
+  // JSON Schema requires unique `enum` values and rejects an empty array.
+  const values = Array.from(new Set(property.enumValues.map((value) => value.trim()).filter((value) => value)));
+  if (values.length === 0) {
+    return { type: valueType };
+  }
+  return coerceEnumValues(values, valueType) ?? { type: 'string', enum: values };
+};
+
+const withTypeFirst = (def: JsonSchema): JsonSchema => ({ type: def.type, ...def });
+
+const mergeDefinition = (property: EditableSchemaProperty, sourceDef: JsonSchema | undefined): JsonSchema => {
+  const edited = editedValueDefinition(property);
+  if (!sourceDef) {
+    return property.isArray ? { type: 'array', items: edited } : edited;
+  }
+
+  const sourceIsArray = sourceDef.type === 'array';
+  const sourceValue = sourceIsArray ? (isPlainObject(sourceDef.items) ? sourceDef.items : {}) : sourceDef;
+  const staleKeywords = staleTypeKeywords(sourceValue.type, edited.type);
+  const outsideEnum = (def: JsonSchema) => (Array.isArray(edited.enum) ? valuesOutsideEnum(def, edited.enum) : []);
+  const valueExtras = omitKeywords(sourceValue, [
+    ...EDITOR_OWNED_KEYWORDS,
+    ...staleKeywords,
+    ...outsideEnum(sourceValue),
+  ]);
+  // The container's own `default` / `examples` are arrays of the old items, so they only survive an unchanged array.
+  const staleContainerKeywords =
+    property.isArray && staleKeywords.length === 0 ? outsideEnum(sourceDef) : VALUE_KEYWORDS;
+  const containerExtras = sourceIsArray
+    ? omitKeywords(sourceDef, [...EDITOR_OWNED_KEYWORDS, ...staleContainerKeywords])
+    : {};
+
+  if (property.isArray) {
+    // Scalar -> array: value constraints move into `items`, annotations stay on the property.
+    const annotations = sourceIsArray ? {} : pickKeywords(valueExtras, ANNOTATION_KEYWORDS);
+    const itemExtras = sourceIsArray ? valueExtras : omitKeywords(valueExtras, ANNOTATION_KEYWORDS);
+    return withTypeFirst({
+      ...containerExtras,
+      ...annotations,
+      type: 'array',
+      items: withTypeFirst({ ...itemExtras, ...edited }),
+    });
+  }
+  return withTypeFirst({ ...valueExtras, ...omitKeywords(containerExtras, ARRAY_ONLY_KEYWORDS), ...edited });
+};
+
+const isUnedited = (property: EditableSchemaProperty, sourceDef: JsonSchema): boolean => {
+  const parsed = toSchemaProperty(property.id, property.name, sourceDef, property.required);
+  return (
+    parsed.kind === 'editable' &&
+    parsed.type === property.type &&
+    parsed.isArray === property.isArray &&
+    (property.type !== 'enum' || isEqual(parsed.enumValues, property.enumValues))
+  );
+};
+
+/**
+ * Convert the editor's properties back into a JSON schema string, merged onto `baseSchema` (the
+ * parsed schema the editor was opened with) so that everything the flat editor does not model is
+ * preserved. Properties with an empty name are skipped.
+ */
+export const propertiesToJsonSchema = (properties: SchemaProperty[], baseSchema?: unknown): string => {
+  const base = isPlainObject(baseSchema) ? baseSchema : {};
+  const baseProperties = isPlainObject(base.properties) ? base.properties : {};
   const validProps = properties.filter((p) => p.name.trim());
 
-  const propertyDef = (p: SchemaProperty) => {
-    if (p.type === 'enum') {
-      // JSON Schema requires `enum` values to be unique; omit the keyword entirely rather
-      // than emitting an invalid empty array.
-      const values = Array.from(new Set(p.enumValues.map((v) => v.trim()).filter((v) => v)));
-      return values.length > 0 ? { type: 'string', enum: values } : { type: 'string' };
+  const definitionFor = (property: SchemaProperty): unknown => {
+    // By original name, so a rename keeps its keywords and a new row never inherits a deleted namesake's.
+    const source = property.originalName === undefined ? undefined : baseProperties[property.originalName];
+    if (property.kind === 'readOnly') {
+      return source === undefined ? {} : source;
     }
-    return { type: p.type };
+    const sourceDef = isPlainObject(source) ? source : undefined;
+    // Untouched rows go out verbatim so that editing one field never normalizes another.
+    if (sourceDef && isUnedited(property, sourceDef)) {
+      return sourceDef;
+    }
+    return mergeDefinition(property, sourceDef);
   };
 
-  const requiredNames = validProps.filter((p) => p.required).map((p) => p.name.trim());
+  const names = validProps.map((p) => p.name.trim());
+  // Duplicate names collapse into one property, and JSON Schema rejects repeated `required` entries.
+  const requiredNames = Array.from(new Set(validProps.filter((p) => p.required).map((p) => p.name.trim())));
 
-  const schema = {
-    type: 'object',
-    properties: Object.fromEntries(
-      validProps.map((p) => [p.name.trim(), p.isArray ? { type: 'array', items: propertyDef(p) } : propertyDef(p)]),
-    ),
-    ...(requiredNames.length > 0 ? { required: requiredNames } : {}),
-  };
+  const schema: JsonSchema = { type: 'object', ...base };
+  schema.properties = Object.fromEntries(validProps.map((p, index) => [names[index], definitionFor(p)]));
+  if (requiredNames.length > 0) {
+    schema.required = requiredNames;
+  } else {
+    delete schema.required;
+  }
+  // Kept in sync when the source schema already used it; never introduced.
+  if (Array.isArray(base.propertyOrdering)) {
+    schema.propertyOrdering = names;
+  }
 
   return JSON.stringify(schema, null, 2);
 };

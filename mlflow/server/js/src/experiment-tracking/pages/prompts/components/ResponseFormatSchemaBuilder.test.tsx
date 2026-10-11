@@ -28,12 +28,26 @@ const enumFieldSchema = JSON.stringify({
   required: [],
 });
 
+const richSchema = JSON.stringify({
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    summary: { type: 'string', description: 'One line summary' },
+    owner: { $ref: '#/$defs/Person' },
+  },
+  $defs: { Person: { type: 'object', properties: { name: { type: 'string' } } } },
+});
+
 const emptyEnumFieldSchema = JSON.stringify({
   type: 'object',
   properties: { priority: { type: 'string', enum: [] } },
   required: [],
 });
 
+const lastEmitted = (onSchemaChange: jest.Mock<(next: string) => void>) =>
+  JSON.parse(onSchemaChange.mock.lastCall?.[0] ?? '');
+
+// Each row renders its switches in the order [array toggle, required toggle]
 describe('ResponseFormatSchemaBuilder', () => {
   const renderComponent = (props: { schemaText: string; onSchemaChange: (next: string) => void }) => {
     return render(
@@ -58,7 +72,7 @@ describe('ResponseFormatSchemaBuilder', () => {
 
     expect(screen.getAllByPlaceholderText('Property')).toHaveLength(1);
     expect(onSchemaChange).toHaveBeenCalledTimes(1);
-    const emitted = JSON.parse(onSchemaChange.mock.calls[0][0]);
+    const emitted = lastEmitted(onSchemaChange);
     expect(emitted.properties).toEqual({});
   });
 
@@ -73,7 +87,7 @@ describe('ResponseFormatSchemaBuilder', () => {
     await userEvent.click(deleteButtons[1]); // remove "age"
 
     expect(screen.getAllByRole('textbox')).toHaveLength(1);
-    const emitted = JSON.parse(onSchemaChange.mock.calls[onSchemaChange.mock.calls.length - 1][0]);
+    const emitted = lastEmitted(onSchemaChange);
     expect(emitted.properties).toEqual({ name: { type: 'string' } });
   });
 
@@ -112,7 +126,7 @@ describe('ResponseFormatSchemaBuilder', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Add enum value' }));
     await userEvent.type(screen.getByPlaceholderText('Allowed value'), 'low');
 
-    const emitted = JSON.parse(onSchemaChange.mock.calls[onSchemaChange.mock.calls.length - 1][0]);
+    const emitted = lastEmitted(onSchemaChange);
     expect(emitted.properties.priority.enum).toEqual(['low']);
   });
 
@@ -127,7 +141,7 @@ describe('ResponseFormatSchemaBuilder', () => {
     expect(screen.queryByDisplayValue('medium')).not.toBeInTheDocument();
     expect(screen.getByDisplayValue('high')).toBeInTheDocument();
 
-    const emitted = JSON.parse(onSchemaChange.mock.calls[onSchemaChange.mock.calls.length - 1][0]);
+    const emitted = lastEmitted(onSchemaChange);
     expect(emitted.properties.priority.enum).toEqual(['low', 'high']);
   });
 
@@ -135,11 +149,10 @@ describe('ResponseFormatSchemaBuilder', () => {
     const onSchemaChange = jest.fn<(next: string) => void>();
     renderComponent({ schemaText: singleFieldSchema, onSchemaChange });
 
-    // Row order is [array toggle, required toggle]
     const [arraySwitch] = screen.getAllByRole('switch');
     await userEvent.click(arraySwitch);
 
-    const emitted = JSON.parse(onSchemaChange.mock.calls[onSchemaChange.mock.calls.length - 1][0]);
+    const emitted = lastEmitted(onSchemaChange);
     expect(emitted.properties.status).toEqual({ type: 'array', items: { type: 'string' } });
   });
 
@@ -147,11 +160,61 @@ describe('ResponseFormatSchemaBuilder', () => {
     const onSchemaChange = jest.fn<(next: string) => void>();
     renderComponent({ schemaText: singleFieldSchema, onSchemaChange });
 
-    // Row order is [array toggle, required toggle]
     const [, requiredSwitch] = screen.getAllByRole('switch');
     await userEvent.click(requiredSwitch);
 
-    const emitted = JSON.parse(onSchemaChange.mock.calls[onSchemaChange.mock.calls.length - 1][0]);
+    const emitted = lastEmitted(onSchemaChange);
     expect(emitted.required).toEqual(['status']);
+  });
+
+  it('keeps keywords it does not model when a field is edited', async () => {
+    const onSchemaChange = jest.fn<(next: string) => void>();
+    renderComponent({ schemaText: richSchema, onSchemaChange });
+
+    const [arraySwitch] = screen.getAllByRole('switch');
+    await userEvent.click(arraySwitch);
+
+    const emitted = lastEmitted(onSchemaChange);
+    expect(emitted.additionalProperties).toBe(false);
+    expect(emitted.properties.summary.description).toEqual('One line summary');
+    expect(emitted.properties.owner).toEqual({ $ref: '#/$defs/Person' });
+  });
+
+  it('shows fields it cannot represent as read-only rows', () => {
+    renderComponent({ schemaText: richSchema, onSchemaChange: jest.fn<(next: string) => void>() });
+
+    const ownerNameInput = screen.getByDisplayValue('owner');
+    expect(ownerNameInput).toBeDisabled();
+    expect(screen.getByDisplayValue('$ref')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('summary')).toBeEnabled();
+  });
+
+  it('flags a duplicate property name', async () => {
+    renderComponent({ schemaText: twoFieldSchema, onSchemaChange: jest.fn<(next: string) => void>() });
+
+    const ageInput = screen.getByDisplayValue('age');
+    await userEvent.clear(ageInput);
+    await userEvent.type(ageInput, 'name');
+
+    expect(screen.getAllByText('Duplicate property name. Only the last field with this name is saved.')).toHaveLength(
+      2,
+    );
+  });
+
+  it('warns that an unnamed property is not saved', async () => {
+    renderComponent({ schemaText: '', onSchemaChange: jest.fn<(next: string) => void>() });
+
+    await userEvent.click(screen.getByRole('button', { name: 'Add property' }));
+
+    expect(screen.getByText('Properties without a name are not saved.')).toBeInTheDocument();
+  });
+
+  it('emits an empty value when the last property is removed, so no schema is saved', async () => {
+    const onSchemaChange = jest.fn<(next: string) => void>();
+    renderComponent({ schemaText: singleFieldSchema, onSchemaChange });
+
+    await userEvent.click(screen.getByRole('button', { name: 'Remove property' }));
+
+    expect(onSchemaChange).toHaveBeenLastCalledWith('');
   });
 });
