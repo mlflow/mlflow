@@ -44,12 +44,8 @@ timeout 120 agent-browser --session <sess> batch --bail < $out_dir/work/steps.js
 agent-browser --session <sess> record stop
 ```
 
-To point out the symptom, add a simple temporary outline around the affected element with an
-`eval` step, as described above for screenshots, and remove it with another `eval` step. If the
-batch times out, retry once in a fresh session, then fall back to screenshots. Check the contact
-sheet to confirm the video shows the bug before citing it. The contact sheet skips small changes
-such as an outline, so confirm the outline by extracting a frame
-(`ffmpeg -ss <seconds> -i <video> -frames:v 1 <png>`).
+If the batch times out, retry once in a fresh session, then fall back to screenshots. Check the
+contact sheet to confirm the video shows the bug before citing it.
 When you propose a fix for a visible UI bug, record the same steps again after applying it,
 against the dev server from "Running the UI" in `SKILL.md` (the built UI does not reflect code
 changes), and cite both videos in the `pull_request` body as a before/after comparison.
