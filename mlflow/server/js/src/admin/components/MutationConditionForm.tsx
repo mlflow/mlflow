@@ -294,6 +294,17 @@ export const MutationConditionForm = ({
                   </DialogComboboxContent>
                 </DialogCombobox>
               )}
+              {isPartialWildcardPattern(value.scopePattern) ? (
+                <Typography.Text
+                  color="error"
+                  size="sm"
+                  data-testid="admin.mutation_condition_form.scope_pattern_wildcard_error"
+                >
+                  A scope is matched exactly, so &lsquo;{value.scopePattern.trim()}&rsquo; would restrict nothing. Enter
+                  one {scopeLabel?.toLowerCase()} name, or switch the scope to{' '}
+                  <strong>All {typeLabel.toLowerCase()}s in the workspace</strong>.
+                </Typography.Text>
+              ) : null}
             </div>
           )}
         </div>
@@ -382,9 +393,25 @@ export const MutationConditionForm = ({
 };
 
 /** True when the draft is ready to be submitted. */
+/**
+ * A scope pattern is matched EXACTLY server-side, so a glob restricts nothing.
+ *
+ * The server refuses this, but the typed-id branch above is where an admin reaches for one
+ * -- an ``mcp_server`` name is ``<namespace>/<slug>``, which makes ``team/*`` the obvious
+ * thing to write. Caught here so the reason is visible next to the field rather than
+ * arriving as a rejected submit. The bare wildcard is not a partial one: it is what the
+ * ``All ...`` scope sends.
+ */
+export const isPartialWildcardPattern = (pattern: string): boolean => {
+  const p = pattern.trim();
+  return p.includes(CONDITION_WILDCARD_PATTERN) && p !== CONDITION_WILDCARD_PATTERN;
+};
+
 export const isMutationConditionDraftFillable = (draft: MutationConditionDraft): boolean => {
   if (isConditionEmpty(draft.valueCondition, draft.targetCondition)) return false;
-  if (draft.scope === 'scoped') return draft.scopePattern.trim().length > 0;
+  if (draft.scope === 'scoped') {
+    return draft.scopePattern.trim().length > 0 && !isPartialWildcardPattern(draft.scopePattern);
+  }
   return true;
 };
 
