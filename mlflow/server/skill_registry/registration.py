@@ -233,7 +233,7 @@ def _validate_metadata(registration: SkillVersionRegistration) -> None:
             f"'digest' must be a SHA-256 digest of {SKILL_VERSION_DIGEST_LENGTH} lowercase hex "
             "characters."
         )
-    if registration.source_type in (SkillSourceType.MLFLOW.value, SkillSourceType.ASSEMBLED.value):
+    if registration.source_type == SkillSourceType.MLFLOW.value:
         raise MlflowException.invalid_parameter_value(
             f"'source_type' {registration.source_type!r} is set by the server from the creation "
             "flow and cannot be submitted."

@@ -2,6 +2,7 @@ import threading
 from unittest import mock
 
 import pytest
+from sqlalchemy.orm import Session
 
 from mlflow.exceptions import MlflowException
 from mlflow.server import SERVE_ARTIFACTS_ENV_VAR, handlers
@@ -12,14 +13,8 @@ from mlflow.server.skill_registry import (
 )
 from mlflow.server.skill_registry import deletion as deletion_module
 from mlflow.server.skill_registry import registration as registration_module
-from mlflow.store.tracking.dbmodels.models import (
-    SqlAgentPlugin,
-    SqlAgentPluginVersion,
-    SqlAgentPluginVersionMember,
-)
 from mlflow.store.tracking.skill_registry.artifact_paths import (
     owned_skill_upload_path,
-    validate_referenced_mlflow_source,
 )
 
 from tests.server.skill_registry.conftest import (
@@ -31,7 +26,7 @@ from tests.server.skill_registry.conftest import (
 
 pytestmark = pytest.mark.notrackingurimock
 
-_PACKAGE_PATH = "agent-plugins/@acme/toolkit/0123456789abcdef0123456789abcdef"
+_EXTERNAL_PATH = "external-content/@acme/toolkit/0123456789abcdef0123456789abcdef"
 
 
 def _upload(name="reviewer", organization="acme"):
@@ -43,17 +38,16 @@ def _upload(name="reviewer", organization="acme"):
     return version, version.source.artifact_path.removeprefix("mlflow-artifacts:/")
 
 
-def _import_member(store, artifact_root, name="reviewer"):
-    """Persist a member that references a plugin's stored tree, as packaged import does."""
-    tree = artifact_root / _PACKAGE_PATH
+def _reference_content(store, artifact_root, name="reviewer"):
+    tree = artifact_root / _EXTERNAL_PATH
     (tree / "skills" / name).mkdir(parents=True, exist_ok=True)
     (tree / "skills" / name / "SKILL.md").write_bytes(SKILL_FILES["SKILL.md"])
-    (tree / "plugin.json").write_bytes(b"{}")
-    source, subpath = validate_referenced_mlflow_source(
-        f"mlflow-artifacts:/{_PACKAGE_PATH}", f"skills/{name}"
-    )
     return store.create_skill_version(
-        name, organization="acme", source_type="mlflow", source=source, subpath=subpath
+        name,
+        organization="acme",
+        source_type="mlflow",
+        source=f"mlflow-artifacts:/{_EXTERNAL_PATH}",
+        subpath=f"skills/{name}",
     )
 
 
@@ -113,12 +107,11 @@ def test_cleanup_failure_does_not_restore_rows_or_fail_the_delete(store, artifac
     assert leaked == [repo_delete_calls[0]]
 
 
-def test_delete_skill_never_deletes_a_referenced_package_tree(store, artifact_root):
-    # The member is the last reference to the plugin's tree; deleting the skill still leaves
-    # it alone, because the tree belongs to the plugin version, not to the skill.
-    _import_member(store, artifact_root)
+def test_delete_skill_never_deletes_a_referenced_tree(store, artifact_root):
+    # Deleting the last reference to an external tree leaves its content intact.
+    _reference_content(store, artifact_root)
     _, owned = _upload()
-    package_files = stored_files(artifact_root / _PACKAGE_PATH)
+    referenced_files = stored_files(artifact_root / _EXTERNAL_PATH)
 
     with mock.patch.object(
         deletion_module,
@@ -128,12 +121,12 @@ def test_delete_skill_never_deletes_a_referenced_package_tree(store, artifact_ro
         delete_skill("reviewer", organization="acme")
     cleanup.assert_called_once_with(owned)
     assert version_rows(store) == 0
-    assert stored_files(artifact_root / _PACKAGE_PATH) == package_files
+    assert stored_files(artifact_root / _EXTERNAL_PATH) == referenced_files
     assert not (artifact_root / owned).exists()
 
 
 def test_delete_skill_with_only_references_touches_no_artifacts(store, artifact_root):
-    _import_member(store, artifact_root)
+    _reference_content(store, artifact_root)
     before = stored_files(artifact_root)
     with mock.patch.object(deletion_module, "delete_artifact_tree_best_effort") as cleanup:
         delete_skill("reviewer", organization="acme")
@@ -228,42 +221,24 @@ def test_delete_then_recreate_restarts_versions_at_a_fresh_path(store, artifact_
     assert stored_files(artifact_root / new_path) == sorted(SKILL_FILES)
 
 
-def test_blocked_delete_removes_neither_rows_nor_artifacts(store, artifact_root):
+def test_failed_delete_removes_neither_rows_nor_artifacts(store, artifact_root):
     _, path = _upload()
-    with store.ManagedSessionMaker(read_only=False) as session:
-        session.add(store._with_workspace_field(SqlAgentPlugin(organization="acme", name="kit")))
-        session.add(
-            store._with_workspace_field(
-                SqlAgentPluginVersion(
-                    organization="acme",
-                    name="kit",
-                    version="1.0.0",
-                    version_major=1,
-                    version_minor=0,
-                    version_patch=0,
-                    version_prerelease_sort_key="",
-                    plugin_json={"name": "kit", "version": "1.0.0"},
-                )
-            )
-        )
-        session.flush()
-        session.add(
-            SqlAgentPluginVersionMember(
-                plugin_workspace="default",
-                plugin_organization="acme",
-                plugin_name="kit",
-                plugin_version="1.0.0",
-                member_name="reviewer",
-                member_organization="acme",
-                member_version=1,
-            )
-        )
+    original_flush = Session.flush
 
-    with mock.patch.object(deletion_module, "delete_artifact_tree_best_effort") as cleanup:
-        with pytest.raises(MlflowException, match="live agent plugin versions") as exc:
+    def fail_delete(session, *args, **kwargs):
+        if session.deleted:
+            raise RuntimeError("flush failed")
+        return original_flush(session, *args, **kwargs)
+
+    with (
+        mock.patch.object(Session, "flush", autospec=True, side_effect=fail_delete) as flush,
+        mock.patch.object(deletion_module, "delete_artifact_tree_best_effort") as cleanup,
+    ):
+        with pytest.raises(MlflowException, match="flush failed") as exc:
             delete_skill("reviewer", organization="acme")
+    flush.assert_called()
     cleanup.assert_not_called()
-    assert exc.value.error_code == "RESOURCE_CONFLICT"
+    assert exc.value.error_code == "INTERNAL_ERROR"
     assert version_rows(store) == 1
     assert stored_files(artifact_root / path) == sorted(SKILL_FILES)
 
