@@ -60,9 +60,11 @@ class ScorerComparison:
             for this scorer in both runs. All statistics are ``None`` in the latter case.
         n_paired: Number of paired rows with a value for this scorer in both runs.
         greater_is_better: Whether a higher value of this scorer is better.
-        value_type: ``"binary"`` for pass/fail feedback, ``"numeric"`` otherwise.
-        method: Test that produced ``p_value``: ``"mcnemar_exact"``, ``"mcnemar_chi2"`` or
-            ``"wilcoxon"``.
+        value_type: ``"binary"`` when every feedback of the scorer is a boolean or a yes/no
+            rating, ``"numeric"`` otherwise. Describes the feedback, not the test: that is
+            chosen from the paired values, see ``method``.
+        method: Test that produced ``p_value``. ``"mcnemar_exact"`` or ``"mcnemar_chi2"``
+            when every paired value is 0 or 1, ``"wilcoxon"`` otherwise.
         baseline_mean: Mean of the baseline values over the paired rows.
         candidate_mean: Mean of the candidate values over the paired rows.
         diff: Mean paired difference (candidate - baseline).
@@ -275,7 +277,7 @@ def _pair_rows(baseline_rows: list[_EvalRow], candidate_rows: list[_EvalRow]) ->
     return _Pairing(pairs=pairs, unpaired_baseline=baseline_rows, unpaired_candidate=candidate_rows)
 
 
-def _is_binary(feedback: Feedback) -> bool:
+def _is_pass_fail(feedback: Feedback) -> bool:
     # Strings reach the comparison only as yes/no ratings, which are pass/fail like booleans.
     return isinstance(feedback.value, (bool, str))
 
@@ -315,7 +317,7 @@ def _compare_paired_values(
     baseline: "np.ndarray",
     candidate: "np.ndarray",
     *,
-    binary: bool,
+    value_type: Literal["binary", "numeric"],
     greater_is_better: bool = True,
     confidence_level: float = 0.95,
 ) -> ScorerComparison:
@@ -331,6 +333,11 @@ def _compare_paired_values(
             greater_is_better=greater_is_better,
         )
 
+    # The test is chosen from the paired values, not from the Python type of the feedback:
+    # McNemar's test applies iff every value of both runs is 0 or 1. An ``int(x > 0.5)`` or
+    # ``1.0``/``0.0`` scorer is pass/fail in substance, whereas a boolean scorer whose
+    # per-trace averages are fractional is not.
+    binary = bool(np.isin(np.concatenate([baseline, candidate]), (0.0, 1.0)).all())
     deltas = candidate - baseline
     diff = float(deltas.mean())
     # Differences that are equal up to floating point noise have no variance to test against.
@@ -357,7 +364,7 @@ def _compare_paired_values(
         status="ok",
         n_paired=n_paired,
         greater_is_better=greater_is_better,
-        value_type="binary" if binary else "numeric",
+        value_type=value_type,
         method=method,
         baseline_mean=float(baseline.mean()),
         candidate_mean=float(candidate.mean()),
@@ -419,13 +426,18 @@ def compare_evaluations(
 
     Rows of the two runs are paired on the evaluation request ID of their traces, falling
     back to a stable hash of the row inputs. Rows that cannot be paired are reported in the
-    result and excluded from the statistics. Each scorer that produced feedback in both runs
-    is then compared over the paired rows:
+    result and excluded from the statistics. Several feedbacks of one name on a trace (e.g.
+    from a scorer returning a list of feedbacks) are averaged per trace, as
+    :py:func:`mlflow.genai.evaluate` averages them into ``<scorer>/mean``. Each scorer that
+    produced feedback in both runs is then compared over the paired rows, with the test
+    chosen from the paired values rather than from the type the scorer returned:
 
-    - **Pass/fail feedback** (booleans and yes/no ratings): McNemar's test, exact when there
-      are fewer than 25 discordant pairs and chi-square with continuity correction otherwise.
-    - **Numeric feedback**: Wilcoxon signed-rank test, with the paired t-test reported
-      alongside as ``t_test_p_value``.
+    - **Every paired value is 0 or 1** (booleans, yes/no ratings, but also ``int(x > 0.5)``
+      or ``1.0``/``0.0`` scorers): McNemar's test, exact when there are fewer than 25
+      discordant pairs and chi-square with continuity correction otherwise.
+    - **Otherwise** (including pass/fail scorers whose per-trace averages are fractional):
+      Wilcoxon signed-rank test, with the paired t-test reported alongside as
+      ``t_test_p_value``.
 
     Every scorer also gets the mean paired difference (candidate - baseline), a percentile
     bootstrap confidence interval of that difference (fixed seed, so results are
@@ -521,7 +533,7 @@ def compare_evaluations(
     for name in common_scorers:
         baseline_values = []
         candidate_values = []
-        binary = True
+        pass_fail = True
         for pair, paired_row in zip(pairing.pairs, paired_rows):
             baseline_feedbacks = pair.baseline.feedbacks.get(name, [])
             candidate_feedbacks = pair.candidate.feedbacks.get(name, [])
@@ -529,8 +541,8 @@ def compare_evaluations(
             candidate_value = _mean_feedback_value(candidate_feedbacks)
             if baseline_value is None or candidate_value is None:
                 continue
-            binary = binary and all(
-                _is_binary(feedback) for feedback in (*baseline_feedbacks, *candidate_feedbacks)
+            pass_fail = pass_fail and all(
+                _is_pass_fail(feedback) for feedback in (*baseline_feedbacks, *candidate_feedbacks)
             )
             baseline_values.append(baseline_value)
             candidate_values.append(candidate_value)
@@ -544,7 +556,7 @@ def compare_evaluations(
             name,
             np.array(baseline_values, dtype=float),
             np.array(candidate_values, dtype=float),
-            binary=binary,
+            value_type="binary" if pass_fail else "numeric",
             greater_is_better=greater_is_better.get(name, True),
             confidence_level=confidence_level,
         )

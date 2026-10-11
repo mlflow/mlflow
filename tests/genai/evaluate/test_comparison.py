@@ -47,6 +47,28 @@ def failing(outputs) -> float:
 
 
 @scorer
+def passed_int(outputs) -> int:
+    return int(outputs["passed"])
+
+
+@scorer
+def passed_float(outputs) -> float:
+    return 1.0 if outputs["passed"] else 0.0
+
+
+@scorer
+def mixed(outputs) -> bool | float:
+    # One boolean among fractional values.
+    return True if outputs["score"] >= 0.9 else outputs["score"]
+
+
+@scorer
+def votes(outputs) -> list[Feedback]:
+    # Two pass/fail feedbacks per trace, whose per-trace average can be 0.5.
+    return [Feedback(name="votes", value=True), Feedback(name="votes", value=outputs["passed"])]
+
+
+@scorer
 def duplicated(outputs) -> list[Feedback]:
     # Two feedbacks of the same name on one trace.
     return [
@@ -85,7 +107,7 @@ def test_numeric_comparison_matches_scipy_and_detects_known_effect():
     candidate = baseline + 0.1 + rng.normal(0, 0.1, size=80)
     deltas = candidate - baseline
 
-    result = _compare_paired_values("score", baseline, candidate, binary=False)
+    result = _compare_paired_values("score", baseline, candidate, value_type="numeric")
 
     assert result.status == "ok"
     assert result.value_type == "numeric"
@@ -112,9 +134,11 @@ def test_bootstrap_interval_is_reproducible_and_widens_with_confidence_level():
     baseline = rng.normal(0.5, 0.2, size=40)
     candidate = baseline + rng.normal(0.05, 0.1, size=40)
 
-    first = _compare_paired_values("score", baseline, candidate, binary=False)
-    second = _compare_paired_values("score", baseline, candidate, binary=False)
-    wide = _compare_paired_values("score", baseline, candidate, binary=False, confidence_level=0.99)
+    first = _compare_paired_values("score", baseline, candidate, value_type="numeric")
+    second = _compare_paired_values("score", baseline, candidate, value_type="numeric")
+    wide = _compare_paired_values(
+        "score", baseline, candidate, value_type="numeric", confidence_level=0.99
+    )
 
     assert (first.ci_low, first.ci_high) == (second.ci_low, second.ci_high)
     assert wide.ci_low < first.ci_low < first.ci_high < wide.ci_high
@@ -135,7 +159,7 @@ def test_binary_comparison_matches_scipy(
     baseline, candidate = _binary_pairs(improved, regressed, ties)
     n = improved + regressed + ties
 
-    result = _compare_paired_values("passed", baseline, candidate, binary=True)
+    result = _compare_paired_values("passed", baseline, candidate, value_type="binary")
 
     if expected_method == "mcnemar_exact":
         expected_p_value = stats.binomtest(improved, improved + regressed, 0.5).pvalue
@@ -162,8 +186,8 @@ def test_null_comparison_does_not_reject(seed: int):
     baseline_pass = (rng.uniform(size=100) < quality).astype(float)
     candidate_pass = (rng.uniform(size=100) < quality).astype(float)
 
-    numeric = _compare_paired_values("score", baseline, candidate, binary=False)
-    binary = _compare_paired_values("passed", baseline_pass, candidate_pass, binary=True)
+    numeric = _compare_paired_values("score", baseline, candidate, value_type="numeric")
+    binary = _compare_paired_values("passed", baseline_pass, candidate_pass, value_type="binary")
 
     for comparison in (numeric, binary):
         assert comparison.p_value > 0.05
@@ -174,11 +198,11 @@ def test_null_comparison_does_not_reject(seed: int):
         result.assert_improved()
 
 
-@pytest.mark.parametrize("binary", [True, False])
-def test_identical_values_are_all_ties(binary: bool):
-    values = np.array([1.0, 0.0, 1.0, 1.0])
+@pytest.mark.parametrize("values", [[1.0, 0.0, 1.0, 1.0], [0.2, 0.9, 0.4, 0.4]])
+def test_identical_values_are_all_ties(values: list[float]):
+    values = np.array(values)
 
-    result = _compare_paired_values("s", values, values.copy(), binary=binary)
+    result = _compare_paired_values("s", values, values.copy(), value_type="numeric")
 
     assert result.status == "ok"
     assert result.diff == 0
@@ -193,7 +217,7 @@ def test_constant_nonzero_deltas(n: int, expected_p_value: float):
     baseline = np.arange(n, dtype=float)
     candidate = baseline + 0.5
 
-    comparison = _compare_paired_values("score", baseline, candidate, binary=False)
+    comparison = _compare_paired_values("score", baseline, candidate, value_type="numeric")
 
     assert comparison.status == "ok"
     assert comparison.method == "wilcoxon"
@@ -219,7 +243,7 @@ def test_constant_nonzero_deltas(n: int, expected_p_value: float):
 def test_insufficient_pairs(n: int):
     values = np.arange(n, dtype=float)
 
-    result = _compare_paired_values("score", values, values + 1, binary=False)
+    result = _compare_paired_values("score", values, values + 1, value_type="numeric")
 
     assert result == ScorerComparison(scorer="score", status="insufficient_pairs", n_paired=n)
 
@@ -310,6 +334,50 @@ def test_compare_evaluations_pairs_on_inputs_when_request_ids_differ():
     assert [row["scores"]["score"]["delta"] for row in result.paired_rows] == pytest.approx(
         [0.25] * 5
     )
+
+
+@pytest.mark.parametrize(
+    ("baseline_values", "candidate_values", "expected_binary"),
+    [
+        ([0.0, 1.0, 1.0, 0.0, 1.0, 0.0], [1.0, 1.0, 0.0, 1.0, 1.0, 1.0], True),
+        # One fractional value is enough for the signed-rank path.
+        ([0.0, 1.0, 1.0, 0.0, 1.0, 0.5], [1.0, 1.0, 0.0, 1.0, 1.0, 1.0], False),
+        ([0.2, 0.4, 0.1, 0.9, 0.3, 0.5], [0.4, 0.6, 0.3, 1.0, 0.5, 0.6], False),
+    ],
+)
+def test_binary_dispatch_is_decided_from_the_values(
+    baseline_values: list[float], candidate_values: list[float], expected_binary: bool
+):
+    result = _compare_paired_values(
+        "s", np.array(baseline_values), np.array(candidate_values), value_type="numeric"
+    )
+
+    assert result.method.startswith("mcnemar") is expected_binary
+    assert (result.t_test_p_value is None) is expected_binary
+
+
+def test_compare_evaluations_dispatches_on_values_not_feedback_type():
+    scores = [0.1, 0.3, 0.4, 0.2, 0.6, 0.7, 0.3, 0.2, 0.9, 0.8]
+    scorers = (passed, passed_int, passed_float, mixed, votes)
+    baseline_run_id = _evaluate(_rows(scores), scorers)
+    candidate_run_id = _evaluate(_rows([min(s + 0.3, 1.0) for s in scores]), scorers)
+
+    result = mlflow.genai.compare_evaluations(candidate_run_id, baseline_run_id, log_results=False)
+
+    # 0/1 integers and 1.0/0.0 floats are tested like booleans.
+    for name in ("passed_int", "passed_float"):
+        assert result.scorers[name].value_type == "numeric"
+        assert result.scorers[name].method == "mcnemar_exact"
+        assert result.scorers[name].p_value == result.scorers["passed"].p_value
+    assert result.scorers["passed"].value_type == "binary"
+    assert result.scorers["passed"].method == "mcnemar_exact"
+    # One boolean among fractional values does not make the scorer binary.
+    assert result.scorers["mixed"].value_type == "numeric"
+    assert result.scorers["mixed"].method == "wilcoxon"
+    # Pass/fail feedback whose per-trace average is fractional takes the signed-rank path.
+    assert result.scorers["votes"].value_type == "binary"
+    assert result.scorers["votes"].method == "wilcoxon"
+    assert {row["scores"]["votes"]["baseline"] for row in result.paired_rows} == {0.5, 1.0}
 
 
 def test_compare_evaluations_averages_same_name_feedbacks_per_trace():
@@ -425,16 +493,16 @@ def test_assert_improved():
     rng = np.random.default_rng(3)
     baseline = rng.normal(0.5, 0.1, size=50)
     improved = _compare_paired_values(
-        "improved", baseline, baseline + 0.1 + rng.normal(0, 0.05, size=50), binary=False
+        "improved", baseline, baseline + 0.1 + rng.normal(0, 0.05, size=50), value_type="numeric"
     )
     regressed = _compare_paired_values(
-        "regressed", baseline, baseline - 0.1 + rng.normal(0, 0.05, size=50), binary=False
+        "regressed", baseline, baseline - 0.1 + rng.normal(0, 0.05, size=50), value_type="numeric"
     )
     noise = _compare_paired_values(
-        "noise", baseline, baseline + rng.normal(0, 0.05, size=50), binary=False
+        "noise", baseline, baseline + rng.normal(0, 0.05, size=50), value_type="numeric"
     )
     latency = _compare_paired_values(
-        "latency", baseline, baseline - 0.1, binary=False, greater_is_better=False
+        "latency", baseline, baseline - 0.1, value_type="numeric", greater_is_better=False
     )
     result = ComparisonResult(
         candidate_run_id="candidate",

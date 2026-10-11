@@ -77,12 +77,14 @@ Rows that have no match, or whose key appears more than once in a run, are **not
 
 ## Which test is used
 
-The test is chosen from the type of the paired values:
+When a trace holds several feedbacks of one name (for example, from a scorer that returns a list of feedbacks), they are averaged per trace first, as `mlflow.genai.evaluate` averages them into `<scorer>/mean`. The test is then chosen from the paired values themselves, not from the Python type the scorer returned:
 
-| Feedback values                            | Test (`method`)                                                                                                                                        |
-| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Pass/fail: booleans and `yes`/`no` ratings | McNemar's test. Exact binomial (`mcnemar_exact`) with fewer than 25 discordant pairs, chi-square with continuity correction (`mcnemar_chi2`) otherwise |
-| Numeric                                    | Wilcoxon signed-rank test (`wilcoxon`), with the paired t-test reported alongside as `t_test_p_value`                                                  |
+| Paired values of both runs | Test (`method`)                                                                                                                                        |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Every value is 0 or 1      | McNemar's test. Exact binomial (`mcnemar_exact`) with fewer than 25 discordant pairs, chi-square with continuity correction (`mcnemar_chi2`) otherwise |
+| Anything else              | Wilcoxon signed-rank test (`wilcoxon`), with the paired t-test reported alongside as `t_test_p_value`                                                  |
+
+So a scorer that returns `int(x > 0.5)` or `1.0`/`0.0` is tested with McNemar like a boolean scorer, a single boolean among fractional values does not change the test, and a pass/fail scorer whose per-trace averages are fractional falls back to the signed-rank test. `value_type` reports whether the scorer's feedback was pass/fail (`binary`: booleans and `yes`/`no` ratings) or `numeric`, independently of the test.
 
 For every scorer, the confidence interval of `diff` is a percentile bootstrap over the paired differences. The bootstrap uses a fixed seed, so repeating a comparison yields the same interval. Use `confidence_level` to change its width:
 
