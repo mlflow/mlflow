@@ -57,7 +57,7 @@ print(result.summary())
 | `value_type`, `method`           | Whether the scorer was treated as binary or numeric, and the test used        |
 | `baseline_mean`,`candidate_mean` | Mean of each run over the paired rows                                         |
 | `diff`                           | Mean paired difference, candidate minus baseline                              |
-| `ci_low`, `ci_high`              | Bootstrap confidence interval of `diff` (95% by default)                      |
+| `ci_low`, `ci_high`              | BCa bootstrap confidence interval of `diff` (95% by default)                  |
 | `p_value`                        | Two-sided p-value of `method`                                                 |
 | `t_test_p_value`                 | Two-sided p-value of the paired t-test (numeric scorers only)                 |
 | `effect_size`                    | Cohen's d<sub>z</sub>: `diff` divided by the standard deviation of the deltas |
@@ -86,7 +86,7 @@ When a trace holds several feedbacks of one name (for example, from a scorer tha
 
 So a scorer that returns `int(x > 0.5)` or `1.0`/`0.0` is tested with McNemar like a boolean scorer, a single boolean among fractional values does not change the test, and a pass/fail scorer whose per-trace averages are fractional falls back to the signed-rank test. `value_type` reports whether the scorer's feedback was pass/fail (`binary`: booleans and `yes`/`no` ratings) or `numeric`, independently of the test.
 
-For every scorer, the confidence interval of `diff` is a percentile bootstrap over the paired differences. The bootstrap uses a fixed seed, so repeating a comparison yields the same interval. Use `confidence_level` to change its width:
+For every scorer, the confidence interval of `diff` is a bias-corrected and accelerated (BCa) bootstrap over the paired differences, which corrects the plain percentile interval for skew. The bootstrap uses a fixed seed, so repeating a comparison yields the same interval. When all deltas are equal the interval collapses to that value, and in the rare case that BCa is undefined for a sample the percentile interval is reported with a warning. Use `confidence_level` to change its width:
 
 ```python
 result = mlflow.genai.compare_evaluations(

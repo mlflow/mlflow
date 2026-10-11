@@ -1,3 +1,5 @@
+import inspect
+from types import SimpleNamespace
 from typing import Any
 from unittest import mock
 
@@ -127,6 +129,61 @@ def test_numeric_comparison_matches_scipy_and_detects_known_effect():
     t_low, t_high = stats.t.interval(0.95, df=79, loc=deltas.mean(), scale=stats.sem(deltas))
     assert result.ci_low == pytest.approx(t_low, abs=0.005)
     assert result.ci_high == pytest.approx(t_high, abs=0.005)
+
+
+def _scipy_bootstrap_ci(deltas: np.ndarray, method: str, confidence_level: float = 0.95):
+    seed_kwarg = "rng" if "rng" in inspect.signature(stats.bootstrap).parameters else "random_state"
+    return stats.bootstrap(
+        (deltas,),
+        np.mean,
+        method=method,
+        confidence_level=confidence_level,
+        n_resamples=10_000,
+        **{seed_kwarg: np.random.default_rng(0)},
+    ).confidence_interval
+
+
+def test_bootstrap_interval_is_bca():
+    rng = np.random.default_rng(4)
+    baseline = rng.uniform(0, 1, size=30)
+    # Skewed deltas, where BCa and percentile intervals differ.
+    candidate = baseline + rng.exponential(0.2, size=30)
+    deltas = candidate - baseline
+
+    result = _compare_paired_values("score", baseline, candidate, value_type="numeric")
+
+    bca = _scipy_bootstrap_ci(deltas, "BCa")
+    percentile = _scipy_bootstrap_ci(deltas, "percentile")
+    assert (result.ci_low, result.ci_high) == pytest.approx((bca.low, bca.high))
+    assert (result.ci_low, result.ci_high) != pytest.approx((percentile.low, percentile.high))
+
+
+def test_bootstrap_falls_back_to_percentile_when_bca_is_degenerate():
+    rng = np.random.default_rng(5)
+    baseline = rng.uniform(0, 1, size=20)
+    candidate = baseline + rng.normal(0.1, 0.1, size=20)
+    deltas = candidate - baseline
+    real_bootstrap = stats.bootstrap
+
+    def degenerate_bca(*args, method, **kwargs):
+        if method == "BCa":
+            return SimpleNamespace(confidence_interval=SimpleNamespace(low=np.nan, high=np.nan))
+        return real_bootstrap(*args, method=method, **kwargs)
+
+    with (
+        mock.patch("scipy.stats.bootstrap", side_effect=degenerate_bca) as mock_bootstrap,
+        mock.patch("mlflow.genai.evaluation.comparison._logger.warning") as mock_warning,
+    ):
+        result = _compare_paired_values("score", baseline, candidate, value_type="numeric")
+
+    assert [call.kwargs["method"] for call in mock_bootstrap.call_args_list] == [
+        "BCa",
+        "percentile",
+    ]
+    mock_warning.assert_called_once()
+    assert "percentile bootstrap interval instead" in mock_warning.call_args[0][0]
+    percentile = _scipy_bootstrap_ci(deltas, "percentile")
+    assert (result.ci_low, result.ci_high) == pytest.approx((percentile.low, percentile.high))
 
 
 def test_bootstrap_interval_is_reproducible_and_widens_with_confidence_level():

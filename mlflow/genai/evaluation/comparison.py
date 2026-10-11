@@ -2,9 +2,11 @@
 
 import collections
 import hashlib
+import inspect
 import json
 import logging
 import math
+import warnings
 from dataclasses import asdict, dataclass, field
 from typing import TYPE_CHECKING, Any, Literal
 
@@ -37,7 +39,8 @@ _SMALL_SAMPLE_PAIRS = 10
 _MCNEMAR_EXACT_MAX_DISCORDANT = 25
 _BOOTSTRAP_SEED = 0
 _BOOTSTRAP_RESAMPLES = 10_000
-_BOOTSTRAP_MAX_CHUNK_ELEMENTS = 1_000_000
+# Bounds the memory of one bootstrap batch (resamples x pairs).
+_BOOTSTRAP_MAX_BATCH_ELEMENTS = 1_000_000
 _LOGGED_STATS = ("diff", "ci_low", "ci_high", "p_value", "effect_size", "n_paired")
 
 _PairedOn = Literal["eval_request_id", "inputs_hash"]
@@ -72,8 +75,9 @@ class ScorerComparison:
         baseline_mean: Mean of the baseline values over the paired rows.
         candidate_mean: Mean of the candidate values over the paired rows.
         diff: Mean paired difference (candidate - baseline).
-        ci_low: Lower bound of the percentile bootstrap confidence interval of ``diff``.
-        ci_high: Upper bound of the percentile bootstrap confidence interval of ``diff``.
+        ci_low: Lower bound of the bias-corrected and accelerated (BCa) bootstrap confidence
+            interval of ``diff``.
+        ci_high: Upper bound of the BCa bootstrap confidence interval of ``diff``.
         p_value: Two-sided p-value of ``method``.
         t_test_p_value: Two-sided p-value of the paired t-test. Numeric scorers only. ``NaN``
             when the differences are all the same non-zero value.
@@ -287,18 +291,41 @@ def _is_pass_fail(feedback: Feedback) -> bool:
 
 
 def _bootstrap_mean_ci(deltas: "np.ndarray", confidence_level: float) -> tuple[float, float]:
+    """
+    BCa bootstrap confidence interval of the mean of ``deltas``, which must not be constant
+    (the BCa acceleration is undefined then). Falls back to the percentile interval in the
+    rare case that BCa still yields a non-finite bound.
+    """
     import numpy as np
+    from scipy import stats
 
-    rng = np.random.default_rng(_BOOTSTRAP_SEED)
-    n = len(deltas)
-    chunk_size = max(1, _BOOTSTRAP_MAX_CHUNK_ELEMENTS // n)
-    means = []
-    for start in range(0, _BOOTSTRAP_RESAMPLES, chunk_size):
-        size = min(chunk_size, _BOOTSTRAP_RESAMPLES - start)
-        means.append(deltas[rng.integers(0, n, size=(size, n))].mean(axis=1))
-    tail = (1 - confidence_level) / 2
-    low, high = np.quantile(np.concatenate(means), [tail, 1 - tail])
-    return float(low), float(high)
+    # scipy 1.15 renamed the seed argument from `random_state` to `rng`.
+    seed_kwarg = "rng" if "rng" in inspect.signature(stats.bootstrap).parameters else "random_state"
+
+    def bootstrap(method: str) -> tuple[float, float]:
+        with warnings.catch_warnings():
+            # A degenerate BCa interval is handled below. Its warnings add nothing.
+            warnings.simplefilter("ignore", RuntimeWarning)
+            warnings.simplefilter("ignore", stats.DegenerateDataWarning)
+            interval = stats.bootstrap(
+                (deltas,),
+                np.mean,
+                method=method,
+                confidence_level=confidence_level,
+                n_resamples=_BOOTSTRAP_RESAMPLES,
+                batch=max(1, _BOOTSTRAP_MAX_BATCH_ELEMENTS // len(deltas)),
+                **{seed_kwarg: np.random.default_rng(_BOOTSTRAP_SEED)},
+            ).confidence_interval
+        return float(interval.low), float(interval.high)
+
+    low, high = bootstrap("BCa")
+    if not (math.isfinite(low) and math.isfinite(high)):
+        _logger.warning(
+            "The BCa bootstrap confidence interval is undefined for this sample; reporting "
+            "the percentile bootstrap interval instead."
+        )
+        low, high = bootstrap("percentile")
+    return low, high
 
 
 def _mcnemar(deltas: "np.ndarray") -> tuple[str, float]:
@@ -353,7 +380,8 @@ def _compare_paired_values(
     # Differences that are equal up to floating point noise have no variance to test against.
     constant = np.allclose(deltas, deltas[0], rtol=1e-9, atol=1e-12)
     std = 0.0 if constant else float(deltas.std(ddof=1))
-    ci_low, ci_high = _bootstrap_mean_ci(deltas, confidence_level)
+    # Resampling a constant can only return it, and the BCa acceleration is undefined there.
+    ci_low, ci_high = (diff, diff) if constant else _bootstrap_mean_ci(deltas, confidence_level)
 
     t_test_p_value = None
     if binary:
@@ -449,13 +477,13 @@ def compare_evaluations(
       Wilcoxon signed-rank test, with the paired t-test reported alongside as
       ``t_test_p_value``.
 
-    Every scorer also gets the mean paired difference (candidate - baseline), a percentile
-    bootstrap confidence interval of that difference (fixed seed, so results are
-    reproducible), Cohen's d_z effect size and the number of ties. A scorer with fewer than
-    six paired values, the smallest sample at which a result can be significant at 0.05, is
-    reported with status ``"insufficient_pairs"``, and a warning is logged for scorers with
-    fewer than ten. If no scorer produced valid feedback in both runs, a warning is logged
-    and the result has no scorers.
+    Every scorer also gets the mean paired difference (candidate - baseline), a bias-corrected
+    and accelerated (BCa) bootstrap confidence interval of that difference (fixed seed, so
+    results are reproducible), Cohen's d_z effect size and the number of ties. A scorer with
+    fewer than six paired values, the smallest sample at which a result can be significant at
+    0.05, is reported with status ``"insufficient_pairs"``, and a warning is logged for
+    scorers with fewer than ten. If no scorer produced valid feedback in both runs, a warning
+    is logged and the result has no scorers.
 
     No correction for multiple comparisons is applied across scorers.
 
