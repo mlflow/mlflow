@@ -1,3 +1,5 @@
+from typing import Any
+
 import pydantic
 import pytest
 
@@ -170,6 +172,45 @@ def test_chat_request_preserves_nested_object_properties():
     properties = dumped["tools"][0]["function"]["parameters"]["properties"]
     assert properties["request"] == nested_object
     assert properties["batch"]["items"] == nested_object
+
+
+@pytest.mark.parametrize(
+    "properties",
+    [
+        {"city": {"type": "string", "required": True}},
+        {
+            "request": {
+                "type": "object",
+                "properties": {"url": {"type": "string", "required": True}},
+            }
+        },
+        {
+            "request": {
+                "type": "object",
+                "properties": {"url": {"type": "string"}},
+                "required": True,
+            }
+        },
+    ],
+    ids=["flat_param", "nested_param", "nested_object"],
+)
+def test_chat_request_rejects_non_list_required_in_tool_params(properties: dict[str, Any]):
+    # `required` is validated on every tool parameter, so the draft-03 style
+    # `"required": true` is rejected instead of being silently dropped.
+    with pytest.raises(pydantic.ValidationError, match="Input should be a valid list"):
+        chat.RequestPayload(**{
+            "messages": [{"role": "user", "content": "hi"}],
+            "tools": [
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "get_weather",
+                        "description": "Get the weather.",
+                        "parameters": {"type": "object", "properties": properties},
+                    },
+                }
+            ],
+        })
 
 
 def test_chat_request_accepts_json_schema_response_format_envelope():
