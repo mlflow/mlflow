@@ -5401,8 +5401,8 @@ class SqlAgentPluginTag(Base):
     )
     organization = Column(String(64), nullable=False, default="", server_default=sa.text("''"))
     name = Column(String(128), nullable=False)
-    key = Column(SKILL_REGISTRY_TAG_KEY_STRING, nullable=False)
-    value = Column(SKILL_REGISTRY_TAG_VALUE_TEXT, nullable=True)
+    key = Column(String(250), nullable=False)
+    value = Column(Text, nullable=True)
 
     plugin = relationship(
         "SqlAgentPlugin",
@@ -5439,8 +5439,8 @@ class SqlAgentPluginVersionTag(Base):
     organization = Column(String(64), nullable=False, default="", server_default=sa.text("''"))
     name = Column(String(128), nullable=False)
     version = Column(AGENT_PLUGIN_VERSION_STRING, nullable=False)
-    key = Column(SKILL_REGISTRY_TAG_KEY_STRING, nullable=False)
-    value = Column(SKILL_REGISTRY_TAG_VALUE_TEXT, nullable=True)
+    key = Column(String(250), nullable=False)
+    value = Column(Text, nullable=True)
 
     plugin_version = relationship(
         "SqlAgentPluginVersion",
