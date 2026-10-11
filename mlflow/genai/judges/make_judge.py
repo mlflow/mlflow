@@ -3,6 +3,7 @@ from typing import Any, Literal, Union, get_args, get_origin
 
 from mlflow.genai.judges.base import Judge
 from mlflow.genai.judges.instructions_judge import InstructionsJudge
+from mlflow.genai.judges.model_api import ModelAPI
 from mlflow.telemetry.events import MakeJudgeEvent
 from mlflow.telemetry.track import record_usage_event
 
@@ -121,6 +122,7 @@ def make_judge(
     extra_headers: dict[str, str] | None = None,
     include_timing_in_conversation: bool = False,
     generate_rationale_first: bool = False,
+    model_api: ModelAPI | str = ModelAPI.DEFAULT,
 ) -> Judge:
     """
     Create a custom MLflow judge instance.
@@ -181,6 +183,14 @@ def make_judge(
                         (the default, for backward compatibility), the result value is emitted
                         first. Setting this to True can produce more consistent results by
                         preventing the value from contradicting its own rationale.
+        model_api: API route for the judge model. ``ModelAPI.DEFAULT`` uses Chat Completions
+                        for OpenAI and other chat providers, TypeSafe's System One API for
+                        ``typesafe:/`` models, and endpoint detection for ``gateway:/`` models.
+                        ``ModelAPI.DECISIONS`` explicitly selects OpenAI's Decision API or
+                        TypeSafe's System One API, according to the provider. Decision models
+                        return probabilities but no rationale and do not support
+                        ``{{ trace }}`` tool calling. ``ModelAPI.CHAT_COMPLETIONS`` requires
+                        the chat route. String values are also accepted.
 
     Returns:
         An InstructionsJudge instance configured with the provided parameters
@@ -291,4 +301,5 @@ def make_judge(
         inference_params=inference_params,
         base_url=base_url,
         extra_headers=extra_headers,
+        model_api=model_api,
     )
