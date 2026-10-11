@@ -113,12 +113,15 @@ def test_numeric_comparison_matches_scipy_and_detects_known_effect():
 
     assert result.status == "ok"
     assert result.value_type == "numeric"
-    assert result.method == "wilcoxon"
+    assert result.method == "wilcoxon_asymptotic"
     assert result.n_paired == 80
+    assert result.n_nonzero == 80
     assert result.diff == pytest.approx(deltas.mean())
     assert result.baseline_mean == pytest.approx(baseline.mean())
     assert result.candidate_mean == pytest.approx(candidate.mean())
-    assert result.p_value == pytest.approx(stats.wilcoxon(candidate, baseline).pvalue)
+    assert result.p_value == pytest.approx(
+        stats.wilcoxon(candidate, baseline, method="approx").pvalue
+    )
     assert result.t_test_p_value == pytest.approx(stats.ttest_rel(candidate, baseline).pvalue)
     assert result.effect_size == pytest.approx(deltas.mean() / deltas.std(ddof=1))
     assert result.ties == 0
@@ -229,6 +232,7 @@ def test_binary_comparison_matches_scipy(
     assert result.t_test_p_value is None
     assert result.diff == pytest.approx((improved - regressed) / n)
     assert result.ties == ties
+    assert result.n_nonzero == improved + regressed
     assert result.n_paired == n
     assert result.ci_low <= result.diff <= result.ci_high
 
@@ -264,6 +268,7 @@ def test_identical_values_are_all_ties(values: list[float]):
     assert result.status == "ok"
     assert result.diff == 0
     assert result.ties == 6
+    assert result.n_nonzero == 0
     assert result.p_value == 1.0
     assert (result.ci_low, result.ci_high) == (0.0, 0.0)
     assert np.isnan(result.effect_size)
@@ -277,22 +282,61 @@ def test_constant_nonzero_deltas(n: int, expected_p_value: float):
     comparison = _compare_paired_values("score", baseline, candidate, value_type="numeric")
 
     assert comparison.status == "ok"
-    assert comparison.method == "wilcoxon"
+    assert comparison.method == "wilcoxon_exact"
     assert comparison.diff == 0.5
     assert comparison.ties == 0
+    assert comparison.n_nonzero == n
     assert (comparison.ci_low, comparison.ci_high) == (0.5, 0.5)
     # The t statistic and d_z divide by a zero standard deviation.
     assert np.isnan(comparison.t_test_p_value)
     assert np.isnan(comparison.effect_size)
     # All n differences share one sign, so the exact two-sided p-value is 2 / 2**n.
     assert comparison.p_value == pytest.approx(expected_p_value)
-    assert comparison.p_value == pytest.approx(stats.wilcoxon(candidate, baseline).pvalue)
+    assert comparison.p_value == pytest.approx(
+        stats.wilcoxon(candidate, baseline, method="exact").pvalue
+    )
 
     result = ComparisonResult("candidate", "baseline", {"score": comparison})
     result.assert_improved(["score"])
     if expected_p_value > 0.01:
         with pytest.raises(AssertionError, match="score: diff=\\+0.5"):
             result.assert_improved(["score"], alpha=0.01)
+
+
+def test_zero_deltas_are_dropped_by_the_signed_rank_test_and_reported():
+    deltas = np.array([0.0, 0.0, 0.1, 0.2, -0.1, 0.3, 0.2, 0.1, 0.0, 0.4])
+    baseline = np.linspace(0.1, 0.9, len(deltas))
+
+    comparison = _compare_paired_values("score", baseline, baseline + deltas, value_type="numeric")
+
+    assert comparison.method == "wilcoxon_exact"
+    assert comparison.n_paired == 10
+    assert comparison.ties == 3
+    assert comparison.n_nonzero == 7
+    # Zero differences are dropped by the test (zero_method="wilcox") but not by the mean.
+    assert comparison.p_value == pytest.approx(stats.wilcoxon(deltas, method="exact").pvalue)
+    assert comparison.p_value == pytest.approx(
+        stats.wilcoxon(deltas[deltas != 0], method="exact").pvalue
+    )
+    assert comparison.diff == pytest.approx(deltas.mean())
+
+
+@pytest.mark.parametrize(
+    ("n_nonzero", "expected_method"), [(50, "wilcoxon_exact"), (51, "wilcoxon_asymptotic")]
+)
+def test_signed_rank_method_is_pinned_on_the_number_of_nonzero_deltas(
+    n_nonzero: int, expected_method: str
+):
+    rng = np.random.default_rng(6)
+    deltas = np.concatenate([rng.normal(0.05, 0.1, size=n_nonzero), np.zeros(5)])
+    baseline = rng.uniform(size=len(deltas))
+
+    comparison = _compare_paired_values("score", baseline, baseline + deltas, value_type="numeric")
+
+    assert comparison.method == expected_method
+    assert comparison.n_nonzero == n_nonzero
+    scipy_method = "exact" if expected_method == "wilcoxon_exact" else "approx"
+    assert comparison.p_value == pytest.approx(stats.wilcoxon(deltas, method=scipy_method).pvalue)
 
 
 @pytest.mark.parametrize("n", [0, 1, 5])
@@ -340,11 +384,11 @@ def test_compare_evaluations_dispatches_on_value_type():
 
     numeric = result.scorers["score"]
     assert numeric.value_type == "numeric"
-    assert numeric.method == "wilcoxon"
+    assert numeric.method == "wilcoxon_exact"
     assert numeric.n_paired == 8
     assert numeric.diff == pytest.approx(np.mean(candidate_scores) - np.mean(baseline_scores))
     assert numeric.p_value == pytest.approx(
-        stats.wilcoxon(candidate_scores, baseline_scores).pvalue
+        stats.wilcoxon(candidate_scores, baseline_scores, method="exact").pvalue
     )
     assert numeric.t_test_p_value == pytest.approx(
         stats.ttest_rel(candidate_scores, baseline_scores).pvalue
@@ -363,7 +407,9 @@ def test_compare_evaluations_dispatches_on_value_type():
     summary = result.summary()
     assert summary["scorer"].tolist() == ["passed", "rating", "score"]
     assert summary.set_index("scorer").loc["score", "n_paired"] == 8
-    assert {"diff", "ci_low", "ci_high", "p_value", "effect_size", "ties"} <= set(summary.columns)
+    assert {"diff", "ci_low", "ci_high", "p_value", "effect_size", "ties", "n_nonzero"} <= set(
+        summary.columns
+    )
 
 
 def test_compare_evaluations_reports_unmatched_rows_and_intersects_scorers():
@@ -447,10 +493,10 @@ def test_compare_evaluations_dispatches_on_values_not_feedback_type():
     assert result.scorers["passed"].method == "mcnemar_exact"
     # One boolean among fractional values does not make the scorer binary.
     assert result.scorers["mixed"].value_type == "numeric"
-    assert result.scorers["mixed"].method == "wilcoxon"
+    assert result.scorers["mixed"].method == "wilcoxon_exact"
     # Pass/fail feedback whose per-trace average is fractional takes the signed-rank path.
     assert result.scorers["votes"].value_type == "binary"
-    assert result.scorers["votes"].method == "wilcoxon"
+    assert result.scorers["votes"].method == "wilcoxon_exact"
     assert {row["scores"]["votes"]["baseline"] for row in result.paired_rows} == {0.5, 1.0}
 
 

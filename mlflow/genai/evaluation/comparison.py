@@ -37,6 +37,9 @@ _SMALL_SAMPLE_PAIRS = 10
 # Below this many discordant pairs the chi-square approximation of McNemar's test is
 # unreliable, so the exact binomial test is used instead.
 _MCNEMAR_EXACT_MAX_DISCORDANT = 25
+# Up to this many non-zero differences the null distribution of the signed-rank statistic is
+# enumerated exactly; above it the normal approximation is used.
+_WILCOXON_EXACT_MAX_NONZERO = 50
 _BOOTSTRAP_SEED = 0
 _BOOTSTRAP_RESAMPLES = 10_000
 # Bounds the memory of one bootstrap batch (resamples x pairs).
@@ -71,7 +74,9 @@ class ScorerComparison:
             rating, ``"numeric"`` otherwise. Describes the feedback, not the test: that is
             chosen from the paired values, see ``method``.
         method: Test that produced ``p_value``. ``"mcnemar_exact"`` or ``"mcnemar_chi2"``
-            when every paired value is 0 or 1, ``"wilcoxon"`` otherwise.
+            when every paired value is 0 or 1 (exact binomial below 25 discordant pairs),
+            ``"wilcoxon_exact"`` or ``"wilcoxon_asymptotic"`` otherwise (exact enumeration up
+            to 50 non-zero differences, normal approximation above).
         baseline_mean: Mean of the baseline values over the paired rows.
         candidate_mean: Mean of the candidate values over the paired rows.
         diff: Mean paired difference (candidate - baseline).
@@ -84,6 +89,10 @@ class ScorerComparison:
         effect_size: Cohen's d_z (mean paired difference / standard deviation of the paired
             differences). ``NaN`` when the differences have no variance.
         ties: Number of pairs whose baseline and candidate values are equal.
+        n_nonzero: Number of pairs whose baseline and candidate values differ, i.e. the pairs
+            the test is computed on: the signed-rank test drops zero differences and McNemar's
+            test only counts discordant pairs. ``diff`` and its confidence interval use all
+            ``n_paired`` pairs.
     """
 
     scorer: str
@@ -91,7 +100,9 @@ class ScorerComparison:
     n_paired: int
     greater_is_better: bool = True
     value_type: Literal["binary", "numeric"] | None = None
-    method: Literal["mcnemar_exact", "mcnemar_chi2", "wilcoxon"] | None = None
+    method: (
+        Literal["mcnemar_exact", "mcnemar_chi2", "wilcoxon_exact", "wilcoxon_asymptotic"] | None
+    ) = None
     baseline_mean: float | None = None
     candidate_mean: float | None = None
     diff: float | None = None
@@ -101,6 +112,7 @@ class ScorerComparison:
     t_test_p_value: float | None = None
     effect_size: float | None = None
     ties: int | None = None
+    n_nonzero: int | None = None
 
 
 @experimental(version="3.17.0")
@@ -383,19 +395,32 @@ def _compare_paired_values(
     # Resampling a constant can only return it, and the BCa acceleration is undefined there.
     ci_low, ci_high = (diff, diff) if constant else _bootstrap_mean_ci(deltas, confidence_level)
 
+    n_nonzero = int(np.sum(deltas != 0))
     t_test_p_value = None
     if binary:
         method, p_value = _mcnemar(deltas)
     else:
-        method = "wilcoxon"
         if constant:
             # Without variance the t statistic is undefined, unless the differences are all
             # zero, which is no evidence of a change.
-            t_test_p_value = float("nan") if np.any(deltas != 0) else 1.0
+            t_test_p_value = float("nan") if n_nonzero else 1.0
         else:
             t_test_p_value = float(stats.ttest_rel(candidate, baseline).pvalue)
+        # scipy's ``method="auto"`` switches between the exact distribution, a permutation test
+        # (randomized above 13 pairs) and the normal approximation depending on the sample
+        # size, ties and the scipy version, so one extra row could move the p-value to another
+        # regime. The choice is pinned on the number of non-zero differences instead. The exact
+        # distribution is conservative when absolute differences tie. scipy >= 1.13 calls the
+        # normal approximation "asymptotic" and keeps "approx" as an alias; older versions
+        # only know "approx".
+        exact = n_nonzero <= _WILCOXON_EXACT_MAX_NONZERO
+        method = "wilcoxon_exact" if exact else "wilcoxon_asymptotic"
         # The signed-rank test discards zero differences and is undefined when all are zero.
-        p_value = float(stats.wilcoxon(deltas).pvalue) if np.any(deltas != 0) else 1.0
+        p_value = (
+            float(stats.wilcoxon(deltas, method="exact" if exact else "approx").pvalue)
+            if n_nonzero
+            else 1.0
+        )
 
     return ScorerComparison(
         scorer=scorer,
@@ -412,7 +437,8 @@ def _compare_paired_values(
         p_value=p_value,
         t_test_p_value=t_test_p_value,
         effect_size=diff / std if std > 0 else float("nan"),
-        ties=int(np.sum(deltas == 0)),
+        ties=n_paired - n_nonzero,
+        n_nonzero=n_nonzero,
     )
 
 
@@ -474,12 +500,13 @@ def compare_evaluations(
       or ``1.0``/``0.0`` scorers): McNemar's test, exact when there are fewer than 25
       discordant pairs and chi-square with continuity correction otherwise.
     - **Otherwise** (including pass/fail scorers whose per-trace averages are fractional):
-      Wilcoxon signed-rank test, with the paired t-test reported alongside as
-      ``t_test_p_value``.
+      Wilcoxon signed-rank test, exact up to 50 non-zero differences and with the normal
+      approximation above, with the paired t-test reported alongside as ``t_test_p_value``.
 
     Every scorer also gets the mean paired difference (candidate - baseline), a bias-corrected
     and accelerated (BCa) bootstrap confidence interval of that difference (fixed seed, so
-    results are reproducible), Cohen's d_z effect size and the number of ties. A scorer with
+    results are reproducible), Cohen's d_z effect size and the numbers of tied and non-zero
+    differences. A scorer with
     fewer than six paired values, the smallest sample at which a result can be significant at
     0.05, is reported with status ``"insufficient_pairs"``, and a warning is logged for
     scorers with fewer than ten. If no scorer produced valid feedback in both runs, a warning
