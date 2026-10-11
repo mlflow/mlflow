@@ -526,10 +526,10 @@ jobs:
       - parallel:
           - uses: ./.github/actions/setup-python
           - uses: ./.github/actions/setup-node
-          - name: Install sandbox dependencies
+          - name: Install system packages
             run: |
               sudo apt-get update
-              sudo apt-get install -y bubblewrap socat ripgrep
+              sudo apt-get install -y bubblewrap socat ripgrep ffmpeg
               if [ "$(sysctl -n kernel.apparmor_restrict_unprivileged_userns 2>/dev/null || true)" = 1 ]; then
                 sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
               fi
