@@ -44,8 +44,12 @@ timeout 120 agent-browser --session <sess> batch --bail < $out_dir/work/steps.js
 agent-browser --session <sess> record stop
 ```
 
-If the batch times out, retry once in a fresh session, then fall back to screenshots. Check the
-contact sheet to confirm the video shows the bug before citing it.
+To point out the symptom, add a simple temporary outline around the affected element with an
+`eval` step, as described above for screenshots, and remove it with another `eval` step. If the
+batch times out, retry once in a fresh session, then fall back to screenshots. Check the contact
+sheet to confirm the video shows the bug before citing it. The contact sheet skips small changes
+such as an outline, so confirm the outline by extracting a frame
+(`ffmpeg -ss <seconds> -i <video> -frames:v 1 <png>`).
 
 Run it against the current checkout, which is what a fix would land on. Only if it does not
 reproduce there, run it against the reported version (when it is on PyPI) to tell "already
