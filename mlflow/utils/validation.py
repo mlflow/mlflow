@@ -751,7 +751,6 @@ def _validate_alias_name_reserved(alias):
 
 
 MAX_SKILL_NAME_LENGTH = 64
-MAX_AGENT_PLUGIN_NAME_LENGTH = 64
 MAX_ORGANIZATION_NAME_LENGTH = 64
 MAX_SKILL_VERSION = 2_147_483_647
 _MAX_BULK_REGISTER_SKILLS = 500
@@ -759,9 +758,8 @@ _MAX_BULK_REGISTER_SKILLS = 500
 # Skill names: lowercase ASCII letters, digits, and single hyphens; alphanumeric first
 # and last characters; no consecutive hyphens.
 _SKILL_NAME_REGEX = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
-# Agent plugin (and organization) names: additionally allow single periods between
-# alphanumeric groups (so SemVer-looking names like "1.0.0" are permitted).
-_AGENT_PLUGIN_NAME_REGEX = re.compile(r"^[a-z0-9]+([-.][a-z0-9]+)*$")
+# Organization names additionally allow single periods between alphanumeric groups.
+_ORGANIZATION_NAME_REGEX = re.compile(r"^[a-z0-9]+([-.][a-z0-9]+)*$")
 
 
 def _validate_skill_name(name):
@@ -776,24 +774,12 @@ def _validate_skill_name(name):
     _validate_length_limit("Skill name", MAX_SKILL_NAME_LENGTH, name)
 
 
-def _validate_agent_plugin_name(name):
-    if not name:
-        raise MlflowException.invalid_parameter_value("Agent plugin name must not be empty.")
-    if _AGENT_PLUGIN_NAME_REGEX.fullmatch(name) is None:
-        raise MlflowException.invalid_parameter_value(
-            f"Invalid agent plugin name {name!r}. Names must be 1-64 lowercase ASCII letters, "
-            "digits, hyphens, and periods; must have alphanumeric first and last characters; and "
-            "cannot contain consecutive hyphens or periods."
-        )
-    _validate_length_limit("Agent plugin name", MAX_AGENT_PLUGIN_NAME_LENGTH, name)
-
-
 def _validate_organization_name(organization):
     if organization == "":
         return
     if (
         not isinstance(organization, str)
-        or _AGENT_PLUGIN_NAME_REGEX.fullmatch(organization) is None
+        or _ORGANIZATION_NAME_REGEX.fullmatch(organization) is None
     ):
         raise MlflowException.invalid_parameter_value(
             f"Invalid organization name {organization!r}. Organizations must be 1-64 lowercase "
@@ -850,44 +836,6 @@ def _validate_skill_tag(key, value):
         _validate_length_limit("key", MAX_MODEL_REGISTRY_TAG_KEY_LENGTH, key),
         _validate_length_limit("value", MAX_MODEL_REGISTRY_TAG_VALUE_LENGTH, value),
     )
-
-
-def _validate_skill_artifact_path(path):
-    # Local import to avoid a circular import: mlflow.utils.uri imports from this module.
-    from mlflow.utils.uri import validate_path_is_safe
-
-    if not isinstance(path, str) or not path:
-        raise MlflowException.invalid_parameter_value(
-            f"Artifact path must be a non-empty string, got {path!r}."
-        )
-    decoded = path
-    for _ in range(10):
-        if any(ord(char) <= 31 or ord(char) == 127 for char in decoded):
-            raise MlflowException.invalid_parameter_value(
-                f"Invalid artifact path {path!r}: control characters are not allowed."
-            )
-        next_decoded = urllib.parse.unquote(decoded)
-        if next_decoded == decoded:
-            break
-        decoded = next_decoded
-    # Delegate the remaining security-critical checks to the shared path-safety helper,
-    # then inspect its decoded/normalized return value so URL-encoded traversals cannot
-    # slip past the skill-specific segment checks.
-    try:
-        normalized = validate_path_is_safe(path)
-    except ValueError as e:
-        raise MlflowException.invalid_parameter_value(
-            f"Invalid artifact path {path!r}: {e}"
-        ) from None
-    if "\\" in normalized:
-        raise MlflowException.invalid_parameter_value(
-            f"Invalid artifact path {path!r}: backslashes are not allowed."
-        )
-    for segment in normalized.split("/"):
-        if segment in ("", "."):
-            raise MlflowException.invalid_parameter_value(
-                f"Invalid artifact path {path!r}: empty or '.' segments are not allowed."
-            )
 
 
 def _validate_experiment_artifact_location(artifact_location):

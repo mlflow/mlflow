@@ -16,7 +16,7 @@ class RegistryIcon(TypedDict):
     """Icon descriptor for registry presentation metadata.
 
     Same shape as RFC-0004's ``MCPIcon`` so UIs share one icon renderer
-    across the MCP, skill, and agent plugin registries.
+    across the MCP and skill registries.
     """
 
     src: str

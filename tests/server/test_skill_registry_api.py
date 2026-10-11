@@ -93,7 +93,7 @@ EXPECTED_ROUTE_METHODS = {
             MlflowSource(artifact_path="mlflow-artifacts:/skills/reviewer"),
             ("mlflow-artifacts:/skills/reviewer", None, None),
         ),
-        ("assembled://reviewer", ("assembled://reviewer", None, None)),
+        ("external://reviewer", ("external://reviewer", None, None)),
         (None, (None, None, None)),
     ],
 )
