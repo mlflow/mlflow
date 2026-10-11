@@ -9,6 +9,7 @@ import {
   draftToStagedCondition,
   isMutationConditionDraftDirty,
   isMutationConditionDraftFillable,
+  isPartialWildcardPattern,
   MUTATION_CONDITION_DRAFT_DEFAULT,
   type MutationConditionDraft,
 } from './MutationConditionForm';
@@ -184,5 +185,34 @@ describe('MutationConditionForm — the absence rule is stated on both fields', 
     fireEvent.focus(icon);
 
     await waitFor(() => expect(screen.getByRole('tooltip').textContent).toContain('tags.a IN'));
+  });
+});
+
+describe('MutationConditionForm — a partial wildcard scope is refused', () => {
+  // A scope pattern is matched EXACTLY server-side, so a glob governs nothing -- and a
+  // condition that governs nothing does not withhold access, it silently fails to
+  // restrict it. The server refuses it; this keeps the draft unfillable so the reason
+  // appears next to the field instead of arriving as a rejected submit.
+
+  it.each(['team/*', 'prefix*', '*suffix', 'a*b'])('treats %s as a partial wildcard', (glob) => {
+    expect(isPartialWildcardPattern(glob)).toBe(true);
+  });
+
+  it.each(['*', 'team/alpha', '', '  '])('does not treat %s as one', (ok) => {
+    expect(isPartialWildcardPattern(ok)).toBe(false);
+  });
+
+  it('refuses to fill a scoped draft whose pattern is a glob', () => {
+    const base = draft({ valueCondition: "tag_key = 'env'", scope: 'scoped' as const });
+    expect(isMutationConditionDraftFillable({ ...base, scopePattern: 'team/alpha' })).toBe(true);
+    expect(isMutationConditionDraftFillable({ ...base, scopePattern: 'team/*' })).toBe(false);
+  });
+
+  it('still fills an all-scoped draft, which is what sends the bare wildcard', () => {
+    // The guard must not catch the one wildcard that works: `All ...` sends `*`
+    // without going through scopePattern at all.
+    expect(isMutationConditionDraftFillable(draft({ valueCondition: "tag_key = 'env'", scope: 'all' as const }))).toBe(
+      true,
+    );
   });
 });
