@@ -86,6 +86,7 @@ from mlflow.utils.model_utils import (
     _validate_and_prepare_target_save_path,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
+from mlflow.utils.uri import is_databricks_uri
 
 FLAVOR_NAME = "sklearn"
 
@@ -104,6 +105,14 @@ _SklearnTrainingSession = _get_new_training_session_class()
 
 _PICKLE_MODEL_DATA_SUBPATH = "model.pkl"
 _SKOPS_MODEL_DATA_SUBPATH = "model.skops"
+
+
+def _get_default_serialization_format():
+    return (
+        SERIALIZATION_FORMAT_CLOUDPICKLE
+        if is_in_databricks_runtime() or is_databricks_uri(mlflow.get_tracking_uri())
+        else SERIALIZATION_FORMAT_SKOPS
+    )
 
 
 def _gen_estimators_to_patch():
@@ -179,7 +188,7 @@ def save_model(
     conda_env=None,
     code_paths=None,
     mlflow_model=None,
-    serialization_format=SERIALIZATION_FORMAT_SKOPS,
+    serialization_format=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
     pip_requirements=None,
@@ -205,6 +214,8 @@ def save_model(
         mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
         serialization_format: The format in which to serialize the model. This should be one of
             the formats "skops", "cloudpickle" or "pickle".
+            If not specified, the model is serialized as "cloudpickle" in Databricks Runtime or
+            when using a Databricks tracking URI, and as "skops" otherwise.
             The "skops" format guarantees safe deserialization.
             The "cloudpickle" format, provides better cross-system compatibility by identifying and
             packaging code dependencies with the serialized model, but requires exercising
@@ -256,6 +267,9 @@ def save_model(
     import sklearn
 
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
+
+    if serialization_format is None:
+        serialization_format = _get_default_serialization_format()
 
     if serialization_format not in SUPPORTED_SERIALIZATION_FORMATS:
         raise MlflowException(
@@ -382,7 +396,7 @@ def log_model(
     artifact_path: str | None = None,
     conda_env=None,
     code_paths=None,
-    serialization_format=SERIALIZATION_FORMAT_SKOPS,
+    serialization_format=None,
     registered_model_name=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
@@ -416,6 +430,8 @@ def log_model(
         code_paths: {{ code_paths }}
         serialization_format: The format in which to serialize the model. This should be one of
             the formats "skops", "cloudpickle" or "pickle".
+            If not specified, the model is serialized as "cloudpickle" in Databricks Runtime or
+            when using a Databricks tracking URI, and as "skops" otherwise.
             The "skops" format guarantees safe deserialization.
             The "cloudpickle" format, provides better cross-system compatibility by identifying and
             packaging code dependencies with the serialized model, but requires exercising
@@ -475,6 +491,9 @@ def log_model(
             mlflow.sklearn.log_model(sk_model, name="sk_models", signature=signature)
 
     """
+    if serialization_format is None:
+        serialization_format = _get_default_serialization_format()
+
     return Model.log(
         artifact_path=artifact_path,
         name=name,

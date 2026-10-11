@@ -1296,6 +1296,7 @@ module.exports = {
   "mlflow.gateway.edit-endpoint.mutation-error": "",
   "mlflow.gateway.edit-endpoint.name-edit-button": "",
   "mlflow.gateway.edit-endpoint.name-edit-tooltip": "",
+  "mlflow.gateway.edit-endpoint.provider-compatibility-error": "",
   "mlflow.gateway.edit-endpoint.save": "",
   "mlflow.gateway.edit-endpoint.save-tooltip": "",
   "mlflow.gateway.edit-endpoint.starter-code.api": "",

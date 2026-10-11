@@ -1,6 +1,6 @@
 name: Documentation Fix
 description: Use this template for proposing documentation fixes/improvements.
-labels: "area/docs"
+labels: ["bug", "area/docs"]
 title: "[DOC-FIX]"
 
 body:
@@ -27,17 +27,6 @@ body:
         The production documentation at https://mlflow.org/docs/latest/ is built from the **release branch** (e.g., `branch-3.7`), not `master`. If you notice a discrepancy between the live docs and the source code on `master`, the fix may already exist on `master`. You can verify this by checking the preview site at https://dev--mlflow-docs-preview.netlify.app/docs/latest which is built from `master`.
 
         **Please fill in this documentation issue template to ensure a timely and thorough response.**
-  - type: dropdown
-    id: contribution
-    attributes:
-      label: Willingness to contribute
-      description: The MLflow Community encourages documentation fix contributions. Would you or another member of your organization be willing to contribute a fix for this documentation issue to the MLflow code base?
-      options:
-        - Yes. I can contribute a documentation fix independently.
-        - Yes. I would be willing to contribute a document fix with guidance from the MLflow community.
-        - No. I cannot contribute a documentation fix at this time.
-    validations:
-      required: true
   - type: textarea
     attributes:
       label: URL(s) with the issue

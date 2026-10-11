@@ -685,6 +685,16 @@ class SqlAlchemyStore(AbstractStore):
                             f"Invalid comparator for attribute {key}: {comparator}",
                             error_code=INVALID_PARAMETER_VALUE,
                         )
+                    if isinstance(value, float):
+                        raise MlflowException.invalid_parameter_value(
+                            f"Invalid value for numeric attribute '{key}': {value!r}"
+                        )
+                    try:
+                        value = int(value)
+                    except (TypeError, ValueError):
+                        raise MlflowException.invalid_parameter_value(
+                            f"Invalid value for numeric attribute '{key}': {value!r}"
+                        )
                 elif (
                     comparator not in SearchModelVersionUtils.VALID_STRING_ATTRIBUTE_COMPARATORS
                     or (comparator in ("IN", "NOT IN") and key not in ("run_id", "name"))
@@ -1243,6 +1253,7 @@ class SqlAlchemyStore(AbstractStore):
         Returns:
             None
         """
+        version = _validate_model_version(version)
         # currently delete model version still keeps the tags associated with the version
         with self.ManagedSessionMaker(read_only=False) as session:
             updated_time = get_current_time_millis()
@@ -1561,7 +1572,9 @@ class SqlAlchemyStore(AbstractStore):
 
         if alias.lower() == _REGISTERED_MODEL_ALIAS_LATEST:
             if versions := self.get_latest_versions(name):
-                return versions[0]
+                # `get_latest_versions` returns the latest version of each stage, so the
+                # highest version must be selected explicitly.
+                return max(versions, key=lambda mv: int(mv.version))
             else:
                 raise MlflowException(
                     f"Latest version not found for model {name}.", RESOURCE_DOES_NOT_EXIST

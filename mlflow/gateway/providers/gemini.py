@@ -2,6 +2,7 @@ import hashlib
 import json
 import time
 from typing import Any, AsyncIterable
+from urllib.parse import parse_qsl, urlparse, urlunparse
 
 from mlflow.gateway.config import EndpointConfig, GeminiConfig
 from mlflow.gateway.exceptions import AIGatewayException
@@ -14,6 +15,7 @@ from mlflow.gateway.providers.base import (
 )
 from mlflow.gateway.providers.utils import (
     parse_base64_data_url,
+    proxy_root_url,
     rename_payload_keys,
     send_proxy_request,
     send_request,
@@ -30,6 +32,7 @@ from mlflow.gateway.schemas import (
 )
 from mlflow.gateway.utils import handle_incomplete_chunks, strip_sse_prefix
 from mlflow.types.chat import Function, ToolCall
+from mlflow.utils.uri import append_to_uri_path, append_to_uri_query_params
 
 GENERATION_CONFIG_KEY_MAPPING = {
     "stop": "stopSequences",
@@ -96,6 +99,11 @@ def _tool_result_to_response(content: Any) -> dict[str, Any]:
 
 
 class GeminiAdapter(ProviderAdapter):
+    @staticmethod
+    def _join_text_parts(parts):
+        """Concatenate the text of every part; Gemini may split one reply across parts."""
+        return "".join(part.get("text") or "" for part in parts or [])
+
     @classmethod
     def _normalize_finish_reason(cls, finish_reason):
         """Normalize Gemini finish reasons to OpenAI format (lowercase)."""
@@ -197,20 +205,35 @@ class GeminiAdapter(ProviderAdapter):
                     system_message = {"parts": []}
                 system_message["parts"].append({"text": message["content"]})
             elif role == "tool":
-                call_id = message["tool_call_id"]
-                contents.append({
-                    "role": "user",
-                    "parts": [
-                        {
-                            "functionResponse": {
-                                "id": call_id,
-                                # the function name field is required by Gemini request format
-                                "name": call_id_to_function_name_map[call_id],
-                                "response": _tool_result_to_response(message["content"]),
-                            }
-                        }
-                    ],
-                })
+                call_id = message.get("tool_call_id")
+                if call_id not in call_id_to_function_name_map:
+                    raise AIGatewayException(
+                        status_code=422,
+                        detail=(
+                            f"Invalid tool message: tool_call_id={call_id} does not match "
+                            "any tool call in a preceding assistant message."
+                        ),
+                    )
+                function_response = {
+                    "functionResponse": {
+                        "id": call_id,
+                        # the function name field is required by Gemini request format
+                        "name": call_id_to_function_name_map[call_id],
+                        "response": _tool_result_to_response(message["content"]),
+                    }
+                }
+                # OpenAI sends one tool message per parallel call, but Gemini requires the
+                # responses to all of a model turn's calls in a single user turn.
+                previous = contents[-1] if contents else None
+                if (
+                    previous is not None
+                    and previous["role"] == "user"
+                    and previous["parts"]
+                    and all("functionResponse" in part for part in previous["parts"])
+                ):
+                    previous["parts"].append(function_response)
+                else:
+                    contents.append({"role": "user", "parts": [function_response]})
 
         gemini_payload = {"contents": contents}
 
@@ -255,6 +278,16 @@ class GeminiAdapter(ProviderAdapter):
 
             gemini_payload["tools"] = [{"functionDeclarations": function_declarations}]
 
+            match payload.pop("tool_choice", None):
+                case "none":
+                    gemini_payload["toolConfig"] = {"functionCallingConfig": {"mode": "NONE"}}
+                case "required":
+                    gemini_payload["toolConfig"] = {"functionCallingConfig": {"mode": "ANY"}}
+                case {"type": "function", "function": {"name": name}}:
+                    gemini_payload["toolConfig"] = {
+                        "functionCallingConfig": {"mode": "ANY", "allowedFunctionNames": [name]}
+                    }
+
         return gemini_payload
 
     @classmethod
@@ -264,14 +297,22 @@ class GeminiAdapter(ProviderAdapter):
         finish_reason: str,
         choice_idx: int,
         stream: bool,
+        tool_call_offset: int = 0,
     ):
         # convert gemini model responded "function call" struct to Openai choice / choice chunk
         # struct.
         # Gemini doc: https://ai.google.dev/api/caching#FunctionCall
 
+        # A candidate can mix text and functionCall parts in any order, e.g. a short
+        # "Let me look that up." followed by the call. Keep both.
         tool_calls = []
+        text_parts = []
         for part in content_parts:
-            function_call = part["functionCall"]
+            if "text" in part:
+                text_parts.append(part["text"])
+            function_call = part.get("functionCall")
+            if not function_call:
+                continue
             func_name = function_call["name"]
             func_arguments = json.dumps(function_call["args"])
             call_id = function_call.get("id")
@@ -298,7 +339,7 @@ class GeminiAdapter(ProviderAdapter):
             if stream:
                 tool_calls.append(
                     chat_schema.ToolCallDelta(
-                        index=0,
+                        index=tool_call_offset + len(tool_calls),
                         id=call_id,
                         function=Function(
                             name=func_name,
@@ -320,11 +361,16 @@ class GeminiAdapter(ProviderAdapter):
                         thought_signature=thought_sig,
                     )
                 )
+        content = "".join(text_parts) or None
+        # Gemini reports STOP for a turn that ends in a function call.
+        if tool_calls and finish_reason == "stop":
+            finish_reason = "tool_calls"
         if stream:
             return chat_schema.StreamChoice(
                 index=choice_idx,
                 delta=chat_schema.StreamDelta(
                     role="assistant",
+                    content=content,
                     tool_calls=tool_calls,
                 ),
                 finish_reason=finish_reason,
@@ -333,6 +379,7 @@ class GeminiAdapter(ProviderAdapter):
             index=choice_idx,
             message=chat_schema.ResponseMessage(
                 role="assistant",
+                content=content,
                 tool_calls=tool_calls,
             ),
             finish_reason=finish_reason,
@@ -393,14 +440,14 @@ class GeminiAdapter(ProviderAdapter):
             finish_reason = cls._normalize_finish_reason(candidate.get("finishReason", "stop"))
 
             if parts := candidate.get("content", {}).get("parts", None):
-                if parts[0].get("functionCall", None):
+                if any(part.get("functionCall") for part in parts):
                     choices.append(
                         GeminiAdapter._convert_function_call_to_openai_choice(
                             parts, finish_reason, idx, False
                         )
                     )
 
-                elif content := parts[0].get("text"):
+                elif content := GeminiAdapter._join_text_parts(parts):
                     choices.append(
                         chat_schema.Choice(
                             index=idx,
@@ -425,7 +472,7 @@ class GeminiAdapter(ProviderAdapter):
 
     @classmethod
     def model_to_chat_streaming(
-        cls, resp: dict[str, Any], config
+        cls, resp: dict[str, Any], config, tool_call_offsets: dict[int, int] | None = None
     ) -> chat_schema.StreamResponsePayload:
         # Documentation: https://ai.google.dev/api/generate-content#method:-models.streamgeneratecontent
         #
@@ -449,23 +496,29 @@ class GeminiAdapter(ProviderAdapter):
         #   "model": "gemini-2.0-flash"
         # }
         choices = []
-        for idx, cand in enumerate(resp.get("candidates", [])):
+        for pos, cand in enumerate(resp.get("candidates", [])):
+            # A chunk may carry only some candidates, so use the API index, not the position.
+            idx = cand.get("index", pos)
             parts = cand.get("content", {}).get("parts", [])
             finish_reason = cls._normalize_finish_reason(cand.get("finishReason"))
 
             if parts:
-                if parts[0].get("functionCall"):
+                if any(part.get("functionCall") for part in parts):
                     # for gemini model streaming response,
                     # the function call message is not split into chunks
                     # it still contains the full function call arguments data.
                     choices.append(
                         GeminiAdapter._convert_function_call_to_openai_choice(
-                            parts, finish_reason, idx, True
+                            parts, finish_reason, idx, True, (tool_call_offsets or {}).get(idx, 0)
                         )
                     )
                     continue
 
-            delta_text = parts[0].get("text", "") if parts else ""
+            delta_text = GeminiAdapter._join_text_parts(parts)
+            # Gemini ends a tool-call stream with a STOP chunk that carries no functionCall,
+            # so the calls seen in earlier chunks decide the finish reason.
+            if finish_reason == "stop" and (tool_call_offsets or {}).get(idx, 0):
+                finish_reason = "tool_calls"
             choices.append(
                 chat_schema.StreamChoice(
                     index=idx,
@@ -541,7 +594,7 @@ class GeminiAdapter(ProviderAdapter):
         for idx, candidate in enumerate(resp.get("candidates", [])):
             text = ""
             if parts := candidate.get("content", {}).get("parts", None):
-                text = parts[0].get("text", None)
+                text = cls._join_text_parts(parts)
             if not text:
                 continue
 
@@ -595,7 +648,7 @@ class GeminiAdapter(ProviderAdapter):
         choices = []
         for idx, cand in enumerate(resp.get("candidates", [])):
             parts = cand.get("content", {}).get("parts", [])
-            delta_text = parts[0].get("text", "") if parts else ""
+            delta_text = cls._join_text_parts(parts)
             choices.append(
                 completions_schema.StreamChoice(
                     index=idx,
@@ -758,7 +811,13 @@ class GeminiProvider(BaseProvider):
 
     @property
     def base_url(self):
-        return "https://generativelanguage.googleapis.com/v1beta/models"
+        # Accept an API origin, a versioned API root, or a full models base.
+        parsed = urlparse(self.gemini_config.gemini_api_base)
+        path = parsed.path.rstrip("/")
+        versions = ("/v1", "/v1beta", "/v1alpha")
+        if not path.endswith(tuple(f"{version}/models" for version in versions)):
+            path += "/models" if path.endswith(versions) else "/v1beta/models"
+        return urlunparse(parsed._replace(path=path))
 
     @property
     def adapter_class(self):
@@ -767,9 +826,9 @@ class GeminiProvider(BaseProvider):
     def get_endpoint_url(self, route_type: str) -> str:
         model_name = self.config.model.name
         if route_type in ("llm/v1/chat", "llm/v1/completions"):
-            return f"{self.base_url}/{model_name}:generateContent"
+            return append_to_uri_path(self.base_url, f"{model_name}:generateContent")
         elif route_type == "llm/v1/embeddings":
-            return f"{self.base_url}/{model_name}:embedContent"
+            return append_to_uri_path(self.base_url, f"{model_name}:embedContent")
         raise ValueError(f"Invalid route type {route_type}")
 
     async def _request(self, path: str, payload: dict[str, Any]) -> dict[str, Any]:
@@ -830,11 +889,14 @@ class GeminiProvider(BaseProvider):
         self.check_for_model_field(body)
 
         model_payload = self.adapter_class.completions_to_model(body, self.config)
-        path = f"{self.config.model.name}:streamGenerateContent?alt=sse"
+        path = f"{self.config.model.name}:streamGenerateContent"
 
         # Documentation: https://ai.google.dev/api/generate-content#method:-models.streamgeneratecontent
         sse = send_stream_request(
-            headers=self.headers, base_url=self.base_url, path=path, payload=model_payload
+            headers=self.headers,
+            base_url=append_to_uri_query_params(self.base_url, ("alt", "sse")),
+            path=path,
+            payload=model_payload,
         )
 
         async for raw in handle_incomplete_chunks(sse):
@@ -876,11 +938,14 @@ class GeminiProvider(BaseProvider):
         # Documentation: https://ai.google.dev/api/generate-content#method:-models.streamgeneratecontent
         sse = send_stream_request(
             headers=self.headers,
-            base_url=self.base_url,
-            path=f"{self.config.model.name}:streamGenerateContent?alt=sse",
+            base_url=append_to_uri_query_params(self.base_url, ("alt", "sse")),
+            path=f"{self.config.model.name}:streamGenerateContent",
             payload=body,
         )
 
+        # Gemini sends each functionCall whole, but calls can arrive across chunks, so
+        # number them per stream, separately for each candidate.
+        tool_call_counts: dict[int, int] = {}
         async for raw in handle_incomplete_chunks(sse):
             text = raw.decode("utf-8", errors="ignore").strip()
             if not text.startswith("data:"):
@@ -889,7 +954,13 @@ class GeminiProvider(BaseProvider):
             if data == "[DONE]":
                 break
             resp = json.loads(data)
-            yield self.adapter_class.model_to_chat_streaming(resp, self.config)
+            yield self.adapter_class.model_to_chat_streaming(resp, self.config, tool_call_counts)
+            for pos, cand in enumerate(resp.get("candidates", [])):
+                idx = cand.get("index", pos)
+                parts = cand.get("content", {}).get("parts", [])
+                tool_call_counts[idx] = tool_call_counts.get(idx, 0) + sum(
+                    1 for part in parts if part.get("functionCall")
+                )
 
     def _extract_passthrough_token_usage(
         self, action: PassthroughAction, result: dict[str, Any]
@@ -964,10 +1035,16 @@ class GeminiProvider(BaseProvider):
         payload: dict[str, Any],
         headers: dict[str, str] | None = None,
     ) -> dict[str, Any] | AsyncIterable[Any]:
-        # base_url includes /v1beta/models; the caller's path already starts with
-        # v1beta/models/..., so use the bare origin to avoid double-prefixing.
-        api_origin = "https://generativelanguage.googleapis.com"
-        gen = send_proxy_request(self._get_headers(None, headers), api_origin, path, payload)
+        # Strip the models and version suffixes, retaining any relay path prefix.
+        # Raw proxy callers already supply the full versioned API path.
+        api_root = proxy_root_url(proxy_root_url(self.base_url))
+        if urlparse(api_root).query:
+            parsed_path = urlparse(path)
+            api_root = append_to_uri_query_params(
+                api_root, *parse_qsl(parsed_path.query, keep_blank_values=True)
+            )
+            path = urlunparse(parsed_path._replace(query=""))
+        gen = send_proxy_request(self._get_headers(None, headers), api_root, path, payload)
         meta = await gen.__anext__()
         if meta["is_streaming"]:
             return gen
@@ -989,9 +1066,10 @@ class GeminiProvider(BaseProvider):
         is_streaming = action == PassthroughAction.GEMINI_STREAM_GENERATE_CONTENT
 
         if is_streaming:
+            provider_path = provider_path.removesuffix("?alt=sse")
             stream = send_stream_request(
                 headers=request_headers,
-                base_url=self.base_url,
+                base_url=append_to_uri_query_params(self.base_url, ("alt", "sse")),
                 path=provider_path,
                 payload=payload,
             )

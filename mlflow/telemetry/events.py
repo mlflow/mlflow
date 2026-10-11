@@ -3,7 +3,7 @@ import os
 import sys
 from collections import Counter
 from enum import Enum
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, get_args
 from urllib.parse import urlparse
 
 from mlflow.entities import Feedback
@@ -12,6 +12,7 @@ from mlflow.entities.mcp_server import MCPStatus
 from mlflow.environment_variables import MLFLOW_ENABLE_OTEL_GENAI_SEMCONV
 from mlflow.telemetry.constant import (
     GENAI_MODULES,
+    KNOWN_FLAVORS,
     MODULES_TO_CHECK_IMPORT,
 )
 
@@ -23,6 +24,38 @@ GENAI_EVALUATION_PATH = "mlflow/genai/evaluation/base"
 GENAI_SCORERS_PATH = "mlflow/genai/scorers/base"
 GENAI_EVALUATE_FUNCTION = "_run_harness"
 SCORER_RUN_FUNCTION = "run"
+
+
+def _bound_flavor(flavor_name: str | None) -> str | None:
+    if not flavor_name:
+        return None
+    # Reduce values like "mlflow.sklearn" or "pyfunc.ChatModel" to the base flavor.
+    base = flavor_name.removeprefix("mlflow.").split(".", 1)[0]
+    return base if base in KNOWN_FLAVORS else "other"
+
+
+# Built-in model-URI schemes, used to bound the telemetry `source_scheme` value. The
+# artifact-repository registry is intentionally not used, since plugins can register
+# schemes at runtime, which would make the value unbounded.
+_KNOWN_MODEL_URI_SCHEMES = {
+    "runs",
+    "models",
+    "file",
+    "s3",
+    "r2",
+    "b2",
+    "gs",
+    "wasbs",
+    "abfss",
+    "dbfs",
+    "ftp",
+    "sftp",
+    "hdfs",
+    "viewfs",
+    "http",
+    "https",
+    "mlflow-artifacts",
+}
 
 
 def _get_scorer_class_name_for_tracking(scorer: "Scorer") -> str:
@@ -242,6 +275,54 @@ class CreateModelVersionEvent(Event):
     def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
         tags = arguments.get("tags") or {}
         return {"is_prompt": _is_prompt(tags)}
+
+
+class LogModelEvent(Event):
+    # End-to-end log_model; CreateLoggedModelEvent covers only the create-record sub-step.
+    name: str = "log_model"
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        flavor = arguments.get("flavor")
+        kwargs = arguments.get("kwargs") or {}
+        flavor_name = kwargs.get("flavor_name")
+        if not flavor_name and flavor is not None:
+            flavor_name = getattr(flavor, "__name__", None)
+        return {
+            "flavor": _bound_flavor(flavor_name),
+            "registered": arguments.get("registered_model_name") is not None,
+        }
+
+
+class RegisterModelEvent(Event):
+    # End-to-end register_model (create model + optional env_pack + create version + await).
+    name: str = "register_model"
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        # Lazy import to avoid an events -> env_pack -> models.model -> events import cycle.
+        from mlflow.utils.env_pack import EnvPackType
+
+        env_pack = arguments.get("env_pack")
+        if env_pack is None:
+            env_pack_kind = None
+        else:
+            kind = env_pack if isinstance(env_pack, str) else getattr(env_pack, "name", None)
+            env_pack_kind = kind if kind in get_args(EnvPackType) else "other"
+
+        # urlparse handles both `scheme:/path` (e.g. dbfs:/, runs:/) and `scheme://host/path`.
+        scheme = urlparse(arguments.get("model_uri") or "").scheme
+        if not scheme:
+            source_scheme = "local"
+        else:
+            source_scheme = scheme if scheme in _KNOWN_MODEL_URI_SCHEMES else "other"
+
+        return {"env_pack": env_pack_kind, "source_scheme": source_scheme}
+
+
+class EnvPackEvent(Event):
+    # Recorded manually from env packing; status/duration cover packing only, not the caller.
+    name: str = "env_pack"
 
 
 class CreateDatasetEvent(Event):
@@ -692,6 +773,7 @@ class GatewayInvocationType(str, Enum):
     ANTHROPIC_PASSTHROUGH_MESSAGES = "anthropic_passthrough_messages"
     GEMINI_PASSTHROUGH_GENERATE_CONTENT = "gemini_passthrough_generate_content"
     GEMINI_PASSTHROUGH_STREAM_GENERATE_CONTENT = "gemini_passthrough_stream_generate_content"
+    TYPESAFE_PASSTHROUGH_SYSTEM_ONE = "typesafe_passthrough_system_one"
     RAW_PROXY = "raw_proxy"
 
 

@@ -43,6 +43,7 @@ def test_transform_entry_chat_model():
         "output_cost_per_token": 1.5e-5,
         "cache_read_input_token_cost": 3e-7,
         "cache_creation_input_token_cost": 3.75e-6,
+        "cache_creation_input_token_cost_above_1hr": 6e-6,
         "max_input_tokens": 200000,
         "max_output_tokens": 64000,
         "max_tokens": 64000,
@@ -61,6 +62,7 @@ def test_transform_entry_chat_model():
             "output_per_million_tokens": 15.0,
             "cache_read_per_million_tokens": 0.3,
             "cache_write_per_million_tokens": 3.75,
+            "cache_write_1hr_per_million_tokens": 6.0,
         },
         "capabilities": {
             "function_calling": True,
@@ -70,6 +72,17 @@ def test_transform_entry_chat_model():
             "response_schema": True,
         },
     }
+
+
+def test_transform_entry_without_1hr_cache_creation_cost():
+    info = {
+        "mode": "chat",
+        "input_cost_per_token": 3e-6,
+        "cache_creation_input_token_cost": 3.75e-6,
+    }
+    pricing = _transform_entry(info)["pricing"]
+    assert pricing["cache_write_per_million_tokens"] == 3.75
+    assert "cache_write_1hr_per_million_tokens" not in pricing
 
 
 def test_transform_entry_includes_image_generation():
@@ -84,6 +97,13 @@ def test_transform_entry_includes_video_generation():
     result = _transform_entry(info)
     assert result is not None
     assert result["mode"] == "video_generation"
+
+
+def test_transform_entry_includes_responses():
+    info = {"mode": "responses", "input_cost_per_token": 1e-6}
+    result = _transform_entry(info)
+    assert result is not None
+    assert result["mode"] == "responses"
 
 
 def test_transform_entry_includes_future_deprecation_date():
@@ -331,6 +351,28 @@ def test_convert_end_to_end(tmp_path):
     assert "ft:gpt-4o:org::id" not in openai_catalog["models"]
     assert "dall-e-3" in openai_catalog["models"]
     assert "sora" in openai_catalog["models"]
+
+
+def test_convert_includes_responses_mode_models(tmp_path):
+    # bedrock_mantle's OpenAI Responses-API models (e.g. openai.gpt-5.x) report
+    # mode="responses" upstream, distinct from mode="chat".
+    input_data = {
+        "bedrock_mantle/openai.gpt-5.6-sol": {
+            "litellm_provider": "bedrock_mantle",
+            "mode": "responses",
+            "input_cost_per_token": 4.4e-6,
+            "output_cost_per_token": 2.2e-5,
+        },
+    }
+
+    output_dir = tmp_path / "output"
+
+    stats = convert(input_data, output_dir)
+
+    assert stats == {"bedrock_mantle": 1}
+    catalog = json.loads((output_dir / "bedrock_mantle.json").read_text())
+    assert "openai.gpt-5.6-sol" in catalog["models"]
+    assert catalog["models"]["openai.gpt-5.6-sol"]["mode"] == "responses"
 
 
 def test_convert_preserves_existing_models(tmp_path):

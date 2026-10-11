@@ -6,7 +6,11 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.service_pb2 import Experiment, GetExperiment
 from mlflow.store.tracking.rest_store import RestStore
 from mlflow.utils.rest_utils import MlflowHostCreds
-from mlflow.utils.server_info import SERVER_INFO_ENDPOINT, _clear_server_info_cache
+from mlflow.utils.server_info import (
+    SERVER_FEATURES_ENDPOINT,
+    SERVER_INFO_ENDPOINT,
+    _clear_server_info_cache,
+)
 
 ACTIVE_WORKSPACE = "team-a"
 
@@ -40,15 +44,100 @@ def test_supports_workspaces_queries_endpoint():
     assert kwargs["raise_on_status"] is False
 
 
-def test_supports_workspaces_returns_false_on_failure():
+def test_supports_workspaces_raises_when_tracking_uri_has_wrong_path():
+    creds = MlflowHostCreds("https://example/not-mlflow")
+    store = RestStore(lambda: creds)
+    not_found_response = mock.MagicMock(status_code=404, text="not found")
+
+    with mock.patch(
+        "mlflow.utils.server_info.http_request",
+        side_effect=[not_found_response, not_found_response],
+    ) as mock_http:
+        with pytest.raises(
+            MlflowException, match="Verify that the configured MLflow URI"
+        ) as exc_info:
+            store.supports_workspaces
+
+    assert exc_info.value.error_code == "INVALID_PARAMETER_VALUE"
+    assert "--enable-workspaces" not in str(exc_info.value)
+    assert [call.kwargs["endpoint"] for call in mock_http.call_args_list] == [
+        SERVER_INFO_ENDPOINT,
+        SERVER_FEATURES_ENDPOINT,
+    ]
+
+
+def test_workspace_guard_includes_active_workspace_when_support_is_undetermined(monkeypatch):
+    store = RestStore(lambda: MlflowHostCreds("https://example/not-mlflow"))
+    not_found_response = mock.MagicMock(status_code=404, text="not found")
+    monkeypatch.setattr(
+        "mlflow.store.workspace_rest_store_mixin.get_request_workspace", lambda: ACTIVE_WORKSPACE
+    )
+
+    with mock.patch(
+        "mlflow.utils.server_info.http_request",
+        side_effect=[not_found_response, not_found_response],
+    ) as mock_http:
+        with pytest.raises(
+            MlflowException,
+            match="Active workspace 'team-a' cannot be used. MLflow could not determine",
+        ) as exc_info:
+            store._validate_workspace_support_if_specified()
+
+    assert exc_info.value.error_code == "INVALID_PARAMETER_VALUE"
+    assert "--enable-workspaces" in str(exc_info.value)
+    assert [call.kwargs["endpoint"] for call in mock_http.call_args_list] == [
+        SERVER_INFO_ENDPOINT,
+        SERVER_FEATURES_ENDPOINT,
+    ]
+
+
+def test_supports_workspaces_uses_legacy_server_features_endpoint():
     creds = MlflowHostCreds("https://example")
     store = RestStore(lambda: creds)
-    response = mock.MagicMock()
-    response.status_code = 404
-    response.text = "not found"
+    server_info_response = mock.MagicMock(status_code=404, text="not found")
+    server_features_response = mock.MagicMock(status_code=200)
+    server_features_response.json.return_value = {"workspaces_enabled": True}
 
-    with mock.patch("mlflow.utils.server_info.http_request", return_value=response):
-        assert store.supports_workspaces is False
+    with mock.patch(
+        "mlflow.utils.server_info.http_request",
+        side_effect=[server_info_response, server_features_response],
+    ) as mock_http:
+        assert store.supports_workspaces is True
+
+    assert [call.kwargs["endpoint"] for call in mock_http.call_args_list] == [
+        SERVER_INFO_ENDPOINT,
+        SERVER_FEATURES_ENDPOINT,
+    ]
+
+
+@pytest.mark.parametrize(
+    "responses",
+    [
+        [mock.MagicMock(status_code=200)],
+        [mock.MagicMock(status_code=404, text="not found"), mock.MagicMock(status_code=200)],
+    ],
+    ids=["current-server", "legacy-server"],
+)
+def test_workspace_guard_retains_workspace_disabled_error(responses, monkeypatch):
+    for response in responses:
+        response.json.return_value = {"workspaces_enabled": False}
+    store = RestStore(lambda: MlflowHostCreds("https://example"))
+    monkeypatch.setattr(
+        "mlflow.store.workspace_rest_store_mixin.get_request_workspace", lambda: ACTIVE_WORKSPACE
+    )
+
+    with mock.patch("mlflow.utils.server_info.http_request", side_effect=responses) as mock_http:
+        with pytest.raises(
+            MlflowException, match="Restart the server with --enable-workspaces"
+        ) as exc_info:
+            store._validate_workspace_support_if_specified()
+
+    assert exc_info.value.error_code == "FEATURE_DISABLED"
+    assert [call.kwargs["endpoint"] for call in mock_http.call_args_list] == (
+        [SERVER_INFO_ENDPOINT]
+        if len(responses) == 1
+        else [SERVER_INFO_ENDPOINT, SERVER_FEATURES_ENDPOINT]
+    )
 
 
 def test_supports_workspaces_handles_missing_json_keys():
@@ -82,6 +171,50 @@ def test_supports_workspaces_raises_on_server_error():
     with mock.patch("mlflow.utils.server_info.http_request", return_value=response):
         with pytest.raises(MlflowException, match="Failed to query.*500"):
             store.supports_workspaces
+
+
+def test_supports_workspaces_raises_on_legacy_server_features_error():
+    creds = MlflowHostCreds("https://example")
+    store = RestStore(lambda: creds)
+    server_info_response = mock.MagicMock(status_code=404, text="not found")
+    server_features_response = mock.MagicMock(status_code=500, text="Internal Server Error")
+
+    with mock.patch(
+        "mlflow.utils.server_info.http_request",
+        side_effect=[server_info_response, server_features_response],
+    ) as mock_http:
+        with pytest.raises(
+            MlflowException, match=f"Failed to query {SERVER_FEATURES_ENDPOINT}: 500"
+        ) as exc_info:
+            store.supports_workspaces
+
+    assert exc_info.value.error_code == "TEMPORARILY_UNAVAILABLE"
+    assert [call.kwargs["endpoint"] for call in mock_http.call_args_list] == [
+        SERVER_INFO_ENDPOINT,
+        SERVER_FEATURES_ENDPOINT,
+    ]
+
+
+def test_supports_workspaces_raises_on_legacy_server_features_request_error():
+    creds = MlflowHostCreds("https://example")
+    store = RestStore(lambda: creds)
+    server_info_response = mock.MagicMock(status_code=404, text="not found")
+
+    with mock.patch(
+        "mlflow.utils.server_info.http_request",
+        side_effect=[server_info_response, ConnectionError("connection refused")],
+    ) as mock_http:
+        with pytest.raises(
+            MlflowException,
+            match=f"Failed to query {SERVER_FEATURES_ENDPOINT}: connection refused",
+        ) as exc_info:
+            store.supports_workspaces
+
+    assert exc_info.value.error_code == "INTERNAL_ERROR"
+    assert [call.kwargs["endpoint"] for call in mock_http.call_args_list] == [
+        SERVER_INFO_ENDPOINT,
+        SERVER_FEATURES_ENDPOINT,
+    ]
 
 
 def test_supports_workspaces_raises_internal_error_on_request_exception():

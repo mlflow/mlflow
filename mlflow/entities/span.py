@@ -1,9 +1,10 @@
 import ast
 import base64
+import copy
 import json
 import logging
 from functools import cached_property
-from typing import Any, Union
+from typing import Any, NoReturn, Union
 
 from opentelemetry.proto.resource.v1.resource_pb2 import Resource as OTelProtoResource
 from opentelemetry.proto.trace.v1.trace_pb2 import Span as OTelProtoSpan
@@ -301,6 +302,46 @@ class Span:
             f"span_id={self.span_id!r}, parent_id={self.parent_id!r})"
         )
 
+    # `__getitem__` alone would enable the legacy sequence protocol, making
+    # `iter(span)` and `"x" in span` appear to work and then fail confusingly.
+    __iter__ = None
+
+    def __getitem__(self, item: Any) -> NoReturn:
+        """Span objects do not support indexing via subscript syntax."""
+        hint = ""
+        if isinstance(item, str):
+            if item.isidentifier() and not item.startswith("_") and item in dir(self):
+                hint = f" Use attribute access instead, e.g. `span.{item}`."
+            else:
+                try:
+                    attrs = getattr(self, "attributes", None)
+                    if isinstance(attrs, dict) and item in attrs:
+                        hint = (
+                            f" To access span attributes, use `span.get_attribute({item!r})` "
+                            f"or `span.attributes[{item!r}]`."
+                        )
+                except Exception:
+                    pass
+
+        if not hint:
+            hint = (
+                " Use attribute access instead, e.g. `span.inputs`, `span.outputs`, "
+                "or `span.attributes`."
+            )
+
+        raise TypeError(f"'{type(self).__name__}' object is not subscriptable.{hint}")
+
+    def __getattr__(self, name: str) -> NoReturn:
+        # Only reached when normal lookup fails. Keeps `hasattr(span, "get")`
+        # False and makes `span.get` itself raise, unlike defining a real method.
+        if name == "get":
+            raise AttributeError(
+                f"'{type(self).__name__}' object has no attribute 'get'; a span is not a dict. "
+                "Use attribute access such as `span.name`, `span.inputs`, `span.outputs`, "
+                "or `span.attributes`, or `span.get_attribute(key)` for a span attribute."
+            )
+        raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
+
     def get_attribute(self, key: str) -> Any | None:
         """
         Get a single attribute value from the span.
@@ -345,6 +386,22 @@ class Span:
             "attributes": dict(self._span.attributes),
             "links": [link.to_dict() for link in self.links],
         }
+
+    def __reduce__(self):
+        return (_reconstruct_span, (self.to_dict(), self._attachments))
+
+    def __copy__(self) -> "Span":
+        # Shallow copies keep sharing the underlying OTel span, as they did
+        # before the copy protocol was defined.
+        new_span = type(self).__new__(type(self))
+        new_span.__dict__.update(self.__dict__)
+        return new_span
+
+    def __deepcopy__(self, memo: dict[int, Any]) -> "Span":
+        new_span = Span.from_dict(copy.deepcopy(self.to_dict(), memo))
+        new_span._attachments = copy.deepcopy(self._attachments, memo)
+        memo[id(self)] = new_span
+        return new_span
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "Span":
@@ -596,13 +653,21 @@ class Span:
 
         # Convert links to OTLP proto format
         for link in self.links:
-            proto_link = otel_span.links.add()
             # Convert MLflow trace ID (tr-xxx or trace:/loc/xxx) back to OTel bytes
             link_trace_id_hex = parse_trace_id_v4(link.trace_id)[1].removeprefix(
                 TRACE_REQUEST_ID_PREFIX
             )
-            proto_link.trace_id = decode_id(link_trace_id_hex).to_bytes(16, "big")
-            proto_link.span_id = decode_id(link.span_id).to_bytes(8, "big")
+            link_trace_id = decode_id(link_trace_id_hex)
+            link_span_id = decode_id(link.span_id)
+            # Some producers (e.g. Claude Code detailed beta tracing) emit IDs wider than the
+            # 16-byte trace / 8-byte span IDs OTLP allows. Drop such links rather than failing
+            # the whole trace.
+            if link_trace_id.bit_length() > 128 or link_span_id.bit_length() > 64:
+                _logger.debug("Skipping link with out-of-range IDs on span '%s'.", self.name)
+                continue
+            proto_link = otel_span.links.add()
+            proto_link.trace_id = link_trace_id.to_bytes(16, "big")
+            proto_link.span_id = link_span_id.to_bytes(8, "big")
 
             # Add link attributes
             if link.attributes:
@@ -687,6 +752,18 @@ class LiveSpan(Span):
         # and logs. As spans are logged, we incrementally add numeric suffixes (_1, _2, etc.) to
         # make each span uniquely identifiable within its trace
         self._original_name = otel_span.name
+
+    def __reduce__(self) -> NoReturn:
+        raise TypeError(
+            f"'{type(self).__name__}' cannot be pickled while active. "
+            "Call `span.to_immutable_span()` to serialize finished span data."
+        )
+
+    def __deepcopy__(self, memo: dict[int, Any]) -> NoReturn:
+        raise TypeError(
+            f"'{type(self).__name__}' cannot be deepcopied while active. "
+            "Call `span.to_immutable_span()` to copy finished span data."
+        )
 
     def set_span_type(self, span_type: str):
         """Set the type of the span."""
@@ -1076,10 +1153,11 @@ class LiveSpan(Span):
             exception: The exception to record. Can be an Exception instance or a string
                 describing the exception.
         """
+        if isinstance(exception, str):
+            exception = Exception(exception)
+
         if isinstance(exception, Exception):
             self.add_event(SpanEvent.from_exception(exception))
-        elif isinstance(exception, str):
-            self.add_event(SpanEvent.from_exception(Exception(exception)))
         else:
             raise MlflowException(
                 "The `exception` parameter must be an Exception instance or a string.",
@@ -1364,7 +1442,22 @@ class LazySpan(Span):
 
     def __getattr__(self, name: str):
         self._ensure_materialized()
-        return object.__getattribute__(self, name)
+        try:
+            return object.__getattribute__(self, name)
+        except AttributeError:
+            return super().__getattr__(name)
+
+    def __reduce__(self):
+        # Rebuild from the stored dict; the copy materializes on first access.
+        return (LazySpan, (self.__dict__["_span_dict"],))
+
+    def __deepcopy__(self, memo: dict[int, Any]) -> "LazySpan":
+        new_lazy = LazySpan(
+            copy.deepcopy(self.__dict__["_span_dict"], memo),
+            raw_json=self.__dict__["_raw_json"],
+        )
+        memo[id(self)] = new_lazy
+        return new_lazy
 
     def __repr__(self):
         if self.__dict__.get("_materialized"):
@@ -1384,6 +1477,12 @@ class LazySpan(Span):
             f"span_id={span_dict.get('span_id')!r}, "
             f"parent_id={span_dict.get('parent_span_id')!r})"
         )
+
+
+def _reconstruct_span(span_dict: dict[str, Any], attachments: dict[str, Any]) -> Span:
+    span = Span.from_dict(span_dict)
+    span._attachments = attachments
+    return span
 
 
 class NoOpSpan(Span):
@@ -1410,6 +1509,14 @@ class NoOpSpan(Span):
         self._span = otel_span or NonRecordingSpan(context=None)
         self._attributes = {}
         self._links = []
+
+    def __reduce__(self):
+        return (NoOpSpan, (self._span,))
+
+    def __deepcopy__(self, memo: dict[int, Any]) -> "NoOpSpan":
+        new_noop = NoOpSpan(copy.deepcopy(self._span, memo))
+        memo[id(self)] = new_noop
+        return new_noop
 
     @property
     def trace_id(self):

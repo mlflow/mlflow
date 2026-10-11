@@ -29,6 +29,7 @@ class PassthroughAction(str, Enum):
     ANTHROPIC_MESSAGES = "anthropic_messages"
     GEMINI_GENERATE_CONTENT = "gemini_generate_content"
     GEMINI_STREAM_GENERATE_CONTENT = "gemini_stream_generate_content"
+    TYPESAFE_SYSTEM_ONE = "typesafe_system_one"
 
 
 # Mapping of passthrough actions to their gateway API routes
@@ -38,6 +39,7 @@ PASSTHROUGH_ROUTES = {
     PassthroughAction.OPENAI_RESPONSES: "/openai/v1/responses",
     PassthroughAction.OPENAI_RESPONSES_COMPACT: "/openai/v1/responses/compact",
     PassthroughAction.ANTHROPIC_MESSAGES: "/anthropic/v1/messages",
+    PassthroughAction.TYPESAFE_SYSTEM_ONE: "/typesafe/v1/systemone",
     PassthroughAction.GEMINI_GENERATE_CONTENT: "/gemini/v1beta/models/{endpoint_name}:generateContent",  # noqa: E501
     PassthroughAction.GEMINI_STREAM_GENERATE_CONTENT: "/gemini/v1beta/models/{endpoint_name}:streamGenerateContent",  # noqa: E501
 }

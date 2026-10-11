@@ -26,7 +26,7 @@ def test_websocket_to_wsgi_mount_does_not_crash(client):
 
 
 def test_http_to_wsgi_mount_still_served(client):
-    resp = client.get("/health")
+    resp = client.get("/version")
     assert resp.status_code == 200
 
 

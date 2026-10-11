@@ -31,7 +31,8 @@
       },
       "pricing": {
         "input_per_million_tokens": 0.14,
-        "output_per_million_tokens": 0.28
+        "output_per_million_tokens": 0.28,
+        "cache_read_per_million_tokens": 0.014
       },
       "capabilities": {
         "function_calling": true,
@@ -40,7 +41,7 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-09-22"
     },
     "deepseek-flash": {
       "mode": "chat",
@@ -73,7 +74,8 @@
       },
       "pricing": {
         "input_per_million_tokens": 0.55,
-        "output_per_million_tokens": 2.19
+        "output_per_million_tokens": 2.19,
+        "cache_read_per_million_tokens": 0.14
       },
       "capabilities": {
         "function_calling": true,
@@ -82,7 +84,7 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-09-22"
     },
     "deepseek-reasoner": {
       "mode": "chat",
@@ -136,7 +138,8 @@
       },
       "pricing": {
         "input_per_million_tokens": 0.28,
-        "output_per_million_tokens": 0.4
+        "output_per_million_tokens": 0.4,
+        "cache_read_per_million_tokens": 0.028
       },
       "capabilities": {
         "function_calling": true,
@@ -145,7 +148,7 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-09-22"
     },
     "deepseek-v4-flash": {
       "mode": "chat",

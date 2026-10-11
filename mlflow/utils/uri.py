@@ -87,6 +87,22 @@ def is_databricks_uri(uri):
     return uri == "databricks" or urllib.parse.urlparse(uri).scheme == "databricks"
 
 
+def is_sagemaker_mlflow_tracking_uri(uri: str) -> bool:
+    """Whether the URI has the shape of a SageMaker MLflow tracking-server ARN."""
+    parts = uri.split(":", 5)
+    if len(parts) != 6:
+        return False
+
+    resource_type, separator, resource_id = parts[5].partition("/")
+    return (
+        parts[0] == "arn"
+        and parts[2] == "sagemaker"
+        and resource_type == "mlflow-tracking-server"
+        and separator == "/"
+        and bool(resource_id)
+    )
+
+
 def is_fuse_or_uc_volumes_uri(uri):
     """
     Validates whether a provided URI is directed to a FUSE mount point or a UC volumes mount point.
@@ -349,7 +365,7 @@ def append_to_uri_query_params(uri, *query_params: tuple[str, Any]) -> str:
             be a 2-element tuple. For example, ``("key", "value")``.
     """
     parsed_uri = urllib.parse.urlparse(uri)
-    parsed_query = urllib.parse.parse_qsl(parsed_uri.query)
+    parsed_query = urllib.parse.parse_qsl(parsed_uri.query, keep_blank_values=True)
     new_parsed_query = parsed_query + list(query_params)
     new_query = urllib.parse.urlencode(new_parsed_query)
     new_parsed_uri = parsed_uri._replace(query=new_query)

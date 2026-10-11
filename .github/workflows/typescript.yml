@@ -9,6 +9,7 @@ on:
       - ".github/workflows/copilot-*.yml"
       - ".github/workflows/docs.yml"
       - ".github/workflows/preview-docs.yml"
+      - ".github/workflows/triage.yml"
       - "mlflow/server/js/**"
       - ".github/workflows/js.yml"
       - ".claude/**"
@@ -37,7 +38,7 @@ jobs:
       fail-fast: false
       matrix:
         node-version: [22, 24]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     defaults:
       run:
         shell: bash
@@ -89,7 +90,7 @@ jobs:
     permissions:
       contents: read
     timeout-minutes: 15
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     defaults:
       run:
         shell: bash

@@ -9,6 +9,7 @@ import pytest
 import yaml
 
 from mlflow.exceptions import MlflowException
+from mlflow.telemetry.events import EnvPackEvent
 from mlflow.utils import env_pack
 from mlflow.utils.databricks_utils import DatabricksRuntimeVersion
 from mlflow.utils.env_pack import EnvPackConfig, _validate_env_pack
@@ -171,6 +172,93 @@ def test_pack_env_for_databricks_model_serving_pip_requirements_error(tmp_path, 
         # Verify error messages were printed
         mock_eprint.assert_any_call("Error installing requirements:")
         mock_eprint.assert_any_call("Error message")
+
+
+def _make_packable_model(tmp_path):
+    artifacts_dir = tmp_path / "artifacts"
+    artifacts_dir.mkdir()
+    (artifacts_dir / "MLmodel").write_text(
+        yaml.dump({"databricks_runtime": "client.2.0", "flavors": {}})
+    )
+    env_dir = tmp_path / "env"
+    env_dir.mkdir()
+    (env_dir / "dummy.txt").write_text("x")
+    return artifacts_dir, env_dir
+
+
+def test_pack_env_records_success_telemetry(tmp_path, mock_dbr_version):
+    artifacts_dir, env_dir = _make_packable_model(tmp_path)
+    with (
+        mock.patch("mlflow.utils.env_pack.download_artifacts", return_value=str(artifacts_dir)),
+        mock.patch("sys.prefix", str(env_dir)),
+        mock.patch("mlflow.telemetry.track._record_event") as mock_record,
+    ):
+        with env_pack.pack_env_for_databricks_model_serving("models:/test/1"):
+            pass
+
+    mock_record.assert_called_once()
+    args, kwargs = mock_record.call_args
+    assert args[0] is EnvPackEvent
+    assert args[1] == {"install_dependencies": False}
+    assert kwargs["success"] is True
+    assert kwargs["duration_ms"] >= 0
+
+
+def test_pack_env_coerces_install_dependencies_telemetry_to_bool(tmp_path, mock_dbr_version):
+    artifacts_dir, env_dir = _make_packable_model(tmp_path)
+    with (
+        mock.patch("mlflow.utils.env_pack.download_artifacts", return_value=str(artifacts_dir)),
+        mock.patch("sys.prefix", str(env_dir)),
+        mock.patch("mlflow.telemetry.track._record_event") as mock_record,
+    ):
+        with env_pack.pack_env_for_databricks_model_serving(
+            "models:/test/1", enforce_pip_requirements=[]
+        ):
+            pass
+
+    args, _ = mock_record.call_args
+    assert args[1] == {"install_dependencies": False}
+
+
+def test_pack_env_records_failure_telemetry(tmp_path, mock_dbr_version):
+    artifacts_dir, _ = _make_packable_model(tmp_path)
+    (artifacts_dir / "requirements.txt").write_text("invalid-package==1.0.0")
+    with (
+        mock.patch("mlflow.utils.env_pack.download_artifacts", return_value=str(artifacts_dir)),
+        mock.patch(
+            "subprocess.run",
+            side_effect=subprocess.CalledProcessError(1, "pip install", "err"),
+        ),
+        mock.patch("mlflow.utils.env_pack.eprint"),
+        mock.patch("mlflow.telemetry.track._record_event") as mock_record,
+    ):
+        with pytest.raises(subprocess.CalledProcessError, match="pip install"):
+            with env_pack.pack_env_for_databricks_model_serving(
+                "models:/test/1", enforce_pip_requirements=True
+            ):
+                pass
+
+    mock_record.assert_called_once()
+    args, kwargs = mock_record.call_args
+    assert args[0] is EnvPackEvent
+    assert kwargs["success"] is False
+
+
+def test_pack_env_does_not_record_failure_on_caller_error(tmp_path, mock_dbr_version):
+    # A caller error while the context manager is held must not count as an env_pack failure.
+    artifacts_dir, env_dir = _make_packable_model(tmp_path)
+    with (
+        mock.patch("mlflow.utils.env_pack.download_artifacts", return_value=str(artifacts_dir)),
+        mock.patch("sys.prefix", str(env_dir)),
+        mock.patch("mlflow.telemetry.track._record_event") as mock_record,
+    ):
+        with pytest.raises(RuntimeError, match="caller boom"):
+            with env_pack.pack_env_for_databricks_model_serving("models:/test/1"):
+                raise RuntimeError("caller boom")
+
+    mock_record.assert_called_once()
+    _, kwargs = mock_record.call_args
+    assert kwargs["success"] is True
 
 
 def test_pack_env_for_databricks_model_serving_unsupported_version():

@@ -981,6 +981,39 @@ def test_evaluate_with_managed_dataset_preserves_name():
         assert logged_dataset.name == "test.evaluation.sample_dataset"
 
 
+def test_evaluate_with_managed_dataset_logs_model_metric_dataset(server_config):
+    mlflow.set_experiment(experiment_id=mlflow.create_experiment("dataset_metric_test"))
+    dataset = create_dataset(name="test_dataset_metric")
+    dataset.merge_records([
+        {"inputs": {"number": 1}, "expectations": {"expected": 1}},
+        {"inputs": {"number": 2}, "expectations": {"expected": 3}},
+    ])
+
+    @scorer
+    def is_correct(outputs, expectations):
+        return outputs == expectations["expected"]
+
+    @mlflow.trace
+    def predict(number):
+        return number
+
+    model = mlflow.create_external_model(name="test_model_metric")
+
+    mlflow.genai.evaluate(
+        data=dataset,
+        predict_fn=predict,
+        scorers=[is_correct],
+        model_id=model.model_id,
+    )
+
+    metric = next(
+        m for m in mlflow.get_logged_model(model.model_id).metrics if m.key == "is_correct/mean"
+    )
+    assert metric.value == 0.5
+    assert metric.dataset_name == dataset.name
+    assert metric.dataset_digest == dataset.digest
+
+
 @pytest.mark.parametrize(
     ("tags_data", "expected_calls"),
     [

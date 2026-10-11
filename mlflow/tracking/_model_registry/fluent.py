@@ -30,7 +30,7 @@ from mlflow.store.model_registry import (
     SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
 )
-from mlflow.telemetry.events import LoadPromptEvent
+from mlflow.telemetry.events import LoadPromptEvent, RegisterModelEvent
 from mlflow.telemetry.track import record_usage_event
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.fluent import get_active_trace_id, get_current_active_span
@@ -65,6 +65,7 @@ PROMPT_API_MIGRATION_MSG = (
 )
 
 
+@record_usage_event(RegisterModelEvent)
 def register_model(
     model_uri,
     name,
@@ -136,7 +137,12 @@ def register_model(
             rfr = RandomForestRegressor(**params).fit(X, y)
             signature = infer_signature(X, rfr.predict(X))
             mlflow.log_params(params)
-            mlflow.sklearn.log_model(rfr, name="sklearn-model", signature=signature)
+            mlflow.sklearn.log_model(
+                rfr,
+                name="sklearn-model",
+                signature=signature,
+                skops_trusted_types=["sklearn.tree._tree.Tree"],
+            )
         model_uri = f"runs:/{run.info.run_id}/sklearn-model"
         mv = mlflow.register_model(model_uri, "RandomForestRegressionModel")
         print(f"Name: {mv.name}")
@@ -707,6 +713,7 @@ def register_prompt(
 def search_prompts(
     filter_string: str | None = None,
     max_results: int | None = None,
+    order_by: list[str] | None = None,
 ) -> list[Prompt]:
     """
     Search for prompts in the MLflow Prompt Registry.
@@ -722,6 +729,9 @@ def search_prompts(
             catalog and schema: "catalog = 'catalog_name' AND schema = 'schema_name'".
         max_results (Optional[int]):
             The maximum number of prompts to return.
+        order_by (Optional[list[str]]):
+            List of column names with ASC|DESC annotation to order the results by.
+            Not honored by Unity Catalog registries.
 
     Returns:
         A list of :py:class:`Prompt <mlflow.entities.Prompt>` objects representing prompt metadata:
@@ -756,7 +766,10 @@ def search_prompts(
 
     def pagination_wrapper_func(number_to_get, next_page_token):
         return MlflowClient().search_prompts(
-            filter_string=filter_string, max_results=number_to_get, page_token=next_page_token
+            filter_string=filter_string,
+            max_results=number_to_get,
+            order_by=order_by,
+            page_token=next_page_token,
         )
 
     return get_results_from_paginated_fn(

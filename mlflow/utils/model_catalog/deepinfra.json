@@ -1428,12 +1428,12 @@
       },
       "capabilities": {
         "function_calling": true,
-        "vision": false,
-        "reasoning": false,
+        "vision": true,
+        "reasoning": true,
         "prompt_caching": false,
-        "response_schema": false
+        "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-09-21"
     },
     "google/gemini-2.5-pro": {
       "mode": "chat",
@@ -1448,12 +1448,12 @@
       },
       "capabilities": {
         "function_calling": true,
-        "vision": false,
-        "reasoning": false,
+        "vision": true,
+        "reasoning": true,
         "prompt_caching": false,
-        "response_schema": false
+        "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-09-21"
     },
     "google/gemini-3.1-flash-lite": {
       "mode": "chat",

@@ -698,16 +698,22 @@ def _is_responses_api_output(maybe_output: Any) -> bool:
 
 
 def _extract_responses_api_content(output: list[dict[str, Any]]) -> str:
-    """Extract text content from OpenAI Responses API output format."""
+    """Extract text content from Responses API and ResponsesAgent output."""
     for item in reversed(output):
         if item.get("role") == "assistant" and "content" in item:
             content = item["content"]
             if isinstance(content, str):
                 return content
             if isinstance(content, list):
-                for part in content:
-                    if isinstance(part, dict) and part.get("type") in ("text", "output_text"):
-                        return part.get("text", json.dumps(output))
+                text_parts = [
+                    part.get("text")
+                    for part in content
+                    if isinstance(part, dict) and part.get("type") in ("text", "output_text")
+                ]
+                if text_parts:
+                    if all(isinstance(text, str) for text in text_parts):
+                        return "".join(text_parts)
+                    return json.dumps(output)
     return json.dumps(output)
 
 
