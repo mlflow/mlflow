@@ -19,9 +19,11 @@ from mlflow.entities.multipart_upload import MultipartUploadPart
 from mlflow.entities.span import Span, SpanAttributeKey
 from mlflow.exceptions import MlflowException, MlflowTraceDataCorrupted
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
+from mlflow.store.artifact.b2_artifact_repo import B2ArtifactRepository
 from mlflow.store.artifact.optimized_s3_artifact_repo import (
     OptimizedS3ArtifactRepository,
 )
+from mlflow.store.artifact.r2_artifact_repo import R2ArtifactRepository
 from mlflow.store.artifact.s3_artifact_repo import (
     _MAX_CACHE_SECONDS,
     S3ArtifactRepository,
@@ -318,20 +320,110 @@ def test_download_artifact_file_skips_directory_probe(s3_artifact_repo, tmp_path
     is_directory_mock.assert_not_called()
 
 
-def test_download_artifact_file_sends_only_head_and_get_object(s3_artifact_root, tmp_path):
-    repo = S3ArtifactRepository(posixpath.join(s3_artifact_root, "some/path"))
-    _put_artifacts(repo, {"test.txt": b"Hello world!"})
+def _record_s3_operations():
     operations = []
     make_api_call = botocore.client.BaseClient._make_api_call
 
     def record_api_call(client, operation_name, api_params):
-        operations.append(operation_name)
+        operations.append((operation_name, api_params))
         return make_api_call(client, operation_name, api_params)
+
+    return operations, record_api_call
+
+
+@pytest.mark.parametrize(
+    "repo_cls",
+    [S3ArtifactRepository, OptimizedS3ArtifactRepository],
+)
+def test_download_artifact_file_sends_only_head_and_get_object(
+    s3_artifact_root, tmp_path, repo_cls
+):
+    repo = repo_cls(posixpath.join(s3_artifact_root, "some/path"))
+    _put_artifacts(repo, {"test.txt": b"Hello world!"})
+    operations, record_api_call = _record_s3_operations()
 
     with mock.patch.object(botocore.client.BaseClient, "_make_api_call", record_api_call):
         repo._download_artifact_file("test.txt", str(tmp_path))
 
-    assert operations == ["HeadObject", "GetObject"]
+    assert [name for name, _ in operations] == ["HeadObject", "GetObject"]
+
+
+def test_optimized_download_artifact_file_object_over_prefix_does_not_list(
+    s3_artifact_root, tmp_path
+):
+    repo = OptimizedS3ArtifactRepository(posixpath.join(s3_artifact_root, "some/path"))
+    _put_artifacts(repo, {"both": b"object", "both/child.txt": b"child"})
+    operations, record_api_call = _record_s3_operations()
+
+    with (
+        mock.patch.object(botocore.client.BaseClient, "_make_api_call", record_api_call),
+        mock.patch.object(repo, "list_artifacts", wraps=repo.list_artifacts) as list_artifacts_mock,
+    ):
+        local_path = repo._download_artifact_file("both", str(tmp_path))
+
+    assert [name for name, _ in operations] == ["HeadObject", "GetObject"]
+    assert Path(local_path).read_bytes() == b"object"
+    list_artifacts_mock.assert_not_called()
+
+
+def test_download_artifact_file_missing_key_lists_after_failed_read(s3_artifact_root, tmp_path):
+    repo = OptimizedS3ArtifactRepository(posixpath.join(s3_artifact_root, "some/path"))
+    with pytest.raises(MlflowException, match="Not Found") as expected:
+        repo.download_artifacts("missing.txt", str(tmp_path))
+
+    operations, record_api_call = _record_s3_operations()
+    with (
+        mock.patch.object(botocore.client.BaseClient, "_make_api_call", record_api_call),
+        pytest.raises(MlflowException, match="Not Found") as actual,
+    ):
+        repo._download_artifact_file("missing.txt", str(tmp_path))
+
+    assert actual.value.message == expected.value.message
+    assert actual.value.error_code == expected.value.error_code
+    assert [name for name, _ in operations] == ["HeadObject", "HeadObject", "ListObjectsV2"]
+
+
+def test_download_artifact_file_directory_lists_after_failed_read(s3_artifact_root, tmp_path):
+    repo = OptimizedS3ArtifactRepository(posixpath.join(s3_artifact_root, "some/path"))
+    _put_artifacts(repo, {"dir/a.txt": b"A", "dir/sub/b.txt": b"B"})
+    operations, record_api_call = _record_s3_operations()
+
+    with mock.patch.object(botocore.client.BaseClient, "_make_api_call", record_api_call):
+        local_path = repo._download_artifact_file("dir", str(tmp_path))
+
+    operation_names = [name for name, _ in operations]
+    assert operation_names[:2] == ["HeadObject", "HeadObject"]
+    assert "ListObjectsV2" in operation_names[2:]
+    assert local_path == str(tmp_path / "dir")
+    assert (tmp_path / "dir" / "a.txt").read_bytes() == b"A"
+    assert (tmp_path / "dir" / "sub" / "b.txt").read_bytes() == b"B"
+
+
+def test_download_artifact_file_expected_bucket_owner_sends_only_head_and_get_object(
+    s3_artifact_root, tmp_path, monkeypatch
+):
+    monkeypatch.setenv("MLFLOW_S3_EXPECTED_BUCKET_OWNER", "123456789012")
+    repo = OptimizedS3ArtifactRepository(posixpath.join(s3_artifact_root, "some/path"))
+    _put_artifacts(repo, {"test.txt": b"Hello world!"})
+    operations, record_api_call = _record_s3_operations()
+
+    with mock.patch.object(botocore.client.BaseClient, "_make_api_call", record_api_call):
+        repo._download_artifact_file("test.txt", str(tmp_path))
+
+    assert [name for name, _ in operations] == ["HeadObject", "GetObject"]
+    for name, api_params in operations:
+        assert api_params["ExpectedBucketOwner"] == "123456789012", api_params
+
+
+def test_r2_and_b2_inherit_optimized_download_artifact_file():
+    assert (
+        R2ArtifactRepository._download_artifact_file
+        is OptimizedS3ArtifactRepository._download_artifact_file
+    )
+    assert (
+        B2ArtifactRepository._download_artifact_file
+        is OptimizedS3ArtifactRepository._download_artifact_file
+    )
 
 
 def test_download_artifact_file_downloads_directory(s3_artifact_repo, tmp_path):

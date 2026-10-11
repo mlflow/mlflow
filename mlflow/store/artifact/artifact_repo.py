@@ -10,7 +10,7 @@ from abc import ABC, ABCMeta, abstractmethod
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, AsyncIterable, BinaryIO, NoReturn
+from typing import TYPE_CHECKING, Any, AsyncIterable, BinaryIO, Callable, NoReturn
 
 from mlflow.entities.file_info import FileInfo
 from mlflow.entities.multipart_upload import (
@@ -488,7 +488,13 @@ class ArtifactRepository:
         """
         return self.download_artifacts(artifact_path, dst_path)
 
-    def _download_artifact_file_before_listing(self, artifact_path: str, dst_path: str) -> str:
+    def _download_artifact_file_before_listing(
+        self,
+        artifact_path: str,
+        dst_path: str,
+        *,
+        download_file: Callable[..., Any] | None = None,
+    ) -> str:
         """
         Implementation of :py:meth:`_download_artifact_file` that downloads ``artifact_path`` as a
         file first and lists it only if that download fails.
@@ -497,6 +503,9 @@ class ArtifactRepository:
         this saves a request on every successful read. If the download fails, the listing runs
         and the failure is handled as :py:meth:`download_artifacts` would have handled it: a
         directory is downloaded, and anything else raises the same error.
+
+        The ``download_file`` callable is the download attempted before any listing. When it is
+        omitted, :py:meth:`_download_file` is used.
         """
         if not artifact_path or artifact_path.endswith("/"):
             return self.download_artifacts(artifact_path, dst_path)
@@ -504,8 +513,9 @@ class ArtifactRepository:
         local_path = self._create_download_destination(
             src_artifact_path=artifact_path, dst_local_dir_path=os.path.abspath(dst_path)
         )
+        download = download_file or self._download_file
         try:
-            self._download_file(remote_file_path=artifact_path, local_path=local_path)
+            download(remote_file_path=artifact_path, local_path=local_path)
         except Exception as e:
             if self._is_directory(artifact_path):
                 return self.download_artifacts(artifact_path, dst_path)

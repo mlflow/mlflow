@@ -397,9 +397,13 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
         )
 
     def _download_artifact_file(self, artifact_path, dst_path):
-        # Skip the `ListObjectsV2` directory probe that `download_artifacts` runs before the
-        # download. For a file, that listing is always empty.
-        return self._download_artifact_file_before_listing(artifact_path, dst_path)
+        # Skip the directory-probe listing and the parent listing inside
+        # CloudArtifactRepository._download_file. A failed download still lists.
+        return self._download_artifact_file_before_listing(
+            artifact_path,
+            dst_path,
+            download_file=self._download_from_cloud,
+        )
 
     def delete_artifacts(self, artifact_path=None):
         dest_path = self.bucket_path

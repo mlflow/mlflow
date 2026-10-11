@@ -550,3 +550,39 @@ def test_download_artifact_file_before_listing_prevents_path_traversal(tmp_path)
 
     assert repo.downloaded_paths == []
     assert repo.listed_paths == []
+
+
+def test_download_artifact_file_before_listing_uses_custom_download_file(tmp_path):
+    repo = ObjectStoreArtifactRepositoryImpl({"file.txt": b"content"})
+    calls = []
+
+    def download_file(*, remote_file_path, local_path):
+        calls.append((remote_file_path, local_path))
+        Path(local_path).write_bytes(b"from-custom")
+
+    local_path = repo._download_artifact_file_before_listing(
+        "file.txt", str(tmp_path), download_file=download_file
+    )
+
+    assert len(calls) == 1
+    assert calls[0][0] == "file.txt"
+    assert Path(calls[0][1]).is_relative_to(tmp_path)
+    assert Path(local_path).read_bytes() == b"from-custom"
+    assert repo.listed_paths == []
+
+
+def test_download_artifact_file_before_listing_lists_after_custom_download_fails(tmp_path):
+    repo = ObjectStoreArtifactRepositoryImpl({"other.txt": b"other"})
+    calls = []
+
+    def download_file(*, remote_file_path, local_path):
+        calls.append(remote_file_path)
+        raise FileNotFoundError("Not Found")
+
+    with pytest.raises(MlflowException, match="Not Found"):
+        repo._download_artifact_file_before_listing(
+            "missing.txt", str(tmp_path), download_file=download_file
+        )
+
+    assert calls == ["missing.txt"]
+    assert repo.listed_paths == ["missing.txt"]
