@@ -1,3 +1,4 @@
+import asyncio
 import json
 import re
 import sys
@@ -583,6 +584,94 @@ async def test_completions_streaming_close(client, use_context_manager, num_chun
             span.outputs["choices"][0]["message"]["content"] if api == "chat" else span.outputs
         )
         assert content == ("Hello" if num_chunks == 1 else "Hello world")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("error_type", [RuntimeError, asyncio.CancelledError])
+async def test_chat_completions_streaming_close_error(client, error_type):
+    mlflow.openai.autolog()
+    stream = client.chat.completions.create(
+        messages=[{"role": "user", "content": "test"}], model="gpt-4o-mini", stream=True
+    )
+    error = error_type("Close failed")
+    if client._is_async:
+        stream = await stream
+        await anext(stream)
+        with mock.patch.object(stream.response, "aclose", side_effect=error) as close:
+            with pytest.raises(error_type) as exc:
+                await stream.close()
+            close.assert_awaited_once_with()
+        await stream.close()
+    else:
+        next(stream)
+        with mock.patch.object(stream.response, "close", side_effect=error) as close:
+            with pytest.raises(error_type) as exc:
+                stream.close()
+            close.assert_called_once_with()
+        stream.close()
+
+    assert exc.value is error
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == "ERROR"
+    span = traces[0].data.spans[0]
+    assert span.status.status_code == "ERROR"
+    assert [event.name for event in span.events] == ["mlflow.chunk.item.0", "exception"]
+    assert span.events[-1].attributes["exception.type"] == error_type.__name__
+    assert span.events[-1].attributes["exception.message"] == "Close failed"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("client", [False], indirect=True)
+async def test_chat_completions_streaming_iterator_close(client):
+    mlflow.openai.autolog()
+    stream = await client.chat.completions.create(
+        messages=[{"role": "user", "content": "test"}], model="gpt-4o-mini", stream=True
+    )
+    await anext(stream)
+    await stream._iterator.aclose()
+    await stream.close()
+
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == "OK"
+    span = traces[0].data.spans[0]
+    assert [event.name for event in span.events] == ["mlflow.chunk.item.0"]
+    assert span.outputs["choices"][0]["message"]["content"] == "Hello"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("client", [False], indirect=True)
+async def test_chat_completions_streaming_cancelled(client):
+    mlflow.openai.autolog()
+    reading = asyncio.Event()
+
+    async def chunks():
+        reading.set()
+        await asyncio.Future()
+        yield
+
+    with mock.patch.object(
+        openai.AsyncStream, "__stream__", return_value=chunks()
+    ) as original_stream:
+        stream = await client.chat.completions.create(
+            messages=[{"role": "user", "content": "test"}], model="gpt-4o-mini", stream=True
+        )
+        original_stream.assert_called_once_with()
+        task = asyncio.create_task(anext(stream))
+        await asyncio.wait_for(reading.wait(), timeout=5)
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError, match="^$"):
+            await task
+        await stream.close()
+
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == "ERROR"
+    span = traces[0].data.spans[0]
+    assert span.status.status_code == "ERROR"
+    assert [event.name for event in span.events] == ["exception"]
+    assert span.events[0].attributes["exception.type"] == "CancelledError"
 
 
 @pytest.mark.asyncio

@@ -398,9 +398,12 @@ def _end_span_on_success(
         @functools.wraps(original_close)
         def _close():
             try:
-                return original_close()
-            finally:
-                _finish_stream()
+                close_result = original_close()
+            except BaseException as e:
+                _finish_stream(e)
+                raise
+            _finish_stream()
+            return close_result
 
         result._iterator = _stream_output_logging_hook(result._iterator)
         result.close = _close
@@ -412,7 +415,9 @@ def _end_span_on_success(
                     _add_span_event(span, len(output), chunk)
                     output.append(chunk)
                     yield chunk
-            except Exception as e:
+            except GeneratorExit:
+                raise
+            except BaseException as e:
                 _finish_stream(e)
                 raise
             finally:
@@ -421,9 +426,12 @@ def _end_span_on_success(
         @functools.wraps(original_close)
         async def _close():
             try:
-                return await original_close()
-            finally:
-                _finish_stream()
+                close_result = await original_close()
+            except BaseException as e:
+                _finish_stream(e)
+                raise
+            _finish_stream()
+            return close_result
 
         result._iterator = _stream_output_logging_hook(result._iterator)
         result.close = _close
