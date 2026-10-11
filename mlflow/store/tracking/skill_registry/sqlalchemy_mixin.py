@@ -720,8 +720,7 @@ class SqlAlchemySkillRegistryMixin:
                     expected_parent_exists,
                 )
             except MlflowException as e:
-                # Persistence helpers chain IntegrityError for creation/allocation collisions;
-                # a packaged-member conflict has the same error code but is not retryable.
+                # Retry creation/allocation collisions raised by persistence helpers.
                 if (
                     e.error_code != ErrorCode.Name(RESOURCE_ALREADY_EXISTS)
                     or not isinstance(e.__cause__, IntegrityError)
@@ -771,7 +770,6 @@ class SqlAlchemySkillRegistryMixin:
                     )
 
             for name in names:
-                self._assert_name_not_a_packaged_member(session, name, organization)
                 fields = definitions[name]
                 versions = self._get_query(session, SqlSkillVersion).filter(
                     SqlSkillVersion.name == name, SqlSkillVersion.organization == organization

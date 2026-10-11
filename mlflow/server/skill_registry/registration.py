@@ -174,8 +174,8 @@ def bulk_register_skill_versions(
         MlflowException: With ``INVALID_PARAMETER_VALUE`` if organization, creator, or status
             values differ between entries, any entry requests an invalid status, the list is empty,
             or registration metadata or batch constraints are invalid. These validation
-            failures occur before any database writes. Store errors, including conflicts
-            with packaged skill names, are propagated and roll back the transaction.
+            failures occur before any database writes. Store errors are propagated and
+            roll back the transaction.
     """
     from mlflow.server.handlers import _get_tracking_store
 
