@@ -1,5 +1,6 @@
-// Defines caption(text) for videos: shows text in a bar at the bottom of the page; caption() hides it.
-window.caption = (text) => {
+// Defines caption(text, theme) for videos: shows text in a bar at the bottom of the page; caption() hides it.
+// Pass theme "dark" on dark pages to use a light caption.
+window.caption = (text, theme = "light") => {
   let el = document.getElementById("triage-caption");
   if (!el) {
     el = document.createElement("div");
@@ -11,11 +12,7 @@ window.caption = (text) => {
       "font:600 20px/1.3 system-ui,sans-serif;pointer-events:none;width:max-content;max-width:90vw;text-align:center";
     document.documentElement.appendChild(el);
   }
-  // Invert the colors on dark pages so the caption stands out from the background.
-  const [r, g, b, a = 1] = getComputedStyle(document.body)
-    .backgroundColor.match(/[\d.]+/g)
-    .map(Number);
-  const dark = a > 0 && 0.299 * r + 0.587 * g + 0.114 * b < 128;
+  const dark = theme === "dark";
   el.style.background = dark ? "rgba(255,255,255,.85)" : "rgba(0,0,0,.6)";
   el.style.color = dark ? "#111" : "#fff";
   el.style.borderColor = dark ? "rgba(0,0,0,.2)" : "rgba(255,255,255,.4)";
