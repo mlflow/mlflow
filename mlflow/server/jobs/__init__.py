@@ -7,6 +7,7 @@ from types import FunctionType
 from typing import Any, Callable, ParamSpec, TypeVar
 
 from mlflow.entities._job import Job as JobEntity
+from mlflow.entities._job_status import JobStatus
 from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
 from mlflow.exceptions import MlflowException
 from mlflow.server.handlers import _get_job_store
@@ -354,6 +355,19 @@ def submit_job(
         timeout = _resolve_exclusive_job_timeout(timeout)
 
     job_store = _get_job_store()
+    # Online scoring is scheduled every minute; reuse unfinished work instead of
+    # accumulating jobs that will only be canceled by the exclusive lock.
+    if fn_meta.name in {"run_online_trace_scorer", "run_online_session_scorer"}:
+        existing_job = next(
+            job_store.list_jobs(
+                job_name=fn_meta.name,
+                statuses=[JobStatus.PENDING, JobStatus.RUNNING, JobStatus.NEEDS_RECOVERY],
+                params={"experiment_id": params["experiment_id"]},
+            ),
+            None,
+        )
+        if existing_job is not None:
+            return existing_job
     serialized_params = json.dumps(params)
     # FastAPI callers pass creator explicitly (no flask.g there); Flask callers fall back to g.
     # Resolve it before create_job so the creator is recorded on both engine paths.
@@ -373,16 +387,20 @@ def submit_job(
     # Huey engine (default): enqueue to the per-job Huey execution pool.
     # Only propagate workspace to subprocess when workspaces are enabled
     workspace = job.workspace if MLFLOW_ENABLE_WORKSPACES.get() else None
-    huey_instance = _get_or_init_huey_instance(fn_meta.name)
-    huey_instance.submit_task(
-        job.job_id,
-        workspace,
-        fn_meta.name,
-        params,
-        timeout,
-        fn_meta.exclusive,
-        extra_envs,
-    )
+    try:
+        huey_instance = _get_or_init_huey_instance(fn_meta.name)
+        huey_instance.submit_task(
+            job.job_id,
+            workspace,
+            fn_meta.name,
+            params,
+            timeout,
+            fn_meta.exclusive,
+            extra_envs,
+        )
+    except Exception as e:
+        job_store.fail_job(job.job_id, f"Failed to enqueue job: {e!r}")
+        raise
 
     return job
 

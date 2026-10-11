@@ -17,6 +17,7 @@ from mlflow.environment_variables import (
     MLFLOW_FLASK_SERVER_SECRET_KEY,
 )
 from mlflow.exceptions import MlflowException
+from mlflow.server.constants import HUEY_STORAGE_PATH_ENV_VAR
 from mlflow.store.tracking.dbmodels.models import SqlTraceMetricDailyRollup
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.utils import find_free_port
@@ -202,6 +203,28 @@ def test_run_server(mock_exec_cmd, monkeypatch):
             port="",
         )
     mock_exec_cmd.assert_called_once()
+
+
+def test_run_server_uses_system_temp_directory_for_huey(mock_exec_cmd, monkeypatch, tmp_path):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
+    with (
+        mock.patch("mlflow.server.jobs.utils._check_requirements") as check_requirements,
+        mock.patch("mlflow.server.tempfile.mkdtemp", return_value=str(tmp_path)) as mkdtemp,
+    ):
+        server._run_server(
+            file_store_path="",
+            registry_store_uri="",
+            default_artifact_root="",
+            serve_artifacts="",
+            artifacts_only="",
+            artifacts_destination="",
+            host="",
+            port="",
+        )
+    check_requirements.assert_called_once_with("")
+    mkdtemp.assert_called_once_with()
+    mock_exec_cmd.assert_called_once()
+    assert mock_exec_cmd.call_args.kwargs["extra_env"][HUEY_STORAGE_PATH_ENV_VAR] == str(tmp_path)
 
 
 def test_run_server_rejects_invalid_enabled_rollup_schedule(mock_exec_cmd, monkeypatch):

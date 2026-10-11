@@ -3000,7 +3000,6 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         # cross-experiment query. Single-experiment ``order_by`` collapses to
         # ``scorer_name`` because every row shares the same ``experiment_id``.
         experiment = self.get_experiment(experiment_id)
-        self._check_experiment_is_active(experiment)
         return self.list_scorers_across_experiments([experiment.experiment_id])
 
     # SQLite caps bound parameters at 999 by default; pick a chunk size well
@@ -3128,9 +3127,8 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             MlflowException: If scorer is not found.
         """
         with self.ManagedSessionMaker() as session:
-            # Validate experiment exists and is active
+            # Validate experiment exists and is accessible in the current workspace.
             experiment = self.get_experiment(experiment_id)
-            self._check_experiment_is_active(experiment)
 
             # First, get the scorer record
             scorer = (
@@ -3422,7 +3420,8 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
 
         with self.ManagedSessionMaker(read_only=False) as session:
             experiment = self.get_experiment(experiment_id)
-            self._check_experiment_is_active(experiment)
+            if sample_rate > 0:
+                self._check_experiment_is_active(experiment)
 
             scorer = (
                 session
@@ -3502,7 +3501,8 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         """
         Get all active online scorers across all experiments.
 
-        Active online scorers are those with a sample_rate greater than zero.
+        Active online scorers have a positive sample_rate, an active experiment,
+        and an existing gateway endpoint.
         Gateway endpoint IDs in the serialized scorers are resolved to endpoint names.
 
         Returns:
@@ -3525,7 +3525,14 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             results = (
                 self
                 ._get_query(session, SqlOnlineScoringConfig)
-                .filter(SqlOnlineScoringConfig.sample_rate > 0)
+                .filter(
+                    SqlOnlineScoringConfig.sample_rate > 0,
+                    SqlOnlineScoringConfig.experiment_id.in_(
+                        select(SqlExperiment.experiment_id).where(
+                            SqlExperiment.lifecycle_stage == LifecycleStage.ACTIVE
+                        )
+                    ),
+                )
                 .join(SqlScorer, SqlOnlineScoringConfig.scorer_id == SqlScorer.scorer_id)
                 .join(
                     max_version_subquery,
@@ -3542,28 +3549,27 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 .all()
             )
 
-            # Filter to only include scorers whose max version uses a gateway model
+            # Filter to only include scorers whose latest version uses an existing gateway model.
             gateway_results = []
             for config, scorer, version in results:
                 serialized_data = json.loads(version.serialized_scorer)
                 model = extract_model_from_serialized_scorer(serialized_data)
                 if is_gateway_model(model):
-                    gateway_results.append((config, scorer, version))
-
-            # Resolve gateway endpoint IDs to names
-            return [
-                OnlineScorer(
-                    name=scorer.scorer_name,
-                    serialized_scorer=self._resolve_endpoint_in_serialized_scorer(
+                    resolved = self._resolve_endpoint_in_serialized_scorer(
                         version.serialized_scorer
-                    ),
-                    online_config=config.to_mlflow_entity(),
-                    scorer_version=version.scorer_version,
-                )
-                for config, scorer, version in gateway_results
-            ]
+                    )
+                    if resolved is not None:
+                        gateway_results.append(
+                            OnlineScorer(
+                                name=scorer.scorer_name,
+                                serialized_scorer=resolved,
+                                online_config=config.to_mlflow_entity(),
+                                scorer_version=version.scorer_version,
+                            )
+                        )
+            return gateway_results
 
-    def _resolve_endpoint_in_serialized_scorer(self, serialized_scorer: str) -> str:
+    def _resolve_endpoint_in_serialized_scorer(self, serialized_scorer: str) -> str | None:
         """
         Resolve gateway endpoint ID to name in a serialized scorer string.
 
@@ -3571,7 +3577,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             serialized_scorer: Serialized scorer JSON string.
 
         Returns:
-            Serialized scorer JSON string with resolved endpoint name.
+            Serialized scorer JSON string with resolved endpoint name, or None if deleted.
         """
         serialized_data = json.loads(serialized_scorer)
         model = extract_model_from_serialized_scorer(serialized_data)
@@ -3580,11 +3586,12 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             endpoint_id = extract_endpoint_ref(model)
             try:
                 endpoint = self.get_gateway_endpoint(endpoint_id)
-                new_model = build_gateway_model(endpoint.name)
-                serialized_data = update_model_in_serialized_scorer(serialized_data, new_model)
-            except MlflowException:
-                # Endpoint not found - keep original serialized scorer
-                pass
+            except MlflowException as e:
+                if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+                    return None
+                raise
+            new_model = build_gateway_model(endpoint.name)
+            serialized_data = update_model_in_serialized_scorer(serialized_data, new_model)
 
         return json.dumps(serialized_data)
 
@@ -8919,7 +8926,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
 
         If the scorer's model field contains a gateway endpoint ID (gateway:/{id}),
         resolves it to the endpoint name. If the endpoint has been deleted,
-        sets the model to None.
+        preserves the original model URI so the scorer can still be inspected and stopped.
 
         Args:
             scorer_version: The scorer version to resolve.
@@ -8939,10 +8946,11 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         # Try to resolve endpoint ID to name
         try:
             endpoint = self.get_gateway_endpoint(endpoint_id=endpoint_ref)
-            new_model = build_gateway_model(endpoint.name)
-        except MlflowException:
-            # Endpoint was deleted or invalid, set model to null
-            new_model = None
+        except MlflowException as e:
+            if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+                return scorer_version
+            raise
+        new_model = build_gateway_model(endpoint.name)
 
         serialized_data = update_model_in_serialized_scorer(serialized_data, new_model)
 
@@ -8985,7 +8993,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
 
                 endpoint_id = extract_endpoint_ref(model)
                 endpoint_name = id_to_name.get(endpoint_id)
-                new_model = build_gateway_model(endpoint_name) if endpoint_name else None
+                new_model = build_gateway_model(endpoint_name) if endpoint_name else model
                 serialized_data = update_model_in_serialized_scorer(serialized_data, new_model)
 
             resolved.append(json.dumps(serialized_data))

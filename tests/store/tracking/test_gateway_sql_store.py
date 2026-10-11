@@ -30,6 +30,8 @@ from mlflow.entities import (
 )
 from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES, MLFLOW_TRACKING_URI
 from mlflow.exceptions import MlflowException
+from mlflow.genai.judges import make_judge
+from mlflow.genai.scorers.registry import MlflowTrackingStore
 from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,
     INVALID_STATE,
@@ -2122,7 +2124,7 @@ def test_get_scorer_resolves_endpoint_id_to_name(store: SqlAlchemyStore):
     assert retrieved_model == f"gateway:/{endpoint.name}"
 
 
-def test_get_scorer_with_deleted_endpoint_sets_model_to_null(store: SqlAlchemyStore):
+def test_get_scorer_with_deleted_endpoint_preserves_model_uri(store: SqlAlchemyStore):
     experiment_id = store.create_experiment(f"deleted-endpoint-scorer-test-{uuid.uuid4().hex}")
     endpoint = _create_gateway_endpoint(store, "to-delete-endpoint")
 
@@ -2138,10 +2140,74 @@ def test_get_scorer_with_deleted_endpoint_sets_model_to_null(store: SqlAlchemySt
     # Delete the endpoint
     store.delete_gateway_endpoint(endpoint.endpoint_id)
 
-    # Retrieving should set model to null
+    # Keep the URI valid for deserialization without falling back to a default model.
     retrieved = store.get_scorer(experiment_id, "my-scorer")
     retrieved_data = json.loads(retrieved._serialized_scorer)
-    assert retrieved_data["instructions_judge_pydantic_data"]["model"] is None
+    assert retrieved_data["instructions_judge_pydantic_data"]["model"] == (
+        f"gateway:/{endpoint.endpoint_id}"
+    )
+
+
+@pytest.mark.parametrize("deleted_resource", ["experiment", "endpoint"])
+def test_online_scorers_remain_manageable_after_resource_deletion(
+    store: SqlAlchemyStore, deleted_resource
+):
+    experiment_id = store.create_experiment(f"online-deletion-{uuid.uuid4().hex}")
+    endpoint = _create_gateway_endpoint(store, "deleted-judge-endpoint")
+    healthy_endpoint = _create_gateway_endpoint(store, "healthy-judge-endpoint")
+    for name, model_endpoint in [("broken", endpoint), ("healthy", healthy_endpoint)]:
+        judge = make_judge(
+            name=name,
+            instructions="Is {{ outputs }} helpful?",
+            model=f"gateway:/{model_endpoint.name}",
+        )
+        store.register_scorer(experiment_id, name, json.dumps(judge.model_dump()))
+        store.upsert_online_scoring_config(experiment_id, name, sample_rate=1.0)
+
+    assert {scorer.name for scorer in store.get_active_online_scorers()} == {"broken", "healthy"}
+    if deleted_resource == "experiment":
+        store.delete_experiment(experiment_id)
+        assert store.get_active_online_scorers() == []
+    else:
+        store.delete_gateway_endpoint(endpoint.endpoint_id)
+        assert [scorer.name for scorer in store.get_active_online_scorers()] == ["healthy"]
+
+    with mock.patch("mlflow.genai.scorers.registry._get_store", return_value=store) as get_store:
+        registry = MlflowTrackingStore()
+        scorers = registry.list_scorers(experiment_id)
+        assert {scorer.name for scorer in scorers} == {"broken", "healthy"}
+        scorer = registry.get_scorer(experiment_id, "broken")
+        assert scorer.model == (
+            f"gateway:/{endpoint.endpoint_id}"
+            if deleted_resource == "endpoint"
+            else f"gateway:/{endpoint.name}"
+        )
+        stopped = scorer.stop(experiment_id=experiment_id)
+        assert stopped.sample_rate == 0.0
+        get_store.assert_called()
+
+    if deleted_resource == "experiment":
+        with pytest.raises(MlflowException, match="must be in the 'active' state"):
+            store.upsert_online_scoring_config(experiment_id, "broken", sample_rate=1.0)
+        store.restore_experiment(experiment_id)
+        assert [scorer.name for scorer in store.get_active_online_scorers()] == ["healthy"]
+
+
+def test_online_scorer_endpoint_lookup_errors_are_not_silenced(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment(f"online-lookup-{uuid.uuid4().hex}")
+    endpoint = _create_gateway_endpoint(store, "judge-endpoint")
+    judge = make_judge(
+        name="judge", instructions="Is {{ outputs }} helpful?", model=f"gateway:/{endpoint.name}"
+    )
+    store.register_scorer(experiment_id, "judge", json.dumps(judge.model_dump()))
+    store.upsert_online_scoring_config(experiment_id, "judge", sample_rate=1.0)
+
+    with mock.patch.object(
+        store, "get_gateway_endpoint", side_effect=MlflowException("Database unavailable")
+    ) as get_endpoint:
+        with pytest.raises(MlflowException, match="Database unavailable"):
+            store.get_active_online_scorers()
+        get_endpoint.assert_called_once_with(endpoint.endpoint_id)
 
 
 def test_list_scorers_batch_resolves_endpoint_ids(store: SqlAlchemyStore):
