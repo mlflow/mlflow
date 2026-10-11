@@ -213,6 +213,9 @@ class _Pairing:
     pairs: list[_RowPair]
     unpaired_baseline: list[_EvalRow]
     unpaired_candidate: list[_EvalRow]
+    # Trace IDs of the unpaired rows that were left unpaired because their key is shared by
+    # another row of the same run. The other unpaired rows have no match in the other run.
+    duplicate_key_trace_ids: set[str]
 
 
 def _hash_inputs(trace: Trace) -> str | None:
@@ -274,16 +277,21 @@ def _pair_rows(baseline_rows: list[_EvalRow], candidate_rows: list[_EvalRow]) ->
     A key shared by several rows of the same run is ambiguous, so those rows are left unpaired.
     """
     pairs = []
+    duplicate_key_trace_ids = set()
     key_names: tuple[_PairedOn, ...] = ("eval_request_id", "inputs_hash")
     for key_name in key_names:
 
         def unique_by_key(rows: list[_EvalRow]) -> dict[str, _EvalRow]:
             counts = collections.Counter(getattr(row, key_name) for row in rows)
-            return {
-                key: row
-                for row in rows
-                if (key := getattr(row, key_name)) is not None and counts[key] == 1
-            }
+            unique = {}
+            for row in rows:
+                if (key := getattr(row, key_name)) is None:
+                    continue
+                if counts[key] == 1:
+                    unique[key] = row
+                else:
+                    duplicate_key_trace_ids.add(row.trace_id)
+            return unique
 
         baseline_by_key = unique_by_key(baseline_rows)
         matched_trace_ids = set()
@@ -294,7 +302,40 @@ def _pair_rows(baseline_rows: list[_EvalRow], candidate_rows: list[_EvalRow]) ->
         baseline_rows = [row for row in baseline_rows if id(row) not in matched_trace_ids]
         candidate_rows = [row for row in candidate_rows if id(row) not in matched_trace_ids]
 
-    return _Pairing(pairs=pairs, unpaired_baseline=baseline_rows, unpaired_candidate=candidate_rows)
+    unpaired_trace_ids = {row.trace_id for row in (*baseline_rows, *candidate_rows)}
+    return _Pairing(
+        pairs=pairs,
+        unpaired_baseline=baseline_rows,
+        unpaired_candidate=candidate_rows,
+        # A row with a duplicate eval request ID can still have been paired on its inputs.
+        duplicate_key_trace_ids=duplicate_key_trace_ids & unpaired_trace_ids,
+    )
+
+
+def _warn_unpaired_rows(pairing: _Pairing) -> None:
+    unpaired = [*pairing.unpaired_baseline, *pairing.unpaired_candidate]
+    if not unpaired:
+        return
+    n_duplicate = sum(row.trace_id in pairing.duplicate_key_trace_ids for row in unpaired)
+    n_no_match = len(unpaired) - n_duplicate
+    reasons = []
+    if n_no_match:
+        reasons.append(
+            f"{n_no_match} row(s) have no match in the other run; evaluate both runs on the "
+            "same rows, or inspect `unpaired_baseline_trace_ids` and "
+            "`unpaired_candidate_trace_ids` for the rows that differ."
+        )
+    if n_duplicate:
+        reasons.append(
+            f"{n_duplicate} row(s) share their eval request ID or inputs with another row of "
+            "the same run, which makes their pairing ambiguous; remove duplicate rows from the "
+            "evaluation dataset."
+        )
+    _logger.warning(
+        f"{len(pairing.unpaired_baseline)} baseline row(s) and "
+        f"{len(pairing.unpaired_candidate)} candidate row(s) could not be paired and are "
+        "excluded from the comparison. " + " ".join(reasons)
+    )
 
 
 def _is_pass_fail(feedback: Feedback) -> bool:
@@ -560,12 +601,7 @@ def compare_evaluations(
     greater_is_better = greater_is_better or {}
 
     pairing = _pair_rows(_load_eval_rows(baseline_run_id), _load_eval_rows(candidate_run_id))
-    if pairing.unpaired_baseline or pairing.unpaired_candidate:
-        _logger.warning(
-            f"{len(pairing.unpaired_baseline)} baseline row(s) and "
-            f"{len(pairing.unpaired_candidate)} candidate row(s) could not be paired and are "
-            "excluded from the comparison."
-        )
+    _warn_unpaired_rows(pairing)
 
     def scorer_names(rows: list[_EvalRow]) -> set[str]:
         return {name for row in rows for name in row.feedbacks}

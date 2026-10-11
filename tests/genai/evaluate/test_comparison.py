@@ -431,6 +431,29 @@ def test_compare_evaluations_reports_unmatched_rows_and_intersects_scorers():
     assert all(row["scores"]["score"]["delta"] == 0 for row in result.paired_rows)
 
 
+def test_compare_evaluations_warns_about_no_match_and_duplicate_rows_separately():
+    rows = _rows([0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.3, 0.2, 0.4])
+    extra_row = {"inputs": {"question": "candidate only"}, "outputs": {"score": 1.0}}
+    # Two identical rows in the baseline run share both pairing keys.
+    baseline_run_id = _evaluate([*rows, rows[0]], scorers=[score])
+    candidate_run_id = _evaluate([*rows, extra_row], scorers=[score])
+
+    with mock.patch("mlflow.genai.evaluation.comparison._logger.warning") as mock_warning:
+        result = mlflow.genai.compare_evaluations(
+            candidate_run_id, baseline_run_id, log_results=False
+        )
+
+    assert result.scorers["score"].n_paired == 11
+    assert len(result.unpaired_baseline_trace_ids) == 2
+    assert len(result.unpaired_candidate_trace_ids) == 2
+    mock_warning.assert_called_once()
+    message = mock_warning.call_args[0][0]
+    assert "2 baseline row(s) and 2 candidate row(s) could not be paired" in message
+    # The candidate copy of the duplicated row and the extra row have no match.
+    assert "2 row(s) have no match in the other run" in message
+    assert "2 row(s) share their eval request ID or inputs with another row" in message
+
+
 def test_compare_evaluations_pairs_on_inputs_when_request_ids_differ():
     # `predict_fn` runs get a fresh eval request ID per row, so rows pair on the inputs hash.
     data = [{"inputs": {"question": f"question {i}"}} for i in range(10)]
