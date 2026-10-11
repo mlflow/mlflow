@@ -38,11 +38,16 @@ short video instead of screenshots. Rehearse the steps with the selectors you wi
 and hide side panels, popups, and onboarding hints that cover the page, then:
 
 ```bash
-agent-browser --session <sess> --input-mode human open <url>
+agent-browser --session <sess> --input-mode human --init-script .claude/skills/triage/bug/caption.js open <url>
 agent-browser --session <sess> record start $out_dir/media/<name>.mp4 --cursor --contact-sheet
 timeout 120 agent-browser --session <sess> batch --bail < $out_dir/work/steps.json  # [["click", "<sel>"], ["wait", "500"], ...]
 agent-browser --session <sess> record stop
 ```
+
+The init script defines `caption(text)`, which shows a short caption at the bottom of the page
+(`caption()` hides it). Caption each step so viewers can follow along, especially actions that
+leave no visible trace, such as the browser's Back button, a key press, or a wait: add
+`["eval", "caption('Browser Back')"]` and a short wait before the action.
 
 If the batch times out, retry once in a fresh session, then fall back to screenshots. Check the
 contact sheet to confirm the video shows the bug before citing it.
