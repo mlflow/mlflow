@@ -6,6 +6,7 @@ import pytest
 from scipy import stats
 
 import mlflow
+from mlflow.entities.assessment import Feedback
 from mlflow.exceptions import MlflowException
 from mlflow.genai.evaluation.comparison import (
     ComparisonResult,
@@ -43,6 +44,15 @@ def rating(outputs) -> str:
 @scorer
 def failing(outputs) -> float:
     raise ValueError("scorer failed")
+
+
+@scorer
+def duplicated(outputs) -> list[Feedback]:
+    # Two feedbacks of the same name on one trace.
+    return [
+        Feedback(name="duplicated", value=outputs["score"]),
+        Feedback(name="duplicated", value=outputs["score"] + 0.2),
+    ]
 
 
 def _rows(scores: list[float], passes: list[bool] | None = None) -> list[dict[str, Any]]:
@@ -299,6 +309,31 @@ def test_compare_evaluations_pairs_on_inputs_when_request_ids_differ():
     assert result.scorers["score"].diff == pytest.approx(0.25)
     assert [row["scores"]["score"]["delta"] for row in result.paired_rows] == pytest.approx(
         [0.25] * 5
+    )
+
+
+def test_compare_evaluations_averages_same_name_feedbacks_per_trace():
+    baseline_scores = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.3, 0.2, 0.4, 0.5]
+    candidate_scores = [s + 0.3 for s in baseline_scores]
+    baseline_run_id = _evaluate(_rows(baseline_scores), scorers=[duplicated])
+    candidate_run_id = _evaluate(_rows(candidate_scores), scorers=[duplicated])
+
+    result = mlflow.genai.compare_evaluations(candidate_run_id, baseline_run_id, log_results=False)
+
+    comparison = result.scorers["duplicated"]
+    assert comparison.n_paired == 10
+    assert comparison.diff == pytest.approx(0.3)
+    # Each row's value is the mean of its two feedbacks, which is what `evaluate` logs the
+    # mean of.
+    assert sorted(row["scores"]["duplicated"]["baseline"] for row in result.paired_rows) == (
+        pytest.approx(sorted(s + 0.1 for s in baseline_scores))
+    )
+    client = MlflowClient()
+    assert comparison.baseline_mean == pytest.approx(
+        client.get_run(baseline_run_id).data.metrics["duplicated/mean"]
+    )
+    assert comparison.candidate_mean == pytest.approx(
+        client.get_run(candidate_run_id).data.metrics["duplicated/mean"]
     )
 
 

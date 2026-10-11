@@ -174,7 +174,9 @@ class _EvalRow:
     trace_id: str
     eval_request_id: str | None
     inputs_hash: str | None
-    feedbacks: dict[str, Feedback]
+    # A trace can hold several feedbacks of one name, e.g. when a scorer returns a list of
+    # feedbacks. They are averaged per trace before pairing, see ``_mean_feedback_value``.
+    feedbacks: dict[str, list[Feedback]]
 
 
 @dataclass
@@ -204,24 +206,43 @@ def _load_eval_rows(run_id: str) -> list[_EvalRow]:
     traces = mlflow.search_traces(locations=[experiment_id], run_id=run_id, return_type="list")
     rows = []
     for trace in traces:
-        feedbacks = {
-            assessment.name: assessment
-            for assessment in trace.info.assessments
-            if isinstance(assessment, Feedback)
-            and assessment.valid is not False
-            and assessment.error is None
-            # A trace can be evaluated by several runs. Exclude feedback from other runs.
-            and assessment.run_id in (None, run_id)
-        }
+        feedbacks = collections.defaultdict(list)
+        for assessment in trace.info.assessments:
+            if (
+                isinstance(assessment, Feedback)
+                and assessment.valid is not False
+                and assessment.error is None
+                # A trace can be evaluated by several runs. Exclude feedback from other runs.
+                and assessment.run_id in (None, run_id)
+            ):
+                feedbacks[assessment.name].append(assessment)
         rows.append(
             _EvalRow(
                 trace_id=trace.info.trace_id,
                 eval_request_id=trace.info.tags.get(TraceTagKey.EVAL_REQUEST_ID),
                 inputs_hash=_hash_inputs(trace),
-                feedbacks=feedbacks,
+                feedbacks=dict(feedbacks),
             )
         )
     return rows
+
+
+def _mean_feedback_value(feedbacks: list[Feedback]) -> float | None:
+    """
+    Average the values of the same-name feedbacks of one trace into the row's value for the
+    scorer. :py:func:`mlflow.genai.evaluate` pools all of a run's same-name feedback values
+    into its ``<scorer>/mean`` metric, so the per-trace mean is the value that metric is made
+    of. Returns ``None`` when no feedback has a value that can be cast to a float.
+    """
+    # `mlflow.genai.scorers.aggregation` imports numpy at module level.
+    from mlflow.genai.scorers.aggregation import _cast_assessment_value_to_float
+
+    values = [
+        value
+        for feedback in feedbacks
+        if (value := _cast_assessment_value_to_float(feedback)) is not None
+    ]
+    return sum(values) / len(values) if values else None
 
 
 def _pair_rows(baseline_rows: list[_EvalRow], candidate_rows: list[_EvalRow]) -> _Pairing:
@@ -455,10 +476,7 @@ def compare_evaluations(
         raise MlflowException.invalid_parameter_value(
             f"`confidence_level` must be between 0 and 1, got {confidence_level}."
         )
-    # `mlflow.genai.scorers.aggregation` imports numpy at module level.
     import numpy as np
-
-    from mlflow.genai.scorers.aggregation import _cast_assessment_value_to_float
 
     greater_is_better = greater_is_better or {}
 
@@ -505,15 +523,15 @@ def compare_evaluations(
         candidate_values = []
         binary = True
         for pair, paired_row in zip(pairing.pairs, paired_rows):
-            baseline_feedback = pair.baseline.feedbacks.get(name)
-            candidate_feedback = pair.candidate.feedbacks.get(name)
-            if baseline_feedback is None or candidate_feedback is None:
-                continue
-            baseline_value = _cast_assessment_value_to_float(baseline_feedback)
-            candidate_value = _cast_assessment_value_to_float(candidate_feedback)
+            baseline_feedbacks = pair.baseline.feedbacks.get(name, [])
+            candidate_feedbacks = pair.candidate.feedbacks.get(name, [])
+            baseline_value = _mean_feedback_value(baseline_feedbacks)
+            candidate_value = _mean_feedback_value(candidate_feedbacks)
             if baseline_value is None or candidate_value is None:
                 continue
-            binary = binary and _is_binary(baseline_feedback) and _is_binary(candidate_feedback)
+            binary = binary and all(
+                _is_binary(feedback) for feedback in (*baseline_feedbacks, *candidate_feedbacks)
+            )
             baseline_values.append(baseline_value)
             candidate_values.append(candidate_value)
             paired_row["scores"][name] = {
