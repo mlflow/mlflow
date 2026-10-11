@@ -14,6 +14,7 @@ from typing import Any
 from mlflow.entities.span import Span, SpanType
 from mlflow.tracing.constant import CostKey, SpanAttributeKey, TokenUsageKey
 from mlflow.tracing.otel.translation.base import OtelSchemaTranslator
+from mlflow.tracing.otel.translation.claude_code import ClaudeCodeTranslator
 from mlflow.tracing.otel.translation.gemini_cli import GeminiCliTranslator
 from mlflow.tracing.otel.translation.genai_semconv import GenAiTranslator
 from mlflow.tracing.otel.translation.google_adk import GoogleADKTranslator
@@ -36,6 +37,7 @@ _logger = logging.getLogger(__name__)
 _TRANSLATORS: list[OtelSchemaTranslator] = [
     OpenInferenceTranslator(),
     GeminiCliTranslator(),
+    ClaudeCodeTranslator(),
     GenAiTranslator(),
     SpringAiTranslator(),
     TraceloopTranslator(),
@@ -51,6 +53,7 @@ _TRANSLATORS: list[OtelSchemaTranslator] = [
 _EVENT_TRANSLATORS = [
     SpringAiTranslator(),
     LiveKitTranslator(),
+    ClaudeCodeTranslator(),
 ]
 
 
@@ -233,7 +236,7 @@ def _get_input_value(attributes: dict[str, Any], events: list[dict[str, Any]] | 
     if events:
         for translator in _EVENT_TRANSLATORS:
             if hasattr(translator, "get_input_value_from_events"):
-                if value := translator.get_input_value_from_events(events):
+                if value := translator.get_input_value_from_events(events, attributes):
                     return value
 
 
@@ -262,7 +265,7 @@ def _get_output_value(
     if events:
         for translator in _EVENT_TRANSLATORS:
             if hasattr(translator, "get_output_value_from_events"):
-                if value := translator.get_output_value_from_events(events):
+                if value := translator.get_output_value_from_events(events, attributes):
                     return value
 
 

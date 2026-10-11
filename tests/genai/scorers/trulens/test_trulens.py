@@ -1,3 +1,4 @@
+import json
 from unittest.mock import Mock, patch
 
 import pytest
@@ -35,6 +36,9 @@ def mock_provider():
         ("AnswerRelevance", "relevance_with_cot_reasons", 0.9, CategoricalRating.YES),
         ("Coherence", "coherence_with_cot_reasons", 0.85, CategoricalRating.YES),
         ("Groundedness", "groundedness_measure_with_cot_reasons", 0.3, CategoricalRating.NO),
+        ("Coherence", "coherence_with_cot_reasons", 0.0, CategoricalRating.NO),
+        ("Coherence", "coherence_with_cot_reasons", 0.5, CategoricalRating.YES),
+        ("Coherence", "coherence_with_cot_reasons", 1.0, CategoricalRating.YES),
     ],
 )
 def test_trulens_scorer(mock_provider, scorer_name, method_name, score, expected_value):
@@ -56,12 +60,69 @@ def test_trulens_scorer(mock_provider, scorer_name, method_name, score, expected
     assert isinstance(result, Feedback)
     assert result.name == scorer_name
     assert result.value == expected_value
+    assert result.error is None
     assert result.rationale == "reason: Test reason"
     assert result.source.source_type == AssessmentSourceType.LLM_JUDGE
     assert result.source.source_id == "openai:/gpt-4"
     assert result.metadata == {
         "mlflow.scorer.framework": "trulens",
         "score": score,
+        "threshold": 0.5,
+    }
+
+
+@pytest.mark.parametrize("score", [-1.0, -0.1])
+@pytest.mark.parametrize("threshold", [0.5, -2.0])
+@pytest.mark.parametrize("reasons", [{"reason": "The judge could not rate the output."}, None])
+def test_trulens_scorer_negative_score(score, threshold, reasons):
+    provider = Mock()
+    provider.coherence_with_cot_reasons = Mock(return_value=(score, reasons))
+    with patch(
+        "mlflow.genai.scorers.trulens.create_trulens_provider", return_value=provider
+    ) as mock_create_provider:
+        scorer = Coherence(model="openai:/gpt-4", threshold=threshold)
+    mock_create_provider.assert_called_once_with("openai:/gpt-4")
+
+    result = scorer(outputs="test output")
+
+    provider.coherence_with_cot_reasons.assert_called_once_with(text="test output")
+    assert result.name == "Coherence"
+    assert result.value is None
+    assert result.error_code == "MlflowException"
+    assert result.error_message == (
+        f"TruLens metric Coherence returned an unparsable judge score: {score}"
+    )
+    assert result.rationale == ("reason: The judge could not rate the output." if reasons else None)
+    assert result.source.source_type == AssessmentSourceType.LLM_JUDGE
+    assert result.source.source_id == "openai:/gpt-4"
+    assert result.metadata == {
+        "mlflow.scorer.framework": "trulens",
+        "score": score,
+        "threshold": threshold,
+    }
+
+
+def test_trulens_scorer_unparsable_judge_reply(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    scorer = Coherence(model="openai:/gpt-4")
+    judge_reply = json.dumps({
+        "criteria": "Coherence of the text",
+        "supporting_evidence": "The judge could not decide on a rating.",
+        "score": "N/A",
+    })
+    with patch(
+        "mlflow.genai.scorers.llm_backend.ScorerLLMClient.complete", return_value=judge_reply
+    ) as mock_complete:
+        result = scorer(outputs="The the report report is.")
+    mock_complete.assert_called_once()
+
+    assert result.value is None
+    assert result.error_code == "MlflowException"
+    assert "unparsable judge score: -1.0" in result.error_message
+    assert "The judge could not decide on a rating." in result.rationale
+    assert result.metadata == {
+        "mlflow.scorer.framework": "trulens",
+        "score": -1.0,
         "threshold": 0.5,
     }
 

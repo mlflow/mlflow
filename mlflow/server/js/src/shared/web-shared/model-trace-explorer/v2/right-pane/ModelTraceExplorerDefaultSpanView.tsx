@@ -18,7 +18,8 @@ import { ModelTraceExplorerFieldRenderer } from '../field-renderers/ModelTraceEx
 import { ModelTraceExplorerChatSections } from './ModelTraceExplorerChatSections';
 import { ModelTraceExplorerChatTool } from './ModelTraceExplorerChatTool';
 import { ModelTraceExplorerConversation } from './ModelTraceExplorerConversation';
-import { resolveTypeSafeDecision, TypeSafeDecisionAnswers, TypeSafeDecisionInputs } from './TypeSafeDecisionView';
+import { DecisionAnswers, DecisionInputs } from './DecisionView';
+import { resolveDecision } from './decision-utils';
 
 type ModelTraceExplorerSectionRenderMode = 'pretty' | Extract<ModelTraceExplorerRenderMode, 'json' | 'yaml'>;
 
@@ -133,7 +134,7 @@ export function ModelTraceExplorerDefaultSpanView({
   );
   const outputChatMessages = outputChatMessagesResult.messages;
   const outputHasTopLevelChatPayload = outputChatMessagesResult.hasTopLevelChatPayload;
-  const typeSafeDecision = useMemo(() => resolveTypeSafeDecision(activeSpan), [activeSpan]);
+  const decision = useMemo(() => resolveDecision(activeSpan), [activeSpan]);
 
   if (isNil(activeSpan)) {
     return null;
@@ -224,13 +225,11 @@ export function ModelTraceExplorerDefaultSpanView({
   );
 
   const renderPrettyFields = (section: 'inputs' | 'outputs', fields: typeof inputList) => {
-    if (!searchFilter && typeSafeDecision) {
+    if (!searchFilter && decision) {
       if (section === 'outputs') {
-        return <TypeSafeDecisionAnswers decision={typeSafeDecision} />;
+        return <DecisionAnswers decision={decision} />;
       }
-      return (
-        <TypeSafeDecisionInputs decision={typeSafeDecision} fields={fields} assessments={activeSpan.assessments} />
-      );
+      return <DecisionInputs decision={decision} fields={fields} assessments={activeSpan.assessments} />;
     }
 
     return (
@@ -271,7 +270,7 @@ export function ModelTraceExplorerDefaultSpanView({
 
   const renderSectionPayload = (section: 'inputs' | 'outputs', data: unknown) => {
     if (sectionRenderModes[section] === 'pretty') {
-      if (typeSafeDecision && !searchFilter) {
+      if (decision && !searchFilter) {
         return renderPrettyFields(section, section === 'inputs' ? inputList : outputList);
       }
 

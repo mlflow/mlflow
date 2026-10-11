@@ -2,7 +2,7 @@ import React, { useCallback } from 'react';
 import { ChartLineIcon, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { useToolUsageChartData } from '../hooks/useToolUsageChartData';
+import { useToolUsageChartData, type ToolUsageDataPoint } from '../hooks/useToolUsageChartData';
 import { useItemSelection } from '../hooks/useItemSelection';
 import {
   OverviewChartLoadingState,
@@ -106,7 +106,8 @@ export const ToolUsageChart: React.FC = () => {
                 return (
                   <Bar
                     key={toolName}
-                    dataKey={toolName}
+                    name={toolName}
+                    dataKey={(dataPoint: ToolUsageDataPoint) => dataPoint.values[toolName]}
                     stackId="tools"
                     fill={getChartColor(originalIndex)}
                     fillOpacity={getOpacity(toolName)}

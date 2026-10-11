@@ -47,6 +47,8 @@ import { MlflowSidebarWorkflowSwitch } from './MlflowSidebarWorkflowSwitch';
 
 const isInsideExperiment = (location: Location) =>
   Boolean(matchPath('/experiments/:experimentId/*', location.pathname));
+const isExperimentsListActive = (location: Location) =>
+  Boolean(matchPath({ path: '/experiments', end: true }, location.pathname));
 const isHomeActive = (location: Location) => Boolean(matchPath({ path: '/', end: true }, location.pathname));
 const isExperimentsActive = (location: Location) =>
   Boolean(
@@ -126,6 +128,9 @@ export function MlflowSidebar({
   // Update the ref when we're inside an experiment
   if (experimentId && isInsideExperiment(location)) {
     lastSelectedExperimentIdRef.current = experimentId;
+  } else if (isExperimentsListActive(location)) {
+    // Returning to the experiments list (e.g. via the browser back button) exits the experiment
+    lastSelectedExperimentIdRef.current = null;
   }
 
   // Callback to clear the persisted experiment ID (used by back button)

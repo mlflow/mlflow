@@ -107,6 +107,27 @@ describe('ShowArtifactTableView', () => {
   });
 
   // eslint-disable-next-line jest/no-done-callback -- TODO(FEINF-1337)
+  test('should render boolean values in CSV file', (done) => {
+    const fileContents = 'name,enabled\nalpha,true\nbeta,false\n';
+
+    const getArtifact = jest.fn((artifactLocation) => {
+      return Promise.resolve(fileContents);
+    });
+    const props = { ...minimalProps, getArtifact };
+    wrapper = mountWithIntl(<ShowArtifactTableView {...props} />);
+    setImmediate(() => {
+      wrapper.update();
+      const rowTextNodes = wrapper
+        .find('tbody')
+        .findWhere((n: any) => n.name() === 'tr' && n.prop('aria-hidden') !== 'true')
+        .children();
+      const csvPreviewValues = rowTextNodes.map((c: any) => c.text());
+      expect(csvPreviewValues).toEqual(['alpha', 'true', 'beta', 'false']);
+      done();
+    });
+  });
+
+  // eslint-disable-next-line jest/no-done-callback -- TODO(FEINF-1337)
   test('should render TSV file correctly', (done) => {
     const data = Array(2).fill({ a: '0', b: '1' });
     const fileContents = Papa.unparse(data, { delimiter: '\t' });

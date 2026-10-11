@@ -6,7 +6,11 @@ import pytest
 from packaging.version import Version
 
 import mlflow
-from mlflow.openai.genai_semconv_converter import _convert_content, _convert_message
+from mlflow.openai.genai_semconv_converter import (
+    OpenAIChatCompletionConverter,
+    _convert_content,
+    _convert_message,
+)
 
 from tests.tracing.helper import capture_otel_export, reset_autolog_state  # noqa: F401
 
@@ -313,3 +317,27 @@ def test_convert_message_no_audio_no_content():
     msg = {"role": "assistant", "content": None}
     result = _convert_message(msg)
     assert result == {"role": "assistant", "parts": []}
+
+
+@pytest.mark.parametrize(
+    "system_content",
+    [
+        "You are a pirate.",
+        [{"type": "text", "text": "You are a pirate."}],
+    ],
+)
+def test_chat_completion_system_instructions(system_content):
+    inputs = {
+        "messages": [
+            {"role": "system", "content": system_content},
+            {"role": "user", "content": "hi"},
+        ]
+    }
+    converter = OpenAIChatCompletionConverter()
+
+    assert converter.convert_system_instructions(inputs) == [
+        {"type": "text", "content": "You are a pirate."}
+    ]
+    assert converter.convert_inputs(inputs) == [
+        {"role": "user", "parts": [{"type": "text", "content": "hi"}]}
+    ]

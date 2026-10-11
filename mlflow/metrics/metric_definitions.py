@@ -53,7 +53,7 @@ def _validate_array_like_id_data(data, metric_name, col_specifier):
             (isinstance(value, list) and all(isinstance(val, (str, int)) for val in value))
             or (
                 isinstance(value, np.ndarray)
-                and (np.issubdtype(value.dtype, str) or np.issubdtype(value.dtype, int))
+                and (np.issubdtype(value.dtype, np.str_) or np.issubdtype(value.dtype, np.integer))
             )
         ):
             _logger.warning(

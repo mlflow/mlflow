@@ -359,12 +359,14 @@ def test_validate_experiment_artifact_location_bad(location):
         _validate_experiment_artifact_location(location)
 
 
-@pytest.mark.parametrize("experiment_name", ["validstring", b"test byte string".decode("utf-8")])
+@pytest.mark.parametrize(
+    "experiment_name", ["validstring", " valid name ", b"test byte string".decode("utf-8")]
+)
 def test_validate_experiment_name_good(experiment_name):
     _validate_experiment_name(experiment_name)
 
 
-@pytest.mark.parametrize("experiment_name", ["", 12, 12.7, None, {}, []])
+@pytest.mark.parametrize("experiment_name", ["", " ", "\t\n", "\u2003", 12, 12.7, None, {}, []])
 def test_validate_experiment_name_bad(experiment_name):
     with pytest.raises(MlflowException, match="Invalid experiment name"):
         _validate_experiment_name(experiment_name)

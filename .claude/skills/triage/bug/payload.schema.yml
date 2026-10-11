@@ -56,3 +56,32 @@ properties:
     type: string
     minLength: 1
     maxLength: 5000
+  pull_request:
+    description: |
+      Draft pull request for `fix.patch`. Only for a Reproduced bug whose fix is small, verified,
+      and leaves nothing for a maintainer to decide.
+    type: object
+    additionalProperties: false
+    required:
+      - title
+      - body
+    properties:
+      title:
+        description: One-line PR title.
+        type: string
+        pattern: "^[^\\r\\n]+$"
+        minLength: 1
+        maxLength: 120
+      body:
+        description: PR body following `.github/pull_request_template.md`.
+        type: string
+        minLength: 1
+        maxLength: 20000
+if:
+  properties:
+    label:
+      const: "triage: reproduced"
+else:
+  not:
+    required:
+      - pull_request
