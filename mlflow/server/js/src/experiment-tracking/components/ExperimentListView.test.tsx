@@ -1,7 +1,7 @@
-import { jest, test, expect } from '@jest/globals';
+import { jest, test, expect, describe } from '@jest/globals';
 import userEvent from '@testing-library/user-event';
 import { screen, renderWithIntl, waitFor } from '../../common/utils/TestUtils.react18';
-import { BrowserRouter } from '../../common/utils/RoutingUtils';
+import { MemoryRouter } from '../../common/utils/RoutingUtils';
 import { Provider } from 'react-redux';
 import thunk from 'redux-thunk';
 import configureStore from 'redux-mock-store';
@@ -26,7 +26,7 @@ jest.mock('./experiment-page/hooks/useTagsFilter', () => ({
   useTagsFilter: jest.fn(),
 }));
 
-const mountComponent = (props: { experiments: any[]; tagsFilter?: any[] }) => {
+const mountComponent = (props: { experiments: any[]; tagsFilter?: any[]; initialUrl?: string }) => {
   const mockStore = configureStore([thunk, promiseMiddleware()]);
 
   jest.mocked(useExperimentListQuery).mockImplementation(() => ({
@@ -70,9 +70,9 @@ const mountComponent = (props: { experiments: any[]; tagsFilter?: any[] }) => {
           },
         })}
       >
-        <BrowserRouter>
+        <MemoryRouter initialEntries={[props.initialUrl ?? '/']}>
           <ExperimentListView />
-        </BrowserRouter>
+        </MemoryRouter>
       </Provider>
     </DesignSystemProvider>,
   );
@@ -135,4 +135,35 @@ test('Tag filter button shows no count when no filters are applied', () => {
   const tagButton = screen.getByRole('button', { name: /^Tag$/ });
   expect(tagButton).toBeInTheDocument();
   expect(tagButton).not.toHaveTextContent('·');
+});
+
+describe('search input', () => {
+  const getAppliedSearchFilter = () => jest.mocked(useExperimentListQuery).mock.lastCall?.[0]?.searchFilter;
+
+  test('submitting the search filter loaded from the URL keeps it applied', async () => {
+    mountComponent({ experiments: [], initialUrl: '/?experimentSearchFilter=alpha' });
+
+    const searchInput = screen.getByPlaceholderText('Search experiments');
+    expect(searchInput).toHaveValue('alpha');
+
+    await userEvent.type(searchInput, '{Enter}');
+
+    expect(getAppliedSearchFilter()).toBe('alpha');
+  });
+
+  test('submitting after clearing the search input does not reapply the previous filter', async () => {
+    mountComponent({ experiments: [], initialUrl: '/?experimentSearchFilter=alpha' });
+
+    const searchInput = screen.getByPlaceholderText('Search experiments');
+    await userEvent.type(searchInput, '-1{Enter}');
+    expect(getAppliedSearchFilter()).toBe('alpha-1');
+
+    await userEvent.click(screen.getByRole('button', { name: 'close-circle' }));
+    expect(getAppliedSearchFilter()).toBe('');
+    expect(searchInput).toHaveValue('');
+
+    await userEvent.type(searchInput, '{Enter}');
+
+    expect(getAppliedSearchFilter()).toBe('');
+  });
 });

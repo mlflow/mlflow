@@ -59,7 +59,7 @@ export const ExperimentListView = () => {
   });
 
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
-  const [searchInput, setSearchInput] = useState('');
+  const [searchInput, setSearchInput] = useState(searchFilter);
   const [showCreateExperimentModal, setShowCreateExperimentModal] = useState(false);
   const [showBulkDeleteExperimentModal, setShowBulkDeleteExperimentModal] = useState(false);
 
@@ -72,6 +72,7 @@ export const ExperimentListView = () => {
   };
 
   const handleSearchClear = () => {
+    setSearchInput('');
     setSearchFilter('');
   };
 
