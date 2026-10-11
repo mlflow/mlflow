@@ -52,7 +52,9 @@ just where the error surfaces, then verify: patch the code, rerun the reproducti
 symptom goes away without breaking the tests that cover that code.
 
 For frontend fixes, use the dev server with hot reload; do not run `yarn build` just to verify
-the fix.
+the fix. For simple visual or UI changes, manual browser inspection of the reproduction before
+and after the fix can be sufficient verification. Run relevant existing tests when they
+meaningfully cover the affected behavior.
 
 Keep the fix minimal and in the style of the surrounding code. When the right fix is a design
 decision (a public API, a default, or a storage schema), describe the options instead of
@@ -70,10 +72,11 @@ Propose a pull request only when all of these hold:
 
 Otherwise, skip this step: the comment's suggested fix is enough.
 
-When it applies, add a regression test that fails without the fix and passes with it, next to
-the existing tests for that code, and run it together with those tests. Then leave only the fix
-and the test changed in the checkout (revert anything else you edited there) and write the
-patch:
+Add regression tests when they add meaningful coverage. Place new regression tests next to
+the existing tests for that code, verify that they fail without the fix and pass with it,
+and run them together with those tests.
+Then leave only the fix and any regression tests changed in the checkout (revert anything else
+you edited there) and write the patch:
 
 ```bash
 git add -N mlflow tests
