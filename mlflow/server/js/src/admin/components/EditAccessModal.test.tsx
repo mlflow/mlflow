@@ -14,12 +14,22 @@ const mockGrantPermissionMutateAsync = jest.fn<(...args: any[]) => any>();
 const mockRevokePermissionMutateAsync = jest.fn<(...args: any[]) => any>();
 const mockUseWorkspacesEnabled = jest.fn<() => { workspacesEnabled: boolean }>();
 const mockUseActiveWorkspace = jest.fn<() => string | null>();
+const mockAddConditionMutateAsync = jest.fn<(...args: any[]) => any>();
+const mockRemoveConditionMutateAsync = jest.fn<(...args: any[]) => any>();
+const mockUseRoleMutationConditionsQuery = jest.fn<() => any>();
+const mockRefetchQueries = jest.fn<(...args: any[]) => Promise<void>>();
 
 jest.mock('../hooks', () => ({
+  // Conditions now share these modals; stub them so the cases below keep testing
+  // what they were written for.
+  useRoleMutationConditionsQuery: () => mockUseRoleMutationConditionsQuery(),
+  useAddUserMutationCondition: () => ({ mutateAsync: mockAddConditionMutateAsync, isLoading: false }),
+  useRemoveMutationCondition: () => ({ mutateAsync: mockRemoveConditionMutateAsync, isLoading: false }),
   AdminQueryKeys: {
     users: ['admin_users'],
     roles: ['admin_roles'],
     roleUsers: (roleId: number) => ['admin_role_users', roleId],
+    roleConditions: (roleId: number) => ['admin_role_conditions', roleId],
     resourceOptions: (resourceType: string) => ['admin_resource_options', resourceType],
   },
   useCurrentUserIsAdmin: () => false,
@@ -49,7 +59,7 @@ jest.mock('../../experiment-tracking/hooks/useServerInfo', () => ({
 }));
 
 jest.mock('@mlflow/mlflow/src/common/utils/reactQueryHooks', () => ({
-  useQueryClient: () => ({ invalidateQueries: jest.fn() }),
+  useQueryClient: () => ({ invalidateQueries: jest.fn(), refetchQueries: mockRefetchQueries }),
 }));
 
 beforeEach(() => {
@@ -57,6 +67,17 @@ beforeEach(() => {
   // ``null`` is what ``useActiveWorkspace`` actually returns on a
   // single-tenant server.
   mockUseActiveWorkspace.mockReturnValue(null);
+  mockUseRoleMutationConditionsQuery.mockReturnValue({
+    data: { mutation_conditions: [] },
+    isLoading: false,
+    error: null,
+  });
+  mockAddConditionMutateAsync.mockReset();
+  mockAddConditionMutateAsync.mockResolvedValue({});
+  mockRemoveConditionMutateAsync.mockReset();
+  mockRemoveConditionMutateAsync.mockResolvedValue({});
+  mockRefetchQueries.mockReset();
+  mockRefetchQueries.mockResolvedValue(undefined);
 });
 
 // Direct grants surface through the synthetic ``__user_<id>__`` role
@@ -197,5 +218,425 @@ describe('EditAccessModal — workspace targeting on direct grants and revokes',
     expect(mockGrantPermissionMutateAsync).toHaveBeenCalledTimes(1);
     expect(mockGrantPermissionMutateAsync.mock.calls[0][0].workspace).toBe('team-a');
     expect(mockRevokePermissionMutateAsync.mock.calls[0][0].workspace).toBe('team-a');
+  });
+});
+
+describe('EditAccessModal — condition scope on the wire', () => {
+  beforeEach(() => {
+    mockUseUserRolesQuery.mockReset();
+    mockUseUserRolesQuery.mockReturnValue({ data: { roles: [] }, isLoading: false, error: null });
+  });
+
+  // An existing condition, as the server returns it: narrowed to ONE experiment.
+  const scopedCondition = {
+    id: 11,
+    role_id: 99,
+    condition_slot: 1,
+    resource_type: 'experiment',
+    resource_pattern: '7',
+    container_resource_type: 'workspace',
+    container_resource_pattern: '*',
+    value_condition: null,
+    target_condition: "tags.lifecycle != 'prod'",
+  };
+  // Same type, same clauses, different scope: the whole workspace. These two differ ONLY
+  // in `resource_pattern`, which is exactly what the modal's own key used to drop.
+  const workspaceCondition = { ...scopedCondition, id: 12, resource_pattern: '*' };
+
+  it('sends the staged scope rather than letting the server default it', async () => {
+    // `resource_pattern` was omitted entirely, and the server normalises an absent scope
+    // to the wildcard -- so a condition the admin scoped to one experiment was persisted
+    // as one covering every experiment in the workspace. `objectContaining` fails on an
+    // ABSENT key, which is what makes this catch the omission even at the default scope.
+    renderWithDesignSystem(<EditAccessModal open onClose={jest.fn()} username="alice" />);
+
+    fireEvent.change(screen.getByPlaceholderText("tags.lifecycle != 'prod'"), {
+      target: { value: "tags.env = 'dev'" },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Add mutation condition' }));
+    fireEvent.click(screen.getByRole('button', { name: /^Review changes$/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^Apply changes$/ }));
+
+    await waitFor(() => expect(mockAddConditionMutateAsync).toHaveBeenCalledTimes(1));
+    expect(mockAddConditionMutateAsync).toHaveBeenCalledWith(
+      expect.objectContaining({
+        request: expect.objectContaining({
+          username: 'alice',
+          resource_type: 'experiment',
+          target_condition: "tags.env = 'dev'",
+          resource_pattern: '*',
+          container_resource_type: 'workspace',
+          container_resource_pattern: '*',
+        }),
+      }),
+    );
+  });
+
+  it('removes the one condition the admin removed, not whichever shared its other fields', async () => {
+    // Two conditions differing only in scope. The modal's key omitted the scope, so both
+    // produced the same key: removing the scoped one left its key in the desired set (the
+    // workspace-wide one still carried it), the removal was dropped from the diff, and the
+    // restriction the admin had just lifted stayed in force.
+    mockUseRoleMutationConditionsQuery.mockReturnValue({
+      data: { mutation_conditions: [scopedCondition, workspaceCondition] },
+      isLoading: false,
+      error: null,
+    });
+    const onClose = jest.fn();
+    renderWithDesignSystem(<EditAccessModal open onClose={onClose} username="alice" />);
+
+    // Both rows are listed; remove the FIRST (the one scoped to experiment 7). Both are
+    // `experiment` conditions, so they share one aria-label and are told apart by order.
+    const removeButtons = await waitFor(() => {
+      const found = screen.getAllByRole('button', { name: /Remove Experiment mutation condition/ });
+      expect(found).toHaveLength(2);
+      return found;
+    });
+    fireEvent.click(removeButtons[0]);
+    fireEvent.click(screen.getByRole('button', { name: /^Review changes$/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^Apply changes$/ }));
+
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    expect(mockRemoveConditionMutateAsync).toHaveBeenCalledTimes(1);
+    expect(mockRemoveConditionMutateAsync).toHaveBeenCalledWith(scopedCondition.id);
+  });
+});
+
+describe('EditAccessModal — prefill waits for the conditions query', () => {
+  // The conditions query is keyed on the synthetic role id, which is derived from the
+  // ROLES response -- so it cannot even start until the roles query has resolved, which
+  // is exactly when `stateLoaded` flips true. The prefill then ran against an empty
+  // condition list and latched `filledForWorkspaceRef`, so the real conditions arriving a
+  // moment later never reached the editable state. The diff compared a populated
+  // `currentConditions` against an empty staged list and concluded the admin had removed
+  // all of them: changing anything unrelated silently deleted every restriction on the
+  // user. Fail-OPEN, and deterministic rather than a rare interleaving.
+
+  const existingCondition = {
+    id: 21,
+    role_id: 99,
+    condition_slot: 1,
+    resource_type: 'experiment',
+    resource_pattern: '*',
+    container_resource_type: 'workspace',
+    container_resource_pattern: '*',
+    value_condition: null,
+    target_condition: "tags.lifecycle != 'prod'",
+  };
+
+  beforeEach(() => {
+    mockUseUserRolesQuery.mockReset();
+    mockUseUserRolesQuery.mockReturnValue({
+      data: { roles: [syntheticUserRole('default')] },
+      isLoading: false,
+      error: null,
+    });
+    mockGrantPermissionMutateAsync.mockReset();
+    mockGrantPermissionMutateAsync.mockResolvedValue({});
+    mockRevokePermissionMutateAsync.mockReset();
+    mockRevokePermissionMutateAsync.mockResolvedValue({});
+  });
+
+  it('does not stage a removal for conditions that arrive after the roles query', async () => {
+    // Roles have resolved but the conditions request is still in flight: the state the
+    // modal is always in on first open.
+    mockUseRoleMutationConditionsQuery.mockReturnValue({ data: undefined, isLoading: true, error: null });
+    const onClose = jest.fn();
+    const { rerender } = renderWithDesignSystem(<EditAccessModal open onClose={onClose} username="alice" />);
+
+    // The conditions land, and the settling query re-renders the modal.
+    mockUseRoleMutationConditionsQuery.mockReturnValue({
+      data: { mutation_conditions: [existingCondition] },
+      isLoading: false,
+      error: null,
+    });
+    rerender(<EditAccessModal open onClose={onClose} username="alice" />);
+
+    // An unrelated edit: granting a direct permission.
+    fireEvent.click(await screen.findByRole('radio', { name: /^All experiments$/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^Add$/ }));
+
+    // The prefilled condition is now visible, which is the positive half of the fix.
+    expect(await screen.findByRole('button', { name: /Remove Experiment mutation condition/ })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /^Review changes$/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^Apply changes$/ }));
+
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    // The admin touched a permission, not a condition. Nothing may be removed.
+    expect(mockRemoveConditionMutateAsync).not.toHaveBeenCalled();
+    expect(mockGrantPermissionMutateAsync).toHaveBeenCalledTimes(1);
+  });
+
+  it('blocks the form when the conditions query fails rather than pre-filling an empty list', async () => {
+    // An errored query is an UNKNOWN condition list, not an empty one. Treating it as
+    // empty would stage the same mass removal, so the form is blocked exactly as it is
+    // for a failed roles fetch.
+    mockUseRoleMutationConditionsQuery.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      error: new Error('conditions boom'),
+    });
+    renderWithDesignSystem(<EditAccessModal open onClose={jest.fn()} username="alice" />);
+
+    expect(await screen.findByText('Failed to load access state')).toBeInTheDocument();
+    expect(screen.getByText('conditions boom')).toBeInTheDocument();
+    expect(screen.queryByText('Role assignments')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Review changes/ })).toBeDisabled();
+  });
+
+  it('still pre-fills when the user has no synthetic role, where the query never runs', async () => {
+    // With no direct grants there is no synthetic role, so the query is disabled -- and a
+    // disabled react-query v4 query reports `isLoading: true` forever. Gating on that flag
+    // alone would hang the modal on a permanent spinner.
+    mockUseUserRolesQuery.mockReturnValue({ data: { roles: [] }, isLoading: false, error: null });
+    mockUseRoleMutationConditionsQuery.mockReturnValue({ data: undefined, isLoading: true, error: null });
+    renderWithDesignSystem(<EditAccessModal open onClose={jest.fn()} username="alice" />);
+
+    // The form is usable, not stuck behind a spinner.
+    expect(await screen.findByText('Role assignments')).toBeInTheDocument();
+  });
+});
+
+describe('EditAccessModal — restrictions land before capability', () => {
+  // Grants add access and conditions subtract it, so capability must never exist without
+  // the restriction the admin paired with it. The submit chain used to apply admin status,
+  // roles and grants first and conditions last, so a condition that failed left the grant
+  // it was meant to narrow live and unrestricted -- and the modal reported only the
+  // condition failure, which reads as "the restriction didn't apply", not as "the user now
+  // has unrestricted access".
+
+  const existingCondition = {
+    id: 31,
+    role_id: 99,
+    condition_slot: 1,
+    resource_type: 'experiment',
+    resource_pattern: '*',
+    container_resource_type: 'workspace',
+    container_resource_pattern: '*',
+    value_condition: null,
+    target_condition: "tags.lifecycle != 'prod'",
+  };
+
+  beforeEach(() => {
+    mockUseUserRolesQuery.mockReset();
+    mockGrantPermissionMutateAsync.mockReset();
+    mockGrantPermissionMutateAsync.mockResolvedValue({});
+    mockRevokePermissionMutateAsync.mockReset();
+    mockRevokePermissionMutateAsync.mockResolvedValue({});
+  });
+
+  const stageConditionAndGrant = () => {
+    fireEvent.change(screen.getByPlaceholderText("tags.lifecycle != 'prod'"), {
+      target: { value: "tags.env = 'dev'" },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Add mutation condition' }));
+    fireEvent.click(screen.getByRole('radio', { name: /^All experiments$/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^Add$/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^Review changes$/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^Apply changes$/ }));
+  };
+
+  it('adds the condition before granting the permission it narrows', async () => {
+    mockUseUserRolesQuery.mockReturnValue({ data: { roles: [] }, isLoading: false, error: null });
+    const order: string[] = [];
+    mockAddConditionMutateAsync.mockImplementation(async () => {
+      order.push('condition');
+      return {};
+    });
+    mockGrantPermissionMutateAsync.mockImplementation(async () => {
+      order.push('grant');
+      return {};
+    });
+    const onClose = jest.fn();
+    renderWithDesignSystem(<EditAccessModal open onClose={onClose} username="alice" />);
+
+    stageConditionAndGrant();
+
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    expect(order).toEqual(['condition', 'grant']);
+  });
+
+  it('does not grant when the condition could not be created', async () => {
+    // The whole point: a restriction that failed must not be followed by the capability it
+    // was supposed to narrow.
+    mockUseUserRolesQuery.mockReturnValue({ data: { roles: [] }, isLoading: false, error: null });
+    mockAddConditionMutateAsync.mockRejectedValue(new Error('slot exhausted'));
+    renderWithDesignSystem(<EditAccessModal open onClose={jest.fn()} username="alice" />);
+
+    stageConditionAndGrant();
+
+    await waitFor(() => expect(mockAddConditionMutateAsync).toHaveBeenCalledTimes(1));
+    expect(mockGrantPermissionMutateAsync).not.toHaveBeenCalled();
+  });
+
+  it('keeps the condition when the revoke it was covering fails', async () => {
+    // The mirror rule. The admin revokes a grant and drops the now-pointless condition in
+    // one save; if the revoke fails and the condition removal still runs, the grant is
+    // left live and unrestricted.
+    mockUseUserRolesQuery.mockReturnValue({
+      data: { roles: [syntheticUserRole('default')] },
+      isLoading: false,
+      error: null,
+    });
+    mockUseRoleMutationConditionsQuery.mockReturnValue({
+      data: { mutation_conditions: [existingCondition] },
+      isLoading: false,
+      error: null,
+    });
+    mockRevokePermissionMutateAsync.mockRejectedValue(new Error('revoke boom'));
+    renderWithDesignSystem(<EditAccessModal open onClose={jest.fn()} username="alice" />);
+
+    // Remove the prefilled grant and the prefilled condition together.
+    fireEvent.click(await screen.findByRole('button', { name: 'Remove experiment *' }));
+    fireEvent.click(await screen.findByRole('button', { name: /Remove Experiment mutation condition/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^Review changes$/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^Apply changes$/ }));
+
+    await waitFor(() => expect(mockRevokePermissionMutateAsync).toHaveBeenCalledTimes(1));
+    expect(mockRemoveConditionMutateAsync).not.toHaveBeenCalled();
+  });
+
+  it('keeps the old condition when its replacement could not be created', async () => {
+    // F-0039. Editing a condition is an ADD plus a REMOVE. The removal gate only tested
+    // whether a CAPABILITY removal had failed, so a failed add still dropped the old
+    // restriction -- leaving the grant less restricted than before the admin touched it.
+    mockUseUserRolesQuery.mockReturnValue({
+      data: { roles: [syntheticUserRole('default')] },
+      isLoading: false,
+      error: null,
+    });
+    mockUseRoleMutationConditionsQuery.mockReturnValue({
+      data: { mutation_conditions: [existingCondition] },
+      isLoading: false,
+      error: null,
+    });
+    mockAddConditionMutateAsync.mockRejectedValue(new Error('slot exhausted'));
+    renderWithDesignSystem(<EditAccessModal open onClose={jest.fn()} username="alice" />);
+
+    // Drop the prefilled condition and stage a new one in its place -- a replacement.
+    fireEvent.click(await screen.findByRole('button', { name: /Remove Experiment mutation condition/ }));
+    stageConditionAndGrant();
+
+    await waitFor(() => expect(mockAddConditionMutateAsync).toHaveBeenCalledTimes(1));
+    // The replacement failed, so the original must survive.
+    expect(mockRemoveConditionMutateAsync).not.toHaveBeenCalled();
+  });
+
+  it('removes the condition once the revoke actually succeeds', async () => {
+    mockUseUserRolesQuery.mockReturnValue({
+      data: { roles: [syntheticUserRole('default')] },
+      isLoading: false,
+      error: null,
+    });
+    mockUseRoleMutationConditionsQuery.mockReturnValue({
+      data: { mutation_conditions: [existingCondition] },
+      isLoading: false,
+      error: null,
+    });
+    const onClose = jest.fn();
+    renderWithDesignSystem(<EditAccessModal open onClose={onClose} username="alice" />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Remove experiment *' }));
+    fireEvent.click(await screen.findByRole('button', { name: /Remove Experiment mutation condition/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^Review changes$/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^Apply changes$/ }));
+
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    expect(mockRemoveConditionMutateAsync).toHaveBeenCalledWith(existingCondition.id);
+  });
+});
+
+describe('EditAccessModal — a partial failure re-seeds from fresh server state', () => {
+  // The re-seed after a partial failure reads the conditions query. Every mutation above
+  // invalidates WITHOUT awaiting, so clearing the pre-fill latch while the refetch is still
+  // in flight pre-fills the PRE-mutation list and then latches; the arriving refetch is
+  // then ignored because the latch matches. The staged list is missing a condition the
+  // server now holds, and the diff reads that difference as a REMOVAL -- so the modal sits
+  // there with a pending change that deletes the restriction which was just created, and
+  // whoever clicks Apply next grants the capability unrestricted.
+
+  const created = {
+    id: 7,
+    role_id: 99,
+    condition_slot: 1,
+    resource_type: 'experiment',
+    resource_pattern: '*',
+    container_resource_type: 'workspace',
+    container_resource_pattern: '*',
+    value_condition: null,
+    target_condition: "tags.env = 'dev'",
+  };
+
+  // ``landed`` is what the server holds; ``visible`` is what the query has fetched. The gap
+  // between them IS the race, and only a refetch closes it.
+  let landed: any[] = [];
+  let visible: any[] = [];
+
+  beforeEach(() => {
+    landed = [];
+    visible = [];
+    mockUseUserRolesQuery.mockReset();
+    mockUseUserRolesQuery.mockReturnValue({
+      data: { roles: [syntheticUserRole('default')] },
+      isLoading: false,
+      error: null,
+    });
+    mockUseRoleMutationConditionsQuery.mockImplementation(() => ({
+      data: { mutation_conditions: visible },
+      isLoading: false,
+      error: null,
+    }));
+    mockRefetchQueries.mockImplementation(async () => {
+      visible = [...landed];
+    });
+    mockAddConditionMutateAsync.mockReset();
+    mockAddConditionMutateAsync.mockImplementation(async () => {
+      landed.push(created);
+      return { mutation_conditions: created };
+    });
+    mockGrantPermissionMutateAsync.mockReset();
+    mockGrantPermissionMutateAsync.mockRejectedValue(new Error('grant refused'));
+    mockRevokePermissionMutateAsync.mockReset();
+    mockRevokePermissionMutateAsync.mockResolvedValue({});
+  });
+
+  const stageAndApply = () => {
+    fireEvent.change(screen.getByPlaceholderText("tags.lifecycle != 'prod'"), {
+      target: { value: "tags.env = 'dev'" },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Add mutation condition' }));
+    fireEvent.click(screen.getByRole('radio', { name: /^All experiments$/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^Add$/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^Review changes$/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^Apply changes$/ }));
+  };
+
+  it('leaves no pending change after the failure, so the created condition is not queued for removal', async () => {
+    renderWithDesignSystem(<EditAccessModal open onClose={jest.fn()} username="alice" />);
+    stageAndApply();
+
+    // The condition landed, the grant was refused, and the modal is back on the edit step
+    // showing the failure.
+    await waitFor(() => expect(screen.getByText(/grant refused/)).toBeInTheDocument());
+    expect(mockAddConditionMutateAsync).toHaveBeenCalledTimes(1);
+    // The re-seed awaited the refetch, which is what makes it read the created row.
+    expect(mockRefetchQueries).toHaveBeenCalled();
+
+    // Nothing left to apply: the staged list matches the server. A pending change here
+    // would be the spurious removal.
+    await waitFor(() => expect(screen.getByRole('button', { name: /^Review changes$/ })).toBeDisabled());
+    expect(mockRemoveConditionMutateAsync).not.toHaveBeenCalled();
+  });
+
+  it('shows the created condition as current state rather than dropping it from the list', async () => {
+    renderWithDesignSystem(<EditAccessModal open onClose={jest.fn()} username="alice" />);
+    stageAndApply();
+
+    await waitFor(() => expect(screen.getByText(/grant refused/)).toBeInTheDocument());
+    // The re-seeded editable list holds the condition, so the admin sees what actually
+    // landed instead of a list that silently lost it. It renders as a staged row, not as
+    // the draft input, which was cleared when the row was added.
+    await waitFor(() => expect(screen.getByText("tags.env = 'dev'")).toBeInTheDocument());
   });
 });

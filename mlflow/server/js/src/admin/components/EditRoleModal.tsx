@@ -14,10 +14,13 @@ import { FieldLabel } from './FieldLabel';
 import { LongFormSection } from '../../common/components/long-form/LongFormSection';
 import { ConfirmationModal } from '../ConfirmationModal';
 import {
+  useAddMutationCondition,
   useAddPermission,
   useAssignRole,
+  useRemoveMutationCondition,
   useRemovePermission,
   useRoleDetailQuery,
+  useRoleMutationConditionsQuery,
   useRoleUsersQuery,
   useUnassignRole,
   useUpdateRole,
@@ -26,6 +29,12 @@ import {
 import { useWorkspacesEnabled } from '../../experiment-tracking/hooks/useServerInfo';
 import { formatResourcePattern, parseResourcePattern } from '../types';
 import { RolePermissionsSection, type StagedRolePermission } from './RolePermissionsSection';
+import {
+  conditionKey,
+  formatStagedCondition,
+  MutationConditionsSection,
+  type StagedMutationCondition,
+} from './MutationConditionsSection';
 import { RoleUsersSection } from './RoleUsersSection';
 
 export interface EditRoleModalProps {
@@ -37,6 +46,8 @@ export interface EditRoleModalProps {
 const permTripleKey = (p: { resourceType: string; resourcePattern: string; permission: string }) =>
   `${p.resourceType}::${p.resourcePattern}::${p.permission}`;
 
+// Conditions have no natural subset of identifying fields -- changing any one of them
+// makes a different condition -- so the whole tuple is the key.
 interface RoleDiff {
   nameChange: string | null;
   descriptionChange: string | null;
@@ -44,6 +55,8 @@ interface RoleDiff {
   permissionIdsToRemove: number[];
   usersToAssign: string[];
   usersToUnassign: string[];
+  conditionsToAdd: StagedMutationCondition[];
+  conditionIdsToRemove: number[];
 }
 
 /**
@@ -63,11 +76,18 @@ export const EditRoleModal = ({ open, onClose, roleId }: EditRoleModalProps) => 
   const removePermission = useRemovePermission(roleId);
   const assignRole = useAssignRole(roleId);
   const unassignRole = useUnassignRole(roleId);
+  const addCondition = useAddMutationCondition(roleId);
+  const removeCondition = useRemoveMutationCondition(roleId);
 
   // --- Current state from backend ---
   const { data: roleData, isLoading: roleLoading } = useRoleDetailQuery(roleId);
   const { data: assignmentsData, isLoading: assignmentsLoading } = useRoleUsersQuery(roleId);
   const { data: usersData, isLoading: usersLoading } = useUsersQuery();
+  const {
+    data: conditionsData,
+    isLoading: conditionsLoading,
+    error: conditionsError,
+  } = useRoleMutationConditionsQuery(roleId);
 
   const userIdToUsername = useMemo(() => {
     const m = new Map<number, string>();
@@ -96,6 +116,18 @@ export const EditRoleModal = ({ open, onClose, roleId }: EditRoleModalProps) => 
     }));
   }, [roleData]);
 
+  const currentConditions = useMemo<StagedMutationCondition[]>(() => {
+    return (conditionsData?.mutation_conditions ?? []).map((c) => ({
+      id: c.id,
+      resourceType: c.resource_type,
+      resourcePattern: c.resource_pattern,
+      containerResourceType: c.container_resource_type,
+      containerResourcePattern: c.container_resource_pattern,
+      valueCondition: c.value_condition,
+      targetCondition: c.target_condition,
+    }));
+  }, [conditionsData]);
+
   const currentUsernames = useMemo<string[]>(() => {
     const set = new Set<string>();
     for (const a of assignmentsData?.assignments ?? []) {
@@ -111,15 +143,24 @@ export const EditRoleModal = ({ open, onClose, roleId }: EditRoleModalProps) => 
   const [description, setDescription] = useState('');
   const [permissions, setPermissions] = useState<StagedRolePermission[]>([]);
   const [usernames, setUsernames] = useState<string[]>([]);
+  const [conditions, setConditions] = useState<StagedMutationCondition[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Reported by ``RolePermissionsSection`` whenever the in-progress draft
   // is dirty. Drives a discard-confirm dialog on ``Review changes`` so the
   // admin can't silently abandon a partially-filled permission.
   const [hasUnsavedDraft, setHasUnsavedDraft] = useState(false);
+  const [hasUnsavedConditionDraft, setHasUnsavedConditionDraft] = useState(false);
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
 
-  const stateLoaded = !roleLoading && !assignmentsLoading && !usersLoading;
+  const stateLoaded = !roleLoading && !assignmentsLoading && !usersLoading && !conditionsLoading;
+
+  // An errored conditions fetch is an UNKNOWN policy, not an empty one, so the form is
+  // blocked rather than pre-filled with ``[]``. Without this the modal shows a role whose
+  // restrictions failed to load as a role carrying none, and an admin reviews and applies
+  // name, permission and assignment changes against that false picture. ``EditAccessModal``
+  // blocks on the same reasoning.
+  const loadError = conditionsError;
 
   // ``prefilledRef`` gates the data-fill effect against background
   // refetches that would clobber in-progress edits.
@@ -153,8 +194,9 @@ export const EditRoleModal = ({ open, onClose, roleId }: EditRoleModalProps) => 
     setDescription(currentDescription);
     setPermissions([...currentPermissions]);
     setUsernames([...currentUsernames]);
+    setConditions([...currentConditions]);
     prefilledRef.current = true;
-  }, [open, stateLoaded, currentName, currentDescription, currentPermissions, currentUsernames]);
+  }, [open, stateLoaded, currentName, currentDescription, currentPermissions, currentUsernames, currentConditions]);
 
   // --- Diff ---
   const diff = useMemo<RoleDiff>(() => {
@@ -174,16 +216,33 @@ export const EditRoleModal = ({ open, onClose, roleId }: EditRoleModalProps) => 
     const usersToAssign = usernames.filter((u) => !currentUsernameSet.has(u));
     const usersToUnassign = currentUsernames.filter((u) => !desiredUsernameSet.has(u));
 
-    return { nameChange, descriptionChange, permissionsToAdd, permissionIdsToRemove, usersToAssign, usersToUnassign };
+    const desiredConditionKeys = new Set(conditions.map(conditionKey));
+    const conditionsToAdd = conditions.filter((c) => c.id == null);
+    const conditionIdsToRemove = currentConditions
+      .filter((c) => c.id != null && !desiredConditionKeys.has(conditionKey(c)))
+      .map((c) => c.id as number);
+
+    return {
+      nameChange,
+      descriptionChange,
+      permissionsToAdd,
+      permissionIdsToRemove,
+      usersToAssign,
+      usersToUnassign,
+      conditionsToAdd,
+      conditionIdsToRemove,
+    };
   }, [
     name,
     description,
     permissions,
     usernames,
+    conditions,
     currentName,
     currentDescription,
     currentPermissions,
     currentUsernames,
+    currentConditions,
   ]);
 
   const hasAnyChange =
@@ -192,7 +251,9 @@ export const EditRoleModal = ({ open, onClose, roleId }: EditRoleModalProps) => 
     diff.permissionsToAdd.length > 0 ||
     diff.permissionIdsToRemove.length > 0 ||
     diff.usersToAssign.length > 0 ||
-    diff.usersToUnassign.length > 0;
+    diff.usersToUnassign.length > 0 ||
+    diff.conditionsToAdd.length > 0 ||
+    diff.conditionIdsToRemove.length > 0;
 
   // Map permissionId → (type, pattern, permission) for the Review step's
   // human label of removals. (We can't read it directly off ``diff``
@@ -206,6 +267,16 @@ export const EditRoleModal = ({ open, onClose, roleId }: EditRoleModalProps) => 
     }
     return m;
   }, [currentPermissions]);
+
+  const conditionByIdLabel = useMemo(() => {
+    const m = new Map<number, string>();
+    for (const c of currentConditions) {
+      if (c.id != null) {
+        m.set(c.id, formatStagedCondition(c));
+      }
+    }
+    return m;
+  }, [currentConditions]);
 
   const handleConfirm = useCallback(async () => {
     // ``error`` is already cleared by the "Review changes" transition;
@@ -229,22 +300,46 @@ export const EditRoleModal = ({ open, onClose, roleId }: EditRoleModalProps) => 
       }
     }
 
-    // 2. Permissions add.
-    for (const p of diff.permissionsToAdd) {
+    // The remaining order is a safety property, not housekeeping. Permissions add access
+    // and conditions subtract it, and assigning a user to this role hands them everything
+    // it carries -- so a restriction is created before the capability it narrows, and a
+    // capability is removed before the restriction that was covering it. Each step is
+    // best-effort within itself (separate requests, no transaction), so the two gates
+    // below are what keep a partial failure fail-closed.
+
+    // 2. Conditions add, ahead of anything that widens access.
+    for (const c of diff.conditionsToAdd) {
       try {
-        await addPermission.mutateAsync({
+        const created = await addCondition.mutateAsync({
           role_id: roleId,
-          resource_type: p.resourceType,
-          resource_pattern: parseResourcePattern(p.resourcePattern),
-          permission: p.permission,
+          resource_type: c.resourceType,
+          // The scope travels explicitly: an absent `resource_pattern` is normalised
+          // server-side to the wildcard, which silently widened a condition the admin
+          // had scoped to one resource into one covering the whole workspace.
+          resource_pattern: c.resourcePattern,
+          container_resource_type: c.containerResourceType,
+          container_resource_pattern: c.containerResourcePattern,
+          value_condition: c.valueCondition,
+          target_condition: c.targetCondition,
         });
+        // Stamp the server-assigned id onto the staged row. The add list selects rows
+        // with no id, so this is what makes a retry idempotent: a later step failing
+        // leaves the modal open and re-submittable, and without the id this add
+        // replays. Every add allocates a fresh slot rather than deduplicating, so a
+        // replay leaves a duplicate restriction behind and spends the per-type limit --
+        // enough retries and later grants are refused for want of a slot.
+        const createdId = created?.mutation_conditions?.id;
+        if (createdId != null) {
+          setConditions((prev) => prev.map((s) => (s === c ? { ...s, id: createdId } : s)));
+        }
       } catch (e: any) {
-        failures.push(
-          `Adding ${p.resourceType}:${p.resourcePattern} → ${p.permission} failed: ${e?.message ?? 'unknown error'}`,
-        );
+        failures.push(`Adding condition ${formatStagedCondition(c)} failed: ${e?.message ?? 'unknown error'}`);
       }
     }
-    // 3. Permissions remove.
+    const restrictionsFailed = failures.length > 0;
+
+    // 3. Capability REMOVALS -- these only narrow, and must precede any condition removal.
+    const failuresBeforeRemovals = failures.length;
     for (const id of diff.permissionIdsToRemove) {
       try {
         await removePermission.mutateAsync(id);
@@ -253,21 +348,61 @@ export const EditRoleModal = ({ open, onClose, roleId }: EditRoleModalProps) => 
         failures.push(`Removing ${label} failed: ${e?.message ?? 'unknown error'}`);
       }
     }
-
-    // 4. Users assign.
-    for (const u of diff.usersToAssign) {
-      try {
-        await assignRole.mutateAsync(u);
-      } catch (e: any) {
-        failures.push(`Assigning ${u} failed: ${e?.message ?? 'unknown error'}`);
-      }
-    }
-    // 5. Users unassign.
     for (const u of diff.usersToUnassign) {
       try {
         await unassignRole.mutateAsync(u);
       } catch (e: any) {
         failures.push(`Unassigning ${u} failed: ${e?.message ?? 'unknown error'}`);
+      }
+    }
+    const capabilityRemovalFailed = failures.length > failuresBeforeRemovals;
+
+    // 4. Capability ADDITIONS, only once every staged restriction is in place. Adding a
+    // permission -- or assigning a user, which hands them the whole role -- when step 2
+    // failed would grant exactly the unrestricted access the admin was trying to narrow.
+    if (!restrictionsFailed) {
+      for (const p of diff.permissionsToAdd) {
+        try {
+          await addPermission.mutateAsync({
+            role_id: roleId,
+            resource_type: p.resourceType,
+            resource_pattern: parseResourcePattern(p.resourcePattern),
+            permission: p.permission,
+          });
+        } catch (e: any) {
+          failures.push(
+            `Adding ${p.resourceType}:${p.resourcePattern} → ${p.permission} failed: ${e?.message ?? 'unknown error'}`,
+          );
+        }
+      }
+      for (const u of diff.usersToAssign) {
+        try {
+          await assignRole.mutateAsync(u);
+        } catch (e: any) {
+          failures.push(`Assigning ${u} failed: ${e?.message ?? 'unknown error'}`);
+        }
+      }
+    }
+
+    // 5. Conditions remove, last. A restriction is only lifted once the capability it was
+    // covering is actually gone -- if a removal above failed, dropping the condition would
+    // leave that permission live and unrestricted for everyone holding this role.
+    // Both halves must be safe. `capabilityRemovalFailed` covers the capability this
+    // condition was narrowing; `restrictionsFailed` covers its intended REPLACEMENT --
+    // editing a condition is an add plus a remove, so a failed add would otherwise
+    // still drop the old restriction, leaving the role LESS restricted than before
+    // the edit.
+    //
+    // This also blocks a plain removal when an unrelated add failed, which is the
+    // fail-closed direction: the restriction stays and the admin retries.
+    if (!capabilityRemovalFailed && !restrictionsFailed) {
+      for (const id of diff.conditionIdsToRemove) {
+        try {
+          await removeCondition.mutateAsync(id);
+        } catch (e: any) {
+          const label = conditionByIdLabel.get(id) ?? `condition #${id}`;
+          failures.push(`Removing condition ${label} failed: ${e?.message ?? 'unknown error'}`);
+        }
       }
     }
 
@@ -288,6 +423,9 @@ export const EditRoleModal = ({ open, onClose, roleId }: EditRoleModalProps) => 
     unassignRole,
     onClose,
     permissionByIdLabel,
+    addCondition,
+    removeCondition,
+    conditionByIdLabel,
   ]);
 
   return (
@@ -311,14 +449,19 @@ export const EditRoleModal = ({ open, onClose, roleId }: EditRoleModalProps) => 
               // go back and click Add, or knowingly drop the draft and
               // proceed to the review step.
               onClick={() => {
-                if (hasUnsavedDraft) {
+                // BOTH drafts gate the transition. `hasUnsavedConditionDraft` was reported
+                // by `MutationConditionsSection` and then never read, so a half-filled
+                // condition was dropped silently and the submit went on to ADD the
+                // permissions it was meant to narrow -- the one fail-open direction this
+                // dialog exists to prevent.
+                if (hasUnsavedDraft || hasUnsavedConditionDraft) {
                   setShowDiscardConfirm(true);
                   return;
                 }
                 setError(null);
                 setStep('review');
               }}
-              disabled={!hasAnyChange || !stateLoaded || !name.trim()}
+              disabled={!hasAnyChange || !stateLoaded || Boolean(loadError) || !name.trim()}
             >
               Review changes
             </Button>
@@ -366,7 +509,8 @@ export const EditRoleModal = ({ open, onClose, roleId }: EditRoleModalProps) => 
       {step === 'edit' ? (
         <>
           <Typography.Text color="secondary" css={{ display: 'block', marginBottom: theme.spacing.md }}>
-            Update name, description, permissions, and assigned users. Changes are previewed before they're applied.
+            Update name, description, permissions, mutation conditions, and assigned users. Changes are previewed before
+            they're applied.
           </Typography.Text>
           {!stateLoaded ? (
             <div
@@ -380,6 +524,16 @@ export const EditRoleModal = ({ open, onClose, roleId }: EditRoleModalProps) => 
             >
               <Spinner size="small" />
             </div>
+          ) : loadError ? (
+            <Alert
+              componentId="admin.edit_role_modal.conditions_error"
+              type="error"
+              message="Failed to load mutation conditions"
+              description={
+                (loadError instanceof Error ? loadError.message : null) ||
+                "An error occurred while fetching this role's mutation conditions. Close the modal and try again."
+              }
+            />
           ) : (
             <>
               <LongFormSection title="Role details">
@@ -431,6 +585,19 @@ export const EditRoleModal = ({ open, onClose, roleId }: EditRoleModalProps) => 
                   onUnsavedDraftChange={setHasUnsavedDraft}
                 />
               </LongFormSection>
+              <LongFormSection title="Mutation conditions">
+                <Typography.Text color="secondary" css={{ display: 'block', marginBottom: theme.spacing.sm }}>
+                  Current mutation conditions are pre-filled. Remove a row to drop it; use the form below to add more.
+                </Typography.Text>
+                <MutationConditionsSection
+                  key={String(open)}
+                  value={conditions}
+                  onChange={setConditions}
+                  workspace={resourcePickerWorkspace}
+                  disabled={submitting}
+                  onUnsavedDraftChange={setHasUnsavedConditionDraft}
+                />
+              </LongFormSection>
               <LongFormSection title="Assigned users" hideDivider>
                 <Typography.Text color="secondary" css={{ display: 'block', marginBottom: theme.spacing.sm }}>
                   Currently assigned users are pre-filled. Remove a user to unassign; use the form below to assign more.
@@ -441,13 +608,13 @@ export const EditRoleModal = ({ open, onClose, roleId }: EditRoleModalProps) => 
           )}
         </>
       ) : (
-        <ReviewSummary diff={diff} permissionByIdLabel={permissionByIdLabel} />
+        <ReviewSummary diff={diff} permissionByIdLabel={permissionByIdLabel} conditionByIdLabel={conditionByIdLabel} />
       )}
       <ConfirmationModal
         componentId="admin.edit_role_modal.discard_unsaved_draft"
-        title="Discard unsaved role permission?"
+        title="Discard unsaved entry?"
         visible={showDiscardConfirm}
-        message="You started adding a permission to this role but didn't click Add. Continuing to Review changes will discard it. Go back to either click Add to stage it, or Clear to drop the draft on the spot."
+        message="You started adding a permission or mutation condition to this role but didn't click Add. Continuing to Review changes will discard it. Go back to either click Add to stage it, or Clear to drop the draft on the spot."
         okText="Continue"
         cancelText="Back"
         danger={false}
@@ -462,7 +629,15 @@ export const EditRoleModal = ({ open, onClose, roleId }: EditRoleModalProps) => 
   );
 };
 
-const ReviewSummary = ({ diff, permissionByIdLabel }: { diff: RoleDiff; permissionByIdLabel: Map<number, string> }) => {
+const ReviewSummary = ({
+  diff,
+  permissionByIdLabel,
+  conditionByIdLabel,
+}: {
+  diff: RoleDiff;
+  permissionByIdLabel: Map<number, string>;
+  conditionByIdLabel: Map<number, string>;
+}) => {
   const { theme } = useDesignSystemTheme();
   const renderPerm = (p: StagedRolePermission) => `${p.resourceType}:${p.resourcePattern} → ${p.permission}`;
   const renderRemovedPermId = (id: number) => permissionByIdLabel.get(id) ?? `permission #${id}`;
@@ -498,6 +673,17 @@ const ReviewSummary = ({ diff, permissionByIdLabel }: { diff: RoleDiff; permissi
         title="Permissions to remove"
         items={diff.permissionIdsToRemove.map(renderRemovedPermId)}
         emptyLabel="No permissions to remove."
+      />
+      <DiffGroup
+        title="Mutation conditions to add"
+        items={diff.conditionsToAdd.map(formatStagedCondition)}
+        emptyLabel="No new mutation conditions."
+        addColor
+      />
+      <DiffGroup
+        title="Mutation conditions to remove"
+        items={diff.conditionIdsToRemove.map((id) => conditionByIdLabel.get(id) ?? `condition #${id}`)}
+        emptyLabel="No mutation conditions to remove."
       />
       <DiffGroup title="Users to assign" items={diff.usersToAssign} emptyLabel="No new user assignments." addColor />
       <DiffGroup title="Users to unassign" items={diff.usersToUnassign} emptyLabel="No user unassignments." />

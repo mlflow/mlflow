@@ -17,12 +17,54 @@ import {
 import { ScrollablePageWrapper } from '@mlflow/mlflow/src/common/components/ScrollablePageWrapper';
 import { Link, useParams, useSearchParams } from '../../common/utils/RoutingUtils';
 import { useActiveWorkspace } from '../../workspaces/utils/WorkspaceUtils';
-import { useCurrentUserIsAdmin, useUserRolesQuery, useUsersQuery, useWithSettingsReturnTo } from '../hooks';
+import {
+  useCurrentUserIsAdmin,
+  useUserMutationConditionsQuery,
+  useUserRolesQuery,
+  useUsersQuery,
+  useWithSettingsReturnTo,
+} from '../hooks';
 import { useWorkspacesEnabled } from '../../experiment-tracking/hooks/useServerInfo';
 import AdminRoutes from '../routes';
 import { EditAccessModal } from '../components/EditAccessModal';
 import { PermissionsSection } from '../../account/PermissionsSection';
+import { ConditionsTable } from '../components/ConditionsTable';
 import { isSyntheticUserRole, isWorkspaceAdminRole } from '../types';
+
+/**
+ * A user's conditions, flattened across their roles. The carrying role is a column
+ * rather than a grouping, because a condition is only editable on the role itself and
+ * that is where the admin has to go to change it.
+ */
+const UserConditionsSection = ({ username }: { username: string }) => {
+  const { workspacesEnabled } = useWorkspacesEnabled();
+  const { groups, isLoading, error } = useUserMutationConditionsQuery(username);
+  const conditions = useMemo(() => groups.flatMap((g) => g.conditions), [groups]);
+  const roleNameById = useMemo(() => {
+    const m = new Map<number, string>();
+    for (const g of groups) {
+      // A direct grant is backed by a synthetic ``__user_<id>__`` role. Name it for
+      // what it is rather than leaking the internal name.
+      const source = isSyntheticUserRole(g.role.name) ? 'Direct grants' : g.role.name;
+      // The query can return roles from several workspaces, and both role names and
+      // resource ids repeat across them, so the workspace is part of identifying which
+      // condition governs what -- as the roles table on this page already does.
+      m.set(g.role.id, workspacesEnabled ? `${source} (${g.role.workspace})` : source);
+    }
+    return m;
+  }, [groups, workspacesEnabled]);
+
+  return (
+    <ConditionsTable
+      conditions={conditions}
+      isLoading={isLoading}
+      error={error}
+      emptyDescription="None of this user's roles carry a mutation condition."
+      suffixHeader="From Role"
+      rowSuffix={(c) => roleNameById.get(c.role_id)}
+    />
+  );
+};
 
 const UserDetailPage = () => {
   const { theme } = useDesignSystemTheme();
@@ -33,7 +75,7 @@ const UserDetailPage = () => {
   const { username = '' } = useParams<{ username: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
   const tabFromUrl = searchParams.get('tab');
-  const activeTab = tabFromUrl === 'permissions' ? 'permissions' : 'roles';
+  const activeTab = tabFromUrl === 'permissions' || tabFromUrl === 'conditions' ? tabFromUrl : 'roles';
 
   const { data: rolesData, isLoading: rolesLoading, error: rolesErrorRaw } = useUserRolesQuery(username);
   // ``useUsersQuery`` is admin-only; we use it just to surface the
@@ -150,6 +192,7 @@ const UserDetailPage = () => {
           <Tabs.List>
             <Tabs.Trigger value="roles">Roles</Tabs.Trigger>
             <Tabs.Trigger value="permissions">Permissions</Tabs.Trigger>
+            <Tabs.Trigger value="conditions">Mutation conditions</Tabs.Trigger>
           </Tabs.List>
           <Tabs.Content value="roles" css={{ paddingTop: theme.spacing.md }}>
             {rolesLoading ? (
@@ -231,6 +274,9 @@ const UserDetailPage = () => {
               rolesError={rolesError}
               workspacesEnabled={workspacesEnabled}
             />
+          </Tabs.Content>
+          <Tabs.Content value="conditions" css={{ paddingTop: theme.spacing.md }}>
+            <UserConditionsSection username={username} />
           </Tabs.Content>
         </Tabs.Root>
 

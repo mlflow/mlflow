@@ -1,16 +1,23 @@
 import { useCallback, useMemo } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
+import { useMutation, useQueries, useQuery, useQueryClient } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { useSearchParams } from '../common/utils/RoutingUtils';
 import { SETTINGS_RETURN_TO_PARAM } from '../settings/settingsSectionConstants';
 import { AccountQueryKeys } from '../account/hooks';
 import { AdminApi, scorerResourcePattern } from './api';
 import { isSyntheticUserRole } from '../account/types';
+import type { Role } from '../account/types';
+// Imported, not just re-exported: the re-export block below does not bring these
+// into module scope, and ``useUserMutationConditionsQuery`` composes on top of them.
+import { useUserRolesQuery as useUserRolesQueryInternal } from '../account/hooks';
 import type {
+  AddMutationConditionRequest,
+  AddUserMutationConditionRequest,
   AddPermissionRequest,
   CreateRoleRequest,
   CreateUserRequest,
   ResourceOption,
   UpdateAdminRequest,
+  UpdateMutationConditionRequest,
   UpdateRoleRequest,
 } from './types';
 import { ALL_RESOURCE_PATTERN, DEFAULT_WORKSPACE_NAME } from './types';
@@ -56,6 +63,7 @@ export const AdminQueryKeys = {
   roleUsers: (roleId: number) => ['admin_role_users', roleId] as const,
   resourceOptions: (resourceType: string, workspace: string | undefined) =>
     ['admin_resource_options', resourceType, workspace ?? ''] as const,
+  roleConditions: (roleId: number) => ['admin_role_conditions', roleId] as const,
 };
 
 // User queries and mutations
@@ -200,6 +208,138 @@ export const useRemovePermission = (roleId: number) => {
     mutationFn: (permissionId: number) => AdminApi.removePermission(permissionId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: AdminQueryKeys.roleDetail(roleId) });
+    },
+  });
+};
+
+// Mutation conditions (condition-based access control)
+//
+// Conditions live on a role and are addressed by their own id, so they are a separate
+// query from ``roleDetail`` rather than a field on it: a role may hold up to 100 per
+// resource type, and the conditions page is the only consumer that needs them.
+export const useRoleMutationConditionsQuery = (roleId: number, options: { enabled?: boolean } = {}) => {
+  return useQuery({
+    queryKey: AdminQueryKeys.roleConditions(roleId),
+    queryFn: () => AdminApi.listMutationConditions(roleId),
+    retry: false,
+    refetchOnWindowFocus: false,
+    enabled: Number.isFinite(roleId) && options.enabled !== false,
+  });
+};
+
+/**
+ * Every condition that applies to a user, grouped by the role that carries it.
+ *
+ * There is no user-level endpoint, and that is not an omission to paper over: a
+ * condition is a property of a role, and a user holds conditions only by holding roles.
+ * So this fans out across the user's roles and keeps the grouping, because "which role
+ * is doing this to me?" is the question an admin actually has when a write is refused.
+ *
+ * Conditions AND across every role the user holds, so this list is not a menu of
+ * alternatives -- a second role cannot lift the first one's restriction. The page says
+ * so; the shape of this data cannot.
+ */
+export const useUserMutationConditionsQuery = (username: string, options: { enabled?: boolean } = {}) => {
+  const enabled = Boolean(username) && options.enabled !== false;
+  const {
+    data: rolesData,
+    isLoading: rolesLoading,
+    error: rolesError,
+  } = useUserRolesQueryInternal(username, { enabled });
+
+  // Includes the synthetic ``__user_<id>__`` role on purpose: a direct grant is backed
+  // by a real role, so a condition can sit on it, and hiding it would hide a live
+  // restriction.
+  const roles: Role[] = useMemo(() => rolesData?.roles ?? [], [rolesData]);
+
+  const conditionQueries = useQueries({
+    queries: roles.map((role: Role) => ({
+      queryKey: AdminQueryKeys.roleConditions(role.id),
+      queryFn: () => AdminApi.listMutationConditions(role.id),
+      retry: false,
+      refetchOnWindowFocus: false,
+      enabled,
+    })),
+  });
+
+  // Keyed on when each query's data last changed, not only on its status: an
+  // invalidated query refetches in the background and stays `success` the whole time,
+  // so a status-only key left the table and count showing the previous policy after a
+  // condition was added or removed. Hoisted into a named variable because a dependency
+  // array may not hold a complex expression -- the rule cannot check one statically.
+  const conditionsFingerprint = conditionQueries
+    .map((q) => `${q.status}:${q.dataUpdatedAt}:${q.errorUpdatedAt}`)
+    .join(',');
+
+  const groups = useMemo(
+    () =>
+      roles.map((role: Role, i: number) => ({
+        role,
+        conditions: conditionQueries[i]?.data?.mutation_conditions ?? [],
+        isLoading: conditionQueries[i]?.isLoading ?? false,
+        error: conditionQueries[i]?.error ?? null,
+      })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- query array identity changes every render
+    [roles, conditionsFingerprint],
+  );
+
+  return {
+    groups,
+    isLoading: rolesLoading || conditionQueries.some((q) => q.isLoading),
+    // Surface the roles error over a per-role one: without the role list there is
+    // nothing to report against.
+    error: rolesError ?? conditionQueries.find((q) => q.error)?.error ?? null,
+    totalConditions: groups.reduce((n: number, g: { conditions: unknown[] }) => n + g.conditions.length, 0),
+  };
+};
+
+export const useAddMutationCondition = (roleId: number) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (request: AddMutationConditionRequest) => AdminApi.addMutationCondition(request),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: AdminQueryKeys.roleConditions(roleId) });
+    },
+  });
+};
+
+/**
+ * Add a condition to a user's direct grants.
+ *
+ * Invalidates by role id, which is only known once the role exists -- so on the very
+ * first add it invalidates nothing and the caller's own role query has to refetch. The
+ * modal re-reads the user's roles on reopen, which is what surfaces the new role.
+ */
+export const useAddUserMutationCondition = (username: string, roleId: number) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ request, workspace }: { request: AddUserMutationConditionRequest; workspace?: string }) =>
+      AdminApi.addUserMutationCondition(request, workspace),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: AdminQueryKeys.roleConditions(roleId) });
+      queryClient.invalidateQueries({ queryKey: AccountQueryKeys.userRoles(username) });
+    },
+  });
+};
+
+export const useUpdateMutationCondition = (roleId: number) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    // Clearing both filters deletes the condition server-side, so the same
+    // invalidation covers an update and that implicit delete.
+    mutationFn: (request: UpdateMutationConditionRequest) => AdminApi.updateMutationCondition(request),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: AdminQueryKeys.roleConditions(roleId) });
+    },
+  });
+};
+
+export const useRemoveMutationCondition = (roleId: number) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (conditionId: number) => AdminApi.removeMutationCondition(conditionId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: AdminQueryKeys.roleConditions(roleId) });
     },
   });
 };

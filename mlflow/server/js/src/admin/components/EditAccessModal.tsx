@@ -20,7 +20,10 @@ import { AdminApi } from '../api';
 import {
   AdminQueryKeys,
   useCurrentUserIsAdmin,
+  useAddUserMutationCondition,
   useGrantUserPermission,
+  useRemoveMutationCondition,
+  useRoleMutationConditionsQuery,
   useRevokeUserPermission,
   useRolesQuery,
   useUserRolesQuery,
@@ -35,6 +38,12 @@ import { useWorkspacesEnabled } from '../../experiment-tracking/hooks/useServerI
 import { RoleAssignmentForm, ROLE_ASSIGNMENT_DEFAULT, type RoleAssignmentValue } from './RoleAssignmentForm';
 import { DIRECT_GRANT_RESOURCE_TYPES, type DirectGrantResourceType } from './DirectPermissionForm';
 import { DirectPermissionsSection, type StagedDirectPermission } from './DirectPermissionsSection';
+import {
+  conditionKey,
+  formatStagedCondition,
+  MutationConditionsSection,
+  type StagedMutationCondition,
+} from './MutationConditionsSection';
 
 export interface EditAccessModalProps {
   open: boolean;
@@ -57,7 +66,12 @@ interface AccessDiff {
   directToGrant: StagedDirectPermission[];
   directToRevoke: StagedDirectPermission[];
   adminChange: boolean;
+  conditionsToAdd: StagedMutationCondition[];
+  conditionIdsToRemove: number[];
 }
+
+// Any field changing makes a different condition, so the whole tuple is the key --
+// including `resourcePattern`, which this modal's own copy used to omit.
 
 /**
  * Edit-style modal for managing one user's access. Pre-fills role
@@ -120,6 +134,45 @@ export const EditAccessModal = ({ open, onClose, username }: EditAccessModalProp
         })),
     [rolesData],
   );
+  /**
+   * The synthetic ``__user_<id>__`` role that backs this user's direct grants in the
+   * selected workspace. A direct condition has to hang off a real role, and this is the
+   * one the direct grants already live on.
+   *
+   * It does not exist until the user has at least one direct grant there, so the
+   * conditions section below stays disabled until then rather than failing on submit.
+   */
+  const syntheticRole = useMemo(
+    () =>
+      (rolesData?.roles ?? []).find(
+        (r) => isSyntheticUserRole(r.name) && (!workspacesEnabled || r.workspace === grantWorkspace),
+      ),
+    [rolesData, workspacesEnabled, grantWorkspace],
+  );
+  const syntheticRoleId = syntheticRole?.id ?? Number.NaN;
+
+  const {
+    data: conditionsData,
+    isLoading: conditionsLoading,
+    error: conditionsError,
+  } = useRoleMutationConditionsQuery(syntheticRoleId);
+  const addCondition = useAddUserMutationCondition(username, syntheticRoleId);
+  const removeCondition = useRemoveMutationCondition(syntheticRoleId);
+
+  const currentConditions = useMemo<StagedMutationCondition[]>(
+    () =>
+      (conditionsData?.mutation_conditions ?? []).map((c) => ({
+        id: c.id,
+        resourceType: c.resource_type,
+        resourcePattern: c.resource_pattern,
+        containerResourceType: c.container_resource_type,
+        containerResourcePattern: c.container_resource_pattern,
+        valueCondition: c.value_condition,
+        targetCondition: c.target_condition,
+      })),
+    [conditionsData],
+  );
+
   const currentIsAdmin = useMemo(
     () => Boolean(usersData?.users?.find((u) => u.username === username)?.is_admin),
     [usersData, username],
@@ -130,6 +183,7 @@ export const EditAccessModal = ({ open, onClose, username }: EditAccessModalProp
   const [roleValue, setRoleValue] = useState<RoleAssignmentValue>(ROLE_ASSIGNMENT_DEFAULT);
   const [directPermissions, setDirectPermissions] = useState<StagedDirectPermission[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [conditions, setConditions] = useState<StagedMutationCondition[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Reported by ``DirectPermissionsSection`` whenever the in-progress
@@ -138,11 +192,28 @@ export const EditAccessModal = ({ open, onClose, username }: EditAccessModalProp
   // can't silently abandon a partially filled permission — but the button
   // itself stays enabled and the admin can always click through.
   const [hasUnsavedDirectDraft, setHasUnsavedDirectDraft] = useState(false);
+  const [hasUnsavedConditionDraft, setHasUnsavedConditionDraft] = useState(false);
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
 
   const workspaceOptions = useWorkspaceOptions(workspaces);
 
-  const stateLoaded = !rolesLoading && !usersLoading;
+  // The conditions query is keyed on the synthetic role id, which comes out of the ROLES
+  // response -- so it cannot start until the roles query resolves, which is the very
+  // moment the other two flags go quiet. Leaving it out of the gate meant the pre-fill
+  // always ran against an empty condition list and then latched `filledForWorkspaceRef`,
+  // so the real conditions never reached editable state and the diff read them as removed.
+  //
+  // `isLoading` alone is not the right flag: a DISABLED react-query v4 query reports
+  // `isLoading: true` forever, and the query is disabled whenever the user has no
+  // synthetic role. In that case there is no role to carry conditions, so `[]` is the
+  // true answer and the modal is ready immediately.
+  const conditionsReady = !Number.isFinite(syntheticRoleId) || conditionsData !== undefined || Boolean(conditionsError);
+  const stateLoaded = !rolesLoading && !usersLoading && conditionsReady;
+
+  // An errored fetch is an UNKNOWN list, not an empty one. Either query failing blocks the
+  // form for the same reason: an empty pre-fill would masquerade as the user's real access,
+  // and applying it would silently strip what failed to load.
+  const loadError = rolesError ?? conditionsError;
 
   // ``filledForWorkspaceRef`` tracks which workspace's data was last pre-filled
   // into editable state. The pre-fill effect re-runs when this stops matching
@@ -190,8 +261,9 @@ export const EditAccessModal = ({ open, onClose, username }: EditAccessModalProp
       setIsAdmin(currentIsAdmin);
     }
     setDirectPermissions([...currentDirectPerms]);
+    setConditions([...currentConditions]);
     filledForWorkspaceRef.current = grantWorkspace;
-  }, [open, stateLoaded, grantWorkspace, currentRoleIds, currentDirectPerms, currentIsAdmin]);
+  }, [open, stateLoaded, grantWorkspace, currentRoleIds, currentDirectPerms, currentConditions, currentIsAdmin]);
 
   // --- Diff computation ---
   const diff = useMemo<AccessDiff>(() => {
@@ -205,12 +277,28 @@ export const EditAccessModal = ({ open, onClose, username }: EditAccessModalProp
     const directToGrant = directPermissions.filter((p) => !currentDirectKeys.has(directPermKey(p)));
     const directToRevoke = currentDirectPerms.filter((p) => !desiredDirectKeys.has(directPermKey(p)));
 
+    const desiredConditionKeys = new Set(conditions.map(conditionKey));
+    const conditionsToAdd = conditions.filter((c) => c.id == null);
+    const conditionIdsToRemove = currentConditions
+      .filter((c) => c.id != null && !desiredConditionKeys.has(conditionKey(c)))
+      .map((c) => c.id as number);
+
     const adminChange = isCurrentUserAdmin && isAdmin !== currentIsAdmin;
 
-    return { rolesToAssign, rolesToUnassign, directToGrant, directToRevoke, adminChange };
+    return {
+      rolesToAssign,
+      rolesToUnassign,
+      directToGrant,
+      directToRevoke,
+      adminChange,
+      conditionsToAdd,
+      conditionIdsToRemove,
+    };
   }, [
     currentRoleIds,
     currentDirectPerms,
+    conditions,
+    currentConditions,
     currentIsAdmin,
     roleValue.roleIds,
     directPermissions,
@@ -223,7 +311,9 @@ export const EditAccessModal = ({ open, onClose, username }: EditAccessModalProp
     diff.rolesToUnassign.length > 0 ||
     diff.directToGrant.length > 0 ||
     diff.directToRevoke.length > 0 ||
-    diff.adminChange;
+    diff.adminChange ||
+    diff.conditionsToAdd.length > 0 ||
+    diff.conditionIdsToRemove.length > 0;
 
   const roleNameById = useMemo(() => {
     const map = new Map<number, { name: string; workspace: string }>();
@@ -254,25 +344,62 @@ export const EditAccessModal = ({ open, onClose, username }: EditAccessModalProp
     setSubmitting(true);
     const failures: string[] = [];
 
-    // 1. Admin status (do this first so a failed promotion shows up before
-    // any role changes that may depend on the new privilege).
-    if (diff.adminChange) {
+    // The order of these steps is a safety property, not housekeeping. Grants add access
+    // and conditions subtract it, so at no point may capability exist without the
+    // restriction the admin paired with it. That gives two rules:
+    //
+    //   - a restriction is created BEFORE the capability it narrows, and if it fails the
+    //     capability is not granted at all;
+    //   - a capability is removed BEFORE the restriction that was covering it, and if the
+    //     removal fails the restriction stays in place.
+    //
+    // Each step is still best-effort within itself -- these are separate requests with no
+    // transaction -- so the gates are what keep a partial failure fail-closed.
+
+    // 1. Conditions to add, first of everything.
+    for (const c of diff.conditionsToAdd) {
       try {
-        await AdminApi.updateAdmin({ username, is_admin: isAdmin });
-        queryClient.invalidateQueries({ queryKey: AdminQueryKeys.users });
+        const created = await addCondition.mutateAsync({
+          request: {
+            username,
+            resource_type: c.resourceType,
+            // The scope travels explicitly: an absent `resource_pattern` is normalised
+            // server-side to the wildcard, which silently widened a condition the admin
+            // had scoped to one resource into one covering the whole workspace.
+            resource_pattern: c.resourcePattern,
+            container_resource_type: c.containerResourceType,
+            container_resource_pattern: c.containerResourcePattern,
+            value_condition: c.valueCondition,
+            target_condition: c.targetCondition,
+          },
+          workspace: grantWorkspaceForRequest,
+        });
+        // Stamp the server-assigned id onto the staged row. The add list selects rows
+        // with no id, so this is what makes a retry idempotent: a later step failing
+        // leaves the modal open and re-submittable, and without the id this add
+        // replays. Every add allocates a fresh slot rather than deduplicating, so a
+        // replay leaves a duplicate restriction behind and spends the per-type limit --
+        // enough retries and later grants are refused for want of a slot.
+        const createdId = created?.mutation_conditions?.id;
+        if (createdId != null) {
+          setConditions((prev) => prev.map((s) => (s === c ? { ...s, id: createdId } : s)));
+        }
       } catch (e: any) {
-        failures.push(`${isAdmin ? 'Granting' : 'Revoking'} admin status failed: ${e?.message ?? 'unknown error'}`);
+        failures.push(`Adding condition ${formatStagedCondition(c)} failed: ${e?.message ?? 'unknown error'}`);
       }
     }
+    const restrictionsFailed = failures.length > 0;
 
-    // 2. Role assignments (assign new + unassign removed).
+    // 2. Capability REMOVALS. These only narrow access, so they are safe whatever else
+    // happened, and they must precede any condition removal below.
+    const failuresBeforeRemovals = failures.length;
     const roleIdsTouched = new Set<number>();
-    for (const roleId of diff.rolesToAssign) {
-      roleIdsTouched.add(roleId);
+    if (diff.adminChange && !isAdmin) {
       try {
-        await AdminApi.assignRole(username, roleId);
+        await AdminApi.updateAdmin({ username, is_admin: false });
+        queryClient.invalidateQueries({ queryKey: AdminQueryKeys.users });
       } catch (e: any) {
-        failures.push(`Assigning ${renderRoleId(roleId)} failed: ${e?.message ?? 'unknown error'}`);
+        failures.push(`Revoking admin status failed: ${e?.message ?? 'unknown error'}`);
       }
     }
     for (const roleId of diff.rolesToUnassign) {
@@ -281,32 +408,6 @@ export const EditAccessModal = ({ open, onClose, username }: EditAccessModalProp
         await AdminApi.unassignRole(username, roleId);
       } catch (e: any) {
         failures.push(`Unassigning ${renderRoleId(roleId)} failed: ${e?.message ?? 'unknown error'}`);
-      }
-    }
-    if (roleIdsTouched.size > 0) {
-      queryClient.invalidateQueries({ queryKey: AccountQueryKeys.userRoles(username) });
-      // The Admin Users tab eager-loads each user's roles via
-      // ``useUsersQuery``; invalidate so the per-row Roles cell refreshes.
-      queryClient.invalidateQueries({ queryKey: AdminQueryKeys.users });
-      for (const roleId of roleIdsTouched) {
-        queryClient.invalidateQueries({ queryKey: AdminQueryKeys.roleUsers(roleId) });
-      }
-    }
-
-    // 3. Direct permissions (grant new + revoke removed).
-    for (const p of diff.directToGrant) {
-      try {
-        await grantPermission.mutateAsync({
-          resource_type: p.resourceType,
-          resource_id: p.resourceId,
-          username,
-          permission: p.permission,
-          workspace: grantWorkspaceForRequest,
-        });
-      } catch (e: any) {
-        failures.push(
-          `Granting ${p.resourceType}:${p.resourceId} → ${p.permission} failed: ${e?.message ?? 'unknown error'}`,
-        );
       }
     }
     for (const p of diff.directToRevoke) {
@@ -323,19 +424,107 @@ export const EditAccessModal = ({ open, onClose, username }: EditAccessModalProp
         );
       }
     }
+    const capabilityRemovalFailed = failures.length > failuresBeforeRemovals;
+
+    // 3. Capability ADDITIONS, only once every staged restriction is in place. Granting
+    // here when step 1 failed would hand out exactly the unrestricted access the admin
+    // was trying to narrow.
+    if (!restrictionsFailed) {
+      // Admin first among the additions, so a failed promotion is reported before role
+      // changes that may depend on the new privilege.
+      if (diff.adminChange && isAdmin) {
+        try {
+          await AdminApi.updateAdmin({ username, is_admin: true });
+          queryClient.invalidateQueries({ queryKey: AdminQueryKeys.users });
+        } catch (e: any) {
+          failures.push(`Granting admin status failed: ${e?.message ?? 'unknown error'}`);
+        }
+      }
+      for (const roleId of diff.rolesToAssign) {
+        roleIdsTouched.add(roleId);
+        try {
+          await AdminApi.assignRole(username, roleId);
+        } catch (e: any) {
+          failures.push(`Assigning ${renderRoleId(roleId)} failed: ${e?.message ?? 'unknown error'}`);
+        }
+      }
+      for (const p of diff.directToGrant) {
+        try {
+          await grantPermission.mutateAsync({
+            resource_type: p.resourceType,
+            resource_id: p.resourceId,
+            username,
+            permission: p.permission,
+            workspace: grantWorkspaceForRequest,
+          });
+        } catch (e: any) {
+          failures.push(
+            `Granting ${p.resourceType}:${p.resourceId} → ${p.permission} failed: ${e?.message ?? 'unknown error'}`,
+          );
+        }
+      }
+    }
+    if (roleIdsTouched.size > 0) {
+      queryClient.invalidateQueries({ queryKey: AccountQueryKeys.userRoles(username) });
+      // The Admin Users tab eager-loads each user's roles via
+      // ``useUsersQuery``; invalidate so the per-row Roles cell refreshes.
+      queryClient.invalidateQueries({ queryKey: AdminQueryKeys.users });
+      for (const roleId of roleIdsTouched) {
+        queryClient.invalidateQueries({ queryKey: AdminQueryKeys.roleUsers(roleId) });
+      }
+    }
+
+    // 4. Condition removals, last. A restriction is only lifted once the capability it
+    // was covering is actually gone -- if a revoke above failed, dropping the condition
+    // would leave that grant live and unrestricted.
+    //
+    // `restrictionsFailed` is the second half of that: editing a condition is an ADD plus
+    // a REMOVE, so without it a failed add still dropped the old restriction and left the
+    // grant less restricted than before the edit. This also blocks a plain removal when an
+    // unrelated add failed -- the fail-closed direction, where the restriction stays in
+    // force and the admin retries.
+    if (!capabilityRemovalFailed && !restrictionsFailed) {
+      // A stored condition implies the role exists, so removal stays id-addressed.
+      for (const id of diff.conditionIdsToRemove) {
+        try {
+          await removeCondition.mutateAsync(id);
+        } catch (e: any) {
+          failures.push(`Removing condition #${id} failed: ${e?.message ?? 'unknown error'}`);
+        }
+      }
+    }
 
     if (failures.length === 0) {
       onClose();
       return;
     }
     setError(failures.join('\n'));
+    // A partial failure means editable state no longer matches what landed, so the modal
+    // re-seeds from the server by clearing the latch below. That re-seed has to read FRESH
+    // data: every mutation above invalidates without awaiting, so clearing the latch while
+    // a refetch is still in flight pre-fills the PRE-mutation list and then latches, and the
+    // arriving refetch is ignored because the latch now matches. A condition that really was
+    // created then reads as one the admin removed, and retrying grants the capability while
+    // deleting the restriction meant to narrow it.
+    //
+    // Awaiting both queries the pre-fill reads is what makes the re-seed truthful. The
+    // conditions query is skipped when the user has no synthetic role: it is disabled in
+    // that case, and the roles refetch is what makes it appear, after which ``conditionsReady``
+    // holds the pre-fill until the first fetch lands.
+    await queryClient.refetchQueries({ queryKey: AccountQueryKeys.userRoles(username) });
+    if (Number.isFinite(syntheticRoleId)) {
+      await queryClient.refetchQueries({ queryKey: AdminQueryKeys.roleConditions(syntheticRoleId) });
+    }
     filledForWorkspaceRef.current = null;
     setStep('edit');
     setSubmitting(false);
   }, [
     diff,
     isAdmin,
+    addCondition,
+    removeCondition,
     username,
+    syntheticRoleId,
     grantWorkspaceForRequest,
     queryClient,
     grantPermission,
@@ -365,14 +554,14 @@ export const EditAccessModal = ({ open, onClose, username }: EditAccessModalProp
               // go back and click Add, or knowingly drop the draft and
               // proceed to the review step.
               onClick={() => {
-                if (hasUnsavedDirectDraft) {
+                if (hasUnsavedDirectDraft || hasUnsavedConditionDraft) {
                   setShowDiscardConfirm(true);
                   return;
                 }
                 setError(null);
                 setStep('review');
               }}
-              disabled={!hasAnyChange || !stateLoaded || Boolean(rolesError)}
+              disabled={!hasAnyChange || !stateLoaded || Boolean(loadError)}
             >
               Review changes
             </Button>
@@ -434,15 +623,15 @@ export const EditAccessModal = ({ open, onClose, username }: EditAccessModalProp
             >
               <Spinner size="small" />
             </div>
-          ) : rolesError ? (
-            // Block the form on a failed roles fetch so the empty pre-fill
-            // doesn't masquerade as the user's actual access.
+          ) : loadError ? (
+            // Block the form on a failed roles OR conditions fetch so the empty
+            // pre-fill doesn't masquerade as the user's actual access.
             <Alert
               componentId="admin.edit_access_modal.roles_error"
               type="error"
               message="Failed to load access state"
               description={
-                (rolesError instanceof Error ? rolesError.message : null) ||
+                (loadError instanceof Error ? loadError.message : null) ||
                 `An error occurred while fetching the current access for ${username}. Close the modal and try again.`
               }
             />
@@ -498,6 +687,23 @@ export const EditAccessModal = ({ open, onClose, username }: EditAccessModalProp
                   workspace={grantWorkspaceForRequest}
                   disabled={submitting}
                   onUnsavedDraftChange={setHasUnsavedDirectDraft}
+                />
+              </LongFormSection>
+              <LongFormSection title="Direct mutation conditions" hideDivider={!isCurrentUserAdmin}>
+                <Typography.Text color="secondary" css={{ display: 'block', marginBottom: theme.spacing.sm }}>
+                  Current mutation conditions on this user's direct grants are pre-filled. Remove a row to drop it; use
+                  the form below to add more.
+                </Typography.Text>
+                {/* No pre-existing role needed: the add is addressed by username and the
+                    server creates the role backing the direct grants if it is absent, the
+                    same way granting a direct permission does. */}
+                <MutationConditionsSection
+                  key={String(open)}
+                  value={conditions}
+                  onChange={setConditions}
+                  workspace={grantWorkspaceForRequest}
+                  disabled={submitting}
+                  onUnsavedDraftChange={setHasUnsavedConditionDraft}
                 />
               </LongFormSection>
               {isCurrentUserAdmin && (
@@ -596,6 +802,17 @@ const ReviewSummary = ({
         title="Direct permissions to revoke"
         items={diff.directToRevoke.map(renderDirect)}
         emptyLabel="No direct permissions to revoke."
+      />
+      <DiffGroup
+        title="Direct mutation conditions to add"
+        items={diff.conditionsToAdd.map(formatStagedCondition)}
+        emptyLabel="No new mutation conditions."
+        addColor
+      />
+      <DiffGroup
+        title="Direct mutation conditions to remove"
+        items={diff.conditionIdsToRemove.map((id) => `condition #${id}`)}
+        emptyLabel="No mutation conditions to remove."
       />
       {diff.adminChange ? (
         <DiffGroup
