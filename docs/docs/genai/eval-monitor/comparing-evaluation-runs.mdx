@@ -97,6 +97,10 @@ result = mlflow.genai.compare_evaluations(
 )
 ```
 
+### When the interval and the p-value disagree
+
+The confidence interval and the p-value answer related but different questions, so they can disagree near the significance threshold. The interval is a bootstrap of the **mean** delta over all `n_paired` rows. The p-value comes from the **signed ranks** of the deltas (or, for binary scorers, from the discordant pairs), computed on the `n_nonzero` rows whose values differ: the tests ignore tied rows, the interval does not. An interval that excludes zero with a p-value above `alpha`, or the reverse, is therefore possible, in particular with many ties or a skewed delta distribution. `assert_improved` uses only `p_value` (and the sign of `diff`); the interval is reported for reading the size of the effect.
+
 ## Small samples
 
 A scorer with fewer than **6** paired rows is reported with `status="insufficient_pairs"` and no statistics. Six is the smallest sample at which the exact two-sided signed-rank p-value can fall below 0.05 (2 / 2<sup>6</sup> = 0.03125), so with fewer pairs no result could ever be significant. With 6 to 9 pairs the comparison is computed (`status="ok"`) but a warning is logged: the tests have little power and the bootstrap interval is unreliable at that size.

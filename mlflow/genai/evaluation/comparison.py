@@ -151,8 +151,8 @@ class ComparisonResult:
     def assert_improved(self, scorers: list[str] | None = None, alpha: float = 0.05) -> None:
         """
         Raise ``AssertionError`` unless every listed scorer improved significantly, i.e. moved
-        in its better direction with ``p_value < alpha``. A scorer with insufficient pairs is
-        treated as not improved.
+        in its better direction with ``p_value < alpha``. The confidence interval is not
+        consulted. A scorer with insufficient pairs is treated as not improved.
 
         Args:
             scorers: Names of the scorers to check. Defaults to all compared scorers, in which
