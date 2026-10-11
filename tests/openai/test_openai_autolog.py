@@ -361,11 +361,14 @@ async def test_chat_completions_autolog_streaming(client, include_usage):
     stream = client.chat.completions.create(**input_params)
 
     if client._is_async:
-        async for _ in await stream:
+        stream = await stream
+        async for _ in stream:
             pass
+        await stream.close()
     else:
         for _ in stream:
             pass
+        stream.close()
 
     trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     assert trace is not None
@@ -533,6 +536,56 @@ async def test_chat_completions_streaming_no_chunks(client):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("use_context_manager", [False, True])
+@pytest.mark.parametrize("num_chunks", [0, 1, 2])
+@pytest.mark.parametrize("api", ["chat", "completions"])
+async def test_completions_streaming_close(client, use_context_manager, num_chunks, api):
+    mlflow.openai.autolog()
+    if api == "chat":
+        stream = client.chat.completions.create(
+            messages=[{"role": "user", "content": "test"}], model="gpt-4o-mini", stream=True
+        )
+    else:
+        stream = client.completions.create(prompt="test", model="gpt-4o-mini", stream=True)
+
+    if client._is_async:
+        stream = await stream
+        if use_context_manager:
+            async with stream:
+                for _ in range(num_chunks):
+                    await anext(stream)
+        else:
+            for _ in range(num_chunks):
+                await anext(stream)
+            await stream.close()
+        await stream.close()
+    else:
+        if use_context_manager:
+            with stream:
+                for _ in range(num_chunks):
+                    next(stream)
+        else:
+            for _ in range(num_chunks):
+                next(stream)
+            stream.close()
+        stream.close()
+
+    assert stream.response.is_closed
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == "OK"
+    span = traces[0].data.spans[0]
+    assert len(span.events) == num_chunks
+    if num_chunks == 0:
+        assert span.outputs is None
+    else:
+        content = (
+            span.outputs["choices"][0]["message"]["content"] if api == "chat" else span.outputs
+        )
+        assert content == ("Hello" if num_chunks == 1 else "Hello world")
+
+
+@pytest.mark.asyncio
 async def test_chat_completions_streaming_error_mid_stream(client):
     mlflow.openai.autolog()
     stream = client.chat.completions.create(
@@ -540,14 +593,21 @@ async def test_chat_completions_streaming_error_mid_stream(client):
         model="gpt-4o-mini",
         stream=True,
     )
+    if client._is_async:
+        stream = await stream
 
     async def consume():
         if client._is_async:
-            return [chunk async for chunk in await stream]
+            return [chunk async for chunk in stream]
         return list(stream)
 
     with pytest.raises(openai.APIError, match="Server overloaded"):
         await consume()
+
+    if client._is_async:
+        await stream.close()
+    else:
+        stream.close()
 
     trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     assert trace.info.status == "ERROR"
