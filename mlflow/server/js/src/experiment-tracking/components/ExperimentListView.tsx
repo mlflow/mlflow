@@ -90,6 +90,8 @@ export const ExperimentListView = () => {
   const checkedKeys = Object.entries(rowSelection)
     .filter(([_, value]) => value)
     .map(([key, _]) => key);
+  // Row selection survives search and pagination, so only checked experiments in the current list can be deleted
+  const experimentsToDelete = (experiments ?? []).filter(({ experimentId }) => checkedKeys.includes(experimentId));
 
   const isEmptyState = !isLoading && !error && !experiments?.length && !searchFilter && !tagsFilter.length;
   // creation is disabled if workspaces are enabled and a workspace is not selected
@@ -148,7 +150,7 @@ export const ExperimentListView = () => {
                 componentId="mlflow.experiment_list_view.bulk_delete_button"
                 onClick={() => setShowBulkDeleteExperimentModal(true)}
                 data-testid="delete-experiments-button"
-                disabled={checkedKeys.length < 1}
+                disabled={experimentsToDelete.length < 1}
                 danger
               >
                 <FormattedMessage
@@ -241,7 +243,7 @@ export const ExperimentListView = () => {
         onExperimentCreated={invalidateExperimentList}
       />
       <BulkDeleteExperimentModal
-        experiments={(experiments ?? []).filter(({ experimentId }) => checkedKeys.includes(experimentId))}
+        experiments={experimentsToDelete}
         isOpen={showBulkDeleteExperimentModal}
         onClose={() => setShowBulkDeleteExperimentModal(false)}
         onExperimentsDeleted={() => {

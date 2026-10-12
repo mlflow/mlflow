@@ -136,3 +136,27 @@ test('Tag filter button shows no count when no filters are applied', () => {
   expect(tagButton).toBeInTheDocument();
   expect(tagButton).not.toHaveTextContent('·');
 });
+
+test('Delete button is disabled when checked experiments are hidden by the search filter', async () => {
+  const experiments = [
+    Fixtures.createExperiment({ experimentId: '1', name: 'alpha-exp' }),
+    Fixtures.createExperiment({ experimentId: '2', name: 'beta-exp' }),
+  ];
+  mountComponent({ experiments: [] });
+  const baseQueryResult = jest.mocked(useExperimentListQuery)({ searchFilter: '', tagsFilter: [] });
+  jest.mocked(useExperimentListQuery).mockImplementation((params) => ({
+    ...baseQueryResult,
+    data: experiments.filter(({ name }) => name.includes(params?.searchFilter ?? '')),
+  }));
+
+  await userEvent.type(screen.getByTestId('search-experiment-input'), 'alpha{Enter}');
+  await userEvent.click(screen.getByTestId('experiment-list-item-check-box'));
+  expect(screen.getByTestId('delete-experiments-button')).toBeEnabled();
+
+  await userEvent.clear(screen.getByTestId('search-experiment-input'));
+  await userEvent.type(screen.getByTestId('search-experiment-input'), 'beta{Enter}');
+  expect(await screen.findByText('beta-exp')).toBeInTheDocument();
+  expect(screen.queryByText('alpha-exp')).not.toBeInTheDocument();
+  expect(screen.getByTestId('delete-experiments-button')).toBeDisabled();
+  expect(screen.getByTestId('compare-experiment-button')).toBeDisabled();
+});
