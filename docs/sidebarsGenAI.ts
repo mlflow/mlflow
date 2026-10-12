@@ -879,7 +879,7 @@ const sidebarsGenAI: SidebarsConfig = {
                 {
                   type: 'doc',
                   id: 'eval-monitor/scorers/custom/job-containers',
-                  label: 'Run in Job Containers',
+                  label: 'Run in Job Containers (Experimental)',
                 },
               ],
               collapsed: false,
