@@ -15,9 +15,6 @@ Extract from the issue:
 If the issue lacks what you need, still try a best-effort reproduction from what is there,
 and list the missing details in the comment.
 
-If the issue involves the UI, start the servers from "Running the UI" in `SKILL.md` now, before
-investigating further.
-
 ## 2. Reproduce
 
 Trigger the bug in whatever form fits it: a CLI command, a short Python snippet, a request to a
