@@ -113,6 +113,7 @@ class EvalItem:
         Returns:
             An EvalItem with the trace set, request_id from the trace, and the inputs and outputs
             of the trace's root span, as ``mlflow.genai.evaluate`` takes them from a trace.
+            Unlike ``mlflow.genai.evaluate``, it does not take expectations from the trace.
         """
         root_span = trace.data._get_root_span()
         return cls(
