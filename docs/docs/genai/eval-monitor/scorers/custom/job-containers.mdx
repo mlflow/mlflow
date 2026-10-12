@@ -23,9 +23,9 @@ The server still finds and samples the traces, and it checks and logs the result
 
 Scorers defined with the [`Scorer` class](/genai/eval-monitor/scorers/custom/#define-scorers-with-the-scorer-class) are not supported.
 
-:::warning[Other jobs still run scorer code in the server]
+:::warning[Other jobs still run scorer code on the server host]
 
-Setting up job containers requires `MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS=true`. With that setting, jobs that job containers do not support still run code-based scorers in the server's own process. Examples are evaluations started from the MLflow UI, and UI scorer runs of an ensemble that mixes code-based scorers with LLM judges. Enable this setting only if you trust the people who can register scorers on the server.
+Setting up job containers requires `MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS=true`. With that setting, jobs that job containers do not support still run code-based scorers on the server host, outside any container. Examples are evaluations started from the MLflow UI, and UI scorer runs of an ensemble that mixes code-based scorers with LLM judges. Enable this setting only if you trust the people who can register scorers on the server.
 
 :::
 
@@ -75,7 +75,7 @@ If the image you set is not present locally, the job runner pulls it when it sta
 
 ## Turn on automatic evaluation for a code-based scorer
 
-Register the scorer and start it with <APILink fn="mlflow.genai.scorers.Scorer.start" />, as you would for an [LLM judge](/genai/eval-monitor/automatic-evaluations). `start()` returns the scorer, which loads the scorer's code on the client, so set `MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS=true` where you run this code, too. Without it, `start()` turns on automatic evaluation and then raises an error.
+Register the scorer and start it with <APILink fn="mlflow.genai.Scorer.start" />, as you would for an [LLM judge](/genai/eval-monitor/automatic-evaluations). `start()` returns the scorer, which loads the scorer's code on the client, so set `MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS=true` where you run this code, too. Without it, `start()` turns on automatic evaluation and then raises an error.
 
 ```python
 import mlflow
@@ -109,7 +109,7 @@ Scorer code in a job container runs with these limits:
 - **One scorer at a time.** Automatic evaluation does not accept an ensemble that includes code-based scorers.
 - **CPU and memory.** By default, each container gets 1 CPU and 1 GiB of memory. To change this, set `MLFLOW_JOB_RESOURCE_LIMITS_<job name>` to a JSON object such as `{"cpu": "2", "memory": "2Gi"}`. The job names are `run_online_trace_scorer` and `run_online_session_scorer` for automatic evaluation, and `invoke_scorer` for scorer runs started from the UI.
 - **Time.** Each job has a time limit, `MLFLOW_SERVER_JOB_DEFAULT_TIMEOUT` (default 3600 seconds).
-  - A scorer run started from the UI is split into jobs of up to `MLFLOW_SERVER_SCORER_INVOKE_BATCH_SIZE` traces (default 100), and each job runs one container.
+  - A scorer run started from the UI is split into jobs of up to `MLFLOW_SERVER_SCORER_INVOKE_BATCH_SIZE` traces (default 100), or one job per session for a session-level scorer. Each job runs one container.
   - An online scoring job runs its scorers one batch at a time: up to `MLFLOW_SERVER_SCORER_INVOKE_BATCH_SIZE` traces for a trace-level scorer, or one session for a session-level scorer. The batches share the job's time limit, and each batch gets at most half of it.
 - **Output size.** Each file that the scorer writes is limited to 64 MiB, and the scorer's result to 8 MiB.
 
