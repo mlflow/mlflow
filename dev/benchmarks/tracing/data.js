@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791783339672,
+  "lastUpdate": 1791791499469,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "mauryanikita260506@gmail.com",
-            "name": "Nikita Maurya",
-            "username": "sun-andsky"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "66f18f780b0feca2cc84c6e53963a5edcfeb5ab2",
-          "message": "Handle TypeError in dump_span_attribute_value fallback (#24361)\n\nSigned-off-by: sun-andsky <mauryanikita260506@gmail.com>\nSigned-off-by: joshuawong-db <joshua.wong@databricks.com>\nCo-authored-by: joshuawong-db <joshua.wong@databricks.com>",
-          "timestamp": "2026-07-12T08:23:39Z",
-          "tree_id": "095882e04e38b53d19fbdfef94b04a0f47620e83",
-          "url": "https://github.com/mlflow/mlflow/commit/66f18f780b0feca2cc84c6e53963a5edcfeb5ab2"
-        },
-        "date": 1783844852557,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 44.83651380000069,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 30.542325848484765,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 26.70083085714354,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 25.59242263461615,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 27.102090963635884,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 27.36457700000301,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 23.903493799997477,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "84737625+kriscon-db@users.noreply.github.com",
+            "name": "Kris Concepcion",
+            "username": "kriscon-db"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "36a1db06116fdd988739154cf99b069664975791",
+          "message": "Add an experimental `docker` job executor for custom scorer runs (#26430)\n\nSigned-off-by: Kris Concepcion <kris.concepcion@databricks.com>\nCo-authored-by: Isaac <no-reply@databricks.com>",
+          "timestamp": "2026-10-12T07:48:18Z",
+          "tree_id": "b6c2719d373a87952c02055fce6269ce5ff69dc8",
+          "url": "https://github.com/mlflow/mlflow/commit/36a1db06116fdd988739154cf99b069664975791"
+        },
+        "date": 1791791495533,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 44.71725010000114,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 4.693589506667688,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 4.194985122092665,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 3.992394405715263,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 5.365731266272127,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 4.478675142859093,
             "unit": "ms"
           }
         ]
