@@ -803,6 +803,30 @@ def _validate_organization_name(organization):
     _validate_length_limit("Organization name", MAX_ORGANIZATION_NAME_LENGTH, organization)
 
 
+def _parse_skill_identities(identities: list[str] | None) -> list[tuple[str, str]] | None:
+    """Validate a search selector and resolve ``name`` or ``@organization/name`` identities."""
+    if identities is None:
+        return None
+    if not isinstance(identities, list) or any(not isinstance(key, str) for key in identities):
+        raise MlflowException.invalid_parameter_value(
+            "include_skill_identities must be a list of Skill identity strings."
+        )
+    result = []
+    for identity in identities:
+        organization = ""
+        name = identity
+        if identity.startswith("@"):
+            organization, separator, name = identity[1:].partition("/")
+            if not separator or not organization:
+                raise MlflowException.invalid_parameter_value(
+                    "Skill identities must be 'name' or '@organization/name'."
+                )
+        _validate_organization_name(organization)
+        _validate_skill_name(name)
+        result.append((organization, name))
+    return result
+
+
 def _validate_skill_version(version):
     if (
         isinstance(version, bool)
