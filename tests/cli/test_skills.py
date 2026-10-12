@@ -405,6 +405,26 @@ def test_get_version_command_uses_alias(runner, mock_mlflow_client):
     )
 
 
+@pytest.mark.parametrize(
+    "arguments",
+    [
+        ["skills:/@acme/code-review@latest"],
+        ["--skill-uri", "skills:/@acme/code-review@latest"],
+    ],
+)
+def test_get_version_command_uses_latest_alias(runner, mock_mlflow_client, arguments):
+    mock_mlflow_client.get_skill_version_by_alias.return_value = SkillVersion(
+        name="code-review", organization="acme", version=2
+    )
+
+    result = runner.invoke(commands, ["get-version", *arguments])
+
+    assert result.exit_code == 0, result.output
+    mock_mlflow_client.get_skill_version_by_alias.assert_called_once_with(
+        name="code-review", alias="latest", organization="acme"
+    )
+
+
 def test_get_version_command_uses_latest_for_parent_uri(runner, mock_mlflow_client):
     mock_mlflow_client.get_latest_skill_version.return_value = SkillVersion(
         name="code-review", version=2
