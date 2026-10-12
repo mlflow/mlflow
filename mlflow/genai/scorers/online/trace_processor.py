@@ -4,6 +4,7 @@ import logging
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from mlflow.entities import Trace
 from mlflow.environment_variables import (
@@ -11,7 +12,8 @@ from mlflow.environment_variables import (
     MLFLOW_GENAI_EVAL_PREDICT_RATE_LIMIT,
     MLFLOW_ONLINE_SCORING_MAX_WORKER_THREADS,
 )
-from mlflow.genai.scorers.base import Scorer
+from mlflow.exceptions import MlflowException
+from mlflow.genai.scorers.base import Scorer, _serialized_scorer_is_custom_code
 from mlflow.genai.scorers.online.constants import EXCLUDE_EVAL_RUN_TRACES_FILTER, MAX_TRACES_PER_JOB
 from mlflow.genai.scorers.online.entities import OnlineScorer
 from mlflow.genai.scorers.online.sampler import OnlineScorerSampler
@@ -21,6 +23,11 @@ from mlflow.genai.scorers.online.trace_checkpointer import (
 )
 from mlflow.genai.scorers.online.trace_loader import OnlineTraceLoader
 from mlflow.store.tracking.abstract_store import AbstractStore
+
+if TYPE_CHECKING:
+    # Type-only: importing the job container code here would import the server's job package,
+    # which imports this module back through the tracking store.
+    from mlflow.genai.scorers.online.container_scoring import OnlineContainerScorer
 
 _logger = logging.getLogger(__name__)
 
@@ -43,11 +50,13 @@ class OnlineTraceScoringProcessor:
         checkpoint_manager: OnlineTraceCheckpointManager,
         sampler: OnlineScorerSampler,
         experiment_id: str,
+        container_scorer: "OnlineContainerScorer | None" = None,
     ):
         self._trace_loader = trace_loader
         self._checkpoint_manager = checkpoint_manager
         self._sampler = sampler
         self._experiment_id = experiment_id
+        self._container_scorer = container_scorer
 
     @classmethod
     def create(
@@ -55,6 +64,7 @@ class OnlineTraceScoringProcessor:
         experiment_id: str,
         online_scorers: list[OnlineScorer],
         tracking_store: AbstractStore,
+        container_scorer: "OnlineContainerScorer | None" = None,
     ) -> "OnlineTraceScoringProcessor":
         """
         Factory method to create an OnlineTraceScoringProcessor with dependencies.
@@ -63,6 +73,8 @@ class OnlineTraceScoringProcessor:
             experiment_id: The experiment ID to process traces from.
             online_scorers: List of OnlineScorer instances.
             tracking_store: The tracking store instance.
+            container_scorer: If given, custom ``@scorer`` scorers run in job containers through
+                it, and their code never runs in this process.
 
         Returns:
             Configured OnlineTraceScoringProcessor instance.
@@ -70,8 +82,11 @@ class OnlineTraceScoringProcessor:
         return cls(
             trace_loader=OnlineTraceLoader(tracking_store),
             checkpoint_manager=OnlineTraceCheckpointManager(tracking_store, experiment_id),
-            sampler=OnlineScorerSampler(online_scorers),
+            sampler=OnlineScorerSampler(
+                online_scorers, run_custom_scorers_on_host=container_scorer is None
+            ),
             experiment_id=experiment_id,
+            container_scorer=container_scorer,
         )
 
     def process_traces(self) -> None:
@@ -263,12 +278,50 @@ class OnlineTraceScoringProcessor:
                 exc_info=_logger.isEnabledFor(logging.DEBUG),
             )
 
-    def _execute_scoring(
-        self,
-        tasks: dict[str, TraceScoringTask],
-    ) -> None:
+    def _execute_scoring(self, tasks: dict[str, TraceScoringTask]) -> None:
         """
-        Execute trace scoring tasks in parallel.
+        Execute trace scoring tasks: custom scorers in job containers when a container scorer is
+        set, and all other scorers in parallel in this process.
+
+        Args:
+            tasks: Trace-level scoring tasks.
+        """
+        if self._container_scorer is None:
+            self._execute_scoring_on_host(tasks)
+            return
+
+        host_tasks: dict[str, TraceScoringTask] = {}
+        container_work: dict[str, tuple[OnlineScorer, list[Trace]]] = {}
+        for trace_id, task in tasks.items():
+            if task.trace is None:
+                _logger.warning(f"Skipping task with no trace for trace_id: {trace_id}")
+                continue
+            host_scorers = []
+            for scorer in task.scorers:
+                online_scorer = self._sampler.online_scorer(scorer.name)
+                if _serialized_scorer_is_custom_code(online_scorer.serialized_scorer):
+                    container_work.setdefault(scorer.name, (online_scorer, []))[1].append(
+                        task.trace
+                    )
+                else:
+                    host_scorers.append(scorer)
+            if host_scorers:
+                host_tasks[trace_id] = TraceScoringTask(
+                    trace=task.trace, scorers=host_scorers, timestamp_ms=task.timestamp_ms
+                )
+
+        self._execute_scoring_on_host(host_tasks)
+
+        def on_failure(online_scorer: OnlineScorer, traces: list[Trace], error: str) -> None:
+            scorer = self._sampler.scorer(online_scorer.name)
+            for trace in traces:
+                self._log_error_assessments(MlflowException(error), [scorer], trace)
+
+        self._container_scorer.score(list(container_work.values()), on_failure)
+
+    def _execute_scoring_on_host(self, tasks: dict[str, TraceScoringTask]) -> None:
+        """
+        Execute trace scoring tasks in parallel in this process.
 
         Args:
             tasks: Trace-level scoring tasks.

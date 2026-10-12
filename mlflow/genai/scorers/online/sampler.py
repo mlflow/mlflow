@@ -5,7 +5,14 @@ import logging
 from collections import defaultdict
 from typing import TYPE_CHECKING
 
-from mlflow.genai.scorers.base import SCORER_BACKEND_TRACKING, Scorer, ScorerSamplingConfig
+from mlflow.genai.scorers.base import (
+    SCORER_BACKEND_TRACKING,
+    Scorer,
+    ScorerSamplingConfig,
+    SerializedScorer,
+    _serialized_scorer_is_custom_code,
+)
+from mlflow.genai.scorers.scorer_utils import _parse_serialized_scorer
 
 if TYPE_CHECKING:
     from mlflow.genai.scorers.online.entities import OnlineScorer
@@ -22,13 +29,23 @@ class OnlineScorerSampler:
     - Use conditional probability: if a scorer is rejected, skip all lower-rate scorers
     """
 
-    def __init__(self, online_scorers: list["OnlineScorer"]):
+    def __init__(self, online_scorers: list["OnlineScorer"], run_custom_scorers_on_host=True):
+        """
+        Args:
+            online_scorers: The scorers to sample from.
+            run_custom_scorers_on_host: If False, custom ``@scorer`` scorers are loaded without
+                running their code (which then runs in a job container, see
+                ``OnlineContainerScorer``), and custom scorer ensembles are skipped.
+        """
         self._online_scorers = online_scorers
+        self._online_scorers_by_name = {s.name: s for s in online_scorers}
         self._sample_rates: dict[str, float] = {}
         self._scorers: dict[str, Scorer] = {}
         for online_scorer in online_scorers:
             try:
-                scorer = Scorer.model_validate_json(online_scorer.serialized_scorer)
+                scorer = self._load_scorer(online_scorer, run_custom_scorers_on_host)
+                if scorer is None:
+                    continue
                 scorer._set_registration_metadata(
                     backend=SCORER_BACKEND_TRACKING,
                     experiment_id=online_scorer.online_config.experiment_id,
@@ -44,6 +61,34 @@ class OnlineScorerSampler:
                 _logger.info(
                     f"Failed to load scorer '{online_scorer.name}'; scorer will be skipped: {e}"
                 )
+
+    @staticmethod
+    def _load_scorer(
+        online_scorer: "OnlineScorer", run_custom_scorers_on_host: bool
+    ) -> Scorer | None:
+        if run_custom_scorers_on_host or not _serialized_scorer_is_custom_code(
+            online_scorer.serialized_scorer
+        ):
+            return Scorer.model_validate_json(online_scorer.serialized_scorer)
+        serialized = SerializedScorer.from_dict(
+            _parse_serialized_scorer(online_scorer.serialized_scorer)
+        )
+        if not serialized.call_source:
+            _logger.warning(
+                f"Skipping scorer '{online_scorer.name}': ensembles that include custom scorers "
+                "are not supported when custom scorers run in a job container."
+            )
+            return None
+        # Never runs the scorer's code: it runs in a job container instead.
+        return Scorer._deserialize_decorator_scorer_metadata(serialized)
+
+    def online_scorer(self, name: str) -> "OnlineScorer":
+        """The online scorer a sampled scorer was loaded from."""
+        return self._online_scorers_by_name[name]
+
+    def scorer(self, name: str) -> Scorer:
+        """The loaded scorer with this name."""
+        return self._scorers[name]
 
     def group_scorers_by_filter(self, session_level: bool) -> dict[str | None, list[Scorer]]:
         """

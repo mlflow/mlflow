@@ -34,10 +34,6 @@ from pathlib import Path
 from typing import Any
 
 from mlflow.entities._job_status import JobStatus
-from mlflow.environment_variables import (
-    MLFLOW_JOB_IMAGE,
-    MLFLOW_JOBS_DOCKER_HOST,
-)
 from mlflow.exceptions import MlflowException
 from mlflow.server.jobs.executor import (
     AbstractJobExecutor,
@@ -52,18 +48,19 @@ from mlflow.server.jobs.job_container import (
     DockerJobPlan,
     _container_labels,
     _declared_resource_limits,
-    _default_image,
     _resource_limits,
     job_container_environment,
+    job_docker_client,
+    job_image,
     job_result_from_container,
     make_job_container_dirs,
+    prepare_job_image,
     remove_job_containers,
     run_job_container,
     write_transient_error_classes,
 )
 from mlflow.server.jobs.utils import _load_function
 from mlflow.server.sandbox.container import (
-    _ensure_image,
     _is_read_timeout,
     _kill_quietly,
     _remove_quietly,
@@ -124,10 +121,7 @@ class DockerJobExecutor(AbstractJobExecutor):
     def _get_client(self):
         with self._client_lock:
             if self._client is None:
-                import docker
-
-                host = MLFLOW_JOBS_DOCKER_HOST.get()
-                self._client = docker.DockerClient(base_url=host) if host else docker.from_env()
+                self._client = job_docker_client()
             return self._client
 
     def check_requirements(self) -> None:
@@ -189,20 +183,10 @@ class DockerJobExecutor(AbstractJobExecutor):
             self._remove_container(job, kill=True)
 
     def _image(self) -> str:
-        return MLFLOW_JOB_IMAGE.get() or _default_image()
+        return job_image()
 
     def _prepare_image(self) -> None:
-        import docker.errors
-
-        client = self._get_client()
-        if configured := MLFLOW_JOB_IMAGE.get():
-            try:
-                client.images.get(configured)
-            except docker.errors.ImageNotFound:
-                _logger.info("Pulling job image %s", configured)
-                client.images.pull(configured)
-        else:
-            _ensure_image(client, _default_image())
+        prepare_job_image(self._get_client())
 
     def submit_job(
         self,

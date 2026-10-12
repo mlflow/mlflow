@@ -19,7 +19,11 @@ from typing import Any, Callable
 
 import mlflow
 from mlflow.entities._job_status import JobStatus
-from mlflow.environment_variables import MLFLOW_JOB_EXTRA_LABELS
+from mlflow.environment_variables import (
+    MLFLOW_JOB_EXTRA_LABELS,
+    MLFLOW_JOB_IMAGE,
+    MLFLOW_JOBS_DOCKER_HOST,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.server.jobs.executor import JobResult
 from mlflow.server.jobs.utils import (
@@ -34,6 +38,7 @@ from mlflow.server.jobs.utils import (
 )
 from mlflow.server.sandbox.container import (
     _PIDS_LIMIT,
+    _ensure_image,
     _is_read_timeout,
     _kill_quietly,
     _remove_quietly,
@@ -246,6 +251,33 @@ def _log_tail(container) -> str:
     except Exception:
         return ""
     return logs.decode("utf-8", errors="replace")[-_LOG_TAIL_BYTES:]
+
+
+def job_docker_client():
+    """A Docker client for job containers (``MLFLOW_JOBS_DOCKER_HOST``, else the environment's)."""
+    import docker
+
+    host = MLFLOW_JOBS_DOCKER_HOST.get()
+    return docker.DockerClient(base_url=host) if host else docker.from_env()
+
+
+def job_image() -> str:
+    """The image job containers run (``MLFLOW_JOB_IMAGE``, else a minimal default image)."""
+    return MLFLOW_JOB_IMAGE.get() or _default_image()
+
+
+def prepare_job_image(client) -> None:
+    """Make sure the job image is present: pull a configured one, or build the default one."""
+    import docker.errors
+
+    if configured := MLFLOW_JOB_IMAGE.get():
+        try:
+            client.images.get(configured)
+        except docker.errors.ImageNotFound:
+            _logger.info("Pulling job image %s", configured)
+            client.images.pull(configured)
+    else:
+        _ensure_image(client, _default_image())
 
 
 def make_job_container_dirs(workdir: Path) -> tuple[Path, Path]:

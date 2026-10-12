@@ -38,6 +38,10 @@ from mlflow.genai.scorers.online import (
     OnlineSessionScoringProcessor,
     OnlineTraceScoringProcessor,
 )
+from mlflow.genai.scorers.online.container_scoring import (
+    OnlineContainerScorer,
+    container_scoring_enabled,
+)
 from mlflow.genai.scorers.online.trace_loader import OnlineTraceLoader
 from mlflow.genai.scorers.scorer_utils import (
     _parse_serialized_scorer,
@@ -114,6 +118,14 @@ def run_online_trace_scorer_job(
     ]
 
     tracking_store = _get_tracking_store()
+    if container_scoring_enabled():
+        # Custom scorers run in job containers, so their code is never loaded in this process.
+        container_scorer = OnlineContainerScorer(experiment_id, ONLINE_TRACE_SCORER_JOB_NAME)
+        processor = OnlineTraceScoringProcessor.create(
+            experiment_id, scorer_objects, tracking_store, container_scorer=container_scorer
+        )
+        processor.process_traces()
+        return
     # Reconstructing custom scorers executes their code, which is permitted only in the executor.
     with _job_executor_scorer_context():
         processor = OnlineTraceScoringProcessor.create(
