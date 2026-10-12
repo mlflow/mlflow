@@ -34,6 +34,7 @@ from mlflow.genai.evaluation.harness import (
     backpressure_buffer,
 )
 from mlflow.genai.evaluation.rate_limiter import RPSRateLimiter
+from mlflow.genai.scorers import get_scorer
 from mlflow.genai.scorers.base import SCORER_BACKEND_TRACKING, scorer
 from mlflow.genai.scorers.builtin_scorers import RelevanceToQuery
 from mlflow.genai.scorers.scorer_utils import get_scorer_definition_digest
@@ -2463,3 +2464,21 @@ def test_evaluate_succeeds_when_lineage_fails():
         result = mlflow.genai.evaluate(data=data, scorers=[has_output])
 
     assert MLFLOW_GENAI_EVALUATE_SCORERS_DIGEST not in mlflow.get_run(result.run_id).data.tags
+
+
+def test_evaluate_does_not_freeze_the_scorer_definition_for_register(monkeypatch):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS", "true")
+    experiment_id = mlflow.create_experiment("register-after-evaluate")
+
+    @scorer
+    def edited_scorer(outputs):
+        return True
+
+    mlflow.genai.evaluate(data=[{"inputs": {"q": "a"}, "outputs": "b"}], scorers=[edited_scorer])
+    edited_scorer.description = "updated description"
+    edited_scorer.aggregations = ["max"]
+    edited_scorer.register(experiment_id=experiment_id)
+
+    loaded = get_scorer(name="edited_scorer", experiment_id=experiment_id)
+    assert loaded.description == "updated description"
+    assert loaded.aggregations == ["max"]

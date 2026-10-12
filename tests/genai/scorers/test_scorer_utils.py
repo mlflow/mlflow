@@ -936,6 +936,25 @@ def test_definition_digest_matches_after_a_registry_round_trip(make_scorer, monk
     assert get_scorer_definition_digest(loaded) == get_scorer_definition_digest(make_scorer())
 
 
+def test_definition_digest_changes_after_the_scorer_is_edited():
+    check = _check_scorer()
+    digest = get_scorer_definition_digest(check)
+
+    check.description = "Checks that there is an output."
+
+    assert get_scorer_definition_digest(check) != digest
+
+
+def test_definition_digest_leaves_scorer_caches_unchanged():
+    check = _check_scorer()
+    ensemble = make_scorer_ensemble(name="ensemble", scorers=[check], ensemble_fn="maximum")
+
+    get_scorer_definition_digest(check)
+    get_scorer_definition_digest(ensemble)
+
+    assert check._cached_dump is None
+
+
 def test_definition_digest_matches_a_legacy_dump_without_timeout():
     dump = _judge().model_dump()
     dump.pop("timeout")

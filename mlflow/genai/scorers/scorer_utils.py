@@ -511,6 +511,18 @@ def _drop_ignored_keys(value: Any) -> Any:
     return value
 
 
+def _model_dump_without_caching(scorer: Any) -> dict[str, Any]:
+    # `model_dump()` caches its result on the scorer and its ensemble sub-scorers, and `register()`
+    # reuses that cache. Restore it, so hashing doesn't freeze the definition at its first digest.
+    scorers = [s for s in [scorer, *getattr(scorer, "_scorers", [])] if hasattr(s, "_cached_dump")]
+    cached_dumps = [s._cached_dump for s in scorers]
+    try:
+        return scorer.model_dump()
+    finally:
+        for s, cached_dump in zip(scorers, cached_dumps):
+            s._cached_dump = cached_dump
+
+
 def get_scorer_definition_digest(scorer: Any) -> str | None:
     """
     Hash the serialized definition of a scorer, so that the same definition has the same digest
@@ -518,7 +530,7 @@ def get_scorer_definition_digest(scorer: Any) -> str | None:
     """
     try:
         try:
-            definition = scorer.model_dump()
+            definition = _model_dump_without_caching(scorer)
         except Exception:
             scorer_class = type(scorer)
             if scorer_class.__module__.startswith("mlflow."):
