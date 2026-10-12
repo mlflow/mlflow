@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791772938762,
+  "lastUpdate": 1791783339672,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "76001552+joelrobin18@users.noreply.github.com",
-            "name": "Joel Robin P",
-            "username": "joelrobin18"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "20858c9426a9644dfcf9545a92cbb534376779eb",
-          "message": "Resolve workspace context before running FastAPI auth validators (#24368)\n\nSigned-off-by: joelrobin18 <joelrobin1818@gmail.com>",
-          "timestamp": "2026-07-10T18:53:00Z",
-          "tree_id": "10fefb565d2fffeac8c5553d049e1c59f8f5da00",
-          "url": "https://github.com/mlflow/mlflow/commit/20858c9426a9644dfcf9545a92cbb534376779eb"
-        },
-        "date": 1783709809332,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 43.981339349998194,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 29.23494848484929,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 23.94212083606491,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 26.88569146296384,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 26.570403054545398,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 9.094807200000332,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 5.560635666673382,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "kanzeoline@gmail.com",
+            "name": "JIAWEN LIN",
+            "username": "kayzenline"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4ec1dc3b0d0e5b7738c8121eee02c181d1e1ed1e",
+          "message": "Use `re.fullmatch` in name/ID validators to reject trailing newlines (#26485)\n\nSigned-off-by: JIAWEN LIN <190995901+kayzenline@users.noreply.github.com>\nSigned-off-by: Aaron Teo <atwkdeveloper@gmail.com>\nCo-authored-by: JIAWEN LIN <190995901+kayzenline@users.noreply.github.com>\nCo-authored-by: Aaron Teo <atwkdeveloper@gmail.com>\nCo-authored-by: Isaac <no-reply@databricks.com>",
+          "timestamp": "2026-10-12T05:32:05Z",
+          "tree_id": "540819ffe30273bbb559716e9d1a15a0778c1940",
+          "url": "https://github.com/mlflow/mlflow/commit/4ec1dc3b0d0e5b7738c8121eee02c181d1e1ed1e"
+        },
+        "date": 1791783335975,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 52.590454200000636,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 6.871827767859377,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 6.0631581984140555,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 6.162588896824135,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 6.68009170588189,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 23.903493799997477,
             "unit": "ms"
           }
         ]
