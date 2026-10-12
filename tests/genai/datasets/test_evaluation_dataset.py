@@ -21,10 +21,10 @@ from mlflow.genai.datasets.databricks_evaluation_dataset_source import (
 )
 from mlflow.genai.datasets.entities import EvaluationDatasetVersion
 from mlflow.genai.datasets.evaluation_dataset import (
-    DATASET_IDENTITY_ATTR,
     EvaluationDataset,
     compute_records_sha256,
 )
+from mlflow.utils.mlflow_tags import MLFLOW_GENAI_EVALUATE_DATASET_IDENTITY
 
 
 def create_test_source_json(table_name: str = "main.default.testtable") -> str:
@@ -362,7 +362,7 @@ def test_evaluation_dataset_to_df_records_identity(mock_managed_dataset):
 
     df = dataset.to_df()
 
-    identity = df.attrs[DATASET_IDENTITY_ATTR]
+    identity = df.attrs[MLFLOW_GENAI_EVALUATE_DATASET_IDENTITY]
     assert identity == {
         "name": "catalog.schema.table",
         "digest": "test-digest",
@@ -386,7 +386,7 @@ def test_evaluation_dataset_to_df_identity_with_computed_digest(mock_managed_dat
 
     df = dataset.to_df()
 
-    assert df.attrs[DATASET_IDENTITY_ATTR]["digest"] == dataset.digest
+    assert df.attrs[MLFLOW_GENAI_EVALUATE_DATASET_IDENTITY]["digest"] == dataset.digest
     mock_managed_dataset.to_df.assert_called_once()
 
 
@@ -398,7 +398,7 @@ def test_evaluation_dataset_oss_store_to_df_records_identity():
     with patch.object(MLflowEvaluationDataset, "to_df", return_value=records):
         df = dataset.to_df()
 
-    identity = df.attrs[DATASET_IDENTITY_ATTR]
+    identity = df.attrs[MLFLOW_GENAI_EVALUATE_DATASET_IDENTITY]
     assert identity["name"] == "test-dataset"
     assert identity["digest"] == "test-digest"
     assert identity["source"] == mlflow_dataset.source.to_json()
@@ -447,4 +447,4 @@ def test_evaluation_dataset_latest_version_is_resolved_after_the_records_are_rea
     df = dataset.to_df()
 
     assert dataset.source.version == 6
-    assert json.loads(df.attrs[DATASET_IDENTITY_ATTR]["source"])["version"] == 6
+    assert json.loads(df.attrs[MLFLOW_GENAI_EVALUATE_DATASET_IDENTITY]["source"])["version"] == 6

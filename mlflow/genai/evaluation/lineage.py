@@ -9,13 +9,14 @@ from typing import Any, Callable
 
 from mlflow.entities import Dataset as DatasetEntity
 from mlflow.entities import RunTag
-from mlflow.genai.datasets.evaluation_dataset import DATASET_IDENTITY_ATTR, compute_records_sha256
+from mlflow.genai.datasets.evaluation_dataset import compute_records_sha256
 from mlflow.genai.scorers.scorer_utils import get_scorer_definition_digest
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils.mlflow_tags import (
     MLFLOW_GENAI_EVALUATE_AGENT_DIGEST,
     MLFLOW_GENAI_EVALUATE_AGENT_FUNCTION,
     MLFLOW_GENAI_EVALUATE_AGENT_URI,
+    MLFLOW_GENAI_EVALUATE_DATASET_IDENTITY,
     MLFLOW_GENAI_EVALUATE_SCORERS_DIGEST,
 )
 from mlflow.utils.validation import MAX_TAG_VAL_LENGTH
@@ -39,7 +40,7 @@ def get_dataset_entity_from_attrs(data: Any) -> DatasetEntity | None:
 
     if not isinstance(data, pd.DataFrame):
         return None
-    if not isinstance(identity := data.attrs.get(DATASET_IDENTITY_ATTR), dict):
+    if not isinstance(identity := data.attrs.get(MLFLOW_GENAI_EVALUATE_DATASET_IDENTITY), dict):
         return None
     try:
         if compute_records_sha256(data) != identity.get("records_sha256"):
@@ -79,8 +80,8 @@ def _unwrap_partial(predict_fn: Callable[..., Any]) -> Callable[..., Any]:
     return predict_fn
 
 
-def get_agent_tags(predict_fn: Callable[..., Any] | None) -> dict[str, str]:
-    """Identify the agent under evaluation. Call this before ``predict_fn`` is wrapped."""
+def get_predict_fn_metadata(predict_fn: Callable[..., Any] | None) -> dict[str, str]:
+    """Identify the agent under evaluation. Pass the user's ``predict_fn``, not a wrapper."""
     if predict_fn is None:
         return {}
     try:
@@ -107,10 +108,12 @@ def get_agent_tags(predict_fn: Callable[..., Any] | None) -> dict[str, str]:
         return {}
 
 
-def log_lineage_tags(run_id: str, scorers: list[Any], agent_tags: dict[str, str]) -> None:
+def log_lineage_tags(
+    run_id: str, scorers: list[Any], predict_fn: Callable[..., Any] | None
+) -> None:
     """Write the lineage tags of an evaluation run. Never raises."""
     try:
-        tags = dict(agent_tags)
+        tags = get_predict_fn_metadata(predict_fn)
         if (scorers_digest := get_scorers_digest(scorers)) is not None:
             tags[MLFLOW_GENAI_EVALUATE_SCORERS_DIGEST] = json.dumps(scorers_digest)
 

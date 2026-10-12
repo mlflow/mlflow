@@ -22,7 +22,6 @@ from mlflow.entities.trace import Trace
 from mlflow.entities.trace_data import TraceData
 from mlflow.exceptions import MlflowException
 from mlflow.genai.datasets import EvaluationDataset, create_dataset
-from mlflow.genai.datasets.evaluation_dataset import DATASET_IDENTITY_ATTR
 from mlflow.genai.evaluation.entities import EvalItem, EvalResult, EvaluationResult
 from mlflow.genai.evaluation.harness import (
     AUTO_INITIAL_RPS,
@@ -47,6 +46,7 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_GENAI_EVALUATE_AGENT_DIGEST,
     MLFLOW_GENAI_EVALUATE_AGENT_FUNCTION,
     MLFLOW_GENAI_EVALUATE_AGENT_URI,
+    MLFLOW_GENAI_EVALUATE_DATASET_IDENTITY,
     MLFLOW_GENAI_EVALUATE_SCORERS_DIGEST,
 )
 
@@ -2397,7 +2397,7 @@ def _edit_inputs(df):
 @pytest.mark.parametrize("edit", [_edit_inputs, lambda df: df.iloc[:1]])
 def test_evaluate_with_edited_dataset_to_df_logs_anonymous_dataset(edit):
     data = edit(_managed_dataset_with_records().to_df())
-    assert DATASET_IDENTITY_ATTR in data.attrs
+    assert MLFLOW_GENAI_EVALUATE_DATASET_IDENTITY in data.attrs
 
     result = mlflow.genai.evaluate(data=data, scorers=[has_output])
 
@@ -2482,3 +2482,21 @@ def test_evaluate_does_not_freeze_the_scorer_definition_for_register(monkeypatch
     loaded = get_scorer(name="edited_scorer", experiment_id=experiment_id)
     assert loaded.description == "updated description"
     assert loaded.aggregations == ["max"]
+
+
+def test_evaluate_with_tracking_store_dataset_to_df_logs_the_dataset():
+    dataset = create_dataset(name="tracking_store_to_df")
+    dataset.merge_records([
+        {"inputs": {"question": "What is MLflow?"}, "outputs": "MLflow is a tool for ML"},
+        {"inputs": {"question": "What is Spark?"}, "outputs": "Spark is a data engine"},
+    ])
+
+    full = mlflow.genai.evaluate(data=dataset.to_df(), scorers=[has_output])
+    subset = mlflow.genai.evaluate(data=dataset.to_df().iloc[:1], scorers=[has_output])
+
+    [full_input] = mlflow.get_run(full.run_id).inputs.dataset_inputs
+    assert full_input.dataset.name == "tracking_store_to_df"
+    assert full_input.dataset.digest == dataset.digest
+    assert full_input.dataset.source_type == "mlflow_evaluation_dataset"
+    [subset_input] = mlflow.get_run(subset.run_id).inputs.dataset_inputs
+    assert subset_input.dataset.name == "dataset"

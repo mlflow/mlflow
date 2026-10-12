@@ -17,7 +17,6 @@ from mlflow.genai.datasets.evaluation_dataset import EvaluationDataset
 from mlflow.genai.evaluation.constant import InputDatasetColumn
 from mlflow.genai.evaluation.lineage import (
     AGENT_URI_ATTR,
-    get_agent_tags,
     get_dataset_entity_from_attrs,
     log_lineage_tags,
 )
@@ -320,8 +319,8 @@ def _run_harness(data, scorers, predict_fn, model_id) -> tuple["EvaluationResult
     from mlflow.genai.evaluation import harness
 
     scorers = validate_scorers(scorers)
-    # Identify the agent before `predict_fn` is wrapped or cleared for simulation.
-    agent_tags = get_agent_tags(predict_fn)
+    # Lineage records the user's function; `predict_fn` is wrapped or cleared for simulation below.
+    original_predict_fn = predict_fn
 
     # Handle ConversationSimulator: prepare for simulation, but run it inside the run context
     # so that traces are logged to the correct run.
@@ -440,7 +439,7 @@ def _run_harness(data, scorers, predict_fn, model_id) -> tuple["EvaluationResult
         # NB: Set this tag before run finishes to suppress the generic run URL printing.
         if run.data.tags.get(MLFLOW_RUN_TYPE) is None:
             MlflowClient().set_tag(run_id, MLFLOW_RUN_TYPE, MLFLOW_RUN_TYPE_GENAI_EVALUATE)
-        log_lineage_tags(run_id, scorers, agent_tags)
+        log_lineage_tags(run_id, scorers, original_predict_fn)
 
         result = harness.run(
             predict_fn=predict_fn,

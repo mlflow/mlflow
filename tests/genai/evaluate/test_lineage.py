@@ -10,7 +10,7 @@ import pytest
 import mlflow
 from mlflow.genai.evaluation.lineage import (
     AGENT_URI_ATTR,
-    get_agent_tags,
+    get_predict_fn_metadata,
     get_scorers_digest,
     log_lineage_tags,
 )
@@ -125,60 +125,61 @@ class Agent:
         (Agent(), Agent, f"{__name__}.Agent"),
     ],
 )
-def test_agent_tags_for_local_callables(predict_fn, target, function):
-    assert get_agent_tags(predict_fn) == {
+def test_predict_fn_metadata_for_local_callables(predict_fn, target, function):
+    assert get_predict_fn_metadata(predict_fn) == {
         MLFLOW_GENAI_EVALUATE_AGENT_FUNCTION: function,
         MLFLOW_GENAI_EVALUATE_AGENT_DIGEST: _sha256(inspect.getsource(target)),
     }
 
 
-def test_agent_tags_for_lambda():
-    tags = get_agent_tags(lambda inputs: inputs)
+def test_predict_fn_metadata_for_lambda():
+    tags = get_predict_fn_metadata(lambda inputs: inputs)
     assert tags[MLFLOW_GENAI_EVALUATE_AGENT_FUNCTION].endswith(
-        "test_agent_tags_for_lambda.<locals>.<lambda>"
+        "test_predict_fn_metadata_for_lambda.<locals>.<lambda>"
     )
     assert tags[MLFLOW_GENAI_EVALUATE_AGENT_DIGEST].startswith("sha256:")
 
 
 @pytest.mark.parametrize("error", [OSError, TypeError])
-def test_agent_tags_omit_digest_when_source_is_unavailable(error):
+def test_predict_fn_metadata_omit_digest_when_source_is_unavailable(error):
     with mock.patch("inspect.getsource", side_effect=error):
-        tags = get_agent_tags(agent_fn)
+        tags = get_predict_fn_metadata(agent_fn)
     assert tags == {MLFLOW_GENAI_EVALUATE_AGENT_FUNCTION: f"{__name__}.agent_fn"}
 
 
-def test_agent_tags_for_to_predict_fn_record_only_the_remote_target():
+def test_predict_fn_metadata_for_to_predict_fn_record_only_the_remote_target():
     def predict_fn(**kwargs):
         pass
 
     setattr(predict_fn, AGENT_URI_ATTR, "endpoints:/agent")
 
-    assert get_agent_tags(predict_fn) == {MLFLOW_GENAI_EVALUATE_AGENT_URI: "endpoints:/agent"}
-
-
-def test_agent_tags_for_partial_of_to_predict_fn():
-    def predict_fn(**kwargs):
-        pass
-
-    setattr(predict_fn, AGENT_URI_ATTR, "endpoints:/agent")
-
-    assert get_agent_tags(functools.partial(predict_fn, temperature=0)) == {
+    assert get_predict_fn_metadata(predict_fn) == {
         MLFLOW_GENAI_EVALUATE_AGENT_URI: "endpoints:/agent"
     }
 
 
-def test_agent_tags_for_no_predict_fn():
-    assert get_agent_tags(None) == {}
+def test_predict_fn_metadata_for_partial_of_to_predict_fn():
+    def predict_fn(**kwargs):
+        pass
+
+    setattr(predict_fn, AGENT_URI_ATTR, "endpoints:/agent")
+
+    assert get_predict_fn_metadata(functools.partial(predict_fn, temperature=0)) == {
+        MLFLOW_GENAI_EVALUATE_AGENT_URI: "endpoints:/agent"
+    }
+
+
+def test_predict_fn_metadata_for_no_predict_fn():
+    assert get_predict_fn_metadata(None) == {}
 
 
 def test_log_lineage_tags_skips_values_over_the_limit(caplog):
-    long_uri = "endpoints:/" + "a" * MAX_TAG_VAL_LENGTH
+    def predict_fn(**kwargs):
+        pass
+
+    setattr(predict_fn, AGENT_URI_ATTR, "endpoints:/" + "a" * MAX_TAG_VAL_LENGTH)
     with mlflow.start_run() as run, caplog.at_level(logging.WARNING):
-        log_lineage_tags(
-            run.info.run_id,
-            [_make_scorer("adhoc")],
-            {MLFLOW_GENAI_EVALUATE_AGENT_URI: long_uri},
-        )
+        log_lineage_tags(run.info.run_id, [_make_scorer("adhoc")], predict_fn)
 
     tags = mlflow.get_run(run.info.run_id).data.tags
     assert MLFLOW_GENAI_EVALUATE_AGENT_URI not in tags
@@ -190,6 +191,6 @@ def test_log_lineage_tags_never_raises():
     with mock.patch(
         "mlflow.genai.evaluation.lineage.MlflowClient.log_batch", side_effect=Exception("boom")
     ) as mock_log_batch:
-        log_lineage_tags("run-id", [_make_scorer("adhoc")], {})
+        log_lineage_tags("run-id", [_make_scorer("adhoc")], None)
 
     mock_log_batch.assert_called_once()

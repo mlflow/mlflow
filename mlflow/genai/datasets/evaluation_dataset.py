@@ -13,16 +13,13 @@ from mlflow.genai.datasets.databricks_evaluation_dataset_source import (
     DatabricksEvaluationDatasetSource,
 )
 from mlflow.genai.datasets.entities import EvaluationDatasetVersion
+from mlflow.utils.mlflow_tags import MLFLOW_GENAI_EVALUATE_DATASET_IDENTITY
 
 if TYPE_CHECKING:
     import pandas as pd
     import pyspark.sql
 
 _logger = logging.getLogger(__name__)
-
-# `DataFrame.attrs` key under which `to_df()` records the dataset identity, so that
-# `mlflow.genai.evaluate(data=dataset.to_df())` can log the dataset instead of an anonymous one.
-DATASET_IDENTITY_ATTR = "mlflow.genaiEvaluate.datasetIdentity"
 
 
 def compute_records_sha256(df: "pd.DataFrame") -> str:
@@ -317,7 +314,7 @@ class EvaluationDataset(Dataset, PyFuncConvertibleDatasetMixin):
     def _attach_identity(self, df: "pd.DataFrame") -> "pd.DataFrame":
         try:
             entity = self._to_mlflow_entity()
-            df.attrs[DATASET_IDENTITY_ATTR] = {
+            df.attrs[MLFLOW_GENAI_EVALUATE_DATASET_IDENTITY] = {
                 "name": entity.name,
                 "digest": entity.digest,
                 "source_type": entity.source_type,
