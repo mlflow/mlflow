@@ -105,14 +105,18 @@ until you stop them, and their logs go to `$out_dir/work`.
 Keep both servers running until you finish: code changes reload in place, so the same servers
 serve the reproduction before and after a fix. Do not run `yarn build`.
 
-Before your final message, stop both servers. Background processes that are still running keep
-the session from exiting, and the job hangs until it times out:
+Before your final message, stop both servers and every process they started. Background
+processes that are still running keep the session from exiting, and the job hangs until it times
+out:
 
 ```bash
-pkill -f "[m]lflow server --dev"; pkill -f "[u]vicorn --reload"; pkill -f "[m]lflow/server/js/"
+P="[m]lflow/.venv/bin/|[m]lflow/server/js/|[y]arn start"
+pkill -f "$P"; sleep 5; pkill -9 -f "$P"; pgrep -fa "$P" || echo "servers stopped"
 ```
 
-The brackets keep each pattern from matching the shell that runs `pkill`.
+The backend and its workers (job runner, huey consumers, multiprocessing helpers) all run the
+checkout's `.venv` Python, and the frontend runs from `mlflow/server/js`. The brackets keep the
+patterns from matching the shell that runs `pkill`.
 
 If the server or browser fails to start, report the specific error instead of retrying
 indefinitely.
