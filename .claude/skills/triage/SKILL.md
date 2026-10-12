@@ -78,7 +78,7 @@ background from the repository root, logging to `$out_dir/work`.
    reloads it when Python files change.
 
    ```bash
-   uv run mlflow server --dev --host 127.0.0.1 --port 5000 \
+   mkdir -p $out_dir/work && uv run mlflow server --dev --host 127.0.0.1 --port 5000 \
      --backend-store-uri sqlite:///$out_dir/work/mlflow.db \
      --artifacts-destination $out_dir/work/artifacts \
      > $out_dir/work/backend.log 2>&1
