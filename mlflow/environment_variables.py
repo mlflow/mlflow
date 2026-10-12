@@ -1797,9 +1797,9 @@ MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND = _EnvironmentVariable(
 #: and MLflow versions is built when the job runner starts. Resource limits per job type can be
 #: set with ``MLFLOW_JOB_RESOURCE_LIMITS_<job_name>``, a JSON object such as
 #: ``{"cpu": "500m", "memory": "1Gi"}``, which overrides limits the job type declares (default: 1
-#: CPU and 1 GiB of memory). Each file a job writes is capped at 8 MiB, but the job's output
-#: directory on the host has no total size limit, so a malicious scorer can fill the host disk
-#: until the job times out.
+#: CPU and 1 GiB of memory). Each file a job writes is capped at 64 MiB and its result at 8 MiB,
+#: but the job's output directory on the host has no total size limit, so a malicious scorer can
+#: fill the host disk until the job times out.
 #: **Experimental**: subject to change or removal in a future release.
 #: (default: unset)
 MLFLOW_JOB_IMAGE = _EnvironmentVariable("MLFLOW_JOB_IMAGE", str, None)

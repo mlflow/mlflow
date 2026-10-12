@@ -16,7 +16,7 @@ Limits of this mode:
 - the Docker daemon must run on the same host as the MLflow server, because inputs and results are
   exchanged through bind mounts;
 - the output directory, a host temporary directory, has no size limit of its own: each file the
-  job writes is capped (see ``_MAX_RESULT_BYTES``), but not the number of files, so a malicious
+  job writes is capped (see ``_MAX_FILE_BYTES``), but not the number of files, so a malicious
   scorer can fill the host disk (or memory, where the temporary directory is a tmpfs) until the job
   times out.
 """
@@ -56,6 +56,7 @@ from mlflow.server.jobs.utils import (
     MLFLOW_SERVER_JOB_TRANSIENT_ERROR_CLASSES_PATH_ENV_VAR,
     _load_function,
     _SubprocessJobResult,
+    get_job_fn_fullname,
 )
 from mlflow.server.sandbox.container import (
     _PIDS_LIMIT,
@@ -98,6 +99,13 @@ _DEFAULT_NANO_CPUS = 1_000_000_000
 # host parses the result before checking it, so this cap also bounds that memory per job. Results
 # are a few assessments per trace, so this leaves ample room.
 _MAX_RESULT_BYTES = 8 * 1024**2
+# Caps every file the job writes (the ``fsize`` ulimit), including scratch files under /tmp and in
+# the output directory, which has no quota of its own. Larger than the result cap so a scorer's own
+# files are not limited by it, and a too-large result fails on the host with a clear error.
+_MAX_FILE_BYTES = 64 * 1024**2
+# How long ``stop_executor`` waits for container starts in progress before giving up on them, so a
+# hung Docker daemon cannot block shutdown.
+_STOP_WAIT_FOR_STARTS_SECONDS = 30.0
 
 # How much of the container's logs to keep in a failure message, and how much the Docker daemon
 # keeps on disk for a job container.
@@ -148,6 +156,7 @@ class _DockerJob:
     plan: DockerJobPlan | None = None
     container_id: str | None = None
     cancel_requested: bool = False
+    starting: bool = False
 
 
 def _parse_cpu(value: str) -> int:
@@ -201,6 +210,15 @@ def _resource_limits(job_name: str, declared: dict[str, str] | None = None) -> t
     return memory, cpus
 
 
+def _declared_resource_limits(job_name: str) -> dict[str, str] | None:
+    """The resource limits a job type declares with ``@job(resource_limits=...)``, if known."""
+    try:
+        fn_fullname = get_job_fn_fullname(job_name)
+    except MlflowException:
+        return None
+    return _load_function(fn_fullname)._job_fn_metadata.resource_limits
+
+
 def _container_labels(job_id: str, job_name: str) -> dict[str, str]:
     labels = {}
     if raw := MLFLOW_JOB_EXTRA_LABELS.get():
@@ -252,7 +270,8 @@ def _load_result(path: Path) -> _SubprocessJobResult:
         os.close(fd)
     if len(data) > _MAX_RESULT_BYTES:
         raise MlflowException(
-            f"The job container's result is larger than {_MAX_RESULT_BYTES} bytes."
+            f"The job container's result is larger than {_MAX_RESULT_BYTES} bytes. For scorer "
+            "jobs, lower MLFLOW_SERVER_SCORER_INVOKE_BATCH_SIZE to score fewer traces per job."
         )
     try:
         raw = json.loads(data)
@@ -295,6 +314,8 @@ class DockerJobExecutor(AbstractJobExecutor):
         self._client_lock = threading.Lock()
         self._jobs: dict[str, _DockerJob] = {}
         self._lock = threading.RLock()
+        # Notified when a container start finishes, for ``stop_executor``.
+        self._start_finished = threading.Condition(self._lock)
         self._stopped = False
 
     def supports_job(self, job_name: str, params: dict[str, Any]) -> bool:
@@ -319,7 +340,7 @@ class DockerJobExecutor(AbstractJobExecutor):
             )
         # Fail at startup rather than on every job if a container setting is malformed.
         for job_name in _JOB_PLANNERS:
-            _resource_limits(job_name)
+            _resource_limits(job_name, _declared_resource_limits(job_name))
         _container_labels("", "")
         try:
             import docker  # noqa: F401
@@ -355,6 +376,17 @@ class DockerJobExecutor(AbstractJobExecutor):
         # result, so the runner leaves them for recovery, which requeues them on the next start.
         with self._lock:
             self._stopped = True
+            # The process may exit right after this returns, so wait for starts in progress: their
+            # containers would otherwise run on unattended until the next start recovers them.
+            if not self._start_finished.wait_for(
+                lambda: not any(job.starting for job in self._jobs.values()),
+                timeout=_STOP_WAIT_FOR_STARTS_SECONDS,
+            ):
+                _logger.warning(
+                    "Docker job containers were still starting after %s seconds; they will be "
+                    "removed when the job runner next starts.",
+                    _STOP_WAIT_FOR_STARTS_SECONDS,
+                )
             jobs = list(self._jobs.items())
         for _, job in jobs:
             self._remove_container(job, kill=True)
@@ -471,24 +503,35 @@ class DockerJobExecutor(AbstractJobExecutor):
         with self._lock:
             if self._stopped or self._jobs.get(job_id) is not job or job.cancel_requested:
                 return
-        # Not under the lock: these daemon calls can take a while, and cancel_job, stop_executor,
-        # wait_for_job and _finalize also take it, so a slow or hung daemon would block them all.
+            job.starting = True
+        # Not under the lock: these daemon calls can take a while, and stop_executor (and any
+        # caller of cancel_job outside the job runner) also takes it, so a slow or hung daemon
+        # would block shutdown.
         try:
             container = self._run_container(
                 job_id, job_name, input_dir, output_dir, environment, memory, nano_cpus
             )
         except Exception:
+            with self._lock:
+                job.starting = False
+                self._start_finished.notify_all()
             # docker-py creates the container before starting it and does not remove it if the
             # start fails, and no container ID was recorded, so find it by its label.
             self._remove_job_containers(job_id)
             raise
         with self._lock:
             job.container_id = container.id
+            job.starting = False
+            self._start_finished.notify_all()
             # A cancel or shutdown during the start found no container to kill, so kill it now.
-            # wait_for_job then reports the job as canceled or leaves it for recovery.
-            kill = self._stopped or job.cancel_requested
+            # wait_for_job then reports the job as canceled or leaves it for recovery. A job that
+            # was finalized meanwhile has no one left to remove its container.
+            orphaned = self._jobs.get(job_id) is not job
+            kill = orphaned or self._stopped or job.cancel_requested
         if kill:
             _kill_quietly(container)
+        if orphaned:
+            _remove_quietly(container)
         _logger.info(
             "Started docker job container %s for job %s (%s)", container.short_id, job_id, job_name
         )
@@ -520,11 +563,7 @@ class DockerJobExecutor(AbstractJobExecutor):
             security_opt=["no-new-privileges:true"],
             tmpfs={"/tmp": ""},
             log_config=_LOG_CONFIG,
-            # Caps every file the job writes, including in the bind-mounted output directory,
-            # which has no quota of its own.
-            ulimits=[
-                docker.types.Ulimit(name="fsize", soft=_MAX_RESULT_BYTES, hard=_MAX_RESULT_BYTES)
-            ],
+            ulimits=[docker.types.Ulimit(name="fsize", soft=_MAX_FILE_BYTES, hard=_MAX_FILE_BYTES)],
             # Run as the server's user so the result file is owned by the server, not root. If the
             # server runs as root the container does too (``start_executor`` warns about it).
             user=f"{os.getuid()}:{os.getgid()}",

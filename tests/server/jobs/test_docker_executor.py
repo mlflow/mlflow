@@ -1,6 +1,7 @@
 import json
 import os
 import threading
+import time
 from pathlib import Path
 
 import pytest
@@ -205,8 +206,8 @@ def test_container_is_hardened_and_has_no_network(executor, client):
     (fsize,) = kwargs["ulimits"]
     assert (fsize.name, fsize.soft, fsize.hard) == (
         "fsize",
-        de._MAX_RESULT_BYTES,
-        de._MAX_RESULT_BYTES,
+        de._MAX_FILE_BYTES,
+        de._MAX_FILE_BYTES,
     )
 
 
@@ -573,15 +574,53 @@ def test_cancel_during_container_start_does_not_block_and_kills_the_container(ex
 
     assert client.started[0].killed
     assert executor.wait_for_job("job-1").status == JobStatus.CANCELED
+    assert client.started[0].removed
 
 
-def test_stop_during_container_start_does_not_block_and_kills_the_container(executor, client):
+def test_stop_waits_for_a_container_start_and_then_kills_it(executor, client):
+    stopper = threading.Thread(target=executor.stop_executor, name="docker-executor-test-stop")
+
+    def on_run():
+        stopper.start()
+        # Let stop_executor reach its wait for the start in progress.
+        deadline = time.monotonic() + 5
+        while not executor._stopped and time.monotonic() < deadline:
+            time.sleep(0.01)
+
+    client.on_run = on_run
+    _submit(executor)
+    stopper.join(timeout=5)
+
+    assert not stopper.is_alive()
+    assert client.started[0].killed
+    assert client.started[0].removed
+    with pytest.raises(MlflowException, match="recovered on the next start"):
+        executor.wait_for_job("job-1")
+
+
+def test_stop_gives_up_on_a_start_that_hangs(executor, client, monkeypatch):
+    # A hung daemon must not block shutdown: stop returns after its bounded wait, and the start,
+    # once it does finish, kills its own container.
+    monkeypatch.setattr(de, "_STOP_WAIT_FOR_STARTS_SECONDS", 0.1)
     client.on_run = lambda: _in_another_thread(executor.stop_executor)
     _submit(executor)
 
     assert client.started[0].killed
     with pytest.raises(MlflowException, match="recovered on the next start"):
         executor.wait_for_job("job-1")
+    assert client.started[0].removed
+
+
+def test_container_started_for_a_finalized_job_is_removed(executor, client):
+    def on_run():
+        job = executor._jobs["job-1"]
+        executor._finalize("job-1", job)
+
+    client.on_run = on_run
+    _submit(executor)
+
+    assert client.started[0].killed
+    assert client.started[0].removed
 
 
 def test_declared_resource_limits_apply(executor, client):
@@ -598,6 +637,20 @@ def test_env_resource_limits_override_declared_ones_per_field(monkeypatch):
         256 * 1024**2,
         500_000_000,
     )
+
+
+def test_check_requirements_rejects_invalid_declared_resource_limits(executor, monkeypatch):
+    monkeypatch.setattr(de, "_declared_resource_limits", lambda job_name: {"memory": "lots"})
+    with pytest.raises(MlflowException, match="declared resource_limits"):
+        executor.check_requirements()
+
+
+def test_oversized_result_error_names_the_batch_size_setting(executor, client, monkeypatch):
+    monkeypatch.setattr(de, "_MAX_RESULT_BYTES", 10)
+    client.on_wait = _succeed_with({"score": "x" * 100})
+    _submit(executor)
+
+    assert "MLFLOW_SERVER_SCORER_INVOKE_BATCH_SIZE" in executor.wait_for_job("job-1").error_message
 
 
 def test_invalid_declared_resource_limits_fail_the_submission(executor, client, monkeypatch):
