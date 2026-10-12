@@ -1,4 +1,5 @@
 import hashlib
+import json
 import logging
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
@@ -26,8 +27,9 @@ DATASET_IDENTITY_ATTR = "mlflow.genaiEvaluate.datasetIdentity"
 
 def compute_records_sha256(df: "pd.DataFrame") -> str:
     # `compute_pandas_digest` skips dict columns such as `inputs`, so hash every record instead.
-    # Sort the columns so that reordering them doesn't change the hash.
-    records = df[sorted(df.columns, key=str)].to_json(orient="records", default_handler=str)
+    # `json.dumps` keeps full float precision and tells None from NaN, unlike `DataFrame.to_json`,
+    # and `sort_keys` makes the hash independent of the column order.
+    records = json.dumps(df.to_dict(orient="records"), sort_keys=True, default=str)
     return hashlib.sha256(records.encode("utf-8")).hexdigest()
 
 

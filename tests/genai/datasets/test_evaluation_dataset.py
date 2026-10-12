@@ -1,4 +1,5 @@
 import json
+import math
 from datetime import datetime, timezone
 from types import SimpleNamespace
 from typing import Any
@@ -409,6 +410,21 @@ def test_compute_records_sha256_hashes_dict_columns():
     edited = pd.DataFrame({"inputs": [{"q": "b"}]})
 
     assert compute_records_sha256(df) != compute_records_sha256(edited)
+
+
+@pytest.mark.parametrize(
+    ("original", "edited"),
+    [
+        ([0.12345678901], [0.12345678902]),
+        ([None], [math.nan]),
+    ],
+    ids=["close_floats", "none_and_nan"],
+)
+def test_compute_records_sha256_detects_small_edits(original, edited):
+    df = pd.DataFrame({"inputs": [{"q": "a"}], "value": original})
+    edited_df = pd.DataFrame({"inputs": [{"q": "a"}], "value": edited})
+
+    assert compute_records_sha256(df) != compute_records_sha256(edited_df)
 
 
 def test_compute_records_sha256_ignores_column_order():
