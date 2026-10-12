@@ -1,4 +1,6 @@
 import json
+import subprocess
+import sys
 from unittest import mock
 
 import pytest
@@ -366,3 +368,17 @@ def test_online_jobs_run_custom_scorer_code_only_when_not_in_a_container(
     else:
         assert seen["may_run_scorer_code"] is True
         assert seen["container_scorer"] is None
+
+
+def test_importing_the_scorer_jobs_first_registers_every_job_function():
+    # The job utils load all job functions when first imported, so a module this one imports at
+    # the top level must not import them while this module is only partly initialized.
+    code = (
+        "import mlflow.genai.scorers.job\n"
+        "from mlflow.server.jobs import _SUPPORTED_JOB_FUNCTION_LIST\n"
+        "from mlflow.server.jobs.utils import _job_name_to_fn_fullname_map\n"
+        "assert sorted(_job_name_to_fn_fullname_map.values()) == sorted(\n"
+        "    set(_SUPPORTED_JOB_FUNCTION_LIST)\n"
+        "), _job_name_to_fn_fullname_map\n"
+    )
+    subprocess.check_call([sys.executable, "-c", code])
