@@ -306,6 +306,8 @@ class EvaluationDataset(Dataset, PyFuncConvertibleDatasetMixin):
 
             with _databricks_profile_env():
                 self._df = self._databricks_dataset.to_df()
+            # Resolve the latest version again now that the records are read.
+            self._latest_version_resolved = False
             # Attach after `self._df` is set: the digest fallback calls `to_df()`.
             self._attach_identity(self._df)
         return self._df

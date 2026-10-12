@@ -415,3 +415,20 @@ def test_compute_records_sha256_ignores_column_order():
     df = pd.DataFrame({"inputs": [{"q": "a"}], "outputs": ["x"]})
 
     assert compute_records_sha256(df) == compute_records_sha256(df[["outputs", "inputs"]])
+
+
+def test_evaluation_dataset_latest_version_is_resolved_after_the_records_are_read(
+    mock_managed_dataset,
+):
+    mock_managed_dataset.list_versions.return_value = [SimpleNamespace(version=5)]
+    dataset = EvaluationDataset(mock_managed_dataset)
+    assert dataset.source.version == 5
+
+    mock_managed_dataset.list_versions.return_value = [
+        SimpleNamespace(version=5),
+        SimpleNamespace(version=6),
+    ]
+    df = dataset.to_df()
+
+    assert dataset.source.version == 6
+    assert json.loads(df.attrs[DATASET_IDENTITY_ATTR]["source"])["version"] == 6
