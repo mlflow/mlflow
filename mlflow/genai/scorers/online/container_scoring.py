@@ -60,9 +60,12 @@ class OnlineContainerScorer:
     def __init__(self, experiment_id: str, job_name: str):
         self._experiment_id = experiment_id
         self._job_name = job_name
-        # Online scoring jobs run one at a time per experiment, so this label is used by at most
-        # one container at a time, and a container it finds at the start of a job is left over
-        # from an earlier job that was ended while it ran.
+        # Online scoring jobs run one at a time per experiment, even across job runners (they hold
+        # the experiment's exclusive job lock), so this label is used by at most one container at a
+        # time, and a container it finds at the start of a job is left over from an earlier job
+        # that was ended while it ran. Only then is it safe to remove: a container left for an
+        # experiment that gets no further job stays until removed by hand, for example with
+        # ``docker rm -f $(docker ps -aq --filter label=mlflow.job_name=<job_name>)``.
         self._container_label = f"{job_name}-{experiment_id}"
         # Online scoring jobs are submitted without a timeout, so they get the default one.
         self._job_timeout = MLFLOW_SERVER_JOB_DEFAULT_TIMEOUT.get()

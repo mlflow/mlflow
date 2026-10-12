@@ -56,7 +56,6 @@ from mlflow.server.jobs.job_container import (
     make_job_container_dirs,
     prepare_job_image,
     remove_job_containers,
-    remove_job_containers_by_job_name,
     run_job_container,
     write_transient_error_classes,
 )
@@ -154,10 +153,6 @@ class DockerJobExecutor(AbstractJobExecutor):
     def start_executor(self) -> None:
         self.check_requirements()
         self._prepare_image()
-        # An online scoring job's container cannot outlive the job runner that started it, so any
-        # this server left behind (for example when it was stopped mid-batch) is a leftover.
-        for job_name in _ONLINE_CONTAINER_JOB_NAMES:
-            remove_job_containers_by_job_name(self._get_client(), job_name)
         _logger.warning(
             "The docker job executor runs custom scorers without network access. Only on-demand "
             "scorer runs made only of custom scorers use it; other jobs with custom scorers, such "

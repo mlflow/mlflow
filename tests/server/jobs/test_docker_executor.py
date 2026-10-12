@@ -590,23 +590,6 @@ def test_invalid_declared_resource_limits_fail_the_submission(executor, client, 
     assert executor._jobs == {}
 
 
-def test_start_removes_this_servers_leftover_online_scoring_containers(
-    executor, client, monkeypatch
-):
-    monkeypatch.setattr(de.DockerJobExecutor, "_prepare_image", lambda self: None)
-    labels = jc._container_labels("run_online_trace_scorer-1", "run_online_trace_scorer")
-    ours = FakeContainer(client, {"volumes": {}, "labels": labels})
-    other_server = FakeContainer(
-        client, {"volumes": {}, "labels": {**labels, jc.LABEL_BACKEND_STORE: "elsewhere"}}
-    )
-    client.leftovers = [ours, other_server]
-
-    executor.start_executor()
-
-    assert ours.removed
-    assert not other_server.removed
-
-
 def test_check_requirements_validates_online_scoring_resource_limits(executor, monkeypatch):
     monkeypatch.setenv("MLFLOW_JOB_RESOURCE_LIMITS_run_online_trace_scorer", "not json")
     with pytest.raises(MlflowException, match="run_online_trace_scorer"):
