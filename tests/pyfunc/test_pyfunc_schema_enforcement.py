@@ -2830,6 +2830,28 @@ def test_loaded_pyfunc_model_preserves_nondefault_dataframe_index(tmp_path, name
     pd.testing.assert_frame_equal(mlflow.pyfunc.load_model(model_path).predict(df), df)
 
 
+def test_loaded_pyfunc_model_preserves_datetime_lists(tmp_path):
+    class CalendarModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input):
+            return [value.year for value in model_input.iloc[0]["dates"]]
+
+    data = pd.DataFrame({"dates": [[datetime.datetime(2025, 1, 2), datetime.datetime(2025, 1, 3)]]})
+    model = CalendarModel()
+    signature = infer_signature(data)
+    assert signature.inputs == Schema([ColSpec(Array(DataType.datetime), name="dates")])
+    assert model.predict(None, data) == [2025, 2025]
+
+    model_path = tmp_path / "model"
+    mlflow.pyfunc.save_model(
+        path=model_path,
+        python_model=model,
+        signature=signature,
+        pip_requirements=[],
+    )
+
+    assert mlflow.pyfunc.load_model(model_path).predict(data) == [2025, 2025]
+
+
 @pytest.mark.parametrize(
     ("data", "schema"),
     [
