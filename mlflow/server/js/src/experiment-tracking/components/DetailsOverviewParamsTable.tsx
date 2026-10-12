@@ -23,6 +23,8 @@ import type { Interpolation, Theme } from '@emotion/react';
 import { ExpandedJSONValueCell } from '@mlflow/mlflow/src/common/components/ExpandableCell';
 import { isUnstableNestedComponentsMigrated } from '../../common/utils/FeatureUtils';
 import { useExperimentTrackingDetailsPageLayoutStyles } from '../hooks/useExperimentTrackingDetailsPageLayoutStyles';
+import Utils from '../../common/utils/Utils';
+import { useSmartNumberFormattingEnabled } from './experiment-page/utils/useSmartNumberFormatting';
 
 type ParamsColumnDef = ColumnDef<KeyValueEntity> & {
   meta?: { styles?: Interpolation<Theme>; multiline?: boolean };
@@ -45,8 +47,13 @@ const ExpandableParamValueCell = ({
   autoExpandedRowsList: Record<string, boolean>;
 }) => {
   const { theme } = useDesignSystemTheme();
+  const smartFormatting = useSmartNumberFormattingEnabled();
   const cellRef = useRef<HTMLDivElement>(null);
   const [isOverflowing, setIsOverflowing] = useState(false);
+
+  // Format numeric param values when smart formatting is on
+  const isNumeric = typeof value === 'string' && value !== '' && value !== '-' && !isNaN(Number(value.trim()));
+  const displayValue = smartFormatting && isNumeric ? Utils.formatMetric(Number(value.trim())) : value;
 
   useEffect(() => {
     if (autoExpandedRowsList[name]) {
@@ -109,7 +116,7 @@ const ExpandableParamValueCell = ({
         }}
         ref={cellRef}
       >
-        {isExpanded ? <ExpandedJSONValueCell value={value} /> : value}
+        {isExpanded ? <ExpandedJSONValueCell value={value} /> : displayValue}
       </div>
     </div>
   );
