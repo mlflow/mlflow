@@ -38,12 +38,13 @@ class GenAiTranslator(OtelSchemaTranslator):
     }
 
     # Token usage attribute keys from OTEL GenAI semantic conventions
-    # Reference: https://opentelemetry.io/docs/specs/semconv/registry/attributes/gen-ai/#genai-attributes
+    # Reference: https://github.com/open-telemetry/semantic-conventions-genai/blob/main/docs/registry/attributes/gen-ai.md
     INPUT_TOKEN_KEY = "gen_ai.usage.input_tokens"
     OUTPUT_TOKEN_KEY = "gen_ai.usage.output_tokens"
     CACHE_READ_INPUT_TOKEN_KEY = "gen_ai.usage.cache_read.input_tokens"
     CACHE_CREATION_INPUT_TOKEN_KEY = "gen_ai.usage.cache_write.input_tokens"
-    # Read when the spec key is absent, for instrumentations that already send it.
+    # Name in the previous registry (https://opentelemetry.io/docs/specs/semconv/registry/attributes/gen-ai/),
+    # read when the current key is absent.
     _LEGACY_CACHE_CREATION_INPUT_TOKEN_KEY = "gen_ai.usage.cache_creation.input_tokens"
 
     # Input/Output attribute keys from OTEL GenAI semantic conventions
