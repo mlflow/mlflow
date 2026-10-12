@@ -1159,6 +1159,7 @@ mlflow.genai.optimize.types.PromptOptimizationResult
 mlflow.genai.optimize.types.PromptOptimizerOutput
 mlflow.genai.optimize_prompt
 mlflow.genai.optimize_prompts
+mlflow.genai.pull
 mlflow.genai.refresh_mcp_server_version_tools
 mlflow.genai.register_mcp_server
 mlflow.genai.register_mcp_server_from_url

@@ -20,6 +20,11 @@ from mlflow.genai.skill_content.paths import (
     normalize_subpath,
     tree_size,
 )
+from mlflow.genai.skill_content.pull import (
+    default_destination,
+    pull_skill_version,
+    resolve_skill_version,
+)
 from mlflow.genai.skill_content.skill_md import (
     SKILL_MANIFEST_FILE,
     SkillManifest,
@@ -334,3 +339,34 @@ def import_skills(
     return MlflowClient().bulk_register_skills(
         skill_definitions=definitions, organization=organization
     )
+
+
+@experimental(version="3.18.0")
+def pull(uri: str, *, destination: str | os.PathLike[str] | None = None) -> str:
+    """
+    Download a registered skill version to a local directory.
+
+    The content is fetched from the skill's source (Git, OCI, ZIP, or MLflow artifacts) using
+    your own credentials, and checked against the version's recorded digest. Nothing is
+    written to ``destination`` unless the pull succeeds.
+
+    Args:
+        uri: The skill to pull: ``skills:/name/3`` for a version, ``skills:/name@alias`` for an
+            alias, or ``skills:/name`` for the latest version. Prefix the name with
+            ``@organization/`` for a skill in an organization.
+        destination: Directory to write the skill into. It must not exist or must be empty.
+            Defaults to a directory named after the skill in the current working directory.
+
+    Returns:
+        The path of the directory the skill was written to.
+
+    Example:
+        .. code-block:: python
+
+            import mlflow
+
+            path = mlflow.genai.pull("skills:/code-review@production", destination="./review")
+    """
+    version = resolve_skill_version(uri)
+    target = default_destination(uri) if destination is None else destination
+    return str(pull_skill_version(version, target))

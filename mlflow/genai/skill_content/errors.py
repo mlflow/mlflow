@@ -21,6 +21,11 @@ _AUTH_TOKEN_PATTERN = re.compile(r"(?i)\b(bearer|basic)\s+[A-Za-z0-9._~+/=-]+")
 # The query string of any URL: presigned links carry their signature or token there. Schemes
 # are case-insensitive, so ``HTTPS://`` must be caught as well.
 _URL_QUERY_PATTERN = re.compile(r"(?i)(https?://[^\s'\"?#<>]+)\?[^\s'\"#<>]*")
+# The query string of a bare request target such as ``/cdn/skills.zip?X-Amz-Signature=...``:
+# urllib3 connection errors name the target without its scheme and host ("Max retries exceeded
+# with url: /path?query"), so a signed redirect URL would otherwise slip past the pattern above.
+# The lookbehind skips paths inside a full URL, which that pattern has already handled.
+_REQUEST_TARGET_QUERY_PATTERN = re.compile(r"(?<![\w.:/-])(/[^\s'\"?#<>]*)\?[^\s'\"#<>]*")
 
 
 def redact_credentials(text: str) -> str:
@@ -28,6 +33,7 @@ def redact_credentials(text: str) -> str:
     text = _USERINFO_PATTERN.sub("***@", text)
     text = _SCP_USERINFO_PATTERN.sub("***@", text)
     text = _URL_QUERY_PATTERN.sub(r"\1?***", text)
+    text = _REQUEST_TARGET_QUERY_PATTERN.sub(r"\1?***", text)
     return _AUTH_TOKEN_PATTERN.sub(r"\1 ***", text)
 
 
