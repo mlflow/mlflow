@@ -3,6 +3,7 @@ import os
 import re
 import subprocess
 import sys
+from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 
@@ -972,6 +973,20 @@ def test_definition_digest_leaves_scorer_caches_unchanged():
     get_scorer_definition_digest(ensemble)
 
     assert check._cached_dump is None
+
+
+def test_definition_digest_leaves_scorer_cache_unchanged_across_threads():
+    switch_interval = sys.getswitchinterval()
+    sys.setswitchinterval(1e-6)
+    try:
+        checks = [_check_scorer() for _ in range(50)]
+        for check in checks:
+            with ThreadPoolExecutor(max_workers=16, thread_name_prefix="digest-test") as pool:
+                list(pool.map(lambda _: get_scorer_definition_digest(check), range(32)))
+    finally:
+        sys.setswitchinterval(switch_interval)
+
+    assert all(check._cached_dump is None for check in checks)
 
 
 def test_definition_digest_matches_a_legacy_dump_without_timeout():

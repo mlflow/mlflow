@@ -5,6 +5,7 @@ import hashlib
 import inspect
 import json
 import logging
+import threading
 from textwrap import dedent
 from typing import TYPE_CHECKING, Any, Callable, NamedTuple
 
@@ -515,16 +516,23 @@ def _normalize_definition(value: Any) -> Any:
     return value
 
 
+# `evaluate()` scores rows in parallel, so threads would otherwise interleave the cache restore.
+_MODEL_DUMP_LOCK = threading.Lock()
+
+
 def _model_dump_without_caching(scorer: Any) -> dict[str, Any]:
     # `model_dump()` caches its result on the scorer and its ensemble sub-scorers, and `register()`
     # reuses that cache. Restore it, so hashing doesn't freeze the definition at its first digest.
-    scorers = [s for s in [scorer, *getattr(scorer, "_scorers", [])] if hasattr(s, "_cached_dump")]
-    cached_dumps = [s._cached_dump for s in scorers]
-    try:
-        return scorer.model_dump()
-    finally:
-        for s, cached_dump in zip(scorers, cached_dumps):
-            s._cached_dump = cached_dump
+    with _MODEL_DUMP_LOCK:
+        scorers = [
+            s for s in [scorer, *getattr(scorer, "_scorers", [])] if hasattr(s, "_cached_dump")
+        ]
+        cached_dumps = [s._cached_dump for s in scorers]
+        try:
+            return scorer.model_dump()
+        finally:
+            for s, cached_dump in zip(scorers, cached_dumps):
+                s._cached_dump = cached_dump
 
 
 def get_scorer_definition_digest(scorer: Any) -> str | None:
