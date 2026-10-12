@@ -83,7 +83,7 @@ _JOB_SUPPORT_CHECKS = {
 
 # Online scoring jobs that run custom scorers in job containers of their own (see
 # ``mlflow.genai.scorers.online.container_scoring``) rather than through this executor.
-_ONLINE_CONTAINER_JOB_NAMES = ("run_online_trace_scorer",)
+_ONLINE_CONTAINER_JOB_NAMES = ("run_online_trace_scorer", "run_online_session_scorer")
 
 # How long ``stop_executor`` waits for container starts in progress before giving up on them, which
 # bounds how long that wait can delay shutdown when the Docker daemon hangs.

@@ -9,7 +9,7 @@ import requests
 
 from mlflow.entities._job_status import JobStatus
 from mlflow.exceptions import MlflowException
-from mlflow.genai.scorers.job import ONLINE_TRACE_SCORER_JOB_NAME
+from mlflow.genai.scorers.job import ONLINE_SESSION_SCORER_JOB_NAME, ONLINE_TRACE_SCORER_JOB_NAME
 from mlflow.server.jobs import docker_executor as de
 from mlflow.server.jobs import job
 from mlflow.server.jobs import job_container as jc
@@ -614,4 +614,7 @@ def test_check_requirements_validates_online_scoring_resource_limits(executor, m
 
 
 def test_online_container_job_names_match_the_online_jobs():
-    assert de._ONLINE_CONTAINER_JOB_NAMES == (ONLINE_TRACE_SCORER_JOB_NAME,)
+    assert de._ONLINE_CONTAINER_JOB_NAMES == (
+        ONLINE_TRACE_SCORER_JOB_NAME,
+        ONLINE_SESSION_SCORER_JOB_NAME,
+    )

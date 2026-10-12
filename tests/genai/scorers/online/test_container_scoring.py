@@ -17,6 +17,7 @@ from mlflow.server.constants import BACKEND_STORE_URI_ENV_VAR
 from mlflow.server.jobs.executor import JobResult
 from mlflow.server.jobs.job_container import _CONTAINER_INPUT_DIR
 from mlflow.server.jobs.utils import _load_function
+from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracking._tracking_service.utils import _get_store
 
 _JOB_NAME = "run_online_trace_scorer"
@@ -208,3 +209,57 @@ def test_failed_setup_is_not_retried_for_every_batch(traces, docker, monkeypatch
     run.assert_not_called()
     assert on_failure.call_count == 3
     assert all("cannot pull image" in call.args[2] for call in on_failure.call_args_list)
+
+
+def test_scores_a_session_without_logging_for_the_host_to_log(db_uri, docker, monkeypatch):
+    mlflow.set_tracking_uri(db_uri)
+    monkeypatch.setenv(BACKEND_STORE_URI_ENV_VAR, db_uri)
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS", "true")
+    experiment_id = mlflow.set_experiment("online-container-sessions").experiment_id
+    trace_ids = []
+    for i in range(2):
+        with mlflow.start_span(name=f"turn_{i}") as span:
+            span.set_inputs({"question": i})
+            span.set_outputs({"answer": i})
+            mlflow.update_current_trace(metadata={TraceMetadataKey.TRACE_SESSION: "session-1"})
+        trace_ids.append(span.trace_id)
+    traces = [mlflow.get_trace(trace_id) for trace_id in trace_ids]
+
+    @scorer
+    def turns(session) -> int:
+        return len(session)
+
+    online_scorer = OnlineScorer(
+        name="turns",
+        serialized_scorer=json.dumps(turns.model_dump()),
+        online_config=OnlineScoringConfig(
+            online_scoring_config_id=uuid.uuid4().hex,
+            scorer_id=uuid.uuid4().hex,
+            sample_rate=1.0,
+            experiment_id=experiment_id,
+            filter_string=None,
+        ),
+    )
+    run = mock.Mock(side_effect=_run_in_process)
+    monkeypatch.setattr(container_scoring, "run_plan_in_container", run)
+    on_result = mock.Mock()
+    on_failure = mock.Mock()
+
+    with mock.patch("mlflow.genai.scorers.job._get_tracking_store", return_value=_get_store()):
+        OnlineContainerScorer(experiment_id, "run_online_session_scorer").score_sessions(
+            [(online_scorer, traces)], on_result, on_failure
+        )
+
+    on_failure.assert_not_called()
+    # One container run scores the whole session.
+    run.assert_called_once()
+    (scored_scorer, scored_traces, trace_results), _ = on_result.call_args
+    assert scored_scorer is online_scorer
+    assert scored_traces is traces
+    session_assessments = [a for r in trace_results.values() for a in r["assessments"]]
+    assert [(a["assessment_name"], a["feedback"]["value"]) for a in session_assessments] == [
+        ("turns", 2)
+    ]
+    # Nothing is logged: the host adds its session metadata and logs the results itself.
+    for trace_id in trace_ids:
+        assert mlflow.get_trace(trace_id).info.assessments == []

@@ -2,10 +2,10 @@
 
 When the docker executor backend runs custom scorers (``MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND``
 is ``docker``), an online scoring job keeps finding, sampling and logging on the host, but runs its
-custom scorers in job containers without network access, one batch of traces at a time. The host
-writes the batch's traces for the container, and then checks the container's untrusted result and
-logs its assessments, as for an on-demand scorer run (see
-``mlflow.genai.scorers.job._plan_invoke_scorer_job_for_docker``).
+custom scorers in job containers without network access, one at a time: a batch of traces for a
+trace-level scorer, or one session for a session-level scorer. The host writes the traces for the
+container, and then checks the container's untrusted result, as for an on-demand scorer run (see
+``mlflow.genai.scorers.job._plan_invoke_scorer_job_for_docker``), and logs the assessments.
 """
 
 import json
@@ -13,7 +13,7 @@ import logging
 import tempfile
 import time
 from pathlib import Path
-from typing import Callable
+from typing import Any, Callable, Iterator
 
 from mlflow.entities import Trace
 from mlflow.entities._job_status import JobStatus
@@ -24,6 +24,7 @@ from mlflow.environment_variables import (
 )
 from mlflow.exceptions import MlflowException
 from mlflow.genai.scorers.online.entities import OnlineScorer
+from mlflow.server.jobs.executor import JobResult
 from mlflow.server.jobs.executor_registry import DOCKER_EXECUTOR_BACKEND
 from mlflow.server.jobs.job_container import (
     _CONTAINER_INPUT_DIR,
@@ -95,16 +96,62 @@ class OnlineContainerScorer:
 
         Args:
             work: Each custom scorer with the traces it should score.
-            on_failure: Called with a scorer, the traces of a batch that failed, and the error.
+            on_failure: Called with a scorer, traces that failed, and the error.
         """
-        if not work:
-            return
         batch_size = MLFLOW_SERVER_SCORER_INVOKE_BATCH_SIZE.get()
         batches = [
             (online_scorer, traces[i : i + batch_size])
             for online_scorer, traces in work
             for i in range(0, len(traces), batch_size)
         ]
+        for online_scorer, batch, trace_results, error in self._run_batches(
+            batches, log_assessments=True
+        ):
+            if error is not None:
+                on_failure(online_scorer, batch, error)
+                continue
+            # Report traces the scorer failed on, or that are missing from the result, as on the
+            # host.
+            for trace in batch:
+                trace_result = trace_results.get(trace.info.trace_id)
+                if trace_result is None:
+                    on_failure(
+                        online_scorer,
+                        [trace],
+                        "The job container returned no result for this trace.",
+                    )
+                elif trace_result["failures"] and not trace_result["assessments"]:
+                    errors = "; ".join(
+                        f"{f['error_code']}: {f['error_message']}" for f in trace_result["failures"]
+                    )
+                    on_failure(online_scorer, [trace], errors)
+
+    def score_sessions(
+        self,
+        work: list[tuple[OnlineScorer, list[Trace]]],
+        on_result: Callable[[OnlineScorer, list[Trace], dict[str, Any]], None],
+        on_failure: Callable[[OnlineScorer, list[Trace], str], None],
+    ) -> None:
+        """Score sessions in job containers without logging, for the caller to log the results.
+
+        Args:
+            work: Each session-level custom scorer with the traces of one session to score.
+            on_result: Called with a scorer, a session's traces, and the checked results by trace
+                ID (each with ``assessments`` as dictionaries and ``failures``).
+            on_failure: Called with a scorer, the traces of a session that failed, and the error.
+        """
+        for online_scorer, traces, trace_results, error in self._run_batches(
+            work, log_assessments=False
+        ):
+            if error is not None:
+                on_failure(online_scorer, traces, error)
+            else:
+                on_result(online_scorer, traces, trace_results)
+
+    def _run_batches(
+        self, batches: list[tuple[OnlineScorer, list[Trace]]], log_assessments: bool
+    ) -> Iterator[tuple[OnlineScorer, list[Trace], dict[str, Any] | None, str | None]]:
+        """Run batches one at a time, yielding each with its results by trace ID or its error."""
         for index, (online_scorer, batch) in enumerate(batches):
             batches_left = len(batches) - index
             time_left = self._job_deadline - time.monotonic()
@@ -113,20 +160,29 @@ class OnlineContainerScorer:
                 self._job_timeout / 2,
             )
             try:
-                failures = self._score_batch(online_scorer, batch, timeout)
+                result = self._run_batch(online_scorer, batch, timeout, log_assessments)
             except Exception as e:
                 _logger.warning(
                     f"Failed to run custom scorer '{online_scorer.name}' in a job container",
                     exc_info=True,
                 )
-                failures = [(batch, repr(e))]
-            for traces, error in failures:
-                on_failure(online_scorer, traces, error)
+                yield online_scorer, batch, None, repr(e)
+                continue
+            if result.status != JobStatus.SUCCEEDED:
+                error = (
+                    result.error_message or f"The job container ended with status {result.status}."
+                )
+                yield online_scorer, batch, None, error
+            else:
+                yield online_scorer, batch, json.loads(result.result), None
 
-    def _score_batch(
-        self, online_scorer: OnlineScorer, traces: list[Trace], timeout: float
-    ) -> list[tuple[list[Trace], str]]:
-        """Score one batch and return the traces that failed, each group with its error."""
+    def _run_batch(
+        self,
+        online_scorer: OnlineScorer,
+        traces: list[Trace],
+        timeout: float,
+        log_assessments: bool,
+    ) -> JobResult:
         # Imported here: mlflow.genai.scorers.job imports the online scoring processors, which
         # import this module.
         from mlflow.genai.scorers.job import _plan_invoke_scorer_job_for_docker
@@ -136,7 +192,7 @@ class OnlineContainerScorer:
             "serialized_scorer": online_scorer.serialized_scorer,
             "trace_ids": [trace.info.trace_id for trace in traces],
             "scorer_version": online_scorer.scorer_version,
-            "log_assessments": True,
+            "log_assessments": log_assessments,
         }
         client = self._get_client()
         with tempfile.TemporaryDirectory(prefix="mlflow-online-scoring-") as workdir:
@@ -144,7 +200,7 @@ class OnlineContainerScorer:
             plan = _plan_invoke_scorer_job_for_docker(
                 params=params, input_dir=input_dir, container_input_dir=_CONTAINER_INPUT_DIR
             )
-            result = run_plan_in_container(
+            return run_plan_in_container(
                 client,
                 job_image(),
                 job_id=self._container_label,
@@ -154,19 +210,3 @@ class OnlineContainerScorer:
                 output_dir=output_dir,
                 timeout=timeout,
             )
-        if result.status != JobStatus.SUCCEEDED:
-            error = result.error_message or f"The job container ended with status {result.status}."
-            return [(traces, error)]
-        # Report traces the scorer failed on, or that are missing from the result, as on the host.
-        trace_results = json.loads(result.result)
-        failures = []
-        for trace in traces:
-            trace_result = trace_results.get(trace.info.trace_id)
-            if trace_result is None:
-                failures.append(([trace], "The job container returned no result for this trace."))
-            elif trace_result["failures"] and not trace_result["assessments"]:
-                errors = "; ".join(
-                    f"{f['error_code']}: {f['error_message']}" for f in trace_result["failures"]
-                )
-                failures.append(([trace], errors))
-        return failures

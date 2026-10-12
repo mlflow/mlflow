@@ -5,15 +5,18 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from mlflow.entities import Trace, TraceData, TraceInfo
-from mlflow.entities.assessment import Assessment
+from mlflow.entities.assessment import Assessment, Feedback
 from mlflow.entities.trace_location import (
     MlflowExperimentLocation,
     TraceLocation,
     TraceLocationType,
 )
 from mlflow.entities.trace_state import TraceState
+from mlflow.genai import scorer
 from mlflow.genai.evaluation.entities import EvalItem, EvalResult
+from mlflow.genai.scorers.base import _UnexecutedDecoratorScorer
 from mlflow.genai.scorers.builtin_scorers import ConversationCompleteness
+from mlflow.genai.scorers.online.container_scoring import OnlineContainerScorer
 from mlflow.genai.scorers.online.entities import CompletedSession, OnlineScorer, OnlineScoringConfig
 from mlflow.genai.scorers.online.sampler import OnlineScorerSampler
 from mlflow.genai.scorers.online.session_checkpointer import (
@@ -21,9 +24,12 @@ from mlflow.genai.scorers.online.session_checkpointer import (
     OnlineSessionScoringCheckpoint,
     OnlineSessionScoringTimeWindow,
 )
-from mlflow.genai.scorers.online.session_processor import OnlineSessionScoringProcessor
+from mlflow.genai.scorers.online.session_processor import (
+    OnlineSessionScoringProcessor,
+    SessionScoringTask,
+)
 from mlflow.genai.scorers.online.trace_loader import OnlineTraceLoader
-from mlflow.tracing.constant import AssessmentMetadataKey
+from mlflow.tracing.constant import AssessmentMetadataKey, TraceMetadataKey
 
 
 def make_online_scorer(scorer, sample_rate: float = 1.0, filter_string: str | None = None):
@@ -723,3 +729,78 @@ def test_fetch_sessions_calls_once_per_filter_when_any_scorer_has_no_filter(
         for call in mock_tracking_store.find_completed_sessions.call_args_list
     ]
     assert set(filter_strings) == {"tag.env = 'prod'", None}
+
+
+def _session_trace(trace_id: str, session_id: str = "s1"):
+    trace = make_trace(trace_id)
+    trace.info.trace_metadata = {TraceMetadataKey.TRACE_SESSION: session_id}
+    return trace
+
+
+def _custom_session_scorer():
+    @scorer
+    def turns(session) -> int:
+        return len(session)
+
+    return turns
+
+
+def test_create_loads_custom_scorers_without_their_code_when_given_a_container_scorer(
+    mock_tracking_store,
+):
+    processor = OnlineSessionScoringProcessor.create(
+        "exp1",
+        [make_online_scorer(_custom_session_scorer())],
+        mock_tracking_store,
+        container_scorer=MagicMock(spec=OnlineContainerScorer),
+    )
+
+    assert isinstance(processor._sampler.scorer("turns"), _UnexecutedDecoratorScorer)
+
+
+def test_custom_session_scorers_run_in_containers_and_the_host_logs_their_results(
+    mock_trace_loader, mock_checkpoint_manager, mock_tracking_store
+):
+    custom = make_online_scorer(_custom_session_scorer())
+    builtin = make_online_scorer(ConversationCompleteness())
+    sampler = OnlineScorerSampler([custom, builtin], run_custom_scorers_on_host=False)
+    container_scorer = MagicMock(spec=OnlineContainerScorer)
+    processor = OnlineSessionScoringProcessor(
+        trace_loader=mock_trace_loader,
+        checkpoint_manager=mock_checkpoint_manager,
+        sampler=sampler,
+        experiment_id="exp1",
+        tracking_store=mock_tracking_store,
+        container_scorer=container_scorer,
+    )
+    session = make_completed_session("s1", 1000, 2000)
+    traces = [_session_trace("tr-1"), _session_trace("tr-2")]
+    task = SessionScoringTask(
+        session=session,
+        scorers=[sampler.scorer("turns"), sampler.scorer("conversation_completeness")],
+    )
+
+    with (
+        patch.object(processor, "_execute_session_scoring_on_host") as on_host,
+        patch.object(processor, "_fetch_session_traces", return_value=traces),
+        patch.object(processor, "_log_session_assessments") as log_session,
+    ):
+        processor._execute_session_scoring([task])
+
+        assert [s.name for s in on_host.call_args.args[0][0].scorers] == [
+            "conversation_completeness"
+        ]
+        work, on_result, on_failure = container_scorer.score_sessions.call_args.args
+        assert work == [(custom, traces)]
+
+        feedback = Feedback(name="turns", value=2, trace_id="tr-1")
+        on_result(
+            custom, traces, {"tr-1": {"assessments": [feedback.to_dictionary()], "failures": []}}
+        )
+        trace, session_id, assessments = log_session.call_args.args
+        assert trace is traces[0]
+        assert session_id == "s1"
+        assert [(a.name, a.value) for a in assessments] == [("turns", 2)]
+
+        # A failed session is logged as a warning, as on the host.
+        on_failure(custom, traces, "scorer crashed")
