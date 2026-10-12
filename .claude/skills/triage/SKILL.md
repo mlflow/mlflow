@@ -73,8 +73,9 @@ Only start the UI when the issue involves it. Then start both servers first, rig
 the issue and before investigating anything else: installing the frontend dependencies and the
 first compile take a few minutes, and they can run while you read code.
 
-Run each command below in the background, from the repository root. The servers keep running
-until you stop them, and their logs go to `$out_dir/work`.
+Run each command below from the repository root as a background task: on your Bash tool, set
+`run_in_background: true` and `timeout: 7200000`. A background task is stopped when it reaches
+its timeout, and the default of 10 minutes is shorter than a triage. Logs go to `$out_dir/work`.
 
 1. Backend: the tracking server on port 5000, with its data kept out of the checkout. `--dev`
    reloads it when Python files change.
@@ -91,7 +92,8 @@ until you stop them, and their logs go to `$out_dir/work`.
 
    ```bash
    cd mlflow/server/js && \
-     YARN_HTTP_PROXY="$HTTP_PROXY" YARN_HTTPS_PROXY="$HTTPS_PROXY" yarn install --immutable && \
+     YARN_HTTP_PROXY="$HTTP_PROXY" YARN_HTTPS_PROXY="$HTTPS_PROXY" yarn install --immutable \
+       > $out_dir/work/yarn-install.log 2>&1 && \
      NO_PROXY=localhost,127.0.0.1 no_proxy=localhost,127.0.0.1 PORT=3000 BROWSER=none CI=false \
      yarn start > $out_dir/work/frontend.log 2>&1
    ```
@@ -107,7 +109,7 @@ serve the reproduction before and after a fix. Do not run `yarn build`.
 
 Before your final message, stop both servers and every process they started. Background
 processes that are still running keep the session from exiting, and the job hangs until it times
-out:
+out. Stop both background tasks with TaskStop, then stop anything left:
 
 ```bash
 P="[m]lflow/.venv/bin/|[m]lflow/server/js/|[y]arn start"
