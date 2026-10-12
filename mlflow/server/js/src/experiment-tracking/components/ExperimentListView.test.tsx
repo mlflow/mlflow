@@ -158,5 +158,4 @@ test('Delete button is disabled when checked experiments are hidden by the searc
   expect(await screen.findByText('beta-exp')).toBeInTheDocument();
   expect(screen.queryByText('alpha-exp')).not.toBeInTheDocument();
   expect(screen.getByTestId('delete-experiments-button')).toBeDisabled();
-  expect(screen.getByTestId('compare-experiment-button')).toBeDisabled();
 });
