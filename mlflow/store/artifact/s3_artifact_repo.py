@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import posixpath
+import traceback
 import urllib.parse
 from datetime import datetime, timezone
 from functools import lru_cache
@@ -541,9 +542,24 @@ class S3ArtifactRepository(
         s3_client.download_file(bucket, s3_full_path, local_path, **download_kwargs)
 
     def _download_artifact_file(self, artifact_path, dst_path):
-        # Skip the `ListObjectsV2` directory probe that `download_artifacts` runs before the
-        # download. For a file, that listing is always empty.
-        return self._download_artifact_file_before_listing(artifact_path, dst_path)
+        # `download_artifacts` lists `<artifact_path>/` before downloading to detect a directory.
+        # For a file that listing is always empty, so download first and list only on failure.
+        if not artifact_path or artifact_path.endswith("/"):
+            return self.download_artifacts(artifact_path, dst_path)
+
+        local_path = self._create_download_destination(
+            src_artifact_path=artifact_path, dst_local_dir_path=os.path.abspath(dst_path)
+        )
+        try:
+            self._download_file(remote_file_path=artifact_path, local_path=local_path)
+        except Exception as e:
+            if self._is_directory(artifact_path):
+                return self.download_artifacts(artifact_path, dst_path)
+            # Raise the same error that `download_artifacts` would have raised.
+            self._raise_download_failures(
+                {artifact_path: e}, {artifact_path: traceback.format_exc()}
+            )
+        return local_path
 
     def delete_artifacts(self, artifact_path=None):
         (bucket, dest_path) = self.parse_s3_compliant_uri(self.artifact_uri)

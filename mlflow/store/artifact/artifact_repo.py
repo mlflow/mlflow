@@ -10,7 +10,7 @@ from abc import ABC, ABCMeta, abstractmethod
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, AsyncIterable, BinaryIO, Callable, NoReturn
+from typing import TYPE_CHECKING, Any, AsyncIterable, BinaryIO, NoReturn
 
 from mlflow.entities.file_info import FileInfo
 from mlflow.entities.multipart_upload import (
@@ -473,11 +473,9 @@ class ArtifactRepository:
         Download the artifact at ``artifact_path`` so that the tracking server can serve it as a
         single file, and return its local path.
 
-        The default implementation calls :py:meth:`download_artifacts`, which lists
-        ``artifact_path`` to find out whether it is a directory before downloading anything.
-        Backends where that listing is a separate request can override this method to call
-        :py:meth:`_download_artifact_file_before_listing` instead. Either way, a directory may be
-        downloaded and returned, so callers must reject it.
+        The default implementation calls :py:meth:`download_artifacts`. Backends can override it
+        to avoid work that is only needed for directories. A directory may still be downloaded
+        and returned, so callers must reject it.
 
         Args:
             artifact_path: Relative source path to the desired artifact.
@@ -487,42 +485,6 @@ class ArtifactRepository:
             Absolute path of the downloaded artifact.
         """
         return self.download_artifacts(artifact_path, dst_path)
-
-    def _download_artifact_file_before_listing(
-        self,
-        artifact_path: str,
-        dst_path: str,
-        *,
-        download_file: Callable[..., Any] | None = None,
-    ) -> str:
-        """
-        Implementation of :py:meth:`_download_artifact_file` that downloads ``artifact_path`` as a
-        file first and lists it only if that download fails.
-
-        For a file, the listing that :py:meth:`download_artifacts` runs first is always empty, so
-        this saves a request on every successful read. If the download fails, the listing runs
-        and the failure is handled as :py:meth:`download_artifacts` would have handled it: a
-        directory is downloaded, and anything else raises the same error.
-
-        The ``download_file`` callable is the download attempted before any listing. When it is
-        omitted, :py:meth:`_download_file` is used.
-        """
-        if not artifact_path or artifact_path.endswith("/"):
-            return self.download_artifacts(artifact_path, dst_path)
-
-        local_path = self._create_download_destination(
-            src_artifact_path=artifact_path, dst_local_dir_path=os.path.abspath(dst_path)
-        )
-        download = download_file or self._download_file
-        try:
-            download(remote_file_path=artifact_path, local_path=local_path)
-        except Exception as e:
-            if self._is_directory(artifact_path):
-                return self.download_artifacts(artifact_path, dst_path)
-            self._raise_download_failures(
-                {artifact_path: e}, {artifact_path: traceback.format_exc()}
-            )
-        return local_path
 
     @abstractmethod
     def _download_file(self, remote_file_path, local_path):
