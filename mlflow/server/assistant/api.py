@@ -204,7 +204,7 @@ def _current_username(request: Request) -> str | None:
 
 
 # Why a caller may not change server-wide settings, as the phrase ending the denial message
-# ("... can only be configured <reason>.").
+# ("... can only be configured/installed/enabled <reason>.").
 _SERVER_HOST_ONLY_REASON = "from the MLflow server host"
 _ADMIN_ONLY_REASON = "by an administrator"
 
