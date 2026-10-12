@@ -1,5 +1,6 @@
 import json
 import os
+import threading
 from pathlib import Path
 
 import pytest
@@ -24,6 +25,15 @@ pytestmark = pytest.mark.skipif(
 
 @job(name="fake_docker_job", max_workers=1)
 def fake_docker_job(x):
+    return x
+
+
+@job(
+    name="fake_docker_job",
+    max_workers=1,
+    resource_limits={"cpu": "2", "memory": "256Mi"},
+)
+def fake_docker_job_with_limits(x):
     return x
 
 
@@ -69,6 +79,8 @@ class _FakeContainers:
         self._client = client
 
     def run(self, image, **kwargs):
+        if self._client.on_run is not None:
+            self._client.on_run()
         container = _FakeContainer(self._client, kwargs)
         container.image = image
         if self._client.start_error is not None:
@@ -94,6 +106,7 @@ class _FakeClient:
         self.on_wait = on_wait or _succeed_with({"score": 1})
         self.start_error = None
         self.get_error = None
+        self.on_run = None
         self.containers = _FakeContainers(self)
 
     def ping(self):
@@ -123,11 +136,13 @@ def executor(client):
     return ex
 
 
-def _submit(executor, job_id="job-1", job_name="fake_docker_job", **kwargs):
+def _submit(
+    executor, job_id="job-1", job_name="fake_docker_job", fn_name="fake_docker_job", **kwargs
+):
     executor.submit_job(
         job_id=job_id,
         job_name=job_name,
-        fn_fullname=f"{__name__}.fake_docker_job",
+        fn_fullname=f"{__name__}.{fn_name}",
         params={"x": 1},
         context=JobExecutionContext(job_id=job_id, tracking_uri="sqlite:///unused.db"),
         **kwargs,
@@ -541,3 +556,55 @@ def test_invalid_resource_limits_are_rejected(raw, monkeypatch):
     monkeypatch.setenv("MLFLOW_JOB_RESOURCE_LIMITS_fake_docker_job", raw)
     with pytest.raises(MlflowException, match="MLFLOW_JOB_RESOURCE_LIMITS_fake_docker_job"):
         de._resource_limits("fake_docker_job")
+
+
+def _in_another_thread(fn):
+    # Runs ``fn`` the way the job runner would: from another thread while a submit is starting
+    # the container. It must not wait for the submit to finish.
+    thread = threading.Thread(target=fn, name="docker-executor-test-concurrent-call")
+    thread.start()
+    thread.join(timeout=5)
+    assert not thread.is_alive(), "blocked behind a container start"
+
+
+def test_cancel_during_container_start_does_not_block_and_kills_the_container(executor, client):
+    client.on_run = lambda: _in_another_thread(lambda: executor.cancel_job("job-1"))
+    _submit(executor)
+
+    assert client.started[0].killed
+    assert executor.wait_for_job("job-1").status == JobStatus.CANCELED
+
+
+def test_stop_during_container_start_does_not_block_and_kills_the_container(executor, client):
+    client.on_run = lambda: _in_another_thread(executor.stop_executor)
+    _submit(executor)
+
+    assert client.started[0].killed
+    with pytest.raises(MlflowException, match="recovered on the next start"):
+        executor.wait_for_job("job-1")
+
+
+def test_declared_resource_limits_apply(executor, client):
+    _submit(executor, fn_name="fake_docker_job_with_limits")
+    kwargs = client.started[0].kwargs
+
+    assert kwargs["mem_limit"] == 256 * 1024**2
+    assert kwargs["nano_cpus"] == 2_000_000_000
+
+
+def test_env_resource_limits_override_declared_ones_per_field(monkeypatch):
+    monkeypatch.setenv("MLFLOW_JOB_RESOURCE_LIMITS_fake_docker_job", json.dumps({"cpu": "500m"}))
+    assert de._resource_limits("fake_docker_job", {"cpu": "2", "memory": "256Mi"}) == (
+        256 * 1024**2,
+        500_000_000,
+    )
+
+
+def test_invalid_declared_resource_limits_fail_the_submission(executor, client, monkeypatch):
+    monkeypatch.setattr(
+        fake_docker_job_with_limits._job_fn_metadata, "resource_limits", {"memory": "lots"}
+    )
+    with pytest.raises(MlflowException, match="declared resource_limits"):
+        _submit(executor, fn_name="fake_docker_job_with_limits")
+    assert client.started == []
+    assert executor._jobs == {}

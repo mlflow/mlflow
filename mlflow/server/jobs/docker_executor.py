@@ -14,7 +14,11 @@ Limits of this mode:
 - the image must already contain MLflow and the scorer's dependencies (nothing is installed at
   container start);
 - the Docker daemon must run on the same host as the MLflow server, because inputs and results are
-  exchanged through bind mounts.
+  exchanged through bind mounts;
+- the output directory, a host temporary directory, has no size limit of its own: each file the
+  job writes is capped (see ``_MAX_RESULT_BYTES``), but not the number of files, so a malicious
+  scorer can fill the host disk (or memory, where the temporary directory is a tmpfs) until the job
+  times out.
 """
 
 import json
@@ -83,13 +87,17 @@ _CONTAINER_OUTPUT_DIR = "/job/output"
 _RESULT_FILE = "result.json"
 _TRANSIENT_ERROR_CLASSES_FILE = "transient_error_classes"
 
-# Default resource limits for a job container, overridable per job type with
-# ``MLFLOW_JOB_RESOURCE_LIMITS_<job_name>`` (see ``MLFLOW_JOB_IMAGE``).
+# Default resource limits for a job container. A job type can declare its own with
+# ``@job(resource_limits=...)``, and ``MLFLOW_JOB_RESOURCE_LIMITS_<job_name>`` overrides both (see
+# ``MLFLOW_JOB_IMAGE``).
 _DEFAULT_MEMORY_BYTES = 1024**3
 _DEFAULT_NANO_CPUS = 1_000_000_000
 
 # The container writes the result file, so its size is untrusted; refuse to load anything larger.
-_MAX_RESULT_BYTES = 64 * 1024**2
+# Parsing JSON can take far more memory than its size (around 20x for many small numbers), and the
+# host parses the result before checking it, so this cap also bounds that memory per job. Results
+# are a few assessments per trace, so this leaves ample room.
+_MAX_RESULT_BYTES = 8 * 1024**2
 
 # How much of the container's logs to keep in a failure message, and how much the Docker daemon
 # keeps on disk for a job container.
@@ -165,23 +173,30 @@ def _parse_memory(value: str) -> int:
     return int(amount)
 
 
-def _resource_limits(job_name: str) -> tuple[int, int]:
-    """Return ``(memory_bytes, nano_cpus)`` for a job type, applying any configured override."""
+def _resource_limits(job_name: str, declared: dict[str, str] | None = None) -> tuple[int, int]:
+    """Return ``(memory_bytes, nano_cpus)`` for a job type.
+
+    Each limit comes from ``MLFLOW_JOB_RESOURCE_LIMITS_<job_name>`` if set there, else from the
+    limits the job type declares with ``@job(resource_limits=...)`` (``declared``), else from the
+    defaults.
+    """
     raw = os.environ.get(f"MLFLOW_JOB_RESOURCE_LIMITS_{job_name}") or os.environ.get(
         f"MLFLOW_JOB_RESOURCE_LIMITS_{job_name.upper()}"
     )
-    if not raw:
-        return _DEFAULT_MEMORY_BYTES, _DEFAULT_NANO_CPUS
+    limits = dict(declared or {})
     try:
-        limits = json.loads(raw)
-        if not isinstance(limits, dict):
-            raise ValueError("expected a JSON object")
+        if raw:
+            overrides = json.loads(raw)
+            if not isinstance(overrides, dict):
+                raise ValueError("expected a JSON object")
+            limits.update(overrides)
         memory = _parse_memory(limits["memory"]) if "memory" in limits else _DEFAULT_MEMORY_BYTES
         cpus = _parse_cpu(limits["cpu"]) if "cpu" in limits else _DEFAULT_NANO_CPUS
     except (ValueError, TypeError) as e:
         raise MlflowException.invalid_parameter_value(
-            f"Invalid MLFLOW_JOB_RESOURCE_LIMITS_{job_name}: {e}. Expected a JSON object such as "
-            '{"cpu": "500m", "memory": "1Gi"}.'
+            f"Invalid resource limits for job type {job_name!r} (from "
+            f"MLFLOW_JOB_RESOURCE_LIMITS_{job_name} or the job's declared resource_limits): {e}. "
+            'Expected an object such as {"cpu": "500m", "memory": "1Gi"}.'
         ) from e
     return memory, cpus
 
@@ -426,12 +441,14 @@ class DockerJobExecutor(AbstractJobExecutor):
             params=params, input_dir=input_dir, container_input_dir=_CONTAINER_INPUT_DIR
         )
 
-        transient_error_classes = _load_function(
-            fn_fullname
-        )._job_fn_metadata.transient_error_classes
+        fn_meta = _load_function(fn_fullname)._job_fn_metadata
         (input_dir / _TRANSIENT_ERROR_CLASSES_FILE).write_text(
-            "".join(f"{cls.__module__}.{cls.__name__}\n" for cls in transient_error_classes or [])
+            "".join(
+                f"{cls.__module__}.{cls.__name__}\n"
+                for cls in fn_meta.transient_error_classes or []
+            )
         )
+        memory, nano_cpus = _resource_limits(job_name, fn_meta.resource_limits)
 
         environment = {
             MLFLOW_SERVER_JOB_FUNCTION_FULLNAME_ENV_VAR: job.plan.fn_fullname,
@@ -454,16 +471,24 @@ class DockerJobExecutor(AbstractJobExecutor):
         with self._lock:
             if self._stopped or self._jobs.get(job_id) is not job or job.cancel_requested:
                 return
-            try:
-                container = self._run_container(
-                    job_id, job_name, input_dir, output_dir, environment
-                )
-            except Exception:
-                # docker-py creates the container before starting it and does not remove it if
-                # the start fails, and no container ID was recorded, so find it by its label.
-                self._remove_job_containers(job_id)
-                raise
+        # Not under the lock: these daemon calls can take a while, and cancel_job, stop_executor,
+        # wait_for_job and _finalize also take it, so a slow or hung daemon would block them all.
+        try:
+            container = self._run_container(
+                job_id, job_name, input_dir, output_dir, environment, memory, nano_cpus
+            )
+        except Exception:
+            # docker-py creates the container before starting it and does not remove it if the
+            # start fails, and no container ID was recorded, so find it by its label.
+            self._remove_job_containers(job_id)
+            raise
+        with self._lock:
             job.container_id = container.id
+            # A cancel or shutdown during the start found no container to kill, so kill it now.
+            # wait_for_job then reports the job as canceled or leaves it for recovery.
+            kill = self._stopped or job.cancel_requested
+        if kill:
+            _kill_quietly(container)
         _logger.info(
             "Started docker job container %s for job %s (%s)", container.short_id, job_id, job_name
         )
@@ -475,10 +500,11 @@ class DockerJobExecutor(AbstractJobExecutor):
         input_dir: Path,
         output_dir: Path,
         environment: dict[str, str],
+        memory: int,
+        nano_cpus: int,
     ):
         import docker.types
 
-        memory, nano_cpus = _resource_limits(job_name)
         return self._get_client().containers.run(
             self._image(),
             command=["python", "-m", _JOB_ENTRY_MODULE],
