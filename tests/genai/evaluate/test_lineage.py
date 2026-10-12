@@ -10,7 +10,6 @@ import pytest
 import mlflow
 from mlflow.genai.evaluation.lineage import (
     AGENT_URI_ATTR,
-    SERVED_ENTITIES_ATTR,
     get_agent_tags,
     get_scorers_digest,
     log_lineage_tags,
@@ -21,7 +20,6 @@ from mlflow.genai.scorers.scorer_utils import get_scorer_definition_digest
 from mlflow.utils.mlflow_tags import (
     MLFLOW_GENAI_EVALUATE_AGENT_DIGEST,
     MLFLOW_GENAI_EVALUATE_AGENT_FUNCTION,
-    MLFLOW_GENAI_EVALUATE_AGENT_SERVED_ENTITIES,
     MLFLOW_GENAI_EVALUATE_AGENT_URI,
     MLFLOW_GENAI_EVALUATE_SCORERS_DIGEST,
 )
@@ -153,14 +151,9 @@ def test_agent_tags_for_to_predict_fn_record_only_the_remote_target():
     def predict_fn(**kwargs):
         pass
 
-    served_entities = [{"name": "agent-1", "entityName": "main.agents.a", "entityVersion": "1"}]
     setattr(predict_fn, AGENT_URI_ATTR, "endpoints:/agent")
-    setattr(predict_fn, SERVED_ENTITIES_ATTR, served_entities)
 
-    assert get_agent_tags(predict_fn) == {
-        MLFLOW_GENAI_EVALUATE_AGENT_URI: "endpoints:/agent",
-        MLFLOW_GENAI_EVALUATE_AGENT_SERVED_ENTITIES: json.dumps(served_entities),
-    }
+    assert get_agent_tags(predict_fn) == {MLFLOW_GENAI_EVALUATE_AGENT_URI: "endpoints:/agent"}
 
 
 def test_agent_tags_for_partial_of_to_predict_fn():
@@ -172,15 +165,6 @@ def test_agent_tags_for_partial_of_to_predict_fn():
     assert get_agent_tags(functools.partial(predict_fn, temperature=0)) == {
         MLFLOW_GENAI_EVALUATE_AGENT_URI: "endpoints:/agent"
     }
-
-
-def test_agent_tags_for_to_predict_fn_omit_empty_served_entities():
-    def predict_fn(**kwargs):
-        pass
-
-    setattr(predict_fn, AGENT_URI_ATTR, "apps:/agent-app")
-
-    assert get_agent_tags(predict_fn) == {MLFLOW_GENAI_EVALUATE_AGENT_URI: "apps:/agent-app"}
 
 
 def test_agent_tags_for_no_predict_fn():

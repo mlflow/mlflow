@@ -15,7 +15,6 @@ from mlflow.tracking.client import MlflowClient
 from mlflow.utils.mlflow_tags import (
     MLFLOW_GENAI_EVALUATE_AGENT_DIGEST,
     MLFLOW_GENAI_EVALUATE_AGENT_FUNCTION,
-    MLFLOW_GENAI_EVALUATE_AGENT_SERVED_ENTITIES,
     MLFLOW_GENAI_EVALUATE_AGENT_URI,
     MLFLOW_GENAI_EVALUATE_SCORERS_DIGEST,
 )
@@ -23,9 +22,8 @@ from mlflow.utils.validation import MAX_TAG_VAL_LENGTH
 
 _logger = logging.getLogger(__name__)
 
-# Attributes that `to_predict_fn` sets on the function it returns.
+# Attribute that `to_predict_fn` sets on the function it returns.
 AGENT_URI_ATTR = "_mlflow_agent_uri"
-SERVED_ENTITIES_ATTR = "_mlflow_served_entities"
 
 
 def _sha256(text: str) -> str:
@@ -75,33 +73,6 @@ def get_scorers_digest(scorers: list[Any]) -> dict[str, Any] | None:
     return value
 
 
-def get_served_entities(endpoint_info: Any) -> list[dict[str, Any]]:
-    """Summarize the served entities and traffic split of a serving endpoint."""
-    if not isinstance(endpoint_info, dict):
-        return []
-    try:
-        config = endpoint_info.get("config") or {}
-        routes = (config.get("traffic_config") or {}).get("routes") or []
-        traffic = {
-            name: route.get("traffic_percentage")
-            for route in routes
-            if (name := route.get("served_entity_name") or route.get("served_model_name"))
-        }
-        served_entities = []
-        for entity in config.get("served_entities") or config.get("served_models") or []:
-            served_entity = {
-                "name": entity.get("name"),
-                "entityName": entity.get("entity_name") or entity.get("model_name"),
-                "entityVersion": entity.get("entity_version") or entity.get("model_version"),
-                "trafficPercentage": traffic.get(entity.get("name")),
-            }
-            served_entities.append({k: v for k, v in served_entity.items() if v is not None})
-        return served_entities
-    except Exception:
-        _logger.debug("Failed to read served entities from the endpoint", exc_info=True)
-        return []
-
-
 def _unwrap_partial(predict_fn: Callable[..., Any]) -> Callable[..., Any]:
     while isinstance(predict_fn, functools.partial):
         predict_fn = predict_fn.func
@@ -116,10 +87,7 @@ def get_agent_tags(predict_fn: Callable[..., Any] | None) -> dict[str, str]:
         target = _unwrap_partial(predict_fn)
         if (uri := getattr(target, AGENT_URI_ATTR, None)) is not None:
             # The `to_predict_fn` wrapper is not the agent, so record only the remote target.
-            tags = {MLFLOW_GENAI_EVALUATE_AGENT_URI: uri}
-            if served_entities := getattr(target, SERVED_ENTITIES_ATTR, None):
-                tags[MLFLOW_GENAI_EVALUATE_AGENT_SERVED_ENTITIES] = json.dumps(served_entities)
-            return tags
+            return {MLFLOW_GENAI_EVALUATE_AGENT_URI: uri}
 
         if not (inspect.isroutine(target) or inspect.isclass(target)):
             # A callable instance is identified by its class.

@@ -17,10 +17,8 @@ from mlflow.genai.datasets.evaluation_dataset import EvaluationDataset
 from mlflow.genai.evaluation.constant import InputDatasetColumn
 from mlflow.genai.evaluation.lineage import (
     AGENT_URI_ATTR,
-    SERVED_ENTITIES_ATTR,
     get_agent_tags,
     get_dataset_entity_from_attrs,
-    get_served_entities,
     log_lineage_tags,
 )
 from mlflow.genai.evaluation.session_utils import validate_session_level_evaluation_inputs
@@ -732,5 +730,4 @@ Args:
         For example, if the endpoint accepts a JSON object with a `messages` key,
         the function also expects to get `messages` as an argument.
     """
-    setattr(predict_fn, SERVED_ENTITIES_ATTR, get_served_entities(endpoint_info))
     return predict_fn
