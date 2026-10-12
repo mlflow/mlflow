@@ -32,10 +32,11 @@ observed symptom, preserving the UI and its displayed values. Save the annotated
 under `$out_dir/media` and cite its exact path in the comment. Remove the overlays before
 continuing to interact with the page.
 
-If the symptom only shows across a sequence of actions (navigation, typing, timing), record a
-short video instead of screenshots. Rehearse the steps with the selectors you will put in
-`$out_dir/work/steps.json` (snapshot refs such as `@e12` don't carry over to a new session),
-and hide side panels, popups, and onboarding hints that cover the page, then:
+Before choosing a screenshot, ask: would a reviewer who sees only this image understand why the
+state is wrong? If the answer depends on something done earlier (a selection, a search, a page
+change, a Back press), record a short video instead of screenshots. Rehearse the steps with the
+selectors you will put in `$out_dir/work/steps.json` (snapshot refs such as `@e12` don't carry over
+to a new session), and hide side panels, popups, and onboarding hints that cover the page, then:
 
 ```bash
 agent-browser --session <sess> --input-mode human --init-script .claude/skills/triage/bug/caption.js open <url>
