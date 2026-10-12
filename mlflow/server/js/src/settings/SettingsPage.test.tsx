@@ -67,9 +67,9 @@ describe('SettingsPage', () => {
     setLocalStorageItem(TELEMETRY_ENABLED_STORAGE_KEY, TELEMETRY_ENABLED_STORAGE_VERSION, false, true);
   });
 
-  it.each([true, undefined])('forces telemetry off when server disable setting is %s', async (disabled) => {
+  it('forces telemetry off when the server disables it', async () => {
     jest.mocked(useTelemetryConfig).mockReturnValue({
-      data: disabled === undefined ? undefined : { disable_ui_telemetry: disabled },
+      data: { disable_ui_telemetry: true },
     } as ReturnType<typeof useTelemetryConfig>);
     renderComponent();
 
@@ -78,6 +78,17 @@ describe('SettingsPage', () => {
     expect(toggle).not.toBeChecked();
     await userEvent.click(toggle);
     expect(telemetryClient.start).not.toHaveBeenCalled();
+  });
+
+  it('still allows browser opt-out when server configuration is unavailable', async () => {
+    jest.mocked(useTelemetryConfig).mockReturnValue({ data: undefined } as ReturnType<typeof useTelemetryConfig>);
+    renderComponent();
+
+    const toggle = screen.getByRole('switch', { name: 'On' });
+    expect(toggle).toBeEnabled();
+    await userEvent.click(toggle);
+    expect(toggle).not.toBeChecked();
+    expect(telemetryClient.shutdown).toHaveBeenCalled();
   });
 
   it('allows toggling telemetry when the server enables it', async () => {

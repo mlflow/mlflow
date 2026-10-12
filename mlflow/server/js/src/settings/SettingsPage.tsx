@@ -102,7 +102,7 @@ const SettingsPage = () => {
   }, [sectionParam, navigate, location.search, location.state]);
 
   const { data: telemetryConfig } = useTelemetryConfig();
-  const isTelemetryDisabledByServer = telemetryConfig?.disable_ui_telemetry ?? true;
+  const isTelemetryDisabledByServer = telemetryConfig?.disable_ui_telemetry ?? false;
   const [telemetryPreference, setIsTelemetryEnabled] = useLocalStorage({
     key: TELEMETRY_ENABLED_STORAGE_KEY,
     version: TELEMETRY_ENABLED_STORAGE_VERSION,
