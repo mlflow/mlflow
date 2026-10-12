@@ -149,21 +149,16 @@ def run_online_trace_scorer_job(
     from mlflow.genai.scorers.online.container_scoring import OnlineContainerScorer
 
     scorer_objects = _online_scorers_this_job_can_run(scorer_objects)
-    tracking_store = _get_tracking_store()
-    if container_scoring_enabled():
-        # Custom scorers run in job containers, so their code is never loaded in this process.
-        container_scorer = OnlineContainerScorer(experiment_id, ONLINE_TRACE_SCORER_JOB_NAME)
-        processor = OnlineTraceScoringProcessor.create(
-            experiment_id, scorer_objects, tracking_store, container_scorer=container_scorer
-        )
-        processor.process_traces()
-        return
-    # Reconstructing custom scorers executes their code, which is permitted only in the executor.
-    with _job_executor_scorer_context():
-        processor = OnlineTraceScoringProcessor.create(
-            experiment_id, scorer_objects, tracking_store
-        )
-        processor.process_traces()
+    # Custom scorers run only in job containers, so their code is never loaded in this process.
+    container_scorer = (
+        OnlineContainerScorer(experiment_id, ONLINE_TRACE_SCORER_JOB_NAME)
+        if container_scoring_enabled()
+        else None
+    )
+    processor = OnlineTraceScoringProcessor.create(
+        experiment_id, scorer_objects, _get_tracking_store(), container_scorer=container_scorer
+    )
+    processor.process_traces()
 
 
 @job(
@@ -200,21 +195,16 @@ def run_online_session_scorer_job(
     from mlflow.genai.scorers.online.container_scoring import OnlineContainerScorer
 
     scorer_objects = _online_scorers_this_job_can_run(scorer_objects)
-    tracking_store = _get_tracking_store()
-    if container_scoring_enabled():
-        # Custom scorers run in job containers, so their code is never loaded in this process.
-        container_scorer = OnlineContainerScorer(experiment_id, ONLINE_SESSION_SCORER_JOB_NAME)
-        processor = OnlineSessionScoringProcessor.create(
-            experiment_id, scorer_objects, tracking_store, container_scorer=container_scorer
-        )
-        processor.process_sessions()
-        return
-    # Reconstructing custom scorers executes their code, which is permitted only in the executor.
-    with _job_executor_scorer_context():
-        processor = OnlineSessionScoringProcessor.create(
-            experiment_id, scorer_objects, tracking_store
-        )
-        processor.process_sessions()
+    # Custom scorers run only in job containers, so their code is never loaded in this process.
+    container_scorer = (
+        OnlineContainerScorer(experiment_id, ONLINE_SESSION_SCORER_JOB_NAME)
+        if container_scoring_enabled()
+        else None
+    )
+    processor = OnlineSessionScoringProcessor.create(
+        experiment_id, scorer_objects, _get_tracking_store(), container_scorer=container_scorer
+    )
+    processor.process_sessions()
 
 
 @job(name=INVOKE_SCORER_JOB_NAME, max_workers=MLFLOW_SERVER_JUDGE_INVOKE_MAX_WORKERS.get())

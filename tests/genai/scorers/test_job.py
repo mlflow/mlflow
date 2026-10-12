@@ -343,7 +343,7 @@ def test_docker_plan_logs_assessments_in_the_job_workspace(db_uri, tmp_path, mon
     ],
 )
 @pytest.mark.parametrize("backend", [None, "docker"])
-def test_online_jobs_run_custom_scorer_code_only_when_not_in_a_container(
+def test_online_jobs_never_run_custom_scorer_code_in_their_own_process(
     backend, job_fn, processor_cls, monkeypatch
 ):
     if backend:
@@ -363,12 +363,10 @@ def test_online_jobs_run_custom_scorer_code_only_when_not_in_a_container(
     ):
         job_fn(experiment_id="exp-1", online_scorers=[])
 
+    assert seen["may_run_scorer_code"] is False
     if backend:
-        # Custom scorer code is never loaded in this process; it runs in job containers.
-        assert seen["may_run_scorer_code"] is False
         assert isinstance(seen["container_scorer"], OnlineContainerScorer)
     else:
-        assert seen["may_run_scorer_code"] is True
         assert seen["container_scorer"] is None
 
 
