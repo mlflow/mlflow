@@ -39,13 +39,13 @@ selectors you will put in `$out_dir/work/steps.json` (snapshot refs such as `@e1
 to a new session), and hide side panels, popups, and onboarding hints that cover the page, then:
 
 ```bash
-agent-browser --session <sess> --input-mode human --init-script .claude/skills/triage/bug/caption.js open <url>
+agent-browser --session <sess> --input-mode human --init-script .claude/skills/triage/init.js open <url>
 agent-browser --session <sess> record start $out_dir/media/<name>.mp4 --cursor --contact-sheet
 timeout 120 agent-browser --session <sess> batch --bail < $out_dir/work/steps.json  # [["click", "<sel>"], ["wait", "500"], ...]
 agent-browser --session <sess> record stop
 ```
 
-The init script defines `caption(text)`, which shows a short caption at the bottom of the page
+`init.js` defines `caption(text)`, which shows a short caption at the bottom of the page
 (`caption()` hides it; pass `"dark"` as a second argument when the page uses a dark theme).
 Caption each step so viewers can follow along, especially actions that leave no visible trace,
 such as the browser's Back button, a key press, or a wait: add
