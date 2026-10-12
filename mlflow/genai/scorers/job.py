@@ -9,7 +9,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import nullcontext
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from mlflow.entities import AssessmentError, AssessmentSource, AssessmentSourceType, Feedback, Trace
 from mlflow.environment_variables import (
@@ -46,11 +46,13 @@ from mlflow.genai.scorers.scorer_utils import (
 from mlflow.server.constants import BACKEND_STORE_URI_ENV_VAR
 from mlflow.server.handlers import _get_tracking_store
 from mlflow.server.jobs import job, submit_job
-from mlflow.server.jobs.job_container import DockerJobPlan
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.tracing.client import TracingClient
 from mlflow.tracing.constant import AssessmentMetadataKey, TraceMetadataKey
 from mlflow.utils.workspace_context import WorkspaceContext
+
+if TYPE_CHECKING:
+    from mlflow.server.jobs.job_container import DockerJobPlan
 
 _logger = logging.getLogger(__name__)
 
@@ -353,7 +355,7 @@ def _trace_result_from_container(raw: Any) -> tuple[list[Feedback], list[ScorerF
 
 def _plan_invoke_scorer_job_for_docker(
     params: dict[str, Any], input_dir: Path, container_input_dir: str
-) -> DockerJobPlan:
+) -> "DockerJobPlan":
     """Plan an on-demand scorer run for a job container that has no network access.
 
     Runs on the host. It fetches the job's traces into ``input_dir`` for the container, which only
@@ -361,6 +363,9 @@ def _plan_invoke_scorer_job_for_docker(
     untrusted output and logs the assessments, only on this job's own traces, using the traces
     fetched here rather than anything the container could have changed.
     """
+    # Lazy import: the job container module imports the job utils, which load this module's job
+    # functions when imported.
+    from mlflow.server.jobs.job_container import DockerJobPlan
 
     serialized_scorer = params["serialized_scorer"]
     if not _docker_supports_invoke_scorer_params(params):
