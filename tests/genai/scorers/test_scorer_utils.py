@@ -1,5 +1,8 @@
 import json
+import os
 import re
+import subprocess
+import sys
 
 import pytest
 
@@ -934,6 +937,22 @@ def test_definition_digest_matches_after_a_registry_round_trip(make_scorer, monk
 
     assert loaded.scorer_version == 1
     assert get_scorer_definition_digest(loaded) == get_scorer_definition_digest(make_scorer())
+
+
+def test_definition_digest_of_a_builtin_scorer_does_not_depend_on_the_hash_seed():
+    code = (
+        "from mlflow.genai.scorers import Guidelines\n"
+        "from mlflow.genai.scorers.scorer_utils import get_scorer_definition_digest\n"
+        "print(get_scorer_definition_digest(Guidelines(name='concise', guidelines=['Be concise'])))"
+    )
+    digests = {
+        subprocess.check_output(
+            [sys.executable, "-c", code], env={**os.environ, "PYTHONHASHSEED": seed}, text=True
+        ).strip()
+        for seed in ["1", "2"]
+    }
+
+    assert digests == {get_scorer_definition_digest(_guidelines(["Be concise"]))}
 
 
 def test_definition_digest_changes_after_the_scorer_is_edited():

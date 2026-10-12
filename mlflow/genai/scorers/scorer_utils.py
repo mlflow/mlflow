@@ -497,17 +497,21 @@ def scorer_params_use_direct_provider_model(job_name: str, params: dict[str, Any
 # Version fields change on every MLflow upgrade, and `timeout` is a run limit rather than scoring
 # logic (a scorer registered before the field existed loads with 0 where a fresh copy has None).
 _DEFINITION_DIGEST_IGNORED_KEYS = frozenset({"mlflow_version", "serialization_version", "timeout"})
+# Built-in scorers store these as sets, so their dumped order depends on the string hash seed.
+_DEFINITION_DIGEST_UNORDERED_KEYS = frozenset({"required_columns"})
 
 
-def _drop_ignored_keys(value: Any) -> Any:
+def _normalize_definition(value: Any) -> Any:
     if isinstance(value, dict):
         return {
-            key: _drop_ignored_keys(item)
+            key: sorted(item)
+            if key in _DEFINITION_DIGEST_UNORDERED_KEYS and isinstance(item, list)
+            else _normalize_definition(item)
             for key, item in value.items()
             if key not in _DEFINITION_DIGEST_IGNORED_KEYS
         }
     if isinstance(value, list):
-        return [_drop_ignored_keys(item) for item in value]
+        return [_normalize_definition(item) for item in value]
     return value
 
 
@@ -542,7 +546,9 @@ def get_scorer_definition_digest(scorer: Any) -> str | None:
                 "fields": BaseModel.model_dump(scorer, mode="json"),
             }
         try:
-            text = json.dumps(_drop_ignored_keys(definition), sort_keys=True, separators=(",", ":"))
+            text = json.dumps(
+                _normalize_definition(definition), sort_keys=True, separators=(",", ":")
+            )
         except TypeError:
             return None
         return "sha256:" + hashlib.sha256(text.encode("utf-8")).hexdigest()
