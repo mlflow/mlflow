@@ -485,7 +485,14 @@ def test_skill_rest_enforces_grants_and_filters_before_pagination(
             ).status_code
             == 200
         )
-        assert client.delete(f"{target}/tags/team", headers=headers).status_code == 200
+        assert client.delete(f"{target}/tags/team", headers=headers).status_code == 403
+        assert (
+            client.delete(
+                f"{target}/tags/team",
+                headers={"x-user": owner.username},
+            ).status_code
+            == 200
+        )
         assert (
             client.post(
                 f"{version_path}/tags", json={"key": "team", "value": "review"}, headers=headers
