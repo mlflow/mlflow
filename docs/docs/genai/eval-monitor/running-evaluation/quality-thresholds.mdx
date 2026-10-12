@@ -84,6 +84,8 @@ for rule in thresholds["rules"]:
 ## Limitations
 
 - **Unique names**: a scorer with a threshold must not share its name with another scorer in the same evaluation. `evaluate` raises before the run starts.
+- **One thresholded evaluation per run**: when `evaluate` runs inside an active run (`with mlflow.start_run():`), it writes into that run, and only the last evaluation's thresholds are kept. MLflow can't delete metrics, so if a scorer produces no metric in the last evaluation, its threshold is compared against the metric an earlier evaluation logged. Use a fresh run for each evaluation that has thresholds.
 - **Numeric values only**: the threshold applies to an aggregated metric, so the scorer must return booleans, numbers, or yes/no values. Scorers that return other values (for example, categorical labels) or emit `Feedback` under a different name produce no matching metric. MLflow logs a warning and the threshold can't be checked.
+- **Failed rows are left out**: the aggregation skips rows where the scorer raised an error, so a threshold can pass even if most rows weren't scored. MLflow logs a warning with the number of failed rows; check it before you rely on the result.
 - **`EvaluationResult.passed` ignores thresholds**: `passed` requires every scorer's value to pass on every row. A run can therefore fail `passed` while still meeting its thresholds — for example, 95 of 100 rows correct against `at_least=0.9` fails `passed` (5 rows scored no) but meets the threshold. To check the thresholds in Python, read the run tag and compare each rule's `metricKey` against `results.metrics`, as shown above.
 - **Size**: the serialized thresholds must fit in a run tag (8,000 characters), which is enough for well over a dozen scorers.
