@@ -69,9 +69,9 @@ on (the current working directory).
 
 ### Running the UI
 
-Only start the UI when the issue involves it. Then start both servers first, right after reading
-the issue and before investigating anything else: installing the frontend dependencies and the
-first compile take a few minutes, and they can run while you read code.
+Only start the UI when you need it, for example to reproduce the bug or check a fix in the
+browser. The first start installs the frontend dependencies and compiles, which takes a few
+minutes.
 
 Run each command below from the repository root as a background task: on your Bash tool, set
 `run_in_background: true` and `timeout: 7200000`. A background task is stopped when it reaches
