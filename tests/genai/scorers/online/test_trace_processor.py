@@ -6,7 +6,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from mlflow.entities import Trace, TraceData, TraceInfo
+from mlflow.entities import AssessmentSourceType, Trace, TraceData, TraceInfo
+from mlflow.exceptions import MlflowException
 from mlflow.genai import scorer
 from mlflow.genai.evaluation.rate_limiter import NoOpRateLimiter, RPSRateLimiter
 from mlflow.genai.judges.adapters.rate_limit_retry_adapters import (
@@ -869,3 +870,39 @@ def test_create_loads_custom_scorers_without_their_code_when_given_a_container_s
     )
 
     assert isinstance(processor._sampler.scorer("output_length"), _UnexecutedDecoratorScorer)
+
+
+def test_error_assessments_of_custom_scorers_have_a_code_source(
+    mock_trace_loader, mock_checkpoint_manager
+):
+    @scorer
+    def output_length(outputs) -> int:
+        return len(str(outputs))
+
+    sampler = OnlineScorerSampler(
+        [make_online_scorer(output_length), make_online_scorer(Completeness())],
+        run_custom_scorers_on_host=False,
+    )
+    processor = OnlineTraceScoringProcessor(
+        trace_loader=mock_trace_loader,
+        checkpoint_manager=mock_checkpoint_manager,
+        sampler=sampler,
+        experiment_id="exp1",
+        container_scorer=MagicMock(spec=OnlineContainerScorer),
+    )
+
+    with patch("mlflow.genai.evaluation.harness._log_assessments") as log_assessments:
+        processor._log_error_assessments(
+            MlflowException("scorer crashed"),
+            [sampler.scorer("output_length"), sampler.scorer("completeness")],
+            make_trace("tr-1"),
+        )
+
+    sources = {
+        a.name: (a.source.source_type, a.source.source_id)
+        for a in log_assessments.call_args.kwargs["assessments"]
+    }
+    assert sources == {
+        "output_length": (AssessmentSourceType.CODE, "output_length"),
+        "completeness": (AssessmentSourceType.LLM_JUDGE, "default"),
+    }

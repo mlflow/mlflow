@@ -52,6 +52,7 @@ from mlflow.environment_variables import (
     MLFLOW_TRACE_ARCHIVAL_CONFIG,
 )
 from mlflow.exceptions import MlflowException
+from mlflow.genai import scorer as scorer_decorator
 from mlflow.store.db.trace_rollups import run_sql_trace_rollups
 from mlflow.store.tracking.dbmodels.models import (
     SqlAssessmentDailyRollup,
@@ -2628,6 +2629,34 @@ def test_get_active_online_scorers_workspace_scoped(workspace_tracking_store):
         assert len(active_scorers) == 1
         assert active_scorers[0].name == "scorer-a"
         assert active_scorers[0].scorer_version == 1
+        assert active_scorers[0].online_config.experiment_id == exp_a
+
+
+def test_upsert_online_scoring_config_custom_scorer_workspace_scoped(
+    workspace_tracking_store, monkeypatch
+):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS", "true")
+    monkeypatch.setenv("MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND", "docker")
+
+    @scorer_decorator
+    def output_length(outputs) -> int:
+        return len(str(outputs))
+
+    with WorkspaceContext("team-custom-a"):
+        exp_a = workspace_tracking_store.create_experiment("exp-custom-a")
+        workspace_tracking_store.register_scorer(
+            exp_a, "output_length", json.dumps(output_length.model_dump())
+        )
+        workspace_tracking_store.upsert_online_scoring_config(
+            experiment_id=exp_a, scorer_name="output_length", sample_rate=0.5
+        )
+
+    with WorkspaceContext("team-custom-b"):
+        assert workspace_tracking_store.get_active_online_scorers() == []
+
+    with WorkspaceContext("team-custom-a"):
+        active_scorers = workspace_tracking_store.get_active_online_scorers()
+        assert [s.name for s in active_scorers] == ["output_length"]
         assert active_scorers[0].online_config.experiment_id == exp_a
 
 

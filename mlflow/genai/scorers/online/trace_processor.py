@@ -263,7 +263,12 @@ class OnlineTraceScoringProcessor:
             Feedback(
                 name=scorer.name,
                 error=error,
-                source=AssessmentSource(source_type=AssessmentSourceType.LLM_JUDGE),
+                # Custom scorers' errors have the same source as their results.
+                source=AssessmentSource(
+                    source_type=AssessmentSourceType.CODE, source_id=scorer.name
+                )
+                if isinstance(scorer, _UnexecutedDecoratorScorer)
+                else AssessmentSource(source_type=AssessmentSourceType.LLM_JUDGE),
                 trace_id=trace.info.trace_id,
             )
             for scorer in scorers
