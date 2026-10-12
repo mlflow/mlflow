@@ -1436,6 +1436,7 @@ module.exports = {
   "mlflow.genai-traces-table.actions-dropdown": "",
   "mlflow.genai-traces-table.add-to-review-queue": "",
   "mlflow.genai-traces-table.assessment-cell-judge-running": "",
+  "mlflow.genai-traces-table.assessment-column-summary.score-change": "",
   "mlflow.genai-traces-table.average-values-tag": "",
   "mlflow.genai-traces-table.chat_sessions_table.session_row_link": "",
   "mlflow.genai-traces-table.compare-traces": "",

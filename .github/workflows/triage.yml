@@ -464,9 +464,10 @@ jobs:
       - if: steps.assess.outputs.decision == 'safe'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: sanitized-issue-${{ github.run_id }}-${{ github.run_attempt }}
+          name: sanitized-issue-${{ github.run_id }}
           path: ${{ runner.temp }}/sanitized_issue.json
           if-no-files-found: error
+          overwrite: true
           retention-days: 1
   start_triage:
     needs: [issue, label, safety]
@@ -519,16 +520,16 @@ jobs:
           persist-credentials: false
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: sanitized-issue-${{ github.run_id }}-${{ github.run_attempt }}
+          name: sanitized-issue-${{ github.run_id }}
           path: ${{ runner.temp }}/sanitized-issue
       # Independent setup, run together.
       - parallel:
           - uses: ./.github/actions/setup-python
           - uses: ./.github/actions/setup-node
-          - name: Install sandbox dependencies
+          - name: Install system packages
             run: |
               sudo apt-get update
-              sudo apt-get install -y bubblewrap socat ripgrep
+              sudo apt-get install -y bubblewrap socat ripgrep ffmpeg
               if [ "$(sysctl -n kernel.apparmor_restrict_unprivileged_userns 2>/dev/null || true)" = 1 ]; then
                 sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
               fi
@@ -540,12 +541,6 @@ jobs:
             run: |
               .claude/scripts/install-agent-browser.sh
               agent-browser --version
-      - id: build-cache-key
-        uses: ./.github/actions/js-build-cache-key
-      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: mlflow/server/js/build
-          key: ${{ steps.build-cache-key.outputs.key }}
       # Needs setup-node.
       - name: Install sandbox runtime
         run: |
@@ -816,9 +811,10 @@ jobs:
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: triage-report-${{ github.run_id }}-${{ github.run_attempt }}
+          name: triage-report-${{ github.run_id }}
           path: ${{ runner.temp }}/triage-report
           if-no-files-found: error
+          overwrite: true
           retention-days: 1
       - name: Stop gateway proxy
         if: always()
@@ -859,7 +855,7 @@ jobs:
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         if: needs.triage.result == 'success'
         with:
-          name: triage-report-${{ github.run_id }}-${{ github.run_attempt }}
+          name: triage-report-${{ github.run_id }}
           path: /tmp/triage-out
       - name: Validate triage payload
         if: needs.triage.result == 'success'
@@ -1005,7 +1001,7 @@ jobs:
       - uses: ./.github/actions/setup-python
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: triage-report-${{ github.run_id }}-${{ github.run_attempt }}
+          name: triage-report-${{ github.run_id }}
           path: /tmp/triage-out
       - name: Check proposed fix
         id: check

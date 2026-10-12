@@ -2439,3 +2439,19 @@ async def test_gemini_chat_stream_trailing_stop_finish_reason_is_per_candidate()
     mock_client.post.assert_called_once()
     finish_reasons = {choice.index: choice.finish_reason for choice in chunks[-1].choices}
     assert finish_reasons == {0: "tool_calls", 1: "stop"}
+
+
+@pytest.mark.parametrize(
+    ("method", "config_fn", "get_text"),
+    [
+        ("model_to_chat", chat_config, lambda r: r.choices[0].message.content),
+        ("model_to_chat_streaming", chat_config, lambda r: r.choices[0].delta.content),
+        ("model_to_completions", completions_config, lambda r: r.choices[0].text),
+        ("model_to_completions_streaming", completions_config, lambda r: r.choices[0].text),
+    ],
+)
+def test_gemini_multiple_text_parts_are_joined(method, config_fn, get_text):
+    config = EndpointConfig(**config_fn())
+    resp = _mixed_parts_response([{"text": "Hello, "}, {"text": "world."}])
+
+    assert get_text(getattr(GeminiAdapter, method)(resp, config)) == "Hello, world."

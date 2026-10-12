@@ -140,6 +140,51 @@ describe('resolveTemplate', () => {
     expect(after.uri).toBe('mlflow-attachment://after?content_type=image%2Fjpeg&trace_id=tr-123');
   });
 
+  it('resolves one TraceAudio template to each trace’s own audio attachment', () => {
+    const geminiRoot = (uri: string) => ({
+      root: makeNode({
+        key: 'root',
+        start: 0,
+        title: 'Models.generate_content',
+        type: ModelSpanType.LLM,
+        inputs: {
+          contents: [
+            {
+              role: 'user',
+              parts: [{ text: 'Transcribe this.' }, { inline_data: { mime_type: 'audio/wav', data: uri } }],
+            },
+          ],
+        },
+      }),
+    });
+    const template = [
+      updateComponents([
+        {
+          id: 'clip',
+          component: 'TraceAudio',
+          uri: {
+            $source: 'spanField',
+            spanRef: 'root',
+            field: 'inputs',
+            path: ['contents', 0, 'parts', 1, 'inline_data', 'data'],
+          },
+        },
+      ]),
+    ];
+    const wavUri = 'mlflow-attachment://wav-id?content_type=audio%2Fwav&trace_id=tr-a&size=265914';
+    const mp3Uri = 'mlflow-attachment://mp3-id?content_type=audio%2Fmpeg&trace_id=tr-b&size=137601';
+
+    const [first] = componentsOf(resolveTemplate(template, { viewData, nodeMap: geminiRoot(wavUri) }));
+    const [second] = componentsOf(resolveTemplate(template, { viewData, nodeMap: geminiRoot(mp3Uri) }));
+
+    expect(first.uri).toBe(wavUri);
+    expect(second.uri).toBe(mp3Uri);
+    expect(
+      (template[0] as { updateComponents: { components: { uri: { $source: string } }[] } }).updateComponents
+        .components[0].uri,
+    ).toMatchObject({ $source: 'spanField' });
+  });
+
   // Backs the catalog guidance to point a Markdown binding at a SCALAR leaf: a
   // pathless whole-object field still resolves, but only to a raw JSON string.
   it('resolves a pathless spanField binding to a JSON string rather than an object', () => {

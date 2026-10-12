@@ -221,7 +221,6 @@ def submit_job(
         the updated job entity.
     """
     from mlflow.environment_variables import (
-        MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND,
         MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS,
         MLFLOW_SERVER_ENABLE_JOB_EXECUTION,
     )
@@ -308,28 +307,18 @@ def submit_job(
     # engine does not use a backend, so it is left unset there.
     executor_backend = None
     if engine == "executor":
-        executor_backend = select_executor_backend(is_custom_scorer=is_custom_scorer)
-        runner_backend = MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND.get()
-        if executor_backend != runner_backend:
-            # The runner does not dispatch per job yet: it runs every job on
-            # MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND and ignores the persisted per-job backend.
-            # Routing custom scorers to a different backend would therefore persist a backend that
-            # is silently never used, so reject the differing config until per-job dispatch lands.
-            raise MlflowException.invalid_parameter_value(
-                f"Routing custom scorers to a separate executor backend is not supported yet: "
-                f"MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND ({executor_backend!r}) must match "
-                f"MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND ({runner_backend!r}) until the runner "
-                f"dispatches per job."
-            )
+        # The runner runs each job on the backend recorded here, so custom scorer jobs can be
+        # routed to a separate backend (MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND).
+        executor_backend = select_executor_backend(
+            is_custom_scorer=is_custom_scorer, job_name=fn_meta.name, params=params
+        )
         # Remote executor backends are refused at startup today (see
         # JobExecutorRegistry.validate_backends), so this check does not fire yet. It is kept as
         # the model-resolution policy that becomes live once remote execution is supported: a
         # remote executor gets only a Gateway-scoped token and no provider API keys, so it cannot
         # resolve a direct-provider model URI unless it opts in via supports_direct_provider_models
         # (e.g. it provisions provider creds another way). Reject such a scorer before it is
-        # persisted. Resolve the backend the job will actually run on (executor_backend); it
-        # equals runner_backend today because a differing backend is rejected above, but this
-        # stays correct once per-job dispatch honors a separate custom-scorer backend.
+        # persisted, checking the backend the job will actually run on.
         executor = get_executor_registry().get(executor_backend)
         if (
             executor.remote_execution

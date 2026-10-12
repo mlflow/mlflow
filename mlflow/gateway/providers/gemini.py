@@ -99,6 +99,11 @@ def _tool_result_to_response(content: Any) -> dict[str, Any]:
 
 
 class GeminiAdapter(ProviderAdapter):
+    @staticmethod
+    def _join_text_parts(parts):
+        """Concatenate the text of every part; Gemini may split one reply across parts."""
+        return "".join(part.get("text") or "" for part in parts or [])
+
     @classmethod
     def _normalize_finish_reason(cls, finish_reason):
         """Normalize Gemini finish reasons to OpenAI format (lowercase)."""
@@ -442,7 +447,7 @@ class GeminiAdapter(ProviderAdapter):
                         )
                     )
 
-                elif content := parts[0].get("text"):
+                elif content := GeminiAdapter._join_text_parts(parts):
                     choices.append(
                         chat_schema.Choice(
                             index=idx,
@@ -509,7 +514,7 @@ class GeminiAdapter(ProviderAdapter):
                     )
                     continue
 
-            delta_text = parts[0].get("text", "") if parts else ""
+            delta_text = GeminiAdapter._join_text_parts(parts)
             # Gemini ends a tool-call stream with a STOP chunk that carries no functionCall,
             # so the calls seen in earlier chunks decide the finish reason.
             if finish_reason == "stop" and (tool_call_offsets or {}).get(idx, 0):
@@ -589,7 +594,7 @@ class GeminiAdapter(ProviderAdapter):
         for idx, candidate in enumerate(resp.get("candidates", [])):
             text = ""
             if parts := candidate.get("content", {}).get("parts", None):
-                text = parts[0].get("text", None)
+                text = cls._join_text_parts(parts)
             if not text:
                 continue
 
@@ -643,7 +648,7 @@ class GeminiAdapter(ProviderAdapter):
         choices = []
         for idx, cand in enumerate(resp.get("candidates", [])):
             parts = cand.get("content", {}).get("parts", [])
-            delta_text = parts[0].get("text", "") if parts else ""
+            delta_text = cls._join_text_parts(parts)
             choices.append(
                 completions_schema.StreamChoice(
                     index=idx,
