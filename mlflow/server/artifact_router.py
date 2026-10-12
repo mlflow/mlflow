@@ -22,6 +22,7 @@ from fastapi.responses import FileResponse, JSONResponse, Response, StreamingRes
 
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repo import ARTIFACT_STREAM_CHUNK_SIZE, StreamUploadMixin
+from mlflow.store.tracking.skill_registry.artifact_paths import is_skill_upload_namespace
 from mlflow.utils.mime_type_utils import _guess_mime_type
 from mlflow.utils.uri import validate_path_is_safe
 
@@ -146,6 +147,11 @@ async def upload_artifact(artifact_path: str, request: Request):
 
     try:
         artifact_path = validate_path_is_safe(artifact_path)
+        if is_skill_upload_namespace(artifact_path):
+            raise HTTPException(
+                status_code=403,
+                detail="Skill upload content is immutable; register a new version instead",
+            )
         artifact_path = _get_workspace_scoped_path(artifact_path)
         head, tail = posixpath.split(artifact_path)
 
