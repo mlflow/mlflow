@@ -169,6 +169,12 @@ def run_online_session_scorer_job(
         for scorer_dict in online_scorers
     ]
 
+    # Lazy import: see run_online_trace_scorer_job.
+    from mlflow.genai.scorers.online.container_scoring import (
+        OnlineContainerScorer,
+        container_scoring_enabled,
+    )
+
     tracking_store = _get_tracking_store()
     if container_scoring_enabled():
         # Custom scorers run in job containers, so their code is never loaded in this process.
