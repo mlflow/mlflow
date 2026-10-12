@@ -172,10 +172,12 @@ from mlflow.server.handlers import (
     STATIC_PREFIX_ENV_VAR,
     ModelRegistryStoreRegistryWrapper,
     TrackingStoreRegistryWrapper,
+    _abort_multipart_upload_artifact,
     _batch_get_trace_infos,
     _batch_get_traces,
     _calculate_trace_filter_correlation,
     _cancel_prompt_optimization_job,
+    _complete_multipart_upload_artifact,
     _convert_path_parameter_to_flask_format,
     _create_artifact_file_response,
     _create_dataset_handler,
@@ -183,6 +185,7 @@ from mlflow.server.handlers import (
     _create_gateway_secret,
     _create_issue,
     _create_model_version,
+    _create_multipart_upload_artifact,
     _create_presigned_download_url,
     _create_presigned_upload_url,
     _create_prompt_optimization_job,
@@ -7068,6 +7071,42 @@ def test_upload_artifact_falls_back_to_log_artifact_without_mixin(enable_serve_a
     assert args[0].endswith("model.pkl")
     assert kwargs["artifact_path"] == "nested"
     assert response.status_code == 200
+
+
+@pytest.mark.parametrize(
+    ("handler", "method"),
+    [(_upload_artifact, "PUT"), (_delete_artifact_mlflow_artifacts, "DELETE")],
+)
+@pytest.mark.parametrize(
+    "path",
+    ["skills/private/token/SKILL.md", "%2e/workspaces/team-a/skills/private/token/SKILL.md"],
+)
+def test_skill_content_cannot_be_mutated_through_flask_artifact_handlers(
+    enable_serve_artifacts, handler, method, path
+):
+    with (
+        app.test_request_context(method=method, data=b"changed"),
+        mock.patch("mlflow.server.handlers._get_artifact_repo_mlflow_artifacts") as get_repo,
+    ):
+        response = handler(path)
+    assert response.status_code == 403
+    get_repo.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "handler",
+    [
+        _create_multipart_upload_artifact,
+        _complete_multipart_upload_artifact,
+        _abort_multipart_upload_artifact,
+    ],
+)
+def test_skill_content_cannot_be_mutated_through_multipart_artifact_handlers(
+    enable_serve_artifacts, handler
+):
+    with app.test_request_context(method="POST"):
+        response = handler("skills/private/token")
+    assert response.status_code == 403
 
 
 def test_download_artifact_streams_in_chunks(enable_serve_artifacts, tmp_path):

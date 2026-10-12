@@ -30,6 +30,7 @@ mlflow.catboost.save_model
 mlflow.clear_active_model
 mlflow.client.MlflowClient
 mlflow.client.MlflowClient.add_dataset_to_experiments
+mlflow.client.MlflowClient.bulk_register_skills
 mlflow.client.MlflowClient.copy_model_version
 mlflow.client.MlflowClient.create_dataset
 mlflow.client.MlflowClient.create_experiment
@@ -42,6 +43,8 @@ mlflow.client.MlflowClient.create_prompt
 mlflow.client.MlflowClient.create_prompt_version
 mlflow.client.MlflowClient.create_registered_model
 mlflow.client.MlflowClient.create_run
+mlflow.client.MlflowClient.create_skill
+mlflow.client.MlflowClient.create_skill_version
 mlflow.client.MlflowClient.create_webhook
 mlflow.client.MlflowClient.create_workspace
 mlflow.client.MlflowClient.delete_dataset
@@ -67,6 +70,11 @@ mlflow.client.MlflowClient.delete_registered_model
 mlflow.client.MlflowClient.delete_registered_model_alias
 mlflow.client.MlflowClient.delete_registered_model_tag
 mlflow.client.MlflowClient.delete_run
+mlflow.client.MlflowClient.delete_skill
+mlflow.client.MlflowClient.delete_skill_alias
+mlflow.client.MlflowClient.delete_skill_tag
+mlflow.client.MlflowClient.delete_skill_version
+mlflow.client.MlflowClient.delete_skill_version_tag
 mlflow.client.MlflowClient.delete_tag
 mlflow.client.MlflowClient.delete_trace_tag
 mlflow.client.MlflowClient.delete_traces
@@ -81,6 +89,7 @@ mlflow.client.MlflowClient.get_dataset
 mlflow.client.MlflowClient.get_experiment
 mlflow.client.MlflowClient.get_experiment_by_name
 mlflow.client.MlflowClient.get_latest_mcp_server_version
+mlflow.client.MlflowClient.get_latest_skill_version
 mlflow.client.MlflowClient.get_latest_versions
 mlflow.client.MlflowClient.get_logged_model
 mlflow.client.MlflowClient.get_mcp_access_endpoint
@@ -98,6 +107,9 @@ mlflow.client.MlflowClient.get_prompt_version
 mlflow.client.MlflowClient.get_prompt_version_by_alias
 mlflow.client.MlflowClient.get_registered_model
 mlflow.client.MlflowClient.get_run
+mlflow.client.MlflowClient.get_skill
+mlflow.client.MlflowClient.get_skill_version
+mlflow.client.MlflowClient.get_skill_version_by_alias
 mlflow.client.MlflowClient.get_trace
 mlflow.client.MlflowClient.get_webhook
 mlflow.client.MlflowClient.get_workspace
@@ -148,6 +160,8 @@ mlflow.client.MlflowClient.search_prompt_versions
 mlflow.client.MlflowClient.search_prompts
 mlflow.client.MlflowClient.search_registered_models
 mlflow.client.MlflowClient.search_runs
+mlflow.client.MlflowClient.search_skill_versions
+mlflow.client.MlflowClient.search_skills
 mlflow.client.MlflowClient.search_traces
 mlflow.client.MlflowClient.set_dataset_tags
 mlflow.client.MlflowClient.set_experiment_tag
@@ -161,6 +175,9 @@ mlflow.client.MlflowClient.set_prompt_tag
 mlflow.client.MlflowClient.set_prompt_version_tag
 mlflow.client.MlflowClient.set_registered_model_alias
 mlflow.client.MlflowClient.set_registered_model_tag
+mlflow.client.MlflowClient.set_skill_alias
+mlflow.client.MlflowClient.set_skill_tag
+mlflow.client.MlflowClient.set_skill_version_tag
 mlflow.client.MlflowClient.set_tag
 mlflow.client.MlflowClient.set_terminated
 mlflow.client.MlflowClient.set_trace_tag
@@ -175,6 +192,8 @@ mlflow.client.MlflowClient.update_mcp_server_version
 mlflow.client.MlflowClient.update_model_version
 mlflow.client.MlflowClient.update_registered_model
 mlflow.client.MlflowClient.update_run
+mlflow.client.MlflowClient.update_skill
+mlflow.client.MlflowClient.update_skill_version
 mlflow.client.MlflowClient.update_webhook
 mlflow.client.MlflowClient.update_workspace
 mlflow.config.disable_system_metrics_logging
@@ -1054,6 +1073,7 @@ mlflow.genai.get_mcp_server_version_by_alias
 mlflow.genai.get_prompt_tags
 mlflow.genai.get_review_app
 mlflow.genai.get_scorer
+mlflow.genai.import_skills
 mlflow.genai.judges.AlignmentOptimizer
 mlflow.genai.judges.AlignmentOptimizer.align
 mlflow.genai.judges.CategoricalRating
@@ -1140,6 +1160,7 @@ mlflow.genai.refresh_mcp_server_version_tools
 mlflow.genai.register_mcp_server
 mlflow.genai.register_mcp_server_from_url
 mlflow.genai.register_prompt
+mlflow.genai.register_skill
 mlflow.genai.review_queues.ReviewItemType
 mlflow.genai.review_queues.ReviewItemType.from_proto
 mlflow.genai.review_queues.ReviewItemType.to_proto
@@ -1522,6 +1543,7 @@ mlflow.genai.search_mcp_access_endpoints
 mlflow.genai.search_mcp_server_versions
 mlflow.genai.search_mcp_servers
 mlflow.genai.search_prompts
+mlflow.genai.search_skills
 mlflow.genai.set_dataset_tags
 mlflow.genai.set_mcp_server_alias
 mlflow.genai.set_mcp_server_tag

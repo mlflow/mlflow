@@ -412,41 +412,51 @@ def test_proxy_artifact_mpu_path_detection():
 
 def test_extract_experiment_id_from_artifact_proxy_path():
     assert (
-        auth_module._extract_experiment_id_from_artifact_proxy_path(
-            "/api/2.0/mlflow-artifacts/artifacts/42/run-id/artifacts/model.pkl"
-        )
+        auth_module._parse_artifact_auth_target(
+            auth_module._effective_artifact_proxy_path(
+                "/api/2.0/mlflow-artifacts/artifacts/42/run-id/artifacts/model.pkl"
+            )
+        ).experiment_id
         == "42"
     )
     assert (
-        auth_module._extract_experiment_id_from_artifact_proxy_path(
-            "/ajax-api/2.0/mlflow-artifacts/artifacts/workspaces/team-a/7/run-id/artifacts/f"
-        )
+        auth_module._parse_artifact_auth_target(
+            auth_module._effective_artifact_proxy_path(
+                "/ajax-api/2.0/mlflow-artifacts/artifacts/workspaces/team-a/7/run-id/artifacts/f"
+            )
+        ).experiment_id
         == "7"
     )
     for action in ("create", "complete", "abort"):
         assert (
-            auth_module._extract_experiment_id_from_artifact_proxy_path(
-                f"/api/2.0/mlflow-artifacts/mpu/{action}/99/run-id/artifacts/model"
-            )
+            auth_module._parse_artifact_auth_target(
+                auth_module._effective_artifact_proxy_path(
+                    f"/api/2.0/mlflow-artifacts/mpu/{action}/99/run-id/artifacts/model"
+                )
+            ).experiment_id
             == "99"
         )
         assert (
-            auth_module._extract_experiment_id_from_artifact_proxy_path(
-                f"/ajax-api/2.0/mlflow-artifacts/mpu/{action}/workspaces/ws/3/run/artifacts/x"
-            )
+            auth_module._parse_artifact_auth_target(
+                auth_module._effective_artifact_proxy_path(
+                    f"/ajax-api/2.0/mlflow-artifacts/mpu/{action}/workspaces/ws/3/run/artifacts/x"
+                )
+            ).experiment_id
             == "3"
         )
     assert (
-        auth_module._extract_experiment_id_from_artifact_proxy_path(
-            "/api/2.0/mlflow-artifacts/artifacts",
-            query_path="55/models/m-abc123/artifacts",
-        )
+        auth_module._parse_artifact_auth_target(
+            auth_module._effective_artifact_proxy_path(
+                "/api/2.0/mlflow-artifacts/artifacts",
+                query_path="55/models/m-abc123/artifacts",
+            )
+        ).experiment_id
         == "55"
     )
     assert (
-        auth_module._extract_experiment_id_from_artifact_proxy_path(
-            "/api/2.0/mlflow/experiments/get"
-        )
+        auth_module._parse_artifact_auth_target(
+            auth_module._effective_artifact_proxy_path("/api/2.0/mlflow/experiments/get")
+        ).experiment_id
         is None
     )
 
@@ -587,11 +597,12 @@ def test_proxy_artifact_permission_reuses_authenticated_flask_user(monkeypatch):
     authenticate_request = mock.Mock(side_effect=AssertionError("should not re-authenticate"))
 
     monkeypatch.setattr(auth_module, "authenticate_request", authenticate_request)
-    monkeypatch.setattr(auth_module, "_get_experiment_id_from_view_args", lambda: "123")
     monkeypatch.setattr(auth_module, "_role_permission_for", lambda **_: permission)
     monkeypatch.setattr(auth_module, "_get_role_permission_or_default", lambda perm: perm)
 
-    with auth_module.app.test_request_context("/api/2.0/mlflow-artifacts/artifacts"):
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow-artifacts/artifacts?path=123/run/artifacts/file"
+    ):
         auth_module.g.mlflow_authenticated_user = "alice"
         result = auth_module._get_permission_from_experiment_id_artifact_proxy()
 
