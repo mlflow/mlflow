@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import {
-  Alert,
   BeakerIcon,
   Button,
   ChartLineIcon,
@@ -11,11 +10,10 @@ import {
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { useLocalStorage } from '@databricks/web-shared/hooks';
 import { createTraceLocationForExperiment, useSearchMlflowTraces } from '@databricks/web-shared/genai-traces-table';
 import { DEFAULT_TRACES_V4_TIME_LABEL } from '../../components/experiment-page/components/traces-v4/utils/timeRange';
 import { shouldEnableIssueDetection } from '../../../common/utils/FeatureUtils';
-import { generatePath, Link, useLocation, useNavigate, useParams } from '../../../common/utils/RoutingUtils';
+import { generatePath, useLocation, useNavigate, useParams } from '../../../common/utils/RoutingUtils';
 import Routes, { RoutePaths } from '../../routes';
 import { ExperimentPageTabName, RunPageTabName } from '../../constants';
 import { useAssistant } from '../../../assistant';
@@ -127,12 +125,6 @@ export const ExperimentGenAIJourneyOverviewPage = () => {
   const { experimentId = '' } = useParams<{ experimentId: string }>();
   const { search } = useLocation();
   const navigate = useNavigate();
-  const dashboardRoute = Routes.getExperimentPageTabRoute(experimentId, ExperimentPageTabName.Dashboard);
-  const [isDashboardMoveNoticeDismissed, setIsDashboardMoveNoticeDismissed] = useLocalStorage({
-    key: 'mlflow.genaiOverview.dashboardMoveNoticeDismissed',
-    version: 0,
-    initialValue: false,
-  });
   const isIssueDetectionEnabled = shouldEnableIssueDetection();
   const useRollingSevenDayRange = true;
   const overviewTimeLabel = DEFAULT_TRACES_V4_TIME_LABEL;
@@ -467,27 +459,6 @@ export const ExperimentGenAIJourneyOverviewPage = () => {
         padding: `${theme.spacing.sm}px ${theme.spacing.lg}px ${theme.spacing.lg}px`,
       }}
     >
-      {!isDashboardMoveNoticeDismissed && (
-        <Alert
-          componentId="mlflow.genai-overview.dashboard-move-notice"
-          type="info"
-          closable
-          onClose={() => setIsDashboardMoveNoticeDismissed(true)}
-          message={
-            <FormattedMessage
-              defaultMessage="The previous Overview page is now under <dashboardLink>Dashboard</dashboardLink>, with no changes to its functionality."
-              description="Notice that the previous experiment Overview charts moved to the Dashboard tab"
-              values={{
-                dashboardLink: (chunks) => (
-                  <Link to={dashboardRoute} componentId="mlflow.genai-overview.dashboard-move-notice.link">
-                    {chunks}
-                  </Link>
-                ),
-              }}
-            />
-          }
-        />
-      )}
       <div
         css={{
           width: '100%',
