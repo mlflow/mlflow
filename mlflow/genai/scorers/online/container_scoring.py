@@ -8,6 +8,7 @@ logs its assessments, as for an on-demand scorer run (see
 ``mlflow.genai.scorers.job._plan_invoke_scorer_job_for_docker``).
 """
 
+import json
 import logging
 import tempfile
 import time
@@ -21,7 +22,9 @@ from mlflow.environment_variables import (
     MLFLOW_SERVER_JOB_DEFAULT_TIMEOUT,
     MLFLOW_SERVER_SCORER_INVOKE_BATCH_SIZE,
 )
+from mlflow.exceptions import MlflowException
 from mlflow.genai.scorers.online.entities import OnlineScorer
+from mlflow.server.jobs.executor_registry import DOCKER_EXECUTOR_BACKEND
 from mlflow.server.jobs.job_container import (
     _CONTAINER_INPUT_DIR,
     job_docker_client,
@@ -35,13 +38,14 @@ from mlflow.server.jobs.job_container import (
 _logger = logging.getLogger(__name__)
 
 # The online job is ended (with its process group, so without any cleanup) at its timeout. Batches
-# share the time left, keeping this fraction of it in reserve, so they finish before that happens.
-_BATCH_TIME_SHARE = 0.9
+# share the time left minus this fraction of the job timeout, kept in reserve so they and the
+# host's logging finish before that happens.
+_RESERVED_TIME_SHARE = 0.1
 
 
 def container_scoring_enabled() -> bool:
     """Whether online scoring jobs run custom scorers in job containers."""
-    return MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND.get() == "docker"
+    return MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND.get() == DOCKER_EXECUTOR_BACKEND
 
 
 class OnlineContainerScorer:
@@ -64,12 +68,21 @@ class OnlineContainerScorer:
         self._job_timeout = MLFLOW_SERVER_JOB_DEFAULT_TIMEOUT.get()
         self._job_deadline = time.monotonic() + self._job_timeout
         self._client = None
+        self._setup_error: str | None = None
 
     def _get_client(self):
+        """The Docker client, set up once per job: leftovers removed and the image ready."""
+        if self._setup_error is not None:
+            raise MlflowException(self._setup_error)
         if self._client is None:
-            client = job_docker_client()
-            remove_job_containers(client, self._container_label)
-            prepare_job_image(client)
+            try:
+                client = job_docker_client()
+                remove_job_containers(client, self._container_label)
+                prepare_job_image(client)
+            except Exception as e:
+                # Do not retry a failed setup (for example an image pull) for every batch.
+                self._setup_error = f"Could not set up job containers: {e!r}"
+                raise
             self._client = client
         return self._client
 
@@ -84,6 +97,8 @@ class OnlineContainerScorer:
             work: Each custom scorer with the traces it should score.
             on_failure: Called with a scorer, the traces of a batch that failed, and the error.
         """
+        if not work:
+            return
         batch_size = MLFLOW_SERVER_SCORER_INVOKE_BATCH_SIZE.get()
         batches = [
             (online_scorer, traces[i : i + batch_size])
@@ -92,24 +107,26 @@ class OnlineContainerScorer:
         ]
         for index, (online_scorer, batch) in enumerate(batches):
             batches_left = len(batches) - index
+            time_left = self._job_deadline - time.monotonic()
             timeout = min(
-                (self._job_deadline - time.monotonic()) * _BATCH_TIME_SHARE / batches_left,
+                (time_left - self._job_timeout * _RESERVED_TIME_SHARE) / batches_left,
                 self._job_timeout / 2,
             )
             try:
-                error = self._score_batch(online_scorer, batch, timeout)
+                failures = self._score_batch(online_scorer, batch, timeout)
             except Exception as e:
                 _logger.warning(
                     f"Failed to run custom scorer '{online_scorer.name}' in a job container",
                     exc_info=True,
                 )
-                error = repr(e)
-            if error is not None:
-                on_failure(online_scorer, batch, error)
+                failures = [(batch, repr(e))]
+            for traces, error in failures:
+                on_failure(online_scorer, traces, error)
 
     def _score_batch(
         self, online_scorer: OnlineScorer, traces: list[Trace], timeout: float
-    ) -> str | None:
+    ) -> list[tuple[list[Trace], str]]:
+        """Score one batch and return the traces that failed, each group with its error."""
         # Imported here: mlflow.genai.scorers.job imports the online scoring processors, which
         # import this module.
         from mlflow.genai.scorers.job import _plan_invoke_scorer_job_for_docker
@@ -137,6 +154,19 @@ class OnlineContainerScorer:
                 output_dir=output_dir,
                 timeout=timeout,
             )
-        if result.status == JobStatus.SUCCEEDED:
-            return None
-        return result.error_message or f"The job container ended with status {result.status}."
+        if result.status != JobStatus.SUCCEEDED:
+            error = result.error_message or f"The job container ended with status {result.status}."
+            return [(traces, error)]
+        # Report traces the scorer failed on, or that are missing from the result, as on the host.
+        trace_results = json.loads(result.result)
+        failures = []
+        for trace in traces:
+            trace_result = trace_results.get(trace.info.trace_id)
+            if trace_result is None:
+                failures.append(([trace], "The job container returned no result for this trace."))
+            elif trace_result["failures"] and not trace_result["assessments"]:
+                errors = "; ".join(
+                    f"{f['error_code']}: {f['error_message']}" for f in trace_result["failures"]
+                )
+                failures.append(([trace], errors))
+        return failures

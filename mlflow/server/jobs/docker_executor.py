@@ -56,6 +56,7 @@ from mlflow.server.jobs.job_container import (
     make_job_container_dirs,
     prepare_job_image,
     remove_job_containers,
+    remove_job_containers_by_job_name,
     run_job_container,
     write_transient_error_classes,
 )
@@ -79,6 +80,10 @@ _JOB_PLANNERS = {
 _JOB_SUPPORT_CHECKS = {
     "invoke_scorer": "mlflow.genai.scorers.job._docker_supports_invoke_scorer_params",
 }
+
+# Online scoring jobs that run custom scorers in job containers of their own (see
+# ``mlflow.genai.scorers.online.container_scoring``) rather than through this executor.
+_ONLINE_CONTAINER_JOB_NAMES = ("run_online_trace_scorer",)
 
 # How long ``stop_executor`` waits for container starts in progress before giving up on them, which
 # bounds how long that wait can delay shutdown when the Docker daemon hangs.
@@ -130,7 +135,7 @@ class DockerJobExecutor(AbstractJobExecutor):
                 "The docker job executor requires a POSIX host running Docker or Podman."
             )
         # Fail at startup rather than on every job if a container setting is malformed.
-        for job_name in _JOB_PLANNERS:
+        for job_name in (*_JOB_PLANNERS, *_ONLINE_CONTAINER_JOB_NAMES):
             _resource_limits(job_name, _declared_resource_limits(job_name))
         _container_labels("", "")
         try:
@@ -149,6 +154,10 @@ class DockerJobExecutor(AbstractJobExecutor):
     def start_executor(self) -> None:
         self.check_requirements()
         self._prepare_image()
+        # An online scoring job's container cannot outlive the job runner that started it, so any
+        # this server left behind (for example when it was stopped mid-batch) is a leftover.
+        for job_name in _ONLINE_CONTAINER_JOB_NAMES:
+            remove_job_containers_by_job_name(self._get_client(), job_name)
         _logger.warning(
             "The docker job executor runs custom scorers without network access. Only on-demand "
             "scorer runs made only of custom scorers use it; other jobs with custom scorers, such "

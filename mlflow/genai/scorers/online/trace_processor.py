@@ -13,7 +13,7 @@ from mlflow.environment_variables import (
     MLFLOW_ONLINE_SCORING_MAX_WORKER_THREADS,
 )
 from mlflow.exceptions import MlflowException
-from mlflow.genai.scorers.base import Scorer, _serialized_scorer_is_custom_code
+from mlflow.genai.scorers.base import Scorer, _UnexecutedDecoratorScorer
 from mlflow.genai.scorers.online.constants import EXCLUDE_EVAL_RUN_TRACES_FILTER, MAX_TRACES_PER_JOB
 from mlflow.genai.scorers.online.entities import OnlineScorer
 from mlflow.genai.scorers.online.sampler import OnlineScorerSampler
@@ -298,8 +298,9 @@ class OnlineTraceScoringProcessor:
                 continue
             host_scorers = []
             for scorer in task.scorers:
-                online_scorer = self._sampler.online_scorer(scorer.name)
-                if _serialized_scorer_is_custom_code(online_scorer.serialized_scorer):
+                # The sampler loads custom scorers without their code in this mode.
+                if isinstance(scorer, _UnexecutedDecoratorScorer):
+                    online_scorer = self._sampler.online_scorer(scorer.name)
                     container_work.setdefault(scorer.name, (online_scorer, []))[1].append(
                         task.trace
                     )

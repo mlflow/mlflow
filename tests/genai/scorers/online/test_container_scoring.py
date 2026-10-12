@@ -146,18 +146,65 @@ def test_batches_share_the_time_left_and_take_at_most_half_the_job_timeout(
         return JobResult(status=JobStatus.SUCCEEDED, result="{}")
 
     monkeypatch.setattr(container_scoring, "run_plan_in_container", run)
+    # A clock that does not move, so the time left only shrinks by what batches do not use.
+    monkeypatch.setattr(container_scoring, "time", mock.Mock(monotonic=lambda: 1000.0))
     online_scorer = _custom_online_scorer(experiment_id)
 
     OnlineContainerScorer(experiment_id, _JOB_NAME).score(
         [(online_scorer, trace_list)], mock.Mock()
     )
 
-    # Each batch gets 90% of the time left over the batches left, so time a fast batch does not
-    # use goes to the next ones, and no batch gets more than half the job timeout.
-    assert timeouts == [pytest.approx(30, abs=1), pytest.approx(45, abs=1), 50]
+    # Batches share the time left minus a reserve of 10% of the job timeout, so time a fast batch
+    # does not use goes to the next ones, and no batch gets more than half the job timeout.
+    assert timeouts == [30, 45, 50]
 
     timeouts.clear()
     OnlineContainerScorer(experiment_id, _JOB_NAME).score(
         [(online_scorer, trace_list[:1])], mock.Mock()
     )
     assert timeouts == [50]
+
+
+def test_reports_traces_the_scorer_failed_on_or_left_out(traces, docker, monkeypatch):
+    experiment_id, trace_list = traces
+    first, second, third = (t.info.trace_id for t in trace_list)
+    container_result = {
+        first: {"assessments": [], "failures": [{"error_code": "E", "error_message": "boom"}]},
+        second: {"assessments": [{"name": "output_length"}], "failures": []},
+    }
+    monkeypatch.setattr(
+        container_scoring,
+        "run_plan_in_container",
+        lambda *args, **kwargs: JobResult(
+            status=JobStatus.SUCCEEDED, result=json.dumps(container_result)
+        ),
+    )
+    on_failure = mock.Mock()
+    online_scorer = _custom_online_scorer(experiment_id)
+
+    OnlineContainerScorer(experiment_id, _JOB_NAME).score([(online_scorer, trace_list)], on_failure)
+
+    reported = {call.args[1][0].info.trace_id: call.args[2] for call in on_failure.call_args_list}
+    assert reported == {
+        first: "E: boom",
+        third: "The job container returned no result for this trace.",
+    }
+
+
+def test_failed_setup_is_not_retried_for_every_batch(traces, docker, monkeypatch):
+    experiment_id, trace_list = traces
+    _, calls = docker
+    monkeypatch.setenv("MLFLOW_SERVER_SCORER_INVOKE_BATCH_SIZE", "1")
+    calls.prepare_job_image.side_effect = RuntimeError("cannot pull image")
+    run = mock.Mock()
+    monkeypatch.setattr(container_scoring, "run_plan_in_container", run)
+    on_failure = mock.Mock()
+
+    OnlineContainerScorer(experiment_id, _JOB_NAME).score(
+        [(_custom_online_scorer(experiment_id), trace_list)], on_failure
+    )
+
+    calls.prepare_job_image.assert_called_once()
+    run.assert_not_called()
+    assert on_failure.call_count == 3
+    assert all("cannot pull image" in call.args[2] for call in on_failure.call_args_list)

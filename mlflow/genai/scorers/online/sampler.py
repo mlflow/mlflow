@@ -29,7 +29,9 @@ class OnlineScorerSampler:
     - Use conditional probability: if a scorer is rejected, skip all lower-rate scorers
     """
 
-    def __init__(self, online_scorers: list["OnlineScorer"], run_custom_scorers_on_host=True):
+    def __init__(
+        self, online_scorers: list["OnlineScorer"], run_custom_scorers_on_host: bool = True
+    ):
         """
         Args:
             online_scorers: The scorers to sample from.
@@ -73,7 +75,9 @@ class OnlineScorerSampler:
         serialized = SerializedScorer.from_dict(
             _parse_serialized_scorer(online_scorer.serialized_scorer)
         )
-        if not serialized.call_source:
+        if not (
+            serialized.call_source and serialized.call_signature and serialized.original_func_name
+        ):
             _logger.warning(
                 f"Skipping scorer '{online_scorer.name}': ensembles that include custom scorers "
                 "are not supported when custom scorers run in a job container."

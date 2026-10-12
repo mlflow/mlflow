@@ -14,6 +14,7 @@ from mlflow.genai.judges.adapters.rate_limit_retry_adapters import (
     RateLimitRetryAdapter,
     register_retry_adapter,
 )
+from mlflow.genai.scorers.base import _UnexecutedDecoratorScorer
 from mlflow.genai.scorers.builtin_scorers import Completeness
 from mlflow.genai.scorers.online.container_scoring import OnlineContainerScorer
 from mlflow.genai.scorers.online.entities import OnlineScorer, OnlineScoringConfig
@@ -855,3 +856,16 @@ def test_custom_scorers_run_in_containers_and_other_scorers_on_the_host(
         assert str(error) == "scorer crashed"
         assert scorers == [sampler.scorer("output_length")]
         assert failed_trace is trace
+
+
+def test_create_loads_custom_scorers_without_their_code_when_given_a_container_scorer():
+    @scorer
+    def output_length(outputs) -> int:
+        return len(str(outputs))
+
+    container_scorer = MagicMock(spec=OnlineContainerScorer)
+    processor = OnlineTraceScoringProcessor.create(
+        "exp1", [make_online_scorer(output_length)], MagicMock(), container_scorer=container_scorer
+    )
+
+    assert isinstance(processor._sampler.scorer("output_length"), _UnexecutedDecoratorScorer)

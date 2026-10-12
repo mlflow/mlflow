@@ -7,6 +7,7 @@ directory, and the host then checks that untrusted result and records it. See th
 module (``mlflow.server.jobs.docker_executor``) for the limits of this mode.
 """
 
+import hashlib
 import json
 import logging
 import math
@@ -25,6 +26,7 @@ from mlflow.environment_variables import (
     MLFLOW_JOBS_DOCKER_HOST,
 )
 from mlflow.exceptions import MlflowException
+from mlflow.server.constants import BACKEND_STORE_URI_ENV_VAR
 from mlflow.server.jobs.executor import JobResult
 from mlflow.server.jobs.utils import (
     _JOB_ENTRY_MODULE,
@@ -48,6 +50,9 @@ _logger = logging.getLogger(__name__)
 
 LABEL_JOB_ID = "mlflow.job_id"
 LABEL_JOB_NAME = "mlflow.job_name"
+# Identifies the MLflow server (by its backend store) that started a job container, so servers that
+# share a Docker daemon never clean up each other's containers.
+LABEL_BACKEND_STORE = "mlflow.backend_store"
 
 _CONTAINER_INPUT_DIR = "/job/input"
 _CONTAINER_OUTPUT_DIR = "/job/output"
@@ -188,7 +193,13 @@ def _container_labels(job_id: str, job_name: str) -> dict[str, str]:
     # The job labels are applied last so they cannot be overridden: recovery relies on them.
     labels[LABEL_JOB_ID] = job_id
     labels[LABEL_JOB_NAME] = job_name
+    labels[LABEL_BACKEND_STORE] = _backend_store_label()
     return labels
+
+
+def _backend_store_label() -> str:
+    store_uri = os.environ.get(BACKEND_STORE_URI_ENV_VAR, "")
+    return hashlib.sha256(store_uri.encode()).hexdigest()[:16]
 
 
 def _default_image() -> str:
@@ -362,14 +373,25 @@ def run_job_container(
 
 
 def remove_job_containers(client, job_id: str) -> None:
-    """Remove every container labeled with ``job_id``, for example one that failed to start.
+    """Remove this server's containers labeled with ``job_id``, for example one that failed to
+    start.
 
     So a job must run at most one container at a time.
     """
+    _remove_labeled_containers(client, f"{LABEL_JOB_ID}={job_id}")
+
+
+def remove_job_containers_by_job_name(client, job_name: str) -> None:
+    """Remove this server's containers for every job of type ``job_name``."""
+    _remove_labeled_containers(client, f"{LABEL_JOB_NAME}={job_name}")
+
+
+def _remove_labeled_containers(client, label: str) -> None:
+    filters = {"label": [label, f"{LABEL_BACKEND_STORE}={_backend_store_label()}"]}
     try:
-        containers = client.containers.list(all=True, filters={"label": f"{LABEL_JOB_ID}={job_id}"})
+        containers = client.containers.list(all=True, filters=filters)
     except Exception:
-        _logger.debug("Could not list containers for job %s", job_id, exc_info=True)
+        _logger.debug("Could not list containers labeled %s", label, exc_info=True)
         return
     for container in containers:
         _remove_quietly(container)
