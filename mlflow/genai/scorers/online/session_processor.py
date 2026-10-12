@@ -3,11 +3,12 @@
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
-from mlflow.entities import Trace
+from mlflow.entities import AssessmentSource, AssessmentSourceType, Trace
 from mlflow.entities.assessment import Assessment, Feedback
 from mlflow.environment_variables import MLFLOW_ONLINE_SCORING_MAX_WORKER_THREADS
+from mlflow.exceptions import MlflowException
 from mlflow.genai.scorers.base import Scorer, _UnexecutedDecoratorScorer
 from mlflow.genai.scorers.online.constants import (
     EXCLUDE_EVAL_RUN_TRACES_FILTER,
@@ -224,7 +225,11 @@ class OnlineSessionScoringProcessor:
         return sorted_tasks[:MAX_SESSIONS_PER_JOB]
 
     def _clean_up_old_assessments(
-        self, trace, session_id: str, new_assessments: list[Assessment]
+        self,
+        trace,
+        session_id: str,
+        new_assessments: list[Assessment],
+        only_replace_code_assessments: bool = False,
     ) -> None:
         """
         Remove old online scoring assessments after successfully logging new ones.
@@ -236,6 +241,7 @@ class OnlineSessionScoringProcessor:
             trace: The Trace object containing all assessments.
             session_id: The session ID to match in assessment metadata.
             new_assessments: List of new assessments that were just logged.
+            only_replace_code_assessments: Only remove old assessments that code scorers logged.
         """
         if not trace or not trace.info.assessments:
             return
@@ -252,6 +258,13 @@ class OnlineSessionScoringProcessor:
                 online_session_id == session_id
                 and assessment.name in new_assessment_names
                 and assessment.assessment_id not in new_assessment_ids
+                and (
+                    not only_replace_code_assessments
+                    or (
+                        assessment.source
+                        and assessment.source.source_type == AssessmentSourceType.CODE
+                    )
+                )
             ):
                 self._tracking_store.delete_assessment(
                     trace_id=trace.info.trace_id, assessment_id=assessment.assessment_id
@@ -285,6 +298,7 @@ class OnlineSessionScoringProcessor:
         self._execute_session_scoring_on_host(host_tasks)
 
         work = []
+        session_ids = {}
         for task in container_tasks:
             try:
                 traces = self._fetch_session_traces(task.session)
@@ -296,22 +310,33 @@ class OnlineSessionScoringProcessor:
                 continue
             if not traces:
                 continue
+            session_ids[traces[0].info.trace_id] = task.session.session_id
             work.extend((self._sampler.online_scorer(s.name), traces) for s in task.scorers)
 
-        def on_result(
-            online_scorer: OnlineScorer, traces: list[Trace], trace_results: dict[str, Any]
-        ) -> None:
-            traces_by_id = {t.info.trace_id: t for t in traces}
-            for trace_id, trace_result in trace_results.items():
-                if feedbacks := [Feedback.from_dictionary(a) for a in trace_result["assessments"]]:
-                    self._log_session_assessments(
-                        traces_by_id[trace_id], _session_id(traces), feedbacks
-                    )
+        def on_result(online_scorer: OnlineScorer, traces: list[Trace], feedbacks: list[Feedback]):
+            self._log_session_assessments(
+                traces[0],
+                session_ids[traces[0].info.trace_id],
+                feedbacks,
+                # The container chose these names, so they must not replace assessments a built-in
+                # or judge scorer logged.
+                only_replace_code_assessments=True,
+            )
 
-        def on_failure(online_scorer: OnlineScorer, traces: list[Trace], error: str) -> None:
-            _logger.warning(
-                f"Failed to score session {_session_id(traces)} with custom scorer "
-                f"'{online_scorer.name}': {error}"
+        def on_failure(online_scorer: OnlineScorer, traces: list[Trace], error: str):
+            # Logged like an error from a scorer that runs on the host, on the first trace.
+            session_id = session_ids[traces[0].info.trace_id]
+            feedback = Feedback(
+                name=online_scorer.name,
+                error=MlflowException(error),
+                source=AssessmentSource(
+                    source_type=AssessmentSourceType.CODE, source_id=online_scorer.name
+                ),
+                trace_id=traces[0].info.trace_id,
+                metadata={TraceMetadataKey.TRACE_SESSION: session_id},
+            )
+            self._log_session_assessments(
+                traces[0], session_id, [feedback], only_replace_code_assessments=True
             )
 
         self._container_scorer.score_sessions(work, on_result, on_failure)
@@ -402,7 +427,11 @@ class OnlineSessionScoringProcessor:
         return full_traces
 
     def _log_session_assessments(
-        self, trace: Trace, session_id: str, assessments: list[Assessment]
+        self,
+        trace: Trace,
+        session_id: str,
+        assessments: list[Assessment],
+        only_replace_code_assessments: bool = False,
     ) -> None:
         """Log a session's new assessments on ``trace`` and remove the ones they replace."""
         # Imported lazily to avoid pulling in pandas at module load time (skinny client).
@@ -418,15 +447,12 @@ class OnlineSessionScoringProcessor:
             _log_assessments(run_id=None, trace=trace, assessments=assessments)
 
             # Clean up old assessments after successfully logging new ones
-            self._clean_up_old_assessments(trace, session_id, assessments)
+            self._clean_up_old_assessments(
+                trace, session_id, assessments, only_replace_code_assessments
+            )
         except Exception as e:
             _logger.warning(
                 f"Failed to log assessments for trace {trace.info.trace_id} "
                 f"in session {session_id}: {e}",
                 exc_info=_logger.isEnabledFor(logging.DEBUG),
             )
-
-
-def _session_id(traces: list[Trace]) -> str:
-    # Every trace of a session carries its session ID (the traces are fetched by it).
-    return traces[0].info.trace_metadata[TraceMetadataKey.TRACE_SESSION]

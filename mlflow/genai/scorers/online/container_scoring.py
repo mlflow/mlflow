@@ -15,7 +15,7 @@ import time
 from pathlib import Path
 from typing import Any, Callable, Iterator
 
-from mlflow.entities import Trace
+from mlflow.entities import Feedback, Trace
 from mlflow.entities._job_status import JobStatus
 from mlflow.environment_variables import (
     MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND,
@@ -129,24 +129,36 @@ class OnlineContainerScorer:
     def score_sessions(
         self,
         work: list[tuple[OnlineScorer, list[Trace]]],
-        on_result: Callable[[OnlineScorer, list[Trace], dict[str, Any]], None],
+        on_result: Callable[[OnlineScorer, list[Trace], list[Feedback]], None],
         on_failure: Callable[[OnlineScorer, list[Trace], str], None],
     ) -> None:
         """Score sessions in job containers without logging, for the caller to log the results.
 
         Args:
-            work: Each session-level custom scorer with the traces of one session to score.
-            on_result: Called with a scorer, a session's traces, and the checked results by trace
-                ID (each with ``assessments`` as dictionaries and ``failures``).
+            work: Each session-level custom scorer with one session's traces, oldest first.
+            on_result: Called with a scorer, a session's traces, and the checked assessments for
+                the session's first trace, where session-level results belong.
             on_failure: Called with a scorer, the traces of a session that failed, and the error.
         """
         for online_scorer, traces, trace_results, error in self._run_batches(
             work, log_assessments=False
         ):
-            if error is not None:
-                on_failure(online_scorer, traces, error)
-            else:
-                on_result(online_scorer, traces, trace_results)
+            if error is None:
+                # Only the first trace's result is used, wherever else the container put results.
+                trace_result = trace_results.get(traces[0].info.trace_id) or {}
+                if feedbacks := [
+                    Feedback.from_dictionary(a) for a in trace_result.get("assessments", [])
+                ]:
+                    on_result(online_scorer, traces, feedbacks)
+                    continue
+                error = (
+                    "; ".join(
+                        f"{f['error_code']}: {f['error_message']}"
+                        for f in trace_result.get("failures", [])
+                    )
+                    or "The job container returned no result for this session."
+                )
+            on_failure(online_scorer, traces, error)
 
     def _run_batches(
         self, batches: list[tuple[OnlineScorer, list[Trace]]], log_assessments: bool

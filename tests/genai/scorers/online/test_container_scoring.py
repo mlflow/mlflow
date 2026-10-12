@@ -253,13 +253,72 @@ def test_scores_a_session_without_logging_for_the_host_to_log(db_uri, docker, mo
     on_failure.assert_not_called()
     # One container run scores the whole session.
     run.assert_called_once()
-    (scored_scorer, scored_traces, trace_results), _ = on_result.call_args
+    (scored_scorer, scored_traces, feedbacks), _ = on_result.call_args
     assert scored_scorer is online_scorer
     assert scored_traces is traces
-    session_assessments = [a for r in trace_results.values() for a in r["assessments"]]
-    assert [(a["assessment_name"], a["feedback"]["value"]) for a in session_assessments] == [
-        ("turns", 2)
-    ]
+    assert [(f.name, f.value) for f in feedbacks] == [("turns", 2)]
+    # The host's session marker, not the container's.
+    assert feedbacks[0].metadata[TraceMetadataKey.TRACE_SESSION] == "session-1"
     # Nothing is logged: the host adds its session metadata and logs the results itself.
     for trace_id in trace_ids:
         assert mlflow.get_trace(trace_id).info.assessments == []
+
+
+@pytest.mark.parametrize(
+    ("trace_results", "error"),
+    [
+        # Results only on a trace other than the session's first one are ignored.
+        (lambda first, last: {last: {"assessments": [{"name": "x"}], "failures": []}}, "no result"),
+        (lambda first, last: {}, "no result"),
+        (
+            lambda first, last: {
+                first: {
+                    "assessments": [],
+                    "failures": [{"error_code": "E", "error_message": "boom"}],
+                }
+            },
+            "E: boom",
+        ),
+    ],
+)
+def test_session_without_usable_results_is_reported_as_failed(
+    traces, docker, monkeypatch, trace_results, error
+):
+    experiment_id, trace_list = traces
+    first = trace_list[0].info.trace_id
+    last = trace_list[-1].info.trace_id
+    monkeypatch.setattr(
+        container_scoring,
+        "run_plan_in_container",
+        lambda *args, **kwargs: JobResult(
+            status=JobStatus.SUCCEEDED, result=json.dumps(trace_results(first, last))
+        ),
+    )
+    on_result = mock.Mock()
+    on_failure = mock.Mock()
+    online_scorer = _custom_online_scorer(experiment_id)
+
+    OnlineContainerScorer(experiment_id, "run_online_session_scorer").score_sessions(
+        [(online_scorer, trace_list)], on_result, on_failure
+    )
+
+    on_result.assert_not_called()
+    (_, failed_traces, message), _ = on_failure.call_args
+    assert failed_traces is trace_list
+    assert error in message
+
+
+def test_failed_session_container_run_is_reported(traces, docker, monkeypatch):
+    experiment_id, trace_list = traces
+    monkeypatch.setattr(
+        container_scoring,
+        "run_plan_in_container",
+        lambda *args, **kwargs: JobResult(status=JobStatus.TIMEOUT, error_message="timed out"),
+    )
+    on_failure = mock.Mock()
+
+    OnlineContainerScorer(experiment_id, "run_online_session_scorer").score_sessions(
+        [(_custom_online_scorer(experiment_id), trace_list)], mock.Mock(), on_failure
+    )
+
+    assert on_failure.call_args.args[1:] == (trace_list, "timed out")

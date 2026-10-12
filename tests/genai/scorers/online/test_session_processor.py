@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from mlflow.entities import Trace, TraceData, TraceInfo
+from mlflow.entities import AssessmentSource, AssessmentSourceType, Trace, TraceData, TraceInfo
 from mlflow.entities.assessment import Assessment, Feedback
 from mlflow.entities.trace_location import (
     MlflowExperimentLocation,
@@ -794,13 +794,34 @@ def test_custom_session_scorers_run_in_containers_and_the_host_logs_their_result
         assert work == [(custom, traces)]
 
         feedback = Feedback(name="turns", value=2, trace_id="tr-1")
-        on_result(
-            custom, traces, {"tr-1": {"assessments": [feedback.to_dictionary()], "failures": []}}
-        )
-        trace, session_id, assessments = log_session.call_args.args
-        assert trace is traces[0]
-        assert session_id == "s1"
-        assert [(a.name, a.value) for a in assessments] == [("turns", 2)]
+        on_result(custom, traces, [feedback])
+        assert log_session.call_args.args == (traces[0], "s1", [feedback])
+        assert log_session.call_args.kwargs == {"only_replace_code_assessments": True}
 
-        # A failed session is logged as a warning, as on the host.
+        # A failed session gets an error assessment on its first trace, as on the host.
         on_failure(custom, traces, "scorer crashed")
+        trace, session_id, (error_feedback,) = log_session.call_args.args
+        assert (trace, session_id) == (traces[0], "s1")
+        assert error_feedback.name == "turns"
+        assert error_feedback.error.error_message == "scorer crashed"
+        assert error_feedback.metadata[TraceMetadataKey.TRACE_SESSION] == "s1"
+
+
+def test_container_results_only_replace_assessments_code_scorers_logged(
+    mock_trace_loader, mock_checkpoint_manager, mock_tracking_store, empty_sampler
+):
+    processor = make_processor(
+        mock_trace_loader, mock_checkpoint_manager, empty_sampler, mock_tracking_store
+    )
+    judge = make_assessment("a-judge", "quality", session_id="s1")
+    judge.source = AssessmentSource(source_type=AssessmentSourceType.LLM_JUDGE, source_id="judge")
+    code = make_assessment("a-code", "quality", session_id="s1")
+    code.source = AssessmentSource(source_type=AssessmentSourceType.CODE, source_id="custom")
+    trace = make_trace("tr-1", assessments=[judge, code])
+    new = make_assessment("a-new", "quality", session_id="s1")
+
+    processor._clean_up_old_assessments(trace, "s1", [new], only_replace_code_assessments=True)
+
+    mock_tracking_store.delete_assessment.assert_called_once_with(
+        trace_id="tr-1", assessment_id="a-code"
+    )
