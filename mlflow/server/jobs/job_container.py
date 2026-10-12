@@ -381,11 +381,6 @@ def remove_job_containers(client, job_id: str) -> None:
     _remove_labeled_containers(client, f"{LABEL_JOB_ID}={job_id}")
 
 
-def remove_job_containers_by_job_name(client, job_name: str) -> None:
-    """Remove this server's containers for every job of type ``job_name``."""
-    _remove_labeled_containers(client, f"{LABEL_JOB_NAME}={job_name}")
-
-
 def _remove_labeled_containers(client, label: str) -> None:
     filters = {"label": [label, f"{LABEL_BACKEND_STORE}={_backend_store_label()}"]}
     try:
