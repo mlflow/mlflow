@@ -1,6 +1,7 @@
 import importlib
 import os
 import sys
+import textwrap
 from importlib.metadata import version
 from unittest import mock
 
@@ -400,6 +401,48 @@ def test_capture_imported_modules_include_deps_by_params():
 
     captured_modules = _capture_imported_modules(model_info.model_uri, "pyfunc")
     assert "pandas" in captured_modules
+    assert "sklearn" in captured_modules
+
+
+@pytest.mark.parametrize(
+    ("loader_module", "loader_file", "code_path"),
+    [
+        ("my_loader", "my_loader.py", "my_loader.py"),
+        ("my_pkg.loader", "my_pkg/loader.py", "my_pkg"),
+    ],
+)
+def test_capture_imported_modules_loader_module_in_code_paths(
+    tmp_path, loader_module, loader_file, code_path
+):
+    src_dir = tmp_path / "src"
+    loader_path = src_dir / loader_file
+    loader_path.parent.mkdir(parents=True)
+    loader_path.write_text(
+        textwrap.dedent(
+            """
+            class _Model:
+                def predict(self, model_input, params=None):
+                    return model_input
+
+
+            def _load_pyfunc(path):
+                import sklearn  # noqa: F401
+
+                return _Model()
+            """
+        )
+    )
+    data_path = tmp_path / "data.txt"
+    data_path.write_text("data")
+    model_path = tmp_path / "model"
+    mlflow.pyfunc.save_model(
+        path=model_path,
+        loader_module=loader_module,
+        data_path=data_path,
+        code_paths=[str(src_dir / code_path)],
+    )
+
+    captured_modules = _capture_imported_modules(str(model_path), "pyfunc")
     assert "sklearn" in captured_modules
 
 

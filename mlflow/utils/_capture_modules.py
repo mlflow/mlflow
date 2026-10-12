@@ -12,10 +12,11 @@ import sys
 
 import mlflow
 from mlflow.models.model import MLMODEL_FILE_NAME, Model
-from mlflow.pyfunc import MAIN
+from mlflow.pyfunc import CODE, MAIN
 from mlflow.utils._spark_utils import _prepare_subprocess_environ_for_creating_local_spark_session
 from mlflow.utils.exception_utils import get_stacktrace
 from mlflow.utils.file_utils import write_to
+from mlflow.utils.model_utils import _add_code_from_conf_to_system_path
 from mlflow.utils.requirements_utils import (
     DATABRICKS_MODULES_TO_PACKAGES,
     MLFLOW_MODULES_TO_PACKAGES,
@@ -192,6 +193,7 @@ def store_imported_modules(
                 # `importlib.import_module(pyfunc_conf[MAIN])`
                 mlflow.pyfunc.load_model(model_path)
         else:
+            _add_code_from_conf_to_system_path(model_path, pyfunc_conf, code_key=CODE)
             loader_module = importlib.import_module(pyfunc_conf[MAIN])
             original = loader_module._load_pyfunc
 
