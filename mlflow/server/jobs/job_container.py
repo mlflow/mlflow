@@ -87,8 +87,7 @@ _MEMORY_SUFFIXES = {
 class DockerJobPlan:
     """How to run one job in a container that has no network access.
 
-    Produced on the host by the job type's planner (see ``_JOB_PLANNERS``) after it has written the
-    job's inputs to the input directory.
+    Produced on the host after the job's inputs have been written to the input directory.
 
     Args:
         fn_fullname: Fully qualified name of the function the container runs. It reads its inputs
@@ -216,9 +215,9 @@ def _load_result(path: Path) -> _SubprocessJobResult:
         os.close(fd)
     if len(data) > _MAX_RESULT_BYTES:
         raise MlflowException(
-            f"The job container's result is larger than {_MAX_RESULT_BYTES} bytes. For a "
-            "single-turn scorer, lower MLFLOW_SERVER_SCORER_INVOKE_BATCH_SIZE to score fewer "
-            "traces per job."
+            f"The job container's result is larger than {_MAX_RESULT_BYTES} bytes. Score fewer "
+            "traces per job (for on-demand single-turn scorer runs, lower "
+            "MLFLOW_SERVER_SCORER_INVOKE_BATCH_SIZE)."
         )
     try:
         raw = json.loads(data)
@@ -331,7 +330,10 @@ def run_job_container(
 
 
 def remove_job_containers(client, job_id: str) -> None:
-    """Remove every container labeled with ``job_id``, for example one that failed to start."""
+    """Remove every container labeled with ``job_id``, for example one that failed to start.
+
+    So a job must run at most one container at a time.
+    """
     try:
         containers = client.containers.list(all=True, filters={"label": f"{LABEL_JOB_ID}={job_id}"})
     except Exception:
@@ -386,22 +388,31 @@ def run_plan_in_container(
     job_id: str,
     job_name: str,
     plan: DockerJobPlan,
-    workdir: Path,
+    input_dir: Path,
+    output_dir: Path,
     timeout: float,
     transient_error_classes: list[type[Exception]] | None = None,
     resource_limits: dict[str, str] | None = None,
 ) -> JobResult:
     """Run ``plan``'s container side in a job container and wait for it, then finalize its result.
 
-    For work that runs part of a job in a container, synchronously. ``workdir`` must hold the
-    directories from ``make_job_container_dirs``, with the plan's inputs already written to the
-    input directory. The container is always removed before this returns. The result's ``result``
-    is the finalized value as JSON.
+    For work that runs part of a job in a container, synchronously. ``input_dir`` and
+    ``output_dir`` come from ``make_job_container_dirs``, with the plan's inputs already written to
+    the input directory. The result's ``result`` is the finalized value as JSON.
+
+    ``image`` must already be present: a missing image is pulled inside the start, which counts
+    against ``timeout``. The container is removed before this returns, but not if this process is
+    killed while it runs; the caller must then remove it (it is labeled with ``job_id``).
     """
-    input_dir = workdir / "input"
-    output_dir = workdir / "output"
+    timed_out = JobResult(
+        status=JobStatus.TIMEOUT,
+        error_message=f"Docker job {job_id!r} timed out after {timeout} seconds.",
+    )
+    if timeout <= 0:
+        return timed_out
     write_transient_error_classes(input_dir, transient_error_classes)
     memory, nano_cpus = _resource_limits(job_name, resource_limits)
+    environment = job_container_environment(plan)
     deadline = time.monotonic() + timeout
     try:
         container = run_job_container(
@@ -411,7 +422,7 @@ def run_plan_in_container(
             job_name,
             input_dir,
             output_dir,
-            job_container_environment(plan),
+            environment,
             memory,
             nano_cpus,
         )
@@ -421,10 +432,6 @@ def run_plan_in_container(
         remove_job_containers(client, job_id)
         raise
     try:
-        timed_out = JobResult(
-            status=JobStatus.TIMEOUT,
-            error_message=f"Docker job {job_id!r} timed out after {timeout} seconds.",
-        )
         # A zero timeout would be rejected by the HTTP client rather than time out.
         remaining = deadline - time.monotonic()
         if remaining <= 0:

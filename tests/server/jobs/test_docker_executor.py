@@ -20,6 +20,8 @@ from mlflow.server.jobs.utils import (
     _SubprocessJobResult,
 )
 
+from tests.server.jobs.docker_fakes import FakeClient, FakeContainer, succeed_with
+
 pytestmark = pytest.mark.skipif(
     os.name == "nt", reason="The docker job executor requires a POSIX host"
 )
@@ -41,94 +43,17 @@ def fake_docker_job_with_limits(x):
 
 def _fake_planner(params, input_dir, container_input_dir):
     (Path(input_dir) / "inputs.json").write_text(json.dumps(params))
-    return de.DockerJobPlan(
+    return jc.DockerJobPlan(
         fn_fullname="some.module.compute",
         params={"inputs_path": f"{container_input_dir}/inputs.json"},
         finalize=lambda value: {"finalized": value},
     )
 
 
-class _FakeContainer:
-    def __init__(self, client, kwargs):
-        self.id = f"container-{len(client.started)}"
-        self.short_id = self.id
-        self.kwargs = kwargs
-        self.killed = False
-        self.removed = False
-        self.on_wait = client.on_wait
-
-    def _output_dir(self):
-        for host, spec in self.kwargs["volumes"].items():
-            if spec["bind"] == jc._CONTAINER_OUTPUT_DIR:
-                return Path(host)
-
-    def wait(self, timeout=None):
-        return self.on_wait(self)
-
-    def logs(self, tail=None):
-        self.logs_tail = tail
-        return b"container log line"
-
-    def kill(self):
-        self.killed = True
-
-    def remove(self, force=False):
-        self.removed = True
-
-
-class _FakeContainers:
-    def __init__(self, client):
-        self._client = client
-
-    def run(self, image, **kwargs):
-        if self._client.on_run is not None:
-            self._client.on_run()
-        container = _FakeContainer(self._client, kwargs)
-        container.image = image
-        if self._client.start_error is not None:
-            # Like docker-py: the container is created, then starting it fails.
-            self._client.leftovers.append(container)
-            raise self._client.start_error
-        self._client.started.append(container)
-        return container
-
-    def get(self, container_id):
-        if self._client.get_error is not None:
-            raise self._client.get_error
-        return next(c for c in self._client.started if c.id == container_id)
-
-    def list(self, all=False, filters=None):
-        return list(self._client.leftovers)
-
-
-class _FakeClient:
-    def __init__(self, on_wait=None):
-        self.started = []
-        self.leftovers = []
-        self.on_wait = on_wait or _succeed_with({"score": 1})
-        self.start_error = None
-        self.get_error = None
-        self.on_run = None
-        self.containers = _FakeContainers(self)
-
-    def ping(self):
-        return True
-
-
-def _succeed_with(value):
-    def on_wait(container):
-        _SubprocessJobResult(succeeded=True, result=json.dumps(value)).dump(
-            str(container._output_dir() / jc._RESULT_FILE)
-        )
-        return {"StatusCode": 0}
-
-    return on_wait
-
-
 @pytest.fixture
 def client(monkeypatch):
     monkeypatch.setitem(de._JOB_PLANNERS, "fake_docker_job", f"{__name__}._fake_planner")
-    return _FakeClient()
+    return FakeClient()
 
 
 @pytest.fixture
@@ -191,15 +116,15 @@ def test_container_is_hardened_and_has_no_network(executor, client):
     assert kwargs["pids_limit"] == jc._PIDS_LIMIT
     assert kwargs["mem_limit"] == kwargs["memswap_limit"] == jc._DEFAULT_MEMORY_BYTES
     assert kwargs["nano_cpus"] == jc._DEFAULT_NANO_CPUS
-    assert kwargs["labels"][de.LABEL_JOB_ID] == "job-1"
+    assert kwargs["labels"][jc.LABEL_JOB_ID] == "job-1"
     assert kwargs["labels"][jc.LABEL_JOB_NAME] == "fake_docker_job"
     mounts = {spec["bind"]: spec["mode"] for spec in kwargs["volumes"].values()}
-    assert mounts == {de._CONTAINER_INPUT_DIR: "ro", jc._CONTAINER_OUTPUT_DIR: "rw"}
+    assert mounts == {jc._CONTAINER_INPUT_DIR: "ro", jc._CONTAINER_OUTPUT_DIR: "rw"}
     env = kwargs["environment"]
     # The container runs the plan's function and gets no tracking or gateway address.
     assert env[MLFLOW_SERVER_JOB_FUNCTION_FULLNAME_ENV_VAR] == "some.module.compute"
     assert json.loads(env[MLFLOW_SERVER_JOB_PARAMS_ENV_VAR]) == {
-        "inputs_path": f"{de._CONTAINER_INPUT_DIR}/inputs.json"
+        "inputs_path": f"{jc._CONTAINER_INPUT_DIR}/inputs.json"
     }
     assert not any(key in env for key in ("MLFLOW_TRACKING_URI", "MLFLOW_GATEWAY_URI"))
     assert MLFLOW_SERVER_JOB_ID_ENV_VAR not in env
@@ -279,7 +204,7 @@ def test_malformed_result_fails(executor, client, contents):
 
 def test_oversized_result_fails(executor, client, monkeypatch):
     monkeypatch.setattr(jc, "_MAX_RESULT_BYTES", 10)
-    client.on_wait = _succeed_with({"score": "x" * 100})
+    client.on_wait = succeed_with({"score": "x" * 100})
     _submit(executor)
     result = executor.wait_for_job("job-1")
 
@@ -350,7 +275,7 @@ def test_finalize_error_fails_the_job(executor, client, monkeypatch):
         def finalize(value):
             raise MlflowException("results for traces outside this job")
 
-        return de.DockerJobPlan(fn_fullname="m.f", params={}, finalize=finalize)
+        return jc.DockerJobPlan(fn_fullname="m.f", params={}, finalize=finalize)
 
     monkeypatch.setattr(
         de,
@@ -443,7 +368,7 @@ def test_planner_error_fails_submission_and_cleans_up(executor, client, monkeypa
 
 
 def test_recover_removes_leftover_containers_and_requeues(executor, client):
-    leftover = _FakeContainer(client, {"volumes": {}})
+    leftover = FakeContainer(client, {"volumes": {}, "labels": {jc.LABEL_JOB_ID: "job-1"}})
     client.leftovers = [leftover]
 
     results = executor.recover_jobs(["job-1"])
@@ -479,7 +404,7 @@ def test_no_container_starts_after_stop(executor, client, monkeypatch):
     def planner(params, input_dir, container_input_dir):
         # Shutdown happens while the host is still preparing the job's inputs.
         executor.stop_executor()
-        return de.DockerJobPlan(fn_fullname="m.f", params={}, finalize=lambda value: value)
+        return jc.DockerJobPlan(fn_fullname="m.f", params={}, finalize=lambda value: value)
 
     monkeypatch.setattr(
         de,
@@ -501,27 +426,27 @@ def test_check_requirements_rejects_malformed_container_settings(executor, monke
 
 def test_extra_labels_cannot_override_job_labels(executor, client, monkeypatch):
     monkeypatch.setenv(
-        "MLFLOW_JOB_EXTRA_LABELS", json.dumps({"team": "ml", de.LABEL_JOB_ID: "spoofed"})
+        "MLFLOW_JOB_EXTRA_LABELS", json.dumps({"team": "ml", jc.LABEL_JOB_ID: "spoofed"})
     )
     _submit(executor)
     labels = client.started[0].kwargs["labels"]
 
     assert labels["team"] == "ml"
-    assert labels[de.LABEL_JOB_ID] == "job-1"
+    assert labels[jc.LABEL_JOB_ID] == "job-1"
 
 
 @pytest.mark.parametrize("raw", ["not json", json.dumps(["a"]), json.dumps({"k": 1})])
 def test_invalid_extra_labels_are_rejected(raw, monkeypatch):
     monkeypatch.setenv("MLFLOW_JOB_EXTRA_LABELS", raw)
     with pytest.raises(MlflowException, match="MLFLOW_JOB_EXTRA_LABELS"):
-        de._container_labels("job-1", "fake_docker_job")
+        jc._container_labels("job-1", "fake_docker_job")
 
 
 def test_resource_limit_override(monkeypatch):
     monkeypatch.setenv(
         "MLFLOW_JOB_RESOURCE_LIMITS_fake_docker_job", json.dumps({"cpu": "500m", "memory": "512Mi"})
     )
-    assert de._resource_limits("fake_docker_job") == (512 * 1024**2, 500_000_000)
+    assert jc._resource_limits("fake_docker_job") == (512 * 1024**2, 500_000_000)
 
 
 @pytest.mark.parametrize(
@@ -557,7 +482,7 @@ def test_parse_cpu(value, expected):
 def test_invalid_resource_limits_are_rejected(raw, monkeypatch):
     monkeypatch.setenv("MLFLOW_JOB_RESOURCE_LIMITS_fake_docker_job", raw)
     with pytest.raises(MlflowException, match="MLFLOW_JOB_RESOURCE_LIMITS_fake_docker_job"):
-        de._resource_limits("fake_docker_job")
+        jc._resource_limits("fake_docker_job")
 
 
 def _in_another_thread(fn):
@@ -634,7 +559,7 @@ def test_declared_resource_limits_apply(executor, client):
 
 def test_env_resource_limits_override_declared_ones_per_field(monkeypatch):
     monkeypatch.setenv("MLFLOW_JOB_RESOURCE_LIMITS_fake_docker_job", json.dumps({"cpu": "500m"}))
-    assert de._resource_limits("fake_docker_job", {"cpu": "2", "memory": "256Mi"}) == (
+    assert jc._resource_limits("fake_docker_job", {"cpu": "2", "memory": "256Mi"}) == (
         256 * 1024**2,
         500_000_000,
     )
@@ -648,7 +573,7 @@ def test_check_requirements_rejects_invalid_declared_resource_limits(executor, m
 
 def test_oversized_result_error_names_the_batch_size_setting(executor, client, monkeypatch):
     monkeypatch.setattr(jc, "_MAX_RESULT_BYTES", 10)
-    client.on_wait = _succeed_with({"score": "x" * 100})
+    client.on_wait = succeed_with({"score": "x" * 100})
     _submit(executor)
 
     assert "MLFLOW_SERVER_SCORER_INVOKE_BATCH_SIZE" in executor.wait_for_job("job-1").error_message

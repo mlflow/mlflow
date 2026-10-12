@@ -16,8 +16,8 @@ Limits of this mode:
 - the Docker daemon must run on the same host as the MLflow server, because inputs and results are
   exchanged through bind mounts;
 - the output directory, a host temporary directory, has no size limit of its own: each file the
-  job writes is capped (see ``mlflow.server.jobs.job_container``), but not the number of files, so
-  a malicious scorer can fill the host disk (or memory, where the temporary directory is a tmpfs)
+  job writes is capped (see ``job_container._MAX_FILE_BYTES``), but not the number of files, so a
+  malicious scorer can fill the host disk (or memory, where the temporary directory is a tmpfs)
   until the job times out;
 - stopping the MLflow server does not stop job containers that are running: the job runner exits
   without stopping them, and their time limit is enforced from the host. They are removed when the
@@ -61,9 +61,7 @@ from mlflow.server.jobs.job_container import (
     run_job_container,
     write_transient_error_classes,
 )
-from mlflow.server.jobs.utils import (
-    _load_function,
-)
+from mlflow.server.jobs.utils import _load_function
 from mlflow.server.sandbox.container import (
     _ensure_image,
     _is_read_timeout,
@@ -427,7 +425,12 @@ class DockerJobExecutor(AbstractJobExecutor):
         return [JobRecoveryResult(job_id=job_id, action="requeue") for job_id in unfinished_job_ids]
 
     def _remove_job_containers(self, job_id: str) -> None:
-        remove_job_containers(self._get_client(), job_id)
+        try:
+            client = self._get_client()
+        except Exception:
+            _logger.debug("Could not list containers for job %s", job_id, exc_info=True)
+            return
+        remove_job_containers(client, job_id)
 
     def _remove_container(self, job: _DockerJob, kill: bool = False) -> None:
         if job.container_id is None:
