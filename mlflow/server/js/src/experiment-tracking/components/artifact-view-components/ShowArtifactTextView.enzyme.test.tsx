@@ -53,6 +53,26 @@ describe('ShowArtifactTextView', () => {
     });
   });
 
+  // eslint-disable-next-line jest/no-done-callback -- TODO(FEINF-1337)
+  test('should clear previous error when a new artifact loads successfully', (done) => {
+    const getArtifact = jest.fn(({ path }: any) =>
+      path === 'missing.txt' ? Promise.reject(new Error('my error text')) : Promise.resolve('my text'),
+    );
+    const props = { ...minimalProps, path: 'missing.txt', getArtifact };
+    wrapper = mountWithIntl(<ShowArtifactTextView {...props} />);
+    setImmediate(() => {
+      wrapper.update();
+      expect(wrapper.find('.artifact-text-view-error').length).toBeGreaterThan(0);
+      wrapper.setProps({ path: 'present.txt' });
+      setImmediate(() => {
+        wrapper.update();
+        expect(wrapper.find('.artifact-text-view-error').length).toBe(0);
+        expect(wrapper.find('code').text()).toBe('my text');
+        done();
+      });
+    });
+  });
+
   test('should render loading text when view is loading', () => {
     instance = wrapper.instance();
     instance.setState({ loading: true });

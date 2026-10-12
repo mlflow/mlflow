@@ -21,7 +21,7 @@ def _experiment_id(resource_name: str) -> str:
     return resource_name.split("/")[1]
 
 
-@experimental(version="3.18.0")
+@experimental(version="3.17.1")
 class ReviewQueueType(StrEnum):
     """The flavor of a Databricks review queue."""
 
@@ -29,7 +29,7 @@ class ReviewQueueType(StrEnum):
     CUSTOM = "CUSTOM"
 
 
-@experimental(version="3.18.0")
+@experimental(version="3.17.1")
 class ItemKind(StrEnum):
     """What a review queue item points at."""
 
@@ -37,7 +37,7 @@ class ItemKind(StrEnum):
     DATASET_RECORD = "DATASET_RECORD"
 
 
-@experimental(version="3.18.0")
+@experimental(version="3.17.1")
 class ReviewStatus(StrEnum):
     """Per-item review status."""
 
@@ -46,7 +46,7 @@ class ReviewStatus(StrEnum):
     DECLINED = "DECLINED"
 
 
-@experimental(version="3.18.0")
+@experimental(version="3.17.1")
 class QuestionType(StrEnum):
     """The kind of answer a review question collects."""
 
@@ -54,7 +54,7 @@ class QuestionType(StrEnum):
     EXPECTATION = "EXPECTATION"
 
 
-@experimental(version="3.18.0")
+@experimental(version="3.17.1")
 @dataclass
 class InputPassFail:
     """A pass/fail toggle."""
@@ -75,7 +75,7 @@ class InputPassFail:
         }
 
 
-@experimental(version="3.18.0")
+@experimental(version="3.17.1")
 @dataclass
 class InputCategorical:
     """A single- or multi-select from a fixed set of options."""
@@ -89,7 +89,7 @@ class InputCategorical:
         return {"options": list(self.options), "multi_select": self.multi_select}
 
 
-@experimental(version="3.18.0")
+@experimental(version="3.17.1")
 @dataclass
 class InputNumeric:
     """A numeric input, optionally bounded."""
@@ -107,7 +107,7 @@ class InputNumeric:
         }
 
 
-@experimental(version="3.18.0")
+@experimental(version="3.17.1")
 @dataclass
 class InputText:
     """A free-form text input."""
@@ -134,7 +134,7 @@ def _input_from_dict(d: dict[str, Any]) -> QuestionInput | None:
     return None
 
 
-@experimental(version="3.18.0")
+@experimental(version="3.17.1")
 @dataclass
 class ReviewQuestion:
     """An experiment-scoped question that reviewers answer."""
@@ -172,7 +172,7 @@ class ReviewQuestion:
         )
 
 
-@experimental(version="3.18.0")
+@experimental(version="3.17.1")
 @dataclass
 class ReviewQueue:
     """An experiment-scoped worklist of items for reviewers.
@@ -213,7 +213,7 @@ class ReviewQueue:
         )
 
 
-@experimental(version="3.18.0")
+@experimental(version="3.17.1")
 @dataclass
 class ReviewQueueMember:
     """A reviewer assigned to a queue."""
@@ -231,7 +231,7 @@ class ReviewQueueMember:
         )
 
 
-@experimental(version="3.18.0")
+@experimental(version="3.17.1")
 @dataclass
 class ReviewQueueItem:
     """One item attached to a queue, plus its review status.

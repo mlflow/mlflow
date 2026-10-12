@@ -10192,7 +10192,7 @@ def _get_search_experiments_filter_clauses(parsed_filters, dialect):
     for f in parsed_filters:
         type_ = f["type"]
         key = f["key"]
-        comparator = f["comparator"]
+        comparator = f["comparator"].upper()
         value = f["value"]
         if type_ == "attribute":
             if key == "experiment_id":
