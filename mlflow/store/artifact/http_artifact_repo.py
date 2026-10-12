@@ -86,6 +86,11 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
                 return
             except _UnsupportedMultipartUploadException:
                 pass
+            except Exception:
+                _logger.warning(
+                    "Multipart upload failed for %s. Falling back to single-part upload.",
+                    local_file,
+                )
 
         file_name = os.path.basename(local_file)
         mime_type = _guess_mime_type(file_name)
