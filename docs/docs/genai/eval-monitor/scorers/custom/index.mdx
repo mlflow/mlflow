@@ -28,6 +28,8 @@ For a tutorial with many examples, see [Code-based scorer examples](/genai/eval-
 
 Custom code-based scorers (both the [`@scorer` decorator](#define-scorers-with-the-scorer-decorator) and the [`Scorer` class](#define-scorers-with-the-scorer-class)) work with <APILink fn="mlflow.genai.evaluate">`mlflow.genai.evaluate()`</APILink> for offline evaluation. They are **not supported** for [automatic evaluation](/genai/eval-monitor/automatic-evaluations) (production monitoring), which only supports [LLM judges](/genai/eval-monitor/scorers/#llms-as-judges) such as [built-in judges](/genai/eval-monitor/scorers/llm-judge/predefined), [`make_judge()`](/genai/eval-monitor/scorers/llm-judge/custom-judges/create-custom-judge), and [Guidelines](/genai/eval-monitor/scorers/llm-judge/guidelines).
 
+The exception is a self-hosted server that [runs code-based scorers in job containers](/genai/eval-monitor/scorers/custom/job-containers) (experimental): it supports `@scorer` scorers for automatic evaluation, without network access.
+
 :::
 
 ## How custom scorers work
