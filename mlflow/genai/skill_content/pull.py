@@ -11,6 +11,7 @@ a failed pull leaves the destination exactly as it was found.
 from __future__ import annotations
 
 import errno
+import logging
 import os
 import shutil
 import stat
@@ -18,6 +19,7 @@ import tempfile
 from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from mlflow.entities.skill import SkillStatus
 from mlflow.entities.skill_source import (
@@ -37,6 +39,8 @@ from mlflow.genai.skill_content.sources import is_local_path, resolve_source_typ
 from mlflow.protos.databricks_pb2 import INVALID_STATE, RESOURCE_DOES_NOT_EXIST
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils.skill_uris import ParsedSkillUri, format_skill_uri, parse_skill_uri
+
+_logger = logging.getLogger(__name__)
 
 _STAGING_PREFIX = ".mlflow-skill-pull-"
 
@@ -134,9 +138,9 @@ def _fetchable_source(
     files into the destination.
     """
     match version.source:
-        case GitSource(url=url) if is_local_path(url.strip()):
+        case GitSource(url=url) if _is_local_git_url(url):
             raise invalid_content(
-                f"Skill version '{uri}' has a Git source that is a local path, not a remote "
+                f"Skill version '{uri}' has a Git source on the local filesystem, not a remote "
                 f"repository: '{url}'."
             )
         case GitSource() | OCISource() | ZipSource() as source:
@@ -173,6 +177,13 @@ def _resolve_destination(destination: str | os.PathLike[str]) -> Path:
         # component of their own to keep.
         return path.resolve()
     return path.parent.resolve() / path.name
+
+
+def _is_local_git_url(url: str) -> bool:
+    # is_local_path treats anything with "://" as remote, but git reads file:// URLs straight
+    # from the caller's filesystem.
+    value = url.strip()
+    return is_local_path(value) or urlsplit(value).scheme.lower() == "file"
 
 
 def _check_destination(path: Path) -> _Destination:
@@ -242,9 +253,17 @@ def _make_staging_dir(parent: Path) -> Path:
 
 
 def _verify_digest(root: Path, version: SkillVersion, uri: str) -> None:
-    if version.digest is None:
-        return
+    # The digest is always computed (RFC-0008, digest verification); a version registered
+    # without one only skips the comparison, and its computed digest is logged instead.
     actual = compute_tree_digest(root)
+    if version.digest is None:
+        _logger.info(
+            "Skill version '%s' has no recorded digest, so the pulled content was not "
+            "verified; its computed digest is %s.",
+            uri,
+            actual,
+        )
+        return
     if actual != version.digest:
         raise MlflowException(
             f"Content fetched for skill version '{uri}' does not match its recorded digest: "
@@ -270,12 +289,19 @@ def _publish_new_directory(root: Path, destination: Path) -> None:
     except OSError as e:
         if e.errno != errno.EXDEV:
             raise _publish_error(destination, e) from e
+    # Across filesystems the tree is copied instead, with the same exclusive creates as an
+    # existing empty destination: mkdir fails if anything appeared at the destination, and a
+    # failure removes only the entries this pull created.
     try:
-        shutil.copytree(root, destination)
-    except FileExistsError as e:
+        destination.mkdir()
+    except OSError as e:
         raise _publish_error(destination, e) from e
+    created = [destination]
+    try:
+        _copy_tree_exclusive(root, destination, created)
+        shutil.copymode(root, destination)
     except BaseException as e:
-        shutil.rmtree(destination, ignore_errors=True)
+        _remove_created(created)
         if isinstance(e, OSError):
             raise _publish_error(destination, e) from e
         raise

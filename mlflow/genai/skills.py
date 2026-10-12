@@ -332,32 +332,23 @@ def import_skills(
     )
 
 
-@experimental(version="3.16.0")
+@experimental(version="3.18.0")
 def pull(uri: str, *, destination: str | os.PathLike[str] | None = None) -> str:
-    """Pull a registered skill version's content to a local directory.
+    """Download a registered skill version to a local directory.
 
-    The version is resolved through registry metadata: ``skills:/name/3`` selects an exact
-    version, ``skills:/name@alias`` follows an alias, and ``skills:/name`` resolves the latest
-    version at the time of the call. An organization is written ``skills:/@acme/name``.
-    Content is then fetched by the client directly from the version's persisted Git, OCI, ZIP,
-    or MLflow artifact source, using the caller's own credentials for that source; the
-    registry server never transfers content. Only the version's persisted subpath is
-    extracted when one is set.
-
-    The fetched tree is staged away from ``destination`` and must contain only regular files
-    and directories. When the version records a digest, the fetched content must match it;
-    a version without a digest is pulled unverified. Deprecated versions remain pullable. The
-    content is published to ``destination`` only after these checks pass, and any failure
-    leaves the destination as it was.
+    The content is fetched from the skill's source (Git, OCI, ZIP, or MLflow artifacts) using
+    your own credentials, and checked against the version's recorded digest. Nothing is
+    written to ``destination`` unless the pull succeeds.
 
     Args:
-        uri: A ``skills:/`` URI naming the version to pull.
-        destination: Directory to write the skill into. It must not exist yet, in which case
-            it is created, or must be an empty directory. Defaults to a directory named after
-            the skill in the current working directory.
+        uri: The skill to pull: ``skills:/name/3`` for a version, ``skills:/name@alias`` for an
+            alias, or ``skills:/name`` for the latest version. Prefix the name with
+            ``@organization/`` for a skill in an organization.
+        destination: Directory to write the skill into. It must not exist or must be empty.
+            Defaults to a directory named after the skill in the current working directory.
 
     Returns:
-        The absolute path of the directory the skill was written to.
+        The path of the directory the skill was written to.
 
     Example:
         .. code-block:: python

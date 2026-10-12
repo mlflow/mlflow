@@ -32,6 +32,8 @@ from mlflow.genai.skill_content.errors import source_unavailable
 from mlflow.genai.skill_content.pull import pull_skill_version, resolve_skill_version
 from mlflow.protos.databricks_pb2 import PERMISSION_DENIED, UNAUTHENTICATED, ErrorCode
 
+from tests.genai.skill_content.conftest import serve_git_repositories
+
 SUBPATH = "skills/demo"
 SOURCE_KINDS = ["git", "oci", "zip", "mlflow"]
 
@@ -68,6 +70,13 @@ def git_repo(tmp_path, skill_tree):
     _git("commit", "-q", "-m", "v1", cwd=repo)
     _git("tag", "v1", cwd=repo)
     return repo
+
+
+@pytest.fixture
+def git_server(tmp_path):
+    # Every repository a test creates under tmp_path is served at <url>/<directory name>.
+    with serve_git_repositories(tmp_path) as url:
+        yield url
 
 
 class _ZipHandler(http.server.SimpleHTTPRequestHandler):
@@ -181,7 +190,8 @@ def make_source(request):
         match kind:
             case "git":
                 repo = request.getfixturevalue("git_repo")
-                return GitSource(url=f"file://{repo}", ref="v1", subpath=subpath)
+                url = request.getfixturevalue("git_server")
+                return GitSource(url=f"{url}/{repo.name}", ref="v1", subpath=subpath)
             case "oci":
                 host = request.getfixturevalue("oci_registry")
                 return OCISource(image=f"oci://{host}/skills/demo:v1", subpath=subpath)
@@ -285,12 +295,20 @@ def test_digest_mismatch_leaves_destination_as_found(
 
 
 @pytest.mark.parametrize("kind", SOURCE_KINDS)
-def test_missing_digest_skips_verification(kind, make_source, tmp_path):
-    with mock.patch(
-        "mlflow.genai.skill_content.pull.compute_tree_digest", wraps=compute_tree_digest
-    ) as digest:
+def test_missing_digest_is_computed_but_not_compared(
+    kind, make_source, skill_tree, tmp_path, caplog
+):
+    with (
+        mock.patch(
+            "mlflow.genai.skill_content.pull.compute_tree_digest", wraps=compute_tree_digest
+        ) as digest,
+        caplog.at_level("INFO", logger="mlflow.genai.skill_content.pull"),
+    ):
         pull_skill_version(_version(make_source(kind, SUBPATH)), tmp_path / "out")
-    digest.assert_not_called()
+    digest.assert_called_once()
+    expected = compute_tree_digest(skill_tree / SUBPATH)
+    assert "has no recorded digest, so the pulled content was not verified" in caplog.text
+    assert f"its computed digest is {expected}" in caplog.text
     assert (tmp_path / "out" / "SKILL.md").exists()
 
 
@@ -387,10 +405,13 @@ def test_source_errors_never_expose_credentials(tmp_path):
         source.url, "401 for Authorization: Bearer token-secret", error_code=UNAUTHENTICATED
     )
     with (
-        mock.patch("mlflow.genai.skill_content.fetchers._fetch_remote", side_effect=error),
+        mock.patch(
+            "mlflow.genai.skill_content.fetchers._fetch_remote", side_effect=error
+        ) as fetch_remote,
         pytest.raises(MlflowException, match="Failed to fetch skill content") as exc,
     ):
         pull_skill_version(_version(source), tmp_path / "out")
+    fetch_remote.assert_called_once()
     assert exc.value.error_code == "UNAUTHENTICATED"
     assert "secret" not in exc.value.message
     assert "401" in exc.value.message
@@ -432,7 +453,7 @@ def test_links_and_special_files_are_rejected_for_every_source_type(kind, entry,
     assert not os.path.lexists(tmp_path / "out")
 
 
-def test_git_symlink_in_repository_is_rejected(tmp_path, skill_tree):
+def test_git_symlink_in_repository_is_rejected(tmp_path, skill_tree, git_server):
     repo = tmp_path / "linked.git"
     shutil.copytree(skill_tree, repo)
     (repo / SUBPATH / "link").symlink_to("SKILL.md")
@@ -442,7 +463,8 @@ def test_git_symlink_in_repository_is_rejected(tmp_path, skill_tree):
 
     with pytest.raises(MlflowException, match="symbolic link"):
         pull_skill_version(
-            _version(GitSource(url=f"file://{repo}", subpath=SUBPATH)), tmp_path / "out"
+            _version(GitSource(url=f"{git_server}/{repo.name}", subpath=SUBPATH)),
+            tmp_path / "out",
         )
     assert not os.path.lexists(tmp_path / "out")
 
@@ -688,11 +710,21 @@ def test_destination_with_parent_segments_is_normalized(make_source, tmp_path):
     _assert_no_staging_left(tmp_path)
 
 
-@pytest.mark.parametrize("url", ["/srv/skills.git", "./skills.git", "~/skills.git"])
+@pytest.mark.parametrize(
+    "url",
+    [
+        "/srv/skills.git",
+        "./skills.git",
+        "~/skills.git",
+        "file:///srv/skills.git",
+        "FILE:///srv/skills.git",
+        " file://localhost/srv/skills.git",
+    ],
+)
 def test_git_source_that_is_a_local_path_is_refused(url, tmp_path):
     with (
         mock.patch("mlflow.genai.skill_content.pull.fetch_source") as fetch,
-        pytest.raises(MlflowException, match="Git source that is a local path"),
+        pytest.raises(MlflowException, match="Git source on the local filesystem"),
     ):
         pull_skill_version(_version(GitSource(url=url)), tmp_path / "out")
     fetch.assert_not_called()
@@ -883,3 +915,54 @@ def test_oci_blob_redirect_connection_failure_hides_signature_from_traceback(
     assert "signed-secret" not in exc.value.message
     assert exc.value.error_code == "TEMPORARILY_UNAVAILABLE"
     assert not os.path.lexists(tmp_path / "out")
+
+
+def test_cross_device_publication_never_takes_over_a_destination_created_meanwhile(
+    make_source, tmp_path
+):
+    destination = tmp_path / "out"
+
+    def cross_device_after_race(self, target):
+        # Another process creates the destination just before the copy fallback runs.
+        destination.mkdir()
+        (destination / "theirs.txt").write_text("theirs")
+        raise OSError(18, "Invalid cross-device link")
+
+    with (
+        mock.patch.object(
+            Path, "rename", autospec=True, side_effect=cross_device_after_race
+        ) as rename,
+        pytest.raises(MlflowException, match="Failed to write pulled skill content"),
+    ):
+        pull_skill_version(_version(make_source("git", SUBPATH)), destination)
+    rename.assert_called_once()
+    assert _listing(destination) == ["theirs.txt"]
+    _assert_no_staging_left(tmp_path)
+
+
+def test_failed_cross_device_copy_removes_only_what_it_created(make_source, tmp_path):
+    destination = tmp_path / "out"
+    real_copy = shutil.copyfileobj
+    calls = []
+
+    def flaky_copy(src, dst):
+        calls.append(dst)
+        if len(calls) == 2:
+            dst.write(b"half")
+            raise OSError(28, "No space left on device")
+        return real_copy(src, dst)
+
+    with (
+        mock.patch.object(
+            Path, "rename", side_effect=OSError(18, "Invalid cross-device link")
+        ) as rename,
+        mock.patch(
+            "mlflow.genai.skill_content.pull.shutil.copyfileobj", side_effect=flaky_copy
+        ) as copy,
+        pytest.raises(MlflowException, match="No space left on device"),
+    ):
+        pull_skill_version(_version(make_source("git", SUBPATH)), destination)
+    rename.assert_called_once()
+    assert copy.call_count == 2
+    assert not os.path.lexists(destination)
+    _assert_no_staging_left(tmp_path)

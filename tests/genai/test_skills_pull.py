@@ -14,6 +14,7 @@ from mlflow.genai.skill_content.digest import compute_tree_digest
 from mlflow.server import ARTIFACTS_DESTINATION_ENV_VAR, SERVE_ARTIFACTS_ENV_VAR
 from mlflow.tracking import MlflowClient
 
+from tests.genai.skill_content.conftest import serve_git_repositories
 from tests.tracking.integration_test_utils import _init_server
 
 SKILL_MD = "---\nname: review\ndescription: Reviews code\n---\n# Review\n"
@@ -36,6 +37,12 @@ def tracking_server(tmp_path_factory):
             ARTIFACTS_DESTINATION_ENV_VAR: str(root / "artifacts"),
         },
     ) as url:
+        yield url
+
+
+@pytest.fixture
+def git_server(tmp_path):
+    with serve_git_repositories(tmp_path) as url:
         yield url
 
 
@@ -87,7 +94,7 @@ def test_pull_uploaded_skill_by_version_alias_and_latest(client, tmp_path, reque
     assert compute_tree_digest(destination) == compute_tree_digest(first)
 
 
-def test_pull_registered_git_skill_and_detect_changed_source(client, tmp_path, request):
+def test_pull_registered_git_skill_and_detect_changed_source(client, tmp_path, git_server):
     name = _unique("review")
     repo = tmp_path / "repo"
     _write_skill(repo / "skills" / name, "v1\n")
@@ -95,7 +102,7 @@ def test_pull_registered_git_skill_and_detect_changed_source(client, tmp_path, r
     _git("init", "-q", "-b", "main", cwd=repo)
     _git("add", ".", cwd=repo)
     _git("commit", "-q", "-m", "v1", cwd=repo)
-    source = GitSource(url=f"file://{repo}", ref="main", subpath=f"skills/{name}")
+    source = GitSource(url=f"{git_server}/{repo.name}", ref="main", subpath=f"skills/{name}")
     version = mlflow.genai.register_skill(source=source, name=name)
     assert version.digest == compute_tree_digest(repo / "skills" / name)
 
