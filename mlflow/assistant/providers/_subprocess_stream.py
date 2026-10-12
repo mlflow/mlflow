@@ -1,4 +1,6 @@
-"""Event-loop-independent subprocess streaming for Assistant CLI providers."""
+"""Subprocess helpers for the MLflow Assistant: the environment every Assistant subprocess gets,
+and event-loop-independent streaming for the CLI providers.
+"""
 
 import asyncio
 import os
@@ -18,9 +20,12 @@ _MAX_LINE_BYTES = 128 * 1024 * 1024
 _MAX_STDERR_BYTES = 1024 * 1024
 _EOF = object()
 
-# Secrets the MLflow server shares only among its own processes. Code that the Assistant starts
-# (the CLI providers and tool commands) must never get them: the delegation signing key can mint a
-# credential for any user, and the internal gateway token authenticates as any user on the gateway.
+# Secrets the MLflow server shares only among its own processes. They are kept out of the
+# environment that code started by the Assistant (the CLI providers and tool commands) inherits:
+# the delegation signing key can mint a credential for any user, and the internal gateway token
+# authenticates as any user on the gateway. This is not an isolation boundary: a process on the
+# host that runs as the server's user can still read the server's environment. Only the sandbox
+# isolates the secrets.
 _SERVER_INTERNAL_SECRETS = frozenset({
     _MLFLOW_ASSISTANT_DELEGATION_SIGNING_KEY.name,
     _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.name,
@@ -70,6 +75,7 @@ class SubprocessLineStream:
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             cwd=cwd,
+            # Scrubbed here too, so an environment a caller passes can never carry the secrets.
             env=assistant_subprocess_env(env),
         )
         pid = self._proc.pid

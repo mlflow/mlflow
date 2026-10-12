@@ -254,35 +254,101 @@ async def test_stream_subprocess_never_gets_the_server_internal_secrets(monkeypa
         assert await stream.wait() == 0
 
 
-def _spawn_calls_without_env(path: Path) -> list[int]:
-    spawn_functions = {"run", "Popen", "call", "check_call", "check_output"}
+_ENV_SPAWNS = {
+    "subprocess": {"run", "Popen", "call", "check_call", "check_output"},
+    "asyncio": {"create_subprocess_exec", "create_subprocess_shell"},
+}
+_ENV_SPAWN_NAMES = {
+    "Popen",
+    "check_call",
+    "check_output",
+    "create_subprocess_exec",
+    "create_subprocess_shell",
+}
 
-    def is_spawn_function(node: ast.AST) -> bool:
-        return (
-            isinstance(node, ast.Attribute)
-            and node.attr in spawn_functions
-            and isinstance(node.value, ast.Name)
-            and node.value.id == "subprocess"
+
+def _is_env_spawn(node: ast.AST) -> bool:
+    if isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name):
+        return node.attr in _ENV_SPAWNS.get(node.value.id, set())
+    return isinstance(node, ast.Name) and node.id in _ENV_SPAWN_NAMES
+
+
+def _is_os_spawn(node: ast.AST) -> bool:
+    # These cannot be given a scrubbed environment, so the Assistant must not use them.
+    return (
+        isinstance(node, ast.Attribute)
+        and isinstance(node.value, ast.Name)
+        and node.value.id == "os"
+        and (node.attr in {"system", "popen"} or node.attr.startswith(("spawn", "exec")))
+    )
+
+
+def _is_scrubbed_env_call(node: ast.AST) -> bool:
+    return (
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id == "assistant_subprocess_env"
+    )
+
+
+def _unscrubbed_spawn_calls(path: Path) -> list[int]:
+    tree = ast.parse(path.read_text())
+    # Variables assigned from assistant_subprocess_env(...) anywhere in the module. Names are not
+    # tracked per scope: a name assigned from it in one function and reused for an unscrubbed
+    # environment in another function is not caught.
+    scrubbed_names = {
+        target.id
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Assign) and _is_scrubbed_env_call(node.value)
+        for target in node.targets
+        if isinstance(target, ast.Name)
+    }
+
+    def is_scrubbed(value: ast.AST) -> bool:
+        return _is_scrubbed_env_call(value) or (
+            isinstance(value, ast.Name) and value.id in scrubbed_names
         )
 
-    missing = []
-    for node in ast.walk(ast.parse(path.read_text())):
+    unsafe = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        if _is_os_spawn(node.func):
+            unsafe.append(node.lineno)
         # A spawn, either called directly or passed to a helper such as asyncio.to_thread.
-        if isinstance(node, ast.Call) and (
-            is_spawn_function(node.func) or any(is_spawn_function(arg) for arg in node.args)
-        ):
-            if not any(keyword.arg == "env" for keyword in node.keywords):
-                missing.append(node.lineno)
-    return missing
+        elif _is_env_spawn(node.func) or any(_is_env_spawn(arg) for arg in node.args):
+            env = next((kw.value for kw in node.keywords if kw.arg == "env"), None)
+            if env is None or not is_scrubbed(env):
+                unsafe.append(node.lineno)
+    return unsafe
 
 
-def test_every_assistant_subprocess_is_started_with_an_explicit_environment():
-    # A spawn without an explicit env inherits this process's environment, server secrets included.
+def test_every_assistant_subprocess_is_started_with_a_scrubbed_environment():
+    # A spawn without assistant_subprocess_env() can pass on the server's internal secrets.
     root = Path(mlflow.__file__).parent
     missing = {
         str(path.relative_to(root)): lines
         for directory in ("assistant", "server/assistant")
         for path in sorted((root / directory).rglob("*.py"))
-        if (lines := _spawn_calls_without_env(path))
+        if (lines := _unscrubbed_spawn_calls(path))
     }
     assert missing == {}
+
+
+def test_unscrubbed_spawn_check_flags_unsafe_spawns(tmp_path):
+    source = tmp_path / "spawns.py"
+    source.write_text(
+        "import asyncio, os, subprocess\n"
+        "from subprocess import Popen\n"
+        "subprocess.run(['a'])\n"  # 3: no env
+        "subprocess.run(['a'], env=os.environ.copy())\n"  # 4: not scrubbed
+        "asyncio.to_thread(subprocess.run, ['a'], env=None)\n"  # 5: not scrubbed
+        "asyncio.create_subprocess_exec('a')\n"  # 6: no env
+        "Popen(['a'])\n"  # 7: no env
+        "os.system('a')\n"  # 8: cannot be scrubbed
+        "subprocess.run(['a'], env=assistant_subprocess_env())\n"  # 9: scrubbed
+        "env = assistant_subprocess_env(X='1')\n"
+        "asyncio.to_thread(subprocess.run, ['a'], env=env)\n"  # 11: scrubbed
+    )
+
+    assert _unscrubbed_spawn_calls(source) == [3, 4, 5, 6, 7, 8]

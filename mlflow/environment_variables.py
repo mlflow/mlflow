@@ -1899,7 +1899,8 @@ MLFLOW_ALLOW_PICKLE_DESERIALIZATION = _BooleanEnvironmentVariable(
 #: Internal env var for the shared gateway auth token. The server generates a random
 #: token at startup and sets it in the environment so all uvicorn workers and job
 #: subprocesses can use it to authenticate internal gateway requests. Subprocesses that the
-#: MLflow Assistant starts (CLI providers and tool commands) do not get it.
+#: MLflow Assistant starts (CLI providers and tool commands) do not inherit it, though only the
+#: Assistant sandbox isolates it from code running as the server's user on the host.
 #: (default: ``None``)
 _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN = _EnvironmentVariable(
     "_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN", str, None

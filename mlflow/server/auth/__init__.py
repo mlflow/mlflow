@@ -7815,14 +7815,6 @@ _ROUTES_NEEDING_BODY = frozenset((
 ))
 
 
-def _request_path_without_static_prefix(request: StarletteRequest) -> str:
-    request_path = get_routed_asgi_path(request)
-    static_prefix = os.environ.get(STATIC_PREFIX_ENV_VAR, "").rstrip("/")
-    if static_prefix and request_path.startswith(static_prefix):
-        request_path = request_path[len(static_prefix) :]
-    return request_path
-
-
 def _basic_auth_credentials(request: StarletteRequest, request_path: str) -> tuple[str, str] | None:
     """The username and password of the request's Basic auth, or None.
 
@@ -7863,7 +7855,7 @@ def _authenticate_internal_gateway_token(request: StarletteRequest) -> User | No
     internal_token = _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.get()
     if not internal_token:
         return None
-    request_path = _request_path_without_static_prefix(request)
+    request_path = _strip_static_prefix(get_routed_asgi_path(request))
     if not request_path.startswith("/gateway/"):
         return None
     if not (credentials := _basic_auth_credentials(request, request_path)):
@@ -7923,7 +7915,7 @@ def _authenticate_fastapi_request(request: StarletteRequest) -> User | None:
     if user := _authenticate_internal_delegation_token(request):
         return user
 
-    request_path = _request_path_without_static_prefix(request)
+    request_path = _strip_static_prefix(get_routed_asgi_path(request))
     if not (credentials := _basic_auth_credentials(request, request_path)):
         return None
     username, password = credentials

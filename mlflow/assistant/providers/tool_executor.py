@@ -355,8 +355,9 @@ async def _execute_bash_on_host(
     tracking_uri: str | None,
     full_access: bool,
 ) -> tuple[str, bool]:
-    # The server's internal secrets never reach a tool subprocess: the subprocess is handed only a
-    # pre-minted, user-scoped credential below.
+    # The tool subprocess does not inherit the server's internal secrets; it is handed only a
+    # pre-minted, user-scoped credential below. On the host this is not an isolation boundary: only
+    # the sandbox isolates the secrets.
     env = assistant_subprocess_env()
     if tracking_uri:
         env["MLFLOW_TRACKING_URI"] = tracking_uri

@@ -61,7 +61,9 @@ def test_uses_structured_client_tool_delivery():
 
 
 def test_check_connection_runs_auth_verification_prompt(monkeypatch):
+    monkeypatch.setenv("_MLFLOW_ASSISTANT_DELEGATION_SIGNING_KEY", "secret")
     monkeypatch.setenv("_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN", "secret")
+    monkeypatch.setenv("SOME_SETTING", "kept")
     completed = subprocess.CompletedProcess(
         args=["claude", "-p", "hi", "--max-turns", "1", "--output-format", "json"],
         returncode=0,
@@ -82,14 +84,19 @@ def test_check_connection_runs_auth_verification_prompt(monkeypatch):
         provider = ClaudeCodeProvider()
         provider.check_connection()
 
+    env = mock_run.call_args.kwargs.pop("env")
     mock_run.assert_called_once_with(
         ["claude", "-p", "hi", "--max-turns", "1", "--output-format", "json"],
         capture_output=True,
         text=True,
         timeout=30,
-        env=mock_run.call_args.kwargs["env"],
     )
-    assert "_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN" not in mock_run.call_args.kwargs["env"]
+    # The CLI gets this process's environment without the server's internal secrets.
+    assert not {
+        "_MLFLOW_ASSISTANT_DELEGATION_SIGNING_KEY",
+        "_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN",
+    } & set(env)
+    assert env["SOME_SETTING"] == "kept"
 
 
 def test_check_connection_skips_host_probe_in_sandbox_mode(monkeypatch):
