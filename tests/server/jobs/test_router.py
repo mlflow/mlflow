@@ -1,7 +1,9 @@
 import json
+from unittest import mock
 
 import pytest
 
+from mlflow.server.jobs import router
 from mlflow.server.jobs.executor_registry import shutdown_executor_registry
 from mlflow.server.jobs.router import select_executor_backend
 
@@ -77,3 +79,20 @@ def test_custom_scorer_job_supported_by_custom_backend_routes_to_it():
 def test_custom_scorer_job_unsupported_by_custom_backend_stays_on_default(job_name, params):
     backend = select_executor_backend(is_custom_scorer=True, job_name=job_name, params=params)
     assert backend == "local"
+
+
+@pytest.mark.usefixtures("docker_custom_scorer_backend")
+def test_fallback_to_default_backend_is_logged_once_per_job_name(monkeypatch):
+    monkeypatch.setattr(router, "_logged_fallback_job_names", set())
+    params = {"serialized_scorers": [json.dumps(_CUSTOM_SCORER)]}
+
+    with mock.patch.object(router, "_logger") as logger:
+        for _ in range(3):
+            assert (
+                select_executor_backend(
+                    is_custom_scorer=True, job_name="invoke_genai_evaluate", params=params
+                )
+                == "local"
+            )
+
+    logger.info.assert_called_once()

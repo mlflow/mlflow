@@ -141,6 +141,17 @@ def _extract_params_from_signature(signature: str) -> str:
     )
 
 
+def _signature_param_names(signature: str) -> set[str]:
+    """The parameter names in a stored ``@scorer`` signature, read without running any code."""
+    try:
+        args = ast.parse(f"def _f{signature}: pass").body[0].args
+    except SyntaxError:
+        raise MlflowException(
+            f"Invalid signature format: '{signature}'", error_code=INVALID_PARAMETER_VALUE
+        )
+    return {arg.arg for arg in (*args.posonlyargs, *args.args, *args.kwonlyargs)}
+
+
 def recreate_function(source: str, signature: str, func_name: str) -> Callable[..., Any]:
     """
     Recreate a function from its source code, signature, and name.
@@ -430,6 +441,18 @@ def params_contain_custom_scorer_code(job_name: str, params: dict[str, Any]) -> 
         _obj_has_call_source(_parse_serialized_scorer(s))
         for s in _iter_serialized_scorers(job_name, params)
     )
+
+
+# Same value as ``mlflow.server.jobs.executor_registry.DOCKER_EXECUTOR_BACKEND``, kept here because
+# importing that module loads the server package, which the tracking store must not do.
+_DOCKER_EXECUTOR_BACKEND = "docker"
+
+
+def container_scoring_enabled() -> bool:
+    """Whether online scoring jobs run custom scorers in job containers."""
+    from mlflow.environment_variables import MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND
+
+    return MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND.get() == _DOCKER_EXECUTOR_BACKEND
 
 
 def custom_scorer_execution_blocked(serialized_data: Any) -> bool:

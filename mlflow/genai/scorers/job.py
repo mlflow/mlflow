@@ -31,6 +31,7 @@ from mlflow.genai.scorers.base import (
     SCORER_BACKEND_TRACKING,
     Scorer,
     _job_executor_scorer_context,
+    _serialized_scorer_is_custom_code,
 )
 from mlflow.genai.scorers.online import (
     OnlineScorer,
@@ -41,6 +42,7 @@ from mlflow.genai.scorers.online import (
 from mlflow.genai.scorers.online.trace_loader import OnlineTraceLoader
 from mlflow.genai.scorers.scorer_utils import (
     _parse_serialized_scorer,
+    container_scoring_enabled,
     custom_scorer_execution_blocked,
 )
 from mlflow.server.constants import BACKEND_STORE_URI_ENV_VAR
@@ -85,6 +87,33 @@ def _extract_failures_from_feedbacks(feedbacks: list[Any]) -> list[ScorerFailure
     ]
 
 
+def _online_scorers_this_job_can_run(online_scorers: list[OnlineScorer]) -> list[OnlineScorer]:
+    """Drop the custom scorers that this online scoring job must not run.
+
+    Online scoring runs custom scorers only in job containers, never in the job's own process, and
+    only while custom scorers are enabled. The scheduler and the tracking store check this too,
+    but a job can run on a job runner whose settings differ from the ones it was submitted with.
+    """
+    runnable = []
+    for online_scorer in online_scorers:
+        serialized_data = _parse_serialized_scorer(online_scorer.serialized_scorer)
+        if not _serialized_scorer_is_custom_code(serialized_data):
+            runnable.append(online_scorer)
+        elif not container_scoring_enabled():
+            _logger.warning(
+                f"Skipping custom scorer '{online_scorer.name}': online scoring runs custom "
+                "scorers only in job containers (MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND=docker)."
+            )
+        elif custom_scorer_execution_blocked(serialized_data):
+            _logger.warning(
+                f"Skipping custom scorer '{online_scorer.name}'; custom scorer execution is "
+                "disabled (set MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS to enable)."
+            )
+        else:
+            runnable.append(online_scorer)
+    return runnable
+
+
 @job(
     name=ONLINE_TRACE_SCORER_JOB_NAME,
     max_workers=MLFLOW_SERVER_ONLINE_SCORING_MAX_WORKERS.get(),
@@ -117,11 +146,9 @@ def run_online_trace_scorer_job(
 
     # Lazy import: the container scoring module imports the job utils, which load this module's job
     # functions when imported.
-    from mlflow.genai.scorers.online.container_scoring import (
-        OnlineContainerScorer,
-        container_scoring_enabled,
-    )
+    from mlflow.genai.scorers.online.container_scoring import OnlineContainerScorer
 
+    scorer_objects = _online_scorers_this_job_can_run(scorer_objects)
     tracking_store = _get_tracking_store()
     if container_scoring_enabled():
         # Custom scorers run in job containers, so their code is never loaded in this process.
@@ -170,11 +197,9 @@ def run_online_session_scorer_job(
     ]
 
     # Lazy import: see run_online_trace_scorer_job.
-    from mlflow.genai.scorers.online.container_scoring import (
-        OnlineContainerScorer,
-        container_scoring_enabled,
-    )
+    from mlflow.genai.scorers.online.container_scoring import OnlineContainerScorer
 
+    scorer_objects = _online_scorers_this_job_can_run(scorer_objects)
     tracking_store = _get_tracking_store()
     if container_scoring_enabled():
         # Custom scorers run in job containers, so their code is never loaded in this process.

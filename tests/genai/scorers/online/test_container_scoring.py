@@ -8,13 +8,12 @@ import mlflow
 from mlflow.entities._job_status import JobStatus
 from mlflow.genai import scorer
 from mlflow.genai.scorers.online import container_scoring
-from mlflow.genai.scorers.online.container_scoring import (
-    OnlineContainerScorer,
-    container_scoring_enabled,
-)
+from mlflow.genai.scorers.online.container_scoring import OnlineContainerScorer
 from mlflow.genai.scorers.online.entities import OnlineScorer, OnlineScoringConfig
+from mlflow.genai.scorers.scorer_utils import _DOCKER_EXECUTOR_BACKEND, container_scoring_enabled
 from mlflow.server.constants import BACKEND_STORE_URI_ENV_VAR
 from mlflow.server.jobs.executor import JobResult
+from mlflow.server.jobs.executor_registry import DOCKER_EXECUTOR_BACKEND
 from mlflow.server.jobs.job_container import _CONTAINER_INPUT_DIR
 from mlflow.server.jobs.utils import _load_function
 from mlflow.tracing.constant import TraceMetadataKey
@@ -85,6 +84,7 @@ def test_container_scoring_is_enabled_by_the_docker_custom_scorer_backend(monkey
     assert not container_scoring_enabled()
     monkeypatch.setenv("MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND", "docker")
     assert container_scoring_enabled()
+    assert _DOCKER_EXECUTOR_BACKEND == DOCKER_EXECUTOR_BACKEND
 
 
 def test_scores_in_batches_and_logs_on_the_host(traces, docker, monkeypatch):

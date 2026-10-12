@@ -12,12 +12,14 @@ from mlflow.exceptions import MlflowException
 from mlflow.genai import scorer
 from mlflow.genai.scorers.base import SCORER_BACKEND_TRACKING, _in_job_executor
 from mlflow.genai.scorers.job import (
+    _online_scorers_this_job_can_run,
     _plan_invoke_scorer_job_for_docker,
     invoke_scorer_job,
     run_online_session_scorer_job,
     run_online_trace_scorer_job,
 )
 from mlflow.genai.scorers.online.container_scoring import OnlineContainerScorer
+from mlflow.genai.scorers.online.entities import OnlineScorer, OnlineScoringConfig
 from mlflow.genai.scorers.online.session_processor import OnlineSessionScoringProcessor
 from mlflow.genai.scorers.online.trace_processor import OnlineTraceScoringProcessor
 from mlflow.server.constants import BACKEND_STORE_URI_ENV_VAR
@@ -382,3 +384,53 @@ def test_importing_the_scorer_jobs_first_registers_every_job_function():
         "), _job_name_to_fn_fullname_map\n"
     )
     subprocess.check_call([sys.executable, "-c", code])
+
+
+@pytest.mark.parametrize(
+    ("backend", "custom_scorers_enabled", "expected"),
+    [
+        # Without job containers, custom scorer code would run in the job's own process.
+        (None, True, ["judge"]),
+        ("docker", True, ["judge", "output_length"]),
+        ("docker", False, ["judge"]),
+    ],
+)
+def test_online_jobs_run_custom_scorers_only_in_job_containers(
+    backend, custom_scorers_enabled, expected, monkeypatch
+):
+    if backend:
+        monkeypatch.setenv("MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND", backend)
+    else:
+        monkeypatch.delenv("MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND", raising=False)
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS", str(custom_scorers_enabled).lower())
+
+    @scorer
+    def output_length(outputs) -> int:
+        return len(str(outputs))
+
+    judge = json.dumps({
+        "name": "judge",
+        "instructions_judge_pydantic_data": {
+            "model": "gateway:/ep",
+            "instructions": "{{ outputs }}",
+        },
+    })
+    config = OnlineScoringConfig(
+        online_scoring_config_id="c",
+        scorer_id="s",
+        sample_rate=1.0,
+        experiment_id="1",
+        filter_string=None,
+    )
+    online_scorers = [
+        OnlineScorer(name="judge", serialized_scorer=judge, online_config=config),
+        OnlineScorer(
+            name="output_length",
+            serialized_scorer=json.dumps(output_length.model_dump()),
+            online_config=config,
+        ),
+    ]
+
+    runnable = _online_scorers_this_job_can_run(online_scorers)
+
+    assert [s.name for s in runnable] == expected
