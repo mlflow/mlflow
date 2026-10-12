@@ -3,6 +3,7 @@ import { FormattedMessage, useIntl } from '@databricks/i18n';
 import { useLocalStorage } from '@databricks/web-shared/hooks';
 import { TELEMETRY_ENABLED_STORAGE_KEY, TELEMETRY_ENABLED_STORAGE_VERSION } from '../telemetry/utils';
 import { telemetryClient } from '../telemetry';
+import { useTelemetryConfig } from '../telemetry/hooks/useTelemetryConfig';
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { fetchEndpointRaw, HTTPMethods } from '../common/utils/FetchUtils';
 import { useLocation, useNavigate, useParams } from '../common/utils/RoutingUtils';
@@ -100,14 +101,20 @@ const SettingsPage = () => {
     }
   }, [sectionParam, navigate, location.search, location.state]);
 
-  const [isTelemetryEnabled, setIsTelemetryEnabled] = useLocalStorage({
+  const { data: telemetryConfig } = useTelemetryConfig();
+  const isTelemetryDisabledByServer = telemetryConfig?.disable_ui_telemetry ?? true;
+  const [telemetryPreference, setIsTelemetryEnabled] = useLocalStorage({
     key: TELEMETRY_ENABLED_STORAGE_KEY,
     version: TELEMETRY_ENABLED_STORAGE_VERSION,
     initialValue: true,
   });
+  const isTelemetryEnabled = !isTelemetryDisabledByServer && telemetryPreference;
 
   const handleTelemetryToggle = useCallback(
     (checked: boolean) => {
+      if (isTelemetryDisabledByServer) {
+        return;
+      }
       setIsTelemetryEnabled(checked);
       if (checked) {
         telemetryClient.start();
@@ -115,7 +122,7 @@ const SettingsPage = () => {
         telemetryClient.shutdown();
       }
     },
-    [setIsTelemetryEnabled],
+    [isTelemetryDisabledByServer, setIsTelemetryEnabled],
   );
 
   const handleThemeToggle = useCallback(
@@ -205,6 +212,7 @@ const SettingsPage = () => {
                   <Switch
                     componentId="mlflow.settings.telemetry.toggle-switch"
                     checked={isTelemetryEnabled}
+                    disabled={isTelemetryDisabledByServer}
                     onChange={handleTelemetryToggle}
                     label={
                       isTelemetryEnabled
