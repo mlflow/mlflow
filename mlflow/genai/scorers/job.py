@@ -52,7 +52,7 @@ from mlflow.tracing.constant import AssessmentMetadataKey, TraceMetadataKey
 from mlflow.utils.workspace_context import WorkspaceContext
 
 if TYPE_CHECKING:
-    from mlflow.server.jobs.docker_executor import DockerJobPlan
+    from mlflow.server.jobs.job_container import DockerJobPlan
 
 _logger = logging.getLogger(__name__)
 
@@ -364,7 +364,7 @@ def _plan_invoke_scorer_job_for_docker(
     fetched here rather than anything the container could have changed.
     """
     # Lazy import: the docker executor module imports the server package, which loads this module.
-    from mlflow.server.jobs.docker_executor import DockerJobPlan
+    from mlflow.server.jobs.job_container import DockerJobPlan
 
     serialized_scorer = params["serialized_scorer"]
     if not _docker_supports_invoke_scorer_params(params):

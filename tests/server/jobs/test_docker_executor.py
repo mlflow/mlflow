@@ -11,6 +11,7 @@ from mlflow.entities._job_status import JobStatus
 from mlflow.exceptions import MlflowException
 from mlflow.server.jobs import docker_executor as de
 from mlflow.server.jobs import job
+from mlflow.server.jobs import job_container as jc
 from mlflow.server.jobs.executor import JobExecutionContext, JobExecutorConfig
 from mlflow.server.jobs.utils import (
     MLFLOW_SERVER_JOB_FUNCTION_FULLNAME_ENV_VAR,
@@ -58,7 +59,7 @@ class _FakeContainer:
 
     def _output_dir(self):
         for host, spec in self.kwargs["volumes"].items():
-            if spec["bind"] == de._CONTAINER_OUTPUT_DIR:
+            if spec["bind"] == jc._CONTAINER_OUTPUT_DIR:
                 return Path(host)
 
     def wait(self, timeout=None):
@@ -117,7 +118,7 @@ class _FakeClient:
 def _succeed_with(value):
     def on_wait(container):
         _SubprocessJobResult(succeeded=True, result=json.dumps(value)).dump(
-            str(container._output_dir() / de._RESULT_FILE)
+            str(container._output_dir() / jc._RESULT_FILE)
         )
         return {"StatusCode": 0}
 
@@ -187,13 +188,13 @@ def test_container_is_hardened_and_has_no_network(executor, client):
     assert kwargs["read_only"] is True
     assert kwargs["cap_drop"] == ["ALL"]
     assert kwargs["security_opt"] == ["no-new-privileges:true"]
-    assert kwargs["pids_limit"] == de._PIDS_LIMIT
-    assert kwargs["mem_limit"] == kwargs["memswap_limit"] == de._DEFAULT_MEMORY_BYTES
-    assert kwargs["nano_cpus"] == de._DEFAULT_NANO_CPUS
+    assert kwargs["pids_limit"] == jc._PIDS_LIMIT
+    assert kwargs["mem_limit"] == kwargs["memswap_limit"] == jc._DEFAULT_MEMORY_BYTES
+    assert kwargs["nano_cpus"] == jc._DEFAULT_NANO_CPUS
     assert kwargs["labels"][de.LABEL_JOB_ID] == "job-1"
-    assert kwargs["labels"][de.LABEL_JOB_NAME] == "fake_docker_job"
+    assert kwargs["labels"][jc.LABEL_JOB_NAME] == "fake_docker_job"
     mounts = {spec["bind"]: spec["mode"] for spec in kwargs["volumes"].values()}
-    assert mounts == {de._CONTAINER_INPUT_DIR: "ro", de._CONTAINER_OUTPUT_DIR: "rw"}
+    assert mounts == {de._CONTAINER_INPUT_DIR: "ro", jc._CONTAINER_OUTPUT_DIR: "rw"}
     env = kwargs["environment"]
     # The container runs the plan's function and gets no tracking or gateway address.
     assert env[MLFLOW_SERVER_JOB_FUNCTION_FULLNAME_ENV_VAR] == "some.module.compute"
@@ -202,12 +203,12 @@ def test_container_is_hardened_and_has_no_network(executor, client):
     }
     assert not any(key in env for key in ("MLFLOW_TRACKING_URI", "MLFLOW_GATEWAY_URI"))
     assert MLFLOW_SERVER_JOB_ID_ENV_VAR not in env
-    assert kwargs["log_config"] == de._LOG_CONFIG
+    assert kwargs["log_config"] == jc._LOG_CONFIG
     (fsize,) = kwargs["ulimits"]
     assert (fsize.name, fsize.soft, fsize.hard) == (
         "fsize",
-        de._MAX_FILE_BYTES,
-        de._MAX_FILE_BYTES,
+        jc._MAX_FILE_BYTES,
+        jc._MAX_FILE_BYTES,
     )
 
 
@@ -231,13 +232,13 @@ def test_missing_result_fails_with_container_logs(executor, client):
     assert result.status == JobStatus.FAILED
     assert "exited with code 137" in result.error_message
     assert "container log line" in result.error_message
-    assert client.started[0].logs_tail == de._LOG_TAIL_LINES
+    assert client.started[0].logs_tail == jc._LOG_TAIL_LINES
 
 
 def test_failed_job_reports_transient_flag(executor, client):
     def on_wait(container):
         _SubprocessJobResult(succeeded=False, is_transient_error=True, error="boom").dump(
-            str(container._output_dir() / de._RESULT_FILE)
+            str(container._output_dir() / jc._RESULT_FILE)
         )
         return {"StatusCode": 0}
 
@@ -265,7 +266,7 @@ def test_failed_job_reports_transient_flag(executor, client):
 )
 def test_malformed_result_fails(executor, client, contents):
     def on_wait(container):
-        (container._output_dir() / de._RESULT_FILE).write_text(contents)
+        (container._output_dir() / jc._RESULT_FILE).write_text(contents)
         return {"StatusCode": 0}
 
     client.on_wait = on_wait
@@ -277,7 +278,7 @@ def test_malformed_result_fails(executor, client, contents):
 
 
 def test_oversized_result_fails(executor, client, monkeypatch):
-    monkeypatch.setattr(de, "_MAX_RESULT_BYTES", 10)
+    monkeypatch.setattr(jc, "_MAX_RESULT_BYTES", 10)
     client.on_wait = _succeed_with({"score": "x" * 100})
     _submit(executor)
     result = executor.wait_for_job("job-1")
@@ -288,7 +289,7 @@ def test_oversized_result_fails(executor, client, monkeypatch):
 
 def _write_result_entry(make_entry):
     def on_wait(container):
-        make_entry(container._output_dir() / de._RESULT_FILE)
+        make_entry(container._output_dir() / jc._RESULT_FILE)
         return {"StatusCode": 0}
 
     return on_wait
@@ -534,12 +535,12 @@ def test_resource_limit_override(monkeypatch):
     ],
 )
 def test_parse_memory(value, expected):
-    assert de._parse_memory(value) == expected
+    assert jc._parse_memory(value) == expected
 
 
 @pytest.mark.parametrize(("value", "expected"), [("500m", 500_000_000), ("2", 2_000_000_000)])
 def test_parse_cpu(value, expected):
-    assert de._parse_cpu(value) == expected
+    assert jc._parse_cpu(value) == expected
 
 
 @pytest.mark.parametrize(
@@ -646,7 +647,7 @@ def test_check_requirements_rejects_invalid_declared_resource_limits(executor, m
 
 
 def test_oversized_result_error_names_the_batch_size_setting(executor, client, monkeypatch):
-    monkeypatch.setattr(de, "_MAX_RESULT_BYTES", 10)
+    monkeypatch.setattr(jc, "_MAX_RESULT_BYTES", 10)
     client.on_wait = _succeed_with({"score": "x" * 100})
     _submit(executor)
 
