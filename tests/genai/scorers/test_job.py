@@ -88,10 +88,12 @@ def test_docker_plan_scores_in_container_step_and_logs_on_host(sqlite_tracking, 
     final = plan.finalize(_run_container_step(plan))
 
     assert set(final) == set(trace_ids)
-    for trace_id in trace_ids:
+    for i, trace_id in enumerate(trace_ids):
         assert final[trace_id]["failures"] == []
         assessments = mlflow.get_trace(trace_id).info.assessments
         assert [a.name for a in assessments] == ["output_length"]
+        # The scorer gets the trace's outputs, as with mlflow.genai.evaluate.
+        assert assessments[0].value == len(str({"answer": "x" * (i + 1)}))
 
 
 def test_docker_plan_does_not_log_when_log_assessments_is_false(sqlite_tracking, tmp_path):

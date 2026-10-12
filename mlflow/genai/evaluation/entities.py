@@ -111,12 +111,14 @@ class EvalItem:
             trace: The trace to create an EvalItem from.
 
         Returns:
-            An EvalItem with the trace set and request_id from the trace.
+            An EvalItem with the trace set, request_id from the trace, and the inputs and outputs
+            of the trace's root span, as ``mlflow.genai.evaluate`` takes them from a trace.
         """
+        root_span = trace.data._get_root_span()
         return cls(
             request_id=trace.info.trace_id,
-            inputs=None,
-            outputs=None,
+            inputs=root_span.inputs if root_span else None,
+            outputs=root_span.outputs if root_span else None,
             expectations=None,
             trace=trace,
         )
