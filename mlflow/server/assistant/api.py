@@ -202,7 +202,13 @@ def _current_username(request: Request) -> str | None:
     return request.state.assistant_username
 
 
-def _server_settings_restriction(request: Request) -> str | None:
+# Why a caller may not change server-wide settings, as the phrase ending the denial message
+# ("... can only be configured <reason>.").
+_SERVER_HOST_ONLY_REASON = "from the MLflow server host"
+_ADMIN_ONLY_REASON = "by an administrator"
+
+
+def _get_server_settings_restriction_reason(request: Request) -> str | None:
     """Why the caller may not change server-wide Assistant settings, or None if they may.
 
     Project directories, skills installs and gateway connections (API keys) apply to every user of
@@ -210,14 +216,13 @@ def _server_settings_restriction(request: Request) -> str | None:
     be changed from the MLflow server host, and not by a restricted caller (see
     ``_is_restricted_caller``): on a sandboxed server with auth, only an admin may change them. On a
     server without the sandbox, local users keep full control of these settings, matching how
-    their tools run on the host. Returns the phrase ending the denial message ("can only be ...
-    <phrase>").
+    their tools run on the host.
     """
     if not _is_localhost(request):
-        return "from the MLflow server host"
+        return _SERVER_HOST_ONLY_REASON
     # The ContextVar holds the restricted-caller result for this request (set by the route class).
     if is_remote_caller():
-        return "by an administrator"
+        return _ADMIN_ONLY_REASON
     return None
 
 
@@ -299,8 +304,9 @@ class _AssistantAPIRoute(APIRoute):
             set_config_user(request.state.assistant_username)
             # Cap a restricted caller (see _is_restricted_caller) at the restricted tool-permission
             # profile, so server-side tool execution cannot be driven with full_access; the same
-            # flag decides who may change server-wide settings (_server_settings_restriction). Off
-            # the event loop, since it may look the caller up in the auth store.
+            # flag decides who may change server-wide settings
+            # (_get_server_settings_restriction_reason). Off the event loop, since it may look the
+            # caller up in the auth store.
             set_remote_caller(await asyncio.to_thread(_is_restricted_caller, request))
             if policy != _RemoteAccessPolicy.NONE and not _is_localhost(request):
                 if policy == _RemoteAccessPolicy.DENY or not MLFLOW_ENABLE_REMOTE_ASSISTANT.get():
@@ -845,7 +851,7 @@ async def get_config(request: Request) -> ConfigResponse:
     for provider_data in providers.values():
         provider_data.pop("api_key", None)
 
-    can_edit_server_settings = _server_settings_restriction(request) is None
+    can_edit_server_settings = _get_server_settings_restriction_reason(request) is None
 
     return ConfigResponse(
         providers=providers,
@@ -866,7 +872,7 @@ async def update_config(request: ConfigUpdateRequest, http_request: Request) -> 
     (selected provider, model, permissions, base URL), which are saved to their own config.
     Registering project directories, creating gateway LLM connections (API keys), and enabling
     full access need a caller allowed to change server-wide settings (see
-    ``_server_settings_restriction``).
+    ``_get_server_settings_restriction_reason``).
 
     Args:
         request: Partial configuration update.
@@ -889,7 +895,7 @@ async def update_config(request: ConfigUpdateRequest, http_request: Request) -> 
                     detail=f"The {name} provider cannot be used from a remote client.",
                 )
 
-    restriction = _server_settings_restriction(http_request)
+    restriction = _get_server_settings_restriction_reason(http_request)
     if restriction:
         if request.projects:
             raise HTTPException(
@@ -1007,7 +1013,7 @@ async def install_skills_endpoint(
         HTTPException 403: If the caller may not change server-wide settings.
     """
     # Skills are installed on the server host's filesystem for every user.
-    if restriction := _server_settings_restriction(http_request):
+    if restriction := _get_server_settings_restriction_reason(http_request):
         raise HTTPException(status_code=403, detail=f"Skills can only be installed {restriction}.")
     config = AssistantConfig.load()
 
