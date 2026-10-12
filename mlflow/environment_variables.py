@@ -1799,7 +1799,8 @@ MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND = _EnvironmentVariable(
 #: ``{"cpu": "500m", "memory": "1Gi"}``, which overrides limits the job type declares (default: 1
 #: CPU and 1 GiB of memory). Each file a job writes is capped at 64 MiB and its result at 8 MiB,
 #: but the job's output directory on the host has no total size limit, so a malicious scorer can
-#: fill the host disk until the job times out.
+#: fill the host disk until the job times out. Stopping the MLflow server does not stop running job
+#: containers; they are removed when the job runner next starts.
 #: **Experimental**: subject to change or removal in a future release.
 #: (default: unset)
 MLFLOW_JOB_IMAGE = _EnvironmentVariable("MLFLOW_JOB_IMAGE", str, None)

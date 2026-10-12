@@ -394,7 +394,7 @@ def _plan_invoke_scorer_job_for_docker(
         if log_assessments:
             # Log to the backend store the traces were fetched from, whatever the job runner
             # process's own tracking URI is.
-            client = TracingClient(tracking_uri=os.environ[BACKEND_STORE_URI_ENV_VAR])
+            client = TracingClient(tracking_uri=os.environ.get(BACKEND_STORE_URI_ENV_VAR))
             for trace_id, (feedbacks, _) in parsed.items():
                 if feedbacks:
                     _log_assessments(
@@ -511,7 +511,7 @@ def _run_session_scorer(
 
 
 def _score_session_traces(
-    scorer: Any,
+    scorer: Scorer,
     traces: list[Trace],
     log_assessments: bool,
 ) -> dict[str, TraceResult]:
@@ -588,7 +588,7 @@ def _run_single_turn_scorer_batch(
 
 
 def _score_single_turn_traces(
-    scorer: Any,
+    scorer: Scorer,
     trace_map: dict[str, Trace],
     log_assessments: bool,
 ) -> dict[str, TraceResult]:

@@ -18,7 +18,10 @@ Limits of this mode:
 - the output directory, a host temporary directory, has no size limit of its own: each file the
   job writes is capped (see ``_MAX_FILE_BYTES``), but not the number of files, so a malicious
   scorer can fill the host disk (or memory, where the temporary directory is a tmpfs) until the job
-  times out.
+  times out;
+- stopping the MLflow server does not stop job containers that are running: the job runner exits
+  without stopping them, and their time limit is enforced from the host. They are removed when the
+  job runner next starts (or with ``docker rm -f $(docker ps -aq --filter label=mlflow.job_id)``).
 """
 
 import json
@@ -103,8 +106,8 @@ _MAX_RESULT_BYTES = 8 * 1024**2
 # the output directory, which has no quota of its own. Larger than the result cap so a scorer's own
 # files are not limited by it, and a too-large result fails on the host with a clear error.
 _MAX_FILE_BYTES = 64 * 1024**2
-# How long ``stop_executor`` waits for container starts in progress before giving up on them, so a
-# hung Docker daemon cannot block shutdown.
+# How long ``stop_executor`` waits for container starts in progress before giving up on them, which
+# bounds how long that wait can delay shutdown when the Docker daemon hangs.
 _STOP_WAIT_FOR_STARTS_SECONDS = 30.0
 
 # How much of the container's logs to keep in a failure message, and how much the Docker daemon
@@ -270,8 +273,9 @@ def _load_result(path: Path) -> _SubprocessJobResult:
         os.close(fd)
     if len(data) > _MAX_RESULT_BYTES:
         raise MlflowException(
-            f"The job container's result is larger than {_MAX_RESULT_BYTES} bytes. For scorer "
-            "jobs, lower MLFLOW_SERVER_SCORER_INVOKE_BATCH_SIZE to score fewer traces per job."
+            f"The job container's result is larger than {_MAX_RESULT_BYTES} bytes. For a "
+            "single-turn scorer, lower MLFLOW_SERVER_SCORER_INVOKE_BATCH_SIZE to score fewer "
+            "traces per job."
         )
     try:
         raw = json.loads(data)
@@ -504,9 +508,9 @@ class DockerJobExecutor(AbstractJobExecutor):
             if self._stopped or self._jobs.get(job_id) is not job or job.cancel_requested:
                 return
             job.starting = True
-        # Not under the lock: these daemon calls can take a while, and stop_executor (and any
-        # caller of cancel_job outside the job runner) also takes it, so a slow or hung daemon
-        # would block shutdown.
+        # Not under the lock: these daemon calls can take a while, and the scheduler's cancel_job
+        # and stop_executor also take it, so a slow or hung daemon would stall scheduling and
+        # shutdown.
         try:
             container = self._run_container(
                 job_id, job_name, input_dir, output_dir, environment, memory, nano_cpus
@@ -524,14 +528,22 @@ class DockerJobExecutor(AbstractJobExecutor):
             job.starting = False
             self._start_finished.notify_all()
             # A cancel or shutdown during the start found no container to kill, so kill it now.
-            # wait_for_job then reports the job as canceled or leaves it for recovery. A job that
-            # was finalized meanwhile has no one left to remove its container.
+            # wait_for_job then reports the job as canceled or leaves it for recovery. Defensive:
+            # the job runner never finalizes a job before submit_job returns, but a job finalized
+            # meanwhile would leave its container with no one to remove it.
             orphaned = self._jobs.get(job_id) is not job
             kill = orphaned or self._stopped or job.cancel_requested
         if kill:
             _kill_quietly(container)
-        if orphaned:
-            _remove_quietly(container)
+            if orphaned:
+                _remove_quietly(container)
+            _logger.info(
+                "Killed docker job container %s for job %s right after it started: the job was "
+                "canceled or finalized, or the executor stopped",
+                container.short_id,
+                job_id,
+            )
+            return
         _logger.info(
             "Started docker job container %s for job %s (%s)", container.short_id, job_id, job_name
         )
