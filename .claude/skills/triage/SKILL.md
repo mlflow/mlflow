@@ -71,8 +71,10 @@ on (the current working directory).
 
 Only start the UI when the issue involves it. Then start both servers first, right after reading
 the issue and before investigating anything else: installing the frontend dependencies and the
-first compile take a few minutes, and they can run while you read code. Run each command in the
-background from the repository root, logging to `$out_dir/work`.
+first compile take a few minutes, and they can run while you read code.
+
+Run each command below in the background, from the repository root. The servers keep running
+until you stop them, and their logs go to `$out_dir/work`.
 
 1. Backend: the tracking server on port 5000, with its data kept out of the checkout. `--dev`
    reloads it when Python files change.
