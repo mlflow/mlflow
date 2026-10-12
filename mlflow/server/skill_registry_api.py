@@ -552,15 +552,11 @@ def _delete_skill_version(
     return {}
 
 
-def _delete_skill(name: str, request: Request, organization: str = "") -> dict[str, Any]:
+def _delete_skill(name: str, organization: str = "") -> dict[str, Any]:
     from mlflow.server.skill_registry.deletion import delete_skill
 
     _validate_skill_path_identity(organization, name)
-    delete_skill(
-        name=name,
-        organization=organization,
-        before_commit=getattr(request.state, "skill_delete_before_commit", None),
-    )
+    delete_skill(name=name, organization=organization)
     return {}
 
 
@@ -1168,15 +1164,13 @@ def delete_organization_skill_version(
 
 
 @skill_registry_router.delete("/{name}")
-def delete_skill(name: SkillNamePath, request: Request) -> dict[str, Any]:
-    return _delete_skill(name=name, request=request)
+def delete_skill(name: SkillNamePath) -> dict[str, Any]:
+    return _delete_skill(name=name)
 
 
 @skill_registry_router.delete("/@{organization}/{name}")
-def delete_organization_skill(
-    organization: str, name: SkillNamePath, request: Request
-) -> dict[str, Any]:
-    return _delete_skill(name=name, organization=organization, request=request)
+def delete_organization_skill(organization: str, name: SkillNamePath) -> dict[str, Any]:
+    return _delete_skill(name=name, organization=organization)
 
 
 @skill_registry_router.patch("/{name}/versions/{version}", response_model=SkillVersionResponse)
