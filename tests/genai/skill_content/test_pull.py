@@ -295,20 +295,12 @@ def test_digest_mismatch_leaves_destination_as_found(
 
 
 @pytest.mark.parametrize("kind", SOURCE_KINDS)
-def test_missing_digest_is_computed_but_not_compared(
-    kind, make_source, skill_tree, tmp_path, caplog
-):
-    with (
-        mock.patch(
-            "mlflow.genai.skill_content.pull.compute_tree_digest", wraps=compute_tree_digest
-        ) as digest,
-        caplog.at_level("INFO", logger="mlflow.genai.skill_content.pull"),
-    ):
+def test_missing_digest_skips_verification(kind, make_source, tmp_path):
+    with mock.patch(
+        "mlflow.genai.skill_content.pull.compute_tree_digest", wraps=compute_tree_digest
+    ) as digest:
         pull_skill_version(_version(make_source(kind, SUBPATH)), tmp_path / "out")
-    digest.assert_called_once()
-    expected = compute_tree_digest(skill_tree / SUBPATH)
-    assert "has no recorded digest, so the pulled content was not verified" in caplog.text
-    assert f"its computed digest is {expected}" in caplog.text
+    digest.assert_not_called()
     assert (tmp_path / "out" / "SKILL.md").exists()
 
 

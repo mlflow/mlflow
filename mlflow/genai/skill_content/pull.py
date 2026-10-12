@@ -11,7 +11,6 @@ a failed pull leaves the destination exactly as it was found.
 from __future__ import annotations
 
 import errno
-import logging
 import os
 import shutil
 import stat
@@ -39,8 +38,6 @@ from mlflow.genai.skill_content.sources import is_local_path, resolve_source_typ
 from mlflow.protos.databricks_pb2 import INVALID_STATE, RESOURCE_DOES_NOT_EXIST
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils.skill_uris import ParsedSkillUri, format_skill_uri, parse_skill_uri
-
-_logger = logging.getLogger(__name__)
 
 _STAGING_PREFIX = ".mlflow-skill-pull-"
 
@@ -253,17 +250,9 @@ def _make_staging_dir(parent: Path) -> Path:
 
 
 def _verify_digest(root: Path, version: SkillVersion, uri: str) -> None:
-    # The digest is always computed (RFC-0008, digest verification); a version registered
-    # without one only skips the comparison, and its computed digest is logged instead.
-    actual = compute_tree_digest(root)
     if version.digest is None:
-        _logger.info(
-            "Skill version '%s' has no recorded digest, so the pulled content was not "
-            "verified; its computed digest is %s.",
-            uri,
-            actual,
-        )
         return
+    actual = compute_tree_digest(root)
     if actual != version.digest:
         raise MlflowException(
             f"Content fetched for skill version '{uri}' does not match its recorded digest: "
