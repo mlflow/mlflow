@@ -102,6 +102,7 @@ def test_log_artifact(
     filename,
     expected_mime_type,
     monkeypatch,
+    caplog,
 ):
     file_path = tmp_path.joinpath(filename)
     file_path.write_text("0")
@@ -189,6 +190,8 @@ def test_log_artifact(
         mock_create.assert_called_once()
         mock_abort.assert_called_once()
         assert_called_log_artifact(mock_put)
+    assert "MPU_UPLOAD_FAILS" not in caplog.text
+    assert caplog.text.count("Falling back to single-part upload") == 1
 
 
 @pytest.mark.parametrize("artifact_path", [None, "dir"])
@@ -276,7 +279,9 @@ def test_log_artifact_falls_back_when_multipart_completion_fails(
     mock_abort.assert_called_once_with(file_path, "upload_id", "dir")
     mock_put.assert_called_once()
     assert mock_put.call_args.args[1:3] == ("/dir/artifact.txt", "PUT")
-    assert "Falling back to single-part upload" in caplog.text
+    assert caplog.text.count("Falling back to single-part upload") == 1
+    assert "Multipart completion failed" not in caplog.text
+    assert "Multipart abort failed" not in caplog.text
 
 
 def test_log_artifact_skips_size_check_when_multipart_disabled(http_artifact_repo, tmp_path):
