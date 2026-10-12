@@ -326,10 +326,13 @@ def _unscrubbed_spawn_calls(path: Path) -> list[int]:
 def test_every_assistant_subprocess_is_started_with_a_scrubbed_environment():
     # A spawn without assistant_subprocess_env() can pass on the server's internal secrets.
     root = Path(mlflow.__file__).parent
+    # Bundled skills are scripts that a coding agent runs on its own, not code the server runs.
+    skills = root / "assistant" / "skills"
     missing = {
         str(path.relative_to(root)): lines
         for directory in ("assistant", "server/assistant")
         for path in sorted((root / directory).rglob("*.py"))
+        if not path.is_relative_to(skills)
         if (lines := _unscrubbed_spawn_calls(path))
     }
     assert missing == {}
