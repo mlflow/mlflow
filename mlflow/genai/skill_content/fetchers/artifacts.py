@@ -3,12 +3,18 @@ from __future__ import annotations
 import posixpath
 from pathlib import Path
 
+import requests
+
 from mlflow.artifacts import download_artifacts, list_artifacts
 from mlflow.exceptions import MlflowException
 from mlflow.genai.skill_content.archive import MAX_ARCHIVE_ENTRIES
-from mlflow.genai.skill_content.errors import invalid_content, source_unavailable
+from mlflow.genai.skill_content.errors import (
+    error_code_for_http_status,
+    invalid_content,
+    source_unavailable,
+)
 from mlflow.genai.skill_content.paths import normalize_subpath, tree_size
-from mlflow.protos.databricks_pb2 import ErrorCode
+from mlflow.protos.databricks_pb2 import TEMPORARILY_UNAVAILABLE, ErrorCode
 
 
 def _declared_size(uri: str, *, max_bytes: int) -> int:
@@ -44,6 +50,26 @@ def _declared_size(uri: str, *, max_bytes: int) -> int:
     return total
 
 
+def _unavailable(uri: str, error: Exception) -> MlflowException:
+    """
+    Error for an artifact repository failure, with credentials redacted from the detail.
+
+    HTTP artifact repositories raise ``requests`` errors directly rather than an
+    ``MlflowException``, and their messages carry the full request URL, including any
+    ``user:password@`` from the tracking URI. Callers raise the result ``from None`` so the
+    unredacted original is not chained onto it and printed with a traceback.
+    """
+    if isinstance(error, MlflowException):
+        return source_unavailable(uri, error.message, error_code=ErrorCode.Value(error.error_code))
+    if isinstance(error, requests.RequestException):
+        if (response := error.response) is not None:
+            code = error_code_for_http_status(response.status_code)
+        else:
+            code = TEMPORARILY_UNAVAILABLE
+        return source_unavailable(uri, str(error), error_code=code)
+    return source_unavailable(uri, str(error))
+
+
 def fetch_mlflow_artifacts(
     uri: str, dest: Path, *, max_bytes: int, subpath: str | None = None
 ) -> Path:
@@ -69,8 +95,8 @@ def fetch_mlflow_artifacts(
         dst.mkdir(parents=True, exist_ok=True)
     try:
         listed = _declared_size(artifact_uri, max_bytes=max_bytes)
-    except MlflowException as e:
-        raise source_unavailable(uri, e.message, error_code=ErrorCode.Value(e.error_code))
+    except (MlflowException, OSError) as e:
+        raise _unavailable(uri, e) from None
     if listed > max_bytes:
         raise invalid_content(
             f"MLflow artifact content is at least {listed} bytes, which exceeds the skill "
@@ -78,10 +104,9 @@ def fetch_mlflow_artifacts(
         )
     try:
         downloaded = Path(download_artifacts(artifact_uri=artifact_uri, dst_path=str(dst)))
-    except MlflowException as e:
-        raise source_unavailable(uri, e.message, error_code=ErrorCode.Value(e.error_code))
-    except OSError as e:
-        raise source_unavailable(uri, str(e))
+    except (MlflowException, OSError) as e:
+        # requests.RequestException is an OSError, so HTTP failures land here as well.
+        raise _unavailable(uri, e) from None
     if not downloaded.is_dir():
         raise invalid_content(f"MLflow artifact source '{uri}' must be a directory, not a file.")
     if (size := tree_size(downloaded)) > max_bytes:
