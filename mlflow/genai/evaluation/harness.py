@@ -676,6 +676,7 @@ def run(
     - MLFLOW_GENAI_EVAL_PREDICT_RATE_LIMIT: max predict_fn calls/second
     - MLFLOW_GENAI_EVAL_SCORER_RATE_LIMIT: max scorer calls/second, or Databricks
       RetrievalRelevance request attempts/second with a compatible agents SDK
+      unless RAG_EVAL_ENABLE_RETRIEVAL_REQUEST_RATE_LIMITING=false
     """
     eval_items = [EvalItem.from_dataset_row(row) for row in eval_df.to_dict(orient="records")]
     eval_start_time = int(time.time() * 1000)

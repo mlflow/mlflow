@@ -930,11 +930,12 @@ MLFLOW_GENAI_EVAL_PREDICT_RATE_LIMIT = _EnvironmentVariable(
 
 #: Shared scorer budget per second during mlflow.genai.evaluate. A token-bucket
 #: rate limiter throttles scorer invocations across all worker threads. With a
-#: compatible databricks-agents SDK and backend,
-#: Databricks RetrievalRelevance consumes this budget per judge HTTP attempt
-#: (including chunk retries), instead of once per scorer invocation. Request-level
-#: accounting defaults on for supported workspaces. Disabled or unavailable workspace
-#: settings and other scorers retain invocation-level admission.
+#: compatible databricks-agents SDK, Databricks RetrievalRelevance consumes this
+#: budget per judge HTTP attempt (including chunk retries), instead of once per
+#: scorer invocation. Request-level accounting defaults on. Set
+#: ``RAG_EVAL_ENABLE_RETRIEVAL_REQUEST_RATE_LIMITING=false`` to disable it for
+#: subsequent evaluations; the SDK reads this setting once per evaluation.
+#: Older SDKs, a disabled setting, and other scorers retain invocation-level admission.
 #: Waiting solely for request capacity does not consume the retrieval scorer's timeout;
 #: active judge work still does. Timeout cancels queued requests and retry waits.
 #: Accepted values: ``auto`` (adaptive rate starting at 10 rps), a positive number

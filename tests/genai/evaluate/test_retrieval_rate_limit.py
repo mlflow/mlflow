@@ -135,16 +135,16 @@ def make_item(trace):
 @databricks_only
 @pytest.mark.parametrize("model", [None, "databricks"])
 @pytest.mark.parametrize("sdk_supports_limiting", [False, True])
-@pytest.mark.parametrize("workspace_enabled", [False, True])
+@pytest.mark.parametrize("sdk_enabled", [False, True])
 def test_retrieval_charges_requests_or_falls_back_to_invocations(
     request_limiting_sdk,
     sample_rag_trace,
     model,
     sdk_supports_limiting,
-    workspace_enabled,
+    sdk_enabled,
     monkeypatch,
 ):
-    request_limiting_sdk.state.enabled = workspace_enabled
+    request_limiting_sdk.state.enabled = sdk_enabled
     if not sdk_supports_limiting:
         monkeypatch.delattr(request_limiting_sdk.module, "use_judge_request_execution")
     limiter = RecordingLimiter()
@@ -159,7 +159,7 @@ def test_retrieval_charges_requests_or_falls_back_to_invocations(
     assert sorted(a.rationale for a in chunks) == ["content_1", "content_2", "content_3"]
     assert all(a.value == "yes" and a.error is None for a in chunks)
     assert len(result.assessments) == 5
-    request_limiting_enabled = sdk_supports_limiting and workspace_enabled
+    request_limiting_enabled = sdk_supports_limiting and sdk_enabled
     assert limiter.admissions == (3 if request_limiting_enabled else 1)
     assert limiter.successes == limiter.admissions
     assert limiter.clock.now == (0.5 if request_limiting_enabled else 0.0)

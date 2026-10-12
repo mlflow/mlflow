@@ -227,8 +227,7 @@ def scorer_rate_limit_context(scorer: Scorer, rate_limiter: RateLimiter) -> Iter
     execution = RequestLimitedScorerExecution(rate_limiter)
     with use_judge_request_execution(rate_limiter, execution) as request_limiting_enabled:
         # Only skip invocation admission when the SDK confirms that it is charging
-        # each HTTP attempt. A disabled or unavailable workspace setting retains
-        # the existing scorer limiter.
+        # each HTTP attempt. A disabled SDK setting retains the existing scorer limiter.
         if request_limiting_enabled is True:
             with scorer_execution_context(execution):
                 yield NoOpRateLimiter()
