@@ -24,7 +24,17 @@ fi
 
 echo "Building Docker image for proto compilation..."
 IMAGE_NAME="mlflow-protos-gen"
-docker build -t "$IMAGE_NAME" -f dev/Dockerfile.protos $BUILD_ARGS .
+for attempt in 1 2 3; do
+    if docker build -t "$IMAGE_NAME" -f dev/Dockerfile.protos $BUILD_ARGS .; then
+        break
+    fi
+    if [[ "$attempt" -eq 3 ]]; then
+        echo "Docker build failed after $attempt attempts." >&2
+        exit 1
+    fi
+    echo "Docker build failed on attempt $attempt; retrying in 5 seconds..."
+    sleep 5
+done
 
 echo "Running proto compilation..."
 CONTAINER_NAME="mlflow-protos-gen-$$"
