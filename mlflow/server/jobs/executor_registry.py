@@ -17,6 +17,7 @@ _logger = logging.getLogger(__name__)
 
 ENTRY_POINT_GROUP = "mlflow.job_executors"
 DEFAULT_EXECUTOR_BACKEND = "local"
+DOCKER_EXECUTOR_BACKEND = "docker"
 
 _global_registry_lock = threading.Lock()
 
@@ -141,10 +142,16 @@ _global_registry: JobExecutorRegistry | None = None
 
 
 def _register_default_executors(registry: JobExecutorRegistry) -> None:
-    """Register built-in executor backends."""
+    """Register built-in executor backends.
+
+    Registering a backend does not touch its dependencies; only configured backends are validated
+    (see ``validate_backends``), so an unused ``docker`` backend never contacts a Docker daemon.
+    """
+    from mlflow.server.jobs.docker_executor import DockerJobExecutor
     from mlflow.server.jobs.local_executor import LocalJobExecutor
 
     registry.register(DEFAULT_EXECUTOR_BACKEND, LocalJobExecutor(registry.config))
+    registry.register(DOCKER_EXECUTOR_BACKEND, DockerJobExecutor(registry.config))
 
 
 def _get_configured_backend_names() -> list[str]:
@@ -200,6 +207,26 @@ def validate_executor_config() -> None:
     that configured backend names can be resolved and satisfy their runtime
     requirements.
     """
+    from mlflow.environment_variables import (
+        MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND,
+        MLFLOW_SERVER_JOB_EXECUTION_ENGINE,
+    )
+    from mlflow.server.jobs.utils import get_job_execution_engine
+
+    custom_scorer_backend = MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND.get()
+    if (
+        custom_scorer_backend
+        and custom_scorer_backend != DEFAULT_EXECUTOR_BACKEND
+        and get_job_execution_engine() != "executor"
+    ):
+        # Only the executor engine runs jobs on a backend. Without it, custom scorers would
+        # silently run in the server's local job runner instead of the configured backend (for
+        # example outside the docker sandbox), even when the default backend names the same one,
+        # so refuse to start.
+        raise MlflowException.invalid_parameter_value(
+            f"MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND={custom_scorer_backend!r} requires "
+            f"{MLFLOW_SERVER_JOB_EXECUTION_ENGINE.name}=executor."
+        )
     _build_validated_registry()
 
 
