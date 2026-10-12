@@ -541,12 +541,6 @@ jobs:
             run: |
               .claude/scripts/install-agent-browser.sh
               agent-browser --version
-      - id: build-cache-key
-        uses: ./.github/actions/js-build-cache-key
-      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: mlflow/server/js/build
-          key: ${{ steps.build-cache-key.outputs.key }}
       # Needs setup-node.
       - name: Install sandbox runtime
         run: |

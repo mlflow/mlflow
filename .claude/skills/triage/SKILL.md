@@ -69,34 +69,41 @@ on (the current working directory).
 
 ### Running the UI
 
-Only start the UI when the issue involves it.
+Only start the UI when the issue involves it. Then start both servers first, right after reading
+the issue and before investigating anything else: installing the frontend dependencies and the
+first compile take a few minutes, and they can run while you read code.
 
-1. Start a server in the background from your Bash tool:
+Run each command below in the background, from the repository root. The servers keep running
+until you stop them, and their logs go to `$out_dir/work`.
 
-   - If `mlflow/server/js/build/index.html` exists, run the following, which keeps the server's
-     data out of the checkout:
+1. Backend: the tracking server on port 5000, with its data kept out of the checkout. `--dev`
+   reloads it when Python files change.
 
-     ```bash
-     uv run mlflow server --host 127.0.0.1 --port 5000 \
-       --backend-store-uri sqlite:///$out_dir/work/mlflow.db \
-       --artifacts-destination $out_dir/work/artifacts
-     ```
+   ```bash
+   mkdir -p $out_dir/work && uv run mlflow server --dev --host 127.0.0.1 --port 5000 \
+     --backend-store-uri sqlite:///$out_dir/work/mlflow.db \
+     --artifacts-destination $out_dir/work/artifacts \
+     > $out_dir/work/backend.log 2>&1
+   ```
 
-   - Otherwise run the following from the repository root (it installs the frontend
-     dependencies and uses a temporary store), and use the frontend URL it prints:
+2. Frontend: the React dev server on port 3000, which proxies API requests to the backend on
+   port 5000 and hot-reloads code changes.
 
-     ```bash
-     YARN_HTTP_PROXY="$HTTP_PROXY" \
-     YARN_HTTPS_PROXY="$HTTPS_PROXY" \
-     NO_PROXY=localhost,127.0.0.1 \
-     no_proxy=localhost,127.0.0.1 \
-     HOST=localhost CI=false \
-     uv run dev/run_dev_server.py
-     ```
+   ```bash
+   cd mlflow/server/js && \
+     YARN_HTTP_PROXY="$HTTP_PROXY" YARN_HTTPS_PROXY="$HTTPS_PROXY" yarn install --immutable && \
+     NO_PROXY=localhost,127.0.0.1 no_proxy=localhost,127.0.0.1 PORT=3000 BROWSER=none CI=false \
+     yarn start > $out_dir/work/frontend.log 2>&1
+   ```
 
-2. Wait until the UI responds to `curl --noproxy '*'`.
-3. Drive it with `agent-browser`: `open <url>` and `snapshot -i` to inspect the page, then
+3. Before using the UI, wait until `curl --noproxy '*' http://localhost:5000/health` and
+   `curl --noproxy '*' http://localhost:3000/` both succeed. Seed data through the backend
+   (`MLFLOW_TRACKING_URI=http://localhost:5000`), and open the UI at `http://localhost:3000`.
+4. Drive it with `agent-browser`: `open <url>` and `snapshot -i` to inspect the page, then
    interact with it to reproduce the reported behavior. Only navigate to local MLflow URLs.
+
+Keep both servers running until you finish: code changes reload in place, so the same servers
+serve the reproduction before and after a fix. Do not run `yarn build`.
 
 If the server or browser fails to start, report the specific error instead of retrying
 indefinitely.
