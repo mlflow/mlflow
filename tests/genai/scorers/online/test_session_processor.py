@@ -798,8 +798,11 @@ def test_custom_session_scorers_run_in_containers_and_the_host_logs_their_result
         assert log_session.call_args.args == (traces[0], "s1", [feedback])
         assert log_session.call_args.kwargs == {"only_replace_code_assessments": True}
 
-        # A failed session gets an error assessment on its first trace, as on the host.
-        on_failure(custom, traces, "scorer crashed")
+        # A failed session gets an error assessment on its first trace, as on the host, with the
+        # scorer's provenance.
+        with patch("mlflow.genai.evaluation.utils.add_scorer_metadata") as add_metadata:
+            on_failure(custom, traces, "scorer crashed")
+        assert add_metadata.call_args.args[0] is sampler.scorer("turns")
         trace, session_id, (error_feedback,) = log_session.call_args.args
         assert (trace, session_id) == (traces[0], "s1")
         assert error_feedback.name == "turns"

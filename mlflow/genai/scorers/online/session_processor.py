@@ -324,6 +324,9 @@ class OnlineSessionScoringProcessor:
             )
 
         def on_failure(online_scorer: OnlineScorer, traces: list[Trace], error: str):
+            # Imported lazily to avoid pulling in pandas at module load time (skinny client).
+            from mlflow.genai.evaluation.utils import add_scorer_metadata
+
             # Logged like an error from a scorer that runs on the host, on the first trace.
             session_id = session_ids[traces[0].info.trace_id]
             feedback = Feedback(
@@ -335,6 +338,7 @@ class OnlineSessionScoringProcessor:
                 trace_id=traces[0].info.trace_id,
                 metadata={TraceMetadataKey.TRACE_SESSION: session_id},
             )
+            add_scorer_metadata(self._sampler.scorer(online_scorer.name), [feedback])
             self._log_session_assessments(
                 traces[0], session_id, [feedback], only_replace_code_assessments=True
             )
