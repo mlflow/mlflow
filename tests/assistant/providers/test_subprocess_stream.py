@@ -1,12 +1,19 @@
+import ast
 import asyncio
 import errno
+import os
 import sys
 import threading
+from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
 
-from mlflow.assistant.providers._subprocess_stream import SubprocessLineStream
+import mlflow
+from mlflow.assistant.providers._subprocess_stream import (
+    SubprocessLineStream,
+    assistant_subprocess_env,
+)
 
 
 async def _collect(stream: SubprocessLineStream) -> list[bytes]:
@@ -215,3 +222,67 @@ def test_streams_stdout_on_windows_selector_event_loop():
         loop.run_until_complete(run())
     finally:
         loop.close()
+
+
+_SECRET_NAMES = ("_MLFLOW_ASSISTANT_DELEGATION_SIGNING_KEY", "_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN")
+
+
+def test_assistant_subprocess_env_leaves_out_the_server_internal_secrets(monkeypatch):
+    for name in _SECRET_NAMES:
+        monkeypatch.setenv(name, "secret")
+    monkeypatch.setenv("SOME_SETTING", "kept")
+
+    env = assistant_subprocess_env(MLFLOW_TRACKING_URI="http://localhost:5000")
+
+    assert not set(_SECRET_NAMES) & set(env)
+    assert env["SOME_SETTING"] == "kept"
+    assert env["MLFLOW_TRACKING_URI"] == "http://localhost:5000"
+    # Also for a given environment, and when a secret comes in as an override.
+    given = dict.fromkeys(_SECRET_NAMES, "secret")
+    assert assistant_subprocess_env(given, **{_SECRET_NAMES[1]: "secret"}) == {}
+
+
+@pytest.mark.asyncio
+async def test_stream_subprocess_never_gets_the_server_internal_secrets(monkeypatch):
+    for name in _SECRET_NAMES:
+        monkeypatch.setenv(name, "secret")
+    code = f"import os; print(sorted(n for n in {list(_SECRET_NAMES)!r} if n in os.environ))"
+
+    for env in (None, {**os.environ}):
+        stream = SubprocessLineStream([sys.executable, "-c", code], env=env)
+        assert [line.strip() for line in await _collect(stream)] == [b"[]"]
+        assert await stream.wait() == 0
+
+
+def _spawn_calls_without_env(path: Path) -> list[int]:
+    spawn_functions = {"run", "Popen", "call", "check_call", "check_output"}
+
+    def is_spawn_function(node: ast.AST) -> bool:
+        return (
+            isinstance(node, ast.Attribute)
+            and node.attr in spawn_functions
+            and isinstance(node.value, ast.Name)
+            and node.value.id == "subprocess"
+        )
+
+    missing = []
+    for node in ast.walk(ast.parse(path.read_text())):
+        # A spawn, either called directly or passed to a helper such as asyncio.to_thread.
+        if isinstance(node, ast.Call) and (
+            is_spawn_function(node.func) or any(is_spawn_function(arg) for arg in node.args)
+        ):
+            if not any(keyword.arg == "env" for keyword in node.keywords):
+                missing.append(node.lineno)
+    return missing
+
+
+def test_every_assistant_subprocess_is_started_with_an_explicit_environment():
+    # A spawn without an explicit env inherits this process's environment, server secrets included.
+    root = Path(mlflow.__file__).parent
+    missing = {
+        str(path.relative_to(root)): lines
+        for directory in ("assistant", "server/assistant")
+        for path in sorted((root / directory).rglob("*.py"))
+        if (lines := _spawn_calls_without_env(path))
+    }
+    assert missing == {}

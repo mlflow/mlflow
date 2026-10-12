@@ -11,6 +11,7 @@ from urllib.parse import urlsplit
 
 from mlflow.assistant.config import PermissionsConfig
 from mlflow.assistant.custom_view import RENDER_CUSTOM_VIEW_TOOL_NAME
+from mlflow.assistant.providers._subprocess_stream import assistant_subprocess_env
 from mlflow.assistant.providers.base import assistant_sandbox_enabled
 
 _logger = logging.getLogger(__name__)
@@ -354,13 +355,9 @@ async def _execute_bash_on_host(
     tracking_uri: str | None,
     full_access: bool,
 ) -> tuple[str, bool]:
-    from mlflow.environment_variables import _MLFLOW_ASSISTANT_DELEGATION_SIGNING_KEY
-
-    env = os.environ.copy()
-    # The delegation signing key must never reach a tool subprocess: a command that could read it
-    # would be able to mint a credential for any user. The subprocess is handed only a pre-minted,
-    # user-scoped credential below.
-    env.pop(_MLFLOW_ASSISTANT_DELEGATION_SIGNING_KEY.name, None)
+    # The server's internal secrets never reach a tool subprocess: the subprocess is handed only a
+    # pre-minted, user-scoped credential below.
+    env = assistant_subprocess_env()
     if tracking_uri:
         env["MLFLOW_TRACKING_URI"] = tracking_uri
     # Attribute the tool's MLflow API calls to the session owner (no-op on a no-auth server).

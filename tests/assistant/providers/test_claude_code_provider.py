@@ -60,7 +60,8 @@ def test_uses_structured_client_tool_delivery():
     assert provider.client_tool_delivery == "structured"
 
 
-def test_check_connection_runs_auth_verification_prompt():
+def test_check_connection_runs_auth_verification_prompt(monkeypatch):
+    monkeypatch.setenv("_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN", "secret")
     completed = subprocess.CompletedProcess(
         args=["claude", "-p", "hi", "--max-turns", "1", "--output-format", "json"],
         returncode=0,
@@ -86,7 +87,9 @@ def test_check_connection_runs_auth_verification_prompt():
         capture_output=True,
         text=True,
         timeout=30,
+        env=mock_run.call_args.kwargs["env"],
     )
+    assert "_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN" not in mock_run.call_args.kwargs["env"]
 
 
 def test_check_connection_skips_host_probe_in_sandbox_mode(monkeypatch):

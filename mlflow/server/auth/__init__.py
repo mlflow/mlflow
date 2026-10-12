@@ -7815,6 +7815,39 @@ _ROUTES_NEEDING_BODY = frozenset((
 ))
 
 
+def _request_path_without_static_prefix(request: StarletteRequest) -> str:
+    request_path = get_routed_asgi_path(request)
+    static_prefix = os.environ.get(STATIC_PREFIX_ENV_VAR, "").rstrip("/")
+    if static_prefix and request_path.startswith(static_prefix):
+        request_path = request_path[len(static_prefix) :]
+    return request_path
+
+
+def _basic_auth_credentials(request: StarletteRequest, request_path: str) -> tuple[str, str] | None:
+    """The username and password of the request's Basic auth, or None.
+
+    On ``/gateway/`` routes, a coding agent's own provider key occupies the standard Authorization
+    header (forwarded upstream), so MLflow credentials ride in a dedicated header. It is preferred
+    there, with a fallback to Authorization for backward compatibility. A missing or empty header
+    counts as absent, so an empty dedicated header does not shadow a valid Authorization header.
+    """
+    auth = None
+    if request_path.startswith("/gateway/"):
+        auth = request.headers.get(MLFLOW_GATEWAY_AUTH_HEADER)
+    if not auth:
+        auth = request.headers.get("Authorization")
+    if not auth:
+        return None
+    try:
+        scheme, encoded = auth.split()
+        if scheme.lower() != "basic":
+            return None
+        username, _, password = base64.b64decode(encoded).decode("ascii").partition(":")
+    except Exception:
+        return None
+    return username, password
+
+
 def _authenticate_internal_gateway_token(request: StarletteRequest) -> User | None:
     """Trust a server-internal caller on a ``/gateway/`` route by the internal gateway token.
 
@@ -7830,20 +7863,13 @@ def _authenticate_internal_gateway_token(request: StarletteRequest) -> User | No
     internal_token = _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.get()
     if not internal_token:
         return None
-    request_path = get_routed_asgi_path(request)
-    static_prefix = os.environ.get(STATIC_PREFIX_ENV_VAR, "").rstrip("/")
-    if static_prefix and request_path.startswith(static_prefix):
-        request_path = request_path[len(static_prefix) :]
+    request_path = _request_path_without_static_prefix(request)
     if not request_path.startswith("/gateway/"):
         return None
-    auth = request.headers.get(MLFLOW_GATEWAY_AUTH_HEADER) or request.headers.get("Authorization")
-    if not auth:
+    if not (credentials := _basic_auth_credentials(request, request_path)):
         return None
+    username, password = credentials
     try:
-        scheme, credentials = auth.split()
-        if scheme.lower() != "basic":
-            return None
-        username, _, password = base64.b64decode(credentials).decode("ascii").partition(":")
         if secrets.compare_digest(password, internal_token):
             return store.get_user(username)
     except Exception:
@@ -7897,31 +7923,11 @@ def _authenticate_fastapi_request(request: StarletteRequest) -> User | None:
     if user := _authenticate_internal_delegation_token(request):
         return user
 
-    request_path = get_routed_asgi_path(request)
-    static_prefix = os.environ.get(STATIC_PREFIX_ENV_VAR, "").rstrip("/")
-    if static_prefix and request_path.startswith(static_prefix):
-        request_path = request_path[len(static_prefix) :]
-
-    # On /gateway/ routes, a coding agent's own provider key occupies the standard
-    # Authorization header (forwarded upstream), so MLflow credentials ride in a dedicated
-    # header. Prefer it there; fall back to Authorization for backward compat.
-    auth = None
-    if request_path.startswith("/gateway/"):
-        auth = request.headers.get(MLFLOW_GATEWAY_AUTH_HEADER)
-    # Treat a missing OR empty header as absent so an empty X-MLflow-Authorization
-    # does not shadow a valid Authorization header.
-    if not auth:
-        auth = request.headers.get("Authorization")
-
-    # Neither header present — unauthenticated.
-    if not auth:
+    request_path = _request_path_without_static_prefix(request)
+    if not (credentials := _basic_auth_credentials(request, request_path)):
         return None
+    username, password = credentials
     try:
-        scheme, credentials = auth.split()
-        if scheme.lower() != "basic":
-            return None
-        decoded = base64.b64decode(credentials).decode("ascii")
-        username, _, password = decoded.partition(":")
         return _authenticate_cached(username, password)
     except Exception:
         return None
