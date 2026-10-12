@@ -36,6 +36,20 @@ describe('Skill Registry API', () => {
 
     const routeFamilies = [
       {
+        name: 'JSON registration',
+        defaultPath: 'ajax-api/3.0/mlflow/skills/my%2Fskill/versions',
+        organizationPath: 'ajax-api/3.0/mlflow/skills/@my%2Forg/my%2Fskill/versions',
+        invoke: (organization?: string) =>
+          SkillRegistryApi.registerSkill({ name: 'my/skill', organization, source: 'git://example/repo' }),
+      },
+      {
+        name: 'multipart registration',
+        defaultPath: 'ajax-api/3.0/mlflow/skills/my%2Fskill/versions',
+        organizationPath: 'ajax-api/3.0/mlflow/skills/@my%2Forg/my%2Fskill/versions',
+        invoke: (organization?: string) =>
+          SkillRegistryApi.registerSkill({ name: 'my/skill', organization }, new Blob(['archive'])),
+      },
+      {
         name: 'parent',
         defaultPath: 'ajax-api/3.0/mlflow/skills/my%2Fskill',
         organizationPath: 'ajax-api/3.0/mlflow/skills/@my%2Forg/my%2Fskill',
@@ -216,7 +230,7 @@ describe('Skill Registry API', () => {
       await SkillRegistryApi.registerSkill(request);
 
       expect(fetchMock).toHaveBeenLastCalledWith(
-        'ajax-api/3.0/mlflow/skills/register',
+        'ajax-api/3.0/mlflow/skills/code-review/versions',
         expect.objectContaining({
           method: 'POST',
           headers: expect.objectContaining({ 'Content-Type': 'application/json' }),
@@ -263,7 +277,7 @@ describe('Skill Registry API', () => {
 
       expect(fetchMock).toHaveBeenCalledTimes(1);
       const [url, options] = fetchMock.mock.calls[0];
-      expect(url).toBe('ajax-api/3.0/mlflow/skills/register');
+      expect(url).toBe('ajax-api/3.0/mlflow/skills/code-review/versions');
       expect(options?.body).toBeInstanceOf(FormData);
       expect(new Headers(options?.headers).has('Content-Type')).toBe(false);
     });

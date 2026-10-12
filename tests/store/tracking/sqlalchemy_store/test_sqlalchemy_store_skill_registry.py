@@ -21,6 +21,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,
     RESOURCE_ALREADY_EXISTS,
+    RESOURCE_CONFLICT,
     TEMPORARILY_UNAVAILABLE,
     ErrorCode,
 )
@@ -33,7 +34,10 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlSkillVersion,
     SqlSkillVersionTag,
 )
-from mlflow.store.tracking.skill_registry.sqlalchemy_mixin import SqlAlchemySkillRegistryMixin
+from mlflow.store.tracking.skill_registry.sqlalchemy_mixin import (
+    SqlAlchemySkillRegistryMixin,
+    _skill_identity_predicate,
+)
 from mlflow.store.tracking.skill_registry_pagination import SkillRegistryPaginationToken
 from mlflow.store.tracking.sqlalchemy_store import _DB_WRITE_MAX_DEADLOCK_RETRIES
 from mlflow.utils.validation import (
@@ -89,6 +93,74 @@ def test_same_skill_name_is_allowed_in_different_organizations(store):
 
     assert acme.organization == "acme"
     assert example.organization == "example"
+
+
+def test_search_skills_filters_qualified_identities_before_pagination(store):
+    store.create_skill("reviewer")
+    store.create_skill("reviewer", organization="acme")
+    store.create_skill("reviewer", organization="example")
+    store.create_skill("writer")
+
+    allowed = [("acme", "reviewer"), ("", "writer")]
+    first = store.search_skills(max_results=1, include_skill_identities=allowed)
+    second = store.search_skills(
+        max_results=1, page_token=first.token, include_skill_identities=allowed
+    )
+
+    assert [(skill.organization, skill.name) for skill in first] == [("", "writer")]
+    assert [(skill.organization, skill.name) for skill in second] == [("acme", "reviewer")]
+    assert second.token is None
+    assert list(store.search_skills(include_skill_identities=[])) == []
+    assert [
+        (skill.organization, skill.name)
+        for skill in store.search_skills(exclude_skill_identities=[("acme", "reviewer")])
+    ] == [("", "reviewer"), ("", "writer"), ("example", "reviewer")]
+
+    changed = store.search_skills(
+        max_results=1,
+        page_token=first.token,
+        include_skill_identities=[("example", "reviewer")],
+    )
+    assert list(changed) == []
+    assert changed.token is None
+
+    many_allowed = [("acme", f"missing-{index}") for index in range(500)] + allowed
+    assert [
+        (skill.organization, skill.name)
+        for skill in store.search_skills(include_skill_identities=many_allowed)
+    ] == [("", "writer"), ("acme", "reviewer")]
+
+    # Exercise all predicates in the database, including SQL Server's NOT EXISTS
+    # OPENJSON branch, with same-name Skills spanning several organizations.
+    many_selected = many_allowed + [("", "reviewer"), ("example", "reviewer")]
+    many_excluded = [("acme", f"excluded-{index}") for index in range(500)] + [
+        ("", "reviewer"),
+        ("", "writer"),
+    ]
+    query = {
+        "include_skill_identities": many_selected,
+        "exclude_skill_identities": many_excluded,
+        "max_results": 1,
+    }
+    first = store.search_skills(**query)
+    assert [(skill.organization, skill.name) for skill in first] == [("acme", "reviewer")]
+    assert first.token is not None
+    second = store.search_skills(**query, page_token=first.token)
+    assert [(skill.organization, skill.name) for skill in second] == [("example", "reviewer")]
+    assert second.token is None
+
+
+@pytest.mark.parametrize("size", [300, 301, 2500])
+def test_large_skill_identity_scope_uses_bounded_sql_server_parameters(size):
+    identities = [(f"org-{index}", "reviewer") for index in range(size)]
+    query = sqlalchemy.select(SqlSkill.name).where(
+        _skill_identity_predicate(identities, "mssql"),
+        ~_skill_identity_predicate(identities, "mssql"),
+    )
+    compiled = query.compile(dialect=mssql.dialect(), compile_kwargs={"render_postcompile": True})
+
+    assert ("OPENJSON" in str(compiled)) is (size > 300)
+    assert len(compiled.params) < 2100
 
 
 def test_get_skill_not_found_raises(store):
@@ -1058,6 +1130,43 @@ def test_bulk_register_skills_later_failure_rolls_back_every_new_parent_and_vers
     assert mock_persist.call_count == 2
     with store.ManagedSessionMaker() as session:
         assert store._get_query(session, SqlSkill).count() == 0
+        assert store._get_query(session, SqlSkillVersion).count() == 0
+
+
+def test_bulk_register_skills_rejects_changed_parent_state_before_writing(store):
+    store.create_skill("writer", created_by="owner")
+
+    with pytest.raises(
+        MlflowException, match="already exists; this registration expected to create it"
+    ) as exc:
+        store.bulk_register_skills(
+            [_bulk_definition(), _bulk_definition("writer")],
+            expected_parent_exists={"reviewer": False, "writer": False},
+        )
+
+    assert exc.value.error_code == ErrorCode.Name(RESOURCE_CONFLICT)
+    with store.ManagedSessionMaker() as session:
+        assert store._get_query(session, SqlSkill).count() == 1
+        assert store._get_query(session, SqlSkillVersion).count() == 0
+
+
+@pytest.mark.parametrize("bulk", [False, True])
+@pytest.mark.parametrize("expected_parent_exists", [False, True])
+def test_registration_conflict_describes_parent_state(store, bulk, expected_parent_exists):
+    if not expected_parent_exists:
+        store.create_skill("reviewer")
+    message = (
+        "no longer exists; this registration expected to update it"
+        if expected_parent_exists
+        else "already exists; this registration expected to create it"
+    )
+    register = store.bulk_register_skills if bulk else store.create_skill_version
+    args = [_bulk_definition()] if bulk else "reviewer"
+    expectation = {"reviewer": expected_parent_exists} if bulk else expected_parent_exists
+    with pytest.raises(MlflowException, match=message) as exc:
+        register(args, expected_parent_exists=expectation)
+    assert exc.value.error_code == ErrorCode.Name(RESOURCE_CONFLICT)
+    with store.ManagedSessionMaker() as session:
         assert store._get_query(session, SqlSkillVersion).count() == 0
 
 
