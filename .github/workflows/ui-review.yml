@@ -154,8 +154,6 @@ jobs:
 
       - uses: ./.github/actions/free-disk-space
       - uses: ./.github/actions/setup-python
-        with:
-          pin-micro-version: false
       - uses: ./.github/actions/setup-node
 
       - name: Parse review arguments

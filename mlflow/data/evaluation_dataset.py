@@ -140,7 +140,7 @@ def _hash_array_like_obj_as_bytes(data):
     elif isinstance(data, np.ndarray) and len(data) > 0 and isinstance(data[0], list):
         # convert numpy array of lists into numpy array of the string representation of the lists
         # because lists are not hashable
-        hashable = np.array(str(val) for val in data)
+        hashable = np.array([str(val) for val in data])
         return _hash_ndarray_as_bytes(hashable)
     elif isinstance(data, np.ndarray) and any(isinstance(row, np.ndarray) for row in data):
         # convert numpy array of numpy arrays into 2d numpy arrays

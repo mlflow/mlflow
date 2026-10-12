@@ -2,6 +2,7 @@
   "network": {
     "allowedDomains": [
       "localhost:8080",
+      "localhost:8081",
       "pypi.org",
       "files.pythonhosted.org",
       "releases.astral.sh",
@@ -16,7 +17,6 @@
       "~/.ssh",
       "~/.docker",
       "~/.config/gh",
-      "/etc/gw-proxy",
       "/var/run/docker.sock",
       "/run/docker.sock",
       "/run/containerd",

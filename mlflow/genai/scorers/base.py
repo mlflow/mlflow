@@ -53,6 +53,8 @@ _logger = logging.getLogger(__name__)
 # Backend identifiers for registered scorers
 SCORER_BACKEND_TRACKING = "tracking"
 SCORER_BACKEND_DATABRICKS = "databricks"
+SCORER_CANONICAL_RESOURCE_TYPE_DATABRICKS = "databricks_scorer_version"
+ScorerCanonicalResourceType: TypeAlias = Literal["databricks_scorer_version"]
 
 # Context variable to track if we're in a scorer call (prevents nested telemetry)
 _in_scorer_call: ContextVar[bool] = ContextVar("mlflow_scorer_call_context", default=False)
@@ -393,6 +395,8 @@ class Scorer(BaseModel):
     _registered_backend: str | None = PrivateAttr(default=None)
     _experiment_id: str | None = PrivateAttr(default=None)
     _scorer_version: int | None = PrivateAttr(default=None)
+    _canonical_resource_name: str | None = PrivateAttr(default=None)
+    _canonical_resource_name_type: ScorerCanonicalResourceType | None = PrivateAttr(default=None)
     # Predicate deciding whether this scorer's value counts as passing in an
     # assertion (``EvaluationResult.passed``). In-process only: it is a local
     # testing concern and is intentionally not serialized. ``None`` falls back to
@@ -451,6 +455,16 @@ class Scorer(BaseModel):
         return self._scorer_version
 
     @property
+    def canonical_resource_name(self) -> str | None:
+        """Get the canonical backend resource name for this scorer version, if available."""
+        return self._canonical_resource_name
+
+    @property
+    def canonical_resource_name_type(self) -> ScorerCanonicalResourceType | None:
+        """Get the backend-specific canonical resource name type, if available."""
+        return self._canonical_resource_name_type
+
+    @property
     def status(self) -> ScorerStatus:
         """Get the status of this scorer, using only the local state."""
 
@@ -466,11 +480,15 @@ class Scorer(BaseModel):
         experiment_id: str | None,
         sampling_config: ScorerSamplingConfig | None,
         scorer_version: int | None = None,
+        canonical_resource_name: str | None = None,
+        canonical_resource_name_type: ScorerCanonicalResourceType | None = None,
     ) -> "Scorer":
         self._registered_backend = backend
         self._experiment_id = experiment_id
         self._sampling_config = sampling_config
         self._scorer_version = scorer_version
+        self._canonical_resource_name = canonical_resource_name
+        self._canonical_resource_name_type = canonical_resource_name_type
         return self
 
     def __repr__(self) -> str:

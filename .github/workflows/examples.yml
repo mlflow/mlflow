@@ -92,6 +92,8 @@ jobs:
           echo "examples_changed=$EXAMPLES_CHANGED" >> $GITHUB_OUTPUT
 
       - uses: ./.github/actions/setup-python
+        with:
+          pin-micro-version: true
       - uses: ./.github/actions/setup-pyenv
 
       - name: Install dependencies

@@ -97,6 +97,29 @@ Usage metadata may also include the standard MLflow judge token metadata keys wh
 
 See TypeSafe's documentation for more about [state](https://docs.typesafe.ai/concepts/state), [question primitives](https://docs.typesafe.ai/primitives), [confidence](https://docs.typesafe.ai/confidence), and [available models](https://docs.typesafe.ai/models).
 
+## Custom System One endpoints
+
+Direct `typesafe:/` judges send requests to `https://api.typesafe.ai/v1/systemone` by default. Set `base_url` to route requests through a System One-compatible proxy or custom host. The URL must include the API version, such as `/v1`, and exclude `/systemone`; MLflow appends `/systemone` when it sends the request.
+
+MLflow uses `TYPESAFE_API_KEY` for Bearer authentication by default. When `base_url` points to a custom host, MLflow sends that credential to the custom host unless you provide a different `Authorization` header in `extra_headers`. Only use a host that you trust.
+
+```python
+import os
+
+from mlflow.genai.judges import make_judge
+
+custom_judge = make_judge(
+    name="answer_helpfulness",
+    instructions="Answer yes or no: Does {{ outputs }} answer {{ inputs }}?",
+    model="typesafe:/my-system-one-model",
+    feedback_value_type=bool,
+    base_url="https://system-one.example.com/v1",
+    extra_headers={"Authorization": f"Bearer {os.environ['SYSTEM_ONE_API_KEY']}"},
+)
+```
+
+For a `gateway:/` judge, configure the upstream API base and credentials on the AI Gateway connection instead. Judge-level `base_url` and `extra_headers` do not override a Gateway endpoint's saved connection.
+
 ## Limitations
 
 TypeSafe judge models in MLflow currently have these limits:
@@ -107,7 +130,8 @@ TypeSafe judge models in MLflow currently have these limits:
 - TypeSafe Score questions and fractional score outputs are not exposed through `make_judge()`. This integration currently focuses on binary and categorical decisions, which are generally easier to interpret and act on in evaluation workflows. If Score support would be useful for your evaluation, [open a feature request](https://github.com/mlflow/mlflow/issues/new/choose).
 - Trace-based judging with `{{ trace }}` is not supported. Use structured `{{ inputs }}`, `{{ outputs }}`, `{{ expectations }}`, or `{{ conversation }}` state instead.
 - Referenced state values must be JSON-serializable and cannot contain NaN or infinity.
-- `inference_params`, `base_url`, and `extra_headers` are not supported for TypeSafe judge models.
+- `inference_params` is not supported for TypeSafe judge models.
+- `base_url` and `extra_headers` apply only to direct `typesafe:/` judges. Configure the API base and credentials on the AI Gateway connection for `gateway:/` judges.
 - A System One Gateway endpoint cannot mix System One models with chat-provider primary or fallback models.
 - TypeSafe judge responses do not include generated text rationales.
 - Each MLflow judge sends one TypeSafe question. Multi-question batching through a single `make_judge()` judge is not supported.

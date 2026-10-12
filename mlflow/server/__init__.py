@@ -554,7 +554,7 @@ def _run_server(
         from mlflow.environment_variables import MLFLOW_GATEWAY_URI, MLFLOW_TRACKING_URI
         from mlflow.server.jobs.utils import _launch_job_execution_runner
 
-        server_uri = f"http://{host}:{port}"
+        server_uri = f"http://{host}:{port}{static_prefix or ''}"
         job_env = {
             **env_map,
             # Periodic services initialize the primary store once from the supported public
