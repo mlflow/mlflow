@@ -74,8 +74,9 @@ browser. The first start installs the frontend dependencies and compiles, which 
 minutes.
 
 Run each command below from the repository root as a background task: on your Bash tool, set
-`run_in_background: true` and `timeout: 7200000`. A background task is stopped when it reaches
-its timeout, and the default of 10 minutes is shorter than a triage. Logs go to `$out_dir/work`.
+`run_in_background: true` and `timeout: 1800000` (30 minutes, the time limit for a triage run).
+A background task is stopped when it reaches its timeout, and the default of 10 minutes is too
+short. Logs go to `$out_dir/work`.
 
 1. Backend: the tracking server on port 5000, with its data kept out of the checkout. `--dev`
    reloads it when Python files change.
