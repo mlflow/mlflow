@@ -55,7 +55,8 @@ If the batch times out, retry once in a fresh session, then fall back to screens
 contact sheet to confirm the video shows the bug before citing it.
 When you propose a fix for a visible UI bug, record the same steps again after applying it,
 against the same servers from "Running the UI" in `SKILL.md`, and cite both videos in the
-`pull_request` body as a before/after comparison.
+`pull_request` body as a before/after comparison. Write the after video's captions for what it
+shows; they don't have to match the before video's.
 
 Run it against the current checkout, which is what a fix would land on. Only if it does not
 reproduce there, run it against the reported version (when it is on PyPI) to tell "already
