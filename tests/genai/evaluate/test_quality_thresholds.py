@@ -42,22 +42,16 @@ def test_build_tag_serializes_rules_in_ui_criteria_shape():
     assert payload == {
         "schemaVersion": 1,
         "revision": payload["revision"],
-        "aggregation": "ALL",
-        "missingMetricBehavior": "INCOMPLETE",
         "rules": [
             {
                 "metricKey": "correctness/mean",
                 "comparator": "GTE",
                 "threshold": 0.9,
-                "scorerName": "correctness",
-                "scorerAggregation": "mean",
             },
             {
                 "metricKey": "latency/p90",
                 "comparator": "LTE",
                 "threshold": 2.0,
-                "scorerName": "latency",
-                "scorerAggregation": "p90",
             },
         ],
     }
@@ -118,7 +112,7 @@ def test_build_tag_skips_scorers_without_kind():
     assert _build_tag([LegacyMetric()]) is None
     payload = _build_tag([LegacyMetric(), _make_scorer("a", 0.5)])
     [rule] = json.loads(payload)["rules"]
-    assert rule["scorerName"] == "a"
+    assert rule["metricKey"] == "a/mean"
 
 
 def test_build_tag_rejects_oversized_payload():

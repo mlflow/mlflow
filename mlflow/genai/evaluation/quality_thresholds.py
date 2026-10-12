@@ -59,8 +59,6 @@ def build_quality_threshold_rules(scorers: list[Scorer]) -> list[dict[str, Any]]
             "metricKey": f"{scorer.name}/{threshold.aggregation}",
             "comparator": _COMPARATORS[bound],
             "threshold": getattr(threshold, bound),
-            "scorerName": scorer.name,
-            "scorerAggregation": threshold.aggregation,
         })
     return rules
 
@@ -79,8 +77,6 @@ def build_quality_thresholds_tag(rules: list[dict[str, Any]]) -> str | None:
         {
             "schemaVersion": _SCHEMA_VERSION,
             "revision": str(uuid.uuid4()),
-            "aggregation": "ALL",
-            "missingMetricBehavior": "INCOMPLETE",
             "rules": rules,
         },
         separators=(",", ":"),
@@ -98,15 +94,18 @@ def warn_on_unmeasured_quality_thresholds(
     rules: list[dict[str, Any]], aggregated_metrics: dict[str, float]
 ) -> None:
     """
-    Warn for each threshold whose metric the run did not produce.
+    Warn for each threshold whose metric this evaluation did not produce.
 
-    The UI shows such a run as incomplete rather than passing. This happens when a scorer
-    returns non-numeric values or emits Feedback under a different name than its own.
+    This happens when a scorer returns non-numeric values, emits Feedback under a different
+    name than its own, or fails on every row.
     """
     for rule in rules:
-        if rule["metricKey"] not in aggregated_metrics:
+        metric_key = rule["metricKey"]
+        if metric_key not in aggregated_metrics:
+            scorer_name = metric_key.rsplit("/", 1)[0]
             _logger.warning(
-                f"The quality threshold on scorer '{rule['scorerName']}' can't be checked: the "
-                f"run has no '{rule['metricKey']}' metric. The scorer must return booleans, "
-                "numbers, or yes/no values under its own name."
+                f"The quality threshold on scorer '{scorer_name}' can't be checked: this "
+                f"evaluation produced no '{metric_key}' metric. The scorer must return booleans, "
+                "numbers, or yes/no values under its own name. If the run already has this "
+                "metric from an earlier evaluation, the threshold is compared against that value."
             )

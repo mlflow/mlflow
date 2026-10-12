@@ -444,7 +444,13 @@ def _run_harness(data, scorers, predict_fn, model_id) -> tuple["EvaluationResult
         # predate a tag written by an earlier `evaluate` on the same run.
         client = MlflowClient()
         if quality_thresholds is not None:
-            client.set_tag(run_id, MLFLOW_GENAI_EVALUATE_QUALITY_THRESHOLDS, quality_thresholds)
+            # Synchronous, so the stale-tag check of a later `evaluate` on this run sees it.
+            client.set_tag(
+                run_id,
+                MLFLOW_GENAI_EVALUATE_QUALITY_THRESHOLDS,
+                quality_thresholds,
+                synchronous=True,
+            )
         elif MLFLOW_GENAI_EVALUATE_QUALITY_THRESHOLDS in client.get_run(run_id).data.tags:
             # This call sets no thresholds, so a tag from an earlier `evaluate` on this run
             # would judge the new metrics against a stale bar.

@@ -458,7 +458,7 @@ def test_evaluate_warns_when_quality_threshold_metric_is_missing():
         )
 
     mock_warning.assert_called_once()
-    assert "the run has no 'label/mean' metric" in mock_warning.call_args[0][0]
+    assert "this evaluation produced no 'label/mean' metric" in mock_warning.call_args[0][0]
 
 
 def test_evaluate_clears_quality_thresholds_tag_on_reused_run(server_config):
