@@ -193,6 +193,24 @@ def test_default_api_uses_provider_route(model, expected):
     assert judge.model_api is ModelAPI.DEFAULT
     assert judge._resolved_model_api is expected
     assert "model_api" not in judge.model_dump()["instructions_judge_pydantic_data"]
+    restored = Scorer.model_validate(judge.model_dump())
+    assert restored.model_api is ModelAPI.DEFAULT
+    assert restored._resolved_model_api is expected
+
+
+def test_typesafe_default_preserves_rationale_flag_compatibility():
+    judge = make_judge(
+        name="quality",
+        instructions="Judge {{ outputs }}.",
+        model="typesafe:/jev-latest",
+        feedback_value_type=bool,
+        generate_rationale_first=True,
+    )
+    assert judge.model_api is ModelAPI.DEFAULT
+    assert judge._generate_rationale_first is True
+    restored = Scorer.model_validate(judge.model_dump())
+    assert restored.model_api is ModelAPI.DEFAULT
+    assert restored._generate_rationale_first is True
 
 
 @pytest.mark.parametrize(

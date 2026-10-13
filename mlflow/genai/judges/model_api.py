@@ -10,6 +10,7 @@ class ModelAPI(StrEnum):
     DEFAULT = "default"
     CHAT_COMPLETIONS = "chat_completions"
     DECISIONS = "decisions"
+    # TODO: Add RESPONSES when make_judge supports the OpenAI Responses API.
 
 
 _SUPPORTED_APIS = {
@@ -28,8 +29,7 @@ def _parse_model_api(model_api: ModelAPI | str | None) -> ModelAPI:
         ) from None
 
 
-def _resolve_model_api(model_uri: str, model_api: ModelAPI | str | None) -> ModelAPI:
-    selected = _parse_model_api(model_api)
+def _resolve_model_api(model_uri: str, selected: ModelAPI) -> ModelAPI:
     provider = model_uri.partition(":/")[0]
     supported = _SUPPORTED_APIS.get(provider, frozenset({ModelAPI.CHAT_COMPLETIONS}))
     if selected is ModelAPI.DEFAULT:

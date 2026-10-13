@@ -643,7 +643,8 @@ class InstructionsJudge(Judge):
         if is_trace_based and self._resolved_model_api is ModelAPI.DECISIONS:
             raise MlflowException.invalid_parameter_value(
                 "Decision API judges do not support trace-based tool calling. "
-                "Provide the inputs and outputs referenced by the instructions."
+                "Pass the referenced inputs and outputs explicitly, or record them "
+                "on the trace root span."
             )
 
         if is_fallback_to_trace_mode:
@@ -695,14 +696,14 @@ class InstructionsJudge(Judge):
                         state=state,
                         feedback_value_type=self._feedback_value_type,
                         assessment_name=self.name,
-                        inference_params=self._inference_params,
                         base_url=self._base_url,
                         extra_headers=self._extra_headers,
                     )
                 except _GatewayEndpointNotSystemOne:
                     raise MlflowException.invalid_parameter_value(
                         "This Gateway endpoint does not serve a System One model. "
-                        "Use model_api='chat_completions' or select a System One endpoint."
+                        f"Use model_api={ModelAPI.CHAT_COMPLETIONS.value!r} or select a "
+                        "System One endpoint."
                     ) from None
             else:
                 from mlflow.genai.judges.decisions import _invoke_openai_decisions_judge
@@ -781,8 +782,8 @@ class InstructionsJudge(Judge):
         validate_judge_model(self._model)
 
     def _validate_model_api(self) -> None:
-        self._resolved_model_api = _resolve_model_api(self._model, self._model_api)
         self._model_api = _parse_model_api(self._model_api)
+        self._resolved_model_api = _resolve_model_api(self._model, self._model_api)
         if self._resolved_model_api is not ModelAPI.DECISIONS:
             return
         if self._TEMPLATE_VARIABLE_TRACE in self.template_variables:
@@ -793,7 +794,9 @@ class InstructionsJudge(Judge):
             from mlflow.genai.judges.decisions import _decision_question
 
             _decision_question(self._instructions, self._feedback_value_type)
-        if self._generate_rationale_first:
+        if self._generate_rationale_first and not (
+            self._model_api is ModelAPI.DEFAULT and _is_typesafe_model(self._model)
+        ):
             raise MlflowException.invalid_parameter_value(
                 "Decision API judges do not return a rationale; "
                 "generate_rationale_first is not supported."
