@@ -246,6 +246,22 @@ def test_register_command_constructs_typed_source(
     )
 
 
+def test_register_git_command_reports_fetch_errors(runner, mock_register_skill):
+    mock_register_skill.side_effect = MlflowException(
+        "Git is required to fetch Git skill sources. Install Git and ensure it is available "
+        "on PATH."
+    )
+
+    result = runner.invoke(
+        commands,
+        ["register", "git", "--url", "https://github.com/acme/skills.git"],
+    )
+
+    assert result.exit_code != 0
+    assert "Git is required to fetch Git skill sources" in result.output
+    assert "Traceback" not in result.output
+
+
 def test_register_command_rejects_options_before_typed_source_subcommand(
     runner, mock_register_skill
 ):
@@ -297,6 +313,15 @@ def test_import_command_forwards_selection_and_source_options(runner, mock_impor
     )
     assert "code-review" in result.output
     assert "style-check" in result.output
+
+
+def test_import_command_documents_status_scope(runner):
+    result = runner.invoke(commands, ["import", "--help"])
+
+    assert result.exit_code == 0
+    assert "Status for new versions; exact existing matches keep their current status." in " ".join(
+        result.output.split()
+    )
 
 
 @pytest.mark.parametrize(

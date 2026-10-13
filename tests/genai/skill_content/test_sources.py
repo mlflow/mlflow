@@ -153,6 +153,29 @@ def test_resolve_source_type_zip_public_only(url, message):
         resolve_source_type(ZipSource(url=url))
 
 
+@pytest.mark.parametrize(
+    "query",
+    [
+        "X-Amz-Signature=presigned-secret",
+        "X-Goog-Signature=presigned-secret",
+        "sig=presigned-secret",
+        "access_token=secret-token",
+    ],
+)
+def test_resolve_source_type_zip_rejects_credentials_in_query(query):
+    url = f"https://example.com/skills.zip?{query}"
+    for source in (url, ZipSource(url=url)):
+        with pytest.raises(MlflowException, match="credentials") as exc:
+            resolve_source_type(source)
+        assert url not in str(exc.value)
+
+
+def test_resolve_source_type_zip_allows_benign_query():
+    url = "https://example.com/skills.zip?download=1"
+    assert resolve_source_type(url).source == url
+    assert resolve_source_type(ZipSource(url=url)).source == url
+
+
 @pytest.mark.parametrize("source", ["", "   ", None, 5])
 def test_resolve_source_type_rejects_empty(source):
     with pytest.raises(MlflowException, match="non-empty string"):

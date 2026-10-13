@@ -54,20 +54,20 @@ def local_skill(tmp_path: Path) -> Path:
     return skill_dir
 
 
-def _register(runner, tracking_server, local_skill, *, status="active"):
+def _register(runner, tracking_server, local_skill, *, status=None):
+    args = [
+        "register",
+        "--source",
+        str(local_skill),
+        "--name",
+        "reviewer",
+    ]
+    if status is not None:
+        args.extend(["--status", status])
+    args.extend(["--output", "json"])
     return runner.invoke(
         commands,
-        [
-            "register",
-            "--source",
-            str(local_skill),
-            "--name",
-            "reviewer",
-            "--status",
-            status,
-            "--output",
-            "json",
-        ],
+        args,
         env={"MLFLOW_TRACKING_URI": tracking_server},
     )
 
@@ -131,7 +131,9 @@ def test_cli_registers_local_skill_and_searches_parent(runner, tracking_server, 
     register_result = _register(runner, tracking_server, local_skill)
 
     assert register_result.exit_code == 0, register_result.output
-    assert json.loads(register_result.output)["skill_versions"][0]["version"] == 1
+    version = json.loads(register_result.output)["skill_versions"][0]
+    assert version["version"] == 1
+    assert version["status"] == "active"
 
     search_result = runner.invoke(
         commands,

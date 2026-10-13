@@ -292,6 +292,13 @@ STATUS = click.option(
     default="active",
     show_default=True,
 )
+IMPORT_STATUS = click.option(
+    "--status",
+    type=click.Choice(["active", "draft"]),
+    default="active",
+    show_default=True,
+    help="Status for new versions; exact existing matches keep their current status.",
+)
 
 
 @commands.command("search")
@@ -435,7 +442,7 @@ def register_zip_command(url, subpath, name, organization, status, output) -> No
 @click.option("--subpath", type=click.STRING)
 @click.option("--skill-name", multiple=True)
 @click.option("--organization", default="", show_default=True)
-@STATUS
+@IMPORT_STATUS
 @OUTPUT
 def import_command(source, ref, subpath, skill_name, organization, status, output) -> None:
     """Discover and atomically register Skills from a Git repository."""
