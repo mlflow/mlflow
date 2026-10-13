@@ -13,6 +13,7 @@ from mlflow.genai.judges.builtin import (
 )
 from mlflow.genai.judges.custom_prompt_judge import custom_prompt_judge
 from mlflow.genai.judges.make_judge import make_judge
+from mlflow.genai.judges.model_api import ModelAPI
 from mlflow.genai.judges.utils import CategoricalRating
 
 __all__ = [
@@ -20,6 +21,7 @@ __all__ = [
     "Judge",
     # Judge factory
     "make_judge",
+    "ModelAPI",
     "AlignmentOptimizer",
     # Existing builtin judges
     "CategoricalRating",
