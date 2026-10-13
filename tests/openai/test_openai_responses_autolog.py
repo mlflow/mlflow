@@ -339,6 +339,49 @@ async def test_responses_autolog_with_cached_tokens(client):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("use_context_manager", [False, True])
+@pytest.mark.parametrize("num_chunks", [0, 1, 3, 4])
+async def test_responses_stream_close(client, use_context_manager, num_chunks):
+    mlflow.openai.autolog()
+    stream = client.responses.create(input="Hello", model="gpt-4o", stream=True)
+
+    if client._is_async:
+        stream = await stream
+        if use_context_manager:
+            async with stream:
+                for _ in range(num_chunks):
+                    await anext(stream)
+        else:
+            for _ in range(num_chunks):
+                await anext(stream)
+            await stream.close()
+        await stream.close()
+    else:
+        if use_context_manager:
+            with stream:
+                for _ in range(num_chunks):
+                    next(stream)
+        else:
+            for _ in range(num_chunks):
+                next(stream)
+            stream.close()
+        stream.close()
+
+    assert stream.response.is_closed
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == "OK"
+    span = traces[0].data.spans[0]
+    assert len(span.events) == num_chunks
+    if num_chunks == 0:
+        assert span.outputs is None
+    elif num_chunks == 4:
+        assert span.outputs["id"] == "responses-123"
+    else:
+        assert span.outputs["output"] == []
+
+
+@pytest.mark.asyncio
 async def test_responses_stream_autolog(client):
     mlflow.openai.autolog()
 
