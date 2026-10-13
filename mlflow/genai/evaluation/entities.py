@@ -15,6 +15,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.genai.evaluation.constant import InputDatasetColumn, ResultDataFrameColumn
 from mlflow.genai.evaluation.context import get_context
 from mlflow.genai.evaluation.utils import is_none_or_nan
+from mlflow.genai.utils.trace_utils import extract_inputs_from_trace, extract_outputs_from_trace
 
 
 def _assertion_outcome(
@@ -115,11 +116,10 @@ class EvalItem:
             of the trace's root span, as ``mlflow.genai.evaluate`` takes them from a trace.
             Unlike ``mlflow.genai.evaluate``, it does not take expectations from the trace.
         """
-        root_span = trace.data._get_root_span()
         return cls(
             request_id=trace.info.trace_id,
-            inputs=root_span.inputs if root_span else None,
-            outputs=root_span.outputs if root_span else None,
+            inputs=extract_inputs_from_trace(trace),
+            outputs=extract_outputs_from_trace(trace),
             expectations=None,
             trace=trace,
         )
