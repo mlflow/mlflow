@@ -82,7 +82,9 @@ class DatabricksOtelExporter(SpanExporter):
 
     Metadata is exported exactly once through ``fallback_exporter``. Span
     batches are sent through the OTel client until a sticky failure pins the
-    exporter to the legacy path. Callers provide both dependencies; the factory below
+    exporter to the legacy path. Unexpected HTTP statuses replay the current
+    batch through the legacy path, which may create duplicates if the collector
+    already accepted it. Callers provide both dependencies; the factory below
     builds the standard pair.
     """
 
@@ -342,9 +344,8 @@ class DatabricksOtelExporter(SpanExporter):
             return
 
         status_code = response.status_code
-        if response.ok:
-            if status_code == 200:
-                self._handle_export_response(response, spans)
+        if status_code == 200:
+            self._handle_export_response(response, spans)
             return
 
         if 400 <= status_code < 500:
@@ -375,10 +376,11 @@ class DatabricksOtelExporter(SpanExporter):
             )
             return
 
-        self._ambiguous_drop(
-            "The Databricks OTel collector span export failed with HTTP %d: %r. Delivery is "
-            "ambiguous, so this batch was dropped; future batches will use the MLflow tracing "
-            "server path.",
+        # A non-200 success or redirect may follow collector acceptance. Replay
+        # the batch through REST to favor duplicates over missing spans.
+        self._ambiguous_fallback_to_legacy_exporter(
+            spans,
+            "The Databricks OTel collector returned unexpected HTTP %d for a span export: %r.",
             status_code,
             response.content[:_BODY_SNIPPET_BYTES],
         )

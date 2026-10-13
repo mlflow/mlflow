@@ -5,7 +5,7 @@ from unittest import mock
 
 import pytest
 import requests
-from databricks.sdk.oauth import ClientCredentials, Token
+from databricks.sdk.oauth import ClientCredentials, IgnoreNetrcAuth, Token
 from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceRequest
 
 from mlflow.entities.span import Span
@@ -15,10 +15,12 @@ from mlflow.tracing.export.databricks_otel_client import (
     _TOKEN_REQUEST_TIMEOUT_SECONDS,
     DatabricksOTelClient,
     DatabricksOtelConfigurationError,
+    DatabricksOtelPermanentTokenError,
     DatabricksOtelSerializationError,
     DatabricksOtelTokenError,
     DatabricksOtelTokenRefreshError,
     DatabricksOtelUnavailableError,
+    _is_secure_workspace_host,
     _resolve_collector_credentials,
     build_databricks_otel_collector_token_source,
     build_table_authorization_details,
@@ -144,6 +146,7 @@ def test_resolve_endpoint_assembles_host_from_metastore_summary(
         f"{host}/oidc/v1/token",
         data={"grant_type": "client_credentials", "scope": "all-apis"},
         auth=mock.ANY,
+        allow_redirects=False,
         timeout=_TOKEN_REQUEST_TIMEOUT_SECONDS,
     )
     mock_get.assert_called_once_with(
@@ -153,8 +156,11 @@ def test_resolve_endpoint_assembles_host_from_metastore_summary(
             "Authorization": "Bearer metadata-token",
             "X-Databricks-Workspace-Id": "12345678",
         },
+        auth=mock.ANY,
+        allow_redirects=False,
         timeout=_SDK_HTTP_TIMEOUT_SECONDS,
     )
+    assert isinstance(mock_get.call_args.kwargs["auth"], IgnoreNetrcAuth)
 
 
 def test_resolve_endpoint_override_takes_precedence(monkeypatch):
@@ -321,6 +327,7 @@ def test_build_table_authorization_details_structure():
     table_entry = next(e for e in entries if e["object_type"] == "TABLE")
     assert table_entry["object_full_path"] == _TABLE_NAME
     assert table_entry["privileges"] == ["SELECT", "MODIFY"]
+    assert table_entry["operations"] == ["zerobuswrite"]
 
 
 def test_build_table_authorization_details_skips_malformed_tables():
@@ -354,6 +361,7 @@ def test_build_databricks_otel_collector_token_source_construction():
 def test_collector_token_mint_uses_bounded_http_timeout():
     response = mock.MagicMock()
     response.ok = True
+    response.status_code = 200
     response.json.return_value = {
         "access_token": "token",
         "expires_in": 3600,
@@ -376,6 +384,7 @@ def test_collector_token_mint_uses_bounded_http_timeout():
         call.kwargs["timeout"] == _TOKEN_REQUEST_TIMEOUT_SECONDS
         for call in mock_post.call_args_list
     )
+    assert all(call.kwargs["allow_redirects"] is False for call in mock_post.call_args_list)
     request_data = mock_post.call_args.kwargs["data"]
     assert request_data["grant_type"] == "client_credentials"
     assert request_data["scope"] == "all-apis"
@@ -472,8 +481,65 @@ def test_resolve_collector_credentials_discovers_workspace_id_with_bounded_reque
     assert result == (_HOST, _WORKSPACE_ID, "my-client-id", "my-client-secret")
     mock_get.assert_called_once_with(
         f"{_HOST}/.well-known/databricks-config",
+        auth=mock.ANY,
+        allow_redirects=False,
         timeout=_SDK_HTTP_TIMEOUT_SECONDS,
     )
+    assert isinstance(mock_get.call_args.kwargs["auth"], IgnoreNetrcAuth)
+
+
+@pytest.mark.parametrize(
+    "host",
+    [
+        "http://adb-12345678.azuredatabricks.net",
+        "http://192.0.2.10",
+        "https://user:secret@adb-12345678.azuredatabricks.net",
+        "https://adb-12345678.azuredatabricks.net/path",
+        "ftp://adb-12345678.azuredatabricks.net",
+    ],
+)
+def test_workspace_host_requires_https_or_loopback(host):
+    assert not _is_secure_workspace_host(host)
+
+
+@pytest.mark.parametrize(
+    "host",
+    ["https://adb-12345678.azuredatabricks.net", "http://localhost:8080", "http://[::1]:8080"],
+)
+def test_workspace_host_allows_https_or_loopback(host):
+    assert _is_secure_workspace_host(host)
+
+
+def test_resolve_collector_credentials_rejects_insecure_host_before_network(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ENABLE_DB_SDK", "true")
+    config = _make_local_creds_config(host="http://adb-12345678.azuredatabricks.net")
+    with (
+        mock.patch(f"{_MODULE}._get_databricks_creds_config", return_value=config),
+        mock.patch(f"{_MODULE}.requests.get") as mock_get,
+    ):
+        result = _resolve_collector_credentials("databricks")
+
+    assert result is None
+    mock_get.assert_not_called()
+
+
+def test_collector_token_request_does_not_follow_redirect_or_retry_invalid_client():
+    response = mock.MagicMock()
+    response.status_code = 401
+    response.headers = {"Content-Type": "application/json"}
+    response.json.return_value = {"error": "invalid_client", "error_description": "denied"}
+    with mock.patch(f"{_MODULE}.requests.post", return_value=response) as mock_post:
+        with pytest.raises(DatabricksOtelPermanentTokenError, match="invalid_client"):
+            build_databricks_otel_collector_token_source(
+                host=_HOST,
+                client_id="my-client-id",
+                client_secret="my-client-secret",
+                workspace_id=_WORKSPACE_ID,
+                tables=[_TABLE_NAME],
+            ).token()
+
+    assert mock_post.call_count == 1
+    assert mock_post.call_args.kwargs["allow_redirects"] is False
 
 
 def _make_token(access_token: str):
@@ -621,8 +687,11 @@ def test_databricks_otel_client_posts_expected_headers_and_timeout():
             "Content-Type": "application/x-protobuf",
             "x-databricks-zerobus-table-name": _TABLE_NAME,
         },
+        auth=mock.ANY,
+        allow_redirects=False,
         timeout=_REQUEST_TIMEOUT_SECONDS,
     )
+    assert isinstance(client._session.post.call_args.kwargs["auth"], IgnoreNetrcAuth)
     request = ExportTraceServiceRequest.FromString(client._session.post.call_args.kwargs["data"])
     assert request.resource_spans[0].scope_spans[0].spans[0].name == "test_span"
 
@@ -711,6 +780,42 @@ def test_databricks_otel_client_retries_401_with_cacheless_token_source():
     assert [
         call.kwargs["headers"]["Authorization"] for call in client._session.post.call_args_list
     ] == ["Bearer token-a", "Bearer token-b"]
+
+
+def test_databricks_otel_client_shares_concurrent_401_refresh():
+    token_source = _LegacyRefreshableTokenSource(_make_token("token-initial"))
+    client = _make_client(token_source)
+    initial_posts = threading.Barrier(2)
+    post_tokens = []
+
+    def post(*args, **kwargs):
+        token = kwargs["headers"]["Authorization"]
+        post_tokens.append(token)
+        if token == "Bearer token-initial":
+            initial_posts.wait(timeout=5)
+            return _make_response(401)
+        return _make_response(200)
+
+    client._session.post.side_effect = post
+    errors = []
+
+    def export():
+        try:
+            client.export_spans([_make_span()])
+        except Exception as exc:
+            errors.append(exc)
+
+    threads = [threading.Thread(target=export) for _ in range(2)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=5)
+
+    assert all(not thread.is_alive() for thread in threads)
+    assert errors == []
+    assert token_source.refresh_count == 1
+    assert post_tokens.count("Bearer token-initial") == 2
+    assert post_tokens.count("Bearer token-refreshed-1") == 2
 
 
 def test_databricks_otel_client_returns_second_401_after_one_refresh():

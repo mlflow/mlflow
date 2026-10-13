@@ -5,6 +5,7 @@ owns local credential and workspace discovery, endpoint resolution, OTLP
 serialization, OAuth token management, and the authenticated HTTP request.
 """
 
+import ipaddress
 import json
 import logging
 import os
@@ -13,6 +14,7 @@ from contextlib import nullcontext
 from datetime import datetime, timedelta
 from types import MethodType
 from typing import Sequence
+from urllib.parse import urlsplit
 
 import requests
 
@@ -83,6 +85,10 @@ class DatabricksOtelUnavailableError(RuntimeError):
     """The Databricks OTel collector is not applicable or available."""
 
 
+class DatabricksOtelPermanentTokenError(DatabricksOtelUnavailableError):
+    """A permanent OAuth configuration error prevents collector authentication."""
+
+
 class DatabricksOtelConfigurationError(DatabricksOtelUnavailableError):
     """A qualified Databricks OTel collector configuration could not be used."""
 
@@ -125,6 +131,7 @@ class DatabricksOTelClient:
         self._initialized = False
         self._initialization_error: DatabricksOtelUnavailableError | None = None
         self._initialization_lock = threading.Lock()
+        self._token_refresh_lock = threading.Lock()
         self._session = requests.Session()
 
     def export_spans(self, spans: Sequence[Span]) -> requests.Response:
@@ -172,6 +179,11 @@ class DatabricksOTelClient:
         if not self._workspace_id:
             raise DatabricksOtelUnavailableError(
                 "Databricks OTel collector workspace configuration is unavailable"
+            )
+
+        if self._host and not _is_secure_workspace_host(self._host):
+            raise DatabricksOtelConfigurationError(
+                "Databricks OTel collector workspace host must use HTTPS, except for loopback"
             )
 
         if self._token_source is None:
@@ -256,6 +268,8 @@ class DatabricksOTelClient:
                 "Authorization": f"{token.token_type} {token.access_token}",
                 "X-Databricks-Workspace-Id": self._workspace_id,
             },
+            auth=_ignore_netrc_auth(),
+            allow_redirects=False,
             timeout=_SDK_HTTP_TIMEOUT_SECONDS,
         )
         response.raise_for_status()
@@ -351,6 +365,16 @@ class DatabricksOTelClient:
             )
         return new_token
 
+    def _refresh_token_after_401(self, rejected_token):
+        """Reuse another request's refresh, or refresh once under a client lock."""
+        with self._token_refresh_lock:
+            current_token = self._token_source.token()
+
+            if current_token.access_token != rejected_token.access_token:
+                return current_token
+
+            return self._force_token_refresh()
+
     def _post_with_token(self, payload: bytes, token) -> requests.Response:
         """POST one payload using the supplied token."""
         return self._session.post(
@@ -361,6 +385,8 @@ class DatabricksOTelClient:
                 _HEADER_CONTENT_TYPE: _CONTENT_TYPE_PROTOBUF,
                 _COLLECTOR_TABLE_NAME_HEADER: self._table_name,
             },
+            auth=_ignore_netrc_auth(),
+            allow_redirects=False,
             timeout=_REQUEST_TIMEOUT_SECONDS,
         )
 
@@ -368,6 +394,8 @@ class DatabricksOTelClient:
         """POST one payload, retrying exactly once after a 401 token response."""
         try:
             token = self._token_source.token()
+        except DatabricksOtelPermanentTokenError:
+            raise
         except Exception as exc:
             raise DatabricksOtelTokenError(
                 "Minting the Databricks OTel collector token failed"
@@ -378,7 +406,9 @@ class DatabricksOTelClient:
             return response
 
         try:
-            refreshed = self._force_token_refresh()
+            refreshed = self._refresh_token_after_401(token)
+        except DatabricksOtelPermanentTokenError:
+            raise
         except Exception as exc:
             raise DatabricksOtelTokenRefreshError(
                 "Refreshing the Databricks OTel collector token after HTTP 401 failed"
@@ -392,6 +422,46 @@ def _normalize_collector_endpoint(endpoint: str) -> str:
     return endpoint.removeprefix("https://").rstrip("/")
 
 
+def _is_secure_workspace_host(host: str) -> bool:
+    """Return whether a workspace host protects credentials in transit."""
+    try:
+        parsed = urlsplit(host)
+        hostname = parsed.hostname
+        # Accessing .port validates malformed port values as well.
+        port = parsed.port
+    except ValueError:
+        return False
+
+    if (
+        not hostname
+        or parsed.username is not None
+        or parsed.password is not None
+        or parsed.path not in ("", "/")
+        or parsed.query
+        or parsed.fragment
+        or (port is not None and not 0 <= port <= 65535)
+    ):
+        return False
+    if parsed.scheme.lower() == "https":
+        return True
+    if parsed.scheme.lower() != "http":
+        return False
+
+    if hostname.lower() == "localhost":
+        return True
+    try:
+        return ipaddress.ip_address(hostname).is_loopback
+    except ValueError:
+        return False
+
+
+def _ignore_netrc_auth():
+    """Return the SDK auth handler that suppresses ambient .netrc credentials."""
+    from databricks.sdk.oauth import IgnoreNetrcAuth
+
+    return IgnoreNetrcAuth()
+
+
 def _retrieve_token_with_timeout(
     client_id: str,
     client_secret: str,
@@ -402,7 +472,7 @@ def _retrieve_token_with_timeout(
     use_header: bool = False,
 ):
     """Retrieve an OAuth token with a bounded HTTP request timeout."""
-    from databricks.sdk.oauth import IgnoreNetrcAuth, Token
+    from databricks.sdk.oauth import Token
 
     request_params = dict(params)
     if use_params:
@@ -412,21 +482,43 @@ def _retrieve_token_with_timeout(
             request_params["client_secret"] = client_secret
 
     auth = (
-        requests.auth.HTTPBasicAuth(client_id, client_secret) if use_header else IgnoreNetrcAuth()
+        requests.auth.HTTPBasicAuth(client_id, client_secret)
+        if use_header
+        else _ignore_netrc_auth()
     )
     response = requests.post(
         token_url,
         data=request_params,
         auth=auth,
+        allow_redirects=False,
         timeout=_TOKEN_REQUEST_TIMEOUT_SECONDS,
     )
-    if not response.ok:
+    if response.status_code != 200:
         content_type = response.headers.get("Content-Type", "")
         if content_type.startswith("application/json"):
             error = response.json()
-            code = error.get("errorCode", error.get("error", "unknown"))
-            summary = error.get("errorSummary", error.get("error_description", "unknown"))
-            summary = summary.replace("\r\n", " ")
+            code = (
+                error.get("errorCode", error.get("error", "unknown"))
+                if isinstance(error, dict)
+                else "unknown"
+            )
+            if str(code).lower() in {
+                "invalid_client",
+                "unauthorized_client",
+                "invalid_scope",
+                "invalid_grant",
+                "invalid_request",
+                "unsupported_grant_type",
+            }:
+                raise DatabricksOtelPermanentTokenError(
+                    f"OAuth token request failed with non-retryable error {code!r}"
+                )
+            summary = (
+                error.get("errorSummary", error.get("error_description", "unknown"))
+                if isinstance(error, dict)
+                else "unknown"
+            )
+            summary = str(summary).replace("\r\n", " ")
             raise ValueError(f"{code}: {summary}")
         raise ValueError(response.content)
 
@@ -525,6 +617,7 @@ def build_table_authorization_details(tables: list[str]) -> str:
                 "object_type": "TABLE",
                 "object_full_path": table,
                 "privileges": ["SELECT", "MODIFY"],
+                "operations": ["zerobuswrite"],
             },
         ])
     return json.dumps(entries)
@@ -538,6 +631,9 @@ def build_databricks_otel_collector_token_source(
     tables: list[str],
 ):
     """Build a bounded, table-scoped databricks-sdk OAuth token source."""
+    if not _is_secure_workspace_host(host):
+        raise ValueError("Databricks workspace host must use HTTPS, except for loopback")
+
     from databricks.sdk.oauth import ClientCredentials
 
     token_source = ClientCredentials(
@@ -588,6 +684,12 @@ def _resolve_collector_credentials(tracking_uri: str | None):
             "Local Databricks credentials do not contain a host and service-principal pair."
         )
         return None
+    if not _is_secure_workspace_host(host):
+        _logger.debug(
+            "Databricks workspace host must use HTTPS, except for loopback; "
+            "skipping collector credential discovery."
+        )
+        return None
 
     workspace_id = (
         os.environ.get("DATABRICKS_WORKSPACE_ID")
@@ -599,6 +701,8 @@ def _resolve_collector_credentials(tracking_uri: str | None):
         try:
             response = requests.get(
                 f"{host.rstrip('/')}/.well-known/databricks-config",
+                auth=_ignore_netrc_auth(),
+                allow_redirects=False,
                 timeout=_SDK_HTTP_TIMEOUT_SECONDS,
             )
             response.raise_for_status()

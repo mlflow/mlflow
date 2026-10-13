@@ -10,6 +10,7 @@ from mlflow.entities.span import Span
 from mlflow.entities.trace_location import UCSchemaLocation, UnityCatalog
 from mlflow.environment_variables import MLFLOW_ENABLE_DATABRICKS_OTEL_COLLECTOR_EXPORT
 from mlflow.tracing.export.databricks_otel_client import (
+    DatabricksOtelPermanentTokenError,
     DatabricksOtelTokenError,
     DatabricksOtelTokenRefreshError,
     DatabricksOtelUnavailableError,
@@ -281,6 +282,7 @@ def test_async_server_failure_replays_after_flush_and_pins_rest(monkeypatch, sta
         (_response(404, b"not found"), True),
         (_response(401, b"unauthorized"), True),
         (DatabricksOtelTokenError("mint failed"), False),
+        (DatabricksOtelPermanentTokenError("invalid_client"), True),
         (DatabricksOtelTokenRefreshError("refresh failed"), True),
         (_connection_reset_error(), True),
         (requests.ReadTimeout("read timed out"), True),
@@ -425,13 +427,18 @@ def test_rest_fallback_always_uses_pinned_table(monkeypatch):
     assert metadata.write_calls[0][0] == _TABLE
 
 
-def test_successful_non_200_response_is_accepted(monkeypatch):
-    router, collector, metadata = _make_router(monkeypatch, outcomes=[_response(201)])
+@pytest.mark.parametrize("status_code", [201, 202, 204, 301, 302, 307, 308])
+def test_non_200_response_replays_and_pins_legacy(monkeypatch, status_code):
+    router, collector, metadata = _make_router(
+        monkeypatch,
+        outcomes=[_response(status_code), _response(200)],
+    )
     router.export([create_mock_otel_span(trace_id=17, span_id=1)])
+    router.export([create_mock_otel_span(trace_id=18, span_id=2)])
 
     assert len(collector.send_calls) == 1
-    assert metadata.write_calls == []
-    assert not router.using_legacy_exporter
+    assert len(metadata.write_calls) == 2
+    assert router.using_legacy_exporter
 
 
 @pytest.mark.parametrize("enabled", [False, True])
