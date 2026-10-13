@@ -11,7 +11,11 @@ from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
 from mlflow.exceptions import MlflowException
 from mlflow.genai import scorer
 from mlflow.genai.scorers.base import SCORER_BACKEND_TRACKING
-from mlflow.genai.scorers.job import _plan_invoke_scorer_job_for_docker, invoke_scorer_job
+from mlflow.genai.scorers.job import (
+    _plan_invoke_scorer_job_for_docker,
+    _score_single_turn_traces,
+    invoke_scorer_job,
+)
 from mlflow.server.constants import BACKEND_STORE_URI_ENV_VAR
 from mlflow.server.jobs.utils import _load_function
 from mlflow.tracing.constant import AssessmentMetadataKey, TraceMetadataKey
@@ -90,10 +94,12 @@ def test_docker_plan_scores_in_container_step_and_logs_on_host(sqlite_tracking, 
     final = plan.finalize(_run_container_step(plan))
 
     assert set(final) == set(trace_ids)
-    for trace_id in trace_ids:
+    for i, trace_id in enumerate(trace_ids):
         assert final[trace_id]["failures"] == []
         assessments = mlflow.get_trace(trace_id).info.assessments
         assert [a.name for a in assessments] == ["output_length"]
+        # The scorer gets the trace's outputs, as with mlflow.genai.evaluate.
+        assert assessments[0].value == len(str({"answer": "x" * (i + 1)}))
 
 
 def test_docker_plan_does_not_log_when_log_assessments_is_false(sqlite_tracking, tmp_path):
@@ -337,3 +343,21 @@ def test_importing_the_scorer_jobs_first_registers_every_job_function():
         "), _job_name_to_fn_fullname_map\n"
     )
     subprocess.check_call([sys.executable, "-c", code])
+
+
+def test_scorer_jobs_pass_the_trace_inputs_and_outputs_to_scorers(sqlite_tracking):
+    _, trace_ids = sqlite_tracking
+
+    @scorer
+    def echo(inputs, outputs) -> str:
+        return json.dumps({"inputs": inputs, "outputs": outputs})
+
+    trace_map = {trace_id: mlflow.get_trace(trace_id) for trace_id in trace_ids}
+    results = _score_single_turn_traces(echo, trace_map, log_assessments=False)
+
+    for i, trace_id in enumerate(trace_ids):
+        [assessment] = results[trace_id].assessments
+        assert json.loads(assessment["feedback"]["value"]) == {
+            "inputs": {"question": i},
+            "outputs": {"answer": "x" * (i + 1)},
+        }

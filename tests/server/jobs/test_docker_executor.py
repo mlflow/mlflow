@@ -186,7 +186,9 @@ def test_failed_job_reports_transient_flag(executor, client):
         json.dumps({"succeeded": False, "error": {"not": "a string"}}),
         json.dumps({"succeeded": False, "is_transient_error": "yes"}),
         json.dumps({"succeeded": True, "result": 1}),
-        "[" * 100_000,
+        # A short ID: pytest puts the test ID in an environment variable, and Windows limits those
+        # to 32,767 characters, even for tests this module skips there.
+        pytest.param("[" * 100_000, id="deeply-nested-json"),
     ],
 )
 def test_malformed_result_fails(executor, client, contents):

@@ -1,3 +1,4 @@
+import functools
 import json
 import logging
 from typing import Any, AsyncIterator, Iterator
@@ -360,12 +361,27 @@ def _end_span_on_success(
 
     result = _try_parse_raw_response(raw_result)
 
+    if isinstance(result, (Stream, AsyncStream)):
+        output = []
+        finished = False
+
+        def _finish_stream(error=None):
+            nonlocal finished
+            if finished:
+                return
+            finished = True
+            if error is not None:
+                _end_span_on_exception(span, error)
+            else:
+                chunk = output[-1] if output else None
+                _process_last_chunk(span, chunk, inputs, output, is_responses_api)
+
+        original_close = result.close
+
     if isinstance(result, Stream):
         # If the output is a stream, we add a hook to store the intermediate chunks
         # and then log the outputs as a single artifact when the stream ends
         def _stream_output_logging_hook(stream: Iterator) -> Iterator:
-            output = []
-            chunk = None
             try:
                 for i, chunk in enumerate(stream):
                     _add_span_event(span, i, chunk)
@@ -374,27 +390,51 @@ def _end_span_on_success(
             except Exception as e:
                 # The SDK raises mid-stream (e.g. an error event from the server). End the
                 # span with an error status, otherwise the trace is never exported.
-                _end_span_on_exception(span, e)
+                _finish_stream(e)
                 raise
-            _process_last_chunk(span, chunk, inputs, output, is_responses_api)
+            finally:
+                _finish_stream()
+
+        @functools.wraps(original_close)
+        def _close():
+            try:
+                close_result = original_close()
+            except BaseException as e:
+                _finish_stream(e)
+                raise
+            _finish_stream()
+            return close_result
 
         result._iterator = _stream_output_logging_hook(result._iterator)
+        result.close = _close
     elif isinstance(result, AsyncStream):
 
         async def _stream_output_logging_hook(stream: AsyncIterator) -> AsyncIterator:
-            output = []
-            chunk = None
             try:
                 async for chunk in stream:
                     _add_span_event(span, len(output), chunk)
                     output.append(chunk)
                     yield chunk
-            except Exception as e:
-                _end_span_on_exception(span, e)
+            except GeneratorExit:
                 raise
-            _process_last_chunk(span, chunk, inputs, output, is_responses_api)
+            except BaseException as e:
+                _finish_stream(e)
+                raise
+            finally:
+                _finish_stream()
+
+        @functools.wraps(original_close)
+        async def _close():
+            try:
+                close_result = await original_close()
+            except BaseException as e:
+                _finish_stream(e)
+                raise
+            _finish_stream()
+            return close_result
 
         result._iterator = _stream_output_logging_hook(result._iterator)
+        result.close = _close
     else:
         try:
             set_span_chat_attributes(span, inputs, result)
