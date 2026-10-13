@@ -2275,21 +2275,43 @@ def test_register_cleans_up_after_packaging_failure(registry_client, store, skil
     assert skill_tree.exists()
 
 
-@pytest.mark.parametrize("supplied", [{}, {"digest": None}, {"digest": "a" * 64}])
-def test_create_local_skill_version_preserves_optional_digest(
-    registry_client, skill_archive_path, skill_artifacts, supplied
+@pytest.mark.parametrize(
+    "supplied",
+    [lambda _: {}, lambda _: {"digest": None}, lambda expected: {"digest": expected}],
+    ids=["omitted", "none", "matching"],
+)
+def test_create_local_skill_version_records_the_content_digest(
+    registry_client, skill_tree, skill_archive_path, skill_artifacts, supplied
 ):
     client, db_store = registry_client
-    with mock.patch("mlflow.genai.skill_content.digest.compute_tree_digest") as digest:
-        version = client.create_skill_version(
-            name="custom-review", source=str(skill_archive_path), status="draft", **supplied
-        )
-    digest.assert_not_called()
-    assert version.digest == supplied.get("digest")
-    assert version.status == SkillStatus.DRAFT
-    assert db_store.get_skill_version("custom-review", version.version).digest == supplied.get(
-        "digest"
+    expected = compute_tree_digest(skill_tree)
+
+    version = client.create_skill_version(
+        name="custom-review", source=str(skill_archive_path), status="draft", **supplied(expected)
     )
+
+    assert version.digest == expected
+    assert version.status == SkillStatus.DRAFT
+    assert db_store.get_skill_version("custom-review", version.version).digest == expected
+
+
+def test_create_local_skill_version_rejects_a_digest_that_does_not_match(
+    registry_client, skill_tree, skill_archive_path, skill_artifacts
+):
+    client, db_store = registry_client
+    expected = compute_tree_digest(skill_tree)
+
+    with pytest.raises(
+        MlflowException,
+        match=f"does not match the uploaded content: expected {expected}, got {'a' * 64}",
+    ) as exc:
+        client.create_skill_version(
+            name="custom-review", source=str(skill_archive_path), digest="a" * 64
+        )
+
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+    assert db_store.search_skills() == []
+    assert [path for path in skill_artifacts.rglob("*") if path.is_file()] == []
 
 
 @pytest.mark.parametrize("directory", [True, False])

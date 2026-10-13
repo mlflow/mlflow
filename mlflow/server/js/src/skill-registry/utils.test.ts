@@ -337,27 +337,20 @@ describe('skill URI and pull snippets', () => {
   });
 
   it('formats CLI and Python pull examples for a destination', () => {
-    expect(formatSkillPullCli('skills:/@acme/code-review/2', '.claude/skills')).toBe(
-      'mlflow skills pull skills:/@acme/code-review/2 \\\n    --destination .claude/skills',
+    expect(formatSkillPullCli('skills:/@acme/code-review/2', '.claude/skills/code-review')).toBe(
+      'mlflow skills pull skills:/@acme/code-review/2 \\\n    --destination .claude/skills/code-review',
     );
-    expect(
-      formatSkillPullPython({
-        name: 'code-review',
-        organization: 'acme',
-        version: 2,
-        destination: '.cursor/skills',
-      }),
-    ).toBe(
-      'import mlflow.genai\n\nmlflow.genai.pull(\n    name="code-review",\n    organization="acme",\n    version=2,\n    destination=".cursor/skills",\n)',
+    expect(formatSkillPullPython('skills:/@acme/code-review/2', '.cursor/skills/code-review')).toBe(
+      'import mlflow.genai\n\nmlflow.genai.pull(\n    "skills:/@acme/code-review/2",\n    destination=".cursor/skills/code-review",\n)',
     );
   });
 
   it('scopes pull examples to the active workspace', () => {
-    expect(formatSkillPullCli('skills:/code-review', './skills', "team's-a")).toBe(
-      "MLFLOW_WORKSPACE='team'\\''s-a' mlflow skills pull skills:/code-review \\\n    --destination ./skills",
+    expect(formatSkillPullCli('skills:/code-review', './skills/code-review', "team's-a")).toBe(
+      "MLFLOW_WORKSPACE='team'\\''s-a' mlflow skills pull skills:/code-review \\\n    --destination ./skills/code-review",
     );
-    expect(formatSkillPullPython({ name: 'code-review', destination: './skills', workspace: 'team-a' })).toBe(
-      'import mlflow.genai\n\nmlflow.set_workspace("team-a")\nmlflow.genai.pull(\n    name="code-review",\n    destination="./skills",\n)',
+    expect(formatSkillPullPython('skills:/code-review', './skills/code-review', 'team-a')).toBe(
+      'import mlflow.genai\n\nmlflow.set_workspace("team-a")\nmlflow.genai.pull(\n    "skills:/code-review",\n    destination="./skills/code-review",\n)',
     );
   });
 });

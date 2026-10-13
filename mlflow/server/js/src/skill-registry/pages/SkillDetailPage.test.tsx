@@ -112,6 +112,23 @@ describe('SkillDetailPage', () => {
     expect(document.body.textContent).toContain('alice@example.com');
   });
 
+  it('marks the latest version in the version list', async () => {
+    renderPage();
+
+    const rowOf = async (label: string) => (await screen.findByText(label)).closest('[role="row"]') as HTMLElement;
+    expect(within(await rowOf('Version 2')).getByText('@ latest')).toBeInTheDocument();
+    expect(within(await rowOf('Version 1')).queryByText('@ latest')).not.toBeInTheDocument();
+  });
+
+  it('leaves the automatic latest alias out of the alias editor', async () => {
+    renderPage();
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Edit aliases' }));
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByTitle('prod')).toBeInTheDocument();
+    expect(within(dialog).queryByText(/^@\s*latest$/)).not.toBeInTheDocument();
+  });
+
   it('loads a two-segment compatibility URL', async () => {
     renderPage(['/skills/@acme/code-review']);
     await waitFor(() => {
@@ -193,15 +210,15 @@ describe('SkillDetailPage', () => {
     expect(screen.getByText('Pinned version: v2')).toBeInTheDocument();
     expect(document.body.textContent).toContain('skills:/@acme/code-review/2');
     expect(document.body.textContent).toContain('mlflow skills pull skills:/@acme/code-review/2');
-    expect(document.body.textContent).toContain('--destination .claude/skills');
+    expect(document.body.textContent).toContain('--destination .claude/skills/code-review');
     expect(document.body.textContent).not.toContain('skills:/@acme/code-review/latest');
 
     await userEvent.click(screen.getByRole('radio', { name: 'Python' }));
-    expect(document.body.textContent).toContain('version=2');
+    expect(document.body.textContent).toContain('"skills:/@acme/code-review/2"');
 
     await userEvent.click(screen.getByRole('radio', { name: 'CLI' }));
     await changeSimpleSelect('mlflow.skill_registry.use_modal.install_target', 'Cursor');
-    expect(document.body.textContent).toContain('--destination .cursor/skills');
+    expect(document.body.textContent).toContain('--destination .cursor/skills/code-review');
     expect(document.body.textContent).toContain('skills:/@acme/code-review/2');
   });
 
@@ -359,6 +376,13 @@ describe('SkillDetailPage', () => {
     await waitFor(() => {
       expect(screen.getAllByText('Skill not found').length).toBeGreaterThanOrEqual(1);
     });
+  });
+
+  it('renders a missing skill empty state for an organization-only URL instead of loading forever', async () => {
+    renderPage(['/skills/@acme']);
+
+    expect((await screen.findAllByText('Skill not found')).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText('This skill may have been deleted or the URL may be incorrect.')).toBeInTheDocument();
   });
 
   it('renders a recoverable skill load error', async () => {

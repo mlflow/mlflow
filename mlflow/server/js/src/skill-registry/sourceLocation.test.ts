@@ -314,8 +314,11 @@ describe('local skill registration', () => {
     ).toBeUndefined();
   });
 
-  it('quotes the local directory placeholder', () => {
-    expect(formatSkillRegisterCli({ location: '', local: true })).toBe("mlflow skills register '<directory>'");
+  it('passes the quoted local directory placeholder as --source', () => {
+    expect(formatSkillRegisterCli({ location: '', local: true })).toBe("mlflow skills register --source '<directory>'");
+    expect(formatSkillRegisterCli({ location: '', local: true, name: 'code-review', organization: 'acme' })).toBe(
+      "mlflow skills register --source '<directory>' \\\n    --name 'code-review' \\\n    --organization 'acme'",
+    );
   });
 
   it('keeps the owner of SCP remotes, including GitLab subgroups', () => {

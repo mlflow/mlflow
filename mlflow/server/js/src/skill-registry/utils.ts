@@ -21,8 +21,7 @@ export const SKILL_QUERY_KEYS = {
   SKILL_FILE_CONTENT: 'skill_file_content',
 } as const;
 
-// Destinations are provisional until MLflow CLI confirms whether --destination
-// names the parent skills directory or a skill-specific folder.
+// The directory each agent loads skills from; the Use dialog pulls a skill into its own folder beneath it.
 export const SKILL_INSTALL_TARGETS = [
   { id: 'claude-code', label: 'Claude Code', destination: '.claude/skills' },
   { id: 'codex', label: 'Codex', destination: '.agents/skills' },
@@ -283,6 +282,9 @@ export const isPermissionDeniedError = (error: Error | null | undefined) =>
 
 export const isNotFoundError = (error: Error | null | undefined) =>
   error instanceof NotFoundError || error?.name === 'NotFoundError';
+
+export const isAlreadyExistsError = (error: unknown) =>
+  (error as { errorCode?: string } | null | undefined)?.errorCode === 'RESOURCE_ALREADY_EXISTS';
 
 export const isSkillDimmed = (skill: Skill): boolean => skill.status !== SkillStatus.ACTIVE;
 
