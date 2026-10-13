@@ -38,11 +38,14 @@ class GenAiTranslator(OtelSchemaTranslator):
     }
 
     # Token usage attribute keys from OTEL GenAI semantic conventions
-    # Reference: https://opentelemetry.io/docs/specs/semconv/registry/attributes/gen-ai/#genai-attributes
+    # Reference: https://github.com/open-telemetry/semantic-conventions-genai/blob/main/docs/registry/attributes/gen-ai.md
     INPUT_TOKEN_KEY = "gen_ai.usage.input_tokens"
     OUTPUT_TOKEN_KEY = "gen_ai.usage.output_tokens"
     CACHE_READ_INPUT_TOKEN_KEY = "gen_ai.usage.cache_read.input_tokens"
-    CACHE_CREATION_INPUT_TOKEN_KEY = "gen_ai.usage.cache_creation.input_tokens"
+    CACHE_CREATION_INPUT_TOKEN_KEY = "gen_ai.usage.cache_write.input_tokens"
+    # Name in the previous registry (https://opentelemetry.io/docs/specs/semconv/registry/attributes/gen-ai/),
+    # read when the current key is absent.
+    _LEGACY_CACHE_CREATION_INPUT_TOKEN_KEY = "gen_ai.usage.cache_creation.input_tokens"
 
     # Input/Output attribute keys from OTEL GenAI semantic conventions
     # Reference: https://opentelemetry.io/docs/specs/semconv/registry/attributes/gen-ai/#gen-ai-input-messages
@@ -54,6 +57,11 @@ class GenAiTranslator(OtelSchemaTranslator):
     MODEL_NAME_KEYS = ["gen_ai.response.model", "gen_ai.request.model"]
     LLM_PROVIDER_KEY = "gen_ai.provider.name"
     TOOL_DEFINITION_KEYS = ["gen_ai.tool.definitions"]
+
+    def get_cache_creation_input_tokens(self, attributes: dict[str, Any]) -> int | None:
+        if (value := super().get_cache_creation_input_tokens(attributes)) is not None:
+            return value
+        return attributes.get(self._LEGACY_CACHE_CREATION_INPUT_TOKEN_KEY)
 
     def _decode_json_value(self, value: Any) -> Any:
         """Decode JSON-serialized string values."""

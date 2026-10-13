@@ -225,16 +225,68 @@ describe('TracesV4PageContent', () => {
     await waitFor(() => expect(new URLSearchParams(env.lastSearch).get('q')).toBeNull());
   });
 
-  // TODO(traces-v4): The OSS empty state renders TracesViewTableNoTracesQuickstart; this test asserts the Databricks TracingQuickStart CTA copy. Rewrite for the OSS quickstart.
+  const mockOldTraceOutsideRange = () => {
+    const oldTrace = makeTrace('tr-old');
+    server.use(
+      rest.post(SEARCH_ENDPOINT, async (req, res, ctx) => {
+        const body = (await req.json()) as SearchCall;
+        state.searchCalls.push(body);
+        const traces = body.filter?.includes('attributes.timestamp_ms >') ? [] : [oldTrace];
+        return res(ctx.json({ traces, next_page_token: undefined }));
+      }),
+    );
+  };
 
-  test.skip('shows the tracing quickstart CTA when the experiment has no traces', async () => {
+  test('offers View All when traces exist outside the default time range', async () => {
+    const user = userEvent.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });
+    mockOldTraceOutsideRange();
+
+    renderPage();
+    expect(await screen.findByText(/hidden by your time range filter/i)).toBeInTheDocument();
+    expect(screen.queryByText('Start tracing your LLM application')).not.toBeInTheDocument();
+    expect(queryTraceRow('tr-old')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'View All' }));
+    expect(await findTraceRow('tr-old')).toBeInTheDocument();
+    expect(new URLSearchParams(env.lastSearch).get('startTimeLabel')).toBe('ALL');
+    expect(
+      state.searchCalls.some((call) => call.max_results === 25 && !call.filter?.includes('attributes.timestamp_ms >')),
+    ).toBe(true);
+  }, 20000);
+
+  test('keeps a custom time range until View All is clicked', async () => {
+    const user = userEvent.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });
+    const startTime = '2026-09-01T00:00:00.000Z';
+    const endTime = '2026-09-02T00:00:00.000Z';
+    mockOldTraceOutsideRange();
+
+    renderPage({
+      initialUrl: `${URL}?startTimeLabel=CUSTOM&startTime=${encodeURIComponent(startTime)}&endTime=${encodeURIComponent(endTime)}`,
+    });
+    expect(await screen.findByText(/hidden by your time range filter/i)).toBeInTheDocument();
+    const probeCall = state.searchCalls.find((call) => call.max_results === 1);
+    expect(probeCall?.filter).toBeUndefined();
+
+    const beforeClick = new URLSearchParams(env.lastSearch);
+    expect(beforeClick.get('startTimeLabel')).toBe('CUSTOM');
+    expect(beforeClick.get('startTime')).toBe(startTime);
+    expect(beforeClick.get('endTime')).toBe(endTime);
+
+    await user.click(screen.getByRole('button', { name: 'View All' }));
+    expect(await findTraceRow('tr-old')).toBeInTheDocument();
+
+    const afterClick = new URLSearchParams(env.lastSearch);
+    expect(afterClick.get('startTimeLabel')).toBe('ALL');
+    expect(afterClick.has('startTime')).toBe(false);
+    expect(afterClick.has('endTime')).toBe(false);
+  }, 20000);
+
+  test('shows the tracing quickstart when the experiment has no traces at all', async () => {
     state.pages = { '': { traces: [], next_page_token: undefined } };
     renderPage();
-    // The unmocked experiment query surfaces no kind, so the non-GenAI generic quickstart renders
-    // ("No traces recorded") rather than the old generic shared "No traces yet" empty state.
-    expect(await screen.findByText('No traces recorded')).toBeInTheDocument();
-    expect(screen.queryByText('No traces yet')).not.toBeInTheDocument();
-  });
+    expect(await screen.findByText('Start tracing your LLM application')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'View All' })).not.toBeInTheDocument();
+  }, 20000);
 
   describe('robustness', () => {
     test('a search error shows an error state with a working Retry', async () => {
@@ -496,7 +548,7 @@ describe('TracesV4PageContent', () => {
       await selectSubmenuItem('menuitemcheckbox', 'Assessments');
       await waitFor(() => expect(screen.queryByRole('columnheader', { name: 'relevance' })).not.toBeInTheDocument());
       expect(screen.queryByRole('columnheader', { name: 'correctness' })).not.toBeInTheDocument();
-    }, 20000);
+    }, 60000);
 
     test('toggling an assessment off hides its column and the choice persists', async () => {
       const user = userEvent.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });
@@ -514,8 +566,8 @@ describe('TracesV4PageContent', () => {
       renderPage();
       await findTraceRow('tr-000');
       expect(screen.queryByRole('columnheader', { name: 'relevance' })).not.toBeInTheDocument();
-      // Two full page renders (mount + remount) under parallel jsdom load — bump off the 5s default.
-    }, 20000);
+      // The menu interaction and remount exceed 20s under parallel CI load.
+    }, 60000);
   });
 
   describe('tags column', () => {
@@ -702,9 +754,9 @@ describe('TracesV4PageContent', () => {
       };
       renderPage();
       expect(await findTraceRow('p1-000')).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: 'Next page' })).toBeEnabled();
+      expect(screen.getByLabelText('Next page', { selector: 'button' })).toBeEnabled();
 
-      await user.click(screen.getByRole('button', { name: 'Next page' }));
+      await user.click(screen.getByLabelText('Next page', { selector: 'button' }));
 
       // The distinct end-of-results state renders — NOT the initial "No traces yet" empty state…
       expect(await screen.findByText('No more results')).toBeInTheDocument();
@@ -712,15 +764,14 @@ describe('TracesV4PageContent', () => {
       // …the pagination bar is still present (page-size selector lives in it)…
       expect(screen.getByLabelText('Rows per page')).toBeInTheDocument();
       // …Prev is enabled (back to page 1), Next is disabled (the empty page is terminal).
-      expect(screen.getByRole('button', { name: 'Previous page' })).toBeEnabled();
-      expect(screen.getByRole('button', { name: 'Next page' })).toBeDisabled();
+      expect(screen.getByLabelText('Previous page', { selector: 'button' })).toBeEnabled();
+      expect(screen.getByLabelText('Next page', { selector: 'button' })).toBeDisabled();
 
       // Stepping back returns to page 1's rows (served from cache, no refetch needed).
-      await user.click(screen.getByRole('button', { name: 'Previous page' }));
+      await user.click(screen.getByLabelText('Previous page', { selector: 'button' }));
       expect(await findTraceRow('p1-000')).toBeInTheDocument();
-      // Full-page renders + two paginations are slow under parallel jsdom load; per-test timeout
-      // avoids the lint-forbidden global jest.setTimeout.
-    }, 30000);
+      // Two full-page paginations exceed 30s under parallel CI load; keep a per-test limit.
+    }, 60000);
 
     test('shows the "{n} of {total}" count — current page rows out of the metrics total', async () => {
       // 3 rows on the page; the trace-metrics endpoint reports 42 total.

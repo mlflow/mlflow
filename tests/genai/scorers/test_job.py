@@ -14,6 +14,7 @@ from mlflow.genai.scorers.base import SCORER_BACKEND_TRACKING, _in_job_executor
 from mlflow.genai.scorers.job import (
     _online_scorers_this_job_can_run,
     _plan_invoke_scorer_job_for_docker,
+    _score_single_turn_traces,
     invoke_scorer_job,
     run_online_session_scorer_job,
     run_online_trace_scorer_job,
@@ -100,10 +101,12 @@ def test_docker_plan_scores_in_container_step_and_logs_on_host(sqlite_tracking, 
     final = plan.finalize(_run_container_step(plan))
 
     assert set(final) == set(trace_ids)
-    for trace_id in trace_ids:
+    for i, trace_id in enumerate(trace_ids):
         assert final[trace_id]["failures"] == []
         assessments = mlflow.get_trace(trace_id).info.assessments
         assert [a.name for a in assessments] == ["output_length"]
+        # The scorer gets the trace's outputs, as with mlflow.genai.evaluate.
+        assert assessments[0].value == len(str({"answer": "x" * (i + 1)}))
 
 
 def test_docker_plan_does_not_log_when_log_assessments_is_false(sqlite_tracking, tmp_path):
@@ -432,3 +435,21 @@ def test_online_jobs_run_custom_scorers_only_in_job_containers(
     runnable = _online_scorers_this_job_can_run(online_scorers)
 
     assert [s.name for s in runnable] == expected
+
+
+def test_scorer_jobs_pass_the_trace_inputs_and_outputs_to_scorers(sqlite_tracking):
+    _, trace_ids = sqlite_tracking
+
+    @scorer
+    def echo(inputs, outputs) -> str:
+        return json.dumps({"inputs": inputs, "outputs": outputs})
+
+    trace_map = {trace_id: mlflow.get_trace(trace_id) for trace_id in trace_ids}
+    results = _score_single_turn_traces(echo, trace_map, log_assessments=False)
+
+    for i, trace_id in enumerate(trace_ids):
+        [assessment] = results[trace_id].assessments
+        assert json.loads(assessment["feedback"]["value"]) == {
+            "inputs": {"question": i},
+            "outputs": {"answer": "x" * (i + 1)},
+        }
