@@ -28,16 +28,16 @@ def test_git_source_roundtrip_drops_none():
 
 
 def test_oci_and_zip_source_roundtrip():
-    oci = OCISource(image="ghcr.io/acme/plugin:v1")
+    oci = OCISource(image="ghcr.io/acme/skills:v1")
     assert OCISource.from_dict(oci.to_dict()) == oci
     zip_src = ZipSource(url="https://example.com/a.zip", subpath="x")
     assert ZipSource.from_dict(zip_src.to_dict()) == zip_src
 
 
 def test_mlflow_source_roundtrip():
-    source = MlflowSource(artifact_path="artifacts:/plugins/p/1", subpath="skills/review")
+    source = MlflowSource(artifact_path="artifacts:/skills/review/1", subpath="skills/review")
     assert source.to_dict() == {
-        "artifact_path": "artifacts:/plugins/p/1",
+        "artifact_path": "artifacts:/skills/review/1",
         "subpath": "skills/review",
     }
     assert MlflowSource.from_dict(source.to_dict()) == source
@@ -59,9 +59,9 @@ def test_build_source_reconstructs_typed_sources():
         url="https://x/a.zip", subpath="sub"
     )
     assert build_source(
-        SkillSourceType.MLFLOW, "artifacts:/plugins/p/1", None, "skills/x"
+        SkillSourceType.MLFLOW, "artifacts:/skills/review/1", None, "skills/x"
     ) == MlflowSource(
-        artifact_path="artifacts:/plugins/p/1",
+        artifact_path="artifacts:/skills/review/1",
         subpath="skills/x",
     )
     assert build_source(None, None, None, None) is None

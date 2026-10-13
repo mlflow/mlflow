@@ -19,9 +19,6 @@ from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES, MLFLOW_TRACKI
 from mlflow.store.db.db_types import MSSQL, MYSQL, POSTGRES, SQLITE
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking.dbmodels.models import (
-    SqlAgentPlugin,
-    SqlAgentPluginVersion,
-    SqlAgentPluginVersionMember,
     SqlDataset,
     SqlEntityAssociation,
     SqlEvaluationDataset,
@@ -176,9 +173,6 @@ def _cleanup_database(store: SqlAlchemyStore):
             SqlMCPServerTag,
             SqlMCPServerVersion,
             SqlMCPServer,
-            SqlAgentPluginVersionMember,
-            SqlAgentPluginVersion,
-            SqlAgentPlugin,
             SqlSkillVersionTag,
             SqlSkillAlias,
             SqlSkillTag,

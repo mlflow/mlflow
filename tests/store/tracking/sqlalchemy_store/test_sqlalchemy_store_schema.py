@@ -257,28 +257,6 @@ def test_skill_registry_indexes(tmp_path, db_url):
             "version",
         ],
         "ix_skill_versions_digest": ["workspace", "organization", "name", "digest"],
-        "ix_agent_plugin_versions_latest_lookup": [
-            "workspace",
-            "organization",
-            "name",
-            "status",
-            "version_major",
-            "version_minor",
-            "version_patch",
-            "created_at",
-        ],
-        "ix_agent_plugin_version_members_skill_fkey": [
-            "plugin_workspace",
-            "member_organization",
-            "member_name",
-            "member_version",
-        ],
-        "ix_agent_plugin_version_members_member_name": [
-            "plugin_workspace",
-            "member_name",
-            "plugin_organization",
-            "plugin_name",
-        ],
     }
     with sqlite3.connect(db_url[len("sqlite:///") :]) as conn:
         cursor = conn.cursor()
@@ -591,45 +569,6 @@ def _insert_row(conn, table_name, workspace, overrides=None, seed=1):
             "alias": f"alias_{seed}",
             "version": seed,
         },
-        "agent_plugins": {
-            "workspace": workspace,
-            "organization": f"org_{seed}",
-            "name": f"plugin_{seed}",
-            "created_at": seed,
-            "last_updated_at": seed,
-        },
-        "agent_plugin_versions": {
-            "workspace": workspace,
-            "organization": f"org_{seed}",
-            "name": f"plugin_{seed}",
-            "version": f"{seed}.0.0",
-            "plugin_json": "{}",
-            "status": "active",
-            "created_at": seed,
-            "last_updated_at": seed,
-        },
-        "agent_plugin_tags": {
-            "workspace": workspace,
-            "organization": f"org_{seed}",
-            "name": f"plugin_{seed}",
-            "key": f"tag_{seed}",
-            "value": f"value_{seed}",
-        },
-        "agent_plugin_version_tags": {
-            "workspace": workspace,
-            "organization": f"org_{seed}",
-            "name": f"plugin_{seed}",
-            "version": f"{seed}.0.0",
-            "key": f"vtag_{seed}",
-            "value": f"value_{seed}",
-        },
-        "agent_plugin_aliases": {
-            "workspace": workspace,
-            "organization": f"org_{seed}",
-            "name": f"plugin_{seed}",
-            "alias": f"alias_{seed}",
-            "version": f"{seed}.0.0",
-        },
     }
     if table_name not in base_values:
         raise AssertionError(f"Unexpected table: {table_name}")
@@ -637,7 +576,7 @@ def _insert_row(conn, table_name, workspace, overrides=None, seed=1):
     overrides = overrides or {}
     unknown = set(overrides) - set(table.c.keys())
     assert not unknown, f"Unknown columns for {table_name}: {unknown}"
-    if table_name in ("mcp_server_versions", "agent_plugin_versions"):
+    if table_name == "mcp_server_versions":
         parsed = parse_semver(values["version"])
         if "version_major" in table.c:
             values["version_major"] = parsed.major
@@ -683,7 +622,6 @@ def _insert_row(conn, table_name, workspace, overrides=None, seed=1):
         ("mcp_servers", ("name",), "MCP servers with the same name"),
         # Skills key their conflict on (organization, name)
         ("skills", ("organization", "name"), "skills with the same organization and name"),
-        # Also, Agent plugins check is skipped for now. As their movement isn't supported yet.
     ],
 )
 def test_migrate_to_default_workspace_conflict(tmp_path, table_name, conflict_columns, description):
@@ -727,19 +665,14 @@ def test_migrate_to_default_workspace_moves_rows(tmp_path):
     artifacts.mkdir()
     SqlAlchemyStore(db_url, artifacts.as_uri())
     engine = sqlalchemy.create_engine(db_url)
-    movable = [t for t in workspace_migration._WORKSPACE_TABLES if not t.startswith("agent_plugin")]
-    pinned = [t for t in workspace_migration._WORKSPACE_TABLES if t.startswith("agent_plugin")]
     with engine.begin() as conn:
         conn.execute(sqlalchemy.text("PRAGMA foreign_keys = OFF"))
-        for seed, table_name in enumerate(movable, start=1):
+        for seed, table_name in enumerate(workspace_migration._WORKSPACE_TABLES, start=1):
             _insert_row(conn, table_name, "team-a", seed=seed)
-        for seed, table_name in enumerate(pinned, start=len(movable) + 1):
-            _insert_row(conn, table_name, DEFAULT_WORKSPACE_NAME, seed=seed)
 
     counts = migrate_to_default_workspace(engine, dry_run=True)
     assert set(counts.keys()) == set(workspace_migration._WORKSPACE_TABLES)
-    assert all(counts[table_name] == 1 for table_name in movable)
-    assert all(counts[table_name] == 0 for table_name in pinned)
+    assert all(count == 1 for count in counts.values())
 
     migrate_to_default_workspace(engine, dry_run=False)
 
@@ -750,44 +683,4 @@ def test_migrate_to_default_workspace_moves_rows(tmp_path):
                 table.c.workspace != DEFAULT_WORKSPACE_NAME
             )
             assert conn.execute(stmt).scalar_one() == 0
-    engine.dispose()
-
-
-def _insert_agent_plugin(conn, workspace):
-    conn.execute(
-        sqlalchemy.text(
-            "INSERT INTO agent_plugins (workspace, organization, name, created_at, "
-            "last_updated_at) VALUES (:ws, 'acme', 'pr-review', 0, 0)"
-        ),
-        {"ws": workspace},
-    )
-
-
-def test_migrate_to_default_workspace_refuses_agent_plugins_outside_default(tmp_path):
-    # Moving agent plugins between workspaces is not implemented yet, so the move must stop
-    # rather than move part of a plugin.
-    db_url = f"sqlite:///{tmp_path / 'plugins.db'}"
-    artifacts = tmp_path / "artifacts-plugins"
-    artifacts.mkdir()
-    SqlAlchemyStore(db_url, artifacts.as_uri())
-    engine = sqlalchemy.create_engine(db_url)
-    with engine.begin() as conn:
-        _insert_agent_plugin(conn, "team-a")
-
-    # Matching the count too, so a message that forgets to interpolate it fails here.
-    with pytest.raises(RuntimeError, match=r"found 1 agent plugin\(s\) outside"):
-        migrate_to_default_workspace(engine, dry_run=True)
-    engine.dispose()
-
-
-def test_migrate_to_default_workspace_allows_agent_plugins_already_in_default(tmp_path):
-    db_url = f"sqlite:///{tmp_path / 'plugins-default.db'}"
-    artifacts = tmp_path / "artifacts-plugins-default"
-    artifacts.mkdir()
-    SqlAlchemyStore(db_url, artifacts.as_uri())
-    engine = sqlalchemy.create_engine(db_url)
-    with engine.begin() as conn:
-        _insert_agent_plugin(conn, DEFAULT_WORKSPACE_NAME)
-
-    migrate_to_default_workspace(engine, dry_run=True)
     engine.dispose()

@@ -2,11 +2,8 @@ import pytest
 
 from mlflow.exceptions import MlflowException
 from mlflow.utils.skill_uris import (
-    ParsedAgentPluginUri,
     ParsedSkillUri,
-    format_agent_plugin_uri,
     format_skill_uri,
-    parse_agent_plugin_uri,
     parse_skill_uri,
 )
 
@@ -20,24 +17,10 @@ SKILL_URIS = [
     "skills:/@acme.com/123",
 ]
 
-PLUGIN_URIS = [
-    "agent-plugins:/pr-workflow",
-    "agent-plugins:/pr-workflow/1.0.0-beta.11",
-    "agent-plugins:/pr-workflow@production",
-    "agent-plugins:/@acme/pr-workflow",
-    "agent-plugins:/@acme/pr-workflow/1.0.0",
-    "agent-plugins:/@acme/pr-workflow@production",
-]
-
 
 @pytest.mark.parametrize("uri", SKILL_URIS)
 def test_skill_uri_roundtrip_from_string(uri):
     assert format_skill_uri(parse_skill_uri(uri)) == uri
-
-
-@pytest.mark.parametrize("uri", PLUGIN_URIS)
-def test_plugin_uri_roundtrip_from_string(uri):
-    assert format_agent_plugin_uri(parse_agent_plugin_uri(uri)) == uri
 
 
 @pytest.mark.parametrize(
@@ -52,27 +35,9 @@ def test_skill_object_roundtrip(parsed):
     assert parse_skill_uri(format_skill_uri(parsed)) == parsed
 
 
-@pytest.mark.parametrize(
-    "parsed",
-    [
-        ParsedAgentPluginUri(name="pr-workflow"),
-        ParsedAgentPluginUri(name="pr-workflow", organization="acme", version="1.0.0"),
-        ParsedAgentPluginUri(name="pr-workflow", alias="production"),
-    ],
-)
-def test_plugin_object_roundtrip(parsed):
-    assert parse_agent_plugin_uri(format_agent_plugin_uri(parsed)) == parsed
-
-
 def test_parse_skill_uri_fields():
     parsed = parse_skill_uri("skills:/@acme/code-review/2")
     assert parsed == ParsedSkillUri(name="code-review", organization="acme", version=2)
-
-
-@pytest.mark.parametrize("version", ["1", "1.0", " 1.0.0 "])
-def test_plugin_uri_requires_exact_semver(version):
-    with pytest.raises(MlflowException, match="semantic version"):
-        parse_agent_plugin_uri(f"agent-plugins:/pr-workflow/{version}")
 
 
 def test_version_and_alias_mutually_exclusive():
@@ -99,26 +64,9 @@ def test_parse_skill_uri_invalid(uri, match):
         parse_skill_uri(uri)
 
 
-def test_parse_plugin_uri_rejects_non_semver_version():
-    with pytest.raises(MlflowException, match="[Ss]em[Vv]er|version"):
-        parse_agent_plugin_uri("agent-plugins:/pr-workflow/not-a-version")
-
-
-@pytest.mark.parametrize(
-    ("parser", "uri"),
-    [
-        (parse_skill_uri, "skills:/@/skill"),
-        (parse_agent_plugin_uri, "agent-plugins:/@/plugin"),
-    ],
-)
-def test_parse_uri_rejects_empty_marked_organization(parser, uri):
+def test_parse_uri_rejects_empty_marked_organization():
     with pytest.raises(MlflowException, match="organization marker"):
-        parser(uri)
-
-
-def test_parsed_agent_plugin_uri_requires_exact_semver_on_construction():
-    with pytest.raises(MlflowException, match="semantic version"):
-        ParsedAgentPluginUri(name="p", version="1.0")
+        parse_skill_uri("skills:/@/skill")
 
 
 def test_skill_uri_version_must_fit_storage_bound():

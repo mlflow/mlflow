@@ -3,8 +3,6 @@ The ``mlflow.entities`` module defines entities returned by the MLflow
 `REST API <../rest-api.html>`_.
 """
 
-from mlflow.entities.agent_plugin import AgentPlugin
-from mlflow.entities.agent_plugin_version import AgentPluginVersion
 from mlflow.entities.assessment import (
     Assessment,
     AssessmentError,
@@ -227,8 +225,6 @@ __all__ = [
     "MlflowSource",
     "OCISource",
     "ZipSource",
-    "AgentPlugin",
-    "AgentPluginVersion",
 ]
 
 

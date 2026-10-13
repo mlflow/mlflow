@@ -25,8 +25,6 @@ from mlflow.store.tracking.skill_registry_pagination import (
         (None, None, 0, "skills"),
         ("name LIKE '%review%'", ["name ASC"], 100, "skills"),
         ("status = 'active'", ["creation_timestamp DESC"], 200, "skill_versions:acme/code-review"),
-        (None, None, 0, "agent_plugins"),
-        ("member_name = 'review'", None, 50, "agent_plugin_versions:acme/my-plugin"),
     ],
 )
 def test_encode_decode_roundtrip(filter_string, order_by, offset, query_scope):
@@ -125,7 +123,7 @@ def test_validate_rejects_different_query_scope():
         token.validate(
             filter_string=None,
             order_by=None,
-            query_scope="agent_plugins",
+            query_scope="skill_versions:acme/code-review",
         )
 
 
