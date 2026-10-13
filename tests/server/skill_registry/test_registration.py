@@ -4,6 +4,7 @@ import re
 import tarfile
 import threading
 from dataclasses import replace
+from pathlib import Path
 from unittest import mock
 from urllib.parse import quote
 
@@ -17,6 +18,7 @@ from mlflow.environment_variables import (
     MLFLOW_SKILL_CONTENT_MAX_DECOMPRESSED_SIZE,
 )
 from mlflow.exceptions import MlflowException
+from mlflow.genai.skill_content.digest import compute_tree_digest
 from mlflow.protos.databricks_pb2 import (
     INTERNAL_ERROR,
     NOT_IMPLEMENTED,
@@ -42,7 +44,7 @@ from tests.server.skill_registry.conftest import (
 pytestmark = pytest.mark.notrackingurimock
 
 _DIGEST = "ab" * 32
-_UPLOAD = SkillVersionRegistration(name="reviewer", organization="acme", digest=_DIGEST)
+_UPLOAD = SkillVersionRegistration(name="reviewer", organization="acme")
 
 
 def _special_member(name, member_type, linkname=""):
@@ -52,16 +54,24 @@ def _special_member(name, member_type, linkname=""):
     return member
 
 
+def _tree_digest(root: Path, files=SKILL_FILES) -> str:
+    for name, data in files.items():
+        path = root / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(data)
+    return compute_tree_digest(root)
+
+
 # --- upload flow ------------------------------------------------------------------------------
 
 
-def test_upload_stores_content_then_commits_a_complete_version(store, artifact_root):
+def test_upload_stores_content_then_commits_a_complete_version(store, artifact_root, tmp_path):
     version = register_skill_version(_UPLOAD, content=skill_archive(), multipart=True)
 
     assert version.version == 1
     assert version.status == SkillStatus.ACTIVE
     assert version.source_type == SkillSourceType.MLFLOW
-    assert version.digest == _DIGEST
+    assert version.digest == _tree_digest(tmp_path / "expected")
     assert isinstance(version.source, MlflowSource)
     assert version.source.subpath is None
     match = re.fullmatch(
@@ -72,6 +82,32 @@ def test_upload_stores_content_then_commits_a_complete_version(store, artifact_r
     assert stored_files(stored) == sorted(SKILL_FILES)
     assert (stored / "SKILL.md").read_bytes() == SKILL_FILES["SKILL.md"]
     assert store.get_skill_version("reviewer", 1, organization="acme") == version
+
+
+def test_upload_confirms_a_matching_client_digest(store, artifact_root, tmp_path):
+    digest = _tree_digest(tmp_path / "expected")
+    registration = replace(_UPLOAD, digest=digest)
+
+    version = register_skill_version(registration, content=skill_archive(), multipart=True)
+
+    assert version.digest == digest
+
+
+def test_upload_rejects_a_client_digest_that_does_not_match_the_content(
+    store, artifact_root, tmp_path
+):
+    digest = _tree_digest(tmp_path / "expected")
+    registration = replace(_UPLOAD, digest=_DIGEST)
+
+    with pytest.raises(
+        MlflowException,
+        match=f"does not match the uploaded content: expected {digest}, got {_DIGEST}",
+    ) as exc:
+        register_skill_version(registration, content=skill_archive(), multipart=True)
+
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+    assert stored_files(artifact_root) == []
+    assert version_rows(store) == 0
 
 
 def test_upload_without_organization_omits_the_segment(store, artifact_root):

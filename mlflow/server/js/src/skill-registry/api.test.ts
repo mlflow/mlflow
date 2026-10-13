@@ -251,6 +251,19 @@ describe('Skill Registry API', () => {
         expect.objectContaining({ body: JSON.stringify(request) }),
       );
     });
+
+    it('creates a skill as JSON', async () => {
+      await SkillRegistryApi.createSkill({ name: 'code-review', organization: 'acme' });
+
+      expect(fetchMock).toHaveBeenLastCalledWith(
+        'ajax-api/3.0/mlflow/skills',
+        expect.objectContaining({
+          method: 'POST',
+          headers: expect.objectContaining({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ name: 'code-review', organization: 'acme' }),
+        }),
+      );
+    });
   });
 
   describe('multipart registration', () => {
@@ -327,15 +340,23 @@ describe('Skill Registry API', () => {
             new Blob(['archive'], { type: 'application/gzip' }),
           ),
       },
-    ])('preserves the backend error message for $name', async ({ status, invoke }) => {
+      {
+        name: 'createSkill 400',
+        status: 400,
+        invoke: () => SkillRegistryApi.createSkill({ name: 'code-review' }),
+      },
+    ])('preserves the backend error message and code for $name', async ({ status, invoke }) => {
       fetchMock.mockResolvedValueOnce(
-        new Response(JSON.stringify({ message: 'Skill registration failed' }), {
+        new Response(JSON.stringify({ error_code: 'RESOURCE_ALREADY_EXISTS', message: 'Skill registration failed' }), {
           status,
           headers: { 'Content-Type': 'application/json' },
         }),
       );
 
-      await expect(invoke()).rejects.toThrow('Skill registration failed');
+      await expect(invoke()).rejects.toMatchObject({
+        message: 'Skill registration failed',
+        errorCode: 'RESOURCE_ALREADY_EXISTS',
+      });
     });
   });
 });

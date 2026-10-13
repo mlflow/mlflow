@@ -3775,6 +3775,10 @@
     "defaultMessage": "Find",
     "description": "Visible label for finding content in a trace"
   },
+  "CI6Mdr": {
+    "defaultMessage": "This alias is automatically maintained and always resolves to the newest active version, or to the newest version that is not deleted when none is active.",
+    "description": "Tooltip explaining the automatic latest alias on a skill version"
+  },
   "CIIUsc": {
     "defaultMessage": "SHA-256",
     "description": "Package file hash label"

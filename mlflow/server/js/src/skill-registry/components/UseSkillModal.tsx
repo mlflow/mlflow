@@ -42,16 +42,12 @@ export const UseSkillModal = ({
   const workspace = useActiveWorkspace();
   const [format, setFormat] = useState<SnippetFormat>('cli');
   const [targetId, setTargetId] = useState<SkillInstallTargetId>('claude-code');
-  const destination = SKILL_INSTALL_TARGETS.find((target) => target.id === targetId)?.destination ?? './skills';
+  const skillsDirectory = SKILL_INSTALL_TARGETS.find((target) => target.id === targetId)?.destination ?? './skills';
+  // Pull writes the skill's files directly into the destination, so each skill gets its own folder.
+  const destination = `${skillsDirectory}/${skill.name}`;
   const uri = formatSkillUri(skill.name, skill.organization, version);
   const cliSnippet = formatSkillPullCli(uri, destination, workspace);
-  const pythonSnippet = formatSkillPullPython({
-    name: skill.name,
-    organization: skill.organization || undefined,
-    version,
-    destination,
-    workspace,
-  });
+  const pythonSnippet = formatSkillPullPython(uri, destination, workspace);
   const snippet = format === 'cli' ? cliSnippet : pythonSnippet;
   const identity = formatSkillIdentity(skill.name, skill.organization);
 

@@ -6,7 +6,7 @@ import { SkillRegistryApi } from '../api';
 import { parseSkillIdentityInput } from '../sourceLocation';
 import type { RegistryIcon, SkillVersion } from '../types';
 import { settleAll } from '../../common/utils/registryWrites';
-import { formatSkillIdentity, isNotFoundError, isPermissionDeniedError } from '../utils';
+import { formatSkillIdentity, isAlreadyExistsError, isNotFoundError, isPermissionDeniedError } from '../utils';
 import { useInvalidateSkillQueries } from './useInvalidateSkillQueries';
 import { useRegisterSkillMutation, type RegisterSkillMutationInput } from './useRegisterSkillMutation';
 
@@ -18,10 +18,10 @@ export interface SkillPresentation {
 }
 
 /**
- * The formatted identity when a skill with this name already exists, or undefined when the name is free.
- * POST /register reuses an existing skill and silently adds a version to it, so a new skill's name must be
- * confirmed free first. Only a 404 confirms that; a 403 still means the skill exists, and any other failure
- * throws so the create waits until the check succeeds.
+ * The formatted identity when a skill with this name already exists, or undefined when the name is free or
+ * cannot be checked. A 404 means free; a 403 is treated as unknown, since with workspaces enabled the server
+ * also answers 403 for a name that does not exist. Any other failure throws so the create waits until the
+ * check succeeds.
  */
 export const findTakenSkillIdentity = async (identityInput: string, intl: IntlShape) => {
   const identity = parseSkillIdentityInput(identityInput);
@@ -29,18 +29,16 @@ export const findTakenSkillIdentity = async (identityInput: string, intl: IntlSh
   try {
     await SkillRegistryApi.getSkill(identity.name, identity.organization);
   } catch (lookupError) {
-    if (isNotFoundError(lookupError as Error)) return undefined;
-    if (!isPermissionDeniedError(lookupError as Error)) {
-      throw new Error(
-        intl.formatMessage(
-          {
-            defaultMessage: "Couldn't check whether this name is already registered: {reason} Try again.",
-            description: 'Error when the skill name availability check fails before registration',
-          },
-          { reason: (lookupError as Error).message },
-        ),
-      );
-    }
+    if (isNotFoundError(lookupError as Error) || isPermissionDeniedError(lookupError as Error)) return undefined;
+    throw new Error(
+      intl.formatMessage(
+        {
+          defaultMessage: "Couldn't check whether this name is already registered: {reason} Try again.",
+          description: 'Error when the skill name availability check fails before registration',
+        },
+        { reason: (lookupError as Error).message },
+      ),
+    );
   }
   return formatSkillIdentity(identity.name, identity.organization);
 };
@@ -102,10 +100,8 @@ export const useRegisterSkillSubmission = ({
       await SkillRegistryApi.createSkill(createRequest(name, organization, presentation));
       return true;
     } catch (createFailure) {
-      // The create's error code does not reach the client, so a conflict is recognized by looking the name up.
-      const taken = await findTakenSkillIdentity(formatSkillIdentity(name, organization), intl).catch(() => undefined);
-      if (taken) {
-        onNameTaken(taken);
+      if (isAlreadyExistsError(createFailure)) {
+        onNameTaken(formatSkillIdentity(name, organization));
       } else {
         setFailure(messageOf(createFailure, String(createFailure)));
       }

@@ -14,6 +14,8 @@ import { setActiveWorkspace } from '../../workspaces/utils/WorkspaceUtils';
 import {
   createMockSkill,
   createMockSkillVersion,
+  getMockedGetSkillErrorResponse,
+  getMockedGetSkillPermissionDeniedResponse,
   getMockedGetSkillResponse,
   getMockedSearchSkillsErrorResponse,
   getMockedSearchSkillsPermissionDeniedResponse,
@@ -582,6 +584,90 @@ describe('SkillRegistryPage', () => {
     expect(
       await screen.findByText('A skill named "@redhat-ai/skills-developer" is already registered.'),
     ).toBeInTheDocument();
+    expect(registerCalled).toBe(false);
+  });
+
+  it('creates a skill whose name check the server refused', async () => {
+    // With workspaces enabled, the server answers 403 for a name that does not exist just as it does for a skill
+    // the caller may not read, so a refused check must not count as "taken".
+    let checkRefused = false;
+    let registerCalled = false;
+    server.use(
+      rest.get(getAjaxUrl(`${BASE_URL}/@redhat-ai/skills-developer`), (_req, res, ctx) => {
+        checkRefused = true;
+        return res(
+          ctx.status(403),
+          ctx.json({ error_code: 'PERMISSION_DENIED', message: 'Not allowed to view this skill' }),
+        );
+      }),
+      rest.post(getAjaxUrl(`${BASE_URL}/@redhat-ai/skills-developer/versions`), (_req, res, ctx) => {
+        registerCalled = true;
+        return res(
+          ctx.json(createMockSkillVersion({ name: 'skills-developer', organization: 'redhat-ai', version: 1 })),
+        );
+      }),
+    );
+    renderPage();
+
+    await openCreateSkillDialog();
+    await userEvent.type(screen.getByLabelText('Location'), 'https://github.com/redhat-ai/skills-developer');
+    await userEvent.click(screen.getByLabelText('Name'));
+    await userEvent.tab();
+    await waitFor(() => expect(checkRefused).toBe(true));
+    await act(async () => {});
+    expect(screen.queryByText(/is already registered/)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Create' })).toBeEnabled();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Create' }));
+    await waitFor(() => expect(registerCalled).toBe(true));
+    expect(screen.queryByText(/is already registered/)).not.toBeInTheDocument();
+  });
+
+  it('reports a taken name from the create itself when the check was refused', async () => {
+    let registerCalled = false;
+    server.use(
+      getMockedGetSkillPermissionDeniedResponse(),
+      rest.post(getAjaxUrl(BASE_URL), (_req, res, ctx) =>
+        res(ctx.status(400), ctx.json({ error_code: 'RESOURCE_ALREADY_EXISTS', message: 'Skill already exists' })),
+      ),
+      rest.post(getAjaxUrl(`${BASE_URL}/@redhat-ai/skills-developer/versions`), (_req, res, ctx) => {
+        registerCalled = true;
+        return res(ctx.json({}));
+      }),
+    );
+    renderPage();
+
+    await openCreateSkillDialog();
+    await userEvent.type(screen.getByLabelText('Location'), 'https://github.com/redhat-ai/skills-developer');
+    await userEvent.click(screen.getByRole('button', { name: 'Create' }));
+
+    expect(
+      await screen.findByText('A skill named "@redhat-ai/skills-developer" is already registered.'),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Create' })).toBeDisabled();
+    expect(registerCalled).toBe(false);
+  });
+
+  it('shows why creating the skill failed when the name is not the reason', async () => {
+    let registerCalled = false;
+    server.use(
+      getMockedGetSkillErrorResponse(404),
+      rest.post(getAjaxUrl(BASE_URL), (_req, res, ctx) =>
+        res(ctx.status(400), ctx.json({ error_code: 'INVALID_PARAMETER_VALUE', message: 'Invalid icon' })),
+      ),
+      rest.post(getAjaxUrl(`${BASE_URL}/@redhat-ai/skills-developer/versions`), (_req, res, ctx) => {
+        registerCalled = true;
+        return res(ctx.json({}));
+      }),
+    );
+    renderPage();
+
+    await openCreateSkillDialog();
+    await userEvent.type(screen.getByLabelText('Location'), 'https://github.com/redhat-ai/skills-developer');
+    await userEvent.click(screen.getByRole('button', { name: 'Create' }));
+
+    expect(await screen.findByText('Invalid icon')).toBeInTheDocument();
+    expect(screen.queryByText(/is already registered/)).not.toBeInTheDocument();
     expect(registerCalled).toBe(false);
   });
 
