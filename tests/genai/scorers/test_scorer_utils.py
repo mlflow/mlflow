@@ -967,10 +967,12 @@ def test_definition_digest_changes_after_the_scorer_is_edited():
 
 def test_definition_digest_leaves_scorer_caches_unchanged():
     check = _check_scorer()
-    ensemble = make_scorer_ensemble(name="ensemble", scorers=[check], ensemble_fn="maximum")
+    inner = make_scorer_ensemble(name="inner", scorers=[check], ensemble_fn="maximum")
+    outer = make_scorer_ensemble(name="outer", scorers=[inner], ensemble_fn="maximum")
 
     get_scorer_definition_digest(check)
-    get_scorer_definition_digest(ensemble)
+    get_scorer_definition_digest(inner)
+    get_scorer_definition_digest(outer)
 
     assert check._cached_dump is None
 

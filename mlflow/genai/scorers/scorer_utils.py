@@ -7,7 +7,7 @@ import json
 import logging
 import threading
 from textwrap import dedent
-from typing import TYPE_CHECKING, Any, Callable, NamedTuple
+from typing import TYPE_CHECKING, Any, Callable, Iterator, NamedTuple
 
 from pydantic import BaseModel
 
@@ -520,13 +520,18 @@ def _normalize_definition(value: Any) -> Any:
 _MODEL_DUMP_LOCK = threading.Lock()
 
 
+def _iter_scorer_tree(scorer: Any) -> Iterator[Any]:
+    yield scorer
+    for sub_scorer in getattr(scorer, "_scorers", []):
+        yield from _iter_scorer_tree(sub_scorer)
+
+
 def _model_dump_without_caching(scorer: Any) -> dict[str, Any]:
-    # `model_dump()` caches its result on the scorer and its ensemble sub-scorers, and `register()`
-    # reuses that cache. Restore it, so hashing doesn't freeze the definition at its first digest.
+    # `model_dump()` caches its result on the scorer and on every nested ensemble sub-scorer, and
+    # `register()` reuses that cache. Restore it, so hashing doesn't freeze the definition at its
+    # first digest.
     with _MODEL_DUMP_LOCK:
-        scorers = [
-            s for s in [scorer, *getattr(scorer, "_scorers", [])] if hasattr(s, "_cached_dump")
-        ]
+        scorers = [s for s in _iter_scorer_tree(scorer) if hasattr(s, "_cached_dump")]
         cached_dumps = [s._cached_dump for s in scorers]
         try:
             return scorer.model_dump()

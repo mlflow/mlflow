@@ -33,7 +33,7 @@ from mlflow.genai.evaluation.harness import (
     backpressure_buffer,
 )
 from mlflow.genai.evaluation.rate_limiter import RPSRateLimiter
-from mlflow.genai.scorers import get_scorer
+from mlflow.genai.scorers import get_scorer, make_scorer_ensemble
 from mlflow.genai.scorers.base import SCORER_BACKEND_TRACKING, scorer
 from mlflow.genai.scorers.builtin_scorers import RelevanceToQuery
 from mlflow.genai.scorers.scorer_utils import get_scorer_definition_digest
@@ -2482,6 +2482,25 @@ def test_evaluate_does_not_freeze_the_scorer_definition_for_register(monkeypatch
     loaded = get_scorer(name="edited_scorer", experiment_id=experiment_id)
     assert loaded.description == "updated description"
     assert loaded.aggregations == ["max"]
+
+
+def test_evaluate_does_not_freeze_nested_ensemble_scorers_for_register(monkeypatch):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS", "true")
+    experiment_id = mlflow.create_experiment("register-nested-after-evaluate")
+
+    @scorer
+    def leaf(outputs) -> float:
+        return 1.0
+
+    inner = make_scorer_ensemble(name="inner", scorers=[leaf], ensemble_fn="maximum")
+    outer = make_scorer_ensemble(name="outer", scorers=[inner], ensemble_fn="maximum")
+
+    mlflow.genai.evaluate(data=[{"inputs": {"q": "a"}, "outputs": "b"}], scorers=[outer])
+    leaf.description = "updated description"
+    outer.register(experiment_id=experiment_id)
+
+    loaded = get_scorer(name="outer", experiment_id=experiment_id)
+    assert loaded._scorers[0]._scorers[0].description == "updated description"
 
 
 def test_evaluate_with_tracking_store_dataset_to_df_logs_the_dataset():
