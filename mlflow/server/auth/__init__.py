@@ -275,6 +275,11 @@ from mlflow.protos.webhooks_pb2 import (
 )
 from mlflow.server import app
 from mlflow.server import skill_registry_api as _skill_registry_api
+from mlflow.server._request_keys import (
+    MCP_SERVER_ALLOWED_ACTIONS,
+    SCOPED_MCP_ACCESS_ENDPOINT_FILTER,
+    SCOPED_MCP_SERVER_FILTER,
+)
 from mlflow.server.asgi_utils import get_routed_asgi_path
 from mlflow.server.auth.config import DEFAULT_AUTHORIZATION_FUNCTION, read_auth_config
 from mlflow.server.auth.entities import GetUserPermissionResult, User
@@ -430,7 +435,6 @@ from mlflow.server.handlers import (
     _get_model_registry_store,
     _get_normalized_request_json,
     _get_request_message,
-    _get_search_filter,
     _get_tracking_store,
     _get_validated_flask_request_json,
     catch_mlflow_exception,
@@ -488,7 +492,6 @@ from mlflow.utils.search_utils import SearchFilterWithScope, SearchUtils
 from mlflow.utils.uri import _decode, is_models_uri, validate_path_is_safe
 from mlflow.utils.validation import (
     _MAX_BULK_REGISTER_SKILLS,
-    _parse_experiment_id,
     _validate_organization_name,
     _validate_password,
     _validate_skill_name,
@@ -1936,9 +1939,17 @@ def validate_can_read_experiment():
 def validate_can_read_scorer_list():
     # ``ListScorers`` accepts an optional ``experiment_id``. When set, gate
     # on the experiment read permission as usual; when empty, the request is
-    # a cross-experiment listing. Basic auth scopes that collection request to
-    # readable experiment IDs before the handler reaches the tracking store. The
-    # after-request handler still applies the independent scorer-level grant.
+    # a cross-experiment listing and ``AFTER_REQUEST_PATH_HANDLERS`` does the
+    # per-row RBAC filtering, so the route itself is open to any authenticated
+    # caller.
+    #
+    # NB: this validator does not look at the newer, plural ``experiment_ids``
+    # field (added for pre-request auth scoping, see #24964). A caller that
+    # sets only ``experiment_ids`` still falls through to the ``not
+    # args.get("experiment_id")`` branch below and relies on the
+    # post-response filtering in ``filter_list_scorers`` -- basic auth does
+    # not yet use ``experiment_ids`` to scope the query before it reaches
+    # the store.
     args = request.args if request.method == "GET" else (request.get_json(silent=True) or {})
     if not args.get("experiment_id"):
         return True
@@ -3412,7 +3423,7 @@ def _get_resource_read_scope_for_user(username: str, resource_type: str) -> _Res
 
 
 def get_readable_resource_ids(resource_type: str) -> set[str] | None:
-    """Return readable IDs for request-side scoping."""
+    """Return readable IDs for the current request's authenticated user."""
     if not is_auth_enabled():
         return None
     try:
@@ -3438,181 +3449,6 @@ def get_readable_resource_ids_for_user(username: str, resource_type: str) -> set
         return set()
 
 
-def _quote_filter_values(values: set[str]) -> str:
-    # Filter lists are parsed with ``ast.literal_eval``, so use Python string literals.
-    return ", ".join(repr(value) for value in sorted(values))
-
-
-def _append_request_filter(
-    request_json: dict[str, Any],
-    scope_key: str,
-    scope_values: set[str],
-    scope_comparator: Literal["IN", "NOT IN"] = "IN",
-) -> None:
-    filter_string = request_json.get("filter")
-    if filter_string is not None and not isinstance(filter_string, str):
-        raise MlflowException.invalid_parameter_value("'filter' must be a string.")
-    request_json["filter"] = SearchFilterWithScope(
-        filter_string or "", scope_key, scope_values, scope_comparator
-    )
-
-
-def _request_field(request_json: dict[str, Any], name: str) -> tuple[str, Any] | None:
-    json_name = "".join(
-        part.capitalize() if index else part for index, part in enumerate(name.split("_"))
-    )
-    if name in request_json:
-        return name, request_json[name]
-    if json_name in request_json:
-        return json_name, request_json[json_name]
-    return None
-
-
-def _get_readable_experiment_ids_for_user(username: str) -> set[str] | None:
-    readable_ids = get_readable_resource_ids_for_user(username, "experiment")
-    if readable_ids is None:
-        return None
-
-    return _valid_experiment_ids(readable_ids)
-
-
-def _valid_experiment_ids(experiment_ids: set[str]) -> set[str]:
-    valid_ids = set()
-    for experiment_id in experiment_ids:
-        try:
-            _parse_experiment_id(experiment_id)
-        except MlflowException:
-            # Older role grants may contain exact patterns that numeric store queries cannot use.
-            continue
-        valid_ids.add(experiment_id)
-    return valid_ids
-
-
-def _scope_experiment_ids(request_json: dict[str, Any], username: str) -> None:
-    scope = _get_resource_read_scope_for_user(username, "experiment")
-    if scope.comparator is None:
-        return
-
-    field = _request_field(request_json, "experiment_ids")
-    if scope.comparator == "NOT IN":
-        if field is None:
-            # These endpoints accept only a positive experiment-id list. Expanding a NOT IN
-            # scope here would change the endpoint's view semantics and breaks backends that do
-            # not support experiment_ids. Their response filters enforce named denies instead.
-            return
-        name, requested_ids = field
-        if not isinstance(requested_ids, list) or not all(
-            isinstance(experiment_id, str) for experiment_id in requested_ids
-        ):
-            raise MlflowException.invalid_parameter_value(f"'{name}' must be a list of strings.")
-        request_json[name] = [
-            experiment_id
-            for experiment_id in requested_ids
-            if experiment_id not in scope.resource_ids
-        ]
-        return
-
-    readable_ids = set()
-    for experiment_id in scope.resource_ids:
-        try:
-            _parse_experiment_id(experiment_id)
-        except MlflowException:
-            continue
-        readable_ids.add(experiment_id)
-    if field is None:
-        request_json["experiment_ids"] = sorted(readable_ids)
-    else:
-        name, requested_ids = field
-        if not isinstance(requested_ids, list) or not all(
-            isinstance(experiment_id, str) for experiment_id in requested_ids
-        ):
-            raise MlflowException.invalid_parameter_value(f"'{name}' must be a list of strings.")
-        request_json[name] = [
-            experiment_id for experiment_id in requested_ids if experiment_id in readable_ids
-        ]
-
-
-def _scope_search_experiments(request_json: dict[str, Any], username: str) -> None:
-    scope = _get_resource_read_scope_for_user(username, "experiment")
-    if scope.comparator is None:
-        return
-    # MLflow-generated experiment IDs are non-negative. An empty finite scope must still produce
-    # a valid request filter so the generic handler can execute without auth-specific branches.
-    values = _valid_experiment_ids(scope.resource_ids) or {"-1"}
-    _append_request_filter(request_json, "experiment_id", values, scope.comparator)
-
-
-def _scope_search_logged_models(request_json: dict[str, Any], username: str) -> None:
-    if _request_field(request_json, "experiment_ids") is not None:
-        _scope_experiment_ids(request_json, username)
-
-
-def _scope_model_search(request_json: dict[str, Any], username: str) -> None:
-    model_scope = _get_resource_read_scope_for_user(username, "registered_model")
-    prompt_scope = _get_resource_read_scope_for_user(username, "prompt")
-    if model_scope.comparator is None or prompt_scope.comparator is None:
-        return
-    if model_scope.comparator != prompt_scope.comparator:
-        # Registered models and prompts share a name namespace. A single IN/NOT IN
-        # predicate cannot represent one finite scope combined with one wildcard
-        # scope, so the response filter remains the enforcement layer for this
-        # mixed shape.
-        return
-    if model_scope.comparator == "IN":
-        values = model_scope.resource_ids | prompt_scope.resource_ids
-    else:
-        # A name denied in only one namespace can still identify a readable row
-        # in the other namespace, so only deny names shared by both namespaces.
-        values = model_scope.resource_ids & prompt_scope.resource_ids
-        if not values:
-            return
-    _append_request_filter(request_json, "name", values or {""}, model_scope.comparator)
-
-
-def _scope_list_scorers(request_json: dict[str, Any], username: str) -> None:
-    readable_ids = _get_readable_experiment_ids_for_user(username)
-    if readable_ids is None:
-        return
-
-    singular_field = _request_field(request_json, "experiment_id")
-    if singular_field is not None:
-        name, experiment_id = singular_field
-        if not isinstance(experiment_id, str):
-            raise MlflowException.invalid_parameter_value(f"'{name}' must be a string.")
-        if experiment_id in readable_ids:
-            return
-        request_json.pop(name)
-        if has_request_context():
-            g.mlflow_scoped_request_removed_fields = {"experiment_id"}
-        request_json["experiment_ids"] = []
-        return
-    _scope_experiment_ids(request_json, username)
-
-
-def _get_scoped_request_json() -> dict[str, Any] | None:
-    if request.method == "GET":
-        request_json = {}
-        for field in ("filter", "experiment_id", "experimentId"):
-            if field in request.args:
-                request_json[field] = request.args[field]
-        for field in ("experiment_ids", "experimentIds"):
-            if field in request.args:
-                request_json[field] = request.args.getlist(field)
-        g.mlflow_scoped_request_overrides = request_json
-        return request_json
-    request_json = _get_normalized_request_json()
-    if not isinstance(request_json, dict):
-        return None
-    request_json = request_json.copy()
-    g.mlflow_scoped_request_json = request_json
-    return request_json
-
-
-def _scope_request(request_scoper: Callable[[dict[str, Any], str], None], username: str) -> None:
-    if (request_json := _get_scoped_request_json()) is not None:
-        request_scoper(request_json, username)
-
-
 def _get_mcp_server_wildcard_search_scope(
     username: str,
 ) -> tuple[set[str], Literal["IN", "NOT IN"]]:
@@ -3624,7 +3460,7 @@ def _scope_mcp_server_search_query(
     request: StarletteRequest,
     username: str,
     scope_key: str = "name",
-    state_key: str = "mlflow_scoped_mcp_server_filter",
+    state_key: str = SCOPED_MCP_SERVER_FILTER,
 ) -> None:
     readable_names = get_readable_resource_ids_for_user(username, "mcp_server")
     if readable_names is None:
@@ -4326,10 +4162,10 @@ def validate_can_search_traces_v3():
 
 
 def validate_can_batch_get_traces():
-    # The handler injects the caller's readable experiment IDs into the storage
-    # query, avoiding per-trace ownership lookups. A user with no readable
-    # experiments receives 403; otherwise unreadable trace IDs yield an empty
-    # result after request-side scoping.
+    # The after-request handler (redact_batch_trace_assessments) filters results
+    # to only the traces in experiments the caller can read. This validator only
+    # checks that the caller has at least one readable experiment (workspace-level
+    # gate); per-trace RBAC is enforced in the response filter.
     username = authenticate_request().username
     can_read_trace = _role_based_read_predicate(
         username,
@@ -5069,8 +4905,6 @@ def filter_list_review_queues(resp: Response) -> None:
 BEFORE_REQUEST_HANDLERS = {
     # Routes for experiments
     CreateExperiment: validate_can_create_experiment,
-    # Basic auth injects collection scope before the handler reaches storage.
-    SearchExperiments: _allow_authenticated,
     GetExperiment: validate_can_read_experiment,
     GetExperimentByName: validate_can_read_experiment_by_name,
     DeleteExperiment: validate_can_delete_experiment,
@@ -5232,23 +5066,41 @@ BEFORE_REQUEST_HANDLERS = {
 }
 
 
-REQUEST_SCOPE_HANDLERS = {
-    SearchExperiments: _scope_search_experiments,
-    SearchRegisteredModels: _scope_model_search,
-    SearchModelVersions: _scope_model_search,
-    SearchLoggedModels: _scope_search_logged_models,
-    BatchGetTraces: _scope_experiment_ids,
-    BatchGetTraceInfos: _scope_experiment_ids,
-    ListScorers: _scope_list_scorers,
-}
+def _scope_mcp_server_list(request: StarletteRequest, username: str) -> None:
+    _scope_mcp_server_search_query(
+        request, username, scope_key="name", state_key=SCOPED_MCP_SERVER_FILTER
+    )
+
+
+def _scope_mcp_access_endpoint_list(request: StarletteRequest, username: str) -> None:
+    _scope_mcp_server_search_query(
+        request, username, scope_key="server_name", state_key=SCOPED_MCP_ACCESS_ENDPOINT_FILTER
+    )
+
+
+# FastAPI analogue of REQUEST_SCOPE_HANDLERS: each entry is a (path_matcher, scoper) pair.
+# The middleware loops over this table for GET requests instead of encoding per-route checks.
+FASTAPI_REQUEST_SCOPE_HANDLERS: list[
+    tuple[
+        Callable[[str], bool],
+        Callable[[StarletteRequest, str], None],
+    ]
+] = [
+    (
+        lambda path: path in get_mcp_server_api_route_prefixes(),
+        _scope_mcp_server_list,
+    ),
+    (
+        lambda path: any(
+            path == f"{prefix}/endpoints" for prefix in get_mcp_server_api_route_prefixes()
+        ),
+        _scope_mcp_access_endpoint_list,
+    ),
+]
 
 
 def get_before_request_handler(request_class):
     return BEFORE_REQUEST_HANDLERS.get(request_class)
-
-
-def get_request_scope_handler(request_class):
-    return REQUEST_SCOPE_HANDLERS.get(request_class)
 
 
 @functools.lru_cache(maxsize=None)
@@ -5439,18 +5291,6 @@ LOGGED_MODEL_BEFORE_REQUEST_VALIDATORS[
         "GET",
     )
 ] = validate_can_read_logged_model
-
-
-REQUEST_SCOPERS = {
-    (http_path, method): handler
-    for http_path, handler, methods in get_endpoints(get_request_scope_handler)
-    for method in methods
-    if handler in REQUEST_SCOPE_HANDLERS.values()
-}
-
-
-def _find_request_scoper(req: Request) -> Callable[[dict[str, Any], str], None] | None:
-    return REQUEST_SCOPERS.get((req.path, req.method))
 
 
 WEBHOOK_BEFORE_REQUEST_HANDLERS = {
@@ -6023,9 +5863,7 @@ def _before_request():
     if validator := _find_validator(request):
         if not validator():
             return make_forbidden_response()
-    if request_scoper := _find_request_scoper(request):
-        _scope_request(request_scoper, authorization.username)
-    elif validator is None and _is_proxy_artifact_path(request.path):
+    elif _is_proxy_artifact_path(request.path):
         proxy_validator = _get_proxy_artifact_validator(request.method, request.view_args)
         if proxy_validator is None:
             # Unrecognized method on a proxy-artifact URL: fail closed when the flag is on.
@@ -6034,8 +5872,7 @@ def _before_request():
         elif not proxy_validator():
             return make_forbidden_response()
     elif (
-        validator is None
-        and MLFLOW_BASIC_AUTH_FAIL_CLOSED.get()
+        MLFLOW_BASIC_AUTH_FAIL_CLOSED.get()
         and not _authorized_outside_before_request(request)
         and not _is_known_ungated_route(request.path)
     ):
@@ -6565,7 +6402,7 @@ def filter_search_registered_models(resp: Response):
 
     # re-fetch to fill max results
     request_message = _get_request_message(SearchRegisteredModels())
-    filter_string = _get_search_filter(request_message.filter)
+    filter_string = request_message.filter
     while (
         len(response_message.registered_models) < request_message.max_results
         and response_message.next_page_token != ""
@@ -6632,7 +6469,7 @@ def filter_search_model_versions(resp: Response):
     ):
         remaining = request_message.max_results - len(response_message.model_versions)
         refetched = _get_model_registry_store().search_model_versions(
-            filter_string=_get_search_filter(request_message.filter),
+            filter_string=request_message.filter,
             max_results=remaining,
             order_by=request_message.order_by,
             page_token=response_message.next_page_token,
@@ -7571,6 +7408,7 @@ AFTER_REQUEST_PATH_HANDLERS = {
 # filtering or redacting the response. Every other after-request handler is a side
 # effect of a write that a before-request validator must have already authorized.
 _SELF_AUTHORIZING_AFTER_REQUEST_HANDLERS = frozenset({
+    filter_search_experiments,
     filter_search_model_versions,
     filter_search_registered_models,
     filter_list_scorers,
@@ -9698,27 +9536,19 @@ def add_fastapi_permission_middleware(app: FastAPI) -> None:
         workspace_context.set_server_request_workspace(workspace.name if workspace else None)
 
         if not user.is_admin:
-            request.state.mcp_server_allowed_actions = lambda name: _permission_to_allowed_actions(
-                _get_mcp_server_permission(name, user.username)
+            setattr(
+                request.state,
+                MCP_SERVER_ALLOWED_ACTIONS,
+                lambda name: _permission_to_allowed_actions(
+                    _get_mcp_server_permission(name, user.username)
+                ),
             )
 
         if not user.is_admin and request.method == "GET":
-            if path in get_mcp_server_api_route_prefixes():
-                _scope_mcp_server_search_query(
-                    request,
-                    user.username,
-                    scope_key="name",
-                    state_key="mlflow_scoped_mcp_server_filter",
-                )
-            elif any(
-                path == f"{prefix}/endpoints" for prefix in get_mcp_server_api_route_prefixes()
-            ):
-                _scope_mcp_server_search_query(
-                    request,
-                    user.username,
-                    scope_key="server_name",
-                    state_key="mlflow_scoped_mcp_access_endpoint_filter",
-                )
+            for matcher, scoper in FASTAPI_REQUEST_SCOPE_HANDLERS:
+                if matcher(path):
+                    scoper(request, user.username)
+                    break
 
         # Pre-read request body for after-request handlers that need it (the
         # body is cached by Starlette so the route handler can still read it).

@@ -13,7 +13,6 @@ from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
 from mlflow.exceptions import MlflowException
 from mlflow.prompt.constants import IS_PROMPT_TAG_KEY
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, ErrorCode
-from mlflow.protos.service_pb2 import ListScorers, SearchExperiments, SearchLoggedModels
 from mlflow.server import auth as auth_module
 from mlflow.server import handlers
 from mlflow.server.auth.db.models import SqlRolePermission
@@ -50,210 +49,14 @@ from mlflow.server.auth.routes import (
     UPLOAD_ARTIFACT,
 )
 from mlflow.server.auth.sqlalchemy_store import RoleGrantRow, SqlAlchemyStore
-from mlflow.server.handlers import (
-    _assert_required,
-    _batch_get_trace_infos,
-    _batch_get_traces,
-    _get_request_message,
-)
+from mlflow.server.handlers import _batch_get_trace_infos, _batch_get_traces
 from mlflow.store.tracking.dbmodels.models import SqlSkill
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore as TrackingSqlAlchemyStore
 from mlflow.store.tracking.sqlalchemy_workspace_store import WorkspaceAwareSqlAlchemyStore
 from mlflow.utils import workspace_context
-from mlflow.utils.search_utils import (
-    SearchMCPServerUtils,
-    SearchModelUtils,
-    SearchModelVersionUtils,
-)
 
 from tests.helper_functions import random_str
 from tests.store.tracking.sqlalchemy_store.conftest import create_test_span
-
-
-@pytest.mark.parametrize(
-    "parser", [SearchModelUtils, SearchModelVersionUtils, SearchMCPServerUtils]
-)
-@pytest.mark.parametrize(
-    "value",
-    [
-        "model's-name",
-        r"model\name",
-        r"model\name's",
-        "model\nname",
-        "model\rname",
-        "model\tname",
-        "model\x00name",
-        "model\"'name",
-        "模型\u2028name",
-    ],
-)
-def test_quote_filter_values_round_trips_through_search_parsers(parser, value):
-    values = {value, "plain-model"}
-
-    parsed = parser.parse_search_filter(f"name IN ({auth_module._quote_filter_values(values)})")
-
-    assert parsed == [
-        {
-            "type": "attribute",
-            "key": "name",
-            "comparator": "IN",
-            "value": tuple(sorted(values)),
-        }
-    ]
-
-
-@pytest.mark.parametrize(
-    ("scoper", "request_json", "readable_ids", "expected_json"),
-    [
-        (
-            auth_module._scope_search_experiments,
-            {"filter": "name LIKE 'prod%'"},
-            {"experiment": {"1", "2"}},
-            {"filter": "name LIKE 'prod%' AND experiment_id IN ('1', '2')"},
-        ),
-        (
-            auth_module._scope_experiment_ids,
-            {"experiment_ids": ["1", "3"]},
-            {"experiment": {"1", "2"}},
-            {"experiment_ids": ["1"]},
-        ),
-        (
-            auth_module._scope_experiment_ids,
-            {},
-            {"experiment": {"1", "2"}},
-            {"experiment_ids": ["1", "2"]},
-        ),
-        (
-            auth_module._scope_list_scorers,
-            {"experiment_id": "3"},
-            {"experiment": {"1", "2"}},
-            {"experiment_ids": []},
-        ),
-        (
-            auth_module._scope_model_search,
-            {"filter": "name LIKE 'prod%'"},
-            {"registered_model": {"model"}, "prompt": {"prompt"}},
-            {"filter": "name LIKE 'prod%' AND name IN ('model', 'prompt')"},
-        ),
-    ],
-)
-def test_request_scopers_apply_basic_auth_scope_before_handler_deserialization(
-    monkeypatch, scoper, request_json, readable_ids, expected_json
-):
-    monkeypatch.setattr(
-        auth_module,
-        "get_readable_resource_ids_for_user",
-        lambda _username, resource_type: readable_ids.get(resource_type),
-    )
-    with auth_module.app.test_request_context(
-        method="POST", content_type="application/json", data=json.dumps(request_json)
-    ):
-        auth_module._scope_request(scoper, "user")
-        assert auth_module._get_normalized_request_json() == expected_json
-
-
-def test_request_scoper_preserves_camel_case_experiment_ids(monkeypatch):
-    monkeypatch.setattr(auth_module, "get_readable_resource_ids_for_user", lambda *_: {"2"})
-    with auth_module.app.test_request_context(
-        method="POST",
-        content_type="application/json",
-        data=json.dumps({"experimentIds": ["1", "2"]}),
-    ):
-        auth_module._scope_request(auth_module._scope_experiment_ids, "user")
-        assert auth_module._get_normalized_request_json() == {"experimentIds": ["2"]}
-
-
-@pytest.mark.parametrize(
-    "scoper", [auth_module._scope_experiment_ids, auth_module._scope_list_scorers]
-)
-@pytest.mark.parametrize("field", ["experiment_ids", "experimentIds"])
-@pytest.mark.parametrize("experiment_ids", [None, "1", {"1": True}, [1], [[]]])
-def test_request_scoper_rejects_malformed_experiment_ids(
-    monkeypatch, scoper, field, experiment_ids
-):
-    monkeypatch.setattr(auth_module, "get_readable_resource_ids_for_user", lambda *_: {"1"})
-    request_json = {field: experiment_ids}
-    with auth_module.app.test_request_context(
-        method="POST", content_type="application/json", data=json.dumps(request_json)
-    ):
-        with pytest.raises(MlflowException, match="must be a list of strings") as exc:
-            auth_module._scope_request(scoper, "user")
-    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
-
-
-@pytest.mark.parametrize("field", ["experiment_id", "experimentId"])
-@pytest.mark.parametrize("experiment_id", [None, 1, [], {}])
-def test_scorer_request_scoper_rejects_malformed_experiment_id(monkeypatch, field, experiment_id):
-    monkeypatch.setattr(auth_module, "get_readable_resource_ids_for_user", lambda *_: {"1"})
-    with pytest.raises(MlflowException, match="must be a string") as exc:
-        auth_module._scope_list_scorers({field: experiment_id}, "user")
-    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
-
-
-@pytest.mark.parametrize(
-    "scoper", [auth_module._scope_search_experiments, auth_module._scope_model_search]
-)
-@pytest.mark.parametrize("filter_value", [1, [], {}])
-def test_request_scoper_rejects_malformed_filter(monkeypatch, scoper, filter_value):
-    monkeypatch.setattr(auth_module, "get_readable_resource_ids_for_user", lambda *_: {"1"})
-    with pytest.raises(MlflowException, match="'filter' must be a string") as exc:
-        scoper({"filter": filter_value}, "user")
-    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
-
-
-def test_model_search_scopes_more_than_500_names(monkeypatch):
-    model_ids = {f"model-{index}" for index in range(501)}
-    monkeypatch.setattr(
-        auth_module,
-        "get_readable_resource_ids_for_user",
-        lambda _username, resource_type: (
-            model_ids if resource_type == "registered_model" else set()
-        ),
-    )
-    request_json = {}
-
-    auth_module._scope_model_search(request_json, "user")
-
-    assert request_json["filter"].scope_values == tuple(sorted({*model_ids, ""}))
-
-
-def test_experiment_search_scopes_more_than_500_ids(monkeypatch):
-    monkeypatch.setattr(
-        auth_module,
-        "_get_resource_read_scope_for_user",
-        lambda *_: auth_module._ResourceReadScope({str(index) for index in range(501)}, "IN"),
-    )
-    request_json = {"filter": "name LIKE 'prod%'"}
-
-    auth_module._scope_search_experiments(request_json, "user")
-
-    assert request_json["filter"].scope_values == tuple(sorted(str(index) for index in range(501)))
-
-
-def test_experiment_id_scope_scopes_more_than_500_ids(monkeypatch):
-    monkeypatch.setattr(
-        auth_module,
-        "_get_resource_read_scope_for_user",
-        lambda *_: auth_module._ResourceReadScope({str(index) for index in range(501)}, "IN"),
-    )
-    request_json = {}
-
-    auth_module._scope_experiment_ids(request_json, "user")
-
-    assert request_json == {"experiment_ids": sorted(str(index) for index in range(501))}
-
-
-def test_search_logged_models_scope_preserves_missing_required_experiment_ids(monkeypatch):
-    monkeypatch.setattr(auth_module, "get_readable_resource_ids_for_user", lambda *_: {"1"})
-    with auth_module.app.test_request_context(method="POST", json={}):
-        auth_module._scope_request(auth_module._scope_search_logged_models, "user")
-
-        with pytest.raises(MlflowException, match="Missing value for required parameter") as exc:
-            _get_request_message(
-                SearchLoggedModels(), schema={"experiment_ids": [_assert_required]}
-            )
-
-    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
 
 
 def test_readable_resource_ids_for_user_does_not_hide_attribute_errors(monkeypatch):
@@ -271,227 +74,6 @@ def test_readable_resource_ids_for_user_does_not_hide_attribute_errors(monkeypat
 
     with pytest.raises(AttributeError, match="unexpected authorization defect"):
         auth_module.get_readable_resource_ids_for_user("user", "experiment")
-
-
-def test_request_scoper_merges_get_query_overrides_before_handler_parsing(monkeypatch):
-    monkeypatch.setattr(auth_module, "get_readable_resource_ids_for_user", lambda *_: {"1", "2"})
-    with auth_module.app.test_request_context(
-        "/api/2.0/mlflow/experiments/search",
-        method="GET",
-        query_string={"filter": "name LIKE 'prod%'"},
-    ):
-        auth_module._scope_request(auth_module._scope_search_experiments, "user")
-        request_message = _get_request_message(SearchExperiments())
-
-    assert request_message.filter == "name LIKE 'prod%' AND experiment_id IN ('1', '2')"
-
-
-def test_request_scoper_merges_get_overrides_without_query_parameters(monkeypatch):
-    monkeypatch.setattr(auth_module, "get_readable_resource_ids_for_user", lambda *_: {"1", "2"})
-    with auth_module.app.test_request_context("/api/2.0/mlflow/experiments/search", method="GET"):
-        auth_module._scope_request(auth_module._scope_search_experiments, "user")
-        request_message = _get_request_message(SearchExperiments())
-
-    assert request_message.filter == "experiment_id IN ('1', '2')"
-
-
-@pytest.mark.parametrize("field", ["experiment_id", "experimentId"])
-def test_scorer_scope_removes_unreadable_get_experiment_id(monkeypatch, field):
-    monkeypatch.setattr(auth_module, "get_readable_resource_ids_for_user", lambda *_: {"1"})
-    with auth_module.app.test_request_context(
-        "/api/2.0/mlflow/scorers/list",
-        method="GET",
-        query_string={field: "2"},
-    ):
-        auth_module._scope_request(auth_module._scope_list_scorers, "user")
-        request_message = _get_request_message(ListScorers())
-
-    assert request_message.experiment_id == ""
-    assert list(request_message.experiment_ids) == []
-
-
-@pytest.mark.parametrize(
-    ("readable_ids", "expected_ids"),
-    [({"1"}, ["1"]), (set(), [])],
-)
-def test_batch_get_traces_get_passes_injected_experiment_scope_to_storage(
-    monkeypatch, readable_ids, expected_ids
-):
-    tracking_store = Mock()
-    tracking_store.batch_get_traces.return_value = []
-    monkeypatch.setattr(auth_module, "get_readable_resource_ids_for_user", lambda *_: readable_ids)
-    monkeypatch.setattr("mlflow.server.handlers._get_tracking_store", lambda: tracking_store)
-
-    with auth_module.app.test_request_context(
-        "/api/3.0/mlflow/traces/batchGet?trace_ids=trace-1", method="GET"
-    ):
-        auth_module._scope_request(auth_module._scope_experiment_ids, "user")
-        response = _batch_get_traces()
-
-    assert response.status_code == 200
-    tracking_store.batch_get_traces.assert_called_once_with(
-        ["trace-1"], None, experiment_ids=expected_ids
-    )
-
-
-@pytest.mark.parametrize(
-    ("readable_ids", "expected_ids"),
-    [({"1"}, ["1"]), (set(), [])],
-)
-def test_batch_get_trace_infos_get_passes_injected_experiment_scope_to_storage(
-    monkeypatch, readable_ids, expected_ids
-):
-    tracking_store = Mock()
-    tracking_store.batch_get_trace_infos.return_value = []
-    monkeypatch.setattr(auth_module, "get_readable_resource_ids_for_user", lambda *_: readable_ids)
-    monkeypatch.setattr("mlflow.server.handlers._get_tracking_store", lambda: tracking_store)
-
-    with auth_module.app.test_request_context(
-        "/api/3.0/mlflow/traces/batchGetInfos?trace_ids=trace-1", method="GET"
-    ):
-        auth_module._scope_request(auth_module._scope_experiment_ids, "user")
-        response = _batch_get_trace_infos()
-
-    assert response.status_code == 200
-    tracking_store.batch_get_trace_infos.assert_called_once_with(
-        ["trace-1"], experiment_ids=expected_ids
-    )
-
-
-def test_search_experiments_request_scope_uses_current_grants_for_each_page(monkeypatch):
-    resolver = Mock(side_effect=[{"1", "2"}, {"1", "3"}])
-    monkeypatch.setattr(auth_module, "get_readable_resource_ids_for_user", resolver)
-
-    for expected_filter in (
-        "experiment_id IN ('1', '2')",
-        "experiment_id IN ('1', '3')",
-    ):
-        with auth_module.app.test_request_context(
-            method="POST", content_type="application/json", data=json.dumps({"page_token": "token"})
-        ):
-            auth_module._scope_request(auth_module._scope_search_experiments, "user")
-            assert auth_module._get_normalized_request_json()["filter"] == expected_filter
-
-    assert resolver.call_args_list == [
-        (("user", "experiment"),),
-        (("user", "experiment"),),
-    ]
-
-
-def test_search_experiments_scope_preserves_named_deny_under_wildcard_read(
-    workspace_permission_setup,
-    monkeypatch,
-):
-    store = workspace_permission_setup["store"]
-    username = workspace_permission_setup["username"]
-    _set_workspace_permission(store, username, NO_PERMISSIONS.name)
-    _grant(
-        store,
-        username,
-        "team-a",
-        [("experiment", "*", READ.name), ("experiment", "42", DENY.name)],
-    )
-    monkeypatch.setattr(auth_module, "is_auth_enabled", lambda: True)
-
-    request_json = {"filter": "name LIKE 'prod%'"}
-    auth_module._scope_search_experiments(request_json, username)
-
-    assert request_json["filter"] == "name LIKE 'prod%' AND experiment_id NOT IN ('42')"
-
-
-def test_search_experiments_scope_excludes_conflicting_named_deny(
-    workspace_permission_setup,
-    monkeypatch,
-):
-    store = workspace_permission_setup["store"]
-    username = workspace_permission_setup["username"]
-    _set_workspace_permission(store, username, NO_PERMISSIONS.name)
-    _grant(
-        store,
-        username,
-        "team-a",
-        [("experiment", "41", READ.name), ("experiment", "42", READ.name)],
-    )
-    _grant(store, username, "team-a", [("experiment", "42", DENY.name)])
-    monkeypatch.setattr(auth_module, "is_auth_enabled", lambda: True)
-
-    request_json = {"filter": "name LIKE 'prod%'"}
-    auth_module._scope_search_experiments(request_json, username)
-
-    assert request_json["filter"] == "name LIKE 'prod%' AND experiment_id IN ('41')"
-
-
-def test_search_experiments_scope_ignores_legacy_nonnumeric_grants(monkeypatch):
-    monkeypatch.setattr(
-        auth_module,
-        "_get_resource_read_scope_for_user",
-        lambda *_: auth_module._ResourceReadScope({"1", "", "1.5", "obsolete"}, "IN"),
-    )
-
-    request_json = {"filter": "name LIKE 'prod%'"}
-    auth_module._scope_search_experiments(request_json, "user")
-
-    assert request_json["filter"] == "name LIKE 'prod%' AND experiment_id IN ('1')"
-
-
-def test_experiment_id_scope_keeps_an_unfiltered_request_for_wildcard_read_with_named_deny(
-    monkeypatch,
-):
-    monkeypatch.setattr(
-        auth_module,
-        "_get_resource_read_scope_for_user",
-        lambda *_: auth_module._ResourceReadScope({"2"}, "NOT IN"),
-    )
-
-    request_json = {}
-    auth_module._scope_experiment_ids(request_json, "user")
-
-    assert request_json == {}
-
-
-def test_experiment_id_scope_removes_named_denies_from_client_selector(monkeypatch):
-    monkeypatch.setattr(
-        auth_module,
-        "_get_resource_read_scope_for_user",
-        lambda *_: auth_module._ResourceReadScope({"2"}, "NOT IN"),
-    )
-
-    request_json = {"experiment_ids": ["1", "2", "3"]}
-    auth_module._scope_experiment_ids(request_json, "user")
-
-    assert request_json == {"experiment_ids": ["1", "3"]}
-
-
-def test_model_search_scope_does_not_overfilter_names_denied_in_one_namespace(monkeypatch):
-    def scope(_username, resource_type):
-        resource_ids = {
-            "registered_model": {"private-model"},
-            "prompt": {"private-prompt"},
-        }
-        return auth_module._ResourceReadScope(resource_ids[resource_type], "NOT IN")
-
-    monkeypatch.setattr(auth_module, "_get_resource_read_scope_for_user", scope)
-
-    request_json = {"filter": "name LIKE 'prod%'"}
-    auth_module._scope_model_search(request_json, "user")
-
-    assert request_json["filter"] == "name LIKE 'prod%'"
-
-
-def test_model_search_scope_excludes_names_denied_in_both_namespaces(monkeypatch):
-    def scope(_username, resource_type):
-        resource_ids = {
-            "registered_model": {"private-model", "registered-model-only"},
-            "prompt": {"private-model", "prompt-only"},
-        }
-        return auth_module._ResourceReadScope(resource_ids[resource_type], "NOT IN")
-
-    monkeypatch.setattr(auth_module, "_get_resource_read_scope_for_user", scope)
-
-    request_json = {"filter": "name LIKE 'prod%'"}
-    auth_module._scope_model_search(request_json, "user")
-
-    assert request_json["filter"] == "name LIKE 'prod%' AND name NOT IN ('private-model')"
 
 
 def test_cleanup_workspace_permissions_handler(monkeypatch):
@@ -1093,14 +675,13 @@ def _set_workspace_permission(store: SqlAlchemyStore, username: str, permission:
         "experiment_pattern",
         "trace_permission",
         "status_code",
-        "experiment_ids",
     ),
     [
-        (USE, None, None, 403, None),
-        (USE, "1", None, 200, ["1"]),
-        (USE, "*", None, 200, None),
-        (USE, "*", DENY, 403, None),
-        (MANAGE, None, None, 200, None),
+        (USE, None, None, 403),
+        (USE, "1", None, 200),
+        (USE, "*", None, 200),
+        (USE, "*", DENY, 403),
+        (MANAGE, None, None, 200),
     ],
 )
 def test_batch_trace_workspace_members_require_resource_read_grants(
@@ -1114,7 +695,6 @@ def test_batch_trace_workspace_members_require_resource_read_grants(
     experiment_pattern,
     trace_permission,
     status_code,
-    experiment_ids,
 ):
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
@@ -1153,9 +733,7 @@ def test_batch_trace_workspace_members_require_resource_read_grants(
     if status_code == 403:
         batch_get.assert_not_called()
     else:
-        args = (trace_ids, None) if endpoint == "batchGet" else (trace_ids,)
-        expected_kwargs = {"experiment_ids": experiment_ids} if experiment_ids is not None else {}
-        batch_get.assert_called_once_with(*args, **expected_kwargs)
+        batch_get.assert_called_once()
 
 
 @pytest.mark.parametrize(
@@ -1182,7 +760,11 @@ def test_batch_trace_queries_filter_mixed_trace_ids(
 ):
     auth_store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
-    _set_workspace_permission(auth_store, username, USE.name)
+    # NO_PERMISSIONS workspace + explicit experiment READ means the response filter can correctly
+    # distinguish readable vs. unreadable experiments without workspace-level read fallback.
+    # (With USE workspace, all experiments are implicitly readable and filtering requires the
+    # deferred REQUEST_SCOPE_HANDLERS to scope the store query instead.)
+    _set_workspace_permission(auth_store, username, NO_PERMISSIONS.name)
     tracking_store = WorkspaceAwareSqlAlchemyStore(db_uri, (tmp_path / "artifacts").as_uri())
     request.addfinalizer(tracking_store._dispose_engine)
     readable_experiment = tracking_store.create_experiment("readable")
@@ -1214,6 +796,7 @@ def test_batch_trace_queries_filter_mixed_trace_ids(
     }[request_case]
     app = Flask(__name__)
     app.before_request(auth_module._before_request)
+    app.after_request(auth_module._after_request)
     path = f"{prefix}/traces/{endpoint}"
     app.add_url_rule(path, view_func=handler, methods=[method])
     kwargs = (

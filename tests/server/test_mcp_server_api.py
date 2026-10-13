@@ -18,7 +18,8 @@ from mlflow.protos.databricks_pb2 import (
     ErrorCode,
 )
 from mlflow.server import auth as auth_module
-from mlflow.server.auth.permissions import MANAGE, get_permission
+from mlflow.server._request_keys import MCP_SERVER_ALLOWED_ACTIONS
+from mlflow.server.auth.permissions import get_permission
 from mlflow.server.fastapi_app import add_registry_exception_handlers
 from mlflow.server.mcp_server_api import (
     CreateMCPServerRequest,
@@ -593,7 +594,7 @@ def test_mutation_responses_return_allowed_actions_from_request_state(store, ope
     request = SimpleNamespace(
         state=SimpleNamespace(
             username="alice",
-            mcp_server_allowed_actions=lambda _name: actions,
+            **{MCP_SERVER_ALLOWED_ACTIONS: lambda _name: actions},
         )
     )
 
@@ -666,7 +667,7 @@ def test_server_responses_with_independent_identity_middleware(store, suffix, pl
     async def external_identity(request, call_next):
         request.state.username = "external-auth-user"
         if plugin_actions is not None:
-            request.state.mcp_server_allowed_actions = action_resolver
+            setattr(request.state, MCP_SERVER_ALLOWED_ACTIONS, action_resolver)
         return await call_next(request)
 
     with (
@@ -715,165 +716,6 @@ def test_search_servers_scopes_empty_auth_scope_before_storage(store):
     assert response.json()["mcp_servers"] == []
     assert search.call_args.kwargs["filter_string"] == "name IN ('')"
     can_read.assert_called_once_with("alice", "mcp_server")
-
-
-@pytest.mark.parametrize("caller_filter", [None, "name = 'com.example/visible-a'"])
-@pytest.mark.parametrize("scope_size", [800, 3400])
-def test_search_servers_scopes_oversized_auth_scope_on_sqlite(
-    store, caller_filter, scope_size, limit_sqlite_variables
-):
-    for name in ("hidden", "visible-a", "visible-b"):
-        store.create_mcp_server(name=f"com.example/{name}")
-    app = _create_registry_fastapi_app()
-    auth_module.add_fastapi_permission_middleware(app)
-    oversized_names = {f"com.example/server-{i}" for i in range(scope_size)} | {
-        "com.example/visible-a",
-        "com.example/visible-b",
-    }
-    limit_sqlite_variables(store.engine)
-    if scope_size == 800:
-        caller_filter = (
-            caller_filter + " AND " if caller_filter else ""
-        ) + f"name IN ({', '.join(repr(name) for name in sorted(oversized_names))})"
-    with (
-        mock.patch("mlflow.server.handlers._get_tracking_store", return_value=store) as tracking,
-        mock.patch(
-            "mlflow.server.auth._authenticate_fastapi_request",
-            return_value=SimpleNamespace(username="alice", id=1, is_admin=False),
-        ) as authenticate,
-        mock.patch(
-            "mlflow.server.auth.get_readable_resource_ids_for_user", return_value=oversized_names
-        ) as readable,
-        mock.patch(
-            "mlflow.server.auth._role_based_read_predicate", return_value=lambda _name: True
-        ) as can_read,
-        mock.patch(
-            "mlflow.server.auth._get_mcp_server_permission", return_value=get_permission("READ")
-        ) as permission,
-    ):
-        client = TestClient(app)
-        params = {"max_results": 1}
-        if caller_filter:
-            params["filter_string"] = caller_filter
-        names = []
-        while True:
-            response = client.get(PREFIX, params=params)
-            assert response.status_code == 200, response.text
-            names.extend(server["name"] for server in response.json()["mcp_servers"])
-            if not (token := response.json().get("next_page_token")):
-                break
-            params["page_token"] = token
-
-    assert names == (
-        ["com.example/visible-a"]
-        if caller_filter and "name = " in caller_filter
-        else ["com.example/visible-a", "com.example/visible-b"]
-    )
-    tracking.assert_called()
-    authenticate.assert_called()
-    readable.assert_called_with("alice", "mcp_server")
-    assert can_read.call_args_list == [mock.call("alice", "mcp_server")] * len(names)
-    permission.assert_called()
-
-
-def test_search_all_endpoints_scopes_oversized_auth_scope_on_sqlite(store, limit_sqlite_variables):
-    visible_names = ["com.example/visible-a", "com.example/visible-b"]
-    for name in visible_names:
-        store.create_mcp_server(name=name)
-        store.create_mcp_server_version(_server_json(name, "1.0.0"), status=MCPStatus.ACTIVE)
-        store.create_mcp_access_endpoint(
-            name, f"https://mcp.example.com/{name}", server_version="1.0.0"
-        )
-
-    app = _create_registry_fastapi_app()
-    auth_module.add_fastapi_permission_middleware(app)
-    oversized_names = {f"com.example/server-{i}" for i in range(3400)} | set(visible_names)
-    limit_sqlite_variables(store.engine)
-
-    with (
-        mock.patch("mlflow.server.handlers._get_tracking_store", return_value=store),
-        mock.patch(
-            "mlflow.server.auth._authenticate_fastapi_request",
-            return_value=SimpleNamespace(username="alice", id=1, is_admin=False),
-        ),
-        mock.patch(
-            "mlflow.server.auth.get_readable_resource_ids_for_user", return_value=oversized_names
-        ),
-        mock.patch(
-            "mlflow.server.auth._role_based_read_predicate", return_value=lambda _name: True
-        ) as can_read,
-        mock.patch(
-            "mlflow.server.auth._mcp_server_version_not_denied", return_value=True
-        ) as version,
-    ):
-        client = TestClient(app)
-        names = []
-        params = {"max_results": 1}
-        while True:
-            response = client.get(f"{PREFIX}/endpoints", params=params)
-            assert response.status_code == 200, response.text
-            names.extend(
-                endpoint["server_name"] for endpoint in response.json()["mcp_access_endpoints"]
-            )
-            if not (token := response.json().get("next_page_token")):
-                break
-            params["page_token"] = token
-
-    assert len(names) == len(visible_names)
-    assert set(names) == set(visible_names)
-    assert can_read.call_args_list == [mock.call("alice", "mcp_server")] * len(names)
-    assert {call.args[1] for call in version.call_args_list} == set(visible_names)
-
-
-def test_search_all_endpoints_scopes_combined_sqlite_in_filters(store, limit_sqlite_variables):
-    visible_names = ["com.example/visible-a", "com.example/visible-b"]
-    for name in visible_names:
-        store.create_mcp_server(name=name)
-        store.create_mcp_server_version(_server_json(name, "1.0.0"), status=MCPStatus.ACTIVE)
-        store.create_mcp_access_endpoint(
-            name, f"https://mcp.example.com/{name}", server_version="1.0.0"
-        )
-
-    app = _create_registry_fastapi_app()
-    auth_module.add_fastapi_permission_middleware(app)
-    readable_names = {f"com.example/readable-{i}" for i in range(498)} | set(visible_names)
-    caller_names = {f"com.example/caller-{i}" for i in range(498)} | set(visible_names)
-    caller_filter = f"server_name IN ({', '.join(repr(name) for name in sorted(caller_names))})"
-    limit_sqlite_variables(store.engine)
-
-    with (
-        mock.patch("mlflow.server.handlers._get_tracking_store", return_value=store),
-        mock.patch(
-            "mlflow.server.auth._authenticate_fastapi_request",
-            return_value=SimpleNamespace(username="alice", id=1, is_admin=False),
-        ),
-        mock.patch(
-            "mlflow.server.auth.get_readable_resource_ids_for_user", return_value=readable_names
-        ),
-        mock.patch(
-            "mlflow.server.auth._role_based_read_predicate", return_value=lambda _name: True
-        ) as can_read,
-        mock.patch(
-            "mlflow.server.auth._mcp_server_version_not_denied", return_value=True
-        ) as version,
-    ):
-        client = TestClient(app)
-        names = []
-        params = {"filter_string": caller_filter, "max_results": 1}
-        while True:
-            response = client.get(f"{PREFIX}/endpoints", params=params)
-            assert response.status_code == 200, response.text
-            names.extend(
-                endpoint["server_name"] for endpoint in response.json()["mcp_access_endpoints"]
-            )
-            if not (token := response.json().get("next_page_token")):
-                break
-            params["page_token"] = token
-
-    assert len(names) == len(visible_names)
-    assert set(names) == set(visible_names)
-    assert can_read.call_args_list == [mock.call("alice", "mcp_server")] * len(names)
-    assert {call.args[1] for call in version.call_args_list} == set(visible_names)
 
 
 def test_search_servers_returns_resolved_icon_source(client):

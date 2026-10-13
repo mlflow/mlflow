@@ -27,12 +27,9 @@ from mlflow.protos.databricks_pb2 import (
 )
 from mlflow.store.artifact.utils.models import _parse_model_uri
 from mlflow.store.db.utils import (
-    _SQLITE_LARGE_IN_THRESHOLD,
     _all_tables_exist,
-    _get_large_sqlite_in_subquery,
     _get_managed_session_maker,
     _get_routing_session_maker,
-    _get_sqlite_safe_statement,
     _initialize_tables,
     create_sqlalchemy_engine_with_retry,
 )
@@ -76,19 +73,6 @@ from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 _logger = logging.getLogger(__name__)
 
 
-def _get_attribute_filter(session: Session, attr, comparator, value, dialect):
-    if (
-        dialect == "sqlite"
-        and comparator in ("IN", "NOT IN")
-        and isinstance(value, tuple)
-        and len(value) > _SQLITE_LARGE_IN_THRESHOLD
-    ):
-        # Bind the values as one JSON array to avoid SQLite's host-parameter limit.
-        in_filter = attr.in_(_get_large_sqlite_in_subquery(session, value))
-        return ~in_filter if comparator == "NOT IN" else in_filter
-    return SearchUtils.get_sql_comparison_func(comparator, dialect)(attr, value)
-
-
 # Models that carry a ``workspace`` column and must be filtered
 # by the active workspace in every query.
 _WORKSPACE_MODELS = (
@@ -99,6 +83,7 @@ _WORKSPACE_MODELS = (
     SqlModelVersionTag,
     SqlRegisteredModelAlias,
 )
+
 
 # For each database table, fetch its columns and define an appropriate attribute for each column
 # on the table's associated object representation (Mapper). This is necessary to ensure that
@@ -588,9 +573,7 @@ class SqlAlchemyStore(AbstractStore):
             )
             if page_token:
                 query = query.offset(offset)
-            sql_registered_models = (
-                session.execute(_get_sqlite_safe_statement(query, session)).scalars().all()
-            )
+            sql_registered_models = session.execute(query).scalars().all()
             next_page_token = self._compute_next_token(
                 max_results_for_query, len(sql_registered_models), offset, max_results
             )
@@ -625,7 +608,7 @@ class SqlAlchemyStore(AbstractStore):
                         error_code=INVALID_PARAMETER_VALUE,
                     )
                 attr = getattr(SqlRegisteredModel, key)
-                attr_filter = _get_attribute_filter(session, attr, comparator, value, dialect)
+                attr_filter = SearchUtils.get_sql_comparison_func(comparator, dialect)(attr, value)
                 attribute_filters.append(attr_filter)
             elif type_ == "tag":
                 if comparator not in ("=", "!=", "LIKE", "ILIKE"):
@@ -729,7 +712,7 @@ class SqlAlchemyStore(AbstractStore):
                 else:
                     key_name = key
                 attr = getattr(SqlModelVersion, key_name)
-                val_filter = _get_attribute_filter(session, attr, comparator, value, dialect)
+                val_filter = SearchUtils.get_sql_comparison_func(comparator, dialect)(attr, value)
                 attribute_filters.append(val_filter)
             elif type_ == "tag":
                 if comparator not in ("=", "!=", "LIKE", "ILIKE"):
@@ -1390,9 +1373,7 @@ class SqlAlchemyStore(AbstractStore):
             )
             if page_token:
                 query = query.offset(offset)
-            sql_model_versions = (
-                session.execute(_get_sqlite_safe_statement(query, session)).scalars().all()
-            )
+            sql_model_versions = session.execute(query).scalars().all()
             next_page_token = self._compute_next_token(
                 max_results_for_query, len(sql_model_versions), offset, max_results
             )

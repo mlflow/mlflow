@@ -113,7 +113,8 @@ def test_authenticated_search_with_large_scope(
     if registry.engine is not tracking.engine:
         limit_sqlite_variables(registry.engine)
     if scope_size == 800:
-        # Each list is below the old per-list threshold; together they exceed 999 bindings.
+        # Combined with the authorization scope values, this pushes the total bindings past
+        # SQLite's 999-variable limit.
         key = "experiment_id" if resource_type == "experiment" else "name"
         caller_filter = (
             caller_filter + " AND " if caller_filter else ""

@@ -127,11 +127,6 @@ from mlflow.protos.databricks_pb2 import (
 from mlflow.store.analytics import trace_correlation
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.db.db_types import MSSQL, MYSQL, SQLITE
-from mlflow.store.db.utils import (
-    _SQLITE_LARGE_IN_THRESHOLD,
-    _get_large_sqlite_in_subquery,
-    _get_sqlite_safe_statement,
-)
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import (
     MAX_RESULTS_QUERY_TRACE_METRICS,
@@ -728,12 +723,7 @@ class SqlAlchemyStore(
                 .offset(offset)
                 .limit(max_results + 1)
             )
-            queried_experiments = (
-                session
-                .execute(_get_sqlite_safe_statement(stmt, session))
-                .scalars(SqlExperiment)
-                .all()
-            )
+            queried_experiments = session.execute(stmt).scalars(SqlExperiment).all()
             experiments = [
                 self._to_experiment(e, effective_retention_context) for e in queried_experiments
             ]
@@ -3893,13 +3883,6 @@ class SqlAlchemyStore(
         parsed_experiment_ids = _parse_experiment_ids(experiment_ids)
         if not parsed_experiment_ids:
             exp_filter = sqlalchemy.false()
-        elif (
-            self._get_dialect() == "sqlite"
-            and len(parsed_experiment_ids) > _SQLITE_LARGE_IN_THRESHOLD
-        ):
-            exp_filter = SqlLoggedModel.experiment_id.in_(
-                _get_large_sqlite_in_subquery(session, parsed_experiment_ids)
-            )
         else:
             exp_filter = SqlLoggedModel.experiment_id.in_(parsed_experiment_ids)
         return models.filter(
@@ -3949,13 +3932,7 @@ class SqlAlchemyStore(
                 .offset(offset)
                 .limit(max_results + 1)
             )
-            models = (
-                session
-                .execute(_get_sqlite_safe_statement(models.statement, session))
-                .unique()
-                .scalars()
-                .all()
-            )
+            models = session.execute(models.statement).unique().scalars().all()
 
             if len(models) > max_results:
                 token = SearchLoggedModelsPaginationToken(
