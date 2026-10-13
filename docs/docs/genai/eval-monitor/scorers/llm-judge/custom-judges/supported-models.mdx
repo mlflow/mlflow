@@ -49,12 +49,12 @@ TypeSafe judge models use TypeSafe's System One evaluation API rather than a cha
 
 `make_judge()` chooses the API from the model provider when `model_api` is omitted:
 
-| Model URI | Default API | Explicit `model_api` choices |
-| --- | --- | --- |
-| `openai:/` | Chat Completions | `CHAT_COMPLETIONS`, `DECISIONS` |
-| `typesafe:/` | TypeSafe System One | `DECISIONS` |
-| `gateway:/` | Detect the endpoint type | `CHAT_COMPLETIONS`, `DECISIONS` |
-| Other supported providers | Chat Completions | `CHAT_COMPLETIONS` |
+| Model URI                 | Default API              | Explicit `model_api` choices    |
+| ------------------------- | ------------------------ | ------------------------------- |
+| `openai:/`                | Chat Completions         | `CHAT_COMPLETIONS`, `DECISIONS` |
+| `typesafe:/`              | TypeSafe System One      | `DECISIONS`                     |
+| `gateway:/`               | Detect the endpoint type | `CHAT_COMPLETIONS`, `DECISIONS` |
+| Other supported providers | Chat Completions         | `CHAT_COMPLETIONS`              |
 
 Use `ModelAPI.DECISIONS` with an OpenAI model that supports the Decision API. This requires `OPENAI_API_KEY` and `openai>=3.26.0`. The example below uses `gpt-6-luna`:
 
