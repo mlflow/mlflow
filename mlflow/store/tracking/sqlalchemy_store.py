@@ -10466,7 +10466,7 @@ def _get_session_scoped_trace_ids(scoped_trace_query: Query, assessment_filters)
 
 
 def _get_trace_content_presence_filter(field, dialect):
-    keys = SearchTraceUtils.TRACE_CONTENT_ATTRIBUTE_KEYS[field]
+    key = SearchTraceUtils.TRACE_CONTENT_ATTRIBUTE_KEY[field]
     if dialect == MSSQL:
         # JSON_VALUE returns NULL for strings over 4,000 characters; OPENJSON preserves them.
         attributes = func.openjson(SqlSpan.content, "$.attributes").table_valued(
@@ -10475,7 +10475,7 @@ def _get_trace_content_presence_filter(field, dialect):
         return (
             select(1)
             .select_from(attributes)
-            .where(attributes.c.key.in_(keys), attributes.c.type != 0)
+            .where(attributes.c.key == key, attributes.c.type != 0)
             .correlate(SqlSpan)
             .exists()
         )
@@ -10489,12 +10489,8 @@ def _get_trace_content_value(field, dialect):
         if dialect == POSTGRES
         else sqlalchemy.type_coerce(SqlSpan.content, sqlalchemy.JSON)
     )
-    return func.coalesce(
-        *(
-            content["attributes"][key].as_string()
-            for key in SearchTraceUtils.TRACE_CONTENT_ATTRIBUTE_KEYS[field]
-        )
-    )
+    key = SearchTraceUtils.TRACE_CONTENT_ATTRIBUTE_KEY[field]
+    return content["attributes"][key].as_string()
 
 
 def _get_trace_content_filter(field, comparator, value, dialect):

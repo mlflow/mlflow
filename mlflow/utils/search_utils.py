@@ -29,6 +29,7 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.db.db_types import MSSQL, MYSQL, POSTGRES, SQLITE
 from mlflow.tracing.constant import (
     AssessmentMetricSearchKey,
+    SpanAttributeKey,
     SpanMetricSearchKey,
     TraceMetadataKey,
     TraceMetricSearchKey,
@@ -1784,25 +1785,9 @@ class SearchTraceUtils(SearchUtils):
 
     # Supported span attributes
     _SUPPORTED_SPAN_ATTRIBUTES = {"name", "type", "status"}
-    TRACE_CONTENT_ATTRIBUTE_KEYS = {
-        "request": (
-            "mlflow.spanInputs",
-            "gen_ai.input.messages",
-            "gen_ai.tool.call.arguments",
-            "input.value",
-            "traceloop.entity.input",
-            "gcp.vertex.agent.llm_request",
-            "gcp.vertex.agent.tool_call_args",
-        ),
-        "response": (
-            "mlflow.spanOutputs",
-            "gen_ai.output.messages",
-            "gen_ai.tool.call.result",
-            "output.value",
-            "traceloop.entity.output",
-            "gcp.vertex.agent.llm_response",
-            "gcp.vertex.agent.tool_response",
-        ),
+    TRACE_CONTENT_ATTRIBUTE_KEY = {
+        "request": SpanAttributeKey.INPUTS,
+        "response": SpanAttributeKey.OUTPUTS,
     }
     VALID_TRACE_CONTENT_COMPARATORS = {
         "=",
@@ -1950,7 +1935,7 @@ class SearchTraceUtils(SearchUtils):
 
     @classmethod
     def is_trace_content(cls, key_type, key_name, comparator):
-        if key_type == cls._ATTRIBUTE_IDENTIFIER and key_name in cls.TRACE_CONTENT_ATTRIBUTE_KEYS:
+        if key_type == cls._ATTRIBUTE_IDENTIFIER and key_name in cls.TRACE_CONTENT_ATTRIBUTE_KEY:
             if comparator not in cls.VALID_TRACE_CONTENT_COMPARATORS:
                 raise MlflowException.invalid_parameter_value(
                     f"Unsupported operator '{comparator}' for trace.{key_name}. "

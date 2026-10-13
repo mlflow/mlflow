@@ -827,13 +827,13 @@ def test_search_traces_with_run_id_and_other_filters(store: SqlAlchemyStore):
 
 
 @pytest.mark.parametrize(
-    ("field", "primary", "fallback"),
+    ("field", "primary", "external"),
     [
-        ("request", "mlflow.spanInputs", "input.value"),
-        ("response", "mlflow.spanOutputs", "output.value"),
+        ("request", SpanAttributeKey.INPUTS, "input.value"),
+        ("response", SpanAttributeKey.OUTPUTS, "output.value"),
     ],
 )
-def test_search_traces_root_content_null_filters(store, field, primary, fallback):
+def test_search_traces_root_content_null_filters(store, field, primary, external):
     exp_id = store.create_experiment("root_content_null")
     cases = {
         "missing": {},
@@ -842,15 +842,15 @@ def test_search_traces_root_content_null_filters(store, field, primary, fallback
         "serialized-null": {primary: "null"},
         "populated": {primary: "content"},
         "large": {primary: "x" * 5000},
-        "fallback": {fallback: "content"},
-        "null-with-fallback": {primary: None, fallback: "content"},
+        "external": {external: "content"},
+        "null-with-external": {primary: None, external: "content"},
         "child-only": {},
     }
     for index, (trace_id, attributes) in enumerate(cases.items(), 1):
         _create_trace(store, trace_id, exp_id)
         root = create_test_span(trace_id, name=trace_id, span_id=index, attributes=attributes)
         store.log_spans(exp_id, [root])
-        if trace_id in ("explicit-null", "null-with-fallback"):
+        if trace_id in ("explicit-null", "null-with-external"):
             # Simulate a SQL/JSON null from an external span writer, rather than the string "null".
             with store.ManagedSessionMaker(read_only=False) as session:
                 row = session.query(SqlSpan).filter(SqlSpan.trace_id == trace_id).one()
@@ -874,25 +874,29 @@ def test_search_traces_root_content_null_filters(store, field, primary, fallback
         )
         return {trace.trace_id for trace in traces}
 
-    assert search("IS NULL") == {"missing", "explicit-null", "child-only"}
+    assert search("IS NULL") == {
+        "missing",
+        "explicit-null",
+        "null-with-external",
+        "child-only",
+    }
     assert search("IS NOT NULL") == {
         "empty",
         "serialized-null",
         "populated",
         "large",
-        "fallback",
-        "null-with-fallback",
+        "external",
     }
 
 
 @pytest.mark.parametrize(
-    ("field", "primary", "fallback"),
+    ("field", "primary", "external"),
     [
-        ("request", "mlflow.spanInputs", "input.value"),
-        ("response", "mlflow.spanOutputs", "output.value"),
+        ("request", SpanAttributeKey.INPUTS, "input.value"),
+        ("response", SpanAttributeKey.OUTPUTS, "output.value"),
     ],
 )
-def test_search_traces_root_content_value_filters(store, field, primary, fallback):
+def test_search_traces_root_content_value_filters(store, field, primary, external):
     if store._get_dialect() not in (SQLITE, POSTGRES):
         pytest.skip("Value comparisons require SQLite or PostgreSQL.")
     exp_id = store.create_experiment("root_content_values")
@@ -905,9 +909,9 @@ def test_search_traces_root_content_value_filters(store, field, primary, fallbac
         "escaped": {primary: 'quote" and slash\\'},
         "literal": {primary: "a.b[1]_%"},
         "large": {primary: "x" * 5000 + "needle"},
-        "fallback": {fallback: "Hello"},
-        "precedence": {primary: "other", fallback: "Hello"},
-        "null-fallback": {primary: None, fallback: "Hello"},
+        "external": {external: "Hello"},
+        "precedence": {primary: "other", external: "Hello"},
+        "null-external": {primary: None, external: "Hello"},
         "explicit-null": {primary: None},
         "child-only": {},
         "missing": {},
@@ -915,7 +919,7 @@ def test_search_traces_root_content_value_filters(store, field, primary, fallbac
     for index, (trace_id, attributes) in enumerate(cases.items(), 1):
         _create_trace(store, trace_id, exp_id)
         store.log_spans(exp_id, [create_test_span(trace_id, span_id=index, attributes=attributes)])
-        if trace_id in ("explicit-null", "null-fallback"):
+        if trace_id in ("explicit-null", "null-external"):
             with store.ManagedSessionMaker(read_only=False) as session:
                 row = session.query(SqlSpan).filter(SqlSpan.trace_id == trace_id).one()
                 content = json.loads(row.content)
@@ -937,8 +941,8 @@ def test_search_traces_root_content_value_filters(store, field, primary, fallbac
         other_exp, [create_test_span("other-experiment", attributes={primary: "Hello"})]
     )
 
-    exact = {"upper", "fallback", "null-fallback"}
-    present = set(cases) - {"explicit-null", "child-only", "missing"}
+    exact = {"upper", "external"}
+    present = set(cases) - {"explicit-null", "null-external", "child-only", "missing"}
     for operator, value, expected in [
         ("=", json.dumps("Hello"), exact),
         ("!=", json.dumps("Hello"), present - exact),
@@ -960,6 +964,75 @@ def test_search_traces_root_content_value_filters(store, field, primary, fallbac
             filter_string=f"trace.{field} {operator} '{value}' AND trace.status = 'OK'",
         )
         assert {trace.trace_id for trace in traces} == expected, (operator, value)
+
+
+@pytest.mark.parametrize(
+    ("input_key", "output_key"),
+    [
+        ("gen_ai.input.messages", "gen_ai.output.messages"),
+        ("traceloop.entity.input", "traceloop.entity.output"),
+        ("gcp.vertex.agent.llm_request", "gcp.vertex.agent.llm_response"),
+        ("ai.prompt", "ai.response.text"),
+    ],
+)
+def test_search_traces_root_content_normalized_attributes(store, input_key, output_key):
+    exp_id = store.create_experiment("normalized_content")
+    trace_id = "normalized-attributes"
+    _create_trace(store, trace_id, exp_id)
+    root = create_test_span(
+        trace_id, attributes={input_key: "request content", output_key: "response content"}
+    )
+    store.log_spans(exp_id, [root])
+
+    with store.ManagedSessionMaker() as session:
+        content = json.loads(
+            session.query(SqlSpan).filter(SqlSpan.trace_id == trace_id).one().content
+        )
+    assert content["attributes"][SpanAttributeKey.INPUTS] == json.dumps("request content")
+    assert content["attributes"][SpanAttributeKey.OUTPUTS] == json.dumps("response content")
+    for field in ("request", "response"):
+        traces, _ = store.search_traces([exp_id], filter_string=f"trace.{field} IS NOT NULL")
+        assert [trace.trace_id for trace in traces] == [trace_id]
+        if store._get_dialect() in (SQLITE, POSTGRES):
+            traces, _ = store.search_traces(
+                [exp_id], filter_string=f"trace.{field} = '{json.dumps(f'{field} content')}'"
+            )
+            assert [trace.trace_id for trace in traces] == [trace_id]
+
+
+def test_search_traces_root_content_normalized_events(store):
+    exp_id = store.create_experiment("event_content")
+    trace_id = "normalized-events"
+    _create_trace(store, trace_id, exp_id)
+    root = create_test_span(trace_id).to_dict()
+    root["events"] = [
+        {
+            "name": "gen_ai.content.prompt",
+            "time_unix_nano": 1000000000,
+            "attributes": {"gen_ai.prompt": json.dumps("request content")},
+        },
+        {
+            "name": "gen_ai.content.completion",
+            "time_unix_nano": 1000000000,
+            "attributes": {"gen_ai.completion": json.dumps("response content")},
+        },
+    ]
+    store.log_spans(exp_id, [Span.from_dict(root)])
+
+    with store.ManagedSessionMaker() as session:
+        content = json.loads(
+            session.query(SqlSpan).filter(SqlSpan.trace_id == trace_id).one().content
+        )
+    assert content["attributes"][SpanAttributeKey.INPUTS] == json.dumps("request content")
+    assert content["attributes"][SpanAttributeKey.OUTPUTS] == json.dumps("response content")
+    for field in ("request", "response"):
+        traces, _ = store.search_traces([exp_id], filter_string=f"trace.{field} IS NOT NULL")
+        assert [trace.trace_id for trace in traces] == [trace_id]
+        if store._get_dialect() in (SQLITE, POSTGRES):
+            traces, _ = store.search_traces(
+                [exp_id], filter_string=f"trace.{field} = '{json.dumps(f'{field} content')}'"
+            )
+            assert [trace.trace_id for trace in traces] == [trace_id]
 
 
 @pytest.mark.parametrize("field", ["request", "response"])
