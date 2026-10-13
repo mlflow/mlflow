@@ -1,6 +1,11 @@
 import subprocess
 import sys
 from pathlib import Path
+from unittest import mock
+
+import pytest
+
+from dev import remove_experimental_decorators as module
 
 SCRIPT_PATH = "dev/remove_experimental_decorators.py"
 
@@ -73,6 +78,38 @@ def func():
     )
 
 
+def test_get_mlflow_release_dates_recovers_from_transient_url_error() -> None:
+    response = mock.MagicMock()
+    response.__enter__.return_value = response
+    response.read.return_value = b'{"releases": {}}'
+    with (
+        mock.patch.object(
+            module,
+            "urlopen",
+            side_effect=[module.URLError("connection reset"), response],
+        ) as urlopen,
+        mock.patch.object(module, "sleep") as sleep,
+    ):
+        assert module.get_mlflow_release_dates() == {}
+
+    assert urlopen.call_count == 2
+    urlopen.assert_called_with("https://pypi.org/pypi/mlflow/json", timeout=10)
+    sleep.assert_called_once_with(1)
+
+
+def test_get_mlflow_release_dates_reraises_after_three_attempts() -> None:
+    error = module.URLError("connection reset")
+    with (
+        mock.patch.object(module, "urlopen", side_effect=error) as urlopen,
+        mock.patch.object(module, "sleep") as sleep,
+        pytest.raises(module.URLError, match="connection reset"),
+    ):
+        module.get_mlflow_release_dates()
+
+    assert urlopen.call_count == 3
+    assert sleep.call_args_list == [mock.call(1), mock.call(2)]
+
+
 def test_script_with_multiple_decorators(tmp_path: Path) -> None:
     test_file = tmp_path / "test.py"
     test_file.write_text("""
@@ -134,3 +171,73 @@ def func():
         [sys.executable, SCRIPT_PATH, "--cutoff-days", "180", "--dry-run", test_file], text=True
     )
     assert "Would remove" in output
+
+
+def test_skip_preserves_decorator(tmp_path: Path) -> None:
+    test_file = tmp_path / "test.py"
+    test_file.write_text("""
+@experimental(version="1.0.0", skip=True)
+def func():
+    pass
+""")
+    original_content = test_file.read_text()
+
+    subprocess.check_call([sys.executable, SCRIPT_PATH, test_file])
+    assert test_file.read_text() == original_content
+
+
+def test_skip_dry_run_shows_skipped(tmp_path: Path) -> None:
+    test_file = tmp_path / "test.py"
+    test_file.write_text("""
+@experimental(version="1.0.0", skip=True)
+def func():
+    pass
+""")
+
+    output = subprocess.check_output(
+        [sys.executable, SCRIPT_PATH, "--dry-run", test_file], text=True
+    )
+    assert "Skipped (skip=True)" in output
+    assert "Would remove" not in output
+
+
+def test_skip_false_still_removed(tmp_path: Path) -> None:
+    test_file = tmp_path / "test.py"
+    test_file.write_text("""
+@experimental(version="1.0.0", skip=False)
+def func():
+    pass
+""")
+
+    subprocess.check_call([sys.executable, SCRIPT_PATH, test_file])
+    content = test_file.read_text()
+    assert "@experimental" not in content
+
+
+def test_skip_mixed_file(tmp_path: Path) -> None:
+    test_file = tmp_path / "test.py"
+    test_file.write_text("""
+@experimental(version="1.0.0", skip=True)
+def func_keep():
+    pass
+
+@experimental(version="1.0.0")
+def func_remove():
+    pass
+""")
+
+    subprocess.check_call([sys.executable, SCRIPT_PATH, test_file])
+    content = test_file.read_text()
+    assert "func_keep" in content
+    assert "func_remove" in content
+    assert (
+        content
+        == """
+@experimental(version="1.0.0", skip=True)
+def func_keep():
+    pass
+
+def func_remove():
+    pass
+"""
+    )

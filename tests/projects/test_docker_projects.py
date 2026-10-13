@@ -33,7 +33,7 @@ def _build_uri(base_uri, subdirectory):
     return base_uri
 
 
-@pytest.mark.parametrize("use_start_run", map(str, [0, 1]))
+@pytest.mark.parametrize("use_start_run", ["0", "1"])
 def test_docker_project_execution(use_start_run, docker_example_base_image):
     expected_params = {"use_start_run": use_start_run}
     submitted_run = mlflow.projects.run(
@@ -111,6 +111,7 @@ def test_docker_project_tracking_uri_propagation(
     expected_command_segment,
     docker_example_base_image,
 ):
+    pytest.skip("FileStore is no longer supported.")
     mock_provider = mock.MagicMock()
     mock_provider.get_config.return_value = DatabricksConfig.from_password(
         "host", "user", "pass", insecure=True

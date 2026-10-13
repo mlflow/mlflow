@@ -4,7 +4,7 @@ import { Empty, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 
 import { ModelTraceExplorerSummarySpans, SUMMARY_SPANS_MIN_WIDTH } from './ModelTraceExplorerSummarySpans';
-import { getTraceLevelAssessments, useIntermediateNodes } from '../ModelTraceExplorer.utils';
+import { useIntermediateNodes } from '../ModelTraceExplorer.utils';
 import ModelTraceExplorerResizablePane from '../ModelTraceExplorerResizablePane';
 import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateContext';
 import { AssessmentsPane } from '../assessments-pane/AssessmentsPane';
@@ -19,7 +19,6 @@ export const ModelTraceExplorerSummaryView = () => {
     nodeMap,
     assessmentsPaneEnabled,
     assessmentsPaneExpanded,
-    isInComparisonView,
     updatePaneSizeRatios,
     getPaneSizeRatios,
   } = useModelTraceExplorerViewState();
@@ -53,7 +52,7 @@ export const ModelTraceExplorerSummaryView = () => {
     <AssessmentsPane assessments={allAssessments} traceId={rootNode.traceId} activeSpanId={undefined} />
   );
 
-  return !isInComparisonView && assessmentsPaneEnabled && assessmentsPaneExpanded ? (
+  return assessmentsPaneEnabled && assessmentsPaneExpanded ? (
     <ModelTraceExplorerResizablePane
       initialRatio={getPaneSizeRatios().summarySidebar}
       paneWidth={paneWidth}

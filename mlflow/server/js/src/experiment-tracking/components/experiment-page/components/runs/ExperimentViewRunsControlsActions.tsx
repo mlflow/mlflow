@@ -96,7 +96,6 @@ export const ExperimentViewRunsControlsActions = React.memo(
             >
               <FormattedMessage
                 defaultMessage="Delete"
-                // eslint-disable-next-line max-len
                 description="String for the delete button to delete a particular experiment run"
               />
             </Button>
@@ -110,7 +109,6 @@ export const ExperimentViewRunsControlsActions = React.memo(
             >
               <FormattedMessage
                 defaultMessage="Restore"
-                // eslint-disable-next-line max-len
                 description="String for the restore button to undo the experiments that were deleted"
               />
             </Button>
@@ -125,7 +123,6 @@ export const ExperimentViewRunsControlsActions = React.memo(
             >
               <FormattedMessage
                 defaultMessage="Compare"
-                // eslint-disable-next-line max-len
                 description="String for the compare button to compare experiment runs to find an ideal model"
               />
             </Button>

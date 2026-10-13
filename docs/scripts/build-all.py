@@ -37,6 +37,7 @@ def build_docs(package_manager, version):
             **env,
             "DOCS_BASE_URL": str(versioned_url),
             "API_REFERENCE_PREFIX": f"{api_reference_prefix}{version}",
+            **({"DOCS_NO_INDEX": "true"} if version != "latest" else {}),
         },
     )
     shutil.copytree(build_path, output_path)

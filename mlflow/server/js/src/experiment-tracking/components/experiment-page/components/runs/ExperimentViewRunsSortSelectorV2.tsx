@@ -240,7 +240,6 @@ export const ExperimentViewRunsSortSelectorV2 = React.memo(
         // metrics.`metric_key_name` => metric_key_name
         const extractedKeyName = orderByKey.match(/^.+\.`(.+)`$/);
         if (extractedKeyName) {
-          // eslint-disable-next-line prefer-destructuring
           sortOptionLabel = extractedKeyName[1];
         }
       }

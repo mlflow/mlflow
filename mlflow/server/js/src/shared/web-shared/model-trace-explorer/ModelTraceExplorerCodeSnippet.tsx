@@ -26,6 +26,8 @@ function getRenderModeDisplayText(renderMode: CodeSnippetRenderMode) {
   switch (renderMode) {
     case CodeSnippetRenderMode.JSON:
       return 'JSON';
+    case CodeSnippetRenderMode.TABLE:
+      return 'Table';
     case CodeSnippetRenderMode.TEXT:
       return 'Text';
     case CodeSnippetRenderMode.MARKDOWN:
@@ -43,6 +45,8 @@ export function ModelTraceExplorerCodeSnippet({
   activeMatch = null,
   containsActiveMatch = false,
   initialRenderMode,
+  initialExpanded,
+  hideRenderModeDropdown = false,
 }: {
   title: string;
   tokens?: number;
@@ -54,6 +58,9 @@ export function ModelTraceExplorerCodeSnippet({
   // current active match (either in the key or value)
   containsActiveMatch?: boolean;
   initialRenderMode?: CodeSnippetRenderMode;
+  initialExpanded?: boolean;
+  /** When true, the per-snippet render mode dropdown is hidden (e.g. for aggregated table view). */
+  hideRenderModeDropdown?: boolean;
 }) {
   const parsedData = useMemo(() => JSON.parse(data), [data]);
   const dataIsString = isString(parsedData);
@@ -63,7 +70,7 @@ export function ModelTraceExplorerCodeSnippet({
     getInitialRenderMode(dataIsString, initialRenderMode),
   );
   const isTitleMatch = containsActiveMatch && (activeMatch?.isKeyMatch ?? false);
-  const shouldShowRenderModeDropdown = dataIsString && !searchFilter;
+  const shouldShowRenderModeDropdown = !hideRenderModeDropdown && dataIsString && !searchFilter;
 
   // we need to reset the render mode when the data changes
   useEffect(() => {
@@ -71,18 +78,8 @@ export function ModelTraceExplorerCodeSnippet({
   }, [dataIsString, initialRenderMode]);
 
   return (
-    <div
-      css={{
-        position: 'relative',
-      }}
-    >
-      <div
-        css={{
-          borderRadius: theme.borders.borderRadiusSm,
-          border: `1px solid ${theme.colors.border}`,
-          overflow: 'hidden',
-        }}
-      >
+    <div css={{ position: 'relative' }}>
+      <div css={{ overflow: 'hidden' }}>
         {(title || shouldShowRenderModeDropdown) && (
           <div
             css={{
@@ -90,7 +87,8 @@ export function ModelTraceExplorerCodeSnippet({
               flexDirection: 'row',
               justifyContent: 'space-between',
               alignItems: 'center',
-              padding: theme.spacing.sm,
+              paddingInline: theme.spacing.sm,
+              paddingBlock: theme.spacing.xs,
             }}
           >
             {/* TODO: support other types of formatting, e.g. markdown */}
@@ -100,6 +98,7 @@ export function ModelTraceExplorerCodeSnippet({
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
                 whiteSpace: 'nowrap',
+                marginLeft: theme.spacing.xs,
               }}
               level={4}
               color="secondary"
@@ -138,7 +137,7 @@ export function ModelTraceExplorerCodeSnippet({
                       onValueChange={(value) => setRenderMode(value as CodeSnippetRenderMode)}
                     >
                       {Object.values(CodeSnippetRenderMode).map((mode) => {
-                        if (mode === CodeSnippetRenderMode.PYTHON) {
+                        if (mode === CodeSnippetRenderMode.PYTHON || mode === CodeSnippetRenderMode.TABLE) {
                           return null;
                         }
                         return (
@@ -156,13 +155,23 @@ export function ModelTraceExplorerCodeSnippet({
             </div>
           </div>
         )}
-        <ModelTraceExplorerCodeSnippetBody
-          data={data}
-          searchFilter={searchFilter}
-          activeMatch={activeMatch}
-          containsActiveMatch={containsActiveMatch}
-          renderMode={renderMode}
-        />
+        <div
+          css={{
+            overflow: 'hidden',
+            border: `1px solid ${theme.colors.border}`,
+            borderRadius: theme.borders.borderRadiusSm,
+            marginInline: theme.spacing.sm,
+          }}
+        >
+          <ModelTraceExplorerCodeSnippetBody
+            data={data}
+            searchFilter={searchFilter}
+            activeMatch={activeMatch}
+            containsActiveMatch={containsActiveMatch}
+            renderMode={renderMode}
+            initialExpanded={initialExpanded}
+          />
+        </div>
       </div>
     </div>
   );

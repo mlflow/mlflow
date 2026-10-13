@@ -4,15 +4,21 @@ import { renderWithIntl } from '../../../../common/utils/TestUtils.react18';
 import { TraceRequestsChart } from './TraceRequestsChart';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
-import { MetricViewType, AggregationType, TraceMetricKey } from '@databricks/web-shared/model-trace-explorer';
+import {
+  MetricViewType,
+  AggregationType,
+  TraceMetricKey,
+  TraceDimensionKey,
+} from '@databricks/web-shared/model-trace-explorer';
 import { setupServer } from '../../../../common/utils/setup-msw';
 import { rest } from 'msw';
 import { OverviewChartProvider } from '../OverviewChartContext';
+import { getAjaxUrl } from '@mlflow/mlflow/src/common/utils/FetchUtils';
 
-// Helper to create a single data point
-const createTraceCountDataPoint = (timeBucket: string, count: number) => ({
+// Helper to create a data point with trace_status dimension
+const createTraceCountDataPoint = (timeBucket: string, count: number, status = 'OK') => ({
   metric_name: TraceMetricKey.TRACE_COUNT,
-  dimensions: { time_bucket: timeBucket },
+  dimensions: { time_bucket: timeBucket, [TraceDimensionKey.TRACE_STATUS]: status },
   values: { [AggregationType.COUNT]: count },
 });
 
@@ -32,7 +38,7 @@ describe('TraceRequestsChart', () => {
 
   // Context props reused across tests
   const defaultContextProps = {
-    experimentId: testExperimentId,
+    experimentIds: [testExperimentId],
     startTimeMs,
     endTimeMs,
     timeIntervalSeconds,
@@ -67,7 +73,7 @@ describe('TraceRequestsChart', () => {
   // Helper to setup MSW handler for trace metrics endpoint
   const setupTraceMetricsHandler = (dataPoints: any[]) => {
     server.use(
-      rest.post('ajax-api/3.0/mlflow/traces/metrics', (_req, res, ctx) => {
+      rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), (_req, res, ctx) => {
         return res(ctx.json({ data_points: dataPoints }));
       }),
     );
@@ -82,7 +88,7 @@ describe('TraceRequestsChart', () => {
   describe('loading state', () => {
     it('should render loading skeleton while data is being fetched', async () => {
       server.use(
-        rest.post('ajax-api/3.0/mlflow/traces/metrics', (_req, res, ctx) => {
+        rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), (_req, res, ctx) => {
           return res(ctx.delay('infinite'));
         }),
       );
@@ -97,7 +103,7 @@ describe('TraceRequestsChart', () => {
   describe('error state', () => {
     it('should render error message when API call fails', async () => {
       server.use(
-        rest.post('ajax-api/3.0/mlflow/traces/metrics', (_req, res, ctx) => {
+        rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), (_req, res, ctx) => {
           return res(ctx.status(500), ctx.json({ error_code: 'INTERNAL_ERROR', message: 'API Error' }));
         }),
       );
@@ -133,10 +139,13 @@ describe('TraceRequestsChart', () => {
   });
 
   describe('with data', () => {
+    // Data points include trace_status dimension; the hook sums across statuses per bucket
     const mockDataPoints = [
-      createTraceCountDataPoint('2025-12-22T10:00:00Z', 42),
-      createTraceCountDataPoint('2025-12-22T11:00:00Z', 58),
-      createTraceCountDataPoint('2025-12-22T12:00:00Z', 100),
+      createTraceCountDataPoint('2025-12-22T10:00:00Z', 40, 'OK'),
+      createTraceCountDataPoint('2025-12-22T10:00:00Z', 2, 'ERROR'),
+      createTraceCountDataPoint('2025-12-22T11:00:00Z', 55, 'OK'),
+      createTraceCountDataPoint('2025-12-22T11:00:00Z', 3, 'ERROR'),
+      createTraceCountDataPoint('2025-12-22T12:00:00Z', 100, 'OK'),
     ];
 
     it('should render chart with all time buckets', async () => {
@@ -157,7 +166,7 @@ describe('TraceRequestsChart', () => {
 
       renderComponent();
 
-      // Total should be 42 + 58 + 100 = 200
+      // Total should be 40+2 + 55+3 + 100 = 200
       await waitFor(() => {
         expect(screen.getByText('200')).toBeInTheDocument();
       });
@@ -214,7 +223,7 @@ describe('TraceRequestsChart', () => {
   });
 
   describe('API call parameters', () => {
-    it('should call API with correct parameters', async () => {
+    it('should call API with correct parameters including trace_status dimension', async () => {
       let capturedRequest: any = null;
 
       server.use(
@@ -232,6 +241,7 @@ describe('TraceRequestsChart', () => {
           view_type: MetricViewType.TRACES,
           metric_name: TraceMetricKey.TRACE_COUNT,
           aggregations: [{ aggregation_type: AggregationType.COUNT }],
+          dimensions: [TraceDimensionKey.TRACE_STATUS],
         });
       });
     });
@@ -293,7 +303,7 @@ describe('TraceRequestsChart', () => {
       setupTraceMetricsHandler([
         {
           metric_name: TraceMetricKey.TRACE_COUNT,
-          dimensions: { time_bucket: '2025-12-22T10:00:00Z' },
+          dimensions: { time_bucket: '2025-12-22T10:00:00Z', [TraceDimensionKey.TRACE_STATUS]: 'OK' },
           values: {}, // Missing COUNT value - will be treated as 0
         },
         createTraceCountDataPoint('2025-12-22T11:00:00Z', 50),
@@ -312,7 +322,7 @@ describe('TraceRequestsChart', () => {
       setupTraceMetricsHandler([
         {
           metric_name: TraceMetricKey.TRACE_COUNT,
-          dimensions: {}, // Missing time_bucket - won't be mapped to any bucket
+          dimensions: { [TraceDimensionKey.TRACE_STATUS]: 'OK' }, // Missing time_bucket
           values: { [AggregationType.COUNT]: 25 },
         },
       ]);
@@ -323,16 +333,18 @@ describe('TraceRequestsChart', () => {
       await waitFor(() => {
         expect(screen.getByTestId('bar-chart')).toHaveAttribute('data-count', '3');
       });
-      // Total count still includes the data point
+      // Total count still includes the data point (summed in totalRequests)
       expect(screen.getByText('25')).toBeInTheDocument();
     });
   });
 
   describe('zoom functionality', () => {
     const mockDataPoints = [
-      createTraceCountDataPoint('2025-12-22T10:00:00Z', 42),
-      createTraceCountDataPoint('2025-12-22T11:00:00Z', 58),
-      createTraceCountDataPoint('2025-12-22T12:00:00Z', 100),
+      createTraceCountDataPoint('2025-12-22T10:00:00Z', 40, 'OK'),
+      createTraceCountDataPoint('2025-12-22T10:00:00Z', 2, 'ERROR'),
+      createTraceCountDataPoint('2025-12-22T11:00:00Z', 55, 'OK'),
+      createTraceCountDataPoint('2025-12-22T11:00:00Z', 3, 'ERROR'),
+      createTraceCountDataPoint('2025-12-22T12:00:00Z', 100, 'OK'),
     ];
 
     it('should not show zoom out button initially', async () => {

@@ -2,11 +2,6 @@ name: Test requirements
 
 on:
   pull_request:
-    types:
-      - opened
-      - synchronize
-      - reopened
-      - ready_for_review
     paths:
       - requirements/core-requirements.yaml
       - requirements/skinny-requirements.yaml
@@ -32,16 +27,20 @@ defaults:
   run:
     shell: bash
 
+permissions: {}
+cache-mode: none
+
 jobs:
   skinny:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
       contents: read
-    if: (github.event_name == 'schedule' && github.repository == 'mlflow/dev') || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)
+    if: (github.event_name == 'schedule' && github.repository == 'mlflow/dev') || github.event_name == 'pull_request'
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || null }}
           submodules: recursive
       - uses: ./.github/actions/setup-python
@@ -49,7 +48,7 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
       - name: Install dev script dependencies
         run: |
-          pip install -r dev/requirements.txt
+          uv pip install --system -r dev/requirements.txt
       - uses: ./.github/actions/update-requirements
         if: github.event_name == 'schedule'
       - name: Install dependencies
@@ -61,11 +60,12 @@ jobs:
           ./dev/run-python-skinny-tests.sh
 
   core:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 120
     permissions:
       contents: read
-    if: (github.event_name == 'schedule' && github.repository == 'mlflow/dev') || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)
+    cache-mode: read
+    if: (github.event_name == 'schedule' && github.repository == 'mlflow/dev') || github.event_name == 'pull_request'
     strategy:
       fail-fast: false
       matrix:
@@ -73,31 +73,35 @@ jobs:
         include:
           - splits: 2
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || null }}
           submodules: recursive
       - uses: ./.github/actions/free-disk-space
       - uses: ./.github/actions/setup-python
         with:
           python-version: ${{ env.PYTHON_VERSION }}
+          pin-micro-version: true
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
       - name: Install dev script dependencies
         run: |
-          pip install -r dev/requirements.txt
+          uv pip install --system -r dev/requirements.txt
       - uses: ./.github/actions/update-requirements
         if: github.event_name == 'schedule'
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh --ml
-          pip install '.[gateway]'
-          # transformers doesn't support Keras 3 yet. tf-keras needs to be installed as a workaround.
-          pip install tf-keras
+          uv pip install --system '.[gateway]'
       - uses: ./.github/actions/show-versions
+      - uses: ./.github/actions/cache-hf
       - name: Run tests
+        env:
+          SPLITS: ${{ matrix.splits }}
+          GROUP: ${{ matrix.group }}
         run: |
           source dev/setup-ssh.sh
-          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} tests --requires-ssh --ignore-flavors \
+          pytest --splits=$SPLITS --group=$GROUP tests --requires-ssh --ignore-flavors \
             --ignore=tests/examples --ignore=tests/evaluate \
             --ignore=tests/deployments --ignore=tests/genai

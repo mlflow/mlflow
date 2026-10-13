@@ -27,15 +27,13 @@ def build_and_evaluate_model_with_prompt(system_prompt):
     )
 
     # Evaluate the model on some example questions
-    questions = pd.DataFrame(
-        {
-            "question": [
-                "How do you create a run with MLflow?",
-                "How do you log a model with MLflow?",
-                "What is the capital of France?",
-            ]
-        }
-    )
+    questions = pd.DataFrame({
+        "question": [
+            "How do you create a run with MLflow?",
+            "How do you log a model with MLflow?",
+            "What is the capital of France?",
+        ]
+    })
     mlflow.evaluate(
         model=logged_model.model_uri,
         model_type="question-answering",

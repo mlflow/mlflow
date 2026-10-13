@@ -1,6 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import WaveSurfer from 'wavesurfer.js';
-import { getArtifactBlob, getArtifactLocationUrl } from '../../../common/utils/ArtifactUtils';
+import {
+  getArtifactBlob,
+  getArtifactLocationUrl,
+  getLoggedModelArtifactLocationUrl,
+} from '../../../common/utils/ArtifactUtils';
+import type { LoggedModelArtifactViewerProps } from './ArtifactViewComponents.types';
 import { ArtifactViewErrorState } from './ArtifactViewErrorState';
 import { ArtifactViewSkeleton } from './ArtifactViewSkeleton';
 
@@ -14,11 +19,17 @@ export type ShowArtifactAudioViewProps = {
   runUuid: string;
   path: string;
   getArtifact?: (...args: any[]) => any;
-};
+} & LoggedModelArtifactViewerProps;
 
-const ShowArtifactAudioView = ({ runUuid, path, getArtifact = getArtifactBlob }: ShowArtifactAudioViewProps) => {
+const ShowArtifactAudioView = ({
+  runUuid,
+  path,
+  getArtifact = getArtifactBlob,
+  isLoggedModelsMode,
+  loggedModelId,
+}: ShowArtifactAudioViewProps) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const [waveSurfer, setWaveSurfer] = useState<WaveSurfer | null>(null);
+  const wsRef = useRef<WaveSurfer | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<boolean>(false);
@@ -26,27 +37,64 @@ const ShowArtifactAudioView = ({ runUuid, path, getArtifact = getArtifactBlob }:
   useEffect(() => {
     if (!containerRef.current) return;
 
-    const ws = WaveSurfer.create({
-      mediaControls: true,
-      container: containerRef.current,
-      ...waveSurferStyling,
-      url: getArtifactLocationUrl(path, runUuid),
-    });
+    setLoading(true);
+    setError(false);
 
-    ws.on('ready', () => {
-      setLoading(false);
-    });
+    let blobUrl: string | undefined;
+    let cancelled = false;
 
-    ws.on('error', () => {
-      setError(true);
-    });
+    const artifactUrl =
+      isLoggedModelsMode && loggedModelId
+        ? getLoggedModelArtifactLocationUrl(path, loggedModelId)
+        : getArtifactLocationUrl(path, runUuid);
+    getArtifact(artifactUrl)
+      .then((blob: Blob) => {
+        if (cancelled || !containerRef.current) return;
 
-    setWaveSurfer(ws);
+        blobUrl = URL.createObjectURL(blob);
+
+        const ws = WaveSurfer.create({
+          mediaControls: true,
+          container: containerRef.current,
+          ...waveSurferStyling,
+          url: blobUrl,
+        });
+
+        ws.on('ready', () => {
+          setLoading(false);
+        });
+
+        ws.on('error', () => {
+          setLoading(false);
+          setError(true);
+          ws.destroy();
+          wsRef.current = null;
+          if (blobUrl) {
+            URL.revokeObjectURL(blobUrl);
+            blobUrl = undefined;
+          }
+        });
+
+        wsRef.current = ws;
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setLoading(false);
+          setError(true);
+        }
+      });
 
     return () => {
-      ws.destroy();
+      cancelled = true;
+      if (wsRef.current) {
+        wsRef.current.destroy();
+        wsRef.current = null;
+      }
+      if (blobUrl) {
+        URL.revokeObjectURL(blobUrl);
+      }
     };
-  }, [containerRef, path, runUuid]);
+  }, [containerRef, path, runUuid, getArtifact, isLoggedModelsMode, loggedModelId]);
 
   const showLoading = loading && !error;
 

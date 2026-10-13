@@ -1,4 +1,4 @@
-import { useMutation } from '@databricks/web-shared/query-client';
+import { useMutation } from '../../query-client/queryClient';
 
 import { shouldUseTracesV4API } from '../FeatureUtils';
 import type { ModelTrace } from '../ModelTrace.types';

@@ -24,7 +24,17 @@ fi
 
 echo "Building Docker image for proto compilation..."
 IMAGE_NAME="mlflow-protos-gen"
-docker build -t "$IMAGE_NAME" -f dev/Dockerfile.protos $BUILD_ARGS .
+for attempt in 1 2 3; do
+    if docker build -t "$IMAGE_NAME" -f dev/Dockerfile.protos $BUILD_ARGS .; then
+        break
+    fi
+    if [[ "$attempt" -eq 3 ]]; then
+        echo "Docker build failed after $attempt attempts." >&2
+        exit 1
+    fi
+    echo "Docker build failed on attempt $attempt; retrying in 5 seconds..."
+    sleep 5
+done
 
 echo "Running proto compilation..."
 CONTAINER_NAME="mlflow-protos-gen-$$"
@@ -47,6 +57,6 @@ echo "Generating GraphQL schema from Protobuf files..."
 uv run ./dev/proto_to_graphql/code_generator.py
 
 echo "Generating REST API from Protobuf files..."
-uv run ./dev/gen_rest_api.py
+uv run --extra gateway dev/gen_rest_api.py
 
 echo "Done!"

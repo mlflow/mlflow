@@ -11381,6 +11381,1594 @@ public final class MlflowArtifacts {
 
   }
 
+  public interface GetPresignedDownloadUrlOrBuilder extends
+      // @@protoc_insertion_point(interface_extends:mlflow.artifacts.GetPresignedDownloadUrl)
+      com.google.protobuf.MessageOrBuilder {
+  }
+  /**
+   * Protobuf type {@code mlflow.artifacts.GetPresignedDownloadUrl}
+   */
+  public static final class GetPresignedDownloadUrl extends
+      com.google.protobuf.GeneratedMessageV3 implements
+      // @@protoc_insertion_point(message_implements:mlflow.artifacts.GetPresignedDownloadUrl)
+      GetPresignedDownloadUrlOrBuilder {
+  private static final long serialVersionUID = 0L;
+    // Use GetPresignedDownloadUrl.newBuilder() to construct.
+    private GetPresignedDownloadUrl(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
+      super(builder);
+    }
+    private GetPresignedDownloadUrl() {
+    }
+
+    @java.lang.Override
+    @SuppressWarnings({"unused"})
+    protected java.lang.Object newInstance(
+        UnusedPrivateParameter unused) {
+      return new GetPresignedDownloadUrl();
+    }
+
+    @java.lang.Override
+    public final com.google.protobuf.UnknownFieldSet
+    getUnknownFields() {
+      return this.unknownFields;
+    }
+    private GetPresignedDownloadUrl(
+        com.google.protobuf.CodedInputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      this();
+      if (extensionRegistry == null) {
+        throw new java.lang.NullPointerException();
+      }
+      com.google.protobuf.UnknownFieldSet.Builder unknownFields =
+          com.google.protobuf.UnknownFieldSet.newBuilder();
+      try {
+        boolean done = false;
+        while (!done) {
+          int tag = input.readTag();
+          switch (tag) {
+            case 0:
+              done = true;
+              break;
+            default: {
+              if (!parseUnknownField(
+                  input, unknownFields, extensionRegistry, tag)) {
+                done = true;
+              }
+              break;
+            }
+          }
+        }
+      } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+        throw e.setUnfinishedMessage(this);
+      } catch (java.io.IOException e) {
+        throw new com.google.protobuf.InvalidProtocolBufferException(
+            e).setUnfinishedMessage(this);
+      } finally {
+        this.unknownFields = unknownFields.build();
+        makeExtensionsImmutable();
+      }
+    }
+    public static final com.google.protobuf.Descriptors.Descriptor
+        getDescriptor() {
+      return org.mlflow.api.proto.MlflowArtifacts.internal_static_mlflow_artifacts_GetPresignedDownloadUrl_descriptor;
+    }
+
+    @java.lang.Override
+    protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+        internalGetFieldAccessorTable() {
+      return org.mlflow.api.proto.MlflowArtifacts.internal_static_mlflow_artifacts_GetPresignedDownloadUrl_fieldAccessorTable
+          .ensureFieldAccessorsInitialized(
+              org.mlflow.api.proto.MlflowArtifacts.GetPresignedDownloadUrl.class, org.mlflow.api.proto.MlflowArtifacts.GetPresignedDownloadUrl.Builder.class);
+    }
+
+    public interface ResponseOrBuilder extends
+        // @@protoc_insertion_point(interface_extends:mlflow.artifacts.GetPresignedDownloadUrl.Response)
+        com.google.protobuf.MessageOrBuilder {
+
+      /**
+       * <pre>
+       * The presigned URL for downloading the artifact directly from cloud storage.
+       * </pre>
+       *
+       * <code>optional string url = 1;</code>
+       * @return Whether the url field is set.
+       */
+      boolean hasUrl();
+      /**
+       * <pre>
+       * The presigned URL for downloading the artifact directly from cloud storage.
+       * </pre>
+       *
+       * <code>optional string url = 1;</code>
+       * @return The url.
+       */
+      java.lang.String getUrl();
+      /**
+       * <pre>
+       * The presigned URL for downloading the artifact directly from cloud storage.
+       * </pre>
+       *
+       * <code>optional string url = 1;</code>
+       * @return The bytes for url.
+       */
+      com.google.protobuf.ByteString
+          getUrlBytes();
+
+      /**
+       * <pre>
+       * Optional headers that must be included in the download request.
+       * </pre>
+       *
+       * <code>map&lt;string, string&gt; headers = 2;</code>
+       */
+      int getHeadersCount();
+      /**
+       * <pre>
+       * Optional headers that must be included in the download request.
+       * </pre>
+       *
+       * <code>map&lt;string, string&gt; headers = 2;</code>
+       */
+      boolean containsHeaders(
+          java.lang.String key);
+      /**
+       * Use {@link #getHeadersMap()} instead.
+       */
+      @java.lang.Deprecated
+      java.util.Map<java.lang.String, java.lang.String>
+      getHeaders();
+      /**
+       * <pre>
+       * Optional headers that must be included in the download request.
+       * </pre>
+       *
+       * <code>map&lt;string, string&gt; headers = 2;</code>
+       */
+      java.util.Map<java.lang.String, java.lang.String>
+      getHeadersMap();
+      /**
+       * <pre>
+       * Optional headers that must be included in the download request.
+       * </pre>
+       *
+       * <code>map&lt;string, string&gt; headers = 2;</code>
+       */
+
+      java.lang.String getHeadersOrDefault(
+          java.lang.String key,
+          java.lang.String defaultValue);
+      /**
+       * <pre>
+       * Optional headers that must be included in the download request.
+       * </pre>
+       *
+       * <code>map&lt;string, string&gt; headers = 2;</code>
+       */
+
+      java.lang.String getHeadersOrThrow(
+          java.lang.String key);
+
+      /**
+       * <pre>
+       * Optional size of the file in bytes.
+       * </pre>
+       *
+       * <code>optional int64 file_size = 3;</code>
+       * @return Whether the fileSize field is set.
+       */
+      boolean hasFileSize();
+      /**
+       * <pre>
+       * Optional size of the file in bytes.
+       * </pre>
+       *
+       * <code>optional int64 file_size = 3;</code>
+       * @return The fileSize.
+       */
+      long getFileSize();
+    }
+    /**
+     * Protobuf type {@code mlflow.artifacts.GetPresignedDownloadUrl.Response}
+     */
+    public static final class Response extends
+        com.google.protobuf.GeneratedMessageV3 implements
+        // @@protoc_insertion_point(message_implements:mlflow.artifacts.GetPresignedDownloadUrl.Response)
+        ResponseOrBuilder {
+    private static final long serialVersionUID = 0L;
+      // Use Response.newBuilder() to construct.
+      private Response(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
+        super(builder);
+      }
+      private Response() {
+        url_ = "";
+      }
+
+      @java.lang.Override
+      @SuppressWarnings({"unused"})
+      protected java.lang.Object newInstance(
+          UnusedPrivateParameter unused) {
+        return new Response();
+      }
+
+      @java.lang.Override
+      public final com.google.protobuf.UnknownFieldSet
+      getUnknownFields() {
+        return this.unknownFields;
+      }
+      private Response(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        this();
+        if (extensionRegistry == null) {
+          throw new java.lang.NullPointerException();
+        }
+        int mutable_bitField0_ = 0;
+        com.google.protobuf.UnknownFieldSet.Builder unknownFields =
+            com.google.protobuf.UnknownFieldSet.newBuilder();
+        try {
+          boolean done = false;
+          while (!done) {
+            int tag = input.readTag();
+            switch (tag) {
+              case 0:
+                done = true;
+                break;
+              case 10: {
+                com.google.protobuf.ByteString bs = input.readBytes();
+                bitField0_ |= 0x00000001;
+                url_ = bs;
+                break;
+              }
+              case 18: {
+                if (!((mutable_bitField0_ & 0x00000002) != 0)) {
+                  headers_ = com.google.protobuf.MapField.newMapField(
+                      HeadersDefaultEntryHolder.defaultEntry);
+                  mutable_bitField0_ |= 0x00000002;
+                }
+                com.google.protobuf.MapEntry<java.lang.String, java.lang.String>
+                headers__ = input.readMessage(
+                    HeadersDefaultEntryHolder.defaultEntry.getParserForType(), extensionRegistry);
+                headers_.getMutableMap().put(
+                    headers__.getKey(), headers__.getValue());
+                break;
+              }
+              case 24: {
+                bitField0_ |= 0x00000002;
+                fileSize_ = input.readInt64();
+                break;
+              }
+              default: {
+                if (!parseUnknownField(
+                    input, unknownFields, extensionRegistry, tag)) {
+                  done = true;
+                }
+                break;
+              }
+            }
+          }
+        } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+          throw e.setUnfinishedMessage(this);
+        } catch (java.io.IOException e) {
+          throw new com.google.protobuf.InvalidProtocolBufferException(
+              e).setUnfinishedMessage(this);
+        } finally {
+          this.unknownFields = unknownFields.build();
+          makeExtensionsImmutable();
+        }
+      }
+      public static final com.google.protobuf.Descriptors.Descriptor
+          getDescriptor() {
+        return org.mlflow.api.proto.MlflowArtifacts.internal_static_mlflow_artifacts_GetPresignedDownloadUrl_Response_descriptor;
+      }
+
+      @SuppressWarnings({"rawtypes"})
+      @java.lang.Override
+      protected com.google.protobuf.MapField internalGetMapField(
+          int number) {
+        switch (number) {
+          case 2:
+            return internalGetHeaders();
+          default:
+            throw new RuntimeException(
+                "Invalid map field number: " + number);
+        }
+      }
+      @java.lang.Override
+      protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+          internalGetFieldAccessorTable() {
+        return org.mlflow.api.proto.MlflowArtifacts.internal_static_mlflow_artifacts_GetPresignedDownloadUrl_Response_fieldAccessorTable
+            .ensureFieldAccessorsInitialized(
+                org.mlflow.api.proto.MlflowArtifacts.GetPresignedDownloadUrl.Response.class, org.mlflow.api.proto.MlflowArtifacts.GetPresignedDownloadUrl.Response.Builder.class);
+      }
+
+      private int bitField0_;
+      public static final int URL_FIELD_NUMBER = 1;
+      private volatile java.lang.Object url_;
+      /**
+       * <pre>
+       * The presigned URL for downloading the artifact directly from cloud storage.
+       * </pre>
+       *
+       * <code>optional string url = 1;</code>
+       * @return Whether the url field is set.
+       */
+      @java.lang.Override
+      public boolean hasUrl() {
+        return ((bitField0_ & 0x00000001) != 0);
+      }
+      /**
+       * <pre>
+       * The presigned URL for downloading the artifact directly from cloud storage.
+       * </pre>
+       *
+       * <code>optional string url = 1;</code>
+       * @return The url.
+       */
+      @java.lang.Override
+      public java.lang.String getUrl() {
+        java.lang.Object ref = url_;
+        if (ref instanceof java.lang.String) {
+          return (java.lang.String) ref;
+        } else {
+          com.google.protobuf.ByteString bs = 
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            url_ = s;
+          }
+          return s;
+        }
+      }
+      /**
+       * <pre>
+       * The presigned URL for downloading the artifact directly from cloud storage.
+       * </pre>
+       *
+       * <code>optional string url = 1;</code>
+       * @return The bytes for url.
+       */
+      @java.lang.Override
+      public com.google.protobuf.ByteString
+          getUrlBytes() {
+        java.lang.Object ref = url_;
+        if (ref instanceof java.lang.String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          url_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+
+      public static final int HEADERS_FIELD_NUMBER = 2;
+      private static final class HeadersDefaultEntryHolder {
+        static final com.google.protobuf.MapEntry<
+            java.lang.String, java.lang.String> defaultEntry =
+                com.google.protobuf.MapEntry
+                .<java.lang.String, java.lang.String>newDefaultInstance(
+                    org.mlflow.api.proto.MlflowArtifacts.internal_static_mlflow_artifacts_GetPresignedDownloadUrl_Response_HeadersEntry_descriptor, 
+                    com.google.protobuf.WireFormat.FieldType.STRING,
+                    "",
+                    com.google.protobuf.WireFormat.FieldType.STRING,
+                    "");
+      }
+      private com.google.protobuf.MapField<
+          java.lang.String, java.lang.String> headers_;
+      private com.google.protobuf.MapField<java.lang.String, java.lang.String>
+      internalGetHeaders() {
+        if (headers_ == null) {
+          return com.google.protobuf.MapField.emptyMapField(
+              HeadersDefaultEntryHolder.defaultEntry);
+        }
+        return headers_;
+      }
+
+      public int getHeadersCount() {
+        return internalGetHeaders().getMap().size();
+      }
+      /**
+       * <pre>
+       * Optional headers that must be included in the download request.
+       * </pre>
+       *
+       * <code>map&lt;string, string&gt; headers = 2;</code>
+       */
+
+      @java.lang.Override
+      public boolean containsHeaders(
+          java.lang.String key) {
+        if (key == null) { throw new NullPointerException("map key"); }
+        return internalGetHeaders().getMap().containsKey(key);
+      }
+      /**
+       * Use {@link #getHeadersMap()} instead.
+       */
+      @java.lang.Override
+      @java.lang.Deprecated
+      public java.util.Map<java.lang.String, java.lang.String> getHeaders() {
+        return getHeadersMap();
+      }
+      /**
+       * <pre>
+       * Optional headers that must be included in the download request.
+       * </pre>
+       *
+       * <code>map&lt;string, string&gt; headers = 2;</code>
+       */
+      @java.lang.Override
+
+      public java.util.Map<java.lang.String, java.lang.String> getHeadersMap() {
+        return internalGetHeaders().getMap();
+      }
+      /**
+       * <pre>
+       * Optional headers that must be included in the download request.
+       * </pre>
+       *
+       * <code>map&lt;string, string&gt; headers = 2;</code>
+       */
+      @java.lang.Override
+
+      public java.lang.String getHeadersOrDefault(
+          java.lang.String key,
+          java.lang.String defaultValue) {
+        if (key == null) { throw new NullPointerException("map key"); }
+        java.util.Map<java.lang.String, java.lang.String> map =
+            internalGetHeaders().getMap();
+        return map.containsKey(key) ? map.get(key) : defaultValue;
+      }
+      /**
+       * <pre>
+       * Optional headers that must be included in the download request.
+       * </pre>
+       *
+       * <code>map&lt;string, string&gt; headers = 2;</code>
+       */
+      @java.lang.Override
+
+      public java.lang.String getHeadersOrThrow(
+          java.lang.String key) {
+        if (key == null) { throw new NullPointerException("map key"); }
+        java.util.Map<java.lang.String, java.lang.String> map =
+            internalGetHeaders().getMap();
+        if (!map.containsKey(key)) {
+          throw new java.lang.IllegalArgumentException();
+        }
+        return map.get(key);
+      }
+
+      public static final int FILE_SIZE_FIELD_NUMBER = 3;
+      private long fileSize_;
+      /**
+       * <pre>
+       * Optional size of the file in bytes.
+       * </pre>
+       *
+       * <code>optional int64 file_size = 3;</code>
+       * @return Whether the fileSize field is set.
+       */
+      @java.lang.Override
+      public boolean hasFileSize() {
+        return ((bitField0_ & 0x00000002) != 0);
+      }
+      /**
+       * <pre>
+       * Optional size of the file in bytes.
+       * </pre>
+       *
+       * <code>optional int64 file_size = 3;</code>
+       * @return The fileSize.
+       */
+      @java.lang.Override
+      public long getFileSize() {
+        return fileSize_;
+      }
+
+      private byte memoizedIsInitialized = -1;
+      @java.lang.Override
+      public final boolean isInitialized() {
+        byte isInitialized = memoizedIsInitialized;
+        if (isInitialized == 1) return true;
+        if (isInitialized == 0) return false;
+
+        memoizedIsInitialized = 1;
+        return true;
+      }
+
+      @java.lang.Override
+      public void writeTo(com.google.protobuf.CodedOutputStream output)
+                          throws java.io.IOException {
+        if (((bitField0_ & 0x00000001) != 0)) {
+          com.google.protobuf.GeneratedMessageV3.writeString(output, 1, url_);
+        }
+        com.google.protobuf.GeneratedMessageV3
+          .serializeStringMapTo(
+            output,
+            internalGetHeaders(),
+            HeadersDefaultEntryHolder.defaultEntry,
+            2);
+        if (((bitField0_ & 0x00000002) != 0)) {
+          output.writeInt64(3, fileSize_);
+        }
+        unknownFields.writeTo(output);
+      }
+
+      @java.lang.Override
+      public int getSerializedSize() {
+        int size = memoizedSize;
+        if (size != -1) return size;
+
+        size = 0;
+        if (((bitField0_ & 0x00000001) != 0)) {
+          size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, url_);
+        }
+        for (java.util.Map.Entry<java.lang.String, java.lang.String> entry
+             : internalGetHeaders().getMap().entrySet()) {
+          com.google.protobuf.MapEntry<java.lang.String, java.lang.String>
+          headers__ = HeadersDefaultEntryHolder.defaultEntry.newBuilderForType()
+              .setKey(entry.getKey())
+              .setValue(entry.getValue())
+              .build();
+          size += com.google.protobuf.CodedOutputStream
+              .computeMessageSize(2, headers__);
+        }
+        if (((bitField0_ & 0x00000002) != 0)) {
+          size += com.google.protobuf.CodedOutputStream
+            .computeInt64Size(3, fileSize_);
+        }
+        size += unknownFields.getSerializedSize();
+        memoizedSize = size;
+        return size;
+      }
+
+      @java.lang.Override
+      public boolean equals(final java.lang.Object obj) {
+        if (obj == this) {
+         return true;
+        }
+        if (!(obj instanceof org.mlflow.api.proto.MlflowArtifacts.GetPresignedDownloadUrl.Response)) {
+          return super.equals(obj);
+        }
+        org.mlflow.api.proto.MlflowArtifacts.GetPresignedDownloadUrl.Response other = (org.mlflow.api.proto.MlflowArtifacts.GetPresignedDownloadUrl.Response) obj;
+
+        if (hasUrl() != other.hasUrl()) return false;
+        if (hasUrl()) {
+          if (!getUrl()
+              .equals(other.getUrl())) return false;
+        }
+        if (!internalGetHeaders().equals(
+            other.internalGetHeaders())) return false;
+        if (hasFileSize() != other.hasFileSize()) return false;
+        if (hasFileSize()) {
+          if (getFileSize()
+              != other.getFileSize()) return false;
+        }
+        if (!unknownFields.equals(other.unknownFields)) return false;
+        return true;
+      }
+
+      @java.lang.Override
+      public int hashCode() {
+        if (memoizedHashCode != 0) {
+          return memoizedHashCode;
+        }
+        int hash = 41;
+        hash = (19 * hash) + getDescriptor().hashCode();
+        if (hasUrl()) {
+          hash = (37 * hash) + URL_FIELD_NUMBER;
+          hash = (53 * hash) + getUrl().hashCode();
+        }
+        if (!internalGetHeaders().getMap().isEmpty()) {
+          hash = (37 * hash) + HEADERS_FIELD_NUMBER;
+          hash = (53 * hash) + internalGetHeaders().hashCode();
+        }
+        if (hasFileSize()) {
+          hash = (37 * hash) + FILE_SIZE_FIELD_NUMBER;
+          hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+              getFileSize());
+        }
+        hash = (29 * hash) + unknownFields.hashCode();
+        memoizedHashCode = hash;
+        return hash;
+      }
+
+      public static org.mlflow.api.proto.MlflowArtifacts.GetPresignedDownloadUrl.Response parseFrom(
+          java.nio.ByteBuffer data)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data);
+      }
+      public static org.mlflow.api.proto.MlflowArtifacts.GetPresignedDownloadUrl.Response parseFrom(
+          java.nio.ByteBuffer data,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data, extensionRegistry);
+      }
+      public static org.mlflow.api.proto.MlflowArtifacts.GetPresignedDownloadUrl.Response parseFrom(
+          com.google.protobuf.ByteString data)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data);
+      }
+      public static org.mlflow.api.proto.MlflowArtifacts.GetPresignedDownloadUrl.Response parseFrom(
+          com.google.protobuf.ByteString data,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data, extensionRegistry);
+      }
+      public static org.mlflow.api.proto.MlflowArtifacts.GetPresignedDownloadUrl.Response parseFrom(byte[] data)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data);
+      }
+      public static org.mlflow.api.proto.MlflowArtifacts.GetPresignedDownloadUrl.Response parseFrom(
+          byte[] data,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data, extensionRegistry);
+      }
+      public static org.mlflow.api.proto.MlflowArtifacts.GetPresignedDownloadUrl.Response parseFrom(java.io.InputStream input)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseWithIOException(PARSER, input);
+      }
+      public static org.mlflow.api.proto.MlflowArtifacts.GetPresignedDownloadUrl.Response parseFrom(
+          java.io.InputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseWithIOException(PARSER, input, extensionRegistry);
+      }
+      public static org.mlflow.api.proto.MlflowArtifacts.GetPresignedDownloadUrl.Response parseDelimitedFrom(java.io.InputStream input)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseDelimitedWithIOException(PARSER, input);
+      }
+      public static org.mlflow.api.proto.MlflowArtifacts.GetPresignedDownloadUrl.Response parseDelimitedFrom(
+          java.io.InputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
+      }
+      public static org.mlflow.api.proto.MlflowArtifacts.GetPresignedDownloadUrl.Response parseFrom(
+          com.google.protobuf.CodedInputStream input)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseWithIOException(PARSER, input);
+      }
+      public static org.mlflow.api.proto.MlflowArtifacts.GetPresignedDownloadUrl.Response parseFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseWithIOException(PARSER, input, extensionRegistry);
+      }
+
+      @java.lang.Override
+      public Builder newBuilderForType() { return newBuilder(); }
+      public static Builder newBuilder() {
+        return DEFAULT_INSTANCE.toBuilder();
+      }
+      public static Builder newBuilder(org.mlflow.api.proto.MlflowArtifacts.GetPresignedDownloadUrl.Response prototype) {
+        return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
+      }
+      @java.lang.Override
+      public Builder toBuilder() {
+        return this == DEFAULT_INSTANCE
+            ? new Builder() : new Builder().mergeFrom(this);
+      }
+
+      @java.lang.Override
+      protected Builder newBuilderForType(
+          com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+        Builder builder = new Builder(parent);
+        return builder;
+      }
+      /**
+       * Protobuf type {@code mlflow.artifacts.GetPresignedDownloadUrl.Response}
+       */
+      public static final class Builder extends
+          com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
+          // @@protoc_insertion_point(builder_implements:mlflow.artifacts.GetPresignedDownloadUrl.Response)
+          org.mlflow.api.proto.MlflowArtifacts.GetPresignedDownloadUrl.ResponseOrBuilder {
+        public static final com.google.protobuf.Descriptors.Descriptor
+            getDescriptor() {
+          return org.mlflow.api.proto.MlflowArtifacts.internal_static_mlflow_artifacts_GetPresignedDownloadUrl_Response_descriptor;
+        }
+
+        @SuppressWarnings({"rawtypes"})
+        protected com.google.protobuf.MapField internalGetMapField(
+            int number) {
+          switch (number) {
+            case 2:
+              return internalGetHeaders();
+            default:
+              throw new RuntimeException(
+                  "Invalid map field number: " + number);
+          }
+        }
+        @SuppressWarnings({"rawtypes"})
+        protected com.google.protobuf.MapField internalGetMutableMapField(
+            int number) {
+          switch (number) {
+            case 2:
+              return internalGetMutableHeaders();
+            default:
+              throw new RuntimeException(
+                  "Invalid map field number: " + number);
+          }
+        }
+        @java.lang.Override
+        protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+            internalGetFieldAccessorTable() {
+          return org.mlflow.api.proto.MlflowArtifacts.internal_static_mlflow_artifacts_GetPresignedDownloadUrl_Response_fieldAccessorTable
+              .ensureFieldAccessorsInitialized(
+                  org.mlflow.api.proto.MlflowArtifacts.GetPresignedDownloadUrl.Response.class, org.mlflow.api.proto.MlflowArtifacts.GetPresignedDownloadUrl.Response.Builder.class);
+        }
+
+        // Construct using org.mlflow.api.proto.MlflowArtifacts.GetPresignedDownloadUrl.Response.newBuilder()
+        private Builder() {
+          maybeForceBuilderInitialization();
+        }
+
+        private Builder(
+            com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+          super(parent);
+          maybeForceBuilderInitialization();
+        }
+        private void maybeForceBuilderInitialization() {
+          if (com.google.protobuf.GeneratedMessageV3
+                  .alwaysUseFieldBuilders) {
+          }
+        }
+        @java.lang.Override
+        public Builder clear() {
+          super.clear();
+          url_ = "";
+          bitField0_ = (bitField0_ & ~0x00000001);
+          internalGetMutableHeaders().clear();
+          fileSize_ = 0L;
+          bitField0_ = (bitField0_ & ~0x00000004);
+          return this;
+        }
+
+        @java.lang.Override
+        public com.google.protobuf.Descriptors.Descriptor
+            getDescriptorForType() {
+          return org.mlflow.api.proto.MlflowArtifacts.internal_static_mlflow_artifacts_GetPresignedDownloadUrl_Response_descriptor;
+        }
+
+        @java.lang.Override
+        public org.mlflow.api.proto.MlflowArtifacts.GetPresignedDownloadUrl.Response getDefaultInstanceForType() {
+          return org.mlflow.api.proto.MlflowArtifacts.GetPresignedDownloadUrl.Response.getDefaultInstance();
+        }
+
+        @java.lang.Override
+        public org.mlflow.api.proto.MlflowArtifacts.GetPresignedDownloadUrl.Response build() {
+          org.mlflow.api.proto.MlflowArtifacts.GetPresignedDownloadUrl.Response result = buildPartial();
+          if (!result.isInitialized()) {
+            throw newUninitializedMessageException(result);
+          }
+          return result;
+        }
+
+        @java.lang.Override
+        public org.mlflow.api.proto.MlflowArtifacts.GetPresignedDownloadUrl.Response buildPartial() {
+          org.mlflow.api.proto.MlflowArtifacts.GetPresignedDownloadUrl.Response result = new org.mlflow.api.proto.MlflowArtifacts.GetPresignedDownloadUrl.Response(this);
+          int from_bitField0_ = bitField0_;
+          int to_bitField0_ = 0;
+          if (((from_bitField0_ & 0x00000001) != 0)) {
+            to_bitField0_ |= 0x00000001;
+          }
+          result.url_ = url_;
+          result.headers_ = internalGetHeaders();
+          result.headers_.makeImmutable();
+          if (((from_bitField0_ & 0x00000004) != 0)) {
+            result.fileSize_ = fileSize_;
+            to_bitField0_ |= 0x00000002;
+          }
+          result.bitField0_ = to_bitField0_;
+          onBuilt();
+          return result;
+        }
+
+        @java.lang.Override
+        public Builder clone() {
+          return super.clone();
+        }
+        @java.lang.Override
+        public Builder setField(
+            com.google.protobuf.Descriptors.FieldDescriptor field,
+            java.lang.Object value) {
+          return super.setField(field, value);
+        }
+        @java.lang.Override
+        public Builder clearField(
+            com.google.protobuf.Descriptors.FieldDescriptor field) {
+          return super.clearField(field);
+        }
+        @java.lang.Override
+        public Builder clearOneof(
+            com.google.protobuf.Descriptors.OneofDescriptor oneof) {
+          return super.clearOneof(oneof);
+        }
+        @java.lang.Override
+        public Builder setRepeatedField(
+            com.google.protobuf.Descriptors.FieldDescriptor field,
+            int index, java.lang.Object value) {
+          return super.setRepeatedField(field, index, value);
+        }
+        @java.lang.Override
+        public Builder addRepeatedField(
+            com.google.protobuf.Descriptors.FieldDescriptor field,
+            java.lang.Object value) {
+          return super.addRepeatedField(field, value);
+        }
+        @java.lang.Override
+        public Builder mergeFrom(com.google.protobuf.Message other) {
+          if (other instanceof org.mlflow.api.proto.MlflowArtifacts.GetPresignedDownloadUrl.Response) {
+            return mergeFrom((org.mlflow.api.proto.MlflowArtifacts.GetPresignedDownloadUrl.Response)other);
+          } else {
+            super.mergeFrom(other);
+            return this;
+          }
+        }
+
+        public Builder mergeFrom(org.mlflow.api.proto.MlflowArtifacts.GetPresignedDownloadUrl.Response other) {
+          if (other == org.mlflow.api.proto.MlflowArtifacts.GetPresignedDownloadUrl.Response.getDefaultInstance()) return this;
+          if (other.hasUrl()) {
+            bitField0_ |= 0x00000001;
+            url_ = other.url_;
+            onChanged();
+          }
+          internalGetMutableHeaders().mergeFrom(
+              other.internalGetHeaders());
+          if (other.hasFileSize()) {
+            setFileSize(other.getFileSize());
+          }
+          this.mergeUnknownFields(other.unknownFields);
+          onChanged();
+          return this;
+        }
+
+        @java.lang.Override
+        public final boolean isInitialized() {
+          return true;
+        }
+
+        @java.lang.Override
+        public Builder mergeFrom(
+            com.google.protobuf.CodedInputStream input,
+            com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+            throws java.io.IOException {
+          org.mlflow.api.proto.MlflowArtifacts.GetPresignedDownloadUrl.Response parsedMessage = null;
+          try {
+            parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
+          } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+            parsedMessage = (org.mlflow.api.proto.MlflowArtifacts.GetPresignedDownloadUrl.Response) e.getUnfinishedMessage();
+            throw e.unwrapIOException();
+          } finally {
+            if (parsedMessage != null) {
+              mergeFrom(parsedMessage);
+            }
+          }
+          return this;
+        }
+        private int bitField0_;
+
+        private java.lang.Object url_ = "";
+        /**
+         * <pre>
+         * The presigned URL for downloading the artifact directly from cloud storage.
+         * </pre>
+         *
+         * <code>optional string url = 1;</code>
+         * @return Whether the url field is set.
+         */
+        public boolean hasUrl() {
+          return ((bitField0_ & 0x00000001) != 0);
+        }
+        /**
+         * <pre>
+         * The presigned URL for downloading the artifact directly from cloud storage.
+         * </pre>
+         *
+         * <code>optional string url = 1;</code>
+         * @return The url.
+         */
+        public java.lang.String getUrl() {
+          java.lang.Object ref = url_;
+          if (!(ref instanceof java.lang.String)) {
+            com.google.protobuf.ByteString bs =
+                (com.google.protobuf.ByteString) ref;
+            java.lang.String s = bs.toStringUtf8();
+            if (bs.isValidUtf8()) {
+              url_ = s;
+            }
+            return s;
+          } else {
+            return (java.lang.String) ref;
+          }
+        }
+        /**
+         * <pre>
+         * The presigned URL for downloading the artifact directly from cloud storage.
+         * </pre>
+         *
+         * <code>optional string url = 1;</code>
+         * @return The bytes for url.
+         */
+        public com.google.protobuf.ByteString
+            getUrlBytes() {
+          java.lang.Object ref = url_;
+          if (ref instanceof String) {
+            com.google.protobuf.ByteString b = 
+                com.google.protobuf.ByteString.copyFromUtf8(
+                    (java.lang.String) ref);
+            url_ = b;
+            return b;
+          } else {
+            return (com.google.protobuf.ByteString) ref;
+          }
+        }
+        /**
+         * <pre>
+         * The presigned URL for downloading the artifact directly from cloud storage.
+         * </pre>
+         *
+         * <code>optional string url = 1;</code>
+         * @param value The url to set.
+         * @return This builder for chaining.
+         */
+        public Builder setUrl(
+            java.lang.String value) {
+          if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000001;
+          url_ = value;
+          onChanged();
+          return this;
+        }
+        /**
+         * <pre>
+         * The presigned URL for downloading the artifact directly from cloud storage.
+         * </pre>
+         *
+         * <code>optional string url = 1;</code>
+         * @return This builder for chaining.
+         */
+        public Builder clearUrl() {
+          bitField0_ = (bitField0_ & ~0x00000001);
+          url_ = getDefaultInstance().getUrl();
+          onChanged();
+          return this;
+        }
+        /**
+         * <pre>
+         * The presigned URL for downloading the artifact directly from cloud storage.
+         * </pre>
+         *
+         * <code>optional string url = 1;</code>
+         * @param value The bytes for url to set.
+         * @return This builder for chaining.
+         */
+        public Builder setUrlBytes(
+            com.google.protobuf.ByteString value) {
+          if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000001;
+          url_ = value;
+          onChanged();
+          return this;
+        }
+
+        private com.google.protobuf.MapField<
+            java.lang.String, java.lang.String> headers_;
+        private com.google.protobuf.MapField<java.lang.String, java.lang.String>
+        internalGetHeaders() {
+          if (headers_ == null) {
+            return com.google.protobuf.MapField.emptyMapField(
+                HeadersDefaultEntryHolder.defaultEntry);
+          }
+          return headers_;
+        }
+        private com.google.protobuf.MapField<java.lang.String, java.lang.String>
+        internalGetMutableHeaders() {
+          onChanged();;
+          if (headers_ == null) {
+            headers_ = com.google.protobuf.MapField.newMapField(
+                HeadersDefaultEntryHolder.defaultEntry);
+          }
+          if (!headers_.isMutable()) {
+            headers_ = headers_.copy();
+          }
+          return headers_;
+        }
+
+        public int getHeadersCount() {
+          return internalGetHeaders().getMap().size();
+        }
+        /**
+         * <pre>
+         * Optional headers that must be included in the download request.
+         * </pre>
+         *
+         * <code>map&lt;string, string&gt; headers = 2;</code>
+         */
+
+        @java.lang.Override
+        public boolean containsHeaders(
+            java.lang.String key) {
+          if (key == null) { throw new NullPointerException("map key"); }
+          return internalGetHeaders().getMap().containsKey(key);
+        }
+        /**
+         * Use {@link #getHeadersMap()} instead.
+         */
+        @java.lang.Override
+        @java.lang.Deprecated
+        public java.util.Map<java.lang.String, java.lang.String> getHeaders() {
+          return getHeadersMap();
+        }
+        /**
+         * <pre>
+         * Optional headers that must be included in the download request.
+         * </pre>
+         *
+         * <code>map&lt;string, string&gt; headers = 2;</code>
+         */
+        @java.lang.Override
+
+        public java.util.Map<java.lang.String, java.lang.String> getHeadersMap() {
+          return internalGetHeaders().getMap();
+        }
+        /**
+         * <pre>
+         * Optional headers that must be included in the download request.
+         * </pre>
+         *
+         * <code>map&lt;string, string&gt; headers = 2;</code>
+         */
+        @java.lang.Override
+
+        public java.lang.String getHeadersOrDefault(
+            java.lang.String key,
+            java.lang.String defaultValue) {
+          if (key == null) { throw new NullPointerException("map key"); }
+          java.util.Map<java.lang.String, java.lang.String> map =
+              internalGetHeaders().getMap();
+          return map.containsKey(key) ? map.get(key) : defaultValue;
+        }
+        /**
+         * <pre>
+         * Optional headers that must be included in the download request.
+         * </pre>
+         *
+         * <code>map&lt;string, string&gt; headers = 2;</code>
+         */
+        @java.lang.Override
+
+        public java.lang.String getHeadersOrThrow(
+            java.lang.String key) {
+          if (key == null) { throw new NullPointerException("map key"); }
+          java.util.Map<java.lang.String, java.lang.String> map =
+              internalGetHeaders().getMap();
+          if (!map.containsKey(key)) {
+            throw new java.lang.IllegalArgumentException();
+          }
+          return map.get(key);
+        }
+
+        public Builder clearHeaders() {
+          internalGetMutableHeaders().getMutableMap()
+              .clear();
+          return this;
+        }
+        /**
+         * <pre>
+         * Optional headers that must be included in the download request.
+         * </pre>
+         *
+         * <code>map&lt;string, string&gt; headers = 2;</code>
+         */
+
+        public Builder removeHeaders(
+            java.lang.String key) {
+          if (key == null) { throw new NullPointerException("map key"); }
+          internalGetMutableHeaders().getMutableMap()
+              .remove(key);
+          return this;
+        }
+        /**
+         * Use alternate mutation accessors instead.
+         */
+        @java.lang.Deprecated
+        public java.util.Map<java.lang.String, java.lang.String>
+        getMutableHeaders() {
+          return internalGetMutableHeaders().getMutableMap();
+        }
+        /**
+         * <pre>
+         * Optional headers that must be included in the download request.
+         * </pre>
+         *
+         * <code>map&lt;string, string&gt; headers = 2;</code>
+         */
+        public Builder putHeaders(
+            java.lang.String key,
+            java.lang.String value) {
+          if (key == null) { throw new NullPointerException("map key"); }
+          if (value == null) {
+  throw new NullPointerException("map value");
+}
+
+          internalGetMutableHeaders().getMutableMap()
+              .put(key, value);
+          return this;
+        }
+        /**
+         * <pre>
+         * Optional headers that must be included in the download request.
+         * </pre>
+         *
+         * <code>map&lt;string, string&gt; headers = 2;</code>
+         */
+
+        public Builder putAllHeaders(
+            java.util.Map<java.lang.String, java.lang.String> values) {
+          internalGetMutableHeaders().getMutableMap()
+              .putAll(values);
+          return this;
+        }
+
+        private long fileSize_ ;
+        /**
+         * <pre>
+         * Optional size of the file in bytes.
+         * </pre>
+         *
+         * <code>optional int64 file_size = 3;</code>
+         * @return Whether the fileSize field is set.
+         */
+        @java.lang.Override
+        public boolean hasFileSize() {
+          return ((bitField0_ & 0x00000004) != 0);
+        }
+        /**
+         * <pre>
+         * Optional size of the file in bytes.
+         * </pre>
+         *
+         * <code>optional int64 file_size = 3;</code>
+         * @return The fileSize.
+         */
+        @java.lang.Override
+        public long getFileSize() {
+          return fileSize_;
+        }
+        /**
+         * <pre>
+         * Optional size of the file in bytes.
+         * </pre>
+         *
+         * <code>optional int64 file_size = 3;</code>
+         * @param value The fileSize to set.
+         * @return This builder for chaining.
+         */
+        public Builder setFileSize(long value) {
+          bitField0_ |= 0x00000004;
+          fileSize_ = value;
+          onChanged();
+          return this;
+        }
+        /**
+         * <pre>
+         * Optional size of the file in bytes.
+         * </pre>
+         *
+         * <code>optional int64 file_size = 3;</code>
+         * @return This builder for chaining.
+         */
+        public Builder clearFileSize() {
+          bitField0_ = (bitField0_ & ~0x00000004);
+          fileSize_ = 0L;
+          onChanged();
+          return this;
+        }
+        @java.lang.Override
+        public final Builder setUnknownFields(
+            final com.google.protobuf.UnknownFieldSet unknownFields) {
+          return super.setUnknownFields(unknownFields);
+        }
+
+        @java.lang.Override
+        public final Builder mergeUnknownFields(
+            final com.google.protobuf.UnknownFieldSet unknownFields) {
+          return super.mergeUnknownFields(unknownFields);
+        }
+
+
+        // @@protoc_insertion_point(builder_scope:mlflow.artifacts.GetPresignedDownloadUrl.Response)
+      }
+
+      // @@protoc_insertion_point(class_scope:mlflow.artifacts.GetPresignedDownloadUrl.Response)
+      private static final org.mlflow.api.proto.MlflowArtifacts.GetPresignedDownloadUrl.Response DEFAULT_INSTANCE;
+      static {
+        DEFAULT_INSTANCE = new org.mlflow.api.proto.MlflowArtifacts.GetPresignedDownloadUrl.Response();
+      }
+
+      public static org.mlflow.api.proto.MlflowArtifacts.GetPresignedDownloadUrl.Response getDefaultInstance() {
+        return DEFAULT_INSTANCE;
+      }
+
+      @java.lang.Deprecated public static final com.google.protobuf.Parser<Response>
+          PARSER = new com.google.protobuf.AbstractParser<Response>() {
+        @java.lang.Override
+        public Response parsePartialFrom(
+            com.google.protobuf.CodedInputStream input,
+            com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+            throws com.google.protobuf.InvalidProtocolBufferException {
+          return new Response(input, extensionRegistry);
+        }
+      };
+
+      public static com.google.protobuf.Parser<Response> parser() {
+        return PARSER;
+      }
+
+      @java.lang.Override
+      public com.google.protobuf.Parser<Response> getParserForType() {
+        return PARSER;
+      }
+
+      @java.lang.Override
+      public org.mlflow.api.proto.MlflowArtifacts.GetPresignedDownloadUrl.Response getDefaultInstanceForType() {
+        return DEFAULT_INSTANCE;
+      }
+
+    }
+
+    private byte memoizedIsInitialized = -1;
+    @java.lang.Override
+    public final boolean isInitialized() {
+      byte isInitialized = memoizedIsInitialized;
+      if (isInitialized == 1) return true;
+      if (isInitialized == 0) return false;
+
+      memoizedIsInitialized = 1;
+      return true;
+    }
+
+    @java.lang.Override
+    public void writeTo(com.google.protobuf.CodedOutputStream output)
+                        throws java.io.IOException {
+      unknownFields.writeTo(output);
+    }
+
+    @java.lang.Override
+    public int getSerializedSize() {
+      int size = memoizedSize;
+      if (size != -1) return size;
+
+      size = 0;
+      size += unknownFields.getSerializedSize();
+      memoizedSize = size;
+      return size;
+    }
+
+    @java.lang.Override
+    public boolean equals(final java.lang.Object obj) {
+      if (obj == this) {
+       return true;
+      }
+      if (!(obj instanceof org.mlflow.api.proto.MlflowArtifacts.GetPresignedDownloadUrl)) {
+        return super.equals(obj);
+      }
+      org.mlflow.api.proto.MlflowArtifacts.GetPresignedDownloadUrl other = (org.mlflow.api.proto.MlflowArtifacts.GetPresignedDownloadUrl) obj;
+
+      if (!unknownFields.equals(other.unknownFields)) return false;
+      return true;
+    }
+
+    @java.lang.Override
+    public int hashCode() {
+      if (memoizedHashCode != 0) {
+        return memoizedHashCode;
+      }
+      int hash = 41;
+      hash = (19 * hash) + getDescriptor().hashCode();
+      hash = (29 * hash) + unknownFields.hashCode();
+      memoizedHashCode = hash;
+      return hash;
+    }
+
+    public static org.mlflow.api.proto.MlflowArtifacts.GetPresignedDownloadUrl parseFrom(
+        java.nio.ByteBuffer data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static org.mlflow.api.proto.MlflowArtifacts.GetPresignedDownloadUrl parseFrom(
+        java.nio.ByteBuffer data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.MlflowArtifacts.GetPresignedDownloadUrl parseFrom(
+        com.google.protobuf.ByteString data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static org.mlflow.api.proto.MlflowArtifacts.GetPresignedDownloadUrl parseFrom(
+        com.google.protobuf.ByteString data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.MlflowArtifacts.GetPresignedDownloadUrl parseFrom(byte[] data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static org.mlflow.api.proto.MlflowArtifacts.GetPresignedDownloadUrl parseFrom(
+        byte[] data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.MlflowArtifacts.GetPresignedDownloadUrl parseFrom(java.io.InputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input);
+    }
+    public static org.mlflow.api.proto.MlflowArtifacts.GetPresignedDownloadUrl parseFrom(
+        java.io.InputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.MlflowArtifacts.GetPresignedDownloadUrl parseDelimitedFrom(java.io.InputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseDelimitedWithIOException(PARSER, input);
+    }
+    public static org.mlflow.api.proto.MlflowArtifacts.GetPresignedDownloadUrl parseDelimitedFrom(
+        java.io.InputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.MlflowArtifacts.GetPresignedDownloadUrl parseFrom(
+        com.google.protobuf.CodedInputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input);
+    }
+    public static org.mlflow.api.proto.MlflowArtifacts.GetPresignedDownloadUrl parseFrom(
+        com.google.protobuf.CodedInputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input, extensionRegistry);
+    }
+
+    @java.lang.Override
+    public Builder newBuilderForType() { return newBuilder(); }
+    public static Builder newBuilder() {
+      return DEFAULT_INSTANCE.toBuilder();
+    }
+    public static Builder newBuilder(org.mlflow.api.proto.MlflowArtifacts.GetPresignedDownloadUrl prototype) {
+      return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
+    }
+    @java.lang.Override
+    public Builder toBuilder() {
+      return this == DEFAULT_INSTANCE
+          ? new Builder() : new Builder().mergeFrom(this);
+    }
+
+    @java.lang.Override
+    protected Builder newBuilderForType(
+        com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+      Builder builder = new Builder(parent);
+      return builder;
+    }
+    /**
+     * Protobuf type {@code mlflow.artifacts.GetPresignedDownloadUrl}
+     */
+    public static final class Builder extends
+        com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
+        // @@protoc_insertion_point(builder_implements:mlflow.artifacts.GetPresignedDownloadUrl)
+        org.mlflow.api.proto.MlflowArtifacts.GetPresignedDownloadUrlOrBuilder {
+      public static final com.google.protobuf.Descriptors.Descriptor
+          getDescriptor() {
+        return org.mlflow.api.proto.MlflowArtifacts.internal_static_mlflow_artifacts_GetPresignedDownloadUrl_descriptor;
+      }
+
+      @java.lang.Override
+      protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+          internalGetFieldAccessorTable() {
+        return org.mlflow.api.proto.MlflowArtifacts.internal_static_mlflow_artifacts_GetPresignedDownloadUrl_fieldAccessorTable
+            .ensureFieldAccessorsInitialized(
+                org.mlflow.api.proto.MlflowArtifacts.GetPresignedDownloadUrl.class, org.mlflow.api.proto.MlflowArtifacts.GetPresignedDownloadUrl.Builder.class);
+      }
+
+      // Construct using org.mlflow.api.proto.MlflowArtifacts.GetPresignedDownloadUrl.newBuilder()
+      private Builder() {
+        maybeForceBuilderInitialization();
+      }
+
+      private Builder(
+          com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+        super(parent);
+        maybeForceBuilderInitialization();
+      }
+      private void maybeForceBuilderInitialization() {
+        if (com.google.protobuf.GeneratedMessageV3
+                .alwaysUseFieldBuilders) {
+        }
+      }
+      @java.lang.Override
+      public Builder clear() {
+        super.clear();
+        return this;
+      }
+
+      @java.lang.Override
+      public com.google.protobuf.Descriptors.Descriptor
+          getDescriptorForType() {
+        return org.mlflow.api.proto.MlflowArtifacts.internal_static_mlflow_artifacts_GetPresignedDownloadUrl_descriptor;
+      }
+
+      @java.lang.Override
+      public org.mlflow.api.proto.MlflowArtifacts.GetPresignedDownloadUrl getDefaultInstanceForType() {
+        return org.mlflow.api.proto.MlflowArtifacts.GetPresignedDownloadUrl.getDefaultInstance();
+      }
+
+      @java.lang.Override
+      public org.mlflow.api.proto.MlflowArtifacts.GetPresignedDownloadUrl build() {
+        org.mlflow.api.proto.MlflowArtifacts.GetPresignedDownloadUrl result = buildPartial();
+        if (!result.isInitialized()) {
+          throw newUninitializedMessageException(result);
+        }
+        return result;
+      }
+
+      @java.lang.Override
+      public org.mlflow.api.proto.MlflowArtifacts.GetPresignedDownloadUrl buildPartial() {
+        org.mlflow.api.proto.MlflowArtifacts.GetPresignedDownloadUrl result = new org.mlflow.api.proto.MlflowArtifacts.GetPresignedDownloadUrl(this);
+        onBuilt();
+        return result;
+      }
+
+      @java.lang.Override
+      public Builder clone() {
+        return super.clone();
+      }
+      @java.lang.Override
+      public Builder setField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          java.lang.Object value) {
+        return super.setField(field, value);
+      }
+      @java.lang.Override
+      public Builder clearField(
+          com.google.protobuf.Descriptors.FieldDescriptor field) {
+        return super.clearField(field);
+      }
+      @java.lang.Override
+      public Builder clearOneof(
+          com.google.protobuf.Descriptors.OneofDescriptor oneof) {
+        return super.clearOneof(oneof);
+      }
+      @java.lang.Override
+      public Builder setRepeatedField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          int index, java.lang.Object value) {
+        return super.setRepeatedField(field, index, value);
+      }
+      @java.lang.Override
+      public Builder addRepeatedField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          java.lang.Object value) {
+        return super.addRepeatedField(field, value);
+      }
+      @java.lang.Override
+      public Builder mergeFrom(com.google.protobuf.Message other) {
+        if (other instanceof org.mlflow.api.proto.MlflowArtifacts.GetPresignedDownloadUrl) {
+          return mergeFrom((org.mlflow.api.proto.MlflowArtifacts.GetPresignedDownloadUrl)other);
+        } else {
+          super.mergeFrom(other);
+          return this;
+        }
+      }
+
+      public Builder mergeFrom(org.mlflow.api.proto.MlflowArtifacts.GetPresignedDownloadUrl other) {
+        if (other == org.mlflow.api.proto.MlflowArtifacts.GetPresignedDownloadUrl.getDefaultInstance()) return this;
+        this.mergeUnknownFields(other.unknownFields);
+        onChanged();
+        return this;
+      }
+
+      @java.lang.Override
+      public final boolean isInitialized() {
+        return true;
+      }
+
+      @java.lang.Override
+      public Builder mergeFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        org.mlflow.api.proto.MlflowArtifacts.GetPresignedDownloadUrl parsedMessage = null;
+        try {
+          parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
+        } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+          parsedMessage = (org.mlflow.api.proto.MlflowArtifacts.GetPresignedDownloadUrl) e.getUnfinishedMessage();
+          throw e.unwrapIOException();
+        } finally {
+          if (parsedMessage != null) {
+            mergeFrom(parsedMessage);
+          }
+        }
+        return this;
+      }
+      @java.lang.Override
+      public final Builder setUnknownFields(
+          final com.google.protobuf.UnknownFieldSet unknownFields) {
+        return super.setUnknownFields(unknownFields);
+      }
+
+      @java.lang.Override
+      public final Builder mergeUnknownFields(
+          final com.google.protobuf.UnknownFieldSet unknownFields) {
+        return super.mergeUnknownFields(unknownFields);
+      }
+
+
+      // @@protoc_insertion_point(builder_scope:mlflow.artifacts.GetPresignedDownloadUrl)
+    }
+
+    // @@protoc_insertion_point(class_scope:mlflow.artifacts.GetPresignedDownloadUrl)
+    private static final org.mlflow.api.proto.MlflowArtifacts.GetPresignedDownloadUrl DEFAULT_INSTANCE;
+    static {
+      DEFAULT_INSTANCE = new org.mlflow.api.proto.MlflowArtifacts.GetPresignedDownloadUrl();
+    }
+
+    public static org.mlflow.api.proto.MlflowArtifacts.GetPresignedDownloadUrl getDefaultInstance() {
+      return DEFAULT_INSTANCE;
+    }
+
+    @java.lang.Deprecated public static final com.google.protobuf.Parser<GetPresignedDownloadUrl>
+        PARSER = new com.google.protobuf.AbstractParser<GetPresignedDownloadUrl>() {
+      @java.lang.Override
+      public GetPresignedDownloadUrl parsePartialFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return new GetPresignedDownloadUrl(input, extensionRegistry);
+      }
+    };
+
+    public static com.google.protobuf.Parser<GetPresignedDownloadUrl> parser() {
+      return PARSER;
+    }
+
+    @java.lang.Override
+    public com.google.protobuf.Parser<GetPresignedDownloadUrl> getParserForType() {
+      return PARSER;
+    }
+
+    @java.lang.Override
+    public org.mlflow.api.proto.MlflowArtifacts.GetPresignedDownloadUrl getDefaultInstanceForType() {
+      return DEFAULT_INSTANCE;
+    }
+
+  }
+
   private static final com.google.protobuf.Descriptors.Descriptor
     internal_static_mlflow_artifacts_DownloadArtifact_descriptor;
   private static final 
@@ -11471,6 +13059,21 @@ public final class MlflowArtifacts {
   private static final 
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internal_static_mlflow_artifacts_MultipartUploadPart_fieldAccessorTable;
+  private static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_mlflow_artifacts_GetPresignedDownloadUrl_descriptor;
+  private static final 
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+      internal_static_mlflow_artifacts_GetPresignedDownloadUrl_fieldAccessorTable;
+  private static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_mlflow_artifacts_GetPresignedDownloadUrl_Response_descriptor;
+  private static final 
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+      internal_static_mlflow_artifacts_GetPresignedDownloadUrl_Response_fieldAccessorTable;
+  private static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_mlflow_artifacts_GetPresignedDownloadUrl_Response_HeadersEntry_descriptor;
+  private static final 
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+      internal_static_mlflow_artifacts_GetPresignedDownloadUrl_Response_HeadersEntry_fieldAccessorTable;
 
   public static com.google.protobuf.Descriptors.FileDescriptor
       getDescriptor() {
@@ -11503,43 +13106,54 @@ public final class MlflowArtifacts {
       "HeadersEntry\032.\n\014HeadersEntry\022\013\n\003key\030\001 \001(" +
       "\t\022\r\n\005value\030\002 \001(\t:\0028\001\"E\n\023MultipartUploadP" +
       "art\022\023\n\013part_number\030\001 \001(\003\022\014\n\004etag\030\002 \001(\t\022\013" +
-      "\n\003url\030\003 \001(\t2\231\013\n\026MlflowArtifactsService\022\275" +
-      "\001\n\020downloadArtifact\022\".mlflow.artifacts.D" +
-      "ownloadArtifact\032+.mlflow.artifacts.Downl" +
-      "oadArtifact.Response\"X\362\206\031T\n=\n\003GET\0220/mlfl" +
-      "ow-artifacts/artifacts/<path:artifact_pa" +
-      "th>\032\004\010\002\020\000\020\001*\021Download Artifact\022\265\001\n\016uploa" +
-      "dArtifact\022 .mlflow.artifacts.UploadArtif" +
-      "act\032).mlflow.artifacts.UploadArtifact.Re" +
-      "sponse\"V\362\206\031R\n=\n\003PUT\0220/mlflow-artifacts/a" +
-      "rtifacts/<path:artifact_path>\032\004\010\002\020\000\020\001*\017U" +
-      "pload Artifact\022\234\001\n\rlistArtifacts\022\037.mlflo" +
-      "w.artifacts.ListArtifacts\032(.mlflow.artif" +
-      "acts.ListArtifacts.Response\"@\362\206\031<\n(\n\003GET" +
-      "\022\033/mlflow-artifacts/artifacts\032\004\010\002\020\000\020\001*\016L" +
-      "ist Artifacts\022\271\001\n\016deleteArtifact\022 .mlflo" +
-      "w.artifacts.DeleteArtifact\032).mlflow.arti" +
-      "facts.DeleteArtifact.Response\"Z\362\206\031V\n@\n\006D" +
-      "ELETE\0220/mlflow-artifacts/artifacts/<path" +
-      ":artifact_path>\032\004\010\002\020\000\020\001*\020Delete Artifact" +
-      "s\022\340\001\n\025createMultipartUpload\022\'.mlflow.art" +
-      "ifacts.CreateMultipartUpload\0320.mlflow.ar" +
-      "tifacts.CreateMultipartUpload.Response\"l" +
-      "\362\206\031h\n?\n\004POST\0221/mlflow-artifacts/mpu/crea" +
-      "te/<path:artifact_path>\032\004\010\002\020\000\020\001*#Create " +
-      "an Artifact Multipart Upload\022\352\001\n\027complet" +
-      "eMultipartUpload\022).mlflow.artifacts.Comp" +
-      "leteMultipartUpload\0322.mlflow.artifacts.C" +
-      "ompleteMultipartUpload.Response\"p\362\206\031l\nA\n" +
-      "\004POST\0223/mlflow-artifacts/mpu/complete/<p" +
-      "ath:artifact_path>\032\004\010\002\020\000\020\001*%Complete an " +
-      "Artifact Multipart Upload\022\333\001\n\024abortMulti" +
-      "partUpload\022&.mlflow.artifacts.AbortMulti" +
-      "partUpload\032/.mlflow.artifacts.AbortMulti" +
-      "partUpload.Response\"j\362\206\031f\n>\n\004POST\0220/mlfl" +
-      "ow-artifacts/mpu/abort/<path:artifact_pa" +
-      "th>\032\004\010\002\020\000\020\001*\"Abort an Artifact Multipart" +
-      " UploadB\036\n\024org.mlflow.api.proto\220\001\001\342?\002\020\001"
+      "\n\003url\030\003 \001(\t\"\310\001\n\027GetPresignedDownloadUrl\032" +
+      "\254\001\n\010Response\022\013\n\003url\030\001 \001(\t\022P\n\007headers\030\002 \003" +
+      "(\0132?.mlflow.artifacts.GetPresignedDownlo" +
+      "adUrl.Response.HeadersEntry\022\021\n\tfile_size" +
+      "\030\003 \001(\003\032.\n\014HeadersEntry\022\013\n\003key\030\001 \001(\t\022\r\n\005v" +
+      "alue\030\002 \001(\t:\0028\0012\205\r\n\026MlflowArtifactsServic" +
+      "e\022\275\001\n\020downloadArtifact\022\".mlflow.artifact" +
+      "s.DownloadArtifact\032+.mlflow.artifacts.Do" +
+      "wnloadArtifact.Response\"X\362\206\031T\n=\n\003GET\0220/m" +
+      "lflow-artifacts/artifacts/<path:artifact" +
+      "_path>\032\004\010\002\020\000\020\001*\021Download Artifact\022\265\001\n\016up" +
+      "loadArtifact\022 .mlflow.artifacts.UploadAr" +
+      "tifact\032).mlflow.artifacts.UploadArtifact" +
+      ".Response\"V\362\206\031R\n=\n\003PUT\0220/mlflow-artifact" +
+      "s/artifacts/<path:artifact_path>\032\004\010\002\020\000\020\001" +
+      "*\017Upload Artifact\022\234\001\n\rlistArtifacts\022\037.ml" +
+      "flow.artifacts.ListArtifacts\032(.mlflow.ar" +
+      "tifacts.ListArtifacts.Response\"@\362\206\031<\n(\n\003" +
+      "GET\022\033/mlflow-artifacts/artifacts\032\004\010\002\020\000\020\001" +
+      "*\016List Artifacts\022\271\001\n\016deleteArtifact\022 .ml" +
+      "flow.artifacts.DeleteArtifact\032).mlflow.a" +
+      "rtifacts.DeleteArtifact.Response\"Z\362\206\031V\n@" +
+      "\n\006DELETE\0220/mlflow-artifacts/artifacts/<p" +
+      "ath:artifact_path>\032\004\010\002\020\000\020\001*\020Delete Artif" +
+      "acts\022\340\001\n\025createMultipartUpload\022\'.mlflow." +
+      "artifacts.CreateMultipartUpload\0320.mlflow" +
+      ".artifacts.CreateMultipartUpload.Respons" +
+      "e\"l\362\206\031h\n?\n\004POST\0221/mlflow-artifacts/mpu/c" +
+      "reate/<path:artifact_path>\032\004\010\002\020\000\020\001*#Crea" +
+      "te an Artifact Multipart Upload\022\352\001\n\027comp" +
+      "leteMultipartUpload\022).mlflow.artifacts.C" +
+      "ompleteMultipartUpload\0322.mlflow.artifact" +
+      "s.CompleteMultipartUpload.Response\"p\362\206\031l" +
+      "\nA\n\004POST\0223/mlflow-artifacts/mpu/complete" +
+      "/<path:artifact_path>\032\004\010\002\020\000\020\001*%Complete " +
+      "an Artifact Multipart Upload\022\333\001\n\024abortMu" +
+      "ltipartUpload\022&.mlflow.artifacts.AbortMu" +
+      "ltipartUpload\032/.mlflow.artifacts.AbortMu" +
+      "ltipartUpload.Response\"j\362\206\031f\n>\n\004POST\0220/m" +
+      "lflow-artifacts/mpu/abort/<path:artifact" +
+      "_path>\032\004\010\002\020\000\020\001*\"Abort an Artifact Multip" +
+      "art Upload\022\351\001\n\027getPresignedDownloadUrl\022)" +
+      ".mlflow.artifacts.GetPresignedDownloadUr" +
+      "l\0322.mlflow.artifacts.GetPresignedDownloa" +
+      "dUrl.Response\"o\362\206\031k\n=\n\003GET\0220/mlflow-arti" +
+      "facts/presigned/<path:artifact_path>\032\004\010\002" +
+      "\020\000\020\001*(Get Presigned URL for Multipart Do" +
+      "wnloadB\036\n\024org.mlflow.api.proto\220\001\001\342?\002\020\001"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -11655,6 +13269,24 @@ public final class MlflowArtifacts {
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_artifacts_MultipartUploadPart_descriptor,
         new java.lang.String[] { "PartNumber", "Etag", "Url", });
+    internal_static_mlflow_artifacts_GetPresignedDownloadUrl_descriptor =
+      getDescriptor().getMessageTypes().get(10);
+    internal_static_mlflow_artifacts_GetPresignedDownloadUrl_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_mlflow_artifacts_GetPresignedDownloadUrl_descriptor,
+        new java.lang.String[] { });
+    internal_static_mlflow_artifacts_GetPresignedDownloadUrl_Response_descriptor =
+      internal_static_mlflow_artifacts_GetPresignedDownloadUrl_descriptor.getNestedTypes().get(0);
+    internal_static_mlflow_artifacts_GetPresignedDownloadUrl_Response_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_mlflow_artifacts_GetPresignedDownloadUrl_Response_descriptor,
+        new java.lang.String[] { "Url", "Headers", "FileSize", });
+    internal_static_mlflow_artifacts_GetPresignedDownloadUrl_Response_HeadersEntry_descriptor =
+      internal_static_mlflow_artifacts_GetPresignedDownloadUrl_Response_descriptor.getNestedTypes().get(0);
+    internal_static_mlflow_artifacts_GetPresignedDownloadUrl_Response_HeadersEntry_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_mlflow_artifacts_GetPresignedDownloadUrl_Response_HeadersEntry_descriptor,
+        new java.lang.String[] { "Key", "Value", });
     com.google.protobuf.ExtensionRegistry registry =
         com.google.protobuf.ExtensionRegistry.newInstance();
     registry.add(com.databricks.api.proto.databricks.Databricks.rpc);

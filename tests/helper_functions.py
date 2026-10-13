@@ -288,11 +288,8 @@ def pyfunc_scoring_endpoint(
     ] + (extra_args or [])
 
     with _start_scoring_proc(cmd=scoring_cmd, env=env, stdout=stdout, stderr=stdout) as proc:
-        validate_version = "--enable-mlserver" not in (extra_args or [])
         try:
-            with RestEndpoint(
-                proc, port, activity_polling_timeout_seconds, validate_version=validate_version
-            ) as endpoint:
+            with RestEndpoint(proc, port, activity_polling_timeout_seconds) as endpoint:
                 yield endpoint
         finally:
             proc.terminate()
@@ -723,9 +720,14 @@ def start_mock_openai_server():
     """
     port = get_safe_port()
     script_path = Path(__file__).parent / "openai" / "mock_openai.py"
-    with subprocess.Popen(
-        [sys.executable, script_path, "--host", "localhost", "--port", str(port)]
-    ) as proc:
+    with subprocess.Popen([
+        sys.executable,
+        script_path,
+        "--host",
+        "localhost",
+        "--port",
+        str(port),
+    ]) as proc:
         try:
             base_url = f"http://localhost:{port}"
             for _ in range(10):

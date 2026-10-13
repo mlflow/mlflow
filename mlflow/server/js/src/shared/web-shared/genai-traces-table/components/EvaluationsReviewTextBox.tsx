@@ -2,7 +2,7 @@ import { isString } from 'lodash';
 import React, { useMemo } from 'react';
 
 import { Typography, useDesignSystemTheme } from '@databricks/design-system';
-import { CopyActionButton } from '@databricks/web-shared/copy';
+import { CopyActionButton } from '../../copy/CopyActionButton';
 
 import { EvaluationsReviewExpandedJSONValueCell } from './EvaluationsReviewExpandableCell';
 import { EXPECTED_FACTS_FIELD_NAME, stringifyValue } from './GenAiEvaluationTracesReview.utils';

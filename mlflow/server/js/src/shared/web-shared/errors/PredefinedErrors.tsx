@@ -53,7 +53,7 @@ const matchPredefinedApolloError = (error: Error) => {
 const getNetworkRequestErrorDetailsFromResponse = (response: Response): NetworkRequestErrorDetails => {
   const status = response.status;
 
-  return { status };
+  return { status, response };
 };
 
 export const matchPredefinedErrorFromResponse = (response: Response, originalError?: CausableError) => {
@@ -244,7 +244,7 @@ export class UnauthorizedError extends NetworkRequestError {
   );
 
   constructor(details: NetworkRequestErrorDetails, cause?: CausableError) {
-    const message = 'This request exceeds the maximum queries per second limit. Please wait and try again.';
+    const message = 'User is not authorized.';
 
     super(message, details, cause);
   }

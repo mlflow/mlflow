@@ -53,7 +53,7 @@ def _validate_array_like_id_data(data, metric_name, col_specifier):
             (isinstance(value, list) and all(isinstance(val, (str, int)) for val in value))
             or (
                 isinstance(value, np.ndarray)
-                and (np.issubdtype(value.dtype, str) or np.issubdtype(value.dtype, int))
+                and (np.issubdtype(value.dtype, np.str_) or np.issubdtype(value.dtype, np.integer))
             )
         ):
             _logger.warning(
@@ -71,16 +71,14 @@ def _load_from_github(path: str, module_type: str = "metric"):
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
-        subprocess.check_call(
-            [
-                "git",
-                "clone",
-                "--filter=blob:none",
-                "--no-checkout",
-                "https://github.com/huggingface/evaluate.git",
-                tmpdir,
-            ]
-        )
+        subprocess.check_call([
+            "git",
+            "clone",
+            "--filter=blob:none",
+            "--no-checkout",
+            "https://github.com/huggingface/evaluate.git",
+            tmpdir,
+        ])
         path = f"{module_type}s/{path}"
         subprocess.check_call(["git", "sparse-checkout", "set", path], cwd=tmpdir)
         subprocess.check_call(["git", "checkout"], cwd=tmpdir)
@@ -132,10 +130,10 @@ def _flesch_kincaid_eval_fn(predictions, targets=None, metrics=None):
 
     try:
         import textstat
-    except ImportError:
+    except ImportError as e:
         _logger.warning(
-            "Failed to import textstat for flesch kincaid metric, skipping metric logging. "
-            "Please install textstat using 'pip install textstat'."
+            f"Failed to import textstat for flesch kincaid metric (error: {e!r}), "
+            "skipping metric logging. Please install textstat using 'pip install textstat'."
         )
         return
 
@@ -152,11 +150,10 @@ def _ari_eval_fn(predictions, targets=None, metrics=None):
 
     try:
         import textstat
-    except ImportError:
+    except ImportError as e:
         _logger.warning(
-            "Failed to import textstat for automated readability index metric, "
-            "skipping metric logging. "
-            "Please install textstat using 'pip install textstat'."
+            f"Failed to import textstat for automated readability index metric (error: {e!r}), "
+            "skipping metric logging. Please install textstat using 'pip install textstat'."
         )
         return
 
@@ -410,21 +407,16 @@ def _precision_at_k_eval_fn(k):
 
 
 def _expand_duplicate_retrieved_docs(predictions, targets):
+    original_targets = frozenset(targets)
+    expanded_targets = {(doc_id, 1) for doc_id in original_targets}
     counter = {}
     expanded_predictions = []
-    expanded_targets = targets
     for doc_id in predictions:
-        if doc_id not in counter:
-            counter[doc_id] = 1
-            expanded_predictions.append(doc_id)
-        else:
-            counter[doc_id] += 1
-            new_doc_id = (
-                f"{doc_id}_bc574ae_{counter[doc_id]}"  # adding a random string to avoid collisions
-            )
-            expanded_predictions.append(new_doc_id)
-            if doc_id in expanded_targets:
-                expanded_targets.add(new_doc_id)
+        counter[doc_id] = counter.get(doc_id, 0) + 1
+        occurrence_id = (doc_id, counter[doc_id])
+        expanded_predictions.append(occurrence_id)
+        if doc_id in original_targets:
+            expanded_targets.add(occurrence_id)
     return expanded_predictions, expanded_targets
 
 

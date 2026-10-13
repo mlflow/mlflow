@@ -1,26 +1,55 @@
 import json
+import logging
 import os
+import shutil
 import signal
 import tempfile
+import time
 import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from mlflow.assistant.types import Message
 
+_logger = logging.getLogger(__name__)
+
 SESSION_DIR = Path(tempfile.gettempdir()) / "mlflow-assistant-sessions"
+
+# Sessions with no activity within this window expire. Every turn rewrites the session file, so
+# its mtime is the time of the last activity (reap_stale_sandbox_homes keeps the mtime when it
+# rewrites one).
+_SESSION_MAX_AGE_SECONDS = 24 * 60 * 60
+# Per-session sandbox $HOME directories with no activity within this window are reaped.
+_SANDBOX_HOME_MAX_AGE_SECONDS = 24 * 60 * 60
 
 
 @dataclass
 class Session:
     """Session state for assistant conversations."""
 
+    # The authenticated user who owns this session, or None on a no-auth server. Sessions are
+    # only ever loaded on behalf of their owner (see the API layer), so the session id alone is
+    # not enough to read or drive another user's conversation. Sessions written on a no-auth
+    # server (owner None) become unowned once auth is enabled: no authenticated user matches None,
+    # so they are no longer loadable through the API. That is intentional (ephemeral sessions that
+    # expire a day after their last activity, see _SESSION_MAX_AGE_SECONDS), not a claim path for
+    # the first caller.
+    owner: str | None = None
     context: dict[str, Any] = field(default_factory=dict)
     messages: list[Message] = field(default_factory=list)
     pending_message: Message | None = None
     provider_session_id: str | None = None
     working_dir: Path | None = None  # Working directory for the session (e.g. project path)
+    # tool_call_id -> "allow" | "deny": a decision awaiting the next stream so a
+    # turn paused at a permission prompt can resume. Set by the resume endpoint,
+    # consumed (and cleared) by the stream.
+    pending_tool_decisions: dict[str, Literal["allow", "deny"]] = field(default_factory=dict)
+    # tool_call_id -> {"content": str, "is_error": bool}: the result of a CLIENT
+    # -executed tool call (e.g. render_custom_view), awaiting the next stream so a
+    # turn paused at a client_tool_call can resume. Set by the tool-result
+    # endpoint, consumed (and cleared) by the stream.
+    pending_client_tool_results: dict[str, dict[str, Any]] = field(default_factory=dict)
 
     def add_message(self, role: str, content: str) -> None:
         """Add a message to the session history.
@@ -65,11 +94,14 @@ class Session:
             Dictionary representation of session
         """
         return {
+            "owner": self.owner,
             "context": self.context,
             "messages": [msg.model_dump() for msg in self.messages],
             "pending_message": self.pending_message.model_dump() if self.pending_message else None,
             "provider_session_id": self.provider_session_id,
             "working_dir": self.working_dir.as_posix() if self.working_dir else None,
+            "pending_tool_decisions": self.pending_tool_decisions,
+            "pending_client_tool_results": self.pending_client_tool_results,
         }
 
     @classmethod
@@ -87,11 +119,14 @@ class Session:
         pending_msg = Message.model_validate(pending) if pending else None
 
         return cls(
+            owner=data.get("owner"),
             context=data.get("context", {}),
             messages=messages,
             pending_message=pending_msg,
             provider_session_id=data.get("provider_session_id"),
             working_dir=Path(data.get("working_dir")) if data.get("working_dir") else None,
+            pending_tool_decisions=data.get("pending_tool_decisions") or {},
+            pending_client_tool_results=data.get("pending_client_tool_results") or {},
         )
 
 
@@ -165,23 +200,35 @@ class SessionManager:
             session_file = SessionManager.get_session_file(session_id)
         except ValueError:
             return None
-        if not session_file.exists():
+        try:
+            if session_file.stat().st_mtime < time.time() - _SESSION_MAX_AGE_SECONDS:
+                # A hard deadline, independent of the OS cleaning its temp directory: an old
+                # session can never be resumed, e.g. by a later user given the same username.
+                _expire_session(session_id)
+                return None
+            data = json.loads(session_file.read_text())
+        except FileNotFoundError:
+            # Missing, or removed by a concurrent expiry.
             return None
-        data = json.loads(session_file.read_text())
         return Session.from_dict(data)
 
     @staticmethod
-    def create(context: dict[str, Any] | None = None, working_dir: Path | None = None) -> Session:
+    def create(
+        context: dict[str, Any] | None = None,
+        working_dir: Path | None = None,
+        owner: str | None = None,
+    ) -> Session:
         """Create a new session.
 
         Args:
             context: Initial context data, or None
             working_dir: Working directory for the session
+            owner: The authenticated user who owns the session, or None on a no-auth server
 
         Returns:
             New Session instance
         """
-        return Session(context=context or {}, working_dir=working_dir)
+        return Session(owner=owner, context=context or {}, working_dir=working_dir)
 
 
 def get_process_file(session_id: str) -> Path:
@@ -204,7 +251,12 @@ def get_process_pid(session_id: str) -> int | None:
         return None
     if not process_file.exists():
         return None
-    data = json.loads(process_file.read_text())
+    try:
+        data = json.loads(process_file.read_text())
+    except (OSError, ValueError):
+        # A truncated/corrupt file (writes are not atomic) or one that vanished after the
+        # exists() check must not turn a cancel lookup into an error; treat it as absent.
+        return None
     return data.get("pid")
 
 
@@ -231,6 +283,198 @@ def terminate_session_process(session_id: str) -> bool:
             os.kill(pid, signal.SIGTERM)
             clear_process_pid(session_id)
             return True
-        except ProcessLookupError:
+        except (ProcessLookupError, PermissionError):
             clear_process_pid(session_id)
     return False
+
+
+def get_container_file(session_id: str) -> Path:
+    """Get the file path for storing a session's sandbox container id."""
+    SessionManager.validate_session_id(session_id)
+    return SESSION_DIR / f"{session_id}.container.json"
+
+
+def save_container_id(session_id: str, container_id: str) -> None:
+    """Record the sandbox container running a session's turn, for cancellation support."""
+    SESSION_DIR.mkdir(parents=True, exist_ok=True)
+    get_container_file(session_id).write_text(json.dumps({"container_id": container_id}))
+
+
+def get_container_id(session_id: str) -> str | None:
+    try:
+        container_file = get_container_file(session_id)
+    except ValueError:
+        return None
+    if not container_file.exists():
+        return None
+    try:
+        return json.loads(container_file.read_text()).get("container_id")
+    except (OSError, ValueError):
+        # A truncated/corrupt file (writes are not atomic) or one that vanished after the
+        # exists() check must not turn a cancel lookup into an error; treat it as absent.
+        return None
+
+
+def clear_container_id(session_id: str) -> None:
+    try:
+        container_file = get_container_file(session_id)
+    except ValueError:
+        return
+    # missing_ok: the stream's finally and a concurrent cancel can both clear the same id; tolerate
+    # the file already being gone rather than raising a spurious error on the losing path.
+    container_file.unlink(missing_ok=True)
+
+
+def get_session_sandbox_home(session_id: str) -> Path:
+    """Server-owned host directory bind-mounted as the sandbox container's ``$HOME``.
+
+    Persists the CLI's ``--resume`` state and caches across turns of a session. It is created
+    here (owned by the server user) so the container, which runs as that same uid:gid, can
+    write to it. Stale ones are removed by ``reap_stale_sandbox_homes``, and with their session
+    when it expires.
+    """
+    SessionManager.validate_session_id(session_id)
+    home = SESSION_DIR / "sandbox-home" / session_id
+    home.mkdir(parents=True, exist_ok=True)
+    # This HOME holds the CLI's login credentials and session state, so keep it private to the
+    # server user (0700). mkdir() above is subject to the process umask, and a pre-existing dir
+    # may have looser modes, so enforce it explicitly.
+    home.chmod(0o700)
+    # Bump the top-level mtime so reap_stale_sandbox_homes sees each turn as recent activity:
+    # the CLI writes --resume state into nested subdirs (e.g. .claude/), which does not advance
+    # the directory's own mtime.
+    os.utime(home, None)
+    return home
+
+
+def _expire_session(session_id: str) -> None:
+    """Delete an expired session's file and everything kept for it, so a new session created
+    with the same id starts clean (including its sandbox ``$HOME``). Best-effort.
+    """
+    _logger.debug("Assistant session %s expired; removing it", session_id)
+    paths = [
+        SessionManager.get_session_file(session_id),
+        get_process_file(session_id),
+        get_container_file(session_id),
+    ]
+    for path in paths:
+        try:
+            path.unlink(missing_ok=True)
+        except OSError:
+            _logger.debug("Could not remove %s for expired session %s", path, session_id)
+    shutil.rmtree(SESSION_DIR / "sandbox-home" / session_id, ignore_errors=True)
+
+
+def reap_stale_sessions() -> int:
+    """Delete sessions with no activity within ``_SESSION_MAX_AGE_SECONDS``. Best-effort: returns
+    the number removed.
+
+    ``SessionManager.load`` already refuses an expired session; this removes the files a server
+    would otherwise leave on disk.
+    """
+    cutoff = time.time() - _SESSION_MAX_AGE_SECONDS
+    removed = 0
+    try:
+        # Session files are ``<id>.json``; ``<id>.process.json`` and ``<id>.container.json`` are
+        # removed with their session.
+        entries = [e for e in SESSION_DIR.glob("*.json") if "." not in e.stem]
+    except OSError:
+        return 0
+    for entry in entries:
+        try:
+            if entry.is_symlink() or not entry.is_file() or entry.stat().st_mtime >= cutoff:
+                continue
+        except OSError:
+            continue
+        try:
+            _expire_session(entry.stem)
+        except ValueError:
+            # Not a valid session id, so nothing else is kept for it.
+            entry.unlink(missing_ok=True)
+        removed += 1
+    if removed:
+        _logger.info("Removed %d expired Assistant sessions.", removed)
+    return removed
+
+
+def reap_stale_sandbox_homes(max_age_seconds: float = _SANDBOX_HOME_MAX_AGE_SECONDS) -> int:
+    """Remove per-session sandbox ``$HOME`` directories untouched within the window.
+
+    These accumulate one per session (see ``get_session_sandbox_home``, which bumps a
+    directory's mtime on every turn); a directory whose mtime is older than ``max_age_seconds``
+    is treated as belonging to a finished session. Best-effort: returns the number removed.
+    """
+    base = SESSION_DIR / "sandbox-home"
+    if not base.exists():
+        return 0
+    cutoff = time.time() - max_age_seconds
+    removed = 0
+    try:
+        entries = list(base.iterdir())
+    except OSError:
+        return 0
+    for entry in entries:
+        try:
+            # Skip symlinks (do not follow them out of the base dir) and non-directories.
+            if entry.is_symlink() or not entry.is_dir() or entry.stat().st_mtime >= cutoff:
+                continue
+        except OSError:
+            continue
+        shutil.rmtree(entry, ignore_errors=True)
+        if entry.exists():
+            # rmtree with ignore_errors swallows failures; note it rather than reap silently.
+            _logger.debug("Could not remove stale sandbox home directory %s", entry)
+            continue
+        removed += 1
+        # The reaped HOME held the CLI's --resume state; drop the stored provider session id so
+        # the next turn starts a fresh CLI session instead of resuming deleted state. The
+        # directory name is the session id (see get_session_sandbox_home). A corrupt/unreadable
+        # session file must not abort the whole sweep, so this is best-effort.
+        try:
+            session = SessionManager.load(entry.name)
+            if session and session.provider_session_id is not None:
+                session_file = SessionManager.get_session_file(entry.name)
+                last_activity = session_file.stat()
+                session.provider_session_id = None
+                SessionManager.save(entry.name, session)
+                # Not user activity, so keep the session's expiry where it was.
+                os.utime(session_file, (last_activity.st_atime, last_activity.st_mtime))
+        except Exception:
+            _logger.debug("Could not clear provider session id for reaped session %s", entry.name)
+    if removed:
+        _logger.info("Reaped %d stale sandbox home directories.", removed)
+    return removed
+
+
+def terminate_session_container(session_id: str) -> bool:
+    """Kill the sandbox container running a session's turn, if any.
+
+    Returns True only if a container was found and killed. A container that is already gone
+    clears the stored id and returns False. A transient failure (e.g. a daemon hiccup) against
+    a possibly-live container is left as-is — the id is kept so a retry can still reach it.
+    """
+    container_id = get_container_id(session_id)
+    if not container_id:
+        return False
+    try:
+        import docker
+        import docker.errors
+
+        client = docker.from_env()
+        try:
+            container = client.containers.get(container_id)
+        except docker.errors.NotFound:
+            clear_container_id(session_id)
+            return False
+        container.kill()
+        clear_container_id(session_id)
+        return True
+    except Exception:
+        # Keep the id (a retry can still reach a possibly-live container) but log it — otherwise a
+        # failed kill is invisible while the cancel endpoint reports the session as cancelled.
+        _logger.warning(
+            "Failed to terminate sandbox container for session %s; leaving its id for retry.",
+            session_id,
+            exc_info=True,
+        )
+        return False

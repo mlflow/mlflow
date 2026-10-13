@@ -9,7 +9,6 @@ describe('Render test', () => {
     type: 'run',
     name: 'Test',
     visible: true,
-    // eslint-disable-next-line no-unused-vars
     form: { getFieldDecorator: jest.fn(() => identity) },
     innerRef: {},
   };

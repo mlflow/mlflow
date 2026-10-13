@@ -323,7 +323,7 @@ def test_invocations_endpoint_malformed_json():
     server = AgentServer()
     client = TestClient(server.app)
 
-    response = client.post("/invocations", data="malformed json")
+    response = client.post("/invocations", content="malformed json")
     assert response.status_code == 400
     response_json = response.json()
     assert "Invalid JSON in request body" in response_json["detail"]
@@ -812,7 +812,7 @@ def test_responses_create_malformed_json():
     server = AgentServer("ResponsesAgent")
     client = TestClient(server.app)
 
-    response = client.post("/responses", data="malformed json")
+    response = client.post("/responses", content="malformed json")
     assert response.status_code == 400
     assert "Invalid JSON in request body" in response.json()["detail"]
 
@@ -892,7 +892,9 @@ def test_responses_not_available_for_non_responses_agent():
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("path", ["/", "/assets/index.js", "/api/session", "/favicon.ico"])
+@pytest.mark.parametrize(
+    "path", ["/", "/assets/index.js", "/api/session", "/favicon.ico", "/ping", "/chat/abc123"]
+)
 async def test_chat_proxy_forwards_allowlisted_paths(path):
     server = AgentServer(enable_chat_proxy=True)
     client = TestClient(server.app)

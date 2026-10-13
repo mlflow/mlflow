@@ -1,3 +1,4 @@
+import logging
 import posixpath
 
 from mlflow.entities import FileInfo
@@ -6,10 +7,31 @@ from mlflow.environment_variables import (
 )
 from mlflow.store.artifact.cloud_artifact_repo import CloudArtifactRepository
 
+_logger = logging.getLogger(__name__)
 
-def _get_databricks_workspace_client():
+
+def _get_databricks_workspace_client(registry_uri: str | None = None):
     from databricks.sdk import WorkspaceClient
 
+    from mlflow.utils.databricks_utils import get_databricks_host_creds
+
+    # On serverless / internet-restricted (SEG) compute, Spark executors have no default
+    # Databricks credentials, so a bare ``WorkspaceClient()`` fails with
+    # "default auth: cannot configure default credentials". Build the client from the
+    # resolved host/token creds (available on executors via the task context) when present,
+    # and fall back to default auth for classic compute where it works out of the box.
+    try:
+        creds = get_databricks_host_creds(registry_uri)
+    except Exception:
+        _logger.debug(
+            "Failed to resolve Databricks host credentials for registry URI %r; "
+            "falling back to default auth.",
+            registry_uri,
+            exc_info=True,
+        )
+        creds = None
+    if creds and creds.host and creds.token:
+        return WorkspaceClient(host=creds.host, token=creds.token)
     return WorkspaceClient()
 
 
@@ -29,7 +51,7 @@ class DatabricksSDKModelsArtifactRepository(CloudArtifactRepository):
         self.model_name = model_name
         self.model_version = model_version
         self.model_base_path = f"/Models/{model_name.replace('.', '/')}/{model_version}"
-        self.client = _get_databricks_workspace_client()
+        self.client = _get_databricks_workspace_client(registry_uri)
         super().__init__(self.model_base_path, tracking_uri, registry_uri)
 
     def list_artifacts(self, path: str | None = None) -> list[FileInfo]:

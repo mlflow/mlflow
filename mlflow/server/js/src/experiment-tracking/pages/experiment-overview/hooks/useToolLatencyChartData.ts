@@ -15,7 +15,7 @@ import { useOverviewChartContext } from '../OverviewChartContext';
 
 export interface ToolLatencyDataPoint {
   timestamp: string;
-  [toolName: string]: string | number;
+  values: Record<string, number>;
 }
 
 export interface UseToolLatencyChartDataResult {
@@ -38,14 +38,14 @@ export interface UseToolLatencyChartDataResult {
  *
  * @returns Processed chart data, tool names, loading state, and error state
  */
-export function useToolLatencyChartData(): UseToolLatencyChartDataResult {
-  const { experimentId, startTimeMs, endTimeMs, timeIntervalSeconds, timeBuckets } = useOverviewChartContext();
+export function useToolLatencyChartData({ enabled = true }: { enabled?: boolean } = {}): UseToolLatencyChartDataResult {
+  const { experimentIds, startTimeMs, endTimeMs, timeIntervalSeconds, timeBuckets } = useOverviewChartContext();
   // Filter for TOOL type spans
   const toolFilter = useMemo(() => [createSpanFilter(SpanFilterKey.TYPE, SpanType.TOOL)], []);
 
   // Query average latency grouped by span_name and time bucket
   const { data, isLoading, error } = useTraceMetricsQuery({
-    experimentId,
+    experimentIds,
     startTimeMs,
     endTimeMs,
     viewType: MetricViewType.SPANS,
@@ -54,6 +54,7 @@ export function useToolLatencyChartData(): UseToolLatencyChartDataResult {
     filters: toolFilter,
     dimensions: [SpanDimensionKey.SPAN_NAME],
     timeIntervalSeconds,
+    enabled,
   });
 
   // Extract tool names and build chart data
@@ -88,12 +89,8 @@ export function useToolLatencyChartData(): UseToolLatencyChartDataResult {
       const toolLatencies = dataByTimestamp.get(timestampMs);
       const dataPoint: ToolLatencyDataPoint = {
         timestamp: formatTimestampForTraceMetrics(timestampMs, timeIntervalSeconds),
+        values: Object.fromEntries(sortedToolNames.map((toolName) => [toolName, toolLatencies?.get(toolName) ?? 0])),
       };
-
-      // Add latency for each tool (0 if not present)
-      for (const toolName of sortedToolNames) {
-        dataPoint[toolName] = toolLatencies?.get(toolName) ?? 0;
-      }
 
       return dataPoint;
     });

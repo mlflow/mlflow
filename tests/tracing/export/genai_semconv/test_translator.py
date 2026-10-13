@@ -1,0 +1,423 @@
+import json
+
+import pytest
+from opentelemetry.sdk.trace import ReadableSpan
+from opentelemetry.trace import SpanContext, SpanKind, TraceFlags
+from opentelemetry.trace.status import Status, StatusCode
+
+from mlflow.tracing.constant import GenAiSemconvKey, SpanAttributeKey
+from mlflow.tracing.export.genai_semconv.translator import (
+    _translate_universal_attributes,
+    translate_span_to_genai,
+)
+
+
+def _make_span(
+    name="test_span",
+    attributes=None,
+    kind=SpanKind.INTERNAL,
+    start_time=1000000000,
+    end_time=2000000000,
+):
+    context = SpanContext(
+        trace_id=0x000000000000000000000000DEADBEEF,
+        span_id=0x00000000DEADBEF0,
+        is_remote=False,
+        trace_flags=TraceFlags(TraceFlags.SAMPLED),
+    )
+    return ReadableSpan(
+        name=name,
+        context=context,
+        kind=kind,
+        attributes=attributes or {},
+        start_time=start_time,
+        end_time=end_time,
+        status=Status(StatusCode.OK),
+    )
+
+
+# --- _translate_universal_attributes ---
+
+
+@pytest.mark.parametrize(
+    ("span_type", "expected_operation"),
+    [
+        ("CHAT_MODEL", "chat"),
+        ("LLM", "generate_content"),
+        ("EMBEDDING", "embeddings"),
+        ("TOOL", "execute_tool"),
+        ("AGENT", "invoke_agent"),
+    ],
+)
+def test_translate_span_type_to_operation(span_type, expected_operation):
+    span = _make_span(attributes={SpanAttributeKey.SPAN_TYPE: json.dumps(span_type)})
+    result = _translate_universal_attributes(span)
+    assert result[GenAiSemconvKey.OPERATION_NAME] == expected_operation
+
+
+@pytest.mark.parametrize(
+    "span_type",
+    ["CHAIN", "WORKFLOW", "PARSER", "MEMORY", "GUARDRAIL", "EVALUATOR", "RETRIEVER", "RERANKER"],
+)
+def test_translate_unmapped_span_type_passes_through_value(span_type):
+    span = _make_span(attributes={SpanAttributeKey.SPAN_TYPE: json.dumps(span_type)})
+    result = _translate_universal_attributes(span)
+    assert result[GenAiSemconvKey.OPERATION_NAME] == span_type
+
+
+def test_translate_model_name():
+    span = _make_span(
+        attributes={
+            SpanAttributeKey.SPAN_TYPE: json.dumps("CHAT_MODEL"),
+            SpanAttributeKey.MODEL: json.dumps("gpt-4o"),
+        }
+    )
+    result = _translate_universal_attributes(span)
+    assert result[GenAiSemconvKey.REQUEST_MODEL] == "gpt-4o"
+
+
+def test_translate_provider():
+    span = _make_span(
+        attributes={
+            SpanAttributeKey.SPAN_TYPE: json.dumps("CHAT_MODEL"),
+            SpanAttributeKey.MODEL_PROVIDER: json.dumps("openai"),
+        }
+    )
+    result = _translate_universal_attributes(span)
+    assert result[GenAiSemconvKey.PROVIDER_NAME] == "openai"
+
+
+def test_translate_token_usage():
+    usage = {"input_tokens": 100, "output_tokens": 50, "total_tokens": 150}
+    span = _make_span(
+        attributes={
+            SpanAttributeKey.SPAN_TYPE: json.dumps("CHAT_MODEL"),
+            SpanAttributeKey.CHAT_USAGE: json.dumps(usage),
+        }
+    )
+    result = _translate_universal_attributes(span)
+    assert result[GenAiSemconvKey.USAGE_INPUT_TOKENS] == 100
+    assert result[GenAiSemconvKey.USAGE_OUTPUT_TOKENS] == 50
+
+
+def test_translate_tool_span_with_inputs_outputs():
+    tool_input = {"query": "what is MLflow?"}
+    tool_output = {"result": "MLflow is a platform..."}
+    span = _make_span(
+        attributes={
+            SpanAttributeKey.SPAN_TYPE: json.dumps("TOOL"),
+            SpanAttributeKey.INPUTS: json.dumps(tool_input),
+            SpanAttributeKey.OUTPUTS: json.dumps(tool_output),
+        }
+    )
+    result = _translate_universal_attributes(span)
+    assert result[GenAiSemconvKey.OPERATION_NAME] == "execute_tool"
+    assert json.loads(result[GenAiSemconvKey.TOOL_CALL_ARGUMENTS]) == tool_input
+    assert json.loads(result[GenAiSemconvKey.TOOL_CALL_RESULT]) == tool_output
+
+
+def test_translate_missing_attributes():
+    span = _make_span(attributes={})
+    result = _translate_universal_attributes(span)
+    assert result == {}
+
+
+def test_translate_malformed_json_attributes():
+    span = _make_span(
+        attributes={
+            SpanAttributeKey.SPAN_TYPE: "not valid json {",
+            SpanAttributeKey.MODEL: "also not valid {",
+        }
+    )
+    result = _translate_universal_attributes(span)
+    assert GenAiSemconvKey.OPERATION_NAME not in result
+
+
+# --- _build_genai_span_name / _get_genai_span_kind (tested via translate_span_to_genai) ---
+
+
+@pytest.mark.parametrize(
+    ("operation", "model", "expected_name", "expected_kind"),
+    [
+        ("chat", "gpt-4o", "chat gpt-4o", SpanKind.CLIENT),
+        (
+            "embeddings",
+            "text-embedding-3-small",
+            "embeddings text-embedding-3-small",
+            SpanKind.CLIENT,
+        ),
+        ("generate_content", "gemini-pro", "generate_content gemini-pro", SpanKind.CLIENT),
+        ("execute_tool", None, "execute_tool original", SpanKind.INTERNAL),
+        ("invoke_agent", None, "invoke_agent original", SpanKind.INTERNAL),
+    ],
+)
+def test_span_name_and_kind(operation, model, expected_name, expected_kind):
+    operation_to_type = {
+        "chat": "CHAT_MODEL",
+        "generate_content": "LLM",
+        "embeddings": "EMBEDDING",
+        "execute_tool": "TOOL",
+        "invoke_agent": "AGENT",
+    }
+    attrs = {SpanAttributeKey.SPAN_TYPE: json.dumps(operation_to_type[operation])}
+    if model:
+        attrs[SpanAttributeKey.MODEL] = json.dumps(model)
+
+    span = _make_span(name="original", attributes=attrs)
+    result = translate_span_to_genai(span)
+    assert result.name == expected_name
+    assert result.kind == expected_kind
+
+
+def test_span_name_unmapped_type_uses_span_type():
+    span = _make_span(name="my_chain", attributes={SpanAttributeKey.SPAN_TYPE: json.dumps("CHAIN")})
+    result = translate_span_to_genai(span)
+    assert result.name == "CHAIN"
+
+
+@pytest.mark.parametrize(
+    ("span_type", "span_name", "name_key", "expected_name"),
+    [
+        ("TOOL", "execute_tool get_weather", GenAiSemconvKey.TOOL_NAME, "get_weather"),
+        ("AGENT", "invoke_agent travel_planner", GenAiSemconvKey.AGENT_NAME, "travel_planner"),
+    ],
+)
+def test_tool_and_agent_name_attribute_set_by_instrumentation_is_kept(
+    span_type, span_name, name_key, expected_name
+):
+    attrs = {SpanAttributeKey.SPAN_TYPE: json.dumps(span_type), name_key: expected_name}
+    span = _make_span(name=span_name, attributes=attrs)
+    result = translate_span_to_genai(span)
+    assert result.name == span_name
+    assert result.attributes[name_key] == expected_name
+
+
+@pytest.mark.parametrize(
+    ("span_type", "name_key", "name", "expected_span_name"),
+    [
+        ("TOOL", GenAiSemconvKey.TOOL_NAME, "get_weather", "execute_tool get_weather"),
+        ("AGENT", GenAiSemconvKey.AGENT_NAME, "travel_planner", "invoke_agent travel_planner"),
+    ],
+)
+def test_tool_and_agent_name_attribute_serialized_by_mlflow_is_decoded(
+    span_type, name_key, name, expected_span_name
+):
+    # MLflow span APIs (e.g., `span.set_attribute`) store attribute values as JSON strings
+    attrs = {SpanAttributeKey.SPAN_TYPE: json.dumps(span_type), name_key: json.dumps(name)}
+    span = _make_span(name="Agent.run", attributes=attrs)
+    result = translate_span_to_genai(span)
+    assert result.name == expected_span_name
+    assert result.attributes[name_key] == name
+
+
+@pytest.mark.parametrize(
+    ("span_type", "span_name", "name_key"),
+    [
+        ("TOOL", "", GenAiSemconvKey.TOOL_NAME),
+        ("TOOL", "execute_tool", GenAiSemconvKey.TOOL_NAME),
+        ("AGENT", "", GenAiSemconvKey.AGENT_NAME),
+        ("AGENT", "invoke_agent", GenAiSemconvKey.AGENT_NAME),
+    ],
+)
+def test_tool_and_agent_span_without_name_uses_operation(span_type, span_name, name_key):
+    attrs = {SpanAttributeKey.SPAN_TYPE: json.dumps(span_type)}
+    span = _make_span(name=span_name, attributes=attrs)
+    result = translate_span_to_genai(span)
+    assert result.name == result.attributes[GenAiSemconvKey.OPERATION_NAME]
+    assert name_key not in result.attributes
+
+
+# --- translate_span_to_genai (end-to-end) ---
+
+
+def test_full_chat_span():
+    attrs = {
+        SpanAttributeKey.SPAN_TYPE: json.dumps("CHAT_MODEL"),
+        SpanAttributeKey.MODEL: json.dumps("gpt-4o"),
+        SpanAttributeKey.MODEL_PROVIDER: json.dumps("openai"),
+        SpanAttributeKey.CHAT_USAGE: json.dumps({
+            "input_tokens": 100,
+            "output_tokens": 50,
+            "total_tokens": 150,
+        }),
+    }
+    span = _make_span(name="ChatCompletion.create", attributes=attrs)
+    result = translate_span_to_genai(span)
+
+    assert result.name == "chat gpt-4o"
+    assert result.kind == SpanKind.CLIENT
+    assert result.attributes[GenAiSemconvKey.OPERATION_NAME] == "chat"
+    assert result.attributes[GenAiSemconvKey.REQUEST_MODEL] == "gpt-4o"
+    assert result.attributes[GenAiSemconvKey.PROVIDER_NAME] == "openai"
+    assert result.attributes[GenAiSemconvKey.USAGE_INPUT_TOKENS] == 100
+    assert result.attributes[GenAiSemconvKey.USAGE_OUTPUT_TOKENS] == 50
+    assert not any(k.startswith("mlflow.") for k in result.attributes)
+
+
+def test_full_tool_span():
+    attrs = {
+        SpanAttributeKey.SPAN_TYPE: json.dumps("TOOL"),
+        SpanAttributeKey.INPUTS: json.dumps({"city": "Paris"}),
+        SpanAttributeKey.OUTPUTS: json.dumps("18C"),
+    }
+    span = _make_span(name="get_weather", attributes=attrs)
+    result = translate_span_to_genai(span)
+
+    assert result.name == "execute_tool get_weather"
+    assert result.kind == SpanKind.INTERNAL
+    assert result.attributes[GenAiSemconvKey.OPERATION_NAME] == "execute_tool"
+    assert result.attributes[GenAiSemconvKey.TOOL_NAME] == "get_weather"
+    assert result.attributes[GenAiSemconvKey.TOOL_CALL_ARGUMENTS] == '{"city": "Paris"}'
+    assert result.attributes[GenAiSemconvKey.TOOL_CALL_RESULT] == '"18C"'
+    assert not any(k.startswith("mlflow.") for k in result.attributes)
+
+
+def test_full_agent_span():
+    attrs = {SpanAttributeKey.SPAN_TYPE: json.dumps("AGENT")}
+    span = _make_span(name="travel_planner", attributes=attrs)
+    result = translate_span_to_genai(span)
+
+    assert result.name == "invoke_agent travel_planner"
+    assert result.kind == SpanKind.INTERNAL
+    assert result.attributes[GenAiSemconvKey.OPERATION_NAME] == "invoke_agent"
+    assert result.attributes[GenAiSemconvKey.AGENT_NAME] == "travel_planner"
+    assert not any(k.startswith("mlflow.") for k in result.attributes)
+
+
+def test_unmapped_span_type_passes_through():
+    attrs = {
+        SpanAttributeKey.SPAN_TYPE: json.dumps("CHAIN"),
+        "custom.attribute": "preserved",
+    }
+    span = _make_span(name="my_chain", attributes=attrs)
+    result = translate_span_to_genai(span)
+
+    assert result.attributes[GenAiSemconvKey.OPERATION_NAME] == "CHAIN"
+    assert result.attributes["custom.attribute"] == "preserved"
+    assert not any(k.startswith("mlflow.") for k in result.attributes)
+    assert result.name == "CHAIN"
+
+
+def test_non_mlflow_attributes_preserved():
+    attrs = {
+        SpanAttributeKey.SPAN_TYPE: json.dumps("CHAT_MODEL"),
+        "http.method": "POST",
+        "http.url": "https://api.openai.com/v1/chat/completions",
+    }
+    span = _make_span(attributes=attrs)
+    result = translate_span_to_genai(span)
+
+    assert result.attributes["http.method"] == "POST"
+    assert result.attributes["http.url"] == "https://api.openai.com/v1/chat/completions"
+
+
+def test_span_context_preserved():
+    attrs = {SpanAttributeKey.SPAN_TYPE: json.dumps("CHAT_MODEL")}
+    span = _make_span(attributes=attrs)
+    result = translate_span_to_genai(span)
+
+    assert result.context == span.context
+    assert result.start_time == span.start_time
+    assert result.end_time == span.end_time
+    assert result.status == span.status
+
+
+def test_empty_attributes():
+    span = _make_span(attributes={})
+    result = translate_span_to_genai(span)
+    assert result.attributes == {}
+
+
+# --- gen_ai.input.messages: ToolCallResponsePart shape ---
+# https://github.com/open-telemetry/semantic-conventions-genai/blob/main/model/gen-ai/gen-ai-input-messages.json
+# ToolCallResponsePart requires "type" and "response".
+
+
+@pytest.mark.parametrize(
+    ("message_format", "inputs"),
+    [
+        (
+            "openai",
+            {
+                "messages": [
+                    {"role": "user", "content": "weather in SF?"},
+                    {
+                        "role": "assistant",
+                        "content": None,
+                        "tool_calls": [
+                            {
+                                "id": "call_1",
+                                "type": "function",
+                                "function": {"name": "get_weather", "arguments": "{}"},
+                            }
+                        ],
+                    },
+                    {"role": "tool", "tool_call_id": "call_1", "content": "sunny"},
+                ]
+            },
+        ),
+        (
+            "openai",
+            {
+                "input": [
+                    {"type": "function_call", "call_id": "call_1", "name": "f", "arguments": "{}"},
+                    {"type": "function_call_output", "call_id": "call_1", "output": "sunny"},
+                ]
+            },
+        ),
+        (
+            "anthropic",
+            {
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "tool_result", "tool_use_id": "call_1", "content": "sunny"}
+                        ],
+                    }
+                ]
+            },
+        ),
+        (
+            "gemini",
+            {
+                "contents": [
+                    {
+                        "role": "user",
+                        "parts": [
+                            {"function_response": {"name": "f", "response": {"out": "sunny"}}}
+                        ],
+                    }
+                ]
+            },
+        ),
+        (
+            "bedrock",
+            {
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": [
+                            {"toolResult": {"toolUseId": "call_1", "content": [{"text": "sunny"}]}}
+                        ],
+                    }
+                ]
+            },
+        ),
+    ],
+)
+def test_tool_call_response_part_uses_semconv_response_field(message_format, inputs):
+    span = _make_span(
+        attributes={
+            SpanAttributeKey.SPAN_TYPE: json.dumps("CHAT_MODEL"),
+            SpanAttributeKey.MESSAGE_FORMAT: json.dumps(message_format),
+            SpanAttributeKey.INPUTS: json.dumps(inputs),
+        }
+    )
+    result = translate_span_to_genai(span)
+
+    input_msgs = json.loads(result.attributes[GenAiSemconvKey.INPUT_MESSAGES])
+    tool_parts = [p for m in input_msgs for p in m["parts"] if p["type"] == "tool_call_response"]
+    assert len(tool_parts) == 1
+    assert "response" in tool_parts[0]
+    assert "result" not in tool_parts[0]

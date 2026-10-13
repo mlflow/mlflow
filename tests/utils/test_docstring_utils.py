@@ -36,13 +36,11 @@ def test_param_docs_format():
 
 
 def test_param_docs_format_no_changes():
-    @format_docstring(
-        {
-            "multi_line": """Single line
+    @format_docstring({
+        "multi_line": """Single line
 Another line\n    Another indented line""",
-            "single_line": "hi",
-        }
-    )
+        "single_line": "hi",
+    })
     def f(p1, p2, p3, p4):
         """asdf
 
@@ -73,13 +71,11 @@ Another line\n    Another indented line""",
 
 
 def test_param_docs_format_google():
-    @format_docstring(
-        {
-            "multi_line": """Single line
+    @format_docstring({
+        "multi_line": """Single line
 Another line\n    Another indented line""",
-            "single_line": "hi",
-        }
-    )
+        "single_line": "hi",
+    })
     # fmt: off
     def f(p1, p2, p3, p4):
         """asdf
@@ -116,13 +112,11 @@ Another line\n    Another indented line""",
 
 
 def test_param_docs_format_not_google():
-    @format_docstring(
-        {
-            "multi_line": """Single line
+    @format_docstring({
+        "multi_line": """Single line
 Another line\n    Another indented line""",
-            "single_line": "hi",
-        }
-    )
+        "single_line": "hi",
+    })
     # fmt: off
     def f():
         """

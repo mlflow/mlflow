@@ -105,14 +105,11 @@ def check_spark_udf(model_uri: str) -> None:
 
 
 def test_mlflow_2_x_comp(tmp_path: Path) -> None:
-    tracking_uri = (tmp_path / "tracking").as_uri()
-    mlflow.set_tracking_uri(tracking_uri)
+    tracking_uri = f"sqlite:///{tmp_path / 'mlflow.db'}"
     artifact_location = (tmp_path / "artifacts").as_uri()
-    exp_id = mlflow.create_experiment("test", artifact_location=artifact_location)
-    mlflow.set_experiment(experiment_id=exp_id)
 
     out_file = tmp_path / "out.txt"
-    # Log a model using MLflow 2.x
+    # Log a model using MLflow 2.x (let 2.x create the DB and experiment)
     py_ver = ".".join(map(str, sys.version_info[:2]))
     subprocess.check_call(
         [
@@ -124,6 +121,8 @@ def test_mlflow_2_x_comp(tmp_path: Path) -> None:
             f"--python={py_ver}",
             # Use mlflow 2.x
             "--with=mlflow<3.0",
+            # MLflow 2.x imports `FallbackAsyncAdaptedQueuePool`, which SQLAlchemy 2.1 removed
+            "--with=sqlalchemy<2.1",
             # Pin numpy and sklearn versions to ensure the model can be loaded
             f"--with=numpy=={np.__version__}",
             f"--with=scikit-learn=={sklearn.__version__}",
@@ -138,19 +137,32 @@ from sklearn.linear_model import LinearRegression
 
 assert mlflow.__version__.startswith("2."), mlflow.__version__
 
+tracking_uri, artifact_location, out = sys.argv[1:]
+mlflow.set_tracking_uri(tracking_uri)
+exp_id = mlflow.create_experiment("test", artifact_location=artifact_location)
+mlflow.set_experiment(experiment_id=exp_id)
+
 fitted_model= LinearRegression().fit([[1, 2]], [3])
 with mlflow.start_run() as run:
     mlflow.log_text("test", "model/test.txt")
     model_info = mlflow.sklearn.log_model(fitted_model, artifact_path="model")
     assert model_info.model_uri.startswith("runs:/")
-    out = sys.argv[1]
     with open(out, "w") as f:
         f.write(run.info.run_id)
 """,
+            tracking_uri,
+            artifact_location,
             out_file,
         ],
     )
 
+    # 3.x opens the 2.x-created DB (migration happens automatically)
+    mlflow.set_tracking_uri(tracking_uri)
+    # Activate the 2.x-created experiment so `check_evaluate` logs its evaluation run there
+    # rather than in the Default experiment, whose artifact location falls back to `./mlruns`.
+    experiment = mlflow.get_experiment_by_name("test")
+    assert experiment is not None
+    mlflow.set_experiment(experiment_id=experiment.experiment_id)
     run_id = out_file.read_text().strip()
     model_uri = f"runs:/{run_id}/model"
     check_load(model_uri=model_uri)
@@ -164,7 +176,7 @@ with mlflow.start_run() as run:
 
 
 def test_mlflow_3_x_comp(tmp_path: Path) -> None:
-    tracking_uri = (tmp_path / "tracking").as_uri()
+    tracking_uri = f"sqlite:///{tmp_path / 'mlflow.db'}"
     mlflow.set_tracking_uri(tracking_uri)
     artifact_location = (tmp_path / "artifacts").as_uri()
     exp_id = mlflow.create_experiment("test", artifact_location=artifact_location)

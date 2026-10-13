@@ -1,16 +1,35 @@
-import random
 import subprocess
 import tempfile
 import time
+from pathlib import Path
 from unittest import mock
 
 import pytest
+import requests
 
 import mlflow
 from mlflow.environment_variables import (
     MLFLOW_ENABLE_ASYNC_LOGGING,
     MLFLOW_ENABLE_ASYNC_TRACE_LOGGING,
 )
+from mlflow.tracing.fluent import _flush_pending_async_trace_writes
+from mlflow.utils import find_free_port
+
+
+@pytest.fixture(autouse=True)
+def enable_async_trace_logging(monkeypatch):
+    """Enable async trace logging for all tests in tests/tracing/ to exercise the async path.
+
+    Overrides the global disable_async_trace_logging fixture from tests/conftest.py.
+    Tests that need both sync and async coverage use the async_logging_enabled fixture.
+    Terminates async queues on teardown to prevent thread leaks between tests.
+    """
+    monkeypatch.setenv(MLFLOW_ENABLE_ASYNC_TRACE_LOGGING.name, "true")
+    monkeypatch.setenv(MLFLOW_ENABLE_ASYNC_LOGGING.name, "true")
+
+    yield
+
+    _flush_pending_async_trace_writes(terminate=True)
 
 
 @pytest.fixture(autouse=True)
@@ -36,7 +55,9 @@ def databricks_tracking_uri():
         yield
 
 
-# Fixture to run the test case with and without async logging enabled
+# Fixture to run the test case with and without async logging enabled.
+# When async logging is enabled, the batch span processor is also active (the default),
+# so tests exercise the full production pipeline.
 @pytest.fixture(params=[True, False])
 def async_logging_enabled(request, monkeypatch):
     monkeypatch.setenv(MLFLOW_ENABLE_ASYNC_TRACE_LOGGING.name, str(request.param))
@@ -47,12 +68,20 @@ def async_logging_enabled(request, monkeypatch):
 
 
 @pytest.fixture
-def otel_collector():
+def otel_collector(tmp_path):
     """Start an OpenTelemetry collector in a Docker container."""
-    subprocess.check_call(["docker", "pull", "otel/opentelemetry-collector"])
+    for attempt in range(3):
+        try:
+            subprocess.check_call(["docker", "pull", "otel/opentelemetry-collector"])
+            break
+        except subprocess.CalledProcessError:
+            if attempt == 2:
+                raise
+            time.sleep(2 ** (attempt + 1))
 
-    # Use a random port to avoid conflicts
-    port = random.randint(20000, 30000)
+    port = find_free_port()
+    while (health_port := find_free_port()) == port:
+        pass
 
     docker_collector_config = """receivers:
   otlp:
@@ -66,20 +95,34 @@ exporters:
     sampling_initial: 5
     sampling_thereafter: 1
 
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+
 service:
+  extensions: [health_check]
   pipelines:
     traces:
       receivers: [otlp]
       exporters: [debug]"""
 
+    config_path = tmp_path / "otel-collector.yaml"
+    config_path.write_text(docker_collector_config)
+    config_path.chmod(0o644)
+
     with tempfile.NamedTemporaryFile() as output_file:
-        # Use echo to pipe config to Docker stdin
         docker_cmd = [
-            "bash",
-            "-c",
-            f'echo "{docker_collector_config}" | '
-            f"docker run --rm -p 127.0.0.1:{port}:4317 -i "
-            f"otel/opentelemetry-collector --config=/dev/stdin",
+            "docker",
+            "run",
+            "--rm",
+            "-p",
+            f"127.0.0.1:{port}:4317",
+            "-p",
+            f"127.0.0.1:{health_port}:13133",
+            "-v",
+            f"{config_path}:/etc/otelcol/config.yaml:ro",
+            "otel/opentelemetry-collector",
+            "--config=/etc/otelcol/config.yaml",
         ]
 
         process = subprocess.Popen(
@@ -89,15 +132,29 @@ service:
             text=True,
         )
 
-        # Wait for the collector to start
-        time.sleep(5)
-
-        yield process, output_file.name, port
-
-        # Stop the collector
-        process.terminate()
         try:
-            process.wait(timeout=5)
-        except subprocess.TimeoutExpired:
-            process.kill()
-            process.wait()
+            deadline = time.monotonic() + 10
+            while time.monotonic() < deadline:
+                if process.poll() is not None:
+                    logs = Path(output_file.name).read_text()
+                    raise RuntimeError(f"Collector exited ({process.returncode}):\n{logs}")
+                try:
+                    response = requests.get(f"http://127.0.0.1:{health_port}/", timeout=1)
+                except requests.RequestException:
+                    pass
+                else:
+                    if response.status_code == 200:
+                        break
+                time.sleep(0.1)
+            else:
+                logs = Path(output_file.name).read_text()
+                raise TimeoutError(f"Collector did not become healthy within 10 seconds:\n{logs}")
+
+            yield output_file.name, port
+        finally:
+            process.terminate()
+            try:
+                process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait()

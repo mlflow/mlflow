@@ -33,5 +33,6 @@ yarn-error.log*
 /.swc
 
 /src/lang/compiled/*.json
+/src/lang/default/en.json
 
 tsconfig.tsbuildinfo

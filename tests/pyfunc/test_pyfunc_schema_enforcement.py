@@ -62,22 +62,18 @@ def sample_params_basic():
 
 @pytest.fixture(scope="module")
 def param_schema_basic():
-    return ParamSchema(
-        [
-            ParamSpec("str_param", DataType.string, "str_a", None),
-            ParamSpec("int_param", DataType.integer, np.int32(1), None),
-            ParamSpec("bool_param", DataType.boolean, True, None),
-            ParamSpec("double_param", DataType.double, 1.0, None),
-            ParamSpec("float_param", DataType.float, np.float32(0.1), None),
-            ParamSpec("long_param", DataType.long, 100, None),
-            ParamSpec(
-                "datetime_param", DataType.datetime, np.datetime64("2023-06-26 00:00:00"), None
-            ),
-            ParamSpec("str_list", DataType.string, ["a", "b", "c"], (-1,)),
-            ParamSpec("bool_list", DataType.boolean, [True, False], (-1,)),
-            ParamSpec("double_array", DataType.double, [1.0, 2.0], (-1,)),
-        ]
-    )
+    return ParamSchema([
+        ParamSpec("str_param", DataType.string, "str_a", None),
+        ParamSpec("int_param", DataType.integer, np.int32(1), None),
+        ParamSpec("bool_param", DataType.boolean, True, None),
+        ParamSpec("double_param", DataType.double, 1.0, None),
+        ParamSpec("float_param", DataType.float, np.float32(0.1), None),
+        ParamSpec("long_param", DataType.long, 100, None),
+        ParamSpec("datetime_param", DataType.datetime, np.datetime64("2023-06-26 00:00:00"), None),
+        ParamSpec("str_list", DataType.string, ["a", "b", "c"], (-1,)),
+        ParamSpec("bool_list", DataType.boolean, [True, False], (-1,)),
+        ParamSpec("double_array", DataType.double, [1.0, 2.0], (-1,)),
+    ])
 
 
 class PythonModelWithBasicParams(mlflow.pyfunc.PythonModel):
@@ -106,9 +102,10 @@ def sample_params_with_arrays():
         "double_array": np.array([1.0, 2.0]),
         "float_array": np.array([np.float32(1.0), np.float32(2.0)]),
         "long_array": np.array([1, 2]),
-        "datetime_array": np.array(
-            [np.datetime64("2023-06-26 00:00:00"), np.datetime64("2023-06-26 00:00:00")]
-        ),
+        "datetime_array": np.array([
+            np.datetime64("2023-06-26 00:00:00"),
+            np.datetime64("2023-06-26 00:00:00"),
+        ]),
     }
 
 
@@ -142,18 +139,16 @@ def test_schema_enforcement_single_column_2d_array():
 
 def test_column_schema_enforcement():
     m = Model()
-    input_schema = Schema(
-        [
-            ColSpec("integer", "a"),
-            ColSpec("long", "b"),
-            ColSpec("float", "c"),
-            ColSpec("double", "d"),
-            ColSpec("boolean", "e"),
-            ColSpec("string", "g"),
-            ColSpec("binary", "f"),
-            ColSpec("datetime", "h"),
-        ]
-    )
+    input_schema = Schema([
+        ColSpec("integer", "a"),
+        ColSpec("long", "b"),
+        ColSpec("float", "c"),
+        ColSpec("double", "d"),
+        ColSpec("boolean", "e"),
+        ColSpec("string", "g"),
+        ColSpec("binary", "f"),
+        ColSpec("datetime", "h"),
+    ])
     m.signature = ModelSignature(inputs=input_schema)
     pyfunc_model = PyFuncModel(model_meta=m, model_impl=TestModel())
     pdf = pd.DataFrame(
@@ -304,7 +299,9 @@ def test_column_schema_enforcement():
         "j": [[1, 2, 3], [4, 5, 6], [7, 8, 9]],
     }
     res = pyfunc_model.predict(d)
-    assert res.dtypes.to_dict() == expected_types
+    # pandas 3 infers the plain-string column "g" as StringDtype, whereas pandas < 3 yields
+    # object. Expect whatever pandas infers for an equivalent string column.
+    assert res.dtypes.to_dict() == {**expected_types, "g": pd.Series(["a", "b", "c"]).dtype}
 
     # 15. dictionaries of str -> list[list] fail
     d = {
@@ -348,13 +345,11 @@ def _compare_exact_tensor_dict_input(d1, d2):
 
 def test_tensor_multi_named_schema_enforcement():
     m = Model()
-    input_schema = Schema(
-        [
-            TensorSpec(np.dtype(np.uint64), (-1, 5), "a"),
-            TensorSpec(np.dtype(np.short), (-1, 2), "b"),
-            TensorSpec(np.dtype(np.float32), (2, -1, 2), "c"),
-        ]
-    )
+    input_schema = Schema([
+        TensorSpec(np.dtype(np.uint64), (-1, 5), "a"),
+        TensorSpec(np.dtype(np.short), (-1, 2), "b"),
+        TensorSpec(np.dtype(np.float32), (2, -1, 2), "c"),
+    ])
     m.signature = ModelSignature(inputs=input_schema)
     pyfunc_model = PyFuncModel(model_meta=m, model_impl=TestModel())
     inp = {
@@ -520,11 +515,40 @@ def test_schema_enforcement_single_unnamed_tensor_schema():
         pyfunc_model.predict(input_df)
 
 
+@pytest.mark.parametrize("named", [False, True])
+@pytest.mark.parametrize("index", [range(2), [10, 20], ["left", "right"], [0, 0]])
+@pytest.mark.parametrize(
+    ("values", "shape"),
+    [
+        ([1.0, 2.0], (-1,)),
+        ([1.0, 2.0], (-1, 1)),
+        ([[1.0, 2.0], [3.0, 4.0]], (-1, 2)),
+        ([np.array([1.0, 2.0]), np.array([3.0, 4.0])], (-1, 2)),
+    ],
+)
+def test_tensor_schema_enforcement_dataframe_row_index(named, index, values, shape):
+    df = pd.DataFrame({"x": values}, index=index)
+    original = df.copy(deep=True)
+    model = Model()
+    model.signature = ModelSignature(
+        inputs=Schema([TensorSpec(np.dtype("float64"), shape, "x" if named else None)])
+    )
+    pyfunc_model = PyFuncModel(model_meta=model, model_impl=TestModel())
+
+    result = pyfunc_model.predict(df)
+    if named:
+        result = result["x"]
+    np.testing.assert_array_equal(result, np.array(values).reshape(shape))
+    assert result.dtype == np.dtype("float64")
+    pd.testing.assert_frame_equal(df, original)
+
+
 def test_schema_enforcement_named_tensor_schema_1d():
     m = Model()
-    input_schema = Schema(
-        [TensorSpec(np.dtype(np.uint64), (-1,), "a"), TensorSpec(np.dtype(np.float32), (-1,), "b")]
-    )
+    input_schema = Schema([
+        TensorSpec(np.dtype(np.uint64), (-1,), "a"),
+        TensorSpec(np.dtype(np.float32), (-1,), "b"),
+    ])
     m.signature = ModelSignature(inputs=input_schema)
     pyfunc_model = PyFuncModel(model_meta=m, model_impl=TestModel())
     pdf = pd.DataFrame(data=[[0, 0], [1, 1]], columns=["a", "b"])
@@ -544,12 +568,10 @@ def test_schema_enforcement_named_tensor_schema_1d():
 
     wrong_m = Model()
     wrong_m.signature = ModelSignature(
-        inputs=Schema(
-            [
-                TensorSpec(np.dtype(np.uint64), (-1, 2), "a"),
-                TensorSpec(np.dtype(np.float32), (-1,), "b"),
-            ]
-        )
+        inputs=Schema([
+            TensorSpec(np.dtype(np.uint64), (-1, 2), "a"),
+            TensorSpec(np.dtype(np.float32), (-1,), "b"),
+        ])
     )
     wrong_pyfunc_model = PyFuncModel(model_meta=wrong_m, model_impl=TestModel())
     with pytest.raises(
@@ -562,12 +584,10 @@ def test_schema_enforcement_named_tensor_schema_1d():
     ):
         wrong_pyfunc_model.predict(pdf)
 
-    wrong_m.signature.inputs = Schema(
-        [
-            TensorSpec(np.dtype(np.uint64), (2, -1), "a"),
-            TensorSpec(np.dtype(np.float32), (-1,), "b"),
-        ]
-    )
+    wrong_m.signature.inputs = Schema([
+        TensorSpec(np.dtype(np.uint64), (2, -1), "a"),
+        TensorSpec(np.dtype(np.float32), (-1,), "b"),
+    ])
     with pytest.raises(
         expected_exception=MlflowException,
         match=re.escape(
@@ -588,19 +608,18 @@ def test_schema_enforcement_named_tensor_schema_1d():
 
 def test_schema_enforcement_named_tensor_schema_multidimensional():
     m = Model()
-    input_schema = Schema(
-        [
-            TensorSpec(np.dtype(np.uint64), (-1, 2, 3), "a"),
-            TensorSpec(np.dtype(np.float32), (-1, 3, 4), "b"),
-        ]
-    )
+    input_schema = Schema([
+        TensorSpec(np.dtype(np.uint64), (-1, 2, 3), "a"),
+        TensorSpec(np.dtype(np.float32), (-1, 3, 4), "b"),
+    ])
     m.signature = ModelSignature(inputs=input_schema)
     pyfunc_model = PyFuncModel(model_meta=m, model_impl=TestModel())
     data_a = np.array(range(12), dtype=np.uint64)
     data_b = np.array(range(24), dtype=np.float32) + 10.0
-    pdf = pd.DataFrame(
-        {"a": data_a.reshape(-1, 2 * 3).tolist(), "b": data_b.reshape(-1, 3 * 4).tolist()}
-    )
+    pdf = pd.DataFrame({
+        "a": data_a.reshape(-1, 2 * 3).tolist(),
+        "b": data_b.reshape(-1, 3 * 4).tolist(),
+    })
     d_inp = {
         "a": data_a.reshape((-1, 2, 3)),
         "b": data_b.reshape((-1, 3, 4)),
@@ -611,9 +630,10 @@ def test_schema_enforcement_named_tensor_schema_multidimensional():
     assert _compare_exact_tensor_dict_input(res, d_inp)
 
     # test dataframe input works for 1d tensor specs and input is converted to dict
-    pdf_contains_numpy_array = pd.DataFrame(
-        {"a": list(data_a.reshape(-1, 2 * 3)), "b": list(data_b.reshape(-1, 3 * 4))}
-    )
+    pdf_contains_numpy_array = pd.DataFrame({
+        "a": list(data_a.reshape(-1, 2 * 3)),
+        "b": list(data_b.reshape(-1, 3 * 4)),
+    })
     res = pyfunc_model.predict(pdf_contains_numpy_array)
     assert _compare_exact_tensor_dict_input(res, d_inp)
 
@@ -905,14 +925,12 @@ def test_schema_enforcement_for_inputs_style_orientation_of_dataframe(orient):
 
 
 def test_schema_enforcement_for_optional_columns():
-    input_schema = Schema(
-        [
-            ColSpec("double", "a"),
-            ColSpec("double", "b"),
-            ColSpec("string", "c", required=False),
-            ColSpec("long", "d", required=False),
-        ]
-    )
+    input_schema = Schema([
+        ColSpec("double", "a"),
+        ColSpec("double", "b"),
+        ColSpec("string", "c", required=False),
+        ColSpec("long", "d", required=False),
+    ])
     signature = ModelSignature(inputs=input_schema)
     test_data_with_all_cols = {"a": [1.0], "b": [1.0], "c": ["something"], "d": [2]}
     test_data_with_only_required_cols = {"a": [1.0], "b": [1.0]}
@@ -1155,33 +1173,27 @@ def test_enforce_params_schema_with_success():
         "bool_list": [True, False],
         "object": {"a": 1, "b": ["x", "y"], "c": {"d": 2}},
     }
-    test_schema = ParamSchema(
-        [
-            ParamSpec("str_param", DataType.string, "str_a", None),
-            ParamSpec("int_param", DataType.integer, np.int32(1), None),
-            ParamSpec("bool_param", DataType.boolean, True, None),
-            ParamSpec("double_param", DataType.double, 1.0, None),
-            ParamSpec("float_param", DataType.float, np.float32(0.1), None),
-            ParamSpec("long_param", DataType.long, 100, None),
-            ParamSpec(
-                "datetime_param", DataType.datetime, np.datetime64("2023-06-26 00:00:00"), None
-            ),
-            ParamSpec("str_list", DataType.string, ["a", "b", "c"], (-1,)),
-            ParamSpec("bool_list", DataType.boolean, [True, False], (-1,)),
-            ParamSpec(
-                "object",
-                Object(
-                    [
-                        Property("a", DataType.long),
-                        Property("b", Array(DataType.string)),
-                        Property("c", Object([Property("d", DataType.long)])),
-                    ]
-                ),
-                {"a": 1, "b": ["x", "y"], "c": {"d": 2}},
-                None,
-            ),
-        ]
-    )
+    test_schema = ParamSchema([
+        ParamSpec("str_param", DataType.string, "str_a", None),
+        ParamSpec("int_param", DataType.integer, np.int32(1), None),
+        ParamSpec("bool_param", DataType.boolean, True, None),
+        ParamSpec("double_param", DataType.double, 1.0, None),
+        ParamSpec("float_param", DataType.float, np.float32(0.1), None),
+        ParamSpec("long_param", DataType.long, 100, None),
+        ParamSpec("datetime_param", DataType.datetime, np.datetime64("2023-06-26 00:00:00"), None),
+        ParamSpec("str_list", DataType.string, ["a", "b", "c"], (-1,)),
+        ParamSpec("bool_list", DataType.boolean, [True, False], (-1,)),
+        ParamSpec(
+            "object",
+            Object([
+                Property("a", DataType.long),
+                Property("b", Array(DataType.string)),
+                Property("c", Object([Property("d", DataType.long)])),
+            ]),
+            {"a": 1, "b": ["x", "y"], "c": {"d": 2}},
+            None,
+        ),
+    ])
     assert _enforce_params_schema(test_parameters, test_schema) == test_parameters
 
     # Correct parameters & schema with array
@@ -1189,27 +1201,24 @@ def test_enforce_params_schema_with_success():
         "double_array": np.array([1.0, 2.0]),
         "float_array": np.array([np.float32(1.0), np.float32(2.0)]),
         "long_array": np.array([1, 2]),
-        "datetime_array": np.array(
-            [np.datetime64("2023-06-26 00:00:00"), np.datetime64("2023-06-26 00:00:00")]
-        ),
+        "datetime_array": np.array([
+            np.datetime64("2023-06-26 00:00:00"),
+            np.datetime64("2023-06-26 00:00:00"),
+        ]),
     }
-    schema = ParamSchema(
-        [
-            ParamSpec("double_array", DataType.double, np.array([1.0, 2.0]), (-1,)),
-            ParamSpec(
-                "float_array", DataType.float, np.array([np.float32(1.0), np.float32(2.0)]), (-1,)
-            ),
-            ParamSpec("long_array", DataType.long, np.array([1, 2]), (-1,)),
-            ParamSpec(
-                "datetime_array",
-                DataType.datetime,
-                np.array(
-                    [np.datetime64("2023-06-26 00:00:00"), np.datetime64("2023-06-26 00:00:00")]
-                ),
-                (-1,),
-            ),
-        ]
-    )
+    schema = ParamSchema([
+        ParamSpec("double_array", DataType.double, np.array([1.0, 2.0]), (-1,)),
+        ParamSpec(
+            "float_array", DataType.float, np.array([np.float32(1.0), np.float32(2.0)]), (-1,)
+        ),
+        ParamSpec("long_array", DataType.long, np.array([1, 2]), (-1,)),
+        ParamSpec(
+            "datetime_array",
+            DataType.datetime,
+            np.array([np.datetime64("2023-06-26 00:00:00"), np.datetime64("2023-06-26 00:00:00")]),
+            (-1,),
+        ),
+    ])
     for param, value in params.items():
         assert (_enforce_params_schema(params, schema)[param] == value).all()
 
@@ -1283,9 +1292,10 @@ def test_enforce_params_schema_with_success():
 
     # Add default values if the parameter is not provided
     test_parameters = {"a": "str_a"}
-    test_schema = ParamSchema(
-        [ParamSpec("a", DataType.string, ""), ParamSpec("b", DataType.long, 1)]
-    )
+    test_schema = ParamSchema([
+        ParamSpec("a", DataType.string, ""),
+        ParamSpec("b", DataType.long, 1),
+    ])
     updated_parameters = {"b": 1}
     updated_parameters.update(test_parameters)
     assert _enforce_params_schema(test_parameters, test_schema) == updated_parameters
@@ -1349,25 +1359,23 @@ def test_enforce_params_schema_add_default_values():
 
 def test_enforce_params_schema_errors():
     # Raise error when failing to convert value to DataType.datetime
-    test_schema = ParamSchema(
-        [ParamSpec("datetime_param", DataType.datetime, np.datetime64("2023-06-06"))]
-    )
+    test_schema = ParamSchema([
+        ParamSpec("datetime_param", DataType.datetime, np.datetime64("2023-06-06"))
+    ])
     with pytest.raises(
         MlflowException,
         match=r"Failed to convert value `1.0` from type `<class 'float'>` to `DataType.datetime`",
     ):
         _enforce_params_schema({"datetime_param": 1.0}, test_schema)
     # With array
-    test_schema = ParamSchema(
-        [
-            ParamSpec(
-                "datetime_array",
-                DataType.datetime,
-                np.array([np.datetime64("2023-06-06"), np.datetime64("2023-06-06")]),
-                (-1,),
-            )
-        ]
-    )
+    test_schema = ParamSchema([
+        ParamSpec(
+            "datetime_array",
+            DataType.datetime,
+            np.array([np.datetime64("2023-06-06"), np.datetime64("2023-06-06")]),
+            (-1,),
+        )
+    ])
     with pytest.raises(
         MlflowException,
         match=r"Failed to convert value `1.0` from type `<class 'float'>` to `DataType.datetime`",
@@ -1381,9 +1389,9 @@ def test_enforce_params_schema_errors():
     ):
         _enforce_params_schema({"float_param": "a"}, test_schema)
     # With array
-    test_schema = ParamSchema(
-        [ParamSpec("float_array", DataType.float, np.array([np.float32(1), np.float32(2)]), (-1,))]
-    )
+    test_schema = ParamSchema([
+        ParamSpec("float_array", DataType.float, np.array([np.float32(1), np.float32(2)]), (-1,))
+    ])
     with pytest.raises(
         MlflowException, match=r"Failed to validate type and shape for 'float_array'"
     ):
@@ -1416,13 +1424,11 @@ def test_enforce_params_schema_errors():
 
     # Raise error if invalid parameters are passed
     test_parameters = {"a": True, "b": (1, 2), "c": b"test"}
-    test_schema = ParamSchema(
-        [
-            ParamSpec("a", DataType.boolean, False),
-            ParamSpec("b", DataType.string, [], (-1,)),
-            ParamSpec("c", DataType.string, ""),
-        ]
-    )
+    test_schema = ParamSchema([
+        ParamSpec("a", DataType.boolean, False),
+        ParamSpec("b", DataType.string, [], (-1,)),
+        ParamSpec("c", DataType.string, ""),
+    ])
     with pytest.raises(
         MlflowException,
         match=re.escape(
@@ -1658,17 +1664,15 @@ def test_schema_enforcement_all_feature_types_pandas():
         "double_nullable": [1.0, 2.0, None],
     }
     df = pd.DataFrame.from_dict(data)
-    schema = Schema(
-        [
-            ColSpec(DataType.long, "long"),
-            ColSpec(DataType.boolean, "bool"),
-            ColSpec(DataType.string, "string"),
-            ColSpec(DataType.datetime, "datetime"),
-            ColSpec(DataType.boolean, "bool_nullable", required=False),
-            ColSpec(DataType.string, "string_nullable", required=False),
-            ColSpec(DataType.double, "double_nullable", required=False),
-        ]
-    )
+    schema = Schema([
+        ColSpec(DataType.long, "long"),
+        ColSpec(DataType.boolean, "bool"),
+        ColSpec(DataType.string, "string"),
+        ColSpec(DataType.datetime, "datetime"),
+        ColSpec(DataType.boolean, "bool_nullable", required=False),
+        ColSpec(DataType.string, "string_nullable", required=False),
+        ColSpec(DataType.double, "double_nullable", required=False),
+    ])
     pd.testing.assert_frame_equal(_enforce_schema(df, schema), df, check_dtype=False)
 
 
@@ -2203,9 +2207,10 @@ def assert_equal(a, b):
         (
             [{"a": ["sentence1", "sentence2"], "b": ["answer1", "answer2"]}],
             ModelSignature(
-                Schema(
-                    [ColSpec(Array(DataType.string), "a"), ColSpec(Array(DataType.string), "b")]
-                ),
+                Schema([
+                    ColSpec(Array(DataType.string), "a"),
+                    ColSpec(Array(DataType.string), "b"),
+                ]),
                 Schema([ColSpec(DataType.string, "output")]),
             ),
             pd.DataFrame([{"a": ["sentence1", "sentence2"], "b": ["answer1", "answer2"]}]),
@@ -2214,21 +2219,17 @@ def assert_equal(a, b):
         (
             {"messages": [{"role": "user", "content": "some question"}]},
             ModelSignature(
-                Schema(
-                    [
-                        ColSpec(
-                            Array(
-                                Object(
-                                    [
-                                        Property("role", DataType.string),
-                                        Property("content", DataType.string),
-                                    ]
-                                )
-                            ),
-                            "messages",
-                        )
-                    ]
-                ),
+                Schema([
+                    ColSpec(
+                        Array(
+                            Object([
+                                Property("role", DataType.string),
+                                Property("content", DataType.string),
+                            ])
+                        ),
+                        "messages",
+                    )
+                ]),
                 Schema([ColSpec(DataType.string, "output")]),
             ),
             # we assume the field is array so we need another list wrapper
@@ -2314,12 +2315,10 @@ def test_pyfunc_schema_inference_not_generate_trace():
         ),
         (
             {"query": ["sentence_1", "sentence_2"], "table": "some_table"},
-            Schema(
-                [
-                    ColSpec(DataType.string, name="query"),
-                    ColSpec(DataType.string, name="table"),
-                ]
-            ),
+            Schema([
+                ColSpec(DataType.string, name="query"),
+                ColSpec(DataType.string, name="table"),
+            ]),
         ),
         (
             [{"query": "sentence"}, {"query": "sentence"}],
@@ -2330,12 +2329,10 @@ def test_pyfunc_schema_inference_not_generate_trace():
                 {"query": ["sentence_1", "sentence_2"], "table": "some_table"},
                 {"query": ["sentence_1", "sentence_2"], "table": "some_table"},
             ],
-            Schema(
-                [
-                    ColSpec(DataType.string, name="query"),
-                    ColSpec(DataType.string, name="table"),
-                ]
-            ),
+            Schema([
+                ColSpec(DataType.string, name="query"),
+                ColSpec(DataType.string, name="table"),
+            ]),
         ),
     ],
 )
@@ -2377,12 +2374,10 @@ def test_pyfunc_model_schema_enforcement_with_dicts_and_lists(data, schema):
         ),
         (
             {"query": ["sentence_1", "sentence_2"], "table": "some_table"},
-            Schema(
-                [
-                    ColSpec(DataType.string, name="query"),
-                    ColSpec(DataType.string, name="table"),
-                ]
-            ),
+            Schema([
+                ColSpec(DataType.string, name="query"),
+                ColSpec(DataType.string, name="table"),
+            ]),
         ),
     ],
 )
@@ -2434,12 +2429,10 @@ def test_pyfunc_model_serving_with_dicts(data, schema, format_key):
                 {"query": ["sentence_1", "sentence_2"], "table": "some_table"},
                 {"query": ["sentence_1", "sentence_2"], "table": "some_table"},
             ],
-            Schema(
-                [
-                    ColSpec(DataType.string, name="query"),
-                    ColSpec(DataType.string, name="table"),
-                ]
-            ),
+            Schema([
+                ColSpec(DataType.string, name="query"),
+                ColSpec(DataType.string, name="table"),
+            ]),
         ),
     ],
 )
@@ -2484,42 +2477,34 @@ def test_pyfunc_model_serving_with_lists_of_dicts(data, schema, format_key):
         ),
         (
             {"query": {"a": "a", "b": 1}},
-            Schema(
-                [
-                    ColSpec(
-                        Object([Property("a", DataType.string), Property("b", DataType.long)]),
-                        "query",
-                    )
-                ]
-            ),
+            Schema([
+                ColSpec(
+                    Object([Property("a", DataType.string), Property("b", DataType.long)]),
+                    "query",
+                )
+            ]),
         ),
         (
             {"query": ["sentence_1", "sentence_2"], "table": "some_table"},
-            Schema(
-                [
-                    ColSpec(Array(DataType.string), name="query"),
-                    ColSpec(DataType.string, name="table"),
-                ]
-            ),
+            Schema([
+                ColSpec(Array(DataType.string), name="query"),
+                ColSpec(DataType.string, name="table"),
+            ]),
         ),
         (
             {"query": [{"name": "value", "age": 10}, {"name": "value"}], "table": ["some_table"]},
-            Schema(
-                [
-                    ColSpec(
-                        Array(
-                            Object(
-                                [
-                                    Property("name", DataType.string),
-                                    Property("age", DataType.long, required=False),
-                                ]
-                            )
-                        ),
-                        name="query",
+            Schema([
+                ColSpec(
+                    Array(
+                        Object([
+                            Property("name", DataType.string),
+                            Property("age", DataType.long, required=False),
+                        ])
                     ),
-                    ColSpec(Array(DataType.string), name="table"),
-                ]
-            ),
+                    name="query",
+                ),
+                ColSpec(Array(DataType.string), name="table"),
+            ]),
         ),
         (
             [{"query": "sentence"}, {"query": "sentence"}],
@@ -2530,12 +2515,10 @@ def test_pyfunc_model_serving_with_lists_of_dicts(data, schema, format_key):
                 {"query": ["sentence_1", "sentence_2"], "table": "some_table"},
                 {"query": ["sentence_1", "sentence_2"]},
             ],
-            Schema(
-                [
-                    ColSpec(Array(DataType.string), name="query"),
-                    ColSpec(DataType.string, name="table", required=False),
-                ]
-            ),
+            Schema([
+                ColSpec(Array(DataType.string), name="query"),
+                ColSpec(DataType.string, name="table", required=False),
+            ]),
         ),
     ],
 )
@@ -2778,6 +2761,98 @@ def test_pyfunc_model_schema_enforcement_nested_array(data, schema):
 
 
 @pytest.mark.parametrize(
+    ("complex_type", "values"),
+    [
+        (Array(DataType.string), [["a"], ["b"], ["c"], ["d"]]),
+        (
+            Object([Property("value", DataType.string)]),
+            [{"value": value} for value in "abcd"],
+        ),
+        (Map(value_type=DataType.string), [{"key": value} for value in "abcd"]),
+    ],
+)
+@pytest.mark.parametrize("named", [False, True])
+@pytest.mark.parametrize(
+    "index", [range(4), pd.Index(["first", "second", "third", "fourth"], name="row_id")]
+)
+def test_pyfunc_model_preserves_nondefault_dataframe_index(complex_type, values, named, index):
+    df = pd.DataFrame({"scalar": [1.0, 2.0, 3.0, 4.0], "complex": values}, index=index)
+    filtered_df = df.iloc[2:]
+    schema = Schema([
+        ColSpec(DataType.double, name="scalar" if named else None),
+        ColSpec(complex_type, name="complex" if named else None),
+    ])
+    model = Model()
+    model.signature = ModelSignature(inputs=schema)
+    pyfunc_model = PyFuncModel(model_meta=model, model_impl=TestModel())
+
+    pd.testing.assert_frame_equal(pyfunc_model.predict(filtered_df), filtered_df)
+
+
+@pytest.mark.parametrize("named", [False, True])
+def test_pyfunc_model_preserves_nondefault_dataframe_index_scalar_only(named):
+    df = pd.DataFrame(
+        {"scalar": [1, 2, 3, 4]},
+        index=pd.Index(["first", "second", "third", "fourth"], name="row_id"),
+        dtype=np.int32,
+    )
+    filtered_df = df.iloc[2:]
+    schema = Schema([ColSpec(DataType.double, name="scalar" if named else None)])
+    model = Model()
+    model.signature = ModelSignature(inputs=schema)
+    pyfunc_model = PyFuncModel(model_meta=model, model_impl=TestModel())
+
+    pd.testing.assert_frame_equal(pyfunc_model.predict(filtered_df), filtered_df.astype(float))
+
+
+@pytest.mark.parametrize("named", [False, True])
+def test_loaded_pyfunc_model_preserves_nondefault_dataframe_index(tmp_path, named):
+    class IdentityModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input, params=None):
+            return model_input
+
+    df = pd.DataFrame(
+        {"scalar": [3.0, 4.0], "complex": [["c"], ["d"]]},
+        index=pd.Index(["third", "fourth"], name="row_id"),
+    )
+    schema = Schema([
+        ColSpec(DataType.double, name="scalar" if named else None),
+        ColSpec(Array(DataType.string), name="complex" if named else None),
+    ])
+    model_path = tmp_path / "model"
+    mlflow.pyfunc.save_model(
+        path=model_path,
+        python_model=IdentityModel(),
+        signature=ModelSignature(inputs=schema),
+        pip_requirements=["mlflow"],
+    )
+
+    pd.testing.assert_frame_equal(mlflow.pyfunc.load_model(model_path).predict(df), df)
+
+
+def test_loaded_pyfunc_model_preserves_datetime_lists(tmp_path):
+    class CalendarModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input):
+            return [value.year for value in model_input.iloc[0]["dates"]]
+
+    data = pd.DataFrame({"dates": [[datetime.datetime(2025, 1, 2), datetime.datetime(2025, 1, 3)]]})
+    model = CalendarModel()
+    signature = infer_signature(data)
+    assert signature.inputs == Schema([ColSpec(Array(DataType.datetime), name="dates")])
+    assert model.predict(None, data) == [2025, 2025]
+
+    model_path = tmp_path / "model"
+    mlflow.pyfunc.save_model(
+        path=model_path,
+        python_model=model,
+        signature=signature,
+        pip_requirements=[],
+    )
+
+    assert mlflow.pyfunc.load_model(model_path).predict(data) == [2025, 2025]
+
+
+@pytest.mark.parametrize(
     ("data", "schema"),
     [
         (
@@ -2828,21 +2903,17 @@ def test_pyfunc_model_schema_enforcement_nested_array(data, schema):
                     {"c": {"key1": "c1"}},
                 ]
             },
-            Schema(
-                [
-                    ColSpec(
-                        Map(
-                            value_type=Object(
-                                [
-                                    Property("key1", DataType.string),
-                                    Property("key2", DataType.long, required=False),
-                                ]
-                            )
-                        ),
-                        name="object_in_map",
-                    )
-                ]
-            ),
+            Schema([
+                ColSpec(
+                    Map(
+                        value_type=Object([
+                            Property("key1", DataType.string),
+                            Property("key2", DataType.long, required=False),
+                        ])
+                    ),
+                    name="object_in_map",
+                )
+            ]),
         ),
         (
             {
@@ -2861,19 +2932,15 @@ def test_pyfunc_model_schema_enforcement_nested_array(data, schema):
                     {"key1": {"d": 6}},
                 ]
             },
-            Schema(
-                [
-                    ColSpec(
-                        Object(
-                            [
-                                Property("key1", Map(value_type=DataType.long)),
-                                Property("key2", Map(value_type=DataType.long), required=False),
-                            ]
-                        ),
-                        name="map_in_object",
-                    )
-                ]
-            ),
+            Schema([
+                ColSpec(
+                    Object([
+                        Property("key1", Map(value_type=DataType.long)),
+                        Property("key2", Map(value_type=DataType.long), required=False),
+                    ]),
+                    name="map_in_object",
+                )
+            ]),
         ),
     ],
 )
@@ -2936,24 +3003,20 @@ def test_pyfunc_model_schema_enforcement_map_type(data, schema, format_key):
                     "array_column": [{"name": "value"}],
                 },
             ],
-            Schema(
-                [
-                    ColSpec(
-                        Object(
-                            [
-                                Property("query", Array(DataType.string)),
-                                Property("table", DataType.string, required=False),
-                            ]
-                        ),
-                        "object_column",
-                    ),
-                    ColSpec(DataType.string, "string_column"),
-                    ColSpec(
-                        Array(Object([Property("name", DataType.string)])),
-                        "array_column",
-                    ),
-                ]
-            ),
+            Schema([
+                ColSpec(
+                    Object([
+                        Property("query", Array(DataType.string)),
+                        Property("table", DataType.string, required=False),
+                    ]),
+                    "object_column",
+                ),
+                ColSpec(DataType.string, "string_column"),
+                ColSpec(
+                    Array(Object([Property("name", DataType.string)])),
+                    "array_column",
+                ),
+            ]),
         ),
     ],
 )
@@ -3065,30 +3128,28 @@ def test_zero_or_one_longs_convert_to_floats():
                     "text": "Hello?",
                 }
             ],
-            Schema(
-                [
-                    ColSpec(
-                        Array(
-                            Object(
-                                properties=[
-                                    Property("content", DataType.string),
-                                    Property("additional_kwargs", AnyType(), required=False),
-                                    Property("response_metadata", AnyType(), required=False),
-                                    Property("type", DataType.string),
-                                    Property("name", AnyType(), required=False),
-                                    Property("id", AnyType(), required=False),
-                                    Property("example", DataType.boolean, required=False),
-                                    Property("tool_calls", AnyType(), required=False),
-                                    Property("invalid_tool_calls", AnyType(), required=False),
-                                    Property("usage_metadata", AnyType(), required=False),
-                                ]
-                            )
-                        ),
-                        name="messages",
+            Schema([
+                ColSpec(
+                    Array(
+                        Object(
+                            properties=[
+                                Property("content", DataType.string),
+                                Property("additional_kwargs", AnyType(), required=False),
+                                Property("response_metadata", AnyType(), required=False),
+                                Property("type", DataType.string),
+                                Property("name", AnyType(), required=False),
+                                Property("id", AnyType(), required=False),
+                                Property("example", DataType.boolean, required=False),
+                                Property("tool_calls", AnyType(), required=False),
+                                Property("invalid_tool_calls", AnyType(), required=False),
+                                Property("usage_metadata", AnyType(), required=False),
+                            ]
+                        )
                     ),
-                    ColSpec(DataType.string, name="text"),
-                ]
-            ),
+                    name="messages",
+                ),
+                ColSpec(DataType.string, name="text"),
+            ]),
             [
                 {
                     "messages": [

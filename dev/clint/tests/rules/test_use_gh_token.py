@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pytest
 from clint.config import Config
+from clint.index import SymbolIndex
 from clint.linter import lint_file
 from clint.rules.use_gh_token import UseGhToken
 
@@ -27,9 +28,9 @@ from clint.rules.use_gh_token import UseGhToken
         ),
     ],
 )
-def test_violation(code: str, index_path: Path) -> None:
+def test_violation(code: str, index: SymbolIndex) -> None:
     config = Config(select={UseGhToken.name})
-    violations = lint_file(Path("file.py"), code, config, index_path)
+    violations = lint_file(Path("file.py"), code, config, index)
     assert len(violations) == 1
     assert isinstance(violations[0].rule, UseGhToken)
 
@@ -51,7 +52,7 @@ def test_violation(code: str, index_path: Path) -> None:
         ),
     ],
 )
-def test_no_violation(code: str, index_path: Path) -> None:
+def test_no_violation(code: str, index: SymbolIndex) -> None:
     config = Config(select={UseGhToken.name})
-    violations = lint_file(Path("file.py"), code, config, index_path)
+    violations = lint_file(Path("file.py"), code, config, index)
     assert len(violations) == 0

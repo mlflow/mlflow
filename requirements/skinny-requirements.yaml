@@ -4,6 +4,16 @@
 # and Databricks. When we release a new major/minor version, this file is automatically
 # updated as a part of the release process.
 
+anyio:
+  pip_release: anyio
+  # Imported directly by mlflow/server/fastapi_app.py and pulled in transitively via
+  # starlette's WSGI bridge. anyio 4.15.0 dropped `from_thread` from its top-level
+  # lazy-import shim, which breaks starlette's WSGIResponder.start_response and makes
+  # the server /health endpoint return 500 (readiness probes then fail).
+  minimum: "3.6.2"
+  max_major_version: 4
+  unsupported: ["4.15.0"]
+
 click:
   pip_release: click
   minimum: "7.0"
@@ -31,7 +41,7 @@ pyyaml:
 protobuf:
   pip_release: protobuf
   minimum: "3.12.0"
-  max_major_version: 6
+  max_major_version: 7
 
 requests:
   pip_release: requests
@@ -49,7 +59,7 @@ importlib_metadata:
   # (e.g. 'sklearn' -> 'scikit-learn'). importlib_metadata 3.7.0 or newer supports this function:
   # https://github.com/python/importlib_metadata/blob/main/CHANGES.rst#v370
   minimum: "3.7.0"
-  max_major_version: 8
+  max_major_version: 9
   unsupported: ["4.7.0"]
 
 sqlparse:
@@ -98,6 +108,10 @@ typing-extensions:
 fastapi:
   pip_release: fastapi
   max_major_version: 0
+
+starlette:
+  pip_release: starlette
+  max_major_version: 1
 
 uvicorn:
   pip_release: uvicorn

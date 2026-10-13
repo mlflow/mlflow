@@ -265,18 +265,11 @@ test_that("databricks get run context fetches expected info for job environment"
 #' the databricks run context delegates to the next context provider
 test_that("databricks get run context succeeds when job info function is unavailable", {
   run_with_mock_notebook_and_job_info(function() {
-    test_env = new.env()
-    test_env$next_method_calls <- 0
-    mock_delegate_function = function() {
-      test_env$next_method_calls <- test_env$next_method_calls + 1
-    }
-    with_mocked_bindings(.package = "mlflow",
-      mlflow_databricks_delegate_to_next_method = mock_delegate_function, {
-      context <- mlflow:::mlflow_get_run_context.mlflow_databricks_client(
-        mlflow:::mlflow_client("databricks"),
-        experiment_id = 0
-      )
-    })
-    expect_true(test_env$next_method_calls == 1)
+    context <- mlflow:::mlflow_get_run_context(
+      mlflow:::mlflow_client("databricks"),
+      experiment_id = 0
+    )
+    expect_equal(context$tags[[MLFLOW_TAGS$MLFLOW_SOURCE_TYPE]], MLFLOW_SOURCE_TYPE$LOCAL)
+    expect_false(any(startsWith(names(context$tags), "mlflow.databricks.")))
   }, notebook_info = NULL, job_info = NULL)
 })

@@ -1,12 +1,9 @@
 import { LegacySelect } from '@databricks/design-system';
 import { useCallback, useEffect } from 'react';
-import type {
-  RunsChartsCardConfig,
-  RunsChartsBarCardConfig,
-  RunsChartsMetricByDatasetEntry,
-} from '../../runs-charts.types';
-import { RunsChartsConfigureField, runsChartsRunCountDefaultOptions } from './RunsChartsConfigure.common';
-import { isEmpty } from 'lodash';
+import { isEmpty, isUndefined } from 'lodash';
+import { RunsChartsCardConfig } from '../../runs-charts.types';
+import type { RunsChartsBarCardConfig, RunsChartsMetricByDatasetEntry } from '../../runs-charts.types';
+import { RunsChartsConfigureField } from './RunsChartsConfigure.common';
 import { RunsChartsConfigureMetricWithDatasetSelect } from './RunsChartsConfigureMetricWithDatasetSelect';
 
 /**
@@ -24,27 +21,53 @@ export const RunsChartsConfigureBarChart = ({
   onStateChange: (setter: (current: RunsChartsCardConfig) => RunsChartsBarCardConfig) => void;
 }) => {
   /**
-   * Callback for updating metric key
+   * Callback for updating metric key (used for dataset-aware metrics which remain single-select)
    */
   const updateMetric = useCallback(
     (metricKey: string, datasetName?: string, dataAccessKey?: string) => {
-      onStateChange((current) => ({ ...(current as RunsChartsBarCardConfig), metricKey, datasetName, dataAccessKey }));
+      onStateChange((current) => {
+        const currentConfig = current as RunsChartsBarCardConfig;
+        const selectedMetricKeys = [dataAccessKey ?? metricKey];
+        return {
+          ...currentConfig,
+          metricKey,
+          selectedMetricKeys,
+          datasetName,
+          dataAccessKey,
+          displayName: RunsChartsCardConfig.getDisplayNameForUpdatedMetricSelection(currentConfig, selectedMetricKeys),
+        };
+      });
     },
     [onStateChange],
   );
 
   /**
-   * Callback for updating run count
+   * Callback for updating selected metrics (multi-select)
    */
-  const updateVisibleRunCount = useCallback(
-    (runsCountToCompare: number) => {
-      onStateChange((current) => ({
-        ...(current as RunsChartsBarCardConfig),
-        runsCountToCompare,
-      }));
+  const updateSelectedMetrics = useCallback(
+    (metricKeys: string[]) => {
+      onStateChange((current) => {
+        const currentConfig = current as RunsChartsBarCardConfig;
+        return {
+          ...currentConfig,
+          metricKey: metricKeys[0] ?? '',
+          selectedMetricKeys: metricKeys,
+          displayName: RunsChartsCardConfig.getDisplayNameForUpdatedMetricSelection(currentConfig, metricKeys),
+        };
+      });
     },
     [onStateChange],
   );
+
+  /**
+   * For backwards compatibility, if selectedMetricKeys is not present,
+   * set it using metricKey
+   */
+  useEffect(() => {
+    if (isUndefined(state.selectedMetricKeys) && !isUndefined(state.metricKey) && state.metricKey !== '') {
+      updateSelectedMetrics([state.dataAccessKey ?? state.metricKey]);
+    }
+  }, [state.selectedMetricKeys, state.metricKey, state.dataAccessKey, updateSelectedMetrics]);
 
   /**
    * If somehow metric key is not predetermined, automatically
@@ -61,9 +84,9 @@ export const RunsChartsConfigureBarChart = ({
     }
 
     if (!state.metricKey && metricKeyList?.[0]) {
-      updateMetric(metricKeyList[0]);
+      updateSelectedMetrics([metricKeyList[0]]);
     }
-  }, [state.metricKey, updateMetric, metricKeyList, metricKeysByDataset]);
+  }, [state.metricKey, updateMetric, updateSelectedMetrics, metricKeyList, metricKeysByDataset]);
 
   const emptyMetricsList = metricKeyList.length === 0;
 
@@ -81,8 +104,10 @@ export const RunsChartsConfigureBarChart = ({
         ) : (
           <LegacySelect
             css={styles.selectFull}
-            value={emptyMetricsList ? 'No metrics available' : state.metricKey}
-            onChange={(metricKey) => updateMetric(metricKey)}
+            mode="multiple"
+            placeholder={emptyMetricsList ? 'No metrics available' : 'Select metrics'}
+            value={emptyMetricsList ? [] : (state.selectedMetricKeys ?? (state.metricKey ? [state.metricKey] : []))}
+            onChange={updateSelectedMetrics}
             disabled={emptyMetricsList}
             dangerouslySetAntdProps={{ showSearch: true }}
           >

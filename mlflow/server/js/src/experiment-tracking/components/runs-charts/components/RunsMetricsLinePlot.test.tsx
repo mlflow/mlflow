@@ -51,4 +51,24 @@ describe('RunsMetricsLinePlot', () => {
     expect(getLastRenderedPlotProps().data[0]).toEqual(expect.objectContaining({ y: [10, 20, 30] }));
     cleanup();
   });
+
+  test('it should clear zoom ranges after autoscale', () => {
+    const { rerender } = renderWithIntl(<RunsMetricsLinePlot {...defaultProps} xRange={[1, 2]} yRange={[10, 20]} />);
+
+    expect(getLastRenderedPlotProps().layout).toEqual(
+      expect.objectContaining({
+        xaxis: expect.objectContaining({ range: [1, 2], autorange: false }),
+        yaxis: expect.objectContaining({ range: [10, 20], autorange: false }),
+      }),
+    );
+
+    rerender(<RunsMetricsLinePlot {...defaultProps} />);
+
+    expect(getLastRenderedPlotProps().layout).toEqual(
+      expect.objectContaining({
+        xaxis: expect.objectContaining({ range: undefined, autorange: true }),
+        yaxis: expect.objectContaining({ range: undefined, autorange: true }),
+      }),
+    );
+  });
 });

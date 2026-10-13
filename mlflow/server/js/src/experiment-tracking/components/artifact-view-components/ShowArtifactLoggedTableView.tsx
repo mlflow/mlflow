@@ -126,6 +126,7 @@ const LoggedTable = ({ data, runUuid }: { data: { columns: string[]; data: any[]
               header: col_string,
               accessorKey: col_string,
               minSize: MIN_COLUMN_WIDTH,
+              // eslint-disable-next-line @databricks/no-unstable-nested-components -- go/no-nested-components
               cell: (row: any) => {
                 try {
                   const parsedRowValue = JSON.parse(row.getValue());

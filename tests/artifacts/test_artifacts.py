@@ -1,3 +1,6 @@
+import builtins
+import json
+import os
 import pathlib
 import uuid
 from typing import NamedTuple
@@ -141,6 +144,45 @@ def test_load_dict(run_with_json_artifact):
     assert mlflow.artifacts.load_dict(artifact.uri) == artifact.content
 
 
+def test_load_text_and_dict_read_utf8_regardless_of_default_encoding(monkeypatch):
+    text = "café 台北 🚀"
+    data = {"城市": "台北"}
+    with mlflow.start_run() as run:
+        mlflow.log_text(text, "text.txt")
+        mlflow.log_text(json.dumps(data, ensure_ascii=False), "data.json")
+    base = pathlib.PurePosixPath(run.info.artifact_uri)
+
+    # Make text-mode `open` in mlflow.artifacts default to cp1252, as it does on Windows
+    # with a legacy code page, so the test does not depend on the runner's locale.
+    def open_with_cp1252_default(file, mode="r", *args, encoding=None, **kwargs):
+        if "b" not in mode and encoding is None:
+            encoding = "cp1252"
+        return builtins.open(file, mode, *args, encoding=encoding, **kwargs)
+
+    monkeypatch.setattr(mlflow.artifacts, "open", open_with_cp1252_default, raising=False)
+    assert mlflow.artifacts.load_text(str(base / "text.txt")) == text
+    assert mlflow.artifacts.load_dict(str(base / "data.json")) == data
+
+
+@pytest.mark.parametrize(
+    ("load", "file_name", "content"),
+    [
+        (mlflow.artifacts.load_text, "text.txt", "café"),
+        (mlflow.artifacts.load_dict, "data.json", '{"city": "café"}'),
+    ],
+)
+def test_load_text_and_dict_explain_non_utf8_artifacts(tmp_path, load, file_name, content):
+    path = tmp_path / file_name
+    path.write_bytes(content.encode("cp1252"))
+    with mlflow.start_run() as run:
+        mlflow.log_artifact(path)
+    uri = str(pathlib.PurePosixPath(run.info.artifact_uri) / file_name)
+
+    with pytest.raises(MlflowException, match="is not valid UTF-8") as exc_info:
+        load(uri)
+    assert isinstance(exc_info.value.__cause__, UnicodeDecodeError)
+
+
 def test_load_json_invalid_json(run_with_text_artifact):
     artifact = run_with_text_artifact
     with pytest.raises(mlflow.exceptions.MlflowException, match="Unable to form a JSON object"):
@@ -183,6 +225,7 @@ def _assert_artifact_uri(expected_artifact_path: pathlib.Path, test_artifact):
 
 
 def test_default_relative_artifact_uri_resolves(text_artifact, tmp_path, monkeypatch):
+    pytest.skip("FileStore is no longer supported.")
     tracking_uri = path_to_local_file_uri(text_artifact.tmp_path.joinpath("mlruns"))
     mlflow.set_tracking_uri(tracking_uri)
     monkeypatch.chdir(tmp_path)
@@ -200,6 +243,7 @@ def test_default_relative_artifact_uri_resolves(text_artifact, tmp_path, monkeyp
 
 
 def test_custom_relative_artifact_uri_resolves(text_artifact):
+    pytest.skip("FileStore is no longer supported.")
     tracking_uri = path_to_local_file_uri(text_artifact.tmp_path.joinpath("tracking"))
     artifacts_root_path = text_artifact.tmp_path.joinpath("test_artifacts")
     artifacts_root_uri = path_to_local_file_uri(artifacts_root_path)
@@ -237,19 +281,41 @@ def test_log_artifact_windows_path_with_hostname(text_artifact):
         "test_exp_d", experiment_test_1_artifact_location
     )
     with mlflow.start_run(experiment_id=experiment_test_1_id) as run:
+        artifact_dir = rf"{experiment_test_1_artifact_location}\{run.info.run_id}\artifacts"
+        temp_artifact_path = rf"{artifact_dir}\.artifact.uploading.mock"
+        destination_artifact_path = rf"{artifact_dir}\{text_artifact.artifact_name}"
+        real_exists = os.path.exists
+
+        def _exists(path):
+            if os.path.normcase(path) == os.path.normcase(artifact_dir):
+                return mkdir_mock.called
+            return real_exists(path)
+
+        fdopen_mock = mock.MagicMock()
+        fdopen_mock.__enter__.return_value = fdopen_mock
         with (
-            mock.patch("shutil.copy2") as copyfile_mock,
-            mock.patch("os.path.exists", return_value=True) as exists_mock,
+            mock.patch("shutil.copyfileobj") as copyfileobj_mock,
+            mock.patch(
+                "mlflow.store.artifact.local_artifact_repo.os.path.exists", side_effect=_exists
+            ),
+            mock.patch("mlflow.store.artifact.local_artifact_repo.mkdir") as mkdir_mock,
+            mock.patch(
+                "mlflow.store.artifact.local_artifact_repo.tempfile.mkstemp",
+                return_value=(123, temp_artifact_path),
+            ) as mkstemp_mock,
+            mock.patch(
+                "mlflow.store.artifact.local_artifact_repo.os.fdopen", return_value=fdopen_mock
+            ) as fdopen_fn_mock,
+            mock.patch("mlflow.store.artifact.local_artifact_repo.os.replace") as replace_mock,
+            mock.patch("mlflow.store.artifact.local_artifact_repo.shutil.copystat"),
         ):
             mlflow.log_artifact(text_artifact.artifact_path)
-            exists_mock.assert_called_once()
-            copyfile_mock.assert_called_once_with(
-                text_artifact.artifact_path,
-                (
-                    rf"{experiment_test_1_artifact_location}\{run.info.run_id}"
-                    rf"\artifacts\{text_artifact.artifact_name}"
-                ),
-            )
+            mkdir_mock.assert_called_once_with(artifact_dir)
+            mkstemp_mock.assert_called_once_with(dir=artifact_dir, prefix=".artifact.uploading.")
+            fdopen_fn_mock.assert_called_once_with(123, "wb")
+            copyfileobj_mock.assert_called_once()
+            assert copyfileobj_mock.call_args.args[1] is fdopen_mock
+            replace_mock.assert_called_once_with(temp_artifact_path, destination_artifact_path)
 
 
 def test_list_artifacts_with_artifact_uri(run_with_artifacts):
@@ -316,7 +382,9 @@ def test_list_artifacts_with_client_and_tracking_uri(tmp_path: pathlib.Path):
     tracking_uri = f"sqlite:///{tmp_path}/mlflow-{uuid.uuid4().hex}.db"
     assert mlflow.get_tracking_uri() != tracking_uri
     client = mlflow.MlflowClient(tracking_uri)
-    experiment_id = client.create_experiment("my_experiment")
+    experiment_id = client.create_experiment(
+        "my_experiment", artifact_location=str(tmp_path / "artifacts")
+    )
     run = client.create_run(experiment_id)
     tmp_dir = tmp_path / "subdir"
     tmp_dir.mkdir()
@@ -342,7 +410,9 @@ def test_download_artifacts_with_client_and_tracking_uri(tmp_path: pathlib.Path)
     tracking_uri = f"sqlite:///{tmp_path}/mlflow-{uuid.uuid4().hex}.db"
     assert mlflow.get_tracking_uri() != tracking_uri
     client = mlflow.MlflowClient(tracking_uri)
-    experiment_id = client.create_experiment("my_experiment")
+    experiment_id = client.create_experiment(
+        "my_experiment", artifact_location=str(tmp_path / "artifacts")
+    )
     run = client.create_run(experiment_id)
     tmp_dir = tmp_path / "subdir"
     tmp_dir.mkdir()

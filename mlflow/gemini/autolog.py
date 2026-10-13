@@ -1,13 +1,17 @@
+import functools
 import inspect
 import logging
+from typing import Any
 
 import mlflow
 import mlflow.gemini
 from mlflow.entities import SpanType
+from mlflow.entities.span import LiveSpan
 from mlflow.gemini.chat import (
     convert_gemini_func_to_mlflow_chat_tool,
 )
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
+from mlflow.tracing.distributed import _get_tracing_headers_from_span
 from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
 from mlflow.tracing.utils import (
     construct_full_inputs,
@@ -16,23 +20,32 @@ from mlflow.tracing.utils import (
 )
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 
-try:
-    # This is for supporting the previous Google GenAI SDK
-    # https://github.com/google-gemini/generative-ai-python
-    from google import generativeai
-
-    has_generativeai = True
-except ImportError:
-    has_generativeai = False
-
-try:
-    from google import genai
-
-    has_genai = True
-except ImportError:
-    has_genai = False
-
 _logger = logging.getLogger(__name__)
+
+
+# The Google SDKs are imported lazily. Importing them at module load would fire the
+# `mlflow.autolog()` post-import hook for `google.genai` while `mlflow.gemini` is still
+# partially initialized, causing a circular import.
+@functools.cache
+def _get_generativeai():
+    try:
+        # This is for supporting the previous Google GenAI SDK
+        # https://github.com/google-gemini/generative-ai-python
+        from google import generativeai
+
+        return generativeai
+    except ImportError:
+        return None
+
+
+@functools.cache
+def _get_genai():
+    try:
+        from google import genai
+
+        return genai
+    except ImportError:
+        return None
 
 
 def patched_class_call(original, self, *args, **kwargs):
@@ -41,6 +54,8 @@ def patched_class_call(original, self, *args, **kwargs):
     This patch creates a span and set input and output of the original method to the span.
     """
     with TracingSession(original, self, args, kwargs) as manager:
+        if manager.span and _is_genai_model_or_chat(self) and _should_inject_headers(original):
+            _inject_tracing_headers_genai(kwargs, manager.span)
         output = original(self, *args, **kwargs)
         manager.output = output
         return output
@@ -52,6 +67,8 @@ async def async_patched_class_call(original, self, *args, **kwargs):
     This patch creates a span and set input and output of the original method to the span.
     """
     async with TracingSession(original, self, args, kwargs) as manager:
+        if manager.span and _is_genai_model_or_chat(self) and _should_inject_headers(original):
+            _inject_tracing_headers_genai(kwargs, manager.span)
         output = await original(self, *args, **kwargs)
         manager.output = output
         return output
@@ -93,7 +110,8 @@ class TracingSession:
             inputs=self.inputs,
             attributes={SpanAttributeKey.MESSAGE_FORMAT: "gemini"},
         )
-        if has_generativeai and isinstance(self.instance, generativeai.GenerativeModel):
+        generativeai = _get_generativeai()
+        if generativeai and isinstance(self.instance, generativeai.GenerativeModel):
             _log_generativeai_tool_definition(self.instance, self.span)
 
         if _is_genai_model_or_chat(self.instance):
@@ -119,6 +137,7 @@ class TracingSession:
             # Chat instances store model in _model attribute
             if model := (self.inputs.get("model") or getattr(self.instance, "_model", None)):
                 self.span.set_attribute(SpanAttributeKey.MODEL, model)
+                self.span.set_attribute(SpanAttributeKey.MODEL_PROVIDER, "gemini")
         except Exception as e:
             _logger.debug(f"Failed to extract model for span {self.span.name}: {e}", exc_info=True)
 
@@ -136,7 +155,8 @@ class TracingSession:
 
 
 def _is_genai_model_or_chat(instance) -> bool:
-    return has_genai and isinstance(
+    genai = _get_genai()
+    return genai is not None and isinstance(
         instance,
         (
             genai.models.Models,
@@ -218,7 +238,7 @@ def _log_genai_tool_definition(model, inputs, span):
     # Here, we use an internal function of gemini library to convert callable to Tool schema to
     # avoid having the same logic on mlflow side and there is no public attribute for Tool schema.
     # https://github.com/googleapis/python-genai/blob/01b15e32d3823a58d25534bb6eea93f30bf82219/google/genai/_transformers.py#L662
-    tools = genai._transformers.t_tools(model._api_client, tools)
+    tools = _get_genai()._transformers.t_tools(model._api_client, tools)
 
     try:
         set_span_chat_tools(
@@ -231,6 +251,49 @@ def _log_genai_tool_definition(model, inputs, span):
         )
     except Exception as e:
         _logger.warning(f"Failed to set tool definitions for {span}. Error: {e}")
+
+
+_HEADER_INJECTION_METHODS = {"_generate_content", "send_message", "count_tokens", "embed_content"}
+
+
+def _should_inject_headers(original) -> bool:
+    return getattr(original, "__name__", "") in _HEADER_INJECTION_METHODS
+
+
+def _inject_tracing_headers_genai(kwargs: dict[str, Any], span: LiveSpan):
+    genai = _get_genai()
+    if genai is None:
+        return
+    try:
+        tracing_headers = _get_tracing_headers_from_span(span)
+        if not tracing_headers:
+            return
+
+        if "config" not in kwargs:
+            return
+
+        config = kwargs["config"]
+        if config is None:
+            kwargs["config"] = {"http_options": {"headers": tracing_headers}}
+            return
+        elif isinstance(config, dict):
+            http_options = config.get("http_options") or {}
+            if isinstance(http_options, dict):
+                existing_headers = http_options.get("headers") or {}
+                http_options["headers"] = tracing_headers | existing_headers
+                config["http_options"] = http_options
+            else:
+                existing_headers = getattr(http_options, "headers", None) or {}
+                http_options.headers = tracing_headers | existing_headers
+        else:
+            http_options = getattr(config, "http_options", None)
+            if http_options is None:
+                config.http_options = genai.types.HttpOptions(headers=tracing_headers)
+            else:
+                existing_headers = getattr(http_options, "headers", None) or {}
+                http_options.headers = tracing_headers | existing_headers
+    except Exception:
+        _logger.debug("Failed to inject tracing headers for Gemini", exc_info=True)
 
 
 def _get_span_type(task_name: str) -> str:
@@ -271,5 +334,7 @@ def _parse_usage(output):
         usage_dict[TokenUsageKey.OUTPUT_TOKENS] = candidate_tokens
     if (total_tokens := usage.total_token_count) is not None:
         usage_dict[TokenUsageKey.TOTAL_TOKENS] = total_tokens
+    if (cached_tokens := getattr(usage, "cached_content_token_count", None)) is not None:
+        usage_dict[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = cached_tokens
 
     return usage_dict or None

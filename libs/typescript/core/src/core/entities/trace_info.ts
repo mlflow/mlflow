@@ -1,6 +1,18 @@
-import type { TraceLocation, TraceLocationType } from './trace_location';
+import {
+  deserializeTraceLocation,
+  serializeTraceLocation,
+  type SerializedTraceLocation,
+  type TraceLocation,
+} from './trace_location';
 import type { TraceState } from './trace_state';
 import { TraceMetadataKey } from '../constants';
+import {
+  assessmentFromJson,
+  assessmentToJson,
+  isFeedback,
+  type Assessment,
+  type SerializedAssessment,
+} from './assessment';
 
 /**
  * Interface for token usage information
@@ -9,6 +21,8 @@ export interface TokenUsage {
   input_tokens: number;
   output_tokens: number;
   total_tokens: number;
+  cache_read_input_tokens?: number;
+  cache_creation_input_tokens?: number;
 }
 
 /**
@@ -67,9 +81,8 @@ export class TraceInfo {
 
   /**
    * List of assessments associated with the trace.
-   * TODO: Assessments are not yet supported in the TypeScript SDK.
    */
-  assessments: any[];
+  assessments: Assessment[];
 
   /**
    * Create a new TraceInfo instance
@@ -86,7 +99,7 @@ export class TraceInfo {
     executionDuration?: number;
     traceMetadata?: Record<string, string>;
     tags?: Record<string, string>;
-    assessments?: any[];
+    assessments?: Assessment[] | SerializedAssessment[];
   }) {
     this.traceId = params.traceId;
     this.traceLocation = params.traceLocation;
@@ -98,8 +111,7 @@ export class TraceInfo {
     this.executionDuration = params.executionDuration;
     this.traceMetadata = params.traceMetadata || {};
     this.tags = params.tags || {};
-    // TODO: Assessments are not yet supported in the TypeScript SDK.
-    this.assessments = [];
+    this.assessments = (params.assessments || []).map(normalizeAssessment);
   }
 
   /**
@@ -110,19 +122,7 @@ export class TraceInfo {
     return {
       trace_id: this.traceId,
       client_request_id: this.clientRequestId,
-      trace_location: {
-        type: this.traceLocation.type,
-        mlflow_experiment: this.traceLocation.mlflowExperiment
-          ? {
-              experiment_id: this.traceLocation.mlflowExperiment.experimentId,
-            }
-          : undefined,
-        inference_table: this.traceLocation.inferenceTable
-          ? {
-              full_table_name: this.traceLocation.inferenceTable.fullTableName,
-            }
-          : undefined,
-      },
+      trace_location: serializeTraceLocation(this.traceLocation),
       request_preview: this.requestPreview,
       response_preview: this.responsePreview,
       request_time: new Date(this.requestTime).toISOString(),
@@ -131,7 +131,7 @@ export class TraceInfo {
       state: this.state,
       trace_metadata: this.traceMetadata,
       tags: this.tags,
-      assessments: this.assessments,
+      assessments: this.assessments.map(assessmentToJson),
     };
   }
 
@@ -148,11 +148,18 @@ export class TraceInfo {
     }
 
     const usage = JSON.parse(tokenUsageJson) as TokenUsage;
-    return {
+    const result: TokenUsage = {
       input_tokens: usage.input_tokens,
       output_tokens: usage.output_tokens,
       total_tokens: usage.total_tokens,
     };
+    if (usage.cache_read_input_tokens != null) {
+      result.cache_read_input_tokens = usage.cache_read_input_tokens;
+    }
+    if (usage.cache_creation_input_tokens != null) {
+      result.cache_creation_input_tokens = usage.cache_creation_input_tokens;
+    }
+    return result;
   }
 
   /**
@@ -161,19 +168,10 @@ export class TraceInfo {
    * @returns TraceInfo instance
    */
   static fromJson(json: SerializedTraceInfo): TraceInfo {
-    /* eslint-disable @typescript-eslint/no-unsafe-member-access */
     return new TraceInfo({
       traceId: json.trace_id,
       clientRequestId: json.client_request_id,
-      traceLocation: {
-        type: json.trace_location?.type as TraceLocationType,
-        mlflowExperiment: json.trace_location?.mlflow_experiment
-          ? { experimentId: json.trace_location.mlflow_experiment.experiment_id }
-          : undefined,
-        inferenceTable: json.trace_location?.inference_table
-          ? { fullTableName: json.trace_location.inference_table.full_table_name }
-          : undefined,
-      },
+      traceLocation: deserializeTraceLocation(json.trace_location),
       requestPreview: json.request_preview,
       responsePreview: json.response_preview,
       requestTime: json.request_time != null ? new Date(json.request_time).getTime() : Date.now(),
@@ -186,22 +184,20 @@ export class TraceInfo {
       tags: json.tags || {},
       assessments: json.assessments || [],
     });
-    /* eslint-enable @typescript-eslint/no-unsafe-member-access */
   }
+}
+
+function normalizeAssessment(assessment: Assessment | SerializedAssessment): Assessment {
+  if (isFeedback(assessment)) {
+    return assessment;
+  }
+  return assessmentFromJson(assessment);
 }
 
 export interface SerializedTraceInfo {
   trace_id: string;
   client_request_id?: string;
-  trace_location: {
-    type: TraceLocationType;
-    mlflow_experiment?: {
-      experiment_id: string;
-    };
-    inference_table?: {
-      full_table_name: string;
-    };
-  };
+  trace_location: SerializedTraceLocation;
   request_preview?: string;
   response_preview?: string;
   // "request_time": "2025-06-15T14:07:41.282Z"
@@ -210,6 +206,5 @@ export interface SerializedTraceInfo {
   state: TraceState;
   trace_metadata: Record<string, string>;
   tags: Record<string, string>;
-  // TODO: Define proper type for assessments once supported
-  assessments: any[];
+  assessments: SerializedAssessment[];
 }

@@ -5,6 +5,7 @@ import type {
   ModelTraceChatTool,
   ModelTraceInfo,
   ModelTraceInfoV3,
+  ModelTraceSpanLink,
   ModelTraceSpanNode,
   ModelTraceSpanV2,
   ModelTraceSpanV3,
@@ -582,6 +583,31 @@ export const MOCK_TRACE_INFO_V2: ModelTraceInfo = {
     },
   ],
   tags: [],
+};
+
+export const MOCK_SPAN_LINKS: ModelTraceSpanLink[] = [
+  {
+    trace_id: 'tr-abc123def456',
+    span_id: 'aabbccddeeff0011',
+    attributes: { relationship: 'triggered_by' },
+  },
+  {
+    trace_id: 'tr-789xyz000111',
+    span_id: '1122334455667788',
+  },
+];
+
+export const MOCK_LINKS_SPAN: ModelTraceSpanNode = {
+  key: 'links_span',
+  type: ModelSpanType.FUNCTION,
+  start: 0,
+  end: 1000,
+  inputs: undefined,
+  outputs: undefined,
+  attributes: {},
+  assessments: [],
+  traceId: 'tr-test',
+  links: MOCK_SPAN_LINKS,
 };
 
 export const MOCK_OTEL_TRACE: ModelTrace = {

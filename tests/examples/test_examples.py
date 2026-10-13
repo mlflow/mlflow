@@ -1,11 +1,15 @@
+import json
 import os
 import re
+import runpy
 import shutil
 import sys
 import uuid
 from pathlib import Path
+from unittest import mock
 
 import pytest
+import requests
 
 import mlflow
 from mlflow import cli
@@ -29,11 +33,81 @@ def replace_mlflow_with_dev_version(yml_path: Path) -> None:
     yml_path.write_text(new_src)
 
 
+def test_typesafe_judges_example(monkeypatch, db_uri, request):
+    monkeypatch.setenv("TYPESAFE_API_KEY", "test-typesafe-key")
+    monkeypatch.setattr(sys, "argv", ["evaluate.py"])
+    previous_tracking_uri = mlflow.get_tracking_uri()
+    request.addfinalizer(lambda: mlflow.set_tracking_uri(previous_tracking_uri))
+    mlflow.set_tracking_uri(db_uri)
+
+    def respond(**kwargs):
+        assert kwargs["url"] == "https://api.typesafe.ai/v1/systemone"
+        assert kwargs["headers"] == {"Authorization": "Bearer test-typesafe-key"}
+        payload = kwargs["json"]
+        assert payload["model"] == "jev-latest"
+        state = payload["state"]
+        question = payload["questions"]["evaluation"]
+        is_account = "password" in state["inputs"]["question"]
+
+        if question["type"] == "noul":
+            assert set(state) == {"inputs", "outputs"}
+            answer = {"type": "noul", "noul": 0.9}
+        else:
+            assert question["type"] == "choice"
+            assert set(state) == {"inputs"}
+            label = "account" if is_account else "billing"
+            answer = {
+                "type": "choice",
+                "choice": label,
+                "probabilities": {
+                    option: 0.8 if option == label else 0.1 for option in question["criteria"]
+                },
+                "confidence": 0.7,
+            }
+
+        response = requests.Response()
+        response.status_code = 200
+        response._content = json.dumps({
+            "model": "jev-1.13.0",
+            "answers": {"evaluation": answer},
+            "usage": {"input_tokens": 100, "output_tokens": 20},
+        }).encode()
+        return response
+
+    with mock.patch(
+        "mlflow.genai.judges.typesafe._get_http_response_with_retries", side_effect=respond
+    ) as http_request:
+        namespace = runpy.run_path(
+            str(Path(EXAMPLES_DIR, "typesafe_judges", "evaluate.py")), run_name="__main__"
+        )
+
+    assert http_request.call_count == 4
+    results = namespace["results"]
+    assert len(results.result_df) == 2
+    assert sorted(results.result_df["answer_helpfulness/value"]) == [True, True]
+    assert sorted(results.result_df["request_category/value"]) == ["account", "billing"]
+
+    traces = mlflow.search_traces(run_id=results.run_id, return_type="list")
+    assert len(traces) == 2
+    for trace in traces:
+        feedback = {assessment.name: assessment for assessment in trace.info.assessments}
+        assert feedback["answer_helpfulness"].rationale is None
+        assert json.loads(feedback["answer_helpfulness"].metadata["typesafe.probability"]) == 0.9
+        assert set(json.loads(feedback["request_category"].metadata["typesafe.probabilities"])) == {
+            "account",
+            "billing",
+            "other",
+        }
+
+
 @pytest.fixture(autouse=True)
 def clean_up_mlflow_virtual_environments():
     yield
 
-    for path in Path(_get_mlflow_virtualenv_root()).iterdir():
+    venv_root = Path(_get_mlflow_virtualenv_root())
+    if not venv_root.exists():
+        return
+    for path in venv_root.iterdir():
         if path.is_dir():
             shutil.rmtree(path)
 
@@ -87,10 +161,10 @@ def test_mlflow_run_example(directory, params, tmp_path):
     # directory being reused when re-trying the test since
     # tmp_path is named as the test name
     random_tmp_path = tmp_path / str(uuid.uuid4())
-    mlflow.set_tracking_uri(random_tmp_path.joinpath("mlruns").as_uri())
     example_dir = Path(EXAMPLES_DIR, directory)
     tmp_example_dir = random_tmp_path.joinpath(example_dir)
     shutil.copytree(example_dir, tmp_example_dir)
+    mlflow.set_tracking_uri(f"sqlite:///{random_tmp_path / 'mlruns.db'}")
     python_env_path = find_python_env_yaml(tmp_example_dir)
     replace_mlflow_with_dev_version(python_env_path)
     cli_run_list = [tmp_example_dir] + params

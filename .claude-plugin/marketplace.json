@@ -1,0 +1,21 @@
+{
+  "name": "mlflow-plugins",
+  "owner": {
+    "name": "MLflow"
+  },
+  "description": "MLflow tracing and observability plugins for Claude Code.",
+  "plugins": [
+    {
+      "name": "mlflow-tracing",
+      "source": {
+        "source": "npm",
+        "package": "@mlflow/claude-code"
+      },
+      "description": "Observability plugin for Claude Code with MLflow tracing",
+      "homepage": "https://mlflow.org/",
+      "repository": "https://github.com/mlflow/mlflow",
+      "license": "Apache-2.0",
+      "category": "developer-tools"
+    }
+  ]
+}

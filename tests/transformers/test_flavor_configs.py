@@ -1,3 +1,5 @@
+from unittest import mock
+
 import pytest
 
 from mlflow.exceptions import MlflowException
@@ -6,9 +8,10 @@ from mlflow.transformers.flavor_config import (
     build_flavor_config,
     update_flavor_conf_to_persist_pretrained_model,
 )
-from mlflow.transformers.hub_utils import is_valid_hf_repo_id
+from mlflow.transformers.torch_utils import _get_torch_dtype_kwarg_name
+from mlflow.utils.huggingface_utils import is_valid_hf_repo_id
 
-from tests.transformers.helper import IS_NEW_FEATURE_EXTRACTION_API
+from tests.transformers.helper import IS_NEW_FEATURE_EXTRACTION_API, IS_TRANSFORMERS_V5_OR_LATER
 
 
 @pytest.fixture
@@ -16,17 +19,18 @@ def multi_modal_pipeline(component_multi_modal):
     task = "image-classification"
     pipeline = _build_pipeline_from_model_input(component_multi_modal, task)
 
+    tokenizer_type = type(pipeline.tokenizer).__name__
     if IS_NEW_FEATURE_EXTRACTION_API:
         processor = pipeline.image_processor
         components = {
-            "tokenizer": "BertTokenizerFast",
+            "tokenizer": tokenizer_type,
             "image_processor": "ViltImageProcessor",
             "processor": "ViltImageProcessor",
         }
     else:
         processor = pipeline.feature_extractor
         components = {
-            "tokenizer": "BertTokenizerFast",
+            "tokenizer": tokenizer_type,
             "feature_extractor": "ViltProcessor",
             "processor": "ViltProcessor",
         }
@@ -41,13 +45,14 @@ def test_flavor_config_pt_save_pretrained_false(small_qa_pipeline):
         "pipeline_model_type": "MobileBertForQuestionAnswering",
         "source_model_name": "csarron/mobilebert-uncased-squad-v2",
         # "source_model_revision": "SOME_COMMIT_SHA",
-        "framework": "pt",
         "torch_dtype": "torch.float32",
         "components": ["tokenizer"],
-        "tokenizer_type": "MobileBertTokenizerFast",
+        "tokenizer_type": type(small_qa_pipeline.tokenizer).__name__,
         "tokenizer_name": "csarron/mobilebert-uncased-squad-v2",
         # "tokenizer_revision": "SOME_COMMIT_SHA",
     }
+    if not IS_TRANSFORMERS_V5_OR_LATER:
+        expected["framework"] = "pt"
     conf = build_flavor_config(small_qa_pipeline, save_pretrained=False)
     assert len(conf.pop("source_model_revision")) == 40
     assert len(conf.pop("tokenizer_revision")) == 40
@@ -59,6 +64,21 @@ def test_flavor_config_torch_dtype_overridden_when_specified(small_qa_pipeline):
 
     conf = build_flavor_config(small_qa_pipeline, torch_dtype=torch.float16, save_pretrained=False)
     assert conf["torch_dtype"] == "torch.float16"
+
+
+@pytest.mark.parametrize(
+    ("version", "expected"),
+    [
+        ("4.55.0", "torch_dtype"),
+        ("4.56.0", "dtype"),
+        ("5.13.0", "dtype"),
+    ],
+)
+def test_get_torch_dtype_kwarg_name(version, expected):
+    # `_get_torch_dtype_kwarg_name` imports transformers lazily, so patch the attribute on the
+    # transformers module object itself (there is no module-level binding to scope the patch to).
+    with mock.patch("transformers.__version__", version):
+        assert _get_torch_dtype_kwarg_name() == expected
 
 
 def test_flavor_config_component_multi_modal(multi_modal_pipeline):

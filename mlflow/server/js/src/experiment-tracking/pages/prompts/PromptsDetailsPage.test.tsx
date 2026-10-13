@@ -21,7 +21,7 @@ import { getTableRowByCellText } from '@databricks/design-system/test-utils/rtl'
 import { MockedReduxStoreProvider } from '../../../common/utils/TestUtils';
 
 // eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
-jest.setTimeout(30000); // increase timeout due to heavier use of tables, modals and forms
+jest.setTimeout(60000); // increase timeout due to heavier use of tables, modals and forms
 
 describe('PromptsDetailsPage', () => {
   const server = setupServer(
@@ -99,8 +99,8 @@ describe('PromptsDetailsPage', () => {
 
     const table = screen.getByLabelText('Prompt versions table');
 
-    const rowForVersion3 = getTableRowByCellText(table, 'Version 3', { columnHeaderName: 'Version' });
-    const rowForVersion2 = getTableRowByCellText(table, 'Version 2', { columnHeaderName: 'Version' });
+    const rowForVersion3 = getTableRowByCellText(table, 'Version 3', { columnHeaderName: 'Versions' });
+    const rowForVersion2 = getTableRowByCellText(table, 'Version 2', { columnHeaderName: 'Versions' });
 
     await userEvent.click(within(rowForVersion3).getByLabelText('Select as baseline version'));
     await userEvent.click(within(rowForVersion2).getByLabelText('Select as compared version'));

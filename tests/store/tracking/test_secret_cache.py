@@ -1,4 +1,6 @@
+import gc
 import json
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 
@@ -99,6 +101,30 @@ def test_decryption_fails_with_corrupted_blob(crypto):
     assert decrypted is None
 
 
+def test_cleanup_threads_exit_after_gc():
+    def _cleanup_threads() -> list[threading.Thread]:
+        return [t for t in threading.enumerate() if t.name == "EphemeralCacheEncryption-cleanup"]
+
+    threads_before = set(_cleanup_threads())
+
+    def _create_instances():
+        for _ in range(5):
+            c = EphemeralCacheEncryption(ttl_seconds=60)
+            c.encrypt("test")
+
+    _create_instances()
+    gc.collect()
+
+    deadline = time.monotonic() + 3
+    while time.monotonic() < deadline:
+        new_threads = [t for t in _cleanup_threads() if t not in threads_before]
+        if not new_threads:
+            break
+        time.sleep(0.1)
+    else:
+        raise TimeoutError(f"Cleanup threads still alive after 3s: {new_threads}")
+
+
 def test_process_ephemeral_keys_unique_per_instance():
     crypto1 = EphemeralCacheEncryption(ttl_seconds=60)
     crypto2 = EphemeralCacheEncryption(ttl_seconds=60)
@@ -194,7 +220,9 @@ def test_thread_safety_concurrent_reads(cache):
             result = cache.get("key_1")
             assert result == {"value": "secret"}
 
-    with ThreadPoolExecutor(max_workers=10) as executor:
+    with ThreadPoolExecutor(
+        max_workers=10, thread_name_prefix="test-secret-cache-reads"
+    ) as executor:
         futures = [executor.submit(read_cache) for _ in range(10)]
         for future in futures:
             future.result()
@@ -207,7 +235,9 @@ def test_thread_safety_concurrent_writes():
         for i in range(50):
             cache.set(f"key_{thread_id}_{i}", {"value": f"{thread_id}_{i}"})
 
-    with ThreadPoolExecutor(max_workers=10) as executor:
+    with ThreadPoolExecutor(
+        max_workers=10, thread_name_prefix="test-secret-cache-writes"
+    ) as executor:
         futures = [executor.submit(write_cache, i) for i in range(10)]
         for future in futures:
             future.result()
@@ -227,7 +257,9 @@ def test_thread_safety_concurrent_clear():
         for _ in range(50):
             _ = cache.get("key_0")
 
-    with ThreadPoolExecutor(max_workers=10) as executor:
+    with ThreadPoolExecutor(
+        max_workers=10, thread_name_prefix="test-secret-cache-clear"
+    ) as executor:
         futures = [executor.submit(clear_cache) for _ in range(3)]
         futures += [executor.submit(read_cache) for _ in range(7)]
         for future in futures:

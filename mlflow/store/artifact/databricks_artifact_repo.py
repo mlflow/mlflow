@@ -3,7 +3,9 @@ import json
 import logging
 import os
 import posixpath
+import tempfile
 import uuid
+from pathlib import Path
 from typing import Any
 
 import requests
@@ -16,7 +18,7 @@ from mlflow.azure.client import (
     put_block,
     put_block_list,
 )
-from mlflow.entities import FileInfo
+from mlflow.entities import FileInfo, TraceData
 from mlflow.environment_variables import (
     MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT,
     MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE,
@@ -25,6 +27,7 @@ from mlflow.environment_variables import (
 )
 from mlflow.exceptions import (
     MlflowException,
+    MlflowNotImplementedException,
     MlflowTraceDataCorrupted,
     MlflowTraceDataNotFound,
 )
@@ -39,9 +42,13 @@ from mlflow.protos.databricks_artifacts_pb2 import (
 from mlflow.protos.databricks_pb2 import (
     INTERNAL_ERROR,
     INVALID_PARAMETER_VALUE,
+    RESOURCE_DOES_NOT_EXIST,
 )
 from mlflow.protos.service_pb2 import MlflowService
-from mlflow.store.artifact.artifact_repo import write_local_temp_trace_data_file
+from mlflow.store.artifact.artifact_repo import (
+    _validate_attachment_path,
+    write_local_temp_trace_data_file,
+)
 from mlflow.store.artifact.cloud_artifact_repo import (
     CloudArtifactRepository,
     _complete_futures,
@@ -80,6 +87,8 @@ from mlflow.utils.uri import (
 
 _logger = logging.getLogger(__name__)
 _MAX_CREDENTIALS_REQUEST_SIZE = 2000  # Max number of artifact paths in a single credentials request
+_TRACE_DOWNLOAD_CHUNK_SIZE = 1024 * 1024
+_TRACE_DOWNLOAD_MAX_STREAM_ATTEMPTS = 2
 _SERVICE_AND_METHOD_TO_INFO = {
     service: extract_api_info_for_service(service, _REST_API_PATH_PREFIX)
     for service in [MlflowService, DatabricksMlflowArtifactsService]
@@ -245,22 +254,101 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         ]
         return self._get_credential_infos(_CredentialType.WRITE, relative_remote_paths)
 
-    def download_trace_data(self) -> dict[str, Any]:
+    def _validate_streamed_trace_download(
+        self, response: requests.Response, expected_length: str | None, bytes_written: int
+    ) -> None:
+        if expected_length is None:
+            return
+
+        try:
+            expected_length_int = int(expected_length)
+        except ValueError:
+            return
+
+        actual_length = None
+        raw_tell = getattr(getattr(response, "raw", None), "tell", None)
+        if callable(raw_tell):
+            try:
+                actual_length = raw_tell()
+            except Exception:
+                actual_length = None
+
+        if actual_length is None and not response.headers.get("Content-Encoding"):
+            actual_length = bytes_written
+
+        if actual_length is not None and actual_length < expected_length_int:
+            raise requests.ConnectionError(
+                f"Incomplete download: read {actual_length} of {expected_length_int} bytes"
+            )
+
+    def _stream_trace_response_to_path(self, response: requests.Response, dst_path: Path) -> Path:
+        partial_path = Path(f"{dst_path}.part")
+        bytes_written = 0
+        try:
+            with partial_path.open("wb") as output_file:
+                for chunk in response.iter_content(chunk_size=_TRACE_DOWNLOAD_CHUNK_SIZE):
+                    if not chunk:
+                        continue
+                    output_file.write(chunk)
+                    bytes_written += len(chunk)
+
+            self._validate_streamed_trace_download(
+                response, response.headers.get("Content-Length"), bytes_written
+            )
+            os.replace(partial_path, dst_path)
+            return dst_path
+        except Exception:
+            partial_path.unlink(missing_ok=True)
+            raise
+
+    def _download_trace_file_to_path(
+        self, signed_uri: str, dst_path: Path, headers: dict[str, str]
+    ) -> Path:
+        try:
+            for attempt in range(1, _TRACE_DOWNLOAD_MAX_STREAM_ATTEMPTS + 1):
+                with cloud_storage_http_request(
+                    "get", signed_uri, stream=True, headers=headers
+                ) as response:
+                    augmented_raise_for_status(response)
+                    try:
+                        return self._stream_trace_response_to_path(response, dst_path)
+                    except requests.RequestException as e:
+                        if attempt == _TRACE_DOWNLOAD_MAX_STREAM_ATTEMPTS:
+                            raise
+                        _logger.warning(
+                            "Retrying streamed trace artifact download after attempt %s/%s: %s",
+                            attempt,
+                            _TRACE_DOWNLOAD_MAX_STREAM_ATTEMPTS,
+                            e,
+                        )
+        except requests.RequestException:
+            dst_path.unlink(missing_ok=True)
+            raise
+
+    def download_trace_data_to_file(self, dst_path: Path) -> Path:
         [cred], _ = self.resource.get_credentials(cred_type=_CredentialType.READ)
         signed_uri = cred.signed_uri
         headers = self._extract_headers_from_credentials(cred.headers)
-        with cloud_storage_http_request("get", signed_uri, headers=headers) as resp:
-            try:
-                augmented_raise_for_status(resp)
-            except requests.HTTPError as e:
-                if e.response.status_code == 404:
-                    raise MlflowTraceDataNotFound(request_id=self.resource.id) from e
-                raise
+        try:
+            return self._download_trace_file_to_path(signed_uri, dst_path, headers)
+        except requests.HTTPError as e:
+            if e.response.status_code == 404:
+                raise MlflowTraceDataNotFound(request_id=self.resource.id) from e
+            raise
 
+    def download_trace_data(self) -> dict[str, Any]:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            dst = Path(temp_dir, "traces.json")
+            self.download_trace_data_to_file(dst)
             try:
-                return json.loads(resp.content)
+                return json.loads(dst.read_text(encoding="utf-8"))
             except json.JSONDecodeError as e:
                 raise MlflowTraceDataCorrupted(request_id=self.resource.id) from e
+
+    def download_archived_trace_data(self) -> TraceData:
+        raise MlflowNotImplementedException(
+            "Databricks trace artifact repositories do not yet support ARCHIVE_REPO trace payloads."
+        )
 
     def upload_trace_data(self, trace_data: str) -> None:
         cred = self._get_upload_trace_data_cred_info()
@@ -293,6 +381,16 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
             ):
                 self._signed_url_upload_file(cred, temp_file)
 
+    def upload_archived_trace_data(self, trace_data: TraceData) -> None:
+        raise MlflowNotImplementedException(
+            "Databricks trace artifact repositories do not yet support ARCHIVE_REPO trace payloads."
+        )
+
+    def upload_archived_trace_data_bytes(self, data: bytes) -> None:
+        raise MlflowNotImplementedException(
+            "Databricks trace artifact repositories do not yet support ARCHIVE_REPO trace payloads."
+        )
+
     def _get_upload_trace_data_cred_info(self):
         """Returns the credential info for trace data upload."""
         [cred], _ = self.resource.get_credentials(
@@ -300,6 +398,69 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
             timeout=MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT.get(),
         )
         return cred
+
+    def download_trace_attachment_to_file(self, path: str, dst_path: Path) -> Path:
+        _validate_attachment_path(path)
+        artifact_path = posixpath.join("attachments", path)
+        [cred], _ = self.resource.get_credentials(
+            cred_type=_CredentialType.READ,
+            artifact_path=artifact_path,
+        )
+        headers = self._extract_headers_from_credentials(cred.headers)
+        try:
+            return self._download_trace_file_to_path(cred.signed_uri, dst_path, headers)
+        except requests.HTTPError as e:
+            if e.response.status_code == 404:
+                raise MlflowException(
+                    f"Attachment '{path}' not found.",
+                    error_code=RESOURCE_DOES_NOT_EXIST,
+                ) from e
+            raise
+
+    def download_trace_attachment(self, path: str) -> bytes:
+        _validate_attachment_path(path)
+        with tempfile.TemporaryDirectory() as temp_dir:
+            dst = Path(temp_dir, path)
+            self.download_trace_attachment_to_file(path, dst)
+            return dst.read_bytes()
+
+    def upload_attachment(self, attachment_id: str, content_bytes: bytes) -> None:
+        _validate_attachment_path(attachment_id)
+        artifact_path = posixpath.join("attachments", attachment_id)
+        [cred], _ = self.resource.get_credentials(
+            cred_type=_CredentialType.WRITE,
+            artifact_path=artifact_path,
+            timeout=MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT.get(),
+        )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_file = str(Path(temp_dir, attachment_id))
+            Path(temp_file).write_bytes(content_bytes)
+            if cred.type == ArtifactCredentialType.AZURE_ADLS_GEN2_SAS_URI:
+                self._azure_adls_gen2_upload_file(
+                    credentials=cred,
+                    local_file=temp_file,
+                    artifact_file_path=None,
+                    get_credentials=lambda _: [cred],
+                    is_sync=True,
+                )
+            elif cred.type == ArtifactCredentialType.AZURE_SAS_URI:
+                self._azure_upload_file(
+                    credentials=cred,
+                    local_file=temp_file,
+                    artifact_file_path=None,
+                    get_credentials=lambda _: [cred],
+                    is_sync=True,
+                )
+            elif cred.type in (
+                ArtifactCredentialType.AWS_PRESIGNED_URL,
+                ArtifactCredentialType.GCP_SIGNED_URL,
+            ):
+                self._signed_url_upload_file(cred, temp_file)
+            else:
+                raise MlflowException(
+                    f"Unsupported credential type for attachment upload: {cred.type}",
+                    error_code=INTERNAL_ERROR,
+                )
 
     def _get_read_credential_infos(self, remote_file_paths):
         """

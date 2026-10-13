@@ -600,9 +600,12 @@ def test_rotate_multiple_secrets(secrets):
     encrypted_secrets = []
     for secret_value, secret_id, secret_name in secrets:
         result = _encrypt_secret(secret_value, old_kek_manager, secret_id, secret_name)
-        encrypted_secrets.append(
-            (result.encrypted_value, result.wrapped_dek, secret_id, secret_name)
-        )
+        encrypted_secrets.append((
+            result.encrypted_value,
+            result.wrapped_dek,
+            secret_id,
+            secret_name,
+        ))
 
     for encrypted_value, old_wrapped_dek, secret_id, secret_name in encrypted_secrets:
         rotate_result = rotate_secret_encryption(

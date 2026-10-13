@@ -1,29 +1,31 @@
 import { isNil } from 'lodash';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
-import {
-  type ModelTraceInfoV3,
-  isV3ModelTraceInfo,
-  isV4TraceId,
-  type ModelTrace,
-} from '@databricks/web-shared/model-trace-explorer';
-import { useQuery } from '@databricks/web-shared/query-client';
+import type { ModelTraceInfoV3, ModelTrace } from '../../model-trace-explorer/ModelTrace.types';
+import { isV3ModelTraceInfo, isV4TraceId } from '../../model-trace-explorer/ModelTraceExplorer.utils';
+import { useQuery } from '../../query-client/queryClient';
 
-import { createTraceLocationForExperiment, createTraceLocationForUCSchema } from '../utils/TraceLocationUtils';
+import { createTraceLocationForExperiment, createTraceLocationForDestinationPath } from '../utils/TraceLocationUtils';
 import { formatTraceId } from '../utils/TraceUtils';
 
 export type GetTraceFunction = (
   traceId?: string,
   traceInfo?: ModelTrace['info'],
-  // prettier-ignore
+  // should be undefined in OSS
+  sqlWarehouseId?: string,
 ) => Promise<ModelTrace | undefined>;
 
-export function useGetTrace(
-  getTrace?: GetTraceFunction,
-  traceInfo?: ModelTrace['info'],
-  // prettier-ignore
-  enablePolling?: boolean,
-) {
+export function useGetTrace({
+  getTrace,
+  traceInfo,
+  enablePolling,
+  sqlWarehouseId,
+}: {
+  getTrace?: GetTraceFunction;
+  traceInfo?: ModelTrace['info'];
+  enablePolling?: boolean;
+  sqlWarehouseId?: string;
+}) {
   const traceId = useMemo(() => {
     if (!traceInfo) {
       return undefined;
@@ -40,14 +42,22 @@ export function useGetTrace(
       return getTrace(
         traceId,
         traceInfo,
+        sqlWarehouseId,
       );
     },
-    [
-      getTrace,
-      traceId,
-      // prettier-ignore
-    ],
+    [getTrace, traceId, sqlWarehouseId],
   );
+
+  // Maximum number of polling attempts after the trace reaches OK state.
+  // This allows child spans that are still being uploaded to arrive,
+  // while preventing infinite polling when num_spans metadata is inconsistent.
+  const MAX_OK_STATE_POLL_COUNT = 60; // 60 seconds at 1s interval
+  const okStatePollCountRef = useRef(0);
+
+  // Reset poll count when navigating to a different trace
+  useEffect(() => {
+    okStatePollCountRef.current = 0;
+  }, [traceId]);
 
   const getRefreshInterval = (data: ModelTrace | undefined) => {
     // Keep polling until trace is completed and span counts matches with the number logged in the
@@ -69,7 +79,25 @@ export function useGetTrace(
 
     const expected = JSON.parse(traceStats).num_spans;
     const actual = data?.data?.spans?.length ?? 0;
-    return expected === actual ? false : 1000;
+
+    // Poll until the actual span count reaches at least the expected count.
+    // NB: In distributed tracing case, the actual span count exceeds the expected count because
+    // sizeStats only counts spans from the originating process.
+    if (actual >= expected) {
+      okStatePollCountRef.current = 0;
+      return false;
+    }
+
+    // Stop polling after the maximum number of attempts to prevent infinite loops
+    // when num_spans metadata is inconsistent with actual span count.
+    okStatePollCountRef.current += 1;
+    if (okStatePollCountRef.current >= MAX_OK_STATE_POLL_COUNT) {
+      okStatePollCountRef.current = 0;
+      return false;
+    }
+
+    // Poll again after 1 second
+    return 1000;
   };
 
   return useQuery({
@@ -94,7 +122,7 @@ export const useGetTraceByFullTraceId = (getTrace?: GetTraceFunction, fullTraceI
 
       const trace_location = !trace_location_string.includes('.')
         ? createTraceLocationForExperiment(trace_location_string)
-        : createTraceLocationForUCSchema(trace_location_string);
+        : createTraceLocationForDestinationPath(trace_location_string);
 
       return {
         trace_id,

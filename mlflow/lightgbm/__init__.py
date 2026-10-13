@@ -59,6 +59,7 @@ from mlflow.utils.autologging_utils import (
     resolve_input_example_and_signature,
     safe_patch,
 )
+from mlflow.utils.data_utils import is_polars_dataframe
 from mlflow.utils.databricks_utils import is_in_databricks_runtime as is_in_databricks_runtime
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
@@ -84,11 +85,26 @@ from mlflow.utils.model_utils import (
     _validate_and_prepare_target_save_path,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
+from mlflow.utils.uri import is_databricks_uri
 
 FLAVOR_NAME = "lightgbm"
 
+# Builtin trusted types for LightGBM sklearn-compatible models serialized with skops.
+# These cover the common LightGBM model classes and their internal dependencies.
+_LIGHTGBM_SKLEARN_SKOPS_TRUSTED_TYPES = {
+    "collections.OrderedDict",
+    "lightgbm.basic.Booster",
+    "lightgbm.sklearn.LGBMClassifier",
+    "lightgbm.sklearn.LGBMRegressor",
+}
 
 _logger = logging.getLogger(__name__)
+
+
+def _get_default_serialization_format():
+    if is_in_databricks_runtime() or is_databricks_uri(mlflow.get_tracking_uri()):
+        return "cloudpickle"
+    return "skops"
 
 
 def get_default_pip_requirements(include_cloudpickle=False, include_skops=False):
@@ -130,7 +146,7 @@ def save_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
-    serialization_format="cloudpickle",
+    serialization_format=None,
     skops_trusted_types=None,
     extra_files=None,
     **kwargs,
@@ -153,6 +169,9 @@ def save_model(
         serialization_format: The format in which to serialize the model if the model is not
             `lightgbm.Booster` instance. This should be one of
             the formats "skops", "cloudpickle" or "pickle".
+            For models that are not `lightgbm.Booster` instances, if not specified, the model is
+            serialized as "cloudpickle" in Databricks Runtime or when using a Databricks tracking
+            URI, and as "skops" otherwise.
             The "skops" format guarantees safe deserialization.
             The "cloudpickle" format, provides better cross-system compatibility by identifying and
             packaging code dependencies with the serialized model, but requires exercising
@@ -206,9 +225,17 @@ def save_model(
 
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
+    if serialization_format is None:
+        serialization_format = _get_default_serialization_format()
+
     path = os.path.abspath(path)
     _validate_and_prepare_target_save_path(path)
-    model_data_subpath = "model.lgb" if isinstance(lgb_model, lgb.Booster) else "model.pkl"
+    if isinstance(lgb_model, lgb.Booster):
+        model_data_subpath = "model.lgb"
+    elif serialization_format == mlflow.sklearn.SERIALIZATION_FORMAT_SKOPS:
+        model_data_subpath = "model.skops"
+    else:
+        model_data_subpath = "model.pkl"
     model_data_path = os.path.join(path, model_data_subpath)
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
 
@@ -227,6 +254,10 @@ def save_model(
     if metadata is not None:
         mlflow_model.metadata = metadata
 
+    if serialization_format == "skops":
+        skops_trusted_types = list(
+            _LIGHTGBM_SKLEARN_SKOPS_TRUSTED_TYPES.union(skops_trusted_types or set())
+        )
     # Save a LightGBM model
     _save_model(lgb_model, model_data_path, serialization_format, skops_trusted_types)
 
@@ -340,7 +371,7 @@ def log_model(
     model_type: str | None = None,
     step: int = 0,
     model_id: str | None = None,
-    serialization_format="cloudpickle",
+    serialization_format=None,
     skops_trusted_types: list[str] | None = None,
     **kwargs,
 ):
@@ -375,6 +406,9 @@ def log_model(
         serialization_format: The format in which to serialize the model if the model is not
             `lightgbm.Booster` instance. This should be one of
             the formats "skops", "cloudpickle" or "pickle".
+            For models that are not `lightgbm.Booster` instances, if not specified, the model is
+            serialized as "cloudpickle" in Databricks Runtime or when using a Databricks tracking
+            URI, and as "skops" otherwise.
             The "skops" format guarantees safe deserialization.
             The "cloudpickle" format, provides better cross-system compatibility by identifying and
             packaging code dependencies with the serialized model, but requires exercising
@@ -413,7 +447,7 @@ def log_model(
         artifact_path = "model"
         with mlflow.start_run():
             model_info = mlflow.lightgbm.log_model(
-                model, name=artifact_path, signature=signature
+                model, name=artifact_path, signature=signature, serialization_format="skops"
             )
 
         # Fetch the logged model artifacts
@@ -427,10 +461,13 @@ def log_model(
 
         artifacts: ['model/MLmodel',
                     'model/conda.yaml',
-                    'model/model.pkl',
+                    'model/model.skops',
                     'model/python_env.yaml',
                     'model/requirements.txt']
     """
+    if serialization_format is None:
+        serialization_format = _get_default_serialization_format()
+
     return Model.log(
         artifact_path=artifact_path,
         name=name,
@@ -1035,6 +1072,10 @@ def _log_lightgbm_dataset(lgb_dataset, source, context, autologging_client, name
         dataset = from_numpy(features=arr_data, targets=label, source=source, name=name)
     elif isinstance(data, np.ndarray):
         dataset = from_numpy(features=data, targets=label, source=source, name=name)
+    elif is_polars_dataframe(data):
+        from mlflow.data.polars_dataset import from_polars
+
+        dataset = from_polars(df=data, source=source, name=name)
     else:
         _logger.warning("Unrecognized dataset type %s. Dataset logging skipped.", type(data))
         return

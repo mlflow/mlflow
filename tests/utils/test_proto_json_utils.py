@@ -19,16 +19,45 @@ from mlflow.types.utils import _infer_schema
 from mlflow.utils.proto_json_utils import (
     MlflowFailedTypeConversion,
     _CustomJsonEncoder,
-    _stringify_all_experiment_ids,
     cast_df_types_according_to_schema,
     dataframe_from_parsed_json,
     dataframe_from_raw_json,
+    dump_input_data,
     message_to_json,
     parse_dict,
     parse_tf_serving_input,
 )
 
 from tests.protos.test_message_pb2 import SampleMessage
+
+
+@pytest.mark.parametrize(
+    ("data", "expected"),
+    [
+        ({"x": np.array([1, 2])}, {"inputs": {"x": [1, 2]}}),
+        (
+            {"ab": np.array([[1, 2], [3, 4]]), "column": np.array([5.0])},
+            {"inputs": {"ab": [[1, 2], [3, 4]], "column": [5.0]}},
+        ),
+    ],
+)
+def test_dump_input_data_dict(data, expected):
+    assert json.loads(dump_input_data(data)) == expected
+
+
+def test_dump_input_data_dict_with_custom_key_and_params():
+    data = {"x": np.array([1, 2])}
+    assert json.loads(
+        dump_input_data(data, inputs_key="instances", params={"temperature": 0.5})
+    ) == {
+        "instances": {"x": [1, 2]},
+        "params": {"temperature": 0.5},
+    }
+
+
+def test_dump_input_data_dict_rejects_unsupported_value():
+    with pytest.raises(MlflowException, match="Incompatible input type:.* for input x"):
+        dump_input_data({"x": [1, 2]})
 
 
 def test_message_to_json():
@@ -38,6 +67,7 @@ def test_message_to_json():
         "name": "name",
         "artifact_location": "arty",
         "lifecycle_stage": "active",
+        "workspace": "default",
     }
 
     original_proto_message = RegisteredModel(
@@ -111,6 +141,10 @@ def test_message_to_json():
     new_proto_message = ProtoRegisteredModel()
     parse_dict(json_dict, new_proto_message)
     assert original_proto_message == new_proto_message
+
+    compact_json = message_to_json(original_proto_message, pretty=False)
+    assert "\n" not in compact_json
+    assert json.loads(compact_json) == json_dict
 
     test_message = ParseTextIntoProto(
         """
@@ -194,6 +228,12 @@ def test_message_to_json():
         },
         "[mlflow.ExtensionMessage.field_extended_int64]": "100",
     }
+
+    json_with_int64_strings = json.loads(
+        message_to_json(test_message, convert_int64_to_number=False)
+    )
+    assert json_with_int64_strings["field_int64"] == "12"
+    assert json_with_int64_strings["field_inner_message"][0]["field_inner_int64"] == "101"
     new_test_message = SampleMessage()
     parse_dict(json_dict, new_test_message)
     assert new_test_message == test_message
@@ -215,42 +255,6 @@ def test_parse_dict_int_as_string_backcompat():
     parse_dict(in_json, message)
     experiment = Metric.from_proto(message)
     assert experiment.timestamp == 123
-
-
-def test_parse_legacy_experiment():
-    in_json = {"experiment_id": 123, "name": "name", "unknown": "field"}
-    message = ProtoExperiment()
-    parse_dict(in_json, message)
-    experiment = Experiment.from_proto(message)
-    assert experiment.experiment_id == "123"
-    assert experiment.name == "name"
-    assert experiment.artifact_location == ""
-
-
-def test_back_compat():
-    in_json = {
-        "experiment_id": 123,
-        "name": "name",
-        "unknown": "field",
-        "experiment_ids": [1, 2, 3, 4, 5],
-        "things": {
-            "experiment_id": 4,
-            "more_things": {"experiment_id": 7, "experiment_ids": [2, 3, 4, 5]},
-        },
-    }
-
-    _stringify_all_experiment_ids(in_json)
-    exp_json = {
-        "experiment_id": "123",
-        "name": "name",
-        "unknown": "field",
-        "experiment_ids": ["1", "2", "3", "4", "5"],
-        "things": {
-            "experiment_id": "4",
-            "more_things": {"experiment_id": "7", "experiment_ids": ["2", "3", "4", "5"]},
-        },
-    }
-    assert exp_json == in_json
 
 
 def assert_result(result, expected_result):
@@ -279,13 +283,11 @@ def test_parse_tf_serving_dictionary():
     assert_result(result, expected_result_no_schema)
 
     # With schema
-    schema = Schema(
-        [
-            TensorSpec(np.dtype("str"), [-1], "a"),
-            TensorSpec(np.dtype("float32"), [-1], "b"),
-            TensorSpec(np.dtype("int32"), [-1], "c"),
-        ]
-    )
+    schema = Schema([
+        TensorSpec(np.dtype("str"), [-1], "a"),
+        TensorSpec(np.dtype("float32"), [-1], "b"),
+        TensorSpec(np.dtype("int32"), [-1], "c"),
+    ])
     df_schema = Schema([ColSpec("string", "a"), ColSpec("float", "b"), ColSpec("integer", "c")])
     result = parse_tf_serving_input(tfserving_input, schema)
     expected_result_schema = {
@@ -339,13 +341,11 @@ def test_parse_tf_serving_arbitrary_input_dictionary():
         }
     }
 
-    schema = Schema(
-        [
-            TensorSpec(np.dtype("str"), [-1, 3], "a"),
-            TensorSpec(np.dtype("float32"), [-1], "b"),
-            TensorSpec(np.dtype("int32"), [-1, 4], "c"),
-        ]
-    )
+    schema = Schema([
+        TensorSpec(np.dtype("str"), [-1, 3], "a"),
+        TensorSpec(np.dtype("float32"), [-1], "b"),
+        TensorSpec(np.dtype("int32"), [-1, 4], "c"),
+    ])
     df_schema = Schema([ColSpec("string", "a"), ColSpec("float", "b"), ColSpec("integer", "c")])
 
     expected_result_no_schema_arbitrary = {
@@ -475,18 +475,16 @@ def test_dataframe_from_json():
 
     jsonable_df = pd.DataFrame(source, copy=True)
     jsonable_df["binary"] = jsonable_df["binary"].map(base64.b64encode)
-    schema = Schema(
-        [
-            ColSpec("boolean", "boolean"),
-            ColSpec("string", "string"),
-            ColSpec("float", "float"),
-            ColSpec("double", "double"),
-            ColSpec("integer", "integer"),
-            ColSpec("long", "long"),
-            ColSpec("binary", "binary"),
-            ColSpec("string", "date_string"),
-        ]
-    )
+    schema = Schema([
+        ColSpec("boolean", "boolean"),
+        ColSpec("string", "string"),
+        ColSpec("float", "float"),
+        ColSpec("double", "double"),
+        ColSpec("integer", "integer"),
+        ColSpec("long", "long"),
+        ColSpec("binary", "binary"),
+        ColSpec("string", "date_string"),
+    ])
     parsed = dataframe_from_raw_json(
         jsonable_df.to_json(orient="split"), pandas_orient="split", schema=schema
     )
@@ -496,17 +494,15 @@ def test_dataframe_from_json():
     )
     pd.testing.assert_frame_equal(parsed, source)
     # try parsing with tensor schema
-    tensor_schema = Schema(
-        [
-            TensorSpec(np.dtype("bool"), [-1], "boolean"),
-            TensorSpec(np.dtype("str"), [-1], "string"),
-            TensorSpec(np.dtype("float32"), [-1], "float"),
-            TensorSpec(np.dtype("float64"), [-1], "double"),
-            TensorSpec(np.dtype("int32"), [-1], "integer"),
-            TensorSpec(np.dtype("int64"), [-1], "long"),
-            TensorSpec(np.dtype(bytes), [-1], "binary"),
-        ]
-    )
+    tensor_schema = Schema([
+        TensorSpec(np.dtype("bool"), [-1], "boolean"),
+        TensorSpec(np.dtype("str"), [-1], "string"),
+        TensorSpec(np.dtype("float32"), [-1], "float"),
+        TensorSpec(np.dtype("float64"), [-1], "double"),
+        TensorSpec(np.dtype("int32"), [-1], "integer"),
+        TensorSpec(np.dtype("int64"), [-1], "long"),
+        TensorSpec(np.dtype(bytes), [-1], "binary"),
+    ])
     parsed = dataframe_from_raw_json(
         jsonable_df.to_json(orient="split"), pandas_orient="split", schema=tensor_schema
     )
@@ -556,13 +552,26 @@ def test_dataframe_from_json():
     )
     expected = pd.DataFrame(
         {
-            "datetime": [
-                pd.Timestamp("2022-01-01T00:00:00"),
-                pd.Timestamp("2022-01-02T03:04:05"),
-            ]
+            "datetime": np.array(
+                ["2022-01-01T00:00:00", "2022-01-02T03:04:05"],
+                dtype=DataType.datetime.to_pandas(),
+            )
         },
     )
     pd.testing.assert_frame_equal(parsed, expected)
+
+
+@pytest.mark.parametrize(
+    "value",
+    ["2022-01-01T00:00:00", "2022-01-01", "2022-01-01T00:00:00+02:00"],
+)
+def test_dataframe_from_json_parses_datetime_as_nanoseconds(value):
+    parsed = dataframe_from_raw_json(
+        json.dumps([{"datetime": value}]),
+        pandas_orient="records",
+        schema=Schema([ColSpec("datetime", "datetime")]),
+    )
+    assert getattr(parsed["datetime"].dt, "unit", "ns") == "ns"
 
 
 @pytest.mark.parametrize(
@@ -640,32 +649,26 @@ def test_cast_df_types_according_to_schema_error_message(dataframe, schema, erro
         ),
         (
             {"query": ["sentence_1", "sentence_2"], "table": "some_table"},
-            Schema(
-                [
-                    ColSpec(Array(DataType.string), name="query"),
-                    ColSpec(DataType.string, name="table"),
-                ]
-            ),
+            Schema([
+                ColSpec(Array(DataType.string), name="query"),
+                ColSpec(DataType.string, name="table"),
+            ]),
             None,
         ),
         (
             {"query": [{"name": "value", "age": 10}, {"name": "value"}], "table": ["some_table"]},
-            Schema(
-                [
-                    ColSpec(
-                        Array(
-                            Object(
-                                [
-                                    Property("name", DataType.string),
-                                    Property("age", DataType.long, required=False),
-                                ]
-                            )
-                        ),
-                        name="query",
+            Schema([
+                ColSpec(
+                    Array(
+                        Object([
+                            Property("name", DataType.string),
+                            Property("age", DataType.long, required=False),
+                        ])
                     ),
-                    ColSpec(Array(DataType.string), name="table"),
-                ]
-            ),
+                    name="query",
+                ),
+                ColSpec(Array(DataType.string), name="table"),
+            ]),
             None,
         ),
         (
@@ -678,12 +681,10 @@ def test_cast_df_types_according_to_schema_error_message(dataframe, schema, erro
                 {"query": ["sentence_1", "sentence_2"], "table": "some_table"},
                 {"query": ["sentence_1", "sentence_2"]},
             ],
-            Schema(
-                [
-                    ColSpec(Array(DataType.string), name="query"),
-                    ColSpec(DataType.string, name="table", required=False),
-                ]
-            ),
+            Schema([
+                ColSpec(Array(DataType.string), name="query"),
+                ColSpec(DataType.string, name="table", required=False),
+            ]),
             {
                 "query": [["sentence_1", "sentence_2"], ["sentence_1", "sentence_2"]],
                 "table": ["some_table"],
@@ -694,20 +695,16 @@ def test_cast_df_types_according_to_schema_error_message(dataframe, schema, erro
                 {"query": {"a": "sentence_1", "b": "sentence_2"}, "table": "some_table"},
                 {"query": {"a": "sentence_1"}, "table": "some_table"},
             ],
-            Schema(
-                [
-                    ColSpec(
-                        Object(
-                            [
-                                Property("a", DataType.string),
-                                Property("b", DataType.string, required=False),
-                            ]
-                        ),
-                        name="query",
-                    ),
-                    ColSpec(DataType.string, name="table"),
-                ]
-            ),
+            Schema([
+                ColSpec(
+                    Object([
+                        Property("a", DataType.string),
+                        Property("b", DataType.string, required=False),
+                    ]),
+                    name="query",
+                ),
+                ColSpec(DataType.string, name="table"),
+            ]),
             {
                 "query": [{"a": "sentence_1", "b": "sentence_2"}, {"a": "sentence_1"}],
                 "table": ["some_table", "some_table"],
@@ -719,16 +716,14 @@ def test_cast_df_types_according_to_schema_error_message(dataframe, schema, erro
                 "table": {"k": "some_table"},
                 "data": {"k1": ["a", "b"], "k2": ["c"]},
             },
-            Schema(
-                [
-                    ColSpec(
-                        Array(Map(value_type=DataType.string)),
-                        name="query",
-                    ),
-                    ColSpec(Map(value_type=DataType.string), name="table"),
-                    ColSpec(Map(value_type=Array(DataType.string)), name="data"),
-                ]
-            ),
+            Schema([
+                ColSpec(
+                    Array(Map(value_type=DataType.string)),
+                    name="query",
+                ),
+                ColSpec(Map(value_type=DataType.string), name="table"),
+                ColSpec(Map(value_type=Array(DataType.string)), name="data"),
+            ]),
             None,
         ),
     ],

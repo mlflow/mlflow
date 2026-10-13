@@ -40,6 +40,9 @@ const artifactTestCases: string[] = [
   'json/table_unnamed_columns.json',
   'json/table_eval_broken.json',
 
+  // JSON Lines files
+  'jsonl/events.jsonl',
+
   // GeoJSON files
   'geojson/sample.geojson',
 

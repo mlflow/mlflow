@@ -1,11 +1,12 @@
 from pathlib import Path
 
 from clint.config import Config
+from clint.index import SymbolIndex
 from clint.linter import Position, Range, lint_file
 from clint.rules.no_class_based_tests import NoClassBasedTests
 
 
-def test_no_class_based_tests(index_path: Path) -> None:
+def test_no_class_based_tests(index: SymbolIndex) -> None:
     code = """import pytest
 
 # Bad - class-based test with test methods
@@ -44,14 +45,14 @@ def helper_function():
     return 42
 """
     config = Config(select={NoClassBasedTests.name})
-    violations = lint_file(Path("test_something.py"), code, config, index_path)
+    violations = lint_file(Path("test_something.py"), code, config, index)
     assert len(violations) == 2
     assert all(isinstance(v.rule, NoClassBasedTests) for v in violations)
     assert violations[0].range == Range(Position(3, 0))  # TestSomething class
     assert violations[1].range == Range(Position(14, 0))  # TestAnotherThing class
 
 
-def test_no_class_based_tests_non_test_file(index_path: Path) -> None:
+def test_no_class_based_tests_non_test_file(index: SymbolIndex) -> None:
     code = """import pytest
 
 # This should not be flagged because it's not in a test file
@@ -60,5 +61,5 @@ class TestSomething:
         assert True
 """
     config = Config(select={NoClassBasedTests.name})
-    violations = lint_file(Path("regular_file.py"), code, config, index_path)
+    violations = lint_file(Path("regular_file.py"), code, config, index)
     assert len(violations) == 0

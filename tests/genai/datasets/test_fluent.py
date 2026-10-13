@@ -2,6 +2,7 @@ import json
 import os
 import sys
 import warnings
+from types import SimpleNamespace
 from unittest import mock
 
 import pandas as pd
@@ -17,6 +18,7 @@ from mlflow.entities.evaluation_dataset import (
 from mlflow.exceptions import MlflowException
 from mlflow.genai.datasets import (
     EvaluationDataset,
+    EvaluationDatasetVersion,
     create_dataset,
     delete_dataset,
     delete_dataset_tag,
@@ -446,6 +448,33 @@ def test_search_datasets_databricks(mock_databricks_environment, mock_client):
     assert call_kwargs.get("order_by") is None
 
 
+def test_search_datasets_databricks_preserves_version(mock_databricks_environment, mock_client):
+    mock_client.search_datasets.return_value = PagedList(
+        [
+            EntityEvaluationDataset(
+                dataset_id="id1",
+                name="catalog.schema.dataset1",
+                digest="digest1",
+                created_time=123456789,
+                last_update_time=123456789,
+                version={"version": 7},
+            )
+        ],
+        None,
+    )
+
+    result = search_datasets(experiment_ids=["exp1"])
+
+    assert result[0].version == 7
+
+
+def test_get_dataset_version_non_databricks_unsupported(monkeypatch):
+    monkeypatch.setattr("mlflow.genai.datasets.is_databricks_uri", lambda _: False)
+
+    with pytest.raises(NotImplementedError, match="only supported for Databricks datasets"):
+        get_dataset(name="dataset", version=1)
+
+
 def test_databricks_import_error():
     with (
         mock.patch("mlflow.genai.datasets.is_databricks_uri", return_value=True),
@@ -497,21 +526,24 @@ def test_databricks_profile_env_var_set_from_uri(monkeypatch):
     profile_values_during_calls = []
 
     def mock_get_dataset(name):
-        profile_values_during_calls.append(
-            ("get_dataset", os.environ.get("DATABRICKS_CONFIG_PROFILE"))
-        )
+        profile_values_during_calls.append((
+            "get_dataset",
+            os.environ.get("DATABRICKS_CONFIG_PROFILE"),
+        ))
         return mock_dataset
 
     def mock_create_dataset(name, experiment_ids):
-        profile_values_during_calls.append(
-            ("create_dataset", os.environ.get("DATABRICKS_CONFIG_PROFILE"))
-        )
+        profile_values_during_calls.append((
+            "create_dataset",
+            os.environ.get("DATABRICKS_CONFIG_PROFILE"),
+        ))
         return mock_dataset
 
     def mock_delete_dataset(name):
-        profile_values_during_calls.append(
-            ("delete_dataset", os.environ.get("DATABRICKS_CONFIG_PROFILE"))
-        )
+        profile_values_during_calls.append((
+            "delete_dataset",
+            os.environ.get("DATABRICKS_CONFIG_PROFILE"),
+        ))
 
     mock_agents_module = mock.Mock(
         get_dataset=mock_get_dataset,
@@ -602,6 +634,40 @@ def test_databricks_dataset_merge_records_uses_profile(monkeypatch):
     dataset.to_df()
     assert profile_during_to_df == "myprofile"
     assert "DATABRICKS_CONFIG_PROFILE" not in os.environ
+
+
+def test_get_dataset_by_version_uses_versioning_sdk(monkeypatch):
+    calls = []
+
+    class MockAgentsDataset:
+        def list_versions(self):
+            return []
+
+    def db_get_dataset(name, version=None):
+        calls.append((name, version))
+        dataset = MockAgentsDataset()
+        dataset.name = name
+        dataset.dataset_id = name
+        dataset.digest = "digest"
+        dataset.version = version
+        return dataset
+
+    monkeypatch.setitem(
+        sys.modules,
+        "databricks.agents.datasets",
+        SimpleNamespace(Dataset=MockAgentsDataset, get_dataset=db_get_dataset),
+    )
+    monkeypatch.setattr("mlflow.genai.datasets.get_tracking_uri", lambda: "databricks")
+
+    assert get_dataset(name="catalog.schema.table", version=2).version == 2
+    assert (
+        get_dataset(
+            name="catalog.schema.table",
+            version=EvaluationDatasetVersion(version=3),
+        ).version
+        == 3
+    )
+    assert calls == [("catalog.schema.table", 2), ("catalog.schema.table", 3)]
 
 
 def test_create_dataset_with_user_tag(experiments):
@@ -751,20 +817,18 @@ def test_dataset_with_dataframe_records(experiments):
         tags={"source": "csv", "file": "test_data.csv"},
     )
 
-    df = pd.DataFrame(
-        [
-            {
-                "inputs": {"text": "The movie was amazing!", "model": "sentiment-v1"},
-                "expectations": {"sentiment": "positive", "confidence": 0.95},
-                "tags": {"source": "imdb"},
-            },
-            {
-                "inputs": {"text": "Terrible experience", "model": "sentiment-v1"},
-                "expectations": {"sentiment": "negative", "confidence": 0.88},
-                "tags": {"source": "yelp"},
-            },
-        ]
-    )
+    df = pd.DataFrame([
+        {
+            "inputs": {"text": "The movie was amazing!", "model": "sentiment-v1"},
+            "expectations": {"sentiment": "positive", "confidence": 0.95},
+            "tags": {"source": "imdb"},
+        },
+        {
+            "inputs": {"text": "Terrible experience", "model": "sentiment-v1"},
+            "expectations": {"sentiment": "negative", "confidence": 0.88},
+            "tags": {"source": "yelp"},
+        },
+    ])
 
     dataset.merge_records(df)
 
@@ -884,6 +948,7 @@ def test_dataset_lifecycle_workflow(experiments):
 
 
 def test_error_handling_filestore_backend(tmp_path):
+    pytest.skip("FileStore is no longer supported.")
     file_uri = f"file://{tmp_path}"
     mlflow.set_tracking_uri(file_uri)
 
@@ -1317,13 +1382,11 @@ def test_trace_integration_end_to_end(client, experiment):
             with mlflow.start_span(name=trace_config["name"]) as span:
                 span.set_inputs(trace_config["inputs"])
                 span.set_outputs(trace_config["outputs"])
-                span.set_attributes(
-                    {
-                        "model": "test-llm-v1",
-                        "temperature": 0.7,
-                        "max_tokens": 100,
-                    }
-                )
+                span.set_attributes({
+                    "model": "test-llm-v1",
+                    "temperature": 0.7,
+                    "max_tokens": 100,
+                })
                 trace_id = span.trace_id
                 created_trace_ids.append(trace_id)
 
@@ -1520,6 +1583,7 @@ def test_dataset_experiment_associations(experiments):
 
 
 def test_dataset_associations_filestore_blocking(tmp_path):
+    pytest.skip("FileStore is no longer supported.")
     from mlflow.genai.datasets import (
         add_dataset_to_experiments,
         remove_dataset_from_experiments,
@@ -1552,13 +1616,11 @@ def test_evaluation_dataset_tags_crud_workflow(experiments):
 
     dataset = get_dataset(dataset_id=dataset.dataset_id)
     expected_tags = initial_tags.copy()
-    expected_tags.update(
-        {
-            "team": "ml-platform",
-            "project": "evaluation",
-            "priority": "high",
-        }
-    )
+    expected_tags.update({
+        "team": "ml-platform",
+        "project": "evaluation",
+        "priority": "high",
+    })
     assert dataset.tags == expected_tags
 
     set_dataset_tags(
@@ -1571,14 +1633,12 @@ def test_evaluation_dataset_tags_crud_workflow(experiments):
 
     dataset = get_dataset(dataset_id=dataset.dataset_id)
     expected_tags = initial_tags.copy()
-    expected_tags.update(
-        {
-            "team": "ml-platform",
-            "project": "evaluation",
-            "priority": "medium",
-            "status": "active",
-        }
-    )
+    expected_tags.update({
+        "team": "ml-platform",
+        "project": "evaluation",
+        "priority": "medium",
+        "status": "active",
+    })
     assert dataset.tags == expected_tags
 
     delete_dataset_tag(
@@ -1588,13 +1648,11 @@ def test_evaluation_dataset_tags_crud_workflow(experiments):
 
     dataset = get_dataset(dataset_id=dataset.dataset_id)
     expected_tags = initial_tags.copy()
-    expected_tags.update(
-        {
-            "team": "ml-platform",
-            "project": "evaluation",
-            "status": "active",
-        }
-    )
+    expected_tags.update({
+        "team": "ml-platform",
+        "project": "evaluation",
+        "status": "active",
+    })
     assert dataset.tags == expected_tags
 
     delete_dataset(dataset_id=dataset.dataset_id)
@@ -2175,6 +2233,24 @@ def test_wrapper_isinstance_checks_for_dataset_interfaces(experiments):
             },
             {"inputs": {"goal": "Single goal"}, "expectations": {"output": "expected"}},
         ],
+        [
+            {"inputs": {"goal": "Learn ML", "simulation_guidelines": "Be concise"}},
+            {
+                "inputs": {
+                    "persona": "Engineer",
+                    "goal": "Debug",
+                    "simulation_guidelines": "Focus on logs",
+                }
+            },
+            {
+                "inputs": {
+                    "persona": "Student",
+                    "goal": "Study",
+                    "context": {"course": "CS101"},
+                    "simulation_guidelines": "Ask clarifying questions",
+                }
+            },
+        ],
     ],
 )
 def test_multiturn_valid_formats(experiments, records):
@@ -2184,7 +2260,9 @@ def test_multiturn_valid_formats(experiments, records):
 
     assert len(df) == 3
     for _, row in df.iterrows():
-        assert any(key in row["inputs"] for key in ["persona", "goal", "context"])
+        assert any(
+            key in row["inputs"] for key in ["persona", "goal", "context", "simulation_guidelines"]
+        )
 
 
 @pytest.mark.parametrize(
@@ -2263,6 +2341,7 @@ def test_multiturn_with_expectations_and_tags(experiments):
                 "persona": "Graduate Student",
                 "goal": "Find peer-reviewed articles on machine learning",
                 "context": {"user_id": "U0001", "department": "CS"},
+                "simulation_guidelines": "Be thorough and cite sources",
             },
             "expectations": {"expected_output": "relevant articles", "quality": "high"},
             "tags": {"difficulty": "medium"},
@@ -2286,3 +2365,4 @@ def test_multiturn_with_expectations_and_tags(experiments):
     assert grad_record["expectations"]["quality"] == "high"
     assert grad_record["tags"]["difficulty"] == "medium"
     assert grad_record["inputs"]["context"] == {"user_id": "U0001", "department": "CS"}
+    assert grad_record["inputs"]["simulation_guidelines"] == "Be thorough and cite sources"

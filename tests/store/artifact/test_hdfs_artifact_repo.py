@@ -1,5 +1,4 @@
 import sys
-from tempfile import NamedTemporaryFile
 from unittest import mock
 from unittest.mock import call
 
@@ -7,6 +6,7 @@ import pyarrow
 import pytest
 
 from mlflow.entities import FileInfo
+from mlflow.store.artifact.artifact_repo import ARTIFACT_STREAM_CHUNK_SIZE
 from mlflow.store.artifact.hdfs_artifact_repo import (
     HdfsArtifactRepository,
     _parse_extra_conf,
@@ -55,7 +55,7 @@ def test_log_artifact_viewfs(hdfs_system_mock, tmp_path):
     upload_mock.assert_called_once_with("/mypath/more_path/some/sample_file")
 
 
-def test_log_artifact_with_kerberos_setup(hdfs_system_mock, monkeypatch):
+def test_log_artifact_with_kerberos_setup(hdfs_system_mock, monkeypatch, tmp_path):
     if sys.platform == "win32":
         pytest.skip()
     monkeypatch.setenv("MLFLOW_KERBEROS_TICKET_CACHE", "/tmp/krb5cc_22222222")
@@ -63,21 +63,20 @@ def test_log_artifact_with_kerberos_setup(hdfs_system_mock, monkeypatch):
 
     repo = HdfsArtifactRepository("hdfs:/some/maybe/path")
 
-    with NamedTemporaryFile() as tmp_local_file:
-        tmp_local_file.write(b"PyArrow Works")
-        tmp_local_file.seek(0)
+    tmp_local_file = tmp_path / "test_file"
+    tmp_local_file.write_bytes(b"PyArrow Works")
 
-        repo.log_artifact(tmp_local_file.name, "test_hdfs/some/path")
+    repo.log_artifact(str(tmp_local_file), "test_hdfs/some/path")
 
-        hdfs_system_mock.assert_called_once_with(
-            extra_conf=None,
-            host="default",
-            kerb_ticket="/tmp/krb5cc_22222222",
-            port=0,
-            user="some_kerberos_user",
-        )
-        upload_mock = hdfs_system_mock.return_value.open_output_stream
-        upload_mock.assert_called_once()
+    hdfs_system_mock.assert_called_once_with(
+        extra_conf=None,
+        host="default",
+        kerb_ticket="/tmp/krb5cc_22222222",
+        port=0,
+        user="some_kerberos_user",
+    )
+    upload_mock = hdfs_system_mock.return_value.open_output_stream
+    upload_mock.assert_called_once()
 
 
 def test_log_artifact_with_invalid_local_dir(hdfs_system_mock):
@@ -190,6 +189,7 @@ def test_parse_extra_conf():
         "fs.permissions.umask-mode": "022",
         "some_other.extra.conf": "abcd",
     }
+    assert _parse_extra_conf("fs.azure.account.key=abc==") == {"fs.azure.account.key": "abc=="}
     assert _parse_extra_conf(None) is None
 
     with pytest.raises(ValueError, match="not enough values to unpack "):
@@ -222,3 +222,50 @@ def test_is_directory_called_with_relative_path(hdfs_system_mock):
 
     assert repo._is_directory("dir")
     get_file_info_mock.assert_called_once_with("/some/path/dir")
+
+
+def test_log_artifact_streams_data_in_chunks(hdfs_system_mock, tmp_path):
+    repo = HdfsArtifactRepository("hdfs://host_name:8020/hdfs/path")
+    local_file = tmp_path / "chunked_file"
+    data = b"a" * ARTIFACT_STREAM_CHUNK_SIZE + b"tail"
+    local_file.write_bytes(data)
+
+    repo.log_artifact(str(local_file))
+
+    destination = (
+        hdfs_system_mock.return_value.open_output_stream.return_value.__enter__.return_value
+    )
+    assert destination.write.call_args_list == [
+        call(data[:ARTIFACT_STREAM_CHUNK_SIZE]),
+        call(b"tail"),
+    ]
+
+
+def test_log_artifacts_streams_data_in_chunks(hdfs_system_mock, tmp_path):
+    repo = HdfsArtifactRepository("hdfs://host_name:8020/hdfs/path")
+    local_file = tmp_path / "chunked_file"
+    data = b"a" * ARTIFACT_STREAM_CHUNK_SIZE + b"tail"
+    local_file.write_bytes(data)
+
+    repo.log_artifacts(str(tmp_path))
+
+    destination = (
+        hdfs_system_mock.return_value.open_output_stream.return_value.__enter__.return_value
+    )
+    assert destination.write.call_args_list == [
+        call(data[:ARTIFACT_STREAM_CHUNK_SIZE]),
+        call(b"tail"),
+    ]
+
+
+def test_download_file_streams_data_in_chunks(hdfs_system_mock, tmp_path):
+    repo = HdfsArtifactRepository("hdfs://host_name:8020/hdfs/path")
+    chunks = [b"a" * ARTIFACT_STREAM_CHUNK_SIZE, b"tail", b""]
+    source = hdfs_system_mock.return_value.open_input_stream.return_value.__enter__.return_value
+    source.read.side_effect = chunks
+
+    local_path = tmp_path / "downloaded"
+    repo._download_file("some/remote/file", str(local_path))
+
+    assert local_path.read_bytes() == b"".join(chunks)
+    assert source.read.call_args_list == [call(ARTIFACT_STREAM_CHUNK_SIZE)] * len(chunks)

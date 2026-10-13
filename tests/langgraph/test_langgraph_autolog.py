@@ -1,11 +1,20 @@
 import json
+import logging
+import sys
+from typing import TypedDict
 
 import pytest
+from langchain_core.callbacks import CallbackManager
+from langgraph.checkpoint.memory import InMemorySaver
+from langgraph.graph import END, START, StateGraph
+from langgraph.types import Command, interrupt
 
 import mlflow
 from mlflow.entities.span import SpanType
 from mlflow.entities.span_status import SpanStatusCode
+from mlflow.langchain.langchain_tracer import MlflowLangchainTracer
 from mlflow.tracing.constant import TokenUsageKey, TraceMetadataKey
+from mlflow.version import IS_TRACING_SDK_ONLY
 
 from tests.tracing.helper import get_traces, skip_when_testing_trace_sdk
 
@@ -117,12 +126,13 @@ async def test_langgraph_tracing_prebuilt(is_async, mock_litellm_cost):
     chat_spans = [s for s in traces[0].data.spans if s.span_type == SpanType.CHAT_MODEL]
     for chat_span in chat_spans:
         assert chat_span.model_name == "gpt-3.5-turbo"
-        usage = chat_span.get_attribute("mlflow.chat.tokenUsage")
-        assert chat_span.llm_cost == {
-            "input_cost": usage["input_tokens"] * 1.0,
-            "output_cost": usage["output_tokens"] * 2.0,
-            "total_cost": usage["input_tokens"] * 1.0 + usage["output_tokens"] * 2.0,
-        }
+        if not IS_TRACING_SDK_ONLY:
+            usage = chat_span.get_attribute("mlflow.chat.tokenUsage")
+            assert chat_span.llm_cost == {
+                "input_cost": usage["input_tokens"] * 1.0,
+                "output_cost": usage["output_tokens"] * 2.0,
+                "total_cost": usage["input_tokens"] * 1.0 + usage["output_tokens"] * 2.0,
+            }
 
 
 @skip_when_testing_trace_sdk
@@ -284,3 +294,79 @@ def test_langgraph_autolog_with_update_current_span():
     assert model_info.signature is not None
     assert model_info.signature.inputs is not None
     assert model_info.signature.outputs is not None
+
+
+def _build_interrupt_graph():
+    class State(TypedDict):
+        answer: str
+
+    def ask_human(state: State):
+        return {"answer": interrupt("need human input")}
+
+    builder = StateGraph(State)
+    builder.add_node("ask_human", ask_human)
+    builder.add_edge(START, "ask_human")
+    builder.add_edge("ask_human", END)
+    return builder.compile(checkpointer=InMemorySaver())
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "is_async",
+    [
+        # `interrupt()` relies on contextvars, which only propagate into async tasks on 3.11+
+        pytest.param(
+            True,
+            id="async",
+            marks=pytest.mark.skipif(
+                sys.version_info < (3, 11),
+                reason="LangGraph interrupt() does not work with ainvoke on Python < 3.11",
+            ),
+        ),
+        pytest.param(False, id="sync"),
+    ],
+)
+async def test_langgraph_interrupt_and_resume_do_not_log_tracer_errors(is_async, caplog):
+    mlflow.langchain.autolog()
+    graph = _build_interrupt_graph()
+    config = {"configurable": {"thread_id": "1"}}
+
+    async def invoke(graph_input):
+        if is_async:
+            return await graph.ainvoke(graph_input, config)
+        return graph.invoke(graph_input, config)
+
+    with caplog.at_level(logging.WARNING):
+        result = await invoke({"answer": ""})
+        assert result["__interrupt__"][0].value == "need human input"
+        result = await invoke(Command(resume="ok"))
+        assert result == {"answer": "ok"}
+
+    tracer_errors = [r.message for r in caplog.records if "MlflowLangchainTracer" in r.message]
+    assert tracer_errors == []
+
+    traces = get_traces()
+    assert len(traces) == 2
+    assert all(trace.info.status == "OK" for trace in traces)
+    assert all(trace.data.spans[0].name == "LangGraph" for trace in traces)
+
+
+def test_langgraph_lifecycle_manager_does_not_get_tracer():
+    # Graph lifecycle callback managers were added in langgraph 1.1.8
+    callbacks = pytest.importorskip("langgraph.callbacks")
+    mlflow.langchain.autolog()
+
+    for manager in (
+        callbacks.get_sync_graph_callback_manager_for_config({}),
+        callbacks.get_async_graph_callback_manager_for_config({}),
+    ):
+        assert manager.handlers == []
+        assert manager.inheritable_handlers == []
+
+
+def test_ordinary_callback_manager_still_gets_tracer():
+    mlflow.langchain.autolog()
+
+    manager = CallbackManager(handlers=[])
+    tracers = [h for h in manager.inheritable_handlers if isinstance(h, MlflowLangchainTracer)]
+    assert len(tracers) == 1

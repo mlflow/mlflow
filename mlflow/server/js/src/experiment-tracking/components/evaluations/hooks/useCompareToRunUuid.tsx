@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import { useSearchParams } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 
-const QUERY_PARAM_KEY = 'compareToRunUuid';
+export const COMPARE_TO_RUN_UUID_QUERY_PARAM = 'compareToRunUuid';
 
 /**
  * Query param-powered hook that returns the compare to run uuid when comparison is enabled.
@@ -9,16 +9,16 @@ const QUERY_PARAM_KEY = 'compareToRunUuid';
 export const useCompareToRunUuid = () => {
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const compareToRunUuid = searchParams.get(QUERY_PARAM_KEY) ?? undefined;
+  const compareToRunUuid = searchParams.get(COMPARE_TO_RUN_UUID_QUERY_PARAM) ?? undefined;
 
   const setCompareToRunUuid = useCallback(
     (compareToRunId: string | undefined) => {
       setSearchParams((params) => {
         if (compareToRunId === undefined) {
-          params.delete(QUERY_PARAM_KEY);
+          params.delete(COMPARE_TO_RUN_UUID_QUERY_PARAM);
           return params;
         }
-        params.set(QUERY_PARAM_KEY, compareToRunId);
+        params.set(COMPARE_TO_RUN_UUID_QUERY_PARAM, compareToRunId);
         return params;
       });
     },

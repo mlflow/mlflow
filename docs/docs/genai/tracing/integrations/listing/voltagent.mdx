@@ -1,6 +1,10 @@
 ---
+title: Tracing VoltAgent
+description: Trace VoltAgent AI agent workflows with MLflow via OpenTelemetry for full observability into TypeScript-based agent orchestration.
 sidebar_position: 7
 sidebar_label: VoltAgent
+keywords: [voltagent, tracing, mlflow, typescript, opentelemetry, ai agent]
+image: /images/llms/tracing/voltagent-tracing.png
 ---
 
 import ImageBox from "@site/src/components/ImageBox";
@@ -11,7 +15,7 @@ import ImageBox from "@site/src/components/ImageBox";
 
 [MLflow Tracing](/genai/tracing) provides automatic tracing capability for [VoltAgent](https://github.com/VoltAgent/voltagent), an open-source TypeScript framework for building AI agents. MLflow supports tracing for VoltAgent through the [OpenTelemetry](/genai/tracing/opentelemetry) integration.
 
-:::tip What is VoltAgent?
+:::tip[What is VoltAgent?]
 VoltAgent is an open-source TypeScript framework that simplifies the development of AI agent applications by providing modular building blocks, standardized patterns, and abstractions. Whether you're creating chatbots, virtual assistants, automated workflows, or complex multi-agent systems, VoltAgent handles the underlying complexity, allowing you to focus on defining your agents' capabilities and logic.
 :::
 
@@ -44,7 +48,7 @@ Install the OpenTelemetry SDK and OTLP protobuf exporter:
 npm install @opentelemetry/sdk-trace-base @opentelemetry/exporter-trace-otlp-proto dotenv
 ```
 
-:::note MLflow Trace Translation
+:::note[MLflow Trace Translation]
 MLflow automatically translates VoltAgent's semantic conventions for optimal UI visualization:
 
 - **Chat UI**: Converts VoltAgent's message format to standard chat format with `role` and `content` fields for rich message display
@@ -112,6 +116,31 @@ Your agent is now running! To interact with it, open the VoltAgent Console at [h
 After chatting with your agent, open the MLflow UI at `http://localhost:5000` and navigate to your experiment to see the traces.
 
 <ImageBox src="/images/llms/tracing/voltagent-tracing.png" alt="VoltAgent trace in MLflow UI" />
+
+## Combine with the MLflow Tracing SDK
+
+Since this integration is built on OpenTelemetry, you can combine the automatically generated traces with the [MLflow Tracing SDK](/genai/tracing) (`@mlflow/core`) to add custom spans, set tags, and update trace metadata within the same trace.
+
+```typescript
+import { init, withSpan } from "@mlflow/core";
+
+// Initialize MLflow SDK - sets up the OTel provider to capture all spans
+init({
+  trackingUri: "http://localhost:5000",
+  experimentId: "<your-experiment-id>",
+});
+
+// Add custom MLflow spans alongside the auto-generated VoltAgent traces
+const result = await withSpan(
+  { name: "custom_step", inputs: { query: "test" } },
+  async (span) => {
+    // your application logic here
+    return { result: "success" };
+  }
+);
+```
+
+For detailed instructions and examples, see [Combining the OpenTelemetry SDK and the MLflow Tracing SDK](/genai/tracing/app-instrumentation/opentelemetry#combining-the-opentelemetry-sdk-and-the-mlflow-tracing-sdk).
 
 ## Next Steps
 

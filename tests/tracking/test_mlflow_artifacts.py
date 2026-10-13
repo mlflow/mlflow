@@ -249,13 +249,27 @@ def test_mlflow_artifacts_example(tmp_path):
     # On GitHub Actions, remove generated images to save disk space
     rmi_option = "--rmi all" if is_github_actions() else ""
     cmd = f"""
-err=0
-trap 'err=1' ERR
+set -e
+trap '
+    status=$?
+    docker compose logs || status=1
+    docker compose down {rmi_option} --volumes --remove-orphans || status=1
+    exit "$status"
+' EXIT
+# Retry registry failures before running the example so application errors are not retried.
+for attempt in 1 2 3; do
+    if docker compose pull --ignore-buildable; then
+        break
+    fi
+    if [ "$attempt" -eq 3 ]; then
+        echo "Docker image pull failed after 3 attempts."
+        exit 1
+    fi
+    echo "Docker image pull failed; retrying in $((attempt * 5)) seconds."
+    sleep $((attempt * 5))
+done
 ./build.sh
 docker compose run -v ${{PWD}}/example.py:/app/example.py client python example.py
-docker compose logs
-docker compose down {rmi_option} --volumes --remove-orphans
-test $err = 0
 """
     script_path = tmp_path.joinpath("test.sh")
     script_path.write_text(cmd)
@@ -389,7 +403,7 @@ def test_rest_get_artifact_api_log_image(artifacts_server):
     image = np.random.randint(0, 256, size=(100, 100, 3), dtype=np.uint8)
 
     with mlflow.start_run() as run:
-        mlflow.log_image(image, key="dog", step=100, timestamp=100, synchronous=True)
+        mlflow.log_image(image, key="dog", step=20, timestamp=100, synchronous=True)
 
     artifact_list_response = requests.get(
         url=f"{url}/ajax-api/2.0/mlflow/artifacts/list",
@@ -404,7 +418,7 @@ def test_rest_get_artifact_api_log_image(artifacts_server):
         )
         get_artifact_response.raise_for_status()
         assert (
-            "attachment; filename=dog%step%100%timestamp%100"
+            "attachment; filename=dog+step+20+timestamp+100"
             in get_artifact_response.headers["Content-Disposition"]
         )
         if path.endswith("png"):

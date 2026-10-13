@@ -1,44 +1,55 @@
 function getSleepLength(iterationCount, numPendingJobs) {
-  if (iterationCount <= 5 && numPendingJobs <= 5) {
-    // It's likely that this job was triggered with other quick jobs.
-    // To minimize the wait time, shorten the polling interval for the first 5 iterations.
-    return 5 * 1000; // 5 seconds
+  if (iterationCount <= 2) {
+    // Poll twice at 15-second intervals to detect early failures and completions promptly,
+    // regardless of the number of pending jobs.
+    return 15 * 1000;
   }
   // If the number of pending jobs is small, poll more frequently to reduce wait time.
   return (numPendingJobs <= 7 ? 30 : 5 * 60) * 1000;
 }
-module.exports = async ({ github, context }) => {
+module.exports = async ({ github, context, core }) => {
+  let rateLimitRemaining;
+  github.hook.after("request", (response) => {
+    rateLimitRemaining = response.headers["x-ratelimit-remaining"];
+  });
+
   const {
     repo: { owner, repo },
   } = context;
-  const { sha } = context.payload.pull_request.head;
+  const pullRequest = context.payload.pull_request;
+  const { sha } = pullRequest.head;
 
   const STATE = {
+    failure: "failure",
     pending: "pending",
     success: "success",
-    failure: "failure",
+    skipped: "skipped",
   };
+  const STATUS_ORDER = Object.values(STATE);
+
+  const IGNORED_WORKFLOWS = new Set([".github/workflows/trigger-rerun.yml"]);
 
   async function sleep(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
-  }
-
-  async function logRateLimit() {
-    const { data: rateLimit } = await github.rest.rateLimit.get();
-    console.log(`Rate limit remaining: ${rateLimit.resources.core.remaining}`);
   }
 
   function isNewerRun(newRun, existingRun) {
     // Returns true if newRun should replace existingRun
     if (!existingRun) return true;
 
-    // If they are different workflow runs, prefer the one created later
+    // If they are different workflow runs, prefer the one with a higher ID (auto-incrementing)
     if (newRun.id !== existingRun.id) {
-      return new Date(newRun.created_at) > new Date(existingRun.created_at);
+      return newRun.id > existingRun.id;
     }
 
     // Same workflow run: higher run_attempt takes priority (re-runs)
     return newRun.run_attempt > existingRun.run_attempt;
+  }
+  function isJobFailed({ status, conclusion }) {
+    return (
+      conclusion === "cancelled" ||
+      (status === "completed" && conclusion !== "success" && conclusion !== "skipped")
+    );
   }
 
   async function fetchChecks(ref) {
@@ -49,6 +60,7 @@ module.exports = async ({ github, context }) => {
         repo,
         ref,
         filter: "latest",
+        per_page: 100,
       })
     ).filter(({ app }) => app?.slug !== "github-actions");
 
@@ -62,27 +74,48 @@ module.exports = async ({ github, context }) => {
         latestCheckRuns[name] = run;
       }
     }
-    const checks = Object.values(latestCheckRuns).map(({ name, status, conclusion }) => ({
+    const checks = Object.values(latestCheckRuns).map(({ name, status, conclusion, html_url }) => ({
       name,
+      url: html_url,
+      pendingJobs: 0,
       status:
-        status !== "completed"
+        conclusion === "cancelled"
+          ? STATE.failure
+          : status !== "completed"
           ? STATE.pending
-          : conclusion === "success" || conclusion === "skipped"
+          : conclusion === "success"
           ? STATE.success
+          : conclusion === "skipped"
+          ? STATE.skipped
           : STATE.failure,
     }));
 
     // Workflow runs (e.g., GitHub Actions)
-    const workflowRuns = (
-      await github.paginate(github.rest.actions.listWorkflowRunsForRepo, {
-        owner,
-        repo,
-        head_sha: ref,
-      })
-    ).filter(
-      ({ path, conclusion }) =>
-        path !== ".github/workflows/protect.yml" && conclusion !== "cancelled"
-    );
+    let workflowRuns;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      workflowRuns = (
+        await github.paginate(github.rest.actions.listWorkflowRunsForRepo, {
+          owner,
+          repo,
+          head_sha: ref,
+          per_page: 100,
+        })
+      ).filter(
+        ({ path, event }) =>
+          // Exclude this workflow to avoid self-checking
+          path !== ".github/workflows/protect.yml" &&
+          // Exclude dynamic workflows (GitHub-managed, e.g., Copilot code review)
+          event !== "dynamic" &&
+          !IGNORED_WORKFLOWS.has(path)
+      );
+      if (workflowRuns.length > 0) break;
+      core.warning(`No workflow runs found (attempt ${attempt}/3)`);
+      if (attempt < 3) await sleep(5000);
+    }
+    if (workflowRuns.length === 0) {
+      core.setFailed(`No workflow runs found for ${ref} after 3 attempts. Rerun this job.`);
+      return;
+    }
 
     // Deduplicate workflow runs by path and event, keeping the latest attempt
     const latestRuns = {};
@@ -94,32 +127,49 @@ module.exports = async ({ github, context }) => {
       }
     }
 
-    // Fetch jobs for each workflow run
-    const runs = [];
     for (const run of Object.values(latestRuns)) {
-      // Fetch jobs for this workflow run
-      const jobs = await github.paginate(github.rest.actions.listJobsForWorkflowRun, {
-        owner,
-        repo,
-        run_id: run.id,
-      });
-
-      // Process each job as a separate check
-      for (const job of jobs) {
-        const runName = run.path.replace(".github/workflows/", "");
-        runs.push({
-          name: `${job.name} (${runName}, attempt ${run.run_attempt})`,
+      const runName = run.path.replace(".github/workflows/", "");
+      if (run.status === "completed") {
+        // Use run-level status directly (0 extra API calls).
+        checks.push({
+          name: `${run.name} (${runName}, attempt ${run.run_attempt})`,
+          url: `${run.html_url}/attempts/${run.run_attempt}?pr=${pullRequest.number}`,
+          pendingJobs: 0,
           status:
-            job.status !== "completed"
-              ? STATE.pending
-              : job.conclusion === "success" || job.conclusion === "skipped"
+            run.conclusion === "cancelled"
+              ? STATE.failure
+              : run.conclusion === "success"
               ? STATE.success
+              : run.conclusion === "skipped"
+              ? STATE.skipped
               : STATE.failure,
+        });
+      } else {
+        let failed = false;
+        let pendingJobs = 0;
+        const jobsIter = github.paginate.iterator(github.rest.actions.listJobsForWorkflowRun, {
+          owner,
+          repo,
+          run_id: run.id,
+          per_page: 100,
+        });
+        for await (const { data: jobs } of jobsIter) {
+          if (jobs.some(isJobFailed)) {
+            failed = true;
+            break;
+          }
+          pendingJobs += jobs.filter(({ status }) => status !== "completed").length;
+        }
+        checks.push({
+          name: `${run.name} (${runName}, attempt ${run.run_attempt})`,
+          url: `${run.html_url}/attempts/${run.run_attempt}?pr=${pullRequest.number}`,
+          pendingJobs: failed ? 0 : pendingJobs,
+          status: failed ? STATE.failure : STATE.pending,
         });
       }
     }
 
-    return [...checks, ...runs].sort((a, b) => a.name.localeCompare(b.name));
+    return checks;
   }
 
   const start = new Date();
@@ -128,29 +178,47 @@ module.exports = async ({ github, context }) => {
   while (new Date() - start < TIMEOUT) {
     ++iterationCount;
     const checks = await fetchChecks(sha);
+    if (!checks) return;
+    if (rateLimitRemaining !== undefined) {
+      console.log(`Rate limit remaining: ${rateLimitRemaining}`);
+    }
+    checks.sort((a, b) => STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status));
     const longest = Math.max(...checks.map(({ name }) => name.length));
-    checks.forEach(({ name, status }) => {
-      const icon = status === STATE.success ? "✅" : status === STATE.failure ? "❌" : "🕒";
-      console.log(`- ${name.padEnd(longest)}: ${icon} ${status}`);
+    checks.forEach(({ name, status, url }) => {
+      const icon =
+        status === STATE.success
+          ? "✅"
+          : status === STATE.skipped
+          ? "⏭️"
+          : status === STATE.failure
+          ? "❌"
+          : "🕒";
+      console.log(`- ${name.padEnd(longest)}: ${icon} ${status}${url ? ` (${url})` : ""}`);
     });
 
     if (checks.some(({ status }) => status === STATE.failure)) {
-      throw new Error(
+      core.setFailed(
         "This job ensures that all checks except for this one have passed to prevent accidental auto-merges."
       );
-    }
-
-    if (checks.length > 0 && checks.every(({ status }) => status === STATE.success)) {
-      console.log("All checks passed");
       return;
     }
 
-    await logRateLimit();
-    const pendingJobs = checks.filter(({ status }) => status === STATE.pending);
-    const sleepLength = getSleepLength(iterationCount, pendingJobs.length);
-    console.log(`Sleeping for ${sleepLength / 1000} seconds (${pendingJobs.length} pending jobs)`);
+    if (
+      checks.length > 0 &&
+      checks.every(({ status }) => status === STATE.success || status === STATE.skipped)
+    ) {
+      console.log("All checks passed or were skipped");
+      return;
+    }
+
+    const pendingJobs = checks
+      .filter(({ status }) => status === STATE.pending)
+      .reduce((sum, check) => sum + check.pendingJobs, 0);
+    const sleepLength = getSleepLength(iterationCount, pendingJobs);
+    console.log(`Sleeping for ${sleepLength / 1000} seconds (${pendingJobs} pending jobs)`);
     await sleep(sleepLength);
   }
 
-  throw new Error("Timeout");
+  core.setFailed("Timeout");
+  return;
 };

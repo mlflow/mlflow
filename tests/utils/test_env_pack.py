@@ -9,6 +9,7 @@ import pytest
 import yaml
 
 from mlflow.exceptions import MlflowException
+from mlflow.telemetry.events import EnvPackEvent
 from mlflow.utils import env_pack
 from mlflow.utils.databricks_utils import DatabricksRuntimeVersion
 from mlflow.utils.env_pack import EnvPackConfig, _validate_env_pack
@@ -23,6 +24,7 @@ def mock_dbr_version():
             is_client_image=True,
             major=2,
             minor=0,
+            is_gpu_image=False,
         ),
     ):
         yield
@@ -61,12 +63,10 @@ def test_pack_env_for_databricks_model_serving_pip_requirements(tmp_path, mock_d
     # Create MLmodel file with correct runtime version
     mlmodel_path = mock_artifacts_dir / "MLmodel"
     mlmodel_path.write_text(
-        yaml.dump(
-            {
-                "databricks_runtime": "client.2.0",
-                "flavors": {"python_function": {"model_path": "model.pkl"}},
-            }
-        )
+        yaml.dump({
+            "databricks_runtime": "client.2.0",
+            "flavors": {"python_function": {"model_path": "model.pkl"}},
+        })
     )
 
     # Create a mock environment directory
@@ -140,12 +140,10 @@ def test_pack_env_for_databricks_model_serving_pip_requirements_error(tmp_path, 
     # Create MLmodel file with correct runtime version
     mlmodel_path = mock_artifacts_dir / "MLmodel"
     mlmodel_path.write_text(
-        yaml.dump(
-            {
-                "databricks_runtime": "client.2.0",
-                "flavors": {"python_function": {"model_path": "model.pkl"}},
-            }
-        )
+        yaml.dump({
+            "databricks_runtime": "client.2.0",
+            "flavors": {"python_function": {"model_path": "model.pkl"}},
+        })
     )
 
     with (
@@ -176,6 +174,93 @@ def test_pack_env_for_databricks_model_serving_pip_requirements_error(tmp_path, 
         mock_eprint.assert_any_call("Error message")
 
 
+def _make_packable_model(tmp_path):
+    artifacts_dir = tmp_path / "artifacts"
+    artifacts_dir.mkdir()
+    (artifacts_dir / "MLmodel").write_text(
+        yaml.dump({"databricks_runtime": "client.2.0", "flavors": {}})
+    )
+    env_dir = tmp_path / "env"
+    env_dir.mkdir()
+    (env_dir / "dummy.txt").write_text("x")
+    return artifacts_dir, env_dir
+
+
+def test_pack_env_records_success_telemetry(tmp_path, mock_dbr_version):
+    artifacts_dir, env_dir = _make_packable_model(tmp_path)
+    with (
+        mock.patch("mlflow.utils.env_pack.download_artifacts", return_value=str(artifacts_dir)),
+        mock.patch("sys.prefix", str(env_dir)),
+        mock.patch("mlflow.telemetry.track._record_event") as mock_record,
+    ):
+        with env_pack.pack_env_for_databricks_model_serving("models:/test/1"):
+            pass
+
+    mock_record.assert_called_once()
+    args, kwargs = mock_record.call_args
+    assert args[0] is EnvPackEvent
+    assert args[1] == {"install_dependencies": False}
+    assert kwargs["success"] is True
+    assert kwargs["duration_ms"] >= 0
+
+
+def test_pack_env_coerces_install_dependencies_telemetry_to_bool(tmp_path, mock_dbr_version):
+    artifacts_dir, env_dir = _make_packable_model(tmp_path)
+    with (
+        mock.patch("mlflow.utils.env_pack.download_artifacts", return_value=str(artifacts_dir)),
+        mock.patch("sys.prefix", str(env_dir)),
+        mock.patch("mlflow.telemetry.track._record_event") as mock_record,
+    ):
+        with env_pack.pack_env_for_databricks_model_serving(
+            "models:/test/1", enforce_pip_requirements=[]
+        ):
+            pass
+
+    args, _ = mock_record.call_args
+    assert args[1] == {"install_dependencies": False}
+
+
+def test_pack_env_records_failure_telemetry(tmp_path, mock_dbr_version):
+    artifacts_dir, _ = _make_packable_model(tmp_path)
+    (artifacts_dir / "requirements.txt").write_text("invalid-package==1.0.0")
+    with (
+        mock.patch("mlflow.utils.env_pack.download_artifacts", return_value=str(artifacts_dir)),
+        mock.patch(
+            "subprocess.run",
+            side_effect=subprocess.CalledProcessError(1, "pip install", "err"),
+        ),
+        mock.patch("mlflow.utils.env_pack.eprint"),
+        mock.patch("mlflow.telemetry.track._record_event") as mock_record,
+    ):
+        with pytest.raises(subprocess.CalledProcessError, match="pip install"):
+            with env_pack.pack_env_for_databricks_model_serving(
+                "models:/test/1", enforce_pip_requirements=True
+            ):
+                pass
+
+    mock_record.assert_called_once()
+    args, kwargs = mock_record.call_args
+    assert args[0] is EnvPackEvent
+    assert kwargs["success"] is False
+
+
+def test_pack_env_does_not_record_failure_on_caller_error(tmp_path, mock_dbr_version):
+    # A caller error while the context manager is held must not count as an env_pack failure.
+    artifacts_dir, env_dir = _make_packable_model(tmp_path)
+    with (
+        mock.patch("mlflow.utils.env_pack.download_artifacts", return_value=str(artifacts_dir)),
+        mock.patch("sys.prefix", str(env_dir)),
+        mock.patch("mlflow.telemetry.track._record_event") as mock_record,
+    ):
+        with pytest.raises(RuntimeError, match="caller boom"):
+            with env_pack.pack_env_for_databricks_model_serving("models:/test/1"):
+                raise RuntimeError("caller boom")
+
+    mock_record.assert_called_once()
+    _, kwargs = mock_record.call_args
+    assert kwargs["success"] is True
+
+
 def test_pack_env_for_databricks_model_serving_unsupported_version():
     with mock.patch.object(
         DatabricksRuntimeVersion,
@@ -184,6 +269,7 @@ def test_pack_env_for_databricks_model_serving_unsupported_version():
             is_client_image=False,  # Not a client image
             major=13,
             minor=0,
+            is_gpu_image=False,
         ),
     ):
         with pytest.raises(ValueError, match="Serverless environment is required"):
@@ -202,12 +288,10 @@ def test_pack_env_for_databricks_model_serving_runtime_version_check(tmp_path, m
     # Create MLmodel file with different runtime version
     mlmodel_path = mock_artifacts_dir / "MLmodel"
     mlmodel_path.write_text(
-        yaml.dump(
-            {
-                "databricks_runtime": "client.3.0",  # Different major version
-                "flavors": {"python_function": {"model_path": "model.pkl"}},
-            }
-        )
+        yaml.dump({
+            "databricks_runtime": "client.3.0",  # Different major version
+            "flavors": {"python_function": {"model_path": "model.pkl"}},
+        })
     )
 
     # Set current runtime to client.2.0
@@ -222,12 +306,10 @@ def test_pack_env_for_databricks_model_serving_runtime_version_check(tmp_path, m
 
     # Test that same major version works
     mlmodel_path.write_text(
-        yaml.dump(
-            {
-                "databricks_runtime": "client.2.1",  # Same major version
-                "flavors": {"python_function": {"model_path": "model.pkl"}},
-            }
-        )
+        yaml.dump({
+            "databricks_runtime": "client.2.1",  # Same major version
+            "flavors": {"python_function": {"model_path": "model.pkl"}},
+        })
     )
 
     # Create a mock environment directory
@@ -288,11 +370,9 @@ def test_pack_env_for_databricks_model_serving_missing_runtime_version(tmp_path,
     # Create MLmodel file without databricks_runtime field
     mlmodel_path = mock_artifacts_dir / "MLmodel"
     mlmodel_path.write_text(
-        yaml.dump(
-            {
-                "flavors": {"python_function": {"model_path": "model.pkl"}},
-            }
-        )
+        yaml.dump({
+            "flavors": {"python_function": {"model_path": "model.pkl"}},
+        })
     )
 
     with mock.patch(
@@ -316,12 +396,10 @@ def test_pack_env_for_databricks_model_serving_rejects_existing_databricks_dir(
     # Create MLmodel file with correct runtime version
     mlmodel_path = mock_artifacts_dir / "MLmodel"
     mlmodel_path.write_text(
-        yaml.dump(
-            {
-                "databricks_runtime": "client.2.0",
-                "flavors": {"python_function": {"model_path": "model.pkl"}},
-            }
-        )
+        yaml.dump({
+            "databricks_runtime": "client.2.0",
+            "flavors": {"python_function": {"model_path": "model.pkl"}},
+        })
     )
 
     # Create existing _databricks directory
@@ -354,12 +432,10 @@ def test_pack_env_with_local_model_path_no_mutation(tmp_path, mock_dbr_version):
     # Create MLmodel file with correct runtime version
     mlmodel_path = local_model_dir / "MLmodel"
     mlmodel_path.write_text(
-        yaml.dump(
-            {
-                "databricks_runtime": "client.2.0",
-                "flavors": {"python_function": {"model_path": "model.pkl"}},
-            }
-        )
+        yaml.dump({
+            "databricks_runtime": "client.2.0",
+            "flavors": {"python_function": {"model_path": "model.pkl"}},
+        })
     )
 
     # Create a mock environment directory
@@ -406,12 +482,10 @@ def test_pack_env_with_download_cleanup(tmp_path, mock_dbr_version):
     # Create MLmodel file with correct runtime version
     mlmodel_path = mock_artifacts_dir / "MLmodel"
     mlmodel_path.write_text(
-        yaml.dump(
-            {
-                "databricks_runtime": "client.2.0",
-                "flavors": {"python_function": {"model_path": "model.pkl"}},
-            }
-        )
+        yaml.dump({
+            "databricks_runtime": "client.2.0",
+            "flavors": {"python_function": {"model_path": "model.pkl"}},
+        })
     )
 
     # Create a mock environment directory

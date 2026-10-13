@@ -3,7 +3,6 @@ import {
   Input,
   Switch,
   useDesignSystemTheme,
-  LegacyTooltip,
   InfoSmallIcon,
   LegacyInfoTooltip,
 } from '@databricks/design-system';

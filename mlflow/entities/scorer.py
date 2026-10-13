@@ -1,8 +1,12 @@
 import json
-from functools import lru_cache
+from functools import cached_property
+from typing import TYPE_CHECKING
 
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.protos.service_pb2 import Scorer as ProtoScorer
+
+if TYPE_CHECKING:
+    from mlflow.genai.scorers.base import SerializedScorer
 
 
 class ScorerVersion(_MlflowObject):
@@ -54,7 +58,7 @@ class ScorerVersion(_MlflowObject):
         serialized_scorer: str,
         creation_time: int,
         scorer_id: str | None = None,
-    ):
+    ) -> None:
         self._experiment_id = experiment_id
         self._scorer_name = scorer_name
         self._scorer_version = scorer_version
@@ -63,7 +67,7 @@ class ScorerVersion(_MlflowObject):
         self._scorer_id = scorer_id
 
     @property
-    def experiment_id(self):
+    def experiment_id(self) -> str:
         """
         The ID of the experiment this scorer belongs to.
 
@@ -73,7 +77,7 @@ class ScorerVersion(_MlflowObject):
         return self._experiment_id
 
     @property
-    def scorer_name(self):
+    def scorer_name(self) -> str:
         """
         The name identifier for the scorer.
 
@@ -83,7 +87,7 @@ class ScorerVersion(_MlflowObject):
         return self._scorer_name
 
     @property
-    def scorer_version(self):
+    def scorer_version(self) -> int:
         """
         The version number of this scorer instance.
 
@@ -93,9 +97,8 @@ class ScorerVersion(_MlflowObject):
         """
         return self._scorer_version
 
-    @property
-    @lru_cache(maxsize=1)
-    def serialized_scorer(self):
+    @cached_property
+    def serialized_scorer(self) -> "SerializedScorer":
         """
         The deserialized scorer object containing metadata and function code.
 
@@ -103,7 +106,7 @@ class ScorerVersion(_MlflowObject):
         SerializedScorer object that contains all the information needed to
         reconstruct and execute the scorer function.
 
-        The result is cached using LRU caching to avoid repeated deserialization
+        The result is cached to avoid repeated deserialization
         when the same ScorerVersion instance is accessed multiple times.
 
         Returns:
@@ -116,10 +119,10 @@ class ScorerVersion(_MlflowObject):
         """
         from mlflow.genai.scorers.base import SerializedScorer
 
-        return SerializedScorer(**json.loads(self._serialized_scorer))
+        return SerializedScorer.from_dict(json.loads(self._serialized_scorer))
 
     @property
-    def creation_time(self):
+    def creation_time(self) -> int:
         """
         The timestamp when this scorer version was created.
 
@@ -130,7 +133,7 @@ class ScorerVersion(_MlflowObject):
         return self._creation_time
 
     @property
-    def scorer_id(self):
+    def scorer_id(self) -> str | None:
         """
         The unique identifier for the scorer.
 
@@ -140,7 +143,7 @@ class ScorerVersion(_MlflowObject):
         return self._scorer_id
 
     @classmethod
-    def from_proto(cls, proto):
+    def from_proto(cls, proto: ProtoScorer) -> "ScorerVersion":
         """
         Create a ScorerVersion instance from a protobuf message.
 
@@ -159,7 +162,8 @@ class ScorerVersion(_MlflowObject):
             and should not typically be called directly by users.
         """
         return cls(
-            experiment_id=proto.experiment_id,
+            # The proto stores experiment IDs as integers while the entity contract is str
+            experiment_id=str(proto.experiment_id),
             scorer_name=proto.scorer_name,
             scorer_version=proto.scorer_version,
             serialized_scorer=proto.serialized_scorer,
@@ -167,7 +171,7 @@ class ScorerVersion(_MlflowObject):
             scorer_id=proto.scorer_id if proto.HasField("scorer_id") else None,
         )
 
-    def to_proto(self):
+    def to_proto(self) -> ProtoScorer:
         """
         Convert this ScorerVersion instance to a protobuf message.
 
@@ -192,7 +196,7 @@ class ScorerVersion(_MlflowObject):
             proto.scorer_id = self.scorer_id
         return proto
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """
         Return a string representation of the ScorerVersion instance.
 

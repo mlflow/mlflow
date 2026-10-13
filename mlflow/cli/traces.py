@@ -74,6 +74,7 @@ import click
 
 from mlflow.entities import AssessmentSource, AssessmentSourceType
 from mlflow.environment_variables import MLFLOW_EXPERIMENT_ID
+from mlflow.mcp.decorator import mlflow_mcp
 from mlflow.tracing.assessment import (
     log_expectation as _log_expectation,
 )
@@ -165,6 +166,7 @@ def commands():
 
 
 @commands.command("search")
+@mlflow_mcp(tool_name="search_traces")
 @EXPERIMENT_ID
 @click.option(
     "--filter-string",
@@ -289,7 +291,7 @@ def search_traces(
     mlflow traces search --experiment-id 1 --no-include-spans
     """
     client = TracingClient()
-    order_by_list = order_by.split(",") if order_by else None
+    order_by_list = [o.strip() for o in order_by.split(",")] if order_by else None
 
     # Set the sql_warehouse_id in the environment variable
     if sql_warehouse_id is not None:
@@ -371,6 +373,7 @@ def search_traces(
 
 
 @commands.command("get")
+@mlflow_mcp(tool_name="get_trace")
 @TRACE_ID
 @click.option(
     "--extract-fields",
@@ -425,6 +428,7 @@ def get_trace(
 
 
 @commands.command("delete")
+@mlflow_mcp(tool_name="delete_traces")
 @EXPERIMENT_ID
 @click.option("--trace-ids", type=click.STRING, help="Comma-separated list of trace IDs to delete")
 @click.option(
@@ -458,7 +462,7 @@ def delete_traces(
     mlflow traces delete --experiment-id 1 --max-timestamp-millis 1700000000000 --max-traces 100
     """
     client = TracingClient()
-    trace_id_list = trace_ids.split(",") if trace_ids else None
+    trace_id_list = [t.strip() for t in trace_ids.split(",")] if trace_ids else None
 
     count = client.delete_traces(
         experiment_id=experiment_id,
@@ -470,6 +474,7 @@ def delete_traces(
 
 
 @commands.command("set-tag")
+@mlflow_mcp(tool_name="set_trace_tag")
 @TRACE_ID
 @click.option("--key", type=click.STRING, required=True, help="Tag key")
 @click.option("--value", type=click.STRING, required=True, help="Tag value")
@@ -487,6 +492,7 @@ def set_trace_tag(trace_id: str, key: str, value: str) -> None:
 
 
 @commands.command("delete-tag")
+@mlflow_mcp(tool_name="delete_trace_tag")
 @TRACE_ID
 @click.option("--key", type=click.STRING, required=True, help="Tag key to delete")
 def delete_trace_tag(trace_id: str, key: str) -> None:
@@ -503,6 +509,7 @@ def delete_trace_tag(trace_id: str, key: str) -> None:
 
 
 @commands.command("log-feedback")
+@mlflow_mcp(tool_name="log_trace_feedback")
 @TRACE_ID
 @click.option("--name", type=click.STRING, required=True, help="Feedback name")
 @click.option(
@@ -512,13 +519,11 @@ def delete_trace_tag(trace_id: str, key: str) -> None:
 )
 @click.option(
     "--source-type",
-    type=click.Choice(
-        [
-            AssessmentSourceType.HUMAN,
-            AssessmentSourceType.LLM_JUDGE,
-            AssessmentSourceType.CODE,
-        ]
-    ),
+    type=click.Choice([
+        AssessmentSourceType.HUMAN,
+        AssessmentSourceType.LLM_JUDGE,
+        AssessmentSourceType.CODE,
+    ]),
     help="Source type of the feedback",
 )
 @click.option(
@@ -604,6 +609,7 @@ def log_feedback(
 
 
 @commands.command("log-expectation")
+@mlflow_mcp(tool_name="log_trace_expectation")
 @TRACE_ID
 @click.option(
     "--name",
@@ -619,13 +625,11 @@ def log_feedback(
 )
 @click.option(
     "--source-type",
-    type=click.Choice(
-        [
-            AssessmentSourceType.HUMAN,
-            AssessmentSourceType.LLM_JUDGE,
-            AssessmentSourceType.CODE,
-        ]
-    ),
+    type=click.Choice([
+        AssessmentSourceType.HUMAN,
+        AssessmentSourceType.LLM_JUDGE,
+        AssessmentSourceType.CODE,
+    ]),
     help="Source type of the expectation",
 )
 @click.option("--source-id", type=click.STRING, help="Source identifier")
@@ -696,6 +700,7 @@ def log_expectation(
 
 
 @commands.command("get-assessment")
+@mlflow_mcp(tool_name="get_trace_assessment")
 @TRACE_ID
 @click.option("--assessment-id", type=click.STRING, required=True, help="Assessment ID")
 def get_assessment(trace_id: str, assessment_id: str) -> None:
@@ -713,6 +718,7 @@ def get_assessment(trace_id: str, assessment_id: str) -> None:
 
 
 @commands.command("update-assessment")
+@mlflow_mcp(tool_name="update_trace_assessment")
 @TRACE_ID
 @click.option("--assessment-id", type=click.STRING, required=True, help="Assessment ID to update")
 @click.option("--value", type=click.STRING, help="Updated assessment value (JSON)")
@@ -786,6 +792,7 @@ def update_assessment(
 
 
 @commands.command("delete-assessment")
+@mlflow_mcp(tool_name="delete_trace_assessment")
 @TRACE_ID
 @click.option("--assessment-id", type=click.STRING, required=True, help="Assessment ID to delete")
 def delete_assessment(trace_id: str, assessment_id: str) -> None:
@@ -802,6 +809,7 @@ def delete_assessment(trace_id: str, assessment_id: str) -> None:
 
 
 @commands.command("evaluate")
+@mlflow_mcp(tool_name="evaluate_traces")
 @EXPERIMENT_ID
 @click.option(
     "--trace-ids",

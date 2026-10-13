@@ -350,9 +350,9 @@ class __MlflowPLCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
         self.client.set_tags(self.run_id, {"Mode": "testing"})
         self.client.flush(synchronous=True)
 
-        self.metrics_logger.record_metrics(
-            {key: float(value) for key, value in trainer.callback_metrics.items()}
-        )
+        self.metrics_logger.record_metrics({
+            key: float(value) for key, value in trainer.callback_metrics.items()
+        })
         self.metrics_logger.flush()
 
 
@@ -695,6 +695,7 @@ def patched_fit(original, self, *args, **kwargs):
                 registered_model_name=registered_model_name,
                 model_id=model_id,
                 signature=model_signature,
+                serialization_format="pickle",
             )
 
             if early_stop_callback is not None and self.checkpoint_callback.best_model_path:

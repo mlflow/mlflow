@@ -20,14 +20,22 @@ function isReleaseNoteLabel(name) {
   return name.startsWith("rn/");
 }
 
+// Bots that open pull requests without filling in the PR template, so they can
+// never select a release-note category and must not be blocked on one.
+const AUTOMATION_BOTS = ["mlflow-app[bot]", "dependabot[bot]"];
+
+function isAutomationBot(login) {
+  return AUTOMATION_BOTS.includes(login);
+}
+
 async function validateLabeled({ core, context, github }) {
   const { user, html_url: pr_url } = context.payload.pull_request;
   const { owner, repo } = context.repo;
   const { number: issue_number } = context.issue;
 
-  // Skip validation on pull requests created by the automation bot
-  if (user.login === "mlflow-app[bot]") {
-    console.log("This pull request was created by the automation bot, skipping");
+  // Skip validation on pull requests created by an automation bot
+  if (isAutomationBot(user.login)) {
+    console.log(`This pull request was created by ${user.login}, skipping`);
     return;
   }
 
@@ -81,8 +89,8 @@ async function postMerge({ context, github }) {
   const { owner, repo } = context.repo;
   const { number: issue_number } = context.issue;
 
-  if (user.login === "mlflow-app[bot]") {
-    console.log("This PR was created by the automation bot, skipping");
+  if (isAutomationBot(user.login)) {
+    console.log(`This PR was created by ${user.login}, skipping`);
     return;
   }
 

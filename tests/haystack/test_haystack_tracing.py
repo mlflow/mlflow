@@ -1,5 +1,7 @@
+import sys
 from unittest.mock import patch
 
+import pytest
 from haystack import Document, Pipeline, component
 from haystack.components.rankers import LostInTheMiddleRanker
 from haystack.components.retrievers import InMemoryBM25Retriever
@@ -7,7 +9,11 @@ from haystack.document_stores.in_memory import InMemoryDocumentStore
 
 import mlflow
 from mlflow.entities import SpanType
+from mlflow.environment_variables import MLFLOW_USE_DEFAULT_TRACER_PROVIDER
+from mlflow.exceptions import MlflowException
+from mlflow.haystack.autolog import _get_opentelemetry_tracer_class
 from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.version import IS_TRACING_SDK_ONLY
 
 from tests.tracing.helper import get_traces
 
@@ -112,12 +118,13 @@ def test_token_usage_parsed_for_llm_component(mock_litellm_cost):
         "total_tokens": 3,
     }
     assert span.model_name == "gpt-4"
-    # Verify cost is calculated (1 input token * 1.0 + 2 output tokens * 2.0)
-    assert span.llm_cost == {
-        "input_cost": 1.0,
-        "output_cost": 4.0,
-        "total_cost": 5.0,
-    }
+    if not IS_TRACING_SDK_ONLY:
+        # Verify cost is calculated (1 input token * 1.0 + 2 output tokens * 2.0)
+        assert span.llm_cost == {
+            "input_cost": 1.0,
+            "output_cost": 4.0,
+            "total_cost": 5.0,
+        }
 
     mlflow.haystack.autolog(disable=True)
 
@@ -190,3 +197,31 @@ def test_multiple_components_in_pipeline_reranker():
     mlflow.haystack.autolog(disable=True)
     pipe.run({"retriever": {"query": "foo"}})
     assert len(get_traces()) == 1
+
+
+def test_haystack_autolog_shared_provider_no_recursion(monkeypatch):
+    # Verify haystack.autolog() works with shared tracer provider (no RecursionError)
+    monkeypatch.setenv(MLFLOW_USE_DEFAULT_TRACER_PROVIDER.name, "false")
+
+    mlflow.haystack.autolog()
+
+    pipe = Pipeline()
+    pipe.add_component("adder", Add())
+    pipe.run({"adder": {"a": 1, "b": 2}})
+
+    traces = get_traces()
+    assert len(traces) == 1
+    spans = traces[0].data.spans
+    assert spans[0].span_type == SpanType.CHAIN
+    assert spans[0].inputs == {"adder": {"a": 1, "b": 2}}
+    assert spans[0].outputs == {"adder": {"sum": 3}}
+
+
+def test_get_opentelemetry_tracer_class_error_when_unavailable(monkeypatch):
+    # Simulate an environment where neither `opentelemetry-haystack` (haystack >= 3) nor the
+    # in-core `OpenTelemetryTracer` (haystack < 3) is available
+    monkeypatch.setitem(sys.modules, "haystack_integrations.tracing.opentelemetry", None)
+    monkeypatch.delattr("haystack.tracing.OpenTelemetryTracer", raising=False)
+
+    with pytest.raises(MlflowException, match="pip install opentelemetry-haystack"):
+        _get_opentelemetry_tracer_class()

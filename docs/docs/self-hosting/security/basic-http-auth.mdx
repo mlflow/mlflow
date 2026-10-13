@@ -9,7 +9,8 @@ Once enabled, any visitor will be required to login before they can view any res
 MLflow Authentication provides Python and REST API for managing users and permissions.
 
 - <APILink fn="mlflow.server.auth">MLflow Authentication Python API</APILink>
-- <Link to="/api_reference/auth/rest-api.html" target="_blank"><span>MLflow Authentication REST API</span></Link>
+- <Link to="https://mlflow.org/docs/latest/api_reference/auth/rest-api.html" target="_blank"><span>MLflow Authentication REST API</span></Link>
+- <Link to="/self-hosting/workspaces/permissions">Workspace Permissions</Link>
 
 ![](/images/auth_signup_form.png)
 
@@ -18,7 +19,7 @@ MLflow Authentication provides Python and REST API for managing users and permis
 First, install all dependencies required for the basic auth app:
 
 ```bash
-pip install mlflow[auth]
+pip install 'mlflow[auth]'
 ```
 
 :::note
@@ -31,6 +32,19 @@ export MLFLOW_FLASK_SERVER_SECRET_KEY="my-secret-key"
 
 If your setup uses multiple servers, please make sure that this key is consistent between them. Otherwise, you may
 run into unexpected validation errors.
+:::
+
+:::note
+MLflow ships no default admin password. The first time the server starts with authentication enabled, it creates the
+admin user with the password from the `MLFLOW_AUTH_ADMIN_PASSWORD` environment variable (or `admin_password` in a
+custom [configuration file](#configuration)) and refuses to start if neither is set. Passwords must be at least
+12 characters.
+
+```
+export MLFLOW_AUTH_ADMIN_PASSWORD="<strong-password>"
+```
+
+See [Admin Users](#admin-users) for details.
 :::
 
 To enable MLflow authentication, launch the MLflow UI with the following command:
@@ -108,12 +122,36 @@ The available permissions are:
 
 The default permission for all users is `READ`. It can be changed in the [configuration](#configuration) file.
 
-Permissions can be granted on individual resources for each user.
-Supported resources include `Experiment`, `Registered Model`, and `Scorer`.
-To access an API endpoint, an user must have the required permission.
+Permissions are granted via **roles**. See [Role-Based Access Control](/self-hosting/security/role-based-access-control)
+for the model, scenarios, and API reference. For workspace-wide access controls
+specifically, see [Workspace Permissions](/self-hosting/workspaces/permissions).
+Supported resources include `Experiment`, `Registered Model`, `Prompt`,
+`Scorer`, and the AI Gateway resource types (secrets, endpoints, model
+definitions). `Prompt` is its own resource type even though prompts share
+the model-registry wire surface with registered models: a
+`(registered_model, foo, READ)` grant does not satisfy a request that
+targets a prompt with the same name, and vice versa.
+To access an API endpoint, a user must have the required permission.
 Otherwise, a `403 Forbidden` response will be returned.
 
-Required Permissions for accessing experiments:
+Note: RBAC - the role-based model, role API, and admin UI - is available
+from MLflow 3.13.0. MLflow versions before 3.13 only support the legacy
+per-resource permission APIs documented below.
+
+:::warning[Pre-RBAC permission management has been removed]
+
+The following surfaces are **removed** from MLflow 3.13.0 onwards.
+Calls return 404 or the client method no longer exists.
+The auth-store backfill migration moves existing grants into the
+new synthetic-role storage automatically, so existing access survives
+the upgrade, only the API shape changes.
+
+See [Migrating from the legacy permission model](/self-hosting/security/role-based-access-control#migrating-from-the-legacy-permission-model)
+for the detailed guidance on how to migrate to the new RBAC permission model.
+
+:::
+
+#### Required permissions for accessing experiments
 
 <table>
   <thead>
@@ -613,7 +651,7 @@ Required Permissions for accessing registered models:
       </td>
       <td>`2.0/mlflow/model-versions/search`</td>
       <td>`GET`</td>
-      <td>None</td>
+      <td>None (results filtered by parent model permission)</td>
     </tr>
     <tr>
       <td>
@@ -884,7 +922,7 @@ MLflow Authentication provides API endpoints to manage users and permissions.
   <tbody>
     <tr>
       <td>
-        <Link to="/api_reference/auth/rest-api.html#create-user" target="_blank">
+        <Link to="https://mlflow.org/docs/latest/api_reference/auth/rest-api.html#create-user" target="_blank">
           <span>Create User</span>
         </Link>
       </td>
@@ -894,7 +932,7 @@ MLflow Authentication provides API endpoints to manage users and permissions.
     </tr>
     <tr>
       <td>
-        <Link to="/api_reference/auth/rest-api.html#get-user" target="_blank">
+        <Link to="https://mlflow.org/docs/latest/api_reference/auth/rest-api.html#get-user" target="_blank">
           <span>Get User</span>
         </Link>
       </td>
@@ -904,7 +942,7 @@ MLflow Authentication provides API endpoints to manage users and permissions.
     </tr>
     <tr>
       <td>
-        <Link to="/api_reference/auth/rest-api.html#update-user-password" target="_blank">
+        <Link to="https://mlflow.org/docs/latest/api_reference/auth/rest-api.html#update-user-password" target="_blank">
           <span>Update User Password</span>
         </Link>
       </td>
@@ -914,7 +952,7 @@ MLflow Authentication provides API endpoints to manage users and permissions.
     </tr>
     <tr>
       <td>
-        <Link to="/api_reference/auth/rest-api.html#update-user-admin" target="_blank">
+        <Link to="https://mlflow.org/docs/latest/api_reference/auth/rest-api.html#update-user-admin" target="_blank">
           <span>Update User Admin</span>
         </Link>
       </td>
@@ -924,7 +962,7 @@ MLflow Authentication provides API endpoints to manage users and permissions.
     </tr>
     <tr>
       <td>
-        <Link to="/api_reference/auth/rest-api.html#delete-user" target="_blank">
+        <Link to="https://mlflow.org/docs/latest/api_reference/auth/rest-api.html#delete-user" target="_blank">
           <span>Delete User</span>
         </Link>
       </td>
@@ -934,203 +972,69 @@ MLflow Authentication provides API endpoints to manage users and permissions.
     </tr>
     <tr>
       <td>
-        <Link to="/api_reference/auth/rest-api.html#create-experiment-permission" target="_blank">
-          <span>Create Experiment Permission</span>
+        <Link to="https://mlflow.org/docs/latest/api_reference/auth/rest-api.html#grant-user-permission" target="_blank">
+          <span>Grant User Permission</span>
         </Link>
       </td>
-      <td>`2.0/mlflow/experiments/permissions/create`</td>
+      <td>`3.0/mlflow/users/permissions/grant`</td>
       <td>`POST`</td>
-      <td>can_manage</td>
+      <td>can_manage on the target resource (or admin)</td>
     </tr>
     <tr>
       <td>
-        <Link to="/api_reference/auth/rest-api.html#get-experiment-permission" target="_blank">
-          <span>Get Experiment Permission</span>
+        <Link to="https://mlflow.org/docs/latest/api_reference/auth/rest-api.html#revoke-user-permission" target="_blank">
+          <span>Revoke User Permission</span>
         </Link>
       </td>
-      <td>`2.0/mlflow/experiments/permissions/get`</td>
-      <td>`GET`</td>
-      <td>can_manage</td>
-    </tr>
-    <tr>
-      <td>
-        <Link to="/api_reference/auth/rest-api.html#update-experiment-permission" target="_blank">
-          <span>Update Experiment Permission</span>
-        </Link>
-      </td>
-      <td>`2.0/mlflow/experiments/permissions/update`</td>
-      <td>`PATCH`</td>
-      <td>can_manage</td>
-    </tr>
-    <tr>
-      <td>
-        <Link to="/api_reference/auth/rest-api.html#delete-experiment-permission" target="_blank">
-          <span>Delete Experiment Permission</span>
-        </Link>
-      </td>
-      <td>`2.0/mlflow/experiments/permissions/delete`</td>
-      <td>`DELETE`</td>
-      <td>can_manage</td>
-    </tr>
-    <tr>
-      <td>
-        <Link to="/api_reference/auth/rest-api.html#create-registered-model-permission" target="_blank">
-          <span>Create Registered Model Permission</span>
-        </Link>
-      </td>
-      <td>`2.0/mlflow/registered-models/permissions/create`</td>
+      <td>`3.0/mlflow/users/permissions/revoke`</td>
       <td>`POST`</td>
-      <td>can_manage</td>
+      <td>can_manage on the target resource (or admin)</td>
     </tr>
     <tr>
       <td>
-        <Link to="/api_reference/auth/rest-api.html#get-registered-model-permission" target="_blank">
-          <span>Get Registered Model Permission</span>
+        <Link to="https://mlflow.org/docs/latest/api_reference/auth/rest-api.html#check-user-permission" target="_blank">
+          <span>Check User Permission</span>
         </Link>
       </td>
-      <td>`2.0/mlflow/registered-models/permissions/get`</td>
-      <td>`GET`</td>
-      <td>can_manage</td>
-    </tr>
-    <tr>
-      <td>
-        <Link to="/api_reference/auth/rest-api.html#update-registered-model-permission" target="_blank">
-          <span>Update Registered Model Permission</span>
-        </Link>
-      </td>
-      <td>`2.0/mlflow/registered-models/permissions/update`</td>
-      <td>`PATCH`</td>
-      <td>can_manage</td>
-    </tr>
-    <tr>
-      <td>
-        <Link to="/api_reference/auth/rest-api.html#delete-registered-model-permission" target="_blank">
-          <span>Delete Registered Model Permission</span>
-        </Link>
-      </td>
-      <td>`2.0/mlflow/registered-models/permissions/delete`</td>
-      <td>`DELETE`</td>
-      <td>can_manage</td>
-    </tr>
-    <tr>
-      <td>
-        <Link to="/api_reference/auth/rest-api.html#create-gateway-endpoint-permission" target="_blank">
-          <span>Create Gateway Endpoint Permission</span>
-        </Link>
-      </td>
-      <td>`3.0/mlflow/gateway/endpoints/permissions/create`</td>
+      <td>`3.0/mlflow/auth/check`</td>
       <td>`POST`</td>
-      <td>can_manage</td>
+      <td>self / admin / workspace MANAGE in the resource's workspace</td>
     </tr>
     <tr>
-      <td>
-        <Link to="/api_reference/auth/rest-api.html#get-gateway-endpoint-permission" target="_blank">
-          <span>Get Gateway Endpoint Permission</span>
-        </Link>
-      </td>
-      <td>`3.0/mlflow/gateway/endpoints/permissions/get`</td>
-      <td>`GET`</td>
-      <td>can_manage</td>
-    </tr>
-    <tr>
-      <td>
-        <Link to="/api_reference/auth/rest-api.html#update-gateway-endpoint-permission" target="_blank">
-          <span>Update Gateway Endpoint Permission</span>
-        </Link>
-      </td>
-      <td>`3.0/mlflow/gateway/endpoints/permissions/update`</td>
-      <td>`PATCH`</td>
-      <td>can_manage</td>
-    </tr>
-    <tr>
-      <td>
-        <Link to="/api_reference/auth/rest-api.html#delete-gateway-endpoint-permission" target="_blank">
-          <span>Delete Gateway Endpoint Permission</span>
-        </Link>
-      </td>
-      <td>`3.0/mlflow/gateway/endpoints/permissions/delete`</td>
-      <td>`DELETE`</td>
-      <td>can_manage</td>
-    </tr>
-    <tr>
-      <td>
-        <Link to="/api_reference/auth/rest-api.html#create-gateway-secret-permission" target="_blank">
-          <span>Create Gateway API Key Permission</span>
-        </Link>
-      </td>
-      <td>`3.0/mlflow/gateway/secrets/permissions/create`</td>
+      <td>Create Webhook</td>
+      <td>`2.0/mlflow/webhooks`</td>
       <td>`POST`</td>
-      <td>can_manage</td>
+      <td>Only admin</td>
     </tr>
     <tr>
-      <td>
-        <Link to="/api_reference/auth/rest-api.html#get-gateway-secret-permission" target="_blank">
-          <span>Get Gateway API Key Permission</span>
-        </Link>
-      </td>
-      <td>`3.0/mlflow/gateway/secrets/permissions/get`</td>
+      <td>List Webhooks</td>
+      <td>`2.0/mlflow/webhooks`</td>
       <td>`GET`</td>
-      <td>can_manage</td>
+      <td>Only admin</td>
     </tr>
     <tr>
-      <td>
-        <Link to="/api_reference/auth/rest-api.html#update-gateway-secret-permission" target="_blank">
-          <span>Update Gateway API Key Permission</span>
-        </Link>
-      </td>
-      <td>`3.0/mlflow/gateway/secrets/permissions/update`</td>
+      <td>Get Webhook</td>
+      <td>`2.0/mlflow/webhooks/{webhook_id}`</td>
+      <td>`GET`</td>
+      <td>Only admin</td>
+    </tr>
+    <tr>
+      <td>Update Webhook</td>
+      <td>`2.0/mlflow/webhooks/{webhook_id}`</td>
       <td>`PATCH`</td>
-      <td>can_manage</td>
+      <td>Only admin</td>
     </tr>
     <tr>
-      <td>
-        <Link to="/api_reference/auth/rest-api.html#delete-gateway-secret-permission" target="_blank">
-          <span>Delete Gateway API Key Permission</span>
-        </Link>
-      </td>
-      <td>`3.0/mlflow/gateway/secrets/permissions/delete`</td>
+      <td>Delete Webhook</td>
+      <td>`2.0/mlflow/webhooks/{webhook_id}`</td>
       <td>`DELETE`</td>
-      <td>can_manage</td>
+      <td>Only admin</td>
     </tr>
     <tr>
-      <td>
-        <Link to="/api_reference/auth/rest-api.html#create-gateway-model-definition-permission" target="_blank">
-          <span>Create Gateway Model Definition Permission</span>
-        </Link>
-      </td>
-      <td>`3.0/mlflow/gateway/model-definitions/permissions/create`</td>
+      <td>Test Webhook</td>
+      <td>`2.0/mlflow/webhooks/{webhook_id}/test`</td>
       <td>`POST`</td>
-      <td>can_manage</td>
-    </tr>
-    <tr>
-      <td>
-        <Link to="/api_reference/auth/rest-api.html#get-gateway-model-definition-permission" target="_blank">
-          <span>Get Gateway Model Definition Permission</span>
-        </Link>
-      </td>
-      <td>`3.0/mlflow/gateway/model-definitions/permissions/get`</td>
-      <td>`GET`</td>
-      <td>can_manage</td>
-    </tr>
-    <tr>
-      <td>
-        <Link to="/api_reference/auth/rest-api.html#update-gateway-model-definition-permission" target="_blank">
-          <span>Update Gateway Model Definition Permission</span>
-        </Link>
-      </td>
-      <td>`3.0/mlflow/gateway/model-definitions/permissions/update`</td>
-      <td>`PATCH`</td>
-      <td>can_manage</td>
-    </tr>
-    <tr>
-      <td>
-        <Link to="/api_reference/auth/rest-api.html#delete-gateway-model-definition-permission" target="_blank">
-          <span>Delete Gateway Model Definition Permission</span>
-        </Link>
-      </td>
-      <td>`3.0/mlflow/gateway/model-definitions/permissions/delete`</td>
-      <td>`DELETE`</td>
-      <td>can_manage</td>
+      <td>Only admin</td>
     </tr>
   </tbody>
 </table>
@@ -1217,7 +1121,7 @@ on that experiment, so that the creator can grant or revoke other users' access 
       </td>
       <td>`2.0/mlflow/model-versions/search`</td>
       <td>`GET`</td>
-      <td>Only returns registered models which the user has `READ` permission on.</td>
+      <td>Only returns model versions whose parent registered model the user has `READ` permission on.</td>
     </tr>
   </tbody>
 </table>
@@ -1238,28 +1142,26 @@ Admin users have unrestricted access to all MLflow resources,
 granting or revoking permissions from other users, and managing permissions for all
 MLflow resources,** even if `NO_PERMISSIONS` is explicitly set to that admin account.
 
-MLflow has a built-in admin user that will be created the first time that the MLflow authentication feature is enabled.
+MLflow has a built-in admin user that is created the first time the server starts with authentication enabled
+against an empty user store. Its username defaults to `admin` and can be changed with `admin_username` in the
+configuration file or the `MLFLOW_AUTH_ADMIN_USERNAME` environment variable.
 
-:::note
-It is recommended that you update the default admin password as soon as possible after creation.
+There is no default admin password. Set one with the `MLFLOW_AUTH_ADMIN_PASSWORD` environment variable or with
+`admin_password` in the configuration file before the first start; the server refuses to start otherwise. Both
+settings are only used to create the admin user (and to replace its password if it is still the legacy default
+described below) and are ignored otherwise. After the first successful start, unset `MLFLOW_AUTH_ADMIN_PASSWORD` (or
+remove `admin_password` from the file) so the secret does not linger in the server's environment or configuration, and
+rotate the password with the `2.0/mlflow/users/update-password` endpoint.
+
+:::warning
+Earlier MLflow versions shipped the admin password `password1234` in `basic_auth.ini`
+([GHSA-gq3w-7jj3-x7gr](https://github.com/advisories/GHSA-gq3w-7jj3-x7gr)). That password is no longer accepted: the
+server rejects logins by admin users that present it, never uses it to create an admin user, and logs a warning at
+startup while an admin user still has it. If you upgraded an existing deployment whose admin user still has that
+password, set `MLFLOW_AUTH_ADMIN_PASSWORD` (or `admin_password`) to a new password and restart the server once; the
+stored password is replaced and the setting can be unset again. Alternatively, another admin can update or delete the
+user.
 :::
-
-The default admin user credentials are as follows:
-
-<table>
-  <thead>
-    <tr>
-      <th>Username</th>
-      <th>Password</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>`admin`</td>
-      <td>`password1234`</td>
-    </tr>
-  </tbody>
-</table>
 
 Multiple admin users can exist by promoting other users to admin, using the `2.0/mlflow/users/update-admin` endpoint.
 
@@ -1281,9 +1183,31 @@ auth_client.update_user_admin(username="user1", is_admin=True)
 
 ### Managing Permissions
 
-MLflow provides <Link to="/api_reference/auth/rest-api.html#create-user" target="_blank">REST APIs</Link>
-and a client class <APILink fn="mlflow.server.auth.client.AuthServiceClient">`AuthServiceClient`</APILink> to manage users and permissions.
-To instantiate `AuthServiceClient`, it is recommended that you use <APILink fn="mlflow.server.get_app_client" />.
+MLflow provides <Link to="https://mlflow.org/docs/latest/api_reference/auth/rest-api.html#create-user" target="_blank">REST APIs</Link>
+and a client class <APILink fn="mlflow.server.auth.client.AuthServiceClient">`AuthServiceClient`</APILink>
+for managing users and permissions. To instantiate `AuthServiceClient`, use <APILink fn="mlflow.server.get_app_client" />.
+
+Permissions are granted via the **role API**. The three methods you need are:
+
+- `create_role(name, workspace, description=None)`: create a role
+- `add_role_permission(role_id, resource_type, resource_pattern, permission)`: attach a grant
+- `assign_role(username, role_id)`: assign a user to the role
+
+This is the path for every grant: one user or many, one resource or
+wildcard, one-off or reusable. For one-user one-resource direct grants
+use `auth_client.grant_user_permission(username, resource_type,
+resource_id, permission)`; for shared sets use the role API
+(`create_role` + `add_role_permission` + `assign_role`). The legacy
+per-resource methods (`create_experiment_permission()`,
+`update_registered_model_permission()`, etc.) are removed — see the
+warning above. For one-off grants, the admin UI's _Direct permissions_
+section is the simplest path (no role to author). See
+[Role-Based Access Control](/self-hosting/security/role-based-access-control)
+for the full model, the
+[API reference](/self-hosting/security/role-based-access-control#api-reference),
+and worked scenarios (one-off direct grants, team roles, promoting a user to
+Workspace Manager, onboarding). For workspace-scoped permissions, see
+[Workspace Permissions](/self-hosting/workspaces/permissions).
 
 ```bash title="Example"
 export MLFLOW_TRACKING_USERNAME=admin
@@ -1303,9 +1227,19 @@ auth_client.create_user(username="user2", password="pw2")
 client = MlflowClient(tracking_uri=tracking_uri)
 experiment_id = client.create_experiment(name="experiment")
 
-auth_client.create_experiment_permission(
-    experiment_id=experiment_id, username="user2", permission="MANAGE"
+# Grant user2 MANAGE on this experiment by creating a single-permission role
+# and assigning it. The same pattern (``create_role`` -> ``add_role_permission``
+# -> ``assign_role``) scales to any number of users and permissions; reuse the
+# same role to grant the same access to more users with one ``assign_role``
+# call each.
+role = auth_client.create_role(name="experiment-manager", workspace="default")
+auth_client.add_role_permission(
+    role_id=role.id,
+    resource_type="experiment",
+    resource_pattern=experiment_id,
+    permission="MANAGE",
 )
+auth_client.assign_role(username="user2", role_id=role.id)
 ```
 
 ## Authenticating to MLflow
@@ -1371,7 +1305,7 @@ response = requests.get(
 
 ## Creating a New User
 
-:::warning important
+:::warning[important]
 To create a new user, you are required to authenticate with admin privileges.
 :::
 
@@ -1430,16 +1364,24 @@ Authentication configuration is located at `mlflow/server/auth/basic_auth.ini`:
       <td>Default permission on all resources</td>
     </tr>
     <tr>
+      <td>`grant_default_workspace_access`</td>
+      <td>When workspaces are enabled: if `false`, the `default` workspace ignores `default_permission` and new users need explicit workspace ACLs; if `true`, the `default` workspace inherits `default_permission` for all users (pre-workspaces behavior).</td>
+    </tr>
+    <tr>
       <td>`database_uri`</td>
       <td>Database location to store permission and user data</td>
     </tr>
     <tr>
       <td>`admin_username`</td>
-      <td>Default admin username if the admin is not already created</td>
+      <td>Username of the admin user created on first start. Overridden by `MLFLOW_AUTH_ADMIN_USERNAME`.</td>
     </tr>
     <tr>
       <td>`admin_password`</td>
-      <td>Default admin password if the admin is not already created</td>
+      <td>
+        Password of the admin user created on first start; also replaces that user's password on upgrade while it
+        is still the legacy default. Overridden by `MLFLOW_AUTH_ADMIN_PASSWORD`. There is no default; one of the two
+        must be set until the admin user exists.
+      </td>
     </tr>
     <tr>
       <td>`authorization_function`</td>
@@ -1456,8 +1398,7 @@ if you want to use another authentication method than HTTP basic auth. The value
 specifies `module_name:function_name`. The function has the following signature:
 
 ```python
-def authenticate_request() -> Union[Authorization, Response]:
-    ...
+def authenticate_request() -> Union[Authorization, Response]: ...
 ```
 
 The function should return a `werkzeug.datastructures.Authorization` object if

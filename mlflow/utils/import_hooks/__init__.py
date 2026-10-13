@@ -202,23 +202,29 @@ def discover_post_import_hooks(group):
 # the import of the target module to fail.
 
 
-@synchronized(_post_import_hooks_lock)
 def notify_module_loaded(module):
+    # Snapshot hooks under the lock, then release it before firing them. Hooks
+    # may trigger imports that re-enter the import machinery on another thread
+    # and try to acquire this lock, which would deadlock against per-module
+    # import locks held by that thread.
     name = getattr(module, "__name__", None)
-    if hooks := _post_import_hooks.get(name):
-        _post_import_hooks[name] = []
+    with _post_import_hooks_lock:
+        hooks = _post_import_hooks.get(name) or []
+        if hooks:
+            _post_import_hooks[name] = []
 
-        for hook in hooks:
-            hook(module)
+    for hook in hooks:
+        hook(module)
 
 
-@synchronized(_import_error_hooks_lock)
 def notify_module_import_error(module_name):
-    if hooks := _import_error_hooks.get(module_name):
+    with _import_error_hooks_lock:
         # Error hooks differ from post import hooks, in that we don't clear the
         # hook as soon as it fires.
-        for hook in hooks:
-            hook(module_name)
+        hooks = list(_import_error_hooks.get(module_name) or [])
+
+    for hook in hooks:
+        hook(module_name)
 
 
 # A custom module import finder. This intercepts attempts to import
@@ -279,7 +285,7 @@ class ImportHookFinder:
             # real loader to import the module and invoke the
             # post import hooks.
             try:
-                import importlib.util  # clint: disable=lazy-builtin-import
+                import importlib.util  # clint: disable=lazy-import
 
                 loader = importlib.util.find_spec(fullname).loader
             # If an ImportError (or AttributeError) is encountered while finding the module,
@@ -317,7 +323,7 @@ class ImportHookFinder:
         # Now call back into the import system again.
 
         try:
-            import importlib.util  # clint: disable=lazy-builtin-import
+            import importlib.util  # clint: disable=lazy-import
 
             spec = importlib.util.find_spec(fullname)
             # Replace the module spec's loader with a wrapped version that executes import

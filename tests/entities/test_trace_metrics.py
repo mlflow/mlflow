@@ -11,7 +11,7 @@ from mlflow.protos import service_pb2 as pb
 
 @pytest.mark.parametrize(
     ("view_type", "expected_proto"),
-    zip(MetricViewType, pb.MetricViewType.values(), strict=True),
+    list(zip(MetricViewType, pb.MetricViewType.values(), strict=True)),
 )
 def test_trace_metrics_view_type(view_type: MetricViewType, expected_proto: pb.MetricViewType):
     assert view_type.to_proto() == expected_proto
@@ -19,7 +19,7 @@ def test_trace_metrics_view_type(view_type: MetricViewType, expected_proto: pb.M
 
 @pytest.mark.parametrize(
     ("aggregation_type", "expected_proto"),
-    zip(AggregationType, pb.AggregationType.values(), strict=True),
+    list(zip(AggregationType, pb.AggregationType.values(), strict=True)),
 )
 def test_trace_metrics_aggregation_type_to_proto(
     aggregation_type: AggregationType, expected_proto: pb.AggregationType
@@ -105,7 +105,7 @@ def test_trace_metrics_metric_data_point_to_proto():
 
 @pytest.mark.parametrize(
     ("view_type", "expected_proto"),
-    zip(MetricViewType, pb.MetricViewType.values(), strict=True),
+    list(zip(MetricViewType, pb.MetricViewType.values(), strict=True)),
 )
 def test_trace_metrics_view_type_from_proto(view_type: MetricViewType, expected_proto: int):
     assert MetricViewType.from_proto(expected_proto) == view_type

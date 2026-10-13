@@ -1,0 +1,37 @@
+// Ported from //api-base/proto/exception_with_details.proto in the universe
+// repo. Only the `DatabricksServiceExceptionWithDetailsProto` message is kept.
+//
+// Differences from the universe source (both wire-safe and intentional):
+//   - `error_code` is `optional string` instead of `.api.ErrorCode` because the
+//     REST/JSON wire format carries error codes as string names; this avoids
+//     pulling in `error_code_enum.proto` (~931 lines) and its transitive
+//     `linter.proto` extension dep.
+//   - The `details` field (tag 4, `repeated google.protobuf.Any` in universe)
+//     is intentionally omitted. Our Python client never reads it, and keeping
+//     it would force `google.protobuf.json_format.ParseDict` to resolve every
+//     detail entry's `@type` URL against our type pool — universe servers emit
+//     details under internal package names we don't register, which would
+//     crash error handling with a cryptic `Can not find message descriptor`
+//     error at exactly the wrong time. With the field missing from the proto,
+//     MLflow's `parse_dict` (called with `ignore_unknown_fields=True`) simply
+//     skips the `details` key. No loss because we don't consume it.
+syntax = "proto2";
+
+package databricks.api;
+
+import "scalapb/scalapb.proto";
+
+option java_generate_equals_and_hash = true;
+option java_multiple_files = true;
+option java_outer_classname = "ExceptionWithDetailsProto";
+option java_package = "com.databricks.api.proto.databricks.jproto";
+option (scalapb.options).flat_package = true;
+option (scalapb.options).package_name = "com.databricks.api.proto.databricks";
+
+// Databricks Error that is returned by all Databricks APIs. Field tags 1–3
+// match the universe definition so wire format stays compatible.
+message DatabricksServiceExceptionWithDetailsProto {
+  optional string error_code = 1;
+  optional string message = 2;
+  optional string stack_trace = 3;
+}

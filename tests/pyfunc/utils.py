@@ -25,6 +25,8 @@ def score_model_in_process(model_uri: str, data: str, content_type: str) -> "htt
         if isinstance(data, pd.DataFrame):
             if content_type == scoring_server.CONTENT_TYPE_CSV:
                 data = data.to_csv(index=False)
+            elif content_type == scoring_server.CONTENT_TYPE_PARQUET:
+                data = data.to_parquet()
             else:
                 assert content_type == scoring_server.CONTENT_TYPE_JSON
                 data = json.dumps({"dataframe_split": data.to_dict(orient="split")})

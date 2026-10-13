@@ -11,31 +11,34 @@
 
 <p align="center">
   <a href="https://github.com/mlflow/mlflow"><img src="https://img.shields.io/github/stars/mlflow/mlflow?style=social" alt="stars"></a>
-  <a href="https://www.npmjs.com/package/mlflow-tracing"><img src="https://img.shields.io/npm/v/mlflow-tracing.svg" alt="version"></a>
-  <a href="https://www.npmjs.com/package/mlflow-tracing"><img src="https://img.shields.io/npm/dt/mlflow-tracing.svg" alt="downloads"></a>
-  <a href="https://github.com/mlflow/mlflow/blob/main/LICENSE"><img src="https://img.shields.io/github/license/mlflow/mlflow" alt="license"></a>
+  <a href="https://www.npmjs.com/package/@mlflow/core"><img src="https://img.shields.io/npm/v/%40mlflow%2Fcore.svg" alt="version"></a>
+  <a href="https://www.npmjs.com/package/@mlflow/core"><img src="https://img.shields.io/npm/dt/%40mlflow%2Fcore.svg" alt="downloads"></a>
+  <a href="https://github.com/mlflow/mlflow/blob/master/LICENSE.txt"><img src="https://img.shields.io/github/license/mlflow/mlflow" alt="license"></a>
 </p>
 
 MLflow Typescript SDK is a variant of the [MLflow Python SDK](https://github.com/mlflow/mlflow) that provides a TypeScript API for MLflow.
 
 > [!IMPORTANT]
-> MLflow Typescript SDK is catching up with the Python SDK. Currently only support [Tracing]() and [Feedback Collection]() features. Please raise an issue in Github if you need a feature that is not supported.
+> MLflow Typescript SDK is catching up with the Python SDK. Currently only support Tracing and
+> Feedback Collection features. Please raise an issue in Github if you need a feature that is not
+> supported.
 
 ## Packages
 
-| Package                                | NPM                                                                                                                                         | Description                                                |
-| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
-| [mlflow-tracing](./core)               | [![npm package](https://img.shields.io/npm/v/mlflow-tracing?style=flat-square)](https://www.npmjs.com/package/mlflow-tracing)               | The core tracing functionality and manual instrumentation. |
-| [mlflow-openai](./integrations/openai) | [![npm package](https://img.shields.io/npm/v/mlflow-tracing-openai?style=flat-square)](https://www.npmjs.com/package/mlflow-tracing-openai) | Auto-instrumentation integration for OpenAI.               |
+| Package                                     | NPM                                                                                                                                   | Description                                                  |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| [@mlflow/core](./core)                      | [![npm package](https://img.shields.io/npm/v/%40mlflow%2Fcore?style=flat-square)](https://www.npmjs.com/package/@mlflow/core)         | The core tracing functionality and manual instrumentation.   |
+| [@mlflow/openai](./integrations/openai)     | [![npm package](https://img.shields.io/npm/v/%40mlflow%2Fopenai?style=flat-square)](https://www.npmjs.com/package/@mlflow/openai)     | Auto-instrumentation integration for OpenAI.                 |
+| [@mlflow/typesafe](./integrations/typesafe) | [![npm package](https://img.shields.io/npm/v/%40mlflow%2Ftypesafe?style=flat-square)](https://www.npmjs.com/package/@mlflow/typesafe) | Auto-instrumentation integration for TypeSafe AI System One. |
 
 ## Installation
 
 ```bash
-npm install mlflow-tracing
+npm install @mlflow/core
 ```
 
 > [!NOTE]
-> MLflow Typescript SDK requires Node.js 20 or higher.
+> MLflow Typescript SDK requires Node.js 22 or higher.
 
 ## Quickstart
 
@@ -51,7 +54,7 @@ Self-hosting MLflow server requires Python 3.10 or higher. If you don't have one
 Instantiate MLflow SDK in your application:
 
 ```typescript
-import * as mlflow from 'mlflow-tracing';
+import * as mlflow from '@mlflow/core';
 
 mlflow.init({
   trackingUri: 'http://localhost:5000',
@@ -72,7 +75,7 @@ export MLFLOW_EXPERIMENT_ID=123456789
 ```
 
 ```typescript
-import * as mlflow from 'mlflow-tracing';
+import * as mlflow from '@mlflow/core';
 
 mlflow.init(); // Uses the values from the environment
 ```
@@ -137,6 +140,48 @@ getWeather('San Francisco');
 const span = mlflow.startSpan({ name: 'my-span' });
 span.end();
 ```
+
+Log feedback on a persisted trace (Python `mlflow.log_feedback` parity):
+
+```typescript
+import { AssessmentSourceType, MlflowClient, createAuthProvider } from '@mlflow/core';
+
+const trackingUri = 'http://localhost:5000';
+const client = new MlflowClient({
+  trackingUri,
+  authProvider: createAuthProvider({ trackingUri }),
+});
+
+await client.logFeedback({
+  traceId: '<trace-id>',
+  name: 'correctness',
+  value: true,
+  source: { sourceType: AssessmentSourceType.HUMAN, sourceId: 'reviewer@example.com' },
+  rationale: 'The answer matches the expected fact.',
+});
+
+const info = await client.getTraceInfo('<trace-id>');
+console.log(info.assessments);
+```
+
+Databricks Unity Catalog V4 assessment posting is not included in this first slice.
+
+Tag spans with a severity level so users (or you) can filter by **Minimum log level** in the trace UI:
+
+```typescript
+import { SpanLogLevel } from '@mlflow/core';
+
+const tracedAnswer = mlflow.trace((query: string) => llm.generate(query), {
+  name: 'answer',
+  spanType: mlflow.SpanType.CHAT_MODEL,
+  logLevel: SpanLogLevel.INFO,
+});
+
+// The string form works too:
+mlflow.startSpan({ name: 'plumbing', logLevel: 'DEBUG' });
+```
+
+When you use one of the autolog integrations (`@mlflow/openai`, `@mlflow/anthropic`, `@mlflow/gemini`, etc.), MLflow stamps a sensible default level on every span based on its type — you don't need to annotate manually.
 
 View traces in MLflow UI:
 

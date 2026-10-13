@@ -6,7 +6,7 @@ import json
 import string
 from abc import ABC, abstractmethod
 from copy import deepcopy
-from dataclasses import is_dataclass
+from dataclasses import fields, is_dataclass
 from enum import Enum
 from types import UnionType
 from typing import Any, TypedDict, Union, get_args, get_origin
@@ -305,8 +305,10 @@ class Property(BaseType):
         if self.name != other.name:
             raise MlflowException("Can't merge properties with different names")
         required = self.required and other.required
-        if isinstance(self.dtype, DataType) and isinstance(other.dtype, DataType):
-            if self.dtype == other.dtype:
+        if isinstance(self.dtype, DataType):
+            # Mirror `AnyType._merge`: an undetermined type (e.g. inferred from `None`)
+            # is compatible with any concrete type regardless of merge order
+            if self.dtype == other.dtype or isinstance(other.dtype, AnyType):
                 return Property(name=self.name, dtype=self.dtype, required=required)
             raise MlflowException(f"Properties are incompatible for {self.dtype} and {other.dtype}")
 
@@ -399,9 +401,9 @@ class Object(BaseType):
             not isinstance(prop, dict) for prop in kwargs["properties"].values()
         ):
             raise MlflowException("Expected properties to be a dictionary of Property JSON")
-        return cls(
-            [Property.from_json_dict(**{name: prop}) for name, prop in kwargs["properties"].items()]
-        )
+        return cls([
+            Property.from_json_dict(**{name: prop}) for name, prop in kwargs["properties"].items()
+        ])
 
     def _merge(self, other: BaseType) -> Object:
         """
@@ -553,7 +555,7 @@ class Array(BaseType):
         if not isinstance(other, Array):
             raise MlflowException(f"Can't merge array with non-array type: {type(other).__name__}")
         if isinstance(self.dtype, DataType):
-            if self.dtype == other.dtype:
+            if self.dtype == other.dtype or isinstance(other.dtype, AnyType):
                 return Array(dtype=self.dtype)
             raise MlflowException(
                 f"Array types are incompatible for {self} with dtype={self.dtype} and "
@@ -667,7 +669,7 @@ class Map(BaseType):
         if not isinstance(other, Map):
             raise MlflowException(f"Can't merge map with non-map type: {type(other).__name__}")
         if isinstance(self.value_type, DataType):
-            if self.value_type == other.value_type:
+            if self.value_type == other.value_type or isinstance(other.value_type, AnyType):
                 return Map(value_type=self.value_type)
             raise MlflowException(
                 f"Map types are incompatible for {self} with value_type={self.value_type} and "
@@ -759,7 +761,7 @@ class ColSpec:
         return self._name
 
     @name.setter
-    def name(self, value: bool) -> None:
+    def name(self, value: str | None) -> None:
         self._name = value
 
     @property
@@ -1079,14 +1081,12 @@ class Schema:
             return self.inputs[0].type.to_spark()
         from pyspark.sql.types import StructField, StructType
 
-        return StructType(
-            [
-                StructField(
-                    name=col.name or str(i), dataType=col.type.to_spark(), nullable=not col.required
-                )
-                for i, col in enumerate(self.inputs)
-            ]
-        )
+        return StructType([
+            StructField(
+                name=col.name or str(i), dataType=col.type.to_spark(), nullable=not col.required
+            )
+            for i, col in enumerate(self.inputs)
+        ])
 
     def to_json(self) -> str:
         """Serialize into json string."""
@@ -1479,9 +1479,7 @@ def _convert_dataclass_to_nested_object(dataclass):
     """
     Convert a nested dataclass to an Object type used within a ColSpec.
     """
-    properties = []
-    for field_name, field_type in dataclass.__annotations__.items():
-        properties.append(_convert_field_to_property(field_name, field_type))
+    properties = [_convert_field_to_property(field.name, field.type) for field in fields(dataclass)]
     return Object(properties=properties)
 
 

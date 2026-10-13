@@ -7,11 +7,19 @@ on:
       - master
       - branch-[0-9]+.[0-9]+
   pull_request:
-    types:
-      - opened
-      - synchronize
-      - reopened
-      - ready_for_review
+    paths-ignore:
+      - "docs/**"
+      - "**.md"
+      - "dev/clint/**"
+      - ".github/workflows/copilot-*.yml"
+      - ".github/workflows/docs.yml"
+      - ".github/workflows/preview-docs.yml"
+      - ".github/workflows/triage.yml"
+      - "mlflow/server/js/**"
+      - ".github/workflows/js.yml"
+      - "libs/typescript/**"
+      - ".github/workflows/typescript.yml"
+      - ".claude/**"
   workflow_dispatch:
     inputs:
       ref:
@@ -27,10 +35,12 @@ defaults:
   run:
     shell: bash
 
+permissions: {}
+cache-mode: none
+
 jobs:
   build:
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:
       contents: read
@@ -39,34 +49,47 @@ jobs:
       matrix:
         type: ["dev", "skinny", "tracing"]
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           ref: ${{ github.event.inputs.ref }}
+          submodules: true
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
-      - uses: ./.github/actions/setup-node
+      - if: matrix.type == 'dev'
+        uses: ./.github/actions/setup-node
 
       - name: Build UI
+        if: matrix.type == 'dev'
         working-directory: mlflow/server/js
         run: |
-          yarn
+          yarn install --immutable
           yarn build
+
+      - name: Create placeholder UI
+        if: matrix.type != 'dev'
+        run: |
+          mkdir -p mlflow/server/js/build
+          echo "<html></html>" > mlflow/server/js/build/index.html
 
       - name: Install dependencies
         run: |
-          pip install build setuptools twine wheel
+          uv pip install --system build setuptools twine wheel
 
       - name: Build distribution files
         id: build-dist
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          MATRIX_TYPE: ${{ matrix.type }}
         run: |
           # if workflow_dispatch is triggered, use the specified ref
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+          if [ "$EVENT_NAME" == "workflow_dispatch" ]; then
             SHA_OPT="--sha $(git rev-parse HEAD)"
           else
             SHA_OPT=""
           fi
 
-          python dev/build.py --package-type "${{ matrix.type }}" $SHA_OPT
+          python dev/build.py --package-type "$MATRIX_TYPE" $SHA_OPT
 
           # List distribution files and check their file sizes
           ls -lh dist
@@ -82,58 +105,83 @@ jobs:
           echo "wheel-size=${wheel_size}" >> $GITHUB_OUTPUT
 
       - name: List files in source distribution
+        env:
+          SDIST_PATH: ${{ steps.build-dist.outputs.sdist-path }}
         run: |
-          tar -tf ${{ steps.build-dist.outputs.sdist-path }}
+          tar -tf $SDIST_PATH
 
       - name: List files in binary distribution
+        env:
+          WHEEL_PATH: ${{ steps.build-dist.outputs.wheel-path }}
         run: |
-          unzip -l ${{ steps.build-dist.outputs.wheel-path }}
+          unzip -l $WHEEL_PATH
 
       - name: Compare files in source and binary distributions
+        env:
+          SDIST_PATH: ${{ steps.build-dist.outputs.sdist-path }}
+          WHEEL_PATH: ${{ steps.build-dist.outputs.wheel-path }}
         run: |
-          tar -tzf ${{ steps.build-dist.outputs.sdist-path }} | grep -v '/$' | cut -d'/' -f2- | sort > /tmp/source.txt
-          zipinfo -1 ${{ steps.build-dist.outputs.wheel-path }} | sort > /tmp/wheel.txt
+          tar -tzf $SDIST_PATH | grep -v '/$' | cut -d'/' -f2- | sort > /tmp/source.txt
+          zipinfo -1 $WHEEL_PATH | sort > /tmp/wheel.txt
           diff /tmp/source.txt /tmp/wheel.txt || true
 
       - name: Run twine check
+        env:
+          WHEEL_PATH: ${{ steps.build-dist.outputs.wheel-path }}
         run: |
-          twine check --strict ${{ steps.build-dist.outputs.wheel-path }}
+          twine check --strict $WHEEL_PATH
 
       - name: Test installation from tarball
+        env:
+          SDIST_PATH: ${{ steps.build-dist.outputs.sdist-path }}
         run: |
-          pip install ${{ steps.build-dist.outputs.sdist-path }}
+          uv pip install --system $SDIST_PATH
           python -c "import mlflow; print(mlflow.__version__)"
           python -c "from mlflow import *"
 
       - name: Test installation from wheel
+        env:
+          WHEEL_PATH: ${{ steps.build-dist.outputs.wheel-path }}
         run: |
-          pip install --force-reinstall ${{ steps.build-dist.outputs.wheel-path }}
+          uv pip install --system --force-reinstall $WHEEL_PATH
           python -c "import mlflow; print(mlflow.__version__)"
           python -c "from mlflow import *"
 
       - name: Test installation from GitHub
         env:
           REPO: ${{ github.repository }}
-          REF: ${{ github.ref }}
+          MATRIX_TYPE: ${{ matrix.type }}
         run: |
-          if [ "${{ matrix.type }}" == "skinny" ]; then
-            URL="git+https://github.com/${REPO}.git@${REF}#subdirectory=libs/skinny"
-          elif [ "${{ matrix.type }}" == "tracing" ]; then
-            URL="git+https://github.com/${REPO}.git@${REF}#subdirectory=libs/tracing"
+          # Test the exact commit that was checked out and used to build the wheel.
+          REF=$(git rev-parse HEAD)
+          # A source tarball resolves the commit without fetching the repository's
+          # full history, which `uv` does for a `git+` requirement.
+          if [ "$MATRIX_TYPE" == "dev" ]; then
+            FRAGMENT=""
           else
-            URL="git+https://github.com/${REPO}.git@${REF}"
+            FRAGMENT="#subdirectory=libs/${MATRIX_TYPE}"
           fi
+          URL="https://github.com/${REPO}/archive/${REF}.tar.gz${FRAGMENT}"
 
-          uv run --isolated --no-project --with $URL python -I -c 'import mlflow; print(mlflow.__version__)'
+          for attempt in 1 2 3; do
+            if timeout -k 10 120 uv run --isolated --no-project --with "$URL" python -I -c 'import mlflow; print(mlflow.__version__)'; then
+              exit 0
+            fi
+            echo "::warning::Installation attempt ${attempt} failed or timed out"
+            [ "$attempt" -lt 3 ] && sleep 10
+          done
+          exit 1
 
       - name: Test dev/install-skinny.sh
         if: github.event_name == 'pull_request'
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          dev/install-skinny.sh pull/${{ github.event.pull_request.number }}/merge
+          dev/install-skinny.sh pull/$PR_NUMBER/merge
 
       # Anyone with read access can download the uploaded wheel on GitHub.
       - name: Upload wheel
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: github.event_name == 'workflow_dispatch'
         id: upload-wheel
         with:
@@ -144,9 +192,11 @@ jobs:
 
       - name: Generate summary
         if: github.event_name == 'workflow_dispatch'
+        env:
+          ARTIFACT_URL: ${{ steps.upload-wheel.outputs.artifact-url }}
         run: |
           echo "### Download URL" >> $GITHUB_STEP_SUMMARY
-          echo "${{ steps.upload-wheel.outputs.artifact-url }}" >> $GITHUB_STEP_SUMMARY
+          echo "$ARTIFACT_URL" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Notes" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY

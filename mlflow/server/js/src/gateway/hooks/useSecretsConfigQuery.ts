@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery } from '@databricks/web-shared/query-client';
 import { GatewayApi } from '../api';
 import { GatewayQueryKeys } from './queryKeys';
 

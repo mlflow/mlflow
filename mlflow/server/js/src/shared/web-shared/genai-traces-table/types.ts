@@ -1,8 +1,9 @@
 import type { GetTraceFunction } from './hooks/useGetTrace';
-import type { ModelTraceInfoV3, ModelTraceSpan } from '../model-trace-explorer';
+import type { ModelTraceInfoV3, ModelTraceSpan } from '../model-trace-explorer/ModelTrace.types';
 
 export type AssessmentDType = 'string' | 'numeric' | 'boolean' | 'pass-fail' | 'unknown';
 export type AssessmentType = 'AI_JUDGE' | 'HUMAN' | 'CODE';
+export type TraceTablePageSource = 'experiment-traces' | 'chat-sessions' | 'run-view-traces';
 
 // Reflects structure logged by mlflow.log_table()
 export interface RawGenaiEvaluationArtifactResponse {
@@ -118,9 +119,9 @@ export interface AssessmentAggregates {
   currentCounts?: AssessmentRunCounts;
   otherCounts?: AssessmentRunCounts;
 
-  // Numeric values for the current run and other run.
-  currentNumericValues?: number[];
-  otherNumericValues?: number[];
+  // Numeric averages for the current run and other run.
+  currentNumericAverage?: number;
+  otherNumericAverage?: number;
 
   currentNumRootCause: number;
   otherNumRootCause: number;
@@ -131,6 +132,15 @@ export interface AssessmentAggregates {
   assessmentFilters: AssessmentFilter[];
 }
 
+/**
+ * Server-side assessment count data from the trace metrics API.
+ * Each entry represents one (assessmentName, value) → count tuple.
+ */
+export interface AssessmentCountMetrics {
+  data: { assessmentName: string; assessmentValue: string; count: number }[];
+  isLoading: boolean;
+}
+
 export interface EvaluationsOverviewTableSort {
   key: string;
   type: TracesTableColumnType;
@@ -139,6 +149,7 @@ export interface EvaluationsOverviewTableSort {
 
 export interface TraceActions {
   exportToEvals?: boolean;
+  addToReviewQueue?: boolean;
   deleteTracesAction?: {
     deleteTraces?: (experimentId: string, traceIds: string[]) => Promise<any>;
     isDisabled?: boolean;
@@ -149,6 +160,11 @@ export interface TraceActions {
     showEditTagsModalForTrace: (trace: ModelTraceInfoV3) => void;
     EditTagsModal: React.ReactNode;
   };
+
+  runJudgesAction?: {
+    showRunJudgesModal: (traceIds: string[]) => void;
+    RunJudgesModal: React.ReactNode;
+  };
 }
 
 // @deprecated, use TableFilter instead
@@ -157,6 +173,9 @@ export interface AssessmentFilter {
   filterValue: AssessmentValueType;
   // Only defined when filtering on an assessment for RCA values.
   filterType?: 'rca' | undefined;
+  // Optional operator for numeric comparison filters (>, <, >=, <=).
+  // Defaults to equality (=) when not specified.
+  filterOperator?: FilterOperator;
   run: string;
 }
 export type TableFilter = {
@@ -265,6 +284,9 @@ export type RunEvaluationTracesDataEntry = {
   metrics: Record<string, RunEvaluationResultMetric>;
   retrievalChunks?: RunEvaluationTracesRetrievalChunk[];
 
+  // Issues associated with this trace (id and name)
+  issues?: { id: string; name: string }[];
+
   // NOTE(nsthorat): We will slowly migrate to this type.
   traceInfo?: ModelTraceInfoV3;
 };
@@ -297,6 +319,7 @@ export enum TracesTableColumnType {
 // This represents columns that are grouped together.
 // For example, each assessment is its own column, but they are all grouped under the "Assessments" column group.
 export enum TracesTableColumnGroup {
+  BASE = 'BASE',
   ASSESSMENT = 'ASSESSMENT',
   EXPECTATION = 'EXPECTATION',
   TAG = 'TAG',
@@ -307,8 +330,9 @@ export const TracesTableColumnGroupToLabelMap = {
   [TracesTableColumnGroup.ASSESSMENT]: 'Assessments',
   [TracesTableColumnGroup.EXPECTATION]: 'Expectations',
   [TracesTableColumnGroup.TAG]: 'Tags',
-  // We don't show a label for the info column group
-  [TracesTableColumnGroup.INFO]: '\u00A0',
+  [TracesTableColumnGroup.INFO]: 'Other Attributes',
+  // BASE is the leading section; we don't show a label band for it in the table header
+  [TracesTableColumnGroup.BASE]: '\u00A0',
 };
 
 export interface TracesTableColumn {
@@ -347,5 +371,11 @@ export type NumericAggregate = {
   min: number;
   max: number;
   maxCount: number;
+  average: number;
   counts: NumericAggregateCount[];
 };
+
+/**
+ * Required input fields that identify a dataset as multi-turn.
+ */
+export const REQUIRED_MULTITURN_INPUT_FIELDS = new Set(['goal']);

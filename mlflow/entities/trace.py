@@ -39,7 +39,13 @@ class Trace(_MlflowObject):
             self.info = self.info.to_v3(request=self.data.request, response=self.data.response)
 
     def __repr__(self) -> str:
-        return f"Trace(trace_id={self.info.trace_id})"
+        trace_id = getattr(self.info, "trace_id", None) if self.info else None
+        return f"Trace(trace_id={trace_id!r})"
+
+    @property
+    def trace_id(self) -> str:
+        """The primary identifier for the trace."""
+        return self.info.trace_id
 
     def to_dict(self) -> dict[str, Any]:
         return {"info": self.info.to_dict(), "data": self.data.to_dict()}
@@ -80,14 +86,12 @@ class Trace(_MlflowObject):
         # databricks notebooks will use the trace ID to
         # fetch the trace from the backend. including the
         # full JSON can cause notebooks to exceed size limits
-        return json.dumps(
-            {
-                "trace_id": self.info.trace_id,
-                # TODO: remove this once sql_warehouse_id
-                # is optional in the v4 tracing APIs
-                "sql_warehouse_id": MLFLOW_TRACING_SQL_WAREHOUSE_ID.get(),
-            }
-        )
+        return json.dumps({
+            "trace_id": self.info.trace_id,
+            # TODO: remove this once sql_warehouse_id
+            # is optional in the v4 tracing APIs
+            "sql_warehouse_id": MLFLOW_TRACING_SQL_WAREHOUSE_ID.get(),
+        })
 
     def _repr_mimebundle_(self, include=None, exclude=None):
         """

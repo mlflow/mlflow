@@ -86,7 +86,7 @@ export const EndpointBindingsDrawer = ({ open, endpointName, bindings, onClose }
       if (!groups.has(binding.resource_type)) {
         groups.set(binding.resource_type, []);
       }
-      groups.get(binding.resource_type)!.push(binding);
+      groups.get(binding.resource_type)?.push(binding);
     });
     return groups;
   }, [bindings]);

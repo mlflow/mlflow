@@ -3,12 +3,17 @@ description: "Set up Node"
 inputs:
   node-version:
     description: "Node version to use."
-    default: 20
+    default: "24"
     required: false
 
 runs:
   using: "composite"
   steps:
-    - uses: actions/setup-node@cdca7365b2dadb8aad0a33bc7601856ffabcc48e # v4.3.0
+    - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
       with:
         node-version: ${{ inputs.node-version }}
+    - run: |
+        # npm >= 12 blocks dependency lifecycle scripts by default unless allowed by allowScripts.
+        # https://github.com/npm/cli/releases/tag/v12.0.0
+        npm install -g npm@12.0.1
+      shell: bash

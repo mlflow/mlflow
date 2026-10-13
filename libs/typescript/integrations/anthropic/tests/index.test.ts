@@ -2,13 +2,13 @@
  * Tests for MLflow Anthropic integration with MSW mock server
  */
 
-import * as mlflow from 'mlflow-tracing';
+import * as mlflow from '@mlflow/core';
 import Anthropic from '@anthropic-ai/sdk';
 import { tracedAnthropic } from '../src';
 import { http, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
 import { anthropicMockHandlers, createStreamingErrorHandler } from './mockAnthropicServer';
-import { createAuthProvider } from 'mlflow-tracing/src/auth';
+import { createAuthProvider } from '@mlflow/core/src/auth';
 
 const TEST_TRACKING_URI = 'http://localhost:5000';
 
@@ -71,10 +71,13 @@ describe('tracedAnthropic', () => {
     expect(typeof tokenUsage?.input_tokens).toBe('number');
     expect(typeof tokenUsage?.output_tokens).toBe('number');
     expect(typeof tokenUsage?.total_tokens).toBe('number');
+    expect(tokenUsage?.cache_read_input_tokens).toBe(64);
+    expect(tokenUsage?.cache_creation_input_tokens).toBe(32);
 
     const span = trace.data.spans[0];
     expect(span.name).toBe('Messages');
     expect(span.spanType).toBe(mlflow.SpanType.LLM);
+    expect(span.logLevel).toBe(mlflow.SpanLogLevel.INFO);
     expect(span.status.statusCode).toBe(mlflow.SpanStatusCode.OK);
     expect(span.inputs).toEqual({
       model: 'claude-3-7-sonnet-20250219',

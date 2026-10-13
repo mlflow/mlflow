@@ -3,12 +3,18 @@ import { useState } from 'react';
 import { Alert, Modal, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 
+import { useModelTraceExplorerRunJudgesContext } from '../contexts/RunJudgesContext';
 import { CodeSnippetRenderMode, type AssessmentError } from '../ModelTrace.types';
 import { ModelTraceExplorerCodeSnippet } from '../ModelTraceExplorerCodeSnippet';
 
 export const FeedbackErrorItem = ({ error }: { error: AssessmentError }) => {
   const { theme } = useDesignSystemTheme();
   const [isModalVisible, setIsModalVisible] = useState(false);
+  const { formatErrorMessage } = useModelTraceExplorerRunJudgesContext();
+
+  // Prefer a feature-provided, user-facing message (e.g. "rewrite without {{ trace }}") over the
+  // raw backend detail. The raw text and stack trace remain available via "View stack trace".
+  const friendlyMessage = error.error_message ? formatErrorMessage?.(error.error_message) : null;
 
   return (
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
@@ -18,8 +24,8 @@ export const FeedbackErrorItem = ({ error }: { error: AssessmentError }) => {
         message={error.error_code}
         componentId="shared.model-trace-explorer.feedback-error-item"
         description={
-          <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
-            <span>{error.error_message}</span>
+          <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs, overflowWrap: 'anywhere' }}>
+            <span>{friendlyMessage ?? error.error_message}</span>
             {error.stack_trace && (
               <Typography.Link
                 componentId="shared.model-trace-explorer.feedback-error-item-stack-trace-link"
@@ -44,6 +50,7 @@ export const FeedbackErrorItem = ({ error }: { error: AssessmentError }) => {
           }
           visible={isModalVisible}
           componentId="shared.model-trace-explorer.feedback-error-stack-trace-modal"
+          size="wide"
           footer={null}
           onCancel={() => setIsModalVisible(false)}
         >
@@ -51,6 +58,7 @@ export const FeedbackErrorItem = ({ error }: { error: AssessmentError }) => {
             data={JSON.stringify(error.stack_trace)}
             title=""
             initialRenderMode={CodeSnippetRenderMode.TEXT}
+            initialExpanded
           />
         </Modal>
       )}

@@ -1,8 +1,10 @@
 import { compact, isNil } from 'lodash';
 import { useCallback } from 'react';
 
-import { isV3ModelTraceInfo, type ModelTrace, useArrayMemo } from '@databricks/web-shared/model-trace-explorer';
-import { useQueries, useQueryClient } from '@databricks/web-shared/query-client';
+import { isV3ModelTraceInfo } from '../../model-trace-explorer/ModelTraceExplorer.utils';
+import type { ModelTrace } from '../../model-trace-explorer/ModelTrace.types';
+import { useArrayMemo } from '../../model-trace-explorer/hooks/useArrayMemo';
+import { useQueries, useQueryClient } from '../../query-client/queryClient';
 
 export type GetTraceFunction = (traceId?: string, traceInfo?: ModelTrace['info']) => Promise<ModelTrace | undefined>;
 

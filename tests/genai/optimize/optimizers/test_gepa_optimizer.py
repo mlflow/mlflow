@@ -435,7 +435,7 @@ def test_make_reflective_dataset_with_traces(
     system_data = result["system_prompt"]
     assert len(system_data) == 2
     assert system_data[0]["component_name"] == "system_prompt"
-    assert system_data[0]["current_text"] == "You are helpful"
+    assert all("current_text" not in record for record in system_data)
     assert system_data[0]["score"] == 0.9
     assert system_data[0]["inputs"] == {"question": "What is 2+2?"}
     assert system_data[0]["outputs"] == "4"
@@ -541,9 +541,11 @@ def test_gepa_optimizer_logs_prompt_candidates(
 
                 def capture_artifact(path, artifact_path=None):
                     with open(path) as f:
-                        logged_artifacts.append(
-                            {"path": str(path), "artifact_path": artifact_path, "content": f.read()}
-                        )
+                        logged_artifacts.append({
+                            "path": str(path),
+                            "artifact_path": artifact_path,
+                            "content": f.read(),
+                        })
 
                 def capture_table(data, artifact_file):
                     logged_tables.append({"data": data, "artifact_file": artifact_file})

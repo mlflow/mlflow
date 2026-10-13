@@ -12,6 +12,7 @@ from mlflow.environment_variables import (
 from mlflow.tracing.constant import TRACE_RENDERER_ASSET_PATH
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
 from mlflow.utils.uri import is_http_uri
+from mlflow.utils.workspace_context import get_request_workspace
 
 _logger = logging.getLogger(__name__)
 
@@ -57,9 +58,19 @@ IFRAME_HTML = """
 
 
 def get_notebook_iframe_html(traces: list["Trace"]):
+    """Build notebook iframe HTML for rendering traces from an HTTP tracking server.
+
+    Callers must only invoke this when the effective base URL is HTTP(S):
+    ``MLFLOW_NOTEBOOK_TRACE_RENDERER_BASE_URL`` if set, otherwise the tracking
+    URI (see ``is_using_tracking_server`` for the tracking-URI check). Non-HTTP
+    URIs such as ``sqlite:///`` cannot serve the renderer assets.
+    """
     # fetch assets from tracking server
     base_url = MLFLOW_NOTEBOOK_TRACE_RENDERER_BASE_URL.get() or mlflow.get_tracking_uri()
-    uri = urljoin(base_url, f"{TRACE_RENDERER_ASSET_PATH}/index.html")
+    # Treat the configured base URL as a server root, not a file path, so
+    # subpath deployments like `https://host/mlflow/` preserve their prefix.
+    normalized_base_url = base_url if base_url.endswith("/") else f"{base_url}/"
+    uri = urljoin(normalized_base_url, f"{TRACE_RENDERER_ASSET_PATH.lstrip('/')}/index.html")
     query_string = _get_query_string_for_traces(traces)
 
     # include mlflow version to invalidate browser cache when mlflow updates
@@ -83,6 +94,9 @@ def _get_query_string_for_traces(traces: list["Trace"]):
     for trace in traces:
         query_params.append(("trace_id", trace.info.request_id))
         query_params.append(("experiment_id", trace.info.experiment_id))
+
+    if workspace := get_request_workspace():
+        query_params.append(("workspace", workspace))
 
     return urlencode(query_params)
 
@@ -180,7 +194,7 @@ class IPythonTraceDisplayHandler:
             bundle = {"text/plain": repr(traces)}
             if is_in_databricks_runtime():
                 bundle["application/databricks.mlflow.trace"] = _serialize_trace_list(traces)
-            else:
+            elif is_using_tracking_server():
                 bundle["text/html"] = get_notebook_iframe_html(traces)
             return bundle
 

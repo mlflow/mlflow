@@ -1,7 +1,9 @@
 import json
+import logging
 from unittest import mock
 from unittest.mock import Mock, patch
 
+import litellm
 import pytest
 from opentelemetry import trace as trace_api
 from pydantic import ValidationError
@@ -25,8 +27,10 @@ from mlflow.tracing.utils import (
     _calculate_percentile,
     aggregate_cost_from_spans,
     aggregate_usage_from_spans,
+    calculate_cost_by_model_and_token_usage,
     capture_function_input_args,
     construct_full_inputs,
+    dump_span_attribute_value,
     encode_span_id,
     encode_trace_id,
     generate_trace_id_v4,
@@ -35,7 +39,9 @@ from mlflow.tracing.utils import (
     get_otel_attribute,
     maybe_get_request_id,
     parse_trace_id_v4,
+    should_compute_cost_client_side,
 )
+from mlflow.version import IS_TRACING_SDK_ONLY
 
 from tests.tracing.helper import create_mock_otel_span
 
@@ -47,6 +53,18 @@ def test_capture_function_input_args_does_not_raise():
 
     assert args is None
     assert mock_input_args.call_count > 0
+
+
+def test_capture_function_input_args_excludes_falsy_self():
+    class Queue:
+        def __len__(self):
+            return 0
+
+        def push(self, item):
+            pass
+
+    queue = Queue()
+    assert capture_function_input_args(Queue.push, (queue, "a"), {}) == {"item": "a"}
 
 
 def test_duplicate_span_names():
@@ -146,6 +164,175 @@ def test_aggregate_usage_from_spans_skips_descendant_usage():
         TokenUsageKey.OUTPUT_TOKENS: 26,
         TokenUsageKey.TOTAL_TOKENS: 39,
     }
+
+
+def _deep_chain(spans, start_id, length, parent_id, name):
+    # Append a chain of `length` spans (no usage) under `parent_id`, returning the id of
+    # the deepest span. Used to push traversal past the recursion limit.
+    for i in range(length):
+        span_id = start_id + i
+        spans.append(
+            LiveSpan(
+                create_mock_otel_span(
+                    "trace_id", span_id=span_id, name=f"{name}_{i}", parent_id=parent_id
+                ),
+                trace_id="tr-123",
+            )
+        )
+        parent_id = span_id
+    return parent_id
+
+
+def test_aggregate_usage_from_spans_deep_tree_aggregates_leaves():
+    # A deep backbone (no usage) that exceeds the recursion limit, ending in a fan of
+    # sibling leaves that each carry usage. None of the leaves is an ancestor of another,
+    # so aggregation must SUM all of them — the fix must survive the depth AND still
+    # aggregate. Regression test for #24344.
+    spans = [LiveSpan(create_mock_otel_span("trace_id", span_id=1, name="root"), trace_id="tr-123")]
+    deepest = _deep_chain(spans, start_id=2, length=1100, parent_id=1, name="backbone")
+
+    num_leaves = 5
+    for j in range(num_leaves):
+        leaf = LiveSpan(
+            create_mock_otel_span(
+                "trace_id", span_id=10_000 + j, name=f"leaf_{j}", parent_id=deepest
+            ),
+            trace_id="tr-123",
+        )
+        leaf.set_attribute(
+            SpanAttributeKey.CHAT_USAGE,
+            {
+                TokenUsageKey.INPUT_TOKENS: 2,
+                TokenUsageKey.OUTPUT_TOKENS: 3,
+                TokenUsageKey.TOTAL_TOKENS: 5,
+            },
+        )
+        spans.append(leaf)
+
+    # All 5 sibling leaves are summed: 5 * {2, 3, 5}.
+    assert aggregate_usage_from_spans(spans) == {
+        TokenUsageKey.INPUT_TOKENS: 10,
+        TokenUsageKey.OUTPUT_TOKENS: 15,
+        TokenUsageKey.TOTAL_TOKENS: 25,
+    }
+
+
+def test_aggregate_usage_from_spans_deep_tree_sums_and_skips_descendants():
+    # A deep tree where usage lives on two independent branches (both counted and summed)
+    # and also on a descendant of a data-bearing span (skipped). Verifies that both real
+    # summation AND the anti-double-counting invariant survive past the recursion limit.
+    spans = [LiveSpan(create_mock_otel_span("trace_id", span_id=1, name="root"), trace_id="tr-123")]
+
+    # Branch 1: a deep chain off the root. Its top node carries usage (counted); its
+    # deepest node also carries usage (a descendant of the top -> must be skipped).
+    _deep_chain(spans, start_id=100, length=1100, parent_id=1, name="b1")
+    branch1_top = spans[1]  # first span appended by the chain, child of root
+    branch1_top.set_attribute(
+        SpanAttributeKey.CHAT_USAGE,
+        {
+            TokenUsageKey.INPUT_TOKENS: 100,
+            TokenUsageKey.OUTPUT_TOKENS: 200,
+            TokenUsageKey.TOTAL_TOKENS: 300,
+        },
+    )
+    spans[-1].set_attribute(
+        SpanAttributeKey.CHAT_USAGE,
+        {
+            TokenUsageKey.INPUT_TOKENS: 999,
+            TokenUsageKey.OUTPUT_TOKENS: 999,
+            TokenUsageKey.TOTAL_TOKENS: 999,
+        },
+    )
+
+    # Branch 2: an independent node off the root (not a descendant of branch 1) -> counted.
+    branch2 = LiveSpan(
+        create_mock_otel_span("trace_id", span_id=5000, name="b2", parent_id=1),
+        trace_id="tr-123",
+    )
+    branch2.set_attribute(
+        SpanAttributeKey.CHAT_USAGE,
+        {
+            TokenUsageKey.INPUT_TOKENS: 1,
+            TokenUsageKey.OUTPUT_TOKENS: 2,
+            TokenUsageKey.TOTAL_TOKENS: 3,
+        },
+    )
+    spans.append(branch2)
+
+    # branch1_top (100/200/300) + branch2 (1/2/3); the deep descendant of branch1 is skipped.
+    assert aggregate_usage_from_spans(spans) == {
+        TokenUsageKey.INPUT_TOKENS: 101,
+        TokenUsageKey.OUTPUT_TOKENS: 202,
+        TokenUsageKey.TOTAL_TOKENS: 303,
+    }
+
+
+def test_aggregate_usage_from_spans_with_cached_tokens():
+    spans = [
+        LiveSpan(create_mock_otel_span("trace_id", span_id=i, name=f"span_{i}"), trace_id="tr-123")
+        for i in range(3)
+    ]
+    spans[0].set_attribute(
+        SpanAttributeKey.CHAT_USAGE,
+        {
+            TokenUsageKey.INPUT_TOKENS: 100,
+            TokenUsageKey.OUTPUT_TOKENS: 50,
+            TokenUsageKey.TOTAL_TOKENS: 150,
+            TokenUsageKey.CACHE_READ_INPUT_TOKENS: 80,
+        },
+    )
+    spans[1].set_attribute(
+        SpanAttributeKey.CHAT_USAGE,
+        {
+            TokenUsageKey.INPUT_TOKENS: 200,
+            TokenUsageKey.OUTPUT_TOKENS: 100,
+            TokenUsageKey.TOTAL_TOKENS: 300,
+            TokenUsageKey.CACHE_READ_INPUT_TOKENS: 120,
+            TokenUsageKey.CACHE_CREATION_INPUT_TOKENS: 50,
+        },
+    )
+    # span without cached tokens
+    spans[2].set_attribute(
+        SpanAttributeKey.CHAT_USAGE,
+        {
+            TokenUsageKey.INPUT_TOKENS: 10,
+            TokenUsageKey.OUTPUT_TOKENS: 5,
+            TokenUsageKey.TOTAL_TOKENS: 15,
+        },
+    )
+
+    usage = aggregate_usage_from_spans(spans)
+    assert usage == {
+        TokenUsageKey.INPUT_TOKENS: 310,
+        TokenUsageKey.OUTPUT_TOKENS: 155,
+        TokenUsageKey.TOTAL_TOKENS: 465,
+        TokenUsageKey.CACHE_READ_INPUT_TOKENS: 200,
+        TokenUsageKey.CACHE_CREATION_INPUT_TOKENS: 50,
+    }
+
+
+def test_aggregate_usage_from_spans_without_cached_tokens_omits_keys():
+    spans = [
+        LiveSpan(create_mock_otel_span("trace_id", span_id=0, name="span_0"), trace_id="tr-123")
+    ]
+    spans[0].set_attribute(
+        SpanAttributeKey.CHAT_USAGE,
+        {
+            TokenUsageKey.INPUT_TOKENS: 10,
+            TokenUsageKey.OUTPUT_TOKENS: 5,
+            TokenUsageKey.TOTAL_TOKENS: 15,
+        },
+    )
+
+    usage = aggregate_usage_from_spans(spans)
+    assert usage == {
+        TokenUsageKey.INPUT_TOKENS: 10,
+        TokenUsageKey.OUTPUT_TOKENS: 5,
+        TokenUsageKey.TOTAL_TOKENS: 15,
+    }
+    # Cached keys should not be present
+    assert TokenUsageKey.CACHE_READ_INPUT_TOKENS not in usage
+    assert TokenUsageKey.CACHE_CREATION_INPUT_TOKENS not in usage
 
 
 def test_aggregate_cost_from_spans():
@@ -511,6 +698,119 @@ def test_get_spans_table_name_for_trace_no_destination():
         assert result is None
 
 
+@pytest.mark.parametrize(
+    ("tracking_uri", "expected"),
+    [
+        ("databricks", True),
+        ("arn:aws:sagemaker:us-east-1:123456789012:mlflow-tracking-server/my-server", True),
+        ("arn:aws:sagemaker:us-east-1:123456789012:endpoint/my-endpoint", False),
+        ("sagemaker:/us-east-1", False),
+        ("https://tracking.example.com", False),
+    ],
+)
+def test_should_compute_cost_client_side(tracking_uri, expected):
+    with mock.patch(
+        "mlflow.tracking._tracking_service.utils.get_tracking_uri", return_value=tracking_uri
+    ):
+        assert should_compute_cost_client_side() is expected
+
+
+@pytest.mark.skipif(IS_TRACING_SDK_ONLY, reason="mock_litellm_cost requires litellm")
+def test_sagemaker_cost_computed_when_span_ends(mock_litellm_cost):
+    span = LiveSpan(create_mock_otel_span(123, 456), trace_id="tr-123", span_type=SpanType.LLM)
+    span.set_attribute(SpanAttributeKey.MODEL, "gpt-5")
+    span.set_attribute(
+        SpanAttributeKey.CHAT_USAGE,
+        {TokenUsageKey.INPUT_TOKENS: 100, TokenUsageKey.OUTPUT_TOKENS: 50},
+    )
+
+    with mock.patch(
+        "mlflow.tracking._tracking_service.utils.get_tracking_uri",
+        return_value="arn:aws:sagemaker:us-east-1:123456789012:mlflow-tracking-server/my-server",
+    ):
+        span.end()
+
+    assert span.get_attribute(SpanAttributeKey.LLM_COST) == {
+        CostKey.INPUT_COST: 100.0,
+        CostKey.OUTPUT_COST: 100.0,
+        CostKey.TOTAL_COST: 200.0,
+    }
+
+
+@pytest.mark.skipif(IS_TRACING_SDK_ONLY, reason="mock_litellm_cost requires litellm")
+@pytest.mark.parametrize(
+    "manual_cost",
+    [
+        None,
+        {
+            CostKey.INPUT_COST: 0.01,
+            CostKey.OUTPUT_COST: 0.02,
+            CostKey.TOTAL_COST: 0.03,
+        },
+    ],
+)
+def test_sagemaker_preserves_manual_cost_when_span_ends(mock_litellm_cost, manual_cost):
+    span = LiveSpan(create_mock_otel_span(123, 456), trace_id="tr-123", span_type=SpanType.LLM)
+    span.set_attribute(SpanAttributeKey.MODEL, "gpt-5")
+    span.set_attribute(
+        SpanAttributeKey.CHAT_USAGE,
+        {TokenUsageKey.INPUT_TOKENS: 100, TokenUsageKey.OUTPUT_TOKENS: 50},
+    )
+    span.set_attribute(SpanAttributeKey.LLM_COST, manual_cost)
+
+    with mock.patch(
+        "mlflow.tracking._tracking_service.utils.get_tracking_uri",
+        return_value="arn:aws:sagemaker:us-east-1:123456789012:mlflow-tracking-server/my-server",
+    ):
+        span.end()
+
+    assert SpanAttributeKey.LLM_COST in span._span.attributes
+    assert span.get_attribute(SpanAttributeKey.LLM_COST) == manual_cost
+    mock_litellm_cost.assert_not_called()
+
+
+@pytest.mark.skipif(IS_TRACING_SDK_ONLY, reason="mock_litellm_cost cannot affect server-side cost")
+@pytest.mark.parametrize("is_databricks", [True, False])
+def test_cost_not_computed_client_side(is_databricks, mock_litellm_cost):
+    # Mock should_compute_cost_client_side in the span module (where it's bound at import time)
+    # rather than is_databricks_uri. Mocking is_databricks_uri captures the reference in
+    # mlflow_v3.py during lazy import and causes _export_spans_incrementally to skip spans.
+    with (
+        mock.patch(
+            "mlflow.entities.span.should_compute_cost_client_side", return_value=is_databricks
+        ),
+        mock.patch(
+            "mlflow.tracing.processor.base_mlflow.should_compute_cost_client_side",
+            return_value=is_databricks,
+        ),
+        mock.patch(
+            "mlflow.entities.span.set_span_cost_attribute", wraps=lambda span: None
+        ) as mock_set_cost,
+    ):
+        with mlflow.start_span(name="llm_span") as span:
+            span.set_attribute(SpanAttributeKey.MODEL, "gpt-5")
+            span.set_attribute(
+                SpanAttributeKey.CHAT_USAGE,
+                {
+                    TokenUsageKey.INPUT_TOKENS: 100,
+                    TokenUsageKey.OUTPUT_TOKENS: 50,
+                    TokenUsageKey.TOTAL_TOKENS: 150,
+                },
+            )
+        # Cost should be computed at server side if not in Databricks
+        if is_databricks:
+            mock_set_cost.assert_called_once()
+        else:
+            mock_set_cost.assert_not_called()
+
+    trace = mlflow.get_trace(trace_id=span.trace_id, flush=True)
+    # cost should be set
+    assert trace.info.cost is not None
+    assert CostKey.INPUT_COST in trace.info.cost
+    assert CostKey.OUTPUT_COST in trace.info.cost
+    assert CostKey.TOTAL_COST in trace.info.cost
+
+
 def test_generate_trace_id_v4_from_otel_trace_id():
     otel_trace_id = 0x12345678901234567890123456789012
     location = "catalog.schema"
@@ -528,3 +828,209 @@ def test_generate_trace_id_v4_from_otel_trace_id():
     parsed_location, parsed_id = parse_trace_id_v4(result)
     assert parsed_location == location
     assert parsed_id == expected_hex_id
+
+
+def test_builtin_cost_fallback_when_litellm_unavailable():
+    with mock.patch.dict("sys.modules", {"litellm": None}):
+        result = calculate_cost_by_model_and_token_usage(
+            "gpt-4o", {"input_tokens": 1000, "output_tokens": 500}
+        )
+    assert result is not None
+    assert result["input_cost"] == pytest.approx(0.0025)
+    assert result["output_cost"] == pytest.approx(0.005)
+    assert result["total_cost"] == pytest.approx(0.0075)
+
+
+def test_builtin_cost_fallback_for_typesafe_preview_model():
+    with mock.patch.dict("sys.modules", {"litellm": None}):
+        result = calculate_cost_by_model_and_token_usage(
+            "jev-preview",
+            {"input_tokens": 1_000_000, "output_tokens": 0},
+            model_provider="typesafe",
+        )
+    assert result == {
+        "input_cost": pytest.approx(0.042),
+        "output_cost": 0,
+        "total_cost": pytest.approx(0.042),
+    }
+
+
+def test_builtin_cost_fallback_returns_none_for_unknown_model():
+    with mock.patch.dict("sys.modules", {"litellm": None}):
+        result = calculate_cost_by_model_and_token_usage(
+            "unknown-model", {"input_tokens": 100, "output_tokens": 50}
+        )
+    assert result is None
+
+
+def test_builtin_cost_fallback_with_cache_tokens():
+    with mock.patch.dict("sys.modules", {"litellm": None}):
+        result = calculate_cost_by_model_and_token_usage(
+            "gpt-4o",
+            {
+                "input_tokens": 1000,
+                "output_tokens": 500,
+                "cache_read_input_tokens": 200,
+            },
+        )
+    assert result is not None
+    assert result["input_cost"] == pytest.approx(0.00225)
+
+
+def test_builtin_cost_prices_1hr_cache_creation_higher():
+    # claude-haiku-4-5 publishes a 1-hour cache-creation rate higher than the 5-minute rate,
+    # so pricing part of the cache-creation tokens at the 1-hour rate raises the input cost.
+    model = "claude-haiku-4-5"
+    base_usage = {
+        "input_tokens": 1000,
+        "output_tokens": 100,
+        "cache_creation_input_tokens": 300,
+    }
+    with mock.patch.dict("sys.modules", {"litellm": None}):
+        without_1hr = calculate_cost_by_model_and_token_usage(
+            model, base_usage, model_provider="anthropic"
+        )
+        with_1hr = calculate_cost_by_model_and_token_usage(
+            model,
+            {**base_usage, "cache_creation_input_tokens_above_1hr": 300},
+            model_provider="anthropic",
+        )
+    assert without_1hr is not None
+    assert with_1hr is not None
+    assert with_1hr["input_cost"] > without_1hr["input_cost"]
+
+
+def test_1hr_cache_creation_not_forwarded_to_litellm(mock_litellm_cost):
+    if mock_litellm_cost is None:
+        pytest.skip("litellm is not installed")
+    usage = {
+        "input_tokens": 1000,
+        "output_tokens": 500,
+        "cache_creation_input_tokens": 300,
+        "cache_creation_input_tokens_above_1hr": 100,
+    }
+    calculate_cost_by_model_and_token_usage("gpt-4o", usage)
+    mock_litellm_cost.assert_called()
+    # litellm's cost_per_token does not accept the MLflow-specific 1-hour breakdown kwarg.
+    assert all(
+        "cache_creation_input_tokens_above_1hr" not in call.kwargs
+        for call in mock_litellm_cost.call_args_list
+    )
+
+
+def test_builtin_cost_fallback_with_provider():
+    with mock.patch.dict("sys.modules", {"litellm": None}):
+        result = calculate_cost_by_model_and_token_usage(
+            "gpt-4o",
+            {"input_tokens": 1000, "output_tokens": 500},
+            model_provider="openai",
+        )
+    assert result is not None
+    assert result["total_cost"] == pytest.approx(0.0075)
+
+
+@pytest.mark.parametrize("model_provider", ["OpenAI", "OPENAI", "openai"])
+def test_builtin_cost_fallback_with_provider_case_insensitive(model_provider):
+    with mock.patch.dict("sys.modules", {"litellm": None}):
+        result = calculate_cost_by_model_and_token_usage(
+            "gpt-4o",
+            {"input_tokens": 1000, "output_tokens": 500},
+            model_provider=model_provider,
+        )
+    assert result is not None
+    assert result["total_cost"] == pytest.approx(0.0075)
+
+
+@pytest.mark.parametrize("model_name", ["gateway:/my-endpoint", "endpoints:/my-endpoint"])
+def test_cost_skipped_for_internal_routing_uris(model_name):
+    result = calculate_cost_by_model_and_token_usage(
+        model_name, {"input_tokens": 1000, "output_tokens": 500}
+    )
+    assert result is None
+
+
+def test_litellm_provider_list_not_printed_during_cost_calculation(capsys):
+    litellm.suppress_debug_info = False
+
+    calculate_cost_by_model_and_token_usage(
+        model_name="unknown-model",
+        usage={TokenUsageKey.INPUT_TOKENS: 10, TokenUsageKey.OUTPUT_TOKENS: 5},
+    )
+
+    captured = capsys.readouterr()
+    assert "Provider List" not in captured.out
+    assert litellm.suppress_debug_info is False
+
+
+def test_litellm_provider_list_printed_when_debug_logging(capsys):
+    litellm.suppress_debug_info = True
+
+    _logger = logging.getLogger("mlflow.tracing.utils")
+    original_level = _logger.level
+    _logger.setLevel(logging.DEBUG)
+    try:
+        calculate_cost_by_model_and_token_usage(
+            model_name="unknown-model",
+            usage={TokenUsageKey.INPUT_TOKENS: 10, TokenUsageKey.OUTPUT_TOKENS: 5},
+        )
+    finally:
+        _logger.setLevel(original_level)
+
+    captured = capsys.readouterr()
+    assert "Provider List" in captured.out
+    assert litellm.suppress_debug_info is True
+
+
+def test_dump_span_attribute_value_handles_circular_reference():
+    cyclic = {"name": "run_context"}
+    cyclic["self"] = cyclic
+
+    with pytest.raises(ValueError, match="Circular reference detected"):
+        json.dumps(cyclic)
+
+    # Must not raise; fall back result is a valid JSON string containing repr(value).
+    result = dump_span_attribute_value(cyclic)
+    loaded = json.loads(result)
+    assert isinstance(loaded, str)
+    assert "run_context" in loaded
+
+
+def test_dump_span_attribute_value_handles_type_error():
+    value = {frozenset({"listener"}): "handler"}
+
+    with pytest.raises(TypeError, match="frozenset"):
+        json.dumps(value)
+
+    result = dump_span_attribute_value(value)
+
+    # Must not raise; fall back result is a valid JSON string containing repr(value).
+    assert result == json.dumps(repr(value), ensure_ascii=False)
+
+
+@pytest.mark.parametrize(
+    ("model_name", "model_provider", "expected_provider"),
+    [
+        ("databricks-claude-opus-4-8", None, "databricks"),
+        ("databricks/databricks-claude-opus-4-8", None, "databricks"),
+        ("databricks-claude-opus-4-8", "databricks", "databricks"),
+        ("gpt-4o", None, None),
+    ],
+)
+def test_cost_calculation_uses_expected_provider(model_name, model_provider, expected_provider):
+    with mock.patch("litellm.cost_per_token", wraps=litellm.cost_per_token) as cost_per_token:
+        result = calculate_cost_by_model_and_token_usage(
+            model_name,
+            {TokenUsageKey.INPUT_TOKENS: 1_000, TokenUsageKey.OUTPUT_TOKENS: 500},
+            model_provider,
+        )
+
+    kwargs = {
+        "model": model_name,
+        "prompt_tokens": 1_000,
+        "completion_tokens": 500,
+    }
+    if expected_provider:
+        kwargs["custom_llm_provider"] = expected_provider
+    cost_per_token.assert_called_once_with(**kwargs)
+    assert result is not None
+    assert result[CostKey.TOTAL_COST] > 0

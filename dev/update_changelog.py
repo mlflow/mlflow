@@ -64,12 +64,10 @@ class Section(NamedTuple):
     def __str__(self) -> str:
         if not self.items:
             return ""
-        return "\n\n".join(
-            [
-                self.title,
-                "\n".join(f"- {item}" for item in self.items),
-            ]
-        )
+        return "\n\n".join([
+            self.title,
+            "\n".join(f"- {item}" for item in self.items),
+        ])
 
 
 def is_shallow() -> bool:
@@ -135,7 +133,7 @@ def _fetch_pr_chunk_graphql(pr_numbers: list[int]) -> list[PullRequest]:
 
     # Headers with authentication
     headers = {"Content-Type": "application/json"}
-    if token := os.getenv("GH_TOKEN"):
+    if token := os.environ.get("GH_TOKEN"):
         headers["Authorization"] = f"Bearer {token}"
     print(f"Batch fetching {len(pr_numbers)} PRs with GraphQL...")
     resp = requests.post(
@@ -149,7 +147,18 @@ def _fetch_pr_chunk_graphql(pr_numbers: list[int]) -> list[PullRequest]:
     resp.raise_for_status()
     data = resp.json()
     if "errors" in data:
-        raise Exception(f"GraphQL errors: {data['errors']}")
+        # A NOT_FOUND error is returned when a referenced number is an issue rather
+        # than a PR (e.g. an issue number in a commit message). GitHub still returns
+        # the remaining PRs in the same response, so skip those with a warning and
+        # only raise on genuinely unexpected errors.
+        if fatal_errors := [e for e in data["errors"] if e.get("type") != "NOT_FOUND"]:
+            raise Exception(f"GraphQL errors: {fatal_errors}")
+        for error in data["errors"]:
+            path = ".".join(str(p) for p in error.get("path", []))
+            print(
+                f"Warning: skipping unresolved reference [{path}]: "
+                f"{error.get('message', 'Unknown error')}"
+            )
 
     # Extract PR data from response and create PullRequest objects
     repository_data = data["data"]["repository"]
@@ -176,9 +185,12 @@ def main(prev_version: str, release_version: str, remote: str) -> None:
         print("Unshallowing repository to ensure `git log` works correctly")
         subprocess.check_call(["git", "fetch", "--unshallow"])
         print("Modifying .git/config to fetch remote branches")
-        subprocess.check_call(
-            ["git", "config", "remote.origin.fetch", "+refs/heads/*:refs/remotes/origin/*"]
-        )
+        subprocess.check_call([
+            "git",
+            "config",
+            "remote.origin.fetch",
+            "+refs/heads/*:refs/remotes/origin/*",
+        ])
     release_tag = f"v{prev_version}"
     ver = Version(release_version)
     branch = f"branch-{ver.major}.{ver.minor}"
@@ -259,22 +271,19 @@ def main(prev_version: str, release_version: str, remote: str) -> None:
         if (s := str(sec).strip())
     ]
     new_changelog = "\n\n".join(sections)
-
-    # Write to version-specific file in changelogs directory
-    changelogs_dir = Path("changelogs")
-    changelogs_dir.mkdir(exist_ok=True)
-    version_changelog = changelogs_dir / f"v{release_version}.md"
-
-    if version_changelog.exists():
-        print(f"Warning: {version_changelog} already exists and will be overwritten")
-
-    version_changelog.write_text(new_changelog + "\n")
+    changelog_header = "# CHANGELOG"
+    changelog = Path("CHANGELOG.md")
+    old_changelog = changelog.read_text().replace(f"{changelog_header}\n\n", "", 1)
+    new_changelog = "\n\n".join([
+        changelog_header,
+        new_changelog,
+        old_changelog,
+    ])
+    changelog.write_text(new_changelog)
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Generate version-specific changelog in changelogs directory"
-    )
+    parser = argparse.ArgumentParser(description="Update CHANGELOG.md")
     parser.add_argument("--prev-version", required=True, help="Previous version")
     parser.add_argument("--release-version", required=True, help="MLflow version to release")
     parser.add_argument("--remote", default="origin", help="Git remote to use (default: origin)")

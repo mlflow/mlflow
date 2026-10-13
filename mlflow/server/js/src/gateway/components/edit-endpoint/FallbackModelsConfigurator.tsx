@@ -1,24 +1,23 @@
 import { useCallback } from 'react';
-import { Button, useDesignSystemTheme, PlusIcon } from '@databricks/design-system';
+import { Button } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import type { FallbackModel } from '../../hooks/useEditEndpointForm';
+import { ConnectorLine, FallbackConnectorLine } from './FallbackConnectorLine';
 import { FallbackModelItem } from './FallbackModelItem';
 
 export interface FallbackModelsConfiguratorProps {
   value: FallbackModel[];
   onChange: (value: FallbackModel[]) => void;
-  componentIdPrefix?: string;
+  componentId?: string;
 }
 
 export const FallbackModelsConfigurator = ({
   value,
   onChange,
-  componentIdPrefix = 'mlflow.gateway.fallback',
+  componentId = 'mlflow.gateway.fallback',
 }: FallbackModelsConfiguratorProps) => {
-  const { theme } = useDesignSystemTheme();
-
   const handleAddModel = useCallback(() => {
     const nextOrder = value.length > 0 ? Math.max(...value.map((m) => m.fallbackOrder)) + 1 : 1;
 
@@ -80,20 +79,37 @@ export const FallbackModelsConfigurator = ({
 
   return (
     <DndProvider backend={HTML5Backend}>
-      <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
+      <div css={{ display: 'flex', flexDirection: 'column' }}>
+        {/* Connector between primary model section and fallback section */}
+        {value.length > 0 ? (
+          <FallbackConnectorLine />
+        ) : (
+          <div css={{ display: 'flex', justifyContent: 'center' }}>
+            <ConnectorLine />
+          </div>
+        )}
+
         {value.map((model, index) => (
-          <FallbackModelItem
-            key={index}
-            model={model}
-            index={index}
-            onModelChange={handleModelChange}
-            onRemove={handleRemoveModel}
-            onMove={handleMoveModel}
-            componentIdPrefix={componentIdPrefix}
-          />
+          <div key={index}>
+            {index > 0 && <FallbackConnectorLine />}
+            <FallbackModelItem
+              model={model}
+              index={index}
+              onModelChange={handleModelChange}
+              onRemove={handleRemoveModel}
+              onMove={handleMoveModel}
+              componentId={componentId}
+            />
+          </div>
         ))}
 
-        <Button componentId={`${componentIdPrefix}.add`} icon={<PlusIcon />} onClick={handleAddModel}>
+        {value.length > 0 && (
+          <div css={{ display: 'flex', justifyContent: 'center' }}>
+            <ConnectorLine />
+          </div>
+        )}
+
+        <Button componentId={`${componentId}.add`} onClick={handleAddModel} css={{ alignSelf: 'center' }}>
           <FormattedMessage defaultMessage="Add fallback" description="Button to add fallback model" />
         </Button>
       </div>

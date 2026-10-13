@@ -11,6 +11,7 @@ import joblib
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import polars as pl
 import pytest
 import sklearn
 import sklearn.base
@@ -167,21 +168,24 @@ def test_autolog_throws_error_with_negative_max_tuning_runs():
 
 
 @pytest.mark.parametrize(
-    ("max_tuning_runs", "total_runs", "output_statement"),
+    ("max_tuning_runs", "total_runs", "logging_phrase", "omitting_phrase"),
     [
-        (0, 4, "Logging no runs, all will be omitted"),
-        (0, 1, "Logging no runs, one run will be omitted"),
-        (1, 1, "Logging the best run, no runs will be omitted"),
-        (5, 4, "Logging all runs, no runs will be omitted"),
-        (4, 4, "Logging all runs, no runs will be omitted"),
-        (2, 5, "Logging the 2 best runs, 3 runs will be omitted"),
+        (0, 4, "no runs", "4 runs"),
+        (0, 1, "no runs", "one run"),
+        (1, 1, "the best run", "no runs"),
+        (5, 4, "the 4 best runs", "no runs"),
+        (4, 4, "the 4 best runs", "no runs"),
+        (2, 5, "the 2 best runs", "3 runs"),
     ],
 )
-def test_autolog_max_tuning_runs_logs_info_correctly(max_tuning_runs, total_runs, output_statement):
+def test_autolog_max_tuning_runs_logs_info_correctly(
+    max_tuning_runs, total_runs, logging_phrase, omitting_phrase
+):
     with mock.patch("mlflow.sklearn.utils._logger.info") as mock_info:
         _log_child_runs_info(max_tuning_runs, total_runs)
-        mock_info.assert_called_once()
-        mock_info.called_once_with(output_statement)
+        mock_info.assert_called_once_with(
+            "Logging %s, %s will be omitted.", logging_phrase, omitting_phrase
+        )
 
 
 def test_autolog_does_not_terminate_active_run():
@@ -270,13 +274,11 @@ def test_classifier_binary():
 
     plot_names = []
     if _is_plotting_supported():
-        plot_names.extend(
-            [
-                "training_confusion_matrix.png",
-                "training_roc_curve.png",
-                "training_precision_recall_curve.png",
-            ]
-        )
+        plot_names.extend([
+            "training_confusion_matrix.png",
+            "training_roc_curve.png",
+            "training_precision_recall_curve.png",
+        ])
 
     assert all(x in artifacts for x in plot_names)
 
@@ -672,6 +674,8 @@ def test_autolog_emits_warning_message_when_score_fails():
     mlflow.sklearn.autolog()
 
     model = sklearn.cluster.KMeans()
+    # `score` is inherited, and which base class defines it varies across scikit-learn versions
+    score_qualname = model.score.__qualname__
 
     @functools.wraps(model.score)
     def throwing_score(X, y=None, sample_weight=None):
@@ -681,9 +685,8 @@ def test_autolog_emits_warning_message_when_score_fails():
 
     with mlflow.start_run(), mock.patch("mlflow.sklearn.utils._logger.warning") as mock_warning:
         model.fit(*get_iris())
-        mock_warning.assert_called_once()
-        mock_warning.called_once_with(
-            "KMeans.score failed. The 'training_score' metric will not be recorded. "
+        mock_warning.assert_called_once_with(
+            f"{score_qualname} failed. The 'training_score' metric will not be recorded. "
             "Scoring error: EXCEPTION"
         )
 
@@ -697,19 +700,18 @@ def test_autolog_emits_warning_message_when_metric_fails():
     model = sklearn.svm.SVC()
 
     @functools.wraps(sklearn.metrics.precision_score)
-    def throwing_metrics(y_true, y_pred):
+    def throwing_metrics(*args, **kwargs):
         raise Exception("EXCEPTION")
 
+    # Patch with `new`, not a mock: the warning message reads the metric's `__qualname__`
     with (
         mlflow.start_run(),
         mock.patch("mlflow.sklearn.utils._logger.warning") as mock_warning,
-        mock.patch("sklearn.metrics.precision_score", side_effect=throwing_metrics),
+        mock.patch("sklearn.metrics.precision_score", new=throwing_metrics),
     ):
         model.fit(*get_iris())
-        mock_warning.assert_called_once()
-        mock_warning.called_once_with(
-            "SVC.precision_score failed. "
-            "The 'precision_score' metric will not be recorded. "
+        mock_warning.assert_called_once_with(
+            "precision_score failed. The metric training_precision_score will not be recorded. "
             "Metric error: EXCEPTION"
         )
 
@@ -747,9 +749,9 @@ def test_autolog_emits_warning_message_when_model_prediction_fails():
             cv_model.predict([[0, 0, 0, 0]])
 
         # Count how many times `mock_warning` has been called on not-fitted `predict` failure
-        call_count = len(
-            [args for args in mock_warning.call_args_list if re.search(match, args[0][0])]
-        )
+        call_count = len([
+            args for args in mock_warning.call_args_list if re.search(match, args[0][0])
+        ])
         # If `_is_plotting_supported` returns True (meaning sklearn version is >= 0.22.0),
         # `mock_warning` should have been called twice, once for metrics, once for artifacts.
         # Otherwise, only once for metrics.
@@ -792,12 +794,10 @@ def test_parameter_search_estimators_produce_expected_outputs(
 
     params, metrics, tags, artifacts = get_run_data(run_id)
     expected_cv_params = truncate_dict(stringify_dict_values(cv_model.get_params(deep=False)))
-    expected_cv_params.update(
-        {
-            f"best_{param_name}": str(param_value)
-            for param_name, param_value in cv_model.best_params_.items()
-        }
-    )
+    expected_cv_params.update({
+        f"best_{param_name}": str(param_value)
+        for param_name, param_value in cv_model.best_params_.items()
+    })
     assert params == expected_cv_params
     assert {
         TRAINING_SCORE: cv_model.score(X, y),
@@ -857,9 +857,9 @@ def test_parameter_search_estimators_produce_expected_outputs(
     best_child_metrics = None
     for _, result in cv_results_best_n_df.iterrows():
         result_params = result.get("params", {})
-        params_search_clause = " and ".join(
-            [f"params.`{key}` = '{value}'" for key, value in result_params.items()]
-        )
+        params_search_clause = " and ".join([
+            f"params.`{key}` = '{value}'" for key, value in result_params.items()
+        ])
         search_filter = f"tags.`mlflow.parentRunId` = '{run_id}' and {params_search_clause}"
         child_runs = client.search_runs(run.info.experiment_id, search_filter)
         assert len(child_runs) == 1
@@ -885,9 +885,9 @@ def test_parameter_search_estimators_produce_expected_outputs(
     # a corresponding MLflow run.
     for _, result in cv_results_rest_df.iterrows():
         result_params = result.get("params", {})
-        params_search_clause = " and ".join(
-            [f"params.`{key}` = '{value}'" for key, value in result_params.items()]
-        )
+        params_search_clause = " and ".join([
+            f"params.`{key}` = '{value}'" for key, value in result_params.items()
+        ])
         search_filter = f"tags.`mlflow.parentRunId` = '{run_id}' and {params_search_clause}"
         child_runs = client.search_runs(run.info.experiment_id, search_filter)
         assert len(child_runs) == 0
@@ -963,15 +963,13 @@ def test_autolog_logs_signature_and_input_example(data_type):
 def test_autolog_metrics_input_example_and_signature_do_not_reflect_training_mutations():
     from sklearn.base import BaseEstimator, TransformerMixin
 
-    X_train = pd.DataFrame(
-        {
-            "Total Volume": [64236.62, 54876.98, 118220.22],
-            "Total Bags": [8696.87, 9505.56, 8145.35],
-            "Small Bags": [8603.62, 9408.07, 8042.21],
-            "Large Bags": [93.25, 97.49, 103.14],
-            "XLarge Bags": [0.0, 0.0, 0.0],
-        }
-    )
+    X_train = pd.DataFrame({
+        "Total Volume": [64236.62, 54876.98, 118220.22],
+        "Total Bags": [8696.87, 9505.56, 8145.35],
+        "Small Bags": [8603.62, 9408.07, 8042.21],
+        "Large Bags": [93.25, 97.49, 103.14],
+        "XLarge Bags": [0.0, 0.0, 0.0],
+    })
     y_train = pd.Series([1.33, 1.35, 0.93])
 
     class CustomTransformer(BaseEstimator, TransformerMixin):
@@ -1030,8 +1028,10 @@ def test_autolog_does_not_throw_when_failing_to_sample_X():
         model.fit(throwing_X, y)
 
     model_conf = Model.load(_get_model_uri())
-    assert mock_warning.call_count == 2
-    mock_warning.call_args[0][0].endswith("DO NOT SLICE ME")
+
+    warning_messages = [args[0] for args, _ in mock_warning.call_args_list if args]
+    assert any(msg.endswith("DO NOT SLICE ME") for msg in warning_messages)
+
     assert "signature" not in model_conf.to_dict()
     assert "saved_input_example_info" not in model_conf.to_dict()
 
@@ -1068,7 +1068,8 @@ def test_autolog_does_not_throw_when_predict_fails():
         model = sklearn.linear_model.LinearRegression()
         model.fit(X, y)
 
-    mock_warning.assert_called_with("Failed to infer model signature: Failed")
+    warning_messages = [args[0] for args, _ in mock_warning.call_args_list if args]
+    assert "Failed to infer model signature: Failed" in warning_messages
     model_conf = Model.load(_get_model_uri())
     assert "signature" not in model_conf.to_dict()
 
@@ -1085,7 +1086,8 @@ def test_autolog_does_not_throw_when_infer_signature_fails():
         model = sklearn.linear_model.LinearRegression()
         model.fit(X, y)
 
-    mock_warning.assert_called_once_with("Failed to infer model signature: Failed")
+    warning_messages = [args[0] for args, _ in mock_warning.call_args_list if args]
+    assert "Failed to infer model signature: Failed" in warning_messages
     model_conf = Model.load(_get_model_uri())
     assert "signature" not in model_conf.to_dict()
 
@@ -1155,14 +1157,12 @@ def test_sklearn_autolog_log_datasets_configuration(log_datasets):
         assert len(dataset_inputs) == 1
         feature_schema = _infer_schema(X)
         target_schema = _infer_schema(y)
-        assert dataset_inputs[0].dataset.schema == json.dumps(
-            {
-                "mlflow_tensorspec": {
-                    "features": feature_schema.to_json(),
-                    "targets": target_schema.to_json(),
-                }
+        assert dataset_inputs[0].dataset.schema == json.dumps({
+            "mlflow_tensorspec": {
+                "features": feature_schema.to_json(),
+                "targets": target_schema.to_json(),
             }
-        )
+        })
     else:
         assert len(dataset_inputs) == 0
 
@@ -1184,23 +1184,19 @@ def test_sklearn_autolog_log_datasets_with_predict():
     assert dataset_inputs[0].tags[0].value == "train"
     feature_schema = _infer_schema(X)
     target_schema = _infer_schema(y)
-    assert dataset_inputs[0].dataset.schema == json.dumps(
-        {
-            "mlflow_tensorspec": {
-                "features": feature_schema.to_json(),
-                "targets": target_schema.to_json(),
-            }
+    assert dataset_inputs[0].dataset.schema == json.dumps({
+        "mlflow_tensorspec": {
+            "features": feature_schema.to_json(),
+            "targets": target_schema.to_json(),
         }
-    )
+    })
     assert dataset_inputs[1].tags[0].value == "eval"
-    assert dataset_inputs[1].dataset.schema == json.dumps(
-        {
-            "mlflow_tensorspec": {
-                "features": feature_schema.to_json(),
-                "targets": None,
-            }
+    assert dataset_inputs[1].dataset.schema == json.dumps({
+        "mlflow_tensorspec": {
+            "features": feature_schema.to_json(),
+            "targets": None,
         }
-    )
+    })
 
 
 def test_sklearn_autolog_log_datasets_without_explicit_run():
@@ -1219,23 +1215,36 @@ def test_sklearn_autolog_log_datasets_without_explicit_run():
     assert dataset_inputs[0].tags[0].value == "train"
     feature_schema = _infer_schema(X)
     target_schema = _infer_schema(y)
-    assert dataset_inputs[0].dataset.schema == json.dumps(
-        {
-            "mlflow_tensorspec": {
-                "features": feature_schema.to_json(),
-                "targets": target_schema.to_json(),
-            }
+    assert dataset_inputs[0].dataset.schema == json.dumps({
+        "mlflow_tensorspec": {
+            "features": feature_schema.to_json(),
+            "targets": target_schema.to_json(),
         }
-    )
+    })
     assert dataset_inputs[1].tags[0].value == "eval"
-    assert dataset_inputs[1].dataset.schema == json.dumps(
-        {
-            "mlflow_tensorspec": {
-                "features": feature_schema.to_json(),
-                "targets": None,
-            }
+    assert dataset_inputs[1].dataset.schema == json.dumps({
+        "mlflow_tensorspec": {
+            "features": feature_schema.to_json(),
+            "targets": None,
         }
-    )
+    })
+
+
+def test_sklearn_autolog_log_datasets_with_polars():
+    X, y = get_iris()
+    X_pl = pl.DataFrame(X, schema=["f1", "f2"])
+
+    with mlflow.start_run() as run:
+        mlflow.sklearn.autolog(log_datasets=True)
+        model = sklearn.linear_model.LinearRegression()
+        model.fit(X_pl, y)
+
+    run_id = run.info.run_id
+    client = MlflowClient()
+    dataset_inputs = client.get_run(run_id).inputs.dataset_inputs
+    assert len(dataset_inputs) == 1
+    assert dataset_inputs[0].tags[0].value == "train"
+    assert dataset_inputs[0].dataset.source_type == "code"
 
 
 def test_autolog_does_not_capture_runs_for_preprocessing_or_feature_manipulation_estimators():
@@ -1263,12 +1272,10 @@ def test_autolog_does_not_capture_runs_for_preprocessing_or_feature_manipulation
         LabelEncoder().fit([1, 2, 2, 6])
         MinMaxScaler().fit_transform(50 * np.random.random((10, 10)))
         SimpleImputer().fit_transform([[1, 2], [np.nan, 3], [7, 6]])
-        TfidfVectorizer().fit_transform(
-            [
-                "MLflow is an end-to-end machine learning platform.",
-                "MLflow enables me to systematize my ML experimentation",
-            ]
-        )
+        TfidfVectorizer().fit_transform([
+            "MLflow is an end-to-end machine learning platform.",
+            "MLflow enables me to systematize my ML experimentation",
+        ])
         VarianceThreshold().fit_transform([[0, 2, 0, 3], [0, 1, 4, 3], [0, 1, 1, 3]])
         ColumnTransformer([("norm", Normalizer(), [0])]).fit_transform([[0]])
 

@@ -2,7 +2,6 @@ from abc import ABC, abstractmethod
 from typing import Any, Callable
 
 from mlflow.genai.optimize.types import EvaluationResultRecord, PromptOptimizerOutput
-from mlflow.utils.annotations import experimental
 
 # The evaluation function that takes candidate prompts as a dict
 # (prompt template name -> prompt template) and a dataset as a list of dicts,
@@ -10,7 +9,6 @@ from mlflow.utils.annotations import experimental
 _EvalFunc = Callable[[dict[str, str], list[dict[str, Any]]], list[EvaluationResultRecord]]
 
 
-@experimental(version="3.5.0")
 class BasePromptOptimizer(ABC):
     @abstractmethod
     def optimize(

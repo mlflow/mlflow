@@ -41,8 +41,10 @@ export interface UseToolPerformanceSummaryDataResult {
  *
  * @returns Tool performance data, loading state, and error state
  */
-export function useToolPerformanceSummaryData(): UseToolPerformanceSummaryDataResult {
-  const { experimentId, startTimeMs, endTimeMs } = useOverviewChartContext();
+export function useToolPerformanceSummaryData({
+  enabled = true,
+}: { enabled?: boolean } = {}): UseToolPerformanceSummaryDataResult {
+  const { experimentIds, startTimeMs, endTimeMs } = useOverviewChartContext();
   // Filter for TOOL type spans
   const toolFilter = useMemo(() => [createSpanFilter(SpanFilterKey.TYPE, SpanType.TOOL)], []);
 
@@ -52,7 +54,7 @@ export function useToolPerformanceSummaryData(): UseToolPerformanceSummaryDataRe
     isLoading: isLoadingCounts,
     error: countsError,
   } = useTraceMetricsQuery({
-    experimentId,
+    experimentIds,
     startTimeMs,
     endTimeMs,
     viewType: MetricViewType.SPANS,
@@ -60,6 +62,7 @@ export function useToolPerformanceSummaryData(): UseToolPerformanceSummaryDataRe
     aggregations: [{ aggregation_type: AggregationType.COUNT }],
     filters: toolFilter,
     dimensions: [SpanDimensionKey.SPAN_NAME, SpanDimensionKey.SPAN_STATUS],
+    enabled,
   });
 
   // Query average latency grouped by span_name
@@ -68,7 +71,7 @@ export function useToolPerformanceSummaryData(): UseToolPerformanceSummaryDataRe
     isLoading: isLoadingLatency,
     error: latencyError,
   } = useTraceMetricsQuery({
-    experimentId,
+    experimentIds,
     startTimeMs,
     endTimeMs,
     viewType: MetricViewType.SPANS,
@@ -76,6 +79,7 @@ export function useToolPerformanceSummaryData(): UseToolPerformanceSummaryDataRe
     aggregations: [{ aggregation_type: AggregationType.AVG }],
     filters: toolFilter,
     dimensions: [SpanDimensionKey.SPAN_NAME],
+    enabled,
   });
 
   // Process data into per-tool performance metrics

@@ -1,13 +1,16 @@
 import importlib
-import importlib.metadata
 import logging
 import os
+import secrets
 import shlex
+import signal
 import sys
 import tempfile
 import textwrap
 import types
+import uuid
 import warnings
+from pathlib import Path
 
 _logger = logging.getLogger("mlflow.server")
 
@@ -15,9 +18,15 @@ from flask import Flask, Response, send_from_directory
 from packaging.version import Version
 
 from mlflow.environment_variables import (
+    _MLFLOW_ASSISTANT_DELEGATION_SIGNING_KEY,
+    _MLFLOW_AUTH_ADMIN_BOOTSTRAPPED,
+    _MLFLOW_IN_JOB_EXECUTOR,
+    _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN,
+    _MLFLOW_SERVER_BOOT_ID,
     _MLFLOW_SGI_NAME,
     MLFLOW_FLASK_SERVER_SECRET_KEY,
     MLFLOW_SERVER_ENABLE_JOB_EXECUTION,
+    MLFLOW_SQL_TRACE_ROLLUPS_ENABLED,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.server import handlers
@@ -28,6 +37,7 @@ from mlflow.server.constants import (
     BACKEND_STORE_URI_ENV_VAR,
     HUEY_STORAGE_PATH_ENV_VAR,
     PROMETHEUS_EXPORTER_ENV_VAR,
+    READ_REPLICA_BACKEND_STORE_URI_ENV_VAR,
     REGISTRY_STORE_URI_ENV_VAR,
     SECRETS_CACHE_MAX_SIZE_ENV_VAR,
     SECRETS_CACHE_TTL_ENV_VAR,
@@ -49,6 +59,11 @@ from mlflow.server.handlers import (
     post_ui_telemetry_handler,
     upload_artifact_handler,
 )
+from mlflow.server.workspace_helpers import (
+    workspace_before_request_handler,
+    workspace_teardown_request_handler,
+)
+from mlflow.utils import get_installed_version
 from mlflow.utils.os import is_windows
 from mlflow.utils.plugins import get_entry_points
 from mlflow.utils.process import _exec_cmd
@@ -57,14 +72,15 @@ from mlflow.version import VERSION
 REL_STATIC_DIR = "js/build"
 
 app = Flask(__name__, static_folder=REL_STATIC_DIR)
-IS_FLASK_V1 = Version(importlib.metadata.version("flask")) < Version("2.0")
+_flask_version = get_installed_version("flask")
+IS_FLASK_V1 = _flask_version is not None and _flask_version < Version("2.0")
 
 is_running_as_server = (
     "gunicorn" in sys.modules
     or "uvicorn" in sys.modules
     or "waitress" in sys.modules
-    or os.getenv(BACKEND_STORE_URI_ENV_VAR)
-    or os.getenv(SERVE_ARTIFACTS_ENV_VAR)
+    or os.environ.get(BACKEND_STORE_URI_ENV_VAR)
+    or os.environ.get(SERVE_ARTIFACTS_ENV_VAR)
 )
 
 if is_running_as_server:
@@ -72,15 +88,17 @@ if is_running_as_server:
 
     security.init_security_middleware(app)
 
+app.before_request(workspace_before_request_handler)
+app.teardown_request(workspace_teardown_request_handler)
+
 for http_path, handler, methods in handlers.get_endpoints():
     app.add_url_rule(http_path, handler.__name__, handler, methods=methods)
 
-if os.getenv(PROMETHEUS_EXPORTER_ENV_VAR):
+if os.environ.get(PROMETHEUS_EXPORTER_ENV_VAR):
     from mlflow.server.prometheus_exporter import activate_prometheus_exporter
 
-    prometheus_metrics_path = os.getenv(PROMETHEUS_EXPORTER_ENV_VAR)
-    if not os.path.exists(prometheus_metrics_path):
-        os.makedirs(prometheus_metrics_path)
+    prometheus_metrics_path = os.environ.get(PROMETHEUS_EXPORTER_ENV_VAR)
+    os.makedirs(prometheus_metrics_path, exist_ok=True)
     activate_prometheus_exporter(app)
 
 
@@ -282,11 +300,16 @@ def _build_gunicorn_command(gunicorn_opts, host, port, workers, app_name):
     ]
 
 
+_UVICORN_LOG_CONFIG = Path(__file__).parent / "uvicorn_log_config.yaml"
+
+
 def _build_uvicorn_command(
     uvicorn_opts, host, port, workers, app_name, env_file=None, is_factory=False
 ):
     """Build command to run uvicorn server."""
     opts = shlex.split(uvicorn_opts) if uvicorn_opts else []
+    if not any(o == "--log-config" or o.startswith("--log-config=") for o in opts):
+        opts.extend(["--log-config", str(_UVICORN_LOG_CONFIG)])
     cmd = [
         sys.executable,
         "-m",
@@ -307,9 +330,24 @@ def _build_uvicorn_command(
     return cmd
 
 
+def _bootstrap_basic_auth() -> None:
+    """Validate the basic-auth configuration and create the admin user before spawning workers.
+
+    A missing secret key or a missing/insecure bootstrap password then fails ``mlflow server``
+    with one error instead of an endless loop of the uvicorn supervisor restarting crashed
+    workers.
+    """
+    # `mlflow.server.auth` requires the optional `auth` extra, so only import it when needed.
+    from mlflow.server.auth import bootstrap_admin_user, get_flask_server_secret_key
+
+    get_flask_server_secret_key()
+    bootstrap_admin_user()
+
+
 def _run_server(
     *,
     file_store_path,
+    read_replica_backend_store_uri=None,
     registry_store_uri,
     default_artifact_root,
     serve_artifacts,
@@ -342,6 +380,8 @@ def _run_server(
     env_map = {}
     if file_store_path:
         env_map[BACKEND_STORE_URI_ENV_VAR] = file_store_path
+    if read_replica_backend_store_uri:
+        env_map[READ_REPLICA_BACKEND_STORE_URI_ENV_VAR] = read_replica_backend_store_uri
     if registry_store_uri:
         env_map[REGISTRY_STORE_URI_ENV_VAR] = registry_store_uri
     if default_artifact_root:
@@ -365,6 +405,15 @@ def _run_server(
 
     if secret_key := MLFLOW_FLASK_SERVER_SECRET_KEY.get():
         env_map[MLFLOW_FLASK_SERVER_SECRET_KEY.name] = secret_key
+
+    # A per-boot id shared by all worker processes, used to distinguish sandbox containers of
+    # this server generation from orphans left by a previous one during startup cleanup.
+    env_map[_MLFLOW_SERVER_BOOT_ID.name] = uuid.uuid4().hex
+
+    # This marker permits reconstructing custom scorer code, which the server process must never
+    # do. It is meant to be set only inside job-executor subprocesses, so force it off for the
+    # server workers in case it is present in the ambient environment.
+    env_map[_MLFLOW_IN_JOB_EXECUTOR.name] = "false"
 
     # Determine which server we're using (only one should be true)
     using_gunicorn = gunicorn_opts is not None
@@ -390,6 +439,9 @@ def _run_server(
         # Don't use () syntax if we're using uvicorn
         use_factory_syntax = not is_windows() and is_factory and not using_uvicorn
         app = f"{app}()" if use_factory_syntax else app
+        if app_name == "basic-auth":
+            _bootstrap_basic_auth()
+            env_map[_MLFLOW_AUTH_ADMIN_BOOTSTRAPPED.name] = "true"
 
     # Determine which server to use
     if using_uvicorn:
@@ -426,6 +478,11 @@ def _run_server(
         # This shouldn't happen given the logic in CLI, but handle it just in case
         raise MlflowException("No server configuration specified.")
 
+    if not artifacts_only:
+        from mlflow.tracing.trace_rollup_service import validate_sql_trace_rollup_startup
+
+        validate_sql_trace_rollup_startup(file_store_path)
+
     # Check if job execution can be enabled (requirements met)
     job_execution_enabled = False
     if MLFLOW_SERVER_ENABLE_JOB_EXECUTION.get():
@@ -435,11 +492,46 @@ def _run_server(
             _check_requirements(file_store_path)
             job_execution_enabled = True
         except Exception as e:
+            if MLFLOW_SQL_TRACE_ROLLUPS_ENABLED.get():
+                raise MlflowException(
+                    "SQL trace rollups require an available SQL job-execution backend."
+                ) from e
             _logger.warning(
                 f"MLflow job execution requirements not met ({e!s}). "
                 "Server will start without job execution support. "
                 "Errors will be surfaced at job invocation time."
             )
+
+        if job_execution_enabled:
+            from mlflow.server.jobs.executor_registry import validate_executor_config
+            from mlflow.server.jobs.utils import get_job_execution_engine
+
+            validate_executor_config()
+            # Validate the engine selection before the server is spawned below, so an
+            # invalid value fails fast instead of leaving an unmanaged server running.
+            get_job_execution_engine()
+
+            if MLFLOW_SQL_TRACE_ROLLUPS_ENABLED.get():
+                from mlflow.tracing.trace_rollup_service import (
+                    validate_and_resolve_sql_trace_rollup_schedule,
+                )
+
+                validate_and_resolve_sql_trace_rollup_schedule()
+
+    if app_name == "basic-auth":
+        # Generate the token here (before forking uvicorn workers) so that all worker processes
+        # and job subprocesses share the same token. Server-internal callers of the in-server
+        # gateway (job workers, and the MLflow Assistant's gateway provider) authenticate their
+        # own requests with it, so it must exist on any auth-enabled server, independent of
+        # whether job execution is available.
+        env_map[_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.name] = secrets.token_hex(32)
+
+        # Key for signing and verifying MLflow Assistant delegation credentials. Generated here so
+        # all worker processes share it, but deliberately excluded from the job runner env below so
+        # that code running in a job subprocess (e.g. a user-supplied scorer) cannot mint one. A
+        # delegation credential is honored on any route, so its signing key must stay inside the
+        # server workers that mint and verify it, never reaching an untrusted subprocess.
+        env_map[_MLFLOW_ASSISTANT_DELEGATION_SIGNING_KEY.name] = secrets.token_hex(32)
 
     if job_execution_enabled:
         # The `HUEY_STORAGE_PATH_ENV_VAR` is used by both MLflow server handler workers and
@@ -451,26 +543,52 @@ def _run_server(
         )
 
     server_proc = _exec_cmd(
-        full_command, extra_env=env_map, capture_output=False, synchronous=False
+        full_command,
+        extra_env=env_map,
+        capture_output=False,
+        synchronous=False,
     )
+
+    def _forward_signal(signum, _frame):
+        """Forward signals to the child server process to enable graceful shutdown."""
+        if server_proc.poll() is not None:
+            return
+        try:
+            server_proc.send_signal(signum)
+        except ProcessLookupError:
+            pass
+
+    signal.signal(signal.SIGTERM, _forward_signal)
+    signal.signal(signal.SIGINT, _forward_signal)
 
     if job_execution_enabled:
         from mlflow.environment_variables import MLFLOW_GATEWAY_URI, MLFLOW_TRACKING_URI
-        from mlflow.server.jobs.utils import _launch_job_runner
+        from mlflow.server.jobs.utils import _launch_job_execution_runner
 
-        server_uri = f"http://{host}:{port}"
+        server_uri = f"http://{host}:{port}{static_prefix or ''}"
         job_env = {
             **env_map,
+            # Periodic services initialize the primary store once from the supported public
+            # server configuration instead of resolving it indirectly through MLFLOW_TRACKING_URI
+            # (which intentionally points back to this HTTP server for normal job code).
+            "MLFLOW_BACKEND_STORE_URI": file_store_path,
             # Set tracking URI environment variable for job runner
             # so that all job processes inherit it.
             MLFLOW_TRACKING_URI.name: server_uri,
         }
+        if default_artifact_root:
+            job_env["MLFLOW_DEFAULT_ARTIFACT_ROOT"] = default_artifact_root
+        # Withhold the Assistant delegation signing key from the job runner (and thus from any
+        # user-supplied code a job runs): only the server workers that mint and verify delegation
+        # credentials may hold it. Job subprocesses authenticate their own gateway calls with the
+        # internal gateway token instead.
+        job_env.pop(_MLFLOW_ASSISTANT_DELEGATION_SIGNING_KEY.name, None)
         # Set gateway URI for job workers if not already set. Jobs may call
         # _get_tracking_store() which overwrites MLFLOW_TRACKING_URI with the backend
         # store URI (e.g., sqlite://). MLFLOW_GATEWAY_URI preserves the HTTP URI for
         # gateway routing (e.g., judge LLM calls via /gateway/mlflow/v1/).
         if not MLFLOW_GATEWAY_URI.is_set():
             job_env[MLFLOW_GATEWAY_URI.name] = server_uri
-        _launch_job_runner(job_env, server_proc.pid)
+        _launch_job_execution_runner(job_env, server_proc.pid)
 
     server_proc.wait()

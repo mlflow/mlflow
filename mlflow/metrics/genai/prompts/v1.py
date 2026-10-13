@@ -51,9 +51,8 @@ def _build_grading_prompt_template(include_input: bool = True) -> PromptTemplate
         )
         input_section = ""
 
-    return PromptTemplate(
-        [
-            f"""
+    return PromptTemplate([
+        f"""
 Task:
 You must return the following fields in your response in two lines, one below the other:
 score: Your numerical score for the model's {{name}} based on the rubric
@@ -87,8 +86,7 @@ justification: Your reasoning about the model's {{name}} score
 
 Do not add additional new lines. Do not add any other fields.
     """,
-        ]
-    )
+    ])
 
 
 grading_system_prompt_template = _build_grading_prompt_template(include_input=True)

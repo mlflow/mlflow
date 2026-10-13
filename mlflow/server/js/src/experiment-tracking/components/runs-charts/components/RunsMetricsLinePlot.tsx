@@ -25,6 +25,7 @@ import {
 } from './RunsCharts.common';
 import { EMA } from '../../MetricsPlotView';
 import RunsMetricsLegendWrapper from './RunsMetricsLegendWrapper';
+import { useNodeLevelMetricsFilterContext } from '../../run-page/node-level-metric-charts/contexts/NodeLevelMetricsFilterContext';
 import {
   shouldEnableRelativeTimeDateAxis,
   shouldEnableChartExpressions,
@@ -65,6 +66,7 @@ const getDataTraceForRun = ({
   xAxisScaleType,
   expression,
   evaluateExpression,
+  customColor,
 }: {
   runEntry: Omit<RunsChartsRunData, 'metrics' | 'params' | 'tags' | 'images'>;
   metricKey?: RunsMetricsLinePlotProps['metricKey'];
@@ -82,6 +84,7 @@ const getDataTraceForRun = ({
     expression: RunsChartsLineChartExpression,
     variables: Record<string, number>,
   ) => number | undefined;
+  customColor?: string;
 }): LineChartTraceData => {
   if (!runEntry.metricsHistory) {
     return {};
@@ -170,7 +173,9 @@ const getDataTraceForRun = ({
     type: 'scatter',
     line: { dash: lineDash, shape: optimizedLineShape },
     marker: {
-      color: originalLine ? createFadedTraceColor(runEntry.color, 0.15) : runEntry.color,
+      color: originalLine
+        ? createFadedTraceColor(customColor ?? runEntry.color, 0.15)
+        : (customColor ?? runEntry.color),
     },
   } as LineChartTraceData;
 };
@@ -520,6 +525,8 @@ export const RunsMetricsLinePlot = React.memo(
   }: RunsMetricsLinePlotProps) => {
     const { theme } = useDesignSystemTheme();
     const { evaluateExpression } = useChartExpressionParser();
+    const filterContext = useNodeLevelMetricsFilterContext();
+    const getNodeLevelCustomLineStyle = filterContext?.getCustomLineStyle;
 
     const dynamicXAxisKey = useMemo(() => {
       let dynamicXAxisKey = xAxisKey;
@@ -593,6 +600,7 @@ export const RunsMetricsLinePlot = React.memo(
                 // Discard creating traces for metrics that don't have any history for a given run
                 .filter((metricKey) => !isEmpty(runEntry.metricsHistory?.[metricKey]))
                 .flatMap((metricKey, idx) => {
+                  const customLineStyle = getNodeLevelCustomLineStyle?.(metricKey);
                   return getTraceAndOriginalTrace({
                     runEntry,
                     metricKey,
@@ -601,9 +609,10 @@ export const RunsMetricsLinePlot = React.memo(
                     useDefaultHoverBox,
                     lineSmoothness,
                     lineShape,
-                    lineDash: lineDashStyles[idx % lineDashStyles.length],
+                    lineDash: customLineStyle?.dashStyle ?? lineDashStyles[idx % lineDashStyles.length],
                     displayPoints,
                     xAxisScaleType,
+                    customColor: customLineStyle?.color,
                   });
                 })
             );
@@ -625,6 +634,7 @@ export const RunsMetricsLinePlot = React.memo(
       yAxisExpressions,
       evaluateExpression,
       xAxisKey,
+      getNodeLevelCustomLineStyle,
     ]);
 
     const bandsData = useMemo(() => {
@@ -727,38 +737,43 @@ export const RunsMetricsLinePlot = React.memo(
 
     const themedPlotlyLayout = useMemo(() => createThemedPlotlyLayout(theme), [theme]);
 
-    // When switching axis title, Plotly.js mutates its layout object
-    // internally which leads to desync problems and automatic axis range
-    // ends up with an invalid value. In order to fix it, we are mutating
-    // axis object and injecting metric key as title in
-    // the render phase.
-    // It could be fixed by wrapping plotly.js directly instead of using
-    // react-plotly.js - but the effort does not correspond to the plan of
-    // moving away from plotly soon.
-    const immediateLayout = layout;
-    if (immediateLayout.xaxis) {
-      immediateLayout.xaxis.title = xAxisKeyLabel;
-      immediateLayout.xaxis.type = xAxisPlotlyType;
-      if (xRange) {
-        immediateLayout.xaxis.range = xRange;
-      }
-      immediateLayout.xaxis.automargin = true;
-      immediateLayout.xaxis.tickformat =
-        shouldEnableRelativeTimeDateAxis() && dynamicXAxisKey === RunsChartsLineChartXAxisType.TIME_RELATIVE
-          ? '%H:%M:%S'
-          : undefined;
-    }
-    immediateLayout.template = { layout: themedPlotlyLayout };
-
-    if (immediateLayout.yaxis && yRange) {
-      immediateLayout.yaxis.range = yRange;
-      immediateLayout.yaxis.automargin = true;
-      immediateLayout.yaxis.tickformat = 'f';
-    }
+    // Plotly mutates the layout object it receives. Derive a fresh layout for each render so
+    // a zoom range cleared by autoscale cannot remain on the next Plotly update.
+    const immediateLayout: Partial<Layout> = {
+      ...layout,
+      template: { layout: themedPlotlyLayout },
+      xaxis: layout.xaxis && {
+        ...layout.xaxis,
+        title: xAxisKeyLabel,
+        type: xAxisPlotlyType,
+        range: xRange,
+        autorange: xRange === undefined,
+        automargin: true,
+        tickformat:
+          shouldEnableRelativeTimeDateAxis() && dynamicXAxisKey === RunsChartsLineChartXAxisType.TIME_RELATIVE
+            ? '%H:%M:%S'
+            : undefined,
+      },
+      yaxis: layout.yaxis && {
+        ...layout.yaxis,
+        range: yRange,
+        autorange: yRange === undefined,
+        automargin: true,
+        tickformat: 'f',
+      },
+    };
 
     const legendLabelData = useMemo(
-      () => getLineChartLegendData(runsData, selectedMetricKeys, metricKey, yAxisKey, yAxisExpressions),
-      [runsData, selectedMetricKeys, metricKey, yAxisKey, yAxisExpressions],
+      () =>
+        getLineChartLegendData(
+          runsData,
+          selectedMetricKeys,
+          metricKey,
+          yAxisKey,
+          yAxisExpressions,
+          getNodeLevelCustomLineStyle,
+        ),
+      [runsData, selectedMetricKeys, metricKey, yAxisKey, yAxisExpressions, getNodeLevelCustomLineStyle],
     );
 
     const {

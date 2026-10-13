@@ -42,40 +42,9 @@ class GitHubClient:
             resp.raise_for_status()
             return cast(dict[str, Any], await resp.json())
 
-    async def _get_text(self, endpoint: str, accept: str) -> str:
-        if self._session is None:
-            raise RuntimeError("GitHubClient must be used as async context manager")
-        headers = {"Accept": accept}
-        async with self._session.get(endpoint, headers=headers) as resp:
-            resp.raise_for_status()
-            return await resp.text()
-
     async def get_pr(self, owner: str, repo: str, pr_number: int) -> PullRequest:
         data = await self._get_json(f"/repos/{owner}/{repo}/pulls/{pr_number}")
         return PullRequest.model_validate(data)
-
-    async def get_pr_diff(self, owner: str, repo: str, pr_number: int) -> str:
-        return await self._get_text(
-            f"/repos/{owner}/{repo}/pulls/{pr_number}",
-            accept="application/vnd.github.v3.diff",
-        )
-
-    async def get_compare_diff(self, owner: str, repo: str, base: str, head: str) -> str:
-        return await self._get_text(
-            f"/repos/{owner}/{repo}/compare/{base}...{head}",
-            accept="application/vnd.github.v3.diff",
-        )
-
-    async def graphql(self, query: str, variables: dict[str, Any]) -> dict[str, Any]:
-        if self._session is None:
-            raise RuntimeError("GitHubClient must be used as async context manager")
-        payload = {"query": query, "variables": variables}
-        async with self._session.post(
-            "https://api.github.com/graphql",
-            json=payload,
-        ) as resp:
-            resp.raise_for_status()
-            return cast(dict[str, Any], await resp.json())
 
     async def get_raw(self, endpoint: str) -> aiohttp.ClientResponse:
         """Get raw response for streaming."""
@@ -110,20 +79,31 @@ class GitHubClient:
                 break
             page += 1
 
-    async def get_jobs(self, owner: str, repo: str, run_id: int) -> AsyncIterator[Job]:
-        """Get jobs for a workflow run."""
+    async def get_jobs(
+        self, owner: str, repo: str, run_id: int, attempt: int | None = None
+    ) -> AsyncIterator[Job]:
+        """Get jobs for a workflow run.
+
+        If `attempt` is None, returns jobs from the latest attempt only (GitHub's default).
+        If `attempt` is given, returns jobs from that specific attempt.
+        """
+        endpoint = (
+            f"/repos/{owner}/{repo}/actions/runs/{run_id}/attempts/{attempt}/jobs"
+            if attempt is not None
+            else f"/repos/{owner}/{repo}/actions/runs/{run_id}/jobs"
+        )
+        # GitHub 502s this endpoint with per_page=100 on runs with many jobs
+        # (e.g. cross-version matrices with 300+ jobs).
+        per_page = 30
         page = 1
         while True:
-            data = await self._get_json(
-                f"/repos/{owner}/{repo}/actions/runs/{run_id}/jobs",
-                {"per_page": 100, "page": page},
-            )
+            data = await self._get_json(endpoint, {"per_page": per_page, "page": page})
             jobs = data.get("jobs", [])
             if not jobs:
                 break
             for job in jobs:
                 yield Job.model_validate(job)
-            if len(jobs) < 100:
+            if len(jobs) < per_page:
                 break
             page += 1
 
@@ -131,8 +111,3 @@ class GitHubClient:
         """Get a specific job."""
         data = await self._get_json(f"/repos/{owner}/{repo}/actions/jobs/{job_id}")
         return Job.model_validate(data)
-
-    async def get_job_run(self, owner: str, repo: str, run_id: int) -> JobRun:
-        """Get a specific workflow run."""
-        data = await self._get_json(f"/repos/{owner}/{repo}/actions/runs/{run_id}")
-        return JobRun.model_validate(data)

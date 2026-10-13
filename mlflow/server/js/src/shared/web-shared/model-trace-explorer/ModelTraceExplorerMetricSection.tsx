@@ -1,5 +1,6 @@
 import type { TagColors } from '@databricks/design-system';
 import { Tag, Tooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { copyToClipboard } from '../../../common/utils/copyToClipboard';
 
 export const ModelTraceHeaderMetricSection = ({
   label,
@@ -10,6 +11,7 @@ export const ModelTraceHeaderMetricSection = ({
   getTruncatedLabel,
   onCopy,
   hideLabel = false,
+  tooltipContent,
 }: {
   label: React.ReactNode;
   /**
@@ -23,14 +25,18 @@ export const ModelTraceHeaderMetricSection = ({
   icon?: React.ReactNode;
   color?: TagColors;
   getTruncatedLabel: (label: string) => string;
-  onCopy: () => void;
+  onCopy: (success: boolean) => void;
   hideLabel?: boolean;
+  /**
+   * Optional override for the tooltip content. If not provided, `value` will be used.
+   */
+  tooltipContent?: React.ReactNode;
 }) => {
   const { theme } = useDesignSystemTheme();
 
-  const handleClick = () => {
-    navigator.clipboard.writeText(value);
-    onCopy();
+  const handleClick = async () => {
+    const success = await copyToClipboard(value);
+    onCopy(success);
   };
 
   return (
@@ -48,7 +54,11 @@ export const ModelTraceHeaderMetricSection = ({
           {label}
         </Typography.Text>
       )}
-      <Tooltip componentId="shared.model-trace-explorer.header-details.tooltip" content={value} maxWidth={400}>
+      <Tooltip
+        componentId="shared.model-trace-explorer.header-details.tooltip"
+        content={tooltipContent ?? value}
+        maxWidth={400}
+      >
         <Tag
           componentId="shared.model-trace-explorer.header-details.tag"
           color={color}

@@ -39,23 +39,14 @@ function compareVersions(a, b) {
 
 module.exports = async ({ context, github, core }) => {
   const { owner, repo } = context.repo;
-  const { base, number: pull_number } = context.payload.pull_request;
+  const { base, body, labels, number: pull_number, user } = context.payload.pull_request;
   if (base.ref.match(/^branch-\d+\.\d+$/)) {
     return;
   }
 
-  const pr = await github.rest.pulls.get({
-    owner,
-    repo,
-    pull_number,
-  });
-  const { body } = pr.data;
-
   // Skip running this check if PR is filed by a bot (except GitHub Copilot)
-  if (pr.data.user?.type?.toLowerCase() === "bot" && pr.data.user?.login !== "Copilot") {
-    core.info(
-      `Skipping processing because the PR is filed by a bot: ${pr.data.user?.login || "unknown"}`
-    );
+  if (user?.type?.toLowerCase() === "bot" && user?.login !== "Copilot") {
+    core.info(`Skipping processing because the PR is filed by a bot: ${user?.login || "unknown"}`);
     return;
   }
 
@@ -65,26 +56,26 @@ module.exports = async ({ context, github, core }) => {
     return;
   }
 
-  const yesRegex = /- \[( |x)\] yes \(this PR will be/gi;
+  // TODO: remove the "yes/no" alternatives once all open PRs have switched to the new template
+  const yesRegex = /- \[( |x)\] (yes \()?this PR (will be|is critical)/gi;
   const yesMatches = [...body.matchAll(yesRegex)];
   const yesMatch = yesMatches.length > 0 ? yesMatches[yesMatches.length - 1] : null;
   const yes = yesMatch ? yesMatch[1].toLowerCase() === "x" : false;
-  const noRegex = /- \[( |x)\] no \(this PR will be/gi;
+  // TODO: remove the "yes/no" alternatives once all open PRs have switched to the new template
+  const noRegex = /- \[( |x)\] (no \()?this PR (will be|can wait)/gi;
   const noMatches = [...body.matchAll(noRegex)];
   const noMatch = noMatches.length > 0 ? noMatches[noMatches.length - 1] : null;
   const no = noMatch ? noMatch[1].toLowerCase() === "x" : false;
 
   if (yes && no) {
     core.setFailed(
-      "Both yes and no are selected. Please select only one in the `Should this PR be included in the next patch release?` section."
+      "Both yes and no are selected. Please select only one in the patch release section."
     );
     return;
   }
 
   if (!yes && !no) {
-    core.setFailed(
-      "Please fill in the `Should this PR be included in the next patch release?` section."
-    );
+    core.setFailed("Please fill in the patch release section.");
     return;
   }
 
@@ -93,16 +84,8 @@ module.exports = async ({ context, github, core }) => {
   }
 
   // Check if a version label already exists
-  const existingLabels = await github.rest.issues.listLabelsOnIssue({
-    owner,
-    repo,
-    issue_number: context.payload.pull_request.number,
-  });
-
   const versionLabelPattern = /^v\d+\.\d+\.\d+$/;
-  const existingVersionLabel = existingLabels.data.find((label) =>
-    versionLabelPattern.test(label.name)
-  );
+  const existingVersionLabel = labels.find((label) => versionLabelPattern.test(label.name));
 
   if (existingVersionLabel) {
     core.info(
@@ -127,7 +110,7 @@ module.exports = async ({ context, github, core }) => {
   await github.rest.issues.addLabels({
     owner,
     repo,
-    issue_number: context.payload.pull_request.number,
+    issue_number: pull_number,
     labels: [label],
   });
 };

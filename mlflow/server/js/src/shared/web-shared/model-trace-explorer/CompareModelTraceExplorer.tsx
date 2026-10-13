@@ -13,7 +13,7 @@ import {
 import { ModelTraceExplorerDetailCompareView } from './ModelTraceExplorerDetailCompareView';
 import { ModelTraceExplorerGenericErrorState } from './ModelTraceExplorerGenericErrorState';
 import { ModelTraceExplorerSummaryCompareView } from './summary-view/ModelTraceExplorerSummaryCompareView';
-import { useCopyController } from '../copy';
+import { useCopyController } from '../copy/useCopyController';
 
 const IdentifierTag = ({ modelTrace }: { modelTrace: ModelTrace }) => {
   const [modelTraceId, modelTraceIdToDisplay] = useMemo(() => {

@@ -3,6 +3,7 @@ from typing import Any
 
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.protos.service_pb2 import GatewaySecretInfo as ProtoGatewaySecretInfo
+from mlflow.utils.workspace_utils import resolve_entity_workspace_name
 
 
 @dataclass(frozen=True)
@@ -35,6 +36,7 @@ class GatewaySecretInfo(_MlflowObject):
         provider: LLM provider this secret is for (e.g., "openai", "anthropic").
         auth_config: Provider-specific configuration (e.g., region, project_id).
             This is non-sensitive metadata useful for UI disambiguation.
+        workspace: Workspace that owns the secret.
         created_by: User ID who created the secret.
         last_updated_by: User ID who last updated the secret.
     """
@@ -46,10 +48,14 @@ class GatewaySecretInfo(_MlflowObject):
     last_updated_at: int
     provider: str | None = None
     auth_config: dict[str, Any] | None = None
+    workspace: str | None = None
     created_by: str | None = None
     last_updated_by: str | None = None
 
-    def to_proto(self):
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "workspace", resolve_entity_workspace_name(self.workspace))
+
+    def to_proto(self) -> ProtoGatewaySecretInfo:
         proto = ProtoGatewaySecretInfo()
         proto.secret_id = self.secret_id
         proto.secret_name = self.secret_name
@@ -67,7 +73,7 @@ class GatewaySecretInfo(_MlflowObject):
         return proto
 
     @classmethod
-    def from_proto(cls, proto):
+    def from_proto(cls, proto: ProtoGatewaySecretInfo) -> "GatewaySecretInfo":
         # Empty map means no auth_config was provided
         auth_config = dict(proto.auth_config) or None
         return cls(

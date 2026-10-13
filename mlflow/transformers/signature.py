@@ -34,20 +34,16 @@ _DEFAULT_SIGNATURE_FOR_TASK = {
     "summarization": _TEXT2TEXT_SIGNATURE,
     "image-classification": _CLASSIFICATION_SIGNATURE,
     "zero-shot-classification": ModelSignature(
-        inputs=Schema(
-            [
-                ColSpec(DataType.string, name="sequences"),
-                ColSpec(DataType.string, name="candidate_labels"),
-                ColSpec(DataType.string, name="hypothesis_template"),
-            ]
-        ),
-        outputs=Schema(
-            [
-                ColSpec(DataType.string, name="sequence"),
-                ColSpec(DataType.string, name="labels"),
-                ColSpec(DataType.double, name="scores"),
-            ]
-        ),
+        inputs=Schema([
+            ColSpec(DataType.string, name="sequences"),
+            ColSpec(DataType.string, name="candidate_labels"),
+            ColSpec(DataType.string, name="hypothesis_template"),
+        ]),
+        outputs=Schema([
+            ColSpec(DataType.string, name="sequence"),
+            ColSpec(DataType.string, name="labels"),
+            ColSpec(DataType.double, name="scores"),
+        ]),
     ),
     "automatic-speech-recognition": ModelSignature(
         inputs=Schema([ColSpec(DataType.binary)]),
@@ -55,20 +51,23 @@ _DEFAULT_SIGNATURE_FOR_TASK = {
     ),
     "audio-classification": ModelSignature(
         inputs=Schema([ColSpec(DataType.binary)]),
-        outputs=Schema(
-            [ColSpec(DataType.double, name="score"), ColSpec(DataType.string, name="label")]
-        ),
+        outputs=Schema([
+            ColSpec(DataType.double, name="score"),
+            ColSpec(DataType.string, name="label"),
+        ]),
     ),
     "table-question-answering": ModelSignature(
-        inputs=Schema(
-            [ColSpec(DataType.string, name="query"), ColSpec(DataType.string, name="table")]
-        ),
+        inputs=Schema([
+            ColSpec(DataType.string, name="query"),
+            ColSpec(DataType.string, name="table"),
+        ]),
         outputs=Schema([ColSpec(DataType.string)]),
     ),
     "question-answering": ModelSignature(
-        inputs=Schema(
-            [ColSpec(DataType.string, name="question"), ColSpec(DataType.string, name="context")]
-        ),
+        inputs=Schema([
+            ColSpec(DataType.string, name="question"),
+            ColSpec(DataType.string, name="context"),
+        ]),
         outputs=Schema([ColSpec(DataType.string)]),
     ),
     "feature-extraction": ModelSignature(

@@ -1,3 +1,4 @@
+import json
 from unittest.mock import MagicMock, patch
 
 import dspy
@@ -5,8 +6,12 @@ import pytest
 
 import mlflow
 from mlflow.genai.judges.optimizers.memalign.utils import (
+    Guideline,
+    Guidelines,
+    _build_strict_response_format,
     _count_tokens,
     _create_batches,
+    _extract_json_object,
     distill_guidelines,
     get_default_embedding_model,
     retrieve_relevant_examples,
@@ -17,6 +22,128 @@ from mlflow.genai.judges.optimizers.memalign.utils import (
 
 def test_get_default_embedding_model():
     assert get_default_embedding_model() == "openai:/text-embedding-3-small"
+
+
+def _iter_object_schemas(schema):
+    """Yield every object schema node (top-level and nested $defs) in a JSON schema."""
+    yield schema
+    yield from schema.get("$defs", {}).values()
+
+
+@pytest.mark.parametrize("model", [Guideline, Guidelines])
+def test_guideline_schemas_satisfy_strict_structured_output(model):
+    # Databricks' structured-output endpoint enforces OpenAI strict-schema rules on every
+    # object: additionalProperties=false (emitted via extra=forbid) AND every property listed
+    # in `required` (so no field may declare a default). Assert both, since either omission
+    # produces a BadRequestError from the endpoint.
+    schema = model.model_json_schema()
+    for obj in _iter_object_schemas(schema):
+        if "properties" in obj:
+            assert obj.get("additionalProperties") is False
+            assert set(obj["required"]) == set(obj["properties"])
+
+
+def test_guideline_accepts_none_source_trace_ids():
+    # source_trace_ids is required (no default) but must remain nullable, since guidelines
+    # loaded from persisted memory and filtering logic rely on None being a valid value.
+    assert Guideline(guideline_text="x", source_trace_ids=None).source_trace_ids is None
+
+
+def _walk_schema(node):
+    """Yield every dict node in a JSON schema tree."""
+    if isinstance(node, dict):
+        yield node
+        for value in node.values():
+            yield from _walk_schema(value)
+    elif isinstance(node, list):
+        for item in node:
+            yield from _walk_schema(item)
+
+
+def test_build_strict_response_format_satisfies_databricks_rules():
+    # Databricks' structured-output endpoint enforces the full OpenAI strict-schema contract
+    # AND (unlike OpenAI) rejects $ref/$defs indirection. Assert the built response_format:
+    #   - is a strict json_schema envelope
+    #   - contains no $ref / $defs (fully inlined)
+    #   - declares additionalProperties=false and complete `required` on every object
+    rf = _build_strict_response_format(Guidelines)
+
+    assert rf["type"] == "json_schema"
+    assert rf["json_schema"]["strict"] is True
+    schema = rf["json_schema"]["schema"]
+
+    for node in _walk_schema(schema):
+        assert "$ref" not in node
+        assert "$defs" not in node
+        if node.get("type") == "object" or "properties" in node:
+            assert node.get("additionalProperties") is False
+            assert set(node["required"]) == set(node["properties"])
+
+
+def _assert_objects_forbid_additional_properties(node):
+    """Recursively assert every object schema declares additionalProperties=false."""
+    if isinstance(node, dict):
+        if node.get("type") == "object" or "properties" in node:
+            assert node.get("additionalProperties") is False, node
+        for value in node.values():
+            _assert_objects_forbid_additional_properties(value)
+    elif isinstance(node, list):
+        for item in node:
+            _assert_objects_forbid_additional_properties(item)
+
+
+# Databricks-served foundation models split into two response_format routing paths in
+# litellm: OpenAI-compatible models emit a strict `json_schema`, while Claude models are
+# rewritten into a forced tool call whose parameter schema is derived from the same model.
+# These tests verify that Guidelines produces a valid payload (every object declaring
+# additionalProperties=false) on both paths across a representative model per family.
+# NOTE: the version-independent regression guard for the additionalProperties fix is
+# test_guideline_schemas_forbid_additional_properties above - recent litellm also injects
+# additionalProperties on the json_schema path, so these routing tests alone would not
+# catch a removal of extra="forbid" on older litellm. See the Databricks docs:
+# https://docs.databricks.com/aws/en/machine-learning/model-serving/score-foundation-models
+_JSON_SCHEMA_MODELS = [
+    "databricks-gpt-5",
+    "databricks-gpt-5-mini",
+    "databricks-gpt-oss-120b",
+    "databricks-gemini-2-5-flash",
+    "databricks-qwen35-122b-a10b",
+    "databricks-glm-5-2",
+    "databricks-gemma-3-12b",
+    "databricks-llama-4-maverick",
+    "databricks-meta-llama-3-1-8b-instruct",
+]
+_TOOL_CALL_MODELS = [
+    "databricks-claude-sonnet-5",
+    "databricks-claude-opus-4-8",
+    "databricks-claude-haiku-4-5",
+]
+
+
+@pytest.mark.parametrize("model", _JSON_SCHEMA_MODELS)
+def test_guidelines_response_format_json_schema_families(model):
+    import litellm
+
+    params = litellm.get_optional_params(
+        model=model, custom_llm_provider="databricks", response_format=Guidelines
+    )
+    response_format = params.get("response_format")
+    assert response_format is not None, f"{model} dropped response_format"
+    assert response_format["type"] == "json_schema"
+    _assert_objects_forbid_additional_properties(response_format["json_schema"]["schema"])
+
+
+@pytest.mark.parametrize("model", _TOOL_CALL_MODELS)
+def test_guidelines_response_format_tool_call_families(model):
+    import litellm
+
+    params = litellm.get_optional_params(
+        model=model, custom_llm_provider="databricks", response_format=Guidelines
+    )
+    # Claude routes structured output through a forced tool call rather than json_schema.
+    tools = params.get("tools")
+    assert tools, f"{model} produced neither response_format nor tools"
+    _assert_objects_forbid_additional_properties(tools[0]["function"]["parameters"])
 
 
 def test_distill_guidelines_empty_examples():
@@ -130,6 +257,123 @@ def test_distill_guidelines_handles_lm_error():
             existing_guidelines=[],
         )
         assert result == []
+
+
+def test_distill_guidelines_falls_back_to_unstructured_on_structured_output_error():
+    # Some models error on structured-output (response_format) requests. The distiller
+    # should retry without response_format rather than dropping the batch.
+    with (
+        patch(
+            "mlflow.genai.judges.optimizers.memalign.utils.construct_dspy_lm"
+        ) as mock_construct_lm,
+        patch(
+            "mlflow.genai.judges.optimizers.memalign.utils._create_batches",
+            return_value=[[0]],
+        ),
+    ):
+        example1 = MagicMock(spec=dspy.Example)
+        example1.__iter__ = lambda self: iter([("input", "test"), ("output", "good")])
+        example1._trace_id = "trace_1"
+
+        def lm_side_effect(messages, **kwargs):
+            if "response_format" in kwargs:
+                raise Exception("INTERNAL_ERROR: invalid response from upstream server")
+            # Unstructured fallback returns JSON wrapped in a markdown fence.
+            return [
+                '```json\n{"guidelines": [{"guideline_text": "Be concise", '
+                '"source_trace_ids": [0]}]}\n```'
+            ]
+
+        mock_lm = MagicMock(side_effect=lm_side_effect)
+        mock_construct_lm.return_value = mock_lm
+
+        result = distill_guidelines(
+            examples=[example1],
+            judge_instructions="Evaluate quality",
+            reflection_lm="databricks:/databricks-gpt-oss-120b",
+            existing_guidelines=[],
+        )
+
+        assert len(result) == 1
+        assert result[0].guideline_text == "Be concise"
+        assert result[0].source_trace_ids == ["trace_1"]
+        # Structured attempt + unstructured fallback = two calls.
+        assert mock_lm.call_count == 2
+
+
+_GUIDELINE_JSON = '{"guidelines": [{"guideline_text": "Be concise", "source_trace_ids": [0]}]}'
+
+
+# The DSPy response shape varies by Databricks foundation-model family. Verified against a
+# live endpoint (litellm 1.75.9): most families return the completion as a plain string,
+# while reasoning models (gpt-oss-*) return a {"text": ..., "reasoning_content": ...} dict
+# because DSPy only collapses single-key outputs to str. Distillation must parse both,
+# including the fenced/prose variants the unstructured fallback can produce.
+@pytest.mark.parametrize(
+    ("reflection_lm", "lm_response"),
+    [
+        # str responses (gpt-5, gemini, claude, llama, gemma, qwen, ...)
+        ("databricks:/databricks-gpt-5-mini", _GUIDELINE_JSON),
+        ("databricks:/databricks-claude-sonnet-4-5", _GUIDELINE_JSON),
+        ("databricks:/databricks-meta-llama-3-3-70b-instruct", f"```json\n{_GUIDELINE_JSON}\n```"),
+        # dict responses from reasoning models (gpt-oss-*)
+        (
+            "databricks:/databricks-gpt-oss-120b",
+            {"text": _GUIDELINE_JSON, "reasoning_content": "thinking..."},
+        ),
+        (
+            "databricks:/databricks-gpt-oss-20b",
+            {"text": f"```json\n{_GUIDELINE_JSON}\n```", "reasoning_content": "thinking..."},
+        ),
+    ],
+)
+def test_distill_guidelines_handles_family_response_shapes(reflection_lm, lm_response):
+    with (
+        patch(
+            "mlflow.genai.judges.optimizers.memalign.utils.construct_dspy_lm"
+        ) as mock_construct_lm,
+        patch(
+            "mlflow.genai.judges.optimizers.memalign.utils._create_batches",
+            return_value=[[0]],
+        ),
+    ):
+        example1 = MagicMock(spec=dspy.Example)
+        example1.__iter__ = lambda self: iter([("input", "test"), ("output", "good")])
+        example1._trace_id = "trace_1"
+
+        mock_lm = MagicMock(return_value=[lm_response])
+        mock_construct_lm.return_value = mock_lm
+
+        result = distill_guidelines(
+            examples=[example1],
+            judge_instructions="Evaluate quality",
+            reflection_lm=reflection_lm,
+            existing_guidelines=[],
+        )
+
+        assert len(result) == 1
+        assert result[0].guideline_text == "Be concise"
+        assert result[0].source_trace_ids == ["trace_1"]
+
+
+@pytest.mark.parametrize(
+    "response",
+    [
+        '{"guidelines": []}',
+        '```json\n{"guidelines": []}\n```',
+        '```\n{"guidelines": []}\n```',
+        '  {"guidelines": []}  ',
+        'Here are the guidelines:\n```json\n{"guidelines": []}\n```',
+        'Sure! {"guidelines": []}',
+        '{"guidelines": []}\nLet me know if you need more.',
+        # Reasoning models (e.g. gpt-oss) return a DSPy dict rather than a string.
+        {"text": '{"guidelines": []}', "reasoning_content": "let me think..."},
+    ],
+)
+def test_extract_json_object(response):
+    # The unstructured fallback path yields JSON that may be fenced and/or wrapped in
+    # prose; reasoning models return a {"text": ...} dict. Either must extract to valid JSON.
+    assert json.loads(_extract_json_object(response)) == {"guidelines": []}
 
 
 def test_retrieve_relevant_examples_empty():

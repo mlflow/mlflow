@@ -40,6 +40,7 @@ export const ModelsHeaderCellRenderer = React.memo(() => {
           {ATTRIBUTE_COLUMN_LABELS.MODELS}
           <InfoTooltip
             componentId="mlflow.experiment_view_runs_table.column_header.models.tooltip"
+            disableHoverableContent={false}
             content={
               <FormattedMessage
                 defaultMessage="This column contains all models logged or evaluated by the run. Click into an individual run to see more detailed information about all models associated with it."

@@ -1,9 +1,13 @@
 import uuid
 
 from mlflow.entities.model_registry.model_version import ModelVersion
+from mlflow.entities.model_registry.model_version_deployment_job_state import (
+    ModelVersionDeploymentJobState,
+)
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
 from mlflow.entities.model_registry.model_version_tag import ModelVersionTag
 from mlflow.entities.model_registry.registered_model import RegisteredModel
+from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 from tests.helper_functions import random_str
 
@@ -23,6 +27,7 @@ def _check(
     status_message,
     tags,
     aliases,
+    workspace=DEFAULT_WORKSPACE_NAME,
 ):
     assert isinstance(model_version, ModelVersion)
     assert model_version.name == name
@@ -38,6 +43,7 @@ def _check(
     assert model_version.status_message == status_message
     assert model_version.tags == tags
     assert model_version.aliases == aliases
+    assert model_version.workspace == workspace
 
 
 def test_creation_and_hydration():
@@ -101,6 +107,7 @@ def test_creation_and_hydration():
         "metrics": None,
         "params": None,
         "deployment_job_state": None,
+        "workspace": DEFAULT_WORKSPACE_NAME,
     }
     model_version_as_dict = dict(mvd)
     assert model_version_as_dict == expected_dict
@@ -177,5 +184,67 @@ def test_string_repr():
         "model_id=None, name='myname', params=None, run_id='some run', "
         "run_link='http://localhost:5000/path/to/run', source='path/to/a/notebook', "
         "status='PENDING_REGISTRATION', status_message='Copying!', tags={}, user_id='user one', "
-        "version='43'>"
+        "version='43', workspace='default'>"
     )
+
+
+def test_model_version_non_default_workspace_round_trip():
+    workspace = f"team-{random_str()}"
+    run_id = uuid.uuid4().hex
+    model_version = ModelVersion(
+        name="roundtrip-model",
+        version="7",
+        creation_timestamp=10,
+        last_updated_timestamp=20,
+        description="non-default workspace",
+        user_id="user-10",
+        current_stage="Production",
+        source="path/to/model",
+        run_id=run_id,
+        status="READY",
+        status_message="ready",
+        tags=[],
+        aliases=[],
+        workspace=workspace,
+    )
+
+    as_dict = dict(model_version)
+    assert as_dict["workspace"] == workspace
+    as_dict["tags"] = []
+
+    hydrated = ModelVersion.from_dictionary(as_dict)
+    assert hydrated.workspace == workspace
+    assert workspace in str(hydrated)
+
+
+def test_model_version_deployment_job_state_proto_round_trip():
+    deployment_job_state = ModelVersionDeploymentJobState(
+        job_id="job-123",
+        run_id="run-456",
+        job_state="CONNECTED",
+        run_state="RUNNING",
+        current_task_name="Evaluation",
+    )
+    model_version = ModelVersion(
+        name="deployment-job-model",
+        version="1",
+        creation_timestamp=1,
+        deployment_job_state=deployment_job_state,
+    )
+
+    proto = model_version.to_proto()
+    assert proto.HasField("deployment_job_state")
+    assert proto.deployment_job_state.job_id == "job-123"
+    assert proto.deployment_job_state.run_id == "run-456"
+    assert proto.deployment_job_state.current_task_name == "Evaluation"
+
+    hydrated = ModelVersion.from_proto(proto)
+    assert hydrated.deployment_job_state == deployment_job_state
+
+
+def test_model_version_without_deployment_job_state_round_trip():
+    model_version = ModelVersion(name="deployment-job-model", version="1", creation_timestamp=1)
+
+    proto = model_version.to_proto()
+    assert not proto.HasField("deployment_job_state")
+    assert ModelVersion.from_proto(proto).deployment_job_state is None

@@ -3,15 +3,16 @@ import math
 import os
 import random
 import signal
-from io import StringIO
+from io import BytesIO, StringIO
 from typing import Any, NamedTuple
+from unittest import mock
 
 import keras
 import numpy as np
 import pandas as pd
 import pydantic
 import pytest
-import sklearn.neighbors as knn
+import sklearn.linear_model as logreg_module
 from packaging.version import Version
 from sklearn import datasets
 
@@ -26,7 +27,7 @@ from mlflow.types import ColSpec, DataType, ParamSchema, ParamSpec, Schema
 from mlflow.types.schema import Array, Object, Property
 from mlflow.utils import env_manager as _EnvManager
 from mlflow.utils.file_utils import TempDir
-from mlflow.utils.proto_json_utils import NumpyEncoder
+from mlflow.utils.proto_json_utils import MlflowInvalidInputException, NumpyEncoder
 from mlflow.version import VERSION
 
 from tests.helper_functions import (
@@ -137,36 +138,32 @@ class MyEmbeddingsLLM(PythonModel):
 
 @pytest.fixture
 def pandas_df_with_all_types():
-    pdf = pd.DataFrame(
-        {
-            "boolean": [True, False, True],
-            "integer": np.array([1, 2, 3], np.int32),
-            "long": np.array([1, 2, 3], np.int64),
-            "float": np.array([math.pi, 2 * math.pi, 3 * math.pi], np.float32),
-            "double": [math.pi, 2 * math.pi, 3 * math.pi],
-            "binary": [bytearray([1, 2, 3]), bytearray([4, 5, 6]), bytearray([7, 8, 9])],
-            "datetime": [
-                np.datetime64("2021-01-01 00:00:00"),
-                np.datetime64("2021-02-02 00:00:00"),
-                np.datetime64("2021-03-03 12:00:00"),
-            ],
-        }
-    )
+    pdf = pd.DataFrame({
+        "boolean": [True, False, True],
+        "integer": np.array([1, 2, 3], np.int32),
+        "long": np.array([1, 2, 3], np.int64),
+        "float": np.array([math.pi, 2 * math.pi, 3 * math.pi], np.float32),
+        "double": [math.pi, 2 * math.pi, 3 * math.pi],
+        "binary": [bytearray([1, 2, 3]), bytearray([4, 5, 6]), bytearray([7, 8, 9])],
+        "datetime": [
+            np.datetime64("2021-01-01 00:00:00"),
+            np.datetime64("2021-02-02 00:00:00"),
+            np.datetime64("2021-03-03 12:00:00"),
+        ],
+    })
     pdf["string"] = pd.Series(["a", "b", "c"], dtype=DataType.string.to_pandas())
     return pdf
 
 
 @pytest.fixture
 def pandas_df_with_csv_types():
-    pdf = pd.DataFrame(
-        {
-            "boolean": [True, False, True],
-            "integer": np.array([1, 2, 3], np.int32),
-            "long": np.array([1, 2, 3], np.int64),
-            "float": np.array([math.pi, 2 * math.pi, 3 * math.pi], np.float32),
-            "double": [math.pi, 2 * math.pi, 3 * math.pi],
-        }
-    )
+    pdf = pd.DataFrame({
+        "boolean": [True, False, True],
+        "integer": np.array([1, 2, 3], np.int32),
+        "long": np.array([1, 2, 3], np.int64),
+        "float": np.array([math.pi, 2 * math.pi, 3 * math.pi], np.float32),
+        "double": [math.pi, 2 * math.pi, 3 * math.pi],
+    })
     pdf["string"] = pd.Series(["a", "b", "c"], dtype=DataType.string.to_pandas())
     return pdf
 
@@ -176,9 +173,9 @@ def sklearn_model():
     iris = datasets.load_iris()
     X = iris.data[:, :2]  # we only take the first two features.
     y = iris.target
-    knn_model = knn.KNeighborsClassifier()
-    knn_model.fit(X, y)
-    return ModelWithData(model=knn_model, inference_data=X)
+    logreg_model = logreg_module.LogisticRegression()
+    logreg_model.fit(X, y)
+    return ModelWithData(model=logreg_model, inference_data=X)
 
 
 @pytest.fixture(scope="module")
@@ -289,9 +286,9 @@ def test_scoring_server_responds_to_invalid_dataframe_with_stacktrace_and_error_
 ):
     mlflow.sklearn.save_model(sk_model=sklearn_model.model, path=model_path)
 
-    invalid_dataframe_content = json.dumps(
-        {"dataframe_split": {"index": [1, 2], "data": [[1], [2], [3]]}}
-    )
+    invalid_dataframe_content = json.dumps({
+        "dataframe_split": {"index": [1, 2], "data": [[1], [2], [3]]}
+    })
 
     response = score_model_in_process(
         model_uri=os.path.abspath(model_path),
@@ -341,14 +338,33 @@ def test_scoring_server_responds_to_invalid_csv_input_with_stacktrace_and_error_
     assert "stack_trace" in response_json
 
 
+def test_scoring_server_responds_to_invalid_parquet_input_with_stacktrace_and_error_code(
+    sklearn_model, model_path
+):
+    mlflow.sklearn.save_model(sk_model=sklearn_model.model, path=model_path)
+
+    # Any empty string is not valid pandas parquet input
+    incorrect_parquet_content = ""
+    response = score_model_in_process(
+        model_uri=os.path.abspath(model_path),
+        data=incorrect_parquet_content,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_PARQUET,
+    )
+    response_json = json.loads(response.content)
+    assert "error_code" in response_json
+    assert response_json["error_code"] == ErrorCode.Name(BAD_REQUEST)
+    assert "message" in response_json
+    assert "stack_trace" in response_json
+
+
 def test_scoring_server_successfully_evaluates_correct_dataframes_with_pandas_records_orientation(
     sklearn_model, model_path
 ):
     mlflow.sklearn.save_model(sk_model=sklearn_model.model, path=model_path)
 
-    pandas_record_content = json.dumps(
-        {"dataframe_records": pd.DataFrame(sklearn_model.inference_data).to_dict(orient="records")}
-    )
+    pandas_record_content = json.dumps({
+        "dataframe_records": pd.DataFrame(sklearn_model.inference_data).to_dict(orient="records")
+    })
 
     response_records_content_type = score_model_in_process(
         model_uri=os.path.abspath(model_path),
@@ -371,9 +387,9 @@ def test_scoring_server_successfully_evaluates_correct_dataframes_with_pandas_sp
 ):
     mlflow.sklearn.save_model(sk_model=sklearn_model.model, path=model_path)
 
-    pandas_split_content = json.dumps(
-        {"dataframe_split": pd.DataFrame(sklearn_model.inference_data).to_dict(orient="split")}
-    )
+    pandas_split_content = json.dumps({
+        "dataframe_split": pd.DataFrame(sklearn_model.inference_data).to_dict(orient="split")
+    })
 
     # Testing the charset parameter
     response = score_model_in_process(
@@ -515,7 +531,10 @@ def test_records_oriented_json_to_df():
     jstr, _ = pyfunc_scoring_server._split_data_and_params(jstr)
     df = pyfunc_scoring_server.infer_and_parse_data(jstr)
     assert set(df.columns) == {"zip", "cost", "score"}
-    assert {str(dt) for dt in df.dtypes} == {"object", "float64", "int64"}
+    # pandas 3 infers StringDtype where pandas 2 used object
+    assert pd.api.types.is_string_dtype(df["zip"])
+    assert df["cost"].dtype == "float64"
+    assert df["score"].dtype == "int64"
 
 
 def _shuffle_pdf(pdf):
@@ -539,7 +558,10 @@ def test_split_oriented_json_to_df():
     df = pyfunc_scoring_server.infer_and_parse_data(jstr)
 
     assert set(df.columns) == {"zip", "cost", "count"}
-    assert {str(dt) for dt in df.dtypes} == {"object", "float64", "int64"}
+    # pandas 3 infers StringDtype where pandas 2 used object
+    assert pd.api.types.is_string_dtype(df["zip"])
+    assert df["cost"].dtype == "float64"
+    assert df["count"].dtype == "int64"
 
 
 def test_parse_with_schema_csv(pandas_df_with_csv_types):
@@ -547,6 +569,14 @@ def test_parse_with_schema_csv(pandas_df_with_csv_types):
     df = _shuffle_pdf(pandas_df_with_csv_types)
     csv_str = df.to_csv(index=False)
     df = pyfunc_scoring_server.parse_csv_input(StringIO(csv_str), schema=schema)
+    assert schema == infer_signature(df[schema.input_names()]).inputs
+
+
+def test_parse_parquet_schema(pandas_df_with_all_types):
+    schema = Schema([ColSpec(c, c) for c in pandas_df_with_all_types.columns])
+    df = _shuffle_pdf(pandas_df_with_all_types)
+    parquet_stream = df.to_parquet()
+    df = pyfunc_scoring_server.parse_parquet_input(BytesIO(parquet_stream))
     assert schema == infer_signature(df[schema.input_names()]).inputs
 
 
@@ -576,14 +606,12 @@ def test_parse_with_schema(pandas_df_with_all_types):
       }
     }
     """
-    schema = Schema(
-        [
-            ColSpec("integer", "bad_integer"),
-            ColSpec("float", "bad_float"),
-            ColSpec("string", "bad_string"),
-            ColSpec("boolean", "bad_boolean"),
-        ]
-    )
+    schema = Schema([
+        ColSpec("integer", "bad_integer"),
+        ColSpec("float", "bad_float"),
+        ColSpec("string", "bad_string"),
+        ColSpec("boolean", "bad_boolean"),
+    ])
     bad_df, _ = pyfunc_scoring_server._split_data_and_params(bad_df)
     df = pyfunc_scoring_server.infer_and_parse_data(bad_df, schema=schema)
     # Unfortunately, the current behavior of pandas parse is to force numbers to int32 even if
@@ -621,9 +649,15 @@ def test_serving_model_with_schema(pandas_df_with_all_types):
         )
         response_json = json.loads(response.content)["predictions"]
 
-        # objects are not converted to pandas Strings at the moment
-        expected_types = {**pandas_df_with_all_types.dtypes, "string": np.dtype(object)}
-        assert response_json == [[k, str(v)] for k, v in expected_types.items()]
+        expected_types = {
+            **{k: str(v) for k, v in pandas_df_with_all_types.dtypes.items()},
+            # Schema enforcement normalizes datetimes to nanoseconds, while pandas 3 infers a
+            # coarser unit for the fixture
+            "datetime": "datetime64[ns]",
+            # "object" on pandas 2, "str" on pandas 3
+            "string": str(pd.Series([""]).dtype),
+        }
+        assert response_json == [[k, v] for k, v in expected_types.items()]
         response = score_model_in_process(
             model_uri=model_info.model_uri,
             data=json.dumps(
@@ -633,7 +667,7 @@ def test_serving_model_with_schema(pandas_df_with_all_types):
             content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         )
         response_json = json.loads(response.content)["predictions"]
-        assert response_json == [[k, str(v)] for k, v in expected_types.items()]
+        assert response_json == [[k, v] for k, v in expected_types.items()]
 
         # Test 'inputs' format
         response = score_model_in_process(
@@ -642,7 +676,7 @@ def test_serving_model_with_schema(pandas_df_with_all_types):
             content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         )
         response_json = json.loads(response.content)["predictions"]
-        assert response_json == [[k, str(v)] for k, v in expected_types.items()]
+        assert response_json == [[k, v] for k, v in expected_types.items()]
 
 
 def test_serving_model_with_param_schema(sklearn_model, model_path):
@@ -650,9 +684,9 @@ def test_serving_model_with_param_schema(sklearn_model, model_path):
         "dataframe_split": pd.DataFrame(sklearn_model.inference_data).to_dict(orient="split")
     }
     signature = infer_signature(sklearn_model.inference_data)
-    param_schema = ParamSchema(
-        [ParamSpec("param1", DataType.datetime, np.datetime64("2023-07-01"))]
-    )
+    param_schema = ParamSchema([
+        ParamSpec("param1", DataType.datetime, np.datetime64("2023-07-01"))
+    ])
     signature.params = param_schema
     mlflow.sklearn.save_model(sk_model=sklearn_model.model, path=model_path, signature=signature)
 
@@ -714,6 +748,27 @@ def test_numpy_encoder_for_pydantic():
     )
 
 
+def test_parse_parquet_input():
+    class TestModel(PythonModel):
+        def predict(self, context, model_input, params=None):
+            return 1
+
+    with mlflow.start_run() as run:
+        mlflow.pyfunc.log_model(name="model", python_model=TestModel())
+
+    pandas_df = pd.DataFrame({
+        "foo": [3.0, 4.0],
+        "bar": [1.0, 2.0],
+    })
+
+    response_records_content_type = score_model_in_process(
+        model_uri=f"runs:/{run.info.run_id}/model",
+        data=pandas_df,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_PARQUET,
+    )
+    expect_status_code(response_records_content_type, 200)
+
+
 def test_parse_json_input_including_path():
     class TestModel(PythonModel):
         def predict(self, context, model_input, params=None):
@@ -722,12 +777,10 @@ def test_parse_json_input_including_path():
     with mlflow.start_run() as run:
         mlflow.pyfunc.log_model(name="model", python_model=TestModel())
 
-    pandas_split_content = pd.DataFrame(
-        {
-            "url": ["http://foo.com", "https://bar.com"],
-            "bad_protocol": ["aaa://bbb", "address:/path"],
-        }
-    )
+    pandas_split_content = pd.DataFrame({
+        "url": ["http://foo.com", "https://bar.com"],
+        "bad_protocol": ["aaa://bbb", "address:/path"],
+    })
 
     response_records_content_type = score_model_in_process(
         model_uri=f"runs:/{run.info.run_id}/model",
@@ -787,7 +840,6 @@ def test_scoring_server_client(sklearn_model, model_path):
             port=port,
             host="127.0.0.1",
             timeout=timeout,
-            enable_mlserver=False,
             synchronous=False,
         )
 
@@ -805,21 +857,17 @@ def test_scoring_server_client(sklearn_model, model_path):
             os.kill(server_proc.pid, signal.SIGTERM)
 
 
-_LLM_CHAT_INPUT_SCHEMA = Schema(
-    [
-        ColSpec(
-            Array(
-                Object(
-                    [
-                        Property("role", DataType.string),
-                        Property("content", DataType.string),
-                    ]
-                ),
-            ),
-            name="messages",
-        )
-    ]
-)
+_LLM_CHAT_INPUT_SCHEMA = Schema([
+    ColSpec(
+        Array(
+            Object([
+                Property("role", DataType.string),
+                Property("content", DataType.string),
+            ]),
+        ),
+        name="messages",
+    )
+])
 
 
 @pytest.mark.parametrize(
@@ -839,13 +887,11 @@ _LLM_CHAT_INPUT_SCHEMA = Schema(
         (
             ModelSignature(
                 inputs=_LLM_CHAT_INPUT_SCHEMA,
-                params=ParamSchema(
-                    [
-                        ParamSpec("temperature", DataType.double, default=0.5),
-                        ParamSpec("max_tokens", DataType.integer, default=20),
-                        ParamSpec("top_p", DataType.double, default=0.9),
-                    ]
-                ),
+                params=ParamSchema([
+                    ParamSpec("temperature", DataType.double, default=0.5),
+                    ParamSpec("max_tokens", DataType.integer, default=20),
+                    ParamSpec("top_p", DataType.double, default=0.9),
+                ]),
             ),
             {
                 "messages": [{"role": "user", "content": "hello!"}],
@@ -861,11 +907,9 @@ _LLM_CHAT_INPUT_SCHEMA = Schema(
         (
             ModelSignature(
                 inputs=_LLM_CHAT_INPUT_SCHEMA,
-                params=ParamSchema(
-                    [
-                        ParamSpec("temperature", DataType.double, default=0.5),
-                    ]
-                ),
+                params=ParamSchema([
+                    ParamSpec("temperature", DataType.double, default=0.5),
+                ]),
             ),
             {
                 "messages": [{"role": "user", "content": "hello!"}],
@@ -878,13 +922,11 @@ _LLM_CHAT_INPUT_SCHEMA = Schema(
         # Test case: params can be defined in the input schema
         (
             ModelSignature(
-                inputs=Schema(
-                    [
-                        *_LLM_CHAT_INPUT_SCHEMA.inputs,
-                        ColSpec(DataType.long, "max_tokens", required=False),
-                        ColSpec(DataType.double, "temperature", required=False),
-                    ]
-                ),
+                inputs=Schema([
+                    *_LLM_CHAT_INPUT_SCHEMA.inputs,
+                    ColSpec(DataType.long, "max_tokens", required=False),
+                    ColSpec(DataType.double, "temperature", required=False),
+                ]),
             ),
             {
                 "messages": [{"role": "user", "content": "hello!"}],
@@ -900,13 +942,11 @@ def test_scoring_server_allows_payloads_with_llm_chat_keys_for_pyfunc(
 ):
     mlflow.pyfunc.save_model(model_path, python_model=MyChatLLM(), signature=signature)
 
-    payload = json.dumps(
-        {
-            "messages": [{"role": "user", "content": "hello!"}],
-            "temperature": 0.5,
-            "max_tokens": 20,
-        }
-    )
+    payload = json.dumps({
+        "messages": [{"role": "user", "content": "hello!"}],
+        "temperature": 0.5,
+        "max_tokens": 20,
+    })
     response = score_model_in_process(
         model_uri=model_path,
         data=payload,
@@ -918,14 +958,12 @@ def test_scoring_server_allows_payloads_with_llm_chat_keys_for_pyfunc(
     assert json.loads(response.content)["params"] == expected_params
 
 
-_LLM_COMPLETIONS_INPUT_SCHEMA = Schema(
-    [
-        ColSpec(
-            DataType.string,
-            name="prompt",
-        )
-    ]
-)
+_LLM_COMPLETIONS_INPUT_SCHEMA = Schema([
+    ColSpec(
+        DataType.string,
+        name="prompt",
+    )
+])
 
 
 @pytest.mark.parametrize(
@@ -945,13 +983,11 @@ _LLM_COMPLETIONS_INPUT_SCHEMA = Schema(
         (
             ModelSignature(
                 inputs=_LLM_COMPLETIONS_INPUT_SCHEMA,
-                params=ParamSchema(
-                    [
-                        ParamSpec("temperature", DataType.double, default=0.5),
-                        ParamSpec("max_tokens", DataType.integer, default=20),
-                        ParamSpec("top_p", DataType.double, default=0.9),
-                    ]
-                ),
+                params=ParamSchema([
+                    ParamSpec("temperature", DataType.double, default=0.5),
+                    ParamSpec("max_tokens", DataType.integer, default=20),
+                    ParamSpec("top_p", DataType.double, default=0.9),
+                ]),
             ),
             {
                 "prompt": "hello!",
@@ -969,13 +1005,11 @@ def test_scoring_server_allows_payloads_with_llm_completions_keys_for_pyfunc(
 ):
     mlflow.pyfunc.save_model(model_path, python_model=MyCompletionsLLM(), signature=signature)
 
-    payload = json.dumps(
-        {
-            "prompt": "hello!",
-            "temperature": 0.5,
-            "max_tokens": 20,
-        }
-    )
+    payload = json.dumps({
+        "prompt": "hello!",
+        "temperature": 0.5,
+        "max_tokens": 20,
+    })
     response = score_model_in_process(
         model_uri=model_path,
         data=payload,
@@ -987,14 +1021,12 @@ def test_scoring_server_allows_payloads_with_llm_completions_keys_for_pyfunc(
     assert json.loads(response.content)["params"] == expected_params
 
 
-_LLM_EMBEDDINGS_INPUT_SCHEMA = Schema(
-    [
-        ColSpec(
-            DataType.string,
-            name="input",
-        )
-    ]
-)
+_LLM_EMBEDDINGS_INPUT_SCHEMA = Schema([
+    ColSpec(
+        DataType.string,
+        name="input",
+    )
+])
 
 
 @pytest.mark.parametrize(
@@ -1026,12 +1058,10 @@ def test_scoring_server_allows_payloads_with_llm_embeddings_keys_for_pyfunc(
 ):
     mlflow.pyfunc.save_model(model_path, python_model=MyEmbeddingsLLM(), signature=signature)
 
-    payload = json.dumps(
-        {
-            "input": "hello!",
-            "random": "test",
-        }
-    )
+    payload = json.dumps({
+        "input": "hello!",
+        "random": "test",
+    })
     response = score_model_in_process(
         model_uri=model_path,
         data=payload,
@@ -1061,12 +1091,10 @@ def test_scoring_server_allows_payloads_with_messages_for_pyfunc_wrapped(model_p
         model_path, python_model=WrappedSklearn(), artifacts={"model_path": sklearn_path}
     )
 
-    payload = json.dumps(
-        {
-            "messages": [{"role": "user", "content": "[2,2,2,2]"}],
-            "max_tokens": 20,
-        }
-    )
+    payload = json.dumps({
+        "messages": [{"role": "user", "content": "[2,2,2,2]"}],
+        "max_tokens": 20,
+    })
     response = score_model_in_process(
         model_uri=model_path,
         data=payload,
@@ -1089,11 +1117,9 @@ def test_scoring_server_allows_payloads_with_messages_for_pyfunc_wrapped(model_p
             # params defined in the param schema should go to params
             # rest should go to data
             {"messages": ["test"], "max_tokens": 20, "random": "test"},
-            ParamSchema(
-                [
-                    ParamSpec("max_tokens", DataType.integer, default=20),
-                ]
-            ),
+            ParamSchema([
+                ParamSpec("max_tokens", DataType.integer, default=20),
+            ]),
             ({"messages": ["test"], "random": "test"}, {"max_tokens": 20}),
         ),
     ],
@@ -1105,3 +1131,23 @@ def test_split_data_and_params_for_llm_input(dict_input, param_schema, expected)
     expected_data, expected_params = expected
     assert data == expected_data
     assert params == expected_params
+
+
+def test_decode_json_input_rejects_non_utf8_body():
+    with pytest.raises(MlflowInvalidInputException, match="valid JSON formatted string"):
+        pyfunc_scoring_server._decode_json_input(b"\x80\x81")
+
+
+def test_decode_json_input_still_rejects_malformed_json():
+    with pytest.raises(MlflowInvalidInputException, match="valid JSON formatted string"):
+        pyfunc_scoring_server._decode_json_input(b"{not json")
+
+
+def test_invocations_rejects_non_utf8_csv_body():
+    with pytest.raises(MlflowInvalidInputException, match="valid UTF-8 encoded string"):
+        pyfunc_scoring_server.invocations(
+            b"\x80\x81",
+            content_type=pyfunc_scoring_server.CONTENT_TYPE_CSV,
+            model=mock.MagicMock(),
+            input_schema=None,
+        )

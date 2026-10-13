@@ -14,6 +14,7 @@ const STORAGE_KEY = 'experimentRunColors';
 export type SaveExperimentRunColorFn = (args: { runUuid?: string; groupUuid?: string; colorValue: string }) => void;
 
 const loadSavedColors = () => {
+  // eslint-disable-next-line @databricks/no-direct-storage -- go/no-direct-storage
   const savedColorsRaw = window.localStorage.getItem(STORAGE_KEY);
   try {
     return savedColorsRaw ? JSON.parse(savedColorsRaw) : {};
@@ -52,6 +53,7 @@ export const useSaveExperimentRunColor = () => {
       if (groupUuid) {
         const colors = loadSavedColors();
         colors[groupUuid] = colorValue;
+        // eslint-disable-next-line @databricks/no-direct-storage -- go/no-direct-storage
         window.localStorage.setItem(STORAGE_KEY, JSON.stringify(colors));
       }
     },

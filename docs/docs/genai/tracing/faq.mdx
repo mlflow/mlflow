@@ -35,6 +35,19 @@ def my_function(input_data):
 
 MLflow provides automatic tracing (autolog) for 40+ popular libraries. See the complete list at [Automatic Tracing Integrations](/genai/tracing/integrations).
 
+### Q: My Traces tab is empty. Why don't my traces show up?
+
+Traces come from tracing calls, not from logging. `mlflow.log_metric()`, `mlflow.log_param()`, and `mlflow.start_run()` create **MLflow Runs**, a different concept from **MLflow Traces**. Runs appear in the **Runs** tab of an experiment. Traces appear in the **Traces** tab. They are independent. Logging a metric does not create a trace, and tracing does not require a run context.
+
+To generate a trace, use automatic tracing (e.g. `mlflow.openai.autolog()`, `mlflow.langchain.autolog()`) or manual tracing (e.g. `@mlflow.trace`, `mlflow.start_span()`). The Traces tab stays empty until one of these is called and the instrumented code runs.
+
+| What you called                                 | Where it appears |
+| ----------------------------------------------- | ---------------- |
+| `mlflow.log_metric()`                           | Runs tab         |
+| `mlflow.openai.autolog()` + OpenAI call         | Traces tab       |
+| `mlflow.langchain.autolog()` + LangGraph invoke | Traces tab       |
+| `@mlflow.trace` decorator                       | Traces tab       |
+
 ## User Interface and Jupyter Integration
 
 ### Q: Can I view traces directly in Jupyter notebooks?
@@ -79,7 +92,7 @@ You can customize what appears in the Request and Response columns of the trace 
 @mlflow.trace
 def predict(messages: list[dict]) -> str:
     # Customize the request preview for long message histories
-    custom_preview = f'{messages[0]["content"][:10]} ... {messages[-1]["content"][:10]}'
+    custom_preview = f"{messages[0]['content'][:10]} ... {messages[-1]['content'][:10]}"
     mlflow.update_current_trace(request_preview=custom_preview)
 
     # Your model logic here
@@ -293,6 +306,8 @@ mlflow.set_experiment("my-tracing-experiment")
 mlflow.openai.autolog()  # Call before using OpenAI
 ```
 
+**Expired or missing credentials**: If your tracking URI points to a remote server that requires authentication, an expired or missing credential causes trace export to fail. Because tracing is best-effort, your application keeps running and the failed traces are dropped. The failure is written to your application logs, so check them for auth errors, verify your credentials are current, and refresh them if needed (for example, re-run your auth login). This is easy to hit when a short-lived token expires partway through a long session: earlier traces land and later ones do not.
+
 ## Multi-threading and Concurrency
 
 ### Q: My trace is split into multiple traces when doing multi-threading. How can I combine them into a single trace?
@@ -459,11 +474,9 @@ Traces are stored in your MLflow tracking backend:
 
 **Local filesystem**: When using `mlflow server` locally, traces are stored in the `mlruns` directory
 
-**Remote tracking server**: When using a remote MLflow server, traces are stored in the configured backend (database + artifact store)
+**Remote tracking server**: When using a remote MLflow server, traces are stored in the configured backend database
 
-**Database**: Trace metadata is stored in the MLflow tracking database
-
-**Artifact store**: Large trace data may be stored in the artifact store (filesystem, S3, etc.)
+**Database**: Both trace metadata (`TraceInfo`) and span data (`TraceData`) are stored in the MLflow tracking database. Trace metadata is stored in the `trace_info` table, while individual spans are stored in the `spans` table with their content serialized as JSON
 
 ## Integration and Compatibility
 
@@ -479,6 +492,10 @@ Yes, MLflow Tracing is built on OpenTelemetry standards and can integrate with o
 
 For production monitoring, see [Production Tracing](/genai/tracing/prod-tracing) for integration patterns.
 
+### Q: Does the MLflow TypeScript SDK work in frontend (browser) environments?
+
+No, the MLflow TypeScript SDK (`@mlflow/core`, `@mlflow/openai`, etc.) works in **Node.js backend environments only**. It is not compatible with frontend JavaScript environments (e.g., browser, Edge Runtime) because it depends on OpenTelemetry's Node.js SDK internally.
+
 ### Q: Can I create custom manual traces and spans?
 
 Yes, MLflow provides comprehensive manual tracing capabilities. Please refer to the [Manual Tracing](/genai/tracing/app-instrumentation/manual-tracing) guide for detailed information on creating traces and spans manually using decorators, context managers, and low-level APIs.
@@ -491,7 +508,7 @@ Yes, MLflow provides comprehensive manual tracing capabilities. Please refer to 
 
 **GitHub Issues**: Report bugs or request features at [MLflow GitHub](https://github.com/mlflow/mlflow/issues)
 
-**Community**: Join discussions in the [MLflow Slack community](https://mlflow.org/slack)
+**Community**: Join discussions in the [MLflow Slack community](https://go.mlflow.org/slack)
 
 **Stack Overflow**: Search or ask questions tagged with `mlflow`
 

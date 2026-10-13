@@ -1,13 +1,15 @@
 from unittest.mock import Mock, patch
 
+import pydantic
 import pytest
 
 import mlflow
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSourceType
+from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.utils import CategoricalRating
 from mlflow.genai.scorers import FRAMEWORK_METADATA_KEY
-from mlflow.genai.scorers.base import ScorerKind
+from mlflow.genai.scorers.base import Scorer, ScorerKind
 from mlflow.genai.scorers.deepeval import (
     AnswerRelevancy,
     ExactMatch,
@@ -105,6 +107,27 @@ def test_metric_kwargs_passed_to_deepeval_metric():
         assert call_kwargs["async_mode"] is False
 
 
+def test_model_kwargs_passed_to_create_deepeval_model():
+    with (
+        patch("mlflow.genai.scorers.deepeval.get_metric_class") as mock_get_metric_class,
+        patch("mlflow.genai.scorers.deepeval.create_deepeval_model") as mock_create_model,
+    ):
+        mock_metric_class = Mock()
+        mock_metric_class.return_value = Mock()
+        mock_get_metric_class.return_value = mock_metric_class
+        mock_create_model.return_value = Mock()
+
+        get_scorer(
+            "AnswerRelevancy",
+            model="openai:/gpt-4",
+            model_kwargs={"temperature": 0.0, "max_tokens": 512},
+        )
+
+        mock_create_model.assert_called_once_with(
+            "openai:/gpt-4", model_kwargs={"temperature": 0.0, "max_tokens": 512}
+        )
+
+
 def test_deepeval_scorer_returns_error_feedback_on_exception():
     with (
         patch("mlflow.genai.scorers.deepeval.get_metric_class") as mock_get_metric_class,
@@ -128,6 +151,7 @@ def test_deepeval_scorer_returns_error_feedback_on_exception():
         assert result.error.error_message == "Test error"
         assert result.source.source_type == AssessmentSourceType.LLM_JUDGE
         assert result.source.source_id == "openai:/gpt-4o"
+        assert result.metadata == {FRAMEWORK_METADATA_KEY: "deepeval"}
 
 
 def test_multi_turn_metric_is_session_level_scorer(mock_deepeval_model):
@@ -235,15 +259,43 @@ def test_deepeval_scorer_kind_property():
     assert scorer.kind == ScorerKind.THIRD_PARTY
 
 
-@pytest.mark.parametrize("method_name", ["register", "start", "update", "stop"])
-def test_deepeval_scorer_registration_methods_not_supported(method_name):
-    from mlflow.exceptions import MlflowException
-
+def test_deepeval_scorer_register_blocked_on_databricks():
     scorer = get_scorer("ExactMatch")
-    method = getattr(scorer, method_name)
+    with patch(
+        "mlflow.genai.scorers.base.is_databricks_uri",
+        return_value=True,
+    ) as mock_is_dbx:
+        with pytest.raises(MlflowException, match="Third-party scorer registration"):
+            scorer.register(name="exact_match")
+        mock_is_dbx.assert_called()
 
-    with pytest.raises(MlflowException, match=f"'{method_name}\\(\\)' is not supported"):
-        method()
+
+def test_deepeval_scorer_serialization_round_trip():
+    scorer = ExactMatch()
+    dump = scorer.model_dump()
+    assert dump["third_party_scorer_data"]["class"] == "ExactMatch"
+    assert dump["third_party_scorer_data"]["metric_name"] == "ExactMatch"
+    assert dump["third_party_scorer_data"]["model"] is None
+
+    restored = Scorer.model_validate(dump)
+    assert isinstance(restored, ExactMatch)
+    assert restored.name == "ExactMatch"
+    assert restored.kind == ScorerKind.THIRD_PARTY
+
+
+def test_deepeval_scorer_llm_metric_serialization_round_trip(mock_deepeval_model):
+    with patch(
+        "mlflow.genai.scorers.deepeval.create_deepeval_model", return_value=mock_deepeval_model
+    ):
+        scorer = AnswerRelevancy(model="openai:/gpt-4o")
+        dump = scorer.model_dump()
+        assert dump["third_party_scorer_data"]["class"] == "AnswerRelevancy"
+        assert dump["third_party_scorer_data"]["metric_name"] == "AnswerRelevancy"
+        assert dump["third_party_scorer_data"]["model"] == "openai:/gpt-4o"
+
+        restored = Scorer.model_validate(dump)
+        assert isinstance(restored, AnswerRelevancy)
+        assert restored._model == "openai:/gpt-4o"
 
 
 def test_deepeval_scorer_align_not_supported():
@@ -298,7 +350,7 @@ def test_deepeval_scorer_telemetry_direct_call(
         {
             "scorer_class": expected_class,
             "scorer_kind": "third_party",
-            "is_session_level_scorer": False,
+            "scope": "trace",
             "callsite": "direct_scorer_call",
             "has_feedback_error": False,
         },
@@ -342,10 +394,162 @@ def test_deepeval_scorer_telemetry_in_genai_evaluate(
         {
             "predict_fn_provided": False,
             "scorer_info": [
-                {"class": expected_class, "kind": "third_party", "scope": "response"},
+                {"class": expected_class, "kind": "third_party", "scope": "trace"},
             ],
             "eval_data_type": "list[dict]",
             "eval_data_size": 1,
             "eval_data_provided_fields": ["expectations", "inputs", "outputs"],
         },
     )
+
+
+# --- Model adapter tests ---
+
+
+def test_gateway_deepeval_llm_generate():
+    from mlflow.genai.scorers.deepeval.models import MlflowDeepEvalLLM
+    from mlflow.genai.scorers.llm_backend import ScorerLLMClient
+
+    with patch("mlflow.genai.scorers.llm_backend._get_provider_instance") as mock_gpi:
+        adapter = MlflowDeepEvalLLM(ScorerLLMClient("openai:/gpt-4"))
+    mock_gpi.assert_called_once()
+
+    with patch(
+        "mlflow.genai.scorers.llm_backend._call_llm_provider_api",
+        return_value="The answer is 42.",
+    ) as mock_call:
+        result = adapter.generate("What is the answer?")
+
+    assert result == "The answer is 42."
+    mock_call.assert_called_once_with(
+        "openai",
+        "gpt-4",
+        messages=[{"role": "user", "content": "What is the answer?"}],
+        eval_parameters=None,
+        response_format=None,
+    )
+
+
+def test_gateway_deepeval_llm_generate_with_schema():
+    from mlflow.genai.scorers.deepeval.models import MlflowDeepEvalLLM
+
+    class TestSchema(pydantic.BaseModel):
+        result: str
+        score: int
+
+    from mlflow.genai.scorers.llm_backend import ScorerLLMClient
+
+    with patch("mlflow.genai.scorers.llm_backend._get_provider_instance") as mock_gpi:
+        adapter = MlflowDeepEvalLLM(ScorerLLMClient("openai:/gpt-4"))
+    mock_gpi.assert_called_once()
+
+    with patch(
+        "mlflow.genai.scorers.llm_backend._call_llm_provider_api",
+        return_value='{"result": "good", "score": 5}',
+    ) as mock_call:
+        result = adapter.generate("Rate this", schema=TestSchema)
+
+    assert isinstance(result, TestSchema)
+    assert result.result == "good"
+    assert result.score == 5
+    mock_call.assert_called_once()
+    prompt = mock_call.call_args.kwargs["messages"][0]["content"]
+    assert "Rate this" in prompt
+    assert "Return your response as valid JSON" in prompt
+
+
+def test_gateway_deepeval_llm_get_model_name():
+    from mlflow.genai.scorers.deepeval.models import MlflowDeepEvalLLM
+    from mlflow.genai.scorers.llm_backend import ScorerLLMClient
+
+    with patch("mlflow.genai.scorers.llm_backend._get_provider_instance") as mock_gpi:
+        adapter = MlflowDeepEvalLLM(ScorerLLMClient("anthropic:/claude-3"))
+    mock_gpi.assert_called_once()
+    assert adapter.get_model_name() == "anthropic/claude-3"
+
+
+@pytest.mark.parametrize(
+    ("model_uri", "env_var"),
+    [
+        ("openai:/gpt-4", "OPENAI_API_KEY"),
+        ("anthropic:/claude-3", "ANTHROPIC_API_KEY"),
+    ],
+)
+def test_create_deepeval_model_uses_gateway_for_supported_providers(
+    model_uri, env_var, monkeypatch
+):
+    from mlflow.genai.scorers.deepeval.models import MlflowDeepEvalLLM, create_deepeval_model
+
+    monkeypatch.setenv(env_var, "test-key")
+    model = create_deepeval_model(model_uri)
+    assert isinstance(model, MlflowDeepEvalLLM)
+
+
+def test_create_deepeval_model_falls_back_to_litellm_for_unsupported_provider():
+    from deepeval.models import LiteLLMModel
+
+    from mlflow.genai.scorers.deepeval.models import create_deepeval_model
+
+    model = create_deepeval_model("some_unknown:/model")
+    assert isinstance(model, LiteLLMModel)
+
+
+def test_create_deepeval_model_uses_gateway_for_gateway_uri():
+    from mlflow.genai.scorers.deepeval.models import MlflowDeepEvalLLM, create_deepeval_model
+
+    with patch(
+        "mlflow.genai.scorers.llm_backend._get_provider_instance",
+    ):
+        model = create_deepeval_model("gateway:/my-endpoint")
+
+    assert isinstance(model, MlflowDeepEvalLLM)
+
+
+def test_create_deepeval_model_uses_databricks_for_bare_uri():
+    from mlflow.genai.scorers.deepeval.models import (
+        MlflowDeepEvalLLM,
+        create_deepeval_model,
+    )
+
+    model = create_deepeval_model("databricks")
+    assert isinstance(model, MlflowDeepEvalLLM)
+
+
+@pytest.mark.parametrize("provider", ["cohere", "mosaicml", "palm"])
+def test_create_deepeval_model_registered_but_unsupported_falls_back_to_litellm(provider):
+    from deepeval.models import LiteLLMModel
+
+    from mlflow.genai.scorers.deepeval.models import create_deepeval_model
+
+    model = create_deepeval_model(f"{provider}:/my-model")
+    assert isinstance(model, LiteLLMModel)
+
+
+def test_high_level_scorer_call_chain():
+    """Exercises the full call chain: AnswerRelevancy(model=...) → scorer(inputs=..., outputs=...)
+    as recommended in docs/blogs.
+    """
+
+    with patch(
+        "mlflow.genai.scorers.llm_backend._call_llm_provider_api",
+        return_value='{"score": 0.9, "reason": "Highly relevant"}',
+    ):
+        scorer = AnswerRelevancy(threshold=0.7, model="openai:/gpt-4")
+
+        # Mock the metric's measure to avoid DeepEval's internal LLM calls
+        scorer._metric.score = 0.9
+        scorer._metric.reason = "Highly relevant"
+        scorer._metric.threshold = 0.7
+        scorer._metric.is_successful = Mock(return_value=True)
+        scorer._metric.measure = Mock()
+
+        feedback = scorer(
+            inputs="What is MLflow?",
+            outputs="MLflow is an open-source platform for managing ML workflows.",
+        )
+
+    assert isinstance(feedback, Feedback)
+    assert feedback.name == "AnswerRelevancy"
+    assert feedback.value is not None
+    assert feedback.source.source_type == AssessmentSourceType.LLM_JUDGE
+    assert feedback.source.source_id == "openai:/gpt-4"

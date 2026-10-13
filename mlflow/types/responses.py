@@ -1,4 +1,6 @@
 import json
+import re
+from collections.abc import Sequence
 from itertools import tee
 from typing import Any, Generator, Iterator
 from uuid import uuid4
@@ -28,6 +30,12 @@ from mlflow.types.schema import Schema
 from mlflow.types.type_hints import _infer_schema_from_type_hint
 from mlflow.utils.autologging_utils.logging_and_warnings import (
     MlflowEventsAndWarningsBehaviorGlobally,
+)
+from mlflow.utils.logging_utils import suppress_logs
+
+_EXPECTED_UNION_INFERENCE_WARNING = re.compile(
+    r"^Union type hint (?:with multiple non-None types )?is inferred as AnyType, "
+    r"and MLflow doesn't validate the data against its element types\.$"
 )
 
 
@@ -122,10 +130,13 @@ class ResponsesAgentStreamEvent(BaseModel):
         return self
 
 
-with MlflowEventsAndWarningsBehaviorGlobally(
-    reroute_warnings=False,
-    disable_event_logs=True,
-    disable_warnings=True,
+with (
+    MlflowEventsAndWarningsBehaviorGlobally(
+        reroute_warnings=False,
+        disable_event_logs=True,
+        disable_warnings=True,
+    ),
+    suppress_logs("mlflow.types.type_hints", filter_regex=_EXPECTED_UNION_INFERENCE_WARNING),
 ):
     properties = _infer_schema_from_type_hint(ResponsesAgentRequest).to_dict()[0]["properties"]
     formatted_properties = [{**prop, "name": name} for name, prop in properties.items()]
@@ -200,9 +211,8 @@ def create_text_output_item(
     content_item = {
         "text": text,
         "type": "output_text",
+        "annotations": annotations or [],
     }
-    if annotations is not None:
-        content_item["annotations"] = annotations
     return {
         "id": id,
         "content": [content_item],
@@ -339,10 +349,17 @@ def responses_to_cc(message: dict[str, Any]) -> list[dict[str, Any]]:
     elif msg_type == "reasoning":
         return [{"role": "assistant", "content": json.dumps(message["summary"])}]
     elif msg_type == "function_call_output":
+        output = message["output"]
+        # Convert non-string output to string for ChatCompletion compatibility
+        if not isinstance(output, str):
+            try:
+                output = json.dumps(output)
+            except (TypeError, ValueError):
+                output = str(output)
         return [
             {
                 "role": "tool",
-                "content": message["output"],
+                "content": output,
                 "tool_call_id": message["call_id"],
             }
         ]
@@ -377,7 +394,7 @@ def responses_to_cc(message: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def to_chat_completions_input(
-    responses_input: list[dict[str, Any] | Message | OutputItem],
+    responses_input: Sequence[dict[str, Any] | Message | OutputItem],
 ) -> list[dict[str, Any]]:
     """Convert from Responses input items to ChatCompletion dictionaries."""
     cc_msgs = []
@@ -402,7 +419,10 @@ def output_to_responses_items_stream(
     Handles an iterator of ChatCompletion chunks or LangChain BaseMessage objects.
     """
     peeking_iter, chunks = tee(chunks)
-    first_chunk = next(peeking_iter)
+    empty = object()
+    first_chunk = next(peeking_iter, empty)
+    if first_chunk is empty:
+        return
     if _HAS_LANGCHAIN_BASE_MESSAGE and isinstance(first_chunk, BaseMessage):
         yield from _langchain_message_stream_to_responses_stream(chunks, aggregator)
     else:
@@ -410,6 +430,15 @@ def output_to_responses_items_stream(
 
 
 if _HAS_LANGCHAIN_BASE_MESSAGE:
+
+    def _stringify_content(content: Any) -> str:
+        """Ensure content is a string, JSON-serializing if necessary."""
+        if isinstance(content, str):
+            return content
+        try:
+            return json.dumps(content)
+        except (TypeError, ValueError):
+            return str(content)
 
     def _langchain_message_stream_to_responses_stream(
         chunks: Iterator[BaseMessage],
@@ -449,7 +478,7 @@ if _HAS_LANGCHAIN_BASE_MESSAGE:
             elif role == "tool":
                 function_call_output_item = create_function_call_output_item(
                     call_id=message["tool_call_id"],
-                    output=message["content"],
+                    output=_stringify_content(message["content"]),
                 )
                 if aggregator is not None:
                     aggregator.append(function_call_output_item)
@@ -470,7 +499,7 @@ def _cc_stream_to_responses_stream(
     """
     llm_content = ""
     reasoning_content = ""
-    tool_calls = []
+    tool_calls: dict[int, dict[str, Any]] = {}  # index -> tool_call dict
     msg_id = None
     for chunk in chunks:
         if chunk.get("choices") is None or len(chunk["choices"]) == 0:
@@ -479,10 +508,22 @@ def _cc_stream_to_responses_stream(
         msg_id = chunk.get("id", None)
         content = delta.get("content", None)
         if tc := delta.get("tool_calls"):
-            if not tool_calls:  # only accommodate for single tool call right now
-                tool_calls = tc
-            else:
-                tool_calls[0]["function"]["arguments"] += tc[0]["function"]["arguments"]
+            for tool_call_delta in tc:
+                idx = tool_call_delta.get("index", 0)
+                if idx not in tool_calls:
+                    # First chunk for this tool call contains id and name
+                    tool_calls[idx] = {
+                        "id": tool_call_delta.get("id"),
+                        "function": {
+                            "name": tool_call_delta.get("function", {}).get("name", ""),
+                            "arguments": tool_call_delta.get("function", {}).get("arguments", ""),
+                        },
+                    }
+                else:
+                    # Subsequent chunks only contain argument fragments
+                    tool_calls[idx]["function"]["arguments"] += tool_call_delta.get(
+                        "function", {}
+                    ).get("arguments", "")
         elif content is not None:
             # logic for content item format
             # https://docs.databricks.com/aws/en/machine-learning/foundation-model-apis/api-reference#contentitem
@@ -522,7 +563,8 @@ def _cc_stream_to_responses_stream(
             item=text_output_item,
         )
 
-    for tool_call in tool_calls:
+    for idx in sorted(tool_calls.keys()):
+        tool_call = tool_calls[idx]
         function_call_output_item = create_function_call_item(
             msg_id,
             tool_call["id"],

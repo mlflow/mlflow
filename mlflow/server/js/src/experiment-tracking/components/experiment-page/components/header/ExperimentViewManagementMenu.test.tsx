@@ -49,32 +49,82 @@ describe('ExperimentViewManagementMenu', () => {
     });
   };
 
-  test('it should render the management menu with rename and delete buttons', async () => {
+  test('it should render the management menu with only delete when editing is unavailable', async () => {
     renderTestComponent();
 
-    // Check that the overflow menu trigger is present
     const menuTrigger = screen.getByTestId('overflow-menu-trigger');
     expect(menuTrigger).toBeInTheDocument();
 
-    // Click the menu trigger to open the menu
     await userEvent.click(menuTrigger);
 
-    // Check that rename and delete buttons are present
-    expect(await screen.findByText('Rename')).toBeInTheDocument();
+    expect(screen.queryByText('Edit experiment')).not.toBeInTheDocument();
+    expect(screen.queryByText('Rename')).not.toBeInTheDocument();
     expect(screen.getByText('Delete')).toBeInTheDocument();
   });
 
-  test('it should render the edit description button when setEditing is provided', async () => {
+  test('it should render the edit experiment button when setEditing is provided', async () => {
     const setEditing = jest.fn();
     renderTestComponent({ setEditing });
 
-    // Click the menu trigger to open the menu
     const menuTrigger = screen.getByTestId('overflow-menu-trigger');
     await userEvent.click(menuTrigger);
 
-    // Check that edit description button is present
-    expect(await screen.findByText('Edit description')).toBeInTheDocument();
-    expect(screen.getByText('Rename')).toBeInTheDocument();
+    const editButton = await screen.findByText('Edit experiment');
+    expect(editButton).toBeInTheDocument();
+    expect(screen.queryByText('Rename')).not.toBeInTheDocument();
+    expect(screen.getByText('Delete')).toBeInTheDocument();
+
+    await userEvent.click(editButton);
+    expect(setEditing).toHaveBeenCalledWith(true);
+  });
+
+  test('it should render the edit experiment button when only metadata modification is allowed', async () => {
+    const setEditing = jest.fn();
+    renderTestComponent({
+      setEditing,
+      experiment: { ...defaultExperiment, allowedActions: ['MODIFIY_PERMISSION'] },
+    });
+
+    const menuTrigger = screen.getByTestId('overflow-menu-trigger');
+    await userEvent.click(menuTrigger);
+
+    expect(await screen.findByText('Edit experiment')).toBeInTheDocument();
+    expect(screen.queryByText('Delete')).not.toBeInTheDocument();
+  });
+
+  test('it should only render delete when editing permissions are not granted', async () => {
+    renderTestComponent({
+      setEditing: jest.fn(),
+      experiment: { ...defaultExperiment, allowedActions: ['DELETE'] },
+    });
+
+    const menuTrigger = screen.getByTestId('overflow-menu-trigger');
+    await userEvent.click(menuTrigger);
+
+    expect(screen.queryByText('Edit experiment')).not.toBeInTheDocument();
+    expect(screen.getByText('Delete')).toBeInTheDocument();
+  });
+
+  test('it should hide the menu when no edit or delete actions are allowed', () => {
+    renderTestComponent({
+      setEditing: jest.fn(),
+      experiment: { ...defaultExperiment, allowedActions: [] },
+    });
+
+    expect(screen.queryByTestId('overflow-menu-trigger')).not.toBeInTheDocument();
+  });
+
+  test('it should show menu actions when allowed actions are omitted', async () => {
+    const setEditing = jest.fn();
+    renderTestComponent({
+      setEditing,
+      experiment: { ...defaultExperiment, allowedActions: undefined },
+    });
+
+    const menuTrigger = screen.getByTestId('overflow-menu-trigger');
+    await userEvent.click(menuTrigger);
+
+    expect(await screen.findByText('Edit experiment')).toBeInTheDocument();
     expect(screen.getByText('Delete')).toBeInTheDocument();
   });
 });

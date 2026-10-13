@@ -2,13 +2,13 @@
  * Tests for MLflow Gemini integration with MSW mock server
  */
 
-import * as mlflow from 'mlflow-tracing';
+import * as mlflow from '@mlflow/core';
 import { tracedGemini } from '../src';
 import { GoogleGenAI } from '@google/genai';
 import { http, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
 import { geminiMockHandlers } from './mockGeminiServer';
-import { createAuthProvider } from 'mlflow-tracing/src/auth';
+import { createAuthProvider } from '@mlflow/core/src/auth';
 
 const TEST_TRACKING_URI = 'http://localhost:5000';
 
@@ -74,6 +74,7 @@ describe('tracedGemini', () => {
       expect(llmSpan).toBeDefined();
       expect(llmSpan.name).toBe('generateContent');
       expect(llmSpan.spanType).toBe(mlflow.SpanType.LLM);
+      expect(llmSpan.logLevel).toBe(mlflow.SpanLogLevel.INFO);
       expect(llmSpan.status.statusCode).toBe(mlflow.SpanStatusCode.OK);
       expect(llmSpan.inputs).toEqual({
         model: 'gemini-2.0-flash-001',

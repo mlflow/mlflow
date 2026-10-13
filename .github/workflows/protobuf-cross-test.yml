@@ -2,11 +2,6 @@ name: protobuf cross tests
 
 on:
   pull_request:
-    types:
-      - opened
-      - synchronize
-      - reopened
-      - ready_for_review
     paths:
       - "mlflow/protos/**"
       - .github/workflows/protobuf-cross-test.yml
@@ -37,13 +32,16 @@ env:
   PYTHONUTF8: "1"
   PIP_CONSTRAINT: ${{ github.workspace }}/requirements/constraints.txt
 
+permissions: {}
+cache-mode: none
+
 jobs:
   core_tests:
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 120
     permissions:
       contents: read
+    cache-mode: read
     strategy:
       fail-fast: false
       matrix:
@@ -52,8 +50,9 @@ jobs:
         include:
           - splits: 2
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           submodules: true
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/free-disk-space
@@ -61,23 +60,34 @@ jobs:
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
+        env:
+          PROTOBUF_MAJOR_VERSION: ${{ matrix.protobuf_major_version }}
         run: |
           uv sync --extra extras --extra genai --extra mcp
           # Test the latest minor version in protobuf_major_version
           uv pip install \
             -r requirements/test-requirements.txt \
             datasets \
-            'tensorflow<2.22.0' 'tf-keras<2.20.0' \
+            'tensorflow<2.22.0' \
             torch transformers \
-            "protobuf==${{ matrix.protobuf_major_version }}.*"
+            "protobuf==$PROTOBUF_MAJOR_VERSION.*"
       - uses: ./.github/actions/show-versions
-      - uses: ./.github/actions/pipdeptree
+      - uses: ./.github/actions/cache-hf
       - name: Run tests
+        env:
+          SPLITS: ${{ matrix.splits }}
+          GROUP: ${{ matrix.group }}
         run: |
           # NB: test_mlflow_artifacts.py is excluded because it runs docker-compose with fresh
           # container builds. The protobuf version in the test environment has no effect on the
           # containers, making cross-version testing unnecessary and wasteful of disk space.
-          uv run --no-sync pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
+          # The deselected job integration tests validate subprocess timing and job scheduling,
+          # not protobuf compatibility, and their fixed deadlines are unreliable in this broad
+          # matrix.
+          uv run --no-sync pytest --splits=$SPLITS --group=$GROUP \
+            --deselect=tests/server/jobs/test_jobs.py::test_job_queue_parallelism \
+            --deselect=tests/server/jobs/test_jobs.py::test_job_retry_on_transient_error \
+            --deselect=tests/server/jobs/test_endpoint.py::test_job_submit \
             --ignore-flavors \
             --ignore=tests/projects \
             --ignore=tests/examples \

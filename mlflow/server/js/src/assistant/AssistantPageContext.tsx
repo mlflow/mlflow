@@ -3,6 +3,7 @@ import { create } from '@databricks/web-shared/zustand';
 import { usePageTitle, useParams, useSearchParams } from '../common/utils/RoutingUtils';
 import type { RowSelectionState } from '@tanstack/react-table';
 
+import { collectDynamicAssistantContext } from './contextProviders';
 import type { AssistantContextKey, KnownAssistantContext } from './types';
 
 type AssistantPageContextData = Record<string, unknown>;
@@ -37,7 +38,10 @@ const useAssistantPageContextStore = create<AssistantPageContextStore>((set, get
       }
       return { context: newContext };
     }),
-  getContext: () => ({ ...get().context }),
+  // Merges in pull-based providers (see `contextProviders.ts`) on every read, so
+  // callers (e.g. `handleSendMessage`) always see the latest value without those
+  // providers having to push updates into this store's React state.
+  getContext: () => ({ ...get().context, ...collectDynamicAssistantContext() }),
 }));
 
 /**

@@ -1,0 +1,52 @@
+name: Label Community PRs
+
+on:
+  pull_request_target:
+    types:
+      - opened
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+permissions: {}
+cache-mode: none
+
+jobs:
+  label-community:
+    if: >-
+      github.repository == 'mlflow/mlflow' &&
+      github.event.pull_request.user.type != 'Bot' &&
+      !contains(fromJSON('["MEMBER", "COLLABORATOR", "OWNER"]'), github.event.pull_request.author_association)
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    permissions:
+      pull-requests: write
+    steps:
+      - env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          AUTHOR: ${{ github.event.pull_request.user.login }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          # Check user profile for Databricks affiliation
+          PROFILE=$(gh api "users/$AUTHOR" --jq '[.company // "", .email // ""] | join("\n")')
+          if echo "$PROFILE" | grep -iq 'databricks'; then
+            echo "Internal PR (profile contains 'databricks'), skipping"
+            exit 0
+          fi
+
+          # Check commit author emails for @databricks.com
+          if gh api "repos/$REPO/pulls/$PR_NUMBER/commits" \
+               --jq '.[].commit.author.email' | grep -iq '@databricks\.com'; then
+            echo "Internal PR (commit email ends with @databricks.com), skipping"
+            exit 0
+          fi
+
+          # Add community label
+          gh pr edit "$PR_NUMBER" --repo "$REPO" --add-label "community"
+          echo "Added 'community' label to PR #$PR_NUMBER"

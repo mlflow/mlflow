@@ -23,11 +23,11 @@ import pyspark
 import pyspark.ml
 import pytest
 import pytorch_lightning
-import setfit
 import sklearn
 import statsmodels
 import tensorflow
 import transformers
+import typesafe_sdk
 import xgboost
 
 import mlflow
@@ -56,8 +56,14 @@ library_to_mlflow_module_without_spark_datasource = {
     pytorch_lightning: mlflow.pytorch,
     lightning: mlflow.pytorch,
     transformers: mlflow.transformers,
-    setfit: mlflow.transformers,
 }
+
+try:
+    import setfit
+
+    library_to_mlflow_module_without_spark_datasource[setfit] = mlflow.transformers
+except ImportError:
+    pass
 
 library_to_mlflow_module_genai = {
     openai: mlflow.openai,
@@ -70,6 +76,7 @@ library_to_mlflow_module_genai = {
     boto3: mlflow.bedrock,
     groq: mlflow.groq,
     mistralai: mlflow.mistral,
+    typesafe_sdk: mlflow.typesafe,
     autogen: mlflow.ag2,
     # TODO: once Python 3.10 is introduced, enable smolagents
     # smolagents: mlflow.smolagents,
@@ -99,6 +106,9 @@ def reset_global_states():
         except Exception:
             pass
 
+    # setfit may not be in library_to_mlflow_module when incompatible with transformers 5.x
+    mlflow.utils.import_hooks._post_import_hooks.pop("setfit", None)
+
     assert all(v == {} for v in AUTOLOGGING_INTEGRATIONS.values())
     assert mlflow.utils.import_hooks._post_import_hooks == {}
 
@@ -122,6 +132,8 @@ def reset_global_states():
     mlflow.utils.import_hooks._post_import_hooks.pop("agno", None)
     mlflow.utils.import_hooks._post_import_hooks.pop("strands", None)
     mlflow.utils.import_hooks._post_import_hooks.pop("haystack", None)
+    # setfit may not be in library_to_mlflow_module when incompatible with transformers 5.x
+    mlflow.utils.import_hooks._post_import_hooks.pop("setfit", None)
     # TODO: Remove this line when we stop supporting google.generativeai
     mlflow.utils.import_hooks._post_import_hooks.pop("google.generativeai", None)
 
@@ -446,10 +458,10 @@ def test_autolog_genai_auto_tracing(mock_openai, is_databricks, disable, other_l
 
     # GenAI should not be enabled by mlflow.autolog even if disable=False on Databricks
     if is_databricks or disable:
-        trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+        trace = mlflow.get_trace(mlflow.get_last_active_trace_id(), flush=True)
         assert trace is None
     else:
-        trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+        trace = mlflow.get_trace(mlflow.get_last_active_trace_id(), flush=True)
         assert trace is not None
         assert trace.info.status == "OK"
         assert len(trace.data.spans) == 1

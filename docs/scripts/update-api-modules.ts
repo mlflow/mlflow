@@ -22,6 +22,7 @@ fileMap['mlflow.python'] = 'api_reference/python_api/index.html';
 fileMap['mlflow.rest'] = 'api_reference/rest-api.html';
 fileMap['mlflow.typescript'] = 'api_reference/typescript_api/index.html';
 fileMap['mlflow.llms.deployments.api'] = 'api_reference/llms/deployments/api.html';
+fileMap['mlflow.genai.mcp_server_registry.api'] = 'api_reference/genai/mcp-server-registry/api.html';
 
 // write filemap to json file
 fs.writeFileSync('src/api_modules.json', JSON.stringify(fileMap, null, 2));

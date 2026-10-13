@@ -1,0 +1,6 @@
+{"type":"user","message":{"role":"user","content":"Search for auth"},"timestamp":"2025-01-15T10:00:02.500Z","agentId":"abc1234"}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","id":"sub_tool_grep","name":"Grep","input":{"pattern":"auth"}}]},"timestamp":"2025-01-15T10:00:03.000Z"}
+{"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"sub_tool_grep","content":"auth.py:1: def auth()"}]},"timestamp":"2025-01-15T10:00:04.000Z"}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","id":"sub_tool_read","name":"Read","input":{"file_path":"auth.py"}}]},"timestamp":"2025-01-15T10:00:04.500Z"}
+{"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"sub_tool_read","content":"def auth():\n    pass"}]},"timestamp":"2025-01-15T10:00:05.000Z"}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"Found auth.py with auth function."}]},"timestamp":"2025-01-15T10:00:05.500Z"}

@@ -14,9 +14,8 @@ def test_custom_log_model_allowlist(tmp_path):
         f.write("pyspark.ml.classification.NaiveBayesModel\n")
 
     with (
-        SparkSession.builder.config(
-            "spark.mlflow.pysparkml.autolog.logModelAllowlistFile", allowlist_file_path
-        )
+        SparkSession.builder
+        .config("spark.mlflow.pysparkml.autolog.logModelAllowlistFile", allowlist_file_path)
         .master("local[*]")
         .getOrCreate()
     ):
@@ -31,9 +30,8 @@ def test_log_model_allowlist_from_url():
     allowlist_file_path = "https://raw.githubusercontent.com/mlflow/mlflow/v1.26.0/mlflow/pyspark/ml/log_model_allowlist.txt"
 
     with (
-        SparkSession.builder.config(
-            "spark.mlflow.pysparkml.autolog.logModelAllowlistFile", allowlist_file_path
-        )
+        SparkSession.builder
+        .config("spark.mlflow.pysparkml.autolog.logModelAllowlistFile", allowlist_file_path)
         .master("local[*]")
         .getOrCreate()
     ):

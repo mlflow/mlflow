@@ -1,4 +1,5 @@
 import math
+import re
 
 import keras
 import numpy as np
@@ -13,13 +14,11 @@ def test_keras_mlflow_callback_log_every_epoch():
     data = np.random.uniform(size=(20, 28, 28, 3))
     label = np.random.randint(2, size=20)
 
-    model = keras.Sequential(
-        [
-            keras.Input([28, 28, 3]),
-            keras.layers.Flatten(),
-            keras.layers.Dense(2),
-        ]
-    )
+    model = keras.Sequential([
+        keras.Input([28, 28, 3]),
+        keras.layers.Flatten(),
+        keras.layers.Dense(2),
+    ])
 
     model.compile(
         loss=keras.losses.SparseCategoricalCrossentropy(from_logits=True),
@@ -45,7 +44,9 @@ def test_keras_mlflow_callback_log_every_epoch():
     model_info = mlflow_run.data.params
 
     assert "sparse_categorical_accuracy" in run_metrics
-    assert model_info["optimizer_name"] == "adam"
+    # Keras >= 3.15 uniquifies optimizer names, so the 2nd/3rd optimizer created in
+    # the same process is logged as "adam_1"/"adam_2" instead of "adam".
+    assert re.fullmatch(r"adam(_\d+)?", model_info["optimizer_name"])
     assert math.isclose(float(model_info["optimizer_learning_rate"]), 0.001, rel_tol=1e-6)
     assert "loss" in run_metrics
     assert "validation_loss" in run_metrics
@@ -65,13 +66,11 @@ def test_keras_mlflow_callback_log_every_n_steps():
     data = np.random.uniform(size=(20, 28, 28, 3))
     label = np.random.randint(2, size=20)
 
-    model = keras.Sequential(
-        [
-            keras.Input([28, 28, 3]),
-            keras.layers.Flatten(),
-            keras.layers.Dense(2),
-        ]
-    )
+    model = keras.Sequential([
+        keras.Input([28, 28, 3]),
+        keras.layers.Flatten(),
+        keras.layers.Dense(2),
+    ])
 
     model.compile(
         loss=keras.losses.SparseCategoricalCrossentropy(from_logits=True),
@@ -98,7 +97,9 @@ def test_keras_mlflow_callback_log_every_n_steps():
     model_info = mlflow_run.data.params
 
     assert "sparse_categorical_accuracy" in run_metrics
-    assert model_info["optimizer_name"] == "adam"
+    # Keras >= 3.15 uniquifies optimizer names, so the 2nd/3rd optimizer created in
+    # the same process is logged as "adam_1"/"adam_2" instead of "adam".
+    assert re.fullmatch(r"adam(_\d+)?", model_info["optimizer_name"])
     assert math.isclose(float(model_info["optimizer_learning_rate"]), 0.001, rel_tol=1e-6)
     assert "loss" in run_metrics
     assert "validation_loss" in run_metrics

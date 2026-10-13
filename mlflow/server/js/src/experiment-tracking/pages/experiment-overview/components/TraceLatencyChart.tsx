@@ -24,7 +24,7 @@ export const TraceLatencyChart: React.FC = () => {
   const yAxisProps = useChartYAxisProps();
   const scrollableLegendProps = useScrollableLegendProps();
   const { getOpacity, handleLegendMouseEnter, handleLegendMouseLeave } = useLegendHighlight();
-  const { experimentId, timeIntervalSeconds } = useOverviewChartContext();
+  const { experimentIds, timeIntervalSeconds } = useOverviewChartContext();
 
   // Fetch and process latency chart data
   const { chartData, avgLatency, isLoading, error, hasData } = useTraceLatencyChartData();
@@ -68,14 +68,15 @@ export const TraceLatencyChart: React.FC = () => {
                 content={
                   <ScrollableTooltip
                     formatter={tooltipFormatter}
+                    componentId="mlflow.overview.usage.latency.view_traces_link"
                     linkConfig={{
-                      experimentId,
+                      experimentId: experimentIds[0],
                       timeIntervalSeconds,
-                      componentId: 'mlflow.overview.usage.latency.view_traces_link',
                     }}
                   />
                 }
                 cursor={{ stroke: theme.colors.actionTertiaryBackgroundHover }}
+                wrapperStyle={{ pointerEvents: 'auto' }}
               />
               <Line
                 type="monotone"

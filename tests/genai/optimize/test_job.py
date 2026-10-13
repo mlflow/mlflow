@@ -1,10 +1,3 @@
-"""
-Unit tests for the optimize_prompts_job wrapper.
-
-These tests focus on the helper functions and job function logic without
-requiring a full job execution infrastructure.
-"""
-
 import sys
 from unittest import mock
 
@@ -106,7 +99,6 @@ def test_load_builtin_scorers():
 
 def test_load_custom_scorers():
     with (
-        mock.patch("mlflow.genai.scorers.base.is_in_databricks_runtime", return_value=True),
         mock.patch("mlflow.genai.scorers.base.is_databricks_uri", return_value=True),
     ):
         experiment_id = mlflow.create_experiment("test_load_custom_scorers")

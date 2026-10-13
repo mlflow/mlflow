@@ -19,6 +19,20 @@ _logger = logging.getLogger(__name__)
 _gateway_uri: str | None = None
 
 DATABRICKS_SERVING_ENDPOINTS_PATH = "/serving-endpoints"
+_DATABRICKS_AI_GATEWAY_PATH = "ai-gateway/mlflow/v1"
+
+
+def _is_unity_catalog_model_name(model_name: str) -> bool:
+    """Whether a Databricks model name is a Unity Catalog FQN (three-level, served via AI Gateway).
+
+    Unity Catalog names follow ``<catalog>.<schema>.<model>`` (e.g. ``system.ai.claude-haiku-4-5``)
+    and contain at least two dots. Serving endpoint names are restricted to ``[a-zA-Z0-9_-]+`` and
+    cannot contain dots, so this shape check reliably distinguishes the two surfaces.
+
+    Requiring two separators keeps a one-dot name from being silently misrouted; such a name is
+    also invalid as a serving endpoint, so the legacy path will produce a clearer error.
+    """
+    return model_name.count(".") >= 2
 
 
 def normalize_databricks_base_url(base_url: str | None) -> str | None:
@@ -242,11 +256,9 @@ class SearchRoutesToken:
         return cls(index=index)
 
     def encode(self) -> str:
-        token_json = json.dumps(
-            {
-                "index": self.index,
-            }
-        )
+        token_json = json.dumps({
+            "index": self.index,
+        })
         encoded_token_bytes = base64.b64encode(bytes(token_json, "utf-8"))
         return encoded_token_bytes.decode("utf-8")
 
@@ -350,6 +362,46 @@ async def stream_sse_data(
 def to_sse_chunk(data: str) -> str:
     # https://html.spec.whatwg.org/multipage/server-sent-events.html
     return f"data: {data}\n\n"
+
+
+def to_sse_error_chunk(error: Exception) -> str:
+    """Create an SSE-formatted error chunk."""
+    error_data = {
+        "error": {
+            "message": str(error),
+            "type": type(error).__name__,
+        }
+    }
+    return to_sse_chunk(json.dumps(error_data))
+
+
+async def safe_stream(
+    stream: AsyncGenerator[str | bytes, None],
+    as_bytes: bool = False,
+) -> AsyncGenerator[bytes | str, None]:
+    """
+    Wrap a streaming generator with exception handling.
+
+    When streaming responses, if an error occurs mid-stream after HTTP headers
+    have been sent, we can't raise an HTTPException. Instead, this wrapper
+    catches exceptions and yields an error chunk so the client can receive
+    the error information.
+
+    Args:
+        stream: The async generator to wrap.
+        as_bytes: If True, encode the error chunk as bytes. Use this when the
+            stream yields bytes (e.g., passthrough endpoints).
+
+    Yields:
+        Chunks from the stream, or an error chunk if an exception occurs.
+    """
+    try:
+        async for chunk in stream:
+            yield chunk
+    except Exception as e:
+        _logger.exception("Error during streaming response")
+        error_chunk = to_sse_error_chunk(e)
+        yield error_chunk.encode("utf-8") if as_bytes else error_chunk
 
 
 def _find_boundary(buffer: bytes) -> int:

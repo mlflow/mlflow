@@ -11,7 +11,7 @@ import {
   TableSkeleton,
   StopCircleFillIcon,
 } from '@databricks/design-system';
-import { FormattedMessage } from 'react-intl';
+import { FormattedMessage } from '@databricks/i18n';
 
 import { AssessmentCreateForm } from './AssessmentCreateForm';
 import { getAssessmentDisplayName } from './AssessmentsPane.utils';
@@ -105,6 +105,7 @@ export const FeedbackGroup = ({
       {showCreateForm && (
         <AssessmentCreateForm
           assessmentName={name}
+          assessmentType="feedback"
           spanId={activeSpanId}
           traceId={traceId}
           setExpanded={setShowCreateForm}

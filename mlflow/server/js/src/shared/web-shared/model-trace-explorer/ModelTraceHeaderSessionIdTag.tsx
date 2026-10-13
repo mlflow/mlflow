@@ -73,7 +73,7 @@ export const ModelTraceHeaderSessionIdTag = ({
         componentId="mlflow.model-trace-explorer.session-id-tag"
         content={<FormattedMessage defaultMessage="View chat session" description="Tooltip for the session id tag" />}
       >
-        <Link to={sessionPageUrl}>
+        <Link componentId="mlflow.model_trace_explorer.header.session_id_link" to={sessionPageUrl}>
           <Tag componentId="mlflow.model_trace_explorer.header_details.tag-session-id">
             <span css={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: theme.spacing.xs }}>
               <SpeechBubbleIcon css={{ fontSize: 12 }} />

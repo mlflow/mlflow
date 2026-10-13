@@ -1,4 +1,3 @@
-import importlib.metadata
 import itertools
 import logging
 import os
@@ -8,7 +7,6 @@ from string import Formatter
 from typing import Any
 
 import yaml
-from packaging.version import Version
 
 import mlflow
 from mlflow import pyfunc
@@ -24,6 +22,7 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types import ColSpec, Schema, TensorSpec
+from mlflow.utils import get_installed_version
 from mlflow.utils.annotations import deprecated
 from mlflow.utils.databricks_utils import (
     check_databricks_secret_scope_access,
@@ -103,12 +102,10 @@ def _get_obj_to_task_mapping():
     try:
         from openai.resources.beta.chat import completions as c
 
-        mapping.update(
-            {
-                c.AsyncCompletions: "chat.completions",
-                c.Completions: "chat.completions",
-            }
-        )
+        mapping.update({
+            c.AsyncCompletions: "chat.completions",
+            c.Completions: "chat.completions",
+        })
     except ImportError:
         pass
     return mapping
@@ -120,7 +117,8 @@ def _get_model_name(model):
     if isinstance(model, str):
         return model
 
-    if Version(_get_openai_package_version()).major < 1 and isinstance(model, openai.Model):
+    openai_version = get_installed_version("openai")
+    if openai_version is not None and openai_version.major < 1 and isinstance(model, openai.Model):
         return model.id
 
     raise mlflow.MlflowException(
@@ -151,15 +149,14 @@ def _get_task_name(task):
 
 def _get_api_config() -> _OpenAIApiConfig:
     """Gets the parameters and configuration of the OpenAI API connected to."""
-    import openai
 
-    api_type = os.getenv(_OpenAIEnvVar.OPENAI_API_TYPE.value, openai.api_type)
-    api_version = os.getenv(_OpenAIEnvVar.OPENAI_API_VERSION.value, openai.api_version)
-    api_base = os.getenv(_OpenAIEnvVar.OPENAI_API_BASE.value) or os.getenv(
+    api_type = os.environ.get(_OpenAIEnvVar.OPENAI_API_TYPE.value)
+    api_version = os.environ.get(_OpenAIEnvVar.OPENAI_API_VERSION.value)
+    api_base = os.environ.get(_OpenAIEnvVar.OPENAI_API_BASE.value) or os.environ.get(
         _OpenAIEnvVar.OPENAI_BASE_URL.value
     )
-    deployment_id = os.getenv(_OpenAIEnvVar.OPENAI_DEPLOYMENT_NAME.value, None)
-    organization = os.getenv(_OpenAIEnvVar.OPENAI_ORGANIZATION.value, None)
+    deployment_id = os.environ.get(_OpenAIEnvVar.OPENAI_DEPLOYMENT_NAME.value, None)
+    organization = os.environ.get(_OpenAIEnvVar.OPENAI_ORGANIZATION.value, None)
     if api_type in ("azure", "azure_ad", "azuread"):
         batch_size = 16
         max_tokens_per_minute = 60_000
@@ -181,8 +178,11 @@ def _get_api_config() -> _OpenAIApiConfig:
     )
 
 
-def _get_openai_package_version():
-    return importlib.metadata.version("openai")
+def _get_openai_package_version() -> str | None:
+    # Stringified for the saved model's flavor metadata. Returns None if openai has no parseable
+    # version (e.g. vendored on Databricks Serverless), rather than crashing model logging.
+    version = get_installed_version("openai")
+    return str(version) if version is not None else None
 
 
 def _log_secrets_yaml(local_model_dir, scope):
@@ -309,7 +309,8 @@ def save_model(
             path="model",
         )
     """
-    if Version(_get_openai_package_version()).major < 1:
+    openai_version = get_installed_version("openai")
+    if openai_version is not None and openai_version.major < 1:
         raise MlflowException("Only openai>=1.0 is supported.")
 
     import numpy as np
@@ -652,12 +653,10 @@ class _ContentFormatter:
             formatted_role = format_value(role)
             formatted_content = format_value(content)
 
-            formatted_messages.append(
-                {
-                    "role": formatted_role,
-                    "content": formatted_content,
-                }
-            )
+            formatted_messages.append({
+                "role": formatted_role,
+                "content": formatted_content,
+            })
 
         return formatted_messages
 

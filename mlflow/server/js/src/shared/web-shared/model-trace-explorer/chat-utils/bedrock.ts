@@ -55,9 +55,11 @@ const parseBedrockContent = (content: BedrockContentBlock): ModelTraceContentPar
     }
 
     const imageFormat = `image/${format}`;
+    // If data is an mlflow-attachment:// URI (from auto-extraction), use it directly
+    const url = data.startsWith('mlflow-attachment://') ? data : `data:${imageFormat};base64,${data}`;
     return {
       type: 'image_url',
-      image_url: { url: `data:${imageFormat};base64,${data}` },
+      image_url: { url },
     };
   }
 

@@ -1,15 +1,27 @@
 import argparse
 
-from skills.commands import analyze_ci, fetch_diff, fetch_unresolved_comments
+from skills.commands import (
+    annotate_diff,
+    embed_media,
+    fetch_logs,
+    load_rules,
+    upload_media,
+)
 
 
-def main() -> None:
+def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="skills")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    analyze_ci.register(subparsers)
-    fetch_diff.register(subparsers)
-    fetch_unresolved_comments.register(subparsers)
+    annotate_diff.register(subparsers)
+    embed_media.register(subparsers)
+    fetch_logs.register(subparsers)
+    load_rules.register(subparsers)
+    upload_media.register(subparsers)
 
-    args = parser.parse_args()
+    return parser
+
+
+def main() -> None:
+    args = build_parser().parse_args()
     args.func(args)

@@ -1,4 +1,9 @@
-from clint.linter import DisableComment, parse_disable_comments
+from clint.linter import DisableComment, parse_comments
+
+
+def _parse(code: str) -> list[DisableComment]:
+    disables, _ = parse_comments(code)
+    return disables
 
 
 def test_single_rule() -> None:
@@ -6,7 +11,7 @@ def test_single_rule() -> None:
 x = 1  # clint: disable=rule-a
 y = 2
 """
-    assert parse_disable_comments(code) == [DisableComment("rule-a", 1, 9)]
+    assert _parse(code) == [DisableComment("rule-a", 1, 9, 1)]
 
 
 def test_multiple_rules() -> None:
@@ -14,9 +19,9 @@ def test_multiple_rules() -> None:
 x = 1  # clint: disable=rule-a,rule-b
 y = 2
 """
-    assert parse_disable_comments(code) == [
-        DisableComment("rule-a", 1, 9),
-        DisableComment("rule-b", 1, 9),
+    assert _parse(code) == [
+        DisableComment("rule-a", 1, 9, 1),
+        DisableComment("rule-b", 1, 9, 1),
     ]
 
 
@@ -25,10 +30,10 @@ def test_multiple_rules_with_spaces() -> None:
 x = 1  # clint: disable=rule-a, rule-b, rule-c
 y = 2
 """
-    assert parse_disable_comments(code) == [
-        DisableComment("rule-a", 1, 9),
-        DisableComment("rule-b", 1, 9),
-        DisableComment("rule-c", 1, 9),
+    assert _parse(code) == [
+        DisableComment("rule-a", 1, 9, 1),
+        DisableComment("rule-b", 1, 9, 1),
+        DisableComment("rule-c", 1, 9, 1),
     ]
 
 
@@ -38,11 +43,11 @@ x = 1  # clint: disable=rule-a
 y = 2  # clint: disable=rule-b
 z = 3  # clint: disable=rule-a,rule-b
 """
-    assert parse_disable_comments(code) == [
-        DisableComment("rule-a", 1, 9),
-        DisableComment("rule-b", 2, 9),
-        DisableComment("rule-a", 3, 9),
-        DisableComment("rule-b", 3, 9),
+    assert _parse(code) == [
+        DisableComment("rule-a", 1, 9, 1),
+        DisableComment("rule-b", 2, 9, 2),
+        DisableComment("rule-a", 3, 9, 3),
+        DisableComment("rule-b", 3, 9, 3),
     ]
 
 
@@ -51,7 +56,7 @@ def test_no_disable_comments() -> None:
 x = 1
 y = 2
 """
-    assert parse_disable_comments(code) == []
+    assert _parse(code) == []
 
 
 def test_various_spacing_around_commas() -> None:
@@ -61,13 +66,13 @@ b = 2  # clint: disable=rule-c, rule-d
 c = 3  # clint: disable=rule-e ,rule-f
 d = 4  # clint: disable=rule-g , rule-h
 """
-    assert parse_disable_comments(code) == [
-        DisableComment("rule-a", 1, 9),
-        DisableComment("rule-b", 1, 9),
-        DisableComment("rule-c", 2, 9),
-        DisableComment("rule-d", 2, 9),
-        DisableComment("rule-e", 3, 9),
-        DisableComment("rule-f", 3, 9),
-        DisableComment("rule-g", 4, 9),
-        DisableComment("rule-h", 4, 9),
+    assert _parse(code) == [
+        DisableComment("rule-a", 1, 9, 1),
+        DisableComment("rule-b", 1, 9, 1),
+        DisableComment("rule-c", 2, 9, 2),
+        DisableComment("rule-d", 2, 9, 2),
+        DisableComment("rule-e", 3, 9, 3),
+        DisableComment("rule-f", 3, 9, 3),
+        DisableComment("rule-g", 4, 9, 4),
+        DisableComment("rule-h", 4, 9, 4),
     ]

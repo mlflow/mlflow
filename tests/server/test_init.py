@@ -1,17 +1,61 @@
+import signal
+import socket
+import subprocess
 import sys
+import time
+from datetime import date
 from unittest import mock
 
 import pytest
 
 from mlflow import server
-from mlflow.environment_variables import _MLFLOW_SGI_NAME
+from mlflow.environment_variables import (
+    _MLFLOW_AUTH_ADMIN_BOOTSTRAPPED,
+    _MLFLOW_IN_JOB_EXECUTOR,
+    _MLFLOW_SERVER_BOOT_ID,
+    _MLFLOW_SGI_NAME,
+    MLFLOW_FLASK_SERVER_SECRET_KEY,
+)
 from mlflow.exceptions import MlflowException
+from mlflow.store.tracking.dbmodels.models import SqlTraceMetricDailyRollup
+from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+from mlflow.utils import find_free_port
+from mlflow.utils.os import is_windows
 
 
 @pytest.fixture
 def mock_exec_cmd():
     with mock.patch("mlflow.server._exec_cmd") as m:
         yield m
+
+
+def _wait_for_port(host: str, port: int, proc: subprocess.Popen, timeout: int = 15) -> None:
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        if proc.poll() is not None:
+            stdout, stderr = proc.communicate()
+            raise AssertionError(
+                "MLflow server exited before accepting connections.\n"
+                f"stdout:\n{stdout}\n"
+                f"stderr:\n{stderr}"
+            )
+        try:
+            with socket.create_connection((host, port), timeout=1):
+                return
+        except OSError:
+            time.sleep(0.1)
+    raise AssertionError(f"Timed out waiting for {host}:{port} to accept connections")
+
+
+def _wait_for_port_closed(host: str, port: int, timeout: int = 15) -> None:
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        try:
+            with socket.create_connection((host, port), timeout=1):
+                time.sleep(0.1)
+        except OSError:
+            return
+    raise AssertionError(f"Timed out waiting for {host}:{port} to close")
 
 
 def test_find_app_custom_app_plugin():
@@ -71,6 +115,8 @@ def test_build_uvicorn_command():
         sys.executable,
         "-m",
         "uvicorn",
+        "--log-config",
+        str(server._UVICORN_LOG_CONFIG),
         "--host",
         "localhost",
         "--port",
@@ -90,6 +136,8 @@ def test_build_uvicorn_command():
         "--reload",
         "--log-level",
         "debug",
+        "--log-config",
+        str(server._UVICORN_LOG_CONFIG),
         "--host",
         "localhost",
         "--port",
@@ -105,6 +153,8 @@ def test_build_uvicorn_command():
         sys.executable,
         "-m",
         "uvicorn",
+        "--log-config",
+        str(server._UVICORN_LOG_CONFIG),
         "--host",
         "localhost",
         "--port",
@@ -128,6 +178,7 @@ def test_build_uvicorn_command_with_env_file():
 
     assert "--env-file" in cmd
     assert "/path/to/.env" in cmd
+    assert "--log-config" in cmd
     # Verify the order - env-file should come before the app name
     env_file_idx = cmd.index("--env-file")
     env_file_path_idx = cmd.index("/path/to/.env")
@@ -151,6 +202,201 @@ def test_run_server(mock_exec_cmd, monkeypatch):
             port="",
         )
     mock_exec_cmd.assert_called_once()
+
+
+def test_run_server_rejects_invalid_enabled_rollup_schedule(mock_exec_cmd, monkeypatch):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
+    monkeypatch.setenv("MLFLOW_SQL_TRACE_ROLLUPS_ENABLED", "true")
+    monkeypatch.setenv("MLFLOW_TRACE_ROLLUPS_SCHEDULE", "invalid")
+
+    with (
+        mock.patch(
+            "mlflow.server.jobs.local_executor.LocalJobExecutor.check_requirements"
+        ) as check_executor_requirements,
+        mock.patch("mlflow.server.jobs.utils._check_requirements"),
+        pytest.raises(MlflowException, match="five-field UTC cron"),
+    ):
+        server._run_server(
+            file_store_path="sqlite:///primary.db",
+            registry_store_uri="",
+            default_artifact_root="file:///artifacts",
+            serve_artifacts="",
+            artifacts_only="",
+            artifacts_destination="",
+            host="localhost",
+            port="5000",
+        )
+
+    check_executor_requirements.assert_called_once()
+    mock_exec_cmd.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "variable",
+    ["MLFLOW_TRACE_ROLLUPS_MAX_PARTITIONS_PER_RUN", "MLFLOW_TRACE_ROLLUPS_MAX_WORKERS"],
+)
+@pytest.mark.parametrize("value", ["abc", "0", "-1"])
+def test_run_server_rejects_invalid_enabled_rollup_limits(
+    mock_exec_cmd, monkeypatch, variable, value
+):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
+    monkeypatch.setenv("MLFLOW_SQL_TRACE_ROLLUPS_ENABLED", "true")
+    monkeypatch.setenv(variable, value)
+
+    with (
+        mock.patch(
+            "mlflow.server.jobs.local_executor.LocalJobExecutor.check_requirements"
+        ) as check_executor_requirements,
+        mock.patch("mlflow.server.jobs.utils._check_requirements"),
+        pytest.raises(MlflowException, match=variable),
+    ):
+        server._run_server(
+            file_store_path="sqlite:///primary.db",
+            registry_store_uri="",
+            default_artifact_root="file:///artifacts",
+            serve_artifacts="",
+            artifacts_only="",
+            artifacts_destination="",
+            host="localhost",
+            port="5000",
+        )
+
+    check_executor_requirements.assert_called_once()
+    mock_exec_cmd.assert_not_called()
+
+
+def test_run_server_rejects_missing_job_backend_when_rollups_are_enabled(
+    mock_exec_cmd, monkeypatch
+):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
+    monkeypatch.setenv("MLFLOW_SQL_TRACE_ROLLUPS_ENABLED", "true")
+
+    with (
+        mock.patch(
+            "mlflow.server.jobs.utils._check_requirements",
+            side_effect=MlflowException("database backend required"),
+        ),
+        pytest.raises(MlflowException, match="available SQL job-execution backend"),
+    ):
+        server._run_server(
+            file_store_path="",
+            registry_store_uri="",
+            default_artifact_root="",
+            serve_artifacts="",
+            artifacts_only="",
+            artifacts_destination="",
+            host="localhost",
+            port="5000",
+        )
+
+    mock_exec_cmd.assert_not_called()
+
+
+def test_run_server_rejects_disabled_rollups_when_materialized_rows_exist(
+    mock_exec_cmd, monkeypatch, tmp_path
+):
+    database_uri = f"sqlite:///{tmp_path / 'mlflow.db'}"
+    artifact_root = tmp_path / "artifacts"
+    artifact_root.mkdir()
+    store = SqlAlchemyStore(database_uri, artifact_root.as_uri())
+    experiment_id = store.create_experiment("rollup-startup-check")
+    with store.ManagedSessionMaker(read_only=False) as session:
+        session.add(
+            SqlTraceMetricDailyRollup(
+                experiment_id=int(experiment_id),
+                rollup_day=date(1970, 1, 1),
+                metric_name="trace_count",
+                grouping_set="global",
+                sample_count=1,
+            )
+        )
+
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "false")
+    monkeypatch.setenv("MLFLOW_SQL_TRACE_ROLLUPS_ENABLED", "false")
+
+    with (
+        mock.patch("sys.platform", return_value="linux"),
+        pytest.raises(MlflowException, match="mlflow db delete-trace-rollups"),
+    ):
+        server._run_server(
+            file_store_path=database_uri,
+            registry_store_uri="",
+            default_artifact_root=artifact_root.as_uri(),
+            serve_artifacts="",
+            artifacts_only="",
+            artifacts_destination="",
+            host="localhost",
+            port="5000",
+        )
+
+    mock_exec_cmd.assert_not_called()
+
+
+def test_run_server_allows_disabled_rollups_for_a_new_sql_database(
+    mock_exec_cmd, monkeypatch, tmp_path
+):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "false")
+    monkeypatch.setenv("MLFLOW_SQL_TRACE_ROLLUPS_ENABLED", "false")
+    database_path = tmp_path / "new.db"
+
+    with mock.patch("sys.platform", return_value="linux"):
+        server._run_server(
+            file_store_path=f"sqlite:///{database_path}",
+            registry_store_uri="",
+            default_artifact_root="",
+            serve_artifacts="",
+            artifacts_only="",
+            artifacts_destination="",
+            host="localhost",
+            port="5000",
+        )
+
+    mock_exec_cmd.assert_called_once()
+    assert not database_path.exists()
+
+
+@pytest.mark.parametrize("static_prefix", [None, "", "/mlflow", "/nested/mlflow"])
+@pytest.mark.parametrize("host", ["localhost", "0.0.0.0"])
+def test_run_server_passes_public_store_config_to_job_runner(
+    mock_exec_cmd, monkeypatch, static_prefix, host
+):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
+    monkeypatch.setenv("MLFLOW_SQL_TRACE_ROLLUPS_ENABLED", "false")
+    monkeypatch.delenv("MLFLOW_GATEWAY_URI", raising=False)
+    mock_exec_cmd.return_value.pid = 123
+
+    with (
+        mock.patch(
+            "mlflow.server.jobs.local_executor.LocalJobExecutor.check_requirements"
+        ) as check_executor_requirements,
+        mock.patch("mlflow.server.jobs.utils._check_requirements") as check_requirements,
+        mock.patch("mlflow.server.jobs.utils._launch_job_runner") as launch_job_runner,
+        mock.patch(
+            "mlflow.tracing.trace_rollup_service.validate_sql_trace_rollup_startup"
+        ) as validate_rollup_startup,
+    ):
+        server._run_server(
+            file_store_path="sqlite:///primary.db",
+            registry_store_uri="",
+            default_artifact_root="file:///artifacts",
+            serve_artifacts="",
+            artifacts_only="",
+            artifacts_destination="",
+            host=host,
+            port="5000",
+            static_prefix=static_prefix,
+        )
+
+    mock_exec_cmd.assert_called_once()
+    check_requirements.assert_called_once_with("sqlite:///primary.db")
+    check_executor_requirements.assert_called_once()
+    validate_rollup_startup.assert_called_once_with("sqlite:///primary.db")
+    launch_job_runner.assert_called_once()
+    job_env = launch_job_runner.call_args.args[0]
+    assert job_env["MLFLOW_BACKEND_STORE_URI"] == "sqlite:///primary.db"
+    assert job_env["MLFLOW_DEFAULT_ARTIFACT_ROOT"] == "file:///artifacts"
+    assert job_env["MLFLOW_TRACKING_URI"] == f"http://{host}:5000{static_prefix or ''}"
+    assert job_env["MLFLOW_GATEWAY_URI"] == f"http://{host}:5000{static_prefix or ''}"
 
 
 def test_run_server_win32(mock_exec_cmd, monkeypatch):
@@ -188,6 +434,8 @@ def test_run_server_with_uvicorn(mock_exec_cmd, monkeypatch):
         "-m",
         "uvicorn",
         "--reload",
+        "--log-config",
+        str(server._UVICORN_LOG_CONFIG),
         "--host",
         "localhost",
         "--port",
@@ -196,9 +444,177 @@ def test_run_server_with_uvicorn(mock_exec_cmd, monkeypatch):
         "4",
         "mlflow.server.fastapi_app:app",
     ]
-    mock_exec_cmd.assert_called_once_with(
-        expected_command,
-        extra_env={_MLFLOW_SGI_NAME.name: "uvicorn"},
-        capture_output=False,
-        synchronous=False,
+    mock_exec_cmd.assert_called_once()
+    call = mock_exec_cmd.call_args
+    assert call.args[0] == expected_command
+    assert call.kwargs["capture_output"] is False
+    assert call.kwargs["synchronous"] is False
+    extra_env = call.kwargs["extra_env"]
+    assert extra_env[_MLFLOW_SGI_NAME.name] == "uvicorn"
+    # Each server generation is stamped with a boot id (used to reap orphaned sandbox containers
+    # left by a previous generation); its value is a random per-boot uuid.
+    assert extra_env[_MLFLOW_SERVER_BOOT_ID.name]
+    # The custom-scorer reconstruction marker is forced off for server workers so it can never be
+    # inherited from the ambient environment (the server must never execute custom scorer code).
+    assert extra_env[_MLFLOW_IN_JOB_EXECUTOR.name] == "false"
+
+
+@pytest.mark.parametrize(
+    "uvicorn_opts",
+    [
+        "--log-config /custom/path.yaml",
+        "--log-config=/custom/path.yaml",
+    ],
+)
+def test_build_uvicorn_command_user_log_config_takes_precedence(uvicorn_opts):
+    cmd = server._build_uvicorn_command(
+        uvicorn_opts, "localhost", "5000", "4", "mlflow.server.fastapi_app:app"
     )
+    assert not any("uvicorn_log_config.yaml" in o for o in cmd)
+
+
+# flaky: auto-detected from CI re-runs; see the weekly flaky-test report
+@pytest.mark.flaky(attempts=2)
+@pytest.mark.parametrize(
+    "sig",
+    [
+        pytest.param(
+            signal.SIGTERM,
+            marks=pytest.mark.skipif(is_windows(), reason="SIGTERM is a hard kill on Windows"),
+        ),
+        signal.SIGINT,
+    ],
+)
+def test_mlflow_server_shuts_down_on_signal(sig: signal.Signals, tmp_path):
+    port = find_free_port()
+    db_path = tmp_path / "mlflow.db"
+    cmd = [
+        sys.executable,
+        "-m",
+        "mlflow",
+        "server",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        str(port),
+        "--workers",
+        "1",
+        "--backend-store-uri",
+        f"sqlite:///{db_path}",
+    ]
+    if is_windows():
+        proc = subprocess.Popen(cmd, creationflags=subprocess.CREATE_NEW_PROCESS_GROUP)
+    else:
+        proc = subprocess.Popen(cmd)
+    try:
+        _wait_for_port("127.0.0.1", port, proc, timeout=60 if is_windows() else 15)
+        if is_windows():
+            proc.send_signal(signal.CTRL_BREAK_EVENT)
+        else:
+            proc.send_signal(sig)
+        proc.wait(timeout=30 if is_windows() else 15)
+        _wait_for_port_closed("127.0.0.1", port)
+        # Exit code 0 means graceful shutdown (signal was caught and handled)
+        # -sig or 128+sig means the process was killed by the signal
+        # On Windows, CTRL_BREAK_EVENT maps to 0xC000013A.
+        if is_windows():
+            assert proc.returncode in (0, 0xC000013A)
+        else:
+            assert proc.returncode in (0, -sig, 128 + sig)
+    finally:
+        if proc.poll() is None:
+            proc.terminate()
+            try:
+                proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+
+
+def test_run_server_bootstraps_basic_auth_admin_before_spawning_workers(mock_exec_cmd, monkeypatch):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "false")
+    monkeypatch.setenv(MLFLOW_FLASK_SERVER_SECRET_KEY.name, "my-secret-key")
+    with mock.patch("mlflow.server.auth.bootstrap_admin_user") as bootstrap:
+        server._run_server(
+            file_store_path="",
+            registry_store_uri="",
+            default_artifact_root="",
+            serve_artifacts="",
+            artifacts_only="",
+            artifacts_destination="",
+            host="",
+            port="",
+            app_name="basic-auth",
+        )
+    bootstrap.assert_called_once_with()
+    mock_exec_cmd.assert_called_once()
+    # Workers are told the bootstrap already happened so they skip the PBKDF2 checks.
+    assert mock_exec_cmd.call_args.kwargs["extra_env"][_MLFLOW_AUTH_ADMIN_BOOTSTRAPPED.name] == (
+        "true"
+    )
+
+
+def test_run_server_fails_before_spawning_workers_when_admin_bootstrap_fails(
+    mock_exec_cmd, monkeypatch
+):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "false")
+    monkeypatch.setenv(MLFLOW_FLASK_SERVER_SECRET_KEY.name, "my-secret-key")
+    with (
+        mock.patch(
+            "mlflow.server.auth.bootstrap_admin_user",
+            side_effect=MlflowException("no admin password"),
+        ),
+        pytest.raises(MlflowException, match="no admin password"),
+    ):
+        server._run_server(
+            file_store_path="",
+            registry_store_uri="",
+            default_artifact_root="",
+            serve_artifacts="",
+            artifacts_only="",
+            artifacts_destination="",
+            host="",
+            port="",
+            app_name="basic-auth",
+        )
+    mock_exec_cmd.assert_not_called()
+
+
+def test_run_server_fails_before_spawning_workers_when_secret_key_missing(
+    mock_exec_cmd, monkeypatch
+):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "false")
+    monkeypatch.delenv(MLFLOW_FLASK_SERVER_SECRET_KEY.name, raising=False)
+    with (
+        mock.patch("mlflow.server.auth.bootstrap_admin_user") as bootstrap,
+        pytest.raises(MlflowException, match="MLFLOW_FLASK_SERVER_SECRET_KEY"),
+    ):
+        server._run_server(
+            file_store_path="",
+            registry_store_uri="",
+            default_artifact_root="",
+            serve_artifacts="",
+            artifacts_only="",
+            artifacts_destination="",
+            host="",
+            port="",
+            app_name="basic-auth",
+        )
+    bootstrap.assert_not_called()
+    mock_exec_cmd.assert_not_called()
+
+
+def test_run_server_skips_admin_bootstrap_for_default_app(mock_exec_cmd, monkeypatch):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "false")
+    with mock.patch("mlflow.server.auth.bootstrap_admin_user") as bootstrap:
+        server._run_server(
+            file_store_path="",
+            registry_store_uri="",
+            default_artifact_root="",
+            serve_artifacts="",
+            artifacts_only="",
+            artifacts_destination="",
+            host="",
+            port="",
+        )
+    bootstrap.assert_not_called()
+    assert _MLFLOW_AUTH_ADMIN_BOOTSTRAPPED.name not in mock_exec_cmd.call_args.kwargs["extra_env"]

@@ -4,7 +4,7 @@ This module contains class definitions for all webhook event payloads
 that are sent when various model registry events occur.
 """
 
-from typing import TypeAlias, TypedDict
+from typing import Literal, TypeAlias, TypedDict
 
 from mlflow.entities.webhook import WebhookAction, WebhookEntity, WebhookEvent
 
@@ -460,6 +460,67 @@ class PromptAliasDeletedPayload(TypedDict):
         )
 
 
+class BudgetPolicyExceededPayload(TypedDict):
+    """Payload sent when a budget policy limit is exceeded.
+
+    Example payload:
+
+    .. code-block:: python
+
+        {
+            "budget_policy_id": "bp-abc123",
+            "budget_unit": "USD",
+            "budget_amount": 100.0,
+            "current_spend": 105.50,
+            "duration_unit": "MONTHS",
+            "duration_value": 1,
+            "target_scope": "ENDPOINT",
+            "workspace": "default",
+            "target_value": "ep-abc123",
+            "window_start": 1704067200000,
+        }
+
+    """
+
+    budget_policy_id: str
+    """The unique identifier of the budget policy."""
+    budget_unit: Literal["USD"]
+    """The budget measurement unit (e.g. USD)."""
+    budget_amount: float
+    """The budget limit amount."""
+    current_spend: float
+    """The current cumulative spend when the limit was exceeded."""
+    duration_unit: Literal["MINUTES", "HOURS", "DAYS", "WEEKS", "MONTHS"]
+    """The duration unit (MINUTES, HOURS, DAYS, WEEKS, MONTHS)."""
+    duration_value: int
+    """The duration value."""
+    target_scope: Literal["GLOBAL", "WORKSPACE", "ENDPOINT", "USER"]
+    """The target scope (GLOBAL, WORKSPACE, ENDPOINT, or USER)."""
+    workspace: str
+    """The workspace this budget applies to."""
+    target_value: str | None
+    """The target this budget applies to, interpreted per target_scope: a gateway
+    endpoint ID for ENDPOINT scope, a username for USER scope.
+    None for GLOBAL and WORKSPACE scopes."""
+    window_start: int
+    """The start timestamp (milliseconds) of the current budget window."""
+
+    @classmethod
+    def example(cls) -> "BudgetPolicyExceededPayload":
+        return cls(
+            budget_policy_id="bp-abc123",
+            budget_unit="USD",
+            budget_amount=100.0,
+            current_spend=105.50,
+            duration_unit="MONTHS",
+            duration_value=1,
+            target_scope="ENDPOINT",
+            workspace="default",
+            target_value="ep-abc123",
+            window_start=1704067200000,
+        )
+
+
 WebhookPayload: TypeAlias = (
     RegisteredModelCreatedPayload
     | ModelVersionCreatedPayload
@@ -475,6 +536,7 @@ WebhookPayload: TypeAlias = (
     | PromptVersionTagDeletedPayload
     | PromptAliasCreatedPayload
     | PromptAliasDeletedPayload
+    | BudgetPolicyExceededPayload
 )
 
 # Mapping of (entity, action) tuples to their corresponding payload classes
@@ -493,6 +555,7 @@ EVENT_TO_PAYLOAD_CLASS: dict[tuple[WebhookEntity, WebhookAction], type[WebhookPa
     (WebhookEntity.PROMPT_VERSION_TAG, WebhookAction.DELETED): PromptVersionTagDeletedPayload,
     (WebhookEntity.PROMPT_ALIAS, WebhookAction.CREATED): PromptAliasCreatedPayload,
     (WebhookEntity.PROMPT_ALIAS, WebhookAction.DELETED): PromptAliasDeletedPayload,
+    (WebhookEntity.BUDGET_POLICY, WebhookAction.EXCEEDED): BudgetPolicyExceededPayload,
 }
 
 

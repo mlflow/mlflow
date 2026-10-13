@@ -10,6 +10,7 @@ from mlflow.dspy.util import (
     log_dspy_dataset,
     log_dspy_lm_state,
     log_dspy_module_params,
+    sanitize_params,
     save_dspy_module_state,
 )
 from mlflow.tracking import MlflowClient
@@ -47,7 +48,6 @@ def test_log_dspy_module_state_params():
 
     run = mlflow.last_active_run()
 
-    # DSPy >= 3.0 changed how list values are flattened
     expected_params = {
         "Predict.signature.fields.0.description": "${question}",
         "Predict.signature.fields.0.prefix": "Question:",
@@ -57,15 +57,18 @@ def test_log_dspy_module_state_params():
         "Predict.demos.0.question": "What are cities in Japan?",
     }
 
-    if Version(importlib.metadata.version("dspy")).major >= 3:
-        expected_params.update(
-            {
-                "Predict.demos.0.answer.0": "Tokyo",
-                "Predict.demos.0.answer.1": "Osaka",
-            }
-        )
-    else:
+    # `log_dspy_module_params` stringifies the fields of demos serialized as `dspy.Example`
+    # objects but flattens list values of demos serialized as plain dicts. Which one
+    # `dump_state` emits depends on the DSPy version (e.g. 3.0.0 still uses `Example`, later
+    # 3.x releases use plain dicts), so derive the expectation from the actual serialization.
+    demo_state = (program.dump_state().get("demos") or [None])[0]
+    if isinstance(demo_state, dspy.Example):
         expected_params["Predict.demos.0.answer"] = "['Tokyo', 'Osaka']"
+    else:
+        expected_params.update({
+            "Predict.demos.0.answer.0": "Tokyo",
+            "Predict.demos.0.answer.1": "Osaka",
+        })
 
     assert run.data.params == expected_params
 
@@ -125,3 +128,17 @@ def test_log_dspy_lm_state():
         # Verify sensitive attributes are filtered out
         assert "api_key" not in lm_params
         assert "api_base" not in lm_params
+
+
+def test_sanitize_params():
+    params = {
+        "api_key": "secret-key",
+        "api_base": "https://api.openai.com",
+        "azure_ad_token": "secret-token",
+        "client_secret": "secret-client-secret",
+        "azure_password": "secret-azure-password",
+        "model": "gpt-4o-mini",
+    }
+    assert sanitize_params(params) == {"model": "gpt-4o-mini"}
+
+    assert sanitize_params({}) == {}

@@ -1,5 +1,6 @@
-import { RowSelectionState } from '@tanstack/react-table';
-import { createContext, SetStateAction, useContext, useState } from 'react';
+import type { RowSelectionState } from '@tanstack/react-table';
+import type { SetStateAction } from 'react';
+import { createContext, useContext, useState } from 'react';
 
 const GenAiTraceTableRowSelectionContext = createContext<{
   rowSelection: RowSelectionState;

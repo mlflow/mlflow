@@ -141,9 +141,17 @@ public class TestClientProvider {
     Thread drainThread = new Thread(threadName) {
       @Override
       public void run() {
-        BufferedReader reader = new BufferedReader(new InputStreamReader(inStream,
-          StandardCharsets.UTF_8));
-        reader.lines().forEach(outStream::println);
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(inStream,
+            StandardCharsets.UTF_8))) {
+          String line;
+          while ((line = reader.readLine()) != null) {
+            outStream.println(line);
+          }
+        } catch (IOException e) {
+          // Expected when the server process is destroyed during teardown; the drain is
+          // best-effort, so don't let the exception escape and trip CI error annotations.
+          logger.debug("Drain interrupted on " + threadName, e);
+        }
         logger.info("Drain completed on " + threadName);
       }
     };

@@ -3,7 +3,6 @@ import {
   Radio,
   LegacySelect,
   Switch,
-  LegacyTooltip,
   QuestionMarkIcon,
   useDesignSystemTheme,
   SegmentedControlGroup,
@@ -24,9 +23,9 @@ import {
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useCallback, useEffect, useState } from 'react';
 import {
+  RunsChartsCardConfig,
   RunsChartsLineChartYAxisType,
   type ChartRange,
-  type RunsChartsCardConfig,
   type RunsChartsLineCardConfig,
 } from '../../runs-charts.types';
 import { RunsChartsConfigureField } from './RunsChartsConfigure.common';
@@ -151,11 +150,15 @@ export const RunsChartsConfigureLineChart = ({
 
   const updateSelectedMetrics = useCallback(
     (metricKeys: string[]) => {
-      onStateChange((current) => ({
-        ...(current as RunsChartsLineCardConfig),
-        metricKey: metricKeys[0],
-        selectedMetricKeys: metricKeys,
-      }));
+      onStateChange((current) => {
+        const currentConfig = current as RunsChartsLineCardConfig;
+        return {
+          ...currentConfig,
+          metricKey: metricKeys[0],
+          selectedMetricKeys: metricKeys,
+          displayName: RunsChartsCardConfig.getDisplayNameForUpdatedMetricSelection(currentConfig, metricKeys),
+        };
+      });
     },
     [onStateChange],
   );
@@ -674,6 +677,7 @@ export const RunsChartsConfigureLineChart = ({
             <Tooltip
               componentId="codegen_mlflow_app_src_experiment-tracking_components_runs-charts_components_config_runschartsconfigurelinechart.tsx_703"
               delayDuration={0}
+              disableHoverableContent={false}
               content={
                 <FormattedMessage
                   defaultMessage="Only display data points between the p5 and p95 of the data. This can help with chart readability in cases where outliers significantly affect the Y-axis range"

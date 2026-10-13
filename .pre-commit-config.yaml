@@ -1,7 +1,7 @@
 minimum_pre_commit_version: 4.0.1
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.5.0
+    rev: c4a0b883114b00d8d76b479c820ce7950211c99b # v4.5.0
     hooks:
       - id: trailing-whitespace
         files: \.(mdx|ya?ml|txt)$
@@ -12,7 +12,7 @@ repos:
         files: \.py$
         require_serial: true
   - repo: https://github.com/pre-commit/mirrors-prettier
-    rev: "v2.7.1"
+    rev: "50c5478ed9e10bf360335449280cf2a67f4edb7a" # v2.7.1
     hooks:
       - id: prettier
         files: '^(?!docs/|mlflow/server/js/|libs/typescript/).+\.(js|ts|md|json|ya?ml)$'
@@ -20,6 +20,15 @@ repos:
 
   - repo: local
     hooks:
+      - id: uv-lock
+        name: uv-lock
+        entry: uv lock
+        language: system
+        files: '(^|/)pyproject\.toml$'
+        stages: [pre-commit]
+        require_serial: true
+        pass_filenames: false
+
       - id: normalize-chars
         name: normalize-chars
         entry: uv run --only-group lint dev/normalize_chars.py
@@ -41,7 +50,7 @@ repos:
         name: format
         entry: uv run --only-group lint dev/format.py
         language: system
-        files: '\.(py|ipynb)$'
+        files: '\.(py|ipynb|md|mdx)$'
         stages: [pre-commit]
         require_serial: true
 
@@ -57,19 +66,36 @@ repos:
           (?x)^(
             dev/gen_rest_api\.py|
             dev/proto_plugin\.py|
-            dev/set_matrix\.py|
             dev/update_ml_package_versions\.py|
             dev/proto_to_graphql/.*\.py|
-            dev/tests/.*\.py
+            dev/benchmarks/gateway/fake_server\.py|
+            dev/benchmarks/gateway/benchmark\.py|
+            dev/benchmarks/gateway/run\.py|
+            dev/benchmarks/tracing/.*\.py
           )$
         entry: uv run --only-group lint mypy
         require_serial: true
 
-      - id: blacken-docs
-        name: blacken-docs
-        entry: uv run --only-group lint blacken-docs
+      - id: unresolved-import
+        name: unresolved-import
+        # Run `ty` to detect broken internal `mlflow.*` imports. Third-party
+        # unresolved imports (optional deps) are filtered out via grep.
+        entry: |
+          bash -c '
+            out=$(uv run --only-group lint ty check \
+              --ignore all \
+              --error unresolved-import \
+              --output-format concise \
+              mlflow/ 2>&1)
+            bad=$(echo "$out" | grep "Module \`mlflow" || true)
+            if [ -n "$bad" ]; then
+              echo "$bad"
+              exit 1
+            fi
+          '
         language: system
-        files: '\.(rst|md|mdx)$'
+        pass_filenames: false
+        files: ^mlflow/.*\.py$
         stages: [pre-commit]
         require_serial: true
 
@@ -78,6 +104,22 @@ repos:
         entry: uv run --only-group lint clint
         language: system
         files: '\.(py|ipynb|rst|mdx?)$'
+        stages: [pre-commit]
+        require_serial: true
+
+      - id: check-github-workflows
+        name: check-github-workflows
+        entry: uv run --only-group lint check-jsonschema --schemafile https://raw.githubusercontent.com/SchemaStore/schemastore/a1bfb2b17627062b6a938153c065cb58baef6fe7/src/schemas/json/github-workflow.json
+        language: system
+        files: ^\.github/workflows/[^/]+\.ya?ml$
+        stages: [pre-commit]
+        require_serial: true
+
+      - id: check-github-actions
+        name: check-github-actions
+        entry: uv run --only-group lint check-jsonschema --schemafile https://raw.githubusercontent.com/SchemaStore/schemastore/acc1b653da7696b7fd374058562001534ef51b32/src/schemas/json/github-action.json
+        language: system
+        files: ^\.github/actions/[^/]+/action\.ya?ml$
         stages: [pre-commit]
         require_serial: true
 
@@ -128,7 +170,8 @@ repos:
         exclude: |
           (?x)^(
             \.pre-commit-config\.yaml|
-            changelogs/CHANGELOG\.md|
+            CHANGELOG\.md|
+            changelogs/.*|
             docs/api_reference/source/R-api\.rst|
             examples/llms/RAG/.*\.(json|csv)|
             mlflow/cli/__init__\.py|
@@ -178,18 +221,27 @@ repos:
 
       - id: typos
         name: typos
-        entry: bin/typos --format brief --force-exclude --color never
+        entry: bin/typos --format brief --color never
         files: '\.(py$|mdx?$)'
         language: system
         stages: [pre-commit]
         require_serial: true
+        pass_filenames: false
 
       - id: conftest
         name: conftest
         entry: bin/conftest test --namespace mlflow --policy .github/policy.rego
         files: '^\.github/(workflows|actions)/.*\.ya?ml$'
-        exclude: '^\.github/workflows/copilot-setup-steps\.yml$'
         language: system
+        stages: [pre-commit]
+        require_serial: true
+
+      - id: check-actions
+        name: check-actions
+        entry: uv run --only-group lint dev/check_actions.py
+        language: system
+        files: '^\.github/(workflows|actions)/.*\.ya?ml$'
+        pass_filenames: false
         stages: [pre-commit]
         require_serial: true
 
@@ -210,21 +262,45 @@ repos:
         require_serial: true
         pass_filenames: false
 
-      - id: uv-lock
-        name: uv-lock
-        entry: uv lock
-        language: system
-        files: '^pyproject\.toml$'
-        stages: [pre-commit]
-        require_serial: true
-        pass_filenames: false
-
       - id: forbid-gif
         name: forbid-gif
         language: fail
         entry: "Please use MP4 instead of GIF for docs animations"
         files: ^docs/.*\.gif$
         stages: [pre-commit]
+
+      - id: unused-media
+        name: unused-media
+        entry: dev/find-unused-media.sh
+        language: system
+        stages: [pre-commit]
+        require_serial: true
+        pass_filenames: false
+        always_run: true
+
+      - id: no-yaml
+        name: no-yaml
+        language: fail
+        entry: "Use .yml instead of .yaml"
+        files: ^\.github/(workflows|actions)/.*\.yaml$
+        stages: [pre-commit]
+
+      - id: check-component-ids
+        name: check-component-ids
+        entry: |
+          bash -c '
+            if ! node .github/actions/check-component-ids/index.js; then
+              echo
+              echo "Auto-regenerating componentId registry..."
+              node .github/actions/check-component-ids/regenerate.js
+              exit 1
+            fi
+          '
+        language: system
+        files: ^(mlflow/server/js/src/|mlflow/server/js/scripts/componentId-registry\.js|\.github/actions/check-component-ids/)
+        stages: [pre-commit]
+        require_serial: true
+        pass_filenames: false
 
       - id: js-fmt
         name: js-fmt
@@ -239,3 +315,11 @@ repos:
         language: fail
         entry: "Filenames must not contain spaces"
         files: " "
+
+      - id: skills
+        name: skills
+        entry: uv run --only-group lint dev/check_skills.py
+        language: system
+        files: '(^|/)SKILL\.md$'
+        stages: [pre-commit]
+        require_serial: true

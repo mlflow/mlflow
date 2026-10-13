@@ -1,6 +1,7 @@
 from typing import TYPE_CHECKING
 
-from mlflow.genai.scorers.base import Scorer, ScorerSamplingConfig, scorer
+from mlflow.genai.scorers.base import Scorer, ScorerSamplingConfig, make_scorer_ensemble, scorer
+from mlflow.genai.scorers.ensemble import agg_all, agg_any, majority_vote, maximum, mean, minimum
 from mlflow.genai.scorers.registry import delete_scorer, get_scorer, list_scorers
 
 # Metadata keys for scorer feedback
@@ -39,7 +40,10 @@ _LAZY_IMPORTS = {
     "Guidelines",
     "Equivalence",
     "KnowledgeRetention",
+    "PIIDetection",
+    "RegexMatch",
     "RelevanceToQuery",
+    "ResponseLength",
     "RetrievalGroundedness",
     "RetrievalRelevance",
     "RetrievalSufficiency",
@@ -92,7 +96,10 @@ if TYPE_CHECKING:
         Fluency,
         Guidelines,
         KnowledgeRetention,
+        PIIDetection,
+        RegexMatch,
         RelevanceToQuery,
+        ResponseLength,
         RetrievalGroundedness,
         RetrievalRelevance,
         RetrievalSufficiency,
@@ -117,7 +124,10 @@ __all__ = [
     "Guidelines",
     "Equivalence",
     "KnowledgeRetention",
+    "PIIDetection",
+    "RegexMatch",
     "RelevanceToQuery",
+    "ResponseLength",
     "RetrievalGroundedness",
     "RetrievalRelevance",
     "RetrievalSufficiency",
@@ -128,7 +138,14 @@ __all__ = [
     "UserFrustration",
     "Scorer",
     "scorer",
+    "make_scorer_ensemble",
     "ScorerSamplingConfig",
+    "agg_all",
+    "agg_any",
+    "majority_vote",
+    "maximum",
+    "mean",
+    "minimum",
     "get_all_scorers",
     "get_scorer",
     "list_scorers",

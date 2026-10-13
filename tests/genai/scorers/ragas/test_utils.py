@@ -19,12 +19,10 @@ def sample_trace():
     with mlflow.start_span(name="root", span_type=SpanType.CHAIN) as root:
         root.set_inputs({"messages": [{"role": "user", "content": "Hello"}]})
         with mlflow.start_span(name="retrieve", span_type=SpanType.RETRIEVER) as r:
-            r.set_outputs(
-                [
-                    Document(page_content="Document 1"),
-                    Document(page_content="Document 2"),
-                ]
-            )
+            r.set_outputs([
+                Document(page_content="Document 1"),
+                Document(page_content="Document 2"),
+            ])
         with mlflow.start_span(name="tool", span_type=SpanType.TOOL) as t:
             t.set_inputs({"x": 1})
             t.set_outputs({"y": 2})

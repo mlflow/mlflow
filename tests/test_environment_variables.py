@@ -79,9 +79,9 @@ def test_environment_variable_functionality(
 
     # Test setting and unsetting value
     env_var.set(str(default_value))
-    assert os.getenv(var_name) == str(default_value)
+    assert os.environ.get(var_name) == str(default_value)
     env_var.unset()
-    assert os.getenv(var_name) is None
+    assert os.environ.get(var_name) is None
 
 
 def test_format():

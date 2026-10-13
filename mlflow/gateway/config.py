@@ -5,18 +5,24 @@ import pathlib
 from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
+from urllib.parse import urlparse
 
 import pydantic
 import yaml
 from pydantic import ConfigDict, ValidationError, field_validator, model_validator
 from pydantic.json import pydantic_encoder
 
+from mlflow.environment_variables import (
+    MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_ENV,
+    MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_FILE,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.base_models import ConfigModel, LimitModel, ResponseModel
 from mlflow.gateway.constants import (
     MLFLOW_AI_GATEWAY_MOSAICML_CHAT_SUPPORTED_MODEL_PREFIXES,
     MLFLOW_GATEWAY_ROUTE_BASE,
     MLFLOW_QUERY_SUFFIX,
+    TYPESAFE_API_BASE_URL,
 )
 from mlflow.gateway.utils import (
     check_configuration_deprecated_fields,
@@ -54,6 +60,15 @@ class Provider(str, Enum):
     TOGETHERAI = "togetherai"
     LITELLM = "litellm"
     AZURE = "azure"
+    GROQ = "groq"
+    DEEPSEEK = "deepseek"
+    XAI = "xai"
+    OPENROUTER = "openrouter"
+    OLLAMA = "ollama"
+    VERTEX_AI = "vertex_ai"
+    PORTKEY = "portkey"
+    SAP_AI_CORE = "sap-ai-core"
+    TYPESAFE = "typesafe"
 
     @classmethod
     def values(cls):
@@ -68,10 +83,35 @@ class TogetherAIConfig(ConfigModel):
         return _resolve_api_key_from_input(value)
 
 
+class TypeSafeConfig(ConfigModel):
+    typesafe_api_key: str
+    typesafe_api_base: str = TYPESAFE_API_BASE_URL
+
+    @field_validator("typesafe_api_key", mode="before")
+    def validate_typesafe_api_key(cls, value):
+        return _resolve_api_key_from_input(value)
+
+
 class EndpointType(str, Enum):
     LLM_V1_COMPLETIONS = "llm/v1/completions"
     LLM_V1_CHAT = "llm/v1/chat"
     LLM_V1_EMBEDDINGS = "llm/v1/embeddings"
+
+
+class GatewayRequestType(str, Enum):
+    """
+    Gateway request types for the Gateway endpoints.
+    """
+
+    UNIFIED_CHAT = "unified/chat"
+    UNIFIED_EMBEDDINGS = "unified/embeddings"
+    PASSTHROUGH_MODEL_OPENAI_CHAT = "passthrough/model/openai-chat"
+    PASSTHROUGH_MODEL_OPENAI_EMBEDDINGS = "passthrough/model/openai-embeddings"
+    PASSTHROUGH_MODEL_OPENAI_RESPONSES = "passthrough/model/openai-responses"
+    PASSTHROUGH_MODEL_ANTHROPIC_MESSAGES = "passthrough/model/anthropic-messages"
+    PASSTHROUGH_MODEL_GEMINI_GENERATE_CONTENT = "passthrough/model/gemini-generateContent"
+    PASSTHROUGH_MODEL_TYPESAFE_SYSTEM_ONE = "passthrough/model/typesafe-systemone"
+    RAW_PROXY = "proxy/raw"
 
 
 class CohereConfig(ConfigModel):
@@ -170,6 +210,7 @@ class OpenAIConfig(ConfigModel):
 class AnthropicConfig(ConfigModel):
     anthropic_api_key: str
     anthropic_version: str = "2023-06-01"
+    anthropic_api_base: str = "https://api.anthropic.com/v1"
 
     @field_validator("anthropic_api_key", mode="before")
     def validate_anthropic_api_key(cls, value):
@@ -186,10 +227,25 @@ class PaLMConfig(ConfigModel):
 
 class GeminiConfig(ConfigModel):
     gemini_api_key: str
+    gemini_api_base: str = "https://generativelanguage.googleapis.com/v1beta/models"
 
     @field_validator("gemini_api_key", mode="before")
     def validate_gemini_api_key(cls, value):
         return _resolve_api_key_from_input(value)
+
+    @field_validator("gemini_api_base")
+    def validate_gemini_api_base(cls, value):
+        path = urlparse(value).path.rstrip("/")
+        if path.endswith("/models") and not path.endswith((
+            "/v1/models",
+            "/v1beta/models",
+            "/v1alpha/models",
+        )):
+            raise ValueError(
+                "gemini_api_base ending in /models must include a supported API version "
+                "(/v1, /v1beta, or /v1alpha) immediately before /models."
+            )
+        return value
 
 
 class MlflowModelServingConfig(ConfigModel):
@@ -219,9 +275,13 @@ class AWSIdAndKey(AWSBaseConfig):
     aws_session_token: str | None = None
 
 
+class AWSBearerToken(AWSBaseConfig):
+    aws_bearer_token: str
+
+
 class AmazonBedrockConfig(ConfigModel):
     # order here is important, at least for pydantic<2
-    aws_config: AWSRole | AWSIdAndKey | AWSBaseConfig
+    aws_config: AWSBearerToken | AWSRole | AWSIdAndKey | AWSBaseConfig
 
 
 class MistralConfig(ConfigModel):
@@ -238,6 +298,70 @@ class _AuthConfigKey:
     AUTH_MODE = "auth_mode"
     API_KEY = "api_key"
     API_BASE = "api_base"
+
+
+class _OpenAICompatibleConfig(ConfigModel):
+    """Config for providers that use the OpenAI-compatible API format.
+
+    Args:
+        api_key: API key for authentication (resolved via ``_resolve_api_key_from_input``).
+        api_base: Optional base URL override. When ``None``, the provider's
+            ``DEFAULT_API_BASE`` class attribute is used instead.
+    """
+
+    api_key: str
+    api_base: str | None = None
+
+    @field_validator("api_key", mode="before")
+    def validate_api_key(cls, value):
+        return _resolve_api_key_from_input(value)
+
+
+class PortkeyConfig(_OpenAICompatibleConfig):
+    """Config for the Portkey AI gateway provider.
+
+    In addition to the Portkey API key, Portkey must be told which upstream provider
+    to route a request to. This is expressed either as a provider slug
+    (``portkey_provider``), a saved Portkey config (``portkey_config``), or a Model
+    Catalog reference embedded in the model name (e.g. ``@openai-prod/gpt-4o``).
+
+    Args:
+        portkey_provider: Value for the ``x-portkey-provider`` header. Either a Model
+            Catalog integration slug prefixed with ``@`` (e.g. ``@openai-prod``), or a
+            bare provider slug (e.g. ``openai``), which requires ``provider_api_key``.
+        portkey_config: Value for the ``x-portkey-config`` header. A saved Portkey
+            config ID (e.g. ``pc-xxxx``) or a raw JSON config string.
+        provider_api_key: Upstream provider API key, forwarded to Portkey via the
+            ``Authorization`` header. Only needed when ``portkey_provider`` is a bare
+            provider slug whose credentials are not stored in Portkey.
+    """
+
+    portkey_provider: str | None = None
+    portkey_config: str | None = None
+    provider_api_key: str | None = None
+
+    @field_validator("provider_api_key", mode="before")
+    def validate_provider_api_key(cls, value):
+        if value is None:
+            return None
+        return _resolve_api_key_from_input(value)
+
+
+class VertexAIConfig(ConfigModel):
+    vertex_project: str
+    vertex_location: str | None = None
+    vertex_credentials: str | None = None
+    # Client-supplied `anthropic-beta` values to forward to Claude models. None forwards the
+    # header unchanged, an empty list drops it, and a non-empty list keeps only those values.
+    vertex_anthropic_betas: list[str] | None = None
+
+    @field_validator("vertex_anthropic_betas", mode="before")
+    def validate_vertex_anthropic_betas(cls, value):
+        # The server API delivers auth_config values as strings, so accept the list as a
+        # comma-separated string too; "" drops the header.
+        if isinstance(value, str):
+            return [beta for beta in map(str.strip, value.split(",")) if beta]
+        return value
 
 
 class LiteLLMConfig(ConfigModel):
@@ -285,36 +409,38 @@ def _resolve_api_key_from_input(api_key_input):
 
     Input formats accepted:
 
+    - environment variable name that stores the api key (prefixed with ``$``)
+      (only when ``MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_ENV`` is ``true``)
     - Path to a file as a string which will have the key loaded from it
-    - environment variable name that stores the api key
+      (only when ``MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_FILE`` is ``true``)
     - the api key itself
     """
-
     if not isinstance(api_key_input, str):
         raise MlflowException.invalid_parameter_value(
             "The api key provided is not a string. Please provide either an environment "
             "variable key, a path to a file containing the api key, or the api key itself"
         )
 
-    # try reading as an environment variable
-    if api_key_input.startswith("$"):
+    # try reading as an environment variable (only for legacy YAML-config gateway)
+    if api_key_input.startswith("$") and MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_ENV.get():
         env_var_name = api_key_input[1:]
-        if env_var := os.getenv(env_var_name):
+        if env_var := os.environ.get(env_var_name):
             return env_var
         else:
             raise MlflowException.invalid_parameter_value(
                 f"Environment variable {env_var_name!r} is not set"
             )
 
-    # try reading from a local path
-    file = pathlib.Path(api_key_input)
-    try:
-        if file.is_file():
-            return file.read_text()
-    except OSError:
-        # `is_file` throws an OSError if `api_key_input` exceeds the maximum filename length
-        # (e.g., 255 characters on Unix).
-        pass
+    # try reading from a local path (only for legacy YAML-config gateway)
+    if MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_FILE.get():
+        file = pathlib.Path(api_key_input)
+        try:
+            if file.is_file():
+                return file.read_text()
+        except OSError:
+            # `is_file` throws an OSError if `api_key_input` exceeds the maximum filename length
+            # (e.g., 255 characters on Unix).
+            pass
 
     # if the key itself is passed, return
     return api_key_input

@@ -118,21 +118,19 @@ def test_proto_to_mlflow_prompt():
     }
 
     # Add version tags including both response_format and model_config
-    proto_version.tags.extend(
-        [
-            ProtoPromptVersionTag(key="env", value="production"),
-            ProtoPromptVersionTag(key="author", value="alice"),
-            ProtoPromptVersionTag(key=PROMPT_TYPE_TAG_KEY, value=PROMPT_TYPE_TEXT),
-            ProtoPromptVersionTag(
-                key=RESPONSE_FORMAT_TAG_KEY,
-                value=json.dumps(response_format),
-            ),
-            ProtoPromptVersionTag(
-                key=PROMPT_MODEL_CONFIG_TAG_KEY,
-                value=json.dumps(model_config),
-            ),
-        ]
-    )
+    proto_version.tags.extend([
+        ProtoPromptVersionTag(key="env", value="production"),
+        ProtoPromptVersionTag(key="author", value="alice"),
+        ProtoPromptVersionTag(key=PROMPT_TYPE_TAG_KEY, value=PROMPT_TYPE_TEXT),
+        ProtoPromptVersionTag(
+            key=RESPONSE_FORMAT_TAG_KEY,
+            value=json.dumps(response_format),
+        ),
+        ProtoPromptVersionTag(
+            key=PROMPT_MODEL_CONFIG_TAG_KEY,
+            value=json.dumps(model_config),
+        ),
+    ])
 
     result = proto_to_mlflow_prompt(proto_version)
 

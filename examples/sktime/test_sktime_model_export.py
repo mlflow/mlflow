@@ -118,28 +118,24 @@ def test_auto_arima_model_pyfunc_output(auto_arima_model, model_path, serializat
     np.testing.assert_array_equal(model_predict, pyfunc_predict)
 
     model_predict_interval = auto_arima_model.predict_interval(fh=FH, coverage=COVERAGE)
-    predict_interval_conf = pd.DataFrame(
-        [
-            {
-                "fh": FH,
-                "predict_method": "predict_interval",
-                "coverage": COVERAGE,
-            }
-        ]
-    )
+    predict_interval_conf = pd.DataFrame([
+        {
+            "fh": FH,
+            "predict_method": "predict_interval",
+            "coverage": COVERAGE,
+        }
+    ])
     pyfunc_predict_interval = loaded_pyfunc.predict(predict_interval_conf)
     np.testing.assert_array_equal(model_predict_interval.values, pyfunc_predict_interval.values)
 
     model_predict_quantiles = auto_arima_model.predict_quantiles(fh=FH, alpha=ALPHA)
-    predict_quantiles_conf = pd.DataFrame(
-        [
-            {
-                "fh": FH,
-                "predict_method": "predict_quantiles",
-                "alpha": ALPHA,
-            }
-        ]
-    )
+    predict_quantiles_conf = pd.DataFrame([
+        {
+            "fh": FH,
+            "predict_method": "predict_quantiles",
+            "alpha": ALPHA,
+        }
+    ])
     pyfunc_predict_quantiles = loaded_pyfunc.predict(predict_quantiles_conf)
     np.testing.assert_array_equal(model_predict_quantiles.values, pyfunc_predict_quantiles.values)
 
@@ -167,46 +163,40 @@ def test_naive_forecaster_model_with_regressor_pyfunc_output(
     model_predict_interval = naive_forecaster_model_with_regressor.predict_interval(
         fh=FH, coverage=COVERAGE, X=X_test
     )
-    predict_interval_conf = pd.DataFrame(
-        [
-            {
-                "fh": FH,
-                "predict_method": "predict_interval",
-                "coverage": COVERAGE,
-                "X": X_test_array,
-            }
-        ]
-    )
+    predict_interval_conf = pd.DataFrame([
+        {
+            "fh": FH,
+            "predict_method": "predict_interval",
+            "coverage": COVERAGE,
+            "X": X_test_array,
+        }
+    ])
     pyfunc_predict_interval = loaded_pyfunc.predict(predict_interval_conf)
     np.testing.assert_array_equal(model_predict_interval.values, pyfunc_predict_interval.values)
 
     model_predict_quantiles = naive_forecaster_model_with_regressor.predict_quantiles(
         fh=FH, alpha=ALPHA, X=X_test
     )
-    predict_quantiles_conf = pd.DataFrame(
-        [
-            {
-                "fh": FH,
-                "predict_method": "predict_quantiles",
-                "alpha": ALPHA,
-                "X": X_test_array,
-            }
-        ]
-    )
+    predict_quantiles_conf = pd.DataFrame([
+        {
+            "fh": FH,
+            "predict_method": "predict_quantiles",
+            "alpha": ALPHA,
+            "X": X_test_array,
+        }
+    ])
     pyfunc_predict_quantiles = loaded_pyfunc.predict(predict_quantiles_conf)
     np.testing.assert_array_equal(model_predict_quantiles.values, pyfunc_predict_quantiles.values)
 
     model_predict_var = naive_forecaster_model_with_regressor.predict_var(fh=FH, cov=COV, X=X_test)
-    predict_var_conf = pd.DataFrame(
-        [
-            {
-                "fh": FH,
-                "predict_method": "predict_var",
-                "cov": COV,
-                "X": X_test_array,
-            }
-        ]
-    )
+    predict_var_conf = pd.DataFrame([
+        {
+            "fh": FH,
+            "predict_method": "predict_var",
+            "cov": COV,
+            "X": X_test_array,
+        }
+    ])
     pyfunc_predict_var = loaded_pyfunc.predict(predict_var_conf)
     np.testing.assert_array_equal(model_predict_var.values, pyfunc_predict_var.values)
 
@@ -250,15 +240,13 @@ def test_signature_and_example_for_pyfunc_predict_interval(
     model_path_secondary = model_path.joinpath("secondary")
     flavor.save_model(sktime_model=auto_arima_model, path=model_path_primary)
     loaded_pyfunc = flavor.pyfunc.load_model(model_uri=model_path_primary)
-    predict_conf = pd.DataFrame(
-        [
-            {
-                "fh": FH,
-                "predict_method": "predict_interval",
-                "coverage": COVERAGE,
-            }
-        ]
-    )
+    predict_conf = pd.DataFrame([
+        {
+            "fh": FH,
+            "predict_method": "predict_interval",
+            "coverage": COVERAGE,
+        }
+    ])
     forecast = loaded_pyfunc.predict(predict_conf)
     signature = infer_signature(data_airline, forecast) if use_signature else None
     example = pd.DataFrame(data_airline[0:5].copy(deep=False)) if use_example else None
@@ -285,15 +273,13 @@ def test_signature_for_pyfunc_predict_quantiles(
     model_path_secondary = model_path.joinpath("secondary")
     flavor.save_model(sktime_model=auto_arima_model, path=model_path_primary)
     loaded_pyfunc = flavor.pyfunc.load_model(model_uri=model_path_primary)
-    predict_conf = pd.DataFrame(
-        [
-            {
-                "fh": FH,
-                "predict_method": "predict_quantiles",
-                "alpha": ALPHA,
-            }
-        ]
-    )
+    predict_conf = pd.DataFrame([
+        {
+            "fh": FH,
+            "predict_method": "predict_quantiles",
+            "alpha": ALPHA,
+        }
+    ])
     forecast = loaded_pyfunc.predict(predict_conf)
     signature = infer_signature(data_airline, forecast) if use_signature else None
     flavor.save_model(auto_arima_model, path=model_path_secondary, signature=signature)

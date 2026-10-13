@@ -1,17 +1,24 @@
+import ast
 import json
-from unittest.mock import patch
+from pathlib import Path
+from typing import Any, ClassVar
+from unittest.mock import Mock, patch
 
 import pytest
 
+import mlflow
 from mlflow.entities import Feedback
+from mlflow.entities.scorer import ScorerVersion
 from mlflow.exceptions import MlflowException
 from mlflow.genai.scorers import Scorer, scorer
+from mlflow.genai.scorers.base import SerializedScorer
 from mlflow.genai.scorers.builtin_scorers import Guidelines
+from mlflow.genai.scorers.scorer_utils import THIRD_PARTY_SCORER_ALLOWED_MODULES
 
 
 @pytest.fixture(autouse=True)
 def mock_databricks_runtime():
-    with patch("mlflow.genai.scorers.base.is_in_databricks_runtime", return_value=True):
+    with patch("mlflow.genai.scorers.base.is_databricks_uri", return_value=True):
         yield
 
 
@@ -178,7 +185,7 @@ def test_complex_logic_round_trip():
 def test_imports_and_feedback_round_trip():
     @scorer
     def feedback_scorer(outputs):
-        import re  # clint: disable=lazy-builtin-import
+        import re  # clint: disable=lazy-import
 
         pattern = r"\b\w+\b"
         words = re.findall(pattern, outputs)
@@ -359,6 +366,7 @@ def test_builtin_scorer_round_trip():
         ),
         name="relevance_to_query",
         model=None,
+        extra_headers=None,
     )
 
     assert isinstance(result, Feedback)
@@ -431,6 +439,7 @@ def test_builtin_scorer_with_parameters_round_trip():
         },
         name="tone",
         model=None,
+        extra_headers=None,
     )
 
     assert isinstance(result, Feedback)
@@ -666,3 +675,447 @@ def test_builtin_scorer_instructions_preserved_through_serialization():
     assert deserialized.instructions == original_instructions
     assert deserialized.name == "test_guidelines"
     assert deserialized.guidelines == ["Be helpful"]
+
+
+# ============================================================================
+# THIRD-PARTY SCORER (de)serialization
+# ============================================================================
+
+
+@pytest.mark.parametrize(
+    ("third_party_data", "match"),
+    [
+        pytest.param(
+            {
+                "module": "os",
+                "class": "system",
+                "metric_name": "system",
+                "model": None,
+                "kwargs": {},
+            },
+            "not in the allow-list",
+            id="module_not_allow_listed",
+        ),
+        pytest.param(
+            {
+                # A run artifact uploaded below an allow-listed package resolves to a dotted
+                # descendant of it; matching by prefix would import (and execute) it.
+                "module": "mlflow.genai.scorers.trulens.9a2d665eb38940b68983f0586f623115"
+                ".artifacts.payload",
+                "class": "Payload",
+                "metric_name": "Payload",
+                "model": None,
+                "kwargs": {},
+            },
+            "not in the allow-list",
+            id="descendant_of_allow_listed_module",
+        ),
+        pytest.param(
+            {
+                "module": "mlflow.genai.scorers.trulens.scorers",
+                "class": "LogicalConsistency",
+                "metric_name": "LogicalConsistency",
+                "model": None,
+                "kwargs": {},
+            },
+            "not in the allow-list",
+            id="package_that_defines_no_scorer_class",
+        ),
+        pytest.param(
+            {
+                # RagasScorer/DeepEvalScorer splice unknown metric names into an import
+                # path, so a dotted name is another route to a caller-placed module.
+                "module": "mlflow.genai.scorers.ragas",
+                "class": "RagasScorer",
+                "metric_name": "9a2d665eb38940b68983f0586f623115.artifacts.payload.Payload",
+                "model": None,
+                "kwargs": {},
+            },
+            "must be a plain identifier",
+            id="dotted_metric_name",
+        ),
+        pytest.param(
+            {
+                "module": "mlflow.genai.scorers.deepeval",
+                "class": "DeepEvalScorer",
+                "metric_name": "Faithfulness; import os",
+                "model": None,
+                "kwargs": {},
+            },
+            "must be a plain identifier",
+            id="non_identifier_metric_name",
+        ),
+        pytest.param(
+            {
+                "module": "mlflow.genai.scorers.ragas",
+                "class": "",
+                "metric_name": "Faithfulness",
+                "model": None,
+                "kwargs": {},
+            },
+            "missing required fields",
+            id="missing_class_name",
+        ),
+        pytest.param(
+            {
+                "module": "mlflow.genai.scorers.ragas",
+                "class": "ExactMatch",
+                "metric_name": "",
+                "model": None,
+                "kwargs": {},
+            },
+            "missing required fields",
+            id="missing_metric_name",
+        ),
+    ],
+)
+def test_third_party_scorer_invalid_payload_rejected(third_party_data, match):
+    payload = SerializedScorer(name="bad", third_party_scorer_data=third_party_data)
+    with pytest.raises(MlflowException, match=match):
+        Scorer.model_validate(payload)
+
+
+def test_third_party_scorer_import_failure():
+    payload = SerializedScorer(
+        name="x",
+        third_party_scorer_data={
+            "module": "mlflow.genai.scorers.ragas",
+            "class": "ExactMatch",
+            "metric_name": "ExactMatch",
+            "model": None,
+            "kwargs": {},
+        },
+    )
+    with patch(
+        "mlflow.genai.scorers.base.importlib.import_module",
+        side_effect=ImportError("library not installed"),
+    ):
+        with pytest.raises(MlflowException, match="could not import"):
+            Scorer.model_validate(payload)
+
+
+def test_third_party_scorer_class_not_found():
+    payload = SerializedScorer(
+        name="x",
+        third_party_scorer_data={
+            "module": "mlflow.genai.scorers.ragas",
+            "class": "DoesNotExist",
+            "metric_name": "X",
+            "model": None,
+            "kwargs": {},
+        },
+    )
+    with patch(
+        "mlflow.genai.scorers.base.importlib.import_module",
+        return_value=Mock(spec=[]),
+    ):
+        with pytest.raises(MlflowException, match="not found in module"):
+            Scorer.model_validate(payload)
+
+
+def test_third_party_scorer_metric_name_mismatch_with_classvar():
+    class RenamedScorer(Scorer):
+        metric_name: ClassVar[str] = "NewName"
+
+    fake_module = Mock(RenamedScorer=RenamedScorer)
+    payload = SerializedScorer(
+        name="stale",
+        third_party_scorer_data={
+            "module": "mlflow.genai.scorers.ragas",
+            "class": "RenamedScorer",
+            "metric_name": "OldName",
+            "model": None,
+            "kwargs": {},
+        },
+    )
+    with patch(
+        "mlflow.genai.scorers.base.importlib.import_module",
+        return_value=fake_module,
+    ):
+        with pytest.raises(MlflowException, match="does not match class"):
+            Scorer.model_validate(payload)
+
+
+def test_third_party_scorer_instantiation_failure():
+    class BoomScorer(Scorer):
+        def __init__(self, **kwargs):
+            raise RuntimeError("boom")
+
+    fake_module = Mock(BoomScorer=BoomScorer)
+    payload = SerializedScorer(
+        name="x",
+        third_party_scorer_data={
+            "module": "mlflow.genai.scorers.ragas",
+            "class": "BoomScorer",
+            "metric_name": "X",
+            "model": None,
+            "kwargs": {},
+        },
+    )
+    with patch(
+        "mlflow.genai.scorers.base.importlib.import_module",
+        return_value=fake_module,
+    ):
+        with pytest.raises(MlflowException, match="failed to instantiate"):
+            Scorer.model_validate(payload)
+
+
+def test_third_party_scorer_descendant_module_rejected_before_import():
+    payload = SerializedScorer(
+        name="x",
+        third_party_scorer_data={
+            "module": "mlflow.genai.scorers.phoenix.9a2d665eb38940b68983f0586f623115"
+            ".artifacts.payload",
+            "class": "Payload",
+            "metric_name": "Payload",
+            "model": None,
+            "kwargs": {},
+        },
+    )
+    with patch("mlflow.genai.scorers.base.importlib.import_module") as mock_import:
+        with pytest.raises(MlflowException, match="not in the allow-list"):
+            Scorer.model_validate(payload)
+    mock_import.assert_not_called()
+
+
+def test_third_party_scorer_dotted_metric_name_rejected_before_import():
+    payload = SerializedScorer(
+        name="x",
+        third_party_scorer_data={
+            "module": "mlflow.genai.scorers.ragas",
+            "class": "RagasScorer",
+            "metric_name": "9a2d665eb38940b68983f0586f623115.artifacts.payload.Payload",
+            "model": None,
+            "kwargs": {},
+        },
+    )
+    with patch("mlflow.genai.scorers.base.importlib.import_module") as mock_import:
+        with pytest.raises(MlflowException, match="must be a plain identifier"):
+            Scorer.model_validate(payload)
+    mock_import.assert_not_called()
+
+
+@pytest.mark.parametrize("class_name", ["ConcreteScorer", "BaseWrapper"])
+def test_third_party_scorer_kwargs_cannot_override_metric_name(class_name):
+    """Concrete subclasses pin `metric_name` as a ClassVar and inherit the wrapper's
+    `__init__`, so a `metric_name` kwarg would reach the registry lookup in place of the
+    validated top-level value.
+    """
+    payload = SerializedScorer(
+        name="x",
+        third_party_scorer_data={
+            "module": "mlflow.genai.scorers.ragas",
+            "class": class_name,
+            "metric_name": "ExactMatch",
+            "model": None,
+            "kwargs": {"metric_name": "9a2d665eb38940b68983f0586f623115.artifacts.payload.Payload"},
+        },
+    )
+    with patch("mlflow.genai.scorers.base.importlib.import_module") as mock_import:
+        with pytest.raises(MlflowException, match="kwargs must not contain 'metric_name'"):
+            Scorer.model_validate(payload)
+    mock_import.assert_not_called()
+
+
+def test_third_party_scorer_concrete_subclass_round_trip_keeps_kwargs():
+    class ConcreteScorer(Scorer):
+        metric_name: ClassVar[str] = "ExactMatch"
+        threshold: float = 0.5
+
+        def __init__(self, threshold: float = 0.5, **kwargs):
+            super().__init__(name=self.metric_name, threshold=threshold, **kwargs)
+
+    fake_module = Mock(ConcreteScorer=ConcreteScorer)
+    payload = SerializedScorer(
+        name="exact",
+        third_party_scorer_data={
+            "module": "mlflow.genai.scorers.ragas",
+            "class": "ConcreteScorer",
+            "metric_name": "ExactMatch",
+            "model": None,
+            "kwargs": {"threshold": 0.9},
+        },
+    )
+    with patch(
+        "mlflow.genai.scorers.base.importlib.import_module",
+        return_value=fake_module,
+    ):
+        restored = Scorer.model_validate(payload)
+
+    assert isinstance(restored, ConcreteScorer)
+    assert restored.name == "exact"
+    assert restored.threshold == 0.9
+
+
+def test_third_party_scorer_non_scorer_class_rejected_before_instantiation():
+    class NotAScorer:
+        def __init__(self, **kwargs):
+            raise AssertionError("must not be instantiated")
+
+    fake_module = Mock(NotAScorer=NotAScorer, not_a_class=lambda **kwargs: None)
+    for class_name in ("NotAScorer", "not_a_class"):
+        payload = SerializedScorer(
+            name="x",
+            third_party_scorer_data={
+                "module": "mlflow.genai.scorers.ragas",
+                "class": class_name,
+                "metric_name": "X",
+                "model": None,
+                "kwargs": {},
+            },
+        )
+        with patch(
+            "mlflow.genai.scorers.base.importlib.import_module",
+            return_value=fake_module,
+        ):
+            with pytest.raises(MlflowException, match="is not a Scorer subclass"):
+                Scorer.model_validate(payload)
+
+
+def test_third_party_scorer_allow_list_is_exactly_the_scorer_defining_modules():
+    """Guards the exact-match allow-list against drift: every module under the four
+    third-party packages that defines a Scorer subclass must be listed, and nothing else.
+    Uses an AST scan so the optional ragas/deepeval/trulens/phoenix packages need not be
+    installed.
+    """
+    package_root = Path(mlflow.__file__).resolve().parent.parent
+    scorers_dir = package_root / "mlflow" / "genai" / "scorers"
+    defining_modules = set()
+    for framework in ("ragas", "deepeval", "trulens", "phoenix"):
+        for source in (scorers_dir / framework).rglob("*.py"):
+            base_names = {
+                base.id if isinstance(base, ast.Name) else getattr(base, "attr", "")
+                for node in ast.walk(ast.parse(source.read_text()))
+                if isinstance(node, ast.ClassDef)
+                for base in node.bases
+            }
+            if not any(name.endswith("Scorer") for name in base_names):
+                continue
+            parts = source.relative_to(package_root).with_suffix("").parts
+            if parts[-1] == "__init__":
+                parts = parts[:-1]
+            defining_modules.add(".".join(parts))
+
+    assert defining_modules == set(THIRD_PARTY_SCORER_ALLOWED_MODULES)
+
+
+def test_serialized_scorer_rejects_multiple_scorer_field_types():
+    with pytest.raises(ValueError, match="cannot have multiple types"):
+        SerializedScorer(
+            name="oops",
+            builtin_scorer_class="Safety",
+            third_party_scorer_data={
+                "module": "mlflow.genai.scorers.ragas",
+                "class": "ExactMatch",
+                "metric_name": "ExactMatch",
+                "model": None,
+                "kwargs": {},
+            },
+        )
+
+
+def test_from_dict_round_trips_known_fields():
+    @scorer(name="round_trip")
+    def my_scorer(outputs):
+        return outputs == "ok"
+
+    payload = my_scorer.model_dump()
+    restored = SerializedScorer.from_dict(payload)
+    assert restored.name == "round_trip"
+    assert restored.call_source is not None
+
+
+def _deserialize_via_scorer_version(payload: dict[str, Any]) -> SerializedScorer:
+    return ScorerVersion(
+        experiment_id="123",
+        scorer_name=payload["name"],
+        scorer_version=1,
+        serialized_scorer=json.dumps(payload),
+        creation_time=0,
+    ).serialized_scorer
+
+
+def _formatted_error_logs(mock_logger) -> str:
+    return " ".join(
+        call.args[0] % call.args[1:] if len(call.args) > 1 else call.args[0]
+        for call in mock_logger.error.call_args_list
+    )
+
+
+@pytest.mark.parametrize(
+    "deserialize",
+    [
+        SerializedScorer.from_dict,
+        Scorer.model_validate,
+        _deserialize_via_scorer_version,
+    ],
+    ids=[
+        "SerializedScorer.from_dict",
+        "Scorer.model_validate",
+        "ScorerVersion.serialized_scorer",
+    ],
+)
+def test_unknown_field_is_dropped_with_version_aware_log(deserialize):
+    payload = {
+        "name": "future_scorer",
+        "mlflow_version": "99.0.0",
+        "call_source": "return 1",
+        "call_signature": "(outputs)",
+        "original_func_name": "future_scorer",
+        "field_from_the_future": "value",
+    }
+    with patch("mlflow.genai.scorers.base._logger") as mock_logger:
+        result = deserialize(payload)
+    assert result.name == "future_scorer"
+    assert not hasattr(result, "field_from_the_future")
+    log_message = _formatted_error_logs(mock_logger)
+    assert "field_from_the_future" in log_message
+    assert "future_scorer" in log_message
+    assert "99.0.0" in log_message
+    assert mlflow.__version__ in log_message
+
+
+def test_from_dict_unknown_field_falls_back_to_unknown_serialized_version():
+    payload = {
+        "name": "no_version",
+        "call_source": "return 1",
+        "call_signature": "(outputs)",
+        "original_func_name": "no_version",
+        "mystery_field": True,
+    }
+    with patch("mlflow.genai.scorers.base._logger") as mock_logger:
+        result = SerializedScorer.from_dict(payload)
+    assert result.name == "no_version"
+    log_message = _formatted_error_logs(mock_logger)
+    assert "unknown" in log_message
+    assert "mystery_field" in log_message
+
+
+@pytest.mark.parametrize("timeout", [30, 5.5, None, 0])
+def test_timeout_round_trip(timeout):
+    @scorer(timeout=timeout)
+    def my_scorer(outputs):
+        return outputs == "correct"
+
+    serialized = my_scorer.model_dump()
+    assert (
+        serialized["timeout"] == timeout if timeout is not None else serialized["timeout"] is None
+    )
+
+    deserialized = Scorer.model_validate(serialized)
+    assert deserialized.timeout == timeout if timeout is not None else deserialized.timeout is None
+    assert deserialized(outputs="correct") is True
+
+
+def test_scorer_serialized_before_timeout_existed_deserializes_to_zero():
+    @scorer(timeout=30)
+    def my_scorer(outputs):
+        return outputs == "correct"
+
+    # Emulate a payload written before the `timeout` field existed.
+    serialized = my_scorer.model_dump()
+    del serialized["timeout"]
+
+    deserialized = Scorer.model_validate(serialized)
+    # Legacy scorers reload unbounded (timeout disabled), not with the new default.
+    assert deserialized.timeout == 0

@@ -7,7 +7,6 @@ import sys
 from mlflow.exceptions import MlflowException
 from mlflow.models import FlavorBackend
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils.string_utils import quote
 
 _logger = logging.getLogger(__name__)
 
@@ -25,7 +24,6 @@ class RFuncBackend(FlavorBackend):
         install_java=False,
         install_mlflow=False,
         mlflow_home=None,
-        enable_mlserver=False,
         base_image=None,
     ):
         pass
@@ -37,7 +35,6 @@ class RFuncBackend(FlavorBackend):
         install_java=False,
         install_mlflow=False,
         mlflow_home=None,
-        enable_mlserver=False,
         base_image=None,
     ):
         pass
@@ -61,11 +58,11 @@ class RFuncBackend(FlavorBackend):
             raise MlflowException("pip_requirements_override is not supported in the R backend.")
         model_path = _download_artifact_from_uri(model_uri)
         str_cmd = (
-            "mlflow:::mlflow_rfunc_predict(model_path = '{0}', input_path = {1}, "
+            "mlflow:::mlflow_rfunc_predict(model_path = {0}, input_path = {1}, "
             "output_path = {2}, content_type = {3})"
         )
         command = str_cmd.format(
-            quote(model_path),
+            _r_quote(model_path),
             _str_optional(input_path),
             _str_optional(output_path),
             _str_optional(content_type),
@@ -78,21 +75,13 @@ class RFuncBackend(FlavorBackend):
         port,
         host,
         timeout,
-        enable_mlserver,
         synchronous=True,
         stdout=None,
         stderr=None,
     ):
         """
         Generate R model locally.
-
-        NOTE: The `enable_mlserver` parameter is there to comply with the
-        FlavorBackend interface but is not supported by MLServer yet.
-        https://github.com/SeldonIO/MLServer/issues/183
         """
-        if enable_mlserver:
-            raise Exception("The MLServer inference server is not yet supported in the R backend.")
-
         if timeout:
             _logger.warning("Timeout is not yet supported in the R backend.")
 
@@ -103,8 +92,8 @@ class RFuncBackend(FlavorBackend):
             raise Exception("RBackend does not support redirect stdout/stderr.")
 
         model_path = _download_artifact_from_uri(model_uri)
-        command = "mlflow::mlflow_rfunc_serve('{}', port = {}, host = '{}')".format(
-            quote(model_path), port, host
+        command = "mlflow::mlflow_rfunc_serve({}, port = {}, host = {})".format(
+            _r_quote(model_path), port, _r_quote(host)
         )
         _execute(command)
 
@@ -145,4 +134,12 @@ def _execute(command, extra_envs=None):
 
 
 def _str_optional(s):
-    return "NULL" if s is None else f"'{quote(str(s))}'"
+    return "NULL" if s is None else _r_quote(str(s))
+
+
+def _r_quote(s: str) -> str:
+    # The `command` is passed directly as an argv element to `Rscript -e`, so
+    # the string is parsed by R, not the shell. Escape backslashes and single
+    # quotes so the result is a safe R single-quoted string literal.
+    escaped = s.replace("\\", "\\\\").replace("'", "\\'")
+    return f"'{escaped}'"

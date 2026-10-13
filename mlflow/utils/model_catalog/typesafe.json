@@ -1,0 +1,38 @@
+{
+  "schema_version": "1.0",
+  "models": {
+    "jev-1.13.0": {
+      "mode": "evaluation",
+      "context_window": {
+        "max_input": 64000
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.042,
+        "output_per_million_tokens": 0.0
+      },
+      "last_updated_at": "2026-09-21"
+    },
+    "jev-latest": {
+      "mode": "evaluation",
+      "context_window": {
+        "max_input": 64000
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.042,
+        "output_per_million_tokens": 0.0
+      },
+      "last_updated_at": "2026-09-21"
+    },
+    "jev-preview": {
+      "mode": "evaluation",
+      "context_window": {
+        "max_input": 64000
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.042,
+        "output_per_million_tokens": 0.0
+      },
+      "last_updated_at": "2026-09-21"
+    }
+  }
+}

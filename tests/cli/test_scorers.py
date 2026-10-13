@@ -16,7 +16,6 @@ from mlflow.utils.string_utils import _create_table
 def mock_databricks_environment():
     with (
         patch("mlflow.genai.scorers.base.is_databricks_uri", return_value=True),
-        patch("mlflow.genai.scorers.base.is_in_databricks_runtime", return_value=True),
     ):
         yield
 
@@ -147,7 +146,7 @@ def test_list_scorers_json_output(
 @pytest.mark.parametrize(
     ("output_format", "expected_output"),
     [
-        ("table", ""),
+        ("table", "Scorer Name    Description  \n-------------  -------------\n"),
         ("json", {"scorers": []}),
     ],
 )
@@ -165,8 +164,7 @@ def test_list_scorers_empty_experiment(
         output_json = json.loads(result.output)
         assert output_json == expected_output
     else:
-        # Empty table produces minimal output
-        assert result.output.strip() == expected_output
+        assert result.output == expected_output
 
 
 def test_list_scorers_with_experiment_id_env_var(
@@ -611,13 +609,47 @@ def test_list_builtin_scorers_shows_all_available_scorers(runner):
     result = runner.invoke(commands, ["list", "--builtin", "--output", "json"])
     assert result.exit_code == 0
 
-    expected_scorers = get_all_scorers()
-    expected_names = {scorer.name for scorer in expected_scorers}
+    # The catalog is a superset of get_all_scorers(): it also includes scorers with
+    # required constructor arguments, which get_all_scorers() cannot instantiate.
+    default_names = {scorer.name for scorer in get_all_scorers()}
 
     data = json.loads(result.output)
     actual_names = {s["name"] for s in data["scorers"]}
 
-    assert actual_names == expected_names
+    assert default_names <= actual_names
+    assert {"guidelines", "regex_match", "response_length"} <= actual_names
+    assert {"guidelines", "regex_match", "response_length"}.isdisjoint(default_names)
+
+
+def test_list_builtin_scorers_includes_data_contract(runner):
+    result = runner.invoke(commands, ["list", "--builtin", "--output", "json"])
+    assert result.exit_code == 0
+
+    scorers = {s["name"]: s for s in json.loads(result.output)["scorers"]}
+
+    # Constructor-arg scorer surfaces its required args and data contract.
+    assert scorers["guidelines"]["required_args"] == ["guidelines"]
+    assert scorers["regex_match"]["required_args"] == ["pattern"]
+    assert scorers["regex_match"]["required_columns"] == ["outputs"]
+
+    # Retrieval scorers require RETRIEVER trace data.
+    assert scorers["retrieval_groundedness"]["required_columns"] == ["inputs", "trace"]
+
+    # Session-level scorers are flagged and require trace data; single-turn are not.
+    assert scorers["user_frustration"]["session_level"] is True
+    assert scorers["user_frustration"]["required_columns"] == ["trace"]
+    assert scorers["correctness"]["session_level"] is False
+    assert scorers["correctness"]["required_args"] == []
+
+
+def test_list_builtin_scorers_table_has_new_columns(runner):
+    result = runner.invoke(commands, ["list", "--builtin"])
+    assert result.exit_code == 0
+
+    for header in ("Scorer Name", "Requires", "Session", "Args", "Description"):
+        assert header in result.output
+    # The arg-requiring scorer that get_all_scorers() omits is present.
+    assert "guidelines" in result.output
 
 
 def test_list_scorers_mutually_exclusive_flags(runner, experiment):
@@ -636,3 +668,138 @@ def test_list_scorers_env_var_still_works(runner, experiment, monkeypatch):
     monkeypatch.setenv("MLFLOW_EXPERIMENT_ID", experiment)
     result = runner.invoke(commands, ["list"])
     assert result.exit_code == 0
+
+
+def test_create_judge_with_base_url(runner: CliRunner, experiment: str):
+    result = runner.invoke(
+        commands,
+        [
+            "register-llm-judge",
+            "--name",
+            "proxy_judge",
+            "--instructions",
+            "Evaluate {{ outputs }}",
+            "--model",
+            "openai:/gpt-4",
+            "--base-url",
+            "http://my-proxy:8080/v1",
+            "--experiment-id",
+            experiment,
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Successfully created and registered" in result.output
+
+    # base_url is not persisted, so the registered judge won't have it
+    scorers = list_scorers(experiment_id=experiment)
+    assert any(s.name == "proxy_judge" for s in scorers)
+
+
+def test_create_judge_with_extra_headers(runner: CliRunner, experiment: str):
+    result = runner.invoke(
+        commands,
+        [
+            "register-llm-judge",
+            "--name",
+            "headers_judge",
+            "--instructions",
+            "Evaluate {{ outputs }}",
+            "--model",
+            "openai:/gpt-4",
+            "--extra-headers",
+            '{"X-Api-Key": "secret", "X-Org": "my-org"}',
+            "--experiment-id",
+            experiment,
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Successfully created and registered" in result.output
+
+    scorers = list_scorers(experiment_id=experiment)
+    assert any(s.name == "headers_judge" for s in scorers)
+
+
+def test_create_judge_with_base_url_and_extra_headers(runner: CliRunner, experiment: str):
+    result = runner.invoke(
+        commands,
+        [
+            "register-llm-judge",
+            "--name",
+            "full_judge",
+            "--instructions",
+            "Evaluate {{ outputs }}",
+            "--model",
+            "openai:/gpt-4",
+            "--base-url",
+            "http://proxy:9090",
+            "--extra-headers",
+            '{"Authorization": "Bearer token"}',
+            "--experiment-id",
+            experiment,
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Successfully created and registered" in result.output
+
+
+def test_create_judge_invalid_extra_headers_json(runner: CliRunner, experiment: str):
+    result = runner.invoke(
+        commands,
+        [
+            "register-llm-judge",
+            "--name",
+            "bad_json_judge",
+            "--instructions",
+            "Evaluate {{ outputs }}",
+            "--extra-headers",
+            "not valid json",
+            "--experiment-id",
+            experiment,
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "Invalid JSON" in result.output
+
+
+def test_create_judge_extra_headers_not_dict(runner: CliRunner, experiment: str):
+    result = runner.invoke(
+        commands,
+        [
+            "register-llm-judge",
+            "--name",
+            "array_headers_judge",
+            "--instructions",
+            "Evaluate {{ outputs }}",
+            "--extra-headers",
+            '["not", "a", "dict"]',
+            "--experiment-id",
+            experiment,
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "Expected a JSON object" in result.output
+
+
+def test_create_judge_extra_headers_non_string_values(runner: CliRunner, experiment: str):
+    result = runner.invoke(
+        commands,
+        [
+            "register-llm-judge",
+            "--name",
+            "non_string_headers_judge",
+            "--instructions",
+            "Evaluate {{ outputs }}",
+            "--extra-headers",
+            '{"Authorization": 123}',
+            "--experiment-id",
+            experiment,
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "must all be strings" in result.output

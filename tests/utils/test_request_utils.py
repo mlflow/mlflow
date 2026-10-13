@@ -1,10 +1,16 @@
+import socket
 import subprocess
 import sys
 from unittest import mock
 
 import pytest
+from requests.adapters import HTTPAdapter
 
 from mlflow.utils import request_utils
+from mlflow.utils.request_utils import (
+    TCPKeepAliveHTTPAdapter,
+    _build_socket_options,
+)
 
 
 def test_request_utils_does_not_import_mlflow(tmp_path):
@@ -58,6 +64,38 @@ def test_download_chunk_incomplete_read(tmp_path):
                 download_path=download_path,
                 http_uri="https://example.com",
             )
+
+
+@pytest.mark.parametrize("verify", [True, False, None])
+def test_download_chunk_verify(tmp_path, verify):
+    mock_response = mock.MagicMock()
+    mock_response.headers = {}
+    mock_response.content = b"chunk_data"
+    with (
+        mock.patch.object(
+            request_utils,
+            "cloud_storage_http_request",
+            return_value=mock.MagicMock(__enter__=mock.MagicMock(return_value=mock_response)),
+        ) as mock_http_request,
+        mock.patch.object(request_utils, "augmented_raise_for_status"),
+    ):
+        download_path = tmp_path / "chunk"
+        download_path.touch()
+        kwargs = {}
+        if verify is not None:
+            kwargs["verify"] = verify
+        request_utils.download_chunk(
+            range_start=0,
+            range_end=9,
+            headers={},
+            download_path=download_path,
+            http_uri="https://example.com",
+            **kwargs,
+        )
+        if verify is not None:
+            assert mock_http_request.call_args.kwargs.get("verify") is verify
+        else:
+            assert "verify" not in mock_http_request.call_args.kwargs
 
 
 @pytest.mark.parametrize("env_value", ["0", "false", "False", "FALSE"])
@@ -160,3 +198,88 @@ def test_redirects_enabled_by_default():
             allow_redirects=True,
             timeout=None,
         )
+
+
+# --- TCP Keepalive tests ---
+
+
+def test_build_socket_options_includes_keepalive():
+    options = _build_socket_options()
+    assert (socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1) in options
+
+
+def test_build_socket_options_platform_specific():
+    options = _build_socket_options()
+    if hasattr(socket, "TCP_KEEPIDLE"):
+        assert (socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, 30) in options
+    elif hasattr(socket, "TCP_KEEPALIVE"):
+        assert (socket.IPPROTO_TCP, socket.TCP_KEEPALIVE, 30) in options
+    if hasattr(socket, "TCP_KEEPINTVL"):
+        assert (socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, 10) in options
+    if hasattr(socket, "TCP_KEEPCNT"):
+        assert (socket.IPPROTO_TCP, socket.TCP_KEEPCNT, 3) in options
+
+
+def test_build_socket_options_disabled_via_env(monkeypatch):
+    monkeypatch.setenv("MLFLOW_HTTP_TCP_KEEPALIVE", "false")
+    options = _build_socket_options()
+    assert (socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1) not in options
+
+
+def test_build_socket_options_custom_values_via_env(monkeypatch):
+    monkeypatch.setenv("MLFLOW_HTTP_TCP_KEEPALIVE_IDLE", "60")
+    monkeypatch.setenv("MLFLOW_HTTP_TCP_KEEPALIVE_INTERVAL", "20")
+    monkeypatch.setenv("MLFLOW_HTTP_TCP_KEEPALIVE_COUNT", "5")
+    options = _build_socket_options()
+    if hasattr(socket, "TCP_KEEPIDLE"):
+        assert (socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, 60) in options
+    elif hasattr(socket, "TCP_KEEPALIVE"):
+        assert (socket.IPPROTO_TCP, socket.TCP_KEEPALIVE, 60) in options
+    if hasattr(socket, "TCP_KEEPINTVL"):
+        assert (socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, 20) in options
+    if hasattr(socket, "TCP_KEEPCNT"):
+        assert (socket.IPPROTO_TCP, socket.TCP_KEEPCNT, 5) in options
+
+
+def test_tcp_keepalive_adapter_init_poolmanager():
+    adapter = TCPKeepAliveHTTPAdapter()
+    with mock.patch.object(HTTPAdapter, "init_poolmanager") as mock_init:
+        adapter.init_poolmanager(1, 1)
+        mock_init.assert_called_once()
+        _, kwargs = mock_init.call_args
+        assert "socket_options" in kwargs
+        assert (socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1) in kwargs["socket_options"]
+
+
+def test_tcp_keepalive_adapter_proxy_manager_for():
+    adapter = TCPKeepAliveHTTPAdapter()
+    with mock.patch.object(HTTPAdapter, "proxy_manager_for") as mock_proxy:
+        adapter.proxy_manager_for("http://proxy:8080")
+        mock_proxy.assert_called_once()
+        _, kwargs = mock_proxy.call_args
+        assert "socket_options" in kwargs
+        assert (socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1) in kwargs["socket_options"]
+
+
+def test_tcp_keepalive_adapter_proxy_respects_explicit_options():
+    adapter = TCPKeepAliveHTTPAdapter()
+    custom_options = [(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 0)]
+    with mock.patch.object(HTTPAdapter, "proxy_manager_for") as mock_proxy:
+        adapter.proxy_manager_for("http://proxy:8080", socket_options=custom_options)
+        _, kwargs = mock_proxy.call_args
+        assert kwargs["socket_options"] == custom_options
+
+
+def test_session_uses_tcp_keepalive_adapter():
+    request_utils._cached_get_request_session.cache_clear()
+    session = request_utils._get_request_session(
+        max_retries=3,
+        backoff_factor=1,
+        backoff_jitter=0.5,
+        retry_codes=(500,),
+        raise_on_status=True,
+        respect_retry_after_header=True,
+    )
+    assert isinstance(session.get_adapter("https://example.com"), TCPKeepAliveHTTPAdapter)
+    assert isinstance(session.get_adapter("http://example.com"), TCPKeepAliveHTTPAdapter)
+    request_utils._cached_get_request_session.cache_clear()

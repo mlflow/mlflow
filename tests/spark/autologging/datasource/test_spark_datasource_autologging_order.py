@@ -29,7 +29,8 @@ def test_enabling_autologging_before_spark_session_works(disable, tmp_path):
         df.write.option("header", "true").format("csv").save(filepath)
 
         read_df = (
-            spark_session.read.format("csv")
+            spark_session.read
+            .format("csv")
             .option("header", "true")
             .option("inferSchema", "true")
             .load(filepath)

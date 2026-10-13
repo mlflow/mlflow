@@ -57,6 +57,8 @@ class EventType(str, Enum):
     DONE = "done"
     ERROR = "error"
     INTERRUPTED = "interrupted"
+    PERMISSION_REQUEST = "permission_request"
+    CLIENT_TOOL_CALL = "client_tool_call"
 
     def __str__(self):
         return self.value
@@ -73,8 +75,19 @@ class Event(BaseModel):
         return f"event: {self.type}\ndata: {json.dumps(self.data)}\n\n"
 
     @classmethod
-    def from_error(cls, error: str) -> "Event":
-        return cls(type=EventType.ERROR, data={"error": error})
+    def from_error(cls, error: str, session_id: str | None = None) -> "Event":
+        data = {"error": error}
+        if session_id:
+            data["session_id"] = session_id
+        return cls(type=EventType.ERROR, data=data)
+
+    @classmethod
+    def from_exception(cls, exc: Exception) -> "Event":
+        # Some exceptions (e.g. NotImplementedError()) stringify to an empty
+        # string, which would surface to the client as an undiagnosable
+        # `{"error": ""}`. Fall back to the exception's repr so the error is
+        # always identifiable.
+        return cls.from_error(str(exc) or repr(exc))
 
     @classmethod
     def from_message(cls, message: Message) -> "Event":
@@ -91,3 +104,34 @@ class Event(BaseModel):
     @classmethod
     def from_interrupted(cls) -> "Event":
         return cls(type=EventType.INTERRUPTED, data={"message": "Assistant was interrupted"})
+
+    @classmethod
+    def from_permission_request(
+        cls, request_id: str, tool_name: str, tool_input: dict[str, Any]
+    ) -> "Event":
+        return cls(
+            type=EventType.PERMISSION_REQUEST,
+            data={"request_id": request_id, "tool_name": tool_name, "tool_input": tool_input},
+        )
+
+    @classmethod
+    def from_client_tool_call(
+        cls,
+        request_id: str,
+        tool_name: str,
+        tool_input: dict[str, Any],
+        *,
+        continuation: Literal["resume", "terminal"] = "resume",
+    ) -> "Event":
+        """A tool call the CLIENT (not the server) must execute, e.g. rendering an
+        agent-authored UI spec in the browser. ``resume`` calls pause the provider
+        until the result is posted; ``terminal`` calls come from structured final
+        output and finish after the browser executes them without resuming the model.
+        """
+        data = {"request_id": request_id, "tool_name": tool_name, "tool_input": tool_input}
+        if continuation == "terminal":
+            data["continuation"] = continuation
+        return cls(
+            type=EventType.CLIENT_TOOL_CALL,
+            data=data,
+        )

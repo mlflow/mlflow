@@ -24,12 +24,41 @@ mlflow.genai
     :show-inheritance:
     :exclude-members: RagasScorer
 
+.. automodule:: mlflow.genai.scorers.phoenix
+    :members:
+    :undoc-members:
+    :show-inheritance:
+    :exclude-members: PhoenixScorer
+
+.. automodule:: mlflow.genai.scorers.trulens
+    :members:
+    :undoc-members:
+    :show-inheritance:
+    :exclude-members: TruLensScorer, TruLensAgentScorer
+
+.. automodule:: mlflow.genai.scorers.guardrails
+    :members:
+    :undoc-members:
+    :show-inheritance:
+    :exclude-members: GuardrailsScorer
+
 .. automodule:: mlflow.genai.datasets
     :members:
     :undoc-members:
     :show-inheritance:
+    :exclude-members: EvaluationDatasetVersion
 
 .. automodule:: mlflow.genai.label_schemas
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+.. automodule:: mlflow.genai.review_queues
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+.. automodule:: mlflow.genai.databricks.review_queues
     :members:
     :undoc-members:
     :show-inheritance:

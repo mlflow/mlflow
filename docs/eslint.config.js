@@ -47,6 +47,7 @@ module.exports = defineConfig([
       'mlflow-docs/valid-notebook-url': 'error',
       'mlflow-docs/use-base-url-for-images': 'error',
       'mlflow-docs/prefer-apilink-component': 'error',
+      'mlflow-docs/imports-first': 'error',
       'unused-imports/no-unused-imports': 'error',
       // These React rules prevent component imports from being flagged as unused.
       // Required when using eslint-plugin-unused-imports with JSX/React code.

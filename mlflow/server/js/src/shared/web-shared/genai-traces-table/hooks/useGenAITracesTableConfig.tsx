@@ -13,8 +13,8 @@ const getDefaultConfig = (): GenAITracesTableConfig => ({
   enableRunEvaluationWriteFeatures: shouldEnableRunEvaluationReviewUIWriteFeatures() ?? false,
 });
 
-// Create the context with a default value
-const GenAITracesTableConfigContext = createContext<GenAITracesTableConfig>(getDefaultConfig());
+// Use a static module-load default so flag reads stay inside a render context.
+const GenAITracesTableConfigContext = createContext<GenAITracesTableConfig | null>(null);
 
 interface GenAITracesTableConfigProviderProps {
   config?: Partial<GenAITracesTableConfig>;

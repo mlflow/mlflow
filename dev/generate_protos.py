@@ -1,4 +1,6 @@
 import platform
+import re
+import shutil
 import subprocess
 import tempfile
 import textwrap
@@ -25,16 +27,14 @@ def gen_protos(
 ) -> None:
     assert lang in ["python", "java"]
     out_dir.mkdir(parents=True, exist_ok=True)
-    subprocess.check_call(
-        [
-            protoc_bin,
-            "--fatal_warnings",
-            *(f"-I={p}" for p in protoc_include_paths),
-            f"-I={proto_dir}",
-            f"--{lang}_out={out_dir}",
-            *[proto_dir / pf for pf in proto_files],
-        ]
-    )
+    subprocess.check_call([
+        protoc_bin,
+        "--fatal_warnings",
+        *(f"-I={p}" for p in protoc_include_paths),
+        f"-I={proto_dir}",
+        f"--{lang}_out={out_dir}",
+        *[proto_dir / pf for pf in proto_files],
+    ])
 
 
 def gen_stub_files(
@@ -44,17 +44,61 @@ def gen_stub_files(
     protoc_include_paths: list[Path],
     out_dir: Path,
 ) -> None:
+    # mypy-protobuf produces richer stubs than built-in --pyi_out: typed enum
+    # ValueType aliases, proto3-optional/HasField precision, per-field docstrings.
+    mypy_plugin = shutil.which("protoc-gen-mypy")
+    if mypy_plugin is None:
+        raise RuntimeError(
+            "protoc-gen-mypy not found on PATH; install the pinned "
+            "'mypy-protobuf' version from dev/Dockerfile.protos"
+        )
     out_dir.mkdir(parents=True, exist_ok=True)
-    subprocess.check_call(
-        [
-            protoc_bin,
-            "--fatal_warnings",
-            *(f"-I={p}" for p in protoc_include_paths),
-            f"-I={proto_dir}",
-            f"--pyi_out={out_dir}",
-            *[proto_dir / pf for pf in proto_files],
+    subprocess.check_call([
+        protoc_bin,
+        "--fatal_warnings",
+        *(f"-I={p}" for p in protoc_include_paths),
+        f"-I={proto_dir}",
+        f"--plugin=protoc-gen-mypy={mypy_plugin}",
+        f"--mypy_out={out_dir}",
+        *[proto_dir / pf for pf in proto_files],
+    ])
+
+
+def apply_stub_service_compat(
+    proto_dir: Path,
+    proto_files: list[Path],
+    out_dir: Path,
+) -> None:
+    """Append plain proto Service declarations mypy-protobuf omits.
+
+    The built-in ``--pyi_out`` generator emitted ``<Service>`` /
+    ``<Service>_Stub`` classes for every ``service`` block, and store
+    implementations reference them. mypy-protobuf (5.x) only emits gRPC
+    service stubs, so restore the two-line interface pairs to keep those
+    references resolving.
+    """
+    service_re = re.compile(r"(?m)^service\s+(\w+)")
+    for proto_file in proto_files:
+        proto_path = proto_dir / proto_file
+        pyi_path = out_dir / _get_python_output_path(proto_file).with_suffix(".pyi")
+        service_names = sorted(set(service_re.findall(proto_path.read_text())))
+        if not service_names:
+            continue
+        pyi_text = pyi_path.read_text()
+        missing = [name for name in service_names if f"class {name}(" not in pyi_text]
+        if not missing:
+            continue
+        lines = [
+            "",
+            "# Appended by dev/generate_protos.py:",
+            "from google.protobuf import service as _service",
+            "",
         ]
-    )
+        for name in missing:
+            lines.append(f"class {name}(_service.service): ...")
+            lines.append(f"class {name}_Stub({name}): ...")
+        with open(pyi_path, "a", encoding="utf-8") as f:
+            f.write("\n".join(lines) + "\n")
 
 
 def gen_proto_docs(
@@ -65,16 +109,14 @@ def gen_proto_docs(
     out_dir: Path,
 ) -> None:
     plugin_path = Path("dev/proto-plugin.sh").resolve()
-    subprocess.check_call(
-        [
-            protoc_bin,
-            f"-I={protoc_include_path}",
-            f"-I={proto_dir}",
-            f"--plugin=protoc-gen-doc={plugin_path}",
-            f"--doc_out={out_dir}",
-            *[proto_dir / pf for pf in proto_files],
-        ]
-    )
+    subprocess.check_call([
+        protoc_bin,
+        f"-I={protoc_include_path}",
+        f"-I={proto_dir}",
+        f"--plugin=protoc-gen-doc={plugin_path}",
+        f"--doc_out={out_dir}",
+        *[proto_dir / pf for pf in proto_files],
+    ])
 
 
 def apply_python_gencode_replacement(file_path: Path) -> None:
@@ -104,6 +146,9 @@ basic_proto_files = to_paths(
     "scalapb/scalapb.proto",
     "assessments.proto",
     "datasets.proto",
+    "issues.proto",
+    "label_schemas.proto",
+    "review_queues.proto",
     "webhooks.proto",
     "jobs.proto",
     "prompt_optimization.proto",
@@ -114,12 +159,15 @@ uc_proto_files = to_paths(
     "databricks_uc_registry_messages.proto",
     "databricks_uc_registry_service.proto",
     "databricks_filesystem_service.proto",
-    "unity_catalog_oss_messages.proto",
-    "unity_catalog_oss_service.proto",
+    "unity_catalog_messages.proto",
+    "unity_catalog_service.proto",
     "unity_catalog_prompt_messages.proto",
     "unity_catalog_prompt_service.proto",
 )
-tracing_proto_files = to_paths("databricks_tracing.proto")
+tracing_proto_files = to_paths(
+    "databricks_exception_with_details.proto",
+    "databricks_tracing.proto",
+)
 facet_proto_files = to_paths("facet_feature_statistics.proto")
 python_proto_files = basic_proto_files + uc_proto_files + facet_proto_files + tracing_proto_files
 test_proto_files = to_paths("test_message.proto")
@@ -145,8 +193,8 @@ python_gencode_replacements = [
         "catalog_messages_pb2",
     ),
     (
-        "import unity_catalog_oss_messages_pb2 as unity__catalog__oss__messages__pb2",
-        "from . import unity_catalog_oss_messages_pb2 as unity_catalog_oss_messages_pb2",
+        "import unity_catalog_messages_pb2 as unity__catalog__messages__pb2",
+        "from . import unity_catalog_messages_pb2 as unity_catalog_messages_pb2",
     ),
     (
         "import unity_catalog_prompt_messages_pb2 as unity__catalog__prompt__messages__pb2",
@@ -165,6 +213,18 @@ python_gencode_replacements = [
         "from . import datasets_pb2 as datasets__pb2",
     ),
     (
+        "import issues_pb2 as issues__pb2",
+        "from . import issues_pb2 as issues__pb2",
+    ),
+    (
+        "import label_schemas_pb2 as label__schemas__pb2",
+        "from . import label_schemas_pb2 as label__schemas__pb2",
+    ),
+    (
+        "import review_queues_pb2 as review__queues__pb2",
+        "from . import review_queues_pb2 as review__queues__pb2",
+    ),
+    (
         "import webhooks_pb2 as webhooks__pb2",
         "from . import webhooks_pb2 as webhooks__pb2",
     ),
@@ -175,6 +235,11 @@ python_gencode_replacements = [
     (
         "import prompt_optimization_pb2 as prompt__optimization__pb2",
         "from . import prompt_optimization_pb2 as prompt__optimization__pb2",
+    ),
+    (
+        "import databricks_exception_with_details_pb2 as databricks__exception__with__details__pb2",
+        "from . import databricks_exception_with_details_pb2 as databricks_exception_"
+        "with_details_pb2",
     ),
 ]
 
@@ -300,6 +365,12 @@ def main() -> None:
         python_proto_files,
         protoc5260,
         protoc5260_includes,
+        Path("mlflow/protos/"),
+    )
+
+    apply_stub_service_compat(
+        MLFLOW_PROTOS_DIR,
+        python_proto_files,
         Path("mlflow/protos/"),
     )
 

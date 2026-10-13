@@ -1,10 +1,4 @@
-import {
-  ChevronRightIcon,
-  ChevronDownIcon,
-  Typography,
-  useDesignSystemTheme,
-  Tooltip,
-} from '@databricks/design-system';
+import { Typography, useDesignSystemTheme, Tooltip } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 
 import type { ModelTraceChatMessage } from '../ModelTrace.types';
@@ -104,7 +98,6 @@ export const ModelTraceExplorerChatMessageHeader = ({
       }}
       onClick={() => setExpanded(!expanded)}
     >
-      {isExpandable && (expanded ? <ChevronDownIcon /> : <ChevronRightIcon />)}
       {getRoleIcon(message.role)}
       {message.tool_call_id ? (
         <Typography.Text

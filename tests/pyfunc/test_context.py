@@ -23,7 +23,7 @@ def test_prediction_context_thread_safe():
     threads = []
     for i in range(10):
         context = Context(request_id=f"request_{i}", is_evaluate=random.choice([True, False]))
-        thread = Thread(target=set_context, args=(context,))
+        thread = Thread(name=f"test-pyfunc-context-{i}", target=set_context, args=(context,))
         thread.start()
         threads.append(thread)
 

@@ -5,6 +5,8 @@ import pytest
 from mlflow.entities.trace import Trace
 from mlflow.genai.judges import AlignmentOptimizer, Judge, make_judge
 from mlflow.genai.judges.base import JudgeField
+from mlflow.genai.judges.optimizers import MemAlignOptimizer
+from mlflow.genai.judges.utils import get_default_optimizer
 from mlflow.genai.scorers import UserFrustration
 
 
@@ -138,6 +140,28 @@ def test_judge_align_with_default_optimizer():
 
     # Verify delegation to default optimizer
     mock_optimizer.align.assert_called_once_with(judge, traces)
+    assert result is expected_result
+
+
+def test_get_default_optimizer_returns_memalign():
+    optimizer = get_default_optimizer()
+    reference = MemAlignOptimizer()
+    assert isinstance(optimizer, MemAlignOptimizer)
+    assert optimizer._retrieval_k == reference._retrieval_k
+    assert optimizer._embedding_dim == reference._embedding_dim
+    assert optimizer._reflection_lm == reference._reflection_lm
+    assert optimizer._embedding_model == reference._embedding_model
+
+
+def test_judge_align_uses_memalign_by_default():
+    judge = MockJudge()
+    traces = create_mock_traces()
+    expected_result = MockJudge(name="aligned_with_memalign")
+
+    with patch.object(MemAlignOptimizer, "align", return_value=expected_result) as mock_align:
+        result = judge.align(traces)
+
+    mock_align.assert_called_once_with(judge, traces)
     assert result is expected_result
 
 

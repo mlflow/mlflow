@@ -21,6 +21,8 @@ interface SecretSelectorProps {
   onChange: (secretId: string) => void;
   disabled?: boolean;
   error?: string;
+  /** If true, hides the API key details panel when a secret is selected */
+  hideDetails?: boolean;
 }
 
 const AuthConfigDisplay = ({ secret }: { secret: SecretInfo | undefined }) => {
@@ -56,7 +58,7 @@ const AuthConfigDisplay = ({ secret }: { secret: SecretInfo | undefined }) => {
   );
 };
 
-export const SecretSelector = ({ provider, value, onChange, disabled, error }: SecretSelectorProps) => {
+export const SecretSelector = ({ provider, value, onChange, disabled, error, hideDetails }: SecretSelectorProps) => {
   const { theme } = useDesignSystemTheme();
   const { data: secrets, isLoading } = useSecretsQuery({ provider });
 
@@ -108,7 +110,7 @@ export const SecretSelector = ({ provider, value, onChange, disabled, error }: S
         {error && <FormUI.Message type="error" message={error} />}
       </div>
 
-      {selectedSecret && (
+      {selectedSecret && !hideDetails && (
         <div
           css={{
             backgroundColor: theme.colors.backgroundSecondary,
@@ -136,7 +138,7 @@ export const SecretSelector = ({ provider, value, onChange, disabled, error }: S
                   <FormattedMessage defaultMessage="Auth Type:" description="Auth type label" />
                 </Typography.Text>
                 <Typography.Text>
-                  {formatAuthMethodName(String(parseAuthConfig(selectedSecret)!['auth_mode']))}
+                  {formatAuthMethodName(String(parseAuthConfig(selectedSecret)?.['auth_mode']))}
                 </Typography.Text>
               </>
             )}

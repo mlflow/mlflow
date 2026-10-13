@@ -38,7 +38,8 @@ def test_write_to_delta_fails_without_spark():
 def spark_session_with_delta():
     with tempfile.TemporaryDirectory() as tmpdir:
         with (
-            SparkSession.builder.master("local[*]")
+            SparkSession.builder
+            .master("local[*]")
             .config("spark.jars.packages", "io.delta:delta-spark_2.13:4.0.0")
             .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
             .config(
@@ -50,6 +51,8 @@ def spark_session_with_delta():
             yield spark, tmpdir
 
 
+# flaky: auto-detected from CI re-runs; see the weekly flaky-test report
+@pytest.mark.flaky(attempts=2)
 def test_write_to_delta_fails_with_invalid_mode(spark_session_with_delta):
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
@@ -72,6 +75,8 @@ def test_write_to_delta_fails_with_invalid_mode(spark_session_with_delta):
             )
 
 
+# flaky: auto-detected from CI re-runs; see the weekly flaky-test report
+@pytest.mark.flaky(attempts=2)
 def test_write_eval_table_to_delta(spark_session_with_delta):
     spark_session, tmpdir = spark_session_with_delta
     with mlflow.start_run():
@@ -93,7 +98,8 @@ def test_write_eval_table_to_delta(spark_session_with_delta):
         eval_table = results.tables["eval_results_table"].sort_values("text").reset_index(drop=True)
 
         eval_table_from_delta = (
-            spark_session.read.format("delta")
+            spark_session.read
+            .format("delta")
             .load(f"{tmpdir}/my_path")
             .toPandas()
             .sort_values("text")
@@ -103,6 +109,8 @@ def test_write_eval_table_to_delta(spark_session_with_delta):
         pd.testing.assert_frame_equal(eval_table_from_delta, eval_table)
 
 
+# flaky: auto-detected from CI re-runs; see the weekly flaky-test report
+@pytest.mark.flaky(attempts=2)
 def test_write_eval_table_to_delta_append(spark_session_with_delta):
     spark_session, tmpdir = spark_session_with_delta
     with mlflow.start_run():

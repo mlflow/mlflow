@@ -15,7 +15,7 @@ import { TracesTableColumnType } from '../types';
 
 // Mock feature flag - disable URL persistence for existing tests (test old behavior)
 jest.mock('../../model-trace-explorer/FeatureUtils', () => ({
-  shoudlEnableURLPersistenceForSortAndColumns: () => false,
+  shouldEnableTracesTableStatePersistence: () => false,
 }));
 
 const sort = (a: string[]) => [...a].sort();
@@ -40,9 +40,9 @@ const mockColumns = [
 type UseLSParams = { key: string; initialValue: any };
 const memoryStore: Record<string, any> = {};
 
-jest.mock('@databricks/web-shared/hooks', () => {
-  const actual = jest.requireActual<typeof import('@databricks/web-shared/hooks')>('@databricks/web-shared/hooks');
-  // eslint-disable-next-line @typescript-eslint/no-require-imports, global-require
+jest.mock('../../hooks/useLocalStorage', () => {
+  const actual = jest.requireActual<typeof import('../../hooks/useLocalStorage')>('../../hooks/useLocalStorage');
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const React = require('react');
 
   return {
@@ -59,7 +59,7 @@ jest.mock('@databricks/web-shared/hooks', () => {
 
 jest.mock('./useColumnsURL', () => ({
   useColumnsURL: () => {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports, global-require
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const React = require('react');
     const [urlColumnIds, setUrlColumnIds] = React.useState(undefined);
     return [urlColumnIds, setUrlColumnIds] as const;

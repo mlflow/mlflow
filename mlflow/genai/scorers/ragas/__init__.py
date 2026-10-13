@@ -11,9 +11,7 @@ Example usage:
     from mlflow.genai.scorers.ragas import get_scorer
 
     judge = get_scorer("Faithfulness", model="openai:/gpt-4")
-    feedback = judge(
-        inputs="What is MLflow?", outputs="MLflow is a platform...", trace=trace
-    )
+    feedback = judge(inputs="What is MLflow?", outputs="MLflow is a platform...", trace=trace)
 """
 
 from __future__ import annotations
@@ -58,7 +56,6 @@ from mlflow.utils.docstring_utils import format_docstring
 _logger = logging.getLogger(__name__)
 
 
-@experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
 class RagasScorer(Scorer):
     """
@@ -74,6 +71,8 @@ class RagasScorer(Scorer):
     _is_deterministic: bool = PrivateAttr(default=False)
     _model: str = PrivateAttr()
     _llm: BaseRagasLLM | None = PrivateAttr(default=None)
+    _metric_kwargs: dict[str, Any] = PrivateAttr(default_factory=dict)
+    _metric_name: str = PrivateAttr(default="")
 
     def __init__(
         self,
@@ -86,10 +85,14 @@ class RagasScorer(Scorer):
 
         self._validate_args(metric_name, model)
         super().__init__(name=metric_name)
-        model = model or get_default_model()
-        self._model = model
+        self._metric_name = metric_name
+        self._metric_kwargs = dict(metric_kwargs)
+        accepts_model = requires_llm_in_constructor(metric_name) or requires_llm_at_score_time(
+            metric_name
+        )
+        self._model = (model or get_default_model()) if accepts_model else None
         metric_class = get_metric_class(metric_name)
-        ragas_llm = create_ragas_model(model)
+        ragas_llm = create_ragas_model(self._model) if accepts_model else None
         constructor_kwargs = dict(metric_kwargs)
 
         if requires_llm_in_constructor(metric_name):
@@ -107,25 +110,6 @@ class RagasScorer(Scorer):
     @property
     def kind(self) -> ScorerKind:
         return ScorerKind.THIRD_PARTY
-
-    def _raise_registration_not_supported(self, method_name: str):
-        raise MlflowException.invalid_parameter_value(
-            f"'{method_name}()' is not supported for third-party scorers like RAGAS. "
-            f"Third-party scorers cannot be registered, started, updated, or stopped. "
-            f"Use them directly in mlflow.genai.evaluate() instead."
-        )
-
-    def register(self, **kwargs):
-        self._raise_registration_not_supported("register")
-
-    def start(self, **kwargs):
-        self._raise_registration_not_supported("start")
-
-    def update(self, **kwargs):
-        self._raise_registration_not_supported("update")
-
-    def stop(self, **kwargs):
-        self._raise_registration_not_supported("stop")
 
     def align(self, **kwargs):
         raise MlflowException.invalid_parameter_value(
@@ -292,7 +276,6 @@ class RagasScorer(Scorer):
             )
 
 
-@experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
 def get_scorer(
     metric_name: str,
@@ -345,6 +328,7 @@ from mlflow.genai.scorers.ragas.scorers import (
     ContextPrecision,
     ContextRecall,
     ContextRelevance,
+    ContextUtilization,
     DiscreteMetric,
     ExactMatch,
     FactualCorrectness,
@@ -371,6 +355,7 @@ __all__ = [
     "get_scorer",
     # RAG metrics
     "ContextPrecision",
+    "ContextUtilization",
     "NonLLMContextPrecisionWithReference",
     "ContextRecall",
     "NonLLMContextRecall",
@@ -404,4 +389,5 @@ __all__ = [
     "AgentGoalAccuracyWithoutReference",
     # Other tasks
     "SummarizationScore",
+    "experimental",
 ]

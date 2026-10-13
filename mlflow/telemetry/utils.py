@@ -1,5 +1,7 @@
 import logging
 import os
+import re
+from pathlib import Path
 from typing import Any
 
 import requests
@@ -17,9 +19,12 @@ from mlflow.telemetry.constant import (
     UI_CONFIG_STAGING_URL,
     UI_CONFIG_URL,
 )
+from mlflow.telemetry.schemas import ENV_VAR_TO_ENVIRONMENT_MAP, CodingAgent, Environment
 from mlflow.version import VERSION
 
 _logger = logging.getLogger(__name__)
+
+_AGENT_NAME_PATTERN = re.compile(r"^[a-zA-Z0-9_-]{1,64}$")
 
 
 def _is_ci_env_or_testing() -> bool:
@@ -62,10 +67,72 @@ def _is_in_databricks() -> bool:
         return True
 
     # check if in databricks model serving environment
-    if os.environ.get("IS_IN_DB_MODEL_SERVING_ENV", "false").lower() == "true":
+    if os.environ.get("IS_IN_DB_MODEL_SERVING_ENV", "false").lower() in ("true", "1"):
         return True
 
     return False
+
+
+def _detect_environment() -> str | None:
+    # Check for MLflow demo deployment (e.g. demo.mlflow.org) before generic docker detection
+    if os.environ.get("MLFLOW_DEPLOYMENT_ENV") == "demo":
+        return Environment.DEMO.value
+
+    for env_var, environment in ENV_VAR_TO_ENVIRONMENT_MAP.items():
+        if env_var in os.environ:
+            return environment.value
+
+    # https://docs.aws.amazon.com/sagemaker/latest/dg/nbi-metadata.html
+    if Path("/opt/ml/metadata/resource-metadata.json").exists():
+        return Environment.SAGEMAKER_NOTEBOOK.value
+    # unofficial heuristic to detect docker environment
+    if Path("/.dockerenv").exists():
+        return Environment.DOCKER.value
+    return None
+
+
+def _detect_agent() -> str | None:
+    """Return the coding agent driving this process, if one can be identified."""
+    # https://www.npmjs.com/package/std-env#agent-detection
+    if agent := os.environ.get("AI_AGENT", "").strip():
+        if _AGENT_NAME_PATTERN.fullmatch(agent):
+            agent = agent.lower()
+            for known in sorted(CodingAgent, key=lambda a: len(a.value), reverse=True):
+                if agent == known.value or (
+                    agent.startswith(f"{known.value}_") and agent.endswith("_agent")
+                ):
+                    return known.value
+            return agent
+
+    def is_set(*names: str) -> bool:
+        return any(os.environ.get(name) for name in names)
+
+    # Amp also sets Claude Code markers, but it is not included in telemetry detection.
+    if os.environ.get("AGENT") == "amp" or is_set("AMP_CURRENT_THREAD_ID"):
+        return None
+    if is_set("CODEX_SANDBOX", "CODEX_CI", "CODEX_THREAD_ID"):
+        return CodingAgent.CODEX.value
+    if is_set("GEMINI_CLI"):
+        return CodingAgent.GEMINI_CLI.value
+    if is_set("COPILOT_CLI"):
+        return CodingAgent.COPILOT_CLI.value
+    if is_set("OPENCODE"):
+        return CodingAgent.OPENCODE.value
+    if is_set("CLINE_ACTIVE", "CLINE_AGENT"):
+        return CodingAgent.CLINE.value
+    if is_set("CLAUDECODE", "CLAUDE_CODE"):
+        if is_set("CLAUDE_CODE_IS_COWORK"):
+            return None
+        return CodingAgent.CLAUDE_CODE.value
+    if is_set("CURSOR_TRACE_ID"):
+        return CodingAgent.CURSOR.value
+    if is_set("CURSOR_AGENT") or os.environ.get("CURSOR_EXTENSION_HOST_ROLE") == "agent-exec":
+        return CodingAgent.CURSOR_CLI.value
+    if is_set("KIRO_AGENT_PATH"):
+        return CodingAgent.KIRO.value
+    if is_set("PI_CODING_AGENT"):
+        return CodingAgent.PI.value
+    return None
 
 
 _IS_MLFLOW_DEV_VERSION = Version(VERSION).is_devrelease
@@ -78,11 +145,15 @@ def is_telemetry_disabled() -> bool:
     try:
         if _IS_MLFLOW_TESTING_TELEMETRY:
             return False
+        # NB: _IS_IN_DATABRICKS is intentionally NOT a disable signal here. When the
+        # tracking URI is databricks:// or databricks-uc://, telemetry is forwarded
+        # to the workspace's own ingestion endpoint (see TelemetryClient._forward_to_databricks).
+        # The non-Databricks (OSS) ingestion path is separately guarded in
+        # TelemetryClient._process_records so it is never hit from inside DBR.
         return (
             MLFLOW_DISABLE_TELEMETRY.get()
             or os.environ.get("DO_NOT_TRACK", "false").lower() == "true"
             or _IS_IN_CI_ENV_OR_TESTING
-            or _IS_IN_DATABRICKS
             or _IS_MLFLOW_DEV_VERSION
         )
     except Exception as e:

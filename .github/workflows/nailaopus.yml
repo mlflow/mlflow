@@ -1,0 +1,269 @@
+name: NaiLaOpus
+
+on:
+  # `/review` is the only trigger. We previously also auto-ran on
+  # `pull_request` (opened/ready_for_review/reopened) but pulled it back:
+  # fork PRs (the common case for maintainer PRs) don't get base-repo
+  # secrets on `pull_request` events, and the `pull_request_target`
+  # alternative trips clint's pwn-requests anti-pattern check on
+  # actions/checkout of PR head. Living with the convenience cost of
+  # one typed `/review` comment is cleaner than maintaining a lint
+  # exception or splitting the workflow into LLM-runner + poster jobs.
+  issue_comment:
+    types: [created]
+
+concurrency:
+  # Single group per PR. cancel-in-progress is false so each /review
+  # invocation finishes; subsequent invocations on the same PR queue
+  # behind it. The orchestrator's head_sha cache dedupes same-SHA runs.
+  group: nailaopus-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+permissions: {}
+cache-mode: none
+
+jobs:
+  # Auth gate: only users with admin or maintain role on the repo can trigger
+  # NaiLaOpus (both the PR author and the commenter are checked). The
+  # author_association prefilter at the job level prevents random users from
+  # spawning a run at all; the step below does the authoritative role_name check.
+  gate:
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    if: |
+      github.event_name == 'issue_comment' &&
+      github.event.issue.pull_request != null &&
+      startsWith(github.event.comment.body, '/review') &&
+      contains(fromJSON('["MEMBER", "COLLABORATOR", "OWNER"]'), github.event.comment.author_association) &&
+      contains(fromJSON('["MEMBER", "COLLABORATOR", "OWNER"]'), github.event.issue.author_association)
+    steps:
+      - name: Check user permission
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR_AUTHOR: ${{ github.event.issue.user.login }}
+          PR_AUTHOR_TYPE: ${{ github.event.issue.user.type }}
+          COMMENTER: ${{ github.event.comment.user.login }}
+        run: |
+          check_user() {
+            local user=$1
+            local type=$2
+            if [ "$user" = "Copilot" ] && [ "$type" = "Bot" ]; then
+              echo "Allowing Copilot bot: $user"
+              return 0
+            fi
+            local role
+            role=$(gh api "repos/$REPO/collaborators/$user/permission" --jq .role_name) \
+              || { echo "Failed to fetch permission for $user"; exit 1; }
+            case "$role" in
+              admin|maintain)
+                echo "User $user is allowed (admin or maintain role)"
+                ;;
+              *)
+                echo "User $user is not allowed (admin or maintain role required)"
+                exit 1
+                ;;
+            esac
+          }
+          check_user "$PR_AUTHOR" "$PR_AUTHOR_TYPE"
+          check_user "$COMMENTER" "User"
+
+  review:
+    needs: gate
+    # The workflow never uses the default GITHUB_TOKEN — every `gh api`
+    # call goes through the App installation token (steps.app_token.outputs.token).
+    # `permissions:` is set to a minimal `contents: read` purely to satisfy
+    # `.github/policy.rego`'s require-explicit-permissions rule.
+    permissions:
+      contents: read
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Resolve PR number
+        id: ctx
+        env:
+          ISSUE_PR: ${{ github.event.issue.number }}
+        run: echo "pr=$ISSUE_PR" >> "$GITHUB_OUTPUT"
+
+      - name: Generate App installation token (multi-repo)
+        id: app_token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ vars.NAILAOPUS_APP_CLIENT_ID }}
+          private-key: ${{ secrets.NAILAOPUS_APP_KEY }}
+          owner: mlflow
+          repositories: mlflow,internal
+          # Least-privilege: explicitly request only what the workflow uses
+          # on each repo. The App's installation permissions are the upper
+          # bound; these inputs narrow the issued token further.
+          permission-contents: read
+          permission-pull-requests: write
+          permission-issues: write
+
+      - name: Annotate trigger comment with run URL
+        env:
+          GH_TOKEN: ${{ steps.app_token.outputs.token }}
+          REPO: ${{ github.repository }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+          SERVER_URL: ${{ github.server_url }}
+          RUN_ID: ${{ github.run_id }}
+          PR: ${{ steps.ctx.outputs.pr }}
+        # Mirrors review.yml's pattern: append a run-URL link to the trigger
+        # comment instead of leaving a separate reaction artifact on the PR.
+        # The maintainer who typed `/review` sees a clickable "🚀 running"
+        # link to follow the job in real time. `?pr=` makes the run page
+        # render a back-link to the PR.
+        run: |
+          run_url="$SERVER_URL/$REPO/actions/runs/$RUN_ID?pr=$PR"
+          orig=$(gh api "repos/$REPO/issues/comments/$COMMENT_ID" --jq .body)
+          body=$(printf '%s\n\n---\n\n🚀 [NaiLaOpus running...](%s)' "$orig" "$run_url")
+          gh api "repos/$REPO/issues/comments/$COMMENT_ID" -X PATCH -f body="$body" || true
+
+      - name: Enforce per-PR daily rate limit
+        env:
+          GH_TOKEN: ${{ steps.app_token.outputs.token }}
+          PR: ${{ steps.ctx.outputs.pr }}
+          REPO: ${{ github.repository }}
+        run: |
+          since=$(date -u -d '24 hours ago' '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || date -u -v-24H '+%Y-%m-%dT%H:%M:%SZ')
+          count=$(gh api "repos/$REPO/issues/$PR/comments" --paginate \
+            --jq "[.[] | select(.user.login == \"NaiLaOpus[bot]\") | select(.created_at > \"$since\")] | length")
+          if [ "$count" -ge 5 ]; then
+            echo "Rate limit hit: $count bot comments in the last 24h on PR $PR (max 5)."
+            exit 1
+          fi
+
+      - name: Tag PR as reviewed by NaiLaOpus
+        env:
+          GH_TOKEN: ${{ steps.app_token.outputs.token }}
+          PR: ${{ steps.ctx.outputs.pr }}
+          REPO: ${{ github.repository }}
+        run: |
+          # The `nailaopus-reviewed` label is created out-of-band as part of
+          # the repo-admin rollout; we assume it exists here.
+          gh issue edit "$PR" \
+            --repo "$REPO" \
+            --add-label nailaopus-reviewed || true
+
+      - name: Checkout PR head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ github.repository }}
+          ref: refs/pull/${{ steps.ctx.outputs.pr }}/head
+          # Full checkout (shallow by default) so the orchestrator's agents
+          # can use Read/Grep/Glob bounded to this worktree via
+          # `--mlflow-tree "$GITHUB_WORKSPACE/mlflow"` below. The agents grep
+          # sibling files at PR head to validate or refute concerns, which
+          # gave a meaningful recall lift in the 81-PR eval vs. API-only
+          # reads.
+          path: mlflow
+          token: ${{ steps.app_token.outputs.token }}
+          # Read-only checkout; we never push from the workflow. Avoid
+          # persisting the App token into .git/config.
+          persist-credentials: false
+
+      - name: Checkout mlflow/internal (orchestrator code)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: mlflow/internal
+          # Pinned to a specific commit so production reviews are reproducible
+          # and a bad orchestrator change can't silently break the bot. To bump,
+          # open a new PR that updates this SHA to the latest mlflow/internal
+          # main after reviewing the diff. We'll migrate to release tags once
+          # the bump cadence is stable; see mlflow/internal for the policy.
+          ref: decaa203f736befc762e09ec76b779eaf72b3849
+          sparse-checkout: |
+            nailaopus
+          path: internal
+          token: ${{ steps.app_token.outputs.token }}
+          persist-credentials: false
+
+      # PR head code. Safe only because the job gate limits this workflow to
+      # maintainer-authored PRs.
+      - uses: ./mlflow/.github/actions/setup-python
+
+      - name: Install ripgrep
+        run: |
+          curl -LsSf https://github.com/BurntSushi/ripgrep/releases/download/15.2.0/ripgrep-15.2.0-x86_64-unknown-linux-musl.tar.gz -o /tmp/rg.tar.gz
+          tar xzf /tmp/rg.tar.gz -C /tmp
+          sudo mv /tmp/ripgrep-15.2.0-x86_64-unknown-linux-musl/rg /usr/local/bin/rg
+          rg --version
+
+      - name: Parse review flags
+        id: flags
+        env:
+          BODY: ${{ github.event.comment.body }}
+        run: |
+          flags=""
+          if echo "$BODY" | grep -q -- '--no-cache'; then flags="$flags --no-cache"; fi
+          if echo "$BODY" | grep -q -- '--hybrid'; then flags="$flags --hybrid"; fi
+          echo "flags=$flags" >> "$GITHUB_OUTPUT"
+
+      - name: Run NaiLaOpus
+        env:
+          # EXPERIMENTAL_ANTHROPIC_API_KEY isolates the bot's spend from
+          # any other workflow on this repo that uses Anthropic. The orchestrator
+          # reads from $ANTHROPIC_API_KEY, so the env var name passed to
+          # the process stays standard.
+          ANTHROPIC_API_KEY: ${{ secrets.EXPERIMENTAL_ANTHROPIC_API_KEY }}
+          GH_TOKEN: ${{ steps.app_token.outputs.token }}
+          PR: ${{ steps.ctx.outputs.pr }}
+          REPO: ${{ github.repository }}
+          FLAGS: ${{ steps.flags.outputs.flags }}
+          # MLflow tracing. Unset repo vars/secrets resolve to empty strings,
+          # so tracing stays off until these are populated with non-empty
+          # values; flipping NAILAOPUS_MLFLOW_ENABLE_TRACING toggles it
+          # without editing this file.
+          MLFLOW_ENABLE_TRACING: ${{ vars.NAILAOPUS_MLFLOW_ENABLE_TRACING }}
+          MLFLOW_TRACKING_URI: ${{ vars.NAILAOPUS_MLFLOW_TRACKING_URI }}
+          MLFLOW_EXPERIMENT_ID: ${{ secrets.NAILAOPUS_MLFLOW_EXPERIMENT_ID }}
+          DATABRICKS_HOST: ${{ secrets.NAILAOPUS_DATABRICKS_HOST }}
+          DATABRICKS_CLIENT_ID: ${{ secrets.NAILAOPUS_DATABRICKS_CLIENT_ID }}
+          DATABRICKS_CLIENT_SECRET: ${{ secrets.NAILAOPUS_DATABRICKS_CLIENT_SECRET }}
+        # Inputs flow through env vars rather than ${{ }} interpolation
+        # directly into the shell, so an unexpected character in any value
+        # (today none reach here, but the pattern is hardening for drift)
+        # is treated as data, not as code. $FLAGS is intentionally unquoted
+        # so it word-splits into separate argv entries.
+        # `uv run --directory` resolves + runs the `nailaopus` console script
+        # from the orchestrator package without a separate `uv pip install`
+        # step; uv caches the env between invocations.
+        run: |
+          uv run --directory internal/nailaopus nailaopus "$PR" --repo "$REPO" --mlflow-tree "$GITHUB_WORKSPACE/mlflow" --no-dry-run $FLAGS
+
+      - name: React +1 on success
+        if: success()
+        env:
+          GH_TOKEN: ${{ steps.app_token.outputs.token }}
+          REPO: ${{ github.repository }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+        run: |
+          gh api \
+            "repos/$REPO/issues/comments/$COMMENT_ID/reactions" \
+            -X POST -f content=+1 || true
+
+      - name: Post failure comment
+        if: failure()
+        env:
+          GH_TOKEN: ${{ steps.app_token.outputs.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ steps.ctx.outputs.pr }}
+          SERVER_URL: ${{ github.server_url }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          run_url="$SERVER_URL/$REPO/actions/runs/$RUN_ID?pr=$PR"
+          # printf with a single-quoted format string keeps backticks literal
+          # (no command substitution) and avoids the multi-line YAML quoting
+          # bug where embedded backticks broke shell parsing. The leading ❌
+          # is the signal a per-comment reaction used to give; consolidating
+          # into one comment cuts an API call and reduces rate-limit pressure.
+          body=$(printf '❌ `NaiLaOpus` failed. See [run logs](%s).\n\n---\nPosted by `NaiLaOpus` (auto-generated).' "$run_url")
+          gh api \
+            "repos/$REPO/issues/$PR/comments" \
+            -X POST -f body="$body" || true

@@ -1,4 +1,6 @@
 import atexit
+import importlib
+import os
 import random
 import sys
 import threading
@@ -7,11 +9,18 @@ import urllib.parse
 import uuid
 import warnings
 from dataclasses import asdict
+from functools import lru_cache
 from queue import Empty, Full, Queue
+from typing import Any, Callable, Literal
 
 import requests
 
-from mlflow.environment_variables import _MLFLOW_TELEMETRY_SESSION_ID
+from mlflow.environment_variables import (
+    _MLFLOW_TELEMETRY_PRE_WARM_DATABRICKS_SDK,
+    _MLFLOW_TELEMETRY_SESSION_ID,
+    MLFLOW_ENABLE_DB_SDK,
+    MLFLOW_WORKSPACE,
+)
 from mlflow.telemetry.constant import (
     BATCH_SIZE,
     BATCH_TIME_INTERVAL_SECONDS,
@@ -22,8 +31,52 @@ from mlflow.telemetry.constant import (
 )
 from mlflow.telemetry.installation_id import get_or_create_installation_id
 from mlflow.telemetry.schemas import Record, TelemetryConfig, TelemetryInfo, get_source_sdk
-from mlflow.telemetry.utils import _get_config_url, _log_error, is_telemetry_disabled
+from mlflow.telemetry.utils import (
+    _IS_IN_DATABRICKS,
+    _IS_MLFLOW_DEV_VERSION,
+    _detect_agent,
+    _detect_environment,
+    _get_config_url,
+    _log_error,
+    is_telemetry_disabled,
+)
+from mlflow.utils.credentials import get_default_host_creds
 from mlflow.utils.logging_utils import should_suppress_logs_in_thread, suppress_logs_in_thread
+from mlflow.utils.rest_utils import http_request
+from mlflow.utils.server_info import SERVER_INFO_STORE_TYPE, fetch_server_info
+
+_DATABRICKS_SCHEMES = ("databricks", "databricks-uc", "uc")
+
+# `_forward_to_databricks` resolves credentials, which first-time imports these on the
+# consumer thread. That re-enters the post-import-hook finders on `sys.meta_path`, which
+# hold a hook-registry lock while a user thread mid-import holds CPython's import locks,
+# in the opposite order. Importing here leaves the consumer with `sys.modules` lookups.
+_DATABRICKS_SDK_WARM_UP_MODULES = ("databricks.sdk",)
+
+# `databricks.sdk` does not import this; only `runtime_native_auth` does, and only under
+# Databricks Runtime. Elsewhere it starts a Databricks Connect session and resolves
+# credentials at module scope, so it stays gated on `DATABRICKS_RUNTIME_VERSION`.
+_DATABRICKS_RUNTIME_WARM_UP_MODULES = ("databricks.sdk.runtime",)
+
+
+@lru_cache(maxsize=16)
+def _fetch_server_info(tracking_uri: str) -> dict[str, Any] | None:
+    # Telemetry intentionally caches failures so its background consumer does not repeatedly
+    # block on an unavailable server. Other callers should use the shared helper directly.
+    try:
+        response = fetch_server_info(get_default_host_creds(tracking_uri))
+        if response.status_code == 200:
+            return response.data
+    except Exception:
+        pass
+    return None
+
+
+def _enrich_http_scheme(scheme: Literal["http", "https"], store_type: str | None) -> str:
+    store_type_to_suffix = {"FileStore": "file", "SqlStore": "sql"}
+    if suffix := store_type_to_suffix.get(store_type):
+        return f"{scheme}-{suffix}"
+    return scheme
 
 
 def _is_localhost_uri(uri: str) -> bool | None:
@@ -78,6 +131,8 @@ class TelemetryClient:
         self.info = asdict(
             TelemetryInfo(
                 session_id=_MLFLOW_TELEMETRY_SESSION_ID.get() or uuid.uuid4().hex,
+                environment=_detect_environment(),
+                coding_agent=_detect_agent(),
                 installation_id=get_or_create_installation_id(),
             )
         )
@@ -220,12 +275,16 @@ class TelemetryClient:
         """Process a batch of telemetry records."""
         try:
             self._update_backend_store()
-            if self.info["tracking_uri_scheme"] in ["databricks", "databricks-uc", "uc"]:
-                self._is_stopped = True
-                # set config to None to allow consumer thread drop records in the queue
-                self.config = None
-                self.is_active = False
-                _set_telemetry_client(None)
+
+            if self.info.get("tracking_uri_scheme") in _DATABRICKS_SCHEMES:
+                if not _IS_MLFLOW_DEV_VERSION:
+                    self._forward_to_databricks(records, request_timeout)
+                return
+
+            # Never POST to the OSS ingestion endpoint from inside a Databricks
+            # workload. The Databricks-forwarding branch above is the only path
+            # allowed in DBR, model serving, etc.
+            if _IS_IN_DATABRICKS:
                 return
 
             records = [
@@ -237,42 +296,76 @@ class TelemetryClient:
                 }
                 for record in records
             ]
-            # changing this value can affect total time for processing records
-            # the total time = request_timeout * max_attempts + sleep_time * (max_attempts - 1)
-            max_attempts = 3
-            sleep_time = 1
-            for i in range(max_attempts):
-                should_retry = False
-                response = None
-                try:
-                    response = requests.post(
-                        self.config.ingestion_url,
-                        json={"records": records},
-                        headers={"Content-Type": "application/json"},
-                        timeout=request_timeout,
-                    )
-                    should_retry = response.status_code in RETRYABLE_ERRORS
-                except (ConnectionError, TimeoutError):
-                    should_retry = True
-                # NB: DO NOT retry when terminating
-                # otherwise this increases shutdown overhead significantly
-                if self._is_stopped:
-                    return
-                if i < max_attempts - 1 and should_retry:
-                    # we do not use exponential backoff to avoid increasing
-                    # the processing time significantly
-                    time.sleep(sleep_time)
-                elif response and response.status_code in UNRECOVERABLE_ERRORS:
-                    self._is_stopped = True
-                    self.is_active = False
-                    # this is executed in the consumer thread, so
-                    # we cannot join the thread here, but this should
-                    # be enough to stop the telemetry collection
-                    return
-                else:
-                    return
+
+            self._send_with_retries(
+                lambda timeout: requests.post(
+                    self.config.ingestion_url,
+                    json={"records": records},
+                    headers={"Content-Type": "application/json"},
+                    timeout=timeout,
+                ),
+                request_timeout,
+            )
         except Exception as e:
             _log_error(f"Failed to send telemetry records: {e}")
+
+    def _forward_to_databricks(self, records: list[Record], request_timeout: float = 1):
+        from mlflow.tracking._tracking_service.utils import get_tracking_uri
+        from mlflow.utils.databricks_utils import get_databricks_host_creds
+
+        try:
+            creds = get_databricks_host_creds(get_tracking_uri())
+        except Exception as e:
+            _log_error(f"Failed to get Databricks credentials for telemetry: {e}")
+            return
+
+        events = []
+        for record in records:
+            event = dict(self.info)
+            event.update(record.to_dict())
+            params_value = event.pop("params", None)
+            if params_value is not None:
+                event["params_json"] = params_value
+            events.append(event)
+
+        self._send_with_retries(
+            lambda timeout: http_request(
+                host_creds=creds,
+                endpoint="/api/2.0/mlflow/client-telemetry/ingest",
+                method="POST",
+                timeout=timeout,
+                max_retries=0,
+                raise_on_status=False,
+                json={"events": events},
+            ),
+            request_timeout,
+        )
+
+    def _send_with_retries(
+        self, send_fn: Callable[[float], requests.Response], request_timeout: float = 1
+    ) -> None:
+        max_attempts = 3
+        sleep_time = 1
+        for i in range(max_attempts):
+            response = None
+            should_retry = False
+            try:
+                response = send_fn(request_timeout)
+                should_retry = response.status_code in RETRYABLE_ERRORS
+            except (ConnectionError, TimeoutError, requests.ConnectionError, requests.Timeout):
+                should_retry = True
+            # NB: DO NOT retry when terminating
+            # otherwise this increases shutdown overhead significantly
+            if self._is_stopped:
+                return
+            if i < max_attempts - 1 and should_retry:
+                time.sleep(sleep_time)
+            elif response and response.status_code in UNRECOVERABLE_ERRORS:
+                self._is_stopped = True
+                self.is_active = False
+                return
+            else:
+                return
 
     def _consumer(self) -> None:
         """Individual consumer that processes records from the queue."""
@@ -389,6 +482,16 @@ class TelemetryClient:
             except Exception as e:
                 _log_error(f"Failed to flush telemetry: {e}")
 
+    def _resolve_tracking_scheme(self, scheme: str) -> str:
+        if scheme not in ("http", "https"):
+            return scheme
+        # import here to avoid circular import
+        from mlflow.tracking._tracking_service.utils import get_tracking_uri
+
+        server_info = _fetch_server_info(get_tracking_uri())
+        store_type = server_info.get(SERVER_INFO_STORE_TYPE) if server_info else None
+        return _enrich_http_scheme(scheme, store_type)
+
     def _update_backend_store(self):
         """
         Backend store might be changed after mlflow is imported, we should use this
@@ -397,9 +500,10 @@ class TelemetryClient:
         try:
             scheme, is_localhost = _get_tracking_uri_info()
             if scheme is not None:
-                self.info["tracking_uri_scheme"] = scheme
+                self.info["tracking_uri_scheme"] = self._resolve_tracking_scheme(scheme)
             if is_localhost is not None:
                 self.info["is_localhost"] = is_localhost
+            self.info["ws_enabled"] = bool(MLFLOW_WORKSPACE.get())
         except Exception as e:
             _log_error(f"Failed to update backend store: {e}")
 
@@ -415,6 +519,35 @@ _MLFLOW_TELEMETRY_CLIENT = None
 _client_lock = threading.Lock()
 
 
+def _warm_up_databricks_sdk() -> None:
+    """
+    Load the Databricks SDK on the importing thread, so the telemetry consumer never
+    performs a first-time import of it.
+
+    `_MLFLOW_TELEMETRY_PRE_WARM_DATABRICKS_SDK=false` opts out, since this moves the SDK
+    import into every `import mlflow` inside Databricks.
+    """
+    if (
+        not _MLFLOW_TELEMETRY_PRE_WARM_DATABRICKS_SDK.get()
+        or not _IS_IN_DATABRICKS
+        or _IS_MLFLOW_DEV_VERSION
+        or not MLFLOW_ENABLE_DB_SDK.get()
+    ):
+        return
+
+    modules = _DATABRICKS_SDK_WARM_UP_MODULES
+    # Mirrors the guard in `runtime_native_auth`: without this env var it never reaches its
+    # deferred `databricks.sdk.runtime` import, so there is nothing to warm.
+    if "DATABRICKS_RUNTIME_VERSION" in os.environ:
+        modules += _DATABRICKS_RUNTIME_WARM_UP_MODULES
+
+    for module in modules:
+        try:
+            importlib.import_module(module)
+        except Exception as e:
+            _log_error(f"Failed to pre-import {module} for telemetry: {e}")
+
+
 def set_telemetry_client():
     if is_telemetry_disabled():
         # set to None again so this function can be used to
@@ -422,6 +555,9 @@ def set_telemetry_client():
         _set_telemetry_client(None)
     else:
         try:
+            # Must happen before any consumer thread can exist, so the consumer never drives
+            # a first-time `databricks.sdk` import through the import hook finders.
+            _warm_up_databricks_sdk()
             _set_telemetry_client(TelemetryClient())
         except Exception as e:
             _log_error(f"Failed to set telemetry client: {e}")

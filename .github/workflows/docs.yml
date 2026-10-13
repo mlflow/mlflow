@@ -6,22 +6,21 @@ on:
       - pyproject.toml
       - uv.lock
       - mlflow/**
+      - "!mlflow/server/js/**"
       - docs/**
       - .github/workflows/docs.yml
+      - .github/actions/setup-node/**
     branches:
       - master
   pull_request:
-    types:
-      - opened
-      - synchronize
-      - reopened
-      - ready_for_review
     paths:
       - pyproject.toml
       - uv.lock
       - mlflow/**
+      - "!mlflow/server/js/**"
       - docs/**
       - .github/workflows/docs.yml
+      - .github/actions/setup-node/**
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
@@ -32,19 +31,30 @@ defaults:
     shell: bash
     working-directory: docs
 
+permissions: {}
+cache-mode: none
+
 jobs:
   check:
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     permissions:
       contents: read
     timeout-minutes: 30
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/setup-node
       - name: Install dependencies
         run: |
           npm ci
+      - name: Check package-lock.json is up-to-date
+        run: |
+          npm install --package-lock-only --no-audit --no-fund
+          git diff --exit-code package-lock.json || {
+            echo "package-lock.json is out of date. Run 'npm install --package-lock-only' locally and commit the result."
+            exit 1
+          }
       - name: Run lint
         run: |
           npm run eslint
@@ -53,13 +63,14 @@ jobs:
           npm run prettier:check
 
   build:
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     permissions:
       contents: read
     timeout-minutes: 30
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/setup-java
       - uses: ./.github/actions/setup-node
       - uses: ./.github/actions/setup-python
@@ -67,6 +78,7 @@ jobs:
         working-directory: .
         run: |
           uv sync --group docs --extra gateway
+          uv pip install -r requirements/torch.txt
       - run: |
           npm ci
       - uses: ./.github/actions/show-versions
@@ -84,8 +96,6 @@ jobs:
             ALIAS="pr-$PR_NUMBER"
           fi
           echo "value=$ALIAS" >> $GITHUB_OUTPUT
-          echo "$ALIAS" > /tmp/alias.txt
-          cat /tmp/alias.txt
       - name: Build docs
         env:
           GTM_ID: "GTM-TEST"
@@ -96,7 +106,7 @@ jobs:
         run: |
           if [ -n "$(git status --porcelain api_reference/api_inventory.txt)" ]; then
             echo "The API inventory file 'docs/api_reference/api_inventory.txt' is outdated (see the diff below)."
-            echo "Please update it by running 'make rsthtml' in the 'docs/api_reference' directory."
+            echo "Please update it by running 'make rsthtml' in the 'docs/api_reference' directory, or post a comment '/autoformat' on this PR if you're a maintainer/collaborator."
             echo "If the new APIs should be marked as experimental, please decorate them with '@experimental'."
             echo "Diff:"
             git diff api_reference/api_inventory.txt
@@ -114,38 +124,31 @@ jobs:
           VERSION="$(uv version | cut -d' ' -f2)"
           echo "{\"versions\": [\"$VERSION\"]}" > /tmp/docs-build/docs/versions.json
       - name: Upload build artifacts
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: docs-build-${{ github.run_id }}
           path: /tmp/docs-build
           retention-days: 1
           if-no-files-found: error
 
-      # `github.event.workflow_run.pull_requests` is empty when a PR is created from a fork:
-      # https://github.com/orgs/community/discussions/25220#discussioncomment-11001085
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: alias
-          path: /tmp/alias.txt
-          retention-days: 1
-          if-no-files-found: error
-
   test-examples:
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     permissions:
       contents: read
     timeout-minutes: 30
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: docs/api_reference
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/setup-python
       - name: Install dependencies
         working-directory: .
         run: |
           uv sync --group docs --extra gateway
+          uv pip install -r requirements/torch.txt
       - name: Extract examples
         run: |
           uv run source/testcode_block.py
@@ -154,13 +157,14 @@ jobs:
           uv run pytest .examples
 
   r:
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     permissions:
       contents: read
     timeout-minutes: 15
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Build docs
         working-directory: docs/api_reference
         run: |

@@ -2,20 +2,30 @@
 Utilities for validating user inputs such as metric names and parameter names.
 """
 
+import ipaddress
 import json
 import logging
 import numbers
 import posixpath
 import re
+import socket
+import threading
 import urllib.parse
-from typing import Any
+from fnmatch import fnmatch
+from typing import Any, Iterator
 
 from mlflow.entities import Dataset, DatasetInput, InputTag, Param, RunTag
 from mlflow.entities.model_registry.prompt_version import PROMPT_TEXT_TAG_KEY
 from mlflow.entities.webhook import WebhookEvent
 from mlflow.environment_variables import (
+    _MLFLOW_WEBHOOK_ALLOW_PRIVATE_IPS,
     _MLFLOW_WEBHOOK_ALLOWED_SCHEMES,
     MLFLOW_ARTIFACT_LOCATION_MAX_LENGTH,
+    MLFLOW_GATEWAY_API_BASE_ALLOW_PRIVATE_IPS,
+    MLFLOW_GATEWAY_API_BASE_ALLOWED_SCHEMES,
+    MLFLOW_ICON_URL_ALLOW_PRIVATE_IPS,
+    MLFLOW_ICON_URL_ALLOWED_DOMAINS,
+    MLFLOW_ICON_URL_ALLOWED_SCHEMES,
     MLFLOW_TRUNCATE_LONG_VALUES,
 )
 from mlflow.exceptions import MlflowException
@@ -24,6 +34,12 @@ from mlflow.utils.os import is_windows
 from mlflow.utils.string_utils import is_string_type
 
 _logger = logging.getLogger(__name__)
+
+_MAX_MCP_ICONS_PER_LIST = 100
+_MAX_MCP_TOOLS_PER_LIST = 1000
+_HOSTNAME_RESOLUTION_TIMEOUT_SECONDS = 5.0
+_MAX_CONCURRENT_HOSTNAME_RESOLUTIONS = 8
+_HOSTNAME_RESOLUTION_SEMAPHORE = threading.BoundedSemaphore(_MAX_CONCURRENT_HOSTNAME_RESOLUTIONS)
 
 # Regex for valid run IDs: must be an alphanumeric string of length 1 to 256.
 _RUN_ID_REGEX = re.compile(r"^[a-zA-Z0-9][\w\-]{0,255}$")
@@ -57,7 +73,8 @@ MAX_PARAM_VAL_LENGTH = 6000
 MAX_TAG_VAL_LENGTH = 8000
 MAX_EXPERIMENT_NAME_LENGTH = 500
 MAX_EXPERIMENT_TAG_KEY_LENGTH = 250
-MAX_EXPERIMENT_TAG_VAL_LENGTH = 5000
+MAX_EXPERIMENT_TAG_VAL_LENGTH = 20000
+MAX_CUSTOM_VIEWS_PER_EXPERIMENT = 50
 MAX_ENTITY_KEY_LENGTH = 250
 MAX_MODEL_REGISTRY_TAG_KEY_LENGTH = 250
 MAX_MODEL_REGISTRY_TAG_VALUE_LENGTH = 100_000
@@ -75,6 +92,8 @@ MAX_INPUT_TAG_VALUE_SIZE = 500
 MAX_REGISTERED_MODEL_ALIAS_LENGTH = 255
 MAX_TRACE_TAG_KEY_LENGTH = 250
 MAX_TRACE_TAG_VAL_LENGTH = 8000
+MAX_TRACE_ARCHIVAL_RETENTION_LENGTH = 32
+_TRACE_ARCHIVAL_RETENTION_REGEX = re.compile(r"^[1-9][0-9]*[mhd]$")
 
 PARAM_VALIDATION_MSG = """
 
@@ -129,6 +148,159 @@ def exceeds_maximum_length(path, limit):
     return f"'{path}' exceeds the maximum length of {limit} characters"
 
 
+def _validate_trace_archival_retention_string(
+    value: Any, *, parameter_name: str | None = None
+) -> str:
+    if not is_string_type(value):
+        if parameter_name is not None:
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid value for '{parameter_name}'. Expected a duration in the form "
+                "`<int><unit>`, where unit is one of 'm', 'h', or 'd' (for example '30d' or "
+                "'12h')."
+            )
+        raise MlflowException.invalid_parameter_value(
+            "Trace archival retention must be in the form `<int><unit>`, "
+            "where unit is one of 'm', 'h', or 'd'."
+        )
+
+    trimmed = value.strip()
+    if len(trimmed) > MAX_TRACE_ARCHIVAL_RETENTION_LENGTH:
+        if parameter_name is not None:
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid value for '{parameter_name}'. Maximum length is 32 characters."
+            )
+        raise MlflowException.invalid_parameter_value(
+            "Trace archival duration must be at most 32 characters."
+        )
+
+    if _TRACE_ARCHIVAL_RETENTION_REGEX.fullmatch(trimmed) is None:
+        if parameter_name is not None:
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid value for '{parameter_name}'. Expected a duration in the form "
+                "`<int><unit>`, where unit is one of 'm', 'h', or 'd' (for example '30d' or "
+                "'12h')."
+            )
+        raise MlflowException.invalid_parameter_value(
+            "Trace archival retention must be in the form `<int><unit>`, "
+            "where unit is one of 'm', 'h', or 'd'."
+        )
+
+    return trimmed
+
+
+def _validate_trace_archival_location(value: Any, *, parameter_name: str | None = None) -> str:
+    if not is_string_type(value):
+        if parameter_name is not None:
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid value for '{parameter_name}'. Expected a URI string."
+            )
+        raise MlflowException.invalid_parameter_value(
+            "Trace archival location must be a URI string."
+        )
+
+    trimmed = value.strip()
+    parsed = urllib.parse.urlparse(trimmed)
+    if not parsed.scheme:
+        if parameter_name is not None:
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid value for '{parameter_name}'. Expected a URI string."
+            )
+        raise MlflowException.invalid_parameter_value(
+            "Trace archival location must be a URI string."
+        )
+    if parsed.scheme == "mlflow-artifacts":
+        if parameter_name is not None:
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid value for '{parameter_name}'. Trace archival location cannot use "
+                "the proxy-only `mlflow-artifacts:` scheme."
+            )
+        raise MlflowException.invalid_parameter_value(
+            "Trace archival location cannot use the proxy-only `mlflow-artifacts:` scheme."
+        )
+    return trimmed
+
+
+def _validate_trace_archival_repository_support(
+    value: Any, *, parameter_name: str | None = None
+) -> str:
+    location = _validate_trace_archival_location(value, parameter_name=parameter_name)
+    parameter_name = parameter_name or "trace_archival_location"
+
+    # Imported lazily to avoid a module import cycle with artifact repository validation helpers.
+    from mlflow.store.artifact.artifact_repo import ArtifactRepository
+    from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
+    from mlflow.store.artifact.databricks_artifact_repo import DatabricksArtifactRepository
+    from mlflow.store.artifact.dbfs_artifact_repo import DbfsRestArtifactRepository
+
+    artifact_repo = get_artifact_repository(location)
+    if isinstance(artifact_repo, DatabricksArtifactRepository):
+        raise MlflowException.invalid_parameter_value(
+            f"Invalid value for '{parameter_name}'. Trace archival location {location!r} "
+            "resolves to a Databricks trace artifact repository that does not support "
+            "archived trace reads."
+        )
+    if isinstance(artifact_repo, DbfsRestArtifactRepository) or (
+        type(artifact_repo).delete_artifacts is ArtifactRepository.delete_artifacts
+    ):
+        raise MlflowException.invalid_parameter_value(
+            f"Invalid value for '{parameter_name}'. Trace archival location {location!r} "
+            "resolves to an artifact repository that does not support deleting archived payloads."
+        )
+    return location
+
+
+def _parse_trace_archival_duration_config(
+    value: str | None,
+    *,
+    duration_key: str,
+    expected_type: str | None = None,
+    allow_missing_duration: bool = False,
+) -> str | None:
+    if value is None:
+        return None
+
+    try:
+        payload = json.loads(value)
+    except Exception as e:
+        raise MlflowException.invalid_parameter_value(
+            "Trace archival config must be encoded as a JSON object."
+        ) from e
+
+    if not isinstance(payload, dict):
+        raise MlflowException.invalid_parameter_value(
+            "Trace archival config must be encoded as a JSON object."
+        )
+
+    if expected_type is not None and payload.get("type") != expected_type:
+        raise MlflowException.invalid_parameter_value(
+            f"Trace archival config must use type '{expected_type}'."
+        )
+
+    duration_value = payload.get(duration_key)
+    if duration_value is None and allow_missing_duration:
+        return None
+
+    return _validate_trace_archival_retention_string(duration_value)
+
+
+def _validate_trace_experiment_tag(key: str, value: Any) -> None:
+    # Import lazily to avoid coupling the generic validation module to tracing at import time.
+    from mlflow.tracing.constant import TraceExperimentTagKey
+
+    if key == TraceExperimentTagKey.ARCHIVAL_RETENTION:
+        _parse_trace_archival_duration_config(
+            value,
+            duration_key="value",
+            expected_type="duration",
+        )
+    elif key == TraceExperimentTagKey.ARCHIVE_NOW:
+        _parse_trace_archival_duration_config(
+            value,
+            duration_key="older_than",
+            allow_missing_duration=True,
+        )
+
+
 def append_to_json_path(currentPath, value):
     if not currentPath:
         return value
@@ -150,11 +322,11 @@ def validate_param_and_metric_name(name):
     # In windows system valid param and metric names: may only contain slashes, alphanumerics,
     # underscores, periods, dashes, and spaces.
     if is_windows():
-        return re.match(r"^[/\w.\- ]*$", name)
+        return re.fullmatch(r"^[/\w.\- ]*$", name)
 
     # For other system valid param and metric names: may only contain slashes, alphanumerics,
     # underscores, periods, dashes, colons, and spaces.
-    return re.match(r"^[/\w.\- :]*$", name)
+    return re.fullmatch(r"^[/\w.\- :]*$", name)
 
 
 def bad_character_message():
@@ -283,6 +455,7 @@ def _validate_experiment_tag(key, value):
     _validate_tag_name(key)
     _validate_length_limit("key", MAX_EXPERIMENT_TAG_KEY_LENGTH, key)
     _validate_length_limit("value", MAX_EXPERIMENT_TAG_VAL_LENGTH, value)
+    _validate_trace_experiment_tag(key, value)
 
 
 def _validate_registered_model_tag(key, value):
@@ -390,16 +563,32 @@ def _validate_length_limit(entity_name, limit, value, *, truncate=False):
 
 def _validate_run_id(run_id, path="run_id"):
     """Check that `run_id` is a valid run ID and raise an exception if it isn't."""
-    if _RUN_ID_REGEX.match(run_id) is None:
+    if _RUN_ID_REGEX.fullmatch(run_id) is None:
         raise MlflowException(invalid_value(path, run_id), error_code=INVALID_PARAMETER_VALUE)
 
 
 def _validate_experiment_id(exp_id):
     """Check that `experiment_id`is a valid string or None, raise an exception if it isn't."""
-    if exp_id is not None and _EXPERIMENT_ID_REGEX.match(exp_id) is None:
+    if exp_id is not None and _EXPERIMENT_ID_REGEX.fullmatch(exp_id) is None:
         raise MlflowException(
             f"Invalid experiment ID: '{exp_id}'", error_code=INVALID_PARAMETER_VALUE
         )
+
+
+def _parse_experiment_id(experiment_id: str | int) -> int:
+    """Parse a non-None experiment ID into an integer."""
+    try:
+        return int(experiment_id)
+    except (ValueError, TypeError):
+        raise MlflowException(
+            f"Invalid experiment ID '{experiment_id}'. Experiment ID must be a valid integer.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+
+def _parse_experiment_ids(experiment_ids: list[str | int]) -> list[int]:
+    """Parse non-None experiment IDs into integers."""
+    return [_parse_experiment_id(experiment_id) for experiment_id in experiment_ids]
 
 
 def _validate_batch_limit(entity_name, limit, length):
@@ -447,7 +636,7 @@ def _validate_batch_log_api_req(json_req):
 
 def _validate_experiment_name(experiment_name):
     """Check that `experiment_name` is a valid string and raise an exception if it isn't."""
-    if experiment_name == "" or experiment_name is None:
+    if experiment_name is None or (is_string_type(experiment_name) and not experiment_name.strip()):
         raise MlflowException(
             f"Invalid experiment name: '{experiment_name}'",
             error_code=INVALID_PARAMETER_VALUE,
@@ -500,19 +689,31 @@ def _validate_list_param(param_name: str, param_value: Any, allow_none: bool = F
         )
 
 
-def _validate_model_name(model_name):
-    if model_name is None or model_name == "":
+def _validate_model_name(model_name: str) -> None:
+    if model_name is None or model_name.strip() == "":
         raise MlflowException(missing_value("name"), error_code=INVALID_PARAMETER_VALUE)
+    invalid_chars = ("/", ":")
+    if any(c in model_name for c in invalid_chars):
+        raise MlflowException(
+            f"Invalid model name '{model_name}'. Names cannot contain '/' or ':'.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    if path_not_unique(model_name):
+        raise MlflowException(
+            invalid_value("name", model_name, bad_path_message(model_name)),
+            INVALID_PARAMETER_VALUE,
+        )
 
 
-def _validate_model_renaming(model_new_name):
-    if model_new_name is None or model_new_name == "":
+def _validate_model_renaming(model_new_name: str) -> None:
+    if model_new_name is None or str(model_new_name).strip() == "":
         raise MlflowException(missing_value("new_name"), error_code=INVALID_PARAMETER_VALUE)
+    _validate_model_name(model_new_name)
 
 
 def _validate_model_version(model_version):
     try:
-        model_version = int(model_version)
+        return int(model_version)
     except ValueError:
         raise MlflowException(
             not_integer_value("version", model_version), error_code=INVALID_PARAMETER_VALUE
@@ -524,7 +725,7 @@ def _validate_model_alias_name(model_alias_name):
         raise MlflowException(
             "Registered model alias name cannot be empty.", INVALID_PARAMETER_VALUE
         )
-    if not _REGISTERED_MODEL_ALIAS_REGEX.match(model_alias_name):
+    if not _REGISTERED_MODEL_ALIAS_REGEX.fullmatch(model_alias_name):
         raise MlflowException(
             f"Invalid alias name: '{model_alias_name}'. {_BAD_ALIAS_CHARACTERS_MESSAGE}",
             INVALID_PARAMETER_VALUE,
@@ -542,7 +743,7 @@ def _validate_model_alias_name_reserved(model_alias_name):
             "'latest' alias name (case insensitive) is reserved.",
             INVALID_PARAMETER_VALUE,
         )
-    if _REGISTERED_MODEL_ALIAS_VERSION_REGEX.match(model_alias_name):
+    if _REGISTERED_MODEL_ALIAS_VERSION_REGEX.fullmatch(model_alias_name):
         raise MlflowException(
             f"Version alias name '{model_alias_name}' is reserved.",
             INVALID_PARAMETER_VALUE,
@@ -657,9 +858,7 @@ def _validate_username(username):
 
 def _validate_password(password) -> None:
     if password is None or len(password) < 12:
-        raise MlflowException.invalid_parameter_value(
-            "Password must be a string longer than 12 characters."
-        )
+        raise MlflowException.invalid_parameter_value("Password must be at least 12 characters.")
 
 
 def _validate_trace_tag(key, value):
@@ -715,6 +914,429 @@ def _validate_webhook_name(name: str) -> None:
         )
 
 
+_NAT64_PREFIX = ipaddress.IPv6Network("64:ff9b::/96")
+
+
+def _embedded_ipv4(
+    ip: ipaddress.IPv4Address | ipaddress.IPv6Address,
+) -> ipaddress.IPv4Address | ipaddress.IPv6Address:
+    """Decode IPv6 transition formats that carry an embedded IPv4 address.
+
+    This normalizes IPv6-transition addresses (IPv4-mapped, 6to4, NAT64) to their
+    embedded IPv4 address so that a wrapped private/CGNAT/link-local address cannot
+    masquerade as global.
+    """
+    if isinstance(ip, ipaddress.IPv6Address):
+        embedded = ip.ipv4_mapped or ip.sixtofour
+        if embedded is None and ip in _NAT64_PREFIX:
+            embedded = ipaddress.IPv4Address(int(ip) & 0xFFFFFFFF)
+        if embedded is not None:
+            return embedded
+    return ip
+
+
+def _is_public_ip(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
+    """Check if an IP is public, accounting for IPv6-transition address formats."""
+    return _embedded_ipv4(ip).is_global
+
+
+def _is_ip_literal_like(hostname: str) -> bool:
+    """Mirror aiohttp's heuristic for hosts it dials as IP literals without a DNS lookup."""
+    return ":" in hostname or hostname.replace(".", "").isdigit()
+
+
+def _validate_canonical_ip_literal(hostname: str, field_name: str) -> None:
+    """Reject numeric hosts that are not canonical IP literals.
+
+    ``socket`` maps legacy spellings like ``127.1`` or ``0177.0.0.1`` onto an address at
+    connect time, and validators may parse them differently (``0177.0.0.1`` is loopback to
+    ``inet_aton`` but ``177.0.0.1`` to ``getaddrinfo``).
+    """
+    if not _is_ip_literal_like(hostname):
+        return
+    try:
+        ipaddress.ip_address(hostname)
+    except ValueError as e:
+        raise MlflowException.invalid_parameter_value(
+            f"{field_name} host {hostname!r} is not a canonical IP address literal."
+        ) from e
+
+
+def _resolve_hostname_with_timeout(hostname: str, field_name: str):
+    acquired = _HOSTNAME_RESOLUTION_SEMAPHORE.acquire(timeout=_HOSTNAME_RESOLUTION_TIMEOUT_SECONDS)
+    if not acquired:
+        raise MlflowException.invalid_parameter_value(
+            f"Timed out waiting to resolve {field_name} hostname {hostname!r} because "
+            "too many hostname resolutions are already in progress"
+        )
+
+    result: dict[str, Any] = {}
+
+    def _resolve():
+        try:
+            result["addr_infos"] = socket.getaddrinfo(hostname, None)
+        except Exception as e:
+            result["error"] = e
+        finally:
+            _HOSTNAME_RESOLUTION_SEMAPHORE.release()
+
+    thread = threading.Thread(target=_resolve, daemon=True, name="mlflow-hostname-resolution")
+    thread.start()
+    thread.join(timeout=_HOSTNAME_RESOLUTION_TIMEOUT_SECONDS)
+    if thread.is_alive():
+        raise MlflowException.invalid_parameter_value(
+            f"Timed out resolving {field_name} hostname {hostname!r} after "
+            f"{_HOSTNAME_RESOLUTION_TIMEOUT_SECONDS:g} seconds"
+        )
+    if "error" in result:
+        raise result["error"]
+    return result["addr_infos"]
+
+
+def _validate_hostname_resolves_to_public_ips(hostname: str, field_name: str) -> None:
+    try:
+        addr_infos = _resolve_hostname_with_timeout(hostname, field_name)
+    except (socket.gaierror, UnicodeError, ValueError) as e:
+        raise MlflowException.invalid_parameter_value(
+            f"Cannot resolve {field_name} hostname {hostname!r}: {e}"
+        ) from e
+
+    for addr_info in addr_infos:
+        try:
+            ip = ipaddress.ip_address(addr_info[4][0])
+        except ValueError as e:
+            raise MlflowException.invalid_parameter_value(
+                f"{field_name} hostname {hostname!r} resolved to an invalid IP address: {e}"
+            ) from e
+        if not _is_public_ip(ip):
+            raise MlflowException.invalid_parameter_value(
+                f"{field_name} must not resolve to a non-public IP address. "
+                f"{hostname!r} resolves to {ip}."
+            )
+
+
+def _validate_public_https_url(
+    url: str,
+    field_name: str = "URL",
+    allowed_schemes: list[str] | tuple[str, ...] | set[str] = ("https",),
+    allow_private_ips: bool = False,
+) -> None:
+    if not isinstance(url, str):
+        raise MlflowException.invalid_parameter_value(
+            f"{field_name} must be a string, got {type(url).__name__!r}"
+        )
+
+    if not url.strip():
+        raise MlflowException.invalid_parameter_value(
+            f"{field_name} cannot be empty or just whitespace: {url!r}"
+        )
+
+    try:
+        parsed_url = urllib.parse.urlparse(url)
+    except ValueError as e:
+        raise MlflowException.invalid_parameter_value(f"Invalid {field_name} {url!r}: {e!r}") from e
+
+    normalized_allowed_schemes = {scheme.lower() for scheme in allowed_schemes}
+    if parsed_url.scheme not in normalized_allowed_schemes:
+        scheme_list = ", ".join(f"{scheme!r}" for scheme in sorted(normalized_allowed_schemes))
+        raise MlflowException.invalid_parameter_value(
+            f"Invalid {field_name} scheme: {parsed_url.scheme!r}. Allowed schemes are: "
+            f"{scheme_list}."
+        )
+
+    if parsed_url.username or parsed_url.password:
+        raise MlflowException.invalid_parameter_value(
+            f"{field_name} must not include embedded credentials: {url!r}"
+        )
+
+    hostname = parsed_url.hostname
+    if not hostname:
+        raise MlflowException.invalid_parameter_value(
+            f"{field_name} must include a hostname: {url!r}"
+        )
+
+    _validate_canonical_ip_literal(hostname, field_name)
+
+    if not allow_private_ips:
+        _validate_hostname_resolves_to_public_ips(hostname, field_name)
+
+
+def _validate_gateway_api_base(url: str) -> None:
+    """Validate an AI Gateway secret's ``api_base``: public HTTPS only by default.
+
+    The gateway sends requests to this URL, so it follows the webhook and icon URL SSRF
+    policy. ``MLFLOW_GATEWAY_API_BASE_ALLOWED_SCHEMES`` and
+    ``MLFLOW_GATEWAY_API_BASE_ALLOW_PRIVATE_IPS`` relax it.
+    """
+    _validate_public_https_url(
+        url,
+        field_name="Gateway secret api_base",
+        allowed_schemes=MLFLOW_GATEWAY_API_BASE_ALLOWED_SCHEMES.get(),
+        allow_private_ips=MLFLOW_GATEWAY_API_BASE_ALLOW_PRIVATE_IPS.get(),
+    )
+
+
+# LiteLLM keyword arguments that choose where a request is sent. The LiteLLM provider spreads
+# a secret's ``auth_config`` into litellm kwargs, so each of these is as sensitive as
+# ``api_base``: ``base_url`` is litellm's alias for ``api_base``, ``model_list`` and
+# ``fallbacks`` carry per-deployment ``api_base`` values, and ``custom_llm_provider`` swaps
+# the provider and with it the default endpoint.
+GATEWAY_DESTINATION_KEYS = frozenset({
+    "api_base",
+    "base_url",
+    "model_list",
+    "fallbacks",
+    "custom_llm_provider",
+})
+# ``api_base`` is the one validated way to choose the upstream, so the aliases are rejected in
+# ``auth_config`` and nothing egress-controlling may hide in the encrypted, unvalidated
+# ``secret_value`` map.
+_GATEWAY_AUTH_CONFIG_RESERVED_KEYS = GATEWAY_DESTINATION_KEYS - {"api_base"}
+_GATEWAY_SECRET_VALUE_RESERVED_KEYS = GATEWAY_DESTINATION_KEYS
+
+
+def _validate_gateway_secret_auth_config(
+    auth_config: dict[str, Any] | None,
+) -> dict[str, Any] | None:
+    """Validate a gateway secret's ``auth_config`` on write and return a normalized copy.
+
+    ``api_base`` is the only key naming an outbound target. A blank value is dropped rather
+    than stored, since providers fall back to their default by truthiness.
+    """
+    if not auth_config:
+        return None
+    normalized = dict(auth_config)
+    if reserved := sorted(_GATEWAY_AUTH_CONFIG_RESERVED_KEYS & set(normalized)):
+        raise MlflowException.invalid_parameter_value(
+            f"auth_config must not contain {', '.join(map(repr, reserved))}: these LiteLLM "
+            "options choose where the gateway sends requests. Set the upstream with "
+            "'api_base', which is validated."
+        )
+    api_base = normalized.get("api_base")
+    if isinstance(api_base, str):
+        api_base = api_base.strip()
+    if not api_base:
+        normalized.pop("api_base", None)
+        return normalized
+    _validate_gateway_api_base(api_base)
+    normalized["api_base"] = api_base
+    return normalized
+
+
+def _validate_gateway_secret_value(secret_value: dict[str, Any] | None) -> None:
+    """Reject ``secret_value`` keys that would steer gateway egress (see reserved keys)."""
+    if not secret_value:
+        return
+    if reserved := sorted(_GATEWAY_SECRET_VALUE_RESERVED_KEYS & set(secret_value)):
+        raise MlflowException.invalid_parameter_value(
+            f"secret_value must not contain {', '.join(map(repr, reserved))}: these keys "
+            "choose where the gateway sends requests. Set the upstream with 'api_base' in "
+            "auth_config, where it is validated."
+        )
+
+
+def _find_destination_keys(value: Any) -> set[str]:
+    if isinstance(value, dict):
+        found = GATEWAY_DESTINATION_KEYS & set(value)
+        for nested in value.values():
+            found |= _find_destination_keys(nested)
+        return found
+    if isinstance(value, list):
+        found: set[str] = set()
+        for nested in value:
+            # `dict()` also accepts a list of two-item pairs, which is how nested option maps
+            # such as trulens' `completion_kwargs` are materialized.
+            if isinstance(nested, list) and len(nested) == 2 and isinstance(nested[0], str):
+                found |= GATEWAY_DESTINATION_KEYS & {nested[0]}
+            found |= _find_destination_keys(nested)
+        return found
+    return set()
+
+
+def _iter_third_party_scorer_data(value: Any) -> Iterator[dict[str, Any]]:
+    """Yield every ``third_party_scorer_data`` mapping nested anywhere in a serialized scorer.
+
+    Containers such as ensembles (``ensemble_scorer_data.scorers``) and MemAlign judges
+    (``memory_augmented_judge_data.base_judge``) embed whole serialized scorers that
+    ``Scorer.model_validate`` rebuilds recursively, so the walk does not assume a fixed shape.
+    """
+    if isinstance(value, dict):
+        data = value.get("third_party_scorer_data")
+        if isinstance(data, dict):
+            yield data
+        for nested in value.values():
+            yield from _iter_third_party_scorer_data(nested)
+    elif isinstance(value, list):
+        for nested in value:
+            yield from _iter_third_party_scorer_data(nested)
+
+
+def _validate_third_party_scorer_data(serialized_scorer: dict[str, Any]) -> None:
+    """Reject third-party scorer ``kwargs`` that would steer the judge's outbound requests.
+
+    ``third_party_scorer_data`` is rebuilt by reflective instantiation and its ``kwargs`` reach
+    the wrapped library's LLM client unchanged: the TruLens LiteLLM fallback forwards them into
+    every ``litellm.completion()`` call, so ``api_base`` and its aliases let a caller pick the
+    host the server connects to. The server is the trust boundary for these payloads, so the
+    gateway destination keys are rejected here at any nesting depth (``completion_kwargs``,
+    ``model_kwargs``, ...) and inside any wrapping scorer.
+    """
+    for data in _iter_third_party_scorer_data(serialized_scorer):
+        kwargs = data.get("kwargs")
+        # Deserialization runs `dict(kwargs or {})`, so only a mapping (or null) is a valid shape.
+        if kwargs is not None and not isinstance(kwargs, dict):
+            raise MlflowException.invalid_parameter_value(
+                "third_party_scorer_data.kwargs must be a JSON object, got "
+                f"{type(kwargs).__name__}."
+            )
+        if found := sorted(_find_destination_keys(kwargs)):
+            raise MlflowException.invalid_parameter_value(
+                f"third_party_scorer_data.kwargs must not contain {', '.join(map(repr, found))}: "
+                "these options choose where the scorer's LLM client sends requests. Configure "
+                "the judge endpoint on the server instead, for example through a gateway "
+                "endpoint ('gateway:/<name>') or the provider's environment variables."
+            )
+
+
+def _validate_mcp_icon_url(url: str) -> None:
+    """Validate an MCP icon URL on write/update requests.
+
+    Default behavior accepts only public HTTPS targets. This follows the
+    existing webhook pattern for scheme and private-IP controls, with an
+    optional hostname allowlist layered on top for stricter deployments.
+
+    Operators can further configure:
+    - ``MLFLOW_ICON_URL_ALLOWED_SCHEMES`` to allow schemes like ``http``
+    - ``MLFLOW_ICON_URL_ALLOW_PRIVATE_IPS=true`` to allow localhost /
+      loopback / private-network targets
+    - ``MLFLOW_ICON_URL_ALLOWED_DOMAINS`` for a strict hostname allowlist
+    """
+    allowed_schemes = MLFLOW_ICON_URL_ALLOWED_SCHEMES.get()
+    allow_private_ips = MLFLOW_ICON_URL_ALLOW_PRIVATE_IPS.get()
+    _validate_public_https_url(
+        url,
+        field_name="Icon URL",
+        allowed_schemes=allowed_schemes,
+        allow_private_ips=allow_private_ips,
+    )
+
+    allowed_domains = MLFLOW_ICON_URL_ALLOWED_DOMAINS.get()
+    if not allowed_domains:
+        return
+
+    hostname = urllib.parse.urlparse(url).hostname
+    if not hostname:
+        raise MlflowException.invalid_parameter_value(f"Icon URL must include a hostname: {url!r}")
+
+    normalized_hostname = hostname.lower()
+    normalized_allowed_domains = [pattern.lower() for pattern in allowed_domains]
+    if not any(fnmatch(normalized_hostname, pattern) for pattern in normalized_allowed_domains):
+        raise MlflowException.invalid_parameter_value(
+            f"Icon URL host {hostname!r} is not in the allowed domain list: "
+            f"{', '.join(allowed_domains)}."
+        )
+
+
+def _validate_mcp_icon_mime_type(mime_type: str | None) -> None:
+    if mime_type is None:
+        return
+
+    if not isinstance(mime_type, str):
+        raise MlflowException.invalid_parameter_value(
+            f"Invalid icon mimeType {mime_type!r}. Allowed values must use the 'image/*' media "
+            "type."
+        )
+
+    normalized = mime_type.strip().lower()
+    if not normalized.startswith("image/") or normalized == "image/":
+        raise MlflowException.invalid_parameter_value(
+            f"Invalid icon mimeType {mime_type!r}. Allowed values must use the 'image/*' "
+            "media type."
+        )
+
+
+def _validate_mcp_list_max_length(items: list[Any], field_name: str, max_length: int) -> None:
+    if len(items) > max_length:
+        raise MlflowException.invalid_parameter_value(
+            f"Invalid {field_name}. It must contain at most {max_length} items."
+        )
+
+
+def _validate_mcp_initial_status(status: Any, field_name: str = "status") -> None:
+    normalized_status = getattr(status, "value", status)
+    if normalized_status not in {"draft", "active"}:
+        raise MlflowException.invalid_parameter_value(
+            f"Initial MCP server registration {field_name} must be 'draft' or 'active'."
+        )
+
+
+def _validate_mcp_icon_payloads(icons: Any, field_name: str = "icons") -> None:
+    if icons is None:
+        return
+
+    if not isinstance(icons, list):
+        raise MlflowException.invalid_parameter_value(f"Invalid {field_name}. Expected a list.")
+
+    _validate_mcp_list_max_length(icons, field_name, _MAX_MCP_ICONS_PER_LIST)
+
+    for idx, icon in enumerate(icons):
+        icon_field_name = f"{field_name}[{idx}]"
+        if not isinstance(icon, dict):
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid {icon_field_name}. Expected an object."
+            )
+        if "src" not in icon:
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid {icon_field_name}. Missing required key 'src'."
+            )
+
+        _validate_mcp_icon_url(icon["src"])
+        _validate_mcp_icon_mime_type(icon.get("mimeType"))
+
+
+def _strip_mcp_icon_response_fields(
+    icons: list[dict[str, Any]] | None,
+    field_name: str = "icons",
+) -> list[dict[str, Any]] | None:
+    """Sanitize response-only icon fields before persisting write payloads.
+
+    ``source="server"`` is ignored (stripped) so clients can echo resolved server
+    icons on update. ``source="version"`` is rejected because writing it would
+    persist a version-resolved icon as an explicit server override.
+    """
+    if icons is None:
+        return None
+
+    sanitized: list[dict[str, Any]] = []
+    for idx, icon in enumerate(icons):
+        if not isinstance(icon, dict):
+            sanitized.append(icon)
+            continue
+
+        source = icon.get("source")
+        if source == "version":
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid {field_name}[{idx}].source: 'version' is response-only and "
+                "cannot be written. Writing it would persist a version-resolved icon "
+                "as a server override. Omit source, or send source='server' when "
+                "echoing a server icon."
+            )
+
+        # Ignore response-only source="server" (and drop any other source key).
+        sanitized.append({key: value for key, value in icon.items() if key != "source"})
+    return sanitized
+
+
+def _validate_mcp_tool_payloads(tools: Any, field_name: str = "tools") -> None:
+    if tools is None:
+        return
+
+    if not isinstance(tools, list):
+        raise MlflowException.invalid_parameter_value(f"Invalid {field_name}. Expected a list.")
+
+    _validate_mcp_list_max_length(tools, field_name, _MAX_MCP_TOOLS_PER_LIST)
+
+
 def _validate_webhook_url(url: str) -> None:
     if not isinstance(url, str):
         raise MlflowException.invalid_parameter_value(
@@ -736,6 +1358,15 @@ def _validate_webhook_url(url: str) -> None:
             f"Invalid webhook URL scheme: {parsed_url.scheme!r}. "
             f"Allowed schemes are: {', '.join(schemes)}."
         )
+
+    hostname = parsed_url.hostname
+    if not hostname:
+        raise MlflowException.invalid_parameter_value(
+            f"Webhook URL must include a hostname: {url!r}"
+        )
+
+    if not _MLFLOW_WEBHOOK_ALLOW_PRIVATE_IPS.get():
+        _validate_hostname_resolves_to_public_ips(hostname, "Webhook URL")
 
 
 def _validate_webhook_events(events: list[WebhookEvent]) -> None:

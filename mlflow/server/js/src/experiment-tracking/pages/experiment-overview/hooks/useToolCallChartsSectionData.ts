@@ -32,14 +32,16 @@ export interface UseToolCallChartsSectionDataResult {
  *
  * @returns Tool names, error rates, loading state, and error state
  */
-export function useToolCallChartsSectionData(): UseToolCallChartsSectionDataResult {
-  const { experimentId, startTimeMs, endTimeMs } = useOverviewChartContext();
+export function useToolCallChartsSectionData({
+  enabled = true,
+}: { enabled?: boolean } = {}): UseToolCallChartsSectionDataResult {
+  const { experimentIds, startTimeMs, endTimeMs } = useOverviewChartContext();
   // Filter for TOOL type spans
   const toolFilter = useMemo(() => [createSpanFilter(SpanFilterKey.TYPE, SpanType.TOOL)], []);
 
   // Query span counts grouped by span_name and span_status to get list of tools and their error rates
   const { data, isLoading, error } = useTraceMetricsQuery({
-    experimentId,
+    experimentIds,
     startTimeMs,
     endTimeMs,
     viewType: MetricViewType.SPANS,
@@ -47,6 +49,7 @@ export function useToolCallChartsSectionData(): UseToolCallChartsSectionDataResu
     aggregations: [{ aggregation_type: AggregationType.COUNT }],
     filters: toolFilter,
     dimensions: [SpanDimensionKey.SPAN_NAME, SpanDimensionKey.SPAN_STATUS],
+    enabled,
   });
 
   // Extract tool names and calculate overall error rates
@@ -67,7 +70,7 @@ export function useToolCallChartsSectionData(): UseToolCallChartsSectionDataResu
         toolData.set(name, { error: 0, total: 0 });
       }
 
-      const tool = toolData.get(name)!;
+      const tool = toolData.get(name) as { error: number; total: number };
       tool.total += count;
       if (status === SpanStatus.ERROR) {
         tool.error += count;

@@ -14,12 +14,13 @@ from typing import Any
 
 from mlflow.entities.evaluation_dataset import EvaluationDataset as EntityEvaluationDataset
 from mlflow.exceptions import MlflowException
+from mlflow.genai.datasets.entities import EvaluationDatasetVersion
 from mlflow.genai.datasets.evaluation_dataset import EvaluationDataset
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
 from mlflow.store.tracking import SEARCH_EVALUATION_DATASETS_MAX_RESULTS
 from mlflow.tracking import get_tracking_uri
 from mlflow.tracking.client import MlflowClient
-from mlflow.utils.annotations import deprecated_parameter, experimental
+from mlflow.utils.annotations import deprecated_parameter
 from mlflow.utils.uri import get_db_info_from_uri, is_databricks_uri
 
 _logger = logging.getLogger(__name__)
@@ -158,6 +159,14 @@ def _get_dataset_by_name(name: str) -> EntityEvaluationDataset:
                 "Use 'dataset_id' for unambiguous retrieval.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
+
+
+def _resolve_dataset_version_arg(
+    version: int | EvaluationDatasetVersion | None,
+) -> int | None:
+    if isinstance(version, EvaluationDatasetVersion):
+        return version.version
+    return version
 
 
 @deprecated_parameter("uc_table_name", "name")
@@ -317,6 +326,7 @@ def delete_dataset(
 def get_dataset(
     name: str | None = None,
     dataset_id: str | None = None,
+    version: int | EvaluationDatasetVersion | None = None,
 ) -> "EvaluationDataset":
     """
     Get the dataset with the given name or ID.
@@ -325,6 +335,9 @@ def get_dataset(
         name: The name of the dataset. In Databricks, this is the UC table name.
             In non-Databricks environments, this will search for a dataset with the given name.
         dataset_id: The ID of the dataset (non-Databricks only).
+        version: The immutable Databricks dataset version to retrieve. This can be an integer
+            or an ``EvaluationDatasetVersion`` returned by ``dataset.list_versions()``. This
+            parameter is not supported in non-Databricks environments.
 
     Returns:
         An EvaluationDataset object representing the retrieved dataset.
@@ -367,14 +380,19 @@ def get_dataset(
 
     if is_databricks_uri(get_tracking_uri()):
         _validate_databricks_params(name, dataset_id)
+        resolved_version = _resolve_dataset_version_arg(version)
         try:
             from databricks.agents.datasets import get_dataset as db_get
 
             with _databricks_profile_env():
+                if version is not None:
+                    return EvaluationDataset(db_get(name, version=resolved_version))
                 return EvaluationDataset(db_get(name))
         except ImportError as e:
             raise ImportError(_ERROR_MSG) from e
     else:
+        if version is not None:
+            raise NotImplementedError("`version` is only supported for Databricks datasets.")
         _validate_non_databricks_get_params(name, dataset_id)
 
         if name is not None:
@@ -383,7 +401,6 @@ def get_dataset(
         return EvaluationDataset(MlflowClient().get_dataset(dataset_id))
 
 
-@experimental(version="3.4.0")
 def search_datasets(
     experiment_ids: str | list[str] | None = None,
     filter_string: str | None = None,
@@ -391,7 +408,7 @@ def search_datasets(
     order_by: list[str] | None = None,
 ) -> list[EvaluationDataset]:
     """
-    Search for datasets (non-Databricks only).
+    Search for datasets.
 
     .. warning::
         Calling ``search_datasets()`` without any parameters will return ALL datasets
@@ -518,9 +535,6 @@ def search_datasets(
                 print(f"{dataset.name} (ID: {dataset.dataset_id})")
                 print(f"  Tags: {dataset.tags}")
 
-    Note:
-        This API is not available in Databricks environments. Use Unity Catalog
-        search capabilities in Databricks instead.
     """
     if isinstance(experiment_ids, str):
         experiment_ids = [experiment_ids]
@@ -561,7 +575,6 @@ def search_datasets(
     return [EvaluationDataset(dataset) for dataset in mlflow_datasets]
 
 
-@experimental(version="3.4.0")
 def set_dataset_tags(
     dataset_id: str,
     tags: dict[str, Any],
@@ -634,7 +647,6 @@ def set_dataset_tags(
     MlflowClient().set_dataset_tags(dataset_id, tags)
 
 
-@experimental(version="3.4.0")
 def delete_dataset_tag(
     dataset_id: str,
     key: str,
@@ -773,6 +785,7 @@ def remove_dataset_from_experiments(
 
 __all__ = [
     "EvaluationDataset",
+    "EvaluationDatasetVersion",
     "add_dataset_to_experiments",
     "create_dataset",
     "delete_dataset",

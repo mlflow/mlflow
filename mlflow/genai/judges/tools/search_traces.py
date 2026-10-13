@@ -26,7 +26,6 @@ from mlflow.types.llm import (
     ToolDefinition,
     ToolParamsSchema,
 )
-from mlflow.utils.annotations import experimental
 
 _logger = logging.getLogger(__name__)
 
@@ -105,7 +104,6 @@ def _get_experiment_id(trace: Trace) -> str:
     return trace.info.trace_location.mlflow_experiment.experiment_id
 
 
-@experimental(version="3.5.0")
 class SearchTracesTool(JudgeTool):
     """
     Tool for searching and retrieving traces from an MLflow experiment.
@@ -225,14 +223,12 @@ class SearchTracesTool(JudgeTool):
 
         _logger.debug(
             "Searching for traces with properties:\n\n"
-            + "\n".join(
-                [
-                    f"* experiment_id={experiment_id}",
-                    f"* filter_string={filter_string}",
-                    f"* order_by={order_by}",
-                    f"* max_results={max_results}",
-                ]
-            )
+            + "\n".join([
+                f"* experiment_id={experiment_id}",
+                f"* filter_string={filter_string}",
+                f"* order_by={order_by}",
+                f"* max_results={max_results}",
+            ])
         )
 
         try:

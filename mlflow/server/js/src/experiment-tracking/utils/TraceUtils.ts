@@ -10,13 +10,13 @@ import {
   TracesServiceV4,
   TracesServiceV3,
   isV4TraceId,
+  getExperimentTraceV3,
 } from '@databricks/web-shared/model-trace-explorer';
 import {
+  getSpanAttribute,
   getSpansLocation,
   TRACKING_STORE_SPANS_LOCATION,
-} from '../../shared/web-shared/genai-traces-table/utils/TraceUtils';
-import { getExperimentTraceV3 } from '../../shared/web-shared/model-trace-explorer/api';
-import { getSpanAttribute } from '@databricks/web-shared/genai-traces-table';
+} from '@databricks/web-shared/genai-traces-table';
 
 export async function getTrace(
   traceId?: string,
@@ -33,10 +33,14 @@ export async function getTrace(
   // only set when the backend is OSS SQLAlchemyStore.
   if (getSpansLocation(traceInfo as ModelTraceInfoV3) === TRACKING_STORE_SPANS_LOCATION) {
     const traceResp = await getExperimentTraceV3({ traceId });
-    if (traceResp?.trace && traceResp.trace.data) {
+    // The get-trace response is { trace: { trace_info, spans } } (see GetTrace.Response),
+    // so the spans live under trace.spans. Reshape into the { info, data: { spans } } shape
+    // the UI expects, mirroring getTraceV4. Returning here avoids falling through to the
+    // artifact route, which would issue a second full-trace request for the same trace.
+    if (traceResp?.trace) {
       return {
         info: traceResp.trace.trace_info || {},
-        data: traceResp.trace.data,
+        data: { spans: traceResp.trace.spans ?? [] },
       };
     }
   }
@@ -53,7 +57,6 @@ export async function getTrace(
   if (traceId.startsWith('tr-')) {
     return TracesServiceV3.getTraceV3(traceId);
   }
-
   return getTraceLegacy(traceId);
 }
 

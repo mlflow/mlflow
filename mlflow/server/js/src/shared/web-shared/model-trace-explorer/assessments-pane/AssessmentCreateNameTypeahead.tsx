@@ -1,5 +1,5 @@
 import type { Dispatch, SetStateAction } from 'react';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import {
   FormUI,
@@ -9,10 +9,21 @@ import {
   TypeaheadComboboxRoot,
   useComboboxState,
 } from '@databricks/design-system';
-import { useIntl } from '@databricks/i18n';
+import { defineMessages, useIntl } from '@databricks/i18n';
 
 import type { AssessmentSchema } from '../contexts/AssessmentSchemaContext';
 import { useAssessmentSchemas } from '../contexts/AssessmentSchemaContext';
+
+const placeholderMessages = defineMessages({
+  feedback: {
+    defaultMessage: 'Enter a feedback name',
+    description: 'Placeholder for the feedback name typeahead',
+  },
+  expectation: {
+    defaultMessage: 'Enter an expectation name',
+    description: 'Placeholder for the expectation name typeahead',
+  },
+});
 
 const getDefaultSchema = (name: string): AssessmentSchema => ({
   name,
@@ -26,12 +37,14 @@ export const AssessmentCreateNameTypeahead = ({
   nameError,
   setNameError,
   handleChangeSchema,
+  assessmentType,
 }: {
   name: string;
   setName: Dispatch<SetStateAction<string>>;
   nameError: React.ReactNode | null;
   setNameError: Dispatch<SetStateAction<React.ReactNode | null>>;
   handleChangeSchema: (schema: AssessmentSchema | null) => void;
+  assessmentType: 'feedback' | 'expectation';
 }) => {
   const { schemas } = useAssessmentSchemas();
   const intl = useIntl();
@@ -57,11 +70,14 @@ export const AssessmentCreateNameTypeahead = ({
   const formOnChange = useCallback(
     (newSelectedItem: AssessmentSchema | null) => {
       setSelectedItem(newSelectedItem);
-      handleChangeSchema(newSelectedItem);
       setNameError(null);
     },
-    [handleChangeSchema, setNameError],
+    [setNameError],
   );
+
+  useEffect(() => {
+    handleChangeSchema(selectedItem);
+  }, [handleChangeSchema, selectedItem]);
 
   const comboboxState = useComboboxState<AssessmentSchema | null>({
     componentId: 'shared.model-trace-explorer.assessment-name-typeahead',
@@ -96,10 +112,7 @@ export const AssessmentCreateNameTypeahead = ({
     >
       <TypeaheadComboboxInput
         data-testid="assessment-name-typeahead-input"
-        placeholder={intl.formatMessage({
-          defaultMessage: 'Enter an assessment name',
-          description: 'Placeholder for the assessment name typeahead',
-        })}
+        placeholder={intl.formatMessage(placeholderMessages[assessmentType])}
         validationState={nameError ? 'error' : undefined}
         comboboxState={comboboxState}
         formOnChange={formOnChange}

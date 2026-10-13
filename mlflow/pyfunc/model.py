@@ -11,6 +11,8 @@ import lzma
 import os
 import shutil
 from abc import ABCMeta, abstractmethod
+from collections.abc import Sequence
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Generator, Iterator
 
@@ -23,6 +25,7 @@ from mlflow.entities.span import SpanType
 from mlflow.environment_variables import (
     MLFLOW_ALLOW_PICKLE_DESERIALIZATION,
     MLFLOW_LOG_MODEL_COMPRESSION,
+    MLFLOW_UV_AUTO_DETECT,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
@@ -95,6 +98,8 @@ from mlflow.utils.environment import (
 from mlflow.utils.file_utils import TempDir, get_total_file_size, write_to
 from mlflow.utils.model_utils import _get_flavor_configuration, _validate_infer_and_copy_code_paths
 from mlflow.utils.requirements_utils import _get_pinned_requirement
+from mlflow.utils.uri import validate_path_within_directory
+from mlflow.utils.uv_utils import copy_uv_project_files
 
 CONFIG_KEY_ARTIFACTS = "artifacts"
 CONFIG_KEY_ARTIFACT_RELATIVE_PATH = "path"
@@ -113,6 +118,115 @@ _COMPRESSION_INFO = {
 _DEFAULT_RESPONSES_AGENT_METADATA_TASK = "agent/v1/responses"
 
 _logger = logging.getLogger(__name__)
+
+
+@dataclass
+class _DownloadedArtifact:
+    names: list[str]
+    uri: str
+    source_root: Path
+    flat_root: Path
+    final_root: Path | None = None
+
+
+def _artifact_roots_overlap(left: Path, right: Path) -> bool:
+    left_parts = tuple(map(str.casefold, left.parts))
+    right_parts = tuple(map(str.casefold, right.parts))
+    shared_length = min(len(left_parts), len(right_parts))
+    return left_parts[:shared_length] == right_parts[:shared_length]
+
+
+def _resolve_artifact_path_collisions(
+    artifacts: list[_DownloadedArtifact], reserved_roots: Sequence[Path] = ()
+) -> None:
+    colliding = set()
+    for index, artifact in enumerate(artifacts):
+        if any(_artifact_roots_overlap(artifact.flat_root, root) for root in reserved_roots):
+            colliding.add(index)
+        for other_index in range(index):
+            if _artifact_roots_overlap(artifact.flat_root, artifacts[other_index].flat_root):
+                colliding.update((index, other_index))
+
+    occupied_top_levels = {
+        artifact.flat_root.parts[0]
+        for index, artifact in enumerate(artifacts)
+        if index not in colliding and artifact.flat_root.parts
+    }
+    occupied_top_levels.update(root.parts[0] for root in reserved_roots if root.parts)
+    next_namespace = 0
+    for index, artifact in enumerate(artifacts):
+        if index not in colliding:
+            artifact.final_root = artifact.flat_root
+            continue
+
+        while str(next_namespace) in occupied_top_levels:
+            next_namespace += 1
+        namespace = str(next_namespace)
+        occupied_top_levels.add(namespace)
+        next_namespace += 1
+        artifact.final_root = (
+            Path(namespace) if not artifact.flat_root.parts else Path(namespace, artifact.flat_root)
+        )
+
+
+def _validate_downloaded_artifact(staging_dir: Path, source_root: Path, artifact_name: str) -> Path:
+    # Artifact repositories must return a path within ``dst_path``. Collision detection compares
+    # ``flat_root.parts``, so reject non-normalized paths before planning destinations.
+    try:
+        validate_path_within_directory(str(staging_dir), str(source_root))
+        flat_root = source_root.relative_to(staging_dir)
+    except (MlflowException, ValueError) as e:
+        raise MlflowException.invalid_parameter_value(
+            "The artifact repository returned a path outside the download directory for "
+            f"artifact {artifact_name!r}."
+        ) from e
+
+    if source_root.is_symlink():
+        raise MlflowException.invalid_parameter_value(
+            f"The artifact repository returned a symbolic link for artifact {artifact_name!r}; "
+            "expected a materialized file or directory."
+        )
+    if not source_root.exists():
+        raise MlflowException.invalid_parameter_value(
+            f"The artifact repository returned a missing path for artifact {artifact_name!r}."
+        )
+    if ".." in flat_root.parts:
+        raise MlflowException.invalid_parameter_value(
+            "The artifact repository returned a non-normalized path containing '..' for "
+            f"artifact {artifact_name!r}."
+        )
+    return flat_root
+
+
+def _move_downloaded_artifacts(
+    model_path: Path, artifacts: list[_DownloadedArtifact]
+) -> dict[str, dict[str, str]]:
+    artifacts_dir = model_path / "artifacts"
+    saved_artifacts_config = {}
+    for artifact in artifacts:
+        if artifact.final_root is None:
+            raise MlflowException(
+                f"Artifact destination was not resolved for artifact {artifact.names[0]!r}."
+            )
+        destination = artifacts_dir / artifact.final_root
+        validate_path_within_directory(str(artifacts_dir), str(destination))
+
+        if artifact.final_root.parts:
+            destination.parent.mkdir(parents=True, exist_ok=True)
+        if os.path.lexists(destination):
+            raise MlflowException.invalid_parameter_value(
+                f"Cannot save artifact {artifact.names[0]!r} because destination "
+                f"{destination.relative_to(model_path).as_posix()!r} already exists."
+            )
+        shutil.move(str(artifact.source_root), str(destination))
+
+        saved_artifact_subpath = destination.relative_to(model_path).as_posix()
+        for artifact_name in artifact.names:
+            saved_artifacts_config[artifact_name] = {
+                CONFIG_KEY_ARTIFACT_RELATIVE_PATH: saved_artifact_subpath,
+                CONFIG_KEY_ARTIFACT_URI: artifact.uri,
+            }
+    return saved_artifacts_config
 
 
 def get_default_pip_requirements():
@@ -551,12 +665,10 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
     .. code-block:: python
 
         chat_agent = MyChatAgent()
-        chat_agent.predict(
-            {
-                "messages": [{"role": "user", "content": "What is 10 + 10?"}],
-                "context": {"conversation_id": "123", "user_id": "456"},
-            }
-        )
+        chat_agent.predict({
+            "messages": [{"role": "user", "content": "What is 10 + 10?"}],
+            "context": {"conversation_id": "123", "user_id": "456"},
+        })
 
     See an example implementation of ``predict`` and ``predict_stream`` for a LangGraph agent in
     the :py:class:`ChatAgentState <mlflow.langchain.chat_agent_langgraph.ChatAgentState>`
@@ -587,12 +699,10 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
     .. code-block:: python
 
         loaded_model = mlflow.pyfunc.load_model(tmp_path)
-        loaded_model.predict(
-            {
-                "messages": [{"role": "user", "content": "What is 10 + 10?"}],
-                "context": {"conversation_id": "123", "user_id": "456"},
-            }
-        )
+        loaded_model.predict({
+            "messages": [{"role": "user", "content": "What is 10 + 10?"}],
+            "context": {"conversation_id": "123", "user_id": "456"},
+        })
 
     To make logging ChatAgent models as easy as possible, MLflow has built in the following
     features:
@@ -726,12 +836,10 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
         .. code-block:: python
 
             chat_agent = ChatAgent()
-            chat_agent.predict(
-                {
-                    "messages": [{"role": "user", "content": "What is 10 + 10?"}],
-                    "context": {"conversation_id": "123", "user_id": "456"},
-                }
-            )
+            chat_agent.predict({
+                "messages": [{"role": "user", "content": "What is 10 + 10?"}],
+                "context": {"conversation_id": "123", "user_id": "456"},
+            })
 
         Args:
             messages (List[:py:class:`ChatAgentMessage <mlflow.types.agent.ChatAgentMessage>`]):
@@ -769,12 +877,10 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
         .. code-block:: python
 
             chat_agent = ChatAgent()
-            for event in chat_agent.predict_stream(
-                {
-                    "messages": [{"role": "user", "content": "What is 10 + 10?"}],
-                    "context": {"conversation_id": "123", "user_id": "456"},
-                }
-            ):
+            for event in chat_agent.predict_stream({
+                "messages": [{"role": "user", "content": "What is 10 + 10?"}],
+                "context": {"conversation_id": "123", "user_id": "456"},
+            }):
                 print(event)
 
         To support streaming the output of your agent, override this method in your subclass of
@@ -999,7 +1105,7 @@ class ResponsesAgent(PythonModel, metaclass=ABCMeta):
 
     @staticmethod
     def prep_msgs_for_cc_llm(
-        responses_input: list[dict[str, Any] | Message | OutputItem],
+        responses_input: Sequence[dict[str, Any] | Message | OutputItem],
     ) -> list[dict[str, Any]]:
         "Convert from Responses input items to ChatCompletion dictionaries"
         return to_chat_completions_input(responses_input)
@@ -1033,6 +1139,9 @@ def _save_model_with_class_artifacts_params(
     streamable=None,
     model_code_path=None,
     infer_code_paths=False,
+    uv_project_path=None,
+    uv_groups=None,
+    uv_extras=None,
 ):
     """
     Args:
@@ -1072,6 +1181,10 @@ def _save_model_with_class_artifacts_params(
                     If None, MLflow will try to inspect if the model supports streaming
                     by checking if `predict_stream` method exists. Default None.
     """
+    # Capture original working directory for uv project detection
+    # This must be done before any operations that might change cwd
+    original_cwd = Path.cwd()
+
     if mlflow_model is None:
         mlflow_model = Model()
 
@@ -1099,10 +1212,13 @@ def _save_model_with_class_artifacts_params(
                 python_model, os.path.join(path, saved_python_model_subpath), compression
             )
         except Exception as e:
+            # error_code is INVALID_PARAMETER_VALUE but this is a model serialization failure
             raise MlflowException(
                 "Failed to serialize Python model. Please save the model into a python file "
                 "and use code-based logging method instead. See"
-                "https://mlflow.org/docs/latest/models.html#models-from-code for more information."
+                "https://mlflow.org/docs/latest/models.html#models-from-code for more information.",
+                error_code=INVALID_PARAMETER_VALUE,
+                error_class="MODEL_SERIALIZATION_FAILED",
             ) from e
 
         custom_model_config_kwargs[CONFIG_KEY_PYTHON_MODEL] = saved_python_model_subpath
@@ -1112,6 +1228,8 @@ def _save_model_with_class_artifacts_params(
         with TempDir() as tmp_artifacts_dir:
             saved_artifacts_dir_subpath = "artifacts"
             hf_prefix = "hf:/"
+            hf_artifact_roots = []
+            downloaded_artifacts = {}
             for artifact_name, artifact_uri in artifacts.items():
                 if artifact_uri.startswith(hf_prefix):
                     try:
@@ -1139,27 +1257,36 @@ def _save_model_with_class_artifacts_params(
                     saved_artifact_subpath = (
                         Path(snapshot_location).relative_to(Path(os.path.realpath(path))).as_posix()
                     )
+                    saved_artifacts_config[artifact_name] = {
+                        CONFIG_KEY_ARTIFACT_RELATIVE_PATH: saved_artifact_subpath,
+                        CONFIG_KEY_ARTIFACT_URI: artifact_uri,
+                    }
+                    hf_artifact_roots.append(Path(artifact_name))
                 else:
-                    tmp_artifact_path = _download_artifact_from_uri(
-                        artifact_uri=artifact_uri, output_path=tmp_artifacts_dir.path()
+                    if artifact := downloaded_artifacts.get(artifact_uri):
+                        artifact.names.append(artifact_name)
+                        continue
+
+                    staging_dir = Path(tmp_artifacts_dir.path(str(len(downloaded_artifacts))))
+                    staging_dir.mkdir()
+                    source_root = Path(
+                        _download_artifact_from_uri(
+                            artifact_uri=artifact_uri, output_path=str(staging_dir)
+                        )
+                    )
+                    flat_root = _validate_downloaded_artifact(
+                        staging_dir, source_root, artifact_name
+                    )
+                    downloaded_artifacts[artifact_uri] = _DownloadedArtifact(
+                        names=[artifact_name],
+                        uri=artifact_uri,
+                        source_root=source_root,
+                        flat_root=flat_root,
                     )
 
-                    relative_path = (
-                        Path(tmp_artifact_path)
-                        .relative_to(Path(tmp_artifacts_dir.path()))
-                        .as_posix()
-                    )
-
-                    saved_artifact_subpath = os.path.join(
-                        saved_artifacts_dir_subpath, relative_path
-                    )
-
-                saved_artifacts_config[artifact_name] = {
-                    CONFIG_KEY_ARTIFACT_RELATIVE_PATH: saved_artifact_subpath,
-                    CONFIG_KEY_ARTIFACT_URI: artifact_uri,
-                }
-
-            shutil.move(tmp_artifacts_dir.path(), os.path.join(path, saved_artifacts_dir_subpath))
+            non_hf_artifacts = list(downloaded_artifacts.values())
+            _resolve_artifact_path_collisions(non_hf_artifacts, reserved_roots=hf_artifact_roots)
+            saved_artifacts_config.update(_move_downloaded_artifacts(Path(path), non_hf_artifacts))
         custom_model_config_kwargs[CONFIG_KEY_ARTIFACTS] = saved_artifacts_config
 
     if streamable is None:
@@ -1203,6 +1330,13 @@ def _save_model_with_class_artifacts_params(
     # `mlflow_model.code` is updated, re-generate `MLmodel` file.
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
+    if uv_project_path is not None:
+        uv_source_dir = uv_project_path
+    elif MLFLOW_UV_AUTO_DETECT.get():
+        uv_source_dir = original_cwd
+    else:
+        uv_source_dir = None
+
     if conda_env is None:
         if pip_requirements is None:
             default_reqs = get_default_pip_requirements()
@@ -1218,6 +1352,9 @@ def _save_model_with_class_artifacts_params(
                 mlflow.pyfunc.FLAVOR_NAME,
                 fallback=default_reqs,
                 extra_env_vars=extra_env_vars,
+                uv_project_dir=uv_source_dir,
+                uv_groups=uv_groups,
+                uv_extras=uv_extras,
             )
             default_reqs = sorted(set(inferred_reqs).union(default_reqs))
         else:
@@ -1239,6 +1376,10 @@ def _save_model_with_class_artifacts_params(
 
     # Save `requirements.txt`
     write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
+
+    # Copy uv project files (uv.lock and pyproject.toml) if detected
+    if uv_source_dir is not None:
+        copy_uv_project_files(dest_dir=path, source_dir=uv_source_dir)
 
     _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
 
@@ -1262,13 +1403,14 @@ def _load_context_model_and_signature(model_path: str, model_config: dict[str, A
             and not is_in_databricks_runtime()
             and not is_in_databricks_model_serving_environment()
         ):
-            mlflow.pyfunc._logger.warning(
-                "Saving the Pyfunc models in the CloudPickle format requires exercising "
-                "caution as Python's object serialization mechanism may execute arbitrary code "
-                "during deserialization. "
-                "The recommended safe alternative is saving it as the model-from-code "
-                "artifacts, see https://mlflow.org/docs/latest/ml/model/models-from-code/ "
-                "for details",
+            raise MlflowException(
+                "Deserializing model using pickle is disallowed, but this model is saved "
+                "in cloudpickle format. The recommended way is to save the model as "
+                "models-from-code artifacts, see "
+                "https://mlflow.org/docs/latest/ml/model/models-from-code/ for details. "
+                "Another workaround is to set environment "
+                "variable 'MLFLOW_ALLOW_PICKLE_DESERIALIZATION' to 'true' to allow "
+                "deserializing model using pickle."
             )
         python_model_cloudpickle_version = pyfunc_config.get(CONFIG_KEY_CLOUDPICKLE_VERSION, None)
         if python_model_cloudpickle_version is None:

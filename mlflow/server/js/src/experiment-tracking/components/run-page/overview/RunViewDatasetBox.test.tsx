@@ -7,6 +7,7 @@ import userEvent from '@testing-library/user-event';
 import { openDropdownMenu } from '@databricks/design-system/test-utils/rtl';
 import { ExperimentViewDatasetDrawer } from '../../experiment-page/components/runs/ExperimentViewDatasetDrawer';
 import { DesignSystemProvider } from '@databricks/design-system';
+import { MemoryRouter, Route, Routes } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 jest.mock('../../experiment-page/components/runs/ExperimentViewDatasetDrawer', () => ({
   ExperimentViewDatasetDrawer: jest.fn(() => <div />),
 }));
@@ -103,5 +104,37 @@ describe('RunViewDatasetBox', () => {
       // @ts-expect-error Expected 1 arguments, but got 2
       {},
     );
+  });
+
+  test('Evaluation dataset links directly to the dataset detail page instead of opening the drawer', async () => {
+    jest.mocked(ExperimentViewDatasetDrawer).mockClear();
+    const evalDataset = {
+      tags: [],
+      dataset: {
+        digest: 'ev123',
+        name: 'eval_dataset',
+        sourceType: 'mlflow_evaluation_dataset',
+        source: JSON.stringify({ dataset_id: 'd-eval-123' }),
+      },
+    };
+    renderWithIntl(
+      <DesignSystemProvider>
+        <MemoryRouter initialEntries={['/experiments/12345/runs/test-run-uuid']}>
+          <Routes>
+            <Route
+              path="/experiments/:experimentId/runs/:runUuid"
+              element={<RunViewDatasetBox runInfo={testRunInfo} datasets={[evalDataset] as any} tags={testTags} />}
+            />
+          </Routes>
+        </MemoryRouter>
+      </DesignSystemProvider>,
+    );
+
+    const link = screen.getByRole('link', { name: /eval_dataset/ });
+    // Links straight to the dataset detail (dataset id carried in the query param), not the drawer
+    expect(link.getAttribute('href')).toContain('d-eval-123');
+
+    await userEvent.click(link);
+    expect(ExperimentViewDatasetDrawer).not.toHaveBeenCalled();
   });
 });

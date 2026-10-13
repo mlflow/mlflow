@@ -12,7 +12,7 @@ from typing import Any
 import pydantic
 from google.protobuf.descriptor import FieldDescriptor
 from google.protobuf.duration_pb2 import Duration
-from google.protobuf.json_format import MessageToJson, ParseDict
+from google.protobuf.json_format import MessageToDict, ParseDict
 from google.protobuf.struct_pb2 import NULL_VALUE, Value
 from google.protobuf.timestamp_pb2 import Timestamp
 
@@ -109,24 +109,25 @@ def _merge_json_dicts(from_dict, to_dict):
     return to_dict
 
 
-def message_to_json(message):
+def message_to_json(
+    message,
+    *,
+    pretty: bool = True,
+    convert_int64_to_number: bool = True,
+):
     """Converts a message to JSON, using snake_case for field names."""
 
-    # Google's MessageToJson API converts int64 proto fields to JSON strings.
+    # Google's MessageToDict API converts int64 proto fields to JSON strings.
     # For more info, see https://github.com/protocolbuffers/protobuf/issues/2954
-    json_dict_with_int64_as_str = json.loads(
-        MessageToJson(message, preserving_proto_field_name=True)
-    )
-    # We convert this proto message into a JSON dict where only int64 proto fields
-    # are preserved, and they are treated as JSON numbers, not strings.
-    json_dict_with_int64_fields_only = _mark_int64_fields(message)
-    # By merging these two JSON dicts, we end up with a JSON dict where int64 proto fields are not
-    # converted to JSON strings. Int64 keys in proto maps will always be converted to JSON strings
-    # because JSON doesn't support non-string keys.
-    json_dict_with_int64_as_numbers = _merge_json_dicts(
-        json_dict_with_int64_fields_only, json_dict_with_int64_as_str
-    )
-    return json.dumps(json_dict_with_int64_as_numbers, indent=2)
+    json_dict = MessageToDict(message, preserving_proto_field_name=True)
+    if convert_int64_to_number:
+        # Preserve MLflow's existing JSON representation of int64 fields as numbers.
+        # Integer keys in proto maps remain strings because JSON requires string keys.
+        json_dict = _merge_json_dicts(_mark_int64_fields(message), json_dict)
+
+    if pretty:
+        return json.dumps(json_dict, indent=2)
+    return json.dumps(json_dict, separators=(",", ":"))
 
 
 def proto_timestamp_to_milliseconds(timestamp: str) -> int:
@@ -165,37 +166,8 @@ def milliseconds_to_proto_duration(milliseconds: int) -> str:
     return d.ToJsonString()
 
 
-def _stringify_all_experiment_ids(x):
-    """Converts experiment_id fields which are defined as ints into strings in the given json.
-    This is necessary for backwards- and forwards-compatibility with MLflow clients/servers
-    running MLflow 0.9.0 and below, as experiment_id was changed from an int to a string.
-    To note, the Python JSON serializer is happy to auto-convert strings into ints (so a
-    server or client that sees the new format is fine), but is unwilling to convert ints
-    to strings. Therefore, we need to manually perform this conversion.
-
-    This code can be removed after MLflow 1.0, after users have given reasonable time to
-    upgrade clients and servers to MLflow 0.9.1+.
-    """
-    if isinstance(x, dict):
-        items = x.items()
-        for k, v in items:
-            if k == "experiment_id":
-                x[k] = str(v)
-            elif k == "experiment_ids":
-                x[k] = [str(w) for w in v]
-            elif k == "info" and isinstance(v, dict) and "experiment_id" in v and "run_uuid" in v:
-                # shortcut for run info
-                v["experiment_id"] = str(v["experiment_id"])
-            elif k not in ("params", "tags", "metrics"):  # skip run data
-                _stringify_all_experiment_ids(v)
-    elif isinstance(x, list):
-        for y in x:
-            _stringify_all_experiment_ids(y)
-
-
 def parse_dict(js_dict, message):
     """Parses a JSON dictionary into a message proto, ignoring unknown fields in the JSON."""
-    _stringify_all_experiment_ids(js_dict)
     ParseDict(js_dict=js_dict, message=message, ignore_unknown_fields=True)
 
 
@@ -303,6 +275,7 @@ class MlflowFailedTypeConversion(MlflowInvalidInputException):
 
 def cast_df_types_according_to_schema(pdf, schema):
     import numpy as np
+    import pandas as pd
 
     from mlflow.models.utils import _enforce_array, _enforce_map, _enforce_object
     from mlflow.types.schema import AnyType, Array, DataType, Map, Object
@@ -353,8 +326,26 @@ def cast_df_types_according_to_schema(pdf, schema):
                     )
                 elif isinstance(col_type_spec, AnyType):
                     pass
+                elif isinstance(col_type_spec, DataType) and col_type_spec == DataType.datetime:
+                    parsed = pd.to_datetime(pdf[col_name])
+                    # pandas 3 parses to microseconds by default, but `DataType.datetime` is
+                    # nanoseconds. `.dt.unit` is absent before pandas 2, which is always
+                    # nanoseconds.
+                    if pd.api.types.is_datetime64_any_dtype(parsed) and (
+                        getattr(parsed.dt, "unit", "ns") != "ns"
+                    ):
+                        parsed = parsed.dt.as_unit("ns")
+                    pdf[col_name] = parsed
                 else:
-                    pdf[col_name] = pdf[col_name].astype(col_type, copy=False)
+                    # In pandas 3.0+, string columns with NaN are inferred as StringDtype
+                    # instead of object. Skip casting StringDtype to object/numpy str as they
+                    # are compatible; casting would downgrade StringDtype back to object.
+                    if (
+                        col_type == object
+                        or (isinstance(col_type, np.dtype) and col_type.kind == "U")
+                    ) and isinstance(pdf[col_name].dtype, pd.StringDtype):
+                        continue
+                    pdf[col_name] = pdf[col_name].astype(col_type)
             except Exception as ex:
                 raise MlflowFailedTypeConversion(col_name, col_type, ex)
     return pdf
@@ -721,7 +712,7 @@ def dump_input_data(data, inputs_key="inputs", params: dict[str, Any] | None = N
     if isinstance(data, pd.DataFrame):
         post_data = {"dataframe_split": data.to_dict(orient="split")}
     elif isinstance(data, dict):
-        post_data = {inputs_key: {k: get_jsonable_input(k, v) for k, v in data}}
+        post_data = {inputs_key: {k: get_jsonable_input(k, v) for k, v in data.items()}}
     elif isinstance(data, np.ndarray):
         post_data = {inputs_key: data.tolist()}
     elif isinstance(data, list):

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import type { ButtonProps } from '@databricks/design-system';
-import { Button } from '@databricks/design-system';
+import { Button, PlusIcon } from '@databricks/design-system';
 import { CreateModelModal } from './CreateModelModal';
 import { FormattedMessage } from 'react-intl';
 
@@ -32,6 +32,7 @@ export function CreateModelButton({
         type={buttonType}
         onClick={showModal}
         data-testid="create-model-button"
+        icon={buttonType === 'primary' ? <PlusIcon /> : undefined}
       >
         {buttonText}
       </Button>

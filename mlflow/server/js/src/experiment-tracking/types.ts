@@ -75,6 +75,13 @@ export interface RunEntity {
   outputs?: RunInfoOutputsEntity;
 }
 
+/**
+ * RunEntity with children information for UI parent-child hierarchy rendering.
+ */
+export type RunEntityWithChildren = RunEntity & {
+  children?: RunEntityWithChildren[];
+};
+
 export interface RunInfoInputsEntity {
   datasetInputs?: RunDatasetWithTags[];
   modelInputs?: RunModelEntity[];
@@ -132,6 +139,7 @@ export interface ExperimentEntity {
   allowedActions?: string[];
   artifactLocation: string;
   creationTime: number;
+  effectiveTraceArchivalRetention?: string;
   experimentId: string;
   lastUpdateTime: number;
   lifecycleStage: string;

@@ -171,6 +171,7 @@ export const ModelVersionTable = ({
         enableSorting: false,
         header: '', // Status column does not have title
         meta: { styles: { flexBasis: theme.general.heightSm, flexGrow: 0 } },
+        // eslint-disable-next-line @databricks/no-unstable-nested-components -- go/no-nested-components
         cell: ({ row: { original } }) => {
           const { status, status_message } = original || {};
           return (
@@ -196,13 +197,19 @@ export const ModelVersionTable = ({
         }),
         meta: { className: 'model-version' },
         accessorKey: 'version',
+        // eslint-disable-next-line @databricks/no-unstable-nested-components -- go/no-nested-components
         cell: ({ getValue }) => (
           <FormattedMessage
             defaultMessage="<link>Version {versionNumber}</link>"
             description="Link to model version in the model version table"
             values={{
               link: (chunks) => (
-                <Link to={ModelRegistryRoutes.getModelVersionPageRoute(modelName, String(getValue()))}>{chunks}</Link>
+                <Link
+                  componentId="mlflow.model_registry.version_table.version_link"
+                  to={ModelRegistryRoutes.getModelVersionPageRoute(modelName, String(getValue()))}
+                >
+                  {chunks}
+                </Link>
               ),
               versionNumber: getValue(),
             }}
@@ -230,6 +237,7 @@ export const ModelVersionTable = ({
           description: 'Column title text for creator username in model version table',
         }),
         accessorKey: 'user_id',
+        // eslint-disable-next-line @databricks/no-unstable-nested-components -- go/no-nested-components
         cell: ({ getValue }) => <span>{getValue()}</span>,
       },
     );
@@ -246,6 +254,7 @@ export const ModelVersionTable = ({
           }),
           meta: { styles: { flex: 2 } },
           accessorKey: 'tags',
+          // eslint-disable-next-line @databricks/no-unstable-nested-components -- go/no-nested-components
           cell: ({ getValue, row: { original } }) => {
             return (
               <KeyValueTagsEditorCell
@@ -266,6 +275,7 @@ export const ModelVersionTable = ({
             description: 'Column title text for model version aliases in model version table',
           }),
           meta: { styles: { flex: 2 }, multiline: true },
+          // eslint-disable-next-line @databricks/no-unstable-nested-components -- go/no-nested-components
           cell: ({ getValue, row: { original } }) => {
             const mvAliases = aliasesByVersion[original.version] || [];
             return (

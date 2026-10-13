@@ -28,19 +28,14 @@ const getStyles = (theme: Theme) => ({
     flexDirection: 'column',
     gap: theme.spacing.sm,
   } as const,
-  configColumnStyle: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: theme.spacing.xs,
-  } as const,
-  configRowStyle: {
-    display: 'flex',
-    gap: theme.spacing.xs,
-  } as const,
   timestampRowStyle: {
     display: 'flex',
     alignItems: 'center',
     gap: theme.spacing.xs,
+  } as const,
+  dividerStyle: {
+    borderTop: `1px solid ${theme.colors.borderDecorative}`,
+    margin: `${theme.spacing.xs}px 0`,
   } as const,
   cardStyle: {
     padding: theme.spacing.md,
@@ -57,9 +52,10 @@ const getStyles = (theme: Theme) => ({
 interface SecretDetailsProps {
   secret: SecretInfo;
   showCard?: boolean;
+  hideTitle?: boolean;
 }
 
-export const SecretDetails = ({ secret, showCard = true }: SecretDetailsProps) => {
+export const SecretDetails = ({ secret, showCard = true, hideTitle = false }: SecretDetailsProps) => {
   const { theme } = useDesignSystemTheme();
   const styles = useMemo(() => getStyles(theme), [theme]);
 
@@ -69,10 +65,14 @@ export const SecretDetails = ({ secret, showCard = true }: SecretDetailsProps) =
 
   const content = (
     <div css={{ display: 'flex', flexDirection: 'column' }}>
-      <Typography.Title level={3} css={{ margin: 0 }}>
-        {secret.secret_name}
-      </Typography.Title>
-      <Spacer size="md" />
+      {!hideTitle && (
+        <>
+          <Typography.Title level={3} css={{ margin: 0 }}>
+            {secret.secret_name}
+          </Typography.Title>
+          <Spacer size="md" />
+        </>
+      )}
 
       <div css={styles.containerStyle}>
         {secret.provider && (
@@ -100,23 +100,19 @@ export const SecretDetails = ({ secret, showCard = true }: SecretDetailsProps) =
           <MaskedValueDisplay maskedValue={secret.masked_values} />
         </div>
 
-        {authConfig && Object.keys(authConfig).filter((k) => k !== 'auth_mode').length > 0 && (
-          <div css={styles.rowStyle}>
-            <Typography.Text color="secondary" css={styles.labelStyle}>
-              <FormattedMessage defaultMessage="Config" description="Auth config label" />
-            </Typography.Text>
-            <div css={styles.configColumnStyle}>
-              {Object.entries(authConfig)
-                .filter(([key]) => key !== 'auth_mode')
-                .map(([key, value]) => (
-                  <div key={key} css={styles.configRowStyle}>
-                    <Typography.Text color="secondary">{formatCredentialFieldName(key)}:</Typography.Text>
-                    <Typography.Text css={styles.monoStyle}>{String(value)}</Typography.Text>
-                  </div>
-                ))}
-            </div>
-          </div>
-        )}
+        {authConfig &&
+          Object.entries(authConfig)
+            .filter(([key]) => key !== 'auth_mode')
+            .map(([key, value]) => (
+              <div key={key} css={styles.rowStyle}>
+                <Typography.Text color="secondary" css={styles.labelStyle}>
+                  {formatCredentialFieldName(key)}
+                </Typography.Text>
+                <Typography.Text css={styles.monoStyle}>{String(value)}</Typography.Text>
+              </div>
+            ))}
+
+        <div css={styles.dividerStyle} />
 
         <div css={styles.rowStyle}>
           <Typography.Text color="secondary" css={styles.labelStyle}>

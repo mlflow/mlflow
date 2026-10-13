@@ -170,8 +170,16 @@ def test_publish_multithread_consume_single_thread():
             artifacts_sent.append(artifact)
 
     run_operations = []
-    t1 = threading.Thread(target=_send_artifact, args=(async_logging_queue, run_operations))
-    t2 = threading.Thread(target=_send_artifact, args=(async_logging_queue, run_operations))
+    t1 = threading.Thread(
+        name="test-async-artifacts-1",
+        target=_send_artifact,
+        args=(async_logging_queue, run_operations),
+    )
+    t2 = threading.Thread(
+        name="test-async-artifacts-2",
+        target=_send_artifact,
+        args=(async_logging_queue, run_operations),
+    )
 
     t1.start()
     t2.start()
@@ -191,12 +199,22 @@ class Consumer:
         self.filenames = []
         self.artifact_paths = []
         self.artifacts = []
+        self.barrier = threading.Event()
 
     def consume_queue_data(self, filename, artifact_path, artifact):
-        time.sleep(0.5)
+        self.barrier.wait()
         self.filenames.append(filename)
         self.artifact_paths.append(artifact_path)
         self.artifacts.append(artifact)
+
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        del state["barrier"]
+        return state
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        self.barrier = threading.Event()
 
 
 def test_async_logging_queue_pickle():
@@ -208,7 +226,8 @@ def test_async_logging_queue_pickle():
     pickle.dump(async_logging_queue, buffer)
     deserialized_queue = pickle.loads(buffer.getvalue())  # Type: AsyncArtifactsLoggingQueue
 
-    # activate the queue and then try to pickle it
+    # Activate the queue and submit 10 items. Workers block on the barrier,
+    # so the consumer's state remains empty during pickling.
     async_logging_queue.activate()
 
     run_operations = [
@@ -220,7 +239,7 @@ def test_async_logging_queue_pickle():
         for val in range(0, 10)
     ]
 
-    # Pickle the queue
+    # Pickle while workers are blocked — consumer state is deterministically empty.
     buffer = io.BytesIO()
     pickle.dump(async_logging_queue, buffer)
 
@@ -229,12 +248,18 @@ def test_async_logging_queue_pickle():
     assert deserialized_queue._lock is not None
     assert deserialized_queue._is_activated is False
 
+    # Release workers and wait for all operations to complete.
+    consumer.barrier.set()
+
     for run_operation in run_operations:
         run_operation.wait()
 
     assert len(consumer.filenames) == 10
 
-    # try to log using deserialized queue after activating it.
+    # Activate the deserialized queue and submit 10 more items.
+    # The deserialized consumer is a separate copy with an empty filenames list.
+    deserialized_consumer = deserialized_queue._artifact_logging_func.__self__
+    deserialized_consumer.barrier.set()
     deserialized_queue.activate()
     assert deserialized_queue._is_activated
 
@@ -252,4 +277,4 @@ def test_async_logging_queue_pickle():
     for run_operation in run_operations:
         run_operation.wait()
 
-    assert len(deserialized_queue._artifact_logging_func.__self__.filenames) == 10
+    assert len(deserialized_consumer.filenames) == 10

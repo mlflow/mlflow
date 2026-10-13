@@ -44,25 +44,65 @@ diff --git a/es/NodeList.js b/es/NodeList.js
 index b821139119b278b899d7294e862025a9d12ae163..54c2219f6bac16305828d0aaa31db76ce87797e0 100644
 --- a/es/NodeList.js
 +++ b/es/NodeList.js
-@@ -217,7 +217,7 @@ var RefNodeList = function RefNodeList(props, ref) {
+@@ -69,13 +69,14 @@ function getKey(key, pos) {
+ }
+
+ function getAccessibilityPath(item) {
+-  var path = String(item.data.key);
++  function getLabel(node) { return node.data.filterKey || (typeof node.data.title === 'string' && node.data.title) || String(node.data.key); }
++  var path = getLabel(item);
+   var current = item;
+
+   while (current.parent) {
+     current = current.parent;
+-    path = "".concat(current.data.key, " > ").concat(path);
++    path = "".concat(getLabel(current), " > ").concat(path);
+   }
+
+   return path;
+ }
+@@ -217,10 +218,10 @@ var RefNodeList = function RefNodeList(props, ref) {
    return /*#__PURE__*/React.createElement(React.Fragment, null, focused && activeItem && /*#__PURE__*/React.createElement("span", {
      style: HIDDEN_STYLE,
      "aria-live": "assertive"
 -  }, getAccessibilityPath(activeItem)), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("input", {
-+  }, getAccessibilityPath(activeItem)), /*#__PURE__*/React.createElement("div", { role: "treeitem" }, /*#__PURE__*/React.createElement("input", {
++  }, getAccessibilityPath(activeItem) + (!activeItem.data.isLeaf ? (expandedKeys.includes(activeItem.data.key) ? ", expanded" : ", collapsed") : "")), /*#__PURE__*/React.createElement("div", { role: "treeitem", "aria-expanded": activeItem && !activeItem.data.isLeaf ? expandedKeys.includes(activeItem.data.key) : undefined }, /*#__PURE__*/React.createElement("input", {
      style: HIDDEN_STYLE,
      disabled: focusable === false || disabled,
      tabIndex: focusable !== false ? tabIndex : null,
+     onKeyDown: onKeyDown,
+     onFocus: onFocus,
+     onBlur: onBlur,
 diff --git a/lib/NodeList.js b/lib/NodeList.js
-index 7bf7614a54891ad1ba43b18e689133798979ba10..174f386f5838dc5563878ddf6bdd20d312080281 100644
+index 7bf7614a54891ad1ba43b18e689133798979ba10..855a3066b90f67776ce3a8bd9a9143b65671003d 100644
 --- a/lib/NodeList.js
 +++ b/lib/NodeList.js
-@@ -234,7 +234,7 @@ var RefNodeList = function RefNodeList(props, ref) {
+@@ -87,13 +87,14 @@ function getKey(key, pos) {
+ }
+
+ function getAccessibilityPath(item) {
+-  var path = String(item.data.key);
++  function getLabel(node) { return node.data.filterKey || (typeof node.data.title === 'string' && node.data.title) || String(node.data.key); }
++  var path = getLabel(item);
+   var current = item;
+
+   while (current.parent) {
+     current = current.parent;
+-    path = "".concat(current.data.key, " > ").concat(path);
++    path = "".concat(getLabel(current), " > ").concat(path);
+   }
+
+   return path;
+ }
+@@ -234,10 +235,10 @@ var RefNodeList = function RefNodeList(props, ref) {
    return /*#__PURE__*/React.createElement(React.Fragment, null, focused && activeItem && /*#__PURE__*/React.createElement("span", {
      style: HIDDEN_STYLE,
      "aria-live": "assertive"
 -  }, getAccessibilityPath(activeItem)), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("input", {
-+  }, getAccessibilityPath(activeItem)), /*#__PURE__*/React.createElement("div", { role: "treeitem" }, /*#__PURE__*/React.createElement("input", {
++  }, getAccessibilityPath(activeItem) + (!activeItem.data.isLeaf ? (expandedKeys.includes(activeItem.data.key) ? ", expanded" : ", collapsed") : "")), /*#__PURE__*/React.createElement("div", { role: "treeitem", "aria-expanded": activeItem && !activeItem.data.isLeaf ? expandedKeys.includes(activeItem.data.key) : undefined }, /*#__PURE__*/React.createElement("input", {
      style: HIDDEN_STYLE,
      disabled: focusable === false || disabled,
      tabIndex: focusable !== false ? tabIndex : null,
+     onKeyDown: onKeyDown,
+     onFocus: onFocus,
+     onBlur: onBlur,

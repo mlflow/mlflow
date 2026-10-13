@@ -1,24 +1,26 @@
 import copy
 import logging
+from collections.abc import Iterable
 from dataclasses import asdict
 from typing import TYPE_CHECKING, Any
 
 import mlflow
-from mlflow.entities.assessment import Assessment, AssessmentSource, Feedback
-from mlflow.entities.assessment_source import AssessmentSourceType
+from mlflow.entities.assessment import Assessment
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.base import AlignmentOptimizer, Judge, JudgeField
 from mlflow.genai.judges.optimizers.dspy_utils import (
     _check_dspy_installed,
-    construct_dspy_lm,
-    convert_mlflow_uri_to_litellm,
+    _get_api_base_key,
     create_dspy_signature,
     trace_to_dspy_example,
 )
+from mlflow.genai.judges.optimizers.memalign.prompts import (
+    EXAMPLES_SECTION_HEADER,
+    GUIDELINES_SECTION_HEADER,
+)
 from mlflow.genai.judges.optimizers.memalign.utils import (
     Guideline,
-    create_extended_signature,
     distill_guidelines,
     get_default_embedding_model,
     get_query_field,
@@ -37,8 +39,8 @@ from mlflow.genai.utils.trace_utils import (
     resolve_inputs_from_trace,
     resolve_outputs_from_trace,
 )
+from mlflow.metrics.genai.model_utils import convert_mlflow_uri_to_litellm
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE
-from mlflow.utils.annotations import experimental
 from mlflow.utils.docstring_utils import format_docstring
 
 if TYPE_CHECKING:
@@ -48,15 +50,70 @@ _logger = logging.getLogger(__name__)
 
 _CONFIG_FIELDS = ("reflection_lm", "retrieval_k", "embedding_model", "embedding_dim")
 
+# Databricks embedding endpoints have stricter input size limits than other providers.
+# Use a smaller batch size to avoid "input embedding size too large" errors.
+_DEFAULT_EMBEDDING_BATCH_SIZE = 200
+_DATABRICKS_EMBEDDING_BATCH_SIZE = 150
+
+
+def _get_embedding_batch_size(litellm_model: str) -> int:
+    if litellm_model.startswith("databricks/"):
+        return _DATABRICKS_EMBEDDING_BATCH_SIZE
+    return _DEFAULT_EMBEDDING_BATCH_SIZE
+
+
+def _build_embedder(embedding_model: str, embedding_dim: int) -> "dspy.Embedder":
+    """Create a ``dspy.Embedder``, routing Databricks models to the correct API surface.
+
+    Mirrors ``construct_dspy_lm`` for embeddings: for ``databricks:/`` and ``endpoints:/``
+    models we resolve the workspace ``api_base``/``api_key`` (Unity Catalog names go to the
+    AI Gateway, simple names to legacy serving), so gateway-hosted embedding models resolve
+    correctly instead of failing with ENDPOINT_NOT_FOUND.
+    """
+    import dspy
+
+    litellm_embedding_model = convert_mlflow_uri_to_litellm(embedding_model)
+    api_base, api_key = _get_api_base_key(embedding_model)
+    extra_kwargs = {"api_base": api_base, "api_key": api_key} if api_base else {}
+    return dspy.Embedder(
+        litellm_embedding_model,
+        dimensions=embedding_dim,
+        drop_params=True,
+        batch_size=_get_embedding_batch_size(litellm_embedding_model),
+        **extra_kwargs,
+    )
+
+
+def _generate_fingerprint(
+    examples: Iterable["dspy.Example"],
+) -> frozenset[tuple[str | None, int | None]]:
+    """Set of (assessment_id, last_update_time_ms) for a collection of resolved examples.
+    Used to detect whether the in-memory representation of a trace matches its current
+    state — the same shape applies whether the examples come from a fresh
+    ``trace_to_dspy_example`` call or from in-memory episodic memory filtered by trace_id.
+    """
+    return frozenset(
+        (
+            getattr(ex, "_assessment_id", None),
+            getattr(ex, "_last_update_time_ms", None),
+        )
+        for ex in examples
+    )
+
+
 _MODEL_API_DOC = {
     "reflection_lm": """Model to use for distilling guidelines from feedback.
 Supported formats:
 
-* `"databricks"` for Databricks-native integration
+* `"databricks"` for a default Databricks-hosted model designed for GenAI quality assessments.
+* `"databricks:/<model-name>"` for other Databricks-hosted models
+  (e.g., `databricks:/databricks-gpt-5-mini`, `databricks:/databricks-claude-sonnet-4-5`).
+  For a full list, see https://models.litellm.ai/ and select "databricks" as the provider.)
 * `"databricks:/<endpoint-name>"` or `"endpoints:/<endpoint-name>"` for
-  Databricks model serving endpoints
+  custom endpoints on Databricks (e.g., `databricks:/my-endpoint`).
 * `<provider>:/<model-name>` for other providers (e.g.,
-  `"openai:/gpt-4o-mini"`, `"anthropic:/claude-3.5-sonnet-20240620"`)
+  `"openai:/gpt-4o-mini"`, `"anthropic:/claude-3.5-sonnet-20240620"`).
+  For a full list, see https://models.litellm.ai/.
 
 MLflow natively supports `["openai", "anthropic", "bedrock", "mistral"]`,
 and more providers are supported through
@@ -64,7 +121,8 @@ and more providers are supported through
 
 Default model depends on the tracking URI setup:
 
-* Databricks: `databricks`
+* Databricks: `databricks` (a default Databricks-hosted model designed
+  for GenAI quality assessments)
 * Otherwise: `openai:/gpt-4o-mini`.
 """,
     "embedding_model": """Model to use for generating embeddings for
@@ -75,7 +133,6 @@ others via LiteLLM. Default: `"openai:/text-embedding-3-small"`.
 }
 
 
-@experimental(version="3.9.0")
 @format_docstring(_MODEL_API_DOC)
 class MemoryAugmentedJudge(Judge):
     """
@@ -106,6 +163,19 @@ class MemoryAugmentedJudge(Judge):
         *,
         _defer_init: bool = False,
     ):
+        # Input validation
+        if not isinstance(retrieval_k, int) or retrieval_k <= 0:
+            raise MlflowException(
+                f"retrieval_k must be a positive integer, got {retrieval_k}",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+        if not isinstance(embedding_dim, int) or embedding_dim <= 0:
+            raise MlflowException(
+                f"embedding_dim must be a positive integer, got {embedding_dim}",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
         effective_base_judge = (
             base_judge._base_judge if isinstance(base_judge, MemoryAugmentedJudge) else base_judge
         )
@@ -132,37 +202,33 @@ class MemoryAugmentedJudge(Judge):
             self._base_signature = None
             self._embedder = None
             self._retriever = None
-            self._predict_module = None
             self._episodic_memory: list["dspy.Example"] = []
             self._semantic_memory: list[Guideline] = []
         else:
             self._initialize_dspy_components(base_judge)
 
     def _initialize_dspy_components(self, base_judge: Judge | None = None) -> None:
-        """Initialize heavyweight DSPy components (embedder, predict module, memory index)."""
-        import dspy
-
+        """Initialize heavyweight DSPy components (embedder, memory index)."""
         effective_base_judge = base_judge or self._base_judge
 
         self._base_signature = create_dspy_signature(effective_base_judge)
-        litellm_embedding_model = convert_mlflow_uri_to_litellm(self._embedding_model)
-        self._embedder = dspy.Embedder(
-            litellm_embedding_model, dimensions=self._embedding_dim, drop_params=True
-        )
+        self._embedder = _build_embedder(self._embedding_model, self._embedding_dim)
         self._retriever = None
 
-        # Inherit memory from base_judge if it's a MemoryAugmentedJudge
+        # Inherit memory from base_judge if it's a MemoryAugmentedJudge.
+        # Episodic memory index is not built here — _add_examples_to_memory() handles it.
         if isinstance(base_judge, MemoryAugmentedJudge):
             self._semantic_memory = copy.deepcopy(base_judge._semantic_memory)
-            self._episodic_memory = copy.deepcopy(base_judge._episodic_memory)
-            self._build_episodic_memory()
+            self._episodic_trace_ids = base_judge._episodic_trace_ids.copy()
+            if base_judge._episodic_memory:
+                self._episodic_memory = copy.deepcopy(base_judge._episodic_memory)
+            elif self._episodic_trace_ids:
+                self._episodic_memory = self._reconstruct_episodic_memory()
+            else:
+                self._episodic_memory: list["dspy.Example"] = []
         else:
             self._episodic_memory: list["dspy.Example"] = []
             self._semantic_memory: list[Guideline] = []
-
-        extended_signature = create_extended_signature(self._base_signature)
-        self._predict_module = dspy.Predict(extended_signature)
-        self._predict_module.set_lm(construct_dspy_lm(effective_base_judge.model))
 
     def __call__(
         self,
@@ -196,27 +262,62 @@ class MemoryAugmentedJudge(Judge):
         relevant_examples = [example for example, _ in retrieved_results]
         retrieved_trace_ids = [trace_id for _, trace_id in retrieved_results]
 
-        prediction = self._predict_module(
-            guidelines=guidelines,
-            example_judgements=relevant_examples,
+        # Score through a per-call copy of the base judge: this preserves its invocation flow
+        # (agentic tool-calling for {{ trace }} judges) while keeping the retrieved examples,
+        # which differ per call, off the judge shared by concurrently scored rows. The copy is
+        # shallow because only _instructions is reassigned; nested state is never mutated.
+        scoring_judge = self._base_judge.model_copy()
+        scoring_judge._instructions = self._build_augmented_instructions(
+            guidelines, relevant_examples
+        )
+
+        prediction = scoring_judge(
             inputs=inputs,
             outputs=outputs,
             expectations=expectations,
-            trace=value_to_embedding_text(trace) if trace is not None else None,
+            trace=trace,
         )
 
-        return Feedback(
-            name=self._base_judge.name,
-            source=AssessmentSource(
-                source_type=AssessmentSourceType.LLM_JUDGE,
-                source_id=self._base_judge.model,
-            ),
-            value=prediction.result,
-            rationale=prediction.rationale,
-            metadata={"retrieved_example_trace_ids": retrieved_trace_ids}
-            if retrieved_trace_ids
-            else {},
-        )
+        # Reset metadata["guideline"], which the UI renders as a short per-assertion label, to
+        # the base criterion so retrieved examples aren't persisted onto every assessment.
+        metadata = {**(prediction.metadata or {})}
+        if "guideline" in metadata:
+            metadata["guideline"] = self._base_judge.instructions
+        if retrieved_trace_ids:
+            metadata["retrieved_example_trace_ids"] = retrieved_trace_ids
+        prediction.metadata = metadata
+
+        return prediction
+
+    def _build_augmented_instructions(
+        self,
+        guidelines: list[str],
+        examples: list["dspy.Example"],
+    ) -> str:
+        """Build instructions augmented with MemAlign guidelines and retrieved examples.
+
+        Section order (examples, then guidelines) and header wording match the DSPy
+        signature this replaced, whose fields were prepended in that order.
+        """
+        parts = [self._base_judge.instructions]
+
+        if examples:
+            parts.append(f"\n\nExample Judgements ({len(examples)}):")
+            parts.append(EXAMPLES_SECTION_HEADER)
+            for i, example in enumerate(examples, 1):
+                example_dict = {
+                    k: v for k, v in example.items() if not k.startswith("dspy_") and k != "trace"
+                }
+                if hasattr(example, "trace") and example.trace is not None:
+                    example_dict["trace"] = value_to_embedding_text(example.trace)
+                parts.append(f"  Example {i}: {example_dict}")
+
+        if guidelines:
+            parts.append(f"\n\nDistilled Guidelines ({len(guidelines)}):")
+            parts.append(GUIDELINES_SECTION_HEADER)
+            parts.extend(f"  - {guideline}" for guideline in guidelines)
+
+        return "\n".join(parts)
 
     @property
     def name(self) -> str:
@@ -300,9 +401,9 @@ class MemoryAugmentedJudge(Judge):
         Override base _create_copy for Scorer.register().
 
         The base implementation uses model_copy(deep=True), which fails because
-        DSPy objects (_embedder, _retriever, _predict_module) contain thread locks
-        that can't be pickled. We create a new instance with _defer_init=True and
-        store trace IDs for lazy reconstruction.
+        DSPy objects (_embedder, _retriever) contain thread locks that can't be
+        pickled. We create a new instance with _defer_init=True and store trace
+        IDs for lazy reconstruction.
         """
         judge_copy = MemoryAugmentedJudge(
             base_judge=self._base_judge,
@@ -317,41 +418,13 @@ class MemoryAugmentedJudge(Judge):
 
         return judge_copy
 
-    def _lazy_init(self) -> None:
-        """
-        Lazily initialize DSPy components and episodic memory from stored trace IDs.
-
-        This method is called on first use (e.g., __call__) when the judge was created
-        with _defer_init=True. It:
-        1. Creates DSPy components (embedder, predict module)
-        2. Fetches traces by ID and reconstructs episodic memory
-        3. Builds the episodic memory search index
-
-        No-op if already initialized (checked via _embedder not being None).
-        """
-        if self._embedder is not None:
-            return
-
-        import dspy
-
-        self._base_signature = create_dspy_signature(self._base_judge)
-
-        litellm_embedding_model = convert_mlflow_uri_to_litellm(self._embedding_model)
-        self._embedder = dspy.Embedder(
-            litellm_embedding_model, dimensions=self._embedding_dim, drop_params=True
-        )
-
-        extended_signature = create_extended_signature(self._base_signature)
-        self._predict_module = dspy.Predict(extended_signature)
-        self._predict_module.set_lm(construct_dspy_lm(self._base_judge.model))
-
-        # Fetch traces by ID using mlflow.get_trace which handles location context
-        traces = []
+    def _reconstruct_episodic_memory(self) -> list["dspy.Example"]:
+        examples = []
         missing_ids = []
         for trace_id in self._episodic_trace_ids:
             trace = mlflow.get_trace(trace_id, silent=True)
             if trace is not None:
-                traces.append(trace)
+                examples.extend(trace_to_dspy_example(trace, self._base_judge))
             else:
                 missing_ids.append(trace_id)
 
@@ -361,18 +434,35 @@ class MemoryAugmentedJudge(Judge):
                 f"Missing trace IDs: {missing_ids[:5]}"
                 f"{'...' if len(missing_ids) > 5 else ''}. "
                 f"Judge will operate with partial memory "
-                f"({len(traces)}/{len(self._episodic_trace_ids)} traces)."
+                f"({len(examples)}/{len(self._episodic_trace_ids)} traces)."
             )
 
-        for trace in traces:
-            if example := trace_to_dspy_example(trace, self._base_judge):
-                example._trace_id = trace.info.trace_id
-                self._episodic_memory.append(example)
+        return examples
+
+    def _lazy_init(self) -> None:
+        """
+        Lazily initialize DSPy components and episodic memory from stored trace IDs.
+
+        This method is called on first use (e.g., __call__) when the judge was created
+        with _defer_init=True. It:
+        1. Creates the embedder
+        2. Fetches traces by ID and reconstructs episodic memory
+        3. Builds the episodic memory search index
+
+        No-op if already initialized (checked via _embedder not being None).
+        """
+        if self._embedder is not None:
+            return
+
+        self._base_signature = create_dspy_signature(self._base_judge)
+
+        self._embedder = _build_embedder(self._embedding_model, self._embedding_dim)
+
+        self._episodic_memory = self._reconstruct_episodic_memory()
 
         if self._episodic_memory:
             self._build_episodic_memory()
 
-    @experimental(version="3.9.0")
     def unalign(self, traces: list[Trace]) -> "MemoryAugmentedJudge":
         """
         Remove specific traces from memory and return an updated judge.
@@ -408,29 +498,19 @@ class MemoryAugmentedJudge(Judge):
                 # aligned_judge_v2 now only retains feedback from
                 # `set(all_traces) - set(bad_traces)`
         """
+        # A judge loaded from the registry holds only trace IDs until its episodic memory is
+        # reconstructed. Without this, the check below would find nothing to remove and
+        # silently return an unchanged judge that still contains the retracted feedback.
+        self._lazy_init()
+
         trace_ids_to_remove = {trace.info.trace_id for trace in traces}
 
-        # Filter examples to retain based on trace ids
-        examples_to_retain = [
-            example
-            for example in self._episodic_memory
-            if not (hasattr(example, "_trace_id") and example._trace_id in trace_ids_to_remove)
-        ]
-        if len(examples_to_retain) == len(self._episodic_memory):
+        if not any(
+            getattr(ex, "_trace_id", None) in trace_ids_to_remove for ex in self._episodic_memory
+        ):
             _logger.warning("No feedback records found for the provided traces")
             return self
 
-        # Filter guidelines to retain based on source_trace_ids
-        # - Always retain user-provided guidelines (those without source_trace_ids)
-        # - Delete guideline only if ALL of its source traces were removed
-        guidelines_to_retain = [
-            guideline
-            for guideline in self._semantic_memory
-            if guideline.source_trace_ids is None
-            or any(tid not in trace_ids_to_remove for tid in guideline.source_trace_ids)
-        ]
-
-        # Reinitialize new judge
         new_judge = MemoryAugmentedJudge(
             base_judge=self._base_judge,
             reflection_lm=self._reflection_lm,
@@ -438,9 +518,11 @@ class MemoryAugmentedJudge(Judge):
             embedding_model=self._embedding_model,
             embedding_dim=self._embedding_dim,
         )
+        new_judge._episodic_memory = list(self._episodic_memory)
+        new_judge._episodic_trace_ids = list(self._episodic_trace_ids)
+        new_judge._semantic_memory = copy.deepcopy(self._semantic_memory)
 
-        new_judge._semantic_memory = guidelines_to_retain
-        new_judge._episodic_memory = examples_to_retain
+        new_judge._apply_unalign_inplace(trace_ids_to_remove)
         new_judge._build_episodic_memory()
 
         _logger.debug(
@@ -449,6 +531,34 @@ class MemoryAugmentedJudge(Judge):
             f"Semantic memory size: {len(new_judge._semantic_memory)} guidelines."
         )
         return new_judge
+
+    def _in_memory_fingerprint(self, trace_id: str) -> frozenset[tuple[str | None, int | None]]:
+        return _generate_fingerprint(
+            ex for ex in self._episodic_memory if getattr(ex, "_trace_id", None) == trace_id
+        )
+
+    def _apply_unalign_inplace(self, trace_ids_to_remove: set[str]) -> None:
+        # Mutates self; does not rebuild the episodic search index (caller's responsibility).
+        self._episodic_memory = [
+            ex
+            for ex in self._episodic_memory
+            if getattr(ex, "_trace_id", None) not in trace_ids_to_remove
+        ]
+        self._episodic_trace_ids = [
+            tid for tid in self._episodic_trace_ids if tid not in trace_ids_to_remove
+        ]
+        # Drop a guideline only when ALL of its source traces are being removed —
+        # i.e., retain ``g`` if ``source_trace_ids`` has at least one tid outside the
+        # remove set, or if it has no recorded sources (user-provided guidelines).
+        # A cross-trace guideline aggregates signal from each of its source traces,
+        # so refreshing one source doesn't invalidate the signal that came from the
+        # others.
+        self._semantic_memory = [
+            g
+            for g in self._semantic_memory
+            if g.source_trace_ids is None
+            or any(tid not in trace_ids_to_remove for tid in g.source_trace_ids)
+        ]
 
     def _distill_new_guidelines(self, new_examples: list["dspy.Example"]) -> None:
         """
@@ -515,7 +625,6 @@ class MemoryAugmentedJudge(Judge):
         self._distill_new_guidelines(examples)
 
 
-@experimental(version="3.9.0")
 @format_docstring(_MODEL_API_DOC)
 class MemAlignOptimizer(AlignmentOptimizer):
     """
@@ -584,14 +693,31 @@ class MemAlignOptimizer(AlignmentOptimizer):
 
     def align(self, judge: Judge, traces: list[Trace]) -> MemoryAugmentedJudge:
         """
-        Align judge with human feedback from traces.
+        Align a judge with human feedback from traces.
+
+        When ``judge`` is already a :py:class:`MemoryAugmentedJudge` (e.g., the
+        result of a prior ``align`` call), per-trace behavior is:
+
+        - Traces whose human assessments are byte-identical to what is already
+          in memory are skipped — no LM call, no index rebuild.
+        - Traces in memory whose assessments have been edited, added, or
+          partially removed are refreshed: stale episodes are dropped and
+          replaced with examples derived from the current trace state.
+        - Traces not yet in memory are added.
+        - Traces whose human assessments have been *fully* removed raise
+          :py:class:`MlflowException`. To remove a trace's contribution to
+          memory, call :py:meth:`MemoryAugmentedJudge.unalign` directly —
+          re-aligning with empty assessments is not a supported retraction
+          path. Likewise, traces that have never had any human assessments
+          for ``judge.name`` raise rather than being silently skipped.
 
         Args:
-            judge: Judge to align
-            traces: Traces containing human feedback
+            judge: Judge to align (or re-align if already a
+                :py:class:`MemoryAugmentedJudge`).
+            traces: Traces containing human feedback.
 
         Returns:
-            Memory-augmented judge aligned with feedback
+            Memory-augmented judge aligned with feedback.
         """
         try:
             if not traces:
@@ -601,24 +727,6 @@ class MemAlignOptimizer(AlignmentOptimizer):
 
             _logger.debug(f"Starting MemAlign alignment with {len(traces)} traces")
 
-            new_examples = []
-            for trace in traces:
-                example = trace_to_dspy_example(trace, judge)
-                if example is not None:
-                    example._trace_id = trace.info.trace_id
-                    new_examples.append(example)
-
-            if not new_examples:
-                raise MlflowException(
-                    f"No valid feedback records found in traces. "
-                    f"Ensure traces contain human assessments with name '{judge.name}'",
-                    error_code=INVALID_PARAMETER_VALUE,
-                )
-
-            _logger.debug(
-                f"Created {len(new_examples)} new feedback records from {len(traces)} traces"
-            )
-
             memory_judge = MemoryAugmentedJudge(
                 base_judge=judge,
                 reflection_lm=self._reflection_lm,
@@ -627,9 +735,78 @@ class MemAlignOptimizer(AlignmentOptimizer):
                 embedding_dim=self._embedding_dim,
             )
 
-            memory_judge._add_examples_to_memory(new_examples)
+            # Build resolved examples once per incoming trace; reused for both change
+            # detection and memory updates. Last-write-wins on duplicate trace_ids gives
+            # us in-batch dedup for free (handles align(judge, [t, t])).
+            examples_by_trace = {
+                trace.info.trace_id: trace_to_dspy_example(trace, judge) for trace in traces
+            }
 
-            _logger.debug(f"MemAlign alignment completed successfully on {len(traces)} examples.")
+            # Classify each trace as: emptied-from-memory (retraction attempt),
+            # never-had-feedback (user error), skip (identical to memory), refresh
+            # (in memory but assessments changed), or new (not in memory).
+            trace_ids_with_empty_assessments: set[str] = set()
+            trace_ids_with_no_feedback: set[str] = set()
+            trace_ids_to_refresh: set[str] = set()
+            examples_to_align: list["dspy.Example"] = []
+            for tid, examples in examples_by_trace.items():
+                new_fp = _generate_fingerprint(examples)
+                old_fp = memory_judge._in_memory_fingerprint(tid)
+                if not examples:
+                    # Any trace that resolves to zero examples blocks the call. We
+                    # split the two cases so the error message points at the right
+                    # remediation: unalign() for retraction, log_feedback() for
+                    # missing feedback. Both are loud rather than silently dropped
+                    # because mixing one with valid traces would otherwise hide a
+                    # likely user bug (wrong trace IDs / missing feedback / etc.).
+                    if old_fp:
+                        trace_ids_with_empty_assessments.add(tid)
+                    else:
+                        trace_ids_with_no_feedback.add(tid)
+                elif not old_fp:
+                    examples_to_align.extend(examples)
+                elif old_fp != new_fp:
+                    trace_ids_to_refresh.add(tid)
+                    examples_to_align.extend(examples)
+
+            if trace_ids_with_empty_assessments:
+                raise MlflowException(
+                    f"Cannot retract feedback by re-aligning with empty assessments. "
+                    f"{len(trace_ids_with_empty_assessments)} trace(s) had their human "
+                    f"assessments removed: {sorted(trace_ids_with_empty_assessments)}. "
+                    f"Use unalign(traces=...) to remove traces from memory.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+
+            if trace_ids_with_no_feedback:
+                raise MlflowException(
+                    f"No valid feedback records found for {len(trace_ids_with_no_feedback)} "
+                    f"trace(s): {sorted(trace_ids_with_no_feedback)}. Ensure traces contain "
+                    f"human assessments with name '{judge.name}'.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+
+            if not examples_to_align:
+                # Reachable only when every incoming trace was a no-op skip; the
+                # raises above already cover all empty-example paths. Skip can
+                # only fire when ``judge`` is already a MemoryAugmentedJudge — a
+                # vanilla Judge has no in-memory fingerprints to match against —
+                # so returning the input is type-safe and avoids handing back the
+                # freshly-built ``memory_judge`` whose retriever is uninitialized.
+                assert isinstance(judge, MemoryAugmentedJudge)
+                _logger.debug("MemAlign alignment skipped: all traces unchanged in memory.")
+                return judge
+
+            if trace_ids_to_refresh:
+                memory_judge._apply_unalign_inplace(trace_ids_to_refresh)
+
+            memory_judge._add_examples_to_memory(examples_to_align)
+
+            _logger.debug(
+                f"MemAlign alignment completed: "
+                f"refreshed={len(trace_ids_to_refresh)}, "
+                f"added={len(examples_to_align)} examples."
+            )
             return memory_judge
 
         except Exception as e:

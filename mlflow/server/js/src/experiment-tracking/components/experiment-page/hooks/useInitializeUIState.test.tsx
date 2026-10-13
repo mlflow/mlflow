@@ -51,6 +51,8 @@ describe('useInitializeUIState', () => {
       viewMaximized: true,
       runListHidden: true,
       selectedColumns: ['metrics.m2'],
+      columnOrder: ['metrics.m2', 'metrics.m1'],
+      columnWidths: { 'metrics.m2': 250 },
     };
     jest.mocked(loadExperimentViewState).mockImplementation(() => persistedState);
     const { result } = renderParametrizedHook();
@@ -60,6 +62,8 @@ describe('useInitializeUIState', () => {
       viewMaximized: true,
       runListHidden: true,
       selectedColumns: ['metrics.m2'],
+      columnOrder: ['metrics.m2', 'metrics.m1'],
+      columnWidths: { 'metrics.m2': 250 },
     });
   });
 
@@ -71,6 +75,8 @@ describe('useInitializeUIState', () => {
       runListHidden: true,
       runsPinned: ['run_1'],
       selectedColumns: ['metrics.m2'],
+      columnOrder: [],
+      columnWidths: {},
       viewMaximized: true,
       runsExpanded: { run_2: true },
       runsHidden: ['run_3'],
@@ -101,6 +107,8 @@ describe('useInitializeUIState', () => {
       runListHidden: true,
       runsPinned: ['run_1'],
       selectedColumns: ['metrics.m2'],
+      columnOrder: [],
+      columnWidths: {},
       viewMaximized: false,
       runsExpanded: { run_4: true },
       runsHidden: ['run_3'],

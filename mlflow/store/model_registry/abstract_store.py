@@ -20,6 +20,7 @@ from mlflow.entities.model_registry.prompt_version import (
 from mlflow.entities.webhook import Webhook, WebhookEvent, WebhookStatus, WebhookTestResult
 from mlflow.exceptions import MlflowException
 from mlflow.prompt.constants import (
+    _STORE_PROMPT_SOURCE_PLACEHOLDER,
     IS_PROMPT_TAG_KEY,
     PROMPT_EXPERIMENT_IDS_TAG_KEY,
     PROMPT_MODEL_CONFIG_TAG_KEY,
@@ -821,7 +822,7 @@ class AbstractStore:
         # Create model version
         mv = self.create_model_version(
             name=name,
-            source="prompt-template",  # Required field for ModelVersion
+            source=_STORE_PROMPT_SOURCE_PLACEHOLDER,  # Required field, unused for prompts
             tags=version_tags,
             description=description,
         )
@@ -952,26 +953,59 @@ class AbstractStore:
 
     def search_prompt_versions(
         self, name: str, max_results: int | None = None, page_token: str | None = None
-    ):
+    ) -> PagedList[PromptVersion]:
         """
         Search prompt versions for a given prompt name.
 
-        This method is only supported in Unity Catalog registries.
-        For OSS registries, this functionality is not available.
+        Default implementation: searches ModelVersions with prompt tags filtered
+        by the given prompt name, then converts them to PromptVersion objects.
 
         Args:
-            name: Name of the prompt to search versions for
-            max_results: Maximum number of versions to return
-            page_token: Token for pagination
+            name: Name of the prompt to search versions for.
+            max_results: Maximum number of versions to return.
+            page_token: Token for pagination.
 
-        Raises:
-            MlflowException: Always, as this is not supported in OSS registries
+        Returns:
+            A PagedList of PromptVersion objects.
         """
-        raise MlflowException(
-            "search_prompt_versions() is not supported in this registry. "
-            "This method is only available in Unity Catalog registries.",
-            INVALID_PARAMETER_VALUE,
+        # Verify the registered model exists and is a prompt
+        rm = self.get_registered_model(name)
+        if hasattr(rm, "_tags") and isinstance(rm._tags, dict):
+            internal_tags = rm._tags
+        elif hasattr(rm, "_tags") and rm._tags:
+            internal_tags = {tag.key: tag.value for tag in rm._tags}
+        else:
+            internal_tags = {}
+
+        if internal_tags.get(IS_PROMPT_TAG_KEY) != "true":
+            raise MlflowException(
+                f"Name `{name}` is registered as a model, not a prompt. "
+                f"Use search_model_versions() instead.",
+                INVALID_PARAMETER_VALUE,
+            )
+
+        if max_results is None:
+            max_results = 100
+
+        filter_string = f"name = '{name}' AND tag.`{IS_PROMPT_TAG_KEY}` = 'true'"
+
+        model_versions = self.search_model_versions(
+            filter_string=filter_string,
+            max_results=max_results,
+            order_by=["version_number DESC"],
+            page_token=page_token,
         )
+
+        if isinstance(rm.tags, dict):
+            prompt_tags = rm.tags.copy()
+        else:
+            prompt_tags = {tag.key: tag.value for tag in rm.tags}
+
+        prompt_versions = [
+            model_version_to_prompt_version(mv, prompt_tags=prompt_tags) for mv in model_versions
+        ]
+
+        return PagedList(prompt_versions, model_versions.token)
 
     def link_prompts_to_trace(self, prompt_versions: list[PromptVersion], trace_id: str) -> None:
         """
@@ -1272,3 +1306,8 @@ class AbstractStore:
             WebhookTestResult indicating success/failure and response details
         """
         raise NotImplementedError(f"{self.__class__.__name__} does not support test_webhook")
+
+    @property
+    def supports_workspaces(self) -> bool:
+        """Return whether this model registry store supports workspace-aware operations."""
+        return False

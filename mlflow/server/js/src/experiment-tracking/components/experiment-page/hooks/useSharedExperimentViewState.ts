@@ -1,13 +1,21 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useDispatch } from 'react-redux';
 import { useIntl } from 'react-intl';
 import { EXPERIMENT_PAGE_QUERY_PARAM_KEYS, useUpdateExperimentPageSearchFacets } from './useExperimentPageSearchFacets';
-import { pick } from 'lodash';
+import { omit, pick } from 'lodash';
 import type { ExperimentPageUIState } from '../models/ExperimentPageUIState';
-import { EXPERIMENT_PAGE_UI_STATE_FIELDS } from '../models/ExperimentPageUIState';
+import {
+  EXPERIMENT_PAGE_UI_STATE_FIELDS,
+  NON_SHAREABLE_UI_STATE_FIELDS,
+  createExperimentPageUIState,
+} from '../models/ExperimentPageUIState';
 import type { ExperimentPageSearchFacetsState } from '../models/ExperimentPageSearchFacetsState';
+import { createExperimentPageSearchFacetsState } from '../models/ExperimentPageSearchFacetsState';
 import type { ExperimentEntity } from '../../../types';
 import type { KeyValueEntity } from '../../../../common/types';
+import type { ThunkDispatch } from '../../../../redux-types';
 import { useNavigate, useSearchParams } from '../../../../common/utils/RoutingUtils';
+import { getExperimentApi } from '../../../actions';
 import Utils from '../../../../common/utils/Utils';
 import {
   EXPERIMENT_PAGE_VIEW_STATE_SHARE_TAG_PREFIX,
@@ -15,6 +23,10 @@ import {
 } from '../../../constants';
 import Routes from '../../../routes';
 import { isTextCompressedDeflate, textDecompressDeflate } from '../../../../common/utils/StringUtils';
+import {
+  decodeSavedViewEnvelope,
+  deserializePersistedState as deserializeEnvelopeState,
+} from '../utils/savedViewEnvelope';
 
 const deserializePersistedState = async (state: string) => {
   if (isTextCompressedDeflate(state)) {
@@ -33,6 +45,7 @@ export const useSharedExperimentViewState = (
 ) => {
   const [searchParams] = useSearchParams();
   const intl = useIntl();
+  const dispatch = useDispatch<ThunkDispatch>();
   const viewStateShareKey = searchParams.get(EXPERIMENT_PAGE_VIEW_STATE_SHARE_URL_PARAM_KEY);
 
   const isViewStateShared = Boolean(viewStateShareKey);
@@ -44,8 +57,108 @@ export const useSharedExperimentViewState = (
   const [sharedStateError, setSharedStateError] = useState<string | null>(null);
   const [sharedStateErrorMessage, setSharedStateErrorMessage] = useState<string | null>(null);
 
+  // True once a shared view has been successfully applied this session, and stays true even after
+  // the share key leaves the URL (e.g. navigating to another tab). The page uses this to keep
+  // local-storage persistence paused — so the shared view is read-only and never auto-overwrites
+  // the user's own saved view — until they explicitly save or discard it (see `exitSharedView`).
+  const [sharedViewActive, setSharedViewActive] = useState(false);
+  const exitSharedView = useCallback(() => setSharedViewActive(false), []);
+
+  // The component isn't remounted when navigating between experiments (the route element carries no
+  // `key`), so reset the latch when the experiment changes — otherwise a shared session for one
+  // experiment would keep local-storage persistence disabled for the next one. Only reset on a real
+  // change between two resolved experiments: the URL-embedded apply can latch the view active before
+  // `experiment` has loaded, and the initial undefined→resolved transition must not clear it.
+  const previousExperimentIdRef = useRef<string | undefined>(undefined);
   useEffect(() => {
-    if (!viewStateShareKey || !experiment) {
+    const experimentId = experiment?.experimentId;
+    if (!experimentId) {
+      return;
+    }
+    if (previousExperimentIdRef.current && previousExperimentIdRef.current !== experimentId) {
+      setSharedViewActive(false);
+    }
+    previousExperimentIdRef.current = experimentId;
+  }, [experiment?.experimentId]);
+
+  // Tracks the share key we've already acted on (applied, or reported invalid) while the URL had no
+  // facet params. Prevents double-applying during the async parse and re-reporting an invalid key.
+  // Cleared once facets are present (the apply landed) or the key leaves the URL.
+  const appliedShareKeyRef = useRef<string | null>(null);
+
+  // Tracks the share key we've already refetched the experiment for, so a genuinely-missing key
+  // errors instead of refetching forever. See the not-found branch below.
+  const refetchedShareKeyRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!viewStateShareKey) {
+      appliedShareKeyRef.current = null;
+      refetchedShareKeyRef.current = null;
+      return;
+    }
+
+    // The shared view writes its facets into the URL when applied. Treat their presence as "already
+    // applied": skip so we neither stomp the user's edits nor re-fire on an `experiment` refetch.
+    // Their absence means we should (re)apply — covers initial arrival AND the case where the facet
+    // params were wiped while the key stayed (e.g. re-pasting the bare share link), which otherwise
+    // leaves searchFacets null and hangs the page on the loading skeleton.
+    const hasFacetParams = EXPERIMENT_PAGE_QUERY_PARAM_KEYS.some((key) => searchParams.has(key));
+    if (hasFacetParams) {
+      appliedShareKeyRef.current = null;
+      // Deliberately NOT clearing refetchedShareKeyRef here: it's a once-ever-per-key latch (a stale
+      // cache is refetched at most once), whereas appliedShareKeyRef is a per-apply guard that must
+      // reset so a re-pasted bare link re-applies. Clearing it here would let a missing key refetch
+      // again on every facet-wipe cycle.
+      return;
+    }
+
+    // Facets absent: (re)apply. Guard against re-acting on the same key while the async parse is in
+    // flight, and against repeatedly re-reporting an invalid key.
+    if (appliedShareKeyRef.current === viewStateShareKey) {
+      return;
+    }
+
+    const applyParsedState = (parsedSharedViewState: unknown) => {
+      // Merge onto defaults so that fields intentionally omitted from a shared link
+      // (e.g. per-run pins/visibility) are restored to valid defaults rather than
+      // left undefined, which would break consumers that expect arrays/objects.
+      const sharedSearchFacetsState = {
+        ...createExperimentPageSearchFacetsState(),
+        ...pick(parsedSharedViewState, EXPERIMENT_PAGE_QUERY_PARAM_KEYS),
+      } as ExperimentPageSearchFacetsState;
+
+      // Drop the non-shareable fields on read too (the writer already omits them): keeps the
+      // filter symmetric so a hand-crafted link or a legacy tag can't smuggle per-run state
+      // (e.g. runsHidden keyed by UUIDs that don't exist for the recipient) back into the view.
+      const sharedUiState = {
+        ...createExperimentPageUIState(),
+        ...omit(pick(parsedSharedViewState, EXPERIMENT_PAGE_UI_STATE_FIELDS), NON_SHAREABLE_UI_STATE_FIELDS),
+      } as ExperimentPageUIState;
+
+      setSharedSearchFacetsState(sharedSearchFacetsState);
+      setSharedUiState(sharedUiState);
+      setSharedStateError(null);
+      setSharedStateErrorMessage(null);
+      // Latch only on a successful apply so invalid links (which go through
+      // reportInvalidShareState) never put the page into read-only shared mode.
+      setSharedViewActive(true);
+    };
+
+    const reportInvalidShareState = () => {
+      setSharedSearchFacetsState(null);
+      setSharedUiState(null);
+      setSharedStateError(`Error loading shared view state: share key is invalid`);
+      setSharedStateErrorMessage(
+        intl.formatMessage({
+          defaultMessage: `Error loading shared view state: share key is invalid`,
+          description: 'Experiment page > share viewstate > error > share key is invalid',
+        }),
+      );
+    };
+
+    // The share key references an experiment tag by id: a saved-view envelope tag, or a legacy
+    // pre-#24152 tag storing the raw serialized state. Resolving it requires the experiment.
+    if (!experiment) {
       return;
     }
 
@@ -54,37 +167,32 @@ export const useSharedExperimentViewState = (
       ({ key }) => key === `${EXPERIMENT_PAGE_VIEW_STATE_SHARE_TAG_PREFIX}${viewStateShareKey}`,
     );
 
+    // Mark as acted-on now that `experiment` is loaded (setting it earlier would block this path
+    // from running once the experiment resolves). Covers both the apply and the not-found report.
+    appliedShareKeyRef.current = viewStateShareKey;
+
     const tryParseSharedStateFromTag = async (shareViewTag: KeyValueEntity) => {
+      // A saved-view tag stores a {name, createdAt, state} envelope (state is the compressed
+      // view-state blob); a legacy pre-#24152 tag stores the raw serialized view state directly.
+      // Try the envelope first (all new writes use it); fall back to the raw parse so any
+      // straggler legacy tag still resolves. Only if both fail do we report an invalid share key.
+      try {
+        const envelope = decodeSavedViewEnvelope(shareViewTag.value);
+        const parsedSharedViewState = await deserializeEnvelopeState(envelope);
+        applyParsedState(parsedSharedViewState);
+        return;
+      } catch {
+        // Not an envelope — fall through to the legacy raw parse below.
+      }
       try {
         const parsedSharedViewState = await deserializePersistedState(shareViewTag.value);
-        // First, extract search facets part of the shared view state
-        const sharedSearchFacetsState = pick(
-          parsedSharedViewState,
-          EXPERIMENT_PAGE_QUERY_PARAM_KEYS,
-        ) as ExperimentPageSearchFacetsState;
-
-        // Then, extract UI state part of the shared view state
-        const sharedUiState = pick(parsedSharedViewState, EXPERIMENT_PAGE_UI_STATE_FIELDS) as ExperimentPageUIState;
-
-        setSharedSearchFacetsState(sharedSearchFacetsState);
-        setSharedUiState(sharedUiState);
-        setSharedStateError(null);
-        setSharedStateErrorMessage(null);
+        applyParsedState(parsedSharedViewState);
       } catch (e) {
-        setSharedSearchFacetsState(null);
-        setSharedUiState(null);
-        setSharedStateError(`Error loading shared view state: share key is invalid`);
-        setSharedStateErrorMessage(
-          intl.formatMessage({
-            defaultMessage: `Error loading shared view state: share key is invalid`,
-            description: 'Experiment page > share viewstate > error > share key is invalid',
-          }),
-        );
+        reportInvalidShareState();
       }
     };
 
-    // If the tag exists, parse the view state from the tag value
-    if (!shareViewTag) {
+    const reportShareKeyNotFound = () => {
       setSharedSearchFacetsState(null);
       setSharedUiState(null);
       setSharedStateError(`Error loading shared view state: share key ${viewStateShareKey} does not exist`);
@@ -99,11 +207,40 @@ export const useSharedExperimentViewState = (
           },
         ),
       );
+    };
+
+    // If the tag exists, parse the view state from the tag value
+    if (!shareViewTag) {
+      // The tag may just be absent from our cached experiment.tags rather than truly missing: opening
+      // a link (paste, back/forward) in a tab whose experiment was loaded before the view was saved
+      // reads a stale cache, since a client-side nav doesn't refetch. Refetch the experiment ONCE for
+      // this key and resolve against the FRESH tags in the response — not the `experiment` prop, whose
+      // reference an isEqual selector would collapse if the tags happen to match. Only if the tag is
+      // still absent after the refetch (or it fails) do we report the key as missing.
+      if (refetchedShareKeyRef.current === viewStateShareKey) {
+        reportShareKeyNotFound();
+        return;
+      }
+      refetchedShareKeyRef.current = viewStateShareKey;
+      dispatch(getExperimentApi(experiment.experimentId))
+        .then((result) => {
+          const freshTag = (result?.value?.experiment?.tags ?? []).find(
+            ({ key }: KeyValueEntity) => key === `${EXPERIMENT_PAGE_VIEW_STATE_SHARE_TAG_PREFIX}${viewStateShareKey}`,
+          );
+          if (freshTag) {
+            tryParseSharedStateFromTag(freshTag);
+          } else {
+            reportShareKeyNotFound();
+          }
+        })
+        .catch(() => reportShareKeyNotFound());
       return;
     }
 
     tryParseSharedStateFromTag(shareViewTag);
-  }, [experiment, viewStateShareKey, intl]);
+    // `searchParams` is a dependency so the effect re-fires when the facet params change — in
+    // particular when they get wiped while the key stays, so we re-apply instead of hanging.
+  }, [experiment, viewStateShareKey, searchParams, intl, dispatch]);
 
   useEffect(() => {
     if (!sharedSearchFacetsState || disabled) {
@@ -126,9 +263,12 @@ export const useSharedExperimentViewState = (
     if (disabled) {
       return;
     }
-    if (sharedStateError && experiment) {
+    // Require the display message too: the error and its message are set in two separate
+    // setState calls, and because this runs in an async callback under React 17-compat (no
+    // automatic batching) the effect can fire on the intermediate render where the message is
+    // still null — which would surface an empty error notification before navigating away.
+    if (sharedStateError && sharedStateErrorMessage && experiment) {
       // If there's an error with share key, remove it from the URL and notify user
-      Utils.logErrorAndNotifyUser(new Error(sharedStateError));
       Utils.displayGlobalErrorNotification(sharedStateErrorMessage, 3);
       navigate(Routes.getExperimentPageRoute(experiment.experimentId), { replace: true });
     }
@@ -137,5 +277,7 @@ export const useSharedExperimentViewState = (
   return {
     isViewStateShared,
     sharedStateError,
+    sharedViewActive,
+    exitSharedView,
   };
 };

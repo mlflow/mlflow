@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-import importlib.metadata
 import json
 from typing import Annotated, Any, TypedDict
 from uuid import uuid4
 
 from packaging.version import Version
+
+from mlflow.utils import get_installed_version
 
 try:
     from langchain_core.messages import AnyMessage, BaseMessage, convert_to_messages
@@ -18,7 +19,8 @@ try:
     except ImportError as e:
         # If LangGraph 0.3.x is installed but langgraph_prebuilt is not,
         # show a friendlier error message
-        if Version(importlib.metadata.version("langgraph")) >= Version("0.3.0"):
+        langgraph_version = get_installed_version("langgraph")
+        if langgraph_version is not None and langgraph_version >= Version("0.3.0"):
             raise ImportError(
                 "Please install `langgraph-prebuilt>=0.1.2` to use MLflow LangGraph ChatAgent "
                 "helpers with LangGraph 0.3.x.\n"
@@ -39,6 +41,30 @@ except ImportError as e:
 
 from mlflow.langchain.utils.chat import convert_lc_message_to_chat_message
 from mlflow.types.agent import ChatAgentMessage
+
+
+def _normalize_content_for_chat_agent(content: Any) -> str | None:
+    """
+    Coerce ChatMessage content into the string schema required by ChatAgentMessage.
+
+    ``ChatMessage`` (post-#24176) may carry multimodal / reasoning content parts, but
+    ``ChatAgentMessage.content`` is ``str | None``. For list content we keep only
+    ``type="text"`` parts (joined with newlines) and drop reasoning / other parts so
+    LangGraph ChatAgent serving stays compatible with FMAPI reasoning models.
+    """
+    if content is None or isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        texts: list[str] = []
+        for part in content:
+            if isinstance(part, str):
+                texts.append(part)
+            elif isinstance(part, dict) and part.get("type") == "text":
+                text = part.get("text")
+                if isinstance(text, str):
+                    texts.append(text)
+        return "\n".join(texts)
+    return str(content)
 
 
 def _add_agent_messages(
@@ -128,9 +154,7 @@ class ChatAgentState(TypedDict):
 
             if agent_prompt:
                 system_message = {"role": "system", "content": agent_prompt}
-                preprocessor = RunnableLambda(
-                    lambda state: [system_message] + state["messages"]
-                )
+                preprocessor = RunnableLambda(lambda state: [system_message] + state["messages"])
             else:
                 preprocessor = RunnableLambda(lambda state: state["messages"])
             model_runnable = preprocessor | model
@@ -258,9 +282,9 @@ class ChatAgentState(TypedDict):
 
         chat_agent.predict({"messages": [{"role": "user", "content": "What is 10 + 10?"}]})
 
-        for event in chat_agent.predict_stream(
-            {"messages": [{"role": "user", "content": "Generate me a few random nums"}]}
-        ):
+        for event in chat_agent.predict_stream({
+            "messages": [{"role": "user", "content": "Generate me a few random nums"}]
+        }):
             print(event)
 
     This LangGraph ChatAgent can be logged with the logging code described in the "Logging a
@@ -283,6 +307,11 @@ def parse_message(
     chat_message_dict["attachments"] = attachments
     chat_message_dict["name"] = msg.name or name
     chat_message_dict["id"] = msg.id
+    # ChatAgentMessage requires string content; ChatMessage may return content parts
+    # (e.g. reasoning + text from FMAPI models). Normalize at this boundary only.
+    chat_message_dict["content"] = _normalize_content_for_chat_agent(
+        chat_message_dict.get("content")
+    )
     # _convert_to_message from langchain_core.messages.utils expects an empty string instead of None
     if not chat_message_dict.get("content"):
         chat_message_dict["content"] = ""

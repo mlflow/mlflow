@@ -7,10 +7,11 @@ import logging
 import uuid
 from collections import defaultdict
 from contextlib import contextmanager
-from dataclasses import asdict, is_dataclass
+from dataclasses import dataclass, fields, is_dataclass
 from functools import lru_cache
 from typing import TYPE_CHECKING, Any, Generator
 
+import pydantic
 from opentelemetry import trace as trace_api
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 from opentelemetry.sdk.trace import Span as OTelSpan
@@ -48,7 +49,7 @@ def capture_function_input_args(func, args, kwargs) -> dict[str, Any] | None:
         bound_arguments.apply_defaults()
 
         # Remove `self` from bound arguments if it exists
-        if bound_arguments.arguments.get("self"):
+        if "self" in bound_arguments.arguments:
             del bound_arguments.arguments["self"]
 
         # Remove `cls` from bound arguments if it's the first parameter and it's a type
@@ -72,21 +73,21 @@ class TraceJSONEncoder(json.JSONEncoder):
     """
 
     def default(self, obj):
-        try:
-            import pydantic
-
-            if isinstance(obj, pydantic.BaseModel):
-                return obj.model_dump()
-        except ImportError:
-            pass
+        if isinstance(obj, pydantic.BaseModel):
+            return obj.model_dump()
 
         # Some dataclass object defines __str__ method that doesn't return the full object
         # representation, so we use dict representation instead.
         # E.g. https://github.com/run-llama/llama_index/blob/29ece9b058f6b9a1cf29bc723ed4aa3a39879ad5/llama-index-core/llama_index/core/chat_engine/types.py#L63-L64
         if is_dataclass(obj):
+            # Use shallow field extraction instead of asdict() to avoid copy.deepcopy(),
+            # which can leave partially-constructed objects (e.g. AsyncHttpxClientWrapper
+            # missing _state) that crash during garbage collection.
+            # json.dumps will recursively call default() on nested values, so we still
+            # get full recursive serialization without the deepcopy hazard.
             try:
-                return asdict(obj)
-            except TypeError:
+                return {f.name: getattr(obj, f.name) for f in fields(obj)}
+            except Exception:
                 pass
 
         # Some object has dangerous side effect in __str__ method, so we use class name instead.
@@ -125,7 +126,28 @@ def dump_span_attribute_value(value: Any) -> str:
     # NB: OpenTelemetry attribute can store not only string but also a few primitives like
     #   int, float, bool, and list of them. However, we serialize all into JSON string here
     #   for the simplicity in deserialization process.
-    return json.dumps(value, cls=TraceJSONEncoder, ensure_ascii=False)
+    try:
+        return json.dumps(value, cls=TraceJSONEncoder, ensure_ascii=False)
+    except (ValueError, TypeError) as e:
+        # `json.dumps` raises `ValueError: Circular reference detected` for self-referencing
+        # objects (e.g. pydantic_ai's `run_context`) and `TypeError` for unsupported
+        # structures such as dictionaries with non-serializable keys (e.g. `frozenset`).
+        # Fall back to a repr-based dump so the span attribute is still set and tracing
+        # doesn't crash the user's workflow.
+        _logger.debug(
+            "Failed to serialize span attribute value due to %s. Falling back to repr. ",
+            type(e).__name__,
+            exc_info=True,
+        )
+        return json.dumps(repr(value), ensure_ascii=False)
+
+
+def try_json_loads(value: Any) -> Any:
+    """Try to parse a value as JSON, returning the original value on failure."""
+    try:
+        return json.loads(value)
+    except (json.JSONDecodeError, TypeError):
+        return value
 
 
 @lru_cache(maxsize=1)
@@ -179,95 +201,142 @@ def build_otel_context(trace_id: int, span_id: int) -> trace_api.SpanContext:
     )
 
 
-def _aggregate_from_spans(
-    spans: list[LiveSpan],
-    attribute_key: str,
-    input_key: str,
-    output_key: str,
-    total_key: str,
-    default: int | float,
-) -> dict[str, int | float] | None:
-    """Generic aggregation of data from spans using DFS traversal.
+@dataclass
+class SpanAggregationNode:
+    """Minimal view of a span used for tree-aware aggregation of usage/cost data.
 
-    Avoids double-counting by skipping spans whose ancestors already have the data.
+    Allows sharing the aggregation logic between in-memory spans (client) and
+    spans deserialized from a tracking store (server).
+    """
+
+    span_id: str
+    parent_id: str | None
+    data: dict[str, Any] | None
+
+
+def _aggregate_from_nodes(
+    nodes: list[SpanAggregationNode],
+    keys: list[str],
+    default: int | float,
+    optional_keys: list[str] | None = None,
+) -> dict[str, int | float] | None:
+    """Generic aggregation of data from span nodes using DFS traversal.
+
+    Avoids double-counting by skipping nodes whose ancestors already have the data.
+
+    Trace-level usage (``CHAT_USAGE``) and cost (``LLM_COST``) are produced by two
+    *independent* calls to this function, each deduping on its own attribute. They
+    reconcile for the common leaf-only integrations (direct providers, langchain,
+    llama_index, crewai, autogen, ag2), where usage sits on the same priced LLM spans as
+    cost so both boundaries coincide. They can differ only when a span carries usage but
+    no cost -- a rollup-on-parent integration (e.g. pydantic_ai, dspy, agno) that sets
+    cumulative usage on an unpriced agent/module span; even then a faithful rollup (parent
+    usage == sum of priced leaves) still reconciles. A cache-heavy trace whose cost looks
+    large relative to ``total_tokens`` is a separate token-accounting gap (``total_tokens``
+    excludes cache tokens that cost is priced on), not this aggregation.
 
     Args:
-        spans: List of spans to aggregate from.
-        attribute_key: The span attribute key to look up.
-        input_key: Key for extracting input value from span data.
-        output_key: Key for extracting output value from span data.
-        total_key: Key for extracting total value from span data.
+        nodes: List of span nodes to aggregate from.
+        keys: Keys to aggregate. Always included in the result.
         default: Default value (0 for int, 0.0 for float) that also determines return type.
+        optional_keys: Additional keys to aggregate. Only included in the result
+            when the key is present in the node data.
 
     Returns:
         Aggregated dictionary with the keys, or None if no data found.
     """
-    input_val = default
-    output_val = default
-    total_val = default
+    totals: dict[str, int | float] = dict.fromkeys(keys, default)
     has_data = False
 
-    span_id_to_spans = {span.span_id: span for span in spans}
-    children_map: defaultdict[str, list[LiveSpan]] = defaultdict(list)
-    roots: list[LiveSpan] = []
+    node_ids = {node.span_id for node in nodes}
+    children_map: defaultdict[str, list[SpanAggregationNode]] = defaultdict(list)
+    roots: list[SpanAggregationNode] = []
 
-    for span in spans:
-        parent_id = span.parent_id
-        if parent_id and parent_id in span_id_to_spans:
-            children_map[parent_id].append(span)
+    for node in nodes:
+        parent_id = node.parent_id
+        if parent_id and parent_id in node_ids:
+            children_map[parent_id].append(node)
         else:
-            roots.append(span)
+            roots.append(node)
 
-    def dfs(span: LiveSpan, ancestor_has_data: bool) -> None:
-        nonlocal input_val, output_val, total_val, has_data
+    # Iterative DFS with an explicit stack, instead of recursion, to avoid overflowing
+    # Python's call stack for deeply nested traces (~1000+ levels). A recursive walk here
+    # used to abort root-span finalization and permanently corrupt the trace.
+    #
+    # Visit order is irrelevant: totals is a sum and has_data an OR (both commutative), and
+    # each node's ancestor_has_data is fixed by its ancestor chain, not by sibling visit
+    # order. So a plain stack (no reversed()) yields identical results.
+    stack: list[tuple[SpanAggregationNode, bool]] = [(root, False) for root in roots]
+    while stack:
+        node, ancestor_has_data = stack.pop()
 
-        data = span.get_attribute(attribute_key)
-        span_has_data = data is not None
+        data = node.data
+        node_has_data = data is not None
 
-        if span_has_data and not ancestor_has_data:
-            input_val += data.get(input_key, default)
-            output_val += data.get(output_key, default)
-            total_val += data.get(total_key, default)
+        if node_has_data and not ancestor_has_data:
+            for k in keys:
+                totals[k] += data.get(k, default)
+            for k in optional_keys or []:
+                if k in data:
+                    totals[k] = totals.get(k, default) + data[k]
             has_data = True
 
-        next_ancestor_has_data = ancestor_has_data or span_has_data
-        for child in children_map.get(span.span_id, []):
-            dfs(child, next_ancestor_has_data)
-
-    for root in roots:
-        dfs(root, False)
+        next_ancestor_has_data = ancestor_has_data or node_has_data
+        stack.extend(
+            (child, next_ancestor_has_data) for child in children_map.get(node.span_id, [])
+        )
 
     if not has_data:
         return None
 
-    return {
-        input_key: input_val,
-        output_key: output_val,
-        total_key: total_val,
-    }
+    return totals
+
+
+def _to_span_nodes(spans: list[LiveSpan], attribute_key: str) -> list[SpanAggregationNode]:
+    return [
+        SpanAggregationNode(
+            span_id=span.span_id,
+            parent_id=span.parent_id,
+            data=span.get_attribute(attribute_key),
+        )
+        for span in spans
+    ]
 
 
 def aggregate_usage_from_spans(spans: list[LiveSpan]) -> dict[str, int] | None:
     """Aggregate token usage information from all spans in the trace."""
-    return _aggregate_from_spans(
-        spans,
-        SpanAttributeKey.CHAT_USAGE,
-        TokenUsageKey.INPUT_TOKENS,
-        TokenUsageKey.OUTPUT_TOKENS,
-        TokenUsageKey.TOTAL_TOKENS,
-        0,
+    return aggregate_usage_from_span_nodes(_to_span_nodes(spans, SpanAttributeKey.CHAT_USAGE))
+
+
+def aggregate_usage_from_span_nodes(nodes: list[SpanAggregationNode]) -> dict[str, int] | None:
+    """Aggregate token usage information from span nodes.
+
+    Used by the tracking store, which rebuilds the span tree from stored rows instead of
+    holding live spans in memory.
+    """
+    return _aggregate_from_nodes(
+        nodes,
+        keys=[TokenUsageKey.INPUT_TOKENS, TokenUsageKey.OUTPUT_TOKENS, TokenUsageKey.TOTAL_TOKENS],
+        default=0,
+        optional_keys=TokenUsageKey.cache_keys(),
     )
 
 
 def aggregate_cost_from_spans(spans: list[LiveSpan]) -> dict[str, float] | None:
     """Aggregate cost information from all spans in the trace."""
-    return _aggregate_from_spans(
-        spans,
-        SpanAttributeKey.LLM_COST,
-        CostKey.INPUT_COST,
-        CostKey.OUTPUT_COST,
-        CostKey.TOTAL_COST,
-        0.0,
+    return aggregate_cost_from_span_nodes(_to_span_nodes(spans, SpanAttributeKey.LLM_COST))
+
+
+def aggregate_cost_from_span_nodes(nodes: list[SpanAggregationNode]) -> dict[str, float] | None:
+    """Aggregate cost information from span nodes.
+
+    Used by the tracking store, which rebuilds the span tree from stored rows instead of
+    holding live spans in memory.
+    """
+    return _aggregate_from_nodes(
+        nodes,
+        keys=[CostKey.INPUT_COST, CostKey.OUTPUT_COST, CostKey.TOTAL_COST],
+        default=0.0,
     )
 
 
@@ -287,17 +356,22 @@ def calculate_span_cost(span: LiveSpan) -> dict[str, float] | None:
     return calculate_cost_by_model_and_token_usage(model_name, usage, model_provider)
 
 
+# Model URI prefixes that are internal routing identifiers (not real model names).
+# Cost lookup would never find them in the catalog and just wastes time.
+_SKIP_COST_PREFIXES = ("gateway:/", "endpoints:/")
+
+
 def calculate_cost_by_model_and_token_usage(
     model_name: str | None, usage: dict[str, int] | None, model_provider: str | None = None
 ) -> dict[str, float] | None:
     if not model_name or not usage:
         return None
 
-    try:
-        from litellm import cost_per_token
-    except ImportError:
-        _logger.debug("LiteLLM not available for cost calculation")
+    if model_name.startswith(_SKIP_COST_PREFIXES):
         return None
+
+    if not model_provider and model_name.startswith(("databricks-", "databricks/")):
+        model_provider = "databricks"
 
     prompt_tokens = usage.get(TokenUsageKey.INPUT_TOKENS, 0)
     completion_tokens = usage.get(TokenUsageKey.OUTPUT_TOKENS, 0)
@@ -305,34 +379,74 @@ def calculate_cost_by_model_and_token_usage(
     if prompt_tokens == 0 and completion_tokens == 0:
         return None
 
+    cache_kwargs = {}
+    if (cached := usage.get(TokenUsageKey.CACHE_READ_INPUT_TOKENS)) is not None:
+        cache_kwargs["cache_read_input_tokens"] = cached
+    if (created := usage.get(TokenUsageKey.CACHE_CREATION_INPUT_TOKENS)) is not None:
+        cache_kwargs["cache_creation_input_tokens"] = created
+
     try:
-        input_cost_usd, output_cost_usd = cost_per_token(
-            model=model_name, prompt_tokens=prompt_tokens, completion_tokens=completion_tokens
-        )
-    except Exception as e:
+        import litellm
+        from litellm import cost_per_token
+    except ImportError:
+        from mlflow.utils.providers import cost_per_token
+
+        litellm = None
+
+    # The 1-hour cache-creation breakdown is only understood by MLflow's builtin cost_per_token;
+    # litellm's signature does not accept it, so only pass it when falling back to the builtin.
+    if (
+        litellm is None
+        and (above_1hr := usage.get(TokenUsageKey.CACHE_CREATION_INPUT_TOKENS_ABOVE_1HR))
+        is not None
+    ):
+        cache_kwargs["cache_creation_input_tokens_above_1hr"] = above_1hr
+
+    if litellm is not None:
+        original_suppress = getattr(litellm, "suppress_debug_info")
+
+    try:
+        if litellm is not None:
+            # Suppress litellm debug messages (e.g. "Provider List: ...") unless
+            # MLflow's logger is set to DEBUG level.
+            litellm.suppress_debug_info = not _logger.isEnabledFor(logging.DEBUG)
+
+        # When provider is known, try it first — this is a fast single-provider lookup
+        # and avoids the slower all-provider scan.
+        result = None
         if model_provider:
-            # pass model_provider only in exception case to avoid invalid model_provider
-            # being used when model_name itself is enough to calculate cost, since model_provider
-            # field can be with any value and litellm may not support it.
             try:
-                input_cost_usd, output_cost_usd = cost_per_token(
+                result = cost_per_token(
                     model=model_name,
                     prompt_tokens=prompt_tokens,
                     completion_tokens=completion_tokens,
-                    custom_llm_provider=model_provider,
+                    custom_llm_provider=model_provider.lower(),
+                    **cache_kwargs,
                 )
-            except Exception as e:
-                _logger.debug(
-                    f"Failed to calculate cost for model {model_name}: {e}", exc_info=True
-                )
-                return None
-        else:
-            _logger.debug(
-                f"Failed to calculate cost for model {model_name} without provider: {e}",
-                exc_info=True,
-            )
-            return None
+            except Exception:
+                pass
 
+        # Fallback: try without provider (for litellm this may match by model name alone,
+        # for builtin this scans bundled providers).
+        if result is None:
+            try:
+                result = cost_per_token(
+                    model=model_name,
+                    prompt_tokens=prompt_tokens,
+                    completion_tokens=completion_tokens,
+                    **cache_kwargs,
+                )
+            except Exception:
+                pass
+    finally:
+        if litellm is not None:
+            litellm.suppress_debug_info = original_suppress
+
+    if result is None:
+        _logger.debug(f"Failed to calculate cost for model {model_name}")
+        return None
+
+    input_cost_usd, output_cost_usd = result
     return {
         CostKey.INPUT_COST: input_cost_usd,
         CostKey.OUTPUT_COST: output_cost_usd,
@@ -387,6 +501,30 @@ def maybe_get_request_id(is_evaluate=False) -> str | None:
         return None
 
     return context.request_id
+
+
+def maybe_get_serving_request_id() -> str | None:
+    """Best-effort Databricks model-serving client request ID for the current request.
+
+    Reads the request ID from the prediction context, falling back to the ``X-Request-Id`` header
+    for streaming responses where no prediction context is active. Returns ``None`` when there is
+    no request ID rather than aborting, so callers can use it purely to key the serving buffer.
+
+    Returns ``None`` outside model serving, where a client request ID has no meaning.
+    """
+    from mlflow.utils.databricks_utils import is_in_databricks_model_serving_environment
+
+    if not is_in_databricks_model_serving_environment():
+        return None
+
+    if request_id := maybe_get_request_id():
+        return request_id
+
+    from mlflow.tracing.processor.inference_table import _HEADER_REQUEST_ID_KEY, _get_flask_request
+
+    if flask_request := _get_flask_request():
+        return flask_request.headers.get(_HEADER_REQUEST_ID_KEY)
+    return None
 
 
 def maybe_get_dependencies_schemas() -> dict[str, Any] | None:
@@ -709,11 +847,11 @@ def get_active_spans_table_name() -> str | None:
     """
     Get active Unity Catalog spans table name that's set by `mlflow.tracing.set_destination`.
     """
-    from mlflow.entities.trace_location import UCSchemaLocation
+    from mlflow.entities.trace_location import UCSchemaLocation, UnityCatalog
     from mlflow.tracing.provider import _MLFLOW_TRACE_USER_DESTINATION
 
     if destination := _MLFLOW_TRACE_USER_DESTINATION.get():
-        if isinstance(destination, UCSchemaLocation):
+        if isinstance(destination, (UCSchemaLocation, UnityCatalog)):
             return destination.full_otel_spans_table_name
 
     return None
@@ -739,13 +877,23 @@ def _bypass_attribute_guard(span: OTelSpan) -> Generator[None, None, None]:
     However, we need to set some attributes within `on_end` handler of the span processor,
     where the span is already marked as ended. This context manager is a hacky workaround
     to bypass the attribute guard.
+
+    Since opentelemetry-sdk 1.43.0, `Span.end()` additionally marks the span's
+    `BoundedAttributes` as immutable, which raises a `TypeError` on any write regardless of
+    the end time. We temporarily clear that flag as well and restore it afterwards.
     """
     original_end_time = span._end_time
     span._end_time = None
+    attributes = span._attributes
+    original_immutable = getattr(attributes, "_immutable", None)
+    if original_immutable is not None:
+        attributes._immutable = False
     try:
         yield
     finally:
         span._end_time = original_end_time
+        if original_immutable is not None:
+            attributes._immutable = original_immutable
 
 
 def parse_trace_id_v4(trace_id: str | None) -> tuple[str | None, str | None]:
@@ -792,11 +940,28 @@ def set_span_model_attribute(span: LiveSpan, inputs: dict[str, Any]) -> None:
         _logger.debug(f"Failed to set model for {span}. Error: {e}")
 
 
+def should_compute_cost_client_side() -> bool:
+    """Whether LLM cost should be computed on the client side.
+
+    Databricks and SageMaker MLflow tracking backends need client-side cost.
+    Other backends compute it in translate_span_when_storing(), called by
+    SqlAlchemyStore._log_spans_once() before the span is saved.
+    """
+    from mlflow.tracking._tracking_service.utils import get_tracking_uri
+    from mlflow.utils.uri import is_databricks_uri, is_sagemaker_mlflow_tracking_uri
+
+    tracking_uri = get_tracking_uri()
+    return is_databricks_uri(tracking_uri) or is_sagemaker_mlflow_tracking_uri(tracking_uri)
+
+
 def set_span_cost_attribute(span: LiveSpan) -> None:
     """
-    Set the cost attribute on a span using calculated cost information.
+    Set the calculated cost on a span unless a cost was already provided.
     """
     try:
+        # An explicitly set null cost should not be replaced by a calculated cost.
+        if SpanAttributeKey.LLM_COST in span._span.attributes:
+            return
         if cost := calculate_span_cost(span):
             span.set_attribute(SpanAttributeKey.LLM_COST, cost)
     except Exception as e:

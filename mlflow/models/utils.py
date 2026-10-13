@@ -35,6 +35,7 @@ from mlflow.types.utils import (
     _is_none_or_nan,
     clean_tensor_type,
 )
+from mlflow.utils.annotations import deprecated
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
 from mlflow.utils.file_utils import create_tmp_dir, get_local_path_or_none
 from mlflow.utils.mlflow_tags import MLFLOW_MODEL_IS_EXTERNAL
@@ -359,12 +360,10 @@ class _Example:
             model_input = _convert_dataframe_to_split_dict(model_input)
             self.serving_input = {DF_SPLIT: model_input}
             orient = "split" if "columns" in model_input else "values"
-            self.info.update(
-                {
-                    "type": "dataframe",
-                    "pandas_orient": orient,
-                }
-            )
+            self.info.update({
+                "type": "dataframe",
+                "pandas_orient": orient,
+            })
         elif np.isscalar(model_input) or isinstance(model_input, dt.datetime):
             self.info["type"] = "json_object"
             self.serving_input = {INPUTS: model_input}
@@ -768,6 +767,13 @@ def _enforce_mlflow_datatype(name, values: pd.Series, t: DataType):
         # due to how None is cast
         return values
 
+    if t == DataType.binary and isinstance(values.dtype, pd.StringDtype):
+        # pandas 3 infers plain-string columns as StringDtype rather than object. Binary
+        # columns historically arrived as object and were passed through unchanged (see the
+        # ``t.to_pandas() == values.dtype`` check below, where binary maps to object), so accept
+        # StringDtype the same way.
+        return values
+
     # NB: Comparison of pandas and numpy data type fails when numpy data type is on the left hand
     # side of the comparison operator. It works, however, if pandas type is on the left hand side.
     # That is because pandas is aware of numpy.
@@ -953,8 +959,11 @@ def _enforce_unnamed_col_schema(pf_input: pd.DataFrame, input_schema: Schema):
         # Otherwise, the schema is not valid.
         else:
             new_pf_input[x] = pd.Series(
-                [_enforce_type(obj, input_types[i]) for obj in pf_input[x]], name=x
+                [_enforce_type(obj, input_types[i]) for obj in pf_input[x]],
+                index=pf_input.index,
+                name=x,
             )
+    # pandas aligns these Series by index, so each branch must retain the input index.
     return pd.DataFrame(new_pf_input)
 
 
@@ -980,8 +989,11 @@ def _enforce_named_col_schema(pf_input: pd.DataFrame, input_schema: Schema):
         # Otherwise, the schema is not valid.
         else:
             new_pf_input[name] = pd.Series(
-                [_enforce_type(obj, input_type, required) for obj in pf_input[name]], name=name
+                [_enforce_type(obj, input_type, required) for obj in pf_input[name]],
+                index=pf_input.index,
+                name=name,
             )
+    # pandas aligns these Series by index, so each branch must retain the input index.
     return pd.DataFrame(new_pf_input)
 
 
@@ -993,7 +1005,8 @@ def _reshape_and_cast_pandas_column_values(name, pd_series, tensor_spec):
             f"of {'input ' + name if name else 'the unnamed input'} is {tensor_spec.shape}."
         )
 
-    if np.isscalar(pd_series[0]):
+    first_value = pd_series.iloc[0]
+    if np.isscalar(first_value):
         for shape in [(-1,), (-1, 1)]:
             if tensor_spec.shape == shape:
                 return _enforce_tensor_spec(
@@ -1005,7 +1018,7 @@ def _reshape_and_cast_pandas_column_values(name, pd_series, tensor_spec):
             f"shape of {tensor_spec.shape}.",
             error_code=INVALID_PARAMETER_VALUE,
         )
-    elif isinstance(pd_series[0], list) and np.isscalar(pd_series[0][0]):
+    elif isinstance(first_value, list) and np.isscalar(first_value[0]):
         # If the pandas column contains list type values,
         # in this case, the shape and type information is lost,
         # so do not enforce the shape and type, instead,
@@ -1027,7 +1040,7 @@ def _reshape_and_cast_pandas_column_values(name, pd_series, tensor_spec):
         if len(reshaped_numpy_arr) != len(pd_series):
             raise MlflowException(reshape_err_msg, error_code=INVALID_PARAMETER_VALUE)
         return reshaped_numpy_arr
-    elif isinstance(pd_series[0], np.ndarray):
+    elif isinstance(first_value, np.ndarray):
         reshape_err_msg = (
             f"The value in the Input DataFrame column '{name}' could not be converted to the "
             f"expected shape of: '{tensor_spec.shape}'. Ensure that each of the input numpy "
@@ -1191,16 +1204,14 @@ def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema, flavor: str | N
                         # ColSpec model signatures do not support array columns, so subsequent
                         # validation logic will result in a clear "incompatible input types"
                         # exception. This is preferable to a pandas DataFrame construction error
-                        pf_input = pd.DataFrame(
-                            {
-                                key: (
-                                    value.tolist()
-                                    if (isinstance(value, np.ndarray) and value.ndim > 1)
-                                    else value
-                                )
-                                for key, value in pf_input.items()
-                            }
-                        )
+                        pf_input = pd.DataFrame({
+                            key: (
+                                value.tolist()
+                                if (isinstance(value, np.ndarray) and value.ndim > 1)
+                                else value
+                            )
+                            for key, value in pf_input.items()
+                        })
                     else:
                         pf_input = pd.DataFrame(pf_input)
                 except Exception as e:
@@ -1352,8 +1363,11 @@ def _enforce_datatype(data: Any, dtype: DataType, required=True):
     try:
         pd_series = _enforce_mlflow_datatype("", pd_series, dtype)
     except MlflowException:
+        # error_code is INVALID_PARAMETER_VALUE but this is a schema enforcement failure
         raise MlflowException(
-            f"Failed to enforce schema of data `{data}` with dtype `{dtype.name}`"
+            f"Failed to enforce schema of data `{data}` with dtype `{dtype.name}`",
+            error_code=INVALID_PARAMETER_VALUE,
+            error_class="SCHEMA_ENFORCEMENT_FAILED",
         )
     return pd_series[0]
 
@@ -1385,7 +1399,12 @@ def _enforce_array(data: Any, arr: Array, required: bool = True):
         data_enforced = [_enforce_type(x, arr.dtype, required=required) for x in data]
 
     if isinstance(data, list) and isinstance(data_enforced, np.ndarray):
-        data_enforced = data_enforced.tolist()
+        # NumPy's tolist() converts datetime64[ns] values to integers.
+        data_enforced = (
+            pd.Series(data_enforced).tolist()
+            if arr.dtype == DataType.datetime
+            else data_enforced.tolist()
+        )
     elif isinstance(data, np.ndarray) and isinstance(data_enforced, list):
         data_enforced = np.array(data_enforced)
 
@@ -1978,10 +1997,13 @@ def _flatten_nested_params(
 
 # NB: this function should always be kept in sync with the serving
 # process in scoring_server invocations.
-def validate_serving_input(model_uri: str, serving_input: str | dict[str, Any]):
+def _validate_serving_input(model_uri: str, serving_input: str | dict[str, Any]):
     """
-    Helper function to validate the model can be served and provided input is valid
-    prior to serving the model.
+    Internal helper used by MLflow's model logging pipeline to validate that an
+    ``input_example`` can be successfully served. The public-facing wrapper
+    ``validate_serving_input`` is deprecated, but this function is preserved so
+    that ``log_model`` can keep validating examples without emitting a
+    deprecation warning.
 
     Args:
         model_uri: URI of the model to be served.
@@ -2011,6 +2033,27 @@ def validate_serving_input(model_uri: str, serving_input: str | dict[str, Any]):
     finally:
         if output_dir and os.path.exists(output_dir):
             shutil.rmtree(output_dir)
+
+
+@deprecated(alternative="mlflow.models.predict", since="3.13.0")
+def validate_serving_input(model_uri: str, serving_input: str | dict[str, Any]):
+    """
+    Helper function to validate the model can be served and provided input is valid
+    prior to serving the model.
+
+    .. note::
+        This API is deprecated. Use :py:func:`mlflow.models.predict` instead, which
+        validates the input example by running prediction in an isolated environment
+        (e.g. with ``env_manager="uv"``) that closely mirrors the serving environment.
+
+    Args:
+        model_uri: URI of the model to be served.
+        serving_input: Input data to be validated. Should be a dictionary or a JSON string.
+
+    Returns:
+        The prediction result from the model.
+    """
+    return _validate_serving_input(model_uri, serving_input)
 
 
 def get_external_mlflow_model_spec(logged_model: LoggedModel) -> Model:

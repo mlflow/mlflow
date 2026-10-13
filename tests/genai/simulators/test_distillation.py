@@ -23,16 +23,29 @@ def test_goal_and_persona_model_goal_required():
 
 
 @pytest.mark.parametrize(
-    ("input_data", "expected_goal", "expected_persona"),
+    ("input_data", "expected_goal", "expected_persona", "expected_guidelines"),
     [
-        ({"goal": "Test goal"}, "Test goal", None),
-        ({"goal": "Test goal", "persona": "Friendly user"}, "Test goal", "Friendly user"),
+        ({"goal": "Test goal"}, "Test goal", None, None),
+        ({"goal": "Test goal", "persona": "Friendly user"}, "Test goal", "Friendly user", None),
+        (
+            {
+                "goal": "Test goal",
+                "persona": "Friendly user",
+                "simulation_guidelines": ["Be concise", "Ask follow-ups"],
+            },
+            "Test goal",
+            "Friendly user",
+            ["Be concise", "Ask follow-ups"],
+        ),
     ],
 )
-def test_goal_and_persona_model_validation(input_data, expected_goal, expected_persona):
+def test_goal_and_persona_model_validation(
+    input_data, expected_goal, expected_persona, expected_guidelines
+):
     result = _GoalAndPersona.model_validate(input_data)
     assert result.goal == expected_goal
     assert result.persona == expected_persona
+    assert result.simulation_guidelines == expected_guidelines
 
 
 def test_distill_returns_none_for_empty_conversation(mock_session):
@@ -52,6 +65,15 @@ def test_distill_returns_none_for_empty_conversation(mock_session):
             {"goal": "Get help", "persona": "Data scientist"},
         ),
         ('{"goal": "Get help"}', {"goal": "Get help"}),
+        (
+            '{"goal": "Get help", "persona": "Engineer", '
+            '"simulation_guidelines": ["Start with a vague request", "Be concise"]}',
+            {
+                "goal": "Get help",
+                "persona": "Engineer",
+                "simulation_guidelines": ["Start with a vague request", "Be concise"],
+            },
+        ),
     ],
 )
 def test_distill_extracts_goal_and_persona(mock_session, llm_response, expected):

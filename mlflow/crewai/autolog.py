@@ -1,10 +1,12 @@
 import inspect
 import json
 import logging
+import re
 import warnings
 from contextlib import contextmanager, nullcontext
 from typing import Any
 
+import pydantic
 from packaging.version import Version
 
 import mlflow
@@ -15,6 +17,15 @@ from mlflow.tracing.utils import TraceJSONEncoder
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 
 _logger = logging.getLogger(__name__)
+
+# Matches credential-like keys such as `api_key`, `client_secret`, `Authorization`,
+# `auth_token`, or `accessToken`. Credential keys end with `token`, so `max_tokens`,
+# `tokenizer`, and `token_usage` (legitimate LLM configuration and usage fields) are kept.
+_SENSITIVE_KEY_PATTERN = re.compile(
+    r"(?i:api_?key|secret|password|authorization|credential)"  # anywhere in the key
+    r"|(?<![A-Za-z])(?i:token)$"  # snake_case / standalone `token`
+    r"|(?<=[a-z])Token$"  # camelCase `accessToken`
+)
 
 
 def patched_standalone_call(original, *args, **kwargs):
@@ -35,16 +46,27 @@ def patched_standalone_call(original, *args, **kwargs):
         result = original(*args, **kwargs)
 
         # Need to convert the response of generate_content for better visualization
-        outputs = result.__dict__ if hasattr(result, "__dict__") else result
+        outputs = _sanitize_value(result.__dict__ if hasattr(result, "__dict__") else result)
         span.set_outputs(outputs)
 
         return result
 
 
+def _is_internal_flow(instance) -> bool:
+    # crewai >= 1.14.5 runs an experimental AgentExecutor (a Flow subclass) inside
+    # Agent.execute_task. Skip span creation for it since the Agent span already
+    # bounds the same work and crewai marks it with suppress_flow_events=True.
+    try:
+        from crewai.experimental.agent_executor import AgentExecutor
+    except ImportError:
+        return False
+    return isinstance(instance, AgentExecutor)
+
+
 def patched_class_call(original, self, *args, **kwargs):
     config = AutoLoggingConfig.init(flavor_name=mlflow.crewai.FLAVOR_NAME)
 
-    if not config.log_traces:
+    if not config.log_traces or _is_internal_flow(self):
         return original(self, *args, **kwargs)
 
     default_name = f"{self.__class__.__name__}.{original.__name__}"
@@ -65,7 +87,7 @@ def patched_class_call(original, self, *args, **kwargs):
             result = original(self, *args, **kwargs)
 
         # Need to convert the response of generate_content for better visualization
-        outputs = result.__dict__ if hasattr(result, "__dict__") else result
+        outputs = _sanitize_value(result.__dict__ if hasattr(result, "__dict__") else result)
 
         if span_type == SpanType.LLM and (usage_dict := _parse_usage(self)):
             span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage_dict)
@@ -107,6 +129,74 @@ def _parse_usage(instance: Any) -> dict[str, int] | None:
     }
 
 
+def patched_native_tool_call(original, self, *args, **kwargs):
+    config = AutoLoggingConfig.init(flavor_name=mlflow.crewai.FLAVOR_NAME)
+
+    if not config.log_traces:
+        return original(self, *args, **kwargs)
+
+    tool_calls = args[0] if args else kwargs.get("tool_calls", [])
+    tool_name = _extract_native_tool_name(tool_calls)
+    if not tool_name:
+        return original(self, *args, **kwargs)
+
+    tool_args = _extract_native_tool_args(tool_calls)
+
+    with mlflow.start_span(name=tool_name, span_type=SpanType.TOOL) as span:
+        span.set_inputs({"tool_name": tool_name, "tool_args": tool_args})
+
+        msgs_before = len(self.messages)
+        result = original(self, *args, **kwargs)
+
+        # Extract tool result from the "tool" message appended by the original method
+        for msg in self.messages[msgs_before:]:
+            if isinstance(msg, dict) and msg.get("role") == "tool":
+                span.set_outputs({"result": msg.get("content")})
+                break
+
+        return result
+
+
+def _extract_native_tool_name(tool_calls):
+    if not tool_calls:
+        return None
+    tool_call = tool_calls[0]
+    if hasattr(tool_call, "function"):
+        return tool_call.function.name
+    elif hasattr(tool_call, "function_call") and tool_call.function_call:
+        return tool_call.function_call.name
+    elif hasattr(tool_call, "name") and hasattr(tool_call, "input"):
+        return tool_call.name
+    elif isinstance(tool_call, dict):
+        func_info = tool_call.get("function", {})
+        return func_info.get("name", "") or tool_call.get("name", "")
+    return None
+
+
+def _extract_native_tool_args(tool_calls):
+    if not tool_calls:
+        return {}
+    tool_call = tool_calls[0]
+    if hasattr(tool_call, "function"):
+        args = tool_call.function.arguments
+    elif hasattr(tool_call, "function_call") and tool_call.function_call:
+        args = dict(tool_call.function_call.args) if tool_call.function_call.args else {}
+    elif hasattr(tool_call, "input"):
+        args = tool_call.input
+    elif isinstance(tool_call, dict):
+        func_info = tool_call.get("function", {})
+        args = func_info.get("arguments", "{}") or tool_call.get("input", {})
+    else:
+        return {}
+
+    if isinstance(args, str):
+        try:
+            return json.loads(args)
+        except json.JSONDecodeError:
+            return {}
+    return args
+
+
 def _resolve_standalone_span(original, kwargs) -> tuple[str, SpanType]:
     name = original.__name__
     if name == "execute_tool_and_check_finality":
@@ -133,12 +223,18 @@ def _get_span_type(instance) -> str:
             return SpanType.LLM
         elif isinstance(instance, Flow):
             return SpanType.CHAIN
-        elif isinstance(
-            instance, crewai.agents.agent_builder.base_agent_executor_mixin.CrewAgentExecutorMixin
-        ):
+        CREWAI_VERSION = Version(crewai.__version__)
+        # crewai 1.14.5 renamed base_agent_executor_mixin.CrewAgentExecutorMixin to
+        # base_agent_executor.BaseAgentExecutor
+        if CREWAI_VERSION >= Version("1.14.5"):
+            executor_cls = crewai.agents.agent_builder.base_agent_executor.BaseAgentExecutor
+        else:
+            executor_cls = (
+                crewai.agents.agent_builder.base_agent_executor_mixin.CrewAgentExecutorMixin
+            )
+        if isinstance(instance, executor_cls):
             return SpanType.MEMORY
 
-        CREWAI_VERSION = Version(crewai.__version__)
         # Knowledge and Memory are not available before 0.83.0
         if CREWAI_VERSION >= Version("0.83.0"):
             memory_classes = (
@@ -202,11 +298,13 @@ def _construct_full_inputs(func, *args, **kwargs):
         arguments.pop("self")
 
     # Avoid non serializable objects and circular references
-    return {
+    inputs = {
         k: v.__dict__ if hasattr(v, "__dict__") else v
         for k, v in arguments.items()
         if v is not None and _is_serializable(v)
     }
+    # Sanitize the whole dict so credential-named arguments are dropped along with nested ones
+    return _sanitize_value(inputs)
 
 
 def _set_span_attributes(span: LiveSpan, instance):
@@ -224,53 +322,66 @@ def _set_span_attributes(span: LiveSpan, instance):
                         value = _parse_tasks(value)
                     elif key == "agents":
                         value = _parse_agents(value)
-                    elif key == "embedder":
-                        value = _sanitize_value(value)
-                    span.set_attribute(key, str(value) if isinstance(value, list) else value)
+                    _set_sanitized_attribute(span, key, value)
 
         elif isinstance(instance, Agent):
             agent = _get_agent_attributes(instance)
             for key, value in agent.items():
                 if value is not None:
-                    span.set_attribute(key, str(value) if isinstance(value, list) else value)
+                    _set_sanitized_attribute(span, key, value)
 
         elif isinstance(instance, Task):
             task = _get_task_attributes(instance)
             for key, value in task.items():
                 if value is not None:
-                    span.set_attribute(key, str(value) if isinstance(value, list) else value)
+                    _set_sanitized_attribute(span, key, value)
 
         elif isinstance(instance, LLM):
             llm = _get_llm_attributes(instance)
             for key, value in llm.items():
                 if value is not None:
-                    span.set_attribute(key, str(value) if isinstance(value, list) else value)
+                    _set_sanitized_attribute(span, key, value)
             # Set model name explicitly using the MODEL attribute key
             if model := getattr(instance, "model", None):
                 span.set_attribute(SpanAttributeKey.MODEL, model)
+                if isinstance(model, str):
+                    match model.split("/", 1):
+                        case [provider, _]:
+                            span.set_attribute(SpanAttributeKey.MODEL_PROVIDER, provider)
 
         elif isinstance(instance, Flow):
             for key, value in instance.__dict__.items():
                 if value is not None:
-                    span.set_attribute(key, str(value) if isinstance(value, list) else value)
+                    _set_sanitized_attribute(span, key, value)
 
         elif Version(crewai.__version__) >= Version("0.83.0"):
             if isinstance(instance, crewai.Knowledge):
                 for key, value in instance.__dict__.items():
                     if value is not None and key != "storage":
-                        span.set_attribute(key, str(value) if isinstance(value, list) else value)
+                        _set_sanitized_attribute(span, key, value)
 
     except AttributeError as e:
         _logger.warn("An exception happens when saving span attributes. Exception: %s", e)
 
 
+def _set_sanitized_attribute(span: LiveSpan, key: str, value: Any):
+    # The key itself may name a credential (e.g. a provider's `auth_token` field), in which
+    # case the value is a plain string that `_sanitize_value` cannot recognize.
+    if _SENSITIVE_KEY_PATTERN.search(key):
+        return
+    value = _sanitize_value(value)
+    span.set_attribute(key, str(value) if isinstance(value, list) else value)
+
+
 def _get_agent_attributes(instance):
     agent = {}
     for key, value in instance.__dict__.items():
+        if _SENSITIVE_KEY_PATTERN.search(key):
+            continue
         if key == "tools":
             value = _parse_tools(value)
-        elif key == "embedder":
-            value = _sanitize_value(value)
+        # Sanitize before stringifying: `str(agent.llm)` would otherwise embed the api_key
+        value = _sanitize_value(value)
         if value is None:
             continue
         agent[key] = str(value)
@@ -281,7 +392,7 @@ def _get_agent_attributes(instance):
 def _get_task_attributes(instance):
     task = {}
     for key, value in instance.__dict__.items():
-        if value is None:
+        if value is None or _SENSITIVE_KEY_PATTERN.search(key):
             continue
         if key == "tools":
             value = _parse_tools(value)
@@ -289,20 +400,20 @@ def _get_task_attributes(instance):
         elif key == "agent":
             task[key] = value.role
         else:
-            task[key] = str(value)
+            task[key] = str(_sanitize_value(value))
     return task
 
 
 def _get_llm_attributes(instance):
     llm = {SpanAttributeKey.MESSAGE_FORMAT: "crewai"}
     for key, value in instance.__dict__.items():
-        if value is None:
+        if value is None or _SENSITIVE_KEY_PATTERN.search(key):
             continue
-        elif key in ["callbacks", "api_key"]:
+        elif key == "callbacks":
             # Skip callbacks until how they should be logged are decided
             continue
         else:
-            llm[key] = str(value)
+            llm[key] = str(_sanitize_value(value))
     return llm
 
 
@@ -315,21 +426,19 @@ def _parse_agents(agents):
                 model = agent.llm.model
             elif hasattr(agent.llm, "model_name"):
                 model = agent.llm.model_name
-        attributes.append(
-            {
-                "id": str(agent.id),
-                "role": agent.role,
-                "goal": agent.goal,
-                "backstory": agent.backstory,
-                "cache": agent.cache,
-                "config": agent.config,
-                "verbose": agent.verbose,
-                "allow_delegation": agent.allow_delegation,
-                "tools": agent.tools,
-                "max_iter": agent.max_iter,
-                "llm": str(model if model is not None else ""),
-            }
-        )
+        attributes.append({
+            "id": str(agent.id),
+            "role": agent.role,
+            "goal": agent.goal,
+            "backstory": agent.backstory,
+            "cache": agent.cache,
+            "config": agent.config,
+            "verbose": agent.verbose,
+            "allow_delegation": agent.allow_delegation,
+            "tools": agent.tools,
+            "max_iter": agent.max_iter,
+            "llm": str(model if model is not None else ""),
+        })
     return attributes
 
 
@@ -357,39 +466,70 @@ def _parse_tools(tools):
         if hasattr(tool, "description") and tool.description is not None:
             res["description"] = tool.description
         if res:
-            result.append(
-                {
-                    "type": "function",
-                    "function": res,
-                }
-            )
+            result.append({
+                "type": "function",
+                "function": res,
+            })
     return result
+
+
+def _is_crewai_llm(value) -> bool:
+    try:
+        from crewai.llms.base_llm import BaseLLM
+    except ImportError:
+        from crewai import LLM as BaseLLM
+    return isinstance(value, BaseLLM)
+
+
+def _get_llm_summary(llm) -> str:
+    for attr in ("model", "model_name"):
+        if (model := getattr(llm, attr, None)) is not None:
+            return str(model)
+    return type(llm).__name__
 
 
 def _sanitize_value(val):
     """
-    Sanitize a value to remove sensitive information.
+    Recursively strip credentials from a value before it is attached to a span.
 
-    Args:
-        val: The value to sanitize. Can be None, a dict, a list, or other types.
+    Credential-like dict keys are dropped and crewai LLM objects are reduced to their model
+    name, since both ``str(llm)`` and ``model_dump()`` expose ``api_key``. Other pydantic models
+    (Agent, Task, Crew, agent executors, ...) are expanded field by field so that LLMs nested
+    inside them, e.g. via ``Task.agent`` or ``Crew.agents``, are sanitized as well.
 
-    Returns:
-        The sanitized value.
+    Fails closed: if sanitization itself raises, the value is replaced with a placeholder
+    rather than logged unsanitized or allowed to break the traced call.
     """
-    if val is None:
-        return None
+    try:
+        return _sanitize_value_impl(val, set())
+    except Exception as e:
+        _logger.debug("Failed to sanitize %s for span logging: %s", type(val).__name__, e)
+        return f"<{type(val).__name__}: omitted, sanitization failed>"
 
-    sensitive_keys = ["api_key", "secret", "password", "token"]
 
-    if isinstance(val, dict):
-        sanitized = {}
-        for k, v in val.items():
-            if any(sensitive in k.lower() for sensitive in sensitive_keys):
-                continue
-            sanitized[k] = _sanitize_value(v)
-        return sanitized
+def _sanitize_value_impl(val, ancestors: set[int]):
+    if val is None or isinstance(val, (str, int, float, bool)):
+        return val
 
-    elif isinstance(val, list):
-        return [_sanitize_value(item) for item in val]
-
-    return val
+    if id(val) in ancestors:
+        # Reference cycle, e.g. Agent.crew -> Crew.agents -> Agent
+        return type(val).__name__
+    ancestors.add(id(val))
+    try:
+        if isinstance(val, dict):
+            return {
+                k: _sanitize_value_impl(v, ancestors)
+                for k, v in val.items()
+                if not (isinstance(k, str) and _SENSITIVE_KEY_PATTERN.search(k))
+            }
+        if isinstance(val, (list, tuple, set)):
+            sanitized = [_sanitize_value_impl(item, ancestors) for item in val]
+            # Sets become lists: sanitized items (e.g. expanded models) may be unhashable
+            return tuple(sanitized) if isinstance(val, tuple) else sanitized
+        if _is_crewai_llm(val):
+            return _get_llm_summary(val)
+        if isinstance(val, pydantic.BaseModel):
+            return _sanitize_value_impl(val.__dict__, ancestors)
+        return val
+    finally:
+        ancestors.discard(id(val))

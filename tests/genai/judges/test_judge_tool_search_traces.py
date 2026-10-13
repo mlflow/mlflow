@@ -229,12 +229,10 @@ def mock_search_traces_list() -> list[Trace]:
         end_time=1000000150,
         parent_id=None,
     )
-    otel_span1.set_attributes(
-        {
-            SpanAttributeKey.INPUTS: "request1",
-            SpanAttributeKey.OUTPUTS: "response1",
-        }
-    )
+    otel_span1.set_attributes({
+        SpanAttributeKey.INPUTS: "request1",
+        SpanAttributeKey.OUTPUTS: "response1",
+    })
     span1 = Span(otel_span1)
     mock_trace1_info = TraceInfo(
         trace_id="trace-1",
@@ -256,12 +254,10 @@ def mock_search_traces_list() -> list[Trace]:
         end_time=1000000300,
         parent_id=None,
     )
-    otel_span2.set_attributes(
-        {
-            SpanAttributeKey.INPUTS: "request2",
-            SpanAttributeKey.OUTPUTS: "response2",
-        }
-    )
+    otel_span2.set_attributes({
+        SpanAttributeKey.INPUTS: "request2",
+        SpanAttributeKey.OUTPUTS: "response2",
+    })
     span2 = Span(otel_span2)
     mock_trace2_info = TraceInfo(
         trace_id="trace-2",
@@ -416,12 +412,10 @@ def test_search_traces_tool_invoke_partial_failure(mock_trace: Trace) -> None:
         end_time=1000000300,
         parent_id=None,
     )
-    otel_span2.set_attributes(
-        {
-            SpanAttributeKey.INPUTS: "request2",
-            SpanAttributeKey.OUTPUTS: "response2",
-        }
-    )
+    otel_span2.set_attributes({
+        SpanAttributeKey.INPUTS: "request2",
+        SpanAttributeKey.OUTPUTS: "response2",
+    })
     span2 = Span(otel_span2)
     valid_trace2_info = TraceInfo(
         trace_id="trace-2",

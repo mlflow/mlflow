@@ -158,12 +158,12 @@
             <p>Explore the detailed API documentation for each package:</p>
             <div class="package-list">
                 <div class="package-item">
-                    <h3>mlflow-tracing</h3>
+                    <h3>@mlflow/core</h3>
                     <p>Core tracing functionality and manual instrumentation for MLflow TypeScript SDK.</p>
-                    <a href="mlflow-tracing/index.html" class="package-link">View API Docs →</a>
+                    <a href="mlflow-core/index.html" class="package-link">View API Docs →</a>
                 </div>
                 <div class="package-item">
-                    <h3>mlflow-openai</h3>
+                    <h3>@mlflow/openai</h3>
                     <p>Auto-instrumentation integration for OpenAI, making it easy to trace OpenAI API calls.</p>
                     <a href="mlflow-openai/index.html" class="package-link">View API Docs →</a>
                 </div>

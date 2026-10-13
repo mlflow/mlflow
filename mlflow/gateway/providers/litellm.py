@@ -1,13 +1,37 @@
 from __future__ import annotations
 
+import importlib.util
 import json
 from typing import Any, AsyncIterable
 
+from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import EndpointConfig, LiteLLMConfig
+from mlflow.gateway.providers.anthropic import _normalize_anthropic_input_tokens
 from mlflow.gateway.providers.base import BaseProvider, PassthroughAction, ProviderAdapter
 from mlflow.gateway.schemas import chat, embeddings
 from mlflow.gateway.utils import parse_sse_lines
 from mlflow.tracing.constant import TokenUsageKey
+from mlflow.utils.validation import GATEWAY_DESTINATION_KEYS
+
+
+def _usage_to_dict(usage: Any) -> dict[str, Any]:
+    """Forward token usage in OpenAI shape, including cache-read tokens.
+
+    ``cached_tokens`` is the subset of ``prompt_tokens`` served from the provider's
+    prompt cache (a subset, not additive). OpenAI-style providers report it under
+    ``prompt_tokens_details``; forward it so clients can price cache hits.
+    https://developers.openai.com/api/docs/guides/prompt-caching#requirements
+    """
+    result = {
+        "prompt_tokens": getattr(usage, "prompt_tokens", None),
+        "completion_tokens": getattr(usage, "completion_tokens", None),
+        "total_tokens": getattr(usage, "total_tokens", None),
+    }
+    details = getattr(usage, "prompt_tokens_details", None)
+    cached_tokens = getattr(details, "cached_tokens", None)
+    if cached_tokens is not None:
+        result["prompt_tokens_details"] = {"cached_tokens": cached_tokens}
+    return result
 
 
 class LiteLLMAdapter(ProviderAdapter):
@@ -49,7 +73,7 @@ class LiteLLMProvider(BaseProvider):
     This serves as a fallback for providers not natively supported.
     """
 
-    NAME = "LiteLLM"
+    DISPLAY_NAME = "LiteLLM"
     CONFIG_TYPE = LiteLLMConfig
 
     PASSTHROUGH_PROVIDER_PATHS = {
@@ -63,6 +87,11 @@ class LiteLLMProvider(BaseProvider):
 
     def __init__(self, config: EndpointConfig, enable_tracing: bool = False) -> None:
         super().__init__(config, enable_tracing=enable_tracing)
+        if importlib.util.find_spec("litellm") is None:
+            raise MlflowException(
+                "The `litellm` package is required to use the LiteLLM provider but is not "
+                "installed. Please install it with: `pip install litellm`"
+            )
         if config.model.config is None or not isinstance(config.model.config, LiteLLMConfig):
             raise TypeError(f"Unexpected config type {config.model.config}")
         self.litellm_config: LiteLLMConfig = config.model.config
@@ -76,7 +105,7 @@ class LiteLLMProvider(BaseProvider):
         """
         if self.litellm_config.litellm_provider:
             return self.litellm_config.litellm_provider
-        return self.NAME
+        return self.DISPLAY_NAME
 
     @property
     def adapter_class(self):
@@ -90,6 +119,53 @@ class LiteLLMProvider(BaseProvider):
 
         return kwargs
 
+    async def _prepare_litellm_kwargs(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """Build LiteLLM kwargs and refuse any destination LiteLLM must not be sent to.
+
+        LiteLLM sends requests through its own HTTP client rather than ``_aiohttp_post``, so
+        the connect-time guard in ``mlflow.gateway.providers.utils`` never sees them. The
+        destination is therefore policed here, before anything is handed to LiteLLM:
+
+        - The request payload never chooses the destination. Request models allow extra
+          fields and LiteLLM would honor ``api_base``, its ``base_url`` alias and the other
+          ``GATEWAY_DESTINATION_KEYS``, so those are rejected whatever the secret holds.
+        - When upstream protection is on, the stored configuration may choose the upstream
+          only through ``api_base`` (``base_url`` is folded in, since litellm prefers it),
+          which is resolved and checked. The remaining destination keys are refused because
+          only ``api_base`` is validated on write.
+        """
+        from fastapi import HTTPException
+
+        from mlflow.gateway.ssrf import (
+            GatewaySSRFProtectionError,
+            assert_public_upstream_host,
+            upstream_protection_enabled,
+        )
+
+        if caller_keys := sorted(GATEWAY_DESTINATION_KEYS & set(payload)):
+            raise HTTPException(
+                status_code=400,
+                detail=f"The request must not set {', '.join(map(repr, caller_keys))}: the "
+                "upstream destination is fixed by the endpoint configuration.",
+            )
+        kwargs = self._build_litellm_kwargs(payload)
+        if not upstream_protection_enabled():
+            return kwargs
+        if base_url := kwargs.pop("base_url", None):
+            kwargs["api_base"] = base_url
+        if stored_keys := sorted((GATEWAY_DESTINATION_KEYS - {"api_base"}) & set(kwargs)):
+            raise HTTPException(
+                status_code=502,
+                detail=f"The endpoint's secret sets {', '.join(map(repr, stored_keys))}, which "
+                "is not supported: only 'api_base' may choose the upstream.",
+            )
+        if api_base := kwargs.get("api_base"):
+            try:
+                await assert_public_upstream_host(api_base)
+            except GatewaySSRFProtectionError as e:
+                raise HTTPException(status_code=502, detail=str(e)) from e
+        return kwargs
+
     async def _chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
         import litellm
         from fastapi.encoders import jsonable_encoder
@@ -97,7 +173,7 @@ class LiteLLMProvider(BaseProvider):
         payload_dict = jsonable_encoder(payload, exclude_none=True)
         self.check_for_model_field(payload_dict)
 
-        kwargs = self._build_litellm_kwargs(
+        kwargs = await self._prepare_litellm_kwargs(
             self.adapter_class.chat_to_model(payload_dict, self.config)
         )
 
@@ -135,11 +211,7 @@ class LiteLLMProvider(BaseProvider):
                 }
                 for choice in response.choices
             ],
-            "usage": {
-                "prompt_tokens": response.usage.prompt_tokens,
-                "completion_tokens": response.usage.completion_tokens,
-                "total_tokens": response.usage.total_tokens,
-            },
+            "usage": _usage_to_dict(response.usage),
         }
 
         return self.adapter_class.model_to_chat(resp_dict, self.config)
@@ -153,7 +225,7 @@ class LiteLLMProvider(BaseProvider):
         payload_dict = jsonable_encoder(payload, exclude_none=True)
         self.check_for_model_field(payload_dict)
 
-        kwargs = self._build_litellm_kwargs(
+        kwargs = await self._prepare_litellm_kwargs(
             self.adapter_class.chat_to_model(payload_dict, self.config)
         )
         kwargs["stream"] = True
@@ -183,7 +255,7 @@ class LiteLLMProvider(BaseProvider):
                             "tool_calls": (
                                 [
                                     {
-                                        "index": tc_idx,
+                                        "index": tc.index if tc.index is not None else tc_idx,
                                         "id": getattr(tc, "id", None),
                                         "type": getattr(tc, "type", None),
                                         "function": {
@@ -204,6 +276,12 @@ class LiteLLMProvider(BaseProvider):
                 ],
             }
 
+            # litellm reports token usage only on the final chunk (when
+            # include_usage is set); forward it so clients can track usage/cost.
+            usage = getattr(chunk, "usage", None)
+            if usage is not None and getattr(usage, "total_tokens", None) is not None:
+                resp_dict["usage"] = _usage_to_dict(usage)
+
             yield self.adapter_class.model_to_chat_streaming(resp_dict, self.config)
 
     async def _embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
@@ -213,7 +291,7 @@ class LiteLLMProvider(BaseProvider):
         payload_dict = jsonable_encoder(payload, exclude_none=True)
         self.check_for_model_field(payload_dict)
 
-        kwargs = self._build_litellm_kwargs(
+        kwargs = await self._prepare_litellm_kwargs(
             self.adapter_class.embeddings_to_model(payload_dict, self.config)
         )
 
@@ -246,17 +324,28 @@ class LiteLLMProvider(BaseProvider):
         - Gemini-style actions: usageMetadata.promptTokenCount, candidatesTokenCount,
           totalTokenCount
         """
+        usage = result.get("usage")
+
         # Try OpenAI format first (most common)
         if token_usage := self._extract_token_usage_from_dict(
-            result.get("usage"), "prompt_tokens", "completion_tokens", "total_tokens"
+            usage,
+            "prompt_tokens",
+            "completion_tokens",
+            "total_tokens",
+            cache_read_key="prompt_tokens_details.cached_tokens",
         ):
             return token_usage
 
         # Try Anthropic format
         if token_usage := self._extract_token_usage_from_dict(
-            result.get("usage"), "input_tokens", "output_tokens"
+            usage,
+            "input_tokens",
+            "output_tokens",
+            cache_read_key="cache_read_input_tokens",
+            cache_creation_key="cache_creation_input_tokens",
         ):
-            return token_usage
+            # Anthropic reports input_tokens excluding cache tokens — normalize.
+            return _normalize_anthropic_input_tokens(token_usage)
 
         # Try Gemini format
         return self._extract_token_usage_from_dict(
@@ -264,6 +353,7 @@ class LiteLLMProvider(BaseProvider):
             "promptTokenCount",
             "candidatesTokenCount",
             "totalTokenCount",
+            cache_read_key="cachedContentTokenCount",
         )
 
     def _extract_streaming_token_usage(self, chunk: Any) -> dict[str, int]:
@@ -302,31 +392,48 @@ class LiteLLMProvider(BaseProvider):
 
     def _extract_usage_from_data(self, data: dict[str, Any]) -> dict[str, int]:
         """Extract token usage from a parsed data dictionary."""
+        usage = data.get("usage")
+
         # OpenAI format (in chunk.usage)
         if token_usage := self._extract_token_usage_from_dict(
-            data.get("usage"), "prompt_tokens", "completion_tokens", "total_tokens"
+            usage,
+            "prompt_tokens",
+            "completion_tokens",
+            "total_tokens",
+            cache_read_key="prompt_tokens_details.cached_tokens",
         ):
             return token_usage
 
         # OpenAI Responses API format (usage nested in response object)
+        resp_usage = data.get("response", {}).get("usage")
         if token_usage := self._extract_token_usage_from_dict(
-            data.get("response", {}).get("usage"),
+            resp_usage,
             "input_tokens",
             "output_tokens",
             "total_tokens",
+            cache_read_key="input_tokens_details.cached_tokens",
         ):
             return token_usage
 
         # Anthropic format (in chunk.usage)
         if token_usage := self._extract_token_usage_from_dict(
-            data.get("usage"), "input_tokens", "output_tokens"
+            usage,
+            "input_tokens",
+            "output_tokens",
+            cache_read_key="cache_read_input_tokens",
+            cache_creation_key="cache_creation_input_tokens",
         ):
             return token_usage
 
         # Anthropic message_start format (input_tokens in message.usage)
         if data.get("type") == "message_start":
+            msg_usage = data.get("message", {}).get("usage")
             if token_usage := self._extract_token_usage_from_dict(
-                data.get("message", {}).get("usage"), "input_tokens", "output_tokens"
+                msg_usage,
+                "input_tokens",
+                "output_tokens",
+                cache_read_key="cache_read_input_tokens",
+                cache_creation_key="cache_creation_input_tokens",
             ):
                 return token_usage
 
@@ -336,6 +443,7 @@ class LiteLLMProvider(BaseProvider):
             "promptTokenCount",
             "candidatesTokenCount",
             "totalTokenCount",
+            cache_read_key="cachedContentTokenCount",
         ):
             return token_usage
 
@@ -393,7 +501,7 @@ class LiteLLMProvider(BaseProvider):
         self._validate_passthrough_action(action)
 
         model_name = self.adapter_class._get_litellm_model_name(self.config)
-        kwargs = self._build_litellm_kwargs(payload)
+        kwargs = await self._prepare_litellm_kwargs(payload)
         kwargs["model"] = model_name
 
         match action:

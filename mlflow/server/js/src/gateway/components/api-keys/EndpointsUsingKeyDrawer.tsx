@@ -75,6 +75,7 @@ export const EndpointsUsingKeyDrawer = ({ open, keyName, endpoints, onClose }: E
                   }}
                 >
                   <Link
+                    componentId="mlflow.gateway.api_keys.endpoint_link"
                     to={GatewayRoutes.getEndpointDetailsRoute(endpoint.endpoint_id)}
                     css={{
                       color: theme.colors.actionPrimaryBackgroundDefault,

@@ -34,7 +34,7 @@ export const shouldEnableAssessmentsInSessions = () => {
 /**
  * Determines if assessments/scores should be shown in experiment chat sessions.
  */
-export const shoudlEnableURLPersistenceForSortAndColumns = () => {
+export const shouldEnableTracesTableStatePersistence = () => {
   return false;
 };
 
@@ -56,5 +56,13 @@ export const shouldUseUnifiedModelTraceComparisonUI = () => {
  * Determines if running scorers from trace details drawer is enabled
  */
 export const isEvaluatingTracesInDetailsViewEnabled = () => {
+  return true;
+};
+
+/**
+ * Determines if the "Custom view" tab (an agent-authored A2UI layout) is
+ * enabled in the model trace explorer.
+ */
+export const shouldEnableModelTraceExplorerCustomTraceView = () => {
   return true;
 };

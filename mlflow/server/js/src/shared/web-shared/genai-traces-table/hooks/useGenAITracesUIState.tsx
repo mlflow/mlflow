@@ -1,7 +1,7 @@
 import { isNil } from 'lodash';
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useMemo } from 'react';
 
-import { useLocalStorage } from '@databricks/web-shared/hooks';
+import { useLocalStorage } from '../../hooks/useLocalStorage';
 
 import { useColumnsURL } from './useColumnsURL';
 import {
@@ -10,7 +10,7 @@ import {
   STATE_COLUMN_ID,
   TRACE_NAME_COLUMN_ID,
 } from './useTableColumns';
-import { shoudlEnableURLPersistenceForSortAndColumns } from '../../model-trace-explorer/FeatureUtils';
+import { shouldEnableTracesTableStatePersistence } from '../../model-trace-explorer/FeatureUtils';
 import type { TracesTableColumn } from '../types';
 import { TracesTableColumnType } from '../types';
 
@@ -80,7 +80,7 @@ export const useGenAITracesUIStateColumns = (
   hiddenColumns: string[];
   toggleColumns: (cols: TracesTableColumn[]) => void;
 } => {
-  const enableURLPersistence = shoudlEnableURLPersistenceForSortAndColumns();
+  const enableURLPersistence = shouldEnableTracesTableStatePersistence();
 
   const storageKey = storageKeyPrefix
     ? `${LOCAL_STORAGE_KEY}-${storageKeyPrefix}-${experimentId}-${runUuid}`
@@ -160,23 +160,6 @@ export const useGenAITracesUIStateColumns = (
     },
     [enableURLPersistence, setColumnState, hiddenColumns, allColumns, setUrlColumnIds],
   );
-
-  // Migration: sync localStorage state to URL on initial mount
-  const hasSyncedToURL = useRef(false);
-  useEffect(() => {
-    if (
-      enableURLPersistence &&
-      !hasSyncedToURL.current &&
-      (!urlColumnIds || urlColumnIds.length === 0) &&
-      allColumns.length > 0
-    ) {
-      hasSyncedToURL.current = true;
-      const selectedIds = allColumns.filter((col) => !hiddenColumns.includes(col.id)).map((col) => col.id);
-      if (selectedIds.length > 0) {
-        setUrlColumnIds(selectedIds, true);
-      }
-    }
-  }, [enableURLPersistence, urlColumnIds, hiddenColumns, allColumns, setUrlColumnIds]);
 
   return { hiddenColumns, toggleColumns };
 };

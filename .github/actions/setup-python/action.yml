@@ -1,9 +1,13 @@
 name: "setup-python"
-description: "Ensures to install a python version that's available on Anaconda"
+description: "Sets up Python and uv, optionally pinning a compatible patch version for conda/pyenv environment recreation"
 inputs:
   python-version:
     description: "The python version to install. If unspecified, install the minimum python version mlflow supports."
     required: false
+  pin-micro-version:
+    description: "Optionally pin a compatible Python patch version for conda/pyenv. Defaults to false to use the runner's cached minor version; enable for workflows that recreate model environments."
+    required: false
+    default: "false"
 outputs:
   python-version:
     description: "The installed python version"
@@ -18,34 +22,61 @@ runs:
       # in 3.x on Anaconda, but it turned out `conda search` is very slow (takes 40 ~ 50 seconds).
       # This overhead sums up to a significant amount of delay in the cross version tests
       # where we trigger more than 100 GitHub Actions runs.
+      env:
+        PYTHON_VERSION_INPUT: ${{ inputs.python-version }}
+        PIN_MICRO_VERSION: ${{ inputs.pin-micro-version }}
       run: |
-        python_version="${{ inputs.python-version }}"
+        python_version="$PYTHON_VERSION_INPUT"
         if [ -z "$python_version" ]; then
-          python_version=$(cat .python-version)
+          # Relative to the action, so callers that check out into a
+          # subdirectory still resolve it.
+          python_version=$(cat "$GITHUB_ACTION_PATH/../../../.python-version")
         fi
-        if [[ "$python_version" == "3.10" ]]; then
-          if [ ${{ runner.os }} == "Linux" ]; then
-            python_version="3.10.19"
+        if [[ "$PIN_MICRO_VERSION" == "true" ]]; then
+          if [[ "$python_version" == "3.10" ]]; then
+            if [ "$RUNNER_OS" == "Linux" ]; then
+              python_version="3.10.21"
+            else
+              python_version="3.10.11"
+            fi
+          elif [[ "$python_version" == "3.11" ]]; then
+            if [ "$RUNNER_OS" == "Linux" ]; then
+              python_version="3.11.16"
+            else
+              python_version="3.11.9"
+            fi
+          elif [[ "$python_version" == "3.12" ]]; then
+            if [ "$RUNNER_OS" == "Windows" ]; then
+              python_version="3.12.10"
+            else
+              python_version="3.12.13"
+            fi
           else
-            python_version="3.10.11"
+            echo "Invalid python version: '$python_version'. Must be '3.10', '3.11', or '3.12'."
+            exit 1
           fi
-        elif [[ "$python_version" == "3.11" ]]; then
-          if [ ${{ runner.os }} == "Windows" ]; then
-            python_version="3.11.9"
-          else
-            python_version="3.11.14"
-          fi
-        else
-          echo "Invalid python version: '$python_version'. Must be '3.10', or '3.11'."
-          exit 1
         fi
         echo "version=$python_version" >> $GITHUB_OUTPUT
-    - uses: actions/setup-python@8d9ed9ac5c53483de85588cdf95a591a75ab9f55 # v5.5.0
+    - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
       with:
         python-version: ${{ steps.get-python-version.outputs.version }}
-    - uses: astral-sh/setup-uv@803947b9bd8e9f986429fa0c5a41c367cd732b41 # v7.2.1
+    - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
       with:
-        resolution-strategy: "lowest"
+        version-file: ${{ github.action_path }}/../../../pyproject.toml
+        resolution-strategy: lowest
+        # Caching disabled to avoid cache-poisoning exposure across CI workflows.
+        enable-cache: false
+    - name: Check uv Python support
+      shell: bash
+      env:
+        PYTHON_VERSION: ${{ steps.get-python-version.outputs.version }}
+      run: |
+        downloads=$(uv python list "$PYTHON_VERSION" --all-versions --only-downloads)
+        if [[ -z "$downloads" ]]; then
+          echo "::error::$(uv --version) cannot download Python $PYTHON_VERSION for this platform. Update required-version in pyproject.toml."
+          exit 1
+        fi
+        echo "$downloads"
     - run: |
         # The default `first-index` strategy is too strict. Use `unsafe-first-match` instead.
         # https://docs.astral.sh/uv/configuration/environment/#uv_index_strategy
@@ -53,6 +84,9 @@ runs:
         # Disable progress bars and spinners to reduce CI log clutter
         # https://docs.astral.sh/uv/reference/environment/#uv_no_progress
         echo "UV_NO_PROGRESS=1" >> $GITHUB_ENV
+        # Exclude packages newer than 7 days to guard against supply chain attacks
+        # https://docs.astral.sh/uv/reference/environment/#uv_exclude_newer
+        echo "UV_EXCLUDE_NEWER=P7D" >> $GITHUB_ENV
         # Disable Hugging Face download progress bars to reduce CI log clutter
         # https://huggingface.co/docs/huggingface_hub/package_reference/environment_variables#hfhubdisableprogressbars
         echo "HF_HUB_DISABLE_PROGRESS_BARS=1" >> $GITHUB_ENV

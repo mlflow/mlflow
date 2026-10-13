@@ -11,7 +11,7 @@ import { Link } from '../../common/utils/RoutingUtils';
 import { every, isEmpty, uniq } from 'lodash';
 import type { IntlShape } from 'react-intl';
 import { FormattedMessage, injectIntl } from 'react-intl';
-import { Switch, LegacyTabs, useDesignSystemTheme } from '@databricks/design-system';
+import { Switch, Tabs, useDesignSystemTheme } from '@databricks/design-system';
 
 import { getParams, getRunInfo } from '../../experiment-tracking/reducers/Reducers';
 import '../../experiment-tracking/components/CompareRunView.css';
@@ -28,8 +28,6 @@ import { getModelVersionSchemas } from '../reducers';
 import { PageHeader } from '../../shared/building_blocks/PageHeader';
 import type { RunInfoEntity } from '../../experiment-tracking/types';
 
-const { TabPane } = LegacyTabs;
-
 function CenteredText(props: any) {
   const { theme } = useDesignSystemTheme();
   return (
@@ -43,7 +41,7 @@ function CenteredText(props: any) {
   );
 }
 
-function CompareTable(props: any) {
+function CompareTable({ style, ...props }: any) {
   const { theme } = useDesignSystemTheme();
   return (
     <table
@@ -57,6 +55,17 @@ function CompareTable(props: any) {
           backgroundColor: theme.colors.backgroundValidationWarning,
         },
       }}
+      style={
+        {
+          '--mlflow-compare-border-color': theme.colors.border,
+          '--mlflow-compare-header-color': theme.colors.textPrimary,
+          '--mlflow-compare-header-bg': theme.colors.backgroundSecondary,
+          '--mlflow-compare-diff-bg': theme.colors.backgroundWarning,
+          '--mlflow-compare-diff-color': theme.colors.textSecondary,
+          '--mlflow-compare-hover-bg': theme.colors.backgroundSecondary,
+          ...style,
+        } as React.CSSProperties
+      }
       {...props}
     />
   );
@@ -155,14 +164,22 @@ export class CompareModelVersionsViewImpl extends Component<
     );
     const breadcrumbs = [
       // eslint-disable-next-line react/jsx-key
-      <Link to={ModelRegistryRoutes.modelListPageRoute}>
+      <Link
+        componentId="mlflow.model_registry.compare_versions.registered_models_link"
+        to={ModelRegistryRoutes.modelListPageRoute}
+      >
         <FormattedMessage
           defaultMessage="Registered Models"
           description="Text for registered model link in the title for model comparison page"
         />
       </Link>,
       // eslint-disable-next-line react/jsx-key
-      <Link to={ModelRegistryRoutes.getModelPageRoute(modelName)}>{modelName}</Link>,
+      <Link
+        componentId="mlflow.model_registry.compare_versions.model_name_link"
+        to={ModelRegistryRoutes.getModelPageRoute(modelName)}
+      >
+        {modelName}
+      </Link>,
     ];
 
     return (
@@ -256,52 +273,46 @@ export class CompareModelVersionsViewImpl extends Component<
             {this.renderMetrics()}
           </CompareTable>
         </div>
-        <LegacyTabs>
-          <TabPane
-            tab={
+        <Tabs.Root componentId="mlflow.compare-model-versions.plots-tabs" defaultValue="parallel-coordinates-plot">
+          <Tabs.List>
+            <Tabs.Trigger value="parallel-coordinates-plot">
               <FormattedMessage
                 defaultMessage="Parallel Coordinates Plot"
                 description="Tab text for parallel coordinates plot on the model comparison page"
               />
-            }
-            key="parallel-coordinates-plot"
-          >
-            <ParallelCoordinatesPlotPanel runUuids={runUuids} />
-          </TabPane>
-          <TabPane
-            tab={
+            </Tabs.Trigger>
+            <Tabs.Trigger value="scatter-plot">
               <FormattedMessage
                 defaultMessage="Scatter Plot"
                 description="Tab text for scatter plot on the model comparison page"
               />
-            }
-            key="scatter-plot"
-          >
-            <CompareRunScatter runUuids={runUuids} runDisplayNames={runDisplayNames} />
-          </TabPane>
-          <TabPane
-            tab={
+            </Tabs.Trigger>
+            <Tabs.Trigger value="box-plot">
               <FormattedMessage
                 defaultMessage="Box Plot"
                 description="Tab pane title for box plot on the compare runs page"
               />
-            }
-            key="box-plot"
-          >
-            <CompareRunBox runUuids={runUuids} runInfos={runInfos} paramLists={paramLists} metricLists={metricLists} />
-          </TabPane>
-          <TabPane
-            tab={
+            </Tabs.Trigger>
+            <Tabs.Trigger value="contour-plot">
               <FormattedMessage
                 defaultMessage="Contour Plot"
                 description="Tab text for contour plot on the model comparison page"
               />
-            }
-            key="contour-plot"
-          >
+            </Tabs.Trigger>
+          </Tabs.List>
+          <Tabs.Content value="parallel-coordinates-plot">
+            <ParallelCoordinatesPlotPanel runUuids={runUuids} />
+          </Tabs.Content>
+          <Tabs.Content value="scatter-plot">
+            <CompareRunScatter runUuids={runUuids} runDisplayNames={runDisplayNames} />
+          </Tabs.Content>
+          <Tabs.Content value="box-plot">
+            <CompareRunBox runUuids={runUuids} runInfos={runInfos} paramLists={paramLists} metricLists={metricLists} />
+          </Tabs.Content>
+          <Tabs.Content value="contour-plot">
             <CompareRunContour runUuids={runUuids} runDisplayNames={runDisplayNames} />
-          </TabPane>
-        </LegacyTabs>
+          </Tabs.Content>
+        </Tabs.Root>
       </div>
     );
   }
@@ -321,7 +332,12 @@ export class CompareModelVersionsViewImpl extends Component<
             <th scope="column" className="data-value block-content" key={r.runUuid}>
               {/* Do not show links for invalid run IDs */}
               {runInfosValid[idx] ? (
-                <Link to={Routes.getRunPageRoute(r.experimentId ?? '0', r.runUuid ?? '')}>{r.runUuid}</Link>
+                <Link
+                  componentId="mlflow.model_registry.compare_versions.run_uuid_link"
+                  to={Routes.getRunPageRoute(r.experimentId ?? '0', r.runUuid ?? '')}
+                >
+                  {r.runUuid}
+                </Link>
               ) : (
                 r.runUuid
               )}
@@ -348,7 +364,12 @@ export class CompareModelVersionsViewImpl extends Component<
             const run = versionsToRuns[modelVersion];
             return (
               <td className="meta-info block-content" key={run}>
-                <Link to={ModelRegistryRoutes.getModelVersionPageRoute(modelName, modelVersion)}>{modelVersion}</Link>
+                <Link
+                  componentId="mlflow.model_registry.compare_versions.version_link"
+                  to={ModelRegistryRoutes.getModelVersionPageRoute(modelName, modelVersion)}
+                >
+                  {modelVersion}
+                </Link>
               </td>
             );
           })}
@@ -527,6 +548,7 @@ export class CompareModelVersionsViewImpl extends Component<
     const metricsHeaderMap = (key: any, data: any) => {
       return (
         <Link
+          componentId="mlflow.model_registry.compare_versions.metric_link"
           to={Routes.getMetricPageRoute(
             runInfos.map((info) => info.runUuid).filter((uuid, idx) => data[idx] !== undefined),
             key,
@@ -559,7 +581,6 @@ export class CompareModelVersionsViewImpl extends Component<
     );
   }
 
-  // eslint-disable-next-line no-unused-vars
   renderDataRows(
     list: any,
     fieldName: any,
@@ -634,7 +655,6 @@ export class CompareModelVersionsViewImpl extends Component<
             <CenteredText>
               <FormattedMessage
                 defaultMessage="{fieldName} are identical"
-                // eslint-disable-next-line max-len
                 description="Default text in data table where items are identical in the model comparison page"
                 values={{ fieldName: fieldName }}
               />

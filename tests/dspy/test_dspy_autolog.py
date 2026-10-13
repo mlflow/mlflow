@@ -16,7 +16,7 @@ from dspy.utils.dummies import DummyLM
 from packaging.version import Version
 
 import mlflow
-from mlflow.entities import Feedback, LoggedModelOutput, SpanType, Trace
+from mlflow.entities import Feedback, LoggedModelOutput, SpanLogLevel, SpanType, Trace
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey, TraceMetadataKey
 from mlflow.version import IS_TRACING_SDK_ONLY
 
@@ -31,6 +31,10 @@ _DSPY_VERSION = Version(importlib.metadata.version("dspy"))
 _DSPY_UNDER_2_6 = _DSPY_VERSION < Version("2.6.0rc1")
 
 _DSPY_3_0_4_OR_NEWER = _DSPY_VERSION >= Version("3.0.4")
+
+_DSPY_3_2_0_OR_NEWER = _DSPY_VERSION >= Version("3.2.0")
+
+_DSPY_3_3_0_OR_NEWER = _DSPY_VERSION >= Version("3.3.0")
 
 
 # Test module
@@ -64,7 +68,7 @@ class DummyLMWithUsage(DummyLM):
                     },
                 )
 
-            return super().__call__(prompt, messages, **kwargs)
+            return super().__call__(prompt=prompt, messages=messages, **kwargs)
 
 
 def test_autolog_lm():
@@ -98,9 +102,9 @@ def test_autolog_cot():
     mlflow.dspy.autolog()
 
     dspy.settings.configure(
-        lm=DummyLMWithUsage(
-            {"How are you?": {"answer": "test output", "reasoning": "No more responses"}}
-        )
+        lm=DummyLMWithUsage({
+            "How are you?": {"answer": "test output", "reasoning": "No more responses"}
+        })
     )
 
     cot = dspy.ChainOfThought("question -> answer", n=3)
@@ -125,6 +129,8 @@ def test_autolog_cot():
     assert len(spans) == 7
     assert spans[0].name == "ChainOfThought.forward"
     assert spans[0].span_type == SpanType.CHAIN
+    # CHAIN spans default to DEBUG; LLM children to INFO (asserted below).
+    assert spans[0].log_level == SpanLogLevel.DEBUG
     assert spans[0].status.status_code == "OK"
     assert spans[0].inputs == {"question": "How are you?"}
     assert spans[0].outputs == {"answer": "test output", "reasoning": "No more responses"}
@@ -141,6 +147,7 @@ def test_autolog_cot():
         }
     assert spans[1].name == "Predict.forward"
     assert spans[1].span_type == SpanType.LLM
+    assert spans[1].log_level == SpanLogLevel.INFO
     assert spans[1].inputs["question"] == "How are you?"
     assert spans[1].outputs == {"answer": "test output", "reasoning": "No more responses"}
     assert spans[2].name == "ChatAdapter.format"
@@ -152,12 +159,18 @@ def test_autolog_cot():
     }
     assert spans[3].name == "DummyLMWithUsage.__call__"
     assert spans[3].span_type == SpanType.CHAT_MODEL
-    assert spans[3].inputs == {
+    expected_lm_inputs = {
         "prompt": None,
         "messages": mock.ANY,
         "n": 3,
         "temperature": 0.7,
     }
+    if _DSPY_3_3_0_OR_NEWER and _DSPY_VERSION < Version("3.4.0"):
+        # DSPy 3.3.x added `*items` and `request` to `BaseLM.__call__`; 3.4.0 removed them.
+        # The span records every bound argument. `items` is empty because
+        # `DummyLMWithUsage.__call__` forwards to `super()` entirely by keyword.
+        expected_lm_inputs |= {"items": [], "request": None}
+    assert spans[3].inputs == expected_lm_inputs
     assert len(spans[3].outputs) == 3
     assert spans[3].model_name == "dummy"
     # Output parser will run per completion output (n=3)
@@ -168,7 +181,13 @@ def test_autolog_cot():
 
 
 def test_mlflow_callback_exception():
-    from litellm import ContextWindowExceededError
+    # dspy 3.2.0+ replaced litellm's ContextWindowExceededError with its own.
+    # ChatAdapter only skips the JSONAdapter fallback for dspy.ContextWindowExceededError,
+    # so we must raise the appropriate type to keep the expected span count.
+    if _DSPY_3_2_0_OR_NEWER:
+        ContextWindowExceededError = dspy.ContextWindowExceededError
+    else:
+        from litellm import ContextWindowExceededError
 
     mlflow.dspy.autolog()
 
@@ -176,8 +195,12 @@ def test_mlflow_callback_exception():
         @with_callbacks
         def __call__(self, prompt=None, messages=None, **kwargs):
             time.sleep(0.1)
-            # pdpy.ChatAdapter falls back to JSONAdapter unless it's not ContextWindowExceededError
-            raise ContextWindowExceededError("Error", "invalid model", "provider")
+            if _DSPY_3_2_0_OR_NEWER:
+                raise dspy.ContextWindowExceededError(message="Error")
+            else:
+                from litellm import ContextWindowExceededError as _CWE
+
+                raise _CWE("Error", "invalid model", "provider")
 
     cot = dspy.ChainOfThought("question -> answer", n=3)
 
@@ -217,24 +240,22 @@ def test_autolog_react():
     mlflow.dspy.autolog()
 
     dspy.settings.configure(
-        lm=DummyLMWithUsage(
-            [
-                {
-                    "next_thought": "I need to search for the highest mountain in the world",
-                    "next_tool_name": "search",
-                    "next_tool_args": {"query": "Highest mountain in the world"},
-                },
-                {
-                    "next_thought": "I found the highest mountain in the world",
-                    "next_tool_name": "finish",
-                    "next_tool_args": {"answer": "Mount Everest"},
-                },
-                {
-                    "answer": "Mount Everest",
-                    "reasoning": "No more responses",
-                },
-            ]
-        ),
+        lm=DummyLMWithUsage([
+            {
+                "next_thought": "I need to search for the highest mountain in the world",
+                "next_tool_name": "search",
+                "next_tool_args": {"query": "Highest mountain in the world"},
+            },
+            {
+                "next_thought": "I found the highest mountain in the world",
+                "next_tool_name": "finish",
+                "next_tool_args": {"answer": "Mount Everest"},
+            },
+            {
+                "answer": "Mount Everest",
+                "reasoning": "No more responses",
+            },
+        ]),
         adapter=dspy.ChatAdapter(),
     )
 
@@ -349,14 +370,12 @@ def test_autolog_custom_module():
     mlflow.dspy.autolog()
 
     dspy.settings.configure(
-        lm=DummyLMWithUsage(
-            [
-                {
-                    "answer": "test output",
-                    "reasoning": "No more responses",
-                },
-            ]
-        )
+        lm=DummyLMWithUsage([
+            {
+                "answer": "test output",
+                "reasoning": "No more responses",
+            },
+        ])
     )
 
     rag = RAG()
@@ -393,12 +412,10 @@ def test_autolog_tracing_during_compilation_disabled_by_default():
     mlflow.dspy.autolog()
 
     dspy.settings.configure(
-        lm=DummyLM(
-            {
-                "What is 1 + 1?": {"answer": "2"},
-                "What is 2 + 2?": {"answer": "1000"},
-            }
-        )
+        lm=DummyLM({
+            "What is 1 + 1?": {"answer": "2"},
+            "What is 2 + 2?": {"answer": "1000"},
+        })
     )
 
     # Samples from HotpotQA dataset
@@ -435,12 +452,10 @@ def test_autolog_tracing_during_evaluation_enabled_by_default():
     mlflow.dspy.autolog()
 
     dspy.settings.configure(
-        lm=DummyLM(
-            {
-                "What is 1 + 1?": {"answer": "2"},
-                "What is 2 + 2?": {"answer": "1000"},
-            }
-        )
+        lm=DummyLM({
+            "What is 1 + 1?": {"answer": "2"},
+            "What is 2 + 2?": {"answer": "1000"},
+        })
     )
 
     # Samples from HotpotQA dataset
@@ -628,15 +643,13 @@ def test_autolog_log_compile(log_compiles):
         assert run.data.params == {
             "kwarg1": "1",
             "kwarg2": "2",
-            "lm_params": json.dumps(
-                {
-                    "cache": True,
-                    "max_tokens": 1000,
-                    "model": "dummy",
-                    "model_type": "chat",
-                    "temperature": 0.0,
-                }
-            ),
+            "lm_params": json.dumps({
+                "cache": True,
+                "max_tokens": 1000,
+                "model": "dummy",
+                "model_type": "chat",
+                "temperature": 0.0,
+            }),
         }
         client = MlflowClient()
         artifacts = (x.path for x in client.list_artifacts(run.info.run_id))
@@ -757,12 +770,10 @@ is_2_7_or_newer = Version(importlib.metadata.version("dspy")) >= Version("2.7.0"
     ("lm", "examples", "expected_result_table"),
     [
         (
-            DummyLM(
-                {
-                    "What is 1 + 1?": {"answer": "2"},
-                    "What is 2 + 2?": {"answer": "1000"},
-                }
-            ),
+            DummyLM({
+                "What is 1 + 1?": {"answer": "2"},
+                "What is 2 + 2?": {"answer": "1000"},
+            }),
             [
                 Example(question="What is 1 + 1?", answer="2").with_inputs("question"),
                 Example(question="What is 2 + 2?", answer="4").with_inputs("question"),
@@ -776,12 +787,10 @@ is_2_7_or_newer = Version(importlib.metadata.version("dspy")) >= Version("2.7.0"
             },
         ),
         (
-            DummyLM(
-                {
-                    "What is 1 + 1?": {"answer": "2"},
-                    "What is 2 + 2?": {"answer": "1000"},
-                }
-            ),
+            DummyLM({
+                "What is 1 + 1?": {"answer": "2"},
+                "What is 2 + 2?": {"answer": "1000"},
+            }),
             [
                 Example(question="What is 1 + 1?", answer="2").with_inputs("question"),
                 Example(question="What is 2 + 2?", answer="4", reason="should be 4").with_inputs(
@@ -830,15 +839,13 @@ def test_autolog_log_evals(
             "Predict.signature.fields.1.description": "${answer}",
             "Predict.signature.fields.1.prefix": "Answer:",
             "Predict.signature.instructions": "Given the fields `question`, produce the fields `answer`.",  # noqa: E501
-            "lm_params": json.dumps(
-                {
-                    "cache": True,
-                    "max_tokens": 1000,
-                    "model": "dummy",
-                    "model_type": "chat",
-                    "temperature": 0.0,
-                }
-            ),
+            "lm_params": json.dumps({
+                "cache": True,
+                "max_tokens": 1000,
+                "model": "dummy",
+                "model_type": "chat",
+                "temperature": 0.0,
+            }),
         }
         client = MlflowClient()
         artifacts = (x.path for x in client.list_artifacts(run.info.run_id))
@@ -872,12 +879,10 @@ def test_autolog_log_evals_disable_by_caller():
 @skip_when_testing_trace_sdk
 @skip_if_evaluate_callback_unavailable
 def test_autolog_nested_evals():
-    lm = DummyLM(
-        {
-            "What is 1 + 1?": {"answer": "2"},
-            "What is 2 + 2?": {"answer": "4"},
-        }
-    )
+    lm = DummyLM({
+        "What is 1 + 1?": {"answer": "2"},
+        "What is 2 + 2?": {"answer": "4"},
+    })
     dspy.settings.configure(lm=lm)
     examples = [
         Example(question="What is 1 + 1?", answer="2").with_inputs("question"),
@@ -1009,12 +1014,10 @@ def test_autolog_log_compile_with_evals():
             return program
 
     dspy.settings.configure(
-        lm=DummyLM(
-            {
-                "What is 1 + 1?": {"answer": "2"},
-                "What is 2 + 2?": {"answer": "1000"},
-            }
-        )
+        lm=DummyLM({
+            "What is 1 + 1?": {"answer": "2"},
+            "What is 2 + 2?": {"answer": "1000"},
+        })
     )
     dataset = [
         Example(question="What is 1 + 1?", answer="2").with_inputs("question"),
@@ -1067,15 +1070,13 @@ def test_autolog_log_compile_with_evals():
             "Predict.signature.fields.1.description": "${answer}",
             "Predict.signature.fields.1.prefix": "Answer:",
             "Predict.signature.instructions": "Given the fields `question`, produce the fields `answer`.",  # noqa: E501
-            "lm_params": json.dumps(
-                {
-                    "cache": True,
-                    "max_tokens": 1000,
-                    "model": "dummy",
-                    "model_type": "chat",
-                    "temperature": 0.0,
-                }
-            ),
+            "lm_params": json.dumps({
+                "cache": True,
+                "max_tokens": 1000,
+                "model": "dummy",
+                "model_type": "chat",
+                "temperature": 0.0,
+            }),
         }
 
 

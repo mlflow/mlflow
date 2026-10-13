@@ -18,6 +18,9 @@ defaults:
     shell: bash
     working-directory: docs
 
+permissions: {}
+cache-mode: none
+
 jobs:
   check-external-links:
     # Only run on the main repository
@@ -25,13 +28,12 @@ jobs:
     permissions:
       contents: read
     timeout-minutes: 30
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - uses: ./.github/actions/setup-node
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          cache: "npm"
-          cache-dependency-path: docs/package-lock.json
+          persist-credentials: false
+      - uses: ./.github/actions/setup-node
       - name: Install dependencies
         run: |
           npm ci

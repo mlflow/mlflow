@@ -3,11 +3,11 @@ import base64
 import inspect
 import random
 from dataclasses import asdict
+from importlib import metadata
 from pathlib import Path
 from typing import Any
 from unittest.mock import ANY
 
-import importlib_metadata
 import llama_index.core
 import openai
 import pytest
@@ -23,27 +23,30 @@ from openai.types.chat import ChatCompletionMessageToolCall
 from packaging.version import Version
 
 import mlflow
+from mlflow.entities import SpanLogLevel
 from mlflow.entities.span import SpanType
 from mlflow.entities.span_status import SpanStatusCode
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.llama_index.tracer import (
     StreamResolver,
+    active_span_id,
     remove_llama_index_tracer,
     set_llama_index_tracer,
 )
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.tracing.provider import _get_tracer
 from mlflow.tracking._tracking_service.utils import _use_tracking_uri
+from mlflow.version import IS_TRACING_SDK_ONLY
 
 from tests.tracing.helper import get_traces, skip_when_testing_trace_sdk
 
-llama_core_version = Version(importlib_metadata.version("llama-index-core"))
-llama_oai_version = Version(importlib_metadata.version("llama-index-llms-openai"))
+llama_core_version = Version(metadata.version("llama-index-core"))
+llama_oai_version = Version(metadata.version("llama-index-llms-openai"))
 
 # Detect llama-index-workflows version to handle API changes
 try:
-    llama_workflows_version = Version(importlib_metadata.version("llama-index-workflows"))
-except importlib_metadata.PackageNotFoundError:
+    llama_workflows_version = Version(metadata.version("llama-index-workflows"))
+except metadata.PackageNotFoundError:
     llama_workflows_version = None
 
 
@@ -74,6 +77,7 @@ def test_trace_llm_complete(is_async, mock_litellm_cost):
     assert len(spans) == 1
     assert spans[0].name == "OpenAI.{}complete".format("a" if is_async else "")
     assert spans[0].span_type == SpanType.LLM
+    assert spans[0].log_level == SpanLogLevel.INFO
     assert spans[0].inputs == {"args": ["Hello"]}
     assert spans[0].outputs["text"] == "Hello"
 
@@ -96,7 +100,13 @@ def test_trace_llm_complete(is_async, mock_litellm_cost):
 
     assert attr["prompt"] == "Hello"
     assert attr["invocation_params"]["model_name"] == model_name
-    assert attr["model_dict"]["model"] == model_name
+    # llama-index-core >= 0.14.17 records the LLMMetadata dict (keyed by "model_name")
+    # in the start event instead of the model config (keyed by "model").
+    assert (
+        v
+        if (v := attr["model_dict"].get("model")) is not None
+        else attr["model_dict"].get("model_name")
+    ) == model_name
     assert spans[0].model_name == model_name
 
     assert traces[0].info.token_usage == {
@@ -105,12 +115,13 @@ def test_trace_llm_complete(is_async, mock_litellm_cost):
         TokenUsageKey.TOTAL_TOKENS: 12,
     }
 
-    # Verify cost is calculated
-    assert spans[0].llm_cost == {
-        "input_cost": 5.0,
-        "output_cost": 14.0,
-        "total_cost": 19.0,
-    }
+    if not IS_TRACING_SDK_ONLY:
+        # Verify cost is calculated
+        assert spans[0].llm_cost == {
+            "input_cost": 5.0,
+            "output_cost": 14.0,
+            "total_cost": 19.0,
+        }
 
 
 def test_trace_llm_complete_stream():
@@ -157,7 +168,13 @@ def test_trace_llm_complete_stream():
     }
     assert attr["prompt"] == "Hello"
     assert attr["invocation_params"]["model_name"] == model_name
-    assert attr["model_dict"]["model"] == model_name
+    # llama-index-core >= 0.14.17 records the LLMMetadata dict (keyed by "model_name")
+    # in the start event instead of the model config (keyed by "model").
+    assert (
+        v
+        if (v := attr["model_dict"].get("model")) is not None
+        else attr["model_dict"].get("model_name")
+    ) == model_name
     assert spans[0].model_name == model_name
     assert traces[0].info.token_usage == {
         TokenUsageKey.INPUT_TOKENS: 9,
@@ -240,13 +257,20 @@ def test_trace_llm_chat(is_async, mock_litellm_cost):
         TokenUsageKey.TOTAL_TOKENS: 21,
     }
     assert attr["invocation_params"]["model_name"] == llm.metadata.model_name
-    assert attr["model_dict"]["model"] == llm.metadata.model_name
+    # llama-index-core >= 0.14.17 records the LLMMetadata dict (keyed by "model_name")
+    # in the start event instead of the model config (keyed by "model").
+    assert (
+        v
+        if (v := attr["model_dict"].get("model")) is not None
+        else attr["model_dict"].get("model_name")
+    ) == llm.metadata.model_name
     assert spans[0].model_name == llm.metadata.model_name
-    assert spans[0].llm_cost == {
-        "input_cost": 9.0,
-        "output_cost": 24.0,
-        "total_cost": 33.0,
-    }
+    if not IS_TRACING_SDK_ONLY:
+        assert spans[0].llm_cost == {
+            "input_cost": 9.0,
+            "output_cost": 24.0,
+            "total_cost": 33.0,
+        }
     assert traces[0].info.token_usage == {
         TokenUsageKey.INPUT_TOKENS: 9,
         TokenUsageKey.OUTPUT_TOKENS: 12,
@@ -388,7 +412,13 @@ def test_trace_llm_chat_stream():
         TokenUsageKey.TOTAL_TOKENS: 21,
     }
     assert attr["invocation_params"]["model_name"] == llm.metadata.model_name
-    assert attr["model_dict"]["model"] == llm.metadata.model_name
+    # llama-index-core >= 0.14.17 records the LLMMetadata dict (keyed by "model_name")
+    # in the start event instead of the model config (keyed by "model").
+    assert (
+        v
+        if (v := attr["model_dict"].get("model")) is not None
+        else attr["model_dict"].get("model_name")
+    ) == llm.metadata.model_name
     assert spans[0].model_name == llm.metadata.model_name
     assert traces[0].info.token_usage == {
         TokenUsageKey.INPUT_TOKENS: 9,
@@ -523,34 +553,32 @@ def test_trace_agent():
     class MockLLMForAgent(OpenAI, extra="allow"):
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
-            self._mock_response = iter(
-                [
-                    ChatResponse(
-                        message=ChatMessage(
-                            role="assistant",
-                            content=None,
-                            additional_kwargs={
-                                "tool_calls": [
-                                    ChatCompletionMessageToolCall(
-                                        id="test",
-                                        function={
-                                            "name": "add",
-                                            "arguments": '{"a": 1, "b": 2}',
-                                        },
-                                        type="function",
-                                    )
-                                ]
-                            },
-                        )
-                    ),
-                    ChatResponse(
-                        message=ChatMessage(
-                            role="assistant",
-                            content="The result is 3",
-                        )
-                    ),
-                ]
-            )
+            self._mock_response = iter([
+                ChatResponse(
+                    message=ChatMessage(
+                        role="assistant",
+                        content=None,
+                        additional_kwargs={
+                            "tool_calls": [
+                                ChatCompletionMessageToolCall(
+                                    id="test",
+                                    function={
+                                        "name": "add",
+                                        "arguments": '{"a": 1, "b": 2}',
+                                    },
+                                    type="function",
+                                )
+                            ]
+                        },
+                    )
+                ),
+                ChatResponse(
+                    message=ChatMessage(
+                        role="assistant",
+                        content="The result is 3",
+                    )
+                ),
+            ])
 
         @llm_chat_callback()
         def chat(self, *args, **kwargs):
@@ -654,7 +682,7 @@ def test_tracer_handle_tracking_uri_update(tmp_path):
     assert len(get_traces()) == 1
 
     # Set different tracking URI and initialize the tracer
-    with _use_tracking_uri(tmp_path / "dummy"):
+    with _use_tracking_uri(f"sqlite:///{tmp_path / 'dummy.db'}"):
         assert len(get_traces()) == 0
 
         # The new trace will be logged to the updated tracking URI
@@ -760,8 +788,19 @@ async def test_tracer_parallel_workflow():
         assert s.status.status_code == SpanStatusCode.OK
 
     root_span = traces[0].data.spans[0]
-    assert root_span.inputs == {"kwargs": {"inputs": ["apple", "grape", "orange", "banana"]}}
-    assert root_span.outputs == "apple, banana, grape, orange"
+    # In llama-index >= 0.14.16, kwargs are flattened in span inputs
+    if llama_core_version >= Version("0.14.16"):
+        expected_inputs = {"inputs": ["apple", "grape", "orange", "banana"]}
+    else:
+        expected_inputs = {"kwargs": {"inputs": ["apple", "grape", "orange", "banana"]}}
+    # assert that the inputs are a superset of the expected inputs.
+    # this is to make the test resilient to framework changes which may add additional inputs.
+    assert all(root_span.inputs.get(k) == v for k, v in expected_inputs.items())
+    # in llama-index < 0.14, outputs are a string
+    if isinstance(root_span.outputs, str):
+        assert root_span.outputs == "apple, banana, grape, orange"
+    else:
+        assert root_span.outputs["result"] == "apple, banana, grape, orange"
 
 
 @pytest.mark.skipif(
@@ -828,8 +867,15 @@ async def test_tracer_parallel_workflow_with_custom_spans():
     assert all(s.status.status_code == SpanStatusCode.OK for s in spans)
 
     workflow_span = spans[0]
-    assert workflow_span.inputs == {"kwargs": {"inputs": inputs}}
-    assert workflow_span.outputs == result
+    if llama_core_version >= Version("0.14.16"):
+        expected_inputs = {"inputs": inputs}
+    else:
+        expected_inputs = {"kwargs": {"inputs": inputs}}
+    assert all(workflow_span.inputs.get(k) == v for k, v in expected_inputs.items())
+    if isinstance(workflow_span.outputs, str):
+        assert workflow_span.outputs == result
+    else:
+        assert workflow_span.outputs["result"] == result
 
     inner_worker_spans = [s for s in spans if s.name.startswith("custom_inner_span_worker")]
     assert len(inner_worker_spans) == len(inputs)
@@ -837,6 +883,58 @@ async def test_tracer_parallel_workflow_with_custom_spans():
     inner_result_span = next(s for s in spans if s.name == "custom_inner_result_span")
     assert inner_result_span.inputs is not None
     assert inner_result_span.outputs == result
+
+
+def test_stream_resolver_restores_pending_parent_context():
+    parent = mlflow.start_span_no_context("parent")
+    child = mlflow.start_span_no_context("child", parent_span=parent)
+    original_span = mlflow.get_current_active_span()
+    original_span_id = original_span.span_id if original_span else None
+    original_llama_span_id = active_span_id.get() if active_span_id else None
+
+    def stream():
+        for chunk in ("a", "b"):
+            assert mlflow.get_current_active_span().span_id == child.span_id
+            if active_span_id:
+                assert active_span_id.get() == "child"
+            yield chunk
+
+    response = StreamingResponse(response_gen=stream())
+    resolver = StreamResolver()
+    try:
+        assert resolver.register_stream_span(child, response.response_gen, llama_span_id="child")
+        assert resolver.register_stream_span(parent, response, llama_span_id="parent")
+
+        for chunk in ("a", "b"):
+            assert next(response.response_gen) == chunk
+            current_span = mlflow.get_current_active_span()
+            assert (current_span.span_id if current_span else None) == original_span_id
+            if active_span_id:
+                assert active_span_id.get() == original_llama_span_id
+        assert list(response.response_gen) == []
+    finally:
+        child.end()
+        parent.end()
+
+
+def test_stream_resolver_does_not_leak_context_when_attachment_fails(monkeypatch):
+    span = mlflow.start_span_no_context("parent")
+    response = StreamingResponse(response_gen=(chunk for chunk in ("a",)))
+    resolver = StreamResolver()
+    original_llama_span_id = active_span_id.get() if active_span_id else None
+    try:
+        assert resolver.register_stream_span(span, response, llama_span_id="parent")
+
+        def fail_to_attach(_span):
+            raise RuntimeError("failed to attach")
+
+        monkeypatch.setattr("mlflow.llama_index.tracer.set_span_in_context", fail_to_attach)
+        with pytest.raises(RuntimeError, match="failed to attach"):
+            next(response.response_gen)
+        if active_span_id:
+            assert active_span_id.get() == original_llama_span_id
+    finally:
+        span.end()
 
 
 @pytest.mark.asyncio

@@ -5,7 +5,10 @@ import { useExperimentContainsTrainingRuns } from '../../traces/hooks/useExperim
 import { isEditableExperimentKind } from '../../../utils/ExperimentKindUtils';
 import { matchPath, useLocation } from '../../../../common/utils/RoutingUtils';
 import { RoutePaths } from '../../../routes';
-import { shouldEnableWorkflowBasedNavigation } from '../../../../common/utils/FeatureUtils';
+import {
+  shouldEnableExperimentOverviewTab,
+  shouldEnableWorkflowBasedNavigation,
+} from '../../../../common/utils/FeatureUtils';
 
 export const useInferExperimentKind = ({
   experimentId,
@@ -13,13 +16,16 @@ export const useInferExperimentKind = ({
   enabled = true,
   experimentTags,
   updateExperimentKind,
+  hasV4Location,
 }: {
   experimentId?: string;
   isLoadingExperiment: boolean;
   enabled?: boolean;
   experimentTags?: { key?: string | null; value?: string | null }[] | null;
   updateExperimentKind: (params: { experimentId: string; kind: ExperimentKind }) => void;
+  hasV4Location?: boolean;
 }) => {
+  const enableExperimentOverviewTab = shouldEnableExperimentOverviewTab(hasV4Location);
   const enableWorkflowBasedNavigation = shouldEnableWorkflowBasedNavigation();
 
   const shouldInfer = enabled && !enableWorkflowBasedNavigation;
@@ -36,6 +42,7 @@ export const useInferExperimentKind = ({
     enabled: shouldInfer,
   });
 
+  // prettier-ignore
   const isLoading = shouldInfer && (isLoadingExperiment || isTracesBeingDetermined || isTrainingRunsBeingDetermined);
 
   const inferredExperimentKind = useMemo(() => {
@@ -70,13 +77,13 @@ export const useInferExperimentKind = ({
       return undefined;
     }
     if (inferredExperimentKind === ExperimentKind.GENAI_DEVELOPMENT_INFERRED) {
-      return ExperimentPageTabName.Overview;
+      return enableExperimentOverviewTab ? ExperimentPageTabName.Overview : ExperimentPageTabName.Traces;
     }
     if (inferredExperimentKind === ExperimentKind.CUSTOM_MODEL_DEVELOPMENT_INFERRED) {
       return ExperimentPageTabName.Runs;
     }
     return undefined;
-  }, [inferredExperimentKind, isOnExperimentPageWithoutTab]);
+  }, [inferredExperimentKind, isOnExperimentPageWithoutTab, enableExperimentOverviewTab]);
 
   // automatically update the experiment type if it's not user-editable
   useEffect(() => {

@@ -77,9 +77,9 @@ def _extract_output_and_other_columns(
             y_pred = pd.Series(
                 [p.get(output_column_name) for p in model_predictions], name=output_column_name
             )
-            other_output_columns = pd.DataFrame(
-                [{k: v for k, v in p.items() if k != output_column_name} for p in model_predictions]
-            )
+            other_output_columns = pd.DataFrame([
+                {k: v for k, v in p.items() if k != output_column_name} for p in model_predictions
+            ])
         elif len(model_predictions[0]) == 1:
             # Set the only key as self.predictions and its value as self.y_pred
             key, value = list(model_predictions[0].items())[0]
@@ -119,9 +119,9 @@ def _extract_output_and_other_columns(
     elif isinstance(model_predictions, dict):
         if output_column_name in model_predictions:
             y_pred = pd.Series(model_predictions[output_column_name], name=output_column_name)
-            other_output_columns = pd.DataFrame(
-                {k: v for k, v in model_predictions.items() if k != output_column_name}
-            )
+            other_output_columns = pd.DataFrame({
+                k: v for k, v in model_predictions.items() if k != output_column_name
+            })
         elif len(model_predictions) == 1:
             key, value = list(model_predictions.items())[0]
             y_pred = pd.Series(value, name=key)
@@ -157,7 +157,6 @@ def _extract_predict_fn(model: Any) -> Callable[..., Any] | None:
 
     Args:
         model: A model object that has a predict method.
-        raw_model: A raw model object that has a predict method.
 
     Returns: The predict function.
     """
@@ -765,37 +764,38 @@ class BuiltInEvaluator(ModelEvaluator):
         ):
             return
 
+        # Model outputs may have indexes unrelated to the input, unlike labels from the dataset.
+        # Drop only output indexes so table assignment matches the positional metric path.
+        if isinstance(y_pred, pd.Series):
+            y_pred = y_pred.array
+
         metric_prefix = self.evaluator_config.get("metric_prefix", "")
         if not isinstance(metric_prefix, str):
             metric_prefix = ""
         if isinstance(self.dataset.features_data, pd.DataFrame):
             # Handle DataFrame case
             if self.dataset.has_targets:
-                data = self.dataset.features_data.assign(
-                    **{
-                        self.dataset.targets_name or "target": self.dataset.labels_data,
-                        self.dataset.predictions_name or self.predictions or "outputs": y_pred,
-                    }
-                )
+                data = self.dataset.features_data.assign(**{
+                    self.dataset.targets_name or "target": self.dataset.labels_data,
+                    self.dataset.predictions_name or self.predictions or "outputs": y_pred,
+                })
             else:
                 data = self.dataset.features_data.assign(outputs=y_pred)
         else:
             # Handle NumPy array case, converting it to a DataFrame
             data = pd.DataFrame(self.dataset.features_data, columns=self.dataset.feature_names)
             if self.dataset.has_targets:
-                data = data.assign(
-                    **{
-                        self.dataset.targets_name or "target": self.dataset.labels_data,
-                        self.dataset.predictions_name or self.predictions or "outputs": y_pred,
-                    }
-                )
+                data = data.assign(**{
+                    self.dataset.targets_name or "target": self.dataset.labels_data,
+                    self.dataset.predictions_name or self.predictions or "outputs": y_pred,
+                })
             else:
                 data = data.assign(outputs=y_pred)
 
         # Include other_output_columns used in evaluation to the eval table
         if other_output_columns is not None and len(self.other_output_columns_for_eval) > 0:
             for column in self.other_output_columns_for_eval:
-                data[column] = other_output_columns[column]
+                data[column] = other_output_columns[column].array
 
         columns = {}
         for metric_name, metric_value in self.metrics_values.items():
@@ -922,9 +922,9 @@ class BuiltInEvaluator(ModelEvaluator):
             metric for metric in extra_metrics if not isinstance(metric, EvaluationMetric)
         ]
         if len(bad_metrics) > 0:
-            message = "\n".join(
-                [f"- Metric '{m}' has type '{type(m).__name__}'" for m in bad_metrics]
-            )
+            message = "\n".join([
+                f"- Metric '{m}' has type '{type(m).__name__}'" for m in bad_metrics
+            ])
             raise MlflowException(
                 f"In the 'extra_metrics' parameter, the following metrics have the wrong type:\n"
                 f"{message}\n"

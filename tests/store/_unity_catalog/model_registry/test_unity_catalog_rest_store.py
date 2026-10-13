@@ -208,9 +208,10 @@ def test_create_registered_model_three_level_name_hint(store):
     # Mock the _call_endpoint method to raise a RestException with
     # "specify all three levels" message
     original_error_message = "Model name must specify all three levels"
-    rest_exception = RestException(
-        {"error_code": "INVALID_PARAMETER_VALUE", "message": original_error_message}
-    )
+    rest_exception = RestException({
+        "error_code": "INVALID_PARAMETER_VALUE",
+        "message": original_error_message,
+    })
 
     with mock.patch.object(store, "_call_endpoint", side_effect=rest_exception):
         with pytest.raises(MlflowException, match=original_error_message) as exc_info:
@@ -228,9 +229,10 @@ def test_create_registered_model_three_level_name_hint(store):
 
 def test_create_registered_model_three_level_name_hint_with_period(store):
     original_error_message = "Model name must specify all three levels."
-    rest_exception = RestException(
-        {"error_code": "INVALID_PARAMETER_VALUE", "message": original_error_message}
-    )
+    rest_exception = RestException({
+        "error_code": "INVALID_PARAMETER_VALUE",
+        "message": original_error_message,
+    })
 
     with mock.patch.object(store, "_call_endpoint", side_effect=rest_exception):
         with pytest.raises(MlflowException, match=original_error_message) as exc_info:
@@ -257,9 +259,10 @@ def test_create_registered_model_metastore_does_not_exist_hint(store):
     # Mock the _call_endpoint method to raise a RestException with
     # "METASTORE_DOES_NOT_EXIST" message
     original_error_message = "METASTORE_DOES_NOT_EXIST: Metastore not found"
-    rest_exception = RestException(
-        {"error_code": "METASTORE_DOES_NOT_EXIST", "message": original_error_message}
-    )
+    rest_exception = RestException({
+        "error_code": "METASTORE_DOES_NOT_EXIST",
+        "message": original_error_message,
+    })
 
     with mock.patch.object(store, "_call_endpoint", side_effect=rest_exception):
         with pytest.raises(MlflowException, match=original_error_message) as exc_info:
@@ -283,9 +286,10 @@ def test_create_registered_model_other_rest_exceptions_not_modified(store):
     and are re-raised as-is.
     """
     original_error_message = "Some other error"
-    rest_exception = RestException(
-        {"error_code": "INTERNAL_ERROR", "message": original_error_message}
-    )
+    rest_exception = RestException({
+        "error_code": "INTERNAL_ERROR",
+        "message": original_error_message,
+    })
 
     with mock.patch.object(store, "_call_endpoint", side_effect=rest_exception):
         with pytest.raises(RestException, match=original_error_message) as exc_info:
@@ -362,6 +366,10 @@ def langchain_local_model_dir_with_resources(request, tmp_path):
                         {"name": "test.schema.test_table"},
                         {"name": "test.schema.test_table_2"},
                     ],
+                    "uc_model_service": [
+                        {"name": "test.schema.test_model_service"},
+                        {"name": "test.schema.test_model_service_2"},
+                    ],
                 }
             },
         }
@@ -389,6 +397,10 @@ def langchain_local_model_dir_with_resources(request, tmp_path):
                                 {"name": "test.schema.test_table"},
                                 {"name": "test.schema.test_table_2"},
                             ],
+                            "uc_model_service": [
+                                {"name": "test.schema.test_model_service"},
+                                {"name": "test.schema.test_model_service_2"},
+                            ],
                         }
                     },
                 },
@@ -413,6 +425,8 @@ def langchain_local_model_dir_with_resources(request, tmp_path):
         {"type": "DATABRICKS_UC_CONNECTION", "name": "test_connection"},
         {"type": "DATABRICKS_TABLE", "name": "test.schema.test_table"},
         {"type": "DATABRICKS_TABLE", "name": "test.schema.test_table_2"},
+        {"type": "DATABRICKS_UC_MODEL_SERVICE", "name": "test.schema.test_model_service"},
+        {"type": "DATABRICKS_UC_MODEL_SERVICE", "name": "test.schema.test_model_service_2"},
     ]
 
     return (tmp_path, model_version_dependencies)
@@ -447,6 +461,10 @@ def langchain_local_model_dir_with_invoker_resources(tmp_path):
                     {"name": "test.schema.test_table", "on_behalf_of_user": True},
                     {"name": "test.schema.test_table_2"},
                 ],
+                "uc_model_service": [
+                    {"name": "test.schema.test_model_service", "on_behalf_of_user": True},
+                    {"name": "test.schema.test_model_service_2"},
+                ],
             }
         },
     }
@@ -462,6 +480,7 @@ def langchain_local_model_dir_with_invoker_resources(tmp_path):
         {"type": "DATABRICKS_UC_FUNCTION", "name": "test.schema.test_function_2"},
         {"type": "DATABRICKS_UC_CONNECTION", "name": "test_connection"},
         {"type": "DATABRICKS_TABLE", "name": "test.schema.test_table_2"},
+        {"type": "DATABRICKS_UC_MODEL_SERVICE", "name": "test.schema.test_model_service_2"},
     ]
 
     return (tmp_path, model_version_dependencies)
@@ -1015,7 +1034,6 @@ def test_create_model_version_succeeds_when_logged_model_not_found(store, local_
                 temp_credentials=aws_temp_creds,
                 storage_location=storage_location,
                 source=source,
-                model_id="nonexistent_model_id",
             ),
         ) as request_mock,
         mock.patch(
@@ -1030,7 +1048,7 @@ def test_create_model_version_succeeds_when_logged_model_not_found(store, local_
             name=model_name,
             source=source,
             version=version,
-            model_id="nonexistent_model_id",
+            model_id=None,
         )
 
 

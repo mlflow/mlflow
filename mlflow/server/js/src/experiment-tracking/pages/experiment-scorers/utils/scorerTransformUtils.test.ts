@@ -332,6 +332,41 @@ describe('transformScorerConfig', () => {
     });
   });
 
+  describe('isSessionLevelScorer', () => {
+    it('should set isSessionLevelScorer to true when is_session_level_scorer is true', () => {
+      const config: ScorerConfig = {
+        name: 'Session Scorer',
+        serialized_scorer: JSON.stringify({
+          is_session_level_scorer: true,
+          builtin_scorer_class: 'Safety',
+        }),
+        builtin: { name: 'Session Scorer' },
+      };
+
+      const result = transformScorerConfig(config);
+
+      expect(result.isSessionLevelScorer).toBe(true);
+    });
+
+    it.each([
+      { description: 'false', serializedFields: { is_session_level_scorer: false } },
+      { description: 'absent', serializedFields: {} },
+    ])('should not set isSessionLevelScorer when is_session_level_scorer is $description', ({ serializedFields }) => {
+      const config: ScorerConfig = {
+        name: 'Test Scorer',
+        serialized_scorer: JSON.stringify({
+          ...serializedFields,
+          builtin_scorer_class: 'Safety',
+        }),
+        builtin: { name: 'Test Scorer' },
+      };
+
+      const result = transformScorerConfig(config);
+
+      expect(result.isSessionLevelScorer).toBeUndefined();
+    });
+  });
+
   describe('Edge cases and error handling', () => {
     it('should handle undefined sample_rate', () => {
       const config: ScorerConfig = {
@@ -403,25 +438,6 @@ describe('transformScheduledScorer', () => {
         model: 'openai:/gpt-4o-mini',
       });
       expect(result.custom).toEqual({});
-    });
-
-    it('should transform Custom template scorer without model', () => {
-      const scorer: LLMScorer = {
-        name: 'Test Instructions Scorer',
-        sampleRate: 80,
-        type: 'llm',
-        llmTemplate: 'Custom',
-        instructions: 'Evaluate the response quality',
-        is_instructions_judge: true,
-      };
-
-      const result = transformScheduledScorer(scorer);
-
-      const serialized = JSON.parse(result.serialized_scorer);
-      expect(serialized.instructions_judge_pydantic_data).toEqual({
-        instructions: 'Evaluate the response quality',
-      });
-      expect(serialized.instructions_judge_pydantic_data).not.toHaveProperty('model');
     });
 
     it('should transform Guidelines LLM scorer', () => {
@@ -525,7 +541,7 @@ describe('transformScheduledScorer', () => {
       });
     });
 
-    it('should transform Safety template with instructions as instructions judge', () => {
+    it('should transform Safety template with instructions as instructions judge with model', () => {
       const scorer: LLMScorer = {
         name: 'Safety Judge',
         sampleRate: 80,
@@ -546,26 +562,6 @@ describe('transformScheduledScorer', () => {
       expect(serialized.builtin_scorer_class).toBeNull();
       expect(result.custom).toEqual({});
       expect(result).not.toHaveProperty('builtin');
-    });
-
-    it('should transform RelevanceToQuery template with instructions as instructions judge', () => {
-      const scorer: LLMScorer = {
-        name: 'Relevance Judge',
-        sampleRate: 75,
-        type: 'llm',
-        llmTemplate: 'RelevanceToQuery',
-        instructions: 'Evaluate if the response is relevant to the query.',
-        is_instructions_judge: true,
-      };
-
-      const result = transformScheduledScorer(scorer);
-
-      const serialized = JSON.parse(result.serialized_scorer);
-      expect(serialized.instructions_judge_pydantic_data).toEqual({
-        instructions: 'Evaluate if the response is relevant to the query.',
-      });
-      expect(serialized.builtin_scorer_class).toBeNull();
-      expect(result.custom).toEqual({});
     });
 
     it('should transform non-editable template (Correctness) as built-in even with instructions', () => {

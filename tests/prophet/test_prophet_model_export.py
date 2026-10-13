@@ -297,6 +297,22 @@ def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
     assert prophet_custom_env_parsed == saved_conda_env_parsed
 
 
+@pytest.mark.parametrize(
+    ("version", "bounded"),
+    [
+        ("1.1.6", True),
+        ("1.2.1", True),
+        # 1.2.2 declares `pandas<3` itself and 1.3.0 supports pandas 3
+        ("1.2.2", False),
+        ("1.3.0", False),
+    ],
+)
+def test_default_pip_requirements_bounds_pandas_for_old_prophet(version, bounded):
+    with mock.patch.object(prophet, "__version__", version):
+        reqs = mlflow.prophet.get_default_pip_requirements()
+    assert ("pandas<3" in reqs) is bounded
+
+
 def test_model_save_persists_requirements_in_mlflow_model_directory(
     prophet_model, model_path, prophet_custom_env
 ):
@@ -398,7 +414,8 @@ def test_pyfunc_serve_and_score(prophet_model):
     # cast to string representation of datetime series, otherwise will default cast to Unix time
     # which Prophet does not support for encoding
     inference_data = (
-        prophet_model.model.make_future_dataframe(FORECAST_HORIZON)["ds"]
+        prophet_model.model
+        .make_future_dataframe(FORECAST_HORIZON)["ds"]
         .dt.strftime(INFER_FORMAT)
         .to_frame(name="ds")
     )

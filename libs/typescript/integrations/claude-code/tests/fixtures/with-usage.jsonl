@@ -1,0 +1,2 @@
+{"type":"user","message":{"role":"user","content":"Hello Claude!"},"timestamp":"2025-01-15T10:00:00.000Z","sessionId":"test-session-usage"}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"Hello! How can I help you today?"}],"model":"claude-sonnet-4-20250514","usage":{"input_tokens":10,"cache_creation_input_tokens":100,"cache_read_input_tokens":40,"output_tokens":25}},"timestamp":"2025-01-15T10:00:01.000Z"}

@@ -1,0 +1,496 @@
+import { useState, useCallback, useEffect, type ReactNode } from 'react';
+import {
+  Button,
+  Typography,
+  useDesignSystemTheme,
+  Input,
+  Checkbox,
+  Spinner,
+  Radio,
+  Tooltip,
+  QuestionMarkIcon,
+  Alert,
+} from '@databricks/design-system';
+
+import { updateConfig, installSkills } from '../AssistantService';
+import { useAssistant } from '../AssistantContext';
+import { useAssistantConfigQuery } from '../hooks/useAssistantConfigQuery';
+import { Link } from '../../common/utils/RoutingUtils';
+import Routes from '../../experiment-tracking/routes';
+import { SETTINGS_SECTION_LLM_CONNECTIONS } from '../../settings/settingsSectionConstants';
+
+type SkillsLocation = 'global' | 'project' | 'custom';
+
+interface AssistantSettingsFormProps {
+  experimentId?: string;
+  provider?: string;
+  onBack: () => void;
+  onComplete: () => void;
+  /** Custom label for the save/finish button */
+  nextLabel?: string;
+  /** Custom label for the back button */
+  backLabel?: string;
+}
+
+const PROVIDER_SKILLS_DIR = {
+  claude_code: '.claude/skills',
+  codex: '.agents/skills',
+} satisfies Record<string, string>;
+
+// Only Claude Code actually loads skills at runtime; other providers ignore
+// the directory even if we install to it. Update this set if/when more
+// providers gain skill-loading support.
+const PROVIDERS_WITH_SKILLS = new Set<string>(['claude_code']);
+
+const getSkillsDir = (provider: string): string =>
+  (PROVIDER_SKILLS_DIR as Record<string, string | undefined>)[provider] ?? `.agent/skills`;
+
+const deriveSkillsLocation = (
+  skillsLocation: string | undefined,
+  projectPath: string,
+  provider: string,
+): { location: SkillsLocation; customPath: string } => {
+  if (!skillsLocation) {
+    return { location: 'global', customPath: '' };
+  }
+  const skillsDir = getSkillsDir(provider);
+  if (skillsLocation.endsWith(`/${skillsDir}`)) {
+    return { location: 'global', customPath: '' };
+  }
+  if (projectPath && skillsLocation.endsWith(`${projectPath}/${skillsDir}`)) {
+    return { location: 'project', customPath: '' };
+  }
+  return { location: 'custom', customPath: skillsLocation };
+};
+
+// A soft-background note used where an editable field is replaced by explanatory text
+// (e.g. a host-only setting shown to a remote client, or when no experiment is selected).
+const InfoNote = ({ children }: { children: ReactNode }) => {
+  const { theme } = useDesignSystemTheme();
+  return (
+    <div
+      css={{
+        backgroundColor: theme.colors.backgroundSecondary,
+        borderRadius: theme.borders.borderRadiusMd,
+        padding: theme.spacing.md,
+      }}
+    >
+      <Typography.Text color="secondary">{children}</Typography.Text>
+    </div>
+  );
+};
+
+export const AssistantSettingsForm = ({
+  experimentId,
+  provider = 'claude_code',
+  onBack,
+  onComplete,
+  nextLabel = 'Finish',
+  backLabel = 'Back',
+}: AssistantSettingsFormProps) => {
+  const { theme } = useDesignSystemTheme();
+  const { isLocalServer } = useAssistant();
+  // How the server restricts its server-wide settings for this caller, used in the notes below.
+  const serverSettingsRestriction = isLocalServer ? 'by an administrator' : 'from the MLflow server host';
+  const { config, isLoading: isLoadingConfig, refetch: refetchConfig } = useAssistantConfigQuery();
+  // Read from the same config the form saves against, so a save never drops settings the caller
+  // is allowed to keep (e.g. an admin's full access).
+  const canEditServerSettings = config?.can_edit_server_settings ?? false;
+
+  const [projectPath, setProjectPath] = useState<string>('');
+  // Permissions state
+  const [editFiles, setEditFiles] = useState(true);
+  const [readDocs, setReadDocs] = useState(true);
+  const [fullPermission, setFullPermission] = useState(false);
+
+  // Skills state
+  const [skillsLocation, setSkillsLocation] = useState<SkillsLocation>('global');
+  const [customSkillsPath, setCustomSkillsPath] = useState<string>('');
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Initialize form state from loaded config
+  useEffect(() => {
+    if (!config) return;
+
+    const providerConfig = config.providers?.[provider];
+    if (providerConfig?.permissions) {
+      setEditFiles(providerConfig.permissions.allow_edit_files ?? true);
+      setReadDocs(providerConfig.permissions.allow_read_docs ?? true);
+      setFullPermission(providerConfig.permissions.full_access ?? false);
+    }
+
+    let currentProjectPath = '';
+    if (experimentId && config.projects?.[experimentId]) {
+      currentProjectPath = config.projects[experimentId].location || '';
+      setProjectPath(currentProjectPath);
+    }
+
+    // Initialize skills location from config
+    const { location, customPath } = deriveSkillsLocation(config.skills_location, currentProjectPath, provider);
+    setSkillsLocation(location);
+    setCustomSkillsPath(customPath);
+  }, [config, experimentId, provider]);
+
+  const handleSave = useCallback(async () => {
+    setIsSaving(true);
+    setError(null);
+
+    try {
+      // Build config update - always mark provider as selected (setup complete)
+      const existingModel = config?.providers?.[provider]?.model ?? 'default';
+      const configUpdate: Parameters<typeof updateConfig>[0] = {
+        providers: {
+          [provider]: {
+            model: existingModel,
+            selected: true,
+            permissions: {
+              allow_edit_files: editFiles,
+              allow_read_docs: readDocs,
+              // Full access is a server-wide setting; a caller who cannot change those cannot grant it.
+              full_access: canEditServerSettings ? fullPermission : false,
+            },
+          },
+        },
+      };
+
+      // Project mappings and skills point at paths on the server host's filesystem and apply to
+      // every user, so only a caller allowed to change server-wide settings sends them; the
+      // server rejects them from anyone else.
+      if (canEditServerSettings && experimentId) {
+        if (projectPath.trim()) {
+          configUpdate.projects = {
+            [experimentId]: { type: 'local' as const, location: projectPath.trim() },
+          };
+        } else {
+          // Send null to remove the project mapping
+          configUpdate.projects = {
+            [experimentId]: null,
+          };
+        }
+      }
+
+      await updateConfig(configUpdate);
+
+      // Install skills based on selected location. Providers that don't load
+      // skills at runtime (e.g. Ollama, MLflow Gateway) skip this entirely.
+      if (canEditServerSettings && PROVIDERS_WITH_SKILLS.has(provider)) {
+        try {
+          await installSkills(
+            skillsLocation,
+            skillsLocation === 'custom' ? customSkillsPath.trim() : undefined,
+            skillsLocation === 'project' ? experimentId : undefined,
+          );
+          await refetchConfig();
+        } catch {
+          // Silently ignore skills installation errors - user can install later
+        }
+      }
+
+      onComplete();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save configuration');
+      setIsSaving(false);
+    }
+  }, [
+    experimentId,
+    provider,
+    config,
+    projectPath,
+    skillsLocation,
+    customSkillsPath,
+    onComplete,
+    refetchConfig,
+    editFiles,
+    readDocs,
+    fullPermission,
+    canEditServerSettings,
+  ]);
+
+  if (isLoadingConfig) {
+    return (
+      <div css={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+        <Spinner size="large" />
+      </div>
+    );
+  }
+
+  return (
+    <div css={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <div css={{ flex: 1, overflow: 'auto' }}>
+        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.lg }}>
+          <div
+            css={{
+              padding: theme.spacing.md,
+              border: `1px solid ${theme.colors.border}`,
+              borderRadius: theme.borders.borderRadiusMd,
+              backgroundColor: theme.colors.backgroundSecondary,
+            }}
+          >
+            <Typography.Text color="secondary">
+              Need to update API keys? Manage them in{' '}
+              <Link
+                componentId="mlflow.assistant.setup.llm_connections_link"
+                to={Routes.getSettingsSectionRoute(SETTINGS_SECTION_LLM_CONNECTIONS)}
+                css={{
+                  color: theme.colors.actionPrimaryBackgroundDefault,
+                  textDecoration: 'none',
+                  '&:hover': { textDecoration: 'underline' },
+                }}
+              >
+                LLM Connections
+              </Link>
+              .
+            </Typography.Text>
+          </div>
+
+          {/* Permissions Section */}
+          <div>
+            <Typography.Text bold css={{ fontSize: 18, marginBottom: theme.spacing.sm, display: 'block' }}>
+              Permissions
+            </Typography.Text>
+            <Typography.Text color="secondary" css={{ display: 'block', marginBottom: theme.spacing.md }}>
+              Configure what actions the assistant can perform.
+            </Typography.Text>
+
+            <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
+              <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
+                <Checkbox
+                  componentId="mlflow.assistant.setup.project.perm_mlflow_cli"
+                  isChecked
+                  disabled
+                  onChange={() => {}}
+                >
+                  <Typography.Text>Execute MLflow CLI (required)</Typography.Text>
+                </Checkbox>
+                <Tooltip
+                  componentId="mlflow.assistant.setup.project.perm_mlflow_cli_tooltip"
+                  disableHoverableContent={false}
+                  content="Allow running MLflow commands to fetch traces, runs, and experiment data. This is required for the assistant to work properly."
+                >
+                  <QuestionMarkIcon
+                    css={{ color: theme.colors.actionPrimaryBackgroundDefault, fontSize: 14, cursor: 'help' }}
+                  />
+                </Tooltip>
+              </div>
+
+              <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
+                <Checkbox
+                  componentId="mlflow.assistant.setup.project.perm_read_docs"
+                  isChecked={readDocs}
+                  onChange={(checked) => {
+                    setReadDocs(checked);
+                    if (error) setError(null);
+                  }}
+                >
+                  <Typography.Text>Read MLflow doc</Typography.Text>
+                </Checkbox>
+                <Tooltip
+                  componentId="mlflow.assistant.setup.project.perm_read_docs_tooltip"
+                  disableHoverableContent={false}
+                  content="Allow fetching content from mlflow.org documentation to get the latest information about MLflow and make accurate suggestions."
+                >
+                  <QuestionMarkIcon
+                    css={{ color: theme.colors.actionPrimaryBackgroundDefault, fontSize: 14, cursor: 'help' }}
+                  />
+                </Tooltip>
+              </div>
+
+              <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
+                <Checkbox
+                  componentId="mlflow.assistant.setup.project.perm_edit_files"
+                  isChecked={editFiles}
+                  onChange={(checked) => {
+                    setEditFiles(checked);
+                    if (error) setError(null);
+                  }}
+                >
+                  <Typography.Text>Edit project code</Typography.Text>
+                </Checkbox>
+                <Tooltip
+                  componentId="mlflow.assistant.setup.project.perm_edit_files_tooltip"
+                  disableHoverableContent={false}
+                  content="Allow modifying files in your project directory. Required if you want to use the assistant to work on your project code, e.g., writing evaluation scripts, fixing bugs, etc."
+                >
+                  <QuestionMarkIcon
+                    css={{ color: theme.colors.actionPrimaryBackgroundDefault, fontSize: 14, cursor: 'help' }}
+                  />
+                </Tooltip>
+              </div>
+
+              <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
+                <Checkbox
+                  componentId="mlflow.assistant.setup.project.perm_full"
+                  isChecked={canEditServerSettings && fullPermission}
+                  disabled={!canEditServerSettings}
+                  onChange={(checked) => {
+                    setFullPermission(checked);
+                    if (error) setError(null);
+                  }}
+                >
+                  <Typography.Text color={!canEditServerSettings ? 'secondary' : undefined}>
+                    Full access
+                  </Typography.Text>
+                </Checkbox>
+                <Tooltip
+                  componentId="mlflow.assistant.setup.project.perm_full_tooltip"
+                  content={
+                    canEditServerSettings
+                      ? 'Bypass all permission checks. Use with caution.'
+                      : `Full access can only be enabled ${serverSettingsRestriction}.`
+                  }
+                >
+                  <QuestionMarkIcon
+                    css={{ color: theme.colors.actionPrimaryBackgroundDefault, fontSize: 14, cursor: 'help' }}
+                  />
+                </Tooltip>
+              </div>
+            </div>
+          </div>
+
+          {/* Project Configuration Section */}
+          <div>
+            <Typography.Text bold css={{ fontSize: 18, marginBottom: theme.spacing.sm, display: 'block' }}>
+              Project Path
+            </Typography.Text>
+            <Typography.Text color="secondary" css={{ display: 'block', marginBottom: theme.spacing.md }}>
+              Link this experiment to your local codebase (optional) to enable the assistant to understand your project
+              context.
+            </Typography.Text>
+
+            {!canEditServerSettings ? (
+              <InfoNote>
+                Project paths point at the MLflow server host&apos;s filesystem and can only be configured{' '}
+                {serverSettingsRestriction}.
+              </InfoNote>
+            ) : experimentId ? (
+              <Input
+                componentId="mlflow.assistant.setup.project.path_input"
+                value={projectPath}
+                onChange={(e) => {
+                  setProjectPath(e.target.value);
+                  if (error) setError(null);
+                }}
+                placeholder="/Users/me/projects/my-llm-project"
+                css={{ width: '100%' }}
+              />
+            ) : (
+              <InfoNote>No experiment selected. You can configure project mappings later in Settings.</InfoNote>
+            )}
+          </div>
+
+          {/* Skills Installation Section - only for providers that load skills at runtime */}
+          {PROVIDERS_WITH_SKILLS.has(provider) && (
+            <div>
+              <Typography.Text bold css={{ fontSize: 18, marginBottom: theme.spacing.sm, display: 'block' }}>
+                Skills Location
+              </Typography.Text>
+              <Typography.Text color="secondary" css={{ display: 'block', marginBottom: theme.spacing.md }}>
+                Extend the assistant with specialized MLflow workflows. See{' '}
+                <Typography.Link
+                  componentId="mlflow.assistant.setup.project.skills_link"
+                  href="https://github.com/mlflow/skills"
+                  target="_blank"
+                >
+                  MLflow Skills
+                </Typography.Link>{' '}
+                to find list of skills to be installed.
+              </Typography.Text>
+
+              {!canEditServerSettings ? (
+                <InfoNote>
+                  Skills are installed on the MLflow server host&apos;s filesystem and can only be configured{' '}
+                  {serverSettingsRestriction}.
+                </InfoNote>
+              ) : (
+                <Radio.Group
+                  componentId="mlflow.assistant.setup.project.skills_location"
+                  name="skills-location"
+                  value={skillsLocation}
+                  onChange={(e) => {
+                    setSkillsLocation(e.target.value as SkillsLocation);
+                    if (error) setError(null);
+                  }}
+                >
+                  <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
+                    <Radio componentId="mlflow.assistant.setup.project.skills_global" value="global">
+                      <Typography.Text>Global</Typography.Text>
+                      <Typography.Text color="secondary" css={{ marginLeft: theme.spacing.xs }}>
+                        (~/{getSkillsDir(provider)}/)
+                      </Typography.Text>
+                    </Radio>
+
+                    <Radio
+                      componentId="mlflow.assistant.setup.project.skills_project"
+                      value="project"
+                      disabled={!projectPath.trim()}
+                    >
+                      <Typography.Text color={!projectPath.trim() ? 'secondary' : undefined}>Project</Typography.Text>
+                      <Typography.Text color="secondary" css={{ marginLeft: theme.spacing.xs }}>
+                        {projectPath.trim()
+                          ? `(${projectPath.trim()}/${getSkillsDir(provider)}/)`
+                          : '(requires project path)'}
+                      </Typography.Text>
+                    </Radio>
+
+                    <div>
+                      <Radio componentId="mlflow.assistant.setup.project.skills_custom" value="custom">
+                        <Typography.Text>Custom location</Typography.Text>
+                      </Radio>
+                      {skillsLocation === 'custom' && (
+                        <div css={{ marginTop: theme.spacing.sm, paddingLeft: 24 }}>
+                          <Input
+                            componentId="mlflow.assistant.setup.project.custom_skills_path"
+                            value={customSkillsPath}
+                            onChange={(e) => {
+                              setCustomSkillsPath(e.target.value);
+                              if (error) setError(null);
+                            }}
+                            placeholder="/path/to/skills"
+                            css={{ width: '100%' }}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </Radio.Group>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {error && (
+        <Alert
+          componentId="mlflow.assistant.setup.project.error"
+          type="error"
+          message={error}
+          closable={false}
+          css={{ marginTop: theme.spacing.md }}
+        />
+      )}
+
+      <div
+        css={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          marginTop: theme.spacing.lg,
+          paddingTop: theme.spacing.md,
+          borderTop: `1px solid ${theme.colors.border}`,
+        }}
+      >
+        <Button componentId="mlflow.assistant.setup.footer.back" onClick={onBack} disabled={isSaving}>
+          {backLabel}
+        </Button>
+        <Button
+          componentId="mlflow.assistant.setup.footer.next"
+          type="primary"
+          onClick={handleSave}
+          disabled={Boolean(error) || isSaving}
+        >
+          {isSaving ? <Spinner size="small" /> : nextLabel}
+        </Button>
+      </div>
+    </div>
+  );
+};

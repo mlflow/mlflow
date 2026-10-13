@@ -47,7 +47,7 @@ def test_context_get_run_id_explicitly_set():
             nonlocal run_id
             run_id = get_context().get_mlflow_run_id()
 
-        thread = threading.Thread(target=_target)
+        thread = threading.Thread(name="test-evaluate-context", target=_target)
         thread.start()
         assert run_id == "test-run-id"
 

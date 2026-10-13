@@ -45,6 +45,7 @@ import {
   DELETE_TAG_API,
   LIST_ARTIFACTS_API,
   SET_EXPERIMENT_TAG_API,
+  DELETE_EXPERIMENT_TAG_API,
   SEARCH_DATASETS_API,
 } from '../actions';
 import { fulfilled, pending, rejected } from '../../common/utils/ActionUtils';
@@ -1231,6 +1232,60 @@ describe('test experimentTagsByExperimentId', () => {
       },
       experiment02: {
         key1: (ExperimentTag as any).fromJs(tag1),
+      },
+    });
+  });
+  test('delete experiment tag api', () => {
+    const initial_state = deepFreeze({
+      experiment01: {
+        key1: (ExperimentTag as any).fromJs(tag1),
+        key2: (ExperimentTag as any).fromJs(tag2),
+      },
+      experiment02: {
+        key1: (ExperimentTag as any).fromJs(tag1),
+      },
+    });
+    // Deleting one of several tags leaves the rest in place.
+    const state0 = experimentTagsByExperimentId(initial_state, {
+      type: fulfilled(DELETE_EXPERIMENT_TAG_API),
+      meta: {
+        experimentId: 'experiment01',
+        key: 'key1',
+      },
+    });
+    expect(state0).toEqual({
+      experiment01: {
+        key2: (ExperimentTag as any).fromJs(tag2),
+      },
+      experiment02: {
+        key1: (ExperimentTag as any).fromJs(tag1),
+      },
+    });
+    // Deleting the last tag for an experiment removes the experiment key entirely,
+    // mirroring the tagsByRunUuid DELETE_TAG_API behavior.
+    const state1 = experimentTagsByExperimentId(state0, {
+      type: fulfilled(DELETE_EXPERIMENT_TAG_API),
+      meta: {
+        experimentId: 'experiment02',
+        key: 'key1',
+      },
+    });
+    expect(state1).toEqual({
+      experiment01: {
+        key2: (ExperimentTag as any).fromJs(tag2),
+      },
+    });
+    // Deleting a nonexistent key is a no-op.
+    const state2 = experimentTagsByExperimentId(state1, {
+      type: fulfilled(DELETE_EXPERIMENT_TAG_API),
+      meta: {
+        experimentId: 'experiment01',
+        key: 'nonexistent',
+      },
+    });
+    expect(state2).toEqual({
+      experiment01: {
+        key2: (ExperimentTag as any).fromJs(tag2),
       },
     });
   });

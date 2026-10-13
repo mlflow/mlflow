@@ -20,6 +20,7 @@ from mlflow.genai.evaluation.utils import (
     _get_eval_data_size_and_fields,
 )
 from mlflow.genai.scorers import Scorer
+from mlflow.genai.scorers.base import flatten_scorers
 from mlflow.genai.scorers.builtin_scorers import BuiltInScorer
 from mlflow.genai.scorers.validation import valid_data_for_builtin_scorers, validate_scorers
 from mlflow.genai.simulators import ConversationSimulator
@@ -42,7 +43,7 @@ from mlflow.tracing.utils.copy import copy_trace_to_experiment
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.fluent import _get_experiment_id, _set_active_model
 from mlflow.utils.databricks_utils import invoke_databricks_app
-from mlflow.utils.mlflow_tags import MLFLOW_RUN_IS_EVALUATION
+from mlflow.utils.mlflow_tags import MLFLOW_RUN_TYPE, MLFLOW_RUN_TYPE_GENAI_EVALUATE
 
 if TYPE_CHECKING:
     from mlflow.genai.evaluation.entities import EvaluationResult
@@ -114,20 +115,18 @@ def evaluate(
         from mlflow.genai.scorers import Correctness
         import pandas as pd
 
-        data = pd.DataFrame(
-            [
-                {
-                    "inputs": {"question": "What is MLflow?"},
-                    "outputs": "MLflow is an ML platform",
-                    "expectations": "MLflow is an ML platform",
-                },
-                {
-                    "inputs": {"question": "What is Spark?"},
-                    "outputs": "I don't know",
-                    "expectations": "Spark is a data engine",
-                },
-            ]
-        )
+        data = pd.DataFrame([
+            {
+                "inputs": {"question": "What is MLflow?"},
+                "outputs": "MLflow is an ML platform",
+                "expectations": "MLflow is an ML platform",
+            },
+            {
+                "inputs": {"question": "What is Spark?"},
+                "outputs": "I don't know",
+                "expectations": "Spark is a data engine",
+            },
+        ])
 
         mlflow.genai.evaluate(
             data=data,
@@ -148,12 +147,10 @@ def evaluate(
         import openai
 
         # Create a dataframe with input samples
-        data = pd.DataFrame(
-            [
-                {"inputs": {"question": "What is MLflow?"}},
-                {"inputs": {"question": "What is Spark?"}},
-            ]
-        )
+        data = pd.DataFrame([
+            {"inputs": {"question": "What is MLflow?"}},
+            {"inputs": {"question": "What is Spark?"}},
+        ])
 
 
         # Define a predict function to evaluate. The "inputs" column will be
@@ -343,7 +340,7 @@ def _run_harness(data, scorers, predict_fn, model_id) -> tuple["EvaluationResult
         simulator = data
 
     with (
-        _start_run_or_reuse_active_run() as run_id,
+        _start_run_or_reuse_active_run() as run,
         _set_active_model(model_id=model_id) if model_id else nullcontext(),
         # NB: Auto-logging should be enabled outside the thread pool to avoid race conditions.
         configure_autologging_for_evaluation(enable_tracing=True),
@@ -374,7 +371,9 @@ def _run_harness(data, scorers, predict_fn, model_id) -> tuple["EvaluationResult
 
         df = _convert_to_eval_set(data)
 
-        builtin_scorers = [scorer for scorer in scorers if isinstance(scorer, BuiltInScorer)]
+        builtin_scorers = [
+            scorer for scorer in flatten_scorers(scorers) if isinstance(scorer, BuiltInScorer)
+        ]
         valid_data_for_builtin_scorers(df, builtin_scorers, predict_fn)
 
         sample_input = df.iloc[0][InputDatasetColumn.INPUTS]
@@ -421,16 +420,19 @@ def _run_harness(data, scorers, predict_fn, model_id) -> tuple["EvaluationResult
             _log_error("Failed to get evaluation data size and fields for GenAIEvaluateEvent")
             telemetry_data = {}
 
+        run_id = run.info.run_id
         _log_dataset_input(mlflow_dataset, run_id, model_id)
 
         # NB: Set this tag before run finishes to suppress the generic run URL printing.
-        MlflowClient().set_tag(run_id, MLFLOW_RUN_IS_EVALUATION, "true")
+        if run.data.tags.get(MLFLOW_RUN_TYPE) is None:
+            MlflowClient().set_tag(run_id, MLFLOW_RUN_TYPE, MLFLOW_RUN_TYPE_GENAI_EVALUATE)
 
         result = harness.run(
             predict_fn=predict_fn,
             eval_df=df,
             scorers=scorers,
             run_id=run_id,
+            dataset=mlflow_dataset if is_managed_dataset else None,
         )
 
     try:

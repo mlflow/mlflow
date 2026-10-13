@@ -317,7 +317,7 @@ def test_fit_with_a_list_of_params(dataset_binomial):
             with mlflow.start_run():
                 with mock.patch("mlflow.pyspark.ml._logger.warning") as mock_warning:
                     lr_model_iter = lr.fit(dataset_binomial, params=params)
-                    mock_warning.called_once_with(
+                    mock_warning.assert_called_once_with(
                         _get_warning_msg_for_fit_call_with_a_list_of_params(lr)
                     )
             assert isinstance(list(lr_model_iter)[0], LinearRegressionModel)
@@ -387,7 +387,7 @@ def test_should_log_model(
         with mlflow.start_run():
             lor_model = lor.fit(dataset_binomial)
         assert not _should_log_model(lor_model)
-        mock_warning.called_once_with(_get_warning_msg_for_skip_log_model(lor_model))
+        mock_warning.assert_called_once_with(_get_warning_msg_for_skip_log_model(lor_model))
         assert not _should_log_model(ova1_model)
         assert not _should_log_model(pipeline_model)
         assert not _should_log_model(nested_pipeline_model)
@@ -571,12 +571,10 @@ def test_param_search_estimator(
     run_id = run.info.run_id
     run_data = get_run_data(run_id)
     assert run_data.params == truncate_param_dict(
-        stringify_dict_values(
-            {
-                **_get_instance_param_map(estimator, uid_to_indexed_name_map),
-                **{f"best_{k}": v for k, v in best_params.items()},
-            }
-        )
+        stringify_dict_values({
+            **_get_instance_param_map(estimator, uid_to_indexed_name_map),
+            **{f"best_{k}": v for k, v in best_params.items()},
+        })
     )
     assert run_data.tags == get_expected_class_tags(estimator)
     loaded_model = load_model_by_run_id(run_id)
@@ -601,12 +599,10 @@ def test_param_search_estimator(
         for param_name, param_value in row_params.items():
             assert param_value == row.get(f"param.{param_name}")
 
-        params_search_clause = " and ".join(
-            [
-                "params.`{}` = '{}'".format(key.split(".")[1], value)
-                for key, value in row_params.items()
-            ]
-        )
+        params_search_clause = " and ".join([
+            "params.`{}` = '{}'".format(key.split(".")[1], value)
+            for key, value in row_params.items()
+        ])
         search_filter = f"tags.`mlflow.parentRunId` = '{run_id}' and {params_search_clause}"
         child_runs = client.search_runs(run.info.experiment_id, search_filter)
         assert len(child_runs) == 1
@@ -621,9 +617,9 @@ def test_param_search_estimator(
         )
         assert run_data.tags == get_expected_class_tags(child_estimator)
         assert run_data.params == truncate_param_dict(
-            stringify_dict_values(
-                {**_get_instance_param_map(child_estimator, uid_to_indexed_name_map)}
-            )
+            stringify_dict_values({
+                **_get_instance_param_map(child_estimator, uid_to_indexed_name_map)
+            })
         )
         assert (
             child_run.data.tags.get(MLFLOW_AUTOLOGGING)
@@ -1130,9 +1126,14 @@ def test_autolog_signature_scalar_input_and_non_scalar_output(dataset_numeric):
 
 @pytest.fixture
 def multinomial_df_with_string_labels(spark_session):
-    return spark_session.createDataFrame(
-        [(0, "a"), (1, "b"), (2, "c"), (3, "a"), (4, "a"), (5, "c")]
-    ).toDF("id", "category")
+    return spark_session.createDataFrame([
+        (0, "a"),
+        (1, "b"),
+        (2, "c"),
+        (3, "a"),
+        (4, "a"),
+        (5, "c"),
+    ]).toDF("id", "category")
 
 
 @pytest.fixture
@@ -1175,16 +1176,14 @@ def test_signature_with_index_to_string_stage(
 
 @pytest.fixture
 def input_df_with_non_features(spark_session):
-    return spark_session.createDataFrame(
-        [
-            (0, "a", "a", "b"),
-            (1, "b", "a", "b"),
-            (2, "c", "a", "b"),
-            (3, "a", "a", "b"),
-            (4, "a", "a", "b"),
-            (5, "c", "a", "b"),
-        ]
-    ).toDF("id", "category", "not_a_feature_1", "not_a_feature_2")
+    return spark_session.createDataFrame([
+        (0, "a", "a", "b"),
+        (1, "b", "a", "b"),
+        (2, "c", "a", "b"),
+        (3, "a", "a", "b"),
+        (4, "a", "a", "b"),
+        (5, "c", "a", "b"),
+    ]).toDF("id", "category", "not_a_feature_1", "not_a_feature_2")
 
 
 @pytest.fixture
@@ -1235,16 +1234,14 @@ def test_get_feature_cols(input_df_with_non_features, pipeline_for_feature_cols)
 
 
 def test_get_feature_cols_with_indexer_and_assembler(spark_session):
-    df = spark_session.createDataFrame(
-        [
-            (0, "a", 0),
-            (1, "b", 0),
-            (0, "c", 0),
-            (1, "a", 0),
-            (0, "a", 0),
-            (1, "c", 0),
-        ]
-    ).toDF("label", "categorical", "unused")
+    df = spark_session.createDataFrame([
+        (0, "a", 0),
+        (1, "b", 0),
+        (0, "c", 0),
+        (1, "a", 0),
+        (0, "a", 0),
+        (1, "c", 0),
+    ]).toDF("label", "categorical", "unused")
     indexer = StringIndexer(inputCol="categorical", outputCol="indexed")
     assembler = VectorAssembler(inputCols=["indexed"], outputCol="features")
     lr = LogisticRegression()

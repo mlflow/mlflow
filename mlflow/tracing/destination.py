@@ -27,10 +27,12 @@ class UserTraceDestinationRegistry:
         self._context_local_value = ContextVar("mlflow_trace_destination", default=None)
 
     def get(self) -> TraceLocationBase | None:
-        """First check the context-local value, then the global value."""
+        # Precedence: context-local -> global -> env.
         if local_destination := self._context_local_value.get():
             return local_destination
-        return self._global_value or self._get_trace_location_from_env()
+        if self._global_value:
+            return self._global_value
+        return self._get_trace_location_from_env()
 
     def set(self, value, context_local: bool = False):
         if context_local:
@@ -59,13 +61,22 @@ class UserTraceDestinationRegistry:
                             "because the tracing destination is set to Databricks."
                         )
                     return UCSchemaLocation(catalog_name, schema_name)
+                case [_, _, _]:
+                    raise MlflowException.invalid_parameter_value(
+                        f"Failed to parse trace location {location} from "
+                        "MLFLOW_TRACING_DESTINATION environment variable. "
+                        "Unity Catalog table-prefix destinations "
+                        "(<catalog_name>.<schema_name>.<table_prefix>) are not supported in "
+                        "MLFLOW_TRACING_DESTINATION. Use `mlflow.set_experiment(..., "
+                        "trace_location=mlflow.entities.UnityCatalog(...))` instead. "
+                    )
                 case [experiment_id]:
                     return MlflowExperimentLocation(experiment_id)
                 case _:
                     raise MlflowException.invalid_parameter_value(
-                        f"Failed to parse trace location {location} rom MLFLOW_TRACING_DESTINATION "
-                        "environment variable. Expected format: <catalog_name>.<schema_name> or "
-                        "<experiment_id>"
+                        f"Failed to parse trace location {location} from "
+                        "MLFLOW_TRACING_DESTINATION environment variable. "
+                        "Expected format: <catalog_name>.<schema_name> or <experiment_id>"
                     )
         return None
 

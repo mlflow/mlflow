@@ -1,15 +1,17 @@
 """
 Phoenix (Arize) integration for MLflow.
+
 This module provides integration with Phoenix evaluators, allowing them to be used
 with MLflow's scorer interface.
+
 Example usage:
+
 .. code-block:: python
+
     from mlflow.genai.scorers.phoenix import get_scorer
 
     scorer = get_scorer("Hallucination", model="openai:/gpt-4")
-    feedback = scorer(
-        inputs="What is MLflow?", outputs="MLflow is a platform...", trace=trace
-    )
+    feedback = scorer(inputs="What is MLflow?", outputs="MLflow is a platform...", trace=trace)
 """
 
 from __future__ import annotations
@@ -25,7 +27,7 @@ from mlflow.entities.trace import Trace
 from mlflow.genai.judges.builtin import _MODEL_API_DOC
 from mlflow.genai.judges.utils import get_default_model
 from mlflow.genai.scorers import FRAMEWORK_METADATA_KEY
-from mlflow.genai.scorers.base import Scorer
+from mlflow.genai.scorers.base import Scorer, ScorerKind
 from mlflow.genai.scorers.phoenix.models import create_phoenix_model
 from mlflow.genai.scorers.phoenix.registry import get_evaluator_class
 from mlflow.genai.scorers.phoenix.utils import map_scorer_inputs_to_phoenix_record
@@ -35,7 +37,6 @@ from mlflow.utils.docstring_utils import format_docstring
 _logger = logging.getLogger(__name__)
 
 
-@experimental(version="3.9.0")
 @format_docstring(_MODEL_API_DOC)
 class PhoenixScorer(Scorer):
     """
@@ -48,6 +49,8 @@ class PhoenixScorer(Scorer):
 
     _evaluator: Any = PrivateAttr()
     _model: str = PrivateAttr()
+    _metric_kwargs: dict[str, Any] = PrivateAttr(default_factory=dict)
+    _metric_name: str = PrivateAttr(default="")
 
     def __init__(
         self,
@@ -60,9 +63,15 @@ class PhoenixScorer(Scorer):
         super().__init__(name=metric_name)
         model = model or get_default_model()
         self._model = model
+        self._metric_name = metric_name
+        self._metric_kwargs = dict(evaluator_kwargs)
         phoenix_model = create_phoenix_model(model)
         evaluator_class = get_evaluator_class(metric_name)
         self._evaluator = evaluator_class(model=phoenix_model, **evaluator_kwargs)
+
+    @property
+    def kind(self) -> ScorerKind:
+        return ScorerKind.THIRD_PARTY
 
     def __call__(
         self,
@@ -114,7 +123,6 @@ class PhoenixScorer(Scorer):
             )
 
 
-@experimental(version="3.9.0")
 @format_docstring(_MODEL_API_DOC)
 def get_scorer(
     metric_name: str,
@@ -148,7 +156,6 @@ def get_scorer(
     )
 
 
-@experimental(version="3.9.0")
 class Hallucination(PhoenixScorer):
     """
     Detects hallucinations where the LLM fabricates information not present in the context.
@@ -158,6 +165,7 @@ class Hallucination(PhoenixScorer):
 
     Examples:
         .. code-block:: python
+
             from mlflow.genai.scorers.phoenix import Hallucination
 
             scorer = Hallucination(model="openai:/gpt-4")
@@ -171,7 +179,6 @@ class Hallucination(PhoenixScorer):
     metric_name: ClassVar[str] = "Hallucination"
 
 
-@experimental(version="3.9.0")
 class Relevance(PhoenixScorer):
     """
     Evaluates whether the retrieved context is relevant to the input query.
@@ -181,6 +188,7 @@ class Relevance(PhoenixScorer):
 
     Examples:
         .. code-block:: python
+
             from mlflow.genai.scorers.phoenix import Relevance
 
             scorer = Relevance(model="databricks")
@@ -193,7 +201,6 @@ class Relevance(PhoenixScorer):
     metric_name: ClassVar[str] = "Relevance"
 
 
-@experimental(version="3.9.0")
 class Toxicity(PhoenixScorer):
     """
     Detects toxic content in the model's response.
@@ -203,6 +210,7 @@ class Toxicity(PhoenixScorer):
 
     Examples:
         .. code-block:: python
+
             from mlflow.genai.scorers.phoenix import Toxicity
 
             scorer = Toxicity()
@@ -212,7 +220,6 @@ class Toxicity(PhoenixScorer):
     metric_name: ClassVar[str] = "Toxicity"
 
 
-@experimental(version="3.9.0")
 class QA(PhoenixScorer):
     """
     Evaluates whether the answer correctly addresses the question based on reference.
@@ -222,6 +229,7 @@ class QA(PhoenixScorer):
 
     Examples:
         .. code-block:: python
+
             from mlflow.genai.scorers.phoenix import QA
 
             scorer = QA(model="openai:/gpt-4o")
@@ -235,7 +243,6 @@ class QA(PhoenixScorer):
     metric_name: ClassVar[str] = "QA"
 
 
-@experimental(version="3.9.0")
 class Summarization(PhoenixScorer):
     """
     Evaluates the quality of a summarization against the original document.
@@ -245,6 +252,7 @@ class Summarization(PhoenixScorer):
 
     Examples:
         .. code-block:: python
+
             from mlflow.genai.scorers.phoenix import Summarization
 
             scorer = Summarization()
@@ -267,4 +275,5 @@ __all__ = [
     "Toxicity",
     "QA",
     "Summarization",
+    "experimental",
 ]

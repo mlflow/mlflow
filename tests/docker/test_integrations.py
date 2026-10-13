@@ -22,15 +22,14 @@ def test_backend_and_artifact_store_integration(compose_file):
         compose_file_name=[compose_file],
     )
     # Configure wait strategy before starting containers
-    compose.waiting_for(
-        {
-            "mlflow": HttpWaitStrategy(5000, "/health")
-            .for_status_code(200)
-            .with_startup_timeout(timedelta(minutes=5))
-        }
-    )
+    compose.waiting_for({
+        "mlflow": HttpWaitStrategy(5000, "/health")
+        .for_status_code(200)
+        .with_startup_timeout(timedelta(minutes=5))
+    })
 
-    with compose:
+    try:
+        compose.start()
         base_url = "http://localhost:5000"
 
         mlflow.set_tracking_uri(base_url)
@@ -48,3 +47,10 @@ def test_backend_and_artifact_store_integration(compose_file):
                 python_model=predict,
                 input_example=["a", "b", "c"],
             )
+    except Exception:
+        # Container logs aren't shown on failure and `stop()` deletes them, so dump them first.
+        stdout, stderr = compose.get_logs()
+        print(f"docker compose logs:\n{stdout}\n{stderr}")  # noqa: T201
+        raise
+    finally:
+        compose.stop()

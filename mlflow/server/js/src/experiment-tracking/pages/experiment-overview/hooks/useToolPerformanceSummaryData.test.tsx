@@ -12,6 +12,7 @@ import type { ReactNode } from 'react';
 import { setupServer } from '../../../../common/utils/setup-msw';
 import { rest } from 'msw';
 import { OverviewChartProvider } from '../OverviewChartContext';
+import { getAjaxUrl } from '@mlflow/mlflow/src/common/utils/FetchUtils';
 
 // Helper to create a count data point (grouped by tool name and status)
 const createCountDataPoint = (toolName: string, status: string, count: number) => ({
@@ -45,7 +46,7 @@ describe('useToolPerformanceSummaryData', () => {
   ];
 
   const contextProps = {
-    experimentId: testExperimentId,
+    experimentIds: [testExperimentId],
     startTimeMs,
     endTimeMs,
     timeIntervalSeconds,
@@ -72,15 +73,17 @@ describe('useToolPerformanceSummaryData', () => {
     );
   };
 
-  // Handler returns different responses based on metric_name in request body
+  // Handler returns different responses based on metric_name or metric_names in request body
   const setupTraceMetricsHandler = (countDataPoints: any[], latencyDataPoints: any[]) => {
     server.use(
-      rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+      rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), async (req, res, ctx) => {
         const body = await req.json();
-        if (body.metric_name === SpanMetricKey.SPAN_COUNT) {
+        const metricName: string | undefined = body.metric_name;
+        const metricNames: string[] = body.metric_names ?? [];
+        if (metricName === SpanMetricKey.SPAN_COUNT || metricNames.includes(SpanMetricKey.SPAN_COUNT)) {
           return res(ctx.json({ data_points: countDataPoints }));
         }
-        if (body.metric_name === SpanMetricKey.LATENCY) {
+        if (metricName === SpanMetricKey.LATENCY || metricNames.includes(SpanMetricKey.LATENCY)) {
           return res(ctx.json({ data_points: latencyDataPoints }));
         }
         return res(ctx.json({ data_points: [] }));
@@ -97,7 +100,7 @@ describe('useToolPerformanceSummaryData', () => {
   describe('loading state', () => {
     it('should return isLoading true while fetching', async () => {
       server.use(
-        rest.post('ajax-api/3.0/mlflow/traces/metrics', (_req, res, ctx) => {
+        rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), (_req, res, ctx) => {
           return res(ctx.delay('infinite'));
         }),
       );
@@ -114,7 +117,7 @@ describe('useToolPerformanceSummaryData', () => {
   describe('error state', () => {
     it('should return error when API call fails', async () => {
       server.use(
-        rest.post('ajax-api/3.0/mlflow/traces/metrics', (_req, res, ctx) => {
+        rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), (_req, res, ctx) => {
           return res(ctx.status(500), ctx.json({ error: 'API Error' }));
         }),
       );
@@ -300,7 +303,7 @@ describe('useToolPerformanceSummaryData', () => {
       const capturedBodies: any[] = [];
 
       server.use(
-        rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+        rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), async (req, res, ctx) => {
           capturedBodies.push(await req.json());
           return res(ctx.json({ data_points: [] }));
         }),
@@ -323,7 +326,7 @@ describe('useToolPerformanceSummaryData', () => {
       const capturedBodies: any[] = [];
 
       server.use(
-        rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+        rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), async (req, res, ctx) => {
           capturedBodies.push(await req.json());
           return res(ctx.json({ data_points: [] }));
         }),
@@ -345,7 +348,7 @@ describe('useToolPerformanceSummaryData', () => {
       const capturedBodies: any[] = [];
 
       server.use(
-        rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+        rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), async (req, res, ctx) => {
           capturedBodies.push(await req.json());
           return res(ctx.json({ data_points: [] }));
         }),
@@ -369,7 +372,7 @@ describe('useToolPerformanceSummaryData', () => {
       const capturedBodies: any[] = [];
 
       server.use(
-        rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+        rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), async (req, res, ctx) => {
           capturedBodies.push(await req.json());
           return res(ctx.json({ data_points: [] }));
         }),

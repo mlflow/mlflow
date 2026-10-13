@@ -13,7 +13,7 @@ export const ExperimentSingleChatSessionMetrics = ({
   return (
     <div
       css={{
-        borderBottom: `1px solid ${theme.colors.grey100}`,
+        borderBottom: `1px solid ${theme.colors.border}`,
         paddingBottom: theme.spacing.sm,
         display: 'flex',
         gap: theme.spacing.sm,

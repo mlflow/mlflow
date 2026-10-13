@@ -8,6 +8,13 @@ global.ResizeObserver = class ResizeObserver {
   disconnect() {}
 };
 
+// @xyflow/react reads m22 (zoom) from DOMMatrixReadOnly. JSDOM does not implement it.
+global.DOMMatrixReadOnly = class DOMMatrixReadOnly {
+  constructor() {
+    this.m22 = 1;
+  }
+};
+
 global.DOMRect = {
   fromRect: () => ({
     top: 0,
@@ -21,3 +28,11 @@ global.DOMRect = {
     toJSON: () => {},
   }),
 };
+
+// jsdom's test environment doesn't expose the WHATWG encoding globals that
+// Node provides; the custom-view feature's tag-size accounting needs TextEncoder.
+if (typeof global.TextEncoder === 'undefined') {
+  const { TextEncoder, TextDecoder } = require('util');
+  global.TextEncoder = TextEncoder;
+  global.TextDecoder = TextDecoder;
+}

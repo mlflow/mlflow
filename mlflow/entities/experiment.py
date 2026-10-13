@@ -1,7 +1,17 @@
+from __future__ import annotations
+
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.experiment_tag import ExperimentTag
+from mlflow.entities.trace_location import UnityCatalog
 from mlflow.protos.service_pb2 import Experiment as ProtoExperiment
 from mlflow.protos.service_pb2 import ExperimentTag as ProtoExperimentTag
+from mlflow.utils.mlflow_tags import (
+    MLFLOW_EXPERIMENT_DATABRICKS_TRACE_ANNOTATIONS_TABLE,
+    MLFLOW_EXPERIMENT_DATABRICKS_TRACE_DESTINATION_PATH,
+    MLFLOW_EXPERIMENT_DATABRICKS_TRACE_LOG_STORAGE_TABLE,
+    MLFLOW_EXPERIMENT_DATABRICKS_TRACE_SPAN_STORAGE_TABLE,
+)
+from mlflow.utils.workspace_utils import resolve_entity_workspace_name
 
 
 class Experiment(_MlflowObject):
@@ -13,14 +23,17 @@ class Experiment(_MlflowObject):
 
     def __init__(
         self,
-        experiment_id,
-        name,
-        artifact_location,
-        lifecycle_stage,
-        tags=None,
-        creation_time=None,
-        last_update_time=None,
-    ):
+        experiment_id: str,
+        name: str,
+        artifact_location: str,
+        lifecycle_stage: str,
+        tags: list[ExperimentTag] | None = None,
+        creation_time: int | None = None,
+        last_update_time: int | None = None,
+        workspace: str | None = None,
+        trace_location: UnityCatalog | None = None,
+        effective_trace_archival_retention: str | None = None,
+    ) -> None:
         super().__init__()
         self._experiment_id = experiment_id
         self._name = name
@@ -29,14 +42,17 @@ class Experiment(_MlflowObject):
         self._tags = {tag.key: tag.value for tag in (tags or [])}
         self._creation_time = creation_time
         self._last_update_time = last_update_time
+        self._workspace = resolve_entity_workspace_name(workspace)
+        self._trace_location = trace_location
+        self._effective_trace_archival_retention = effective_trace_archival_retention
 
     @property
-    def experiment_id(self):
+    def experiment_id(self) -> str:
         """String ID of the experiment."""
         return self._experiment_id
 
     @property
-    def name(self):
+    def name(self) -> str:
         """String name of the experiment."""
         return self._name
 
@@ -44,17 +60,17 @@ class Experiment(_MlflowObject):
         self._name = new_name
 
     @property
-    def artifact_location(self):
+    def artifact_location(self) -> str:
         """String corresponding to the root artifact URI for the experiment."""
         return self._artifact_location
 
     @property
-    def lifecycle_stage(self):
+    def lifecycle_stage(self) -> str:
         """Lifecycle stage of the experiment. Can either be 'active' or 'deleted'."""
         return self._lifecycle_stage
 
     @property
-    def tags(self):
+    def tags(self) -> dict[str, str]:
         """Tags that have been set on the experiment."""
         return self._tags
 
@@ -62,21 +78,69 @@ class Experiment(_MlflowObject):
         self._tags[tag.key] = tag.value
 
     @property
-    def creation_time(self):
+    def creation_time(self) -> int | None:
         return self._creation_time
 
     def _set_creation_time(self, creation_time):
         self._creation_time = creation_time
 
     @property
-    def last_update_time(self):
+    def last_update_time(self) -> int | None:
         return self._last_update_time
 
     def _set_last_update_time(self, last_update_time):
         self._last_update_time = last_update_time
 
+    @property
+    def effective_trace_archival_retention(self) -> str | None:
+        """Effective trace archival retention after applying broader-scope overrides."""
+        return self._effective_trace_archival_retention
+
+    @effective_trace_archival_retention.setter
+    def effective_trace_archival_retention(
+        self, effective_trace_archival_retention: str | None
+    ) -> None:
+        self._effective_trace_archival_retention = effective_trace_archival_retention
+
+    @property
+    def trace_location(self) -> UnityCatalog | None:
+        """Trace storage location, if configured."""
+        if self._trace_location is None:
+            self._trace_location = self._resolve_trace_location_from_tags()
+        return self._trace_location
+
+    @trace_location.setter
+    def trace_location(self, trace_location: UnityCatalog | None) -> None:
+        self._trace_location = trace_location
+
+    def _resolve_trace_location_from_tags(self) -> UnityCatalog | None:
+        destination_path = self._tags.get(MLFLOW_EXPERIMENT_DATABRICKS_TRACE_DESTINATION_PATH)
+        if not destination_path:
+            return None
+
+        match destination_path.split("."):
+            case [catalog, schema, table_prefix]:
+                location = UnityCatalog(catalog, schema, table_prefix)
+                location._otel_spans_table_name = self._tags.get(
+                    MLFLOW_EXPERIMENT_DATABRICKS_TRACE_SPAN_STORAGE_TABLE
+                )
+                location._otel_logs_table_name = self._tags.get(
+                    MLFLOW_EXPERIMENT_DATABRICKS_TRACE_LOG_STORAGE_TABLE
+                )
+                location._annotations_table_name = self._tags.get(
+                    MLFLOW_EXPERIMENT_DATABRICKS_TRACE_ANNOTATIONS_TABLE
+                )
+                return location
+            case _:
+                return None
+
+    @property
+    def workspace(self) -> str:
+        """Workspace that owns the experiment, if known."""
+        return self._workspace
+
     @classmethod
-    def from_proto(cls, proto):
+    def from_proto(cls, proto: ProtoExperiment) -> Experiment:
         experiment = cls(
             proto.experiment_id,
             proto.name,
@@ -88,12 +152,18 @@ class Experiment(_MlflowObject):
             # `last_update_time` if they are non-zero.
             creation_time=proto.creation_time or None,
             last_update_time=proto.last_update_time or None,
+            workspace=(proto.workspace if proto.HasField("workspace") else None),
+            effective_trace_archival_retention=(
+                proto.effective_trace_archival_retention
+                if proto.HasField("effective_trace_archival_retention")
+                else None
+            ),
         )
         for proto_tag in proto.tags:
             experiment._add_tag(ExperimentTag.from_proto(proto_tag))
         return experiment
 
-    def to_proto(self):
+    def to_proto(self) -> ProtoExperiment:
         experiment = ProtoExperiment()
         experiment.experiment_id = self.experiment_id
         experiment.name = self.name
@@ -103,7 +173,11 @@ class Experiment(_MlflowObject):
             experiment.creation_time = self.creation_time
         if self.last_update_time:
             experiment.last_update_time = self.last_update_time
-        experiment.tags.extend(
-            [ProtoExperimentTag(key=key, value=val) for key, val in self._tags.items()]
-        )
+        if self.effective_trace_archival_retention is not None:
+            experiment.effective_trace_archival_retention = self.effective_trace_archival_retention
+        if self.workspace is not None:
+            experiment.workspace = self.workspace
+        experiment.tags.extend([
+            ProtoExperimentTag(key=key, value=val) for key, val in self._tags.items()
+        ])
         return experiment

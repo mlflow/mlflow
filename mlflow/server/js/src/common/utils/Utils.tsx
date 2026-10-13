@@ -14,6 +14,7 @@ import { ErrorCodes, SupportPageUrl } from '../constants';
 import type { IntlShape } from 'react-intl';
 import { FormattedMessage } from 'react-intl';
 import { ErrorWrapper } from './ErrorWrapper';
+import { NetworkRequestError } from '@databricks/web-shared/errors';
 import type { RunInfoEntity } from '../../experiment-tracking/types';
 import type { KeyValueEntity } from '../types';
 import { NOTE_CONTENT_TAG } from '../../experiment-tracking/utils/NoteUtils';
@@ -67,13 +68,15 @@ class Utils {
   }
 
   /**
-   * Displays the info notification in the UI.
+   * Displays the info notification in the UI. `style` is forwarded to the
+   * underlying notification (e.g. to widen it past the default fixed width so
+   * single-line content doesn't wrap).
    */
-  static displayGlobalInfoNotification(content: any, duration?: any) {
+  static displayGlobalInfoNotification(content: any, duration?: any, style?: any) {
     if (!Utils.#notificationsApi) {
       return;
     }
-    (Utils.#notificationsApi as any).info({ message: content, duration: duration });
+    (Utils.#notificationsApi as any).info({ message: content, duration: duration, style: style });
   }
 
   static runNameTag = 'mlflow.runName';
@@ -403,7 +406,7 @@ class Utils {
     const urlSearchParams = new URLSearchParams(currentQueryParams);
     Object.entries(newQueryParams).forEach(
       // @ts-expect-error TS(2345): Argument of type 'unknown' is not assignable to pa... Remove this comment to see the full error message
-      ([key, value]) => !!key && !!value && urlSearchParams.set(key, value),
+      ([key, value]) => Boolean(key) && Boolean(value) && urlSearchParams.set(key, value),
     );
     const queryParams = urlSearchParams.toString();
     if (queryParams !== '' && !queryParams.includes('?')) {
@@ -494,7 +497,7 @@ class Utils {
     revisionId: any,
     runUuid: any,
     sourceName: any,
-    workspaceUrl = null,
+    workspaceUrl: string | null = null,
     nameOverride: string | null = null,
   ) {
     // sourceName may not be present when rendering feature table notebook consumers from remote
@@ -507,20 +510,28 @@ class Utils {
 
     if (notebookId) {
       const url = Utils.getNotebookSourceUrl(queryParams, notebookId, revisionId, runUuid, workspaceUrl);
+      if (!url) {
+        return name;
+      }
       return (
         <a title={sourceName || Utils.getDefaultNotebookRevisionName(notebookId, revisionId)} href={url} target="_top">
           {name}
         </a>
       );
-    } else {
-      return name;
     }
+    return name;
   }
 
   /**
    * Returns the URL for the notebook source.
    */
-  static getNotebookSourceUrl(queryParams: any, notebookId: any, revisionId: any, runUuid: any, workspaceUrl = null) {
+  static getNotebookSourceUrl(
+    queryParams: any,
+    notebookId: any,
+    revisionId: any,
+    runUuid: any,
+    workspaceUrl: string | null = null,
+  ) {
     let url = Utils.setQueryParams(workspaceUrl || window.location.origin, queryParams);
     url += `#notebook/${notebookId}`;
     if (revisionId) {
@@ -529,7 +540,7 @@ class Utils {
         url += `/mlflow/run/${runUuid}`;
       }
     }
-    return url;
+    return Utils.isValidHttpUrl(url) ? url : '';
   }
 
   /**
@@ -540,7 +551,7 @@ class Utils {
     jobId: any,
     jobRunId: any,
     jobName: any,
-    workspaceUrl = null,
+    workspaceUrl: string | null = null,
     nameOverride: string | null = null,
   ) {
     // jobName may not be present when rendering feature table job consumers from remote
@@ -551,26 +562,28 @@ class Utils {
 
     if (jobId) {
       const url = Utils.getJobSourceUrl(queryParams, jobId, jobRunId, workspaceUrl);
+      if (!url) {
+        return name;
+      }
       return (
         <a title={reformatJobName} href={url} target="_top">
           {name}
         </a>
       );
-    } else {
-      return name;
     }
+    return name;
   }
 
   /**
    * Returns the URL for the job source.
    */
-  static getJobSourceUrl(queryParams: any, jobId: any, jobRunId: any, workspaceUrl = null) {
+  static getJobSourceUrl(queryParams: any, jobId: any, jobRunId: any, workspaceUrl: string | null = null) {
     let url = Utils.setQueryParams(workspaceUrl || window.location.origin, queryParams);
     url += `#job/${jobId}`;
     if (jobRunId) {
       url += `/run/${jobRunId}`;
     }
-    return url;
+    return Utils.isValidHttpUrl(url) ? url : '';
   }
 
   /**
@@ -995,13 +1008,13 @@ class Utils {
     duration = 3,
     passErrorToParentFrame = false,
   ) {
-    // eslint-disable-next-line no-console -- TODO(FEINF-3587)
-    console.error(e);
     if (typeof e === 'string') {
       Utils.displayGlobalErrorNotification(e, duration);
     } else if (e instanceof ErrorWrapper) {
       // not all error is wrapped by ErrorWrapper
       Utils.displayGlobalErrorNotification(e.renderHttpError(), duration);
+    } else if (e instanceof NetworkRequestError) {
+      Utils.displayGlobalErrorNotification(e.displayMessage, duration);
       // eslint-disable-next-line no-empty
     } else {
     }

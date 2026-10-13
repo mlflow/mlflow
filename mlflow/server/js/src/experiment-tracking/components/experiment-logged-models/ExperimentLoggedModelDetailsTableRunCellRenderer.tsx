@@ -14,5 +14,9 @@ export const ExperimentLoggedModelDetailsTableRunCellRenderer: ColumnDefTemplate
 > = ({ getValue }) => {
   const { runName, runId } = getValue() ?? {};
 
-  return <Link to={Routes.getDirectRunPageRoute(runId ?? '')}>{runName || runId}</Link>;
+  return (
+    <Link componentId="mlflow.logged_models.details_table.run_cell_link" to={Routes.getDirectRunPageRoute(runId ?? '')}>
+      {runName || runId}
+    </Link>
+  );
 };

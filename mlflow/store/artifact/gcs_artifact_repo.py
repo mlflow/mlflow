@@ -1,5 +1,4 @@
 import datetime
-import importlib.metadata
 import os
 import posixpath
 import urllib.parse
@@ -21,8 +20,10 @@ from mlflow.exceptions import _UnsupportedMultipartUploadException
 from mlflow.store.artifact.artifact_repo import (
     ArtifactRepository,
     MultipartUploadMixin,
+    _is_object_key_within_path,
     _retry_with_new_creds,
 )
+from mlflow.utils import get_installed_version
 from mlflow.utils.file_utils import relative_path_to_artifact_path
 
 
@@ -189,13 +190,19 @@ class GCSArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         gcs_bucket = self._get_bucket(bucket_name)
         blobs = gcs_bucket.list_blobs(prefix=f"{dest_path}")
         for blob in blobs:
-            blob.delete()
+            if _is_object_key_within_path(blob.name, dest_path):
+                blob.delete()
 
     @staticmethod
     def _validate_support_mpu():
-        if Version(importlib.metadata.version("google-cloud-storage")) < Version(
-            "2.12.0"
-        ) or Version(importlib.metadata.version("google-resumable-media")) < Version("2.6.0"):
+        gcs_version = get_installed_version("google-cloud-storage")
+        media_version = get_installed_version("google-resumable-media")
+        if (
+            gcs_version is None
+            or gcs_version < Version("2.12.0")
+            or media_version is None
+            or media_version < Version("2.6.0")
+        ):
             raise _UnsupportedMultipartUploadException()
 
     @staticmethod

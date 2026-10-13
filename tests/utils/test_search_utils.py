@@ -9,6 +9,7 @@ from mlflow.entities import (
     DatasetInput,
     InputTag,
     LifecycleStage,
+    LoggedModel,
     Metric,
     Param,
     Run,
@@ -17,10 +18,44 @@ from mlflow.entities import (
     RunInputs,
     RunStatus,
     RunTag,
+    TraceState,
+    trace_location,
 )
+from mlflow.entities.trace_info import TraceInfo
 from mlflow.exceptions import MlflowException
 from mlflow.utils.mlflow_tags import MLFLOW_DATASET_CONTEXT
-from mlflow.utils.search_utils import SearchUtils
+from mlflow.utils.search_utils import (
+    SearchEvaluationDatasetsUtils,
+    SearchExperimentsUtils,
+    SearchLoggedModelsUtils,
+    SearchMCPAccessEndpointUtils,
+    SearchMCPServerUtils,
+    SearchMCPServerVersionUtils,
+    SearchModelUtils,
+    SearchModelVersionUtils,
+    SearchTraceUtils,
+    SearchUtils,
+)
+
+
+@pytest.mark.parametrize(
+    ("search_utils", "search_type"),
+    [
+        (SearchModelUtils, "registered model"),
+        (SearchModelVersionUtils, "model version"),
+    ],
+)
+@pytest.mark.parametrize("identifier", ["tags.stage", "name"])
+@pytest.mark.parametrize("comparator", ["IS NULL", "IS NOT NULL", "is null", "is not null"])
+def test_model_registry_search_rejects_null_comparisons(
+    search_utils, search_type, identifier, comparator
+):
+    with pytest.raises(
+        MlflowException,
+        match=f"IS NULL / IS NOT NULL is not supported for {search_type} search",
+    ) as exc:
+        search_utils.parse_search_filter(f"{identifier} {comparator}")
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
 
 
 @pytest.mark.parametrize(
@@ -97,7 +132,7 @@ from mlflow.utils.search_utils import SearchUtils
         ),
         (
             "attribute.start_time >= 1234",
-            [{"type": "attribute", "comparator": ">=", "key": "start_time", "value": "1234"}],
+            [{"type": "attribute", "comparator": ">=", "key": "start_time", "value": 1234}],
         ),
         (
             "run.status = 'RUNNING'",
@@ -107,10 +142,182 @@ from mlflow.utils.search_utils import SearchUtils
             "dataset.name = 'my_dataset'",
             [{"type": "dataset", "comparator": "=", "key": "name", "value": "my_dataset"}],
         ),
+        (
+            "tags.version IS NULL",
+            [{"comparator": "IS NULL", "key": "version", "type": "tag", "value": None}],
+        ),
+        (
+            "tags.version IS NOT NULL",
+            [{"comparator": "IS NOT NULL", "key": "version", "type": "tag", "value": None}],
+        ),
+        (
+            "params.lr IS NULL",
+            [{"comparator": "IS NULL", "key": "lr", "type": "parameter", "value": None}],
+        ),
+        (
+            "params.lr IS NOT NULL",
+            [{"comparator": "IS NOT NULL", "key": "lr", "type": "parameter", "value": None}],
+        ),
+        (
+            "tags.a IS NULL AND params.b = 'val'",
+            [
+                {"comparator": "IS NULL", "key": "a", "type": "tag", "value": None},
+                {"comparator": "=", "key": "b", "type": "parameter", "value": "val"},
+            ],
+        ),
     ],
 )
 def test_filter(filter_string, parsed_filter):
     assert SearchUtils.parse_search_filter(filter_string) == parsed_filter
+
+
+@pytest.mark.parametrize(
+    ("search_utils", "filter_string"),
+    [
+        (SearchUtils, "attributes.start_time > 1234"),
+        (SearchExperimentsUtils, "creation_time > 1234"),
+        (SearchEvaluationDatasetsUtils, "created_time > 1234"),
+        (SearchLoggedModelsUtils, "creation_timestamp > 1234"),
+        (SearchMCPServerUtils, "created_at > 1234"),
+        (SearchMCPServerVersionUtils, "created_at > 1234"),
+        (SearchMCPAccessEndpointUtils, "created_at > 1234"),
+    ],
+)
+def test_numeric_attribute_values_are_parsed_as_integers(search_utils, filter_string):
+    [condition] = search_utils.parse_search_filter(filter_string)
+
+    assert condition["value"] == 1234
+    assert isinstance(condition["value"], int)
+
+
+def test_evaluation_dataset_name_in_filter():
+    assert SearchEvaluationDatasetsUtils.parse_search_filter(
+        "name IN ('dataset-a', 'dataset-b')"
+    ) == [
+        {
+            "type": "attribute",
+            "key": "name",
+            "comparator": "IN",
+            "value": ("dataset-a", "dataset-b"),
+        }
+    ]
+
+
+@pytest.mark.parametrize("comparator", ["=", "!=", "LIKE", "ILIKE"])
+@pytest.mark.parametrize("names", ["('dataset-a')", "('dataset-a', 'dataset-b')"])
+def test_evaluation_dataset_name_list_requires_in(comparator, names):
+    with pytest.raises(
+        MlflowException,
+        match="List values for 'name' are only supported with the IN comparator",
+        check=lambda e: e.error_code == "INVALID_PARAMETER_VALUE",
+    ):
+        SearchEvaluationDatasetsUtils.parse_search_filter(f"name {comparator} {names}")
+
+
+@pytest.mark.parametrize("key", ["created_by", "last_updated_by"])
+def test_evaluation_dataset_in_filter_rejects_other_string_attributes(key):
+    with pytest.raises(MlflowException, match="Only .* attributes support comparison with a list"):
+        SearchEvaluationDatasetsUtils.parse_search_filter(f"{key} IN ('user-a', 'user-b')")
+
+
+@pytest.mark.parametrize(
+    ("filter_string", "expected"),
+    [
+        ("server_name = 'Com.Example/MyServer'", [("server_name", "=", "Com.Example/MyServer")]),
+        (
+            "server_name IN ('Com.Example/MyServer', 'com.example/other')",
+            [("server_name", "IN", ("Com.Example/MyServer", "com.example/other"))],
+        ),
+        (
+            "server_name NOT IN ('Com.Example/MyServer')",
+            [("server_name", "NOT IN", ("Com.Example/MyServer",))],
+        ),
+        (
+            "transport_type = 'sse' AND server_name = 'Com.Example/MyServer'",
+            [("transport_type", "=", "sse"), ("server_name", "=", "Com.Example/MyServer")],
+        ),
+        (
+            "server_name = 'Com.Example/MyServer' AND transport_type = 'sse'",
+            [("server_name", "=", "Com.Example/MyServer"), ("transport_type", "=", "sse")],
+        ),
+    ],
+)
+def test_mcp_access_endpoint_server_name_filter(filter_string, expected):
+    parsed = SearchMCPAccessEndpointUtils.parse_search_filter(filter_string)
+    assert [
+        (condition["key"], condition["comparator"], condition["value"]) for condition in parsed
+    ] == expected
+
+
+def test_mcp_access_endpoint_server_name_rejects_or():
+    with pytest.raises(MlflowException, match="Invalid clause"):
+        SearchMCPAccessEndpointUtils.parse_search_filter(
+            "server_name = 'com.example/one' OR transport_type = 'sse'"
+        )
+
+
+@pytest.mark.parametrize("comparator", ["=", "!=", "<", "<=", ">", ">="])
+def test_mcp_server_version_filter(comparator):
+    [condition] = SearchMCPServerVersionUtils.parse_search_filter(
+        f"version {comparator} '1.0.0-Alpha+Build'"
+    )
+
+    assert condition == {
+        "type": "attribute",
+        "key": "version",
+        "comparator": comparator,
+        "value": "1.0.0-Alpha+Build",
+    }
+
+
+@pytest.mark.parametrize(
+    ("filter_string", "match"),
+    [
+        ("version = '1.0.0' OR status = 'draft'", "Invalid clause.*'OR'"),
+        ("version IN ('1.0.0', '2.0.0')", r"Only \['status'\] attributes support comparison"),
+        ("select = '1.0.0'", "Invalid clause.*'select'"),
+    ],
+)
+def test_mcp_server_version_rejects_invalid_filters(filter_string, match):
+    with pytest.raises(MlflowException, match=match) as exc:
+        SearchMCPServerVersionUtils.parse_search_filter(filter_string)
+
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+
+
+def test_float_numeric_attribute_value_is_parsed_as_float():
+    [condition] = SearchUtils.parse_search_filter("attributes.start_time > 1234.5")
+
+    assert condition["value"] == 1234.5
+    assert isinstance(condition["value"], float)
+
+
+@pytest.mark.parametrize(
+    ("filter_string", "expected_model_ids"),
+    [
+        ("creation_timestamp = 1.5", []),
+        ("creation_timestamp > 1.5", ["model-2"]),
+        ("creation_timestamp >= 1.5", ["model-2"]),
+    ],
+)
+def test_float_numeric_attribute_is_not_truncated_for_logged_models(
+    filter_string, expected_model_ids
+):
+    models = [
+        LoggedModel(
+            experiment_id="0",
+            model_id=f"model-{timestamp}",
+            name=f"model-{timestamp}",
+            artifact_location=f"file:///tmp/model-{timestamp}",
+            creation_timestamp=timestamp,
+            last_updated_timestamp=timestamp,
+        )
+        for timestamp in (1, 2)
+    ]
+
+    filtered = SearchLoggedModelsUtils.filter_logged_models(models, filter_string)
+
+    assert [model.model_id for model in filtered] == expected_model_ids
 
 
 @pytest.mark.parametrize(
@@ -154,6 +361,8 @@ def test_correct_quote_trimming(filter_string, parsed_filter):
         ("attribute.status = true", "Invalid clause(s) in filter string"),
         ("dataset.status = 'true'", "Invalid dataset key"),
         ("dataset.profile = 'num_rows: 10'", "Invalid dataset key"),
+        ("metrics.acc IS NULL", "IS NULL / IS NOT NULL is only supported for tags and params"),
+        ("attribute.status IS NULL", "IS NULL / IS NOT NULL is only supported for tags and params"),
     ],
 )
 def test_error_filter(filter_string, error_message):
@@ -205,7 +414,7 @@ def test_bad_quotes(filter_string, error_message):
         ("params.acc LR", "Invalid clause(s) in filter string"),
         ("metric.acc !=", "Invalid clause(s) in filter string"),
         ("acc != 1.0", "Invalid attribute key"),
-        ("foo is null", "Invalid clause(s) in filter string"),
+        ("foo is null", "Invalid attribute key"),
         ("1=1", "Expected 'Identifier' found"),
         ("1==2", "Expected 'Identifier' found"),
     ],
@@ -358,6 +567,74 @@ def test_correct_filtering(filter_string, matching_runs):
     assert set(filtered_runs) == {runs[i] for i in matching_runs}
 
 
+@pytest.mark.parametrize(
+    ("filter_string", "matching_runs"),
+    [
+        ("datasets.digest IN ('06409663', 'A1B2C3D4')", [0, 1]),
+        ("datasets.name IN ('123', 'MyDataset')", [0, 1]),
+        ("datasets.context IN ('2024', 'Train')", [0, 1]),
+        ("datasets.digest IN ('06409663')", [0]),
+        ("datasets.name IN ('MyDataset')", [1]),
+        ("datasets.context IN ('Train')", [1]),
+    ],
+)
+def test_dataset_in_clause_with_digits_and_uppercase(filter_string, matching_runs):
+    runs = [
+        Run(
+            run_info=RunInfo(
+                run_id="r1",
+                experiment_id=0,
+                user_id="user-id",
+                status=RunStatus.to_string(RunStatus.FINISHED),
+                start_time=0,
+                end_time=1,
+                lifecycle_stage=LifecycleStage.ACTIVE,
+            ),
+            run_data=RunData(metrics=[], params=[], tags=[]),
+            run_inputs=RunInputs(
+                dataset_inputs=[
+                    DatasetInput(
+                        dataset=Dataset(
+                            name="123",
+                            digest="06409663",
+                            source_type="src",
+                            source="s",
+                        ),
+                        tags=[InputTag(MLFLOW_DATASET_CONTEXT, "2024")],
+                    )
+                ]
+            ),
+        ),
+        Run(
+            run_info=RunInfo(
+                run_id="r2",
+                experiment_id=0,
+                user_id="user-id",
+                status=RunStatus.to_string(RunStatus.FINISHED),
+                start_time=0,
+                end_time=1,
+                lifecycle_stage=LifecycleStage.ACTIVE,
+            ),
+            run_data=RunData(metrics=[], params=[], tags=[]),
+            run_inputs=RunInputs(
+                dataset_inputs=[
+                    DatasetInput(
+                        dataset=Dataset(
+                            name="MyDataset",
+                            digest="A1B2C3D4",
+                            source_type="src",
+                            source="s",
+                        ),
+                        tags=[InputTag(MLFLOW_DATASET_CONTEXT, "Train")],
+                    )
+                ]
+            ),
+        ),
+    ]
+    filtered_runs = SearchUtils.filter(runs, filter_string)
+    assert set(filtered_runs) == {runs[i] for i in matching_runs}
+
+
 def test_filter_runs_by_start_time():
     runs = [
         Run(
@@ -377,6 +654,7 @@ def test_filter_runs_by_start_time():
     assert SearchUtils.filter(runs, "attribute.start_time >= 0") == runs
     assert SearchUtils.filter(runs, "attribute.start_time > 1") == runs[2:]
     assert SearchUtils.filter(runs, "attribute.start_time = 2") == runs[2:]
+    assert SearchUtils.filter(runs, "attribute.start_time = 1.5") == []
 
 
 def test_filter_runs_by_user_id():
@@ -676,3 +954,122 @@ def test_pagination(page_token, max_results, matching_runs, expected_next_page_t
 def test_invalid_page_tokens(page_token, error_message):
     with pytest.raises(MlflowException, match=error_message):
         SearchUtils.paginate([], page_token, 1)
+
+
+def test_like_pattern_with_plus_character():
+    import mlflow
+
+    name = "jamie-foo C+W bar"
+    mlflow.create_experiment(name)
+
+    exps = mlflow.search_experiments(filter_string=f'name LIKE "{name}"')
+    assert len(exps) == 1
+
+    exps = mlflow.search_experiments(filter_string='name LIKE "jamie-foo C+%"')
+    assert len(exps) == 1
+
+
+def test_filter_runs_by_tag_and_param_is_null():
+    run_with_tag = Run(
+        run_info=RunInfo(
+            run_id="run1",
+            experiment_id=0,
+            user_id="user",
+            status=RunStatus.to_string(RunStatus.FINISHED),
+            start_time=0,
+            end_time=1,
+            lifecycle_stage=LifecycleStage.ACTIVE,
+        ),
+        run_data=RunData(tags=[RunTag("env", "prod")], params=[], metrics=[]),
+    )
+    run_with_param = Run(
+        run_info=RunInfo(
+            run_id="run2",
+            experiment_id=0,
+            user_id="user",
+            status=RunStatus.to_string(RunStatus.FINISHED),
+            start_time=0,
+            end_time=1,
+            lifecycle_stage=LifecycleStage.ACTIVE,
+        ),
+        run_data=RunData(tags=[], params=[Param("lr", "0.01")], metrics=[]),
+    )
+    runs = [run_with_tag, run_with_param]
+
+    assert [r.info.run_id for r in SearchUtils.filter(runs, "tags.env IS NOT NULL")] == ["run1"]
+    assert [r.info.run_id for r in SearchUtils.filter(runs, "tags.env IS NULL")] == ["run2"]
+    assert [r.info.run_id for r in SearchUtils.filter(runs, "params.lr IS NOT NULL")] == ["run2"]
+    assert [r.info.run_id for r in SearchUtils.filter(runs, "params.lr IS NULL")] == ["run1"]
+
+
+def test_search_trace_utils_filter_tag_is_null():
+    loc = trace_location.TraceLocation.from_experiment_id("0")
+    trace1 = TraceInfo(
+        trace_id="t1",
+        trace_location=loc,
+        request_time=0,
+        state=TraceState.OK,
+        tags={"env": "prod", "region": "us"},
+    )
+    trace2 = TraceInfo(
+        trace_id="t2",
+        trace_location=loc,
+        request_time=0,
+        state=TraceState.OK,
+        tags={"env": "staging"},
+    )
+    trace3 = TraceInfo(
+        trace_id="t3",
+        trace_location=loc,
+        request_time=0,
+        state=TraceState.OK,
+        tags={},
+    )
+    traces = [trace1, trace2, trace3]
+
+    result = SearchTraceUtils.filter(traces, "tag.region IS NULL")
+    assert {t.trace_id for t in result} == {"t2", "t3"}
+
+    result = SearchTraceUtils.filter(traces, "tag.region IS NOT NULL")
+    assert {t.trace_id for t in result} == {"t1"}
+
+    result = SearchTraceUtils.filter(traces, "tag.env IS NULL")
+    assert {t.trace_id for t in result} == {"t3"}
+
+    result = SearchTraceUtils.filter(traces, "tag.env IS NOT NULL")
+    assert {t.trace_id for t in result} == {"t1", "t2"}
+
+    result = SearchTraceUtils.filter(traces, 'tag.region IS NULL AND tag.env = "staging"')
+    assert {t.trace_id for t in result} == {"t2"}
+
+
+def test_search_trace_utils_filter_metadata_is_null():
+    loc = trace_location.TraceLocation.from_experiment_id("0")
+    trace1 = TraceInfo(
+        trace_id="t1",
+        trace_location=loc,
+        request_time=0,
+        state=TraceState.OK,
+        trace_metadata={"user": "alice", "session": "s1"},
+    )
+    trace2 = TraceInfo(
+        trace_id="t2",
+        trace_location=loc,
+        request_time=0,
+        state=TraceState.OK,
+        trace_metadata={"user": "bob"},
+    )
+    trace3 = TraceInfo(
+        trace_id="t3",
+        trace_location=loc,
+        request_time=0,
+        state=TraceState.OK,
+        trace_metadata={},
+    )
+    traces = [trace1, trace2, trace3]
+
+    result = SearchTraceUtils.filter(traces, "metadata.session IS NULL")
+    assert {t.trace_id for t in result} == {"t2", "t3"}
+
+    result = SearchTraceUtils.filter(traces, "metadata.session IS NOT NULL")
+    assert {t.trace_id for t in result} == {"t1"}

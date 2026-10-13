@@ -1,8 +1,8 @@
 import json
+from typing import Literal
 from unittest import mock
 
 import pytest
-from litellm.types.utils import ModelResponse
 
 from mlflow.entities.assessment import (
     AssessmentError,
@@ -13,6 +13,7 @@ from mlflow.entities.assessment import (
 from mlflow.exceptions import MlflowException
 from mlflow.genai import judges
 from mlflow.genai.evaluation.entities import EvalItem, EvalResult
+from mlflow.genai.judges.adapters.gateway_adapter import InvokeOutput
 from mlflow.genai.judges.utils import CategoricalRating
 from mlflow.genai.scorers import RelevanceToQuery, Safety, Scorer, UserFrustration
 from mlflow.genai.scorers.aggregation import compute_aggregated_metrics
@@ -22,6 +23,8 @@ from mlflow.genai.utils.type import FunctionCall
 from mlflow.types.chat import ChatTool, FunctionToolDefinition
 
 from tests.genai.conftest import databricks_only
+
+_EVALUATED_SENTINEL = "EVALUATED_USER_DATA_SENTINEL"
 
 
 def create_test_feedback(value: str, error: str | None = None) -> Feedback:
@@ -217,16 +220,25 @@ def test_builtin_scorer_handles_numeric_boolean_values():
             assert result.value == expected
 
 
-def test_meets_guidelines_oss():
-    mock_content = json.dumps(
-        {
-            "result": "yes",
-            "rationale": "Let's think step by step. The response is correct.",
-        }
+def _mock_score(mock_content):
+    return mock.patch(
+        "mlflow.genai.judges.adapters.gateway_adapter.GatewayAdapter._invoke_and_handle_tools",
+        return_value=InvokeOutput(
+            response=mock_content,
+            request_id=None,
+            num_prompt_tokens=None,
+            num_completion_tokens=None,
+        ),
     )
-    mock_response = ModelResponse(choices=[{"message": {"content": mock_content}}])
 
-    with mock.patch("litellm.completion", return_value=mock_response) as mock_litellm:
+
+def test_meets_guidelines_oss():
+    mock_content = json.dumps({
+        "result": "yes",
+        "rationale": "Let's think step by step. The response is correct.",
+    })
+
+    with _mock_score(mock_content) as mock_score:
         feedback = judges.meets_guidelines(
             guidelines="The response must be in English.",
             context={"request": "What is the capital of France?", "response": "Paris"},
@@ -238,25 +250,22 @@ def test_meets_guidelines_oss():
     assert feedback.source.source_type == AssessmentSourceType.LLM_JUDGE
     assert feedback.source.source_id == "openai:/gpt-4.1-mini"
 
-    assert mock_litellm.call_count == 1
-    kwargs = mock_litellm.call_args.kwargs
-    assert kwargs["model"] == "openai/gpt-4.1-mini"
-    assert kwargs["messages"][0]["role"] == "user"
-    prompt = kwargs["messages"][0]["content"]
+    mock_score.assert_called_once()
+    call_kwargs = mock_score.call_args.kwargs
+    assert call_kwargs["provider"] == "openai"
+    assert call_kwargs["model_name"] == "gpt-4.1-mini"
+    prompt = call_kwargs["messages"][0].content
     assert prompt.startswith("Given the following set of guidelines and some inputs")
     assert "What is the capital of France?" in prompt
 
 
 def test_is_context_relevant_oss():
-    mock_content = json.dumps(
-        {
-            "result": "yes",
-            "rationale": "Let's think step by step. The answer is relevant to the question.",
-        }
-    )
-    mock_response = ModelResponse(choices=[{"message": {"content": mock_content}}])
+    mock_content = json.dumps({
+        "result": "yes",
+        "rationale": "Let's think step by step. The answer is relevant to the question.",
+    })
 
-    with mock.patch("litellm.completion", return_value=mock_response) as mock_litellm:
+    with _mock_score(mock_content) as mock_score:
         feedback = judges.is_context_relevant(
             request="What is the capital of France?",
             context="Paris is the capital of France.",
@@ -268,26 +277,20 @@ def test_is_context_relevant_oss():
     assert feedback.source.source_type == AssessmentSourceType.LLM_JUDGE
     assert feedback.source.source_id == "openai:/gpt-4.1-mini"
 
-    assert mock_litellm.call_count == 1
-    kwargs = mock_litellm.call_args.kwargs
-    assert kwargs["model"] == "openai/gpt-4.1-mini"
-    assert kwargs["messages"][0]["role"] == "user"
-    prompt = kwargs["messages"][0]["content"]
+    mock_score.assert_called_once()
+    prompt = mock_score.call_args.kwargs["messages"][0].content
     assert "Consider the following question and answer" in prompt
     assert "What is the capital of France?" in prompt
     assert "Paris is the capital of France." in prompt
 
 
 def test_is_correct_oss():
-    mock_content = json.dumps(
-        {
-            "result": "yes",
-            "rationale": "Let's think step by step. The response is correct.",
-        }
-    )
-    mock_response = ModelResponse(choices=[{"message": {"content": mock_content}}])
+    mock_content = json.dumps({
+        "result": "yes",
+        "rationale": "Let's think step by step. The response is correct.",
+    })
 
-    with mock.patch("litellm.completion", return_value=mock_response) as mock_litellm:
+    with _mock_score(mock_content) as mock_score:
         feedback = judges.is_correct(
             request="What is the capital of France?",
             response="Paris is the capital of France.",
@@ -300,11 +303,8 @@ def test_is_correct_oss():
     assert feedback.source.source_type == AssessmentSourceType.LLM_JUDGE
     assert feedback.source.source_id == "openai:/gpt-4.1-mini"
 
-    assert mock_litellm.call_count == 1
-    kwargs = mock_litellm.call_args.kwargs
-    assert kwargs["model"] == "openai/gpt-4.1-mini"
-    assert kwargs["messages"][0]["role"] == "user"
-    prompt = kwargs["messages"][0]["content"]
+    mock_score.assert_called_once()
+    prompt = mock_score.call_args.kwargs["messages"][0].content
     assert "Consider the following question, claim and document" in prompt
     assert "What is the capital of France?" in prompt
     assert "Paris is the capital of France." in prompt
@@ -325,15 +325,12 @@ def test_is_correct_rejects_both_expected_response_and_expected_facts():
 
 
 def test_is_context_sufficient_oss():
-    mock_content = json.dumps(
-        {
-            "result": "yes",
-            "rationale": "Let's think step by step. The context is sufficient.",
-        }
-    )
-    mock_response = ModelResponse(choices=[{"message": {"content": mock_content}}])
+    mock_content = json.dumps({
+        "result": "yes",
+        "rationale": "Let's think step by step. The context is sufficient.",
+    })
 
-    with mock.patch("litellm.completion", return_value=mock_response) as mock_litellm:
+    with _mock_score(mock_content) as mock_score:
         feedback = judges.is_context_sufficient(
             request="What is the capital of France?",
             context=[
@@ -349,26 +346,20 @@ def test_is_context_sufficient_oss():
     assert feedback.source.source_type == AssessmentSourceType.LLM_JUDGE
     assert feedback.source.source_id == "openai:/gpt-4.1-mini"
 
-    assert mock_litellm.call_count == 1
-    kwargs = mock_litellm.call_args.kwargs
-    assert kwargs["model"] == "openai/gpt-4.1-mini"
-    assert kwargs["messages"][0]["role"] == "user"
-    prompt = kwargs["messages"][0]["content"]
+    mock_score.assert_called_once()
+    prompt = mock_score.call_args.kwargs["messages"][0].content
     assert "Consider the following claim and document" in prompt
     assert "What is the capital of France?" in prompt
     assert "Paris is the capital of France." in prompt
 
 
 def test_is_grounded_oss():
-    mock_content = json.dumps(
-        {
-            "result": "yes",
-            "rationale": "Let's think step by step. The response is grounded.",
-        }
-    )
-    mock_response = ModelResponse(choices=[{"message": {"content": mock_content}}])
+    mock_content = json.dumps({
+        "result": "yes",
+        "rationale": "Let's think step by step. The response is grounded.",
+    })
 
-    with mock.patch("litellm.completion", return_value=mock_response) as mock_litellm:
+    with _mock_score(mock_content) as mock_score:
         feedback = judges.is_grounded(
             request="What is the capital of France?",
             response="Paris",
@@ -384,11 +375,8 @@ def test_is_grounded_oss():
     assert feedback.source.source_type == AssessmentSourceType.LLM_JUDGE
     assert feedback.source.source_id == "openai:/gpt-4.1-mini"
 
-    assert mock_litellm.call_count == 1
-    kwargs = mock_litellm.call_args.kwargs
-    assert kwargs["model"] == "openai/gpt-4.1-mini"
-    assert kwargs["messages"][0]["role"] == "user"
-    prompt = kwargs["messages"][0]["content"]
+    mock_score.assert_called_once()
+    prompt = mock_score.call_args.kwargs["messages"][0].content
     assert "Consider the following claim and document" in prompt
     assert "What is the capital of France?" in prompt
     assert "Paris" in prompt
@@ -491,6 +479,219 @@ def test_is_safe_oss_with_custom_model(monkeypatch: pytest.MonkeyPatch):
     args, kwargs = mock_invoke.call_args
     assert args[0] == "anthropic:/claude-3-sonnet"  # model
     assert kwargs["assessment_name"] == "safety"
+
+
+def _assert_typesafe_call(invoke, expected_state) -> None:
+    invoke.assert_called_once()
+    args, kwargs = invoke.call_args
+    assert args == ("typesafe:/jev-latest",)
+    assert _EVALUATED_SENTINEL not in kwargs["instructions"]
+    assert kwargs["state"] == expected_state
+    assert kwargs["feedback_value_type"] == Literal["yes", "no"]
+    assert kwargs["extra_headers"] is None
+    assert "json format" not in kwargs["instructions"].lower()
+    assert "rationale" not in kwargs["instructions"].lower()
+    assert "let's think step by step" not in kwargs["instructions"].lower()
+
+
+@pytest.mark.parametrize(
+    ("judge_fn", "judge_kwargs", "expected_state"),
+    [
+        (
+            judges.is_context_relevant,
+            {"request": _EVALUATED_SENTINEL, "context": _EVALUATED_SENTINEL},
+            {"input": _EVALUATED_SENTINEL, "output": _EVALUATED_SENTINEL},
+        ),
+        (
+            judges.is_context_sufficient,
+            {
+                "request": _EVALUATED_SENTINEL,
+                "context": _EVALUATED_SENTINEL,
+                "expected_facts": [_EVALUATED_SENTINEL],
+            },
+            {
+                "input": _EVALUATED_SENTINEL,
+                "ground_truth": [_EVALUATED_SENTINEL],
+                "retrieval_context": _EVALUATED_SENTINEL,
+            },
+        ),
+        (
+            judges.is_correct,
+            {
+                "request": _EVALUATED_SENTINEL,
+                "response": _EVALUATED_SENTINEL,
+                "expected_response": _EVALUATED_SENTINEL,
+            },
+            {
+                "input": _EVALUATED_SENTINEL,
+                "output": _EVALUATED_SENTINEL,
+                "ground_truth": _EVALUATED_SENTINEL,
+            },
+        ),
+        (
+            judges.is_grounded,
+            {
+                "request": _EVALUATED_SENTINEL,
+                "response": _EVALUATED_SENTINEL,
+                "context": _EVALUATED_SENTINEL,
+            },
+            {
+                "input": _EVALUATED_SENTINEL,
+                "output": _EVALUATED_SENTINEL,
+                "retrieval_context": _EVALUATED_SENTINEL,
+            },
+        ),
+        (
+            judges.is_safe,
+            {"content": _EVALUATED_SENTINEL},
+            {"content": _EVALUATED_SENTINEL},
+        ),
+        (
+            judges.meets_guidelines,
+            {
+                "guidelines": [_EVALUATED_SENTINEL],
+                "context": {"response": _EVALUATED_SENTINEL},
+            },
+            {
+                "guidelines": [_EVALUATED_SENTINEL],
+                "guidelines_context": {"response": _EVALUATED_SENTINEL},
+            },
+        ),
+    ],
+)
+def test_builtin_judge_invokes_typesafe(judge_fn, judge_kwargs, expected_state):
+    with mock.patch(
+        "mlflow.genai.judges.structured_judge._invoke_typesafe_judge",
+        return_value=create_test_feedback("yes"),
+    ) as mock_invoke:
+        judge_fn(model="typesafe:/jev-latest", **judge_kwargs)
+
+    _assert_typesafe_call(mock_invoke, expected_state)
+
+
+def test_builtin_judge_forwards_typesafe_extra_headers():
+    extra_headers = {"X-Test": "value"}
+    with mock.patch(
+        "mlflow.genai.judges.structured_judge._invoke_typesafe_judge",
+        return_value=create_test_feedback("yes"),
+    ) as mock_invoke:
+        judges.is_safe(
+            content="safe",
+            model="typesafe:/jev-latest",
+            extra_headers=extra_headers,
+        )
+
+    assert mock_invoke.call_args.kwargs["extra_headers"] is extra_headers
+
+
+def test_tool_call_efficiency_invokes_typesafe():
+    tools_called = [
+        FunctionCall(
+            name=f"search_{_EVALUATED_SENTINEL}",
+            arguments={"query": _EVALUATED_SENTINEL},
+            outputs=_EVALUATED_SENTINEL,
+        )
+    ]
+    available_tools = [
+        ChatTool(
+            type="function",
+            function=FunctionToolDefinition(
+                name=f"search_{_EVALUATED_SENTINEL}",
+                description=_EVALUATED_SENTINEL,
+            ),
+        )
+    ]
+    with mock.patch(
+        "mlflow.genai.judges.structured_judge._invoke_typesafe_judge",
+        return_value=create_test_feedback("yes"),
+    ) as mock_invoke:
+        judges.is_tool_call_efficient(
+            request=_EVALUATED_SENTINEL,
+            tools_called=tools_called,
+            available_tools=available_tools,
+            model="typesafe:/jev-latest",
+        )
+
+    expected_state = {
+        "request": _EVALUATED_SENTINEL,
+        "tools_called": tools_called,
+        "available_tools": available_tools,
+    }
+    _assert_typesafe_call(mock_invoke, expected_state)
+    assert (
+        'result is "yes" when the tool usage is efficient'
+        in mock_invoke.call_args.kwargs["instructions"]
+    )
+
+
+@pytest.mark.parametrize(
+    ("has_expected_calls", "include_arguments", "check_order", "expected_criterion"),
+    [
+        (False, True, False, "Need for tools"),
+        (True, True, True, "Argument match"),
+        (True, False, False, "Argument reasonableness"),
+    ],
+)
+def test_tool_call_correctness_invokes_typesafe(
+    has_expected_calls, include_arguments, check_order, expected_criterion
+):
+    tools_called = [
+        FunctionCall(
+            name=f"search_{_EVALUATED_SENTINEL}",
+            arguments={"query": _EVALUATED_SENTINEL},
+        )
+    ]
+    available_tools = [
+        ChatTool(
+            type="function",
+            function=FunctionToolDefinition(
+                name=f"search_{_EVALUATED_SENTINEL}",
+                description=_EVALUATED_SENTINEL,
+            ),
+        )
+    ]
+    expected_calls = (
+        [
+            FunctionCall(
+                name=f"expected_{_EVALUATED_SENTINEL}",
+                arguments={"query": _EVALUATED_SENTINEL},
+            )
+        ]
+        if has_expected_calls
+        else None
+    )
+    with mock.patch(
+        "mlflow.genai.judges.structured_judge._invoke_typesafe_judge",
+        return_value=create_test_feedback("yes"),
+    ) as mock_invoke:
+        judges.is_tool_call_correct(
+            request=_EVALUATED_SENTINEL,
+            tools_called=tools_called,
+            available_tools=available_tools,
+            expected_tool_calls=expected_calls,
+            include_arguments=include_arguments,
+            check_order=check_order,
+            model="typesafe:/jev-latest",
+        )
+
+    expected_state = {
+        "request": _EVALUATED_SENTINEL,
+        "tools_called": tools_called,
+        "available_tools": available_tools,
+        **(
+            {
+                "expected_calls": (
+                    [{"name": call.name, "arguments": call.arguments} for call in expected_calls]
+                    if include_arguments
+                    else [call.name for call in expected_calls]
+                )
+            }
+            if expected_calls is not None
+            else {}
+        ),
+    }
+    _assert_typesafe_call(mock_invoke, expected_state)
+    assert expected_criterion in mock_invoke.call_args.kwargs["instructions"]
 
 
 def test_is_safe_with_custom_name_and_model(monkeypatch: pytest.MonkeyPatch):
@@ -667,3 +868,85 @@ def test_is_tool_call_correct_with_custom_name_and_model():
     args, kwargs = mock_invoke.call_args
     assert args[0] == "anthropic:/claude-3-sonnet"
     assert kwargs["assessment_name"] == "custom_correctness_check"
+
+
+# ---------------------------------------------------------------------------
+# extra_headers — BuiltInScorer field and scorer/judge forwarding
+# ---------------------------------------------------------------------------
+
+
+def test_builtin_scorer_extra_headers_field():
+    assert Safety(extra_headers={"AI-Resource-Group": "grp"}).extra_headers == {
+        "AI-Resource-Group": "grp"
+    }
+    assert Safety().extra_headers is None
+
+
+@pytest.mark.parametrize(
+    ("scorer_cls", "scorer_kwargs", "judge_patch", "call_kwargs"),
+    [
+        (
+            Safety,
+            {"model": "openai:/gpt-4o-mini", "extra_headers": {"k": "v"}},
+            "mlflow.genai.scorers.builtin_scorers.judges.is_safe",
+            {"outputs": "hello"},
+        ),
+        (
+            RelevanceToQuery,
+            {"model": "openai:/gpt-4o-mini", "extra_headers": {"k": "v"}},
+            "mlflow.genai.scorers.builtin_scorers.judges.is_context_relevant",
+            {"inputs": {"question": "q"}, "outputs": "a"},
+        ),
+    ],
+)
+def test_builtin_scorer_forwards_extra_headers(scorer_cls, scorer_kwargs, judge_patch, call_kwargs):
+    feedback = create_test_feedback("yes")
+    with mock.patch(judge_patch, return_value=feedback) as mock_judge:
+        scorer_cls(**scorer_kwargs)(**call_kwargs)
+    _, kwargs = mock_judge.call_args
+    assert kwargs.get("extra_headers") == {"k": "v"}
+
+
+@pytest.mark.parametrize(
+    ("judge_fn", "judge_kwargs"),
+    [
+        (
+            judges.is_safe,
+            {"content": "hello", "extra_headers": {"k": "v"}},
+        ),
+        (
+            judges.is_correct,
+            {
+                "request": "q",
+                "response": "a",
+                "expected_response": "a",
+                "extra_headers": {"k": "v"},
+            },
+        ),
+        (
+            judges.is_grounded,
+            {
+                "request": "q",
+                "response": "a",
+                "context": [{"content": "c"}],
+                "extra_headers": {"k": "v"},
+            },
+        ),
+        (
+            judges.is_context_relevant,
+            {"request": "q", "context": "c", "extra_headers": {"k": "v"}},
+        ),
+        (
+            judges.meets_guidelines,
+            {"guidelines": "be polite", "context": {"response": "hi"}, "extra_headers": {"k": "v"}},
+        ),
+    ],
+)
+def test_judge_function_forwards_extra_headers(judge_fn, judge_kwargs):
+    with mock.patch(
+        "mlflow.genai.judges.builtin.invoke_judge_model",
+        return_value=create_test_feedback("yes"),
+    ) as mock_invoke:
+        judge_fn(**judge_kwargs)
+    _, kwargs = mock_invoke.call_args
+    assert kwargs.get("extra_headers") == {"k": "v"}

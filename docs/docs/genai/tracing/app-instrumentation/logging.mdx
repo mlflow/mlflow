@@ -1,0 +1,111 @@
+import { APILink } from "@site/src/components/APILink";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+import TabsWrapper from "@site/src/components/TabsWrapper";
+
+# Setting Log Levels on Spans
+
+Span log levels classify each span by severity, modeled on Python's standard `logging` module. They let you scan a busy trace at a glance: at the default threshold the trace renders unchanged, but bumping the **Minimum log level** filter in the UI hides noise (chain plumbing, output parsing) so you see only the user-visible operations, such as requests, responses, tool calls.
+
+The five levels share names with Python's `logging` module:
+
+| Level      | Typical use                                      |
+| ---------- | ------------------------------------------------ |
+| `DEBUG`    | Internal/glue work — chain steps, parsers, etc.  |
+| `INFO`     | User-visible operations — LLM calls, tool calls. |
+| `WARNING`  | Recoverable issues you'd want to see in prod.    |
+| `ERROR`    | Failures.                                        |
+| `CRITICAL` | Hard stops worth paging on.                      |
+
+## Setting the level on a span
+
+You can pass a level when you create the span. The kwarg accepts the enum value or its name.
+
+<TabsWrapper>
+<Tabs groupId="programming-language">
+<TabItem value="python" label="Python" default>
+
+```python
+import mlflow
+from mlflow.entities import SpanLogLevel
+
+
+@mlflow.trace(log_level=SpanLogLevel.INFO)
+def answer(query: str) -> str:
+    docs = retrieve(query)
+    return llm.generate(query, docs)
+
+
+@mlflow.trace(log_level="DEBUG")  # string form
+def retrieve(query: str): ...
+```
+
+You can also set the level on a `LiveSpan` after creation:
+
+```python
+with mlflow.start_span("foo") as span:
+    span.set_log_level("WARNING")
+```
+
+</TabItem>
+
+<TabItem value="typescript" label="TypeScript">
+
+```typescript
+import * as mlflow from "@mlflow/core";
+import { SpanLogLevel, SpanType } from "@mlflow/core";
+
+await mlflow.withSpan(
+  { name: "answer", spanType: SpanType.AGENT, logLevel: SpanLogLevel.INFO },
+  async (root) => {
+    await mlflow.withSpan(
+      { name: "retrieve", spanType: SpanType.RETRIEVER, parent: root, logLevel: "DEBUG" },
+      async () => { /* ... */ },
+    );
+  },
+);
+```
+
+</TabItem>
+</Tabs>
+</TabsWrapper>
+
+## Default Log Level
+
+Every span, whether created manually or by an autolog integration (`mlflow.openai.autolog()`, `mlflow.langchain.autolog()`, etc.), is assigned a default level based on its span type. This ensures the verbosity filter works out of the box without you annotating anything. The default is applied in the span constructor, and can be overridden by passing an explicit `log_level` keyword argument.
+
+| Span type                                                                                                           | Default |
+| ------------------------------------------------------------------------------------------------------------------- | ------- |
+| `LLM`, `CHAT_MODEL`, `TOOL`, `RETRIEVER`, `AGENT`, `EMBEDDING`                                                      | `INFO`  |
+| Everything else (`CHAIN`, `PARSER`, `RERANKER`, `MEMORY`, `WORKFLOW`, `TASK`, `EVALUATOR`, `UNKNOWN`, custom types) | `DEBUG` |
+
+So at the default UI threshold (`DEBUG`) you see everything, at `INFO` you see the user-visible operations and lose the chain plumbing, and at `WARNING`+ you only see spans you've explicitly marked above that level.
+
+### Spans with an exception event are bumped to `ERROR`
+
+When a span records an exception event, MLflow automatically elevates its level to `ERROR` (unless it is already at a higher severity). Exception events may arise from:
+
+- An unhandled exception captured by the @mlflow.trace decorator
+- An explicit call to span.record_exception(...)
+- A tracer-level error handler
+
+This ensures that failures remain visible in the trace explorer, even when the user raises the verbosity filter.
+
+## Applying Log Level Filter on UI
+
+Open a trace in the MLflow UI and click **Filter** above the timeline tree. The popover has a **Minimum log level** slider (with a "?" tooltip explaining the rules):
+
+- **Debug** (default) — show every span.
+- **Info** — hide `DEBUG` spans (most chain plumbing disappears).
+- **Warning / Error / Critical** — only spans explicitly marked at or above the threshold.
+
+The existing **Show all parent spans** and **Show exceptions** toggles still apply: they override the level filter so you don't lose context for matched children or for spans that recorded an exception.
+
+## Backwards compatibility
+
+Some spans may not have an `mlflow.spanLogLevel` attribute. This can happen for traces logged before span log levels were introduced, or for spans produced by third-party tracers that do not assign a level. The UI treats these spans as `DEBUG`, so they remain visible at the default threshold. Raising the threshold to `INFO` or higher hides them along with other `DEBUG` spans. To make a specific span visible again, you can explicitly set its level using `set_log_level`.
+
+## API References
+
+- <APILink fn="mlflow.entities.SpanLogLevel" /> — the level enum.
+- <APILink fn="mlflow.start_span" /> / <APILink fn="mlflow.start_span_no_context" /> / <APILink fn="mlflow.trace" /> — public APIs that accept the `log_level` kwarg.

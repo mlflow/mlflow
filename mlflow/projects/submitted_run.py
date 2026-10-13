@@ -76,7 +76,7 @@ class LocalSubmittedRun(SubmittedRun):
     def cancel(self):
         # Interrupt child process if it hasn't already exited
         if self.command_proc.poll() is None:
-            # Kill the the process tree rooted at the child if it's the leader of its own process
+            # Kill the process tree rooted at the child if it's the leader of its own process
             # group, otherwise just kill the child
             try:
                 if self.command_proc.pid == os.getpgid(self.command_proc.pid):

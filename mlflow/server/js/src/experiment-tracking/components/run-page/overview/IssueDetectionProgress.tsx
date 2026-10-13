@@ -1,0 +1,388 @@
+import { useEffect, useState, type ReactNode } from 'react';
+import { FormattedMessage, useIntl } from 'react-intl';
+import {
+  Button,
+  CheckCircleIcon,
+  DesignSystemEventProviderAnalyticsEventTypes,
+  DesignSystemEventProviderComponentTypes,
+  ParagraphSkeleton,
+  XCircleIcon,
+  Typography,
+  useDesignSystemTheme,
+} from '@databricks/design-system';
+import { GenAIMarkdownRenderer } from '../../../../shared/web-shared/genai-markdown-renderer/GenAIMarkdownRenderer';
+import { useNavigate, useParams } from '../../../../common/utils/RoutingUtils';
+import { RunPageTabName } from '../../../constants';
+import Routes from '../../../routes';
+import Utils from '../../../../common/utils/Utils';
+import { useSearchIssuesQuery } from '../hooks/useSearchIssuesQuery';
+import { JobStatus, isJobComplete } from '../hooks/useFetchJobStatus';
+import { useCancelJob } from '../hooks/useCancelJob';
+import { ConfirmModal } from '../../modals/ConfirmModal';
+import { IssueDetectionLowResultsCallout } from '../IssueDetectionLowResultsCallout';
+import { useLogTelemetryEvent } from '../../../../telemetry/hooks/useLogTelemetryEvent';
+
+export interface IssueJobResult {
+  issues?: number;
+  summary?: string;
+  total_traces_analyzed?: number;
+  total_cost_usd?: number;
+}
+
+export interface IssueDetectionProgressProps {
+  /** Job ID for cancel functionality */
+  jobId?: string;
+  /** Job status from parent */
+  jobStatus?: JobStatus;
+  /** Current job stage */
+  jobStage?: string;
+  /** Total traces count */
+  totalTraces?: number;
+  /** Job result data */
+  result?: IssueJobResult;
+  /** Whether job status is loading */
+  isLoadingJobStatus?: boolean;
+  /** Error from job status fetch */
+  jobStatusError?: Error | null;
+  /** Error message from backend when job failed */
+  jobErrorMessage?: string;
+}
+
+export const IssueDetectionProgress = ({
+  jobId,
+  jobStatus,
+  jobStage,
+  totalTraces,
+  result,
+  isLoadingJobStatus,
+  jobStatusError,
+  jobErrorMessage,
+}: IssueDetectionProgressProps) => {
+  const { theme } = useDesignSystemTheme();
+  const intl = useIntl();
+  const logTelemetryEvent = useLogTelemetryEvent();
+  const navigate = useNavigate();
+  const { experimentId, runUuid } = useParams<{ experimentId: string; runUuid: string }>();
+  const { cancelJobAsync, isCancelling } = useCancelJob();
+  const [isCancelConfirmOpen, setIsCancelConfirmOpen] = useState(false);
+
+  const handleViewTraces = () => {
+    if (experimentId && runUuid) {
+      navigate(Routes.getIssueDetectionRunDetailsTabRoute(experimentId, runUuid, RunPageTabName.TRACES));
+    }
+  };
+
+  const handleViewIssues = () => {
+    if (experimentId && runUuid) {
+      navigate(Routes.getIssueDetectionRunDetailsTabRoute(experimentId, runUuid, RunPageTabName.ISSUES));
+    }
+  };
+
+  // Returns a promise so the shared ConfirmModal can show its loading state
+  const handleConfirmCancel = () => {
+    if (!jobId) return Promise.resolve();
+    return cancelJobAsync({ jobId, runUuid }).catch((error) => {
+      Utils.logErrorAndNotifyUser(
+        intl.formatMessage(
+          {
+            defaultMessage: 'Failed to cancel job: {error}',
+            description: 'Error message when job cancellation fails',
+          },
+          { error: error.message },
+        ),
+      );
+    });
+  };
+
+  const isJobSucceeded = jobStatus === JobStatus.SUCCEEDED;
+  const isJobFailed = jobStatus === JobStatus.FAILED || jobStatus === JobStatus.TIMEOUT || Boolean(jobStatusError);
+  const isJobCanceled = jobStatus === JobStatus.CANCELED;
+  const jobComplete = isJobComplete(jobStatus) || Boolean(jobStatusError);
+
+  const { issues } = useSearchIssuesQuery({
+    experimentId: experimentId ?? '',
+    sourceRunId: runUuid ?? '',
+    enabled: Boolean(experimentId) && Boolean(runUuid),
+    pollingEnabled: !jobComplete,
+  });
+
+  const identifiedIssues = issues.length;
+
+  useEffect(() => {
+    if (isJobSucceeded && runUuid) {
+      logTelemetryEvent({
+        componentId: 'mlflow.issue-detection.completed',
+        componentType: DesignSystemEventProviderComponentTypes.Card,
+        // Use runUuid as componentViewId to track the same eval result across sessions
+        componentViewId: runUuid ?? '',
+        eventType: DesignSystemEventProviderAnalyticsEventTypes.OnView,
+        value: JSON.stringify({
+          totalTraces,
+          identifiedIssues: result?.issues,
+          totalCostUsd: result?.total_cost_usd,
+        }),
+      });
+    }
+  }, [isJobSucceeded, runUuid, totalTraces, result?.issues, result?.total_cost_usd, logTelemetryEvent]);
+
+  if (isLoadingJobStatus) {
+    return (
+      <div css={{ marginBottom: theme.spacing.lg }}>
+        <Typography.Title level={4} css={{ marginBottom: theme.spacing.sm }}>
+          <FormattedMessage defaultMessage="Detection progress" description="Issue detection progress > Title" />
+        </Typography.Title>
+        <div
+          css={{
+            border: `1px solid ${theme.colors.border}`,
+            borderRadius: theme.borders.borderRadiusMd,
+            padding: theme.spacing.md,
+          }}
+        >
+          <ParagraphSkeleton />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div css={{ marginBottom: theme.spacing.lg }}>
+      <Typography.Title level={4} css={{ marginTop: 0, marginBottom: theme.spacing.sm }}>
+        <FormattedMessage defaultMessage="Detection progress" description="Issue detection progress > Title" />
+      </Typography.Title>
+
+      <div
+        css={{
+          border: `1px solid ${theme.colors.border}`,
+          borderRadius: theme.borders.borderRadiusMd,
+          padding: theme.spacing.md,
+          // Keep Cancel unobtrusive: reveal it only when the card is hovered or focused
+          '& [data-cancel-reveal]': { opacity: 0, transition: 'opacity 0.15s ease' },
+          '&:hover [data-cancel-reveal], &:focus-within [data-cancel-reveal]': { opacity: 1 },
+        }}
+      >
+        <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm, marginBottom: theme.spacing.xs }}>
+          {isJobSucceeded ? (
+            <CheckCircleIcon css={{ color: theme.colors.textValidationSuccess }} />
+          ) : isJobFailed || isJobCanceled ? (
+            <XCircleIcon css={{ color: theme.colors.textValidationDanger }} />
+          ) : (
+            <div
+              css={{
+                width: 16,
+                height: 16,
+                borderRadius: '50%',
+                border: `2px solid ${theme.colors.border}`,
+                borderTopColor: theme.colors.actionPrimaryBackgroundDefault,
+                animation: 'spin 1s linear infinite',
+                '@keyframes spin': {
+                  '0%': { transform: 'rotate(0deg)' },
+                  '100%': { transform: 'rotate(360deg)' },
+                },
+              }}
+            />
+          )}
+          <Typography.Text>
+            {isJobSucceeded ? (
+              <FormattedMessage
+                defaultMessage="Issue detection completed"
+                description="Issue detection progress > Step label when completed"
+              />
+            ) : isJobFailed ? (
+              <FormattedMessage
+                defaultMessage="Issue detection failed"
+                description="Issue detection progress > Step label when failed"
+              />
+            ) : isJobCanceled ? (
+              <FormattedMessage
+                defaultMessage="Issue detection canceled"
+                description="Issue detection progress > Step label when canceled"
+              />
+            ) : jobStage ? (
+              jobStage
+            ) : (
+              <FormattedMessage
+                defaultMessage="Identifying issues from traces..."
+                description="Issue detection progress > Step label (fallback)"
+              />
+            )}
+          </Typography.Text>
+          {!jobComplete && jobId && (
+            <span data-cancel-reveal css={{ marginLeft: 'auto', opacity: isCancelling ? 1 : undefined }}>
+              <Button
+                componentId="mlflow.traces.issue-detection.cancel-button"
+                type="tertiary"
+                size="small"
+                onClick={() => setIsCancelConfirmOpen(true)}
+                loading={isCancelling}
+              >
+                <FormattedMessage defaultMessage="Cancel" description="Issue detection progress > Cancel button" />
+              </Button>
+            </span>
+          )}
+        </div>
+        <div css={{ marginLeft: 24 }}>
+          <Typography.Hint>
+            {jobComplete ? (
+              // eslint-disable-next-line formatjs/no-multiple-plurals
+              <FormattedMessage
+                defaultMessage="Scanned <tracesLink>{totalTraces, plural, one {1 trace} other {# traces}}</tracesLink>, <issuesLink>{identifiedIssues, plural, one {1 issue} other {# issues}}</issuesLink> found"
+                description="Issue detection progress > Progress summary when completed"
+                values={{
+                  totalTraces,
+                  identifiedIssues,
+                  tracesLink: (chunks: ReactNode) => (
+                    <Typography.Link
+                      componentId="mlflow.traces.issue-detection.view-traces-link"
+                      onClick={handleViewTraces}
+                    >
+                      {chunks}
+                    </Typography.Link>
+                  ),
+                  issuesLink: (chunks: ReactNode) => (
+                    <Typography.Link
+                      componentId="mlflow.traces.issue-detection.view-issues-link"
+                      onClick={handleViewIssues}
+                    >
+                      {chunks}
+                    </Typography.Link>
+                  ),
+                }}
+              />
+            ) : (
+              // eslint-disable-next-line formatjs/no-multiple-plurals
+              <FormattedMessage
+                defaultMessage="Scanning <tracesLink>{totalTraces, plural, one {1 trace} other {# traces}}</tracesLink>, <issuesLink>{identifiedIssues, plural, one {1 issue} other {# issues}}</issuesLink> identified so far"
+                description="Issue detection progress > Progress summary while running"
+                values={{
+                  totalTraces,
+                  identifiedIssues,
+                  tracesLink: (chunks: ReactNode) => (
+                    <Typography.Link
+                      componentId="mlflow.traces.issue-detection.view-traces-link"
+                      onClick={handleViewTraces}
+                    >
+                      {chunks}
+                    </Typography.Link>
+                  ),
+                  issuesLink: (chunks: ReactNode) => (
+                    <Typography.Link
+                      componentId="mlflow.traces.issue-detection.view-issues-link"
+                      onClick={handleViewIssues}
+                    >
+                      {chunks}
+                    </Typography.Link>
+                  ),
+                }}
+              />
+            )}
+          </Typography.Hint>
+          {jobComplete && result?.total_cost_usd !== null && result?.total_cost_usd !== undefined && (
+            <Typography.Hint css={{ marginTop: theme.spacing.xs }}>
+              <FormattedMessage
+                defaultMessage="Total cost: {cost}"
+                description="Issue detection progress > Total cost in USD"
+                values={{ cost: `$${result.total_cost_usd.toFixed(4)}` }}
+              />
+            </Typography.Hint>
+          )}
+        </div>
+      </div>
+
+      {isJobSucceeded && identifiedIssues <= 1 && (
+        <div css={{ marginTop: theme.spacing.md }}>
+          <IssueDetectionLowResultsCallout
+            issueCount={identifiedIssues}
+            tracesAnalyzed={result?.total_traces_analyzed ?? totalTraces}
+          />
+        </div>
+      )}
+
+      {isJobFailed && jobErrorMessage && (
+        <>
+          <Typography.Title level={4} css={{ marginTop: theme.spacing.lg, marginBottom: theme.spacing.sm }}>
+            <FormattedMessage defaultMessage="Error details" description="Issue detection error details > Title" />
+          </Typography.Title>
+          <div
+            css={{
+              border: `1px solid ${theme.colors.actionDangerPrimaryBackgroundDefault}`,
+              borderRadius: theme.borders.borderRadiusMd,
+              padding: theme.spacing.md,
+              backgroundColor: `${theme.colors.actionDangerPrimaryBackgroundDefault}15`,
+            }}
+          >
+            <Typography.Text css={{ color: theme.colors.textValidationDanger, wordBreak: 'break-word' }}>
+              {jobErrorMessage}
+            </Typography.Text>
+          </div>
+        </>
+      )}
+
+      {isJobSucceeded && result?.summary && (
+        <>
+          <div
+            css={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginTop: theme.spacing.lg,
+              marginBottom: theme.spacing.sm,
+            }}
+          >
+            <Typography.Title level={4} css={{ margin: 0 }}>
+              <FormattedMessage
+                defaultMessage="Issue detection summary"
+                description="Issue detection summary > Title"
+              />
+            </Typography.Title>
+            {identifiedIssues > 0 && (
+              <Button
+                componentId="mlflow.traces.issue-detection.view-issues-button"
+                type="primary"
+                onClick={handleViewIssues}
+              >
+                <FormattedMessage
+                  defaultMessage="View {count} {count, plural, one {issue} other {issues}}"
+                  description="Issue detection summary > View issues button"
+                  values={{ count: identifiedIssues }}
+                />
+              </Button>
+            )}
+          </div>
+          <div
+            css={{
+              border: `1px solid ${theme.colors.border}`,
+              borderRadius: theme.borders.borderRadiusMd,
+              padding: theme.spacing.md,
+            }}
+          >
+            <GenAIMarkdownRenderer compact>{result.summary}</GenAIMarkdownRenderer>
+          </div>
+        </>
+      )}
+      <ConfirmModal
+        isOpen={isCancelConfirmOpen}
+        onClose={() => setIsCancelConfirmOpen(false)}
+        handleSubmit={handleConfirmCancel}
+        title={
+          <FormattedMessage
+            defaultMessage="Cancel issue detection?"
+            description="Title of the confirmation dialog for canceling an issue detection run"
+          />
+        }
+        helpText={
+          <FormattedMessage
+            defaultMessage="This stops the current run. You can start a new one at any time."
+            description="Body of the confirmation dialog for canceling an issue detection run"
+          />
+        }
+        confirmButtonText={
+          <FormattedMessage
+            defaultMessage="Cancel run"
+            description="Confirm button that cancels the issue detection run"
+          />
+        }
+        confirmButtonProps={{ danger: true }}
+      />
+    </div>
+  );
+};

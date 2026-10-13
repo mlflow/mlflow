@@ -23,6 +23,7 @@ import yaml
 
 import mlflow
 from mlflow import pyfunc
+from mlflow.environment_variables import MLFLOW_ALLOW_PICKLE_DESERIALIZATION
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelInputExample, ModelSignature
 from mlflow.models.model import MLMODEL_FILE_NAME
@@ -35,6 +36,10 @@ from mlflow.utils.autologging_utils import (
     get_autologging_config,
     log_fn_args_as_params,
     safe_patch,
+)
+from mlflow.utils.databricks_utils import (
+    is_in_databricks_model_serving_environment,
+    is_in_databricks_runtime,
 )
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
@@ -305,6 +310,16 @@ def log_model(
 
 
 def _load_model(path):
+    if (
+        not MLFLOW_ALLOW_PICKLE_DESERIALIZATION.get()
+        and not is_in_databricks_runtime()
+        and not is_in_databricks_model_serving_environment()
+    ):
+        raise MlflowException(
+            "Deserializing model using pickle is disallowed, but this model is saved "
+            "in pickle format. The workaround is to set environment variable "
+            "'MLFLOW_ALLOW_PICKLE_DESERIALIZATION' to 'true'."
+        )
     import statsmodels.iolib.api as smio
 
     return smio.load_pickle(path)

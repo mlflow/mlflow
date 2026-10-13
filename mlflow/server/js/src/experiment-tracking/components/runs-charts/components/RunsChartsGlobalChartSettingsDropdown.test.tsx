@@ -21,6 +21,7 @@ import {
   useUpdateExperimentViewUIState,
 } from '../../experiment-page/contexts/ExperimentPageUIStateContext';
 import { TestApolloProvider } from '../../../../common/utils/TestApolloProvider';
+import { QueryClient, QueryClientProvider } from '../../../../common/utils/reactQueryHooks';
 
 // eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(30000); // Larger timeout for integration testing
@@ -77,6 +78,7 @@ describe('RunsChartsGlobalChartSettingsDropdown', () => {
   ];
 
   const renderTestComponent = () => {
+    const queryClient = new QueryClient();
     const TestComponent = () => {
       const [uiState, setUIState] = useState<ExperimentPageUIState>({
         ...createExperimentPageUIState(),
@@ -86,40 +88,42 @@ describe('RunsChartsGlobalChartSettingsDropdown', () => {
 
       return (
         <TestApolloProvider>
-          <ExperimentPageUIStateContextProvider setUIState={setUIState}>
-            <RunsChartsGlobalChartSettingsDropdown
-              globalLineChartConfig={uiState.globalLineChartConfig}
-              updateUIState={(setter) => setUIState((current) => ({ ...current, ...setter(current) }))}
-              metricKeyList={compact(testCharts.flatMap((chart) => chart.selectedMetricKeys))}
-            />
-            <div>
-              <RunsChartsTooltipWrapper component={() => null} contextData={{}}>
-                <DragAndDropProvider>
-                  {uiState.compareRunCharts?.map((chartConfig, index) => (
-                    <RunsChartsCard
-                      canMoveToTop={false}
-                      canMoveToBottom={false}
-                      key={chartConfig.uuid}
-                      cardConfig={chartConfig}
-                      // Generate one sample run so the charts can render
-                      chartRunData={[{ uuid: 'run-1', hidden: false, metrics: { alpha: {}, beta: {} } }] as any}
-                      index={index}
-                      onRemoveChart={noop}
-                      groupBy={null}
-                      onReorderWith={noop}
-                      onStartEditChart={noop}
-                      sectionIndex={0}
-                      canMoveDown
-                      canMoveUp
-                      globalLineChartConfig={uiState.globalLineChartConfig}
-                      isInViewport
-                      isInViewportDeferred
-                    />
-                  ))}
-                </DragAndDropProvider>
-              </RunsChartsTooltipWrapper>
-            </div>
-          </ExperimentPageUIStateContextProvider>
+          <QueryClientProvider client={queryClient}>
+            <ExperimentPageUIStateContextProvider setUIState={setUIState}>
+              <RunsChartsGlobalChartSettingsDropdown
+                globalLineChartConfig={uiState.globalLineChartConfig}
+                updateUIState={(setter) => setUIState((current) => ({ ...current, ...setter(current) }))}
+                metricKeyList={compact(testCharts.flatMap((chart) => chart.selectedMetricKeys))}
+              />
+              <div>
+                <RunsChartsTooltipWrapper component={() => null} contextData={{}}>
+                  <DragAndDropProvider>
+                    {uiState.compareRunCharts?.map((chartConfig, index) => (
+                      <RunsChartsCard
+                        canMoveToTop={false}
+                        canMoveToBottom={false}
+                        key={chartConfig.uuid}
+                        cardConfig={chartConfig}
+                        // Generate one sample run so the charts can render
+                        chartRunData={[{ uuid: 'run-1', hidden: false, metrics: { alpha: {}, beta: {} } }] as any}
+                        index={index}
+                        onRemoveChart={noop}
+                        groupBy={null}
+                        onReorderWith={noop}
+                        onStartEditChart={noop}
+                        sectionIndex={0}
+                        canMoveDown
+                        canMoveUp
+                        globalLineChartConfig={uiState.globalLineChartConfig}
+                        isInViewport
+                        isInViewportDeferred
+                      />
+                    ))}
+                  </DragAndDropProvider>
+                </RunsChartsTooltipWrapper>
+              </div>
+            </ExperimentPageUIStateContextProvider>
+          </QueryClientProvider>
         </TestApolloProvider>
       );
     };

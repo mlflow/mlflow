@@ -1,6 +1,6 @@
 import { describe, jest, beforeEach, test, expect } from '@jest/globals';
 import { DragAndDropProvider, useDragAndDropElement } from './useDragAndDropElement';
-import { act, fireEvent, render, screen } from '../utils/TestUtils.react18';
+import { act, fireEvent, render, screen, waitFor } from '../utils/TestUtils.react18';
 
 describe('useDragAndDropElement', () => {
   const onDrop = jest.fn();
@@ -45,19 +45,29 @@ describe('useDragAndDropElement', () => {
       </div>,
     );
 
+    // Split drag events into separate act() calls so each event is fully
+    // processed by react-dnd's state machine before the next one fires.
     await act(async () => {
       fireEvent.dragStart(screen.getByTestId('handle-a'));
+    });
+    await act(async () => {
       fireEvent.dragEnter(screen.getByTestId('element-b'));
     });
 
-    expect(screen.getByText('Drag is over element b')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText('Drag is over element b')).toBeInTheDocument();
+    });
 
     await act(async () => {
       fireEvent.dragEnter(screen.getByTestId('element-c'));
+    });
+    await act(async () => {
       fireEvent.drop(screen.getByTestId('element-c'));
     });
 
-    expect(onDrop).toHaveBeenLastCalledWith('test-key-a', 'test-key-c');
+    await waitFor(() => {
+      expect(onDrop).toHaveBeenLastCalledWith('test-key-a', 'test-key-c');
+    });
   });
 
   test('Prevent dropping on elements belonging to a different drag group', async () => {

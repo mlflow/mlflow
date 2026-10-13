@@ -1,6 +1,6 @@
 import { compact } from 'lodash';
 
-import { useQueries } from '@databricks/web-shared/query-client';
+import { useQueries } from '../../query-client/queryClient';
 
 import { useArrayMemo } from './useArrayMemo';
 import { doesTraceSupportV4API, parseV4TraceIdToObject } from '../ModelTraceExplorer.utils';

@@ -1,3 +1,7 @@
+---
+description: Learn about MLflow LLM judges and scorers for evaluating GenAI applications, including built-in judges, custom judges, and code-based scorers.
+---
+
 import Link from "@docusaurus/Link";
 import { APILink } from "@site/src/components/APILink";
 import TileCard from '@site/src/components/TileCard';
@@ -7,7 +11,7 @@ import WorkflowSteps from '@site/src/components/WorkflowSteps';
 
 # LLM Judges and Scorers
 
-Judges are a key component of the MLflow GenAI evaluation framework. They provide a unified interface to define evaluation criteria for your models, agents, and applications. Like their name suggests, judges judge how well your application did based on the evaluation criteria. This could be a pass/fail, true/false, numerical value, or a categorical value.
+Judges are a key component of the MLflow evaluation framework. They provide a unified interface to define evaluation criteria for your models, agents, and applications. Like their name suggests, judges judge how well your application did based on the evaluation criteria. This could be a pass/fail, true/false, numerical value, or a categorical value.
 
 Choose the right type of judge depending on how much customization and control you need. Each approach builds on the previous one, adding more complexity and control.
 
@@ -70,6 +74,16 @@ Correctness(model="openai:/gpt-5-mini")
 
 For a list of supported models, see [selecting judge models](/genai/eval-monitor/scorers/llm-judge/custom-judges/#selecting-judge-models).
 
+:::tip Set a default judge model globally
+
+Set the `MLFLOW_GENAI_JUDGE_DEFAULT_MODEL` environment variable to change the default judge model, instead of specifying `model` on each scorer individually. All built-in judges and scorers fall back to this model when no explicit `model` argument is provided.
+
+```bash
+export MLFLOW_GENAI_JUDGE_DEFAULT_MODEL="openai:/gpt-5-mini"
+```
+
+:::
+
 ## What Judges you should use?
 
 MLflow provides different types of judges to address different evaluation needs:
@@ -98,7 +112,7 @@ If you are still unsure about which judge to use, you can use the "Ask AI" widge
 
 ## Code-based scorers
 
-Custom code-based scorers offer the ultimate flexibility to define precisely how your GenAI application's quality is measured. You can define evaluation metrics tailored to your specific business use case, whether based on simple heuristics, advanced logic, or programmatic evaluations.
+Custom code-based scorers offer the ultimate flexibility to define precisely how your LLM application or AI agent's quality is measured. You can define evaluation metrics tailored to your specific business use case, whether based on simple heuristics, advanced logic, or programmatic evaluations.
 
 Use custom scorers for the following scenarios:
 
@@ -139,7 +153,7 @@ In practice, out-of-the-box judges such as 'Groundedness' or 'Safety' struggle t
   ]}
 />
 
-:::tip Pro tip: Version Control Judges
+:::tip[Pro tip: Version Control Judges]
 
 As you iterate on the judge, version control becomes important. MLflow can track <ins>[Judge Versions](/genai/eval-monitor/scorers/versioning)</ins> to help you maintain changes and share the improved judges with your team.
 

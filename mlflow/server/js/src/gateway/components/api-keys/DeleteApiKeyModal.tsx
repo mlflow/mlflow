@@ -86,7 +86,7 @@ export const DeleteApiKeyModal = ({ open, secret, endpoints, onClose, onSuccess 
       title="Delete API Key"
       itemName={secret.secret_name}
       itemType="API key"
-      componentIdPrefix="mlflow.gateway.delete-api-key-modal"
+      componentId="mlflow.gateway.delete-api-key-modal"
       requireConfirmation={hasEndpoints}
       warningMessage={
         hasEndpoints ? (

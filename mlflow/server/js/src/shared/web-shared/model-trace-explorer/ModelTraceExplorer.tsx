@@ -4,6 +4,7 @@ import { ErrorBoundary } from 'react-error-boundary';
 import { getLargeTraceDisplaySizeThreshold, shouldBlockLargeTraceDisplay } from './FeatureUtils';
 import type { ModelTrace } from './ModelTrace.types';
 import { getModelTraceId, getModelTraceSize } from './ModelTraceExplorer.utils';
+import { ModelTraceExplorerContent } from './ModelTraceExplorerContent';
 import { ModelTraceExplorerErrorState } from './ModelTraceExplorerErrorState';
 import { ModelTraceExplorerGenericErrorState } from './ModelTraceExplorerGenericErrorState';
 import { ModelTraceExplorerSkeleton } from './ModelTraceExplorerSkeleton';
@@ -12,8 +13,6 @@ import { ModelTraceExplorerViewStateProvider } from './ModelTraceExplorerViewSta
 import { ModelTraceHeaderDetails } from './ModelTraceHeaderDetails';
 import { useGetModelTraceInfo } from './hooks/useGetModelTraceInfo';
 import { useTraceCachedActions } from './hooks/useTraceCachedActions';
-import { ModelTraceExplorerContent } from './ModelTraceExplorerContent';
-import { ModelTraceExplorerComparisonView } from './ModelTraceExplorerComparisonView';
 
 const ContextProviders = ({ children }: { traceId: string; children: React.ReactNode }) => {
   return <ErrorBoundary fallbackRender={ModelTraceExplorerErrorState}>{children}</ErrorBoundary>;
@@ -26,7 +25,6 @@ export const ModelTraceExplorerImpl = ({
   selectedSpanId,
   onSelectSpan,
   collapseAssessmentPane,
-  isInComparisonView,
   showLoadingState,
 }: {
   modelTrace: ModelTrace;
@@ -39,8 +37,11 @@ export const ModelTraceExplorerImpl = ({
    * If set to `'force-open'`, the assessments pane will be expanded regardless of whether there are any assessments.
    */
   collapseAssessmentPane?: boolean | 'force-open';
-  isInComparisonView?: boolean;
   showLoadingState?: boolean;
+  // Accepted for prop-shape parity with the redesigned (v2) explorer so the shared entrypoint can
+  // forward one prop set to either implementation; the legacy explorer does not use these.
+  initialShowTimelineTreeGantt?: boolean;
+  enableGraphView?: boolean;
 }) => {
   const [modelTrace, setModelTrace] = useState(initialModelTrace);
   const [forceDisplay, setForceDisplay] = useState(false);
@@ -93,7 +94,6 @@ export const ModelTraceExplorerImpl = ({
         initialActiveView={initialActiveView}
         selectedSpanIdOnRender={selectedSpanId}
         assessmentsPaneEnabled={assessmentsPaneEnabled}
-        isInComparisonView={isInComparisonView}
         initialAssessmentsPaneCollapsed={collapseAssessmentPane}
         isTraceInitialLoading={isTraceInitialLoading}
       >
@@ -102,16 +102,12 @@ export const ModelTraceExplorerImpl = ({
         ) : (
           <>
             <ModelTraceHeaderDetails modelTraceInfo={modelTrace.info} />
-            {isInComparisonView ? (
-              <ModelTraceExplorerComparisonView modelTraceInfo={modelTrace.info} />
-            ) : (
-              <ModelTraceExplorerContent
-                modelTraceInfo={modelTrace.info}
-                className={className}
-                selectedSpanId={selectedSpanId}
-                onSelectSpan={onSelectSpan}
-              />
-            )}
+            <ModelTraceExplorerContent
+              modelTraceInfo={modelTrace.info}
+              className={className}
+              selectedSpanId={selectedSpanId}
+              onSelectSpan={onSelectSpan}
+            />
           </>
         )}
       </ModelTraceExplorerViewStateProvider>

@@ -64,6 +64,7 @@ MLflow is currently maintained by the following core members with significant co
 - [Yuki Watanabe](https://github.com/B-Step62)
 - [Daniel Lok](https://github.com/daniellok-db)
 - [Tomu Hirata](https://github.com/TomeHirata)
+- [Matt Prahl](https://github.com/mprahl)
 - [Gabriel Fu](https://github.com/gabrielfu)
 
 ## Contribution process
@@ -348,7 +349,7 @@ recommend installing MLflow in its own conda environment by running the
 following from your checkout of MLflow:
 
 ```bash
-conda create --name mlflow-dev-env python=3.8
+conda create --name mlflow-dev-env python=3.10
 conda activate mlflow-dev-env
 pip install -e '.[extras]' # installs mlflow from current checkout with some useful extra utilities
 ```
@@ -357,7 +358,7 @@ If you plan on doing development and testing, you will also need to
 install the following into the conda environment:
 
 ```bash
-pip install -r requirements/dev-requirements.txt
+pip install -r requirements/test-requirements.txt
 pip install -e '.[extras]'  # installs mlflow from current checkout
 pip install -e tests/resources/mlflow-test-plugin # installs `mlflow-test-plugin` that is required for running certain MLflow tests
 ```
@@ -459,12 +460,6 @@ $ yarn start
 ...
 
 (UI should now be visible at localhost:3000)
-```
-
-#### Launching MLflow UI with MLflow AI Gateway for PromptLab
-
-```sh
-python dev/server.py
 ```
 
 #### Testing a React Component

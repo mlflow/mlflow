@@ -1,20 +1,96 @@
-# regal ignore:directory-package-mismatch
+# regal ignore:directory-package-mismatch,file-length
 package mlflow
 
 import rego.v1
 
-deny_jobs_without_permissions contains msg if {
-	jobs := jobs_without_permissions(input.jobs)
-	count(jobs) > 0
+default_pull_request_types := {"opened", "synchronize", "reopened"}
+
+deny_redundant_default_pull_request_types contains msg if {
+	some event_name in {"pull_request", "pull_request_target"}
+	types := input["true"][event_name].types
+	provided_types := {activity_type | some activity_type in types}
+	provided_types == default_pull_request_types
 	msg := sprintf(
-		"The following jobs are missing permissions: %s",
-		[concat(", ", jobs)],
+		"The '%s' trigger lists GitHub's default activity types. Remove 'types' to use the defaults implicitly.",
+		[event_name],
+	)
+}
+
+deny_redundant_job_permissions contains msg if {
+	some job_id, job in input.jobs
+	job.permissions == {}
+	msg := sprintf(
+		"Job '%s' sets redundant 'permissions: {}'. Omit it to inherit the workflow's empty default permissions.",
+		[job_id],
 	)
 }
 
 deny_top_level_permissions contains msg if {
-	input.permissions
-	msg := "Do not use top-level permissions. Set permissions on the job level."
+	# Workflow files only (composite actions have 'runs')
+	input.jobs
+	not input.permissions
+	msg := concat("", [
+		"Workflow must set top-level 'permissions: {}' to deny all by default. ",
+		"Grant least-privilege permissions per job.",
+	])
+}
+
+deny_top_level_permissions contains msg if {
+	input.jobs
+	input.permissions != {}
+	msg := "Top-level 'permissions' must be empty ({}). Grant least-privilege permissions per job instead."
+}
+
+deny_top_level_cache_mode contains msg if {
+	# Workflow files only (composite actions have 'runs')
+	input.jobs
+	not input["cache-mode"]
+	msg := concat("", [
+		"Workflow must set top-level 'cache-mode: none' to deny cache access by default. ",
+		"Grant 'cache-mode: read' (or 'write' for jobs that must populate a cache) per job.",
+	])
+}
+
+deny_top_level_cache_mode contains msg if {
+	input.jobs
+	input["cache-mode"] != "none"
+	msg := sprintf(
+		"Top-level 'cache-mode' must be 'none', not '%s'. Grant cache access per job instead.",
+		[input["cache-mode"]],
+	)
+}
+
+deny_redundant_job_cache_mode contains msg if {
+	some job_id, job in input.jobs
+	job["cache-mode"] == "none"
+	msg := sprintf(
+		"Job '%s' sets redundant 'cache-mode: none'. Omit it to inherit the workflow's default-deny cache access.",
+		[job_id],
+	)
+}
+
+deny_workflow_without_concurrency contains msg if {
+	# Workflow files only (composite actions have 'runs')
+	input.jobs
+	not input.concurrency
+	msg := concat("", [
+		"Workflow must declare 'concurrency' explicitly. Without it a new event never ",
+		"supersedes runs already in flight, so stale runs keep consuming runners and ",
+		"repo-mutating workflows can race. To opt out of concurrency grouping and allow each ",
+		"run to proceed independently:\n",
+		"concurrency:\n",
+		"  group: ${{ github.run_id }}\n",
+		"  cancel-in-progress: false",
+	])
+}
+
+deny_job_permissions_shorthand contains msg if {
+	some job_id, job in input.jobs
+	job.permissions in {"read-all", "write-all"}
+	msg := sprintf(
+		"Job '%s' uses 'permissions: %s'. List the scopes it actually needs instead.",
+		[job_id, job.permissions],
+	)
 }
 
 deny_unsafe_checkout contains msg if {
@@ -23,8 +99,9 @@ deny_unsafe_checkout contains msg if {
 	# "on.push" becomes "true.push" which is why below statements use "true"
 	# instead of "on".
 	input["true"].pull_request_target
-	some job in input.jobs
-	some step in job.steps
+	not safe_pull_request_target_workflow
+	some entry in step_entries(input)
+	step := entry.step
 	startswith(step.uses, "actions/checkout@")
 	step["with"].ref
 	msg := concat("", [
@@ -33,17 +110,72 @@ deny_unsafe_checkout contains msg if {
 	])
 }
 
+# Workflows that are safe to use pull_request_target with explicit checkout
+# because they restrict execution to trusted authors via author_association.
+safe_pull_request_target_workflow if {
+	input.name == "UI Preview"
+}
+
+deny_create_app_token_without_permissions contains msg if {
+	some entry in step_entries(input)
+	step := entry.step
+	startswith(step.uses, "actions/create-github-app-token@")
+	not step_has_app_token_permissions(step)
+	msg := sprintf(
+		concat("", [
+			"actions/create-github-app-token at %s must explicitly request permissions ",
+			"via 'permission-<name>: <level>' inputs (e.g., permission-contents: write) for ",
+			"least-privilege access. See ",
+			"https://github.com/actions/create-github-app-token#create-a-token-with-specific-permissions",
+		]),
+		[entry.location],
+	)
+}
+
+deny_create_app_token_without_repository_scope contains msg if {
+	some entry in step_entries(input)
+	step := entry.step
+	startswith(step.uses, "actions/create-github-app-token@")
+	some key in {"owner", "repositories"}
+	inputs := object.get(step, "with", {})
+	value := object.get(inputs, key, "")
+	trim(value, " \t\n") == ""
+	msg := sprintf(
+		concat("", [
+			"actions/create-github-app-token at %s must set a non-empty 'with.%s' ",
+			"to explicitly scope the token to its intended repositories.",
+		]),
+		[entry.location, key],
+	)
+}
+
+deny_create_app_token_with_app_id contains msg if {
+	some entry in step_entries(input)
+	step := entry.step
+	startswith(step.uses, "actions/create-github-app-token@")
+	step["with"]["app-id"]
+	msg := sprintf(
+		"actions/create-github-app-token at %s uses deprecated 'app-id'. Use 'client-id' instead.",
+		[entry.location],
+	)
+}
+
+step_has_app_token_permissions(step) if {
+	some key, _ in step["with"]
+	startswith(key, "permission-")
+}
+
 deny_unnecessary_github_token contains msg if {
-	some job in input.jobs
-	some step in job.steps
+	some entry in step_entries(input)
+	step := entry.step
 	startswith(step.uses, "actions/github-script@")
 	regex.match(`\$\{\{\s*(secrets\.GITHUB_TOKEN|github\.token)\s*\}\}`, step["with"]["github-token"])
 	msg := "Unnecessary use of github-token for actions/github-script."
 }
 
 deny_github_token_env_var contains msg if {
-	some job in input.jobs
-	some step in job.steps
+	some entry in step_entries(input)
+	step := entry.step
 	step.env.GITHUB_TOKEN
 	msg := "Use GH_TOKEN instead of GITHUB_TOKEN for environment variable names."
 }
@@ -55,8 +187,8 @@ deny_github_token_env_var contains msg if {
 }
 
 deny_github_token_shorthand contains msg if {
-	some job in input.jobs
-	some step in job.steps
+	some entry in step_entries(input)
+	step := entry.step
 	some key, value in step["with"]
 	contains_github_token(value)
 	msg := sprintf(
@@ -66,8 +198,8 @@ deny_github_token_shorthand contains msg if {
 }
 
 deny_github_token_shorthand contains msg if {
-	some job in input.jobs
-	some step in job.steps
+	some entry in step_entries(input)
+	step := entry.step
 	some key, value in step.env
 	contains_github_token(value)
 	msg := sprintf(
@@ -113,6 +245,18 @@ deny_ubuntu_slim_long_timeout contains msg if {
 	)
 }
 
+deny_ubuntu_latest contains msg if {
+	some job_id, job in input.jobs
+	job_uses_ubuntu_latest(job)
+	msg := sprintf(
+		concat("", [
+			"Job '%s' uses 'ubuntu-latest'. Use 'ubuntu-slim' for lightweight jobs or 'ubuntu-24.04' otherwise. ",
+			"See https://github.com/mlflow/mlflow/issues/26183 for details.",
+		]),
+		[job_id],
+	)
+}
+
 deny_unpinned_actions contains msg if {
 	actions := unpinned_actions(input)
 	count(actions) > 0
@@ -121,6 +265,20 @@ deny_unpinned_actions contains msg if {
 			"The following actions are not pinned by full commit SHA: %s. ",
 			"Use the full commit SHA instead ",
 			"(e.g., actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683).",
+		]),
+		[concat(", ", actions)],
+	)
+}
+
+deny_self_repo_actions contains msg if {
+	actions := self_repo_actions(input)
+	count(actions) > 0
+	msg := sprintf(
+		concat("", [
+			"The following actions are referenced with the self-repository '$/' syntax: %s. ",
+			"'$/' makes the runner download the whole repository tarball during 'Set up job', ",
+			"which costs ~20s per job in this repo. Use the workspace-relative './' syntax ",
+			"instead (e.g., ./.github/actions/setup-python), which resolves against the checkout.",
 		]),
 		[concat(", ", actions)],
 	)
@@ -145,6 +303,20 @@ deny_wrong_shell_defaults contains msg if {
 	)
 }
 
+deny_github_script_without_retries contains msg if {
+	some entry in step_entries(input)
+	step := entry.step
+	startswith(step.uses, "actions/github-script@")
+	not step["with"].retries
+	msg := sprintf(
+		concat("", [
+			"actions/github-script at %s must have 'retries' set ",
+			"(e.g., retries: 3) for resilience against transient GitHub API failures.",
+		]),
+		[entry.location],
+	)
+}
+
 deny_scheduled_workflow_without_repo_check contains msg if {
 	input["true"].schedule
 	not any_job_has_repo_check(input.jobs)
@@ -163,18 +335,93 @@ deny_push_without_branches contains msg if {
 	msg := "Push trigger must have a branches filter to avoid running on every branch."
 }
 
-###########################   RULE HELPERS   ##################################
+deny_interpolation_in_run contains msg if {
+	some entry in step_entries(input)
+	step := entry.step
+	regex.match(`\$\{\{`, step.run)
+	msg := sprintf(
+		concat("", [
+			"Direct ${{ }} interpolation in run block at %s. ",
+			"Use env: to pass the value and reference it as $VAR in the script.",
+		]),
+		[entry.location],
+	)
+}
+
+deny_interpolation_in_github_script contains msg if {
+	some entry in step_entries(input)
+	step := entry.step
+	startswith(step.uses, "actions/github-script@")
+	regex.match(`\$\{\{`, step["with"].script)
+	msg := sprintf(
+		concat("", [
+			"Direct ${{ }} interpolation in github-script at %s. ",
+			"Use env: to pass the value and reference it as process.env.VAR in the script.",
+		]),
+		[entry.location],
+	)
+}
+
+deny_interpolation_in_job_if contains msg if {
+	some job_id, job in input.jobs
+	is_string(job["if"])
+	regex.match(`\$\{\{`, job["if"])
+	msg := sprintf(
+		"Unnecessary ${{ }} in 'if' of job '%s'. Use quotes instead if the expression starts with '!' (e.g., if: \"!expr\").",
+		[job_id],
+	)
+}
+
+deny_interpolation_in_step_if contains msg if {
+	some entry in step_entries(input)
+	step := entry.step
+	is_string(step["if"])
+	regex.match(`\$\{\{`, step["if"])
+	msg := sprintf(
+		concat("", [
+			"Unnecessary ${{ }} in 'if' at %s. ",
+			"Use quotes instead if the expression starts with '!' (e.g., if: \"!expr\").",
+		]),
+		[entry.location],
+	)
+}
+
 contains_github_token(value) if {
+	is_string(value)
 	regex.match(`\$\{\{\s*github\.token\s*\}\}`, value)
 }
 
-jobs_without_permissions(jobs) := {job_id |
-	some job_id, job in jobs
-	not job.permissions
+# Include the position so unnamed steps and parallel children have useful diagnostics.
+step_entries(inp) := entries if {
+	inp.jobs
+	entries := array.concat(
+		[{"step": step, "location": sprintf("job '%s', step #%d", [job_id, i + 1])} |
+			some job_id, job in inp.jobs
+			some i, step in job.steps
+		],
+		[{
+			"step": step,
+			"location": sprintf("job '%s', step #%d, parallel step #%d", [job_id, i + 1, j + 1]),
+		} |
+			some job_id, job in inp.jobs
+			some i, group in job.steps
+			some j, step in group.parallel
+		],
+	)
+}
+
+step_entries(inp) := entries if {
+	not inp.jobs
+	entries := [{"step": step, "location": sprintf("composite action step #%d", [i + 1])} |
+		some i, step in inp.runs.steps
+	]
 }
 
 jobs_without_timeout(jobs) := {job_id |
 	some job_id, job in jobs
+
+	# Reusable workflow callers cannot set timeout-minutes; check the called jobs instead.
+	not job.uses
 	not job["timeout-minutes"]
 }
 
@@ -184,29 +431,35 @@ ubuntu_slim_jobs_with_long_timeout(jobs) := {job_id |
 	job["timeout-minutes"] > 15
 }
 
+job_uses_ubuntu_latest(job) if {
+	job["runs-on"] == "ubuntu-latest"
+}
+
+job_uses_ubuntu_latest(job) if {
+	is_array(job["runs-on"])
+	some runner in job["runs-on"]
+	runner == "ubuntu-latest"
+}
+
 is_step_unpinned(step) if {
+	# Actions in this repository ('./' or '$/') have no ref to pin. '$/' is
+	# reported by deny_self_repo_actions instead, so it is exempt here to keep
+	# a single, actionable message per offending step.
 	not startswith(step.uses, "./")
+	not startswith(step.uses, "$/")
 	not regex.match(`^[^@]+@[0-9a-f]{40}$`, step.uses)
 }
 
-unpinned_actions(inp) := unpinned if {
-	# For workflow files with jobs
-	inp.jobs
-	unpinned := {step.uses |
-		some job in inp.jobs
-		some step in job.steps
-		is_step_unpinned(step)
-	}
+all_steps(inp) := {entry.step | some entry in step_entries(inp)}
+
+unpinned_actions(inp) := {step.uses |
+	some step in all_steps(inp)
+	is_step_unpinned(step)
 }
 
-unpinned_actions(inp) := unpinned if {
-	# For composite action files with runs
-	not inp.jobs
-	inp.runs.steps
-	unpinned := {step.uses |
-		some step in inp.runs.steps
-		is_step_unpinned(step)
-	}
+self_repo_actions(inp) := {step.uses |
+	some step in all_steps(inp)
+	startswith(step.uses, "$/")
 }
 
 any_job_has_repo_check(jobs) if {
@@ -216,4 +469,110 @@ any_job_has_repo_check(jobs) if {
 
 job_has_repo_check(job) if {
 	regex.match(`github\.repository\s*==\s*'mlflow/`, job["if"])
+}
+
+deny_secrets_in_top_level_env contains msg if {
+	some key, value in input.env
+	contains_secret(value)
+	msg := sprintf(
+		"Secret in top-level env.%s. Move secrets to step-level env for least-privilege scope.",
+		[key],
+	)
+}
+
+deny_secrets_in_job_level_env contains msg if {
+	some job_id, job in input.jobs
+	some key, value in job.env
+	contains_secret(value)
+	msg := sprintf(
+		"Secret in job-level env.%s of job '%s'. Move secrets to step-level env for least-privilege scope.",
+		[key, job_id],
+	)
+}
+
+contains_secret(value) if {
+	regex.match(`\$\{\{\s*secrets\.`, value)
+}
+
+deny_checkout_missing_persist_credentials contains msg if {
+	some entry in step_entries(input)
+	step := entry.step
+	startswith(step.uses, "actions/checkout@")
+	not has_explicit_persist_credentials(step)
+	msg := sprintf(
+		"actions/checkout at %s must set 'persist-credentials' explicitly (false for read-only, true if pushing).",
+		[entry.location],
+	)
+}
+
+has_explicit_persist_credentials(step) if {
+	step["with"]["persist-credentials"] == false
+}
+
+has_explicit_persist_credentials(step) if {
+	step["with"]["persist-credentials"] == true
+}
+
+deny_upload_artifact_without_retention contains msg if {
+	some entry in step_entries(input)
+	step := entry.step
+	startswith(step.uses, "actions/upload-artifact@")
+	not step["with"]["retention-days"]
+	msg := sprintf(
+		"actions/upload-artifact at %s must set 'retention-days' explicitly.",
+		[entry.location],
+	)
+}
+
+deny_upload_artifact_without_if_no_files_found contains msg if {
+	some entry in step_entries(input)
+	step := entry.step
+	startswith(step.uses, "actions/upload-artifact@")
+	not step["with"]["if-no-files-found"]
+	msg := sprintf(
+		"actions/upload-artifact at %s must set 'if-no-files-found' explicitly.",
+		[entry.location],
+	)
+}
+
+deny_matrix_without_fail_fast contains msg if {
+	some job_id, job in input.jobs
+	job.strategy.matrix
+	not has_explicit_fail_fast(job.strategy)
+	msg := sprintf(
+		"strategy.matrix in job '%s' must set 'fail-fast' explicitly (either true or false).",
+		[job_id],
+	)
+}
+
+has_explicit_fail_fast(strategy) if {
+	strategy["fail-fast"] == false
+}
+
+has_explicit_fail_fast(strategy) if {
+	strategy["fail-fast"] == true
+}
+
+deny_mutable_install contains msg if {
+	some entry in step_entries(input)
+	step := entry.step
+	some line in split(step.run, "\n")
+	regex.match(`\bnpm install\b`, line)
+	not regex.match(`--package-lock-only\b`, line)
+	not regex.match(`^\s*npm install\s+(-g|--global)(\s+[@A-Za-z0-9._/-]+)+\s*$`, line)
+	msg := sprintf(
+		"'npm install' at %s modifies the lockfile. Use 'npm ci' for reproducible builds.",
+		[entry.location],
+	)
+}
+
+deny_mutable_install contains msg if {
+	some entry in step_entries(input)
+	step := entry.step
+	regex.match(`(?m)^\s*yarn(\s+install)?\s*(?:#.*)?$`, step.run)
+	not regex.match(`\byarn install\s+--immutable\b`, step.run)
+	msg := sprintf(
+		"yarn or yarn install at %s may modify the lockfile. Use 'yarn install --immutable'.",
+		[entry.location],
+	)
 }

@@ -21,12 +21,10 @@ from mlflow.types.schema import ColSpec, DataType, Schema
             "small_qa_pipeline",
             {"question": "Who's house?", "context": "The house is owned by Run."},
             ModelSignature(
-                inputs=Schema(
-                    [
-                        ColSpec(DataType.string, name="question"),
-                        ColSpec(DataType.string, name="context"),
-                    ]
-                ),
+                inputs=Schema([
+                    ColSpec(DataType.string, name="question"),
+                    ColSpec(DataType.string, name="context"),
+                ]),
                 outputs=Schema([ColSpec(DataType.string)]),
             ),
         ),
@@ -38,22 +36,18 @@ from mlflow.types.schema import ColSpec, DataType, Schema
                 "hypothesis_template": "This example talks about how the dog is {}",
             },
             ModelSignature(
-                inputs=Schema(
-                    [
-                        ColSpec(DataType.string, name="sequences"),
-                        # in transformers, we internally convert values of candidate_labels
-                        # to string for zero_shot_pipeline
-                        ColSpec(DataType.string, name="candidate_labels"),
-                        ColSpec(DataType.string, name="hypothesis_template"),
-                    ]
-                ),
-                outputs=Schema(
-                    [
-                        ColSpec(DataType.string, name="sequence"),
-                        ColSpec(DataType.string, name="labels"),
-                        ColSpec(DataType.double, name="scores"),
-                    ]
-                ),
+                inputs=Schema([
+                    ColSpec(DataType.string, name="sequences"),
+                    # in transformers, we internally convert values of candidate_labels
+                    # to string for zero_shot_pipeline
+                    ColSpec(DataType.string, name="candidate_labels"),
+                    ColSpec(DataType.string, name="hypothesis_template"),
+                ]),
+                outputs=Schema([
+                    ColSpec(DataType.string, name="sequence"),
+                    ColSpec(DataType.string, name="labels"),
+                    ColSpec(DataType.double, name="scores"),
+                ]),
             ),
         ),
         (
@@ -61,9 +55,10 @@ from mlflow.types.schema import ColSpec, DataType, Schema
             "We're just going to have to agree to disagree, then.",
             ModelSignature(
                 inputs=Schema([ColSpec(DataType.string)]),
-                outputs=Schema(
-                    [ColSpec(DataType.string, name="label"), ColSpec(DataType.double, name="score")]
-                ),
+                outputs=Schema([
+                    ColSpec(DataType.string, name="label"),
+                    ColSpec(DataType.double, name="score"),
+                ]),
             ),
         ),
         (
@@ -73,9 +68,10 @@ from mlflow.types.schema import ColSpec, DataType, Schema
                 "table": json.dumps({"units": ["100", "200"], "widgets": ["500", "500"]}),
             },
             ModelSignature(
-                inputs=Schema(
-                    [ColSpec(DataType.string, name="query"), ColSpec(DataType.string, name="table")]
-                ),
+                inputs=Schema([
+                    ColSpec(DataType.string, name="query"),
+                    ColSpec(DataType.string, name="table"),
+                ]),
                 outputs=Schema([ColSpec(DataType.string)]),
             ),
         ),

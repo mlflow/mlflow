@@ -1,3 +1,4 @@
+import base64
 import gzip
 import os
 import zlib
@@ -8,14 +9,30 @@ from opentelemetry.proto.resource.v1.resource_pb2 import Resource as OTelProtoRe
 from opentelemetry.sdk.resources import Resource as OTelResource
 from opentelemetry.sdk.trace.export import SpanExporter
 
-from mlflow.environment_variables import MLFLOW_ENABLE_OTLP_EXPORTER
+from mlflow.environment_variables import MLFLOW_ENABLE_OTLP_EXPORTER, MLFLOW_TRACKING_TOKEN
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
+from mlflow.utils.credentials import read_mlflow_creds
 
 # Constants for OpenTelemetry integration
 MLFLOW_EXPERIMENT_ID_HEADER = "x-mlflow-experiment-id"
+MLFLOW_RUN_ID_HEADER = "x-mlflow-run-id"
 OTLP_TRACES_PATH = "/v1/traces"
 OTLP_METRICS_PATH = "/v1/metrics"
+
+
+def build_otlp_headers(experiment_id: str) -> dict[str, str]:
+    """Build OTLP exporter headers with experiment ID and auth credentials."""
+    headers: dict[str, str] = {MLFLOW_EXPERIMENT_ID_HEADER: experiment_id}
+
+    creds = read_mlflow_creds()
+    if creds.username and creds.password:
+        basic_auth_str = f"{creds.username}:{creds.password}".encode()
+        headers["Authorization"] = f"Basic {base64.standard_b64encode(basic_auth_str).decode()}"
+    elif token := MLFLOW_TRACKING_TOKEN.get():
+        headers["Authorization"] = f"Bearer {token}"
+
+    return headers
 
 
 def should_use_otlp_exporter() -> bool:
@@ -139,6 +156,11 @@ def _otel_proto_bytes_to_id(id_bytes: bytes) -> int:
     return int.from_bytes(id_bytes, byteorder="big", signed=False)
 
 
+def _sanitize_otel_string(value: str) -> str:
+    """Replace characters that cannot be encoded as UTF-8 for protobuf string assignment."""
+    return value.encode("utf-8", errors="replace").decode("utf-8")
+
+
 def _set_otel_proto_anyvalue(pb_any_value: AnyValue, value: Any) -> None:
     """Set a value on an OTel protobuf AnyValue message.
 
@@ -152,7 +174,7 @@ def _set_otel_proto_anyvalue(pb_any_value: AnyValue, value: Any) -> None:
     elif isinstance(value, bool):
         pb_any_value.bool_value = value
     elif isinstance(value, str):
-        pb_any_value.string_value = value
+        pb_any_value.string_value = _sanitize_otel_string(value)
     elif isinstance(value, int):
         pb_any_value.int_value = value
     elif isinstance(value, float):
@@ -170,12 +192,12 @@ def _set_otel_proto_anyvalue(pb_any_value: AnyValue, value: Any) -> None:
         kvlist_value = KeyValueList()
         for k, v in value.items():
             kv = kvlist_value.values.add()
-            kv.key = str(k)
+            kv.key = _sanitize_otel_string(str(k))
             _set_otel_proto_anyvalue(kv.value, v)
         pb_any_value.kvlist_value.CopyFrom(kvlist_value)
     else:
         # For unknown types, convert to string
-        pb_any_value.string_value = str(value)
+        pb_any_value.string_value = _sanitize_otel_string(str(value))
 
 
 def _decode_otel_proto_anyvalue(pb_any_value: AnyValue) -> Any:

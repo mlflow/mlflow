@@ -7,6 +7,7 @@ import pandas as pd
 import pytest
 
 import mlflow
+from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSource
 from mlflow.entities.span import SpanType
 from mlflow.entities.trace import Trace
@@ -17,9 +18,12 @@ from mlflow.genai.evaluation.utils import (
     _convert_scorer_to_legacy_metric,
     _convert_to_eval_set,
     _deserialize_trace_column_if_needed,
+    add_scorer_metadata,
     validate_tags,
 )
+from mlflow.genai.scorers.base import SCORER_BACKEND_DATABRICKS
 from mlflow.genai.scorers.builtin_scorers import RelevanceToQuery
+from mlflow.tracing.constant import AssessmentMetadataKey
 from mlflow.utils.spark_utils import is_spark_connect_mode
 
 from tests.genai.conftest import databricks_only
@@ -50,6 +54,40 @@ def count_rows(data: Any) -> int:
         data = data.to_df()
 
     return len(data)
+
+
+def test_add_scorer_metadata_for_registered_scorer():
+    scorer = RelevanceToQuery(name="registered_scorer")
+    scorer._set_registration_metadata(
+        backend=SCORER_BACKEND_DATABRICKS,
+        experiment_id="123",
+        sampling_config=None,
+        scorer_version=3,
+        canonical_resource_name="experiments/123/scorers/cmVnaXN0ZXJlZF9zY29yZXI/versions/3",
+        canonical_resource_name_type="databricks_scorer_version",
+    )
+    feedback = Feedback(value=True, metadata={"user-key": "user-value"})
+
+    add_scorer_metadata(scorer, [feedback])
+
+    assert feedback.metadata == {
+        "user-key": "user-value",
+        AssessmentMetadataKey.SCORER_NAME: "registered_scorer",
+        AssessmentMetadataKey.SCORER_VERSION: "3",
+        AssessmentMetadataKey.SCORER_RESOURCE_NAME: (
+            "experiments/123/scorers/cmVnaXN0ZXJlZF9zY29yZXI/versions/3"
+        ),
+        AssessmentMetadataKey.SCORER_RESOURCE_NAME_TYPE: "databricks_scorer_version",
+    }
+
+
+def test_add_scorer_metadata_ignores_unregistered_scorer():
+    scorer = RelevanceToQuery(name="unregistered_scorer")
+    feedback = Feedback(value=True)
+
+    add_scorer_metadata(scorer, [feedback])
+
+    assert feedback.metadata is None
 
 
 @pytest.fixture
@@ -237,6 +275,20 @@ def test_convert_to_legacy_eval_traces(input_type):
     assert "feedback" not in data.columns
 
 
+@pytest.mark.parametrize("input_type", ["list", "pandas"])
+def test_convert_to_eval_set_preserves_explicit_expectations(input_type):
+    sample_data = get_test_traces(type=input_type)
+    explicit_expectations = {"expected_response": "updated response"}
+    if input_type == "list":
+        sample_data[0]["expectations"] = explicit_expectations
+    else:
+        sample_data["expectations"] = [explicit_expectations]
+
+    data = _convert_to_eval_set(sample_data)
+
+    assert data["expectations"][0] == explicit_expectations
+
+
 @pytest.mark.parametrize("data_fixture", _ALL_DATA_FIXTURES)
 def test_convert_to_eval_set_has_no_errors(data_fixture, request):
     sample_data = request.getfixturevalue(data_fixture)
@@ -295,28 +347,24 @@ def test_convert_to_eval_set_with_missing_root_span():
 
 def test_convert_to_legacy_eval_raise_for_invalid_json_columns(spark):
     # Data with invalid `inputs` column
-    df = spark.createDataFrame(
-        [
-            {"inputs": "invalid json", "expectations": '{"expected_response": "expected"}'},
-            {"inputs": "invalid json", "expectations": '{"expected_response": "expected"}'},
-        ]
-    )
+    df = spark.createDataFrame([
+        {"inputs": "invalid json", "expectations": '{"expected_response": "expected"}'},
+        {"inputs": "invalid json", "expectations": '{"expected_response": "expected"}'},
+    ])
     with pytest.raises(MlflowException, match="Failed to parse `inputs` column."):
         _convert_to_eval_set(df)
 
     # Data with invalid `expectations` column
-    df = spark.createDataFrame(
-        [
-            {
-                "inputs": '{"question": "What is the capital of France?"}',
-                "expectations": "invalid expectations",
-            },
-            {
-                "inputs": '{"question": "What is the capital of Germany?"}',
-                "expectations": "invalid expectations",
-            },
-        ]
-    )
+    df = spark.createDataFrame([
+        {
+            "inputs": '{"question": "What is the capital of France?"}',
+            "expectations": "invalid expectations",
+        },
+        {
+            "inputs": '{"question": "What is the capital of Germany?"}',
+            "expectations": "invalid expectations",
+        },
+    ])
     with pytest.raises(MlflowException, match="Failed to parse `expectations` column."):
         _convert_to_eval_set(df)
 
@@ -369,14 +417,12 @@ def test_scorer_receives_correct_data(data_fixture, request):
 
     @scorer
     def dummy_scorer(inputs, outputs, expectations):
-        received_args.append(
-            (
-                inputs["question"],
-                outputs,
-                expectations.get("expected_response"),
-                expectations.get("my_custom_expectation"),
-            )
-        )
+        received_args.append((
+            inputs["question"],
+            outputs,
+            expectations.get("expected_response"),
+            expectations.get("my_custom_expectation"),
+        ))
         return 0
 
     mlflow.genai.evaluate(
@@ -426,9 +472,10 @@ def test_input_is_required_if_trace_is_not_provided():
         mock_evaluate.assert_not_called()
 
         mlflow.genai.evaluate(
-            data=pd.DataFrame(
-                {"inputs": [{"question": "What is the capital of France?"}], "outputs": ["Paris"]}
-            ),
+            data=pd.DataFrame({
+                "inputs": [{"question": "What is the capital of France?"}],
+                "outputs": ["Paris"],
+            }),
             scorers=[RelevanceToQuery()],
         )
         mock_evaluate.assert_called_once()

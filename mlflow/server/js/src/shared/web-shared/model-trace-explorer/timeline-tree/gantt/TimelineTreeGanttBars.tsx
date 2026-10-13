@@ -1,7 +1,7 @@
 import { useMemo, useRef } from 'react';
 
 import { Typography, useDesignSystemTheme } from '@databricks/design-system';
-import { useResizeObserver } from '@databricks/web-shared/hooks';
+import { useResizeObserver } from '../../../hooks/useResizeObserver';
 
 import { TimelineTreeGanttNode } from './TimelineTreeGanttNode';
 import type { ModelTraceSpanNode } from '../../ModelTrace.types';

@@ -2,11 +2,13 @@ import cProfile
 import inspect
 import io
 import json
+import logging
 import os
 import posixpath
 import pstats
 import re
 import shutil
+import sqlite3
 import subprocess
 import sys
 import tempfile
@@ -25,14 +27,23 @@ import requests
 from opentelemetry import trace as trace_api
 
 import mlflow
-from mlflow.environment_variables import _MLFLOW_TESTING, MLFLOW_TRACKING_URI
+from mlflow.environment_variables import (
+    _MLFLOW_TESTING,
+    MLFLOW_ENABLE_ASYNC_TRACE_LOGGING,
+    MLFLOW_ENABLE_WORKSPACES,
+    MLFLOW_TRACKING_URI,
+    MLFLOW_WORKSPACE,
+    MLFLOW_WORKSPACE_STORE_URI,
+)
 from mlflow.telemetry.client import get_telemetry_client
 from mlflow.tracing.display.display_handler import IPythonTraceDisplayHandler
 from mlflow.tracing.export.inference_table import _TRACE_BUFFER
 from mlflow.tracing.fluent import _set_last_active_trace_id
 from mlflow.tracing.provider import get_current_otel_span
 from mlflow.tracing.trace_manager import InMemoryTraceManager
+from mlflow.utils import workspace_context, workspace_utils
 from mlflow.utils.os import is_windows
+from mlflow.utils.time import get_current_time_millis
 from mlflow.version import IS_TRACING_SDK_ONLY, VERSION
 
 from tests.autologging.fixtures import enable_test_mode
@@ -40,12 +51,83 @@ from tests.helper_functions import get_safe_port
 from tests.tracing.helper import purge_traces
 
 if not IS_TRACING_SDK_ONLY:
+    from mlflow.entities import Experiment, LifecycleStage
     from mlflow.tracking._tracking_service.utils import _use_tracking_uri
+    from mlflow.tracking.default_experiment import DEFAULT_EXPERIMENT_ID
     from mlflow.tracking.fluent import (
         _last_active_run_id,
         _reset_last_logged_model_id,
         clear_active_model,
     )
+
+
+_logger = logging.getLogger(__name__)
+
+
+# Test files that are NOT safe to run under pytest-xdist and must run serially (`-n0`).
+# Each entry is a posix-style path prefix relative to the repo root; a test is treated as
+# serial if its file path starts with any of these. Verified xdist-hostile against a
+# green serial baseline (they pass serially but fail under `-n auto`):
+#   - tests/data/test_spark_dataset.py, test_spark_dataset_source.py,
+#     test_delta_dataset_source.py, test_pandas_dataset.py: all workers share one Spark/Delta
+#     JVM session and clobber the catalog config across processes. (The windows job already
+#     deselects the two spark/delta nodes in test_pandas_dataset.py for the same reason.)
+#   - tests/server/test_prometheus_exporter.py + test_handlers.py: both import the
+#     process-global Flask `app`; the conftest orders prometheus first, but under
+#     `--dist loadscope` they land on different workers and the ordering no longer holds
+#     (Flask forbids `before_request` after the first request).
+#   - tests/server/test_workspace_middleware.py: process-global server config leaks across
+#     workers.
+#   - tests/gateway/providers/test_databricks.py: mocks the global `databricks.sdk` module;
+#     import/mock state leaks across workers ("module 'databricks' has no attribute 'sdk'").
+#   - tests/utils/test_requirements_utils.py: `test_capture_imported_modules_scopes_databricks
+#     _imports` deletes `databricks` from `sys.modules` (a manual `del`, untracked by
+#     monkeypatch) and imports a fake `databricks` package from tmp_path. The fake leaks onto
+#     the worker, so a later victim (e.g. tests/store/artifact/test_databricks_sdk_models
+#     _artifact_repo.py) then hits "module 'databricks' has no attribute 'sdk'". Quarantining
+#     the *polluter* here removes the leak source for every victim; a source-level sys.modules
+#     restoration is the eventual fix.
+#   - tests/projects/test_virtualenv_projects.py, test_projects_cli.py, test_projects.py,
+#     test_docker_projects.py: spawn real env-building / docker subprocesses that contend for
+#     CPU/disk, time out, race on the shared conda env list or docker daemon, and (for docker)
+#     write root-owned artifacts that can't be cleaned up under concurrency.
+#   - tests/server/jobs: job-runner tests whose polling is timing-sensitive under contention.
+#   - tests/db/test_schema.py, tests/db/test_tracking_operations.py,
+#     tests/tracking/_model_registry/test_utils.py: assume a filesystem `./mlruns` store, but
+#     a sibling worker toggling `MLFLOW_ALLOW_FILE_STORE` (file-store "maintenance mode")
+#     leaks across the process and trips these.
+#   - tests/tracing/export/test_async_export_queue.py: asserts on live worker/thread counts,
+#     which are perturbed by concurrent xdist workers.
+#   - tests/data/test_huggingface_dataset_and_source.py, tests/metrics/test_metric_definitions.py:
+#     download models/datasets from huggingface.co; 4 workers hitting HF at once trigger rate
+#     limiting / HTTP 504s. Running them serially keeps concurrent HF load down.
+_XDIST_SERIAL_PATHS = (
+    "tests/data/test_spark_dataset.py",
+    "tests/data/test_spark_dataset_source.py",
+    "tests/data/test_delta_dataset_source.py",
+    "tests/data/test_pandas_dataset.py",
+    "tests/data/test_huggingface_dataset_and_source.py",
+    "tests/metrics/test_metric_definitions.py",
+    "tests/server/test_prometheus_exporter.py",
+    "tests/server/test_handlers.py",
+    "tests/server/test_workspace_middleware.py",
+    "tests/gateway/providers/test_databricks.py",
+    "tests/utils/test_requirements_utils.py",
+    "tests/projects/test_virtualenv_projects.py",
+    "tests/projects/test_projects_cli.py",
+    "tests/projects/test_docker_projects.py",
+    "tests/projects/test_projects.py",
+    "tests/server/jobs/",
+    "tests/db/test_schema.py",
+    "tests/db/test_tracking_operations.py",
+    "tests/tracking/_model_registry/test_utils.py",
+    "tests/tracing/export/test_async_export_queue.py",
+)
+
+
+def _is_serial_item(item) -> bool:
+    rel = os.path.relpath(str(item.path)).replace(os.sep, posixpath.sep)
+    return rel.startswith(_XDIST_SERIAL_PATHS)
 
 
 # Pytest hooks and configuration from root conftest.py
@@ -81,8 +163,19 @@ def pytest_addoption(parser):
     parser.addoption(
         "--serve-wheel",
         action="store_true",
-        default=os.getenv("CI", "false").lower() == "true",
+        default=os.environ.get("CI", "false").lower() == "true",
         help="Serve a wheel for the dev version of MLflow. True by default in CI, False otherwise.",
+    )
+    parser.addoption(
+        "--serial",
+        choices=["include", "only", "exclude"],
+        default="include",
+        help=(
+            "Select tests by their xdist-serial designation (see `_XDIST_SERIAL_PATHS`). "
+            "'include' (default) runs everything; 'exclude' drops the xdist-hostile tests so "
+            "the rest can run under `-n auto`; 'only' runs just the hostile tests (for a serial "
+            "`-n0` pass). Used by the two-pass `python` CI job."
+        ),
     )
     parser.addoption(
         "--profile",
@@ -382,17 +475,15 @@ def generate_duration_stats() -> str:
     # Prepare data for markdown table (headers + data rows)
     table_rows = [["Rank", "File", "Duration", "Tests", "Min", "Max", "Avg"]]
     for idx, (path, dur, count, min_, max_, avg_) in enumerate(rows, 1):
-        table_rows.append(
-            [
-                str(idx),
-                f"`{path}`",
-                f"{dur:.2f}s",
-                str(count),
-                f"{min_:.3f}s",
-                f"{max_:.3f}s",
-                f"{avg_:.3f}s",
-            ]
-        )
+        table_rows.append([
+            str(idx),
+            f"`{path}`",
+            f"{dur:.2f}s",
+            str(count),
+            f"{min_:.3f}s",
+            f"{max_:.3f}s",
+            f"{avg_:.3f}s",
+        ])
 
     return to_md_table(table_rows)
 
@@ -545,6 +636,7 @@ def pytest_ignore_collect(collection_path, config):
             "tests/mistral",
             "tests/models",
             "tests/onnx",
+            "tests/otel",
             "tests/openai",
             "tests/paddle",
             "tests/pmdarima",
@@ -564,6 +656,7 @@ def pytest_ignore_collect(collection_path, config):
             "tests/statsmodels",
             "tests/tensorflow",
             "tests/transformers",
+            "tests/typesafe",
             "tests/xgboost",
             # Lazy loading test.
             "tests/test_mlflow_lazily_imports_ml_packages.py",
@@ -591,6 +684,15 @@ def pytest_collection_modifyitems(session, config, items):
     # `before_request` on the application after the first request. To avoid this issue,
     # execute `tests.server.test_prometheus_exporter` first by reordering the test items.
     items.sort(key=lambda item: item.module.__name__ != "tests.server.test_prometheus_exporter")
+
+    # Partition xdist-hostile tests (see `_XDIST_SERIAL_PATHS`) so the `python` CI job can
+    # run the bulk under `-n auto` (`--serial=exclude`) and the hostile tests in a serial
+    # `-n0` pass (`--serial=only`). Default `include` keeps every test.
+    serial_mode = config.getoption("--serial")
+    if serial_mode == "exclude":
+        items[:] = [item for item in items if not _is_serial_item(item)]
+    elif serial_mode == "only":
+        items[:] = [item for item in items if _is_serial_item(item)]
 
     # Select the tests to run based on the group and splits
     if (splits := config.getoption("--splits")) and (group := config.getoption("--group")):
@@ -641,7 +743,7 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
             "To run tests with additional packages, use:\n"
             "  uv run --with <package> pytest ...\n\n"
             "For multiple packages:\n"
-            "  uv run --with <package1> --with <package2> pytest ...\n\n",
+            "  uv run --with '<package1>,<package2>' pytest ...\n\n",
             yellow=True,
         )
 
@@ -726,9 +828,14 @@ def remote_backend_for_tracing_sdk_test():
             [
                 "uv",
                 "run",
+                "--no-dev",
                 "--directory",
                 # Install from the dev version
                 mlflow_root,
+                "--with",
+                "setuptools<82",  # setuptools 82+ removed pkg_resources
+                "--with",
+                "litellm",  # Required for computing cost of LLM calls
                 "mlflow",
                 "server",
                 "--port",
@@ -781,6 +888,45 @@ def tracking_uri_mock(db_uri: str, request: pytest.FixtureRequest) -> Iterator[s
 
 
 @pytest.fixture(autouse=True)
+def disable_workspace_mode_by_default(monkeypatch):
+    """
+    Ensure tests default to single-tenant mode regardless of the outer environment.
+    Individual tests can still opt in by setting ``MLFLOW_ENABLE_WORKSPACES`` explicitly.
+    """
+
+    for env_var in (
+        MLFLOW_ENABLE_WORKSPACES,
+        MLFLOW_WORKSPACE,
+        MLFLOW_WORKSPACE_STORE_URI,
+    ):
+        monkeypatch.delenv(env_var.name, raising=False)
+
+    if workspace_context is not None:
+        workspace_context.clear_server_request_workspace()
+
+    if workspace_utils is not None:
+        workspace_utils.set_workspace_store_uri(None)
+
+    yield
+
+    # Clear env vars at teardown to prevent leaking to subprocess servers.
+    # monkeypatch only tracks changes made through itself, so direct os.environ
+    # modifications (or those made by other code) would otherwise persist.
+    for env_var in (
+        MLFLOW_ENABLE_WORKSPACES,
+        MLFLOW_WORKSPACE,
+        MLFLOW_WORKSPACE_STORE_URI,
+    ):
+        os.environ.pop(env_var.name, None)
+
+    if workspace_context is not None:
+        workspace_context.clear_server_request_workspace()
+
+    if workspace_utils is not None:
+        workspace_utils.set_workspace_store_uri(None)
+
+
+@pytest.fixture(autouse=True)
 def reset_active_experiment_id():
     yield
     mlflow.tracking.fluent._active_experiment_id = None
@@ -827,6 +973,16 @@ def reset_tracing():
     # Reset opentelemetry tracer provider as well
     trace_api._TRACER_PROVIDER_SET_ONCE._done = False
     trace_api._TRACER_PROVIDER = None
+
+
+@pytest.fixture(autouse=True)
+def disable_async_trace_logging(monkeypatch):
+    """Disable async trace logging for all tests by default to avoid timing issues.
+
+    Tests that explicitly verify async behaviour should use the `async_logging_enabled`
+    fixture from tests/tracing/conftest.py, which overrides this setting.
+    """
+    monkeypatch.setenv(MLFLOW_ENABLE_ASYNC_TRACE_LOGGING.name, "false")
 
 
 def _is_span_active():
@@ -914,6 +1070,10 @@ def prevent_infer_pip_requirements_fallback(request):
         yield
 
 
+def _log_rmtree_error(func, path, exc_info):
+    _logger.warning("Failed to remove %s: %s", path, exc_info[1])
+
+
 @pytest.fixture(autouse=not IS_TRACING_SDK_ONLY)
 def clean_up_mlruns_directory(request):
     """
@@ -927,13 +1087,10 @@ def clean_up_mlruns_directory(request):
 
     mlruns_dir = os.path.join(request.config.rootpath, "mlruns")
     if os.path.exists(mlruns_dir):
-        try:
-            shutil.rmtree(mlruns_dir)
-        except OSError:
-            if is_windows():
-                raise
-            # `shutil.rmtree` can't remove files owned by root in a docker container.
-            subprocess.check_call(["sudo", "rm", "-rf", mlruns_dir])
+        shutil.rmtree(mlruns_dir, onerror=_log_rmtree_error)
+    # In Docker, files may be owned by root. Try sudo as a fallback.
+    if not is_windows() and os.path.exists(mlruns_dir):
+        subprocess.run(["sudo", "rm", "-rf", mlruns_dir], check=False)
 
 
 @pytest.fixture(autouse=not IS_TRACING_SDK_ONLY)
@@ -978,16 +1135,39 @@ def enable_mlflow_testing():
         yield
 
 
+@pytest.fixture(scope="session", autouse=True)
+def _mock_databricks_host_metadata():
+    """Prevent databricks-sdk from fetching host metadata during the test session.
+
+    databricks-sdk 0.101.0+ fetches /.well-known/databricks-config during
+    WorkspaceClient initialization, which causes timeouts with dummy hosts.
+    https://github.com/databricks/databricks-sdk-py/pull/1331
+    """
+    with mock.patch("databricks.sdk.config.Config._resolve_host_metadata"):
+        yield
+
+
+@pytest.fixture(scope="session", autouse=True)
+def disable_uv_auto_detect():
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setenv("MLFLOW_UV_AUTO_DETECT", "false")
+        yield
+
+
 @pytest.fixture(scope="session", autouse=not IS_TRACING_SDK_ONLY)
 def serve_wheel(request, tmp_path_factory):
     """
     Models logged during tests have a dependency on the dev version of MLflow built from
     source (e.g., mlflow==1.20.0.dev0) and cannot be served because the dev version is not
     available on PyPI. This fixture serves a wheel for the dev version from a temporary
-    PyPI repository running on localhost and appends the repository URL to the
-    `PIP_EXTRA_INDEX_URL` environment variable to make the wheel available to pip.
+    PEP 700-compliant Simple Repository running on localhost and appends the repository URL
+    to the `PIP_EXTRA_INDEX_URL` environment variable to make the wheel available to pip.
+
+    The server provides upload-time metadata so that uv's ``exclude-newer`` can correctly
+    resolve the local dev wheel.
     """
     from tests.helper_functions import get_safe_port
+    from tests.simple_repository_server import SimpleRepositoryServer
 
     if "COPILOT_AGENT_ACTION" in os.environ:
         yield  # pytest expects a generator fixture to yield
@@ -997,10 +1177,6 @@ def serve_wheel(request, tmp_path_factory):
         yield  # pytest expects a generator fixture to yield
         return
 
-    root = tmp_path_factory.mktemp("root")
-    mlflow_dir = root.joinpath("mlflow")
-    mlflow_dir.mkdir()
-    port = get_safe_port()
     try:
         repo_root = subprocess.check_output(
             [
@@ -1015,38 +1191,52 @@ def serve_wheel(request, tmp_path_factory):
         # In this case, assume we're in the root of the repo.
         repo_root = "."
 
-    subprocess.check_call(
-        [
-            sys.executable,
-            "-m",
-            "pip",
-            "wheel",
-            "--wheel-dir",
-            mlflow_dir,
-            "--no-deps",
-            repo_root,
-        ],
-    )
-    with subprocess.Popen(
-        [
-            sys.executable,
-            "-m",
-            "http.server",
-            str(port),
-        ],
-        cwd=root,
-    ) as prc:
-        try:
-            url = f"http://localhost:{port}"
-            if existing_url := os.environ.get("PIP_EXTRA_INDEX_URL"):
-                url = f"{existing_url} {url}"
-            os.environ["PIP_EXTRA_INDEX_URL"] = url
-            # Set the `UV_INDEX` environment variable to allow fetching the wheel from the
-            # url when using `uv` as environment manager
-            os.environ["UV_INDEX"] = f"mlflow={url}"
-            yield
-        finally:
-            prc.terminate()
+    def build_wheel(wheel_dir):
+        subprocess.check_call(
+            [
+                sys.executable,
+                "-m",
+                "pip",
+                "wheel",
+                "--wheel-dir",
+                wheel_dir,
+                "--no-deps",
+                repo_root,
+            ],
+        )
+
+    if os.environ.get("PYTEST_XDIST_WORKER") is None:
+        # Not running under pytest-xdist: build into this session's own tmp dir.
+        mlflow_dir = tmp_path_factory.mktemp("root").joinpath("mlflow")
+        mlflow_dir.mkdir()
+        build_wheel(mlflow_dir)
+    else:
+        # Under pytest-xdist every worker runs its own session and would otherwise
+        # each run `pip wheel` concurrently, racing on the in-tree `build/` directory
+        # and failing the wheel build. Build the wheel exactly once in a directory
+        # shared across workers (the parent of each worker's basetemp), guarded by a
+        # file lock; the remaining workers reuse the already-built wheel.
+        # `filelock` is imported lazily here (not at module top) because the skinny
+        # test suite doesn't install it and never runs under xdist.
+        from filelock import FileLock
+
+        shared_dir = tmp_path_factory.getbasetemp().parent
+        mlflow_dir = shared_dir.joinpath("mlflow-dev-wheel")
+        with FileLock(str(shared_dir.joinpath("mlflow-dev-wheel.lock"))):
+            if not (mlflow_dir.exists() and any(mlflow_dir.glob("*.whl"))):
+                mlflow_dir.mkdir(exist_ok=True)
+                build_wheel(mlflow_dir)
+
+    port = get_safe_port()
+    with SimpleRepositoryServer(mlflow_dir, port) as server:
+        index_url = (
+            f"{url} {server.url}" if (url := os.environ.get("PIP_EXTRA_INDEX_URL")) else server.url
+        )
+        os.environ["PIP_EXTRA_INDEX_URL"] = index_url
+        # Set the `UV_INDEX` environment variable to allow fetching the wheel from the
+        # url when using `uv` as environment manager
+        os.environ["UV_INDEX"] = f"mlflow={server.url}"
+        yield
 
 
 @pytest.fixture
@@ -1115,14 +1305,16 @@ def cached_db(tmp_path_factory: pytest.TempPathFactory) -> Path:
         return db_path
 
     try:
-        from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+        from mlflow.store.db.utils import _initialize_tables, create_sqlalchemy_engine_with_retry
     except ImportError:
         return db_path
 
     db_uri = f"sqlite:///{db_path}"
-    artifact_uri = (tmp_dir / "artifacts").as_uri()
-    store = SqlAlchemyStore(db_uri, artifact_uri)
-    store.engine.dispose()
+    engine = create_sqlalchemy_engine_with_retry(db_uri)
+    try:
+        _initialize_tables(engine)
+    finally:
+        engine.dispose()
 
     return db_path
 
@@ -1130,13 +1322,47 @@ def cached_db(tmp_path_factory: pytest.TempPathFactory) -> Path:
 @pytest.fixture
 def db_uri(cached_db: Path) -> Iterator[str]:
     """Returns a fresh SQLite URI for each test by copying the cached database."""
-    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp_dir:
+    # Managed manually (not `TemporaryDirectory`) so cleanup can never raise. Tests that
+    # spawn a root-owned writer into the artifact tree (e.g. docker projects) leave files
+    # the non-root runner cannot remove; `TemporaryDirectory`'s cleanup re-raises on those
+    # and surfaces as a teardown ERROR, whereas `rmtree(ignore_errors=True)` swallows it.
+    tmp_dir = tempfile.mkdtemp()
+    try:
         db_path = Path(tmp_dir) / "mlflow.db"
 
         if not IS_TRACING_SDK_ONLY and cached_db.exists():
             shutil.copy2(cached_db, db_path)
+            # `cached_db` carries schema only, so create the Default experiment here, rooted
+            # in this test's own temp dir. Left to the store that opens the copy, it lands
+            # under `./mlruns` in the repo root, which every xdist worker shares and the
+            # autouse `clean_up_mlruns_directory` fixture deletes after each test.
+            artifact_root = Path(tmp_dir) / "artifacts"
+            now = get_current_time_millis()
+            with sqlite3.connect(db_path) as conn:
+                conn.execute(
+                    "INSERT INTO experiments (experiment_id, name, artifact_location, "
+                    "lifecycle_stage, creation_time, last_update_time, workspace) "
+                    "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    (
+                        int(DEFAULT_EXPERIMENT_ID),
+                        Experiment.DEFAULT_EXPERIMENT_NAME,
+                        artifact_root.joinpath(DEFAULT_EXPERIMENT_ID).as_uri(),
+                        LifecycleStage.ACTIVE,
+                        now,
+                        now,
+                        workspace_utils.DEFAULT_WORKSPACE_NAME,
+                    ),
+                )
 
         yield f"sqlite:///{db_path}"
+    finally:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+
+
+@pytest.fixture(scope="module")
+def monkeypatch_module():
+    with pytest.MonkeyPatch.context() as mp:
+        yield mp
 
 
 @pytest.fixture(autouse=True)
@@ -1176,11 +1402,17 @@ def mock_litellm_cost():
     Uses cost of 1.0 per input token and 2.0 per output token.
     Returns (input_cost, output_cost) based on the token counts passed.
     """
+    try:
+        import litellm  # noqa: F401
+    except ImportError:
+        # mock.patch will fail if litellm is not installed, e.g. tracing SDK test
+        yield None
+        return
 
-    def calculate_cost(model, prompt_tokens, completion_tokens):
+    def calculate_cost(model, prompt_tokens, completion_tokens, **kwargs):
         input_cost = prompt_tokens * 1.0
         output_cost = completion_tokens * 2.0
         return (input_cost, output_cost)
 
-    with mock.patch("litellm.cost_per_token", side_effect=calculate_cost) as mock_cost:
+    with mock.patch("litellm.cost_per_token", side_effect=calculate_cost, create=True) as mock_cost:
         yield mock_cost

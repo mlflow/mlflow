@@ -36,6 +36,10 @@ class _GoalAndPersona(pydantic.BaseModel):
         default=None,
         description="A description of the user's communication style and personality",
     )
+    simulation_guidelines: list[str] | None = pydantic.Field(
+        default=None,
+        description="List of guidelines for how a simulated user should conduct this conversation",
+    )
 
 
 def _distill_goal_and_persona(
@@ -65,13 +69,15 @@ def _distill_goal_and_persona(
         test_case = {"goal": result.goal}
         if result.persona:
             test_case["persona"] = result.persona
+        if result.simulation_guidelines:
+            test_case["simulation_guidelines"] = result.simulation_guidelines
         return test_case
     except pydantic.ValidationError as e:
         _logger.debug(f"Failed to validate response: {e}")
         return None
 
 
-@experimental(version="3.10.0")
+@experimental(version="3.10.0", skip=True)
 @format_docstring(_MODEL_API_DOC)
 def generate_test_cases(
     sessions: "list[Session] | list[list[Trace]]",
@@ -95,8 +101,8 @@ def generate_test_cases(
         model: {{ model }}
 
     Returns:
-        A list of dicts with "goal" and "persona" keys, suitable for use with
-        :py:class:`~mlflow.genai.simulators.ConversationSimulator`.
+        A list of dicts with "goal", "persona", and "simulation_guidelines" keys,
+        suitable for use with :py:class:`~mlflow.genai.simulators.ConversationSimulator`.
 
     Example:
         .. code-block:: python

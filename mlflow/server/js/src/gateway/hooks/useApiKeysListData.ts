@@ -12,7 +12,7 @@ interface UseApiKeysListDataParams {
 }
 
 export const useApiKeysListData = ({ searchFilter, filter }: UseApiKeysListDataParams) => {
-  const { data: secrets, isLoading: isLoadingSecrets } = useSecretsQuery();
+  const { data: secrets, isLoading: isLoadingSecrets, error: secretsError } = useSecretsQuery();
   const { data: endpoints, isLoading: isLoadingEndpoints } = useEndpointsQuery();
   const { data: modelDefinitions, isLoading: isLoadingModelDefinitions } = useModelDefinitionsQuery();
   const { data: bindings, isLoading: isLoadingBindings } = useBindingsQuery();
@@ -27,7 +27,7 @@ export const useApiKeysListData = ({ searchFilter, filter }: UseApiKeysListDataP
         if (!map.has(secretId)) {
           map.set(secretId, []);
         }
-        map.get(secretId)!.push(modelDef);
+        map.get(secretId)?.push(modelDef);
       }
     });
 
@@ -45,7 +45,7 @@ export const useApiKeysListData = ({ searchFilter, filter }: UseApiKeysListDataP
           if (!map.has(secretId)) {
             map.set(secretId, new Set());
           }
-          map.get(secretId)!.add(endpoint.endpoint_id);
+          map.get(secretId)?.add(endpoint.endpoint_id);
         }
       });
     });
@@ -60,7 +60,7 @@ export const useApiKeysListData = ({ searchFilter, filter }: UseApiKeysListDataP
         if (!map.has(endpointId)) {
           map.set(endpointId, new Set());
         }
-        map.get(endpointId)!.add(secretId);
+        map.get(endpointId)?.add(secretId);
       });
     });
     return map;
@@ -125,7 +125,7 @@ export const useApiKeysListData = ({ searchFilter, filter }: UseApiKeysListDataP
   );
 
   const availableProviders = secrets
-    ? Array.from(new Set(secrets.map((s) => s.provider).filter((p): p is string => !!p)))
+    ? Array.from(new Set(secrets.map((s) => s.provider).filter((p): p is string => Boolean(p))))
     : [];
 
   const filteredSecrets = useMemo(() => {
@@ -150,6 +150,7 @@ export const useApiKeysListData = ({ searchFilter, filter }: UseApiKeysListDataP
     secrets: secrets ?? [],
     filteredSecrets,
     isLoading,
+    error: secretsError,
     availableProviders,
     getModelDefinitionsForSecret,
     getEndpointsForSecret,

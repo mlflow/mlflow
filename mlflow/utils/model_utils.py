@@ -397,7 +397,7 @@ def _get_overridden_pyfunc_model_config(
     """
 
     overrides = {}
-    if env_overrides := os.getenv("MLFLOW_PYFUNC_INFERENCE_CONFIG"):
+    if env_overrides := os.environ.get("MLFLOW_PYFUNC_INFERENCE_CONFIG"):
         logger.debug(
             "Inference configuration is being loaded from ``MLFLOW_PYFUNC_INFERENCE_CONFIG``"
             " environ."

@@ -57,7 +57,10 @@ from mlflow import tracing  # noqa: F401
 from mlflow.environment_variables import MLFLOW_CONFIGURE_LOGGING
 from mlflow.exceptions import MlflowException
 from mlflow.utils.lazy_load import LazyLoader
-from mlflow.utils.logging_utils import _configure_mlflow_loggers
+from mlflow.utils.logging_utils import (
+    _configure_mlflow_loggers,
+    _install_sensitive_query_param_filter,
+)
 
 # Lazily load mlflow flavors to avoid excessive dependencies.
 anthropic = LazyLoader("mlflow.anthropic", globals(), "mlflow.anthropic")
@@ -67,6 +70,7 @@ autogen = LazyLoader("mlflow.autogen", globals(), "mlflow.autogen")
 bedrock = LazyLoader("mlflow.bedrock", globals(), "mlflow.bedrock")
 catboost = LazyLoader("mlflow.catboost", globals(), "mlflow.catboost")
 crewai = LazyLoader("mlflow.crewai", globals(), "mlflow.crewai")
+diffusers = LazyLoader("mlflow.diffusers", globals(), "mlflow.diffusers")
 dspy = LazyLoader("mlflow.dspy", globals(), "mlflow.dspy")
 gemini = LazyLoader("mlflow.gemini", globals(), "mlflow.gemini")
 groq = LazyLoader("mlflow.groq", globals(), "mlflow.groq")
@@ -78,10 +82,10 @@ langchain = LazyLoader("mlflow.langchain", globals(), "mlflow.langchain")
 lightgbm = LazyLoader("mlflow.lightgbm", globals(), "mlflow.lightgbm")
 litellm = LazyLoader("mlflow.litellm", globals(), "mlflow.litellm")
 llama_index = LazyLoader("mlflow.llama_index", globals(), "mlflow.llama_index")
-llm = LazyLoader("mlflow.llm", globals(), "mlflow.llm")
 metrics = LazyLoader("mlflow.metrics", globals(), "mlflow.metrics")
 mistral = LazyLoader("mlflow.mistral", globals(), "mlflow.mistral")
 onnx = LazyLoader("mlflow.onnx", globals(), "mlflow.onnx")
+otel = LazyLoader("mlflow.otel", globals(), "mlflow.otel")
 openai = LazyLoader("mlflow.openai", globals(), "mlflow.openai")
 paddle = LazyLoader("mlflow.paddle", globals(), "mlflow.paddle")
 pmdarima = LazyLoader("mlflow.pmdarima", globals(), "mlflow.pmdarima")
@@ -108,6 +112,7 @@ tensorflow = LazyLoader("mlflow.tensorflow", globals(), "mlflow.tensorflow")
 # TxtAI integration is defined at https://github.com/neuml/mlflow-txtai
 txtai = LazyLoader("mlflow.txtai", globals(), "mlflow_txtai")
 transformers = LazyLoader("mlflow.transformers", globals(), "mlflow.transformers")
+typesafe = LazyLoader("mlflow.typesafe", globals(), "mlflow.typesafe")
 xgboost = LazyLoader("mlflow.xgboost", globals(), "mlflow.xgboost")
 
 if TYPE_CHECKING:
@@ -121,6 +126,7 @@ if TYPE_CHECKING:
         bedrock,
         catboost,
         crewai,
+        diffusers,
         dspy,
         gemini,
         groq,
@@ -132,11 +138,11 @@ if TYPE_CHECKING:
         lightgbm,
         litellm,
         llama_index,
-        llm,
         metrics,
         mistral,
         onnx,
         openai,
+        otel,
         paddle,
         pmdarima,
         prophet,
@@ -156,8 +162,11 @@ if TYPE_CHECKING:
         strands,
         tensorflow,
         transformers,
+        typesafe,
         xgboost,
     )
+
+_install_sensitive_query_param_filter()
 
 if MLFLOW_CONFIGURE_LOGGING.get() is True:
     _configure_mlflow_loggers(root_module_name=__name__)
@@ -169,9 +178,11 @@ from mlflow.tracing.assessment import (
     log_assessment,
     log_expectation,
     log_feedback,
+    log_issue,
     override_feedback,
     update_assessment,
 )
+from mlflow.tracing.context import context
 from mlflow.tracing.fluent import (
     add_trace,
     delete_trace_tag,
@@ -209,6 +220,7 @@ __all__ = [
     "active_run",
     # Tracing APIs
     "add_trace",
+    "context",
     "delete_trace_tag",
     "flush_trace_async_logging",
     "get_active_trace_id",
@@ -230,6 +242,7 @@ __all__ = [
     "update_assessment",
     "log_expectation",
     "log_feedback",
+    "log_issue",
     "override_feedback",
 ]
 
@@ -252,6 +265,7 @@ if not IS_TRACING_SDK_ONLY:
     from mlflow.models.evaluation.deprecated import evaluate
     from mlflow.models.evaluation.validation import validate_evaluation_results
     from mlflow.projects import run
+    from mlflow.pytest import test
     from mlflow.tracking._model_registry.fluent import (
         # TODO: Prompt Registry APIs are moved to the `mlflow.genai` namespace and direct
         # imports from mlflow will be deprecated in the future.
@@ -264,6 +278,14 @@ if not IS_TRACING_SDK_ONLY:
         search_registered_models,
         set_model_version_tag,
         set_prompt_alias,
+    )
+    from mlflow.tracking._workspace.fluent import (
+        create_workspace,
+        delete_workspace,
+        get_workspace,
+        list_workspaces,
+        set_workspace,
+        update_workspace,
     )
     from mlflow.tracking.fluent import (
         ActiveModel,
@@ -309,6 +331,8 @@ if not IS_TRACING_SDK_ONLY:
         log_stream,
         log_table,
         log_text,
+        restore_experiment,
+        restore_run,
         search_experiments,
         search_logged_models,
         search_runs,
@@ -334,7 +358,9 @@ if not IS_TRACING_SDK_ONLY:
         "clear_active_model",
         "create_experiment",
         "create_external_model",
+        "create_workspace",
         "delete_experiment",
+        "delete_workspace",
         "delete_run",
         "delete_tag",
         "disable_system_metrics_logging",
@@ -351,6 +377,7 @@ if not IS_TRACING_SDK_ONLY:
         "get_experiment_by_name",
         "import_checkpoints",
         "get_logged_model",
+        "get_workspace",
         "get_parent_run",
         "get_registry_uri",
         "get_run",
@@ -377,11 +404,14 @@ if not IS_TRACING_SDK_ONLY:
         "login",
         "pyfunc",
         "register_model",
+        "restore_experiment",
+        "restore_run",
         "run",
         "search_experiments",
         "search_logged_models",
         "search_model_versions",
         "search_registered_models",
+        "list_workspaces",
         "search_runs",
         "search_prompts",
         "set_active_model",
@@ -395,7 +425,9 @@ if not IS_TRACING_SDK_ONLY:
         "set_system_metrics_sampling_interval",
         "set_tag",
         "set_tags",
+        "set_workspace",
         "start_run",
+        "test",
         "validate_evaluation_results",
         "Image",
         # Prompt Registry APIs
@@ -407,6 +439,7 @@ if not IS_TRACING_SDK_ONLY:
         "delete_prompt_alias",
         "set_logged_model_tags",
         "delete_logged_model_tag",
+        "update_workspace",
     ]
 
 
@@ -421,3 +454,11 @@ with contextlib.suppress(Exception):
 from mlflow.telemetry import set_telemetry_client
 
 set_telemetry_client()
+
+# Point coding agents at the MLflow tracing skill. No-op unless a coding agent is
+# driving this process. `mlflow.agent` does not ship in the mlflow-tracing package.
+if not IS_TRACING_SDK_ONLY:
+    with contextlib.suppress(Exception):
+        from mlflow.agent.hint import maybe_hint_tracing_skill
+
+        maybe_hint_tracing_skill()

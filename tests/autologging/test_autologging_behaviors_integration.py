@@ -246,6 +246,7 @@ def test_autolog_respects_disable_flag_across_import_orders():
 
 @pytest.mark.usefixtures(test_mode_off.__name__)
 def test_autolog_respects_silent_mode(tmp_path, monkeypatch):
+    pytest.skip("FileStore is no longer supported.")
     # disable progress bar as it is not controlled by `silent` flag
     monkeypatch.setenv("MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR", "false")
 
@@ -281,7 +282,7 @@ def test_autolog_respects_silent_mode(tmp_path, monkeypatch):
     mlflow.autolog(silent=True)
     mlflow.sklearn.autolog(silent=True, log_input_examples=True)
 
-    with ThreadPoolExecutor(max_workers=50) as executor:
+    with ThreadPoolExecutor(max_workers=50, thread_name_prefix="test-autolog-silent") as executor:
         executions = [executor.submit(train_model) for _ in range(2)]
 
     assert all(e.result() is True for e in executions)
@@ -296,7 +297,7 @@ def test_autolog_respects_silent_mode(tmp_path, monkeypatch):
 
     mlflow.sklearn.autolog(silent=False, log_input_examples=True)
 
-    with ThreadPoolExecutor(max_workers=50) as executor:
+    with ThreadPoolExecutor(max_workers=50, thread_name_prefix="test-autolog-silent") as executor:
         executions = [executor.submit(train_model) for _ in range(100)]
 
     assert all(e.result() is True for e in executions)

@@ -31,6 +31,15 @@ describe('getSampledMetricHistoryBulkAction service function', () => {
     });
   });
 
+  it('should forward the selected step range as start_step/end_step query params', () => {
+    // When the user zooms a chart, the resolved step range is passed through so the backend
+    // returns a finer sample of only the visible window (progressive/lazy loading).
+    runAction({});
+    expect(fetchEndpoint).toHaveBeenCalledWith({
+      relativeUrl: expect.stringMatching(/start_step=300&end_step=500/),
+    });
+  });
+
   it('should skip retrieval of sampled metric history for runs with the data already loaded', () => {
     runAction({
       run_1: { metric_key: { [testRangeKey]: { metricsHistory: [], loading: false } } },

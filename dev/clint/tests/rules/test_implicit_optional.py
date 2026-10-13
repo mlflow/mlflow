@@ -1,11 +1,12 @@
 from pathlib import Path
 
 from clint.config import Config
+from clint.index import SymbolIndex
 from clint.linter import Position, Range, lint_file
 from clint.rules import ImplicitOptional
 
 
-def test_implicit_optional(index_path: Path) -> None:
+def test_implicit_optional(index: SymbolIndex) -> None:
     code = """
 from typing import Optional
 
@@ -20,14 +21,14 @@ class Good:
     x: Optional[str] = None
 """
     config = Config(select={ImplicitOptional.name})
-    results = lint_file(Path("test.py"), code, config, index_path)
+    results = lint_file(Path("test.py"), code, config, index)
     assert len(results) == 2
     assert all(isinstance(r.rule, ImplicitOptional) for r in results)
     assert results[0].range == Range(Position(4, 5))
     assert results[1].range == Range(Position(6, 7))
 
 
-def test_implicit_optional_stringified(index_path: Path) -> None:
+def test_implicit_optional_stringified(index: SymbolIndex) -> None:
     code = """
 from typing import Optional
 
@@ -51,7 +52,7 @@ class Good2:
     x: "SomeClass | None" = None
 """
     config = Config(select={ImplicitOptional.name})
-    results = lint_file(Path("test.py"), code, config, index_path)
+    results = lint_file(Path("test.py"), code, config, index)
     assert len(results) == 3
     assert all(isinstance(r.rule, ImplicitOptional) for r in results)
     assert results[0].range == Range(Position(4, 6))  # bad1

@@ -37,6 +37,7 @@ export const DatasetLink = ({
 
     return (
       <Link
+        componentId="mlflow.experiment_tracking.evaluation_datasets.dataset_link"
         to={{
           pathname,
           search: searchParams.toString(),

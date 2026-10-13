@@ -1,23 +1,61 @@
+from importlib.metadata import version
 from unittest.mock import patch
 
-import httpx
-import mistralai
 import pytest
-from mistralai.models import (
-    AssistantMessage,
-    ChatCompletionChoice,
-    ChatCompletionResponse,
-    FunctionCall,
-    ToolCall,
-    UsageInfo,
-)
+from packaging.version import Version
+
+if Version(version("mistralai")).major >= 3:
+    import httpx2 as httpx
+else:
+    import httpx
+
+try:
+    from mistralai.client import Mistral  # mistralai >= 2.0
+    from mistralai.client.models import (
+        AssistantMessage,
+        ChatCompletionChoice,
+        ChatCompletionResponse,
+        FunctionCall,
+        ToolCall,
+        UsageInfo,
+    )
+
+    CHAT_DO_REQUEST_PATH = "mistralai.client.chat.Chat.do_request"
+    CHAT_DO_REQUEST_ASYNC_PATH = "mistralai.client.chat.Chat.do_request_async"
+except ImportError:
+    from mistralai import Mistral  # mistralai < 2.0
+    from mistralai.models import (
+        AssistantMessage,
+        ChatCompletionChoice,
+        ChatCompletionResponse,
+        FunctionCall,
+        ToolCall,
+        UsageInfo,
+    )
+
+    CHAT_DO_REQUEST_PATH = "mistralai.chat.Chat.do_request"
+    CHAT_DO_REQUEST_ASYNC_PATH = "mistralai.chat.Chat.do_request_async"
 from pydantic import BaseModel
 
 import mlflow.mistral
+from mlflow.entities import SpanLogLevel
 from mlflow.entities.span import SpanType
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
+from mlflow.tracing.distributed import (
+    _get_tracing_headers_from_span,
+    set_tracing_context_from_http_request_headers,
+)
+from mlflow.tracing.utils import aggregate_usage_from_spans
+from mlflow.version import IS_TRACING_SDK_ONLY
 
 from tests.tracing.helper import get_traces
+
+
+@pytest.fixture(autouse=True)
+def reset_mistral_autolog():
+    yield
+    mlflow.mistral.autolog(disable=True)
+
 
 DUMMY_CHAT_COMPLETION_REQUEST = {
     "model": "test_model",
@@ -148,11 +186,11 @@ def _make_httpx_response(response: BaseModel, status_code: int = 200) -> httpx.R
 
 def test_chat_complete_autolog(mock_litellm_cost):
     with patch(
-        "mistralai.chat.Chat.do_request",
+        CHAT_DO_REQUEST_PATH,
         return_value=_make_httpx_response(DUMMY_CHAT_COMPLETION_RESPONSE),
     ):
         mlflow.mistral.autolog()
-        client = mistralai.Mistral(api_key="test_key")
+        client = Mistral(api_key="test_key")
         client.chat.complete(**DUMMY_CHAT_COMPLETION_REQUEST)
 
     traces = get_traces()
@@ -162,6 +200,7 @@ def test_chat_complete_autolog(mock_litellm_cost):
     span = traces[0].data.spans[0]
     assert span.name == "Chat.complete"
     assert span.span_type == SpanType.CHAT_MODEL
+    assert span.log_level == SpanLogLevel.INFO
     assert span.inputs == DUMMY_CHAT_COMPLETION_REQUEST
     # Only keep input_tokens / output_tokens fields in usage dict.
     span.outputs["usage"] = {
@@ -176,19 +215,20 @@ def test_chat_complete_autolog(mock_litellm_cost):
         TokenUsageKey.OUTPUT_TOKENS: 18,
         TokenUsageKey.TOTAL_TOKENS: 28,
     }
-    # Verify cost is calculated (10 input tokens * 1.0 + 18 output tokens * 2.0)
-    assert span.llm_cost == {
-        "input_cost": 10.0,
-        "output_cost": 36.0,
-        "total_cost": 46.0,
-    }
+    if not IS_TRACING_SDK_ONLY:
+        # Verify cost is calculated (10 input tokens * 1.0 + 18 output tokens * 2.0)
+        assert span.llm_cost == {
+            "input_cost": 10.0,
+            "output_cost": 36.0,
+            "total_cost": 46.0,
+        }
 
     with patch(
-        "mistralai.chat.Chat.do_request",
+        CHAT_DO_REQUEST_PATH,
         return_value=_make_httpx_response(DUMMY_CHAT_COMPLETION_RESPONSE),
     ):
         mlflow.mistral.autolog(disable=True)
-        client = mistralai.Mistral(api_key="test_key")
+        client = Mistral(api_key="test_key")
         client.chat.complete(**DUMMY_CHAT_COMPLETION_REQUEST)
 
     # No new trace should be created
@@ -198,11 +238,11 @@ def test_chat_complete_autolog(mock_litellm_cost):
 
 def test_chat_complete_autolog_tool_calling():
     with patch(
-        "mistralai.chat.Chat.do_request",
+        CHAT_DO_REQUEST_PATH,
         return_value=_make_httpx_response(DUMMY_CHAT_COMPLETION_WITH_TOOLS_RESPONSE),
     ):
         mlflow.mistral.autolog()
-        client = mistralai.Mistral(api_key="test_key")
+        client = Mistral(api_key="test_key")
         client.chat.complete(**DUMMY_CHAT_COMPLETION_WITH_TOOLS_REQUEST)
 
     traces = get_traces()
@@ -268,11 +308,11 @@ def test_chat_complete_autolog_tool_calling():
 @pytest.mark.asyncio
 async def test_chat_complete_async_autolog():
     with patch(
-        "mistralai.chat.Chat.do_request_async",
+        CHAT_DO_REQUEST_ASYNC_PATH,
         return_value=_make_httpx_response(DUMMY_CHAT_COMPLETION_RESPONSE),
     ):
         mlflow.mistral.autolog()
-        client = mistralai.Mistral(api_key="test_key")
+        client = Mistral(api_key="test_key")
         await client.chat.complete_async(**DUMMY_CHAT_COMPLETION_REQUEST)
 
     traces = get_traces()
@@ -293,3 +333,48 @@ async def test_chat_complete_async_autolog():
         TokenUsageKey.OUTPUT_TOKENS: 18,
         TokenUsageKey.TOTAL_TOKENS: 28,
     }
+
+
+@pytest.mark.parametrize("is_async", [False, True])
+@pytest.mark.parametrize("user_headers", [None, {"X-Custom": "my-value"}])
+@pytest.mark.asyncio
+async def test_tracing_headers_parent_gateway_span_without_double_counting(is_async, user_headers):
+    mlflow.mistral.autolog()
+    request = DUMMY_CHAT_COMPLETION_REQUEST.copy()
+    if user_headers is not None:
+        request["http_headers"] = user_headers
+    request_path = CHAT_DO_REQUEST_ASYNC_PATH if is_async else CHAT_DO_REQUEST_PATH
+    with patch(
+        request_path,
+        return_value=_make_httpx_response(DUMMY_CHAT_COMPLETION_RESPONSE),
+    ) as mock_request:
+        client = Mistral(api_key="test_key")
+        if is_async:
+            await client.chat.complete_async(**request)
+        else:
+            client.chat.complete(**request)
+
+    span = get_traces()[0].data.spans[0]
+    sent_headers = mock_request.call_args.kwargs["request"].headers
+    # Stored spans do not retain the live sampling flag, so compare the trace and span IDs.
+    assert (
+        sent_headers["traceparent"].split("-")[:3]
+        == _get_tracing_headers_from_span(span)["traceparent"].split("-")[:3]
+    )
+    if user_headers is not None:
+        assert sent_headers["X-Custom"] == "my-value"
+    assert span.inputs.get("http_headers") == user_headers
+    assert "traceparent" not in (span.inputs.get("http_headers") or {})
+
+    # A gateway span using the propagated context is a child, so its repeated usage is skipped.
+    with set_tracing_context_from_http_request_headers(sent_headers):
+        with mlflow.start_span("gateway") as gateway_span:
+            gateway_span.set_attribute(
+                SpanAttributeKey.CHAT_USAGE, span.get_attribute(SpanAttributeKey.CHAT_USAGE)
+            )
+
+    assert gateway_span.trace_id == span.trace_id
+    assert gateway_span.parent_id == span.span_id
+    assert aggregate_usage_from_spans([span, gateway_span]) == span.get_attribute(
+        SpanAttributeKey.CHAT_USAGE
+    )

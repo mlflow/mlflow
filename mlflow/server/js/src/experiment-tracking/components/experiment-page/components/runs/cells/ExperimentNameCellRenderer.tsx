@@ -14,7 +14,11 @@ export interface ExperimentNameCellRendererProps {
 // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
 export const ExperimentNameCellRenderer = React.memo(({ data, value }: ExperimentNameCellRendererProps) =>
   !data.experimentId ? null : (
-    <Link to={Routes.getExperimentPageRoute(data.experimentId)} title={value.name}>
+    <Link
+      componentId="mlflow.experiment_tracking.runs_table.experiment_name_link"
+      to={Routes.getExperimentPageRoute(data.experimentId)}
+      title={value.name}
+    >
       {value.basename}
     </Link>
   ),

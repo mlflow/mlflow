@@ -220,10 +220,10 @@ def _get_api_config_without_openai_dep() -> _OpenAIApiConfig:
     """
     Gets the parameters and configuration of the OpenAI API connected to.
     """
-    api_type = os.getenv(_OpenAIEnvVar.OPENAI_API_TYPE.value)
-    api_version = os.getenv(_OpenAIEnvVar.OPENAI_API_VERSION.value)
-    api_base = os.getenv(_OpenAIEnvVar.OPENAI_API_BASE.value, None)
-    deployment_id = os.getenv(_OpenAIEnvVar.OPENAI_DEPLOYMENT_NAME.value, None)
+    api_type = os.environ.get(_OpenAIEnvVar.OPENAI_API_TYPE.value)
+    api_version = os.environ.get(_OpenAIEnvVar.OPENAI_API_VERSION.value)
+    api_base = os.environ.get(_OpenAIEnvVar.OPENAI_API_BASE.value, None)
+    deployment_id = os.environ.get(_OpenAIEnvVar.OPENAI_DEPLOYMENT_NAME.value, None)
     if api_type in ("azure", "azure_ad", "azuread"):
         batch_size = 16
         max_tokens_per_minute = 60_000

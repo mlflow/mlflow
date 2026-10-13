@@ -1,9 +1,6 @@
 import { jest, describe, it, expect, beforeEach } from '@jest/globals';
 import { screen, waitFor, fireEvent } from '@testing-library/react';
 import userEventGlobal, { PointerEventsCheckLevel } from '@testing-library/user-event';
-
-// Disable pointer events check for DialogCombobox which masks the elements we want to click
-const userEvent = userEventGlobal.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });
 import { renderWithIntl } from '../../../../common/utils/TestUtils.react18';
 import { TraceCostOverTimeChart } from './TraceCostOverTimeChart';
 import { DesignSystemProvider } from '@databricks/design-system';
@@ -17,6 +14,9 @@ import {
 import { setupServer } from '../../../../common/utils/setup-msw';
 import { rest } from 'msw';
 import { OverviewChartProvider } from '../OverviewChartContext';
+
+// Disable pointer events check for DialogCombobox which masks the elements we want to click
+const userEvent = userEventGlobal.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });
 
 // Helper to create a cost data point with time bucket
 const createCostDataPoint = (timeBucket: string, modelName: string, cost: number) => ({
@@ -41,7 +41,7 @@ describe('TraceCostOverTimeChart', () => {
   ];
 
   const defaultContextProps = {
-    experimentId: testExperimentId,
+    experimentIds: [testExperimentId],
     startTimeMs,
     endTimeMs,
     timeIntervalSeconds,
@@ -213,7 +213,7 @@ describe('TraceCostOverTimeChart', () => {
       renderComponent();
 
       await waitFor(() => {
-        expect(screen.getByTestId('model-selector-dropdown')).toBeInTheDocument();
+        expect(screen.getByTestId('item-selector-dropdown')).toBeInTheDocument();
       });
     });
 
@@ -241,11 +241,11 @@ describe('TraceCostOverTimeChart', () => {
       renderComponent();
 
       await waitFor(() => {
-        expect(screen.getByTestId('model-selector-dropdown')).toBeInTheDocument();
+        expect(screen.getByTestId('item-selector-dropdown')).toBeInTheDocument();
       });
 
       // Open dropdown
-      fireEvent.click(screen.getByTestId('model-selector-dropdown'));
+      fireEvent.click(screen.getByTestId('item-selector-dropdown'));
 
       await waitFor(() => {
         expect(screen.getByText('Select All')).toBeInTheDocument();
@@ -258,11 +258,11 @@ describe('TraceCostOverTimeChart', () => {
       renderComponent();
 
       await waitFor(() => {
-        expect(screen.getByTestId('model-selector-dropdown')).toBeInTheDocument();
+        expect(screen.getByTestId('item-selector-dropdown')).toBeInTheDocument();
       });
 
       // Open dropdown
-      fireEvent.click(screen.getByTestId('model-selector-dropdown'));
+      fireEvent.click(screen.getByTestId('item-selector-dropdown'));
 
       await waitFor(() => {
         expect(screen.getByText('gpt-4')).toBeInTheDocument();
@@ -276,11 +276,11 @@ describe('TraceCostOverTimeChart', () => {
       renderComponent();
 
       await waitFor(() => {
-        expect(screen.getByTestId('model-selector-dropdown')).toBeInTheDocument();
+        expect(screen.getByTestId('item-selector-dropdown')).toBeInTheDocument();
       });
 
       // Open dropdown and click Select All to deselect all
-      fireEvent.click(screen.getByTestId('model-selector-dropdown'));
+      fireEvent.click(screen.getByTestId('item-selector-dropdown'));
 
       await waitFor(() => {
         expect(screen.getByText('Select All')).toBeInTheDocument();
@@ -299,12 +299,12 @@ describe('TraceCostOverTimeChart', () => {
       renderComponent();
 
       await waitFor(() => {
-        expect(screen.getByTestId('model-selector-dropdown')).toBeInTheDocument();
+        expect(screen.getByTestId('item-selector-dropdown')).toBeInTheDocument();
         expect(screen.getByText('All models')).toBeInTheDocument();
       });
 
       // Open dropdown
-      await userEvent.click(screen.getByTestId('model-selector-dropdown'));
+      await userEvent.click(screen.getByTestId('item-selector-dropdown'));
 
       await waitFor(() => {
         expect(screen.getByText('gpt-4')).toBeInTheDocument();

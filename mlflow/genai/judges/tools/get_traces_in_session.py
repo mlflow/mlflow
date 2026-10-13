@@ -14,10 +14,8 @@ from mlflow.genai.judges.tools.types import JudgeToolTraceInfo
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.types.llm import FunctionToolDefinition, ToolDefinition, ToolParamsSchema
-from mlflow.utils.annotations import experimental
 
 
-@experimental(version="3.5.0")
 class GetTracesInSession(JudgeTool):
     """
     Tool for retrieving traces from the same session for multi-turn evaluation.

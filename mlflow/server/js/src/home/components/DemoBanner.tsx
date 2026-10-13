@@ -3,32 +3,36 @@ import { Button, Empty, Spinner, BeakerIcon, CloseIcon, useDesignSystemTheme } f
 import { FormattedMessage } from 'react-intl';
 import { useNavigate } from '../../common/utils/RoutingUtils';
 import Utils from '../../common/utils/Utils';
-import { getAjaxUrl } from '../../common/utils/FetchUtils';
+import { fetchAPI, getAjaxUrl } from '../../common/utils/FetchUtils';
+import { WorkflowType, useWorkflowType } from '../../common/contexts/WorkflowTypeContext';
 
 const DEMO_BANNER_DISMISSED_KEY = 'mlflow.demo.banner.dismissed';
 
 export const DemoBanner = () => {
   const navigate = useNavigate();
   const { theme } = useDesignSystemTheme();
+  // eslint-disable-next-line @databricks/no-direct-storage -- OSS only use-case
   const [isDismissed, setIsDismissed] = useState(() => localStorage.getItem(DEMO_BANNER_DISMISSED_KEY) === 'true');
   const [isLoading, setIsLoading] = useState(false);
+  const { setWorkflowType } = useWorkflowType();
 
   const handleLaunchDemo = useCallback(async () => {
     setIsLoading(true);
     try {
-      const response = await fetch(getAjaxUrl('ajax-api/3.0/mlflow/demo/generate'), {
+      const data = await fetchAPI(getAjaxUrl('ajax-api/3.0/mlflow/demo/generate'), {
         method: 'POST',
       });
-      const data = await response.json();
+      setWorkflowType(WorkflowType.GENAI);
       navigate(data.navigation_url || '/experiments');
     } catch (error) {
       Utils.logErrorAndNotifyUser(error);
     } finally {
       setIsLoading(false);
     }
-  }, [navigate]);
+  }, [navigate, setWorkflowType]);
 
   const handleDismiss = useCallback(() => {
+    // eslint-disable-next-line @databricks/no-direct-storage -- OSS only use-case
     localStorage.setItem(DEMO_BANNER_DISMISSED_KEY, 'true');
     setIsDismissed(true);
   }, []);

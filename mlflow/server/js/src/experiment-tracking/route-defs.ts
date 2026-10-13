@@ -1,4 +1,5 @@
-import { createLazyRouteElement, RouteHandle, DEFAULT_ASSISTANT_PROMPTS } from '../common/utils/RoutingUtils';
+import type { RouteHandle } from '../common/utils/RoutingUtils';
+import { createLazyRouteElement, DEFAULT_ASSISTANT_PROMPTS } from '../common/utils/RoutingUtils';
 
 import { PageId, RoutePaths } from './routes';
 
@@ -85,6 +86,11 @@ const getExperimentPageRouteDefs = () => {
           } satisfies RouteHandle,
         },
         {
+          path: RoutePaths.experimentPageTabTraceDetail,
+          pageId: PageId.experimentPageTabTraceDetail,
+          element: createLazyRouteElement(() => import('./pages/experiment-traces/ExperimentTraceDetailRedirect')),
+        },
+        {
           path: RoutePaths.experimentPageTabTraces,
           pageId: PageId.experimentPageTabTraces,
           element: createLazyRouteElement(() => import('./pages/experiment-traces/ExperimentTracesPage')),
@@ -160,7 +166,7 @@ const getExperimentPageRouteDefs = () => {
           pageId: PageId.experimentPageTabScorers,
           element: createLazyRouteElement(() => import('./pages/experiment-scorers/ExperimentScorersPage')),
           handle: {
-            getPageTitle: (params) => `Scorers - Experiment ${params['experimentId']}`,
+            getPageTitle: (params) => `Judges - Experiment ${params['experimentId']}`,
             getAssistantPrompts: () => [
               'How do I create LLM judge for testing the quality of my agent?',
               'Which built-in LLM judges should I use for my project?',
@@ -169,10 +175,18 @@ const getExperimentPageRouteDefs = () => {
           } satisfies RouteHandle,
         },
         {
+          path: RoutePaths.experimentPageTabReviewQueue,
+          pageId: PageId.experimentPageTabReviewQueue,
+          element: createLazyRouteElement(() => import('./pages/experiment-review-queue/ExperimentReviewQueuePage')),
+          handle: {
+            getPageTitle: (params) => `Review - Experiment ${params['experimentId']}`,
+          } satisfies RouteHandle,
+        },
+        {
           path: RoutePaths.experimentPageTabDatasets,
           pageId: PageId.experimentPageTabDatasets,
           element: createLazyRouteElement(() => {
-            return import('./pages/experiment-evaluation-datasets/ExperimentEvaluationDatasetsPage');
+            return import('./pages/experiment-evaluation-datasets-v2/ExperimentEvaluationDatasetsRouter');
           }),
           handle: {
             getPageTitle: (params) => `Datasets - Experiment ${params['experimentId']}`,
@@ -184,9 +198,34 @@ const getExperimentPageRouteDefs = () => {
           } satisfies RouteHandle,
         },
         {
+          path: RoutePaths.experimentPageTabDatasetDetail,
+          pageId: PageId.experimentPageTabDatasetDetail,
+          element: createLazyRouteElement(() => {
+            return import('./pages/experiment-evaluation-datasets-v2/ExperimentEvaluationDatasetDetailPage');
+          }),
+          handle: {
+            getPageTitle: (params) => `Dataset ${params['datasetId']} - Experiment ${params['experimentId']}`,
+            getAssistantPrompts: () => [
+              'How to add a new record to this dataset?',
+              'How do I use this dataset for evaluation?',
+              'What format should my dataset be in?',
+            ],
+          } satisfies RouteHandle,
+        },
+        {
+          path: RoutePaths.experimentPageTabPlayground,
+          pageId: PageId.experimentPageTabPlayground,
+          element: createLazyRouteElement(() => import('./pages/playground/PlaygroundPage')),
+          handle: {
+            getPageTitle: (params) => `Playground - Experiment ${params['experimentId']}`,
+          } satisfies RouteHandle,
+        },
+        {
           path: RoutePaths.experimentPageTabPrompts,
           pageId: PageId.experimentPageTabPrompts,
-          element: createLazyRouteElement(() => import('./pages/prompts/ExperimentPromptsPage')),
+          element: createLazyRouteElement(() => {
+            return import('./pages/prompts/ExperimentPromptsPage');
+          }),
           handle: {
             getPageTitle: (params) => `Prompts - Experiment ${params['experimentId']}`,
             getAssistantPrompts: () => [
@@ -199,7 +238,9 @@ const getExperimentPageRouteDefs = () => {
         {
           path: RoutePaths.experimentPageTabPromptDetails,
           pageId: PageId.experimentPageTabPromptDetails,
-          element: createLazyRouteElement(() => import('./pages/prompts/ExperimentPromptDetailsPage')),
+          element: createLazyRouteElement(() => {
+            return import('./pages/prompts/ExperimentPromptDetailsPage');
+          }),
           handle: {
             getPageTitle: (params) => `Prompt: ${params['promptName']}`,
             getAssistantPrompts: () => [
@@ -217,7 +258,7 @@ const getExperimentPageRouteDefs = () => {
 export const getRouteDefs = () => [
   {
     path: RoutePaths.rootRoute,
-    element: createLazyRouteElement(() => import('../home/HomePage')),
+    element: createLazyRouteElement(() => import('../home/RootPage')),
     pageId: PageId.home,
     handle: {
       getPageTitle: () => 'Home',
@@ -225,8 +266,28 @@ export const getRouteDefs = () => [
     } satisfies RouteHandle,
   },
   {
-    path: RoutePaths.settingsPage,
+    path: RoutePaths.settingsSectionPage,
     element: createLazyRouteElement(() => import('../settings/SettingsPage')),
+    pageId: PageId.settingsPage,
+    handle: {
+      getPageTitle: (params) => {
+        const section = params['section'];
+        switch (section) {
+          case 'general':
+            return 'Settings – General';
+          case 'llm-connections':
+            return 'Settings – LLM Connections';
+          case 'webhooks':
+            return 'Settings – Webhooks';
+          default:
+            return 'Settings';
+        }
+      },
+    } satisfies RouteHandle,
+  },
+  {
+    path: RoutePaths.settingsPage,
+    element: createLazyRouteElement(() => import('../settings/SettingsEntryRedirect')),
     pageId: PageId.settingsPage,
     handle: { getPageTitle: () => 'Settings' } satisfies RouteHandle,
   },
@@ -283,6 +344,24 @@ export const getRouteDefs = () => [
         'What parameters were used?',
         'How does this run compare to others?',
       ],
+    } satisfies RouteHandle,
+  },
+  {
+    path: RoutePaths.experimentPageTabIssueDetectionRunDetailsWithTab,
+    element: createLazyRouteElement(() => import('./pages/experiment-evaluation-runs/IssueDetectionRunDetailsPage')),
+    pageId: 'mlflow.issue-detection-run-details',
+    handle: {
+      getPageTitle: (params) => `Issue Detection Run ${params['runUuid']}`,
+      getAssistantPrompts: () => ['Summarize this issue detection run.', 'What issues were detected?'],
+    } satisfies RouteHandle,
+  },
+  {
+    path: RoutePaths.experimentPageTabIssueDetectionRunDetails,
+    element: createLazyRouteElement(() => import('./pages/experiment-evaluation-runs/IssueDetectionRunDetailsPage')),
+    pageId: 'mlflow.issue-detection-run-details',
+    handle: {
+      getPageTitle: (params) => `Issue Detection Run ${params['runUuid']}`,
+      getAssistantPrompts: () => ['Summarize this issue detection run.', 'What issues were detected?'],
     } satisfies RouteHandle,
   },
   {
