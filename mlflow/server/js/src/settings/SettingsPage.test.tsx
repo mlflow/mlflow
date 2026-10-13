@@ -61,9 +61,11 @@ describe('SettingsPage', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    jest
-      .mocked(useTelemetryConfig)
-      .mockReturnValue({ data: { disable_ui_telemetry: false } } as ReturnType<typeof useTelemetryConfig>);
+    jest.mocked(useTelemetryConfig).mockReturnValue({
+      data: { disable_ui_telemetry: false },
+      isLoading: false,
+      isError: false,
+    } as ReturnType<typeof useTelemetryConfig>);
     setLocalStorageItem(TELEMETRY_ENABLED_STORAGE_KEY, TELEMETRY_ENABLED_STORAGE_VERSION, false, true);
   });
 
@@ -80,8 +82,28 @@ describe('SettingsPage', () => {
     expect(telemetryClient.start).not.toHaveBeenCalled();
   });
 
-  it('still allows browser opt-out when server configuration is unavailable', async () => {
-    jest.mocked(useTelemetryConfig).mockReturnValue({ data: undefined } as ReturnType<typeof useTelemetryConfig>);
+  it('forces telemetry off while server configuration is loading', async () => {
+    jest.mocked(useTelemetryConfig).mockReturnValue({
+      data: undefined,
+      isLoading: true,
+      isError: false,
+    } as ReturnType<typeof useTelemetryConfig>);
+    renderComponent();
+
+    const toggle = screen.getByRole('switch', { name: 'Off' });
+    expect(toggle).toBeDisabled();
+    expect(toggle).not.toBeChecked();
+    await userEvent.click(toggle);
+    expect(telemetryClient.start).not.toHaveBeenCalled();
+    expect(telemetryClient.shutdown).not.toHaveBeenCalled();
+  });
+
+  it('still allows browser opt-out when server configuration fails to load', async () => {
+    jest.mocked(useTelemetryConfig).mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: true,
+    } as ReturnType<typeof useTelemetryConfig>);
     renderComponent();
 
     const toggle = screen.getByRole('switch', { name: 'On' });
@@ -105,7 +127,12 @@ describe('SettingsPage', () => {
     expect(telemetryClient.start).toHaveBeenCalled();
   });
 
-  it('preserves a browser opt-out when the server enables telemetry', () => {
+  it.each([false, true])('preserves a browser opt-out when the configuration request fails: %s', (isError) => {
+    jest.mocked(useTelemetryConfig).mockReturnValue({
+      data: isError ? undefined : { disable_ui_telemetry: false },
+      isLoading: false,
+      isError,
+    } as ReturnType<typeof useTelemetryConfig>);
     setLocalStorageItem(TELEMETRY_ENABLED_STORAGE_KEY, TELEMETRY_ENABLED_STORAGE_VERSION, false, false);
     renderComponent();
 

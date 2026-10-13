@@ -101,18 +101,19 @@ const SettingsPage = () => {
     }
   }, [sectionParam, navigate, location.search, location.state]);
 
-  const { data: telemetryConfig } = useTelemetryConfig();
+  const { data: telemetryConfig, isLoading: isTelemetryConfigLoading } = useTelemetryConfig();
   const isTelemetryDisabledByServer = telemetryConfig?.disable_ui_telemetry ?? false;
+  const isTelemetryToggleDisabled = isTelemetryConfigLoading || isTelemetryDisabledByServer;
   const [telemetryPreference, setIsTelemetryEnabled] = useLocalStorage({
     key: TELEMETRY_ENABLED_STORAGE_KEY,
     version: TELEMETRY_ENABLED_STORAGE_VERSION,
     initialValue: true,
   });
-  const isTelemetryEnabled = !isTelemetryDisabledByServer && telemetryPreference;
+  const isTelemetryEnabled = !isTelemetryToggleDisabled && telemetryPreference;
 
   const handleTelemetryToggle = useCallback(
     (checked: boolean) => {
-      if (isTelemetryDisabledByServer) {
+      if (isTelemetryToggleDisabled) {
         return;
       }
       setIsTelemetryEnabled(checked);
@@ -122,7 +123,7 @@ const SettingsPage = () => {
         telemetryClient.shutdown();
       }
     },
-    [isTelemetryDisabledByServer, setIsTelemetryEnabled],
+    [isTelemetryToggleDisabled, setIsTelemetryEnabled],
   );
 
   const handleThemeToggle = useCallback(
@@ -212,7 +213,7 @@ const SettingsPage = () => {
                   <Switch
                     componentId="mlflow.settings.telemetry.toggle-switch"
                     checked={isTelemetryEnabled}
-                    disabled={isTelemetryDisabledByServer}
+                    disabled={isTelemetryToggleDisabled}
                     onChange={handleTelemetryToggle}
                     label={
                       isTelemetryEnabled
