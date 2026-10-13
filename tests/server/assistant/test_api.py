@@ -83,6 +83,14 @@ class MockProvider(AssistantProvider):
         yield Event.from_result(result="complete", session_id="mock-session-123")
 
 
+class MockGatewayProvider(MockProvider):
+    """Mock provider that reports the in-server gateway's name."""
+
+    @property
+    def name(self) -> str:
+        return MlflowGatewayProvider.GATEWAY_PROVIDER_NAME
+
+
 @pytest.fixture(autouse=True)
 def isolated_config(tmp_path, monkeypatch):
     """Redirect config to tmp_path to avoid modifying real user config."""
@@ -327,6 +335,36 @@ def test_stream_uses_selected_provider_without_default_probe(client):
     assert response.status_code == 200
     assert "Hello from mock" in response.text
     mock_resolve_default.assert_not_called()
+
+
+def test_stream_authorizes_gateway_endpoint_use_for_gateway_provider():
+    app = FastAPI()
+    app.include_router(assistant_router)
+
+    gateway_provider = MockGatewayProvider()
+    with (
+        patch("mlflow.server.assistant.api.list_providers", return_value=[gateway_provider]),
+        patch("mlflow.server.assistant.api._get_selected_provider", return_value=gateway_provider),
+        patch("mlflow.server.assistant.api._is_localhost", return_value=True),
+        patch("mlflow.server.assistant.api.ensure_assistant_gateway_use_permission") as ensure,
+    ):
+        client = TestClient(app)
+        r = client.post("/ajax-api/3.0/mlflow/assistant/message", json={"message": "Hi"})
+        response = client.get(r.json()["stream_url"])
+
+    assert response.status_code == 200
+    ensure.assert_called_once()
+
+
+def test_stream_does_not_authorize_gateway_use_for_other_providers(client):
+    # Only the in-server gateway provider needs the endpoint-USE grant; other providers must not
+    # trigger an auth-store write.
+    with patch("mlflow.server.assistant.api.ensure_assistant_gateway_use_permission") as ensure:
+        r = client.post("/ajax-api/3.0/mlflow/assistant/message", json={"message": "Hi"})
+        response = client.get(r.json()["stream_url"])
+
+    assert response.status_code == 200
+    ensure.assert_not_called()
 
 
 @pytest.mark.asyncio
