@@ -47,6 +47,8 @@ def _make_span(
         ("EMBEDDING", "embeddings"),
         ("TOOL", "execute_tool"),
         ("AGENT", "invoke_agent"),
+        ("RETRIEVER", "retrieval"),
+        ("WORKFLOW", "invoke_workflow"),
     ],
 )
 def test_translate_span_type_to_operation(span_type, expected_operation):
@@ -57,7 +59,7 @@ def test_translate_span_type_to_operation(span_type, expected_operation):
 
 @pytest.mark.parametrize(
     "span_type",
-    ["CHAIN", "WORKFLOW", "PARSER", "MEMORY", "GUARDRAIL", "EVALUATOR", "RETRIEVER", "RERANKER"],
+    ["CHAIN", "PARSER", "MEMORY", "GUARDRAIL", "EVALUATOR", "RERANKER", "custom_operation"],
 )
 def test_translate_unmapped_span_type_passes_through_value(span_type):
     span = _make_span(attributes={SpanAttributeKey.SPAN_TYPE: json.dumps(span_type)})
@@ -149,6 +151,8 @@ def test_translate_malformed_json_attributes():
         ("generate_content", "gemini-pro", "generate_content gemini-pro", SpanKind.CLIENT),
         ("execute_tool", None, "execute_tool original", SpanKind.INTERNAL),
         ("invoke_agent", None, "invoke_agent original", SpanKind.INTERNAL),
+        ("retrieval", None, "retrieval", SpanKind.CLIENT),
+        ("invoke_workflow", None, "invoke_workflow original", SpanKind.INTERNAL),
     ],
 )
 def test_span_name_and_kind(operation, model, expected_name, expected_kind):
@@ -158,6 +162,8 @@ def test_span_name_and_kind(operation, model, expected_name, expected_kind):
         "embeddings": "EMBEDDING",
         "execute_tool": "TOOL",
         "invoke_agent": "AGENT",
+        "retrieval": "RETRIEVER",
+        "invoke_workflow": "WORKFLOW",
     }
     attrs = {SpanAttributeKey.SPAN_TYPE: json.dumps(operation_to_type[operation])}
     if model:
@@ -180,6 +186,12 @@ def test_span_name_unmapped_type_uses_span_type():
     [
         ("TOOL", "execute_tool get_weather", GenAiSemconvKey.TOOL_NAME, "get_weather"),
         ("AGENT", "invoke_agent travel_planner", GenAiSemconvKey.AGENT_NAME, "travel_planner"),
+        (
+            "WORKFLOW",
+            "invoke_workflow travel_planner",
+            GenAiSemconvKey.WORKFLOW_NAME,
+            "travel_planner",
+        ),
     ],
 )
 def test_tool_and_agent_name_attribute_set_by_instrumentation_is_kept(
@@ -197,6 +209,12 @@ def test_tool_and_agent_name_attribute_set_by_instrumentation_is_kept(
     [
         ("TOOL", GenAiSemconvKey.TOOL_NAME, "get_weather", "execute_tool get_weather"),
         ("AGENT", GenAiSemconvKey.AGENT_NAME, "travel_planner", "invoke_agent travel_planner"),
+        (
+            "WORKFLOW",
+            GenAiSemconvKey.WORKFLOW_NAME,
+            "travel_planner",
+            "invoke_workflow travel_planner",
+        ),
     ],
 )
 def test_tool_and_agent_name_attribute_serialized_by_mlflow_is_decoded(
@@ -217,6 +235,8 @@ def test_tool_and_agent_name_attribute_serialized_by_mlflow_is_decoded(
         ("TOOL", "execute_tool", GenAiSemconvKey.TOOL_NAME),
         ("AGENT", "", GenAiSemconvKey.AGENT_NAME),
         ("AGENT", "invoke_agent", GenAiSemconvKey.AGENT_NAME),
+        ("WORKFLOW", "", GenAiSemconvKey.WORKFLOW_NAME),
+        ("WORKFLOW", "invoke_workflow", GenAiSemconvKey.WORKFLOW_NAME),
     ],
 )
 def test_tool_and_agent_span_without_name_uses_operation(span_type, span_name, name_key):
@@ -282,6 +302,68 @@ def test_full_agent_span():
     assert result.attributes[GenAiSemconvKey.OPERATION_NAME] == "invoke_agent"
     assert result.attributes[GenAiSemconvKey.AGENT_NAME] == "travel_planner"
     assert not any(k.startswith("mlflow.") for k in result.attributes)
+
+
+@pytest.mark.parametrize("serialized", [False, True])
+def test_retrieval_span_uses_data_source_id(serialized):
+    data_source_id = "documents"
+    attrs = {
+        SpanAttributeKey.SPAN_TYPE: json.dumps("RETRIEVER"),
+        SpanAttributeKey.MODEL: json.dumps("embedding-model"),
+        GenAiSemconvKey.DATA_SOURCE_ID: (
+            json.dumps(data_source_id) if serialized else data_source_id
+        ),
+    }
+    span = _make_span(name="search", attributes=attrs)
+    result = translate_span_to_genai(span)
+
+    assert result.name == "retrieval documents"
+    assert result.kind == SpanKind.CLIENT
+    assert result.attributes[GenAiSemconvKey.OPERATION_NAME] == "retrieval"
+    assert result.attributes[GenAiSemconvKey.DATA_SOURCE_ID] == data_source_id
+
+
+def test_retrieval_span_without_data_source_id_uses_operation_name():
+    attrs = {
+        SpanAttributeKey.SPAN_TYPE: json.dumps("RETRIEVER"),
+        SpanAttributeKey.MODEL: json.dumps("embedding-model"),
+    }
+    span = _make_span(name="search", attributes=attrs)
+    result = translate_span_to_genai(span)
+
+    assert result.name == "retrieval"
+    assert GenAiSemconvKey.DATA_SOURCE_ID not in result.attributes
+
+
+def test_workflow_span_uses_original_name_and_internal_kind():
+    attrs = {SpanAttributeKey.SPAN_TYPE: json.dumps("WORKFLOW")}
+    span = _make_span(name="travel_planner", attributes=attrs, kind=SpanKind.CLIENT)
+    result = translate_span_to_genai(span)
+
+    assert result.name == "invoke_workflow travel_planner"
+    assert result.kind == SpanKind.INTERNAL
+    assert result.attributes[GenAiSemconvKey.OPERATION_NAME] == "invoke_workflow"
+    assert result.attributes[GenAiSemconvKey.WORKFLOW_NAME] == "travel_planner"
+
+
+def test_workflow_span_without_name_does_not_use_model_name():
+    attrs = {
+        SpanAttributeKey.SPAN_TYPE: json.dumps("WORKFLOW"),
+        SpanAttributeKey.MODEL: json.dumps("gpt-4o"),
+    }
+    result = translate_span_to_genai(_make_span(name="", attributes=attrs))
+
+    assert result.name == "invoke_workflow"
+    assert GenAiSemconvKey.WORKFLOW_NAME not in result.attributes
+
+
+def test_custom_operation_preserves_span_kind():
+    attrs = {SpanAttributeKey.SPAN_TYPE: json.dumps("custom_operation")}
+    span = _make_span(attributes=attrs, kind=SpanKind.CONSUMER)
+    result = translate_span_to_genai(span)
+
+    assert result.attributes[GenAiSemconvKey.OPERATION_NAME] == "custom_operation"
+    assert result.kind == SpanKind.CONSUMER
 
 
 def test_unmapped_span_type_passes_through():

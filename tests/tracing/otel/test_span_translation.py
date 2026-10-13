@@ -47,6 +47,8 @@ from mlflow.tracing.otel.translation.vercel_ai import VercelAITranslator
         (GenAiTranslator, "execute_tool", SpanType.TOOL),
         (GenAiTranslator, "generate_content", SpanType.LLM),
         (GenAiTranslator, "invoke_agent", SpanType.AGENT),
+        (GenAiTranslator, "invoke_workflow", SpanType.WORKFLOW),
+        (GenAiTranslator, "retrieval", SpanType.RETRIEVER),
         (GenAiTranslator, "text_completion", SpanType.LLM),
         (LangfuseTranslator, "generation", SpanType.LLM),
         (LangfuseTranslator, "embedding", SpanType.EMBEDDING),
@@ -169,6 +171,8 @@ def test_translate_span_type_returns_none(attributes):
         (VercelAITranslator.SPAN_KIND_ATTRIBUTE_KEY, json.dumps("ai.generateText"), SpanType.LLM),
         (VercelAITranslator.SPAN_KIND_ATTRIBUTE_KEY, json.dumps("ai.toolCall"), SpanType.TOOL),
         (LaminarTranslator.SPAN_KIND_ATTRIBUTE_KEY, json.dumps("LLM"), SpanType.LLM),
+        (GenAiTranslator.SPAN_KIND_ATTRIBUTE_KEY, json.dumps("retrieval"), SpanType.RETRIEVER),
+        (GenAiTranslator.SPAN_KIND_ATTRIBUTE_KEY, json.dumps("invoke_workflow"), SpanType.WORKFLOW),
     ],
 )
 def test_json_serialized_values(attr_key, attr_value, expected_type):
@@ -182,6 +186,8 @@ def test_json_serialized_values(attr_key, attr_value, expected_type):
     [
         (OpenInferenceTranslator.SPAN_KIND_ATTRIBUTE_KEY, "LLM", SpanType.LLM),
         (TraceloopTranslator.SPAN_KIND_ATTRIBUTE_KEY, "agent", SpanType.AGENT),
+        (GenAiTranslator.SPAN_KIND_ATTRIBUTE_KEY, "retrieval", SpanType.RETRIEVER),
+        (GenAiTranslator.SPAN_KIND_ATTRIBUTE_KEY, "invoke_workflow", SpanType.WORKFLOW),
     ],
 )
 def test_translate_loaded_span_sets_span_type(attr_key, attr_value, expected_type):

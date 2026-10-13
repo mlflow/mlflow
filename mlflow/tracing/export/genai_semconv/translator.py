@@ -29,9 +29,12 @@ _SPAN_TYPE_TO_OPERATION: dict[str, str] = {
     SpanType.EMBEDDING: "embeddings",
     SpanType.TOOL: "execute_tool",
     SpanType.AGENT: "invoke_agent",
+    SpanType.RETRIEVER: "retrieval",
+    SpanType.WORKFLOW: "invoke_workflow",
 }
 
-# GenAI semconv requires CLIENT for inference spans and INTERNAL for tool/agent spans.
+# GenAI semconv uses CLIENT for inference/retrieval and INTERNAL for local
+# tool/agent/workflow spans.
 # https://opentelemetry.io/docs/specs/semconv/gen-ai/gen-ai-spans/
 _OPERATION_TO_SPAN_KIND: dict[str, SpanKind] = {
     "chat": SpanKind.CLIENT,
@@ -40,6 +43,8 @@ _OPERATION_TO_SPAN_KIND: dict[str, SpanKind] = {
     "generate_content": SpanKind.CLIENT,
     "execute_tool": SpanKind.INTERNAL,
     "invoke_agent": SpanKind.INTERNAL,
+    "retrieval": SpanKind.CLIENT,
+    "invoke_workflow": SpanKind.INTERNAL,
 }
 
 
@@ -126,7 +131,7 @@ def _translate_universal_attributes(span: ReadableSpan) -> dict[str, Any]:
 
     # 5. Tool attributes (for TOOL spans)
     if span_type == SpanType.TOOL:
-        if tool_name := _get_tool_or_agent_name(span, GenAiSemconvKey.TOOL_NAME, "execute_tool"):
+        if tool_name := _get_target_name(span, GenAiSemconvKey.TOOL_NAME, "execute_tool"):
             genai_attrs[GenAiSemconvKey.TOOL_NAME] = tool_name
         if (inputs := get_otel_attribute(span, SpanAttributeKey.INPUTS)) is not None:
             genai_attrs[GenAiSemconvKey.TOOL_CALL_ARGUMENTS] = json.dumps(inputs)
@@ -135,34 +140,49 @@ def _translate_universal_attributes(span: ReadableSpan) -> dict[str, Any]:
 
     # 6. Agent name (for AGENT spans)
     if span_type == SpanType.AGENT:
-        if agent_name := _get_tool_or_agent_name(span, GenAiSemconvKey.AGENT_NAME, "invoke_agent"):
+        if agent_name := _get_target_name(span, GenAiSemconvKey.AGENT_NAME, "invoke_agent"):
             genai_attrs[GenAiSemconvKey.AGENT_NAME] = agent_name
+
+    if span_type == SpanType.RETRIEVER:
+        if data_source_id := _get_string_attribute(span, GenAiSemconvKey.DATA_SOURCE_ID):
+            genai_attrs[GenAiSemconvKey.DATA_SOURCE_ID] = data_source_id
+
+    if span_type == SpanType.WORKFLOW:
+        if workflow_name := _get_target_name(
+            span, GenAiSemconvKey.WORKFLOW_NAME, "invoke_workflow"
+        ):
+            genai_attrs[GenAiSemconvKey.WORKFLOW_NAME] = workflow_name
 
     return genai_attrs
 
 
-def _get_tool_or_agent_name(span: ReadableSpan, name_key: str, operation: str) -> str | None:
+def _get_target_name(span: ReadableSpan, name_key: str, operation: str) -> str | None:
     """
-    Get the tool or agent name for a TOOL or AGENT span.
+    Get the tool, agent, or workflow name for an operation span.
 
     Instrumentations that follow GenAI semconv (e.g., Strands, Semantic Kernel) set the name
     attribute and already name the span "{operation} {name}". Otherwise, the span name is the
-    tool or agent name, unless it is empty or just the operation.
+    target name, unless it is empty or just the operation.
     """
-    name = (span.attributes or {}).get(name_key)
-    if isinstance(name, str):
+    if name := _get_string_attribute(span, name_key):
+        return name
+    if span.name and span.name != operation:
+        return span.name
+    return None
+
+
+def _get_string_attribute(span: ReadableSpan, key: str) -> str | None:
+    value = (span.attributes or {}).get(key)
+    if isinstance(value, str):
         # MLflow span APIs JSON-serialize attribute values, while instrumentations that write to
         # the OTel span directly store the raw string.
         try:
-            decoded = json.loads(name)
+            decoded = json.loads(value)
         except json.JSONDecodeError:
             decoded = None
         if isinstance(decoded, str):
-            name = decoded
-        if name:
-            return name
-    if span.name and span.name != operation:
-        return span.name
+            value = decoded
+        return value
     return None
 
 
@@ -200,16 +220,21 @@ def _get_converter(
 def _build_genai_span_name(original_name: str, genai_attrs: dict[str, Any]) -> str:
     """
     Build GenAI semconv span name: "{operation} {model}" (e.g., "chat gpt-4o"), or
-    "{operation} {name}" with the tool or agent name (e.g., "execute_tool get_weather").
+    "{operation} {name}" with the tool/agent/workflow name, or "retrieval {data_source_id}".
 
     Falls back to the operation alone, or to the original span name if there is no operation.
     """
     operation = genai_attrs.get(GenAiSemconvKey.OPERATION_NAME)
-    target = (
-        genai_attrs.get(GenAiSemconvKey.TOOL_NAME)
-        or genai_attrs.get(GenAiSemconvKey.AGENT_NAME)
-        or genai_attrs.get(GenAiSemconvKey.REQUEST_MODEL)
-    )
+    if operation == "retrieval":
+        target = genai_attrs.get(GenAiSemconvKey.DATA_SOURCE_ID)
+    elif operation == "invoke_workflow":
+        target = genai_attrs.get(GenAiSemconvKey.WORKFLOW_NAME)
+    else:
+        target = (
+            genai_attrs.get(GenAiSemconvKey.TOOL_NAME)
+            or genai_attrs.get(GenAiSemconvKey.AGENT_NAME)
+            or genai_attrs.get(GenAiSemconvKey.REQUEST_MODEL)
+        )
 
     if operation and target:
         return f"{operation} {target}"
@@ -220,7 +245,8 @@ def _get_genai_span_kind(genai_attrs: dict[str, Any], original_kind: SpanKind) -
     """
     Get the correct SpanKind for GenAI semconv.
 
-    GenAI semconv requires CLIENT for inference spans and INTERNAL for tool/agent spans.
+    GenAI semconv uses CLIENT for inference/retrieval and INTERNAL for local
+    tool/agent/workflow spans.
     """
     operation = genai_attrs.get(GenAiSemconvKey.OPERATION_NAME)
     return _OPERATION_TO_SPAN_KIND.get(operation, original_kind) if operation else original_kind
