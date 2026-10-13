@@ -22,7 +22,6 @@ from mlflow.protos.databricks_pb2 import (
 )
 from mlflow.store.model_registry.dbmodels.models import SqlRegisteredModel, SqlWebhook
 from mlflow.store.tracking.dbmodels.models import (
-    SqlAgentPlugin,
     SqlEvaluationDataset,
     SqlExperiment,
     SqlGatewayBudgetPolicy,
@@ -67,11 +66,6 @@ _WORKSPACE_ROOT_MODELS = [
     SqlGatewayGuardrail,
     SqlJob,
     SqlMCPServer,
-    # AgentPlugin is listed before Skill so that, on a cascade workspace delete,
-    # a plugin version's member rows are removed before the skill versions they
-    # reference, keeping the agent_plugin_version_members -> skill_versions
-    # RESTRICT foreign key from blocking the delete.
-    SqlAgentPlugin,
     SqlSkill,
 ]
 
@@ -238,22 +232,6 @@ class SqlAlchemyStore(AbstractStore):
                             session.delete(obj)
                 elif mode == WorkspaceDeletionMode.SET_DEFAULT:
                     self._check_set_default_conflicts(session, workspace_name)
-                    # Moving agent plugins between workspaces is not implemented yet, so
-                    # refuse rather than move part of one.
-                    blocking_plugins = (
-                        session
-                        .query(SqlAgentPlugin)
-                        .filter(SqlAgentPlugin.workspace == workspace_name)
-                        .count()
-                    )
-                    if blocking_plugins:
-                        raise MlflowException(
-                            f"Cannot reassign workspace '{workspace_name}' to "
-                            f"'{DEFAULT_WORKSPACE_NAME}': it contains {blocking_plugins} agent "
-                            "plugin(s), whose reassignment is not yet supported. Delete them "
-                            "first, then retry.",
-                            INVALID_STATE,
-                        )
                     for model in _WORKSPACE_ROOT_MODELS:
                         session.query(model).filter(model.workspace == workspace_name).update(
                             {model.workspace: DEFAULT_WORKSPACE_NAME},
@@ -380,7 +358,7 @@ class SqlAlchemyStore(AbstractStore):
             if not hasattr(model, "name"):
                 continue
             if hasattr(model, "organization"):
-                # Skills and agent plugins are identified by (organization, name).
+                # Skills are identified by (organization, name).
                 # EXISTS compares the columns one at a time, which works on every engine;
                 # SQL Server cannot compare two columns at once with IN.
                 in_default = aliased(model)

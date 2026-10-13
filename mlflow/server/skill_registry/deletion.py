@@ -14,11 +14,11 @@ def delete_skill(name: str, organization: str = "") -> None:
     """
     Hard-delete a skill and reclaim the artifact content its versions owned.
 
-    The store checks live references, captures the owned artifact paths, and commits the row
+    The store captures the owned artifact paths and commits the row
     deletion in one transaction. Only after that commit are the captured paths deleted, each
     one best-effort: a cleanup failure is logged and never restores rows or fails the delete.
-    Content a version merely references, such as a tree that belongs to an imported agent
-    plugin, is never among the captured paths, even when this was its last reference.
+    Content a version merely references is never among the captured paths, even when this
+    was its last reference.
     """
     from mlflow.server.handlers import _get_tracking_store
 

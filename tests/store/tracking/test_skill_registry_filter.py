@@ -15,11 +15,6 @@ from sqlalchemy.orm import Session
 
 from mlflow.exceptions import MlflowException
 from mlflow.store.tracking.dbmodels.models import (
-    SqlAgentPlugin,
-    SqlAgentPluginTag,
-    SqlAgentPluginVersion,
-    SqlAgentPluginVersionMember,
-    SqlAgentPluginVersionTag,
     SqlSkill,
     SqlSkillTag,
     SqlSkillVersion,
@@ -27,7 +22,6 @@ from mlflow.store.tracking.dbmodels.models import (
 )
 from mlflow.store.tracking.skill_registry_filter import (
     _get_comparison_func,
-    apply_member_name_filter,
     apply_skill_registry_filters,
     paginate_results,
     parse_skill_registry_order_by,
@@ -37,8 +31,6 @@ from mlflow.store.tracking.skill_registry_pagination import (
 )
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.utils.search_utils import (
-    SearchAgentPluginUtils,
-    SearchAgentPluginVersionUtils,
     SearchSkillUtils,
     SearchSkillVersionUtils,
 )
@@ -489,10 +481,6 @@ def _add_tagged_registry_row(session, parent_model, tag_model, name, tags):
         session.add(SqlSkill(**ident))
         ident["version"] = 1
         extra = {"status": "active"}
-    elif parent_model is SqlAgentPluginVersion:
-        session.add(SqlAgentPlugin(**ident))
-        ident["version"] = "1.0.0"
-        extra = {"plugin_json": {"$schema": "https://example.com", "name": name}}
     session.add(parent_model(**ident, **extra))
     session.add_all(tag_model(**ident, key=key, value=value) for key, value in tags.items())
 
@@ -502,10 +490,8 @@ def _add_tagged_registry_row(session, parent_model, tag_model, name, tags):
     [
         (SearchSkillUtils, SqlSkill, SqlSkillTag),
         (SearchSkillVersionUtils, SqlSkillVersion, SqlSkillVersionTag),
-        (SearchAgentPluginUtils, SqlAgentPlugin, SqlAgentPluginTag),
-        (SearchAgentPluginVersionUtils, SqlAgentPluginVersion, SqlAgentPluginVersionTag),
     ],
-    ids=["skill", "skill_version", "agent_plugin", "agent_plugin_version"],
+    ids=["skill", "skill_version"],
 )
 @pytest.mark.parametrize(
     "filter_string",
@@ -624,66 +610,6 @@ def test_order_by_deduplicates_computed_expression_tiebreaker():
     assert clauses[1].compare(SqlSkill.name.asc())
 
 
-_SEMVER_COLUMNS = (
-    SqlAgentPluginVersion.version_major,
-    SqlAgentPluginVersion.version_minor,
-    SqlAgentPluginVersion.version_patch,
-    SqlAgentPluginVersion.version_prerelease_sort_key,
-)
-_VERSIONS_BY_PRECEDENCE = ["1.0.0-alpha", "1.0.0-beta", "1.0.0", "2.0.0", "9.1.0", "10.0.0"]
-
-
-@pytest.mark.parametrize(
-    ("order_by", "expected"),
-    [
-        ("version DESC", _VERSIONS_BY_PRECEDENCE[::-1]),
-        ("version ASC", _VERSIONS_BY_PRECEDENCE),
-    ],
-)
-def test_order_by_multi_column_key_sorts_semver_by_precedence(store, order_by, expected):
-    with session_scope(store) as session:
-        session.add(SqlAgentPlugin(workspace="default", organization="acme", name="my-plugin"))
-        for version in ["2.0.0", "1.0.0", "10.0.0", "1.0.0-beta", "9.1.0", "1.0.0-alpha"]:
-            session.add(
-                SqlAgentPluginVersion(
-                    workspace="default",
-                    organization="acme",
-                    name="my-plugin",
-                    version=version,
-                    plugin_json={"$schema": "https://example.com", "name": "my-plugin"},
-                )
-            )
-
-    clauses = parse_skill_registry_order_by(
-        [order_by],
-        valid_keys={"version"},
-        column_map={"version": _SEMVER_COLUMNS},
-        default_tiebreakers=[],
-    )
-    with session_scope(store, commit=False) as session:
-        ordered = [v.version for v in session.query(SqlAgentPluginVersion).order_by(*clauses)]
-        # Precedence must match the ORM's own latest-version ordering.
-        latest_first = session.query(SqlAgentPluginVersion).order_by(
-            *SqlAgentPlugin._version_order_by()
-        )
-        assert [v.version for v in latest_first] == _VERSIONS_BY_PRECEDENCE[::-1]
-    assert ordered == expected
-
-
-def test_order_by_multi_column_key_deduplicates_tiebreakers():
-    clauses = parse_skill_registry_order_by(
-        ["version DESC"],
-        valid_keys={"version"},
-        column_map={"version": _SEMVER_COLUMNS},
-        default_tiebreakers=[
-            SqlAgentPluginVersion.version_major.desc(),
-            SqlAgentPluginVersion.created_at.desc(),
-        ],
-    )
-    assert len(clauses) == 5
-    assert clauses[-1].compare(SqlAgentPluginVersion.created_at.desc())
-
-
 def test_order_by_deduplicates_tiebreaker_with_mismatched_key_name():
     column_map = {"creation_timestamp": SqlSkill.created_at}
     clauses = parse_skill_registry_order_by(
@@ -742,69 +668,6 @@ def test_paginate_results_empty():
     )
     assert list(result) == []
     assert result.token is None
-
-
-# ---------------------------------------------------------------------------
-# member_name filter
-# ---------------------------------------------------------------------------
-
-
-def test_member_name_filter(store):
-    with session_scope(store) as session:
-        _add_skill(session, name="code-review", organization="acme")
-        session.add(
-            SqlSkillVersion(
-                workspace="default",
-                organization="acme",
-                name="code-review",
-                version=1,
-            )
-        )
-        session.add(
-            SqlAgentPlugin(
-                workspace="default",
-                organization="acme",
-                name="my-plugin",
-            )
-        )
-        session.add(
-            SqlAgentPluginVersion(
-                workspace="default",
-                organization="acme",
-                name="my-plugin",
-                version="1.0.0",
-                plugin_json={"$schema": "https://example.com", "name": "my-plugin"},
-            )
-        )
-        session.add(
-            SqlAgentPluginVersionMember(
-                plugin_workspace="default",
-                plugin_organization="acme",
-                plugin_name="my-plugin",
-                plugin_version="1.0.0",
-                member_organization="acme",
-                member_name="code-review",
-                member_version=1,
-            )
-        )
-        session.add(
-            SqlAgentPlugin(
-                workspace="default",
-                organization="beta",
-                name="other-plugin",
-            )
-        )
-
-    with session_scope(store, commit=False) as session:
-        query = session.query(SqlAgentPlugin)
-        query = apply_member_name_filter(
-            query,
-            "code-review",
-            dialect=store.engine.dialect.name,
-        )
-        results = query.all()
-        assert len(results) == 1
-        assert results[0].name == "my-plugin"
 
 
 # ---------------------------------------------------------------------------
@@ -873,128 +736,6 @@ def test_pagination_through_helpers_returns_every_row_once(store):
 
 
 # ---------------------------------------------------------------------------
-# member_name excludes deleted/withdrawn versions
-# ---------------------------------------------------------------------------
-
-
-def test_member_name_excludes_deleted_skill_version(store):
-    with session_scope(store) as session:
-        _add_skill(session, name="code-review", organization="acme")
-        sv = SqlSkillVersion(
-            workspace="default",
-            organization="acme",
-            name="code-review",
-            version=1,
-            status="active",
-        )
-        session.add(sv)
-        session.add(
-            SqlAgentPlugin(
-                workspace="default",
-                organization="acme",
-                name="my-plugin",
-            )
-        )
-        session.add(
-            SqlAgentPluginVersion(
-                workspace="default",
-                organization="acme",
-                name="my-plugin",
-                version="1.0.0",
-                plugin_json={"$schema": "https://example.com", "name": "my-plugin"},
-            )
-        )
-        session.add(
-            SqlAgentPluginVersionMember(
-                plugin_workspace="default",
-                plugin_organization="acme",
-                plugin_name="my-plugin",
-                plugin_version="1.0.0",
-                member_organization="acme",
-                member_name="code-review",
-                member_version=1,
-            )
-        )
-
-    with session_scope(store, commit=False) as session:
-        query = session.query(SqlAgentPlugin)
-        results = apply_member_name_filter(
-            query,
-            "code-review",
-            dialect=store.engine.dialect.name,
-        ).all()
-        assert len(results) == 1
-
-    # Deleting the member skill version makes the plugin version withdrawn.
-    with session_scope(store) as session:
-        sv = session.get(
-            SqlSkillVersion,
-            ("default", "acme", "code-review", 1),
-        )
-        sv.status = "deleted"
-
-    with session_scope(store, commit=False) as session:
-        query = session.query(SqlAgentPlugin)
-        results = apply_member_name_filter(
-            query,
-            "code-review",
-            dialect=store.engine.dialect.name,
-        ).all()
-        assert results == []
-
-
-def test_member_name_excludes_deleted_plugin_version(store):
-    with session_scope(store) as session:
-        _add_skill(session, name="code-review", organization="acme")
-        session.add(
-            SqlSkillVersion(
-                workspace="default",
-                organization="acme",
-                name="code-review",
-                version=1,
-                status="active",
-            )
-        )
-        session.add(
-            SqlAgentPlugin(
-                workspace="default",
-                organization="acme",
-                name="my-plugin",
-            )
-        )
-        session.add(
-            SqlAgentPluginVersion(
-                workspace="default",
-                organization="acme",
-                name="my-plugin",
-                version="1.0.0",
-                status="deleted",
-                plugin_json={"$schema": "https://example.com", "name": "my-plugin"},
-            )
-        )
-        session.add(
-            SqlAgentPluginVersionMember(
-                plugin_workspace="default",
-                plugin_organization="acme",
-                plugin_name="my-plugin",
-                plugin_version="1.0.0",
-                member_organization="acme",
-                member_name="code-review",
-                member_version=1,
-            )
-        )
-
-    with session_scope(store, commit=False) as session:
-        query = session.query(SqlAgentPlugin)
-        results = apply_member_name_filter(
-            query,
-            "code-review",
-            dialect=store.engine.dialect.name,
-        ).all()
-        assert results == []
-
-
-# ---------------------------------------------------------------------------
 # Order-by with sqlparse keyword fields
 # ---------------------------------------------------------------------------
 
@@ -1047,138 +788,8 @@ def test_order_by_rejects_single_quoted_identifiers(field, direction):
 
 
 # ---------------------------------------------------------------------------
-# Deleted sibling member withdraws entire version from member search
-# ---------------------------------------------------------------------------
-
-
-def test_member_name_excludes_version_with_deleted_sibling(store):
-    with session_scope(store) as session:
-        for name, status in [("code-review", "active"), ("unsafe-helper", "deleted")]:
-            _add_skill(session, name=name, organization="acme")
-            session.add(
-                SqlSkillVersion(
-                    workspace="default",
-                    organization="acme",
-                    name=name,
-                    version=1,
-                    status=status,
-                )
-            )
-        session.add(
-            SqlAgentPlugin(
-                workspace="default",
-                organization="acme",
-                name="my-plugin",
-            )
-        )
-        session.add(
-            SqlAgentPluginVersion(
-                workspace="default",
-                organization="acme",
-                name="my-plugin",
-                version="1.0.0",
-                plugin_json={"$schema": "https://example.com", "name": "my-plugin"},
-            )
-        )
-        for name in ("code-review", "unsafe-helper"):
-            session.add(
-                SqlAgentPluginVersionMember(
-                    plugin_workspace="default",
-                    plugin_organization="acme",
-                    plugin_name="my-plugin",
-                    plugin_version="1.0.0",
-                    member_organization="acme",
-                    member_name=name,
-                    member_version=1,
-                )
-            )
-
-    with session_scope(store, commit=False) as session:
-        query = session.query(SqlAgentPlugin)
-        results = apply_member_name_filter(
-            query,
-            "code-review",
-            dialect=store.engine.dialect.name,
-        ).all()
-        assert results == []
-
-
-def _add_plugin_version_with_members(session, version, members, workspace="default"):
-    session.add(
-        SqlAgentPluginVersion(
-            workspace=workspace,
-            organization="acme",
-            name="my-plugin",
-            version=version,
-            plugin_json={"$schema": "https://example.com", "name": "my-plugin"},
-        )
-    )
-    for member_name in members:
-        session.add(
-            SqlAgentPluginVersionMember(
-                plugin_workspace=workspace,
-                plugin_organization="acme",
-                plugin_name="my-plugin",
-                plugin_version=version,
-                member_organization="acme",
-                member_name=member_name,
-                member_version=1,
-            )
-        )
-
-
-def _seed_member_skills(session, statuses, workspace="default"):
-    for name, status in statuses.items():
-        session.add(SqlSkill(workspace=workspace, organization="acme", name=name))
-        session.add(
-            SqlSkillVersion(
-                workspace=workspace, organization="acme", name=name, version=1, status=status
-            )
-        )
-    session.add(SqlAgentPlugin(workspace=workspace, organization="acme", name="my-plugin"))
-
-
-def _member_matches(store, member_name):
-    with session_scope(store, commit=False) as session:
-        query = apply_member_name_filter(
-            session.query(SqlAgentPlugin), member_name, dialect=store.engine.dialect.name
-        )
-        return [(plugin.workspace, plugin.name) for plugin in query.all()]
-
-
-def test_member_name_keeps_version_with_deprecated_sibling(store):
-    with session_scope(store) as session:
-        _seed_member_skills(session, {"code-review": "active", "old-helper": "deprecated"})
-        _add_plugin_version_with_members(session, "1.0.0", ["code-review", "old-helper"])
-
-    # Only deleted members withdraw a version; deprecated ones do not.
-    assert _member_matches(store, "code-review") == [("default", "my-plugin")]
-
-
-def test_member_name_matches_older_eligible_version_when_newer_is_withdrawn(store):
-    with session_scope(store) as session:
-        _seed_member_skills(session, {"code-review": "active", "unsafe-helper": "deleted"})
-        _add_plugin_version_with_members(session, "1.0.0", ["code-review"])
-        _add_plugin_version_with_members(session, "2.0.0", ["code-review", "unsafe-helper"])
-
-    assert _member_matches(store, "code-review") == [("default", "my-plugin")]
-
-
-# ---------------------------------------------------------------------------
 # Workspace isolation
 # ---------------------------------------------------------------------------
-
-
-def test_member_name_isolated_by_workspace(store):
-    # Both workspaces hold the same skill and plugin identity; only team-a's
-    # plugin lists the member, so team-b's plugin must not match.
-    with session_scope(store) as session:
-        for workspace in ("team-a", "team-b"):
-            _seed_member_skills(session, {"code-review": "active"}, workspace=workspace)
-        _add_plugin_version_with_members(session, "1.0.0", ["code-review"], workspace="team-a")
-        _add_plugin_version_with_members(session, "1.0.0", [], workspace="team-b")
-
-    assert _member_matches(store, "code-review") == [("team-a", "my-plugin")]
 
 
 def test_tag_filter_isolated_by_workspace(store):

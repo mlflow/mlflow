@@ -47,10 +47,10 @@ def test_skill_version_from_dict_flat_git_source():
     [
         (
             "oci",
-            "ghcr.io/acme/plugin:v1",
+            "ghcr.io/acme/skills:v1",
             None,
             "x",
-            OCISource(image="ghcr.io/acme/plugin:v1", subpath="x"),
+            OCISource(image="ghcr.io/acme/skills:v1", subpath="x"),
         ),
         (
             "zip",

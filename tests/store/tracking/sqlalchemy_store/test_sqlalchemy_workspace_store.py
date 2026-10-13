@@ -54,12 +54,6 @@ from mlflow.environment_variables import (
 from mlflow.exceptions import MlflowException
 from mlflow.store.db.trace_rollups import run_sql_trace_rollups
 from mlflow.store.tracking.dbmodels.models import (
-    SqlAgentPlugin,
-    SqlAgentPluginAlias,
-    SqlAgentPluginTag,
-    SqlAgentPluginVersion,
-    SqlAgentPluginVersionMember,
-    SqlAgentPluginVersionTag,
     SqlAssessmentDailyRollup,
     SqlEntityAssociation,
     SqlExperiment,
@@ -3364,50 +3358,6 @@ def _seed_skill_registry_graph(session, workspace):
             workspace=workspace, organization="acme", name="code-review", alias="prod", version=1
         )
     )
-    session.add(SqlAgentPlugin(workspace=workspace, organization="acme", name="pr"))
-    session.add(
-        SqlAgentPluginVersion(
-            workspace=workspace,
-            organization="acme",
-            name="pr",
-            version="1.0.0",
-            plugin_json={"name": "pr", "version": "1.0.0"},
-            source_type="assembled",
-            source="assembled",
-        )
-    )
-    session.add(
-        SqlAgentPluginTag(workspace=workspace, organization="acme", name="pr", key="k", value="v")
-    )
-    session.add(
-        SqlAgentPluginVersionTag(
-            workspace=workspace,
-            organization="acme",
-            name="pr",
-            version="1.0.0",
-            key="k",
-            value="v",
-        )
-    )
-    session.add(
-        SqlAgentPluginAlias(
-            workspace=workspace, organization="acme", name="pr", alias="prod", version="1.0.0"
-        )
-    )
-    # The member has no ORM relationship to skill_versions (only a DB FK), so its
-    # insert must follow that row.
-    session.flush()
-    session.add(
-        SqlAgentPluginVersionMember(
-            plugin_workspace=workspace,
-            plugin_organization="acme",
-            plugin_name="pr",
-            plugin_version="1.0.0",
-            member_organization="acme",
-            member_name="code-review",
-            member_version=1,
-        )
-    )
 
 
 @pytest.mark.parametrize(
@@ -3418,15 +3368,6 @@ def _seed_skill_registry_graph(session, workspace):
         (SqlSkillTag, "workspace"),
         (SqlSkillVersionTag, "workspace"),
         (SqlSkillAlias, "workspace"),
-        (SqlAgentPlugin, "workspace"),
-        (SqlAgentPluginVersion, "workspace"),
-        (SqlAgentPluginTag, "workspace"),
-        (SqlAgentPluginVersionTag, "workspace"),
-        (SqlAgentPluginAlias, "workspace"),
-        # Members are the one table that does not call the column `workspace`, so they
-        # need their own branch in _get_query. The coverage test only reads the source;
-        # this runs the filter.
-        (SqlAgentPluginVersionMember, "plugin_workspace"),
     ],
 )
 def test_get_query_scopes_skill_registry_models_to_active_workspace(
