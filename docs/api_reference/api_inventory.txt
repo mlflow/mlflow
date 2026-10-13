@@ -350,10 +350,6 @@ mlflow.dspy.log_model
 mlflow.dspy.save_model
 mlflow.enable_system_metrics_logging
 mlflow.end_run
-mlflow.entities.AgentPlugin
-mlflow.entities.AgentPlugin.from_dict
-mlflow.entities.AgentPluginVersion
-mlflow.entities.AgentPluginVersion.from_dict
 mlflow.entities.Assessment
 mlflow.entities.Assessment.from_dictionary
 mlflow.entities.Assessment.from_proto
@@ -717,8 +713,6 @@ mlflow.entities.WorkspaceDeletionMode
 mlflow.entities.ZipSource
 mlflow.entities.ZipSource.from_dict
 mlflow.entities.ZipSource.to_dict
-mlflow.entities.agent_plugin.AgentPlugin
-mlflow.entities.agent_plugin_version.AgentPluginVersion
 mlflow.entities.assessment.Assessment
 mlflow.entities.assessment.Expectation
 mlflow.entities.assessment.Feedback

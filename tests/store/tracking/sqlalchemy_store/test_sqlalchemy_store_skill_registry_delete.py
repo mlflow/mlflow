@@ -6,9 +6,6 @@ import pytest
 from mlflow.entities.skill import SkillStatus
 from mlflow.exceptions import MlflowException
 from mlflow.store.tracking.dbmodels.models import (
-    SqlAgentPlugin,
-    SqlAgentPluginVersion,
-    SqlAgentPluginVersionMember,
     SqlSkillVersion,
 )
 from mlflow.store.tracking.skill_registry.artifact_paths import (
@@ -20,7 +17,7 @@ from mlflow.utils.workspace_context import WorkspaceContext
 
 pytestmark = pytest.mark.notrackingurimock
 
-_PACKAGE_TREE = "mlflow-artifacts:/agent-plugins/@acme/toolkit/0123456789abcdef0123456789abcdef"
+_EXTERNAL_TREE = "mlflow-artifacts:/external-content/@acme/toolkit/0123456789abcdef0123456789abcdef"
 
 
 def _upload(store, name="reviewer", organization="acme"):
@@ -30,54 +27,6 @@ def _upload(store, name="reviewer", organization="acme"):
         name, organization=organization, source_type="mlflow", source=to_artifact_uri(path)
     )
     return version, path
-
-
-def _add_plugin_version(
-    store, members, *, name="toolkit", version="1.0.0", status="active", source_type="oci"
-):
-    """
-    Insert an agent plugin version containing ``members`` as (skill name, version) pairs.
-
-    ``source_type`` is what makes it a packaged plugin; pass ``"assembled"`` for one whose
-    members are standalone skills pinned by reference.
-    """
-    with store.ManagedSessionMaker(read_only=False) as session:
-        if session.get(SqlAgentPlugin, (_workspace(store), "acme", name)) is None:
-            session.add(store._with_workspace_field(SqlAgentPlugin(organization="acme", name=name)))
-        session.add(
-            store._with_workspace_field(
-                SqlAgentPluginVersion(
-                    organization="acme",
-                    name=name,
-                    version=version,
-                    version_major=1,
-                    version_minor=0,
-                    version_patch=0,
-                    version_prerelease_sort_key="",
-                    plugin_json={"name": name, "version": version},
-                    status=status,
-                    source_type=source_type,
-                    source=None if source_type == "assembled" else "ghcr.io/acme/toolkit:v1",
-                )
-            )
-        )
-        session.flush()
-        for member_name, member_version in members:
-            session.add(
-                SqlAgentPluginVersionMember(
-                    plugin_workspace=_workspace(store),
-                    plugin_organization="acme",
-                    plugin_name=name,
-                    plugin_version=version,
-                    member_name=member_name,
-                    member_organization="acme",
-                    member_version=member_version,
-                )
-            )
-
-
-def _workspace(store):
-    return store._with_workspace_field(SqlAgentPlugin(name="probe")).workspace
 
 
 def _version_rows(store, name="reviewer"):
@@ -100,14 +49,13 @@ def test_delete_skill_removes_parent_versions_and_returns_owned_paths(store):
         store.get_skill("reviewer", organization="acme")
 
 
-def test_delete_skill_never_returns_a_referenced_package_tree(store):
-    # An imported member points into the plugin's tree. Deleting the skill, even as the last
-    # reference to that tree, must not schedule it for cleanup.
+def test_delete_skill_never_returns_a_referenced_tree(store):
+    # Deleting the last reference to an external tree must not schedule it for cleanup.
     store.create_skill_version(
         "reviewer",
         organization="acme",
         source_type="mlflow",
-        source=_PACKAGE_TREE,
+        source=_EXTERNAL_TREE,
         subpath="skills/reviewer",
     )
     _, owned_path = _upload(store)
@@ -149,77 +97,6 @@ def test_delete_skill_includes_soft_deleted_versions(store):
         })
 
     assert store.delete_skill_and_collect_artifacts("reviewer", organization="acme") == [path]
-
-
-def test_delete_skill_blocked_by_live_plugin_version_removes_nothing(store):
-    _upload(store)
-    _upload(store)
-    _add_plugin_version(store, [("reviewer", 2)])
-
-    with pytest.raises(MlflowException, match=r"@acme/toolkit/1\.0\.0 \(skill version 2\)") as exc:
-        store.delete_skill_and_collect_artifacts("reviewer", organization="acme")
-
-    assert exc.value.error_code == "RESOURCE_CONFLICT"
-    assert _version_rows(store) == 2
-    assert store.get_skill("reviewer", organization="acme").latest_version == 2
-
-
-@pytest.mark.parametrize("live_status", ["active", "draft", "deprecated"])
-def test_delete_skill_treats_every_non_deleted_plugin_status_as_live(store, live_status):
-    _upload(store)
-    _add_plugin_version(store, [("reviewer", 1)], status=live_status)
-
-    with pytest.raises(MlflowException, match="live agent plugin versions"):
-        store.delete_skill("reviewer", organization="acme")
-
-
-def test_delete_skill_purges_memberships_of_soft_deleted_plugin_versions(store):
-    _, path = _upload(store)
-    _add_plugin_version(store, [("reviewer", 1)], status="deleted")
-
-    assert store.delete_skill_and_collect_artifacts("reviewer", organization="acme") == [path]
-
-    with store.ManagedSessionMaker() as session:
-        assert session.query(SqlAgentPluginVersionMember).count() == 0
-        # Only the membership row goes; the soft-deleted plugin version itself stays.
-        assert session.query(SqlAgentPluginVersion).count() == 1
-
-
-def test_delete_skill_with_live_and_stale_memberships_keeps_both(store):
-    _upload(store)
-    _add_plugin_version(store, [("reviewer", 1)], version="1.0.0", status="deleted")
-    _add_plugin_version(store, [("reviewer", 1)], version="2.0.0", status="active")
-
-    with pytest.raises(MlflowException, match=r"toolkit/2\.0\.0"):
-        store.delete_skill("reviewer", organization="acme")
-
-    # The check runs before anything is removed, stale rows included.
-    with store.ManagedSessionMaker() as session:
-        assert session.query(SqlAgentPluginVersionMember).count() == 2
-
-
-def test_delete_skill_racing_a_new_live_membership_is_a_conflict(store):
-    # A plugin version that adds the skill between the reference check and the row deletion
-    # is stopped by the membership foreign key; simulate it by skipping the check.
-    _upload(store)
-    _add_plugin_version(store, [("reviewer", 1)])
-
-    with mock.patch.object(store, "_purge_stale_skill_memberships") as precheck:
-        with pytest.raises(MlflowException, match="became referenced") as exc:
-            store.delete_skill_and_collect_artifacts("reviewer", organization="acme")
-    precheck.assert_called_once()
-    assert exc.value.error_code == "RESOURCE_CONFLICT"
-    assert _version_rows(store) == 1
-    assert store.get_skill("reviewer", organization="acme").latest_version == 1
-
-
-def test_delete_skill_reports_a_bounded_number_of_references(store):
-    _upload(store)
-    for minor in range(12):
-        _add_plugin_version(store, [("reviewer", 1)], version=f"1.{minor}.0")
-
-    with pytest.raises(MlflowException, match="and 2 more"):
-        store.delete_skill("reviewer", organization="acme")
 
 
 def test_delete_skill_holds_out_a_concurrent_version_until_it_commits(store):
@@ -285,83 +162,3 @@ def test_delete_skill_is_workspace_scoped(store, workspaces_enabled):
     with WorkspaceContext("team-a"):
         assert store.get_skill_version("reviewer", 1, organization="acme").version == 1
         assert store.delete_skill_and_collect_artifacts("reviewer", "acme") == [team_a_path]
-
-
-def test_packaged_plugin_member_names_cannot_receive_standalone_versions(store):
-    _upload(store)
-    _add_plugin_version(store, [("reviewer", 1)])
-
-    with pytest.raises(MlflowException, match="member of the packaged agent plugin") as exc:
-        store.create_skill_version(
-            "reviewer", organization="acme", source_type="git", source="https://h/r.git"
-        )
-    assert exc.value.error_code == "RESOURCE_ALREADY_EXISTS"
-    assert "@acme/toolkit" in str(exc.value)
-    assert _version_rows(store) == 1
-
-
-def test_bulk_register_packaged_member_conflict_is_not_retried_and_rolls_back(store):
-    definition = {
-        "name": "reviewer",
-        "source_type": "git",
-        "source": "https://example.com/skills.git",
-        "digest": "a" * 64,
-    }
-    store.create_skill_version(**definition, organization="acme")
-    _add_plugin_version(store, [("reviewer", 1)])
-    with mock.patch.object(
-        store, "_bulk_register_skills_once", wraps=store._bulk_register_skills_once
-    ) as attempt:
-        with pytest.raises(MlflowException, match="member of the packaged agent plugin"):
-            store.bulk_register_skills(
-                [{**definition, "name": "another-skill"}, definition], organization="acme"
-            )
-    attempt.assert_called_once()
-    with pytest.raises(MlflowException, match="not found"):
-        store.get_skill("another-skill", organization="acme")
-    assert _version_rows(store) == 1
-
-
-def test_packaged_plugin_member_names_cannot_be_created_standalone(store):
-    # The membership row outlives its skill only in tests, but the name is still bound.
-    _upload(store)
-    _add_plugin_version(store, [("reviewer", 1)])
-    with pytest.raises(MlflowException, match="member of the packaged agent plugin"):
-        store.create_skill("reviewer", organization="acme")
-    # Another organization or name is free.
-    assert store.create_skill("reviewer", organization="example").name == "reviewer"
-    assert store.create_skill("linter", organization="acme").name == "linter"
-
-
-@pytest.mark.parametrize("status", ["active", "deleted"])
-def test_packaged_membership_binds_the_name_whatever_the_plugin_version_status(store, status):
-    _upload(store)
-    _add_plugin_version(store, [("reviewer", 1)], status=status)
-    with pytest.raises(MlflowException, match="member of the packaged agent plugin"):
-        store.create_skill_version(
-            "reviewer", organization="acme", source_type="git", source="https://h/r.git"
-        )
-
-
-def test_assembled_plugin_members_stay_standalone(store):
-    _upload(store)
-    _add_plugin_version(store, [("reviewer", 1)], source_type="assembled")
-    version = store.create_skill_version(
-        "reviewer", organization="acme", source_type="git", source="https://h/r.git"
-    )
-    assert version.version == 2
-
-
-def test_packaged_member_check_is_workspace_scoped(store, workspaces_enabled):
-    if not workspaces_enabled:
-        pytest.skip("workspace isolation only applies when workspaces are enabled")
-    with WorkspaceContext("team-a"):
-        _upload(store)
-        _add_plugin_version(store, [("reviewer", 1)])
-    with WorkspaceContext("team-b"):
-        assert (
-            store.create_skill_version(
-                "reviewer", organization="acme", source_type="git", source="https://h/r.git"
-            ).version
-            == 1
-        )

@@ -26,8 +26,6 @@ from mlflow.protos.databricks_pb2 import (
     ErrorCode,
 )
 from mlflow.store.tracking.dbmodels.models import (
-    SqlAgentPluginTag,
-    SqlAgentPluginVersionTag,
     SqlSkill,
     SqlSkillAlias,
     SqlSkillTag,
@@ -668,7 +666,7 @@ def test_skill_tag_value_uses_registry_limits_without_truncation(store):
 
 @pytest.mark.parametrize(
     "tag_model",
-    [SqlSkillTag, SqlSkillVersionTag, SqlAgentPluginTag, SqlAgentPluginVersionTag],
+    [SqlSkillTag, SqlSkillVersionTag],
 )
 @pytest.mark.parametrize(
     ("dialect", "expected_collation"),
@@ -691,7 +689,7 @@ def test_skill_registry_tag_key_columns_are_case_sensitive(tag_model, dialect, e
 )
 @pytest.mark.parametrize(
     "tag_model",
-    [SqlSkillTag, SqlSkillVersionTag, SqlAgentPluginTag, SqlAgentPluginVersionTag],
+    [SqlSkillTag, SqlSkillVersionTag],
 )
 def test_skill_registry_tag_value_columns_use_backend_text_type(tag_model, dialect, expected):
     tag_value_type = tag_model.__table__.c.value.type

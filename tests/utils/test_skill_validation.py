@@ -3,10 +3,8 @@ import pytest
 from mlflow.exceptions import MlflowException
 from mlflow.utils.validation import (
     MAX_MODEL_REGISTRY_TAG_VALUE_LENGTH,
-    _validate_agent_plugin_name,
     _validate_organization_name,
     _validate_skill_alias,
-    _validate_skill_artifact_path,
     _validate_skill_name,
     _validate_skill_tag,
     _validate_skill_version,
@@ -31,26 +29,6 @@ def test_invalid_skill_names(name):
 def test_skill_name_rejects_values_outside_rfc_contract(name):
     with pytest.raises(MlflowException, match="[Ss]kill name"):
         _validate_skill_name(name)
-
-
-@pytest.mark.parametrize("name", ["pr-workflow", "pr.workflow", "1.0.0", "acme"])
-def test_valid_agent_plugin_names(name):
-    _validate_agent_plugin_name(name)
-
-
-def test_agent_plugin_name_rejects_reserved_chars():
-    _validate_agent_plugin_name("pr-workflow")
-    with pytest.raises(MlflowException, match="plugin name"):
-        _validate_agent_plugin_name("pr/workflow")
-
-
-@pytest.mark.parametrize(
-    "name",
-    ["PR-workflow", "pr_workflow", "pr-workflow-", "pr..workflow", "pr--workflow", "a" * 65],
-)
-def test_agent_plugin_name_rejects_values_outside_rfc_contract(name):
-    with pytest.raises(MlflowException, match="plugin name"):
-        _validate_agent_plugin_name(name)
 
 
 @pytest.mark.parametrize(
@@ -114,35 +92,3 @@ def test_skill_tag_uses_registry_tag_value_limits():
 
     with pytest.raises(MlflowException, match="exceeds the maximum length"):
         _validate_skill_tag("team", "x" * (MAX_MODEL_REGISTRY_TAG_VALUE_LENGTH + 1))
-
-
-@pytest.mark.parametrize("path", ["code-review", "a/b/c", "dir/file.md"])
-def test_valid_artifact_paths(path):
-    _validate_skill_artifact_path(path)
-
-
-@pytest.mark.parametrize(
-    "path",
-    [
-        "/abs",
-        "../escape",
-        "a/../b",
-        "a//b",
-        "",
-        "a/%2e%2e/b",
-        "C:\\evil",
-        "a/%2e/b",
-        "a%2f%2fb",
-        "a\nb",
-        "a%0Ab",
-    ],
-)
-def test_invalid_artifact_paths(path):
-    with pytest.raises(MlflowException, match="path"):
-        _validate_skill_artifact_path(path)
-
-
-def test_artifact_path_decode_limit_raises_mlflow_exception():
-    path = "%25252525252525252525252e"
-    with pytest.raises(MlflowException, match="path"):
-        _validate_skill_artifact_path(path)

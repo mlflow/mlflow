@@ -1,18 +1,4 @@
 
-CREATE TABLE agent_plugins (
-	workspace VARCHAR(63) DEFAULT 'default'::character varying NOT NULL,
-	organization VARCHAR(64) DEFAULT ''::character varying NOT NULL,
-	name VARCHAR(128) NOT NULL,
-	description TEXT,
-	icons JSON,
-	created_by VARCHAR(256),
-	last_updated_by VARCHAR(256),
-	created_at BIGINT NOT NULL,
-	last_updated_at BIGINT NOT NULL,
-	CONSTRAINT agent_plugins_pk PRIMARY KEY (workspace, organization, name)
-)
-
-
 CREATE TABLE alembic_version (
 	version_num VARCHAR(32) NOT NULL,
 	CONSTRAINT alembic_version_pkc PRIMARY KEY (version_num)
@@ -266,53 +252,6 @@ CREATE TABLE workspaces (
 	trace_archival_location TEXT,
 	trace_archival_retention VARCHAR(32),
 	CONSTRAINT workspaces_pk PRIMARY KEY (name)
-)
-
-
-CREATE TABLE agent_plugin_aliases (
-	workspace VARCHAR(63) DEFAULT 'default'::character varying NOT NULL,
-	organization VARCHAR(64) DEFAULT ''::character varying NOT NULL,
-	name VARCHAR(128) NOT NULL,
-	alias VARCHAR(256) NOT NULL,
-	version VARCHAR(128) NOT NULL,
-	CONSTRAINT agent_plugin_aliases_pk PRIMARY KEY (workspace, organization, name, alias),
-	CONSTRAINT agent_plugin_aliases_plugin_fkey FOREIGN KEY(workspace, organization, name) REFERENCES agent_plugins (workspace, organization, name) ON DELETE CASCADE ON UPDATE CASCADE
-)
-
-
-CREATE TABLE agent_plugin_tags (
-	workspace VARCHAR(63) DEFAULT 'default'::character varying NOT NULL,
-	organization VARCHAR(64) DEFAULT ''::character varying NOT NULL,
-	name VARCHAR(128) NOT NULL,
-	key VARCHAR(250) NOT NULL,
-	value TEXT,
-	CONSTRAINT agent_plugin_tags_pk PRIMARY KEY (workspace, organization, name, key),
-	CONSTRAINT agent_plugin_tags_plugin_fkey FOREIGN KEY(workspace, organization, name) REFERENCES agent_plugins (workspace, organization, name) ON DELETE CASCADE ON UPDATE CASCADE
-)
-
-
-CREATE TABLE agent_plugin_versions (
-	workspace VARCHAR(63) DEFAULT 'default'::character varying NOT NULL,
-	organization VARCHAR(64) DEFAULT ''::character varying NOT NULL,
-	name VARCHAR(128) NOT NULL,
-	version VARCHAR(128) NOT NULL,
-	version_major INTEGER NOT NULL,
-	version_minor INTEGER NOT NULL,
-	version_patch INTEGER NOT NULL,
-	version_prerelease_sort_key VARCHAR(512) NOT NULL,
-	plugin_json JSON NOT NULL,
-	search_text TEXT,
-	source_type VARCHAR(20),
-	source VARCHAR(2048),
-	ref VARCHAR(2048),
-	subpath VARCHAR(2048),
-	status VARCHAR(20) DEFAULT 'active'::character varying NOT NULL,
-	created_by VARCHAR(256),
-	last_updated_by VARCHAR(256),
-	created_at BIGINT NOT NULL,
-	last_updated_at BIGINT NOT NULL,
-	CONSTRAINT agent_plugin_versions_pk PRIMARY KEY (workspace, organization, name, version),
-	CONSTRAINT agent_plugin_versions_plugin_fkey FOREIGN KEY(workspace, organization, name) REFERENCES agent_plugins (workspace, organization, name) ON DELETE CASCADE ON UPDATE CASCADE
 )
 
 
@@ -670,32 +609,6 @@ CREATE TABLE webhook_events (
 	action VARCHAR(50) NOT NULL,
 	CONSTRAINT webhook_event_pk PRIMARY KEY (webhook_id, entity, action),
 	CONSTRAINT webhook_events_webhook_id_fkey FOREIGN KEY(webhook_id) REFERENCES webhooks (webhook_id) ON DELETE CASCADE
-)
-
-
-CREATE TABLE agent_plugin_version_members (
-	plugin_workspace VARCHAR(63) DEFAULT 'default'::character varying NOT NULL,
-	plugin_organization VARCHAR(64) DEFAULT ''::character varying NOT NULL,
-	plugin_name VARCHAR(128) NOT NULL,
-	plugin_version VARCHAR(128) NOT NULL,
-	member_name VARCHAR(128) NOT NULL,
-	member_organization VARCHAR(64) DEFAULT ''::character varying NOT NULL,
-	member_version INTEGER NOT NULL,
-	CONSTRAINT agent_plugin_version_members_pk PRIMARY KEY (plugin_workspace, plugin_organization, plugin_name, plugin_version, member_name),
-	CONSTRAINT agent_plugin_version_members_plugin_fkey FOREIGN KEY(plugin_workspace, plugin_organization, plugin_name, plugin_version) REFERENCES agent_plugin_versions (workspace, organization, name, version) ON DELETE CASCADE ON UPDATE CASCADE,
-	CONSTRAINT agent_plugin_version_members_skill_fkey FOREIGN KEY(plugin_workspace, member_organization, member_name, member_version) REFERENCES skill_versions (workspace, organization, name, version)
-)
-
-
-CREATE TABLE agent_plugin_version_tags (
-	workspace VARCHAR(63) DEFAULT 'default'::character varying NOT NULL,
-	organization VARCHAR(64) DEFAULT ''::character varying NOT NULL,
-	name VARCHAR(128) NOT NULL,
-	version VARCHAR(128) NOT NULL,
-	key VARCHAR(250) NOT NULL,
-	value TEXT,
-	CONSTRAINT agent_plugin_version_tags_pk PRIMARY KEY (workspace, organization, name, version, key),
-	CONSTRAINT agent_plugin_version_tags_version_fkey FOREIGN KEY(workspace, organization, name, version) REFERENCES agent_plugin_versions (workspace, organization, name, version) ON DELETE CASCADE ON UPDATE CASCADE
 )
 
 

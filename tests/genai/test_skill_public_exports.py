@@ -15,12 +15,10 @@ def test_skill_exports_from_genai():
         "pull",
         "register_skill",
         "search_skills",
-        "AgentPlugin",
-        "AgentPluginVersion",
     ]:
         assert name in genai.__all__, f"{name} missing from mlflow.genai.__all__"
         assert getattr(genai, name) is not None
 
 
 def test_import_types_from_genai():
-    from mlflow.genai import AgentPlugin, GitSource, MlflowSource, Skill  # noqa: F401
+    from mlflow.genai import GitSource, MlflowSource, Skill  # noqa: F401

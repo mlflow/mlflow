@@ -1,6 +1,4 @@
 from mlflow.entities import (
-    AgentPlugin,
-    AgentPluginVersion,
     GitSource,
     MlflowSource,
     OCISource,
@@ -180,6 +178,4 @@ __all__ = [
     "MlflowSource",
     "OCISource",
     "ZipSource",
-    "AgentPlugin",
-    "AgentPluginVersion",
 ]
