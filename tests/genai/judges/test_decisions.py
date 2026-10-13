@@ -198,18 +198,28 @@ def test_default_api_uses_provider_route(model, expected):
     assert restored._resolved_model_api is expected
 
 
-def test_typesafe_default_preserves_rationale_flag_compatibility():
+@pytest.mark.parametrize(
+    ("model", "model_api"),
+    [
+        ("typesafe:/jev-latest", ModelAPI.DEFAULT),
+        ("typesafe:/jev-latest", ModelAPI.DECISIONS),
+        ("gateway:/jev-endpoint", ModelAPI.DEFAULT),
+        ("gateway:/jev-endpoint", ModelAPI.DECISIONS),
+    ],
+)
+def test_system_one_routes_preserve_rationale_flag_compatibility(model, model_api):
     judge = make_judge(
         name="quality",
         instructions="Judge {{ outputs }}.",
-        model="typesafe:/jev-latest",
+        model=model,
+        model_api=model_api,
         feedback_value_type=bool,
         generate_rationale_first=True,
     )
-    assert judge.model_api is ModelAPI.DEFAULT
+    assert judge.model_api is model_api
     assert judge._generate_rationale_first is True
     restored = Scorer.model_validate(judge.model_dump())
-    assert restored.model_api is ModelAPI.DEFAULT
+    assert restored.model_api is model_api
     assert restored._generate_rationale_first is True
 
 

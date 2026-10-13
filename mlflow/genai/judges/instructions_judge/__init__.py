@@ -795,7 +795,7 @@ class InstructionsJudge(Judge):
 
             _decision_question(self._instructions, self._feedback_value_type)
         if self._generate_rationale_first and not (
-            self._model_api is ModelAPI.DEFAULT and _is_typesafe_model(self._model)
+            _is_typesafe_model(self._model) or _is_gateway_model(self._model)
         ):
             raise MlflowException.invalid_parameter_value(
                 "Decision API judges do not return a rationale; "
