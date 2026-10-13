@@ -1,0 +1,84 @@
+name: Triage Runner Image
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [master, harupy/triage-custom-runner]
+    paths:
+      - .github/workflows/triage-runner-image.yml
+      - .github/actions/setup-python/**
+      - .github/actions/setup-node/**
+      - .claude/scripts/install-claude.sh
+      - .claude/scripts/install-agent-browser.sh
+      - .python-version
+      - pyproject.toml
+      - uv.lock
+      - mlflow/server/js/package.json
+      - mlflow/server/js/yarn.lock
+      - mlflow/server/js/.yarnrc.yml
+      - mlflow/server/js/vendor/**
+  schedule:
+    - cron: "0 3 * * 1"
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+permissions: {}
+cache-mode: none
+
+jobs:
+  build:
+    if: github.repository == 'mlflow/mlflow'
+    runs-on:
+      group: Triage Image Builders
+      labels: ubuntu-triage-image-builder
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    snapshot: mlflow-triage
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - parallel:
+          - uses: ./.github/actions/setup-python
+          - uses: ./.github/actions/setup-node
+          - name: Install system packages
+            run: |
+              sudo apt-get update
+              sudo apt-get install -y bubblewrap socat ripgrep ffmpeg
+          - name: Install Claude Code
+            run: .claude/scripts/install-claude.sh
+          - name: Install agent-browser
+            run: .claude/scripts/install-agent-browser.sh
+      - name: Install sandbox runtime
+        run: |
+          export npm_config_before="$(date -u -d '7 days ago' +%Y-%m-%d)"
+          npm install -g @anthropic-ai/sandbox-runtime@0.0.77
+      - name: Configure package caches
+        run: |
+          echo "UV_CACHE_DIR=$HOME/.cache/uv" >> "$GITHUB_ENV"
+          echo "YARN_GLOBAL_FOLDER=$HOME/.yarn/berry" >> "$GITHUB_ENV"
+          # setup-uv's download location is not part of the durable image.
+          install -m 755 "$(command -v uv)" "$HOME/.local/bin/uv"
+      - name: Warm Python and frontend dependencies
+        run: |
+          uv sync --locked
+          yarn --cwd mlflow/server/js install --immutable
+      - name: Verify installed tools
+        run: |
+          claude --version
+          agent-browser --version
+          srt --version
+          uv --version
+          python --version
+          node --version
+          google-chrome --version
+          du -sh "$UV_CACHE_DIR" "$YARN_GLOBAL_FOLDER"
+          sudo mkdir -p /opt/mlflow-triage
+          git rev-parse HEAD | sudo tee /opt/mlflow-triage/source-sha

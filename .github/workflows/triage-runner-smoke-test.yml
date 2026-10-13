@@ -1,0 +1,66 @@
+name: Triage Runner Smoke Test
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+permissions: {}
+cache-mode: none
+
+jobs:
+  smoke:
+    if: github.repository == 'mlflow/mlflow'
+    runs-on: ubuntu-triage
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    env:
+      XDG_DATA_HOME: /tmp/triage-xdg-data
+      XDG_CONFIG_HOME: /tmp/triage-xdg-config
+      XDG_CACHE_HOME: /tmp/triage-xdg-cache
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - parallel:
+          - uses: ./.github/actions/setup-python
+          - uses: ./.github/actions/setup-node
+      - name: Activate image caches
+        run: |
+          cat /opt/mlflow-triage/source-sha
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          echo "UV_CACHE_DIR=$HOME/.cache/uv" >> "$GITHUB_ENV"
+          echo "YARN_GLOBAL_FOLDER=$HOME/.yarn/berry" >> "$GITHUB_ENV"
+          echo "AGENT_BROWSER_EXECUTABLE_PATH=$(command -v google-chrome)" >> "$GITHUB_ENV"
+          mkdir -p ~/.claude ~/.cache/uv ~/.npm ~/.yarn/berry
+          echo '{}' > ~/.claude.json
+          if [ "$(sysctl -n kernel.apparmor_restrict_unprivileged_userns 2>/dev/null || true)" = 1 ]; then
+            sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          fi
+      - name: Verify sandbox and Python cache offline
+        run: |
+          claude --version
+          agent-browser --version
+          srt --settings .claude/sandbox/srt.json -- uv sync --locked --offline
+          srt --settings .claude/sandbox/srt.json -- uv run --offline python -c 'import mlflow; print(mlflow.__version__)'
+      - name: Verify frontend cache without downloads
+        working-directory: mlflow/server/js
+        run: |
+          srt --settings ../../../.claude/sandbox/srt.json -- yarn install --immutable --immutable-cache
+      - name: Verify browser in sandbox
+        env:
+          AGENT_BROWSER_SOCKET_DIR: /tmp/triage-agent-browser
+          AGENT_BROWSER_ARGS: --no-sandbox
+        run: |
+          srt --settings .claude/sandbox/srt.json -- bash -c '
+            trap "agent-browser close" EXIT
+            agent-browser open about:blank
+            agent-browser snapshot
+          '

@@ -503,7 +503,7 @@ jobs:
           echo "id=$id" >> "$GITHUB_OUTPUT"
   triage:
     needs: [issue, label, start_triage]
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-triage
     timeout-minutes: 45
     permissions:
       contents: read
@@ -526,26 +526,21 @@ jobs:
       - parallel:
           - uses: ./.github/actions/setup-python
           - uses: ./.github/actions/setup-node
-          - name: Install system packages
-            run: |
-              sudo apt-get update
-              sudo apt-get install -y bubblewrap socat ripgrep ffmpeg
-              if [ "$(sysctl -n kernel.apparmor_restrict_unprivileged_userns 2>/dev/null || true)" = 1 ]; then
-                sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
-              fi
-          - name: Install Claude Code
-            run: |
-              .claude/scripts/install-claude.sh
-              claude --version
-          - name: Install agent-browser
-            run: |
-              .claude/scripts/install-agent-browser.sh
-              agent-browser --version
-      # Needs setup-node.
-      - name: Install sandbox runtime
+      - name: Prepare runner image
         run: |
-          export npm_config_before="$(date -u -d '7 days ago' +%Y-%m-%d)"
-          npm install -g @anthropic-ai/sandbox-runtime@0.0.77
+          cat /opt/mlflow-triage/source-sha
+          export PATH="$HOME/.local/bin:$PATH"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          echo "UV_CACHE_DIR=$HOME/.cache/uv" >> "$GITHUB_ENV"
+          echo "YARN_GLOBAL_FOLDER=$HOME/.yarn/berry" >> "$GITHUB_ENV"
+          echo "AGENT_BROWSER_EXECUTABLE_PATH=$(command -v google-chrome)" >> "$GITHUB_ENV"
+          mkdir -p "$HOME/.yarn/berry"
+          claude --version
+          agent-browser --version
+          srt --version
+          if [ "$(sysctl -n kernel.apparmor_restrict_unprivileged_userns 2>/dev/null || true)" = 1 ]; then
+            sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          fi
       - id: gateway
         uses: ./.github/actions/setup-gateway
         with:

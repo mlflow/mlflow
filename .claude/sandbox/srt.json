@@ -22,7 +22,15 @@
       "/run/containerd",
       "/home/runner/work/_temp/_runner_file_commands"
     ],
-    "allowWrite": [".", "/tmp", "~/.claude", "~/.claude.json", "~/.cache/uv", "~/.npm"],
+    "allowWrite": [
+      ".",
+      "/tmp",
+      "~/.claude",
+      "~/.claude.json",
+      "~/.cache/uv",
+      "~/.npm",
+      "~/.yarn/berry"
+    ],
     "denyWrite": []
   }
 }
