@@ -115,12 +115,12 @@ describe('useDatasetsPageQuery', () => {
   });
 
   test.each([{}, { datasets: [] }])('handles an empty search response: %j', async (response) => {
-    jest.mocked(fetchAPI).mockResolvedValue(response);
+    jest.mocked(fetchAPI).mockResolvedValue({ ...response, next_page_token: 'next-page' });
 
     const { result } = renderHook(() => useDatasetsPageQuery(params), { wrapper });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data?.datasets).toEqual(response.datasets);
-    expect(result.current.data?.next_page_token).toBeUndefined();
+    expect(result.current.data?.next_page_token).toBe('next-page');
   });
 
   test('handles datasets without timestamps', async () => {
