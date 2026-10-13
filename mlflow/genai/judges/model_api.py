@@ -29,7 +29,8 @@ def _parse_model_api(model_api: ModelAPI | str | None) -> ModelAPI:
         ) from None
 
 
-def _resolve_model_api(model_uri: str, selected: ModelAPI) -> ModelAPI:
+def _select_model_api_mode(model_uri: str, selected: ModelAPI) -> ModelAPI:
+    """Select a dispatch mode, deferring Gateway DEFAULT routing until invocation."""
     provider = model_uri.partition(":/")[0]
     supported = _SUPPORTED_APIS.get(provider, frozenset({ModelAPI.CHAT_COMPLETIONS}))
     if selected is ModelAPI.DEFAULT:

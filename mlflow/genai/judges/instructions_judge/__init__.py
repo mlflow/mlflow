@@ -22,7 +22,7 @@ from mlflow.genai.judges.instructions_judge.constants import (
     INSTRUCTIONS_JUDGE_SYSTEM_PROMPT,
     INSTRUCTIONS_JUDGE_TRACE_PROMPT_TEMPLATE,
 )
-from mlflow.genai.judges.model_api import ModelAPI, _parse_model_api, _resolve_model_api
+from mlflow.genai.judges.model_api import ModelAPI, _parse_model_api, _select_model_api_mode
 from mlflow.genai.judges.structured_judge import (
     _invoke_gateway_judge,
     _is_gateway_model,
@@ -102,7 +102,7 @@ class InstructionsJudge(Judge):
     _extra_headers: dict[str, str] | None = PrivateAttr(default=None)
     _include_timing_in_conversation: bool = PrivateAttr(default=False)
     _model_api: ModelAPI = PrivateAttr(default=ModelAPI.DEFAULT)
-    _resolved_model_api: ModelAPI = PrivateAttr(default=ModelAPI.CHAT_COMPLETIONS)
+    _model_api_mode: ModelAPI = PrivateAttr(default=ModelAPI.CHAT_COMPLETIONS)
 
     def __init__(
         self,
@@ -640,7 +640,7 @@ class InstructionsJudge(Judge):
             self._TEMPLATE_VARIABLE_TRACE in self.template_variables or is_fallback_to_trace_mode
         )
 
-        if is_trace_based and self._resolved_model_api is ModelAPI.DECISIONS:
+        if is_trace_based and self._model_api_mode is ModelAPI.DECISIONS:
             raise MlflowException.invalid_parameter_value(
                 "Decision API judges do not support trace-based tool calling. "
                 "Pass the referenced inputs and outputs explicitly, or record them "
@@ -687,7 +687,7 @@ class InstructionsJudge(Judge):
                 extra_headers=self._extra_headers,
             )
 
-        if self._resolved_model_api is ModelAPI.DECISIONS:
+        if self._model_api_mode is ModelAPI.DECISIONS:
             if _is_typesafe_model(self._model) or _is_gateway_model(self._model):
                 try:
                     feedback = _invoke_typesafe_judge(
@@ -721,7 +721,7 @@ class InstructionsJudge(Judge):
                 )
         elif (
             _is_gateway_model(self._model)
-            and self._resolved_model_api is ModelAPI.DEFAULT
+            and self._model_api_mode is ModelAPI.DEFAULT
             and not is_trace_based
         ):
             # gateway:/ endpoints may serve System One (jev) models. Prefer chat so non-jev
@@ -783,8 +783,8 @@ class InstructionsJudge(Judge):
 
     def _validate_model_api(self) -> None:
         self._model_api = _parse_model_api(self._model_api)
-        self._resolved_model_api = _resolve_model_api(self._model, self._model_api)
-        if self._resolved_model_api is not ModelAPI.DECISIONS:
+        self._model_api_mode = _select_model_api_mode(self._model, self._model_api)
+        if self._model_api_mode is not ModelAPI.DECISIONS:
             return
         if self._TEMPLATE_VARIABLE_TRACE in self.template_variables:
             raise MlflowException.invalid_parameter_value(

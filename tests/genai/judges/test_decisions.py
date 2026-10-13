@@ -191,11 +191,11 @@ def test_default_api_uses_provider_route(model, expected):
         feedback_value_type=bool,
     )
     assert judge.model_api is ModelAPI.DEFAULT
-    assert judge._resolved_model_api is expected
+    assert judge._model_api_mode is expected
     assert "model_api" not in judge.model_dump()["instructions_judge_pydantic_data"]
     restored = Scorer.model_validate(judge.model_dump())
     assert restored.model_api is ModelAPI.DEFAULT
-    assert restored._resolved_model_api is expected
+    assert restored._model_api_mode is expected
 
 
 @pytest.mark.parametrize(
