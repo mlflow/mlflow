@@ -138,13 +138,13 @@ def test_non_aggregatable_output_warns_agent(value):
 
 def test_compute_aggregated_metrics_includes_quality_threshold_aggregation():
     scorers = [
-        Scorer(name="default", quality_threshold=QualityThreshold(at_least=0.5, aggregation="min")),
-        Scorer(
-            name="explicit",
-            aggregations=["max"],
-            quality_threshold=QualityThreshold(at_most=0.9, aggregation="p90"),
+        Scorer(name="default").with_quality_threshold(
+            QualityThreshold(at_least=0.5, aggregation="min")
         ),
-        Scorer(name="already_computed", aggregations=["mean"], quality_threshold=0.5),
+        Scorer(name="explicit", aggregations=["max"]).with_quality_threshold(
+            QualityThreshold(at_most=0.9, aggregation="p90")
+        ),
+        Scorer(name="already_computed", aggregations=["mean"]).with_quality_threshold(0.5),
     ]
     eval_results = [
         EvalResult(
@@ -173,8 +173,8 @@ def test_compute_aggregated_metrics_includes_quality_threshold_aggregation():
 
 def test_compute_aggregated_metrics_matches_scorer_name_containing_slash():
     scorers = [
-        Scorer(
-            name="team/latency", quality_threshold=QualityThreshold(at_most=2, aggregation="max")
+        Scorer(name="team/latency").with_quality_threshold(
+            QualityThreshold(at_most=2, aggregation="max")
         ),
         Scorer(name="correctness", aggregations=["min"]),
     ]

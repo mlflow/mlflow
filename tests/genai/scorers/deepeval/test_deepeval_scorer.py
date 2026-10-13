@@ -275,7 +275,7 @@ def test_deepeval_scorer_with_quality_threshold_on_databricks():
         scorer = ExactMatch().with_quality_threshold(0.9)
 
     assert isinstance(scorer, ExactMatch)
-    assert scorer.quality_threshold == 0.9
+    assert scorer._quality_threshold == 0.9
     result = scorer(outputs="MLflow", expectations={"expected_output": "MLflow"})
     assert result.value == CategoricalRating.YES
 

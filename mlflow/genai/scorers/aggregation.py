@@ -52,7 +52,7 @@ def compute_aggregated_metrics(
         # Default to computing the mean only
         aggregations = list(scorer.aggregations) if scorer.aggregations is not None else ["mean"]
         # Always compute the aggregation a quality threshold is checked against.
-        if (threshold := getattr(scorer, "quality_threshold", None)) is not None:
+        if (threshold := getattr(scorer, "_quality_threshold", None)) is not None:
             threshold_agg = _as_quality_threshold(threshold).aggregation
             if threshold_agg not in aggregations:
                 aggregations.append(threshold_agg)

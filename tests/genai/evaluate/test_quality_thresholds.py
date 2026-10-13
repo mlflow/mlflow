@@ -89,7 +89,7 @@ def test_build_tag_ignores_threshold_on_ensemble_sub_scorer(caplog, ensemble_thr
         ["ensemble/mean"] if ensemble_threshold else []
     )
     [record] = caplog.records
-    assert "Ignoring the `quality_threshold` on 'sub', a sub-scorer of the ensemble" in (
+    assert "Ignoring the quality threshold on 'sub', a sub-scorer of the ensemble" in (
         record.message
     )
 

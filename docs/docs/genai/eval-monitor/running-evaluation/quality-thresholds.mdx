@@ -2,7 +2,7 @@ import { APILink } from "@site/src/components/APILink";
 
 # Quality Thresholds
 
-A quality threshold is the bar a scorer's run-level metric must clear for an evaluation run to count as passing. Declare it on the scorer, and <APILink fn="mlflow.genai.evaluate">`mlflow.genai.evaluate`</APILink> records it on the evaluation run alongside the metrics it applies to.
+A quality threshold is the bar a scorer's run-level metric must clear for an evaluation run to count as passing. Set it with `with_quality_threshold`, and <APILink fn="mlflow.genai.evaluate">`mlflow.genai.evaluate`</APILink> records it on the evaluation run alongside the metrics it applies to.
 
 Thresholds belong to a run, not an experiment. When you change a scorer, for example by moving from v1 to v2 of a judge, each run keeps the bar it was evaluated against.
 
@@ -12,7 +12,7 @@ Quality thresholds are experimental in MLflow 3.17.1. The API and behavior may c
 
 ## Set a threshold
 
-Call `with_quality_threshold` on any scorer. It returns a copy of the scorer with the threshold set. A bare number means "at least", applied to the mean of the scorer's per-row values:
+Call `with_quality_threshold` on any scorer. It returns a copy of the scorer with the threshold set. You can't pass `quality_threshold=` to a scorer constructor. A bare number means "at least", applied to the mean of the scorer's per-row values:
 
 ```python
 import mlflow

@@ -35,21 +35,21 @@ def build_quality_threshold_rules(scorers: list[Scorer]) -> list[dict[str, Any]]
     rules = []
     for scorer in scorers:
         for sub_scorer in _sub_scorers(scorer):
-            # A sub-scorer has no run-level metric of its own, so its threshold can't be
-            # checked. It's ignored rather than rejected, because a registered scorer that is
-            # reused in an ensemble may carry the threshold saved with its version.
-            if sub_scorer.quality_threshold is not None:
+            # A sub-scorer has no run-level metric of its own, so its threshold has no effect.
+            # A warning is less disruptive than an error for that.
+            if sub_scorer._quality_threshold is not None:
                 _logger.warning(
-                    f"Ignoring the `quality_threshold` on '{sub_scorer.name}', a sub-scorer of "
+                    f"Ignoring the quality threshold on '{sub_scorer.name}', a sub-scorer of "
                     f"the ensemble '{scorer.name}'. Only the ensemble's own threshold is "
                     "recorded on the run."
                 )
 
-        if (value := getattr(scorer, "quality_threshold", None)) is None:
+        # NB: `getattr`, because legacy Databricks `Metric` objects aren't scorers.
+        if (value := getattr(scorer, "_quality_threshold", None)) is None:
             continue
         if name_counts[scorer.name] > 1:
             raise MlflowException.invalid_parameter_value(
-                f"`quality_threshold` is set on scorer '{scorer.name}', but another scorer "
+                f"A quality threshold is set on scorer '{scorer.name}', but another scorer "
                 "passed to `evaluate` has the same name, so the threshold can't be matched to "
                 "a single metric. Give each scorer a unique name."
             )
@@ -84,8 +84,8 @@ def build_quality_thresholds_tag(rules: list[dict[str, Any]]) -> str | None:
     if len(value) > MAX_TAG_VAL_LENGTH:
         raise MlflowException.invalid_parameter_value(
             f"The quality thresholds are {len(value)} characters once serialized, over the "
-            f"{MAX_TAG_VAL_LENGTH} character limit for a run tag. Set `quality_threshold` on "
-            "fewer scorers."
+            f"{MAX_TAG_VAL_LENGTH} character limit for a run tag. Set a quality threshold "
+            "on fewer scorers."
         )
     return value
 
