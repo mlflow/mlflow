@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791870644886,
+  "lastUpdate": 1791873804123,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "mprahl@users.noreply.github.com",
-            "name": "Matthew Prahl",
-            "username": "mprahl"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "14414ab000889614875b07d970af95093c12ff8a",
-          "message": "Add MCP registry backend and clients (#24380)\n\nSigned-off-by: Dan Kuc <dkuc@users.noreply.github.com>\nSigned-off-by: Jon Burdo <jon@jonburdo.com>\nSigned-off-by: Federico Mosca <fege85@gmail.com>\nCo-authored-by: Dan Kuc <dkuc@users.noreply.github.com>\nCo-authored-by: Jon Burdo <jon@jonburdo.com>\nCo-authored-by: Claude <noreply@anthropic.com>\nCo-authored-by: Dan Kuc <dkuc@redhat.com>\nCo-authored-by: Cursor <cursoragent@cursor.com>\nCo-authored-by: Federico Mosca <fege85@gmail.com>",
-          "timestamp": "2026-07-15T20:26:35Z",
-          "tree_id": "902b3c88452f890fb56c9e8c0ff4a61130e0991a",
-          "url": "https://github.com/mlflow/mlflow/commit/14414ab000889614875b07d970af95093c12ff8a"
-        },
-        "date": 1784147421608,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 34.594297949998776,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 18.97843487179493,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 17.926045220778445,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 18.76855138571512,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 19.44278712499899,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 6.164651666663208,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 7.868580400000269,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "84737625+kriscon-db@users.noreply.github.com",
+            "name": "Kris Concepcion",
+            "username": "kriscon-db"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "94140d9e9fcb6858e799068ec725a85fac284a4d",
+          "message": "Let the MLflow Assistant's gateway provider work on an authenticated server (#25851)\n\nSigned-off-by: Kris Concepcion <kris.concepcion@databricks.com>\nCo-authored-by: Claude <noreply@anthropic.com>\nCo-authored-by: Isaac <no-reply@databricks.com>",
+          "timestamp": "2026-10-13T06:39:49Z",
+          "tree_id": "2afe45b1f1736717c551a36d069305ed05ab2fe9",
+          "url": "https://github.com/mlflow/mlflow/commit/94140d9e9fcb6858e799068ec725a85fac284a4d"
+        },
+        "date": 1791873800348,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 47.72801050000339,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 5.732196875001311,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 5.057646107595658,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 5.097532312925146,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 6.459359282756191,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 5.597060500003674,
             "unit": "ms"
           }
         ]
