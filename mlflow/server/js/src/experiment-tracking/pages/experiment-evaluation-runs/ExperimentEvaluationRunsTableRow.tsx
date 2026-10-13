@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, type CSSProperties } from 'react';
 import {
   TableRow,
   TableCell,
@@ -11,7 +11,11 @@ import {
   Tag,
 } from '@databricks/design-system';
 import type { EvalRunsTableColumnDef } from './ExperimentEvaluationRunsTable.constants';
-import { EvalRunsTableColumnId, EvalRunsTableKeyedColumnPrefix } from './ExperimentEvaluationRunsTable.constants';
+import {
+  EVAL_RUNS_TIGHT_PADDING_COLUMN_IDS,
+  EvalRunsTableColumnId,
+  EvalRunsTableKeyedColumnPrefix,
+} from './ExperimentEvaluationRunsTable.constants';
 import type { Row } from '@tanstack/react-table';
 import { flexRender } from '@tanstack/react-table';
 import type { RunEntityOrGroupData } from './ExperimentEvaluationRunsPage.utils';
@@ -32,6 +36,10 @@ type TracesViewTableRowProps = {
   isHidden: boolean;
   isGrouped?: boolean;
   enableImprovedComparison?: boolean;
+  /** Resizable-column styles keyed by column id; when present, cells size via the CSS-variable widths. */
+  columnStyles?: Map<string, CSSProperties>;
+  /** Makes the row span the summed column width on the resizable path (undefined on the fixed path). */
+  rowWidthStyle?: CSSProperties;
   /** New UI: group rows get the secondary background and show per-metric averages. */
   showGroupSummaries?: boolean;
 };
@@ -73,10 +81,26 @@ const GroupLabel = ({ groupValues }: { groupValues: RunGroupByGroupingValue }): 
 
 export const ExperimentEvaluationRunsTableRow = React.memo(
   // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
-  ({ row, isActive, isGrouped, enableImprovedComparison, columns, showGroupSummaries }: TracesViewTableRowProps) => {
+  ({
+    row,
+    isActive,
+    isGrouped,
+    enableImprovedComparison,
+    columns,
+    columnStyles,
+    rowWidthStyle,
+    showGroupSummaries,
+  }: TracesViewTableRowProps) => {
     const { theme } = useDesignSystemTheme();
     const navigate = useNavigate();
     const getColumnStyles = (columnId: string) => columns.find((column) => column.id === columnId)?.meta?.styles;
+    // Data cells align with the header; icon-only columns keep the tight default.
+    const getCellStyle = (columnId: string) => {
+      const baseStyle = columnStyles?.get(columnId);
+      return columnStyles && !EVAL_RUNS_TIGHT_PADDING_COLUMN_IDS.has(columnId)
+        ? { ...baseStyle, paddingLeft: theme.spacing.sm, paddingRight: theme.spacing.sm }
+        : baseStyle;
+    };
 
     // Row click navigation - only enabled when feature flag is on
     const handleRowClick = useCallback(() => {
@@ -123,14 +147,18 @@ export const ExperimentEvaluationRunsTableRow = React.memo(
         <TableRow
           key={row.id}
           className="eval-runs-table-row"
-          style={{ backgroundColor: theme.colors.backgroundSecondary }}
+          style={{ ...rowWidthStyle, backgroundColor: theme.colors.backgroundSecondary }}
         >
           {row.getVisibleCells().map((cell) => {
             const columnId = cell.column.id;
             const isLabelCell = columnId === EvalRunsTableColumnId.runName;
             const isMetricCell = columnId.startsWith(`${EvalRunsTableKeyedColumnPrefix.METRIC}.`);
             return (
-              <TableCell key={cell.id} css={getColumnStyles(columnId)}>
+              <TableCell
+                key={cell.id}
+                style={getCellStyle(columnId)}
+                css={columnStyles ? undefined : getColumnStyles(columnId)}
+              >
                 {isLabelCell
                   ? groupLabel
                   : isMetricCell
@@ -149,6 +177,7 @@ export const ExperimentEvaluationRunsTableRow = React.memo(
         key={row.id}
         className="eval-runs-table-row"
         onClick={enableImprovedComparison ? handleRowClick : undefined}
+        style={rowWidthStyle}
         css={{
           cursor: enableImprovedComparison ? 'pointer' : undefined,
           marginLeft: enableImprovedComparison && isGrouped && row.depth > 0 ? theme.spacing.lg : undefined,
@@ -157,8 +186,9 @@ export const ExperimentEvaluationRunsTableRow = React.memo(
         {row.getVisibleCells().map((cell) => (
           <TableCell
             key={cell.id}
+            style={getCellStyle(cell.column.id)}
             css={[
-              (cell.column.columnDef as EvalRunsTableColumnDef).meta?.styles,
+              columnStyles ? undefined : (cell.column.columnDef as EvalRunsTableColumnDef).meta?.styles,
               {
                 backgroundColor: isActive ? theme.colors.actionDefaultBackgroundHover : 'transparent',
               },
@@ -181,6 +211,7 @@ export const ExperimentEvaluationRunsTableRow = React.memo(
       prev.isGrouped === next.isGrouped &&
       prev.enableImprovedComparison === next.enableImprovedComparison &&
       prev.showGroupSummaries === next.showGroupSummaries &&
+      prev.columnStyles === next.columnStyles &&
       // Group averages depend on the group's runs, which change as more pages load.
       (!next.showGroupSummaries || prev.row.original === next.row.original)
     );

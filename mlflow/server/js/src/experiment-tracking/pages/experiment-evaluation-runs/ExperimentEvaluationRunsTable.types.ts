@@ -1,3 +1,4 @@
+import type { MutableRefObject } from 'react';
 import type { DatasetWithRunType } from '../../components/experiment-page/components/runs/ExperimentViewDatasetDrawer';
 
 // The eval-runs table's TanStack `meta` shape; cells read `table.options.meta` cast to this. Not
@@ -10,6 +11,8 @@ export interface ExperimentEvaluationRunsTableMeta {
   flatRunIndexMap?: Record<string, number>;
   enableNewEvalRunsUi?: boolean;
   hasExpandableRows?: boolean;
+  /** Last clicked checkbox row; the start of a shift-click range. */
+  selectionAnchorRowIdRef?: MutableRefObject<string | undefined>;
 }
 
 // TanStack types `meta` as the empty `TableMeta`, so cells narrow it here instead of casting.

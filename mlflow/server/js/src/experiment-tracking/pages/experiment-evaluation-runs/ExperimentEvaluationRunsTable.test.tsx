@@ -8,6 +8,8 @@ import { DesignSystemProvider } from '@databricks/design-system';
 import { ExperimentEvaluationRunsRowVisibilityProvider } from './hooks/useExperimentEvaluationRunsRowVisibility';
 import { ExperimentEvaluationRunsPageMode } from './hooks/useExperimentEvaluationRunsPageMode';
 import {
+  EVAL_RUNS_COLUMN_SIZES,
+  EVAL_RUNS_KEYED_COLUMN_SIZE,
   EVAL_RUNS_TABLE_BASE_SELECTION_STATE,
   EvalRunsTableColumnId,
   EvalRunsTableKeyedColumnPrefix,
@@ -140,6 +142,7 @@ const renderTable = ({
   isGrouped,
   setSelectedDatasetWithRun = jest.fn(),
   setSelectedRunUuid = jest.fn(),
+  setSelectedColumns = jest.fn(),
   initialEntries,
 }: {
   data: RunEntityOrGroupData[];
@@ -149,6 +152,7 @@ const renderTable = ({
   isGrouped?: boolean;
   setSelectedDatasetWithRun?: jest.Mock;
   setSelectedRunUuid?: jest.Mock;
+  setSelectedColumns?: jest.Mock;
   initialEntries?: string[];
 }) => {
   const table = (tableData: RunEntityOrGroupData[]) => (
@@ -169,6 +173,7 @@ const renderTable = ({
                     }
                   }
                   setSelectedRunUuid={setSelectedRunUuid}
+                  setSelectedColumns={setSelectedColumns}
                   isLoading={false}
                   hasNextPage={false}
                   rowSelection={{}}
@@ -487,5 +492,140 @@ describe('ExperimentEvaluationRunsTable dataset cell', () => {
       { datasetWithTags: Record<string, unknown> },
     ];
     expect(datasetWithTags).not.toHaveProperty('tags');
+  });
+});
+
+const getRunNameOrder = () => screen.getAllByText(/^Run run-[abc]$/).map((element) => element.textContent);
+
+describe('ExperimentEvaluationRunsTable header menu', () => {
+  test('flag on: sorts a column ascending and descending from its header menu', async () => {
+    renderTable({ data: [makeRun('run-b'), makeRun('run-a'), makeRun('run-c')], enableNewEvalRunsUi: true });
+
+    await userEvent.click(screen.getByRole('button', { name: 'Options for run_name column' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Sort ascending' }));
+    expect(getRunNameOrder()).toEqual(['Run run-a', 'Run run-b', 'Run run-c']);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Options for run_name column' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Sort descending' }));
+    expect(getRunNameOrder()).toEqual(['Run run-c', 'Run run-b', 'Run run-a']);
+  });
+
+  test('flag on: hides a column from its header menu', async () => {
+    const setSelectedColumns = jest.fn();
+    renderTable({ data: [makeRun('run-a')], enableNewEvalRunsUi: true, setSelectedColumns });
+
+    await userEvent.click(screen.getByRole('button', { name: 'Options for dataset column' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Hide column' }));
+
+    expect(setSelectedColumns).toHaveBeenCalledWith(expect.objectContaining({ dataset: false, run_name: true }));
+  });
+
+  test('flag on: the run name column can be sorted but not hidden', async () => {
+    renderTable({ data: [makeRun('run-a')], enableNewEvalRunsUi: true });
+
+    await userEvent.click(screen.getByRole('button', { name: 'Options for run_name column' }));
+
+    expect(await screen.findByRole('menuitem', { name: 'Sort ascending' })).toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: 'Hide column' })).not.toBeInTheDocument();
+  });
+
+  test('flag on: run name, dataset and dataset version columns are sortable', () => {
+    renderTable({
+      data: [makeRun('run-a')],
+      enableNewEvalRunsUi: true,
+      selectedColumns: { ...getEvalRunsBaseSelectionState(true), [EvalRunsTableColumnId.datasetVersion]: true },
+    });
+
+    const sortableColumnIds = capturedTableOptions!.columns
+      .filter((column) => column.enableSorting && 'accessorFn' in column)
+      .map((column) => column.id);
+    expect(sortableColumnIds).toEqual(
+      expect.arrayContaining([
+        EvalRunsTableColumnId.runName,
+        EvalRunsTableColumnId.dataset,
+        EvalRunsTableColumnId.datasetVersion,
+      ]),
+    );
+  });
+
+  test('flag on: shows the active sort direction as a toggle in the header', async () => {
+    renderTable({ data: [makeRun('run-b'), makeRun('run-a')], enableNewEvalRunsUi: true });
+
+    await userEvent.click(screen.getByRole('button', { name: 'Options for run_name column' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Sort ascending' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Toggle sort direction for run_name' }));
+
+    expect(getRunNameOrder()).toEqual(['Run run-b', 'Run run-a']);
+  });
+
+  test('flag off: headers have no options menu and the run name column is not sortable', () => {
+    renderTable({ data: [makeRun('run-b'), makeRun('run-a')] });
+
+    expect(screen.queryByRole('button', { name: /^Options for .* column$/ })).not.toBeInTheDocument();
+    const runNameColumn = capturedTableOptions!.columns.find((column) => column.id === EvalRunsTableColumnId.runName);
+    expect(runNameColumn).not.toHaveProperty('accessorFn');
+    expect(getRunNameOrder()).toEqual(['Run run-b', 'Run run-a']);
+  });
+});
+
+describe('ExperimentEvaluationRunsTable column sizing', () => {
+  const COLUMN_SIZING_STORAGE_KEY = 'mlflow.eval-runs.column-sizing_v2';
+
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  test('flag on: columns get resizable widths, seeded from the persisted sizes', () => {
+    localStorage.setItem(COLUMN_SIZING_STORAGE_KEY, JSON.stringify({ [EvalRunsTableColumnId.runName]: 333 }));
+
+    const { container } = renderTable({ data: [makeRun('run-a')], enableNewEvalRunsUi: true });
+
+    const tableWithSizes = container.querySelector<HTMLElement>('[style*="--eval-runs-table-row-width"]');
+    expect(tableWithSizes).not.toBeNull();
+    // The checkbox column is index 0; Run Name follows it.
+    expect(tableWithSizes!.style.getPropertyValue('--eval-runs-table-column-1')).toBe('333px');
+    expect(tableWithSizes!.style.getPropertyValue('--eval-runs-table-column-2')).toBe('100px');
+  });
+
+  test('flag on: columns become resizable and are seeded with shared size specs', () => {
+    renderTable({
+      data: [makeRun('run-a')],
+      enableNewEvalRunsUi: true,
+      uniqueColumns: [metricColumn],
+      selectedColumns: {
+        ...getEvalRunsBaseSelectionState(true),
+        [EvalRunsTableColumnId.datasetVersion]: true,
+        [metricColumn]: true,
+      },
+    });
+
+    expect(capturedTableOptions!.enableColumnResizing).toBe(true);
+    const getColumn = (id: string) => capturedTableOptions!.columns.find((column) => column.id === id);
+    expect(getColumn(EvalRunsTableColumnId.runName)?.size).toBe(
+      EVAL_RUNS_COLUMN_SIZES[EvalRunsTableColumnId.runName]?.size,
+    );
+    expect(getColumn(metricColumn)?.size).toBe(EVAL_RUNS_KEYED_COLUMN_SIZE.size);
+    expect(getColumn(EvalRunsTableColumnId.checkbox)?.size).toBe(32);
+    expect(getColumn(EvalRunsTableColumnId.datasetVersion)?.size).toBe(
+      EVAL_RUNS_COLUMN_SIZES[EvalRunsTableColumnId.datasetVersion]?.size,
+    );
+  });
+
+  test('flag off: columns keep their fixed widths and ignore persisted sizes', () => {
+    localStorage.setItem(COLUMN_SIZING_STORAGE_KEY, JSON.stringify({ [EvalRunsTableColumnId.runName]: 333 }));
+    const getItemSpy = jest.spyOn(window.localStorage, 'getItem');
+    getItemSpy.mockClear();
+
+    const { container } = renderTable({ data: [makeRun('run-a')] });
+
+    expect(getItemSpy).not.toHaveBeenCalledWith(COLUMN_SIZING_STORAGE_KEY);
+    getItemSpy.mockRestore();
+
+    expect(container.querySelector('[style*="--eval-runs-table-"]')).toBeNull();
+    expect(capturedTableOptions!.enableColumnResizing).toBe(false);
+    expect(capturedTableOptions!.initialState).toBeUndefined();
+    expect(
+      capturedTableOptions!.columns.find((column) => column.id === EvalRunsTableColumnId.runName)?.size,
+    ).toBeUndefined();
   });
 });

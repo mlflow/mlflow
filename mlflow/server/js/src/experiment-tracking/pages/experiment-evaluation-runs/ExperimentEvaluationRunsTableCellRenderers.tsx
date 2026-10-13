@@ -39,6 +39,7 @@ import type { DatasetWithRunType } from '../../components/experiment-page/compon
 import { isEvalRunsTableMeta } from './ExperimentEvaluationRunsTable.types';
 import { EvalRunsTableKeyedColumnPrefix } from './ExperimentEvaluationRunsTable.constants';
 import { formatEvalRunsNumericValue } from './ExperimentEvaluationRunsNumberFormat';
+import { toggleEvalRunRowSelection } from './evalRunsRowSelection';
 import { getEvalRunsGroupMetricMean } from './EvalRunsGroup.utils';
 import { useExperimentEvaluationRunsRowVisibility } from './hooks/useExperimentEvaluationRunsRowVisibility';
 import { RunPageTabName } from '../../constants';
@@ -83,7 +84,14 @@ export const CheckboxCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({ row, tab
       disabled={!row.getCanSelect()}
       isChecked={row.getIsSelected()}
       wrapperStyle={{ padding: 0, margin: 0 }}
-      onChange={() => row.toggleSelected()}
+      onChange={(_, event) => {
+        const anchorRowIdRef = isEvalRunsTableMeta(meta) ? meta.selectionAnchorRowIdRef : undefined;
+        if (!anchorRowIdRef) {
+          row.toggleSelected();
+          return;
+        }
+        toggleEvalRunRowSelection({ table, row, selectRange: event.nativeEvent.shiftKey, anchorRowIdRef });
+      }}
       onClick={(e) => e.stopPropagation()}
     />
   );
@@ -538,9 +546,13 @@ export const KeyedValueCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({
 
 export const SortableHeaderCell = ({
   column,
+  table,
   title,
 }: HeaderContext<RunEntityOrGroupData, unknown> & { title?: React.ReactElement }) => {
   const { theme } = useDesignSystemTheme();
+  // Sorting is driven from the header menu, so suppress the built-in hover sort icon and pointer cursor.
+  const meta = table.options.meta;
+  const hideSortIcon = Boolean(isEvalRunsTableMeta(meta) && meta.enableNewEvalRunsUi);
 
   const displayedKey = useMemo(() => parseEvalRunsTableKeyedColumnKey(column.id)?.key ?? column.id, [column.id]);
 
@@ -551,7 +563,7 @@ export const SortableHeaderCell = ({
         display: 'flex',
         alignItems: 'center',
         gap: theme.spacing.xs,
-        ':hover': { cursor: 'pointer', '& > div': { display: 'inline' } },
+        ...(hideSortIcon ? {} : { ':hover': { cursor: 'pointer', '& > div': { display: 'inline' } } }),
       }}
     >
       <Tooltip
@@ -562,7 +574,7 @@ export const SortableHeaderCell = ({
           <Typography.Text bold>{title ?? displayedKey}</Typography.Text>
         </span>
       </Tooltip>
-      {!column.getIsSorted() && (
+      {!hideSortIcon && !column.getIsSorted() && (
         <div
           css={{
             display: 'none',
