@@ -7,7 +7,7 @@ from typing import Any, Callable, ClassVar, Collection
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
-from mlflow.genai.judges import make_judge
+from mlflow.genai.judges import ModelAPI, make_judge
 from mlflow.genai.judges.base import AlignmentOptimizer, Judge
 from mlflow.genai.judges.optimizers.dspy_utils import (
     _check_dspy_installed,
@@ -122,6 +122,7 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
             instructions=instructions,
             model=original_judge.model,
             feedback_value_type=original_judge.feedback_value_type,
+            model_api=getattr(original_judge, "model_api", ModelAPI.DEFAULT),
         )
 
     def _get_dspy_program_from_judge(self, judge: Judge) -> Any:
