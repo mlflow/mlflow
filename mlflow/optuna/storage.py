@@ -217,9 +217,16 @@ class MlflowStorage(BaseStorage):
 
             # Only make the API call if there's something to flush
             if batch["metrics"] or batch["params"] or batch["tags"]:
+                # Async logging would only enqueue the write, so strict mode forces a
+                # synchronous call to surface failures before the batch is cleared.
+                sync_kwargs = {"synchronous": True} if raise_on_error else {}
                 try:
                     self._mlflow_client.log_batch(
-                        run_id, metrics=batch["metrics"], params=batch["params"], tags=batch["tags"]
+                        run_id,
+                        metrics=batch["metrics"],
+                        params=batch["params"],
+                        tags=batch["tags"],
+                        **sync_kwargs,
                     )
                 except Exception as e:
                     if raise_on_error or ("Run with id=" in str(e) and "not found" in str(e)):
@@ -549,7 +556,7 @@ class MlflowStorage(BaseStorage):
         # rather than leave a COMPLETE trial with no value behind.
         self._flush_batch(trial_id, raise_on_error=True)
         if metrics:
-            self._mlflow_client.log_batch(trial_id, metrics=metrics)
+            self._mlflow_client.log_batch(trial_id, metrics=metrics, synchronous=True)
 
         if state.is_finished():
             self._mlflow_client.set_terminated(trial_id, status=optuna_mlflow_status_map[state])
