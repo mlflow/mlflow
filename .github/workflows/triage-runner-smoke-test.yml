@@ -55,6 +55,8 @@ jobs:
           srt --settings .claude/sandbox/srt.json -- uv run --offline python -c 'import mlflow; print(mlflow.__version__)'
       - name: Verify frontend cache without downloads
         working-directory: mlflow/server/js
+        env:
+          YARN_ENABLE_NETWORK: "0"
         run: |
           srt --settings ../../../.claude/sandbox/srt.json -- yarn install --immutable --immutable-cache
       - name: Verify browser in sandbox

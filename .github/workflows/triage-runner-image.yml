@@ -16,6 +16,7 @@ on:
       - mlflow/server/js/package.json
       - mlflow/server/js/yarn.lock
       - mlflow/server/js/.yarnrc.yml
+      - mlflow/server/js/yarn/**
       - mlflow/server/js/vendor/**
   schedule:
     - cron: "0 3 * * 1"
@@ -66,10 +67,11 @@ jobs:
           echo "YARN_GLOBAL_FOLDER=$HOME/.yarn/berry" >> "$GITHUB_ENV"
           # setup-uv's download location is not part of the durable image.
           install -m 755 "$(command -v uv)" "$HOME/.local/bin/uv"
-      - name: Warm Python and frontend dependencies
-        run: |
-          uv sync --locked
-          yarn --cwd mlflow/server/js install --immutable
+      - name: Warm Python dependencies
+        run: uv sync --locked
+      - name: Warm frontend dependencies
+        working-directory: mlflow/server/js
+        run: yarn install --immutable
       - name: Verify installed tools
         run: |
           claude --version
