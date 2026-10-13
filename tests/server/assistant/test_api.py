@@ -707,6 +707,24 @@ def test_update_config_sets_provider(client):
     assert data["providers"]["claude_code"]["selected"] is True
 
 
+def test_update_config_rejects_non_dict_permissions(client):
+    # A malformed `permissions` value (a string, not an object) must be rejected at the boundary
+    # rather than raising AttributeError from perm_data.get() and surfacing as a 500.
+    response = client.put(
+        "/ajax-api/3.0/mlflow/assistant/config",
+        json={"providers": {"claude_code": {"permissions": "full"}}},
+    )
+    assert response.status_code == 400
+
+
+def test_update_config_rejects_non_dict_provider(client):
+    response = client.put(
+        "/ajax-api/3.0/mlflow/assistant/config",
+        json={"providers": {"claude_code": "not-a-dict"}},
+    )
+    assert response.status_code == 400
+
+
 def test_update_config_stores_gateway_vendor_api_key_in_llm_connections(client, isolated_config):
     with patch(
         "mlflow.server.assistant.api.ensure_gateway_connection",
