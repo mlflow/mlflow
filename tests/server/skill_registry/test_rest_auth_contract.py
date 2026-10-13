@@ -10,6 +10,7 @@ from mlflow.environment_variables import (
     MLFLOW_FLASK_SERVER_SECRET_KEY,
     MLFLOW_WORKSPACE_STORE_URI,
 )
+from mlflow.server import ARTIFACTS_DESTINATION_ENV_VAR, SERVE_ARTIFACTS_ENV_VAR
 from mlflow.utils.os import is_windows
 
 from tests.helper_functions import random_str
@@ -20,6 +21,7 @@ from tests.server.auth.auth_test_utils import (
     grant_role_permission,
     write_isolated_auth_config,
 )
+from tests.server.skill_registry.conftest import skill_archive, stored_files
 from tests.tracking.integration_test_utils import _init_server
 
 pytestmark = pytest.mark.notrackingurimock
@@ -53,6 +55,8 @@ def authenticated_registry(tmp_path_factory) -> AuthenticatedRegistry:
         MLFLOW_ENABLE_WORKSPACES.name: "true",
         MLFLOW_FLASK_SERVER_SECRET_KEY.name: "skill-registry-rest-auth-secret",
         MLFLOW_WORKSPACE_STORE_URI.name: backend_uri,
+        SERVE_ARTIFACTS_ENV_VAR: "true",
+        ARTIFACTS_DESTINATION_ENV_VAR: str(artifact_root),
         "_MLFLOW_SGI_NAME": "uvicorn",
     }
 
@@ -179,12 +183,20 @@ def test_skill_mutations_require_write_permission(authenticated_registry, prefix
         auth=reader,
     )
     assert response.status_code == 403, response.text
+    response = requests.get(_url(registry, prefix, f"/{name}"), auth=registry.admin)
+    assert response.status_code == 200, response.text
+    assert response.json()["description"] != "not allowed"
 
     response = requests.delete(
         _url(registry, prefix, f"/{name}/versions/1"),
         auth=reader,
     )
     assert response.status_code == 403, response.text
+    response = requests.get(
+        _url(registry, prefix, f"/{name}/versions/1"),
+        auth=registry.admin,
+    )
+    assert response.status_code == 200, response.text
 
     response = requests.post(
         _url(registry, prefix, f"/{name}/tags"),
@@ -192,6 +204,9 @@ def test_skill_mutations_require_write_permission(authenticated_registry, prefix
         auth=reader,
     )
     assert response.status_code == 403, response.text
+    response = requests.get(_url(registry, prefix, f"/{name}"), auth=registry.admin)
+    assert response.status_code == 200, response.text
+    assert response.json()["tags"] == {}
 
 
 @pytest.mark.parametrize("prefix", _PREFIXES)
@@ -228,7 +243,7 @@ def test_skill_version_registration_requires_edit_permission(authenticated_regis
 
 
 @pytest.mark.parametrize("prefix", _PREFIXES)
-def test_skill_alias_mutations_require_manage_permission(authenticated_registry, prefix):
+def test_skill_alias_permissions_distinguish_edit_and_manage(authenticated_registry, prefix):
     registry = authenticated_registry
     reader = create_user(registry.base_url)
     name = f"alias-{random_str()}"
@@ -255,11 +270,65 @@ def test_skill_alias_mutations_require_manage_permission(authenticated_registry,
         auth=reader,
     )
     assert response.status_code == 403, response.text
+    response = requests.get(
+        _url(registry, prefix, f"/{name}/aliases/candidate"),
+        auth=registry.admin,
+    )
+    assert response.status_code == 404, response.text
     response = requests.delete(
         _url(registry, prefix, f"/{name}/aliases/stable"),
         auth=reader,
     )
     assert response.status_code == 403, response.text
+    response = requests.get(
+        _url(registry, prefix, f"/{name}/aliases/stable"),
+        auth=registry.admin,
+    )
+    assert response.status_code == 200, response.text
+
+    grant_role_permission(
+        registry.base_url,
+        reader[0],
+        "skill",
+        name,
+        "EDIT",
+        auth=registry.admin,
+    )
+    response = requests.post(
+        _url(registry, prefix, f"/{name}/aliases"),
+        json={"alias": "candidate", "version": 1},
+        auth=reader,
+    )
+    assert response.status_code == 200, response.text
+    response = requests.delete(
+        _url(registry, prefix, f"/{name}/aliases/stable"),
+        auth=reader,
+    )
+    assert response.status_code == 403, response.text
+    response = requests.get(
+        _url(registry, prefix, f"/{name}/aliases/stable"),
+        auth=registry.admin,
+    )
+    assert response.status_code == 200, response.text
+
+    grant_role_permission(
+        registry.base_url,
+        reader[0],
+        "skill",
+        name,
+        "MANAGE",
+        auth=registry.admin,
+    )
+    response = requests.delete(
+        _url(registry, prefix, f"/{name}/aliases/stable"),
+        auth=reader,
+    )
+    assert response.status_code == 200, response.text
+    response = requests.get(
+        _url(registry, prefix, f"/{name}/aliases/stable"),
+        auth=registry.admin,
+    )
+    assert response.status_code == 404, response.text
 
 
 @pytest.mark.parametrize("prefix", _PREFIXES)
@@ -371,12 +440,20 @@ def test_denied_multipart_registration_does_not_persist_content(authenticated_re
     registry = authenticated_registry
     reader = create_user(registry.base_url)
     name = f"upload-{random_str()}"
+    archive = skill_archive(
+        files={
+            "SKILL.md": (
+                f"---\nname: {name}\ndescription: Reviews code\n---\n# Reviewer\n"
+            ).encode()
+        }
+    ).getvalue()
+    files_before = set(stored_files(registry.artifact_root))
 
     response = requests.post(
         _url(registry, prefix, f"/{name}/versions"),
         files={
             "metadata": ("metadata.json", "{}", "application/json"),
-            "content": ("skill.tar.gz", b"not-an-archive", "application/gzip"),
+            "content": ("skill.tar.gz", archive, "application/gzip"),
         },
         auth=reader,
     )
@@ -384,4 +461,23 @@ def test_denied_multipart_registration_does_not_persist_content(authenticated_re
     assert response.status_code == 403, response.text
     response = requests.get(_url(registry, prefix, f"/{name}"), auth=registry.admin)
     assert response.status_code == 404, response.text
-    assert not any(registry.artifact_root.rglob("*"))
+    assert set(stored_files(registry.artifact_root)) == files_before
+
+    authorized_name = f"authorized-upload-{random_str()}"
+    authorized_archive = skill_archive(
+        files={
+            "SKILL.md": (
+                f"---\nname: {authorized_name}\ndescription: Reviews code\n---\n# Reviewer\n"
+            ).encode()
+        }
+    ).getvalue()
+    response = requests.post(
+        _url(registry, prefix, f"/{authorized_name}/versions"),
+        files={
+            "metadata": ("metadata.json", "{}", "application/json"),
+            "content": ("skill.tar.gz", authorized_archive, "application/gzip"),
+        },
+        auth=registry.admin,
+    )
+    assert response.status_code == 200, response.text
+    assert any(registry.artifact_root.rglob("*"))

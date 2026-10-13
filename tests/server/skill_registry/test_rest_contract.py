@@ -52,7 +52,12 @@ def _archive_member(name: str, member_type: int, linkname: str = "") -> tarfile.
 @pytest.mark.parametrize("prefix", ["/ajax-api/3.0/mlflow/skills", "/api/3.0/mlflow/skills"])
 @pytest.mark.parametrize("organization", ["", "acme"])
 def test_parent_skill_lifecycle_over_http(
-    prefix: str, organization: str, skill_registry_client, store, skill_registry_api_prefixes
+    prefix: str,
+    organization: str,
+    skill_registry_client,
+    store,
+    skill_registry_api_prefixes,
+    mock_icon_hostname_resolution,
 ):
     assert prefix in skill_registry_api_prefixes
     identity_path = f"@{organization}/code-review" if organization else "code-review"
@@ -315,11 +320,16 @@ def test_parent_source_type_filter_tracks_latest_non_deleted_version(
 
 
 @pytest.mark.parametrize("prefix", ["/ajax-api/3.0/mlflow/skills", "/api/3.0/mlflow/skills"])
-def test_skill_version_search_filters_and_orders_sql_results(prefix, skill_registry_client, store):
-    store.create_skill("code-review")
+@pytest.mark.parametrize("organization", ["", "acme"])
+def test_skill_version_search_filters_and_orders_sql_results(
+    prefix, organization, skill_registry_client, store
+):
+    identity_path = f"@{organization}/code-review" if organization else "code-review"
+    store.create_skill("code-review", organization=organization)
     for version, status in enumerate(("active", "draft", "active"), start=1):
         store.create_skill_version(
             "code-review",
+            organization=organization,
             source_type="git",
             source="https://github.com/acme/skills.git",
             ref=f"v{version}",
@@ -327,7 +337,7 @@ def test_skill_version_search_filters_and_orders_sql_results(prefix, skill_regis
         )
 
     response = skill_registry_client.get(
-        f"{prefix}/code-review/versions",
+        f"{prefix}/{identity_path}/versions",
         params=[
             ("filter_string", "status = 'active'"),
             ("max_results", "1"),
@@ -340,7 +350,7 @@ def test_skill_version_search_filters_and_orders_sql_results(prefix, skill_regis
     assert page_token
 
     response = skill_registry_client.get(
-        f"{prefix}/code-review/versions",
+        f"{prefix}/{identity_path}/versions",
         params=[
             ("filter_string", "status = 'active'"),
             ("max_results", "1"),
@@ -534,6 +544,7 @@ def test_registration_rejects_unsupported_content_type(prefix, skill_registry_cl
     ("payload", "message"),
     [
         ({"name": "reviewer", "organization": "InvalidOrg"}, "Invalid organization name"),
+        ({"name": "invalid_name"}, "Invalid skill name"),
     ],
 )
 @pytest.mark.parametrize("prefix", ["/ajax-api/3.0/mlflow/skills", "/api/3.0/mlflow/skills"])
@@ -544,6 +555,7 @@ def test_parent_creation_rejects_invalid_identity(
 
     assert response.status_code == 400, response.text
     assert message in response.json()["message"]
+    assert skill_rows(store) == 0
     assert version_rows(store) == 0
 
 
@@ -592,6 +604,7 @@ def test_parent_creation_rejects_duplicate_identity(prefix, skill_registry_clien
 
     assert first.status_code == 200, first.text
     assert second.status_code == 400, second.text
+    assert skill_rows(store) == 1
     assert version_rows(store) == 0
 
 
@@ -719,29 +732,31 @@ def test_multipart_registration_rejects_oversized_archive(
 
 
 @pytest.mark.parametrize("prefix", ["/ajax-api/3.0/mlflow/skills", "/api/3.0/mlflow/skills"])
-def test_skill_alias_lifecycle_over_http(prefix, skill_registry_client, store):
-    _create_remote_version(skill_registry_client, prefix)
+@pytest.mark.parametrize("organization", ["", "acme"])
+def test_skill_alias_lifecycle_over_http(prefix, organization, skill_registry_client, store):
+    _create_remote_version(skill_registry_client, prefix, organization=organization)
+    identity_path = f"@{organization}/reviewer" if organization else "reviewer"
 
     response = skill_registry_client.post(
-        f"{prefix}/@acme/reviewer/aliases",
+        f"{prefix}/{identity_path}/aliases",
         json={"alias": "stable", "version": 1},
     )
     assert response.status_code == 200, response.text
     assert response.json() == {}
 
-    response = skill_registry_client.get(f"{prefix}/@acme/reviewer/aliases/stable")
+    response = skill_registry_client.get(f"{prefix}/{identity_path}/aliases/stable")
     assert response.status_code == 200, response.text
     assert response.json()["version"] == 1
 
-    response = skill_registry_client.get(f"{prefix}/@acme/reviewer/aliases/latest")
+    response = skill_registry_client.get(f"{prefix}/{identity_path}/aliases/latest")
     assert response.status_code == 200, response.text
     assert response.json()["version"] == 1
 
-    response = skill_registry_client.delete(f"{prefix}/@acme/reviewer/aliases/stable")
+    response = skill_registry_client.delete(f"{prefix}/{identity_path}/aliases/stable")
     assert response.status_code == 200, response.text
     assert response.json() == {}
 
-    response = skill_registry_client.get(f"{prefix}/@acme/reviewer/aliases/stable")
+    response = skill_registry_client.get(f"{prefix}/{identity_path}/aliases/stable")
     assert response.status_code == 404, response.text
 
 
@@ -761,51 +776,53 @@ def test_latest_alias_cannot_be_mutated(prefix, skill_registry_client, store, me
 
 
 @pytest.mark.parametrize("prefix", ["/ajax-api/3.0/mlflow/skills", "/api/3.0/mlflow/skills"])
+@pytest.mark.parametrize("organization", ["", "acme"])
 def test_skill_tags_persist_with_case_and_long_values_over_http(
-    prefix, skill_registry_client, store
+    prefix, organization, skill_registry_client, store
 ):
-    store.create_skill("reviewer", organization="acme")
+    identity_path = f"@{organization}/reviewer" if organization else "reviewer"
+    store.create_skill("reviewer", organization=organization)
     store.create_skill_version(
         "reviewer",
-        organization="acme",
+        organization=organization,
         source_type="git",
         source="https://github.com/acme/skills.git",
     )
     long_value = "x" * 9000
 
     response = skill_registry_client.post(
-        f"{prefix}/@acme/reviewer/tags",
+        f"{prefix}/{identity_path}/tags",
         json={"key": "Team", "value": long_value},
     )
     assert response.status_code == 200, response.text
     response = skill_registry_client.post(
-        f"{prefix}/@acme/reviewer/tags",
+        f"{prefix}/{identity_path}/tags",
         json={"key": "team", "value": "platform"},
     )
     assert response.status_code == 200, response.text
     response = skill_registry_client.post(
-        f"{prefix}/@acme/reviewer/versions/1/tags",
+        f"{prefix}/{identity_path}/versions/1/tags",
         json={"key": "Team", "value": "version-platform"},
     )
     assert response.status_code == 200, response.text
 
-    response = skill_registry_client.get(f"{prefix}/@acme/reviewer")
+    response = skill_registry_client.get(f"{prefix}/{identity_path}")
     assert response.status_code == 200, response.text
     assert response.json()["tags"] == {"Team": long_value, "team": "platform"}
 
-    response = skill_registry_client.get(f"{prefix}/@acme/reviewer/versions/1")
+    response = skill_registry_client.get(f"{prefix}/{identity_path}/versions/1")
     assert response.status_code == 200, response.text
     assert response.json()["tags"] == {"Team": "version-platform"}
 
-    response = skill_registry_client.delete(f"{prefix}/@acme/reviewer/tags/Team")
+    response = skill_registry_client.delete(f"{prefix}/{identity_path}/tags/Team")
     assert response.status_code == 200, response.text
-    response = skill_registry_client.get(f"{prefix}/@acme/reviewer")
+    response = skill_registry_client.get(f"{prefix}/{identity_path}")
     assert response.status_code == 200, response.text
     assert response.json()["tags"] == {"team": "platform"}
 
-    response = skill_registry_client.delete(f"{prefix}/@acme/reviewer/versions/1/tags/Team")
+    response = skill_registry_client.delete(f"{prefix}/{identity_path}/versions/1/tags/Team")
     assert response.status_code == 200, response.text
-    response = skill_registry_client.get(f"{prefix}/@acme/reviewer/versions/1")
+    response = skill_registry_client.get(f"{prefix}/{identity_path}/versions/1")
     assert response.status_code == 200, response.text
     assert response.json()["tags"] == {}
 

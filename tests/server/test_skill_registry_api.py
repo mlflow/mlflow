@@ -41,15 +41,6 @@ from mlflow.utils.validation import _MAX_REGISTRY_ICONS_PER_LIST
 PREFIX = "/ajax-api/3.0/mlflow/skills"
 
 
-@pytest.fixture
-def mock_icon_hostname_resolution():
-    with mock.patch(
-        "mlflow.utils.validation._resolve_hostname_with_timeout",
-        return_value=[(None, None, None, None, ("8.8.8.8", 0))],
-    ):
-        yield
-
-
 EXPECTED_ROUTE_METHODS = {
     "": {"get", "post"},
     "/bulk-register": {"post"},

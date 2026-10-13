@@ -1,3 +1,5 @@
+from unittest import mock
+
 import pytest
 from fastapi import FastAPI
 from flask import Flask
@@ -5,6 +7,15 @@ from starlette.testclient import TestClient
 from werkzeug.test import Client
 
 from mlflow.server.fastapi_security import init_fastapi_security
+
+
+@pytest.fixture
+def mock_icon_hostname_resolution():
+    with mock.patch(
+        "mlflow.utils.validation._resolve_hostname_with_timeout",
+        return_value=[(None, None, None, None, ("8.8.8.8", 0))],
+    ):
+        yield
 
 
 @pytest.fixture
