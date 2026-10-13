@@ -1115,6 +1115,10 @@
     "defaultMessage": "Hours",
     "description": "Trace archival retention unit option for hours"
   },
+  "2YvBhu": {
+    "defaultMessage": "Select run {runLabel}",
+    "description": "Accessible label for a per-row selection checkbox in the evaluation runs table"
+  },
   "2ZB29e": {
     "defaultMessage": "A new prompt will be created in the registry.",
     "description": "Note shown in the playground save modal when no prompt is loaded, so a new prompt is created"
@@ -9619,6 +9623,10 @@
     "defaultMessage": "Default",
     "description": "Display name shown for the reserved no-auth default review user"
   },
+  "aXGazB": {
+    "defaultMessage": "Dataset version",
+    "description": "Column header for the dataset version (digest) in the evaluation runs table"
+  },
   "aXw0NO": {
     "defaultMessage": "Please select metric",
     "description": "Placeholder text where one can select metrics from the list of available metrics to render on the graph"
@@ -10514,6 +10522,10 @@
   "e515YD": {
     "defaultMessage": "Grounded",
     "description": "Evaluation results > retrieval grounded assessment > positive value label. Displayed if evaluation result is considered as grounded."
+  },
+  "e53BsC": {
+    "defaultMessage": "Dataset source type: {sourceType}",
+    "description": "Dataset cell tooltip row showing the dataset's source type"
   },
   "e5r+Np": {
     "defaultMessage": "The SQL query timed out. Please retry, and if the problem persists, try selecting a larger SQL warehouse.",
@@ -14775,6 +14787,10 @@
     "defaultMessage": "Error",
     "description": "Traces table assessment cell label shown when the assessment failed to compute"
   },
+  "uNX7MF": {
+    "defaultMessage": "<label>avg</label> <value>{average}</value>",
+    "description": "Average metric value of a group of evaluation runs"
+  },
   "uPG7mJ": {
     "defaultMessage": "Guardrail: {name}",
     "description": "Title for guardrail detail modal"
@@ -14818,6 +14834,10 @@
   "uXtIPX": {
     "defaultMessage": "Next, you can log traces to this logged model depending on your framework:",
     "description": "Introductory text for the code example for logging traces to an existing logged model. This part is displayed after the code example for setting the active model."
+  },
+  "uXuPWf": {
+    "defaultMessage": "Unnamed dataset",
+    "description": "Eval runs table > dataset column > label for a dataset logged without a meaningful name (e.g. inline code/local data)"
   },
   "uYkbr+": {
     "defaultMessage": "Default",
