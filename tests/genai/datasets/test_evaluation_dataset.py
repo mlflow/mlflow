@@ -449,3 +449,17 @@ def test_evaluation_dataset_latest_version_is_resolved_after_the_records_are_rea
 
     assert dataset.source.version == 6
     assert json.loads(df.attrs[MLFLOW_GENAI_EVALUATE_DATASET_IDENTITY]["source"])["version"] == 6
+
+
+def test_evaluation_dataset_failed_version_lookup_after_reading_records_omits_version(
+    mock_managed_dataset,
+):
+    mock_managed_dataset.list_versions.return_value = [SimpleNamespace(version=5)]
+    dataset = EvaluationDataset(mock_managed_dataset)
+    assert dataset.source.version == 5
+
+    mock_managed_dataset.list_versions.side_effect = Exception("boom")
+    df = dataset.to_df()
+
+    assert dataset.source.version is None
+    assert "version" not in json.loads(df.attrs[MLFLOW_GENAI_EVALUATE_DATASET_IDENTITY]["source"])
