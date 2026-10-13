@@ -237,7 +237,8 @@ const SkillDetailPage = () => {
   const editableVersion = permissions.canUpdate ? currentVersion : undefined;
   const deletableVersion = permissions.canDelete ? currentVersion : undefined;
 
-  if (skillLoading) {
+  // The skill query is disabled without a name, and a disabled query still reports isLoading.
+  if (skillLoading && name) {
     return (
       <ScrollablePageWrapper>
         <Spacer shrinks={false} />
@@ -352,6 +353,7 @@ const SkillDetailPage = () => {
           ) : (
             <SkillVersionList
               versions={versions}
+              latestVersion={skill.latest_version}
               selectedVersion={selectedVersion}
               onSelectVersion={setSelectedVersion}
               isLoading={versionsLoading}

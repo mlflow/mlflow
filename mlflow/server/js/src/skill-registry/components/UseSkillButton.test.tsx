@@ -60,10 +60,13 @@ describe('UseSkillButton', () => {
     expect(await screen.findByText('Use @acme/code-review')).toBeInTheDocument();
     expect(screen.getByText('Pinned version: v2')).toBeInTheDocument();
     expect(document.body.textContent).toContain('skills:/@acme/code-review/2');
-    expect(document.body.textContent).toContain('--destination .claude/skills');
+    expect(document.body.textContent).toContain('--destination .claude/skills/code-review');
+    expect(document.body.textContent).toContain('into .claude/skills/code-review');
 
     await userEvent.click(screen.getByRole('radio', { name: 'Python' }));
-    expect(document.body.textContent).toContain('version=2');
+    expect(document.body.textContent).toContain('"skills:/@acme/code-review/2"');
+    expect(document.body.textContent).toContain('destination=".claude/skills/code-review"');
+    expect(document.body.textContent).not.toContain('version=');
     await userEvent.click(screen.getByRole('radio', { name: 'CLI' }));
 
     const trigger = document.querySelector<HTMLElement>(
@@ -72,7 +75,7 @@ describe('UseSkillButton', () => {
     if (!trigger) throw new Error('Install target select not found');
     await userEvent.click(trigger);
     await userEvent.click(await screen.findByRole('option', { name: 'GitHub Copilot' }));
-    expect(document.body.textContent).toContain('--destination .github/skills');
+    expect(document.body.textContent).toContain('--destination .github/skills/code-review');
     expect(document.body.textContent).toContain('skills:/@acme/code-review/2');
   });
 

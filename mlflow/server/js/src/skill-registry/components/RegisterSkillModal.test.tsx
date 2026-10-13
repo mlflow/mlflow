@@ -146,12 +146,10 @@ describe('RegisterSkillModal', () => {
 
   it('stops when the name was taken before the skill could be created', async () => {
     const registerSkill = jest.spyOn(SkillRegistryApi, 'registerSkill');
-    jest.spyOn(SkillRegistryApi, 'createSkill').mockRejectedValue(new Error('Skill already exists'));
     // Free when the dialog checked, taken by the time it creates the skill.
     jest
-      .spyOn(SkillRegistryApi, 'getSkill')
-      .mockRejectedValueOnce(notFound())
-      .mockResolvedValue(createMockSkill({ name: 'demo', organization: 'acme' }));
+      .spyOn(SkillRegistryApi, 'createSkill')
+      .mockRejectedValue(Object.assign(new Error('Skill already exists'), { errorCode: 'RESOURCE_ALREADY_EXISTS' }));
     renderModal();
 
     await userEvent.type(screen.getByLabelText('Location'), 'https://github.com/acme/skills/tree/main/demo');

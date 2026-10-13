@@ -12,6 +12,7 @@ from mlflow.entities.skill_source import GitSource, OCISource, SkillSourceType, 
 from mlflow.entities.skill_version import SkillVersion
 from mlflow.exceptions import MlflowException
 from mlflow.genai.skill_content.archive import extract_skill_archive, get_max_decompressed_size
+from mlflow.genai.skill_content.digest import compute_tree_digest
 from mlflow.genai.skill_content.fetchers.oci import parse_image_reference
 from mlflow.genai.skill_content.paths import collect_tree
 from mlflow.genai.skill_content.sources import (
@@ -355,6 +356,12 @@ def _register_uploaded(
                 "The uploaded skill content contains no files."
             )
         _reject_undownloadable_names(tree)
+        digest = compute_tree_digest(tree)
+        if registration.digest is not None and registration.digest != digest:
+            raise MlflowException.invalid_parameter_value(
+                f"'digest' does not match the uploaded content: expected {digest}, got "
+                f"{registration.digest}."
+            )
         # A path no other upload can have, so the bytes of a failed or crashed attempt are
         # never picked up by another version.
         artifact_path = new_skill_upload_path(registration.name, registration.organization)
@@ -373,7 +380,7 @@ def _register_uploaded(
             organization=registration.organization,
             source_type=SkillSourceType.MLFLOW.value,
             source=to_artifact_uri(artifact_path),
-            digest=registration.digest,
+            digest=digest,
             status=registration.status,
             created_by=registration.created_by,
             expected_parent_exists=expected_parent_exists,
