@@ -17,8 +17,8 @@ import type { DatasetWithRunType } from '../../components/experiment-page/compon
 import { ExperimentViewDatasetDrawer } from '../../components/experiment-page/components/runs/ExperimentViewDatasetDrawer';
 import { compact, keyBy, mapValues, uniq, xor, xorBy } from 'lodash';
 import {
-  EVAL_RUNS_TABLE_BASE_SELECTION_STATE,
   EvalRunsTableKeyedColumnPrefix,
+  getEvalRunsBaseSelectionState,
 } from './ExperimentEvaluationRunsTable.constants';
 import { invalidateMlflowSearchTracesCache } from '@databricks/web-shared/genai-traces-table';
 import { useQueryClient } from '@databricks/web-shared/query-client';
@@ -50,6 +50,7 @@ import { useGetExperimentRunColor } from '../../components/experiment-page/hooks
 import { useRegisterSelectedIds } from '@mlflow/mlflow/src/assistant';
 import {
   shouldEnableImprovedEvalRunsComparison,
+  shouldEnableNewEvalRunsUi,
   shouldShowEvalRunsIssuesPanel,
 } from '../../../common/utils/FeatureUtils';
 
@@ -68,8 +69,9 @@ const ExperimentEvaluationRunsPageImpl = () => {
   const [searchFilter, setSearchFilter] = useState('');
   const [selectedDatasetWithRun, setSelectedDatasetWithRun] = useState<DatasetWithRunType>();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [selectedColumns, setSelectedColumns] = useState<{ [key: string]: boolean }>(
-    EVAL_RUNS_TABLE_BASE_SELECTION_STATE,
+  const enableNewEvalRunsUi = shouldEnableNewEvalRunsUi();
+  const [selectedColumns, setSelectedColumns] = useState<{ [key: string]: boolean }>(() =>
+    getEvalRunsBaseSelectionState(enableNewEvalRunsUi),
   );
 
   const queryClient = useQueryClient();
@@ -256,7 +258,8 @@ const ExperimentEvaluationRunsPageImpl = () => {
     ];
   }, [runs]);
 
-  const baseColumns = useMemo(() => Object.keys(EVAL_RUNS_TABLE_BASE_SELECTION_STATE), []);
+  const baseSelectionState = useMemo(() => getEvalRunsBaseSelectionState(enableNewEvalRunsUi), [enableNewEvalRunsUi]);
+  const baseColumns = useMemo(() => Object.keys(baseSelectionState), [baseSelectionState]);
   const existingColumns = useMemo(
     () => Object.keys(selectedColumns).filter((column) => !baseColumns.includes(column)),
     [baseColumns, selectedColumns],
@@ -274,7 +277,7 @@ const ExperimentEvaluationRunsPageImpl = () => {
       : new Set(metricColumns);
 
     setSelectedColumns({
-      ...EVAL_RUNS_TABLE_BASE_SELECTION_STATE,
+      ...baseSelectionState,
       ...mapValues(keyBy(uniqueColumns), (_, key) => defaultEnabledMetrics.has(key)),
     });
   }
@@ -419,6 +422,7 @@ const ExperimentEvaluationRunsPageImpl = () => {
       ref={tableContainerRef}
       isGrouped={Boolean(groupBy?.groupByKeys?.length)}
       enableImprovedComparison={enableImprovedComparison}
+      enableNewEvalRunsUi={enableNewEvalRunsUi}
     />
   );
 

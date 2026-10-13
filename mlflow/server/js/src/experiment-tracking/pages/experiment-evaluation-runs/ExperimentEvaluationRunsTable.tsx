@@ -36,6 +36,7 @@ export interface ExperimentEvaluationRunsTableProps {
   onScroll?: React.UIEventHandler<HTMLDivElement>;
   isGrouped?: boolean;
   enableImprovedComparison?: boolean;
+  enableNewEvalRunsUi?: boolean;
 }
 
 export const ExperimentEvaluationRunsTable = forwardRef<HTMLDivElement, ExperimentEvaluationRunsTableProps>(
@@ -57,6 +58,7 @@ export const ExperimentEvaluationRunsTable = forwardRef<HTMLDivElement, Experime
       onScroll,
       isGrouped,
       enableImprovedComparison,
+      enableNewEvalRunsUi,
     },
     ref,
   ) => {
@@ -65,7 +67,7 @@ export const ExperimentEvaluationRunsTable = forwardRef<HTMLDivElement, Experime
     const { isRowHidden } = useExperimentEvaluationRunsRowVisibility();
 
     const columns = useMemo(() => {
-      const allColumns = getExperimentEvalRunsDefaultColumns(viewMode);
+      const allColumns = getExperimentEvalRunsDefaultColumns(viewMode, enableNewEvalRunsUi);
 
       // add a column for each available metric, param, or tag
       uniqueColumns.forEach((column) => {
@@ -94,7 +96,7 @@ export const ExperimentEvaluationRunsTable = forwardRef<HTMLDivElement, Experime
         });
       });
       return allColumns.filter((column) => selectedColumns[column.id ?? '']);
-    }, [selectedColumns, uniqueColumns, viewMode]);
+    }, [selectedColumns, uniqueColumns, viewMode, enableNewEvalRunsUi]);
 
     // Build a map of row ID -> flat run index (excluding group rows)
     // This ensures FIRST_10_RUNS/FIRST_20_RUNS visibility controls work correctly
@@ -124,6 +126,11 @@ export const ExperimentEvaluationRunsTable = forwardRef<HTMLDivElement, Experime
       walkRows(data);
       return map;
     }, [data]);
+
+    // Grouping or any nested child runs make the Run Name cell reserve a leading chevron slot.
+    const hasExpandableRows =
+      Boolean(isGrouped) ||
+      data.some((row) => 'children' in row && Array.isArray(row.children) && row.children.length > 0);
 
     const table = useReactTable<RunEntityOrGroupData>(
       'mlflow/server/js/src/experiment-tracking/pages/experiment-evaluation-runs/ExperimentEvaluationRunsTable.tsx',
@@ -166,6 +173,7 @@ export const ExperimentEvaluationRunsTable = forwardRef<HTMLDivElement, Experime
           setSelectedDatasetWithRun,
           setIsDrawerOpen,
           flatRunIndexMap,
+          ...(enableNewEvalRunsUi ? { enableNewEvalRunsUi, hasExpandableRows } : {}),
         },
         onRowSelectionChange: setRowSelection,
         state: {
@@ -217,6 +225,7 @@ export const ExperimentEvaluationRunsTable = forwardRef<HTMLDivElement, Experime
                 columns={columns}
                 isGrouped={isGrouped}
                 enableImprovedComparison={enableImprovedComparison}
+                showGroupSummaries={Boolean(enableNewEvalRunsUi)}
               />
             );
           })}

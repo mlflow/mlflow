@@ -344,6 +344,11 @@ export enum DatasetSourceTypes {
   DATABRICKS_UC_TABLE = 'databricks-uc-table',
 }
 
+// MLflow's `Dataset.name` property falls back to this literal when a dataset is logged without an
+// explicit name (e.g. inline code/local eval data) — see mlflow/data/dataset.py. The eval-runs UI
+// treats a dataset carrying this placeholder as "unnamed".
+export const DEFAULT_INLINE_DATASET_NAME = 'dataset';
+
 /**
  * Describes a single entry in the text evaluation artifact
  */

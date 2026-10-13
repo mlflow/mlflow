@@ -4,6 +4,7 @@ import {
   CheckboxCell,
   CreatedAtCell,
   DatasetCell,
+  DatasetVersionCell,
   ModelVersionCell,
   RunNameCell,
   SortableHeaderCell,
@@ -16,10 +17,6 @@ import type { Theme, Interpolation } from '@emotion/react';
 import type { RunEntityOrGroupData } from './ExperimentEvaluationRunsPage.utils';
 import { ExperimentEvaluationRunsPageMode } from './hooks/useExperimentEvaluationRunsPageMode';
 import { EvalRunsVisibilityHeaderCell } from './EvalRunsVisibilityHeaderCell';
-
-export interface ExperimentEvaluationRunsTableMeta {
-  setSelectedRunUuid: (runUuid: string) => void;
-}
 
 export enum ExperimentEvaluationRunsTableColumns {
   runName = 'run_name',
@@ -40,6 +37,7 @@ export enum EvalRunsTableColumnId {
   status = 'status',
   type = 'type',
   dataset = 'dataset',
+  datasetVersion = 'dataset_version',
   modelVersion = 'model_version',
   createdAt = 'created_at',
 }
@@ -66,6 +64,20 @@ export const EVAL_RUNS_TABLE_BASE_SELECTION_STATE: { [key: string]: boolean } = 
   [EvalRunsTableColumnId.createdAt]: true,
   [EvalRunsTableColumnId.dataset]: true,
   [EvalRunsTableColumnId.modelVersion]: false,
+};
+
+// New UI drops the standalone Status column (folded into Run Name) and defaults Dataset version off.
+export const getEvalRunsBaseSelectionState = (enableNewEvalRunsUi?: boolean): { [key: string]: boolean } => {
+  if (!enableNewEvalRunsUi) {
+    return EVAL_RUNS_TABLE_BASE_SELECTION_STATE;
+  }
+  // Explicit index signature: the spread drops the base's, and without it `delete` can't index by enum.
+  const nextState: { [key: string]: boolean } = {
+    ...EVAL_RUNS_TABLE_BASE_SELECTION_STATE,
+    [EvalRunsTableColumnId.datasetVersion]: false,
+  };
+  delete nextState[EvalRunsTableColumnId.status];
+  return nextState;
 };
 
 export const EVAL_RUNS_COLUMN_LABELS: Record<EvalRunsTableColumnId, MessageDescriptor> = {
@@ -97,6 +109,10 @@ export const EVAL_RUNS_COLUMN_LABELS: Record<EvalRunsTableColumnId, MessageDescr
     defaultMessage: 'Dataset',
     description: 'Label for the dataset column in the evaluation runs table',
   }),
+  [EvalRunsTableColumnId.datasetVersion]: defineMessage({
+    defaultMessage: 'Dataset version',
+    description: 'Column header for the dataset version (digest) in the evaluation runs table',
+  }),
   [EvalRunsTableColumnId.modelVersion]: defineMessage({
     defaultMessage: 'Version',
     description: 'Column header for model versions in the evaluation runs table',
@@ -124,6 +140,7 @@ export const EVAL_RUNS_COLUMN_TYPE_LABELS: Record<EvalRunsTableKeyedColumnPrefix
 
 export const getExperimentEvalRunsDefaultColumns = (
   viewMode: ExperimentEvaluationRunsPageMode,
+  enableNewEvalRunsUi?: boolean,
 ): EvalRunsTableColumnDef[] => {
   const unselectableColumns: EvalRunsTableColumnDef[] = [
     {
@@ -156,28 +173,33 @@ export const getExperimentEvalRunsDefaultColumns = (
       enableResizing: true,
       meta: {
         styles: {
-          minWidth: 100,
+          // The new UI adds the status icon to this cell, so it needs room for the name next to it.
+          minWidth: enableNewEvalRunsUi ? 240 : 100,
         },
       },
     },
-    {
-      id: EvalRunsTableColumnId.status,
-      header: () => <FormattedMessage {...EVAL_RUNS_COLUMN_LABELS[EvalRunsTableColumnId.status]} />,
-      accessorFn: (row) => {
-        if ('subRuns' in row) {
-          return undefined;
-        }
-        return row.info.status;
-      },
-      cell: StatusCell,
-      enableResizing: false,
-      meta: {
-        styles: {
-          minWidth: 60,
-          maxWidth: 80,
-        },
-      },
-    },
+    ...(enableNewEvalRunsUi
+      ? []
+      : [
+          {
+            id: EvalRunsTableColumnId.status,
+            header: () => <FormattedMessage {...EVAL_RUNS_COLUMN_LABELS[EvalRunsTableColumnId.status]} />,
+            accessorFn: (row: RunEntityOrGroupData) => {
+              if ('subRuns' in row) {
+                return undefined;
+              }
+              return row.info.status;
+            },
+            cell: StatusCell,
+            enableResizing: false,
+            meta: {
+              styles: {
+                minWidth: 60,
+                maxWidth: 80,
+              },
+            },
+          } satisfies EvalRunsTableColumnDef,
+        ]),
     {
       id: EvalRunsTableColumnId.type,
       header: () => <FormattedMessage {...EVAL_RUNS_COLUMN_LABELS[EvalRunsTableColumnId.type]} />,
@@ -225,6 +247,21 @@ export const getExperimentEvalRunsDefaultColumns = (
         },
       },
     },
+    ...(enableNewEvalRunsUi
+      ? [
+          {
+            id: EvalRunsTableColumnId.datasetVersion,
+            header: () => <FormattedMessage {...EVAL_RUNS_COLUMN_LABELS[EvalRunsTableColumnId.datasetVersion]} />,
+            cell: DatasetVersionCell,
+            enableResizing: true,
+            meta: {
+              styles: {
+                minWidth: 80,
+              },
+            },
+          } satisfies EvalRunsTableColumnDef,
+        ]
+      : []),
     {
       id: EvalRunsTableColumnId.modelVersion,
       header: () => <FormattedMessage {...EVAL_RUNS_COLUMN_LABELS[EvalRunsTableColumnId.modelVersion]} />,

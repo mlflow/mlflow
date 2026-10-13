@@ -11,6 +11,7 @@ import {
   Tag,
 } from '@databricks/design-system';
 import type { EvalRunsTableColumnDef } from './ExperimentEvaluationRunsTable.constants';
+import { EvalRunsTableColumnId, EvalRunsTableKeyedColumnPrefix } from './ExperimentEvaluationRunsTable.constants';
 import type { Row } from '@tanstack/react-table';
 import { flexRender } from '@tanstack/react-table';
 import type { RunEntityOrGroupData } from './ExperimentEvaluationRunsPage.utils';
@@ -31,6 +32,8 @@ type TracesViewTableRowProps = {
   isHidden: boolean;
   isGrouped?: boolean;
   enableImprovedComparison?: boolean;
+  /** New UI: group rows get the secondary background and show per-metric averages. */
+  showGroupSummaries?: boolean;
 };
 
 const GroupTag = ({ groupKey, groupValue }: { groupKey: string; groupValue: string }): React.ReactElement => {
@@ -70,9 +73,10 @@ const GroupLabel = ({ groupValues }: { groupValues: RunGroupByGroupingValue }): 
 
 export const ExperimentEvaluationRunsTableRow = React.memo(
   // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
-  ({ row, isActive, isGrouped, enableImprovedComparison }: TracesViewTableRowProps) => {
+  ({ row, isActive, isGrouped, enableImprovedComparison, columns, showGroupSummaries }: TracesViewTableRowProps) => {
     const { theme } = useDesignSystemTheme();
     const navigate = useNavigate();
+    const getColumnStyles = (columnId: string) => columns.find((column) => column.id === columnId)?.meta?.styles;
 
     // Row click navigation - only enabled when feature flag is on
     const handleRowClick = useCallback(() => {
@@ -86,28 +90,55 @@ export const ExperimentEvaluationRunsTableRow = React.memo(
     }, [enableImprovedComparison, navigate, row.original]);
 
     if ('groupValues' in row.original) {
+      const groupLabel = (
+        <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
+          <Button
+            componentId="mlflow.eval-runs.group-expand-button"
+            size="small"
+            css={{ flexShrink: 0 }}
+            icon={row.getIsExpanded() ? <ChevronDownIcon /> : <ChevronRightIcon />}
+            onClick={row.getToggleExpandedHandler()}
+          />
+          <Typography.Text bold>
+            <FormattedMessage
+              defaultMessage="Group:"
+              description="Label for a group of runs in the evaluation runs table"
+            />
+          </Typography.Text>
+          {row.original.groupValues.map((groupValue) => (
+            <GroupLabel key={groupValue.groupByData} groupValues={groupValue} />
+          ))}
+        </div>
+      );
+
+      if (!showGroupSummaries) {
+        return (
+          <TableRow key={row.id} className="eval-runs-table-row">
+            <TableCell>{groupLabel}</TableCell>
+          </TableRow>
+        );
+      }
+
       return (
-        <TableRow key={row.id} className="eval-runs-table-row">
-          <TableCell>
-            <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
-              <Button
-                componentId="mlflow.eval-runs.group-expand-button"
-                size="small"
-                css={{ flexShrink: 0 }}
-                icon={row.getIsExpanded() ? <ChevronDownIcon /> : <ChevronRightIcon />}
-                onClick={row.getToggleExpandedHandler()}
-              />
-              <Typography.Text bold>
-                <FormattedMessage
-                  defaultMessage="Group:"
-                  description="Label for a group of runs in the evaluation runs table"
-                />
-              </Typography.Text>
-              {row.original.groupValues.map((groupValue) => (
-                <GroupLabel key={groupValue.groupByData} groupValues={groupValue} />
-              ))}
-            </div>
-          </TableCell>
+        <TableRow
+          key={row.id}
+          className="eval-runs-table-row"
+          style={{ backgroundColor: theme.colors.backgroundSecondary }}
+        >
+          {row.getVisibleCells().map((cell) => {
+            const columnId = cell.column.id;
+            const isLabelCell = columnId === EvalRunsTableColumnId.runName;
+            const isMetricCell = columnId.startsWith(`${EvalRunsTableKeyedColumnPrefix.METRIC}.`);
+            return (
+              <TableCell key={cell.id} css={getColumnStyles(columnId)}>
+                {isLabelCell
+                  ? groupLabel
+                  : isMetricCell
+                    ? flexRender(cell.column.columnDef.cell, cell.getContext())
+                    : null}
+              </TableCell>
+            );
+          })}
         </TableRow>
       );
     }
@@ -148,7 +179,10 @@ export const ExperimentEvaluationRunsTableRow = React.memo(
       prev.isExpanded === next.isExpanded &&
       prev.isHidden === next.isHidden &&
       prev.isGrouped === next.isGrouped &&
-      prev.enableImprovedComparison === next.enableImprovedComparison
+      prev.enableImprovedComparison === next.enableImprovedComparison &&
+      prev.showGroupSummaries === next.showGroupSummaries &&
+      // Group averages depend on the group's runs, which change as more pages load.
+      (!next.showGroupSummaries || prev.row.original === next.row.original)
     );
   },
 );

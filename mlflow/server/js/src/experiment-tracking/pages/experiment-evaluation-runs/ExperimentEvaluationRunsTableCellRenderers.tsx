@@ -1,10 +1,13 @@
 import {
   BeakerIcon,
   ChartLineIcon,
+  DatabaseIcon,
   ModelsIcon,
   TableIcon,
+  TableClockIcon,
   Tag,
   Tooltip,
+  TruncationTooltip,
   Typography,
   useDesignSystemTheme,
   Checkbox,
@@ -18,8 +21,8 @@ import {
   ChevronDownIcon,
   ChevronRightIcon,
 } from '@databricks/design-system';
-import type { ColumnDef, HeaderContext } from '@tanstack/react-table';
-import { DatasetSourceTypes, RunEntity } from '../../types';
+import type { CellContext, ColumnDef, HeaderContext } from '@tanstack/react-table';
+import { DatasetSourceTypes, DEFAULT_INLINE_DATASET_NAME, RunEntity } from '../../types';
 import { Link, useNavigate, useSearchParams } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 import { useGetLoggedModelQuery } from '../../hooks/logged-models/useGetLoggedModelQuery';
 import Routes from '../../routes';
@@ -32,6 +35,11 @@ import { parseEvalRunsTableKeyedColumnKey } from './ExperimentEvaluationRunsTabl
 import { useMemo } from 'react';
 import { FormattedMessage } from 'react-intl';
 import type { RunEntityOrGroupData } from './ExperimentEvaluationRunsPage.utils';
+import type { DatasetWithRunType } from '../../components/experiment-page/components/runs/ExperimentViewDatasetDrawer';
+import { isEvalRunsTableMeta } from './ExperimentEvaluationRunsTable.types';
+import { EvalRunsTableKeyedColumnPrefix } from './ExperimentEvaluationRunsTable.constants';
+import { formatEvalRunsNumericValue } from './ExperimentEvaluationRunsNumberFormat';
+import { getEvalRunsGroupMetricMean } from './EvalRunsGroup.utils';
 import { useExperimentEvaluationRunsRowVisibility } from './hooks/useExperimentEvaluationRunsRowVisibility';
 import { RunPageTabName } from '../../constants';
 import {
@@ -47,20 +55,31 @@ import { DatasetLink } from '../experiment-evaluation-datasets/DatasetLink';
 import { RunStatusIcon } from '../../components/RunStatusIcon';
 import { useIntl } from '@databricks/i18n';
 
-export const CheckboxCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({
-  row,
-  table: {
-    options: { meta },
-  },
-}) => {
+export const CheckboxCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({ row, table }) => {
+  const { meta } = table.options;
+  const intl = useIntl();
   if ('subRuns' in row.original) {
     return <div>-</div>;
   }
+
+  const enableNewEvalRunsUi = isEvalRunsTableMeta(meta) && Boolean(meta.enableNewEvalRunsUi);
+  const runLabel = row.original.info?.runName ?? row.original.info?.runUuid ?? '';
 
   return (
     <Checkbox
       componentId="mlflow.eval-runs.checkbox-cell"
       data-testid={`eval-runs-table-cell-checkbox-${row.id}`}
+      aria-label={
+        enableNewEvalRunsUi
+          ? intl.formatMessage(
+              {
+                defaultMessage: 'Select run {runLabel}',
+                description: 'Accessible label for a per-row selection checkbox in the evaluation runs table',
+              },
+              { runLabel },
+            )
+          : undefined
+      }
       disabled={!row.getCanSelect()}
       isChecked={row.getIsSelected()}
       wrapperStyle={{ padding: 0, margin: 0 }}
@@ -89,11 +108,28 @@ export const RunNameCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({
 
   const runUuid = row.original.info.runUuid;
   const experimentId = row.original.info.experimentId;
+  const evalMeta = isEvalRunsTableMeta(meta) ? meta : undefined;
+  const enableNewEvalRunsUi = Boolean(evalMeta?.enableNewEvalRunsUi);
+  const status = row.original.info.status;
+  // Reserve a chevron-sized slot on non-expandable rows so they still indent by depth.
+  const hasExpandableRows = Boolean(evalMeta?.hasExpandableRows);
+  const reserveChevronSlot = enableNewEvalRunsUi && hasExpandableRows && !row.getCanExpand();
   const tags = row.original.data?.tags ?? [];
   const isIssueDetectionRun = tags.some(
     (tag) => tag.key === MLFLOW_RUN_TYPE_TAG && tag.value === MLFLOW_RUN_TYPE_VALUE_ISSUE_DETECTION,
   );
   const showIssuesPanelFlag = shouldShowEvalRunsIssuesPanel();
+
+  // New UI renders issue-detection run names as a real anchor so browser gestures (Cmd/Ctrl+click,
+  // middle-click, "copy link") work.
+  const issueDetectionRunLinkTo = (() => {
+    if (!enableNewEvalRunsUi || !isIssueDetectionRun || !showIssuesPanelFlag) {
+      return undefined;
+    }
+    const route = Routes.getIssueDetectionRunDetailsRoute(experimentId, runUuid);
+    const timeRangeSearch = getPreservedQueryString(searchParams.toString());
+    return timeRangeSearch ? `${route}${timeRangeSearch}` : route;
+  })();
 
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -105,7 +141,7 @@ export const RunNameCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({
       return;
     }
     // Otherwise follow old behavior - open the right-side panel
-    (meta as any).setSelectedRunUuid?.(runUuid);
+    evalMeta?.setSelectedRunUuid(runUuid);
   };
 
   const level = row.depth;
@@ -117,14 +153,44 @@ export const RunNameCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({
     row.toggleExpanded();
   };
 
+  const runNameLinkStyle = {
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    flexShrink: 1,
+  } as const;
+
+  const runNameLink = issueDetectionRunLinkTo ? (
+    <Link
+      css={runNameLinkStyle}
+      componentId="mlflow.eval-runs.run-name-cell"
+      id="run-name-cell"
+      to={issueDetectionRunLinkTo}
+      onClick={(e) => e.stopPropagation()}
+    >
+      {row.original.info.runName}
+    </Link>
+  ) : (
+    <Typography.Link css={runNameLinkStyle} componentId="mlflow.eval-runs.run-name-cell" id="run-name-cell">
+      {row.original.info.runName}
+    </Typography.Link>
+  );
+
   return (
     <div
       css={{
         overflow: 'hidden',
         display: 'flex',
         alignItems: 'center',
-        gap: theme.spacing.xs,
-        paddingLeft: level > 0 ? (level + 1) * theme.spacing.lg : undefined,
+        gap: enableNewEvalRunsUi ? theme.spacing.sm : theme.spacing.xs,
+        paddingLeft: enableNewEvalRunsUi
+          ? // Indent only the run-name column for nested rows so sibling columns stay aligned.
+            level > 0
+            ? theme.spacing.lg * level
+            : undefined
+          : level > 0
+            ? (level + 1) * theme.spacing.lg
+            : undefined,
       }}
       onClick={handleClick}
       onMouseDown={(e) => e.stopPropagation()}
@@ -150,6 +216,16 @@ export const RunNameCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({
           type="link"
         />
       )}
+      {reserveChevronSlot && (
+        // Empty stand-in matching the expand button's footprint so leaf rows align with expandable
+        // siblings and children sit one level in from their parent.
+        <div aria-hidden css={{ width: theme.spacing.lg, flexShrink: 0 }} />
+      )}
+      {enableNewEvalRunsUi && status ? (
+        <div css={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+          <RunStatusIcon status={status} />
+        </div>
+      ) : null}
       {isIssueDetectionRun && showIssuesPanelFlag ? (
         <Tooltip
           content={
@@ -168,13 +244,13 @@ export const RunNameCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({
           onChangeColor={(colorValue) => saveRunColor({ runUuid, colorValue })}
         />
       )}
-      <Typography.Link
-        css={{ textOverflow: 'ellipsis', whiteSpace: 'nowrap', overflow: 'hidden', flexShrink: 1 }}
-        componentId="mlflow.eval-runs.run-name-cell"
-        id="run-name-cell"
-      >
-        {row.original.info.runName}
-      </Typography.Link>
+      {enableNewEvalRunsUi ? (
+        <TruncationTooltip componentId="mlflow.eval-runs.run-name-cell.truncation-tooltip">
+          {runNameLink}
+        </TruncationTooltip>
+      ) : (
+        runNameLink
+      )}
       {!shouldEnableImprovedEvalRunsComparison() && (
         <div
           css={{
@@ -224,6 +300,8 @@ export const DatasetCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({
   },
 }) => {
   const { theme } = useDesignSystemTheme();
+  const evalMeta = isEvalRunsTableMeta(meta) ? meta : undefined;
+  const enableNewEvalRunsUi = Boolean(evalMeta?.enableNewEvalRunsUi);
 
   if ('subRuns' in row.original) {
     return <div>-</div>;
@@ -237,10 +315,28 @@ export const DatasetCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({
     return <div>-</div>;
   }
 
+  // Data passed in at eval time (inline df/list → CodeDatasetSource, or a local file → 'local') is
+  // logged with MLflow's generic default name, so there's nothing meaningful to show. Treat any such
+  // dataset as "unnamed" and surface its source type instead; named datasets show their real name.
+  const isUnnamedDataset =
+    enableNewEvalRunsUi && (!displayedDataset.name || displayedDataset.name === DEFAULT_INLINE_DATASET_NAME);
+  const datasetLabel = isUnnamedDataset ? (
+    <FormattedMessage
+      defaultMessage="Unnamed dataset"
+      description="Eval runs table > dataset column > label for a dataset logged without a meaningful name (e.g. inline code/local data)"
+    />
+  ) : (
+    displayedDataset.name
+  );
+
   const openDatasetDrawer = (e: React.MouseEvent) => {
     e.stopPropagation();
-    (meta as any).setSelectedDatasetWithRun({
-      datasetWithTags: { dataset: displayedDataset },
+    evalMeta?.setSelectedDatasetWithRun({
+      // The drawer renders the dataset context tag without a flag guard, so pass the real tags only
+      // under the new UI; the legacy path keeps passing the dataset alone.
+      datasetWithTags: (enableNewEvalRunsUi
+        ? { dataset: displayedDataset, tags: datasets[0]?.tags ?? [] }
+        : { dataset: displayedDataset }) as DatasetWithRunType['datasetWithTags'],
       runData: {
         experimentId: run.info?.experimentId,
         runUuid: run.info?.runUuid ?? '',
@@ -248,7 +344,7 @@ export const DatasetCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({
         datasets: datasets,
       },
     });
-    (meta as any).setIsDrawerOpen(true);
+    evalMeta?.setIsDrawerOpen(true);
   };
 
   const baseTagContent = (
@@ -261,27 +357,84 @@ export const DatasetCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({
         color: theme.colors.textPrimary,
       }}
     >
-      <TableIcon css={{ '& > svg': { width: 12, height: 12 } }} />
+      {isUnnamedDataset ? (
+        <TableClockIcon css={{ '& > svg': { width: 12, height: 12 } }} />
+      ) : enableNewEvalRunsUi ? (
+        <DatabaseIcon css={{ '& > svg': { width: 12, height: 12 } }} />
+      ) : (
+        <TableIcon css={{ '& > svg': { width: 12, height: 12 } }} />
+      )}
       <Typography.Text css={{ overflow: 'hidden', textOverflow: 'ellipsis', textWrap: 'nowrap' }}>
-        {displayedDataset.name}
+        {datasetLabel}
       </Typography.Text>
     </div>
   );
   const tagContent = <DatasetLink dataset={displayedDataset}>{baseTagContent}</DatasetLink>;
 
+  // Always surface the source type alongside the name/label — for unnamed datasets it's the only
+  // identifying info, and for named ones it's still useful context.
+  const datasetTooltipContent = (
+    <>
+      <div>{datasetLabel}</div>
+      <div>
+        <FormattedMessage
+          defaultMessage="Dataset source type: {sourceType}"
+          description="Dataset cell tooltip row showing the dataset's source type"
+          values={{ sourceType: displayedDataset.sourceType || '-' }}
+        />
+      </div>
+    </>
+  );
+
   return (
     <div>
-      <Tooltip componentId="mlflow.eval-runs.dataset-cell-tooltip" content={displayedDataset.name}>
+      <Tooltip
+        componentId="mlflow.eval-runs.dataset-cell-tooltip"
+        content={enableNewEvalRunsUi ? datasetTooltipContent : displayedDataset.name}
+      >
         <Tag
           componentId="mlflow.eval-runs.dataset-cell"
           onClick={openDatasetDrawer}
           id="dataset-cell"
-          css={{ maxWidth: '100%', marginRight: 0 }}
+          css={{
+            maxWidth: '100%',
+            marginRight: 0,
+            ...(enableNewEvalRunsUi
+              ? {
+                  backgroundColor: theme.colors.backgroundSecondary,
+                  border: `1px solid ${theme.colors.border}`,
+                  borderRadius: theme.borders.borderRadiusMd,
+                }
+              : {}),
+          }}
         >
           {tagContent}
         </Tag>
       </Tooltip>
     </div>
+  );
+};
+
+export const DatasetVersionCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({ row }) => {
+  if ('subRuns' in row.original) {
+    return <div>-</div>;
+  }
+
+  // Version == the input dataset's digest; eval runs have at most one dataset input.
+  const digest = row.original.inputs?.datasetInputs?.[0]?.dataset?.digest;
+  if (!digest) {
+    return <div>-</div>;
+  }
+
+  return (
+    <Tooltip componentId="mlflow.eval-runs.dataset-version-cell-tooltip" content={digest}>
+      <Typography.Text
+        color="secondary"
+        css={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}
+      >
+        {digest}
+      </Typography.Text>
+    </Tooltip>
   );
 };
 
@@ -330,9 +483,57 @@ export const ModelVersionCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({ row 
   );
 };
 
-export const KeyedValueCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({ getValue }) => {
-  const value = getValue<string>();
-  return <span title={value}>{value ?? '-'}</span>;
+export const KeyedValueCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({
+  column,
+  getValue,
+  row,
+  table,
+}: CellContext<RunEntityOrGroupData, unknown>) => {
+  const { theme } = useDesignSystemTheme();
+  const tableMeta = table.options.meta;
+  const enableNewEvalRunsUi = isEvalRunsTableMeta(tableMeta) && Boolean(tableMeta.enableNewEvalRunsUi);
+
+  if (!enableNewEvalRunsUi) {
+    const value = getValue<string>();
+    return <span title={value}>{value ?? '-'}</span>;
+  }
+
+  const value = getValue<string | number | undefined>();
+  const parsedColumn = parseEvalRunsTableKeyedColumnKey(column.id);
+  const metricKey = parsedColumn?.columnType === EvalRunsTableKeyedColumnPrefix.METRIC ? parsedColumn.key : undefined;
+
+  if ('subRuns' in row.original && metricKey) {
+    const average = getEvalRunsGroupMetricMean(row.original.subRuns ?? [], metricKey);
+    if (average === undefined) {
+      return <span>-</span>;
+    }
+    const displayValue = formatEvalRunsNumericValue(average);
+    return (
+      <span css={{ display: 'inline-flex', alignItems: 'center' }}>
+        <FormattedMessage
+          defaultMessage="<label>avg</label> <value>{average}</value>"
+          description="Average metric value of a group of evaluation runs"
+          values={{
+            average: displayValue,
+            label: (chunks) => (
+              <Typography.Text
+                size="sm"
+                color="secondary"
+                css={{ marginRight: theme.spacing.xs, fontSize: theme.typography.fontSizeSm - 2 }}
+              >
+                {chunks}
+              </Typography.Text>
+            ),
+            value: (chunks) => <Typography.Text bold>{chunks}</Typography.Text>,
+          }}
+        />
+      </span>
+    );
+  }
+
+  const displayValue = metricKey !== undefined && typeof value === 'number' ? formatEvalRunsNumericValue(value) : value;
+
+  return <span title={displayValue === undefined ? undefined : String(displayValue)}>{displayValue ?? '-'}</span>;
 };
 
 export const SortableHeaderCell = ({
