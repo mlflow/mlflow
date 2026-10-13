@@ -1,3 +1,11 @@
+// Init script for every agent-browser session during triage: pass it with --init-script on the
+// `open` that starts the session.
+
+// Report the browser as online. The triage sandbox has no network interface other than
+// loopback, so Chromium sets navigator.onLine to false, and React Query then pauses requests
+// that change data.
+Object.defineProperty(Navigator.prototype, "onLine", { get: () => true, configurable: true });
+
 // Defines caption(text, theme) for videos: shows text in a bar at the bottom of the page; caption() hides it.
 // Pass theme "dark" on dark pages to use a light caption.
 window.caption = (text, theme = "light") => {

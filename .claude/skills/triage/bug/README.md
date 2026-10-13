@@ -15,9 +15,6 @@ Extract from the issue:
 If the issue lacks what you need, still try a best-effort reproduction from what is there,
 and list the missing details in the comment.
 
-If the issue involves the UI, start the servers from "Running the UI" in `SKILL.md` now, before
-investigating further.
-
 ## 2. Reproduce
 
 Trigger the bug in whatever form fits it: a CLI command, a short Python snippet, a request to a
@@ -42,13 +39,13 @@ selectors you will put in `$out_dir/work/steps.json` (snapshot refs such as `@e1
 to a new session), and hide side panels, popups, and onboarding hints that cover the page, then:
 
 ```bash
-agent-browser --session <sess> --input-mode human --init-script .claude/skills/triage/bug/caption.js open <url>
+agent-browser --session <sess> --input-mode human --init-script .claude/skills/triage/init.js open <url>
 agent-browser --session <sess> record start $out_dir/media/<name>.mp4 --cursor --contact-sheet
 timeout 120 agent-browser --session <sess> batch --bail < $out_dir/work/steps.json  # [["click", "<sel>"], ["wait", "500"], ...]
 agent-browser --session <sess> record stop
 ```
 
-The init script defines `caption(text)`, which shows a short caption at the bottom of the page
+`init.js` defines `caption(text)`, which shows a short caption at the bottom of the page
 (`caption()` hides it; pass `"dark"` as a second argument when the page uses a dark theme).
 Caption each step so viewers can follow along, especially actions that leave no visible trace,
 such as the browser's Back button, a key press, or a wait: add
@@ -58,7 +55,8 @@ If the batch times out, retry once in a fresh session, then fall back to screens
 contact sheet to confirm the video shows the bug before citing it.
 When you propose a fix for a visible UI bug, record the same steps again after applying it,
 against the same servers from "Running the UI" in `SKILL.md`, and cite both videos in the
-`pull_request` body as a before/after comparison.
+`pull_request` body as a before/after comparison. Adjust the captions for the after video if
+needed.
 
 Run it against the current checkout, which is what a fix would land on. Only if it does not
 reproduce there, run it against the reported version (when it is on PyPI) to tell "already

@@ -149,7 +149,10 @@ MLFLOW_ENABLE_ASSISTANT_SANDBOX = _BooleanEnvironmentVariable(
 #: **Experimental** — subject to change or removal in a future release.
 #: Docker image used for server-side sandboxed execution (e.g. the assistant ``Bash`` sandbox).
 #: The image must have Python and MLflow installed. If the image is not present locally, a
-#: minimal one is built on first use.
+#: minimal one is built on first use, with the server's Python version and MLflow version. MLflow
+#: is installed from ``MLFLOW_HOME`` if set, and a development build otherwise installs from the
+#: source checkout the server runs from. It is not rebuilt when MLflow changes; delete the image to
+#: rebuild it.
 #: (default: ``mlflow-sandbox:latest``)
 MLFLOW_SANDBOX_DOCKER_IMAGE = _EnvironmentVariable(
     "MLFLOW_SANDBOX_DOCKER_IMAGE", str, "mlflow-sandbox:latest"
