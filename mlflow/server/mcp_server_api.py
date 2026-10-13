@@ -25,6 +25,11 @@ from mlflow.entities.mcp_server import (
 from mlflow.entities.mcp_server_version import ConnectOptionSettings, MCPServerVersion
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import PERMISSION_DENIED, RESOURCE_ALREADY_EXISTS, ErrorCode
+from mlflow.server._request_keys import (
+    MCP_SERVER_ALLOWED_ACTIONS,
+    SCOPED_MCP_ACCESS_ENDPOINT_FILTER,
+    SCOPED_MCP_SERVER_FILTER,
+)
 from mlflow.server.mlflow_response import mlflow_exception_response
 from mlflow.utils.validation import (
     _MAX_MCP_TOOLS_PER_LIST,
@@ -366,7 +371,7 @@ class MCPServerResponse(BaseModel):
 
 
 def _mcp_server_response_with_actions(server: MCPServer, request: Request) -> MCPServerResponse:
-    resolver = getattr(request.state, "mcp_server_allowed_actions", None)
+    resolver = getattr(request.state, MCP_SERVER_ALLOWED_ACTIONS, None)
     actions = resolver(server.name) if resolver else ["USE", "UPDATE", "DELETE", "MANAGE"]
     return MCPServerResponse.from_entity(server).model_copy(update={"allowed_actions": actions})
 
@@ -609,7 +614,7 @@ def search_mcp_servers(
     from mlflow.server.handlers import _get_tracking_store
 
     results = _get_tracking_store().search_mcp_servers(
-        filter_string=getattr(request.state, "mlflow_scoped_mcp_server_filter", filter_string),
+        filter_string=getattr(request.state, SCOPED_MCP_SERVER_FILTER, filter_string),
         max_results=max_results,
         order_by=order_by,
         page_token=page_token,
@@ -633,9 +638,7 @@ def search_all_access_endpoints(
 
     store = _get_tracking_store()
     results = store.search_mcp_access_endpoints(
-        filter_string=getattr(
-            request.state, "mlflow_scoped_mcp_access_endpoint_filter", filter_string
-        ),
+        filter_string=getattr(request.state, SCOPED_MCP_ACCESS_ENDPOINT_FILTER, filter_string),
         max_results=max_results,
         order_by=order_by,
         page_token=page_token,
