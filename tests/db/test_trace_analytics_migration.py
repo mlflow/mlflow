@@ -1262,6 +1262,44 @@ def test_span_metrics_for_keys_query_matches_exact_pairs():
 
 
 @pytest.mark.parametrize(
+    "dialect", [postgresql.dialect(), sqlite.dialect(), mysql.dialect(), mssql.dialect()]
+)
+def test_span_key_after_has_a_seekable_leading_bound(dialect):
+    spans = sa.table(
+        "spans", sa.column("trace_id", sa.String(50)), sa.column("span_id", sa.String(50))
+    )
+
+    condition = MIGRATION_MODULE._span_key_after(spans, "trace-1", "span-1")
+
+    assert str(condition.compile(dialect=dialect)).startswith("spans.trace_id >= ")
+
+
+@pytest.mark.skipif(
+    not (USE_EXTERNAL_DB and DB_URI.startswith("postgresql")), reason="PostgreSQL query plan"
+)
+def test_span_key_after_seeks_the_spans_primary_key_on_postgres(tmp_path):
+    engine, _ = _prepare_database(tmp_path)
+    try:
+        with engine.begin() as conn:
+            spans = _table(conn, "spans")
+            page = (
+                sa
+                .select(spans.c.trace_id, spans.c.span_id)
+                .where(MIGRATION_MODULE._span_key_after(spans, "trace-1", "span-1"))
+                .order_by(spans.c.trace_id, spans.c.span_id)
+                .limit(MIGRATION_MODULE._BATCH_SIZE)
+            )
+            sql = str(page.compile(conn, compile_kwargs={"literal_binds": True}))
+            # An empty table plans a sequential scan; force the index to inspect how it is used.
+            conn.exec_driver_sql("SET LOCAL enable_seqscan = off")
+            plan = "\n".join(conn.exec_driver_sql(f"EXPLAIN {sql}").scalars())
+    finally:
+        engine.dispose()
+
+    assert "Index Cond: ((trace_id)::text >= 'trace-1'::text)" in plan
+
+
+@pytest.mark.parametrize(
     ("supports_sane_rowcount", "rowcount", "raises"),
     [
         (True, 2, False),

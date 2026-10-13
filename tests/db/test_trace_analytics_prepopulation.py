@@ -770,6 +770,19 @@ def test_prepopulation_span_metric_lookup_compiles_for_supported_dialects(
     )
 
 
+@pytest.mark.parametrize(
+    "dialect", [postgresql.dialect(), sqlite.dialect(), mysql.dialect(), mssql.dialect()]
+)
+def test_prepopulation_span_key_after_has_a_seekable_leading_bound(dialect):
+    spans = sa.table(
+        "spans", sa.column("trace_id", sa.String(50)), sa.column("span_id", sa.String(50))
+    )
+
+    condition = prepopulation._span_key_after(spans, "trace-1", "span-1")
+
+    assert str(condition.compile(dialect=dialect)).startswith("spans.trace_id >= ")
+
+
 def test_prepopulation_cli(tmp_path):
     engine, _ = _prepare_database(tmp_path)
     try:

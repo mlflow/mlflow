@@ -549,15 +549,7 @@ def _backfill_span_analytics():
         ).order_by(spans.c.trace_id, spans.c.span_id)
         if last_span_key is not None:
             last_trace_id, last_span_id = last_span_key
-            page_stmt = page_stmt.where(
-                sa.or_(
-                    spans.c.trace_id > last_trace_id,
-                    sa.and_(
-                        spans.c.trace_id == last_trace_id,
-                        spans.c.span_id > last_span_id,
-                    ),
-                )
-            )
+            page_stmt = page_stmt.where(_span_key_after(spans, last_trace_id, last_span_id))
         batch = bind.execute(page_stmt.limit(_BATCH_SIZE)).all()
         if not batch:
             break
@@ -778,15 +770,7 @@ def _validate_dimension_attributes():
         )
         if last_span_key is not None:
             last_trace_id, last_span_id = last_span_key
-            stmt = stmt.where(
-                sa.or_(
-                    spans.c.trace_id > last_trace_id,
-                    sa.and_(
-                        spans.c.trace_id == last_trace_id,
-                        spans.c.span_id > last_span_id,
-                    ),
-                )
-            )
+            stmt = stmt.where(_span_key_after(spans, last_trace_id, last_span_id))
         rows = bind.execute(stmt.limit(_BATCH_SIZE)).all()
         if not rows:
             break
@@ -827,6 +811,18 @@ def _validated_dimension_attributes(value, span_key):
             f"span {span_key!r}: {details}"
         )
     return value
+
+
+def _span_key_after(spans, last_trace_id, last_span_id):
+    # The redundant leading bound lets PostgreSQL seek the primary key index. With only the OR
+    # it applies the predicate as a filter and rescans every earlier span on each page.
+    return sa.and_(
+        spans.c.trace_id >= last_trace_id,
+        sa.or_(
+            spans.c.trace_id > last_trace_id,
+            sa.and_(spans.c.trace_id == last_trace_id, spans.c.span_id > last_span_id),
+        ),
+    )
 
 
 def _span_metrics_for_keys_query(span_metrics, span_keys, dialect_name):
@@ -1032,15 +1028,7 @@ def _reconstruct_legacy_analytics():
         stmt = sa.select(spans).order_by(spans.c.trace_id, spans.c.span_id)
         if last_span_key is not None:
             last_trace_id, last_span_id = last_span_key
-            stmt = stmt.where(
-                sa.or_(
-                    spans.c.trace_id > last_trace_id,
-                    sa.and_(
-                        spans.c.trace_id == last_trace_id,
-                        spans.c.span_id > last_span_id,
-                    ),
-                )
-            )
+            stmt = stmt.where(_span_key_after(spans, last_trace_id, last_span_id))
         rows = bind.execute(stmt.limit(_BATCH_SIZE)).mappings().all()
         if not rows:
             break
