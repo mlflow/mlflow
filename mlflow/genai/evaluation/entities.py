@@ -260,6 +260,9 @@ class EvaluationResult:
     # Per-scorer ``pass_if`` predicates, keyed by scorer name. Populated by the
     # evaluation harness from the scorers that declare one. In-process only.
     pass_criteria: dict[str, Callable[[Any], bool]] = field(default_factory=dict)
+    # Names of dataset expectations (ground truth). Their ``<name>/value`` columns appear in
+    # ``result_df`` for comparison but are not scorer verdicts, so ``passed`` ignores them.
+    expectation_names: set[str] = field(default_factory=set)
 
     def __repr__(self) -> str:
         metrics_str = "\n    ".join([f"{k}: {v}" for k, v in self.metrics.items()])
@@ -283,6 +286,7 @@ class EvaluationResult:
 
         A value passes when it is a ``yes`` rating (or ``"yes"``) or ``True``.
         Declare ``@scorer(pass_if=...)`` to define passing for other values.
+        Dataset expectations are ground truth, not verdicts, so they are not asserted.
 
         Usage::
 
@@ -308,7 +312,11 @@ class EvaluationResult:
         if self.result_df is None:
             return []
 
-        value_cols = [c for c in self.result_df.columns if c.endswith("/value")]
+        value_cols = [
+            c
+            for c in self.result_df.columns
+            if c.endswith("/value") and c.removesuffix("/value") not in self.expectation_names
+        ]
         if not value_cols:
             return []
 
