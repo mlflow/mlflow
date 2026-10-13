@@ -1,4 +1,5 @@
 import json
+import os
 
 import pytest
 
@@ -40,6 +41,8 @@ def test_custom_without_override_routes_to_default(monkeypatch):
 
 @pytest.fixture
 def docker_custom_scorer_backend(monkeypatch):
+    if os.name == "nt":
+        pytest.skip("The docker job executor requires a POSIX host")
     monkeypatch.setenv("MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND", "local")
     monkeypatch.setenv("MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND", "docker")
 
