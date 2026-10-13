@@ -1,7 +1,9 @@
 import logging
 import os
+from unittest.mock import MagicMock, patch
 
 import numpy as np
+import pandas as pd
 import pyspark
 import pytest
 from optuna.exceptions import TrialPruned
@@ -13,6 +15,7 @@ from packaging.version import Version
 
 import mlflow
 from mlflow.exceptions import ExecutionException
+from mlflow.optuna.storage import MlflowStorage
 from mlflow.pyspark.optuna.study import MlflowSparkStudy
 
 from tests.optuna.test_storage import setup_storage  # noqa: F401
@@ -78,7 +81,73 @@ def test_study_optimize_run(setup_storage):
     mlflow_study.optimize(objective, n_trials=8, n_jobs=4)
     assert sorted(mlflow_study.best_params.keys()) == ["x"]
     assert len(mlflow_study.trials) == 8
-    np.testing.assert_allclose(mlflow_study.best_params["x"], 5.426412865334919, rtol=1e-6)
+    # Executors reseed their samplers, so the exact best value is not deterministic.
+    assert mlflow_study.best_value == min(t.value for t in mlflow_study.trials)
+    np.testing.assert_allclose(
+        mlflow_study.best_value, (mlflow_study.best_params["x"] - 2) ** 2, rtol=1e-6
+    )
+
+
+def _run_executor_task_in_process(mlflow_study, objective):
+    """Run ``optimize`` with a mocked Spark session and execute the captured executor
+    task in the current process, so that executor-side behavior can be inspected.
+    """
+    mlflow_study.spark = MagicMock()
+    mlflow_study._is_spark_connect_mode = True
+    mlflow_study.optimize(objective, n_trials=1, n_jobs=1)
+    map_in_pandas = mlflow_study.spark.range.return_value.mapInPandas
+    map_in_pandas.assert_called_once()
+    task = map_in_pandas.call_args.kwargs["func"]
+    return list(task(iter([pd.DataFrame({"id": [0]})])))
+
+
+def test_executor_task_reseeds_sampler(setup_storage):
+    storage = setup_storage
+    sampler = TPESampler(seed=42, n_startup_trials=0)
+    mlflow_study = MlflowSparkStudy("reseed-study", storage, sampler=sampler)
+
+    with patch.object(sampler, "reseed_rng", wraps=sampler.reseed_rng) as reseed_rng:
+        result = _run_executor_task_in_process(
+            mlflow_study, lambda trial: trial.suggest_float("x", -10, 10)
+        )
+
+    assert result[0]["error"].isna().all()
+    reseed_rng.assert_called_once()
+
+
+def test_executor_storage_inherits_batch_config(setup_storage):
+    storage = MlflowStorage(
+        experiment_id=setup_storage._experiment_id,
+        batch_flush_interval=0.1,
+        batch_size_threshold=1,
+    )
+    mlflow_study = MlflowSparkStudy("batch-config-study", storage)
+
+    with patch(
+        "mlflow.pyspark.optuna.study.MlflowStorage", wraps=MlflowStorage
+    ) as executor_storage:
+        result = _run_executor_task_in_process(
+            mlflow_study, lambda trial: trial.suggest_float("x", -10, 10)
+        )
+
+    assert result[0]["error"].isna().all()
+    executor_storage.assert_called_once_with(
+        experiment_id=setup_storage._experiment_id,
+        batch_flush_interval=0.1,
+        batch_size_threshold=1,
+    )
+
+
+def test_parallel_executors_suggest_distinct_params(setup_storage):
+    storage = setup_storage
+    sampler = TPESampler(seed=42, n_startup_trials=0)
+    mlflow_study = MlflowSparkStudy("distinct-params-study", storage, sampler=sampler)
+
+    mlflow_study.optimize(lambda trial: trial.suggest_float("x", -10, 10), n_trials=2, n_jobs=2)
+
+    xs = [t.params["x"] for t in mlflow_study.trials]
+    assert len(xs) == 2
+    assert xs[0] != xs[1]
 
 
 def test_study_with_failed_objective(setup_storage):
