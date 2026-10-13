@@ -8,10 +8,13 @@ from unittest import mock
 import pytest
 
 from mlflow import genai
+from mlflow.entities.mcp_access_endpoint import MCPAccessEndpoint
 from mlflow.entities.mcp_server import MCPRemoteTransportType, MCPStatus, MCPTool
+from mlflow.entities.mcp_server_version import MCPServerVersion
 from mlflow.exceptions import MlflowException
 from mlflow.genai.mcp_tool_discovery import DEFAULT_MCP_TOOL_DISCOVER_TIMEOUT_SECONDS
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
+from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking.mcp_server_registry.abstract_mixin import NOT_SET
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.tracking.client import MlflowClient
@@ -912,6 +915,171 @@ def test_refresh_mcp_server_version_tools_discovers_and_updates():
     fetched = genai.get_mcp_server_version(name=sj["name"], version=sj["version"])
     assert fetched.tools is not None
     assert fetched.tools[0].name == "refreshed"
+
+
+def test_refresh_mcp_server_version_tools_prefers_matching_access_endpoint():
+    sj = _server_json(
+        "io.github.test/refresh-endpoint",
+        "1.0.0",
+        remotes=[{"type": "streamable-http", "url": "https://mcp.example.com/remote"}],
+    )
+    genai.register_mcp_server(server_json=sj, tools=None)
+    endpoint = genai.create_mcp_access_endpoint(
+        server_name=sj["name"],
+        url="https://mcp.example.com/endpoint",
+        transport_type="sse",
+        server_version=sj["version"],
+    )
+
+    with mock.patch(
+        "mlflow.genai.mcp_tool_discovery.discover_mcp_tools",
+        return_value=[MCPTool(name="refreshed")],
+    ) as mock_discover:
+        genai.refresh_mcp_server_version_tools(
+            name=sj["name"],
+            version=sj["version"],
+            mcp_server_access_headers={"Authorization": "Bearer test"},
+        )
+
+    mock_discover.assert_called_once_with(
+        url=endpoint.url,
+        transport_type=MCPRemoteTransportType.SSE,
+        headers={"Authorization": "Bearer test"},
+        timeout=DEFAULT_MCP_TOOL_DISCOVER_TIMEOUT_SECONDS,
+    )
+
+
+def test_refresh_mcp_server_version_tools_uses_alias_endpoint():
+    sj = _server_json("io.github.test/refresh-alias-endpoint", "1.0.0")
+    genai.register_mcp_server(server_json=sj, tools=None)
+    genai.set_mcp_server_alias(name=sj["name"], alias="production", version=sj["version"])
+    endpoint = genai.create_mcp_access_endpoint(
+        server_name=sj["name"],
+        url="https://mcp.example.com/alias-endpoint",
+        server_alias="production",
+    )
+
+    with mock.patch(
+        "mlflow.genai.mcp_tool_discovery.discover_mcp_tools",
+        return_value=[MCPTool(name="refreshed")],
+    ) as mock_discover:
+        genai.refresh_mcp_server_version_tools(name=sj["name"], version=sj["version"])
+
+    mock_discover.assert_called_once_with(
+        url=endpoint.url,
+        transport_type=MCPRemoteTransportType.STREAMABLE_HTTP,
+        headers=None,
+        timeout=DEFAULT_MCP_TOOL_DISCOVER_TIMEOUT_SECONDS,
+    )
+
+
+@pytest.mark.parametrize(
+    "exc",
+    [
+        RuntimeError("unavailable"),
+        MlflowException("Timed out"),
+    ],
+    ids=["RuntimeError", "MlflowException"],
+)
+def test_refresh_mcp_server_version_tools_surfaces_selected_endpoint_failure(exc):
+    sj = _server_json(
+        "io.github.test/refresh-endpoint-failure",
+        "1.0.0",
+        remotes=[{"type": "streamable-http", "url": "https://mcp.example.com/remote"}],
+    )
+    genai.register_mcp_server(server_json=sj, tools=None)
+    endpoint = genai.create_mcp_access_endpoint(
+        server_name=sj["name"],
+        url="https://mcp.example.com/endpoint",
+        server_version=sj["version"],
+    )
+
+    with (
+        mock.patch(
+            "mlflow.genai.mcp_tool_discovery.discover_mcp_tools",
+            side_effect=exc,
+        ) as mock_discover,
+        pytest.raises(MlflowException, match=f"access endpoint '{endpoint.id}'"),
+    ):
+        genai.refresh_mcp_server_version_tools(name=sj["name"], version=sj["version"])
+    mock_discover.assert_called_once()
+
+
+def test_refresh_mcp_server_version_tools_does_not_fallback_when_endpoints_do_not_match():
+    name = "io.github.test/refresh-endpoint-no-match"
+    genai.register_mcp_server(
+        server_json=_server_json(
+            name,
+            "1.0.0",
+            remotes=[{"type": "streamable-http", "url": "https://mcp.example.com/remote-v1"}],
+        ),
+        tools=None,
+    )
+    v2 = genai.register_mcp_server(
+        server_json=_server_json(
+            name,
+            "2.0.0",
+            remotes=[{"type": "streamable-http", "url": "https://mcp.example.com/remote-v2"}],
+        ),
+        tools=None,
+    )
+    genai.create_mcp_access_endpoint(
+        server_name=name,
+        url="https://mcp.example.com/endpoint-v1",
+        server_version="1.0.0",
+    )
+
+    with (
+        mock.patch("mlflow.genai.mcp_tool_discovery.discover_mcp_tools") as mock_discover,
+        pytest.raises(MlflowException, match="server_json.remotes will not be used"),
+    ):
+        genai.refresh_mcp_server_version_tools(name=name, version=v2.version)
+    mock_discover.assert_not_called()
+
+
+def test_refresh_mcp_server_version_tools_searches_all_endpoint_pages():
+    sj = _server_json("io.github.test/refresh-endpoint-pages", "1.0.0")
+    genai.register_mcp_server(server_json=sj, tools=None)
+    client = MlflowClient()
+    matching_endpoint = MCPAccessEndpoint(
+        id="matching",
+        server_name=sj["name"],
+        url="https://mcp.example.com/page-two",
+        resolved_version=MCPServerVersion(name=sj["name"], version=sj["version"], server_json=sj),
+    )
+    other_endpoint = MCPAccessEndpoint(
+        id="other",
+        server_name=sj["name"],
+        url="https://mcp.example.com/page-one",
+        resolved_version=MCPServerVersion(name=sj["name"], version="2.0.0", server_json=sj),
+    )
+
+    with (
+        mock.patch.object(
+            client,
+            "search_mcp_access_endpoints",
+            side_effect=[
+                PagedList([other_endpoint], "next-page"),
+                PagedList([matching_endpoint], None),
+            ],
+        ) as mock_search,
+        mock.patch(
+            "mlflow.genai.mcp_tool_discovery.discover_mcp_tools",
+            return_value=[MCPTool(name="refreshed")],
+        ) as mock_discover,
+    ):
+        client.refresh_mcp_server_version_tools(name=sj["name"], version=sj["version"])
+
+    assert mock_search.call_args_list == [
+        mock.call(server_name=sj["name"], page_token=None),
+        mock.call(server_name=sj["name"], page_token="next-page"),
+    ]
+    mock_discover.assert_called_once_with(
+        url=matching_endpoint.url,
+        transport_type=MCPRemoteTransportType.STREAMABLE_HTTP,
+        headers=None,
+        timeout=DEFAULT_MCP_TOOL_DISCOVER_TIMEOUT_SECONDS,
+    )
 
 
 def test_refresh_mcp_server_version_tools_dry_run_returns_preview_only():

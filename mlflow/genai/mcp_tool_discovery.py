@@ -5,8 +5,9 @@ from __future__ import annotations
 import asyncio
 import logging
 import threading
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
 
+from mlflow.entities.mcp_access_endpoint import MCPAccessEndpoint
 from mlflow.entities.mcp_server import MCPRemoteTransportType, MCPTool
 from mlflow.environment_variables import MLFLOW_ENABLE_MCP_TOOL_DISCOVERY
 from mlflow.exceptions import MlflowException
@@ -207,6 +208,79 @@ def discover_tools_for_server_json(
         headers=headers,
         timeout=timeout,
     )
+
+
+def _select_access_endpoint(
+    access_endpoints: Sequence[MCPAccessEndpoint], version: str
+) -> MCPAccessEndpoint | None:
+    """Pick the access endpoint used to discover tools for ``version``."""
+    matching = [
+        endpoint
+        for endpoint in access_endpoints
+        if endpoint.resolved_version is not None and endpoint.resolved_version.version == version
+    ]
+    if not matching:
+        return None
+
+    # Lowest creation_timestamp wins; endpoints with no timestamp sort last.
+    # ID is a stable tiebreaker (not creation-order) when timestamps are equal or absent.
+    return min(
+        matching,
+        key=lambda endpoint: (
+            endpoint.creation_timestamp
+            if endpoint.creation_timestamp is not None
+            else float("inf"),
+            endpoint.id,
+        ),
+    )
+
+
+def discover_tools_for_version(
+    server_json: dict[str, Any],
+    version: str,
+    access_endpoints: Sequence[MCPAccessEndpoint] | None = None,
+    headers: Mapping[str, str] | None = None,
+    timeout: float = DEFAULT_MCP_TOOL_DISCOVER_TIMEOUT_SECONDS,
+) -> list[MCPTool]:
+    """Discover tools for a version, preferring matching access endpoints."""
+    endpoints = access_endpoints or []
+    endpoint = _select_access_endpoint(endpoints, version)
+    if endpoint is not None:
+        try:
+            return discover_mcp_tools(
+                url=endpoint.url,
+                transport_type=endpoint.transport_type,
+                headers=headers,
+                timeout=timeout,
+            )
+        except MlflowException as e:
+            # Omit the URL from the outer prefix — if the inner message already
+            # embeds it (e.g. timeout errors), adding it again would duplicate it.
+            raise MlflowException.invalid_parameter_value(
+                f"MCP tool discovery failed for access endpoint '{endpoint.id}' "
+                f"resolving to version '{version}': {e}"
+            ) from e
+        except Exception as e:
+            # Plain exceptions lack URL context; add it here.
+            raise MlflowException.invalid_parameter_value(
+                f"MCP tool discovery failed for access endpoint '{endpoint.id}' "
+                f"({endpoint.url!r}) resolving to version '{version}': {e}"
+            ) from e
+
+    if endpoints:
+        raise MlflowException.invalid_parameter_value(
+            f"No access endpoint resolves to requested version '{version}'; "
+            "server_json.remotes will not be used while access endpoints are configured."
+        )
+
+    remote = _first_discovery_remote(server_json)
+    if remote is None:
+        raise MlflowException.invalid_parameter_value(
+            f"No usable MCP remote found for version '{version}': no access endpoints are "
+            "configured and server_json.remotes contains no usable entry."
+        )
+    url, transport = remote
+    return discover_mcp_tools(url=url, transport_type=transport, headers=headers, timeout=timeout)
 
 
 def resolve_tools_for_create(
