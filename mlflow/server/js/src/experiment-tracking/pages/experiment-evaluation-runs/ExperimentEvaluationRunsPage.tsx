@@ -46,6 +46,7 @@ import {
 } from './hooks/useExperimentEvaluationRunsPageMode';
 import { ExperimentEvaluationRunsPageCharts } from './charts/ExperimentEvaluationRunsPageCharts';
 import { ExperimentEvaluationRunsRowVisibilityProvider } from './hooks/useExperimentEvaluationRunsRowVisibility';
+import { useEvalRunsSorting } from './hooks/useEvalRunsTableUrlState';
 import { useGetExperimentRunColor } from '../../components/experiment-page/hooks/useExperimentRunColor';
 import { useRegisterSelectedIds } from '@mlflow/mlflow/src/assistant';
 import {
@@ -94,6 +95,7 @@ const ExperimentEvaluationRunsPageImpl = () => {
   const [selectedRunUuid, setSelectedRunUuid] = useSelectedRunUuid();
   const [compareToRunUuid, setCompareToRunUuid] = useCompareToRunUuid();
   const [, setSearchParams] = useSearchParams();
+  const [evalRunsSorting, setEvalRunsSorting] = useEvalRunsSorting(enableNewEvalRunsUi);
 
   invariant(experimentId, 'Experiment ID must be defined');
 
@@ -390,6 +392,9 @@ const ExperimentEvaluationRunsPageImpl = () => {
       data={runsWithHierarchy}
       uniqueColumns={uniqueColumns}
       selectedColumns={selectedColumns}
+      setSelectedColumns={setSelectedColumns}
+      sorting={enableNewEvalRunsUi ? evalRunsSorting : undefined}
+      onSortingChange={enableNewEvalRunsUi ? setEvalRunsSorting : undefined}
       selectedRunUuid={
         enableImprovedComparison && isComparisonMode && viewMode === ExperimentEvaluationRunsPageMode.TRACES
           ? selectedRunUuid

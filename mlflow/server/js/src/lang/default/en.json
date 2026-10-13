@@ -7187,6 +7187,10 @@
     "defaultMessage": "Dataset records",
     "description": "Region label for the V2 dataset records table — wraps the table and pagination"
   },
+  "PMTsRz": {
+    "defaultMessage": "Sort ascending",
+    "description": "Menu option to sort a column ascending in the evaluation runs table header"
+  },
   "PMaJHI": {
     "defaultMessage": "Used by ({count})",
     "description": "Gateway > Bindings using key drawer > Title"
@@ -8122,6 +8126,10 @@
   "SymYki": {
     "defaultMessage": "About icons",
     "description": "Aria label for icons help popover in create MCP server modal"
+  },
+  "SzJCjR": {
+    "defaultMessage": "Sort descending",
+    "description": "Menu option to sort a column descending in the evaluation runs table header"
   },
   "SzapEm": {
     "defaultMessage": "Your models will appear here once you log them using newest version of MLflow. <link>Learn more</link>.",
@@ -9522,6 +9530,10 @@
   "Y31bI7": {
     "defaultMessage": "Try a stronger model. Model quality directly affects detection accuracy.",
     "description": "Suggestion to use a stronger model for issue detection"
+  },
+  "Y3btxE": {
+    "defaultMessage": "Toggle sort direction for {columnLabel}",
+    "description": "Accessible label for the clickable sort-direction icon in the evaluation runs table header"
   },
   "Y47tVZ": {
     "defaultMessage": "Time (relative)",
@@ -12019,6 +12031,10 @@
     "defaultMessage": "No traces yet. Log traces to this experiment first.",
     "description": "Message shown in the issue detection modal when the experiment has no traces"
   },
+  "hATGXy": {
+    "defaultMessage": "Options for {columnLabel} column",
+    "description": "Accessible label for the per-column options menu in the evaluation runs table header"
+  },
   "hBAhI8": {
     "defaultMessage": "Copy",
     "description": "Tooltip message displayed on copy action"
@@ -13134,6 +13150,10 @@
   "kzfRC2": {
     "defaultMessage": "Impacted traces: {count}",
     "description": "Label showing the number of traces impacted by this issue"
+  },
+  "l+5Myp": {
+    "defaultMessage": "Select all runs",
+    "description": "Accessible label for the select-all checkbox in the evaluation runs table header"
   },
   "l/+0SR": {
     "defaultMessage": "Last modified",
@@ -16134,6 +16154,10 @@
   "wOupuD": {
     "defaultMessage": "Expected facts for evaluation",
     "description": "Tooltip description for the Expected facts column in the traces table"
+  },
+  "wQvMnu": {
+    "defaultMessage": "Hide column",
+    "description": "Menu option to hide a column in the evaluation runs table header"
   },
   "wR9jbK": {
     "defaultMessage": "Upload a folder",
