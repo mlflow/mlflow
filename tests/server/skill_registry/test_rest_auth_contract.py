@@ -80,10 +80,19 @@ def _url(registry: AuthenticatedRegistry, prefix: str, suffix: str = "") -> str:
     return f"{registry.base_url}{prefix}{suffix}"
 
 
-def _create_skill(registry: AuthenticatedRegistry, prefix: str, name: str) -> None:
+def _identity_path(name: str, organization: str) -> str:
+    return f"@{organization}/{name}" if organization else name
+
+
+def _create_skill(
+    registry: AuthenticatedRegistry, prefix: str, name: str, organization: str = ""
+) -> None:
+    body = {"name": name}
+    if organization:
+        body["organization"] = organization
     response = requests.post(
         _url(registry, prefix),
-        json={"name": name},
+        json=body,
         auth=registry.admin,
     )
     assert response.status_code == 200, response.text
@@ -210,22 +219,26 @@ def test_skill_mutations_require_write_permission(authenticated_registry, prefix
 
 
 @pytest.mark.parametrize("prefix", _PREFIXES)
-def test_skill_version_registration_requires_edit_permission(authenticated_registry, prefix):
+@pytest.mark.parametrize("organization", ["", "acme"])
+def test_skill_version_registration_requires_edit_permission(
+    authenticated_registry, prefix, organization
+):
     registry = authenticated_registry
     reader = create_user(registry.base_url)
     name = f"registration-{random_str()}"
-    _create_skill(registry, prefix, name)
+    identity_path = _identity_path(name, organization)
+    _create_skill(registry, prefix, name, organization)
     grant_role_permission(
         registry.base_url,
         reader[0],
         "skill",
-        name,
+        identity_path,
         "READ",
         auth=registry.admin,
     )
 
     response = requests.post(
-        _url(registry, prefix, f"/{name}/versions"),
+        _url(registry, prefix, f"/{identity_path}/versions"),
         json={
             "source": "https://github.com/acme/skills.git",
             "source_type": "git",
@@ -236,10 +249,112 @@ def test_skill_version_registration_requires_edit_permission(authenticated_regis
 
     assert response.status_code == 403, response.text
     response = requests.get(
-        _url(registry, prefix, f"/{name}/versions"),
+        _url(registry, prefix, f"/{identity_path}/versions"),
         auth=registry.admin,
     )
     assert response.json()["skill_versions"] == []
+
+    grant_role_permission(
+        registry.base_url,
+        reader[0],
+        "skill",
+        identity_path,
+        "EDIT",
+        auth=registry.admin,
+    )
+    response = requests.post(
+        _url(registry, prefix, f"/{identity_path}/versions"),
+        json={
+            "source": "https://github.com/acme/skills.git",
+            "source_type": "git",
+            "digest": "ab" * 32,
+        },
+        auth=reader,
+    )
+    assert response.status_code == 200, response.text
+    response = requests.get(
+        _url(registry, prefix, f"/{identity_path}/versions"),
+        auth=registry.admin,
+    )
+    assert len(response.json()["skill_versions"]) == 1
+
+
+@pytest.mark.parametrize("prefix", _PREFIXES)
+@pytest.mark.parametrize("organization", ["", "acme"])
+@pytest.mark.parametrize("deletion_method", ["delete", "patch"])
+def test_skill_version_deletion_requires_manage(
+    authenticated_registry, prefix, organization, deletion_method
+):
+    registry = authenticated_registry
+    reader = create_user(registry.base_url)
+    name = f"deletion-{random_str()}"
+    identity_path = _identity_path(name, organization)
+    _create_skill(registry, prefix, name, organization)
+    response = requests.post(
+        _url(registry, prefix, f"/{identity_path}/versions"),
+        json={
+            "source": "https://github.com/acme/skills.git",
+            "source_type": "git",
+            "digest": "cd" * 32,
+            "status": "draft",
+        },
+        auth=registry.admin,
+    )
+    assert response.status_code == 200, response.text
+    version_path = _url(registry, prefix, f"/{identity_path}/versions/1")
+
+    grant_role_permission(
+        registry.base_url,
+        reader[0],
+        "skill",
+        identity_path,
+        "READ",
+        auth=registry.admin,
+    )
+    request = (
+        requests.delete(version_path, auth=reader)
+        if deletion_method == "delete"
+        else requests.patch(version_path, json={"status": "deleted"}, auth=reader)
+    )
+    assert request.status_code == 403, request.text
+    response = requests.get(version_path, auth=registry.admin)
+    assert response.status_code == 200, response.text
+    assert response.json()["status"] == "draft"
+
+    grant_role_permission(
+        registry.base_url,
+        reader[0],
+        "skill",
+        identity_path,
+        "EDIT",
+        auth=registry.admin,
+    )
+    request = (
+        requests.delete(version_path, auth=reader)
+        if deletion_method == "delete"
+        else requests.patch(version_path, json={"status": "deleted"}, auth=reader)
+    )
+    assert request.status_code == 403, request.text
+    response = requests.get(version_path, auth=registry.admin)
+    assert response.status_code == 200, response.text
+    assert response.json()["status"] == "draft"
+
+    grant_role_permission(
+        registry.base_url,
+        reader[0],
+        "skill",
+        identity_path,
+        "MANAGE",
+        auth=registry.admin,
+    )
+    request = (
+        requests.delete(version_path, auth=reader)
+        if deletion_method == "delete"
+        else requests.patch(version_path, json={"status": "deleted"}, auth=reader)
+    )
+    assert request.status_code == 200, request.text
+    response = requests.get(version_path, auth=registry.admin)
+    assert response.status_code == 404, response.text
 
 
 @pytest.mark.parametrize("prefix", _PREFIXES)
