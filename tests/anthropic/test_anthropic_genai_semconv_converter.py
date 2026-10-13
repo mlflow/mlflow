@@ -6,7 +6,7 @@ import pytest
 from packaging.version import Version
 
 import mlflow
-from mlflow.anthropic.genai_semconv_converter import _convert_block
+from mlflow.anthropic.genai_semconv_converter import AnthropicConverter, _convert_block
 from mlflow.tracing.constant import GenAiSemconvKey
 
 from tests.anthropic.test_anthropic_autolog import (
@@ -173,4 +173,75 @@ def test_autolog_with_tool_calls(client, capture_otel_export):
     ],
 )
 def test_convert_block_multimodal(block, expected):
+    assert _convert_block(block) == expected
+
+
+def test_reasoning_and_redacted_content_export():
+    content = [
+        {"type": "thinking", "thinking": "I will compare the choices.", "signature": "signature"},
+        {"type": "redacted_thinking", "data": "encrypted"},
+        {"type": "text", "text": "The first choice is best."},
+    ]
+    attrs = AnthropicConverter().translate(
+        {"messages": [{"role": "assistant", "content": content}]},
+        {"id": "message-1", "model": "claude-sonnet-4", "role": "assistant", "content": content},
+    )
+    expected_parts = [
+        {"type": "reasoning", "content": "I will compare the choices.", "signature": "signature"},
+        {"type": "redacted_thinking", "data": "encrypted"},
+        {"type": "text", "content": "The first choice is best."},
+    ]
+    assert json.loads(attrs[GenAiSemconvKey.INPUT_MESSAGES]) == [
+        {"role": "assistant", "parts": expected_parts}
+    ]
+    assert json.loads(attrs[GenAiSemconvKey.OUTPUT_MESSAGES]) == [
+        {"role": "assistant", "parts": expected_parts}
+    ]
+    assert attrs[GenAiSemconvKey.RESPONSE_ID] == "message-1"
+    assert attrs[GenAiSemconvKey.RESPONSE_MODEL] == "claude-sonnet-4"
+
+
+@pytest.mark.parametrize(
+    ("block", "expected"),
+    [
+        (
+            {
+                "type": "document",
+                "title": "Report",
+                "citations": {"enabled": True},
+                "source": {"type": "file", "file_id": "file-pdf"},
+            },
+            {
+                "type": "file",
+                "modality": "document",
+                "file_id": "file-pdf",
+                "title": "Report",
+                "citations": {"enabled": True},
+            },
+        ),
+        (
+            {
+                "type": "document",
+                "title": "Notes",
+                "source": {"type": "text", "media_type": "text/plain", "data": "The notes."},
+            },
+            {"type": "text", "title": "Notes", "content": "The notes."},
+        ),
+        (
+            {
+                "type": "document",
+                "source": {"type": "content", "content": [{"type": "text", "text": "Notes"}]},
+            },
+            {
+                "type": "document",
+                "source": {"type": "content", "content": [{"type": "text", "text": "Notes"}]},
+            },
+        ),
+        (
+            {"type": "custom_media", "source": {"uri": "https://example.com/media"}},
+            {"type": "custom_media", "source": {"uri": "https://example.com/media"}},
+        ),
+    ],
+)
+def test_preserve_document_and_generic_blocks(block, expected):
     assert _convert_block(block) == expected
