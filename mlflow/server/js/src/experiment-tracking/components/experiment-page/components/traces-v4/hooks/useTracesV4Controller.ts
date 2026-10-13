@@ -34,6 +34,8 @@ import { SEARCH_DEBOUNCE_MS } from '../utils/constants';
 // managed allows more, but shared code must respect the stricter OSS ceiling.
 export const GROUPED_TRACES_LIMIT = 500;
 
+export type TracesV4EmptyStateKind = 'checking' | 'time-filtered' | 'no-traces' | 'probe-error';
+
 interface UseTracesV4ControllerParams {
   experimentId: string;
 }
@@ -56,6 +58,9 @@ export interface UseTracesV4ControllerResult {
   activeFilterCount: number;
   /** ISO time range currently applied (drives the search filter + refresh label context). */
   timeRange: { startTime?: string; endTime?: string };
+  timeLabel: ReturnType<typeof useTracesV4TimeRange>['timeLabel'];
+  setTimeRange: ReturnType<typeof useTracesV4TimeRange>['setTimeRange'];
+  emptyStateKind: TracesV4EmptyStateKind;
   /** Navigate to a page, committing any pending typed search first. */
   goToPage: (target: number) => void;
   /** Toggle a URL-persisted click-to-filter tag constraint (from a tag pill in the table). */
@@ -64,7 +69,7 @@ export interface UseTracesV4ControllerResult {
   isGroupedBySession: boolean;
   flags: {
     hasActiveSearch: boolean;
-    hasNoTracesAtAll: boolean;
+    hasNoTracesInRange: boolean;
     hasNoSearchResults: boolean;
     /** An empty page reached beyond page 1 (paged past the last full page) — "No more results". */
     isEmptyPageBeyondFirst: boolean;
@@ -80,7 +85,7 @@ export interface UseTracesV4ControllerResult {
  */
 export const useTracesV4Controller = ({ experimentId }: UseTracesV4ControllerParams): UseTracesV4ControllerResult => {
   const url = useTracesV4UrlState();
-  const { timeRangeMs: timeRange, setTimeRange } = useTracesV4TimeRange(experimentId);
+  const { timeRangeMs: timeRange, timeLabel, setTimeRange } = useTracesV4TimeRange(experimentId);
   const queryClient = useQueryClient();
   const monitoringConfig = useMonitoringConfig();
 
@@ -220,15 +225,44 @@ export const useTracesV4Controller = ({ experimentId }: UseTracesV4ControllerPar
   const activeFilterCount = countActiveFilters(filterModel) + url.tagFilters.length;
   const hasActiveSearch = url.search.trim().length > 0;
   const hasActiveFilters = hasActiveSearch || activeFilterCount > 0;
-  const isSettled = !page.isLoading && !page.isFetching;
+  const isSettled = !page.isLoading && !page.isFetching && !page.isPreviousData;
   const hasNoResults = isSettled && page.traces.length === 0;
   // An empty result on a page past the first means the user paged one step beyond the last full page
   // (a cursor API can't know page N+1 is empty until it asks). This is distinct from "no traces at
   // all" / "no filter match" — it keeps the pagination bar so the user can step back — so it takes
   // precedence: the initial-empty states are gated to page 1.
   const isEmptyPageBeyondFirst = hasNoResults && url.pageIndex > 1;
-  const hasNoTracesAtAll = hasNoResults && !hasActiveFilters && !isEmptyPageBeyondFirst;
+  const hasNoTracesInRange = hasNoResults && !hasActiveFilters && !isEmptyPageBeyondFirst;
   const hasNoSearchResults = hasNoResults && hasActiveFilters && !isEmptyPageBeyondFirst;
+
+  // Only check outside the selected time window after an otherwise unfiltered first page is empty.
+  // A one-row query distinguishes a truly empty experiment from traces hidden by the range.
+  const shouldProbeAllTime = hasNoTracesInRange && timeLabel !== 'ALL' && !page.error;
+  const allTimeIdentity = useMemo<TracesQueryIdentity>(
+    () => ({ locations, orderBy: ['timestamp DESC'], pageSize: 1 }),
+    [locations],
+  );
+  const allTimeTokenCache = useTraceTokenCache();
+  const allTimeProbe = useTracesPageQuery({
+    identity: allTimeIdentity,
+    pageIndex: 1,
+    tokenCache: allTimeTokenCache,
+    enabled: shouldProbeAllTime,
+    onPageIndexChange: () => undefined,
+  });
+
+  let emptyStateKind: TracesV4EmptyStateKind = 'no-traces';
+  if (shouldProbeAllTime) {
+    if (allTimeProbe.isLoading || allTimeProbe.isFetching || allTimeProbe.isPreviousData) {
+      emptyStateKind = 'checking';
+    } else if (allTimeProbe.error) {
+      emptyStateKind = 'probe-error';
+    } else if (allTimeProbe.dataUpdatedAt === 0) {
+      emptyStateKind = 'checking';
+    } else if (allTimeProbe.traces.length > 0) {
+      emptyStateKind = 'time-filtered';
+    }
+  }
 
   return {
     url,
@@ -245,9 +279,12 @@ export const useTracesV4Controller = ({ experimentId }: UseTracesV4ControllerPar
     setFilterModel,
     activeFilterCount,
     timeRange,
+    timeLabel,
+    setTimeRange,
+    emptyStateKind,
     goToPage,
     onFilterByTag: url.addTagFilter,
     isGroupedBySession,
-    flags: { hasActiveSearch, hasNoTracesAtAll, hasNoSearchResults, isEmptyPageBeyondFirst },
+    flags: { hasActiveSearch, hasNoTracesInRange, hasNoSearchResults, isEmptyPageBeyondFirst },
   };
 };
