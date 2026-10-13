@@ -3,7 +3,7 @@ name: Triage Runner Image
 on:
   workflow_dispatch:
   push:
-    branches: [master, harupy/triage-custom-runner]
+    branches: [master]
     paths:
       - .github/workflows/triage-runner-image.yml
       - .github/actions/setup-python/**
