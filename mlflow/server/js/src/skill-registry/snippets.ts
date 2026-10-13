@@ -53,7 +53,7 @@ export const formatSkillRegisterCli = ({
   workspace,
 }: SkillRegisterSnippetOptions) => {
   const lines = [
-    local ? `mlflow skills register ${quoteShellArg('<directory>')}` : `mlflow skills register ${sourceType}`,
+    local ? `mlflow skills register --source ${quoteShellArg('<directory>')}` : `mlflow skills register ${sourceType}`,
   ];
   if (name) lines.push(`--name ${quoteShellArg(name)}`);
   if (organization) lines.push(`--organization ${quoteShellArg(organization)}`);
@@ -160,22 +160,9 @@ export const formatSkillImportPython = ({
 export const formatSkillPullCli = (uri: string, destination: string, workspace?: SnippetWorkspace) =>
   cliCommand([`mlflow skills pull ${uri}`, `--destination ${destination}`], workspace);
 
-export const formatSkillPullPython = ({
-  name,
-  organization,
-  version,
-  destination,
-  workspace,
-}: {
-  name: string;
-  organization?: string;
-  version?: number;
-  destination: string;
-  workspace?: SnippetWorkspace;
-}) => {
-  const args = [`name=${quotePythonString(name)}`];
-  if (organization) args.push(`organization=${quotePythonString(organization)}`);
-  if (version != null) args.push(`version=${version}`);
-  args.push(`destination=${quotePythonString(destination)}`);
-  return pythonSnippet(['import mlflow.genai'], pythonCall('mlflow.genai.pull', args), workspace);
-};
+export const formatSkillPullPython = (uri: string, destination: string, workspace?: SnippetWorkspace) =>
+  pythonSnippet(
+    ['import mlflow.genai'],
+    pythonCall('mlflow.genai.pull', [quotePythonString(uri), `destination=${quotePythonString(destination)}`]),
+    workspace,
+  );

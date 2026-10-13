@@ -1,5 +1,5 @@
 import { describe, it, expect, jest } from '@jest/globals';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { IntlProvider } from 'react-intl';
 import { DesignSystemProvider } from '@databricks/design-system';
@@ -41,6 +41,42 @@ describe('SkillVersionList', () => {
     expect(screen.getByText('Active')).toBeInTheDocument();
     expect(screen.getByText('Draft')).toBeInTheDocument();
     expect(screen.getByRole('row', { selected: true })).toHaveTextContent('Version 1');
+  });
+
+  it('shows each version its own aliases, without the automatic latest alias', () => {
+    renderVersionList({
+      versions: [
+        createMockSkillVersion({ version: 3, aliases: ['latest'] }),
+        createMockSkillVersion({ version: 2, aliases: [] }),
+        createMockSkillVersion({ version: 1, aliases: ['prod'] }),
+      ],
+    });
+    const rowOf = (label: string) => screen.getByText(label).closest('[role="row"]') as HTMLElement;
+
+    expect(within(rowOf('Version 1')).getByTitle('prod')).toBeInTheDocument();
+    expect(within(rowOf('Version 2')).queryByText(/^@/)).not.toBeInTheDocument();
+    expect(within(rowOf('Version 3')).queryByText(/^@/)).not.toBeInTheDocument();
+    expect(screen.queryByTitle('latest')).not.toBeInTheDocument();
+  });
+
+  it('marks only the latest version with the automatic latest alias', () => {
+    renderVersionList({
+      versions: [createMockSkillVersion({ version: 2 }), createMockSkillVersion({ version: 1, aliases: ['prod'] })],
+      latestVersion: 2,
+    });
+    const rowOf = (label: string) => screen.getByText(label).closest('[role="row"]') as HTMLElement;
+
+    expect(within(rowOf('Version 2')).getByText('@ latest')).toBeInTheDocument();
+    expect(within(rowOf('Version 1')).queryByText('@ latest')).not.toBeInTheDocument();
+    expect(within(rowOf('Version 1')).getByTitle('prod')).toBeInTheDocument();
+  });
+
+  it('marks no version as latest when the skill has no latest version', () => {
+    renderVersionList({
+      versions: [createMockSkillVersion({ version: 2 }), createMockSkillVersion({ version: 1 })],
+      latestVersion: null,
+    });
+    expect(screen.queryByText('@ latest')).not.toBeInTheDocument();
   });
 
   it('warns when more versions exist than the list shows', () => {

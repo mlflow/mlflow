@@ -440,7 +440,11 @@ export const SkillVersionDetail = ({
         <MetadataLabel>
           <FormattedMessage defaultMessage="Aliases:" description="Skill version aliases label" />
         </MetadataLabel>
-        <SkillAliases aliases={aliases} onEdit={onEditAliases} />
+        <SkillAliases
+          aliases={aliases}
+          isLatest={skill.latest_version != null && version.version === skill.latest_version}
+          onEdit={onEditAliases}
+        />
 
         <MetadataLabel>
           <FormattedMessage defaultMessage="Metadata:" description="Skill version tags label" />

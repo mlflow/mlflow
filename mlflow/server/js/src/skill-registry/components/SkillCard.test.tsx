@@ -66,7 +66,7 @@ describe('SkillCard', () => {
     expect(screen.getByText('Active')).toBeInTheDocument();
     expect(document.body.textContent).toContain('skills:/@ocp-admin/cluster-inventory/2');
     expect(document.body.textContent).toContain('mlflow skills pull skills:/@ocp-admin/cluster-inventory/2');
-    expect(document.body.textContent).toContain('--destination .claude/skills');
+    expect(document.body.textContent).toContain('--destination .claude/skills/cluster-inventory');
   });
 
   it('closes the use modal without navigating to the skill details page', async () => {

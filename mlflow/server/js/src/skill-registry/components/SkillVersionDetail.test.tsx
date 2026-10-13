@@ -56,6 +56,28 @@ describe('SkillVersionDetail', () => {
     expect(document.body.textContent).toContain('prod');
   });
 
+  it('shows the automatic latest alias on the latest version without a reference URI for it', () => {
+    renderDetail({
+      skill: createMockSkill({ latest_version: 2 }),
+      version: createMockSkillVersion({ version: 2, aliases: [] }),
+    });
+
+    expect(screen.getByText('@ latest')).toBeInTheDocument();
+    expect(screen.queryByLabelText('No aliases')).not.toBeInTheDocument();
+    expect(screen.getByText('skills:/@acme/code-review/2')).toBeInTheDocument();
+    expect(screen.queryByText('skills:/@acme/code-review@latest')).not.toBeInTheDocument();
+  });
+
+  it('shows only real aliases on a version that is not the latest', () => {
+    renderDetail({
+      skill: createMockSkill({ latest_version: 2 }),
+      version: createMockSkillVersion({ version: 1, aliases: ['prod'] }),
+    });
+
+    expect(screen.getByTitle('prod')).toBeInTheDocument();
+    expect(screen.queryByText('@ latest')).not.toBeInTheDocument();
+  });
+
   it('allows deleting a deprecated version and explains why an active one cannot be deleted', async () => {
     const { rerender } = renderDetail({
       version: createMockSkillVersion({ status: SkillStatus.DEPRECATED }),
