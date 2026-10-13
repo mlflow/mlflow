@@ -25,8 +25,9 @@ _logger = logging.getLogger(__name__)
 def compute_records_sha256(df: "pd.DataFrame") -> str:
     # `compute_pandas_digest` skips dict columns such as `inputs`, so hash every record instead.
     # `json.dumps` keeps full float precision and tells None from NaN, unlike `DataFrame.to_json`,
-    # and `sort_keys` makes the hash independent of the column order.
-    records = json.dumps(df.to_dict(orient="records"), sort_keys=True, default=str)
+    # and `sort_keys` makes the hash independent of the column order. `repr` keeps the type of a
+    # non-JSON value, so a datetime doesn't hash the same as its string form.
+    records = json.dumps(df.to_dict(orient="records"), sort_keys=True, default=repr)
     return hashlib.sha256(records.encode("utf-8")).hexdigest()
 
 

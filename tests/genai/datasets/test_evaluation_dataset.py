@@ -417,8 +417,9 @@ def test_compute_records_sha256_hashes_dict_columns():
     [
         ([0.12345678901], [0.12345678902]),
         ([None], [math.nan]),
+        ([{"when": datetime(2026, 1, 1)}], [{"when": "2026-01-01 00:00:00"}]),
     ],
-    ids=["close_floats", "none_and_nan"],
+    ids=["close_floats", "none_and_nan", "datetime_and_string"],
 )
 def test_compute_records_sha256_detects_small_edits(original, edited):
     df = pd.DataFrame({"inputs": [{"q": "a"}], "value": original})
