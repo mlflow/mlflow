@@ -3,6 +3,7 @@ const runTeamReview = require("./team-review.js");
 
 const READY_LABEL = "ready";
 const TEAM_REVIEW_LABEL = "team-review";
+const TRUSTED_AUTHOR_ASSOCIATIONS = new Set(["OWNER", "MEMBER", "COLLABORATOR"]);
 
 const QUERY = `
   query($owner: String!, $repo: String!, $number: Int!) {
@@ -72,6 +73,13 @@ async function main({ context, github }) {
 
   if (pr.draft) {
     console.log(`PR #${pr.number} is a draft. Deferring team review until it is ready.`);
+    return;
+  }
+
+  if (TRUSTED_AUTHOR_ASSOCIATIONS.has(pr.author_association)) {
+    console.log(
+      `PR #${pr.number} was created by a maintainer or collaborator. Leaving reviewer assignment manual.`
+    );
     return;
   }
 
