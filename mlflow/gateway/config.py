@@ -282,7 +282,7 @@ class AWSBearerToken(AWSBaseConfig):
 class AmazonBedrockGuardrailConfig(pydantic.BaseModel):
     guardrail_identifier: str
     guardrail_version: str
-    trace: Literal["enabled", "disabled"] | None = None
+    trace: Literal["enabled", "disabled", "enabled_full"] | None = None
 
 
 class AmazonBedrockConfig(ConfigModel):

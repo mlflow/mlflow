@@ -740,7 +740,7 @@ def test_bedrock_config_guardrail_defaults_to_none():
     assert config.guardrail_config is None
 
 
-@pytest.mark.parametrize("trace", [None, "enabled", "disabled"])
+@pytest.mark.parametrize("trace", [None, "enabled", "disabled", "enabled_full"])
 def test_bedrock_config_accepts_guardrail(trace):
     guardrail = {"guardrail_identifier": "gr-abc123", "guardrail_version": "DRAFT"}
     if trace is not None:
