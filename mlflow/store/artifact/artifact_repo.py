@@ -743,6 +743,19 @@ class MultipartDownloadMixin(ABC):
             PresignedDownloadUrlResponse containing the presigned URL, headers, and file size.
         """
 
+    def supports_presigned_download(self) -> bool:
+        """
+        Whether this repository can currently sign presigned download URLs. The tracking server
+        uses this to decide whether to advertise presigned downloads to clients in
+        ``/server-info``.
+
+        This is a cheap, local pre-check (it must not make network calls) so it can run on every
+        ``/server-info`` request. Repositories whose ability to sign depends on the credentials
+        in use should override it. ``True`` is not a guarantee: ``get_download_presigned_url``
+        remains the authority and may still fail for credentials that pass this check.
+        """
+        return True
+
 
 class PresignedUploadMixin(ABC):
     """
