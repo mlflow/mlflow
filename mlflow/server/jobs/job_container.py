@@ -450,8 +450,12 @@ def run_plan_in_container(
     the input directory. The result's ``result`` is the finalized value as JSON.
 
     ``image`` must already be present: a missing image is pulled inside the start, which counts
-    against ``timeout``. The container is removed before this returns, but not if this process is
-    killed while it runs; the caller must then remove it (it is labeled with ``job_id``).
+    against ``timeout``. ``timeout`` bounds starting the container and waiting for it to exit. The
+    steps after that are not part of it: fetching the logs of a container that wrote no result and
+    removing the container are bounded only by the Docker client's request timeout, and
+    ``plan.finalize`` runs on the host with no time limit, so a caller with a deadline must leave
+    time for them. The container is removed before this returns, but not if this process is killed
+    while it runs; the caller must then remove it (it is labeled with ``job_id``).
     """
     timed_out = JobResult(
         status=JobStatus.TIMEOUT,
