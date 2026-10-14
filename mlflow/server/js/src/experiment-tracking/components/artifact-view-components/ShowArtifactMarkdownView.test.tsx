@@ -10,12 +10,25 @@ jest.mock('./utils/fetchArtifactUnified', () => ({
 }));
 
 const mockFetch = jest.mocked(fetchArtifactUnified);
+const mockMermaidInitialize = jest.fn();
+const mockMermaidRender = jest.fn<(...args: string[]) => Promise<{ svg: string }>>();
+
+jest.mock('mermaid', () => ({
+  __esModule: true,
+  default: {
+    initialize: mockMermaidInitialize,
+    render: mockMermaidRender,
+  },
+}));
 
 const renderView = (props = {}) =>
   renderWithDesignSystem(<ShowArtifactMarkdownView runUuid="run-1" path="notes.md" {...props} />);
 
 describe('ShowArtifactMarkdownView', () => {
-  beforeEach(async () => jest.clearAllMocks());
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockMermaidRender.mockResolvedValue({ svg: '<svg role="img"><text>Diagram</text></svg>' });
+  });
 
   test('shows skeleton while loading', () => {
     mockFetch.mockReturnValue(new Promise(() => {}));
@@ -84,5 +97,85 @@ describe('ShowArtifactMarkdownView', () => {
     await waitFor(() => {
       expect(screen.getByText('Title').tagName).toBe('H1');
     });
+  });
+
+  test('renders Mermaid fenced blocks with strict security settings', async () => {
+    mockFetch.mockResolvedValue('```mermaid\ngraph TD\n  A --> B\n```');
+    renderView();
+
+    await waitFor(() => expect(screen.getByTestId('mermaid-diagram')).toBeInTheDocument());
+
+    expect(mockMermaidInitialize).toHaveBeenCalledWith(
+      expect.objectContaining({
+        securityLevel: 'strict',
+        startOnLoad: false,
+        htmlLabels: false,
+        theme: 'default',
+        secure: expect.arrayContaining(['securityLevel', 'theme', 'themeCSS', 'themeVariables']),
+      }),
+    );
+    expect(mockMermaidRender).toHaveBeenCalledWith(
+      expect.stringMatching(/^mlflow-mermaid-\d+$/),
+      'graph TD\n  A --> B',
+    );
+    expect(screen.getByText('Diagram')).toBeInTheDocument();
+  });
+
+  test('leaves ordinary fenced code blocks unchanged', async () => {
+    mockFetch.mockResolvedValue('```python\nprint("hello")\n```');
+    renderView();
+
+    await waitFor(() => expect(document.querySelector('code')?.textContent).toContain('print("hello")'));
+
+    expect(mockMermaidRender).not.toHaveBeenCalled();
+  });
+
+  test('does not load Mermaid while a large artifact remains in source mode', async () => {
+    const rawMd = '```mermaid\ngraph TD\n  A --> B\n```';
+    mockFetch.mockResolvedValue(rawMd);
+    renderView({ size: 101 * 1024 });
+
+    await waitFor(() => expect(document.querySelector('pre')?.textContent).toContain(rawMd));
+    expect(mockMermaidRender).not.toHaveBeenCalled();
+
+    await userEvent.click(screen.getByTestId('markdown-view-rendered-button'));
+    await waitFor(() => expect(mockMermaidRender).toHaveBeenCalledTimes(1));
+  });
+
+  test('falls back to the Mermaid source when rendering fails', async () => {
+    mockFetch.mockResolvedValue('```mermaid\ninvalid diagram\n```');
+    mockMermaidRender.mockRejectedValue(new Error('parse error'));
+    renderView();
+
+    await waitFor(() =>
+      expect(screen.getByText('Unable to render Mermaid diagram. Showing source instead.')).toBeInTheDocument(),
+    );
+    expect(screen.getByText('invalid diagram')).toBeInTheDocument();
+  });
+
+  test('sanitizes rendered Mermaid SVG', async () => {
+    mockFetch.mockResolvedValue('```mermaid\ngraph TD\n  A\n```');
+    mockMermaidRender.mockResolvedValue({
+      svg: '<svg role="img" onload="alert(1)"><script>alert(1)</script><text>Safe</text></svg>',
+    });
+    renderView();
+
+    await waitFor(() => expect(screen.getByTestId('mermaid-diagram')).toBeInTheDocument());
+
+    const diagram = screen.getByTestId('mermaid-diagram');
+    expect(diagram.querySelector('script')).not.toBeInTheDocument();
+    expect(diagram.querySelector('svg')).not.toHaveAttribute('onload');
+    expect(screen.getByText('Safe')).toBeInTheDocument();
+  });
+
+  test('uses a unique ID for each Mermaid diagram', async () => {
+    mockFetch.mockResolvedValue('```mermaid\ngraph TD\n  A\n```\n\n```mermaid\ngraph TD\n  B\n```');
+    renderView();
+
+    await waitFor(() => expect(mockMermaidRender).toHaveBeenCalledTimes(2));
+
+    const firstId = mockMermaidRender.mock.calls[0][0];
+    const secondId = mockMermaidRender.mock.calls[1][0];
+    expect(firstId).not.toBe(secondId);
   });
 });
