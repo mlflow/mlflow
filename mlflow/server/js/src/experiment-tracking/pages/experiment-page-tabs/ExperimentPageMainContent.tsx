@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { useDesignSystemTheme } from '@databricks/design-system';
 
 export interface ExperimentPageMainContentProps {
-  breadcrumbs: ReactNode;
+  breadcrumbs?: ReactNode;
   pageActions?: ReactNode;
   children: ReactNode;
 }
@@ -36,10 +36,12 @@ export const ExperimentPageMainContent = ({ breadcrumbs, pageActions, children }
         },
       }}
     >
-      <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm, minWidth: 0 }}>
-        <div css={{ flex: 1, minWidth: 0 }}>{breadcrumbs}</div>
-        {pageActions}
-      </div>
+      {(breadcrumbs || pageActions) && (
+        <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm, minWidth: 0 }}>
+          <div css={{ flex: 1, minWidth: 0 }}>{breadcrumbs}</div>
+          {pageActions}
+        </div>
+      )}
       <div css={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0, minHeight: 0 }}>{children}</div>
     </main>
   );

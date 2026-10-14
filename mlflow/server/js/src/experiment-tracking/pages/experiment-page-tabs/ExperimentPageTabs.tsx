@@ -1,5 +1,11 @@
 import React, { useEffect, useMemo } from 'react';
-import { Button, PageWrapper, ParagraphSkeleton, useDesignSystemTheme } from '@databricks/design-system';
+import {
+  Button,
+  GenericSkeleton,
+  PageWrapper,
+  ParagraphSkeleton,
+  useDesignSystemTheme,
+} from '@databricks/design-system';
 import { PredefinedError } from '@databricks/web-shared/errors';
 import invariant from 'invariant';
 import { useNavigate, useParams, Outlet, useLocation, matchPath } from '../../../common/utils/RoutingUtils';
@@ -34,10 +40,16 @@ import { HeaderVisibilityProvider, useHeaderVisibility } from './ExperimentPageH
 import { ExperimentViewSavedViewsButton } from '../../components/experiment-page/components/header/ExperimentViewSavedViewsButton';
 import { SharedViewActionsBridgeProvider } from '../../components/experiment-page/hooks/useSharedViewActionsBridge';
 import type { ExperimentEntity } from '../../types';
-import { RunEvaluationButton } from '../experiment-evaluation-runs/RunEvaluationButton';
 import { ExperimentPageBreadcrumbs } from './ExperimentPageBreadcrumbs';
 import { ExperimentPageMainContent } from './ExperimentPageMainContent';
 import { ExperimentPageRevampProvider } from './ExperimentPageRevampContext';
+
+// Lazy so experiment tabs other than evaluation runs don't load the evaluation flow's modules.
+const RunEvaluationButton = React.lazy(() =>
+  import('../experiment-evaluation-runs/RunEvaluationButton').then((module) => ({
+    default: module.RunEvaluationButton,
+  })),
+);
 
 const ExperimentPageTabsImpl = () => {
   const { experimentId, tabName } = useParams();
@@ -219,12 +231,20 @@ const ExperimentPageTabsImpl = () => {
     ) : undefined;
 
   const isEvaluationRunsListRoute = Boolean(matchPath(RoutePaths.experimentPageTabEvaluationRuns, pathname));
+  const pageActions = isEvaluationRunsListRoute ? (
+    <React.Suspense fallback={<GenericSkeleton css={{ width: 124, height: theme.general.heightSm }} loading />}>
+      <RunEvaluationButton experimentId={experimentId} isPageAction />
+    </React.Suspense>
+  ) : (
+    headerSavedViewsSlot
+  );
+  // Review queue focus mode hides the page header; with the shell that is the breadcrumb row.
   const mainContent = showRevamp ? (
     <ExperimentPageMainContent
-      breadcrumbs={<ExperimentPageBreadcrumbs experiment={experiment as unknown as ExperimentEntity} />}
-      pageActions={
-        isEvaluationRunsListRoute ? <RunEvaluationButton experimentId={experimentId} isPageAction /> : undefined
+      breadcrumbs={
+        headerHidden ? undefined : <ExperimentPageBreadcrumbs experiment={experiment as unknown as ExperimentEntity} />
       }
+      pageActions={headerHidden ? undefined : pageActions}
     >
       {outletComponent}
     </ExperimentPageMainContent>
@@ -278,16 +298,17 @@ const ExperimentPageTabsImpl = () => {
 
   return (
     <ExperimentPageRevampProvider enabled={showRevamp}>
-      {revampFlagEnabled && !showRevamp ? (
-        // The revamped shell drops the page's vertical padding, so pages outside it keep their own.
+      {revampFlagEnabled ? (
+        // The shell has its own vertical padding, so the page keeps it only outside the shell. The wrapper
+        // stays mounted either way, so switching in and out of the shell does not remount the page.
         <div
           css={{
             display: 'flex',
             flexDirection: 'column',
             flex: 1,
             minHeight: 0,
-            paddingTop: theme.spacing.md,
-            paddingBottom: theme.spacing.md,
+            paddingTop: showRevamp ? 0 : theme.spacing.md,
+            paddingBottom: showRevamp ? 0 : theme.spacing.md,
           }}
         >
           {pageContents}
