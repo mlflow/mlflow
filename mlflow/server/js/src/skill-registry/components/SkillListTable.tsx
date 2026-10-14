@@ -227,23 +227,28 @@ export const SkillListTable = ({
   });
 
   const isEmptyList = !isLoading && (!skills || skills.length === 0);
-  const emptyState = isEmptyList ? <SkillsEmptyState isFiltered={isFiltered} onCreateSkill={onCreateSkill} /> : null;
+  const pagination = (
+    <CursorPagination
+      hasNextPage={hasNextPage}
+      hasPreviousPage={hasPreviousPage}
+      onNextPage={onNextPage}
+      onPreviousPage={onPreviousPage}
+      pageSizeSelect={pageSizeSelect}
+      componentId="mlflow.skill_registry.table.pagination"
+    />
+  );
+  // The table drops its pagination while it shows an empty state, so an empty later page keeps it here instead.
+  const emptyState = isEmptyList ? (
+    <>
+      <SkillsEmptyState isFiltered={isFiltered} onCreateSkill={onCreateSkill} />
+      {(hasNextPage || hasPreviousPage) && (
+        <div css={{ display: 'flex', justifyContent: 'flex-end', paddingBlock: theme.spacing.sm }}>{pagination}</div>
+      )}
+    </>
+  ) : null;
 
   return (
-    <Table
-      scrollable
-      pagination={
-        <CursorPagination
-          hasNextPage={hasNextPage}
-          hasPreviousPage={hasPreviousPage}
-          onNextPage={onNextPage}
-          onPreviousPage={onPreviousPage}
-          pageSizeSelect={pageSizeSelect}
-          componentId="mlflow.skill_registry.table.pagination"
-        />
-      }
-      empty={emptyState}
-    >
+    <Table scrollable pagination={pagination} empty={emptyState}>
       <TableRow isHeader>
         {table.getLeafHeaders().map((header) => (
           <TableHeader

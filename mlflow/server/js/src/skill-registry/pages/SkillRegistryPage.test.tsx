@@ -75,11 +75,58 @@ describe('SkillRegistryPage', () => {
     expect(screen.queryByPlaceholderText('Tag value')).not.toBeInTheDocument();
   });
 
+  it('shows only active skills by default', async () => {
+    const capturedFilters: (string | null)[] = [];
+    server.use(
+      rest.get(getAjaxUrl(BASE_URL), (req, res, ctx) => {
+        capturedFilters.push(req.url.searchParams.get('filter_string'));
+        return res(ctx.json({ skills: [createMockSkill({ name: 'code-review' })], next_page_token: null }));
+      }),
+    );
+    renderPage();
+
+    expect(await screen.findByRole('link', { name: 'code-review' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Filter by active status' })).toHaveAttribute('aria-pressed', 'true');
+    expect(capturedFilters).toEqual(["status = 'active'"]);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Filter by active status' }));
+    await waitFor(() => expect(capturedFilters).toEqual(["status = 'active'", null]));
+  });
+
+  it('does not offer to create the first skill when only inactive skills exist', async () => {
+    server.use(
+      rest.get(getAjaxUrl(BASE_URL), (req, res, ctx) => {
+        const skills = req.url.searchParams.get('filter_string') ? [] : [createMockSkill({ name: 'draft-skill' })];
+        return res(ctx.json({ skills, next_page_token: null }));
+      }),
+    );
+    renderPage();
+
+    expect(await screen.findByText('No skills found')).toBeInTheDocument();
+    expect(screen.queryByText('Register and catalog skills for your organization.')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Create skill' })).toBeInTheDocument();
+  });
+
+  it('does not offer to create the first skill when the unfiltered lookup fails', async () => {
+    server.use(
+      rest.get(getAjaxUrl(BASE_URL), (req, res, ctx) =>
+        req.url.searchParams.get('filter_string')
+          ? res(ctx.json({ skills: [], next_page_token: null }))
+          : res(ctx.status(500), ctx.json({ error_code: 'INTERNAL_ERROR', message: 'boom' })),
+      ),
+    );
+    renderPage();
+
+    expect(await screen.findByText('No skills found')).toBeInTheDocument();
+    expect(screen.queryByText('Register and catalog skills for your organization.')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Create skill' })).toBeInTheDocument();
+  });
+
   it('keeps the header create button hidden while the first page loads', async () => {
     server.use(rest.get(getAjaxUrl(BASE_URL), (_req, res, ctx) => res(ctx.delay(300), ctx.json({ skills: [] }))));
     renderPage();
 
-    expect(await screen.findByText('Loading skills...')).toBeInTheDocument();
+    expect(await screen.findByRole('table')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Create skill' })).not.toBeInTheDocument();
     await openCreateSkillDialog();
     expect(screen.getByRole('dialog', { name: 'Create skill' })).toBeInTheDocument();
@@ -101,7 +148,7 @@ describe('SkillRegistryPage', () => {
     expect(organization.compareDocumentPosition(source) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it('renders skill cards when data is available', async () => {
+  it('renders a row per skill when data is available', async () => {
     server.use(
       getMockedSearchSkillsResponse([
         createMockSkill({ name: 'code-review', organization: 'acme' }),
@@ -190,14 +237,14 @@ describe('SkillRegistryPage', () => {
 
     await waitFor(
       () => {
-        expect(capturedFilter).toBe("search_text ILIKE '%review%'");
+        expect(capturedFilter).toBe("search_text ILIKE '%review%' AND status = 'active'");
         expect(screen.getByText('No skills found')).toBeInTheDocument();
       },
       { timeout: 2000 },
     );
   });
 
-  it('preserves search and filters when switching between grid and table views', async () => {
+  it('combines search, active, organization and source filters', async () => {
     const skills = [createMockSkill({ name: 'code-review', organization: 'acme', latest_version: 2 })];
     let capturedFilter: string | null = null;
     server.use(
@@ -215,7 +262,6 @@ describe('SkillRegistryPage', () => {
     await userEvent.type(screen.getByPlaceholderText('Search skills'), 'review');
     await userEvent.click(screen.getByPlaceholderText('All organizations'));
     await userEvent.click(await screen.findByRole('option', { name: '@acme' }));
-    await userEvent.click(screen.getByRole('button', { name: 'Filter by active status' }));
     await changeSimpleSelect('mlflow.skill_registry.filter.source_type', 'Git');
 
     await waitFor(
@@ -228,22 +274,7 @@ describe('SkillRegistryPage', () => {
       { timeout: 2000 },
     );
 
-    await userEvent.click(screen.getByLabelText('List view'));
-
-    await waitFor(() => {
-      expect(screen.getByText('Latest version')).toBeInTheDocument();
-      expect(screen.getByRole('link', { name: 'code-review' })).toBeInTheDocument();
-    });
-    expect(screen.getByPlaceholderText('Search skills')).toHaveValue('review');
-    expect(capturedFilter).toContain("source_type = 'git'");
-
-    await userEvent.click(screen.getByLabelText('Grid view'));
-
-    await waitFor(() => {
-      expect(screen.queryByText('Latest version')).not.toBeInTheDocument();
-      expect(screen.getByText('code-review')).toBeInTheDocument();
-    });
-    expect(screen.getByPlaceholderText('Search skills')).toHaveValue('review');
+    expect(screen.getByRole('link', { name: 'code-review' })).toBeInTheDocument();
   });
 
   it('clears the organization typeahead back to all organizations', async () => {
@@ -295,7 +326,7 @@ describe('SkillRegistryPage', () => {
     await userEvent.tab();
 
     await waitFor(() => {
-      expect(capturedFilters).toContain("organization = 'other-org'");
+      expect(capturedFilters).toContain("status = 'active' AND organization = 'other-org'");
       expect(organization).toHaveValue('@other-org');
     });
   });
@@ -316,8 +347,6 @@ describe('SkillRegistryPage', () => {
     await waitFor(() => {
       expect(screen.getByText('cluster-inventory')).toBeInTheDocument();
     });
-
-    await userEvent.click(screen.getByLabelText('List view'));
 
     await waitFor(() => {
       expect(screen.getByRole('link', { name: 'cluster-inventory' })).toBeInTheDocument();
@@ -371,7 +400,7 @@ describe('SkillRegistryPage', () => {
     });
   });
 
-  it('keeps Previous available when the current card page is empty', async () => {
+  it('keeps Previous available when the current page is empty', async () => {
     server.use(
       rest.get(getAjaxUrl(BASE_URL), (req, res, ctx) => {
         if (req.url.searchParams.get('page_token') === 'page-2') {
@@ -385,7 +414,7 @@ describe('SkillRegistryPage', () => {
     await screen.findByText('page-one');
     await userEvent.click(screen.getByText('Next'));
 
-    await screen.findByText('No skills yet');
+    await screen.findByText('No skills found');
     expect(screen.getByText('Previous')).toBeInTheDocument();
   });
 
@@ -427,7 +456,8 @@ describe('SkillRegistryPage', () => {
         { workspace: 'team-b', pageToken: null },
       ]);
       expect(screen.queryByText('team-a-page-two')).not.toBeInTheDocument();
-      expect(screen.getByText('Loading skills...')).toBeInTheDocument();
+      // Only skeleton rows while the new workspace loads.
+      expect(screen.queryByRole('link', { name: /^team-/ })).not.toBeInTheDocument();
 
       unblockWorkspaceRequests.forEach((unblock) => unblock());
       await screen.findByText('team-b-page-one');
@@ -437,7 +467,7 @@ describe('SkillRegistryPage', () => {
     }
   });
 
-  it('navigates from a catalog card to the Skill detail route', async () => {
+  it('navigates from a catalog row to the Skill detail route', async () => {
     const skill = createMockSkill({ name: 'code-review', organization: 'acme' });
     server.use(
       getMockedSearchSkillsResponse([skill]),
@@ -448,11 +478,7 @@ describe('SkillRegistryPage', () => {
     );
     renderPage();
 
-    await waitFor(() => {
-      expect(screen.getByText('code-review')).toBeInTheDocument();
-    });
-
-    await userEvent.click(document.querySelector('[data-component-id="mlflow.skill_registry.card"]') as HTMLElement);
+    await userEvent.click(await screen.findByRole('link', { name: 'code-review' }));
 
     await waitFor(() => {
       expect(screen.getByText('Viewing version 2')).toBeInTheDocument();

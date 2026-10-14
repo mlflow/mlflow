@@ -3,13 +3,9 @@ import {
   Alert,
   Button,
   Empty,
-  GridIcon,
   Header,
-  ListIcon,
   LockIcon,
   PlusIcon,
-  SegmentedControlButton,
-  SegmentedControlGroup,
   PuzzleIcon,
   Spacer,
   useDesignSystemTheme,
@@ -23,7 +19,6 @@ import { useNavigate } from '../../common/utils/RoutingUtils';
 import { withErrorBoundary } from '../../common/utils/withErrorBoundary';
 import ErrorUtils from '../../common/utils/ErrorUtils';
 import { useSkillsListQuery } from '../hooks/useSkillsListQuery';
-import { SkillCardGrid } from '../components/SkillCardGrid';
 import { SkillListTable } from '../components/SkillListTable';
 import { SkillListFilters } from '../components/SkillListFilters';
 import { SkillRegistryBetaTag } from '../components/SkillRegistryBetaTag';
@@ -33,8 +28,6 @@ import SkillRegistryRoutes from '../routes';
 import { hasSkillCatalogFilters } from '../utils';
 import type { SkillSourceType } from '../types';
 
-type ViewMode = 'list' | 'grid';
-
 const isPermissionDeniedError = (error: Error | undefined) =>
   error instanceof PermissionError || error?.name === 'PermissionError';
 
@@ -43,9 +36,8 @@ const SkillRegistryPage = () => {
   const intl = useIntl();
   const navigate = useNavigate();
   const [registerOpen, setRegisterOpen] = useState(false);
-  const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [searchFilter, setSearchFilter] = useState('');
-  const [filterActive, setFilterActive] = useState(false);
+  const [filterActive, setFilterActive] = useState(true);
   const [organization, setOrganization] = useState('');
   const [sourceType, setSourceType] = useState<SkillSourceType | ''>('');
   const [debouncedSearchFilter] = useDebounce(searchFilter, 500);
@@ -73,10 +65,33 @@ const SkillRegistryPage = () => {
 
   const hasActiveFilters = hasSkillCatalogFilters(catalogFilters);
   const isPermissionDenied = isPermissionDeniedError(error);
-  const isCatalogEmpty = !isLoading && !error && !skills?.length && !hasActiveFilters && !hasPreviousPage;
+  const isPageEmpty = !isLoading && !error && !skills?.length && !hasPreviousPage;
+  // Active is on by default, so an empty page with only that filter may still hide draft or deprecated skills.
+  // Look once without it before treating the catalog as empty.
+  const onlyActiveFilter = filterActive && !hasSkillCatalogFilters({ ...catalogFilters, filterActive: false });
+  const {
+    data: unfilteredSkills,
+    isLoading: unfilteredLoading,
+    error: unfilteredError,
+  } = useSkillsListQuery({
+    enabled: isPageEmpty && onlyActiveFilter,
+  });
+  // Keeps the list loading until that lookup answers, so "No skills found" doesn't flash before the create prompt.
+  const isCheckingCatalog = isPageEmpty && onlyActiveFilter && unfilteredLoading;
+  // A failed lookup proves nothing, so the page stays a filtered empty result rather than offering the first skill.
+  const isCatalogEmpty =
+    isPageEmpty &&
+    !isCheckingCatalog &&
+    (!hasActiveFilters || (onlyActiveFilter && !unfilteredError && !unfilteredSkills?.length));
   // Like the MCP registry, an empty catalog offers Create in its empty state instead. The header button waits
   // until the list shows there is something to add to, so it doesn't flash while the first page loads.
-  const showHeaderCreate = Boolean(error) || hasActiveFilters || hasPreviousPage || Boolean(skills?.length);
+  const showHeaderCreate =
+    Boolean(error) ||
+    (hasActiveFilters && !onlyActiveFilter) ||
+    hasPreviousPage ||
+    Boolean(skills?.length) ||
+    Boolean(unfilteredSkills?.length) ||
+    Boolean(unfilteredError);
   const openRegister = () => setRegisterOpen(true);
 
   useEffect(() => {
@@ -131,31 +146,6 @@ const SkillRegistryPage = () => {
             organizations={organizations}
             sourceType={sourceType}
             onSourceTypeChange={setSourceType}
-            actions={
-              <SegmentedControlGroup
-                name="skill-registry-view-mode"
-                value={viewMode}
-                onChange={(e) => setViewMode(e.target.value as ViewMode)}
-                componentId="mlflow.skill_registry.view_toggle"
-              >
-                <SegmentedControlButton
-                  value="list"
-                  icon={<ListIcon />}
-                  aria-label={intl.formatMessage({
-                    defaultMessage: 'List view',
-                    description: 'Aria label for Skill Registry list view toggle',
-                  })}
-                />
-                <SegmentedControlButton
-                  value="grid"
-                  icon={<GridIcon />}
-                  aria-label={intl.formatMessage({
-                    defaultMessage: 'Grid view',
-                    description: 'Aria label for Skill Registry grid view toggle',
-                  })}
-                />
-              </SegmentedControlGroup>
-            }
           />
         </div>
         {isPermissionDenied ? (
@@ -209,32 +199,19 @@ const SkillRegistryPage = () => {
                 ]}
               />
             )}
-            {!error &&
-              (viewMode === 'grid' ? (
-                <SkillCardGrid
-                  skills={skills}
-                  isLoading={isLoading}
-                  isFiltered={hasActiveFilters}
-                  onCreateSkill={isCatalogEmpty ? openRegister : undefined}
-                  hasNextPage={hasNextPage}
-                  hasPreviousPage={hasPreviousPage}
-                  onNextPage={onNextPage}
-                  onPreviousPage={onPreviousPage}
-                  pageSizeSelect={pageSizeSelect}
-                />
-              ) : (
-                <SkillListTable
-                  skills={skills}
-                  hasNextPage={hasNextPage}
-                  hasPreviousPage={hasPreviousPage}
-                  isLoading={isLoading}
-                  isFiltered={hasActiveFilters}
-                  onCreateSkill={isCatalogEmpty ? openRegister : undefined}
-                  onNextPage={onNextPage}
-                  onPreviousPage={onPreviousPage}
-                  pageSizeSelect={pageSizeSelect}
-                />
-              ))}
+            {!error && (
+              <SkillListTable
+                skills={skills}
+                hasNextPage={hasNextPage}
+                hasPreviousPage={hasPreviousPage}
+                isLoading={isLoading || isCheckingCatalog}
+                isFiltered={hasActiveFilters && !isCatalogEmpty}
+                onCreateSkill={isCatalogEmpty ? openRegister : undefined}
+                onNextPage={onNextPage}
+                onPreviousPage={onPreviousPage}
+                pageSizeSelect={pageSizeSelect}
+              />
+            )}
           </>
         )}
       </div>

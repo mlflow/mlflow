@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { rest } from 'msw';
 import { IntlProvider } from 'react-intl';
@@ -8,7 +8,7 @@ import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/util
 
 import { setupServer } from '../../common/utils/setup-msw';
 import { createMockSkillVersion } from '../test-utils';
-import { SkillVersionFiles } from './SkillVersionFiles';
+import { SkillManifestPreview, SkillVersionFiles } from './SkillVersionFiles';
 
 const ROOT = 'skills/@acme/code-review/0123456789abcdef0123456789abcdef';
 const OTHER_ROOT = 'skills/@acme/code-review/fedcba9876543210fedcba9876543210';
@@ -25,7 +25,8 @@ const LISTINGS: Partial<Record<string, { path: string; is_dir?: boolean; file_si
   [`${OTHER_ROOT}/scripts`]: [{ path: 'run.py', is_dir: false, file_size: 10 * 1024 * 1024 }],
 };
 const CONTENTS: Partial<Record<string, string>> = {
-  [`${ROOT}/SKILL.md`]: '---\nname: code-review\n---\n# Code review\n',
+  [`${ROOT}/SKILL.md`]:
+    '---\nname: code-review\ndescription: Reviews a diff for bugs.\n---\n# Code review\n\nSee the [guide](https://example.com/guide).\n',
   [`${ROOT}/scripts/run.py`]: 'print("hi")\n',
   [`${ROOT}/README.md`]: 'See the ![diagram](https://example.com/diagram.png).\n',
 };
@@ -182,19 +183,95 @@ describe('SkillVersionFiles', () => {
     expect(await screen.findByText(/too large to preview here/)).toBeInTheDocument();
   });
 
-  it('points a remote Git version at its source instead of listing files', () => {
-    renderFiles(createMockSkillVersion({ source_type: 'git', source: 'https://github.com/acme/skills', ref: 'main' }));
+  it.each([
+    ['Git', createMockSkillVersion({ source_type: 'git', source: 'https://github.com/acme/skills', ref: 'main' })],
+    ['OCI', createMockSkillVersion({ source_type: 'oci', source: 'ghcr.io/acme/skill:1', ref: null, subpath: null })],
+  ])('renders nothing for a %s version, whose source is shown under Details', (_, version) => {
+    const { container } = renderFiles(version);
 
-    expect(screen.getByText('Content is read from a remote source.')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /github\.com\/acme\/skills\/tree\/main/ })).toBeInTheDocument();
+    expect(container).toBeEmptyDOMElement();
   });
 
-  it('shows only the notice for an OCI version', () => {
-    renderFiles(
-      createMockSkillVersion({ source_type: 'oci', source: 'ghcr.io/acme/skill:1', ref: null, subpath: null }),
-    );
+  describe('SkillManifestPreview', () => {
+    const renderPreview = (version = uploaded) => {
+      const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+      return render(
+        <IntlProvider locale="en">
+          <DesignSystemProvider>
+            <QueryClientProvider client={client}>
+              <SkillManifestPreview version={version} />
+            </QueryClientProvider>
+          </DesignSystemProvider>
+        </IntlProvider>,
+      );
+    };
 
-    expect(screen.getByText('Content is read from a remote source.')).toBeInTheDocument();
-    expect(screen.queryByRole('link')).not.toBeInTheDocument();
+    it('renders the stored SKILL.md with its name and description above the instructions', async () => {
+      renderPreview();
+
+      expect(await screen.findByRole('heading', { name: 'Code review' })).toBeInTheDocument();
+      expect(screen.getByText('SKILL.md')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Copy SKILL.md' })).toBeInTheDocument();
+      expect(screen.getByText('Skill name')).toBeInTheDocument();
+      expect(screen.getByText('code-review')).toBeInTheDocument();
+      expect(screen.getByText('Description')).toBeInTheDocument();
+      expect(screen.getByText('Reviews a diff for bugs.')).toBeInTheDocument();
+      expect(screen.queryByText(/^name:/)).not.toBeInTheDocument();
+    });
+
+    it('offers Show more once the preview grows past its collapsed height', async () => {
+      const callbacks: ResizeObserverCallback[] = [];
+      const resizeObserver = jest.spyOn(window, 'ResizeObserver').mockImplementation((callback) => {
+        callbacks.push(callback);
+        return { observe: jest.fn(), unobserve: jest.fn(), disconnect: jest.fn() };
+      });
+      const scrollHeight = jest.spyOn(Element.prototype, 'scrollHeight', 'get').mockReturnValue(100);
+      try {
+        renderPreview();
+
+        expect(await screen.findByRole('heading', { name: 'Code review' })).toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: 'Show more' })).not.toBeInTheDocument();
+
+        // A narrower page rewraps the markdown, so the same text gets taller.
+        scrollHeight.mockReturnValue(1000);
+        act(() => callbacks.forEach((callback) => callback([], {} as ResizeObserver)));
+        expect(screen.getByRole('button', { name: 'Show more' })).toBeInTheDocument();
+      } finally {
+        scrollHeight.mockRestore();
+        resizeObserver.mockRestore();
+      }
+    });
+
+    it('expands when keyboard focus moves into the clipped part', async () => {
+      const scrollHeight = jest.spyOn(Element.prototype, 'scrollHeight', 'get').mockReturnValue(1000);
+      try {
+        renderPreview();
+
+        expect(await screen.findByRole('button', { name: 'Show more' })).toBeInTheDocument();
+        const guide = screen.getByRole('link', { name: 'guide' });
+        while (document.activeElement !== guide) await userEvent.tab();
+        expect(screen.getByRole('button', { name: 'Show less' })).toBeInTheDocument();
+      } finally {
+        scrollHeight.mockRestore();
+      }
+    });
+
+    it('renders nothing for a version without a stored SKILL.md', async () => {
+      const { container } = renderPreview(
+        createMockSkillVersion({ source_type: 'mlflow', source: `mlflow-artifacts:/${OTHER_ROOT}`, ref: null }),
+      );
+
+      // The listing has no SKILL.md, so there is nothing to fetch or show once it loads.
+      await screen.findByText((_, element) => element === container);
+      expect(container).toBeEmptyDOMElement();
+    });
+
+    it('renders nothing for a remote version, whose content the registry never fetches', () => {
+      const { container } = renderPreview(
+        createMockSkillVersion({ source_type: 'git', source: 'https://github.com/acme/skills', ref: 'main' }),
+      );
+
+      expect(container).toBeEmptyDOMElement();
+    });
   });
 });

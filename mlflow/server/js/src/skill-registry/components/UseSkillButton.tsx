@@ -9,14 +9,10 @@ export const UseSkillButton = ({
   skill,
   version,
   versionStatus,
-  showLabel = false,
-  appearance = 'tertiary',
 }: {
   skill: Skill;
   version?: number;
   versionStatus?: SkillStatus;
-  showLabel?: boolean;
-  appearance?: 'default' | 'tertiary';
 }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -33,8 +29,8 @@ export const UseSkillButton = ({
     <span onClick={(e) => e.stopPropagation()} css={{ display: 'inline-flex' }}>
       <Button
         componentId="mlflow.skill_registry.use"
-        type={appearance === 'tertiary' ? 'tertiary' : undefined}
-        size={appearance === 'default' ? 'middle' : 'small'}
+        type="tertiary"
+        size="small"
         icon={<PlayIcon />}
         aria-label={label}
         onClick={(e) => {
@@ -42,10 +38,8 @@ export const UseSkillButton = ({
           e.preventDefault();
           setUseModalOpen(true);
         }}
-        css={appearance === 'tertiary' ? { color: theme.colors.actionPrimaryBackgroundDefault } : undefined}
-      >
-        {showLabel ? label : undefined}
-      </Button>
+        css={{ color: theme.colors.actionPrimaryBackgroundDefault }}
+      />
       {useModalOpen && (
         <UseSkillModal
           visible={useModalOpen}

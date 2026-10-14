@@ -199,16 +199,14 @@ describe('SkillDetailPage', () => {
     expect(screen.queryByText('Version 1')).not.toBeInTheDocument();
   });
 
-  it('pins the selected version in the Use modal and updates the install destination', async () => {
+  it('shows how to pull the selected version under Get started', async () => {
     renderPage();
     await waitFor(() => {
       expect(screen.getByText('Viewing version 2')).toBeInTheDocument();
     });
 
-    await userEvent.click(screen.getByRole('button', { name: 'Use' }));
-    expect(await screen.findByText('Use @acme/code-review')).toBeInTheDocument();
-    expect(screen.getByText('Pinned version: v2')).toBeInTheDocument();
-    expect(document.body.textContent).toContain('skills:/@acme/code-review/2');
+    expect(screen.getByText('Get started')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Use' })).not.toBeInTheDocument();
     expect(document.body.textContent).toContain('mlflow skills pull skills:/@acme/code-review/2');
     expect(document.body.textContent).toContain('--destination .claude/skills/code-review');
     expect(document.body.textContent).not.toContain('skills:/@acme/code-review/latest');
@@ -217,7 +215,7 @@ describe('SkillDetailPage', () => {
     expect(document.body.textContent).toContain('"skills:/@acme/code-review/2"');
 
     await userEvent.click(screen.getByRole('radio', { name: 'CLI' }));
-    await changeSimpleSelect('mlflow.skill_registry.use_modal.install_target', 'Cursor');
+    await changeSimpleSelect('mlflow.skill_registry.detail.get_started.install_target', 'Cursor');
     expect(document.body.textContent).toContain('--destination .cursor/skills/code-review');
     expect(document.body.textContent).toContain('skills:/@acme/code-review/2');
   });

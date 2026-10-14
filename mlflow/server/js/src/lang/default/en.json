@@ -39,6 +39,10 @@
     "defaultMessage": "Feedback",
     "description": "Review question type: feedback"
   },
+  "+6384I": {
+    "defaultMessage": "Show less",
+    "description": "Collapse the SKILL.md preview on a skill page"
+  },
   "+6406R": {
     "defaultMessage": "Name",
     "description": "Guardrail name label"
@@ -851,10 +855,6 @@
     "defaultMessage": "Evaluate traces",
     "description": "Title for the run evaluation modal dialog"
   },
-  "1Qz+qN": {
-    "defaultMessage": "Python",
-    "description": "Python example format in the use-skill modal"
-  },
   "1RAM3C": {
     "defaultMessage": "Failed to delete some API keys. Please try again.",
     "description": "Gateway > Bulk delete API keys modal > Error message"
@@ -1102,10 +1102,6 @@
   "2Noq+z": {
     "defaultMessage": "Could not assign yourself to the queue: {error}",
     "description": "Review queue: error toast when self-assigning to a queue fails"
-  },
-  "2O3wqu": {
-    "defaultMessage": "Loading skills...",
-    "description": "Loading state for Skill Registry card grid"
   },
   "2OifbU": {
     "defaultMessage": "Inputs cannot be empty",
@@ -1666,6 +1662,10 @@
   "4U/RVz": {
     "defaultMessage": "False",
     "description": "Label for an assessment with a 'false' boolean value"
+  },
+  "4UgBtX": {
+    "defaultMessage": "Install for",
+    "description": "Label for the agent selector in the skill pull instructions"
   },
   "4V8wtm": {
     "defaultMessage": "After your script runs, open the MLflow UI to review the recorded traces.",
@@ -3831,10 +3831,6 @@
     "defaultMessage": "Error",
     "description": "Traces table state badge label for an errored trace"
   },
-  "CVrzsg": {
-    "defaultMessage": "List view",
-    "description": "Aria label for Skill Registry list view toggle"
-  },
   "CX/MSu": {
     "defaultMessage": "Unsafe",
     "description": "Evaluation results > safety assessment > negative value label. Displayed if evaluation result is considered as unsafe."
@@ -4703,6 +4699,10 @@
     "defaultMessage": "Hide details",
     "description": "Evaluation review > assessments > hide details button"
   },
+  "GA0YXz": {
+    "defaultMessage": "CLI",
+    "description": "CLI format of the skill pull instructions"
+  },
   "GAJL1v": {
     "defaultMessage": "Input and output schema for your model. <link>Learn more</link>",
     "description": "Input and output params of the model that is registered from the experiment run"
@@ -4979,6 +4979,10 @@
     "defaultMessage": "Show more",
     "description": "Button text to show more description text for the entity"
   },
+  "HLtR/C": {
+    "defaultMessage": "Show more",
+    "description": "Expand the SKILL.md preview on a skill page"
+  },
   "HNLDYl": {
     "defaultMessage": "Failed to set tag. Error: {userVisibleError}",
     "description": "Text for user visible error when setting tag in model version view"
@@ -5170,6 +5174,10 @@
   "Ht3zGx": {
     "defaultMessage": "Hide column",
     "description": "Traces table column header menu item to hide the column"
+  },
+  "HuZ53A": {
+    "defaultMessage": "Skill name",
+    "description": "SKILL.md name field label"
   },
   "Hvznjh": {
     "defaultMessage": "Assistant",
@@ -5782,6 +5790,10 @@
   "KGMbzq": {
     "defaultMessage": "Commit message:",
     "description": "A label for the commit message in the prompt details page"
+  },
+  "KHC1o8": {
+    "defaultMessage": "Files",
+    "description": "Title of a skill version's files section"
   },
   "KIlp8v": {
     "defaultMessage": "No models selected",
@@ -7443,10 +7455,6 @@
     "defaultMessage": "Select all rows on this page",
     "description": "Aria label for the select-all checkbox in the V2 dataset records table header"
   },
-  "QLqmF5": {
-    "defaultMessage": "Content is read from a remote source.",
-    "description": "Notice that a skill version stored outside MLflow has no file listing"
-  },
   "QMCliz": {
     "defaultMessage": "Measure and compare LLM quality with built-in and custom scorers.",
     "description": "Feature card summary for evaluation"
@@ -7666,10 +7674,6 @@
   "REOeCT": {
     "defaultMessage": "Select a custom view",
     "description": "Placeholder label on the custom view switcher when no view is selected"
-  },
-  "REQGLS": {
-    "defaultMessage": "Files:",
-    "description": "Skill version files label"
   },
   "REfKpP": {
     "defaultMessage": "Question for reviewer",
@@ -8026,10 +8030,6 @@
   "SbMdmm": {
     "defaultMessage": "{spanName} was called",
     "description": "Label for an intermediate node in the trace explorer summary view, indicating that a span/function was called in the course of execution."
-  },
-  "Scb7Om": {
-    "defaultMessage": "Grid view",
-    "description": "Aria label for Skill Registry grid view toggle"
   },
   "Sd7sQi": {
     "defaultMessage": "Traces are only available for experiment-scoped prompts.",
@@ -11023,6 +11023,10 @@
     "defaultMessage": "Add tags",
     "description": "Run page > Overview > Tags cell > 'Add' button label"
   },
+  "duock9": {
+    "defaultMessage": "Details",
+    "description": "Title of a skill version's metadata section"
+  },
   "dvL+4V": {
     "defaultMessage": "Automatically log traces for LangGraph workflows by calling the {code} function. For example:",
     "description": "Description of how to log traces for the LangGraph package using MLflow autologging. This message is followed by a code example."
@@ -13091,6 +13095,10 @@
     "defaultMessage": "Learn more about the AI Gateway in the {gatewayDocs}.",
     "description": "AI Gateway setup guide > Documentation link"
   },
+  "kqXT2V": {
+    "defaultMessage": "Description",
+    "description": "SKILL.md description field label"
+  },
   "krNsnQ": {
     "defaultMessage": "Trace name",
     "description": "Traces table trace-name column name"
@@ -13234,6 +13242,10 @@
   "lTrmPI": {
     "defaultMessage": "No matching data found for the available runs.",
     "description": "Experiment tracking > runs charts > parallel coordinates chart preview > no data found description"
+  },
+  "lVtl/C": {
+    "defaultMessage": "Copy SKILL.md",
+    "description": "Aria label for copying the SKILL.md preview on a skill page"
   },
   "lY4pBq": {
     "defaultMessage": "Delete \"{name}\"? This can't be undone.",
@@ -13855,6 +13867,10 @@
     "defaultMessage": "Absolute date and time",
     "description": "A tooltip line chart configuration for the step function of wall time"
   },
+  "nlo8de": {
+    "defaultMessage": "Get started",
+    "description": "Title of the section showing how to use a skill"
+  },
   "nme251": {
     "defaultMessage": "Test failed with no error message",
     "description": "Message informing the user that the webhook test failed with no error message"
@@ -13898,6 +13914,10 @@
   "nugZSE": {
     "defaultMessage": "Show less",
     "description": "Button label to collapse conversation messages in model trace explorer"
+  },
+  "nupCo/": {
+    "defaultMessage": "Loading SKILL.md...",
+    "description": "Loading state for the SKILL.md preview"
   },
   "nvjkTA": {
     "defaultMessage": "False",
@@ -14659,10 +14679,6 @@
     "defaultMessage": "Create version",
     "description": "Button for creating a new genai model version"
   },
-  "qvDq/m": {
-    "defaultMessage": "CLI",
-    "description": "CLI example format in the use-skill modal"
-  },
   "qvEOHi": {
     "defaultMessage": "MLflow collects usage data to improve the product. To confirm your preferences, please visit the settings page in the navigation sidebar. To learn more about what data is collected, please visit the <documentation>documentation</documentation>.",
     "description": "Telemetry alert description"
@@ -15014,10 +15030,6 @@
   "s6gWQs": {
     "defaultMessage": "Copy repository import command",
     "description": "Aria label for copying the skill repository import command"
-  },
-  "s6yj1d": {
-    "defaultMessage": "Install for",
-    "description": "Label for the Skill use-modal agent destination selector"
   },
   "s8a93+": {
     "defaultMessage": "Traces",
@@ -16147,6 +16159,10 @@
     "defaultMessage": "Save",
     "description": "Button that saves the current experiment view as a named view"
   },
+  "wbIbYX": {
+    "defaultMessage": "Pull version {version} into the folder your coding agent loads skills from.",
+    "description": "Description of the section showing how to use a skill version"
+  },
   "wbRVln": {
     "defaultMessage": "Metrics",
     "description": "Title for metrics page"
@@ -16666,6 +16682,10 @@
   "yWRwlk": {
     "defaultMessage": "Traces show you how your LLM calls behave: what they cost, how they perform, and where things go wrong. Get started in a few minutes.",
     "description": "Subtitle for the empty state when no traces are recorded"
+  },
+  "yXMgCt": {
+    "defaultMessage": "Python",
+    "description": "Python format of the skill pull instructions"
   },
   "yYLKl8": {
     "defaultMessage": "Please select at least 1 run to delete",
