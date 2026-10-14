@@ -106,10 +106,10 @@ function registerSkill(request: RegisterSkillRequest, content?: Blob): Promise<R
       body: buildSkillMultipartBody(request as RegisterUploadedSkillRequest, content),
     });
   }
-  return fetchAPI(url, {
-    method: HTTPMethods.POST,
-    body: request,
-  }) as Promise<RegisterSkillResponse>;
+  return fetchSkillJson<RegisterSkillResponse>(url, {
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(request),
+  });
 }
 
 function createSkillVersion(

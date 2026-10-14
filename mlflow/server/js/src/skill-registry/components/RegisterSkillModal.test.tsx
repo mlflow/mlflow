@@ -81,7 +81,6 @@ describe('RegisterSkillModal', () => {
     onRegistered = jest.fn();
     onClose = jest.fn();
     jest.spyOn(SkillRegistryApi, 'getSkill').mockRejectedValue(notFound());
-    jest.spyOn(SkillRegistryApi, 'createSkill').mockImplementation(async (request) => createMockSkill(request));
   });
 
   afterEach(() => {
@@ -122,16 +121,17 @@ describe('RegisterSkillModal', () => {
     expect(onClose).not.toHaveBeenCalled();
   });
 
-  it('creates a new skill with its description before registering its first version', async () => {
+  it('registers the first version before saving the skill description', async () => {
     const order: string[] = [];
-    const createSkill = jest.spyOn(SkillRegistryApi, 'createSkill').mockImplementation(async (request) => {
-      order.push('create');
-      return createMockSkill(request);
-    });
     jest.spyOn(SkillRegistryApi, 'registerSkill').mockImplementation(async () => {
       order.push('register');
       return registered;
     });
+    const updateSkill = jest.spyOn(SkillRegistryApi, 'updateSkill').mockImplementation(async () => {
+      order.push('update');
+      return {} as Awaited<ReturnType<typeof SkillRegistryApi.updateSkill>>;
+    });
+    const createSkill = jest.spyOn(SkillRegistryApi, 'createSkill');
     renderModal();
 
     await userEvent.type(screen.getByLabelText('Location'), 'https://github.com/acme/skills/tree/main/demo');
@@ -140,16 +140,15 @@ describe('RegisterSkillModal', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Create' }));
 
     await waitFor(() => expect(onRegistered).toHaveBeenCalledWith(registered));
-    expect(createSkill).toHaveBeenCalledWith({ name: 'demo', organization: 'acme', description: 'Reviews code' });
-    expect(order).toEqual(['create', 'register']);
+    expect(updateSkill).toHaveBeenCalledWith('demo', { description: 'Reviews code' }, 'acme');
+    expect(order).toEqual(['register', 'update']);
+    expect(createSkill).not.toHaveBeenCalled();
   });
 
-  it('stops when the name was taken before the skill could be created', async () => {
+  it('stops when the name is already registered', async () => {
+    jest.spyOn(SkillRegistryApi, 'getSkill').mockResolvedValue(createMockSkill({ name: 'demo', organization: 'acme' }));
     const registerSkill = jest.spyOn(SkillRegistryApi, 'registerSkill');
-    // Free when the dialog checked, taken by the time it creates the skill.
-    jest
-      .spyOn(SkillRegistryApi, 'createSkill')
-      .mockRejectedValue(Object.assign(new Error('Skill already exists'), { errorCode: 'RESOURCE_ALREADY_EXISTS' }));
+    const updateSkill = jest.spyOn(SkillRegistryApi, 'updateSkill');
     renderModal();
 
     await userEvent.type(screen.getByLabelText('Location'), 'https://github.com/acme/skills/tree/main/demo');
@@ -157,10 +156,11 @@ describe('RegisterSkillModal', () => {
 
     expect(await screen.findByText('A skill named "@acme/demo" is already registered.')).toBeInTheDocument();
     expect(registerSkill).not.toHaveBeenCalled();
+    expect(updateSkill).not.toHaveBeenCalled();
     expect(onRegistered).not.toHaveBeenCalled();
   });
 
-  it('removes the new empty skill when registering its first version fails', async () => {
+  it('does not delete the skill when the first version request fails', async () => {
     jest.spyOn(SkillRegistryApi, 'registerSkill').mockRejectedValue(new Error('Source unreachable'));
     const deleteSkill = jest.spyOn(SkillRegistryApi, 'deleteSkill').mockResolvedValue({});
     renderModal();
@@ -169,8 +169,27 @@ describe('RegisterSkillModal', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Create' }));
 
     expect(await screen.findByText('Source unreachable')).toBeInTheDocument();
-    expect(deleteSkill).toHaveBeenCalledWith('demo', 'acme');
+    expect(deleteSkill).not.toHaveBeenCalled();
     expect(onRegistered).not.toHaveBeenCalled();
+  });
+
+  it('keeps the registered version when saving its description fails', async () => {
+    jest.spyOn(SkillRegistryApi, 'registerSkill').mockResolvedValue(registered);
+    jest.spyOn(SkillRegistryApi, 'updateSkill').mockRejectedValue(new Error('Metadata unavailable'));
+    const notify = jest.spyOn(Utils, 'displayGlobalErrorNotification').mockImplementation(() => {});
+    const deleteSkill = jest.spyOn(SkillRegistryApi, 'deleteSkill');
+    renderModal();
+
+    await userEvent.type(screen.getByLabelText('Location'), 'https://github.com/acme/skills/tree/main/demo');
+    await userEvent.click(screen.getByRole('button', { name: /Advanced settings/ }));
+    await userEvent.type(screen.getByLabelText('Description'), 'Reviews code');
+    await userEvent.click(screen.getByRole('button', { name: 'Create' }));
+
+    await waitFor(() => expect(onRegistered).toHaveBeenCalledWith(registered));
+    expect(notify).toHaveBeenCalledWith(
+      'The skill was created, but its description or icons could not be saved: Metadata unavailable',
+    );
+    expect(deleteSkill).not.toHaveBeenCalled();
   });
 
   it('says the skill exists when its tags fail to save', async () => {
