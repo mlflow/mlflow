@@ -471,6 +471,7 @@ def _get_common_classifier_metrics(
         "recall_score": sk_metrics.recall_score(
             y_true,
             y_pred,
+            labels=labels if average is None else None,
             average=average,
             pos_label=pos_label,
             sample_weight=sample_weights,
@@ -478,6 +479,7 @@ def _get_common_classifier_metrics(
         "precision_score": sk_metrics.precision_score(
             y_true,
             y_pred,
+            labels=labels if average is None else None,
             average=average,
             pos_label=pos_label,
             sample_weight=sample_weights,
@@ -485,6 +487,7 @@ def _get_common_classifier_metrics(
         "f1_score": sk_metrics.f1_score(
             y_true,
             y_pred,
+            labels=labels if average is None else None,
             average=average,
             pos_label=pos_label,
             sample_weight=sample_weights,
@@ -539,6 +542,10 @@ def _get_multiclass_classifier_metrics(
         pos_label=None,
         sample_weights=sample_weights,
     )
+    if average is None:
+        for name in ("precision_score", "recall_score", "f1_score"):
+            values = metrics.pop(name)
+            metrics.update({f"{name}_class_{i}": float(value) for i, value in enumerate(values)})
     if average in ("macro", "weighted") and y_proba is not None:
         metrics.update(
             roc_auc=sk_metrics.roc_auc_score(

@@ -185,6 +185,8 @@ result = mlflow.models.evaluate(
 
 Common options: `log_explainer` (log SHAP explainer), `explainer_type` (SHAP type: "exact", "permutation", "partition"), `pos_label` (positive class label for binary classification), `average` (averaging strategy for multiclass: "macro", "micro", "weighted").
 
+For multiclass evaluation, `evaluator_config={"average": None}` logs precision, recall, and F1 separately for each class as `precision_score_class_0`, `recall_score_class_0`, `f1_score_class_0`, etc. The zero-based index follows the ascending-sorted `label_list`, or the sorted union of target and prediction labels when no list is supplied. Row `i` of `per_class_metrics.csv` identifies the label for `class_i` in its `positive_class` column. Supply the same complete `label_list` across evaluations to keep these indices consistent, including when a class is absent from an evaluation dataset. Omitting `average` continues to use weighted averaging.
+
 ### Evaluation Results
 
 Access metrics, artifacts, and evaluation data:

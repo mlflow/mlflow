@@ -1293,8 +1293,14 @@ def evaluate(
           multiclass classification and regression models, this parameter will be ignored.
         - **average**: The averaging method to use when computing classification metrics such as
           precision, recall, f1, etc. for multiclass classification models
-          (default: ``'weighted'``). For binary classification and regression models, this
-          parameter will be ignored.
+          (default: ``'weighted'``). With ``None``, precision, recall and F1 are logged separately
+          for each class as ``precision_score_class_0``, ``recall_score_class_0``,
+          ``f1_score_class_0``, etc. The zero-based class index follows the ascending-sorted
+          ``label_list``, or the sorted union of labels in targets and predictions if no list
+          is supplied. Each index corresponds to a row in the ``per_class_metrics.csv`` artifact,
+          whose ``positive_class`` column identifies the label. Supply the same complete
+          ``label_list`` across evaluations to keep class indices consistent. For binary
+          classification and regression models, this parameter will be ignored.
         - **sample_weights**: Weights for each sample to apply when computing model performance
           metrics.
         - **col_mapping**: A dictionary mapping column names in the input dataset or output
