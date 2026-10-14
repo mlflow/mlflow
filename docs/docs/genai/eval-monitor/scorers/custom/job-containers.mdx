@@ -107,17 +107,18 @@ Scorer code in a job container runs with these limits:
 - **Only the scorer function is stored.** Import the modules that the scorer uses inside the function, and use only packages that are in the job image.
 - **No expectations.** Automatic evaluation has no ground truth, so it does not accept scorers that take an `expectations` argument.
 - **One scorer at a time.** Automatic evaluation does not accept an ensemble that includes code-based scorers.
+- **Later versions.** If you register a new version of the scorer that takes `expectations` or is an ensemble, automatic evaluation stops running the scorer and the server logs a warning.
 - **CPU and memory.** By default, each container gets 1 CPU and 1 GiB of memory. To change this, set `MLFLOW_JOB_RESOURCE_LIMITS_<job name>` to a JSON object such as `{"cpu": "2", "memory": "2Gi"}`. The job names are `run_online_trace_scorer` and `run_online_session_scorer` for automatic evaluation, and `invoke_scorer` for scorer runs started from the UI.
 - **Time.** Each job has a time limit, `MLFLOW_SERVER_JOB_DEFAULT_TIMEOUT` (default 3600 seconds).
   - A scorer run started from the UI is split into jobs of up to `MLFLOW_SERVER_SCORER_INVOKE_BATCH_SIZE` traces (default 100), or one job per session for a session-level scorer. Each job runs one container.
-  - An online scoring job runs its scorers one batch at a time: up to `MLFLOW_SERVER_SCORER_INVOKE_BATCH_SIZE` traces for a trace-level scorer, or one session for a session-level scorer. The batches share the job's time limit, and each batch gets at most half of it.
+  - An online scoring job runs its scorers one batch at a time: up to `MLFLOW_SERVER_SCORER_INVOKE_BATCH_SIZE` traces for a trace-level scorer, or one session for a session-level scorer. The batches share the job's time limit. Each batch gets at most half of it, and at least 30 seconds (or half the limit, if that is less). Batches that are still waiting when the job has less time left than that are not run, and get an error assessment. If this happens, lower the sample rate or the number of code-based scorers, or raise the time limit.
 - **Output size.** Each file that the scorer writes is limited to 64 MiB, and the scorer's result to 8 MiB.
 
 The server checks each container's result before it logs anything. A container can only report results for the traces it was given. It cannot remove assessments that LLM judges, built-in scorers or people logged. When a session-level scorer scores a session again, its new assessment replaces older session assessments with the same name that code-based scorers logged.
 
 ## When something fails
 
-- **Automatic evaluation:** a scorer that raises, a container that fails or times out, or a result that does not pass the server's checks gives the trace an error assessment, as for a scorer that fails on the server.
+- **Automatic evaluation:** a scorer that raises, a container that fails or times out, or a result that does not pass the server's checks gives the trace an error assessment, as for a scorer that fails on the server. If the server cannot set up the job containers (for example while the Docker daemon restarts), the job tries again a few times before it gives the traces error assessments.
 - **Scorer runs started from the UI:** the job fails, and the error is in the job's status and the server log.
 - **The job image:** if it cannot be pulled or built, the job runner stops. See [Set up the server](#set-up-the-server).
 
@@ -125,4 +126,4 @@ These cases need an operator:
 
 - **Leftover containers.** If the server is killed or crashes, job containers can keep running. Containers of online scoring jobs can also outlive a normal stop. The server removes leftover containers of an online scoring job when it next runs the same kind of job for the same experiment, and leftover containers of UI scorer runs when it starts again with the same settings. To remove them yourself after you stop the server, run `docker ps -aq --filter label=mlflow.job_name | xargs -r docker rm -f`. This removes the job containers of every MLflow server that uses this Docker daemon.
 - **The host disk.** The job's output directory on the host has no total size limit, so a scorer can fill the disk until its job times out.
-- **Changed settings.** If the server restarts without `MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND=docker`, or with code-based scorers disabled, online scoring jobs skip their code-based scorers and log a warning. They never run that code outside a job container.
+- **Changed settings.** If the server restarts without `MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND=docker`, or with code-based scorers disabled, automatic evaluation stops running code-based scorers until the settings are restored. It never runs that code outside a job container.
