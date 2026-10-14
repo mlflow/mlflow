@@ -7,10 +7,12 @@
 # are the ones the server stored and returned.
 
 import base64
+import http.server
 import json
 import os
 import re
 import shutil
+import threading
 import uuid
 
 import pytest
@@ -99,10 +101,10 @@ def broken_source(request, make_source, tmp_path, monkeypatch):
                 monkeypatch.setenv("DOCKER_CONFIG", str(docker))
                 return source
             case ("rejected-credentials", "zip"):
+                # ZIP sources are fetched without authentication, so one that requires it
+                # fails as unauthenticated.
                 base_url, _ = request.getfixturevalue("zip_server")
-                return ZipSource(
-                    url=f"{base_url}/private/skills.zip?X-Amz-Signature=presigned-secret"
-                )
+                return ZipSource(url=f"{base_url}/private/skills.zip")
             case _:
                 raise ValueError(f"Unknown failure: {failure!r} for {kind!r}")
 
@@ -213,6 +215,67 @@ def test_failed_pull_leaves_destination_as_found(
     )
 
     assert "secret" not in shown
+    if initially_empty_dir:
+        assert list(destination.iterdir()) == []
+    else:
+        assert not os.path.lexists(destination)
+    _assert_no_staging_left(tmp_path)
+
+
+@pytest.fixture
+def signed_redirect(closed_port):
+    # A public ZIP URL that redirects to a signed one, as a CDN does. Signed URLs cannot be
+    # registered, so a redirect is how a signature can reach a pull, and nothing listens at the
+    # signed target, so the pull fails after following the redirect.
+    target = (
+        f"http://127.0.0.1:{closed_port}/cdn/skills.zip"
+        "?X-Amz-Credential=AKIAEXAMPLE&X-Amz-Signature=signed-secret"
+    )
+
+    class _RedirectToSigned(http.server.BaseHTTPRequestHandler):
+        def log_message(self, *args):
+            pass
+
+        def do_GET(self):
+            self.send_response(302)
+            self.send_header("Location", target)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), _RedirectToSigned)
+    threading.Thread(target=server.serve_forever, name="skill-pull-signed", daemon=True).start()
+    try:
+        yield f"http://127.0.0.1:{server.server_address[1]}/skills.zip"
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
+@pytest.mark.parametrize("surface", SURFACES)
+@pytest.mark.parametrize("initially_empty_dir", [False, True])
+def test_signed_redirect_target_is_not_shown_when_the_pull_fails(
+    initially_empty_dir, surface, client, org, signed_redirect, tmp_path
+):
+    client.create_skill_version(
+        name="demo", organization=org, source=ZipSource(url=signed_redirect)
+    )
+    destination = tmp_path / "out"
+    if initially_empty_dir:
+        destination.mkdir()
+
+    shown = _failed_pull(
+        surface,
+        f"skills:/@{org}/demo/1",
+        destination,
+        error_code="TEMPORARILY_UNAVAILABLE",
+        match="Failed to fetch skill content",
+    )
+
+    # The failure names the redirect target, so the redaction below is what keeps the
+    # signature out.
+    assert "/cdn/skills.zip" in shown
+    assert "signed-secret" not in shown
+    assert "AKIAEXAMPLE" not in shown
     if initially_empty_dir:
         assert list(destination.iterdir()) == []
     else:
