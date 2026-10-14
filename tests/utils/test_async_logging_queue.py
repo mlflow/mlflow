@@ -207,6 +207,42 @@ def test_partial_logging_failed():
         )
 
 
+def test_merged_batch_failure_reported_to_every_caller(monkeypatch):
+    # The buffering window makes the queue merge every enqueued batch into a single backend
+    # call. When that call fails, each caller must observe the failure, not just the one whose
+    # batch happened to become the merge parent.
+    monkeypatch.setenv("MLFLOW_ASYNC_LOGGING_BUFFERING_SECONDS", "2")
+
+    run_id = "test_run_id"
+    run_data = RunData(throw_exception_on_batch_number=[1])
+    with generate_async_logging_queue(run_data) as async_logging_queue:
+        async_logging_queue.activate()
+
+        run_operations = [
+            async_logging_queue.log_batch_async(
+                run_id=run_id,
+                metrics=[Metric(key=f"metric-{idx}", value=idx, timestamp=idx, step=0)],
+                tags=[],
+                params=[],
+            )
+            for idx in range(TOTAL_BATCHES)
+        ]
+        async_logging_queue.flush()
+
+        # Every enqueued batch was merged into a single backend call, and that call failed.
+        assert run_data.batch_count == 1
+
+        for run_operation in run_operations:
+            with pytest.raises(MlflowException, match="Failed to log run data"):
+                run_operation.wait()
+
+        # Each caller receives the very same exception, not just the batch that happened to
+        # become the merge parent.
+        exceptions = [f.exception() for op in run_operations for f in op._operation_futures]
+        assert len(exceptions) == TOTAL_BATCHES
+        assert all(exception is exceptions[0] for exception in exceptions)
+
+
 def test_publish_multithread_consume_single_thread():
     run_id = "test_run_id"
     run_data = RunData(throw_exception_on_batch_number=[])
