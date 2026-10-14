@@ -11615,6 +11615,10 @@
     "defaultMessage": "Does the response follow the provided guidelines?",
     "description": "Hint for Guidelines template"
   },
+  "g+Wj/d": {
+    "defaultMessage": "The skill was created, but its description or icons could not be saved: {reason}",
+    "description": "Error when saving new skill presentation fails after registration"
+  },
   "g+YDB/": {
     "defaultMessage": "Group by",
     "description": "Label for the grouping selector button in the logged model list page when no grouping is selected"

@@ -34,11 +34,7 @@ const changeSimpleSelect = async (componentId: string, optionLabel: string) => {
 };
 
 describe('SkillRegistryPage', () => {
-  const server = setupServer(
-    getMockedSearchSkillsResponse([]),
-    // A new skill is created before its first version is registered.
-    rest.post(getAjaxUrl(BASE_URL), async (req, res, ctx) => res(ctx.json(createMockSkill(await req.json())))),
-  );
+  const server = setupServer(getMockedSearchSkillsResponse([]));
 
   beforeEach(() => {
     setActiveWorkspace(null);
@@ -623,16 +619,16 @@ describe('SkillRegistryPage', () => {
     expect(screen.queryByText(/is already registered/)).not.toBeInTheDocument();
   });
 
-  it('reports a taken name from the create itself when the check was refused', async () => {
-    let registerCalled = false;
+  it('reports a taken name from the registration when the check was refused', async () => {
+    let registrationRequests = 0;
     server.use(
       getMockedGetSkillPermissionDeniedResponse(),
-      rest.post(getAjaxUrl(BASE_URL), (_req, res, ctx) =>
-        res(ctx.status(400), ctx.json({ error_code: 'RESOURCE_ALREADY_EXISTS', message: 'Skill already exists' })),
-      ),
       rest.post(getAjaxUrl(`${BASE_URL}/@redhat-ai/skills-developer/versions`), (_req, res, ctx) => {
-        registerCalled = true;
-        return res(ctx.json({}));
+        registrationRequests += 1;
+        return res(
+          ctx.status(400),
+          ctx.json({ error_code: 'RESOURCE_ALREADY_EXISTS', message: 'Skill already exists' }),
+        );
       }),
     );
     renderPage();
@@ -645,19 +641,16 @@ describe('SkillRegistryPage', () => {
       await screen.findByText('A skill named "@redhat-ai/skills-developer" is already registered.'),
     ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Create' })).toBeDisabled();
-    expect(registerCalled).toBe(false);
+    expect(registrationRequests).toBe(1);
   });
 
   it('shows why creating the skill failed when the name is not the reason', async () => {
-    let registerCalled = false;
+    let registrationRequests = 0;
     server.use(
       getMockedGetSkillErrorResponse(404),
-      rest.post(getAjaxUrl(BASE_URL), (_req, res, ctx) =>
-        res(ctx.status(400), ctx.json({ error_code: 'INVALID_PARAMETER_VALUE', message: 'Invalid icon' })),
-      ),
       rest.post(getAjaxUrl(`${BASE_URL}/@redhat-ai/skills-developer/versions`), (_req, res, ctx) => {
-        registerCalled = true;
-        return res(ctx.json({}));
+        registrationRequests += 1;
+        return res(ctx.status(400), ctx.json({ error_code: 'INVALID_PARAMETER_VALUE', message: 'Invalid icon' }));
       }),
     );
     renderPage();
@@ -668,7 +661,7 @@ describe('SkillRegistryPage', () => {
 
     expect(await screen.findByText('Invalid icon')).toBeInTheDocument();
     expect(screen.queryByText(/is already registered/)).not.toBeInTheDocument();
-    expect(registerCalled).toBe(false);
+    expect(registrationRequests).toBe(1);
   });
 
   it('offers only Import when the server cannot store uploads', async () => {

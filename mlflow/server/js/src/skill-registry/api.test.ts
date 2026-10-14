@@ -200,6 +200,22 @@ describe('Skill Registry API', () => {
   });
 
   describe('JSON registration', () => {
+    it('preserves the duplicate-name code from a failed external registration', async () => {
+      fetchMock.mockResolvedValueOnce(
+        new Response(JSON.stringify({ error_code: 'RESOURCE_ALREADY_EXISTS', message: 'Skill already exists' }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      );
+
+      await expect(
+        SkillRegistryApi.registerSkill({ name: 'code-review', source: 'https://example.com/skills' }),
+      ).rejects.toMatchObject({
+        message: 'Skill already exists',
+        errorCode: 'RESOURCE_ALREADY_EXISTS',
+      });
+    });
+
     it.each([
       {
         name: 'code-review',

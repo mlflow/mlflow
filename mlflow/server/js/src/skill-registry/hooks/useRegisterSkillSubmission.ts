@@ -20,7 +20,7 @@ export interface SkillPresentation {
 /**
  * The formatted identity when a skill with this name already exists, or undefined when the name is free or
  * cannot be checked. A 404 means free; a 403 is treated as unknown, since with workspaces enabled the server
- * also answers 403 for a name that does not exist. Any other failure throws so the create waits until the
+ * also answers 403 for a name that does not exist. Any other failure throws so registration waits until the
  * check succeeds.
  */
 export const findTakenSkillIdentity = async (identityInput: string, intl: IntlShape) => {
@@ -43,23 +43,10 @@ export const findTakenSkillIdentity = async (identityInput: string, intl: IntlSh
   return formatSkillIdentity(identity.name, identity.organization);
 };
 
-const createRequest = (name: string, organization: string | undefined, { description, icons }: SkillPresentation) => {
-  const trimmedDescription = description.trim();
-  const savedIcons = icons.filter((icon) => icon.src.trim());
-  return {
-    name,
-    ...(organization ? { organization } : {}),
-    ...(trimmedDescription ? { description: trimmedDescription } : {}),
-    ...(savedIcons.length ? { icons: savedIcons } : {}),
-  };
-};
-
 /**
- * Runs a registration from the dialog. A new skill is created first, with its description and icons, so a name
- * taken in the meantime fails here instead of adding a version to someone else's skill; then the version is
- * registered and the tags are set. The skill queries are refreshed once at the end before the version is handed
- * over. Work that outlives the dialog, whether it was cancelled or unmounted by navigation, never closes it or
- * navigates.
+ * Runs a registration from the dialog. Registering the first version creates its parent in the same store
+ * transaction. Presentation writes follow the committed version. The skill queries are refreshed once before
+ * the version is handed over. Work that outlives the dialog never closes it or navigates.
  */
 export const useRegisterSkillSubmission = ({
   onClose,
@@ -68,7 +55,6 @@ export const useRegisterSkillSubmission = ({
 }: {
   onClose: () => void;
   onRegistered: (version: SkillVersion) => void;
-  /** Called with the formatted identity when creating a new skill finds the name already registered. */
   onNameTaken: (identity: string) => void;
 }) => {
   const intl = useIntl();
@@ -93,21 +79,6 @@ export const useRegisterSkillSubmission = ({
   };
 
   const messageOf = (error: unknown, fallback: string) => (error instanceof Error ? error.message : fallback);
-
-  // True when the skill now exists empty; false (after reporting why) when it could not be created.
-  const createSkill = async (name: string, organization: string | undefined, presentation: SkillPresentation) => {
-    try {
-      await SkillRegistryApi.createSkill(createRequest(name, organization, presentation));
-      return true;
-    } catch (createFailure) {
-      if (isAlreadyExistsError(createFailure)) {
-        onNameTaken(formatSkillIdentity(name, organization));
-      } else {
-        setFailure(messageOf(createFailure, String(createFailure)));
-      }
-      return false;
-    }
-  };
 
   const submit = async (
     buildInput: () => Promise<RegisterSkillMutationInput | undefined>,
@@ -136,22 +107,38 @@ export const useRegisterSkillSubmission = ({
       return;
     }
     const newSkill = input.kind === 'register' || input.kind === 'register-upload' ? input.request : undefined;
-    if (newSkill && !(await createSkill(newSkill.name, newSkill.organization, presentation))) {
-      setSubmitting(false);
-      return;
-    }
     let version: SkillVersion;
     try {
       version = await mutateAsync(input);
-    } catch {
-      // The registration error is reported through `error`. A skill created above stays empty, which would make
-      // a retry find its name taken, so it is removed again.
-      if (newSkill) await SkillRegistryApi.deleteSkill(newSkill.name, newSkill.organization).catch(() => undefined);
+    } catch (registrationError) {
+      if (newSkill && isAlreadyExistsError(registrationError) && isActive()) {
+        onNameTaken(formatSkillIdentity(newSkill.name, newSkill.organization));
+      }
       setSubmitting(false);
       return;
     }
     if (newSkill) {
-      // The skill exists now, so its tags are saved even if the dialog has gone away meanwhile.
+      const description = presentation.description.trim();
+      const icons = presentation.icons.filter((icon) => icon.src.trim());
+      if (description || icons.length) {
+        try {
+          await SkillRegistryApi.updateSkill(
+            version.name,
+            { ...(description ? { description } : {}), ...(icons.length ? { icons } : {}) },
+            version.organization,
+          );
+        } catch (metadataFailure) {
+          Utils.displayGlobalErrorNotification(
+            intl.formatMessage(
+              {
+                defaultMessage: 'The skill was created, but its description or icons could not be saved: {reason}',
+                description: 'Error when saving new skill presentation fails after registration',
+              },
+              { reason: messageOf(metadataFailure, String(metadataFailure)) },
+            ),
+          );
+        }
+      }
       try {
         await settleAll(
           Object.entries(presentation.tags).map(([key, value]) =>
@@ -179,9 +166,9 @@ export const useRegisterSkillSubmission = ({
   return {
     submit,
     submitting,
-    /** The failure to show, if any: building the request, creating the skill, or registering the version. */
-    error: failure ?? registerError?.message,
-    failed: Boolean(failure || registerError),
+    /** The failure to show, if any: building the request or registering the version. */
+    error: failure ?? (isAlreadyExistsError(registerError) ? undefined : registerError?.message),
+    failed: Boolean(failure || (registerError && !isAlreadyExistsError(registerError))),
     close,
     isActive,
   };
