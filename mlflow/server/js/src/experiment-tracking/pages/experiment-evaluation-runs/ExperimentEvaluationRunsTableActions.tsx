@@ -14,7 +14,10 @@ export const ExperimentEvaluationRunsTableActions = ({
   selectedRunUuid,
   compareToRunUuid,
   enableImprovedComparison,
+  showSelectedRunCount = false,
   setIsComparisonMode,
+  onFilterChartToSelectedRuns,
+  isChartFilteredToSelection = false,
 }: {
   rowSelection: RowSelectionState;
   setRowSelection: (selection: RowSelectionState) => void;
@@ -23,7 +26,11 @@ export const ExperimentEvaluationRunsTableActions = ({
   selectedRunUuid?: string;
   compareToRunUuid?: string;
   enableImprovedComparison?: boolean;
+  /** The V2 toolbar shows the selected-run count in the button label and has no Compare item. */
+  showSelectedRunCount?: boolean;
   setIsComparisonMode?: (isComparisonMode: boolean) => void;
+  onFilterChartToSelectedRuns?: () => void;
+  isChartFilteredToSelection?: boolean;
 }) => {
   const intl = useIntl();
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
@@ -81,12 +88,37 @@ export const ExperimentEvaluationRunsTableActions = ({
             disabled={noRunsSelected}
             endIcon={<ChevronDownIcon />}
           >
-            <FormattedMessage defaultMessage="Actions" description="Experiment evaluation runs table actions button" />
+            {showSelectedRunCount ? (
+              <FormattedMessage
+                defaultMessage="Actions ({numRuns})"
+                description="Experiment evaluation runs table actions button, with the number of selected runs"
+                values={{ numRuns: selectedRunUuids.length }}
+              />
+            ) : (
+              <FormattedMessage
+                defaultMessage="Actions"
+                description="Experiment evaluation runs table actions button"
+              />
+            )}
           </Button>
         </DropdownMenu.Trigger>
         <DropdownMenu.Content>
+          {onFilterChartToSelectedRuns && (
+            <DropdownMenu.CheckboxItem
+              componentId="mlflow.eval-runs.actions.filter-chart-to-selected"
+              checked={isChartFilteredToSelection}
+              onSelect={onFilterChartToSelectedRuns}
+              css={(theme) => ({ paddingLeft: theme.spacing.sm + theme.spacing.xs })}
+            >
+              <FormattedMessage
+                defaultMessage="Filter chart to selected runs"
+                description="Evaluation runs action to show only selected runs in the chart"
+              />
+              <DropdownMenu.ItemIndicator css={{ position: 'static', marginLeft: 'auto' }} />
+            </DropdownMenu.CheckboxItem>
+          )}
           {/* Original Compare option in dropdown (when flag is OFF) */}
-          {!enableImprovedComparison && (
+          {!showSelectedRunCount && !enableImprovedComparison && (
             <DropdownMenu.Item
               componentId="mlflow.eval-runs.actions.compare"
               onClick={handleCompare}

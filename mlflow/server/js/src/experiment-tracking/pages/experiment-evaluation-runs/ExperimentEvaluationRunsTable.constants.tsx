@@ -31,6 +31,9 @@ export type EvalRunsTableColumnDef = ColumnDef<RunEntityOrGroupData> & {
   };
 };
 
+// One step below the 16px dbui default, for a tighter V2 toolbar control row.
+export const EVAL_RUNS_TOOLBAR_ICON_SIZE = 14;
+
 export enum EvalRunsTableColumnId {
   checkbox = 'checkbox',
   visibility = 'visibility',

@@ -2,6 +2,7 @@ import {
   BeakerIcon,
   ChartLineIcon,
   DatabaseIcon,
+  GavelIcon,
   ModelsIcon,
   TableIcon,
   TableClockIcon,
@@ -554,7 +555,9 @@ export const SortableHeaderCell = ({
   const meta = table.options.meta;
   const hideSortIcon = Boolean(isEvalRunsTableMeta(meta) && meta.enableNewEvalRunsUi);
 
-  const displayedKey = useMemo(() => parseEvalRunsTableKeyedColumnKey(column.id)?.key ?? column.id, [column.id]);
+  const parsedColumn = useMemo(() => parseEvalRunsTableKeyedColumnKey(column.id), [column.id]);
+  const displayedKey = parsedColumn?.key ?? column.id;
+  const isMetric = parsedColumn?.columnType === EvalRunsTableKeyedColumnPrefix.METRIC;
 
   return (
     <div
@@ -566,6 +569,19 @@ export const SortableHeaderCell = ({
         ...(hideSortIcon ? {} : { ':hover': { cursor: 'pointer', '& > div': { display: 'inline' } } }),
       }}
     >
+      {isMetric && hideSortIcon && (
+        <Tooltip
+          componentId="mlflow.eval-runs.metric-header-icon.tooltip"
+          content={
+            <FormattedMessage
+              defaultMessage="Metric"
+              description="Tooltip for the metric icon in evaluation runs table headers"
+            />
+          }
+        >
+          <GavelIcon aria-hidden="true" css={{ flexShrink: 0 }} />
+        </Tooltip>
+      )}
       <Tooltip
         componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_pages_experiment_evaluation_runs_experimentevaluationrunstablecellrenderers_284"
         content={displayedKey}

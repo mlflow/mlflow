@@ -33,6 +33,7 @@ import {
   parseEvalRunsTableKeyedColumnKey,
 } from './ExperimentEvaluationRunsTable.utils';
 import type { RunEntityOrGroupData } from './ExperimentEvaluationRunsPage.utils';
+import { getEvalRunsFilterFieldForColumn } from './evalRunsFilterFields';
 import type { ExperimentEvaluationRunsPageMode } from './hooks/useExperimentEvaluationRunsPageMode';
 import { useExperimentEvaluationRunsRowVisibility } from './hooks/useExperimentEvaluationRunsRowVisibility';
 
@@ -52,6 +53,8 @@ export interface ExperimentEvaluationRunsTableProps {
   /** Controlled sort state (the new UI keeps it in the URL); local state is used when omitted. */
   sorting?: SortingState;
   onSortingChange?: OnChangeFn<SortingState>;
+  /** New UI: receives the filter field picked from a column header's "Filter by this column". */
+  onFilterByColumn?: (field: string) => void;
   selectedRunUuid?: string;
   setSelectedRunUuid: (runUuid: string) => void;
   isLoading: boolean;
@@ -77,6 +80,7 @@ export const ExperimentEvaluationRunsTable = forwardRef<HTMLDivElement, Experime
       setSelectedColumns = () => {},
       sorting: controlledSorting,
       onSortingChange,
+      onFilterByColumn,
       selectedRunUuid,
       setSelectedRunUuid,
       isLoading,
@@ -352,6 +356,8 @@ export const ExperimentEvaluationRunsTable = forwardRef<HTMLDivElement, Experime
                       hideable={!EVAL_RUNS_UNSELECTABLE_COLUMNS.has(header.column.id)}
                       selectedColumns={selectedColumns}
                       setSelectedColumns={setSelectedColumns}
+                      filterField={onFilterByColumn ? getEvalRunsFilterFieldForColumn(header.column.id) : undefined}
+                      onFilterByColumn={onFilterByColumn}
                     />
                   </div>
                 ) : (

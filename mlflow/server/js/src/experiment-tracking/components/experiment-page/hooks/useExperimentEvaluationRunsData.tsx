@@ -7,16 +7,19 @@ export const useExperimentEvaluationRunsData = ({
   experimentId,
   enabled,
   filter,
+  queryKeyScope,
 }: {
   experimentId: string;
   enabled: boolean;
   filter: string;
+  /** Separates this query's cache entry from another query with the same experiment and filter. */
+  queryKeyScope?: string;
 }) => {
-  const { data, fetchNextPage, hasNextPage, isLoading, isFetching, refetch, error } = useInfiniteQuery<
+  const { data, fetchNextPage, hasNextPage, isLoading, isFetching, refetch, error, dataUpdatedAt } = useInfiniteQuery<
     SearchRunsApiResponse,
     Error
   >({
-    queryKey: ['SEARCH_RUNS', experimentId, filter],
+    queryKey: ['SEARCH_RUNS', experimentId, filter, ...(queryKeyScope ? [queryKeyScope] : [])],
     queryFn: async ({ pageParam = undefined }) => {
       const requestBody = {
         experiment_ids: [experimentId],
@@ -66,5 +69,6 @@ export const useExperimentEvaluationRunsData = ({
     isLoading,
     isFetching,
     error,
+    dataUpdatedAt,
   };
 };

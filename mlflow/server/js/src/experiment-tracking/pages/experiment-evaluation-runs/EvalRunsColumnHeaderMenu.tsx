@@ -3,11 +3,13 @@ import {
   CheckIcon,
   ChevronDownIcon,
   DropdownMenu,
+  FilterIcon,
   SortAscendingIcon,
   SortDescendingIcon,
   VisibleOffIcon,
 } from '@databricks/design-system';
 import type { Column } from '@tanstack/react-table';
+import { useRef } from 'react';
 import { FormattedMessage, useIntl, type IntlShape } from 'react-intl';
 import type { RunEntityOrGroupData } from './ExperimentEvaluationRunsPage.utils';
 import { parseEvalRunsTableKeyedColumnKey } from './ExperimentEvaluationRunsTable.utils';
@@ -55,6 +57,9 @@ export interface EvalRunsColumnHeaderMenuProps {
   hideable: boolean;
   selectedColumns: { [key: string]: boolean };
   setSelectedColumns: (columns: { [key: string]: boolean }) => void;
+  /** SearchRuns field represented by the column, when column-header filtering is enabled. */
+  filterField?: string;
+  onFilterByColumn?: (field: string) => void;
 }
 
 /** Per-column dropdown: sort asc/desc and hide. "Hide" flips off selectedColumns; Columns button restores it. */
@@ -63,10 +68,28 @@ export const EvalRunsColumnHeaderMenu = ({
   hideable,
   selectedColumns,
   setSelectedColumns,
+  filterField,
+  onFilterByColumn,
 }: EvalRunsColumnHeaderMenuProps) => {
   const intl = useIntl();
+  const pendingFilterFieldRef = useRef<string>();
   const canSort = column.getCanSort();
-  if (!canSort && !hideable) {
+  const canFilter = Boolean(filterField && onFilterByColumn);
+  const handleFilterByColumn = () => {
+    if (filterField && onFilterByColumn) {
+      // Wait until Radix has dismissed this menu before opening the sibling filter popover. Calling
+      // the sibling action from the item click races the menu's outside-interaction cleanup.
+      pendingFilterFieldRef.current = filterField;
+    }
+  };
+  const handleCloseAutoFocus = () => {
+    const field = pendingFilterFieldRef.current;
+    pendingFilterFieldRef.current = undefined;
+    if (field && onFilterByColumn) {
+      onFilterByColumn(field);
+    }
+  };
+  if (!canSort && !hideable && !canFilter) {
     return null;
   }
   const sorted = column.getIsSorted();
@@ -90,7 +113,7 @@ export const EvalRunsColumnHeaderMenu = ({
           onClick={(e) => e.stopPropagation()}
         />
       </DropdownMenu.Trigger>
-      <DropdownMenu.Content align="start">
+      <DropdownMenu.Content align="start" onCloseAutoFocus={handleCloseAutoFocus}>
         {canSort && (
           <>
             <DropdownMenu.Item
@@ -129,7 +152,22 @@ export const EvalRunsColumnHeaderMenu = ({
             </DropdownMenu.Item>
           </>
         )}
-        {canSort && hideable && <DropdownMenu.Separator />}
+        {canSort && (hideable || canFilter) && <DropdownMenu.Separator />}
+        {canFilter && (
+          <DropdownMenu.Item
+            componentId="mlflow.eval-runs.column-header-menu.filter-by-column"
+            onClick={handleFilterByColumn}
+          >
+            <DropdownMenu.IconWrapper>
+              <FilterIcon />
+            </DropdownMenu.IconWrapper>
+            <FormattedMessage
+              defaultMessage="Filter by this column"
+              description="Menu option to open the evaluation runs filters for the selected column"
+            />
+          </DropdownMenu.Item>
+        )}
+        {canFilter && hideable && <DropdownMenu.Separator />}
         {hideable && (
           <DropdownMenu.Item
             componentId="mlflow.eval-runs.column-header-menu.hide-column"
