@@ -5,6 +5,7 @@ from __future__ import annotations
 import traceback
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import nullcontext
 from typing import TYPE_CHECKING, Any
 
 from mlflow.entities.assessment import Feedback
@@ -22,6 +23,7 @@ from mlflow.genai.evaluation.utils import (
     standardize_scorer_value,
 )
 from mlflow.genai.scorers import Scorer
+from mlflow.genai.utils.trace_utils import _session_level_group
 from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracing.utils.session_hierarchy import (
     parse_session_hierarchy_levels,
@@ -139,8 +141,8 @@ def resolve_session_level_index(
         experiment_ids.add(run_experiment_id)
 
     if not experiment_ids:
-        if not eval_items:
-            # No items to group, so no group can form; any index is equivalent.
+        if not needs_run_fallback:
+            # No item carries a session, so no group can form; any index is equivalent.
             return 0
         raise MlflowException.invalid_parameter_value(
             f"Session-level scorer(s) {scorer_names} set session_level={level_name!r}, but no "
@@ -267,7 +269,14 @@ def evaluate_session_level_scorers(
 
     def run_scorer(scorer: Scorer) -> list[Feedback]:
         try:
-            with eval_retry_context():
+            with (
+                # For a leveled scorer, `session_id` is a level prefix whose traces may
+                # carry different full session IDs.
+                _session_level_group(session_id)
+                if scorer.session_level is not None
+                else nullcontext(),
+                eval_retry_context(),
+            ):
                 value = call_with_retry(
                     lambda: scorer.run(session=session_traces),
                     scorer_rate_limiter,

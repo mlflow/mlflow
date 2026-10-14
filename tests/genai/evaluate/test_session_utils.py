@@ -22,6 +22,7 @@ from mlflow.genai.evaluation.session_utils import (
     resolve_session_level_index,
     validate_session_level_evaluation_inputs,
 )
+from mlflow.genai.utils.trace_utils import _session_level_group, validate_session
 from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils.mlflow_tags import MLFLOW_EXPERIMENT_SESSION_HIERARCHY
@@ -418,7 +419,7 @@ def _create_eval_item(trace_id: str, request_time: int = 0) -> EvalItem:
 
 
 def test_evaluate_session_level_scorers_success():
-    mock_scorer = Mock(spec=mlflow.genai.Scorer)
+    mock_scorer = Mock(spec=mlflow.genai.Scorer, session_level=None)
     mock_scorer.name = "test_scorer"
     mock_scorer.run.return_value = 0.8
 
@@ -467,7 +468,7 @@ def test_evaluate_session_level_scorers_success():
 
 
 def test_evaluate_session_level_scorers_handles_scorer_error():
-    mock_scorer = Mock(spec=mlflow.genai.Scorer)
+    mock_scorer = Mock(spec=mlflow.genai.Scorer, session_level=None)
     mock_scorer.name = "failing_scorer"
     mock_scorer.run.side_effect = ValueError("Scorer failed!")
 
@@ -494,7 +495,7 @@ def test_evaluate_session_level_scorers_handles_scorer_error():
 
 
 def test_evaluate_session_level_scorers_multiple_feedbacks_per_scorer():
-    mock_scorer = Mock(spec=mlflow.genai.Scorer)
+    mock_scorer = Mock(spec=mlflow.genai.Scorer, session_level=None)
     mock_scorer.name = "multi_feedback_scorer"
     mock_scorer.run.return_value = {"metric1": 0.7, "metric2": 0.9}
 
@@ -531,7 +532,7 @@ def test_evaluate_session_level_scorers_multiple_feedbacks_per_scorer():
 
 
 def test_evaluate_session_level_scorers_first_trace_selection():
-    mock_scorer = Mock(spec=mlflow.genai.Scorer)
+    mock_scorer = Mock(spec=mlflow.genai.Scorer, session_level=None)
     mock_scorer.name = "first_trace_scorer"
     mock_scorer.run.return_value = 1.0
 
@@ -562,11 +563,11 @@ def test_evaluate_session_level_scorers_first_trace_selection():
 
 
 def test_evaluate_session_level_scorers_multiple_scorers():
-    mock_scorer1 = Mock(spec=mlflow.genai.Scorer)
+    mock_scorer1 = Mock(spec=mlflow.genai.Scorer, session_level=None)
     mock_scorer1.name = "scorer1"
     mock_scorer1.run.return_value = 0.6
 
-    mock_scorer2 = Mock(spec=mlflow.genai.Scorer)
+    mock_scorer2 = Mock(spec=mlflow.genai.Scorer, session_level=None)
     mock_scorer2.name = "scorer2"
     mock_scorer2.run.return_value = 0.8
 
@@ -612,7 +613,7 @@ def test_evaluate_session_level_scorers_multiple_scorers():
 
 
 def test_evaluate_session_level_scorers_error_multiple_traces():
-    mock_scorer = Mock(spec=mlflow.genai.Scorer)
+    mock_scorer = Mock(spec=mlflow.genai.Scorer, session_level=None)
     mock_scorer.name = "failing_scorer"
     mock_scorer.run.side_effect = RuntimeError("boom")
 
@@ -936,3 +937,71 @@ def test_resolve_session_level_index_no_experiment_determined():
 def test_resolve_session_level_index_empty_items_returns_zero():
     # Nothing to group; any index is equivalent and no experiment is fetched.
     assert resolve_session_level_index("episode", [], None, ["my_scorer"]) == 0
+
+
+def test_resolve_session_level_index_no_session_items_returns_zero():
+    # Sessionless rows form no group, so even an untagged run experiment must not raise.
+    untagged_exp = mlflow.set_experiment("hierarchy-no-session-items").experiment_id
+    sessionless_item = Mock(spec=EvalItem)
+    sessionless_item.trace = None
+    sessionless_item.source = None
+
+    assert resolve_session_level_index("episode", [sessionless_item], untagged_exp, ["s"]) == 0
+    assert resolve_session_level_index("episode", [sessionless_item], None, ["s"]) == 0
+
+
+def _session_eval_item(trace_id: str, session_id: str, request_time: int) -> EvalItem:
+    trace = Trace(
+        info=TraceInfo(
+            trace_id=trace_id,
+            trace_location=TraceLocation.from_experiment_id("0"),
+            request_time=request_time,
+            execution_duration=100,
+            state=TraceState.OK,
+            trace_metadata={TraceMetadataKey.TRACE_SESSION: session_id},
+            tags={},
+        ),
+        data=TraceData(spans=[]),
+    )
+    return EvalItem(request_id=trace_id, trace=trace, inputs={}, outputs={}, expectations={})
+
+
+def test_evaluate_session_level_scorers_validates_session_at_scorer_level():
+    @scorer(session_level="trip")
+    def trip_check(session):
+        validate_session(session)
+        return True
+
+    @scorer
+    def exact_check(session):
+        validate_session(session)
+        return True
+
+    @scorer(session_level="trip")
+    def failing_trip_check(session):
+        validate_session(session)
+        raise ValueError("boom")
+
+    trip_items = [
+        _session_eval_item("t1", _path("trip-2", "ep-2"), 100),
+        _session_eval_item("t2", _path("trip-2", "ep-9"), 200),
+    ]
+
+    result = evaluate_session_level_scorers(_path("trip-2"), trip_items, [trip_check, exact_check])
+    by_name = {fb.name: fb for fb in result.assessments}
+    assert by_name["trip_check"].error is None
+    assert by_name["trip_check"].value is True
+    assert "must belong to the same session" in by_name["exact_check"].error.error_message
+
+    # A leveled scorer that raises must not leave the group key set for later calls.
+    result = evaluate_session_level_scorers(_path("trip-2"), trip_items, [failing_trip_check])
+    assert result.assessments[0].error.error_message == "boom"
+    result = evaluate_session_level_scorers(_path("trip-2"), trip_items, [exact_check])
+    assert "must belong to the same session" in result.assessments[0].error.error_message
+
+    # Same thread: the key is reset when the scored body raises.
+    with pytest.raises(ValueError, match="boom"):
+        with _session_level_group(_path("trip-2")):
+            raise ValueError("boom")
+    with pytest.raises(MlflowException, match="must belong to the same session"):
+        validate_session([item.trace for item in trip_items])

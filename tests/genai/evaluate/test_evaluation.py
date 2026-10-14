@@ -33,8 +33,9 @@ from mlflow.genai.evaluation.harness import (
     run as harness_run,
 )
 from mlflow.genai.evaluation.rate_limiter import RPSRateLimiter
+from mlflow.genai.judges import make_judge
 from mlflow.genai.scorers.base import scorer
-from mlflow.genai.scorers.builtin_scorers import RelevanceToQuery
+from mlflow.genai.scorers.builtin_scorers import ConversationCompleteness, RelevanceToQuery
 from mlflow.genai.simulators import ConversationSimulator
 from mlflow.server import handlers
 from mlflow.server.fastapi_app import app
@@ -1571,6 +1572,73 @@ def test_evaluate_with_session_level_scorers_at_different_levels():
         _session_path("trip-2", "ep-9"),
         _session_path("trip-3", "ep-1"),
         "plain-session",
+    }
+
+
+def test_evaluate_conversation_judges_at_coarser_level_than_leaf_sessions():
+    # A trip group holds traces with different full (episode) session IDs, which the
+    # judges' own same-session check must accept at the trip level.
+    experiment_id = mlflow.set_experiment("hierarchical-sessions-judges").experiment_id
+    mlflow.genai.set_session_hierarchy(["trip", "episode"], experiment_id=experiment_id)
+    traces = [
+        _create_trace_with_session("Q1", _session_path("trip-2", "ep-2")),
+        _create_trace_with_session("Q2", _session_path("trip-2", "ep-9")),
+        _create_trace_with_session("Q3", _session_path("trip-3", "ep-1")),
+    ]
+    dataset = create_dataset(name="hierarchical_sessions_judges_dataset")
+    dataset.merge_records(traces)
+
+    conversation_judge = make_judge(
+        name="trip_coherence",
+        instructions="Is the {{ conversation }} coherent?",
+        model="openai:/gpt-4",
+        session_level="trip",
+    )
+    completeness = ConversationCompleteness(
+        name="trip_completeness", model="openai:/gpt-4", session_level="trip"
+    )
+
+    def fake_invoke_judge_model(model_uri, prompt, assessment_name, **kwargs):
+        return Feedback(name=assessment_name, value="yes", rationale="ok")
+
+    with mock.patch(
+        "mlflow.genai.judges.instructions_judge.invoke_judge_model",
+        side_effect=fake_invoke_judge_model,
+    ):
+        result = mlflow.genai.evaluate(data=dataset, scorers=[conversation_judge, completeness])
+
+    feedbacks = [
+        a for row_assessments in result.result_df["assessments"].dropna() for a in row_assessments
+    ]
+    for name in ["trip_coherence", "trip_completeness"]:
+        scored = [fb for fb in feedbacks if fb["assessment_name"] == name]
+        assert {fb["metadata"]["mlflow.trace.session"] for fb in scored} == {
+            _session_path("trip-2"),
+            _session_path("trip-3"),
+        }
+        assert [fb["feedback"] for fb in scored] == [{"value": "yes"}, {"value": "yes"}]
+
+
+def test_evaluate_reports_per_level_session_counts_to_usage_telemetry():
+    experiment_id = mlflow.set_experiment("hierarchical-sessions-telemetry").experiment_id
+    mlflow.genai.set_session_hierarchy(["trip", "episode"], experiment_id=experiment_id)
+    traces = [
+        _create_trace_with_session("Q1", _session_path("trip-2", "ep-2")),
+        _create_trace_with_session("Q2", _session_path("trip-2", "ep-9")),
+        _create_trace_with_session("Q3", _session_path("trip-3", "ep-1")),
+    ]
+    dataset = create_dataset(name="hierarchical_sessions_telemetry_dataset")
+    dataset.merge_records(traces)
+
+    # Same-named scorers at different levels must keep separate counts.
+    full_scorer = _SessionLengthScorer("session_length")
+    trip_scorer = _SessionLengthScorer("session_length", session_level="trip")
+    with mock.patch("mlflow.genai.evaluation.harness.emit_metric_usage_event") as mock_emit:
+        mlflow.genai.evaluate(data=dataset, scorers=[full_scorer, trip_scorer])
+
+    assert mock_emit.call_args.kwargs["session_count_by_scorer"] == {
+        id(full_scorer): 3,
+        id(trip_scorer): 2,
     }
 
 

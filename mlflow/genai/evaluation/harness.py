@@ -774,7 +774,16 @@ def run(
 
     try:
         num_session_groups = sum(len(groups) for groups, _ in session_buckets)
-        emit_metric_usage_event(scorers, len(eval_items), num_session_groups, aggregated_metrics)
+        session_count_by_scorer = {
+            id(scorer): len(groups) for groups, bucket in session_buckets for scorer in bucket
+        }
+        emit_metric_usage_event(
+            scorers,
+            len(eval_items),
+            num_session_groups,
+            aggregated_metrics,
+            session_count_by_scorer=session_count_by_scorer,
+        )
     except Exception as e:
         _logger.debug(f"Failed to emit metric usage event: {e}", exc_info=True)
 

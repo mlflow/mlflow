@@ -34,6 +34,7 @@ from mlflow.genai.judges.instructions_judge.constants import JUDGE_BASE_PROMPT
 from mlflow.genai.judges.utils import validate_judge_model
 from mlflow.genai.scorers.base import Scorer, ScorerKind, SerializedScorer
 from mlflow.genai.scorers.registry import _get_scorer_store
+from mlflow.genai.utils.trace_utils import _session_level_group
 from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracing.utils import build_otel_context
 from mlflow.types.llm import ChatMessage
@@ -3449,6 +3450,28 @@ def test_validate_session_same_session():
 
     # Should not raise
     judge._validate_session([trace1, trace2])
+
+
+def test_validate_session_within_session_level_group():
+    judge = make_judge(
+        name="conversation_judge",
+        instructions="Evaluate {{ conversation }}",
+        feedback_value_type=str,
+        model="openai:/gpt-4",
+    )
+
+    trip_2_ep_2 = create_trace_with_session("trace-1", '["trip-2","ep-2"]')
+    trip_2_ep_9 = create_trace_with_session("trace-2", '["trip-2","ep-9"]')
+    trip_3_ep_1 = create_trace_with_session("trace-3", '["trip-3","ep-1"]')
+
+    # Exact-ID comparison applies outside a level group.
+    with pytest.raises(MlflowException, match="must belong to the same session"):
+        judge._validate_session([trip_2_ep_2, trip_2_ep_9])
+
+    with _session_level_group('["trip-2"]'):
+        judge._validate_session([trip_2_ep_2, trip_2_ep_9])
+        with pytest.raises(MlflowException, match="Found 2 different session"):
+            judge._validate_session([trip_2_ep_2, trip_3_ep_1])
 
 
 def test_conversation_extraction_from_session(mock_invoke_judge_model):
