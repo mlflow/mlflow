@@ -46,6 +46,22 @@ MLFLOW_ISSUE_DETECTION_JOB_ID = "mlflow.issueDetection.jobId"
 # The ID of the job that is running the UI-triggered mlflow.genai.evaluate flow
 MLFLOW_GENAI_EVALUATE_JOB_ID = "mlflow.genaiEvaluate.jobId"
 
+# Lineage of a mlflow.genai.evaluate run. These tag formats are experimental and may change.
+# A different digest means the definition changed, but the same digest doesn't guarantee the same
+# behavior: the code and state that a definition calls aren't hashed.
+# JSON object {"digest": "sha256:<hex>", "hashed": <int>, "total": <int>} over the scorer
+# definitions. The digest is omitted when no scorer definition can be hashed.
+MLFLOW_GENAI_EVALUATE_SCORERS_DIGEST = "mlflow.genaiEvaluate.scorersDigest"
+# "<module>.<qualname>" of the evaluated predict function.
+MLFLOW_GENAI_EVALUATE_AGENT_FUNCTION = "mlflow.genaiEvaluate.agent.function"
+# The URI given to `mlflow.genai.to_predict_fn`, e.g. "endpoints:/my-agent".
+MLFLOW_GENAI_EVALUATE_AGENT_URI = "mlflow.genaiEvaluate.agent.uri"
+# "sha256:<hex>" of the source code of the evaluated predict function itself.
+MLFLOW_GENAI_EVALUATE_AGENT_DIGEST = "mlflow.genaiEvaluate.agent.digest"
+# `DataFrame.attrs` key (not a run tag) under which `EvaluationDataset.to_df()` records the dataset
+# identity, so that `mlflow.genai.evaluate(data=dataset.to_df())` can log the dataset.
+MLFLOW_GENAI_EVALUATE_DATASET_IDENTITY = "mlflow.genaiEvaluate.datasetIdentity"
+
 MLFLOW_DATABRICKS_NOTEBOOK_ID = "mlflow.databricks.notebookID"
 MLFLOW_DATABRICKS_NOTEBOOK_PATH = "mlflow.databricks.notebookPath"
 MLFLOW_DATABRICKS_WEBAPP_URL = "mlflow.databricks.webappURL"
