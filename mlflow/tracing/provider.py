@@ -149,7 +149,7 @@ class _TracerProviderWrapper:
     @property
     def is_initialized(self) -> bool:
         """Whether MLflow's tracer provider has been initialized for the current provider mode."""
-        return self.once._done
+        return self.once.done
 
     def get(self) -> TracerProvider:
         if MLFLOW_USE_DEFAULT_TRACER_PROVIDER.get():
