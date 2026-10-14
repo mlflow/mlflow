@@ -103,6 +103,7 @@ export interface SkillImportSnippetOptions {
   /** Discovery root; the import registers every SKILL.md found beneath it. */
   subpath?: string;
   organization?: string;
+  status?: SkillStatus;
   workspace?: SnippetWorkspace;
 }
 
@@ -127,16 +128,25 @@ export const buildRegistrationSnippets = ({
           ref: register.ref,
           subpath: register.subpath,
           organization: register.organization || undefined,
+          status: register.status,
           workspace: register.workspace,
         }
       : undefined,
 });
 
-export const formatSkillImportCli = ({ source, ref, subpath, organization, workspace }: SkillImportSnippetOptions) => {
+export const formatSkillImportCli = ({
+  source,
+  ref,
+  subpath,
+  organization,
+  status,
+  workspace,
+}: SkillImportSnippetOptions) => {
   const lines = [`mlflow skills import --source ${quoteShellArg(source)}`];
   if (ref) lines.push(`--ref ${quoteShellArg(ref)}`);
   if (subpath) lines.push(`--subpath ${quoteShellArg(subpath)}`);
   if (organization) lines.push(`--organization ${quoteShellArg(organization)}`);
+  if (status && status !== SkillStatus.ACTIVE) lines.push(`--status ${status}`);
   return cliCommand(lines, workspace);
 };
 
@@ -145,16 +155,20 @@ export const formatSkillImportPython = ({
   ref,
   subpath,
   organization,
+  status,
   workspace,
 }: SkillImportSnippetOptions) => {
   const sourceArgs = [`url=${quotePythonString(source)}`];
   if (ref) sourceArgs.push(`ref=${quotePythonString(ref)}`);
   if (subpath) sourceArgs.push(`subpath=${quotePythonString(subpath)}`);
-  const typed = Boolean(ref || subpath);
-  const args = [typed ? `source=GitSource(${sourceArgs.join(', ')})` : `source=${quotePythonString(source)}`];
+  const args = [`source=GitSource(${sourceArgs.join(', ')})`];
   if (organization) args.push(`organization=${quotePythonString(organization)}`);
-  const imports = typed ? ['import mlflow', 'from mlflow.genai import GitSource'] : ['import mlflow'];
-  return pythonSnippet(imports, pythonCall('mlflow.genai.import_skills', args), workspace);
+  if (status && status !== SkillStatus.ACTIVE) args.push(`status=${quotePythonString(status)}`);
+  return pythonSnippet(
+    ['import mlflow', 'from mlflow.genai import GitSource'],
+    pythonCall('mlflow.genai.import_skills', args),
+    workspace,
+  );
 };
 
 export const formatSkillPullCli = (uri: string, destination: string, workspace?: SnippetWorkspace) =>

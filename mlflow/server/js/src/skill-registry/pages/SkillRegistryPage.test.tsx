@@ -325,7 +325,7 @@ describe('SkillRegistryPage', () => {
     expect(screen.queryByRole('link', { name: '@ocp-admin/cluster-inventory' })).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'cluster-inventory' })).toHaveAttribute(
       'href',
-      '/skills/%40ocp-admin%2Fcluster-inventory',
+      '/skills/@ocp-admin/cluster-inventory',
     );
     expect(screen.getByText('@ocp-admin')).toBeInTheDocument();
     expect(screen.getByText('v4')).toBeInTheDocument();
