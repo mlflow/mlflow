@@ -1093,6 +1093,9 @@ sentence_transformers:
     minimum: "3.2.0"
     maximum: "6.1.0"
     requirements:
+      # sentence-transformers<5.2 requires transformers<5, which requires huggingface-hub<1.
+      # datasets>=5.1 requires huggingface-hub>=1.31.
+      "< 5.2": ["datasets<5.1"]
       ">= 0.0.0": [
           "pyspark",
           "torch>1.6",
