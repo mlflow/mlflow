@@ -1211,8 +1211,12 @@ def search_traces(
     ):
         warnings.warn(
             "Searching traces without a time range constraint on UC table locations can be slow "
-            "and expensive. Consider adding a `trace.timestamp_ms` filter to your `filter_string` "
-            "to limit the scan, e.g. filter_string=\"trace.timestamp_ms > '2024-01-01'\".",
+            "and expensive. Add a recent start time to `filter_string` using epoch milliseconds, "
+            "e.g. after `import time`, use "
+            'filter_string=f"trace.timestamp_ms >= {int(time.time() * 1000) - 3600000}" '
+            "for the last hour. For instrumentation verification, use the test run's start time. "
+            "If a time-bounded search is still slow or fails, stop verification and report the "
+            "blocker to the user instead of trying SQL or REST API fallbacks.",
             category=UserWarning,
             stacklevel=2,
         )
