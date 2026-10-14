@@ -465,6 +465,7 @@ def test_skill_rest_enforces_grants_and_filters_before_pagination(
         assert len(admin_page.json()["skills"]) == 4
 
         auth_store.grant_user_permission(reader.username, "skill", "@acme/reviewer", EDIT.name)
+        auth_store.grant_user_permission(reader.username, "skill", "reviewer", EDIT.name)
         assert client.patch(target, json={"description": "x"}, headers=headers).status_code == 200
         assert client.delete(target, headers=headers).status_code == 403
 
@@ -479,13 +480,16 @@ def test_skill_rest_enforces_grants_and_filters_before_pagination(
         )
         tracking_store.set_skill_alias("reviewer", "stable", 1, organization="acme")
         version_path = f"{target}/versions/1"
-        assert (
-            client.post(
-                f"{target}/tags", json={"key": "team", "value": "review"}, headers=headers
-            ).status_code
-            == 200
-        )
-        assert client.delete(f"{target}/tags/team", headers=headers).status_code == 200
+        for tag_target in (target, f"{prefix}/reviewer"):
+            assert (
+                client.post(
+                    f"{tag_target}/tags",
+                    json={"key": "team", "value": "review"},
+                    headers=headers,
+                ).status_code
+                == 200
+            )
+            assert client.delete(f"{tag_target}/tags/team", headers=headers).status_code == 200
         assert (
             client.post(
                 f"{version_path}/tags", json={"key": "team", "value": "review"}, headers=headers

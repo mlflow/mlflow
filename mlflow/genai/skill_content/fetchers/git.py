@@ -27,6 +27,9 @@ from mlflow.protos.databricks_pb2 import (
 _GIT_TIMEOUT_SECONDS = 600
 _COPY_CHUNK_SIZE = 1024 * 1024
 _HTTP_STATUS_PATTERN = re.compile(r"(?:returned error|http status|status code|error):?\s*(\d{3})\b")
+_GIT_UNAVAILABLE_MESSAGE = (
+    "Git is required to fetch Git skill sources. Install Git and ensure it is available on PATH."
+)
 
 
 def _git_environment(no_hooks_dir: Path) -> dict[str, str]:
@@ -148,7 +151,10 @@ def fetch_git(
     plain content tree. The size limit applies to the tree at ``subpath``.
     """
     # GitPython needs the git executable at import time, so import only when fetching.
-    import git
+    try:
+        import git
+    except ImportError as e:
+        raise MlflowException(_GIT_UNAVAILABLE_MESSAGE) from e
 
     prefix = normalize_subpath(subpath)
     dest.mkdir(parents=True, exist_ok=True)
@@ -156,7 +162,10 @@ def fetch_git(
     no_hooks_dir = scratch / "no-hooks"
     no_hooks_dir.mkdir(parents=True, exist_ok=True)
     target = f"{url} at ref '{ref}'" if ref else url
-    repo = git.Repo.init(objects)
+    try:
+        repo = git.Repo.init(objects)
+    except git.exc.GitCommandNotFound as e:
+        raise MlflowException(_GIT_UNAVAILABLE_MESSAGE) from e
     try:
         with repo.git.custom_environment(**_git_environment(no_hooks_dir)):
             origin = repo.create_remote("origin", url)

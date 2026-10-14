@@ -47,7 +47,7 @@ class ParsedSkillUri:
         if self.version is not None:
             _validate_skill_version(self.version)
         if self.alias is not None:
-            _validate_skill_alias(self.alias)
+            _validate_skill_alias(self.alias, allow_latest=True)
 
 
 def _split_uri(uri: str, scheme: str) -> tuple[str, str, str | None, str | None]:
@@ -123,7 +123,7 @@ def parse_skill_uri(uri: str) -> ParsedSkillUri:
         version = int(version_str)
         _validate_skill_version(version)
     if alias is not None:
-        _validate_skill_alias(alias)
+        _validate_skill_alias(alias, allow_latest=True)
     return ParsedSkillUri(name=name, organization=organization, version=version, alias=alias)
 
 

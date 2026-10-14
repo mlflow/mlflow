@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from urllib.parse import urlsplit
+from urllib.parse import parse_qsl, urlsplit
 
 from mlflow.entities.skill_source import GitSource, OCISource, SkillSourceType, ZipSource
 from mlflow.genai.skill_content.errors import invalid_content
@@ -23,6 +23,21 @@ _UNSAFE_REF_PATTERN = re.compile(r"[\s\x00-\x1f\x7f]")
 # RFC-0008 stores `source`, `ref`, and `subpath` in String(2048) columns; fail early rather
 # than at the database.
 MAX_SOURCE_FIELD_LENGTH = 2048
+
+# ZIP sources must be public URLs. These parameters identify credentials in the query strings
+# used by common signed URL schemes; benign parameters such as ``download=1`` remain allowed.
+_ZIP_CREDENTIAL_QUERY_PARAMETERS = frozenset({
+    "access_token",
+    "googleaccessid",
+    "sig",
+    "signature",
+    "token",
+    "x-amz-credential",
+    "x-amz-security-token",
+    "x-amz-signature",
+    "x-goog-credential",
+    "x-goog-signature",
+})
 
 SourceInput = GitSource | OCISource | ZipSource | str
 
@@ -98,6 +113,12 @@ def _validate_zip(url: str) -> None:
         raise invalid_content(
             "ZIP sources are fetched without authentication and must be publicly accessible; "
             "remove the credentials from the URL or use a Git or OCI source instead."
+        )
+    query_parameters = {name.lower() for name, _ in parse_qsl(parts.query, keep_blank_values=True)}
+    if query_parameters & _ZIP_CREDENTIAL_QUERY_PARAMETERS:
+        raise invalid_content(
+            "ZIP sources must be publicly accessible and must not contain credentials in the "
+            "query string. Remove the signed query parameters or use a Git or OCI source instead."
         )
 
 

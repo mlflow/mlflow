@@ -921,6 +921,27 @@ def test_create_and_get_organization_skill_version(tmp_path: Path, db_uri: str):
         assert response.json()["name"] == "code-review"
 
 
+@pytest.mark.parametrize("prefix", get_skill_registry_api_route_prefixes())
+def test_create_skill_version_rejects_zip_credentials_without_persisting(
+    prefix: str, tmp_path: Path, db_uri: str
+):
+    client, store = _create_client(tmp_path, db_uri)
+    source = "https://example.com/skills.zip?X-Amz-Signature=presigned-secret"
+    with mock.patch(
+        "mlflow.server.handlers._get_tracking_store", return_value=store
+    ) as get_tracking_store:
+        response = client.post(
+            f"{prefix}/reviewer/versions",
+            json={"source_type": "zip", "source": source},
+        )
+
+    assert response.status_code == 400, response.text
+    get_tracking_store.assert_not_called()
+    assert "credentials" in response.json()["message"]
+    assert source not in response.text
+    assert list(store.search_skill_versions(name="reviewer")) == []
+
+
 @pytest.mark.parametrize(
     ("path", "organization"),
     [
