@@ -347,12 +347,35 @@ describe('local skill registration', () => {
     expect(formatSkillImportCli({ source: 'https://github.com/acme/skills', ref: 'v1', organization: 'acme' })).toBe(
       "mlflow skills import --source 'https://github.com/acme/skills' \\\n    --ref 'v1' \\\n    --organization 'acme'",
     );
+    // A plain URL string is only treated as Git when it ends in .git, so the source is always typed.
     expect(formatSkillImportPython({ source: 'https://github.com/acme/skills', organization: 'acme' })).toBe(
-      'import mlflow\n\nmlflow.genai.import_skills(\n    source="https://github.com/acme/skills",\n    organization="acme",\n)',
+      'import mlflow\nfrom mlflow.genai import GitSource\n\nmlflow.genai.import_skills(\n    source=GitSource(url="https://github.com/acme/skills"),\n    organization="acme",\n)',
     );
     expect(formatSkillImportPython({ source: 'https://github.com/acme/skills', ref: 'v1' })).toContain(
       'source=GitSource(url="https://github.com/acme/skills", ref="v1")',
     );
+  });
+
+  it('carries a draft status into the repository import', () => {
+    const register = {
+      sourceType: 'git' as const,
+      location: 'https://github.com/acme/skills',
+      local: false,
+      status: SkillStatus.DRAFT,
+    };
+    const repositoryImport = buildRegistrationSnippets({
+      register,
+      repositoryUrl: 'https://github.com/acme/skills',
+    }).repositoryImport;
+    expect(repositoryImport?.status).toBe(SkillStatus.DRAFT);
+    if (!repositoryImport) throw new Error('Expected a repository import');
+    expect(formatSkillImportCli(repositoryImport)).toBe(
+      "mlflow skills import --source 'https://github.com/acme/skills' \\\n    --status draft",
+    );
+    expect(formatSkillImportPython(repositoryImport)).toContain('    status="draft",\n');
+    // Active is the default, so it is left out.
+    expect(formatSkillImportCli({ ...repositoryImport, status: SkillStatus.ACTIVE })).not.toContain('--status');
+    expect(formatSkillImportPython({ ...repositoryImport, status: SkillStatus.ACTIVE })).not.toContain('status=');
   });
 
   it('escapes user values in the Python registration snippet', () => {

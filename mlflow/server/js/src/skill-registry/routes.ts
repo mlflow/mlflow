@@ -1,6 +1,9 @@
 import { createMLflowRoutePath, generatePath } from '../common/utils/RoutingUtils';
 import { formatSkillIdentity } from './utils';
 
+// Validated names and organizations fit this, so they need no encoding in a readable path.
+const ROUTE_SAFE_SEGMENT = /^[a-z0-9][a-z0-9.-]*$/;
+
 export enum SkillRegistryPageId {
   skillRegistryPage = 'mlflow.skill-registry',
   skillDetailPage = 'mlflow.skill-registry.skill-detail',
@@ -13,13 +16,13 @@ export class SkillRegistryRoutePaths {
   }
 
   static get skillDetailPage() {
-    // One encoded identity segment so `@` and `/` cannot split the path
-    // (`%40acme%2Fcode-review`).
+    // Default-organization skills, or the whole identity encoded into one segment so `@` and `/`
+    // cannot split the path (`%40acme%2Fcode-review`), which older links use.
     return createMLflowRoutePath('/skills/:skillKey');
   }
 
   static get skillDetailPageWithOrganization() {
-    // Compatibility for unencoded two-segment URLs (`/skills/@acme/code-review`).
+    // Organization-scoped skills (`/skills/@acme/code-review`).
     return createMLflowRoutePath('/skills/:organization/:skillName');
   }
 }
@@ -31,9 +34,15 @@ class SkillRegistryRoutes {
   }
 
   static getSkillDetailRoute(name: string, organization = '', version?: number) {
-    const path = generatePath(SkillRegistryRoutePaths.skillDetailPage, {
-      skillKey: encodeURIComponent(formatSkillIdentity(name, organization)),
-    });
+    const path =
+      organization && ROUTE_SAFE_SEGMENT.test(organization) && ROUTE_SAFE_SEGMENT.test(name)
+        ? generatePath(SkillRegistryRoutePaths.skillDetailPageWithOrganization, {
+            organization: `@${organization}`,
+            skillName: name,
+          })
+        : generatePath(SkillRegistryRoutePaths.skillDetailPage, {
+            skillKey: encodeURIComponent(formatSkillIdentity(name, organization)),
+          });
     if (version != null) {
       return `${path}?version=${encodeURIComponent(String(version))}`;
     }

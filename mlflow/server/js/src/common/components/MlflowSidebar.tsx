@@ -217,8 +217,10 @@ export function MlflowSidebar({
                 ),
               },
               componentId: 'mlflow.sidebar.ai_registry_tab_link',
-              // The section stays expanded on every page so each registry is one click away.
-              nestedItems: <MlflowSidebarAiRegistryItems key="ai-registry" collapsed={!showSidebar} />,
+              nestedItems:
+                shouldEnableWorkflowBasedNavigation() && isAiRegistryActive(location) ? (
+                  <MlflowSidebarAiRegistryItems key="ai-registry" collapsed={!showSidebar} />
+                ) : undefined,
             },
           ]
         : []),

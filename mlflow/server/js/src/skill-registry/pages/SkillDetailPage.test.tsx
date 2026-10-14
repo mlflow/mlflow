@@ -129,8 +129,8 @@ describe('SkillDetailPage', () => {
     expect(within(dialog).queryByText(/^@\s*latest$/)).not.toBeInTheDocument();
   });
 
-  it('loads a two-segment compatibility URL', async () => {
-    renderPage(['/skills/@acme/code-review']);
+  it('loads an encoded identity URL from older links', async () => {
+    renderPage(['/skills/%40acme%2Fcode-review']);
     await waitFor(() => {
       expect(screen.getByText('Viewing version 2')).toBeInTheDocument();
     });
