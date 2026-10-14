@@ -16,6 +16,7 @@ import { ExperimentKind } from '../../constants';
 import { createLazyRouteElement, createRouteElement, createMLflowRoutePath } from '../../../common/utils/RoutingUtils';
 import { PageId, RoutePaths } from '../../routes';
 import ExperimentPageTabs from './ExperimentPageTabs';
+import { shouldEnableGenAIExperimentPageRevamp } from '../../../common/utils/FeatureUtils';
 
 // eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(60000); // Larger timeout for integration testing
@@ -23,6 +24,13 @@ jest.setTimeout(60000); // Larger timeout for integration testing
 jest.mock('../../../common/utils/FeatureUtils', () => ({
   ...jest.requireActual<typeof import('../../../common/utils/FeatureUtils')>('../../../common/utils/FeatureUtils'),
   shouldEnableWorkflowBasedNavigation: jest.fn().mockReturnValue(false),
+  shouldEnableGenAIExperimentPageRevamp: jest.fn().mockReturnValue(false),
+}));
+
+jest.mock('../experiment-evaluation-runs/ExperimentEvaluationRunsPage', () => ({
+  // mock default export
+  __esModule: true,
+  default: () => <div>Experiment evaluation runs page</div>,
 }));
 
 jest.mock('../experiment-logged-models/ExperimentLoggedModelListPage', () => ({
@@ -116,6 +124,13 @@ describe('ExperimentLoggedModelListPage', () => {
                           pageId: PageId.experimentPageTabModels,
                           element: createLazyRouteElement(
                             () => import('../experiment-logged-models/ExperimentLoggedModelListPage'),
+                          ),
+                        },
+                        {
+                          path: RoutePaths.experimentPageTabEvaluationRuns,
+                          pageId: PageId.experimentPageTabEvaluationRuns,
+                          element: createLazyRouteElement(
+                            () => import('../experiment-evaluation-runs/ExperimentEvaluationRunsPage'),
                           ),
                         },
                         {
@@ -322,5 +337,64 @@ describe('ExperimentLoggedModelListPage', () => {
 
     // Should redirect to overview tab based on existing tag
     expect(await screen.findByText('Experiment overview page')).toBeInTheDocument();
+  });
+
+  describe('GenAI experiment page shell', () => {
+    const genAIExperiment = createTestExperiment('12345678', 'Test experiment name', [
+      { key: 'mlflow.experimentKind', value: ExperimentKind.GENAI_DEVELOPMENT },
+    ]);
+
+    beforeEach(() => {
+      server.use(
+        graphql.query('MlflowGetExperimentQuery', (req, res, ctx) =>
+          res(ctx.data(createTestExperimentResponse(genAIExperiment))),
+        ),
+      );
+    });
+
+    test('flag off: keeps the experiment title header', async () => {
+      jest.mocked(shouldEnableGenAIExperimentPageRevamp).mockReturnValue(false);
+      renderTestComponent('/experiments/12345678/evaluation-runs');
+
+      expect(await screen.findByText('Experiment evaluation runs page')).toBeInTheDocument();
+      expect(await screen.findByTestId('experiment-view-header-back-button')).toBeInTheDocument();
+      expect(screen.queryByRole('navigation', { name: 'Breadcrumb' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Copy link to this experiment' })).not.toBeInTheDocument();
+    });
+
+    test('flag on: shows the breadcrumb header with the run evaluation action on the evaluation runs tab', async () => {
+      jest.mocked(shouldEnableGenAIExperimentPageRevamp).mockReturnValue(true);
+      renderTestComponent('/experiments/12345678/evaluation-runs');
+
+      const breadcrumb = await screen.findByRole('navigation', { name: 'Breadcrumb' });
+      expect(within(breadcrumb).getByRole('link', { name: 'Test experiment name' })).toBeInTheDocument();
+      expect(within(breadcrumb).getByText('Evaluation runs')).toHaveAttribute('aria-current', 'page');
+      expect(screen.getByRole('button', { name: 'Copy link to this experiment' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Run evaluation' })).toBeInTheDocument();
+      expect(screen.getByRole('main')).toContainElement(screen.getByText('Experiment evaluation runs page'));
+      expect(screen.queryByTestId('experiment-view-header-back-button')).not.toBeInTheDocument();
+    });
+
+    test('flag on: shows no page action outside the evaluation runs tab', async () => {
+      jest.mocked(shouldEnableGenAIExperimentPageRevamp).mockReturnValue(true);
+      renderTestComponent('/experiments/12345678/traces');
+
+      const breadcrumb = await screen.findByRole('navigation', { name: 'Breadcrumb' });
+      expect(within(breadcrumb).getByText('Traces')).toHaveAttribute('aria-current', 'page');
+      expect(screen.queryByRole('button', { name: 'Run evaluation' })).not.toBeInTheDocument();
+    });
+
+    test('flag on: keeps the experiment title header for non-GenAI experiments', async () => {
+      jest.mocked(shouldEnableGenAIExperimentPageRevamp).mockReturnValue(true);
+      server.use(
+        graphql.query('MlflowGetExperimentQuery', (req, res, ctx) =>
+          res(ctx.data(createTestExperimentResponse(createTestExperiment()))),
+        ),
+      );
+      renderTestComponent('/experiments/12345678/runs');
+
+      expect(await screen.findByTestId('experiment-view-header-back-button')).toBeInTheDocument();
+      expect(screen.queryByRole('navigation', { name: 'Breadcrumb' })).not.toBeInTheDocument();
+    });
   });
 });

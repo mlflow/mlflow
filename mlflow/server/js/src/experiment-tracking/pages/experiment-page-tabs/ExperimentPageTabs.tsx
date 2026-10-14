@@ -10,6 +10,7 @@ import { coerceToEnum } from '@databricks/web-shared/utils';
 import { ExperimentKind, ExperimentPageTabName, MLFLOW_EXPERIMENT_TRACE_STORAGE_UC_SCHEMA_TAG } from '../../constants';
 import {
   shouldEnableExperimentOverviewTab,
+  shouldEnableGenAIExperimentPageRevamp,
   shouldEnableWorkflowBasedNavigation,
 } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 import {
@@ -21,7 +22,7 @@ import {
 import { useIsFileStore } from '../../hooks/useServerInfo';
 import { useUpdateExperimentKind } from '../../components/experiment-page/hooks/useUpdateExperimentKind';
 import { ExperimentViewHeaderKindSelector } from '../../components/experiment-page/components/header/ExperimentViewHeaderKindSelector';
-import { useExperimentKind } from '../../utils/ExperimentKindUtils';
+import { isGenAIExperimentKind, useExperimentKind } from '../../utils/ExperimentKindUtils';
 import { useInferExperimentKind } from '../../components/experiment-page/hooks/useInferExperimentKind';
 import { ExperimentViewInferredKindModal } from '../../components/experiment-page/components/header/ExperimentViewInferredKindModal';
 import Routes, { RoutePaths } from '../../routes';
@@ -33,6 +34,10 @@ import { HeaderVisibilityProvider, useHeaderVisibility } from './ExperimentPageH
 import { ExperimentViewSavedViewsButton } from '../../components/experiment-page/components/header/ExperimentViewSavedViewsButton';
 import { SharedViewActionsBridgeProvider } from '../../components/experiment-page/hooks/useSharedViewActionsBridge';
 import type { ExperimentEntity } from '../../types';
+import { RunEvaluationButton } from '../experiment-evaluation-runs/RunEvaluationButton';
+import { ExperimentPageBreadcrumbs } from './ExperimentPageBreadcrumbs';
+import { ExperimentPageMainContent } from './ExperimentPageMainContent';
+import { ExperimentPageRevampProvider } from './ExperimentPageRevampContext';
 
 const ExperimentPageTabsImpl = () => {
   const { experimentId, tabName } = useParams();
@@ -109,6 +114,18 @@ const ExperimentPageTabsImpl = () => {
     updateExperimentKind,
     hasV4Location,
   });
+
+  const displayExperimentKind =
+    (experimentKind && experimentKind !== ExperimentKind.NO_INFERRED_TYPE ? experimentKind : undefined) ??
+    (inferredExperimentKind && inferredExperimentKind !== ExperimentKind.NO_INFERRED_TYPE
+      ? inferredExperimentKind
+      : undefined) ??
+    ExperimentKind.GENAI_DEVELOPMENT;
+  const revampFlagEnabled = shouldEnableGenAIExperimentPageRevamp();
+  const showRevamp =
+    Boolean(experiment && !inferringExperimentType) &&
+    revampFlagEnabled &&
+    isGenAIExperimentKind(displayExperimentKind);
 
   // Check if the user landed on the experiment page without a specific tab (sub-route)...
   const { pathname } = useLocation();
@@ -201,11 +218,25 @@ const ExperimentPageTabsImpl = () => {
       <ExperimentViewSavedViewsButton experiment={experiment as unknown as ExperimentEntity} />
     ) : undefined;
 
-  return (
+  const isEvaluationRunsListRoute = Boolean(matchPath(RoutePaths.experimentPageTabEvaluationRuns, pathname));
+  const mainContent = showRevamp ? (
+    <ExperimentPageMainContent
+      breadcrumbs={<ExperimentPageBreadcrumbs experiment={experiment as unknown as ExperimentEntity} />}
+      pageActions={
+        isEvaluationRunsListRoute ? <RunEvaluationButton experimentId={experimentId} isPageAction /> : undefined
+      }
+    >
+      {outletComponent}
+    </ExperimentPageMainContent>
+  ) : (
+    <div css={contentWrapperCss}>{outletComponent}</div>
+  );
+
+  const pageContents = (
     // Bridges the runs shared-view Override/Discard actions (published from ExperimentView, rendered
     // via the outlet below) up to the header Views dropdown, which lives above the outlet.
     <SharedViewActionsBridgeProvider>
-      {!headerHidden && (
+      {!headerHidden && !showRevamp && (
         <ExperimentPageHeaderWithDescription
           experiment={experiment}
           loading={loadingExperiment || inferringExperimentType}
@@ -237,12 +268,34 @@ const ExperimentPageTabsImpl = () => {
               activeTab={activeTab}
             />
           )}
-          <div css={contentWrapperCss}>{outletComponent}</div>
+          {mainContent}
         </div>
       ) : (
-        <div css={contentWrapperCss}>{outletComponent}</div>
+        mainContent
       )}
     </SharedViewActionsBridgeProvider>
+  );
+
+  return (
+    <ExperimentPageRevampProvider enabled={showRevamp}>
+      {revampFlagEnabled && !showRevamp ? (
+        // The revamped shell drops the page's vertical padding, so pages outside it keep their own.
+        <div
+          css={{
+            display: 'flex',
+            flexDirection: 'column',
+            flex: 1,
+            minHeight: 0,
+            paddingTop: theme.spacing.md,
+            paddingBottom: theme.spacing.md,
+          }}
+        >
+          {pageContents}
+        </div>
+      ) : (
+        pageContents
+      )}
+    </ExperimentPageRevampProvider>
   );
 };
 
@@ -257,7 +310,9 @@ const ExperimentPageTabs = () => {
           overflow: 'hidden',
           display: 'flex',
           flexDirection: 'column',
-          padding: theme.spacing.md,
+          ...(shouldEnableGenAIExperimentPageRevamp()
+            ? { paddingLeft: theme.spacing.md, paddingRight: theme.spacing.md }
+            : { padding: theme.spacing.md }),
           height: '100%',
         }}
       >

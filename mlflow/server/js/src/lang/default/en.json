@@ -1023,6 +1023,10 @@
     "defaultMessage": "Cancel",
     "description": "Delete evaluation runs cancel button text"
   },
+  "2+sQ7k": {
+    "defaultMessage": "Experiments",
+    "description": "Breadcrumb link to the experiments list"
+  },
   "2+uccV": {
     "defaultMessage": "Workspaces",
     "description": "Home page workspaces section title"
@@ -4970,6 +4974,10 @@
   "GifD0J": {
     "defaultMessage": "Explore GenAI features with pre-populated sample data including traces, evaluations, and prompts.",
     "description": "Demo banner description"
+  },
+  "Gj+C1W": {
+    "defaultMessage": "Breadcrumb",
+    "description": "Aria label for experiment page breadcrumb navigation"
   },
   "Gk9Z7W": {
     "defaultMessage": "Created by",
@@ -10643,6 +10651,10 @@
     "defaultMessage": "Edit judge",
     "description": "Title for edit judge modal"
   },
+  "bKCGPW": {
+    "defaultMessage": "Copy link to this experiment",
+    "description": "Accessible label for the button that copies a link to the current experiment page"
+  },
   "bKSd3c": {
     "defaultMessage": "An unknown error occurred.",
     "description": "Generic message for an unknown error"
@@ -12270,6 +12282,10 @@
   "gy4ziK": {
     "defaultMessage": "Assign reviewers who should answer this queue's questions. They'll find it under “Feedback requested”.",
     "description": "Create review queue: reviewers field hint"
+  },
+  "gyKTCv": {
+    "defaultMessage": "Run evaluation",
+    "description": "Label for the page action button that opens the run-evaluation modal"
   },
   "gyq74j": {
     "defaultMessage": "Trace name",
