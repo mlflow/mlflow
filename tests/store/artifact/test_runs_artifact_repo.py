@@ -4,7 +4,8 @@ from unittest.mock import Mock
 import pytest
 
 import mlflow
-from mlflow.exceptions import MlflowException
+from mlflow.exceptions import MlflowException, RestException
+from mlflow.protos.databricks_pb2 import PERMISSION_DENIED, RESOURCE_DOES_NOT_EXIST
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.store.entities.paged_list import PagedList
@@ -107,6 +108,120 @@ def test_runs_artifact_repo_uses_repo_download_artifacts():
     runs_repo.repo = Mock()
     runs_repo.download_artifacts("artifact_path", "dst_path")
     runs_repo.repo.download_artifacts.assert_called_once()
+
+
+@pytest.fixture
+def runs_artifact_repo():
+    with (
+        mock.patch.object(
+            RunsArtifactRepository, "get_underlying_uri", return_value="file:///unused"
+        ),
+        mock.patch(
+            "mlflow.store.artifact.artifact_repository_registry.get_artifact_repository",
+            return_value=Mock(),
+        ),
+    ):
+        return RunsArtifactRepository("runs:/run-id")
+
+
+def test_download_artifacts_reports_run_backend_failure(runs_artifact_repo, tmp_path):
+    run_error = ConnectionError("Artifact store unavailable")
+    runs_artifact_repo.repo.download_artifacts.side_effect = run_error
+
+    with (
+        mock.patch.object(runs_artifact_repo, "_get_logged_model_artifact_repo", return_value=None),
+        pytest.raises(MlflowException, match="backend error") as exc_info,
+    ):
+        runs_artifact_repo.download_artifacts("model", str(tmp_path))
+
+    assert exc_info.value.error_code == "INTERNAL_ERROR"
+    assert exc_info.value.__cause__ is run_error
+
+
+def test_download_artifacts_reports_logged_model_backend_failure(runs_artifact_repo, tmp_path):
+    run_error = MlflowException("No such artifact", error_code=RESOURCE_DOES_NOT_EXIST)
+    model_error = MlflowException("Permission denied", error_code=PERMISSION_DENIED)
+    runs_artifact_repo.repo.download_artifacts.side_effect = run_error
+    model_repo = Mock()
+    model_repo.download_artifacts.side_effect = model_error
+
+    with (
+        mock.patch.object(
+            runs_artifact_repo, "_get_logged_model_artifact_repo", return_value=model_repo
+        ),
+        pytest.raises(MlflowException, match="backend error") as exc_info,
+    ):
+        runs_artifact_repo.download_artifacts("model/MLmodel", str(tmp_path))
+
+    model_repo.download_artifacts.assert_called_once_with(
+        artifact_path="MLmodel", dst_path=str(tmp_path / "model")
+    )
+    assert exc_info.value.error_code == "PERMISSION_DENIED"
+    assert exc_info.value.__cause__ is model_error
+
+
+@pytest.mark.parametrize(
+    "run_error",
+    [
+        MlflowException("No such artifact", error_code=RESOURCE_DOES_NOT_EXIST),
+        FileNotFoundError("No such artifact"),
+        RestException({"error_code": "NOT_FOUND", "message": "No such artifact"}),
+    ],
+)
+@pytest.mark.parametrize(
+    "model_error",
+    [
+        MlflowException("No such model artifact", error_code=RESOURCE_DOES_NOT_EXIST),
+        RestException({"error_code": "NOT_FOUND", "message": "No such model artifact"}),
+    ],
+)
+def test_download_artifacts_reports_missing_path_after_both_repos(
+    runs_artifact_repo, tmp_path, run_error, model_error
+):
+    runs_artifact_repo.repo.download_artifacts.side_effect = run_error
+    model_repo = Mock()
+    model_repo.download_artifacts.side_effect = model_error
+
+    with (
+        mock.patch.object(
+            runs_artifact_repo, "_get_logged_model_artifact_repo", return_value=model_repo
+        ),
+        pytest.raises(MlflowException, match="please ensure that the path is correct") as exc_info,
+    ):
+        runs_artifact_repo.download_artifacts("model/MLmodel", str(tmp_path))
+
+    assert exc_info.value.error_code == "RESOURCE_DOES_NOT_EXIST"
+    assert exc_info.value.__cause__ is run_error
+
+
+def test_download_artifacts_uses_logged_model_after_run_backend_failure(
+    runs_artifact_repo, tmp_path
+):
+    runs_artifact_repo.repo.download_artifacts.side_effect = ConnectionError(
+        "Run store unavailable"
+    )
+    model_repo = Mock()
+    model_repo.download_artifacts.return_value = str(tmp_path / "model" / "MLmodel")
+
+    with mock.patch.object(
+        runs_artifact_repo, "_get_logged_model_artifact_repo", return_value=model_repo
+    ):
+        path = runs_artifact_repo.download_artifacts("model/MLmodel", str(tmp_path))
+
+    assert path == str(tmp_path / "model" / "MLmodel")
+
+
+def test_download_artifacts_uses_run_after_logged_model_backend_failure(
+    runs_artifact_repo, tmp_path
+):
+    run_path = str(tmp_path / "artifact")
+    runs_artifact_repo.repo.download_artifacts.return_value = run_path
+    with mock.patch.object(
+        runs_artifact_repo,
+        "_download_model_artifacts",
+        side_effect=ConnectionError("Model store unavailable"),
+    ):
+        assert runs_artifact_repo.download_artifacts("model", str(tmp_path)) == run_path
 
 
 def test_runs_artifact_repo_tracking_uri_passed_as_keyword():
