@@ -805,7 +805,7 @@ def test_databricks_otel_client_shares_concurrent_401_refresh():
         except Exception as exc:
             errors.append(exc)
 
-    threads = [threading.Thread(target=export) for _ in range(2)]
+    threads = [threading.Thread(name=f"otel-export-{i}", target=export) for i in range(2)]
     for thread in threads:
         thread.start()
     for thread in threads:
