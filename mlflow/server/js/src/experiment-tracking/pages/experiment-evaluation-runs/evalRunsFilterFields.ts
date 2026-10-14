@@ -91,10 +91,12 @@ export const getEvalRunsFilterFieldForColumn = (columnId: string): string | unde
   }
 };
 
-const FIELD_GROUP_RUN = 'Run';
-const FIELD_GROUP_METRICS = 'Metrics';
-const FIELD_GROUP_PARAMS = 'Parameters';
-const FIELD_GROUP_TAGS = 'Tags';
+// English fallbacks; the UI shows the localized text from `useEvalRunsFilterLabels`.
+export const FIELD_GROUP_RUN = 'Run';
+export const FIELD_GROUP_METRICS = 'Metrics';
+export const FIELD_GROUP_PARAMS = 'Parameters';
+export const FIELD_GROUP_TAGS = 'Tags';
+export const RUN_TYPE_FIELD_ID = `tags.\`${MLFLOW_RUN_TYPE_TAG}\``;
 
 // MLflow run lifecycle states, as accepted by the SearchRuns `attributes.status` filter.
 const RUN_STATUS_OPTIONS: EvalRunsFilterFieldOption[] = [
@@ -154,7 +156,7 @@ const getAttributeFields = (excludeIssueDetectionRuns = false): EvalRunsFilterFi
   { id: 'attributes.run_name', label: 'Run name', type: 'string', group: FIELD_GROUP_RUN },
   { id: 'attributes.status', label: 'Status', type: 'enum', group: FIELD_GROUP_RUN, options: RUN_STATUS_OPTIONS },
   {
-    id: `tags.\`${MLFLOW_RUN_TYPE_TAG}\``,
+    id: RUN_TYPE_FIELD_ID,
     label: 'Run type',
     type: 'enum',
     group: FIELD_GROUP_RUN,

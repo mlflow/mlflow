@@ -17,6 +17,7 @@ import {
   getOperatorsForFieldType,
   quoteFilterValue,
 } from './evalRunsFilterFields';
+import { useEvalRunsFilterLabels } from './hooks/useEvalRunsFilterLabels';
 
 const MAX_OPTIONS = 5;
 const MAX_RECENT_OPTIONS = 2;
@@ -188,6 +189,7 @@ export const EvalRunsUnifiedSearch = ({
 }: EvalRunsUnifiedSearchProps) => {
   const intl = useIntl();
   const { theme } = useDesignSystemTheme();
+  const { operatorLabels, getFieldLabel } = useEvalRunsFilterLabels();
   const [value, setValue] = useState(searchFilter);
   const [open, setOpen] = useState(false);
   const [focused, setFocused] = useState(false);
@@ -405,7 +407,7 @@ export const EvalRunsUnifiedSearch = ({
   const chips = clauses.map((clause, index) => {
     const field = fieldForClause(fields, clause);
     const text = formatClause(fields, clause);
-    const label = `${field?.label ?? clause.field} ${EVAL_RUNS_FILTER_OPERATOR_LABELS[clause.operator]} ${formatValue(
+    const label = `${field ? getFieldLabel(field) : clause.field} ${operatorLabels[clause.operator]} ${formatValue(
       field,
       clause.value,
     )}`;

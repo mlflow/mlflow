@@ -36,7 +36,6 @@ import type { ExperimentRunsSelectorResult } from '../../components/experiment-p
 import { EVAL_RUNS_TOOLBAR_ICON_SIZE } from './ExperimentEvaluationRunsTable.constants';
 import type { EvalRunsFilterClause, EvalRunsFilterFieldDef } from './evalRunsFilterFields';
 import {
-  EVAL_RUNS_FILTER_OPERATOR_LABELS,
   EvalRunsFilterOperator,
   buildClausesFilterString,
   getEvalRunsFilterFields,
@@ -44,6 +43,7 @@ import {
   getEvalRunsFilterFieldValues,
   getOperatorsForFieldType,
 } from './evalRunsFilterFields';
+import { useEvalRunsFilterLabels } from './hooks/useEvalRunsFilterLabels';
 
 const COMPONENT_ID = 'mlflow.eval-runs.filter-button';
 // Keep intermediate states such as `-`, `1.`, or `1e+` typeable; final numeric validity is
@@ -179,6 +179,7 @@ const EvalRunsFilterClauseRow = ({
 }) => {
   const intl = useIntl();
   const { theme } = useDesignSystemTheme();
+  const { operatorLabels, getFieldLabel, getFieldGroupLabel, getOptionLabel } = useEvalRunsFilterLabels();
 
   const fieldGroups = useMemo(() => groupFields(fields), [fields]);
   const selectedField = fields.find((field) => field.id === clause.field);
@@ -229,10 +230,10 @@ const EvalRunsFilterClauseRow = ({
           }}
         >
           {fieldGroups.map((group) => (
-            <SimpleSelectOptionGroup key={group.group} label={group.group}>
+            <SimpleSelectOptionGroup key={group.group} label={getFieldGroupLabel(group.group)}>
               {group.fields.map((field) => (
                 <SimpleSelectOption key={field.id} value={field.id}>
-                  {field.label}
+                  {getFieldLabel(field)}
                 </SimpleSelectOption>
               ))}
             </SimpleSelectOptionGroup>
@@ -263,7 +264,7 @@ const EvalRunsFilterClauseRow = ({
         >
           {operators.map((operator) => (
             <SimpleSelectOption key={operator} value={operator}>
-              {EVAL_RUNS_FILTER_OPERATOR_LABELS[operator]}
+              {operatorLabels[operator]}
             </SimpleSelectOption>
           ))}
         </SimpleSelect>
@@ -292,7 +293,7 @@ const EvalRunsFilterClauseRow = ({
           >
             {selectedField.options?.map((option) => (
               <SimpleSelectOption key={option.value} value={option.value}>
-                {option.label}
+                {getOptionLabel(selectedField, option)}
               </SimpleSelectOption>
             ))}
           </SimpleSelect>

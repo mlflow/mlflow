@@ -47,6 +47,10 @@
     "defaultMessage": "Name",
     "description": "Guardrail name label"
   },
+  "+6HCsd": {
+    "defaultMessage": "Scheduled",
+    "description": "Run status filter value"
+  },
   "+6tmRn": {
     "defaultMessage": "Name",
     "description": "Field label for assessment name in a creation form"
@@ -1807,6 +1811,10 @@
     "defaultMessage": "Content too large to render ({size}). Displaying as plain text.",
     "description": "Message shown when chat content exceeds the markdown rendering size limit"
   },
+  "4yJrEW": {
+    "defaultMessage": "Start time (epoch ms)",
+    "description": "Run start time field in the evaluation runs filter, compared as epoch milliseconds"
+  },
   "4yjF8O": {
     "defaultMessage": "Show all runs",
     "description": "Menu option for revealing all hidden runs in the experiment view runs compare mode"
@@ -2374,6 +2382,10 @@
   "73ydH0": {
     "defaultMessage": "Off",
     "description": "Runs charts > line chart > ignore outliers > off setting label"
+  },
+  "77LbhF": {
+    "defaultMessage": "Metrics",
+    "description": "Field group heading in the evaluation runs filter field picker"
   },
   "78/HiZ": {
     "defaultMessage": "Expand tag columns",
@@ -3218,6 +3230,10 @@
   "A+GxQM": {
     "defaultMessage": "avg per request",
     "description": "Subtitle for average tokens per request in gateway"
+  },
+  "A/baVN": {
+    "defaultMessage": "Failed",
+    "description": "Run status filter value"
   },
   "A/vYwt": {
     "defaultMessage": "Create MCP server",
@@ -4971,6 +4987,10 @@
     "defaultMessage": "Link to \"{name}\" copied — anyone with access can open this view.",
     "description": "Confirmation toast shown after copying a saved traces view share link"
   },
+  "Go43iv": {
+    "defaultMessage": "Killed",
+    "description": "Run status filter value"
+  },
   "GockVy": {
     "defaultMessage": "JSON",
     "description": "Label for the JSON render mode dropdown item in the model trace explorer attributes tab"
@@ -6075,6 +6095,10 @@
     "defaultMessage": "Assessment",
     "description": "Evaluation review > evaluations list > assessment sort option label prefix"
   },
+  "KkzrWg": {
+    "defaultMessage": "Evaluation",
+    "description": "Run type filter value"
+  },
   "KmZ5PI": {
     "defaultMessage": "Turn {turnNumber}",
     "description": "Sequential turn number for a trace within an expanded session"
@@ -6390,6 +6414,10 @@
   "M/tp81": {
     "defaultMessage": "Hide banner",
     "description": "Experiment page > shared view banner > button that hides the banner while keeping the shared view applied"
+  },
+  "M0DP9D": {
+    "defaultMessage": "Run type",
+    "description": "Run type field in the evaluation runs filter"
   },
   "M0O/hf": {
     "defaultMessage": "(cache write)",
@@ -7387,6 +7415,10 @@
     "defaultMessage": "Add row",
     "description": "Experiment page > artifact compare view > add new row button"
   },
+  "PNo6st": {
+    "defaultMessage": "Status",
+    "description": "Run status field in the evaluation runs filter"
+  },
   "PP5HZf": {
     "defaultMessage": "Created at",
     "description": "Run page > Overview > Run start time section label"
@@ -7422,6 +7454,10 @@
   "PSFpHG": {
     "defaultMessage": "You don't have permissions to open requested experiment.",
     "description": "A message shown on the experiment page if user has no permissions to open the experiment"
+  },
+  "PUn95G": {
+    "defaultMessage": "Run",
+    "description": "Field group heading in the evaluation runs filter field picker"
   },
   "PX5Nlz": {
     "defaultMessage": "Clear selection",
@@ -8091,6 +8127,10 @@
     "defaultMessage": "Span: {spanName}",
     "description": "Label for the span name in assessment metadata"
   },
+  "S4gLoI": {
+    "defaultMessage": "Issue detection",
+    "description": "Run type filter value"
+  },
   "S50iFK": {
     "defaultMessage": "Create endpoint",
     "description": "Title for create endpoint modal"
@@ -8658,6 +8698,10 @@
   "UI3HSV": {
     "defaultMessage": "Select",
     "description": "Select button"
+  },
+  "UI9SSQ": {
+    "defaultMessage": "Finished",
+    "description": "Run status filter value"
   },
   "UITAEJ": {
     "defaultMessage": "Icons",
@@ -11423,6 +11467,10 @@
     "defaultMessage": "Key",
     "description": "Tag key label in unified trace tag assignment modal"
   },
+  "eMO/Ox": {
+    "defaultMessage": "Agent evaluate",
+    "description": "Run type filter value"
+  },
   "eNHVjy": {
     "defaultMessage": "Name is required",
     "description": "Form validation error message informing the user that the webhook name is required"
@@ -13479,6 +13527,10 @@
     "defaultMessage": "We encountered an issue loading the judges interface. Please refresh the page or contact support if the problem persists.",
     "description": "Error description for experiment judges page loading failure"
   },
+  "lHl/zp": {
+    "defaultMessage": "Parameters",
+    "description": "Field group heading in the evaluation runs filter field picker"
+  },
   "lI+Eu2": {
     "defaultMessage": "Failed to delete {itemType}. Please try again.",
     "description": "Error message when deletion fails"
@@ -14003,6 +14055,10 @@
     "defaultMessage": "Close",
     "description": "Button for closing modal with the logged models quickstart example code"
   },
+  "n2SOpG": {
+    "defaultMessage": "contains",
+    "description": "Operator in the evaluation runs filter that matches values containing the text"
+  },
   "n3Oic0": {
     "defaultMessage": "Columns ({visible}/{total})",
     "description": "Column-selector trigger label on the V2 dataset records page, showing the count of currently visible columns out of the total available"
@@ -14190,6 +14246,10 @@
   "nfIS4i": {
     "defaultMessage": "Parent run name loading",
     "description": "Run page > Overview > Parent run name loading"
+  },
+  "nfu62H": {
+    "defaultMessage": "Running",
+    "description": "Run status filter value"
   },
   "nhqO2Z": {
     "defaultMessage": "Save",
@@ -14978,6 +15038,10 @@
   "qdYCbk": {
     "defaultMessage": "Copied to clipboard",
     "description": "Success message after copying trace link"
+  },
+  "qdyCR6": {
+    "defaultMessage": "Tags",
+    "description": "Field group heading in the evaluation runs filter field picker"
   },
   "qeC5dV": {
     "defaultMessage": "Failed to save the view.",
@@ -16799,6 +16863,10 @@
     "defaultMessage": "Active",
     "description": "Tab text to view active versions under details tab\n                                on the model view page"
   },
+  "xQ5CoH": {
+    "defaultMessage": "User",
+    "description": "User field in the evaluation runs filter"
+  },
   "xQ9fuC": {
     "defaultMessage": "View error traces for this tool",
     "description": "Link text to navigate to traces filtered by tool name and error status"
@@ -16950,6 +17018,10 @@
   "xw9qni": {
     "defaultMessage": "Duration",
     "description": "Column selector label for the duration column"
+  },
+  "xwGQ6Q": {
+    "defaultMessage": "Run name",
+    "description": "Run name field in the evaluation runs filter"
   },
   "xwW5nO": {
     "defaultMessage": "Copy dataset id",
@@ -17374,6 +17446,10 @@
   "zZlPwp": {
     "defaultMessage": "Categories",
     "description": "Run page > Overview > Issue categories being detected"
+  },
+  "zc/Ask": {
+    "defaultMessage": "Dataset",
+    "description": "Dataset field in the evaluation runs filter"
   },
   "zcnCPF": {
     "defaultMessage": "Issues",
