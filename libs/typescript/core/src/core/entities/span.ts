@@ -13,6 +13,7 @@ import {
   toSpanLogLevel,
   NO_OP_SPAN_TRACE_ID,
   TRACE_ID_PREFIX,
+  TRACE_ID_V4_PREFIX,
 } from '../constants';
 import { defaultLogLevelForSpanType } from '../log_level';
 import { parseTraceIdV4 } from '../utils/trace_id';
@@ -410,6 +411,16 @@ export class LiveSpan extends Span {
    */
   addLink(link: SpanLink): void {
     if (!this._span.isRecording()) {
+      return;
+    }
+
+    // Span links are not supported for Unity Catalog (V4) traces. Warn and skip rather than
+    // silently normalizing the V4 trace ID to raw OTel hex (see #25080).
+    if (link.traceId?.startsWith(TRACE_ID_V4_PREFIX)) {
+      console.warn(
+        `Span links are not currently supported for Unity Catalog traces. ` +
+          `The link to trace '${link.traceId}' will be skipped.`,
+      );
       return;
     }
 
