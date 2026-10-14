@@ -37,10 +37,12 @@ from mlflow.data.numpy_dataset import from_numpy
 from mlflow.data.pandas_dataset import from_pandas
 from mlflow.entities.dataset_input import DatasetInput
 from mlflow.entities.input_tag import InputTag
+from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelInputExample, ModelSignature, infer_signature
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import _save_example
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.sklearn import _SklearnTrainingSession
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -475,6 +477,7 @@ def autolog(
     registered_model_name=None,
     model_format="ubj",
     extra_tags=None,
+    max_features_to_plot=None,
 ):
     """
     Enables (or disables) and configures autologging from XGBoost to MLflow. Logs the following:
@@ -526,9 +529,21 @@ def autolog(
             which is the recommended format for optimal performance and cross-platform
             compatibility. Also supports "json" and "xgb" formats.
         extra_tags: A dictionary of extra tags to set on each managed run created by autologging.
+        max_features_to_plot: If specified, only the top ``max_features_to_plot`` most important
+            features will be plotted. If ``None``, all features are plotted.
     """
     import numpy as np
     import xgboost
+
+    if max_features_to_plot is not None and (
+        isinstance(max_features_to_plot, bool)
+        or not isinstance(max_features_to_plot, int)
+        or max_features_to_plot <= 0
+    ):
+        raise MlflowException(
+            f"`max_features_to_plot` must be a positive integer, but got {max_features_to_plot}",
+            INVALID_PARAMETER_VALUE,
+        )
 
     if importance_types is None:
         importance_types = ["weight"]
@@ -615,6 +630,12 @@ def autolog(
                 features = features[indices]
                 importances_per_class_by_feature = importances_per_class_by_feature[indices]
                 label_classes_on_plot = True
+
+            if max_features_to_plot is not None and max_features_to_plot > 0:
+                features = features[-max_features_to_plot:]
+                importances_per_class_by_feature = importances_per_class_by_feature[
+                    -max_features_to_plot:
+                ]
 
             num_classes = importances_per_class_by_feature.shape[1]
             num_features = len(features)
