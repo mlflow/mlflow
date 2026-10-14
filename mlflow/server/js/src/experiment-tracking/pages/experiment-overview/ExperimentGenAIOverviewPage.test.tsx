@@ -72,7 +72,7 @@ describe('ExperimentGenAIOverviewPage', () => {
       },
     });
 
-  const defaultUrl = generatePath(RoutePaths.experimentPageTabOverview, {
+  const defaultUrl = generatePath(RoutePaths.experimentPageTabDashboard, {
     experimentId: testExperimentId,
     overviewTab: 'usage',
   });
@@ -85,7 +85,7 @@ describe('ExperimentGenAIOverviewPage', () => {
           <TestRouter
             history={history}
             routes={[
-              testRoute(<ExperimentGenAIOverviewPage />, RoutePaths.experimentPageTabOverview),
+              testRoute(<ExperimentGenAIOverviewPage />, RoutePaths.experimentPageTabDashboard),
               testRoute(<TracesTabStub />, RoutePaths.experimentPageTabTraces),
             ]}
             initialEntries={[initialUrl]}
@@ -454,7 +454,7 @@ describe('ExperimentGenAIOverviewPage', () => {
       // User has already selected a custom time range in URL
       const customStartTime = '2025-01-01T00:00:00.000Z';
       const customEndTime = '2025-01-07T23:59:59.999Z';
-      const urlWithParams = `/experiments/${testExperimentId}/overview/usage?startTimeLabel=LAST_24_HOURS`;
+      const urlWithParams = `/experiments/${testExperimentId}/dashboard/usage?startTimeLabel=LAST_24_HOURS`;
 
       renderComponent(urlWithParams);
 

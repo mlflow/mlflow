@@ -128,6 +128,17 @@ describe('IssueDetectionModal', () => {
     expect(screen.getByText('50 traces selected')).toBeInTheDocument();
   });
 
+  test('seeds the default selection when available traces load after the modal opens', async () => {
+    const { rerender } = renderWithDesignSystem(<IssueDetectionModal {...defaultProps} />);
+
+    expect(screen.getByText('No traces yet. Log traces to this experiment first.')).toBeInTheDocument();
+
+    const availableTraceIds = Array.from({ length: 80 }, (_, i) => `trace-${i}`);
+    rerender(<IssueDetectionModal {...defaultProps} availableTraceIds={availableTraceIds} />);
+
+    expect(await screen.findByText('50 traces selected')).toBeInTheDocument();
+  });
+
   test('tells the user to log traces first when the experiment has none', () => {
     renderWithDesignSystem(<IssueDetectionModal {...defaultProps} />);
 
@@ -269,8 +280,14 @@ describe('IssueDetectionModal', () => {
 
   test('records submitted background job when form is submitted', async () => {
     const onClose = jest.fn();
+    const onJobStarted = jest.fn();
     renderWithDesignSystem(
-      <IssueDetectionModal {...defaultProps} onClose={onClose} initialSelectedTraceIds={['trace-1']} />,
+      <IssueDetectionModal
+        {...defaultProps}
+        onClose={onClose}
+        onJobStarted={onJobStarted}
+        initialSelectedTraceIds={['trace-1']}
+      />,
     );
 
     await userEvent.click(screen.getByText('Run Analysis').closest('button')!);
@@ -280,6 +297,13 @@ describe('IssueDetectionModal', () => {
     });
 
     expect(getSubmittedIssueDetectionJob()).toEqual({
+      experimentId: 'exp-123',
+      jobId: 'job-123',
+      runId: 'run-456',
+      traceCount: 1,
+      submittedAtMs: expect.any(Number),
+    });
+    expect(onJobStarted).toHaveBeenCalledWith({
       experimentId: 'exp-123',
       jobId: 'job-123',
       runId: 'run-456',

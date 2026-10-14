@@ -1,5 +1,6 @@
 import { jest, describe, test, expect } from '@jest/globals';
 import Routes from './routes';
+import { ExperimentPageTabName } from './constants';
 
 jest.mock('../common/utils/RoutingUtils', () => ({
   ...jest.requireActual<typeof import('../common/utils/RoutingUtils')>('../common/utils/RoutingUtils'),
@@ -22,6 +23,12 @@ describe('experiment tracking page routes', () => {
     expect(Routes.searchRunsByLifecycleStage('123', 'ACTIVE')).toEqual('/experiments/123?lifecycleFilter=ACTIVE');
     expect(Routes.searchRunsByUser('123', '987654321')).toEqual(
       "/experiments/123?searchFilter=attributes.user_id%20%3D%20'987654321'",
+    );
+    expect(Routes.getExperimentPageTabRoute('123', ExperimentPageTabName.Overview)).toEqual(
+      '/experiments/123/overview',
+    );
+    expect(Routes.getExperimentPageTabRoute('123', ExperimentPageTabName.Dashboard)).toEqual(
+      '/experiments/123/dashboard/usage',
     );
   });
 

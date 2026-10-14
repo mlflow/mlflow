@@ -8,7 +8,9 @@ import { shouldEnableSessionGrouping } from '@databricks/web-shared/genai-traces
 // Maps experiment page route paths to enumerated tab names
 const ExperimentPageRoutePathToTabNameMap = map(
   {
-    [RoutePaths.experimentPageTabOverview]: ExperimentPageTabName.Overview,
+    [RoutePaths.experimentPageTabJourneyOverview]: ExperimentPageTabName.Overview,
+    [RoutePaths.experimentPageTabOverview]: ExperimentPageTabName.Dashboard,
+    [RoutePaths.experimentPageTabDashboard]: ExperimentPageTabName.Dashboard,
     [RoutePaths.experimentPageTabRuns]: ExperimentPageTabName.Runs,
     [RoutePaths.experimentPageTabTraces]: ExperimentPageTabName.Traces,
     [RoutePaths.experimentPageTabModels]: ExperimentPageTabName.Models,

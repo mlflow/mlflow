@@ -59,3 +59,5 @@ export const Legend = () => <div data-testid="legend" />;
 export const ReferenceLine = ({ label }: { label?: { value?: string } }) => (
   <div data-testid="reference-line" data-label={label?.value} />
 );
+
+export const ReferenceArea = () => <div data-testid="reference-area" />;
