@@ -1,13 +1,13 @@
-"""Quality thresholds declared on scorers, recorded on the evaluation run as a tag."""
+"""Quality thresholds passed to ``evaluate``, recorded on the evaluation run as a tag."""
 
 import json
 import logging
 import uuid
 from collections import Counter
-from typing import Any, Iterator
+from typing import Any
 
 from mlflow.exceptions import MlflowException
-from mlflow.genai.scorers.base import Scorer, ScorerKind, _as_quality_threshold
+from mlflow.genai.scorers.base import QualityThreshold, Scorer
 from mlflow.utils.validation import MAX_TAG_VAL_LENGTH
 
 _logger = logging.getLogger(__name__)
@@ -17,46 +17,46 @@ _SCHEMA_VERSION = 1
 _COMPARATORS = {"at_least": "GTE", "at_most": "LTE"}
 
 
-def _sub_scorers(scorer: Scorer) -> Iterator[Scorer]:
-    # Legacy Databricks `Metric`s are accepted as scorers but have no `kind`.
-    if getattr(scorer, "kind", None) == ScorerKind.ENSEMBLE:
-        for sub_scorer in scorer._scorers:
-            yield sub_scorer
-            yield from _sub_scorers(sub_scorer)
-
-
-def build_quality_threshold_rules(scorers: list[Scorer]) -> list[dict[str, Any]]:
+def build_quality_threshold_rules(
+    scorers: list[Scorer], quality_thresholds: dict[str, QualityThreshold] | None
+) -> list[dict[str, Any]]:
     """
-    Validate the thresholds declared on ``scorers`` and build one rule per thresholded scorer.
+    Validate ``quality_thresholds`` against ``scorers`` and build one rule per threshold.
 
-    Thresholds on ensemble sub-scorers are ignored with a warning.
+    Each key must be the name of exactly one scorer in ``scorers``.
     """
-    name_counts = Counter(scorer.name for scorer in scorers)
+    if not quality_thresholds:
+        return []
+    if not isinstance(quality_thresholds, dict):
+        raise MlflowException.invalid_parameter_value(
+            "`quality_thresholds` must be a dict that maps a scorer name to a "
+            f"`QualityThreshold`, got {type(quality_thresholds).__name__}."
+        )
+
+    # NB: `getattr`, because legacy Databricks `Metric` objects aren't scorers.
+    name_counts = Counter(getattr(scorer, "name", None) for scorer in scorers)
     rules = []
-    for scorer in scorers:
-        for sub_scorer in _sub_scorers(scorer):
-            # A sub-scorer has no run-level metric of its own, so its threshold has no effect.
-            # A warning is less disruptive than an error for that.
-            if sub_scorer._quality_threshold is not None:
-                _logger.warning(
-                    f"Ignoring the quality threshold on '{sub_scorer.name}', a sub-scorer of "
-                    f"the ensemble '{scorer.name}'. Only the ensemble's own threshold is "
-                    "recorded on the run."
-                )
-
-        # NB: `getattr`, because legacy Databricks `Metric` objects aren't scorers.
-        if (value := getattr(scorer, "_quality_threshold", None)) is None:
-            continue
-        if name_counts[scorer.name] > 1:
+    for name, threshold in quality_thresholds.items():
+        if not isinstance(threshold, QualityThreshold):
             raise MlflowException.invalid_parameter_value(
-                f"A quality threshold is set on scorer '{scorer.name}', but another scorer "
-                "passed to `evaluate` has the same name, so the threshold can't be matched to "
-                "a single metric. Give each scorer a unique name."
+                f"The quality threshold for {name!r} must be a `QualityThreshold`, "
+                f"got {type(threshold).__name__}."
             )
-        threshold = _as_quality_threshold(value)
+        if name_counts[name] == 0:
+            scorer_names = ", ".join(repr(n) for n in sorted(n for n in name_counts if n))
+            raise MlflowException.invalid_parameter_value(
+                f"The quality threshold for {name!r} doesn't match any scorer passed to "
+                f"`evaluate`. Scorer names: {scorer_names}."
+            )
+        if name_counts[name] > 1:
+            raise MlflowException.invalid_parameter_value(
+                f"The quality threshold for {name!r} matches more than one scorer passed to "
+                "`evaluate`, so it can't be matched to a single metric. Give each scorer a "
+                "unique name."
+            )
         bound = "at_least" if threshold.at_least is not None else "at_most"
         rules.append({
-            "metricKey": f"{scorer.name}/{threshold.aggregation}",
+            "metricKey": f"{name}/{threshold.aggregation}",
             "comparator": _COMPARATORS[bound],
             "threshold": getattr(threshold, bound),
         })
@@ -84,8 +84,8 @@ def build_quality_thresholds_tag(rules: list[dict[str, Any]]) -> str | None:
     if len(value) > MAX_TAG_VAL_LENGTH:
         raise MlflowException.invalid_parameter_value(
             f"The quality thresholds are {len(value)} characters once serialized, over the "
-            f"{MAX_TAG_VAL_LENGTH} character limit for a run tag. Set a quality threshold "
-            "on fewer scorers."
+            f"{MAX_TAG_VAL_LENGTH} character limit for a run tag. Set fewer quality "
+            "thresholds."
         )
     return value
 

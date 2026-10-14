@@ -13,7 +13,7 @@ from dataclasses import asdict, dataclass, fields
 from enum import Enum
 from typing import Any, Callable, ClassVar, Literal, TypeAlias, TypeVar, get_args, overload
 
-from pydantic import BaseModel, PrivateAttr, model_validator
+from pydantic import BaseModel, PrivateAttr
 
 import mlflow
 from mlflow.entities import Assessment, Feedback
@@ -118,15 +118,14 @@ class ScorerSamplingConfig:
 AggregationFunc = Callable[[list[float]], float]  # List of per-row value -> aggregated value
 
 
-@experimental(version="3.17.1")
+@experimental(version="3.17.2")
 @dataclass(frozen=True)
 class QualityThreshold:
     """
     The bar a scorer's aggregated metric must clear for an evaluation run to count as passing.
 
-    Set it on a scorer with :py:meth:`Scorer.with_quality_threshold`. Exactly one of
-    ``at_least`` or ``at_most`` is required. Pass a bare float instead for the common case:
-    ``0.9`` is the same as ``QualityThreshold(at_least=0.9)``.
+    Pass it to ``mlflow.genai.evaluate`` in ``quality_thresholds``, keyed by scorer name.
+    Exactly one of ``at_least`` or ``at_most`` is required.
 
     Args:
         at_least: The aggregated metric must be greater than or equal to this value.
@@ -150,12 +149,11 @@ class QualityThreshold:
             mlflow.genai.evaluate(
                 data=data,
                 predict_fn=predict_fn,
-                scorers=[
-                    Correctness().with_quality_threshold(0.9),
-                    latency_s.with_quality_threshold(
-                        QualityThreshold(at_most=2.0, aggregation="p90")
-                    ),
-                ],
+                scorers=[Correctness(), latency_s],
+                quality_thresholds={
+                    "correctness": QualityThreshold(at_least=0.9),
+                    "latency_s": QualityThreshold(at_most=2.0, aggregation="p90"),
+                },
             )
     """
 
@@ -184,10 +182,6 @@ class QualityThreshold:
                 f"QualityThreshold `aggregation` must be one of {get_args(_BuiltinAggregation)}, "
                 f"got {self.aggregation!r}."
             )
-
-
-def _as_quality_threshold(value: float | QualityThreshold) -> QualityThreshold:
-    return value if isinstance(value, QualityThreshold) else QualityThreshold(at_least=value)
 
 
 def _extract_scorer_value(result: Any) -> Any:
@@ -473,22 +467,6 @@ class Scorer(BaseModel):
     # testing concern and is intentionally not serialized. ``None`` falls back to
     # the default rule (yes/no or bool).
     _pass_if: Callable[[Any], bool] | None = PrivateAttr(default=None)
-    # The bar the run-level metric must clear, set only by ``with_quality_threshold``. A bare
-    # float means ``at_least``. Evaluation records it on the run; it is never serialized.
-    _quality_threshold: float | QualityThreshold | None = PrivateAttr(default=None)
-
-    @model_validator(mode="before")
-    @classmethod
-    def _reject_quality_threshold(cls, data: Any) -> Any:
-        # NB: Without this, pydantic would silently ignore the keyword and the run would
-        # record no threshold.
-        if isinstance(data, dict) and "quality_threshold" in data:
-            raise TypeError(
-                f"{cls.__name__} doesn't accept `quality_threshold`. Set a quality threshold "
-                "with `with_quality_threshold()`, for example "
-                "`Correctness().with_quality_threshold(0.9)`."
-            )
-        return data
 
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
@@ -525,42 +503,6 @@ class Scorer(BaseModel):
         rating or a ``bool``). Set via ``@scorer(pass_if=...)``.
         """
         return self._pass_if
-
-    @experimental(version="3.17.1")
-    def with_quality_threshold(
-        self, quality_threshold: float | QualityThreshold | None
-    ) -> "Scorer":
-        """
-        Return a copy of this scorer with the bar its run-level metric must clear.
-
-        ``mlflow.genai.evaluate`` records the threshold on the evaluation run. The threshold is
-        not saved with the scorer. The copy keeps this scorer's registration, including its
-        ``scorer_version``.
-
-        Args:
-            quality_threshold: A float (meaning "at least", applied to the mean), a
-                :py:class:`~mlflow.genai.scorers.QualityThreshold`, or ``None`` to remove
-                the threshold.
-
-        Example:
-
-            .. code-block:: python
-
-                from mlflow.genai.scorers import Correctness
-
-                mlflow.genai.evaluate(
-                    data=data,
-                    predict_fn=predict_fn,
-                    scorers=[Correctness().with_quality_threshold(0.9)],
-                )
-        """
-        if quality_threshold is not None:
-            _as_quality_threshold(quality_threshold)
-        # NB: Not `_create_copy`, which only copies registrable scorers and rebuilds
-        # third-party scorers without their registration.
-        copy = self.model_copy()
-        copy._quality_threshold = quality_threshold
-        return copy
 
     @property
     def sample_rate(self) -> float | None:
@@ -1271,11 +1213,6 @@ class Scorer(BaseModel):
         from mlflow.genai.scorers.registry import DatabricksStore, _get_scorer_store
 
         self._check_can_be_registered()
-        if self._quality_threshold is not None:
-            _logger.warning(
-                f"The quality threshold on scorer '{self.name}' is not saved with the registered "
-                "scorer. It only applies when this scorer is passed to `mlflow.genai.evaluate`."
-            )
         store = _get_scorer_store()
         # Create a new scorer instance
         new_scorer = self._create_copy()
@@ -1552,7 +1489,6 @@ class Scorer(BaseModel):
                 copy.description = self.description
             if self.aggregations is not None:
                 copy.aggregations = self.aggregations
-            copy._quality_threshold = self._quality_threshold
         elif self.kind == ScorerKind.ENSEMBLE:
             # Copy each sub-scorer through its own _create_copy so kind-specific handling
             # still applies; a deepcopy of `_scorers` would recurse infinitely on a
@@ -1564,7 +1500,6 @@ class Scorer(BaseModel):
                 description=self.description,
                 aggregations=self.aggregations,
             )
-            copy._quality_threshold = self._quality_threshold
         else:
             copy = self.model_copy(deep=True)
         # Duplicate the cached dump so modifications to the copy don't affect the original
@@ -2144,11 +2079,7 @@ def make_scorer_ensemble(
                     f"categorical scorers."
                 )
 
-    agg = EnsembleScorer(
-        name=name,
-        description=description,
-        aggregations=aggregations,
-    )
+    agg = EnsembleScorer(name=name, description=description, aggregations=aggregations)
     object.__setattr__(agg, "_scorers", list(scorers))
     object.__setattr__(agg, "_ensemble_fn", fn)
     object.__setattr__(agg, "_ensemble_fn_name", fn_name)

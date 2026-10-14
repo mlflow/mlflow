@@ -908,7 +908,6 @@ mlflow.genai.Scorer.run
 mlflow.genai.Scorer.start
 mlflow.genai.Scorer.stop
 mlflow.genai.Scorer.update
-mlflow.genai.Scorer.with_quality_threshold
 mlflow.genai.ScorerScheduleConfig
 mlflow.genai.agent_server.AgentServer
 mlflow.genai.agent_server.AgentServer.run

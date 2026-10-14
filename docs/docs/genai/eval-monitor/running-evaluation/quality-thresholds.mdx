@@ -2,37 +2,38 @@ import { APILink } from "@site/src/components/APILink";
 
 # Quality Thresholds
 
-A quality threshold is the bar a scorer's run-level metric must clear for an evaluation run to count as passing. Set it with `with_quality_threshold`, and <APILink fn="mlflow.genai.evaluate">`mlflow.genai.evaluate`</APILink> records it on the evaluation run alongside the metrics it applies to.
+A quality threshold is the bar a scorer's run-level metric must clear for an evaluation run to count as passing. Pass thresholds to <APILink fn="mlflow.genai.evaluate">`mlflow.genai.evaluate`</APILink> in `quality_thresholds`, and it records them on the evaluation run alongside the metrics they apply to.
 
 Thresholds belong to a run, not an experiment. When you change a scorer, for example by moving from v1 to v2 of a judge, each run keeps the bar it was evaluated against.
 
 :::info[Experimental Feature]
-Quality thresholds are experimental in MLflow 3.17.1. The API and behavior may change in future releases.
+Quality thresholds, including the `quality_thresholds` parameter of `mlflow.genai.evaluate`, were added as experimental in MLflow 3.17.2. The API and behavior may change or be removed in future releases.
 :::
 
 ## Set a threshold
 
-Call `with_quality_threshold` on any scorer. It returns a copy of the scorer with the threshold set. You can't pass `quality_threshold=` to a scorer constructor. A bare number means "at least", applied to the mean of the scorer's per-row values:
+`quality_thresholds` is a dict that maps a scorer name to a <APILink fn="mlflow.genai.scorers.QualityThreshold">`QualityThreshold`</APILink>. Exactly one of `at_least` or `at_most` is required. By default, the bar applies to the mean of the scorer's per-row values:
 
 ```python
 import mlflow
-from mlflow.genai.scorers import Correctness, Safety
+from mlflow.genai.scorers import Correctness, QualityThreshold, Safety
 
 results = mlflow.genai.evaluate(
     data=eval_data,
     predict_fn=agent,
-    scorers=[
-        Correctness().with_quality_threshold(0.9),  # correctness/mean >= 0.9
-        Safety(),  # no threshold
-    ],
+    scorers=[Correctness(), Safety()],
+    quality_thresholds={
+        "correctness": QualityThreshold(at_least=0.9),  # correctness/mean >= 0.9
+        # Safety has no threshold
+    },
 )
 ```
 
-For yes/no scorers, the mean is the pass rate, so `Correctness().with_quality_threshold(0.9)` means "at least 90% of rows are correct".
+For yes/no scorers, the mean is the pass rate, so `QualityThreshold(at_least=0.9)` on `correctness` means "at least 90% of rows are correct".
 
 ## Upper bounds and other aggregations
 
-Use <APILink fn="mlflow.genai.scorers.QualityThreshold">`QualityThreshold`</APILink> to set an upper bound or to apply the bar to a different aggregation. Exactly one of `at_least` or `at_most` is required. `aggregation` is one of `"min"`, `"max"`, `"mean"` (the default), `"median"`, `"variance"`, or `"p90"`.
+Use `at_most` for an upper bound, and `aggregation` to apply the bar to a different aggregation of the per-row values. `aggregation` is one of `"min"`, `"max"`, `"mean"` (the default), `"median"`, `"variance"`, or `"p90"`.
 
 ```python
 from mlflow.genai.scorers import QualityThreshold, scorer
@@ -43,25 +44,44 @@ def latency_s(trace) -> float:
     return trace.info.execution_duration / 1000
 
 
-latency_s = latency_s.with_quality_threshold(QualityThreshold(at_most=2.0, aggregation="p90"))
+results = mlflow.genai.evaluate(
+    data=eval_data,
+    predict_fn=agent,
+    scorers=[latency_s],
+    quality_thresholds={
+        "latency_s": QualityThreshold(at_most=2.0, aggregation="p90"),
+    },
+)
 ```
 
 MLflow always computes the aggregation a threshold uses, even if it isn't in the scorer's `aggregations`.
 
-## Supported scorers
+## Match thresholds to scorers
 
-`with_quality_threshold` works on every scorer: built-in scorers, custom `@scorer` functions, judges from <APILink fn="mlflow.genai.judges.make_judge">`make_judge`</APILink>, and third-party scorers (DeepEval, RAGAS, TruLens, Phoenix, Google ADK).
+Each key in `quality_thresholds` is a scorer's `name`, the name its metrics are logged under. Thresholds work with every scorer: built-in scorers, custom `@scorer` functions, judges from <APILink fn="mlflow.genai.judges.make_judge">`make_judge`</APILink>, ensembles from <APILink fn="mlflow.genai.scorers.make_scorer_ensemble">`make_scorer_ensemble`</APILink>, registered scorers, and third-party scorers (DeepEval, RAGAS, TruLens, Phoenix, Google ADK).
 
-- **Ensembles**: set the threshold on the scorer returned by <APILink fn="mlflow.genai.scorers.make_scorer_ensemble">`make_scorer_ensemble`</APILink>. A sub-scorer has no metric of its own on the run, so a threshold on a sub-scorer is ignored with a warning.
+`evaluate` checks the keys before the run starts and raises if a key:
+
+- **matches no scorer** passed to `evaluate`, for example because of a typo. The error lists the scorer names.
+- **matches more than one scorer**. Give each scorer a unique `name`, for example `Guidelines(name="politeness", guidelines=...)`.
+
+Notes:
+
+- **Ensembles**: use the ensemble's name. A sub-scorer has no metric of its own on the run, so its name isn't a valid key.
+- **Registered scorers**: thresholds aren't saved with a scorer. Use the registered name as the key:
+
+  ```python
+  from mlflow.genai.scorers import QualityThreshold, get_scorer
+
+  results = mlflow.genai.evaluate(
+      data=eval_data,
+      predict_fn=agent,
+      scorers=[get_scorer(name="my_scorer")],
+      quality_thresholds={"my_scorer": QualityThreshold(at_least=0.85)},
+  )
+  ```
+
 - **Third-party scorers**: the quality threshold is separate from the library's own per-row `threshold` argument, which decides whether a single row passes.
-
-Thresholds aren't saved when you register a scorer. To use one with a registered scorer, set it after loading:
-
-```python
-from mlflow.genai.scorers import get_scorer
-
-registered = get_scorer(name="my_scorer").with_quality_threshold(0.85)
-```
 
 ## Read thresholds from a run
 
@@ -79,11 +99,10 @@ for rule in thresholds["rules"]:
 # correctness/mean GTE 0.9 0.93
 ```
 
-`comparator` is `GTE` for `at_least` and `LTE` for `at_most`. No tag is written when no scorer has a threshold.
+`comparator` is `GTE` for `at_least` and `LTE` for `at_most`. No tag is written when `quality_thresholds` is empty or not set.
 
 ## Limitations
 
-- **Unique names**: a scorer with a threshold must not share its name with another scorer in the same evaluation. `evaluate` raises before the run starts.
 - **One thresholded evaluation per run**: when `evaluate` runs inside an active run (`with mlflow.start_run():`), it writes into that run, and only the last evaluation's thresholds are kept. MLflow can't delete metrics, so if a scorer produces no metric in the last evaluation, its threshold is compared against the metric an earlier evaluation logged. Use a fresh run for each evaluation that has thresholds.
 - **Numeric values only**: the threshold applies to an aggregated metric, so the scorer must return booleans, numbers, or yes/no values. Scorers that return other values (for example, categorical labels) or emit `Feedback` under a different name produce no matching metric. MLflow logs a warning and the threshold can't be checked.
 - **Failed rows are left out**: the aggregation skips rows where the scorer raised an error, so a threshold can pass even if most rows weren't scored. MLflow logs a warning with the number of failed rows; check it before you rely on the result.

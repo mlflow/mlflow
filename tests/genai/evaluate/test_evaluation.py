@@ -430,11 +430,11 @@ def test_evaluate_logs_quality_thresholds_run_tag(server_config):
 
     result = mlflow.genai.evaluate(
         data=[{"inputs": {"q": "x"}, "outputs": "good"}, {"inputs": {"q": "y"}, "outputs": "bad"}],
-        scorers=[
-            is_good.with_quality_threshold(0.5),
-            length.with_quality_threshold(QualityThreshold(at_most=10, aggregation="max")),
-            unthresholded,
-        ],
+        scorers=[is_good, length, unthresholded],
+        quality_thresholds={
+            "is_good": QualityThreshold(at_least=0.5),
+            "length": QualityThreshold(at_most=10, aggregation="max"),
+        },
     )
 
     payload = json.loads(mlflow.get_run(result.run_id).data.tags[QUALITY_THRESHOLDS_TAG])
@@ -454,7 +454,8 @@ def test_evaluate_warns_when_quality_threshold_metric_is_missing():
     with mock.patch("mlflow.genai.evaluation.quality_thresholds._logger.warning") as mock_warning:
         mlflow.genai.evaluate(
             data=[{"inputs": {"q": "x"}, "outputs": "good"}],
-            scorers=[label.with_quality_threshold(0.5)],
+            scorers=[label],
+            quality_thresholds={"label": QualityThreshold(at_least=0.5)},
         )
 
     mock_warning.assert_called_once()
@@ -469,7 +470,8 @@ def test_evaluate_clears_quality_thresholds_tag_on_reused_run(server_config):
     with mlflow.start_run() as run:
         first = mlflow.genai.evaluate(
             data=[{"inputs": {"q": "x"}, "outputs": "good"}],
-            scorers=[is_good.with_quality_threshold(0.9)],
+            scorers=[is_good],
+            quality_thresholds={"is_good": QualityThreshold(at_least=0.9)},
         )
         assert QUALITY_THRESHOLDS_TAG in mlflow.get_run(run.info.run_id).data.tags
 
@@ -495,7 +497,11 @@ def test_evaluate_without_quality_thresholds_logs_no_tag(server_config):
     assert QUALITY_THRESHOLDS_TAG not in mlflow.get_run(result.run_id).data.tags
 
 
-def test_evaluate_rejects_invalid_quality_thresholds_before_starting_run():
+@pytest.mark.parametrize(
+    ("threshold_name", "match"),
+    [("dup", "matches more than one scorer"), ("typo", "doesn't match any scorer")],
+)
+def test_evaluate_rejects_invalid_quality_thresholds_before_starting_run(threshold_name, match):
     @scorer(name="dup")
     def first(outputs) -> bool:
         return True
@@ -504,10 +510,11 @@ def test_evaluate_rejects_invalid_quality_thresholds_before_starting_run():
     def second(outputs) -> bool:
         return True
 
-    with pytest.raises(MlflowException, match="has the same name"):
+    with pytest.raises(MlflowException, match=match):
         mlflow.genai.evaluate(
             data=[{"inputs": {"q": "x"}, "outputs": "good"}],
-            scorers=[first.with_quality_threshold(0.5), second],
+            scorers=[first, second],
+            quality_thresholds={threshold_name: QualityThreshold(at_least=0.5)},
         )
 
     assert mlflow.search_runs(output_format="list") == []

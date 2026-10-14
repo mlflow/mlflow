@@ -6,12 +6,10 @@ import time
 import types
 from collections import defaultdict
 from dataclasses import asdict
-from typing import Any
 from unittest.mock import call, patch
 
 import pandas as pd
 import pytest
-from pydantic import PrivateAttr
 
 import mlflow
 from mlflow.entities import Assessment, AssessmentSource, AssessmentSourceType, Feedback
@@ -19,20 +17,10 @@ from mlflow.entities.assessment_error import AssessmentError
 from mlflow.environment_variables import _MLFLOW_IN_JOB_EXECUTOR
 from mlflow.exceptions import MlflowException
 from mlflow.genai import Scorer, scorer
-from mlflow.genai.evaluation.quality_thresholds import build_quality_threshold_rules
 from mlflow.genai.judges import make_judge
 from mlflow.genai.judges.utils import CategoricalRating
-from mlflow.genai.scorers import (
-    Correctness,
-    Guidelines,
-    QualityThreshold,
-    RetrievalGroundedness,
-    make_scorer_ensemble,
-)
+from mlflow.genai.scorers import Correctness, Guidelines, RetrievalGroundedness
 from mlflow.genai.scorers.base import (
-    ScorerKind,
-    ScorerSamplingConfig,
-    ScorerStatus,
     SerializedScorer,
     _is_tracking_server_process,
     _job_executor_scorer_context,
@@ -865,182 +853,3 @@ def test_scorer_timeout_becomes_error_feedback_in_evaluate(sample_data, is_in_da
     metrics = results.metrics.keys()
     assert any("fast_scorer" in metric for metric in metrics)
     assert all("slow_scorer" not in metric for metric in metrics)
-
-
-@pytest.mark.parametrize(
-    "kwargs",
-    [{"at_least": 0.9}, {"at_most": 2}, {"at_least": 0.5, "aggregation": "p90"}],
-)
-def test_quality_threshold_accepts_valid_bounds(kwargs):
-    assert QualityThreshold(**kwargs)
-
-
-@pytest.mark.parametrize(
-    ("kwargs", "match"),
-    [
-        ({}, "exactly one of `at_least` or `at_most`"),
-        ({"at_least": 0.1, "at_most": 0.9}, "exactly one of `at_least` or `at_most`"),
-        ({"at_least": True}, "must be a finite number"),
-        ({"at_least": "0.9"}, "must be a finite number"),
-        ({"at_most": float("nan")}, "must be a finite number"),
-        ({"at_least": float("inf")}, "must be a finite number"),
-        ({"at_least": 0.9, "aggregation": "sum"}, "`aggregation` must be one of"),
-    ],
-)
-def test_quality_threshold_rejects_invalid_bounds(kwargs, match):
-    with pytest.raises(MlflowException, match=match):
-        QualityThreshold(**kwargs)
-
-
-def _threshold_scorers():
-    @scorer
-    def decorated(outputs) -> float:
-        return 1.0
-
-    judge = make_judge(
-        name="tone", instructions="Is {{ outputs }} polite?", feedback_value_type=bool
-    )
-    ensemble = make_scorer_ensemble(name="ensemble", scorers=[Correctness()], ensemble_fn="agg_all")
-    return [decorated, Correctness(), judge, ensemble]
-
-
-@pytest.mark.parametrize("value", [0.9, 1, QualityThreshold(at_most=2.0, aggregation="p90")])
-@pytest.mark.parametrize("original", _threshold_scorers(), ids=lambda s: s.name)
-def test_with_quality_threshold_returns_copy_with_threshold(original, value):
-    copy = original.with_quality_threshold(value)
-
-    assert type(copy) is type(original)
-    assert copy._quality_threshold == value
-    assert original._quality_threshold is None
-    assert copy.with_quality_threshold(None)._quality_threshold is None
-
-
-def test_with_quality_threshold_keeps_registration_metadata():
-    sampling_config = ScorerSamplingConfig(sample_rate=0.5)
-    registered = Correctness()._set_registration_metadata(
-        backend="tracking", experiment_id="123", sampling_config=sampling_config, scorer_version=2
-    )
-
-    copy = registered.with_quality_threshold(0.9)
-
-    assert copy.scorer_version == 2
-    assert copy.status == ScorerStatus.STARTED
-    assert copy._experiment_id == "123"
-    assert copy._sampling_config == sampling_config
-
-
-def test_scorer_quality_threshold_defaults_to_none():
-    @scorer
-    def s(outputs) -> bool:
-        return True
-
-    assert s._quality_threshold is None
-    assert Correctness()._quality_threshold is None
-
-
-@pytest.mark.parametrize("bad", [True, "0.9", float("nan")])
-def test_with_quality_threshold_rejects_invalid_value(bad):
-    with pytest.raises(MlflowException, match="must be a finite number"):
-        Correctness().with_quality_threshold(bad)
-
-
-@pytest.mark.parametrize("factory", [scorer, make_judge, make_scorer_ensemble])
-def test_scorer_factories_do_not_accept_quality_threshold(factory):
-    with pytest.raises(TypeError, match="quality_threshold"):
-        factory(quality_threshold=0.9)
-
-
-class _FakeThirdPartyScorer(Scorer):
-    _metric_name: str = PrivateAttr(default="")
-    _metric_kwargs: dict[str, Any] = PrivateAttr(default_factory=dict)
-    _model: str | None = PrivateAttr(default=None)
-
-    def __init__(self, metric_name: str = "fake_metric", **kwargs):
-        super().__init__(name=metric_name)
-        self._metric_name = metric_name
-
-    @property
-    def kind(self) -> ScorerKind:
-        return ScorerKind.THIRD_PARTY
-
-    def __call__(self, *, outputs) -> float:
-        return 1.0
-
-
-class _PlainScorer(Scorer):
-    def __call__(self, *, outputs) -> float:
-        return 1.0
-
-
-@pytest.mark.parametrize(
-    "construct",
-    [
-        lambda: Correctness(quality_threshold=0.9),
-        lambda: _PlainScorer(name="plain", quality_threshold=0.9),
-    ],
-    ids=["builtin", "subclass"],
-)
-def test_scorer_constructors_reject_quality_threshold(construct):
-    with pytest.raises(
-        TypeError, match=r"Set a quality threshold with `with_quality_threshold\(\)`"
-    ):
-        construct()
-
-
-@pytest.mark.parametrize(
-    "original",
-    [
-        _FakeThirdPartyScorer(),
-        make_scorer_ensemble(name="ensemble", scorers=[Correctness()], ensemble_fn="agg_all"),
-        Correctness(),
-    ],
-    ids=["third_party", "ensemble", "model_copy"],
-)
-def test_scorer_copy_preserves_quality_threshold(original):
-    threshold = QualityThreshold(at_most=0.2)
-
-    copy = original.with_quality_threshold(threshold)._create_copy()
-
-    assert type(copy) is type(original)
-    assert copy._quality_threshold == threshold
-
-
-def _registered_scorer():
-    experiment_id = mlflow.create_experiment("test_quality_threshold_registered_kind")
-    Correctness().register(name="registered_correctness", experiment_id=experiment_id)
-    return get_scorer(name="registered_correctness", experiment_id=experiment_id)
-
-
-@pytest.mark.parametrize(
-    "make_original",
-    [
-        Correctness,
-        lambda: make_judge(
-            name="tone", instructions="Is {{ outputs }} polite?", feedback_value_type=bool
-        ),
-        lambda: scorer(lambda outputs: True, name="decorated"),
-        lambda: make_scorer_ensemble(
-            name="ensemble", scorers=[Correctness()], ensemble_fn="agg_all"
-        ),
-        _FakeThirdPartyScorer,
-        _registered_scorer,
-    ],
-    ids=["builtin", "make_judge", "decorator", "ensemble", "third_party", "registered"],
-)
-def test_quality_threshold_rule_for_each_scorer_kind(make_original):
-    thresholded = make_original().with_quality_threshold(0.8)
-
-    assert build_quality_threshold_rules([thresholded]) == [
-        {"metricKey": f"{thresholded.name}/mean", "comparator": "GTE", "threshold": 0.8}
-    ]
-
-
-def test_register_warns_that_quality_threshold_is_not_saved():
-    experiment_id = mlflow.create_experiment("test_quality_threshold_register")
-
-    with patch("mlflow.genai.scorers.base._logger.warning") as mock_warning:
-        Correctness().with_quality_threshold(0.9).register(experiment_id=experiment_id)
-
-    mock_warning.assert_called_once()
-    assert "is not saved with the registered scorer" in mock_warning.call_args[0][0]
-    assert get_scorer(name="correctness", experiment_id=experiment_id)._quality_threshold is None

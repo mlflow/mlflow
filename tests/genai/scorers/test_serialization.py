@@ -78,38 +78,6 @@ def test_builtin_scorer_serialization_format():
     assert serialized["original_func_name"] is None
 
 
-def test_quality_threshold_is_not_serialized():
-    from mlflow.genai.judges import make_judge
-    from mlflow.genai.scorers.builtin_scorers import RelevanceToQuery
-
-    @scorer
-    def decorated(outputs) -> bool:
-        return True
-
-    judge = make_judge(
-        name="tone", instructions="Is {{ outputs }} polite?", feedback_value_type=bool
-    )
-    decorated, judge, builtin = (
-        s.with_quality_threshold(0.9) for s in [decorated, judge, RelevanceToQuery()]
-    )
-
-    for serialized in [decorated.model_dump(), judge.model_dump(), builtin.model_dump()]:
-        assert "quality_threshold" not in json.dumps(serialized)
-
-    assert Scorer.model_validate(builtin.model_dump())._quality_threshold is None
-
-
-def test_quality_threshold_does_not_change_the_dump():
-    from mlflow.genai.judges import make_judge
-    from mlflow.genai.scorers.builtin_scorers import RelevanceToQuery
-
-    judge = make_judge(
-        name="tone", instructions="Is {{ outputs }} polite?", feedback_value_type=bool
-    )
-    for original in [RelevanceToQuery(), judge]:
-        assert original.with_quality_threshold(0.9).model_dump() == original.model_dump()
-
-
 # ============================================================================
 # ROUND-TRIP FUNCTIONALITY TESTS (Comprehensive - test complete cycles)
 # ============================================================================
