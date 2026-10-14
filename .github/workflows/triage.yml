@@ -1135,8 +1135,5 @@ jobs:
             '```' \
             '' \
             "$marker")
-          author=$(gh api "repos/$REPO/issues/$ISSUE_NUMBER" --jq '.user.login // ""')
-          if [ -n "$author" ]; then
-            body="@${author} ${body}"
-          fi
-          gh issue comment "$ISSUE_NUMBER" --repo "$REPO" --body "$body"
+          author=$(gh api "repos/$REPO/issues/$ISSUE_NUMBER" --jq .user.login)
+          gh issue comment "$ISSUE_NUMBER" --repo "$REPO" --body "@${author} ${body}"
