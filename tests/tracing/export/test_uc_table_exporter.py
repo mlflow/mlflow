@@ -417,6 +417,19 @@ def test_retire_batch_processor_drains_span_batcher(monkeypatch):
     assert processor._batch_delegate is None
 
 
+def test_retire_direct_processor_preserves_late_spans():
+    exporter = mock.Mock(spec=["export", "shutdown", "_async_queue"])
+    exporter._async_queue = mock.Mock()
+    processor = BaseMlflowSpanProcessor(exporter, export_metrics=False)
+
+    retire_batch_processor(processor)
+    processor.on_end(create_mock_otel_span(trace_id=12345, span_id=1))
+
+    exporter.export.assert_called_once()
+    exporter._async_queue.flush.assert_not_called()
+    processor.shutdown()
+
+
 def test_metadata_only_export_writes_trace_metadata_once_without_artifacts(monkeypatch):
     monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", "false")
     exporter = DatabricksUCTableSpanExporter(metadata_only=True)

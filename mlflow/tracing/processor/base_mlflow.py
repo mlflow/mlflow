@@ -135,6 +135,17 @@ def retire_batch_processor(processor: "BaseMlflowSpanProcessor") -> None:
     Flush before shutdown: OTel's ``shutdown()`` makes a later ``force_flush()`` a
     no-op, so flushing first is what prevents dropping queued spans.
     """
+    exporter = processor.span_exporter
+    if processor._batch_delegate is None and not (
+        getattr(exporter, "_span_batcher", None) is not None
+        or getattr(exporter, "_flush_async_components", None) is not None
+    ):
+        # A plain SimpleSpanProcessor can still be referenced by tracers created on
+        # another thread while a provider is being replaced. Keep its historical
+        # behavior and leave its exporter-owned async queue alive; only retire direct
+        # processors when their exporter has its own span batcher to drain.
+        return
+
     # Wait for in-flight on_end calls so their spans reach the queue before the
     # flush, mirroring flush_all_batch_processors().
     with processor._pending_on_end_condition:
