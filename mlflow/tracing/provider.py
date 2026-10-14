@@ -599,7 +599,9 @@ def _get_tracer(module_name: str) -> trace.Tracer:
     return provider.get_or_init_tracer(module_name)
 
 
-def _is_in_span_processor_chain(processor: SpanProcessor, span_processor: SpanProcessor) -> bool:
+def _is_in_span_processor_chain(
+    processor: SpanProcessor, span_processor: SpanProcessor | None
+) -> bool:
     """
     Whether ``span_processor`` is a composite that already contains ``processor``.
 
@@ -633,15 +635,19 @@ def _get_tracer_for_span_start(
     return tracer, should_forward
 
 
-def _should_forward_span_end(processor: SpanProcessor, tracer: trace.Tracer) -> bool:
+def _get_tracer_for_span_end(
+    processor: SpanProcessor, module_name: str
+) -> tuple[trace.Tracer, bool]:
     """
-    Whether an autolog span processor's ``on_end`` should forward the span to ``tracer``'s span
-    processor.
+    Get MLflow's tracer for an autolog span processor's ``on_end``, and whether the processor
+    should forward the span to the tracer's span processor.
 
     With a shared tracer provider, the composite dispatching ``on_end`` to ``processor`` goes on
     to call MLflow's processors itself, so forwarding would export the span a second time.
     """
-    return not _is_in_span_processor_chain(processor, getattr(tracer, "span_processor", None))
+    tracer = _get_tracer(module_name)
+    span_processor = getattr(tracer, "span_processor", None)
+    return tracer, not _is_in_span_processor_chain(processor, span_processor)
 
 
 def _add_span_processor_first(tracer_provider: TracerProvider, processor: SpanProcessor) -> None:

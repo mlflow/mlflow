@@ -19,9 +19,8 @@ from mlflow.semantic_kernel.tracing_utils import set_model, set_span_type, set_t
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.provider import (
     _add_span_processor_first,
-    _get_tracer,
+    _get_tracer_for_span_end,
     _get_tracer_for_span_start,
-    _should_forward_span_end,
     mlflow_runtime_context,
 )
 from mlflow.tracing.trace_manager import InMemoryTraceManager
@@ -153,8 +152,8 @@ class SemanticKernelSpanProcessor(SimpleSpanProcessor):
                     set_span_cost_attribute(mlflow_span)
 
             # Export the span using MLflow's span processor
-            tracer = _get_tracer(__name__)
-            if _should_forward_span_end(self, tracer):
+            tracer, should_forward = _get_tracer_for_span_end(self, __name__)
+            if should_forward:
                 tracer.span_processor.on_end(span)
         finally:
             self._processing_local.in_on_end = False

@@ -23,9 +23,8 @@ from mlflow.exceptions import MlflowException
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.tracing.provider import (
     _add_span_processor_first,
-    _get_tracer,
+    _get_tracer_for_span_end,
     _get_tracer_for_span_start,
-    _should_forward_span_end,
 )
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import (
@@ -161,8 +160,8 @@ class HaystackSpanProcessor(SimpleSpanProcessor):
                 elif span.name in ("haystack.component.run"):
                     self.set_component_info(mlflow_span, span)
 
-            tracer = _get_tracer(__name__)
-            if _should_forward_span_end(self, tracer):
+            tracer, should_forward = _get_tracer_for_span_end(self, __name__)
+            if should_forward:
                 tracer.span_processor.on_end(span)
         finally:
             self._processing_local.in_on_end = False

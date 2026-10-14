@@ -26,9 +26,8 @@ from mlflow.entities.span import LiveSpan, create_mlflow_span
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.tracing.provider import (
     _add_span_processor_first,
-    _get_tracer,
+    _get_tracer_for_span_end,
     _get_tracer_for_span_start,
-    _should_forward_span_end,
 )
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import (
@@ -86,8 +85,8 @@ class StrandsSpanProcessor(SimpleSpanProcessor):
                 if provider := span.attributes.get("gen_ai.system"):
                     mlflow_span.set_attribute(SpanAttributeKey.MODEL_PROVIDER, provider)
                 _set_token_usage(mlflow_span, span)
-            tracer = _get_tracer(__name__)
-            if _should_forward_span_end(self, tracer):
+            tracer, should_forward = _get_tracer_for_span_end(self, __name__)
+            if should_forward:
                 tracer.span_processor.on_end(span)
         finally:
             self._processing_local.in_on_end = False
