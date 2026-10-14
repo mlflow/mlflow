@@ -201,6 +201,20 @@ class GCSArtifactRepository(ArtifactRepository, MultipartUploadMixin, MultipartD
             if _is_object_key_within_path(blob.name, dest_path):
                 blob.delete()
 
+    def supports_presigned_download(self) -> bool:
+        """Whether the client's credentials can sign URLs locally (i.e. implement ``Signing``).
+
+        Service account keys (and impersonated credentials) can sign. User credentials (e.g.
+        ``gcloud auth application-default login``), Compute Engine / GKE metadata server and
+        external account (Workload Identity Federation) credentials, and anonymous credentials
+        cannot. This is a cheap pre-check; ``get_download_presigned_url`` still raises
+        ``_UnsupportedPresignedDownloadException`` if signing fails at runtime (e.g. impersonated
+        credentials whose IAM ``signBlob`` call is denied).
+        """
+        from google.auth.credentials import Signing
+
+        return isinstance(getattr(self.client, "_credentials", None), Signing)
+
     def get_download_presigned_url(self, artifact_path, expiration=300):
         """Generate a presigned URL for downloading an artifact directly from GCS.
 

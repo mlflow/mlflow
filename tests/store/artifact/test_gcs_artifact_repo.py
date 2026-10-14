@@ -6,7 +6,7 @@ from unittest import mock
 
 import pytest
 import requests
-from google.auth import crypt
+from google.auth import compute_engine, crypt, impersonated_credentials
 from google.auth.credentials import AnonymousCredentials
 from google.auth.exceptions import DefaultCredentialsError, TransportError
 from google.cloud import storage as gcs_storage
@@ -603,6 +603,65 @@ def _make_signing_credentials():
 def test_gcs_repo_supports_presigned_download():
     repo = GCSArtifactRepository("gs://test_bucket/some/path", client=mock.MagicMock())
     assert isinstance(repo, MultipartDownloadMixin)
+
+
+def test_supports_presigned_download_with_signing_credentials():
+    repo = GCSArtifactRepository(
+        "gs://test_bucket/some/path", client=_make_gcs_client(_make_signing_credentials())
+    )
+    assert repo.supports_presigned_download() is True
+
+
+@pytest.mark.parametrize(
+    "credentials",
+    [
+        # e.g. `gcloud auth application-default login`
+        user_credentials.Credentials("token"),
+        AnonymousCredentials(),
+    ],
+    ids=["user_credentials", "anonymous_credentials"],
+)
+def test_supports_presigned_download_without_signing_credentials(credentials):
+    repo = GCSArtifactRepository("gs://test_bucket/some/path", client=_make_gcs_client(credentials))
+    assert repo.supports_presigned_download() is False
+
+
+def test_supports_presigned_download_with_compute_engine_credentials():
+    # The Compute Engine / GKE metadata server credentials (including Workload Identity) cannot
+    # sign locally. A mock client avoids google-cloud-storage querying the metadata server.
+    client = mock.Mock(
+        _credentials=compute_engine.Credentials(
+            service_account_email="sa@project.iam.gserviceaccount.com"
+        )
+    )
+    repo = GCSArtifactRepository("gs://test_bucket/some/path", client=client)
+    assert repo.supports_presigned_download() is False
+
+
+def test_supports_presigned_download_with_impersonated_credentials():
+    # Impersonated credentials can sign (through the IAM `signBlob` API), so the cheap local
+    # check passes. Whether signing succeeds is only known when signing, which
+    # `get_download_presigned_url` handles by raising `_UnsupportedPresignedDownloadException`.
+    credentials = impersonated_credentials.Credentials(
+        source_credentials=user_credentials.Credentials("token"),
+        target_principal="sa@project.iam.gserviceaccount.com",
+        target_scopes=["https://www.googleapis.com/auth/devstorage.read_only"],
+    )
+    repo = GCSArtifactRepository("gs://test_bucket/some/path", client=_make_gcs_client(credentials))
+    assert repo.supports_presigned_download() is True
+
+
+@pytest.mark.parametrize("credentials", [None, object()], ids=["none", "unknown_type"])
+def test_supports_presigned_download_with_unexpected_credentials(credentials):
+    client = mock.MagicMock()
+    client._credentials = credentials
+    repo = GCSArtifactRepository("gs://test_bucket/some/path", client=client)
+    assert repo.supports_presigned_download() is False
+
+
+def test_supports_presigned_download_with_client_without_credentials_attribute():
+    repo = GCSArtifactRepository("gs://test_bucket/some/path", client=mock.Mock(spec=["bucket"]))
+    assert repo.supports_presigned_download() is False
 
 
 def test_get_download_presigned_url(mock_client):

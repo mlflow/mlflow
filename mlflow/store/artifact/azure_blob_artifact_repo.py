@@ -327,6 +327,17 @@ class AzureBlobArtifactRepository(ArtifactRepository, MultipartUploadMixin, Mult
         # The blob may already exist so we cannot delete it either.
         pass
 
+    def supports_presigned_download(self) -> bool:
+        """Whether the client has an account key to sign SAS tokens with.
+
+        Account keys (``AZURE_STORAGE_ACCESS_KEY`` or a connection string containing
+        ``AccountKey``) can sign. SAS-token and anonymous credentials cannot. Microsoft Entra ID
+        token credentials can sign only via a user delegation key, which needs a network call and
+        a role the server may lack, so they are not advertised; ``get_download_presigned_url``
+        still serves them when requested explicitly.
+        """
+        return bool(getattr(getattr(self.client, "credential", None), "account_key", None))
+
     def _generate_sas_token(self, container, blob_name, permission, expiry, **kwargs):
         """Generate a SAS token for a blob, raising a NOT_IMPLEMENTED error if it cannot be signed.
 

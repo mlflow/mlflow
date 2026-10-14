@@ -716,6 +716,63 @@ def test_azure_repo_supports_presigned_download(mock_client):
     assert isinstance(repo, MultipartDownloadMixin)
 
 
+def test_supports_presigned_download_with_account_key():
+    account_key = base64.b64encode(b"some-key").decode("utf-8")
+    client = BlobServiceClient(
+        account_url="https://account.blob.core.windows.net", credential=account_key
+    )
+    assert AzureBlobArtifactRepository(TEST_URI, client=client).supports_presigned_download()
+
+
+def test_supports_presigned_download_with_connection_string_account_key():
+    account_key = base64.b64encode(b"some-key").decode("utf-8")
+    client = BlobServiceClient.from_connection_string(
+        "DefaultEndpointsProtocol=https;AccountName=account;"
+        f"AccountKey={account_key};EndpointSuffix=core.windows.net"
+    )
+    assert AzureBlobArtifactRepository(TEST_URI, client=client).supports_presigned_download()
+
+
+@pytest.mark.parametrize(
+    "client",
+    [
+        # Microsoft Entra ID (e.g. DefaultAzureCredential): can sign only via a user delegation
+        # key, which needs a network call, so it is not advertised.
+        BlobServiceClient(
+            account_url="https://account.blob.core.windows.net",
+            credential=mock.Mock(spec=["get_token"]),
+        ),
+        BlobServiceClient(
+            account_url="https://account.blob.core.windows.net",
+            credential=AzureSasCredential("sv=2021&sig=abc"),
+        ),
+        BlobServiceClient.from_connection_string(
+            "BlobEndpoint=https://account.blob.core.windows.net;"
+            "SharedAccessSignature=sv=2021&sig=abc"
+        ),
+        BlobServiceClient(account_url="https://account.blob.core.windows.net"),
+    ],
+    ids=["token_credential", "sas_credential", "sas_connection_string", "anonymous"],
+)
+def test_supports_presigned_download_without_account_key(client):
+    assert not AzureBlobArtifactRepository(TEST_URI, client=client).supports_presigned_download()
+
+
+def test_supports_presigned_download_with_client_without_credential_attribute():
+    repo = AzureBlobArtifactRepository(TEST_URI, client=mock.Mock(spec=["get_blob_client"]))
+    assert repo.supports_presigned_download() is False
+
+
+def test_supports_presigned_download_with_mocked_credential(mock_client):
+    repo = AzureBlobArtifactRepository(TEST_URI, client=mock_client)
+    mock_client.credential = None
+    assert repo.supports_presigned_download() is False
+    mock_client.credential = mock.Mock(account_key="key")
+    assert repo.supports_presigned_download() is True
+    mock_client.credential = mock.Mock(account_key=None)
+    assert repo.supports_presigned_download() is False
+
+
 def test_get_download_presigned_url_with_account_key(mock_client):
     repo = AzureBlobArtifactRepository(TEST_URI, client=mock_client)
     mock_client.account_name = "some-account"
