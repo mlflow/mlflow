@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791988804406,
+  "lastUpdate": 1792021809168,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "gauthierpiarrette@gmail.com",
-            "name": "Gauthier Piarrette",
-            "username": "gauthierpiarrette"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "bdc41820cd97c1613c9aff28cea5419c96f5a456",
-          "message": "Fix double-counted trace token usage for rollup parent spans in `SqlAlchemyStore.log_spans` (#24339)\n\nSigned-off-by: Gauthier Piarrette <gauthierpiarrette@gmail.com>",
-          "timestamp": "2026-07-17T16:45:03Z",
-          "tree_id": "5c0d640a16d66cb1e0b42faea1e0758ee6304781",
-          "url": "https://github.com/mlflow/mlflow/commit/bdc41820cd97c1613c9aff28cea5419c96f5a456"
-        },
-        "date": 1784306933614,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 38.99378925000008,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 24.23116099999975,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 22.480461655737034,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 24.647336857142424,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 23.687225017543245,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 7.222553399998333,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 7.779469200002609,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "41898282+github-actions[bot]@users.noreply.github.com",
+            "name": "github-actions[bot]",
+            "username": "github-actions[bot]"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "107b93ec39e3db35b86412e01a14605400615b61",
+          "message": "Count Gemini `thoughts_token_count` as output tokens in `mlflow.gemini.autolog` (#26744)\n\nSigned-off-by: github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-10-14T23:46:44Z",
+          "tree_id": "fea658dc61b7435cf03d7deea1496bf8e7715419",
+          "url": "https://github.com/mlflow/mlflow/commit/107b93ec39e3db35b86412e01a14605400615b61"
+        },
+        "date": 1792021806371,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 59.5903579999991,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 7.283942872726874,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 6.570048491934676,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 6.554296145160772,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 7.086606692981677,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 11.183166399999322,
             "unit": "ms"
           }
         ]
