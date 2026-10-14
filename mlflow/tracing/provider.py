@@ -146,6 +146,11 @@ class _TracerProviderWrapper:
             return self._isolated_tracer_provider_once
         return self._global_provider_init_once
 
+    @property
+    def is_initialized(self) -> bool:
+        """Whether MLflow's tracer provider has been initialized for the current provider mode."""
+        return self.once._done
+
     def get(self) -> TracerProvider:
         if MLFLOW_USE_DEFAULT_TRACER_PROVIDER.get():
             return self._isolated_tracer_provider
@@ -604,6 +609,39 @@ def _is_in_span_processor_chain(processor: SpanProcessor, span_processor: SpanPr
     processors handle the span twice.
     """
     return processor in getattr(span_processor, "_span_processors", ())
+
+
+def _get_tracer_for_span_start(
+    processor: SpanProcessor, module_name: str
+) -> tuple[trace.Tracer, bool]:
+    """
+    Get MLflow's tracer for an autolog span processor's ``on_start``, and whether the processor
+    should forward the span to the tracer's span processor.
+
+    With a shared tracer provider, the composite dispatching ``on_start`` to ``processor`` also
+    dispatches to MLflow's processors, so forwarding would make them handle the span twice. The
+    exception is when this call to ``_get_tracer`` registers MLflow's processors: the composite's
+    in-progress dispatch won't reach a processor added mid-iteration, so the span still has to be
+    forwarded.
+    """
+    was_initialized = provider.is_initialized
+    tracer = _get_tracer(module_name)
+    span_processor = getattr(tracer, "span_processor", None)
+    should_forward = not (
+        was_initialized and _is_in_span_processor_chain(processor, span_processor)
+    )
+    return tracer, should_forward
+
+
+def _should_forward_span_end(processor: SpanProcessor, tracer: trace.Tracer) -> bool:
+    """
+    Whether an autolog span processor's ``on_end`` should forward the span to ``tracer``'s span
+    processor.
+
+    With a shared tracer provider, the composite dispatching ``on_end`` to ``processor`` goes on
+    to call MLflow's processors itself, so forwarding would export the span a second time.
+    """
+    return not _is_in_span_processor_chain(processor, getattr(tracer, "span_processor", None))
 
 
 def _add_span_processor_first(tracer_provider: TracerProvider, processor: SpanProcessor) -> None:

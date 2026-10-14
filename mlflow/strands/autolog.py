@@ -27,9 +27,9 @@ from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.tracing.provider import (
     _add_span_processor_first,
     _get_tracer,
-    _is_in_span_processor_chain,
+    _get_tracer_for_span_start,
+    _should_forward_span_end,
 )
-from mlflow.tracing.provider import provider as mlflow_tracer_provider
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import (
     _bypass_attribute_guard,
@@ -53,15 +53,8 @@ class StrandsSpanProcessor(SimpleSpanProcessor):
             return
         self._processing_local.in_on_start = True
         try:
-            was_initialized = mlflow_tracer_provider.once._done
-            tracer = _get_tracer(__name__)
-            if isinstance(tracer, NoOpTracer):
-                return
-            # With a shared provider, the composite that called us also dispatches to MLflow's
-            # processors, which register the span themselves; forwarding would do it twice.
-            # Except when they were registered just now by _get_tracer: the composite's
-            # in-progress dispatch won't reach them, so this span still needs forwarding.
-            if was_initialized and _is_in_span_processor_chain(self, tracer.span_processor):
+            tracer, should_forward = _get_tracer_for_span_start(self, __name__)
+            if isinstance(tracer, NoOpTracer) or not should_forward:
                 return
 
             tracer.span_processor.on_start(span, parent_context)
@@ -94,9 +87,7 @@ class StrandsSpanProcessor(SimpleSpanProcessor):
                     mlflow_span.set_attribute(SpanAttributeKey.MODEL_PROVIDER, provider)
                 _set_token_usage(mlflow_span, span)
             tracer = _get_tracer(__name__)
-            # With a shared provider, the composite that called us goes on to call MLflow's
-            # processors itself; forwarding here would export the span a second time.
-            if not _is_in_span_processor_chain(self, tracer.span_processor):
+            if _should_forward_span_end(self, tracer):
                 tracer.span_processor.on_end(span)
         finally:
             self._processing_local.in_on_end = False
