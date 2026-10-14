@@ -403,7 +403,12 @@ const RegisterSkillDialog = ({ onClose, skill, sourceVersion, onRegistered }: Re
         .join(' · ')
     : undefined;
   const apiLink = (
-    <Button componentId="mlflow.skill_registry.register_modal.api_link" type="link" onClick={() => setView('api')}>
+    <Button
+      componentId="mlflow.skill_registry.register_modal.api_link"
+      type="link"
+      onClick={() => setView('api')}
+      css={{ fontSize: 'inherit', lineHeight: 'inherit !important', verticalAlign: 'baseline !important' }}
+    >
       <FormattedMessage
         defaultMessage="create through API →"
         description="Link from skill registration to the API example"
