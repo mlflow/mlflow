@@ -90,8 +90,11 @@ describe('quoteFilterValue', () => {
   // @ui-test-skill-generated
   it.each([
     { input: 'foo', expected: "'foo'" },
-    { input: "it's", expected: "'it''s'" },
-  ])('single-quotes $input, escaping embedded single quotes', ({ input, expected }) => {
+    { input: 'say "hi"', expected: '\'say "hi"\'' },
+    // The search parser has no escape inside a literal, so an apostrophe needs double quotes.
+    { input: "it's", expected: '"it\'s"' },
+    { input: `it's "both"`, expected: `'it''s "both"'` },
+  ])('quotes $input as $expected', ({ input, expected }) => {
     expect(quoteFilterValue(input)).toBe(expected);
   });
 });

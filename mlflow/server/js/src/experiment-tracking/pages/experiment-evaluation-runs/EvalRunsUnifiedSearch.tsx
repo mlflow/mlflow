@@ -57,7 +57,7 @@ const fieldForClause = (fields: EvalRunsFilterFieldDef[], clause: EvalRunsFilter
   fields.find(({ id }) => id === clause.field) ?? getEvalRunsFilterField(clause.field);
 
 const formatValue = (field: EvalRunsFilterFieldDef | undefined, value: string) =>
-  field?.type === 'number' ? value : `'${value.replace(/'/g, "''")}'`;
+  field?.type === 'number' ? value : quoteFilterValue(value);
 
 const formatClause = (fields: EvalRunsFilterFieldDef[], clause: EvalRunsFilterClause) => {
   const field = fieldForClause(fields, clause);

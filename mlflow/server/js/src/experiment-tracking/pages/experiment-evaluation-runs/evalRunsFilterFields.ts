@@ -290,8 +290,17 @@ export const getEvalRunsFilterFields = (
 const isNumericField = (field: string): boolean =>
   field.startsWith('metrics.') || field === 'attributes.start_time' || field === 'attributes.end_time';
 
-/** Escapes single quotes so a value can't break out of the quoted literal. */
-export const quoteFilterValue = (value: string): string => `'${value.replace(/'/g, "''")}'`;
+/**
+ * Quotes a SearchRuns string value. The search parser has no escape for a quote inside a literal, so
+ * a value containing `'` is wrapped in double quotes. A value with both quote kinds can't be written;
+ * it keeps the doubled-quote form, which matches nothing rather than breaking the expression.
+ */
+export const quoteFilterValue = (value: string): string => {
+  if (!value.includes("'")) {
+    return `'${value}'`;
+  }
+  return value.includes('"') ? `'${value.replace(/'/g, "''")}'` : `"${value}"`;
+};
 
 const compileClause = (clause: EvalRunsFilterClause): string | null => {
   const value = clause.value.trim();
