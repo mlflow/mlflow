@@ -5,6 +5,7 @@ import pathlib
 from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
+from urllib.parse import urlparse
 
 import pydantic
 import yaml
@@ -21,6 +22,7 @@ from mlflow.gateway.constants import (
     MLFLOW_AI_GATEWAY_MOSAICML_CHAT_SUPPORTED_MODEL_PREFIXES,
     MLFLOW_GATEWAY_ROUTE_BASE,
     MLFLOW_QUERY_SUFFIX,
+    TYPESAFE_API_BASE_URL,
 )
 from mlflow.gateway.utils import (
     check_configuration_deprecated_fields,
@@ -83,6 +85,7 @@ class TogetherAIConfig(ConfigModel):
 
 class TypeSafeConfig(ConfigModel):
     typesafe_api_key: str
+    typesafe_api_base: str = TYPESAFE_API_BASE_URL
 
     @field_validator("typesafe_api_key", mode="before")
     def validate_typesafe_api_key(cls, value):
@@ -224,10 +227,25 @@ class PaLMConfig(ConfigModel):
 
 class GeminiConfig(ConfigModel):
     gemini_api_key: str
+    gemini_api_base: str = "https://generativelanguage.googleapis.com/v1beta/models"
 
     @field_validator("gemini_api_key", mode="before")
     def validate_gemini_api_key(cls, value):
         return _resolve_api_key_from_input(value)
+
+    @field_validator("gemini_api_base")
+    def validate_gemini_api_base(cls, value):
+        path = urlparse(value).path.rstrip("/")
+        if path.endswith("/models") and not path.endswith((
+            "/v1/models",
+            "/v1beta/models",
+            "/v1alpha/models",
+        )):
+            raise ValueError(
+                "gemini_api_base ending in /models must include a supported API version "
+                "(/v1, /v1beta, or /v1alpha) immediately before /models."
+            )
+        return value
 
 
 class MlflowModelServingConfig(ConfigModel):

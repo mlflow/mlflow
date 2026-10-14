@@ -20,7 +20,10 @@ from mlflow.protos.databricks_pb2 import TEMPORARILY_UNAVAILABLE
 from mlflow.server.jobs import _ALLOWED_JOB_NAME_LIST, _SUPPORTED_JOB_FUNCTION_LIST, job, submit_job
 from mlflow.server.jobs import _executor_runner as runner
 from mlflow.server.jobs.executor import JobExecutorConfig, JobRecoveryResult, JobResult
-from mlflow.server.jobs.executor_registry import shutdown_executor_registry
+from mlflow.server.jobs.executor_registry import (
+    get_executor_registry,
+    shutdown_executor_registry,
+)
 from mlflow.server.jobs.local_executor import LocalJobExecutor
 from mlflow.server.jobs.utils import (
     _build_job_name_to_fn_fullname_map,
@@ -153,7 +156,7 @@ def _backend_store_uri(tmp_path, monkeypatch):
 
 @pytest.fixture(autouse=True)
 def _reset_executor_registry():
-    # _select_executor() builds the process-global executor registry singleton; tear it
+    # _select_executors() builds the process-global executor registry singleton; tear it
     # down after each test so it does not leak into later tests.
     yield
     shutdown_executor_registry()
@@ -257,10 +260,6 @@ class _BlockingExecutor:
 
     def release(self):
         self._release.set()
-
-
-def test_select_executor_defaults_to_local():
-    assert isinstance(runner._select_executor(), LocalJobExecutor)
 
 
 def test_loop_runs_pending_job_to_success(registered_jobs, job_store, executor):
@@ -636,7 +635,7 @@ def test_scheduler_skips_pending_job_already_in_flight(registered_jobs, job_stor
     scheduler = runner._JobScheduler(job_store, ex, lease_duration=60.0)
     with scheduler._in_flight_lock:
         scheduler._in_flight[created.job_id] = runner._InFlightJob(
-            workspace=None, thread=threading.current_thread()
+            workspace=None, thread=threading.current_thread(), executor=ex
         )
 
     assert scheduler._schedule_pending() == 0
@@ -798,12 +797,12 @@ def test_recover_orphaned_executor_jobs_honors_executor_actions(
     assert job_store.get_job(to_reattach.job_id).status == JobStatus.RUNNING
 
 
-def test_job_backend_mismatch_helper():
-    # Inert today (executor_backend is always None), so an unset backend never mismatches; a set
-    # backend mismatches only when it differs from the active one.
-    assert runner._job_backend_mismatch(SimpleNamespace(executor_backend=None), "local") is False
-    assert runner._job_backend_mismatch(SimpleNamespace(executor_backend="local"), "local") is False
-    assert runner._job_backend_mismatch(SimpleNamespace(executor_backend="other"), "local") is True
+def test_job_backend_falls_back_to_default_backend(monkeypatch):
+    # A job without an assigned backend (Huey-submitted, or created before backends were recorded)
+    # runs on the default backend; an assigned backend is used as is.
+    monkeypatch.setenv("MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND", "local")
+    assert runner._job_backend(SimpleNamespace(executor_backend=None)) == "local"
+    assert runner._job_backend(SimpleNamespace(executor_backend="sandbox")) == "sandbox"
 
 
 def test_scheduler_fails_job_with_mismatched_backend_on_claim(registered_jobs, job_store, executor):
@@ -845,6 +844,112 @@ def test_recover_orphaned_executor_jobs_fails_backend_mismatch(
     runner._recover_orphaned_executor_jobs(job_store, executor)
 
     assert job_store.get_job(orphan.job_id).status == JobStatus.FAILED
+
+
+def test_select_executors_includes_separate_custom_scorer_backend(monkeypatch):
+    sandbox = _BlockingExecutor()
+    get_executor_registry().register("sandbox", sandbox)
+    monkeypatch.setenv("MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND", "sandbox")
+
+    executors = runner._select_executors()
+
+    assert sorted(executors) == ["local", "sandbox"]
+    assert isinstance(executors["local"], LocalJobExecutor)
+    assert executors["sandbox"] is sandbox
+
+
+def test_scheduler_runs_each_job_on_its_assigned_backend(registered_jobs, job_store):
+    # executor_engine_parallel allows 2 concurrent jobs, so both can be held in flight at once.
+    default_ex = _BlockingExecutor()
+    sandbox_ex = _BlockingExecutor()
+    params = json.dumps({"x": 1})
+    unassigned = job_store.create_job("executor_engine_parallel", params)
+    on_sandbox = job_store.create_job(
+        "executor_engine_parallel", params, executor_backend="sandbox"
+    )
+
+    scheduler = runner._JobScheduler(
+        job_store,
+        default_ex,
+        lease_duration=60.0,
+        executors={"local": default_ex, "sandbox": sandbox_ex},
+    )
+    scheduler.tick()
+    default_ex.wait_until_submitted(1)
+    sandbox_ex.wait_until_submitted(1)
+    default_ex.release()
+    sandbox_ex.release()
+    scheduler.join(timeout=30.0)
+
+    assert default_ex.submitted == [unassigned.job_id]
+    assert sandbox_ex.submitted == [on_sandbox.job_id]
+    for created in (unassigned, on_sandbox):
+        assert job_store.get_job(created.job_id).status == JobStatus.SUCCEEDED
+
+
+def test_scheduler_forwards_cancel_to_the_jobs_backend(registered_jobs, job_store):
+    default_ex = _BlockingExecutor()
+    sandbox_ex = _BlockingExecutor()
+    created = job_store.create_job(
+        "executor_engine_add", json.dumps({"x": 1, "y": 2}), executor_backend="sandbox"
+    )
+    scheduler = runner._JobScheduler(
+        job_store,
+        default_ex,
+        lease_duration=60.0,
+        executors={"local": default_ex, "sandbox": sandbox_ex},
+    )
+    try:
+        scheduler.tick()
+        sandbox_ex.wait_until_submitted(1)
+        job_store.cancel_job(created.job_id)
+        scheduler.tick()
+    finally:
+        default_ex.release()
+        sandbox_ex.release()
+        scheduler.join(timeout=30.0)
+
+    assert sandbox_ex.canceled == [created.job_id]
+    assert default_ex.canceled == []
+
+
+def test_recover_orphaned_executor_jobs_routes_each_orphan_to_its_backend(
+    registered_jobs, job_store, monkeypatch
+):
+    params = json.dumps({"x": 1, "y": 2})
+    on_default = job_store.create_job("executor_engine_add", params, executor_backend="local")
+    on_sandbox = job_store.create_job("executor_engine_add", params, executor_backend="sandbox")
+    for created in (on_default, on_sandbox):
+        job_store.claim_job(created.job_id, lease_duration=60.0)
+    launch_ts = max(job_store.get_job(c.job_id).creation_time for c in (on_default, on_sandbox))
+    monkeypatch.setenv("_MLFLOW_SERVER_UP_TIME", str(launch_ts + 1))
+
+    asked = {}
+
+    class _RecordingExecutor:
+        config = JobExecutorConfig(default_timeout=60.0)
+
+        def __init__(self, name, action):
+            self._name = name
+            self._action = action
+
+        def recover_jobs(self, ids):
+            asked[self._name] = list(ids)
+            return [
+                JobRecoveryResult(job_id=job_id, action=self._action, error_message="gone")
+                for job_id in ids
+            ]
+
+    default_ex = _RecordingExecutor("local", "requeue")
+    runner._recover_orphaned_executor_jobs(
+        job_store,
+        default_ex,
+        executors={"local": default_ex, "sandbox": _RecordingExecutor("sandbox", "fail")},
+    )
+
+    assert asked == {"local": [on_default.job_id], "sandbox": [on_sandbox.job_id]}
+    assert job_store.get_job(on_default.job_id).status == JobStatus.PENDING
+    assert job_store.get_job(on_sandbox.job_id).status == JobStatus.FAILED
 
 
 def test_fail_claimed_job_retries_once_on_transient_store_error(registered_jobs):
@@ -1412,3 +1517,23 @@ def test_long_running_job_lease_is_renewed_with_workspaces(registered_jobs, tmp_
     assert created.job_id in renewed_ok
     with WorkspaceContext("workspace-b"):
         assert store.get_job(created.job_id).status == JobStatus.SUCCEEDED
+
+
+def test_main_stops_a_backend_whose_start_failed(monkeypatch):
+    ok = mock.Mock()
+    broken = mock.Mock()
+    broken.start_executor.side_effect = MlflowException("cannot reach the Docker daemon")
+    monkeypatch.setattr(runner, "_select_executors", lambda: {"local": ok, "docker": broken})
+    monkeypatch.setattr("mlflow.server.jobs.logging_utils.configure_logging_for_jobs", lambda: None)
+    monkeypatch.setattr(
+        "mlflow.server.jobs.utils._start_watcher_to_kill_job_runner_if_mlflow_server_dies",
+        lambda: None,
+    )
+    monkeypatch.setattr("mlflow.server.jobs.utils._launch_periodic_tasks_consumer", lambda: None)
+
+    with mock.patch.object(runner.os, "kill") as kill:
+        runner.main()
+
+    ok.stop_executor.assert_called_once()
+    broken.stop_executor.assert_called_once()
+    kill.assert_called_once_with(runner.os.getpid(), runner.signal.SIGTERM)

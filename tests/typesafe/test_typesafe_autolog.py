@@ -152,6 +152,7 @@ def test_system_one_autolog(async_mode):
     }
     assert span.outputs == _RESULT
     assert span.model_name == "jev-resolved"
+    assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "typesafe"
     assert span.get_attribute(SpanAttributeKey.MODEL_PROVIDER) == "typesafe"
     assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
         TokenUsageKey.INPUT_TOKENS: 12,

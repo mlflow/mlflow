@@ -1,6 +1,11 @@
+import json
+import os
+import sys
 import threading
 import time
+import types
 from collections import defaultdict
+from dataclasses import asdict
 from unittest.mock import call, patch
 
 import pandas as pd
@@ -9,12 +14,19 @@ import pytest
 import mlflow
 from mlflow.entities import Assessment, AssessmentSource, AssessmentSourceType, Feedback
 from mlflow.entities.assessment_error import AssessmentError
+from mlflow.environment_variables import _MLFLOW_IN_JOB_EXECUTOR
 from mlflow.exceptions import MlflowException
 from mlflow.genai import Scorer, scorer
 from mlflow.genai.judges import make_judge
 from mlflow.genai.judges.utils import CategoricalRating
 from mlflow.genai.scorers import Correctness, Guidelines, RetrievalGroundedness
-from mlflow.genai.scorers.base import SerializedScorer
+from mlflow.genai.scorers.base import (
+    SerializedScorer,
+    _is_tracking_server_process,
+    _job_executor_scorer_context,
+    _serialized_scorer_is_custom_code,
+    _UnexecutedDecoratorScorer,
+)
 from mlflow.genai.scorers.registry import get_scorer, list_scorers
 from mlflow.utils.timeout import MlflowTimeoutError
 
@@ -395,6 +407,136 @@ def test_custom_scorer_loading_allowed_when_flag_enabled(monkeypatch):
     monkeypatch.setenv("MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS", "true")
     result = Scorer._reconstruct_decorator_scorer(serialized)
     assert result.name == "test_scorer"
+
+
+def _decorator_serialized(name="test_scorer", is_session_level=False):
+    return SerializedScorer(
+        name=name,
+        is_session_level_scorer=is_session_level,
+        call_source="return len(outputs) > 0",
+        call_signature="(outputs)",
+        original_func_name=name,
+    )
+
+
+def test_serialized_scorer_is_custom_code():
+    decorator = asdict(_decorator_serialized())
+    assert _serialized_scorer_is_custom_code(decorator) is True
+    assert _serialized_scorer_is_custom_code(json.dumps(decorator)) is True
+    # A SerializedScorer object (what ScorerVersion.serialized_scorer returns) is handled too.
+    assert _serialized_scorer_is_custom_code(_decorator_serialized()) is True
+    assert (
+        _serialized_scorer_is_custom_code(
+            SerializedScorer(name="safety", builtin_scorer_class="Safety")
+        )
+        is False
+    )
+    # A built-in scorer's serialized form carries no decorator source.
+    assert (
+        _serialized_scorer_is_custom_code({"name": "safety", "builtin_scorer_class": "Safety"})
+        is False
+    )
+    with pytest.raises(MlflowException, match="Malformed serialized scorer"):
+        _serialized_scorer_is_custom_code("not valid json")
+    # An ensemble embedding a custom @scorer counts as custom code (checked recursively).
+    ensemble_with_custom = {
+        "ensemble_scorer_data": {
+            "ensemble_fn": "majority",
+            "scorers": [asdict(_decorator_serialized())],
+        }
+    }
+    assert _serialized_scorer_is_custom_code(ensemble_with_custom) is True
+    # An ensemble of only built-in scorers does not.
+    ensemble_builtin = {
+        "ensemble_scorer_data": {
+            "ensemble_fn": "majority",
+            "scorers": [{"name": "safety", "builtin_scorer_class": "Safety"}],
+        }
+    }
+    assert _serialized_scorer_is_custom_code(ensemble_builtin) is False
+
+
+def test_server_process_returns_non_executing_scorer(monkeypatch):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS", "true")
+    monkeypatch.setenv("_MLFLOW_SERVER_BOOT_ID", "boot")
+    monkeypatch.delenv("_MLFLOW_IN_JOB_EXECUTOR", raising=False)
+
+    with patch("mlflow.genai.scorers.scorer_utils.recreate_function") as recreate:
+        loaded = Scorer.model_validate(_decorator_serialized(is_session_level=True))
+
+    # The server never executes custom scorer source.
+    recreate.assert_not_called()
+    assert isinstance(loaded, _UnexecutedDecoratorScorer)
+    assert loaded.name == "test_scorer"
+    assert loaded.is_session_level_scorer is True
+    # It still re-serializes so the server can forward it to the executor.
+    assert loaded.model_dump()["call_source"] == "return len(outputs) > 0"
+    # It cannot be run in the server.
+    with pytest.raises(MlflowException, match="runs only inside the job executor"):
+        loaded(outputs="abc")
+
+
+def test_job_executor_reconstructs_scorer(monkeypatch):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS", "true")
+    monkeypatch.setenv("_MLFLOW_SERVER_BOOT_ID", "boot")
+    monkeypatch.setenv("_MLFLOW_IN_JOB_EXECUTOR", "true")
+
+    loaded = Scorer.model_validate(_decorator_serialized())
+
+    assert not isinstance(loaded, _UnexecutedDecoratorScorer)
+    assert loaded(outputs="abc") is True
+
+
+def test_client_process_reconstructs_scorer(monkeypatch):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS", "true")
+    monkeypatch.delenv("_MLFLOW_SERVER_BOOT_ID", raising=False)
+    monkeypatch.delenv("_MLFLOW_IN_JOB_EXECUTOR", raising=False)
+
+    loaded = Scorer.model_validate(_decorator_serialized())
+
+    assert not isinstance(loaded, _UnexecutedDecoratorScorer)
+    assert loaded(outputs="abc") is True
+
+
+def test_server_process_detected_for_direct_app_launch(monkeypatch):
+    # A server started by importing the app directly (e.g. `gunicorn mlflow.server:app`) has no
+    # boot id, but mlflow.server.is_running_as_server is True. Such a process must be treated as a
+    # server (and so must not reconstruct custom scorer code).
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS", "true")
+    monkeypatch.delenv("_MLFLOW_SERVER_BOOT_ID", raising=False)
+    monkeypatch.delenv("_MLFLOW_IN_JOB_EXECUTOR", raising=False)
+
+    fake_server = types.ModuleType("mlflow.server")
+    fake_server.is_running_as_server = True
+    monkeypatch.setitem(sys.modules, "mlflow.server", fake_server)
+
+    assert _is_tracking_server_process() is True
+    loaded = Scorer.model_validate(_decorator_serialized())
+    assert isinstance(loaded, _UnexecutedDecoratorScorer)
+
+
+def test_reconstruct_decorator_scorer_blocked_in_server_process(monkeypatch):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS", "true")
+    monkeypatch.setenv("_MLFLOW_SERVER_BOOT_ID", "boot")
+    monkeypatch.delenv("_MLFLOW_IN_JOB_EXECUTOR", raising=False)
+
+    with pytest.raises(MlflowException, match="cannot be reconstructed in the MLflow"):
+        Scorer._reconstruct_decorator_scorer(_decorator_serialized())
+
+
+@pytest.mark.parametrize("preset", [None, "false", "true"])
+def test_job_executor_scorer_context_sets_and_restores_marker(monkeypatch, preset):
+    if preset is None:
+        monkeypatch.delenv("_MLFLOW_IN_JOB_EXECUTOR", raising=False)
+    else:
+        monkeypatch.setenv("_MLFLOW_IN_JOB_EXECUTOR", preset)
+    before = os.environ.get("_MLFLOW_IN_JOB_EXECUTOR")
+
+    with _job_executor_scorer_context():
+        assert _MLFLOW_IN_JOB_EXECUTOR.get() is True
+
+    # The prior value is restored exactly, whether it was absent or a specific string.
+    assert os.environ.get("_MLFLOW_IN_JOB_EXECUTOR") == before
 
 
 def test_custom_scorer_registration_allowed_when_flag_enabled(monkeypatch):

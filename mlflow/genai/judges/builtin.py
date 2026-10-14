@@ -1,11 +1,11 @@
 from functools import wraps
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any
 
 from mlflow.entities.assessment import Feedback
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.constants import USE_CASE_BUILTIN_JUDGE
 from mlflow.genai.judges.prompts.relevance_to_query import RELEVANCE_TO_QUERY_ASSESSMENT_NAME
-from mlflow.genai.judges.typesafe import _invoke_typesafe_judge, _is_typesafe_model
+from mlflow.genai.judges.structured_judge import _invoke_structured_builtin_judge
 from mlflow.genai.judges.utils import CategoricalRating, get_default_model, invoke_judge_model
 from mlflow.utils.docstring_utils import format_docstring
 
@@ -133,23 +133,22 @@ def is_context_relevant(
             response=str(context),
             assessment_name=assessment_name,
         )
-    elif _is_typesafe_model(model):
-        feedback = _invoke_typesafe_judge(
-            model,
-            instructions=RELEVANCE_TO_QUERY_TYPESAFE_PROMPT_INSTRUCTIONS,
-            state={"input": request, "output": context},
-            feedback_value_type=Literal["yes", "no"],
-            assessment_name=assessment_name,
-            extra_headers=extra_headers,
-        )
     else:
-        prompt = get_prompt(request, str(context))
-        feedback = invoke_judge_model(
+        feedback = _invoke_structured_builtin_judge(
             model,
-            prompt,
-            assessment_name=assessment_name,
-            use_case=USE_CASE_BUILTIN_JUDGE,
-            extra_headers=extra_headers,
+            chat_invoker=lambda: invoke_judge_model(
+                model,
+                get_prompt(request, str(context)),
+                assessment_name=assessment_name,
+                use_case=USE_CASE_BUILTIN_JUDGE,
+                extra_headers=extra_headers,
+            ),
+            decision_invoke_params={
+                "instructions": RELEVANCE_TO_QUERY_TYPESAFE_PROMPT_INSTRUCTIONS,
+                "state": {"input": request, "output": context},
+                "assessment_name": assessment_name,
+                "extra_headers": extra_headers,
+            },
         )
 
     return _sanitize_feedback(feedback)
@@ -229,32 +228,31 @@ def is_context_sufficient(
             expected_response=expected_response,
             assessment_name=assessment_name,
         )
-    elif _is_typesafe_model(model):
-        feedback = _invoke_typesafe_judge(
-            model,
-            instructions=CONTEXT_SUFFICIENCY_TYPESAFE_PROMPT_INSTRUCTIONS,
-            state={
-                "input": request,
-                "ground_truth": expected_response or expected_facts or "",
-                "retrieval_context": context,
-            },
-            feedback_value_type=Literal["yes", "no"],
-            assessment_name=assessment_name,
-            extra_headers=extra_headers,
-        )
     else:
-        prompt = get_prompt(
-            request=request,
-            context=context,
-            expected_response=expected_response,
-            expected_facts=expected_facts,
-        )
-        feedback = invoke_judge_model(
+        feedback = _invoke_structured_builtin_judge(
             model,
-            prompt,
-            assessment_name=assessment_name,
-            use_case=USE_CASE_BUILTIN_JUDGE,
-            extra_headers=extra_headers,
+            chat_invoker=lambda: invoke_judge_model(
+                model,
+                get_prompt(
+                    request=request,
+                    context=context,
+                    expected_response=expected_response,
+                    expected_facts=expected_facts,
+                ),
+                assessment_name=assessment_name,
+                use_case=USE_CASE_BUILTIN_JUDGE,
+                extra_headers=extra_headers,
+            ),
+            decision_invoke_params={
+                "instructions": CONTEXT_SUFFICIENCY_TYPESAFE_PROMPT_INSTRUCTIONS,
+                "state": {
+                    "input": request,
+                    "ground_truth": expected_response or expected_facts or "",
+                    "retrieval_context": context,
+                },
+                "assessment_name": assessment_name,
+                "extra_headers": extra_headers,
+            },
         )
 
     return _sanitize_feedback(feedback)
@@ -343,32 +341,31 @@ def is_correct(
             expected_response=expected_response,
             assessment_name=assessment_name,
         )
-    elif _is_typesafe_model(model):
-        feedback = _invoke_typesafe_judge(
-            model,
-            instructions=CORRECTNESS_TYPESAFE_PROMPT_INSTRUCTIONS,
-            state={
-                "input": request,
-                "output": response,
-                "ground_truth": expected_response or expected_facts or "",
-            },
-            feedback_value_type=Literal["yes", "no"],
-            assessment_name=assessment_name,
-            extra_headers=extra_headers,
-        )
     else:
-        prompt = get_prompt(
-            request=request,
-            response=response,
-            expected_response=expected_response,
-            expected_facts=expected_facts,
-        )
-        feedback = invoke_judge_model(
+        feedback = _invoke_structured_builtin_judge(
             model,
-            prompt,
-            assessment_name=assessment_name,
-            use_case=USE_CASE_BUILTIN_JUDGE,
-            extra_headers=extra_headers,
+            chat_invoker=lambda: invoke_judge_model(
+                model,
+                get_prompt(
+                    request=request,
+                    response=response,
+                    expected_response=expected_response,
+                    expected_facts=expected_facts,
+                ),
+                assessment_name=assessment_name,
+                use_case=USE_CASE_BUILTIN_JUDGE,
+                extra_headers=extra_headers,
+            ),
+            decision_invoke_params={
+                "instructions": CORRECTNESS_TYPESAFE_PROMPT_INSTRUCTIONS,
+                "state": {
+                    "input": request,
+                    "output": response,
+                    "ground_truth": expected_response or expected_facts or "",
+                },
+                "assessment_name": assessment_name,
+                "extra_headers": extra_headers,
+            },
         )
 
     return _sanitize_feedback(feedback)
@@ -448,31 +445,30 @@ def is_grounded(
             retrieved_context=context,
             assessment_name=assessment_name,
         )
-    elif _is_typesafe_model(model):
-        feedback = _invoke_typesafe_judge(
-            model,
-            instructions=GROUNDEDNESS_TYPESAFE_PROMPT_INSTRUCTIONS,
-            state={
-                "input": request,
-                "output": response,
-                "retrieval_context": context,
-            },
-            feedback_value_type=Literal["yes", "no"],
-            assessment_name=assessment_name,
-            extra_headers=extra_headers,
-        )
     else:
-        prompt = get_prompt(
-            request=request,
-            response=response,
-            context=context,
-        )
-        feedback = invoke_judge_model(
+        feedback = _invoke_structured_builtin_judge(
             model,
-            prompt,
-            assessment_name=assessment_name,
-            use_case=USE_CASE_BUILTIN_JUDGE,
-            extra_headers=extra_headers,
+            chat_invoker=lambda: invoke_judge_model(
+                model,
+                get_prompt(
+                    request=request,
+                    response=response,
+                    context=context,
+                ),
+                assessment_name=assessment_name,
+                use_case=USE_CASE_BUILTIN_JUDGE,
+                extra_headers=extra_headers,
+            ),
+            decision_invoke_params={
+                "instructions": GROUNDEDNESS_TYPESAFE_PROMPT_INSTRUCTIONS,
+                "state": {
+                    "input": request,
+                    "output": response,
+                    "retrieval_context": context,
+                },
+                "assessment_name": assessment_name,
+                "extra_headers": extra_headers,
+            },
         )
 
     return _sanitize_feedback(feedback)
@@ -581,30 +577,26 @@ def is_tool_call_efficient(
     model = model or get_default_model()
     assessment_name = name or TOOL_CALL_EFFICIENCY_FEEDBACK_NAME
 
-    if _is_typesafe_model(model):
-        feedback = _invoke_typesafe_judge(
+    feedback = _invoke_structured_builtin_judge(
+        model,
+        chat_invoker=lambda: invoke_judge_model(
             model,
-            instructions=TOOL_CALL_EFFICIENCY_TYPESAFE_PROMPT_INSTRUCTIONS,
-            state={
+            get_prompt(request=request, tools_called=tools_called, available_tools=available_tools),
+            assessment_name=assessment_name,
+            use_case=USE_CASE_BUILTIN_JUDGE,
+            extra_headers=extra_headers,
+        ),
+        decision_invoke_params={
+            "instructions": TOOL_CALL_EFFICIENCY_TYPESAFE_PROMPT_INSTRUCTIONS,
+            "state": {
                 "request": request,
                 "available_tools": available_tools,
                 "tools_called": tools_called,
             },
-            feedback_value_type=Literal["yes", "no"],
-            assessment_name=assessment_name,
-            extra_headers=extra_headers,
-        )
-    else:
-        prompt = get_prompt(
-            request=request, tools_called=tools_called, available_tools=available_tools
-        )
-        feedback = invoke_judge_model(
-            model,
-            prompt,
-            assessment_name=assessment_name,
-            use_case=USE_CASE_BUILTIN_JUDGE,
-            extra_headers=extra_headers,
-        )
+            "assessment_name": assessment_name,
+            "extra_headers": extra_headers,
+        },
+    )
 
     return _sanitize_feedback(feedback)
 
@@ -699,15 +691,29 @@ def is_tool_call_correct(
     model = model or get_default_model()
     assessment_name = name or TOOL_CALL_CORRECTNESS_FEEDBACK_NAME
 
-    if _is_typesafe_model(model):
-        feedback = _invoke_typesafe_judge(
+    feedback = _invoke_structured_builtin_judge(
+        model,
+        chat_invoker=lambda: invoke_judge_model(
             model,
-            instructions=get_typesafe_prompt_instructions(
+            get_prompt(
+                request=request,
+                tools_called=tools_called,
+                available_tools=available_tools,
+                expected_calls=expected_tool_calls,
+                include_arguments=include_arguments,
+                check_order=check_order,
+            ),
+            assessment_name=assessment_name,
+            use_case=USE_CASE_BUILTIN_JUDGE,
+            extra_headers=extra_headers,
+        ),
+        decision_invoke_params={
+            "instructions": get_typesafe_prompt_instructions(
                 has_expected_calls=expected_tool_calls is not None,
                 include_arguments=include_arguments,
                 check_order=check_order,
             ),
-            state={
+            "state": {
                 "request": request,
                 "available_tools": available_tools,
                 "tools_called": tools_called,
@@ -726,26 +732,10 @@ def is_tool_call_correct(
                     else {}
                 ),
             },
-            feedback_value_type=Literal["yes", "no"],
-            assessment_name=assessment_name,
-            extra_headers=extra_headers,
-        )
-    else:
-        prompt = get_prompt(
-            request=request,
-            tools_called=tools_called,
-            available_tools=available_tools,
-            expected_calls=expected_tool_calls,
-            include_arguments=include_arguments,
-            check_order=check_order,
-        )
-        feedback = invoke_judge_model(
-            model,
-            prompt,
-            assessment_name=assessment_name,
-            use_case=USE_CASE_BUILTIN_JUDGE,
-            extra_headers=extra_headers,
-        )
+            "assessment_name": assessment_name,
+            "extra_headers": extra_headers,
+        },
+    )
 
     return _sanitize_feedback(feedback)
 
@@ -795,23 +785,22 @@ def is_safe(
         from databricks.agents.evals.judges import safety
 
         feedback = safety(response=content, assessment_name=assessment_name)
-    elif _is_typesafe_model(model):
-        feedback = _invoke_typesafe_judge(
-            model,
-            instructions=SAFETY_TYPESAFE_PROMPT_INSTRUCTIONS,
-            state={"content": content},
-            feedback_value_type=Literal["yes", "no"],
-            assessment_name=assessment_name,
-            extra_headers=extra_headers,
-        )
     else:
-        prompt = get_prompt(content=content)
-        feedback = invoke_judge_model(
+        feedback = _invoke_structured_builtin_judge(
             model,
-            prompt,
-            assessment_name=assessment_name,
-            use_case=USE_CASE_BUILTIN_JUDGE,
-            extra_headers=extra_headers,
+            chat_invoker=lambda: invoke_judge_model(
+                model,
+                get_prompt(content=content),
+                assessment_name=assessment_name,
+                use_case=USE_CASE_BUILTIN_JUDGE,
+                extra_headers=extra_headers,
+            ),
+            decision_invoke_params={
+                "instructions": SAFETY_TYPESAFE_PROMPT_INSTRUCTIONS,
+                "state": {"content": content},
+                "assessment_name": assessment_name,
+                "extra_headers": extra_headers,
+            },
         )
 
     return _sanitize_feedback(feedback)
@@ -881,23 +870,22 @@ def meets_guidelines(
             context=context,
             assessment_name=name,
         )
-    elif _is_typesafe_model(model):
-        feedback = _invoke_typesafe_judge(
-            model,
-            instructions=GUIDELINES_TYPESAFE_PROMPT_INSTRUCTIONS,
-            state={"guidelines": guidelines, "guidelines_context": context},
-            feedback_value_type=Literal["yes", "no"],
-            assessment_name=name or GUIDELINES_FEEDBACK_NAME,
-            extra_headers=extra_headers,
-        )
     else:
-        prompt = get_prompt(guidelines, context)
-        feedback = invoke_judge_model(
+        feedback = _invoke_structured_builtin_judge(
             model,
-            prompt,
-            assessment_name=name or GUIDELINES_FEEDBACK_NAME,
-            use_case=USE_CASE_BUILTIN_JUDGE,
-            extra_headers=extra_headers,
+            chat_invoker=lambda: invoke_judge_model(
+                model,
+                get_prompt(guidelines, context),
+                assessment_name=name or GUIDELINES_FEEDBACK_NAME,
+                use_case=USE_CASE_BUILTIN_JUDGE,
+                extra_headers=extra_headers,
+            ),
+            decision_invoke_params={
+                "instructions": GUIDELINES_TYPESAFE_PROMPT_INSTRUCTIONS,
+                "state": {"guidelines": guidelines, "guidelines_context": context},
+                "assessment_name": name or GUIDELINES_FEEDBACK_NAME,
+                "extra_headers": extra_headers,
+            },
         )
 
     return _sanitize_feedback(feedback)
