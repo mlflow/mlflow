@@ -2,6 +2,7 @@ import pytest
 
 from mlflow.utils.jsonpath_utils import (
     filter_json_by_fields,
+    find_matching_paths,
     jsonpath_extract_values,
     split_path_respecting_backticks,
     validate_field_paths,
@@ -248,3 +249,21 @@ def test_complex_trace_structure():
     # Should not contain other fields
     assert "source" not in filtered["info"]["assessments"][0]
     assert "attributes" not in filtered["data"]["spans"][0]
+
+
+def test_find_matching_paths_quotes_a_key_containing_a_dot():
+    # The paths this returns are split again by filter_json_by_fields, so a key with a
+    # dot in it has to come back quoted or it reads as two segments.
+    data = {"info": {"tags": {"mlflow.traceName": "predict", "env": "prod"}}}
+    assert find_matching_paths(data, "info.tags.*") == [
+        "info.tags.`mlflow.traceName`",
+        "info.tags.env",
+    ]
+
+
+def test_filter_json_by_fields_wildcard_keeps_a_key_containing_a_dot():
+    # MLflow sets its own trace tags under names such as mlflow.traceName, so a wildcard
+    # over tags used to drop exactly those and keep only the user defined ones.
+    data = {"info": {"tags": {"mlflow.traceName": "predict", "env": "prod"}}}
+    filtered = filter_json_by_fields(data, ["info.tags.*"])
+    assert filtered == {"info": {"tags": {"mlflow.traceName": "predict", "env": "prod"}}}
