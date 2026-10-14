@@ -657,10 +657,13 @@ def _add_span_processor_first(tracer_provider: TracerProvider, processor: SpanPr
     """
     tracer_provider.add_span_processor(processor)
     active = tracer_provider._active_span_processor
-    active._span_processors = (
-        processor,
-        *(p for p in active._span_processors if p is not processor),
-    )
+    # Reorder under the composite's lock, which add_span_processor also takes, so a processor
+    # added concurrently (e.g. MLflow's, registered lazily on another thread) isn't dropped.
+    with active._lock:
+        active._span_processors = (
+            processor,
+            *(p for p in active._span_processors if p is not processor),
+        )
 
 
 def _get_span_processor():
