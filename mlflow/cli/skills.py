@@ -1,18 +1,19 @@
 """CLI commands for bundled MLflow Assistant skills and the skill registry."""
 
 import json
-from dataclasses import asdict, dataclass, is_dataclass
+from dataclasses import asdict, is_dataclass
 from pathlib import Path
 from typing import Any, Literal
 
 import click
+from click.core import ParameterSource
 
 from mlflow import MlflowClient
 from mlflow.assistant.skill_installer import BundledSkill, list_bundled_skills
 from mlflow.entities import GitSource, OCISource, Skill, ZipSource
 from mlflow.exceptions import MlflowException
 from mlflow.genai import import_skills, register_skill, search_skills
-from mlflow.utils.skill_uris import parse_skill_uri
+from mlflow.utils.skill_uris import ParsedSkillUri, parse_skill_uri
 from mlflow.utils.string_utils import _create_table
 
 OutputFormat = Literal["table", "json"]
@@ -99,32 +100,18 @@ def pull_command(uri: str | None, skill_uri: str | None, destination: Path | Non
     click.echo(f"Pulled {target_uri} to {path}")
 
 
-@dataclass(frozen=True)
-class SkillUri:
-    organization: str
-    name: str
-    version: int | None = None
-    alias: str | None = None
-
-
-def _parse_skill_uri(value: str) -> SkillUri:
+def _parse_skill_uri(value: str) -> ParsedSkillUri:
     try:
-        parsed = parse_skill_uri(value)
+        return parse_skill_uri(value)
     except MlflowException as e:
         raise click.BadParameter(str(e), param_hint="skill URI") from e
-    return SkillUri(
-        organization=parsed.organization,
-        name=parsed.name,
-        version=parsed.version,
-        alias=parsed.alias,
-    )
 
 
-def _parse_skill_target(value: str) -> SkillUri:
+def _parse_skill_target(value: str) -> ParsedSkillUri:
     return _parse_skill_uri(value)
 
 
-def _get_skill_target(positional_uri: str | None, option_uri: str | None) -> SkillUri:
+def _get_skill_target(positional_uri: str | None, option_uri: str | None) -> ParsedSkillUri:
     if positional_uri and option_uri:
         raise click.UsageError("Provide a Skill URI positionally or with --skill-uri, not both.")
     if not (target := positional_uri or option_uri):
@@ -132,14 +119,14 @@ def _get_skill_target(positional_uri: str | None, option_uri: str | None) -> Ski
     return _parse_skill_target(target)
 
 
-def _require_parent_target(target: SkillUri) -> None:
+def _require_parent_target(target: ParsedSkillUri) -> None:
     if target.version is not None or target.alias is not None:
         raise click.UsageError(
             "This command requires a parent Skill URI without a version or alias."
         )
 
 
-def _require_exact_version_target(target: SkillUri) -> int:
+def _require_exact_version_target(target: ParsedSkillUri) -> int:
     if target.version is None or target.alias is not None:
         raise click.UsageError("This command requires a Skill URI with an exact integer version.")
     return target.version
@@ -216,6 +203,23 @@ def _print_skill(skill: Skill, output: OutputFormat) -> None:
     )
 
 
+def _skill_version_source_details(version: Any) -> tuple[str, str, str]:
+    source = version.source
+    if source is None:
+        return "", "", ""
+    if isinstance(source, str):
+        return source, "", ""
+
+    source_details = source.to_dict() if hasattr(source, "to_dict") else vars(source)
+    location = (
+        source_details.get("url")
+        or source_details.get("image")
+        or source_details.get("artifact_path")
+        or ""
+    )
+    return location, source_details.get("ref") or "", source_details.get("subpath") or ""
+
+
 def _print_skill_versions(skill_versions, output: OutputFormat) -> None:
     next_page_token = getattr(skill_versions, "token", None)
     if output == "json":
@@ -238,20 +242,30 @@ def _print_skill_versions(skill_versions, output: OutputFormat) -> None:
             str(version.version),
             str(version.status),
             str(version.source_type or ""),
+            *_skill_version_source_details(version),
         ]
         for version in skill_versions
     ]
     click.echo(
         _create_table(
             rows,
-            headers=["Name", "Organization", "Version", "Status", "Source Type"],
+            headers=[
+                "Name",
+                "Organization",
+                "Version",
+                "Status",
+                "Source Type",
+                "Source",
+                "Ref",
+                "Subpath",
+            ],
         )
     )
     if next_page_token:
         click.echo(f"\nNext page token: {next_page_token}")
 
 
-def _get_skill_version(client: MlflowClient, target: SkillUri):
+def _get_skill_version(client: MlflowClient, target: ParsedSkillUri):
     if target.version is not None:
         return _call_sdk(
             client.get_skill_version,
@@ -350,12 +364,10 @@ def search_command(
 def register_command(ctx, local_source, name, organization, status, output) -> None:
     """Register a Skill from a local directory or a typed remote source."""
     if ctx.invoked_subcommand is not None:
-        if (
-            local_source is not None
-            or name is not None
-            or organization
-            or status != "active"
-            or output != "table"
+        parent_options = ("local_source", "name", "organization", "status", "output")
+        if any(
+            ctx.get_parameter_source(option) == ParameterSource.COMMANDLINE
+            for option in parent_options
         ):
             raise click.UsageError(
                 "Options for typed registration must follow the source subcommand; "

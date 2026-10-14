@@ -178,15 +178,12 @@ def test_fetch_git_redacts_credentials_and_reports_availability(tmp_path, closed
 
 
 def test_fetch_git_reports_missing_git(monkeypatch, tmp_path):
-    monkeypatch.setattr(
-        git.Repo,
-        "init",
-        mock.Mock(
-            side_effect=git.exc.GitCommandNotFound(
-                ["git"], FileNotFoundError("git executable not found")
-            )
-        ),
+    repo_init = mock.Mock(
+        side_effect=git.exc.GitCommandNotFound(
+            ["git"], FileNotFoundError("git executable not found")
+        )
     )
+    monkeypatch.setattr(git.Repo, "init", repo_init)
 
     with pytest.raises(MlflowException, match="Git is required.*available on PATH"):
         fetch_git(
@@ -196,6 +193,7 @@ def test_fetch_git_reports_missing_git(monkeypatch, tmp_path):
             scratch=tmp_path / "scratch",
             max_bytes=10_000,
         )
+    repo_init.assert_called_once_with(tmp_path / "scratch" / "git-objects")
 
 
 # --- zip --------------------------------------------------------------------------------------

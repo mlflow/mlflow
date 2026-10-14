@@ -162,6 +162,12 @@ def test_search_command_renders_json(runner, mock_search_skills):
     result = runner.invoke(commands, ["search", "--output", "json"])
 
     assert result.exit_code == 0
+    mock_search_skills.assert_called_once_with(
+        filter_string=None,
+        max_results=100,
+        order_by=None,
+        page_token=None,
+    )
     assert json.loads(result.output)["skills"][0]["name"] == "code-review"
     assert json.loads(result.output)["next_page_token"] is None
 
@@ -260,17 +266,27 @@ def test_register_git_command_reports_fetch_errors(runner, mock_register_skill):
     assert result.exit_code != 0
     assert "Git is required to fetch Git skill sources" in result.output
     assert "Traceback" not in result.output
+    mock_register_skill.assert_called_once_with(
+        source=GitSource(url="https://github.com/acme/skills.git"),
+        name=None,
+        organization="",
+        status="active",
+    )
 
 
+@pytest.mark.parametrize(
+    ("option", "value"),
+    [("--name", "requested"), ("--status", "active"), ("--output", "table")],
+)
 def test_register_command_rejects_options_before_typed_source_subcommand(
-    runner, mock_register_skill
+    runner, mock_register_skill, option, value
 ):
     result = runner.invoke(
         commands,
         [
             "register",
-            "--name",
-            "requested",
+            option,
+            value,
             "git",
             "--url",
             "https://github.com/acme/skills.git",
@@ -419,7 +435,9 @@ def test_get_version_command_uses_exact_version(runner, mock_mlflow_client):
 
 def test_get_version_command_uses_alias(runner, mock_mlflow_client):
     mock_mlflow_client.get_skill_version_by_alias.return_value = SkillVersion(
-        name="code-review", version=2
+        name="code-review",
+        version=2,
+        source=GitSource(url="https://github.com/acme/skills.git", ref="main", subpath="reviewer"),
     )
 
     result = runner.invoke(commands, ["get-version", "skills:/code-review@stable"])
@@ -428,6 +446,9 @@ def test_get_version_command_uses_alias(runner, mock_mlflow_client):
     mock_mlflow_client.get_skill_version_by_alias.assert_called_once_with(
         name="code-review", alias="stable", organization=""
     )
+    assert "https://github.com/acme/skills.git" in result.output
+    assert "main" in result.output
+    assert "reviewer" in result.output
 
 
 @pytest.mark.parametrize(
