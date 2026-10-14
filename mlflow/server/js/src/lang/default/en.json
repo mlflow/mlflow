@@ -111,6 +111,10 @@
     "defaultMessage": "Select baseline run",
     "description": "Placeholder text for the baseline run selector dropdown"
   },
+  "+TIeCQ": {
+    "defaultMessage": "Duplicate property name. Only the last field with this name is saved.",
+    "description": "Validation error for a repeated property name in the visual JSON schema editor"
+  },
   "+UM7um": {
     "defaultMessage": "Tool {number} parameters",
     "description": "Accessible label for an individual tool parameters JSON editor in the playground"
@@ -1839,6 +1843,10 @@
     "defaultMessage": "Custom view",
     "description": "Selected trace explorer custom view mode label"
   },
+  "5aZ5LY": {
+    "defaultMessage": "Code Editor",
+    "description": "Label for the code editor mode of the structured output schema field in the prompt creation modal"
+  },
   "5aZ7nE": {
     "defaultMessage": "Artifact location copied",
     "description": "Tooltip displayed after experiment artifact location was successfully copied to clipboard"
@@ -2435,6 +2443,10 @@
     "defaultMessage": "Trace",
     "description": "Button to open the raw trace from the detail"
   },
+  "7w0oke": {
+    "defaultMessage": "Property type (read-only)",
+    "description": "Label for the read-only type of a property the visual JSON schema editor cannot edit"
+  },
   "7x6xu8": {
     "defaultMessage": "Create prompt",
     "description": "Label for the create prompt button on the registered prompts page"
@@ -2726,6 +2738,10 @@
   "961sxj": {
     "defaultMessage": "Success Rate",
     "description": "Label for success rate statistic"
+  },
+  "96P17u": {
+    "defaultMessage": "Fix the JSON schema before switching to the visual editor.",
+    "description": "Warning shown when the structured output JSON schema cannot be parsed into the visual editor"
   },
   "96tEXl": {
     "defaultMessage": "This saved view no longer exists.",
@@ -5575,6 +5591,10 @@
     "defaultMessage": "The dataset may have been deleted, or you may not have access to it.",
     "description": "Body shown when the V2 evaluation dataset detail page fails to fetch its dataset"
   },
+  "KgpZMq": {
+    "defaultMessage": "Fields this editor cannot represent (nested objects, $ref, oneOf/anyOf/allOf) are shown read-only and left unchanged. Switch to the code editor to edit them.",
+    "description": "Hint explaining read-only rows in the visual JSON schema editor"
+  },
   "Kkr/RI": {
     "defaultMessage": "Configure charts",
     "description": "Experiment page > view controls > global settings for line chart view > dropdown button label"
@@ -6371,6 +6391,10 @@
     "defaultMessage": "Failed to load permissions",
     "description": "Alert title shown when the roles query fails on the permissions section"
   },
+  "Nn/TMx": {
+    "defaultMessage": "Required field",
+    "description": "Tooltip for the required toggle in the visual JSON schema editor"
+  },
   "NnO0Lz": {
     "defaultMessage": "MLflow allows you to evaluate your GenAI applications using scorers. Scorers compute quality metrics like relevance, correctness, and custom assessments. Copy the code snippet below to run an evaluation, or visit the documentation for a more in-depth example.",
     "description": "Empty state description for the quality tab in overview page"
@@ -6886,6 +6910,10 @@
   "PpP8du": {
     "defaultMessage": "Model configuration",
     "description": "Label for model configuration section"
+  },
+  "Pri9+T": {
+    "defaultMessage": "Allow multiple values",
+    "description": "Tooltip for the array toggle in the visual JSON schema editor"
   },
   "PtjdJS": {
     "defaultMessage": "Graph",
@@ -9043,6 +9071,10 @@
     "defaultMessage": "Used by ({count})",
     "description": "Gateway > Endpoint bindings drawer > Title"
   },
+  "YF9RgA": {
+    "defaultMessage": "Visual Editor",
+    "description": "Label for the visual editor mode of the structured output schema field in the prompt creation modal"
+  },
   "YG2DsC": {
     "defaultMessage": "Collapse section",
     "description": "Aria label for collapse"
@@ -9347,6 +9379,10 @@
     "defaultMessage": "Install MLflow 3:",
     "description": "Instruction for installing MLflow from mlflow-3 branch in log MLflow 3 models"
   },
+  "ZT6XlA": {
+    "defaultMessage": "This schema can only be edited in the code editor. The visual editor needs an object schema with a properties map.",
+    "description": "Warning shown when the structured output JSON schema is valid but outside what the visual editor can edit"
+  },
   "ZXKIdt": {
     "defaultMessage": "Dataset record details",
     "description": "Aria label for the dataset record edit side panel"
@@ -9543,6 +9579,10 @@
     "defaultMessage": "System metrics",
     "description": "Run page > Overview > Metrics table > System charts section > title"
   },
+  "aFbjTp": {
+    "defaultMessage": "Allowed value",
+    "description": "Placeholder for a single enum value input in the visual JSON schema editor"
+  },
   "aFk+k/": {
     "defaultMessage": "Usage breakdown",
     "description": "Header for token usage breakdown"
@@ -9618,6 +9658,10 @@
   "aWH7UT": {
     "defaultMessage": "Default",
     "description": "Display name shown for the reserved no-auth default review user"
+  },
+  "aWVr31": {
+    "defaultMessage": "Properties without a name are not saved.",
+    "description": "Validation warning for an unnamed property in the visual JSON schema editor"
   },
   "aXw0NO": {
     "defaultMessage": "Please select metric",
@@ -11539,6 +11583,10 @@
     "defaultMessage": "Issue detection canceled",
     "description": "Issue detection progress > Step label when canceled"
   },
+  "hZjzvE": {
+    "defaultMessage": "Add property",
+    "description": "Button to add a schema property in the visual JSON schema editor"
+  },
   "hcDB9U": {
     "defaultMessage": "+∞",
     "description": "Label displaying positive infinity symbol displayed on a plot UI element"
@@ -12698,6 +12746,10 @@
   "lzW28v": {
     "defaultMessage": "Metadata",
     "description": "Section label for metadata columns in the traces table column selector"
+  },
+  "lzwoU3": {
+    "defaultMessage": "Remove property",
+    "description": "Button to remove a property row in the visual JSON schema editor"
   },
   "m1Nb7W": {
     "defaultMessage": "Save",
@@ -14867,6 +14919,10 @@
     "defaultMessage": "Display metric types",
     "description": "Trace settings submenu for visible span metrics"
   },
+  "ulFzjg": {
+    "defaultMessage": "Add enum value",
+    "description": "Button to add a new enum value in the visual JSON schema editor"
+  },
   "ulwC/L": {
     "defaultMessage": "Edit Workspace",
     "description": "Title for edit workspace modal"
@@ -14966,6 +15022,10 @@
   "vGf4dg": {
     "defaultMessage": "No custom LLM-as-a-judge scorers found",
     "description": "Hint indicating that no custom LLM-as-a-judge scorers were found"
+  },
+  "vH+NGI": {
+    "defaultMessage": "Property",
+    "description": "Schema property name input"
   },
   "vHNP+J": {
     "defaultMessage": "Add tags",
@@ -15874,6 +15934,10 @@
   "yv5FMp": {
     "defaultMessage": "Add custom feedback to this session.",
     "description": "Hint message prompting user to add new feedback to a session"
+  },
+  "yvoD7z": {
+    "defaultMessage": "Remove enum value",
+    "description": "Button to remove a single enum value in the visual JSON schema editor"
   },
   "yvtWjM": {
     "defaultMessage": "Last updated",

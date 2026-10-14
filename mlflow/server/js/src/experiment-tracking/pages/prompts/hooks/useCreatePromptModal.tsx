@@ -11,7 +11,7 @@ import {
   SegmentedControlButton,
 } from '@databricks/design-system';
 import { useState } from 'react';
-import { useForm, Controller, FormProvider } from 'react-hook-form';
+import { useForm, useWatch, Controller, FormProvider } from 'react-hook-form';
 import { FormattedMessage, useIntl } from 'react-intl';
 import type { ChatPromptMessage, PromptModelConfigFormData, RegisteredPrompt, RegisteredPromptVersion } from '../types';
 import { useCreateRegisteredPromptMutation } from './useCreateRegisteredPromptMutation';
@@ -27,14 +27,18 @@ import {
   PROMPT_TYPE_TEXT,
   validateModelConfig,
   validateResponseFormatJson,
+  canEditSchemaVisually,
 } from '../utils';
 import { ChatMessageCreator } from '../components/ChatMessageCreator';
 import { ModelConfigForm } from '../components/ModelConfigForm';
+import { ResponseFormatSchemaBuilder } from '../components/ResponseFormatSchemaBuilder';
 
 export enum CreatePromptModalMode {
   CreatePrompt = 'CreatePrompt',
   CreatePromptVersion = 'CreatePromptVersion',
 }
+
+type SchemaEditorMode = 'code' | 'visual';
 
 export const useCreatePromptModal = ({
   mode = CreatePromptModalMode.CreatePromptVersion,
@@ -51,6 +55,8 @@ export const useCreatePromptModal = ({
 }) => {
   const [open, setOpen] = useState(false);
   const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
+  const [schemaEditorMode, setSchemaEditorMode] = useState<SchemaEditorMode>('code');
+  const [visualEditorBlocked, setVisualEditorBlocked] = useState(false);
   const intl = useIntl();
 
   const form = useForm<{
@@ -90,6 +96,41 @@ export const useCreatePromptModal = ({
       ? watchedChatMessages.length === 0 || watchedChatMessages.some((m) => !m.content || !m.content.trim())
       : !watchedDraftValue?.trim();
   const isSubmitDisabled = (isCreatingNewPrompt && !watchedDraftName?.trim()) || isPromptContentEmpty;
+
+  // Why the visual editor cannot be opened on the current value, or undefined when it can.
+  const visualEditorBlockReason = (value: string) => {
+    if (!validateResponseFormatJson(value).valid) {
+      return intl.formatMessage({
+        defaultMessage: 'Fix the JSON schema before switching to the visual editor.',
+        description: 'Warning shown when the structured output JSON schema cannot be parsed into the visual editor',
+      });
+    }
+    if (!canEditSchemaVisually(value)) {
+      return intl.formatMessage({
+        defaultMessage:
+          'This schema can only be edited in the code editor. The visual editor needs an object schema with a properties map.',
+        description:
+          'Warning shown when the structured output JSON schema is valid but outside what the visual editor can edit',
+      });
+    }
+    return undefined;
+  };
+
+  const handleSchemaModeChange = (nextMode: SchemaEditorMode) => {
+    if (nextMode === 'visual' && visualEditorBlockReason(form.getValues('responseFormatJson'))) {
+      setVisualEditorBlocked(true);
+      return;
+    }
+    setVisualEditorBlocked(false);
+    setSchemaEditorMode(nextMode);
+  };
+
+  // Narrow subscription (rather than `form.watch(...)`) so the warning can clear itself as soon
+  // as the user fixes the JSON, without re-subscribing the whole modal to every keystroke.
+  const watchedResponseFormatJson = useWatch({ control: form.control, name: 'responseFormatJson' });
+  const visualEditorBlockedWarning = visualEditorBlocked
+    ? visualEditorBlockReason(watchedResponseFormatJson)
+    : undefined;
 
   const modalElement = (
     <FormProvider {...form}>
@@ -341,15 +382,45 @@ export const useCreatePromptModal = ({
                 description="Hint for the structured output field in the prompt creation modal"
               />
             </FormUI.Hint>
-            <RHFControlledComponents.TextArea
-              control={form.control}
-              id="mlflow.prompts.create.response_format"
-              componentId="mlflow.prompts.create.response_format"
-              name="responseFormatJson"
-              autoSize={{ minRows: 4, maxRows: 12 }}
-              placeholder='{"type": "object", "properties": { ... }}'
-              validationState={form.formState.errors.responseFormatJson ? 'error' : undefined}
-            />
+
+            <SegmentedControlGroup
+              componentId="mlflow.prompts.create.response_format.mode"
+              name="mlflow.prompts.create.response_format.mode"
+              value={schemaEditorMode}
+              onChange={(e) => handleSchemaModeChange(e.target.value as SchemaEditorMode)}
+            >
+              <SegmentedControlButton value="code">
+                <FormattedMessage
+                  defaultMessage="Code Editor"
+                  description="Label for the code editor mode of the structured output schema field in the prompt creation modal"
+                />
+              </SegmentedControlButton>
+              <SegmentedControlButton value="visual">
+                <FormattedMessage
+                  defaultMessage="Visual Editor"
+                  description="Label for the visual editor mode of the structured output schema field in the prompt creation modal"
+                />
+              </SegmentedControlButton>
+            </SegmentedControlGroup>
+            {visualEditorBlockedWarning && <FormUI.Message type="warning" message={visualEditorBlockedWarning} />}
+            <Spacer size="sm" />
+
+            {schemaEditorMode === 'visual' ? (
+              <ResponseFormatSchemaBuilder
+                schemaText={form.getValues('responseFormatJson')}
+                onSchemaChange={(next: string) => form.setValue('responseFormatJson', next)}
+              />
+            ) : (
+              <RHFControlledComponents.TextArea
+                control={form.control}
+                id="mlflow.prompts.create.response_format"
+                componentId="mlflow.prompts.create.response_format"
+                name="responseFormatJson"
+                autoSize={{ minRows: 4, maxRows: 12 }}
+                placeholder='{"type": "object", "properties": { ... }}'
+                validationState={form.formState.errors.responseFormatJson ? 'error' : undefined}
+              />
+            )}
             {form.formState.errors.responseFormatJson && (
               <FormUI.Message type="error" message={form.formState.errors.responseFormatJson.message} />
             )}
@@ -397,6 +468,8 @@ export const useCreatePromptModal = ({
         : '',
     });
     setShowAdvancedSettings(Boolean(hasModelConfig || responseFormat !== undefined));
+    setSchemaEditorMode('code');
+    setVisualEditorBlocked(false);
     setOpen(true);
   };
 
