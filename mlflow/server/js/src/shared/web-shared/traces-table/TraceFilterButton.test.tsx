@@ -198,3 +198,17 @@ describe('TraceFilterButton', () => {
     expect(onClearAll).toHaveBeenCalled();
   });
 });
+
+test.each([FilterOp.IS_NULL, FilterOp.IS_NOT_NULL])('hides the value input for %s', async (operator) => {
+  const onChange = jest.fn();
+  renderButton({
+    fields: [{ id: 'output', label: 'Output', operators: [operator], valueInput: 'text' }],
+    filterModel: [{ field: 'output', operator, value: '' }],
+    onChange,
+  });
+  await userEvent.click(screen.getByRole('button', { name: /Filters/ }));
+  expect(await screen.findByRole('combobox', { name: /Filter operator/ })).toHaveTextContent(operator);
+  expect(screen.queryByRole('textbox', { name: /Filter value/ })).not.toBeInTheDocument();
+  await userEvent.click(screen.getByRole('button', { name: 'Apply filters' }));
+  expect(onChange).toHaveBeenCalledWith([{ field: 'output', operator, value: '' }]);
+});

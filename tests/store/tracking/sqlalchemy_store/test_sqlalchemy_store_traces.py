@@ -54,7 +54,7 @@ from mlflow.protos.databricks_pb2 import (
     ErrorCode,
 )
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
-from mlflow.store.db.db_types import MSSQL, MYSQL, POSTGRES
+from mlflow.store.db.db_types import MSSQL, MYSQL, POSTGRES, SQLITE
 from mlflow.store.tracking.dbmodels.models import (
     SqlSpan,
     SqlSpanMetrics,
@@ -824,6 +824,259 @@ def test_search_traces_with_run_id_and_other_filters(store: SqlAlchemyStore):
 
     # Should return both linked traces
     assert trace_ids == {trace1_id, trace2_id}
+
+
+@pytest.mark.parametrize(
+    ("field", "primary", "external"),
+    [
+        ("request", SpanAttributeKey.INPUTS, "input.value"),
+        ("response", SpanAttributeKey.OUTPUTS, "output.value"),
+    ],
+)
+def test_search_traces_root_content_null_filters(store, field, primary, external):
+    exp_id = store.create_experiment("root_content_null")
+    cases = {
+        "missing": {},
+        "explicit-null": {primary: None},
+        "empty": {primary: ""},
+        "serialized-null": {primary: "null"},
+        "populated": {primary: "content"},
+        "large": {primary: "x" * 5000},
+        "external": {external: "content"},
+        "null-with-external": {primary: None, external: "content"},
+        "child-only": {},
+    }
+    for index, (trace_id, attributes) in enumerate(cases.items(), 1):
+        _create_trace(store, trace_id, exp_id)
+        root = create_test_span(trace_id, name=trace_id, span_id=index, attributes=attributes)
+        store.log_spans(exp_id, [root])
+        if trace_id in ("explicit-null", "null-with-external"):
+            # Simulate a SQL/JSON null from an external span writer, rather than the string "null".
+            with store.ManagedSessionMaker(read_only=False) as session:
+                row = session.query(SqlSpan).filter(SqlSpan.trace_id == trace_id).one()
+                content = json.loads(row.content)
+                content["attributes"][primary] = None
+                row.content = json.dumps(content)
+        if trace_id == "child-only":
+            child = create_test_span(
+                trace_id, span_id=100, parent_id=index, attributes={primary: "child content"}
+            )
+            store.log_spans(exp_id, [child])
+
+    _create_trace(store, "no-stored-spans", exp_id)
+    other_exp = store.create_experiment("other_root_content_null")
+    _create_trace(store, "other-experiment", other_exp)
+    store.log_spans(other_exp, [create_test_span("other-experiment")])
+
+    def search(operator):
+        traces, _ = store.search_traces(
+            locations=[exp_id], filter_string=f"trace.{field} {operator} AND trace.status = 'OK'"
+        )
+        return {trace.trace_id for trace in traces}
+
+    assert search("IS NULL") == {
+        "missing",
+        "explicit-null",
+        "null-with-external",
+        "child-only",
+    }
+    assert search("IS NOT NULL") == {
+        "empty",
+        "serialized-null",
+        "populated",
+        "large",
+        "external",
+    }
+
+
+@pytest.mark.parametrize(
+    ("field", "primary", "external"),
+    [
+        ("request", SpanAttributeKey.INPUTS, "input.value"),
+        ("response", SpanAttributeKey.OUTPUTS, "output.value"),
+    ],
+)
+def test_search_traces_root_content_value_filters(store, field, primary, external):
+    if store._get_dialect() not in (SQLITE, POSTGRES):
+        pytest.skip("Value comparisons require SQLite or PostgreSQL.")
+    exp_id = store.create_experiment("root_content_values")
+    cases = {
+        "upper": {primary: "Hello"},
+        "lower": {primary: "hello"},
+        "empty": {primary: ""},
+        "text-null": {primary: "null"},
+        "structured": {primary: {"message": "Hello"}},
+        "escaped": {primary: 'quote" and slash\\'},
+        "literal": {primary: "a.b[1]_%"},
+        "large": {primary: "x" * 5000 + "needle"},
+        "external": {external: "Hello"},
+        "precedence": {primary: "other", external: "Hello"},
+        "null-external": {primary: None, external: "Hello"},
+        "explicit-null": {primary: None},
+        "child-only": {},
+        "missing": {},
+    }
+    for index, (trace_id, attributes) in enumerate(cases.items(), 1):
+        _create_trace(store, trace_id, exp_id)
+        store.log_spans(exp_id, [create_test_span(trace_id, span_id=index, attributes=attributes)])
+        if trace_id in ("explicit-null", "null-external"):
+            with store.ManagedSessionMaker(read_only=False) as session:
+                row = session.query(SqlSpan).filter(SqlSpan.trace_id == trace_id).one()
+                content = json.loads(row.content)
+                content["attributes"][primary] = None
+                row.content = json.dumps(content)
+        if trace_id == "child-only":
+            store.log_spans(
+                exp_id,
+                [
+                    create_test_span(
+                        trace_id, span_id=100, parent_id=index, attributes={primary: "Hello"}
+                    )
+                ],
+            )
+    _create_trace(store, "no-root", exp_id)
+    other_exp = store.create_experiment("other_root_content_values")
+    _create_trace(store, "other-experiment", other_exp)
+    store.log_spans(
+        other_exp, [create_test_span("other-experiment", attributes={primary: "Hello"})]
+    )
+
+    exact = {"upper", "external"}
+    present = set(cases) - {"explicit-null", "null-external", "child-only", "missing"}
+    for operator, value, expected in [
+        ("=", json.dumps("Hello"), exact),
+        ("!=", json.dumps("Hello"), present - exact),
+        ("LIKE", "%Hello%", exact | {"structured"}),
+        ("LIKE", "%hello%", {"lower"}),
+        ("LIKE", '"a.b[1]_%"', {"literal"}),
+        ("ILIKE", "%hElLo%", exact | {"structured", "lower"}),
+        ("RLIKE", '^"Hello"$', exact),
+        ("RLIKE", "Hello|needle", exact | {"structured", "large"}),
+        ("=", json.dumps({"message": "Hello"}), {"structured"}),
+        ("=", json.dumps(cases["escaped"][primary]), {"escaped"}),
+        ("LIKE", json.dumps(cases["escaped"][primary]).replace("\\", "\\\\"), {"escaped"}),
+        ("LIKE", r'"a.b[1]\_\%"', {"literal"}),
+        ("LIKE", "%needle%", {"large"}),
+        ("LIKE", "%", present),
+    ]:
+        traces, _ = store.search_traces(
+            locations=[exp_id],
+            filter_string=f"trace.{field} {operator} '{value}' AND trace.status = 'OK'",
+        )
+        assert {trace.trace_id for trace in traces} == expected, (operator, value)
+
+
+@pytest.mark.parametrize(
+    ("input_key", "output_key"),
+    [
+        ("gen_ai.input.messages", "gen_ai.output.messages"),
+        ("traceloop.entity.input", "traceloop.entity.output"),
+        ("gcp.vertex.agent.llm_request", "gcp.vertex.agent.llm_response"),
+        ("ai.prompt", "ai.response.text"),
+    ],
+)
+def test_search_traces_root_content_normalized_attributes(store, input_key, output_key):
+    exp_id = store.create_experiment("normalized_content")
+    trace_id = "normalized-attributes"
+    _create_trace(store, trace_id, exp_id)
+    root = create_test_span(
+        trace_id, attributes={input_key: "request content", output_key: "response content"}
+    )
+    store.log_spans(exp_id, [root])
+
+    with store.ManagedSessionMaker() as session:
+        content = json.loads(
+            session.query(SqlSpan).filter(SqlSpan.trace_id == trace_id).one().content
+        )
+    assert content["attributes"][SpanAttributeKey.INPUTS] == json.dumps("request content")
+    assert content["attributes"][SpanAttributeKey.OUTPUTS] == json.dumps("response content")
+    for field in ("request", "response"):
+        traces, _ = store.search_traces([exp_id], filter_string=f"trace.{field} IS NOT NULL")
+        assert [trace.trace_id for trace in traces] == [trace_id]
+        if store._get_dialect() in (SQLITE, POSTGRES):
+            traces, _ = store.search_traces(
+                [exp_id], filter_string=f"trace.{field} = '{json.dumps(f'{field} content')}'"
+            )
+            assert [trace.trace_id for trace in traces] == [trace_id]
+
+
+def test_search_traces_root_content_normalized_events(store):
+    exp_id = store.create_experiment("event_content")
+    trace_id = "normalized-events"
+    _create_trace(store, trace_id, exp_id)
+    root = create_test_span(trace_id).to_dict()
+    root["events"] = [
+        {
+            "name": "gen_ai.content.prompt",
+            "time_unix_nano": 1000000000,
+            "attributes": {"gen_ai.prompt": json.dumps("request content")},
+        },
+        {
+            "name": "gen_ai.content.completion",
+            "time_unix_nano": 1000000000,
+            "attributes": {"gen_ai.completion": json.dumps("response content")},
+        },
+    ]
+    store.log_spans(exp_id, [Span.from_dict(root)])
+
+    with store.ManagedSessionMaker() as session:
+        content = json.loads(
+            session.query(SqlSpan).filter(SqlSpan.trace_id == trace_id).one().content
+        )
+    assert content["attributes"][SpanAttributeKey.INPUTS] == json.dumps("request content")
+    assert content["attributes"][SpanAttributeKey.OUTPUTS] == json.dumps("response content")
+    for field in ("request", "response"):
+        traces, _ = store.search_traces([exp_id], filter_string=f"trace.{field} IS NOT NULL")
+        assert [trace.trace_id for trace in traces] == [trace_id]
+        if store._get_dialect() in (SQLITE, POSTGRES):
+            traces, _ = store.search_traces(
+                [exp_id], filter_string=f"trace.{field} = '{json.dumps(f'{field} content')}'"
+            )
+            assert [trace.trace_id for trace in traces] == [trace_id]
+
+
+@pytest.mark.parametrize("field", ["request", "response"])
+@pytest.mark.parametrize("operator", ["=", "!=", "LIKE", "ILIKE", "RLIKE"])
+@pytest.mark.parametrize("dialect", [MYSQL, MSSQL])
+def test_search_traces_root_content_value_filters_unsupported_database(
+    store, field, operator, dialect
+):
+    with store.ManagedSessionMaker() as session:
+        with pytest.raises(
+            MlflowException,
+            match=f"trace.{field} {operator} is supported only with SQLite and PostgreSQL tracking "
+            f"stores; current database is '{dialect}'",
+        ) as error:
+            sqlalchemy_store_module._get_filter_clauses_for_search_traces(
+                f"trace.{field} {operator} 'value'", session, dialect, store._trace_query(session)
+            )
+        assert error.value.error_code == "INVALID_PARAMETER_VALUE"
+
+
+@pytest.mark.parametrize("field", ["request", "response"])
+def test_search_traces_root_content_rejects_unsupported_operator(store, field):
+    exp_id = store.create_experiment("root_content_invalid")
+    with pytest.raises(MlflowException, match="Unsupported operator.*Supported operators"):
+        store.search_traces(locations=[exp_id], filter_string=f"trace.{field} > 'value'")
+
+
+@pytest.mark.parametrize("dialect", [postgresql.dialect(), mysql.dialect(), mssql.dialect()])
+@pytest.mark.parametrize("operator", ["IS NULL", "IS NOT NULL"])
+def test_search_traces_root_content_filter_sql(store, dialect, operator):
+    with store.ManagedSessionMaker() as session:
+        filters, *_ = sqlalchemy_store_module._get_filter_clauses_for_search_traces(
+            f"trace.response {operator}", session, dialect.name, store._trace_query(session)
+        )
+        query = store._trace_query(session).filter(*filters)
+        compiled = str(
+            query.statement.compile(dialect=dialect, compile_kwargs={"literal_binds": True})
+        )
+    assert "spans.parent_span_id IS NULL" in compiled
+    assert "spans.trace_id = trace_info.request_id" in compiled
+    assert "spans.experiment_id = trace_info.experiment_id" in compiled
+    if dialect.name == MSSQL:
+        assert "openjson" in compiled.lower()
+        assert "JSON_VALUE" not in compiled
 
 
 def test_search_traces_with_span_name_filter(store: SqlAlchemyStore):

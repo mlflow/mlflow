@@ -3,6 +3,7 @@ import { useIntl, type IntlShape } from 'react-intl';
 import {
   FilterOp,
   isClauseComplete,
+  isNullFilterOperator,
   type FilterClause,
   type FilterFieldDef,
   type TraceFilterModel,
@@ -108,13 +109,27 @@ export const useMlflowTraceFilterFields = (assessmentNames: string[] = []): Filt
       {
         id: 'input',
         label: intl.formatMessage({ defaultMessage: 'Input', description: 'Trace filter field: request/input' }),
-        operators: [FilterOp.CONTAINS],
+        operators: [
+          FilterOp.CONTAINS,
+          FilterOp.EQUALS,
+          FilterOp.NOT_EQUALS,
+          FilterOp.RLIKE,
+          FilterOp.IS_NULL,
+          FilterOp.IS_NOT_NULL,
+        ],
         valueInput: 'text',
       },
       {
         id: 'output',
         label: intl.formatMessage({ defaultMessage: 'Output', description: 'Trace filter field: response/output' }),
-        operators: [FilterOp.CONTAINS],
+        operators: [
+          FilterOp.CONTAINS,
+          FilterOp.EQUALS,
+          FilterOp.NOT_EQUALS,
+          FilterOp.RLIKE,
+          FilterOp.IS_NULL,
+          FilterOp.IS_NOT_NULL,
+        ],
         valueInput: 'text',
       },
       {
@@ -278,9 +293,13 @@ const compileClause = (clause: FilterClause): string | undefined => {
     case 'source':
       return compileContainsAwareClause('request_metadata."mlflow.source.name"', operator, value);
     case 'input':
-      return `span.content ILIKE '%${v}%'`;
+      return isNullFilterOperator(operator)
+        ? `trace.request ${operator}`
+        : compileContainsAwareClause('trace.request', operator, value);
     case 'output':
-      return `span.content ILIKE '%${v}%'`;
+      return isNullFilterOperator(operator)
+        ? `trace.response ${operator}`
+        : compileContainsAwareClause('trace.response', operator, value);
     case 'span_name':
       return compileSpanTextClause('span.name', operator, value);
     case 'span_type':

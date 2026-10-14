@@ -2520,3 +2520,34 @@ describe('extractTraceIdFromSearchQuery', () => {
     });
   });
 });
+
+test.each([INPUTS_COLUMN_ID, RESPONSE_COLUMN_ID])('compiles %s null filters without a value', (column) => {
+  for (const operator of [FilterOperator.IS_NULL, FilterOperator.IS_NOT_NULL]) {
+    expect(createMlflowSearchFilter(undefined, undefined, [{ column, operator, value: '' }])).toBe(
+      `${column} ${operator}`,
+    );
+  }
+});
+
+test.each([INPUTS_COLUMN_ID, RESPONSE_COLUMN_ID])('offers supported operators for %s', (column) => {
+  expect(getAvailableOperators(column, undefined, false)).toEqual([
+    FilterOperator.RLIKE,
+    FilterOperator.EQUALS,
+    FilterOperator.NOT_EQUALS,
+    FilterOperator.CONTAINS,
+    FilterOperator.IS_NULL,
+    FilterOperator.IS_NOT_NULL,
+  ]);
+  expect(getAvailableOperators(column, undefined, true)).toEqual([
+    FilterOperator.RLIKE,
+    FilterOperator.EQUALS,
+    FilterOperator.IS_NULL,
+    FilterOperator.IS_NOT_NULL,
+  ]);
+});
+
+test.each([INPUTS_COLUMN_ID, RESPONSE_COLUMN_ID])('compiles %s contains as ILIKE', (column) => {
+  expect(
+    createMlflowSearchFilter(undefined, undefined, [{ column, operator: FilterOperator.CONTAINS, value: 'Hello' }]),
+  ).toBe(`${column} ILIKE '%Hello%'`);
+});

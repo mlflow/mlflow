@@ -29,6 +29,7 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.db.db_types import MSSQL, MYSQL, POSTGRES, SQLITE
 from mlflow.tracing.constant import (
     AssessmentMetricSearchKey,
+    SpanAttributeKey,
     SpanMetricSearchKey,
     TraceMetadataKey,
     TraceMetricSearchKey,
@@ -1710,8 +1711,10 @@ class SearchTraceUtils(SearchUtils):
         "name",
         "run_id",
         "prompt",
-        # The following key is mapped to span attributes
+        # The following keys are searched in stored spans
         "text",
+        "request",
+        "response",
     }
     VALID_ORDER_BY_ATTRIBUTE_KEYS = {
         "experiment_id",
@@ -1782,6 +1785,19 @@ class SearchTraceUtils(SearchUtils):
 
     # Supported span attributes
     _SUPPORTED_SPAN_ATTRIBUTES = {"name", "type", "status"}
+    TRACE_CONTENT_ATTRIBUTE_KEY = {
+        "request": SpanAttributeKey.INPUTS,
+        "response": SpanAttributeKey.OUTPUTS,
+    }
+    VALID_TRACE_CONTENT_COMPARATORS = {
+        "=",
+        "!=",
+        "LIKE",
+        "ILIKE",
+        "RLIKE",
+        "IS NULL",
+        "IS NOT NULL",
+    }
     _SPAN_CONTENT_KEY = "content"
     VALID_SPAN_CONTENT_COMPARATORS = {"LIKE", "ILIKE"}
 
@@ -1848,6 +1864,10 @@ class SearchTraceUtils(SearchUtils):
             elif comparator == "IS NOT NULL":
                 return key in trace.request_metadata
             lhs = trace.request_metadata.get(key)
+        elif cls.is_trace_content(type_, key, comparator):
+            raise MlflowException.invalid_parameter_value(
+                "Request/response filtering requires stored root spans in a SQL-backed store."
+            )
         elif cls.is_attribute(type_, key, comparator):
             lhs = getattr(trace, key)
         elif cls.is_span(type_, key, comparator):
@@ -1912,6 +1932,18 @@ class SearchTraceUtils(SearchUtils):
         elif key in cls.SEARCH_KEY_TO_ATTRIBUTE:
             parsed["key"] = cls.SEARCH_KEY_TO_ATTRIBUTE[key]
         return parsed
+
+    @classmethod
+    def is_trace_content(cls, key_type, key_name, comparator):
+        if key_type == cls._ATTRIBUTE_IDENTIFIER and key_name in cls.TRACE_CONTENT_ATTRIBUTE_KEY:
+            if comparator not in cls.VALID_TRACE_CONTENT_COMPARATORS:
+                raise MlflowException.invalid_parameter_value(
+                    f"Unsupported operator '{comparator}' for trace.{key_name}. "
+                    "Supported operators: "
+                    f"{', '.join(sorted(cls.VALID_TRACE_CONTENT_COMPARATORS))}."
+                )
+            return True
+        return False
 
     @classmethod
     def is_request_metadata(cls, key_type, comparator):

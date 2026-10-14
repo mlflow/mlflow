@@ -17,6 +17,8 @@ export enum FilterOp {
   LESS_THAN_OR_EQUALS = '<=',
   CONTAINS = 'CONTAINS',
   RLIKE = 'RLIKE',
+  IS_NULL = 'IS NULL',
+  IS_NOT_NULL = 'IS NOT NULL',
 }
 
 /** How a clause's value input renders: a fixed single-select, a numeric input, or free text. */
@@ -83,14 +85,17 @@ export type TraceFilterModel = FilterClause[];
 
 export const EMPTY_FILTER_MODEL: TraceFilterModel = [];
 
+export const isNullFilterOperator = (operator: FilterOp): boolean =>
+  operator === FilterOp.IS_NULL || operator === FilterOp.IS_NOT_NULL;
+
 /**
- * A clause is "complete" (worth compiling / counting) once it has a field, operator, and value — and,
- * for a `requiresKey` field (signalled by a non-`undefined` `key`), a non-blank key too.
+ * A clause needs a field, operator, and value (except for null checks), plus a non-blank key
+ * for a `requiresKey` field (signalled by a non-`undefined` `key`).
  */
 export const isClauseComplete = (clause: FilterClause): boolean =>
   Boolean(clause.field) &&
   Boolean(clause.operator) &&
-  clause.value.trim().length > 0 &&
+  (isNullFilterOperator(clause.operator) || clause.value.trim().length > 0) &&
   (clause.key === undefined || clause.key.trim().length > 0);
 
 /** Number of active (complete) clauses — shown as a badge on the Filter button. */

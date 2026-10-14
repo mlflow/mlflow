@@ -42,39 +42,21 @@ import type {
 } from '../../types';
 import { FilterOperator, TracesTableColumnGroup, TracesTableColumnGroupToLabelMap, isNullOperator } from '../../types';
 
-const getFilterableInfoColumns = (usesV4APIs?: boolean) => {
-  // We use a different set of filterable info columns depending on whether v4 APIs are used
-  if (usesV4APIs) {
-    return [
-      EXECUTION_DURATION_COLUMN_ID,
-      STATE_COLUMN_ID,
-      TRACE_NAME_COLUMN_ID,
-      USER_COLUMN_ID,
-      SESSION_COLUMN_ID,
-      RUN_NAME_COLUMN_ID,
-      LOGGED_MODEL_COLUMN_ID,
-      SOURCE_COLUMN_ID,
-      GIT_BRANCH_COLUMN_ID,
-      GIT_COMMIT_COLUMN_ID,
-      INPUTS_COLUMN_ID,
-      RESPONSE_COLUMN_ID,
-      LINKED_PROMPTS_COLUMN_ID,
-    ];
-  }
-  return [
-    EXECUTION_DURATION_COLUMN_ID,
-    STATE_COLUMN_ID,
-    TRACE_NAME_COLUMN_ID,
-    USER_COLUMN_ID,
-    SESSION_COLUMN_ID,
-    RUN_NAME_COLUMN_ID,
-    LOGGED_MODEL_COLUMN_ID,
-    SOURCE_COLUMN_ID,
-    GIT_BRANCH_COLUMN_ID,
-    GIT_COMMIT_COLUMN_ID,
-    LINKED_PROMPTS_COLUMN_ID,
-  ];
-};
+const FILTERABLE_INFO_COLUMNS = [
+  EXECUTION_DURATION_COLUMN_ID,
+  STATE_COLUMN_ID,
+  TRACE_NAME_COLUMN_ID,
+  USER_COLUMN_ID,
+  SESSION_COLUMN_ID,
+  RUN_NAME_COLUMN_ID,
+  LOGGED_MODEL_COLUMN_ID,
+  SOURCE_COLUMN_ID,
+  GIT_BRANCH_COLUMN_ID,
+  GIT_COMMIT_COLUMN_ID,
+  INPUTS_COLUMN_ID,
+  RESPONSE_COLUMN_ID,
+  LINKED_PROMPTS_COLUMN_ID,
+];
 
 export const getAvailableOperators = (
   column: string,
@@ -106,7 +88,13 @@ export const getAvailableOperators = (
   }
 
   if (column === INPUTS_COLUMN_ID || column === RESPONSE_COLUMN_ID) {
-    return [FilterOperator.RLIKE, FilterOperator.EQUALS];
+    return [
+      FilterOperator.RLIKE,
+      FilterOperator.EQUALS,
+      ...(!usesV4APIs ? [FilterOperator.NOT_EQUALS, FilterOperator.CONTAINS] : []),
+      FilterOperator.IS_NULL,
+      FilterOperator.IS_NOT_NULL,
+    ];
   }
 
   if (column === TracesTableColumnGroup.ASSESSMENT) {
@@ -171,8 +159,6 @@ export const TableFilterItem = ({
   const { column, operator, key } = tableFilter;
   const { theme } = useDesignSystemTheme();
 
-  const availableFilterableInfoColumns = useMemo(() => getFilterableInfoColumns(usesV4APIs), [usesV4APIs]);
-
   const assessmentKeyOptions: TableFilterOption[] = useMemo(
     () => assessmentInfos.map((assessment) => ({ value: assessment.name, renderValue: () => assessment.displayName })),
     [assessmentInfos],
@@ -193,8 +179,7 @@ export const TableFilterItem = ({
     });
     const result = sortedColumns
       .filter(
-        (column) =>
-          availableFilterableInfoColumns.includes(column.id) || column.id.startsWith(CUSTOM_METADATA_COLUMN_ID),
+        (column) => FILTERABLE_INFO_COLUMNS.includes(column.id) || column.id.startsWith(CUSTOM_METADATA_COLUMN_ID),
       )
       .map((column) => ({ value: column.id, renderValue: () => column.filterLabel ?? column.label }));
 
@@ -227,7 +212,7 @@ export const TableFilterItem = ({
     }
 
     return result;
-  }, [allColumns, usesV4APIs, availableFilterableInfoColumns]);
+  }, [allColumns, usesV4APIs]);
 
   return (
     <>
