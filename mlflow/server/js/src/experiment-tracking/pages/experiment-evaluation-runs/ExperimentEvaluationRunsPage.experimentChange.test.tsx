@@ -1,7 +1,7 @@
 import { jest, describe, beforeAll, beforeEach, test, expect } from '@jest/globals';
 import { rest } from 'msw';
 import { setupServer } from '../../../common/utils/setup-msw';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import ExperimentEvaluationRunsPage from './ExperimentEvaluationRunsPage';
 import { testRoute, TestRouter } from '../../../common/utils/RoutingTestUtils';
@@ -18,11 +18,28 @@ jest.mock('../../../common/utils/FeatureUtils', () => ({
   shouldEnableNewEvalRunsUi: jest.fn(() => false),
 }));
 
+// Records which runs the page publishes as selected, and for which experiment, on every render.
+const mockPublishedSelections: { experimentId?: string; runUuids: string[] }[] = [];
+jest.mock('@mlflow/mlflow/src/assistant', () => ({
+  ...jest.requireActual<typeof import('@mlflow/mlflow/src/assistant')>('@mlflow/mlflow/src/assistant'),
+  useRegisterSelectedIds: (_key: string, selection: Record<string, boolean>) => {
+    const { useParams: mockUseParams } = jest.requireActual<typeof import('../../../common/utils/RoutingUtils')>(
+      '../../../common/utils/RoutingUtils',
+    );
+    // eslint-disable-next-line react-hooks/rules-of-hooks -- runs inside the page's render
+    const { experimentId } = mockUseParams();
+    mockPublishedSelections.push({
+      experimentId,
+      runUuids: Object.keys(selection).filter((runUuid) => selection[runUuid]),
+    });
+  },
+}));
+
 // eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(30000);
 
-const createMockRun = (name: string, startTime: number) => ({
-  data: { params: [], tags: [], metrics: [] },
+const createMockRun = (name: string, startTime: number, metrics: string[] = []) => ({
+  data: { params: [], tags: [], metrics: metrics.map((key) => ({ key, value: 0.5, step: 0, timestamp: startTime })) },
   info: {
     artifact_uri: '',
     end_time: 0,
@@ -44,9 +61,18 @@ const SwitchExperimentButton = () => {
 
 describe('ExperimentEvaluationRunsPage experiment change', () => {
   const server = setupServer(
-    rest.post('ajax-api/2.0/mlflow/runs/search', (_req, res, ctx) =>
-      res(ctx.json({ runs: [createMockRun('run-a', 2), createMockRun('run-b', 1)], next_page_token: null })),
-    ),
+    rest.post('ajax-api/2.0/mlflow/runs/search', (req, res, ctx) => {
+      const experimentId = (req.body as { experiment_ids?: string[] }).experiment_ids?.[0];
+      return res(
+        ctx.json({
+          runs:
+            experimentId === 'exp-2'
+              ? [createMockRun('run-a', 3, ['shared']), createMockRun('run-c', 2, ['shared'])]
+              : [createMockRun('run-a', 2, ['shared', 'only-in-exp-1']), createMockRun('run-b', 1, ['shared'])],
+          next_page_token: null,
+        }),
+      );
+    }),
   );
 
   const renderPage = () =>
@@ -90,6 +116,8 @@ describe('ExperimentEvaluationRunsPage experiment change', () => {
   });
 
   beforeEach(() => {
+    mockPublishedSelections.length = 0;
+    window.localStorage.clear();
     jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(false);
   });
 
@@ -97,7 +125,38 @@ describe('ExperimentEvaluationRunsPage experiment change', () => {
     jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(true);
     await selectRunAndSwitchExperiment();
 
-    await waitFor(async () => expect(await runACheckbox()).not.toBeChecked());
+    await screen.findByTestId('eval-runs-table-cell-checkbox-run-c');
+    expect(screen.queryByRole('button', { name: /^Actions/ })).not.toBeInTheDocument();
+  });
+
+  test('flag on: never publishes the previous experiment selection for the new experiment', async () => {
+    jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(true);
+    await selectRunAndSwitchExperiment();
+    await screen.findByTestId('eval-runs-table-cell-checkbox-run-c');
+
+    expect(
+      mockPublishedSelections.some(({ experimentId, runUuids }) => experimentId === 'exp-1' && runUuids.length),
+    ).toBe(true);
+    expect(
+      mockPublishedSelections.filter(({ experimentId, runUuids }) => experimentId === 'exp-2' && runUuids.length),
+    ).toEqual([]);
+  });
+
+  test('flag on: column choices start fresh in the new experiment', async () => {
+    jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(true);
+    renderPage();
+    await userEvent.hover(await screen.findByRole('columnheader', { name: /^shared/ }));
+    await userEvent.click(screen.getByRole('button', { name: 'Options for shared column' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Hide column' }));
+    expect(screen.queryByRole('columnheader', { name: /^shared/ })).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Switch experiment' }));
+    await screen.findByTestId('eval-runs-table-cell-checkbox-run-c');
+
+    expect(screen.getByRole('columnheader', { name: /^shared/ })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Display' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Columns' }));
+    expect(screen.queryByRole('menuitemcheckbox', { name: 'only-in-exp-1' })).not.toBeInTheDocument();
   });
 
   test('flag off: keeps the run selection when the experiment changes', async () => {

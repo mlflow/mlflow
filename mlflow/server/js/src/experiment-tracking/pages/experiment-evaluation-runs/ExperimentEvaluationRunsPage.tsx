@@ -62,6 +62,7 @@ import { EvalRunsFilterCount } from './EvalRunsFilterCount';
 import type { EvalRunsFilterButtonHandle } from './EvalRunsFilterButton';
 import { ExperimentEvaluationRunsTableControlsV2 } from './ExperimentEvaluationRunsTableControlsV2';
 import { EvalRunsDatePreset, useEvalRunsFilters } from './hooks/useEvalRunsFilters';
+import { useEvalRunsUnfilteredCount } from './hooks/useEvalRunsUnfilteredCount';
 import { getLocalStorageItem, setLocalStorageItem } from '@databricks/web-shared/hooks';
 import { useGetExperimentRunColor } from '../../components/experiment-page/hooks/useExperimentRunColor';
 import { useRegisterSelectedIds } from '@mlflow/mlflow/src/assistant';
@@ -135,20 +136,9 @@ const ExperimentEvaluationRunsPageImpl = () => {
 
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [filterChartToSelectedRuns, setFilterChartToSelectedRuns] = useState(false);
-  const previousExperimentId = useRef(experimentId);
   const hasInitializedFromUrl = useRef(false);
   useRegisterSelectedIds('selectedRunIds', rowSelection);
 
-  useEffect(() => {
-    if (!enableNewEvalRunsUi || previousExperimentId.current === experimentId) {
-      return;
-    }
-    previousExperimentId.current = experimentId;
-    hasInitializedFromUrl.current = false;
-    setRowSelection({});
-    setFilterChartToSelectedRuns(false);
-    setIsComparisonMode(false);
-  }, [enableNewEvalRunsUi, experimentId]);
   const filterButtonRef = useRef<EvalRunsFilterButtonHandle>(null);
   const handleFilterByColumn = useCallback((field: string) => filterButtonRef.current?.openForField(field), []);
 
@@ -177,16 +167,11 @@ const ExperimentEvaluationRunsPageImpl = () => {
   // The filtered query cannot report the unfiltered total, so keep a first-page unfiltered query
   // for "showing N of M". Its `hasNextPage` marks the total as a lower bound ("M+").
   const {
-    data: unfilteredRuns,
+    runs: unfilteredRuns,
     hasNextPage: unfilteredHasNextPage,
     isLoading: isLoadingUnfilteredRuns,
     error: unfilteredRunsError,
-  } = useExperimentEvaluationRunsData({
-    experimentId,
-    enabled: enableNewEvalRunsUi && isAnyFilterActive,
-    filter: '',
-    queryKeyScope: 'unfiltered-count',
-  });
+  } = useEvalRunsUnfilteredCount({ experimentId, enabled: enableNewEvalRunsUi && isAnyFilterActive });
 
   const refetchAll = useCallback(() => {
     refetch();
@@ -385,17 +370,12 @@ const ExperimentEvaluationRunsPageImpl = () => {
     [uniqueColumns],
   );
   // Undefined follows defaults; an explicit empty selection stays empty across page reloads.
-  const [storedChartMetricSelection, setStoredChartMetricSelection] = useState<{
-    experimentId: string;
-    value: unknown;
-  }>(() => ({ experimentId, value: enableNewEvalRunsUi ? readChartMetricSelection(experimentId) : undefined }));
-  // The page stays mounted across experiments, so switch to the new experiment's own selection.
-  if (enableNewEvalRunsUi && storedChartMetricSelection.experimentId !== experimentId) {
-    setStoredChartMetricSelection({ experimentId, value: readChartMetricSelection(experimentId) });
-  }
+  const [storedChartMetricSelection, setStoredChartMetricSelection] = useState<unknown>(() =>
+    enableNewEvalRunsUi ? readChartMetricSelection(experimentId) : undefined,
+  );
   const setSelectedChartMetricKeys = useCallback(
     (metricKeys: string[]) => {
-      setStoredChartMetricSelection({ experimentId, value: metricKeys });
+      setStoredChartMetricSelection(metricKeys);
       setLocalStorageItem(
         getChartMetricSelectionStorageKey(experimentId),
         CHART_METRIC_SELECTION_STORAGE_VERSION,
@@ -405,9 +385,7 @@ const ExperimentEvaluationRunsPageImpl = () => {
     },
     [experimentId],
   );
-  const chartMetricSelection = isStringArray(storedChartMetricSelection.value)
-    ? storedChartMetricSelection.value
-    : undefined;
+  const chartMetricSelection = isStringArray(storedChartMetricSelection) ? storedChartMetricSelection : undefined;
 
   const isEmpty = runUuids.length === 0 && !searchFilter && !isLoading && !(enableNewEvalRunsUi && isAnyFilterActive);
   const hasNoFilteredRuns = enableNewEvalRunsUi && isAnyFilterActive && runUuids.length === 0 && !isLoading && !error;
@@ -942,10 +920,15 @@ const ExperimentEvaluationRunsPageImpl = () => {
   );
 };
 
-const ExperimentEvaluationRunsPage = () => (
-  <ExperimentEvaluationRunsPageWrapper>
-    <ExperimentEvaluationRunsPageImpl />
-  </ExperimentEvaluationRunsPageWrapper>
-);
+const ExperimentEvaluationRunsPage = () => {
+  const { experimentId } = useParams();
+  // The new UI starts each experiment from a fresh page: selection, columns and chart choices
+  // belong to the experiment they were made in.
+  return (
+    <ExperimentEvaluationRunsPageWrapper>
+      <ExperimentEvaluationRunsPageImpl {...(shouldEnableNewEvalRunsUi() ? { key: experimentId } : {})} />
+    </ExperimentEvaluationRunsPageWrapper>
+  );
+};
 
 export default ExperimentEvaluationRunsPage;

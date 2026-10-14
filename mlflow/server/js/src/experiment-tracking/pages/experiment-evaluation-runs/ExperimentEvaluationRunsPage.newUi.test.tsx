@@ -1,7 +1,7 @@
 import { jest, describe, beforeAll, beforeEach, test, expect } from '@jest/globals';
 import { rest } from 'msw';
 import { setupServer } from '../../../common/utils/setup-msw';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import ExperimentEvaluationRunsPage from './ExperimentEvaluationRunsPage';
 import { testRoute, TestRouter } from '../../../common/utils/RoutingTestUtils';
@@ -52,16 +52,19 @@ describe('ExperimentEvaluationRunsPage new eval runs UI', () => {
     ),
   );
 
-  const renderPage = () =>
+  const renderPage = ({
+    queryClient = new QueryClient(),
+    initialEntry = '/experiments/exp-1/evaluation-runs',
+  }: { queryClient?: QueryClient; initialEntry?: string } = {}) =>
     render(
       <TestApolloProvider disableCache>
-        <QueryClientProvider client={new QueryClient()}>
+        <QueryClientProvider client={queryClient}>
           <MockedReduxStoreProvider state={{ entities: { colorByRunUuid: {} } }}>
             <IntlProvider locale="en">
               <DesignSystemProvider>
                 <TestRouter
                   routes={[testRoute(<ExperimentEvaluationRunsPage />, '/experiments/:experimentId/evaluation-runs')]}
-                  initialEntries={['/experiments/exp-1/evaluation-runs']}
+                  initialEntries={[initialEntry]}
                 />
               </DesignSystemProvider>
             </IntlProvider>
@@ -99,6 +102,32 @@ describe('ExperimentEvaluationRunsPage new eval runs UI', () => {
 
     expect(await screen.findByTestId('eval-runs-table-cell-checkbox-run-a')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Date' })).not.toBeInTheDocument();
+  });
+
+  const queryKeysAfterLoad = async (queryClient: QueryClient) => {
+    await screen.findByTestId('eval-runs-table-cell-checkbox-run-a');
+    return queryClient
+      .getQueryCache()
+      .getAll()
+      .map((query) => query.queryKey);
+  };
+
+  test('flag off: an active search creates no unfiltered-count query', async () => {
+    const queryClient = new QueryClient();
+    // The URL search param is leak bait: the new UI would treat it as an active filter.
+    renderPage({ queryClient, initialEntry: '/experiments/exp-1/evaluation-runs?evalRunsSearchFilter=run' });
+
+    expect(await queryKeysAfterLoad(queryClient)).toEqual([['SEARCH_RUNS', 'exp-1', '']]);
+  });
+
+  test('flag on: an active search adds the unfiltered-count query', async () => {
+    jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(true);
+    const queryClient = new QueryClient();
+    renderPage({ queryClient, initialEntry: '/experiments/exp-1/evaluation-runs?evalRunsSearchFilter=run' });
+
+    await waitFor(async () =>
+      expect(await queryKeysAfterLoad(queryClient)).toContainEqual(['EVAL_RUNS_UNFILTERED_COUNT', 'exp-1']),
+    );
   });
 
   test('flag on: shows the recent runs chart above the table', async () => {
