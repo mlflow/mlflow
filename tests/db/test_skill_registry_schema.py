@@ -1,8 +1,10 @@
 # Cross-dialect (Docker matrix) tests for the RFC-0008 skill registry schema: they run
 # against every backend in the MLflow DB test matrix (SQLite, PostgreSQL, MySQL, MSSQL)
 # and prove cascade behavior at the SQL
-# layer rather than through application checks. The store layer does not exist yet, so
-# these operate directly on the ORM models.
+# layer rather than through application checks. They operate on the ORM models and raw
+# SQL rather than the store, so a rule enforced only in application code would fail
+# here. The store's behavior on every engine is covered separately by
+# tests/store/tracking/sqlalchemy_store, which the database CI job also runs.
 #
 # Several tests here intentionally mirror SQLite-only tests in
 # tests/store/tracking/test_skill_registry_dbmodels.py: those give fast feedback in the
@@ -129,6 +131,45 @@ def test_db_backend_cascade_is_enforced_by_the_database(store):
                 .count()
                 == 0
             )
+
+
+def _widest(model, column, fill):
+    return fill * getattr(model, column).type.length
+
+
+def test_db_backend_keys_accept_values_at_their_declared_maximum(store):
+    # https://github.com/mlflow/rfcs/pull/47 sized every composite key to fit each engine's
+    # index limit. MySQL enforces that when the migration creates the index, but SQL Server
+    # only warns then, and rejects a row once its key actually exceeds 900 bytes. So insert
+    # every table's key columns at their declared maximum and read them back unchanged,
+    # which also catches a column silently truncating a value. Widths come from the models,
+    # so widening a column later is covered too.
+    workspace = _widest(SqlSkill, "workspace", "w")
+    organization = _widest(SqlSkill, "organization", "o")
+    skill = _widest(SqlSkill, "name", "s")
+    tag_key = _widest(SqlSkillTag, "key", "k")
+    alias = _widest(SqlSkillAlias, "alias", "a")
+    digest = _widest(SqlSkillVersion, "digest", "f")
+
+    skill_key = {"workspace": workspace, "organization": organization, "name": skill}
+    with session_scope(store) as session:
+        session.add(SqlSkill(**skill_key))
+        session.add(
+            SqlSkillVersion(
+                **skill_key, version=1, source_type="git", source="s.git", digest=digest
+            )
+        )
+        session.add(SqlSkillTag(**skill_key, key=tag_key, value="v"))
+        session.add(SqlSkillVersionTag(**skill_key, version=1, key=tag_key, value="v"))
+        session.add(SqlSkillAlias(**skill_key, alias=alias, version=1))
+
+    with session_scope(store, commit=False) as session:
+        assert session.get(SqlSkill, (workspace, organization, skill)) is not None
+        stored = session.get(SqlSkillVersion, (workspace, organization, skill, 1))
+        assert stored.digest == digest
+        assert session.get(SqlSkillTag, (workspace, organization, skill, tag_key)) is not None
+        assert session.get(SqlSkillVersionTag, (workspace, organization, skill, 1, tag_key))
+        assert session.get(SqlSkillAlias, (workspace, organization, skill, alias)) is not None
 
 
 _SKILL_REGISTRY_TABLES = frozenset({
