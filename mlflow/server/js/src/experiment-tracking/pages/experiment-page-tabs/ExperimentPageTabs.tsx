@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo } from 'react';
-import { Button, PageWrapper, ParagraphSkeleton, useDesignSystemTheme } from '@databricks/design-system';
+import { PageWrapper, ParagraphSkeleton, useDesignSystemTheme } from '@databricks/design-system';
 import { PredefinedError } from '@databricks/web-shared/errors';
 import invariant from 'invariant';
+import { getBasename } from '../../../common/utils/FileUtils';
 import { useNavigate, useParams, Outlet, useLocation, matchPath } from '../../../common/utils/RoutingUtils';
 import { useGetExperimentQuery } from '../../hooks/useExperimentQuery';
 import { useExperimentReduxStoreCompat } from '../../hooks/useExperimentReduxStoreCompat';
@@ -21,7 +22,7 @@ import {
 import { useIsFileStore } from '../../hooks/useServerInfo';
 import { useUpdateExperimentKind } from '../../components/experiment-page/hooks/useUpdateExperimentKind';
 import { ExperimentViewHeaderKindSelector } from '../../components/experiment-page/components/header/ExperimentViewHeaderKindSelector';
-import { useExperimentKind } from '../../utils/ExperimentKindUtils';
+import { isGenAIExperimentKind, useExperimentKind } from '../../utils/ExperimentKindUtils';
 import { useInferExperimentKind } from '../../components/experiment-page/hooks/useInferExperimentKind';
 import { ExperimentViewInferredKindModal } from '../../components/experiment-page/components/header/ExperimentViewInferredKindModal';
 import Routes, { RoutePaths } from '../../routes';
@@ -33,6 +34,35 @@ import { HeaderVisibilityProvider, useHeaderVisibility } from './ExperimentPageH
 import { ExperimentViewSavedViewsButton } from '../../components/experiment-page/components/header/ExperimentViewSavedViewsButton';
 import { SharedViewActionsBridgeProvider } from '../../components/experiment-page/hooks/useSharedViewActionsBridge';
 import type { ExperimentEntity } from '../../types';
+import { getExperimentEntityFromQuery } from '../../components/experiment-page/utils/getExperimentEntityFromQuery';
+import { ExperimentPageBreadcrumbs } from './ExperimentPageBreadcrumbs';
+import { ExperimentPageMainContent } from './ExperimentPageMainContent';
+import { ExperimentPageRevampProvider } from './ExperimentPageRevampContext';
+import { useDocumentTitle } from '@databricks/web-shared/routing';
+
+const experimentPageTabDocumentTitles: Record<ExperimentPageTabName, string> = {
+  [ExperimentPageTabName.Overview]: 'Overview',
+  [ExperimentPageTabName.Runs]: 'Runs',
+  [ExperimentPageTabName.Traces]: 'Traces',
+  [ExperimentPageTabName.Models]: 'Logged Models',
+  [ExperimentPageTabName.EvaluationMonitoring]: 'Monitoring',
+  [ExperimentPageTabName.Judges]: 'Judges',
+  [ExperimentPageTabName.EvaluationRuns]: 'Evaluation Runs',
+  [ExperimentPageTabName.Datasets]: 'Datasets',
+  [ExperimentPageTabName.LabelingSessions]: 'Reviews',
+  [ExperimentPageTabName.LabelingSchemas]: 'Labeling Schemas',
+  [ExperimentPageTabName.ReviewQueue]: 'Review',
+  [ExperimentPageTabName.Prompts]: 'Prompts',
+  [ExperimentPageTabName.ChatSessions]: 'Sessions',
+  [ExperimentPageTabName.SingleChatSession]: 'Sessions',
+  [ExperimentPageTabName.Playground]: 'Playground',
+  [ExperimentPageTabName.Settings]: 'Settings',
+};
+
+export const getExperimentDocumentTitle = (experimentName: string, activeTab: ExperimentPageTabName) => {
+  const pageName = experimentPageTabDocumentTitles[activeTab];
+  return `MLflow - ${getBasename(experimentName)} > ${pageName}`;
+};
 
 const ExperimentPageTabsImpl = () => {
   const { experimentId, tabName } = useParams();
@@ -108,6 +138,15 @@ const ExperimentPageTabsImpl = () => {
     experimentTags,
     updateExperimentKind,
     hasV4Location,
+  });
+
+  const experimentEntity = useMemo(() => getExperimentEntityFromQuery(experiment), [experiment]);
+  const showRevamp = isGenAIExperimentKind(experimentKind ?? inferredExperimentKind ?? ExperimentKind.NO_INFERRED_TYPE);
+
+  useDocumentTitle({
+    title: experimentEntity?.name
+      ? getExperimentDocumentTitle(experimentEntity.name, activeTab)
+      : `Experiment ${experimentId}`,
   });
 
   // Check if the user landed on the experiment page without a specific tab (sub-route)...
@@ -201,68 +240,82 @@ const ExperimentPageTabsImpl = () => {
       <ExperimentViewSavedViewsButton experiment={experiment as unknown as ExperimentEntity} />
     ) : undefined;
 
-  return (
-    // Bridges the runs shared-view Override/Discard actions (published from ExperimentView, rendered
-    // via the outlet below) up to the header Views dropdown, which lives above the outlet.
-    <SharedViewActionsBridgeProvider>
-      {!headerHidden && (
-        <ExperimentPageHeaderWithDescription
-          experiment={experiment}
-          loading={loadingExperiment || inferringExperimentType}
-          onNoteUpdated={refetchExperiment}
-          error={experimentError}
-          inferredExperimentKind={inferredExperimentKind}
-          savedViewsSlot={headerSavedViewsSlot}
-          experimentKindSelector={
-            !enableWorkflowBasedNavigation ? (
-              <ExperimentViewHeaderKindSelector
-                value={experimentKind}
-                inferredExperimentKind={inferredExperimentKind}
-                onChange={(kind) => updateExperimentKind({ experimentId, kind })}
-                isUpdating={updatingExperimentKind || inferringExperimentType}
-                key={inferredExperimentKind}
-                readOnly={!canUpdateExperimentKind}
-              />
-            ) : null
-          }
+  const breadcrumbs =
+    showRevamp && experimentEntity && !headerHidden ? (
+      <ExperimentPageBreadcrumbs experiment={experimentEntity} />
+    ) : undefined;
+
+  const mainContent = showRevamp ? (
+    <ExperimentPageMainContent breadcrumbs={breadcrumbs} pageActions={headerSavedViewsSlot}>
+      {outletComponent}
+    </ExperimentPageMainContent>
+  ) : (
+    <div css={contentWrapperCss}>{outletComponent}</div>
+  );
+
+  const sideNavLayout = (
+    <div css={{ display: 'flex', flex: 1, minWidth: 0, minHeight: 0 }}>
+      {loadingExperiment || inferringExperimentType ? (
+        <ExperimentPageSideNavSkeleton />
+      ) : (
+        <ExperimentPageSideNav
+          experimentKind={experimentKind ?? inferredExperimentKind ?? ExperimentKind.CUSTOM_MODEL_DEVELOPMENT}
+          activeTab={activeTab}
         />
       )}
-      {!enableWorkflowBasedNavigation ? (
-        <div css={{ display: 'flex', flex: 1, minWidth: 0, minHeight: 0 }}>
-          {loadingExperiment || inferringExperimentType ? (
-            <ExperimentPageSideNavSkeleton />
-          ) : (
-            <ExperimentPageSideNav
-              experimentKind={experimentKind ?? inferredExperimentKind ?? ExperimentKind.CUSTOM_MODEL_DEVELOPMENT}
-              activeTab={activeTab}
-            />
-          )}
-          <div css={contentWrapperCss}>{outletComponent}</div>
-        </div>
-      ) : (
-        <div css={contentWrapperCss}>{outletComponent}</div>
-      )}
+      {mainContent}
+    </div>
+  );
+
+  const legacyHeader = !headerHidden ? (
+    <ExperimentPageHeaderWithDescription
+      experiment={experiment}
+      loading={loadingExperiment || inferringExperimentType}
+      onNoteUpdated={refetchExperiment}
+      error={experimentError}
+      inferredExperimentKind={inferredExperimentKind}
+      savedViewsSlot={headerSavedViewsSlot}
+      experimentKindSelector={
+        !enableWorkflowBasedNavigation ? (
+          <ExperimentViewHeaderKindSelector
+            value={experimentKind}
+            inferredExperimentKind={inferredExperimentKind}
+            onChange={(kind) => updateExperimentKind({ experimentId, kind })}
+            isUpdating={updatingExperimentKind || inferringExperimentType}
+            key={inferredExperimentKind}
+            readOnly={!canUpdateExperimentKind}
+          />
+        ) : null
+      }
+    />
+  ) : null;
+
+  return (
+    <SharedViewActionsBridgeProvider>
+      <ExperimentPageRevampProvider enabled={showRevamp} inferredExperimentKind={inferredExperimentKind}>
+        <PageWrapper
+          css={{
+            paddingTop: showRevamp ? 0 : theme.spacing.md,
+            paddingBottom: showRevamp ? 0 : theme.spacing.md,
+            display: 'flex',
+            overflow: 'hidden',
+            height: '100%',
+            flexDirection: 'column',
+            boxSizing: 'border-box',
+          }}
+        >
+          {showRevamp ? null : legacyHeader}
+          {!enableWorkflowBasedNavigation ? sideNavLayout : mainContent}
+        </PageWrapper>
+      </ExperimentPageRevampProvider>
     </SharedViewActionsBridgeProvider>
   );
 };
 
 const ExperimentPageTabs = () => {
-  const { theme } = useDesignSystemTheme();
-
   return (
     <HeaderVisibilityProvider>
-      <div
-        css={{
-          flex: 1,
-          overflow: 'hidden',
-          display: 'flex',
-          flexDirection: 'column',
-          padding: theme.spacing.md,
-          height: '100%',
-        }}
-      >
-        <ExperimentPageTabsImpl />
-      </div>
+      <ExperimentPageTabsImpl />
     </HeaderVisibilityProvider>
   );
 };

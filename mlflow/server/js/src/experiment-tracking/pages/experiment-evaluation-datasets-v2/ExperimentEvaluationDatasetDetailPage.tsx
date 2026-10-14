@@ -8,9 +8,11 @@ import { ExperimentEvaluationDatasetsPageWrapper } from '../experiment-evaluatio
 import { useGetDatasetQuery } from './hooks/useDatasetsQueries';
 import { DatasetDetailPageContent } from './components/DatasetDetailPageContent';
 import { DatasetsBreadcrumbs } from './components/DatasetsBreadcrumbs';
+import { useExperimentPageRevampContext } from '../experiment-page-tabs/ExperimentPageRevampContext';
 
 const DatasetDetailLoadingSkeleton = () => {
   const { theme } = useDesignSystemTheme();
+  const { enabled: revampEnabled } = useExperimentPageRevampContext();
   return (
     <div
       css={{
@@ -18,10 +20,8 @@ const DatasetDetailLoadingSkeleton = () => {
         flexDirection: 'column',
         flex: 1,
         minHeight: 0,
-        // Outer wrappers (PageWrapper + ExperimentPageTabs) already contribute spacing
-        // on the right (24px) and bottom (8px); only top and left need padding here.
-        paddingTop: theme.spacing.md,
-        paddingLeft: theme.spacing.md,
+        paddingTop: revampEnabled ? 0 : theme.spacing.md,
+        paddingLeft: revampEnabled ? 0 : theme.spacing.md,
         gap: theme.spacing.md,
       }}
     >
@@ -41,6 +41,7 @@ const ExperimentEvaluationDatasetDetailPageImpl = () => {
   invariant(datasetId, 'Dataset ID must be defined');
 
   const { theme } = useDesignSystemTheme();
+  const { enabled: revampEnabled } = useExperimentPageRevampContext();
 
   // Fetch the dataset here (not inside the page/controller) so loading / error / 404 can be
   // handled at the page boundary. Downstream components receive a fully-loaded `Dataset` and
@@ -62,14 +63,12 @@ const ExperimentEvaluationDatasetDetailPageImpl = () => {
           flexDirection: 'column',
           flex: 1,
           minHeight: 0,
-          // Outer wrappers (PageWrapper + ExperimentPageTabs) already contribute spacing
-          // on the right (24px) and bottom (8px); only top and left need padding here.
-          paddingTop: theme.spacing.md,
-          paddingLeft: theme.spacing.md,
+          paddingTop: revampEnabled ? 0 : theme.spacing.md,
+          paddingLeft: revampEnabled ? 0 : theme.spacing.md,
           gap: theme.spacing.md,
         }}
       >
-        <DatasetsBreadcrumbs experimentId={experimentId} />
+        {!revampEnabled && <DatasetsBreadcrumbs experimentId={experimentId} />}
         <div
           css={{
             display: 'flex',
