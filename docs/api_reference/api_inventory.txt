@@ -850,6 +850,7 @@ mlflow.gateway.config.EndpointType
 mlflow.gateway.config.GatewayConfig
 mlflow.gateway.config.GatewayRequestType
 mlflow.gateway.config.GeminiConfig
+mlflow.gateway.config.GeminiConfig.validate_gemini_api_base
 mlflow.gateway.config.GeminiConfig.validate_gemini_api_key
 mlflow.gateway.config.HuggingFaceTextGenerationInferenceConfig
 mlflow.gateway.config.Limit
@@ -1030,6 +1031,7 @@ mlflow.genai.judges.Judge.align
 mlflow.genai.judges.Judge.get_input_fields
 mlflow.genai.judges.Judge.get_output_fields
 mlflow.genai.judges.Judge.model_post_init
+mlflow.genai.judges.ModelAPI
 mlflow.genai.judges.base.AlignmentOptimizer
 mlflow.genai.judges.base.Judge
 mlflow.genai.judges.custom_prompt_judge
@@ -1042,6 +1044,7 @@ mlflow.genai.judges.is_tool_call_correct
 mlflow.genai.judges.is_tool_call_efficient
 mlflow.genai.judges.make_judge
 mlflow.genai.judges.meets_guidelines
+mlflow.genai.judges.model_api.ModelAPI
 mlflow.genai.judges.utils.CategoricalRating
 mlflow.genai.label_schemas.InputCategorical
 mlflow.genai.label_schemas.InputCategorical.from_proto

@@ -3,6 +3,10 @@
     "defaultMessage": "Relevant",
     "description": "Evaluation results > retrieval relevancy assessment > positive value label. Displayed if evaluation result is considered as relevant to the query."
   },
+  "++BSfo": {
+    "defaultMessage": "Only an administrator can add the {provider} API key on this server. Ask an administrator, or pick another provider below.",
+    "description": "Inline assistant API key prompt shown to a non-admin user, who cannot add API keys"
+  },
   "+/Zrmm": {
     "defaultMessage": "Temperature",
     "description": "Label for temperature input"
@@ -219,6 +223,10 @@
     "defaultMessage": "Cancel",
     "description": "Button text for canceling evaluation"
   },
+  "+uJ+jl": {
+    "defaultMessage": "The {provider} API key can only be added from the MLflow server host. Pick another provider below.",
+    "description": "Inline assistant API key prompt shown to a remote user, who cannot add API keys"
+  },
   "+w9a+1": {
     "defaultMessage": "Open runs in this group in the new tab",
     "description": "Experiment page > grouped runs table > tooltip for a button that opens runs in a group in a new tab"
@@ -246,6 +254,10 @@
   "//EoiB": {
     "defaultMessage": "Search records by inputs or expectations",
     "description": "Aria label for the search input on the V2 dataset records page (placeholder is not a label per WCAG 1.3.1)"
+  },
+  "/0HEIo": {
+    "defaultMessage": "probability of true",
+    "description": "Predicate decision probability summary"
   },
   "/2InJv": {
     "defaultMessage": "Grounded",
@@ -538,6 +550,10 @@
   "054/rv": {
     "defaultMessage": "Close guidance",
     "description": "Aria label for closing the detect issues guidance popover"
+  },
+  "06ZYgN": {
+    "defaultMessage": "Choices",
+    "description": "Label for decision question choices"
   },
   "075RKh": {
     "defaultMessage": "Loaded {name} v{version} with settings",
@@ -2526,6 +2542,10 @@
   "8HwtfM": {
     "defaultMessage": "New password",
     "description": "Label for the new-password field"
+  },
+  "8I1wax": {
+    "defaultMessage": "Predicate",
+    "description": "Predicate decision answer type"
   },
   "8I9ipd": {
     "defaultMessage": "The provided value is not valid JSON",
@@ -4535,6 +4555,10 @@
     "defaultMessage": "Are you sure you want to delete the webhook \"{name}\"? This action cannot be undone.",
     "description": "Delete webhook confirmation message"
   },
+  "GdFpfr": {
+    "defaultMessage": "We couldn't check for traces outside this time range. Try viewing all traces.",
+    "description": "Message shown when checking for traces outside the time range fails"
+  },
   "GdtTc/": {
     "defaultMessage": "Run evaluation",
     "description": "Home page quick action title for running evaluations"
@@ -4586,6 +4610,10 @@
   "GogRws": {
     "defaultMessage": "Loading judges...",
     "description": "Loading message while fetching experiment judges"
+  },
+  "Gp3lm5": {
+    "defaultMessage": "Refusal",
+    "description": "Refusal decision answer type"
   },
   "GpRBxt": {
     "defaultMessage": "Trace",
@@ -5378,6 +5406,10 @@
   "K0BdF9": {
     "defaultMessage": "Save",
     "description": "Edit server modal save button"
+  },
+  "K0u3F5": {
+    "defaultMessage": "Audio unavailable",
+    "description": "Fallback shown when a custom trace view audio binding is missing or invalid"
   },
   "K1JLVU": {
     "defaultMessage": "Latency",
@@ -13135,6 +13167,10 @@
     "defaultMessage": "Compact",
     "description": "Traces table row-height option: compact (dense) rows"
   },
+  "nnZvy4": {
+    "defaultMessage": "Refused",
+    "description": "Summary for a declined decision question"
+  },
   "no89vN": {
     "defaultMessage": "Trace archival retention must use the format '<int><unit>', where unit is one of 'm', 'h', or 'd'.",
     "description": "Validation error for invalid trace archival retention format"
@@ -15055,6 +15091,10 @@
     "defaultMessage": "Add description",
     "description": "Run page > Overview > Description section > Add description button"
   },
+  "vqPD44": {
+    "defaultMessage": "Checking for traces outside this time range",
+    "description": "Status while checking whether traces exist outside the selected time range"
+  },
   "vqWexj": {
     "defaultMessage": "Back to experiment list",
     "description": "Tooltip for experiments button"
@@ -15730,6 +15770,10 @@
   "yM9S/n": {
     "defaultMessage": "Please select a model to run the judge",
     "description": "Tooltip message when model is not selected"
+  },
+  "yMpYfi": {
+    "defaultMessage": "Levels",
+    "description": "Label for decision score levels"
   },
   "yNAZYE": {
     "defaultMessage": "Retry",
