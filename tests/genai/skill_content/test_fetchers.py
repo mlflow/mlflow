@@ -8,6 +8,7 @@ from functools import partial
 from pathlib import Path
 from unittest import mock
 
+import git
 import pytest
 import requests
 
@@ -174,6 +175,25 @@ def test_fetch_git_redacts_credentials_and_reports_availability(tmp_path, closed
     assert "s3cret-token" not in message
     assert "***@127.0.0.1" in message
     assert exc_info.value.error_code == "TEMPORARILY_UNAVAILABLE"
+
+
+def test_fetch_git_reports_missing_git(monkeypatch, tmp_path):
+    repo_init = mock.Mock(
+        side_effect=git.exc.GitCommandNotFound(
+            ["git"], FileNotFoundError("git executable not found")
+        )
+    )
+    monkeypatch.setattr(git.Repo, "init", repo_init)
+
+    with pytest.raises(MlflowException, match="Git is required.*available on PATH"):
+        fetch_git(
+            "https://example.com/skills.git",
+            None,
+            tmp_path / "content",
+            scratch=tmp_path / "scratch",
+            max_bytes=10_000,
+        )
+    repo_init.assert_called_once_with(tmp_path / "scratch" / "git-objects")
 
 
 # --- zip --------------------------------------------------------------------------------------

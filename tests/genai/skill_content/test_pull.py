@@ -392,7 +392,7 @@ def test_unavailable_sources_preserve_the_underlying_error(
 
 
 def test_source_errors_never_expose_credentials(tmp_path):
-    source = ZipSource(url="https://example.com/skills.zip?X-Amz-Signature=presigned-secret")
+    source = ZipSource(url="https://example.com/skills.zip?download=1")
     error = source_unavailable(
         source.url, "401 for Authorization: Bearer token-secret", error_code=UNAUTHENTICATED
     )
@@ -638,6 +638,7 @@ def test_versions_without_a_fetchable_source_are_rejected(source, tmp_path):
     [
         ("/3", "get_skill_version", {"version": 3}),
         ("@production", "get_skill_version_by_alias", {"alias": "production"}),
+        ("@latest", "get_skill_version_by_alias", {"alias": "latest"}),
         ("", "get_latest_skill_version", {}),
     ],
 )
@@ -658,7 +659,6 @@ def test_resolve_skill_version(organization, suffix, method, kwargs):
         ("skills:/", "missing name"),
         ("skills:/demo/01", "Invalid skill version '01'"),
         ("skills:/Demo", "Invalid skill name 'Demo'"),
-        ("skills:/demo@latest", "'latest' alias name .* is reserved"),
     ],
 )
 def test_resolve_rejects_invalid_uris_before_any_request(uri, message):

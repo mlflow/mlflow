@@ -824,9 +824,10 @@ def _validate_skill_version(version):
         )
 
 
-def _validate_skill_alias(alias):
+def _validate_skill_alias(alias, *, allow_latest=False):
     _validate_alias_name(alias, resource_type="Skill")
-    _validate_alias_name_reserved(alias)
+    if not (allow_latest and alias.lower() == "latest"):
+        _validate_alias_name_reserved(alias)
 
 
 def _validate_skill_tag(key, value):
