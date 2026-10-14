@@ -43,10 +43,34 @@ _logger = logging.getLogger(__name__)
 # host's logging finish before that happens.
 _RESERVED_TIME_SHARE = 0.1
 
+# A failed setup of the job containers (for example while the Docker daemon restarts) is retried
+# after each of these delays, in seconds, while the job has time left for it.
+_SETUP_RETRY_DELAYS = (5, 15, 30)
+
+# The least time, in seconds, a batch is given (or half the job timeout, if that is less): a job
+# container takes some seconds to start and load the scorer before it scores anything. A batch is
+# not started once the job has less time left than this.
+_MIN_BATCH_TIMEOUT = 30
+
+_OUT_OF_TIME_ERROR = (
+    "Not scored: the online scoring job had no time left to run this in a job container. Lower the "
+    "sample rate or the number of custom scorers, or raise MLFLOW_SERVER_JOB_DEFAULT_TIMEOUT."
+)
+
 
 def container_scoring_enabled() -> bool:
     """Whether online scoring jobs run custom scorers in job containers."""
     return MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND.get() == DOCKER_EXECUTOR_BACKEND
+
+
+def _is_lasting_setup_error(e: Exception) -> bool:
+    """Whether a failed job container setup would fail again however long the job waits."""
+    import docker.errors
+
+    # For example a configured image that does not exist, or a failed build of the default image,
+    # which is raised again with the build error as its cause.
+    lasting = (docker.errors.NotFound, docker.errors.BuildError)
+    return isinstance(e, lasting) or isinstance(e.__cause__, lasting)
 
 
 class OnlineContainerScorer:
@@ -71,22 +95,37 @@ class OnlineContainerScorer:
         # Online scoring jobs are submitted without a timeout, so they get the default one.
         self._job_timeout = MLFLOW_SERVER_JOB_DEFAULT_TIMEOUT.get()
         self._job_deadline = time.monotonic() + self._job_timeout
+        self._min_batch_timeout = min(_MIN_BATCH_TIMEOUT, self._job_timeout / 2)
         self._client = None
         self._setup_error: str | None = None
+
+    def _time_left(self) -> float:
+        """Seconds the job's batches have left, without the reserved time."""
+        return self._job_deadline - time.monotonic() - self._job_timeout * _RESERVED_TIME_SHARE
 
     def _get_client(self):
         """The Docker client, set up once per job: leftovers removed and the image ready."""
         if self._setup_error is not None:
             raise MlflowException(self._setup_error)
         if self._client is None:
-            try:
-                client = job_docker_client()
-                remove_job_containers(client, self._container_label)
-                prepare_job_image(client)
-            except Exception as e:
-                # Do not retry a failed setup (for example an image pull) for every batch.
-                self._setup_error = f"Could not set up job containers: {e!r}"
-                raise
+            for delay in (*_SETUP_RETRY_DELAYS, None):
+                client = None
+                try:
+                    client = job_docker_client()
+                    remove_job_containers(client, self._container_label)
+                    prepare_job_image(client)
+                    break
+                except Exception as e:
+                    if client is not None:
+                        client.close()
+                    if delay is None or delay >= self._time_left() or _is_lasting_setup_error(e):
+                        # Remembered, so later batches fail at once instead of setting up again.
+                        self._setup_error = f"Could not set up job containers: {e!r}"
+                        raise MlflowException(self._setup_error) from e
+                    _logger.warning(
+                        "Could not set up job containers; retrying in %s seconds: %r", delay, e
+                    )
+                    time.sleep(delay)
             self._client = client
         return self._client
 
@@ -148,19 +187,21 @@ class OnlineContainerScorer:
         ):
             if error is None:
                 # Only the first trace's result is used, wherever else the container put results.
-                trace_result = trace_results.get(traces[0].info.trace_id) or {}
-                if feedbacks := [
-                    Feedback.from_dictionary(a) for a in trace_result.get("assessments", [])
+                trace_result = trace_results.get(traces[0].info.trace_id)
+                if trace_result is None:
+                    error = "The job container returned no result for this session."
+                elif feedbacks := [
+                    Feedback.from_dictionary(a) for a in trace_result["assessments"]
                 ]:
                     on_result(online_scorer, traces, feedbacks)
                     continue
-                error = (
-                    "; ".join(
-                        f"{f['error_code']}: {f['error_message']}"
-                        for f in trace_result.get("failures", [])
+                elif trace_result["failures"]:
+                    error = "; ".join(
+                        f"{f['error_code']}: {f['error_message']}" for f in trace_result["failures"]
                     )
-                    or "The job container returned no result for this session."
-                )
+                else:
+                    # The scorer returned None, which means no assessment, as on the host.
+                    continue
             on_failure(online_scorer, traces, error)
 
     def _run_batches(
@@ -168,21 +209,32 @@ class OnlineContainerScorer:
     ) -> Iterator[tuple[OnlineScorer, list[Trace], dict[str, Any] | None, str | None]]:
         """Run batches one at a time, yielding each with its results by trace ID or its error."""
         for index, (online_scorer, batch) in enumerate(batches):
-            batches_left = len(batches) - index
-            time_left = self._job_deadline - time.monotonic()
-            timeout = min(
-                (time_left - self._job_timeout * _RESERVED_TIME_SHARE) / batches_left,
-                self._job_timeout / 2,
-            )
             try:
-                result = self._run_batch(online_scorer, batch, timeout, log_assessments)
+                timeout = self._next_batch_timeout(len(batches) - index)
+                result = (
+                    None
+                    if timeout is None
+                    else self._run_batch(online_scorer, batch, timeout, log_assessments)
+                )
             except Exception as e:
                 _logger.warning(
                     f"Failed to run custom scorer '{online_scorer.name}' in a job container",
                     exc_info=True,
                 )
-                yield online_scorer, batch, None, repr(e)
+                error = e.message if isinstance(e, MlflowException) else repr(e)
+                yield online_scorer, batch, None, error
                 continue
+            if result is None:
+                # Setup failed or the job is out of time, so none of the batches left is started.
+                if self._setup_error is None:
+                    _logger.warning(
+                        f"The online scoring job for experiment {self._experiment_id} ran out of "
+                        f"time; {len(batches) - index} custom scorer runs were not started."
+                    )
+                error = self._setup_error or _OUT_OF_TIME_ERROR
+                for skipped_scorer, skipped_batch in batches[index:]:
+                    yield skipped_scorer, skipped_batch, None, error
+                return
             if result.status != JobStatus.SUCCEEDED:
                 error = (
                     result.error_message or f"The job container ended with status {result.status}."
@@ -190,6 +242,19 @@ class OnlineContainerScorer:
                 yield online_scorer, batch, None, error
             else:
                 yield online_scorer, batch, json.loads(result.result), None
+
+    def _next_batch_timeout(self, batches_left: int) -> float | None:
+        """Set up if needed and return the next batch's timeout, or None if it cannot start."""
+        if self._setup_error is not None or self._time_left() < self._min_batch_timeout:
+            return None
+        # Set up first, so the time a slow or retried setup takes is not given to a batch.
+        self._get_client()
+        time_left = self._time_left()
+        if time_left < self._min_batch_timeout:
+            return None
+        # Batches share the time left, but each gets at least the minimum, so they do not all get a
+        # share too short to finish in. Batches that finish early leave their time to later ones.
+        return min(max(time_left / batches_left, self._min_batch_timeout), self._job_timeout / 2)
 
     def _run_batch(
         self,

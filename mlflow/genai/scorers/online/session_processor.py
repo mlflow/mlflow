@@ -5,10 +5,9 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
-from mlflow.entities import AssessmentSource, AssessmentSourceType, Trace
+from mlflow.entities import AssessmentError, AssessmentSourceType, Trace
 from mlflow.entities.assessment import Assessment, Feedback
 from mlflow.environment_variables import MLFLOW_ONLINE_SCORING_MAX_WORKER_THREADS
-from mlflow.exceptions import MlflowException
 from mlflow.genai.scorers.base import Scorer, _UnexecutedDecoratorScorer
 from mlflow.genai.scorers.online.constants import (
     EXCLUDE_EVAL_RUN_TRACES_FILTER,
@@ -325,16 +324,17 @@ class OnlineSessionScoringProcessor:
 
         def on_failure(online_scorer: OnlineScorer, traces: list[Trace], error: str):
             # Imported lazily to avoid pulling in pandas at module load time (skinny client).
-            from mlflow.genai.evaluation.utils import add_scorer_metadata
+            from mlflow.genai.evaluation.utils import (
+                add_scorer_metadata,
+                make_code_type_assessment_source,
+            )
 
-            # Logged like an error from a scorer that runs on the host, on the first trace.
+            # Logged like an error from a session scorer that runs on the host, on the first trace.
             session_id = session_ids[traces[0].info.trace_id]
             feedback = Feedback(
                 name=online_scorer.name,
-                error=MlflowException(error),
-                source=AssessmentSource(
-                    source_type=AssessmentSourceType.CODE, source_id=online_scorer.name
-                ),
+                error=AssessmentError(error_code="SCORER_ERROR", error_message=error),
+                source=make_code_type_assessment_source(online_scorer.name),
                 trace_id=traces[0].info.trace_id,
                 metadata={TraceMetadataKey.TRACE_SESSION: session_id},
             )

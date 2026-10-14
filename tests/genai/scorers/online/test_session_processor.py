@@ -806,7 +806,11 @@ def test_custom_session_scorers_run_in_containers_and_the_host_logs_their_result
         trace, session_id, (error_feedback,) = log_session.call_args.args
         assert (trace, session_id) == (traces[0], "s1")
         assert error_feedback.name == "turns"
+        assert error_feedback.error.error_code == "SCORER_ERROR"
         assert error_feedback.error.error_message == "scorer crashed"
+        assert error_feedback.source == AssessmentSource(
+            source_type=AssessmentSourceType.CODE, source_id="turns"
+        )
         assert error_feedback.metadata[TraceMetadataKey.TRACE_SESSION] == "s1"
 
 
