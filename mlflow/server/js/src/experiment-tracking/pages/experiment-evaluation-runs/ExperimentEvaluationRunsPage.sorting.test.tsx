@@ -110,7 +110,7 @@ describe('ExperimentEvaluationRunsPage sorting', () => {
     renderPage('');
 
     await screen.findByText('run-a');
-    await userEvent.click(screen.getByRole('button', { name: 'Options for run_name column' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Options for Run Name column' }));
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Sort ascending' }));
 
     expect(getRunOrder()).toEqual(['run-a', 'run-b', 'run-c']);

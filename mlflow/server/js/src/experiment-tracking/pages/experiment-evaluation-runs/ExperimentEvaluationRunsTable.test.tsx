@@ -501,11 +501,11 @@ describe('ExperimentEvaluationRunsTable header menu', () => {
   test('flag on: sorts a column ascending and descending from its header menu', async () => {
     renderTable({ data: [makeRun('run-b'), makeRun('run-a'), makeRun('run-c')], enableNewEvalRunsUi: true });
 
-    await userEvent.click(screen.getByRole('button', { name: 'Options for run_name column' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Options for Run Name column' }));
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Sort ascending' }));
     expect(getRunNameOrder()).toEqual(['Run run-a', 'Run run-b', 'Run run-c']);
 
-    await userEvent.click(screen.getByRole('button', { name: 'Options for run_name column' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Options for Run Name column' }));
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Sort descending' }));
     expect(getRunNameOrder()).toEqual(['Run run-c', 'Run run-b', 'Run run-a']);
   });
@@ -514,7 +514,7 @@ describe('ExperimentEvaluationRunsTable header menu', () => {
     const setSelectedColumns = jest.fn();
     renderTable({ data: [makeRun('run-a')], enableNewEvalRunsUi: true, setSelectedColumns });
 
-    await userEvent.click(screen.getByRole('button', { name: 'Options for dataset column' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Options for Dataset column' }));
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Hide column' }));
 
     expect(setSelectedColumns).toHaveBeenCalledWith(expect.objectContaining({ dataset: false, run_name: true }));
@@ -523,7 +523,7 @@ describe('ExperimentEvaluationRunsTable header menu', () => {
   test('flag on: the run name column can be sorted but not hidden', async () => {
     renderTable({ data: [makeRun('run-a')], enableNewEvalRunsUi: true });
 
-    await userEvent.click(screen.getByRole('button', { name: 'Options for run_name column' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Options for Run Name column' }));
 
     expect(await screen.findByRole('menuitem', { name: 'Sort ascending' })).toBeInTheDocument();
     expect(screen.queryByRole('menuitem', { name: 'Hide column' })).not.toBeInTheDocument();
@@ -551,9 +551,9 @@ describe('ExperimentEvaluationRunsTable header menu', () => {
   test('flag on: shows the active sort direction as a toggle in the header', async () => {
     renderTable({ data: [makeRun('run-b'), makeRun('run-a')], enableNewEvalRunsUi: true });
 
-    await userEvent.click(screen.getByRole('button', { name: 'Options for run_name column' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Options for Run Name column' }));
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Sort ascending' }));
-    await userEvent.click(screen.getByRole('button', { name: 'Toggle sort direction for run_name' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Toggle sort direction for Run Name' }));
 
     expect(getRunNameOrder()).toEqual(['Run run-b', 'Run run-a']);
   });

@@ -8,9 +8,18 @@ import {
   VisibleOffIcon,
 } from '@databricks/design-system';
 import type { Column } from '@tanstack/react-table';
-import { FormattedMessage, useIntl } from 'react-intl';
+import { FormattedMessage, useIntl, type IntlShape } from 'react-intl';
 import type { RunEntityOrGroupData } from './ExperimentEvaluationRunsPage.utils';
 import { parseEvalRunsTableKeyedColumnKey } from './ExperimentEvaluationRunsTable.utils';
+import { EVAL_RUNS_COLUMN_LABELS, type EvalRunsTableColumnId } from './ExperimentEvaluationRunsTable.constants';
+
+// Screen-reader label differentiates per-column controls: the header text for fixed columns, the key for keyed ones.
+const getColumnLabel = (intl: IntlShape, columnId: string): string => {
+  const labelDescriptor = EVAL_RUNS_COLUMN_LABELS[columnId as EvalRunsTableColumnId];
+  return labelDescriptor
+    ? intl.formatMessage(labelDescriptor)
+    : (parseEvalRunsTableKeyedColumnKey(columnId)?.key ?? columnId);
+};
 
 /** Sort-direction toggle shown only on actively-sorted columns; clicking flips asc↔desc. */
 export const EvalRunsHeaderSortToggle = ({ column }: { column: Column<RunEntityOrGroupData, unknown> }) => {
@@ -19,8 +28,7 @@ export const EvalRunsHeaderSortToggle = ({ column }: { column: Column<RunEntityO
   if (!sorted) {
     return null;
   }
-  // Screen-reader label differentiates per-column sort toggles.
-  const columnLabel = parseEvalRunsTableKeyedColumnKey(column.id)?.key ?? column.id;
+  const columnLabel = getColumnLabel(intl, column.id);
   return (
     <Button
       componentId="mlflow.eval-runs.column-header-menu.sort-toggle"
@@ -62,8 +70,7 @@ export const EvalRunsColumnHeaderMenu = ({
     return null;
   }
   const sorted = column.getIsSorted();
-  // Screen-reader label differentiates per-column option menus.
-  const columnLabel = parseEvalRunsTableKeyedColumnKey(column.id)?.key ?? column.id;
+  const columnLabel = getColumnLabel(intl, column.id);
 
   return (
     <DropdownMenu.Root modal={false}>
