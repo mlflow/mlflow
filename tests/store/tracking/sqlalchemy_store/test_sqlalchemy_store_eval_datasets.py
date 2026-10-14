@@ -756,6 +756,19 @@ def test_add_dataset_to_experiments_non_numeric_id_raises(store):
         store.add_dataset_to_experiments(created_dataset.dataset_id, ["not-a-number"])
 
 
+def test_add_dataset_to_experiments_none_id_raises(store):
+    # Regression test: int(None) raises TypeError, not ValueError, so the
+    # except (ValueError, TypeError) clause needs both arms exercised.
+    experiment_ids = _create_experiments(store, ["add_exp_none_id"])
+    created_dataset = store.create_dataset(
+        name="add_to_none_id_experiment_dataset",
+        experiment_ids=experiment_ids,
+    )
+
+    with pytest.raises(MlflowException, match="must be valid integers"):
+        store.add_dataset_to_experiments(created_dataset.dataset_id, [None])
+
+
 def test_dataset_tags_with_sql_backend(store):
     tags = {"environment": "production", "version": "2.0", "team": "ml-ops"}
 
