@@ -8,6 +8,7 @@ import urllib.parse
 import urllib.request
 
 import docker
+from sqlalchemy.engine import make_url
 
 from mlflow import tracking
 from mlflow.environment_variables import MLFLOW_TRACKING_URI
@@ -157,10 +158,12 @@ def _get_local_uri_or_none(uri):
         return None, None
     parsed_uri = urllib.parse.urlparse(uri)
     if not parsed_uri.netloc and parsed_uri.scheme in ("", "file", "sqlite"):
-        path = urllib.request.url2pathname(parsed_uri.path)
         if parsed_uri.scheme == "sqlite":
+            # SQLite URIs hold literal paths (e.g. `%` and `#` are not URL escapes/fragments).
+            path = make_url(uri).database
             uri = file_utils.path_to_local_sqlite_uri(_MLFLOW_DOCKER_TRACKING_DIR_PATH)
         else:
+            path = urllib.request.url2pathname(parsed_uri.path)
             uri = file_utils.path_to_local_file_uri(_MLFLOW_DOCKER_TRACKING_DIR_PATH)
         return path, uri
     else:
