@@ -1,8 +1,9 @@
 import { describe, expect, test } from '@jest/globals';
 import { render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { IntlProvider } from 'react-intl';
-import { createMLflowRoutePath, useLocation } from '../../../common/utils/RoutingUtils';
+import { createMLflowRoutePath, useLocation, useNavigate } from '../../../common/utils/RoutingUtils';
 import { setupTestRouter, testRoute, TestRouter } from '../../../common/utils/RoutingTestUtils';
 import type { ExperimentEntity } from '../../types';
 import { ExperimentPageBreadcrumbs } from './ExperimentPageBreadcrumbs';
@@ -25,8 +26,16 @@ const BreadcrumbHarness = ({ title }: { title?: string }) => {
 
 const RouteAwareBreadcrumbHarness = () => {
   const { pathname } = useLocation();
+  const navigate = useNavigate();
   useSetExperimentBreadcrumbTitle(pathname.endsWith('dataset-1') ? 'First dataset' : undefined);
-  return <ExperimentPageBreadcrumbs experiment={experiment} />;
+  return (
+    <>
+      <ExperimentPageBreadcrumbs experiment={experiment} />
+      <button onClick={() => navigate(createMLflowRoutePath('/experiments/123/datasets/dataset-2'))}>
+        Open another dataset
+      </button>
+    </>
+  );
 };
 
 describe('ExperimentPageBreadcrumbs', () => {
@@ -76,6 +85,13 @@ describe('ExperimentPageBreadcrumbs', () => {
       tab: 'Prompts',
       leaf: 'prompt-1',
     },
+    {
+      entry: '/experiments/123/review-queue?selectedQueueId=queue-1',
+      route: '/experiments/:experimentId/review-queue',
+      tab: 'Review',
+      leaf: 'Helpful queue',
+      title: 'Helpful queue',
+    },
   ])('shows $leaf under $tab', async ({ entry, route, tab, leaf, title }) => {
     renderAt(entry, route, title);
 
@@ -97,5 +113,39 @@ describe('ExperimentPageBreadcrumbs', () => {
 
     const breadcrumb = await screen.findByRole('navigation', { name: 'Breadcrumb' });
     expect(await within(breadcrumb).findByText('First dataset')).toHaveAttribute('aria-current', 'page');
+  });
+
+  test('keeps a session conversation under Traces, where sessions are grouped', async () => {
+    renderAt('/experiments/123/chat-sessions/session-1', '/experiments/:experimentId/chat-sessions/:sessionId');
+
+    const breadcrumb = await screen.findByRole('navigation', { name: 'Breadcrumb' });
+    expect(within(breadcrumb).getByRole('link', { name: 'Traces' })).toBeInTheDocument();
+    expect(within(breadcrumb).getByText('session-1')).toHaveAttribute('aria-current', 'page');
+  });
+
+  test.each([
+    { name: 'experiment', target: 'Helpful experiment' },
+    { name: 'leaf', target: 'Friendly dataset' },
+  ])('shows the full $name name in a tooltip', async ({ target }) => {
+    const user = userEvent.setup();
+    renderAt(
+      '/experiments/123/datasets/dataset-1',
+      '/experiments/:experimentId/datasets/:datasetId',
+      'Friendly dataset',
+    );
+
+    const breadcrumb = await screen.findByRole('navigation', { name: 'Breadcrumb' });
+    await user.hover(within(breadcrumb).getByText(target));
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(target);
+  });
+
+  test('does not show a title published for a previous route', async () => {
+    renderAt('/experiments/123/datasets/dataset-1', '/experiments/:experimentId/datasets/:datasetId', undefined, true);
+    expect(await screen.findByText('First dataset')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Open another dataset' }));
+
+    expect(await screen.findByText('dataset-2')).toBeInTheDocument();
+    expect(screen.queryByText('First dataset')).not.toBeInTheDocument();
   });
 });
