@@ -149,7 +149,10 @@ MLFLOW_ENABLE_ASSISTANT_SANDBOX = _BooleanEnvironmentVariable(
 #: **Experimental** — subject to change or removal in a future release.
 #: Docker image used for server-side sandboxed execution (e.g. the assistant ``Bash`` sandbox).
 #: The image must have Python and MLflow installed. If the image is not present locally, a
-#: minimal one is built on first use.
+#: minimal one is built on first use, with the server's Python version and MLflow version. MLflow
+#: is installed from ``MLFLOW_HOME`` if set, and a development build otherwise installs from the
+#: source checkout the server runs from. It is not rebuilt when MLflow changes; delete the image to
+#: rebuild it.
 #: (default: ``mlflow-sandbox:latest``)
 MLFLOW_SANDBOX_DOCKER_IMAGE = _EnvironmentVariable(
     "MLFLOW_SANDBOX_DOCKER_IMAGE", str, "mlflow-sandbox:latest"
@@ -1898,10 +1901,29 @@ MLFLOW_ALLOW_PICKLE_DESERIALIZATION = _BooleanEnvironmentVariable(
 
 #: Internal env var for the shared gateway auth token. The server generates a random
 #: token at startup and sets it in the environment so all uvicorn workers and job
-#: subprocesses can use it to authenticate internal gateway requests.
+#: subprocesses can use it to authenticate internal gateway requests. Subprocesses that the
+#: MLflow Assistant starts (CLI providers and tool commands) do not inherit it, though only the
+#: Assistant sandbox isolates it from code running as the server's user on the host.
 #: (default: ``None``)
 _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN = _EnvironmentVariable(
     "_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN", str, None
+)
+
+# Short-lived, user-scoped credential the MLflow Assistant injects into a tool subprocess so the
+# tool's MLflow API calls authenticate as the session owner. It is an HMAC-signed value (see
+# mlflow.server.assistant.delegation), not a raw secret, so a leaked value only impersonates that
+# one user and only until it expires. Set by the server on the subprocess; never set by users.
+_MLFLOW_ASSISTANT_DELEGATION_TOKEN = _EnvironmentVariable(
+    "_MLFLOW_ASSISTANT_DELEGATION_TOKEN", str, None
+)
+
+# The key the server uses to sign and verify Assistant delegation credentials (see
+# mlflow.server.assistant.delegation). The server generates it at startup and shares it only among
+# its own worker processes: unlike the internal gateway token it is deliberately withheld from job
+# runner subprocesses and from tool subprocesses, so a credential can only be minted by the server,
+# never forged by code running in one of those subprocesses. (default: ``None``)
+_MLFLOW_ASSISTANT_DELEGATION_SIGNING_KEY = _EnvironmentVariable(
+    "_MLFLOW_ASSISTANT_DELEGATION_SIGNING_KEY", str, None
 )
 
 

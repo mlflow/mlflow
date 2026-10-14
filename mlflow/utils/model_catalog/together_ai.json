@@ -518,9 +518,9 @@
         "max_tokens": 1000000
       },
       "pricing": {
-        "input_per_million_tokens": 2.5,
-        "output_per_million_tokens": 7.5,
-        "cache_read_per_million_tokens": 0.5
+        "input_per_million_tokens": 1.5,
+        "output_per_million_tokens": 4.5,
+        "cache_read_per_million_tokens": 0.3
       },
       "capabilities": {
         "function_calling": false,
@@ -529,7 +529,7 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-10-12"
+      "last_updated_at": "2026-10-14"
     },
     "Qwen/Qwen3.7-Plus": {
       "mode": "chat",
@@ -815,7 +815,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-09"
+      "deprecation_date": "2026-10-22",
+      "last_updated_at": "2026-10-14"
     },
     "deepseek-ai/DeepSeek-V4-Pro": {
       "mode": "chat",
@@ -1078,7 +1079,8 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-08-31"
+      "deprecation_date": "2026-10-22",
+      "last_updated_at": "2026-10-14"
     },
     "meta-llama/Llama-3.3-70B-Instruct-Turbo-Free": {
       "mode": "chat",
@@ -1490,9 +1492,9 @@
         "max_tokens": 1048576
       },
       "pricing": {
-        "input_per_million_tokens": 2.7,
-        "output_per_million_tokens": 13.5,
-        "cache_read_per_million_tokens": 0.27
+        "input_per_million_tokens": 3.0,
+        "output_per_million_tokens": 15.0,
+        "cache_read_per_million_tokens": 0.3
       },
       "capabilities": {
         "function_calling": true,
@@ -1501,7 +1503,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-07"
+      "last_updated_at": "2026-10-14"
     },
     "nvidia/Llama-3.1-Nemotron-70B-Instruct-HF": {
       "mode": "chat",
@@ -1789,8 +1791,7 @@
       },
       "pricing": {
         "input_per_million_tokens": 0.042,
-        "output_per_million_tokens": 0.0,
-        "cache_read_per_million_tokens": 0.042
+        "output_per_million_tokens": 0.0
       },
       "capabilities": {
         "function_calling": false,
@@ -1799,7 +1800,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-09-24"
+      "last_updated_at": "2026-10-13"
     },
     "togethercomputer/CodeLlama-34b-Instruct": {
       "mode": "chat",
