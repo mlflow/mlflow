@@ -378,7 +378,12 @@ export const DatasetCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({
       </Typography.Text>
     </div>
   );
-  const tagContent = <DatasetLink dataset={displayedDataset}>{baseTagContent}</DatasetLink>;
+  const tagContent = (
+    // The link wrapper must not grow past the pill, or long dataset names overflow instead of truncating.
+    <DatasetLink dataset={displayedDataset} {...(enableNewEvalRunsUi ? { css: { maxWidth: '100%' } } : {})}>
+      {baseTagContent}
+    </DatasetLink>
+  );
 
   // Always surface the source type alongside the name/label — for unnamed datasets it's the only
   // identifying info, and for named ones it's still useful context.
