@@ -28,6 +28,29 @@ from mlflow.webhooks.delivery import deliver_webhook
 from mlflow.webhooks.types import BudgetPolicyExceededPayload
 
 _logger = logging.getLogger(__name__)
+_REDIS_REFRESH_RETRY_DELAY_SECONDS = 1
+
+
+class _RedisRefreshPostponed(Exception):
+    """A failed Redis refresh is in its short retry backoff period."""
+
+
+def _is_redis_error(exc: Exception) -> bool:
+    # Redis is optional unless the Redis budget tracker is configured.
+    try:
+        from redis.exceptions import RedisError
+    except ImportError:
+        return False
+    return isinstance(exc, RedisError)
+
+
+def _is_redis_unavailable(exc: Exception) -> bool:
+    try:
+        from redis.exceptions import ConnectionError as RedisConnectionError
+        from redis.exceptions import TimeoutError as RedisTimeoutError
+    except ImportError:
+        return False
+    return isinstance(exc, (RedisConnectionError, RedisTimeoutError))
 
 
 def calculate_existing_cost_for_windows(
@@ -88,13 +111,23 @@ def calculate_existing_cost_for_windows(
 def maybe_refresh_budget_policies(store: SqlAlchemyStore) -> None:
     """Refresh budget policies from the database if stale."""
     tracker = get_budget_tracker()
+    if tracker.refresh_is_postponed():
+        raise _RedisRefreshPostponed()
     if tracker.needs_refresh():
         try:
             policies = store.list_budget_policies()
             windows = tracker.refresh_policies(policies)
             existing_spend = calculate_existing_cost_for_windows(store, windows)
             tracker.backfill_spend(existing_spend)
-        except Exception:
+        except Exception as e:
+            # A failed Redis refresh means we cannot know whether a budget applies.
+            # Do not use a possibly stale policy cache to make an allow decision.
+            if _is_redis_error(e):
+                if _is_redis_unavailable(e):
+                    tracker.postpone_refresh(_REDIS_REFRESH_RETRY_DELAY_SECONDS)
+                else:
+                    tracker.invalidate()
+                raise
             _logger.debug("Failed to refresh budget policies", exc_info=True)
 
 
@@ -178,13 +211,25 @@ def check_budget_limit(
 ) -> None:
     """Check if any REJECT-capable budget policy is exceeded.
 
-    Raises HTTPException(429) with an error trace if the budget limit is exceeded.
+    Raises HTTPException(429) when a budget is exceeded, or HTTPException(503)
+    when Redis is unavailable and the budget cannot be evaluated.
     """
-    maybe_refresh_budget_policies(store)
-    tracker = get_budget_tracker()
-    exceeded, window = tracker.should_reject_request(
-        workspace=workspace, endpoint_id=endpoint_config.endpoint_id, username=username
-    )
+    try:
+        maybe_refresh_budget_policies(store)
+        tracker = get_budget_tracker()
+        exceeded, window = tracker.should_reject_request(
+            workspace=workspace, endpoint_id=endpoint_config.endpoint_id, username=username
+        )
+    except Exception as e:
+        if not (isinstance(e, _RedisRefreshPostponed) or _is_redis_unavailable(e)):
+            raise
+        _logger.warning("Budget check failed because Redis is unavailable", exc_info=True)
+        exc = HTTPException(
+            status_code=503,
+            detail="Budget backend unavailable. Request rejected; please retry later.",
+        )
+        _create_budget_error_trace(endpoint_config, exc)
+        raise exc from e
     if exceeded:
         policy = window.policy
         unit = policy.duration.unit.value.lower()
@@ -234,7 +279,10 @@ def make_budget_on_complete(
             ):
                 if registry_store:
                     fire_budget_exceeded_webhooks(newly_exceeded, workspace, registry_store)
-        except Exception:
-            _logger.debug("Failed to record budget cost", exc_info=True)
+        except Exception as e:
+            if _is_redis_error(e):
+                _logger.warning("Failed to record budget cost in Redis", exc_info=True)
+            else:
+                _logger.debug("Failed to record budget cost", exc_info=True)
 
     return on_complete

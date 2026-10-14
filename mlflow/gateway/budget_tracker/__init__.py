@@ -70,6 +70,7 @@ class BudgetTracker(ABC):
     """
 
     _last_refresh_time: float = float("-inf")
+    _refresh_retry_after: float = float("-inf")
 
     def needs_refresh(self) -> bool:
         """Check whether policies should be re-fetched from the database."""
@@ -80,6 +81,15 @@ class BudgetTracker(ABC):
     def mark_refreshed(self) -> None:
         """Mark the tracker as just refreshed."""
         self._last_refresh_time = time.monotonic()
+        self._refresh_retry_after = float("-inf")
+
+    def postpone_refresh(self, seconds: float) -> None:
+        """Retry a failed refresh after a short delay, without trusting stale policies."""
+        self.invalidate()
+        self._refresh_retry_after = time.monotonic() + seconds
+
+    def refresh_is_postponed(self) -> bool:
+        return time.monotonic() < self._refresh_retry_after
 
     def invalidate(self) -> None:
         """Reset the refresh timer so the next needs_refresh() call returns True."""
