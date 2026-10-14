@@ -1,6 +1,6 @@
 import { jest, describe, beforeEach, test, expect } from '@jest/globals';
 import type { TableOptions } from '@tanstack/react-table';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ExperimentEvaluationRunsTable } from './ExperimentEvaluationRunsTable';
 import { IntlProvider } from 'react-intl';
@@ -300,7 +300,8 @@ describe('ExperimentEvaluationRunsTable run name cell', () => {
     });
 
     // eslint-disable-next-line testing-library/no-container, testing-library/no-node-access -- the slot is aria-hidden
-    expect(container.querySelectorAll('div[aria-hidden="true"]')).toHaveLength(1);
+    // The filler cells are aria-hidden too, but they carry a cell role.
+    expect(container.querySelectorAll('div[aria-hidden="true"]:not([role])')).toHaveLength(1);
   });
 
   test('flag off: leaf rows get no chevron slot', () => {
@@ -608,6 +609,54 @@ describe('ExperimentEvaluationRunsTable column sizing', () => {
     expect(getColumn(EvalRunsTableColumnId.checkbox)?.size).toBe(32);
     expect(getColumn(EvalRunsTableColumnId.datasetVersion)?.size).toBe(
       EVAL_RUNS_COLUMN_SIZES[EvalRunsTableColumnId.datasetVersion]?.size,
+    );
+  });
+
+  test('flag on: widening a column changes no size or offset of the columns to its left', async () => {
+    const { container } = renderTable({
+      data: [makeRun('run-a')],
+      enableNewEvalRunsUi: true,
+      uniqueColumns: [metricColumn],
+    });
+    const sizes = () => {
+      const element = container.querySelector<HTMLElement>('[style*="--eval-runs-table-row-width"]')!;
+      return Array.from({ length: 8 }, (_, index) =>
+        element.style.getPropertyValue(`--eval-runs-table-column-${index}`),
+      );
+    };
+    const headers = screen.getAllByRole('columnheader');
+    const datasetIndex = headers.findIndex((header) => header.textContent?.startsWith('Dataset'));
+    // Each column is pinned to its own width variable, so a column's offset is the sum of the widths
+    // to its left: if no column grows, a resize can only move the resized column's right edge.
+    headers.forEach((header) => {
+      expect(header.style.flexGrow).toBe('0');
+    });
+    const before = sizes();
+
+    await userEvent.click(within(headers[datasetIndex]).getByRole('button', { name: 'Resize Column' }));
+    const [, increaseWidth] = within(await screen.findByRole('dialog')).getAllByRole('button');
+    await userEvent.click(increaseWidth);
+
+    const after = sizes();
+    expect(after.slice(0, datasetIndex)).toEqual(before.slice(0, datasetIndex));
+    expect(parseInt(after[datasetIndex], 10)).toBe(parseInt(before[datasetIndex], 10) + 10);
+  });
+
+  test('flag on: leftover width goes to an empty, hidden filler cell in the header and every row', () => {
+    const { container } = renderTable({
+      data: [makeRun('run-a'), makeRun('run-b')],
+      enableNewEvalRunsUi: true,
+    });
+
+    const rows = container.querySelectorAll('[role="row"]');
+    rows.forEach((row) => {
+      const filler = row.lastElementChild as HTMLElement;
+      expect(filler).toHaveAttribute('aria-hidden', 'true');
+      expect(filler.style.flexGrow).toBe('1');
+      expect(filler.textContent).toBe('');
+    });
+    expect(screen.getAllByRole('columnheader').every((header) => header.getAttribute('aria-hidden') !== 'true')).toBe(
+      true,
     );
   });
 

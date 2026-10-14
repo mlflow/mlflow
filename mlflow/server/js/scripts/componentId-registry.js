@@ -869,6 +869,7 @@ module.exports = {
   "mlflow.eval-runs.group-expand-button": "",
   "mlflow.eval-runs.group-tag": "",
   "mlflow.eval-runs.header": "",
+  "mlflow.eval-runs.header-filler": "",
   "mlflow.eval-runs.issue-detection-run-icon-tooltip": "",
   "mlflow.eval-runs.metric-header-icon.tooltip": "",
   "mlflow.eval-runs.model-version-cell": "",

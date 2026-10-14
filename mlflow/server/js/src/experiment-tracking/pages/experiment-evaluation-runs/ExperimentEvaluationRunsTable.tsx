@@ -13,7 +13,6 @@ import {
 import type { EvalRunsTableColumnDef } from './ExperimentEvaluationRunsTable.constants';
 import {
   EVAL_RUNS_COLUMN_SIZES,
-  EVAL_RUNS_GROWING_COLUMN_IDS,
   EVAL_RUNS_KEYED_COLUMN_SIZE,
   EVAL_RUNS_UNSELECTABLE_COLUMNS,
   EvalRunsTableColumnId,
@@ -257,18 +256,15 @@ export const ExperimentEvaluationRunsTable = forwardRef<HTMLDivElement, Experime
           0,
         )
       : undefined;
-    // Rows span the summed column width (not the viewport) so fixed columns don't overflow and the
-    // growing column sizes against the total.
+    // Rows span the summed column width (not the viewport) so fixed columns don't overflow; a trailing
+    // filler cell takes any leftover width.
     const rowWidthStyle = enableNewEvalRunsUi ? EVAL_RUNS_COLUMN_SIZING.rowWidthStyle : undefined;
     const columnStyles = useMemo(() => {
       if (!enableNewEvalRunsUi) {
         return undefined;
       }
       return new Map<string, CSSProperties>(
-        leafHeaders.map((header, index) => [
-          header.column.id,
-          EVAL_RUNS_COLUMN_SIZING.columnSizeStyle(index, EVAL_RUNS_GROWING_COLUMN_IDS.has(header.column.id)),
-        ]),
+        leafHeaders.map((header, index) => [header.column.id, EVAL_RUNS_COLUMN_SIZING.columnSizeStyle(index)]),
       );
       // Header identities are stable while only column sizing changes.
       // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -366,6 +362,14 @@ export const ExperimentEvaluationRunsTable = forwardRef<HTMLDivElement, Experime
               </TableHeader>
             );
           })}
+          {enableNewEvalRunsUi && (
+            <TableHeader
+              componentId="mlflow.eval-runs.header-filler"
+              aria-hidden="true"
+              css={newUiHeaderCss}
+              style={EVAL_RUNS_COLUMN_SIZING.fillerCellStyle}
+            />
+          )}
         </TableRow>
 
         {!isLoading &&
@@ -391,6 +395,7 @@ export const ExperimentEvaluationRunsTable = forwardRef<HTMLDivElement, Experime
                 columnStyles={columnStyles}
                 rowWidthStyle={rowWidthStyle}
                 showGroupSummaries={Boolean(enableNewEvalRunsUi)}
+                {...(enableNewEvalRunsUi ? { fillerCellStyle: EVAL_RUNS_COLUMN_SIZING.fillerCellStyle } : {})}
               />
             );
           })}

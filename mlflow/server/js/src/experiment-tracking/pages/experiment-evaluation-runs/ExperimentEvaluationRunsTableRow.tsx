@@ -40,6 +40,8 @@ type TracesViewTableRowProps = {
   columnStyles?: Map<string, CSSProperties>;
   /** Makes the row span the summed column width on the resizable path (undefined on the fixed path). */
   rowWidthStyle?: CSSProperties;
+  /** New UI: style of the empty trailing cell that takes the leftover row width. */
+  fillerCellStyle?: CSSProperties;
   /** New UI: group rows get the secondary background and show per-metric averages. */
   showGroupSummaries?: boolean;
 };
@@ -89,6 +91,7 @@ export const ExperimentEvaluationRunsTableRow = React.memo(
     columns,
     columnStyles,
     rowWidthStyle,
+    fillerCellStyle,
     showGroupSummaries,
   }: TracesViewTableRowProps) => {
     const { theme } = useDesignSystemTheme();
@@ -167,6 +170,7 @@ export const ExperimentEvaluationRunsTableRow = React.memo(
               </TableCell>
             );
           })}
+          {fillerCellStyle && <TableCell aria-hidden="true" style={fillerCellStyle} />}
         </TableRow>
       );
     }
@@ -197,6 +201,13 @@ export const ExperimentEvaluationRunsTableRow = React.memo(
             {flexRender(cell.column.columnDef.cell, cell.getContext())}
           </TableCell>
         ))}
+        {fillerCellStyle && (
+          <TableCell
+            aria-hidden="true"
+            style={fillerCellStyle}
+            css={{ backgroundColor: isActive ? theme.colors.actionDefaultBackgroundHover : 'transparent' }}
+          />
+        )}
       </TableRow>
     );
   },

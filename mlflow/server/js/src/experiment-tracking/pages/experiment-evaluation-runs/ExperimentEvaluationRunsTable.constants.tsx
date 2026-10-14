@@ -59,9 +59,6 @@ export const EVAL_RUNS_UNSELECTABLE_COLUMNS: Set<string> = new Set([
   EvalRunsTableColumnId.runName,
 ]);
 
-// The fill column: Run Name grows into leftover width; the rest keep their pixel width.
-export const EVAL_RUNS_GROWING_COLUMN_IDS: Set<string> = new Set([EvalRunsTableColumnId.runName]);
-
 // Icon-only columns that keep tight padding; the roomier cell padding would crowd their fixed width.
 export const EVAL_RUNS_TIGHT_PADDING_COLUMN_IDS: Set<string> = new Set([
   EvalRunsTableColumnId.checkbox,

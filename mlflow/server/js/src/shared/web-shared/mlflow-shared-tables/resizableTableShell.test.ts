@@ -14,18 +14,17 @@ describe('createResizableColumnSizing', () => {
     expect(sizing.rowWidthStyle).toEqual({ width: 'var(--traces-table-row-width)', minWidth: '100%' });
   });
 
-  it('lets growing columns take leftover width with no max', () => {
-    expect(sizing.columnSizeStyle(1, true)).toEqual({
-      flex: '1 0 var(--traces-table-column-1)',
-      maxWidth: 'unset',
+  it('fixes every column to its pixel width', () => {
+    expect(sizing.columnSizeStyle(1)).toEqual({
+      flexGrow: 0,
+      flexShrink: 0,
+      flexBasis: 'var(--traces-table-column-1)',
+      maxWidth: 'var(--traces-table-column-1)',
     });
   });
 
-  it('fixes non-growing columns to their pixel width', () => {
-    expect(sizing.columnSizeStyle(1, false)).toEqual({
-      flex: '0 0 var(--traces-table-column-1)',
-      maxWidth: 'var(--traces-table-column-1)',
-    });
+  it('gives the leftover width to the filler cell only', () => {
+    expect(sizing.fillerCellStyle).toEqual({ flexGrow: 1, flexShrink: 0, flexBasis: 0, minWidth: 0, padding: 0 });
   });
 
   it('publishes the row width (columns + leading cell) and each column width as CSS variables', () => {
