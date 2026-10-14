@@ -1666,6 +1666,9 @@ class RestStore(
                 page_token=page_token,
             )
         )
+        if experiment_ids == []:
+            # Protobuf omits empty repeated fields, but this required scope must stay explicit.
+            req_body = json.dumps({**json.loads(req_body), "experiment_ids": []})
         response_proto = self._call_endpoint(SearchLoggedModels, req_body)
         models = [LoggedModel.from_proto(x) for x in response_proto.models]
         return PagedList(models, response_proto.next_page_token or None)

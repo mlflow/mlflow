@@ -1481,11 +1481,6 @@ def test_search_model_versions_run_filter_honors_the_run_tier(client, monkeypatc
 
 
 def test_search_logged_models_source_run_filter_honors_the_run_tier(client, monkeypatch):
-    """`SearchLoggedModels` had no before-request validator at all, so `filter_search_logged_models`
-    was its only authorization -- and that filter drops rows by EXPERIMENT, never inspecting the
-    request's `source_run_id`. Filtering on it therefore confirmed whether a denied run produced any
-    logged model. This asserts the gate is WIRED, which a direct validator call cannot show.
-    """
     owner, owner_pw = create_user(client.tracking_uri)
     with User(owner, owner_pw, monkeypatch):
         experiment_id = client.create_experiment("lm_run_filter_exp")
@@ -9276,21 +9271,11 @@ def _search_logged_models_pages(tracking_uri, auth, body, max_pages=4):
     [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
     indirect=True,
 )
-def test_search_logged_models_pagination_survives_filtering(client, monkeypatch):
-    """Filtered logged-model pagination must not serve a bad page, and must stay self-consistent.
-
-    Both defects here predate this branch and need a caller who can read SOME but not all of the
-    searched experiments, or the refill loop never runs and the assertions pass vacuously.
-
-    * The refill loop rebuilt `order_by` without the handler's `or None`, so `dataset_name` and
-      `dataset_digest` were `""` where the page token recorded `None`. The store rejected the
-      token the auth layer had itself issued -- HTTP 400, "Order by in the page token does not
-      match the requested order by".
-    * On the last page the loop issued a token even when every remaining row was unreadable,
-      buying the caller a request that returns nothing. Suppressing it also has to CLEAR the
-      field: the handler sets its own token before filtering, so leaving it in place re-served a
-      page the filter had already consumed.
-    """
+@pytest.mark.parametrize("has_readable_tail", [False, True])
+@pytest.mark.parametrize("max_results", [1, 2])
+def test_search_logged_models_paginates_authorized_experiments(
+    client, monkeypatch, has_readable_tail, max_results
+):
     owner, owner_pw = create_user(client.tracking_uri)
     stranger, stranger_pw = create_user(client.tracking_uri)
 
@@ -9299,20 +9284,26 @@ def test_search_logged_models_pagination_survives_filtering(client, monkeypatch)
     with User(stranger, stranger_pw, monkeypatch):
         hidden = client.create_experiment("lm-pagination-hidden")
 
-    # Interleaved by name, so ordering by name puts an unreadable row last: the loop breaks on
-    # reaching max_results with only a denied row after it, on the final page.
-    for name, experiment_id, as_user in (
+    models = [
         ("a1", readable, (owner, owner_pw)),
         ("a2", hidden, (stranger, stranger_pw)),
         ("a3", readable, (owner, owner_pw)),
         ("a4", hidden, (stranger, stranger_pw)),
-    ):
+        ("a5", hidden, (stranger, stranger_pw)),
+        ("a6", hidden, (stranger, stranger_pw)),
+    ]
+    if has_readable_tail:
+        models.extend([
+            ("a7", readable, (owner, owner_pw)),
+            ("a8", hidden, (stranger, stranger_pw)),
+        ])
+    for name, experiment_id, as_user in models:
         with User(as_user[0], as_user[1], monkeypatch):
             client.create_logged_model(experiment_id=experiment_id, name=name)
 
     body = {
         "experiment_ids": [readable, hidden],
-        "max_results": 2,
+        "max_results": max_results,
         "order_by": [{"field_name": "name", "ascending": True}],
     }
     pages = _search_logged_models_pages(client.tracking_uri, (owner, owner_pw), body)
@@ -9323,4 +9314,8 @@ def test_search_logged_models_pagination_survives_filtering(client, monkeypatch)
     assert all(names for _, names in pages)
     # Only readable rows, each served exactly once.
     served = [name for _, names in pages for name in names]
-    assert served == ["a1", "a3"]
+    expected_names = ["a1", "a3", "a7"] if has_readable_tail else ["a1", "a3"]
+    assert served == expected_names
+    assert [names for _, names in pages] == [
+        expected_names[i : i + max_results] for i in range(0, len(expected_names), max_results)
+    ]

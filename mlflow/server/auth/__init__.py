@@ -277,9 +277,12 @@ from mlflow.server import app
 from mlflow.server import skill_registry_api as _skill_registry_api
 from mlflow.server._request_keys import (
     MCP_SERVER_ALLOWED_ACTIONS,
+    SCOPED_EXPERIMENT_FILTER,
+    SCOPED_EXPERIMENT_IDS,
     SCOPED_MCP_ACCESS_ENDPOINT_FILTER,
     SCOPED_MCP_SERVER_FILTER,
 )
+from mlflow.server._search_limits import scoped_search_limit_error
 from mlflow.server.asgi_utils import get_routed_asgi_path
 from mlflow.server.auth.config import DEFAULT_AUTHORIZATION_FUNCTION, read_auth_config
 from mlflow.server.auth.entities import GetUserPermissionResult, User
@@ -435,8 +438,10 @@ from mlflow.server.handlers import (
     _get_model_registry_store,
     _get_normalized_request_json,
     _get_request_message,
+    _get_scoped_experiment_ids,
     _get_tracking_store,
     _get_validated_flask_request_json,
+    _raw_request_has_field,
     catch_mlflow_exception,
     get_endpoints,
     get_service_endpoints,
@@ -450,12 +455,18 @@ from mlflow.server.mcp_server_api import (
     create_mcp_access_endpoint as _create_mcp_access_endpoint_endpoint,
 )
 from mlflow.server.mcp_server_api import (
+    create_mcp_server as _create_mcp_server_endpoint,
+)
+from mlflow.server.mcp_server_api import (
     get_mcp_access_endpoint as _get_mcp_access_endpoint_endpoint,
 )
 from mlflow.server.mcp_server_api import (
     get_mcp_server as _get_mcp_server_endpoint,
 )
-from mlflow.server.mcp_server_api import get_mcp_server_api_route_prefixes, is_mcp_server_api_path
+from mlflow.server.mcp_server_api import (
+    get_mcp_server_api_route_prefixes,
+    is_mcp_server_api_path,
+)
 from mlflow.server.mcp_server_api import (
     search_all_access_endpoints as _search_all_access_endpoints_endpoint,
 )
@@ -488,10 +499,15 @@ from mlflow.store.workspace.utils import get_default_workspace_optional
 from mlflow.utils import workspace_context
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.rest_utils import _REST_API_PATH_PREFIX
-from mlflow.utils.search_utils import SearchFilterWithScope, SearchUtils
+from mlflow.utils.search_utils import (
+    SearchExperimentsUtils,
+    SearchMCPAccessEndpointUtils,
+    SearchMCPServerUtils,
+)
 from mlflow.utils.uri import _decode, is_models_uri, validate_path_is_safe
 from mlflow.utils.validation import (
     _MAX_BULK_REGISTER_SKILLS,
+    _parse_experiment_id,
     _validate_organization_name,
     _validate_password,
     _validate_skill_name,
@@ -956,7 +972,12 @@ class RetentionGate:
         always: "bool | None" = None,
     ) -> None:
         self._templates = templates
-        self._grants = grants
+        grants_by_key = {}
+        for grant in grants:
+            key = GrantLoadKey(grant.resource_type, grant.resource_pattern)
+            grants_by_key.setdefault(key, []).append(grant)
+        # Fold each pattern once; candidate lookups combine only its exact and wildcard grants.
+        self._grants = {key: fold_grants_for_key(rows, key) for key, rows in grants_by_key.items()}
         self._default_permission = default_permission
         self._absent = absent
         self._always = always
@@ -989,7 +1010,17 @@ class RetentionGate:
 
     def _fold(self, key: GrantLoadKey) -> "Permission | None":
         if key not in self._folded:
-            self._folded[key] = fold_grants_for_key(self._grants, key)
+            wildcard = self._grants.get(GrantLoadKey(key.resource_type, "*"))
+            named = self._grants.get(key)
+            if wildcard is None:
+                permission = named
+            elif named is None:
+                permission = wildcard
+            elif wildcard.denied or named.denied:
+                permission = DENY
+            else:
+                permission = get_permission(max_permission(wildcard.name, named.name))
+            self._folded[key] = permission
         return self._folded[key]
 
 
@@ -3393,15 +3424,116 @@ def _scope_mcp_server_search_query(
         if scope_comparator == "NOT IN" and not scope_values:
             return
     else:
-        can_read = _role_based_read_predicate(username, "mcp_server")
-        scope_values = {name for name in readable_names if can_read(name)} or {""}
+        scope_values = readable_names or {""}
         scope_comparator = "IN"
     filter_string = request.query_params.get("filter_string")
+    parser = SearchMCPServerUtils if scope_key == "name" else SearchMCPAccessEndpointUtils
+    # Validate the caller's text before appending scope so comments cannot swallow the scope.
+    parser.parse_search_filter(filter_string)
+    values = ", ".join(repr(value) for value in sorted(scope_values))
+    scope_filter = f"{scope_key} {scope_comparator} ({values})"
     setattr(
         request.state,
         state_key,
-        SearchFilterWithScope(filter_string or "", scope_key, scope_values, scope_comparator),
+        f"{filter_string} AND {scope_filter}" if filter_string else scope_filter,
     )
+
+
+def _is_supported_experiment_grant_id(value: str) -> bool:
+    # Stored grants match exact strings; built-in experiment IDs are signed 64-bit integers.
+    return (
+        value.isascii()
+        and value.isdecimal()
+        and (value == "0" or not value.startswith("0"))
+        and len(value) <= 19
+        and int(value) <= 2**63 - 1
+    )
+
+
+def _scope_experiment_search_query() -> None:
+    message = _get_request_message(SearchExperiments())
+    # Validate before composing so caller comments cannot swallow the authorization clause.
+    SearchExperimentsUtils.parse_search_filter(message.filter)
+    scope = _get_resource_read_scope_for_user(
+        authenticate_request().username, RESOURCE_TYPE_EXPERIMENT
+    )
+    if scope.comparator is None:
+        return
+    ids = sorted(value for value in scope.resource_ids if _is_supported_experiment_grant_id(value))
+    if not ids:
+        if scope.comparator == "NOT IN":
+            return
+        scope_filter = "experiment_id = '0' AND experiment_id != '0'"
+    else:
+        values = ", ".join(repr(value) for value in ids)
+        scope_filter = f"experiment_id {scope.comparator} ({values})"
+    setattr(
+        g,
+        SCOPED_EXPERIMENT_FILTER,
+        f"{message.filter} AND {scope_filter}" if message.filter else scope_filter,
+    )
+
+
+def _scope_experiment_ids(message, allow_missing: bool) -> None:
+    field = message.DESCRIPTOR.fields_by_name["experiment_ids"]
+    has_experiment_ids = _raw_request_has_field(field)
+    if not has_experiment_ids and not allow_missing:
+        return
+    requested_ids = list(
+        dict.fromkeys(str(_parse_experiment_id(value)) for value in message.experiment_ids)
+    )
+    username = authenticate_request().username
+    readable_ids = _get_readable_resource_ids(username, RESOURCE_TYPE_EXPERIMENT)
+    if readable_ids is not None:
+        readable_ids = {value for value in readable_ids if _is_supported_experiment_grant_id(value)}
+        scoped_ids = (
+            [value for value in requested_ids if value in readable_ids]
+            if has_experiment_ids
+            else sorted(readable_ids)
+        )
+        setattr(g, SCOPED_EXPERIMENT_IDS, scoped_ids)
+    elif has_experiment_ids:
+        # A broad grant still permits named DENY; a finite caller scope can express that veto.
+        can_read = _role_based_read_predicate(username, RESOURCE_TYPE_EXPERIMENT)
+        setattr(g, SCOPED_EXPERIMENT_IDS, [value for value in requested_ids if can_read(value)])
+
+
+def _scope_batch_trace_query() -> None:
+    message = BatchGetTraces() if request.method == "GET" else BatchGetTraceInfos()
+    _scope_experiment_ids(_get_request_message(message), allow_missing=True)
+
+
+def _scope_logged_model_query() -> None:
+    message = _get_request_message(SearchLoggedModels())
+    if not _raw_request_has_field(message.DESCRIPTOR.fields_by_name["experiment_ids"]):
+        return
+    _scope_experiment_ids(message, allow_missing=False)
+    can_read = _role_based_read_predicate(
+        authenticate_request().username,
+        RESOURCE_TYPE_EXPERIMENT,
+        also_require=[Requirement(RESOURCE_TYPE_LOGGED_MODEL, "*", ACTION_NOT_DENIED)],
+    )
+    experiment_ids = getattr(
+        g,
+        SCOPED_EXPERIMENT_IDS,
+        list(dict.fromkeys(str(_parse_experiment_id(value)) for value in message.experiment_ids)),
+    )
+    setattr(g, SCOPED_EXPERIMENT_IDS, [value for value in experiment_ids if can_read(value)])
+
+
+REQUEST_SCOPE_FUNCTIONS = {
+    SearchExperiments: _scope_experiment_search_query,
+    BatchGetTraces: _scope_batch_trace_query,
+    BatchGetTraceInfos: _scope_batch_trace_query,
+    SearchLoggedModels: _scope_logged_model_query,
+}
+
+REQUEST_SCOPE_HANDLERS = {
+    (path, method): scoper
+    for path, scoper, methods in get_endpoints(REQUEST_SCOPE_FUNCTIONS.get)
+    for method in methods
+    if scoper in REQUEST_SCOPE_FUNCTIONS.values()
+}
 
 
 def filter_experiment_ids(experiment_ids: list[str]) -> list[str]:
@@ -4778,6 +4910,7 @@ def filter_list_review_queues(resp: Response) -> None:
 BEFORE_REQUEST_HANDLERS = {
     # Routes for experiments
     CreateExperiment: validate_can_create_experiment,
+    SearchExperiments: _allow_authenticated,
     GetExperiment: validate_can_read_experiment,
     GetExperimentByName: validate_can_read_experiment_by_name,
     DeleteExperiment: validate_can_delete_experiment,
@@ -5133,7 +5266,7 @@ TRACE_PARAMETERIZED_BEFORE_REQUEST_VALIDATORS = {
 
 LOGGED_MODEL_BEFORE_REQUEST_HANDLERS = {
     CreateLoggedModel: validate_can_create_logged_model,
-    # Row-level authorization is `filter_search_logged_models`; this gates only the
+    # Request scoping authorizes experiment IDs; this gates only the
     # `source_run_id` selector, which redaction cannot cover.
     SearchLoggedModels: validate_can_search_logged_models,
     GetLoggedModel: validate_can_read_logged_model,
@@ -5752,6 +5885,9 @@ def _before_request():
         # No authorization decision resolved for this route: deny (fail-closed).
         return make_forbidden_response()
 
+    if scoper := REQUEST_SCOPE_HANDLERS.get((request.path, request.method)):
+        scoper()
+
 
 def set_can_manage_experiment_permission(resp: Response):
     response_message = CreateExperiment.Response()
@@ -6120,117 +6256,6 @@ def _withhold_denied_latest_versions(registered_models, username: str) -> bool:
     return withheld
 
 
-def filter_search_experiments(resp: Response) -> None:
-    if sender_is_admin():
-        return
-
-    response_message = SearchExperiments.Response()
-    parse_dict(resp.json, response_message)
-    username = authenticate_request().username
-    can_read = _role_based_read_predicate(username, RESOURCE_TYPE_EXPERIMENT)
-    for experiment in list(response_message.experiments):
-        if not can_read(experiment.experiment_id):
-            response_message.experiments.remove(experiment)
-
-    request_message = _get_request_message(SearchExperiments())
-    while (
-        len(response_message.experiments) < request_message.max_results
-        and response_message.next_page_token != ""
-    ):
-        refetched = _get_tracking_store().search_experiments(
-            view_type=request_message.view_type,
-            max_results=request_message.max_results,
-            order_by=request_message.order_by,
-            filter_string=request_message.filter,
-            page_token=response_message.next_page_token,
-        )
-        refetched = refetched[: request_message.max_results - len(response_message.experiments)]
-        if not refetched:
-            response_message.next_page_token = ""
-            break
-
-        response_message.experiments.extend(
-            experiment.to_proto() for experiment in refetched if can_read(experiment.experiment_id)
-        )
-        start_offset = SearchUtils.parse_start_offset_from_page_token(
-            response_message.next_page_token
-        )
-        response_message.next_page_token = SearchUtils.create_page_token(
-            start_offset + len(refetched)
-        )
-
-    resp.data = message_to_json(response_message)
-
-
-def filter_search_logged_models(resp: Response) -> None:
-    """Filter unreadable models and redact denied run references."""
-    if sender_is_admin():
-        return
-
-    response_proto = SearchLoggedModels.Response()
-    parse_dict(resp.json, response_proto)
-    username = authenticate_request().username
-    can_read_experiment = _role_based_read_predicate(
-        username,
-        RESOURCE_TYPE_EXPERIMENT,
-        also_require=[Requirement(RESOURCE_TYPE_LOGGED_MODEL, "*", ACTION_NOT_DENIED)],
-    )
-    for model in list(response_proto.models):
-        if not can_read_experiment(model.info.experiment_id):
-            response_proto.models.remove(model)
-
-    request_message = _get_request_message(SearchLoggedModels())
-    while (
-        len(response_proto.models) < request_message.max_results
-        and response_proto.next_page_token != ""
-    ):
-        remaining = request_message.max_results - len(response_proto.models)
-        refetched = _get_tracking_store().search_logged_models(
-            experiment_ids=list(request_message.experiment_ids),
-            filter_string=request_message.filter or None,
-            datasets=(
-                [
-                    {
-                        "dataset_name": dataset.dataset_name,
-                        "dataset_digest": dataset.dataset_digest or None,
-                    }
-                    for dataset in request_message.datasets
-                ]
-                if request_message.datasets
-                else None
-            ),
-            max_results=remaining,
-            order_by=(
-                [
-                    {
-                        "field_name": order.field_name,
-                        "ascending": order.ascending,
-                        "dataset_name": order.dataset_name or None,
-                        "dataset_digest": order.dataset_digest or None,
-                    }
-                    for order in request_message.order_by
-                ]
-                if request_message.order_by
-                else None
-            ),
-            page_token=response_proto.next_page_token,
-        )
-        if not refetched:
-            response_proto.next_page_token = ""
-            break
-        response_proto.models.extend(
-            model.to_proto() for model in refetched if can_read_experiment(model.experiment_id)
-        )
-        response_proto.next_page_token = refetched.token or ""
-    _withhold_denied_metric_references(
-        [metric for model in response_proto.models for metric in model.data.metrics],
-        username,
-        RESOURCE_TYPE_RUN,
-    )
-    _withhold_denied_model_source_runs(response_proto.models, username)
-    resp.data = message_to_json(response_proto)
-
-
 def _redact_registered_model_response(resp: Response, response_message) -> None:
     if sender_is_admin():
         return
@@ -6276,34 +6301,43 @@ def filter_search_registered_models(resp: Response):
     # re-fetch to fill max results
     request_message = _get_request_message(SearchRegisteredModels())
     filter_string = request_message.filter
+    visited_tokens = set()
     while (
         len(response_message.registered_models) < request_message.max_results
         and response_message.next_page_token != ""
     ):
+        if response_message.next_page_token in visited_tokens:
+            raise MlflowException("Search backend repeated a pagination token.", INTERNAL_ERROR)
+        visited_tokens.add(response_message.next_page_token)
         refetched: PagedList[RegisteredModel] = (
             _get_model_registry_store().search_registered_models(
                 filter_string=filter_string,
-                max_results=request_message.max_results,
+                max_results=request_message.max_results - len(response_message.registered_models),
                 order_by=request_message.order_by,
                 page_token=response_message.next_page_token,
             )
         )
-        refetched = refetched[
-            : request_message.max_results - len(response_message.registered_models)
-        ]
-        if len(refetched) == 0:
-            response_message.next_page_token = ""
-            break
-
         refetched_readable_proto = [rm.to_proto() for rm in refetched if can_read(rm)]
         response_message.registered_models.extend(refetched_readable_proto)
+        response_message.next_page_token = refetched.token or ""
 
-        # recalculate next page token
-        start_offset = SearchUtils.parse_start_offset_from_page_token(
-            response_message.next_page_token
+    lookahead_token = response_message.next_page_token
+    visited_tokens = set()
+    while lookahead_token:
+        if lookahead_token in visited_tokens:
+            raise MlflowException("Search backend repeated a pagination token.", INTERNAL_ERROR)
+        visited_tokens.add(lookahead_token)
+        refetched = _get_model_registry_store().search_registered_models(
+            filter_string=filter_string,
+            max_results=request_message.max_results,
+            order_by=request_message.order_by,
+            page_token=lookahead_token,
         )
-        final_offset = start_offset + len(refetched)
-        response_message.next_page_token = SearchUtils.create_page_token(final_offset)
+        if any(can_read(model) for model in refetched):
+            break
+        lookahead_token = refetched.token
+    else:
+        response_message.next_page_token = ""
 
     # A row the caller may read can still embed versions the version tier withholds.
     _withhold_denied_latest_versions(response_message.registered_models, username)
@@ -6336,10 +6370,14 @@ def filter_search_model_versions(resp: Response):
             response_message.model_versions.remove(mv)
 
     request_message = _get_request_message(SearchModelVersions())
+    visited_tokens = set()
     while (
         len(response_message.model_versions) < request_message.max_results
         and response_message.next_page_token != ""
     ):
+        if response_message.next_page_token in visited_tokens:
+            raise MlflowException("Search backend repeated a pagination token.", INTERNAL_ERROR)
+        visited_tokens.add(response_message.next_page_token)
         remaining = request_message.max_results - len(response_message.model_versions)
         refetched = _get_model_registry_store().search_model_versions(
             filter_string=request_message.filter,
@@ -6347,13 +6385,30 @@ def filter_search_model_versions(resp: Response):
             order_by=request_message.order_by,
             page_token=response_message.next_page_token,
         )
-        if not refetched:
-            response_message.next_page_token = ""
-            break
         response_message.model_versions.extend(
             version.to_proto() for version in refetched if can_read(version)
         )
         response_message.next_page_token = refetched.token or ""
+
+    # Preserve the opaque continuation token if lookahead finds a readable version. Otherwise
+    # the caller would need an extra request just to discover an empty terminal page.
+    lookahead_token = response_message.next_page_token
+    visited_tokens = set()
+    while lookahead_token:
+        if lookahead_token in visited_tokens:
+            raise MlflowException("Search backend repeated a pagination token.", INTERNAL_ERROR)
+        visited_tokens.add(lookahead_token)
+        refetched = _get_model_registry_store().search_model_versions(
+            filter_string=request_message.filter,
+            max_results=request_message.max_results or None,
+            order_by=request_message.order_by,
+            page_token=lookahead_token,
+        )
+        if any(can_read(version) for version in refetched):
+            break
+        lookahead_token = refetched.token
+    else:
+        response_message.next_page_token = ""
 
     # A version the caller may read can still carry a denied run's or model's content.
     _withhold_denied_version_siblings(
@@ -6910,6 +6965,10 @@ def _redact_logged_model_response(resp: Response, response_message, models_of) -
         resp.data = message_to_json(response_message)
 
 
+def redact_search_logged_model_run_ids(resp: Response) -> None:
+    _redact_logged_model_response(resp, SearchLoggedModels.Response(), lambda m: m.models)
+
+
 def redact_get_logged_model_run_ids(resp: Response) -> None:
     _redact_logged_model_response(resp, GetLoggedModel.Response(), lambda m: [m.model])
 
@@ -7078,16 +7137,48 @@ def redact_trace_info_v3_assessments(resp: Response) -> None:
         resp.data = message_to_json(response_message)
 
 
+def _batch_trace_read_predicate(message) -> Callable[[str], bool]:
+    username = authenticate_request().username
+    scoped_ids = _get_scoped_experiment_ids()
+    if scoped_ids is None and _raw_request_has_field(
+        message.DESCRIPTOR.fields_by_name["experiment_ids"]
+    ):
+        scoped_ids = list(message.experiment_ids)
+    allowed_ids = (
+        {str(_parse_experiment_id(value)) for value in scoped_ids}
+        if scoped_ids is not None
+        else None
+    )
+    decisions: dict[str, bool] = {}
+
+    def can_read(experiment_id: str) -> bool:
+        # A backend/plugin may ignore experiment_ids, so the response must enforce even an
+        # empty effective scope. Without a finite scope, use the same checks as point reads.
+        if allowed_ids is not None and experiment_id not in allowed_ids:
+            return False
+        if experiment_id not in decisions:
+            experiment = (RESOURCE_TYPE_EXPERIMENT, experiment_id)
+            decisions[experiment_id] = authorize(
+                username,
+                experiment,
+                [
+                    Requirement(RESOURCE_TYPE_EXPERIMENT, experiment_id, "read"),
+                    Requirement(
+                        RESOURCE_TYPE_TRACE, "*", "read", fallback_if_no_grant=(experiment,)
+                    ),
+                ],
+            )
+        return decisions[experiment_id]
+
+    return can_read
+
+
 def redact_batch_trace_assessments(resp: Response) -> None:
     if sender_is_admin():
         return
     response_message = BatchGetTraces.Response()
     parse_dict(resp.json, response_message)
-    can_read_experiment = _role_based_read_predicate(
-        authenticate_request().username,
-        RESOURCE_TYPE_EXPERIMENT,
-        also_require=[Requirement(RESOURCE_TYPE_TRACE, "*", ACTION_NOT_DENIED)],
-    )
+    can_read_experiment = _batch_trace_read_predicate(_get_request_message(BatchGetTraces()))
     withheld = False
     for trace in list(response_message.traces):
         if not can_read_experiment(trace.trace_info.trace_location.mlflow_experiment.experiment_id):
@@ -7107,11 +7198,7 @@ def redact_batch_trace_info_assessments(resp: Response) -> None:
         return
     response_message = BatchGetTraceInfos.Response()
     parse_dict(resp.json, response_message)
-    can_read_experiment = _role_based_read_predicate(
-        authenticate_request().username,
-        RESOURCE_TYPE_EXPERIMENT,
-        also_require=[Requirement(RESOURCE_TYPE_TRACE, "*", ACTION_NOT_DENIED)],
-    )
+    can_read_experiment = _batch_trace_read_predicate(_get_request_message(BatchGetTraceInfos()))
     withheld = False
     for trace_info in list(response_message.trace_infos):
         if not can_read_experiment(trace_info.trace_location.mlflow_experiment.experiment_id):
@@ -7213,9 +7300,8 @@ def filter_list_artifacts_proxy(resp: Response) -> None:
 
 AFTER_REQUEST_PATH_HANDLERS = {
     CreateExperiment: set_can_manage_experiment_permission,
-    SearchExperiments: filter_search_experiments,
     CreateRegisteredModel: set_can_manage_registered_model_permission,
-    SearchLoggedModels: filter_search_logged_models,
+    SearchLoggedModels: redact_search_logged_model_run_ids,
     DeleteRegisteredModel: delete_can_manage_registered_model_permission,
     GetModelVersion: redact_model_version_siblings,
     GetModelVersionByAlias: redact_model_version_by_alias_siblings,
@@ -7281,7 +7367,6 @@ AFTER_REQUEST_PATH_HANDLERS = {
 # filtering or redacting the response. Every other after-request handler is a side
 # effect of a write that a before-request validator must have already authorized.
 _SELF_AUTHORIZING_AFTER_REQUEST_HANDLERS = frozenset({
-    filter_search_experiments,
     filter_search_model_versions,
     filter_search_registered_models,
     filter_list_scorers,
@@ -8908,13 +8993,18 @@ def _withhold_denied_mcp_version_passengers_on_servers(
         _withhold_denied_mcp_version_passengers(server.get("access_endpoints", []), username)
 
 
-def _filter_search_mcp_servers(username: str, body: bytes, request: StarletteRequest) -> bytes:
+def _enrich_search_mcp_servers(username: str, body: bytes, request: StarletteRequest) -> bytes:
     data = json.loads(body)
-    _withhold_denied_mcp_version_passengers_on_servers(data.get("mcp_servers", []), username)
+    servers = data.get("mcp_servers", [])
+    for server in servers:
+        server["allowed_actions"] = _permission_to_allowed_actions(
+            _get_mcp_server_permission(server["name"], username)
+        )
+    _withhold_denied_mcp_version_passengers_on_servers(servers, username)
     return json.dumps(data).encode()
 
 
-def _filter_search_mcp_endpoints(username: str, body: bytes, request: StarletteRequest) -> bytes:
+def _redact_search_mcp_endpoints(username: str, body: bytes, request: StarletteRequest) -> bytes:
     data = json.loads(body)
     _withhold_denied_mcp_version_passengers(data.get("mcp_access_endpoints", []), username)
     return json.dumps(data).encode()
@@ -9173,8 +9263,10 @@ FASTAPI_ENDPOINT_RESPONSE_FILTERS: dict[
     Callable[..., Any],
     Callable[[str, bytes, StarletteRequest], bytes],
 ] = {
-    _search_mcp_servers_endpoint: _filter_search_mcp_servers,
-    _search_all_access_endpoints_endpoint: _filter_search_mcp_endpoints,
+    _search_mcp_servers_endpoint: _enrich_search_mcp_servers,
+    _search_all_access_endpoints_endpoint: _redact_search_mcp_endpoints,
+    # The creator's grant is installed by the after-handler, after the route builds its response.
+    _create_mcp_server_endpoint: _filter_get_mcp_server,
     _get_mcp_server_endpoint: _filter_get_mcp_server,
     _update_mcp_server_endpoint: _filter_get_mcp_server,
     _get_mcp_access_endpoint_endpoint: _filter_mcp_access_endpoint,
@@ -9210,6 +9302,11 @@ def _apply_fastapi_response_filter(
         filtered_content = response_filter(username, body, request)
     except MlflowException as e:
         _logger.exception("response filter failed for %s %s", request.method, path)
+        if any(
+            hasattr(request.state, key)
+            for key in (SCOPED_MCP_SERVER_FILTER, SCOPED_MCP_ACCESS_ENDPOINT_FILTER)
+        ):
+            e = scoped_search_limit_error(e)
         return JSONResponse(
             status_code=e.get_http_status_code(),
             content=json.loads(e.serialize_as_json()),
@@ -9350,7 +9447,6 @@ def add_fastapi_permission_middleware(app: FastAPI) -> None:
         # Store user info in request state for downstream handlers (e.g., gateway tracing)
         request.state.username = user.username
         request.state.user_id = user.id
-        request.state.is_admin = user.is_admin
 
         # The workspace-context middleware registered in ``create_fastapi_app`` runs
         # *inside* this middleware (Starlette runs the most recently added middleware
@@ -9372,7 +9468,10 @@ def add_fastapi_permission_middleware(app: FastAPI) -> None:
             )
         workspace_context.set_server_request_workspace(workspace.name if workspace else None)
 
-        if not user.is_admin:
+        # List responses add actions after the backend applies the authorization scope.
+        if not user.is_admin and not (
+            request.method == "GET" and path in get_mcp_server_api_route_prefixes()
+        ):
             setattr(
                 request.state,
                 MCP_SERVER_ALLOWED_ACTIONS,
@@ -9380,12 +9479,6 @@ def add_fastapi_permission_middleware(app: FastAPI) -> None:
                     _get_mcp_server_permission(name, user.username)
                 ),
             )
-
-        if not user.is_admin and request.method == "GET":
-            for matcher, scoper in FASTAPI_REQUEST_SCOPE_HANDLERS:
-                if matcher(path):
-                    scoper(request, user.username)
-                    break
 
         # Pre-read request body for after-request handlers that need it (the
         # body is cached by Starlette so the route handler can still read it).
@@ -9405,6 +9498,17 @@ def add_fastapi_permission_middleware(app: FastAPI) -> None:
                         "Permission denied",
                         status_code=HTTPStatus.FORBIDDEN,
                     )
+                if request.method == "GET":
+                    for matcher, scoper in FASTAPI_REQUEST_SCOPE_HANDLERS:
+                        if matcher(path):
+                            try:
+                                scoper(request, user.username)
+                            except MlflowException as e:
+                                return JSONResponse(
+                                    status_code=e.get_http_status_code(),
+                                    content=json.loads(e.serialize_as_json()),
+                                )
+                            break
             except MlflowException as e:
                 return PlainTextResponse(
                     e.message,

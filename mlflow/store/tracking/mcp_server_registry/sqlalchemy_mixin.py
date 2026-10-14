@@ -24,7 +24,6 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_ALREADY_EXISTS,
     RESOURCE_DOES_NOT_EXIST,
 )
-from mlflow.store.db.db_types import MYSQL
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking.dbmodels.models import (
@@ -212,7 +211,7 @@ class SqlAlchemyMCPServerRegistryMixin:
                 query = _apply_mcp_server_filter(query, filter_string, self._get_dialect())
             order_clauses = _parse_search_mcp_servers_order_by(order_by)
             query = query.order_by(*order_clauses).offset(offset).limit(max_results + 1)
-            server_rows = session.execute(query.statement).unique().scalars().all()
+            server_rows = query.all()
             resolved_versions = self._get_nested_endpoint_resolved_versions(session, server_rows)
             servers = [server.to_mlflow_entity(resolved_versions) for server in server_rows]
             next_token = None
@@ -756,10 +755,7 @@ class SqlAlchemyMCPServerRegistryMixin:
                 query = _apply_mcp_access_endpoint_filter(query, filter_string, self._get_dialect())
             order_clauses = _parse_search_mcp_access_endpoints_order_by(order_by)
             query = query.order_by(*order_clauses).offset(offset).limit(max_results + 1)
-            endpoints = [
-                endpoint.to_mlflow_entity()
-                for endpoint in session.execute(query.statement).unique().scalars().all()
-            ]
+            endpoints = [e.to_mlflow_entity() for e in query.all()]
             next_token = None
             if len(endpoints) > max_results:
                 next_token = SearchUtils.create_page_token(offset + max_results)
