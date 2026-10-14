@@ -616,6 +616,10 @@ def test_mlflow_locations_are_rejected_as_remote_sources(
             {"source": "https://example.com/a.zip", "source_type": "zip", "ref": "main"},
             "'ref' applies to git sources only",
         ),
+        (
+            {"source": "https://example.com/a.zip?X-Amz-Signature=presigned-secret"},
+            "credentials",
+        ),
         # The server never treats a source as a path on its own filesystem.
         ({"source": "/etc/skills/reviewer"}, "must be a remote git, oci, or zip location"),
         (

@@ -11,9 +11,11 @@ SKILL_URIS = [
     "skills:/code-review",
     "skills:/code-review/1",
     "skills:/code-review@production",
+    "skills:/code-review@latest",
     "skills:/@acme/code-review",
     "skills:/@acme/code-review/1",
     "skills:/@acme/code-review@production",
+    "skills:/@acme/code-review@latest",
     "skills:/@acme.com/123",
 ]
 
@@ -29,6 +31,7 @@ def test_skill_uri_roundtrip_from_string(uri):
         ParsedSkillUri(name="code-review"),
         ParsedSkillUri(name="code-review", organization="acme", version=3),
         ParsedSkillUri(name="code-review", alias="production"),
+        ParsedSkillUri(name="code-review", alias="latest"),
     ],
 )
 def test_skill_object_roundtrip(parsed):
