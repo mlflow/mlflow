@@ -3549,8 +3549,9 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         """
         Get all active online scorers across all experiments.
 
-        Active online scorers are those with a sample_rate greater than zero.
-        Gateway endpoint IDs in the serialized scorers are resolved to endpoint names.
+        Active online scorers are those with a sample_rate greater than zero whose latest version
+        online scoring can run. Gateway endpoint IDs in the serialized scorers are resolved to
+        endpoint names.
 
         Returns:
             List of OnlineScorer entities with name, experiment_id, serialized_scorer,
@@ -3595,12 +3596,22 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             for config, scorer, version in results:
                 serialized_data = json.loads(version.serialized_scorer)
                 model = extract_model_from_serialized_scorer(serialized_data)
-                if is_gateway_model(model) or (
-                    container_scoring_enabled()
-                    and _serialized_scorer_is_custom_code(serialized_data)
-                    and _is_decorator_scorer(SerializedScorer.from_dict(serialized_data))
-                ):
+                if is_gateway_model(model):
                     gateway_results.append((config, scorer, version))
+                elif container_scoring_enabled() and _serialized_scorer_is_custom_code(
+                    serialized_data
+                ):
+                    # The latest version can be registered, or the server's settings changed,
+                    # after the config was enabled, so the checks made then are made again.
+                    try:
+                        self._validate_online_custom_scorer(scorer.scorer_name, serialized_data)
+                    except MlflowException as e:
+                        _logger.warning(
+                            f"Skipping online scorer '{scorer.scorer_name}' in experiment "
+                            f"{config.experiment_id}: {e.message}"
+                        )
+                    else:
+                        gateway_results.append((config, scorer, version))
 
             # Resolve gateway endpoint IDs to names
             return [

@@ -145,9 +145,10 @@ def _signature_param_names(signature: str) -> set[str]:
     """The parameter names in a stored ``@scorer`` signature, read without running any code."""
     try:
         args = ast.parse(f"def _f{signature}: pass").body[0].args
-    except SyntaxError:
+    # Before Python 3.12, a null byte in the source raises ValueError instead of SyntaxError.
+    except (SyntaxError, ValueError):
         raise MlflowException(
-            f"Invalid signature format: '{signature}'", error_code=INVALID_PARAMETER_VALUE
+            f"Invalid signature format: {signature!r}", error_code=INVALID_PARAMETER_VALUE
         )
     return {arg.arg for arg in (*args.posonlyargs, *args.args, *args.kwonlyargs)}
 
