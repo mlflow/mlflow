@@ -31,6 +31,11 @@ from mlflow.gateway.constants import MLFLOW_GATEWAY_DURATION_HEADER, MLFLOW_GATE
 from mlflow.gateway.providers.utils import provider_call_duration_ms
 from mlflow.protos.databricks_pb2 import BAD_REQUEST, ErrorCode
 from mlflow.server import app as flask_app
+from mlflow.server._request_keys import (
+    SCOPED_MCP_ACCESS_ENDPOINT_FILTER,
+    SCOPED_MCP_SERVER_FILTER,
+)
+from mlflow.server._search_limits import scoped_search_limit_error
 from mlflow.server.artifact_router import artifact_router
 from mlflow.server.artifact_transfer import reject_proxied_artifact_upload
 from mlflow.server.asgi_utils import get_routed_asgi_path
@@ -220,6 +225,11 @@ def add_registry_exception_handlers(fastapi_app: FastAPI) -> None:
     async def registry_mlflow_exception_handler(request: Request, exc: MlflowException):
         path = get_routed_asgi_path(request)
         if is_mcp_server_api_path(path):
+            if any(
+                hasattr(request.state, key)
+                for key in (SCOPED_MCP_SERVER_FILTER, SCOPED_MCP_ACCESS_ENDPOINT_FILTER)
+            ):
+                exc = scoped_search_limit_error(exc)
             return mlflow_exception_response(exc, handler_name="mcp_mlflow_exception_handler")
         if is_skill_registry_api_path(path):
             return mlflow_exception_response(exc, handler_name="skills_mlflow_exception_handler")

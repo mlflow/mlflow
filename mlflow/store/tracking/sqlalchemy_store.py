@@ -297,7 +297,6 @@ from mlflow.utils.search_utils import (
     SearchLoggedModelsPaginationToken,
     SearchTraceUtils,
     SearchUtils,
-    _AuthorizationScopeValues,
 )
 from mlflow.utils.string_utils import is_string_type
 from mlflow.utils.time import get_current_time_millis
@@ -740,11 +739,7 @@ class SqlAlchemyStore(
         page_token=None,
     ):
         experiments, next_page_token = self._search_experiments(
-            view_type,
-            max_results,
-            filter_string,
-            order_by,
-            page_token,
+            view_type, max_results, filter_string, order_by, page_token
         )
         return PagedList(experiments, next_page_token)
 
@@ -3880,14 +3875,10 @@ class SqlAlchemyStore(
             )
             models = models.join(subquery)
 
-        parsed_experiment_ids = _parse_experiment_ids(experiment_ids)
-        if not parsed_experiment_ids:
-            exp_filter = sqlalchemy.false()
-        else:
-            exp_filter = SqlLoggedModel.experiment_id.in_(parsed_experiment_ids)
+        experiment_ids = _parse_experiment_ids(experiment_ids)
         return models.filter(
             SqlLoggedModel.lifecycle_stage != LifecycleStage.DELETED,
-            exp_filter,
+            SqlLoggedModel.experiment_id.in_(experiment_ids),
             *attr_filters,
         )
 
@@ -3931,8 +3922,8 @@ class SqlAlchemyStore(
                 )
                 .offset(offset)
                 .limit(max_results + 1)
+                .all()
             )
-            models = session.execute(models.statement).unique().scalars().all()
 
             if len(models) > max_results:
                 token = SearchLoggedModelsPaginationToken(
@@ -10578,15 +10569,11 @@ def _get_search_experiments_filter_clauses(parsed_filters, dialect):
                     raise MlflowException.invalid_parameter_value(
                         f"Invalid comparator for experiment_id: {comparator}"
                     )
-                if isinstance(value, tuple):
-                    parsed_values = tuple(_parse_experiment_id(v) for v in value)
-                    value = (
-                        _AuthorizationScopeValues(parsed_values)
-                        if isinstance(value, _AuthorizationScopeValues)
-                        else parsed_values
-                    )
-                else:
-                    value = _parse_experiment_id(value)
+                value = (
+                    tuple(_parse_experiment_id(v) for v in value)
+                    if isinstance(value, tuple)
+                    else _parse_experiment_id(value)
+                )
             else:
                 if SearchExperimentsUtils.is_string_attribute(
                     type_, key, comparator

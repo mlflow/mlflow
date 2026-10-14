@@ -72,7 +72,6 @@ from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 _logger = logging.getLogger(__name__)
 
-
 # Models that carry a ``workspace`` column and must be filtered
 # by the active workspace in every query.
 _WORKSPACE_MODELS = (
@@ -83,7 +82,6 @@ _WORKSPACE_MODELS = (
     SqlModelVersionTag,
     SqlRegisteredModelAlias,
 )
-
 
 # For each database table, fetch its columns and define an appropriate attribute for each column
 # on the table's associated object representation (Mapper). This is necessary to ensure that
@@ -664,7 +662,7 @@ class SqlAlchemyStore(AbstractStore):
         else:
             return rm_query
 
-    def _get_search_model_versions_filter_clauses(self, session, parsed_filters, dialect):
+    def _get_search_model_versions_filter_clauses(self, parsed_filters, dialect):
         attribute_filters = []
         tag_filters = {}
         tag_where_clauses = self._get_workspace_clauses(SqlModelVersionTag)
@@ -1352,6 +1350,10 @@ class SqlAlchemyStore(AbstractStore):
 
         parsed_filters = SearchModelVersionUtils.parse_search_filter(filter_string)
 
+        filter_query = self._get_search_model_versions_filter_clauses(
+            parsed_filters, self.engine.dialect.name
+        )
+
         parsed_orderby = self._parse_search_model_versions_order_by(
             order_by or ["last_updated_timestamp DESC", "name ASC", "version_number DESC"]
         )
@@ -1361,9 +1363,6 @@ class SqlAlchemyStore(AbstractStore):
         max_results_for_query = max_results + 1
 
         with self.ManagedSessionMaker() as session:
-            filter_query = self._get_search_model_versions_filter_clauses(
-                session, parsed_filters, self.engine.dialect.name
-            )
             query = (
                 filter_query
                 .options(*self._get_eager_model_version_query_options())

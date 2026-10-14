@@ -745,6 +745,8 @@ def test_batch_trace_workspace_members_require_resource_read_grants(
 )
 @pytest.mark.parametrize("prefix", ["/api/3.0/mlflow", "/ajax-api/3.0/mlflow"])
 @pytest.mark.parametrize("request_case", ["readable", "unreadable", "missing", "mixed"])
+@pytest.mark.parametrize("workspace_permission", [NO_PERMISSIONS, USE])
+@pytest.mark.parametrize("backend_scope", ["supported", "ignored", "legacy"])
 def test_batch_trace_queries_filter_mixed_trace_ids(
     workspace_permission_setup,
     db_uri,
@@ -757,14 +759,12 @@ def test_batch_trace_queries_filter_mixed_trace_ids(
     response_field,
     prefix,
     request_case,
+    workspace_permission,
+    backend_scope,
 ):
     auth_store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
-    # NO_PERMISSIONS workspace + explicit experiment READ means the response filter can correctly
-    # distinguish readable vs. unreadable experiments without workspace-level read fallback.
-    # (With USE workspace, all experiments are implicitly readable and filtering requires the
-    # deferred REQUEST_SCOPE_HANDLERS to scope the store query instead.)
-    _set_workspace_permission(auth_store, username, NO_PERMISSIONS.name)
+    _set_workspace_permission(auth_store, username, workspace_permission.name)
     tracking_store = WorkspaceAwareSqlAlchemyStore(db_uri, (tmp_path / "artifacts").as_uri())
     request.addfinalizer(tracking_store._dispose_engine)
     readable_experiment = tracking_store.create_experiment("readable")
@@ -781,6 +781,24 @@ def test_batch_trace_queries_filter_mixed_trace_ids(
     auth_store.assign_role_to_user(auth_store.get_user(username).id, role.id)
     monkeypatch.setattr(auth_module, "_get_tracking_store", lambda: tracking_store)
     monkeypatch.setattr("mlflow.server.handlers._get_tracking_store", lambda: tracking_store)
+    store_method = "batch_get_traces" if endpoint == "batchGet" else "batch_get_trace_infos"
+    original_batch_get = getattr(tracking_store, store_method)
+    if backend_scope == "ignored":
+        batch_get = Mock(
+            side_effect=lambda trace_ids, location=None, experiment_ids=None: original_batch_get(
+                trace_ids, location
+            )
+        )
+    else:
+        batch_get = Mock(wraps=original_batch_get)
+    if backend_scope == "legacy":
+        monkeypatch.setattr(
+            tracking_store,
+            store_method,
+            lambda trace_ids, location=None: batch_get(trace_ids, location),
+        )
+    else:
+        monkeypatch.setattr(tracking_store, store_method, batch_get)
     monkeypatch.setattr(auth_module, "is_auth_enabled", lambda: True)
     monkeypatch.setattr(
         auth_module,
@@ -808,11 +826,70 @@ def test_batch_trace_queries_filter_mixed_trace_ids(
     response = app.test_client().open(path, method=method, **kwargs)
 
     assert response.status_code == 200
+    batch_get.assert_called_once()
+    if backend_scope == "legacy":
+        assert "experiment_ids" not in batch_get.call_args.kwargs
+    else:
+        assert batch_get.call_args.kwargs["experiment_ids"] == [readable_experiment]
     results = response.json.get(response_field, [])
     infos = [result["trace_info"] for result in results] if endpoint == "batchGet" else results
     assert [info["trace_id"] for info in infos] == (
         [readable_trace] if request_case in ("readable", "mixed") else []
     )
+
+
+@pytest.mark.parametrize(
+    ("endpoint", "method", "handler", "store_method"),
+    [
+        ("batchGet", "GET", _batch_get_traces, "batch_get_traces"),
+        ("batchGetInfos", "POST", _batch_get_trace_infos, "batch_get_trace_infos"),
+    ],
+)
+@pytest.mark.parametrize("field_name", ["experiment_ids", "experimentIds"])
+@pytest.mark.parametrize("requested_ids", [None, ["1", "2"], ["2"], []])
+def test_batch_trace_scopes_preserve_caller_restrictions(
+    workspace_permission_setup,
+    monkeypatch,
+    endpoint,
+    method,
+    handler,
+    store_method,
+    field_name,
+    requested_ids,
+):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [("experiment", "1", READ.name)])
+    monkeypatch.setattr(
+        auth_module,
+        "authenticate_request",
+        lambda: Authorization("basic", {"username": username, "password": "supersecurepassword"}),
+    )
+    tracking = Mock()
+    batch_get = getattr(tracking, store_method)
+    batch_get.return_value = []
+    monkeypatch.setattr("mlflow.server.handlers._get_tracking_store", lambda: tracking)
+    app = Flask(__name__)
+    app.before_request(auth_module._before_request)
+    path = f"/api/3.0/mlflow/traces/{endpoint}"
+    app.add_url_rule(path, view_func=handler, methods=[method])
+    payload = {"trace_ids": ["trace-1"]}
+    if requested_ids is not None:
+        payload[field_name] = requested_ids
+    kwargs = {"query_string": payload} if method == "GET" else {"json": payload}
+
+    response = app.test_client().open(path, method=method, **kwargs)
+
+    assert response.status_code == 200
+    batch_get.assert_called_once()
+    # An empty GET list is omitted by URL encoding, whereas POST retains an explicit empty list.
+    expected = (
+        ["1"]
+        if requested_ids is None or (method == "GET" and not requested_ids)
+        else [value for value in requested_ids if value == "1"]
+    )
+    assert batch_get.call_args.kwargs["experiment_ids"] == expected
 
 
 def test_filter_list_workspaces_includes_default_when_autogrant(monkeypatch):
@@ -2267,57 +2344,28 @@ def test_filter_search_registered_models_classifies_refetched_rows(
     assert names == ["refetched-prompt"]
 
 
-def test_search_logged_models_backfill_preserves_opaque_backend_page_tokens(
-    workspace_permission_setup, monkeypatch
+@pytest.mark.parametrize("empty", [True, False])
+def test_search_logged_models_redaction_preserves_backend_page_without_queries(
+    workspace_permission_setup, monkeypatch, empty
 ):
-    from mlflow.entities.logged_model import LoggedModel
-    from mlflow.store.entities import PagedList
-
     monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
-    monkeypatch.setattr(
-        auth_module,
-        "_role_based_read_predicate",
-        lambda *_args, **_kwargs: lambda resource_id: resource_id != "denied",
-    )
-    search = Mock(
-        return_value=PagedList(
-            [
-                LoggedModel(
-                    experiment_id="exp-1",
-                    model_id="model-1",
-                    name="model",
-                    artifact_location="",
-                    creation_timestamp=1,
-                    last_updated_timestamp=1,
-                )
-            ],
-            "opaque-next-token",
-        )
-    )
-    monkeypatch.setattr(
-        auth_module,
-        "_get_tracking_store",
-        lambda: SimpleNamespace(search_logged_models=search),
-    )
-    flask_resp = Response(
-        json.dumps({
-            "models": [{"info": {"model_id": "denied", "experiment_id": "denied"}}],
-            "next_page_token": "opaque-start-token",
-        }),
-        mimetype="application/json",
-    )
-
+    tracking_store = Mock()
+    predicate = Mock()
+    monkeypatch.setattr(auth_module, "_get_tracking_store", tracking_store)
+    monkeypatch.setattr(auth_module, "_role_based_read_predicate", predicate)
+    payload = {
+        "models": [] if empty else [{"info": {"model_id": "model-1", "experiment_id": "1"}}],
+        "next_page_token": "opaque-backend-token",
+    }
+    flask_resp = Response(json.dumps(payload), mimetype="application/json")
+    original_data = flask_resp.data
     with auth_module.app.test_request_context(
-        "/api/2.0/mlflow/logged-models/search",
-        method="POST",
-        json={"experiment_ids": [], "max_results": 1},
+        "/api/2.0/mlflow/logged-models/search", method="POST", json={"experiment_ids": ["1"]}
     ):
-        auth_module.filter_search_logged_models(flask_resp)
-
-    assert search.call_args.kwargs["page_token"] == "opaque-start-token"
-    response = json.loads(flask_resp.get_data(as_text=True))
-    assert response["next_page_token"] == "opaque-next-token"
-    assert [model["info"]["model_id"] for model in response["models"]] == ["model-1"]
+        auth_module.redact_search_logged_model_run_ids(flask_resp)
+    assert flask_resp.data == original_data
+    tracking_store.assert_not_called()
+    predicate.assert_not_called()
 
 
 def test_search_model_versions_backfill_preserves_opaque_backend_page_tokens(
@@ -2358,7 +2406,9 @@ def test_search_model_versions_backfill_preserves_opaque_backend_page_tokens(
     ):
         auth_module.filter_search_model_versions(flask_resp)
 
-    assert search.call_args.kwargs["page_token"] == "opaque-start-token"
+    search.assert_called_once_with(
+        filter_string="", max_results=1, order_by=[], page_token="opaque-start-token"
+    )
     response = json.loads(flask_resp.get_data(as_text=True))
     assert response["next_page_token"] == "opaque-next-token"
     assert [version["name"] for version in response["model_versions"]] == ["model"]
@@ -9103,6 +9153,7 @@ def test_every_metadata_bearing_trace_response_is_registered_for_redaction():
                     {
                         "trace_info": {
                             "trace_id": "t-1",
+                            "trace_location": {"mlflow_experiment": {"experiment_id": "exp-1"}},
                             "trace_metadata": {"mlflow.sourceRun": "r-1", "other": "keep"},
                         }
                     }
@@ -9116,6 +9167,7 @@ def test_every_metadata_bearing_trace_response_is_registered_for_redaction():
                 "trace_infos": [
                     {
                         "trace_id": "t-1",
+                        "trace_location": {"mlflow_experiment": {"experiment_id": "exp-1"}},
                         "trace_metadata": {"mlflow.sourceRun": "r-1", "other": "keep"},
                     }
                 ]
@@ -9162,7 +9214,12 @@ def test_every_trace_route_strips_a_denied_runs_id_from_metadata(
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
-    _grant(store, username, "team-a", [("run", "*", DENY.name)])
+    _grant(
+        store,
+        username,
+        "team-a",
+        [("experiment", "exp-1", READ.name), ("run", "*", DENY.name)],
+    )
 
     flask_resp = Response(json.dumps(payload), mimetype="application/json")
     with auth_module.app.test_request_context("/api/3.0/mlflow/traces", method="POST", json={}):
@@ -9409,9 +9466,6 @@ def test_logged_model_withholds_a_denied_source_run(
 def test_search_logged_models_withholds_a_denied_source_run(
     workspace_permission_setup, monkeypatch
 ):
-    """The listing path builds its own response and backfills pages, so it carries the redaction
-    separately from the shared point-read helper.
-    """
     monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
@@ -9426,24 +9480,24 @@ def test_search_logged_models_withholds_a_denied_source_run(
     payload = {
         "models": [
             {
-                "info": {"model_id": "m-1", "experiment_id": "exp-1", "source_run_id": "run-1"},
+                "info": {"model_id": "m-1", "experiment_id": "1", "source_run_id": "run-1"},
                 "data": {"metrics": [_metric_row()]},
             }
         ]
     }
     flask_resp = Response(json.dumps(payload), mimetype="application/json")
     with auth_module.app.test_request_context(
-        "/api/2.0/mlflow/logged-models/search", method="POST", json={"experiment_ids": ["exp-1"]}
+        "/api/2.0/mlflow/logged-models/search", method="POST", json={"experiment_ids": ["1"]}
     ):
         with workspace_context.WorkspaceContext("team-a"):
-            auth_module.filter_search_logged_models(flask_resp)
+            auth_module.redact_search_logged_model_run_ids(flask_resp)
     models = json.loads(flask_resp.get_data(as_text=True))["models"]
 
     assert [m["info"]["model_id"] for m in models] == ["m-1"]
     assert "source_run_id" not in models[0]["info"]
 
 
-def test_search_logged_models_filters_an_experiment_denied_under_wildcard_read(
+def test_search_logged_models_scopes_an_experiment_denied_under_wildcard_read(
     workspace_permission_setup, monkeypatch
 ):
     monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
@@ -9454,26 +9508,16 @@ def test_search_logged_models_filters_an_experiment_denied_under_wildcard_read(
         store,
         username,
         "team-a",
-        [("experiment", "*", READ.name), ("experiment", "exp-2", DENY.name)],
+        [("experiment", "*", READ.name), ("experiment", "2", DENY.name)],
     )
-    payload = {
-        "models": [
-            {"info": {"model_id": "m-1", "experiment_id": "exp-1"}},
-            {"info": {"model_id": "m-2", "experiment_id": "exp-2"}},
-        ]
-    }
-    flask_resp = Response(json.dumps(payload), mimetype="application/json")
-
     with auth_module.app.test_request_context(
-        "/api/2.0/mlflow/logged-models/search", method="POST", json={}
+        "/api/2.0/mlflow/logged-models/search", method="POST", json={"experiment_ids": ["1", "2"]}
     ):
-        auth_module.filter_search_logged_models(flask_resp)
-
-    models = json.loads(flask_resp.get_data(as_text=True))["models"]
-    assert [model["info"]["model_id"] for model in models] == ["m-1"]
+        auth_module._scope_logged_model_query()
+        assert auth_module._get_scoped_experiment_ids() == ["1"]
 
 
-def test_search_logged_models_filters_a_logged_model_tier_deny(
+def test_search_logged_models_scopes_a_logged_model_tier_deny(
     workspace_permission_setup, monkeypatch
 ):
     monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
@@ -9486,17 +9530,11 @@ def test_search_logged_models_filters_a_logged_model_tier_deny(
         "team-a",
         [("experiment", "*", READ.name), ("logged_model", "*", DENY.name)],
     )
-    flask_resp = Response(
-        json.dumps({"models": [{"info": {"model_id": "m-1", "experiment_id": "exp-1"}}]}),
-        mimetype="application/json",
-    )
-
     with auth_module.app.test_request_context(
-        "/api/2.0/mlflow/logged-models/search", method="POST", json={}
+        "/api/2.0/mlflow/logged-models/search", method="POST", json={"experiment_ids": ["1", "2"]}
     ):
-        auth_module.filter_search_logged_models(flask_resp)
-
-    assert json.loads(flask_resp.get_data(as_text=True)).get("models", []) == []
+        auth_module._scope_logged_model_query()
+        assert auth_module._get_scoped_experiment_ids() == []
 
 
 def _metric_row(model_id="m-1", run_id="run-1"):
@@ -10510,3 +10548,68 @@ def test_retention_gate_memoizes_and_fails_closed(workspace_permission_setup):
             [template],
         )
     assert closed.retains(auth_module.RESOURCE_TYPE_ASSESSMENT) is False
+
+
+@pytest.mark.parametrize("resource_type", ["experiment", "trace"])
+@pytest.mark.parametrize("wildcard", [None, READ, DENY, NO_PERMISSIONS])
+@pytest.mark.parametrize("named", [None, READ, MANAGE, DENY, NO_PERMISSIONS])
+@pytest.mark.parametrize("default_permission", [NO_PERMISSIONS.name, READ.name])
+@pytest.mark.parametrize("absent", [NO_PERMISSIONS, USE])
+def test_retention_gate_index_preserves_full_grant_resolution(
+    resource_type, wildcard, named, default_permission, absent
+):
+    grants = [
+        RoleGrantRow("workspace", "*", USE.name),
+        RoleGrantRow("registered_model", "selected", DENY.name),
+        RoleGrantRow(resource_type, "other", READ.name),
+    ]
+    if wildcard is not None:
+        grants.extend([
+            RoleGrantRow(resource_type, "*", READ.name),
+            RoleGrantRow(resource_type, "*", wildcard.name),
+        ])
+    if named is not None:
+        grants.extend([
+            RoleGrantRow(resource_type, "selected", READ.name),
+            RoleGrantRow(resource_type, "selected", named.name),
+        ])
+    template = Requirement(resource_type, "*", "read", fallback_if_no_grant=(("workspace", "*"),))
+    gate = auth_module.RetentionGate({resource_type: template}, grants, default_permission, absent)
+    for resource_id in ("selected", "other", "missing", "*"):
+        requirement = template._replace(resource_id=resource_id)
+        keys = auth_module.requirement_to_grant_load_keys(requirement)
+        permissions = {key: auth_module.fold_grants_for_key(grants, key) for key in keys}
+        expected = auth_module.requirement_satisfied(
+            requirement, permissions, default_permission, absent
+        )
+        assert gate.retains(resource_type, resource_id) == expected
+        for key in keys:
+            assert gate._fold(key) == permissions[key]
+
+
+@pytest.mark.parametrize("grant_count", [100, 1000])
+def test_retention_gate_resolves_candidates_without_repeated_grant_scans(monkeypatch, grant_count):
+    grants = [RoleGrantRow("experiment", str(index), READ.name) for index in range(grant_count)]
+    # Multiple roles can carry duplicate wildcard grants; candidate work must not repeat them.
+    grants.extend(RoleGrantRow("experiment", "*", READ.name) for _ in range(grant_count))
+    grants.append(RoleGrantRow("experiment", "0", DENY.name))
+    scanned = []
+    original_fold = auth_module.fold_grants_for_key
+
+    def count_rows(rows, key):
+        scanned.append(len(rows))
+        return original_fold(rows, key)
+
+    fold = Mock(side_effect=count_rows)
+    monkeypatch.setattr(auth_module, "fold_grants_for_key", fold)
+    gate = auth_module.RetentionGate(
+        {"experiment": Requirement("experiment", "*", "read")},
+        grants,
+        NO_PERMISSIONS.name,
+        NO_PERMISSIONS,
+    )
+    assert not gate.retains("experiment", "0")
+    assert all(gate.retains("experiment", str(index)) for index in range(1, grant_count))
+    assert gate.retains("experiment", "missing")
+    fold.assert_called()
+    assert sum(scanned) <= len(grants)

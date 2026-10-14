@@ -428,9 +428,39 @@ def test_search_servers_scopes_request_before_storage(store):
     assert search.call_args.kwargs["filter_string"] == (
         "name != 'com.example/beta' AND name IN ('com.example/alpha')"
     )
-    can_read.assert_called_once_with("alice", "mcp_server")
+    can_read.assert_not_called()
     permission_resolver.assert_not_called()
     action_resolver.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "caller_filter", ["name = 'x' --", "name = 'x' /*", "name = 'x' OR name = 'y'"]
+)
+def test_scoped_server_search_rejects_invalid_caller_filters(store, caller_filter):
+    app = _create_registry_fastapi_app()
+    auth_module.add_fastapi_permission_middleware(app)
+    with (
+        mock.patch("mlflow.server.handlers._get_tracking_store", return_value=store),
+        mock.patch(
+            "mlflow.server.auth._authenticate_fastapi_request",
+            return_value=SimpleNamespace(username="alice", id=1, is_admin=False),
+        ),
+        mock.patch(
+            "mlflow.server.auth.get_readable_resource_ids_for_user",
+            return_value={"com.example/allowed"},
+        ),
+        mock.patch(
+            "mlflow.server.auth._role_based_read_predicate", return_value=lambda _name: True
+        ) as can_read,
+        mock.patch.object(store, "search_mcp_servers", wraps=store.search_mcp_servers) as search,
+    ):
+        response = TestClient(app).get(PREFIX, params={"filter_string": caller_filter})
+
+    assert response.status_code == 400
+    assert response.headers["content-type"] == "application/json"
+    assert response.json()["error_code"] == "INVALID_PARAMETER_VALUE"
+    can_read.assert_not_called()
+    search.assert_not_called()
 
 
 def test_search_all_endpoints_scopes_request_before_storage(store):
@@ -459,6 +489,9 @@ def test_search_all_endpoints_scopes_request_before_storage(store):
         mock.patch(
             "mlflow.server.auth._mcp_server_version_not_denied", return_value=True
         ) as version,
+        mock.patch(
+            "mlflow.server.auth._get_mcp_server_permission", return_value=get_permission("READ")
+        ) as permission,
         mock.patch.object(
             store, "search_mcp_access_endpoints", wraps=store.search_mcp_access_endpoints
         ) as search,
@@ -475,7 +508,9 @@ def test_search_all_endpoints_scopes_request_before_storage(store):
         f"server_name != '{denied}' AND server_name IN ('{allowed}')"
     )
     version.assert_called_once_with("alice", allowed)
-    can_read.assert_called_once_with("alice", "mcp_server")
+    permission.assert_not_called()
+    search.assert_called_once()
+    can_read.assert_not_called()
 
 
 def test_search_servers_keeps_wildcard_scope_unrestricted(store):
@@ -536,7 +571,7 @@ def test_search_servers_returns_only_allowed_servers(store):
     assert response.status_code == 200
     names = [s["name"] for s in response.json()["mcp_servers"]]
     assert names == ["com.example/allowed"]
-    can_read.assert_called_once_with("alice", "mcp_server")
+    can_read.assert_not_called()
 
 
 @pytest.mark.parametrize("suffix", ["", "/com.example/alpha"])
@@ -582,10 +617,7 @@ def test_server_responses_return_allowed_actions_for_authenticated_user(
     assert server["name"] == "com.example/alpha"
     assert server["allowed_actions"] == actions
     permission_resolver.assert_called_with("com.example/alpha", "alice")
-    if suffix:
-        can_read.assert_not_called()
-    else:
-        can_read.assert_called_once_with("alice", "mcp_server")
+    can_read.assert_not_called()
 
 
 @pytest.mark.parametrize("operation", ["create", "update"])
@@ -715,7 +747,7 @@ def test_search_servers_scopes_empty_auth_scope_before_storage(store):
     assert response.status_code == 200
     assert response.json()["mcp_servers"] == []
     assert search.call_args.kwargs["filter_string"] == "name IN ('')"
-    can_read.assert_called_once_with("alice", "mcp_server")
+    can_read.assert_not_called()
 
 
 def test_search_servers_returns_resolved_icon_source(client):
