@@ -4200,6 +4200,37 @@ def test_search_logged_models_order_by_metric_paginates_tied_dataset_metrics(
     assert actual_names == expected_names
 
 
+@pytest.mark.parametrize(
+    ("filter_string", "order_by"),
+    [
+        ("", None),
+        (None, []),
+        ("", []),
+    ],
+)
+def test_search_logged_models_pagination_with_empty_filter_string_or_order_by(
+    store: SqlAlchemyStore, filter_string, order_by
+):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    for i in range(3):
+        store.create_logged_model(experiment_id=exp_id, name=f"model-{i}")
+
+    page1 = store.search_logged_models(
+        experiment_ids=[exp_id], filter_string=filter_string, order_by=order_by, max_results=1
+    )
+    assert len(page1) == 1
+    assert page1.token is not None
+
+    page2 = store.search_logged_models(
+        experiment_ids=[exp_id],
+        filter_string=filter_string,
+        order_by=order_by,
+        max_results=1,
+        page_token=page1.token,
+    )
+    assert len(page2) == 1
+
+
 def test_search_logged_models_order_by_model_id_does_not_duplicate_tiebreaker(
     store: SqlAlchemyStore,
 ):

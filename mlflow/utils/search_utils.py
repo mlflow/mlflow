@@ -2725,6 +2725,10 @@ class SearchLoggedModelsPaginationToken:
     order_by: list[dict[str, Any]] | None = None
     offset: int = 0
 
+    def __post_init__(self):
+        self.filter_string = self.filter_string or None
+        self.order_by = self.order_by or None
+
     def to_json(self) -> str:
         return json.dumps(asdict(self))
 
@@ -2757,12 +2761,14 @@ class SearchLoggedModelsPaginationToken:
                 f"Expected: {experiment_ids}. Found: {self.experiment_ids}"
             )
 
+        filter_string = filter_string or None
         if self.filter_string != filter_string:
             raise MlflowException.invalid_parameter_value(
                 f"Filter string in the page token does not match the requested filter string. "
                 f"Expected: {filter_string}. Found: {self.filter_string}"
             )
 
+        order_by = order_by or None
         if self.order_by != order_by:
             raise MlflowException.invalid_parameter_value(
                 f"Order by in the page token does not match the requested order by. "

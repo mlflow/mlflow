@@ -27,6 +27,7 @@ from mlflow.utils.mlflow_tags import MLFLOW_DATASET_CONTEXT
 from mlflow.utils.search_utils import (
     SearchEvaluationDatasetsUtils,
     SearchExperimentsUtils,
+    SearchLoggedModelsPaginationToken,
     SearchLoggedModelsUtils,
     SearchMCPAccessEndpointUtils,
     SearchMCPServerUtils,
@@ -1051,3 +1052,30 @@ def test_search_trace_utils_filter_metadata_is_null():
 
     result = SearchTraceUtils.filter(traces, "metadata.session IS NOT NULL")
     assert {t.trace_id for t in result} == {"t1"}
+
+
+@pytest.mark.parametrize(
+    ("filter_string", "order_by"),
+    [
+        ("", None),
+        (None, []),
+        ("", []),
+    ],
+)
+def test_search_logged_models_pagination_token_empty_filter_and_order_by(filter_string, order_by):
+    token = SearchLoggedModelsPaginationToken(
+        experiment_ids=["1"],
+        filter_string=filter_string,
+        order_by=order_by,
+        offset=10,
+    )
+    assert token.filter_string is None
+    assert token.order_by is None
+
+    encoded = token.encode()
+    decoded = SearchLoggedModelsPaginationToken.decode(encoded)
+    assert decoded.filter_string is None
+    assert decoded.order_by is None
+
+    decoded.validate(experiment_ids=["1"], filter_string=filter_string, order_by=order_by)
+    decoded.validate(experiment_ids=["1"], filter_string=None, order_by=None)
