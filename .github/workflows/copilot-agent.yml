@@ -101,7 +101,7 @@ jobs:
           issues=$(printf '%s' "$response" | jq --arg marker "$marker" -r '
             .data.repository.pullRequest.closingIssuesReferences.nodes[]
             | select(any(.comments.nodes[]; .body | contains($marker)) | not)
-            | [.number, (.author.login // "ghost")] | @tsv')
+            | [.number, .author.login] | @tsv')
 
           if [ -z "$issues" ]; then
             echo "No linked issues."
