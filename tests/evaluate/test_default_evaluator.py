@@ -16,10 +16,12 @@ from PIL import Image, ImageChops
 from pyspark.ml.linalg import Vectors
 from pyspark.sql import SparkSession
 from sklearn.datasets import load_breast_cancer, load_diabetes, load_iris
+from sklearn.exceptions import UndefinedMetricWarning
 from sklearn.linear_model import LinearRegression, LogisticRegression
 from sklearn.metrics import (
     average_precision_score,
     f1_score,
+    log_loss,
     precision_score,
     recall_score,
     roc_auc_score,
@@ -1915,11 +1917,15 @@ def test_evaluation_binary_classification_curve_auc_respects_pos_label(pos_label
     np.testing.assert_allclose(result.metrics["precision_recall_auc"], expected_pr_auc, rtol=1e-3)
 
 
-@pytest.mark.parametrize("average", [None, "weighted", "macro", "micro"])
-def test_evaluation_multiclass_classification_with_average(average):
+@pytest.mark.parametrize(
+    "evaluator_config",
+    [None, {"average": "weighted"}, {"average": "macro"}, {"average": "micro"}, {"average": None}],
+    ids=["omitted", "weighted", "macro", "micro", "explicit-none"],
+)
+def test_evaluation_multiclass_classification_with_average(evaluator_config):
     X, y = load_iris(as_frame=True, return_X_y=True)
     with mlflow.start_run():
-        model = LogisticRegression()
+        model = LogisticRegression(max_iter=200)
         model.fit(X, y)
         model_info = mlflow.sklearn.log_model(model, name="model")
         result = evaluate(
@@ -1928,16 +1934,160 @@ def test_evaluation_multiclass_classification_with_average(average):
             model_type="classifier",
             targets="target",
             evaluators="default",
-            evaluator_config=None if average is None else {"average": average},
+            evaluator_config=evaluator_config,
         )
         y_pred = model.predict(X)
-        avg = average or "weighted"
-        precision = precision_score(y, y_pred, average=avg)
-        recall = recall_score(y, y_pred, average=avg)
-        f1 = f1_score(y, y_pred, average=avg)
-        np.testing.assert_allclose(result.metrics["precision_score"], precision)
-        np.testing.assert_allclose(result.metrics["recall_score"], recall)
-        np.testing.assert_allclose(result.metrics["f1_score"], f1)
+        average = (evaluator_config or {}).get("average", "weighted")
+        logged = mlflow.MlflowClient().get_run(result.run_id).data.metrics
+        for name, metric in (
+            ("precision_score", precision_score),
+            ("recall_score", recall_score),
+            ("f1_score", f1_score),
+        ):
+            expected = metric(y, y_pred, average=average)
+            if average is None:
+                assert name not in result.metrics
+                assert name not in logged
+                for index, value in enumerate(expected):
+                    key = f"{name}_class_{index}"
+                    np.testing.assert_allclose(result.metrics[key], value)
+                    np.testing.assert_allclose(logged[key], value)
+            else:
+                np.testing.assert_allclose(result.metrics[name], expected)
+                np.testing.assert_allclose(logged[name], expected)
+        np.testing.assert_allclose(result.metrics["log_loss"], log_loss(y, model.predict_proba(X)))
+        assert {"per_class_metrics", "roc_curve_plot", "precision_recall_curve_plot"} <= set(
+            result.artifacts
+        )
+        if average is None:
+            assert "roc_auc" not in result.metrics
+
+
+@pytest.mark.parametrize(
+    "labels",
+    [
+        [2, 10, 20],
+        ["a?", "a@b", "a_at_b"],
+        pytest.param(
+            ["01", "1", "x" * 300],
+            marks=pytest.mark.filterwarnings("ignore:Tight layout not applied:UserWarning"),
+        ),
+    ],
+)
+@pytest.mark.parametrize("sample_weights", [None, [1, 2, 3, 4, 5, 6]])
+def test_evaluation_multiclass_average_none_labels_and_weights(labels, sample_weights):
+    data = pd.DataFrame({
+        "label": [labels[i] for i in [0, 0, 0, 1, 1, 2]],
+        "predictions": [labels[i] for i in [0, 0, 1, 1, 2, 2]],
+    })
+    result = evaluate(
+        data=data,
+        targets="label",
+        predictions="predictions",
+        model_type="classifier",
+        evaluators="default",
+        evaluator_config={
+            "average": None,
+            "label_list": list(reversed(labels)),
+            "sample_weights": sample_weights,
+            "metric_prefix": "eval_",
+        },
+    )
+    logged = mlflow.MlflowClient().get_run(result.run_id).data.metrics
+    expected_keys = {"eval_example_count", "eval_accuracy_score"}
+    per_class = pd.read_csv(
+        result.artifacts["per_class_metrics"].uri,
+        dtype={"positive_class": str},
+        keep_default_na=False,
+    )
+    assert per_class.positive_class.tolist() == [str(label) for label in sorted(labels)]
+    for name, metric in (
+        ("precision_score", precision_score),
+        ("recall_score", recall_score),
+        ("f1_score", f1_score),
+    ):
+        values = metric(
+            data.label,
+            data.predictions,
+            labels=sorted(labels),
+            average=None,
+            sample_weight=sample_weights,
+        )
+        for index, value in enumerate(values):
+            key = f"eval_{name}_class_{index}"
+            expected_keys.add(key)
+            np.testing.assert_allclose(result.metrics[key], value)
+            np.testing.assert_allclose(logged[key], value)
+            np.testing.assert_allclose(per_class.loc[index, name], value)
+    assert set(result.metrics) == expected_keys
+    assert set(logged) == expected_keys
+
+
+@pytest.mark.parametrize("average", [None, "macro"])
+@pytest.mark.parametrize(
+    ("targets", "predictions", "label_list"),
+    [
+        (["A", "A", "C", "C"], ["A", "C", "C", "C"], ["C", "B", "A"]),
+        (["A", "A", "B", "B"], ["A", "C", "B", "C"], None),
+    ],
+    ids=["absent-configured-class", "prediction-only-class"],
+)
+def test_evaluation_multiclass_average_missing_classes(average, targets, predictions, label_list):
+    weights = [1, 3, 2, 4]
+    with pytest.warns(UndefinedMetricWarning, match="(Precision|Recall|F-score) is ill-defined"):
+        result = evaluate(
+            data=pd.DataFrame({"label": targets, "predictions": predictions}),
+            targets="label",
+            predictions="predictions",
+            model_type="classifier",
+            evaluators="default",
+            evaluator_config={
+                "average": average,
+                "label_list": label_list,
+                "sample_weights": weights,
+            },
+        )
+    resolved_labels = sorted(label_list) if label_list else sorted(set(targets + predictions))
+    logged = mlflow.MlflowClient().get_run(result.run_id).data.metrics
+    per_class = result.artifacts["per_class_metrics"].content
+    assert per_class.positive_class.tolist() == resolved_labels
+    for name, metric in (
+        ("precision_score", precision_score),
+        ("recall_score", recall_score),
+        ("f1_score", f1_score),
+    ):
+        expected = metric(
+            targets,
+            predictions,
+            average=average,
+            labels=resolved_labels if average is None else None,
+            sample_weight=weights,
+            zero_division=0,
+        )
+        if average is None:
+            for index, value in enumerate(expected):
+                key = f"{name}_class_{index}"
+                np.testing.assert_allclose(result.metrics[key], value)
+                np.testing.assert_allclose(logged[key], value)
+                np.testing.assert_allclose(per_class.loc[index, name], value)
+        else:
+            np.testing.assert_allclose(result.metrics[name], expected)
+
+
+def test_evaluation_binary_average_none():
+    data = pd.DataFrame({"label": [0, 0, 1, 1], "predictions": [0, 1, 1, 1]})
+    result = evaluate(
+        data=data,
+        targets="label",
+        predictions="predictions",
+        model_type="classifier",
+        evaluators="default",
+        evaluator_config={"average": None},
+    )
+    assert not any("_class_" in name for name in result.metrics)
+    np.testing.assert_allclose(result.metrics["precision_score"], 2 / 3)
+    np.testing.assert_allclose(result.metrics["recall_score"], 1)
+    np.testing.assert_allclose(result.metrics["f1_score"], 0.8)
 
 
 def test_custom_metrics():
