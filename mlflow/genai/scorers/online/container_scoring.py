@@ -42,10 +42,24 @@ _logger = logging.getLogger(__name__)
 # host's logging finish before that happens.
 _RESERVED_TIME_SHARE = 0.1
 
+# A failed setup of the job containers (for example while the Docker daemon restarts) is retried
+# after each of these delays, in seconds, while the job has time left for it.
+_SETUP_RETRY_DELAYS = (5, 15, 30)
+
 
 def container_scoring_enabled() -> bool:
     """Whether online scoring jobs run custom scorers in job containers."""
     return MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND.get() == DOCKER_EXECUTOR_BACKEND
+
+
+def _is_lasting_setup_error(e: Exception) -> bool:
+    """Whether a failed job container setup would fail again however long the job waits."""
+    import docker.errors
+
+    # For example a configured image that does not exist, or a failed build of the default image,
+    # which is raised again with the build error as its cause.
+    lasting = (docker.errors.NotFound, docker.errors.BuildError)
+    return isinstance(e, lasting) or isinstance(e.__cause__, lasting)
 
 
 class OnlineContainerScorer:
@@ -78,14 +92,29 @@ class OnlineContainerScorer:
         if self._setup_error is not None:
             raise MlflowException(self._setup_error)
         if self._client is None:
-            try:
-                client = job_docker_client()
-                remove_job_containers(client, self._container_label)
-                prepare_job_image(client)
-            except Exception as e:
-                # Do not retry a failed setup (for example an image pull) for every batch.
-                self._setup_error = f"Could not set up job containers: {e!r}"
-                raise
+            for delay in (*_SETUP_RETRY_DELAYS, None):
+                client = None
+                try:
+                    client = job_docker_client()
+                    remove_job_containers(client, self._container_label)
+                    prepare_job_image(client)
+                    break
+                except Exception as e:
+                    if client is not None:
+                        client.close()
+                    time_left = (
+                        self._job_deadline
+                        - time.monotonic()
+                        - self._job_timeout * _RESERVED_TIME_SHARE
+                    )
+                    if delay is None or delay >= time_left or _is_lasting_setup_error(e):
+                        # Remembered, so later batches fail at once instead of setting up again.
+                        self._setup_error = f"Could not set up job containers: {e!r}"
+                        raise MlflowException(self._setup_error) from e
+                    _logger.warning(
+                        "Could not set up job containers; retrying in %s seconds: %r", delay, e
+                    )
+                    time.sleep(delay)
             self._client = client
         return self._client
 
@@ -109,20 +138,22 @@ class OnlineContainerScorer:
             for i in range(0, len(traces), batch_size)
         ]
         for index, (online_scorer, batch) in enumerate(batches):
-            batches_left = len(batches) - index
-            time_left = self._job_deadline - time.monotonic()
-            timeout = min(
-                (time_left - self._job_timeout * _RESERVED_TIME_SHARE) / batches_left,
-                self._job_timeout / 2,
-            )
             try:
+                # Set up first, so the time a slow or retried setup takes is not given to a batch.
+                self._get_client()
+                batches_left = len(batches) - index
+                time_left = self._job_deadline - time.monotonic()
+                timeout = min(
+                    (time_left - self._job_timeout * _RESERVED_TIME_SHARE) / batches_left,
+                    self._job_timeout / 2,
+                )
                 failures = self._score_batch(online_scorer, batch, timeout)
             except Exception as e:
                 _logger.warning(
                     f"Failed to run custom scorer '{online_scorer.name}' in a job container",
                     exc_info=True,
                 )
-                failures = [(batch, repr(e))]
+                failures = [(batch, e.message if isinstance(e, MlflowException) else repr(e))]
             for traces, error in failures:
                 on_failure(online_scorer, traces, error)
 
