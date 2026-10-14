@@ -122,7 +122,8 @@ AggregationFunc = Callable[[list[float]], float]  # List of per-row value -> agg
 @dataclass(frozen=True)
 class QualityThreshold:
     """
-    The bar a scorer's aggregated metric must clear for an evaluation run to count as passing.
+    The bar a scorer's aggregated metric must clear. An evaluation run counts as passing only
+    when every scorer with a threshold clears it.
 
     Pass it to ``mlflow.genai.evaluate`` in ``quality_thresholds``, keyed by scorer name.
     Exactly one of ``at_least`` or ``at_most`` is required.
