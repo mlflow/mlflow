@@ -701,6 +701,7 @@ async def test_bedrock_converse_chat_stream_tool_call_index(blocks, expected):
 
     tool_calls = [tc for c in chunks for tc in c["choices"][0]["delta"].get("tool_calls") or []]
     assert [(tc["index"], tc.get("id")) for tc in tool_calls] == expected
+    mock_client.converse_stream.assert_called_once()
 
 
 @pytest.mark.asyncio
