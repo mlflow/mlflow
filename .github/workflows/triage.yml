@@ -473,23 +473,16 @@ jobs:
       needs.label.outputs.type == 'bug'
     runs-on: ubuntu-slim
     timeout-minutes: 5
+    permissions:
+      issues: write
     outputs:
       comment_id: ${{ steps.comment.outputs.id }}
     steps:
-      - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
-        id: app-token
-        if: needs.issue.outputs.dry_run == 'false'
-        with:
-          client-id: ${{ secrets.APP_CLIENT_ID }}
-          private-key: ${{ secrets.APP_PRIVATE_KEY }}
-          owner: mlflow
-          repositories: mlflow
-          permission-issues: write
       - id: comment
         name: Announce triage
         if: needs.issue.outputs.dry_run == 'false'
         env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
           ISSUE_NUMBER: ${{ needs.issue.outputs.number }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
@@ -498,7 +491,7 @@ jobs:
           body="An automated agent is triaging this issue. The triage report will replace this comment when it is ready. [Follow the workflow run]($RUN_URL). $marker"
           id=$(gh api --paginate "repos/$REPO/issues/$ISSUE_NUMBER/comments" \
             | jq -sr --arg marker "$marker" \
-              '[.[][] | select(.user.login == "mlflow-app[bot]" and (.body | contains($marker))) | .id] | last // empty')
+              '[.[][] | select(.user.login == "github-actions[bot]" and (.body | contains($marker))) | .id] | last // empty')
           if [ -n "$id" ]; then
             gh api "repos/$REPO/issues/comments/$id" -X PATCH -f body="$body" > /dev/null
           else
@@ -996,6 +989,7 @@ jobs:
     timeout-minutes: 10
     permissions:
       contents: read
+      issues: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -1109,7 +1103,6 @@ jobs:
           repositories: mlflow
           permission-contents: write
           permission-pull-requests: write
-          permission-issues: write
       - name: Open pull request
         id: open
         if: steps.check.outputs.proposed == 'true' && needs.issue.outputs.dry_run == 'false'
@@ -1135,7 +1128,7 @@ jobs:
       - name: Comment on issue
         if: steps.open.outcome == 'success'
         env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
           ISSUE_NUMBER: ${{ needs.issue.outputs.number }}
           PR_NUMBER: ${{ steps.open.outputs.number }}
