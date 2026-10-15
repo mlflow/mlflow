@@ -9076,7 +9076,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                         if len(parts) == 2 and parts[1].upper() == "DESC"
                         else column.asc()
                     )
-                order_clauses.append(SqlIssue.issue_id.asc())
+                order_clauses.append(SqlIssue.issue_id.desc())
             query = query.order_by(*order_clauses)
             if view == "basic":
                 query = query.options(

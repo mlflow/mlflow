@@ -1,5 +1,6 @@
 import uuid
 from concurrent.futures import ThreadPoolExecutor
+from unittest import mock
 
 import pytest
 
@@ -1210,6 +1211,32 @@ def test_issue_search_facets_pagination_and_projection(store):
     )
     assert [issue.issue_id for issue in filtered] == ["iss-4"]
     assert filtered.total_count == 1
+
+
+@pytest.mark.parametrize("include_trace_count", [False, True])
+def test_issue_default_and_explicit_sort_use_same_tiebreaker(store, include_trace_count):
+    with mock.patch(
+        "mlflow.store.tracking.sqlalchemy_store.get_current_time_millis", return_value=100
+    ) as clock:
+        for issue_id in ["iss-b", "iss-c", "iss-a"]:
+            store.create_issue(
+                "0", "Same title", "", issue_id=issue_id, severity=IssueSeverity.HIGH
+            )
+        assert clock.call_count == 3
+    for order_by in [None, ["severity DESC", "created_timestamp DESC"]]:
+        results = []
+        token = None
+        while True:
+            page = store.search_issues(
+                order_by=order_by,
+                include_trace_count=include_trace_count,
+                max_results=1,
+                page_token=token,
+            )
+            results.extend(issue.issue_id for issue in page)
+            if not (token := page.token):
+                break
+        assert results == ["iss-c", "iss-b", "iss-a"]
 
 
 @pytest.mark.parametrize(

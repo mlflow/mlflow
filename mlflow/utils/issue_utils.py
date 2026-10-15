@@ -31,6 +31,7 @@ def validate_issue_fields(
                 enum(value)
             except (ValueError, TypeError):
                 raise MlflowException.invalid_parameter_value(f"Invalid issue {field}: {value!r}")
+    # bool is an int subtype, but is not a valid timestamp.
     if last_seen_timestamp is not None and (
         type(last_seen_timestamp) is not int or not 0 <= last_seen_timestamp < 2**63
     ):
