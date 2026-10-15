@@ -52,11 +52,8 @@ jobs:
       url: ${{ fromJSON(steps.issue.outputs.json).html_url }}
       author_association: ${{ fromJSON(steps.issue.outputs.json).author_association }}
       dry_run: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
-      # Pull requests are only opened for maintainers' issues for now. Set the TRIAGE_PR_DISABLED
-      # repository Actions variable to "true" to stop opening them entirely.
-      pr_enabled: >-
-        ${{ vars.TRIAGE_PR_DISABLED != 'true' &&
-        contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), fromJSON(steps.issue.outputs.json).author_association) }}
+      # Set the TRIAGE_PR_DISABLED repository Actions variable to "true" to stop opening pull requests.
+      pr_enabled: ${{ vars.TRIAGE_PR_DISABLED != 'true' }}
     steps:
       - name: Load issue
         id: issue
@@ -462,7 +459,7 @@ jobs:
             '"### AI safety assessment\n\n<p><strong>\($decision | @html)</strong>: \($rationale | @html)</p>"' \
             >> "$GITHUB_STEP_SUMMARY"
       - if: steps.assess.outputs.decision == 'safe'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: sanitized-issue-${{ github.run_id }}
           path: ${{ runner.temp }}/sanitized_issue.json
@@ -518,7 +515,7 @@ jobs:
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: sanitized-issue-${{ github.run_id }}
           path: ${{ runner.temp }}/sanitized-issue
@@ -809,7 +806,7 @@ jobs:
           PY
       - name: Upload triage report for posting
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: triage-report-${{ github.run_id }}
           path: ${{ runner.temp }}/triage-report
@@ -852,7 +849,7 @@ jobs:
           ref: ${{ github.sha }}
           persist-credentials: false
       - uses: ./.github/actions/setup-python
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         if: needs.triage.result == 'success'
         with:
           name: triage-report-${{ github.run_id }}
@@ -992,6 +989,7 @@ jobs:
     timeout-minutes: 10
     permissions:
       contents: write
+      issues: write
       pull-requests: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -999,7 +997,7 @@ jobs:
           ref: ${{ github.sha }}
           persist-credentials: false
       - uses: ./.github/actions/setup-python
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: triage-report-${{ github.run_id }}
           path: /tmp/triage-out
@@ -1097,6 +1095,7 @@ jobs:
             jq -Rsr '"<pre>\(@html)</pre>"' "$OUT_DIR/fix.patch"
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Open pull request
+        id: open
         if: steps.check.outputs.proposed == 'true' && needs.issue.outputs.dry_run == 'false'
         env:
           # Not an app token: CI on PRs opened with GITHUB_TOKEN waits for maintainer approval,
@@ -1118,3 +1117,23 @@ jobs:
             --title "$(cat "$RUNNER_TEMP/pr-title.txt")" \
             --body-file "$RUNNER_TEMP/pr-body.md")
           echo "Opened $pr_url" >> "$GITHUB_STEP_SUMMARY"
+          echo "number=${pr_url##*/}" >> "$GITHUB_OUTPUT"
+      - name: Comment on issue
+        if: steps.open.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          ISSUE_NUMBER: ${{ needs.issue.outputs.number }}
+          PR_NUMBER: ${{ steps.open.outputs.number }}
+        run: |
+          marker="<!-- triage-pr:${PR_NUMBER} -->"
+          body=$(printf '%s\n' \
+            "Thanks for reporting this issue! #${PR_NUMBER} has been filed. You can try the patch with:" \
+            '' \
+            '```bash' \
+            "pip install -U 'git+https://github.com/${REPO}.git@refs/pull/${PR_NUMBER}/merge'" \
+            '```' \
+            '' \
+            "$marker")
+          author=$(gh api "repos/$REPO/issues/$ISSUE_NUMBER" --jq .user.login)
+          gh issue comment "$ISSUE_NUMBER" --repo "$REPO" --body "@${author} ${body}"

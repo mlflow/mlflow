@@ -914,6 +914,22 @@ def parse_trace_id_v4(trace_id: str | None) -> tuple[str | None, str | None]:
     return None, trace_id
 
 
+def serialize_session_id(session_id: Any) -> Any:
+    """
+    Convert a session ID to its trace metadata form. A list identifies a hierarchical session
+    (outermost level first) and is stored as a compact JSON array string. Any other value is
+    returned unchanged to preserve the existing handling of non-list session IDs.
+    """
+    if not isinstance(session_id, list):
+        return session_id
+    if session_id and all(isinstance(level, str) for level in session_id):
+        return json.dumps(session_id, separators=(",", ":"), ensure_ascii=False)
+    raise MlflowException.invalid_parameter_value(
+        "The `session_id` parameter must be a string or a non-empty list of strings, "
+        f"but got {session_id!r}."
+    )
+
+
 def construct_trace_id_v4(location: str, trace_id: str) -> str:
     """
     Construct a trace ID for the given location and trace ID.

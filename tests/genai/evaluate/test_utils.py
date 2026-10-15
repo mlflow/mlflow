@@ -23,6 +23,7 @@ from mlflow.genai.evaluation.utils import (
 )
 from mlflow.genai.scorers.base import SCORER_BACKEND_DATABRICKS
 from mlflow.genai.scorers.builtin_scorers import RelevanceToQuery
+from mlflow.genai.scorers.scorer_utils import get_scorer_definition_digest
 from mlflow.tracing.constant import AssessmentMetadataKey
 from mlflow.utils.spark_utils import is_spark_connect_mode
 
@@ -72,6 +73,7 @@ def test_add_scorer_metadata_for_registered_scorer():
 
     assert feedback.metadata == {
         "user-key": "user-value",
+        AssessmentMetadataKey.SCORER_DIGEST: get_scorer_definition_digest(scorer),
         AssessmentMetadataKey.SCORER_NAME: "registered_scorer",
         AssessmentMetadataKey.SCORER_VERSION: "3",
         AssessmentMetadataKey.SCORER_RESOURCE_NAME: (
@@ -81,11 +83,21 @@ def test_add_scorer_metadata_for_registered_scorer():
     }
 
 
-def test_add_scorer_metadata_ignores_unregistered_scorer():
+def test_add_scorer_metadata_adds_only_the_digest_for_unregistered_scorer():
     scorer = RelevanceToQuery(name="unregistered_scorer")
     feedback = Feedback(value=True)
 
     add_scorer_metadata(scorer, [feedback])
+
+    assert feedback.metadata == {
+        AssessmentMetadataKey.SCORER_DIGEST: get_scorer_definition_digest(scorer)
+    }
+
+
+def test_add_scorer_metadata_skips_scorer_without_digest():
+    feedback = Feedback(value=True)
+
+    add_scorer_metadata(object(), [feedback])
 
     assert feedback.metadata is None
 
