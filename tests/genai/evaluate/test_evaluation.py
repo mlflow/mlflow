@@ -32,10 +32,14 @@ from mlflow.genai.evaluation.harness import (
     _should_clone_trace,
     backpressure_buffer,
 )
+from mlflow.genai.evaluation.harness import (
+    run as harness_run,
+)
 from mlflow.genai.evaluation.rate_limiter import RPSRateLimiter
+from mlflow.genai.judges import make_judge
 from mlflow.genai.scorers import get_scorer, make_scorer_ensemble
 from mlflow.genai.scorers.base import SCORER_BACKEND_TRACKING, scorer
-from mlflow.genai.scorers.builtin_scorers import RelevanceToQuery
+from mlflow.genai.scorers.builtin_scorers import ConversationCompleteness, RelevanceToQuery
 from mlflow.genai.scorers.scorer_utils import get_scorer_definition_digest
 from mlflow.genai.simulators import ConversationSimulator
 from mlflow.server import handlers
@@ -1481,6 +1485,263 @@ def test_evaluate_dataset_mixed_traces_with_and_without_sessions():
     assert result_df["session_length/value"].dropna().iloc[0] == 2.0
 
 
+def _create_trace_with_session(question, session_value):
+    """Create a real trace whose `mlflow.trace.session` metadata is session_value."""
+
+    @mlflow.trace(span_type=mlflow.entities.SpanType.CHAT_MODEL)
+    def model(question, session_id):
+        mlflow.update_current_trace(metadata={"mlflow.trace.session": session_id})
+        return f"Answer to {question}"
+
+    model(question, session_value)
+    return mlflow.get_trace(mlflow.get_last_active_trace_id())
+
+
+def _session_path(*levels):
+    return json.dumps(list(levels), separators=(",", ":"))
+
+
+class _SessionLengthScorer(mlflow.genai.Scorer):
+    """Session scorer returning the group size, parameterized by session_level."""
+
+    def __init__(self, name, session_level=None):
+        super().__init__(name=name, session_level=session_level)
+
+    @property
+    def is_session_level_scorer(self) -> bool:
+        return True
+
+    def __call__(self, session=None, **kwargs):
+        return len(session or [])
+
+
+def test_evaluate_with_session_level_scorers_at_different_levels():
+    experiment_id = mlflow.set_experiment("hierarchical-sessions-eval").experiment_id
+    mlflow.genai.set_session_hierarchy(["trip", "episode"], experiment_id=experiment_id)
+
+    traces = [
+        _create_trace_with_session("Q1", _session_path("trip-2", "ep-2")),
+        _create_trace_with_session("Q2", _session_path("trip-2", "ep-2")),
+        _create_trace_with_session("Q3", _session_path("trip-2", "ep-9")),
+        _create_trace_with_session("Q4", _session_path("trip-3", "ep-1")),
+        # A plain session value forms its own group at every level.
+        _create_trace_with_session("Q5", "plain-session"),
+    ]
+
+    dataset = create_dataset(name="hierarchical_sessions_dataset")
+    dataset.merge_records(traces)
+
+    result = mlflow.genai.evaluate(
+        data=dataset,
+        scorers=[
+            # A full-session scorer (no level) mixed with level scorers in one run.
+            _SessionLengthScorer("full_length"),
+            _SessionLengthScorer("trip_length", session_level="trip"),
+            _SessionLengthScorer("episode_length", session_level="episode"),
+        ],
+    )
+    result_df = result.result_df
+
+    # Full-session groups: every distinct raw session value -> 4 scores (2, 1, 1, 1).
+    assert result_df["full_length/value"].notna().sum() == 4
+    assert sorted(result_df["full_length/value"].dropna().tolist()) == [1.0, 1.0, 1.0, 2.0]
+
+    # Trip level groups: [Q1,Q2,Q3], [Q4], [plain-session] -> 3 scores (3, 1, 1).
+    assert result_df["trip_length/value"].notna().sum() == 3
+    assert sorted(result_df["trip_length/value"].dropna().tolist()) == [1.0, 1.0, 3.0]
+
+    # Episode level groups: [Q1,Q2], [Q3], [Q4], [plain-session] -> 4 scores (2, 1, 1, 1).
+    assert result_df["episode_length/value"].notna().sum() == 4
+    assert sorted(result_df["episode_length/value"].dropna().tolist()) == [1.0, 1.0, 1.0, 2.0]
+
+    # Every group at both levels produced assessments (none lost to an anchor-trace
+    # collision between the trip and episode groups, which share their first trace).
+    all_assessments = [
+        a for row_assessments in result_df["assessments"].dropna() for a in row_assessments
+    ]
+    full_feedbacks = [a for a in all_assessments if a["assessment_name"] == "full_length"]
+    trip_feedbacks = [a for a in all_assessments if a["assessment_name"] == "trip_length"]
+    episode_feedbacks = [a for a in all_assessments if a["assessment_name"] == "episode_length"]
+    assert len(full_feedbacks) == 4
+    assert len(trip_feedbacks) == 3
+    assert len(episode_feedbacks) == 4
+
+    # The no-level scorer keeps full-value grouping keys.
+    assert {fb["metadata"]["mlflow.trace.session"] for fb in full_feedbacks} == {
+        _session_path("trip-2", "ep-2"),
+        _session_path("trip-2", "ep-9"),
+        _session_path("trip-3", "ep-1"),
+        "plain-session",
+    }
+    # Level scorers record the level-prefix group key, not the full value.
+    assert {fb["metadata"]["mlflow.trace.session"] for fb in trip_feedbacks} == {
+        _session_path("trip-2"),
+        _session_path("trip-3"),
+        "plain-session",
+    }
+    assert {fb["metadata"]["mlflow.trace.session"] for fb in episode_feedbacks} == {
+        _session_path("trip-2", "ep-2"),
+        _session_path("trip-2", "ep-9"),
+        _session_path("trip-3", "ep-1"),
+        "plain-session",
+    }
+
+
+def test_evaluate_conversation_judges_at_coarser_level_than_leaf_sessions():
+    # A trip group holds traces with different full (episode) session IDs, which the
+    # judges' own same-session check must accept at the trip level.
+    experiment_id = mlflow.set_experiment("hierarchical-sessions-judges").experiment_id
+    mlflow.genai.set_session_hierarchy(["trip", "episode"], experiment_id=experiment_id)
+    traces = [
+        _create_trace_with_session("Q1", _session_path("trip-2", "ep-2")),
+        _create_trace_with_session("Q2", _session_path("trip-2", "ep-9")),
+        _create_trace_with_session("Q3", _session_path("trip-3", "ep-1")),
+    ]
+    dataset = create_dataset(name="hierarchical_sessions_judges_dataset")
+    dataset.merge_records(traces)
+
+    conversation_judge = make_judge(
+        name="trip_coherence",
+        instructions="Is the {{ conversation }} coherent?",
+        model="openai:/gpt-4",
+        session_level="trip",
+    )
+    completeness = ConversationCompleteness(
+        name="trip_completeness", model="openai:/gpt-4", session_level="trip"
+    )
+
+    def fake_invoke_judge_model(model_uri, prompt, assessment_name, **kwargs):
+        return Feedback(name=assessment_name, value="yes", rationale="ok")
+
+    with mock.patch(
+        "mlflow.genai.judges.instructions_judge.invoke_judge_model",
+        side_effect=fake_invoke_judge_model,
+    ):
+        result = mlflow.genai.evaluate(data=dataset, scorers=[conversation_judge, completeness])
+
+    feedbacks = [
+        a for row_assessments in result.result_df["assessments"].dropna() for a in row_assessments
+    ]
+    for name in ["trip_coherence", "trip_completeness"]:
+        scored = [fb for fb in feedbacks if fb["assessment_name"] == name]
+        assert {fb["metadata"]["mlflow.trace.session"] for fb in scored} == {
+            _session_path("trip-2"),
+            _session_path("trip-3"),
+        }
+        assert [fb["feedback"] for fb in scored] == [{"value": "yes"}, {"value": "yes"}]
+
+
+def test_evaluate_reports_per_level_session_counts_to_usage_telemetry():
+    experiment_id = mlflow.set_experiment("hierarchical-sessions-telemetry").experiment_id
+    mlflow.genai.set_session_hierarchy(["trip", "episode"], experiment_id=experiment_id)
+    traces = [
+        _create_trace_with_session("Q1", _session_path("trip-2", "ep-2")),
+        _create_trace_with_session("Q2", _session_path("trip-2", "ep-9")),
+        _create_trace_with_session("Q3", _session_path("trip-3", "ep-1")),
+    ]
+    dataset = create_dataset(name="hierarchical_sessions_telemetry_dataset")
+    dataset.merge_records(traces)
+
+    # Same-named scorers at different levels must keep separate counts.
+    full_scorer = _SessionLengthScorer("session_length")
+    trip_scorer = _SessionLengthScorer("session_length", session_level="trip")
+    with mock.patch("mlflow.genai.evaluation.harness.emit_metric_usage_event") as mock_emit:
+        mlflow.genai.evaluate(data=dataset, scorers=[full_scorer, trip_scorer])
+
+    assert mock_emit.call_args.kwargs["session_count_by_scorer"] == {
+        id(full_scorer): 3,
+        id(trip_scorer): 2,
+    }
+
+
+def test_run_progress_total_includes_all_level_buckets():
+    # The progress-bar total must count every bucket's groups, not just one level's.
+    experiment_id = mlflow.set_experiment("hierarchical-progress-total").experiment_id
+    mlflow.genai.set_session_hierarchy(["trip", "episode"], experiment_id=experiment_id)
+    with mlflow.start_run(experiment_id=experiment_id) as run:
+        run_id = run.info.run_id
+
+    sessions = [
+        _session_path("trip-2", "ep-2"),
+        _session_path("trip-2", "ep-2"),
+        _session_path("trip-2", "ep-9"),
+        _session_path("trip-3", "ep-1"),
+        "plain-session",
+    ]
+    traces = [_create_trace_with_session(f"Q{i}", s) for i, s in enumerate(sessions, start=1)]
+    eval_df = pd.DataFrame([
+        {"inputs": {"q": f"Q{i}"}, "trace": t} for i, t in enumerate(traces, start=1)
+    ])
+
+    @scorer
+    def full_session_scorer(session):
+        return len(session)
+
+    @scorer(session_level="trip")
+    def trip_scorer(session):
+        return len(session)
+
+    @scorer(session_level="episode")
+    def episode_scorer(session):
+        return len(session)
+
+    class _StopPipeline(Exception):
+        pass
+
+    with (
+        mock.patch("mlflow.genai.evaluation.harness.tqdm") as mock_tqdm,
+        mock.patch(
+            "mlflow.genai.evaluation.harness._run_pipeline",
+            side_effect=_StopPipeline("stop after progress bar is created"),
+        ),
+    ):
+        with pytest.raises(_StopPipeline, match="stop after progress bar is created"):
+            harness_run(
+                eval_df=eval_df,
+                scorers=[full_session_scorer, trip_scorer, episode_scorer],
+                run_id=run_id,
+            )
+
+    # 5 items + 4 full-value groups + 3 trip groups + 4 episode groups.
+    assert mock_tqdm.call_args.kwargs["total"] == 16
+
+
+def test_evaluate_with_session_level_scorer_missing_hierarchy_tag():
+    # No sessionHierarchy tag on the experiment.
+    mlflow.set_experiment("hierarchical-sessions-no-tag")
+
+    traces = [
+        _create_trace_with_session("Q1", _session_path("trip-2", "ep-2")),
+        _create_trace_with_session("Q2", _session_path("trip-2", "ep-9")),
+    ]
+    dataset = create_dataset(name="hierarchical_sessions_no_tag_dataset")
+    dataset.merge_records(traces)
+
+    with pytest.raises(MlflowException, match="does not have a valid"):
+        mlflow.genai.evaluate(
+            data=dataset,
+            scorers=[_SessionLengthScorer("trip_length", session_level="trip")],
+        )
+
+
+def test_evaluate_with_session_level_scorer_unknown_level_name():
+    experiment_id = mlflow.set_experiment("hierarchical-sessions-unknown-level").experiment_id
+    mlflow.genai.set_session_hierarchy(["trip"], experiment_id=experiment_id)
+
+    traces = [
+        _create_trace_with_session("Q1", _session_path("trip-2", "ep-2")),
+        _create_trace_with_session("Q2", _session_path("trip-2", "ep-9")),
+    ]
+    dataset = create_dataset(name="hierarchical_sessions_unknown_level_dataset")
+    dataset.merge_records(traces)
+
+    with pytest.raises(MlflowException, match="not declared by experiment"):
+        mlflow.genai.evaluate(
+            data=dataset,
+            scorers=[_SessionLengthScorer("episode_length", session_level="episode")],
+        )
+
+
 def test_max_scorer_workers_env_var(monkeypatch):
     @scorer
     def dummy_scorer_1(outputs):
@@ -2313,8 +2574,7 @@ def _make_score_submitter(session_groups):
     return _ScoreSubmitter(
         eval_items=[item for items in session_groups.values() for item in items],
         single_turn_scorers=[],
-        multi_turn_scorers=[mock.Mock()],
-        session_groups=session_groups,
+        session_buckets=[(session_groups, [mock.Mock()])],
         run_id=None,
         max_retries=0,
         rps=None,
@@ -2335,11 +2595,41 @@ def test_run_multi_turn_skips_session_with_only_none_traces():
     assert multi_turn_eval_results == {}
 
 
+def test_run_multi_turn_merges_results_across_levels_sharing_anchor(mlflow_experiment_trace):
+    # Groups at different session levels can share their chronologically first
+    # trace; both buckets' results must be kept, not overwritten.
+    valid_item = _make_eval_item(trace=mlflow_experiment_trace)
+    trip_result = EvalResult(eval_item=valid_item, assessments=[])
+    episode_result = EvalResult(eval_item=valid_item, assessments=[])
+    submitter = _ScoreSubmitter(
+        eval_items=[valid_item],
+        single_turn_scorers=[],
+        session_buckets=[
+            ({'["trip-2"]': [valid_item]}, [mock.Mock()]),
+            ({'["trip-2","ep-2"]': [valid_item]}, [mock.Mock()]),
+        ],
+        run_id=None,
+        max_retries=0,
+        rps=None,
+        adaptive=False,
+        max_rps_multiplier=1.0,
+        pool_workers=1,
+    )
+    multi_turn_eval_results: dict[str, list[EvalResult]] = {}
+    with mock.patch(
+        "mlflow.genai.evaluation.harness.evaluate_session_level_scorers",
+        side_effect=[trip_result, episode_result],
+    ):
+        submitter.run_multi_turn(multi_turn_eval_results, progress_bar=None)
+
+    assert multi_turn_eval_results == {"tr-123": [trip_result, episode_result]}
+
+
 def test_run_multi_turn_filters_none_trace_items_from_session(mlflow_experiment_trace):
     valid_item = _make_eval_item(trace=mlflow_experiment_trace)
     none_item = _make_eval_item(trace=None)
     submitter = _make_score_submitter({"session-1": [none_item, valid_item]})
-    multi_turn_eval_results: dict[str, EvalResult] = {}
+    multi_turn_eval_results: dict[str, list[EvalResult]] = {}
     with mock.patch(
         "mlflow.genai.evaluation.harness.evaluate_session_level_scorers",
         return_value=EvalResult(eval_item=valid_item),
@@ -2347,7 +2637,7 @@ def test_run_multi_turn_filters_none_trace_items_from_session(mlflow_experiment_
         submitter.run_multi_turn(multi_turn_eval_results, progress_bar=None)
     mock_eval_session.assert_called_once()
     assert mock_eval_session.call_args.kwargs["session_items"] == [valid_item]
-    assert multi_turn_eval_results == {"tr-123": mock_eval_session.return_value}
+    assert multi_turn_eval_results == {"tr-123": [mock_eval_session.return_value]}
 
 
 def _managed_dataset_with_records():

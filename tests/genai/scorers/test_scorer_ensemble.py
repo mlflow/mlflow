@@ -744,3 +744,65 @@ def test_ensemble_metadata_captures_error_feedback():
     # to_dictionary() puts error info under the nested "feedback.error" key
     assert sub[0]["feedback"]["error"]["error_code"] == "ValueError"
     assert sub[0]["feedback"]["error"]["error_message"] == "boom"
+
+
+# ---------------------------------------------------------------------------
+# session_level tests
+# ---------------------------------------------------------------------------
+
+
+def test_ensemble_inherits_common_session_level():
+    from mlflow.genai.scorers.builtin_scorers import ConversationCompleteness
+
+    agg = make_scorer_ensemble(
+        name="conv_agg",
+        scorers=[ConversationCompleteness(session_level="episode")],
+        ensemble_fn="majority_vote",
+    )
+    assert agg.session_level == "episode"
+
+
+def test_ensemble_rejects_mixed_session_levels():
+    from mlflow.genai.scorers.builtin_scorers import ConversationCompleteness
+
+    with pytest.raises(MlflowException, match="same session_level"):
+        make_scorer_ensemble(
+            name="mixed_levels",
+            scorers=[
+                ConversationCompleteness(session_level="trip"),
+                ConversationCompleteness(session_level="episode"),
+            ],
+            ensemble_fn="majority_vote",
+        )
+
+
+def test_ensemble_session_level_round_trip():
+    from mlflow.genai.scorers.builtin_scorers import ConversationCompleteness
+
+    agg = make_scorer_ensemble(
+        name="conv_agg",
+        scorers=[
+            ConversationCompleteness(session_level="episode"),
+            ConversationCompleteness(name="cc2", session_level="episode"),
+        ],
+        ensemble_fn="majority_vote",
+    )
+    dumped = agg.model_dump()
+    assert dumped["session_level"] == "episode"
+    for sub in dumped["ensemble_scorer_data"]["scorers"]:
+        assert sub["session_level"] == "episode"
+
+    restored = Scorer.model_validate(dumped)
+    assert restored.session_level == "episode"
+    assert all(s.session_level == "episode" for s in restored._scorers)
+
+
+def test_ensemble_rejects_session_level_on_non_session_sub_scorer():
+    # A single-turn sub-scorer cannot carry a session_level, even when all members
+    # would agree on the value.
+    with pytest.raises(MlflowException, match="not a session-level scorer"):
+        make_scorer_ensemble(
+            name="bad_mix",
+            scorers=[Correctness(session_level="episode")],
+            ensemble_fn="majority_vote",
+        )

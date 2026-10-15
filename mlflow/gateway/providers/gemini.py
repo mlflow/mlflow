@@ -56,6 +56,14 @@ GENERATION_CONFIGS = [
 ]
 
 
+def _get_completion_tokens(usage_metadata: dict[str, Any]) -> int | None:
+    completion_tokens = usage_metadata.get("candidatesTokenCount")
+    # Gemini bills thinking tokens at the output token rate.
+    if (thoughts_tokens := usage_metadata.get("thoughtsTokenCount")) is not None:
+        completion_tokens = (completion_tokens or 0) + thoughts_tokens
+    return completion_tokens
+
+
 def _to_gemini_parts(content: Any) -> list[dict[str, Any]]:
     """Translate a user message's content into Gemini ``parts``.
 
@@ -406,7 +414,7 @@ class GeminiAdapter(ProviderAdapter):
         return chat_schema.ChatUsage(
             **extra,
             prompt_tokens=usage_metadata.get("promptTokenCount"),
-            completion_tokens=usage_metadata.get("candidatesTokenCount"),
+            completion_tokens=_get_completion_tokens(usage_metadata),
             total_tokens=usage_metadata.get("totalTokenCount"),
             prompt_tokens_details=prompt_tokens_details,
         )
@@ -617,7 +625,7 @@ class GeminiAdapter(ProviderAdapter):
             choices=choices,
             usage=completions_schema.CompletionsUsage(
                 prompt_tokens=usage_metadata.get("promptTokenCount", None),
-                completion_tokens=usage_metadata.get("candidatesTokenCount", None),
+                completion_tokens=_get_completion_tokens(usage_metadata),
                 total_tokens=usage_metadata.get("totalTokenCount", None),
             ),
         )
@@ -977,7 +985,16 @@ class GeminiProvider(BaseProvider):
             }
         }
         """
-        usage_metadata = result.get("usageMetadata")
+        return self._extract_gemini_token_usage(result.get("usageMetadata"))
+
+    def _extract_gemini_token_usage(
+        self, usage_metadata: dict[str, Any] | None
+    ) -> dict[str, int] | None:
+        if usage_metadata:
+            usage_metadata = {
+                **usage_metadata,
+                "candidatesTokenCount": _get_completion_tokens(usage_metadata),
+            }
         return self._extract_token_usage_from_dict(
             usage_metadata,
             "promptTokenCount",
@@ -1015,13 +1032,7 @@ class GeminiProvider(BaseProvider):
 
                 # Extract usageMetadata if present
                 usage_metadata = data.get("usageMetadata")
-                if token_usage := self._extract_token_usage_from_dict(
-                    usage_metadata,
-                    "promptTokenCount",
-                    "candidatesTokenCount",
-                    "totalTokenCount",
-                    cache_read_key="cachedContentTokenCount",
-                ):
+                if token_usage := self._extract_gemini_token_usage(usage_metadata):
                     return token_usage
 
         except (json.JSONDecodeError, UnicodeDecodeError):
