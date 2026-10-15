@@ -144,6 +144,32 @@ def _configure(monkeypatch, *, value_filter=None, target_filter=None, permission
     monkeypatch.setattr(auth_module, "_mcp_server_version_action_allowed", lambda u, n, a: True)
 
 
+def _configure_siblings(monkeypatch, condition_type, filters, *, permission=EDIT):
+    """Attach SEVERAL conditions of ONE type, which are alternatives rather than
+    cumulative restrictions.
+
+    `_configure` deliberately takes one filter per type, so nothing in this suite
+    reached the combination step -- and this surface runs the gate through its own async
+    validator, so agreeing with the Flask routes is not automatic.
+    """
+    specs = [ConditionSpec("mcp_server", condition_type, filter) for filter in filters]
+
+    class Store:
+        def get_user(self, username):
+            return SimpleNamespace(id=1, username=username, is_admin=False)
+
+        def is_workspace_admin(self, user_id, workspace):
+            return False
+
+        def list_conditions_for_user(self, user_id, workspace, resource_types, parents=None):
+            return list(specs)
+
+    monkeypatch.setattr(auth_module, "store", Store())
+    monkeypatch.setattr(auth_module, "_get_mcp_server_permission", lambda name, user: permission)
+    monkeypatch.setattr(auth_module, "get_anchor_workspace", lambda rt, rid: "ws")
+    monkeypatch.setattr(auth_module, "_mcp_server_version_action_allowed", lambda u, n, a: True)
+
+
 def _server_with_tags(monkeypatch, **tags):
     _resource_state(
         monkeypatch,
@@ -637,3 +663,42 @@ def test_mutating_a_version_itself_is_gated_by_its_target_condition(monkeypatch,
         )
 
     asyncio.run(go())
+
+
+# ---- How same-type conditions combine on this surface -----------------------
+
+
+@pytest.mark.asyncio
+async def test_a_sibling_condition_admits_a_tag_another_forbids(monkeypatch):
+    """Two VALUE conditions naming different keys forbid neither, here as on the Flask
+    routes. This is the surface where the two could diverge: the async validator builds
+    its own request values and calls the gate itself, so the combination rule is only
+    shared if it is actually reached rather than reimplemented.
+    """
+    _configure_siblings(
+        monkeypatch, CONDITION_TYPE_VALUE, ["tag_key != 'owner'", "tag_key != 'notes'"]
+    )
+    allowed = await _run(f"{_PREFIX}/{_SERVER}/tags", "POST", {"key": "owner", "value": "alice"})
+    assert allowed is True
+
+
+@pytest.mark.asyncio
+async def test_a_lone_condition_on_this_surface_still_forbids(monkeypatch):
+    """The control: the same filter without a sibling denies, so what permitted the write
+    above was the alternative and not a validator that stopped consulting conditions.
+    """
+    _configure_siblings(monkeypatch, CONDITION_TYPE_VALUE, ["tag_key != 'owner'"])
+    allowed = await _run(f"{_PREFIX}/{_SERVER}/tags", "POST", {"key": "owner", "value": "alice"})
+    assert allowed is False
+
+
+@pytest.mark.asyncio
+async def test_a_tag_no_sibling_admits_is_refused_on_this_surface(monkeypatch):
+    """And the closed set: when every alternative rejects the request it is denied, so OR
+    on this surface is not shorthand for allowing anything.
+    """
+    _configure_siblings(
+        monkeypatch, CONDITION_TYPE_VALUE, ["tag_key = 'release'", "tag_key = 'owner'"]
+    )
+    allowed = await _run(f"{_PREFIX}/{_SERVER}/tags", "POST", {"key": "notes", "value": "x"})
+    assert allowed is False

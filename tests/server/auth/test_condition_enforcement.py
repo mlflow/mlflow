@@ -1732,3 +1732,235 @@ def test_a_value_condition_cannot_refuse_a_stage_transition(server, auth_client,
     with pytest.raises(MlflowException, match=r"Permission denied"):
         with User(username, password, monkeypatch):
             MlflowClient(server).set_model_version_tag(name, "1", "notes", "anything")
+
+
+# ---- How same-type conditions combine --------------------------------------
+#
+# The suite above drives one condition at a time, so it never exercised the change
+# that matters most: conditions of a type are ALTERNATIVES. Every outcome asserted
+# below was measured against a running server first, because the permissive cases are
+# the ones a wrong implementation would also produce -- an OR gate that silently
+# stopped enforcing allows exactly what a correct one allows here, and only the denial
+# cases tell the two apart. So both directions are pinned for each pair.
+
+
+def _multi_conditioned_user(auth_client, monkeypatch, conditions, *, roles=1):
+    """A non-admin with a broad grant, narrowed by `conditions` spread over `roles` roles.
+
+    `conditions` is a list of `(type, filter)`. With `roles=2` they are dealt
+    round-robin onto separate roles, which is how the cross-role cases are built: the
+    applicable set is pooled per user, not per role, so where a condition lives must
+    not change the verdict.
+    """
+    username = random_str()
+    password = random_str(12)
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        auth_client.create_user(username, password)
+        created = []
+        for _ in range(roles):
+            role = auth_client.create_role(workspace=_WORKSPACE, name=f"or-{random_str()}")
+            auth_client.add_role_permission(role.id, "registered_model", "*", "EDIT")
+            auth_client.assign_role(username, role.id)
+            created.append(role)
+        for i, (condition_type, filter) in enumerate(conditions):
+            auth_client.add_condition(
+                created[i % roles].id,
+                "registered_model",
+                type=condition_type,
+                filter=filter,
+            )
+    return username, password
+
+
+def test_a_sibling_value_condition_admits_what_another_forbids(server, auth_client, monkeypatch):
+    # The authoring hazard, end to end. Two conditions forbid DIFFERENT tag keys, so
+    # neither key is actually forbidden: setting `pii` violates the first and satisfies
+    # the second, and one passing is enough. An admin who writes these two expecting
+    # both keys to be blocked has blocked neither.
+    username, password = _multi_conditioned_user(
+        auth_client,
+        monkeypatch,
+        [
+            (CONDITION_TYPE_VALUE, "tag_key != 'pii'"),
+            (CONDITION_TYPE_VALUE, "tag_key != 'secret'"),
+        ],
+    )
+    name = _model_with_tags(server, monkeypatch)
+
+    _set_tag(server, username, password, monkeypatch, name, "pii", "x")
+
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        model = MlflowClient(server).get_registered_model(name)
+    assert model.tags["pii"] == "x"
+
+
+def test_a_single_value_condition_still_forbids_what_it_names(server, auth_client, monkeypatch):
+    # The control for the test above. The same filter, with no sibling to admit the key,
+    # denies -- so what lifted the restriction there was the sibling and not a gate that
+    # stopped enforcing.
+    username, password = _multi_conditioned_user(
+        auth_client, monkeypatch, [(CONDITION_TYPE_VALUE, "tag_key != 'pii'")]
+    )
+    name = _model_with_tags(server, monkeypatch)
+
+    _assert_denied(lambda: _set_tag(server, username, password, monkeypatch, name, "pii", "x"))
+
+
+def test_a_request_no_sibling_admits_is_refused(server, auth_client, monkeypatch):
+    # OR is not a free pass: when EVERY alternative rejects the request it is denied.
+    # Positive filters make that reachable -- two `!=` conditions can always be
+    # satisfied by picking a third key, but two `=` conditions name a closed set.
+    username, password = _multi_conditioned_user(
+        auth_client,
+        monkeypatch,
+        [
+            (CONDITION_TYPE_VALUE, "tag_key = 'release'"),
+            (CONDITION_TYPE_VALUE, "tag_key = 'owner'"),
+        ],
+    )
+    name = _model_with_tags(server, monkeypatch)
+
+    _assert_denied(
+        lambda: _set_tag(server, username, password, monkeypatch, name, "lifecycle", "x")
+    )
+
+
+def test_a_request_one_sibling_admits_is_permitted(server, auth_client, monkeypatch):
+    # The other half of the closed set: `release` satisfies the first condition, which is
+    # enough even though the second rejects it.
+    username, password = _multi_conditioned_user(
+        auth_client,
+        monkeypatch,
+        [
+            (CONDITION_TYPE_VALUE, "tag_key = 'release'"),
+            (CONDITION_TYPE_VALUE, "tag_key = 'owner'"),
+        ],
+    )
+    name = _model_with_tags(server, monkeypatch)
+
+    _set_tag(server, username, password, monkeypatch, name, "release", "2.1")
+
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        model = MlflowClient(server).get_registered_model(name)
+    assert model.tags["release"] == "2.1"
+
+
+def test_the_two_types_still_both_have_to_pass(server, auth_client, monkeypatch):
+    # OR is within a type, AND across them. The VALUE condition is satisfied and the
+    # TARGET condition is not, and the request is refused -- so the move to alternatives
+    # did not make a satisfied condition of one type stand in for the other.
+    #
+    # Worth knowing where this is enforced: the target path refuses DIRECTLY rather than
+    # handing a boolean to `combine`, because a pushdown answers per-id and there is no
+    # per-resource result to weigh. So this test is deliberately insensitive to
+    # `combine` -- it pins that the target half is consulted at all, and the tests below
+    # pin how target rows combine with each other.
+    username, password = _multi_conditioned_user(
+        auth_client,
+        monkeypatch,
+        [
+            (CONDITION_TYPE_VALUE, "tag_key != 'pii'"),
+            (CONDITION_TYPE_TARGET, "tags.gate = 'open'"),
+        ],
+    )
+    ungated = _model_with_tags(server, monkeypatch)
+
+    _assert_denied(lambda: _set_tag(server, username, password, monkeypatch, ungated, "team", "ml"))
+
+
+def test_a_sibling_on_another_role_admits_it_too(server, auth_client, monkeypatch):
+    # Conditions are pooled per USER, so the alternative may come from a different role.
+    # This is the case an admin cannot see while editing one role: the restriction they
+    # are writing is already lifted by a condition on a role they are not looking at.
+    username, password = _multi_conditioned_user(
+        auth_client,
+        monkeypatch,
+        [
+            (CONDITION_TYPE_VALUE, "tag_key != 'pii'"),
+            (CONDITION_TYPE_VALUE, "tag_key != 'secret'"),
+        ],
+        roles=2,
+    )
+    name = _model_with_tags(server, monkeypatch)
+
+    _set_tag(server, username, password, monkeypatch, name, "pii", "x")
+
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        model = MlflowClient(server).get_registered_model(name)
+    assert model.tags["pii"] == "x"
+
+
+def test_an_unconditioned_role_contributes_no_alternative(server, auth_client, monkeypatch):
+    # The asymmetry that keeps OR from being an escape hatch: a role with no conditions
+    # adds no disjunct, so holding one cannot lift a restriction written elsewhere. Only
+    # another CONDITION can. Were this to allow, every restriction in a deployment would
+    # be defeatable by assigning any unconditioned role.
+    username, password = _multi_conditioned_user(
+        auth_client, monkeypatch, [(CONDITION_TYPE_VALUE, "tag_key != 'pii'")], roles=2
+    )
+    name = _model_with_tags(server, monkeypatch)
+
+    _assert_denied(lambda: _set_tag(server, username, password, monkeypatch, name, "pii", "x"))
+
+
+def test_a_sibling_target_condition_admits_a_resource_another_rejects(
+    server, auth_client, monkeypatch
+):
+    # Target rows combine through their own path -- the pushdown unions the satisfying
+    # sets id-major -- so OR has to be reimplemented there rather than inherited from
+    # `combine`. A model carrying only `gate=open` satisfies the first row and not the
+    # second, and is mutable.
+    username, password = _multi_conditioned_user(
+        auth_client,
+        monkeypatch,
+        [
+            (CONDITION_TYPE_TARGET, "tags.gate = 'open'"),
+            (CONDITION_TYPE_TARGET, "tags.tier = 'low'"),
+        ],
+    )
+    name = _model_with_tags(server, monkeypatch, tags={"gate": "open"})
+
+    _set_tag(server, username, password, monkeypatch, name, "team", "ml")
+
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        model = MlflowClient(server).get_registered_model(name)
+    assert model.tags["team"] == "ml"
+
+
+def test_either_target_sibling_is_enough_whichever_one_matches(server, auth_client, monkeypatch):
+    # The mirror of the test above with the OTHER row satisfied, so neither row is
+    # privileged by position. An implementation that consulted only the lowest slot, or
+    # that intersected the satisfying sets instead of unioning them, passes one of these
+    # two tests and fails the other.
+    username, password = _multi_conditioned_user(
+        auth_client,
+        monkeypatch,
+        [
+            (CONDITION_TYPE_TARGET, "tags.gate = 'open'"),
+            (CONDITION_TYPE_TARGET, "tags.tier = 'low'"),
+        ],
+    )
+    name = _model_with_tags(server, monkeypatch, tags={"tier": "low"})
+
+    _set_tag(server, username, password, monkeypatch, name, "team", "ml")
+
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        model = MlflowClient(server).get_registered_model(name)
+    assert model.tags["team"] == "ml"
+
+
+def test_a_resource_no_target_sibling_admits_is_refused(server, auth_client, monkeypatch):
+    # And the closing half: a model satisfying neither row is refused. Note this also
+    # pins absence on the target side -- the model carries NO `gate` or `tier` tag, and
+    # a missing key must fail its clause rather than be vacuously admitted.
+    username, password = _multi_conditioned_user(
+        auth_client,
+        monkeypatch,
+        [
+            (CONDITION_TYPE_TARGET, "tags.gate = 'open'"),
+            (CONDITION_TYPE_TARGET, "tags.tier = 'low'"),
+        ],
+    )
+    name = _model_with_tags(server, monkeypatch)
+
+    _assert_denied(lambda: _set_tag(server, username, password, monkeypatch, name, "team", "ml"))
