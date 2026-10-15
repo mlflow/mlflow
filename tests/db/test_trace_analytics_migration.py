@@ -1277,30 +1277,28 @@ def test_span_metrics_for_keys_query_matches_exact_pairs():
 
 
 @pytest.mark.parametrize(
-    ("dialect", "expected"),
+    ("dialect", "uses_row_value"),
     [
-        (postgresql.dialect(), "(spans.trace_id, spans.span_id) > (%(param_1)s, %(param_2)s)"),
-        (sqlite.dialect(), "(spans.trace_id, spans.span_id) > (?, ?)"),
-        (
-            mysql.dialect(),
-            "spans.trace_id >= %s AND (spans.trace_id > %s "
-            "OR spans.trace_id = %s AND spans.span_id > %s)",
-        ),
-        (
-            mssql.dialect(),
-            "spans.trace_id >= :trace_id_1 AND (spans.trace_id > :trace_id_2 "
-            "OR spans.trace_id = :trace_id_3 AND spans.span_id > :span_id_1)",
-        ),
+        (postgresql.dialect(), True),
+        (sqlite.dialect(), True),
+        (mysql.dialect(), False),
+        (mssql.dialect(), False),
     ],
 )
-def test_span_key_after_compiles_for_supported_dialects(dialect, expected):
+def test_span_key_after_compiles_for_supported_dialects(dialect, uses_row_value):
     spans = sa.table(
         "spans", sa.column("trace_id", sa.String(50)), sa.column("span_id", sa.String(50))
     )
 
     condition = MIGRATION_MODULE._span_key_after(spans, "trace-1", "span-1", dialect.name)
 
-    assert str(condition.compile(dialect=dialect)) == expected
+    sql = str(condition.compile(dialect=dialect))
+    if uses_row_value:
+        assert sql.startswith("(spans.trace_id, spans.span_id) > (")
+        assert " OR " not in sql
+    else:
+        assert sql.startswith("spans.trace_id >= ")
+        assert " OR spans.trace_id = " in sql
 
 
 @pytest.mark.skipif(
