@@ -92,9 +92,11 @@ const EvalRunDetailsPageContent = ({ experimentId, runUuid }: { experimentId: st
         // The page shell already supplies the top gutter below the breadcrumb; skip our own top padding
         // so the content sits close to it.
         paddingTop: revampEnabled ? 0 : theme.spacing.lg,
-        minHeight: '100%',
+        // Fill the shell's content area instead of growing past it, so the table scrolls inside its
+        // own body and the toolbar and header row never slide under the page shell's breadcrumb.
+        height: '100%',
+        minHeight: 0,
         boxSizing: 'border-box',
-        overflowY: 'auto',
       }}
     >
       {!revampEnabled && (
@@ -137,7 +139,7 @@ const EvalRunDetailsPageContent = ({ experimentId, runUuid }: { experimentId: st
         </div>
       )}
 
-      <div css={{ display: 'flex', flex: 1, minHeight: 600, minWidth: 0 }}>
+      <div css={{ display: 'flex', flex: 1, minHeight: 0, minWidth: 0 }}>
         <div css={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>{tracesTable}</div>
         <EvalRunTracesSidebar key={runUuid} experimentId={experimentId} runUuid={runUuid} />
       </div>
