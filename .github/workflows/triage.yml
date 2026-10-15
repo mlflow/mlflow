@@ -1079,7 +1079,7 @@ jobs:
           node .github/workflows/sanitize.js output \
             < "$RUNNER_TEMP/pr-body-media.md" > "$RUNNER_TEMP/pr-body-agent.md"
           {
-            printf '> [!NOTE]\n> Drafted by [automated triage](%s). Please review carefully.\n\n' "$RUN_URL"
+            printf '> [!NOTE]\n> Created by [automated triage](%s). Please review carefully.\n\n' "$RUN_URL"
             cat "$RUNNER_TEMP/pr-body-agent.md"
           } > "$RUNNER_TEMP/pr-body.md"
           if [ "$SHOULD_POST" = true ]; then
