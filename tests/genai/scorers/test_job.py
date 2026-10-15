@@ -6,14 +6,19 @@ from unittest import mock
 import pytest
 
 import mlflow
-from mlflow.entities import AssessmentSource, AssessmentSourceType
+from mlflow.entities import AssessmentSource, AssessmentSourceType, Trace, TraceData
+from mlflow.entities.trace_info import TraceInfo
+from mlflow.entities.trace_location import TraceLocation
+from mlflow.entities.trace_state import TraceState
 from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
 from mlflow.exceptions import MlflowException
 from mlflow.genai import scorer
+from mlflow.genai.evaluation.entities import EvalItem, EvalResult
 from mlflow.genai.scorers.base import SCORER_BACKEND_TRACKING, _in_job_executor
 from mlflow.genai.scorers.job import (
     _online_scorers_this_job_can_run,
     _plan_invoke_scorer_job_for_docker,
+    _run_session_scorer,
     _score_single_turn_traces,
     invoke_scorer_job,
     run_online_session_scorer_job,
@@ -28,6 +33,12 @@ from mlflow.server.jobs.utils import _load_function
 from mlflow.tracing.constant import AssessmentMetadataKey, TraceMetadataKey
 from mlflow.tracking._tracking_service.utils import _get_store
 from mlflow.utils.workspace_context import WorkspaceContext
+
+
+@pytest.fixture(autouse=True)
+def reset_session_level_online_warned(monkeypatch):
+    """Isolate the once-per-process session_level warning set between tests."""
+    monkeypatch.setattr("mlflow.genai.scorers.base._SESSION_LEVEL_ONLINE_WARNED", set())
 
 
 def test_invoke_scorer_job_restores_registered_version():
@@ -52,6 +63,43 @@ def test_invoke_scorer_job_restores_registered_version():
         scorer_version=3,
     )
     assert result == {}
+
+
+def test_run_session_scorer_warns_once_for_session_level():
+    @scorer(session_level="episode")
+    def session_scorer(session):
+        return len(session)
+
+    trace = Trace(
+        info=TraceInfo(
+            trace_id="tr-1",
+            trace_location=TraceLocation.from_experiment_id("0"),
+            request_time=1000,
+            execution_duration=100,
+            state=TraceState.OK,
+            trace_metadata={TraceMetadataKey.TRACE_SESSION: '["trip-2","ep-2"]'},
+            tags={},
+        ),
+        data=TraceData(spans=[]),
+    )
+    eval_result = EvalResult(eval_item=EvalItem.from_trace(trace), assessments=[])
+
+    with (
+        mock.patch("mlflow.genai.scorers.job._fetch_traces_batch", return_value={"tr-1": trace}),
+        mock.patch(
+            "mlflow.genai.scorers.job.evaluate_session_level_scorers",
+            return_value=eval_result,
+        ) as mock_eval,
+        mock.patch("mlflow.genai.scorers.base._logger.warning") as mock_warning,
+    ):
+        _run_session_scorer(session_scorer, ["tr-1"], mock.Mock(), log_assessments=False)
+        _run_session_scorer(session_scorer, ["tr-1"], mock.Mock(), log_assessments=False)
+
+    # The scorer itself runs on every invocation; the session_level warning fires once.
+    assert mock_eval.call_count == 2
+    warnings = [c for c in mock_warning.call_args_list if "session_level" in str(c)]
+    assert len(warnings) == 1
+    assert "not yet supported for online scoring" in str(warnings[0])
 
 
 def _custom_scorer_json() -> str:

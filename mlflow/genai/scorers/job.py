@@ -32,6 +32,7 @@ from mlflow.genai.scorers.base import (
     Scorer,
     _job_executor_scorer_context,
     _serialized_scorer_is_custom_code,
+    warn_session_level_unsupported_online,
 )
 from mlflow.genai.scorers.online import (
     OnlineScorer,
@@ -561,6 +562,8 @@ def _score_session_traces(
     log_assessments: bool,
 ) -> dict[str, TraceResult]:
     """Run a session-level scorer on already-fetched traces, in conversation order."""
+    if scorer.session_level is not None:
+        warn_session_level_unsupported_online(scorer.name)
     session_items = [EvalItem.from_trace(t) for t in traces]
 
     # Get session_id from the first trace's metadata

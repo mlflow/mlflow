@@ -669,6 +669,23 @@ def test_execute_bash_in_sandbox_nonzero_exit_is_error():
     assert "boom" in result
 
 
+def test_execute_bash_in_sandbox_forwards_the_delegation_credential():
+    delegation_env = {"MLFLOW_TRACKING_AUTH": "assistant_delegation"}
+    with (
+        mock.patch(
+            "mlflow.assistant.providers.tool_executor._assistant_delegation_env",
+            return_value=delegation_env,
+        ),
+        mock.patch(
+            "mlflow.server.sandbox.run_in_sandbox",
+            return_value=SandboxResult(exit_code=0, output="ok"),
+        ) as run,
+    ):
+        _run(_execute_bash_in_sandbox("mlflow --version", None, None))
+
+    assert run.call_args.kwargs["environment"].items() >= delegation_env.items()
+
+
 def test_execute_bash_in_sandbox_timeout():
     with mock.patch(
         "mlflow.server.sandbox.run_in_sandbox",
@@ -742,3 +759,19 @@ def test_execute_bash_in_sandbox_unavailable_does_not_fall_back_to_host():
     assert is_error is True
     assert "Sandbox is enabled" in result
     assert "no daemon" in result
+
+
+def test_execute_bash_on_host_does_not_pass_on_the_server_internal_secrets(monkeypatch):
+    monkeypatch.setenv("_MLFLOW_ASSISTANT_DELEGATION_SIGNING_KEY", "signing-secret")
+    monkeypatch.setenv("_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN", "gateway-secret")
+    monkeypatch.setattr("mlflow.assistant.config.get_config_user", lambda: "alice")
+
+    result, is_error = _run(
+        _execute_bash_on_host("env", cwd=None, tracking_uri=None, full_access=True)
+    )
+
+    assert not is_error
+    assert "signing-secret" not in result
+    assert "gateway-secret" not in result
+    # The command still gets a credential scoped to the session owner.
+    assert "_MLFLOW_ASSISTANT_DELEGATION_TOKEN=" in result
