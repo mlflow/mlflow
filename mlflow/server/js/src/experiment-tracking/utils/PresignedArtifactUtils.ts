@@ -239,19 +239,25 @@ const uploadProxiedArtifact = async (proxiedArtifactRoute: ProxiedArtifactRoute,
       )
     : await MlflowService.createMlflowArtifactsMultipartUpload(directory, createData);
   const credential = createResponse.credentials?.[0];
-  if (!credential?.url) {
-    throw new ErrorWrapper('The server did not return a multipart upload credential.', 501);
-  }
-
   try {
+    if (!credential?.url) {
+      throw new ErrorWrapper('The server did not return a multipart upload credential.', 501);
+    }
     const uploadResponse = await uploadToPresignedUrl(credential.url, credential.headers ?? {}, body);
+    const etag = uploadResponse.headers.get('ETag');
+    if (!etag) {
+      throw new ErrorWrapper(
+        'The storage upload response did not include an ETag. Configure storage CORS to expose the ETag response header.',
+        500,
+      );
+    }
     const completeData = {
       path: filename,
       upload_id: createResponse.upload_id,
       parts: [
         {
           part_number: credential.part_number,
-          etag: uploadResponse.headers.get('ETag') ?? '',
+          etag,
           url: credential.url,
         },
       ],
