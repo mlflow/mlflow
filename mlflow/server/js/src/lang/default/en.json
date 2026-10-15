@@ -2751,6 +2751,10 @@
     "defaultMessage": "Trace archival retention must be at most {maxLength} characters.",
     "description": "Validation error for trace archival retention exceeding the maximum length"
   },
+  "92tqRn": {
+    "defaultMessage": "Unable to update detection progress",
+    "description": "Issues job status error"
+  },
   "93BFzC": {
     "defaultMessage": "Outputs",
     "description": "Label for outputs variable option"
@@ -4954,10 +4958,6 @@
   "HqkKUn": {
     "defaultMessage": "Select traces to analyze first.",
     "description": "Tooltip on the disabled Run button when no traces are selected"
-  },
-  "Hr1maE": {
-    "defaultMessage": "Cancel detection",
-    "description": "Issues cancel detection confirmation button"
   },
   "Hr6QZk": {
     "defaultMessage": "Running",
@@ -7871,10 +7871,6 @@
     "defaultMessage": "Username",
     "description": "Users table username header"
   },
-  "TQzlKU": {
-    "defaultMessage": "Detecting issues",
-    "description": "Issues running detection status"
-  },
   "TRutFE": {
     "defaultMessage": "Click a graph node to navigate spans",
     "description": "Hint text shown in graph view span navigator when no node is selected"
@@ -10243,10 +10239,6 @@
     "defaultMessage": "Delete ({count})",
     "description": "Delete button in the V2 dataset records inline bulk-selection group"
   },
-  "cRtp56": {
-    "defaultMessage": "Issues already found will remain available.",
-    "description": "Issues cancel detection confirmation explanation"
-  },
   "cSQJ9N": {
     "defaultMessage": "Select sessions",
     "description": "Button to select sessions"
@@ -11159,10 +11151,6 @@
     "defaultMessage": "Running judge \"{label}\"…",
     "description": "Banner message shown while a judge is running on selected traces"
   },
-  "fvpkU8": {
-    "defaultMessage": "Cancel issue detection?",
-    "description": "Issues cancel detection confirmation title"
-  },
   "fwp4JP": {
     "defaultMessage": "Datasets used",
     "description": "Run page > Overview > Run datasets section label"
@@ -11634,10 +11622,6 @@
   "hPDXO7": {
     "defaultMessage": "Add tracing to your application",
     "description": "Step 2 title for traces onboarding"
-  },
-  "hQSSEQ": {
-    "defaultMessage": "Issue detection canceled",
-    "description": "Issues canceled detection status"
   },
   "hR27A2": {
     "defaultMessage": "View full dashboard",
@@ -14815,10 +14799,6 @@
     "defaultMessage": "Full trace with an agent using the right part of the trace to use to judge",
     "description": "Description for trace variable"
   },
-  "tNWixp": {
-    "defaultMessage": "Unable to update detection progress",
-    "description": "Issues job status or cancellation error"
-  },
   "tOxLeG": {
     "defaultMessage": "Edit",
     "description": "Label for the button that edits a trace's tags"
@@ -16302,10 +16282,6 @@
   "zZlPwp": {
     "defaultMessage": "Categories",
     "description": "Run page > Overview > Issue categories being detected"
-  },
-  "zc/zBA": {
-    "defaultMessage": "Cancel detection",
-    "description": "Issues cancel detection action"
   },
   "zcnCPF": {
     "defaultMessage": "Issues",

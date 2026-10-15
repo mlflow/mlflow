@@ -283,25 +283,39 @@ describe('Experiment Issues', () => {
     expect(screen.getByRole('dialog')).toBe(dialog);
     expect(screen.getByRole('textbox', { name: 'Detection model draft' })).toHaveValue('chosen-model');
   });
-  test('refreshes SQL issues when detection finishes and recovers progress after reload', async () => {
-    issues = [];
-    latestRun = {
-      info: { run_id: 'run-1', status: 'RUNNING' },
-      data: { tags: [{ key: 'mlflow.issueDetection.jobId', value: 'job-1' }] },
-    };
-    jobStatus = 'RUNNING';
-    const { client } = renderPage();
-    expect(await screen.findByText('Detecting issues')).toBeInTheDocument();
-    issues = [makeIssue('iss-detected', 'Detected by job')];
-    jobStatus = 'SUCCEEDED';
-    latestRun.info.status = 'FINISHED';
-    await act(async () => {
-      await client.invalidateQueries(['FETCH_JOB_STATUS', 'job-1']);
-    });
-    expect(await screen.findByRole('button', { name: /Detected by job/ })).toBeInTheDocument();
-    expect(screen.queryByText('Issue detection completed')).not.toBeInTheDocument();
-    expect(screen.queryByText('Detecting issues')).not.toBeInTheDocument();
-  });
+  test.each(['PENDING', 'RUNNING'])(
+    'recovers the button spinner after reload and refreshes SQL issues (%s)',
+    async (status) => {
+      issues = [];
+      latestRun = {
+        info: { run_id: 'run-1', status: 'RUNNING' },
+        data: { tags: [{ key: 'mlflow.issueDetection.jobId', value: 'job-1' }] },
+      };
+      jobStatus = status;
+      const { client } = renderPage();
+      const detectButton = await screen.findByRole('button', { name: 'Detect new issues', busy: true });
+      await waitFor(() =>
+        expect(client.getQueryData(['FETCH_JOB_STATUS', 'job-1'])).toEqual(expect.objectContaining({ status })),
+      );
+      expect(detectButton).toBeDisabled();
+      expect(screen.queryByText('Detecting issues')).not.toBeInTheDocument();
+      expect(screen.queryByRole('link', { name: 'View detection run' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Cancel detection' })).not.toBeInTheDocument();
+      await userEvent.click(detectButton);
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      issues = [makeIssue('iss-detected', 'Detected by job')];
+      jobStatus = 'SUCCEEDED';
+      latestRun.info.status = 'FINISHED';
+      await act(async () => {
+        await client.invalidateQueries(['FETCH_JOB_STATUS', 'job-1']);
+      });
+      expect(await screen.findByRole('button', { name: /Detected by job/ })).toBeInTheDocument();
+      expect(screen.queryByText('Issue detection completed')).not.toBeInTheDocument();
+      expect(screen.queryByText('Detecting issues')).not.toBeInTheDocument();
+      expect(detectButton).toHaveAttribute('aria-busy', 'false');
+      expect(detectButton).toBeEnabled();
+    },
+  );
   test('discovers a newly submitted job without navigating away', async () => {
     renderPage();
     await screen.findByText('Description for iss-a');
@@ -311,9 +325,9 @@ describe('Experiment Issues', () => {
     };
     jobStatus = 'RUNNING';
     act(() => window.dispatchEvent(new CustomEvent(ISSUE_DETECTION_JOB_SUBMITTED_EVENT)));
-    expect(await screen.findByText('Detecting issues')).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Detect new issues', busy: true })).toBeDisabled();
   });
-  test('hides cancellation until job status is readable, including permission failures', async () => {
+  test('keeps the button spinning while job status is unavailable, including permission failures', async () => {
     latestRun = {
       info: { run_id: 'run-1', status: 'RUNNING' },
       data: { tags: [{ key: 'mlflow.issueDetection.jobId', value: 'job-1' }] },
@@ -324,10 +338,12 @@ describe('Experiment Issues', () => {
       ),
     );
     renderPage();
-    await screen.findByText('Detecting issues');
-    expect(screen.queryByRole('button', { name: 'Cancel detection' })).not.toBeInTheDocument();
+    const detectButton = await screen.findByRole('button', { name: 'Detect new issues', busy: true });
+    expect(detectButton).toBeDisabled();
     await screen.findByText('Unable to update detection progress');
-    expect(screen.queryByRole('button', { name: 'Cancel detection' })).not.toBeInTheDocument();
+    expect(detectButton).toHaveAttribute('aria-busy', 'true');
+    expect(detectButton).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Retry status' })).toBeEnabled();
   });
   test('retries failed job polling and refreshes issues on completion', async () => {
     issues = [];
@@ -337,13 +353,14 @@ describe('Experiment Issues', () => {
     };
     jobStatus = 'RUNNING';
     const { client } = renderPage();
-    await screen.findByRole('button', { name: 'Cancel detection' });
+    const detectButton = await screen.findByRole('button', { name: 'Detect new issues', busy: true });
+    await waitFor(() => expect(client.isFetching(['FETCH_JOB_STATUS', 'job-1'])).toBe(0));
     server.use(rest.get('*/ajax-api/3.0/mlflow/jobs/job-1', (_req, res, ctx) => res(ctx.status(500))));
     await act(async () => {
       await client.invalidateQueries(['FETCH_JOB_STATUS', 'job-1']);
     });
     await screen.findByText('Unable to update detection progress');
-    expect(screen.queryByRole('button', { name: 'Cancel detection' })).not.toBeInTheDocument();
+    expect(detectButton).toBeDisabled();
     issues = [makeIssue('iss-recovered', 'Found after retry')];
     latestRun.info.status = 'FINISHED';
     server.use(
@@ -354,6 +371,8 @@ describe('Experiment Issues', () => {
     expect(screen.queryByText('Issue detection completed')).not.toBeInTheDocument();
     expect(screen.queryByText('Detecting issues')).not.toBeInTheDocument();
     expect(screen.queryByText('Unable to update detection progress')).not.toBeInTheDocument();
+    expect(detectButton).toHaveAttribute('aria-busy', 'false');
+    expect(detectButton).toBeEnabled();
   });
   test.each([false, true])(
     'refreshes issues once when the run completes with unavailable job status (cached running status: %s)',
@@ -368,8 +387,9 @@ describe('Experiment Issues', () => {
         server.use(rest.get('*/ajax-api/3.0/mlflow/jobs/job-1', (_req, res, ctx) => res(ctx.status(403))));
       }
       const { client } = renderPage();
+      const detectButton = await screen.findByRole('button', { name: 'Detect new issues', busy: true });
       if (cachedJob) {
-        await screen.findByRole('button', { name: 'Cancel detection' });
+        await waitFor(() => expect(client.isFetching(['FETCH_JOB_STATUS', 'job-1'])).toBe(0));
         server.use(rest.get('*/ajax-api/3.0/mlflow/jobs/job-1', (_req, res, ctx) => res(ctx.status(500))));
         await act(async () => {
           await client.invalidateQueries(['FETCH_JOB_STATUS', 'job-1']);
@@ -384,6 +404,9 @@ describe('Experiment Issues', () => {
       expect(await screen.findByRole('button', { name: /Found by another user/ })).toBeInTheDocument();
       expect(screen.queryByText('Issue detection completed')).not.toBeInTheDocument();
       expect(screen.queryByText('Detecting issues')).not.toBeInTheDocument();
+      expect(screen.queryByText('Unable to update detection progress')).not.toBeInTheDocument();
+      expect(detectButton).toHaveAttribute('aria-busy', 'false');
+      expect(detectButton).toBeEnabled();
       const searchCount = searches.length;
       await act(async () => {
         await client.invalidateQueries(['LATEST_ISSUE_DETECTION']);
@@ -399,18 +422,18 @@ describe('Experiment Issues', () => {
     renderPage('?selectedIssueId=iss-a');
     expect(await screen.findByText('You do not have permission to view these issues')).toBeInTheDocument();
   });
-  test('disables detection and hides triage and cancel actions for read-only users', async () => {
+  test('disables detection and triage for read-only users', async () => {
     jest.mocked(useExperimentPermission).mockReturnValue(false);
     latestRun = {
       info: { run_id: 'run-1', status: 'RUNNING' },
       data: { tags: [{ key: 'mlflow.issueDetection.jobId', value: 'job-1' }] },
     };
-    jobStatus = 'RUNNING';
+    jobStatus = 'SUCCEEDED';
     renderPage();
     await screen.findByText('Description for iss-a');
     expect(screen.getByRole('button', { name: 'Detect new issues' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Open' })).toBeDisabled();
-    expect(screen.queryByRole('button', { name: 'Cancel detection' })).not.toBeInTheDocument();
+    await screen.findByRole('button', { name: 'Detect new issues', busy: false });
   });
   test('shows no matches separately from a clean scan', async () => {
     renderPage('?issueSearch=no-match');
@@ -439,30 +462,31 @@ describe('Experiment Issues', () => {
       ).not.toBeInTheDocument();
     }
   });
-  test('cancels a recovered detection job after confirmation', async () => {
-    latestRun = {
-      info: { run_id: 'run-1', status: 'RUNNING' },
-      data: { tags: [{ key: 'mlflow.issueDetection.jobId', value: 'job-1' }] },
-    };
-    jobStatus = 'RUNNING';
-    const canceled = jest.fn();
-    server.use(
-      rest.patch('*/ajax-api/3.0/mlflow/jobs/cancel/job-1', (_req, res, ctx) => {
-        canceled();
-        jobStatus = 'CANCELED';
-        return res(ctx.json({ status: 'CANCELED' }));
-      }),
-      rest.post('*/ajax-api/2.0/mlflow/runs/update', (_req, res, ctx) => res(ctx.json({}))),
-    );
-    const { client } = renderPage();
-    await userEvent.click(await screen.findByRole('button', { name: 'Cancel detection' }));
-    expect(canceled).not.toHaveBeenCalled();
-    const confirmButtons = screen.getAllByRole('button', { name: 'Cancel detection' });
-    await userEvent.click(confirmButtons[confirmButtons.length - 1]);
-    expect(await screen.findByText('Issue detection canceled')).toBeInTheDocument();
-    expect(canceled).toHaveBeenCalledTimes(1);
-    await waitFor(() => expect(client.isFetching()).toBe(0));
-  });
+  test.each(['SUCCEEDED', 'FAILED', 'TIMEOUT', 'CANCELED'])(
+    'stops spinning and allows another detection after %s',
+    async (status) => {
+      latestRun = {
+        info: { run_id: 'run-1', status: 'RUNNING' },
+        data: { tags: [{ key: 'mlflow.issueDetection.jobId', value: 'job-1' }] },
+      };
+      jobStatus = 'RUNNING';
+      const { client } = renderPage();
+      const detectButton = await screen.findByRole('button', { name: 'Detect new issues', busy: true });
+      await waitFor(() => expect(client.isFetching(['FETCH_JOB_STATUS', 'job-1'])).toBe(0));
+      jobStatus = status;
+      await act(async () => {
+        await client.invalidateQueries(['FETCH_JOB_STATUS', 'job-1']);
+      });
+      expect(detectButton).toHaveAttribute('aria-busy', 'false');
+      expect(detectButton).toBeEnabled();
+      if (status === 'FAILED' || status === 'TIMEOUT') {
+        expect(await screen.findByText('Issue detection failed')).toBeInTheDocument();
+        expect(screen.getByRole('link', { name: 'View detection run' })).toBeInTheDocument();
+      }
+      await userEvent.click(detectButton);
+      expect(await screen.findByRole('dialog')).toBeInTheDocument();
+    },
+  );
   test('does not call Issue APIs for unsupported or proxied storage', async () => {
     server.use(rest.get('*/ajax-api/3.0/mlflow/server-info', (_req, res, ctx) => res(ctx.json({ store_type: null }))));
     renderPage();

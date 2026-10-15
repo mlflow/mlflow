@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { Alert, Button, Empty, SparkleIcon, TableSkeleton, useDesignSystemTheme } from '@databricks/design-system';
 import { NotFoundError, PermissionError } from '@databricks/web-shared/errors';
-import { FormattedMessage } from 'react-intl';
+import { FormattedMessage, useIntl } from 'react-intl';
 import { PageNotFoundView } from '../../../common/components/PageNotFoundView';
 import { shouldEnableExperimentIssuesTab } from '../../../common/utils/FeatureUtils';
 import { useParams, useSearchParams } from '../../../common/utils/RoutingUtils';
@@ -9,7 +9,7 @@ import { useActiveWorkspace } from '../../../workspaces/utils/WorkspaceUtils';
 import { ModelTraceExplorerResizablePane } from '../../../shared/web-shared/model-trace-explorer';
 import { useLocalStorage } from '../../../shared/web-shared/hooks';
 import { IssueDetectionModal } from '../../components/experiment-page/components/traces-v3/IssueDetectionModal';
-import { JobStatus } from '../../components/run-page/hooks/useFetchJobStatus';
+import { JobStatus, isJobComplete } from '../../components/run-page/hooks/useFetchJobStatus';
 import { SELECTED_ISSUE_ID_PARAM } from '../../constants';
 import { useExperimentPermission } from '../../hooks/useExperimentPermission';
 import { SERVER_FEATURE_KEYS, useFeatureEnabled, useServerInfo } from '../../hooks/useServerInfo';
@@ -70,14 +70,21 @@ const ReadError = ({ error, retry }: { error: Error; retry: () => void }) => (
 
 const ExperimentIssuesContent = ({ experimentId }: { experimentId: string }) => {
   const { theme } = useDesignSystemTheme();
+  const intl = useIntl();
   const controls = useIssueListControls();
   const search = useExperimentIssues(experimentId, controls.filters);
   const anyIssue = useHasExperimentIssues(experimentId);
   const detection = useLatestIssueDetection(experimentId);
+  const isDetecting = Boolean(detection.run) && !isJobComplete(detection.status);
   const canEdit = useExperimentPermission(experimentId, ['EDIT', 'MANAGE']);
   const detectionEnabled = useFeatureEnabled(SERVER_FEATURE_KEYS.GATEWAY);
   const [showDetection, setShowDetection] = useState(false);
   const traces = useDetectionTraceIds(experimentId, showDetection);
+  const isDetectionButtonLoading = isDetecting || (showDetection && traces.isFetching);
+  const detectIssuesLabel = intl.formatMessage({
+    defaultMessage: 'Detect new issues',
+    description: 'Experiment Issues launch detection action',
+  });
   const [params, setParams] = useSearchParams();
   const issues = search.data?.pages.flatMap((page) => page.issues ?? []) ?? [];
   const selectedId = params.get(SELECTED_ISSUE_ID_PARAM) ?? issues[0]?.issue_id;
@@ -211,21 +218,20 @@ const ExperimentIssuesContent = ({ experimentId }: { experimentId: string }) => 
           <Button
             componentId="mlflow.experiment-issues.detect"
             icon={<SparkleIcon />}
-            disabled={!canEdit}
-            loading={showDetection && traces.isFetching}
+            disabled={!canEdit || isDetecting}
+            loading={isDetectionButtonLoading}
+            aria-busy={isDetectionButtonLoading}
+            aria-label={detectIssuesLabel}
             onClick={() => {
               setShowDetection(true);
               if (traces.error) traces.refetch();
             }}
           >
-            <FormattedMessage
-              defaultMessage="Detect new issues"
-              description="Experiment Issues launch detection action"
-            />
+            {detectIssuesLabel}
           </Button>
         )}
       </ExperimentIssuesToolbar>
-      <IssueDetectionStatus detection={detection} experimentId={experimentId} canEdit={canEdit} />
+      <IssueDetectionStatus detection={detection} experimentId={experimentId} />
       {showDetection && traces.error && (
         <Alert
           componentId="mlflow.experiment-issues.trace-error"
