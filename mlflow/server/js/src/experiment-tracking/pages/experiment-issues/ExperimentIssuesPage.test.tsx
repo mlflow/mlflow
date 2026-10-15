@@ -237,6 +237,26 @@ describe('Experiment Issues', () => {
     );
     expect(screen.getByRole('textbox', { name: 'Search issues by title' })).toHaveValue('Slow');
   });
+  test.each(['Correctness', 'CORRECTNESS'])(
+    'uses the built-in category ID when entering its label (%s) and preserves custom categories',
+    async (label) => {
+      renderPage();
+      await userEvent.click(await screen.findByRole('button', { name: 'Filter issues' }));
+      const categoryInput = screen.getByRole('combobox', { name: 'Category' });
+      await userEvent.type(categoryInput, label);
+      fireEvent.keyDown(categoryInput, { key: 'Enter', code: 'Enter', keyCode: 13 });
+      await waitFor(() =>
+        expect(searches).toContainEqual(expect.objectContaining({ categories: ['correctness', '[correctness]'] })),
+      );
+      await userEvent.type(categoryInput, 'CustomerSupport');
+      fireEvent.keyDown(categoryInput, { key: 'Enter', code: 'Enter', keyCode: 13 });
+      await waitFor(() =>
+        expect(searches).toContainEqual(
+          expect.objectContaining({ categories: ['correctness', '[correctness]', 'CustomerSupport'] }),
+        ),
+      );
+    },
+  );
   test('lets keyboard users select an issue row and reject it from the status menu', async () => {
     renderPage('?selectedIssueId=iss-a');
     const row = await screen.findByRole('button', { name: /Wrong answer/ });

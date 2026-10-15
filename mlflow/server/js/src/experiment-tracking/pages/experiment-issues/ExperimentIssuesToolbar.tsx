@@ -96,6 +96,33 @@ const SORT_LABELS = {
   updated: defineMessage({ defaultMessage: 'Last updated', description: 'Experiment Issues update time sort option' }),
 };
 
+const CATEGORY_LABELS = {
+  correctness: defineMessage({
+    defaultMessage: 'Correctness',
+    description: 'Experiment issues tab > Correctness category filter option',
+  }),
+  latency: defineMessage({
+    defaultMessage: 'Latency',
+    description: 'Experiment issues tab > Latency category filter option',
+  }),
+  execution: defineMessage({
+    defaultMessage: 'Execution',
+    description: 'Experiment issues tab > Execution category filter option',
+  }),
+  adherence: defineMessage({
+    defaultMessage: 'Adherence',
+    description: 'Experiment issues tab > Adherence category filter option',
+  }),
+  relevance: defineMessage({
+    defaultMessage: 'Relevance',
+    description: 'Experiment issues tab > Relevance category filter option',
+  }),
+  safety: defineMessage({
+    defaultMessage: 'Safety',
+    description: 'Experiment issues tab > Safety category filter option',
+  }),
+};
+
 export const ExperimentIssuesToolbar = ({
   controls,
   children,
@@ -106,6 +133,19 @@ export const ExperimentIssuesToolbar = ({
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const { search, filters, categories, setValues, clearFilters } = controls;
+  const categoryOptions = ISSUE_CATEGORY_DEFINITIONS.map(({ id }) => ({
+    value: id,
+    label: intl.formatMessage(CATEGORY_LABELS[id]),
+  }));
+  const setCategories = (values: string[]) => {
+    const normalized = values.map(
+      (value) =>
+        categoryOptions.find(
+          (option) => option.value === value.toLowerCase() || option.label.toLowerCase() === value.toLowerCase(),
+        )?.value ?? value,
+    );
+    setValues('issueCategory', Array.from(new Set(normalized)));
+  };
   const hasFilters = Boolean(filters.statuses.length || filters.severities.length || categories.length);
   const statusLabel = intl.formatMessage({
     defaultMessage: 'Status',
@@ -223,14 +263,10 @@ export const ExperimentIssuesToolbar = ({
                 value={categories}
                 allowClear
                 css={{ width: 180 }}
-                onChange={(values: string[]) => setValues('issueCategory', values)}
-              >
-                {ISSUE_CATEGORY_DEFINITIONS.map(({ id, title }) => (
-                  <LegacySelect.Option key={id} value={id}>
-                    {title}
-                  </LegacySelect.Option>
-                ))}
-              </LegacySelect>,
+                optionFilterProp="label"
+                options={categoryOptions}
+                onChange={setCategories}
+              />,
             )}
             {selectRow(
               statusLabel,

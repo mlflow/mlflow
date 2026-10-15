@@ -7891,6 +7891,10 @@
     "defaultMessage": "Run Name",
     "description": "Column header for run name in the evaluation runs table"
   },
+  "TWtIHu": {
+    "defaultMessage": "Correctness",
+    "description": "Experiment issues tab > Correctness category filter option"
+  },
   "TXJ9GQ": {
     "defaultMessage": "Learn more about tracing in the {tracingDocs}.",
     "description": "Instruction to learn more about tracing in the tracing docs"
@@ -8343,6 +8347,10 @@
     "defaultMessage": "Add New Tag",
     "description": "Add new key-value tag modal > Modal title"
   },
+  "VGX3gC": {
+    "defaultMessage": "Latency",
+    "description": "Experiment issues tab > Latency category filter option"
+  },
   "VHuRTt": {
     "defaultMessage": "Doc",
     "description": "Label for the document preview in a chunk relevance assessment"
@@ -8674,6 +8682,10 @@
   "WP50re": {
     "defaultMessage": "Cancel",
     "description": "A label for the cancel button in the prompt creation modal in the prompt management UI"
+  },
+  "WPV4fF": {
+    "defaultMessage": "Relevance",
+    "description": "Experiment issues tab > Relevance category filter option"
   },
   "WQwCH6": {
     "defaultMessage": "Aliased versions",
@@ -10114,6 +10126,10 @@
   "c1jD8u": {
     "defaultMessage": "Create an evaluation dataset",
     "description": "Evaluation datasets empty state title"
+  },
+  "c3BXHk": {
+    "defaultMessage": "Execution",
+    "description": "Experiment issues tab > Execution category filter option"
   },
   "c4METn": {
     "defaultMessage": "Create",
@@ -12835,6 +12851,10 @@
     "defaultMessage": "Run name",
     "description": "Trace filter field: run"
   },
+  "lncLMa": {
+    "defaultMessage": "Adherence",
+    "description": "Experiment issues tab > Adherence category filter option"
+  },
   "lnxy2u": {
     "defaultMessage": "Workspace",
     "description": "Roles table workspace header"
@@ -13874,6 +13894,10 @@
   "pxRaW6": {
     "defaultMessage": "Schema",
     "description": "Label for the playground response_format JSON schema editor"
+  },
+  "py8r3I": {
+    "defaultMessage": "Safety",
+    "description": "Experiment issues tab > Safety category filter option"
   },
   "pye4NE": {
     "defaultMessage": "Select an endpoint",
