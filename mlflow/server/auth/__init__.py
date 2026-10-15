@@ -9065,6 +9065,24 @@ def _find_fastapi_after_request_handler(
     )
 
 
+def _add_skill_allowed_actions(skill: dict[str, Any], username: str) -> None:
+    permission = _get_skill_permission(skill.get("organization", ""), skill["name"], username)
+    skill["allowed_actions"] = _permission_to_allowed_actions(permission)
+
+
+def _filter_get_skill(username: str, body: bytes, request: StarletteRequest) -> bytes:
+    data = json.loads(body)
+    _add_skill_allowed_actions(data, username)
+    return json.dumps(data).encode()
+
+
+def _filter_search_skills(username: str, body: bytes, request: StarletteRequest) -> bytes:
+    data = json.loads(body)
+    for skill in data["skills"]:
+        _add_skill_allowed_actions(skill, username)
+    return json.dumps(data).encode()
+
+
 def _filter_get_mcp_server(username: str, body: bytes, request: StarletteRequest) -> bytes:
     data = json.loads(body)
     if name := data.get("name"):
@@ -9112,6 +9130,12 @@ FASTAPI_ENDPOINT_RESPONSE_FILTERS: dict[
     Callable[..., Any],
     Callable[[str, bytes, StarletteRequest], bytes],
 ] = {
+    _skill_registry_api.create_skill: _filter_get_skill,
+    _skill_registry_api.get_skill: _filter_get_skill,
+    _skill_registry_api.get_organization_skill: _filter_get_skill,
+    _skill_registry_api.update_skill: _filter_get_skill,
+    _skill_registry_api.update_organization_skill: _filter_get_skill,
+    _skill_registry_api.search_skills: _filter_search_skills,
     _search_mcp_servers_endpoint: _filter_search_mcp_servers,
     _search_all_access_endpoints_endpoint: _filter_search_mcp_endpoints,
     _get_mcp_server_endpoint: _filter_get_mcp_server,

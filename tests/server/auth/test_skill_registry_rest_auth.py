@@ -9,18 +9,25 @@ from fastapi.routing import APIRoute
 from starlette.requests import Request
 from starlette.testclient import TestClient
 
+from mlflow.entities import Workspace
 from mlflow.entities.skill import SkillStatus
 from mlflow.entities.skill_version import SkillVersion
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import TEMPORARILY_UNAVAILABLE
-from mlflow.server import auth, handlers, skill_registry_api
+from mlflow.server import auth, handlers, skill_registry_api, workspace_helpers
 from mlflow.server.auth.permissions import DENY, EDIT, MANAGE, NO_PERMISSIONS, READ, USE
 from mlflow.server.auth.sqlalchemy_store import SqlAlchemyStore as AuthStore
-from mlflow.server.fastapi_app import add_registry_exception_handlers
+from mlflow.server.fastapi_app import (
+    add_fastapi_workspace_middleware,
+    add_registry_exception_handlers,
+)
 from mlflow.server.skill_registry_api import skill_registry_router
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore as TrackingStore
+from mlflow.store.tracking.sqlalchemy_workspace_store import WorkspaceAwareSqlAlchemyStore
+from mlflow.store.workspace.sqlalchemy_store import SqlAlchemyStore as WorkspaceStore
 from mlflow.utils.validation import _MAX_BULK_REGISTER_SKILLS
 from mlflow.utils.workspace_context import ServerWorkspaceContext
+from mlflow.utils.workspace_utils import WORKSPACE_HEADER_NAME
 
 
 def test_every_skill_route_has_one_auth_policy():
@@ -148,7 +155,7 @@ def workspace_registry(tmp_path, monkeypatch, db_uri):
     monkeypatch.setenv("MLFLOW_WORKSPACE", "default")
     auth_store = AuthStore()
     auth_store.init_db(f"sqlite:///{tmp_path / 'auth.db'}")
-    tracking_store = TrackingStore(db_uri, str(tmp_path / "artifacts"))
+    tracking_store = WorkspaceAwareSqlAlchemyStore(db_uri, str(tmp_path / "artifacts"))
     creator = auth_store.create_user("creator", "strong-password", is_admin=False)
     auth_store.set_workspace_permission("default", creator.username, USE.name)
     monkeypatch.setattr(auth, "store", auth_store)
@@ -169,6 +176,109 @@ def workspace_registry(tmp_path, monkeypatch, db_uri):
     finally:
         auth_store.engine.dispose()
         tracking_store.engine.dispose()
+
+
+def test_parent_skill_responses_include_allowed_actions(workspace_registry):
+    client, auth_store, _, creator = workspace_registry
+    prefix = "/api/3.0/mlflow/skills"
+    manage_actions = ["USE", "UPDATE", "DELETE", "MANAGE"]
+    cases = [
+        ("", READ, []),
+        ("acme", EDIT, ["USE", "UPDATE"]),
+        ("other", MANAGE, manage_actions),
+    ]
+    for organization, permission, actions in cases:
+        created = client.post(prefix, json={"name": "reviewer", "organization": organization})
+        assert created.status_code == 200, created.text
+        assert created.json()["allowed_actions"] == manage_actions
+        identity = f"@{organization}/reviewer" if organization else "reviewer"
+        auth_store.grant_user_permission(creator.username, "skill", identity, permission.name)
+
+        response = client.get(f"{prefix}/{identity}")
+        assert response.status_code == 200, response.text
+        assert response.json()["allowed_actions"] == actions
+        updated = client.patch(f"{prefix}/{identity}", json={"description": "updated"})
+        if permission == READ:
+            assert updated.status_code == 403
+        else:
+            assert updated.status_code == 200, updated.text
+            assert updated.json()["allowed_actions"] == actions
+
+    params = {"max_results": 1, "order_by": "organization ASC"}
+    for index, (organization, _, actions) in enumerate(cases):
+        response = client.get(prefix, params=params)
+        assert response.status_code == 200, response.text
+        page = response.json()
+        assert len(page["skills"]) == 1
+        assert page["skills"][0]["organization"] == organization
+        assert page["skills"][0]["allowed_actions"] == actions
+        token = page["next_page_token"]
+        assert (token is not None) == (index < len(cases) - 1)
+        params["page_token"] = token
+
+    auth_store.grant_user_permission(creator.username, "skill", "reviewer", EDIT.name)
+    updated = client.patch(f"{prefix}/reviewer", json={"description": "updated"})
+    assert updated.status_code == 200, updated.text
+    assert updated.json()["allowed_actions"] == ["USE", "UPDATE"]
+
+
+def test_skill_allowed_actions_are_workspace_scoped(workspace_registry, monkeypatch, db_uri):
+    _, auth_store, tracking_store, creator = workspace_registry
+    workspace_store = WorkspaceStore(db_uri)
+    workspace_store.create_workspace(Workspace(name="other"))
+    monkeypatch.setattr(workspace_helpers, "_get_workspace_store", lambda: workspace_store)
+    cases = [("default", READ, []), ("other", EDIT, ["USE", "UPDATE"])]
+    for workspace, permission, _ in cases:
+        auth_store.set_workspace_permission(workspace, creator.username, USE.name)
+        with ServerWorkspaceContext(workspace):
+            tracking_store.create_skill("reviewer", organization="acme")
+            auth_store.grant_user_permission(
+                creator.username, "skill", "@acme/reviewer", permission.name
+            )
+
+    prefix = "/api/3.0/mlflow/skills"
+    app = FastAPI()
+    app.include_router(skill_registry_router, prefix=prefix)
+    add_registry_exception_handlers(app)
+    add_fastapi_workspace_middleware(app)
+    auth.add_fastapi_permission_middleware(app)
+    with TestClient(app) as client:
+        for workspace, _, actions in cases:
+            headers = {WORKSPACE_HEADER_NAME: workspace}
+            response = client.get(f"{prefix}/@acme/reviewer", headers=headers)
+            assert response.status_code == 200, response.text
+            assert response.json()["workspace"] == workspace
+            assert response.json()["allowed_actions"] == actions
+            response = client.get(prefix, headers=headers)
+            assert response.status_code == 200, response.text
+            assert len(response.json()["skills"]) == 1
+            assert response.json()["skills"][0]["allowed_actions"] == actions
+
+
+@pytest.mark.parametrize("auth_enabled", [False, True])
+def test_unrestricted_skill_responses_omit_allowed_actions(
+    workspace_registry, monkeypatch, auth_enabled
+):
+    _, auth_store, _, _ = workspace_registry
+    prefix = "/api/3.0/mlflow/skills"
+    app = FastAPI()
+    app.include_router(skill_registry_router, prefix=prefix)
+    add_registry_exception_handlers(app)
+    if auth_enabled:
+        admin = auth_store.create_user("admin", "strong-password", is_admin=True)
+        monkeypatch.setattr(auth, "_authenticate_fastapi_request", lambda request: admin)
+        auth.add_fastapi_permission_middleware(app)
+    with TestClient(app) as client:
+        created = client.post(prefix, json={"name": "reviewer"})
+        fetched = client.get(f"{prefix}/reviewer")
+        updated = client.patch(f"{prefix}/reviewer", json={"description": "updated"})
+        for response in (created, fetched, updated):
+            assert response.status_code == 200, response.text
+            assert "allowed_actions" not in response.json()
+        response = client.get(prefix)
+        assert response.status_code == 200, response.text
+        assert len(response.json()["skills"]) == 1
+        assert "allowed_actions" not in response.json()["skills"][0]
 
 
 @pytest.mark.parametrize("admin_delete", [False, True])
@@ -453,7 +563,9 @@ def test_skill_rest_enforces_grants_and_filters_before_pagination(
         assert list(tracking_store.search_skill_versions(name="race")) == []
 
         auth_store.grant_user_permission(reader.username, "skill", "@acme/reviewer", READ.name)
-        assert client.get(target, headers=headers).status_code == 200
+        response = client.get(target, headers=headers)
+        assert response.status_code == 200
+        assert response.json()["allowed_actions"] == []
         assert client.patch(target, json={"description": "x"}, headers=headers).status_code == 403
         page = client.get(prefix, params={"max_results": 1}, headers=headers)
         assert page.status_code == 200
@@ -461,12 +573,15 @@ def test_skill_rest_enforces_grants_and_filters_before_pagination(
             ("acme", "reviewer")
         ]
         assert page.json()["next_page_token"] is None
+        assert page.json()["skills"][0]["allowed_actions"] == []
         admin_page = client.get(prefix, headers={"x-user": admin.username})
         assert len(admin_page.json()["skills"]) == 4
 
         auth_store.grant_user_permission(reader.username, "skill", "@acme/reviewer", EDIT.name)
         auth_store.grant_user_permission(reader.username, "skill", "reviewer", EDIT.name)
-        assert client.patch(target, json={"description": "x"}, headers=headers).status_code == 200
+        response = client.patch(target, json={"description": "x"}, headers=headers)
+        assert response.status_code == 200
+        assert response.json()["allowed_actions"] == ["USE", "UPDATE"]
         assert client.delete(target, headers=headers).status_code == 403
 
         # A status PATCH can soft-delete a version and remove its aliases. That
