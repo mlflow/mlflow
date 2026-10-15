@@ -18,6 +18,11 @@ module.exports = async ({ github, context, core }) => {
   } = context;
   const pullRequest = context.payload.pull_request;
   const { sha } = pullRequest.head;
+  const isTriageBotPr =
+    pullRequest?.user?.login === "github-actions[bot]" &&
+    pullRequest?.head?.ref?.startsWith("triage/") === true;
+  const APPROVAL_STARTUP_ATTEMPTS = 4;
+  let missingApprovalIterations = 0;
 
   const STATE = {
     failure: "failure",
@@ -112,7 +117,29 @@ module.exports = async ({ github, context, core }) => {
       core.warning(`No workflow runs found (attempt ${attempt}/3)`);
       if (attempt < 3) await sleep(5000);
     }
-    if (workflowRuns.length === 0) {
+    if (isTriageBotPr) {
+      const hasApprovalRun = workflowRuns.some(
+        ({ path }) => path === ".github/workflows/approval.yml"
+      );
+      if (!hasApprovalRun) {
+        missingApprovalIterations++;
+        if (missingApprovalIterations >= APPROVAL_STARTUP_ATTEMPTS) {
+          core.setFailed(
+            "The Approval workflow did not start for this triage PR. Rerun Protect after the Approval workflow starts."
+          );
+          return;
+        }
+        checks.push({
+          name: "Approval workflow (approval.yml)",
+          pendingJobs: 1,
+          status: STATE.pending,
+        });
+      } else {
+        missingApprovalIterations = 0;
+      }
+    }
+
+    if (workflowRuns.length === 0 && !isTriageBotPr) {
       core.setFailed(`No workflow runs found for ${ref} after 3 attempts. Rerun this job.`);
       return;
     }

@@ -65,6 +65,8 @@ function hasAnyApproval(reviews) {
 module.exports = async ({ github, context, core }) => {
   const { pull_request: pr } = context.payload;
   const authorLogin = pr?.user?.login;
+  const isTriageBotPr =
+    pr?.user?.login === "github-actions[bot]" && pr?.head?.ref?.startsWith("triage/") === true;
   if (["mlflow-app[bot]", "dependabot[bot]"].includes(authorLogin)) {
     return;
   }
@@ -92,7 +94,7 @@ module.exports = async ({ github, context, core }) => {
     pull_number: context.issue.number,
   });
 
-  if (isExempted(authorLogin, files)) {
+  if (!isTriageBotPr && isExempted(authorLogin, files)) {
     if (!hasAnyApproval(reviews)) {
       core.setFailed(
         "PR from exempted author needs at least one approval (maintainer approval not required)."
