@@ -409,10 +409,11 @@ def test_custom_scorer_loading_allowed_when_flag_enabled(monkeypatch):
     assert result.name == "test_scorer"
 
 
-def _decorator_serialized(name="test_scorer", is_session_level=False):
+def _decorator_serialized(name="test_scorer", is_session_level=False, session_level=None):
     return SerializedScorer(
         name=name,
         is_session_level_scorer=is_session_level,
+        session_level=session_level,
         call_source="return len(outputs) > 0",
         call_signature="(outputs)",
         original_func_name=name,
@@ -462,13 +463,16 @@ def test_server_process_returns_non_executing_scorer(monkeypatch):
     monkeypatch.delenv("_MLFLOW_IN_JOB_EXECUTOR", raising=False)
 
     with patch("mlflow.genai.scorers.scorer_utils.recreate_function") as recreate:
-        loaded = Scorer.model_validate(_decorator_serialized(is_session_level=True))
+        loaded = Scorer.model_validate(
+            _decorator_serialized(is_session_level=True, session_level="episode")
+        )
 
     # The server never executes custom scorer source.
     recreate.assert_not_called()
     assert isinstance(loaded, _UnexecutedDecoratorScorer)
     assert loaded.name == "test_scorer"
     assert loaded.is_session_level_scorer is True
+    assert loaded.session_level == "episode"
     # It still re-serializes so the server can forward it to the executor.
     assert loaded.model_dump()["call_source"] == "return len(outputs) > 0"
     # It cannot be run in the server.
