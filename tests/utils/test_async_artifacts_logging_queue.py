@@ -7,6 +7,7 @@ import time
 import pytest
 from PIL import Image
 
+import mlflow.utils.async_logging.async_artifacts_logging_queue
 from mlflow import MlflowException
 from mlflow.utils.async_logging.async_artifacts_logging_queue import AsyncArtifactsLoggingQueue
 
@@ -278,3 +279,28 @@ def test_async_logging_queue_pickle():
         run_operation.wait()
 
     assert len(deserialized_consumer.filenames) == 10
+
+
+def test_at_exit_callback_returns_within_timeout_when_worker_blocked(monkeypatch):
+    monkeypatch.setattr(
+        mlflow.utils.async_logging.async_artifacts_logging_queue,
+        "_AT_EXIT_TIMEOUT_SECONDS",
+        0.5,
+    )
+    worker_blocking = threading.Event()
+
+    def blocking_artifact_logging_func(filename, artifact_path, artifact):
+        worker_blocking.set()
+        time.sleep(120)
+
+    queue = AsyncArtifactsLoggingQueue(artifact_logging_func=blocking_artifact_logging_func)
+    queue.activate()
+    queue.log_artifacts_async(
+        filename="x.png", artifact_path="p", artifact=Image.new("RGB", (10, 10))
+    )
+    assert worker_blocking.wait(timeout=5)
+
+    start = time.monotonic()
+    queue._at_exit_callback()
+    elapsed = time.monotonic() - start
+    assert elapsed < 5.0, f"_at_exit_callback took {elapsed:.2f}s, expected < 5.0s"
