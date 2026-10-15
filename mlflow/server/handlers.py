@@ -406,6 +406,7 @@ from mlflow.utils.providers import (
     get_models,
     get_provider_config_response,
 )
+from mlflow.utils.scorer_keys import parse_scorer_key
 from mlflow.utils.server_info import (
     SERVER_INFO_FEATURES_ENABLED,
     SERVER_INFO_MULTIPART_DOWNLOADS_ENABLED,
@@ -1142,11 +1143,11 @@ def _raw_request_has_field(field: descriptor.FieldDescriptor) -> bool:
     * absent  → no auth restriction (``None``)
     * ``[]``  → deny-all (empty authorised set)
 
-    This helper inspects the raw Flask request (query-string for GET,
-    JSON body for POST) to distinguish the two cases.
+    This helper follows the request parser: use nonempty GET query arguments,
+    otherwise the JSON body, to distinguish the two cases.
     """
     try:
-        if request.method == "GET":
+        if request.method == "GET" and request.args:
             return field.name in request.args
         request_json = _get_normalized_request_json()
         return field.name in request_json or field.json_name in request_json
@@ -6202,20 +6203,40 @@ def _search_active_experiment_ids(store):
     return experiment_ids
 
 
-@catch_mlflow_exception
-@_disable_if_artifacts_only
-def _list_scorers():
-    request_message = _get_request_message(
+def _list_scorers_for_experiment_ids(store, experiment_ids, scorer_keys=None):
+    try:
+        valid_experiment_ids = store.filter_active_experiment_ids(experiment_ids)
+    except MlflowNotImplementedException as exc:
+        raise MlflowException(exc.message, error_code=INVALID_PARAMETER_VALUE) from exc
+    if scorer_keys is None:
+        return store.list_scorers_across_experiments(valid_experiment_ids)
+    return store.list_scorers_across_experiments(valid_experiment_ids, scorer_keys)
+
+
+def _get_list_scorers_request():
+    return _get_request_message(
         ListScorers(),
         schema={
             "experiment_id": [_assert_string],
             "experiment_ids": [_assert_array, _assert_item_type_string],
+            "scorer_keys": [_assert_array, _assert_item_type_string],
         },
     )
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _list_scorers():
+    request_message = _get_list_scorers_request()
     response_message = ListScorers.Response()
     store = _get_tracking_store()
     experiment_ids_field = request_message.DESCRIPTOR.fields_by_name["experiment_ids"]
     has_experiment_ids = _raw_request_has_field(experiment_ids_field)
+    scorer_keys_field = request_message.DESCRIPTOR.fields_by_name["scorer_keys"]
+    has_scorer_keys = _raw_request_has_field(scorer_keys_field)
+    scorer_keys = list(request_message.scorer_keys)
+    for scorer_key in scorer_keys:
+        parse_scorer_key(scorer_key)
     if request_message.experiment_id and has_experiment_ids:
         raise MlflowException(
             "Cannot specify both 'experiment_id' and 'experiment_ids'. Use "
@@ -6223,21 +6244,40 @@ def _list_scorers():
             "'experiment_id' to scope it to a single experiment.",
             error_code=INVALID_PARAMETER_VALUE,
         )
-    if has_experiment_ids:
+    if request_message.experiment_id and has_scorer_keys:
+        raise MlflowException.invalid_parameter_value(
+            "Cannot specify both 'experiment_id' and 'scorer_keys'. "
+            "Use 'experiment_ids' to combine whole experiments with specific scorers."
+        )
+    if (
+        has_scorer_keys
+        and not scorer_keys
+        and not has_experiment_ids
+        and not request_message.experiment_id
+    ):
+        scorers = []
+    elif has_experiment_ids:
         requested_experiment_ids = list(dict.fromkeys(request_message.experiment_ids))
-        if requested_experiment_ids:
-            for eid in requested_experiment_ids:
-                _validate_experiment_id(eid)
-        valid_experiment_ids = store.filter_active_experiment_ids(requested_experiment_ids)
-        scorers = store.list_scorers_across_experiments(valid_experiment_ids)
+        for eid in requested_experiment_ids:
+            _validate_experiment_id(eid)
+        scorers = _list_scorers_for_experiment_ids(
+            store,
+            requested_experiment_ids,
+            scorer_keys if has_scorer_keys else None,
+        )
     elif request_message.experiment_id:
         scorers = store.list_scorers(request_message.experiment_id)
+    elif has_scorer_keys:
+        scorers = store.list_scorers_across_experiments([], scorer_keys)
     else:
         # Cross-experiment listing: walk the active workspace's experiments
         # via the workspace-aware ``search_experiments`` pagination, then
         # batch the scorer fetch through ``list_scorers_across_experiments``.
-        # Auth-side ``filter_list_scorers`` applies per-row RBAC filtering on
-        # the response.
+        # With basic auth, only callers whose grants are unbounded (admins,
+        # wildcard or default READ) reach this branch; everyone else arrives
+        # with ``experiment_ids``/``scorer_keys`` already narrowed by
+        # ``validate_can_read_scorer_list``, and ``filter_list_scorers``
+        # re-checks the response as a second layer.
         scorers = store.list_scorers_across_experiments(_search_active_experiment_ids(store))
     response_message.scorers.extend([scorer.to_proto() for scorer in scorers])
     response = Response(mimetype="application/json")

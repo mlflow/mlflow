@@ -2584,6 +2584,36 @@ def test_get_online_scoring_configs_workspace_scoped(workspace_tracking_store):
         assert configs[0].sample_rate == 0.2
 
 
+def test_list_scorers_exact_keys_preserves_workspace_isolation(workspace_tracking_store):
+    with WorkspaceContext("team-exact-scorer-a"):
+        exp_a = workspace_tracking_store.create_experiment("exact-scorer-a")
+        scorer_a = workspace_tracking_store.register_scorer(
+            exp_a, "scorer-a", json.dumps({"name": "scorer-a"})
+        )
+    with WorkspaceContext("team-exact-scorer-b"):
+        exp_b = workspace_tracking_store.create_experiment("exact-scorer-b")
+        workspace_tracking_store.register_scorer(
+            exp_b, "scorer-b", json.dumps({"name": "scorer-b"})
+        )
+
+    with WorkspaceContext("team-exact-scorer-a"):
+        scorers = workspace_tracking_store.list_scorers_across_experiments(
+            [], [f"{exp_a}/scorer-a", f"{exp_b}/scorer-b"]
+        )
+        experiment_scorers = workspace_tracking_store.list_scorers_across_experiments([
+            exp_a,
+            exp_b,
+        ])
+
+    assert [(scorer.experiment_id, scorer.scorer_name) for scorer in scorers] == [
+        (exp_a, "scorer-a")
+    ]
+    assert scorers[0].scorer_id == scorer_a.scorer_id
+    assert [(scorer.experiment_id, scorer.scorer_name) for scorer in experiment_scorers] == [
+        (exp_a, "scorer-a")
+    ]
+
+
 def test_get_active_online_scorers_workspace_scoped(workspace_tracking_store):
     with WorkspaceContext("team-active-a"):
         exp_a = workspace_tracking_store.create_experiment("exp-active-a")

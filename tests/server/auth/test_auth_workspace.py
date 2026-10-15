@@ -6,11 +6,13 @@ from unittest.mock import MagicMock, Mock
 
 import pytest
 from flask import Response, request
+from werkzeug.datastructures import Authorization
 
+from mlflow.entities import LifecycleStage
 from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
 from mlflow.exceptions import MlflowException
 from mlflow.prompt.constants import IS_PROMPT_TAG_KEY
-from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
+from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, PERMISSION_DENIED, RESOURCE_DOES_NOT_EXIST
 from mlflow.server import auth as auth_module
 from mlflow.server.auth.permissions import DENY, EDIT, MANAGE, NO_PERMISSIONS, READ, USE
 from mlflow.server.auth.requirements import ACTION_NOT_DENIED, Requirement
@@ -240,7 +242,21 @@ class _TrackingStore:
             raise MlflowException(
                 f"Experiment {experiment_id!r} not found", RESOURCE_DOES_NOT_EXIST
             )
-        return SimpleNamespace(workspace=self._experiment_workspaces[experiment_id])
+        return SimpleNamespace(
+            experiment_id=experiment_id,
+            workspace=self._experiment_workspaces[experiment_id],
+            lifecycle_stage=LifecycleStage.ACTIVE,
+        )
+
+    def filter_active_experiment_ids(self, experiment_ids):
+        from mlflow.store.tracking.abstract_store import AbstractStore
+
+        return AbstractStore.filter_active_experiment_ids(self, experiment_ids)
+
+    def _filter_valid_scorer_experiment_ids(self, experiment_ids):
+        from mlflow.store.tracking.abstract_store import AbstractStore
+
+        return AbstractStore._filter_valid_scorer_experiment_ids(self, experiment_ids)
 
     def get_experiment_by_name(self, experiment_name: str):
         experiment_id = self._experiment_names.get(experiment_name)
@@ -1239,6 +1255,953 @@ def test_scorer_validators_workspace_use_blocks_reads_and_writes(workspace_permi
         },
     ):
         assert not auth_module.validate_can_manage_scorer_permission()
+
+
+def _scoped_list_scorers_request(request_json):
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/scorers/list", method="GET", query_string=request_json
+    ):
+        auth_module._scope_list_scorers(request_json, "alice")
+        return auth_module._get_scoped_list_scorers_request()
+
+
+@pytest.mark.parametrize("valid_ids", [[], ["10", "exp-a"]])
+def test_list_scorers_scope_skips_malformed_stored_experiment_grants(
+    workspace_permission_setup, valid_ids
+):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, NO_PERMISSIONS.name)
+    _grant(
+        store,
+        username,
+        "team-a",
+        [("experiment", exp_id, READ.name) for exp_id in [*valid_ids, "bad id", "bad/id"]]
+        + [("scorer", "*", READ.name)],
+    )
+    with auth_module.app.test_request_context("/api/3.0/mlflow/scorers/list"):
+        assert auth_module._list_scorers_scope(username) == (set(valid_ids), set())
+
+
+def test_list_scorer_grants_are_scoped_to_active_workspace(workspace_permission_setup):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    scorer_key = "exp-1/score-1"
+    _set_workspace_permission(store, username, NO_PERMISSIONS.name)
+    _grant(
+        store,
+        username,
+        "team-a",
+        [("experiment", "exp-1", READ.name), ("scorer", scorer_key, READ.name)],
+    )
+
+    with workspace_context.WorkspaceContext("team-a"):
+        assert _scoped_list_scorers_request({}) == {
+            "experiment_ids": [],
+            "scorer_keys": [scorer_key],
+        }
+
+    with workspace_context.WorkspaceContext("team-b"):
+        assert _scoped_list_scorers_request({}) == {
+            "experiment_ids": [],
+            "scorer_keys": [],
+        }
+
+
+# Scorer tier open (wildcard READ), experiment tier names the readable experiments. A named
+# DENY on either tier cannot be expressed as a selector; the response filter drops those rows.
+_EXPERIMENT_SCOPED_GRANTS = [
+    ("experiment", "10", READ.name),
+    ("experiment", "exp-a", READ.name),
+    ("experiment", "7", READ.name),
+    ("scorer", "*", READ.name),
+    ("scorer", "10/blocked", DENY.name),
+]
+# Scorer tier names the readable scorers; only those in a readable experiment survive.
+_SCORER_SCOPED_GRANTS = [
+    ("experiment", "10", READ.name),
+    ("experiment", "exp-a", READ.name),
+    ("experiment", "3", READ.name),
+    ("scorer", "10/covered", READ.name),
+    ("scorer", "10/denied", DENY.name),
+    ("scorer", "exp-a/with%2Fslash", READ.name),
+    ("scorer", "2/toxicity", READ.name),
+    # Not a canonical key: must be ignored rather than break listing.
+    ("scorer", "3/*", READ.name),
+]
+
+
+@pytest.mark.parametrize(
+    ("grants", "request_json", "expected_experiment_ids", "expected_scorer_keys"),
+    [
+        (_EXPERIMENT_SCOPED_GRANTS, {}, ["10", "exp-a"], []),
+        (_EXPERIMENT_SCOPED_GRANTS, {"experiment_id": ""}, ["10", "exp-a"], []),
+        (_EXPERIMENT_SCOPED_GRANTS, {"experiment_id": "10"}, ["10"], []),
+        (_EXPERIMENT_SCOPED_GRANTS, {"experiment_id": "7"}, [], []),
+        (_EXPERIMENT_SCOPED_GRANTS, {"experiment_ids": ["99", "exp-a", "7"]}, ["exp-a"], []),
+        (_EXPERIMENT_SCOPED_GRANTS, {"experiment_ids": []}, [], []),
+        (
+            _EXPERIMENT_SCOPED_GRANTS,
+            {"scorer_keys": ["10/anything", "2/x", "exp-a/y"]},
+            [],
+            ["10/anything", "exp-a/y"],
+        ),
+        (
+            _EXPERIMENT_SCOPED_GRANTS,
+            {"experiment_ids": ["10"], "scorer_keys": ["10/anything", "exp-a/y", "2/x"]},
+            ["10"],
+            ["exp-a/y"],
+        ),
+        (_SCORER_SCOPED_GRANTS, {}, [], ["10/covered", "exp-a/with%2Fslash"]),
+        (_SCORER_SCOPED_GRANTS, {"experiment_id": "10"}, [], ["10/covered"]),
+        (_SCORER_SCOPED_GRANTS, {"experiment_id": "2"}, [], []),
+        (_SCORER_SCOPED_GRANTS, {"experiment_ids": ["exp-a", "2"]}, [], ["exp-a/with%2Fslash"]),
+        (
+            _SCORER_SCOPED_GRANTS,
+            {"scorer_keys": ["10/covered", "10/other", "2/toxicity"]},
+            [],
+            ["10/covered"],
+        ),
+        (
+            _SCORER_SCOPED_GRANTS,
+            {"experiment_ids": ["10"], "scorer_keys": ["10/covered", "10/other"]},
+            [],
+            ["10/covered"],
+        ),
+        # Empty (or otherwise non-overlapping) `scorer_keys` must not drop
+        # scorers in the requested experiment that are readable only through
+        # an individual grant: `scorer_keys` is additive to the experiment
+        # selector, not a replacement for it.
+        (
+            _SCORER_SCOPED_GRANTS,
+            {"experiment_ids": ["10"], "scorer_keys": []},
+            [],
+            ["10/covered"],
+        ),
+        (
+            _SCORER_SCOPED_GRANTS,
+            {"experiment_ids": ["10"], "scorer_keys": ["exp-a/with%2Fslash"]},
+            [],
+            ["10/covered", "exp-a/with%2Fslash"],
+        ),
+    ],
+)
+def test_scope_list_scorers_narrows_request_to_grants(
+    workspace_permission_setup, grants, request_json, expected_experiment_ids, expected_scorer_keys
+):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, NO_PERMISSIONS.name)
+    _grant(store, username, "team-a", grants)
+    # From a second role: DENY wins over READ on the same key.
+    _grant(store, username, "team-a", [("experiment", "7", DENY.name)])
+    # These unit cases exercise grant intersection with existing, active experiments.
+    tracking = auth_module._get_tracking_store()
+    tracking._experiment_workspaces.update(dict.fromkeys(["10", "7", "2", "exp-a"], "team-a"))
+
+    assert _scoped_list_scorers_request(request_json) == {
+        "experiment_ids": expected_experiment_ids,
+        "scorer_keys": expected_scorer_keys,
+    }
+
+
+def test_scope_list_scorers_leaves_unbounded_callers_alone(workspace_permission_setup):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    # A workspace grant is the fallback for both tiers, so nothing narrows the query.
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [("scorer", "10/blocked", DENY.name)])
+
+    assert _scoped_list_scorers_request({}) == {}
+    # Conflicting original selectors are rejected before scoping.
+    _set_workspace_permission(store, username, NO_PERMISSIONS.name)
+    _grant(store, username, "team-a", [("experiment", "10", READ.name)])
+    with pytest.raises(MlflowException, match="Cannot specify both"):
+        _scoped_list_scorers_request({"experiment_id": "10", "experiment_ids": ["10"]})
+
+
+def test_scope_list_scorers_rejects_malformed_experiment_ids_for_bounded_callers(
+    workspace_permission_setup,
+):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, NO_PERMISSIONS.name)
+    _grant(store, username, "team-a", [("experiment", "10", READ.name), ("scorer", "*", READ.name)])
+
+    # A malformed id must 400 regardless of the caller's grants: it's a format
+    # error, not an authorization decision, so it can't be silently dropped by
+    # the grant intersection the way an unauthorized-but-valid id ("99") is.
+    with pytest.raises(MlflowException, match="Invalid experiment ID"):
+        _scoped_list_scorers_request({"experiment_ids": ["invalid id", "10"]})
+
+    auth_module._get_tracking_store()._experiment_workspaces["10"] = "team-a"
+    # Valid but unauthorized ids are still filtered, not rejected.
+    assert _scoped_list_scorers_request({"experiment_ids": ["99", "10"]}) == {
+        "experiment_ids": ["10"],
+        "scorer_keys": [],
+    }
+
+
+def test_scope_list_scorers_empties_on_scorer_version_deny(workspace_permission_setup):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [("scorer_version", "*", DENY.name)])
+
+    assert _scoped_list_scorers_request({}) == {
+        "experiment_ids": [],
+        "scorer_keys": [],
+    }
+
+
+def test_scope_list_scorers_rejects_malformed_requested_key(workspace_permission_setup):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, NO_PERMISSIONS.name)
+    _grant(store, username, "team-a", [("experiment", "10", READ.name)])
+
+    with pytest.raises(MlflowException, match="Invalid scorer key"):
+        _scoped_list_scorers_request({"scorer_keys": ["2/not/canonical"]})
+
+
+def test_validate_can_read_scorer_list_keeps_singular_experiment_gate(workspace_permission_setup):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, NO_PERMISSIONS.name)
+    _grant(
+        store,
+        username,
+        "team-a",
+        [("experiment", "exp-1", READ.name), ("scorer", "exp-1/score-1", READ.name)],
+    )
+
+    def _validate(query_string):
+        with auth_module.app.test_request_context(
+            "/api/3.0/mlflow/scorers/list", method="GET", query_string=query_string
+        ):
+            allowed = auth_module.validate_can_read_scorer_list()
+            return allowed, auth_module._get_scoped_list_scorers_request() if allowed else None
+
+    assert _validate({"experiment_id": "exp-2"}) == (False, None)
+    assert _validate({"experiment_id": "unknown"}) == (False, None)
+    assert _validate({"experiment_id": "exp-1"}) == (
+        True,
+        {"experiment_ids": [], "scorer_keys": ["exp-1/score-1"]},
+    )
+    # A plural selector filters rather than forbids.
+    assert _validate({"experiment_ids": ["exp-2"]}) == (
+        True,
+        {"experiment_ids": [], "scorer_keys": []},
+    )
+
+
+@pytest.fixture
+def sql_scorer_listing(workspace_permission_setup, db_uri, tmp_path, monkeypatch, request):
+    from mlflow.server import handlers
+    from mlflow.store.tracking.sqlalchemy_workspace_store import WorkspaceAwareSqlAlchemyStore
+
+    workspaces_enabled = getattr(request, "param", True)
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, str(workspaces_enabled).lower())
+    with workspace_context.WorkspaceContext("team-a" if workspaces_enabled else "default"):
+        tracking = WorkspaceAwareSqlAlchemyStore(db_uri, str(tmp_path / "artifacts"))
+        monkeypatch.setattr(auth_module, "_get_tracking_store", lambda: tracking)
+        monkeypatch.setattr(handlers, "_get_tracking_store", lambda: tracking)
+        ids = [tracking.create_experiment(f"scorer-{i}") for i in range(3)]
+        for eid in ids:
+            for name in ("toxicity", "helpfulness"):
+                tracking.register_scorer(eid, name, json.dumps({"name": name}))
+        try:
+            yield tracking, ids
+        finally:
+            tracking._dispose_engine()
+
+
+def _dispatch_scoped_scorer_list():
+    from mlflow.server import handlers
+
+    assert auth_module.validate_can_read_scorer_list()
+    response = handlers._list_scorers()
+    assert response.status_code == 200, response.data
+    auth_module.filter_list_scorers(response)
+    return [(str(s["experiment_id"]), s["scorer_name"]) for s in response.json.get("scorers", [])]
+
+
+@pytest.mark.parametrize("workspaces_enabled", [False, True])
+@pytest.mark.parametrize("scope", ["exact", "experiment", "empty", "version_deny"])
+@pytest.mark.parametrize("source", ["query", "body"])
+@pytest.mark.parametrize("selector", ["experiment_id", "experiment_ids", "scorer_keys"])
+@pytest.mark.parametrize(
+    "case", ["active", "alias", "deleted", "missing", "malformed", "nonnumeric"]
+)
+def test_list_scorers_preserves_selector_validation_before_scoping(
+    workspace_permission_setup,
+    db_uri,
+    tmp_path,
+    monkeypatch,
+    workspaces_enabled,
+    scope,
+    case,
+    source,
+    selector,
+):
+    from mlflow.server import handlers
+    from mlflow.store.tracking.sqlalchemy_workspace_store import WorkspaceAwareSqlAlchemyStore
+
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, str(workspaces_enabled).lower())
+    workspace = "team-a" if workspaces_enabled else "default"
+    store = workspace_permission_setup["store"]
+    _set_workspace_permission(store, "alice", NO_PERMISSIONS.name)
+    monkeypatch.setattr(
+        auth_module, "authenticate_request", lambda: Authorization("basic", {"username": "alice"})
+    )
+    # Avoid resource metadata cached by earlier requests obscuring workspace gate behavior.
+    monkeypatch.setattr(auth_module, "_RESOURCE_WORKSPACE_CACHE", {})
+    with workspace_context.WorkspaceContext(workspace):
+        tracking = WorkspaceAwareSqlAlchemyStore(db_uri, str(tmp_path / "artifacts"))
+        try:
+            monkeypatch.setattr(auth_module, "_get_tracking_store", lambda: tracking)
+            monkeypatch.setattr(handlers, "_get_tracking_store", lambda: tracking)
+            experiment_id = tracking.create_experiment("singular-validation")
+            for name in ("toxicity", "helpfulness"):
+                tracking.register_scorer(experiment_id, name, json.dumps({"name": name}))
+            scorer_experiment_id = "99999998" if scope == "empty" else experiment_id
+            grants = [
+                ("experiment", "*", READ.name),
+                ("scorer", f"{scorer_experiment_id}/toxicity", READ.name),
+            ]
+            if scope == "experiment":
+                grants = [("experiment", experiment_id, READ.name), ("scorer", "*", READ.name)]
+            elif scope == "version_deny":
+                grants.append(("scorer_version", "*", DENY.name))
+            requested_id = experiment_id
+            if case == "alias":
+                requested_id = f"0{experiment_id}"
+            elif case == "nonnumeric":
+                requested_id = "not-a-number"
+            elif case == "deleted":
+                tracking.delete_experiment(experiment_id)
+            elif case == "missing":
+                requested_id = "99999999"
+            elif case == "malformed":
+                requested_id = "bad id"
+            # Missing and malformed singular selectors pass the permission gate with
+            # workspaces disabled; retain their original store errors after narrowing.
+            if case in ("missing", "malformed", "nonnumeric") and scope == "experiment":
+                grants[0] = ("experiment", requested_id, READ.name)
+            if case == "alias" and scope == "experiment":
+                grants.append(("experiment", requested_id, READ.name))
+            _grant(store, "alice", workspace, grants)
+
+            path = "/api/3.0/mlflow/scorers/list"
+            query = {
+                selector: [f"{requested_id}/toxicity"]
+                if selector == "scorer_keys"
+                else [requested_id]
+                if selector == "experiment_ids"
+                else requested_id
+            }
+            request_kwargs = {"query_string" if source == "query" else "json": query}
+            with auth_module.app.test_request_context(path, **request_kwargs):
+                original = handlers._list_scorers()
+
+            singular = Mock(side_effect=AssertionError("scoping must not read all scorer payloads"))
+            batch = Mock(wraps=tracking.list_scorers_across_experiments)
+            payload = Mock(wraps=tracking._batch_resolve_endpoint_in_serialized_scorers)
+            monkeypatch.setattr(tracking, "list_scorers", singular)
+            monkeypatch.setattr(tracking, "list_scorers_across_experiments", batch)
+            monkeypatch.setattr(tracking, "_batch_resolve_endpoint_in_serialized_scorers", payload)
+            with auth_module.app.test_request_context(path, **request_kwargs):
+                response = auth_module._before_request()
+                if response is None:
+                    response = handlers._list_scorers()
+                    if response.status_code == 200:
+                        auth_module.filter_list_scorers(response)
+                if (
+                    selector == "experiment_id"
+                    and workspaces_enabled
+                    and case in ("missing", "malformed", "nonnumeric")
+                ):
+                    # Workspace lookup failure still denies before metadata validation.
+                    assert response.status_code == 403
+                elif original.status_code != 200:
+                    assert response.status_code == original.status_code
+                    assert response.json["error_code"] == original.json["error_code"]
+                else:
+                    assert response.status_code == 200, response.data
+                    expected = (
+                        []
+                        if case in ("missing", "deleted")
+                        else (
+                            ["helpfulness", "toxicity"]
+                            if scope == "experiment" and selector != "scorer_keys"
+                            else ["toxicity"]
+                            if scope in ("exact", "experiment")
+                            else []
+                        )
+                    )
+                    assert [s["scorer_name"] for s in response.json.get("scorers", [])] == expected
+                    # Only the selected scorer payloads are resolved in the SQL query.
+                    assert [
+                        json.loads(serialized)["name"]
+                        for call in payload.call_args_list
+                        for serialized in call.args[0]
+                    ] == expected
+                if response.status_code != 200:
+                    assert auth_module._get_scoped_list_scorers_request() == query
+                    batch.assert_not_called()
+                    payload.assert_not_called()
+            singular.assert_not_called()
+        finally:
+            tracking._dispose_engine()
+
+
+@pytest.mark.parametrize("bounded", [False, True])
+@pytest.mark.parametrize(
+    "body",
+    [
+        {"experiment_id": "1", "experiment_ids": []},
+        {"experimentId": "1", "scorerKeys": []},
+        {"experiment_ids": "1"},
+        {"scorer_keys": [1]},
+        {"experiment_id": "1", "experimentId": "2"},
+    ],
+)
+def test_list_scorers_body_validation_before_rewrite(
+    workspace_permission_setup, sql_scorer_listing, bounded, body, monkeypatch
+):
+    from mlflow.server import handlers
+
+    monkeypatch.setattr(
+        auth_module, "authenticate_request", lambda: Authorization("basic", {"username": "alice"})
+    )
+    store = workspace_permission_setup["store"]
+    _set_workspace_permission(store, "alice", NO_PERMISSIONS.name)
+    grants = [("experiment", "*", READ.name)]
+    _, ids = sql_scorer_listing
+    grants.append(("scorer", f"{ids[0]}/toxicity" if bounded else "*", READ.name))
+    _grant(store, "alice", "team-a", grants)
+    with auth_module.app.test_request_context("/api/3.0/mlflow/scorers/list", json=body):
+        response = auth_module._before_request()
+        if response is None:
+            response = handlers._list_scorers()
+        assert response.status_code == 400
+        assert response.json["error_code"] == "INVALID_PARAMETER_VALUE"
+        assert not request.args
+
+
+@pytest.mark.parametrize("field", ["experiment_ids", "experimentIds", "scorer_keys", "scorerKeys"])
+@pytest.mark.parametrize("bounded", [False, True])
+def test_list_scorers_empty_body_selector_stays_empty(
+    workspace_permission_setup, sql_scorer_listing, field, bounded
+):
+    store = workspace_permission_setup["store"]
+    _set_workspace_permission(store, "alice", NO_PERMISSIONS.name)
+    _, ids = sql_scorer_listing
+    _grant(
+        store,
+        "alice",
+        "team-a",
+        [
+            ("experiment", "*", READ.name),
+            ("scorer", f"{ids[0]}/toxicity" if bounded else "*", READ.name),
+        ],
+    )
+    with auth_module.app.test_request_context("/api/3.0/mlflow/scorers/list", json={field: []}):
+        assert _dispatch_scoped_scorer_list() == []
+
+
+def test_list_scorers_body_singular_permission_and_query_precedence(
+    workspace_permission_setup, sql_scorer_listing, monkeypatch
+):
+    monkeypatch.setattr(
+        auth_module, "authenticate_request", lambda: Authorization("basic", {"username": "alice"})
+    )
+    store = workspace_permission_setup["store"]
+    _, ids = sql_scorer_listing
+    _set_workspace_permission(store, "alice", NO_PERMISSIONS.name)
+    _grant(
+        store,
+        "alice",
+        "team-a",
+        [
+            ("experiment", ids[0], READ.name),
+            ("scorer", "*", READ.name),
+        ],
+    )
+    path = "/api/3.0/mlflow/scorers/list"
+    with auth_module.app.test_request_context(path, json={"experimentId": ids[1]}):
+        assert auth_module._before_request().status_code == 403
+    with auth_module.app.test_request_context(
+        path, query_string={"experiment_id": ids[0]}, json={"experimentId": ids[1]}
+    ):
+        assert _dispatch_scoped_scorer_list() == [(ids[0], "helpfulness"), (ids[0], "toxicity")]
+
+
+@pytest.mark.parametrize("selector", ["experiment_id", "experimentIds", "scorerKeys"])
+def test_list_scorers_body_does_not_expand_to_other_authorized_experiments(
+    workspace_permission_setup, sql_scorer_listing, selector
+):
+    store = workspace_permission_setup["store"]
+    _, ids = sql_scorer_listing
+    _set_workspace_permission(store, "alice", NO_PERMISSIONS.name)
+    _grant(
+        store,
+        "alice",
+        "team-a",
+        [
+            ("experiment", "*", READ.name),
+            ("scorer", f"{ids[0]}/toxicity", READ.name),
+            ("scorer", f"{ids[1]}/toxicity", READ.name),
+        ],
+    )
+    value = (
+        ids[0]
+        if selector == "experiment_id"
+        else [ids[0]]
+        if selector == "experimentIds"
+        else [f"{ids[0]}/toxicity"]
+    )
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/scorers/list", json={selector: value}
+    ):
+        assert _dispatch_scoped_scorer_list() == [(ids[0], "toxicity")]
+
+
+@pytest.mark.parametrize("has_valid_grant", [False, True])
+@pytest.mark.parametrize("resource_type", ["experiment", "scorer"])
+@pytest.mark.parametrize("invalid_id", ["bad id", "not-a-number", "9223372036854775808"])
+@pytest.mark.parametrize("sql_scorer_listing", [False, True], indirect=True)
+def test_list_scorers_real_parser_skips_invalid_stored_grants(
+    workspace_permission_setup,
+    sql_scorer_listing,
+    has_valid_grant,
+    resource_type,
+    invalid_id,
+    monkeypatch,
+):
+    workspaces_enabled = MLFLOW_ENABLE_WORKSPACES.get()
+    tracking, ids = sql_scorer_listing
+    store = workspace_permission_setup["store"]
+    _set_workspace_permission(store, "alice", NO_PERMISSIONS.name)
+    grants = (
+        [("experiment", invalid_id, READ.name), ("scorer", "*", READ.name)]
+        if resource_type == "experiment"
+        else [("experiment", "*", READ.name), ("scorer", f"{invalid_id}/toxicity", READ.name)]
+    )
+    if has_valid_grant:
+        grants.append((
+            resource_type,
+            ids[0] if resource_type == "experiment" else f"{ids[0]}/toxicity",
+            READ.name,
+        ))
+    _grant(store, "alice", "team-a" if workspaces_enabled else "default", grants)
+    search = Mock(side_effect=AssertionError("finite scope must not search"))
+    monkeypatch.setattr(tracking, "search_experiments", search)
+    payload = Mock(wraps=tracking._batch_resolve_endpoint_in_serialized_scorers)
+    monkeypatch.setattr(tracking, "_batch_resolve_endpoint_in_serialized_scorers", payload)
+    expected_names = (
+        (["helpfulness", "toxicity"] if resource_type == "experiment" else ["toxicity"])
+        if has_valid_grant
+        else []
+    )
+    with auth_module.app.test_request_context("/api/3.0/mlflow/scorers/list"):
+        rows = _dispatch_scoped_scorer_list()
+        assert "experiment_ids" in request.args
+        assert "scorer_keys" in request.args
+        assert request.args.getlist("experiment_ids") == (
+            [ids[0]] if has_valid_grant and resource_type == "experiment" else []
+        )
+        assert request.args.getlist("scorer_keys") == (
+            [f"{ids[0]}/toxicity"] if has_valid_grant and resource_type == "scorer" else []
+        )
+        assert rows == [(ids[0], name) for name in expected_names]
+        assert [
+            json.loads(serialized)["name"]
+            for call in payload.call_args_list
+            for serialized in call.args[0]
+        ] == expected_names
+    search.assert_not_called()
+
+
+@pytest.mark.parametrize("resource_type", ["experiment", "scorer"])
+@pytest.mark.parametrize("error_code", [INTERNAL_ERROR, PERMISSION_DENIED])
+def test_list_scorers_stored_grant_validation_propagates_backend_errors(
+    workspace_permission_setup, monkeypatch, resource_type, error_code
+):
+    store = workspace_permission_setup["store"]
+    _set_workspace_permission(store, "alice", NO_PERMISSIONS.name)
+    grants = (
+        [("experiment", "exp-1", READ.name), ("scorer", "*", READ.name)]
+        if resource_type == "experiment"
+        else [("experiment", "*", READ.name), ("scorer", "exp-1/toxicity", READ.name)]
+    )
+    _grant(store, "alice", "team-a", grants)
+    error = MlflowException("backend failure", error_code)
+    monkeypatch.setattr(
+        auth_module._get_tracking_store(),
+        "_filter_valid_scorer_experiment_ids",
+        Mock(side_effect=error),
+    )
+    with pytest.raises(MlflowException, match="backend failure") as exc:
+        _scoped_list_scorers_request({})
+    assert exc.value is error
+
+
+def test_list_scorers_validates_stored_experiment_candidates_in_one_batch(
+    workspace_permission_setup, monkeypatch
+):
+    store = workspace_permission_setup["store"]
+    _set_workspace_permission(store, "alice", NO_PERMISSIONS.name)
+    keys = ["exp-1/toxicity", "exp-1/helpfulness"]
+    _grant(
+        store,
+        "alice",
+        "team-a",
+        [("experiment", "*", READ.name)] + [("scorer", key, READ.name) for key in keys],
+    )
+    tracking = auth_module._get_tracking_store()
+    validate = Mock(wraps=tracking._filter_valid_scorer_experiment_ids)
+    monkeypatch.setattr(tracking, "_filter_valid_scorer_experiment_ids", validate)
+    with auth_module.app.test_request_context("/api/3.0/mlflow/scorers/list"):
+        assert auth_module._list_scorers_scope("alice") == (set(), set(keys))
+    validate.assert_called_once_with(["exp-1"])
+
+
+@pytest.mark.parametrize("relevant_error", [None, INTERNAL_ERROR, PERMISSION_DENIED])
+def test_list_scorers_generic_validation_only_reads_selected_candidates(
+    workspace_permission_setup, monkeypatch, relevant_error
+):
+    store = workspace_permission_setup["store"]
+    _set_workspace_permission(store, "alice", NO_PERMISSIONS.name)
+    _grant(
+        store,
+        "alice",
+        "team-a",
+        [
+            ("experiment", "exp-a", READ.name),
+            ("experiment", "exp-unused", READ.name),
+            ("scorer", "exp-a/toxicity", READ.name),
+        ],
+    )
+    error = MlflowException("relevant backend failure", relevant_error or INTERNAL_ERROR)
+
+    def get_experiment(experiment_id):
+        assert experiment_id == "exp-a", "unused experiment grant must not load metadata"
+        if relevant_error is not None:
+            raise error
+        return SimpleNamespace(experiment_id=experiment_id)
+
+    metadata = Mock(side_effect=get_experiment)
+    monkeypatch.setattr(auth_module._get_tracking_store(), "get_experiment", metadata)
+    with auth_module.app.test_request_context("/api/3.0/mlflow/scorers/list"):
+        if relevant_error is None:
+            assert auth_module._list_scorers_scope("alice") == (set(), {"exp-a/toxicity"})
+        else:
+            with pytest.raises(MlflowException, match="relevant backend failure") as exc:
+                auth_module._list_scorers_scope("alice")
+            assert exc.value is error
+    metadata.assert_called_once_with("exp-a")
+
+
+@pytest.mark.parametrize("selector", ["open", "empty", "one_key"])
+def test_list_scorers_stored_grant_validation_is_bounded_and_skips_unrelated_ids(
+    workspace_permission_setup, sql_scorer_listing, selector
+):
+    from sqlalchemy import event
+
+    tracking, initial_ids = sql_scorer_listing
+    store = workspace_permission_setup["store"]
+    ids = initial_ids + [tracking.create_experiment(f"many-grant-{i}") for i in range(40)]
+    _set_workspace_permission(store, "alice", NO_PERMISSIONS.name)
+    _grant(
+        store,
+        "alice",
+        "team-a",
+        [("experiment", experiment_id, READ.name) for experiment_id in ids]
+        + [("scorer", "*", READ.name)],
+    )
+    selects = []
+
+    def count_selects(conn, cursor, statement, parameters, context, executemany):
+        if statement.lstrip().upper().startswith("SELECT"):
+            selects.append(statement)
+
+    event.listen(tracking.engine, "before_cursor_execute", count_selects)
+    try:
+        query = (
+            {}
+            if selector == "open"
+            else {"scorer_keys": []}
+            if selector == "empty"
+            else {"scorer_keys": [f"{ids[0]}/toxicity"]}
+        )
+        with auth_module.app.test_request_context(
+            "/api/3.0/mlflow/scorers/list", query_string=query
+        ):
+            if selector == "open":
+                scope = auth_module._list_scorers_scope("alice")
+                assert scope == (set(ids), set())
+            else:
+                auth_module._scope_list_scorers(query, "alice")
+        # Open and empty selections do not need tracking metadata. The one-key request makes
+        # only its bounded caller-validation query; the other 42 grants are irrelevant.
+        assert len(selects) == (1 if selector == "one_key" else 0)
+    finally:
+        event.remove(tracking.engine, "before_cursor_execute", count_selects)
+
+
+@pytest.mark.parametrize("error_code", [INTERNAL_ERROR, PERMISSION_DENIED])
+def test_list_scorers_requested_key_validation_propagates_backend_errors(
+    workspace_permission_setup, monkeypatch, error_code
+):
+    _set_workspace_permission(workspace_permission_setup["store"], "alice", NO_PERMISSIONS.name)
+    error = MlflowException("backend failure", error_code)
+    monkeypatch.setattr(
+        auth_module._get_tracking_store(),
+        "filter_active_experiment_ids",
+        Mock(side_effect=error),
+    )
+    with pytest.raises(MlflowException, match="backend failure") as exc:
+        _scoped_list_scorers_request({"scorer_keys": ["exp-1/toxicity"]})
+    assert exc.value is error
+
+
+@pytest.mark.parametrize("mixed", [False, True])
+@pytest.mark.parametrize(
+    "path", ["/api/3.0/mlflow/scorers/list", "/ajax-api/3.0/mlflow/scorers/list"]
+)
+def test_list_scorers_real_parser_selects_only_authorized_individuals(
+    workspace_permission_setup, sql_scorer_listing, mixed, path, monkeypatch
+):
+    tracking, ids = sql_scorer_listing
+    store = workspace_permission_setup["store"]
+    _set_workspace_permission(store, "alice", NO_PERMISSIONS.name)
+    _grant(
+        store,
+        "alice",
+        "team-a",
+        [
+            ("experiment", "*", READ.name),
+            ("scorer", f"{ids[0]}/toxicity", READ.name),
+            ("scorer", f"{ids[1]}/toxicity", READ.name),
+            ("scorer", f"{ids[1]}/helpfulness", READ.name),
+        ],
+    )
+    args = [
+        ("scorer_keys", f"{ids[0]}/toxicity"),
+        ("scorer_keys", f"{ids[0]}/helpfulness"),
+        ("unrelated", "a"),
+        ("unrelated", "b"),
+    ]
+    if mixed:
+        args.append(("experiment_ids", ids[1]))
+    search = Mock(side_effect=AssertionError("finite scope must not search"))
+    monkeypatch.setattr(tracking, "search_experiments", search)
+    with auth_module.app.test_request_context(path, query_string=args):
+        rows = _dispatch_scoped_scorer_list()
+        assert "experiment_id" not in request.args
+        assert request.args.getlist("unrelated") == ["a", "b"]
+        assert rows == (
+            [(ids[0], "toxicity"), (ids[1], "helpfulness"), (ids[1], "toxicity")]
+            if mixed
+            else [(ids[0], "toxicity")]
+        )
+    search.assert_not_called()
+
+
+@pytest.mark.parametrize("permission", [NO_PERMISSIONS.name, USE.name])
+@pytest.mark.parametrize("field", ["scorer_keys", "experiment_ids"])
+@pytest.mark.parametrize("values", [[], ["10/toxicity"]])
+def test_scope_list_scorers_rejects_original_selector_conflicts(
+    workspace_permission_setup, permission, field, values
+):
+    store = workspace_permission_setup["store"]
+    _set_workspace_permission(store, "alice", permission)
+    _grant(store, "alice", "team-a", [("experiment", "10", READ.name)])
+    with pytest.raises(MlflowException, match="Cannot specify both"):
+        _scoped_list_scorers_request({"experiment_id": "10", field: values})
+
+
+def test_scope_list_scorers_preserves_repeated_args_and_numeric_order(workspace_permission_setup):
+    store = workspace_permission_setup["store"]
+    _set_workspace_permission(store, "alice", NO_PERMISSIONS.name)
+    _grant(
+        store,
+        "alice",
+        "team-a",
+        [("experiment", eid, READ.name) for eid in ("2", "10")] + [("scorer", "*", READ.name)],
+    )
+    auth_module._get_tracking_store()._experiment_workspaces.update(
+        dict.fromkeys(["2", "10"], "team-a")
+    )
+    args = [
+        ("experiment_id", ""),
+        ("experiment_ids", "10"),
+        ("experiment_ids", "2"),
+        ("unrelated", "a"),
+        ("unrelated", "b"),
+    ]
+    with auth_module.app.test_request_context("/api/3.0/mlflow/scorers/list", query_string=args):
+        auth_module._scope_list_scorers(auth_module._get_scoped_list_scorers_request(), "alice")
+        assert "experiment_id" not in request.args
+        assert request.args.getlist("experiment_ids") == ["2", "10"]
+        assert request.args.getlist("unrelated") == ["a", "b"]
+        with pytest.raises(TypeError, match="immutable"):
+            request.args.setlist("experiment_ids", [])
+
+
+def test_list_scorers_scoped_databricks_proxy_rejects_before_payload_reads(
+    workspace_permission_setup, monkeypatch
+):
+    from mlflow.server import handlers
+    from mlflow.store.tracking.databricks_rest_store import DatabricksTracingRestStore
+
+    store = workspace_permission_setup["store"]
+    _set_workspace_permission(store, "alice", NO_PERMISSIONS.name)
+    _grant(store, "alice", "team-a", [("experiment", "99", READ.name), ("scorer", "*", READ.name)])
+    tracking = DatabricksTracingRestStore(lambda: None)
+    payload = Mock(side_effect=AssertionError("must reject before scorer reads"))
+    monkeypatch.setattr(tracking, "list_scorers", payload)
+    monkeypatch.setattr(tracking, "list_scorers_across_experiments", payload)
+    monkeypatch.setattr(handlers, "_get_tracking_store", lambda: tracking)
+    with auth_module.app.test_request_context("/api/3.0/mlflow/scorers/list"):
+        assert auth_module.validate_can_read_scorer_list()
+        response = handlers._list_scorers()
+        assert response.status_code == 400
+        assert "experiment_ids" in response.json["message"]
+    payload.assert_not_called()
+
+
+@pytest.mark.parametrize("mixed", [False, True])
+def test_list_scorers_rest_client_forwards_to_real_sql_handler(
+    sql_scorer_listing, mixed, monkeypatch
+):
+    import requests
+
+    from mlflow.server import handlers
+    from mlflow.store.tracking.rest_store import RestStore
+    from mlflow.utils.rest_utils import MlflowHostCreds
+
+    _, ids = sql_scorer_listing
+    rest = RestStore(lambda: MlflowHostCreds("http://mlflow.test"))
+    monkeypatch.setattr(rest, "_validate_workspace_support_if_specified", lambda: None)
+    calls = []
+
+    def transport(session, method, url, **kwargs):
+        assert method == "GET"
+        assert url == "http://mlflow.test/api/3.0/mlflow/scorers/list"
+        params = kwargs["params"]
+        calls.append(params)
+        assert params.get("experiment_ids", []) == ([ids[1]] if mixed else [])
+        assert params["scorer_keys"] == [f"{ids[0]}/toxicity"]
+        with auth_module.app.test_request_context(
+            "/api/3.0/mlflow/scorers/list", query_string=params
+        ):
+            response = handlers._list_scorers()
+        wire_response = requests.Response()
+        wire_response.status_code = response.status_code
+        wire_response._content = response.data
+        return wire_response
+
+    monkeypatch.setattr(requests.Session, "request", transport)
+    rows = rest.list_scorers_across_experiments([ids[1]] if mixed else [], [f"{ids[0]}/toxicity"])
+    expected = [(ids[0], "toxicity")]
+    if mixed:
+        expected += [(ids[1], "helpfulness"), (ids[1], "toxicity")]
+    assert [(s.experiment_id, s.scorer_name) for s in rows] == expected
+    assert len(calls) == 1
+
+
+@pytest.mark.parametrize("selector", ["unbounded", "finite", "singular"])
+def test_list_scorers_shares_one_gate_and_grants_load(
+    workspace_permission_setup, sql_scorer_listing, selector, monkeypatch
+):
+    tracking, ids = sql_scorer_listing
+    store = workspace_permission_setup["store"]
+    if selector == "unbounded":
+        _set_workspace_permission(store, "alice", USE.name)
+        _grant(store, "alice", "team-a", [("scorer", f"{ids[0]}/helpfulness", DENY.name)])
+        args = {}
+    else:
+        _set_workspace_permission(store, "alice", NO_PERMISSIONS.name)
+        _grant(
+            store,
+            "alice",
+            "team-a",
+            [("experiment", ids[0], READ.name), ("scorer", f"{ids[0]}/toxicity", READ.name)],
+        )
+        args = (
+            {"experiment_id": ids[0]}
+            if selector == "singular"
+            else {"scorer_keys": [f"{ids[0]}/toxicity"]}
+        )
+    gate = Mock(wraps=auth_module._scorer_listing_gate)
+    grants = Mock(wraps=store.list_grants)
+    monkeypatch.setattr(auth_module, "_scorer_listing_gate", gate)
+    monkeypatch.setattr(store, "list_grants", grants)
+    with auth_module.app.test_request_context("/api/3.0/mlflow/scorers/list", query_string=args):
+        rows = _dispatch_scoped_scorer_list()
+    assert (ids[0], "toxicity") in rows
+    assert (ids[0], "helpfulness") not in rows
+    gate.assert_called_once_with("alice")
+    # Point permission and admin checks may load other grants; count the scorer-list load.
+    scorer_loads = [call for call in grants.call_args_list if "scorer_version" in call.args[2]]
+    assert len(scorer_loads) == 1
+    assert set(scorer_loads[0].args[2]) == {"workspace", "experiment", "scorer", "scorer_version"}
+
+
+def test_list_scorers_gate_isolated_across_requests_in_outer_app_context(
+    workspace_permission_setup, sql_scorer_listing, monkeypatch
+):
+    tracking, ids = sql_scorer_listing
+    store = workspace_permission_setup["store"]
+    store.create_user("bob", "supersecurepassword", is_admin=False)
+    _set_workspace_permission(store, "alice", USE.name)
+    _grant(
+        store,
+        "bob",
+        "team-a",
+        [("experiment", ids[1], READ.name), ("scorer", f"{ids[1]}/toxicity", READ.name)],
+    )
+    with workspace_context.WorkspaceContext("team-b"):
+        foreign_id = tracking.create_experiment("foreign-scorers")
+        tracking.register_scorer(foreign_id, "toxicity", "{}")
+    identity = {"username": "alice"}
+    monkeypatch.setattr(auth_module, "authenticate_request", lambda: SimpleNamespace(**identity))
+    gate = Mock(wraps=auth_module._scorer_listing_gate)
+    monkeypatch.setattr(auth_module, "_scorer_listing_gate", gate)
+
+    def listing(username, workspace):
+        identity["username"] = username
+        with workspace_context.WorkspaceContext(workspace):
+            with auth_module.app.test_request_context("/api/3.0/mlflow/scorers/list"):
+                return _dispatch_scoped_scorer_list()
+
+    with auth_module.app.app_context():
+        assert len(listing("alice", "team-a")) == 6
+        _grant(store, "alice", "team-a", [("scorer", f"{ids[0]}/toxicity", DENY.name)])
+        rows = listing("alice", "team-a")
+        assert len(rows) == 5
+        assert (ids[0], "toxicity") not in rows
+        assert listing("bob", "team-a") == [(ids[1], "toxicity")]
+        assert listing("alice", "team-b") == []
+        store.set_workspace_permission("team-b", "alice", USE.name)
+        assert listing("alice", "team-b") == [(foreign_id, "toxicity")]
+        assert listing("alice", "team-a") == rows
+    assert gate.call_count == 6
+
+
+@pytest.mark.parametrize(
+    ("admin", "rows"), [(True, [{"scorer_name": "x", "experiment_id": 1}]), (False, [])]
+)
+def test_list_scorers_filter_skips_gate_for_admin_or_empty_response(
+    workspace_permission_setup, admin, rows, monkeypatch
+):
+    gate = Mock(side_effect=AssertionError("no gate is needed"))
+    monkeypatch.setattr(auth_module, "_scorer_listing_gate", gate)
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: admin)
+    assert _run_scorer_list_filter(rows) == (["x"] if rows else [])
+    gate.assert_not_called()
 
 
 def test_registered_model_validators_require_manage_for_writes(workspace_permission_setup):

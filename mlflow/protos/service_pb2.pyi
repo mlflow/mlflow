@@ -5828,18 +5828,34 @@ class ListScorers(_message.Message):
 
     EXPERIMENT_ID_FIELD_NUMBER: _builtins.int
     EXPERIMENT_IDS_FIELD_NUMBER: _builtins.int
+    SCORER_KEYS_FIELD_NUMBER: _builtins.int
     experiment_id: _builtins.str
     """A single experiment ID. Kept for backward compatibility; prefer
-    ``experiment_ids`` for multi-experiment queries. Mutually exclusive
-    with ``experiment_ids`` -- specifying both is an error.
+    ``experiment_ids`` for multi-experiment queries. A nonempty ``experiment_id``
+    is mutually exclusive with ``experiment_ids`` or ``scorer_keys``, including
+    present-empty repeated selectors.
     """
     @_builtins.property
     def experiment_ids(self) -> _containers.RepeatedScalarFieldContainer[_builtins.str]:
-        """Optional list of experiment IDs to scope the query. When provided, only
-        scorers from these experiments are returned. Mutually exclusive with
-        ``experiment_id`` -- specifying both is an error.
+        """Optional list of experiment IDs to scope the query to whole experiments.
+        Specific ``scorer_keys`` add their matching individual scorers to this scope.
+        Mutually exclusive with a nonempty ``experiment_id``.
 
         Not supported against a Databricks-hosted backend.
+        """
+
+    @_builtins.property
+    def scorer_keys(self) -> _containers.RepeatedScalarFieldContainer[_builtins.str]:
+        """Optional list of exact scorer keys in the form
+        ``<experiment_id>/<URL-encoded-scorer-name>``. Scorers matching these
+        experiment/name pairs are returned in addition to every scorer in the
+        experiments selected by ``experiment_ids``. Without ``experiment_ids``,
+        only the listed scorers are returned. Mutually exclusive with a nonempty
+        ``experiment_id``. For example, ``42/toxicity`` selects only that scorer,
+        without including other scorers in experiment 42.
+
+        Not supported by the Databricks-hosted API. The Python tracking store
+        can emulate specific selection using single-experiment APIs.
         """
 
     def __init__(
@@ -5847,10 +5863,11 @@ class ListScorers(_message.Message):
         *,
         experiment_id: _builtins.str | None = ...,
         experiment_ids: _abc.Iterable[_builtins.str] | None = ...,
+        scorer_keys: _abc.Iterable[_builtins.str] | None = ...,
     ) -> None: ...
     _HasFieldArgType: _TypeAlias = _typing.Literal["experiment_id", b"experiment_id"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["experiment_id", b"experiment_id", "experiment_ids", b"experiment_ids"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["experiment_id", b"experiment_id", "experiment_ids", b"experiment_ids", "scorer_keys", b"scorer_keys"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 

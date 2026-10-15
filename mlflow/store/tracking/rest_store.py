@@ -2,6 +2,7 @@ import functools
 import json
 import logging
 from typing import TYPE_CHECKING, Any
+from urllib.parse import urlencode
 
 from mlflow.entities.model_registry.prompt_version import PromptVersion
 
@@ -185,6 +186,7 @@ from mlflow.utils.rest_utils import (
     http_request,
     verify_rest_response,
 )
+from mlflow.utils.scorer_keys import experiment_id_sort_key
 from mlflow.utils.validation import _resolve_experiment_ids_and_locations
 
 _logger = logging.getLogger(__name__)
@@ -1817,6 +1819,61 @@ class RestStore(
             endpoint="/api/3.0/mlflow/scorers/list",
         )
         return [ScorerVersion.from_proto(scorer) for scorer in response_proto.scorers]
+
+    def list_scorers_across_experiments(
+        self, experiment_ids: list[str], scorer_keys: list[str] | None = None
+    ) -> list[ScorerVersion]:
+        """List the union of selectors using bounded GET queries.
+
+        Each URL-encoded query parameter must fit in 3,500 bytes, including its
+        field name and equals sign. Oversized selectors fail before any I/O.
+        """
+        if not experiment_ids and not scorer_keys:
+            return []
+        # Leave room for the path, HTTP version, and deployment prefix under the
+        # default Gunicorn 4094-byte request-line limit. Count URL-encoded bytes,
+        # since scorer keys can expand again when encoded as query parameters.
+        max_query_bytes = 3500
+        selectors = [
+            (field, value)
+            for field, values in (
+                ("experiment_ids", experiment_ids),
+                ("scorer_keys", scorer_keys or []),
+            )
+            for value in dict.fromkeys(values)
+        ]
+        batches = []
+        batch = {"experiment_ids": [], "scorer_keys": []}
+        query_bytes = 0
+        for field, value in selectors:
+            size = len(urlencode({field: value}).encode("ascii"))
+            if size > max_query_bytes:
+                raise MlflowException.invalid_parameter_value(
+                    f"A ListScorers {field} selector exceeds the {max_query_bytes}-byte "
+                    "URL-encoded query limit. Use a shorter experiment ID or scorer name."
+                )
+            if query_bytes and query_bytes + 1 + size > max_query_bytes:
+                batches.append(batch)
+                batch = {"experiment_ids": [], "scorer_keys": []}
+                query_bytes = 0
+            batch[field].append(value)
+            query_bytes += size + bool(query_bytes)
+        batches.append(batch)
+
+        scorers = {}
+        for batch in batches:
+            response_proto = self._call_endpoint(
+                ListScorers,
+                message_to_json(ListScorers(**batch)),
+                endpoint="/api/3.0/mlflow/scorers/list",
+            )
+            for proto in response_proto.scorers:
+                scorer = ScorerVersion.from_proto(proto)
+                scorers[(scorer.experiment_id, scorer.scorer_name)] = scorer
+        return sorted(
+            scorers.values(),
+            key=lambda scorer: (experiment_id_sort_key(scorer.experiment_id), scorer.scorer_name),
+        )
 
     def list_scorer_versions(self, experiment_id: str, name: str) -> list[ScorerVersion]:
         """

@@ -29,6 +29,7 @@ from mlflow.entities import (
     Param,
     RoutingStrategy,
     RunTag,
+    ScorerVersion,
     SourceType,
     ViewType,
 )
@@ -2862,6 +2863,112 @@ def test_list_scorers():
             message_to_json(ListScorers(experiment_id=experiment_id)),
             endpoint="/api/3.0/mlflow/scorers/list",
         )
+
+
+@pytest.mark.parametrize("experiment_ids", [[], ["1"]])
+def test_list_scorers_across_experiments_forwards_scorer_keys(experiment_ids):
+    store = RestStore(lambda: None)
+    response = ListScorers.Response(
+        scorers=[ScorerVersion("2", "exact-match", 1, "{}", 1).to_proto()]
+    )
+    with mock.patch.object(store, "_call_endpoint", return_value=response) as call_endpoint:
+        scorers = store.list_scorers_across_experiments(experiment_ids, ["2/exact-match"])
+    assert [(s.experiment_id, s.scorer_name) for s in scorers] == [("2", "exact-match")]
+    call_endpoint.assert_called_once_with(
+        ListScorers,
+        message_to_json(ListScorers(experiment_ids=experiment_ids, scorer_keys=["2/exact-match"])),
+        endpoint="/api/3.0/mlflow/scorers/list",
+    )
+
+
+@pytest.mark.parametrize(("experiment_ids", "scorer_keys"), [([], None), ([], [])])
+def test_list_scorers_across_experiments_empty_scope(experiment_ids, scorer_keys):
+    store = RestStore(lambda: None)
+    with mock.patch.object(store, "_call_endpoint") as call_endpoint:
+        assert store.list_scorers_across_experiments(experiment_ids, scorer_keys) == []
+    call_endpoint.assert_not_called()
+
+
+def test_list_scorers_across_experiments_propagates_remote_error():
+    store = RestStore(lambda: None)
+    error = MlflowException.invalid_parameter_value("unsupported selector")
+    with mock.patch.object(store, "_call_endpoint", side_effect=error) as call_endpoint:
+        with pytest.raises(MlflowException, match="unsupported selector"):
+            store.list_scorers_across_experiments([], ["2/exact-match"])
+    call_endpoint.assert_called_once_with(
+        ListScorers,
+        message_to_json(ListScorers(scorer_keys=["2/exact-match"])),
+        endpoint="/api/3.0/mlflow/scorers/list",
+    )
+
+
+@pytest.mark.parametrize("selection", ["experiments", "keys", "mixed"])
+def test_list_scorers_across_experiments_bounds_encoded_queries(selection):
+    from requests import Request, Response
+
+    from mlflow.utils.scorer_keys import experiment_id_sort_key, format_scorer_key
+
+    ids = [str(i) for i in range(1, 251)] if selection != "keys" else []
+    keys = (
+        [format_scorer_key("2", f"😀/{i}") for i in range(151)]
+        if selection != "experiments"
+        else []
+    )
+    selected = []
+    request_sizes = []
+    expected = {(eid, "whole") for eid in ids} | {(key.split("/")[0], key) for key in keys}
+
+    def transport(**kwargs):
+        prepared = Request(
+            kwargs["method"],
+            kwargs["host_creds"].host + kwargs["endpoint"],
+            params=kwargs["params"],
+        ).prepare()
+        assert prepared.method == "GET"
+        request_sizes.append(len(f"GET {prepared.path_url} HTTP/1.1".encode()))
+        params = kwargs["params"]
+        selected.extend((field, value) for field, values in params.items() for value in values)
+        rows = {(eid, "whole") for eid in params.get("experiment_ids", [])}
+        rows.update((key.split("/")[0], key) for key in params.get("scorer_keys", []))
+        # Overlap between a whole-experiment selector and exact selectors on later pages.
+        if selection == "mixed" and "2" in params.get("experiment_ids", []):
+            rows.update(("2", key) for key in keys)
+        response = Response()
+        response.status_code = 200
+        response._content = message_to_json(
+            ListScorers.Response(
+                scorers=[
+                    ScorerVersion(eid, name, 1, "{}", 1).to_proto()
+                    for eid, name in sorted(rows, reverse=True)
+                ]
+            )
+        ).encode()
+        return response
+
+    store = RestStore(lambda: MlflowHostCreds("http://mlflow.test"))
+    with mock.patch("mlflow.utils.rest_utils.http_request", side_effect=transport):
+        result = store.list_scorers_across_experiments(ids + ids[:1], keys + keys[:1])
+    assert len(request_sizes) > 1
+    assert max(request_sizes) < 4094
+    assert selected == [("experiment_ids", eid) for eid in ids] + [
+        ("scorer_keys", key) for key in keys
+    ]
+    assert [(s.experiment_id, s.scorer_name) for s in result] == sorted(
+        expected, key=lambda row: (experiment_id_sort_key(row[0]), row[1])
+    )
+
+
+def test_list_scorers_across_experiments_rejects_oversized_selector_before_io():
+    from mlflow.utils.scorer_keys import format_scorer_key
+
+    store = RestStore(lambda: None)
+    with mock.patch.object(store, "_call_endpoint") as call_endpoint:
+        with pytest.raises(MlflowException, match="3500-byte URL-encoded query limit") as exc:
+            store.list_scorers_across_experiments(
+                [str(i) for i in range(250)], [format_scorer_key("1", "😀" * 256)]
+            )
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+    call_endpoint.assert_not_called()
 
 
 def test_list_scorer_versions():
