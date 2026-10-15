@@ -1,4 +1,5 @@
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 
@@ -86,7 +87,7 @@ def test_create_issue_invalid_experiment(store):
 def test_create_issue_invalid_run(store):
     exp_id = DEFAULT_EXPERIMENT_ID
 
-    with pytest.raises(MlflowException, match=r"FOREIGN KEY constraint failed"):
+    with pytest.raises(MlflowException, match="Run with id=nonexistent-run-id not found"):
         store.create_issue(
             experiment_id=exp_id,
             source_run_id="nonexistent-run-id",
@@ -1050,3 +1051,226 @@ def test_search_issues_sorted_by_trace_count_within_severity(store):
     assert result[2].trace_count == 2
     assert result[3].issue_id == issue_medium_0_traces.issue_id
     assert result[3].trace_count == 0
+
+
+def test_issue_extended_contract_and_partial_updates(store):
+    issue = store.create_issue(
+        "0",
+        "Latency",
+        "Details",
+        issue_id="iss-caller-chosen",
+        source_type="manual",
+        source_id="investigation-1",
+        last_seen_timestamp=0,
+        created_by="author",
+        categories=["latency", "cost"],
+        metadata={"keep": "1", "change": "old", "remove": "old"},
+        tags={"owner": "team", "remove": "old"},
+        root_causes=["Legacy cause"],
+    )
+    assert issue.last_seen_timestamp == 0
+    assert issue.last_updated_by == "author"
+    with pytest.raises(MlflowException, match="already exists") as exc:
+        store.create_issue("0", "Retry", "", issue_id=issue.issue_id)
+    assert exc.value.error_code == "RESOURCE_ALREADY_EXISTS"
+    updated = store.update_issue(
+        issue.issue_id,
+        description="",
+        categories=[],
+        last_seen_timestamp=10,
+        last_updated_by="editor",
+        metadata={"change": "new"},
+        delete_metadata_keys=["remove"],
+        tags={"added": "new"},
+        delete_tag_keys=["remove"],
+    )
+    assert updated.metadata == {"keep": "1", "change": "new"}
+    assert updated.tags == {"owner": "team", "added": "new"}
+    assert updated.description == ""
+    assert updated.categories == []
+    assert updated.root_causes == ["Legacy cause"]
+    assert updated.created_by == "author"
+    assert updated.source_type == "manual"
+    assert updated.source_id == "investigation-1"
+    assert updated.last_updated_by == "editor"
+    assert updated.created_timestamp == issue.created_timestamp
+    assert store.update_issue(issue.issue_id, last_seen_timestamp=5).last_seen_timestamp == 10
+    assert store.update_issue(issue.issue_id, name="New name").last_seen_timestamp == 10
+    assert store.search_issues(categories=["cost"]) == []
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"name": ""},
+        {"issue_id": "invalid"},
+        {"source_type": "manual"},
+        {"source_id": "only-id"},
+        {"last_seen_timestamp": -1},
+        {"last_seen_timestamp": True},
+        {"metadata": {"key": 123}},
+        {"tags": {"": "value"}},
+        {"categories": "cost"},
+        {"status": "invalid"},
+        {"severity": "critical"},
+    ],
+)
+def test_issue_create_validation(store, kwargs):
+    with pytest.raises(MlflowException, match=".+") as exc:
+        store.create_issue(**{"experiment_id": "0", "name": "Issue", "description": "", **kwargs})
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+
+
+def test_issue_patch_validation_is_atomic(store):
+    issue = store.create_issue("0", "Original", "", tags={"owner": "team"})
+    with pytest.raises(MlflowException, match="same key"):
+        store.update_issue(
+            issue.issue_id, name="Changed", tags={"owner": "other"}, delete_tag_keys=["owner"]
+        )
+    assert store.get_issue(issue.issue_id).name == "Original"
+    with pytest.raises(MlflowException, match="at most 100"):
+        store.update_issue(issue.issue_id, name="Changed", tags={str(i): "v" for i in range(100)})
+    assert store.get_issue(issue.issue_id).tags == {"owner": "team"}
+    assert store.get_issue(issue.issue_id).name == "Original"
+
+
+def test_issue_source_run_ownership_and_alias(store):
+    experiment_id = store.create_experiment("other")
+    run = store.create_run(experiment_id, "user", 1, [], "run")
+    with pytest.raises(MlflowException, match="belong"):
+        store.create_issue("0", "Issue", "", source_type="run", source_id=run.info.run_id)
+    issue = store.create_issue(experiment_id, "Issue", "", source_run_id=run.info.run_id)
+    assert issue.source_type == "run"
+    assert issue.source_id == run.info.run_id
+    with pytest.raises(MlflowException, match="must match"):
+        store.create_issue(
+            experiment_id,
+            "Issue",
+            "",
+            source_run_id=run.info.run_id,
+            source_type="run",
+            source_id="different",
+        )
+
+
+def test_issue_search_facets_pagination_and_projection(store):
+    for index in range(5):
+        store.create_issue(
+            "0",
+            f"Latency 100%_{index}",
+            "Large description",
+            issue_id=f"iss-{index}",
+            severity=IssueSeverity.HIGH,
+            categories=["latency", "cost"],
+            tags={"owner": "team"},
+            metadata={"evidence": "large"},
+            root_causes=["Legacy cause"],
+            last_seen_timestamp=100,
+        )
+    store.create_issue("0", "Latency 100xxx", "", severity=IssueSeverity.LOW)
+    options = {
+        "experiment_id": "0",
+        "name": "LATENCY 100%_",
+        "statuses": ["pending", "resolved"],
+        "severities": ["high"],
+        "categories": ["cost", "other"],
+        "tags": {"owner": "team"},
+        "order_by": ["last_seen_timestamp DESC"],
+        "include_total_count": True,
+        "include_trace_count": True,
+        "view": "basic",
+        "max_results": 2,
+    }
+    first = store.search_issues(**options)
+    assert [issue.issue_id for issue in first] == ["iss-0", "iss-1"]
+    assert first.total_count == 5
+    assert first[0].trace_count == 0
+    assert first[0].description == ""
+    assert first[0].root_causes is None
+    assert first[0].metadata is None
+    second = store.search_issues(**options, page_token=first.token)
+    third = store.search_issues(**options, page_token=second.token)
+    assert [issue.issue_id for issue in second + third] == ["iss-2", "iss-3", "iss-4"]
+    assert third.token is None
+    full = store.get_issue("iss-0")
+    assert full.description == "Large description"
+    assert full.metadata == {"evidence": "large"}
+    for changed in [
+        {"name": "different"},
+        {"view": "full"},
+        {"order_by": ["name ASC"]},
+        {"experiment_id": "123"},
+    ]:
+        with pytest.raises(MlflowException, match="page token"):
+            store.search_issues(**(options | changed), page_token=first.token)
+    store.update_issue("iss-4", categories=["other"], status=IssueStatus.RESOLVED)
+    filtered = store.search_issues(
+        statuses=["resolved"], categories=["other"], include_total_count=True
+    )
+    assert [issue.issue_id for issue in filtered] == ["iss-4"]
+    assert filtered.total_count == 1
+
+
+@pytest.mark.parametrize(
+    ("order_by", "expected"),
+    [
+        (["severity DESC"], ["iss-high", "iss-low", "iss-null"]),
+        (["status ASC"], ["iss-low", "iss-null", "iss-high"]),
+        (["name DESC"], ["iss-null", "iss-low", "iss-high"]),
+        (["last_seen_timestamp ASC"], ["iss-null", "iss-low", "iss-high"]),
+    ],
+)
+def test_issue_explicit_ordering(store, order_by, expected):
+    store.create_issue(
+        "0",
+        "A",
+        "",
+        issue_id="iss-high",
+        severity=IssueSeverity.HIGH,
+        status=IssueStatus.RESOLVED,
+        last_seen_timestamp=3,
+    )
+    store.create_issue(
+        "0", "B", "", issue_id="iss-low", severity=IssueSeverity.LOW, last_seen_timestamp=2
+    )
+    store.create_issue(
+        "0", "C", "", issue_id="iss-null", status=IssueStatus.REJECTED, last_seen_timestamp=1
+    )
+    assert [issue.issue_id for issue in store.search_issues(order_by=order_by)] == expected
+
+
+@pytest.mark.parametrize(
+    "options",
+    [
+        {"name": 1},
+        {"statuses": "pending"},
+        {"severities": ["critical"]},
+        {"order_by": "name DESC"},
+        {"order_by": ["unknown DESC"]},
+        {"order_by": ["name DESC extra"]},
+        {"view": "invalid"},
+        {"page_token": "not base64"},
+        {"page_token": "bnVsbA=="},
+        {"page_token": "W10="},
+        {"page_token": "eyJvZmZzZXQiOi0xfQ=="},
+    ],
+)
+def test_issue_search_validation(store, options):
+    with pytest.raises(MlflowException, match=".+") as exc:
+        store.search_issues(**options)
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+
+
+def test_issue_concurrent_metadata_patches_preserve_unrelated_keys(store):
+    issue = store.create_issue("0", "Issue", "", last_seen_timestamp=0)
+
+    def patch(index):
+        store.update_issue(
+            issue.issue_id, metadata={str(index): "value"}, last_seen_timestamp=index
+        )
+
+    with ThreadPoolExecutor(max_workers=4, thread_name_prefix="issue-patch") as executor:
+        list(executor.map(patch, range(12)))
+    updated = store.get_issue(issue.issue_id)
+    assert updated.metadata == {str(index): "value" for index in range(12)}
+    assert updated.last_seen_timestamp == 11

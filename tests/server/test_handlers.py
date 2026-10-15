@@ -7,7 +7,7 @@ from types import SimpleNamespace
 from unittest import mock
 
 import pytest
-from flask import Response, request
+from flask import Response, g, request
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 from werkzeug.exceptions import RequestedRangeNotSatisfiable
 
@@ -9099,6 +9099,7 @@ def test_create_issue_with_all_fields():
     )
 
     with (
+        app.test_request_context(json={}),
         mock.patch("mlflow.server.handlers._get_tracking_store") as mock_store,
         mock.patch("mlflow.server.handlers._get_request_message", return_value=request_message),
     ):
@@ -9144,6 +9145,7 @@ def test_create_issue_without_optional_fields():
     )
 
     with (
+        app.test_request_context(json={}),
         mock.patch("mlflow.server.handlers._get_tracking_store") as mock_store,
         mock.patch("mlflow.server.handlers._get_request_message", return_value=request_message),
     ):
@@ -9178,6 +9180,7 @@ def test_create_issue_with_default_status():
     )
 
     with (
+        app.test_request_context(json={}),
         mock.patch("mlflow.server.handlers._get_tracking_store") as mock_store,
         mock.patch("mlflow.server.handlers._get_request_message", return_value=request_message),
     ):
@@ -9254,6 +9257,7 @@ def test_update_issue():
     )
 
     with (
+        app.test_request_context(json={}),
         mock.patch("mlflow.server.handlers._get_tracking_store") as mock_store,
         mock.patch("mlflow.server.handlers._get_request_message", return_value=request_message),
     ):
@@ -9474,6 +9478,7 @@ def test_create_issue_with_empty_lists():
     )
 
     with (
+        app.test_request_context(json={}),
         mock.patch("mlflow.server.handlers._get_tracking_store") as mock_store,
         mock.patch("mlflow.server.handlers._get_request_message", return_value=request_message),
     ):
@@ -11226,3 +11231,105 @@ def test_update_gateway_secret_rejects_model_list_in_auth_config(
     assert response.status_code == 400
     assert "auth_config must not contain 'model_list'" in json.loads(response.get_data())["message"]
     mock_tracking_store.update_gateway_secret.assert_not_called()
+
+
+def test_issue_handlers_extended_fields_and_authenticated_actor():
+    issue = Issue("iss-test", "0", "Title", "", IssueStatus.PENDING, 1, 1)
+    with (
+        app.test_request_context(
+            json={
+                "experiment_id": "0",
+                "name": "Title",
+                "description": "Details",
+                "issue_id": "iss-test",
+                "source_type": "manual",
+                "source_id": "session",
+                "metadata": {"keep": "value"},
+                "tags": {"owner": "team"},
+                "last_seen_timestamp": "0",
+                "created_by": "untrusted",
+            }
+        ),
+        mock.patch("mlflow.server.handlers._get_tracking_store") as mock_store,
+    ):
+        g.mlflow_authenticated_user = "authenticated"
+        mock_store.return_value.create_issue.return_value = issue
+        assert _create_issue().status_code == 200
+        kwargs = mock_store.return_value.create_issue.call_args.kwargs
+        assert kwargs["created_by"] == "authenticated"
+        assert kwargs["issue_id"] == "iss-test"
+        assert kwargs["source_type"] == "manual"
+        assert kwargs["metadata"] == {"keep": "value"}
+        assert kwargs["last_seen_timestamp"] == 0
+    with (
+        app.test_request_context(
+            json={
+                "issue_id": "iss-test",
+                "categories": [],
+                "description": "",
+                "metadata": {"new": "value"},
+                "delete_tag_keys": ["owner"],
+                "last_updated_by": "untrusted",
+            }
+        ),
+        mock.patch("mlflow.server.handlers._get_tracking_store") as mock_store,
+    ):
+        g.mlflow_authenticated_user = "editor"
+        mock_store.return_value.update_issue.return_value = issue
+        assert _update_issue("iss-test").status_code == 200
+        mock_store.return_value.update_issue.assert_called_once_with(
+            issue_id="iss-test",
+            status=None,
+            name=None,
+            description="",
+            severity=None,
+            categories=[],
+            last_updated_by="editor",
+            metadata={"new": "value"},
+            delete_tag_keys=["owner"],
+        )
+
+
+def test_search_issues_extended_fields_and_total():
+    with (
+        app.test_request_context(
+            json={
+                "experiment_id": "0",
+                "name": "latency",
+                "statuses": ["pending", "resolved"],
+                "severities": ["high"],
+                "categories": ["cost"],
+                "tags": {"owner": "team"},
+                "order_by": ["status ASC"],
+                "view": "basic",
+                "include_total_count": True,
+            }
+        ),
+        mock.patch("mlflow.server.handlers._get_tracking_store") as mock_store,
+    ):
+        mock_store.return_value.search_issues.return_value = PagedList([], None, total_count=0)
+        response = _search_issues()
+        assert json.loads(response.get_data())["total_count"] == 0
+        mock_store.return_value.search_issues.assert_called_once_with(
+            experiment_id="0",
+            filter_string=None,
+            page_token=None,
+            name="latency",
+            statuses=["pending", "resolved"],
+            severities=["high"],
+            categories=["cost"],
+            tags={"owner": "team"},
+            order_by=["status ASC"],
+            view="basic",
+            include_total_count=True,
+        )
+
+
+@pytest.mark.parametrize("status", ["unknown", ""])
+def test_issue_invalid_status_returns_400(status):
+    with app.test_request_context(
+        json={"experiment_id": "0", "name": "Title", "description": "Details", "status": status}
+    ):
+        response = _create_issue()
+        assert response.status_code == 400
+        assert json.loads(response.get_data())["error_code"] == "INVALID_PARAMETER_VALUE"

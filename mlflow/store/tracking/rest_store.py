@@ -1,7 +1,7 @@
 import functools
 import json
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 from mlflow.entities.model_registry.prompt_version import PromptVersion
 
@@ -909,6 +909,13 @@ class RestStore(
         source_run_id: str | None = None,
         categories: list[str] | None = None,
         created_by: str | None = None,
+        *,
+        issue_id: str | None = None,
+        last_seen_timestamp: int | None = None,
+        source_type: str | None = None,
+        source_id: str | None = None,
+        metadata: dict[str, str] | None = None,
+        tags: dict[str, str] | None = None,
     ) -> Issue:
         """
         Create a new issue.
@@ -923,6 +930,12 @@ class RestStore(
             source_run_id: Optional MLflow run ID that discovered this issue.
             categories: Optional list of categories for the issue.
             created_by: Optional identifier for who created this issue.
+            issue_id: Optional iss-* ID (at most 36 characters); reuse returns a conflict.
+            last_seen_timestamp: Latest observation in milliseconds; defaults to creation time.
+            source_type: Immutable provenance type. Supply together with source_id.
+            source_id: Immutable source identifier. Run sources must belong to this experiment.
+            metadata: String metadata map (at most 100 entries).
+            tags: Searchable string tags (at most 100 entries).
 
         Returns:
             The created Issue entity.
@@ -938,6 +951,12 @@ class RestStore(
                 source_run_id=source_run_id,
                 categories=categories or [],
                 created_by=created_by,
+                issue_id=issue_id,
+                last_seen_timestamp=last_seen_timestamp,
+                source_type=source_type,
+                source_id=source_id,
+                metadata=metadata,
+                tags=tags,
             )
         )
         response_proto = self._call_endpoint(
@@ -968,6 +987,14 @@ class RestStore(
         name: str | None = None,
         description: str | None = None,
         severity: IssueSeverity | None = None,
+        *,
+        categories: list[str] | None = None,
+        last_seen_timestamp: int | None = None,
+        last_updated_by: str | None = None,
+        metadata: dict[str, str] | None = None,
+        tags: dict[str, str] | None = None,
+        delete_metadata_keys: list[str] | None = None,
+        delete_tag_keys: list[str] | None = None,
     ) -> Issue:
         """
         Update an existing issue.
@@ -978,6 +1005,13 @@ class RestStore(
             name: Optional new name for the issue.
             description: Optional new description.
             severity: Optional new severity level.
+            categories: Replacement categories; [] clears them and None leaves them unchanged.
+            last_seen_timestamp: Latest observation in milliseconds; never moves backwards.
+            last_updated_by: Update actor, overridden by the authenticated HTTP user when available.
+            metadata: Entries to merge with existing metadata.
+            tags: Entries to merge with existing tags.
+            delete_metadata_keys: Metadata keys to remove; cannot overlap metadata updates.
+            delete_tag_keys: Tag keys to remove; cannot overlap tag updates.
 
         Returns:
             The updated Issue entity.
@@ -989,8 +1023,20 @@ class RestStore(
                 name=name,
                 description=description,
                 severity=str(severity) if severity is not None else None,
+                categories=categories,
+                last_seen_timestamp=last_seen_timestamp,
+                last_updated_by=last_updated_by,
+                metadata=metadata,
+                tags=tags,
+                delete_metadata_keys=delete_metadata_keys,
+                delete_tag_keys=delete_tag_keys,
             )
         )
+        # Protobuf JSON omits empty repeated fields; retain an explicit clear operation.
+        if categories is not None:
+            body = json.loads(req_body)
+            body["categories"] = categories
+            req_body = json.dumps(body)
         response_proto = self._call_endpoint(
             UpdateIssue, req_body, endpoint=f"{_V3_ISSUES_REST_API_PATH_PREFIX}/{issue_id}"
         )
@@ -1003,6 +1049,15 @@ class RestStore(
         max_results: int | None = None,
         page_token: str | None = None,
         include_trace_count: bool = False,
+        *,
+        name: str | None = None,
+        statuses: list[str] | None = None,
+        severities: list[str] | None = None,
+        categories: list[str] | None = None,
+        tags: dict[str, str] | None = None,
+        order_by: list[str] | None = None,
+        include_total_count: bool = False,
+        view: Literal["basic", "full"] | None = None,
     ) -> PagedList[Issue]:
         """
         Search for issues matching the given filters.
@@ -1013,6 +1068,16 @@ class RestStore(
             max_results: Maximum number of results to return.
             page_token: Token for pagination.
             include_trace_count: Whether to include the count of traces impacted by each issue.
+            name: Case-insensitive literal substring of the name (not a wildcard pattern).
+            statuses: Accepted status values, ORed within the list.
+            severities: Accepted severity values, ORed within the list.
+            categories: Match any of these categories. Different filter fields are ANDed.
+            tags: Exact tag key/value pairs; all pairs must match.
+            order_by: Field and optional ASC/DESC; supports name, status, severity and timestamps.
+                Issue ID breaks ties. Omit to retain the legacy severity/count/creation ordering.
+            include_total_count: Return the matching count before pagination in total_count.
+            view: "basic" returns an empty description and omits root_causes and metadata.
+                The default is "full".
 
         Returns:
             A PagedList of Issue entities.
@@ -1024,13 +1089,27 @@ class RestStore(
                 max_results=max_results,
                 page_token=page_token,
                 include_trace_count=include_trace_count,
+                name=name,
+                statuses=statuses,
+                severities=severities,
+                categories=categories,
+                tags=tags,
+                order_by=order_by,
+                include_total_count=True if include_total_count else None,
+                view=view,
             )
         )
         response_proto = self._call_endpoint(
             SearchIssues, req_body, endpoint=f"{_V3_ISSUES_REST_API_PATH_PREFIX}/search"
         )
         issues = [Issue.from_proto(issue_proto) for issue_proto in response_proto.issues]
-        return PagedList(issues, response_proto.next_page_token or None)
+        return PagedList(
+            issues,
+            response_proto.next_page_token or None,
+            total_count=response_proto.total_count
+            if response_proto.HasField("total_count")
+            else None,
+        )
 
     # ----- Label schemas (tracking-store CRUD) -----
 

@@ -1478,6 +1478,14 @@ class SqlIssue(Base):
     Creator identifier: `String` (limit 255 characters). Optional.
     """
 
+    last_seen_timestamp = Column(BigInteger, nullable=True)
+    source_type = Column(String(50), nullable=True)
+    source_id = Column(String(255), nullable=True)
+    last_updated_by = Column(String(255), nullable=True)
+    issue_metadata = Column("metadata", Text, nullable=True)
+    issue_tags = relationship("SqlIssueTag", cascade="all, delete-orphan", lazy="selectin")
+    issue_categories = relationship("SqlIssueCategory", cascade="all, delete-orphan")
+
     run = relationship("SqlRun", foreign_keys=[source_run_id], backref=backref("issues"))
     """
     SQLAlchemy relationship (many:one) with
@@ -1486,6 +1494,8 @@ class SqlIssue(Base):
 
     __table_args__ = (
         PrimaryKeyConstraint("issue_id", name="issues_pk"),
+        Index("index_issues_experiment_last_seen", "experiment_id", "last_seen_timestamp"),
+        Index("index_issues_experiment_updated", "experiment_id", "last_updated_timestamp"),
         Index(f"index_{__tablename__}_experiment_id", "experiment_id"),
         Index(f"index_{__tablename__}_source_run_id", "source_run_id"),
         Index(f"index_{__tablename__}_status", "status"),
@@ -1495,12 +1505,13 @@ class SqlIssue(Base):
     def __repr__(self):
         return f"<SqlIssue({self.issue_id}, {self.name}, {self.status})>"
 
-    def to_mlflow_entity(self, trace_count: int | None = None) -> Issue:
+    def to_mlflow_entity(self, trace_count: int | None = None, basic: bool = False) -> Issue:
         """
         Convert DB model to corresponding MLflow entity.
 
         Args:
             trace_count: Optional trace count to include in the Issue entity.
+            basic: Return an empty description and omit root causes and metadata.
 
         Returns:
             :py:class:`mlflow.entities.Issue` object.
@@ -1509,17 +1520,47 @@ class SqlIssue(Base):
             issue_id=self.issue_id,
             experiment_id=str(self.experiment_id),
             name=self.name,
-            description=self.description,
+            description="" if basic else self.description,
             status=IssueStatus(self.status),
             severity=IssueSeverity(self.severity) if self.severity else None,
-            root_causes=json.loads(self.root_causes) if self.root_causes else None,
+            root_causes=json.loads(self.root_causes) if not basic and self.root_causes else None,
             source_run_id=self.source_run_id,
             categories=json.loads(self.categories) if self.categories else None,
             created_timestamp=self.created_timestamp,
             last_updated_timestamp=self.last_updated_timestamp,
             created_by=self.created_by,
             trace_count=trace_count,
+            last_seen_timestamp=self.last_seen_timestamp
+            if self.last_seen_timestamp is not None
+            else self.created_timestamp,
+            source_type=self.source_type,
+            source_id=self.source_id,
+            last_updated_by=self.last_updated_by,
+            metadata=json.loads(self.issue_metadata) if not basic and self.issue_metadata else None,
+            tags={tag.key: tag.value for tag in self.issue_tags} or None,
         )
+
+
+class SqlIssueTag(Base):
+    __tablename__ = "issue_tags"
+
+    issue_id = Column(
+        String(36), ForeignKey("issues.issue_id", ondelete="CASCADE"), primary_key=True
+    )
+    key = Column(String(250), primary_key=True)
+    value = Column(Text, nullable=False)
+    __table_args__ = (Index("index_issue_tags_key", "key"),)
+
+
+class SqlIssueCategory(Base):
+    __tablename__ = "issue_categories"
+
+    issue_id = Column(
+        String(36), ForeignKey("issues.issue_id", ondelete="CASCADE"), primary_key=True
+    )
+    category_hash = Column(String(64), primary_key=True)
+    category = Column(Text, nullable=False)
+    __table_args__ = (Index("index_issue_categories_hash", "category_hash"),)
 
 
 class SqlLoggedModel(Base):

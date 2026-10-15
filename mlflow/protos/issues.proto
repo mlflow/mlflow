@@ -30,7 +30,7 @@ message Issue {
   optional string severity = 6;
 
   // Analysis of the root causes of the issue.
-  repeated string root_causes = 7;
+  repeated string root_causes = 7 [deprecated = true];
 
   // MLflow run ID that discovered this issue.
   optional string source_run_id = 8;
@@ -49,6 +49,15 @@ message Issue {
 
   // Number of traces impacted by this issue. Only populated when explicitly requested.
   optional int32 trace_count = 13;
+
+  // Most recent observation, in milliseconds. Independent of user edits.
+  optional int64 last_seen_timestamp = 14;
+  // Immutable creation provenance. Run sources also populate source_run_id.
+  optional string source_type = 15;
+  optional string source_id = 16;
+  optional string last_updated_by = 17;
+  map<string, string> metadata = 18;
+  map<string, string> tags = 19;
 }
 
 // Request to create a new issue.
@@ -69,7 +78,7 @@ message CreateIssue {
   optional string severity = 5;
 
   // Analysis of the root causes of the issue.
-  repeated string root_causes = 6;
+  repeated string root_causes = 6 [deprecated = true];
 
   // MLflow run ID that discovered this issue.
   optional string source_run_id = 7;
@@ -79,6 +88,13 @@ message CreateIssue {
 
   // Categories of the issue.
   repeated string categories = 9;
+  // Optional caller-assigned iss-* ID. Reuse returns RESOURCE_ALREADY_EXISTS.
+  optional string issue_id = 10;
+  optional int64 last_seen_timestamp = 11;
+  optional string source_type = 12;
+  optional string source_id = 13;
+  map<string, string> metadata = 14;
+  map<string, string> tags = 15;
 
   message Response {
     // The created issue.
@@ -102,6 +118,15 @@ message UpdateIssue {
 
   // Severity level indicator.
   optional string severity = 5;
+  // When supplied, replaces categories; an empty JSON array clears them.
+  repeated string categories = 6;
+  optional int64 last_seen_timestamp = 7;
+  optional string last_updated_by = 8;
+  // Merge entries; delete only the explicitly named keys below.
+  map<string, string> metadata = 9;
+  map<string, string> tags = 10;
+  repeated string delete_metadata_keys = 11;
+  repeated string delete_tag_keys = 12;
 
   message Response {
     // The updated issue.
@@ -136,6 +161,18 @@ message SearchIssues {
 
   // Whether to include the count of traces impacted by each issue.
   optional bool include_trace_count = 5;
+  // Case-insensitive literal substring of the issue name.
+  optional string name = 6;
+  // Values within each list are ORed; different fields are ANDed.
+  repeated string statuses = 7;
+  repeated string severities = 8;
+  repeated string categories = 9;
+  map<string, string> tags = 10;
+  // Field and ASC/DESC, e.g. "last_seen_timestamp DESC".
+  repeated string order_by = 11;
+  optional bool include_total_count = 12;
+  // "basic" omits description, root_causes and metadata; default "full".
+  optional string view = 13;
 
   message Response {
     // List of issues.
@@ -143,5 +180,6 @@ message SearchIssues {
 
     // Token for next page.
     optional string next_page_token = 2;
+    optional int64 total_count = 3;
   }
 }

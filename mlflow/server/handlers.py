@@ -387,6 +387,7 @@ from mlflow.utils import workspace_context
 from mlflow.utils.crypto import CRYPTO_KEK_PASSPHRASE_ENV_VAR
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.file_utils import local_file_uri_to_path
+from mlflow.utils.issue_utils import validate_issue_fields
 from mlflow.utils.mime_type_utils import _guess_mime_type
 from mlflow.utils.mlflow_tags import (
     MLFLOW_CUSTOM_VIEW_TAG_PREFIX,
@@ -5015,6 +5016,11 @@ def _create_issue():
         },
     )
 
+    validate_issue_fields(
+        status=request_message.status if request_message.HasField("status") else None,
+        severity=request_message.severity if request_message.HasField("severity") else None,
+    )
+
     # Build kwargs for create_issue
     create_kwargs = {
         "experiment_id": request_message.experiment_id,
@@ -5023,7 +5029,7 @@ def _create_issue():
         "source_run_id": request_message.source_run_id or None,
         "root_causes": list(request_message.root_causes) or None,
         "categories": list(request_message.categories) or None,
-        "created_by": request_message.created_by or None,
+        "created_by": _get_request_username() or request_message.created_by or None,
     }
 
     if request_message.HasField("status"):
@@ -5031,6 +5037,12 @@ def _create_issue():
     if request_message.HasField("severity"):
         create_kwargs["severity"] = IssueSeverity(request_message.severity)
 
+    for field in ("issue_id", "last_seen_timestamp", "source_type", "source_id"):
+        if request_message.HasField(field):
+            create_kwargs[field] = getattr(request_message, field)
+    for field in ("metadata", "tags"):
+        if values := dict(getattr(request_message, field)):
+            create_kwargs[field] = values
     created_issue = _get_tracking_store().create_issue(**create_kwargs)
 
     response_message = CreateIssue.Response(issue=created_issue.to_proto())
@@ -5050,17 +5062,38 @@ def _update_issue(issue_id):
         },
     )
 
+    validate_issue_fields(
+        status=request_message.status if request_message.HasField("status") else None,
+        severity=request_message.severity if request_message.HasField("severity") else None,
+    )
+
     status = IssueStatus(request_message.status) if request_message.HasField("status") else None
     severity = (
         IssueSeverity(request_message.severity) if request_message.HasField("severity") else None
     )
 
+    options = {}
+    if _get_normalized_request_json().get("categories") is not None:
+        options["categories"] = list(request_message.categories)
+    if request_message.HasField("last_seen_timestamp"):
+        options["last_seen_timestamp"] = request_message.last_seen_timestamp
+    if actor := _get_request_username() or request_message.last_updated_by:
+        options["last_updated_by"] = actor
+    for field in ("metadata", "tags"):
+        if values := dict(getattr(request_message, field)):
+            options[field] = values
+    for field in ("delete_metadata_keys", "delete_tag_keys"):
+        if values := list(getattr(request_message, field)):
+            options[field] = values
     updated_issue = _get_tracking_store().update_issue(
         issue_id=issue_id,
         status=status,
-        name=request_message.name or None,
-        description=request_message.description or None,
+        name=request_message.name if request_message.HasField("name") else None,
+        description=request_message.description
+        if request_message.HasField("description")
+        else None,
         severity=severity,
+        **options,
     )
 
     response_message = UpdateIssue.Response(issue=updated_issue.to_proto())
@@ -5100,11 +5133,21 @@ def _search_issues():
     if request_message.HasField("include_trace_count"):
         search_kwargs["include_trace_count"] = request_message.include_trace_count
 
+    for field in ("name", "view", "include_total_count"):
+        if request_message.HasField(field):
+            search_kwargs[field] = getattr(request_message, field)
+    for field in ("statuses", "severities", "categories", "order_by"):
+        if values := list(getattr(request_message, field)):
+            search_kwargs[field] = values
+    if request_message.tags:
+        search_kwargs["tags"] = dict(request_message.tags)
     issues = _get_tracking_store().search_issues(**search_kwargs)
 
     issue_protos = [issue.to_proto() for issue in issues]
     response_message = SearchIssues.Response(
-        issues=issue_protos, next_page_token=issues.token or ""
+        issues=issue_protos,
+        next_page_token=issues.token or "",
+        total_count=issues.total_count if request_message.include_total_count else None,
     )
     return _wrap_response(response_message)
 

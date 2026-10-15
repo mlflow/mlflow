@@ -3318,3 +3318,44 @@ def test_review_queue_question_lock_holds_in_workspace_store(workspace_tracking_
             workspace_tracking_store.update_review_queue(queue.queue_id, schema_ids=[ls1.schema_id])
         updated = workspace_tracking_store.update_review_queue(queue.queue_id, users=["alice"])
         assert updated.users == ["alice"]
+
+
+def test_extended_issue_fields_and_paging_are_workspace_scoped(workspace_tracking_store):
+    store = workspace_tracking_store
+    with WorkspaceContext("team-a"):
+        experiment_id = store.create_experiment("extended-issues")
+        for index in range(2):
+            store.create_issue(
+                experiment_id,
+                f"Issue {index}",
+                "",
+                issue_id=f"iss-team-a-{index}",
+                categories=["cost"],
+                tags={"owner": "team"},
+                metadata={"private": "value"},
+            )
+        page = store.search_issues(
+            categories=["cost"], tags={"owner": "team"}, include_total_count=True, max_results=1
+        )
+        assert page.total_count == 2
+        assert page.token
+        run = store.create_run(experiment_id, "user", 1, [], "run")
+    with WorkspaceContext("team-b"):
+        other_experiment = store.create_experiment("extended-issues")
+        assert store.search_issues(categories=["cost"], include_total_count=True).total_count == 0
+        with pytest.raises(MlflowException, match="not found"):
+            store.update_issue("iss-team-a-0", metadata={"private": "changed"}, categories=[])
+        with pytest.raises(MlflowException, match="page token"):
+            store.search_issues(
+                categories=["cost"],
+                tags={"owner": "team"},
+                include_total_count=True,
+                max_results=1,
+                page_token=page.token,
+            )
+        with pytest.raises(MlflowException, match="not found"):
+            store.create_issue(
+                other_experiment, "Foreign source", "", source_type="run", source_id=run.info.run_id
+            )
+    with WorkspaceContext("team-a"):
+        assert store.get_issue("iss-team-a-0").metadata == {"private": "value"}
