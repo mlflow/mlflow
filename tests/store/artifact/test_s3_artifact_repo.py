@@ -4,9 +4,11 @@ import posixpath
 import tarfile
 import urllib.parse
 from datetime import datetime, timezone
+from pathlib import Path
 from unittest import mock
 from unittest.mock import ANY
 
+import botocore.client
 import botocore.exceptions
 import pytest
 import requests
@@ -41,6 +43,11 @@ def s3_artifact_root(mock_s3_bucket):
 def s3_artifact_repo(s3_artifact_root, request):
     if request.param:
         return OptimizedS3ArtifactRepository(posixpath.join(s3_artifact_root, "some/path"))
+    return S3ArtifactRepository(posixpath.join(s3_artifact_root, "some/path"))
+
+
+@pytest.fixture
+def s3_repo(s3_artifact_root):
     return S3ArtifactRepository(posixpath.join(s3_artifact_root, "some/path"))
 
 
@@ -293,6 +300,139 @@ def test_download_file_artifact_succeeds_when_artifact_root_is_s3_bucket_root(
     downloaded_file_path = repo.download_artifacts(file_a_name)
     with open(downloaded_file_path) as f:
         assert f.read() == file_a_text
+
+
+def _put_artifacts(repo, artifacts):
+    bucket, root_path = repo.parse_s3_compliant_uri(repo.artifact_uri)
+    s3_client = repo._get_s3_client()
+    for artifact_path, body in artifacts.items():
+        s3_client.put_object(Bucket=bucket, Key=posixpath.join(root_path, artifact_path), Body=body)
+
+
+@pytest.mark.parametrize("artifact_path", ["test.txt", "nested/dir/test.txt"])
+def test_download_artifact_file_skips_directory_probe(s3_repo, tmp_path, artifact_path):
+    _put_artifacts(s3_repo, {artifact_path: b"Hello world!"})
+
+    with mock.patch.object(
+        s3_repo, "_is_directory", wraps=s3_repo._is_directory
+    ) as is_directory_mock:
+        local_path = s3_repo._download_artifact_file(artifact_path, str(tmp_path))
+
+    assert local_path == str(tmp_path.joinpath(artifact_path))
+    assert Path(local_path).read_bytes() == b"Hello world!"
+    is_directory_mock.assert_not_called()
+
+
+def _record_s3_operations():
+    operations = []
+    make_api_call = botocore.client.BaseClient._make_api_call
+
+    def record_api_call(client, operation_name, api_params):
+        operations.append((operation_name, api_params))
+        return make_api_call(client, operation_name, api_params)
+
+    return operations, record_api_call
+
+
+def test_download_artifact_file_sends_only_head_and_get_object(s3_repo, tmp_path):
+    _put_artifacts(s3_repo, {"test.txt": b"Hello world!"})
+    operations, record_api_call = _record_s3_operations()
+
+    with mock.patch.object(botocore.client.BaseClient, "_make_api_call", record_api_call):
+        s3_repo._download_artifact_file("test.txt", str(tmp_path))
+
+    assert [name for name, _ in operations] == ["HeadObject", "GetObject"]
+
+
+def test_download_artifact_file_missing_key_lists_after_failed_read(s3_repo, tmp_path):
+    operations, record_api_call = _record_s3_operations()
+
+    with (
+        mock.patch.object(botocore.client.BaseClient, "_make_api_call", record_api_call),
+        pytest.raises(MlflowException, match="Not Found"),
+    ):
+        s3_repo._download_artifact_file("missing.txt", str(tmp_path))
+
+    assert [name for name, _ in operations] == ["HeadObject", "ListObjectsV2"]
+
+
+@pytest.mark.parametrize("artifact_path", ["", "dir/"])
+def test_download_artifact_file_downloads_directory_paths_directly(
+    s3_repo, tmp_path, artifact_path
+):
+    _put_artifacts(s3_repo, {"dir/a.txt": b"A"})
+
+    with mock.patch.object(
+        s3_repo, "_download_file", wraps=s3_repo._download_file
+    ) as download_file_mock:
+        s3_repo._download_artifact_file(artifact_path, str(tmp_path))
+
+    assert (tmp_path / "dir" / "a.txt").read_bytes() == b"A"
+    download_file_mock.assert_called_once_with(remote_file_path="dir/a.txt", local_path=ANY)
+
+
+def test_download_artifact_file_prevents_path_traversal(s3_repo, tmp_path):
+    with (
+        mock.patch.object(s3_repo, "_download_file") as download_file_mock,
+        pytest.raises(MlflowException, match="Invalid path"),
+    ):
+        s3_repo._download_artifact_file("../evil.txt", str(tmp_path))
+
+    download_file_mock.assert_not_called()
+
+
+def test_optimized_s3_download_artifact_file_uses_download_artifacts(s3_artifact_root, tmp_path):
+    repo = OptimizedS3ArtifactRepository(posixpath.join(s3_artifact_root, "some/path"))
+    with mock.patch.object(repo, "download_artifacts", return_value="path") as download_mock:
+        assert repo._download_artifact_file("test.txt", str(tmp_path)) == "path"
+    download_mock.assert_called_once_with("test.txt", str(tmp_path))
+
+
+def test_download_artifact_file_downloads_directory(s3_repo, tmp_path):
+    _put_artifacts(s3_repo, {"dir/a.txt": b"A", "dir/sub/b.txt": b"B"})
+
+    local_path = s3_repo._download_artifact_file("dir", str(tmp_path))
+
+    assert local_path == str(tmp_path / "dir")
+    assert (tmp_path / "dir" / "a.txt").read_bytes() == b"A"
+    assert (tmp_path / "dir" / "sub" / "b.txt").read_bytes() == b"B"
+
+
+def test_download_artifact_file_prefers_object_over_prefix(s3_repo, tmp_path):
+    _put_artifacts(s3_repo, {"both": b"object", "both/child.txt": b"child"})
+
+    local_path = s3_repo._download_artifact_file("both", str(tmp_path))
+
+    assert Path(local_path).read_bytes() == b"object"
+
+
+def test_download_artifact_file_raises_download_artifacts_error_for_missing_file(s3_repo, tmp_path):
+    with pytest.raises(MlflowException, match="Not Found") as expected:
+        s3_repo.download_artifacts("missing.txt", str(tmp_path))
+
+    with pytest.raises(MlflowException, match="Not Found") as actual:
+        s3_repo._download_artifact_file("missing.txt", str(tmp_path))
+
+    assert actual.value.message == expected.value.message
+    assert actual.value.error_code == expected.value.error_code
+
+
+def test_download_artifact_file_with_bucket_owner(s3_artifact_root, tmp_path, monkeypatch):
+    monkeypatch.setenv("MLFLOW_S3_EXPECTED_BUCKET_OWNER", "123456789012")
+    repo = S3ArtifactRepository(posixpath.join(s3_artifact_root, "some/path"))
+    bucket, _ = repo.parse_s3_compliant_uri(s3_artifact_root)
+    mock_s3 = mock.Mock()
+
+    with mock.patch.object(repo, "_get_s3_client", return_value=mock_s3):
+        repo._download_artifact_file("model.pkl", str(tmp_path))
+
+    mock_s3.download_file.assert_called_once_with(
+        bucket,
+        "some/path/model.pkl",
+        str(tmp_path / "model.pkl"),
+        ExtraArgs={"ExpectedBucketOwner": "123456789012"},
+    )
+    mock_s3.get_paginator.assert_not_called()
 
 
 def test_get_s3_file_upload_extra_args():

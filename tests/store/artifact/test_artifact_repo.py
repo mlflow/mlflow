@@ -403,3 +403,14 @@ def test_download_artifacts_prevents_empty_dir_path_traversal(malicious_dir):
             ):
                 repo.download_artifacts("", dst_path=tmp.path())
         list_artifacts_mock.assert_called()
+
+
+def test_download_artifact_file_calls_download_artifacts_by_default(tmp_path):
+    repo = ArtifactRepositoryImpl(_PARENT_DIR)
+    with mock.patch.object(
+        repo, "download_artifacts", return_value=str(tmp_path / _MODEL_FILE)
+    ) as download_mock:
+        assert repo._download_artifact_file(_MODEL_FILE, str(tmp_path)) == str(
+            tmp_path / _MODEL_FILE
+        )
+    download_mock.assert_called_once_with(_MODEL_FILE, str(tmp_path))

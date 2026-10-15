@@ -1,13 +1,17 @@
+import os
+import tempfile
 from unittest import mock
 
 import pytest
 from starlette.testclient import TestClient
 
+from mlflow.exceptions import MlflowException
 from mlflow.server import ARTIFACTS_DESTINATION_ENV_VAR, SERVE_ARTIFACTS_ENV_VAR
 from mlflow.server import app as flask_app
 from mlflow.server.fastapi_app import create_fastapi_app
 from mlflow.store.artifact.artifact_repo import ARTIFACT_STREAM_CHUNK_SIZE, ArtifactRepository
 from mlflow.store.artifact.local_artifact_repo import LocalArtifactRepository
+from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 
 
 @pytest.fixture
@@ -43,7 +47,7 @@ def test_download_local_path_returns_file_response(client, tmp_path):
     assert "attachment" in resp.headers["Content-Disposition"]
     assert "model.pkl" in resp.headers["Content-Disposition"]
     mock_repo.get_local_path.assert_called_once()
-    mock_repo.download_artifacts.assert_not_called()
+    mock_repo._download_artifact_file.assert_not_called()
 
 
 def test_download_remote_path_returns_streaming_response(client, tmp_path):
@@ -54,7 +58,7 @@ def test_download_remote_path_returns_streaming_response(client, tmp_path):
     with mock.patch("mlflow.server.artifact_router._get_artifact_repo") as mock_get_repo:
         mock_repo = mock.MagicMock()
         mock_repo.get_local_path.return_value = None
-        mock_repo.download_artifacts.return_value = str(test_file)
+        mock_repo._download_artifact_file.return_value = str(test_file)
         mock_get_repo.return_value = mock_repo
 
         resp = client.get("/api/2.0/mlflow-artifacts/artifacts/nested/model.pkl")
@@ -62,7 +66,7 @@ def test_download_remote_path_returns_streaming_response(client, tmp_path):
     assert resp.status_code == 200
     assert resp.content == test_data
     assert "attachment" in resp.headers["Content-Disposition"]
-    mock_repo.download_artifacts.assert_called_once()
+    mock_repo._download_artifact_file.assert_called_once()
 
 
 def test_download_ajax_prefix_also_works(client, tmp_path):
@@ -92,6 +96,125 @@ def test_download_directory_path_returns_400(client, tmp_path):
         resp = client.get("/api/2.0/mlflow-artifacts/artifacts/model_dir")
 
     assert resp.status_code == 400
+
+
+@pytest.fixture
+def s3_artifact_repo(mock_s3_bucket):
+    artifact_repo = S3ArtifactRepository(f"s3://{mock_s3_bucket}/root")
+    artifact_repo._get_s3_client().put_object(
+        Bucket=mock_s3_bucket, Key="root/model/MLmodel", Body=b"flavors: {}"
+    )
+    yield artifact_repo
+    artifact_repo.thread_pool.shutdown()
+
+
+def test_download_s3_file_without_listing(client, s3_artifact_repo):
+    with (
+        mock.patch(
+            "mlflow.server.artifact_router._get_artifact_repo", return_value=s3_artifact_repo
+        ),
+        mock.patch.object(
+            s3_artifact_repo, "list_artifacts", wraps=s3_artifact_repo.list_artifacts
+        ) as list_artifacts_mock,
+    ):
+        resp = client.get("/api/2.0/mlflow-artifacts/artifacts/model/MLmodel")
+
+    assert resp.status_code == 200
+    assert resp.content == b"flavors: {}"
+    assert "MLmodel" in resp.headers["Content-Disposition"]
+    list_artifacts_mock.assert_not_called()
+
+
+def test_download_remote_directory_returns_400(client, tmp_path):
+    model_dir = tmp_path / "model_dir"
+    model_dir.mkdir()
+    cleaned_up = []
+
+    class RecordingTemporaryDirectory(tempfile.TemporaryDirectory):
+        def cleanup(self):
+            cleaned_up.append(self.name)
+            super().cleanup()
+
+    with (
+        mock.patch(
+            "mlflow.server.artifact_router.tempfile.TemporaryDirectory",
+            RecordingTemporaryDirectory,
+        ),
+        mock.patch("mlflow.server.artifact_router._get_artifact_repo") as mock_get_repo,
+    ):
+        mock_repo = mock.MagicMock()
+        mock_repo.get_local_path.return_value = None
+        mock_repo._download_artifact_file.return_value = str(model_dir)
+        mock_get_repo.return_value = mock_repo
+
+        resp = client.get("/api/2.0/mlflow-artifacts/artifacts/model_dir")
+
+    assert resp.status_code == 400
+    assert resp.json()["detail"] == "Artifact path refers to a directory, not a file: 'model_dir'"
+    assert cleaned_up
+    for path in cleaned_up:
+        assert not os.path.exists(path)
+    assert model_dir.exists()
+
+
+def test_download_s3_directory_returns_400(client, s3_artifact_repo):
+    bucket, _ = s3_artifact_repo.parse_s3_compliant_uri(s3_artifact_repo.artifact_uri)
+    s3_artifact_repo._get_s3_client().put_object(
+        Bucket=bucket, Key="root/model/data/weights.bin", Body=b"weights"
+    )
+
+    with mock.patch(
+        "mlflow.server.artifact_router._get_artifact_repo", return_value=s3_artifact_repo
+    ):
+        resp = client.get("/api/2.0/mlflow-artifacts/artifacts/model/data")
+
+    assert resp.status_code == 400
+    assert resp.json()["detail"] == "Artifact path refers to a directory, not a file: 'model/data'"
+
+
+def test_download_s3_object_over_prefix_returns_file(client, s3_artifact_repo):
+    bucket, _ = s3_artifact_repo.parse_s3_compliant_uri(s3_artifact_repo.artifact_uri)
+    s3_client = s3_artifact_repo._get_s3_client()
+    s3_client.put_object(Bucket=bucket, Key="root/both", Body=b"object")
+    s3_client.put_object(Bucket=bucket, Key="root/both/child.txt", Body=b"child")
+
+    with mock.patch(
+        "mlflow.server.artifact_router._get_artifact_repo", return_value=s3_artifact_repo
+    ):
+        resp = client.get("/api/2.0/mlflow-artifacts/artifacts/both")
+
+    assert resp.status_code == 200
+    assert resp.content == b"object"
+
+
+def test_download_s3_trailing_slash_directory_returns_400(client, s3_artifact_repo):
+    bucket, _ = s3_artifact_repo.parse_s3_compliant_uri(s3_artifact_repo.artifact_uri)
+    s3_artifact_repo._get_s3_client().put_object(
+        Bucket=bucket, Key="root/model/data/weights.bin", Body=b"weights"
+    )
+
+    with mock.patch(
+        "mlflow.server.artifact_router._get_artifact_repo", return_value=s3_artifact_repo
+    ):
+        resp = client.get("/api/2.0/mlflow-artifacts/artifacts/model/data/")
+
+    assert resp.status_code == 400
+    assert resp.json()["detail"] == "Artifact path refers to a directory, not a file: 'model/data/'"
+
+
+def test_download_missing_s3_file_returns_download_artifacts_error(
+    client, s3_artifact_repo, tmp_path
+):
+    with pytest.raises(MlflowException, match="Not Found") as expected:
+        s3_artifact_repo.download_artifacts("model/missing.txt", str(tmp_path))
+
+    with mock.patch(
+        "mlflow.server.artifact_router._get_artifact_repo", return_value=s3_artifact_repo
+    ):
+        resp = client.get("/api/2.0/mlflow-artifacts/artifacts/model/missing.txt")
+
+    assert resp.status_code == expected.value.get_http_status_code()
+    assert resp.json()["error_code"] == expected.value.error_code
 
 
 def test_download_disabled_returns_503(client_no_serve):

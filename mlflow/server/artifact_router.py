@@ -97,9 +97,14 @@ async def download_artifact(artifact_path: str):
         try:
             dst = os.path.abspath(
                 await asyncio.to_thread(
-                    artifact_repo.download_artifacts, artifact_path, tmp_dir.name
+                    artifact_repo._download_artifact_file, artifact_path, tmp_dir.name
                 )
             )
+            if os.path.isdir(dst):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Artifact path refers to a directory, not a file: '{artifact_path}'",
+                )
         except Exception:
             tmp_dir.cleanup()
             raise
