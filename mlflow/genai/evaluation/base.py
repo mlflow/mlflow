@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any, Callable, NamedTuple
 
 import mlflow
 from mlflow.data.dataset import Dataset
+from mlflow.entities import Dataset as DatasetEntity
 from mlflow.entities.dataset_input import DatasetInput
 from mlflow.entities.evaluation_dataset import EvaluationDataset as EntityEvaluationDataset
 from mlflow.entities.logged_model_input import LoggedModelInput
@@ -14,6 +15,11 @@ from mlflow.environment_variables import MLFLOW_GENAI_EVAL_MAX_WORKERS
 from mlflow.exceptions import MlflowException
 from mlflow.genai.datasets.evaluation_dataset import EvaluationDataset
 from mlflow.genai.evaluation.constant import InputDatasetColumn
+from mlflow.genai.evaluation.lineage import (
+    AGENT_URI_ATTR,
+    get_dataset_entity_from_attrs,
+    log_lineage_tags,
+)
 from mlflow.genai.evaluation.quality_thresholds import (
     build_quality_threshold_rules,
     build_quality_thresholds_tag,
@@ -347,6 +353,8 @@ def _run_harness(
     # Validate before the run starts so a bad threshold doesn't leave an empty run behind.
     quality_threshold_rules = build_quality_threshold_rules(scorers, quality_thresholds)
     quality_thresholds_tag = build_quality_thresholds_tag(quality_threshold_rules)
+    # Lineage records the user's function; `predict_fn` is wrapped or cleared for simulation below.
+    original_predict_fn = predict_fn
 
     # Handle ConversationSimulator: prepare for simulation, but run it inside the run context
     # so that traces are logged to the correct run.
@@ -403,6 +411,8 @@ def _run_harness(
         # Validate session-level input if session-level scorers are present
         validate_session_level_evaluation_inputs(scorers, predict_fn)
 
+        # A DataFrame from `EvaluationDataset.to_df()` keeps the dataset identity if unchanged.
+        dataset_entity = None if is_managed_dataset else get_dataset_entity_from_attrs(data)
         df = _convert_to_eval_set(data)
 
         builtin_scorers = [
@@ -439,6 +449,9 @@ def _run_harness(
         if isinstance(data, (EvaluationDataset, EntityEvaluationDataset)):
             mlflow_dataset = data
             df = data.to_df()
+        elif dataset_entity is not None:
+            mlflow_dataset = dataset_entity
+            df = data
         else:
             # Use precomputed name from ConversationSimulator, or default "dataset" for
             # other sources. Pass precomputed_digest if available (from ConversationSimulator).
@@ -460,6 +473,7 @@ def _run_harness(
         # NB: Set this tag before run finishes to suppress the generic run URL printing.
         if run.data.tags.get(MLFLOW_RUN_TYPE) is None:
             MlflowClient().set_tag(run_id, MLFLOW_RUN_TYPE, MLFLOW_RUN_TYPE_GENAI_EVALUATE)
+        log_lineage_tags(run_id, scorers, original_predict_fn)
         # NB: Record the thresholds before the harness runs, so a run that fails partway still
         # shows the bar it was evaluated against (its thresholds read as incomplete). The tags
         # are read from the store rather than `run.data.tags` because a reused active run can
@@ -483,7 +497,7 @@ def _run_harness(
             eval_df=df,
             scorers=scorers,
             run_id=run_id,
-            dataset=mlflow_dataset if is_managed_dataset else None,
+            dataset=mlflow_dataset if is_managed_dataset or dataset_entity is not None else None,
             quality_thresholds=quality_thresholds,
         )
         warn_on_unmeasured_quality_thresholds(quality_threshold_rules, result.metrics)
@@ -497,12 +511,13 @@ def _run_harness(
 
 
 def _log_dataset_input(
-    data: Dataset,
+    data: Dataset | DatasetEntity,
     run_id: str,
     model_id: str | None = None,
 ):
     client = MlflowClient()
-    dataset_input = DatasetInput(dataset=data._to_mlflow_entity())
+    entity = data if isinstance(data, DatasetEntity) else data._to_mlflow_entity()
+    dataset_input = DatasetInput(dataset=entity)
     client.log_inputs(
         run_id=run_id,
         datasets=[dataset_input],
@@ -668,13 +683,15 @@ def to_predict_fn(endpoint_uri: str) -> Callable[..., Any]:
     match schema:
         case "apps":
             app_config = _setup_databricks_app_client(path)
-            return _create_app_predict_fn(app_config.app_invocation_url, app_config.config)
+            predict_fn = _create_app_predict_fn(app_config.app_invocation_url, app_config.config)
         case "endpoints":
-            return _create_endpoint_predict_fn(endpoint_uri, path)
+            predict_fn = _create_endpoint_predict_fn(endpoint_uri, path)
         case _:
             raise ValueError(
                 f"Unsupported endpoint schema: {schema}. Expected 'endpoints' or 'apps'."
             )
+    setattr(predict_fn, AGENT_URI_ATTR, endpoint_uri)
+    return predict_fn
 
 
 def _create_endpoint_predict_fn(endpoint_uri: str, endpoint: str) -> Callable[..., Any]:

@@ -1403,6 +1403,10 @@ class SearchModelUtils(SearchUtils):
     def _get_comparison(cls, comparison):
         stripped_comparison = [token for token in comparison.tokens if not token.is_whitespace]
         cls._validate_comparison(stripped_comparison)
+        if len(stripped_comparison) == 2:
+            raise MlflowException.invalid_parameter_value(
+                "IS NULL / IS NOT NULL is not supported for registered model search."
+            )
         left, comparator, right = stripped_comparison
         comp = cls._get_model_search_identifier(left.value, cls.VALID_SEARCH_ATTRIBUTE_KEYS)
         comp["comparator"] = comparator.value.upper()
@@ -1590,6 +1594,10 @@ class SearchModelVersionUtils(SearchUtils):
     def _get_comparison(cls, comparison):
         stripped_comparison = [token for token in comparison.tokens if not token.is_whitespace]
         cls._validate_comparison(stripped_comparison)
+        if len(stripped_comparison) == 2:
+            raise MlflowException.invalid_parameter_value(
+                "IS NULL / IS NOT NULL is not supported for model version search."
+            )
         left, comparator, right = stripped_comparison
         comp = cls._get_model_version_search_identifier(left.value, cls.VALID_SEARCH_ATTRIBUTE_KEYS)
         comp["comparator"] = comparator.value.upper()

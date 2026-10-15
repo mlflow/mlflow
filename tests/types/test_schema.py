@@ -955,6 +955,15 @@ def test_param_spec_to_and_from_dict():
     }
     assert ParamSpec.from_json_dict(**json.loads(json.dumps(spec.to_dict()))) == spec
 
+    spec = ParamSpec("datetime_none", DataType.datetime, None, None)
+    assert spec.to_dict() == {
+        "name": "datetime_none",
+        "type": "datetime",
+        "default": None,
+        "shape": None,
+    }
+    assert ParamSpec.from_json_dict(**json.loads(json.dumps(spec.to_dict()))) == spec
+
 
 def test_param_spec_from_dict_backward_compatibility():
     spec = ParamSpec("str_param", DataType.string, "str_a", None)

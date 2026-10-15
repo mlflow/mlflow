@@ -265,7 +265,8 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
         elif isinstance(records, list) and records and isinstance(records[0], Trace):
             record_dicts = self._process_trace_records(records)
         else:
-            record_dicts = records
+            # Copy so the source and tags filled in below don't leak into the caller's records
+            record_dicts = [dict(r) if isinstance(r, dict) else r for r in records]
 
         self._validate_record_dicts(record_dicts)
 
@@ -288,10 +289,7 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
         context_tags = context_registry.resolve_tags()
         if user_tag := context_tags.get(MLFLOW_USER):
             for record in record_dicts:
-                if "tags" not in record:
-                    record["tags"] = {}
-                if MLFLOW_USER not in record["tags"]:
-                    record["tags"][MLFLOW_USER] = user_tag
+                record["tags"] = {MLFLOW_USER: user_tag, **(record.get("tags") or {})}
 
         tracking_store.upsert_dataset_records(dataset_id=self.dataset_id, records=record_dicts)
         self._records = None

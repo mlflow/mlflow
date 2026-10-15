@@ -70,11 +70,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "0.14.5",
-            "maximum": "0.14.16"
+            "maximum": "0.14.25"
         },
         "autologging": {
             "minimum": "0.14.5",
-            "maximum": "0.14.16"
+            "maximum": "0.14.25"
         }
     },
     "ag2": {
@@ -113,7 +113,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "autologging": {
             "minimum": "0.70.0",
-            "maximum": "1.1.0"
+            "maximum": "1.9.0"
         }
     },
     "typesafe": {
@@ -183,7 +183,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "autologging": {
             "minimum": "1.10.0",
-            "maximum": "2.9.4"
+            "maximum": "3.0.0"
         }
     },
     "groq": {

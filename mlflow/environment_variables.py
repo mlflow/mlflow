@@ -149,7 +149,10 @@ MLFLOW_ENABLE_ASSISTANT_SANDBOX = _BooleanEnvironmentVariable(
 #: **Experimental** — subject to change or removal in a future release.
 #: Docker image used for server-side sandboxed execution (e.g. the assistant ``Bash`` sandbox).
 #: The image must have Python and MLflow installed. If the image is not present locally, a
-#: minimal one is built on first use.
+#: minimal one is built on first use, with the server's Python version and MLflow version. MLflow
+#: is installed from ``MLFLOW_HOME`` if set, and a development build otherwise installs from the
+#: source checkout the server runs from. It is not rebuilt when MLflow changes; delete the image to
+#: rebuild it.
 #: (default: ``mlflow-sandbox:latest``)
 MLFLOW_SANDBOX_DOCKER_IMAGE = _EnvironmentVariable(
     "MLFLOW_SANDBOX_DOCKER_IMAGE", str, "mlflow-sandbox:latest"
@@ -1777,17 +1780,47 @@ MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND = _EnvironmentVariable(
     "MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND", str, "local"
 )
 
-#: Executor backend used for custom scorer jobs. This is forward-looking configuration for
-#: per-job dispatch: until the runner dispatches jobs per backend, this must equal
-#: ``MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND`` (or be left unset). Setting it to a different backend
-#: does not route jobs there yet; it causes custom scorer job submissions to be rejected.
-#: Validated at startup. Note this only selects *where* a custom scorer would run -- running one
-#: at all still requires ``MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS`` to be enabled (it is off by
-#: default), otherwise custom scorer jobs are rejected regardless of this backend.
+#: Executor backend used for custom scorer jobs, such as ``docker`` (experimental) to run them in a
+#: container without network access. Requires the executor job-execution engine
+#: (``MLFLOW_SERVER_JOB_EXECUTION_ENGINE=executor``). A custom scorer job the backend does not
+#: support stays on ``MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND``; the ``docker`` backend runs only
+#: on-demand scorer runs made only of custom ``@scorer`` scorers. Validated at startup. Note this
+#: only selects *where* a custom scorer runs -- running one at all still requires
+#: ``MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS`` to be enabled (it is off by default), otherwise custom
+#: scorer jobs are rejected regardless of this backend.
 #: (default: unset, i.e. the default backend)
 MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND = _EnvironmentVariable(
     "MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND", str, None
 )
+
+#: Docker image for job containers run by the ``docker`` job executor backend. The image must
+#: already contain MLflow (the same version as the server) and any packages the scorer imports,
+#: because job containers have no network access. A configured image that is not present locally
+#: is pulled when the job runner starts. When unset, a minimal image matching the server's Python
+#: and MLflow versions is built when the job runner starts. Resource limits per job type can be
+#: set with ``MLFLOW_JOB_RESOURCE_LIMITS_<job_name>``, a JSON object such as
+#: ``{"cpu": "500m", "memory": "1Gi"}``, which overrides limits the job type declares (default: 1
+#: CPU and 1 GiB of memory). Each file a job writes is capped at 64 MiB and its result at 8 MiB,
+#: but the job's output directory on the host has no total size limit, so a malicious scorer can
+#: fill the host disk until the job times out. Stopping the MLflow server does not stop running job
+#: containers; they are removed when the job runner next starts.
+#: **Experimental**: subject to change or removal in a future release.
+#: (default: unset)
+MLFLOW_JOB_IMAGE = _EnvironmentVariable("MLFLOW_JOB_IMAGE", str, None)
+
+#: Docker daemon URL for the ``docker`` job executor backend (for example
+#: ``unix:///var/run/docker.sock`` or a Podman socket). The daemon must run on the same host as the
+#: MLflow server, because job inputs and results are exchanged through bind-mounted files.
+#: **Experimental**: subject to change or removal in a future release.
+#: (default: unset, i.e. the Docker client's default from the environment)
+MLFLOW_JOBS_DOCKER_HOST = _EnvironmentVariable("MLFLOW_JOBS_DOCKER_HOST", str, None)
+
+#: Extra labels for job containers run by the ``docker`` job executor backend, as a JSON object of
+#: string keys and values (for example ``{"team": "ml-platform"}``). The ``mlflow.job_id`` and
+#: ``mlflow.job_name`` labels are always applied and cannot be overridden.
+#: **Experimental**: subject to change or removal in a future release.
+#: (default: unset)
+MLFLOW_JOB_EXTRA_LABELS = _EnvironmentVariable("MLFLOW_JOB_EXTRA_LABELS", str, None)
 
 #: Whether the server may run custom scorers defined with the ``@scorer`` decorator. A custom
 #: scorer carries its function source in its serialized form, and that source is executed (via
@@ -1868,10 +1901,29 @@ MLFLOW_ALLOW_PICKLE_DESERIALIZATION = _BooleanEnvironmentVariable(
 
 #: Internal env var for the shared gateway auth token. The server generates a random
 #: token at startup and sets it in the environment so all uvicorn workers and job
-#: subprocesses can use it to authenticate internal gateway requests.
+#: subprocesses can use it to authenticate internal gateway requests. Subprocesses that the
+#: MLflow Assistant starts (CLI providers and tool commands) do not inherit it, though only the
+#: Assistant sandbox isolates it from code running as the server's user on the host.
 #: (default: ``None``)
 _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN = _EnvironmentVariable(
     "_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN", str, None
+)
+
+# Short-lived, user-scoped credential the MLflow Assistant injects into a tool subprocess so the
+# tool's MLflow API calls authenticate as the session owner. It is an HMAC-signed value (see
+# mlflow.server.assistant.delegation), not a raw secret, so a leaked value only impersonates that
+# one user and only until it expires. Set by the server on the subprocess; never set by users.
+_MLFLOW_ASSISTANT_DELEGATION_TOKEN = _EnvironmentVariable(
+    "_MLFLOW_ASSISTANT_DELEGATION_TOKEN", str, None
+)
+
+# The key the server uses to sign and verify Assistant delegation credentials (see
+# mlflow.server.assistant.delegation). The server generates it at startup and shares it only among
+# its own worker processes: unlike the internal gateway token it is deliberately withheld from job
+# runner subprocesses and from tool subprocesses, so a credential can only be minted by the server,
+# never forged by code running in one of those subprocesses. (default: ``None``)
+_MLFLOW_ASSISTANT_DELEGATION_SIGNING_KEY = _EnvironmentVariable(
+    "_MLFLOW_ASSISTANT_DELEGATION_SIGNING_KEY", str, None
 )
 
 

@@ -210,8 +210,9 @@ def test_run_server_rejects_invalid_enabled_rollup_schedule(mock_exec_cmd, monke
     monkeypatch.setenv("MLFLOW_TRACE_ROLLUPS_SCHEDULE", "invalid")
 
     with (
-        # The job backend rejects Windows via os.name (not sys.platform), so patch os.name.
-        mock.patch("os.name", "posix"),
+        mock.patch(
+            "mlflow.server.jobs.local_executor.LocalJobExecutor.check_requirements"
+        ) as check_executor_requirements,
         mock.patch("mlflow.server.jobs.utils._check_requirements"),
         pytest.raises(MlflowException, match="five-field UTC cron"),
     ):
@@ -226,6 +227,7 @@ def test_run_server_rejects_invalid_enabled_rollup_schedule(mock_exec_cmd, monke
             port="5000",
         )
 
+    check_executor_requirements.assert_called_once()
     mock_exec_cmd.assert_not_called()
 
 
@@ -242,8 +244,9 @@ def test_run_server_rejects_invalid_enabled_rollup_limits(
     monkeypatch.setenv(variable, value)
 
     with (
-        # The job backend rejects Windows via os.name (not sys.platform), so patch os.name.
-        mock.patch("os.name", "posix"),
+        mock.patch(
+            "mlflow.server.jobs.local_executor.LocalJobExecutor.check_requirements"
+        ) as check_executor_requirements,
         mock.patch("mlflow.server.jobs.utils._check_requirements"),
         pytest.raises(MlflowException, match=variable),
     ):
@@ -258,6 +261,7 @@ def test_run_server_rejects_invalid_enabled_rollup_limits(
             port="5000",
         )
 
+    check_executor_requirements.assert_called_once()
     mock_exec_cmd.assert_not_called()
 
 
@@ -351,17 +355,25 @@ def test_run_server_allows_disabled_rollups_for_a_new_sql_database(
     assert not database_path.exists()
 
 
-def test_run_server_passes_public_store_config_to_job_runner(mock_exec_cmd, monkeypatch):
+@pytest.mark.parametrize("static_prefix", [None, "", "/mlflow", "/nested/mlflow"])
+@pytest.mark.parametrize("host", ["localhost", "0.0.0.0"])
+def test_run_server_passes_public_store_config_to_job_runner(
+    mock_exec_cmd, monkeypatch, static_prefix, host
+):
     monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
     monkeypatch.setenv("MLFLOW_SQL_TRACE_ROLLUPS_ENABLED", "false")
+    monkeypatch.delenv("MLFLOW_GATEWAY_URI", raising=False)
     mock_exec_cmd.return_value.pid = 123
 
     with (
-        # The job backend rejects Windows via os.name (not sys.platform), so patch os.name.
-        mock.patch("os.name", "posix"),
-        mock.patch("mlflow.server.jobs.utils._check_requirements"),
+        mock.patch(
+            "mlflow.server.jobs.local_executor.LocalJobExecutor.check_requirements"
+        ) as check_executor_requirements,
+        mock.patch("mlflow.server.jobs.utils._check_requirements") as check_requirements,
         mock.patch("mlflow.server.jobs.utils._launch_job_runner") as launch_job_runner,
-        mock.patch("mlflow.tracing.trace_rollup_service.validate_sql_trace_rollup_startup"),
+        mock.patch(
+            "mlflow.tracing.trace_rollup_service.validate_sql_trace_rollup_startup"
+        ) as validate_rollup_startup,
     ):
         server._run_server(
             file_store_path="sqlite:///primary.db",
@@ -370,13 +382,21 @@ def test_run_server_passes_public_store_config_to_job_runner(mock_exec_cmd, monk
             serve_artifacts="",
             artifacts_only="",
             artifacts_destination="",
-            host="localhost",
+            host=host,
             port="5000",
+            static_prefix=static_prefix,
         )
 
+    mock_exec_cmd.assert_called_once()
+    check_requirements.assert_called_once_with("sqlite:///primary.db")
+    check_executor_requirements.assert_called_once()
+    validate_rollup_startup.assert_called_once_with("sqlite:///primary.db")
+    launch_job_runner.assert_called_once()
     job_env = launch_job_runner.call_args.args[0]
     assert job_env["MLFLOW_BACKEND_STORE_URI"] == "sqlite:///primary.db"
     assert job_env["MLFLOW_DEFAULT_ARTIFACT_ROOT"] == "file:///artifacts"
+    assert job_env["MLFLOW_TRACKING_URI"] == f"http://{host}:5000{static_prefix or ''}"
+    assert job_env["MLFLOW_GATEWAY_URI"] == f"http://{host}:5000{static_prefix or ''}"
 
 
 def test_run_server_win32(mock_exec_cmd, monkeypatch):
