@@ -1,61 +1,22 @@
-/**
- * NOTE: this code file was automatically migrated to TypeScript using ts-migrate and
- * may contain multiple `any` type annotations and `@ts-expect-error` directives.
- * If possible, please improve types while making changes to this file. If the type
- * annotations are already looking good, please remove this comment.
- */
-
 import { ErrorWrapper } from './ErrorWrapper';
 import { getAjaxUrl, getDefaultHeaders, HTTPMethods } from './FetchUtils';
 
 export type ArtifactRequestOptions = {
-  /**
-   * Headers required by a presigned URL. When supplied, these replace the
-   * tracking-server headers because credentials for one origin must not be
-   * forwarded to object storage.
-   */
+  /** Replace tracking-server headers with only those required by object storage. */
   headers?: HeadersInit;
-  /** Convert the response to an ArrayBuffer instead of text. */
-  isBinary?: boolean;
 };
 
-/**
- * Async function to fetch and return the specified artifact blob from response.
- * Throw exception if the request fails.
- */
-export async function getArtifactBlob(artifactLocation: any, options?: ArtifactRequestOptions) {
-  const getArtifactRequest = new Request(artifactLocation, {
-    method: HTTPMethods.GET,
-    redirect: 'follow',
-    // TODO: fix types
-    headers: new Headers(
-      options?.headers !== undefined
-        ? options.headers
-        : // Tracking-server requests need the standard cookie-derived and workspace headers.
-          (getDefaultHeaders(document.cookie) as any),
-    ),
-  });
-  // eslint-disable-next-line no-restricted-globals -- See go/spog-fetch
-  const response = await fetch(getArtifactRequest);
+export const MAX_ARTIFACT_PREVIEW_BYTES = 50 * 1024 * 1024;
 
-  if (!response.ok) {
-    const errorMessage = (await response.text()) || response.statusText;
-    throw new ErrorWrapper(errorMessage, response.status);
+export class ArtifactPreviewTooLargeError extends Error {
+  constructor() {
+    super('File is too large to preview. Maximum file size for preview: 50 MiB.');
+    this.name = 'ArtifactPreviewTooLargeError';
   }
-  return response.blob();
 }
 
-class TextArtifactTooLargeError extends Error {}
-
-/**
- * Async function to fetch and return the specified text artifact.
- * Avoids unnecessary conversion to blob, parses chunked responses directly to text.
- */
-export const getArtifactChunkedText = async (
-  artifactLocation: string,
-  options?: ArtifactRequestOptions,
-): Promise<string> => {
-  const getArtifactRequest = new Request(artifactLocation, {
+async function fetchArtifactResponse(artifactLocation: string, options?: ArtifactRequestOptions): Promise<Response> {
+  const request = new Request(artifactLocation, {
     method: HTTPMethods.GET,
     redirect: 'follow',
     headers: new Headers(
@@ -63,76 +24,102 @@ export const getArtifactChunkedText = async (
     ),
   });
   // eslint-disable-next-line no-restricted-globals -- See go/spog-fetch
-  const response = await fetch(getArtifactRequest);
-
+  const response = await fetch(request);
   if (!response.ok) {
     const errorMessage = (await response.text()) || response.statusText;
     throw new ErrorWrapper(errorMessage, response.status);
   }
-  const reader = response.body?.getReader();
-
-  if (reader) {
-    let resultData = '';
-    const decoder = new TextDecoder();
-    try {
-      let result = await reader.read();
-      while (!result.done) {
-        resultData += decoder.decode(result.value, { stream: true });
-        result = await reader.read();
-      }
-      return resultData + decoder.decode(result.value);
-    } finally {
-      reader.releaseLock();
-    }
-  } else {
-    throw new Error("Can't get artifact data from the server");
-  }
-};
-
-/**
- * Fetches the specified artifact, returning a Promise that resolves with
- * the raw content converted to text of the artifact if the fetch is
- * successful, and rejects otherwise
- */
-export function getArtifactContent<R = unknown>(
-  artifactLocation: string,
-  isBinaryOrOptions: boolean | ArtifactRequestOptions = false,
-  requestOptions?: ArtifactRequestOptions,
-): Promise<R> {
-  return new Promise<R>(async (resolve, reject) => {
-    try {
-      const isBinary =
-        typeof isBinaryOrOptions === 'boolean' ? isBinaryOrOptions : (isBinaryOrOptions.isBinary ?? false);
-      const options = typeof isBinaryOrOptions === 'boolean' ? requestOptions : isBinaryOrOptions;
-      const blob = await getArtifactBlob(artifactLocation, options);
-
-      const fileReader = new FileReader();
-      fileReader.onload = (event) => {
-        // Resolve promise with artifact contents
-        // @ts-expect-error TS(2531): Object is possibly 'null'.
-        resolve(event.target.result);
-      };
-      fileReader.onerror = (error) => {
-        reject(error);
-      };
-      if (isBinary) {
-        fileReader.readAsArrayBuffer(blob);
-      } else {
-        fileReader.readAsText(blob);
-      }
-    } catch (error) {
-      // fail silently
-      reject(error);
-    }
-  });
+  return response;
 }
 
-/**
- * Fetches the specified artifact, returning a Promise that resolves with
- * the raw content in bytes of the artifact if the fetch is successful, and rejects otherwise
- */
-export function getArtifactBytesContent(artifactLocation: any, options?: ArtifactRequestOptions) {
-  return getArtifactContent(artifactLocation, true, options);
+/** Enforce the preview limit on bytes actually received, including chunked responses. */
+async function readArtifactPreview(
+  artifactLocation: string,
+  options: ArtifactRequestOptions | undefined,
+  onChunk: (chunk: Uint8Array) => void,
+): Promise<Response> {
+  const response = await fetchArtifactResponse(artifactLocation, options);
+  const reader = response.body?.getReader();
+  if (!reader) {
+    throw new Error("Can't get artifact data from the server");
+  }
+
+  let bytesRead = 0;
+  try {
+    for (let result = await reader.read(); !result.done; result = await reader.read()) {
+      const { value } = result;
+      bytesRead += value.byteLength;
+      if (bytesRead > MAX_ARTIFACT_PREVIEW_BYTES) {
+        throw new ArtifactPreviewTooLargeError();
+      }
+      onChunk(value);
+    }
+    return response;
+  } catch (error) {
+    // Cancellation can itself fail after a transport error. Preserve the original failure.
+    try {
+      await reader.cancel();
+    } catch {
+      // The original read/size failure is the useful error for the caller.
+    }
+    throw error;
+  } finally {
+    reader.releaseLock();
+  }
+}
+
+/** Fetch a blob for a preview, cancelling responses that exceed the preview limit. */
+export async function getArtifactBlob(artifactLocation: string, options?: ArtifactRequestOptions): Promise<Blob> {
+  const chunks: Uint8Array[] = [];
+  const response = await readArtifactPreview(artifactLocation, options, (chunk) => chunks.push(chunk));
+  return new Blob(chunks as BlobPart[], { type: response.headers.get('Content-Type') ?? '' });
+}
+
+/** Downloads may exceed the preview limit, including signed downloads that require headers. */
+export async function getArtifactDownloadBlob(
+  artifactLocation: string,
+  options?: ArtifactRequestOptions,
+): Promise<Blob> {
+  const response = await fetchArtifactResponse(artifactLocation, options);
+  return response.blob();
+}
+
+/** Decode text incrementally, preserving UTF-8 characters split across response chunks. */
+export async function getArtifactChunkedText(
+  artifactLocation: string,
+  options?: ArtifactRequestOptions,
+): Promise<string> {
+  let text = '';
+  const decoder = new TextDecoder();
+  await readArtifactPreview(artifactLocation, options, (chunk) => {
+    text += decoder.decode(chunk, { stream: true });
+  });
+  return text + decoder.decode();
+}
+
+/** Fetch artifact text for a preview. */
+export function getArtifactContent(artifactLocation: string, options?: ArtifactRequestOptions): Promise<string> {
+  return getArtifactChunkedText(artifactLocation, options);
+}
+
+/** Fetch artifact bytes for a preview without converting them to text. */
+export async function getArtifactBytesContent(
+  artifactLocation: string,
+  options?: ArtifactRequestOptions,
+): Promise<ArrayBuffer> {
+  const chunks: Uint8Array[] = [];
+  let bytesRead = 0;
+  await readArtifactPreview(artifactLocation, options, (chunk) => {
+    chunks.push(chunk);
+    bytesRead += chunk.byteLength;
+  });
+  const bytes = new Uint8Array(bytesRead);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return bytes.buffer;
 }
 
 export const getLoggedModelArtifactLocationUrl = (path: string, loggedModelId: string) => {

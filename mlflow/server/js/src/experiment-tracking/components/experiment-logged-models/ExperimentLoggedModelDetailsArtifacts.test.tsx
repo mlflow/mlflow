@@ -1,4 +1,4 @@
-import { afterAll, afterEach, jest, describe, beforeAll, test, expect } from '@jest/globals';
+import { afterAll, afterEach, jest, describe, beforeAll, beforeEach, test, expect } from '@jest/globals';
 
 import { DesignSystemProvider } from '@databricks/design-system';
 import userEvent from '@testing-library/user-event';
@@ -14,10 +14,14 @@ import { apis, artifactsByRunUuid } from '../../reducers/Reducers';
 import { ExperimentLoggedModelDetailsArtifacts } from './ExperimentLoggedModelDetailsArtifacts';
 import { setupTestRouter, testRoute, TestRouter } from '../../../common/utils/RoutingTestUtils';
 import { setActiveWorkspace } from '../../../workspaces/utils/WorkspaceUtils';
-import { getWorkspacesEnabledSync } from '../../hooks/useServerInfo';
+import {
+  getLoggedModelArtifactReadCredentialsSupportedSync,
+  getWorkspacesEnabledSync,
+} from '../../hooks/useServerInfo';
 
 jest.mock('../../hooks/useServerInfo', () => ({
   ...jest.requireActual<typeof import('../../hooks/useServerInfo')>('../../hooks/useServerInfo'),
+  getLoggedModelArtifactReadCredentialsSupportedSync: jest.fn(),
   getWorkspacesEnabledSync: jest.fn(),
 }));
 
@@ -123,9 +127,38 @@ describe('ExperimentLoggedModelDetailsArtifacts integration test', () => {
 
   beforeAll(() => {
     getWorkspacesEnabledSyncMock.mockReturnValue(true);
+    jest.mocked(getLoggedModelArtifactReadCredentialsSupportedSync).mockReturnValue(true);
     setActiveWorkspace('team-a');
     process.env['MLFLOW_USE_ABSOLUTE_AJAX_URLS'] = 'true';
     server.listen();
+  });
+
+  beforeEach(() => {
+    const mswFetch = global.fetch;
+    jest.spyOn(global, 'fetch').mockImplementation(async (input, init) => {
+      const response = await mswFetch(input, init);
+      const url = input instanceof Request ? input.url : String(input);
+      if (url.startsWith('https://storage.example/artifacts/')) {
+        // MSW's Response polyfill has a Node stream body. Expose the browser
+        // reader contract so this integration exercises the bounded text reader.
+        const bytes = new TextEncoder().encode(await response.text());
+        let delivered = false;
+        Object.defineProperty(response, 'body', {
+          value: {
+            getReader: () => ({
+              read: async () => {
+                if (delivered) return { done: true, value: undefined };
+                delivered = true;
+                return { done: false, value: bytes };
+              },
+              cancel: async () => {},
+              releaseLock: () => {},
+            }),
+          },
+        });
+      }
+      return response;
+    });
   });
 
   afterAll(() => {
@@ -135,6 +168,7 @@ describe('ExperimentLoggedModelDetailsArtifacts integration test', () => {
   });
 
   afterEach(() => {
+    jest.restoreAllMocks();
     capturedRequests = [];
     server.resetHandlers();
   });
@@ -164,5 +198,6 @@ describe('ExperimentLoggedModelDetailsArtifacts integration test', () => {
     expect(capturedRequests.find((req) => req.url.startsWith('https://storage.example/'))).toEqual(
       expect.objectContaining({ workspaceHeader: null, storageHeader: 'required' }),
     );
+    expect(getLoggedModelArtifactReadCredentialsSupportedSync).toHaveBeenCalled();
   });
 });

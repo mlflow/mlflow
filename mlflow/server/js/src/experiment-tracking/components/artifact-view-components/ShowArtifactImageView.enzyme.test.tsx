@@ -7,8 +7,12 @@
 
 import { describe, beforeAll, jest, afterAll, beforeEach, test, expect } from '@jest/globals';
 import React from 'react';
-import { mount, shallow } from 'enzyme';
+import { shallow } from 'enzyme';
 import ShowArtifactImageView from './ShowArtifactImageView';
+import { ArtifactPreviewTooLargeError } from '../../../common/utils/ArtifactUtils';
+import { mountWithIntl } from '../../../common/utils/TestUtils.enzyme';
+import { ArtifactViewErrorState } from './ArtifactViewErrorState';
+import { ArtifactViewSkeleton } from './ArtifactViewSkeleton';
 
 describe('ShowArtifactImageView', () => {
   let wrapper: any;
@@ -37,7 +41,7 @@ describe('ShowArtifactImageView', () => {
 
   test('should fetch image as an XHR', async () => {
     const getArtifact = jest.fn(() => Promise.resolve(new ArrayBuffer(8)));
-    wrapper = mount(<ShowArtifactImageView {...minimalProps} getArtifact={getArtifact} />);
+    wrapper = mountWithIntl(<ShowArtifactImageView {...minimalProps} getArtifact={getArtifact} />);
     await new Promise(setImmediate);
     // @ts-expect-error Expected 0 arguments, but got 1
     expect(getArtifact).toHaveBeenCalledWith(expect.stringMatching(/get-artifact\?path=fakePath&run_uuid=fakeUuid/));
@@ -58,7 +62,7 @@ describe('ShowArtifactImageView', () => {
     );
     objectUrlSpy.mockImplementation((blob: Blob) => (blob.size === 1 ? 'blob:first' : 'blob:second'));
 
-    wrapper = mount(<ShowArtifactImageView {...minimalProps} path="first.svg" getArtifact={getArtifact} />);
+    wrapper = mountWithIntl(<ShowArtifactImageView {...minimalProps} path="first.svg" getArtifact={getArtifact} />);
     wrapper.setProps({ path: 'second.svg' });
     await new Promise((resolve) => setImmediate(resolve));
     wrapper.update();
@@ -69,5 +73,16 @@ describe('ShowArtifactImageView', () => {
     wrapper.update();
     expect(wrapper.find('img').first().prop('src')).toBe('blob:second');
     expect(wrapper.find('img').first().prop('alt')).toBe('second.svg');
+  });
+
+  test('shows a loading placeholder and a local error for an oversized image', async () => {
+    const getArtifact = jest.fn<() => Promise<ArrayBuffer>>().mockRejectedValue(new ArtifactPreviewTooLargeError());
+    wrapper = mountWithIntl(<ShowArtifactImageView {...minimalProps} getArtifact={getArtifact} />);
+    expect(wrapper.find(ArtifactViewSkeleton)).toHaveLength(1);
+    await new Promise(setImmediate);
+    wrapper.update();
+    expect(wrapper.find(ArtifactViewSkeleton)).toHaveLength(0);
+    expect(wrapper.find(ArtifactViewErrorState)).toHaveLength(1);
+    expect(wrapper.find('img[src="blob:abc-12345"]')).toHaveLength(0);
   });
 });

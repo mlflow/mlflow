@@ -30,7 +30,7 @@ jest.mock('../../common/utils/ArtifactUtils', () => ({
 }));
 
 jest.mock('../utils/PresignedArtifactUtils', () => ({
-  fetchArtifactWithPresignedUrl: (
+  fetchArtifactPreferPresigned: (
     _params: unknown,
     legacyArtifactLocation: string,
     getArtifactData: (artifactLocation: string) => Promise<unknown>,
@@ -109,11 +109,12 @@ const mockArtifactRetrieval = <T extends BlobPart>(artifactData: T) => {
       }
     });
   };
-  // @ts-expect-error Type 'unknown' is not assignable to type 'R'
-  jest.mocked(getArtifactContent).mockImplementation(getArtifactContentMocked);
+  jest
+    .mocked(getArtifactContent)
+    .mockImplementation((artifactLocation) => getArtifactContentMocked(artifactLocation) as Promise<string>);
   jest
     .mocked(getArtifactBytesContent)
-    .mockImplementation((artifactLocation) => getArtifactContentMocked(artifactLocation, true));
+    .mockImplementation((artifactLocation) => getArtifactContentMocked(artifactLocation, true) as Promise<ArrayBuffer>);
 };
 
 /**

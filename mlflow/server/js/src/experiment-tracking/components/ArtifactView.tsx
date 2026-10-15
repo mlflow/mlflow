@@ -43,7 +43,7 @@ import { listArtifactsApi, listArtifactsLoggedModelApi } from '../actions';
 import { MLMODEL_FILE_NAME } from '../constants';
 import { FallbackToLoggedModelArtifactsInfo } from './artifact-view-components/FallbackToLoggedModelArtifactsInfo';
 import {
-  getArtifactBlob,
+  getArtifactDownloadBlob,
   getArtifactLocationUrl,
   getLoggedModelArtifactLocationUrl,
 } from '../../common/utils/ArtifactUtils';
@@ -57,7 +57,7 @@ import { getLoggedTablesFromTags } from '@mlflow/mlflow/src/common/utils/TagUtil
 import { CopyButton } from '../../shared/building_blocks/CopyButton';
 import type { LoggedModelArtifactViewerProps } from './artifact-view-components/ArtifactViewComponents.types';
 import type { KeyValueEntity } from '../../common/types';
-import { fetchArtifactWithPresignedUrl, resolvePresignedArtifactDownload } from '../utils/PresignedArtifactUtils';
+import { fetchArtifactPreferPresigned, resolvePresignedArtifactDownload } from '../utils/PresignedArtifactUtils';
 
 const { Text } = Typography;
 type ArtifactViewImplProps = DesignSystemHocProps & {
@@ -272,10 +272,10 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
           window.location.assign(presigned.url);
         } else {
           await this.downloadArtifactViaBlob(
-            fetchArtifactWithPresignedUrl(
+            fetchArtifactPreferPresigned(
               params,
               legacyArtifactLocation,
-              (url, options) => getArtifactBlob(url, options),
+              (url, options) => getArtifactDownloadBlob(url, options),
               presigned,
             ),
             artifactPath,
@@ -285,9 +285,9 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
       }
 
       if (!isLoggedModelsMode && runUuid) {
-        await this.downloadArtifactViaBlob(getArtifactBlob(legacyArtifactLocation, undefined), artifactPath);
+        await this.downloadArtifactViaBlob(getArtifactDownloadBlob(legacyArtifactLocation, undefined), artifactPath);
       } else if (loggedModelId) {
-        await this.downloadArtifactViaBlob(getArtifactBlob(legacyArtifactLocation, undefined), artifactPath);
+        await this.downloadArtifactViaBlob(getArtifactDownloadBlob(legacyArtifactLocation, undefined), artifactPath);
       }
     } catch (error) {
       Utils.logErrorAndNotifyUser(error);
@@ -588,7 +588,6 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
           )}
           {this.state.activeNodeId ? this.renderArtifactInfo() : null}
           <ShowArtifactPage
-            experimentId={this.props.experimentId}
             runUuid={this.props.runUuid}
             path={this.state.activeNodeId}
             isDirectory={this.activeNodeIsDirectory()}
@@ -599,7 +598,6 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
             showArtifactLoggedTableView={this.state.viewAsTable && this.shouldShowViewAsTableCheckbox}
             loggedModelId={loggedModelId}
             isLoggedModelsMode={isLoggedModelsMode}
-            entityTags={this.props.entityTags}
           />
         </div>
       </div>

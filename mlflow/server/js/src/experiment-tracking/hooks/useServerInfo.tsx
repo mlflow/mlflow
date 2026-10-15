@@ -24,6 +24,8 @@ interface ServerInfoResponse {
   tracking_auth?: string;
   presigned_upload_run_id_supported?: boolean;
   presigned_upload_model_id_supported?: boolean;
+  model_artifact_presigned_downloads_supported?: boolean;
+  logged_model_artifact_read_credentials_supported?: boolean;
   artifacts_presigned_only?: boolean;
   features_enabled?: Record<FeatureKey, boolean>;
 }
@@ -143,16 +145,6 @@ export function useSkillContentLimits(): { maxBytes?: number; maxFiles?: number 
   return { maxBytes: data?.skill_content_max_size, maxFiles: data?.skill_content_max_files };
 }
 
-export function useMultipartUploadsEnabled(): boolean {
-  const { data } = useServerInfo();
-  return data?.multipart_uploads_enabled ?? false;
-}
-
-export function useArtifactsPresignedOnly(): boolean {
-  const { data } = useServerInfo();
-  return data?.artifacts_presigned_only ?? false;
-}
-
 interface ServerInfoProviderProps {
   children: ReactNode;
 }
@@ -215,6 +207,16 @@ export const getPresignedUploadRunIdSupportedSync = (): boolean => {
 export const getArtifactsPresignedOnlySync = (): boolean => {
   const cachedData = queryClientRef?.getQueryData<ServerInfoResponse>([SERVER_INFO_QUERY_KEY]);
   return cachedData?.artifacts_presigned_only ?? false;
+};
+
+export const getModelArtifactPresignedDownloadsSupportedSync = (): boolean => {
+  const cachedData = queryClientRef?.getQueryData<ServerInfoResponse>([SERVER_INFO_QUERY_KEY]);
+  return cachedData?.model_artifact_presigned_downloads_supported ?? false;
+};
+
+export const getLoggedModelArtifactReadCredentialsSupportedSync = (): boolean => {
+  const cachedData = queryClientRef?.getQueryData<ServerInfoResponse>([SERVER_INFO_QUERY_KEY]);
+  return cachedData?.logged_model_artifact_read_credentials_supported ?? false;
 };
 
 /**

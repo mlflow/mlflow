@@ -13,7 +13,7 @@ import { mountWithIntl, shallowWithInjectIntl } from '@mlflow/mlflow/src/common/
 import { DesignSystemProvider } from '@databricks/design-system';
 
 jest.mock('../../utils/PresignedArtifactUtils', () => ({
-  fetchArtifactWithPresignedUrl: (
+  fetchArtifactPreferPresigned: (
     _params: unknown,
     legacyArtifactLocation: string,
     getArtifactData: (artifactLocation: string) => Promise<unknown>,
@@ -393,5 +393,28 @@ flavors:
       expect(codeContentText.includes('mlflow.models.predict')).toBe(true);
       done();
     });
+  });
+  test('clears a previous metadata error when another model artifact loads', async () => {
+    const getArtifact = jest
+      .fn<() => Promise<string>>()
+      .mockRejectedValueOnce(new Error('too large'))
+      .mockResolvedValueOnce(minimumFlavors);
+    wrapper = mountWithIntl(
+      <DesignSystemProvider>
+        <ShowArtifactLoggedModelView {...minimalProps} getArtifact={getArtifact} />
+      </DesignSystemProvider>,
+    );
+    await new Promise(setImmediate);
+    expect(wrapper.find(ShowArtifactLoggedModelViewImpl).instance().state.error).toBeDefined();
+    wrapper.setProps({
+      children: (
+        <DesignSystemProvider>
+          <ShowArtifactLoggedModelView {...minimalProps} path="valid" getArtifact={getArtifact} />
+        </DesignSystemProvider>
+      ),
+    });
+    await new Promise(setImmediate);
+    expect(wrapper.find(ShowArtifactLoggedModelViewImpl).instance().state.error).toBeUndefined();
+    expect(wrapper.find(ShowArtifactLoggedModelViewImpl).instance().state.loading).toBe(false);
   });
 });

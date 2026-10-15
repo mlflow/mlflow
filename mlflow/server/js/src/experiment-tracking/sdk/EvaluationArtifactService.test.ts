@@ -9,7 +9,7 @@ jest.mock('../../common/utils/ArtifactUtils', () => ({
 }));
 
 jest.mock('../utils/PresignedArtifactUtils', () => ({
-  fetchRunArtifactWithPresignedUrl: (
+  fetchRunArtifactPreferPresigned: (
     _runUuid: string,
     _path: string,
     legacyArtifactLocation: string,

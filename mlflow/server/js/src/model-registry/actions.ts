@@ -11,7 +11,7 @@ import { getArtifactContent } from '../common/utils/ArtifactUtils';
 import yaml from 'js-yaml';
 import type { ModelVersionInfoEntity } from '../experiment-tracking/types';
 import type { KeyValueEntity } from '../common/types';
-import { fetchArtifactWithPresignedUrl } from '../experiment-tracking/utils/PresignedArtifactUtils';
+import { fetchArtifactPreferPresigned } from '../experiment-tracking/utils/PresignedArtifactUtils';
 import { getArtifactsPresignedOnlySync } from '../experiment-tracking/hooks/useServerInfo';
 import { MlflowService } from '../experiment-tracking/sdk/MlflowService';
 import { ErrorWrapper } from '../common/utils/ErrorWrapper';
@@ -129,7 +129,7 @@ export const fetchModelVersionArtifact = async (modelName: any, version: any) =>
     if (!response.url) {
       throw new ErrorWrapper('The server did not return a presigned URL for this model version.', 501);
     }
-    return fetchArtifactWithPresignedUrl({ runUuid: '', path: 'MLmodel' }, artifactLocation, getArtifactContent, {
+    return fetchArtifactPreferPresigned({ runUuid: '', path: 'MLmodel' }, artifactLocation, getArtifactContent, {
       url: response.url,
       headers: response.headers ?? {},
     });
@@ -175,7 +175,7 @@ export const fetchModelVersionArtifact = async (modelName: any, version: any) =>
       async () => (await MlflowService.getLoggedModel(loggedModelId))?.model?.info?.artifact_uri,
     );
     if (!artifactRootUri) return fetchRegistryArtifact();
-    return fetchArtifactWithPresignedUrl(
+    return fetchArtifactPreferPresigned(
       {
         runUuid: '',
         path: 'MLmodel',
@@ -196,7 +196,7 @@ export const fetchModelVersionArtifact = async (modelName: any, version: any) =>
     );
     if (!artifactRootUri) return fetchRegistryArtifact();
     const mlModelPath = [modelArtifactPath, 'MLmodel'].filter(Boolean).join('/');
-    return fetchArtifactWithPresignedUrl(
+    return fetchArtifactPreferPresigned(
       { runUuid: runId, path: mlModelPath, artifactRootUri },
       artifactLocation,
       getArtifactContent,

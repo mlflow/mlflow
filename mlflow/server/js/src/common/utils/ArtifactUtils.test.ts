@@ -4,6 +4,11 @@ import { afterEach, describe, expect, jest, test } from '@jest/globals';
 import {
   getArtifactBlob,
   getArtifactChunkedText,
+  getArtifactContent,
+  getArtifactBytesContent,
+  getArtifactDownloadBlob,
+  MAX_ARTIFACT_PREVIEW_BYTES,
+  ArtifactPreviewTooLargeError,
   getArtifactLocationUrl,
   getLoggedModelArtifactLocationUrl,
 } from './ArtifactUtils';
@@ -17,7 +22,7 @@ describe('ArtifactUtils workspace-aware URLs', () => {
 
   test('presigned artifact requests do not forward tracking-server headers', async () => {
     setActiveWorkspace('team-a');
-    const fetchSpy = jest.spyOn(global, 'fetch').mockResolvedValue(new Response('artifact'));
+    const { fetchSpy } = mockArtifactStream([new Uint8Array([1])]);
 
     await getArtifactBlob('https://storage.example/artifact', {
       headers: { 'x-storage-header': 'required' },
@@ -30,9 +35,9 @@ describe('ArtifactUtils workspace-aware URLs', () => {
 
   test('artifact request options without headers retain tracking-server headers', async () => {
     setActiveWorkspace('team-a');
-    const fetchSpy = jest.spyOn(global, 'fetch').mockResolvedValue(new Response('artifact'));
+    const { fetchSpy } = mockArtifactStream([new Uint8Array([1])]);
 
-    await getArtifactBlob('/get-artifact', { isBinary: true });
+    await getArtifactBlob('/get-artifact', {});
 
     const request = fetchSpy.mock.calls[0][0] as Request;
     expect(request.headers.get('X-MLFLOW-WORKSPACE')).toBe('team-a');
@@ -66,9 +71,11 @@ describe('ArtifactUtils workspace-aware URLs', () => {
       .mockResolvedValueOnce({ value: new Uint8Array([0xac]), done: false })
       .mockResolvedValueOnce({ value: undefined, done: true });
     const releaseLock = jest.fn();
-    jest
-      .spyOn(global, 'fetch')
-      .mockResolvedValue({ ok: true, body: { getReader: () => ({ read, releaseLock }) } } as unknown as Response);
+    const cancel = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
+    jest.spyOn(global, 'fetch').mockResolvedValue({
+      ok: true,
+      body: { getReader: () => ({ read, releaseLock, cancel }) },
+    } as unknown as Response);
     await expect(getArtifactChunkedText('/get-artifact')).resolves.toBe('€');
     expect(releaseLock).toHaveBeenCalledTimes(1);
   });
@@ -77,10 +84,13 @@ describe('ArtifactUtils workspace-aware URLs', () => {
     const error = new TypeError('stream failed');
     const read = jest.fn<() => Promise<ReadableStreamReadResult<Uint8Array>>>().mockRejectedValue(error);
     const releaseLock = jest.fn();
-    jest
-      .spyOn(global, 'fetch')
-      .mockResolvedValue({ ok: true, body: { getReader: () => ({ read, releaseLock }) } } as unknown as Response);
+    const cancel = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
+    jest.spyOn(global, 'fetch').mockResolvedValue({
+      ok: true,
+      body: { getReader: () => ({ read, releaseLock, cancel }) },
+    } as unknown as Response);
     await expect(getArtifactChunkedText('/get-artifact')).rejects.toBe(error);
+    expect(cancel).toHaveBeenCalledTimes(1);
     expect(releaseLock).toHaveBeenCalledTimes(1);
   });
 
@@ -92,6 +102,114 @@ describe('ArtifactUtils workspace-aware URLs', () => {
     expect(url).not.toContain('workspaces');
     expect(url).toContain('artifact_file_path=dir%2Ffile.txt');
   });
+});
+
+const mockArtifactStream = (chunks: Uint8Array[], headers: Record<string, string> = {}) => {
+  let position = 0;
+  const read = jest.fn<() => Promise<ReadableStreamReadResult<Uint8Array>>>().mockImplementation(async () => {
+    if (position === chunks.length) {
+      return { done: true, value: undefined };
+    }
+    return { done: false, value: chunks[position++] };
+  });
+  const cancel = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
+  const releaseLock = jest.fn();
+  const response = {
+    ok: true,
+    headers: new Headers(headers),
+    body: { getReader: () => ({ read, cancel, releaseLock }) },
+  } as unknown as Response;
+  const fetchSpy = jest.spyOn(global, 'fetch').mockResolvedValue(response);
+  return { read, cancel, releaseLock, fetchSpy };
+};
+
+describe('bounded artifact previews', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  test.each([
+    ['text', getArtifactContent],
+    ['chunked text', getArtifactChunkedText],
+    ['bytes', getArtifactBytesContent],
+    ['blob', getArtifactBlob],
+  ])('%s cancels a preview after 50 MiB without reading the remaining response', async (_, readArtifact) => {
+    const { read, cancel, releaseLock } = mockArtifactStream([
+      new Uint8Array([0xc2, 0xa2]),
+      new Uint8Array(MAX_ARTIFACT_PREVIEW_BYTES - 1),
+      new Uint8Array([1]),
+    ]);
+
+    await expect(readArtifact('/get-artifact')).rejects.toBeInstanceOf(ArtifactPreviewTooLargeError);
+
+    expect(read).toHaveBeenCalledTimes(2);
+    expect(cancel).toHaveBeenCalledTimes(1);
+    expect(releaseLock).toHaveBeenCalledTimes(1);
+  });
+
+  test('an understated Content-Length cannot bypass the byte limit', async () => {
+    const { cancel, releaseLock } = mockArtifactStream([new Uint8Array(MAX_ARTIFACT_PREVIEW_BYTES + 1)], {
+      'Content-Length': '1',
+    });
+    await expect(getArtifactBytesContent('/get-artifact')).rejects.toBeInstanceOf(ArtifactPreviewTooLargeError);
+    expect(cancel).toHaveBeenCalledTimes(1);
+    expect(releaseLock).toHaveBeenCalledTimes(1);
+  });
+
+  test('an overstated Content-Length does not reject a small artifact', async () => {
+    const { cancel, releaseLock } = mockArtifactStream([new Uint8Array([0xe2]), new Uint8Array([0x82, 0xac])], {
+      'Content-Length': String(MAX_ARTIFACT_PREVIEW_BYTES + 1),
+    });
+    await expect(getArtifactContent('/get-artifact')).resolves.toBe('€');
+    expect(cancel).not.toHaveBeenCalled();
+    expect(releaseLock).toHaveBeenCalledTimes(1);
+  });
+
+  test('allows exactly 50 MiB and preserves the original binary bytes', async () => {
+    const first = new Uint8Array(MAX_ARTIFACT_PREVIEW_BYTES - 1);
+    first[0] = 0xff;
+    const { cancel, releaseLock } = mockArtifactStream([first, new Uint8Array([0x80])]);
+    const result = new Uint8Array(await getArtifactBytesContent('/get-artifact'));
+    expect(result.byteLength).toBe(MAX_ARTIFACT_PREVIEW_BYTES);
+    expect(result[0]).toBe(0xff);
+    expect(result[result.length - 1]).toBe(0x80);
+    expect(cancel).not.toHaveBeenCalled();
+    expect(releaseLock).toHaveBeenCalledTimes(1);
+  });
+
+  test('preserves the stream error when cancellation also fails', async () => {
+    const { read, cancel, releaseLock } = mockArtifactStream([]);
+    const readError = new TypeError('stream failed');
+    read.mockRejectedValueOnce(readError);
+    cancel.mockRejectedValueOnce(new Error('cancel failed'));
+    await expect(getArtifactContent('/get-artifact')).rejects.toBe(readError);
+    expect(cancel).toHaveBeenCalledTimes(1);
+    expect(releaseLock).toHaveBeenCalledTimes(1);
+  });
+
+  test('preserves the content type for blob previews', async () => {
+    mockArtifactStream([new Uint8Array([1, 2, 3])], { 'Content-Type': 'image/svg+xml' });
+    const blob = await getArtifactBlob('/get-artifact');
+    expect(blob.type).toBe('image/svg+xml');
+    expect(blob.size).toBe(3);
+  });
+
+  test.each([undefined, { 'x-storage-header': 'required' }])(
+    'downloads remain unbounded with headers %j',
+    async (headers) => {
+      const blob = new Blob([new Uint8Array(MAX_ARTIFACT_PREVIEW_BYTES + 1)]);
+      const readBlob = jest.fn<() => Promise<Blob>>().mockResolvedValue(blob);
+      const fetchSpy = jest
+        .spyOn(global, 'fetch')
+        .mockResolvedValue({ ok: true, blob: readBlob } as unknown as Response);
+
+      await expect(getArtifactDownloadBlob('https://storage.example/artifact', { headers })).resolves.toBe(blob);
+      expect(readBlob).toHaveBeenCalledTimes(1);
+      if (headers) {
+        expect((fetchSpy.mock.calls[0][0] as Request).headers.get('x-storage-header')).toBe('required');
+      }
+    },
+  );
 });
 
 describe('getArtifactChunkedText', () => {

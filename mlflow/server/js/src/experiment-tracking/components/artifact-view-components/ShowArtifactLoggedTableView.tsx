@@ -439,27 +439,19 @@ type ShowArtifactLoggedTableViewProps = {
 
 export const ShowArtifactLoggedTableView = React.memo(
   // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
-  ({
-    runUuid,
-    path,
-    isLoggedModelsMode,
-    loggedModelId,
-    experimentId,
-    entityTags,
-    artifactRootUri,
-  }: ShowArtifactLoggedTableViewProps) => {
+  ({ runUuid, path, isLoggedModelsMode, loggedModelId, artifactRootUri }: ShowArtifactLoggedTableViewProps) => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<Error>();
     const [curPath, setCurPath] = useState<string | undefined>(undefined);
     const [text, setText] = useState<string>('');
 
     useEffect(() => {
+      let cancelled = false;
       setLoading(true);
-      fetchArtifactUnified(
-        { runUuid, path, artifactRootUri, isLoggedModelsMode, loggedModelId, experimentId, entityTags },
-        getArtifactContent,
-      )
+      setError(undefined);
+      fetchArtifactUnified({ runUuid, path, artifactRootUri, isLoggedModelsMode, loggedModelId }, getArtifactContent)
         .then((value) => {
+          if (cancelled) return;
           setLoading(false);
           // Check if value is stringified JSON
           if (value && typeof value === 'string') {
@@ -470,11 +462,15 @@ export const ShowArtifactLoggedTableView = React.memo(
           }
         })
         .catch((error: Error) => {
+          if (cancelled) return;
           setError(error);
           setLoading(false);
         });
       setCurPath(path);
-    }, [path, runUuid, isLoggedModelsMode, loggedModelId, experimentId, entityTags, artifactRootUri]);
+      return () => {
+        cancelled = true;
+      };
+    }, [path, runUuid, isLoggedModelsMode, loggedModelId, artifactRootUri]);
 
     const data = useMemo<{
       columns: string[];

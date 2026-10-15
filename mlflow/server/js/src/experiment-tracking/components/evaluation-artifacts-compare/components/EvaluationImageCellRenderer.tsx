@@ -3,10 +3,7 @@ import type { ICellRendererParams } from '@ag-grid-community/core';
 import { FormattedMessage } from 'react-intl';
 import type { RunRowType } from '../../experiment-page/utils/experimentPage.row-types';
 import type { UseEvaluationArtifactTableDataResult } from '../hooks/useEvaluationArtifactTableData';
-import {
-  ImagePlot,
-  RunArtifactImagePlot,
-} from '@mlflow/mlflow/src/experiment-tracking/components/runs-charts/components/charts/ImageGridPlot.common';
+import { RunArtifactImagePlot } from '@mlflow/mlflow/src/experiment-tracking/components/runs-charts/components/charts/ImageGridPlot.common';
 import type { EvaluateCellImage } from '@mlflow/mlflow/src/experiment-tracking/types';
 
 interface EvaluationImageCellRendererProps extends ICellRendererParams {
@@ -31,8 +28,6 @@ export const EvaluationImageCellRenderer = ({ value, run }: EvaluationImageCellR
     value?.runUuid && value.filepath && value.compressedFilepath
       ? { runUuid: value.runUuid, filepath: value.filepath, compressedFilepath: value.compressedFilepath }
       : undefined;
-  const legacyImage =
-    value?.url && value.compressed_url ? { imageUrl: value.url, compressedImageUrl: value.compressed_url } : undefined;
 
   return (
     <div
@@ -49,7 +44,7 @@ export const EvaluationImageCellRenderer = ({ value, run }: EvaluationImageCellR
         },
       }}
     >
-      {!runArtifactImage && !legacyImage ? (
+      {!runArtifactImage ? (
         <Typography.Text color="info" css={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
           <FormattedMessage
             defaultMessage="(empty)"
@@ -68,11 +63,7 @@ export const EvaluationImageCellRenderer = ({ value, run }: EvaluationImageCellR
             height: '100%',
           }}
         >
-          {runArtifactImage ? (
-            <RunArtifactImagePlot {...runArtifactImage} artifactRootUri={run?.runInfo?.artifactUri} />
-          ) : (
-            legacyImage && <ImagePlot {...legacyImage} />
-          )}
+          <RunArtifactImagePlot {...runArtifactImage} artifactRootUri={run?.runInfo?.artifactUri} />
         </span>
       )}
     </div>

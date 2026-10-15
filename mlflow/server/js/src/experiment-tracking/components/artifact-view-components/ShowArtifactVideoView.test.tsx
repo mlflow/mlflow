@@ -4,6 +4,7 @@ import { IntlProvider } from 'react-intl';
 import { DesignSystemProvider } from '@databricks/design-system';
 
 import ShowArtifactVideoView from './ShowArtifactVideoView';
+import { ArtifactPreviewTooLargeError } from '../../../common/utils/ArtifactUtils';
 
 jest.mock('../../../common/utils/ArtifactUtils', () => ({
   ...jest.requireActual<typeof import('../../../common/utils/ArtifactUtils')>('../../../common/utils/ArtifactUtils'),
@@ -26,7 +27,6 @@ describe('ShowArtifactVideoView', () => {
         path="foo/bar/video.mp4"
         getArtifact={getArtifactMock}
         isLoggedModelsMode={false}
-        experimentId="experiment-123"
       />,
       {
         wrapper: ({ children }) => (
@@ -43,5 +43,17 @@ describe('ShowArtifactVideoView', () => {
       expect(screen.getByLabelText('video')).toBeInTheDocument();
       expect((screen.getByLabelText('video') as HTMLVideoElement).src).toBe('blob://dummy-url');
     });
+  });
+  it('shows a local error when a video exceeds the streaming preview limit', async () => {
+    const getArtifact = jest.fn<() => Promise<Blob>>().mockRejectedValue(new ArtifactPreviewTooLargeError());
+    render(<ShowArtifactVideoView runUuid="run-123" path="video.mp4" getArtifact={getArtifact} />, {
+      wrapper: ({ children }) => (
+        <IntlProvider locale="en">
+          <DesignSystemProvider>{children}</DesignSystemProvider>
+        </IntlProvider>
+      ),
+    });
+    expect(await screen.findByText('Loading artifact failed')).toBeInTheDocument();
+    expect(screen.queryByLabelText('video')).not.toBeInTheDocument();
   });
 });
