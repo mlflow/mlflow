@@ -9,7 +9,7 @@ from mlflow.genai.scorers.aggregation import (
     _cast_assessment_value_to_float,
     compute_aggregated_metrics,
 )
-from mlflow.genai.scorers.base import Scorer
+from mlflow.genai.scorers.base import QualityThreshold, Scorer
 
 _EVAL_ITEM = EvalItem(
     request_id="dummy_request_id",
@@ -134,3 +134,63 @@ def test_non_aggregatable_output_warns_agent(value):
         f"Scorer 'quality' returned a value of type {type(value).__name__!r}, which is not "
         "included in aggregated metrics; return a boolean, number, or 'yes'/'no' instead.",
     )
+
+
+def test_compute_aggregated_metrics_includes_quality_threshold_aggregation():
+    scorers = [
+        Scorer(name="default"),
+        Scorer(name="explicit", aggregations=["max"]),
+        Scorer(name="already_computed", aggregations=["mean"]),
+    ]
+    quality_thresholds = {
+        "default": QualityThreshold(at_least=0.5, aggregation="min"),
+        "explicit": QualityThreshold(at_most=0.9, aggregation="p90"),
+        "already_computed": QualityThreshold(at_least=0.5),
+    }
+    eval_results = [
+        EvalResult(
+            eval_item=_EVAL_ITEM,
+            assessments=[
+                Feedback(name="default", value=value),
+                Feedback(name="explicit", value=value),
+                Feedback(name="already_computed", value=value),
+            ],
+        )
+        for value in [0.2, 0.8]
+    ]
+
+    result = compute_aggregated_metrics(eval_results, scorers, quality_thresholds)
+
+    assert result == {
+        "default/mean": pytest.approx(0.5),
+        "default/min": pytest.approx(0.2),
+        "explicit/max": pytest.approx(0.8),
+        "explicit/p90": pytest.approx(0.74),
+        "already_computed/mean": pytest.approx(0.5),
+    }
+    # The scorer's own aggregations are not mutated.
+    assert scorers[1].aggregations == ["max"]
+
+
+def test_compute_aggregated_metrics_matches_scorer_name_containing_slash():
+    scorers = [Scorer(name="team/latency"), Scorer(name="correctness", aggregations=["min"])]
+    quality_thresholds = {"team/latency": QualityThreshold(at_most=2, aggregation="max")}
+    eval_results = [
+        EvalResult(
+            eval_item=_EVAL_ITEM,
+            assessments=[
+                Feedback(name="team/latency", value=value),
+                # Namespaced assessment names still resolve to the scorer by its own name.
+                Feedback(name="judges/correctness", value=value),
+            ],
+        )
+        for value in [1.0, 3.0]
+    ]
+
+    result = compute_aggregated_metrics(eval_results, scorers, quality_thresholds)
+
+    assert result == {
+        "team/latency/mean": pytest.approx(2.0),
+        "team/latency/max": pytest.approx(3.0),
+        "judges/correctness/min": pytest.approx(1.0),
+    }

@@ -11,7 +11,7 @@ from contextlib import contextmanager
 from contextvars import ContextVar, copy_context
 from dataclasses import asdict, dataclass, fields
 from enum import Enum
-from typing import Any, Callable, ClassVar, Literal, TypeAlias, TypeVar, overload
+from typing import Any, Callable, ClassVar, Literal, TypeAlias, TypeVar, get_args, overload
 
 from pydantic import BaseModel, PrivateAttr
 
@@ -69,9 +69,8 @@ _SERIALIZATION_VERSION = 1
 # Default per-invocation timeout (seconds) for @scorer scorers that don't set an explicit timeout.
 DEFAULT_SCORER_TIMEOUT = 300
 _AggregationFunc: TypeAlias = Callable[[list[int | float]], float]
-_AggregationType: TypeAlias = (
-    Literal["min", "max", "mean", "median", "variance", "p90"] | _AggregationFunc
-)
+_BuiltinAggregation: TypeAlias = Literal["min", "max", "mean", "median", "variance", "p90"]
+_AggregationType: TypeAlias = _BuiltinAggregation | _AggregationFunc
 
 
 class ScorerKind(Enum):
@@ -117,6 +116,73 @@ class ScorerSamplingConfig:
 
 
 AggregationFunc = Callable[[list[float]], float]  # List of per-row value -> aggregated value
+
+
+@experimental(version="3.17.2")
+@dataclass(frozen=True)
+class QualityThreshold:
+    """
+    The bar a scorer's aggregated metric must clear. An evaluation run counts as passing only
+    when every scorer with a threshold clears it.
+
+    Pass it to ``mlflow.genai.evaluate`` in ``quality_thresholds``, keyed by scorer name.
+    Exactly one of ``at_least`` or ``at_most`` is required.
+
+    Args:
+        at_least: The aggregated metric must be greater than or equal to this value.
+        at_most: The aggregated metric must be less than or equal to this value.
+        aggregation: The run-level aggregation of the scorer's per-row values that the bar
+            applies to. One of ``"min"``, ``"max"``, ``"mean"``, ``"median"``, ``"variance"``,
+            ``"p90"``. For a yes/no scorer, ``"mean"`` is the pass rate.
+
+    Example:
+
+        .. code-block:: python
+
+            from mlflow.genai.scorers import Correctness, QualityThreshold, scorer
+
+
+            @scorer
+            def latency_s(trace) -> float:
+                return trace.info.execution_duration / 1000
+
+
+            mlflow.genai.evaluate(
+                data=data,
+                predict_fn=predict_fn,
+                scorers=[Correctness(), latency_s],
+                quality_thresholds={
+                    "correctness": QualityThreshold(at_least=0.9),
+                    "latency_s": QualityThreshold(at_most=2.0, aggregation="p90"),
+                },
+            )
+    """
+
+    at_least: float | None = None
+    at_most: float | None = None
+    aggregation: _BuiltinAggregation = "mean"
+
+    def __post_init__(self):
+        bounds = {"at_least": self.at_least, "at_most": self.at_most}
+        given = {k: v for k, v in bounds.items() if v is not None}
+        if len(given) != 1:
+            raise MlflowException.invalid_parameter_value(
+                f"QualityThreshold requires exactly one of `at_least` or `at_most`, got {bounds}."
+            )
+        [(bound, value)] = given.items()
+        if (
+            isinstance(value, bool)
+            or not isinstance(value, (int, float))
+            or not math.isfinite(value)
+        ):
+            raise MlflowException.invalid_parameter_value(
+                f"QualityThreshold `{bound}` must be a finite number, got {value!r}."
+            )
+        if self.aggregation not in get_args(_BuiltinAggregation):
+            raise MlflowException.invalid_parameter_value(
+                f"QualityThreshold `aggregation` must be one of {get_args(_BuiltinAggregation)}, "
+                f"got {self.aggregation!r}."
+            )
 
 
 def _extract_scorer_value(result: Any) -> Any:

@@ -8,7 +8,7 @@ import numpy as np
 from mlflow.entities.assessment import Feedback
 from mlflow.genai.evaluation.entities import EvalResult
 from mlflow.genai.judges.builtin import CategoricalRating
-from mlflow.genai.scorers.base import AggregationFunc, Scorer
+from mlflow.genai.scorers.base import AggregationFunc, QualityThreshold, Scorer
 
 _logger = logging.getLogger(__name__)
 
@@ -26,6 +26,7 @@ _AGGREGATE_FUNCTIONS = {
 def compute_aggregated_metrics(
     eval_results: list[EvalResult],
     scorers: list[Scorer],
+    quality_thresholds: dict[str, QualityThreshold] | None = None,
 ) -> dict[str, float]:
     """
     Generates the aggregated per-run metrics from the evaluation result for each row.
@@ -33,6 +34,8 @@ def compute_aggregated_metrics(
     Args:
         eval_results: List of EvalResult objects
         scorers: List of scorers
+        quality_thresholds: Quality thresholds by scorer name. The aggregation each one is
+            checked against is computed even when it isn't in the scorer's ``aggregations``.
 
     Returns:
         Dictionary of aggregated metrics (metric name -> aggregated value)
@@ -46,13 +49,17 @@ def compute_aggregated_metrics(
                 if value is not None:  # Exclude None from aggregation
                     assessment_values[assessment.name].append(value)
 
+    quality_thresholds = quality_thresholds or {}
     # List all aggregations to compute for each scorer
     scorer_aggregations = {}
     for scorer in scorers:
-        if scorer.aggregations is not None:
-            scorer_aggregations[scorer.name] = scorer.aggregations
-        else:
-            scorer_aggregations[scorer.name] = ["mean"]  # default to compute mean only
+        # Default to computing the mean only
+        aggregations = list(scorer.aggregations) if scorer.aggregations is not None else ["mean"]
+        # Always compute the aggregation a quality threshold is checked against.
+        if (threshold := quality_thresholds.get(scorer.name)) is not None:
+            if threshold.aggregation not in aggregations:
+                aggregations.append(threshold.aggregation)
+        scorer_aggregations[scorer.name] = aggregations
 
     # Compute aggregates
     result = {}
@@ -60,11 +67,12 @@ def compute_aggregated_metrics(
         if not values:
             continue
 
-        # Get the function name from the returned assessment name.
-        scorer_function_name = name.split("/", 1)[-1]
+        # Match the scorer by its exact name first, since scorer names may contain "/";
+        # otherwise strip the namespace prefix from the returned assessment name.
+        scorer_name = name if name in scorer_aggregations else name.split("/", 1)[-1]
 
         # Compute aggregations for the scorer, defaulting to just ["mean"]
-        aggregations_to_compute = scorer_aggregations.get(scorer_function_name, ["mean"])
+        aggregations_to_compute = scorer_aggregations.get(scorer_name, ["mean"])
         aggregation_results = _compute_aggregations(values, aggregations_to_compute)
 
         # Each aggregation should be logged as a separate metric
