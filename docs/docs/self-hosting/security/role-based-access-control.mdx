@@ -207,15 +207,16 @@ container, which is what steps 3 and 5 cover.
    explicit deny would void it. See
    [Workspace isolation](#workspace-isolation) for when the floor applies in
    multi-workspace mode.
-7. **Mutation conditions** - once the steps above have _allowed_ the operation, any
-   [mutation conditions](#mutation-conditions) on the user's roles are evaluated.
+7. **Conditions** - once the steps above have _allowed_ the operation, any
+   [conditions](#conditions) on the user's roles are evaluated.
    Conditions only ever subtract: they can refuse an operation the grants permitted,
    and can never permit one the grants refused. They are evaluated **only for
-   creates and mutations** - a read is never conditioned - and every condition that
-   applies must pass, across all of the user's roles. Note that this is a property of
-   the _user_, not of a role: because conditions compose across every role a user
-   holds, a condition on one role restricts a grant that came from another, and adding
-   an unconditioned role does not escape it. What reproduces the old behaviour exactly
+   creates and mutations** - a read is never conditioned - and for each type, ONE of
+   the applicable conditions has to pass. Note that this is a property of the _user_,
+   not of a role: the applicable conditions are pooled across every role a user holds,
+   so a condition on one role restricts a grant that came from another. Adding an
+   unconditioned role does not escape it, because a role with no conditions contributes
+   no alternative -- absence cannot lift a restriction, only another condition can. What reproduces the old behaviour exactly
    is having no applicable conditions at all - which is what a deployment that
    configures none has.
 
@@ -226,18 +227,18 @@ Step 7 runs last, and only on the allow path. The admin bypasses in steps 1 and 
 precede it, so a Platform Admin and a Workspace Manager are not subject to
 conditions.
 
-## Mutation conditions
+## Conditions
 
-A grant says _which resources_ a user may act on. A **mutation condition** narrows
+A grant says _which resources_ a user may act on. A **condition** narrows
 _what they may do to them_, by inspecting the request or the resource at the moment
 of the write. Conditions are attached to a role, alongside its permissions.
 
 Conditions never confer access. The user must already hold the grant for an
 operation; a condition can only take that operation away. Both halves compose at the
 level of the _user_, and they compose differently: grants are a union across the
-user's roles, while conditions are an AND. So the grant that allows an operation and
-the condition that narrows it need not come from the same role, and a user with no
-applicable conditions is unconstrained - adding the feature changes nothing until a
+user's roles, and so are same-type conditions -- any one of them passing is enough.
+So the grant that allows an operation and the condition that narrows it need not come
+from the same role, and a user with no applicable conditions is unconstrained - adding the feature changes nothing until a
 condition is written.
 
 A condition can also be attached directly to a user rather than to a named role, the
@@ -246,31 +247,49 @@ grants_, and the API exposes them through the per-user endpoint; they are stored
 the synthetic role that backs the user's direct grants, so everything below applies
 to them unchanged.
 
-Each condition carries up to two independent filters:
+Each condition carries one filter and a **type** saying what that filter is read
+against:
 
-- A **value condition** constrains the values a request is _setting_. It is checked
+- A **`VALUE`** condition constrains the values a request is _setting_. It is checked
   against the request body, so it governs creates and writes of new values -
   "nobody on this team may set the `pii` tag", "nobody may assign the `champion`
   alias".
-- A **target condition** constrains _which existing resources_ may be mutated. It is
+- A **`TARGET`** condition constrains _which existing resources_ may be mutated. It is
   checked against the resource's current state, so it governs updates and deletes -
   "nothing tagged `lifecycle=prod` may be modified". On a create it is vacuous,
   because there is no prior state to read.
 
-Both filters use the same syntax as the corresponding MLflow search filter, so
+To restrict both, add **two conditions**. The two types apply together, so each still
+has to be satisfied.
+
+A filter uses the same syntax as the corresponding MLflow search filter, so
 `tags.lifecycle != 'prod'` selects what it would in a search box. The comparators
 are `=`, `!=`, `LIKE`, `ILIKE`, `IN` and `NOT IN`, and comparisons may be joined with
-`AND` only — `OR` is rejected when the condition is saved, so a condition is always a
-conjunction of restrictions. Multiple conditions, whether on one role or across
-several of the user's roles, are likewise combined with AND: every condition that
-applies must pass.
+`AND` only — `OR` is rejected when the condition is saved, so one condition is always a
+conjunction of restrictions.
+
+:::warning
+**Conditions of the same type are ALTERNATIVES, not additional restrictions.** Any one
+of them passing is enough, so **adding a condition widens what the role may do**, and
+a sibling may come from a _different role_ the same user holds. Two `VALUE` conditions
+saying `tag_key != 'pii'` and `tag_key != 'secret'` together forbid neither tag: a
+request setting `pii` satisfies the second, and is allowed.
+
+To forbid both, write one condition with both clauses:
+`tag_key != 'pii' AND tag_key != 'secret'`. The rule of thumb is that restrictions
+belong in **clauses of one condition**; separate conditions are for genuinely
+alternative ways to be permitted.
+
+The two _types_ still combine with AND, so a `VALUE` and a `TARGET` condition both
+have to be satisfied -- it is only same-type siblings that are alternatives.
+:::
 
 ### Supported resource types
 
-Every conditionable type supports both filters. The fields available differ, because
+Every conditionable type supports both types. The fields available differ, because
 only some types own aliases:
 
-| Resource type              | Value condition fields                        | Target condition fields        |
+| Resource type              | `VALUE` filter fields                         | `TARGET` filter fields         |
 | -------------------------- | --------------------------------------------- | ------------------------------ |
 | `experiment`               | `tag_key`, `tag_value`, `tags.<key>`          | `tags.<key>`                   |
 | `run`                      | `tag_key`, `tag_value`, `tags.<key>`          | `tags.<key>`                   |
@@ -700,9 +719,9 @@ flowchart LR
 
 1. Navigate to `/admin` → **Roles** → **Create role**, named `model-editor`.
 2. Add a permission: **Resource type** `Registered model`, scope _All_, **Permission** `EDIT`.
-3. Under **Mutation conditions**, add a condition on `Registered model` with a
-   **value condition** of `alias != 'champion'`, then click
-   **Add mutation condition**.
+3. Under **Conditions**, add a condition on `Registered model`, set **Condition type**
+   to _Values a request may set_, enter a **Filter** of `alias != 'champion'`, then
+   click **Add condition**.
 4. Assign the team's users to the role → review changes → apply.
 
 </TabItem>
@@ -713,10 +732,11 @@ role = auth_client.create_role(name="model-editor", workspace="ml-research")
 auth_client.add_role_permission(
     role_id=role.id, resource_type="registered_model", resource_pattern="*", permission="EDIT"
 )
-auth_client.add_mutation_condition(
+auth_client.add_condition(
     role_id=role.id,
     resource_type="registered_model",
-    value_condition="alias != 'champion'",
+    type="VALUE",
+    filter="alias != 'champion'",
 )
 auth_client.assign_role(username="erin", role_id=role.id)
 ```
@@ -758,9 +778,9 @@ flowchart LR
 
 1. Navigate to `/admin` → **Roles** → **Create role**, named `run-editor`.
 2. Add permissions: `Experiment` _All_ `READ`, and `Run` `EDIT`.
-3. Under **Mutation conditions**, add a condition on `Run` with a **target
-   condition** of `tags.lifecycle != 'prod'`, then click
-   **Add mutation condition**.
+3. Under **Conditions**, add a condition on `Run`, set **Condition type** to
+   _Resources that may be mutated_, enter a **Filter** of `tags.lifecycle != 'prod'`,
+   then click **Add condition**.
 4. Assign `frank` to the role → review changes → apply.
 
 </TabItem>
@@ -774,10 +794,11 @@ auth_client.add_role_permission(
 auth_client.add_role_permission(
     role_id=role.id, resource_type="run", resource_pattern="*", permission="EDIT"
 )
-auth_client.add_mutation_condition(
+auth_client.add_condition(
     role_id=role.id,
     resource_type="run",
-    target_condition="tags.lifecycle != 'prod'",
+    type="TARGET",
+    filter="tags.lifecycle != 'prod'",
 )
 auth_client.assign_role(username="frank", role_id=role.id)
 ```
@@ -786,12 +807,13 @@ To scope the freeze to one experiment rather than the whole workspace, give the
 condition a container:
 
 ```python
-auth_client.add_mutation_condition(
+auth_client.add_condition(
     role_id=role.id,
     resource_type="run",
     container_resource_type="experiment",
     container_resource_pattern="42",
-    target_condition="tags.lifecycle != 'prod'",
+    type="TARGET",
+    filter="tags.lifecycle != 'prod'",
 )
 ```
 
@@ -845,8 +867,8 @@ previewed in a Review step before they're applied.
 The Roles tab lists roles in the active scope (all roles for Platform Admins;
 the active workspace's roles for Workspace Managers). **Create role** opens a
 single-page form with four sections (_Role details_, _Permissions_,
-_Mutation conditions_, _Assigned users_) and submits them in one shot.
-See [Mutation conditions](#mutation-conditions) for what the conditions
+_Conditions_, _Assigned users_) and submits them in one shot.
+See [Conditions](#conditions) for what the conditions
 section does. **Edit role** on the role
 detail page mirrors the same shape.
 
@@ -856,11 +878,11 @@ detail page mirrors the same shape.
 
 ### Managing Conditions
 
-A role's detail page carries a **Mutation conditions** tab beside _Permissions_ and
+A role's detail page carries a **Conditions** tab beside _Permissions_ and
 _Assigned users_. It lists every condition on the role: the resource type, the scope
-it applies to, and each of the two filters, with `—` where a filter is not set.
+it applies to, its condition type, and its filter.
 
-![Role detail page showing the Mutation conditions tab](/images/self-hosting/rbac-conditions-tab.png)
+![Role detail page showing the Conditions tab](/images/self-hosting/rbac-conditions-tab.png)
 
 Reading this table alongside the _Permissions_ tab is how you see what this role
 contributes, because the two compose: the permissions say what the role can touch,
@@ -870,12 +892,12 @@ still unable to set a `bob` tag anywhere if a value condition says so.
 It is not the whole picture for any particular user, though. Grants union across a
 user's roles and conditions AND across them, so a user holding this role may be
 allowed more than it grants and restricted by a condition it does not carry. The
-_Mutation Conditions_ tab on a user (and the one on their own account page) is the
+_Conditions_ tab on a user (and the one on their own account page) is the
 view that answers "what restricts this user".
 
-Conditions are edited through **Edit role**, in the _Mutation conditions_ section.
+Conditions are edited through **Edit role**, in the _Conditions_ section.
 Existing conditions are pre-filled; the `✕` on a row stages it for removal. The
-**Add a mutation condition** form below builds a new one:
+**Add a condition** form below builds a new one:
 
 ![Edit role modal with the add-a-condition form, scoped to all experiments](/images/self-hosting/rbac-conditions-add-experiment.png)
 
