@@ -882,9 +882,8 @@ def test_process_sessions_warns_for_session_level_custom_scorers_run_in_containe
     with patch("mlflow.genai.scorers.base._logger.warning") as mock_warning:
         processor.process_sessions()
 
-    assert any(
-        "not yet supported for online scoring" in str(c) for c in mock_warning.call_args_list
-    )
+    warned = [c.args[1] for c in mock_warning.call_args_list if "session_level" in c.args[0]]
+    assert warned == ["turns"]
 
 
 def test_process_sessions_no_session_level_warning_without_level(
