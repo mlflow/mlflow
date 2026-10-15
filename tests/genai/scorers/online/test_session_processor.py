@@ -49,6 +49,12 @@ def make_completed_session(
     )
 
 
+@pytest.fixture(autouse=True)
+def reset_session_level_online_warned(monkeypatch):
+    """Isolate the once-per-process session_level warning set between tests."""
+    monkeypatch.setattr("mlflow.genai.scorers.base._SESSION_LEVEL_ONLINE_WARNED", set())
+
+
 def make_trace_info(trace_id: str, timestamp_ms: int = 1000):
     return TraceInfo(
         trace_id=trace_id,
@@ -723,3 +729,42 @@ def test_fetch_sessions_calls_once_per_filter_when_any_scorer_has_no_filter(
         for call in mock_tracking_store.find_completed_sessions.call_args_list
     ]
     assert set(filter_strings) == {"tag.env = 'prod'", None}
+
+
+def test_process_sessions_warns_once_per_scorer_for_session_level(
+    mock_trace_loader, mock_checkpoint_manager, mock_tracking_store
+):
+    """session_level is not yet supported online: one warning per scorer name per
+    process (not one per job tick), and processing continues with full sessions.
+    """
+    sampler = OnlineScorerSampler([
+        make_online_scorer(ConversationCompleteness(session_level="episode"))
+    ])
+    mock_tracking_store.find_completed_sessions.return_value = []
+    processor = make_processor(
+        mock_trace_loader, mock_checkpoint_manager, sampler, mock_tracking_store
+    )
+
+    with patch("mlflow.genai.scorers.base._logger.warning") as mock_warning:
+        processor.process_sessions()
+        processor.process_sessions()
+
+    warnings = [c for c in mock_warning.call_args_list if "session_level" in str(c)]
+    assert len(warnings) == 1
+    assert any("not yet supported for online scoring" in str(c) for c in warnings)
+    # Processing continues: the checkpoint still advances on every tick.
+    assert mock_checkpoint_manager.persist_checkpoint.call_count == 2
+
+
+def test_process_sessions_no_session_level_warning_without_level(
+    mock_trace_loader, mock_checkpoint_manager, mock_tracking_store, sampler_with_scorers
+):
+    mock_tracking_store.find_completed_sessions.return_value = []
+    processor = make_processor(
+        mock_trace_loader, mock_checkpoint_manager, sampler_with_scorers, mock_tracking_store
+    )
+
+    with patch("mlflow.genai.scorers.base._logger.warning") as mock_warning:
+        processor.process_sessions()
+
+    assert not [c for c in mock_warning.call_args_list if "session_level" in str(c)]

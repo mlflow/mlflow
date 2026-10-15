@@ -1,12 +1,19 @@
+import ast
 import asyncio
 import errno
+import os
 import sys
 import threading
+from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
 
-from mlflow.assistant.providers._subprocess_stream import SubprocessLineStream
+import mlflow
+from mlflow.assistant.providers._subprocess_stream import (
+    SubprocessLineStream,
+    assistant_subprocess_env,
+)
 
 
 async def _collect(stream: SubprocessLineStream) -> list[bytes]:
@@ -215,3 +222,136 @@ def test_streams_stdout_on_windows_selector_event_loop():
         loop.run_until_complete(run())
     finally:
         loop.close()
+
+
+_SECRET_NAMES = ("_MLFLOW_ASSISTANT_DELEGATION_SIGNING_KEY", "_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN")
+
+
+def test_assistant_subprocess_env_leaves_out_the_server_internal_secrets(monkeypatch):
+    for name in _SECRET_NAMES:
+        monkeypatch.setenv(name, "secret")
+    monkeypatch.setenv("SOME_SETTING", "kept")
+
+    env = assistant_subprocess_env(MLFLOW_TRACKING_URI="http://localhost:5000")
+
+    assert not set(_SECRET_NAMES) & set(env)
+    assert env["SOME_SETTING"] == "kept"
+    assert env["MLFLOW_TRACKING_URI"] == "http://localhost:5000"
+    # Also for a given environment, and when a secret comes in as an override.
+    given = dict.fromkeys(_SECRET_NAMES, "secret")
+    assert assistant_subprocess_env(given, **{_SECRET_NAMES[1]: "secret"}) == {}
+
+
+@pytest.mark.asyncio
+async def test_stream_subprocess_never_gets_the_server_internal_secrets(monkeypatch):
+    for name in _SECRET_NAMES:
+        monkeypatch.setenv(name, "secret")
+    code = f"import os; print(sorted(n for n in {list(_SECRET_NAMES)!r} if n in os.environ))"
+
+    for env in (None, {**os.environ}):
+        stream = SubprocessLineStream([sys.executable, "-c", code], env=env)
+        assert [line.strip() for line in await _collect(stream)] == [b"[]"]
+        assert await stream.wait() == 0
+
+
+_ENV_SPAWNS = {
+    "subprocess": {"run", "Popen", "call", "check_call", "check_output"},
+    "asyncio": {"create_subprocess_exec", "create_subprocess_shell"},
+}
+_ENV_SPAWN_NAMES = {
+    "Popen",
+    "check_call",
+    "check_output",
+    "create_subprocess_exec",
+    "create_subprocess_shell",
+}
+
+
+def _is_env_spawn(node: ast.AST) -> bool:
+    if isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name):
+        return node.attr in _ENV_SPAWNS.get(node.value.id, set())
+    return isinstance(node, ast.Name) and node.id in _ENV_SPAWN_NAMES
+
+
+def _is_os_spawn(node: ast.AST) -> bool:
+    # These cannot be given a scrubbed environment, so the Assistant must not use them.
+    return (
+        isinstance(node, ast.Attribute)
+        and isinstance(node.value, ast.Name)
+        and node.value.id == "os"
+        and (node.attr in {"system", "popen"} or node.attr.startswith(("spawn", "exec")))
+    )
+
+
+def _is_scrubbed_env_call(node: ast.AST) -> bool:
+    return (
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id == "assistant_subprocess_env"
+    )
+
+
+def _unscrubbed_spawn_calls(path: Path) -> list[int]:
+    tree = ast.parse(path.read_text())
+    # Variables assigned from assistant_subprocess_env(...) anywhere in the module. Names are not
+    # tracked per scope: a name assigned from it in one function and reused for an unscrubbed
+    # environment in another function is not caught.
+    scrubbed_names = {
+        target.id
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Assign) and _is_scrubbed_env_call(node.value)
+        for target in node.targets
+        if isinstance(target, ast.Name)
+    }
+
+    def is_scrubbed(value: ast.AST) -> bool:
+        return _is_scrubbed_env_call(value) or (
+            isinstance(value, ast.Name) and value.id in scrubbed_names
+        )
+
+    unsafe = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        if _is_os_spawn(node.func):
+            unsafe.append(node.lineno)
+        # A spawn, either called directly or passed to a helper such as asyncio.to_thread.
+        elif _is_env_spawn(node.func) or any(_is_env_spawn(arg) for arg in node.args):
+            env = next((kw.value for kw in node.keywords if kw.arg == "env"), None)
+            if env is None or not is_scrubbed(env):
+                unsafe.append(node.lineno)
+    return unsafe
+
+
+def test_every_assistant_subprocess_is_started_with_a_scrubbed_environment():
+    # A spawn without assistant_subprocess_env() can pass on the server's internal secrets.
+    root = Path(mlflow.__file__).parent
+    # Bundled skills are scripts that a coding agent runs on its own, not code the server runs.
+    skills = root / "assistant" / "skills"
+    missing = {
+        str(path.relative_to(root)): lines
+        for directory in ("assistant", "server/assistant")
+        for path in sorted((root / directory).rglob("*.py"))
+        if not path.is_relative_to(skills)
+        if (lines := _unscrubbed_spawn_calls(path))
+    }
+    assert missing == {}
+
+
+def test_unscrubbed_spawn_check_flags_unsafe_spawns(tmp_path):
+    source = tmp_path / "spawns.py"
+    source.write_text(
+        "import asyncio, os, subprocess\n"
+        "from subprocess import Popen\n"
+        "subprocess.run(['a'])\n"  # 3: no env
+        "subprocess.run(['a'], env=os.environ.copy())\n"  # 4: not scrubbed
+        "asyncio.to_thread(subprocess.run, ['a'], env=None)\n"  # 5: not scrubbed
+        "asyncio.create_subprocess_exec('a')\n"  # 6: no env
+        "Popen(['a'])\n"  # 7: no env
+        "os.system('a')\n"  # 8: cannot be scrubbed
+        "subprocess.run(['a'], env=assistant_subprocess_env())\n"  # 9: scrubbed
+        "env = assistant_subprocess_env(X='1')\n"
+        "asyncio.to_thread(subprocess.run, ['a'], env=env)\n"  # 11: scrubbed
+    )
+
+    assert _unscrubbed_spawn_calls(source) == [3, 4, 5, 6, 7, 8]
