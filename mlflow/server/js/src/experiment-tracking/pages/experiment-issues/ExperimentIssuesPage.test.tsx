@@ -219,7 +219,7 @@ describe('Experiment Issues', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Remove Open from Status filter' }));
     expect(await screen.findByRole('button', { name: /Wrong answer/ })).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Sort Severity' }));
-    await userEvent.click(await screen.findByRole('menuitemradio', { name: 'Newest' }));
+    await userEvent.click(await screen.findByRole('menuitemradio', { name: 'Most recent' }));
     await waitFor(() =>
       expect(searches).toContainEqual(expect.objectContaining({ statuses: [], order_by: ['created_timestamp DESC'] })),
     );
@@ -242,14 +242,18 @@ describe('Experiment Issues', () => {
     async (label) => {
       renderPage();
       await userEvent.click(await screen.findByRole('button', { name: 'Filter issues' }));
-      const categoryInput = screen.getByRole('combobox', { name: 'Category' });
+      await userEvent.click(screen.getByRole('combobox', { name: 'Category' }));
+      const categoryInput = await screen.findByRole('searchbox', { name: 'Search categories' });
       await userEvent.type(categoryInput, label);
-      fireEvent.keyDown(categoryInput, { key: 'Enter', code: 'Enter', keyCode: 13 });
+      await userEvent.click(
+        await screen.findByRole('option', { name: label.toLowerCase() === 'correctness' ? 'Correctness' : label }),
+      );
       await waitFor(() =>
         expect(searches).toContainEqual(expect.objectContaining({ categories: ['correctness', '[correctness]'] })),
       );
+      await userEvent.clear(categoryInput);
       await userEvent.type(categoryInput, 'CustomerSupport');
-      fireEvent.keyDown(categoryInput, { key: 'Enter', code: 'Enter', keyCode: 13 });
+      await userEvent.click(await screen.findByRole('option', { name: 'CustomerSupport' }));
       await waitFor(() =>
         expect(searches).toContainEqual(
           expect.objectContaining({ categories: ['correctness', '[correctness]', 'CustomerSupport'] }),
@@ -257,6 +261,14 @@ describe('Experiment Issues', () => {
       );
     },
   );
+  test.each([
+    ['newest', 'Most recent', 'created_timestamp DESC'],
+    ['updated', 'Last updated', 'last_updated_timestamp DESC'],
+  ])('preserves existing sort links (%s)', async (sort, label, order) => {
+    renderPage(`?issueSort=${sort}`);
+    expect(await screen.findByRole('button', { name: `Sort ${label}` })).toBeInTheDocument();
+    await waitFor(() => expect(searches).toContainEqual(expect.objectContaining({ order_by: [order] })));
+  });
   test('lets keyboard users select an issue row and reject it from the status menu', async () => {
     renderPage('?selectedIssueId=iss-a');
     const row = await screen.findByRole('button', { name: /Wrong answer/ });
@@ -473,12 +485,16 @@ describe('Experiment Issues', () => {
     renderPage();
     if (status === 'FINISHED') {
       expect(
-        await screen.findByText('The latest detection found no issues in the selected traces.'),
+        await screen.findByText(
+          'Issue detection did not find problems in the analyzed traces. Run it again as your application changes.',
+        ),
       ).toBeInTheDocument();
     } else {
       expect(await screen.findByText('Issue detection failed')).toBeInTheDocument();
       expect(
-        screen.queryByText('The latest detection found no issues in the selected traces.'),
+        screen.queryByText(
+          'Issue detection did not find problems in the analyzed traces. Run it again as your application changes.',
+        ),
       ).not.toBeInTheDocument();
     }
   });

@@ -1,102 +1,67 @@
-import { useCallback, type ReactNode } from 'react';
+import { useState } from 'react';
 import {
   Button,
   ChevronDownIcon,
+  DialogCombobox,
+  DialogComboboxContent,
+  DialogComboboxOptionList,
+  DialogComboboxOptionListSearch,
+  DialogComboboxOptionListCheckboxItem,
+  DialogComboboxTrigger,
   DropdownMenu,
   FilterIcon,
-  Input,
-  LegacySelect,
   Popover,
-  SearchIcon,
+  SortUnsortedIcon,
   Tag,
+  type TagColors,
+  Tooltip,
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { defineMessage, FormattedMessage, useIntl } from 'react-intl';
-import { useSearchParams } from '../../../common/utils/RoutingUtils';
-import { useDebouncedSearchInput } from '../experiment-evaluation-datasets-v2/hooks/useDebouncedSearchInput';
-import { ISSUE_CATEGORY_DEFINITIONS } from '../../components/experiment-page/components/traces-v3/IssueDetectionCategories';
-import { SEVERITY_TAG_CONFIG } from '../../components/run-page/IssueCard';
-import type { IssueFilters } from './useExperimentIssues';
+import type { MessageDescriptor } from 'react-intl';
 import type { IssueSeverity, IssueStatus } from '../../components/run-page/hooks/useSearchIssuesQuery';
-import { STATUS_LABELS, categoryColor, categoryLabel } from './issueLabels';
+import type { IssueCategory } from '../../components/experiment-page/components/traces-v3/IssueDetectionCategories';
+import { categoryColor, categoryDescription, TAG_MARGIN_RESET } from './issueLabels';
+import {
+  ISSUE_DETECTION_CATEGORIES,
+  ISSUE_DETECTION_SEVERITIES,
+  ISSUE_DETECTION_TRIAGE_STATUSES,
+  BACKEND_ISSUE_SORT_KEYS,
+  isIssueSortKey,
+  type ExperimentIssuesToolbarControls,
+  type IssueSortKey,
+} from './useExperimentIssuesListControls';
 
-const SORTS = {
-  severity: ['status ASC', 'severity DESC', 'last_seen_timestamp DESC'],
-  lastSeen: ['last_seen_timestamp DESC'],
-  newest: ['created_timestamp DESC'],
-  updated: ['last_updated_timestamp DESC'],
-};
+const COMPONENT_ID = 'mlflow.experiment-issues.toolbar';
 
-type SortKey = keyof typeof SORTS;
+const ALL_LABEL = defineMessage({
+  defaultMessage: 'All',
+  description: 'Experiment issues tab > Filter option that matches every value in a dimension',
+});
 
-export const useIssueListControls = () => {
-  const [params, setParams] = useSearchParams();
-  const setValues = useCallback(
-    (key: string, values: string[]) =>
-      setParams(
-        (current) => {
-          current.delete(key);
-          values.forEach((value) => current.append(key, value));
-          return current;
-        },
-        { replace: true },
-      ),
-    [setParams],
-  );
-  const setName = useCallback((value: string) => setValues('issueSearch', value ? [value] : []), [setValues]);
-  const search = useDebouncedSearchInput({
-    committedValue: params.get('issueSearch') ?? '',
-    onCommit: setName,
-    debounceMs: 300,
-  });
-  const statuses = params.has('issueStatus')
-    ? (Object.keys(STATUS_LABELS) as IssueStatus[]).filter((value) => params.getAll('issueStatus').includes(value))
-    : ['pending' as const];
-  const severities = (Object.keys(SEVERITY_TAG_CONFIG) as IssueSeverity[]).filter((value) =>
-    params.getAll('issueSeverity').includes(value),
-  );
-  const categories = params.getAll('issueCategory');
-  const sortParam = params.get('issueSort') ?? '';
-  const sort: SortKey = Object.keys(SORTS).includes(sortParam) ? (sortParam as SortKey) : 'severity';
-  const filters: IssueFilters = {
-    name: params.get('issueSearch') ?? '',
-    statuses,
-    severities,
-    categories: categories.flatMap((category) =>
-      ISSUE_CATEGORY_DEFINITIONS.some((definition) => definition.id === category)
-        ? [category, `[${category}]`]
-        : [category],
-    ),
-    orderBy: SORTS[sort],
-  };
-  const clearFilters = () =>
-    setParams(
-      (current) => {
-        current.delete('issueStatus');
-        current.append('issueStatus', 'all');
-        current.delete('issueSeverity');
-        current.delete('issueCategory');
-        return current;
-      },
-      { replace: true },
-    );
-  return { search, filters, categories, sort, setValues, clearFilters };
-};
-
-type IssueListControls = ReturnType<typeof useIssueListControls>;
-
-const SORT_LABELS = {
-  severity: defineMessage({ defaultMessage: 'Severity', description: 'Experiment Issues default sort option' }),
-  lastSeen: defineMessage({
-    defaultMessage: 'Last seen',
-    description: 'Experiment Issues last observation sort option',
+const SEVERITY_LABELS: Record<IssueSeverity, MessageDescriptor> = {
+  not_an_issue: defineMessage({
+    defaultMessage: 'Not an issue',
+    description: 'Experiment Issues legacy severity filter option',
   }),
-  newest: defineMessage({ defaultMessage: 'Newest', description: 'Experiment Issues creation time sort option' }),
-  updated: defineMessage({ defaultMessage: 'Last updated', description: 'Experiment Issues update time sort option' }),
+  high: defineMessage({
+    defaultMessage: 'High',
+    description: 'Experiment issues tab > High severity filter option',
+  }),
+  medium: defineMessage({
+    defaultMessage: 'Medium',
+    description: 'Experiment issues tab > Medium severity filter option',
+  }),
+  low: defineMessage({
+    defaultMessage: 'Low',
+    description: 'Experiment issues tab > Low severity filter option',
+  }),
 };
 
-const CATEGORY_LABELS = {
+// An option composes "{label} ({count})", which needs a formatted string, while the shared titles
+// are rendered `<FormattedMessage>` elements. Only the definitions are shared.
+const CATEGORY_LABELS: Record<IssueCategory, MessageDescriptor> = {
   correctness: defineMessage({
     defaultMessage: 'Correctness',
     description: 'Experiment issues tab > Correctness category filter option',
@@ -123,301 +88,539 @@ const CATEGORY_LABELS = {
   }),
 };
 
-export const ExperimentIssuesToolbar = ({
+const STATUS_LABELS: Record<IssueStatus, MessageDescriptor> = {
+  pending: defineMessage({
+    defaultMessage: 'Open',
+    description: 'Experiment issues tab > Open (pending) status option',
+  }),
+  rejected: defineMessage({
+    defaultMessage: 'Rejected',
+    description: 'Experiment issues tab > Rejected status option',
+  }),
+  resolved: defineMessage({
+    defaultMessage: 'Resolved',
+    description: 'Experiment issues tab > Resolved status option',
+  }),
+};
+
+const SORT_LABELS: Record<IssueSortKey, MessageDescriptor> = {
+  severity: defineMessage({
+    defaultMessage: 'Severity',
+    description: 'Experiment issues tab > Sort by severity option',
+  }),
+  mostRecent: defineMessage({
+    defaultMessage: 'Most recent',
+    description: 'Experiment issues tab > Sort by most recently detected option',
+  }),
+  lastSeen: defineMessage({
+    defaultMessage: 'Last seen',
+    description: 'Experiment issues tab > Sort by the most recent trace the issue affected option',
+  }),
+  lastUpdated: defineMessage({
+    defaultMessage: 'Last updated',
+    description: 'Experiment issues tab > Sort by when the issue last changed option',
+  }),
+};
+
+const SEVERITY_DIMENSION_LABEL = defineMessage({
+  defaultMessage: 'Severity',
+  description: 'Experiment issues tab > Severity dimension name in an active filter chip',
+});
+const CATEGORY_DIMENSION_LABEL = defineMessage({
+  defaultMessage: 'Category',
+  description: 'Experiment issues tab > Category dimension name in an active filter chip',
+});
+const STATUS_DIMENSION_LABEL = defineMessage({
+  defaultMessage: 'Status',
+  description: 'Experiment issues tab > Status dimension name in an active filter chip',
+});
+
+/** The filter button and its popover of severity, category and status selections. */
+export const ExperimentIssuesFilterControl = ({
   controls,
-  children,
+  align = 'end',
 }: {
-  controls: IssueListControls;
-  children?: ReactNode;
+  controls: ExperimentIssuesToolbarControls;
+  /** Which edge of the button the popover lines up with. */
+  align?: 'start' | 'end';
 }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
-  const { search, filters, categories, setValues, clearFilters } = controls;
-  const categoryOptions = ISSUE_CATEGORY_DEFINITIONS.map(({ id }) => ({
-    value: id,
-    label: intl.formatMessage(CATEGORY_LABELS[id]),
-  }));
-  const setCategories = (values: string[]) => {
-    const normalized = values.map(
-      (value) =>
-        categoryOptions.find(
-          (option) => option.value === value.toLowerCase() || option.label.toLowerCase() === value.toLowerCase(),
-        )?.value ?? value,
-    );
-    setValues('issueCategory', Array.from(new Set(normalized)));
+  const {
+    severities,
+    setSeverities,
+    categories,
+    setCategories,
+    statuses,
+    setStatuses,
+    severityCounts,
+    categoryCounts,
+    statusCounts,
+    totalCount,
+    hasActiveFilters,
+    clearFilters,
+  } = controls;
+
+  // Builds the "Label (count)" text a filter option and its collapsed trigger both show, or just the
+  // label when there is no count to show.
+  const optionLabel = (label: MessageDescriptor, count: number | undefined) =>
+    count === undefined
+      ? intl.formatMessage(label)
+      : intl.formatMessage(
+          {
+            defaultMessage: '{label} ({count})',
+            description: 'Experiment issues tab > A filter option label followed by its matching-issue count',
+          },
+          { label: intl.formatMessage(label), count },
+        );
+
+  // Without per-option counts, the total matches a dimension's "All" only while that dimension is
+  // unset: then every other filter is applied and this one isn't, which is what "All" counts.
+  const allOptionLabel = (allCount: number | undefined, isDimensionUnset: boolean) =>
+    optionLabel(ALL_LABEL, allCount ?? (isDimensionUnset ? totalCount : undefined));
+
+  const severityDisplayValue = (value: string) => {
+    const severity = ISSUE_DETECTION_SEVERITIES.find((candidate) => candidate === value);
+    return severity ? optionLabel(SEVERITY_LABELS[severity], severityCounts?.[severity]) : value;
   };
-  const hasFilters = Boolean(filters.statuses.length || filters.severities.length || categories.length);
-  const statusLabel = intl.formatMessage({
-    defaultMessage: 'Status',
-    description: 'Experiment Issues status filter label',
-  });
-  const severityLabel = intl.formatMessage({
+  const categoryDisplayValue = (value: string) => {
+    const category = ISSUE_DETECTION_CATEGORIES.find((candidate) => candidate === value);
+    return category ? optionLabel(CATEGORY_LABELS[category], categoryCounts?.[category]) : value;
+  };
+  const statusDisplayValue = (value: string) => {
+    const status = ISSUE_DETECTION_TRIAGE_STATUSES.find((candidate) => candidate === value);
+    return status ? optionLabel(STATUS_LABELS[status], statusCounts?.[status]) : value;
+  };
+
+  const toggleSeverity = (value: IssueSeverity) => {
+    setSeverities(
+      severities.includes(value) ? severities.filter((severity) => severity !== value) : [...severities, value],
+    );
+  };
+  const toggleCategory = (value: string) => {
+    setCategories(
+      categories.includes(value) ? categories.filter((category) => category !== value) : [...categories, value],
+    );
+  };
+  const toggleStatus = (value: IssueStatus) => {
+    setStatuses(statuses.includes(value) ? statuses.filter((status) => status !== value) : [...statuses, value]);
+  };
+
+  const [categorySearch, setCategorySearch] = useState('');
+  const query = categorySearch.trim();
+  const matchesCategory = (value: string) => categoryDisplayValue(value).toLowerCase().includes(query.toLowerCase());
+  const customCategories = Array.from(
+    new Set([
+      ...categories.filter((value) => !ISSUE_DETECTION_CATEGORIES.some((id) => id === value)),
+      ...(query &&
+      !ISSUE_DETECTION_CATEGORIES.some(
+        (id) =>
+          id === query.toLowerCase() || intl.formatMessage(CATEGORY_LABELS[id]).toLowerCase() === query.toLowerCase(),
+      )
+        ? [query]
+        : []),
+    ]),
+  ).filter(matchesCategory);
+
+  const severityRowLabel = intl.formatMessage({
     defaultMessage: 'Severity',
-    description: 'Experiment Issues severity filter label',
+    description: 'Experiment issues tab > Filter popover row label for the severity dimension',
   });
-  const categoryFilterLabel = intl.formatMessage({
+  const categoryRowLabel = intl.formatMessage({
     defaultMessage: 'Category',
-    description: 'Experiment Issues category filter label',
+    description: 'Experiment issues tab > Filter popover row label for the category dimension',
   });
-  const allLabel = intl.formatMessage({
-    defaultMessage: 'All',
-    description: 'Experiment Issues unfiltered dimension label',
+  const statusRowLabel = intl.formatMessage({
+    defaultMessage: 'Status',
+    description: 'Experiment issues tab > Filter popover row label for the status dimension',
   });
-  const selectRow = (label: string, select: ReactNode) => (
-    <div css={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: theme.spacing.md }}>
-      <Typography.Text color="secondary">{label}</Typography.Text>
-      {select}
-    </div>
-  );
+
   return (
-    <div
-      role="toolbar"
-      aria-label={intl.formatMessage({
-        defaultMessage: 'Search and detect issues',
-        description: 'Experiment Issues action toolbar label',
-      })}
-      css={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: theme.spacing.sm,
-        paddingBottom: theme.spacing.md,
-        borderBottom: `1px solid ${theme.colors.border}`,
-        flexShrink: 0,
-      }}
-    >
-      <div css={{ flex: '0 1 400px', minWidth: 0 }}>
-        <Input
-          componentId="mlflow.experiment-issues.search"
-          prefix={<SearchIcon />}
-          value={search.input}
-          onChange={(event) => search.setInput(event.target.value)}
-          onClear={search.clear}
-          onPressEnter={search.flush}
-          placeholder={intl.formatMessage({
-            defaultMessage: 'Search issues by title',
-            description: 'Experiment Issues title search placeholder',
-          })}
+    <Popover.Root componentId={`${COMPONENT_ID}.filter`}>
+      <Popover.Trigger asChild>
+        <Button
+          componentId={`${COMPONENT_ID}.filter.trigger`}
+          icon={<FilterIcon />}
           aria-label={intl.formatMessage({
-            defaultMessage: 'Search issues by title',
-            description: 'Experiment Issues title search accessible label',
+            defaultMessage: 'Filter issues',
+            description: 'Experiment issues tab > Accessible label for the filter toolbar button',
           })}
-          allowClear
         />
-      </div>
-      <Popover.Root componentId="mlflow.experiment-issues.filter">
-        <Popover.Trigger asChild>
-          <Button
-            componentId="mlflow.experiment-issues.filter-trigger"
-            type="tertiary"
-            icon={<FilterIcon />}
-            aria-label={intl.formatMessage({
-              defaultMessage: 'Filter issues',
-              description: 'Experiment Issues filter button label',
-            })}
-          />
-        </Popover.Trigger>
-        <Popover.Content align="start">
-          <div css={{ display: 'flex', flexDirection: 'column', minWidth: 280, gap: theme.spacing.md }}>
-            <div css={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <Typography.Title level={4} withoutMargins>
-                <FormattedMessage defaultMessage="Filters" description="Experiment Issues filter popover title" />
-              </Typography.Title>
-              {hasFilters && (
-                <Button
-                  componentId="mlflow.experiment-issues.clear-filters"
-                  type="tertiary"
-                  size="small"
-                  onClick={clearFilters}
-                >
-                  <FormattedMessage
-                    defaultMessage="Clear filters"
-                    description="Experiment Issues clear filters action"
-                  />
-                </Button>
-              )}
-            </div>
-            {selectRow(
-              severityLabel,
-              <LegacySelect
-                mode="multiple"
-                aria-label={severityLabel}
-                placeholder={allLabel}
-                value={filters.severities}
-                allowClear
-                css={{ width: 180 }}
-                onChange={(values: string[]) => setValues('issueSeverity', values)}
+      </Popover.Trigger>
+      <Popover.Content align={align}>
+        <div css={{ display: 'flex', flexDirection: 'column', minWidth: 260 }}>
+          <div
+            css={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              minHeight: theme.general.heightSm,
+            }}
+          >
+            <Typography.Title level={4} withoutMargins>
+              <FormattedMessage defaultMessage="Filters" description="Experiment issues tab > Filter popover title" />
+            </Typography.Title>
+            {hasActiveFilters && (
+              <Button
+                componentId={`${COMPONENT_ID}.filter.clear`}
+                size="small"
+                type="tertiary"
+                aria-label={intl.formatMessage({
+                  defaultMessage: 'Clear filters',
+                  description: "Experiment issues tab > Accessible label for the filter popover's clear action",
+                })}
+                onClick={clearFilters}
               >
-                {Object.entries(SEVERITY_TAG_CONFIG).map(([value, config]) => (
-                  <LegacySelect.Option key={value} value={value}>
-                    {intl.formatMessage(config.label)}
-                  </LegacySelect.Option>
-                ))}
-              </LegacySelect>,
-            )}
-            {selectRow(
-              categoryFilterLabel,
-              <LegacySelect
-                mode="tags"
-                aria-label={categoryFilterLabel}
-                placeholder={allLabel}
-                value={categories}
-                allowClear
-                css={{ width: 180 }}
-                optionFilterProp="label"
-                options={categoryOptions}
-                onChange={setCategories}
-              />,
-            )}
-            {selectRow(
-              statusLabel,
-              <LegacySelect
-                mode="multiple"
-                aria-label={statusLabel}
-                placeholder={allLabel}
-                value={filters.statuses}
-                allowClear
-                css={{ width: 180 }}
-                onChange={(values: string[]) => setValues('issueStatus', values.length ? values : ['all'])}
-              >
-                {Object.entries(STATUS_LABELS).map(([value, label]) => (
-                  <LegacySelect.Option key={value} value={value}>
-                    {intl.formatMessage(label)}
-                  </LegacySelect.Option>
-                ))}
-              </LegacySelect>,
+                <FormattedMessage
+                  defaultMessage="Clear"
+                  description="Experiment issues tab > Clear all filters button"
+                />
+              </Button>
             )}
           </div>
-        </Popover.Content>
-      </Popover.Root>
-      <div css={{ flex: 1 }} />
-      {children}
-    </div>
+          <div
+            css={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: theme.spacing.md,
+              borderTop: `1px solid ${theme.colors.border}`,
+              paddingTop: theme.spacing.md,
+            }}
+          >
+            <div
+              css={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: theme.spacing.md,
+              }}
+            >
+              <Typography.Text color="secondary">{severityRowLabel}</Typography.Text>
+              <DialogCombobox
+                id={`${COMPONENT_ID}.filter.severity`}
+                componentId={`${COMPONENT_ID}.filter.severity`}
+                label={severityRowLabel}
+                value={severities}
+                multiSelect
+              >
+                <DialogComboboxTrigger
+                  width={180}
+                  withInlineLabel={false}
+                  aria-label={severityRowLabel}
+                  placeholder={allOptionLabel(severityCounts?.all, severities.length === 0)}
+                  showTagAfterValueCount={1}
+                  renderDisplayedValue={severityDisplayValue}
+                  onClear={() => setSeverities([])}
+                />
+                <DialogComboboxContent width={180} style={{ zIndex: theme.options.zIndexBase + 40 }} matchTriggerWidth>
+                  <DialogComboboxOptionList>
+                    <DialogComboboxOptionListCheckboxItem
+                      value="all"
+                      checked={severities.length === 0}
+                      onChange={() => setSeverities([])}
+                    >
+                      {allOptionLabel(severityCounts?.all, severities.length === 0)}
+                    </DialogComboboxOptionListCheckboxItem>
+                    {ISSUE_DETECTION_SEVERITIES.map((value) => (
+                      <DialogComboboxOptionListCheckboxItem
+                        key={value}
+                        value={value}
+                        checked={severities.includes(value)}
+                        onChange={() => toggleSeverity(value)}
+                      >
+                        {optionLabel(SEVERITY_LABELS[value], severityCounts?.[value])}
+                      </DialogComboboxOptionListCheckboxItem>
+                    ))}
+                  </DialogComboboxOptionList>
+                </DialogComboboxContent>
+              </DialogCombobox>
+            </div>
+            <div
+              css={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: theme.spacing.md,
+              }}
+            >
+              <Typography.Text color="secondary">{categoryRowLabel}</Typography.Text>
+              <DialogCombobox
+                id={`${COMPONENT_ID}.filter.category`}
+                componentId={`${COMPONENT_ID}.filter.category`}
+                label={categoryRowLabel}
+                value={categories}
+                multiSelect
+              >
+                <DialogComboboxTrigger
+                  width={180}
+                  withInlineLabel={false}
+                  aria-label={categoryRowLabel}
+                  placeholder={allOptionLabel(categoryCounts?.all, categories.length === 0)}
+                  showTagAfterValueCount={1}
+                  renderDisplayedValue={categoryDisplayValue}
+                  onClear={() => setCategories([])}
+                />
+                <DialogComboboxContent width={180} style={{ zIndex: theme.options.zIndexBase + 40 }} matchTriggerWidth>
+                  <DialogComboboxOptionList>
+                    <DialogComboboxOptionListSearch
+                      aria-label={intl.formatMessage({
+                        defaultMessage: 'Search categories',
+                        description: 'Experiment Issues category filter search',
+                      })}
+                      controlledValue={categorySearch}
+                      setControlledValue={setCategorySearch}
+                    >
+                      {!query && (
+                        <DialogComboboxOptionListCheckboxItem
+                          value="all"
+                          checked={categories.length === 0}
+                          onChange={() => setCategories([])}
+                        >
+                          {allOptionLabel(categoryCounts?.all, categories.length === 0)}
+                        </DialogComboboxOptionListCheckboxItem>
+                      )}
+                      {/* Anchored right so it does not cover the adjacent option. `asChild` keeps
+                        the item's `role="option"` div, which the list's keyboard nav queries. */}
+                      {ISSUE_DETECTION_CATEGORIES.filter(matchesCategory).map((value) => (
+                        <Tooltip
+                          key={value}
+                          componentId={`${COMPONENT_ID}.filter.category.definition_tooltip`}
+                          content={categoryDescription(value)}
+                          side="right"
+                        >
+                          <DialogComboboxOptionListCheckboxItem
+                            value={value}
+                            checked={categories.includes(value)}
+                            onChange={() => toggleCategory(value)}
+                          >
+                            {optionLabel(CATEGORY_LABELS[value], categoryCounts?.[value])}
+                          </DialogComboboxOptionListCheckboxItem>
+                        </Tooltip>
+                      ))}
+                      {customCategories.map((value) => (
+                        <DialogComboboxOptionListCheckboxItem
+                          key={value}
+                          value={value}
+                          checked={categories.includes(value)}
+                          onChange={() => toggleCategory(value)}
+                        >
+                          {value}
+                        </DialogComboboxOptionListCheckboxItem>
+                      ))}
+                    </DialogComboboxOptionListSearch>
+                  </DialogComboboxOptionList>
+                </DialogComboboxContent>
+              </DialogCombobox>
+            </div>
+            <div
+              css={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: theme.spacing.md,
+              }}
+            >
+              <Typography.Text color="secondary">{statusRowLabel}</Typography.Text>
+              <DialogCombobox
+                id={`${COMPONENT_ID}.filter.status`}
+                componentId={`${COMPONENT_ID}.filter.status`}
+                label={statusRowLabel}
+                value={statuses}
+                multiSelect
+              >
+                <DialogComboboxTrigger
+                  width={180}
+                  withInlineLabel={false}
+                  aria-label={statusRowLabel}
+                  placeholder={allOptionLabel(statusCounts?.all, statuses.length === 0)}
+                  showTagAfterValueCount={1}
+                  renderDisplayedValue={statusDisplayValue}
+                  onClear={() => setStatuses([])}
+                />
+                <DialogComboboxContent width={180} style={{ zIndex: theme.options.zIndexBase + 40 }} matchTriggerWidth>
+                  <DialogComboboxOptionList>
+                    <DialogComboboxOptionListCheckboxItem
+                      value="all"
+                      checked={statuses.length === 0}
+                      onChange={() => setStatuses([])}
+                    >
+                      {allOptionLabel(statusCounts?.all, statuses.length === 0)}
+                    </DialogComboboxOptionListCheckboxItem>
+                    {ISSUE_DETECTION_TRIAGE_STATUSES.map((value) => (
+                      <DialogComboboxOptionListCheckboxItem
+                        key={value}
+                        value={value}
+                        checked={statuses.includes(value)}
+                        onChange={() => toggleStatus(value)}
+                      >
+                        {optionLabel(STATUS_LABELS[value], statusCounts?.[value])}
+                      </DialogComboboxOptionListCheckboxItem>
+                    ))}
+                  </DialogComboboxOptionList>
+                </DialogComboboxContent>
+              </DialogCombobox>
+            </div>
+          </div>
+        </div>
+      </Popover.Content>
+    </Popover.Root>
   );
 };
 
-export const ExperimentIssuesListHeader = ({ controls, total }: { controls: IssueListControls; total?: number }) => {
+/**
+ * The sort button and its menu of the sorts `controls` offers. `labeled` names the current sort
+ * ("Sort Severity") instead of showing only an icon.
+ */
+export const ExperimentIssuesSortControl = ({
+  controls,
+  labeled = false,
+}: {
+  controls: ExperimentIssuesToolbarControls;
+  labeled?: boolean;
+}) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
-  const { filters, categories, sort, setValues } = controls;
-  const chips = [
-    ...filters.statuses.map((value) => ({
-      key: 'issueStatus',
-      value,
-      label: intl.formatMessage(STATUS_LABELS[value]),
-      dimension: intl.formatMessage({ defaultMessage: 'Status', description: 'Experiment Issues status filter label' }),
-      values: filters.statuses,
-    })),
-    ...filters.severities.map((value) => ({
-      key: 'issueSeverity',
-      value,
-      label: intl.formatMessage(SEVERITY_TAG_CONFIG[value].label),
-      dimension: intl.formatMessage({
-        defaultMessage: 'Severity',
-        description: 'Experiment Issues severity filter label',
-      }),
-      values: filters.severities,
-    })),
-    ...categories.map((value) => ({
-      key: 'issueCategory',
-      value,
-      label: categoryLabel(value),
-      dimension: intl.formatMessage({
-        defaultMessage: 'Category',
-        description: 'Experiment Issues category filter label',
-      }),
-      values: categories,
-    })),
-  ];
+  const { sortKey, setSortKey, sortKeys = BACKEND_ISSUE_SORT_KEYS } = controls;
   return (
-    <div
-      css={{
-        display: 'flex',
-        flexDirection: 'column',
-        flexShrink: 0,
-        gap: theme.spacing.sm,
-        padding: `${theme.spacing.sm}px ${theme.spacing.md}px`,
+    <DropdownMenu.Root>
+      <DropdownMenu.Trigger asChild>
+        {labeled ? (
+          <Button
+            componentId={`${COMPONENT_ID}.sort.trigger`}
+            type="tertiary"
+            size="small"
+            endIcon={<ChevronDownIcon />}
+          >
+            <span css={{ display: 'inline-flex', alignItems: 'baseline', gap: theme.spacing.sm }}>
+              <Typography.Text color="secondary">
+                <FormattedMessage
+                  defaultMessage="Sort"
+                  description="Experiment issues tab > Label before the current sort on the sort button"
+                />
+              </Typography.Text>
+              {/* Not shown (the gap spaces them), but it makes the button's name "Sort Severity". */}{' '}
+              <Typography.Text>{intl.formatMessage(SORT_LABELS[sortKey])}</Typography.Text>
+            </span>
+          </Button>
+        ) : (
+          <Button
+            componentId={`${COMPONENT_ID}.sort.trigger`}
+            icon={<SortUnsortedIcon />}
+            aria-label={intl.formatMessage({
+              defaultMessage: 'Sort issues',
+              description: 'Experiment issues tab > Accessible label for the sort toolbar button',
+            })}
+          />
+        )}
+      </DropdownMenu.Trigger>
+      <DropdownMenu.Content align="end">
+        <DropdownMenu.RadioGroup
+          componentId={`${COMPONENT_ID}.sort`}
+          value={sortKey}
+          onValueChange={(value) => {
+            if (isIssueSortKey(value)) {
+              setSortKey(value);
+            }
+          }}
+        >
+          {sortKeys.map((key) => (
+            <DropdownMenu.RadioItem key={key} value={key}>
+              <DropdownMenu.ItemIndicator />
+              {intl.formatMessage(SORT_LABELS[key])}
+            </DropdownMenu.RadioItem>
+          ))}
+        </DropdownMenu.RadioGroup>
+      </DropdownMenu.Content>
+    </DropdownMenu.Root>
+  );
+};
+
+/** A dismissible chip for each active filter value, or nothing when no filter is set. */
+export const ExperimentIssuesFilterChips = ({ controls }: { controls: ExperimentIssuesToolbarControls }) => {
+  const { theme } = useDesignSystemTheme();
+  const intl = useIntl();
+  const { severities, setSeverities, categories, setCategories, statuses, setStatuses, hasActiveFilters } = controls;
+
+  // `color` is only passed for category chips, so a chip echoes the colour its tag carries in the
+  // list. Severity and status have no colour language of their own here -- severity is a glyph, not
+  // a tag -- so they fall back to the neutral default rather than borrowing a category's hue.
+  const chip = ({
+    componentId,
+    dimension,
+    value,
+    color,
+    onClose,
+  }: {
+    componentId: string;
+    dimension: MessageDescriptor;
+    value: MessageDescriptor | string;
+    color?: TagColors;
+    onClose: () => void;
+  }) => (
+    <Tag
+      key={componentId}
+      componentId={componentId}
+      color={color}
+      css={TAG_MARGIN_RESET}
+      closable
+      onClose={onClose}
+      closeButtonProps={{
+        'aria-label': intl.formatMessage(
+          {
+            defaultMessage: 'Remove {value} from {dimension} filter',
+            description: 'Experiment issues tab > Accessible label for removing one selected value from a filter',
+          },
+          {
+            dimension: intl.formatMessage(dimension),
+            value: typeof value === 'string' ? value : intl.formatMessage(value),
+          },
+        ),
       }}
     >
-      <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
-        <Typography.Text bold>
-          <FormattedMessage defaultMessage="Issues" description="Experiment Issues page heading" />
-        </Typography.Text>
-        {total !== undefined && (
-          <Typography.Text color="secondary" css={{ whiteSpace: 'nowrap' }}>
-            <FormattedMessage
-              defaultMessage="{count, plural, one {# result} other {# results}}"
-              description="Experiment Issues matching result count"
-              values={{ count: total }}
-            />
-          </Typography.Text>
-        )}
-        <div css={{ marginLeft: 'auto' }}>
-          <DropdownMenu.Root>
-            <DropdownMenu.Trigger asChild>
-              <Button
-                componentId="mlflow.experiment-issues.sort-trigger"
-                type="tertiary"
-                size="small"
-                endIcon={<ChevronDownIcon />}
-              >
-                <span css={{ display: 'inline-flex', alignItems: 'baseline', gap: theme.spacing.sm }}>
-                  <Typography.Text color="secondary">
-                    <FormattedMessage defaultMessage="Sort" description="Experiment Issues sort prefix" />
-                  </Typography.Text>{' '}
-                  <Typography.Text>{intl.formatMessage(SORT_LABELS[sort])}</Typography.Text>
-                </span>
-              </Button>
-            </DropdownMenu.Trigger>
-            <DropdownMenu.Content align="end">
-              <DropdownMenu.RadioGroup
-                componentId="mlflow.experiment-issues.sort"
-                value={sort}
-                onValueChange={(value) => {
-                  if (Object.keys(SORTS).includes(value)) setValues('issueSort', [value]);
-                }}
-              >
-                {Object.entries(SORT_LABELS).map(([key, label]) => (
-                  <DropdownMenu.RadioItem key={key} value={key}>
-                    <DropdownMenu.ItemIndicator />
-                    {intl.formatMessage(label)}
-                  </DropdownMenu.RadioItem>
-                ))}
-              </DropdownMenu.RadioGroup>
-            </DropdownMenu.Content>
-          </DropdownMenu.Root>
-        </div>
-      </div>
-      {chips.length > 0 && (
-        <div css={{ display: 'flex', flexWrap: 'wrap', gap: theme.spacing.sm }}>
-          {chips.map(({ key, value, label, dimension, values }) => (
-            <Tag
-              key={`${key}:${value}`}
-              componentId="mlflow.experiment-issues.filter-chip"
-              css={{ marginRight: 0 }}
-              closable
-              color={key === 'issueCategory' ? categoryColor(value) : undefined}
-              onClose={() => {
-                const remaining = values.filter((candidate) => candidate !== value);
-                setValues(key, key === 'issueStatus' && !remaining.length ? ['all'] : remaining);
-              }}
-              closeButtonProps={{
-                'aria-label': intl.formatMessage(
-                  {
-                    defaultMessage: 'Remove {value} from {dimension} filter',
-                    description: 'Experiment Issues remove filter chip action',
-                  },
-                  { value: typeof label === 'string' ? label : value, dimension },
-                ),
-              }}
-            >
-              <FormattedMessage
-                defaultMessage="{dimension}: {value}"
-                description="Experiment Issues active filter chip"
-                values={{ dimension, value: label }}
-              />
-            </Tag>
-          ))}
-        </div>
+      {intl.formatMessage(
+        {
+          defaultMessage: '{dimension}: {value}',
+          description: 'Experiment issues tab > Active filter chip showing a dimension and its selected value',
+        },
+        {
+          dimension: intl.formatMessage(dimension),
+          value: typeof value === 'string' ? value : intl.formatMessage(value),
+        },
+      )}
+    </Tag>
+  );
+
+  if (!hasActiveFilters) {
+    return null;
+  }
+  return (
+    <div css={{ display: 'flex', flexWrap: 'wrap', gap: theme.spacing.sm }}>
+      {severities.map((severity) =>
+        chip({
+          componentId: `${COMPONENT_ID}.chip.severity.${severity}`,
+          dimension: SEVERITY_DIMENSION_LABEL,
+          value: SEVERITY_LABELS[severity],
+          onClose: () => setSeverities(severities.filter((value) => value !== severity)),
+        }),
+      )}
+      {categories.map((category) =>
+        chip({
+          componentId: `${COMPONENT_ID}.chip.category.${category}`,
+          dimension: CATEGORY_DIMENSION_LABEL,
+          value: ISSUE_DETECTION_CATEGORIES.some((id) => id === category)
+            ? CATEGORY_LABELS[category as IssueCategory]
+            : category,
+          color: categoryColor(category),
+          onClose: () => setCategories(categories.filter((value) => value !== category)),
+        }),
+      )}
+      {statuses.map((status) =>
+        chip({
+          componentId: `${COMPONENT_ID}.chip.status.${status}`,
+          dimension: STATUS_DIMENSION_LABEL,
+          value: STATUS_LABELS[status],
+          onClose: () => setStatuses(statuses.filter((value) => value !== status)),
+        }),
       )}
     </div>
   );

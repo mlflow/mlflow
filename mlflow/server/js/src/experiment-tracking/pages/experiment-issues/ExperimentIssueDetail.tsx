@@ -6,60 +6,67 @@ import {
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { FormattedMessage, useIntl } from 'react-intl';
-import { Link } from '../../../common/utils/RoutingUtils';
-import Utils from '../../../common/utils/Utils';
 import { GenAIMarkdownRenderer } from '../../../shared/web-shared/genai-markdown-renderer';
-import { SEVERITY_TAG_CONFIG } from '../../components/run-page/IssueCard';
-import type { Issue } from '../../components/run-page/hooks/useSearchIssuesQuery';
-import Routes from '../../routes';
-import { getIssueDescription, useTriageExperimentIssue } from './useExperimentIssues';
+import { FormattedMessage, useIntl } from 'react-intl';
+import Utils from '../../../common/utils/Utils';
+import type { Issue, IssueStatus } from '../../components/run-page/hooks/useSearchIssuesQuery';
 import { IssueCompletionIcon, IssueStatusMarker } from './ExperimentIssueRow';
 import { IssueCategoryTag } from './IssueCategoryTag';
-import { STATUS_LABELS } from './issueLabels';
+import { SEVERITY_LABELS, STATUS_LABELS } from './issueLabels';
+import { IssueDetailSectionTitle } from './IssueDetailSectionTitle';
+import { IssueDetailColumn } from './IssueDetailColumn';
+import { getIssueDescription, useTriageExperimentIssue } from './useExperimentIssues';
+import { Link } from '../../../common/utils/RoutingUtils';
+import Routes from '../../routes';
 
-export const ExperimentIssueDetail = ({ issue, canEdit }: { issue: Issue; canEdit: boolean }) => {
+const IssueAge = ({ issue }: { issue: Issue }) => {
+  const timeAgo = Utils.timeSinceStr(issue.created_timestamp);
+
+  return <Typography.Text color="secondary">{timeAgo}</Typography.Text>;
+};
+
+export interface ExperimentIssueDetailProps {
+  issue: Issue;
+  onUpdateStatus: (status: IssueStatus) => void;
+  canEdit: boolean;
+  isUpdatingStatus?: boolean;
+}
+
+/**
+ * An issue's title, triage actions, and severity, categories and age: the part of the detail pane
+ * that names the issue, pinned full width above the scrolling body.
+ */
+export const ExperimentIssueDetailHeader = ({
+  issue,
+  onUpdateStatus,
+  isUpdatingStatus,
+  canEdit,
+}: ExperimentIssueDetailProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
-  const triage = useTriageExperimentIssue(issue.experiment_id);
+  const severityColor: 'error' | 'warning' | 'secondary' =
+    issue.severity === 'high' ? 'error' : issue.severity === 'medium' ? 'warning' : 'secondary';
+
   return (
-    <div
-      css={{
-        display: 'flex',
-        flexDirection: 'column',
-        flex: 1,
-        minWidth: 0,
-        minHeight: 0,
-        overflow: 'hidden',
-        borderLeft: `1px solid ${theme.colors.border}`,
-      }}
-    >
-      <div
-        css={{
-          display: 'flex',
-          flexDirection: 'column',
-          flexShrink: 0,
-          gap: theme.spacing.sm,
-          padding: `${theme.spacing.md}px ${theme.spacing.lg}px`,
-          borderBottom: `1px solid ${theme.colors.border}`,
-        }}
-      >
-        <div css={{ display: 'flex', alignItems: 'flex-start', gap: theme.spacing.md }}>
-          <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm, flex: 1, minWidth: 0 }}>
+    <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
+      <div css={{ display: 'flex', alignItems: 'flex-start', gap: theme.spacing.md }}>
+        <div css={{ flex: 1, minWidth: 0 }}>
+          <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm, minWidth: 0 }}>
             <IssueCompletionIcon status={issue.status} />
             <Typography.Title level={3} withoutMargins>
               {issue.name}
             </Typography.Title>
           </div>
+        </div>
+        <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs, flexShrink: 0 }}>
           <DropdownMenu.Root>
             <DropdownMenu.Trigger asChild>
               <Button
                 componentId="mlflow.experiment-issues.detail.status"
                 size="small"
                 endIcon={<ChevronDownIcon />}
-                loading={triage.isLoading}
+                loading={isUpdatingStatus}
                 disabled={!canEdit}
-                css={{ flexShrink: 0 }}
               >
                 <span css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.xs }}>
                   <IssueStatusMarker status={issue.status} />
@@ -71,104 +78,118 @@ export const ExperimentIssueDetail = ({ issue, canEdit }: { issue: Issue; canEdi
               {issue.status === 'pending' ? (
                 <>
                   <DropdownMenu.Item
-                    componentId="mlflow.experiment-issues.resolve"
-                    disabled={!canEdit || triage.isLoading}
-                    onClick={() => triage.mutate({ issueId: issue.issue_id, status: 'resolved' })}
+                    componentId="mlflow.experiment-issues.detail.status.resolve"
+                    disabled={!canEdit || isUpdatingStatus}
+                    onClick={() => onUpdateStatus('resolved')}
                   >
-                    <FormattedMessage defaultMessage="Mark resolved" description="Experiment Issues resolve action" />
+                    <FormattedMessage defaultMessage="Mark resolved" description="Experiment issue resolve action" />
                   </DropdownMenu.Item>
                   <DropdownMenu.Item
-                    componentId="mlflow.experiment-issues.reject"
-                    disabled={!canEdit || triage.isLoading}
-                    onClick={() => triage.mutate({ issueId: issue.issue_id, status: 'rejected' })}
+                    componentId="mlflow.experiment-issues.detail.status.reject"
+                    disabled={!canEdit || isUpdatingStatus}
+                    onClick={() => onUpdateStatus('rejected')}
                   >
-                    <FormattedMessage defaultMessage="Not an issue" description="Experiment Issues reject action" />
+                    <FormattedMessage defaultMessage="Not an issue" description="Experiment issue reject action" />
                   </DropdownMenu.Item>
                 </>
               ) : (
                 <DropdownMenu.Item
-                  componentId="mlflow.experiment-issues.reopen"
-                  disabled={!canEdit || triage.isLoading}
-                  onClick={() => triage.mutate({ issueId: issue.issue_id, status: 'pending' })}
+                  componentId="mlflow.experiment-issues.detail.status.reopen"
+                  disabled={!canEdit || isUpdatingStatus}
+                  onClick={() => onUpdateStatus('pending')}
                 >
-                  <FormattedMessage defaultMessage="Reopen" description="Experiment Issues reopen action" />
+                  <FormattedMessage defaultMessage="Reopen" description="Experiment issue reopen action" />
                 </DropdownMenu.Item>
               )}
             </DropdownMenu.Content>
           </DropdownMenu.Root>
         </div>
-        <div css={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: theme.spacing.sm }}>
-          {issue.severity && (
-            <Typography.Text
-              bold
-              color={issue.severity === 'high' ? 'error' : issue.severity === 'medium' ? 'warning' : 'secondary'}
-            >
-              {intl.formatMessage(SEVERITY_TAG_CONFIG[issue.severity].label)}
-            </Typography.Text>
-          )}
-          {issue.categories?.map((category) => (
-            <IssueCategoryTag
-              key={category}
-              category={category}
-              componentId="mlflow.experiment-issues.detail.category"
-            />
-          ))}
-          <Typography.Text color="secondary">{Utils.timeSinceStr(issue.created_timestamp)}</Typography.Text>
-        </div>
       </div>
-      <div css={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
-        <div
-          css={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: theme.spacing.lg,
-            padding: `${theme.spacing.md + theme.spacing.xs}px ${theme.spacing.xl}px`,
-            width: '100%',
-            maxWidth: 960,
-            marginInline: 'auto',
-          }}
-        >
-          {triage.error instanceof Error && (
-            <Alert
-              componentId="mlflow.experiment-issues.triage-error"
-              type="error"
-              closable={false}
-              message={
-                <FormattedMessage
-                  defaultMessage="Unable to update issue"
-                  description="Experiment Issues triage error title"
-                />
-              }
-              description={triage.error.message}
-            />
-          )}
-          <section css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
-            <Typography.Title level={4} withoutMargins>
-              <FormattedMessage defaultMessage="Description" description="Experiment Issue description heading" />
-            </Typography.Title>
-            <GenAIMarkdownRenderer compact>{getIssueDescription(issue)}</GenAIMarkdownRenderer>
-            <Typography.Text color="secondary">
-              <FormattedMessage
-                defaultMessage="Last seen {time}"
-                description="Experiment Issue last observation timestamp"
-                values={{ time: Utils.formatTimestamp(issue.last_seen_timestamp ?? issue.created_timestamp) }}
-              />
-              {issue.source_run_id && (
-                <>
-                  {' '}
-                  ·{' '}
-                  <Link
-                    componentId="mlflow.experiment-issues.source-run"
-                    to={Routes.getRunPageRoute(issue.experiment_id, issue.source_run_id)}
-                  >
-                    <FormattedMessage defaultMessage="Source run" description="Experiment Issue source run link" />
-                  </Link>
-                </>
-              )}
-            </Typography.Text>
-          </section>
-        </div>
+      <div css={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: theme.spacing.sm }}>
+        {issue.severity && (
+          <Typography.Text bold color={severityColor}>
+            {intl.formatMessage(SEVERITY_LABELS[issue.severity ?? 'not_an_issue'])}
+          </Typography.Text>
+        )}
+        {issue.categories?.map((category) => (
+          <IssueCategoryTag key={category} category={category} componentId="mlflow.experiment-issues.detail.category" />
+        ))}
+        <IssueAge issue={issue} />
       </div>
     </div>
+  );
+};
+
+/**
+ * The issue's description, rendered as Markdown. Traces and experiment editors shape it, so it uses the
+ * trace drawer's renderer: an image from an untrusted host loads only when the reader asks, so a stored
+ * image URL can't send data out from every reader's browser.
+ */
+export const ExperimentIssueDescription = ({ description }: { description: string }) => {
+  const { theme } = useDesignSystemTheme();
+  return (
+    <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+      <IssueDetailSectionTitle>
+        <FormattedMessage
+          defaultMessage="Description"
+          description="Experiment issues tab > Issue detail > Description section heading"
+        />
+      </IssueDetailSectionTitle>
+      <GenAIMarkdownRenderer compact>{description}</GenAIMarkdownRenderer>
+    </div>
+  );
+};
+
+export const ExperimentIssueDetail = ({ issue, canEdit }: { issue: Issue; canEdit: boolean }) => {
+  const triage = useTriageExperimentIssue(issue.experiment_id);
+  return (
+    <IssueDetailColumn
+      issueKey={issue.issue_id}
+      bodyMaxWidth={960}
+      testId="experiment-issue-detail"
+      header={
+        <ExperimentIssueDetailHeader
+          issue={issue}
+          canEdit={canEdit}
+          onUpdateStatus={(status) => triage.mutate({ issueId: issue.issue_id, status })}
+          isUpdatingStatus={triage.isLoading}
+        />
+      }
+    >
+      {triage.error instanceof Error && (
+        <Alert
+          componentId="mlflow.experiment-issues.triage-error"
+          type="error"
+          closable={false}
+          message={
+            <FormattedMessage
+              defaultMessage="Unable to update issue"
+              description="Experiment Issues triage error title"
+            />
+          }
+          description={triage.error.message}
+        />
+      )}
+      <ExperimentIssueDescription description={getIssueDescription(issue)} />
+      <Typography.Text color="secondary">
+        <FormattedMessage
+          defaultMessage="Last seen {time}"
+          description="Experiment Issue last observation timestamp"
+          values={{ time: Utils.formatTimestamp(issue.last_seen_timestamp ?? issue.created_timestamp) }}
+        />
+        {issue.source_run_id && (
+          <>
+            {' '}
+            ·{' '}
+            <Link
+              componentId="mlflow.experiment-issues.source-run"
+              to={Routes.getRunPageRoute(issue.experiment_id, issue.source_run_id)}
+            >
+              <FormattedMessage defaultMessage="Source run" description="Experiment Issue source run link" />
+            </Link>
+          </>
+        )}
+      </Typography.Text>
+    </IssueDetailColumn>
   );
 };

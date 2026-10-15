@@ -1,13 +1,11 @@
 import { useState, type ReactNode } from 'react';
-import { Alert, Button, Empty, SparkleIcon, TableSkeleton, useDesignSystemTheme } from '@databricks/design-system';
+import { Alert, Button, Empty, Typography, TableSkeleton, useDesignSystemTheme } from '@databricks/design-system';
 import { NotFoundError, PermissionError } from '@databricks/web-shared/errors';
-import { FormattedMessage, useIntl } from 'react-intl';
+import { FormattedMessage } from 'react-intl';
 import { PageNotFoundView } from '../../../common/components/PageNotFoundView';
 import { shouldEnableExperimentIssuesTab } from '../../../common/utils/FeatureUtils';
 import { useParams, useSearchParams } from '../../../common/utils/RoutingUtils';
 import { useActiveWorkspace } from '../../../workspaces/utils/WorkspaceUtils';
-import { ModelTraceExplorerResizablePane } from '../../../shared/web-shared/model-trace-explorer';
-import { useLocalStorage } from '../../../shared/web-shared/hooks';
 import { IssueDetectionModal } from '../../components/experiment-page/components/traces-v3/IssueDetectionModal';
 import { JobStatus, isJobComplete } from '../../components/run-page/hooks/useFetchJobStatus';
 import { SELECTED_ISSUE_ID_PARAM } from '../../constants';
@@ -15,7 +13,11 @@ import { useExperimentPermission } from '../../hooks/useExperimentPermission';
 import { SERVER_FEATURE_KEYS, useFeatureEnabled, useServerInfo } from '../../hooks/useServerInfo';
 import { ExperimentIssueDetail } from './ExperimentIssueDetail';
 import { ExperimentIssueRow } from './ExperimentIssueRow';
-import { ExperimentIssuesListHeader, ExperimentIssuesToolbar, useIssueListControls } from './ExperimentIssuesToolbar';
+import { ExperimentIssuesFilterChips, ExperimentIssuesSortControl } from './ExperimentIssuesToolbar';
+import { useIssueListControls } from './useExperimentIssuesListControls';
+import { ExperimentIssuesActionBar } from './ExperimentIssuesActionBar';
+import { IssueSplitPane } from './IssueSplitPane';
+import { ExperimentIssuesEmptyState } from './ExperimentIssuesEmptyState';
 import { IssueDetectionStatus } from './IssueDetectionStatus';
 import { useDetectionTraceIds, useLatestIssueDetection } from './useIssueDetection';
 import { useExperimentIssue, useExperimentIssues, useHasExperimentIssues } from './useExperimentIssues';
@@ -26,11 +28,17 @@ const CenteredState = ({ children }: { children: ReactNode }) => (
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      minHeight: 320,
+      minHeight: 400,
       height: '100%',
       width: '100%',
       flex: 1,
-      '& > div': { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' },
+      '& > div': {
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+      },
     }}
   >
     {children}
@@ -70,7 +78,6 @@ const ReadError = ({ error, retry }: { error: Error; retry: () => void }) => (
 
 const ExperimentIssuesContent = ({ experimentId }: { experimentId: string }) => {
   const { theme } = useDesignSystemTheme();
-  const intl = useIntl();
   const controls = useIssueListControls();
   const search = useExperimentIssues(experimentId, controls.filters);
   const anyIssue = useHasExperimentIssues(experimentId);
@@ -81,20 +88,10 @@ const ExperimentIssuesContent = ({ experimentId }: { experimentId: string }) => 
   const [showDetection, setShowDetection] = useState(false);
   const traces = useDetectionTraceIds(experimentId, showDetection);
   const isDetectionButtonLoading = isDetecting || (showDetection && traces.isFetching);
-  const detectIssuesLabel = intl.formatMessage({
-    defaultMessage: 'Detect new issues',
-    description: 'Experiment Issues launch detection action',
-  });
   const [params, setParams] = useSearchParams();
   const issues = search.data?.pages.flatMap((page) => page.issues ?? []) ?? [];
   const selectedId = params.get(SELECTED_ISSUE_ID_PARAM) ?? issues[0]?.issue_id;
   const detail = useExperimentIssue(experimentId, selectedId);
-  const [storedRatio, setStoredRatio] = useLocalStorage<number>({
-    key: 'mlflow.issues.list-ratio',
-    version: 1,
-    initialValue: 1 / 3,
-  });
-  const [paneWidth, setPaneWidth] = useState(320);
   const selectIssue = (issueId: string) =>
     setParams((current) => {
       current.set(SELECTED_ISSUE_ID_PARAM, issueId);
@@ -105,7 +102,37 @@ const ExperimentIssuesContent = ({ experimentId }: { experimentId: string }) => 
   const cleanScan = detection.status === JobStatus.SUCCEEDED && detection.result?.issues === 0;
   const list = (
     <div css={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0, minHeight: 0, overflow: 'hidden' }}>
-      <ExperimentIssuesListHeader controls={controls} total={total} />
+      <div
+        css={{
+          display: 'flex',
+          flexDirection: 'column',
+          flexShrink: 0,
+          gap: theme.spacing.sm,
+          padding: `${theme.spacing.sm}px ${theme.spacing.md}px`,
+        }}
+      >
+        <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
+          <Typography.Text bold>
+            <FormattedMessage
+              defaultMessage="Issues"
+              description="Experiment issues tab > Heading of the issue list column"
+            />
+          </Typography.Text>
+          {total !== undefined && (
+            <Typography.Text color="secondary">
+              <FormattedMessage
+                defaultMessage="{count, plural, one {# result} other {# results}}"
+                description="Experiment issues tab > Number of issues matching the search and filters"
+                values={{ count: total }}
+              />
+            </Typography.Text>
+          )}
+          <div css={{ marginLeft: 'auto' }}>
+            <ExperimentIssuesSortControl controls={controls} labeled />
+          </div>
+        </div>
+        <ExperimentIssuesFilterChips controls={controls} />
+      </div>
       <div css={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
         {search.isLoading ? (
           <TableSkeleton lines={5} />
@@ -115,41 +142,50 @@ const ExperimentIssuesContent = ({ experimentId }: { experimentId: string }) => 
           <>
             {issues.length === 0 ? (
               <CenteredState>
-                <Empty
-                  description={
-                    hasAny ? (
-                      <FormattedMessage
-                        defaultMessage="No issues match these filters."
-                        description="Experiment Issues no matching results"
-                      />
-                    ) : anyIssue.error || detection.error ? (
-                      <FormattedMessage
-                        defaultMessage="No issues are available for this search."
-                        description="Experiment Issues empty search with unavailable history"
-                      />
-                    ) : detection.isLoading || anyIssue.isLoading ? (
-                      <FormattedMessage
-                        defaultMessage="Loading detection history…"
-                        description="Experiment Issues empty state while checking history"
-                      />
-                    ) : cleanScan ? (
-                      <FormattedMessage
-                        defaultMessage="The latest detection found no issues in the selected traces."
-                        description="Experiment Issues completed empty scan"
-                      />
-                    ) : !detection.run ? (
-                      <FormattedMessage
-                        defaultMessage="Detect issues to find problems in your traces."
-                        description="Experiment Issues before the first detection"
-                      />
-                    ) : (
-                      <FormattedMessage
-                        defaultMessage="No issues have been recorded."
-                        description="Experiment Issues empty issue store"
-                      />
-                    )
-                  }
-                />
+                {!hasAny &&
+                !anyIssue.isLoading &&
+                !detection.isLoading &&
+                !anyIssue.error &&
+                !detection.error &&
+                (!detection.run || cleanScan) ? (
+                  <ExperimentIssuesEmptyState hasCompletedDetectionRuns={cleanScan} />
+                ) : (
+                  <Empty
+                    description={
+                      hasAny ? (
+                        <FormattedMessage
+                          defaultMessage="No issues match these filters."
+                          description="Experiment Issues no matching results"
+                        />
+                      ) : anyIssue.error || detection.error ? (
+                        <FormattedMessage
+                          defaultMessage="No issues are available for this search."
+                          description="Experiment Issues empty search with unavailable history"
+                        />
+                      ) : detection.isLoading || anyIssue.isLoading ? (
+                        <FormattedMessage
+                          defaultMessage="Loading detection history…"
+                          description="Experiment Issues empty state while checking history"
+                        />
+                      ) : cleanScan ? (
+                        <FormattedMessage
+                          defaultMessage="The latest detection found no issues in the selected traces."
+                          description="Experiment Issues completed empty scan"
+                        />
+                      ) : !detection.run ? (
+                        <FormattedMessage
+                          defaultMessage="Detect issues to find problems in your traces."
+                          description="Experiment Issues before the first detection"
+                        />
+                      ) : (
+                        <FormattedMessage
+                          defaultMessage="No issues have been recorded."
+                          description="Experiment Issues empty issue store"
+                        />
+                      )
+                    }
+                  />
+                )}
               </CenteredState>
             ) : (
               <ul
@@ -213,24 +249,22 @@ const ExperimentIssuesContent = ({ experimentId }: { experimentId: string }) => 
   ) : undefined;
   return (
     <div css={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, height: '100%' }}>
-      <ExperimentIssuesToolbar controls={controls}>
-        {detectionEnabled && (
-          <Button
-            componentId="mlflow.experiment-issues.detect"
-            icon={<SparkleIcon />}
-            disabled={!canEdit || isDetecting}
-            loading={isDetectionButtonLoading}
-            aria-busy={isDetectionButtonLoading}
-            aria-label={detectIssuesLabel}
-            onClick={() => {
-              setShowDetection(true);
-              if (traces.error) traces.refetch();
-            }}
-          >
-            {detectIssuesLabel}
-          </Button>
-        )}
-      </ExperimentIssuesToolbar>
+      <div css={{ flexShrink: 0, paddingBottom: theme.spacing.md, borderBottom: `1px solid ${theme.colors.border}` }}>
+        <ExperimentIssuesActionBar
+          controls={{ ...controls, totalCount: total }}
+          searchInput={controls.search.input}
+          onSearchInputChange={controls.search.setInput}
+          onSearchSubmit={controls.search.flush}
+          onSearchClear={controls.search.clear}
+          isDetecting={isDetectionButtonLoading}
+          canDetect={canEdit && !isDetecting}
+          detectionEnabled={detectionEnabled}
+          onRunDetection={() => {
+            setShowDetection(true);
+            if (traces.error) traces.refetch();
+          }}
+        />
+      </div>
       <IssueDetectionStatus detection={detection} experimentId={experimentId} />
       {showDetection && traces.error && (
         <Alert
@@ -246,22 +280,7 @@ const ExperimentIssuesContent = ({ experimentId }: { experimentId: string }) => 
           description={traces.error.message}
         />
       )}
-      <div css={{ display: 'flex', flex: 1, minHeight: 0, minWidth: 0, overflow: 'hidden' }}>
-        {detailPane ? (
-          <ModelTraceExplorerResizablePane
-            initialRatio={storedRatio > 0 && storedRatio < 1 ? storedRatio : 1 / 3}
-            paneWidth={paneWidth}
-            setPaneWidth={setPaneWidth}
-            onRatioChange={setStoredRatio}
-            leftMinWidth={280}
-            rightMinWidth={480}
-            leftChild={list}
-            rightChild={detailPane}
-          />
-        ) : (
-          list
-        )}
-      </div>
+      <IssueSplitPane list={list} detail={detailPane} />
       {showDetection && traces.data && (
         <IssueDetectionModal
           experimentId={experimentId}
