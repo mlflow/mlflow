@@ -2239,10 +2239,6 @@
     "defaultMessage": "Off",
     "description": "Runs charts > line chart > ignore outliers > off setting label"
   },
-  "75Qazj": {
-    "defaultMessage": "Issue detection completed",
-    "description": "Issues completed detection status"
-  },
   "78/HiZ": {
     "defaultMessage": "Expand tag columns",
     "description": "Column header action for expanding tag columns"
@@ -8683,10 +8679,6 @@
     "defaultMessage": "Cancel",
     "description": "A label for the cancel button in the prompt creation modal in the prompt management UI"
   },
-  "WQ7GyV": {
-    "defaultMessage": "Found {count, plural, one {# issue} other {# issues}} across {traces}.",
-    "description": "Issues latest detection sample outcome"
-  },
   "WQwCH6": {
     "defaultMessage": "Aliased versions",
     "description": "Column title for aliased versions in the registered model page"
@@ -14127,10 +14119,6 @@
     "defaultMessage": "Conversation completeness",
     "description": "LLM template option"
   },
-  "qsyUDv": {
-    "defaultMessage": "Affected traces",
-    "description": "Experiment Issue affected traces heading"
-  },
   "quxZB8": {
     "defaultMessage": "Create version",
     "description": "Button for creating a new genai model version"
@@ -14522,10 +14510,6 @@
   "sGXhV4": {
     "defaultMessage": "Welcome to MLflow",
     "description": "Home page hero title"
-  },
-  "sGf2q6": {
-    "defaultMessage": "{count, plural, one {# selected trace} other {# selected traces}}",
-    "description": "Issues detection selected trace count"
   },
   "sHvLH2": {
     "defaultMessage": "Browse all providers →",

@@ -10,7 +10,6 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import { Link } from '../../../common/utils/RoutingUtils';
 import Utils from '../../../common/utils/Utils';
 import { GenAIMarkdownRenderer } from '../../../shared/web-shared/genai-markdown-renderer';
-import { IssueTracesPanel } from '../../components/run-page/IssueTracesPanel';
 import { SEVERITY_TAG_CONFIG } from '../../components/run-page/IssueCard';
 import type { Issue } from '../../components/run-page/hooks/useSearchIssuesQuery';
 import Routes from '../../routes';
@@ -167,17 +166,6 @@ export const ExperimentIssueDetail = ({ issue, canEdit }: { issue: Issue; canEdi
                 </>
               )}
             </Typography.Text>
-          </section>
-          <section css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
-            <Typography.Title level={4} withoutMargins>
-              <FormattedMessage
-                defaultMessage="Affected traces"
-                description="Experiment Issue affected traces heading"
-              />
-            </Typography.Title>
-            <div css={{ height: 500, display: 'flex', minWidth: 0 }}>
-              <IssueTracesPanel issue={issue} experimentId={issue.experiment_id} />
-            </div>
           </section>
         </div>
       </div>

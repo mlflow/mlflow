@@ -18,9 +18,6 @@ jest.mock('../../../common/utils/FeatureUtils', () => ({
 }));
 
 jest.mock('../../hooks/useExperimentPermission', () => ({ useExperimentPermission: jest.fn(() => true) }));
-jest.mock('../../components/run-page/IssueTracesPanel', () => ({
-  IssueTracesPanel: ({ issue }: { issue: Issue }) => <div>References for {issue.issue_id}</div>,
-}));
 jest.mock('../../components/experiment-page/components/traces-v3/IssueDetectionModal', () => ({
   IssueDetectionModal: ({ availableTraceIds }: { availableTraceIds: string[] }) => (
     <div role="dialog">
@@ -140,9 +137,9 @@ describe('Experiment Issues', () => {
     renderPage('?selectedIssueId=iss-a');
     expect(await screen.findByText('Repeated model calls')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: /Wrong answer/ }));
-    expect(await screen.findByText('References for iss-b')).toBeInTheDocument();
+    expect(await screen.findByText('Description for iss-b')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Back' }));
-    expect(await screen.findByText('References for iss-a')).toBeInTheDocument();
+    expect(await screen.findByText('Description for iss-a')).toBeInTheDocument();
     expect(searches).toContainEqual(
       expect.objectContaining({
         experiment_id: '1',
@@ -212,7 +209,7 @@ describe('Experiment Issues', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Resolved' }));
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Reopen' }));
     await waitFor(() => expect(issues[0].status).toBe('pending'));
-    expect(await screen.findByText('References for iss-a')).toBeInTheDocument();
+    expect(await screen.findByText('Description for iss-a')).toBeInTheDocument();
   });
   test('removes the default Open chip to include resolved issues and changes the server sort', async () => {
     issues[1].status = 'resolved';
@@ -245,7 +242,7 @@ describe('Experiment Issues', () => {
     const row = await screen.findByRole('button', { name: /Wrong answer/ });
     row.focus();
     await userEvent.keyboard('{Enter}');
-    await screen.findByText('References for iss-b');
+    await screen.findByText('Description for iss-b');
     expect(row).toHaveAttribute('aria-pressed', 'true');
     await userEvent.click(screen.getByRole('button', { name: 'Open' }));
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Not an issue' }));
@@ -302,11 +299,12 @@ describe('Experiment Issues', () => {
       await client.invalidateQueries(['FETCH_JOB_STATUS', 'job-1']);
     });
     expect(await screen.findByRole('button', { name: /Detected by job/ })).toBeInTheDocument();
-    expect(await screen.findByText('Issue detection completed')).toBeInTheDocument();
+    expect(screen.queryByText('Issue detection completed')).not.toBeInTheDocument();
+    expect(screen.queryByText('Detecting issues')).not.toBeInTheDocument();
   });
   test('discovers a newly submitted job without navigating away', async () => {
     renderPage();
-    await screen.findByText('References for iss-a');
+    await screen.findByText('Description for iss-a');
     latestRun = {
       info: { run_id: 'run-1', status: 'RUNNING' },
       data: { tags: [{ key: 'mlflow.issueDetection.jobId', value: 'job-1' }] },
@@ -352,8 +350,9 @@ describe('Experiment Issues', () => {
       rest.get('*/ajax-api/3.0/mlflow/jobs/job-1', (_req, res, ctx) => res(ctx.json({ status: 'SUCCEEDED' }))),
     );
     await userEvent.click(screen.getByRole('button', { name: 'Retry status' }));
-    expect(await screen.findByText('Issue detection completed')).toBeInTheDocument();
     expect(await screen.findByRole('button', { name: /Found after retry/ })).toBeInTheDocument();
+    expect(screen.queryByText('Issue detection completed')).not.toBeInTheDocument();
+    expect(screen.queryByText('Detecting issues')).not.toBeInTheDocument();
     expect(screen.queryByText('Unable to update detection progress')).not.toBeInTheDocument();
   });
   test.each([false, true])(
@@ -382,8 +381,9 @@ describe('Experiment Issues', () => {
       await act(async () => {
         await client.invalidateQueries(['LATEST_ISSUE_DETECTION']);
       });
-      expect(await screen.findByText('Issue detection completed')).toBeInTheDocument();
       expect(await screen.findByRole('button', { name: /Found by another user/ })).toBeInTheDocument();
+      expect(screen.queryByText('Issue detection completed')).not.toBeInTheDocument();
+      expect(screen.queryByText('Detecting issues')).not.toBeInTheDocument();
       const searchCount = searches.length;
       await act(async () => {
         await client.invalidateQueries(['LATEST_ISSUE_DETECTION']);
@@ -407,7 +407,7 @@ describe('Experiment Issues', () => {
     };
     jobStatus = 'RUNNING';
     renderPage();
-    await screen.findByText('References for iss-a');
+    await screen.findByText('Description for iss-a');
     expect(screen.getByRole('button', { name: 'Detect new issues' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Open' })).toBeDisabled();
     expect(screen.queryByRole('button', { name: 'Cancel detection' })).not.toBeInTheDocument();

@@ -57,7 +57,7 @@ export const IssueDetectionStatus = ({
   const { theme } = useDesignSystemTheme();
   const [confirmCancel, setConfirmCancel] = useState(false);
   const cancel = useCancelJob();
-  const { run, job, jobId, error, status, result } = detection;
+  const { run, job, jobId, error, status } = detection;
   if (error) {
     return (
       <Alert
@@ -74,7 +74,7 @@ export const IssueDetectionStatus = ({
       />
     );
   }
-  if (!run) return null;
+  if (!run || status === JobStatus.SUCCEEDED) return null;
   const failed = status === JobStatus.FAILED || status === JobStatus.TIMEOUT;
   const canCancel = canEdit && Boolean(jobId && job.status) && !job.error && !isJobComplete(status);
   return (
@@ -82,12 +82,7 @@ export const IssueDetectionStatus = ({
       <DetectionSummary
         failed={failed}
         message={
-          status === JobStatus.SUCCEEDED ? (
-            <FormattedMessage
-              defaultMessage="Issue detection completed"
-              description="Issues completed detection status"
-            />
-          ) : failed ? (
+          failed ? (
             <FormattedMessage defaultMessage="Issue detection failed" description="Issues failed detection status" />
           ) : status === JobStatus.CANCELED ? (
             <FormattedMessage
@@ -100,24 +95,6 @@ export const IssueDetectionStatus = ({
         }
         description={
           <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.md, flexWrap: 'wrap' }}>
-            {status === JobStatus.SUCCEEDED &&
-              result?.issues !== undefined &&
-              result.total_traces_analyzed !== undefined && (
-                <FormattedMessage
-                  defaultMessage="Found {count, plural, one {# issue} other {# issues}} across {traces}."
-                  description="Issues latest detection sample outcome"
-                  values={{
-                    count: result.issues,
-                    traces: (
-                      <FormattedMessage
-                        defaultMessage="{count, plural, one {# selected trace} other {# selected traces}}"
-                        description="Issues detection selected trace count"
-                        values={{ count: result.total_traces_analyzed }}
-                      />
-                    ),
-                  }}
-                />
-              )}
             {!isJobComplete(status) && job.status_details?.stage}
             {failed && typeof job.result === 'string' && job.result}
             <Link
