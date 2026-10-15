@@ -99,7 +99,8 @@ def session_group_key(session_value: str, level_index: int) -> str:
 
 @experimental(version="3.17.0")
 def set_session_hierarchy(levels: list[str], experiment_id: str | None = None) -> None:
-    """Declare the session hierarchy levels for an experiment.
+    """
+    Declare the session hierarchy levels for an experiment.
 
     Writes the ``mlflow.experiment.sessionHierarchy`` tag so that scorers with a
     ``session_level`` can group traces by a hierarchy level instead of the full
