@@ -400,6 +400,9 @@ def store_with_traces(store):
             ["execution_time DESC", "timestamp ASC"],
             ["tr-3", "tr-4", "tr-0", "tr-2", "tr-1"],
         ),
+        # Order by end time (timestamp + execution_time)
+        (["end_time"], ["tr-1", "tr-2", "tr-0", "tr-3", "tr-4"]),
+        (["end_time_ms DESC"], ["tr-4", "tr-3", "tr-2", "tr-0", "tr-1"]),
         # Order by experiment ID
         (["experiment_id"], ["tr-4", "tr-3", "tr-2", "tr-1", "tr-0"]),
         # Order by status
@@ -437,6 +440,7 @@ def test_search_traces_order_by(store_with_traces, order_by, expected_ids):
         ("experiment_id", False),
         ("status", False),
         ("execution_time DESC", True),
+        ("end_time DESC", False),
         ("name", True),
         ("tag.nonexistent", True),
         ("run_id", True),
