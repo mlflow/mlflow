@@ -1,5 +1,6 @@
 import type { ArtifactRequestOptions } from '../../common/utils/ArtifactUtils';
 import { ErrorWrapper } from '../../common/utils/ErrorWrapper';
+import { getAjaxUrl } from '../../common/utils/FetchUtils';
 import {
   getArtifactsPresignedOnlySync,
   getMultipartDownloadsEnabledSync,
@@ -36,7 +37,15 @@ export const getProxiedArtifactRoute = (
   try {
     const parsedArtifactRootUri = new URL(artifactRootUri);
     if (parsedArtifactRootUri.protocol === 'mlflow-artifacts:') {
-      return { path: joinArtifactPaths(getDecodedPathname(parsedArtifactRootUri), artifactPath) };
+      const path = joinArtifactPaths(getDecodedPathname(parsedArtifactRootUri), artifactPath);
+      if (parsedArtifactRootUri.host) {
+        // Explicit authorities replace the tracking host, retaining its scheme and
+        // deployment prefix, just as the Python artifact repository does.
+        const artifactServiceUrl = new URL(getAjaxUrl('./'), document.baseURI);
+        artifactServiceUrl.host = parsedArtifactRootUri.host;
+        return { path, artifactServiceBaseUrl: artifactServiceUrl.toString() };
+      }
+      return { path };
     }
     if (parsedArtifactRootUri.protocol === 'http:' || parsedArtifactRootUri.protocol === 'https:') {
       const rootPath = getDecodedPathname(parsedArtifactRootUri);
@@ -302,13 +311,9 @@ export const uploadArtifactWithPresignedUrl = async (
   const artifactsPresignedOnly = getArtifactsPresignedOnlySync();
   const multipartUploadsEnabled = getMultipartUploadsEnabledSync();
   const presignedUploadRunIdSupported = getPresignedUploadRunIdSupportedSync();
-  if (!artifactsPresignedOnly && !multipartUploadsEnabled && !presignedUploadRunIdSupported) {
-    return false;
-  }
-  const artifactRootUri = await getRunArtifactRootUri(runUuid);
-  const proxiedArtifactRoute = getProxiedArtifactRoute(artifactRootUri, path);
-
   try {
+    const artifactRootUri = await getRunArtifactRootUri(runUuid);
+    const proxiedArtifactRoute = getProxiedArtifactRoute(artifactRootUri, path);
     if (proxiedArtifactRoute) {
       if (!multipartUploadsEnabled && !artifactsPresignedOnly && !proxiedArtifactRoute.artifactServiceBaseUrl) {
         return false;

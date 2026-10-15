@@ -321,15 +321,18 @@ describe('ArtifactView', () => {
       expect(getArtifactBlob).not.toHaveBeenCalled();
     });
 
-    test('should ignore the authority for mlflow-artifacts URIs', async () => {
+    test('should use the explicit authority for mlflow-artifacts URIs', async () => {
       proxiedPresignedSpy.mockResolvedValue({ url: 'https://s3.example.com/proxied-signed', file_size: 100 });
 
       const implInstance = getImplInstance({
-        artifactRootUri: 'mlflow-artifacts://tracking.example.com/0/fakeUuid/artifacts',
+        artifactRootUri: 'mlflow-artifacts://artifacts.example.com:9000/0/fakeUuid/artifacts',
       });
       await implInstance.onDownloadClick('fakeUuid', 'summary.txt');
 
-      expect(proxiedPresignedSpy).toHaveBeenCalledWith('0/fakeUuid/artifacts/summary.txt');
+      expect(proxiedPresignedSpy).toHaveBeenCalledWith(
+        '0/fakeUuid/artifacts/summary.txt',
+        'http://artifacts.example.com:9000/',
+      );
       expect(presignedSpy).not.toHaveBeenCalled();
       expect(assignMock).toHaveBeenCalledWith('https://s3.example.com/proxied-signed');
       expect(getArtifactBlob).not.toHaveBeenCalled();

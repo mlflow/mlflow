@@ -81,6 +81,89 @@ describe('presigned artifact utilities', () => {
     });
   });
 
+  it.each(['http:', 'https:'])('preserves an explicit artifact authority and the %s deployment prefix', (protocol) => {
+    const base = document.createElement('base');
+    base.href = `${protocol}//tracking.example/nested/mlflow/`;
+    document.head.append(base);
+    try {
+      expect(getProxiedArtifactRoute('mlflow-artifacts://artifacts.example:9000/12/run/artifacts', 'file.txt')).toEqual(
+        {
+          path: '12/run/artifacts/file.txt',
+          artifactServiceBaseUrl: `${protocol}//artifacts.example:9000/nested/mlflow/`,
+        },
+      );
+    } finally {
+      base.remove();
+    }
+  });
+
+  it.each([
+    'mlflow-artifacts://artifacts.example:9000/12/run/artifacts',
+    'https://artifacts.example:9000/prefix/api/2.0/mlflow-artifacts/artifacts/12/run/artifacts',
+  ])(
+    'uses the explicit artifact service for reads and uploads with local capabilities disabled: %s',
+    async (artifactUri) => {
+      const base = document.createElement('base');
+      base.href = 'https://tracking.example/prefix/';
+      document.head.append(base);
+      try {
+        const serviceBaseUrl = 'https://artifacts.example:9000/prefix/';
+        const sign = jest.spyOn(MlflowService, 'getMlflowArtifactsPresignedDownloadUrl').mockResolvedValue({
+          url: 'https://storage.example/download',
+        });
+        await expect(
+          resolvePresignedArtifactDownload({ runUuid: 'run', path: 'file.txt', artifactRootUri: artifactUri }),
+        ).resolves.toEqual({ url: 'https://storage.example/download', headers: {} });
+        expect(sign).toHaveBeenCalledWith('12/run/artifacts/file.txt', serviceBaseUrl);
+
+        const getRun = jest.spyOn(MlflowService, 'getRun').mockResolvedValue({ run: { info: { artifactUri } } } as any);
+        const directSign = jest.spyOn(MlflowService, 'createPresignedUploadUrl');
+        const create = jest.spyOn(MlflowService, 'createMlflowArtifactsMultipartUpload').mockResolvedValue({
+          upload_id: 'upload-id',
+          credentials: [{ url: 'https://storage.example/part', part_number: 1, headers: { 'x-storage': 'required' } }],
+        });
+        const complete = jest.spyOn(MlflowService, 'completeMlflowArtifactsMultipartUpload').mockResolvedValue({});
+        const fetchPart = jest
+          .spyOn(global, 'fetch')
+          .mockResolvedValue(new Response(undefined, { headers: { ETag: 'part-etag' } }));
+        await expect(uploadArtifactWithPresignedUrl('run', 'file.txt', 'contents')).resolves.toBe(true);
+        expect(getRun).toHaveBeenCalledWith({ run_id: 'run' });
+        expect(create).toHaveBeenCalledWith('12/run/artifacts', { path: 'file.txt', num_parts: 1 }, serviceBaseUrl);
+        expect(complete).toHaveBeenCalledWith(
+          '12/run/artifacts',
+          {
+            path: 'file.txt',
+            upload_id: 'upload-id',
+            parts: [{ part_number: 1, etag: 'part-etag', url: 'https://storage.example/part' }],
+          },
+          serviceBaseUrl,
+        );
+        expect(fetchPart).toHaveBeenCalledWith('https://storage.example/part', {
+          method: 'PUT',
+          headers: { 'x-storage': 'required' },
+          body: 'contents',
+        });
+        expect(directSign).not.toHaveBeenCalled();
+      } finally {
+        base.remove();
+      }
+    },
+  );
+
+  it.each([
+    { error: new ErrorWrapper('run not found', 404), fallback: true },
+    { error: new ErrorWrapper('run denied', 403), fallback: false },
+  ])('applies upload fallback policy to root discovery: $error', async ({ error, fallback }) => {
+    const getRun = jest.spyOn(MlflowService, 'getRun').mockRejectedValue(error);
+    const create = jest.spyOn(MlflowService, 'createMlflowArtifactsMultipartUpload');
+    if (fallback) await expect(uploadArtifactWithPresignedUrl('run', 'file.txt', 'data')).resolves.toBe(false);
+    else await expect(uploadArtifactWithPresignedUrl('run', 'file.txt', 'data')).rejects.toBe(error);
+    mockedPresignedOnly.mockReturnValue(true);
+    await expect(uploadArtifactWithPresignedUrl('run', 'file.txt', 'data')).rejects.toBe(error);
+    expect(getRun).toHaveBeenCalledTimes(2);
+    expect(create).not.toHaveBeenCalled();
+  });
+
   it('matches AJAX routes at a boundary and uses the first artifact-service route', () => {
     expect(
       getProxiedArtifactRoute(
