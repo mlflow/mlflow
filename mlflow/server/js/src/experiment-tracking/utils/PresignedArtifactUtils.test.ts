@@ -331,4 +331,63 @@ describe('presigned artifact utilities', () => {
       ],
     });
   });
+
+  it.each([undefined, 'https://artifacts.example/mlflow/'])(
+    'aborts an upload when storage hides its ETag (artifact service: %s)',
+    async (artifactServiceBaseUrl) => {
+      mockedPresignedOnly.mockReturnValue(true);
+      const artifactUri = artifactServiceBaseUrl
+        ? `${artifactServiceBaseUrl}api/2.0/mlflow-artifacts/artifacts/12/run-id/artifacts`
+        : 'mlflow-artifacts:/12/run-id/artifacts';
+      jest.spyOn(MlflowService, 'getRun').mockResolvedValue({ run: { info: { artifactUri } } } as any);
+      const createSpy = jest.spyOn(MlflowService, 'createMlflowArtifactsMultipartUpload').mockResolvedValue({
+        upload_id: 'upload-id',
+        credentials: [{ url: 'https://storage.example/part', part_number: 1, headers: {} }],
+      });
+      const completeSpy = jest.spyOn(MlflowService, 'completeMlflowArtifactsMultipartUpload').mockResolvedValue({});
+      const abortSpy = jest.spyOn(MlflowService, 'abortMlflowArtifactsMultipartUpload').mockResolvedValue({});
+      const fetchSpy = jest.spyOn(global, 'fetch').mockResolvedValue(new Response(undefined, { status: 200 }));
+
+      await expect(uploadArtifactWithPresignedUrl('run-id', 'table.json', '{}')).rejects.toMatchObject({
+        text: expect.stringContaining('ETag'),
+        status: 500,
+      });
+
+      expect(createSpy).toHaveBeenCalledTimes(1);
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+      expect(completeSpy).not.toHaveBeenCalled();
+      const abortArgs = ['12/run-id/artifacts', { path: 'table.json', upload_id: 'upload-id' }];
+      expect(abortSpy).toHaveBeenCalledTimes(1);
+      expect(abortSpy.mock.calls[0]).toEqual([
+        ...abortArgs,
+        ...(artifactServiceBaseUrl ? [artifactServiceBaseUrl] : []),
+      ]);
+    },
+  );
+
+  it('aborts an upload with missing credentials and preserves the failure if cleanup fails', async () => {
+    mockedPresignedOnly.mockReturnValue(true);
+    jest.spyOn(MlflowService, 'getRun').mockResolvedValue({
+      run: { info: { artifactUri: 'mlflow-artifacts:/12/run-id/artifacts' } },
+    } as any);
+    const createSpy = jest.spyOn(MlflowService, 'createMlflowArtifactsMultipartUpload').mockResolvedValue({
+      upload_id: 'upload-id',
+      credentials: [],
+    });
+    const completeSpy = jest.spyOn(MlflowService, 'completeMlflowArtifactsMultipartUpload').mockResolvedValue({});
+    const abortSpy = jest
+      .spyOn(MlflowService, 'abortMlflowArtifactsMultipartUpload')
+      .mockRejectedValue(new Error('cleanup failed'));
+    const fetchSpy = jest.spyOn(global, 'fetch');
+
+    await expect(uploadArtifactWithPresignedUrl('run-id', 'table.json', '{}')).rejects.toMatchObject({
+      text: expect.stringContaining('credential'),
+      status: 501,
+    });
+
+    expect(createSpy).toHaveBeenCalledTimes(1);
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(completeSpy).not.toHaveBeenCalled();
+    expect(abortSpy).toHaveBeenCalledWith('12/run-id/artifacts', { path: 'table.json', upload_id: 'upload-id' });
+  });
 });
