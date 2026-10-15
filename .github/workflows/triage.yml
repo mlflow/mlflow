@@ -459,7 +459,7 @@ jobs:
             '"### AI safety assessment\n\n<p><strong>\($decision | @html)</strong>: \($rationale | @html)</p>"' \
             >> "$GITHUB_STEP_SUMMARY"
       - if: steps.assess.outputs.decision == 'safe'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: sanitized-issue-${{ github.run_id }}
           path: ${{ runner.temp }}/sanitized_issue.json
@@ -515,7 +515,7 @@ jobs:
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: sanitized-issue-${{ github.run_id }}
           path: ${{ runner.temp }}/sanitized-issue
@@ -806,7 +806,7 @@ jobs:
           PY
       - name: Upload triage report for posting
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: triage-report-${{ github.run_id }}
           path: ${{ runner.temp }}/triage-report
@@ -849,7 +849,7 @@ jobs:
           ref: ${{ github.sha }}
           persist-credentials: false
       - uses: ./.github/actions/setup-python
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         if: needs.triage.result == 'success'
         with:
           name: triage-report-${{ github.run_id }}
@@ -997,7 +997,7 @@ jobs:
           ref: ${{ github.sha }}
           persist-credentials: false
       - uses: ./.github/actions/setup-python
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: triage-report-${{ github.run_id }}
           path: /tmp/triage-out
