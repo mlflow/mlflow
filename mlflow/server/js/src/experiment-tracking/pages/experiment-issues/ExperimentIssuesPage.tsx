@@ -1,16 +1,7 @@
 import { useState, type ReactNode } from 'react';
-import {
-  Alert,
-  Button,
-  Empty,
-  PreviewCard,
-  SparkleIcon,
-  TableSkeleton,
-  Typography,
-  useDesignSystemTheme,
-} from '@databricks/design-system';
+import { Alert, Button, Empty, SparkleIcon, TableSkeleton, useDesignSystemTheme } from '@databricks/design-system';
 import { NotFoundError, PermissionError } from '@databricks/web-shared/errors';
-import { FormattedMessage, useIntl } from 'react-intl';
+import { FormattedMessage } from 'react-intl';
 import { PageNotFoundView } from '../../../common/components/PageNotFoundView';
 import { shouldEnableExperimentIssuesTab } from '../../../common/utils/FeatureUtils';
 import { useParams, useSearchParams } from '../../../common/utils/RoutingUtils';
@@ -18,13 +9,13 @@ import { useActiveWorkspace } from '../../../workspaces/utils/WorkspaceUtils';
 import { ModelTraceExplorerResizablePane } from '../../../shared/web-shared/model-trace-explorer';
 import { useLocalStorage } from '../../../shared/web-shared/hooks';
 import { IssueDetectionModal } from '../../components/experiment-page/components/traces-v3/IssueDetectionModal';
-import { STATUS_TAG_CONFIG, SEVERITY_TAG_CONFIG } from '../../components/run-page/IssueCard';
 import { JobStatus } from '../../components/run-page/hooks/useFetchJobStatus';
 import { SELECTED_ISSUE_ID_PARAM } from '../../constants';
 import { useExperimentPermission } from '../../hooks/useExperimentPermission';
 import { SERVER_FEATURE_KEYS, useFeatureEnabled, useServerInfo } from '../../hooks/useServerInfo';
 import { ExperimentIssueDetail } from './ExperimentIssueDetail';
-import { ExperimentIssuesToolbar, useIssueListControls } from './ExperimentIssuesToolbar';
+import { ExperimentIssueRow } from './ExperimentIssueRow';
+import { ExperimentIssuesListHeader, ExperimentIssuesToolbar, useIssueListControls } from './ExperimentIssuesToolbar';
 import { IssueDetectionStatus } from './IssueDetectionStatus';
 import { useDetectionTraceIds, useLatestIssueDetection } from './useIssueDetection';
 import { useExperimentIssue, useExperimentIssues, useHasExperimentIssues } from './useExperimentIssues';
@@ -79,7 +70,6 @@ const ReadError = ({ error, retry }: { error: Error; retry: () => void }) => (
 
 const ExperimentIssuesContent = ({ experimentId }: { experimentId: string }) => {
   const { theme } = useDesignSystemTheme();
-  const intl = useIntl();
   const controls = useIssueListControls();
   const search = useExperimentIssues(experimentId, controls.filters);
   const anyIssue = useHasExperimentIssues(experimentId);
@@ -107,120 +97,102 @@ const ExperimentIssuesContent = ({ experimentId }: { experimentId: string }) => 
   const hasAny = Boolean(anyIssue.data?.issues?.length);
   const cleanScan = detection.status === JobStatus.SUCCEEDED && detection.result?.issues === 0;
   const list = (
-    <div css={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0, overflow: 'auto' }}>
-      {search.isLoading ? (
-        <TableSkeleton lines={5} />
-      ) : search.error && !search.data ? (
-        <ReadError error={search.error} retry={() => search.refetch()} />
-      ) : (
-        <>
-          {issues.length === 0 ? (
-            <CenteredState>
-              <Empty
+    <div css={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0, minHeight: 0, overflow: 'hidden' }}>
+      <ExperimentIssuesListHeader controls={controls} total={total} />
+      <div css={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+        {search.isLoading ? (
+          <TableSkeleton lines={5} />
+        ) : search.error && !search.data ? (
+          <ReadError error={search.error} retry={() => search.refetch()} />
+        ) : (
+          <>
+            {issues.length === 0 ? (
+              <CenteredState>
+                <Empty
+                  description={
+                    hasAny ? (
+                      <FormattedMessage
+                        defaultMessage="No issues match these filters."
+                        description="Experiment Issues no matching results"
+                      />
+                    ) : anyIssue.error || detection.error ? (
+                      <FormattedMessage
+                        defaultMessage="No issues are available for this search."
+                        description="Experiment Issues empty search with unavailable history"
+                      />
+                    ) : detection.isLoading || anyIssue.isLoading ? (
+                      <FormattedMessage
+                        defaultMessage="Loading detection history…"
+                        description="Experiment Issues empty state while checking history"
+                      />
+                    ) : cleanScan ? (
+                      <FormattedMessage
+                        defaultMessage="The latest detection found no issues in the selected traces."
+                        description="Experiment Issues completed empty scan"
+                      />
+                    ) : !detection.run ? (
+                      <FormattedMessage
+                        defaultMessage="Detect issues to find problems in your traces."
+                        description="Experiment Issues before the first detection"
+                      />
+                    ) : (
+                      <FormattedMessage
+                        defaultMessage="No issues have been recorded."
+                        description="Experiment Issues empty issue store"
+                      />
+                    )
+                  }
+                />
+              </CenteredState>
+            ) : (
+              <ul
+                aria-busy={search.isFetching && !search.isFetchingNextPage}
+                css={{ listStyle: 'none', margin: 0, padding: 0 }}
+              >
+                {issues.map((issue) => (
+                  <li key={issue.issue_id}>
+                    <ExperimentIssueRow
+                      issue={issue}
+                      isSelected={selectedId === issue.issue_id}
+                      onSelect={() => selectIssue(issue.issue_id)}
+                    />
+                  </li>
+                ))}
+              </ul>
+            )}
+            {search.error && search.data && (
+              <Alert
+                componentId="mlflow.experiment-issues.page-error"
+                type="error"
+                closable={false}
+                message={
+                  <FormattedMessage
+                    defaultMessage="Unable to refresh or load more issues"
+                    description="Experiment Issues pagination error"
+                  />
+                }
                 description={
-                  hasAny ? (
-                    <FormattedMessage
-                      defaultMessage="No issues match these filters."
-                      description="Experiment Issues no matching results"
-                    />
-                  ) : anyIssue.error || detection.error ? (
-                    <FormattedMessage
-                      defaultMessage="No issues are available for this search."
-                      description="Experiment Issues empty search with unavailable history"
-                    />
-                  ) : detection.isLoading || anyIssue.isLoading ? (
-                    <FormattedMessage
-                      defaultMessage="Loading detection history…"
-                      description="Experiment Issues empty state while checking history"
-                    />
-                  ) : cleanScan ? (
-                    <FormattedMessage
-                      defaultMessage="The latest detection found no issues in the selected traces."
-                      description="Experiment Issues completed empty scan"
-                    />
-                  ) : !detection.run ? (
-                    <FormattedMessage
-                      defaultMessage="Detect issues to find problems in your traces."
-                      description="Experiment Issues before the first detection"
-                    />
-                  ) : (
-                    <FormattedMessage
-                      defaultMessage="No issues have been recorded."
-                      description="Experiment Issues empty issue store"
-                    />
-                  )
+                  <div>
+                    {search.error.message}
+                    <Button componentId="mlflow.experiment-issues.retry-refresh" onClick={() => search.refetch()}>
+                      <FormattedMessage defaultMessage="Retry" description="Experiment Issues read retry action" />
+                    </Button>
+                  </div>
                 }
               />
-            </CenteredState>
-          ) : (
-            issues.map((issue) => (
-              <PreviewCard
-                key={issue.issue_id}
-                componentId="mlflow.experiment-issues.row"
-                selected={selectedId === issue.issue_id}
-                onClick={() => selectIssue(issue.issue_id)}
-                title={<Typography.Text bold>{issue.name}</Typography.Text>}
-                titleActions={
-                  <Typography.Text color="secondary">
-                    {intl.formatMessage(STATUS_TAG_CONFIG[issue.status].label)}
-                  </Typography.Text>
-                }
-                dangerouslyAppendEmotionCSS={{
-                  flexShrink: 0,
-                  marginBottom: theme.spacing.xs,
-                  padding: theme.spacing.md,
-                }}
+            )}
+            {search.hasNextPage && (
+              <Button
+                componentId="mlflow.experiment-issues.load-more"
+                loading={search.isFetchingNextPage}
+                onClick={() => search.fetchNextPage()}
               >
-                <div css={{ display: 'flex', flexWrap: 'wrap', gap: theme.spacing.sm }}>
-                  {issue.severity && (
-                    <Typography.Text>{intl.formatMessage(SEVERITY_TAG_CONFIG[issue.severity].label)}</Typography.Text>
-                  )}
-                  <Typography.Text color="secondary">{issue.categories?.join(', ')}</Typography.Text>
-                  {issue.trace_count !== undefined && (
-                    <Typography.Text color="secondary">
-                      <FormattedMessage
-                        defaultMessage="{count, plural, one {# trace} other {# traces}}"
-                        description="Experiment Issue affected trace count"
-                        values={{ count: issue.trace_count }}
-                      />
-                    </Typography.Text>
-                  )}
-                </div>
-              </PreviewCard>
-            ))
-          )}
-          {search.error && search.data && (
-            <Alert
-              componentId="mlflow.experiment-issues.page-error"
-              type="error"
-              closable={false}
-              message={
-                <FormattedMessage
-                  defaultMessage="Unable to refresh or load more issues"
-                  description="Experiment Issues pagination error"
-                />
-              }
-              description={
-                <div>
-                  {search.error.message}
-                  <Button componentId="mlflow.experiment-issues.retry-refresh" onClick={() => search.refetch()}>
-                    <FormattedMessage defaultMessage="Retry" description="Experiment Issues read retry action" />
-                  </Button>
-                </div>
-              }
-            />
-          )}
-          {search.hasNextPage && (
-            <Button
-              componentId="mlflow.experiment-issues.load-more"
-              loading={search.isFetchingNextPage}
-              onClick={() => search.fetchNextPage()}
-            >
-              <FormattedMessage defaultMessage="Load more" description="Experiment Issues next page action" />
-            </Button>
-          )}
-        </>
-      )}
+                <FormattedMessage defaultMessage="Load more" description="Experiment Issues next page action" />
+              </Button>
+            )}
+          </>
+        )}
+      </div>
     </div>
   );
   const detailPane = !selectedId ? undefined : detail.error ? (
@@ -234,15 +206,10 @@ const ExperimentIssuesContent = ({ experimentId }: { experimentId: string }) => 
   ) : undefined;
   return (
     <div css={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, height: '100%' }}>
-      <div css={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: theme.spacing.md }}>
-        <Typography.Title level={3}>
-          <FormattedMessage defaultMessage="Issues" description="Experiment Issues page heading" />
-          {total !== undefined && <Typography.Text color="secondary"> ({total})</Typography.Text>}
-        </Typography.Title>
+      <ExperimentIssuesToolbar controls={controls}>
         {detectionEnabled && (
           <Button
             componentId="mlflow.experiment-issues.detect"
-            type="primary"
             icon={<SparkleIcon />}
             disabled={!canEdit}
             loading={showDetection && traces.isFetching}
@@ -251,10 +218,13 @@ const ExperimentIssuesContent = ({ experimentId }: { experimentId: string }) => 
               if (traces.error) traces.refetch();
             }}
           >
-            <FormattedMessage defaultMessage="Detect issues" description="Experiment Issues launch detection action" />
+            <FormattedMessage
+              defaultMessage="Detect new issues"
+              description="Experiment Issues launch detection action"
+            />
           </Button>
         )}
-      </div>
+      </ExperimentIssuesToolbar>
       <IssueDetectionStatus detection={detection} experimentId={experimentId} canEdit={canEdit} />
       {showDetection && traces.error && (
         <Alert
@@ -270,7 +240,6 @@ const ExperimentIssuesContent = ({ experimentId }: { experimentId: string }) => 
           description={traces.error.message}
         />
       )}
-      <ExperimentIssuesToolbar controls={controls} />
       <div css={{ display: 'flex', flex: 1, minHeight: 0, minWidth: 0, overflow: 'hidden' }}>
         {detailPane ? (
           <ModelTraceExplorerResizablePane
@@ -279,7 +248,7 @@ const ExperimentIssuesContent = ({ experimentId }: { experimentId: string }) => 
             setPaneWidth={setPaneWidth}
             onRatioChange={setStoredRatio}
             leftMinWidth={280}
-            rightMinWidth={400}
+            rightMinWidth={480}
             leftChild={list}
             rightChild={detailPane}
           />

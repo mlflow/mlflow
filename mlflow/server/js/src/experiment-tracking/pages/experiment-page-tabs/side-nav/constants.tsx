@@ -3,7 +3,7 @@ import { ExperimentKind } from '../../../constants';
 import { ExperimentPageTabName } from '../../../constants';
 import {
   ChartLineIcon,
-  WarningIcon,
+  BugIcon,
   DatabaseIcon,
   ForkHorizontalIcon,
   GavelIcon,
@@ -258,7 +258,7 @@ export const useExperimentPageSideNavConfig = ({
           ? [
               {
                 label: <FormattedMessage defaultMessage="Issues" description="Label for the experiment Issues tab" />,
-                icon: <WarningIcon />,
+                icon: <BugIcon />,
                 tabName: ExperimentPageTabName.Issues,
                 componentId: 'mlflow.experiment-side-nav.genai.issues',
               },

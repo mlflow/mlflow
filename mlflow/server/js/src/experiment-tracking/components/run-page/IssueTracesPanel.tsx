@@ -32,6 +32,7 @@ export const IssueTracesPanel = ({ issue, experimentId }: IssueTracesPanelProps)
         flex: 1,
         height: '100%',
         minHeight: 0,
+        minWidth: 0,
         paddingLeft: theme.spacing.sm,
       }}
     >

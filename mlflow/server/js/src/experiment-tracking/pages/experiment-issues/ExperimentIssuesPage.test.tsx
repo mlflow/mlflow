@@ -131,8 +131,8 @@ describe('Experiment Issues', () => {
       );
       renderPage(query);
       expect(await screen.findByRole('heading', { name: 'Page Not Found' })).toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: 'Detect issues' })).not.toBeInTheDocument();
-      expect(screen.queryByRole('textbox', { name: 'Search issues' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Detect new issues' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('textbox', { name: 'Search issues by title' })).not.toBeInTheDocument();
       expect(fetchIssueData).not.toHaveBeenCalled();
     },
   );
@@ -160,7 +160,9 @@ describe('Experiment Issues', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Load more' }));
     expect(await screen.findByRole('button', { name: /Later match/ })).toBeInTheDocument();
     expect(searches).toContainEqual(expect.objectContaining({ page_token: '50' }));
-    fireEvent.change(screen.getByRole('textbox', { name: 'Search issues' }), { target: { value: 'Later match' } });
+    fireEvent.change(screen.getByRole('textbox', { name: 'Search issues by title' }), {
+      target: { value: 'Later match' },
+    });
     await waitFor(() =>
       expect(searches).toContainEqual(expect.objectContaining({ name: 'Later match', max_results: 50 })),
     );
@@ -182,34 +184,82 @@ describe('Experiment Issues', () => {
     expect(screen.getByRole('button', { name: /Slow response/ })).toBeInTheDocument();
   });
   test('rolls back optimistic triage after a failed patch', async () => {
+    let rejectPatch!: () => void;
+    const patchReady = new Promise<void>((resolve) => {
+      rejectPatch = resolve;
+    });
     server.use(
-      rest.patch('*/ajax-api/3.0/mlflow/issues/:id', (_req, res, ctx) =>
-        res(ctx.delay(200), ctx.status(403), ctx.json({ message: 'Read only' })),
-      ),
+      rest.patch('*/ajax-api/3.0/mlflow/issues/:id', async (_req, res, ctx) => {
+        await patchReady;
+        return res(ctx.status(403), ctx.json({ message: 'Read only' }));
+      }),
     );
     renderPage('?selectedIssueId=iss-a');
-    await userEvent.click(await screen.findByRole('button', { name: 'Resolve' }));
-    expect(await screen.findByRole('button', { name: 'Reopen' })).toBeInTheDocument();
+    const statusButton = await screen.findByRole('button', { name: 'Open' });
+    await userEvent.click(statusButton);
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Mark resolved' }));
+    await waitFor(() => expect(statusButton).toHaveTextContent('Resolved'));
+    rejectPatch();
     expect(await screen.findByText('Unable to update issue')).toBeInTheDocument();
-    expect(await screen.findByRole('button', { name: 'Resolve' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Open' })).toBeEnabled();
     expect(issues[0].status).toBe('pending');
   });
   test('resolves and reopens a linked issue even when its row is filtered out', async () => {
     renderPage('?selectedIssueId=iss-a');
-    await userEvent.click(await screen.findByRole('button', { name: 'Resolve' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Open' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Mark resolved' }));
     await waitFor(() => expect(issues[0].status).toBe('resolved'));
-    await userEvent.click(await screen.findByRole('button', { name: 'Reopen' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Resolved' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Reopen' }));
     await waitFor(() => expect(issues[0].status).toBe('pending'));
     expect(await screen.findByText('References for iss-a')).toBeInTheDocument();
   });
+  test('removes the default Open chip to include resolved issues and changes the server sort', async () => {
+    issues[1].status = 'resolved';
+    renderPage();
+    await screen.findByRole('button', { name: /Slow response/ });
+    expect(screen.queryByRole('button', { name: /Wrong answer/ })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Remove Open from Status filter' }));
+    expect(await screen.findByRole('button', { name: /Wrong answer/ })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Sort Severity' }));
+    await userEvent.click(await screen.findByRole('menuitemradio', { name: 'Newest' }));
+    await waitFor(() =>
+      expect(searches).toContainEqual(expect.objectContaining({ statuses: [], order_by: ['created_timestamp DESC'] })),
+    );
+  });
+  test('clears all filter dimensions from the popover while preserving the title search', async () => {
+    renderPage('?issueSearch=Slow&issueSeverity=high&issueCategory=latency');
+    await screen.findByRole('button', { name: /Slow response/ });
+    await userEvent.click(screen.getByRole('button', { name: 'Filter issues' }));
+    expect(await screen.findByRole('combobox', { name: 'Category' })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Clear filters' }));
+    await waitFor(() =>
+      expect(searches).toContainEqual(
+        expect.objectContaining({ name: 'Slow', statuses: [], severities: [], categories: [] }),
+      ),
+    );
+    expect(screen.getByRole('textbox', { name: 'Search issues by title' })).toHaveValue('Slow');
+  });
+  test('lets keyboard users select an issue row and reject it from the status menu', async () => {
+    renderPage('?selectedIssueId=iss-a');
+    const row = await screen.findByRole('button', { name: /Wrong answer/ });
+    row.focus();
+    await userEvent.keyboard('{Enter}');
+    await screen.findByText('References for iss-b');
+    expect(row).toHaveAttribute('aria-pressed', 'true');
+    await userEvent.click(screen.getByRole('button', { name: 'Open' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Not an issue' }));
+    await waitFor(() => expect(issues[1].status).toBe('rejected'));
+    expect(await screen.findByRole('button', { name: 'Not an issue' })).toBeInTheDocument();
+  });
   test('opens the existing detector with recent trace IDs', async () => {
     renderPage();
-    await userEvent.click(await screen.findByRole('button', { name: 'Detect issues' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Detect new issues' }));
     expect(await screen.findByRole('dialog')).toHaveTextContent('Selected traces: trace-1, trace-2');
   });
   test.each([200, 500])('preserves detection dialog drafts during a trace refetch (%s)', async (status) => {
     const { client } = renderPage();
-    await userEvent.click(await screen.findByRole('button', { name: 'Detect issues' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Detect new issues' }));
     const dialog = await screen.findByRole('dialog');
     await userEvent.type(screen.getByRole('textbox', { name: 'Detection model draft' }), 'chosen-model');
     let finishResponse: () => void;
@@ -358,8 +408,8 @@ describe('Experiment Issues', () => {
     jobStatus = 'RUNNING';
     renderPage();
     await screen.findByText('References for iss-a');
-    expect(screen.getByRole('button', { name: 'Detect issues' })).toBeDisabled();
-    expect(screen.queryByRole('button', { name: 'Resolve' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Detect new issues' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Open' })).toBeDisabled();
     expect(screen.queryByRole('button', { name: 'Cancel detection' })).not.toBeInTheDocument();
   });
   test('shows no matches separately from a clean scan', async () => {
@@ -404,13 +454,14 @@ describe('Experiment Issues', () => {
       }),
       rest.post('*/ajax-api/2.0/mlflow/runs/update', (_req, res, ctx) => res(ctx.json({}))),
     );
-    renderPage();
+    const { client } = renderPage();
     await userEvent.click(await screen.findByRole('button', { name: 'Cancel detection' }));
     expect(canceled).not.toHaveBeenCalled();
     const confirmButtons = screen.getAllByRole('button', { name: 'Cancel detection' });
     await userEvent.click(confirmButtons[confirmButtons.length - 1]);
     expect(await screen.findByText('Issue detection canceled')).toBeInTheDocument();
     expect(canceled).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(client.isFetching()).toBe(0));
   });
   test('does not call Issue APIs for unsupported or proxied storage', async () => {
     server.use(rest.get('*/ajax-api/3.0/mlflow/server-info', (_req, res, ctx) => res(ctx.json({ store_type: null }))));

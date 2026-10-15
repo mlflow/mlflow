@@ -18,7 +18,7 @@ import {
   SpeechBubbleIcon,
   TextBoxIcon,
   UserGroupIcon,
-  WarningIcon,
+  BugIcon,
 } from '@databricks/design-system';
 import { shouldEnableWorkflowBasedNavigation } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 
@@ -48,7 +48,7 @@ export const getTabDisplayIcon = (tabName: ExperimentPageTabName | undefined) =>
     case ExperimentPageTabName.Traces:
       return <ForkHorizontalIcon />;
     case ExperimentPageTabName.Issues:
-      return <WarningIcon />;
+      return <BugIcon />;
     case ExperimentPageTabName.Models:
       return <ModelsIcon />;
     case ExperimentPageTabName.ChatSessions:

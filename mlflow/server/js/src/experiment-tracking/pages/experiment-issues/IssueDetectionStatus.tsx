@@ -1,12 +1,49 @@
-import { Alert, Button, useDesignSystemTheme } from '@databricks/design-system';
+import { Alert, Button, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Link } from '../../../common/utils/RoutingUtils';
 import { JobStatus, isJobComplete } from '../../components/run-page/hooks/useFetchJobStatus';
 import { useCancelJob } from '../../components/run-page/hooks/useCancelJob';
 import { ConfirmModal } from '../../components/modals/ConfirmModal';
 import Routes from '../../routes';
 import type { useLatestIssueDetection } from './useIssueDetection';
+
+const DetectionSummary = ({
+  failed,
+  message,
+  description,
+}: {
+  failed: boolean;
+  message: ReactNode;
+  description: ReactNode;
+}) => {
+  const { theme } = useDesignSystemTheme();
+  return failed ? (
+    <Alert
+      componentId="mlflow.experiment-issues.detection-status"
+      type="error"
+      closable={false}
+      message={message}
+      description={description}
+    />
+  ) : (
+    <div
+      role="status"
+      css={{
+        display: 'flex',
+        alignItems: 'center',
+        flexWrap: 'wrap',
+        gap: theme.spacing.md,
+        paddingBlock: theme.spacing.sm,
+        borderBottom: `1px solid ${theme.colors.border}`,
+        flexShrink: 0,
+      }}
+    >
+      <Typography.Text color="secondary">{message}</Typography.Text>
+      <div css={{ color: theme.colors.textSecondary }}>{description}</div>
+    </div>
+  );
+};
 
 export const IssueDetectionStatus = ({
   detection,
@@ -42,10 +79,8 @@ export const IssueDetectionStatus = ({
   const canCancel = canEdit && Boolean(jobId && job.status) && !job.error && !isJobComplete(status);
   return (
     <>
-      <Alert
-        componentId="mlflow.experiment-issues.detection-status"
-        type={failed ? 'error' : 'info'}
-        closable={false}
+      <DetectionSummary
+        failed={failed}
         message={
           status === JobStatus.SUCCEEDED ? (
             <FormattedMessage
