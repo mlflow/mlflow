@@ -8,6 +8,7 @@ import {
   getAssessmentValueLabel,
   getEvaluationResultInputTitle,
   getEvaluationResultTitle,
+  normalizeAssessmentStringValue,
   stringifyValue,
   tryExtractUserMessageContent,
 } from './GenAiEvaluationTracesReview.utils';
@@ -286,7 +287,16 @@ describe('EvaluationsReview utils', () => {
 
 describe('getAssessmentValueLabel', () => {
   const intl = I18nUtils.createIntlWithLocale();
-  const mockTheme = {} as ThemeType;
+  const mockTheme = {
+    isDarkMode: false,
+    colors: {
+      green400: '#4CAF50',
+      green600: '#2E7D32',
+      red400: '#EF5350',
+      red600: '#C62828',
+      grey400: '#BDBDBD',
+    },
+  } as unknown as ThemeType;
 
   const createMockAssessmentInfo = (dtype: AssessmentInfo['dtype']): AssessmentInfo => ({
     name: 'test_assessment',
@@ -339,5 +349,75 @@ describe('getAssessmentValueLabel', () => {
     const stringAssessment = createMockAssessmentInfo('string');
     const result = getAssessmentValueLabel(intl, mockTheme, stringAssessment, 'custom_value');
     expect(result.content).toBe('custom_value');
+  });
+
+  it('should return "Pass" for pass-fail dtype with "PASS" value', () => {
+    const passFail = createMockAssessmentInfo('pass-fail');
+    const result = getAssessmentValueLabel(intl, mockTheme, passFail, 'PASS');
+    expect(result.content).toBe('Pass');
+  });
+
+  it('should return "Fail" for pass-fail dtype with "FAIL" value', () => {
+    const passFail = createMockAssessmentInfo('pass-fail');
+    const result = getAssessmentValueLabel(intl, mockTheme, passFail, 'FAIL');
+    expect(result.content).toBe('Fail');
+  });
+
+  it('should return "Pass" for pass-fail dtype with lowercase "pass" value', () => {
+    const passFail = createMockAssessmentInfo('pass-fail');
+    const result = getAssessmentValueLabel(intl, mockTheme, passFail, 'pass');
+    expect(result.content).toBe('Pass');
+  });
+
+  it('should return "Fail" for pass-fail dtype with lowercase "fail" value', () => {
+    const passFail = createMockAssessmentInfo('pass-fail');
+    const result = getAssessmentValueLabel(intl, mockTheme, passFail, 'fail');
+    expect(result.content).toBe('Fail');
+  });
+});
+
+describe('normalizeAssessmentStringValue', () => {
+  it('should normalize "pass" to "yes"', () => {
+    expect(normalizeAssessmentStringValue('pass')).toBe('yes');
+  });
+
+  it('should normalize "PASS" to "yes"', () => {
+    expect(normalizeAssessmentStringValue('PASS')).toBe('yes');
+  });
+
+  it('should normalize "Pass" to "yes"', () => {
+    expect(normalizeAssessmentStringValue('Pass')).toBe('yes');
+  });
+
+  it('should normalize "fail" to "no"', () => {
+    expect(normalizeAssessmentStringValue('fail')).toBe('no');
+  });
+
+  it('should normalize "FAIL" to "no"', () => {
+    expect(normalizeAssessmentStringValue('FAIL')).toBe('no');
+  });
+
+  it('should normalize "Fail" to "no"', () => {
+    expect(normalizeAssessmentStringValue('Fail')).toBe('no');
+  });
+
+  it('should return "yes" unchanged', () => {
+    expect(normalizeAssessmentStringValue('yes')).toBe('yes');
+  });
+
+  it('should return "no" unchanged', () => {
+    expect(normalizeAssessmentStringValue('no')).toBe('no');
+  });
+
+  it('should return other values unchanged', () => {
+    expect(normalizeAssessmentStringValue('custom_value')).toBe('custom_value');
+  });
+
+  it('should return null for null input', () => {
+    expect(normalizeAssessmentStringValue(null)).toBeNull();
+  });
+
+  it('should return undefined for undefined input', () => {
+    expect(normalizeAssessmentStringValue(undefined)).toBeUndefined();
   });
 });
