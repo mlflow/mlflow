@@ -209,6 +209,8 @@ export const shouldEnableExperimentOverviewTab = (hasV4Location?: boolean) => {
   return true;
 };
 
+export const shouldEnableExperimentIssuesTab = () => false;
+
 /**
  * Determines if the top-level nested sidebar feature is enabled.
  * This enables the workflow type selector and nested navigation items in the main sidebar.

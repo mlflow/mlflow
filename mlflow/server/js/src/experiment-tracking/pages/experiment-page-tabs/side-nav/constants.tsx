@@ -16,7 +16,10 @@ import {
   UserGroupIcon,
 } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
-import { shouldEnableExperimentOverviewTab } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
+import {
+  shouldEnableExperimentIssuesTab,
+  shouldEnableExperimentOverviewTab,
+} from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 import { SERVER_FEATURE_KEYS, useFeatureEnabled, useServerInfo } from '../../../hooks/useServerInfo';
 
 export const FULL_WIDTH_CLASS_NAME = 'mlflow-experiment-page-side-nav-full';
@@ -251,7 +254,7 @@ export const useExperimentPageSideNavConfig = ({
       ...ExperimentPageSideNavGenAIConfig,
       observability: [
         ...ExperimentPageSideNavGenAIConfig.observability,
-        ...(serverInfo?.store_type === 'SqlStore'
+        ...(shouldEnableExperimentIssuesTab() && serverInfo?.store_type === 'SqlStore'
           ? [
               {
                 label: <FormattedMessage defaultMessage="Issues" description="Label for the experiment Issues tab" />,

@@ -3,6 +3,7 @@ import { rest } from 'msw';
 import userEvent from '@testing-library/user-event';
 import { act, fireEvent, renderWithDesignSystem, screen, waitFor } from '../../../common/utils/TestUtils.react18';
 import { setupServer } from '../../../common/utils/setup-msw';
+import { shouldEnableExperimentIssuesTab } from '../../../common/utils/FeatureUtils';
 import { MemoryRouter, Route, Routes, useNavigate } from '../../../common/utils/RoutingUtils';
 import { QueryClient, QueryClientProvider } from '../../../common/utils/reactQueryHooks';
 import { ServerInfoProvider } from '../../hooks/useServerInfo';
@@ -10,6 +11,11 @@ import type { Issue } from '../../components/run-page/hooks/useSearchIssuesQuery
 import { ISSUE_DETECTION_JOB_SUBMITTED_EVENT } from '../../components/experiment-page/components/traces-v3/IssueDetectionJobNotifications';
 import { useExperimentPermission } from '../../hooks/useExperimentPermission';
 import ExperimentIssuesPage from './ExperimentIssuesPage';
+
+jest.mock('../../../common/utils/FeatureUtils', () => ({
+  ...jest.requireActual<typeof import('../../../common/utils/FeatureUtils')>('../../../common/utils/FeatureUtils'),
+  shouldEnableExperimentIssuesTab: jest.fn(),
+}));
 
 jest.mock('../../hooks/useExperimentPermission', () => ({ useExperimentPermission: jest.fn(() => true) }));
 jest.mock('../../components/run-page/IssueTracesPanel', () => ({
@@ -100,6 +106,7 @@ const renderPage = (query = '') => {
   return { ...result, client };
 };
 beforeEach(() => {
+  jest.mocked(shouldEnableExperimentIssuesTab).mockReturnValue(true);
   jest.mocked(useExperimentPermission).mockReturnValue(true);
   issues = [makeIssue('iss-a', 'Slow response'), makeIssue('iss-b', 'Wrong answer')];
   issues[0].root_causes = ['Repeated model calls'];
@@ -108,6 +115,24 @@ beforeEach(() => {
   jobStatus = 'SUCCEEDED';
 });
 describe('Experiment Issues', () => {
+  test.each(['', '?selectedIssueId=iss-a'])(
+    'does not load Issues or detection data from a direct link when the flag is disabled (%s)',
+    async (query) => {
+      jest.mocked(shouldEnableExperimentIssuesTab).mockReturnValue(false);
+      const fetchIssueData = jest.fn();
+      server.use(
+        rest.all(/\/ajax-api\/(?:2|3)\.0\/mlflow\/(?:issues|runs|jobs|traces)\//, (_req, res, ctx) => {
+          fetchIssueData();
+          return res(ctx.json({}));
+        }),
+      );
+      renderPage(query);
+      expect(await screen.findByRole('heading', { name: 'Page Not Found' })).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Detect issues' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('textbox', { name: 'Search issues' })).not.toBeInTheDocument();
+      expect(fetchIssueData).not.toHaveBeenCalled();
+    },
+  );
   test('reads SQL issues, renders legacy causes and preserves selection through back navigation', async () => {
     renderPage('?selectedIssueId=iss-a');
     expect(await screen.findByText('Repeated model calls')).toBeInTheDocument();

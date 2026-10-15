@@ -1,14 +1,26 @@
-import { expect, test } from '@jest/globals';
+import { beforeEach, expect, jest, test } from '@jest/globals';
 import { renderHook, waitFor } from '@testing-library/react';
 import { rest } from 'msw';
 import type { ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
+import { shouldEnableExperimentIssuesTab } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 import { setupServer } from '../../../../common/utils/setup-msw';
 import { ExperimentKind, ExperimentPageTabName } from '../../../constants';
 import { useServerInfo } from '../../../hooks/useServerInfo';
 import { useExperimentPageSideNavConfig } from './constants';
 
+jest.mock('@mlflow/mlflow/src/common/utils/FeatureUtils', () => ({
+  ...jest.requireActual<typeof import('@mlflow/mlflow/src/common/utils/FeatureUtils')>(
+    '@mlflow/mlflow/src/common/utils/FeatureUtils',
+  ),
+  shouldEnableExperimentIssuesTab: jest.fn(),
+}));
+
 const server = setupServer();
+
+beforeEach(() => {
+  jest.mocked(shouldEnableExperimentIssuesTab).mockReturnValue(false);
+});
 
 test('updates Gateway-dependent navigation after server-info loads', async () => {
   server.use(
@@ -43,9 +55,17 @@ test('updates Gateway-dependent navigation after server-info loads', async () =>
   expect(result.current.evaluation?.some(({ tabName }) => tabName === ExperimentPageTabName.Judges)).toBe(false);
 });
 
-test.each(['SqlStore', 'FileStore', null])(
-  'shows Issues only for SQL-backed GenAI experiments (%s)',
-  async (storeType) => {
+test.each([
+  ['SqlStore', true],
+  ['SqlStore', false],
+  ['FileStore', true],
+  ['FileStore', false],
+  [null, true],
+  [null, false],
+])(
+  'shows Issues only for SQL-backed GenAI experiments with the flag enabled (store: %s, flag: %s)',
+  async (storeType, enabled) => {
+    jest.mocked(shouldEnableExperimentIssuesTab).mockReturnValue(enabled);
     server.use(
       rest.get('/ajax-api/3.0/mlflow/server-info', (_req, res, ctx) => res(ctx.json({ store_type: storeType }))),
     );
@@ -64,7 +84,7 @@ test.each(['SqlStore', 'FileStore', null])(
     await waitFor(() => expect(result.current.server.isLoading).toBe(false));
     expect(
       (result.current.genai.observability ?? []).some(({ tabName }) => tabName === ExperimentPageTabName.Issues),
-    ).toBe(storeType === 'SqlStore');
+    ).toBe(enabled && storeType === 'SqlStore');
     expect(
       Object.values(result.current.custom)
         .flat()

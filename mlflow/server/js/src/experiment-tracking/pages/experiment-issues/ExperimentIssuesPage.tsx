@@ -11,6 +11,8 @@ import {
 } from '@databricks/design-system';
 import { NotFoundError, PermissionError } from '@databricks/web-shared/errors';
 import { FormattedMessage, useIntl } from 'react-intl';
+import { PageNotFoundView } from '../../../common/components/PageNotFoundView';
+import { shouldEnableExperimentIssuesTab } from '../../../common/utils/FeatureUtils';
 import { useParams, useSearchParams } from '../../../common/utils/RoutingUtils';
 import { useActiveWorkspace } from '../../../workspaces/utils/WorkspaceUtils';
 import { ModelTraceExplorerResizablePane } from '../../../shared/web-shared/model-trace-explorer';
@@ -301,6 +303,7 @@ const ExperimentIssuesPage = () => {
   const workspace = useActiveWorkspace();
   const server = useServerInfo();
   if (server.isLoading) return <TableSkeleton lines={5} />;
+  if (!shouldEnableExperimentIssuesTab()) return <PageNotFoundView />;
   if (server.data?.store_type !== 'SqlStore') {
     return (
       <CenteredState>
