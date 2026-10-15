@@ -648,6 +648,39 @@ def test_create_multipart_upload_normalizes_sse_customer_key_for_part_signature(
     }
 
 
+@pytest.mark.parametrize(
+    ("extra_args", "expected_args"),
+    [
+        (
+            {"SSECustomerAlgorithm": "AES256", "SSECustomerKey": "customer-key"},
+            {
+                "SSECustomerAlgorithm": "AES256",
+                "SSECustomerKey": "Y3VzdG9tZXIta2V5",
+                "SSECustomerKeyMD5": "xUvIiqGwjknkCReLkVcZIw==",
+            },
+        ),
+        ({"RequestPayer": "requester"}, {"RequestPayer": "requester"}),
+    ],
+)
+def test_complete_multipart_upload_preserves_required_headers(
+    monkeypatch, extra_args, expected_args
+):
+    monkeypatch.setenv("MLFLOW_S3_UPLOAD_EXTRA_ARGS", json.dumps(extra_args))
+    repo = S3ArtifactRepository("s3://bucket/root")
+    parts = [MultipartUploadPart(part_number=1, etag="part-etag")]
+    with mock.patch.object(repo, "_get_s3_client") as get_client:
+        repo.complete_multipart_upload("artifact.bin", "upload-id", parts)
+
+    get_client.assert_called_once()
+    get_client.return_value.complete_multipart_upload.assert_called_once_with(
+        Bucket="bucket",
+        Key="root/artifact.bin",
+        UploadId="upload-id",
+        MultipartUpload={"Parts": [{"PartNumber": 1, "ETag": "part-etag"}]},
+        **expected_args,
+    )
+
+
 def test_complete_multipart_upload(s3_artifact_root):
     repo = get_artifact_repository(posixpath.join(s3_artifact_root, "some/path"))
     local_file = "local_file"
@@ -678,6 +711,18 @@ def test_complete_multipart_upload(s3_artifact_root):
     s3_client = repo._get_s3_client()
     response = s3_client.list_multipart_uploads(Bucket=bucket)
     assert response.get("Uploads") is None
+
+
+def test_abort_multipart_upload_preserves_request_payer(monkeypatch):
+    monkeypatch.setenv("MLFLOW_S3_UPLOAD_EXTRA_ARGS", json.dumps({"RequestPayer": "requester"}))
+    repo = S3ArtifactRepository("s3://bucket/root")
+    with mock.patch.object(repo, "_get_s3_client") as get_client:
+        repo.abort_multipart_upload("artifact.bin", "upload-id")
+
+    get_client.assert_called_once()
+    get_client.return_value.abort_multipart_upload.assert_called_once_with(
+        Bucket="bucket", Key="root/artifact.bin", UploadId="upload-id", RequestPayer="requester"
+    )
 
 
 def test_abort_multipart_upload(s3_artifact_root):
