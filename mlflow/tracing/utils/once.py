@@ -10,6 +10,11 @@ class Once:
         self.__lock = Lock()
         self._done = False
 
+    @property
+    def done(self) -> bool:
+        """Whether ``do_once`` has executed its function."""
+        return self._done
+
     def do_once(self, func: Callable[[], None]):
         """
         Execute ``func`` if it hasn't been executed or return.
