@@ -2,8 +2,9 @@ import base64
 import gzip
 import os
 import zlib
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
+from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceRequest
 from opentelemetry.proto.common.v1.common_pb2 import AnyValue, ArrayValue, KeyValueList
 from opentelemetry.proto.resource.v1.resource_pb2 import Resource as OTelProtoResource
 from opentelemetry.sdk.resources import Resource as OTelResource
@@ -13,6 +14,11 @@ from mlflow.environment_variables import MLFLOW_ENABLE_OTLP_EXPORTER, MLFLOW_TRA
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.utils.credentials import read_mlflow_creds
+
+if TYPE_CHECKING:
+    # Imported lazily to avoid a circular import: mlflow.entities.span imports
+    # helpers from this module at module level.
+    from mlflow.entities import Span
 
 # Constants for OpenTelemetry integration
 MLFLOW_EXPERIMENT_ID_HEADER = "x-mlflow-experiment-id"
@@ -283,3 +289,31 @@ def resource_to_otel_proto(resource: OTelResource | None) -> OTelProtoResource:
             attr.key = key
             _set_otel_proto_anyvalue(attr.value, value)
     return otel_resource
+
+
+def build_otlp_export_request(spans: "list[Span]") -> ExportTraceServiceRequest:
+    """Build an OTLP export request from MLflow span wrappers.
+
+    The resource is taken from the first span's underlying OTel span (all spans of
+    a trace share their tracer's resource), and every span is emitted under a
+    single ``scope_spans`` message. This is the serialization path shared by the
+    MLflow REST ``log_spans`` API and the Databricks OTel collector direct-write
+    exporter, so both produce identical payloads. In particular,
+    ``Span.to_otel_proto`` decodes the JSON-encoded attribute values (e.g.
+    ``mlflow.spanType``) into plain proto values, which the raw ReadableSpan
+    serialization would leave double-encoded.
+
+    Args:
+        spans: MLflow ``Span`` objects wrapping OTel ``ReadableSpan``s. Must be
+            non-empty (the resource is read from the first span).
+
+    Returns:
+        An ``ExportTraceServiceRequest`` protobuf message.
+    """
+    request = ExportTraceServiceRequest()
+    resource_spans = request.resource_spans.add()
+    resource = getattr(spans[0]._span, "resource", None)
+    resource_spans.resource.CopyFrom(resource_to_otel_proto(resource))
+    scope_spans = resource_spans.scope_spans.add()
+    scope_spans.spans.extend(span.to_otel_proto() for span in spans)
+    return request
