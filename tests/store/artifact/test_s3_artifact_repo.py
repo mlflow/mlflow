@@ -1,4 +1,6 @@
+import base64
 import gzip
+import hashlib
 import json
 import os
 import posixpath
@@ -1255,7 +1257,9 @@ def test_gzip_multipart_presigned_download_preserves_stored_bytes(
     downloaded = tmp_path / "downloaded.gz"
     downloaded.touch()
     with HTTPServer(("127.0.0.1", 0), StorageHandler) as server:
-        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread = threading.Thread(
+            target=server.serve_forever, daemon=True, name="gzip-range-storage"
+        )
         thread.start()
         try:
             local_url = (
@@ -1278,6 +1282,55 @@ def test_gzip_multipart_presigned_download_preserves_stored_bytes(
             thread.join(timeout=5)
     assert downloaded.read_bytes() == compressed
     assert gzip.decompress(downloaded.read_bytes()) == original
+
+
+@pytest.mark.parametrize("encoded_key", [False, True])
+def test_sse_customer_multipart_upload_and_presigned_download(
+    s3_artifact_root, tmp_path, monkeypatch, encoded_key
+):
+    key = b"0123456789abcdef0123456789abcdef"
+    normalized_key = base64.b64encode(key).decode()
+    key_md5 = base64.b64encode(hashlib.md5(key, usedforsecurity=False).digest()).decode()
+    extra_args = {"SSECustomerAlgorithm": "AES256", "SSECustomerKey": key.decode()}
+    if encoded_key:
+        extra_args.update(SSECustomerKey=normalized_key, SSECustomerKeyMD5=key_md5)
+    monkeypatch.setenv("MLFLOW_S3_UPLOAD_EXTRA_ARGS", json.dumps(extra_args))
+    repo = S3ArtifactRepository(posixpath.join(s3_artifact_root, "root"))
+    local_file = tmp_path / "encrypted.txt"
+    content = b"encrypted artifact contents"
+    local_file.write_bytes(content)
+    upload = repo.create_multipart_upload(str(local_file))
+    credential = upload.credentials[0]
+    uploaded = requests.put(credential.url, data=content, headers=credential.headers, timeout=10)
+    uploaded.raise_for_status()
+    repo.complete_multipart_upload(
+        str(local_file),
+        upload.upload_id,
+        [MultipartUploadPart(part_number=1, etag=uploaded.headers["ETag"])],
+    )
+    client = repo._get_s3_client()
+    with mock.patch.object(client, "head_object", wraps=client.head_object) as head:
+        download = repo.get_download_presigned_url(local_file.name)
+    bucket, root = repo.parse_s3_compliant_uri(repo.artifact_uri)
+    head.assert_called_once_with(
+        Bucket=bucket,
+        Key=f"{root}/{local_file.name}",
+        SSECustomerAlgorithm="AES256",
+        SSECustomerKey=normalized_key,
+        SSECustomerKeyMD5=key_md5,
+    )
+    assert download.headers == {
+        "x-amz-server-side-encryption-customer-algorithm": "AES256",
+        "x-amz-server-side-encryption-customer-key": normalized_key,
+        "x-amz-server-side-encryption-customer-key-MD5": key_md5,
+    }
+    query = urllib.parse.parse_qs(urllib.parse.urlparse(download.url).query)
+    signed_headers = set(query["X-Amz-SignedHeaders"][0].split(";"))
+    assert {name.lower() for name in download.headers} <= signed_headers
+    downloaded = requests.get(download.url, headers=download.headers, timeout=10)
+    downloaded.raise_for_status()
+    assert downloaded.content == content
+    assert download.file_size == len(content)
 
 
 def test_get_download_presigned_url_nested_path(s3_artifact_root, tmp_path):
