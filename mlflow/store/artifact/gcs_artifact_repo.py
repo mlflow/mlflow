@@ -226,10 +226,10 @@ class GCSArtifactRepository(ArtifactRepository, MultipartUploadMixin, PresignedU
                 content_type=content_type,
             )
         except (AttributeError, GoogleAuthError) as e:
-            # Signing needs credentials with a private key (e.g. a service account key).
-            # google-cloud-storage raises AttributeError for credentials that cannot sign
-            # (user, Compute Engine / GKE metadata, or anonymous credentials) and
-            # google.auth.exceptions.GoogleAuthError subclasses when remote signing fails.
+            # google-cloud-storage raises AttributeError for credentials that cannot sign (user,
+            # Compute Engine / GKE metadata, or anonymous credentials) and GoogleAuthError when
+            # remote signing through IAM fails. Both mean this server cannot presign, so answer 501
+            # and let the client use the Tracking Server instead.
             raise _UnsupportedPresignedUploadException() from e
         return CreatePresignedUploadResponse(
             presigned_url=presigned_url,
