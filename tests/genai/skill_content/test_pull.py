@@ -610,6 +610,18 @@ def test_cross_device_publication_copies_and_cleans_up(make_source, skill_tree, 
     _assert_no_staging_left(tmp_path)
 
 
+def test_oci_pull_copies_layers_across_filesystems(make_source, skill_tree, tmp_path):
+    destination = tmp_path / "out"
+    with mock.patch(
+        "mlflow.genai.skill_content.fetchers.oci.os.replace",
+        side_effect=OSError(18, "Invalid cross-device link"),
+    ) as replace:
+        pull_skill_version(_version(make_source("oci", SUBPATH)), destination)
+    assert replace.call_count > 1
+    assert compute_tree_digest(destination) == compute_tree_digest(skill_tree / SUBPATH)
+    _assert_no_staging_left(tmp_path)
+
+
 @pytest.mark.parametrize(
     "artifact_path",
     ["/etc", "./relative/dir", "~/secrets", "C:\\Users\\me"],

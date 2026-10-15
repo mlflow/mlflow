@@ -1,4 +1,5 @@
 import base64
+import errno
 import hashlib
 import http.server
 import io
@@ -378,6 +379,20 @@ def test_fetch_oci_with_bearer_auth(oci_registry, skill_tree):
     assert handler.token_requests[0]["authorization"] is None
     assert "service=test" in handler.token_requests[0]["query"]
     assert "scope=repository" in handler.token_requests[0]["query"]
+
+
+def test_fetch_oci_into_destination_across_filesystems(oci_registry, skill_tree, tmp_path):
+    host, _ = oci_registry
+    destination = tmp_path / "content"
+    with mock.patch.object(
+        oci_module.os, "replace", side_effect=OSError(errno.EXDEV, "Invalid cross-device link")
+    ) as replace:
+        with fetch_source(f"oci://{host}/skills/demo:v1", destination=destination) as fetched:
+            assert compute_tree_digest(fetched.root / "skills" / "demo") == (
+                compute_tree_digest(skill_tree / "skills" / "demo")
+            )
+            assert (fetched.root / "docs" / "README.md").read_bytes().startswith(b"extra file")
+    assert replace.call_count > 1
 
 
 def test_fetch_oci_bearer_sends_docker_config_credentials(oci_registry, tmp_path, monkeypatch):

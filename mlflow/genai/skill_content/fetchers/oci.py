@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import errno
 import hashlib
 import json
 import os
@@ -819,7 +820,21 @@ def _merge_tree(source: Path, dest: Path) -> None:
                 raise invalid_content(
                     f"OCI layers disagree about '{item.name}': one has a directory, another a file."
                 )
-            os.replace(item, target)
+            _replace_file(item, target)
+
+
+def _replace_file(source: Path, target: Path) -> None:
+    try:
+        os.replace(source, target)
+    except OSError as e:
+        if e.errno != errno.EXDEV:
+            raise
+        # OCI downloads use system temporary storage, which may be on a different
+        # filesystem from a caller-supplied destination. The destination is still staged
+        # and will be cleared if copying fails.
+        target.unlink(missing_ok=True)
+        shutil.copy2(source, target)
+        source.unlink()
 
 
 def _place_file_layer(
@@ -856,7 +871,7 @@ def _place_file_layer(
         )
     target.parent.mkdir(parents=True, exist_ok=True)
     size = blob.stat().st_size
-    os.replace(blob, target)
+    _replace_file(blob, target)
     return size
 
 
