@@ -48,4 +48,34 @@ describe('ShowArtifactImageView', () => {
       done();
     });
   });
+
+  // eslint-disable-next-line jest/no-done-callback -- TODO(FEINF-1337)
+  test('should constrain image preview to its parent width', (done) => {
+    const getArtifact = jest.fn(() => Promise.resolve(new ArrayBuffer(8)));
+    wrapper = mount(<ShowArtifactImageView {...minimalProps} getArtifact={getArtifact} />);
+
+    setImmediate(() => {
+      try {
+        wrapper.update();
+        const image = wrapper.find('img[src="blob:abc-12345"]').at(0);
+        const imageWrapper = image.parent();
+
+        expect(imageWrapper.prop('css')).toEqual(
+          expect.objectContaining({
+            display: 'block',
+            width: '100%',
+          }),
+        );
+        expect(image.prop('css')).toEqual(
+          expect.objectContaining({
+            display: 'block',
+            maxWidth: '100%',
+          }),
+        );
+        done();
+      } catch (error) {
+        done(error);
+      }
+    });
+  });
 });
