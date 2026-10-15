@@ -435,10 +435,9 @@ def _validate_static_prefix(ctx, param, value):
     is_flag=True,
     default=False,
     help=(
-        "Disable legacy proxied artifact upload and download byte-stream endpoints and require "
-        "clients to transfer artifact bytes through presigned URLs. Older clients receive an "
-        "actionable upgrade error. Trace attachments and artifact-backed trace data are not "
-        "covered and may still pass through the Tracking Server. Default: False"
+        "Require direct-to-storage transfers for run and model artifacts using presigned URLs. "
+        "Trace attachments and artifact-backed trace data may still pass through the server. "
+        "Default: False"
     ),
 )
 @cli_args.ARTIFACTS_DESTINATION

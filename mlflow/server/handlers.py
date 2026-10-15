@@ -1376,7 +1376,6 @@ def _create_temp_artifact_file_response(
 
 
 def _send_artifact(artifact_repository, path):
-    reject_legacy_artifact_download()
     # Always send artifacts as attachments to prevent the browser from displaying them on our web
     # server's domain, which might enable XSS.
     if (local_path := artifact_repository.get_local_path(path)) is not None:
@@ -1447,6 +1446,23 @@ def _disable_if_artifacts_only(func):
         return func(*args, **kwargs)
 
     return wrapper
+
+
+def _disable_if_artifacts_presigned_only(*, upload=False, allow_presigned=False):
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            if allow_presigned and request.args.get("presigned") == "true":
+                return func(*args, **kwargs)
+            if upload:
+                reject_legacy_artifact_upload()
+            else:
+                reject_legacy_artifact_download()
+            return func(*args, **kwargs)
+
+        return wrapper
+
+    return decorator
 
 
 def _disable_if_gateway_disabled(func):
@@ -1799,6 +1815,7 @@ def _delete_workspace_handler(workspace_name: str):
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_artifacts_presigned_only()
 def get_artifact_handler():
     run_id = request.args.get("run_id") or request.args.get("run_uuid")
     path = request.args["path"]
@@ -2694,8 +2711,8 @@ def create_promptlab_run_handler():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_artifacts_presigned_only(upload=True)
 def upload_artifact_handler():
-    reject_legacy_artifact_upload()
     args = request.args
     run_uuid = args.get("run_uuid")
     if not run_uuid:
@@ -3490,6 +3507,7 @@ def _is_prompt(name: str) -> bool:
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_artifacts_presigned_only(allow_presigned=True)
 def get_model_version_artifact_handler():
     name = request.args.get("name")
     version = request.args.get("version")
@@ -3507,6 +3525,11 @@ def get_model_version_artifact_handler():
         artifact_repo = _get_artifact_repository_for_uri(artifact_uri)
         artifact_path = path
 
+    if request.args.get("presigned") == "true":
+        # This route already checks model-version READ permission, independently of
+        # access to the source run. Signing must retain that authorization boundary.
+        _validate_support_presigned_download(artifact_repo)
+        return jsonify(artifact_repo.get_download_presigned_url(artifact_path).to_dict())
     return _send_artifact(artifact_repo, artifact_path)
 
 
@@ -4001,12 +4024,12 @@ def _get_workspace_scoped_repo_path_if_enabled(artifact_path: str | None) -> str
 
 @catch_mlflow_exception
 @_disable_unless_serve_artifacts
+@_disable_if_artifacts_presigned_only()
 def _download_artifact(artifact_path):
     """
     A request handler for `GET /mlflow-artifacts/artifacts/<artifact_path>` to download an artifact
     from `artifact_path` (a relative path from the root artifact directory).
     """
-    reject_legacy_artifact_download()
     artifact_path = validate_path_is_safe(artifact_path)
     artifact_path = _get_workspace_scoped_repo_path_if_enabled(artifact_path)
     artifact_repo = _get_artifact_repo_mlflow_artifacts()
@@ -4035,12 +4058,12 @@ def _reject_skill_artifact_mutation(artifact_path: str) -> None:
 
 @catch_mlflow_exception
 @_disable_unless_serve_artifacts
+@_disable_if_artifacts_presigned_only(upload=True)
 def _upload_artifact(artifact_path):
     """
     A request handler for `PUT /mlflow-artifacts/artifacts/<artifact_path>` to upload an artifact
     to `artifact_path` (a relative path from the root artifact directory).
     """
-    reject_legacy_artifact_upload()
     artifact_path = validate_path_is_safe(artifact_path)
     _reject_skill_artifact_mutation(artifact_path)
     artifact_path = _get_workspace_scoped_repo_path_if_enabled(artifact_path)
@@ -6017,6 +6040,7 @@ def _deprecated_search_traces_v2():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_artifacts_presigned_only(allow_presigned=True)
 def get_logged_model_artifact_handler(model_id: str):
     artifact_file_path = request.args.get("artifact_file_path")
     if not artifact_file_path:
@@ -6038,6 +6062,9 @@ def get_logged_model_artifact_handler(model_id: str):
         artifact_repo = _get_artifact_repository_for_uri(logged_model.artifact_location)
         artifact_path = artifact_file_path
 
+    if request.args.get("presigned") == "true":
+        _validate_support_presigned_download(artifact_repo)
+        return jsonify(artifact_repo.get_download_presigned_url(artifact_path).to_dict())
     return _send_artifact(artifact_repo, artifact_path)
 
 

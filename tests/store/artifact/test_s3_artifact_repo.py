@@ -1,9 +1,12 @@
+import gzip
 import json
 import os
 import posixpath
 import tarfile
+import threading
 import urllib.parse
 from datetime import datetime, timezone
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from unittest import mock
 from unittest.mock import ANY
 
@@ -490,6 +493,23 @@ def test_create_multipart_upload(s3_artifact_root):
     uploads = response.get("Uploads")
     assert len(uploads) == 1
     assert uploads[0]["UploadId"] == create.upload_id
+
+
+@pytest.mark.parametrize("algorithm", ["SHA256", "CRC32", "CRC32C"])
+def test_create_multipart_upload_rejects_unsupported_checksums_before_creating_upload(
+    tmp_path, monkeypatch, algorithm
+):
+    monkeypatch.setenv("MLFLOW_S3_UPLOAD_EXTRA_ARGS", json.dumps({"ChecksumAlgorithm": algorithm}))
+    local_file = tmp_path / "artifact.bin"
+    local_file.write_bytes(b"data")
+    repo = S3ArtifactRepository("s3://bucket/root")
+    with mock.patch.object(repo, "_get_s3_client") as get_client:
+        with pytest.raises(MlflowException, match="do not support ChecksumAlgorithm") as exc:
+            repo.create_multipart_upload(str(local_file))
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+    get_client.assert_called_once()
+    get_client.return_value.create_multipart_upload.assert_not_called()
+    get_client.return_value.generate_presigned_url.assert_not_called()
 
 
 def test_create_multipart_upload_preserves_content_metadata_and_encryption_headers(
@@ -1129,6 +1149,90 @@ def test_get_download_presigned_url(s3_artifact_root, tmp_path):
     response = requests.get(presigned_response.url)
     assert response.status_code == 200
     assert response.text == file_text
+
+
+@pytest.mark.parametrize("chunk_size", [None, 17])
+def test_gzip_multipart_presigned_download_preserves_stored_bytes(
+    s3_artifact_root, tmp_path, chunk_size
+):
+    from mlflow.utils.request_utils import download_chunk
+
+    original = os.urandom(128)
+    compressed = gzip.compress(original)
+    local_file = tmp_path / "artifact.bin.gz"
+    local_file.write_bytes(compressed)
+    repo = S3ArtifactRepository(posixpath.join(s3_artifact_root, "some/path"))
+    upload = repo.create_multipart_upload(str(local_file))
+    credential = upload.credentials[0]
+    part_response = requests.put(
+        credential.url, data=compressed, headers=credential.headers, timeout=10
+    )
+    part_response.raise_for_status()
+    repo.complete_multipart_upload(
+        str(local_file),
+        upload.upload_id,
+        [MultipartUploadPart(part_number=1, etag=part_response.headers["ETag"])],
+    )
+
+    presigned = repo.get_download_presigned_url(local_file.name)
+    query = urllib.parse.parse_qs(urllib.parse.urlparse(presigned.url).query)
+    assert query["response-content-encoding"] == ["identity"]
+    assert presigned.file_size == len(compressed)
+    bucket, root = repo.parse_s3_compliant_uri(repo.artifact_uri)
+    assert (
+        repo._get_s3_client().head_object(Bucket=bucket, Key=f"{root}/{local_file.name}")[
+            "ContentEncoding"
+        ]
+        == "gzip"
+    )
+
+    # Moto does not implement GetObject's response-content-encoding override. Use a
+    # real HTTP response to exercise Requests' decoder and Range handling with the
+    # signed override, while retaining the gzip metadata on the stored S3 object.
+    class StorageHandler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            override = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+            start, end = (
+                int(value) for value in self.headers["Range"].removeprefix("bytes=").split("-")
+            )
+            content = compressed[start : end + 1]
+            self.send_response(206)
+            self.send_header(
+                "Content-Encoding", override.get("response-content-encoding", ["gzip"])[0]
+            )
+            self.send_header("Content-Length", str(len(content)))
+            self.end_headers()
+            self.wfile.write(content)
+
+        def log_message(self, *args):
+            pass
+
+    downloaded = tmp_path / "downloaded.gz"
+    downloaded.touch()
+    with HTTPServer(("127.0.0.1", 0), StorageHandler) as server:
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            local_url = (
+                urllib.parse
+                .urlparse(presigned.url)
+                ._replace(scheme="http", netloc=f"127.0.0.1:{server.server_port}")
+                .geturl()
+            )
+            size = chunk_size or len(compressed)
+            for offset in range(0, len(compressed), size):
+                download_chunk(
+                    range_start=offset,
+                    range_end=min(offset + size, len(compressed)) - 1,
+                    headers=presigned.headers,
+                    download_path=str(downloaded),
+                    http_uri=local_url,
+                )
+        finally:
+            server.shutdown()
+            thread.join(timeout=5)
+    assert downloaded.read_bytes() == compressed
+    assert gzip.decompress(downloaded.read_bytes()) == original
 
 
 def test_get_download_presigned_url_nested_path(s3_artifact_root, tmp_path):

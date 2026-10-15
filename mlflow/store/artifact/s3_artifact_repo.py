@@ -87,7 +87,6 @@ _S3_PARAM_TO_HEADER = {
 }
 
 _S3_UPLOAD_PART_ARGS = {
-    "ChecksumAlgorithm",
     "ExpectedBucketOwner",
     "RequestPayer",
     "SSECustomerAlgorithm",
@@ -625,6 +624,12 @@ class S3ArtifactRepository(
         dest_path = posixpath.join(dest_path, os.path.basename(local_file))
         s3_client = self._get_s3_client()
         upload_extra_args = self._get_upload_extra_args(local_file)
+        if "ChecksumAlgorithm" in upload_extra_args:
+            raise MlflowException.invalid_parameter_value(
+                "Presigned multipart uploads do not support ChecksumAlgorithm in "
+                "MLFLOW_S3_UPLOAD_EXTRA_ARGS. Remove this option or upload directly to S3 "
+                "with a client that computes and submits checksums for every part."
+            )
         create_allowed_args = s3_client.meta.service_model.operation_model(
             "CreateMultipartUpload"
         ).input_shape.members
@@ -829,6 +834,8 @@ class S3ArtifactRepository(
                 "ResponseContentDisposition": _attachment_content_disposition(
                     posixpath.basename(key)
                 ),
+                # Range offsets refer to stored bytes. Prevent automatic gzip decompression.
+                "ResponseContentEncoding": "identity",
                 **self._bucket_owner_params,
             },
             ExpiresIn=expiration,
