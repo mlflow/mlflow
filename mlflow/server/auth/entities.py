@@ -465,24 +465,27 @@ class RolePermission:
         )
 
 
-class MutationConditions:
-    """Two optional filters for one ``(role, resource_type)`` pair, gating
+class Condition:
+    """One typed filter for a ``(role, resource_type)`` pair, gating
     create/mutation operations only -- never reads.
 
-    - ``value_condition`` (the RFC's *value*; the **request condition**) constrains
-      what values may be set. Evaluated against the request body, and applies on
-      create.
-    - ``target_condition`` (the RFC's *target*; the **resource condition**)
-      constrains which existing resources may be mutated. Evaluated against the
-      resource's current state, and vacuous on create (there is no prior state).
+    ``type`` says which question the filter answers:
 
-    Either may be ``None``, meaning unconstrained in that direction. Conditions
-    **subtract** from what grants allow and never confer access, so an absent
-    condition -- or an absent row -- is exactly today's behaviour.
+    - ``VALUE`` (the RFC's *value*; the **request condition**) constrains what values
+      may be set. Evaluated against the request body, and applies on create.
+    - ``TARGET`` (the RFC's *target*; the **resource condition**) constrains which
+      existing resources may be mutated. Evaluated against the resource's current
+      state, and vacuous on create (there is no prior state).
 
-    A role may hold several of these for one resource type, distinguished by
+    ``filter`` is never ``None``. A row with no filter would answer its question with
+    "anything", which under OR is an unconditional pass that nullifies every sibling
+    of its type; a role that should not constrain a type stores no row of that type.
+
+    A role may hold several of these for one resource type AND type, distinguished by
     ``condition_slot``. The slot is allocated by the store and carries no ordering
-    meaning: every applicable condition must pass, so there is nothing to order.
+    meaning: same-type conditions OR, and OR is commutative, so there is nothing to
+    order. Conditions **subtract** from what grants allow and never confer access, so
+    a type with no rows -- or an empty table -- is exactly today's behaviour.
 
     Two scope axes say which resources the condition reaches, and each type narrows on
     one of them. ``resource_pattern`` is ``"*"`` or a single resource id, at the grain that
@@ -497,8 +500,8 @@ class MutationConditions:
         id_,
         role_id,
         resource_type,
-        value_condition=None,
-        target_condition=None,
+        type,
+        filter,
         condition_slot=None,
         resource_pattern="*",
         container_resource_type="workspace",
@@ -507,8 +510,11 @@ class MutationConditions:
         self._id = id_
         self._role_id = role_id
         self._resource_type = resource_type
-        self._value_condition = value_condition
-        self._target_condition = target_condition
+        # Stored as _condition_type: the column is `condition_type`, while the object
+        # field is `type` (RFC). The qualifier earns its keep in the DDL, where
+        # `type` alone would sit among a dozen other columns.
+        self._condition_type = type
+        self._filter = filter
         self._condition_slot = condition_slot
         self._resource_pattern = resource_pattern
         self._container_resource_type = container_resource_type
@@ -546,28 +552,25 @@ class MutationConditions:
         return self._container_resource_pattern
 
     @property
-    def value_condition(self):
-        return self._value_condition
-
-    @value_condition.setter
-    def value_condition(self, value_condition):
-        self._value_condition = value_condition
+    def type(self):
+        """``"VALUE"`` or ``"TARGET"`` -- which question this condition's filter answers."""
+        return self._condition_type
 
     @property
-    def target_condition(self):
-        return self._target_condition
+    def filter(self):
+        return self._filter
 
-    @target_condition.setter
-    def target_condition(self, target_condition):
-        self._target_condition = target_condition
+    @filter.setter
+    def filter(self, filter):
+        self._filter = filter
 
     def to_json(self):
         return {
             "id": self.id,
             "role_id": self.role_id,
             "resource_type": self.resource_type,
-            "value_condition": self.value_condition,
-            "target_condition": self.target_condition,
+            "type": self.type,
+            "filter": self.filter,
             "condition_slot": self.condition_slot,
             "resource_pattern": self.resource_pattern,
             "container_resource_type": self.container_resource_type,
@@ -580,8 +583,8 @@ class MutationConditions:
             id_=dictionary["id"],
             role_id=dictionary["role_id"],
             resource_type=dictionary["resource_type"],
-            value_condition=dictionary.get("value_condition"),
-            target_condition=dictionary.get("target_condition"),
+            type=dictionary["type"],
+            filter=dictionary["filter"],
             condition_slot=dictionary.get("condition_slot"),
             resource_pattern=dictionary.get("resource_pattern", "*"),
             container_resource_type=dictionary.get("container_resource_type", "workspace"),

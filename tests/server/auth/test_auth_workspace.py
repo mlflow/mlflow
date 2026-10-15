@@ -14,6 +14,7 @@ from mlflow.prompt.constants import IS_PROMPT_TAG_KEY
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, ErrorCode
 from mlflow.server import auth as auth_module
 from mlflow.server import handlers
+from mlflow.server.auth.conditions import CONDITION_TYPE_VALUE
 from mlflow.server.auth.permissions import (
     DENY,
     EDIT,
@@ -523,7 +524,7 @@ def test_readable_skill_identities_keep_organization_in_auth_filter(monkeypatch)
 def test_concrete_artifact_path_cannot_be_replaced_by_query_identity(prefix, method, monkeypatch):
     monkeypatch.setenv("MLFLOW_ENABLE_WORKSPACES", "false")
     monkeypatch.setattr(auth_module, "_get_tracking_store", lambda: Mock())
-    monkeypatch.setattr(auth_module, "authorize", lambda *args: False)
+    monkeypatch.setattr(auth_module, "authorize", lambda *args, **kwargs: False)
     monkeypatch.setattr(
         auth_module, "_role_permission_for", lambda **kwargs: lambda: NO_PERMISSIONS
     )
@@ -2162,11 +2163,19 @@ def test_rename_moves_conditions_of_only_the_renamed_family(
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     role_id = store.list_user_roles(store.get_user(username).id)[0].id
-    model = store.add_mutation_condition(
-        role_id, "registered_model", resource_pattern="foo", value_condition="tag_key != 'a'"
+    model = store.add_condition(
+        role_id,
+        "registered_model",
+        resource_pattern="foo",
+        condition_type=CONDITION_TYPE_VALUE,
+        filter="tag_key != 'a'",
     )
-    prompt = store.add_mutation_condition(
-        role_id, "prompt", resource_pattern="foo", value_condition="tag_key != 'b'"
+    prompt = store.add_condition(
+        role_id,
+        "prompt",
+        resource_pattern="foo",
+        condition_type=CONDITION_TYPE_VALUE,
+        filter="tag_key != 'b'",
     )
 
     with auth_module.app.test_request_context(
@@ -2176,8 +2185,8 @@ def test_rename_moves_conditions_of_only_the_renamed_family(
     ):
         auth_module.rename_registered_model_permission(_rename_response(is_prompt=False))
 
-    assert store.get_mutation_condition(model.id).resource_pattern == "bar"
-    assert store.get_mutation_condition(prompt.id).resource_pattern == "foo"
+    assert store.get_condition(model.id).resource_pattern == "bar"
+    assert store.get_condition(prompt.id).resource_pattern == "foo"
 
 
 def test_validate_can_view_workspace_requires_access(workspace_permission_setup):
@@ -6054,8 +6063,8 @@ def test_list_current_user_permissions_returns_caller_rows_and_admin_flag(tmp_pa
     assert payload["permissions"][0]["role_name"] == "viewer"
 
 
-def test_list_current_user_mutation_conditions_returns_caller_rows(tmp_path, monkeypatch):
-    """``/users/current/mutation-conditions`` is the self path for "what restricts me?".
+def test_list_current_user_conditions_returns_caller_rows(tmp_path, monkeypatch):
+    """``/users/current/conditions`` is the self path for "what restricts me?".
 
     Self-scoped by construction, exactly like ``/users/current/permissions``: the subject
     comes from ``authenticate_request()`` and there is no parameter naming a role, so
@@ -6074,28 +6083,32 @@ def test_list_current_user_mutation_conditions_returns_caller_rows(tmp_path, mon
     alice = auth_store.create_user("alice", "supersecurepassword", is_admin=False)
     role = auth_store.create_role(name="viewer", workspace="team-a")
     auth_store.add_role_permission(role.id, "experiment", "*", READ.name)
-    auth_store.add_mutation_condition(role.id, "run", value_condition="tag_key != 'bob'")
+    auth_store.add_condition(
+        role.id, "run", condition_type=CONDITION_TYPE_VALUE, filter="tag_key != 'bob'"
+    )
     auth_store.assign_role_to_user(alice.id, role.id)
 
     # A role alice does NOT hold, whose condition must not appear.
     other = auth_store.create_role(name="other", workspace="team-a")
-    auth_store.add_mutation_condition(other.id, "run", value_condition="tag_key != 'carol'")
+    auth_store.add_condition(
+        other.id, "run", condition_type=CONDITION_TYPE_VALUE, filter="tag_key != 'carol'"
+    )
 
     monkeypatch.setattr(
         auth_module, "authenticate_request", lambda: SimpleNamespace(username="alice")
     )
     with auth_module.app.test_request_context(
-        "/api/3.0/mlflow/users/current/mutation-conditions", method="GET"
+        "/api/3.0/mlflow/users/current/conditions", method="GET"
     ):
-        response = auth_module.list_current_user_mutation_conditions()
+        response = auth_module.list_current_user_conditions()
     payload = json.loads(response.get_data(as_text=True))
-    rows = payload["mutation_conditions"]
+    rows = payload["conditions"]
     assert len(rows) == 1, f"only the held role's condition may appear: {rows}"
     assert rows[0]["role_name"] == "viewer"
     assert rows[0]["workspace"] == "team-a"
     assert rows[0]["resource_type"] == "run"
-    assert rows[0]["value_condition"] == "tag_key != 'bob'"
-    assert rows[0]["target_condition"] is None
+    assert rows[0]["type"] == CONDITION_TYPE_VALUE
+    assert rows[0]["filter"] == "tag_key != 'bob'"
 
 
 def test_a_users_direct_condition_is_attributed_to_them_not_a_role(tmp_path, monkeypatch):
@@ -6113,22 +6126,24 @@ def test_a_users_direct_condition_is_attributed_to_them_not_a_role(tmp_path, mon
 
     auth_store.create_user("alice", "supersecurepassword", is_admin=False)
     with workspace_context.WorkspaceContext("team-a"):
-        auth_store.add_user_mutation_condition("alice", "run", value_condition="tag_key != 'bob'")
+        auth_store.add_user_condition(
+            "alice", "run", condition_type=CONDITION_TYPE_VALUE, filter="tag_key != 'bob'"
+        )
 
     monkeypatch.setattr(
         auth_module, "authenticate_request", lambda: SimpleNamespace(username="alice")
     )
     with auth_module.app.test_request_context(
-        "/api/3.0/mlflow/users/current/mutation-conditions", method="GET"
+        "/api/3.0/mlflow/users/current/conditions", method="GET"
     ):
-        response = auth_module.list_current_user_mutation_conditions()
-    rows = json.loads(response.get_data(as_text=True))["mutation_conditions"]
+        response = auth_module.list_current_user_conditions()
+    rows = json.loads(response.get_data(as_text=True))["conditions"]
     assert len(rows) == 1, rows
     assert rows[0]["role_name"].startswith("__user_"), (
         f"a direct condition must still report its synthetic role, which is how the UI "
         f"renders it as Direct: {rows[0]}"
     )
-    assert rows[0]["value_condition"] == "tag_key != 'bob'"
+    assert rows[0]["filter"] == "tag_key != 'bob'"
 
 
 def test_default_permission_floors_lesser_role_grant(monkeypatch):
@@ -10027,7 +10042,7 @@ def test_a_request_naming_two_role_identifiers_is_refused(role_auth_setup):
     """
     role_auth_setup["login_as"]("ws_admin_foo")
     with auth_module.app.test_request_context(
-        "/api/3.0/mlflow/roles/mutation-conditions/remove",
+        "/api/3.0/mlflow/roles/conditions/remove",
         method="DELETE",
         json={"condition_id": 1, "role_id": role_auth_setup["role_foo_id"]},
     ):

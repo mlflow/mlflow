@@ -1,4 +1,4 @@
-# Coverage guards for mutation-condition wiring.
+# Coverage guards for condition wiring.
 #
 # An in-scope mutating route that forgets to declare a ConditionContext is **fail-open**:
 # it keeps working, every test keeps passing, and the conditions an admin configured
@@ -21,12 +21,14 @@ import pytest
 from mlflow.server import auth as auth_module
 from mlflow.server.auth import resources as auth_resources
 from mlflow.server.auth.conditions import (
+    CONDITION_TYPE_TARGET,
+    CONDITION_TYPE_VALUE,
     PARENT_RESOURCE_TYPES,
     PARENTLESS_RESOURCE_TYPES,
     SUPPORTED_RESOURCE_TYPES,
     ConditionContext,
     ConditionScope,
-    MutationConditionSpec,
+    ConditionSpec,
     TraceRequestValues,
     TraceResourceValues,
 )
@@ -510,7 +512,7 @@ def _ancestors_of(resource_type):
 @pytest.mark.parametrize(
     ("validator", "path", "method", "body", "resource_type", "scope"), _WIRED_MUTATIONS
 )
-def test_no_mutation_conditions_its_container(
+def test_no_conditions_its_container(
     recorder, monkeypatch, validator, path, method, body, resource_type, scope
 ):
     """A container is a row SELECTOR, not a thing to condition.
@@ -752,7 +754,7 @@ def test_a_delete_reaches_the_condition_with_a_none_value(recorder, monkeypatch)
 # the worst possible place to find out.
 
 
-def _conditioned_store(**kwargs):
+def _conditioned_store(condition_type, filter):
     class Store:
         def get_user(self, username):
             return SimpleNamespace(id=1, username=username, is_admin=False)
@@ -760,10 +762,8 @@ def _conditioned_store(**kwargs):
         def is_workspace_admin(self, user_id, workspace):
             return False
 
-        def list_mutation_conditions_for_user(
-            self, user_id, workspace, resource_types, parents=None
-        ):
-            return [MutationConditionSpec("trace", **kwargs)]
+        def list_conditions_for_user(self, user_id, workspace, resource_types, parents=None):
+            return [ConditionSpec("trace", condition_type, filter)]
 
     return Store()
 
@@ -774,7 +774,7 @@ def test_the_gate_evaluates_a_request_condition_with_no_flask_context(monkeypatc
 
     assert not has_request_context(), "this test must run outside a request context"
     monkeypatch.setattr(
-        auth_module, "store", _conditioned_store(value_condition="tag_key != 'pii'")
+        auth_module, "store", _conditioned_store(CONDITION_TYPE_VALUE, "tag_key != 'pii'")
     )
     context = ConditionContext(
         resource_type="trace",
@@ -792,7 +792,7 @@ def test_the_gate_evaluates_a_target_condition_with_no_flask_context(monkeypatch
 
     assert not has_request_context()
     monkeypatch.setattr(
-        auth_module, "store", _conditioned_store(target_condition="tags.reviewed = 'yes'")
+        auth_module, "store", _conditioned_store(CONDITION_TYPE_TARGET, "tags.reviewed = 'yes'")
     )
     # The store answers; `reviewed=no` fails `tags.reviewed = 'yes'`, so it names the id.
     monkeypatch.setattr(
@@ -1068,13 +1068,13 @@ def test_an_issue_detection_projection_survives_a_malformed_trace_id(recorder, m
 # replaced at different points.
 
 
-def _child_restricted(monkeypatch, child_type, target_condition, children, failing=()):
+def _child_restricted(monkeypatch, child_type, target_filter, children, failing=()):
     """A target condition on `child_type` only.
 
-    `children` and `failing` describe what the parent holds. The children are never
-    enumerated -- the store answers "does this parent hold a child that fails?" in one
-    query -- so `failing` becomes the store's answer directly and `children` documents
-    the population it was derived from.
+    `children` and `failing` describe what the parent holds. The cascade loads them and
+    combines the conditions in memory, so the population is supplied directly rather than
+    reduced to a scripted first failure -- under OR a child is a violator only if NO
+    condition admits it, which cannot be stated as one answer.
     """
 
     class Store:
@@ -1084,14 +1084,8 @@ def _child_restricted(monkeypatch, child_type, target_condition, children, faili
         def is_workspace_admin(self, user_id, workspace):
             return False
 
-        def list_mutation_conditions_for_user(
-            self, user_id, workspace, resource_types, parents=None
-        ):
-            return [
-                MutationConditionSpec(
-                    child_type, value_condition=None, target_condition=target_condition
-                )
-            ]
+        def list_conditions_for_user(self, user_id, workspace, resource_types, parents=None):
+            return [ConditionSpec(child_type, CONDITION_TYPE_TARGET, target_filter)]
 
     monkeypatch.setattr(auth_module, "store", Store())
     monkeypatch.setattr(
@@ -1107,8 +1101,7 @@ def _child_restricted(monkeypatch, child_type, target_condition, children, faili
             auth_module.authorize_on_conditions(username, _WORKSPACE, conditions)
         ),
     )
-    # The store is the only evaluator of a target condition, so the scenario is expressed
-    # as its answer: the first failing child, or None when every child satisfies.
+    # The children carry their own tags, so the scenario is the population itself.
     # Attribution still reads the resource, so `attrs_for` supplies an explicit
     # non-matching value rather than an absent tag -- on the RESOURCE side absence is not
     # vacuous (D20), and a child with no `keep` tag would fail `tags.keep != 'y'` for a
@@ -1121,7 +1114,8 @@ def _child_restricted(monkeypatch, child_type, target_condition, children, faili
             SimpleNamespace(tags={"keep": "y" if resource_id in failing else "n"}, aliases={}),
         )
 
-    answering = answering_store(_state, failing_child=(failing[0] if failing else None))
+    _population = [(child, {"keep": "y" if child in failing else "n"}) for child in children]
+    answering = answering_store(_state, children=lambda entity, parent_id: _population)
     monkeypatch.setattr(auth_module, "_get_tracking_store", lambda: answering)
     monkeypatch.setattr(auth_module, "_get_model_registry_store", lambda: answering, raising=False)
     # Attribution still reads the resource to name the clause that refused.
@@ -1346,7 +1340,6 @@ def test_deleting_an_experiment_does_not_enumerate_without_a_child_condition(mon
             lambda rt, i: auth_resources.values_for_entity(
                 rt, i, SimpleNamespace(tags={"keep": "n"}, aliases={})
             ),
-            failing_child=None,
             calls=calls,
         ),
     )

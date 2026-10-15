@@ -1,4 +1,4 @@
-# End-to-end enforcement tests for mutation conditions.
+# End-to-end enforcement tests for conditions.
 #
 # Phase 4's reviewable claim is that a condition actually gates a mutating route, so
 # these tests drive a real server over HTTP: an admin authors the condition, a non-admin
@@ -25,6 +25,7 @@ from mlflow.environment_variables import (
 from mlflow.prompt.constants import IS_PROMPT_TAG_KEY
 from mlflow.protos.databricks_pb2 import PERMISSION_DENIED, ErrorCode
 from mlflow.server.auth.client import AuthServiceClient
+from mlflow.server.auth.conditions import CONDITION_TYPE_TARGET, CONDITION_TYPE_VALUE
 from mlflow.utils.os import is_windows
 
 from tests.helper_functions import random_str
@@ -70,7 +71,7 @@ def auth_client(server):
 
 
 def _conditioned_user(
-    auth_client, monkeypatch, *, value_condition=None, target_condition=None, permission="EDIT"
+    auth_client, monkeypatch, *, value_filter=None, target_filter=None, permission="EDIT"
 ):
     """A non-admin who can update every registered model, narrowed by a condition.
 
@@ -78,6 +79,11 @@ def _conditioned_user(
     from the condition -- the invariant under test is that conditions subtract from what a
     grant allows. ``permission`` is ``MANAGE`` for the routes that check ``can_delete``,
     which ``EDIT`` does not carry.
+
+    One filter is one condition. A caller supplying both gets TWO conditions, which is
+    what the typed decomposition requires; different types still AND, so the meaning of
+    every such test is unchanged. Note that two filters of the SAME type would not
+    compose this way -- they are alternatives, and OR would widen rather than narrow.
     """
     username = random_str()
     password = random_str(12)
@@ -86,13 +92,17 @@ def _conditioned_user(
         role = auth_client.create_role(workspace=_WORKSPACE, name=f"dev-{random_str()}")
         auth_client.add_role_permission(role.id, "registered_model", "*", permission)
         auth_client.assign_role(username, role.id)
-        if value_condition is not None or target_condition is not None:
-            auth_client.add_mutation_condition(
-                role.id,
-                "registered_model",
-                value_condition=value_condition,
-                target_condition=target_condition,
-            )
+        for condition_type, filter in (
+            (CONDITION_TYPE_VALUE, value_filter),
+            (CONDITION_TYPE_TARGET, target_filter),
+        ):
+            if filter is not None:
+                auth_client.add_condition(
+                    role.id,
+                    "registered_model",
+                    type=condition_type,
+                    filter=filter,
+                )
     return username, password
 
 
@@ -120,7 +130,7 @@ def _assert_denied(fn):
 def test_request_condition_denies_the_disallowed_tag_key(server, auth_client, monkeypatch):
     # The RFC's headline case: a role may set tags, but not the ones an admin reserves.
     username, password = _conditioned_user(
-        auth_client, monkeypatch, value_condition="tag_key != 'lifecycle'"
+        auth_client, monkeypatch, value_filter="tag_key != 'lifecycle'"
     )
     name = _model_with_tags(server, monkeypatch)
 
@@ -132,7 +142,7 @@ def test_request_condition_denies_the_disallowed_tag_key(server, auth_client, mo
 def test_request_condition_allows_an_unrelated_tag_key(server, auth_client, monkeypatch):
     # The other half of the same condition -- it must subtract only what it names.
     username, password = _conditioned_user(
-        auth_client, monkeypatch, value_condition="tag_key != 'lifecycle'"
+        auth_client, monkeypatch, value_filter="tag_key != 'lifecycle'"
     )
     name = _model_with_tags(server, monkeypatch)
 
@@ -147,7 +157,7 @@ def test_request_condition_constrains_the_value_as_well_as_the_key(
     server, auth_client, monkeypatch
 ):
     username, password = _conditioned_user(
-        auth_client, monkeypatch, value_condition="tag_value != 'prod'"
+        auth_client, monkeypatch, value_filter="tag_value != 'prod'"
     )
     name = _model_with_tags(server, monkeypatch)
 
@@ -165,7 +175,7 @@ def test_resource_condition_denies_a_model_whose_state_does_not_match(
     denied depending on the model it targets.
     """
     username, password = _conditioned_user(
-        auth_client, monkeypatch, target_condition="tags.lifecycle = 'dev'"
+        auth_client, monkeypatch, target_filter="tags.lifecycle = 'dev'"
     )
     dev = _model_with_tags(server, monkeypatch, {"lifecycle": "dev"})
     prod = _model_with_tags(server, monkeypatch, {"lifecycle": "prod"})
@@ -181,7 +191,7 @@ def test_resource_condition_denies_a_model_missing_the_tag_entirely(
     on the resource side, so an untagged model is denied by a condition naming that tag.
     """
     username, password = _conditioned_user(
-        auth_client, monkeypatch, target_condition="tags.lifecycle = 'dev'"
+        auth_client, monkeypatch, target_filter="tags.lifecycle = 'dev'"
     )
     untagged = _model_with_tags(server, monkeypatch)
 
@@ -202,7 +212,7 @@ def test_no_conditions_configured_behaves_exactly_as_before(server, auth_client,
 def test_admin_bypasses_conditions(server, auth_client, monkeypatch):
     # Conditions restrict delegated authority; they are not a way to constrain admins.
     username, password = _conditioned_user(
-        auth_client, monkeypatch, value_condition="tag_key != 'lifecycle'"
+        auth_client, monkeypatch, value_filter="tag_key != 'lifecycle'"
     )
     name = _model_with_tags(server, monkeypatch)
     with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
@@ -222,8 +232,11 @@ def test_conditions_never_confer_access(server, auth_client, monkeypatch):
         role = auth_client.create_role(workspace=_WORKSPACE, name=f"dev-{random_str()}")
         auth_client.assign_role(username, role.id)
         # A permissive condition, and deliberately no grant at all.
-        auth_client.add_mutation_condition(
-            role.id, "registered_model", value_condition="tag_key != 'nothing-matches-this'"
+        auth_client.add_condition(
+            role.id,
+            "registered_model",
+            type=CONDITION_TYPE_VALUE,
+            filter="tag_key != 'nothing-matches-this'",
         )
     name = _model_with_tags(server, monkeypatch)
 
@@ -234,8 +247,8 @@ def test_both_conditions_must_pass(server, auth_client, monkeypatch):
     username, password = _conditioned_user(
         auth_client,
         monkeypatch,
-        value_condition="tag_key != 'lifecycle'",
-        target_condition="tags.lifecycle = 'dev'",
+        value_filter="tag_key != 'lifecycle'",
+        target_filter="tags.lifecycle = 'dev'",
     )
     dev = _model_with_tags(server, monkeypatch, {"lifecycle": "dev"})
 
@@ -250,7 +263,7 @@ def test_a_second_role_cannot_lift_the_first_roles_restriction(server, auth_clie
     about: capability is the union of grants, but every applicable condition must pass.
     """
     username, password = _conditioned_user(
-        auth_client, monkeypatch, value_condition="tag_key != 'lifecycle'"
+        auth_client, monkeypatch, value_filter="tag_key != 'lifecycle'"
     )
     with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
         unrestricted = auth_client.create_role(
@@ -278,7 +291,7 @@ def test_create_condition_denies_a_disallowed_tag_in_the_body(server, auth_clien
     evaluated against every tag the body will store.
     """
     username, password = _conditioned_user(
-        auth_client, monkeypatch, value_condition="tag_key != 'lifecycle'"
+        auth_client, monkeypatch, value_filter="tag_key != 'lifecycle'"
     )
 
     with pytest.raises(MlflowException, match=r"Permission denied"):
@@ -289,7 +302,7 @@ def test_create_condition_denies_a_disallowed_tag_in_the_body(server, auth_clien
 
 def test_create_allows_a_body_whose_tags_all_pass(server, auth_client, monkeypatch):
     username, password = _conditioned_user(
-        auth_client, monkeypatch, value_condition="tag_key != 'lifecycle'"
+        auth_client, monkeypatch, value_filter="tag_key != 'lifecycle'"
     )
     name = f"m-{random_str()}"
 
@@ -302,7 +315,7 @@ def test_create_allows_a_body_whose_tags_all_pass(server, auth_client, monkeypat
 def test_create_denies_when_any_one_tag_of_several_fails(server, auth_client, monkeypatch):
     # A bulk body must not be a way around a restriction that holds for a single tag.
     username, password = _conditioned_user(
-        auth_client, monkeypatch, value_condition="tag_key != 'lifecycle'"
+        auth_client, monkeypatch, value_filter="tag_key != 'lifecycle'"
     )
 
     with pytest.raises(MlflowException, match=r"Permission denied"):
@@ -321,7 +334,7 @@ def test_create_with_no_tags_is_not_denied_by_a_tag_condition(server, auth_clien
     to object to, so the clause is vacuous rather than denying.
     """
     username, password = _conditioned_user(
-        auth_client, monkeypatch, value_condition="tag_key != 'lifecycle'"
+        auth_client, monkeypatch, value_filter="tag_key != 'lifecycle'"
     )
     name = f"m-{random_str()}"
 
@@ -336,7 +349,7 @@ def test_a_resource_condition_does_not_gate_a_create(server, auth_client, monkey
     did, a target condition would make creation impossible for the role.
     """
     username, password = _conditioned_user(
-        auth_client, monkeypatch, target_condition="tags.lifecycle = 'dev'"
+        auth_client, monkeypatch, target_filter="tags.lifecycle = 'dev'"
     )
     name = f"m-{random_str()}"
 
@@ -346,7 +359,7 @@ def test_a_resource_condition_does_not_gate_a_create(server, auth_client, monkey
         assert MlflowClient(server).get_registered_model(name).name == name
 
 
-def _exact_name_conditioned_user(auth_client, monkeypatch, resource_type, name, value_condition):
+def _exact_name_conditioned_user(auth_client, monkeypatch, resource_type, name, value_filter):
     """A broad grant on ``resource_type``, narrowed by a condition naming exactly one resource."""
     username = random_str()
     password = random_str(12)
@@ -355,11 +368,12 @@ def _exact_name_conditioned_user(auth_client, monkeypatch, resource_type, name, 
         role = auth_client.create_role(workspace=_WORKSPACE, name=f"dev-{random_str()}")
         auth_client.add_role_permission(role.id, resource_type, "*", "EDIT")
         auth_client.assign_role(username, role.id)
-        auth_client.add_mutation_condition(
+        auth_client.add_condition(
             role.id,
             resource_type,
             resource_pattern=name,
-            value_condition=value_condition,
+            type=CONDITION_TYPE_VALUE,
+            filter=value_filter,
         )
     return username, password
 
@@ -443,8 +457,11 @@ def test_a_registered_model_condition_does_not_gate_a_prompt_create(
         auth_client.add_role_permission(role.id, "registered_model", "*", "EDIT")
         auth_client.add_role_permission(role.id, "prompt", "*", "EDIT")
         auth_client.assign_role(username, role.id)
-        auth_client.add_mutation_condition(
-            role.id, "registered_model", value_condition="tag_key != 'lifecycle'"
+        auth_client.add_condition(
+            role.id,
+            "registered_model",
+            type=CONDITION_TYPE_VALUE,
+            filter="tag_key != 'lifecycle'",
         )
 
     # The same disallowed tag key: denied for a registered model, allowed for a prompt,
@@ -479,7 +496,7 @@ def test_deleting_a_reserved_tag_is_denied(server, auth_client, monkeypatch):
     expresses, so a delete is gated by the same `tag_key` clause a set is.
     """
     username, password = _conditioned_user(
-        auth_client, monkeypatch, value_condition="tag_key != 'lifecycle'"
+        auth_client, monkeypatch, value_filter="tag_key != 'lifecycle'"
     )
     name = _model_with_tags(server, monkeypatch, {"lifecycle": "prod"})
 
@@ -490,7 +507,7 @@ def test_deleting_a_reserved_tag_is_denied(server, auth_client, monkeypatch):
 
 def test_deleting_an_unreserved_tag_is_allowed(server, auth_client, monkeypatch):
     username, password = _conditioned_user(
-        auth_client, monkeypatch, value_condition="tag_key != 'lifecycle'"
+        auth_client, monkeypatch, value_filter="tag_key != 'lifecycle'"
     )
     name = _model_with_tags(server, monkeypatch, {"team": "analytics"})
 
@@ -511,7 +528,7 @@ def test_a_value_clause_does_not_gate_a_delete(server, auth_client, monkeypatch)
     passes only when the value is genuinely absent.
     """
     username, password = _conditioned_user(
-        auth_client, monkeypatch, value_condition="tag_value = 'dev'"
+        auth_client, monkeypatch, value_filter="tag_value = 'dev'"
     )
     name = _model_with_tags(server, monkeypatch, {"lifecycle": "prod"})
 
@@ -527,7 +544,7 @@ def test_a_rename_is_not_denied_by_a_tag_condition(server, auth_client, monkeypa
     the update validator but has no request values at all.
     """
     username, password = _conditioned_user(
-        auth_client, monkeypatch, value_condition="tag_key != 'lifecycle'"
+        auth_client, monkeypatch, value_filter="tag_key != 'lifecycle'"
     )
     name = _model_with_tags(server, monkeypatch)
     renamed = f"{name}-renamed"
@@ -547,7 +564,7 @@ def test_a_read_is_not_gated_by_a_condition(server, auth_client, monkeypatch):
     not stop the same user reading it.
     """
     username, password = _conditioned_user(
-        auth_client, monkeypatch, target_condition="tags.lifecycle = 'dev'"
+        auth_client, monkeypatch, target_filter="tags.lifecycle = 'dev'"
     )
     prod = _model_with_tags(server, monkeypatch, {"lifecycle": "prod"})
 
@@ -579,7 +596,7 @@ def _set_alias(server, username, password, monkeypatch, name, alias, version="1"
 def test_setting_a_restricted_alias_is_denied(server, auth_client, monkeypatch):
     # The RFC's use case 3: an alias the condition reserves cannot be published.
     username, password = _conditioned_user(
-        auth_client, monkeypatch, value_condition="alias != 'champion'"
+        auth_client, monkeypatch, value_filter="alias != 'champion'"
     )
     name = _model_with_version(server, monkeypatch)
 
@@ -588,7 +605,7 @@ def test_setting_a_restricted_alias_is_denied(server, auth_client, monkeypatch):
 
 def test_setting_an_unrestricted_alias_is_allowed(server, auth_client, monkeypatch):
     username, password = _conditioned_user(
-        auth_client, monkeypatch, value_condition="alias != 'champion'"
+        auth_client, monkeypatch, value_filter="alias != 'champion'"
     )
     name = _model_with_version(server, monkeypatch)
 
@@ -603,7 +620,7 @@ def test_deleting_a_restricted_alias_is_denied(server, auth_client, monkeypatch)
     restriction, so the delete is gated on the alias it names just as the set is.
     """
     username, password = _conditioned_user(
-        auth_client, monkeypatch, value_condition="alias != 'champion'", permission="MANAGE"
+        auth_client, monkeypatch, value_filter="alias != 'champion'", permission="MANAGE"
     )
     name = _model_with_version(server, monkeypatch)
     with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
@@ -616,7 +633,7 @@ def test_deleting_a_restricted_alias_is_denied(server, auth_client, monkeypatch)
 
 def test_deleting_an_unrestricted_alias_is_allowed(server, auth_client, monkeypatch):
     username, password = _conditioned_user(
-        auth_client, monkeypatch, value_condition="alias != 'champion'", permission="MANAGE"
+        auth_client, monkeypatch, value_filter="alias != 'champion'", permission="MANAGE"
     )
     name = _model_with_version(server, monkeypatch)
     with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
@@ -634,7 +651,7 @@ def test_a_tag_clause_does_not_gate_an_alias_route(server, auth_client, monkeypa
     `tag_key` clause has nothing to judge and must not deny it.
     """
     username, password = _conditioned_user(
-        auth_client, monkeypatch, value_condition="tag_key != 'lifecycle'"
+        auth_client, monkeypatch, value_filter="tag_key != 'lifecycle'"
     )
     name = _model_with_version(server, monkeypatch)
 
@@ -644,7 +661,7 @@ def test_a_tag_clause_does_not_gate_an_alias_route(server, auth_client, monkeypa
 def test_an_alias_clause_does_not_gate_a_tag_route(server, auth_client, monkeypatch):
     # The mirror of the above: a tag route sets no alias.
     username, password = _conditioned_user(
-        auth_client, monkeypatch, value_condition="alias != 'champion'"
+        auth_client, monkeypatch, value_filter="alias != 'champion'"
     )
     name = _model_with_version(server, monkeypatch)
 
@@ -656,7 +673,7 @@ def test_a_resource_alias_condition_gates_the_alias_route(server, auth_client, m
     alias already point somewhere before any alias may be moved.
     """
     username, password = _conditioned_user(
-        auth_client, monkeypatch, target_condition="aliases.champion = '1'"
+        auth_client, monkeypatch, target_filter="aliases.champion = '1'"
     )
     without = _model_with_version(server, monkeypatch)
 
@@ -675,7 +692,7 @@ def test_a_resource_alias_condition_gates_the_alias_route(server, auth_client, m
 
 
 def _version_conditioned_user(
-    auth_client, monkeypatch, *, value_condition=None, target_condition=None, permission="EDIT"
+    auth_client, monkeypatch, *, value_filter=None, target_filter=None, permission="EDIT"
 ):
     """A user who can mutate every model version, narrowed by a condition on the version type.
 
@@ -690,20 +707,24 @@ def _version_conditioned_user(
         auth_client.add_role_permission(role.id, "registered_model", "*", "READ")
         auth_client.add_role_permission(role.id, "registered_model_version", "*", permission)
         auth_client.assign_role(username, role.id)
-        if value_condition is not None or target_condition is not None:
-            auth_client.add_mutation_condition(
-                role.id,
-                "registered_model_version",
-                value_condition=value_condition,
-                target_condition=target_condition,
-            )
+        for condition_type, filter in (
+            (CONDITION_TYPE_VALUE, value_filter),
+            (CONDITION_TYPE_TARGET, target_filter),
+        ):
+            if filter is not None:
+                auth_client.add_condition(
+                    role.id,
+                    "registered_model_version",
+                    type=condition_type,
+                    filter=filter,
+                )
     return username, password
 
 
 def test_a_restricted_version_tag_is_denied(server, auth_client, monkeypatch):
     # §7.1 case 8.
     username, password = _version_conditioned_user(
-        auth_client, monkeypatch, value_condition="tag_key != 'validated'"
+        auth_client, monkeypatch, value_filter="tag_key != 'validated'"
     )
     name = _model_with_version(server, monkeypatch)
 
@@ -714,7 +735,7 @@ def test_a_restricted_version_tag_is_denied(server, auth_client, monkeypatch):
 
 def test_an_unrestricted_version_tag_is_allowed(server, auth_client, monkeypatch):
     username, password = _version_conditioned_user(
-        auth_client, monkeypatch, value_condition="tag_key != 'validated'"
+        auth_client, monkeypatch, value_filter="tag_key != 'validated'"
     )
     name = _model_with_version(server, monkeypatch)
 
@@ -728,7 +749,7 @@ def test_an_unrestricted_version_tag_is_allowed(server, auth_client, monkeypatch
 def test_deleting_a_restricted_version_tag_is_denied(server, auth_client, monkeypatch):
     # D12 on the version surface, which checks can_delete rather than can_update.
     username, password = _version_conditioned_user(
-        auth_client, monkeypatch, value_condition="tag_key != 'validated'", permission="MANAGE"
+        auth_client, monkeypatch, value_filter="tag_key != 'validated'", permission="MANAGE"
     )
     name = _model_with_version(server, monkeypatch)
     with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
@@ -744,7 +765,7 @@ def test_a_version_resource_condition_reads_the_versions_own_tags(server, auth_c
     own tags -- not the parent registry entry's, which are a different resource.
     """
     username, password = _version_conditioned_user(
-        auth_client, monkeypatch, target_condition="tags.stage = 'candidate'"
+        auth_client, monkeypatch, target_filter="tags.stage = 'candidate'"
     )
     # The parent carries the tag; the version does not. A condition on the version must
     # therefore deny, or it is reading the wrong resource's state.
@@ -802,12 +823,13 @@ def test_a_renamed_model_keeps_the_conditions_scoped_to_its_versions(
         role = auth_client.create_role(workspace=_WORKSPACE, name=f"dev-{random_str()}")
         auth_client.add_role_permission(role.id, "registered_model", "*", "EDIT")
         auth_client.assign_role(username, role.id)
-        auth_client.add_mutation_condition(
+        auth_client.add_condition(
             role.id,
             "registered_model_version",
             container_resource_type="registered_model",
             container_resource_pattern=old_name,
-            value_condition="tag_key != 'lifecycle'",
+            type=CONDITION_TYPE_VALUE,
+            filter="tag_key != 'lifecycle'",
         )
         MlflowClient(server).create_registered_model(old_name)
         MlflowClient(server).create_model_version(old_name, source="s3://bucket/path")
@@ -830,8 +852,11 @@ def test_a_registered_model_condition_does_not_gate_a_version_tag(server, auth_c
         auth_client.add_role_permission(role.id, "registered_model", "*", "EDIT")
         auth_client.add_role_permission(role.id, "registered_model_version", "*", "EDIT")
         auth_client.assign_role(username, role.id)
-        auth_client.add_mutation_condition(
-            role.id, "registered_model", value_condition="tag_key != 'validated'"
+        auth_client.add_condition(
+            role.id,
+            "registered_model",
+            type=CONDITION_TYPE_VALUE,
+            filter="tag_key != 'validated'",
         )
     name = _model_with_version(server, monkeypatch)
 
@@ -842,7 +867,7 @@ def test_a_registered_model_condition_does_not_gate_a_version_tag(server, auth_c
 # ---- Runs (RFC use case 1) --------------------------------------------------
 
 
-def _run_conditioned_user(auth_client, monkeypatch, *, value_condition=None, target_condition=None):
+def _run_conditioned_user(auth_client, monkeypatch, *, value_filter=None, target_filter=None):
     """A user who can mutate every run in the workspace, narrowed by a run condition."""
     username = random_str()
     password = random_str(12)
@@ -852,10 +877,12 @@ def _run_conditioned_user(auth_client, monkeypatch, *, value_condition=None, tar
         auth_client.add_role_permission(role.id, "experiment", "*", "EDIT")
         auth_client.add_role_permission(role.id, "run", "*", "EDIT")
         auth_client.assign_role(username, role.id)
-        if value_condition is not None or target_condition is not None:
-            auth_client.add_mutation_condition(
-                role.id, "run", value_condition=value_condition, target_condition=target_condition
-            )
+        for condition_type, filter in (
+            (CONDITION_TYPE_VALUE, value_filter),
+            (CONDITION_TYPE_TARGET, target_filter),
+        ):
+            if filter is not None:
+                auth_client.add_condition(role.id, "run", type=condition_type, filter=filter)
     return username, password
 
 
@@ -870,7 +897,7 @@ def _a_run(server, monkeypatch, tags=None):
 def test_a_restricted_run_tag_is_denied(server, auth_client, monkeypatch):
     # §7.1 case 2.
     username, password = _run_conditioned_user(
-        auth_client, monkeypatch, value_condition="tag_key != 'approved'"
+        auth_client, monkeypatch, value_filter="tag_key != 'approved'"
     )
     run_id = _a_run(server, monkeypatch)
 
@@ -881,7 +908,7 @@ def test_a_restricted_run_tag_is_denied(server, auth_client, monkeypatch):
 
 def test_an_unrestricted_run_tag_is_allowed(server, auth_client, monkeypatch):
     username, password = _run_conditioned_user(
-        auth_client, monkeypatch, value_condition="tag_key != 'approved'"
+        auth_client, monkeypatch, value_filter="tag_key != 'approved'"
     )
     run_id = _a_run(server, monkeypatch)
 
@@ -894,7 +921,7 @@ def test_an_unrestricted_run_tag_is_allowed(server, auth_client, monkeypatch):
 
 def test_deleting_a_restricted_run_tag_is_denied(server, auth_client, monkeypatch):
     username, password = _run_conditioned_user(
-        auth_client, monkeypatch, value_condition="tag_key != 'approved'"
+        auth_client, monkeypatch, value_filter="tag_key != 'approved'"
     )
     run_id = _a_run(server, monkeypatch, tags={"approved": "yes"})
 
@@ -909,7 +936,7 @@ def test_logging_a_param_is_not_denied_by_a_tag_condition(server, auth_client, m
     validator rather than having its own.
     """
     username, password = _run_conditioned_user(
-        auth_client, monkeypatch, value_condition="tag_key != 'approved'"
+        auth_client, monkeypatch, value_filter="tag_key != 'approved'"
     )
     run_id = _a_run(server, monkeypatch)
 
@@ -924,7 +951,7 @@ def test_a_metrics_only_log_batch_is_not_denied_by_a_tag_condition(
     that writes metrics and no tags has nothing for a `tag_key` clause to judge.
     """
     username, password = _run_conditioned_user(
-        auth_client, monkeypatch, value_condition="tag_key != 'approved'"
+        auth_client, monkeypatch, value_filter="tag_key != 'approved'"
     )
     run_id = _a_run(server, monkeypatch)
 
@@ -940,7 +967,7 @@ def test_a_log_batch_carrying_a_restricted_tag_is_denied(server, auth_client, mo
     around the single-tag route.
     """
     username, password = _run_conditioned_user(
-        auth_client, monkeypatch, value_condition="tag_key != 'approved'"
+        auth_client, monkeypatch, value_filter="tag_key != 'approved'"
     )
     run_id = _a_run(server, monkeypatch)
 
@@ -952,7 +979,7 @@ def test_a_log_batch_carrying_a_restricted_tag_is_denied(server, auth_client, mo
 def test_a_log_batch_is_denied_when_any_one_of_several_tags_fails(server, auth_client, monkeypatch):
     # A bulk body must not dilute a restriction that holds for one tag.
     username, password = _run_conditioned_user(
-        auth_client, monkeypatch, value_condition="tag_key != 'approved'"
+        auth_client, monkeypatch, value_filter="tag_key != 'approved'"
     )
     run_id = _a_run(server, monkeypatch)
 
@@ -966,7 +993,7 @@ def test_a_log_batch_is_denied_when_any_one_of_several_tags_fails(server, auth_c
 def test_creating_a_run_with_a_restricted_tag_is_denied(server, auth_client, monkeypatch):
     # §7.1 case 4, at CREATE scope.
     username, password = _run_conditioned_user(
-        auth_client, monkeypatch, value_condition="tag_key != 'approved'"
+        auth_client, monkeypatch, value_filter="tag_key != 'approved'"
     )
     with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
         experiment_id = MlflowClient(server).create_experiment(f"exp-{random_str()}")
@@ -978,7 +1005,7 @@ def test_creating_a_run_with_a_restricted_tag_is_denied(server, auth_client, mon
 
 def test_creating_a_run_without_tags_is_allowed(server, auth_client, monkeypatch):
     username, password = _run_conditioned_user(
-        auth_client, monkeypatch, value_condition="tag_key != 'approved'"
+        auth_client, monkeypatch, value_filter="tag_key != 'approved'"
     )
     with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
         experiment_id = MlflowClient(server).create_experiment(f"exp-{random_str()}")
@@ -1000,15 +1027,21 @@ def test_a_reserved_tag_key_cannot_be_named_by_a_request_condition(auth_client, 
     with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
         role = auth_client.create_role(workspace=_WORKSPACE, name=f"dev-{random_str()}")
         with pytest.raises(MlflowException, match=r"reserved tag keys"):
-            auth_client.add_mutation_condition(
-                role.id, "run", value_condition="tag_key != 'mlflow.runName'"
+            auth_client.add_condition(
+                role.id,
+                "run",
+                type=CONDITION_TYPE_VALUE,
+                filter="tag_key != 'mlflow.runName'",
             )
 
         # The resource side rejects it too: the same keys are freely settable, so a target
         # condition reading one restricts nothing -- the holder renames the run and passes.
         with pytest.raises(MlflowException, match=r"reserved tag keys"):
-            auth_client.add_mutation_condition(
-                role.id, "run", target_condition="tags.`mlflow.runName` != 'secret'"
+            auth_client.add_condition(
+                role.id,
+                "run",
+                type=CONDITION_TYPE_TARGET,
+                filter="tags.`mlflow.runName` != 'secret'",
             )
 
 
@@ -1017,7 +1050,7 @@ def test_an_update_run_rename_is_not_denied_by_a_tag_condition(server, auth_clie
     rename passes under a `tag_key` clause (D20 vacuity).
     """
     username, password = _run_conditioned_user(
-        auth_client, monkeypatch, value_condition="tag_key != 'approved'"
+        auth_client, monkeypatch, value_filter="tag_key != 'approved'"
     )
     run_id = _a_run(server, monkeypatch)
 
@@ -1041,7 +1074,7 @@ def test_vacuity_holds_under_a_positive_clause(server, auth_client, monkeypatch)
     it -- which is only true if the clause genuinely does not apply.
     """
     username, password = _run_conditioned_user(
-        auth_client, monkeypatch, value_condition="tag_key = 'notes'"
+        auth_client, monkeypatch, value_filter="tag_key = 'notes'"
     )
     run_id = _a_run(server, monkeypatch)
 
@@ -1065,7 +1098,7 @@ def test_creating_a_run_without_tags_holds_under_a_positive_clause(
 ):
     # The same discrimination at CREATE scope.
     username, password = _run_conditioned_user(
-        auth_client, monkeypatch, value_condition="tag_key = 'notes'"
+        auth_client, monkeypatch, value_filter="tag_key = 'notes'"
     )
     with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
         experiment_id = MlflowClient(server).create_experiment(f"exp-{random_str()}")
@@ -1082,7 +1115,7 @@ def test_creating_a_run_without_tags_holds_under_a_positive_clause(
 
 
 def _trace_conditioned_user(
-    auth_client, monkeypatch, *, value_condition=None, target_condition=None, permission="EDIT"
+    auth_client, monkeypatch, *, value_filter=None, target_filter=None, permission="EDIT"
 ):
     username = random_str()
     password = random_str(12)
@@ -1093,15 +1126,17 @@ def _trace_conditioned_user(
         auth_client.add_role_permission(role.id, "trace", "*", permission)
         auth_client.add_role_permission(role.id, "assessment", "*", permission)
         auth_client.assign_role(username, role.id)
-        if value_condition is not None or target_condition is not None:
-            auth_client.add_mutation_condition(
-                role.id, "trace", value_condition=value_condition, target_condition=target_condition
-            )
+        for condition_type, filter in (
+            (CONDITION_TYPE_VALUE, value_filter),
+            (CONDITION_TYPE_TARGET, target_filter),
+        ):
+            if filter is not None:
+                auth_client.add_condition(role.id, "trace", type=condition_type, filter=filter)
     return username, password
 
 
 def _experiment_scoped_trace_conditioned_user(
-    auth_client, monkeypatch, experiment_id, *, target_condition, permission="MANAGE"
+    auth_client, monkeypatch, experiment_id, *, target_filter, permission="MANAGE"
 ):
     """A user whose trace condition is scoped to ONE experiment, not the whole workspace.
 
@@ -1118,12 +1153,13 @@ def _experiment_scoped_trace_conditioned_user(
         auth_client.add_role_permission(role.id, "trace", "*", permission)
         auth_client.add_role_permission(role.id, "assessment", "*", permission)
         auth_client.assign_role(username, role.id)
-        auth_client.add_mutation_condition(
+        auth_client.add_condition(
             role.id,
             "trace",
             container_resource_type="experiment",
             container_resource_pattern=experiment_id,
-            target_condition=target_condition,
+            type=CONDITION_TYPE_TARGET,
+            filter=target_filter,
         )
     return username, password
 
@@ -1144,7 +1180,7 @@ def _a_trace(server, monkeypatch):
 
 def test_a_restricted_trace_tag_is_denied(server, auth_client, monkeypatch):
     username, password = _trace_conditioned_user(
-        auth_client, monkeypatch, value_condition="tag_key != 'reviewed'"
+        auth_client, monkeypatch, value_filter="tag_key != 'reviewed'"
     )
     _, trace_id = _a_trace(server, monkeypatch)
 
@@ -1155,7 +1191,7 @@ def test_a_restricted_trace_tag_is_denied(server, auth_client, monkeypatch):
 
 def test_an_unrestricted_trace_tag_is_allowed(server, auth_client, monkeypatch):
     username, password = _trace_conditioned_user(
-        auth_client, monkeypatch, value_condition="tag_key != 'reviewed'"
+        auth_client, monkeypatch, value_filter="tag_key != 'reviewed'"
     )
     _, trace_id = _a_trace(server, monkeypatch)
 
@@ -1166,7 +1202,7 @@ def test_an_unrestricted_trace_tag_is_allowed(server, auth_client, monkeypatch):
 def test_deleting_traces_by_id_is_gated_on_each_trace(server, auth_client, monkeypatch):
     # §7.1 case 9a. The named traces are conditioned on their own current state.
     username, password = _trace_conditioned_user(
-        auth_client, monkeypatch, target_condition="tags.reviewed = 'yes'", permission="MANAGE"
+        auth_client, monkeypatch, target_filter="tags.reviewed = 'yes'", permission="MANAGE"
     )
     experiment_id, trace_id = _a_trace(server, monkeypatch)
 
@@ -1218,7 +1254,7 @@ def test_deleting_traces_by_timestamp_ignores_a_failing_trace_outside_the_window
     """
     experiment_id, older, newer = _two_traces(server, monkeypatch)
     username, password = _trace_conditioned_user(
-        auth_client, monkeypatch, target_condition="tags.reviewed = 'yes'", permission="MANAGE"
+        auth_client, monkeypatch, target_filter="tags.reviewed = 'yes'", permission="MANAGE"
     )
     with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
         # The older trace satisfies the condition; the newer one never gets the tag.
@@ -1234,7 +1270,7 @@ def test_deleting_traces_by_timestamp_refuses_a_failing_trace_inside_the_window(
     # The other half: widening the window to cover the failing trace refuses the delete.
     experiment_id, older, newer = _two_traces(server, monkeypatch)
     username, password = _trace_conditioned_user(
-        auth_client, monkeypatch, target_condition="tags.reviewed = 'yes'", permission="MANAGE"
+        auth_client, monkeypatch, target_filter="tags.reviewed = 'yes'", permission="MANAGE"
     )
     with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
         MlflowClient(server).set_trace_tag(older.trace_id, "reviewed", "yes")
@@ -1262,7 +1298,7 @@ def test_deleting_traces_by_timestamp_is_refused_when_a_trace_fails_the_conditio
     range, but the gate cannot know which traces the range covers, so it declines.
     """
     username, password = _trace_conditioned_user(
-        auth_client, monkeypatch, target_condition="tags.reviewed = 'yes'", permission="MANAGE"
+        auth_client, monkeypatch, target_filter="tags.reviewed = 'yes'", permission="MANAGE"
     )
     experiment_id, _ = _a_trace(server, monkeypatch)
 
@@ -1282,7 +1318,7 @@ def test_deleting_traces_by_timestamp_is_allowed_when_every_trace_passes(
     answer the question.
     """
     username, password = _trace_conditioned_user(
-        auth_client, monkeypatch, target_condition="tags.reviewed = 'yes'", permission="MANAGE"
+        auth_client, monkeypatch, target_filter="tags.reviewed = 'yes'", permission="MANAGE"
     )
     experiment_id, trace_id = _a_trace(server, monkeypatch)
     with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
@@ -1305,7 +1341,7 @@ def test_an_experiment_scoped_trace_condition_gates_a_named_delete(
     """
     experiment_id, trace_id = _a_trace(server, monkeypatch)
     username, password = _experiment_scoped_trace_conditioned_user(
-        auth_client, monkeypatch, experiment_id, target_condition="tags.reviewed = 'yes'"
+        auth_client, monkeypatch, experiment_id, target_filter="tags.reviewed = 'yes'"
     )
 
     with pytest.raises(MlflowException, match=r"Permission denied"):
@@ -1330,7 +1366,7 @@ def test_a_trace_condition_scoped_to_another_experiment_does_not_gate_this_one(
     other_experiment_id, _ = _a_trace(server, monkeypatch)
     experiment_id, trace_id = _a_trace(server, monkeypatch)
     username, password = _experiment_scoped_trace_conditioned_user(
-        auth_client, monkeypatch, other_experiment_id, target_condition="tags.reviewed = 'yes'"
+        auth_client, monkeypatch, other_experiment_id, target_filter="tags.reviewed = 'yes'"
     )
 
     with User(username, password, monkeypatch):
@@ -1345,7 +1381,7 @@ def test_deleting_traces_by_timestamp_is_unaffected_without_a_target_condition(
     trigger it, and neither does an empty table.
     """
     username, password = _trace_conditioned_user(
-        auth_client, monkeypatch, value_condition="tag_key != 'reviewed'", permission="MANAGE"
+        auth_client, monkeypatch, value_filter="tag_key != 'reviewed'", permission="MANAGE"
     )
     experiment_id, _ = _a_trace(server, monkeypatch)
 
@@ -1361,8 +1397,8 @@ def _typed_conditioned_user(
     monkeypatch,
     resource_type,
     *,
-    value_condition=None,
-    target_condition=None,
+    value_filter=None,
+    target_filter=None,
     permission="EDIT",
     extra=(),
 ):
@@ -1378,13 +1414,17 @@ def _typed_conditioned_user(
         for extra_type, extra_permission in extra:
             auth_client.add_role_permission(role.id, extra_type, "*", extra_permission)
         auth_client.assign_role(username, role.id)
-        if value_condition is not None or target_condition is not None:
-            auth_client.add_mutation_condition(
-                role.id,
-                resource_type,
-                value_condition=value_condition,
-                target_condition=target_condition,
-            )
+        for condition_type, filter in (
+            (CONDITION_TYPE_VALUE, value_filter),
+            (CONDITION_TYPE_TARGET, target_filter),
+        ):
+            if filter is not None:
+                auth_client.add_condition(
+                    role.id,
+                    resource_type,
+                    type=condition_type,
+                    filter=filter,
+                )
     return username, password
 
 
@@ -1394,7 +1434,7 @@ def test_a_restricted_experiment_tag_is_denied(server, auth_client, monkeypatch)
     through `authorize`. This asserts that path is actually wired.
     """
     username, password = _typed_conditioned_user(
-        auth_client, monkeypatch, "experiment", value_condition="tag_key != 'locked'"
+        auth_client, monkeypatch, "experiment", value_filter="tag_key != 'locked'"
     )
     with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
         experiment_id = MlflowClient(server).create_experiment(f"exp-{random_str()}")
@@ -1406,7 +1446,7 @@ def test_a_restricted_experiment_tag_is_denied(server, auth_client, monkeypatch)
 
 def test_an_unrestricted_experiment_tag_is_allowed(server, auth_client, monkeypatch):
     username, password = _typed_conditioned_user(
-        auth_client, monkeypatch, "experiment", value_condition="tag_key != 'locked'"
+        auth_client, monkeypatch, "experiment", value_filter="tag_key != 'locked'"
     )
     with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
         experiment_id = MlflowClient(server).create_experiment(f"exp-{random_str()}")
@@ -1417,7 +1457,7 @@ def test_an_unrestricted_experiment_tag_is_allowed(server, auth_client, monkeypa
 
 def test_creating_an_experiment_with_a_restricted_tag_is_denied(server, auth_client, monkeypatch):
     username, password = _typed_conditioned_user(
-        auth_client, monkeypatch, "experiment", value_condition="tag_key != 'locked'"
+        auth_client, monkeypatch, "experiment", value_filter="tag_key != 'locked'"
     )
 
     with pytest.raises(MlflowException, match=r"Permission denied"):
@@ -1430,7 +1470,7 @@ def test_a_restricted_logged_model_tag_is_denied(server, auth_client, monkeypatc
         auth_client,
         monkeypatch,
         "logged_model",
-        value_condition="tag_key != 'certified'",
+        value_filter="tag_key != 'certified'",
         extra=(("experiment", "EDIT"),),
     )
     with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
@@ -1451,7 +1491,7 @@ def test_a_logged_model_tag_batch_is_denied_when_any_tag_fails(server, auth_clie
         auth_client,
         monkeypatch,
         "logged_model",
-        value_condition="tag_key != 'certified'",
+        value_filter="tag_key != 'certified'",
         extra=(("experiment", "EDIT"),),
     )
     with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
@@ -1481,8 +1521,11 @@ def test_reads_are_never_gated_across_every_wired_type(server, auth_client, monk
         for resource_type in ("experiment", "run", "registered_model", "registered_model_version"):
             auth_client.add_role_permission(role.id, resource_type, "*", "EDIT")
             # A condition no tag can satisfy, so any leak into a read path denies it.
-            auth_client.add_mutation_condition(
-                role.id, resource_type, value_condition="tag_key = 'impossible'"
+            auth_client.add_condition(
+                role.id,
+                resource_type,
+                type=CONDITION_TYPE_VALUE,
+                filter="tag_key = 'impossible'",
             )
         auth_client.assign_role(username, role.id)
 
@@ -1544,7 +1587,7 @@ def test_a_target_condition_gates_a_stage_transition(
     "tidied up" into the stage route later.
     """
     username, password = _version_conditioned_user(
-        auth_client, monkeypatch, target_condition="tags.lifecycle = 'dev'"
+        auth_client, monkeypatch, target_filter="tags.lifecycle = 'dev'"
     )
     name = _version_tagged(server, monkeypatch, version_tags)
 
@@ -1589,7 +1632,7 @@ def test_archiving_siblings_is_refused_when_a_sibling_fails_its_condition(
     version the role is forbidden to touch.
     """
     username, password = _version_conditioned_user(
-        auth_client, monkeypatch, target_condition="tags.lifecycle = 'dev'"
+        auth_client, monkeypatch, target_filter="tags.lifecycle = 'dev'"
     )
     name = _model_with_two_versions(
         server,
@@ -1610,7 +1653,7 @@ def test_archiving_siblings_is_permitted_when_every_sibling_passes(
 ):
     # The same request with a sibling the condition admits must still go through.
     username, password = _version_conditioned_user(
-        auth_client, monkeypatch, target_condition="tags.lifecycle = 'dev'"
+        auth_client, monkeypatch, target_filter="tags.lifecycle = 'dev'"
     )
     name = _model_with_two_versions(
         server,
@@ -1636,7 +1679,7 @@ def test_a_failing_sibling_outside_the_target_stage_does_not_refuse(
     prevent for ``DeleteTraces``.
     """
     username, password = _version_conditioned_user(
-        auth_client, monkeypatch, target_condition="tags.lifecycle = 'dev'"
+        auth_client, monkeypatch, target_filter="tags.lifecycle = 'dev'"
     )
     name = _model_with_two_versions(
         server,
@@ -1656,7 +1699,7 @@ def test_a_transition_without_the_archive_flag_ignores_siblings(server, auth_cli
     failing sibling in the target stage is irrelevant to it.
     """
     username, password = _version_conditioned_user(
-        auth_client, monkeypatch, target_condition="tags.lifecycle = 'dev'"
+        auth_client, monkeypatch, target_filter="tags.lifecycle = 'dev'"
     )
     name = _model_with_two_versions(
         server,
@@ -1678,7 +1721,7 @@ def test_a_value_condition_cannot_refuse_a_stage_transition(server, auth_client,
     is not in the clause vocabulary, so a request carrying no tag has nothing to test (D13).
     """
     username, password = _version_conditioned_user(
-        auth_client, monkeypatch, value_condition="tag_value = 'no-such-value'"
+        auth_client, monkeypatch, value_filter="tag_value = 'no-such-value'"
     )
     name = _version_tagged(server, monkeypatch, {"lifecycle": "dev"})
 

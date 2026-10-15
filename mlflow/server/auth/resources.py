@@ -184,7 +184,7 @@ _G_CONDITION_DETAIL_ATTR = "_mlflow_auth_condition_denial_detail"
 
 
 def note_condition_denial(detail: "str | None" = None) -> None:
-    """Record that a mutation condition -- not a missing grant -- refused this request.
+    """Record that a condition -- not a missing grant -- refused this request.
 
     ``detail`` is an optional phrase naming *which* condition refused, shown to the
     caller so a denial is actionable rather than a dead end. The FIRST detail recorded

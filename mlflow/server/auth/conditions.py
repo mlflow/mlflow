@@ -55,6 +55,26 @@ NAMESPACE_RESOURCE = "resource"
 
 NAMESPACES = frozenset({NAMESPACE_REQUEST, NAMESPACE_RESOURCE})
 
+#: A condition's type says which question its filter answers, and so which namespace the
+#: filter is parsed and evaluated against. ``VALUE`` reads the request; ``TARGET`` reads the
+#: target's current state.
+#:
+#: Conditions sharing a type are ALTERNATIVES combined with OR -- a request passes that type
+#: when any one of them passes. The two types combine with AND, because they answer different
+#: questions: OR-ing across them would let a condition about permitted values authorize a
+#: mutation of a forbidden resource, and vice versa.
+#:
+#: A future search condition arrives as a third value here, not as a new column.
+CONDITION_TYPE_VALUE = "VALUE"
+CONDITION_TYPE_TARGET = "TARGET"
+
+CONDITION_TYPES = (CONDITION_TYPE_VALUE, CONDITION_TYPE_TARGET)
+
+CONDITION_TYPE_NAMESPACES = {
+    CONDITION_TYPE_VALUE: NAMESPACE_REQUEST,
+    CONDITION_TYPE_TARGET: NAMESPACE_RESOURCE,
+}
+
 #: Request identifiers. Flat names, because a request carries values, not state.
 REQUEST_IDENTIFIER_TAG_KEY = "tag_key"
 REQUEST_IDENTIFIER_TAG_VALUE = "tag_value"
@@ -77,8 +97,11 @@ RESOURCE_PREFIXES = frozenset({RESOURCE_PREFIX_TAGS, RESOURCE_PREFIX_ALIASES})
 #: ``SearchUtils.get_comparison_func`` supports: every value here is a string, so
 #: the numeric orderings (``>``, ``<``, ``>=``, ``<=``) would compare
 #: lexicographically and mislead an admin into thinking they had expressed a range.
-#: ``!=`` and ``NOT IN`` are what supply exclusion, which is why the RFC needs no
-#: separate deny form.
+#: ``!=`` and ``NOT IN`` supply exclusion *within one condition*. They are not a
+#: substitute for a deny form, because conditions of a type are alternatives: a
+#: sibling that says nothing about the excluded field authorizes the request on its
+#: own, and that sibling may come from another of the user's roles. A deny channel is
+#: deferred, not unnecessary -- see the RFC's alternatives.
 ALLOWED_COMPARATORS = frozenset({"=", "!=", "LIKE", "ILIKE", "IN", "NOT IN"})
 
 #: Per the RFC. A cap rather than a performance bound: a condition an admin cannot
@@ -200,10 +223,27 @@ def validate_condition_resource_type(resource_type: str) -> None:
     """
     if resource_type not in SUPPORTED_RESOURCE_TYPES:
         raise MlflowException(
-            f"Mutation conditions are not supported for resource type '{resource_type}'. "
+            f"Conditions are not supported for resource type '{resource_type}'. "
             f"Supported types are {sorted(SUPPORTED_RESOURCE_TYPES)} -- a condition is only "
             f"meaningful for a type that carries tags or aliases and has a mutating route "
             f"naming them.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+
+def validate_condition_type(condition_type: str) -> None:
+    """Reject a condition type the evaluator would not recognise.
+
+    Fails at authoring time for the same reason as the resource-type check, but the
+    stakes are higher: an unrecognised type would be skipped by the evaluator, so the
+    row would sit in the table looking like a restriction while restricting nothing.
+    That direction fails OPEN, which is the one failure mode a condition must not have.
+    """
+    if condition_type not in CONDITION_TYPE_NAMESPACES:
+        raise MlflowException(
+            f"Unknown condition type '{condition_type}'. Supported types are "
+            f"{list(CONDITION_TYPES)} -- 'VALUE' constrains the values a request may set, "
+            f"'TARGET' constrains which existing resources may be mutated.",
             error_code=INVALID_PARAMETER_VALUE,
         )
 
@@ -669,21 +709,27 @@ class ConditionContext(NamedTuple):
     cascade_stage: str | None = None
 
 
-class MutationConditionSpec(NamedTuple):
-    """One role's conditions for one resource type, as loaded from the store.
+class ConditionSpec(NamedTuple):
+    """One role's condition for one resource type, as loaded from the store.
 
-    Mirrors ``MutationConditionRow``: every scope field defaults to the unscoped value, so
-    a spec written without a scope governs every resource of its type in the whole
-    workspace -- which is what every spec meant before scoping existed.
+    Mirrors a stored condition row: a ``condition_type`` discriminator and the single
+    ``filter`` it applies, rather than one column per purpose. Every scope field defaults
+    to the unscoped value, so a spec written without a scope governs every resource of its
+    type in the whole workspace -- which is what every spec meant before scoping existed.
 
     The container fields are carried here as well as on the row because the gate matches
     them per context: the store narrows to the containers in play for the whole request,
     which is a wider set than any single context's parent.
+
+    One spec is one condition, and conditions of a type combine with OR. Two purposes
+    therefore need two specs -- a single spec cannot carry both halves, which is the point
+    of the decomposition: the old two-column shape let one row be silent about a half, and
+    under OR a silent half is a wildcard that nullifies its siblings.
     """
 
     resource_type: str
-    value_condition: str | None = None
-    target_condition: str | None = None
+    condition_type: str
+    filter: str
     resource_pattern: str = "*"
     container_resource_type: str = CONTAINER_WORKSPACE
     container_resource_pattern: str = "*"
@@ -1260,21 +1306,36 @@ def evaluate_resource(clauses: Sequence[Clause], values: ResourceValues) -> bool
 # ---------------------------------------------------------------------------
 
 
-def combine(results: Sequence[bool]) -> bool:
-    """AND over every applicable condition. That is the whole rule.
+def combine(groups: Sequence[Sequence[bool]]) -> bool:
+    """AND across groups, OR within a group. That is the whole rule.
 
-    No precedence, no load keys, no tier override, no fold -- deliberately unlike
-    the grants path, which needs all of those because grants *add* and a more
-    specific grant must be able to override a broader one. Conditions only ever
-    subtract, so two conditions can never conflict in a way that needs resolving:
-    if either says no, the answer is no.
+    A **group** is the applicable conditions of ONE type for ONE context. Conditions
+    sharing a type are alternatives, so a group passes when any one of its members
+    passes; the groups themselves must all pass.
 
-    The consequence worth stating plainly, because it is the property that makes
-    conditions safe to reason about: **adding a role can never lift another role's
-    restriction.** A permissive condition, or no condition at all, on a second role
-    does not widen the first.
+    The two quantifiers are not interchangeable, and each is load-bearing:
+
+    - **OR within a group**, because same-type conditions are alternatives. A role may
+      say "dev models" and "beta models" and mean either.
+    - **AND across groups**, because the groups answer different questions. A VALUE
+      group and a TARGET group OR-ed together would permit a forbidden value on a
+      permitted resource. Two contexts OR-ed together would permit an operation
+      touching a forbidden resource as long as it also touched a permitted one.
+
+    Only groups with at least one applicable condition are passed in. A type with no
+    applicable condition is *unconstrained*, not denied -- so absence must not
+    contribute an empty group, which ``any`` would read as False and which would deny
+    every operation on a type nobody wrote a condition for. The caller enforces this by
+    not emitting a group it found no rows for.
+
+    The consequence worth stating plainly, because it inverts the property this
+    function used to have: **adding a condition can lift another condition's
+    restriction.** A sibling of the same type that permits the request permits it,
+    whatever its siblings forbid, and a sibling may come from a different role. A
+    restriction holds only if every applicable condition of its type restricts it. See
+    the RFC's *Drawbacks*.
     """
-    return all(results)
+    return all(any(group) for group in groups)
 
 
 def condition_load_types(contexts: Sequence[ConditionContext]) -> tuple[str, ...]:

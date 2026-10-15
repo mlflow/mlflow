@@ -10064,7 +10064,7 @@ class SqlAlchemyStore(
     # child is identified by one globally unique column, so its subquery needs no
     # parent filter and the entry is ``None``. A version is identified by
     # ``(name, version)`` and ``version`` repeats across models, so its tag subquery
-    # must be scoped to the parent as well -- see ``find_failing_child``.
+    # must be scoped to the parent as well -- see ``iter_child_tag_batches``.
     #
     # An entity absent here declines rather than guessing: adding one is opt-in, and a
     # typo cannot answer for the wrong table.
@@ -10120,47 +10120,23 @@ class SqlAlchemyStore(
         ),
     }
 
-    def find_failing_resource(
-        self, entity, clauses, *, ids=None, parent_id=None, max_timestamp_ms=None, stage=None
-    ):
-        """Push a conjunctive tag/alias predicate into SQL.
+    def find_satisfying_resources(self, entity, clauses, ids):
+        """Which of these ids satisfy every clause?
 
-        See :meth:`AbstractStore.find_failing_resource`. Neither selector loads a
-        resource or returns a tag value: the question is answered entirely by set
-        membership over the tag table, so cost depends on the number of clauses rather
-        than on how much the resources contain.
-
-        The two selectors need genuinely different SQL, which is why they share an
-        interface rather than a body. With ``ids`` the population is known, so only the
-        satisfying set is queried and the set arithmetic happens here -- the resource
-        table is never touched. With ``parent_id`` it is unknown and possibly
-        unbounded, so the children must be found in SQL.
+        See :meth:`AbstractStore.find_satisfying_resources`. The scan lives in
+        :func:`condition_pushdown.satisfying_named`, shared with the registry store, and
+        resolution mirrors :meth:`find_satisfying_resources` -- the same
+        namespace mapping and the same refusals -- so the two answer over the same rows.
         """
-        if stage is not None:
-            # No tracking entity has a stage -- it is a registry concept -- so there is no
-            # column to narrow by. Declining rather than ignoring it keeps a caller that
-            # asked about one stage from being silently answered about the whole parent.
+        namespaces = self._PUSHDOWN_NAMESPACES.get(entity)
+        if namespaces is None:
+            raise condition_pushdown.cannot_express(self, entity, "it has no id-selector mapping")
+        resolved = condition_pushdown.resolve_clauses(namespaces, self._PUSHDOWN_MODELS, clauses)
+        if resolved is None:
             raise condition_pushdown.cannot_express(
-                self, entity, "a stage window is a registry concept and has no column here"
+                self, entity, "a clause names a namespace this entity does not own"
             )
-        if (ids is None) == (parent_id is None):
-            raise ValueError(
-                "find_failing_resource needs exactly one of `ids` or `parent_id`, "
-                f"got ids={ids!r} and parent_id={parent_id!r}"
-            )
-        if parent_id is not None:
-            return self._find_failing_child(
-                entity, parent_id, clauses, max_timestamp_ms=max_timestamp_ms
-            )
-        if max_timestamp_ms is not None:
-            # The named path already knows exactly which resources are at stake, so a
-            # window would be a second, redundant way to say it -- and a contradictory one
-            # if the two disagreed. A caller passing both is a wiring bug.
-            raise ValueError(
-                "find_failing_resource takes `max_timestamp_ms` only with `parent_id`; "
-                "the `ids` selector already names the population"
-            )
-        return self._find_failing_named(entity, ids, clauses)
+        return condition_pushdown.satisfying_named(self, resolved, ids, self._TAG_PUSHDOWN_ID_CHUNK)
 
     def _pushdown_id_chunks(self, ordered, id_columns, value):
         """Split ids so one statement's bind parameters stay under the backend's cap.
@@ -10178,64 +10154,27 @@ class SqlAlchemyStore(
         for start in range(0, len(ordered), size):
             yield ordered[start : start + size]
 
-    def _find_failing_named(self, entity, ids, clauses):
-        """The ``ids`` selector: the caller already knows the population.
+    def iter_child_resource_tags(
+        self, entity, parent_id, *, chunk_size, max_timestamp_ms=None, stage=None
+    ):
+        """Yield this parent's children with their tags, a chunk at a time.
 
-        Absence is handled by the shape rather than by a special case -- a clause asks
-        which ids *have* a row with that key whose value compares true, so an id with
-        no such row is simply not in the result, for ``!=`` and ``NOT IN`` exactly as
-        for ``=``.
+        See :meth:`AbstractStore.iter_child_resource_tags`. The scan lives in
+        :func:`condition_pushdown.iter_child_tag_batches`, shared with the registry store
+        for the same reason the single-query probe is: the two answer the same question
+        over same-shaped tables, and a drift between two copies would be a difference in
+        who may write what.
+
+        Resolution mirrors the cascade mapping exactly -- the same mapping
+        and the same window column -- so the population this yields is the population that
+        probe would have judged.
         """
-        namespaces = self._PUSHDOWN_NAMESPACES.get(entity)
-        if namespaces is None:
-            raise condition_pushdown.cannot_express(self, entity, "it has no id-selector mapping")
-        requested = {condition_pushdown.as_pushdown_key(i) for i in ids}
-        if not requested or not clauses:
-            # Nothing to judge, or nothing to judge it against. Either way nothing fails.
-            return None
-        resolved = condition_pushdown.resolve_clauses(namespaces, self._PUSHDOWN_MODELS, clauses)
-        if resolved is None:
+        if stage is not None:
+            # No tracking entity has a stage; declining rather than ignoring it keeps a
+            # caller that asked about one stage from being answered about the whole parent.
             raise condition_pushdown.cannot_express(
-                self, entity, "a clause names a namespace this entity does not own"
+                self, entity, "a stage window is a registry concept and has no column here"
             )
-
-        dialect = self._get_dialect()
-        ordered = sorted(requested)
-        with self.ManagedSessionMaker() as session:
-            equal_key = condition_pushdown.key_comparison(dialect)
-            for model, id_columns, key_column, value_column, key, comparator, value in resolved:
-                for chunk in self._pushdown_id_chunks(ordered, id_columns, value):
-                    rows = (
-                        self
-                        ._get_query(session, model)
-                        .with_entities(*id_columns)
-                        .filter(
-                            condition_pushdown.id_predicate(id_columns, chunk, dialect),
-                            equal_key(key_column, key),
-                            condition_pushdown.compare_value(
-                                value_column, comparator, value, dialect
-                            ),
-                        )
-                        .all()
-                    )
-                    matched = {condition_pushdown.as_pushdown_key(tuple(row)) for row in rows}
-                    for candidate in chunk:
-                        if candidate not in matched:
-                            # Stop at the first failure rather than finishing the
-                            # remaining chunks and clauses: an id list is unbounded
-                            # (``DeleteTraces`` caps nothing) and one failing id is the
-                            # whole answer.
-                            return candidate
-        return None
-
-    def _find_failing_child(self, entity, parent_id, clauses, *, max_timestamp_ms=None):
-        """The ``parent_id`` selector: the population is unknown and may be unbounded.
-
-        The SQL lives in :func:`condition_pushdown.find_failing_child`, shared with the
-        registry store, because the two stores answer the same question over
-        same-shaped tables and a drift between two copies would be a difference in
-        *who may write what*.
-        """
         mapping = self._CASCADE_PUSHDOWN_ENTITIES.get(entity)
         if mapping is None:
             raise condition_pushdown.cannot_express(self, entity, "it has no cascade mapping")
@@ -10246,11 +10185,9 @@ class SqlAlchemyStore(
                 raise condition_pushdown.cannot_express(
                     self, entity, "it has no timestamp column to narrow the cascade by"
                 )
-            # The same comparison `_delete_traces` builds, so the probe's population is
-            # exactly the mutation's rather than an approximation of it.
             extra_filters = (window_column <= max_timestamp_ms,)
-        return condition_pushdown.find_failing_child(
-            self, mapping, parent_id, clauses, extra_filters=extra_filters
+        yield from condition_pushdown.iter_child_tag_batches(
+            self, mapping, parent_id, chunk_size, extra_filters=extra_filters
         )
 
 

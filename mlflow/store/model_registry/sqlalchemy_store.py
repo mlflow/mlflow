@@ -1841,7 +1841,7 @@ class SqlAlchemyStore(AbstractStore):
     # same tables: a prompt *is* a registered model (T12.9), so there are no prompt
     # tables and ``prompt_version`` is the same rows under a different condition type.
     #
-    # Shape and meaning are documented on ``find_failing_child``. The trailing ``name``
+    # Shape and meaning are documented on ``iter_child_tag_batches``. The trailing ``name``
     # is the parent column on the TAG table, and it is required here rather than
     # optional: a version's discriminator is ``version``, which repeats across models,
     # so an unscoped subquery would let a sibling model's satisfying version acquit this
@@ -1879,109 +1879,57 @@ class SqlAlchemyStore(AbstractStore):
         ),
     }
 
-    def find_failing_resource(
-        self, entity, clauses, *, ids=None, parent_id=None, max_timestamp_ms=None, stage=None
+    def iter_child_resource_tags(
+        self, entity, parent_id, *, chunk_size, max_timestamp_ms=None, stage=None
     ):
-        """Push a conjunctive tag/alias predicate into SQL.
+        """Yield this parent's children with their tags, a chunk at a time.
 
-        See :meth:`AbstractStore.find_failing_resource`. Only the satisfying set is
-        queried -- no values are returned and the resources themselves are never
-        loaded -- and the first id missing from it is the answer.
+        See :meth:`AbstractStore.iter_child_resource_tags`. The scan lives in
+        :func:`condition_pushdown.iter_child_tag_batches`, shared with the tracking store.
 
-        Every query goes through :meth:`_get_query`, which is where workspace scoping
-        is applied. That is not optional here: every table this method touches carries
-        a ``workspace`` column, because each is keyed by *name* and a name is not
-        unique across workspaces.
-
-        Both selectors are answered. The ``parent_id`` one serves an entry's cascade to
-        its versions, sharing :func:`condition_pushdown.find_failing_child` with the
-        tracking store.
+        Resolution mirrors :meth:`iter_child_resource_tags`
+        exactly -- the same cascade mapping, the same stage column, the same refusal of a
+        timestamp bound -- so the population this yields is the one that probe would have
+        judged. Every query goes through :meth:`_get_query`, which applies workspace
+        scoping; that is not optional here, since each table is keyed by *name* and a name
+        is not unique across workspaces.
         """
-        if stage is not None and parent_id is None:
-            raise ValueError(
-                "find_failing_resource takes `stage` only with `parent_id`; an enumerated "
-                "`ids` population is already exactly what the mutation reaches."
-            )
         if max_timestamp_ms is not None:
-            # No registry mutation deletes a timestamp slice of a parent's children, so
-            # there is no column to express this against. Declining is the fail-closed
-            # direction: ignoring the bound would judge a narrow mutation against the whole
-            # parent and refuse it, and silently widening a caller's question is worse than
-            # telling them the store cannot answer it.
+            # No registry cascade is bounded by a timestamp, so there is no column to
+            # express this against. Declining is fail-closed: ignoring the bound would
+            # judge a narrow mutation against the whole parent and refuse it.
             raise condition_pushdown.cannot_express(
                 self, entity, "no registry cascade is bounded by a timestamp"
             )
-        if (ids is None) == (parent_id is None):
-            raise ValueError(
-                "find_failing_resource needs exactly one of `ids` or `parent_id`, "
-                f"got ids={ids!r} and parent_id={parent_id!r}"
-            )
-        if parent_id is not None:
-            mapping = self._CASCADE_PUSHDOWN_ENTITIES.get(entity)
-            if mapping is None:
-                raise condition_pushdown.cannot_express(self, entity, "it has no cascade mapping")
-            extra_filters = ()
-            if stage is not None:
-                stage_column = self._CASCADE_PUSHDOWN_STAGE_COLUMNS.get(entity)
-                if stage_column is None:
-                    raise condition_pushdown.cannot_express(
-                        self, entity, "it has no stage column to narrow the cascade by"
-                    )
-                # The same comparison `transition_model_version_stage` builds for the rows
-                # it archives, so the probe's population is the mutation's own rather than
-                # an approximation of it. Deliberately NOT excluding the version being
-                # transitioned: it is judged by its own MUTATE context against the same
-                # clauses, so including it only ever makes this population a superset --
-                # "nothing in the stage fails" still implies "no archived sibling fails".
-                extra_filters = (stage_column == stage,)
-            return condition_pushdown.find_failing_child(
-                self, mapping, parent_id, clauses, extra_filters=extra_filters
-            )
+        mapping = self._CASCADE_PUSHDOWN_ENTITIES.get(entity)
+        if mapping is None:
+            raise condition_pushdown.cannot_express(self, entity, "it has no cascade mapping")
+        extra_filters = ()
+        if stage is not None:
+            stage_column = self._CASCADE_PUSHDOWN_STAGE_COLUMNS.get(entity)
+            if stage_column is None:
+                raise condition_pushdown.cannot_express(
+                    self, entity, "it has no stage column to narrow the cascade by"
+                )
+            extra_filters = (stage_column == stage,)
+        yield from condition_pushdown.iter_child_tag_batches(
+            self, mapping, parent_id, chunk_size, extra_filters=extra_filters
+        )
 
+    def find_satisfying_resources(self, entity, clauses, ids):
+        """Which of these ids satisfy every clause?
+
+        See :meth:`AbstractStore.find_satisfying_resources`. The scan lives in
+        :func:`condition_pushdown.satisfying_named`, shared with the tracking store, and
+        resolution mirrors :meth:`find_satisfying_resources` -- the same
+        namespace mapping and the same refusals -- so the two answer over the same rows.
+        """
         namespaces = self._PUSHDOWN_NAMESPACES.get(entity)
         if namespaces is None:
             raise condition_pushdown.cannot_express(self, entity, "it has no id-selector mapping")
-        requested = {condition_pushdown.as_pushdown_key(i) for i in ids}
-        if not requested or not clauses:
-            # Nothing to judge, or nothing to judge it against. Either way nothing fails.
-            return None
         resolved = condition_pushdown.resolve_clauses(namespaces, self._PUSHDOWN_MODELS, clauses)
         if resolved is None:
             raise condition_pushdown.cannot_express(
                 self, entity, "a clause names a namespace this entity does not own"
             )
-
-        dialect = self._get_dialect()
-        ordered = sorted(requested)
-        with self.ManagedSessionMaker() as session:
-            equal_key = condition_pushdown.key_comparison(dialect)
-            for model, id_columns, key_column, value_column, key, comparator, value in resolved:
-                # Ids bind one parameter each -- more for a composite -- and the clause
-                # binds the key plus one per compared value, which for ``IN`` is the
-                # whole list. Subtract those so the backend's cap stays a property of
-                # the statement rather than a limit on how many ids a caller may ask
-                # about.
-                clause_params = 1 + (len(value) if isinstance(value, tuple) else 1)
-                chunk_size = max(1, (self._PUSHDOWN_ID_CHUNK - clause_params) // len(id_columns))
-                for start in range(0, len(ordered), chunk_size):
-                    chunk = ordered[start : start + chunk_size]
-                    rows = (
-                        self
-                        ._get_query(session, model)
-                        .with_entities(*id_columns)
-                        .filter(
-                            condition_pushdown.id_predicate(id_columns, chunk, dialect),
-                            equal_key(key_column, key),
-                            condition_pushdown.compare_value(
-                                value_column, comparator, value, dialect
-                            ),
-                        )
-                        .all()
-                    )
-                    matched = {condition_pushdown.as_pushdown_key(tuple(r)) for r in rows}
-                    for candidate in chunk:
-                        if candidate not in matched:
-                            # First failure settles it; the remaining chunks and
-                            # clauses cannot change the verdict.
-                            return candidate
-        return None
+        return condition_pushdown.satisfying_named(self, resolved, ids, self._PUSHDOWN_ID_CHUNK)

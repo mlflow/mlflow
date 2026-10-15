@@ -1,4 +1,4 @@
-# Cost assertions for the mutation-condition gate.
+# Cost assertions for the condition gate.
 #
 # The laziness IS the design: conditions are meant to cost nothing on the paths that have
 # none, one indexed query on the paths that do, and a resource read only when a resource
@@ -18,11 +18,13 @@ import pytest
 from mlflow.server import auth as auth_module
 from mlflow.server.auth import resources as auth_resources
 from mlflow.server.auth.conditions import (
+    CONDITION_TYPE_TARGET,
+    CONDITION_TYPE_VALUE,
     ConditionContext,
     ConditionScope,
+    ConditionSpec,
     ExperimentRequestValues,
     ExperimentResourceValues,
-    MutationConditionSpec,
     RegisteredModelRequestValues,
     RegisteredModelVersionRequestValues,
     RegisteredModelVersionResourceValues,
@@ -78,7 +80,7 @@ class CountingStore:
         self.workspace_admin_checks += 1
         return self.is_ws_admin
 
-    def list_mutation_conditions_for_user(self, user_id, workspace, resource_types, parents=None):
+    def list_conditions_for_user(self, user_id, workspace, resource_types, parents=None):
         self.condition_loads.append(set(resource_types))
         return list(self.rows)
 
@@ -165,7 +167,7 @@ def test_an_admin_loads_no_conditions(gate):
     run, state = gate
     allowed = run(
         [_mutate("run", "r1", RunRequestValues(tags=(("k", "v"),)))],
-        rows=[MutationConditionSpec("run", value_condition="tag_key != 'k'")],
+        rows=[ConditionSpec("run", CONDITION_TYPE_VALUE, "tag_key != 'k'")],
         is_admin=True,
     )
     assert allowed is True
@@ -200,7 +202,7 @@ def test_a_request_only_condition_reads_no_resource(gate):
     run, state = gate
     allowed = run(
         [_mutate("run", "r1", RunRequestValues(tags=(("notes", "x"),)))],
-        rows=[MutationConditionSpec("run", value_condition="tag_key != 'locked'")],
+        rows=[ConditionSpec("run", CONDITION_TYPE_VALUE, "tag_key != 'locked'")],
     )
     assert allowed is True
     assert state["resources"].single_reads == []
@@ -219,7 +221,7 @@ def test_create_scope_reads_no_resource(gate):
                 request=RunRequestValues(tags=(("notes", "x"),)),
             )
         ],
-        rows=[MutationConditionSpec("run", target_condition="tags.stage = 'prod'")],
+        rows=[ConditionSpec("run", CONDITION_TYPE_TARGET, "tags.stage = 'prod'")],
     )
     assert allowed is True
     assert state["resources"].single_reads == []
@@ -233,11 +235,8 @@ def test_a_request_denial_short_circuits_before_reading(gate):
     allowed = run(
         [_mutate("run", "r1", RunRequestValues(tags=(("locked", "yes"),)))],
         rows=[
-            MutationConditionSpec(
-                "run",
-                value_condition="tag_key != 'locked'",
-                target_condition="tags.stage = 'prod'",
-            )
+            ConditionSpec("run", CONDITION_TYPE_VALUE, "tag_key != 'locked'"),
+            ConditionSpec("run", CONDITION_TYPE_TARGET, "tags.stage = 'prod'"),
         ],
     )
     assert allowed is False
@@ -253,13 +252,13 @@ def test_a_target_condition_reads_the_resource_once(gate):
     allowed = run(
         [_mutate("run", "r1", RunRequestValues())],
         rows=[
-            MutationConditionSpec("run", target_condition="tags.stage = 'prod'"),
-            MutationConditionSpec("run", target_condition="tags.team = 'ml'"),
+            ConditionSpec("run", CONDITION_TYPE_TARGET, "tags.stage = 'prod'"),
+            ConditionSpec("run", CONDITION_TYPE_TARGET, "tags.team = 'ml'"),
         ],
         values={("run", "r1"): RunResourceValues("r1", tags={"stage": "prod", "team": "ml"})},
     )
     assert allowed is True
-    assert state["asked"] == [("ids", "run", ("r1",))] * 2, (
+    assert state["asked"] == [("satisfying", "run", ("r1",))] * 2, (
         "one store call per ROW -- not one per clause -- and the resource itself is never "
         f"read on the happy path: {state['asked']}"
     )
@@ -288,13 +287,13 @@ def test_types_not_already_loaded_read_exactly_once(
     resource_id = resource_values.resource_id
     run(
         [_mutate(resource_type, resource_id, request_values)],
-        rows=[MutationConditionSpec(resource_type, target_condition="tags.stage = 'prod'")],
+        rows=[ConditionSpec(resource_type, CONDITION_TYPE_TARGET, "tags.stage = 'prod'")],
         values={(resource_type, resource_id): resource_values},
     )
     # The store is asked in ITS key shape: a version goes down decomposed as
     # ``(name, version)``, never as the auth layer's opaque ``name/version``.
     expected_key = auth_module._condition_pushdown_key(resource_type, resource_id)
-    assert state["asked"] == [("ids", resource_type, (expected_key,))], (
+    assert state["asked"] == [("satisfying", resource_type, (expected_key,))], (
         f"one store call for one resource, never more: {state['asked']}"
     )
 
@@ -306,11 +305,11 @@ def test_an_absent_resource_denies_without_a_second_look(gate):
     run, state = gate
     allowed = run(
         [_mutate("run", "r1", RunRequestValues())],
-        rows=[MutationConditionSpec("run", target_condition="tags.stage = 'prod'")],
+        rows=[ConditionSpec("run", CONDITION_TYPE_TARGET, "tags.stage = 'prod'")],
         values={},
     )
     assert allowed is False
-    assert state["asked"] == [("ids", "run", ("r1",))], (
+    assert state["asked"] == [("satisfying", "run", ("r1",))], (
         f"one question asked, not a retry: {state['asked']}"
     )
 
@@ -336,7 +335,7 @@ def test_an_unenumerable_target_denies_without_reading(gate):
                 resource_ids=(),
             )
         ],
-        rows=[MutationConditionSpec("trace", target_condition="tags.reviewed = 'yes'")],
+        rows=[ConditionSpec("trace", CONDITION_TYPE_TARGET, "tags.reviewed = 'yes'")],
     )
     assert allowed is False
     assert state["resources"].single_reads == []
@@ -356,7 +355,7 @@ def test_an_unenumerable_target_costs_nothing_without_a_target_condition(gate):
                 resource_ids=(),
             )
         ],
-        rows=[MutationConditionSpec("trace", value_condition="tag_key != 'reviewed'")],
+        rows=[ConditionSpec("trace", CONDITION_TYPE_VALUE, "tag_key != 'reviewed'")],
     )
     assert allowed is True
     assert state["resources"].single_reads == []
@@ -375,9 +374,9 @@ def test_many_roles_and_types_still_load_in_one_query(gate):
         _mutate("registered_model", "m", RegisteredModelRequestValues()),
     ]
     rows = [
-        MutationConditionSpec("run", value_condition="tag_key != 'a'"),
-        MutationConditionSpec("run", value_condition="tag_key != 'b'"),
-        MutationConditionSpec("registered_model", value_condition="tag_key != 'c'"),
+        ConditionSpec("run", CONDITION_TYPE_VALUE, "tag_key != 'a'"),
+        ConditionSpec("run", CONDITION_TYPE_VALUE, "tag_key != 'b'"),
+        ConditionSpec("registered_model", CONDITION_TYPE_VALUE, "tag_key != 'c'"),
     ]
     assert run(contexts, rows=rows) is True
     assert len(state["store"].condition_loads) == 1
@@ -414,14 +413,14 @@ def test_many_ids_cost_one_bulk_call(gate):
                 resource_ids=trace_ids,
             )
         ],
-        rows=[MutationConditionSpec("trace", target_condition="tags.reviewed = 'yes'")],
+        rows=[ConditionSpec("trace", CONDITION_TYPE_TARGET, "tags.reviewed = 'yes'")],
         values={
             ("trace", trace_id): TraceResourceValues(trace_id, tags={"reviewed": "yes"})
             for trace_id in trace_ids
         },
     )
     assert allowed is True
-    assert state["asked"] == [("ids", "trace", tuple(trace_ids))], (
+    assert state["asked"] == [("satisfying", "trace", tuple(trace_ids))], (
         f"N traces cost ONE store call naming all N, never one call each: {state['asked']}"
     )
     assert state["resources"].single_reads == []
@@ -442,7 +441,7 @@ def test_one_failing_resource_in_a_bulk_set_denies(gate):
                 resource_ids=trace_ids,
             )
         ],
-        rows=[MutationConditionSpec("trace", target_condition="tags.reviewed = 'yes'")],
+        rows=[ConditionSpec("trace", CONDITION_TYPE_TARGET, "tags.reviewed = 'yes'")],
         values={
             ("trace", "t1"): TraceResourceValues("t1", tags={"reviewed": "yes"}),
             ("trace", "t2"): TraceResourceValues("t2", tags={"reviewed": "no"}),
@@ -477,7 +476,7 @@ def test_an_experiment_tag_validator_loads_conditions_once(monkeypatch, validato
     validator.
     """
     store = CountingStore(
-        rows=[MutationConditionSpec("experiment", value_condition="tag_key != 'x'")]
+        rows=[ConditionSpec("experiment", CONDITION_TYPE_VALUE, "tag_key != 'x'")]
     )
     monkeypatch.setattr(auth_module, "store", store)
     monkeypatch.setattr(
@@ -516,7 +515,7 @@ def test_a_workspace_admin_bypasses_a_failing_condition(gate):
                 "run", ConditionScope.MUTATE, RunRequestValues(tags=(("pii", "yes"),)), ("r1",)
             )
         ],
-        rows=[MutationConditionSpec("run", value_condition="tag_key != 'pii'")],
+        rows=[ConditionSpec("run", CONDITION_TYPE_VALUE, "tag_key != 'pii'")],
         is_ws_admin=True,
     )
     assert allowed is True, "a workspace admin was restricted by a condition"
@@ -555,32 +554,40 @@ def test_the_workspace_admin_check_is_skipped_when_nothing_is_configured(gate):
 
 
 class CountingPushdown:
-    """A store that answers predicates and counts how often it was asked.
+    """A store that answers the condition selectors and counts how often it was asked.
 
-    ``named_fails`` and ``child_fails`` are what ``find_failing_resource`` returns for
-    each selector, stated in that method's own vocabulary: ``None`` for "every resource
-    satisfies every clause" and a resource id for "this one failed". There is no third
-    answer -- a store that cannot answer raises, because the caller has no fallback.
+    The two halves are counted separately because they now cost differently. A named-id
+    request is still one query per condition over the whole id list, so ``filter_calls``
+    measures queries. A cascade loads its children instead, so ``cascade_calls`` holds one
+    entry per BATCH yielded -- the thing worth measuring there is how much of the
+    population was touched before the verdict, not a query count.
+
+    ``named_fails`` names the single id that no condition admits, stated in the caller's
+    vocabulary: ``None`` for "every id satisfies", or an id for "this one is admitted by
+    nothing". ``children`` is the cascade population as ``(child_id, tags)`` pairs; under
+    OR a cascade verdict cannot be scripted with one answer, because whether a child is a
+    violator depends on whether ANY condition admits it.
     """
 
-    def __init__(self, *, named_fails=None, child_fails=None):
+    def __init__(self, *, named_fails=None, children=()):
         self._named_fails = named_fails
-        self._child_fails = child_fails
+        self._children = list(children)
         self.filter_calls = []
         self.cascade_calls = []
 
-    def find_failing_resource(
-        self, entity, clauses, *, ids=None, parent_id=None, max_timestamp_ms=None, stage=None
-    ):
-        # One method, two selectors -- so the counters split on which selector was used
-        # rather than on which method was called. The cascade's optional window is recorded
-        # with it: narrowing the population must not change the NUMBER of queries, which is
-        # what this suite measures.
-        if parent_id is not None:
-            self.cascade_calls.append((entity, parent_id, list(clauses), max_timestamp_ms, stage))
-            return self._child_fails
+    def find_satisfying_resources(self, entity, clauses, ids):
         self.filter_calls.append((entity, list(ids), list(clauses)))
-        return self._named_fails
+        return {i for i in ids if i != self._named_fails}
+
+    def iter_child_resource_tags(
+        self, entity, parent_id, *, chunk_size, max_timestamp_ms=None, stage=None
+    ):
+        # Recorded per batch, so a test can assert the caller stopped early. The window is
+        # recorded with it: narrowing the population must still reach the store, which is
+        # the whole point of bounding a predicate-mode cascade.
+        for start in range(0, len(self._children), chunk_size):
+            self.cascade_calls.append((entity, parent_id, chunk_size, max_timestamp_ms, stage))
+            yield self._children[start : start + chunk_size]
 
 
 @pytest.fixture
@@ -618,63 +625,77 @@ def _cascade(resource_type, parent_id, enumerated=None):
     )
 
 
-def test_a_cascade_costs_one_pushdown_call_and_no_enumeration(gate, pushdown):
-    """The headline saving: a 2000-run experiment answers in one query.
+def test_a_cascade_loads_its_children_in_one_batch(gate, pushdown):
+    """A cascade costs a pass over its children, not one query.
 
-    Previously this cost one search page per 500 children plus a fetch each. The
-    enumeration is what must be zero -- not merely small.
+    This inverts the guarantee this suite used to pin. Conditions are alternatives, so a
+    cascade asks whether some child is admitted by NO condition -- which does not decompose
+    into one query per condition, and as a single combined predicate would put every
+    condition's bind parameters in one statement. The children are judged in memory
+    instead, which is a cost the single-query form avoided.
+
+    It is bounded, not free: a batch at a time, so a parent larger than the chunk is not
+    held at once, and the delete this authorizes already loads every run as a full ORM
+    entity -- so authorizing does not change the order of cost.
     """
     run, state = gate
-    store = pushdown(CountingPushdown(child_fails=None))
-    enumerated = []
+    store = pushdown(
+        CountingPushdown(children=[(f"r-{i}", {"lifecycle": "dev"}) for i in range(3)])
+    )
     allowed = run(
-        [_cascade("run", "exp-1", enumerated)],
-        rows=[MutationConditionSpec("run", target_condition="tags.lifecycle != 'prod'")],
+        [_cascade("run", "exp-1")],
+        rows=[ConditionSpec("run", CONDITION_TYPE_TARGET, "tags.lifecycle != 'prod'")],
     )
     assert allowed is True
-    assert len(store.cascade_calls) == 1
-    assert enumerated == [], "the children must never be enumerated when the store answered"
-    assert state["resources"].single_reads == []
+    assert len(store.cascade_calls) == 1, "a parent under one chunk is one batch"
+    assert state["resources"].single_reads == [], "the children carry their own tags"
 
 
-def test_a_denying_cascade_reads_only_the_child_it_names(gate, pushdown):
-    """A refusal pays ONE read to say which child caused it, and never enumerates.
+def test_a_denying_cascade_stops_at_the_batch_that_failed(gate, pushdown):
+    """A refusal pays for the children up to the violator, not for all of them.
 
-    The store answers "this child failed" without enumerating anything, and naming the
-    *clause* it broke then costs a single fetch of that one child. That is the whole
-    attribution budget: no enumeration, no bulk read, and one single read regardless of
-    how many children the parent holds.
+    The early exit is what keeps a failing cascade cheap now that cost scales with the
+    population. With a violator in the first chunk, the rest of a parent spanning several
+    chunks must never be loaded.
     """
     run, state = gate
-    store = pushdown(CountingPushdown(child_fails="child-7"))
-    enumerated = []
+    children = [("child-7", {"lifecycle": "prod"})]
+    children += [(f"r-{i}", {"lifecycle": "dev"}) for i in range(auth_module._CASCADE_CHUNK_SIZE)]
+    store = pushdown(CountingPushdown(children=children))
     allowed = run(
-        [_cascade("run", "exp-1", enumerated)],
-        rows=[MutationConditionSpec("run", target_condition="tags.lifecycle != 'prod'")],
+        [_cascade("run", "exp-1")],
+        rows=[ConditionSpec("run", CONDITION_TYPE_TARGET, "tags.lifecycle != 'prod'")],
     )
     assert allowed is False
-    assert len(store.cascade_calls) == 1
-    assert enumerated == [], "the children must never be enumerated when the store answered"
+    assert len(store.cascade_calls) == 1, (
+        "the population spans two chunks and the violator is in the first, so the second "
+        "must never be loaded"
+    )
     assert state["resources"].single_reads == [("run", "child-7")], (
-        "exactly the child the store named, and only that one"
+        "exactly the child that no condition admitted, and only that one"
     )
 
 
-def test_cost_scales_with_conditions_not_with_children(gate, pushdown):
-    # Two conditions is two queries, independent of how many children exist.
+def test_cost_scales_with_children_not_with_conditions(gate, pushdown):
+    """The inverse of the old guarantee, and the compensation for losing it.
+
+    Conditions used to cost a query each; now they are evaluated in memory over children
+    already loaded, so a second condition is free. The population is paid for once no
+    matter how many alternatives it is judged against.
+    """
     run, _ = gate
-    store = pushdown(CountingPushdown(child_fails=None))
-    enumerated = []
+    store = pushdown(
+        CountingPushdown(children=[(f"r-{i}", {"lifecycle": "dev"}) for i in range(3)])
+    )
     allowed = run(
-        [_cascade("run", "exp-1", enumerated)],
+        [_cascade("run", "exp-1")],
         rows=[
-            MutationConditionSpec("run", target_condition="tags.lifecycle != 'prod'"),
-            MutationConditionSpec("run", target_condition="tags.team = 'ml'"),
+            ConditionSpec("run", CONDITION_TYPE_TARGET, "tags.lifecycle != 'prod'"),
+            ConditionSpec("run", CONDITION_TYPE_TARGET, "tags.team = 'ml'"),
         ],
     )
     assert allowed is True
-    assert len(store.cascade_calls) == 2
-    assert enumerated == []
+    assert len(store.cascade_calls) == 1, "two conditions, still one pass over the children"
 
 
 def test_an_explicit_batch_costs_one_pushdown_call_and_no_read(gate, pushdown):
@@ -690,7 +711,7 @@ def test_an_explicit_batch_costs_one_pushdown_call_and_no_read(gate, pushdown):
                 resource_ids=("r-1", "r-2", "r-3"),
             )
         ],
-        rows=[MutationConditionSpec("run", target_condition="tags.lifecycle != 'prod'")],
+        rows=[ConditionSpec("run", CONDITION_TYPE_TARGET, "tags.lifecycle != 'prod'")],
     )
     assert allowed is True
     assert len(store.filter_calls) == 1, "N ids must cost one query, not N"
@@ -712,7 +733,7 @@ def test_many_ids_are_still_one_call(gate, pushdown):
                 resource_ids=ids,
             )
         ],
-        rows=[MutationConditionSpec("run", target_condition="tags.lifecycle != 'prod'")],
+        rows=[ConditionSpec("run", CONDITION_TYPE_TARGET, "tags.lifecycle != 'prod'")],
     )
     assert allowed is True
     assert len(store.filter_calls) == 1
@@ -721,11 +742,11 @@ def test_many_ids_are_still_one_call(gate, pushdown):
 def test_an_admin_asks_the_store_no_predicate(gate, pushdown):
     # Admin bypass precedes everything, including the pushdown.
     run, _ = gate
-    store = pushdown(CountingPushdown(named_fails=None, child_fails=None))
+    store = pushdown(CountingPushdown())
     enumerated = []
     allowed = run(
         [_cascade("run", "exp-1", enumerated)],
-        rows=[MutationConditionSpec("run", target_condition="tags.lifecycle != 'prod'")],
+        rows=[ConditionSpec("run", CONDITION_TYPE_TARGET, "tags.lifecycle != 'prod'")],
         is_admin=True,
     )
     assert allowed is True
@@ -736,10 +757,10 @@ def test_an_admin_asks_the_store_no_predicate(gate, pushdown):
 def test_a_request_only_condition_asks_the_store_no_predicate(gate, pushdown):
     # No target condition means no resource question, so nothing is pushed.
     run, _ = gate
-    store = pushdown(CountingPushdown(named_fails=None, child_fails=None))
+    store = pushdown(CountingPushdown())
     allowed = run(
         [_mutate("run", "r-1", RunRequestValues(tags=(("lifecycle", "dev"),)))],
-        rows=[MutationConditionSpec("run", value_condition="tag_value != 'prod'")],
+        rows=[ConditionSpec("run", CONDITION_TYPE_VALUE, "tag_value != 'prod'")],
     )
     assert allowed is True
     assert store.filter_calls == []
@@ -753,11 +774,8 @@ def test_a_request_denial_short_circuits_before_any_predicate(gate, pushdown):
     allowed = run(
         [_mutate("run", "r-1", RunRequestValues(tags=(("lifecycle", "prod"),)))],
         rows=[
-            MutationConditionSpec(
-                "run",
-                value_condition="tag_value != 'prod'",
-                target_condition="tags.lifecycle != 'prod'",
-            )
+            ConditionSpec("run", CONDITION_TYPE_VALUE, "tag_value != 'prod'"),
+            ConditionSpec("run", CONDITION_TYPE_TARGET, "tags.lifecycle != 'prod'"),
         ],
     )
     assert allowed is False
@@ -776,16 +794,20 @@ def _recording_pushdown_store(monkeypatch, answer=None):
 
     calls = []
 
-    def find_failing_resource(
-        entity, clauses, *, ids=None, parent_id=None, max_timestamp_ms=None, stage=None
-    ):
+    def find_satisfying_resources(entity, clauses, ids):
         calls.append((entity, list(ids), list(clauses)))
-        # ``None`` is the new "nothing failed", so a caller asking for the default
-        # answer gets a pass rather than an echo of the ids.
-        return answer
+        # Default is total satisfaction, which under OR means returning every id -- not
+        # the empty set. An empty satisfying set is the DENY answer, so defaulting to it
+        # would make a test about call shape fail for an unrelated reason.
+        if answer is None:
+            return set(ids)
+        # ``answer`` names the one id admitted by nothing, in the caller's vocabulary.
+        return {i for i in ids if i != answer}
 
     pushing = SimpleNamespace(
-        find_failing_resource=find_failing_resource,
+        find_satisfying_resources=find_satisfying_resources,
+        # A cascade over this store holds no children, which is the permissive answer.
+        iter_child_resource_tags=lambda *a, **k: iter(()),
     )
 
     def get():
@@ -821,10 +843,10 @@ def test_a_resource_scoped_row_is_pushed_with_only_the_ids_it_governs(gate, monk
             )
         ],
         rows=[
-            MutationConditionSpec(
-                "run", target_condition="tags.stage = 'prod'", resource_pattern="r1"
+            ConditionSpec(
+                "run", CONDITION_TYPE_TARGET, "tags.stage = 'prod'", resource_pattern="r1"
             ),
-            MutationConditionSpec("run", target_condition="tags.team = 'ml'"),
+            ConditionSpec("run", CONDITION_TYPE_TARGET, "tags.team = 'ml'"),
         ],
         values={
             ("run", "r1"): RunResourceValues("r1", tags={"stage": "prod", "team": "ml"}),
@@ -859,8 +881,8 @@ def test_a_row_governing_none_of_the_ids_costs_no_query(gate, monkeypatch):
             )
         ],
         rows=[
-            MutationConditionSpec(
-                "run", target_condition="tags.stage = 'prod'", resource_pattern="other-run"
+            ConditionSpec(
+                "run", CONDITION_TYPE_TARGET, "tags.stage = 'prod'", resource_pattern="other-run"
             ),
         ],
         values={("run", "r1"): RunResourceValues("r1", tags={})},
@@ -894,7 +916,7 @@ def _otlp_shaped_contexts(count, experiment_id="1"):
 def test_query_count_is_independent_of_how_many_traces_are_submitted(gate, monkeypatch):
     # Fifty traces must cost what one trace costs: one call per (type, row).
     run, _state = gate
-    rows = [MutationConditionSpec("trace", target_condition=f"tags.k{i} = 'v'") for i in range(4)]
+    rows = [ConditionSpec("trace", CONDITION_TYPE_TARGET, f"tags.k{i} = 'v'") for i in range(4)]
 
     counts = {}
     for target_count in (1, 50):
@@ -915,7 +937,7 @@ def test_every_submitted_trace_still_reaches_the_query(gate, monkeypatch):
     assert (
         run(
             _otlp_shaped_contexts(3),
-            rows=[MutationConditionSpec("trace", target_condition="tags.k = 'v'")],
+            rows=[ConditionSpec("trace", CONDITION_TYPE_TARGET, "tags.k = 'v'")],
             values={},
         )
         is True
@@ -944,9 +966,10 @@ def test_a_union_still_respects_each_rows_container_scope(gate, monkeypatch):
         run(
             contexts,
             rows=[
-                MutationConditionSpec(
+                ConditionSpec(
                     "trace",
-                    target_condition="tags.k = 'v'",
+                    CONDITION_TYPE_TARGET,
+                    "tags.k = 'v'",
                     container_resource_type="experiment",
                     container_resource_pattern="exp-a",
                 )
@@ -983,13 +1006,14 @@ def test_a_scoped_row_and_a_workspace_row_are_separate_calls(gate, monkeypatch):
         run(
             contexts,
             rows=[
-                MutationConditionSpec(
+                ConditionSpec(
                     "trace",
-                    target_condition="tags.k = 'v'",
+                    CONDITION_TYPE_TARGET,
+                    "tags.k = 'v'",
                     container_resource_type="experiment",
                     container_resource_pattern="exp-a",
                 ),
-                MutationConditionSpec("trace", target_condition="tags.j = 'w'"),
+                ConditionSpec("trace", CONDITION_TYPE_TARGET, "tags.j = 'w'"),
             ],
             values={},
         )
@@ -1012,7 +1036,7 @@ def test_a_denial_in_a_union_still_names_the_resource_that_failed(gate, monkeypa
     _recording_pushdown_store(monkeypatch, answer="tr-7")
     allowed = run(
         _otlp_shaped_contexts(10),
-        rows=[MutationConditionSpec("trace", target_condition="tags.k = 'v'")],
+        rows=[ConditionSpec("trace", CONDITION_TYPE_TARGET, "tags.k = 'v'")],
         # Attribution reads the resource the store named; with none readable the denial
         # correctly degrades to the generic message, which would not test anything here.
         values={("trace", "tr-7"): TraceResourceValues("tr-7", tags={})},

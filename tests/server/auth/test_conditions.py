@@ -433,37 +433,69 @@ def test_resource_aliases_empty_for_version_types_denies_alias_clause():
 # ---- Combination -----------------------------------------------------------
 
 
-def test_combine_is_plain_and():
+def test_combine_is_and_across_groups_and_or_within():
     assert combine([]) is True
-    assert combine([True, True]) is True
-    assert combine([True, False]) is False
+    assert combine([[True], [True]]) is True
+    assert combine([[True], [False]]) is False
+    # OR within a group: one passing alternative carries the group.
+    assert combine([[False, True]]) is True
+    assert combine([[False, False]]) is False
+    # Both quantifiers at once: the second group has no passing alternative.
+    assert combine([[False, True], [False, False]]) is False
 
 
-def test_permissive_condition_never_lifts_another_restriction():
-    """The property that makes conditions safe to reason about: adding a role
-    cannot widen what another role's condition restricts. Conditions only ever
-    subtract, so there is nothing to resolve between two of them.
+def test_an_empty_group_must_not_be_emitted():
+    """A type with no applicable condition is unconstrained, not denied.
+
+    ``any([])`` is False, so an empty group would deny every operation on a type nobody
+    wrote a condition for. The caller's contract is to omit such a group entirely, and
+    this pins the consequence of breaking it -- the failure would be a total outage of
+    one resource type, not a subtle authorization error.
     """
+    assert combine([[]]) is False
+    assert combine([[True], []]) is False
+
+
+def test_a_permissive_sibling_lifts_another_conditions_restriction():
+    """The property the OR combination inverts, kept as an executable record.
+
+    Conditions of a type are alternatives, so they no longer only ever subtract: a
+    sibling that permits the request permits it, whatever its siblings forbid. The
+    sibling may come from a different role, so one role's condition can widen what
+    another role's restricts, and a restriction holds only if EVERY applicable condition
+    of its type restricts it.
+
+    This is the drawback the RFC records, asserted rather than described so that a future
+    change back to conjunction fails here loudly.
+    """
+    values = RunRequestValues(tags=(("lifecycle", "x"),))
     restrictive = evaluate_request(
-        parse_condition("tag_key != 'lifecycle'", NAMESPACE_REQUEST),
-        RunRequestValues(tags=(("lifecycle", "x"),)),
+        parse_condition("tag_key != 'lifecycle'", NAMESPACE_REQUEST), values
     )
     permissive = evaluate_request(
-        parse_condition("tag_key != 'unrelated'", NAMESPACE_REQUEST),
-        RunRequestValues(tags=(("lifecycle", "x"),)),
+        parse_condition("tag_key != 'unrelated'", NAMESPACE_REQUEST), values
     )
     assert restrictive is False
     assert permissive is True
-    assert combine([restrictive, permissive]) is False
-    # And an absent condition (no clauses -> vacuously True) likewise.
-    assert combine([restrictive, True]) is False
+    # Same type, so they are alternatives: the permissive one wins.
+    assert combine([[restrictive, permissive]]) is True
+    # Separate groups are different questions and still AND, which is what keeps a VALUE
+    # condition from being lifted by an unrelated TARGET one.
+    assert combine([[restrictive], [permissive]]) is False
 
 
-def test_contradictory_conditions_fail_closed():
+def test_contradictory_conditions_now_permit_both():
+    """Two conditions that disagree widen rather than conflict.
+
+    Under conjunction these failed closed -- nothing satisfied both, so the operation was
+    denied. As alternatives they fail OPEN: each permits what the other forbids, so
+    between them they permit either. An admin writing both gets no restriction at all.
+    """
     values = RunRequestValues(tags=(("lifecycle", "x"),))
     a = evaluate_request(parse_condition("tag_key = 'lifecycle'", NAMESPACE_REQUEST), values)
     b = evaluate_request(parse_condition("tag_key != 'lifecycle'", NAMESPACE_REQUEST), values)
-    assert combine([a, b]) is False
+    assert (a, b) == (True, False)
+    assert combine([[a, b]]) is True
 
 
 # ---- Framework types -------------------------------------------------------
@@ -761,9 +793,9 @@ def test_a_refused_glob_would_only_ever_have_matched_a_literal_name():
     likelier one, where the admin believes a group is restricted and none of it is.
     """
     from mlflow.server.auth import _row_governs
-    from mlflow.server.auth.sqlalchemy_store import MutationConditionRow
+    from mlflow.server.auth.sqlalchemy_store import ConditionRow
 
-    row = MutationConditionRow("registered_model", None, "tags.x = '1'", "team/*", "workspace", "*")
+    row = ConditionRow("registered_model", None, "tags.x = '1'", "team/*", "workspace", "*")
     assert not _row_governs(row, "team/a")
     assert not _row_governs(row, "team/b")
     assert _row_governs(row, "team/*")

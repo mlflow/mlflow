@@ -1,4 +1,4 @@
-# What a 403 tells a caller when a mutation condition refused the request.
+# What a 403 tells a caller when a condition refused the request.
 #
 # A condition denial used to say only that one happened. That is a dead end: the caller
 # holds a permission level that allows the operation, the thing that refused is a filter
@@ -28,10 +28,12 @@ import pytest
 from mlflow.server import auth as auth_module
 from mlflow.server.auth import resources as auth_resources
 from mlflow.server.auth.conditions import (
+    CONDITION_TYPE_TARGET,
+    CONDITION_TYPE_VALUE,
     CONTAINER_WORKSPACE,
     ConditionContext,
     ConditionScope,
-    MutationConditionSpec,
+    ConditionSpec,
     RunRequestValues,
 )
 
@@ -40,10 +42,26 @@ from tests.server.auth.condition_store_fakes import answering_store
 TAG_KEY = "lifecycle"
 
 
+def _tags_of(supplied, resource_id):
+    """The tags a test declared for a child, or none at all.
+
+    A child the test did not describe is yielded with NO tags, which still makes it a
+    violator: on the resource side an absent tag fails every comparator, so such a child
+    is admitted by no target condition whatever the filter says. That is what reproduces
+    the old scripted "this child fails" without the test having to state tags it does not
+    care about.
+    """
+    state = supplied.get(("run", resource_id)) if resource_id is not None else None
+    for key in ("registered_model_version", "trace", "logged_model"):
+        if state is None and resource_id is not None:
+            state = supplied.get((key, resource_id))
+    return dict(getattr(state, "tags", {}) or {})
+
+
 def _row(
+    condition_type,
+    filter,
     *,
-    value_condition=None,
-    target_condition=None,
     resource_type="run",
     pattern="*",
     container_type=None,
@@ -51,15 +69,15 @@ def _row(
 ):
     """A loader row, built as the real spec type rather than a look-alike.
 
-    `MutationConditionSpec` mirrors the store's `MutationConditionRow`, so a new scope
+    `ConditionSpec` mirrors the store's `ConditionRow`, so a new scope
     field reaches these tests as its default instead of as an AttributeError -- and more
     importantly, a field the gate starts reading cannot be silently absent here while
     present in production.
     """
-    return MutationConditionSpec(
+    return ConditionSpec(
         resource_type=resource_type,
-        value_condition=value_condition,
-        target_condition=target_condition,
+        condition_type=condition_type,
+        filter=filter,
         resource_pattern=pattern,
         container_resource_type=container_type or CONTAINER_WORKSPACE,
         container_resource_pattern=container_pattern,
@@ -103,24 +121,45 @@ def gate(monkeypatch):
             def is_workspace_admin(self, user_id, workspace):
                 return False
 
-            def list_mutation_conditions_for_user(self, user_id, workspace, types, parents=None):
+            def list_conditions_for_user(self, user_id, workspace, types, parents=None):
                 return list(rows)
 
         monkeypatch.setattr(auth_module, "store", Store())
         supplied = values or {}
-        # The store decides the verdict. ``store_answer`` forces a specific failing id;
-        # otherwise the fake answers from ``values`` using the real evaluator, which is
-        # what the deleted Python fallback did.
+        # The store decides the verdict. ``store_answer`` forces a specific id to be
+        # admitted by nothing; otherwise the fake answers from ``values`` using the real
+        # evaluator, which is what the deleted Python fallback did.
         if store_raises is not None:
 
             def _refuse_to_answer(*a, **k):
                 raise store_raises
 
-            fake = SimpleNamespace(find_failing_resource=_refuse_to_answer)
+            fake = SimpleNamespace(
+                find_satisfying_resources=_refuse_to_answer,
+                iter_child_resource_tags=_refuse_to_answer,
+            )
         elif store_answer is not None:
-            fake = SimpleNamespace(find_failing_resource=lambda *a, **k: store_answer)
+            # Under OR the store reports which ids SATISFY, so "this one fails" is stated
+            # as its absence from that set. On the cascade side the same scenario is a
+            # population holding it: a child whose tags are absent fails every target
+            # comparator, so it is admitted by no condition whatever the filter says.
+            fake = SimpleNamespace(
+                find_satisfying_resources=(
+                    lambda entity, clauses, ids: {i for i in ids if i != store_answer}
+                ),
+                iter_child_resource_tags=(
+                    lambda *a, **k: iter([[(store_answer, _tags_of(supplied, store_answer))]])
+                ),
+            )
         else:
-            fake = answering_store(supplied, failing_child=failing_child)
+            fake = answering_store(
+                supplied,
+                children=lambda entity, parent_id: (
+                    [(failing_child, _tags_of(supplied, failing_child))]
+                    if failing_child is not None
+                    else []
+                ),
+            )
         monkeypatch.setattr(auth_module, "_get_tracking_store", lambda: fake)
         monkeypatch.setattr(auth_module, "_get_model_registry_store", lambda: fake, raising=False)
 
@@ -152,7 +191,7 @@ def _mutate(resource_type="run", ids=("r-1",), request=None, parent=None):
 def test_the_refusing_identifier_is_named(gate):
     allowed, message = gate(
         [_mutate(request=RunRequestValues(tags=((TAG_KEY, "prod"),)))],
-        [_row(value_condition="tag_value != 'prod'")],
+        [_row(CONDITION_TYPE_VALUE, "tag_value != 'prod'")],
     )
     assert allowed is False
     assert "tag_value" in message, message
@@ -166,7 +205,7 @@ def test_the_identifier_is_the_one_that_failed_not_the_first(gate):
     """
     allowed, message = gate(
         [_mutate(request=RunRequestValues(tags=(("team", "ml"),)))],
-        [_row(value_condition="tag_value != 'nothing' AND tag_key != 'team'")],
+        [_row(CONDITION_TYPE_VALUE, "tag_value != 'nothing' AND tag_key != 'team'")],
     )
     assert allowed is False
     assert "tag_key" in message, message
@@ -176,7 +215,7 @@ def test_the_identifier_is_the_one_that_failed_not_the_first(gate):
 def test_a_permitted_request_says_nothing(gate):
     allowed, message = gate(
         [_mutate(request=RunRequestValues(tags=((TAG_KEY, "dev"),)))],
-        [_row(value_condition="tag_value != 'prod'")],
+        [_row(CONDITION_TYPE_VALUE, "tag_value != 'prod'")],
     )
     assert allowed is True
     assert message == "Permission denied", (
@@ -191,7 +230,7 @@ def test_a_permitted_request_says_nothing(gate):
 def test_both_the_clause_and_the_resource_are_named(gate):
     allowed, message = gate(
         [_mutate(ids=("r-7",))],
-        [_row(target_condition=f"tags.{TAG_KEY} = 'dev'")],
+        [_row(CONDITION_TYPE_TARGET, f"tags.{TAG_KEY} = 'dev'")],
         store_answer="r-7",
         values={("run", "r-7"): SimpleNamespace(tags={TAG_KEY: "prod"}, aliases={})},
     )
@@ -208,7 +247,7 @@ def test_the_prefixed_identifier_is_quoted_as_written(gate):
     """
     _, message = gate(
         [_mutate(ids=("r-1",))],
-        [_row(target_condition=f"tags.{TAG_KEY} = 'dev'")],
+        [_row(CONDITION_TYPE_TARGET, f"tags.{TAG_KEY} = 'dev'")],
         store_answer="r-1",
         values={("run", "r-1"): SimpleNamespace(tags={}, aliases={})},
     )
@@ -223,7 +262,7 @@ def test_an_unattributable_denial_degrades_to_the_class_of_refusal(gate):
     """
     allowed, message = gate(
         [_mutate(ids=("r-9",))],
-        [_row(target_condition=f"tags.{TAG_KEY} = 'dev'")],
+        [_row(CONDITION_TYPE_TARGET, f"tags.{TAG_KEY} = 'dev'")],
         store_answer="r-9",
         values={},
     )
@@ -245,7 +284,7 @@ def test_attribution_never_turns_a_denial_into_an_error(gate, monkeypatch):
     monkeypatch.setattr(auth_resources, "attrs_for", _boom, raising=False)
     allowed, message = gate(
         [_mutate(ids=("r-1",))],
-        [_row(target_condition=f"tags.{TAG_KEY} = 'dev'")],
+        [_row(CONDITION_TYPE_TARGET, f"tags.{TAG_KEY} = 'dev'")],
         store_answer="r-1",
     )
     assert allowed is False
@@ -266,7 +305,7 @@ def test_the_offending_child_is_named(gate):
                 parent_resource_id="exp-1",
             )
         ],
-        [_row(target_condition=f"tags.{TAG_KEY} = 'dev'")],
+        [_row(CONDITION_TYPE_TARGET, f"tags.{TAG_KEY} = 'dev'")],
         store_answer="child-3",
         values={("run", "child-3"): SimpleNamespace(tags={TAG_KEY: "prod"}, aliases={})},
     )
@@ -292,7 +331,9 @@ def test_the_offending_child_is_named(gate):
 #     path converts its ids on the way in, so its answer comes back decomposed as well.
 #
 
-ROW = [_row(target_condition=f"tags.{TAG_KEY} = 'dev'", resource_type="registered_model_version")]
+ROW = [
+    _row(CONDITION_TYPE_TARGET, f"tags.{TAG_KEY} = 'dev'", resource_type="registered_model_version")
+]
 
 
 def test_a_named_version_is_identified_in_the_denial(gate):
@@ -359,7 +400,8 @@ def test_a_name_containing_a_slash_round_trips(gate):
         ],
         [
             _row(
-                target_condition=f"tags.{TAG_KEY} = 'dev'",
+                condition_type=CONDITION_TYPE_TARGET,
+                filter=f"tags.{TAG_KEY} = 'dev'",
                 resource_type="mcp_server_version",
             )
         ],
@@ -382,7 +424,7 @@ def test_a_name_containing_a_slash_round_trips(gate):
 def test_clear_cache_drops_the_detail(gate):
     allowed, message = gate(
         [_mutate(request=RunRequestValues(tags=((TAG_KEY, "prod"),)))],
-        [_row(value_condition="tag_value != 'prod'")],
+        [_row(CONDITION_TYPE_VALUE, "tag_value != 'prod'")],
     )
     assert allowed is False
     assert "tag_value" in message
@@ -500,7 +542,8 @@ def test_a_row_scoped_to_one_experiment_judges_only_that_experiments_runs(gate):
         _contexts(),
         [
             _row(
-                target_condition=f"tags.{TAG_KEY} = 'dev'",
+                condition_type=CONDITION_TYPE_TARGET,
+                filter=f"tags.{TAG_KEY} = 'dev'",
                 container_type="experiment",
                 container_pattern="exp-a",
             )
@@ -520,7 +563,8 @@ def test_the_same_row_still_judges_a_run_in_its_own_experiment(gate):
         _contexts(),
         [
             _row(
-                target_condition=f"tags.{TAG_KEY} = 'dev'",
+                condition_type=CONDITION_TYPE_TARGET,
+                filter=f"tags.{TAG_KEY} = 'dev'",
                 container_type="experiment",
                 container_pattern="exp-a",
             )
@@ -539,7 +583,7 @@ def test_a_workspace_wide_row_judges_every_container(gate):
     # The pre-scoping default, and still the common case.
     allowed, message = gate(
         _contexts(),
-        [_row(target_condition=f"tags.{TAG_KEY} = 'dev'")],
+        [_row(CONDITION_TYPE_TARGET, f"tags.{TAG_KEY} = 'dev'")],
         store_answer="r-in-b",
         values={
             ("run", "r-in-a"): SimpleNamespace(tags={TAG_KEY: "dev"}, aliases={}),
@@ -567,7 +611,8 @@ def test_a_scoped_value_condition_also_narrows(gate):
         contexts,
         [
             _row(
-                value_condition=f"tag_key != '{TAG_KEY}'",
+                condition_type=CONDITION_TYPE_VALUE,
+                filter=f"tag_key != '{TAG_KEY}'",
                 container_type="experiment",
                 container_pattern="exp-a",
             )
@@ -591,7 +636,7 @@ def test_a_store_that_cannot_evaluate_a_target_condition_denies(gate):
     """
     allowed, message = gate(
         [_mutate(ids=("r-1",))],
-        [_row(target_condition=f"tags.{TAG_KEY} = 'dev'")],
+        [_row(CONDITION_TYPE_TARGET, f"tags.{TAG_KEY} = 'dev'")],
         store_raises=NotImplementedError("FileStore cannot answer a target condition"),
     )
     assert allowed is False
@@ -604,7 +649,7 @@ def test_a_cascade_over_a_store_that_cannot_evaluate_denies(gate):
     # so it needs its own conversion or a parent-scoped mutation still 500s.
     allowed, message = gate(
         [_mutate(ids=(), parent="e-1")],
-        [_row(target_condition=f"tags.{TAG_KEY} = 'dev'")],
+        [_row(CONDITION_TYPE_TARGET, f"tags.{TAG_KEY} = 'dev'")],
         store_raises=NotImplementedError("FileStore cannot answer a target condition"),
     )
     assert allowed is False
@@ -616,7 +661,7 @@ def test_the_store_message_is_not_quoted_back_to_the_caller(gate):
     # deployment detail, and a denial is not the place to publish it.
     _, message = gate(
         [_mutate(ids=("r-1",))],
-        [_row(target_condition=f"tags.{TAG_KEY} = 'dev'")],
+        [_row(CONDITION_TYPE_TARGET, f"tags.{TAG_KEY} = 'dev'")],
         store_raises=NotImplementedError("FileStore cannot answer a target condition"),
     )
     assert "FileStore" not in message

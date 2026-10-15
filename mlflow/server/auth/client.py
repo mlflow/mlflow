@@ -1,35 +1,35 @@
 from mlflow.server.auth.entities import (
+    Condition,
     GetUserPermissionResult,
-    MutationConditions,
     Role,
     RolePermission,
     User,
     UserRoleAssignment,
 )
 from mlflow.server.auth.routes import (
-    ADD_MUTATION_CONDITIONS,
+    ADD_CONDITIONS,
     ADD_ROLE_PERMISSION,
-    ADD_USER_MUTATION_CONDITION,
+    ADD_USER_CONDITION,
     ASSIGN_ROLE,
     CREATE_ROLE,
     CREATE_USER,
     DELETE_ROLE,
     DELETE_USER,
-    GET_MUTATION_CONDITIONS,
+    GET_CONDITIONS,
     GET_ROLE,
     GET_USER,
     GET_USER_PERMISSION,
     GRANT_USER_PERMISSION,
-    LIST_MUTATION_CONDITIONS,
+    LIST_CONDITIONS,
     LIST_ROLE_PERMISSIONS,
     LIST_ROLE_USERS,
     LIST_ROLES,
     LIST_USER_ROLES,
-    REMOVE_MUTATION_CONDITIONS,
+    REMOVE_CONDITIONS,
     REMOVE_ROLE_PERMISSION,
     REVOKE_USER_PERMISSION,
     UNASSIGN_ROLE,
-    UPDATE_MUTATION_CONDITIONS,
+    UPDATE_CONDITIONS,
     UPDATE_ROLE,
     UPDATE_ROLE_PERMISSION,
     UPDATE_USER_ADMIN,
@@ -370,13 +370,13 @@ class AuthServiceClient:
         resp = self._request(LIST_ROLE_USERS, "GET", params={"role_id": str(role_id)})
         return [UserRoleAssignment.from_json(a) for a in resp["assignments"]]
 
-    # ---- Mutation conditions (condition-based access control) ----
+    # ---- Conditions (condition-based access control) ----
     #
     # Two optional filters per (role, resource_type) that gate create/mutation only,
     # never reads. Conditions **subtract** from what the role's grants allow: they
     # never confer access, and a role with no conditions behaves exactly as before.
 
-    def add_mutation_condition(
+    def add_condition(
         self,
         role_id: int,
         resource_type: str,
@@ -384,15 +384,21 @@ class AuthServiceClient:
         resource_pattern: str | None = None,
         container_resource_type: str | None = None,
         container_resource_pattern: str | None = None,
-        value_condition: str | None = None,
-        target_condition: str | None = None,
-    ) -> MutationConditions:
+        type: str,
+        filter: str,
+    ) -> Condition:
         """Attach one condition object to ``role_id`` for ``resource_type``.
 
-        A role may hold several conditions per resource type. **Every applicable one
-        must pass** -- they AND, they are not alternatives. Two objects saying
-        "``env = dev``" and "``owner = me``" permit only resources that are both, which
-        is the most common way to lock yourself out.
+        A role may hold several conditions per resource type. **Any one of them passing
+        is enough** -- conditions of a type are alternatives, they do not AND. Two
+        objects saying "``env = dev``" and "``owner = me``" permit resources that are
+        *either*, so adding the second widens what the first allowed.
+
+        The consequence to plan for: a condition cannot be relied on to restrict unless
+        every sibling of its type also restricts. A sibling may come from a *different
+        role* the same user holds, so attaching a permissive condition elsewhere can lift
+        this one's restriction. Clauses within one filter still AND, so express a
+        conjunction as one condition with several clauses -- not as several conditions.
 
         Args:
             role_id: The role to condition. Conditions apply on top of that role's
@@ -416,29 +422,36 @@ class AuthServiceClient:
             container_resource_pattern: The container's id, or ``"*"``. A wildcard here
                 means every container, which is the same statement as ``"workspace"`` and
                 is normalised to it.
-            value_condition: Constrains *what values* a mutation may set, as a filter
-                string over ``tag_key``, ``tag_value`` and ``alias``. Evaluated against
-                the request, and applied on create. A clause whose identifier the
-                request does not carry is vacuous, so a metrics-only ``LogBatch`` is
-                not denied by a ``tag_key`` clause. Reserved ``mlflow.*`` tag keys are
-                rejected here, because MLflow writes them itself.
-            target_condition: Constrains *which existing resources* may be mutated, as
-                a filter string over ``tags.<key>`` and ``aliases.<name>``. Evaluated
-                against the resource's current state, and vacuous on create. **A
-                missing tag fails the clause**, matching search semantics -- so
-                ``tags.lifecycle != 'prod'`` denies an untagged resource.
+            type: ``"VALUE"`` or ``"TARGET"``, selecting which half of a
+                mutation the filter is read against. The two are separate conditions
+                because they answer different questions and must both hold -- a single
+                row silent about one half would be a wildcard for it.
+            filter: The filter string, whose vocabulary depends on ``type``.
 
-        At least one of the two filters is required: an object with neither restricts
-        nothing while reading as a configured restriction. Each takes at most five
-        AND-joined clauses; ``OR`` is not supported. Use ``!=`` or ``NOT IN`` to
-        exclude.
+                ``VALUE`` constrains *what values* a mutation may set, over ``tag_key``,
+                ``tag_value`` and ``alias``. Evaluated against the request and applied on
+                create. A clause whose identifier the request does not carry is vacuous,
+                so a metrics-only ``LogBatch`` is not denied by a ``tag_key`` clause.
+                Reserved ``mlflow.*`` tag keys are rejected, because MLflow writes them.
+
+                ``TARGET`` constrains *which existing resources* may be mutated, over
+                ``tags.<key>`` and ``aliases.<name>``. Evaluated against the resource's
+                current state and vacuous on create. **A missing tag fails the clause**,
+                matching search semantics -- so ``tags.lifecycle != 'prod'`` denies an
+                untagged resource.
+
+        The filter is required and cannot be empty: conditions of a type are
+        alternatives, so an empty filter is an unconditional pass that nullifies every
+        sibling rather than a weaker restriction. It takes at most five AND-joined
+        clauses; ``OR`` between clauses is not supported -- write a second condition of
+        the same type instead, which is what makes them alternatives.
 
         Returns:
-            The created :py:class:`MutationConditions`, carrying the server-allocated
+            The created :py:class:`Condition`, carrying the server-allocated
             ``condition_slot``.
         """
         resp = self._request(
-            ADD_MUTATION_CONDITIONS,
+            ADD_CONDITIONS,
             "POST",
             json={
                 "role_id": role_id,
@@ -446,13 +459,13 @@ class AuthServiceClient:
                 "resource_pattern": resource_pattern,
                 "container_resource_type": container_resource_type,
                 "container_resource_pattern": container_resource_pattern,
-                "value_condition": value_condition,
-                "target_condition": target_condition,
+                "type": type,
+                "filter": filter,
             },
         )
-        return MutationConditions.from_json(resp["mutation_conditions"])
+        return Condition.from_json(resp["conditions"])
 
-    def add_user_mutation_condition(
+    def add_user_condition(
         self,
         username: str,
         resource_type: str,
@@ -460,36 +473,36 @@ class AuthServiceClient:
         resource_pattern: str | None = None,
         container_resource_type: str | None = None,
         container_resource_pattern: str | None = None,
-        value_condition: str | None = None,
-        target_condition: str | None = None,
-    ) -> MutationConditions:
+        type: str,
+        filter: str,
+    ) -> Condition:
         """Attach one condition object to ``username``'s direct grants.
 
-        The user-addressed counterpart of :meth:`add_mutation_condition`, and the
+        The user-addressed counterpart of :meth:`add_condition`, and the
         condition analogue of :meth:`grant_user_permission`. Per-user access is stored on
         a hidden per-user role; this resolves that role -- creating it if the user has no
         direct grants yet -- so the caller never names it.
 
-        Everything :meth:`add_mutation_condition` says about semantics applies unchanged:
+        Everything :meth:`add_condition` says about semantics applies unchanged:
         conditions AND with each other and with those on the user's other roles, they
         cannot widen a grant, and they never apply to reads.
 
         Args:
             username: The user whose direct grants to condition.
-            resource_type: As :meth:`add_mutation_condition`.
-            resource_pattern: As :meth:`add_mutation_condition`.
-            container_resource_type: As :meth:`add_mutation_condition`.
-            container_resource_pattern: As :meth:`add_mutation_condition`.
-            value_condition: As :meth:`add_mutation_condition`.
-            target_condition: As :meth:`add_mutation_condition`.
+            resource_type: As :meth:`add_condition`.
+            resource_pattern: As :meth:`add_condition`.
+            container_resource_type: As :meth:`add_condition`.
+            container_resource_pattern: As :meth:`add_condition`.
+            type: As :meth:`add_condition`.
+            filter: As :meth:`add_condition`.
 
         Returns:
-            The created :py:class:`MutationConditions`. Its ``role_id`` is the per-user
+            The created :py:class:`Condition`. Its ``role_id`` is the per-user
             role, which is an implementation detail -- address later updates and removals
             by the returned ``id``.
         """
         resp = self._request(
-            ADD_USER_MUTATION_CONDITION,
+            ADD_USER_CONDITION,
             "POST",
             json={
                 "username": username,
@@ -497,30 +510,29 @@ class AuthServiceClient:
                 "resource_pattern": resource_pattern,
                 "container_resource_type": container_resource_type,
                 "container_resource_pattern": container_resource_pattern,
-                "value_condition": value_condition,
-                "target_condition": target_condition,
+                "type": type,
+                "filter": filter,
             },
         )
-        return MutationConditions.from_json(resp["mutation_conditions"])
+        return Condition.from_json(resp["conditions"])
 
-    def get_mutation_condition(self, condition_id: int) -> MutationConditions:
+    def get_condition(self, condition_id: int) -> Condition:
         resp = self._request(
-            GET_MUTATION_CONDITIONS,
+            GET_CONDITIONS,
             "GET",
             params={"condition_id": str(condition_id)},
         )
-        return MutationConditions.from_json(resp["mutation_conditions"])
+        return Condition.from_json(resp["conditions"])
 
-    def update_mutation_condition(
+    def update_condition(
         self,
         condition_id: int,
         *,
-        value_condition: str | None = _UNSET,
-        target_condition: str | None = _UNSET,
+        filter: str | None = _UNSET,
         resource_pattern: str | None = _UNSET,
         container_resource_type: str | None = _UNSET,
         container_resource_pattern: str | None = _UNSET,
-    ) -> MutationConditions | None:
+    ) -> Condition | None:
         """Update one condition object, leaving any argument you omit untouched.
 
         Passing ``None`` explicitly **clears** that condition; omitting the argument
@@ -539,10 +551,8 @@ class AuthServiceClient:
             object restricting nothing is removed rather than left holding a slot.
         """
         body: dict[str, object] = {"condition_id": condition_id}
-        if value_condition is not _UNSET:
-            body["value_condition"] = value_condition
-        if target_condition is not _UNSET:
-            body["target_condition"] = target_condition
+        if filter is not _UNSET:
+            body["filter"] = filter
         scope_args = (resource_pattern, container_resource_type, container_resource_pattern)
         if any(arg is not _UNSET for arg in scope_args):
             # The scope moves as a unit -- the server validates the axes together -- so an
@@ -555,20 +565,20 @@ class AuthServiceClient:
             body["container_resource_pattern"] = (
                 None if container_resource_pattern is _UNSET else container_resource_pattern
             )
-        resp = self._request(UPDATE_MUTATION_CONDITIONS, "PATCH", json=body)
-        payload = resp.get("mutation_conditions")
-        return MutationConditions.from_json(payload) if payload else None
+        resp = self._request(UPDATE_CONDITIONS, "PATCH", json=body)
+        payload = resp.get("conditions")
+        return Condition.from_json(payload) if payload else None
 
-    def remove_mutation_condition(self, condition_id: int) -> None:
+    def remove_condition(self, condition_id: int) -> None:
         self._request(
-            REMOVE_MUTATION_CONDITIONS,
+            REMOVE_CONDITIONS,
             "DELETE",
             json={"condition_id": condition_id},
         )
 
-    def list_mutation_conditions(self, role_id: int) -> list[MutationConditions]:
-        resp = self._request(LIST_MUTATION_CONDITIONS, "GET", params={"role_id": str(role_id)})
-        return [MutationConditions.from_json(c) for c in resp["mutation_conditions"]]
+    def list_conditions(self, role_id: int) -> list[Condition]:
+        resp = self._request(LIST_CONDITIONS, "GET", params={"role_id": str(role_id)})
+        return [Condition.from_json(c) for c in resp["conditions"]]
 
     def list_all_roles(self) -> list[Role]:
         # Same endpoint as list_roles; omitting the ``workspace`` param returns the

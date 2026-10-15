@@ -5746,7 +5746,7 @@ def test_otel_run_association_applies_the_run_target_condition(fastapi_client, m
         role = auth_client.create_role("default", f"otel-cond-{random_str()}", "test")
         auth_client.add_role_permission(role.id, "experiment", "*", EDIT.name)
         auth_client.add_role_permission(role.id, "run", "*", EDIT.name)
-        auth_client.add_mutation_condition(role.id, "run", target_condition="tags.gate = 'open'")
+        auth_client.add_condition(role.id, "run", type="TARGET", filter="tags.gate = 'open'")
         auth_client.assign_role(user2, role.id)
 
     def post_spans(run_id):
@@ -5989,11 +5989,11 @@ def test_the_otlp_projection_matches_the_tags_the_store_persists(fastapi_client,
     assert persisted, "the payload must actually persist tags for this to prove anything"
 
 
-def _otlp_tag_condition_role(auth_client, user, value_condition):
-    """A role with experiment EDIT and one trace value condition."""
+def _otlp_tag_condition_role(auth_client, user, value_filter):
+    """A role with experiment EDIT and one trace VALUE condition."""
     role = auth_client.create_role("default", f"otlp-res-{random_str()}", "test")
     auth_client.add_role_permission(role.id, "experiment", "*", EDIT.name)
-    auth_client.add_mutation_condition(role.id, "trace", value_condition=value_condition)
+    auth_client.add_condition(role.id, "trace", type="VALUE", filter=value_filter)
     auth_client.assign_role(user, role.id)
     return role
 
@@ -6106,7 +6106,7 @@ def test_an_otlp_value_condition_refuses_a_restricted_trace_tag(fastapi_client, 
         experiment_id = fastapi_client.create_experiment(f"otlp-value-{random_str()}")
         role = auth_client.create_role("default", f"otlp-value-{random_str()}", "test")
         auth_client.add_role_permission(role.id, "experiment", "*", EDIT.name)
-        auth_client.add_mutation_condition(role.id, "trace", value_condition="tag_key != 'pii'")
+        auth_client.add_condition(role.id, "trace", type="VALUE", filter="tag_key != 'pii'")
         auth_client.assign_role(user, role.id)
 
     def ingest(tags):
@@ -6162,7 +6162,7 @@ def test_an_otlp_target_condition_gates_an_existing_trace(fastapi_client, monkey
     with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
         role = auth_client.create_role("default", f"otlp-target-{random_str()}", "test")
         auth_client.add_role_permission(role.id, "experiment", "*", EDIT.name)
-        auth_client.add_mutation_condition(role.id, "trace", target_condition="tags.gate = 'open'")
+        auth_client.add_condition(role.id, "trace", type="TARGET", filter="tags.gate = 'open'")
         auth_client.assign_role(user, role.id)
 
     # A further batch for the permitted trace passes...
@@ -6258,12 +6258,13 @@ def test_otlp_judges_an_existing_trace_on_its_own_experiments_condition(
         # Broad grants, so any denial can only come from the condition.
         auth_client.add_role_permission(role.id, "experiment", "*", EDIT.name)
         # Scoped to the experiment the trace REALLY lives in.
-        auth_client.add_mutation_condition(
+        auth_client.add_condition(
             role.id,
             "trace",
             container_resource_type="experiment",
             container_resource_pattern=home_experiment,
-            target_condition="tags.gate = 'open'",
+            type="TARGET",
+            filter="tags.gate = 'open'",
         )
         auth_client.assign_role(user, role.id)
 
@@ -6397,7 +6398,7 @@ def test_a_mixed_otlp_batch_is_denied_whole_when_one_existing_trace_fails(
     with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
         role = auth_client.create_role("default", f"otlp-mixed-{random_str()}", "test")
         auth_client.add_role_permission(role.id, "experiment", "*", EDIT.name)
-        auth_client.add_mutation_condition(role.id, "trace", target_condition="tags.gate = 'open'")
+        auth_client.add_condition(role.id, "trace", type="TARGET", filter="tags.gate = 'open'")
         auth_client.assign_role(user, role.id)
 
     # A batch carrying one brand-new trace AND an append to the refused one: the new trace
@@ -6446,7 +6447,7 @@ def test_a_json_otlp_batch_is_judged_like_a_protobuf_one(fastapi_client, monkeyp
     with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
         role = auth_client.create_role("default", f"otlp-json-{random_str()}", "test")
         auth_client.add_role_permission(role.id, "experiment", "*", EDIT.name)
-        auth_client.add_mutation_condition(role.id, "trace", target_condition="tags.gate = 'open'")
+        auth_client.add_condition(role.id, "trace", type="TARGET", filter="tags.gate = 'open'")
         auth_client.assign_role(user, role.id)
 
     # The same append, re-encoded as OTLP/JSON. The spec puts trace and span ids in HEX
@@ -6489,16 +6490,17 @@ def test_a_json_otlp_batch_is_judged_like_a_protobuf_one(fastapi_client, monkeyp
     assert ingest(json.dumps(document), (user, password), "application/json").status_code == 200
 
 
-def _relocation_role(auth_client, user, source_exp, dest_exp, **condition):
+def _relocation_role(auth_client, user, source_exp, dest_exp, *, condition_type, filter):
     """EDIT on both experiments, plus one trace condition scoped to the DESTINATION."""
     role = auth_client.create_role("default", f"reloc-{random_str()}", "test")
     auth_client.add_role_permission(role.id, "experiment", "*", EDIT.name)
-    auth_client.add_mutation_condition(
+    auth_client.add_condition(
         role.id,
         "trace",
+        type=condition_type,
+        filter=filter,
         container_resource_type="experiment",
         container_resource_pattern=str(dest_exp),
-        **condition,
     )
     auth_client.assign_role(user, role.id)
     return role
@@ -6524,7 +6526,9 @@ def test_relocating_a_trace_applies_the_destination_target_condition(fastapi_cli
     with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
         fastapi_client.set_trace_tag(trace_id, "gate", "shut")
         # The destination demands `gate = 'open'` of any trace it governs.
-        _relocation_role(auth_client, user, source, dest, target_condition="tags.gate = 'open'")
+        _relocation_role(
+            auth_client, user, source, dest, condition_type="TARGET", filter="tags.gate = 'open'"
+        )
 
     # Moving it into the destination must be refused: its CURRENT state fails.
     assert (
@@ -6559,7 +6563,9 @@ def test_relocating_a_trace_judges_the_tags_it_carries(fastapi_client, monkeypat
     trace_id = _create_trace(fastapi_client.tracking_uri, source, (ADMIN_USERNAME, ADMIN_PASSWORD))
     with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
         fastapi_client.set_trace_tag(trace_id, "pii", "yes")
-        _relocation_role(auth_client, user, source, dest, value_condition="tag_key != 'pii'")
+        _relocation_role(
+            auth_client, user, source, dest, condition_type="VALUE", filter="tag_key != 'pii'"
+        )
 
     # The body carries no tags at all, yet `pii` travels with the trace.
     assert (
@@ -6739,7 +6745,7 @@ def _logged_model_condition_role(auth_client, user, pattern, experiment_id=None)
             "container_resource_type": "experiment",
             "container_resource_pattern": experiment_id,
         }
-    auth_client.add_mutation_condition(role.id, "logged_model", target_condition=pattern, **kwargs)
+    auth_client.add_condition(role.id, "logged_model", type="TARGET", filter=pattern, **kwargs)
     auth_client.assign_role(user, role.id)
     return role
 
@@ -6987,7 +6993,7 @@ def test_link_traces_to_run_is_not_gated_by_a_trace_condition(fastapi_client, mo
         role = auth_client.create_role("default", f"link-nocond-{random_str()}", "test")
         auth_client.add_role_permission(role.id, "experiment", "*", EDIT.name)
         # A trace restriction the trace does NOT satisfy. It must not refuse the link.
-        auth_client.add_mutation_condition(role.id, "trace", target_condition="tags.gate = 'open'")
+        auth_client.add_condition(role.id, "trace", type="TARGET", filter="tags.gate = 'open'")
         auth_client.assign_role(user, role.id)
 
     def link(trace_ids):
@@ -10491,9 +10497,7 @@ def test_an_experiment_level_artifact_write_applies_the_experiment_condition(
         fastapi_client.set_experiment_tag(open_exp, "gate", "open")
         role = auth_client.create_role("default", f"art-cond-{random_str()}", "test")
         auth_client.add_role_permission(role.id, "experiment", "*", "MANAGE")
-        auth_client.add_mutation_condition(
-            role.id, "experiment", target_condition="tags.gate = 'open'"
-        )
+        auth_client.add_condition(role.id, "experiment", type="TARGET", filter="tags.gate = 'open'")
         auth_client.assign_role(writer, role.id)
 
     base = fastapi_client.tracking_uri

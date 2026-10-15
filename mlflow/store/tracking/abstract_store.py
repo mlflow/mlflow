@@ -2178,99 +2178,83 @@ class AbstractStore(SkillRegistryMixin, MCPServerRegistryMixin, GatewayStoreMixi
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def find_failing_resource(
+    def find_satisfying_resources(
         self,
         entity: str,
-        clauses: Sequence[tuple[str, str, str, str | tuple[str, ...]]],
+        clauses: Sequence[tuple[str, str, str, "str | tuple[str, ...]"]],
+        ids: "Sequence[str | tuple[str, ...]]",
+    ) -> "set[str | tuple[str, ...]]":
+        """Return which of ``ids`` satisfy **every** clause.
+
+        An optional pushdown hook for a caller combining conditions with OR, which
+        the removed AND-era probe could not serve: it reported the first id failing one
+        condition, and per-condition answers cannot be intersected into "an id that no
+        condition admits" because a first failure is not the failing set. The satisfying
+        set can be unioned across conditions and subtracted once.
+
+        The union is left to the caller deliberately. Which conditions apply is decided per
+        id -- a condition scoped to a resource pattern governs only some ids in play -- so
+        only the caller knows which sets each id was eligible for.
+
+        Clauses are conjunctive, so this intersects across them. An id satisfies a clause
+        only if it **has** an entry under that key whose value compares true, so an absent
+        tag or alias satisfies nothing, including ``!=`` and ``NOT IN``. An id absent from
+        the store likewise satisfies nothing and is indistinguishable from one that failed
+        a clause -- deliberately, since distinguishing them would reveal which ids exist to
+        a caller who may not read them.
+
+        Raises:
+            NotImplementedError: if the store cannot express a clause for this entity.
+                Declining the whole call is required rather than answering from the clauses
+                it understood, which would judge a conjunction against a subset of itself.
+        """
+        raise NotImplementedError(f"{type(self)} does not support find_satisfying_resources")
+
+    def iter_child_resource_tags(
+        self,
+        entity: str,
+        parent_id: str,
         *,
-        ids: "Sequence[str | tuple[str, ...]] | None" = None,
-        parent_id: "str | None" = None,
+        chunk_size: int,
         max_timestamp_ms: "int | None" = None,
         stage: "str | None" = None,
-    ) -> "str | tuple[str, ...] | None":
-        """Find a resource that fails a conjunctive tag/alias predicate.
+    ):
+        """Yield a parent's children with their tags, a chunk at a time.
 
-        ``max_timestamp_ms`` narrows a ``parent_id`` cascade to the children a mutation
-        will actually reach, and is only valid with that selector. A cascade normally
-        reaches every child, but a predicate-mode mutation reaches a slice -- deleting the
-        traces at or before a timestamp -- and judging it against the whole parent refuses
-        mutations over windows that contain nothing objectionable. A store whose rows for
-        ``entity`` carry no such timestamp must decline rather than ignore the bound.
+        An optional pushdown hook for a caller that must judge every child of a parent
+        against a set of conditions combined with OR, which the removed AND-era probe
+        could not answer. That probe took one conjunctive clause list and reports the first
+        resource failing it; a disjunction asks whether some child is admitted by *no*
+        condition, and that does not decompose into per-condition calls. With children A
+        failing only the first condition and B only the second, each per-condition call
+        finds a victim while no child fails both, so the mutation should be allowed. Nor
+        can the answers be intersected, since each reports only the first failure rather
+        than the failing set.
 
-        An optional pushdown hook for a caller that must decide whether it may mutate
-        a set of resources without loading them. It answers the only question such a
-        caller asks -- "is there one here that fails?" -- so the two ways of naming
-        the set are two selectors on one method rather than two methods:
+        So the combination happens in the caller, over loaded children, and this supplies
+        them. The caller is expected to stop at the first child no condition admits, so a
+        mutation that fails early never loads the rest.
 
-        ``ids``
-            The resources are enumerated by the caller. This is the usual case: a
-            request names what it will touch.
-        ``parent_id``
-            The resources are every child of that parent, and the caller does not
-            know them. A cascading delete or restore reaches rows the request never
-            mentions, and the population may be unbounded, so only the store can
-            answer without enumerating it.
+        ``max_timestamp_ms`` and ``stage`` narrow the population to the children a mutation
+        will actually reach, with the same meaning and the same obligation as the removed
+        AND-era probe carried: a store whose rows for ``entity`` cannot express a
+        bound must decline rather than ignore it, because silently judging the whole parent
+        refuses mutations over windows containing nothing objectionable.
 
-        Exactly one selector must be given; both or neither is a programming error
-        and raises. ``ids`` may be arbitrarily long -- ``DeleteTraces`` caps nothing
-        -- so an implementation must chunk rather than assume a statement can carry
-        the whole list.
+        Cost is proportional to the number of children, unlike the removed AND-era
+        probe. That is the price of the disjunction and is accepted
+        by the caller; ``chunk_size`` bounds how much is held at once, not the total work.
 
-        A clause is a ``(namespace, key, comparator, value)`` tuple, where
-        ``namespace`` is ``"tags"`` or ``"aliases"``, ``comparator`` is one of ``=``,
-        ``!=``, ``LIKE``, ``ILIKE``, ``IN``, ``NOT IN``, and ``value`` is a string,
-        or a tuple for the two list comparators. Clauses are conjunctive: a resource
-        fails if it fails **any** of them.
+        Yields:
+            Lists of ``(resource_id, tags)``, where ``resource_id`` is the child's id --
+            a tuple for a composite key -- and ``tags`` is a ``{key: value}`` mapping. A
+            child with no tags is yielded with an empty mapping rather than skipped: it
+            still has to be judged, and under target semantics an absent tag fails every
+            comparator, so skipping it would permit what a condition forbids.
 
-        Both namespaces are asked in one call deliberately. Answering only the part a
-        store can express would judge a conjunction against a subset of itself -- and
-        the dropped clause is the one that would have denied. A store that cannot
-        express any clause in the list must decline the whole call.
-
-        A resource satisfies a clause only if it **has** an entry under that key whose
-        value compares true. An absent tag or alias therefore satisfies nothing,
-        including ``!=`` and ``NOT IN`` -- such a resource *fails* rather than being
-        vacuously permitted. Note this cannot be implemented by inverting the
-        comparator: with absence failing, the complement of ``!= 'x'`` is not
-        ``= 'x'``, since an untagged resource satisfies neither and must still fail.
-        Asking which resources *satisfy* and negating that set membership is the only
-        formulation that keeps absence failing.
-
-        An id is normally a string. For an entity whose identity is composite -- a
-        model or prompt version, addressed by name *and* version -- the caller passes
-        the parts as a tuple and gets a tuple back. The composite id *format* belongs
-        to the caller, so a store matches parts and never parses a joined id.
-
-        Returns:
-            The first failing resource's id, or ``None`` if every resource satisfies
-            every clause.
-
-            Only ONE id is returned even when several fail. The caller needs a denial
-            and a reason, not an inventory, and stopping at the first lets an
-            implementation skip the rest of an unbounded population.
-
-            There is no third verdict. A store either answers or raises
-            ``NotImplementedError`` -- the caller has no fallback, so returning
-            anything that is not an id must mean *nothing failed*. An earlier design
-            let a store decline and had the caller evaluate the clauses in Python;
-            that made two evaluators of one semantic, where any drift between them is
-            a difference in who may write what.
-
-            An empty ``ids``, an empty ``clauses``, or a parent with no children all
-            return ``None``: nothing can fail. For the parent selector that is
-            vacuous permission rather than a refusal. A *failure* to answer is the
-            raise, never ``None``.
-
-            An implementation that answers MUST agree with
-            :func:`~mlflow.server.auth.conditions.evaluate_resource` on every
-            comparator and on absence. That function survives only to name the clause
-            a denial broke, so a drift is now a wrong *explanation* rather than a
-            wrong verdict -- but it is still a bug.
+        Raises:
+            NotImplementedError: if the store cannot enumerate this entity's children, or
+                cannot express a requested bound. Declining is required rather than
+                returning nothing, because an empty yield reads as "no child objected".
         """
-        raise NotImplementedError(
-            f"{type(self).__name__} cannot answer a target condition. Target conditions are "
-            "evaluated by the store, so they need a SQL tracking/registry backend "
-            "(--backend-store-uri pointing at a database). Value conditions are unaffected "
-            "and work on any backend. Note this is NOT a missing-database problem for the "
-            "auth plugin itself, whose `database_uri` is always configured."
-        )
+        raise NotImplementedError(f"{type(self)} does not support iter_child_resource_tags")

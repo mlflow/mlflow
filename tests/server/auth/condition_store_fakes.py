@@ -32,8 +32,8 @@ def _clauses_of(pushed):
     ]
 
 
-def answering_store(values=None, *, failing_child=None, calls=None):
-    """A store that answers both selectors.
+def answering_store(values=None, *, children=None, calls=None):
+    """A store that answers every selector.
 
     Args:
         values: either a ``{(resource_type, resource_id): ResourceValues}`` mapping or a
@@ -42,13 +42,17 @@ def answering_store(values=None, *, failing_child=None, calls=None):
             matching the real gate, where a missing resource must not read as a vacuous
             pass. The callable form is the faithful stand-in for the deleted
             ``attrs_for_bulk`` patch, which answered for any id a test asked about.
-        failing_child: what the PARENT selector returns -- a child id for "this one fails",
-            or ``None`` for "every child satisfies every clause". The real store answers
-            this with one query and never enumerates, so there is nothing to derive it
-            from; a test that cares states it directly.
-        calls: optional list, appended to with ``("ids", entity, ids)`` or
-            ``("parent", entity, parent_id, max_timestamp_ms)`` so a
-            test can assert which selector was used and how often.
+        children: what the CASCADE loader yields -- either a
+            ``{(resource_type, parent_id): [(child_id, tags), ...]}`` mapping or a callable
+            ``(resource_type, parent_id) -> iterable``. This is the state the gate reaches
+            its own verdict from, which replaced a precomputed one: under OR a single
+            scripted answer cannot express a verdict, because whether a child is a violator
+            depends on whether ANY condition admits it, so the tags have to be real.
+        calls: optional list, appended to with ``("ids", entity, ids)``,
+            ``("satisfying", entity, ids)``,
+            ``("parent", entity, parent_id, max_timestamp_ms, stage)`` or
+            ``("children", entity, parent_id, max_timestamp_ms, stage)`` so a test can
+            assert which selector was used and how often.
     """
     if callable(values):
         resolve = values
@@ -56,35 +60,67 @@ def answering_store(values=None, *, failing_child=None, calls=None):
         state = dict(values or {})
         resolve = lambda entity, resource_id: state.get((entity, resource_id))  # noqa: E731
 
-    def find_failing_resource(
-        entity, clauses, *, ids=None, parent_id=None, max_timestamp_ms=None, stage=None
-    ):
-        if (ids is None) == (parent_id is None):
-            raise ValueError("exactly one of ids or parent_id")
-        if parent_id is not None:
-            # The window is recorded, not applied: these fakes answer with a scripted
-            # failing child rather than holding timestamps. Recording it is what lets a
-            # test assert the bound actually reached the store, which is the whole point
-            # of narrowing a predicate-mode cascade.
-            if calls is not None:
-                calls.append(("parent", entity, parent_id, max_timestamp_ms, stage))
-            return failing_child
-        if max_timestamp_ms is not None:
-            raise ValueError("max_timestamp_ms is only valid with parent_id")
-        if stage is not None:
-            raise ValueError("stage is only valid with parent_id")
+    if callable(children):
+        resolve_children = children
+    else:
+        kids = dict(children or {})
+        # A flat ``[(child, tags), ...]`` list is the easy mistake here, and ``dict()``
+        # accepts it silently -- the lookup then misses and the parent reads as EMPTY,
+        # which is the permissive answer. A cascade test would pass while asserting
+        # nothing. Rejecting the shape turns that into a loud failure.
+        if bad := [k for k in kids if not (isinstance(k, tuple) and len(k) == 2)]:
+            raise TypeError(
+                "children must be keyed by (resource_type, parent_id) or be a callable; "
+                f"got key(s) {bad!r}. A flat [(child, tags), ...] list looks like a "
+                "mapping to dict() but yields an empty population, which ALLOWS."
+            )
+        resolve_children = lambda entity, parent_id: kids.get((entity, parent_id), ())  # noqa: E731
+
+    def find_satisfying_resources(entity, clauses, ids):
+        """Which ids satisfy EVERY clause -- the named-id half under OR.
+
+        Answered with the real :func:`evaluate_resource`, like
+        the real evaluator, so a test keeps exercising production semantics.
+        An id whose state resolves to ``None`` is absent and satisfies nothing, which is
+        how the real store behaves: it is simply not in the satisfying set, and is
+        indistinguishable from one that failed a clause.
+        """
         if calls is not None:
-            calls.append(("ids", entity, tuple(ids)))
+            calls.append(("satisfying", entity, tuple(ids)))
         parsed = _clauses_of(clauses)
+        satisfying = set()
         for resource_id in ids:
             resolved = resolve(entity, resource_id)
-            if resolved is None:
-                return resource_id
-            if not evaluate_resource(parsed, resolved):
-                return resource_id
-        return None
+            if resolved is not None and evaluate_resource(parsed, resolved):
+                satisfying.add(resource_id)
+        return satisfying
 
-    return SimpleNamespace(find_failing_resource=find_failing_resource)
+    def iter_child_resource_tags(
+        entity, parent_id, *, chunk_size, max_timestamp_ms=None, stage=None
+    ):
+        """Yield a parent's children with their tags, a chunk at a time.
+
+        Unlike the removed AND-era parent probe, this cannot be
+        scripted with a single failing child: the gate combines conditions with OR, so the
+        verdict depends on each child's actual tags rather than on one precomputed answer.
+        A test that cares states the children.
+
+        The window and stage are recorded, not applied -- these fakes hold no timestamps --
+        which is what lets a test assert the bound reached the store at all, the whole
+        point of narrowing a predicate-mode cascade.
+        """
+        if chunk_size <= 0:
+            raise ValueError(f"chunk_size must be positive, got {chunk_size}")
+        if calls is not None:
+            calls.append(("children", entity, parent_id, max_timestamp_ms, stage))
+        rows = list(resolve_children(entity, parent_id))
+        for start in range(0, len(rows), chunk_size):
+            yield rows[start : start + chunk_size]
+
+    return SimpleNamespace(
+        find_satisfying_resources=find_satisfying_resources,
+        iter_child_resource_tags=iter_child_resource_tags,
+    )
 
 
 def permissive_store():
@@ -93,5 +129,12 @@ def permissive_store():
     The autouse default: a test about the REQUEST half, or about which conditions are
     selected at all, should not have to model resource state. Previously this role was
     played by a declining store, which reached the same outcome by a different route.
+
+    Every id satisfies, so the gate's ``requested - union(satisfying)`` is empty, and a
+    parent holds no children, so a cascade finds no violator. Both are the permissive
+    answer rather than the empty one -- returning no satisfying ids would deny everything.
     """
-    return SimpleNamespace(find_failing_resource=lambda *a, **k: None)
+    return SimpleNamespace(
+        find_satisfying_resources=lambda entity, clauses, ids: set(ids),
+        iter_child_resource_tags=lambda *a, **k: iter(()),
+    )

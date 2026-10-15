@@ -194,40 +194,126 @@ def resolve_clauses(namespaces, models, clauses):
     return resolved
 
 
-def find_failing_child(store, mapping, parent_id, clauses, extra_filters=()):
-    """Find one child of ``parent_id`` that fails the clauses, without enumerating them.
+def satisfying_named(store, resolved, ids, id_chunk):
+    """Which of these ids satisfy EVERY resolved clause?
 
-    Answers the question a cascading mutation actually asks -- "may I touch all of
-    them?" -- in one ``LIMIT 1`` query, so cost depends on the number of clauses
-    rather than on the number of children.
+    The named-id half of the OR pushdown, and the piece a caller needs once conditions
+    are combined with OR rather than AND. The removed AND-era probe answered "is there
+    an id failing this one condition?", which cannot be composed into
+    "is there an id that no condition admits": it reports the first failure rather than the
+    failing set, so per-condition answers cannot be intersected. Returning the satisfying
+    set instead lets the caller union across conditions and subtract once.
 
-    A child fails if it fails *any* clause, since clauses are conjunctive, so the
-    predicate is a disjunction of ``NOT IN (satisfies)`` subqueries. There is no
-    join here and there must not be one: with absence failing on the target side,
-    the complement of ``!= 'x'`` is not ``= 'x'`` -- an untagged child satisfies
-    neither and must still fail. Asking "which children satisfy" and negating that
-    set membership is the only formulation that keeps absence failing.
+    The union is left to the caller deliberately. Which conditions apply is decided per id
+    -- a condition scoped to a resource pattern governs only some of the ids in play -- so
+    the caller is the only layer that knows, for each id, which sets it was eligible for.
+    A store combining them would have to be told the pattern grain, which is an
+    authorization concept and does not belong here.
 
-    Identity is why this is shared rather than written twice. The subquery yields
-    the child's **discriminator** -- its id columns minus the parent, which the
-    outer query has already fixed -- so a single column suffices even for a
-    composite-keyed child. For a run that discriminator is ``run_uuid``, globally
-    unique, and the parent is irrelevant to the subquery. For a version it is
-    ``version``, unique only *within* one ``name``, so the subquery must carry the
-    parent filter too. That filter is load-bearing, not redundant: without it the
-    satisfying set holds bare version numbers and a sibling model's satisfying
-    version 1 would acquit this model's failing version 1.
+    Clauses are conjunctive within a condition, so this intersects across them. Absence
+    satisfies nothing: an id with no row under a clause's key is simply not in that
+    clause's matched set, and so drops out of the intersection -- including for ``!=`` and
+    ``NOT IN``, where an untagged id must fail rather than be vacuously admitted. That
+    falls out of asking which ids match rather than negating a comparator, which is the
+    same reason the cascade probe asks it that way.
 
-    The query selects the child's full id, so naming the offending child in a
-    denial costs nothing -- it is already the row being tested for existence.
+    Every query goes through ``store._get_query``, so a workspace-aware store scopes the
+    satisfying set. Scoping only part of the question is the dangerous direction: ids
+    judged against out-of-scope tag rows would be admitted by another workspace's tags.
 
-    ``extra_filters`` narrows the population to the children a mutation will actually
-    reach. A cascade usually reaches all of them, but a predicate-mode mutation reaches a
-    slice -- ``DeleteTraces`` deletes traces at or before a timestamp -- and judging it
-    against the whole parent refuses deletes over windows containing nothing objectionable.
-    The filters belong on the OUTER query only: they describe which children are at stake,
-    not which satisfy the condition, and adding them to the satisfying subquery would
-    shrink that set and so fail children the mutation never touches.
+    Returns:
+        The subset of ``ids``, as pushdown keys, satisfying every clause. An id absent from
+        the store satisfies nothing and so is never in the result -- indistinguishable from
+        one that failed a clause, which the caller relies on: a 404 would reveal which ids
+        exist to someone who may not read them.
+    """
+    requested = {as_pushdown_key(i) for i in ids}
+    if not requested:
+        return set()
+    if not resolved:
+        # A condition with no clauses constrains nothing, so every id satisfies it. Not
+        # reachable through authoring, which rejects an empty filter precisely because
+        # under OR it would be an unconditional pass nullifying its siblings.
+        return requested
+
+    dialect = store._get_dialect()
+    satisfying = set(requested)
+    with store.ManagedSessionMaker() as session:
+        equal_key = key_comparison(dialect)
+        for model, id_columns, key_column, value_column, key, comparator, value in resolved:
+            # Ids bind one parameter each -- more for a composite -- and the clause binds
+            # the key plus one per compared value, which for ``IN`` is the whole list.
+            # Subtract those so the backend's cap stays a property of the statement rather
+            # than a limit on how many ids a caller may ask about.
+            clause_params = 1 + (len(value) if isinstance(value, tuple) else 1)
+            chunk_size = max(1, (id_chunk - clause_params) // len(id_columns))
+            # Only ids still in the running are worth asking about: one already dropped by
+            # an earlier clause cannot re-enter the intersection.
+            ordered = sorted(satisfying)
+            matched = set()
+            for start in range(0, len(ordered), chunk_size):
+                chunk = ordered[start : start + chunk_size]
+                rows = (
+                    store
+                    ._get_query(session, model)
+                    .with_entities(*id_columns)
+                    .filter(
+                        id_predicate(id_columns, chunk, dialect),
+                        equal_key(key_column, key),
+                        compare_value(value_column, comparator, value, dialect),
+                    )
+                    .all()
+                )
+                matched.update(as_pushdown_key(tuple(r)) for r in rows)
+            satisfying &= matched
+            if not satisfying:
+                # Nothing satisfies this condition, and the intersection cannot grow.
+                break
+    return satisfying
+
+
+def iter_child_tag_batches(store, mapping, parent_id, chunk_size, extra_filters=()):
+    """Yield ``(child_key, tags)`` for a parent's children, a chunk at a time.
+
+    The cascade half of target evaluation once conditions are alternatives. A child is
+    only a violator when *no* applicable condition admits it, and that question does not
+    decompose into one query per condition: with children A failing only C1 and B failing
+    only C2, a per-condition probe finds a victim for each while no child fails both, so
+    the cascade should be allowed and per-condition probes would refuse it. Asking it as a
+    single combined predicate instead makes one statement carry every condition's bind
+    parameters -- ``sum(clauses + values)`` across all of them, against MSSQL's 2,100 --
+    where the AND form bounded each statement by one condition. So the combination is done
+    in Python over loaded children, and this is the loader.
+
+    Evaluating in Python also collapses the two evaluators into one. The SQL form and
+    :func:`~mlflow.server.auth.conditions.evaluate_resource` had to agree on absence,
+    comparator semantics, ``LIKE``/``ILIKE`` and the MSSQL case-sensitive collation; a
+    divergence between them would be a difference in who may write what. Here only the
+    Python evaluator decides, and absence fails natively because a missing resource
+    attribute fails every comparator including ``!=``.
+
+    Cost is proportional to the number of children, which the single-query form avoided.
+    That is accepted deliberately: the delete this authorizes already enumerates --
+    ``delete_experiment`` loads every run as a full ORM entity and marks each one
+    individually -- so authorization does not change the order of cost, and this loads one
+    id column plus tags rather than whole entities. Chunking bounds the memory held at
+    once, not the total work, and the caller is expected to stop at the first violator, so
+    a cascade that fails early never loads the rest.
+
+    Ids are fetched a chunk at a time ordered by the child's id columns, so an early exit
+    stops the id scan too rather than only the tag loads.
+
+    ``extra_filters`` narrows the population to the children the mutation reaches, exactly
+    as in the cascade loader -- a predicate-mode delete reaches a slice, and
+    judging it against the whole parent would refuse deletes over windows holding nothing
+    objectionable. Here there is no satisfying subquery to keep them off, so they apply to
+    the child query directly.
+
+    Yields:
+        Lists of ``(child_key, tags)``, where ``child_key`` is the child's
+        :func:`as_pushdown_key` identity and ``tags`` is a plain ``{key: value}`` dict.
+        A child with no tags yields an empty dict rather than being skipped -- it still has
+        to be judged, and under target semantics it fails every clause.
     """
     (
         child_model,
@@ -239,72 +325,76 @@ def find_failing_child(store, mapping, parent_id, clauses, extra_filters=()):
         tag_value_name,
         tag_parent_name,
     ) = mapping
-    if not clauses:
-        return None
+    if chunk_size < 1:
+        raise ValueError(f"chunk_size must be at least 1, got {chunk_size!r}")
 
     child_ids = tuple(getattr(child_model, name) for name in child_id_names)
     parent_column = getattr(child_model, parent_name)
-    child_discriminator = tuple(
-        getattr(child_model, name) for name in child_id_names if name != parent_name
-    )
-    tag_discriminator = tuple(
-        getattr(tag_model, name) for name in tag_id_names if name != tag_parent_name
-    )
-    if len(child_discriminator) != len(tag_discriminator):
+    tag_ids = tuple(getattr(tag_model, name) for name in tag_id_names if name != tag_parent_name)
+    child_discriminator_names = tuple(n for n in child_id_names if n != parent_name)
+    if len(tag_ids) != len(child_discriminator_names):
         raise ValueError(
             f"cascade mapping for {child_model.__name__} is inconsistent: the child "
             f"discriminator {child_id_names}-{parent_name!r} and the tag discriminator "
             f"{tag_id_names}-{tag_parent_name!r} must have the same width"
         )
 
-    # No cascade child owns aliases (D18) -- a version's alias list names aliases stored
-    # on its parent -- so an alias clause here has no table to answer from. Raise rather
-    # than ignore it: an ignored clause is a conjunction judged on a subset of itself,
-    # which is the fail-open direction. Unreachable today, since authoring rejects an
-    # `aliases.*` clause on a type that does not own aliases.
-    #
-    # Checked BEFORE the session opens. It is a static property of the clauses, needs no
-    # database, and a raise inside ``ManagedSessionMaker`` is wrapped into an
-    # ``MlflowException`` -- which would disguise a wiring bug as a store error.
-    for namespace, _key, _comparator, _value in clauses:
-        if namespace != "tags":
-            raise cannot_express(store, "a cascade child", f"no child table owns {namespace!r}")
-
-    dialect = store._get_dialect()
     with store.ManagedSessionMaker() as session:
-        fails_a_clause = []
-        equal_key = key_comparison(dialect)
-        for namespace, key, comparator, value in clauses:
-            filters = [
-                equal_key(getattr(tag_model, tag_key_name), key),
-                compare_value(
-                    comparable(getattr(tag_model, tag_value_name)), comparator, value, dialect
-                ),
-            ]
+        offset = 0
+        while True:
+            rows = (
+                store
+                ._get_query(session, child_model)
+                .with_entities(*child_ids)
+                .filter(parent_column == parent_id, *extra_filters)
+                .order_by(*child_ids)
+                .limit(chunk_size)
+                .offset(offset)
+                .all()
+            )
+            if not rows:
+                return
+            offset += len(rows)
+
+            # The discriminator is what the tag table is keyed by: the child's id minus the
+            # parent, which this query has already fixed. For a run that is run_uuid; for a
+            # version it is the bare version number, unique only within one name, which is
+            # why the tag query carries the parent filter too.
+            keyed = {}
+            for row in rows:
+                full = tuple(row)
+                disc = tuple(v for n, v in zip(child_id_names, full) if n != parent_name)
+                keyed[disc] = as_pushdown_key(full)
+
+            tag_filters = [_member_of_values(tag_ids, list(keyed))]
             if tag_parent_name is not None:
-                filters.append(getattr(tag_model, tag_parent_name) == parent_id)
-            # Built through ``_get_query`` like the outer query, so a workspace-aware
-            # store scopes the satisfying set too. Scoping only the outer half is the
-            # dangerous direction: children would be read in-scope but judged against
-            # out-of-scope tag rows. It matters most on the registry, whose tables are
-            # keyed by *name* and so are not unique across workspaces.
-            satisfies = (
+                tag_filters.append(getattr(tag_model, tag_parent_name) == parent_id)
+            tags_by_child = {disc: {} for disc in keyed}
+            tag_rows = (
                 store
                 ._get_query(session, tag_model)
-                .with_entities(*tag_discriminator)
-                .filter(*filters)
-                .scalar_subquery()
+                .with_entities(
+                    *tag_ids, getattr(tag_model, tag_key_name), getattr(tag_model, tag_value_name)
+                )
+                .filter(*tag_filters)
+                .all()
             )
-            fails_a_clause.append(~_member_of(child_discriminator, satisfies))
-        found = (
-            store
-            ._get_query(session, child_model)
-            .with_entities(*child_ids)
-            .filter(parent_column == parent_id, *extra_filters, sqlalchemy.or_(*fails_a_clause))
-            .limit(1)
-            .first()
-        )
-    return None if found is None else as_pushdown_key(tuple(found))
+            for tag_row in tag_rows:
+                disc = tuple(tag_row[: len(tag_ids)])
+                key = tag_row[len(tag_ids)]
+                value = tag_row[len(tag_ids) + 1]
+                tags_by_child.setdefault(disc, {})[key] = value
+
+            yield [(keyed[disc], tags_by_child[disc]) for disc in keyed]
+            if len(rows) < chunk_size:
+                return
+
+
+def _member_of_values(columns, keys):
+    """``columns IN keys`` for a single column, or a row-value IN for a composite."""
+    if len(columns) == 1:
+        return columns[0].in_([k[0] for k in keys])
+    return sqlalchemy.tuple_(*columns).in_([tuple(k) for k in keys])
 
 
 def _member_of(columns, subquery):

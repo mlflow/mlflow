@@ -286,12 +286,15 @@ from mlflow.server.asgi_utils import get_routed_asgi_path
 from mlflow.server.auth import resources as auth_resources
 from mlflow.server.auth.conditions import (
     _VERSION_RESOURCE_TYPES,
+    CONDITION_TYPE_TARGET,
+    CONDITION_TYPE_VALUE,
     CONTAINER_WORKSPACE,
     NAMESPACE_REQUEST,
     NAMESPACE_RESOURCE,
     PARENT_RESOURCE_TYPES,
     RESOURCE_PREFIX_ALIASES,
     RESOURCE_PREFIX_TAGS,
+    RESOURCE_VALUES_SHAPES,
     SUPPORTED_RESOURCE_TYPES,
     WILDCARD_PATTERN,
     ConditionContext,
@@ -371,26 +374,26 @@ from mlflow.server.auth.requirements import (
     requirement_to_grant_load_keys as requirement_to_grant_load_keys,
 )
 from mlflow.server.auth.routes import (
-    ADD_MUTATION_CONDITIONS,
+    ADD_CONDITIONS,
     ADD_ROLE_PERMISSION,
-    ADD_USER_MUTATION_CONDITION,
-    AJAX_ADD_MUTATION_CONDITIONS,
+    ADD_USER_CONDITION,
+    AJAX_ADD_CONDITIONS,
     AJAX_ADD_ROLE_PERMISSION,
-    AJAX_ADD_USER_MUTATION_CONDITION,
+    AJAX_ADD_USER_CONDITION,
     AJAX_ASSIGN_ROLE,
     AJAX_CREATE_ROLE,
     AJAX_CREATE_USER,
     AJAX_DELETE_ROLE,
     AJAX_DELETE_USER,
+    AJAX_GET_CONDITIONS,
     AJAX_GET_CURRENT_USER,
-    AJAX_GET_MUTATION_CONDITIONS,
     AJAX_GET_ROLE,
     AJAX_GET_USER,
     AJAX_GET_USER_PERMISSION,
     AJAX_GRANT_USER_PERMISSION,
-    AJAX_LIST_CURRENT_USER_MUTATION_CONDITIONS,
+    AJAX_LIST_CONDITIONS,
+    AJAX_LIST_CURRENT_USER_CONDITIONS,
     AJAX_LIST_CURRENT_USER_PERMISSIONS,
-    AJAX_LIST_MUTATION_CONDITIONS,
     AJAX_LIST_ROLE_PERMISSIONS,
     AJAX_LIST_ROLE_USERS,
     AJAX_LIST_ROLES,
@@ -399,11 +402,11 @@ from mlflow.server.auth.routes import (
     AJAX_LIST_USERS,
     AJAX_ONLINE_SCORING_CONFIG,
     AJAX_ONLINE_SCORING_CONFIGS,
-    AJAX_REMOVE_MUTATION_CONDITIONS,
+    AJAX_REMOVE_CONDITIONS,
     AJAX_REMOVE_ROLE_PERMISSION,
     AJAX_REVOKE_USER_PERMISSION,
     AJAX_UNASSIGN_ROLE,
-    AJAX_UPDATE_MUTATION_CONDITIONS,
+    AJAX_UPDATE_CONDITIONS,
     AJAX_UPDATE_ROLE,
     AJAX_UPDATE_ROLE_PERMISSION,
     AJAX_UPDATE_USER_ADMIN,
@@ -423,12 +426,12 @@ from mlflow.server.auth.routes import (
     GATEWAY_SUPPORTED_MODELS,
     GATEWAY_SUPPORTED_PROVIDERS,
     GET_ARTIFACT,
+    GET_CONDITIONS,
     GET_CURRENT_USER,
     GET_METRIC_HISTORY_BULK,
     GET_METRIC_HISTORY_BULK_INTERVAL,
     GET_METRIC_HISTORY_BULK_INTERVAL_REST,
     GET_MODEL_VERSION_ARTIFACT,
-    GET_MUTATION_CONDITIONS,
     GET_ROLE,
     GET_TRACE_ARTIFACT,
     GET_TRACE_ARTIFACT_V3,
@@ -441,9 +444,9 @@ from mlflow.server.auth.routes import (
     INVOKE_SCORER,
     JOB_CANCEL,
     JOB_GET,
-    LIST_CURRENT_USER_MUTATION_CONDITIONS,
+    LIST_CONDITIONS,
+    LIST_CURRENT_USER_CONDITIONS,
     LIST_CURRENT_USER_PERMISSIONS,
-    LIST_MUTATION_CONDITIONS,
     LIST_ROLE_PERMISSIONS,
     LIST_ROLE_USERS,
     LIST_ROLES,
@@ -452,7 +455,7 @@ from mlflow.server.auth.routes import (
     LIST_USERS,
     ONLINE_SCORING_CONFIG,
     ONLINE_SCORING_CONFIGS,
-    REMOVE_MUTATION_CONDITIONS,
+    REMOVE_CONDITIONS,
     REMOVE_ROLE_PERMISSION,
     REVOKE_USER_PERMISSION,
     SEARCH_DATASETS,
@@ -460,7 +463,7 @@ from mlflow.server.auth.routes import (
     SIGNUP,
     UI_TELEMETRY,
     UNASSIGN_ROLE,
-    UPDATE_MUTATION_CONDITIONS,
+    UPDATE_CONDITIONS,
     UPDATE_ROLE,
     UPDATE_ROLE_PERMISSION,
     UPDATE_USER_ADMIN,
@@ -551,7 +554,7 @@ from mlflow.utils.validation import (
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 if TYPE_CHECKING:
-    from mlflow.server.auth.sqlalchemy_store import MutationConditionRow
+    from mlflow.server.auth.sqlalchemy_store import ConditionRow
 
 try:
     from flask_wtf.csrf import CSRFProtect
@@ -1079,13 +1082,19 @@ def authorize(
     conditions: "Sequence[ConditionContext]" = (),
     workspace: "str | None" = None,
 ) -> bool:
-    """Allow only if EVERY requirement is met, and every applicable condition passes.
+    """Allow only if EVERY requirement is met, and every applicable condition group has
+    a passing member.
 
     The two halves are not symmetric and must stay in this order. Grants *add*: the
     requirements decide whether the operation is permitted at all. Conditions
-    *subtract*: they can only narrow what a grant already allowed, never widen it. So
-    the requirement check runs first and a failure returns without loading a single
-    condition or reading a single resource.
+    *subtract*: the condition mechanism can only narrow what a grant already allowed,
+    never confer access. So the requirement check runs first and a failure returns
+    without loading a single condition or reading a single resource.
+
+    Note that "subtract" describes conditions against grants, not conditions against
+    each other. Within a type, conditions are alternatives -- so adding one *widens*
+    what the role may do relative to its siblings, while the set as a whole still only
+    ever subtracts from the grant.
 
     ``conditions`` defaults to empty, which is exactly today's behaviour -- an operation
     that declares none is unaffected, which is what lets the existing call sites stay
@@ -1127,7 +1136,7 @@ def authorize_on_conditions(
     workspace: "str | None",
     contexts: "Sequence[ConditionContext]",
 ) -> bool:
-    """Evaluate this user's mutation conditions, recording the reason for a denial.
+    """Evaluate this user's conditions, recording the reason for a denial.
 
     The reason is recorded HERE, around the whole evaluation, rather than at each of the
     several ``return False`` points inside it -- a denial added later is then covered
@@ -1254,7 +1263,7 @@ def _target_denial_detail(context, row, resource_id) -> "str | None":
         return None
     if values is None:
         return None
-    for clause in _parsed_condition(row.target_condition, NAMESPACE_RESOURCE):
+    for clause in _parsed_condition(row.filter, NAMESPACE_RESOURCE):
         if not evaluate_resource([clause], values):
             return (
                 f"'{_clause_display(clause)}' on {context.resource_type} "
@@ -1279,28 +1288,56 @@ class _TargetPushdownUnsupported(Exception):
     """
 
 
+#: How many children a cascade judges per store round trip. Bounds memory held at once,
+#: not total work -- the cascade is proportional to child count by design (see
+#: :func:`_cascade_target_pushdown`). Sized so one batch is a modest query rather than
+#: tuned: the early exit, not the batch size, is what makes a failing cascade cheap.
+_CASCADE_CHUNK_SIZE = 500
+
+
 def _cascade_target_pushdown(context, target_rows, *, parent_id, max_timestamp_ms=None, stage=None):
-    """Ask the store whether a parent holds a child failing one of this context's rows.
+    """Ask whether a parent holds a child that NO target condition admits.
 
     The cascade half of target evaluation. A cascade reaches children the request never
-    named and the caller cannot enumerate cheaply or at all, so the population is named by
-    its parent and the store answers with at most the first failing child -- their ids are
-    never listed. Named-id contexts take the other path,
-    :func:`_batched_target_pushdown`, which can union them into one call per row.
+    named, so the population is named by its parent, and the mutation may proceed exactly
+    when every child is admitted by at least one applicable condition.
 
-    Each row is a separate condition and all must hold, so each is asked separately and
-    the first failure settles it. A row whose clauses the store cannot express declines the
-    whole context: asking only the rows it understood would judge the conjunction against a
-    subset of itself, and there is no fallback left to evaluate the rest.
+    Evaluated in Python over loaded children rather than pushed into SQL, which is a
+    change from the AND-combined design and is forced by the disjunction:
+
+    - It does not decompose into one query per condition. With children A failing only C1
+      and B failing only C2, a per-condition probe finds a victim for each while no child
+      fails both -- the cascade should be allowed, and per-condition probes would refuse
+      it. Nor can their answers be intersected, since each returns the first failing child
+      rather than the failing set.
+    - Asked as one combined predicate, a single statement carries every condition's bind
+      parameters -- ``sum(clauses + values)`` across all applicable conditions, against
+      MSSQL's 2,100 -- where the AND form bounded each statement by one condition.
+
+    It also leaves one evaluator instead of two. The pushdown and
+    :func:`evaluate_resource` had to agree on absence, comparator semantics,
+    ``LIKE``/``ILIKE`` and the MSSQL case-sensitive collation; a divergence between them
+    would be a difference in who may write what. Here only the Python evaluator decides,
+    and absence fails natively -- a child missing a tag fails every comparator including
+    ``!=``, so an untagged child is still a violator.
+
+    The cost is proportional to the number of children, which the single-query form
+    avoided. Accepted deliberately: the delete this authorizes already enumerates --
+    ``delete_experiment`` loads every run as a full ORM entity and marks each one
+    individually -- so authorizing does not change the order of cost. Children are loaded
+    a chunk at a time and the scan stops at the first violator, so a cascade that fails
+    early never loads the rest.
 
     Returns:
-        ``None`` if every child satisfies every row, or a ``(row, resource_id)`` pair naming
-        the condition that refused and the child that broke it. That pair is the whole
-        reason this returns more than a boolean: it is what lets the denial say which.
+        ``None`` if every child is admitted by some condition, including the vacuous case
+        where the parent holds no children of this type. Otherwise a
+        ``(row, resource_id)`` pair naming the child that no condition admitted and the
+        condition to report it against -- the first one that refused it, in the order the
+        rows were loaded.
 
-        There is no third answer. A store that cannot express the predicate raises, and so
-        does this function -- the fallback that used to load every resource and evaluate the
-        clauses in Python is gone.
+        There is no third answer. A store that cannot enumerate this entity's children, or
+        cannot express a requested bound, raises rather than yielding nothing: an empty
+        yield reads as "no child objected", which is the fail-open direction.
     """
     if parent_id is None:
         # The gate picks the selector and refuses a context offering neither, because then
@@ -1312,27 +1349,12 @@ def _cascade_target_pushdown(context, target_rows, *, parent_id, max_timestamp_m
             "resources nor a parent must be refused by the caller, not asked about"
         )
 
-    pushed_rows = []
+    parsed = []
     for row in target_rows:
-        clauses = _pushable_clauses(_parsed_condition(row.target_condition, NAMESPACE_RESOURCE))
-        if clauses is None:
-            # Unreachable: authoring rejects a clause outside the two resource namespaces,
-            # and a stored row has been through it. Loud rather than silent, because with
-            # no fallback left, skipping the row would permit what it forbids.
-            raise NotImplementedError(
-                f"target condition {row.target_condition!r} on "
-                f"{context.resource_type!r} has a clause that cannot be pushed down"
-            )
-        pushed_rows.append((row, clauses))
-
-    store_ = _condition_store(context.resource_type)
-    for row, clauses in pushed_rows:
-        # A row naming one resource cannot be pushed over a cascade: its clauses apply to
-        # that one child, and a query over "any child" would charge them against every
-        # sibling. Unreachable today -- every cascade-reachable type (run, trace, logged
-        # model, and the three version types) is wildcard-only, so such a row cannot be
-        # authored -- but a future tier with id-grain patterns would otherwise fail
-        # silently and in the fail-open direction.
+        # A row naming one resource cannot be judged over a cascade: its clauses apply to
+        # that one child, and charging them against every sibling would deny far more than
+        # the admin wrote. Unreachable today -- every cascade-reachable type is
+        # wildcard-only -- but a future id-grain tier would otherwise fail silently.
         if row.resource_pattern != WILDCARD_PATTERN:
             raise NotImplementedError(
                 f"a cascade on {context.resource_type!r} cannot be judged against "
@@ -1340,20 +1362,49 @@ def _cascade_target_pushdown(context, target_rows, *, parent_id, max_timestamp_m
                 "apply to one child, and a query over 'any child' would charge them "
                 "against every sibling"
             )
-        try:
-            failing = store_.find_failing_resource(
-                context.resource_type,
-                clauses,
-                parent_id=parent_id,
-                max_timestamp_ms=max_timestamp_ms,
-                stage=stage,
-            )
-        except NotImplementedError as e:
-            raise _TargetPushdownUnsupported(str(e)) from e
-        if failing is not None:
-            # The children were never enumerated, so there is no id mapping to invert --
-            # the store's key has to be converted back.
-            return (row, _condition_resource_id(context.resource_type, failing))
+        parsed.append((row, _parsed_condition(row.filter, NAMESPACE_RESOURCE)))
+
+    if not parsed:
+        # No applicable TARGET condition: the type is unconstrained here. Returning None
+        # rather than treating it as universally failing -- the inverted reading would deny
+        # every cascade on a type nobody wrote a condition for.
+        return None
+
+    shape = RESOURCE_VALUES_SHAPES.get(context.resource_type)
+    if shape is None:
+        raise NotImplementedError(
+            f"{context.resource_type!r} has no resource-values shape, so a loaded child "
+            "cannot be judged; refusing rather than skipping the condition"
+        )
+
+    store_ = _condition_store(context.resource_type)
+    try:
+        batches = store_.iter_child_resource_tags(
+            context.resource_type,
+            parent_id,
+            chunk_size=_CASCADE_CHUNK_SIZE,
+            max_timestamp_ms=max_timestamp_ms,
+            stage=stage,
+        )
+        for batch in batches:
+            for key, tags in batch:
+                resource_id = _condition_resource_id(context.resource_type, key)
+                values = shape(resource_id=resource_id, tags=tags)
+                failed = None
+                for row, clauses in parsed:
+                    if evaluate_resource(clauses, values):
+                        # Admitted by this alternative. Nothing else about this child
+                        # matters -- stop before judging it against the rest.
+                        break
+                    if failed is None:
+                        # Keep the FIRST refusal only, and report it only if every
+                        # alternative goes on to refuse too.
+                        failed = row
+                else:
+                    # No condition admitted this child.
+                    return (failed, resource_id)
+    except NotImplementedError as e:
+        raise _TargetPushdownUnsupported(str(e)) from e
     return None
 
 
@@ -1382,18 +1433,34 @@ def _batched_target_pushdown(named):
     - **Unpushable rows refuse wholesale.** Every applicable row is parsed before any query
       runs, so a row the store cannot express declines the whole request rather than
       letting the rows it understood judge a subset of the conjunction.
-    - **First failure settles it.** The store returns one id, and the walk stops there.
+    - **An id is judged against its OWN applicable rows.** Conditions are alternatives, so
+      a resource may proceed when at least one row governing it admits it. Which rows
+      govern an id differs per id -- a row scoped to a resource pattern governs only some
+      of them -- so the verdict is reached per id, over the rows that applied to it, after
+      every row's satisfying set is known. A row governing an id that admits nothing else
+      cannot be skipped, and a row governing no ids here says nothing at all.
 
     Returns:
-        ``None`` if every named resource satisfies every row, or a
-        ``(context, row, resource_id)`` triple. The context travels with the answer
-        because attribution needs it and the union has mixed several together.
+        ``None`` if every named resource is admitted by at least one row that governs it,
+        including a resource no row governs -- that is unconstrained, not universally
+        failing. Otherwise a ``(context, row, resource_id)`` triple naming the resource no
+        row admitted and the first governing row that refused it. The context travels with
+        the answer because attribution needs it and the union has mixed several together.
     """
-    # (resource_type, row) -> {store key: (resource_id, context)}
+    # (resource_type, row) -> {store key: None} -- one query's worth of ids.
     #
-    # Insertion-ordered so evaluation order is deterministic: with two failing rows, the
+    # A dict used as an ordered set: membership is the question, but the ids reach the
+    # store as a list, and a nondeterministic order would make one request compile to
+    # different statements on different runs.
+    #
+    # Insertion-ordered so evaluation order is deterministic: with two refusing rows, the
     # denial should name the same one on every identical request.
     grouped: "dict[tuple, dict]" = {}
+    # (resource_type, store key) -> (resource_id, context, [rows governing it])
+    #
+    # The verdict is reached here rather than per row, because conditions are alternatives
+    # and an id is admitted by ANY row governing it.
+    candidates: "dict[tuple, tuple]" = {}
     for context, target_rows in named:
         for row in target_rows:
             bucket = grouped.setdefault((context.resource_type, row), {})
@@ -1401,48 +1468,58 @@ def _batched_target_pushdown(named):
                 if not _row_governs(row, resource_id):
                     continue
                 key = _condition_pushdown_key(context.resource_type, resource_id)
+                bucket[key] = None
                 # First context wins for attribution. An id belongs to one parent, so two
                 # contexts naming it agree about the container; the choice only affects
                 # which context the denial quotes, and they are equivalent.
-                bucket.setdefault(key, (resource_id, context))
+                entry = candidates.setdefault(
+                    (context.resource_type, key), (resource_id, context, [])
+                )
+                entry[2].append(row)
 
     # Parse everything first: an unpushable row must refuse before any query is issued.
     parsed = []
     for (resource_type, row), bucket in grouped.items():
-        clauses = _pushable_clauses(_parsed_condition(row.target_condition, NAMESPACE_RESOURCE))
+        clauses = _pushable_clauses(_parsed_condition(row.filter, NAMESPACE_RESOURCE))
         if clauses is None:
             # Unreachable: authoring rejects a clause outside the two resource namespaces,
             # and a stored row has been through it. Loud rather than silent, because with
             # no fallback left, skipping the row would permit what it forbids.
             raise NotImplementedError(
-                f"target condition {row.target_condition!r} on {resource_type!r} has a "
+                f"target condition {row.filter!r} on {resource_type!r} has a "
                 "clause that cannot be pushed down"
             )
         parsed.append((resource_type, row, bucket, clauses))
 
+    # (resource_type, row) -> the ids it admits. Collected in full before any verdict,
+    # because a resource is only a violator once EVERY row governing it has refused.
+    admitted: "dict[tuple, set]" = {}
     for resource_type, row, bucket, clauses in parsed:
         if not bucket:
             # This row governs none of the ids in play, so it has nothing to say here.
             continue
         try:
-            failing = _condition_store(resource_type).find_failing_resource(
-                resource_type, clauses, ids=list(bucket)
-            )
+            admitted[(resource_type, row)] = _condition_store(
+                resource_type
+            ).find_satisfying_resources(resource_type, clauses, list(bucket))
         except NotImplementedError as e:
             raise _TargetPushdownUnsupported(str(e)) from e
-        if failing is None:
-            continue
-        # The id either failed a clause or does not exist. Both deny, and deliberately
-        # indistinguishably -- a 404 here would reveal which ids exist to a caller who
-        # may not read them.
-        resource_id, context = bucket.get(failing, (None, None))
-        if context is None:
-            # The store named something outside the asked set, which should not happen;
-            # convert rather than quote a raw tuple at the caller. Any context of this
-            # type will do for attribution -- they share the type and the row.
-            resource_id = _condition_resource_id(resource_type, failing)
-            context = next(c for c, _ in named if c.resource_type == resource_type)
-        return (context, row, resource_id)
+
+    for (resource_type, key), (resource_id, context, rows) in candidates.items():
+        refused = None
+        for row in rows:
+            if key in admitted.get((resource_type, row), ()):
+                # Admitted by this alternative; nothing else about this id matters.
+                refused = None
+                break
+            if refused is None:
+                # Keep the FIRST refusal, reported only if every alternative refuses too.
+                refused = row
+        if refused is not None:
+            # The id either satisfied no condition or does not exist. Both deny, and
+            # deliberately indistinguishably -- a 404 here would reveal which ids exist
+            # to a caller who may not read them.
+            return (context, refused, resource_id)
     return None
 
 
@@ -1473,7 +1550,7 @@ def _authorize_on_conditions(
     workspace: "str | None",
     contexts: "Sequence[ConditionContext]",
 ) -> bool:
-    """Do the mutation conditions on this user's roles permit the operation?
+    """Do the conditions on this user's roles permit the operation?
 
     The other half of the decision from :func:`authorize`. Grants add and conditions
     subtract, so this is only ever consulted *after* a base grant check has already
@@ -1501,7 +1578,7 @@ def _authorize_on_conditions(
         # loading conditions from the wrong workspace could silently skip one.
         return False
 
-    rows = store.list_mutation_conditions_for_user(
+    rows = store.list_conditions_for_user(
         user.id,
         workspace,
         condition_load_types(contexts),
@@ -1523,7 +1600,7 @@ def _authorize_on_conditions(
     if store.is_workspace_admin(user.id, workspace):
         return True
 
-    by_type: dict[str, list["MutationConditionRow"]] = {}
+    by_type: dict[str, list["ConditionRow"]] = {}
     for row in rows:
         by_type.setdefault(row.resource_type, []).append(row)
 
@@ -1547,12 +1624,18 @@ def _authorize_on_conditions(
             and row.container_resource_pattern == context.parent_resource_id
         )
 
-    results: list[bool] = []
+    # One group per context: the applicable VALUE conditions for that context are
+    # alternatives, so any one of them passing passes the context. A context with no
+    # applicable VALUE condition contributes NO group -- its values are unconstrained,
+    # and an empty group would read as a denial.
+    value_groups: list[list[bool]] = []
 
     # Request conditions first: pure, no I/O, and a denial here saves the resource read.
     for context in contexts:
+        group: list[bool] = []
+        denials = []
         for row in by_type.get(context.resource_type, ()):
-            if row.value_condition is None:
+            if row.condition_type != CONDITION_TYPE_VALUE:
                 continue
             if not applies_within(row, context):
                 continue
@@ -1564,20 +1647,30 @@ def _authorize_on_conditions(
                 and row.resource_pattern not in context.resource_ids
             ):
                 continue
-            clauses = _parsed_condition(row.value_condition, NAMESPACE_REQUEST)
+            clauses = _parsed_condition(row.filter, NAMESPACE_REQUEST)
             permitted = evaluate_request(clauses, context.request)
+            group.append(permitted)
             if not permitted:
-                # Attribute before recording the verdict, so the 403 can name the
-                # clause. Free here: the request's values are already in hand.
-                auth_resources.note_condition_denial(_value_denial_detail(clauses, context.request))
-            results.append(permitted)
-    if not combine(results):
+                # Hold the attribution rather than recording it now. Under OR a failing
+                # alternative is not a denial -- a sibling may still permit the request --
+                # so noting it here would name a clause in a 403 that never happened, and
+                # would describe the operation as blocked by a condition that was
+                # overruled. Only report once the whole group has failed.
+                denials.append(_value_denial_detail(clauses, context.request))
+        if not group:
+            continue
+        if not any(group):
+            # Every alternative refused. Now the attribution is real; report the first,
+            # which is the lowest-slot condition and so the one an admin sees first.
+            auth_resources.note_condition_denial(denials[0])
+        value_groups.append(group)
+    if not combine(value_groups):
         return False
 
     types_with_target = frozenset(
         resource_type
         for resource_type, type_rows in by_type.items()
-        if any(row.target_condition is not None for row in type_rows)
+        if any(row.condition_type == CONDITION_TYPE_TARGET for row in type_rows)
     )
     if not needs_resource_values(contexts, types_with_target):
         return True
@@ -1592,7 +1685,7 @@ def _authorize_on_conditions(
         target_rows = [
             row
             for row in by_type.get(context.resource_type, ())
-            if row.target_condition is not None and applies_within(row, context)
+            if row.condition_type == CONDITION_TYPE_TARGET and applies_within(row, context)
         ]
         if not target_rows:
             continue
@@ -1670,7 +1763,11 @@ def _authorize_on_conditions(
             auth_resources.note_condition_denial(_target_denial_detail(context, row, failing_id))
             return False
 
-    return combine(results)
+    # Reaching here means no TARGET condition refused. The target path does not collect
+    # per-resource booleans for `combine` to weigh: it pushes the predicate into SQL and
+    # denies in place, naming the resource and clause that failed.
+    #
+    return True
 
 
 class RetentionGate:
@@ -2101,9 +2198,7 @@ def _artifact_proxy_child(artifact_path: "str | None", action: str):
     )
     covers_experiment = _artifact_proxy_covers_experiment(target.relative_path)
     if not child_types:
-        return _artifact_proxy_target(
-            (), target.experiment_id, covers_experiment=covers_experiment
-        )
+        return _artifact_proxy_target((), target.experiment_id, covers_experiment=covers_experiment)
     return _artifact_proxy_target(
         child_types,
         target.experiment_id,
@@ -4537,7 +4632,7 @@ def _get_role_workspace_from_request() -> str | None:
     Resolve the workspace the request is targeting for role-authorization purposes.
 
     Requests identify a role either directly (``role_id``), indirectly via a role
-    permission (``role_permission_id``) or a mutation condition (``condition_id``), or
+    permission (``role_permission_id``) or a condition (``condition_id``), or
     by supplying ``workspace`` on create. Returns ``None`` if the referenced
     role/role_permission/condition does not exist — callers (validators) should treat
     that as unauthorized rather than leaking existence via a 404.
@@ -4566,14 +4661,12 @@ def _get_role_workspace_from_request() -> str | None:
             )
             return store.get_role(rp.role_id).workspace
         if "condition_id" in params:
-            # A mutation condition is addressed by its own id, so the owning role --
+            # A condition is addressed by its own id, so the owning role --
             # and therefore the workspace whose admin may manage it -- has to be
             # resolved through it. Without this branch the role-management check
             # cannot run at all for these routes, and a workspace admin is refused
             # with a malformed-request error rather than being authorized.
-            mc = store.get_mutation_condition(
-                _coerce_int_param("condition_id", params["condition_id"])
-            )
+            mc = store.get_condition(_coerce_int_param("condition_id", params["condition_id"]))
             return store.get_role(mc.role_id).workspace
     except MlflowException as e:
         if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
@@ -4612,14 +4705,14 @@ def validate_can_manage_user_conditions():
     fix.
 
     The workspace is resolved the way the store's write path resolves it
-    (``add_user_mutation_condition`` -> ``_get_active_workspace_name``), because the two
+    (``add_user_condition`` -> ``_get_active_workspace_name``), because the two
     halves must agree about which workspace is being written to.
     """
     username = authenticate_request().username
     user = store.get_user(username)
     if user.is_admin:
         return True
-    workspace = _wildcard_grant_workspace()
+    workspace = _request_auth_workspace()
     if workspace is None:
         return False
     return _is_workspace_admin(user.id, workspace)
@@ -7093,8 +7186,8 @@ BEFORE_REQUEST_VALIDATORS.update({
     # Open for the same reason: the handler reads the subject from the authenticated
     # caller rather than a parameter, so it can only ever return the caller's own
     # conditions. There is nothing to authorize beyond being logged in.
-    (LIST_CURRENT_USER_MUTATION_CONDITIONS, "GET"): lambda: True,
-    (AJAX_LIST_CURRENT_USER_MUTATION_CONDITIONS, "GET"): lambda: True,
+    (LIST_CURRENT_USER_CONDITIONS, "GET"): lambda: True,
+    (AJAX_LIST_CURRENT_USER_CONDITIONS, "GET"): lambda: True,
     (LIST_USERS, "GET"): validate_can_list_users,
     (AJAX_LIST_USERS, "GET"): validate_can_list_users,
     (CREATE_USER, "POST"): validate_can_create_user,
@@ -7127,20 +7220,20 @@ BEFORE_REQUEST_VALIDATORS.update({
     (AJAX_LIST_ROLE_PERMISSIONS, "GET"): validate_can_view_roles,
     (UPDATE_ROLE_PERMISSION, "PATCH"): validate_can_manage_roles,
     (AJAX_UPDATE_ROLE_PERMISSION, "PATCH"): validate_can_manage_roles,
-    # Mutation conditions are part of a role's definition, so they carry the same
+    # Conditions are part of a role's definition, so they carry the same
     # authorization as role permissions: manage to author, view to read.
-    (ADD_MUTATION_CONDITIONS, "POST"): validate_can_manage_roles,
-    (AJAX_ADD_MUTATION_CONDITIONS, "POST"): validate_can_manage_roles,
-    (ADD_USER_MUTATION_CONDITION, "POST"): validate_can_manage_user_conditions,
-    (AJAX_ADD_USER_MUTATION_CONDITION, "POST"): validate_can_manage_user_conditions,
-    (GET_MUTATION_CONDITIONS, "GET"): validate_can_view_roles,
-    (AJAX_GET_MUTATION_CONDITIONS, "GET"): validate_can_view_roles,
-    (UPDATE_MUTATION_CONDITIONS, "PATCH"): validate_can_manage_roles,
-    (AJAX_UPDATE_MUTATION_CONDITIONS, "PATCH"): validate_can_manage_roles,
-    (REMOVE_MUTATION_CONDITIONS, "DELETE"): validate_can_manage_roles,
-    (AJAX_REMOVE_MUTATION_CONDITIONS, "DELETE"): validate_can_manage_roles,
-    (LIST_MUTATION_CONDITIONS, "GET"): validate_can_view_roles,
-    (AJAX_LIST_MUTATION_CONDITIONS, "GET"): validate_can_view_roles,
+    (ADD_CONDITIONS, "POST"): validate_can_manage_roles,
+    (AJAX_ADD_CONDITIONS, "POST"): validate_can_manage_roles,
+    (ADD_USER_CONDITION, "POST"): validate_can_manage_user_conditions,
+    (AJAX_ADD_USER_CONDITION, "POST"): validate_can_manage_user_conditions,
+    (GET_CONDITIONS, "GET"): validate_can_view_roles,
+    (AJAX_GET_CONDITIONS, "GET"): validate_can_view_roles,
+    (UPDATE_CONDITIONS, "PATCH"): validate_can_manage_roles,
+    (AJAX_UPDATE_CONDITIONS, "PATCH"): validate_can_manage_roles,
+    (REMOVE_CONDITIONS, "DELETE"): validate_can_manage_roles,
+    (AJAX_REMOVE_CONDITIONS, "DELETE"): validate_can_manage_roles,
+    (LIST_CONDITIONS, "GET"): validate_can_view_roles,
+    (AJAX_LIST_CONDITIONS, "GET"): validate_can_view_roles,
     (ASSIGN_ROLE, "POST"): validate_can_manage_roles,
     (AJAX_ASSIGN_ROLE, "POST"): validate_can_manage_roles,
     (UNASSIGN_ROLE, "DELETE"): validate_can_manage_roles,
@@ -8035,7 +8128,7 @@ def update_role_permission():
     return jsonify({"role_permission": rp.to_json()})
 
 
-# ---- Mutation conditions (condition-based access control) ----
+# ---- Conditions (condition-based access control) ----
 #
 # Addressed by (role_id, resource_type), the natural key. Every route carries
 # ``role_id``, so ``_get_role_workspace_from_request`` already resolves the
@@ -8043,37 +8136,40 @@ def update_role_permission():
 
 
 @catch_mlflow_exception
-def add_mutation_conditions():
+def add_conditions():
     role_id = _get_int_request_param("role_id")
     resource_type = _get_request_param("resource_type")
     params = _request_params()
-    mc = store.add_mutation_condition(
+    mc = store.add_condition(
         role_id,
         resource_type,
         resource_pattern=_optional_condition_param(params, "resource_pattern"),
         container_resource_type=_optional_condition_param(params, "container_resource_type"),
         container_resource_pattern=_optional_condition_param(params, "container_resource_pattern"),
-        value_condition=_optional_condition_param(params, "value_condition"),
-        target_condition=_optional_condition_param(params, "target_condition"),
+        condition_type=_get_request_param("type"),
+        filter=_get_request_param("filter"),
     )
-    return jsonify({"mutation_conditions": mc.to_json()})
+    return jsonify({"conditions": mc.to_json()})
 
 
 @catch_mlflow_exception
-def get_mutation_conditions():
+def get_conditions():
     condition_id = _get_int_request_param("condition_id")
-    mc = store.get_mutation_condition(condition_id)
-    return jsonify({"mutation_conditions": mc.to_json()})
+    mc = store.get_condition(condition_id)
+    return jsonify({"conditions": mc.to_json()})
 
 
 @catch_mlflow_exception
-def update_mutation_conditions():
-    """Partial update: an omitted field is left alone, an explicit ``null`` clears it.
+def update_conditions():
+    """Partial update: an omitted field is left alone.
 
-    The distinction is carried by key *presence*, not by value, because "clear the
-    target condition" and "leave the target condition alone" would otherwise both
-    arrive as ``null`` -- and guessing wrong in the clearing direction silently
-    removes a restriction the admin still wants.
+    The filter cannot be cleared. A condition is its filter, so an empty one is not a
+    weaker condition but an unconditional pass -- and because conditions of a type are
+    alternatives, such a condition would nullify every sibling it shares a type with.
+    Deleting the condition is the way to remove it, which says so explicitly.
+
+    The type cannot change either. It selects which half of a request the filter is read
+    against, so retyping a row silently repurposes a filter written for the other half.
 
     The scope is replaced as a *whole* -- both axes at once -- when any scope key is
     present, or when ``update_scope`` is set explicitly. The axes cannot move
@@ -8082,17 +8178,13 @@ def update_mutation_conditions():
     half a scope would skip that joint check. Within a replaced scope an omitted key takes
     its default, which is the widest value -- the same rule the add route follows.
 
-    Clearing both filters deletes the object, so the response carries a ``null``
-    ``mutation_conditions``.
     """
     condition_id = _get_int_request_param("condition_id")
     params = _request_params()
-    mc = store.update_mutation_condition(
+    mc = store.update_condition(
         condition_id,
-        value_condition=_optional_condition_param(params, "value_condition"),
-        target_condition=_optional_condition_param(params, "target_condition"),
-        update_value_condition="value_condition" in params,
-        update_target_condition="target_condition" in params,
+        filter=_optional_condition_param(params, "filter"),
+        update_filter="filter" in params,
         resource_pattern=_optional_condition_param(params, "resource_pattern"),
         container_resource_type=_optional_condition_param(params, "container_resource_type"),
         container_resource_pattern=_optional_condition_param(params, "container_resource_pattern"),
@@ -8106,25 +8198,25 @@ def update_mutation_conditions():
             )
         ),
     )
-    return jsonify({"mutation_conditions": mc.to_json() if mc else None})
+    return jsonify({"conditions": mc.to_json() if mc else None})
 
 
 @catch_mlflow_exception
-def remove_mutation_conditions():
+def remove_conditions():
     condition_id = _get_int_request_param("condition_id")
-    store.remove_mutation_condition(condition_id)
+    store.remove_condition(condition_id)
     return make_response({})
 
 
 @catch_mlflow_exception
-def list_mutation_conditions():
+def list_conditions():
     role_id = _get_int_request_param("role_id")
-    conditions = store.list_mutation_conditions(role_id)
-    return jsonify({"mutation_conditions": [c.to_json() for c in conditions]})
+    conditions = store.list_conditions(role_id)
+    return jsonify({"conditions": [c.to_json() for c in conditions]})
 
 
 @catch_mlflow_exception
-def add_user_mutation_condition():
+def add_user_condition():
     """Add a condition to a user's direct grants, creating their synthetic role if needed.
 
     Mirrors ``grant_user_permission``: the caller names a user, not the hidden
@@ -8134,16 +8226,16 @@ def add_user_mutation_condition():
     username = _get_request_param("username")
     resource_type = _get_request_param("resource_type")
     store.get_user(username)
-    condition = store.add_user_mutation_condition(
+    condition = store.add_user_condition(
         username,
         resource_type,
         resource_pattern=_optional_condition_param(params, "resource_pattern"),
         container_resource_type=_optional_condition_param(params, "container_resource_type"),
         container_resource_pattern=_optional_condition_param(params, "container_resource_pattern"),
-        value_condition=_optional_condition_param(params, "value_condition"),
-        target_condition=_optional_condition_param(params, "target_condition"),
+        condition_type=_get_request_param("type"),
+        filter=_get_request_param("filter"),
     )
-    return jsonify({"mutation_conditions": condition.to_json()})
+    return jsonify({"conditions": condition.to_json()})
 
 
 def _optional_condition_param(params: dict[str, Any], name: str) -> str | None:
@@ -8631,7 +8723,7 @@ def _renamed_registry_families(resp: Response) -> tuple[str, ...]:
 
 def rename_registered_model_permission(resp: Response):
     """
-    Propagate a registered-model rename to RBAC grants and mutation conditions.
+    Propagate a registered-model rename to RBAC grants and conditions.
 
     ``RenameRegisteredModel`` is shared between registered models and prompts;
     sweep both grant namespaces so a prompt rename doesn't orphan its
@@ -10022,7 +10114,7 @@ def _list_user_role_permissions(username: str) -> tuple[bool, list[_UserRolePerm
 
 @dataclass(frozen=True)
 class _UserRoleConditionRow:
-    """One row of ``GET /users/current/mutation-conditions``: a single condition on one
+    """One row of ``GET /users/current/conditions``: a single condition on one
     of the user's roles, enriched with role identity so the frontend can render the
     source -- a role name, or "Direct" for the synthetic ``__user_<id>__`` role a
     per-user condition lives on (D10).
@@ -10039,8 +10131,8 @@ class _UserRoleConditionRow:
     resource_pattern: str
     container_resource_type: str
     container_resource_pattern: str
-    value_condition: "str | None"
-    target_condition: "str | None"
+    type: str
+    filter: str
     condition_slot: "int | None"
 
 
@@ -10052,8 +10144,12 @@ def _list_user_role_conditions(username: str) -> "list[_UserRoleConditionRow]":
     is not asking per workspace, and the row carries its workspace so the caller can
     group.
 
-    Flat and unordered by design. Conditions AND -- every applicable one must pass -- so
-    there is no precedence to express and nothing to fold.
+    Flat and unordered by design, but no longer because there is nothing to fold.
+    Conditions of a type are alternatives, so what restricts a user is the *conjunction
+    across types* of the *disjunction within* each -- which cannot be shown by folding
+    rows together, since a single permissive row lifts its type's restriction entirely.
+    Listing every row and letting the caller group by type is the honest presentation:
+    a reader needs to see the siblings to know what actually holds.
     """
     user = store.get_user(username)
     return [
@@ -10066,21 +10162,21 @@ def _list_user_role_conditions(username: str) -> "list[_UserRoleConditionRow]":
             resource_pattern=condition.resource_pattern,
             container_resource_type=condition.container_resource_type,
             container_resource_pattern=condition.container_resource_pattern,
-            value_condition=condition.value_condition,
-            target_condition=condition.target_condition,
+            type=condition.type,
+            filter=condition.filter,
             condition_slot=condition.condition_slot,
         )
         for role in store.list_user_roles(user.id)
-        for condition in store.list_mutation_conditions(role.id)
+        for condition in store.list_conditions(role.id)
     ]
 
 
 @catch_mlflow_exception
-def list_current_user_mutation_conditions():
+def list_current_user_conditions():
     """The conditions that apply to the caller, across every role they hold.
 
     Sender == target, with no parameter to name anyone else, which is why this is the
-    endpoint a non-admin can be given: the role-keyed ``roles/mutation-conditions/list``
+    endpoint a non-admin can be given: the role-keyed ``roles/conditions/list``
     answers about a role the caller may have no business reading.
 
     INFORMATIONAL ONLY, and more strictly so than the permissions equivalent. A grant
@@ -10091,7 +10187,7 @@ def list_current_user_mutation_conditions():
     """
     username = authenticate_request().username
     rows = _list_user_role_conditions(username)
-    return jsonify({"mutation_conditions": [asdict(r) for r in rows]})
+    return jsonify({"conditions": [asdict(r) for r in rows]})
 
 
 @catch_mlflow_exception
@@ -12349,30 +12445,30 @@ _RBAC_ROUTES: list[tuple[Callable[[], Any], str, str, str]] = [
     (remove_role_permission, "DELETE", REMOVE_ROLE_PERMISSION, AJAX_REMOVE_ROLE_PERMISSION),
     (list_role_permissions, "GET", LIST_ROLE_PERMISSIONS, AJAX_LIST_ROLE_PERMISSIONS),
     (update_role_permission, "PATCH", UPDATE_ROLE_PERMISSION, AJAX_UPDATE_ROLE_PERMISSION),
-    # Mutation conditions. Writes are gated by validate_can_manage_roles and reads by
+    # Conditions. Writes are gated by validate_can_manage_roles and reads by
     # validate_can_view_roles, like the role-permission routes above -- a condition is
     # part of a role's definition, so it carries the same authorization.
-    (add_mutation_conditions, "POST", ADD_MUTATION_CONDITIONS, AJAX_ADD_MUTATION_CONDITIONS),
+    (add_conditions, "POST", ADD_CONDITIONS, AJAX_ADD_CONDITIONS),
     (
-        add_user_mutation_condition,
+        add_user_condition,
         "POST",
-        ADD_USER_MUTATION_CONDITION,
-        AJAX_ADD_USER_MUTATION_CONDITION,
+        ADD_USER_CONDITION,
+        AJAX_ADD_USER_CONDITION,
     ),
-    (get_mutation_conditions, "GET", GET_MUTATION_CONDITIONS, AJAX_GET_MUTATION_CONDITIONS),
+    (get_conditions, "GET", GET_CONDITIONS, AJAX_GET_CONDITIONS),
     (
-        update_mutation_conditions,
+        update_conditions,
         "PATCH",
-        UPDATE_MUTATION_CONDITIONS,
-        AJAX_UPDATE_MUTATION_CONDITIONS,
+        UPDATE_CONDITIONS,
+        AJAX_UPDATE_CONDITIONS,
     ),
     (
-        remove_mutation_conditions,
+        remove_conditions,
         "DELETE",
-        REMOVE_MUTATION_CONDITIONS,
-        AJAX_REMOVE_MUTATION_CONDITIONS,
+        REMOVE_CONDITIONS,
+        AJAX_REMOVE_CONDITIONS,
     ),
-    (list_mutation_conditions, "GET", LIST_MUTATION_CONDITIONS, AJAX_LIST_MUTATION_CONDITIONS),
+    (list_conditions, "GET", LIST_CONDITIONS, AJAX_LIST_CONDITIONS),
     (assign_role, "POST", ASSIGN_ROLE, AJAX_ASSIGN_ROLE),
     (unassign_role, "DELETE", UNASSIGN_ROLE, AJAX_UNASSIGN_ROLE),
     (list_user_roles, "GET", LIST_USER_ROLES, AJAX_LIST_USER_ROLES),
@@ -12473,12 +12569,12 @@ def create_app(app: Flask = app):
             methods=["GET"],
         )
     for rule in [
-        LIST_CURRENT_USER_MUTATION_CONDITIONS,
-        AJAX_LIST_CURRENT_USER_MUTATION_CONDITIONS,
+        LIST_CURRENT_USER_CONDITIONS,
+        AJAX_LIST_CURRENT_USER_CONDITIONS,
     ]:
         app.add_url_rule(
             rule=rule,
-            view_func=list_current_user_mutation_conditions,
+            view_func=list_current_user_conditions,
             methods=["GET"],
         )
     for rule in [LIST_CURRENT_USER_PERMISSIONS, AJAX_LIST_CURRENT_USER_PERMISSIONS]:
