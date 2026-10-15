@@ -295,6 +295,12 @@ MLFLOW_TRACKING_AWS_SIGV4 = _BooleanEnvironmentVariable("MLFLOW_TRACKING_AWS_SIG
 #: (default: ``None``). When set, it will overwrite the "Authorization" HTTP header.
 MLFLOW_TRACKING_AUTH = _EnvironmentVariable("MLFLOW_TRACKING_AUTH", str, None)
 
+#: Auth provider name to advertise in server-info for client snippets.
+#: This does not affect the server's own tracking requests. (default: ``None``)
+MLFLOW_SERVER_INFO_TRACKING_AUTH = _EnvironmentVariable(
+    "MLFLOW_SERVER_INFO_TRACKING_AUTH", str, None
+)
+
 #: Specifies the chunk size to use when downloading a file from GCS
 #: (default: ``None``). If None, the chunk size is automatically determined by the
 #: ``google-cloud-storage`` package.

@@ -1,11 +1,23 @@
 import { describe, it, expect, jest } from '@jest/globals';
-import { render, screen } from '@testing-library/react';
+import { render as rtlRender, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { IntlProvider } from 'react-intl';
 import { DesignSystemProvider } from '@databricks/design-system';
+import type { ReactElement, ReactNode } from 'react';
+import { QueryClient, QueryClientProvider } from '../../common/utils/reactQueryHooks';
 import { SkillVersionDetail } from './SkillVersionDetail';
 import { createMockSkill, createMockSkillVersion } from '../test-utils';
 import { SkillStatus } from '../types';
+
+const render = (ui: ReactElement) => {
+  const queryClient = new QueryClient();
+  queryClient.setQueryData(['serverInfo'], { tracking_auth: '' });
+  return rtlRender(ui, {
+    wrapper: ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    ),
+  });
+};
 
 const renderDetail = (props: Partial<React.ComponentProps<typeof SkillVersionDetail>> = {}) => {
   const skill = props.skill ?? createMockSkill();

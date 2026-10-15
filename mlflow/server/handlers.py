@@ -81,6 +81,7 @@ from mlflow.environment_variables import (
     MLFLOW_ENABLE_AI_GATEWAY,
     MLFLOW_ENABLE_WORKSPACES,
     MLFLOW_PRESIGNED_DOWNLOAD_URL_TTL_SECONDS,
+    MLFLOW_SERVER_INFO_TRACKING_AUTH,
 )
 from mlflow.exceptions import (
     MlflowException,
@@ -418,6 +419,7 @@ from mlflow.utils.server_info import (
     SERVER_INFO_SKILL_CONTENT_MAX_SIZE,
     SERVER_INFO_STORE_TYPE,
     SERVER_INFO_TRACE_ARCHIVAL_ENABLED,
+    SERVER_INFO_TRACKING_AUTH,
     SERVER_INFO_WORKSPACES_ENABLED,
 )
 from mlflow.utils.string_utils import is_string_type
@@ -7556,6 +7558,7 @@ def build_server_info_payload() -> dict[str, Any]:
         SERVER_INFO_FEATURES_ENABLED: {
             "gateway": MLFLOW_ENABLE_AI_GATEWAY.get(),
         },
+        SERVER_INFO_TRACKING_AUTH: MLFLOW_SERVER_INFO_TRACKING_AUTH.get() or "",
     }
 
 

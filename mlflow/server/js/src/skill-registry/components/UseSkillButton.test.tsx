@@ -1,13 +1,25 @@
 import { afterEach, describe, expect, it } from '@jest/globals';
-import { render, screen } from '@testing-library/react';
+import { render as rtlRender, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { IntlProvider } from 'react-intl';
+import type { ReactElement, ReactNode } from 'react';
 
+import { QueryClient, QueryClientProvider } from '../../common/utils/reactQueryHooks';
 import { setActiveWorkspace } from '../../workspaces/utils/WorkspaceUtils';
 import { createMockSkill } from '../test-utils';
 import { SkillAction } from '../types';
 import { UseSkillButton } from './UseSkillButton';
+
+const render = (ui: ReactElement) => {
+  const queryClient = new QueryClient();
+  queryClient.setQueryData(['serverInfo'], { tracking_auth: '' });
+  return rtlRender(ui, {
+    wrapper: ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    ),
+  });
+};
 
 const renderUseSkillButton = (allowed_actions?: SkillAction[]) =>
   render(
@@ -94,7 +106,8 @@ describe('UseSkillButton', () => {
 
       await userEvent.click(screen.getByRole('button', { name: 'Use' }));
       expect(await screen.findByText('Use @acme/code-review')).toBeInTheDocument();
-      expect(document.body.textContent).toContain("MLFLOW_WORKSPACE='team-a' mlflow skills pull");
+      expect(document.body.textContent).toContain("MLFLOW_WORKSPACE='team-a'");
+      expect(document.body.textContent).toContain('mlflow skills pull');
 
       await userEvent.click(screen.getByRole('radio', { name: 'Python' }));
       expect(document.body.textContent).toContain('mlflow.set_workspace("team-a")');
