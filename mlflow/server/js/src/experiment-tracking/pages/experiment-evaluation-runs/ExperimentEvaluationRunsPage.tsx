@@ -63,6 +63,9 @@ import type { EvalRunsFilterButtonHandle } from './EvalRunsFilterButton';
 import { ExperimentEvaluationRunsTableControlsV2 } from './ExperimentEvaluationRunsTableControlsV2';
 import { EvalRunsDatePreset, useEvalRunsFilters } from './hooks/useEvalRunsFilters';
 import { useEvalRunsUnfilteredCount } from './hooks/useEvalRunsUnfilteredCount';
+import type { EvalRunsBaselineState } from './hooks/useEvalRunsBaseline';
+import { isMatchingEvalRunsBaseline, useEvalRunsBaselineState } from './hooks/useEvalRunsBaseline';
+import type { RunEntity } from '../../types';
 import { getLocalStorageItem, setLocalStorageItem } from '@databricks/web-shared/hooks';
 import { useGetExperimentRunColor } from '../../components/experiment-page/hooks/useExperimentRunColor';
 import { useRegisterSelectedIds } from '@mlflow/mlflow/src/assistant';
@@ -101,7 +104,8 @@ const getLearnMoreLink = () => {
   return 'https://mlflow.org/docs/latest/genai/eval-monitor/quickstart/';
 };
 
-const ExperimentEvaluationRunsPageImpl = () => {
+// `baseline` is only passed with the new UI, so the flag-off page mounts no baseline queries.
+const ExperimentEvaluationRunsPageImpl = ({ baseline }: { baseline?: EvalRunsBaselineState }) => {
   const { experimentId } = useParams();
   const { theme } = useDesignSystemTheme();
   const [tableWidth, setTableWidth] = useState(432);
@@ -173,12 +177,29 @@ const ExperimentEvaluationRunsPageImpl = () => {
     error: unfilteredRunsError,
   } = useEvalRunsUnfilteredCount({ experimentId, enabled: enableNewEvalRunsUi && isAnyFilterActive });
 
+  const baselineRunUuid = baseline?.baselineRunUuid;
+  const fetchedBaselineRun = baseline?.fetchedBaselineRun;
+  const refetchBaseline = baseline?.refetchBaseline;
   const refetchAll = useCallback(() => {
     refetch();
+    refetchBaseline?.();
     invalidateMlflowSearchTracesCache({ queryClient });
-  }, [refetch, queryClient]);
+  }, [refetch, refetchBaseline, queryClient]);
 
   const runUuids = useMemo(() => runs?.map((run) => run.info.runUuid) ?? [], [runs]);
+  // A baseline that the current filters exclude is fetched on its own, so it stays pinned.
+  const baselineRun = useMemo<RunEntity | undefined>(() => {
+    if (!baselineRunUuid) {
+      return undefined;
+    }
+    const loadedRun = runs?.find((run) => run.info.runUuid === baselineRunUuid);
+    if (loadedRun) {
+      return loadedRun;
+    }
+    return isMatchingEvalRunsBaseline(fetchedBaselineRun, baselineRunUuid, experimentId)
+      ? fetchedBaselineRun
+      : undefined;
+  }, [baselineRunUuid, experimentId, fetchedBaselineRun, runs]);
 
   // ORIGINAL BEHAVIOR (flag OFF): Auto-select first run when no run is selected or selected run is out of scope
   // This ensures the split view always has a run to display
@@ -309,7 +330,7 @@ const ExperimentEvaluationRunsPageImpl = () => {
     const paramKeys: Set<string> = new Set();
     const tagKeys: Set<string> = new Set();
     // Using for-of to avoid costlier functions and iterators
-    for (const run of runs ?? []) {
+    for (const run of baselineRun ? [baselineRun, ...(runs ?? [])] : (runs ?? [])) {
       for (const metric of run.data.metrics ?? []) {
         metricKeys.add(metric.key);
       }
@@ -331,7 +352,7 @@ const ExperimentEvaluationRunsPageImpl = () => {
       ),
       ...Array.from(tagKeys).map((key) => createEvalRunsTableKeyedColumnKey(EvalRunsTableKeyedColumnPrefix.TAG, key)),
     ];
-  }, [runs]);
+  }, [baselineRun, runs]);
 
   const baseSelectionState = useMemo(() => getEvalRunsBaseSelectionState(enableNewEvalRunsUi), [enableNewEvalRunsUi]);
   const baseColumns = useMemo(() => Object.keys(baseSelectionState), [baseSelectionState]);
@@ -387,7 +408,9 @@ const ExperimentEvaluationRunsPageImpl = () => {
   );
   const chartMetricSelection = isStringArray(storedChartMetricSelection) ? storedChartMetricSelection : undefined;
 
-  const isEmpty = runUuids.length === 0 && !searchFilter && !isLoading && !(enableNewEvalRunsUi && isAnyFilterActive);
+  const isEmpty =
+    runUuids.length === 0 && !baselineRun && !searchFilter && !isLoading && !(enableNewEvalRunsUi && isAnyFilterActive);
+  // A pinned baseline still renders when filters exclude it, so it doesn't count as a filter match.
   const hasNoFilteredRuns = enableNewEvalRunsUi && isAnyFilterActive && runUuids.length === 0 && !isLoading && !error;
   // The runs hook reports [] until its first response, so wait for the unfiltered query before
   // deciding whether filters hid the runs or the experiment has none.
@@ -479,6 +502,17 @@ const ExperimentEvaluationRunsPageImpl = () => {
   // Clamp: the unfiltered query holds only its first page, so it may lag behind the filtered count.
   const unfilteredTotal = Math.max(unfilteredRuns?.length ?? 0, visibleCount);
 
+  const setBaseline = baseline?.setBaseline;
+  const setCurrentExperimentBaseline = useCallback(
+    (runUuid: string) => {
+      const selectedRun = runs?.find((run) => run.info.runUuid === runUuid);
+      if (isMatchingEvalRunsBaseline(selectedRun, runUuid, experimentId)) {
+        setBaseline?.(runUuid);
+      }
+    },
+    [experimentId, runs, setBaseline],
+  );
+
   // Full-page list view (non-comparison mode, but not when viewing charts)
   // When flag is OFF, NEVER show full-page list view - always show split view (original behavior)
   // When flag is ON, show full-page list view when not in comparison mode and not in charts mode
@@ -523,6 +557,14 @@ const ExperimentEvaluationRunsPageImpl = () => {
           isNewEvalRunsChartMounted ? () => setFilterChartToSelectedRuns((current) => !current) : undefined
         }
         isChartFilteredToSelection={isNewEvalRunsChartMounted ? filterChartToSelectedRuns : undefined}
+        {...(baseline
+          ? {
+              onSetBaseline: setCurrentExperimentBaseline,
+              onClearBaseline: baseline.clearBaseline,
+              baselineRunUuid,
+              isSavingBaseline: baseline.isSavingBaseline,
+            }
+          : {})}
       />
     ) : (
       <ExperimentEvaluationRunsTableControls
@@ -552,7 +594,7 @@ const ExperimentEvaluationRunsPageImpl = () => {
   const renderTable = () => (
     <ExperimentEvaluationRunsTable
       data={runsWithHierarchy}
-      {...(enableNewEvalRunsUi ? { onFilterByColumn: handleFilterByColumn } : {})}
+      {...(enableNewEvalRunsUi ? { baselineRun, onFilterByColumn: handleFilterByColumn } : {})}
       uniqueColumns={uniqueColumns}
       selectedColumns={selectedColumns}
       setSelectedColumns={setSelectedColumns}
@@ -924,13 +966,22 @@ const ExperimentEvaluationRunsPageImpl = () => {
   );
 };
 
+const ExperimentEvaluationRunsPageWithBaseline = ({ experimentId }: { experimentId: string }) => {
+  const baseline = useEvalRunsBaselineState(experimentId);
+  return <ExperimentEvaluationRunsPageImpl baseline={baseline} />;
+};
+
 const ExperimentEvaluationRunsPage = () => {
   const { experimentId } = useParams();
-  // The new UI starts each experiment from a fresh page: selection, columns and chart choices
-  // belong to the experiment they were made in.
+  // The new UI starts each experiment from a fresh page: selection, columns, chart choices and the
+  // baseline belong to the experiment they were made in.
   return (
     <ExperimentEvaluationRunsPageWrapper>
-      <ExperimentEvaluationRunsPageImpl {...(shouldEnableNewEvalRunsUi() ? { key: experimentId } : {})} />
+      {shouldEnableNewEvalRunsUi() ? (
+        <ExperimentEvaluationRunsPageWithBaseline key={experimentId} experimentId={experimentId ?? ''} />
+      ) : (
+        <ExperimentEvaluationRunsPageImpl />
+      )}
     </ExperimentEvaluationRunsPageWrapper>
   );
 };

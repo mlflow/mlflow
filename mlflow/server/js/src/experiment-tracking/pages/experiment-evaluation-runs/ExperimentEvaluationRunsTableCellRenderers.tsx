@@ -260,6 +260,13 @@ export const RunNameCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({
       ) : (
         runNameLink
       )}
+      {enableNewEvalRunsUi && evalMeta?.baselineRunUuid === runUuid ? (
+        <Tag componentId="mlflow.eval-runs.baseline-tag">
+          <Typography.Text size="sm" bold>
+            <FormattedMessage defaultMessage="BASELINE" description="Label for the baseline evaluation run" />
+          </Typography.Text>
+        </Tag>
+      ) : null}
       {!shouldEnableImprovedEvalRunsComparison() && (
         <div
           css={{
@@ -629,6 +636,14 @@ export const VisiblityCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({ row, ta
     return <div>-</div>;
   }
   const runUuid = row.original.info.runUuid;
+  // The baseline is always shown, so its visibility can't be toggled.
+  if (isEvalRunsTableMeta(table.options.meta) && table.options.meta.baselineRunUuid === runUuid) {
+    return (
+      <div css={{ display: 'flex', alignItems: 'center', height: '100%' }}>
+        <VisibleIcon />
+      </div>
+    );
+  }
 
   // Use pre-calculated flat run index from table meta
   // This index excludes group rows and provides a global position across all parents

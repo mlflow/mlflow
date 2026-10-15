@@ -15,7 +15,7 @@ import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/util
 import { invalidateMlflowSearchTracesCache } from '@databricks/web-shared/genai-traces-table';
 
 jest.mock('../../hooks/useExperimentQuery', () => ({
-  useGetExperimentQuery: jest.fn(() => ({})),
+  useGetExperimentQuery: jest.fn(() => ({ refetch: jest.fn() })),
 }));
 
 jest.mock('@databricks/web-shared/genai-traces-table', () => ({
