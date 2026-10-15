@@ -8,7 +8,7 @@ import {
   fetchArtifactWithPresignedUrl,
   fetchRunArtifactWithPresignedUrl,
 } from '@mlflow/mlflow/src/experiment-tracking/utils/PresignedArtifactUtils';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Typography } from '@databricks/design-system';
 import { ImagePreviewGroup, Image } from '../../../../../shared/building_blocks/Image';
 import { RunColorPill } from '@mlflow/mlflow/src/experiment-tracking/components/experiment-page/components/RunColorPill';
@@ -82,9 +82,16 @@ type ImagePlotProps = {
   compressedImageUrl: string;
   imageSize?: number;
   maxImageSize?: number;
+  onPreviewVisibleChange?: (visible: boolean) => void;
 };
 
-export const ImagePlot = ({ imageUrl, compressedImageUrl, imageSize, maxImageSize }: ImagePlotProps) => {
+export const ImagePlot = ({
+  imageUrl,
+  compressedImageUrl,
+  imageSize,
+  maxImageSize,
+  onPreviewVisibleChange,
+}: ImagePlotProps) => {
   const [previewVisible, setPreviewVisible] = useState(false);
   const { theme } = useDesignSystemTheme();
 
@@ -134,7 +141,13 @@ export const ImagePlot = ({ imageUrl, compressedImageUrl, imageSize, maxImageSiz
               },
             }}
           >
-            <ImagePreviewGroup visible={previewVisible} onVisibleChange={setPreviewVisible}>
+            <ImagePreviewGroup
+              visible={previewVisible}
+              onVisibleChange={(visible) => {
+                setPreviewVisible(visible);
+                onPreviewVisibleChange?.(visible);
+              }}
+            >
               <Image
                 src={compressedImageUrl}
                 preview={{ src: imageUrl }}
@@ -146,6 +159,74 @@ export const ImagePlot = ({ imageUrl, compressedImageUrl, imageSize, maxImageSiz
       </div>
     </div>
   );
+};
+
+/** Fetch the thumbnail immediately and the original only when its preview opens. */
+export const ArtifactImagePlot = ({
+  filepath,
+  compressedFilepath,
+  fetchImage,
+  imageSize,
+  maxImageSize,
+}: {
+  filepath: string;
+  compressedFilepath: string;
+  fetchImage: (path: string) => Promise<Blob>;
+  imageSize?: number;
+  maxImageSize?: number;
+}) => {
+  const [compressedImageUrl, setCompressedImageUrl] = useState<string>();
+  const [imageUrl, setImageUrl] = useState<string>();
+  const [previewRequested, setPreviewRequested] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    let url: string | undefined;
+    fetchImage(compressedFilepath)
+      .then((blob) => {
+        if (cancelled) return;
+        url = URL.createObjectURL(blob);
+        setCompressedImageUrl(url);
+      })
+      .catch((error) => {
+        if (!cancelled) Utils.logErrorAndNotifyUser(error);
+      });
+    return () => {
+      cancelled = true;
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [compressedFilepath, fetchImage]);
+
+  useEffect(() => {
+    if (!previewRequested || filepath === compressedFilepath) return;
+    let cancelled = false;
+    let url: string | undefined;
+    fetchImage(filepath)
+      .then((blob) => {
+        if (cancelled) return;
+        url = URL.createObjectURL(blob);
+        setImageUrl(url);
+      })
+      .catch((error) => {
+        if (!cancelled) Utils.logErrorAndNotifyUser(error);
+      });
+    return () => {
+      cancelled = true;
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [compressedFilepath, fetchImage, filepath, previewRequested]);
+
+  return compressedImageUrl ? (
+    <ImagePlot
+      compressedImageUrl={compressedImageUrl}
+      imageUrl={imageUrl ?? compressedImageUrl}
+      imageSize={imageSize}
+      maxImageSize={maxImageSize}
+      onPreviewVisibleChange={(visible) => {
+        if (visible) setPreviewRequested(true);
+      }}
+    />
+  ) : null;
 };
 
 export const RunArtifactImagePlot = ({
@@ -163,48 +244,26 @@ export const RunArtifactImagePlot = ({
   imageSize?: number;
   maxImageSize?: number;
 }) => {
-  const [urls, setUrls] = useState<{ imageUrl: string; compressedImageUrl: string }>();
-
-  useEffect(() => {
-    let cancelled = false;
-    let imageUrl: string | undefined;
-    let compressedImageUrl: string | undefined;
-    setUrls(undefined);
-
-    const fetchImageArtifact = (path: string) => {
+  const fetchImage = useCallback(
+    (path: string) => {
       const legacyArtifactLocation = getArtifactLocationUrl(path, runUuid);
       return artifactRootUri
         ? fetchArtifactWithPresignedUrl({ runUuid, path, artifactRootUri }, legacyArtifactLocation, getArtifactBlob)
         : fetchRunArtifactWithPresignedUrl(runUuid, path, legacyArtifactLocation, getArtifactBlob);
-    };
+    },
+    [artifactRootUri, runUuid],
+  );
 
-    Promise.all([fetchImageArtifact(filepath), fetchImageArtifact(compressedFilepath)])
-      .then(([imageBlob, compressedImageBlob]) => {
-        if (cancelled) {
-          return;
-        }
-        imageUrl = URL.createObjectURL(imageBlob);
-        compressedImageUrl = URL.createObjectURL(compressedImageBlob);
-        setUrls({ imageUrl, compressedImageUrl });
-      })
-      .catch((error) => {
-        if (!cancelled) {
-          Utils.logErrorAndNotifyUser(error);
-        }
-      });
-
-    return () => {
-      cancelled = true;
-      if (imageUrl) {
-        URL.revokeObjectURL(imageUrl);
-      }
-      if (compressedImageUrl) {
-        URL.revokeObjectURL(compressedImageUrl);
-      }
-    };
-  }, [artifactRootUri, compressedFilepath, filepath, runUuid]);
-
-  return urls ? <ImagePlot {...urls} imageSize={imageSize} maxImageSize={maxImageSize} /> : null;
+  return (
+    <ArtifactImagePlot
+      key={JSON.stringify([runUuid, artifactRootUri, filepath, compressedFilepath])}
+      filepath={filepath}
+      compressedFilepath={compressedFilepath}
+      fetchImage={fetchImage}
+      imageSize={imageSize}
+      maxImageSize={maxImageSize}
+    />
+  );
 };
 
 export const ImagePlotWithHistory = ({

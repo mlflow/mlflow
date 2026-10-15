@@ -1,6 +1,7 @@
 import { DesignSystemProvider } from '@databricks/design-system';
-import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
-import { render, screen, waitFor } from '@testing-library/react';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, jest } from '@jest/globals';
+import { act, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { getArtifactBlob } from '@mlflow/mlflow/src/common/utils/ArtifactUtils';
 import {
   fetchArtifactWithPresignedUrl,
@@ -44,71 +45,88 @@ describe('ImageGridRunHeader', () => {
 });
 
 describe('RunArtifactImagePlot', () => {
+  const originalImageSrc = Object.getOwnPropertyDescriptor(window.Image.prototype, 'src');
+  beforeAll(() => {
+    Object.defineProperty(window.Image.prototype, 'src', {
+      configurable: true,
+      set() {
+        Promise.resolve().then(() => this.onload?.());
+      },
+      get() {
+        return '';
+      },
+    });
+  });
+  afterAll(() => {
+    Object.defineProperty(window.Image.prototype, 'src', originalImageSrc!);
+  });
   beforeEach(() => {
     jest.mocked(fetchArtifactWithPresignedUrl).mockResolvedValue(new Blob(['image']));
     jest.mocked(fetchRunArtifactWithPresignedUrl).mockResolvedValue(new Blob(['image']));
     Object.defineProperty(URL, 'createObjectURL', {
       configurable: true,
-      value: jest.fn().mockReturnValueOnce('blob:full').mockReturnValueOnce('blob:compressed'),
+      value: jest.fn().mockReturnValueOnce('blob:compressed').mockReturnValueOnce('blob:full'),
     });
-    Object.defineProperty(URL, 'revokeObjectURL', {
-      configurable: true,
-      value: jest.fn(),
-    });
+    Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: jest.fn() });
   });
-
   afterEach(() => {
     jest.clearAllMocks();
   });
 
-  it('loads both image variants through the presigned artifact resolver', async () => {
-    render(
+  it.each([undefined, 's3://bucket/run-123/artifacts'])(
+    'fetches only the thumbnail until the preview opens (root: %s)',
+    async (artifactRootUri) => {
+      const { container, unmount } = render(
+        <DesignSystemProvider>
+          <RunArtifactImagePlot
+            runUuid="run-123"
+            filepath="images/full.png"
+            compressedFilepath="images/thumbnail.png"
+            artifactRootUri={artifactRootUri}
+          />
+        </DesignSystemProvider>,
+      );
+      const fetchImage = artifactRootUri ? fetchArtifactWithPresignedUrl : fetchRunArtifactWithPresignedUrl;
+      await waitFor(() => expect(container.querySelector('img')).toHaveAttribute('src', 'blob:compressed'));
+      expect(fetchImage).toHaveBeenCalledTimes(1);
+      if (artifactRootUri) {
+        expect(fetchArtifactWithPresignedUrl).toHaveBeenCalledWith(
+          { runUuid: 'run-123', path: 'images/thumbnail.png', artifactRootUri },
+          expect.stringContaining('path=images%2Fthumbnail.png'),
+          getArtifactBlob,
+        );
+        expect(fetchRunArtifactWithPresignedUrl).not.toHaveBeenCalled();
+      } else {
+        expect(fetchRunArtifactWithPresignedUrl).toHaveBeenCalledWith(
+          'run-123',
+          'images/thumbnail.png',
+          expect.stringContaining('path=images%2Fthumbnail.png'),
+          getArtifactBlob,
+        );
+      }
+      await userEvent.click(container.querySelector('img')!);
+      await waitFor(() => expect(fetchImage).toHaveBeenCalledTimes(2));
+      expect(URL.createObjectURL).toHaveBeenCalledTimes(2);
+      unmount();
+      expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:compressed');
+      expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:full');
+    },
+  );
+
+  it('does not allocate a blob URL when a pending thumbnail completes after unmount', async () => {
+    let resolve: (blob: Blob) => void = () => {};
+    jest.mocked(fetchRunArtifactWithPresignedUrl).mockReturnValueOnce(
+      new Promise<Blob>((r) => {
+        resolve = r;
+      }),
+    );
+    const { unmount } = render(
       <DesignSystemProvider>
-        <RunArtifactImagePlot runUuid="run-123" filepath="images/full.png" compressedFilepath="images/thumbnail.png" />
+        <RunArtifactImagePlot runUuid="run" filepath="full.png" compressedFilepath="thumb.png" />
       </DesignSystemProvider>,
     );
-
-    await waitFor(() => expect(fetchRunArtifactWithPresignedUrl).toHaveBeenCalledTimes(2));
-    expect(fetchRunArtifactWithPresignedUrl).toHaveBeenNthCalledWith(
-      1,
-      'run-123',
-      'images/full.png',
-      expect.stringContaining('path=images%2Ffull.png&run_uuid=run-123'),
-      getArtifactBlob,
-    );
-    expect(fetchRunArtifactWithPresignedUrl).toHaveBeenNthCalledWith(
-      2,
-      'run-123',
-      'images/thumbnail.png',
-      expect.stringContaining('path=images%2Fthumbnail.png&run_uuid=run-123'),
-      getArtifactBlob,
-    );
-    await waitFor(() => expect(URL.createObjectURL).toHaveBeenCalledTimes(2));
-  });
-
-  it('reuses a supplied artifact root for both image variants', async () => {
-    render(
-      <DesignSystemProvider>
-        <RunArtifactImagePlot
-          runUuid="run-123"
-          filepath="images/full.png"
-          compressedFilepath="images/thumbnail.png"
-          artifactRootUri="s3://bucket/run-123/artifacts"
-        />
-      </DesignSystemProvider>,
-    );
-
-    await waitFor(() => expect(fetchArtifactWithPresignedUrl).toHaveBeenCalledTimes(2));
-    expect(fetchArtifactWithPresignedUrl).toHaveBeenNthCalledWith(
-      1,
-      {
-        runUuid: 'run-123',
-        path: 'images/full.png',
-        artifactRootUri: 's3://bucket/run-123/artifacts',
-      },
-      expect.stringContaining('path=images%2Ffull.png&run_uuid=run-123'),
-      getArtifactBlob,
-    );
-    expect(fetchRunArtifactWithPresignedUrl).not.toHaveBeenCalled();
+    unmount();
+    await act(async () => resolve(new Blob(['thumbnail'])));
+    expect(URL.createObjectURL).not.toHaveBeenCalled();
   });
 });

@@ -1,7 +1,12 @@
+import { ErrorWrapper } from './ErrorWrapper';
 import { afterEach, describe, expect, jest, test } from '@jest/globals';
 
-import { getArtifactBlob, getArtifactChunkedText, getArtifactLocationUrl, getLoggedModelArtifactLocationUrl } from './ArtifactUtils';
-import { ErrorWrapper } from './ErrorWrapper';
+import {
+  getArtifactBlob,
+  getArtifactChunkedText,
+  getArtifactLocationUrl,
+  getLoggedModelArtifactLocationUrl,
+} from './ArtifactUtils';
 import { setActiveWorkspace } from '../../workspaces/utils/WorkspaceUtils';
 
 describe('ArtifactUtils workspace-aware URLs', () => {
@@ -43,6 +48,42 @@ describe('ArtifactUtils workspace-aware URLs', () => {
     expect(url).toContain('run_uuid=run-123');
   });
 
+  test('chunked text rejects browser transport errors', async () => {
+    const error = new TypeError('Failed to fetch');
+    jest.spyOn(global, 'fetch').mockRejectedValue(error);
+    await expect(getArtifactChunkedText('https://storage.example/artifact', { headers: {} })).rejects.toBe(error);
+  });
+
+  test('chunked text rejects HTTP errors before reading the body', async () => {
+    jest.spyOn(global, 'fetch').mockResolvedValue(new Response('denied', { status: 403 }));
+    await expect(getArtifactChunkedText('/get-artifact')).rejects.toMatchObject({ status: 403 });
+  });
+
+  test('chunked text decodes split UTF-8 characters and releases the reader', async () => {
+    const read = jest
+      .fn<() => Promise<ReadableStreamReadResult<Uint8Array>>>()
+      .mockResolvedValueOnce({ value: new Uint8Array([0xe2, 0x82]), done: false })
+      .mockResolvedValueOnce({ value: new Uint8Array([0xac]), done: false })
+      .mockResolvedValueOnce({ value: undefined, done: true });
+    const releaseLock = jest.fn();
+    jest
+      .spyOn(global, 'fetch')
+      .mockResolvedValue({ ok: true, body: { getReader: () => ({ read, releaseLock }) } } as unknown as Response);
+    await expect(getArtifactChunkedText('/get-artifact')).resolves.toBe('€');
+    expect(releaseLock).toHaveBeenCalledTimes(1);
+  });
+
+  test('chunked text propagates stream failures and releases the reader', async () => {
+    const error = new TypeError('stream failed');
+    const read = jest.fn<() => Promise<ReadableStreamReadResult<Uint8Array>>>().mockRejectedValue(error);
+    const releaseLock = jest.fn();
+    jest
+      .spyOn(global, 'fetch')
+      .mockResolvedValue({ ok: true, body: { getReader: () => ({ read, releaseLock }) } } as unknown as Response);
+    await expect(getArtifactChunkedText('/get-artifact')).rejects.toBe(error);
+    expect(releaseLock).toHaveBeenCalledTimes(1);
+  });
+
   test('getLoggedModelArtifactLocationUrl omits workspace segment and relies on headers', () => {
     setActiveWorkspace('team-b');
     const url = getLoggedModelArtifactLocationUrl('dir/file.txt', '42');
@@ -65,6 +106,8 @@ describe('getArtifactChunkedText', () => {
       ok: true,
       body: {
         getReader: () => ({
+          releaseLock: jest.fn(),
+          cancel: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
           read: async () =>
             index < encoded.length ? { done: false, value: encoded[index++] } : { done: true, value: undefined },
         }),

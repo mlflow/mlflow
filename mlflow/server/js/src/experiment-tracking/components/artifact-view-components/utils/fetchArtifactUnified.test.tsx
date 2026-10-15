@@ -24,6 +24,10 @@ describe('fetchArtifactUnified', () => {
 
   let capturedRequests: { url: string; workspaceHeader: string | null }[] = [];
   const server = setupServer(
+    rest.get(/\/logged-models\/test-logged-model-id$/, (req, res, ctx) => {
+      capturedRequests.push({ url: req.url.toString(), workspaceHeader: req.headers.get('X-MLFLOW-WORKSPACE') });
+      return res(ctx.json({ model: { info: { artifact_uri: 's3://bucket/model/artifacts' } } }));
+    }),
     rest.post(/\/logged-models\/test-logged-model-id\/artifacts\/credentials-for-download/, (req, res, ctx) => {
       capturedRequests.push({ url: req.url.toString(), workspaceHeader: req.headers.get('X-MLFLOW-WORKSPACE') });
       return res(ctx.status(501));

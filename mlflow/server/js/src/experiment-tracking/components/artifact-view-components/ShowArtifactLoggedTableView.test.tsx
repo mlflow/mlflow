@@ -46,6 +46,7 @@ describe('ShowArtifactLoggedTableView', () => {
   };
 
   beforeEach(() => {
+    jest.clearAllMocks();
     // Mock getBoundingClientRect to satisfy the table row layout
     jest.spyOn(window.Element.prototype, 'getBoundingClientRect').mockImplementation(
       () =>
@@ -260,9 +261,6 @@ describe('ShowArtifactLoggedTableView', () => {
 
     await waitFor(() => {
       expect(getArtifactBlob).toHaveBeenCalledWith(
-        expect.stringContaining('get-artifact?path=fakePathUncompressed&run_uuid=test-run-uuid'),
-      );
-      expect(getArtifactBlob).toHaveBeenCalledWith(
         expect.stringContaining('get-artifact?path=fakePath&run_uuid=test-run-uuid'),
       );
     });
@@ -273,6 +271,14 @@ describe('ShowArtifactLoggedTableView', () => {
       expect(images.length).toBeGreaterThan(0);
       expect(images.some((image) => image.getAttribute('src') === 'blob:artifact-image')).toBe(true);
     });
+    expect(getArtifactBlob).not.toHaveBeenCalledWith(expect.stringContaining('path=fakePathUncompressed&'));
+    const thumbnail = screen.getAllByRole('img').find((image) => image.getAttribute('src') === 'blob:artifact-image');
+    await userEvent.click(thumbnail!);
+    await waitFor(() =>
+      expect(getArtifactBlob).toHaveBeenCalledWith(
+        expect.stringContaining('get-artifact?path=fakePathUncompressed&run_uuid=test-run-uuid'),
+      ),
+    );
   });
 
   it.each([

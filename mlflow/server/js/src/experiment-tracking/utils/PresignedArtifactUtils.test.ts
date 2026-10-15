@@ -32,6 +32,9 @@ describe('presigned artifact utilities', () => {
     mockedMultipartDownloads.mockReturnValue(false);
     mockedMultipartUploads.mockReturnValue(false);
     mockedRunUploadSupported.mockReturnValue(false);
+    jest.spyOn(MlflowService, 'getLoggedModel').mockResolvedValue({
+      model: { info: { artifact_uri: 's3://bucket/model/artifacts' } },
+    });
   });
 
   afterEach(() => {
@@ -76,6 +79,69 @@ describe('presigned artifact utilities', () => {
     expect(getArtifact).toHaveBeenCalledWith('https://storage.example/file', {
       headers: { 'x-storage-header': 'value' },
     });
+  });
+
+  it('matches AJAX routes at a boundary and uses the first artifact-service route', () => {
+    expect(
+      getProxiedArtifactRoute(
+        'https://artifacts.example/prefix/ajax-api/2.0/mlflow-artifacts/artifacts/12/api/2.0/mlflow-artifacts/artifacts/run',
+        'file.txt',
+      ),
+    ).toEqual({
+      path: '12/api/2.0/mlflow-artifacts/artifacts/run/file.txt',
+      artifactServiceBaseUrl: 'https://artifacts.example/prefix/',
+    });
+    expect(
+      getProxiedArtifactRoute('https://artifacts.example/fake-api/2.0/mlflow-artifacts/artifacts/run'),
+    ).toBeUndefined();
+  });
+
+  it.each([
+    { error: new ErrorWrapper(new TypeError('CORS blocked'), 500), fallback: true },
+    { error: new ErrorWrapper('server failed', 500), fallback: false },
+    { error: new ErrorWrapper('permission denied', 403), fallback: false },
+  ])('applies fallback only to transport failures: $error', async ({ error, fallback }) => {
+    mockedMultipartDownloads.mockReturnValue(true);
+    jest.spyOn(MlflowService, 'getMlflowArtifactsPresignedDownloadUrl').mockRejectedValue(error);
+    const params = { runUuid: 'run-id', path: 'file.txt', artifactRootUri: 'mlflow-artifacts:/12/run/artifacts' };
+    if (fallback) await expect(resolvePresignedArtifactDownload(params)).resolves.toBeUndefined();
+    else await expect(resolvePresignedArtifactDownload(params)).rejects.toBe(error);
+    mockedPresignedOnly.mockReturnValue(true);
+    await expect(resolvePresignedArtifactDownload(params)).rejects.toBe(error);
+  });
+
+  it('falls back from wrapped upload transport failures only when proxying is allowed', async () => {
+    mockedMultipartUploads.mockReturnValue(true);
+    jest
+      .spyOn(MlflowService, 'getRun')
+      .mockResolvedValue({ run: { info: { artifactUri: 'mlflow-artifacts:/12/run/artifacts' } } } as any);
+    const error = new ErrorWrapper(new TypeError('CORS blocked'), 500);
+    jest.spyOn(MlflowService, 'createMlflowArtifactsMultipartUpload').mockRejectedValue(error);
+    await expect(uploadArtifactWithPresignedUrl('run', 'file.txt', 'data')).resolves.toBe(false);
+    mockedPresignedOnly.mockReturnValue(true);
+    await expect(uploadArtifactWithPresignedUrl('run', 'file.txt', 'data')).rejects.toBe(error);
+  });
+
+  it('discovers a logged model root and signs its artifact-service path in presigned-only mode', async () => {
+    mockedPresignedOnly.mockReturnValue(true);
+    jest
+      .mocked(MlflowService.getLoggedModel)
+      .mockResolvedValue({ model: { info: { artifact_uri: 'mlflow-artifacts:/12/models/m-123/artifacts' } } });
+    const sign = jest
+      .spyOn(MlflowService, 'getMlflowArtifactsPresignedDownloadUrl')
+      .mockResolvedValue({ url: 'https://storage.example/model' });
+    const credentials = jest.spyOn(MlflowService, 'getCredentialsForLoggedModelArtifactRead');
+    await expect(
+      resolvePresignedArtifactDownload({
+        runUuid: 'source-run',
+        path: 'MLmodel',
+        isLoggedModelsMode: true,
+        loggedModelId: 'm-123',
+      }),
+    ).resolves.toEqual({ url: 'https://storage.example/model', headers: {} });
+    expect(MlflowService.getLoggedModel).toHaveBeenCalledWith('m-123');
+    expect(sign).toHaveBeenCalledWith('12/models/m-123/artifacts/MLmodel');
+    expect(credentials).not.toHaveBeenCalled();
   });
 
   it('falls back for an unsupported presigned download unless the server enforces it', async () => {
@@ -149,6 +215,25 @@ describe('presigned artifact utilities', () => {
       url: 'https://storage.example/model-file',
       headers: { 'x-storage-header': 'required' },
     });
+  });
+
+  it('signs direct logged-model reads through the bundled server in presigned-only mode', async () => {
+    mockedPresignedOnly.mockReturnValue(true);
+    const sign = jest
+      .spyOn(MlflowService, 'getLoggedModelPresignedDownloadUrl')
+      .mockResolvedValue({ url: 'https://storage.example/model', headers: { 'x-storage': 'required' } });
+    const credentials = jest.spyOn(MlflowService, 'getCredentialsForLoggedModelArtifactRead');
+    await expect(
+      resolvePresignedArtifactDownload({
+        runUuid: '',
+        path: 'MLmodel',
+        isLoggedModelsMode: true,
+        loggedModelId: 'model-id',
+        artifactRootUri: 's3://bucket/model/artifacts',
+      }),
+    ).resolves.toEqual({ url: 'https://storage.example/model', headers: { 'x-storage': 'required' } });
+    expect(sign).toHaveBeenCalledWith({ loggedModelId: 'model-id', path: 'MLmodel' });
+    expect(credentials).not.toHaveBeenCalled();
   });
 
   it('resolves a logged-model artifact without requiring its root URI', async () => {
