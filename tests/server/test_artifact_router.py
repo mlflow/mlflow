@@ -221,6 +221,8 @@ def test_presigned_only_rejects_native_legacy_artifact_routes(client_presigned_o
     body = response.json()
     assert body["error_code"] == "PERMISSION_DENIED"
     assert "Upgrade your MLflow client" in body["message"]
+    assert body["artifacts_presigned_only"] is True
+    assert "reload the page" in body["message"]
     mock_get_repo.assert_not_called()
 
 
