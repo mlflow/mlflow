@@ -348,7 +348,7 @@ def test_http_artifact_root_uses_presigned_only_split_server(tmp_path):
                 legacy_response = requests.get(
                     f"{artifact_server_url}/api/2.0/mlflow-artifacts/artifacts/{object_key}"
                 )
-                assert legacy_response.status_code == 409
+                assert legacy_response.status_code == 403
 
 
 def is_github_actions():

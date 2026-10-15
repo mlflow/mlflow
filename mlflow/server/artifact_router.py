@@ -17,7 +17,7 @@ import os
 import posixpath
 import tempfile
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
 
 from mlflow.exceptions import MlflowException
@@ -62,8 +62,14 @@ def _content_disposition(filename: str) -> str:
     return _content_disposition_attachment(filename)
 
 
-@artifact_router.get("/api/2.0/mlflow-artifacts/artifacts/{artifact_path:path}")
-@artifact_router.get("/ajax-api/2.0/mlflow-artifacts/artifacts/{artifact_path:path}")
+@artifact_router.get(
+    "/api/2.0/mlflow-artifacts/artifacts/{artifact_path:path}",
+    dependencies=[Depends(reject_legacy_artifact_download)],
+)
+@artifact_router.get(
+    "/ajax-api/2.0/mlflow-artifacts/artifacts/{artifact_path:path}",
+    dependencies=[Depends(reject_legacy_artifact_download)],
+)
 async def download_artifact(artifact_path: str):
     if not _is_serving_proxied_artifacts():
         raise HTTPException(
@@ -75,7 +81,6 @@ async def download_artifact(artifact_path: str):
         )
 
     try:
-        reject_legacy_artifact_download()
         artifact_path = validate_path_is_safe(artifact_path)
         artifact_path = _get_workspace_scoped_path(artifact_path)
         artifact_repo = _get_artifact_repo()
@@ -138,8 +143,14 @@ async def download_artifact(artifact_path: str):
         )
 
 
-@artifact_router.put("/api/2.0/mlflow-artifacts/artifacts/{artifact_path:path}")
-@artifact_router.put("/ajax-api/2.0/mlflow-artifacts/artifacts/{artifact_path:path}")
+@artifact_router.put(
+    "/api/2.0/mlflow-artifacts/artifacts/{artifact_path:path}",
+    dependencies=[Depends(reject_legacy_artifact_upload)],
+)
+@artifact_router.put(
+    "/ajax-api/2.0/mlflow-artifacts/artifacts/{artifact_path:path}",
+    dependencies=[Depends(reject_legacy_artifact_upload)],
+)
 async def upload_artifact(artifact_path: str, request: Request):
     if not _is_serving_proxied_artifacts():
         raise HTTPException(
@@ -151,7 +162,6 @@ async def upload_artifact(artifact_path: str, request: Request):
         )
 
     try:
-        reject_legacy_artifact_upload()
         artifact_path = validate_path_is_safe(artifact_path)
         if is_skill_upload_namespace(artifact_path):
             raise HTTPException(

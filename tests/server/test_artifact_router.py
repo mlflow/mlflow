@@ -217,9 +217,9 @@ def test_presigned_only_rejects_native_legacy_artifact_routes(client_presigned_o
     with mock.patch("mlflow.server.artifact_router._get_artifact_repo") as mock_get_repo:
         response = client_presigned_only.request(method, path, content=b"legacy upload")
 
-    assert response.status_code == 409
+    assert response.status_code == 403
     body = response.json()
-    assert body["error_code"] == "RESOURCE_CONFLICT"
+    assert body["error_code"] == "PERMISSION_DENIED"
     assert "Upgrade your MLflow client" in body["message"]
     mock_get_repo.assert_not_called()
 

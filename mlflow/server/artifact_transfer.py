@@ -1,24 +1,25 @@
 from mlflow.environment_variables import MLFLOW_ARTIFACTS_PRESIGNED_ONLY
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import RESOURCE_CONFLICT
+from mlflow.protos.databricks_pb2 import PERMISSION_DENIED
+from mlflow.version import VERSION
 
 _PRESIGNED_ONLY_UPLOAD_MESSAGE = (
-    "This server requires presigned artifact uploads and does not accept artifact bytes through "
-    "the legacy proxy endpoint. Upgrade your MLflow client to a version that supports "
-    "presigned-only artifact servers."
+    "This server requires artifacts to be uploaded directly to storage. "
+    f"Upgrade your MLflow client to match this server (MLflow {VERSION}) or a newer version "
+    "with presigned-only artifact support, then retry the upload."
 )
 _PRESIGNED_ONLY_DOWNLOAD_MESSAGE = (
-    "This server requires presigned artifact downloads and does not serve artifact bytes through "
-    "the legacy proxy endpoint. Upgrade your MLflow client to a version that supports "
-    "presigned-only artifact servers."
+    "This server requires artifacts to be downloaded directly from storage. "
+    f"Upgrade your MLflow client to match this server (MLflow {VERSION}) or a newer version "
+    "with presigned-only artifact support, then retry the download."
 )
 
 
 def reject_legacy_artifact_upload() -> None:
     if MLFLOW_ARTIFACTS_PRESIGNED_ONLY.get():
-        raise MlflowException(_PRESIGNED_ONLY_UPLOAD_MESSAGE, error_code=RESOURCE_CONFLICT)
+        raise MlflowException(_PRESIGNED_ONLY_UPLOAD_MESSAGE, error_code=PERMISSION_DENIED)
 
 
 def reject_legacy_artifact_download() -> None:
     if MLFLOW_ARTIFACTS_PRESIGNED_ONLY.get():
-        raise MlflowException(_PRESIGNED_ONLY_DOWNLOAD_MESSAGE, error_code=RESOURCE_CONFLICT)
+        raise MlflowException(_PRESIGNED_ONLY_DOWNLOAD_MESSAGE, error_code=PERMISSION_DENIED)
