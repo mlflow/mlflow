@@ -3316,9 +3316,19 @@ def save_model(
         saved_example = _save_example(mlflow_model, input_example, path)
 
     if signature_from_type_hints:
-        if signature and signature_from_type_hints != signature:
-            # TODO: drop this support and raise exception in the next minor release since this
-            # is a behavior change
+        # TODO: drop this support and raise exception in the next minor release since this
+        # is a behavior change
+        if signature_from_type_hints.params is None and signature.params is not None:
+            signature_from_type_hints.params = signature.params
+            _logger.warning(
+                "Provided signature does not match the signature inferred from the Python model's "
+                "`predict` function type hint. Signature inferred from type hint will be used "
+                "for inputs and outputs:\n"
+                f"{signature_from_type_hints}\nSince params cannot be inferred from type hints, "
+                "the provided params schema has been preserved.\n",
+                extra={"color": "red"},
+            )
+        else:
             _logger.warning(
                 "Provided signature does not match the signature inferred from the Python model's "
                 "`predict` function type hint. Signature inferred from type hint will be used:\n"
