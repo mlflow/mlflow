@@ -158,9 +158,13 @@ export const fetchModelVersionArtifact = async (modelName: any, version: any) =>
     try {
       return await getRoot();
     } catch (error) {
-      // Model-version READ permission does not imply READ on the source run or logged model.
+      // Registered artifacts remain readable when the source is inaccessible or soft-deleted.
       // Only this metadata lookup may fall back to the separately authorized registry route.
-      if (error instanceof ErrorWrapper && [401, 403].includes(error.getStatus()) && !getArtifactsPresignedOnlySync()) {
+      if (
+        error instanceof ErrorWrapper &&
+        [401, 403, 404].includes(error.getStatus()) &&
+        !getArtifactsPresignedOnlySync()
+      ) {
         return undefined;
       }
       throw error;

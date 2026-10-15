@@ -131,6 +131,22 @@ describe('fetchModelVersionArtifact', () => {
     expect(modelVersion).not.toHaveBeenCalled();
   });
 
+  test('reads registered model artifacts after the source logged model is soft-deleted', async () => {
+    jest.spyOn(ServerInfo, 'getArtifactsPresignedOnlySync').mockReturnValue(false);
+    const version = jest.spyOn(Services, 'getModelVersion').mockResolvedValue({
+      model_version: { model_id: 'm-deleted', source: 'models:/m-deleted' },
+    });
+    const model = jest.spyOn(MlflowService, 'getLoggedModel').mockRejectedValue(new ErrorWrapper('model deleted', 404));
+    const registryRead = jest.spyOn(ArtifactUtils, 'getArtifactContent').mockResolvedValue('registry contents');
+    const presignedRead = jest.spyOn(PresignedArtifactUtils, 'fetchArtifactWithPresignedUrl');
+
+    await expect(fetchModelVersionArtifact('Model A', '1')).resolves.toBe('registry contents');
+    expect(version).toHaveBeenCalledWith({ name: 'Model A', version: '1' });
+    expect(model).toHaveBeenCalledWith('m-deleted');
+    expect(registryRead).toHaveBeenCalledWith('model-versions/get-artifact?path=MLmodel&name=Model%20A&version=1');
+    expect(presignedRead).not.toHaveBeenCalled();
+  });
+
   test('never falls back after model-version signing is forbidden', async () => {
     jest.spyOn(ServerInfo, 'getArtifactsPresignedOnlySync').mockReturnValue(true);
     const error = new ErrorWrapper('version denied', 403);
@@ -140,12 +156,12 @@ describe('fetchModelVersionArtifact', () => {
     expect(legacy).not.toHaveBeenCalled();
   });
 
-  test('does not fall back when the presigned transfer itself is forbidden', async () => {
+  test.each([403, 404])('does not swallow a %s failure from the presigned transfer itself', async (status) => {
     jest
       .spyOn(Services, 'getModelVersion')
       .mockResolvedValue({ model_version: { run_id: 'run-123', source: 'runs:/run-123/model' } });
     jest.spyOn(MlflowService, 'getRun').mockResolvedValue({ run: { info: { artifactUri: 's3://bucket/run' } } } as any);
-    const error = new ErrorWrapper('storage denied', 403);
+    const error = new ErrorWrapper('storage failed', status);
     jest.spyOn(PresignedArtifactUtils, 'fetchArtifactWithPresignedUrl').mockRejectedValue(error);
     const legacy = jest.spyOn(ArtifactUtils, 'getArtifactContent');
     await expect(fetchModelVersionArtifact('Model A', '1')).rejects.toBe(error);
