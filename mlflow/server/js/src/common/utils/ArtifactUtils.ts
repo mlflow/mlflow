@@ -51,13 +51,17 @@ class TextArtifactTooLargeError extends Error {}
  * Async function to fetch and return the specified text artifact.
  * Avoids unnecessary conversion to blob, parses chunked responses directly to text.
  */
-export const getArtifactChunkedText = async (artifactLocation: string, options?: ArtifactRequestOptions): Promise<string> => {
+export const getArtifactChunkedText = async (
+  artifactLocation: string,
+  options?: ArtifactRequestOptions,
+): Promise<string> => {
   const getArtifactRequest = new Request(artifactLocation, {
     method: HTTPMethods.GET,
     redirect: 'follow',
-    headers: new Headers(options?.headers !== undefined ? options.headers : (getDefaultHeaders(document.cookie) as HeadersInit)),
+    headers: new Headers(
+      options?.headers !== undefined ? options.headers : (getDefaultHeaders(document.cookie) as HeadersInit),
+    ),
   });
-  // A plain async function, so a failed fetch rejects instead of leaving the promise pending.
   // eslint-disable-next-line no-restricted-globals -- See go/spog-fetch
   const response = await fetch(getArtifactRequest);
 
@@ -66,16 +70,22 @@ export const getArtifactChunkedText = async (artifactLocation: string, options?:
     throw new ErrorWrapper(errorMessage, response.status);
   }
   const reader = response.body?.getReader();
-  if (!reader) {
-    throw new Error("Can't get artifact data from the server");
-  }
 
-  let resultData = '';
-  const decoder = new TextDecoder();
-  for (;;) {
-    const result = await reader.read();
-    resultData += decoder.decode(result.value || new Uint8Array(), { stream: !result.done });
-    if (result.done) return resultData;
+  if (reader) {
+    let resultData = '';
+    const decoder = new TextDecoder();
+    try {
+      let result = await reader.read();
+      while (!result.done) {
+        resultData += decoder.decode(result.value, { stream: true });
+        result = await reader.read();
+      }
+      return resultData + decoder.decode(result.value);
+    } finally {
+      reader.releaseLock();
+    }
+  } else {
+    throw new Error("Can't get artifact data from the server");
   }
 };
 

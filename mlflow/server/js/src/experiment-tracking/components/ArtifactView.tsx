@@ -43,7 +43,6 @@ import { listArtifactsApi, listArtifactsLoggedModelApi } from '../actions';
 import { MLMODEL_FILE_NAME } from '../constants';
 import { FallbackToLoggedModelArtifactsInfo } from './artifact-view-components/FallbackToLoggedModelArtifactsInfo';
 import {
-  type ArtifactRequestOptions,
   getArtifactBlob,
   getArtifactLocationUrl,
   getLoggedModelArtifactLocationUrl,
@@ -58,7 +57,7 @@ import { getLoggedTablesFromTags } from '@mlflow/mlflow/src/common/utils/TagUtil
 import { CopyButton } from '../../shared/building_blocks/CopyButton';
 import type { LoggedModelArtifactViewerProps } from './artifact-view-components/ArtifactViewComponents.types';
 import type { KeyValueEntity } from '../../common/types';
-import { resolvePresignedArtifactDownload } from '../utils/PresignedArtifactUtils';
+import { fetchArtifactWithPresignedUrl, resolvePresignedArtifactDownload } from '../utils/PresignedArtifactUtils';
 
 const { Text } = Typography;
 type ArtifactViewImplProps = DesignSystemHocProps & {
@@ -222,9 +221,9 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
     );
   }
 
-  async downloadArtifactViaBlob(url: string, artifactPath: string, options?: ArtifactRequestOptions) {
+  async downloadArtifactViaBlob(blobPromise: Promise<Blob>, artifactPath: string) {
     try {
-      const blob = await getArtifactBlob(url, options);
+      const blob = await blobPromise;
       const blobUrl = URL.createObjectURL(blob);
       try {
         const anchor = document.createElement('a');
@@ -251,32 +250,44 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
     loggedModelId?: string,
     isFallbackToLoggedModelArtifacts?: boolean,
   ) {
-    const isLoggedModelsMode = Boolean(this.props.isLoggedModelsMode || isFallbackToLoggedModelArtifacts);
+    const isLoggedModelsMode = Boolean(
+      this.props.isLoggedModelsMode || isFallbackToLoggedModelArtifacts || (!runUuid && loggedModelId),
+    );
     try {
-      const presigned = await resolvePresignedArtifactDownload({
+      const params = {
         runUuid,
         path: artifactPath,
         artifactRootUri: this.props.artifactRootUri,
         isLoggedModelsMode,
         loggedModelId,
         multipartDownloadsEnabled: this.props.multipartDownloadsEnabled,
-      });
+      };
+      const legacyArtifactLocation =
+        isLoggedModelsMode && loggedModelId
+          ? getLoggedModelArtifactLocationUrl(artifactPath, loggedModelId)
+          : getArtifactLocationUrl(artifactPath, runUuid);
+      const presigned = await resolvePresignedArtifactDownload(params);
       if (presigned) {
         if (Object.keys(presigned.headers).length === 0) {
           window.location.assign(presigned.url);
         } else {
-          await this.downloadArtifactViaBlob(presigned.url, artifactPath, { headers: presigned.headers });
+          await this.downloadArtifactViaBlob(
+            fetchArtifactWithPresignedUrl(
+              params,
+              legacyArtifactLocation,
+              (url, options) => getArtifactBlob(url, options),
+              presigned,
+            ),
+            artifactPath,
+          );
         }
         return;
       }
 
       if (!isLoggedModelsMode && runUuid) {
-        await this.downloadArtifactViaBlob(getArtifactLocationUrl(artifactPath, runUuid), artifactPath);
+        await this.downloadArtifactViaBlob(getArtifactBlob(legacyArtifactLocation, undefined), artifactPath);
       } else if (loggedModelId) {
-        await this.downloadArtifactViaBlob(
-          getLoggedModelArtifactLocationUrl(artifactPath, loggedModelId),
-          artifactPath,
-        );
+        await this.downloadArtifactViaBlob(getArtifactBlob(legacyArtifactLocation, undefined), artifactPath);
       }
     } catch (error) {
       Utils.logErrorAndNotifyUser(error);

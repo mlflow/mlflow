@@ -8,10 +8,7 @@ import {
 } from '../hooks/useServerInfo';
 import { MlflowService } from '../sdk/MlflowService';
 
-const MLFLOW_ARTIFACTS_ROUTE_ANCHORS = [
-  'api/2.0/mlflow-artifacts/artifacts/',
-  'ajax-api/2.0/mlflow-artifacts/artifacts/',
-];
+const MLFLOW_ARTIFACTS_ROUTE = /\/(?:ajax-api|api)\/2\.0\/mlflow-artifacts\/artifacts\//;
 
 const PRESIGNED_FALLBACK_STATUSES = [400, 404, 501, 503];
 
@@ -42,14 +39,13 @@ export const getProxiedArtifactRoute = (
       return { path: joinArtifactPaths(getDecodedPathname(parsedArtifactRootUri), artifactPath) };
     }
     if (parsedArtifactRootUri.protocol === 'http:' || parsedArtifactRootUri.protocol === 'https:') {
-      const rootPath = getDecodedPathname(parsedArtifactRootUri).replace(/^\/+/, '');
-      const routeAnchor = MLFLOW_ARTIFACTS_ROUTE_ANCHORS.find((anchor) => rootPath.includes(anchor));
-      if (routeAnchor) {
-        const routeAnchorIndex = rootPath.indexOf(routeAnchor);
-        const deploymentPrefix = rootPath.slice(0, routeAnchorIndex);
-        const artifactServiceBaseUrl = new URL(`/${deploymentPrefix}`, parsedArtifactRootUri.origin).toString();
+      const rootPath = getDecodedPathname(parsedArtifactRootUri);
+      const route = MLFLOW_ARTIFACTS_ROUTE.exec(rootPath);
+      if (route) {
+        const deploymentPrefix = rootPath.slice(0, route.index + 1);
+        const artifactServiceBaseUrl = new URL(deploymentPrefix, parsedArtifactRootUri.origin).toString();
         return {
-          path: joinArtifactPaths(rootPath.slice(routeAnchorIndex + routeAnchor.length), artifactPath),
+          path: joinArtifactPaths(rootPath.slice(route.index + route[0].length), artifactPath),
           artifactServiceBaseUrl,
         };
       }
@@ -67,7 +63,10 @@ const getErrorStatus = (error: unknown) => (error instanceof ErrorWrapper ? erro
 
 const canFallBackFromPresignedError = (error: unknown) => {
   // Browser fetch reports network and CORS failures as TypeError without an HTTP status.
-  if (error instanceof TypeError) {
+  if (
+    error instanceof TypeError ||
+    (error instanceof ErrorWrapper && error.getStatus() === 500 && error.text instanceof TypeError)
+  ) {
     return true;
   }
   const status = getErrorStatus(error);
@@ -110,12 +109,15 @@ export const resolvePresignedArtifactDownload = async (
   if (!params.artifactRootUri && !artifactsPresignedOnly && !canResolveLoggedModel) {
     return undefined;
   }
-  const artifactRootUri =
-    params.artifactRootUri ??
-    (canResolveLoggedModel ? '' : params.runUuid ? await getRunArtifactRootUri(params.runUuid) : '');
-  const proxiedArtifactRoute = getProxiedArtifactRoute(artifactRootUri, params.path);
-
   try {
+    const artifactRootUri =
+      params.artifactRootUri ??
+      (canResolveLoggedModel
+        ? (await MlflowService.getLoggedModel(canResolveLoggedModel))?.model?.info?.artifact_uri
+        : params.runUuid
+          ? await getRunArtifactRootUri(params.runUuid)
+          : undefined);
+    const proxiedArtifactRoute = getProxiedArtifactRoute(artifactRootUri, params.path);
     if (proxiedArtifactRoute) {
       const multipartDownloadsEnabled = params.multipartDownloadsEnabled ?? getMultipartDownloadsEnabledSync();
       if (!multipartDownloadsEnabled && !artifactsPresignedOnly && !proxiedArtifactRoute.artifactServiceBaseUrl) {
@@ -131,6 +133,14 @@ export const resolvePresignedArtifactDownload = async (
         return { url: response.url, headers: response.headers ?? {} };
       }
     } else if (params.isLoggedModelsMode && params.loggedModelId) {
+      if (artifactsPresignedOnly) {
+        const response = await MlflowService.getLoggedModelPresignedDownloadUrl({
+          loggedModelId: params.loggedModelId,
+          path: params.path,
+        });
+        if (response.url) return { url: response.url, headers: response.headers ?? {} };
+        throw new ErrorWrapper('The server did not return a presigned logged-model artifact URL.', 501);
+      }
       const response = await MlflowService.getCredentialsForLoggedModelArtifactRead({
         loggedModelId: params.loggedModelId,
         path: params.path,
@@ -172,8 +182,9 @@ export const fetchArtifactWithPresignedUrl = async <T>(
   params: PresignedArtifactParams,
   legacyArtifactLocation: string,
   getArtifactData: GetArtifactDataFn<T>,
+  presignedDownload?: PresignedArtifactDownload,
 ) => {
-  const presigned = await resolvePresignedArtifactDownload(params);
+  const presigned = presignedDownload ?? (await resolvePresignedArtifactDownload(params));
   if (!presigned) {
     return getArtifactData(legacyArtifactLocation);
   }

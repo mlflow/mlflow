@@ -270,7 +270,8 @@ response header so that browsers save the artifact as a file instead of renderin
 
 Artifact previews and supported UI uploads fetch presigned storage URLs from browser code. Configure the object
 store's CORS policy to allow the MLflow UI origin, the required `GET` and `PUT` methods, and any headers included in
-the signed credentials. When the server still permits legacy proxy transfers, the UI falls back to the proxy if a
+the signed credentials. Expose the `ETag` response header so the browser can complete multipart uploads.
+When the server still permits proxy transfers, the UI falls back to the proxy if a
 browser network or CORS error prevents the direct request.
 
 If the artifacts are not stored directly on supported storage (for example, with

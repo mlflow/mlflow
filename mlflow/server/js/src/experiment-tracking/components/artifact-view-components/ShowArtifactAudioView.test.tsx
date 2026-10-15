@@ -28,6 +28,9 @@ const mockGetArtifact = jest.fn((_artifactUrl: string) => Promise.resolve(fakeBl
 
 beforeEach(() => {
   jest.clearAllMocks();
+  jest
+    .spyOn(MlflowService, 'getLoggedModel')
+    .mockResolvedValue({ model: { info: { artifact_uri: 's3://bucket/model/artifacts' } } });
   jest.spyOn(MlflowService, 'getCredentialsForLoggedModelArtifactRead').mockResolvedValue({ credentials: [] });
   global.URL.createObjectURL = jest.fn(() => fakeBlobUrl) as any;
   global.URL.revokeObjectURL = jest.fn() as any;

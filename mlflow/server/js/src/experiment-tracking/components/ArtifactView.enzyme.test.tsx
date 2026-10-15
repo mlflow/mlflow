@@ -28,6 +28,7 @@ import { ErrorWrapper } from '../../common/utils/ErrorWrapper';
 import { MlflowService } from '../sdk/MlflowService';
 import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { ServerInfoProvider } from '../hooks/useServerInfo';
+import * as ServerInfo from '../hooks/useServerInfo';
 
 const { Text } = Typography;
 
@@ -286,6 +287,7 @@ describe('ArtifactView', () => {
       });
       presignedSpy = jest.spyOn(MlflowService, 'createPresignedDownloadUrl');
       proxiedPresignedSpy = jest.spyOn(MlflowService, 'getMlflowArtifactsPresignedDownloadUrl');
+      jest.spyOn(MlflowService, 'getCredentialsForLoggedModelArtifactRead').mockResolvedValue({ credentials: [] });
       jest.mocked(getArtifactBlob).mockClear();
     });
 
@@ -495,5 +497,45 @@ describe('ArtifactView', () => {
       expect(assignMock).not.toHaveBeenCalled();
       expectBlobDownload('model-123');
     });
+
+    test.each([false, true])(
+      'falls back after a header-bearing download transport failure (logged model: %s)',
+      async (loggedModel) => {
+        const signedUrl = 'https://storage.example/signed';
+        const headers = { 'x-required': 'value' };
+        presignedSpy.mockResolvedValue({ presigned_url: signedUrl, headers });
+        jest.mocked(MlflowService.getCredentialsForLoggedModelArtifactRead).mockResolvedValue({
+          credentials: [
+            { credential_info: { type: 'AWS_PRESIGNED_URL', signed_uri: signedUrl, path: 'summary.txt', headers } },
+          ],
+        });
+        const implInstance = getImplInstance({ isLoggedModelsMode: loggedModel });
+        jest.mocked(getArtifactBlob).mockRejectedValueOnce(new TypeError('CORS blocked'));
+        await implInstance.onDownloadClick('fakeUuid', 'summary.txt', loggedModel ? 'model-123' : undefined);
+        expectBlobDownload(
+          loggedModel ? 'logged-models/model-123/artifacts/files' : 'get-artifact?path=summary.txt&run_uuid=fakeUuid',
+        );
+        expect(getArtifactBlob).toHaveBeenCalledTimes(2);
+      },
+    );
+
+    test.each([false, true])(
+      'never falls back for a forbidden or enforced download (presigned-only: %s)',
+      async (presignedOnly) => {
+        jest.spyOn(ServerInfo, 'getArtifactsPresignedOnlySync').mockReturnValue(presignedOnly);
+        const error = presignedOnly ? new TypeError('CORS blocked') : new ErrorWrapper('denied', 403);
+        const notify = jest.spyOn(Utils, 'logErrorAndNotifyUser').mockImplementation(() => {});
+        presignedSpy.mockResolvedValue({
+          presigned_url: 'https://storage.example/signed',
+          headers: { 'x-required': 'value' },
+        });
+        const implInstance = getImplInstance();
+        jest.mocked(getArtifactBlob).mockRejectedValueOnce(error);
+        await implInstance.onDownloadClick('fakeUuid', 'summary.txt');
+        expect(getArtifactBlob).toHaveBeenCalledTimes(1);
+        expect(anchor.click).not.toHaveBeenCalled();
+        expect(notify).toHaveBeenCalledWith(error);
+      },
+    );
   });
 });

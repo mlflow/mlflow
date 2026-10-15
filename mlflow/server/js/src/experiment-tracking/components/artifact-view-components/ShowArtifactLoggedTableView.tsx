@@ -18,14 +18,14 @@ import {
 import { isArray, isObject, isUndefined } from 'lodash';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { getArtifactBlob, getArtifactContent } from '../../../common/utils/ArtifactUtils';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { SortingState, PaginationState } from '@tanstack/react-table';
 import { flexRender, getCoreRowModel, getSortedRowModel, getPaginationRowModel } from '@tanstack/react-table';
 import React from 'react';
 import { parseJSONSafe } from '@mlflow/mlflow/src/common/utils/TagUtils';
 import type { ArtifactLogTableImageObject } from '@mlflow/mlflow/src/experiment-tracking/types';
 import { LOG_TABLE_IMAGE_COLUMN_TYPE } from '@mlflow/mlflow/src/experiment-tracking/constants';
-import { ImagePlot } from '../runs-charts/components/charts/ImageGridPlot.common';
+import { ArtifactImagePlot } from '../runs-charts/components/charts/ImageGridPlot.common';
 import { ToggleIconButton } from '../../../common/components/ToggleIconButton';
 import { ShowArtifactLoggedTableViewDataPreview } from './ShowArtifactLoggedTableViewDataPreview';
 import Utils from '@mlflow/mlflow/src/common/utils/Utils';
@@ -63,41 +63,24 @@ const LoggedTableArtifactImage = ({
   isLoggedModelsMode?: boolean;
   loggedModelId?: string;
 }) => {
-  const [urls, setUrls] = useState<{ imageUrl: string; compressedImageUrl: string }>();
-
-  useEffect(() => {
-    let cancelled = false;
-    let imageUrl: string | undefined;
-    let compressedImageUrl: string | undefined;
-    Promise.all([
+  const fetchImage = useCallback(
+    (path: string) =>
       fetchArtifactUnified(
-        { runUuid, path: filepath, artifactRootUri, isLoggedModelsMode, loggedModelId },
+        { runUuid, path, artifactRootUri, isLoggedModelsMode, loggedModelId },
         getArtifactBlob,
-      ),
-      fetchArtifactUnified(
-        { runUuid, path: compressedFilepath, artifactRootUri, isLoggedModelsMode, loggedModelId },
-        getArtifactBlob,
-      ),
-    ])
-      .then(([imageBlob, compressedImageBlob]) => {
-        if (cancelled) return;
-        imageUrl = URL.createObjectURL(imageBlob as Blob);
-        compressedImageUrl = URL.createObjectURL(compressedImageBlob as Blob);
-        setUrls({ imageUrl, compressedImageUrl });
-      })
-      .catch((error) => {
-        if (!cancelled) {
-          Utils.logErrorAndNotifyUser(error);
-        }
-      });
-    return () => {
-      cancelled = true;
-      if (imageUrl) URL.revokeObjectURL(imageUrl);
-      if (compressedImageUrl) URL.revokeObjectURL(compressedImageUrl);
-    };
-  }, [artifactRootUri, compressedFilepath, filepath, isLoggedModelsMode, loggedModelId, runUuid]);
+      ) as Promise<Blob>,
+    [artifactRootUri, isLoggedModelsMode, loggedModelId, runUuid],
+  );
 
-  return urls ? <ImagePlot {...urls} maxImageSize={maxImageSize} /> : null;
+  return (
+    <ArtifactImagePlot
+      key={JSON.stringify([runUuid, loggedModelId, isLoggedModelsMode, artifactRootUri, filepath, compressedFilepath])}
+      filepath={filepath}
+      compressedFilepath={compressedFilepath}
+      fetchImage={fetchImage}
+      maxImageSize={maxImageSize}
+    />
+  );
 };
 
 const LoggedTable = ({
