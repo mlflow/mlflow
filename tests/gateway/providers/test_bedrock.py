@@ -547,6 +547,9 @@ def test_amazon_bedrock_model_provider(model_name, expected):
 # ---- Converse API tests ----
 
 
+_CLAUDE_MODEL_ID = "eu.anthropic.claude-sonnet-4-5-20250929-v1:0"
+
+
 def _make_converse_provider():
     """Create a provider with a mock boto3 client for Converse API tests."""
 
@@ -639,6 +642,35 @@ async def test_bedrock_converse_chat():
     assert result["usage"]["prompt_tokens"] == 10
     assert result["usage"]["completion_tokens"] == 20
     mock_client.converse.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    ("model_name", "model_path"),
+    [
+        (_CLAUDE_MODEL_ID, _CLAUDE_MODEL_ID),
+        (
+            f"arn:aws:bedrock:eu-west-1:123456789012:inference-profile/{_CLAUDE_MODEL_ID}",
+            f"arn:aws:bedrock:eu-west-1:123456789012:inference-profile%2F{_CLAUDE_MODEL_ID}",
+        ),
+    ],
+)
+@pytest.mark.asyncio
+async def test_bedrock_converse_chat_with_api_key(model_name, model_path):
+    provider = _make_api_key_provider(model_name)
+    mock_client = mock_http_client(MockAsyncResponse(_converse_response()))
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
+        response = await provider.chat(
+            chat.RequestPayload(messages=[{"role": "user", "content": "Hello"}])
+        )
+
+    result = jsonable_encoder(response)
+    assert result["choices"][0]["message"]["content"] == "Hello from Bedrock!"
+    assert result["usage"]["prompt_tokens"] == 10
+    mock_client.post.assert_called_once()
+    assert mock_client.post.call_args.args[0] == (
+        f"https://bedrock-runtime.eu-west-1.amazonaws.com/model/{model_path}/converse"
+    )
 
 
 @pytest.mark.asyncio
@@ -904,8 +936,6 @@ async def test_bedrock_converse_rejects_assistant_tool_call_with_missing_name():
 
 
 # ---- Anthropic Messages passthrough tests ----
-
-_CLAUDE_MODEL_ID = "eu.anthropic.claude-sonnet-4-5-20250929-v1:0"
 
 
 def _make_api_key_provider(model_name: str = _CLAUDE_MODEL_ID) -> AmazonBedrockProvider:
