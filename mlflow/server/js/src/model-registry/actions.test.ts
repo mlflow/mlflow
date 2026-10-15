@@ -54,6 +54,29 @@ describe('action tests', () => {
 });
 
 describe('fetchModelVersionArtifact', () => {
+  test('prompts an open tab to reload after the server starts requiring presigned transfers', async () => {
+    jest.spyOn(ServerInfo, 'getArtifactsPresignedOnlySync').mockReturnValue(false);
+    jest.spyOn(Services, 'getModelVersion').mockResolvedValue({
+      model_version: { run_id: 'run-123', source: 'runs:/run-123/model' },
+    });
+    const sourceRun = jest.spyOn(MlflowService, 'getRun').mockRejectedValue(new ErrorWrapper('source denied', 403));
+    const rejection = new ErrorWrapper(
+      {
+        error_code: 'PERMISSION_DENIED',
+        message: 'This server requires artifacts to be downloaded directly from storage.',
+        artifacts_presigned_only: true,
+      },
+      403,
+    );
+    const registryRead = jest.spyOn(ArtifactUtils, 'getArtifactContent').mockRejectedValue(rejection);
+    const sign = jest.spyOn(MlflowService, 'getModelVersionPresignedDownloadUrl');
+    await expect(fetchModelVersionArtifact('Model A', '1')).rejects.toBe(rejection);
+    expect(rejection.renderHttpError()).toContain('Reload this page');
+    expect(sourceRun).toHaveBeenCalledTimes(1);
+    expect(registryRead).toHaveBeenCalledTimes(1);
+    expect(sign).not.toHaveBeenCalled();
+  });
+
   test('uses the run-scoped presigned flow for a run-backed model version', async () => {
     jest.spyOn(Services, 'getModelVersion').mockResolvedValue({
       model_version: { run_id: 'run-123', source: 'runs:/run-123/model' },
@@ -62,7 +85,7 @@ describe('fetchModelVersionArtifact', () => {
       .spyOn(MlflowService, 'getRun')
       .mockResolvedValue({ run: { info: { artifactUri: 'mlflow-artifacts:/12/run-123/artifacts' } } } as any);
     const fetchSpy = jest
-      .spyOn(PresignedArtifactUtils, 'fetchArtifactWithPresignedUrl')
+      .spyOn(PresignedArtifactUtils, 'fetchArtifactPreferPresigned')
       .mockResolvedValue('model contents');
 
     await expect(fetchModelVersionArtifact('Model A', '1')).resolves.toBe('model contents');
@@ -81,7 +104,7 @@ describe('fetchModelVersionArtifact', () => {
       .spyOn(MlflowService, 'getLoggedModel')
       .mockResolvedValue({ model: { info: { artifact_uri: 'mlflow-artifacts:/12/models/m-123/artifacts' } } });
     const fetchSpy = jest
-      .spyOn(PresignedArtifactUtils, 'fetchArtifactWithPresignedUrl')
+      .spyOn(PresignedArtifactUtils, 'fetchArtifactPreferPresigned')
       .mockResolvedValue('model contents');
 
     await expect(fetchModelVersionArtifact('Model A', '1')).resolves.toBe('model contents');
@@ -117,7 +140,7 @@ describe('fetchModelVersionArtifact', () => {
       .spyOn(MlflowService, 'getModelVersionPresignedDownloadUrl')
       .mockResolvedValue({ url: 'https://storage.example/MLmodel', headers: { 'x-storage': 'required' } });
     const fetchArtifact = jest
-      .spyOn(PresignedArtifactUtils, 'fetchArtifactWithPresignedUrl')
+      .spyOn(PresignedArtifactUtils, 'fetchArtifactPreferPresigned')
       .mockResolvedValue('registry contents');
     await expect(fetchModelVersionArtifact('Model A', '1')).resolves.toBe('registry contents');
     expect(sign).toHaveBeenCalledWith({ name: 'Model A', version: '1', path: 'MLmodel' });
@@ -138,7 +161,7 @@ describe('fetchModelVersionArtifact', () => {
     });
     const model = jest.spyOn(MlflowService, 'getLoggedModel').mockRejectedValue(new ErrorWrapper('model deleted', 404));
     const registryRead = jest.spyOn(ArtifactUtils, 'getArtifactContent').mockResolvedValue('registry contents');
-    const presignedRead = jest.spyOn(PresignedArtifactUtils, 'fetchArtifactWithPresignedUrl');
+    const presignedRead = jest.spyOn(PresignedArtifactUtils, 'fetchArtifactPreferPresigned');
 
     await expect(fetchModelVersionArtifact('Model A', '1')).resolves.toBe('registry contents');
     expect(version).toHaveBeenCalledWith({ name: 'Model A', version: '1' });
@@ -162,7 +185,7 @@ describe('fetchModelVersionArtifact', () => {
       .mockResolvedValue({ model_version: { run_id: 'run-123', source: 'runs:/run-123/model' } });
     jest.spyOn(MlflowService, 'getRun').mockResolvedValue({ run: { info: { artifactUri: 's3://bucket/run' } } } as any);
     const error = new ErrorWrapper('storage failed', status);
-    jest.spyOn(PresignedArtifactUtils, 'fetchArtifactWithPresignedUrl').mockRejectedValue(error);
+    jest.spyOn(PresignedArtifactUtils, 'fetchArtifactPreferPresigned').mockRejectedValue(error);
     const legacy = jest.spyOn(ArtifactUtils, 'getArtifactContent');
     await expect(fetchModelVersionArtifact('Model A', '1')).rejects.toBe(error);
     expect(legacy).not.toHaveBeenCalled();

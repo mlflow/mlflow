@@ -4,6 +4,7 @@ import { setupServer } from '../../../../common/utils/setup-msw';
 import { fetchArtifactUnified } from './fetchArtifactUnified';
 import { setActiveWorkspace } from '../../../../workspaces/utils/WorkspaceUtils';
 import { getWorkspacesEnabledSync } from '../../../hooks/useServerInfo';
+import { getDefaultHeaders } from '../../../../common/utils/FetchUtils';
 
 jest.mock('../../../hooks/useServerInfo', () => ({
   ...jest.requireActual<typeof import('../../../hooks/useServerInfo')>('../../../hooks/useServerInfo'),
@@ -13,7 +14,13 @@ jest.mock('../../../hooks/useServerInfo', () => ({
 const getWorkspacesEnabledSyncMock = jest.mocked(getWorkspacesEnabledSync);
 
 describe('fetchArtifactUnified', () => {
-  const experimentId = 'test-experiment-id';
+  // Jest's fetch polyfill has no ReadableStream. These tests cover route/workspace selection;
+  // ArtifactUtils tests exercise the bounded streaming readers with browser-shaped responses.
+  const readArtifactText = async (url: string) => {
+    // eslint-disable-next-line no-restricted-globals -- Test-only callback for the fetch polyfill.
+    const response = await fetch(new Request(url, { headers: getDefaultHeaders(document.cookie) as HeadersInit }));
+    return response.text();
+  };
   const runUuid = 'test-run-uuid';
   const isLoggedModelsMode = true;
   const loggedModelId = 'test-logged-model-id';
@@ -65,13 +72,15 @@ describe('fetchArtifactUnified', () => {
 
   it('fetches run artifact from workspace API', async () => {
     const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
-    const result = await fetchArtifactUnified({
-      experimentId,
-      path,
-      runUuid,
-      isLoggedModelsMode: false,
-      loggedModelId: undefined,
-    });
+    const result = await fetchArtifactUnified(
+      {
+        path,
+        runUuid,
+        isLoggedModelsMode: false,
+        loggedModelId: undefined,
+      },
+      readArtifactText,
+    );
 
     expect(result).toEqual(runArtifactContent);
 
@@ -83,7 +92,7 @@ describe('fetchArtifactUnified', () => {
 
   it('fetches logged model artifact from workspace API', async () => {
     const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
-    const result = await fetchArtifactUnified({ experimentId, path, runUuid, isLoggedModelsMode, loggedModelId });
+    const result = await fetchArtifactUnified({ path, runUuid, isLoggedModelsMode, loggedModelId }, readArtifactText);
 
     expect(result).toEqual(loggedModelArtifactContent);
 

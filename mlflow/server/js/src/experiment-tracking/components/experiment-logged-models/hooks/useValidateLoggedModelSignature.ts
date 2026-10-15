@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 import { getArtifactBlob, getLoggedModelArtifactLocationUrl } from '../../../../common/utils/ArtifactUtils';
 import { MLMODEL_FILE_NAME } from '../../../constants';
 import type { LoggedModelProto } from '../../../types';
-import { fetchArtifactWithPresignedUrl } from '../../../utils/PresignedArtifactUtils';
+import { fetchArtifactPreferPresigned } from '../../../utils/PresignedArtifactUtils';
 
 const lazyJsYaml = () => import('js-yaml');
 
@@ -13,7 +13,7 @@ export const useValidateLoggedModelSignature = (loggedModel?: LoggedModelProto |
     }
 
     const artifactLocation = getLoggedModelArtifactLocationUrl(MLMODEL_FILE_NAME, loggedModel.info.model_id);
-    const blob = await fetchArtifactWithPresignedUrl(
+    const blob = await fetchArtifactPreferPresigned(
       {
         runUuid: '',
         path: MLMODEL_FILE_NAME,

@@ -15,6 +15,7 @@
  */
 import type { ModelTraceInfo, ModelTraceData } from '@databricks/web-shared/model-trace-explorer';
 import { type ParsedQs, stringify as queryStringStringify } from 'qs';
+import { ErrorWrapper } from '../../common/utils/ErrorWrapper';
 import {
   defaultResponseParser,
   deleteJson,
@@ -75,17 +76,20 @@ const getMlflowArtifactsUrl = (action: string, path: string, artifactServiceBase
 
 const getMlflowArtifactsRequest = (action: string, path: string, artifactServiceBaseUrl?: string) => {
   const relativeUrl = getMlflowArtifactsUrl(action, path, artifactServiceBaseUrl);
-  const isExternal = new URL(relativeUrl, window.location.href).origin !== window.location.origin;
-  return {
-    relativeUrl,
-    ...(isExternal && {
-      // Artifact roots may be controlled by another user. Never send tracking credentials there.
-      options: {
-        headers: { 'Content-Type': 'application/json; charset=utf-8' },
-        credentials: 'omit',
+  if (new URL(relativeUrl, document.baseURI).origin !== window.location.origin) {
+    // Artifact roots may be controlled by another user. Sending tracking credentials
+    // is unsafe, while omitting them loses the artifact server's auth/workspace context.
+    throw new ErrorWrapper(
+      {
+        error_code: 'PERMISSION_DENIED',
+        message:
+          'The MLflow UI cannot access an artifact server on a different origin. Configure a reverse proxy so the artifact server shares the MLflow UI origin.',
+        external_artifact_service: true,
       },
-    }),
-  };
+      403,
+    );
+  }
+  return { relativeUrl };
 };
 
 // eslint-disable-next-line @typescript-eslint/no-extraneous-class -- TODO(FEINF-4274)
@@ -168,14 +172,14 @@ export class MlflowService {
   /**
    * Create a presigned URL for downloading an artifact served through the mlflow-artifacts proxy.
    */
-  static getMlflowArtifactsPresignedDownloadUrl = (path: string, artifactServiceBaseUrl?: string) =>
+  static getMlflowArtifactsPresignedDownloadUrl = async (path: string, artifactServiceBaseUrl?: string) =>
     getJson(getMlflowArtifactsRequest('presigned', path, artifactServiceBaseUrl)) as Promise<{
       url?: string;
       headers?: Record<string, string>;
       file_size?: number;
     }>;
 
-  static createMlflowArtifactsMultipartUpload = (
+  static createMlflowArtifactsMultipartUpload = async (
     artifactPath: string,
     data: { path: string; num_parts: number },
     artifactServiceBaseUrl?: string,
@@ -189,7 +193,7 @@ export class MlflowService {
       credentials?: MultipartUploadCredential[];
     }>;
 
-  static completeMlflowArtifactsMultipartUpload = (
+  static completeMlflowArtifactsMultipartUpload = async (
     artifactPath: string,
     data: { path: string; upload_id?: string; parts: MultipartUploadPart[] },
     artifactServiceBaseUrl?: string,
@@ -200,7 +204,7 @@ export class MlflowService {
       retries: 0,
     });
 
-  static abortMlflowArtifactsMultipartUpload = (
+  static abortMlflowArtifactsMultipartUpload = async (
     artifactPath: string,
     data: { path: string; upload_id?: string },
     artifactServiceBaseUrl?: string,

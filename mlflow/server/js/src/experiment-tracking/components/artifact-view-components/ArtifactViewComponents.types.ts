@@ -1,5 +1,3 @@
-import type { KeyValueEntity } from '../../../common/types';
-
 export interface LoggedModelArtifactViewerProps {
   /** Root URI used to select the direct or proxied presigned artifact flow. */
   artifactRootUri?: string;
@@ -20,8 +18,4 @@ export interface LoggedModelArtifactViewerProps {
    * This is used when the run does not have the artifacts but the related logged model does.
    */
   isFallbackToLoggedModelArtifacts?: boolean;
-
-  experimentId: string;
-
-  entityTags?: Partial<KeyValueEntity>[];
 }

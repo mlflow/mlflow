@@ -16,7 +16,7 @@ export type ShowArtifactAudioViewProps = {
   runUuid: string;
   path: string;
   getArtifact?: (...args: any[]) => any;
-} & Omit<LoggedModelArtifactViewerProps, 'experimentId'> & { experimentId?: string };
+} & LoggedModelArtifactViewerProps;
 
 const ShowArtifactAudioView = ({
   runUuid,
@@ -25,28 +25,23 @@ const ShowArtifactAudioView = ({
   artifactRootUri,
   isLoggedModelsMode,
   loggedModelId,
-  experimentId,
-  entityTags,
 }: ShowArtifactAudioViewProps) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const wsRef = useRef<WaveSurfer | null>(null);
 
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<boolean>(false);
+  const [error, setError] = useState<Error>();
 
   useEffect(() => {
     if (!containerRef.current) return;
 
     setLoading(true);
-    setError(false);
+    setError(undefined);
 
     let blobUrl: string | undefined;
     let cancelled = false;
 
-    fetchArtifactUnified(
-      { runUuid, path, artifactRootUri, isLoggedModelsMode, loggedModelId, experimentId, entityTags },
-      getArtifact,
-    )
+    fetchArtifactUnified({ runUuid, path, artifactRootUri, isLoggedModelsMode, loggedModelId }, getArtifact)
       .then((result) => {
         if (cancelled || !containerRef.current) return;
 
@@ -65,7 +60,7 @@ const ShowArtifactAudioView = ({
 
         ws.on('error', () => {
           setLoading(false);
-          setError(true);
+          setError(new Error('Audio playback failed'));
           ws.destroy();
           wsRef.current = null;
           if (blobUrl) {
@@ -76,10 +71,10 @@ const ShowArtifactAudioView = ({
 
         wsRef.current = ws;
       })
-      .catch(() => {
+      .catch((error: Error) => {
         if (!cancelled) {
           setLoading(false);
-          setError(true);
+          setError(error);
         }
       });
 
@@ -93,24 +88,14 @@ const ShowArtifactAudioView = ({
         URL.revokeObjectURL(blobUrl);
       }
     };
-  }, [
-    containerRef,
-    path,
-    runUuid,
-    getArtifact,
-    artifactRootUri,
-    isLoggedModelsMode,
-    loggedModelId,
-    experimentId,
-    entityTags,
-  ]);
+  }, [containerRef, path, runUuid, getArtifact, artifactRootUri, isLoggedModelsMode, loggedModelId]);
 
   const showLoading = loading && !error;
 
   return (
     <div data-testid="audio-artifact-preview">
       {showLoading && <ArtifactViewSkeleton />}
-      {error && <ArtifactViewErrorState />}
+      {error && <ArtifactViewErrorState error={error} />}
       {/* This div is always rendered, but its visibility is controlled by the loading and error states */}
       <div
         css={{

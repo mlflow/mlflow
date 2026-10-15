@@ -30,20 +30,48 @@ describe('artifact-service credential scope', () => {
     jest.restoreAllMocks();
   });
 
-  it.each(operations)('does not forward tracking credentials for external %s requests', async (_name, operation) => {
-    await operation('https://artifacts.example/prefix/');
-    const [url, options] = jest.mocked(global.fetch).mock.calls[0];
-    expect(url).toEqual(expect.stringContaining('https://artifacts.example/prefix/api/'));
-    const headers = new Headers(options?.headers);
-    expect(headers.get('Authorization')).toBeNull();
-    expect(headers.get('X-MLFLOW-WORKSPACE')).toBeNull();
-    expect(headers.get('Content-Type')).toContain('application/json');
-    expect(options?.credentials).toBe('omit');
+  it.each(operations)(
+    'rejects external %s requests before sending any credentials or network request',
+    async (_name, operation) => {
+      await expect(operation('https://artifacts.example/prefix/')).rejects.toMatchObject({
+        status: 403,
+        textJson: {
+          external_artifact_service: true,
+          message: expect.stringContaining('Configure a reverse proxy'),
+        },
+      });
+      expect(global.fetch).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(['port', 'scheme'])('rejects an artifact service with a different %s', async (difference) => {
+    const base = new URL('/prefix/', window.location.href);
+    if (difference === 'port') base.port = '9000';
+    else base.protocol = base.protocol === 'http:' ? 'https:' : 'http:';
+    await expect(
+      MlflowService.getMlflowArtifactsPresignedDownloadUrl('run/file.txt', base.toString()),
+    ).rejects.toMatchObject({
+      status: 403,
+      textJson: { external_artifact_service: true },
+    });
+    expect(global.fetch).not.toHaveBeenCalled();
   });
 
   it.each(operations)('retains tracking credentials for same-origin %s requests', async (_name, operation) => {
     await operation(`${window.location.origin}/prefix/`);
     const [, options] = jest.mocked(global.fetch).mock.calls[0];
+    const headers = new Headers(options?.headers);
+    expect(headers.get('Authorization')).toBe('secret');
+    expect(headers.get('X-MLFLOW-WORKSPACE')).toBe('team-a');
+    expect(jest.mocked(global.fetch).mock.calls[0][0]).toEqual(
+      expect.stringContaining(`${window.location.origin}/prefix/api/`),
+    );
+  });
+
+  it('retains tracking credentials on relative artifact proxy routes', async () => {
+    await MlflowService.getMlflowArtifactsPresignedDownloadUrl('run/file.txt');
+    const [url, options] = jest.mocked(global.fetch).mock.calls[0];
+    expect(url).toBe('ajax-api/2.0/mlflow-artifacts/presigned/run/file.txt');
     const headers = new Headers(options?.headers);
     expect(headers.get('Authorization')).toBe('secret');
     expect(headers.get('X-MLFLOW-WORKSPACE')).toBe('team-a');

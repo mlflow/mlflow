@@ -38,7 +38,7 @@ jest.mock('../../../common/utils/ArtifactUtils', () => ({
 }));
 
 jest.mock('../../utils/PresignedArtifactUtils', () => ({
-  fetchArtifactWithPresignedUrl: (
+  fetchArtifactPreferPresigned: (
     _params: unknown,
     legacyArtifactLocation: string,
     getArtifactData: (artifactLocation: string) => Promise<unknown>,

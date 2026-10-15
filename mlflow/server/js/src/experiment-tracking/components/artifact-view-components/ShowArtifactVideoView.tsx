@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { LegacySkeleton } from '@databricks/design-system';
+import { ArtifactViewSkeleton } from './ArtifactViewSkeleton';
+import { ArtifactViewErrorState } from './ArtifactViewErrorState';
 import { getArtifactBlob } from '../../../common/utils/ArtifactUtils';
 import type { LoggedModelArtifactViewerProps } from './ArtifactViewComponents.types';
 import { fetchArtifactUnified } from './utils/fetchArtifactUnified';
@@ -17,28 +18,36 @@ const ShowArtifactVideoView = ({
   isLoggedModelsMode,
   loggedModelId,
   artifactRootUri,
-  experimentId,
-  entityTags,
 }: Props) => {
   const [videoUrl, setVideoUrl] = useState<string>();
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error>();
 
   useEffect(() => {
     let objUrl: string | undefined;
+    let cancelled = false;
+    setLoading(true);
+    setError(undefined);
+    setVideoUrl(undefined);
 
-    fetchArtifactUnified(
-      { runUuid, path, artifactRootUri, isLoggedModelsMode, loggedModelId, experimentId, entityTags },
-      getArtifact,
-    ).then((result) => {
-      objUrl = URL.createObjectURL(result as Blob);
-      setVideoUrl(objUrl);
-      setLoading(false);
-    });
+    fetchArtifactUnified({ runUuid, path, artifactRootUri, isLoggedModelsMode, loggedModelId }, getArtifact)
+      .then((result) => {
+        if (cancelled) return;
+        objUrl = URL.createObjectURL(result as Blob);
+        setVideoUrl(objUrl);
+        setLoading(false);
+      })
+      .catch((error: Error) => {
+        if (cancelled) return;
+        setError(error);
+        setLoading(false);
+      });
 
     return () => {
+      cancelled = true;
       if (objUrl) URL.revokeObjectURL(objUrl);
     };
-  }, [runUuid, path, isLoggedModelsMode, loggedModelId, getArtifact, artifactRootUri, experimentId, entityTags]);
+  }, [runUuid, path, isLoggedModelsMode, loggedModelId, getArtifact, artifactRootUri]);
 
   const classNames = {
     videoOuterContainer: {
@@ -59,7 +68,8 @@ const ShowArtifactVideoView = ({
   return (
     <div css={{ flex: 1 }}>
       <div css={classNames.videoOuterContainer}>
-        {loading && <LegacySkeleton active />}
+        {loading && <ArtifactViewSkeleton />}
+        {error && <ArtifactViewErrorState error={error} />}
         {videoUrl && (
           <video
             css={loading ? classNames.hidden : classNames.video}

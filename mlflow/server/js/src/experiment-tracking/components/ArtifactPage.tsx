@@ -32,6 +32,7 @@ import { asyncGetLoggedModel } from '../hooks/logged-models/useGetLoggedModelQue
 import type { KeyValueEntity } from '../../common/types';
 
 type ArtifactPageImplProps = {
+  experimentId: string;
   runUuid?: string;
   initialSelectedArtifactPath?: string;
   artifactRootUri?: string;

@@ -1,8 +1,10 @@
 import type { ArtifactRequestOptions } from '../../common/utils/ArtifactUtils';
 import { ErrorWrapper } from '../../common/utils/ErrorWrapper';
-import { getAjaxUrl } from '../../common/utils/FetchUtils';
+import { getAjaxUrl, getDefaultHeaders } from '../../common/utils/FetchUtils';
 import {
   getArtifactsPresignedOnlySync,
+  getLoggedModelArtifactReadCredentialsSupportedSync,
+  getModelArtifactPresignedDownloadsSupportedSync,
   getMultipartDownloadsEnabledSync,
   getMultipartUploadsEnabledSync,
   getPresignedUploadRunIdSupportedSync,
@@ -43,6 +45,8 @@ export const getProxiedArtifactRoute = (
         // deployment prefix, just as the Python artifact repository does.
         const artifactServiceUrl = new URL(getAjaxUrl('./'), document.baseURI);
         artifactServiceUrl.host = parsedArtifactRootUri.host;
+        // Setting host without a port leaves the old URL's port unchanged.
+        artifactServiceUrl.port = parsedArtifactRootUri.port;
         return { path, artifactServiceBaseUrl: artifactServiceUrl.toString() };
       }
       return { path };
@@ -65,12 +69,10 @@ export const getProxiedArtifactRoute = (
   return undefined;
 };
 
-export const getProxiedArtifactPath = (artifactRootUri?: string, artifactPath = '') =>
-  getProxiedArtifactRoute(artifactRootUri, artifactPath)?.path;
-
 const getErrorStatus = (error: unknown) => (error instanceof ErrorWrapper ? error.getStatus() : undefined);
 
-const canFallBackFromPresignedError = (error: unknown) => {
+const shouldFallBackToProxy = (error: unknown, presignedOnly: boolean) => {
+  if (presignedOnly) return false;
   // Browser fetch reports network and CORS failures as TypeError without an HTTP status.
   if (
     error instanceof TypeError ||
@@ -87,9 +89,46 @@ const normalizeCredentialHeaders = (
 ): Record<string, string> =>
   Array.isArray(headers) ? Object.fromEntries(headers.map(({ name, value }) => [name, value])) : (headers ?? {});
 
-const getRunArtifactRootUri = async (runUuid: string) => {
-  const response = await MlflowService.getRun({ run_id: runUuid });
-  return response?.run?.info?.artifactUri as string | undefined;
+const RUN_ARTIFACT_ROOT_CACHE_TTL_MS = 60_000;
+const RUN_ARTIFACT_ROOT_CACHE_MAX_ENTRIES = 100;
+const runArtifactRootCache = new Map<string, { promise: Promise<string | undefined>; expiresAt: number }>();
+
+const getRunArtifactRootUri = (runUuid: string): Promise<string | undefined> => {
+  // Artifact locations are metadata, not credentials. Share them briefly across
+  // image grids and uploads without reusing them across deployments or sessions.
+  const key = JSON.stringify([
+    new URL(getAjaxUrl('./'), document.baseURI).toString(),
+    document.cookie,
+    Object.entries(getDefaultHeaders(document.cookie)).sort(([left], [right]) => left.localeCompare(right)),
+    runUuid,
+  ]);
+  const cached = runArtifactRootCache.get(key);
+  if (cached && cached.expiresAt > Date.now()) {
+    // Keep the most recently used entries when the size limit is reached.
+    runArtifactRootCache.delete(key);
+    runArtifactRootCache.set(key, cached);
+    return cached.promise;
+  }
+
+  const entry = {
+    promise: MlflowService.getRun({ run_id: runUuid }).then(
+      (response) => response?.run?.info?.artifactUri as string | undefined,
+    ),
+    expiresAt: Date.now() + RUN_ARTIFACT_ROOT_CACHE_TTL_MS,
+  };
+  runArtifactRootCache.delete(key);
+  runArtifactRootCache.set(key, entry);
+  if (runArtifactRootCache.size > RUN_ARTIFACT_ROOT_CACHE_MAX_ENTRIES) {
+    const oldestKey = runArtifactRootCache.keys().next().value;
+    if (oldestKey !== undefined) runArtifactRootCache.delete(oldestKey);
+  }
+
+  const evict = () => {
+    if (runArtifactRootCache.get(key) === entry) runArtifactRootCache.delete(key);
+  };
+  // Failed or incomplete metadata must be retried on the next request.
+  entry.promise.then((root) => !root && evict(), evict);
+  return entry.promise;
 };
 
 export type PresignedArtifactParams = {
@@ -142,7 +181,7 @@ export const resolvePresignedArtifactDownload = async (
         return { url: response.url, headers: response.headers ?? {} };
       }
     } else if (params.isLoggedModelsMode && params.loggedModelId) {
-      if (artifactsPresignedOnly) {
+      if (artifactsPresignedOnly || getModelArtifactPresignedDownloadsSupportedSync()) {
         const response = await MlflowService.getLoggedModelPresignedDownloadUrl({
           loggedModelId: params.loggedModelId,
           path: params.path,
@@ -150,6 +189,7 @@ export const resolvePresignedArtifactDownload = async (
         if (response.url) return { url: response.url, headers: response.headers ?? {} };
         throw new ErrorWrapper('The server did not return a presigned logged-model artifact URL.', 501);
       }
+      if (!getLoggedModelArtifactReadCredentialsSupportedSync()) return undefined;
       const response = await MlflowService.getCredentialsForLoggedModelArtifactRead({
         loggedModelId: params.loggedModelId,
         path: params.path,
@@ -178,7 +218,7 @@ export const resolvePresignedArtifactDownload = async (
 
     throw new ErrorWrapper('The server did not return a presigned artifact URL.', 501);
   } catch (error) {
-    if (!artifactsPresignedOnly && canFallBackFromPresignedError(error)) {
+    if (shouldFallBackToProxy(error, artifactsPresignedOnly)) {
       return undefined;
     }
     throw error;
@@ -187,7 +227,7 @@ export const resolvePresignedArtifactDownload = async (
 
 export type GetArtifactDataFn<T = unknown> = (artifactLocation: string, options?: ArtifactRequestOptions) => Promise<T>;
 
-export const fetchArtifactWithPresignedUrl = async <T>(
+export const fetchArtifactPreferPresigned = async <T>(
   params: PresignedArtifactParams,
   legacyArtifactLocation: string,
   getArtifactData: GetArtifactDataFn<T>,
@@ -200,21 +240,26 @@ export const fetchArtifactWithPresignedUrl = async <T>(
   try {
     return await getArtifactData(presigned.url, { headers: presigned.headers });
   } catch (error) {
-    if (!getArtifactsPresignedOnlySync() && canFallBackFromPresignedError(error)) {
+    if (shouldFallBackToProxy(error, getArtifactsPresignedOnlySync())) {
       return getArtifactData(legacyArtifactLocation);
     }
     throw error;
   }
 };
 
-export const fetchRunArtifactWithPresignedUrl = async <T>(
+export const fetchRunArtifactPreferPresigned = async <T>(
   runUuid: string,
   path: string,
   legacyArtifactLocation: string,
   getArtifactData: GetArtifactDataFn<T>,
+  artifactRootUri?: string,
 ) => {
-  const artifactRootUri = await getRunArtifactRootUri(runUuid);
-  return fetchArtifactWithPresignedUrl({ runUuid, path, artifactRootUri }, legacyArtifactLocation, getArtifactData);
+  const root = artifactRootUri ?? (await getRunArtifactRootUri(runUuid));
+  return fetchArtifactPreferPresigned(
+    { runUuid, path, artifactRootUri: root },
+    legacyArtifactLocation,
+    getArtifactData,
+  );
 };
 
 const throwForResponse = async (response: Response) => {
@@ -254,7 +299,11 @@ const uploadProxiedArtifact = async (proxiedArtifactRoute: ProxiedArtifactRoute,
     }
     const uploadResponse = await uploadToPresignedUrl(credential.url, credential.headers ?? {}, body);
     const etag = uploadResponse.headers.get('ETag');
-    if (!etag) {
+    const uploadUrl = new URL(credential.url);
+    // Azure Put Block has no ETag; completion uses the signed URL's block ID.
+    const isAzureBlockUpload =
+      uploadUrl.searchParams.get('comp') === 'block' && Boolean(uploadUrl.searchParams.get('blockid'));
+    if (!etag && !isAzureBlockUpload) {
       throw new ErrorWrapper(
         'The storage upload response did not include an ETag. Configure storage CORS to expose the ETag response header.',
         500,
@@ -266,7 +315,7 @@ const uploadProxiedArtifact = async (proxiedArtifactRoute: ProxiedArtifactRoute,
       parts: [
         {
           part_number: credential.part_number,
-          etag,
+          etag: etag ?? '',
           url: credential.url,
         },
       ],
@@ -307,13 +356,14 @@ export const uploadArtifactWithPresignedUrl = async (
   runUuid: string,
   path: string,
   body: BodyInit,
+  artifactRootUri?: string,
 ): Promise<boolean> => {
   const artifactsPresignedOnly = getArtifactsPresignedOnlySync();
   const multipartUploadsEnabled = getMultipartUploadsEnabledSync();
   const presignedUploadRunIdSupported = getPresignedUploadRunIdSupportedSync();
   try {
-    const artifactRootUri = await getRunArtifactRootUri(runUuid);
-    const proxiedArtifactRoute = getProxiedArtifactRoute(artifactRootUri, path);
+    const root = artifactRootUri ?? (await getRunArtifactRootUri(runUuid));
+    const proxiedArtifactRoute = getProxiedArtifactRoute(root, path);
     if (proxiedArtifactRoute) {
       if (!multipartUploadsEnabled && !artifactsPresignedOnly && !proxiedArtifactRoute.artifactServiceBaseUrl) {
         return false;
@@ -333,7 +383,7 @@ export const uploadArtifactWithPresignedUrl = async (
 
     return false;
   } catch (error) {
-    if (!artifactsPresignedOnly && canFallBackFromPresignedError(error)) {
+    if (shouldFallBackToProxy(error, artifactsPresignedOnly)) {
       return false;
     }
     throw error;

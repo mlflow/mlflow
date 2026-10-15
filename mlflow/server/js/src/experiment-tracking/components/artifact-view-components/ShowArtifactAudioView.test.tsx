@@ -43,7 +43,6 @@ afterEach(() => {
 const minimalProps = {
   path: 'fakepath',
   runUuid: 'fakeUuid',
-  experimentId: 'fakeExperimentId',
   getArtifact: mockGetArtifact,
 };
 

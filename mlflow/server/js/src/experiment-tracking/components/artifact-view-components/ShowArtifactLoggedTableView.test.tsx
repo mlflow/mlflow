@@ -29,20 +29,13 @@ jest.mock('../../../common/utils/ArtifactUtils', () => ({
 describe('ShowArtifactLoggedTableView', () => {
   const originalRevokeObjectURL = (URL as any).revokeObjectURL;
   const renderComponent = () => {
-    render(
-      <ShowArtifactLoggedTableView
-        runUuid="test-run-uuid"
-        experimentId="test-experiment-id"
-        path="/path/to/artifact"
-      />,
-      {
-        wrapper: ({ children }) => (
-          <IntlProvider locale="en">
-            <DesignSystemProvider>{children}</DesignSystemProvider>
-          </IntlProvider>
-        ),
-      },
-    );
+    render(<ShowArtifactLoggedTableView runUuid="test-run-uuid" path="/path/to/artifact" />, {
+      wrapper: ({ children }) => (
+        <IntlProvider locale="en">
+          <DesignSystemProvider>{children}</DesignSystemProvider>
+        </IntlProvider>
+      ),
+    });
   };
 
   beforeEach(() => {
@@ -85,7 +78,6 @@ describe('ShowArtifactLoggedTableView', () => {
   });
 
   it('renders the table and expected values in the cells', async () => {
-    // @ts-expect-error Type 'Promise<string>' is not assignable to type 'Promise<R>'
     jest.mocked(getArtifactContent).mockImplementation(() => Promise.resolve(JSON.stringify(testArtifactData)));
 
     renderComponent();
@@ -109,7 +101,6 @@ describe('ShowArtifactLoggedTableView', () => {
   });
 
   it('renders the table with columns and allows showing/hiding them', async () => {
-    // @ts-expect-error Type 'Promise<string>' is not assignable to type 'Promise<R>'
     jest.mocked(getArtifactContent).mockImplementation(() => Promise.resolve(JSON.stringify(testArtifactData)));
 
     renderComponent();
@@ -137,7 +128,6 @@ describe('ShowArtifactLoggedTableView', () => {
       data: [[1], ['two'], [3.0], [null], [[1, null, 3]], [{ 1: null, 3: 5 }]],
     };
 
-    // @ts-expect-error Type 'Promise<string>' is not assignable to type 'Promise<R>'
     jest.mocked(getArtifactContent).mockImplementation(() => Promise.resolve(JSON.stringify(testMixedTypes)));
 
     renderComponent();
@@ -167,7 +157,6 @@ describe('ShowArtifactLoggedTableView', () => {
       ],
     };
 
-    // @ts-expect-error Type 'Promise<string>' is not assignable to type 'Promise<R>'
     jest.mocked(getArtifactContent).mockImplementation(() => Promise.resolve(JSON.stringify(testMixedColumnTypes)));
 
     renderComponent();
@@ -197,7 +186,6 @@ describe('ShowArtifactLoggedTableView', () => {
       data: [],
     };
 
-    // @ts-expect-error Type 'Promise<string>' is not assignable to type 'Promise<R>'
     jest.mocked(getArtifactContent).mockImplementation(() => Promise.resolve(JSON.stringify(testEmptyData)));
     renderComponent();
 
@@ -219,7 +207,6 @@ describe('ShowArtifactLoggedTableView', () => {
       data: [],
     };
 
-    // @ts-expect-error Type 'Promise<string>' is not assignable to type 'Promise<R>'
     jest.mocked(getArtifactContent).mockImplementation(() => Promise.resolve(JSON.stringify(testEmptyTable)));
     renderComponent();
 
@@ -248,7 +235,6 @@ describe('ShowArtifactLoggedTableView', () => {
       ],
     };
 
-    // @ts-expect-error Type 'Promise<string>' is not assignable to type 'Promise<R>'
     jest.mocked(getArtifactContent).mockImplementation(() => Promise.resolve(JSON.stringify(testImageTable)));
     jest.mocked(getArtifactBlob).mockResolvedValue(new Blob(['image']));
     jest.spyOn(URL, 'createObjectURL').mockReturnValue('blob:artifact-image');
@@ -286,7 +272,6 @@ describe('ShowArtifactLoggedTableView', () => {
     { artifactContent: { data: [] }, testName: 'object without columns' },
     { artifactContent: { columns: [] }, testName: 'object without data' },
   ])('renders error message when artifact contents is a $testName', async ({ artifactContent }) => {
-    // @ts-expect-error Type 'Promise<string>' is not assignable to type 'Promise<R>'
     jest.mocked(getArtifactContent).mockImplementation(() => Promise.resolve(JSON.stringify(artifactContent)));
 
     renderComponent();
@@ -303,7 +288,6 @@ describe('ShowArtifactLoggedTableView', () => {
 
   it('renders fallback column headers when column names are not provided', async () => {
     jest.mocked(getArtifactContent).mockImplementation(() =>
-      // @ts-expect-error Type 'Promise<string>' is not assignable to type 'Promise<R>'
       Promise.resolve(
         JSON.stringify({
           columns: ['guid', '', 'sentence', ''],

@@ -13,7 +13,7 @@ import { isArray, isEqual } from 'lodash';
 import Utils from '../../../../common/utils/Utils';
 import { fulfilled } from '../../../../common/utils/ActionUtils';
 import { ASSESSMENTS_ARTIFACT_FILE_NAME } from '../constants';
-import { fetchRunArtifactWithPresignedUrl } from '../../../utils/PresignedArtifactUtils';
+import { fetchRunArtifactPreferPresigned } from '../../../utils/PresignedArtifactUtils';
 
 /**
  * Local utility function to fetch existing raw assessments artifact data.
@@ -21,7 +21,7 @@ import { fetchRunArtifactWithPresignedUrl } from '../../../utils/PresignedArtifa
 const fetchExistingRawAssessmentsArtifactData = async (runUuid: string): Promise<RawEvaluationArtifact> => {
   const fullArtifactSrcPath = getArtifactLocationUrl(ASSESSMENTS_ARTIFACT_FILE_NAME, runUuid);
 
-  const fileContents = await fetchRunArtifactWithPresignedUrl(
+  const fileContents = await fetchRunArtifactPreferPresigned(
     runUuid,
     ASSESSMENTS_ARTIFACT_FILE_NAME,
     fullArtifactSrcPath,

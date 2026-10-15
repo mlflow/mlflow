@@ -13,7 +13,7 @@ import type {
 import { mergeMetricsAndAssessmentsWithEvaluations, parseRawTableArtifact } from '../utils/EvaluationDataParseUtils';
 import { getAjaxUrl } from '../utils/FetchUtils';
 import { getArtifactChunkedText } from '@mlflow/mlflow/src/common/utils/ArtifactUtils';
-import { fetchRunArtifactWithPresignedUrl } from '@mlflow/mlflow/src/experiment-tracking/utils/PresignedArtifactUtils';
+import { fetchRunArtifactPreferPresigned } from '@mlflow/mlflow/src/experiment-tracking/utils/PresignedArtifactUtils';
 
 type UseGetTraceEvaluationArtifactQueryKey = [
   'GET_TRACE_EVALUATION_ARTIFACT',
@@ -31,7 +31,7 @@ export const fetchGenAiTraceEvaluationArtifact = async (
 ): Promise<RawGenaiEvaluationArtifactResponse> => {
   const queryParams = new URLSearchParams({ run_uuid: runUuid, path: artifactFile });
   const url = [getAjaxUrl('ajax-api/2.0/mlflow/get-artifact'), queryParams].join('?');
-  return fetchRunArtifactWithPresignedUrl(runUuid, artifactFile, url, getArtifactChunkedText).then(
+  return fetchRunArtifactPreferPresigned(runUuid, artifactFile, url, getArtifactChunkedText).then(
     (artifactContents) => ({
       ...JSON.parse(artifactContents),
       filename: artifactFile,
