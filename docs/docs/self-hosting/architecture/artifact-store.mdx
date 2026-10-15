@@ -274,9 +274,10 @@ the signed credentials. Expose the `ETag` response header so the browser can com
 When the server still permits proxy transfers, the UI falls back to the proxy if a
 browser network or CORS error prevents the direct request.
 
-If the artifacts are not stored directly on supported storage (for example, with
-[proxied artifact access](/self-hosting/architecture/tracking-server#tracking-server-artifact-store), the default
-configuration), the UI falls back to downloading the artifact through the Tracking Server.
+The UI also uses presigned URLs with
+[proxied artifact access](/self-hosting/architecture/tracking-server#tracking-server-artifact-store)
+when the artifact service supports multipart downloads. If presigned downloads are unavailable, the UI downloads
+through the Tracking Server when proxied transfers are allowed.
 
 MLflow supports presigned URL downloads for the following storage:
 
