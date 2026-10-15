@@ -41,6 +41,7 @@ from mlflow.utils.credentials import get_default_host_creds
 from mlflow.utils.file_utils import (
     ArtifactProgressBar,
     _yield_chunks,
+    download_file_using_http_uri,
     read_chunk,
     relative_path_to_artifact_path,
     remove_on_error,
@@ -243,7 +244,14 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
                         file_size=file_size,
                         chunk_size=chunk_size,
                     )
-                    return
+                else:
+                    # File size is optional in the signing response. Keep the transfer
+                    # on storage even when range downloads cannot be used.
+                    with remove_on_error(local_path):
+                        download_file_using_http_uri(
+                            presigned_response.url, local_path, headers=presigned_response.headers
+                        )
+                return
             except HTTPError as e:
                 if (
                     not self._is_artifacts_presigned_only()

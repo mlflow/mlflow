@@ -1,6 +1,8 @@
 import os
 import posixpath
 import shutil
+import threading
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from unittest import mock
 
 import pytest
@@ -804,6 +806,59 @@ def test_download_file_fallback_when_presigned_not_supported(
             "GET",
             stream=True,
         )
+
+
+@pytest.mark.parametrize("presigned_only", [True, False])
+@pytest.mark.parametrize("storage_status", [200, 403])
+def test_download_without_file_size_uses_storage(
+    mlflow_artifact_repo_for_download, tmp_path, monkeypatch, presigned_only, storage_status
+):
+    monkeypatch.setenv("MLFLOW_ENABLE_PROXY_MULTIPART_DOWNLOAD", "true")
+    payload = b"artifact bytes without a known size"
+    received_headers = []
+
+    class StorageHandler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            received_headers.append(self.headers)
+            self.send_response(storage_status)
+            self.end_headers()
+            self.wfile.write(payload)
+
+        def log_message(self, *args):
+            pass
+
+    server = HTTPServer(("127.0.0.1", 0), StorageHandler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    response = PresignedDownloadUrlResponse(
+        url=f"http://127.0.0.1:{server.server_port}/signed-artifact",
+        headers={"x-storage-token": "signed-token"},
+    )
+    repo = mlflow_artifact_repo_for_download
+    repo._server_capabilities = {SERVER_INFO_ARTIFACTS_PRESIGNED_ONLY: presigned_only}
+    try:
+        with (
+            mock.patch.object(repo, "_get_presigned_download_url", return_value=response) as sign,
+            mock.patch("mlflow.store.artifact.http_artifact_repo.http_request") as proxy,
+        ):
+            destination = tmp_path / "artifact.bin"
+            if storage_status == 200:
+                repo._download_file("artifact.bin", str(destination))
+                assert destination.read_bytes() == payload
+            else:
+                with pytest.raises(HTTPError, match="403"):
+                    repo._download_file("artifact.bin", str(destination))
+                assert not destination.exists()
+
+        sign.assert_called_once_with("artifact.bin")
+        proxy.assert_not_called()
+        assert len(received_headers) == 1
+        assert received_headers[0]["x-storage-token"] == "signed-token"
+        assert "Authorization" not in received_headers[0]
+    finally:
+        server.shutdown()
+        thread.join()
+        server.server_close()
 
 
 def test_download_file_multipart_disabled_uses_proxy(

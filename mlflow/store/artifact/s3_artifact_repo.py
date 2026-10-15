@@ -86,7 +86,7 @@ _S3_PARAM_TO_HEADER = {
     "WebsiteRedirectLocation": "x-amz-website-redirect-location",
 }
 
-_S3_UPLOAD_PART_ARGS = {
+_S3_MULTIPART_REQUEST_ARGS = {
     "ExpectedBucketOwner",
     "RequestPayer",
     "SSECustomerAlgorithm",
@@ -95,8 +95,8 @@ _S3_UPLOAD_PART_ARGS = {
 }
 
 
-def _normalize_sse_customer_upload_part_args(upload_part_args):
-    """Match Botocore's SSE-C header transformation before signing upload parts."""
+def _normalize_sse_customer_args(upload_part_args):
+    """Match Botocore's SSE-C header transformation for multipart requests."""
     if "SSECustomerKey" not in upload_part_args or "SSECustomerKeyMD5" in upload_part_args:
         return upload_part_args
 
@@ -641,8 +641,10 @@ class S3ArtifactRepository(
             },
         )
         upload_id = create_response["UploadId"]
-        upload_part_args = _normalize_sse_customer_upload_part_args({
-            key: value for key, value in upload_extra_args.items() if key in _S3_UPLOAD_PART_ARGS
+        upload_part_args = _normalize_sse_customer_args({
+            key: value
+            for key, value in upload_extra_args.items()
+            if key in _S3_MULTIPART_REQUEST_ARGS
         })
         upload_part_headers = {
             _S3_PARAM_TO_HEADER[key]: str(value) for key, value in upload_part_args.items()
@@ -695,12 +697,17 @@ class S3ArtifactRepository(
         dest_path = posixpath.join(dest_path, os.path.basename(local_file))
         parts = [{"PartNumber": part.part_number, "ETag": part.etag} for part in parts]
         s3_client = self._get_s3_client()
+        complete_args = _normalize_sse_customer_args({
+            key: value
+            for key, value in self._get_upload_extra_args(local_file).items()
+            if key in _S3_MULTIPART_REQUEST_ARGS
+        })
         s3_client.complete_multipart_upload(
             Bucket=bucket,
             Key=dest_path,
             UploadId=upload_id,
             MultipartUpload={"Parts": parts},
-            **self._bucket_owner_params,
+            **complete_args,
         )
 
     def abort_multipart_upload(self, local_file, upload_id, artifact_path=None):
@@ -723,11 +730,16 @@ class S3ArtifactRepository(
             dest_path = posixpath.join(dest_path, artifact_path)
         dest_path = posixpath.join(dest_path, os.path.basename(local_file))
         s3_client = self._get_s3_client()
+        abort_args = {
+            key: value
+            for key, value in self._get_upload_extra_args(local_file).items()
+            if key in {"ExpectedBucketOwner", "RequestPayer"}
+        }
         s3_client.abort_multipart_upload(
             Bucket=bucket,
             Key=dest_path,
             UploadId=upload_id,
-            **self._bucket_owner_params,
+            **abort_args,
         )
 
     def create_presigned_upload_url(self, artifact_path, expiration=900):
