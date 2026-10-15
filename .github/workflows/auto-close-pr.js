@@ -5,15 +5,12 @@
 //      lines.
 //   4. PRs that reference multiple issues, closed issues, or unassigned issues
 //      already claimed by an earlier open PR.
-// Only enforces on issues/PRs created on or after 2026-03-10.
 
 const fs = require("fs");
 const path = require("path");
 
 const READY_LABEL = "ready";
 const PR_TEMPLATE_PATH = ".github/pull_request_template.md";
-// The date we introduced the "ready" label policy; skip older issues/PRs.
-const CUTOFF_DATE = new Date("2026-03-10T00:00:00Z");
 // PRs with more than this many LOC changed must link to an issue.
 const LOC_THRESHOLD = 100;
 // Paths only maintainers may change. Agent instruction files are listed here because a
@@ -36,7 +33,6 @@ const QUERY = `
           nodes {
             number
             state
-            createdAt
             labels(first: 50) {
               nodes { name }
             }
@@ -203,12 +199,6 @@ async function getCloseReason({ github, context }) {
       return undefined;
     }
 
-    const prCreatedAt = new Date(context.payload.pull_request.created_at);
-    if (prCreatedAt < CUTOFF_DATE) {
-      console.log(`PR #${prNumber} was created before ${CUTOFF_DATE.toISOString()}. Skipping.`);
-      return undefined;
-    }
-
     const { additions, deletions } = context.payload.pull_request;
     const totalChanges = additions + deletions;
 
@@ -242,14 +232,6 @@ async function getCloseReason({ github, context }) {
 
   const issue = issues[0];
   console.log(`PR #${prNumber} references issue #${issue.number}`);
-
-  // Skip issues created before the cutoff date
-  if (new Date(issue.createdAt) < CUTOFF_DATE) {
-    console.log(
-      `Issue #${issue.number} was created before ${CUTOFF_DATE.toISOString()}. Skipping.`
-    );
-    return undefined;
-  }
 
   if (issue.state !== "OPEN") {
     console.log(`Issue #${issue.number} is ${issue.state}. Closing PR #${prNumber}.`);

@@ -95,6 +95,8 @@ Propose a pull request only when all of these hold:
 - The fix is straightforward, verified as in step 3, and needs no decisions: no design choice,
   no trade-off between plausible fixes, nothing a maintainer should weigh in on first.
 - Every changed file is under `mlflow/` or `tests/`.
+- The issue author has not offered to fix it themselves in the issue body (for
+  example, "I'd be happy to submit a PR"). If they have, leave the fix to them.
 
 Otherwise, skip this step: the comment's suggested fix is enough.
 
