@@ -2269,15 +2269,81 @@ def test_gemini_adapter_build_chat_usage_preserves_provider_specific_fields():
     usage_metadata = {
         "promptTokenCount": 50,
         "candidatesTokenCount": 20,
-        "totalTokenCount": 70,
+        "totalTokenCount": 82,
         "thoughtsTokenCount": 12,
         "trafficType": "ON_DEMAND",
     }
     usage = GeminiAdapter._build_chat_usage(usage_metadata)
 
+    assert usage.completion_tokens == 32
     assert usage.model_dump()["thoughtsTokenCount"] == 12
     assert usage.model_dump()["trafficType"] == "ON_DEMAND"
     assert "promptTokenCount" not in usage.model_dump()
+
+
+@pytest.mark.parametrize("endpoint", ["chat", "chat_streaming", "completions"])
+@pytest.mark.parametrize(
+    ("counts", "expected"),
+    [
+        ({"candidatesTokenCount": 2, "thoughtsTokenCount": 300}, 302),
+        ({"candidatesTokenCount": 2, "thoughtsTokenCount": 0}, 2),
+        ({"candidatesTokenCount": 2}, 2),
+        ({"thoughtsTokenCount": 300}, 300),
+        ({"candidatesTokenCount": 0, "thoughtsTokenCount": 300}, 300),
+        ({"candidatesTokenCount": None, "thoughtsTokenCount": 300}, 300),
+        ({"candidatesTokenCount": 2, "thoughtsTokenCount": None}, 2),
+        ({}, None),
+    ],
+)
+def test_gemini_adapter_completion_tokens_include_thoughts(endpoint, counts, expected):
+    config = EndpointConfig(
+        **(completions_config() if endpoint == "completions" else chat_config())
+    )
+    usage_metadata = {"promptTokenCount": 10, "totalTokenCount": 10 + (expected or 0), **counts}
+    response = getattr(GeminiAdapter, f"model_to_{endpoint}")(
+        {"usageMetadata": usage_metadata}, config
+    )
+
+    assert response.usage.prompt_tokens == 10
+    assert response.usage.completion_tokens == expected
+    assert response.usage.total_tokens == usage_metadata["totalTokenCount"]
+    if endpoint != "completions" and "thoughtsTokenCount" in counts:
+        assert response.usage.model_dump()["thoughtsTokenCount"] == counts["thoughtsTokenCount"]
+
+
+@pytest.mark.parametrize("streaming", [False, True])
+@pytest.mark.parametrize("include_total", [False, True])
+@pytest.mark.parametrize("counts", [{"candidatesTokenCount": 2}, {}])
+def test_gemini_passthrough_token_usage_includes_thoughts(streaming, include_total, counts):
+    provider = GeminiProvider(EndpointConfig(**chat_config()))
+    usage_metadata = {
+        "promptTokenCount": 10,
+        "thoughtsTokenCount": 300,
+        "cachedContentTokenCount": 5,
+        **counts,
+    }
+    output_tokens = 300 + counts.get("candidatesTokenCount", 0)
+    if include_total:
+        usage_metadata["totalTokenCount"] = 10 + output_tokens
+    original_usage_metadata = usage_metadata.copy()
+    response = {"usageMetadata": usage_metadata}
+
+    if streaming:
+        token_usage = provider._extract_streaming_token_usage(
+            f"data: {json.dumps(response)}\n".encode()
+        )
+    else:
+        token_usage = provider._extract_passthrough_token_usage(
+            PassthroughAction.GEMINI_GENERATE_CONTENT, response
+        )
+
+    assert token_usage == {
+        "input_tokens": 10,
+        "output_tokens": output_tokens,
+        "total_tokens": 10 + output_tokens,
+        "cache_read_input_tokens": 5,
+    }
+    assert response["usageMetadata"] == original_usage_metadata
 
 
 def test_chat_to_model_translates_multimodal_image_content():
