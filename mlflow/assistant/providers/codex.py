@@ -16,7 +16,10 @@ from mlflow.assistant.custom_view import (
     is_custom_view_request,
     parse_custom_view_response,
 )
-from mlflow.assistant.providers._subprocess_stream import SubprocessLineStream
+from mlflow.assistant.providers._subprocess_stream import (
+    SubprocessLineStream,
+    assistant_subprocess_env,
+)
 from mlflow.assistant.providers.base import (
     AssistantProvider,
     CLINotInstalledError,
@@ -136,6 +139,7 @@ class CodexProvider(AssistantProvider):
                 input=b"say hi",
                 capture_output=True,
                 timeout=30,
+                env=assistant_subprocess_env(),
             )
 
             if result.returncode == 0:
@@ -253,7 +257,7 @@ class CodexProvider(AssistantProvider):
             process = SubprocessLineStream(
                 cmd,
                 cwd=cwd,
-                env={**os.environ, "MLFLOW_TRACKING_URI": tracking_uri},
+                env=assistant_subprocess_env(MLFLOW_TRACKING_URI=tracking_uri),
                 input_bytes=user_message.encode("utf-8"),
             )
 

@@ -7,7 +7,7 @@ import pytest
 
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
-from mlflow.genai.judges import make_judge
+from mlflow.genai.judges import ModelAPI, make_judge
 from mlflow.genai.judges.optimizers.dspy import DSPyAlignmentOptimizer
 from mlflow.genai.judges.optimizers.dspy_utils import AgentEvalLM
 from mlflow.metrics.genai.model_utils import convert_mlflow_uri_to_litellm
@@ -17,7 +17,7 @@ from tests.genai.judges.optimizers.conftest import MockDSPyLM, MockJudge
 
 def make_judge_mock_builder(
     expected_model: str | None = None, track_calls: list[str] | None = None
-) -> Callable[[str, str, str], MagicMock]:
+) -> Callable[..., MagicMock]:
     """Create a mock make_judge function for testing.
 
     Args:
@@ -31,7 +31,7 @@ def make_judge_mock_builder(
     mock_feedback.value = "pass"
     mock_feedback.rationale = "Test rationale"
 
-    def mock_make_judge(name, instructions, model, feedback_value_type):
+    def mock_make_judge(name, instructions, model, feedback_value_type, **kwargs):
         if track_calls is not None and model == expected_model:
             track_calls.append(model)
         return MagicMock(return_value=mock_feedback)
@@ -344,7 +344,7 @@ def test_dspy_program_forward_always_uses_original_judge_model():
     make_judge_calls = []
     captured_args = {}
 
-    def track_make_judge(name, instructions, model, feedback_value_type):
+    def track_make_judge(name, instructions, model, feedback_value_type, **kwargs):
         make_judge_calls.append(model)
         captured_args["name"] = name
         captured_args["instructions"] = instructions
@@ -384,7 +384,7 @@ def test_dspy_program_uses_make_judge_with_optimized_instructions(
     )
     captured_instructions = None
 
-    def capture_make_judge(name, instructions, model, feedback_value_type):
+    def capture_make_judge(name, instructions, model, feedback_value_type, **kwargs):
         nonlocal captured_instructions
         captured_instructions = instructions
         mock_feedback = MagicMock()
@@ -517,3 +517,47 @@ def test_create_judge_from_dspy_program_preserves_feedback_value_type():
     result = optimizer._create_judge_from_dspy_program(program, judge)
 
     assert result.feedback_value_type == bool
+
+
+def test_create_judge_from_dspy_program_preserves_model_api():
+    optimizer = ConcreteDSPyOptimizer()
+    judge = make_judge(
+        name="test_judge",
+        instructions="Check {{inputs}} vs {{outputs}}",
+        model="openai:/gpt-4",
+        feedback_value_type=bool,
+        model_api=ModelAPI.DECISIONS,
+    )
+
+    program = dspy.Predict("inputs, outputs -> result, rationale")
+    program.signature.instructions = "Check {{inputs}} vs {{outputs}}"
+
+    result = optimizer._create_judge_from_dspy_program(program, judge)
+
+    assert result.model_api == ModelAPI.DECISIONS
+
+
+def test_create_judge_from_dspy_program_preserves_judge_config():
+    optimizer = ConcreteDSPyOptimizer()
+    judge = make_judge(
+        name="test_judge",
+        instructions="Check {{inputs}} vs {{outputs}}",
+        model="openai:/gpt-4",
+        feedback_value_type=bool,
+        description="Test judge description",
+        inference_params={"temperature": 0.2},
+        base_url="https://example.com/v1",
+        extra_headers={"X-Custom": "value"},
+        generate_rationale_first=True,
+    )
+
+    program = dspy.Predict("inputs, outputs -> result, rationale")
+    program.signature.instructions = "Check {{inputs}} vs {{outputs}}"
+
+    result = optimizer._create_judge_from_dspy_program(program, judge)
+
+    assert result.description == "Test judge description"
+    assert result.inference_params == {"temperature": 0.2}
+    assert result._base_url == "https://example.com/v1"
+    assert result._extra_headers == {"X-Custom": "value"}
+    assert result._generate_rationale_first is True
