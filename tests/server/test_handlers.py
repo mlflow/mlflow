@@ -305,6 +305,7 @@ from mlflow.utils.rest_utils import MlflowHostCreds
 from mlflow.utils.server_info import (
     SERVER_INFO_ARTIFACT_SERVING_ENABLED,
     SERVER_INFO_ARTIFACTS_PRESIGNED_ONLY,
+    SERVER_INFO_MODEL_ARTIFACT_PRESIGNED_DOWNLOADS_SUPPORTED,
     SERVER_INFO_MULTIPART_DOWNLOADS_ENABLED,
     SERVER_INFO_MULTIPART_UPLOADS_ENABLED,
     SERVER_INFO_PRESIGNED_UPLOAD_MODEL_ID_SUPPORTED,
@@ -486,6 +487,7 @@ def test_server_info():
         assert data[SERVER_INFO_TRACE_ARCHIVAL_ENABLED] is False
         assert data[SERVER_INFO_PRESIGNED_UPLOAD_RUN_ID_SUPPORTED] is True
         assert data[SERVER_INFO_PRESIGNED_UPLOAD_MODEL_ID_SUPPORTED] is True
+        assert data[SERVER_INFO_MODEL_ARTIFACT_PRESIGNED_DOWNLOADS_SUPPORTED] is True
 
 
 def test_server_info_advertises_configured_tracking_auth(monkeypatch):
@@ -7036,12 +7038,13 @@ def test_model_version_presigned_download_uses_registry_authorization(
 
 
 @pytest.mark.parametrize("proxied", [False, True])
+@pytest.mark.parametrize("presigned_only", [False, True])
 def test_logged_model_presigned_request_never_streams_bytes(
-    monkeypatch, enable_serve_artifacts, proxied
+    monkeypatch, enable_serve_artifacts, proxied, presigned_only
 ):
     from mlflow.store.artifact.artifact_repo import MultipartDownloadMixin
 
-    monkeypatch.setenv("MLFLOW_ARTIFACTS_PRESIGNED_ONLY", "true")
+    monkeypatch.setenv("MLFLOW_ARTIFACTS_PRESIGNED_ONLY", str(presigned_only).lower())
     monkeypatch.setenv("MLFLOW_PRESIGNED_DOWNLOAD_URL_TTL_SECONDS", "30")
     repo = mock.MagicMock(spec=MultipartDownloadMixin)
     repo.get_download_presigned_url.return_value = PresignedDownloadUrlResponse(
@@ -7137,6 +7140,8 @@ def test_presigned_only_rejects_at_endpoint_boundary(
     assert "Upgrade your MLflow client" in body["message"]
     assert VERSION in body["message"]
     assert ("downloaded" if method == "GET" else "uploaded") in body["message"]
+    assert body["artifacts_presigned_only"] is True
+    assert "reload the page" in body["message"]
     tracking_store.assert_not_called()
     registry_store.assert_not_called()
     run_repo.assert_not_called()
