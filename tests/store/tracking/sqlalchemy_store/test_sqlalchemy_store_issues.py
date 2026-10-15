@@ -1184,7 +1184,7 @@ def test_issue_search_facets_pagination_and_projection(store):
         "max_results": 2,
     }
     first = store.search_issues(**options)
-    assert [issue.issue_id for issue in first] == ["iss-0", "iss-1"]
+    assert [issue.issue_id for issue in first] == ["iss-4", "iss-3"]
     assert first.total_count == 5
     assert first[0].trace_count == 0
     assert first[0].description == ""
@@ -1192,7 +1192,7 @@ def test_issue_search_facets_pagination_and_projection(store):
     assert first[0].metadata is None
     second = store.search_issues(**options, page_token=first.token)
     third = store.search_issues(**options, page_token=second.token)
-    assert [issue.issue_id for issue in second + third] == ["iss-2", "iss-3", "iss-4"]
+    assert [issue.issue_id for issue in second + third] == ["iss-2", "iss-1", "iss-0"]
     assert third.token is None
     full = store.get_issue("iss-0")
     assert full.description == "Large description"

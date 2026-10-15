@@ -1539,11 +1539,16 @@ class SqlIssueCategory(Base):
     __tablename__ = "issue_categories"
 
     issue_id = Column(
-        String(36), ForeignKey("issues.issue_id", ondelete="CASCADE"), primary_key=True
+        String(36),
+        ForeignKey("issues.issue_id", name="fk_issue_categories_issue_id", ondelete="CASCADE"),
+        nullable=False,
     )
-    category_hash = Column(String(64), primary_key=True)
+    category_hash = Column(String(64), nullable=False)
     category = Column(Text, nullable=False)
-    __table_args__ = (Index("index_issue_categories_hash", "category_hash"),)
+    __table_args__ = (
+        PrimaryKeyConstraint("issue_id", "category_hash", name="issue_categories_pk"),
+        Index("index_issue_categories_hash", "category_hash"),
+    )
 
 
 class SqlLoggedModel(Base):

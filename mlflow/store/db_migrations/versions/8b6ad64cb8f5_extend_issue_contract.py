@@ -28,14 +28,16 @@ def upgrade():
         )
     op.create_table(
         "issue_categories",
-        sa.Column(
-            "issue_id",
-            sa.String(36),
-            sa.ForeignKey("issues.issue_id", ondelete="CASCADE"),
-            primary_key=True,
-        ),
-        sa.Column("category_hash", sa.String(64), primary_key=True),
+        sa.Column("issue_id", sa.String(36), nullable=False),
+        sa.Column("category_hash", sa.String(64), nullable=False),
         sa.Column("category", sa.Text(), nullable=False),
+        sa.PrimaryKeyConstraint("issue_id", "category_hash", name="issue_categories_pk"),
+        sa.ForeignKeyConstraint(
+            ["issue_id"],
+            ["issues.issue_id"],
+            name="fk_issue_categories_issue_id",
+            ondelete="CASCADE",
+        ),
     )
     op.create_index("index_issue_categories_hash", "issue_categories", ["category_hash"])
     issues = sa.table(

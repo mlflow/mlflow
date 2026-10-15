@@ -624,6 +624,9 @@ CREATE TABLE issues (
 	created_timestamp BIGINT NOT NULL,
 	last_updated_timestamp BIGINT NOT NULL,
 	created_by VARCHAR(255) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	last_seen_timestamp BIGINT,
+	last_updated_by VARCHAR(255) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	metadata VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	CONSTRAINT issues_pk PRIMARY KEY (issue_id),
 	CONSTRAINT fk_issues_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id) ON DELETE CASCADE,
 	CONSTRAINT fk_issues_source_run_id FOREIGN KEY(source_run_id) REFERENCES runs (run_uuid) ON DELETE SET NULL
@@ -852,6 +855,15 @@ CREATE TABLE guardrails (
 	CONSTRAINT guardrails_pk PRIMARY KEY (guardrail_id),
 	CONSTRAINT fk_guardrails_action_endpoint_id FOREIGN KEY(action_endpoint_id) REFERENCES endpoints (endpoint_id) ON DELETE SET NULL,
 	CONSTRAINT fk_guardrails_scorer_version FOREIGN KEY(scorer_id, scorer_version) REFERENCES scorer_versions (scorer_id, scorer_version)
+)
+
+
+CREATE TABLE issue_categories (
+	issue_id VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	category_hash VARCHAR(64) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	category VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	CONSTRAINT issue_categories_pk PRIMARY KEY (issue_id, category_hash),
+	CONSTRAINT fk_issue_categories_issue_id FOREIGN KEY(issue_id) REFERENCES issues (issue_id) ON DELETE CASCADE
 )
 
 
