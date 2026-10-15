@@ -1,6 +1,7 @@
-import { useMemo, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import {
   Alert,
+  Button,
   ChevronDownIcon,
   CopyIcon,
   ChevronRightIcon,
@@ -20,7 +21,7 @@ import { CopyButton } from '../../shared/building_blocks/CopyButton';
 import { GenAIMarkdownRenderer } from '../../shared/web-shared/genai-markdown-renderer';
 import { sanitizeHref } from '../../common/utils/registryIcons';
 import { useSkillFileContentQuery, useSkillVersionFilesQuery } from '../hooks/useSkillVersionFiles';
-import { readFrontmatterFields, splitFrontmatter } from '../localSkillFolder';
+import { readFrontmatterFields, readSkillManifest, splitFrontmatter } from '../localSkillFolder';
 import {
   buildSkillFileTree,
   formatFileSize,
@@ -33,47 +34,13 @@ import {
   type SkillFileTreeNode,
 } from '../skillFiles';
 import type { SkillVersion } from '../types';
-import { describeSkillSource } from '../utils';
-import { SkillExternalLink } from './SkillExternalLink';
+import { SkillSectionCard } from './SkillSectionCard';
 
 const onActivate = (action: () => void) => (event: KeyboardEvent) => {
   if (event.key === 'Enter' || event.key === ' ') {
     event.preventDefault();
     action();
   }
-};
-
-// The registry never fetches remote content, so only a Git version can point the user at its files.
-const RemoteSourceNotice = ({ version }: { version: SkillVersion }) => {
-  const { theme } = useDesignSystemTheme();
-  const intl = useIntl();
-  const source = describeSkillSource(version);
-  const browseHref = version.source_type === 'git' ? (source.browseHref ?? source.locatorHref) : undefined;
-  return (
-    <Alert
-      componentId="mlflow.skill_registry.detail.version.files.remote"
-      type="info"
-      closable={false}
-      message={intl.formatMessage({
-        defaultMessage: 'Content is read from a remote source.',
-        description: 'Notice that a skill version stored outside MLflow has no file listing',
-      })}
-      description={
-        browseHref && (
-          <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs, alignItems: 'flex-start' }}>
-            <SkillExternalLink componentId="mlflow.skill_registry.detail.version.files.browse" href={browseHref} />
-            <Typography.Text color="secondary" size="sm">
-              <FormattedMessage
-                defaultMessage="Opens a third-party site. Check you trust the source before using what it contains."
-                description="Warning shown when a Skill version source links to an external site"
-              />
-            </Typography.Text>
-          </div>
-        )
-      }
-      css={{ maxWidth: 720 }}
-    />
-  );
 };
 
 const FileTree = ({
@@ -484,13 +451,179 @@ const StoredSkillFiles = ({ artifactPath }: { artifactPath: string }) => {
   );
 };
 
-/** Files of a skill version: browsable when MLflow stores them, otherwise a pointer to the remote source. */
+const COLLAPSED_MANIFEST_HEIGHT = 280;
+
+const readManifestFields = (content: string) => {
+  try {
+    return readSkillManifest(content);
+  } catch {
+    return {};
+  }
+};
+
+const ManifestField = ({ label, children }: { label: ReactNode; children: string }) => {
+  const { theme } = useDesignSystemTheme();
+  return (
+    <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+      <Typography.Text color="secondary">{label}</Typography.Text>
+      <Typography.Text css={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{children}</Typography.Text>
+    </div>
+  );
+};
+
+// The name and description an agent reads to decide when to load the skill, shown above the instructions.
+const ManifestFields = ({ content }: { content: string }) => {
+  const { theme } = useDesignSystemTheme();
+  const { name, description } = readManifestFields(content);
+  if (!name && !description) return null;
+  return (
+    <div
+      css={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: theme.spacing.md,
+        paddingBottom: theme.spacing.md,
+        borderBottom: `1px solid ${theme.colors.border}`,
+      }}
+    >
+      {name && (
+        <ManifestField label={<FormattedMessage defaultMessage="Skill name" description="SKILL.md name field label" />}>
+          {name}
+        </ManifestField>
+      )}
+      {description && (
+        <ManifestField
+          label={<FormattedMessage defaultMessage="Description" description="SKILL.md description field label" />}
+        >
+          {description}
+        </ManifestField>
+      )}
+    </div>
+  );
+};
+
+const ManifestBody = ({ content }: { content: string }) => {
+  const { theme } = useDesignSystemTheme();
+  const [expanded, setExpanded] = useState(false);
+  const [overflows, setOverflows] = useState(false);
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const { body } = splitFrontmatter(content);
+
+  // Whether the rendered markdown is taller than the collapsed height can only be measured once it is on screen,
+  // and changes as the page's width rewraps it.
+  useEffect(() => {
+    const element = bodyRef.current;
+    if (!element) return undefined;
+    const measure = () => setOverflows(element.scrollHeight > COLLAPSED_MANIFEST_HEIGHT);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [body]);
+
+  const collapsed = overflows && !expanded;
+  return (
+    <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
+      <ManifestFields content={content} />
+      <div
+        ref={bodyRef}
+        // Links and copy buttons below the fold stay in the tab order, so tabbing into the preview reveals the rest.
+        // Tab's keyup lands on the newly focused element; a click on a visible link focuses it without expanding.
+        onKeyUp={(event) => {
+          if (collapsed && event.key === 'Tab') setExpanded(true);
+        }}
+        css={{
+          position: 'relative',
+          maxHeight: collapsed ? COLLAPSED_MANIFEST_HEIGHT : undefined,
+          overflow: 'hidden',
+          '&::after': collapsed
+            ? {
+                content: '""',
+                position: 'absolute',
+                insetInline: 0,
+                bottom: 0,
+                height: theme.spacing.lg * 2,
+                background: `linear-gradient(transparent, ${theme.colors.backgroundPrimary})`,
+                pointerEvents: 'none',
+              }
+            : undefined,
+        }}
+      >
+        <GenAIMarkdownRenderer components={markdownComponents}>{body}</GenAIMarkdownRenderer>
+      </div>
+      {overflows && (
+        <Button
+          componentId="mlflow.skill_registry.detail.manifest.toggle"
+          type="link"
+          onClick={() => setExpanded((current) => !current)}
+          css={{ alignSelf: 'flex-start' }}
+        >
+          {expanded ? (
+            <FormattedMessage defaultMessage="Show less" description="Collapse the SKILL.md preview on a skill page" />
+          ) : (
+            <FormattedMessage defaultMessage="Show more" description="Expand the SKILL.md preview on a skill page" />
+          )}
+        </Button>
+      )}
+    </div>
+  );
+};
+
+const StoredManifestPreview = ({ artifactPath }: { artifactPath: string }) => {
+  const intl = useIntl();
+  const { data } = useSkillVersionFilesQuery(artifactPath);
+  const manifest = data?.files.find((file) => file.path === SKILL_MANIFEST_FILE);
+  const { data: content, isLoading, error, tooLarge } = useSkillFileContentQuery(artifactPath, manifest);
+  // Anything that keeps SKILL.md from loading is reported in the file list, which also offers the raw file.
+  if (!manifest || tooLarge || error || (!isLoading && (content === undefined || looksBinary(content)))) return null;
+  return (
+    <SkillSectionCard
+      title={SKILL_MANIFEST_FILE}
+      actions={
+        content !== undefined && (
+          <CopyButton
+            componentId="mlflow.skill_registry.detail.manifest.copy"
+            showLabel={false}
+            copyText={content}
+            icon={<CopyIcon />}
+            size="small"
+            type="tertiary"
+            aria-label={intl.formatMessage({
+              defaultMessage: 'Copy SKILL.md',
+              description: 'Aria label for copying the SKILL.md preview on a skill page',
+            })}
+          />
+        )
+      }
+    >
+      {isLoading || content === undefined ? (
+        <Typography.Hint>
+          <FormattedMessage defaultMessage="Loading SKILL.md..." description="Loading state for the SKILL.md preview" />
+        </Typography.Hint>
+      ) : (
+        <ManifestBody content={content} />
+      )}
+    </SkillSectionCard>
+  );
+};
+
+/** The opening of a stored version's SKILL.md, rendered, so the page shows what the skill does without a click. */
+export const SkillManifestPreview = ({ version }: { version: SkillVersion }) => {
+  const artifactPath = getSkillArtifactPath(version);
+  // The registry never fetches remote content, so only versions MLflow stores have a preview.
+  return artifactPath ? <StoredManifestPreview key={artifactPath} artifactPath={artifactPath} /> : null;
+};
+
+/** The files of a version MLflow stores. Remote versions have none to list; their source is under Details. */
 export const SkillVersionFiles = ({ version }: { version: SkillVersion }) => {
   const artifactPath = getSkillArtifactPath(version);
-  // Keyed so switching versions drops an open preview, whose size check belongs to the old version's file.
-  return artifactPath ? (
-    <StoredSkillFiles key={artifactPath} artifactPath={artifactPath} />
-  ) : (
-    <RemoteSourceNotice version={version} />
+  if (!artifactPath) return null;
+  return (
+    <SkillSectionCard
+      title={<FormattedMessage defaultMessage="Files" description="Title of a skill version's files section" />}
+    >
+      {/* Keyed so switching versions drops an open preview, whose size check belongs to the old version's file. */}
+      <StoredSkillFiles key={artifactPath} artifactPath={artifactPath} />
+    </SkillSectionCard>
   );
 };

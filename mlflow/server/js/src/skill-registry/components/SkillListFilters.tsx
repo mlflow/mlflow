@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   SimpleSelect,
   SimpleSelectOption,
@@ -116,7 +116,6 @@ export const SkillListFilters = ({
   organizations,
   sourceType,
   onSourceTypeChange,
-  actions,
 }: {
   searchFilter: string;
   onSearchFilterChange: (value: string) => void;
@@ -127,7 +126,6 @@ export const SkillListFilters = ({
   organizations: string[];
   sourceType: SkillSourceType | '';
   onSourceTypeChange: (value: SkillSourceType | '') => void;
-  actions?: ReactNode;
 }) => {
   const intl = useIntl();
   const sourceTypeLabel = intl.formatMessage({
@@ -136,7 +134,7 @@ export const SkillListFilters = ({
   });
 
   return (
-    <TableFilterLayout css={{ marginBottom: '16px', width: '100%' }} actions={actions}>
+    <TableFilterLayout css={{ marginBottom: '16px', width: '100%' }}>
       <TableFilterInput
         placeholder={intl.formatMessage({
           defaultMessage: 'Search skills',
