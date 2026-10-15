@@ -3662,25 +3662,28 @@ _AUTH_SEARCH_TOKEN_PREFIX = "mlflow-auth-search:"
 
 
 def _search_model_registry_page(search, request_message, can_read_entity):
-    kwargs = {
-        "filter_string": request_message.filter,
-        "max_results": request_message.max_results,
-        "order_by": request_message.order_by,
-        "page_token": request_message.page_token or None,
-    }
-    if can_read_entity is None:
-        return search(**kwargs)
-
     max_results = request_message.max_results
-    # Preserve store validation for malformed limits before dividing the search into pages.
     if not isinstance(max_results, int) or max_results < 1:
-        return search(**kwargs)
+        raise MlflowException.invalid_parameter_value(
+            f"Invalid value for max_results. It must be a positive integer, but got {max_results}"
+        )
     threshold = (
         SEARCH_REGISTERED_MODEL_MAX_RESULTS_THRESHOLD
         if isinstance(request_message, SearchRegisteredModels)
         else SEARCH_MODEL_VERSION_MAX_RESULTS_THRESHOLD
     )
     if max_results > threshold:
+        raise MlflowException.invalid_parameter_value(
+            f"Invalid value for max_results. It must be at most {threshold}, but got {max_results}"
+        )
+
+    kwargs = {
+        "filter_string": request_message.filter,
+        "max_results": max_results,
+        "order_by": request_message.order_by,
+        "page_token": request_message.page_token or None,
+    }
+    if can_read_entity is None:
         return search(**kwargs)
 
     # Most stores enforce the scoped filter themselves. Check their returned rows too,

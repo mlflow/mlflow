@@ -12,7 +12,6 @@ from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
 from mlflow.exceptions import MlflowException
 from mlflow.prompt.constants import IS_PROMPT_TAG_KEY
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, ErrorCode
-from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.protos.model_registry_pb2 import SearchModelVersions, SearchRegisteredModels
 from mlflow.server import auth as auth_module
 from mlflow.server import handlers
@@ -26,8 +25,6 @@ from mlflow.server.auth.permissions import (
     USE,
     _format_skill_registry_resource_key,
 )
-from mlflow.server import handlers
-from mlflow.server.auth.permissions import DENY, EDIT, MANAGE, NO_PERMISSIONS, READ, USE
 from mlflow.server.auth.requirements import ACTION_NOT_DENIED, Requirement
 from mlflow.server.auth.routes import (
     CREATE_PROMPTLAB_RUN,
@@ -3946,6 +3943,13 @@ def test_model_registry_search_with_many_exact_grants_preserves_pages(
     assert [
         row.name for row in handlers._search_model_registry_page(search, narrow, narrow_predicate)
     ] == ["model-0001"]
+
+    excess_limit = 1001 if message_type is SearchRegisteredModels else 200_001
+    for invalid_limit in (-2, 0, excess_limit):
+        message.max_results = invalid_limit
+        for predicate in (can_read_entity, None):
+            with pytest.raises(MlflowException, match="max_results"):
+                handlers._search_model_registry_page(search, message, predicate)
 
 
 def test_graphql_permission_functions_use_workspace_permissions(workspace_permission_setup):
