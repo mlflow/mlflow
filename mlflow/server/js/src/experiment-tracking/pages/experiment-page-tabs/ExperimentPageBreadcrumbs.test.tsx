@@ -19,8 +19,8 @@ const experiment: ExperimentEntity = {
   tags: [],
 };
 
-const BreadcrumbHarness = ({ title }: { title?: string }) => {
-  useSetExperimentBreadcrumbTitle(title);
+const BreadcrumbHarness = ({ title, status }: { title?: string; status?: string }) => {
+  useSetExperimentBreadcrumbTitle(title, status);
   return <ExperimentPageBreadcrumbs experiment={experiment} />;
 };
 
@@ -41,7 +41,7 @@ const RouteAwareBreadcrumbHarness = () => {
 describe('ExperimentPageBreadcrumbs', () => {
   const { history } = setupTestRouter();
 
-  const renderAt = (entry: string, routePath: string, title?: string, routeAware = false) =>
+  const renderAt = (entry: string, routePath: string, title?: string, routeAware = false, status?: string) =>
     render(
       <IntlProvider locale="en">
         <DesignSystemProvider>
@@ -51,7 +51,7 @@ describe('ExperimentPageBreadcrumbs', () => {
             routes={[
               testRoute(
                 <ExperimentPageRevampProvider enabled>
-                  {routeAware ? <RouteAwareBreadcrumbHarness /> : <BreadcrumbHarness title={title} />}
+                  {routeAware ? <RouteAwareBreadcrumbHarness /> : <BreadcrumbHarness title={title} status={status} />}
                 </ExperimentPageRevampProvider>,
                 createMLflowRoutePath(routePath),
               ),
@@ -80,6 +80,13 @@ describe('ExperimentPageBreadcrumbs', () => {
       title: 'Friendly dataset',
     },
     {
+      entry: '/experiments/123/evaluation-runs/run-1/details',
+      route: '/experiments/:experimentId/evaluation-runs/:runUuid/details',
+      tab: 'Evaluation runs',
+      leaf: 'Helpful run',
+      title: 'Helpful run',
+    },
+    {
       entry: '/experiments/123/prompts/prompt-1',
       route: '/experiments/:experimentId/prompts/:promptName',
       tab: 'Prompts',
@@ -98,6 +105,33 @@ describe('ExperimentPageBreadcrumbs', () => {
     const breadcrumb = await screen.findByRole('navigation', { name: 'Breadcrumb' });
     expect(within(breadcrumb).getByRole('link', { name: tab })).toBeInTheDocument();
     expect(await within(breadcrumb).findByText(leaf)).toHaveAttribute('aria-current', 'page');
+  });
+
+  test('shows the run status pill next to the breadcrumb, outside the nav landmark', async () => {
+    renderAt(
+      '/experiments/123/evaluation-runs/run-1/details',
+      '/experiments/:experimentId/evaluation-runs/:runUuid/details',
+      'Helpful run',
+      false,
+      'RUNNING',
+    );
+
+    const breadcrumb = await screen.findByRole('navigation', { name: 'Breadcrumb' });
+    expect(await within(breadcrumb).findByText('Helpful run')).toHaveAttribute('aria-current', 'page');
+    // The pill hugs the crumb but renders outside the Breadcrumb navigation landmark.
+    expect(screen.getByText('RUNNING')).toBeInTheDocument();
+    expect(within(breadcrumb).queryByText('RUNNING')).not.toBeInTheDocument();
+  });
+
+  test('shows no status pill when no run status is published', async () => {
+    renderAt(
+      '/experiments/123/evaluation-runs/run-1/details',
+      '/experiments/:experimentId/evaluation-runs/:runUuid/details',
+      'Helpful run',
+    );
+
+    await screen.findByRole('navigation', { name: 'Breadcrumb' });
+    expect(screen.queryByText('RUNNING')).not.toBeInTheDocument();
   });
 
   test('keeps Traces as the deepest breadcrumb for trace details', async () => {

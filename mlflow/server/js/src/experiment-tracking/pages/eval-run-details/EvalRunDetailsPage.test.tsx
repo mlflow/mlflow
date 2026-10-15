@@ -1,0 +1,151 @@
+import { describe, test, expect, jest, beforeEach } from '@jest/globals';
+import { render, screen } from '@testing-library/react';
+import { DesignSystemProvider } from '@databricks/design-system';
+import { IntlProvider } from 'react-intl';
+import { setupTestRouter, testRoute, TestRouter } from '../../../common/utils/RoutingTestUtils';
+import { shouldEnableNewEvalRunsUi } from '../../../common/utils/FeatureUtils';
+import { MlflowRunStatus } from '../../../graphql/__generated__/graphql';
+import EvalRunDetailsPage from './EvalRunDetailsPage';
+import { useEvalRunProgress } from './useEvalRunProgress';
+import { ExperimentPageRevampProvider } from '../experiment-page-tabs/ExperimentPageRevampContext';
+
+jest.mock('../../../common/utils/FeatureUtils', () => ({
+  ...jest.requireActual<typeof import('../../../common/utils/FeatureUtils')>('../../../common/utils/FeatureUtils'),
+  shouldEnableNewEvalRunsUi: jest.fn(() => false),
+}));
+jest.mock('./useEvalRunProgress', () => ({ useEvalRunProgress: jest.fn() }));
+jest.mock('../../components/evaluations/RunViewEvaluationsTab', () => ({
+  RunViewEvaluationsTab: ({ runTags }: { runTags?: Record<string, unknown> }) => (
+    <div data-testid="eval-results-table">run-tags:{runTags ? 'present' : 'absent'}</div>
+  ),
+}));
+// Keep this routing test lightweight; the sidebar and the table have their own tests.
+jest.mock('./EvalRunTracesSidebar', () => ({
+  EvalRunTracesSidebar: () => <div role="region" aria-label="Run sidebar" />,
+}));
+jest.mock('./EvalRunTracesV4Table', () => ({
+  EvalRunTracesV4Table: ({ runUuid }: { runUuid: string }) => (
+    <div role="table" aria-label="Evaluation run traces" data-testid="eval-results-v4">
+      run:{runUuid}
+    </div>
+  ),
+}));
+jest.mock('../../components/experiment-page/components/traces-v4/components/TracesV4PageWrapper', () => ({
+  TracesV4PageWrapper: ({ children }: { children: React.ReactNode }) => children,
+}));
+
+type Progress = ReturnType<typeof useEvalRunProgress>;
+const baseProgress: Progress = {
+  isLoading: false,
+  status: MlflowRunStatus.RUNNING,
+  runName: 'my-eval-run',
+  experiment: undefined,
+  runTags: {},
+  isFinished: false,
+};
+
+describe('EvalRunDetailsPage', () => {
+  const { history } = setupTestRouter();
+
+  beforeEach(() => {
+    jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(true);
+    jest.mocked(useEvalRunProgress).mockReturnValue(baseProgress);
+  });
+
+  const renderAt = (entry: string, revampEnabled = false) => {
+    render(<div />, {
+      wrapper: () => (
+        <IntlProvider locale="en">
+          <DesignSystemProvider>
+            <TestRouter
+              history={history}
+              routes={[
+                testRoute(
+                  <ExperimentPageRevampProvider enabled={revampEnabled}>
+                    <EvalRunDetailsPage />
+                  </ExperimentPageRevampProvider>,
+                  '/experiments/:experimentId/evaluation-runs/:runUuid/details',
+                ),
+                testRoute(<div>Experiment page</div>, '/experiments/:experimentId'),
+                testRoute(<div />, '*'),
+              ]}
+              initialEntries={[entry]}
+            />
+          </DesignSystemProvider>
+        </IntlProvider>
+      ),
+    });
+  };
+
+  test('redirects to the experiment page when the flag is off', async () => {
+    jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(false);
+    renderAt('/experiments/123/evaluation-runs/run-1/details');
+    expect(await screen.findByText('Experiment page')).toBeInTheDocument();
+    expect(screen.queryByTestId('eval-results-v4')).not.toBeInTheDocument();
+  });
+
+  test('opens the run-scoped traces table with a sidebar and no single-run tabs', async () => {
+    jest.mocked(useEvalRunProgress).mockReturnValue({
+      ...baseProgress,
+      status: MlflowRunStatus.FINISHED,
+      isFinished: true,
+    });
+    renderAt('/experiments/123/evaluation-runs/run-1/details');
+
+    expect(await screen.findByTestId('eval-results-v4')).toHaveTextContent('run:run-1');
+    expect(screen.getByRole('region', { name: 'Run sidebar' })).toBeInTheDocument();
+    expect(screen.queryByTestId('eval-results-table')).not.toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'Overview' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'Traces' })).not.toBeInTheDocument();
+  });
+
+  test('keeps the artifact renderer for artifact-backed evaluation results', async () => {
+    jest.mocked(useEvalRunProgress).mockReturnValue({
+      ...baseProgress,
+      status: MlflowRunStatus.FINISHED,
+      isFinished: true,
+      runTags: {
+        'mlflow.loggedArtifacts': {
+          key: 'mlflow.loggedArtifacts',
+          value: JSON.stringify([{ type: 'table', path: '_evaluations.json' }]),
+        },
+      },
+    });
+
+    renderAt('/experiments/123/evaluation-runs/run-1/details');
+
+    expect(await screen.findByTestId('eval-results-table')).toHaveTextContent('run-tags:present');
+    expect(screen.queryByTestId('eval-results-v4')).not.toBeInTheDocument();
+  });
+
+  test('shows the run name, status and a link back to the list without the page shell', async () => {
+    renderAt('/experiments/123/evaluation-runs/run-1/details');
+
+    await screen.findByTestId('eval-results-v4');
+    expect(screen.getByRole('heading', { name: 'my-eval-run' })).toBeInTheDocument();
+    expect(screen.getByText(MlflowRunStatus.RUNNING)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Evaluation Runs' })).toHaveAttribute(
+      'href',
+      '/experiments/123/evaluation-runs',
+    );
+  });
+
+  test('drops the in-page title and local breadcrumb in the experiment page revamp', async () => {
+    renderAt('/experiments/123/evaluation-runs/run-1/details', true);
+
+    await screen.findByTestId('eval-results-v4');
+    // The run name now comes from the shared breadcrumb, not an in-page title.
+    expect(screen.queryByText('my-eval-run')).not.toBeInTheDocument();
+    expect(screen.queryByRole('navigation', { name: 'Breadcrumb' })).not.toBeInTheDocument();
+  });
+
+  test('drops the in-page status tag in the experiment page revamp (it moves to the breadcrumb)', async () => {
+    renderAt('/experiments/123/evaluation-runs/run-1/details', true);
+
+    // baseProgress is RUNNING / not finished: neither the title nor the status tag render in the
+    // page body — both are published to the shared breadcrumb (not part of this page-level tree).
+    await screen.findByTestId('eval-results-v4');
+    expect(screen.queryByText(MlflowRunStatus.RUNNING)).not.toBeInTheDocument();
+    expect(screen.queryByText('my-eval-run')).not.toBeInTheDocument();
+  });
+});

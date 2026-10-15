@@ -4,6 +4,7 @@ import { useGetExperimentPageActiveTabByRoute } from './useGetExperimentPageActi
 import { ExperimentPageTabName } from '../../../constants';
 import { useLocation } from '../../../../common/utils/RoutingUtils';
 import { shouldEnableSessionGrouping } from '@databricks/web-shared/genai-traces-table';
+import { shouldEnableNewEvalRunsUi } from '../../../../common/utils/FeatureUtils';
 
 jest.mock('../../../../common/utils/RoutingUtils', () => ({
   useLocation: jest.fn(),
@@ -23,9 +24,14 @@ jest.mock('@databricks/web-shared/genai-traces-table', () => ({
   shouldEnableSessionGrouping: jest.fn(() => true),
 }));
 
+jest.mock('../../../../common/utils/FeatureUtils', () => ({
+  shouldEnableNewEvalRunsUi: jest.fn(() => false),
+}));
+
 describe('useGetExperimentPageActiveTabByRoute', () => {
   beforeEach(() => {
     jest.mocked(shouldEnableSessionGrouping).mockReturnValue(true);
+    jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(false);
   });
 
   const testCases = [
@@ -108,4 +114,25 @@ describe('useGetExperimentPageActiveTabByRoute', () => {
 
     expect(result.current.tabName).toBe(ExperimentPageTabName.SingleChatSession);
   });
+
+  test.each([
+    { flagEnabled: true, expectedTabName: ExperimentPageTabName.EvaluationRuns },
+    { flagEnabled: false, expectedTabName: undefined },
+  ])(
+    'maps an evaluation run details route to $expectedTabName with the new eval runs UI $flagEnabled',
+    ({ flagEnabled, expectedTabName }) => {
+      jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(flagEnabled);
+      jest.mocked(useLocation).mockReturnValue({
+        pathname: '/experiments/123/evaluation-runs/run-1/details',
+        state: undefined,
+        search: '',
+        hash: '',
+        key: '',
+      });
+
+      const { result } = renderHook(() => useGetExperimentPageActiveTabByRoute());
+
+      expect(result.current.tabName).toBe(expectedTabName);
+    },
+  );
 });

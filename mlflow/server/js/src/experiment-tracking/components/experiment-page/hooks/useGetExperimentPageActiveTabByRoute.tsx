@@ -4,6 +4,7 @@ import { RoutePaths } from '../../../routes';
 import { ExperimentPageTabName } from '../../../constants';
 import { map } from 'lodash';
 import { shouldEnableSessionGrouping } from '@databricks/web-shared/genai-traces-table';
+import { shouldEnableNewEvalRunsUi } from '../../../../common/utils/FeatureUtils';
 
 // Maps experiment page route paths to enumerated tab names
 const ExperimentPageRoutePathToTabNameMap = map(
@@ -30,6 +31,10 @@ const ExperimentPageRoutePathToTabNameMap = map(
 
 // Gets exact tab name based on given pathname
 const getTabNameFromRoutePath = (pathname: string) => {
+  // The evaluation run details route only exists with the new evaluation runs UI.
+  if (shouldEnableNewEvalRunsUi() && matchPath(RoutePaths.experimentPageTabEvaluationRunDetails, pathname)) {
+    return ExperimentPageTabName.EvaluationRuns;
+  }
   const tabName = ExperimentPageRoutePathToTabNameMap
     // Find the first route path that matches the given pathname
     .find(({ routePath }) => Boolean(matchPath(routePath, pathname)))?.tabName;
