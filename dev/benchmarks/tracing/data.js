@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792094527427,
+  "lastUpdate": 1792108071932,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "kramaranya15@gmail.com",
-            "name": "Anya Kramar",
-            "username": "kramaranya"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "9419fd35bff24427d9e7e6b4da719ee6b08702e8",
-          "message": "Enable artifacts-only mode with workspaces (#24452)\n\nSigned-off-by: kramaranya <kramaranya15@gmail.com>",
-          "timestamp": "2026-07-21T17:32:26Z",
-          "tree_id": "6643299826bf6134c8e74dfc425c5170419e7d86",
-          "url": "https://github.com/mlflow/mlflow/commit/9419fd35bff24427d9e7e6b4da719ee6b08702e8"
-        },
-        "date": 1784655384767,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 38.5151340500002,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 24.38318100000174,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 22.35738265573755,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 23.736561035086993,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 23.168292016949035,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 6.403384599997253,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 7.969414199999392,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "113325736+porkedchop@users.noreply.github.com",
+            "name": "Bishop Kammeraad",
+            "username": "porkedchop"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "024998aea73403dfa54598e1e75af48740414f3d",
+          "message": "Fix `search_traces` ordering by `end_time` in the SQL store (#26761)\n\nSigned-off-by: Bishop Kammeraad <kammeraa@umich.edu>",
+          "timestamp": "2026-10-15T23:44:15Z",
+          "tree_id": "77749b583ce494041f9bec198cfddee3e380e671",
+          "url": "https://github.com/mlflow/mlflow/commit/024998aea73403dfa54598e1e75af48740414f3d"
+        },
+        "date": 1792108068366,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 87.48675964999819,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 5.548574767122151,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 5.0119781602564935,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 5.077063713375703,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 6.417986795774166,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 6.309784333339508,
             "unit": "ms"
           }
         ]
