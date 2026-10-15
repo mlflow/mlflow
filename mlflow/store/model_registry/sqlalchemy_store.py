@@ -620,8 +620,12 @@ class SqlAlchemyStore(AbstractStore):
                     tag_filters[key] = [key_filter]
                     tag_filters[key].extend(tag_where_clauses)
 
+                tag_value = SqlRegisteredModelTag.value
+                if key == IS_PROMPT_TAG_KEY and comparator in ("=", "!="):
+                    tag_value = sqlalchemy.func.lower(tag_value)
+                    value = value.lower()
                 val_filter = SearchUtils.get_sql_comparison_func(comparator, dialect)(
-                    SqlRegisteredModelTag.value, value
+                    tag_value, value
                 )
                 tag_filters[key].append(val_filter)
             else:
@@ -724,8 +728,12 @@ class SqlAlchemyStore(AbstractStore):
                     tag_filters[key] = [key_filter]
                     tag_filters[key].extend(tag_where_clauses)
 
+                tag_value = SqlModelVersionTag.value
+                if key == IS_PROMPT_TAG_KEY and comparator in ("=", "!="):
+                    tag_value = sqlalchemy.func.lower(tag_value)
+                    value = value.lower()
                 val_filter = SearchUtils.get_sql_comparison_func(comparator, dialect)(
-                    SqlModelVersionTag.value, value
+                    tag_value, value
                 )
                 tag_filters[key].append(val_filter)
             else:
@@ -804,7 +812,7 @@ class SqlAlchemyStore(AbstractStore):
             select(tag_db_model.workspace, tag_db_model.name)
             .filter(
                 equal(tag_db_model.key, IS_PROMPT_TAG_KEY),
-                equal(tag_db_model.value, "true"),
+                equal(sqlalchemy.func.lower(tag_db_model.value), "true"),
                 *self._get_workspace_clauses(tag_db_model),
             )
             .group_by(tag_db_model.workspace, tag_db_model.name)

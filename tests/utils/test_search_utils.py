@@ -1,6 +1,7 @@
 import base64
 import json
 import re
+from types import SimpleNamespace
 
 import pytest
 
@@ -21,6 +22,7 @@ from mlflow.entities import (
     TraceState,
     trace_location,
 )
+from mlflow.entities.model_registry.prompt_version import IS_PROMPT_TAG_KEY
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.exceptions import MlflowException
 from mlflow.utils.mlflow_tags import MLFLOW_DATASET_CONTEXT
@@ -56,6 +58,24 @@ def test_model_registry_search_rejects_null_comparisons(
     ) as exc:
         search_utils.parse_search_filter(f"{identifier} {comparator}")
     assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+
+
+@pytest.mark.parametrize("search_utils", [SearchModelUtils, SearchModelVersionUtils])
+def test_model_registry_prompt_marker_filter_is_case_insensitive(search_utils):
+    rows = [
+        SimpleNamespace(name=name, _tags=tags, tags=tags, current_stage="None")
+        for name, tags in [
+            ("model", {}),
+            ("prompt-True", {IS_PROMPT_TAG_KEY: "True"}),
+            ("prompt-TRUE", {IS_PROMPT_TAG_KEY: "TRUE"}),
+        ]
+    ]
+    assert [
+        row.name for row in search_utils.filter(rows, f"tags.`{IS_PROMPT_TAG_KEY}` != 'true'")
+    ] == ["model"]
+    assert {
+        row.name for row in search_utils.filter(rows, f"tags.`{IS_PROMPT_TAG_KEY}` = 'true'")
+    } == {"prompt-True", "prompt-TRUE"}
 
 
 @pytest.mark.parametrize(
