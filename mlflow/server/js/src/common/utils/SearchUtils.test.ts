@@ -103,6 +103,19 @@ describe('buildSearchFilterClause', () => {
     );
   });
 
+  it.each([
+    "`tags`.team = 'platform'",
+    "`name` ILIKE '%review%'",
+    '"name" ILIKE \'%review%\'',
+    "status = 'active' AND `tags`.team = 'platform'",
+  ])('passes through quoted first segments when supported: %s', (filter) => {
+    expect(buildSearchFilterClause(filter, 'search_text', { allowQuotedFirstSegment: true })).toBe(filter);
+  });
+
+  it('keeps quoted first segments on the text path for searches that do not support them', () => {
+    expect(buildSearchFilterClause("`name` ILIKE '%review%'")).toBe("name ILIKE '%`name` ILIKE ''\\%review\\%''%'");
+  });
+
   it('treats SQL keywords in ordinary phrases as free text', () => {
     expect(buildSearchFilterClause('write in python', 'search_text')).toBe("search_text ILIKE '%write in python%'");
     expect(buildSearchFilterClause('write like Shakespeare', 'search_text')).toBe(

@@ -684,3 +684,54 @@ def test_migrate_to_default_workspace_moves_rows(tmp_path):
             )
             assert conn.execute(stmt).scalar_one() == 0
     engine.dispose()
+
+
+@pytest.mark.parametrize("dry_run", [True, False])
+def test_migrate_to_default_workspace_blocks_mlflow_backed_skills(db_uri, dry_run):
+    engine = sqlalchemy.create_engine(db_uri)
+    with engine.begin() as conn:
+        _insert_row(conn, "skills", "team-a", seed=1)
+        _insert_row(
+            conn,
+            "skill_versions",
+            "team-a",
+            seed=1,
+            overrides={
+                "source_type": "mlflow",
+                "source": "mlflow-artifacts:/skills/org_1/skill_1/content",
+            },
+        )
+
+    with pytest.raises(RuntimeError, match="MLflow-backed skill versions"):
+        migrate_to_default_workspace(engine, dry_run=dry_run)
+
+    with engine.begin() as conn:
+        skill_versions = sqlalchemy.Table(
+            "skill_versions", sqlalchemy.MetaData(), autoload_with=conn
+        )
+        assert conn.execute(sqlalchemy.select(skill_versions.c.workspace)).scalar_one() == "team-a"
+    engine.dispose()
+
+
+def test_migrate_to_default_workspace_allows_external_skill_sources(db_uri):
+    engine = sqlalchemy.create_engine(db_uri)
+    with engine.begin() as conn:
+        _insert_row(conn, "skills", "team-a", seed=1)
+        _insert_row(
+            conn,
+            "skill_versions",
+            "team-a",
+            seed=1,
+            overrides={"source_type": "git", "source": "https://example.com/skills.git"},
+        )
+
+    migrate_to_default_workspace(engine)
+
+    with engine.begin() as conn:
+        skill_versions = sqlalchemy.Table(
+            "skill_versions", sqlalchemy.MetaData(), autoload_with=conn
+        )
+        assert conn.execute(sqlalchemy.select(skill_versions.c.workspace)).scalar_one() == (
+            DEFAULT_WORKSPACE_NAME
+        )
+    engine.dispose()

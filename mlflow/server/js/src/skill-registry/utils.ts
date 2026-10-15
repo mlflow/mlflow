@@ -334,7 +334,7 @@ export const buildSkillCatalogFilterString = ({
   sourceType,
 }: SkillCatalogFilters = {}): string | undefined => {
   const clauses = [
-    buildSearchFilterClause(searchText?.trim(), 'search_text'),
+    buildSearchFilterClause(searchText?.trim(), 'search_text', { allowQuotedFirstSegment: true }),
     filterActive ? `status = '${SkillStatus.ACTIVE}'` : undefined,
     organization?.trim() ? `organization = '${escapeFilterLiteral(organization.trim())}'` : undefined,
     tagKey?.trim() && tagValue?.trim()

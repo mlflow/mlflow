@@ -242,6 +242,11 @@ describe('buildSkillCatalogFilterString', () => {
     expect(buildSkillCatalogFilterString({ searchText: 'review' })).toBe("search_text ILIKE '%review%'");
   });
 
+  it('passes through filters with quoted attribute names and entity prefixes', () => {
+    expect(buildSkillCatalogFilterString({ searchText: "`name` ILIKE '%review%'" })).toBe("`name` ILIKE '%review%'");
+    expect(buildSkillCatalogFilterString({ searchText: "`tags`.team = 'platform'" })).toBe("`tags`.team = 'platform'");
+  });
+
   it('keeps ordinary phrases containing SQL keywords on the free-text path', () => {
     expect(buildSkillCatalogFilterString({ searchText: 'write in python' })).toBe(
       "search_text ILIKE '%write in python%'",

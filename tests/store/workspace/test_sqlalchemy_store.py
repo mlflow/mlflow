@@ -649,7 +649,7 @@ def test_delete_workspace_set_default_merges_unnamed_endpoints(workspace_store):
     }
 
 
-def _seed_skill_with_version(session, workspace):
+def _seed_skill_with_version(session, workspace, source_type="git"):
     session.add(SqlSkill(workspace=workspace, organization="acme", name="code-review"))
     session.add(
         SqlSkillVersion(
@@ -657,10 +657,36 @@ def _seed_skill_with_version(session, workspace):
             organization="acme",
             name="code-review",
             version=1,
-            source_type="git",
-            source="s.git",
+            source_type=source_type,
+            source="mlflow-artifacts:/skills/@acme/code-review/content"
+            if source_type == "mlflow"
+            else "s.git",
         )
     )
+
+
+def test_delete_workspace_set_default_blocks_mlflow_backed_skills(workspace_store):
+    workspace_store.create_workspace(Workspace(name="team-a", description=None))
+    with workspace_store.ManagedSessionMaker(read_only=False) as session:
+        _seed_skill_with_version(session, "team-a", source_type="mlflow")
+
+    with pytest.raises(MlflowException, match="MLflow-backed skill versions") as exc:
+        workspace_store.delete_workspace("team-a", mode=WorkspaceDeletionMode.SET_DEFAULT)
+    assert exc.value.error_code == "INVALID_STATE"
+    assert workspace_store.get_workspace("team-a").name == "team-a"
+    with workspace_store.ManagedSessionMaker() as session:
+        assert session.query(SqlSkillVersion.workspace).one()[0] == "team-a"
+
+
+def test_delete_workspace_set_default_allows_external_skill_sources(workspace_store):
+    workspace_store.create_workspace(Workspace(name="team-a", description=None))
+    with workspace_store.ManagedSessionMaker(read_only=False) as session:
+        _seed_skill_with_version(session, "team-a")
+
+    workspace_store.delete_workspace("team-a", mode=WorkspaceDeletionMode.SET_DEFAULT)
+
+    with workspace_store.ManagedSessionMaker() as session:
+        assert session.query(SqlSkillVersion.workspace).one()[0] == DEFAULT_WORKSPACE_NAME
 
 
 def test_delete_workspace_cascade_removes_skill_graph(workspace_store):

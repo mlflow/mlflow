@@ -9,6 +9,7 @@ from cachetools import TTLCache
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import aliased, sessionmaker
 
+from mlflow.entities.skill_source import SkillSourceType
 from mlflow.entities.workspace import TraceArchivalConfig, Workspace, WorkspaceDeletionMode
 from mlflow.environment_variables import (
     MLFLOW_WORKSPACE_ARTIFACT_ROOT_CACHE_CAPACITY,
@@ -32,6 +33,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlJob,
     SqlMCPServer,
     SqlSkill,
+    SqlSkillVersion,
 )
 from mlflow.store.workspace.abstract_store import (
     AbstractStore,
@@ -231,6 +233,23 @@ class SqlAlchemyStore(AbstractStore):
                         for obj in instances:
                             session.delete(obj)
                 elif mode == WorkspaceDeletionMode.SET_DEFAULT:
+                    has_mlflow_skill_content = (
+                        session
+                        .query(SqlSkillVersion.version)
+                        .filter(
+                            SqlSkillVersion.workspace == workspace_name,
+                            SqlSkillVersion.source_type == SkillSourceType.MLFLOW.value,
+                        )
+                        .first()
+                        is not None
+                    )
+                    if has_mlflow_skill_content:
+                        raise MlflowException(
+                            f"Cannot move workspace '{workspace_name}' to the default workspace: "
+                            "MLflow-backed skill versions would lose access to their artifact "
+                            "content. Remove or re-register those versions before retrying.",
+                            INVALID_STATE,
+                        )
                     self._check_set_default_conflicts(session, workspace_name)
                     for model in _WORKSPACE_ROOT_MODELS:
                         session.query(model).filter(model.workspace == workspace_name).update(
