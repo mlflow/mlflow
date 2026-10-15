@@ -3,6 +3,7 @@ import React from 'react';
 import { fireEvent, renderWithDesignSystem, screen, waitFor } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 
 import { EditAccessModal } from './EditAccessModal';
+import { CONDITION_TYPE_TARGET, CONDITION_TYPE_VALUE } from '../types';
 
 // Per-test override for ``useUserRolesQuery`` so each case can pick its own
 // success / error shape. ``mockReset`` in ``beforeEach`` keeps cross-test
@@ -16,15 +17,15 @@ const mockUseWorkspacesEnabled = jest.fn<() => { workspacesEnabled: boolean }>()
 const mockUseActiveWorkspace = jest.fn<() => string | null>();
 const mockAddConditionMutateAsync = jest.fn<(...args: any[]) => any>();
 const mockRemoveConditionMutateAsync = jest.fn<(...args: any[]) => any>();
-const mockUseRoleMutationConditionsQuery = jest.fn<() => any>();
+const mockUseRoleConditionsQuery = jest.fn<() => any>();
 const mockRefetchQueries = jest.fn<(...args: any[]) => Promise<void>>();
 
 jest.mock('../hooks', () => ({
   // Conditions now share these modals; stub them so the cases below keep testing
   // what they were written for.
-  useRoleMutationConditionsQuery: () => mockUseRoleMutationConditionsQuery(),
-  useAddUserMutationCondition: () => ({ mutateAsync: mockAddConditionMutateAsync, isLoading: false }),
-  useRemoveMutationCondition: () => ({ mutateAsync: mockRemoveConditionMutateAsync, isLoading: false }),
+  useRoleConditionsQuery: () => mockUseRoleConditionsQuery(),
+  useAddUserCondition: () => ({ mutateAsync: mockAddConditionMutateAsync, isLoading: false }),
+  useRemoveCondition: () => ({ mutateAsync: mockRemoveConditionMutateAsync, isLoading: false }),
   AdminQueryKeys: {
     users: ['admin_users'],
     roles: ['admin_roles'],
@@ -67,8 +68,8 @@ beforeEach(() => {
   // ``null`` is what ``useActiveWorkspace`` actually returns on a
   // single-tenant server.
   mockUseActiveWorkspace.mockReturnValue(null);
-  mockUseRoleMutationConditionsQuery.mockReturnValue({
-    data: { mutation_conditions: [] },
+  mockUseRoleConditionsQuery.mockReturnValue({
+    data: { conditions: [] },
     isLoading: false,
     error: null,
   });
@@ -236,8 +237,8 @@ describe('EditAccessModal — condition scope on the wire', () => {
     resource_pattern: '7',
     container_resource_type: 'workspace',
     container_resource_pattern: '*',
-    value_condition: null,
-    target_condition: "tags.lifecycle != 'prod'",
+    type: CONDITION_TYPE_TARGET,
+    filter: "tags.lifecycle != 'prod'",
   };
   // Same type, same clauses, different scope: the whole workspace. These two differ ONLY
   // in `resource_pattern`, which is exactly what the modal's own key used to drop.
@@ -250,10 +251,10 @@ describe('EditAccessModal — condition scope on the wire', () => {
     // ABSENT key, which is what makes this catch the omission even at the default scope.
     renderWithDesignSystem(<EditAccessModal open onClose={jest.fn()} username="alice" />);
 
-    fireEvent.change(screen.getByPlaceholderText("tags.lifecycle != 'prod'"), {
+    fireEvent.change(screen.getByPlaceholderText("tag_value != 'prod'"), {
       target: { value: "tags.env = 'dev'" },
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Add mutation condition' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add condition' }));
     fireEvent.click(screen.getByRole('button', { name: /^Review changes$/ }));
     fireEvent.click(screen.getByRole('button', { name: /^Apply changes$/ }));
 
@@ -263,7 +264,8 @@ describe('EditAccessModal — condition scope on the wire', () => {
         request: expect.objectContaining({
           username: 'alice',
           resource_type: 'experiment',
-          target_condition: "tags.env = 'dev'",
+          type: CONDITION_TYPE_VALUE,
+          filter: "tags.env = 'dev'",
           resource_pattern: '*',
           container_resource_type: 'workspace',
           container_resource_pattern: '*',
@@ -277,8 +279,8 @@ describe('EditAccessModal — condition scope on the wire', () => {
     // produced the same key: removing the scoped one left its key in the desired set (the
     // workspace-wide one still carried it), the removal was dropped from the diff, and the
     // restriction the admin had just lifted stayed in force.
-    mockUseRoleMutationConditionsQuery.mockReturnValue({
-      data: { mutation_conditions: [scopedCondition, workspaceCondition] },
+    mockUseRoleConditionsQuery.mockReturnValue({
+      data: { conditions: [scopedCondition, workspaceCondition] },
       isLoading: false,
       error: null,
     });
@@ -288,7 +290,7 @@ describe('EditAccessModal — condition scope on the wire', () => {
     // Both rows are listed; remove the FIRST (the one scoped to experiment 7). Both are
     // `experiment` conditions, so they share one aria-label and are told apart by order.
     const removeButtons = await waitFor(() => {
-      const found = screen.getAllByRole('button', { name: /Remove Experiment mutation condition/ });
+      const found = screen.getAllByRole('button', { name: /Remove Experiment condition/ });
       expect(found).toHaveLength(2);
       return found;
     });
@@ -320,8 +322,8 @@ describe('EditAccessModal — prefill waits for the conditions query', () => {
     resource_pattern: '*',
     container_resource_type: 'workspace',
     container_resource_pattern: '*',
-    value_condition: null,
-    target_condition: "tags.lifecycle != 'prod'",
+    type: CONDITION_TYPE_TARGET,
+    filter: "tags.lifecycle != 'prod'",
   };
 
   beforeEach(() => {
@@ -340,13 +342,13 @@ describe('EditAccessModal — prefill waits for the conditions query', () => {
   it('does not stage a removal for conditions that arrive after the roles query', async () => {
     // Roles have resolved but the conditions request is still in flight: the state the
     // modal is always in on first open.
-    mockUseRoleMutationConditionsQuery.mockReturnValue({ data: undefined, isLoading: true, error: null });
+    mockUseRoleConditionsQuery.mockReturnValue({ data: undefined, isLoading: true, error: null });
     const onClose = jest.fn();
     const { rerender } = renderWithDesignSystem(<EditAccessModal open onClose={onClose} username="alice" />);
 
     // The conditions land, and the settling query re-renders the modal.
-    mockUseRoleMutationConditionsQuery.mockReturnValue({
-      data: { mutation_conditions: [existingCondition] },
+    mockUseRoleConditionsQuery.mockReturnValue({
+      data: { conditions: [existingCondition] },
       isLoading: false,
       error: null,
     });
@@ -357,7 +359,7 @@ describe('EditAccessModal — prefill waits for the conditions query', () => {
     fireEvent.click(screen.getByRole('button', { name: /^Add$/ }));
 
     // The prefilled condition is now visible, which is the positive half of the fix.
-    expect(await screen.findByRole('button', { name: /Remove Experiment mutation condition/ })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: /Remove Experiment condition/ })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /^Review changes$/ }));
     fireEvent.click(screen.getByRole('button', { name: /^Apply changes$/ }));
@@ -372,7 +374,7 @@ describe('EditAccessModal — prefill waits for the conditions query', () => {
     // An errored query is an UNKNOWN condition list, not an empty one. Treating it as
     // empty would stage the same mass removal, so the form is blocked exactly as it is
     // for a failed roles fetch.
-    mockUseRoleMutationConditionsQuery.mockReturnValue({
+    mockUseRoleConditionsQuery.mockReturnValue({
       data: undefined,
       isLoading: false,
       error: new Error('conditions boom'),
@@ -390,7 +392,7 @@ describe('EditAccessModal — prefill waits for the conditions query', () => {
     // disabled react-query v4 query reports `isLoading: true` forever. Gating on that flag
     // alone would hang the modal on a permanent spinner.
     mockUseUserRolesQuery.mockReturnValue({ data: { roles: [] }, isLoading: false, error: null });
-    mockUseRoleMutationConditionsQuery.mockReturnValue({ data: undefined, isLoading: true, error: null });
+    mockUseRoleConditionsQuery.mockReturnValue({ data: undefined, isLoading: true, error: null });
     renderWithDesignSystem(<EditAccessModal open onClose={jest.fn()} username="alice" />);
 
     // The form is usable, not stuck behind a spinner.
@@ -414,8 +416,8 @@ describe('EditAccessModal — restrictions land before capability', () => {
     resource_pattern: '*',
     container_resource_type: 'workspace',
     container_resource_pattern: '*',
-    value_condition: null,
-    target_condition: "tags.lifecycle != 'prod'",
+    type: CONDITION_TYPE_TARGET,
+    filter: "tags.lifecycle != 'prod'",
   };
 
   beforeEach(() => {
@@ -427,10 +429,10 @@ describe('EditAccessModal — restrictions land before capability', () => {
   });
 
   const stageConditionAndGrant = () => {
-    fireEvent.change(screen.getByPlaceholderText("tags.lifecycle != 'prod'"), {
+    fireEvent.change(screen.getByPlaceholderText("tag_value != 'prod'"), {
       target: { value: "tags.env = 'dev'" },
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Add mutation condition' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add condition' }));
     fireEvent.click(screen.getByRole('radio', { name: /^All experiments$/ }));
     fireEvent.click(screen.getByRole('button', { name: /^Add$/ }));
     fireEvent.click(screen.getByRole('button', { name: /^Review changes$/ }));
@@ -479,8 +481,8 @@ describe('EditAccessModal — restrictions land before capability', () => {
       isLoading: false,
       error: null,
     });
-    mockUseRoleMutationConditionsQuery.mockReturnValue({
-      data: { mutation_conditions: [existingCondition] },
+    mockUseRoleConditionsQuery.mockReturnValue({
+      data: { conditions: [existingCondition] },
       isLoading: false,
       error: null,
     });
@@ -489,7 +491,7 @@ describe('EditAccessModal — restrictions land before capability', () => {
 
     // Remove the prefilled grant and the prefilled condition together.
     fireEvent.click(await screen.findByRole('button', { name: 'Remove experiment *' }));
-    fireEvent.click(await screen.findByRole('button', { name: /Remove Experiment mutation condition/ }));
+    fireEvent.click(await screen.findByRole('button', { name: /Remove Experiment condition/ }));
     fireEvent.click(screen.getByRole('button', { name: /^Review changes$/ }));
     fireEvent.click(screen.getByRole('button', { name: /^Apply changes$/ }));
 
@@ -506,8 +508,8 @@ describe('EditAccessModal — restrictions land before capability', () => {
       isLoading: false,
       error: null,
     });
-    mockUseRoleMutationConditionsQuery.mockReturnValue({
-      data: { mutation_conditions: [existingCondition] },
+    mockUseRoleConditionsQuery.mockReturnValue({
+      data: { conditions: [existingCondition] },
       isLoading: false,
       error: null,
     });
@@ -515,7 +517,7 @@ describe('EditAccessModal — restrictions land before capability', () => {
     renderWithDesignSystem(<EditAccessModal open onClose={jest.fn()} username="alice" />);
 
     // Drop the prefilled condition and stage a new one in its place -- a replacement.
-    fireEvent.click(await screen.findByRole('button', { name: /Remove Experiment mutation condition/ }));
+    fireEvent.click(await screen.findByRole('button', { name: /Remove Experiment condition/ }));
     stageConditionAndGrant();
 
     await waitFor(() => expect(mockAddConditionMutateAsync).toHaveBeenCalledTimes(1));
@@ -529,8 +531,8 @@ describe('EditAccessModal — restrictions land before capability', () => {
       isLoading: false,
       error: null,
     });
-    mockUseRoleMutationConditionsQuery.mockReturnValue({
-      data: { mutation_conditions: [existingCondition] },
+    mockUseRoleConditionsQuery.mockReturnValue({
+      data: { conditions: [existingCondition] },
       isLoading: false,
       error: null,
     });
@@ -538,7 +540,7 @@ describe('EditAccessModal — restrictions land before capability', () => {
     renderWithDesignSystem(<EditAccessModal open onClose={onClose} username="alice" />);
 
     fireEvent.click(await screen.findByRole('button', { name: 'Remove experiment *' }));
-    fireEvent.click(await screen.findByRole('button', { name: /Remove Experiment mutation condition/ }));
+    fireEvent.click(await screen.findByRole('button', { name: /Remove Experiment condition/ }));
     fireEvent.click(screen.getByRole('button', { name: /^Review changes$/ }));
     fireEvent.click(screen.getByRole('button', { name: /^Apply changes$/ }));
 
@@ -600,8 +602,8 @@ describe('EditAccessModal — a partial failure re-seeds from fresh server state
     resource_pattern: '*',
     container_resource_type: 'workspace',
     container_resource_pattern: '*',
-    value_condition: null,
-    target_condition: "tags.env = 'dev'",
+    type: CONDITION_TYPE_TARGET,
+    filter: "tags.env = 'dev'",
   };
 
   // ``landed`` is what the server holds; ``visible`` is what the query has fetched. The gap
@@ -618,8 +620,8 @@ describe('EditAccessModal — a partial failure re-seeds from fresh server state
       isLoading: false,
       error: null,
     });
-    mockUseRoleMutationConditionsQuery.mockImplementation(() => ({
-      data: { mutation_conditions: visible },
+    mockUseRoleConditionsQuery.mockImplementation(() => ({
+      data: { conditions: visible },
       isLoading: false,
       error: null,
     }));
@@ -629,7 +631,7 @@ describe('EditAccessModal — a partial failure re-seeds from fresh server state
     mockAddConditionMutateAsync.mockReset();
     mockAddConditionMutateAsync.mockImplementation(async () => {
       landed.push(created);
-      return { mutation_conditions: created };
+      return { conditions: created };
     });
     mockGrantPermissionMutateAsync.mockReset();
     mockGrantPermissionMutateAsync.mockRejectedValue(new Error('grant refused'));
@@ -638,10 +640,10 @@ describe('EditAccessModal — a partial failure re-seeds from fresh server state
   });
 
   const stageAndApply = () => {
-    fireEvent.change(screen.getByPlaceholderText("tags.lifecycle != 'prod'"), {
+    fireEvent.change(screen.getByPlaceholderText("tag_value != 'prod'"), {
       target: { value: "tags.env = 'dev'" },
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Add mutation condition' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add condition' }));
     fireEvent.click(screen.getByRole('radio', { name: /^All experiments$/ }));
     fireEvent.click(screen.getByRole('button', { name: /^Add$/ }));
     fireEvent.click(screen.getByRole('button', { name: /^Review changes$/ }));

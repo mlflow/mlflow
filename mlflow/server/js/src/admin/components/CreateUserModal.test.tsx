@@ -4,6 +4,7 @@ import React from 'react';
 import { fireEvent, renderWithDesignSystem, screen, waitFor } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 
 import { CreateUserModal } from './CreateUserModal';
+import { CONDITION_TYPE_TARGET, CONDITION_TYPE_VALUE } from '../types';
 
 let userEvent: ReturnType<typeof userEventGlobal.setup>;
 beforeEach(() => {
@@ -41,7 +42,7 @@ jest.mock('../hooks', () => ({
   useCreateUser: () => ({ mutateAsync: mockCreateUserMutateAsync }),
   useCurrentUserIsAdmin: () => true,
   useGrantUserPermission: () => ({ mutateAsync: mockGrantPermissionMutateAsync }),
-  useAddUserMutationCondition: () => ({ mutateAsync: mockAddConditionMutateAsync }),
+  useAddUserCondition: () => ({ mutateAsync: mockAddConditionMutateAsync }),
   // ``useResourceOptionsQuery`` is reached by ``DirectPermissionForm`` even
   // when its parent section is collapsed (``hidden`` keeps it mounted), so
   // the stub has to exist; only the shape matters.
@@ -240,7 +241,7 @@ describe('CreateUserModal — workspace targeting on direct grants', () => {
   });
 });
 
-describe('CreateUserModal — direct mutation conditions', () => {
+describe('CreateUserModal — direct conditions', () => {
   beforeEach(() => {
     mockCreateUserMutateAsync.mockReset();
     mockGrantPermissionMutateAsync.mockReset();
@@ -255,9 +256,9 @@ describe('CreateUserModal — direct mutation conditions', () => {
     mockCreateUserMutateAsync.mockResolvedValue({ user: { username: 'newbie' } });
     renderWithDesignSystem(<CreateUserModal open onClose={jest.fn()} />);
 
-    await userEvent.click(screen.getByRole('button', { name: /Direct mutation conditions/ }));
-    await userEvent.type(screen.getByPlaceholderText("tags.lifecycle != 'prod'"), "tags.env = 'dev'");
-    await userEvent.click(screen.getByRole('button', { name: 'Add mutation condition' }));
+    await userEvent.click(screen.getByRole('button', { name: /Direct conditions/ }));
+    await userEvent.type(screen.getByPlaceholderText("tag_value != 'prod'"), "tags.env = 'dev'");
+    await userEvent.click(screen.getByRole('button', { name: 'Add condition' }));
 
     fillCredentials();
     await userEvent.click(screen.getByRole('button', { name: /^Create user and grant access$/ }));
@@ -268,7 +269,8 @@ describe('CreateUserModal — direct mutation conditions', () => {
         request: expect.objectContaining({
           username: 'newbie',
           resource_type: 'experiment',
-          target_condition: "tags.env = 'dev'",
+          type: CONDITION_TYPE_VALUE,
+          filter: "tags.env = 'dev'",
           // Defaults travel explicitly rather than being omitted: the wire shape has no
           // nullable scope, so "everything" is the wildcard, not an absent field.
           resource_pattern: '*',
@@ -294,9 +296,9 @@ describe('CreateUserModal — direct mutation conditions', () => {
     });
     renderWithDesignSystem(<CreateUserModal open onClose={jest.fn()} />);
 
-    await userEvent.click(screen.getByRole('button', { name: /Direct mutation conditions/ }));
-    await userEvent.type(screen.getByPlaceholderText("tags.lifecycle != 'prod'"), "tags.env = 'dev'");
-    await userEvent.click(screen.getByRole('button', { name: 'Add mutation condition' }));
+    await userEvent.click(screen.getByRole('button', { name: /Direct conditions/ }));
+    await userEvent.type(screen.getByPlaceholderText("tag_value != 'prod'"), "tags.env = 'dev'");
+    await userEvent.click(screen.getByRole('button', { name: 'Add condition' }));
 
     fillCredentials();
     await userEvent.click(screen.getByRole('button', { name: /^Create user and grant access$/ }));
@@ -312,14 +314,14 @@ describe('CreateUserModal — direct mutation conditions', () => {
     const onClose = jest.fn();
     renderWithDesignSystem(<CreateUserModal open onClose={onClose} />);
 
-    await userEvent.click(screen.getByRole('button', { name: /Direct mutation conditions/ }));
-    await userEvent.type(screen.getByPlaceholderText("tags.lifecycle != 'prod'"), "tags.env = 'dev'");
-    await userEvent.click(screen.getByRole('button', { name: 'Add mutation condition' }));
+    await userEvent.click(screen.getByRole('button', { name: /Direct conditions/ }));
+    await userEvent.type(screen.getByPlaceholderText("tag_value != 'prod'"), "tags.env = 'dev'");
+    await userEvent.click(screen.getByRole('button', { name: 'Add condition' }));
 
     fillCredentials();
     await userEvent.click(screen.getByRole('button', { name: /^Create user and grant access$/ }));
 
-    expect(await screen.findByText(/Mutation condition on experiment failed/)).toBeInTheDocument();
+    expect(await screen.findByText(/Condition on experiment failed/)).toBeInTheDocument();
     expect(onClose).not.toHaveBeenCalled();
   });
 
@@ -329,8 +331,8 @@ describe('CreateUserModal — direct mutation conditions', () => {
     mockCreateUserMutateAsync.mockResolvedValue({ user: { username: 'newbie' } });
     renderWithDesignSystem(<CreateUserModal open onClose={jest.fn()} />);
 
-    await userEvent.click(screen.getByRole('button', { name: /Direct mutation conditions/ }));
-    await userEvent.type(screen.getByPlaceholderText("tags.lifecycle != 'prod'"), "tags.env = 'dev'");
+    await userEvent.click(screen.getByRole('button', { name: /Direct conditions/ }));
+    await userEvent.type(screen.getByPlaceholderText("tag_value != 'prod'"), "tags.env = 'dev'");
 
     fillCredentials();
     await userEvent.click(screen.getByRole('button', { name: /^Create user$|^Create user and grant access$/ }));
@@ -351,9 +353,9 @@ describe('CreateUserModal — restrictions land before capability', () => {
   });
 
   const stageConditionAndGrant = async () => {
-    await userEvent.click(screen.getByRole('button', { name: /Direct mutation conditions/ }));
-    await userEvent.type(screen.getByPlaceholderText("tags.lifecycle != 'prod'"), "tags.env = 'dev'");
-    await userEvent.click(screen.getByRole('button', { name: 'Add mutation condition' }));
+    await userEvent.click(screen.getByRole('button', { name: /Direct conditions/ }));
+    await userEvent.type(screen.getByPlaceholderText("tag_value != 'prod'"), "tags.env = 'dev'");
+    await userEvent.click(screen.getByRole('button', { name: 'Add condition' }));
     await userEvent.click(screen.getByRole('button', { name: /Direct permissions/ }));
     await userEvent.click(screen.getByRole('radio', { name: /^All experiments$/ }));
     await userEvent.click(screen.getByRole('button', { name: /^Add$/ }));

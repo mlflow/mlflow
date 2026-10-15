@@ -1,7 +1,7 @@
 import { matchPredefinedError, UnknownError } from '@databricks/web-shared/errors';
 import { fetchEndpoint } from '../common/utils/FetchUtils';
 import type {
-  ListMyMutationConditionsResponse,
+  ListMyConditionsResponse,
   ListMyPermissionsResponse,
   ListUserRolesResponse,
   UpdatePasswordRequest,
@@ -74,10 +74,10 @@ export const AccountApi = {
   // Self-scoped by construction: the server derives the subject from the authenticated
   // caller, so there is no username or role_id to pass and nothing to point at another
   // user's policy.
-  listMyMutationConditions: () => {
+  listMyConditions: () => {
     return fetchEndpoint({
-      relativeUrl: 'ajax-api/3.0/mlflow/users/current/mutation-conditions',
+      relativeUrl: 'ajax-api/3.0/mlflow/users/current/conditions',
       error: defaultErrorHandler,
-    }) as Promise<ListMyMutationConditionsResponse>;
+    }) as Promise<ListMyConditionsResponse>;
   },
 };

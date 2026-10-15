@@ -19,7 +19,7 @@ interface Props {
 }
 
 /**
- * The mutation conditions restricting the signed-in user.
+ * The conditions restricting the signed-in user.
  *
  * Renders through the admin UI's shared ``ConditionsTable`` rather than a parallel table,
  * so a user sees their conditions in exactly the columns an admin sees them in. A second
@@ -27,7 +27,7 @@ interface Props {
  *
  * The carrying role is a column rather than a grouping, matching the admin's per-user tab.
  */
-export const MutationConditionsSection = ({ conditions, isLoading, error, workspacesEnabled }: Props) => {
+export const ConditionsSection = ({ conditions, isLoading, error, workspacesEnabled }: Props) => {
   // ``rowSuffix`` receives a bare condition, which carries ``role_id`` but not the role
   // name, so the mapping is built here -- the same shape the admin's user tab uses.
   const roleNameById = useMemo(() => {
@@ -47,7 +47,7 @@ export const MutationConditionsSection = ({ conditions, isLoading, error, worksp
       conditions={conditions}
       isLoading={isLoading}
       error={error}
-      emptyDescription="None of your roles carry a mutation condition."
+      emptyDescription="None of your roles carry a condition."
       suffixHeader="From Role"
       rowSuffix={(condition) => roleNameById.get(condition.role_id)}
     />

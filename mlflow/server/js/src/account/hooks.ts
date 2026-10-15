@@ -93,7 +93,7 @@ export const useIsBasicAuth = () => {
 export const AccountQueryKeys = {
   userRoles: (username: string) => ['account_user_roles', username] as const,
   myPermissions: ['account_my_permissions'] as const,
-  myMutationConditions: ['account_my_mutation_conditions'] as const,
+  myConditions: ['account_my_conditions'] as const,
 };
 
 export const useUpdatePassword = () => {
@@ -119,14 +119,14 @@ export const useUserRolesQuery = (username: string, options: { enabled?: boolean
 };
 
 /** Direct (non-role-derived) grants for the current user; no admin gate. */
-export const useMyMutationConditionsQuery = () => {
+export const useMyConditionsQuery = () => {
   // Gated on a known username for the same reason as ``useMyPermissionsQuery``: on an
   // auth-disabled deployment the endpoint would be a guaranteed 401.
   const { data } = useCurrentUserQuery();
   const username = data?.user?.username;
   return useQuery({
-    queryKey: AccountQueryKeys.myMutationConditions,
-    queryFn: AccountApi.listMyMutationConditions,
+    queryKey: AccountQueryKeys.myConditions,
+    queryFn: AccountApi.listMyConditions,
     retry: false,
     refetchOnWindowFocus: false,
     enabled: Boolean(username),

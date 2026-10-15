@@ -25,11 +25,7 @@ import {
 } from '../types';
 import { RolePermissionsSection, type StagedRolePermission } from './RolePermissionsSection';
 import { RoleUsersSection } from './RoleUsersSection';
-import {
-  MutationConditionsSection,
-  formatStagedCondition,
-  type StagedMutationCondition,
-} from './MutationConditionsSection';
+import { ConditionsSection, formatStagedCondition, type StagedCondition } from './ConditionsSection';
 
 export interface CreateRoleModalProps {
   open: boolean;
@@ -63,8 +59,8 @@ export const CreateRoleModal = ({ open, onClose }: CreateRoleModalProps) => {
   const [description, setDescription] = useState('');
   const [permissions, setPermissions] = useState<StagedRolePermission[]>([]);
   const [usernames, setUsernames] = useState<string[]>([]);
-  const [conditions, setConditions] = useState<StagedMutationCondition[]>([]);
-  // Reported by ``RolePermissionsSection`` and ``MutationConditionsSection``
+  const [conditions, setConditions] = useState<StagedCondition[]>([]);
+  // Reported by ``RolePermissionsSection`` and ``ConditionsSection``
   // whenever their in-progress draft is dirty. Drives a discard-confirm dialog
   // on ``Create role`` so the admin can't silently abandon a partially-filled
   // permission or condition. Tracked per section because either can be dirty
@@ -156,7 +152,7 @@ export const CreateRoleModal = ({ open, onClose }: CreateRoleModalProps) => {
       // would leave a duplicate restriction behind and spend the per-type limit.
       if (c.id != null) continue;
       try {
-        const created = await AdminApi.addMutationCondition({
+        const created = await AdminApi.addCondition({
           role_id: roleId,
           resource_type: c.resourceType,
           // The scope travels explicitly: an absent ``resource_pattern`` is
@@ -165,10 +161,10 @@ export const CreateRoleModal = ({ open, onClose }: CreateRoleModalProps) => {
           resource_pattern: c.resourcePattern,
           container_resource_type: c.containerResourceType,
           container_resource_pattern: c.containerResourcePattern,
-          value_condition: c.valueCondition,
-          target_condition: c.targetCondition,
+          type: c.type,
+          filter: c.filter,
         });
-        const createdId = created?.mutation_conditions?.id;
+        const createdId = created?.conditions?.id;
         if (createdId != null) {
           setConditions((prev) => prev.map((s) => (s === c ? { ...s, id: createdId } : s)));
         }
@@ -210,7 +206,7 @@ export const CreateRoleModal = ({ open, onClose }: CreateRoleModalProps) => {
     setError(
       `Role "${trimmedName}" created, but some follow-ups failed:\n` +
         (conditionFailures.length > 0
-          ? `Mutation conditions: ${conditionFailures.join('; ')}\n` +
+          ? `Conditions: ${conditionFailures.join('; ')}\n` +
             `No permission was added and no user was assigned, so the role grants ` +
             `nothing yet. Retry to apply the rest.\n`
           : '') +
@@ -328,14 +324,14 @@ export const CreateRoleModal = ({ open, onClose }: CreateRoleModalProps) => {
           onUnsavedDraftChange={setHasUnsavedPermissionDraft}
         />
       </LongFormSection>
-      <LongFormSection title="Mutation conditions" collapsible defaultCollapsed>
+      <LongFormSection title="Conditions" collapsible defaultCollapsed>
         <Typography.Text color="secondary" css={{ display: 'block', marginBottom: theme.spacing.sm }}>
           Narrow what this role can change. Conditions never grant access — they only take operations away from the
           permissions above. They are applied before any permission or user assignment, so the role is never live
           unrestricted.
         </Typography.Text>
         {/* Fresh mount per reopen, for the same reason as the section above. */}
-        <MutationConditionsSection
+        <ConditionsSection
           key={String(open)}
           value={conditions}
           onChange={setConditions}

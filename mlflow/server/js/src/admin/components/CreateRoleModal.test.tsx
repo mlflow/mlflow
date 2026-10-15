@@ -5,6 +5,7 @@ import React from 'react';
 import { fireEvent, renderWithDesignSystem, screen, waitFor } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 
 import { CreateRoleModal } from './CreateRoleModal';
+import { CONDITION_TYPE_TARGET, CONDITION_TYPE_VALUE } from '../types';
 
 const userEvent = userEventGlobal.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });
 
@@ -13,7 +14,7 @@ const mockCreateRoleMutateAsync = jest.fn<(...args: any[]) => any>();
 // ``X-MLFLOW-WORKSPACE`` header on the resource-picker list requests.
 const mockUseResourceOptionsQuery = jest.fn<(...args: any[]) => any>();
 const mockUseWorkspacesEnabled = jest.fn<() => { workspacesEnabled: boolean }>();
-const mockAddMutationCondition = jest.fn<(...args: any[]) => any>();
+const mockAddCondition = jest.fn<(...args: any[]) => any>();
 const mockAddPermission = jest.fn<(...args: any[]) => any>();
 const mockAssignRole = jest.fn<(...args: any[]) => any>();
 
@@ -26,7 +27,7 @@ jest.mock('../hooks', () => ({
 
 jest.mock('../api', () => ({
   AdminApi: {
-    addMutationCondition: (...args: any[]) => mockAddMutationCondition(...args),
+    addCondition: (...args: any[]) => mockAddCondition(...args),
     addPermission: (...args: any[]) => mockAddPermission(...args),
     assignRole: (...args: any[]) => mockAssignRole(...args),
   },
@@ -46,8 +47,8 @@ beforeEach(() => {
   mockUseResourceOptionsQuery.mockReturnValue({ options: [], isLoading: false, error: null });
   mockUseWorkspacesEnabled.mockReturnValue({ workspacesEnabled: false });
   mockCreateRoleMutateAsync.mockResolvedValue({ role: { id: 7 } });
-  mockAddMutationCondition.mockReset();
-  mockAddMutationCondition.mockResolvedValue({ mutation_conditions: { id: 11 } });
+  mockAddCondition.mockReset();
+  mockAddCondition.mockResolvedValue({ conditions: { id: 11 } });
   mockAddPermission.mockReset();
   mockAddPermission.mockResolvedValue({});
   mockAssignRole.mockReset();
@@ -90,11 +91,11 @@ describe('CreateRoleModal — restrictions land before capability', () => {
 
   const fillAndSubmit = async () => {
     fireEvent.change(screen.getByPlaceholderText('Enter role name'), { target: { value: 'writers' } });
-    fireEvent.click(screen.getByRole('button', { name: /Mutation conditions/ }));
-    fireEvent.change(screen.getByPlaceholderText("tags.lifecycle != 'prod'"), {
+    fireEvent.click(screen.getByRole('button', { name: /Conditions/ }));
+    fireEvent.change(screen.getByPlaceholderText("tag_value != 'prod'"), {
       target: { value: "tags.env = 'dev'" },
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Add mutation condition' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add condition' }));
     fireEvent.click(screen.getByRole('button', { name: /Permissions/ }));
     fireEvent.click(screen.getByRole('radio', { name: /^All experiments$/ }));
     fireEvent.click(screen.getByRole('button', { name: /^Add$/ }));
@@ -103,9 +104,9 @@ describe('CreateRoleModal — restrictions land before capability', () => {
 
   it('creates the condition before the permission it narrows', async () => {
     const order: string[] = [];
-    mockAddMutationCondition.mockImplementation(async () => {
+    mockAddCondition.mockImplementation(async () => {
       order.push('condition');
-      return { mutation_conditions: { id: 11 } };
+      return { conditions: { id: 11 } };
     });
     mockAddPermission.mockImplementation(async () => {
       order.push('permission');
@@ -129,14 +130,15 @@ describe('CreateRoleModal — restrictions land before capability', () => {
     // omission even at the default scope -- the server normalises an absent
     // `resource_pattern` to the wildcard.
     await waitFor(() =>
-      expect(mockAddMutationCondition).toHaveBeenCalledWith(
+      expect(mockAddCondition).toHaveBeenCalledWith(
         expect.objectContaining({
           role_id: 7,
           resource_type: 'experiment',
           resource_pattern: '*',
           container_resource_type: 'workspace',
           container_resource_pattern: '*',
-          target_condition: "tags.env = 'dev'",
+          type: CONDITION_TYPE_VALUE,
+          filter: "tags.env = 'dev'",
         }),
       ),
     );
@@ -145,7 +147,7 @@ describe('CreateRoleModal — restrictions land before capability', () => {
   it('adds no permission and assigns no user when the condition failed', async () => {
     // The whole point. Granting here would hand assigned users exactly the unrestricted
     // access the condition was meant to take away.
-    mockAddMutationCondition.mockRejectedValue(new Error('slot limit reached'));
+    mockAddCondition.mockRejectedValue(new Error('slot limit reached'));
     const onClose = jest.fn();
     renderWithDesignSystem(<CreateRoleModal open onClose={onClose} />);
 
@@ -168,13 +170,13 @@ describe('CreateRoleModal — restrictions land before capability', () => {
     await fillAndSubmit();
 
     await waitFor(() => expect(screen.getByText(/permission refused/)).toBeInTheDocument());
-    expect(mockAddMutationCondition).toHaveBeenCalledTimes(1);
+    expect(mockAddCondition).toHaveBeenCalledTimes(1);
 
     // The button relabels itself once the role exists.
     fireEvent.click(screen.getByRole('button', { name: /^Retry failed grants$/ }));
     await waitFor(() => expect(mockAddPermission).toHaveBeenCalledTimes(2));
     // The role is not re-created either, and the condition is not replayed.
     expect(mockCreateRoleMutateAsync).toHaveBeenCalledTimes(1);
-    expect(mockAddMutationCondition).toHaveBeenCalledTimes(1);
+    expect(mockAddCondition).toHaveBeenCalledTimes(1);
   });
 });

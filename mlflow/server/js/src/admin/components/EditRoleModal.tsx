@@ -14,13 +14,13 @@ import { FieldLabel } from './FieldLabel';
 import { LongFormSection } from '../../common/components/long-form/LongFormSection';
 import { ConfirmationModal } from '../ConfirmationModal';
 import {
-  useAddMutationCondition,
+  useAddCondition,
   useAddPermission,
   useAssignRole,
-  useRemoveMutationCondition,
+  useRemoveCondition,
   useRemovePermission,
   useRoleDetailQuery,
-  useRoleMutationConditionsQuery,
+  useRoleConditionsQuery,
   useRoleUsersQuery,
   useUnassignRole,
   useUpdateRole,
@@ -29,12 +29,7 @@ import {
 import { useWorkspacesEnabled } from '../../experiment-tracking/hooks/useServerInfo';
 import { formatResourcePattern, parseResourcePattern } from '../types';
 import { RolePermissionsSection, type StagedRolePermission } from './RolePermissionsSection';
-import {
-  conditionKey,
-  formatStagedCondition,
-  MutationConditionsSection,
-  type StagedMutationCondition,
-} from './MutationConditionsSection';
+import { conditionKey, formatStagedCondition, ConditionsSection, type StagedCondition } from './ConditionsSection';
 import { RoleUsersSection } from './RoleUsersSection';
 
 export interface EditRoleModalProps {
@@ -55,7 +50,7 @@ interface RoleDiff {
   permissionIdsToRemove: number[];
   usersToAssign: string[];
   usersToUnassign: string[];
-  conditionsToAdd: StagedMutationCondition[];
+  conditionsToAdd: StagedCondition[];
   conditionIdsToRemove: number[];
 }
 
@@ -76,18 +71,14 @@ export const EditRoleModal = ({ open, onClose, roleId }: EditRoleModalProps) => 
   const removePermission = useRemovePermission(roleId);
   const assignRole = useAssignRole(roleId);
   const unassignRole = useUnassignRole(roleId);
-  const addCondition = useAddMutationCondition(roleId);
-  const removeCondition = useRemoveMutationCondition(roleId);
+  const addCondition = useAddCondition(roleId);
+  const removeCondition = useRemoveCondition(roleId);
 
   // --- Current state from backend ---
   const { data: roleData, isLoading: roleLoading } = useRoleDetailQuery(roleId);
   const { data: assignmentsData, isLoading: assignmentsLoading } = useRoleUsersQuery(roleId);
   const { data: usersData, isLoading: usersLoading } = useUsersQuery();
-  const {
-    data: conditionsData,
-    isLoading: conditionsLoading,
-    error: conditionsError,
-  } = useRoleMutationConditionsQuery(roleId);
+  const { data: conditionsData, isLoading: conditionsLoading, error: conditionsError } = useRoleConditionsQuery(roleId);
 
   const userIdToUsername = useMemo(() => {
     const m = new Map<number, string>();
@@ -116,15 +107,15 @@ export const EditRoleModal = ({ open, onClose, roleId }: EditRoleModalProps) => 
     }));
   }, [roleData]);
 
-  const currentConditions = useMemo<StagedMutationCondition[]>(() => {
-    return (conditionsData?.mutation_conditions ?? []).map((c) => ({
+  const currentConditions = useMemo<StagedCondition[]>(() => {
+    return (conditionsData?.conditions ?? []).map((c) => ({
       id: c.id,
       resourceType: c.resource_type,
       resourcePattern: c.resource_pattern,
       containerResourceType: c.container_resource_type,
       containerResourcePattern: c.container_resource_pattern,
-      valueCondition: c.value_condition,
-      targetCondition: c.target_condition,
+      type: c.type,
+      filter: c.filter,
     }));
   }, [conditionsData]);
 
@@ -143,7 +134,7 @@ export const EditRoleModal = ({ open, onClose, roleId }: EditRoleModalProps) => 
   const [description, setDescription] = useState('');
   const [permissions, setPermissions] = useState<StagedRolePermission[]>([]);
   const [usernames, setUsernames] = useState<string[]>([]);
-  const [conditions, setConditions] = useState<StagedMutationCondition[]>([]);
+  const [conditions, setConditions] = useState<StagedCondition[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Reported by ``RolePermissionsSection`` whenever the in-progress draft
@@ -319,8 +310,8 @@ export const EditRoleModal = ({ open, onClose, roleId }: EditRoleModalProps) => 
           resource_pattern: c.resourcePattern,
           container_resource_type: c.containerResourceType,
           container_resource_pattern: c.containerResourcePattern,
-          value_condition: c.valueCondition,
-          target_condition: c.targetCondition,
+          type: c.type,
+          filter: c.filter,
         });
         // Stamp the server-assigned id onto the staged row. The add list selects rows
         // with no id, so this is what makes a retry idempotent: a later step failing
@@ -328,7 +319,7 @@ export const EditRoleModal = ({ open, onClose, roleId }: EditRoleModalProps) => 
         // replays. Every add allocates a fresh slot rather than deduplicating, so a
         // replay leaves a duplicate restriction behind and spends the per-type limit --
         // enough retries and later grants are refused for want of a slot.
-        const createdId = created?.mutation_conditions?.id;
+        const createdId = created?.conditions?.id;
         if (createdId != null) {
           setConditions((prev) => prev.map((s) => (s === c ? { ...s, id: createdId } : s)));
         }
@@ -450,7 +441,7 @@ export const EditRoleModal = ({ open, onClose, roleId }: EditRoleModalProps) => 
               // proceed to the review step.
               onClick={() => {
                 // BOTH drafts gate the transition. `hasUnsavedConditionDraft` was reported
-                // by `MutationConditionsSection` and then never read, so a half-filled
+                // by `ConditionsSection` and then never read, so a half-filled
                 // condition was dropped silently and the submit went on to ADD the
                 // permissions it was meant to narrow -- the one fail-open direction this
                 // dialog exists to prevent.
@@ -509,8 +500,8 @@ export const EditRoleModal = ({ open, onClose, roleId }: EditRoleModalProps) => 
       {step === 'edit' ? (
         <>
           <Typography.Text color="secondary" css={{ display: 'block', marginBottom: theme.spacing.md }}>
-            Update name, description, permissions, mutation conditions, and assigned users. Changes are previewed before
-            they're applied.
+            Update name, description, permissions, conditions, and assigned users. Changes are previewed before they're
+            applied.
           </Typography.Text>
           {!stateLoaded ? (
             <div
@@ -528,10 +519,10 @@ export const EditRoleModal = ({ open, onClose, roleId }: EditRoleModalProps) => 
             <Alert
               componentId="admin.edit_role_modal.conditions_error"
               type="error"
-              message="Failed to load mutation conditions"
+              message="Failed to load conditions"
               description={
                 (loadError instanceof Error ? loadError.message : null) ||
-                "An error occurred while fetching this role's mutation conditions. Close the modal and try again."
+                "An error occurred while fetching this role's conditions. Close the modal and try again."
               }
             />
           ) : (
@@ -585,11 +576,11 @@ export const EditRoleModal = ({ open, onClose, roleId }: EditRoleModalProps) => 
                   onUnsavedDraftChange={setHasUnsavedDraft}
                 />
               </LongFormSection>
-              <LongFormSection title="Mutation conditions">
+              <LongFormSection title="Conditions">
                 <Typography.Text color="secondary" css={{ display: 'block', marginBottom: theme.spacing.sm }}>
-                  Current mutation conditions are pre-filled. Remove a row to drop it; use the form below to add more.
+                  Current conditions are pre-filled. Remove a row to drop it; use the form below to add more.
                 </Typography.Text>
-                <MutationConditionsSection
+                <ConditionsSection
                   key={String(open)}
                   value={conditions}
                   onChange={setConditions}
@@ -614,7 +605,7 @@ export const EditRoleModal = ({ open, onClose, roleId }: EditRoleModalProps) => 
         componentId="admin.edit_role_modal.discard_unsaved_draft"
         title="Discard unsaved entry?"
         visible={showDiscardConfirm}
-        message="You started adding a permission or mutation condition to this role but didn't click Add. Continuing to Review changes will discard it. Go back to either click Add to stage it, or Clear to drop the draft on the spot."
+        message="You started adding a permission or condition to this role but didn't click Add. Continuing to Review changes will discard it. Go back to either click Add to stage it, or Clear to drop the draft on the spot."
         okText="Continue"
         cancelText="Back"
         danger={false}
@@ -675,15 +666,15 @@ const ReviewSummary = ({
         emptyLabel="No permissions to remove."
       />
       <DiffGroup
-        title="Mutation conditions to add"
+        title="Conditions to add"
         items={diff.conditionsToAdd.map(formatStagedCondition)}
-        emptyLabel="No new mutation conditions."
+        emptyLabel="No new conditions."
         addColor
       />
       <DiffGroup
-        title="Mutation conditions to remove"
+        title="Conditions to remove"
         items={diff.conditionIdsToRemove.map((id) => conditionByIdLabel.get(id) ?? `condition #${id}`)}
-        emptyLabel="No mutation conditions to remove."
+        emptyLabel="No conditions to remove."
       />
       <DiffGroup title="Users to assign" items={diff.usersToAssign} emptyLabel="No new user assignments." addColor />
       <DiffGroup title="Users to unassign" items={diff.usersToUnassign} emptyLabel="No user unassignments." />

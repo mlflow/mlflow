@@ -8,12 +8,12 @@ import type {
   ListAssignmentsResponse,
   ListRolesResponse,
   ListUsersResponse,
-  AddMutationConditionRequest,
-  AddUserMutationConditionRequest,
-  ListMutationConditionsResponse,
-  MutationConditionResponse,
+  AddConditionRequest,
+  AddUserConditionRequest,
+  ListConditionsResponse,
+  ConditionResponse,
   RolePermissionResponse,
-  UpdateMutationConditionRequest,
+  UpdateConditionRequest,
   RoleResponse,
   UpdateAdminRequest,
   UpdateRoleRequest,
@@ -124,34 +124,34 @@ export const AdminApi = {
     });
   },
 
-  // Mutation conditions (condition-based access control)
+  // Conditions (condition-based access control)
   //
   // Addressed by condition id, not by (role, resource_type): a role may hold up to 100
   // conditions per type, so the pair does not identify one.
-  addMutationCondition: (request: AddMutationConditionRequest) => {
+  addCondition: (request: AddConditionRequest) => {
     return fetchEndpoint({
-      relativeUrl: 'ajax-api/3.0/mlflow/roles/mutation-conditions/add',
+      relativeUrl: 'ajax-api/3.0/mlflow/roles/conditions/add',
       method: 'POST',
       body: JSON.stringify(request),
       error: defaultErrorHandler,
-    }) as Promise<MutationConditionResponse>;
+    }) as Promise<ConditionResponse>;
   },
 
-  updateMutationCondition: (request: UpdateMutationConditionRequest) => {
+  updateCondition: (request: UpdateConditionRequest) => {
     // Clearing BOTH filters deletes the object and the response payload is null --
     // an object with neither filter would restrict nothing, so it is not a state the
     // server keeps.
     return fetchEndpoint({
-      relativeUrl: 'ajax-api/3.0/mlflow/roles/mutation-conditions/update',
+      relativeUrl: 'ajax-api/3.0/mlflow/roles/conditions/update',
       method: 'PATCH',
       body: JSON.stringify(request),
       error: defaultErrorHandler,
-    }) as Promise<MutationConditionResponse | null>;
+    }) as Promise<ConditionResponse | null>;
   },
 
-  removeMutationCondition: (conditionId: number) => {
+  removeCondition: (conditionId: number) => {
     return fetchEndpoint({
-      relativeUrl: 'ajax-api/3.0/mlflow/roles/mutation-conditions/remove',
+      relativeUrl: 'ajax-api/3.0/mlflow/roles/conditions/remove',
       method: 'DELETE',
       body: JSON.stringify({ condition_id: conditionId }),
       error: defaultErrorHandler,
@@ -162,22 +162,22 @@ export const AdminApi = {
   // user's direct grants, so there is no role_id and no direct grant has to exist first.
   // ``workspace`` overrides the session workspace the same way the grant call does, so
   // both halves target the same per-user role.
-  addUserMutationCondition: (request: AddUserMutationConditionRequest, workspace?: string) => {
+  addUserCondition: (request: AddUserConditionRequest, workspace?: string) => {
     return fetchEndpoint({
-      relativeUrl: 'ajax-api/3.0/mlflow/users/mutation-conditions/add',
+      relativeUrl: 'ajax-api/3.0/mlflow/users/conditions/add',
       method: 'POST',
       body: JSON.stringify(request),
       error: defaultErrorHandler,
       ...workspaceHeader(workspace),
-    }) as Promise<MutationConditionResponse>;
+    }) as Promise<ConditionResponse>;
   },
 
-  listMutationConditions: (roleId: number) => {
+  listConditions: (roleId: number) => {
     return fetchEndpoint({
-      relativeUrl: `ajax-api/3.0/mlflow/roles/mutation-conditions/list?role_id=${roleId}`,
+      relativeUrl: `ajax-api/3.0/mlflow/roles/conditions/list?role_id=${roleId}`,
       method: 'GET',
       error: defaultErrorHandler,
-    }) as Promise<ListMutationConditionsResponse>;
+    }) as Promise<ListConditionsResponse>;
   },
 
   // User-Role Assignments

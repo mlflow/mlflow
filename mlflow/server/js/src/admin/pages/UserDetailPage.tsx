@@ -19,7 +19,7 @@ import { Link, useParams, useSearchParams } from '../../common/utils/RoutingUtil
 import { useActiveWorkspace } from '../../workspaces/utils/WorkspaceUtils';
 import {
   useCurrentUserIsAdmin,
-  useUserMutationConditionsQuery,
+  useUserConditionsQuery,
   useUserRolesQuery,
   useUsersQuery,
   useWithSettingsReturnTo,
@@ -38,7 +38,7 @@ import { isSyntheticUserRole, isWorkspaceAdminRole } from '../types';
  */
 const UserConditionsSection = ({ username }: { username: string }) => {
   const { workspacesEnabled } = useWorkspacesEnabled();
-  const { groups, isLoading, error } = useUserMutationConditionsQuery(username);
+  const { groups, isLoading, error } = useUserConditionsQuery(username);
   const conditions = useMemo(() => groups.flatMap((g) => g.conditions), [groups]);
   const roleNameById = useMemo(() => {
     const m = new Map<number, string>();
@@ -59,7 +59,7 @@ const UserConditionsSection = ({ username }: { username: string }) => {
       conditions={conditions}
       isLoading={isLoading}
       error={error}
-      emptyDescription="None of this user's roles carry a mutation condition."
+      emptyDescription="None of this user's roles carry a condition."
       suffixHeader="From Role"
       rowSuffix={(c) => roleNameById.get(c.role_id)}
     />
@@ -192,7 +192,7 @@ const UserDetailPage = () => {
           <Tabs.List>
             <Tabs.Trigger value="roles">Roles</Tabs.Trigger>
             <Tabs.Trigger value="permissions">Permissions</Tabs.Trigger>
-            <Tabs.Trigger value="conditions">Mutation conditions</Tabs.Trigger>
+            <Tabs.Trigger value="conditions">Conditions</Tabs.Trigger>
           </Tabs.List>
           <Tabs.Content value="roles" css={{ paddingTop: theme.spacing.md }}>
             {rolesLoading ? (

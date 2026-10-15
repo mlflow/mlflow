@@ -3,13 +3,14 @@ import React from 'react';
 import { fireEvent, renderWithDesignSystem, screen, waitFor } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 
 import { EditRoleModal } from './EditRoleModal';
+import { CONDITION_TYPE_TARGET, CONDITION_TYPE_VALUE } from '../types';
 
 // Capturing mock: the workspace argument is what turns into the
 // ``X-MLFLOW-WORKSPACE`` header on the resource-picker list requests.
 const mockUseResourceOptionsQuery = jest.fn<(...args: any[]) => any>();
 const mockUseWorkspacesEnabled = jest.fn<() => { workspacesEnabled: boolean }>();
 const mockAddConditionMutateAsync = jest.fn<(...args: any[]) => any>();
-const mockUseRoleMutationConditionsQuery = jest.fn<() => any>();
+const mockUseRoleConditionsQuery = jest.fn<() => any>();
 const mockAddPermissionMutateAsync = jest.fn<(...args: any[]) => any>();
 
 jest.mock('../hooks', () => ({
@@ -25,9 +26,9 @@ jest.mock('../hooks', () => ({
   useRoleUsersQuery: () => ({ data: { assignments: [] }, isLoading: false }),
   // Conditions now share these modals; stub them so the cases below keep testing
   // what they were written for.
-  useRoleMutationConditionsQuery: () => mockUseRoleMutationConditionsQuery(),
-  useAddMutationCondition: () => ({ mutateAsync: mockAddConditionMutateAsync, isLoading: false }),
-  useRemoveMutationCondition: () => ({ mutateAsync: jest.fn(), isLoading: false }),
+  useRoleConditionsQuery: () => mockUseRoleConditionsQuery(),
+  useAddCondition: () => ({ mutateAsync: mockAddConditionMutateAsync, isLoading: false }),
+  useRemoveCondition: () => ({ mutateAsync: jest.fn(), isLoading: false }),
   useUsersQuery: () => ({ data: { users: [] }, isLoading: false, error: null }),
   useResourceOptionsQuery: (resourceType: string, workspace?: string) =>
     mockUseResourceOptionsQuery(resourceType, workspace),
@@ -43,9 +44,9 @@ beforeEach(() => {
   mockUseWorkspacesEnabled.mockReturnValue({ workspacesEnabled: false });
   mockAddConditionMutateAsync.mockReset();
   mockAddConditionMutateAsync.mockResolvedValue({});
-  mockUseRoleMutationConditionsQuery.mockReset();
-  mockUseRoleMutationConditionsQuery.mockReturnValue({
-    data: { mutation_conditions: [] },
+  mockUseRoleConditionsQuery.mockReset();
+  mockUseRoleConditionsQuery.mockReturnValue({
+    data: { conditions: [] },
     isLoading: false,
     error: null,
   });
@@ -81,11 +82,11 @@ describe('EditRoleModal — condition scope on the wire', () => {
     // on an ABSENT key, which is what makes this catch it even at the default scope.
     renderWithDesignSystem(<EditRoleModal open onClose={jest.fn()} roleId={1} />);
 
-    expect(await screen.findByText('Add a mutation condition')).toBeInTheDocument();
-    fireEvent.change(screen.getByPlaceholderText("tags.lifecycle != 'prod'"), {
+    expect(await screen.findByText('Add a condition')).toBeInTheDocument();
+    fireEvent.change(screen.getByPlaceholderText("tag_value != 'prod'"), {
       target: { value: "tags.env = 'dev'" },
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Add mutation condition' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add condition' }));
     fireEvent.click(screen.getByRole('button', { name: /^Review changes$/ }));
     fireEvent.click(screen.getByRole('button', { name: /^Apply changes$/ }));
 
@@ -94,7 +95,8 @@ describe('EditRoleModal — condition scope on the wire', () => {
       expect.objectContaining({
         role_id: 1,
         resource_type: 'experiment',
-        target_condition: "tags.env = 'dev'",
+        type: CONDITION_TYPE_VALUE,
+        filter: "tags.env = 'dev'",
         resource_pattern: '*',
         container_resource_type: 'workspace',
         container_resource_pattern: '*',
@@ -109,10 +111,10 @@ describe('EditRoleModal — restrictions land before capability', () => {
   // and conditions last, so a condition that failed left the widened role in force.
 
   const stageConditionAndPermission = () => {
-    fireEvent.change(screen.getByPlaceholderText("tags.lifecycle != 'prod'"), {
+    fireEvent.change(screen.getByPlaceholderText("tag_value != 'prod'"), {
       target: { value: "tags.env = 'dev'" },
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Add mutation condition' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add condition' }));
     fireEvent.click(screen.getByRole('radio', { name: /^All experiments$/ }));
     fireEvent.click(screen.getByRole('button', { name: /^Add$/ }));
     fireEvent.click(screen.getByRole('button', { name: /^Review changes$/ }));
@@ -132,7 +134,7 @@ describe('EditRoleModal — restrictions land before capability', () => {
     const onClose = jest.fn();
     renderWithDesignSystem(<EditRoleModal open onClose={onClose} roleId={1} />);
 
-    expect(await screen.findByText('Add a mutation condition')).toBeInTheDocument();
+    expect(await screen.findByText('Add a condition')).toBeInTheDocument();
     stageConditionAndPermission();
 
     await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
@@ -140,15 +142,15 @@ describe('EditRoleModal — restrictions land before capability', () => {
   });
 
   it('confirms before discarding a half-filled condition draft', async () => {
-    // F-0036. `hasUnsavedConditionDraft` was reported by MutationConditionsSection and
+    // F-0036. `hasUnsavedConditionDraft` was reported by ConditionsSection and
     // then never read -- only `hasUnsavedDraft` gated the transition -- so a condition
     // typed but not Added was dropped silently and the submit went on to grant the
     // permission it was meant to narrow. The dialog's own copy already names both drafts.
     renderWithDesignSystem(<EditRoleModal open onClose={jest.fn()} roleId={1} />);
-    expect(await screen.findByText('Add a mutation condition')).toBeInTheDocument();
+    expect(await screen.findByText('Add a condition')).toBeInTheDocument();
 
-    // Type a condition but deliberately do NOT click "Add mutation condition".
-    fireEvent.change(screen.getByPlaceholderText("tags.lifecycle != 'prod'"), {
+    // Type a condition but deliberately do NOT click "Add condition".
+    fireEvent.change(screen.getByPlaceholderText("tag_value != 'prod'"), {
       target: { value: "tags.env = 'dev'" },
     });
     // Stage a permission, so Review is enabled by a real change rather than the draft.
@@ -165,7 +167,7 @@ describe('EditRoleModal — restrictions land before capability', () => {
     mockAddConditionMutateAsync.mockRejectedValue(new Error('slot exhausted'));
     renderWithDesignSystem(<EditRoleModal open onClose={jest.fn()} roleId={1} />);
 
-    expect(await screen.findByText('Add a mutation condition')).toBeInTheDocument();
+    expect(await screen.findByText('Add a condition')).toBeInTheDocument();
     stageConditionAndPermission();
 
     await waitFor(() => expect(mockAddConditionMutateAsync).toHaveBeenCalledTimes(1));
@@ -179,11 +181,11 @@ describe('EditRoleModal — restrictions land before capability', () => {
     // Every add allocates a fresh slot rather than deduplicating, so the replay left a
     // duplicate restriction behind and spent the per-type limit; enough retries and
     // later grants are refused for want of a slot.
-    mockAddConditionMutateAsync.mockResolvedValue({ mutation_conditions: { id: 7 } });
+    mockAddConditionMutateAsync.mockResolvedValue({ conditions: { id: 7 } });
     mockAddPermissionMutateAsync.mockRejectedValue(new Error('transient'));
     renderWithDesignSystem(<EditRoleModal open onClose={jest.fn()} roleId={1} />);
 
-    expect(await screen.findByText('Add a mutation condition')).toBeInTheDocument();
+    expect(await screen.findByText('Add a condition')).toBeInTheDocument();
     stageConditionAndPermission();
 
     await waitFor(() => expect(mockAddPermissionMutateAsync).toHaveBeenCalledTimes(1));
@@ -204,24 +206,24 @@ describe('EditRoleModal — an unknown condition policy blocks the form', () => 
     // An errored fetch is an UNKNOWN list, not an empty one. Pre-filling `[]` shows a role
     // whose restrictions failed to load as a role carrying none, and the admin then reviews
     // and applies name, permission and assignment changes against that false picture.
-    mockUseRoleMutationConditionsQuery.mockReturnValue({
+    mockUseRoleConditionsQuery.mockReturnValue({
       data: undefined,
       isLoading: false,
       error: new Error('conditions endpoint unavailable'),
     });
     renderWithDesignSystem(<EditRoleModal open onClose={jest.fn()} roleId={1} />);
 
-    expect(await screen.findByText('Failed to load mutation conditions')).toBeInTheDocument();
+    expect(await screen.findByText('Failed to load conditions')).toBeInTheDocument();
     expect(screen.getByText('conditions endpoint unavailable')).toBeInTheDocument();
     // The form itself is gone, so there is nothing to edit against the wrong picture.
-    expect(screen.queryByText('Add a mutation condition')).not.toBeInTheDocument();
+    expect(screen.queryByText('Add a condition')).not.toBeInTheDocument();
     expect(screen.queryByText('Add a permission')).not.toBeInTheDocument();
   });
 
   it('renders the form normally when the fetch succeeded', async () => {
     renderWithDesignSystem(<EditRoleModal open onClose={jest.fn()} roleId={1} />);
 
-    expect(await screen.findByText('Add a mutation condition')).toBeInTheDocument();
-    expect(screen.queryByText('Failed to load mutation conditions')).not.toBeInTheDocument();
+    expect(await screen.findByText('Add a condition')).toBeInTheDocument();
+    expect(screen.queryByText('Failed to load conditions')).not.toBeInTheDocument();
   });
 });

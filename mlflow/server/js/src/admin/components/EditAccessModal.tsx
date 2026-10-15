@@ -20,10 +20,10 @@ import { AdminApi } from '../api';
 import {
   AdminQueryKeys,
   useCurrentUserIsAdmin,
-  useAddUserMutationCondition,
+  useAddUserCondition,
   useGrantUserPermission,
-  useRemoveMutationCondition,
-  useRoleMutationConditionsQuery,
+  useRemoveCondition,
+  useRoleConditionsQuery,
   useRevokeUserPermission,
   useRolesQuery,
   useUserRolesQuery,
@@ -38,12 +38,7 @@ import { useWorkspacesEnabled } from '../../experiment-tracking/hooks/useServerI
 import { RoleAssignmentForm, ROLE_ASSIGNMENT_DEFAULT, type RoleAssignmentValue } from './RoleAssignmentForm';
 import { DIRECT_GRANT_RESOURCE_TYPES, type DirectGrantResourceType } from './DirectPermissionForm';
 import { DirectPermissionsSection, type StagedDirectPermission } from './DirectPermissionsSection';
-import {
-  conditionKey,
-  formatStagedCondition,
-  MutationConditionsSection,
-  type StagedMutationCondition,
-} from './MutationConditionsSection';
+import { conditionKey, formatStagedCondition, ConditionsSection, type StagedCondition } from './ConditionsSection';
 
 export interface EditAccessModalProps {
   open: boolean;
@@ -66,7 +61,7 @@ interface AccessDiff {
   directToGrant: StagedDirectPermission[];
   directToRevoke: StagedDirectPermission[];
   adminChange: boolean;
-  conditionsToAdd: StagedMutationCondition[];
+  conditionsToAdd: StagedCondition[];
   conditionIdsToRemove: number[];
 }
 
@@ -155,20 +150,20 @@ export const EditAccessModal = ({ open, onClose, username }: EditAccessModalProp
     data: conditionsData,
     isLoading: conditionsLoading,
     error: conditionsError,
-  } = useRoleMutationConditionsQuery(syntheticRoleId);
-  const addCondition = useAddUserMutationCondition(username, syntheticRoleId);
-  const removeCondition = useRemoveMutationCondition(syntheticRoleId);
+  } = useRoleConditionsQuery(syntheticRoleId);
+  const addCondition = useAddUserCondition(username, syntheticRoleId);
+  const removeCondition = useRemoveCondition(syntheticRoleId);
 
-  const currentConditions = useMemo<StagedMutationCondition[]>(
+  const currentConditions = useMemo<StagedCondition[]>(
     () =>
-      (conditionsData?.mutation_conditions ?? []).map((c) => ({
+      (conditionsData?.conditions ?? []).map((c) => ({
         id: c.id,
         resourceType: c.resource_type,
         resourcePattern: c.resource_pattern,
         containerResourceType: c.container_resource_type,
         containerResourcePattern: c.container_resource_pattern,
-        valueCondition: c.value_condition,
-        targetCondition: c.target_condition,
+        type: c.type,
+        filter: c.filter,
       })),
     [conditionsData],
   );
@@ -183,7 +178,7 @@ export const EditAccessModal = ({ open, onClose, username }: EditAccessModalProp
   const [roleValue, setRoleValue] = useState<RoleAssignmentValue>(ROLE_ASSIGNMENT_DEFAULT);
   const [directPermissions, setDirectPermissions] = useState<StagedDirectPermission[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [conditions, setConditions] = useState<StagedMutationCondition[]>([]);
+  const [conditions, setConditions] = useState<StagedCondition[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Reported by ``DirectPermissionsSection`` whenever the in-progress
@@ -369,8 +364,8 @@ export const EditAccessModal = ({ open, onClose, username }: EditAccessModalProp
             resource_pattern: c.resourcePattern,
             container_resource_type: c.containerResourceType,
             container_resource_pattern: c.containerResourcePattern,
-            value_condition: c.valueCondition,
-            target_condition: c.targetCondition,
+            type: c.type,
+            filter: c.filter,
           },
           workspace: grantWorkspaceForRequest,
         });
@@ -380,7 +375,7 @@ export const EditAccessModal = ({ open, onClose, username }: EditAccessModalProp
         // replays. Every add allocates a fresh slot rather than deduplicating, so a
         // replay leaves a duplicate restriction behind and spends the per-type limit --
         // enough retries and later grants are refused for want of a slot.
-        const createdId = created?.mutation_conditions?.id;
+        const createdId = created?.conditions?.id;
         if (createdId != null) {
           setConditions((prev) => prev.map((s) => (s === c ? { ...s, id: createdId } : s)));
         }
@@ -689,15 +684,15 @@ export const EditAccessModal = ({ open, onClose, username }: EditAccessModalProp
                   onUnsavedDraftChange={setHasUnsavedDirectDraft}
                 />
               </LongFormSection>
-              <LongFormSection title="Direct mutation conditions" hideDivider={!isCurrentUserAdmin}>
+              <LongFormSection title="Direct conditions" hideDivider={!isCurrentUserAdmin}>
                 <Typography.Text color="secondary" css={{ display: 'block', marginBottom: theme.spacing.sm }}>
-                  Current mutation conditions on this user's direct grants are pre-filled. Remove a row to drop it; use
-                  the form below to add more.
+                  Current conditions on this user's direct grants are pre-filled. Remove a row to drop it; use the form
+                  below to add more.
                 </Typography.Text>
                 {/* No pre-existing role needed: the add is addressed by username and the
                     server creates the role backing the direct grants if it is absent, the
                     same way granting a direct permission does. */}
-                <MutationConditionsSection
+                <ConditionsSection
                   key={String(open)}
                   value={conditions}
                   onChange={setConditions}
@@ -804,15 +799,15 @@ const ReviewSummary = ({
         emptyLabel="No direct permissions to revoke."
       />
       <DiffGroup
-        title="Direct mutation conditions to add"
+        title="Direct conditions to add"
         items={diff.conditionsToAdd.map(formatStagedCondition)}
-        emptyLabel="No new mutation conditions."
+        emptyLabel="No new conditions."
         addColor
       />
       <DiffGroup
-        title="Direct mutation conditions to remove"
+        title="Direct conditions to remove"
         items={diff.conditionIdsToRemove.map((id) => `condition #${id}`)}
-        emptyLabel="No mutation conditions to remove."
+        emptyLabel="No conditions to remove."
       />
       {diff.adminChange ? (
         <DiffGroup

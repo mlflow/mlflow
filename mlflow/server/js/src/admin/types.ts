@@ -219,29 +219,31 @@ export const getGrantablePermissions = (resourceType: string): readonly string[]
   ];
 
 // ---------------------------------------------------------------------------
-// Mutation conditions (condition-based access control)
+// Conditions (condition-based access control)
 //
 // A condition narrows what a role's grant admits; it never widens it. Two
 // independent filters, either of which may be absent:
 //
-//   valueCondition  -- constrains the values a request may SET (tag_key,
+//   type=VALUE   -- constrains the values a request may SET (tag_key,
 //                      tag_value, alias). Applies on create.
-//   targetCondition -- constrains which existing resources may be MUTATED
+//   type=TARGET  -- constrains which existing resources may be MUTATED
 //                      (tags.<key>, aliases.<name>). Vacuous on create,
 //                      because no target state exists yet.
 //
 // Two properties the UI has to communicate, because neither is what an
 // administrator expects from a list of rules:
 //
-//  1. Objects are CONJUNCTIVE. A role may hold up to 100 per resource type and
-//     every applicable one must pass. A list reads like alternatives and most
-//     permission systems treat it that way; here "env = dev" plus "owner = me"
-//     admits only resources that are both.
+//  1. Objects of one TYPE are ALTERNATIVES. A role may hold up to 100 per
+//     resource type, and any one of them passing is enough, so adding a
+//     condition WIDENS what the role may do. "env = dev" plus "owner = me"
+//     admits a resource matching EITHER. A conjunction has to be written as
+//     several clauses in ONE condition. The two types still AND with each
+//     other, and a sibling may come from a different role the same user holds.
 //  2. On the TARGET side an absent tag FAILS every comparator. So
 //     `tags.lifecycle != 'prod'` denies an UNTAGGED resource. Surprising, and
 //     deliberate -- it is the fail-closed reading.
 
-export interface MutationCondition {
+export interface Condition {
   id: number;
   role_id: number;
   resource_type: string;
@@ -253,26 +255,28 @@ export interface MutationCondition {
   /** `"workspace"` for no containment narrowing, else the type's declared container. */
   container_resource_type: string;
   container_resource_pattern: string;
-  value_condition: string | null;
-  target_condition: string | null;
+  /** `"VALUE"` gates what a request may set; `"TARGET"` gates which resources may be mutated. */
+  type: ConditionType;
+  /** The filter this condition applies. Never empty: a condition IS its filter. */
+  filter: string;
 }
 
-export interface MutationConditionResponse {
-  mutation_conditions: MutationCondition;
+export interface ConditionResponse {
+  conditions: Condition;
 }
 
-export interface ListMutationConditionsResponse {
-  mutation_conditions: MutationCondition[];
+export interface ListConditionsResponse {
+  conditions: Condition[];
 }
 
-export interface AddMutationConditionRequest {
+export interface AddConditionRequest {
   role_id: number;
   resource_type: string;
   resource_pattern?: string | null;
   container_resource_type?: string | null;
   container_resource_pattern?: string | null;
-  value_condition?: string | null;
-  target_condition?: string | null;
+  type: ConditionType;
+  filter: string;
 }
 
 /**
@@ -281,20 +285,25 @@ export interface AddMutationConditionRequest {
  * backs those grants, so no ``role_id`` is supplied and no direct grant has to exist
  * first.
  */
-export interface AddUserMutationConditionRequest {
+export interface AddUserConditionRequest {
   username: string;
   resource_type: string;
   resource_pattern?: string | null;
   container_resource_type?: string | null;
   container_resource_pattern?: string | null;
-  value_condition?: string | null;
-  target_condition?: string | null;
+  type: ConditionType;
+  filter: string;
 }
 
-export interface UpdateMutationConditionRequest {
+export interface UpdateConditionRequest {
   condition_id: number;
-  value_condition?: string | null;
-  target_condition?: string | null;
+  /**
+   * Omit to leave the filter alone. It cannot be cleared: a condition IS its filter,
+   * so an empty one is an unconditional pass that nullifies every sibling of its type.
+   * Removing the condition is how it goes away. The type cannot change at all, because
+   * it selects which half of a request the filter is read against.
+   */
+  filter?: string;
   resource_pattern?: string | null;
   container_resource_type?: string | null;
   container_resource_pattern?: string | null;
@@ -322,7 +331,7 @@ export const CONDITION_TOP_LEVEL_RESOURCE_TYPES = ['experiment', 'registered_mod
 export const MAX_CONDITIONS_PER_ROLE_TYPE = 100;
 
 /**
- * The resource types a mutation condition may govern. A strict subset of
+ * The resource types a condition may govern. A strict subset of
  * ``RESOURCE_TYPES``: a condition filters on tags or aliases, so a type that carries
  * neither cannot be conditioned. Mirrors ``conditions.SUPPORTED_RESOURCE_TYPES``.
  *
@@ -379,7 +388,7 @@ export const conditionNarrowsByPattern = (resourceType: string): boolean =>
  * Human label for a condition's scope: either the parent it is confined to, or every
  * resource of its type in the workspace.
  */
-export const formatConditionScope = (condition: MutationCondition): string => {
+export const formatConditionScope = (condition: Condition): string => {
   if (condition.resource_pattern && condition.resource_pattern !== CONDITION_WILDCARD_PATTERN) {
     return `${getResourceTypeLabel(condition.resource_type)} ${condition.resource_pattern}`;
   }
@@ -390,7 +399,23 @@ export const formatConditionScope = (condition: MutationCondition): string => {
 };
 
 /** Which filter a vocabulary question is about. */
-export type ConditionFilterSide = 'request' | 'resource';
+/**
+ * Which question a condition's filter answers -- the server's own discriminator.
+ *
+ * This replaces a separate 'request' | 'resource' notion the UI used to carry: it was
+ * the same distinction under another name, and keeping two meant a form could show one
+ * vocabulary while submitting the other.
+ */
+export type ConditionType = 'VALUE' | 'TARGET';
+
+export const CONDITION_TYPE_VALUE: ConditionType = 'VALUE';
+export const CONDITION_TYPE_TARGET: ConditionType = 'TARGET';
+
+/** Both types, in the order the form offers them. */
+export const CONDITION_TYPES: ConditionType[] = [CONDITION_TYPE_VALUE, CONDITION_TYPE_TARGET];
+
+export const getConditionTypeLabel = (type: ConditionType): string =>
+  type === CONDITION_TYPE_VALUE ? 'Values a request may set' : 'Resources that may be mutated';
 
 /**
  * The identifiers a **value** condition on this type may use, in the form an admin types
@@ -414,16 +439,16 @@ export const getConditionResourceIdentifiers = (resourceType: string): string[] 
   isConditionAliasOwningType(resourceType) ? ['tags.<key>', 'aliases.<name>'] : ['tags.<key>'];
 
 /** Flat identifiers accepted on the request side. The resource side accepts none. */
-const conditionFlatIdentifiers = (resourceType: string, side: ConditionFilterSide): Set<string> => {
-  if (side === 'resource') return new Set<string>();
+const conditionFlatIdentifiers = (resourceType: string, type: ConditionType): Set<string> => {
+  if (type === CONDITION_TYPE_TARGET) return new Set<string>();
   return new Set(
     isConditionAliasOwningType(resourceType) ? ['tag_key', 'tag_value', 'alias'] : ['tag_key', 'tag_value'],
   );
 };
 
 /** Dotted namespaces accepted on each side. Aliases are resource-side and type-dependent. */
-const conditionDottedNamespaces = (resourceType: string, side: ConditionFilterSide): Set<string> => {
-  if (side === 'request') return new Set(['tags']);
+const conditionDottedNamespaces = (resourceType: string, type: ConditionType): Set<string> => {
+  if (type === CONDITION_TYPE_VALUE) return new Set(['tags']);
   return new Set(isConditionAliasOwningType(resourceType) ? ['tags', 'aliases'] : ['tags']);
 };
 
@@ -450,10 +475,10 @@ const CONDITION_CLAUSE_LHS_RE =
 export const findUnsupportedConditionIdentifiers = (
   filter: string,
   resourceType: string,
-  side: ConditionFilterSide,
+  type: ConditionType,
 ): string[] => {
-  const flat = conditionFlatIdentifiers(resourceType, side);
-  const namespaces = conditionDottedNamespaces(resourceType, side);
+  const flat = conditionFlatIdentifiers(resourceType, type);
+  const namespaces = conditionDottedNamespaces(resourceType, type);
   const unsupported: string[] = [];
   const seen = new Set<string>();
   for (const match of stripConditionFilterLiterals(filter).matchAll(CONDITION_CLAUSE_LHS_RE)) {
@@ -470,12 +495,12 @@ export const findUnsupportedConditionIdentifiers = (
 };
 
 /**
- * True when the two filters together express nothing. The server refuses such an
- * object -- a condition with neither filter would restrict nothing, so it is not a
- * state worth storing -- and clearing both on an existing one deletes it.
+ * True when a condition expresses nothing. The server refuses it: a condition IS its
+ * filter, so an empty one is not a weaker restriction but an unconditional pass -- and
+ * because conditions of a type are alternatives, it would nullify every sibling of its
+ * type rather than merely relaxing itself.
  */
-export const isConditionEmpty = (valueCondition?: string | null, targetCondition?: string | null): boolean =>
-  !valueCondition?.trim() && !targetCondition?.trim();
+export const isConditionEmpty = (filter?: string | null): boolean => !filter?.trim();
 
 /**
  * Parent types the resource picker can enumerate. Mirrors the cases handled by

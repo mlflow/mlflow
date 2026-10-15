@@ -4,6 +4,8 @@ import {
   findUnsupportedConditionIdentifiers,
   getConditionRequestIdentifiers,
   getConditionResourceIdentifiers,
+  CONDITION_TYPE_TARGET,
+  CONDITION_TYPE_VALUE,
 } from './types';
 
 describe('condition vocabulary — what each resource type accepts', () => {
@@ -26,18 +28,22 @@ describe('condition vocabulary — what each resource type accepts', () => {
 
 describe('findUnsupportedConditionIdentifiers', () => {
   it('accepts the vocabulary each side owns', () => {
-    expect(findUnsupportedConditionIdentifiers("tag_key != 'lifecycle'", 'run', 'request')).toEqual([]);
-    expect(findUnsupportedConditionIdentifiers("tags.team IN ('a','b')", 'run', 'request')).toEqual([]);
-    expect(findUnsupportedConditionIdentifiers("tags.lifecycle != 'prod'", 'run', 'resource')).toEqual([]);
-    expect(findUnsupportedConditionIdentifiers("alias != 'champion'", 'registered_model', 'request')).toEqual([]);
-    expect(findUnsupportedConditionIdentifiers("aliases.champion = 'v1'", 'registered_model', 'resource')).toEqual([]);
+    expect(findUnsupportedConditionIdentifiers("tag_key != 'lifecycle'", 'run', CONDITION_TYPE_VALUE)).toEqual([]);
+    expect(findUnsupportedConditionIdentifiers("tags.team IN ('a','b')", 'run', CONDITION_TYPE_VALUE)).toEqual([]);
+    expect(findUnsupportedConditionIdentifiers("tags.lifecycle != 'prod'", 'run', CONDITION_TYPE_TARGET)).toEqual([]);
+    expect(
+      findUnsupportedConditionIdentifiers("alias != 'champion'", 'registered_model', CONDITION_TYPE_VALUE),
+    ).toEqual([]);
+    expect(
+      findUnsupportedConditionIdentifiers("aliases.champion = 'v1'", 'registered_model', CONDITION_TYPE_TARGET),
+    ).toEqual([]);
   });
 
   it('rejects an alias clause on a type that owns no aliases', () => {
     // The finding that prompted this: a Run condition naming `alias` could be staged and
     // submitted even though the backend refuses aliases for that type.
-    expect(findUnsupportedConditionIdentifiers("alias != 'champion'", 'run', 'request')).toEqual(['alias']);
-    expect(findUnsupportedConditionIdentifiers("aliases.champion = 'v1'", 'run', 'resource')).toEqual([
+    expect(findUnsupportedConditionIdentifiers("alias != 'champion'", 'run', CONDITION_TYPE_VALUE)).toEqual(['alias']);
+    expect(findUnsupportedConditionIdentifiers("aliases.champion = 'v1'", 'run', CONDITION_TYPE_TARGET)).toEqual([
       'aliases.champion',
     ]);
   });
@@ -45,25 +51,31 @@ describe('findUnsupportedConditionIdentifiers', () => {
   it('rejects a flat request identifier used in a target condition', () => {
     // Easy to get wrong because the two fields accept overlapping syntax, and a clause
     // copied from one to the other looks right.
-    expect(findUnsupportedConditionIdentifiers("tag_key != 'lifecycle'", 'run', 'resource')).toEqual(['tag_key']);
+    expect(findUnsupportedConditionIdentifiers("tag_key != 'lifecycle'", 'run', CONDITION_TYPE_TARGET)).toEqual([
+      'tag_key',
+    ]);
   });
 
   it('rejects an identifier that is in no vocabulary at all', () => {
-    expect(findUnsupportedConditionIdentifiers("stage = 'Production'", 'run', 'request')).toEqual(['stage']);
-    expect(findUnsupportedConditionIdentifiers("params.alpha = '1'", 'run', 'resource')).toEqual(['params.alpha']);
+    expect(findUnsupportedConditionIdentifiers("stage = 'Production'", 'run', CONDITION_TYPE_VALUE)).toEqual(['stage']);
+    expect(findUnsupportedConditionIdentifiers("params.alpha = '1'", 'run', CONDITION_TYPE_TARGET)).toEqual([
+      'params.alpha',
+    ]);
   });
 
   it('does not read a quoted value as a clause', () => {
     // Without blanking literals the value here would scan as an `alias` clause and the
     // admin would be told a valid condition is unsupported.
-    expect(findUnsupportedConditionIdentifiers("tags.note = 'alias = champion'", 'run', 'resource')).toEqual([]);
+    expect(findUnsupportedConditionIdentifiers("tags.note = 'alias = champion'", 'run', CONDITION_TYPE_TARGET)).toEqual(
+      [],
+    );
   });
 
   it('reports each offending identifier once, in the form it was typed', () => {
     const found = findUnsupportedConditionIdentifiers(
       "alias != 'a' AND alias != 'b' AND stage = 'c'",
       'run',
-      'request',
+      CONDITION_TYPE_VALUE,
     );
     expect(found).toEqual(['alias', 'stage']);
   });
@@ -71,7 +83,7 @@ describe('findUnsupportedConditionIdentifiers', () => {
   it('stays silent on a filter it cannot parse, leaving the server as the authority', () => {
     // Deliberately not a second parser: this guards the mistakes the vocabulary makes easy
     // and defers syntax, clause counts and everything else to the backend.
-    expect(findUnsupportedConditionIdentifiers('not a filter at all', 'run', 'request')).toEqual([]);
-    expect(findUnsupportedConditionIdentifiers('', 'run', 'request')).toEqual([]);
+    expect(findUnsupportedConditionIdentifiers('not a filter at all', 'run', CONDITION_TYPE_VALUE)).toEqual([]);
+    expect(findUnsupportedConditionIdentifiers('', 'run', CONDITION_TYPE_VALUE)).toEqual([]);
   });
 });

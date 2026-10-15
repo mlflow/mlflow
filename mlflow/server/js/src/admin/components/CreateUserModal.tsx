@@ -19,7 +19,7 @@ import {
   AdminQueryKeys,
   useCreateUser,
   useCurrentUserIsAdmin,
-  useAddUserMutationCondition,
+  useAddUserCondition,
   useGrantUserPermission,
   useWorkspaceOptions,
 } from '../hooks';
@@ -30,7 +30,7 @@ import { useWorkspacesEnabled } from '../../experiment-tracking/hooks/useServerI
 import { DEFAULT_WORKSPACE_NAME } from '../types';
 import { RoleAssignmentForm, ROLE_ASSIGNMENT_DEFAULT, type RoleAssignmentValue } from './RoleAssignmentForm';
 import { DirectPermissionsSection, type StagedDirectPermission } from './DirectPermissionsSection';
-import { MutationConditionsSection, type StagedMutationCondition } from './MutationConditionsSection';
+import { ConditionsSection, type StagedCondition } from './ConditionsSection';
 
 export interface CreateUserModalProps {
   open: boolean;
@@ -67,12 +67,12 @@ export const CreateUserModal = ({ open, onClose }: CreateUserModalProps) => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [roleValue, setRoleValue] = useState<RoleAssignmentValue>(ROLE_ASSIGNMENT_DEFAULT);
   const [directPermissions, setDirectPermissions] = useState<StagedDirectPermission[]>([]);
-  const [conditions, setConditions] = useState<StagedMutationCondition[]>([]);
+  const [conditions, setConditions] = useState<StagedCondition[]>([]);
   // The role id is unknown here -- the user does not exist yet, so neither does the
   // per-user role the conditions land on. The user-addressed add resolves and creates it
   // server-side, which is what lets a condition be staged at creation time at all; the
   // role-keyed invalidation this hook also does is a no-op for an id that never existed.
-  const addCondition = useAddUserMutationCondition(username, Number.NaN);
+  const addCondition = useAddUserCondition(username, Number.NaN);
   const [grantWorkspace, setGrantWorkspace] = useState<string>(initialGrantWorkspace);
   // In single-tenant mode there is no workspace dimension — pass ``undefined``
   // so the ``X-MLFLOW-WORKSPACE`` header is omitted (the server rejects any
@@ -175,17 +175,17 @@ export const CreateUserModal = ({ open, onClose }: CreateUserModalProps) => {
               resource_pattern: c.resourcePattern,
               container_resource_type: c.containerResourceType,
               container_resource_pattern: c.containerResourcePattern,
-              value_condition: c.valueCondition,
-              target_condition: c.targetCondition,
+              type: c.type,
+              filter: c.filter,
             },
             workspace: grantWorkspaceForRequest,
           });
-          const createdId = created?.mutation_conditions?.id;
+          const createdId = created?.conditions?.id;
           if (createdId != null) {
             setConditions((prev) => prev.map((s) => (s === c ? { ...s, id: createdId } : s)));
           }
         } catch (e: any) {
-          failures.push(`Mutation condition on ${c.resourceType} failed: ${e?.message ?? 'unknown error'}`);
+          failures.push(`Condition on ${c.resourceType} failed: ${e?.message ?? 'unknown error'}`);
         }
       }
     }
@@ -195,7 +195,7 @@ export const CreateUserModal = ({ open, onClose }: CreateUserModalProps) => {
     const restrictionsFailed = failures.length > 0;
     if (restrictionsFailed) {
       setError(
-        `User ${trimmedUsername} was created, but their mutation conditions could not be applied, ` +
+        `User ${trimmedUsername} was created, but their conditions could not be applied, ` +
           `so no roles, permissions, or admin status were granted:\n${failures.join('\n')}\n` +
           `Open the user's detail page and click "Edit access" to retry.`,
       );
@@ -395,19 +395,14 @@ export const CreateUserModal = ({ open, onClose }: CreateUserModalProps) => {
           onUnsavedDraftChange={setHasUnsavedDirectDraft}
         />
       </LongFormSection>
-      <LongFormSection
-        title="Direct mutation conditions"
-        collapsible
-        defaultCollapsed
-        hideDivider={!isCurrentUserAdmin}
-      >
+      <LongFormSection title="Direct conditions" collapsible defaultCollapsed hideDivider={!isCurrentUserAdmin}>
         <Typography.Text color="secondary" css={{ display: 'block', marginBottom: theme.spacing.sm }}>
           Narrow what the user may set or change. Conditions only ever subtract from the access granted above, and never
           apply to reads.
         </Typography.Text>
         {/* ``key={String(open)}`` for the same reason as the section above: the dialog stays
             mounted across close, so without a remount an abandoned draft would persist. */}
-        <MutationConditionsSection
+        <ConditionsSection
           key={String(open)}
           value={conditions}
           onChange={setConditions}
@@ -441,7 +436,7 @@ export const CreateUserModal = ({ open, onClose }: CreateUserModalProps) => {
         componentId="admin.create_user_modal.discard_unsaved_draft"
         title="Discard unsaved entry?"
         visible={showDiscardConfirm}
-        message="You started adding a direct permission or mutation condition but didn't click Add. Continuing will discard it. Go back to either click Add to stage it, or Clear to drop the draft on the spot."
+        message="You started adding a direct permission or condition but didn't click Add. Continuing will discard it. Go back to either click Add to stage it, or Clear to drop the draft on the spot."
         okText="Continue"
         cancelText="Back"
         // ``danger=false`` because the OK verb is neutral ("Continue") — the

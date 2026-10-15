@@ -8,17 +8,17 @@ import { isSyntheticUserRole } from '../account/types';
 import { formatSkillIdentity } from '../skill-registry/utils';
 import type { Role } from '../account/types';
 // Imported, not just re-exported: the re-export block below does not bring these
-// into module scope, and ``useUserMutationConditionsQuery`` composes on top of them.
+// into module scope, and ``useUserConditionsQuery`` composes on top of them.
 import { useUserRolesQuery as useUserRolesQueryInternal } from '../account/hooks';
 import type {
-  AddMutationConditionRequest,
-  AddUserMutationConditionRequest,
+  AddConditionRequest,
+  AddUserConditionRequest,
   AddPermissionRequest,
   CreateRoleRequest,
   CreateUserRequest,
   ResourceOption,
   UpdateAdminRequest,
-  UpdateMutationConditionRequest,
+  UpdateConditionRequest,
   UpdateRoleRequest,
 } from './types';
 import { ALL_RESOURCE_PATTERN, DEFAULT_WORKSPACE_NAME } from './types';
@@ -213,15 +213,15 @@ export const useRemovePermission = (roleId: number) => {
   });
 };
 
-// Mutation conditions (condition-based access control)
+// Conditions (condition-based access control)
 //
 // Conditions live on a role and are addressed by their own id, so they are a separate
 // query from ``roleDetail`` rather than a field on it: a role may hold up to 100 per
 // resource type, and the conditions page is the only consumer that needs them.
-export const useRoleMutationConditionsQuery = (roleId: number, options: { enabled?: boolean } = {}) => {
+export const useRoleConditionsQuery = (roleId: number, options: { enabled?: boolean } = {}) => {
   return useQuery({
     queryKey: AdminQueryKeys.roleConditions(roleId),
-    queryFn: () => AdminApi.listMutationConditions(roleId),
+    queryFn: () => AdminApi.listConditions(roleId),
     retry: false,
     refetchOnWindowFocus: false,
     enabled: Number.isFinite(roleId) && options.enabled !== false,
@@ -240,7 +240,7 @@ export const useRoleMutationConditionsQuery = (roleId: number, options: { enable
  * alternatives -- a second role cannot lift the first one's restriction. The page says
  * so; the shape of this data cannot.
  */
-export const useUserMutationConditionsQuery = (username: string, options: { enabled?: boolean } = {}) => {
+export const useUserConditionsQuery = (username: string, options: { enabled?: boolean } = {}) => {
   const enabled = Boolean(username) && options.enabled !== false;
   const {
     data: rolesData,
@@ -256,7 +256,7 @@ export const useUserMutationConditionsQuery = (username: string, options: { enab
   const conditionQueries = useQueries({
     queries: roles.map((role: Role) => ({
       queryKey: AdminQueryKeys.roleConditions(role.id),
-      queryFn: () => AdminApi.listMutationConditions(role.id),
+      queryFn: () => AdminApi.listConditions(role.id),
       retry: false,
       refetchOnWindowFocus: false,
       enabled,
@@ -276,7 +276,7 @@ export const useUserMutationConditionsQuery = (username: string, options: { enab
     () =>
       roles.map((role: Role, i: number) => ({
         role,
-        conditions: conditionQueries[i]?.data?.mutation_conditions ?? [],
+        conditions: conditionQueries[i]?.data?.conditions ?? [],
         isLoading: conditionQueries[i]?.isLoading ?? false,
         error: conditionQueries[i]?.error ?? null,
       })),
@@ -294,10 +294,10 @@ export const useUserMutationConditionsQuery = (username: string, options: { enab
   };
 };
 
-export const useAddMutationCondition = (roleId: number) => {
+export const useAddCondition = (roleId: number) => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (request: AddMutationConditionRequest) => AdminApi.addMutationCondition(request),
+    mutationFn: (request: AddConditionRequest) => AdminApi.addCondition(request),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: AdminQueryKeys.roleConditions(roleId) });
     },
@@ -311,11 +311,11 @@ export const useAddMutationCondition = (roleId: number) => {
  * first add it invalidates nothing and the caller's own role query has to refetch. The
  * modal re-reads the user's roles on reopen, which is what surfaces the new role.
  */
-export const useAddUserMutationCondition = (username: string, roleId: number) => {
+export const useAddUserCondition = (username: string, roleId: number) => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ request, workspace }: { request: AddUserMutationConditionRequest; workspace?: string }) =>
-      AdminApi.addUserMutationCondition(request, workspace),
+    mutationFn: ({ request, workspace }: { request: AddUserConditionRequest; workspace?: string }) =>
+      AdminApi.addUserCondition(request, workspace),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: AdminQueryKeys.roleConditions(roleId) });
       queryClient.invalidateQueries({ queryKey: AccountQueryKeys.userRoles(username) });
@@ -323,22 +323,22 @@ export const useAddUserMutationCondition = (username: string, roleId: number) =>
   });
 };
 
-export const useUpdateMutationCondition = (roleId: number) => {
+export const useUpdateCondition = (roleId: number) => {
   const queryClient = useQueryClient();
   return useMutation({
     // Clearing both filters deletes the condition server-side, so the same
     // invalidation covers an update and that implicit delete.
-    mutationFn: (request: UpdateMutationConditionRequest) => AdminApi.updateMutationCondition(request),
+    mutationFn: (request: UpdateConditionRequest) => AdminApi.updateCondition(request),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: AdminQueryKeys.roleConditions(roleId) });
     },
   });
 };
 
-export const useRemoveMutationCondition = (roleId: number) => {
+export const useRemoveCondition = (roleId: number) => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (conditionId: number) => AdminApi.removeMutationCondition(conditionId),
+    mutationFn: (conditionId: number) => AdminApi.removeCondition(conditionId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: AdminQueryKeys.roleConditions(roleId) });
     },

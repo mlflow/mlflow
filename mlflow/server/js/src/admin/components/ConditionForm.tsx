@@ -26,7 +26,11 @@ import {
   isConditionEmpty,
   getConditionRequestIdentifiers,
   getConditionResourceIdentifiers,
+  CONDITION_TYPES,
+  CONDITION_TYPE_VALUE,
+  getConditionTypeLabel,
 } from '../types';
+import type { ConditionType } from '../types';
 
 /**
  * Help text under a condition input.
@@ -48,12 +52,12 @@ const FieldHint = ({ children, testId }: { children: React.ReactNode; testId: st
   );
 };
 
-export type MutationConditionScope = 'all' | 'scoped';
+export type ConditionScope = 'all' | 'scoped';
 
 /**
- * Internal draft state of one mutation condition.
+ * Internal draft state of one condition.
  *
- * Distinct from the persisted ``MutationCondition`` in two ways. ``scope`` is tracked
+ * Distinct from the persisted ``Condition`` in two ways. ``scope`` is tracked
  * separately from ``scopePattern`` so switching to "all" does not lose an id the admin
  * already picked, and the two filters are plain strings here because an empty string is a
  * field the admin has not filled while the server's ``null`` means the filter is absent.
@@ -63,28 +67,28 @@ export type MutationConditionScope = 'all' | 'scoped';
  * ``container_resource_pattern``. Which axis applies is derived from the type and never
  * carried here, so the draft cannot describe a scope the server would reject.
  */
-export interface MutationConditionDraft {
+export interface ConditionDraft {
   resourceType: string;
-  scope: MutationConditionScope;
+  scope: ConditionScope;
   /** Chosen id when ``scope === 'scoped'``; empty otherwise. */
   scopePattern: string;
-  /** Constrains the values a request may set. Empty means no value condition. */
-  valueCondition: string;
-  /** Constrains which existing resources may be mutated. Empty means no target condition. */
-  targetCondition: string;
+  /** Which question this condition answers. One condition carries exactly one. */
+  type: ConditionType;
+  /** The filter. Never submitted empty: a condition IS its filter. */
+  filter: string;
 }
 
-export const MUTATION_CONDITION_DRAFT_DEFAULT: MutationConditionDraft = {
+export const CONDITION_DRAFT_DEFAULT: ConditionDraft = {
   resourceType: CONDITION_RESOURCE_TYPES[0],
   scope: 'all',
   scopePattern: '',
-  valueCondition: '',
-  targetCondition: '',
+  type: CONDITION_TYPE_VALUE,
+  filter: '',
 };
 
-export interface MutationConditionFormProps {
-  value: MutationConditionDraft;
-  onChange: (value: MutationConditionDraft) => void;
+export interface ConditionFormProps {
+  value: ConditionDraft;
+  onChange: (value: ConditionDraft) => void;
   /** The role's workspace, so the parent picker lists resources from the right one. */
   workspace?: string;
   disabled?: boolean;
@@ -93,12 +97,12 @@ export interface MutationConditionFormProps {
   /** Render the inline reminder that an id must be picked for ``scope === 'scoped'``. */
   showScopeRequiredError?: boolean;
   /**
-   * Identifiers in each filter that the selected type does not accept, computed by the
-   * staging section so the same answer gates its Add button -- a form that only *showed*
-   * the problem would still let the condition be staged and then refused by the server.
+   * Identifiers in the filter that the selected resource type and condition type do not
+   * accept, computed by the staging section so the same answer gates its Add button -- a
+   * form that only *showed* the problem would still let the condition be staged and then
+   * refused by the server.
    */
-  unsupportedValueIdentifiers?: string[];
-  unsupportedTargetIdentifiers?: string[];
+  unsupportedIdentifiers?: string[];
 }
 
 /** ``a``, ``b`` and ``c`` as inline code, for a vocabulary list. */
@@ -115,23 +119,23 @@ const describeUnsupported = (unsupported: string[], typeLabel: string): string =
   `${typeLabel}. The server refuses a condition naming it, so it cannot be saved.`;
 
 /**
- * Add a mutation condition to a role. Shaped like ``RolePermissionForm`` so the two
+ * Add a condition to a role. Shaped like ``RolePermissionForm`` so the two
  * configuration surfaces read the same way.
  */
-export const MutationConditionForm = ({
+export const ConditionForm = ({
   value,
   onChange,
   workspace,
   disabled,
   showFilterRequiredError = false,
   showScopeRequiredError = false,
-  unsupportedValueIdentifiers = [],
-  unsupportedTargetIdentifiers = [],
-}: MutationConditionFormProps) => {
+  unsupportedIdentifiers = [],
+}: ConditionFormProps) => {
   const { theme } = useDesignSystemTheme();
   const [parentSearch, setParentSearch] = useState('');
 
   const typeLabel = getResourceTypeLabel(value.resourceType);
+  const isValueType = value.type === CONDITION_TYPE_VALUE;
   // Which axis this type narrows on, and therefore what the picker lists. A top-level type
   // names resources of its OWN type; a sub-resource names its container, because the
   // children are not individually addressable at the grain its grants use.
@@ -163,8 +167,8 @@ export const MutationConditionForm = ({
       <div>
         <FieldLabel>Resource type</FieldLabel>
         <SimpleSelect
-          id="admin-mutation-condition-form-resource-type"
-          componentId="admin.mutation_condition_form.resource_type"
+          id="admin-condition-form-resource-type"
+          componentId="admin.condition_form.resource_type"
           value={value.resourceType}
           onChange={({ target }) => {
             // Reset the scope and parent when the type changes: the parent type changes
@@ -192,13 +196,13 @@ export const MutationConditionForm = ({
         <div>
           <FieldLabel>Scope</FieldLabel>
           <Radio.Group
-            componentId="admin.mutation_condition_form.scope"
-            name="admin-mutation-condition-form-scope"
+            componentId="admin.condition_form.scope"
+            name="admin-condition-form-scope"
             value={value.scope}
             onChange={(e) =>
               onChange({
                 ...value,
-                scope: e.target.value as MutationConditionScope,
+                scope: e.target.value as ConditionScope,
                 scopePattern: '',
               })
             }
@@ -219,7 +223,7 @@ export const MutationConditionForm = ({
                   color="error"
                   size="sm"
                   css={{ display: 'block', marginBottom: theme.spacing.xs }}
-                  data-testid="admin.mutation_condition_form.parent_required_error"
+                  data-testid="admin.condition_form.parent_required_error"
                 >
                   {/* "Select a specific X" keeps the "a" article correct regardless of
                       the container label, the same way the permission forms do it --
@@ -236,7 +240,7 @@ export const MutationConditionForm = ({
                 // nothing -- which reads as "the condition is not working" rather than
                 // as a bad id -- so say that here.
                 <Input
-                  componentId="admin.mutation_condition_form.parent_resource_id_text"
+                  componentId="admin.condition_form.parent_resource_id_text"
                   value={value.scopePattern}
                   onChange={(e) => onChange({ ...value, scopePattern: e.target.value })}
                   placeholder={`Enter ${scopeLabel?.toLowerCase()} name`}
@@ -244,7 +248,7 @@ export const MutationConditionForm = ({
                 />
               ) : (
                 <DialogCombobox
-                  componentId="admin.mutation_condition_form.parent_resource_id"
+                  componentId="admin.condition_form.parent_resource_id"
                   label={scopeLabel ?? 'Scope'}
                   value={value.scopePattern ? [value.scopePattern] : []}
                 >
@@ -298,7 +302,7 @@ export const MutationConditionForm = ({
                 <Typography.Text
                   color="error"
                   size="sm"
-                  data-testid="admin.mutation_condition_form.scope_pattern_wildcard_error"
+                  data-testid="admin.condition_form.scope_pattern_wildcard_error"
                 >
                   A scope is matched exactly, so &lsquo;{value.scopePattern.trim()}&rsquo; would restrict nothing. Enter
                   one {scopeLabel?.toLowerCase()} name, or switch the scope to{' '}
@@ -312,79 +316,93 @@ export const MutationConditionForm = ({
 
       <div>
         <FieldLabel
-          componentId="admin.mutation_condition_form.value_condition_help"
-          hintIconTitle="More information about value conditions"
+          componentId="admin.condition_form.type_help"
+          hintIconTitle="More information about condition types"
           hint={
             <>
-              Constrains the values being set. Use <code>tag_key</code> to limit which keys may be written and{' '}
-              <code>tag_value</code> to limit their values &mdash; but note each clause applies to <em>every</em> tag in
-              the request. To pin one key to its own values and leave other keys free, name the key:{' '}
-              <code>tags.a IN (&#39;x&#39;,&#39;y&#39;)</code>.
+              A condition answers one of two questions, and the same clause means different things in each.{' '}
+              <strong>Values a request may set</strong> constrains what is being written; a request that does not set
+              the key <em>passes</em>. <strong>Resources that may be mutated</strong> constrains current state; a
+              resource that does not have the tag is <em>refused</em>. To restrict both, add two conditions &mdash; the
+              two types apply together.
             </>
           }
         >
-          Value condition
+          Condition type
         </FieldLabel>
-        <Input
-          componentId="admin.mutation_condition_form.value_condition"
-          value={value.valueCondition}
-          onChange={(e) => onChange({ ...value, valueCondition: e.target.value })}
-          placeholder="tag_value != 'prod'"
+        <SimpleSelect
+          componentId="admin.condition_form.type"
+          id="admin.condition_form.type"
+          aria-label="Condition type"
+          value={value.type}
+          onChange={(e) => onChange({ ...value, type: e.target.value as ConditionType, filter: '' })}
           disabled={disabled}
-        />
-        <FieldHint testId="admin.mutation_condition_form.value_condition_hint">
-          <strong>A request that does not set the key passes.</strong> {typeLabel} accepts:{' '}
-          {renderIdentifiers(getConditionRequestIdentifiers(value.resourceType))}.
-        </FieldHint>
-        {unsupportedValueIdentifiers.length > 0 && (
-          <Typography.Text
-            color="error"
-            size="sm"
-            data-testid="admin.mutation_condition_form.value_condition_vocabulary_error"
-          >
-            {describeUnsupported(unsupportedValueIdentifiers, typeLabel)}
-          </Typography.Text>
-        )}
+        >
+          {CONDITION_TYPES.map((conditionType) => (
+            <SimpleSelectOption key={conditionType} value={conditionType}>
+              {getConditionTypeLabel(conditionType)}
+            </SimpleSelectOption>
+          ))}
+        </SimpleSelect>
       </div>
 
       <div>
         <FieldLabel
-          componentId="admin.mutation_condition_form.target_condition_help"
-          hintIconTitle="More information about target conditions"
+          componentId="admin.condition_form.filter_help"
+          hintIconTitle="More information about condition filters"
           hint={
-            <>
-              Constrains which existing resources may be mutated, by their current state. Applies to updates and
-              deletes; a resource being created has no state yet, so this never blocks a create.
-            </>
+            isValueType ? (
+              <>
+                Constrains the values being set. Use <code>tag_key</code> to limit which keys may be written and{' '}
+                <code>tag_value</code> to limit their values &mdash; but note each clause applies to <em>every</em> tag
+                in the request. To pin one key to its own values and leave other keys free, name the key:{' '}
+                <code>tags.a IN (&#39;x&#39;,&#39;y&#39;)</code>.
+              </>
+            ) : (
+              <>
+                Constrains which existing resources may be mutated, by their current state. Applies to updates and
+                deletes; a resource being created has no state yet, so this never blocks a create.
+              </>
+            )
           }
         >
-          Target condition
+          Filter
         </FieldLabel>
         <Input
-          componentId="admin.mutation_condition_form.target_condition"
-          value={value.targetCondition}
-          onChange={(e) => onChange({ ...value, targetCondition: e.target.value })}
-          placeholder="tags.lifecycle != 'prod'"
+          componentId="admin.condition_form.filter"
+          value={value.filter}
+          onChange={(e) => onChange({ ...value, filter: e.target.value })}
+          placeholder={isValueType ? "tag_value != 'prod'" : "tags.lifecycle != 'prod'"}
           disabled={disabled}
         />
-        <FieldHint testId="admin.mutation_condition_form.target_condition_hint">
-          <strong>A resource that does not have the tag is refused</strong> &mdash; the opposite of the value condition
-          above, so the same clause means different things in the two fields. {typeLabel} accepts:{' '}
-          {renderIdentifiers(getConditionResourceIdentifiers(value.resourceType))}.
+        <FieldHint testId="admin.condition_form.filter_hint">
+          {isValueType ? (
+            <>
+              <strong>A request that does not set the key passes.</strong>
+            </>
+          ) : (
+            <>
+              <strong>A resource that does not have the tag is refused</strong> &mdash; the opposite of the value type,
+              so the same clause means different things in the two.
+            </>
+          )}{' '}
+          {typeLabel} accepts:{' '}
+          {renderIdentifiers(
+            isValueType
+              ? getConditionRequestIdentifiers(value.resourceType)
+              : getConditionResourceIdentifiers(value.resourceType),
+          )}
+          .
         </FieldHint>
-        {unsupportedTargetIdentifiers.length > 0 && (
-          <Typography.Text
-            color="error"
-            size="sm"
-            data-testid="admin.mutation_condition_form.target_condition_vocabulary_error"
-          >
-            {describeUnsupported(unsupportedTargetIdentifiers, typeLabel)}
+        {unsupportedIdentifiers.length > 0 && (
+          <Typography.Text color="error" size="sm" data-testid="admin.condition_form.filter_vocabulary_error">
+            {describeUnsupported(unsupportedIdentifiers, typeLabel)}
           </Typography.Text>
         )}
       </div>
 
       {showFilterRequiredError && (
-        <Typography.Text color="error" size="sm" data-testid="admin.mutation_condition_form.filter_required_error">
+        <Typography.Text color="error" size="sm" data-testid="admin.condition_form.filter_required_error">
           Enter at least one filter.
         </Typography.Text>
       )}
@@ -407,8 +425,8 @@ export const isPartialWildcardPattern = (pattern: string): boolean => {
   return p.includes(CONDITION_WILDCARD_PATTERN) && p !== CONDITION_WILDCARD_PATTERN;
 };
 
-export const isMutationConditionDraftFillable = (draft: MutationConditionDraft): boolean => {
-  if (isConditionEmpty(draft.valueCondition, draft.targetCondition)) return false;
+export const isConditionDraftFillable = (draft: ConditionDraft): boolean => {
+  if (isConditionEmpty(draft.filter)) return false;
   if (draft.scope === 'scoped') {
     return draft.scopePattern.trim().length > 0 && !isPartialWildcardPattern(draft.scopePattern);
   }
@@ -416,12 +434,12 @@ export const isMutationConditionDraftFillable = (draft: MutationConditionDraft):
 };
 
 /** True when any field has been touched away from the default. */
-export const isMutationConditionDraftDirty = (draft: MutationConditionDraft): boolean =>
-  draft.resourceType !== MUTATION_CONDITION_DRAFT_DEFAULT.resourceType ||
-  draft.scope !== MUTATION_CONDITION_DRAFT_DEFAULT.scope ||
-  draft.scopePattern !== MUTATION_CONDITION_DRAFT_DEFAULT.scopePattern ||
-  draft.valueCondition !== MUTATION_CONDITION_DRAFT_DEFAULT.valueCondition ||
-  draft.targetCondition !== MUTATION_CONDITION_DRAFT_DEFAULT.targetCondition;
+export const isConditionDraftDirty = (draft: ConditionDraft): boolean =>
+  draft.resourceType !== CONDITION_DRAFT_DEFAULT.resourceType ||
+  draft.scope !== CONDITION_DRAFT_DEFAULT.scope ||
+  draft.scopePattern !== CONDITION_DRAFT_DEFAULT.scopePattern ||
+  draft.type !== CONDITION_DRAFT_DEFAULT.type ||
+  draft.filter !== CONDITION_DRAFT_DEFAULT.filter;
 
 /**
  * Translate a draft into the condition a staged list holds.
@@ -431,12 +449,14 @@ export const isMutationConditionDraftDirty = (draft: MutationConditionDraft): bo
  * drift here produces a malformed write.
  *
  * Both parent fields travel together or neither does (the server enforces the pair with
- * a CHECK constraint), the parent type is derived from the resource type rather than
- * carried in the draft, and an empty filter becomes ``null`` rather than ``""`` --
- * an empty string reaches the condition parser and is reported as a filter syntax error
- * instead of as an absent filter.
+ * a CHECK constraint), and the parent type is derived from the resource type rather than
+ * carried in the draft.
+ *
+ * The filter is sent as typed, never normalised to null: there is no absent-filter state
+ * to represent any more, and a blank one is refused by the server rather than stored.
+ * ``isConditionDraftFillable`` is what keeps a blank from being submitted at all.
  */
-export const draftToStagedCondition = (draft: MutationConditionDraft) => {
+export const draftToStagedCondition = (draft: ConditionDraft) => {
   const narrowsByPattern = conditionNarrowsByPattern(draft.resourceType);
   const containerType = getConditionContainerType(draft.resourceType);
   const scopeType = narrowsByPattern ? draft.resourceType : containerType;
@@ -448,7 +468,7 @@ export const draftToStagedCondition = (draft: MutationConditionDraft) => {
     resourcePattern: scoped && narrowsByPattern ? draft.scopePattern.trim() : CONDITION_WILDCARD_PATTERN,
     containerResourceType: scoped && !narrowsByPattern && scopeType ? scopeType : CONDITION_CONTAINER_WORKSPACE,
     containerResourcePattern: scoped && !narrowsByPattern ? draft.scopePattern.trim() : CONDITION_WILDCARD_PATTERN,
-    valueCondition: draft.valueCondition.trim() || null,
-    targetCondition: draft.targetCondition.trim() || null,
+    type: draft.type,
+    filter: draft.filter.trim(),
   };
 };

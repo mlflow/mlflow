@@ -10,23 +10,23 @@ import {
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { formatConditionScope, getResourceTypeLabel } from '../types';
-import type { MutationCondition } from '../types';
+import { formatConditionScope, getResourceTypeLabel, getConditionTypeLabel } from '../types';
+import type { Condition } from '../types';
 
 export interface ConditionsTableProps {
-  conditions: MutationCondition[];
+  conditions: Condition[];
   isLoading?: boolean;
   error?: unknown;
   /** Rendered when there are no conditions and nothing failed. */
   emptyDescription?: string;
   /** Optional per-row trailing label, used by the user tab to name the carrying role. */
-  rowSuffix?: (condition: MutationCondition) => string | undefined;
+  rowSuffix?: (condition: Condition) => string | undefined;
   /** Header for the ``rowSuffix`` column. Omit to hide the column. */
   suffixHeader?: string;
 }
 
 /**
- * Read-only view of mutation conditions. Shared by the role and user detail tabs so the
+ * Read-only view of conditions. Shared by the role and user detail tabs so the
  * two list the same columns in the same order.
  */
 export const ConditionsTable = ({
@@ -62,14 +62,13 @@ export const ConditionsTable = ({
       <Alert
         componentId="admin.conditions_table.fetch_error"
         type="error"
-        message="Failed to load mutation conditions"
-        description={(error as Error)?.message || 'An error occurred while fetching mutation conditions.'}
+        message="Failed to load conditions"
+        description={(error as Error)?.message || 'An error occurred while fetching conditions.'}
       />
     );
   }
 
-  const emptyState =
-    conditions.length === 0 ? <Empty title="No mutation conditions" description={emptyDescription} /> : null;
+  const emptyState = conditions.length === 0 ? <Empty title="No conditions" description={emptyDescription} /> : null;
 
   return (
     <Table
@@ -89,11 +88,11 @@ export const ConditionsTable = ({
         <TableHeader componentId="admin.conditions_table.scope_header" css={{ flex: 1 }}>
           Scope
         </TableHeader>
-        <TableHeader componentId="admin.conditions_table.request_header" css={{ flex: 2 }}>
-          Value condition
+        <TableHeader componentId="admin.conditions_table.condition_type_header" css={{ flex: 1 }}>
+          Condition type
         </TableHeader>
-        <TableHeader componentId="admin.conditions_table.resource_header" css={{ flex: 2 }}>
-          Target condition
+        <TableHeader componentId="admin.conditions_table.filter_header" css={{ flex: 3 }}>
+          Filter
         </TableHeader>
         {suffixHeader && (
           <TableHeader componentId="admin.conditions_table.suffix_header" css={{ flex: 1 }}>
@@ -109,23 +108,11 @@ export const ConditionsTable = ({
           <TableCell css={{ flex: 1 }}>
             <Typography.Text size="sm">{formatConditionScope(condition)}</Typography.Text>
           </TableCell>
-          <TableCell css={{ flex: 2 }}>
-            {condition.value_condition ? (
-              <code>{condition.value_condition}</code>
-            ) : (
-              <Typography.Text color="secondary" size="sm">
-                —
-              </Typography.Text>
-            )}
+          <TableCell css={{ flex: 1 }}>
+            <Typography.Text size="sm">{getConditionTypeLabel(condition.type)}</Typography.Text>
           </TableCell>
-          <TableCell css={{ flex: 2 }}>
-            {condition.target_condition ? (
-              <code>{condition.target_condition}</code>
-            ) : (
-              <Typography.Text color="secondary" size="sm">
-                —
-              </Typography.Text>
-            )}
+          <TableCell css={{ flex: 3 }}>
+            <code>{condition.filter}</code>
           </TableCell>
           {suffixHeader && (
             <TableCell css={{ flex: 1 }}>

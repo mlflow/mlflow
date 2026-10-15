@@ -5,66 +5,76 @@ import { PointerEventsCheckLevel } from '@testing-library/user-event';
 import userEventGlobal from '@testing-library/user-event';
 
 import {
-  MutationConditionForm,
+  ConditionForm,
   draftToStagedCondition,
-  isMutationConditionDraftDirty,
-  isMutationConditionDraftFillable,
+  isConditionDraftDirty,
+  isConditionDraftFillable,
   isPartialWildcardPattern,
-  MUTATION_CONDITION_DRAFT_DEFAULT,
-  type MutationConditionDraft,
-} from './MutationConditionForm';
+  CONDITION_DRAFT_DEFAULT,
+  type ConditionDraft,
+} from './ConditionForm';
+import { CONDITION_TYPE_VALUE, CONDITION_TYPE_TARGET } from '../types';
 
 const userEvent = userEventGlobal.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });
 
-const draft = (overrides: Partial<MutationConditionDraft> = {}): MutationConditionDraft => ({
-  ...MUTATION_CONDITION_DRAFT_DEFAULT,
+const draft = (overrides: Partial<ConditionDraft> = {}): ConditionDraft => ({
+  ...CONDITION_DRAFT_DEFAULT,
   ...overrides,
 });
 
-describe('MutationConditionForm — draft translation', () => {
+describe('ConditionForm — draft translation', () => {
   it('refuses a draft with neither filter', () => {
     // The server rejects it too: an object with neither filter restricts nothing,
     // so it is not a state worth storing. Catching it here means the admin gets a
     // field-level reminder instead of a request error.
-    expect(isMutationConditionDraftFillable(draft())).toBe(false);
+    expect(isConditionDraftFillable(draft())).toBe(false);
   });
 
   it('accepts a draft with either filter alone', () => {
-    expect(isMutationConditionDraftFillable(draft({ valueCondition: "tag_value != 'prod'" }))).toBe(true);
-    expect(isMutationConditionDraftFillable(draft({ targetCondition: "tags.x = 'y'" }))).toBe(true);
+    expect(isConditionDraftFillable(draft({ type: CONDITION_TYPE_VALUE, filter: "tag_value != 'prod'" }))).toBe(true);
+    expect(isConditionDraftFillable(draft({ type: CONDITION_TYPE_TARGET, filter: "tags.x = 'y'" }))).toBe(true);
   });
 
   it('treats whitespace as no filter at all', () => {
     // Otherwise a stray space submits, and the parser reports a syntax error for
     // what is really an empty field.
-    expect(isMutationConditionDraftFillable(draft({ valueCondition: '   ' }))).toBe(false);
+    expect(isConditionDraftFillable(draft({ type: CONDITION_TYPE_VALUE, filter: '   ' }))).toBe(false);
   });
 
   it('requires a parent once the scope is narrowed to one', () => {
-    const scoped = draft({ scope: 'scoped', resourceType: 'run', targetCondition: "tags.x = 'y'" });
-    expect(isMutationConditionDraftFillable(scoped)).toBe(false);
-    expect(isMutationConditionDraftFillable({ ...scoped, scopePattern: '42' })).toBe(true);
+    const scoped = draft({ scope: 'scoped', resourceType: 'run', type: CONDITION_TYPE_TARGET, filter: "tags.x = 'y'" });
+    expect(isConditionDraftFillable(scoped)).toBe(false);
+    expect(isConditionDraftFillable({ ...scoped, scopePattern: '42' })).toBe(true);
   });
 
-  it('sends an absent filter as null, never as an empty string', () => {
-    // ``''`` would reach the condition parser and be reported as a filter syntax
-    // error rather than as an absent filter.
-    const request = draftToStagedCondition(draft({ targetCondition: "tags.x = 'y'" }));
-    expect(request.valueCondition).toBeNull();
-    expect(request.targetCondition).toBe("tags.x = 'y'");
+  it('sends the chosen type alongside its filter', () => {
+    // There is no absent-filter state to normalise any more: one condition carries one
+    // type and one filter, and a blank filter never reaches here because
+    // isConditionDraftFillable gates the Add button on it.
+    const request = draftToStagedCondition(draft({ type: CONDITION_TYPE_TARGET, filter: "tags.x = 'y'" }));
+    expect(request.type).toBe(CONDITION_TYPE_TARGET);
+    expect(request.filter).toBe("tags.x = 'y'");
   });
 
   it('puts the id on the axis the type actually narrows on', () => {
     // The draft carries one pattern; which of the server's two axes receives it is
     // derived from the type. Getting that wrong is a write the server rejects.
-    const unscoped = draftToStagedCondition(draft({ resourceType: 'run', targetCondition: "tags.x = 'y'" }));
+    const unscoped = draftToStagedCondition(
+      draft({ resourceType: 'run', type: CONDITION_TYPE_TARGET, filter: "tags.x = 'y'" }),
+    );
     expect(unscoped.resourcePattern).toBe('*');
     expect(unscoped.containerResourceType).toBe('workspace');
     expect(unscoped.containerResourcePattern).toBe('*');
 
     // A sub-resource narrows by its CONTAINER and stays wildcard itself.
     const scopedChild = draftToStagedCondition(
-      draft({ resourceType: 'run', scope: 'scoped', scopePattern: '42', targetCondition: "tags.x = 'y'" }),
+      draft({
+        resourceType: 'run',
+        scope: 'scoped',
+        scopePattern: '42',
+        type: CONDITION_TYPE_TARGET,
+        filter: "tags.x = 'y'",
+      }),
     );
     expect(scopedChild.resourcePattern).toBe('*');
     expect(scopedChild.containerResourceType).toBe('experiment');
@@ -72,7 +82,13 @@ describe('MutationConditionForm — draft translation', () => {
 
     // A top-level type narrows by its OWN pattern and stays in the workspace.
     const scopedTop = draftToStagedCondition(
-      draft({ resourceType: 'experiment', scope: 'scoped', scopePattern: '7', targetCondition: "tags.x = 'y'" }),
+      draft({
+        resourceType: 'experiment',
+        scope: 'scoped',
+        scopePattern: '7',
+        type: CONDITION_TYPE_TARGET,
+        filter: "tags.x = 'y'",
+      }),
     );
     expect(scopedTop.resourcePattern).toBe('7');
     expect(scopedTop.containerResourceType).toBe('workspace');
@@ -87,7 +103,8 @@ describe('MutationConditionForm — draft translation', () => {
         resourceType: 'registered_model_version',
         scope: 'scoped',
         scopePattern: 'my-model',
-        targetCondition: "tags.x = 'y'",
+        type: CONDITION_TYPE_TARGET,
+        filter: "tags.x = 'y'",
       }),
     );
     expect(versionScoped.containerResourceType).toBe('registered_model');
@@ -102,22 +119,23 @@ describe('MutationConditionForm — draft translation', () => {
         resourceType: 'experiment',
         scope: 'scoped',
         scopePattern: 'stale',
-        targetCondition: "tags.x = 'y'",
+        type: CONDITION_TYPE_TARGET,
+        filter: "tags.x = 'y'",
       }),
     );
     expect(request.containerResourceType).toBe('workspace');
     expect(request.containerResourcePattern).toBe('*');
   });
 
-  it('trims the filters it sends', () => {
-    const request = draftToStagedCondition(draft({ targetCondition: "  tags.x = 'y'  " }));
-    expect(request.targetCondition).toBe("tags.x = 'y'");
+  it('trims the filter it sends', () => {
+    const request = draftToStagedCondition(draft({ type: CONDITION_TYPE_TARGET, filter: "  tags.x = 'y'  " }));
+    expect(request.filter).toBe("tags.x = 'y'");
   });
 
   it('reports a default draft as clean and any edit as dirty', () => {
-    expect(isMutationConditionDraftDirty(draft())).toBe(false);
-    expect(isMutationConditionDraftDirty(draft({ targetCondition: 'x' }))).toBe(true);
-    expect(isMutationConditionDraftDirty(draft({ resourceType: 'run' }))).toBe(true);
+    expect(isConditionDraftDirty(draft())).toBe(false);
+    expect(isConditionDraftDirty(draft({ type: CONDITION_TYPE_TARGET, filter: 'x' }))).toBe(true);
+    expect(isConditionDraftDirty(draft({ resourceType: 'run' }))).toBe(true);
   });
 });
 
@@ -125,61 +143,75 @@ jest.mock('../hooks', () => ({
   useResourceOptionsQuery: () => ({ options: [], isLoading: false, error: null }),
 }));
 
-describe('MutationConditionForm — the absence rule is stated on both fields', () => {
-  // `tags.a = 'x'` is valid in BOTH fields and inverts on absence: it passes a request
+describe('ConditionForm — the absence rule is stated for the selected type', () => {
+  // `tags.a = 'x'` is valid under BOTH types and inverts on absence: it passes a request
   // that does not set `a`, and refuses a resource that does not have `a`. An admin who
-  // copies a clause from one field to the other gets the opposite policy with no error,
-  // so each field has to say which way it goes. These assertions are deliberately on the
-  // DIRECTION words, not on the full sentences, so the wording can be improved without
-  // the guarantee silently disappearing.
-  const renderForm = () =>
+  // carries a clause from one type to the other gets the opposite policy with no error,
+  // so the field has to say which way the selected type goes. These assertions are
+  // deliberately on the DIRECTION words, not the full sentences, so the wording can be
+  // improved without the guarantee silently disappearing.
+  //
+  // There is one field now rather than two, so the rule is asserted per selected type
+  // instead of per field, and the comparison between them has to be stated in the help
+  // rather than shown by two fields sitting side by side.
+  const renderForm = (type: ConditionDraft['type'] = CONDITION_TYPE_VALUE) =>
     renderWithDesignSystem(
-      <MutationConditionForm value={MUTATION_CONDITION_DRAFT_DEFAULT} onChange={jest.fn()} workspace="default" />,
+      <ConditionForm value={{ ...CONDITION_DRAFT_DEFAULT, type }} onChange={jest.fn()} workspace="default" />,
     );
 
   it('says a value condition PASSES a request that omits the key', () => {
-    renderForm();
-    const hint = screen.getByTestId('admin.mutation_condition_form.value_condition_hint');
+    renderForm(CONDITION_TYPE_VALUE);
+    const hint = screen.getByTestId('admin.condition_form.filter_hint');
     expect(hint.textContent).toMatch(/does not set the key passes/i);
   });
 
   it('says a target condition REFUSES a resource that lacks the tag', () => {
-    renderForm();
-    const hint = screen.getByTestId('admin.mutation_condition_form.target_condition_hint');
+    renderForm(CONDITION_TYPE_TARGET);
+    const hint = screen.getByTestId('admin.condition_form.filter_hint');
     expect(hint.textContent).toMatch(/does not have the tag is refused/i);
   });
 
-  it('warns that the same clause differs between the two fields', () => {
-    renderForm();
-    const hint = screen.getByTestId('admin.mutation_condition_form.target_condition_hint');
+  it('warns that the same clause differs between the two types', () => {
+    renderForm(CONDITION_TYPE_TARGET);
+    const hint = screen.getByTestId('admin.condition_form.filter_hint');
     expect(hint.textContent).toMatch(/opposite|different things/i);
   });
 
-  // The rest of each field's explanation is hover help on the label, so that the two
-  // absence rules above stay the shortest thing in the form and remain comparable at a
-  // glance. These assertions open the tooltip the way a user does rather than reading the
-  // prop, so a hint that renders but never reveals still fails.
+  // The rest of the explanation is hover help on the labels, so the absence rule above
+  // stays the shortest thing in the form. These assertions open the tooltip the way a
+  // user does rather than reading the prop, so help that renders but never reveals
+  // still fails.
   it('explains the keyed form on hover, since it is the only way to free other keys', async () => {
-    renderForm();
+    renderForm(CONDITION_TYPE_VALUE);
 
-    await userEvent.hover(screen.getByRole('img', { name: 'More information about value conditions' }));
+    await userEvent.hover(screen.getByRole('img', { name: 'More information about condition filters' }));
 
     await waitFor(() => expect(screen.getByRole('tooltip').textContent).toContain("tags.a IN ('x','y')"));
   });
 
   it('explains on hover that a target condition never blocks a create', async () => {
-    renderForm();
+    renderForm(CONDITION_TYPE_TARGET);
 
-    await userEvent.hover(screen.getByRole('img', { name: 'More information about target conditions' }));
+    await userEvent.hover(screen.getByRole('img', { name: 'More information about condition filters' }));
 
     await waitFor(() => expect(screen.getByRole('tooltip').textContent).toMatch(/never blocks a create/i));
+  });
+
+  it('explains on hover that restricting both purposes takes two conditions', async () => {
+    // The authoring consequence of one filter per condition, and the only place the UI
+    // says it: the type help, not the filter help.
+    renderForm(CONDITION_TYPE_VALUE);
+
+    await userEvent.hover(screen.getByRole('img', { name: 'More information about condition types' }));
+
+    await waitFor(() => expect(screen.getByRole('tooltip').textContent).toMatch(/two conditions/i));
   });
 
   it('reveals the hover help on keyboard focus, not only on hover', async () => {
     // The explanation is the only place the keyed form is documented in the UI, so it has
     // to be reachable without a pointer.
-    renderForm();
-    const icon = screen.getByRole('img', { name: 'More information about value conditions' });
+    renderForm(CONDITION_TYPE_VALUE);
+    const icon = screen.getByRole('img', { name: 'More information about condition filters' });
 
     expect(icon).toHaveAttribute('tabindex', '0');
     fireEvent.focus(icon);
@@ -188,7 +220,7 @@ describe('MutationConditionForm — the absence rule is stated on both fields', 
   });
 });
 
-describe('MutationConditionForm — a partial wildcard scope is refused', () => {
+describe('ConditionForm — a partial wildcard scope is refused', () => {
   // A scope pattern is matched EXACTLY server-side, so a glob governs nothing -- and a
   // condition that governs nothing does not withhold access, it silently fails to
   // restrict it. The server refuses it; this keeps the draft unfillable so the reason
@@ -203,16 +235,16 @@ describe('MutationConditionForm — a partial wildcard scope is refused', () => 
   });
 
   it('refuses to fill a scoped draft whose pattern is a glob', () => {
-    const base = draft({ valueCondition: "tag_key = 'env'", scope: 'scoped' as const });
-    expect(isMutationConditionDraftFillable({ ...base, scopePattern: 'team/alpha' })).toBe(true);
-    expect(isMutationConditionDraftFillable({ ...base, scopePattern: 'team/*' })).toBe(false);
+    const base = draft({ type: CONDITION_TYPE_VALUE, filter: "tag_key = 'env'", scope: 'scoped' as const });
+    expect(isConditionDraftFillable({ ...base, scopePattern: 'team/alpha' })).toBe(true);
+    expect(isConditionDraftFillable({ ...base, scopePattern: 'team/*' })).toBe(false);
   });
 
   it('still fills an all-scoped draft, which is what sends the bare wildcard', () => {
     // The guard must not catch the one wildcard that works: `All ...` sends `*`
     // without going through scopePattern at all.
-    expect(isMutationConditionDraftFillable(draft({ valueCondition: "tag_key = 'env'", scope: 'all' as const }))).toBe(
-      true,
-    );
+    expect(
+      isConditionDraftFillable(draft({ type: CONDITION_TYPE_VALUE, filter: "tag_key = 'env'", scope: 'all' as const })),
+    ).toBe(true);
   });
 });

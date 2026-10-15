@@ -3,12 +3,8 @@ import React from 'react';
 import userEvent from '@testing-library/user-event';
 import { renderWithDesignSystem, screen, waitFor } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 
-import {
-  conditionKey,
-  formatStagedCondition,
-  MutationConditionsSection,
-  type StagedMutationCondition,
-} from './MutationConditionsSection';
+import { conditionKey, formatStagedCondition, ConditionsSection, type StagedCondition } from './ConditionsSection';
+import { CONDITION_TYPE_VALUE, CONDITION_TYPE_TARGET } from '../types';
 
 jest.mock('../hooks', () => ({
   useResourceOptionsQuery: () => ({ options: [], isLoading: false, error: null }),
@@ -16,24 +12,34 @@ jest.mock('../hooks', () => ({
 
 const onChange = jest.fn();
 
-describe('MutationConditionsSection', () => {
+/**
+ * Pick the condition type. The form carries one filter field whose vocabulary, hint and
+ * placeholder all follow this, so a test about target-side behaviour has to select it
+ * rather than relying on a second field existing.
+ */
+const selectTargetType = async () => {
+  await userEvent.click(screen.getByRole('combobox', { name: 'Condition type' }));
+  await userEvent.click(screen.getByRole('option', { name: 'Resources that may be mutated' }));
+};
+
+describe('ConditionsSection', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  it('stages an empty filter as null rather than an empty string', async () => {
+  it('stages the filter as typed, with Add gating a blank one', async () => {
     // "" reaches the condition parser and comes back as a filter syntax error, so the
     // absent filter has to be null by the time it leaves the form.
-    renderWithDesignSystem(<MutationConditionsSection value={[]} onChange={onChange} />);
-    await userEvent.type(screen.getByPlaceholderText("tags.lifecycle != 'prod'"), "tags.x = 'y'");
-    await userEvent.click(screen.getByRole('button', { name: 'Add mutation condition' }));
+    renderWithDesignSystem(<ConditionsSection value={[]} onChange={onChange} />);
+    await userEvent.type(screen.getByPlaceholderText("tag_value != 'prod'"), "tags.x = 'y'");
+    await userEvent.click(screen.getByRole('button', { name: 'Add condition' }));
 
     await waitFor(() => expect(onChange).toHaveBeenCalledTimes(1));
     expect(onChange.mock.calls[0][0]).toEqual([
       expect.objectContaining({
         resourceType: 'experiment',
-        valueCondition: null,
-        targetCondition: "tags.x = 'y'",
+        type: CONDITION_TYPE_VALUE,
+        filter: "tags.x = 'y'",
         resourcePattern: '*',
         containerResourceType: 'workspace',
         containerResourcePattern: '*',
@@ -42,56 +48,56 @@ describe('MutationConditionsSection', () => {
   });
 
   it('keeps Add disabled until a filter is entered', async () => {
-    renderWithDesignSystem(<MutationConditionsSection value={[]} onChange={onChange} />);
-    const add = screen.getByRole('button', { name: 'Add mutation condition' });
+    renderWithDesignSystem(<ConditionsSection value={[]} onChange={onChange} />);
+    const add = screen.getByRole('button', { name: 'Add condition' });
     expect(add).toBeDisabled();
-    await userEvent.type(screen.getByPlaceholderText("tags.lifecycle != 'prod'"), "tags.x = 'y'");
+    await userEvent.type(screen.getByPlaceholderText("tag_value != 'prod'"), "tags.x = 'y'");
     await waitFor(() => expect(add).toBeEnabled());
   });
 
   it('lists staged rows and removes one by index', async () => {
-    const value: StagedMutationCondition[] = [
+    const value: StagedCondition[] = [
       {
         id: 5,
         resourceType: 'run',
         resourcePattern: '*',
         containerResourceType: 'workspace',
         containerResourcePattern: '*',
-        valueCondition: null,
-        targetCondition: "tags.lifecycle != 'prod'",
+        type: CONDITION_TYPE_TARGET,
+        filter: "tags.lifecycle != 'prod'",
       },
     ];
-    renderWithDesignSystem(<MutationConditionsSection value={value} onChange={onChange} />);
+    renderWithDesignSystem(<ConditionsSection value={value} onChange={onChange} />);
     expect(screen.getByText("tags.lifecycle != 'prod'")).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: /Remove Run mutation condition/ }));
+    await userEvent.click(screen.getByRole('button', { name: /Remove Run condition/ }));
     expect(onChange).toHaveBeenCalledWith([]);
   });
 
   it('collapses an exact duplicate instead of staging it twice', async () => {
-    const value: StagedMutationCondition[] = [
+    const value: StagedCondition[] = [
       {
         resourceType: 'experiment',
         resourcePattern: '*',
         containerResourceType: 'workspace',
         containerResourcePattern: '*',
-        valueCondition: null,
-        targetCondition: "tags.x = 'y'",
+        type: CONDITION_TYPE_VALUE,
+        filter: "tags.x = 'y'",
       },
     ];
-    renderWithDesignSystem(<MutationConditionsSection value={value} onChange={onChange} />);
-    await userEvent.type(screen.getByPlaceholderText("tags.lifecycle != 'prod'"), "tags.x = 'y'");
-    await userEvent.click(screen.getByRole('button', { name: 'Add mutation condition' }));
+    renderWithDesignSystem(<ConditionsSection value={value} onChange={onChange} />);
+    await userEvent.type(screen.getByPlaceholderText("tag_value != 'prod'"), "tags.x = 'y'");
+    await userEvent.click(screen.getByRole('button', { name: 'Add condition' }));
     // Draft is cleared, but nothing is appended.
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Add mutation condition' })).toBeDisabled());
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Add condition' })).toBeDisabled());
     expect(onChange).not.toHaveBeenCalled();
   });
 
   it('reports a dirty draft so the parent can gate its discard dialog', async () => {
     const onUnsavedDraftChange = jest.fn();
     renderWithDesignSystem(
-      <MutationConditionsSection value={[]} onChange={onChange} onUnsavedDraftChange={onUnsavedDraftChange} />,
+      <ConditionsSection value={[]} onChange={onChange} onUnsavedDraftChange={onUnsavedDraftChange} />,
     );
-    await userEvent.type(screen.getByPlaceholderText("tags.lifecycle != 'prod'"), 'x');
+    await userEvent.type(screen.getByPlaceholderText("tag_value != 'prod'"), 'x');
     await waitFor(() => expect(onUnsavedDraftChange).toHaveBeenCalledWith(true));
   });
 
@@ -102,16 +108,16 @@ describe('MutationConditionsSection', () => {
         resourcePattern: '*',
         containerResourceType: 'experiment',
         containerResourcePattern: '42',
-        valueCondition: "tag_value != 'prod'",
-        targetCondition: "tags.reviewed = 'yes'",
+        type: CONDITION_TYPE_VALUE,
+        filter: "tag_value != 'prod'",
       }),
-    ).toBe("trace [Experiment 42] value: tag_value != 'prod', target: tags.reviewed = 'yes'");
+    ).toBe("trace [Experiment 42] value: tag_value != 'prod'");
   });
 
   it('offers a scope to a top-level type, which had none before', () => {
     // The gap this model closes: an experiment has no container, so under the old
     // parent-only scope its conditions could only ever cover the whole workspace.
-    renderWithDesignSystem(<MutationConditionsSection value={[]} onChange={onChange} />);
+    renderWithDesignSystem(<ConditionsSection value={[]} onChange={onChange} />);
     expect(screen.getByText('Only one experiment')).toBeInTheDocument();
   });
 });
@@ -122,13 +128,13 @@ describe('conditionKey', () => {
   // produced the same key: the diff could not tell them apart and a removal of either was
   // silently dropped, leaving the admin unable to lift a restriction.
 
-  const base: StagedMutationCondition = {
+  const base: StagedCondition = {
     resourceType: 'experiment',
     resourcePattern: '*',
     containerResourceType: 'workspace',
     containerResourcePattern: '*',
-    valueCondition: null,
-    targetCondition: "tags.lifecycle != 'prod'",
+    type: CONDITION_TYPE_TARGET,
+    filter: "tags.lifecycle != 'prod'",
   };
 
   it('distinguishes two conditions differing only in resource scope', () => {
@@ -136,8 +142,8 @@ describe('conditionKey', () => {
   });
 
   it('distinguishes two conditions differing only in container scope', () => {
-    const inWorkspace: StagedMutationCondition = { ...base, resourceType: 'run' };
-    const inOneExperiment: StagedMutationCondition = {
+    const inWorkspace: StagedCondition = { ...base, resourceType: 'run' };
+    const inOneExperiment: StagedCondition = {
       ...inWorkspace,
       containerResourceType: 'experiment',
       containerResourcePattern: '42',
@@ -152,13 +158,13 @@ describe('conditionKey', () => {
   });
 
   it('distinguishes the two filter kinds', () => {
-    const asValue: StagedMutationCondition = { ...base, valueCondition: "tag_key != 'pii'", targetCondition: null };
-    const asTarget: StagedMutationCondition = { ...base, valueCondition: null, targetCondition: "tag_key != 'pii'" };
+    const asValue: StagedCondition = { ...base, type: CONDITION_TYPE_VALUE, filter: "tag_key != 'pii'" };
+    const asTarget: StagedCondition = { ...base, type: CONDITION_TYPE_TARGET, filter: "tag_key != 'pii'" };
     expect(conditionKey(asValue)).not.toBe(conditionKey(asTarget));
   });
 });
 
-describe("MutationConditionsSection — the type's vocabulary gates staging", () => {
+describe("ConditionsSection — the type's vocabulary gates staging", () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
@@ -167,12 +173,12 @@ describe("MutationConditionsSection — the type's vocabulary gates staging", ()
     // The default type is Experiment, which owns no aliases, so the backend would refuse
     // this condition. Blocking it here is the difference between a field-level message and
     // a staged row that reads as configured policy until submit fails.
-    renderWithDesignSystem(<MutationConditionsSection value={[]} onChange={onChange} />);
+    renderWithDesignSystem(<ConditionsSection value={[]} onChange={onChange} />);
     await userEvent.type(screen.getByPlaceholderText("tag_value != 'prod'"), "alias != 'champion'");
 
-    const add = screen.getByRole('button', { name: 'Add mutation condition' });
+    const add = screen.getByRole('button', { name: 'Add condition' });
     await waitFor(() => expect(add).toBeDisabled());
-    expect(screen.getByTestId('admin.mutation_condition_form.value_condition_vocabulary_error')).toHaveTextContent(
+    expect(screen.getByTestId('admin.condition_form.filter_vocabulary_error')).toHaveTextContent(
       "'alias' is not available on Experiment",
     );
 
@@ -180,36 +186,39 @@ describe("MutationConditionsSection — the type's vocabulary gates staging", ()
     expect(onChange).not.toHaveBeenCalled();
   });
 
-  it('refuses a flat request identifier in the target condition', async () => {
-    // The two fields accept overlapping syntax, so a clause copied from one to the other
+  it('refuses a flat request identifier in a target condition', async () => {
+    // The two types accept overlapping syntax, so a clause carried from one to the other
     // looks right; `tag_key` has no resource-side meaning.
-    renderWithDesignSystem(<MutationConditionsSection value={[]} onChange={onChange} />);
+    renderWithDesignSystem(<ConditionsSection value={[]} onChange={onChange} />);
+    await selectTargetType();
     await userEvent.type(screen.getByPlaceholderText("tags.lifecycle != 'prod'"), "tag_key != 'pii'");
 
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Add mutation condition' })).toBeDisabled());
-    expect(screen.getByTestId('admin.mutation_condition_form.target_condition_vocabulary_error')).toHaveTextContent(
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Add condition' })).toBeDisabled());
+    expect(screen.getByTestId('admin.condition_form.filter_vocabulary_error')).toHaveTextContent(
       "'tag_key' is not available on Experiment",
     );
   });
 
   it("stages the condition once the clause uses the type's vocabulary", async () => {
-    renderWithDesignSystem(<MutationConditionsSection value={[]} onChange={onChange} />);
+    renderWithDesignSystem(<ConditionsSection value={[]} onChange={onChange} />);
     const field = screen.getByPlaceholderText("tag_value != 'prod'");
     await userEvent.type(field, "alias != 'champion'");
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Add mutation condition' })).toBeDisabled());
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Add condition' })).toBeDisabled());
 
     await userEvent.clear(field);
     await userEvent.type(field, "tag_value != 'prod'");
-    const add = screen.getByRole('button', { name: 'Add mutation condition' });
+    const add = screen.getByRole('button', { name: 'Add condition' });
     await waitFor(() => expect(add).toBeEnabled());
-    expect(
-      screen.queryByTestId('admin.mutation_condition_form.value_condition_vocabulary_error'),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByTestId('admin.condition_form.filter_vocabulary_error')).not.toBeInTheDocument();
 
     await userEvent.click(add);
     await waitFor(() => expect(onChange).toHaveBeenCalledTimes(1));
     expect(onChange.mock.calls[0][0]).toEqual([
-      expect.objectContaining({ resourceType: 'experiment', valueCondition: "tag_value != 'prod'" }),
+      expect.objectContaining({
+        resourceType: 'experiment',
+        type: CONDITION_TYPE_VALUE,
+        filter: "tag_value != 'prod'",
+      }),
     ]);
   });
 });

@@ -1,3 +1,4 @@
+import type { ConditionType } from '../admin/types';
 export interface User {
   id: number;
   username: string;
@@ -73,13 +74,17 @@ export interface ListMyPermissionsResponse {
 }
 
 /**
- * One mutation condition on a role the user holds.
+ * One condition on a role the user holds.
  *
  * Conditions SUBTRACT from what grants allow and never confer access, so this view
- * answers "what restricts me" and never "may I do this". A ``value_condition`` in
+ * answers "what restricts me" and never "may I do this". A ``VALUE`` condition in
  * particular cannot be pre-evaluated: its verdict depends on the values in the request,
  * so ``tag_key != 'bob'`` says nothing until the user has typed a tag. Do not gate
  * controls on these rows.
+ *
+ * Conditions of one type are ALTERNATIVES, so a row here is one of possibly several
+ * ways to satisfy its type -- another row, possibly from a different role, may already
+ * permit what this one forbids. A single row does not describe what the user cannot do.
  *
  * ``role_name`` is the synthetic ``__user_<id>__`` role for a condition attached
  * directly to the user, which renders as ``Direct`` exactly as a direct grant does.
@@ -93,13 +98,13 @@ export interface UserRoleConditionRow {
   resource_pattern: string;
   container_resource_type: string;
   container_resource_pattern: string;
-  value_condition: string | null;
-  target_condition: string | null;
+  type: ConditionType;
+  filter: string;
   condition_slot: number;
 }
 
-export interface ListMyMutationConditionsResponse {
-  mutation_conditions: UserRoleConditionRow[];
+export interface ListMyConditionsResponse {
+  conditions: UserRoleConditionRow[];
 }
 
 export interface UpdatePasswordRequest {

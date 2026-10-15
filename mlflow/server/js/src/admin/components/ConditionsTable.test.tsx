@@ -3,6 +3,7 @@ import React from 'react';
 import { renderWithDesignSystem, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 
 import { ConditionsTable } from './ConditionsTable';
+import { CONDITION_TYPE_VALUE, CONDITION_TYPE_TARGET } from '../types';
 
 const condition = (overrides: Record<string, unknown> = {}) => ({
   id: 1,
@@ -11,8 +12,8 @@ const condition = (overrides: Record<string, unknown> = {}) => ({
   condition_slot: 1,
   container_resource_type: null,
   container_resource_pattern: null,
-  value_condition: null,
-  target_condition: "tags.lifecycle != 'prod'",
+  type: CONDITION_TYPE_TARGET,
+  filter: "tags.lifecycle != 'prod'",
   ...overrides,
 });
 
@@ -31,8 +32,8 @@ describe('ConditionsTable', () => {
             resource_type: 'trace',
             container_resource_type: 'experiment',
             container_resource_pattern: '42',
-            value_condition: "tag_value != 'prod'",
-            target_condition: null,
+            type: CONDITION_TYPE_VALUE,
+            filter: "tag_value != 'prod'",
           }) as any,
         ]}
       />,
@@ -47,16 +48,14 @@ describe('ConditionsTable', () => {
     // An empty table and a failed fetch look identical and mean opposite things:
     // "nothing restricts this" versus "we do not know".
     renderWithDesignSystem(<ConditionsTable conditions={[]} error={new Error('boom')} />);
-    expect(screen.getByText('Failed to load mutation conditions')).toBeInTheDocument();
-    expect(screen.queryByText('No mutation conditions')).not.toBeInTheDocument();
+    expect(screen.getByText('Failed to load conditions')).toBeInTheDocument();
+    expect(screen.queryByText('No conditions')).not.toBeInTheDocument();
   });
 
   it('renders the supplied empty description', () => {
-    renderWithDesignSystem(
-      <ConditionsTable conditions={[]} emptyDescription="Use Edit role to add mutation conditions." />,
-    );
-    expect(screen.getByText('No mutation conditions')).toBeInTheDocument();
-    expect(screen.getByText('Use Edit role to add mutation conditions.')).toBeInTheDocument();
+    renderWithDesignSystem(<ConditionsTable conditions={[]} emptyDescription="Use Edit role to add conditions." />);
+    expect(screen.getByText('No conditions')).toBeInTheDocument();
+    expect(screen.getByText('Use Edit role to add conditions.')).toBeInTheDocument();
   });
 
   it('shows the carrying role only when a suffix header is given', () => {
@@ -86,8 +85,8 @@ describe('ConditionsTable', () => {
       renderWithDesignSystem(
         <ConditionsTable
           conditions={[
-            condition({ id: 1, role_id: 7, target_condition: "tags.a = '1'" }) as any,
-            condition({ id: 1, role_id: 8, target_condition: "tags.b = '2'" }) as any,
+            condition({ id: 1, role_id: 7, type: CONDITION_TYPE_TARGET, filter: "tags.a = '1'" }) as any,
+            condition({ id: 1, role_id: 8, type: CONDITION_TYPE_TARGET, filter: "tags.b = '2'" }) as any,
           ]}
         />,
       );

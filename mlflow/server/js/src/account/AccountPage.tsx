@@ -26,11 +26,11 @@ import { performLogout } from './auth-utils';
 import {
   useCurrentUserQuery,
   useIsBasicAuth,
-  useMyMutationConditionsQuery,
+  useMyConditionsQuery,
   useUpdatePassword,
   useUserRolesQuery,
 } from './hooks';
-import { MutationConditionsSection } from './MutationConditionsSection';
+import { ConditionsSection } from './ConditionsSection';
 import { PermissionsSection } from './PermissionsSection';
 import { DEFAULT_WORKSPACE_NAME, isSyntheticUserRole, isWorkspaceAdminRole } from './types';
 import type { Role } from './types';
@@ -74,7 +74,7 @@ const AccountPage = () => {
   const [error, setError] = useState<string | null>(null);
 
   const updatePassword = useUpdatePassword();
-  const conditionsQuery = useMyMutationConditionsQuery();
+  const conditionsQuery = useMyConditionsQuery();
   const { data: currentUserData, isLoading: currentUserLoading } = useCurrentUserQuery();
   const username = currentUserData?.user?.username ?? '';
   const { workspacesEnabled } = useWorkspacesEnabled();
@@ -351,8 +351,8 @@ const AccountPage = () => {
               </Tabs.Trigger>
               <Tabs.Trigger value="conditions">
                 <FormattedMessage
-                  defaultMessage="Mutation Conditions"
-                  description="Tab trigger for the mutation conditions restricting the user"
+                  defaultMessage="Conditions"
+                  description="Tab trigger for the conditions restricting the user"
                 />
               </Tabs.Trigger>
             </Tabs.List>
@@ -458,8 +458,8 @@ const AccountPage = () => {
                 gap: theme.spacing.md,
               }}
             >
-              <MutationConditionsSection
-                conditions={conditionsQuery.data?.mutation_conditions ?? []}
+              <ConditionsSection
+                conditions={conditionsQuery.data?.conditions ?? []}
                 isLoading={conditionsQuery.isLoading}
                 error={conditionsQuery.error}
                 workspacesEnabled={workspacesEnabled}
