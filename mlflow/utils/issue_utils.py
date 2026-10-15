@@ -14,13 +14,9 @@ def validate_issue_fields(
     severity=None,
     categories=None,
     metadata=None,
-    tags=None,
     last_seen_timestamp=None,
     issue_id=None,
-    source_type=None,
-    source_id=None,
     delete_metadata_keys=None,
-    delete_tag_keys=None,
     created_by=None,
     last_updated_by=None,
 ):
@@ -48,8 +44,6 @@ def validate_issue_fields(
             "issue_id must be iss-* and at most 36 characters"
         )
     for field, value, limit in (
-        ("source_type", source_type, 50),
-        ("source_id", source_id, 255),
         ("created_by", created_by, 255),
         ("last_updated_by", last_updated_by, 255),
     ):
@@ -58,7 +52,6 @@ def validate_issue_fields(
     for field, values in (
         ("categories", categories),
         ("delete_metadata_keys", delete_metadata_keys),
-        ("delete_tag_keys", delete_tag_keys),
     ):
         if values is not None and (
             not isinstance(values, list)
@@ -68,24 +61,22 @@ def validate_issue_fields(
             raise MlflowException.invalid_parameter_value(
                 f"{field} must contain at most 100 nonempty strings of at most 250 characters"
             )
-    for field, values in (("metadata", metadata), ("tags", tags)):
-        if values is not None and (
-            not isinstance(values, dict)
-            or len(values) > 100
-            or any(
-                not isinstance(key, str)
-                or not 1 <= len(key) <= 250
-                or not isinstance(value, str)
-                or len(value) > 65536
-                for key, value in values.items()
-            )
-        ):
-            raise MlflowException.invalid_parameter_value(
-                f"{field} must be a string map with at most 100 entries"
-            )
-    for values, removed in ((metadata, delete_metadata_keys), (tags, delete_tag_keys)):
-        if set(values or {}) & set(removed or []):
-            raise MlflowException.invalid_parameter_value("Cannot update and delete the same key")
+    if metadata is not None and (
+        not isinstance(metadata, dict)
+        or len(metadata) > 100
+        or any(
+            not isinstance(key, str)
+            or not 1 <= len(key) <= 250
+            or not isinstance(value, str)
+            or len(value) > 65536
+            for key, value in metadata.items()
+        )
+    ):
+        raise MlflowException.invalid_parameter_value(
+            "metadata must be a string map with at most 100 entries"
+        )
+    if set(metadata or {}) & set(delete_metadata_keys or []):
+        raise MlflowException.invalid_parameter_value("Cannot update and delete the same key")
 
 
 def issue_query_fingerprint(**query) -> str:

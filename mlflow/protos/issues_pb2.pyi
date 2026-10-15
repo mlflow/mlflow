@@ -51,26 +51,6 @@ class Issue(_message.Message):
         def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
         def WhichOneof(self, oneof_group: _Never) -> None: ...
 
-    @_typing.final
-    class TagsEntry(_message.Message):
-        DESCRIPTOR: _descriptor.Descriptor
-
-        KEY_FIELD_NUMBER: _builtins.int
-        VALUE_FIELD_NUMBER: _builtins.int
-        key: _builtins.str
-        value: _builtins.str
-        def __init__(
-            self,
-            *,
-            key: _builtins.str | None = ...,
-            value: _builtins.str | None = ...,
-        ) -> None: ...
-        _HasFieldArgType: _TypeAlias = _typing.Literal["key", b"key", "value", b"value"]  # noqa: Y015
-        def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-        _ClearFieldArgType: _TypeAlias = _typing.Literal["key", b"key", "value", b"value"]  # noqa: Y015
-        def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
-        def WhichOneof(self, oneof_group: _Never) -> None: ...
-
     ISSUE_ID_FIELD_NUMBER: _builtins.int
     EXPERIMENT_ID_FIELD_NUMBER: _builtins.int
     NAME_FIELD_NUMBER: _builtins.int
@@ -85,11 +65,8 @@ class Issue(_message.Message):
     CATEGORIES_FIELD_NUMBER: _builtins.int
     TRACE_COUNT_FIELD_NUMBER: _builtins.int
     LAST_SEEN_TIMESTAMP_FIELD_NUMBER: _builtins.int
-    SOURCE_TYPE_FIELD_NUMBER: _builtins.int
-    SOURCE_ID_FIELD_NUMBER: _builtins.int
     LAST_UPDATED_BY_FIELD_NUMBER: _builtins.int
     METADATA_FIELD_NUMBER: _builtins.int
-    TAGS_FIELD_NUMBER: _builtins.int
     issue_id: _builtins.str
     """Unique identifier for the issue."""
     experiment_id: _builtins.str
@@ -114,9 +91,6 @@ class Issue(_message.Message):
     """Number of traces impacted by this issue. Only populated when explicitly requested."""
     last_seen_timestamp: _builtins.int
     """Most recent observation, in milliseconds. Independent of user edits."""
-    source_type: _builtins.str
-    """Immutable creation provenance. Run sources also populate source_run_id."""
-    source_id: _builtins.str
     last_updated_by: _builtins.str
     @_builtins.property
     @_deprecated("""This field has been marked as deprecated using proto field options.""")
@@ -129,8 +103,6 @@ class Issue(_message.Message):
 
     @_builtins.property
     def metadata(self) -> _containers.ScalarMap[_builtins.str, _builtins.str]: ...
-    @_builtins.property
-    def tags(self) -> _containers.ScalarMap[_builtins.str, _builtins.str]: ...
     def __init__(
         self,
         *,
@@ -148,15 +120,12 @@ class Issue(_message.Message):
         categories: _abc.Iterable[_builtins.str] | None = ...,
         trace_count: _builtins.int | None = ...,
         last_seen_timestamp: _builtins.int | None = ...,
-        source_type: _builtins.str | None = ...,
-        source_id: _builtins.str | None = ...,
         last_updated_by: _builtins.str | None = ...,
         metadata: _abc.Mapping[_builtins.str, _builtins.str] | None = ...,
-        tags: _abc.Mapping[_builtins.str, _builtins.str] | None = ...,
     ) -> None: ...
-    _HasFieldArgType: _TypeAlias = _typing.Literal["created_by", b"created_by", "created_timestamp", b"created_timestamp", "description", b"description", "experiment_id", b"experiment_id", "issue_id", b"issue_id", "last_seen_timestamp", b"last_seen_timestamp", "last_updated_by", b"last_updated_by", "last_updated_timestamp", b"last_updated_timestamp", "name", b"name", "severity", b"severity", "source_id", b"source_id", "source_run_id", b"source_run_id", "source_type", b"source_type", "status", b"status", "trace_count", b"trace_count"]  # noqa: Y015
+    _HasFieldArgType: _TypeAlias = _typing.Literal["created_by", b"created_by", "created_timestamp", b"created_timestamp", "description", b"description", "experiment_id", b"experiment_id", "issue_id", b"issue_id", "last_seen_timestamp", b"last_seen_timestamp", "last_updated_by", b"last_updated_by", "last_updated_timestamp", b"last_updated_timestamp", "name", b"name", "severity", b"severity", "source_run_id", b"source_run_id", "status", b"status", "trace_count", b"trace_count"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["categories", b"categories", "created_by", b"created_by", "created_timestamp", b"created_timestamp", "description", b"description", "experiment_id", b"experiment_id", "issue_id", b"issue_id", "last_seen_timestamp", b"last_seen_timestamp", "last_updated_by", b"last_updated_by", "last_updated_timestamp", b"last_updated_timestamp", "metadata", b"metadata", "name", b"name", "root_causes", b"root_causes", "severity", b"severity", "source_id", b"source_id", "source_run_id", b"source_run_id", "source_type", b"source_type", "status", b"status", "tags", b"tags", "trace_count", b"trace_count"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["categories", b"categories", "created_by", b"created_by", "created_timestamp", b"created_timestamp", "description", b"description", "experiment_id", b"experiment_id", "issue_id", b"issue_id", "last_seen_timestamp", b"last_seen_timestamp", "last_updated_by", b"last_updated_by", "last_updated_timestamp", b"last_updated_timestamp", "metadata", b"metadata", "name", b"name", "root_causes", b"root_causes", "severity", b"severity", "source_run_id", b"source_run_id", "status", b"status", "trace_count", b"trace_count"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 
@@ -170,26 +139,6 @@ class CreateIssue(_message.Message):
 
     @_typing.final
     class MetadataEntry(_message.Message):
-        DESCRIPTOR: _descriptor.Descriptor
-
-        KEY_FIELD_NUMBER: _builtins.int
-        VALUE_FIELD_NUMBER: _builtins.int
-        key: _builtins.str
-        value: _builtins.str
-        def __init__(
-            self,
-            *,
-            key: _builtins.str | None = ...,
-            value: _builtins.str | None = ...,
-        ) -> None: ...
-        _HasFieldArgType: _TypeAlias = _typing.Literal["key", b"key", "value", b"value"]  # noqa: Y015
-        def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-        _ClearFieldArgType: _TypeAlias = _typing.Literal["key", b"key", "value", b"value"]  # noqa: Y015
-        def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
-        def WhichOneof(self, oneof_group: _Never) -> None: ...
-
-    @_typing.final
-    class TagsEntry(_message.Message):
         DESCRIPTOR: _descriptor.Descriptor
 
         KEY_FIELD_NUMBER: _builtins.int
@@ -239,10 +188,7 @@ class CreateIssue(_message.Message):
     CATEGORIES_FIELD_NUMBER: _builtins.int
     ISSUE_ID_FIELD_NUMBER: _builtins.int
     LAST_SEEN_TIMESTAMP_FIELD_NUMBER: _builtins.int
-    SOURCE_TYPE_FIELD_NUMBER: _builtins.int
-    SOURCE_ID_FIELD_NUMBER: _builtins.int
     METADATA_FIELD_NUMBER: _builtins.int
-    TAGS_FIELD_NUMBER: _builtins.int
     experiment_id: _builtins.str
     """Experiment ID."""
     name: _builtins.str
@@ -260,8 +206,6 @@ class CreateIssue(_message.Message):
     issue_id: _builtins.str
     """Optional caller-assigned iss-* ID. Reuse returns RESOURCE_ALREADY_EXISTS."""
     last_seen_timestamp: _builtins.int
-    source_type: _builtins.str
-    source_id: _builtins.str
     @_builtins.property
     @_deprecated("""This field has been marked as deprecated using proto field options.""")
     def root_causes(self) -> _containers.RepeatedScalarFieldContainer[_builtins.str]:
@@ -273,8 +217,6 @@ class CreateIssue(_message.Message):
 
     @_builtins.property
     def metadata(self) -> _containers.ScalarMap[_builtins.str, _builtins.str]: ...
-    @_builtins.property
-    def tags(self) -> _containers.ScalarMap[_builtins.str, _builtins.str]: ...
     def __init__(
         self,
         *,
@@ -289,14 +231,11 @@ class CreateIssue(_message.Message):
         categories: _abc.Iterable[_builtins.str] | None = ...,
         issue_id: _builtins.str | None = ...,
         last_seen_timestamp: _builtins.int | None = ...,
-        source_type: _builtins.str | None = ...,
-        source_id: _builtins.str | None = ...,
         metadata: _abc.Mapping[_builtins.str, _builtins.str] | None = ...,
-        tags: _abc.Mapping[_builtins.str, _builtins.str] | None = ...,
     ) -> None: ...
-    _HasFieldArgType: _TypeAlias = _typing.Literal["created_by", b"created_by", "description", b"description", "experiment_id", b"experiment_id", "issue_id", b"issue_id", "last_seen_timestamp", b"last_seen_timestamp", "name", b"name", "severity", b"severity", "source_id", b"source_id", "source_run_id", b"source_run_id", "source_type", b"source_type", "status", b"status"]  # noqa: Y015
+    _HasFieldArgType: _TypeAlias = _typing.Literal["created_by", b"created_by", "description", b"description", "experiment_id", b"experiment_id", "issue_id", b"issue_id", "last_seen_timestamp", b"last_seen_timestamp", "name", b"name", "severity", b"severity", "source_run_id", b"source_run_id", "status", b"status"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["categories", b"categories", "created_by", b"created_by", "description", b"description", "experiment_id", b"experiment_id", "issue_id", b"issue_id", "last_seen_timestamp", b"last_seen_timestamp", "metadata", b"metadata", "name", b"name", "root_causes", b"root_causes", "severity", b"severity", "source_id", b"source_id", "source_run_id", b"source_run_id", "source_type", b"source_type", "status", b"status", "tags", b"tags"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["categories", b"categories", "created_by", b"created_by", "description", b"description", "experiment_id", b"experiment_id", "issue_id", b"issue_id", "last_seen_timestamp", b"last_seen_timestamp", "metadata", b"metadata", "name", b"name", "root_causes", b"root_causes", "severity", b"severity", "source_run_id", b"source_run_id", "status", b"status"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 
@@ -310,26 +249,6 @@ class UpdateIssue(_message.Message):
 
     @_typing.final
     class MetadataEntry(_message.Message):
-        DESCRIPTOR: _descriptor.Descriptor
-
-        KEY_FIELD_NUMBER: _builtins.int
-        VALUE_FIELD_NUMBER: _builtins.int
-        key: _builtins.str
-        value: _builtins.str
-        def __init__(
-            self,
-            *,
-            key: _builtins.str | None = ...,
-            value: _builtins.str | None = ...,
-        ) -> None: ...
-        _HasFieldArgType: _TypeAlias = _typing.Literal["key", b"key", "value", b"value"]  # noqa: Y015
-        def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-        _ClearFieldArgType: _TypeAlias = _typing.Literal["key", b"key", "value", b"value"]  # noqa: Y015
-        def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
-        def WhichOneof(self, oneof_group: _Never) -> None: ...
-
-    @_typing.final
-    class TagsEntry(_message.Message):
         DESCRIPTOR: _descriptor.Descriptor
 
         KEY_FIELD_NUMBER: _builtins.int
@@ -377,9 +296,7 @@ class UpdateIssue(_message.Message):
     LAST_SEEN_TIMESTAMP_FIELD_NUMBER: _builtins.int
     LAST_UPDATED_BY_FIELD_NUMBER: _builtins.int
     METADATA_FIELD_NUMBER: _builtins.int
-    TAGS_FIELD_NUMBER: _builtins.int
     DELETE_METADATA_KEYS_FIELD_NUMBER: _builtins.int
-    DELETE_TAG_KEYS_FIELD_NUMBER: _builtins.int
     issue_id: _builtins.str
     """Issue ID to update."""
     name: _builtins.str
@@ -401,11 +318,7 @@ class UpdateIssue(_message.Message):
         """Merge entries; delete only the explicitly named keys below."""
 
     @_builtins.property
-    def tags(self) -> _containers.ScalarMap[_builtins.str, _builtins.str]: ...
-    @_builtins.property
     def delete_metadata_keys(self) -> _containers.RepeatedScalarFieldContainer[_builtins.str]: ...
-    @_builtins.property
-    def delete_tag_keys(self) -> _containers.RepeatedScalarFieldContainer[_builtins.str]: ...
     def __init__(
         self,
         *,
@@ -418,13 +331,11 @@ class UpdateIssue(_message.Message):
         last_seen_timestamp: _builtins.int | None = ...,
         last_updated_by: _builtins.str | None = ...,
         metadata: _abc.Mapping[_builtins.str, _builtins.str] | None = ...,
-        tags: _abc.Mapping[_builtins.str, _builtins.str] | None = ...,
         delete_metadata_keys: _abc.Iterable[_builtins.str] | None = ...,
-        delete_tag_keys: _abc.Iterable[_builtins.str] | None = ...,
     ) -> None: ...
     _HasFieldArgType: _TypeAlias = _typing.Literal["description", b"description", "issue_id", b"issue_id", "last_seen_timestamp", b"last_seen_timestamp", "last_updated_by", b"last_updated_by", "name", b"name", "severity", b"severity", "status", b"status"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["categories", b"categories", "delete_metadata_keys", b"delete_metadata_keys", "delete_tag_keys", b"delete_tag_keys", "description", b"description", "issue_id", b"issue_id", "last_seen_timestamp", b"last_seen_timestamp", "last_updated_by", b"last_updated_by", "metadata", b"metadata", "name", b"name", "severity", b"severity", "status", b"status", "tags", b"tags"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["categories", b"categories", "delete_metadata_keys", b"delete_metadata_keys", "description", b"description", "issue_id", b"issue_id", "last_seen_timestamp", b"last_seen_timestamp", "last_updated_by", b"last_updated_by", "metadata", b"metadata", "name", b"name", "severity", b"severity", "status", b"status"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 
@@ -479,26 +390,6 @@ class SearchIssues(_message.Message):
     DESCRIPTOR: _descriptor.Descriptor
 
     @_typing.final
-    class TagsEntry(_message.Message):
-        DESCRIPTOR: _descriptor.Descriptor
-
-        KEY_FIELD_NUMBER: _builtins.int
-        VALUE_FIELD_NUMBER: _builtins.int
-        key: _builtins.str
-        value: _builtins.str
-        def __init__(
-            self,
-            *,
-            key: _builtins.str | None = ...,
-            value: _builtins.str | None = ...,
-        ) -> None: ...
-        _HasFieldArgType: _TypeAlias = _typing.Literal["key", b"key", "value", b"value"]  # noqa: Y015
-        def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-        _ClearFieldArgType: _TypeAlias = _typing.Literal["key", b"key", "value", b"value"]  # noqa: Y015
-        def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
-        def WhichOneof(self, oneof_group: _Never) -> None: ...
-
-    @_typing.final
     class Response(_message.Message):
         DESCRIPTOR: _descriptor.Descriptor
 
@@ -534,7 +425,6 @@ class SearchIssues(_message.Message):
     STATUSES_FIELD_NUMBER: _builtins.int
     SEVERITIES_FIELD_NUMBER: _builtins.int
     CATEGORIES_FIELD_NUMBER: _builtins.int
-    TAGS_FIELD_NUMBER: _builtins.int
     ORDER_BY_FIELD_NUMBER: _builtins.int
     INCLUDE_TOTAL_COUNT_FIELD_NUMBER: _builtins.int
     VIEW_FIELD_NUMBER: _builtins.int
@@ -562,8 +452,6 @@ class SearchIssues(_message.Message):
     @_builtins.property
     def categories(self) -> _containers.RepeatedScalarFieldContainer[_builtins.str]: ...
     @_builtins.property
-    def tags(self) -> _containers.ScalarMap[_builtins.str, _builtins.str]: ...
-    @_builtins.property
     def order_by(self) -> _containers.RepeatedScalarFieldContainer[_builtins.str]:
         """Field and ASC/DESC, e.g. "last_seen_timestamp DESC"."""
 
@@ -579,14 +467,13 @@ class SearchIssues(_message.Message):
         statuses: _abc.Iterable[_builtins.str] | None = ...,
         severities: _abc.Iterable[_builtins.str] | None = ...,
         categories: _abc.Iterable[_builtins.str] | None = ...,
-        tags: _abc.Mapping[_builtins.str, _builtins.str] | None = ...,
         order_by: _abc.Iterable[_builtins.str] | None = ...,
         include_total_count: _builtins.bool | None = ...,
         view: _builtins.str | None = ...,
     ) -> None: ...
     _HasFieldArgType: _TypeAlias = _typing.Literal["experiment_id", b"experiment_id", "filter_string", b"filter_string", "include_total_count", b"include_total_count", "include_trace_count", b"include_trace_count", "max_results", b"max_results", "name", b"name", "page_token", b"page_token", "view", b"view"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["categories", b"categories", "experiment_id", b"experiment_id", "filter_string", b"filter_string", "include_total_count", b"include_total_count", "include_trace_count", b"include_trace_count", "max_results", b"max_results", "name", b"name", "order_by", b"order_by", "page_token", b"page_token", "severities", b"severities", "statuses", b"statuses", "tags", b"tags", "view", b"view"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["categories", b"categories", "experiment_id", b"experiment_id", "filter_string", b"filter_string", "include_total_count", b"include_total_count", "include_trace_count", b"include_trace_count", "max_results", b"max_results", "name", b"name", "order_by", b"order_by", "page_token", b"page_token", "severities", b"severities", "statuses", b"statuses", "view", b"view"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 

@@ -5037,12 +5037,11 @@ def _create_issue():
     if request_message.HasField("severity"):
         create_kwargs["severity"] = IssueSeverity(request_message.severity)
 
-    for field in ("issue_id", "last_seen_timestamp", "source_type", "source_id"):
+    for field in ("issue_id", "last_seen_timestamp"):
         if request_message.HasField(field):
             create_kwargs[field] = getattr(request_message, field)
-    for field in ("metadata", "tags"):
-        if values := dict(getattr(request_message, field)):
-            create_kwargs[field] = values
+    if request_message.metadata:
+        create_kwargs["metadata"] = dict(request_message.metadata)
     created_issue = _get_tracking_store().create_issue(**create_kwargs)
 
     response_message = CreateIssue.Response(issue=created_issue.to_proto())
@@ -5079,12 +5078,10 @@ def _update_issue(issue_id):
         options["last_seen_timestamp"] = request_message.last_seen_timestamp
     if actor := _get_request_username() or request_message.last_updated_by:
         options["last_updated_by"] = actor
-    for field in ("metadata", "tags"):
-        if values := dict(getattr(request_message, field)):
-            options[field] = values
-    for field in ("delete_metadata_keys", "delete_tag_keys"):
-        if values := list(getattr(request_message, field)):
-            options[field] = values
+    if request_message.metadata:
+        options["metadata"] = dict(request_message.metadata)
+    if request_message.delete_metadata_keys:
+        options["delete_metadata_keys"] = list(request_message.delete_metadata_keys)
     updated_issue = _get_tracking_store().update_issue(
         issue_id=issue_id,
         status=status,
@@ -5139,8 +5136,6 @@ def _search_issues():
     for field in ("statuses", "severities", "categories", "order_by"):
         if values := list(getattr(request_message, field)):
             search_kwargs[field] = values
-    if request_message.tags:
-        search_kwargs["tags"] = dict(request_message.tags)
     issues = _get_tracking_store().search_issues(**search_kwargs)
 
     issue_protos = [issue.to_proto() for issue in issues]

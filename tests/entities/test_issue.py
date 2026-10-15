@@ -490,10 +490,7 @@ def test_issue_proto_roundtrip_all_fields():
 def test_extended_issue_roundtrips():
     issue = create_issue(IssueSeverity.HIGH)
     issue.last_seen_timestamp = 0
-    issue.source_type = "manual"
-    issue.source_id = "investigation"
     issue.last_updated_by = "editor"
     issue.metadata = {"evidence": "[]"}
-    issue.tags = {"owner": "team"}
     assert Issue.from_proto(issue.to_proto()) == issue
     assert Issue.from_dictionary(issue.to_dictionary()) == issue

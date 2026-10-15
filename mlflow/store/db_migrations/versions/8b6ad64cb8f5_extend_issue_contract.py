@@ -1,4 +1,4 @@
-"""Extend SQL Issues with observation, provenance, metadata and indexed facets."""
+"""Extend SQL Issues with observation, metadata and indexed facets."""
 
 import hashlib
 import json
@@ -15,8 +15,6 @@ depends_on = None
 def upgrade():
     with op.batch_alter_table("issues") as batch_op:
         batch_op.add_column(sa.Column("last_seen_timestamp", sa.BigInteger(), nullable=True))
-        batch_op.add_column(sa.Column("source_type", sa.String(50), nullable=True))
-        batch_op.add_column(sa.Column("source_id", sa.String(255), nullable=True))
         batch_op.add_column(sa.Column("last_updated_by", sa.String(255), nullable=True))
         batch_op.add_column(sa.Column("metadata", sa.Text(), nullable=True))
         batch_op.create_index(
@@ -25,18 +23,6 @@ def upgrade():
         batch_op.create_index(
             "index_issues_experiment_updated", ["experiment_id", "last_updated_timestamp"]
         )
-    op.create_table(
-        "issue_tags",
-        sa.Column(
-            "issue_id",
-            sa.String(36),
-            sa.ForeignKey("issues.issue_id", ondelete="CASCADE"),
-            primary_key=True,
-        ),
-        sa.Column("key", sa.String(250), primary_key=True),
-        sa.Column("value", sa.Text(), nullable=False),
-    )
-    op.create_index("index_issue_tags_key", "issue_tags", ["key"])
     op.create_table(
         "issue_categories",
         sa.Column(
@@ -56,17 +42,9 @@ def upgrade():
         sa.column("created_timestamp"),
         sa.column("last_seen_timestamp"),
         sa.column("source_run_id"),
-        sa.column("source_type"),
-        sa.column("source_id"),
     )
     conn = op.get_bind()
     conn.execute(issues.update().values(last_seen_timestamp=issues.c.created_timestamp))
-    conn.execute(
-        issues
-        .update()
-        .where(issues.c.source_run_id.is_not(None))
-        .values(source_type="run", source_id=issues.c.source_run_id)
-    )
     categories = sa.table(
         "issue_categories", sa.column("issue_id"), sa.column("category_hash"), sa.column("category")
     )
@@ -89,4 +67,6 @@ def upgrade():
 
 
 def downgrade():
-    raise NotImplementedError("Downgrading the Issue schema would discard metadata and provenance")
+    raise NotImplementedError(
+        "Downgrading the Issue schema would discard metadata and observation timestamps"
+    )

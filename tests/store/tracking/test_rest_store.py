@@ -4150,10 +4150,7 @@ def test_issue_rest_extended_contract():
         1,
         1,
         last_seen_timestamp=0,
-        source_type="manual",
-        source_id="session",
         metadata={"key": "value"},
-        tags={"owner": "team"},
     )
     with mock.patch.object(
         store, "_call_endpoint", return_value=CreateIssue.Response(issue=issue.to_proto())
@@ -4164,10 +4161,7 @@ def test_issue_rest_extended_contract():
             "",
             issue_id="iss-chosen",
             last_seen_timestamp=0,
-            source_type="manual",
-            source_id="session",
             metadata={"key": "value"},
-            tags={"owner": "team"},
         )
         call.assert_called_once()
         body = json.loads(call.call_args.args[1])
@@ -4183,13 +4177,11 @@ def test_issue_rest_extended_contract():
             categories=[],
             metadata={"new": "value"},
             delete_metadata_keys=["old"],
-            delete_tag_keys=["owner"],
         )
         call.assert_called_once()
         body = json.loads(call.call_args.args[1])
         assert body["categories"] == []
         assert body["delete_metadata_keys"] == ["old"]
-        assert body["delete_tag_keys"] == ["owner"]
     with mock.patch.object(
         store,
         "_call_endpoint",
@@ -4202,7 +4194,6 @@ def test_issue_rest_extended_contract():
             name="Title",
             statuses=["pending"],
             categories=["cost"],
-            tags={"owner": "team"},
             order_by=["status ASC"],
             include_total_count=True,
             view="basic",
@@ -4210,7 +4201,6 @@ def test_issue_rest_extended_contract():
         call.assert_called_once()
         body = json.loads(call.call_args.args[1])
         assert body["statuses"] == ["pending"]
-        assert body["tags"] == {"owner": "team"}
         assert body["order_by"] == ["status ASC"]
         assert body["include_total_count"] is True
         assert result.total_count == 5

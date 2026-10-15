@@ -3331,12 +3331,9 @@ def test_extended_issue_fields_and_paging_are_workspace_scoped(workspace_trackin
                 "",
                 issue_id=f"iss-team-a-{index}",
                 categories=["cost"],
-                tags={"owner": "team"},
                 metadata={"private": "value"},
             )
-        page = store.search_issues(
-            categories=["cost"], tags={"owner": "team"}, include_total_count=True, max_results=1
-        )
+        page = store.search_issues(categories=["cost"], include_total_count=True, max_results=1)
         assert page.total_count == 2
         assert page.token
         run = store.create_run(experiment_id, "user", 1, [], "run")
@@ -3348,14 +3345,13 @@ def test_extended_issue_fields_and_paging_are_workspace_scoped(workspace_trackin
         with pytest.raises(MlflowException, match="page token"):
             store.search_issues(
                 categories=["cost"],
-                tags={"owner": "team"},
                 include_total_count=True,
                 max_results=1,
                 page_token=page.token,
             )
         with pytest.raises(MlflowException, match="not found"):
             store.create_issue(
-                other_experiment, "Foreign source", "", source_type="run", source_id=run.info.run_id
+                other_experiment, "Foreign source", "", source_run_id=run.info.run_id
             )
     with WorkspaceContext("team-a"):
         assert store.get_issue("iss-team-a-0").metadata == {"private": "value"}

@@ -62,8 +62,7 @@ def test_issue_contract_migration_preserves_existing_issues(tmp_path):
     assert issue.last_updated_by is None
     assert issue.root_causes == ["Old cause"]
     assert issue.categories == ["cost", "cost", "c" * 300]
-    assert issue.source_type == "run"
-    assert issue.source_id == "old-run"
+    assert issue.source_run_id == "old-run"
     assert issue.severity is None
     assert [result.issue_id for result in store.search_issues(categories=["cost"])] == ["iss-old"]
     assert store.update_issue("iss-old", categories=["latency"]).categories == ["latency"]

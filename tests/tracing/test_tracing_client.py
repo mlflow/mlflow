@@ -806,20 +806,19 @@ def test_issue_client_forwards_extended_options():
             "Description",
             issue_id="iss-chosen",
             last_seen_timestamp=0,
-            tags={"owner": "team"},
         )
         store.create_issue.assert_called_once()
+        assert "source_id" not in store.create_issue.call_args.kwargs
         assert store.create_issue.call_args.kwargs["issue_id"] == "iss-chosen"
         assert store.create_issue.call_args.kwargs["last_seen_timestamp"] == 0
-        assert "source_type" not in store.create_issue.call_args.kwargs
         client._update_issue(
-            "iss-chosen", categories=[], metadata={"key": "value"}, delete_tag_keys=["owner"]
+            "iss-chosen", categories=[], metadata={"key": "value"}, delete_metadata_keys=["owner"]
         )
         store.update_issue.assert_called_once_with(
             issue_id="iss-chosen",
             categories=[],
             metadata={"key": "value"},
-            delete_tag_keys=["owner"],
+            delete_metadata_keys=["owner"],
         )
         client._search_issues("0", statuses=["pending"], include_total_count=True, view="basic")
         store.search_issues.assert_called_once_with(

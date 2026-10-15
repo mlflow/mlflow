@@ -11242,10 +11242,7 @@ def test_issue_handlers_extended_fields_and_authenticated_actor():
                 "name": "Title",
                 "description": "Details",
                 "issue_id": "iss-test",
-                "source_type": "manual",
-                "source_id": "session",
                 "metadata": {"keep": "value"},
-                "tags": {"owner": "team"},
                 "last_seen_timestamp": "0",
                 "created_by": "untrusted",
             }
@@ -11258,7 +11255,6 @@ def test_issue_handlers_extended_fields_and_authenticated_actor():
         kwargs = mock_store.return_value.create_issue.call_args.kwargs
         assert kwargs["created_by"] == "authenticated"
         assert kwargs["issue_id"] == "iss-test"
-        assert kwargs["source_type"] == "manual"
         assert kwargs["metadata"] == {"keep": "value"}
         assert kwargs["last_seen_timestamp"] == 0
     with (
@@ -11268,7 +11264,7 @@ def test_issue_handlers_extended_fields_and_authenticated_actor():
                 "categories": [],
                 "description": "",
                 "metadata": {"new": "value"},
-                "delete_tag_keys": ["owner"],
+                "delete_metadata_keys": ["owner"],
                 "last_updated_by": "untrusted",
             }
         ),
@@ -11286,7 +11282,7 @@ def test_issue_handlers_extended_fields_and_authenticated_actor():
             categories=[],
             last_updated_by="editor",
             metadata={"new": "value"},
-            delete_tag_keys=["owner"],
+            delete_metadata_keys=["owner"],
         )
 
 
@@ -11299,7 +11295,6 @@ def test_search_issues_extended_fields_and_total():
                 "statuses": ["pending", "resolved"],
                 "severities": ["high"],
                 "categories": ["cost"],
-                "tags": {"owner": "team"},
                 "order_by": ["status ASC"],
                 "view": "basic",
                 "include_total_count": True,
@@ -11318,7 +11313,6 @@ def test_search_issues_extended_fields_and_total():
             statuses=["pending", "resolved"],
             severities=["high"],
             categories=["cost"],
-            tags={"owner": "team"},
             order_by=["status ASC"],
             view="basic",
             include_total_count=True,

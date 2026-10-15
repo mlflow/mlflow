@@ -6494,19 +6494,13 @@ def _redact_run_response(resp: Response, response_message, runs_of) -> None:
 
 
 def _withhold_denied_issue_source_runs(issues, username: str) -> bool:
-    named = [
-        issue
-        for issue in issues
-        if issue.source_run_id or (issue.source_type == "run" and issue.source_id)
-    ]
+    named = [issue for issue in issues if issue.source_run_id]
     if not named:
         return False
     if RESOURCE_TYPE_RUN not in _denied_sibling_tiers(username, (RESOURCE_TYPE_RUN,)):
         return False
     for issue in named:
         issue.ClearField("source_run_id")
-        if issue.source_type == "run":
-            issue.ClearField("source_id")
     return True
 
 

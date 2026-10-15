@@ -52,12 +52,8 @@ message Issue {
 
   // Most recent observation, in milliseconds. Independent of user edits.
   optional int64 last_seen_timestamp = 14;
-  // Immutable creation provenance. Run sources also populate source_run_id.
-  optional string source_type = 15;
-  optional string source_id = 16;
-  optional string last_updated_by = 17;
-  map<string, string> metadata = 18;
-  map<string, string> tags = 19;
+  optional string last_updated_by = 15;
+  map<string, string> metadata = 16;
 }
 
 // Request to create a new issue.
@@ -91,10 +87,7 @@ message CreateIssue {
   // Optional caller-assigned iss-* ID. Reuse returns RESOURCE_ALREADY_EXISTS.
   optional string issue_id = 10;
   optional int64 last_seen_timestamp = 11;
-  optional string source_type = 12;
-  optional string source_id = 13;
-  map<string, string> metadata = 14;
-  map<string, string> tags = 15;
+  map<string, string> metadata = 12;
 
   message Response {
     // The created issue.
@@ -124,9 +117,7 @@ message UpdateIssue {
   optional string last_updated_by = 8;
   // Merge entries; delete only the explicitly named keys below.
   map<string, string> metadata = 9;
-  map<string, string> tags = 10;
-  repeated string delete_metadata_keys = 11;
-  repeated string delete_tag_keys = 12;
+  repeated string delete_metadata_keys = 10;
 
   message Response {
     // The updated issue.
@@ -167,12 +158,11 @@ message SearchIssues {
   repeated string statuses = 7;
   repeated string severities = 8;
   repeated string categories = 9;
-  map<string, string> tags = 10;
   // Field and ASC/DESC, e.g. "last_seen_timestamp DESC".
-  repeated string order_by = 11;
-  optional bool include_total_count = 12;
+  repeated string order_by = 10;
+  optional bool include_total_count = 11;
   // "basic" omits description, root_causes and metadata; default "full".
-  optional string view = 13;
+  optional string view = 12;
 
   message Response {
     // List of issues.

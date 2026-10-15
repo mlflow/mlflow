@@ -105,20 +105,11 @@ class Issue(_MlflowObject):
     last_seen_timestamp: int | None = None
     """Most recent observation in milliseconds; user edits do not change it."""
 
-    source_type: str | None = None
-    """Immutable source type, such as ``run``."""
-
-    source_id: str | None = None
-    """Immutable source identifier."""
-
     last_updated_by: str | None = None
     """Actor responsible for the last update."""
 
     metadata: dict[str, str] | None = None
     """Application metadata, updated per key."""
-
-    tags: dict[str, str] | None = None
-    """Caller-defined tags usable in issue searches."""
 
     def to_dictionary(self) -> dict[str, Any]:
         """Convert Issue to dictionary representation."""
@@ -139,11 +130,8 @@ class Issue(_MlflowObject):
         }
         for key in (
             "last_seen_timestamp",
-            "source_type",
-            "source_id",
             "last_updated_by",
             "metadata",
-            "tags",
         ):
             if (value := getattr(self, key)) is not None:
                 result[key] = value
@@ -169,11 +157,8 @@ class Issue(_MlflowObject):
             created_by=issue_dict.get("created_by"),
             trace_count=issue_dict.get("trace_count"),
             last_seen_timestamp=issue_dict.get("last_seen_timestamp"),
-            source_type=issue_dict.get("source_type"),
-            source_id=issue_dict.get("source_id"),
             last_updated_by=issue_dict.get("last_updated_by"),
             metadata=issue_dict.get("metadata"),
-            tags=issue_dict.get("tags"),
         )
 
     def to_proto(self) -> ProtoIssue:
@@ -200,11 +185,10 @@ class Issue(_MlflowObject):
         if self.trace_count is not None:
             proto_issue.trace_count = self.trace_count
 
-        for key in ("last_seen_timestamp", "source_type", "source_id", "last_updated_by"):
+        for key in ("last_seen_timestamp", "last_updated_by"):
             if (value := getattr(self, key)) is not None:
                 setattr(proto_issue, key, value)
         proto_issue.metadata.update(self.metadata or {})
-        proto_issue.tags.update(self.tags or {})
         return proto_issue
 
     @classmethod
@@ -227,9 +211,6 @@ class Issue(_MlflowObject):
             last_seen_timestamp=(
                 proto.last_seen_timestamp if proto.HasField("last_seen_timestamp") else None
             ),
-            source_type=proto.source_type or None,
-            source_id=proto.source_id or None,
             last_updated_by=proto.last_updated_by or None,
             metadata=dict(proto.metadata) or None,
-            tags=dict(proto.tags) or None,
         )

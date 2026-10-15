@@ -1059,13 +1059,10 @@ def test_issue_extended_contract_and_partial_updates(store):
         "Latency",
         "Details",
         issue_id="iss-caller-chosen",
-        source_type="manual",
-        source_id="investigation-1",
         last_seen_timestamp=0,
         created_by="author",
         categories=["latency", "cost"],
         metadata={"keep": "1", "change": "old", "remove": "old"},
-        tags={"owner": "team", "remove": "old"},
         root_causes=["Legacy cause"],
     )
     assert issue.last_seen_timestamp == 0
@@ -1081,17 +1078,12 @@ def test_issue_extended_contract_and_partial_updates(store):
         last_updated_by="editor",
         metadata={"change": "new"},
         delete_metadata_keys=["remove"],
-        tags={"added": "new"},
-        delete_tag_keys=["remove"],
     )
     assert updated.metadata == {"keep": "1", "change": "new"}
-    assert updated.tags == {"owner": "team", "added": "new"}
     assert updated.description == ""
     assert updated.categories == []
     assert updated.root_causes == ["Legacy cause"]
     assert updated.created_by == "author"
-    assert updated.source_type == "manual"
-    assert updated.source_id == "investigation-1"
     assert updated.last_updated_by == "editor"
     assert updated.created_timestamp == issue.created_timestamp
     assert store.update_issue(issue.issue_id, last_seen_timestamp=5).last_seen_timestamp == 10
@@ -1104,12 +1096,9 @@ def test_issue_extended_contract_and_partial_updates(store):
     [
         {"name": ""},
         {"issue_id": "invalid"},
-        {"source_type": "manual"},
-        {"source_id": "only-id"},
         {"last_seen_timestamp": -1},
         {"last_seen_timestamp": True},
         {"metadata": {"key": 123}},
-        {"tags": {"": "value"}},
         {"categories": "cost"},
         {"status": "invalid"},
         {"severity": "critical"},
@@ -1122,35 +1111,31 @@ def test_issue_create_validation(store, kwargs):
 
 
 def test_issue_patch_validation_is_atomic(store):
-    issue = store.create_issue("0", "Original", "", tags={"owner": "team"})
+    issue = store.create_issue("0", "Original", "", metadata={"owner": "team"})
     with pytest.raises(MlflowException, match="same key"):
         store.update_issue(
-            issue.issue_id, name="Changed", tags={"owner": "other"}, delete_tag_keys=["owner"]
+            issue.issue_id,
+            name="Changed",
+            metadata={"owner": "other"},
+            delete_metadata_keys=["owner"],
         )
     assert store.get_issue(issue.issue_id).name == "Original"
     with pytest.raises(MlflowException, match="at most 100"):
-        store.update_issue(issue.issue_id, name="Changed", tags={str(i): "v" for i in range(100)})
-    assert store.get_issue(issue.issue_id).tags == {"owner": "team"}
+        store.update_issue(
+            issue.issue_id, name="Changed", metadata={str(i): "v" for i in range(100)}
+        )
+    assert store.get_issue(issue.issue_id).metadata == {"owner": "team"}
     assert store.get_issue(issue.issue_id).name == "Original"
 
 
-def test_issue_source_run_ownership_and_alias(store):
+def test_issue_source_run_ownership(store):
     experiment_id = store.create_experiment("other")
     run = store.create_run(experiment_id, "user", 1, [], "run")
     with pytest.raises(MlflowException, match="belong"):
-        store.create_issue("0", "Issue", "", source_type="run", source_id=run.info.run_id)
+        store.create_issue("0", "Issue", "", source_run_id=run.info.run_id)
     issue = store.create_issue(experiment_id, "Issue", "", source_run_id=run.info.run_id)
-    assert issue.source_type == "run"
-    assert issue.source_id == run.info.run_id
-    with pytest.raises(MlflowException, match="must match"):
-        store.create_issue(
-            experiment_id,
-            "Issue",
-            "",
-            source_run_id=run.info.run_id,
-            source_type="run",
-            source_id="different",
-        )
+    assert issue.source_run_id == run.info.run_id
+    assert store.update_issue(issue.issue_id, name="Updated").source_run_id == run.info.run_id
 
 
 def test_issue_search_facets_pagination_and_projection(store):
@@ -1162,7 +1147,6 @@ def test_issue_search_facets_pagination_and_projection(store):
             issue_id=f"iss-{index}",
             severity=IssueSeverity.HIGH,
             categories=["latency", "cost"],
-            tags={"owner": "team"},
             metadata={"evidence": "large"},
             root_causes=["Legacy cause"],
             last_seen_timestamp=100,
@@ -1174,7 +1158,6 @@ def test_issue_search_facets_pagination_and_projection(store):
         "statuses": ["pending", "resolved"],
         "severities": ["high"],
         "categories": ["cost", "other"],
-        "tags": {"owner": "team"},
         "order_by": ["last_seen_timestamp DESC"],
         "include_total_count": True,
         "include_trace_count": True,

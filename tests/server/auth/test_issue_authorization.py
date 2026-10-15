@@ -43,14 +43,7 @@ def test_issue_validators_deny_empty_body(monkeypatch):
 
 def test_issue_run_provenance_is_redacted(monkeypatch):
     monkeypatch.setattr(a, "_denied_sibling_tiers", lambda *_: {a.RESOURCE_TYPE_RUN})
-    # A source ID remains immutable even if a deleted run nulls source_run_id.
-    issues = [
-        ProtoIssue(source_run_id="run-1", source_type="run", source_id="run-1"),
-        ProtoIssue(source_type="run", source_id="deleted-run"),
-        ProtoIssue(source_type="manual", source_id="investigation"),
-    ]
+    issues = [ProtoIssue(source_run_id="run-1"), ProtoIssue()]
     assert a._withhold_denied_issue_source_runs(issues, "u") is True
     assert not issues[0].HasField("source_run_id")
-    assert not issues[0].HasField("source_id")
-    assert not issues[1].HasField("source_id")
-    assert issues[2].source_id == "investigation"
+    assert not issues[1].HasField("source_run_id")

@@ -912,10 +912,7 @@ class RestStore(
         *,
         issue_id: str | None = None,
         last_seen_timestamp: int | None = None,
-        source_type: str | None = None,
-        source_id: str | None = None,
         metadata: dict[str, str] | None = None,
-        tags: dict[str, str] | None = None,
     ) -> Issue:
         """
         Create a new issue.
@@ -932,10 +929,7 @@ class RestStore(
             created_by: Optional identifier for who created this issue.
             issue_id: Optional iss-* ID (at most 36 characters); reuse returns a conflict.
             last_seen_timestamp: Latest observation in milliseconds; defaults to creation time.
-            source_type: Immutable provenance type. Supply together with source_id.
-            source_id: Immutable source identifier. Run sources must belong to this experiment.
             metadata: String metadata map (at most 100 entries).
-            tags: Searchable string tags (at most 100 entries).
 
         Returns:
             The created Issue entity.
@@ -953,10 +947,7 @@ class RestStore(
                 created_by=created_by,
                 issue_id=issue_id,
                 last_seen_timestamp=last_seen_timestamp,
-                source_type=source_type,
-                source_id=source_id,
                 metadata=metadata,
-                tags=tags,
             )
         )
         response_proto = self._call_endpoint(
@@ -992,9 +983,7 @@ class RestStore(
         last_seen_timestamp: int | None = None,
         last_updated_by: str | None = None,
         metadata: dict[str, str] | None = None,
-        tags: dict[str, str] | None = None,
         delete_metadata_keys: list[str] | None = None,
-        delete_tag_keys: list[str] | None = None,
     ) -> Issue:
         """
         Update an existing issue.
@@ -1009,9 +998,7 @@ class RestStore(
             last_seen_timestamp: Latest observation in milliseconds; never moves backwards.
             last_updated_by: Update actor, overridden by the authenticated HTTP user when available.
             metadata: Entries to merge with existing metadata.
-            tags: Entries to merge with existing tags.
             delete_metadata_keys: Metadata keys to remove; cannot overlap metadata updates.
-            delete_tag_keys: Tag keys to remove; cannot overlap tag updates.
 
         Returns:
             The updated Issue entity.
@@ -1027,9 +1014,7 @@ class RestStore(
                 last_seen_timestamp=last_seen_timestamp,
                 last_updated_by=last_updated_by,
                 metadata=metadata,
-                tags=tags,
                 delete_metadata_keys=delete_metadata_keys,
-                delete_tag_keys=delete_tag_keys,
             )
         )
         # Protobuf JSON omits empty repeated fields; retain an explicit clear operation.
@@ -1054,7 +1039,6 @@ class RestStore(
         statuses: list[str] | None = None,
         severities: list[str] | None = None,
         categories: list[str] | None = None,
-        tags: dict[str, str] | None = None,
         order_by: list[str] | None = None,
         include_total_count: bool = False,
         view: Literal["basic", "full"] | None = None,
@@ -1072,7 +1056,6 @@ class RestStore(
             statuses: Accepted status values, ORed within the list.
             severities: Accepted severity values, ORed within the list.
             categories: Match any of these categories. Different filter fields are ANDed.
-            tags: Exact tag key/value pairs; all pairs must match.
             order_by: Field and optional ASC/DESC; supports name, status, severity and timestamps.
                 Issue ID breaks ties. Omit to retain the legacy severity/count/creation ordering.
             include_total_count: Return the matching count before pagination in total_count.
@@ -1093,7 +1076,6 @@ class RestStore(
                 statuses=statuses,
                 severities=severities,
                 categories=categories,
-                tags=tags,
                 order_by=order_by,
                 include_total_count=True if include_total_count else None,
                 view=view,
