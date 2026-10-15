@@ -1501,6 +1501,7 @@ mlflow.genai.set_prompt_alias
 mlflow.genai.set_prompt_model_config
 mlflow.genai.set_prompt_tag
 mlflow.genai.set_prompt_version_tag
+mlflow.genai.set_session_hierarchy
 mlflow.genai.simulators.simulator.ConversationSimulator
 mlflow.genai.test_agent
 mlflow.genai.to_predict_fn
