@@ -45,28 +45,22 @@ export const useLatestIssueDetection = (experimentId: string) => {
   const run = latest.data?.runs?.[0];
   const jobId = run?.data?.tags?.find((tag) => tag.key === MLFLOW_ISSUE_DETECTION_JOB_ID_TAG)?.value;
   const job = useFetchJobStatus({ jobId });
-  const completedJob = useRef<string>();
+  const runStatus = (
+    { FINISHED: JobStatus.SUCCEEDED, FAILED: JobStatus.FAILED, KILLED: JobStatus.CANCELED } as Record<string, JobStatus>
+  )[run?.info.status ?? ''];
+  const status = isJobComplete(job.status) ? job.status : (runStatus ?? job.status);
   useEffect(() => {
-    if (jobId && isJobComplete(job.status) && completedJob.current !== jobId) {
-      completedJob.current = jobId;
-      completedRun.current = run?.info.run_id;
+    if (run && isJobComplete(status) && completedRun.current !== run.info.run_id) {
+      completedRun.current = run.info.run_id;
       queryClient.invalidateQueries([SEARCH_ISSUES_QUERY_KEY]);
       queryClient.invalidateQueries([LATEST_ISSUE_DETECTION_QUERY_KEY]);
     }
-  }, [jobId, job.status, queryClient, run?.info.run_id]);
+  }, [status, queryClient, run]);
   useEffect(() => {
     const refresh = () => queryClient.invalidateQueries([LATEST_ISSUE_DETECTION_QUERY_KEY]);
     window.addEventListener(ISSUE_DETECTION_JOB_SUBMITTED_EVENT, refresh);
     return () => window.removeEventListener(ISSUE_DETECTION_JOB_SUBMITTED_EVENT, refresh);
   }, [queryClient]);
-  const status =
-    job.status ??
-    (
-      { FINISHED: JobStatus.SUCCEEDED, FAILED: JobStatus.FAILED, KILLED: JobStatus.CANCELED } as Record<
-        string,
-        JobStatus
-      >
-    )[run?.info.status ?? ''];
   const readCount = (key: string) => {
     const value = run?.data?.tags?.find((tag) => tag.key === key)?.value;
     const count = value === undefined ? undefined : Number(value);

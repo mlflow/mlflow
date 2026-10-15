@@ -23,7 +23,10 @@ jest.mock('../../components/run-page/IssueTracesPanel', () => ({
 }));
 jest.mock('../../components/experiment-page/components/traces-v3/IssueDetectionModal', () => ({
   IssueDetectionModal: ({ availableTraceIds }: { availableTraceIds: string[] }) => (
-    <div role="dialog">Selected traces: {availableTraceIds.join(', ')}</div>
+    <div role="dialog">
+      Selected traces: {availableTraceIds.join(', ')}
+      <input aria-label="Detection model draft" />
+    </div>
   ),
 }));
 const makeIssue = (id: string, name = id): Issue => ({
@@ -204,6 +207,35 @@ describe('Experiment Issues', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Detect issues' }));
     expect(await screen.findByRole('dialog')).toHaveTextContent('Selected traces: trace-1, trace-2');
   });
+  test.each([200, 500])('preserves detection dialog drafts during a trace refetch (%s)', async (status) => {
+    const { client } = renderPage();
+    await userEvent.click(await screen.findByRole('button', { name: 'Detect issues' }));
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.type(screen.getByRole('textbox', { name: 'Detection model draft' }), 'chosen-model');
+    let finishResponse: () => void;
+    const responseReady = new Promise<void>((resolve) => {
+      finishResponse = resolve;
+    });
+    server.use(
+      rest.post('*/ajax-api/3.0/mlflow/traces/search', async (_req, res, ctx) => {
+        await responseReady;
+        return res(ctx.status(status), ctx.json({ traces: [{ trace_id: 'trace-3' }] }));
+      }),
+    );
+    let refetch: Promise<void>;
+    act(() => {
+      refetch = client.invalidateQueries(['ISSUE_DETECTION_DEFAULT_TRACES']);
+    });
+    await waitFor(() => expect(client.isFetching(['ISSUE_DETECTION_DEFAULT_TRACES'])).toBe(1));
+    expect(screen.getByRole('dialog')).toBe(dialog);
+    expect(screen.getByRole('textbox', { name: 'Detection model draft' })).toHaveValue('chosen-model');
+    await act(async () => {
+      finishResponse();
+      await refetch;
+    });
+    expect(screen.getByRole('dialog')).toBe(dialog);
+    expect(screen.getByRole('textbox', { name: 'Detection model draft' })).toHaveValue('chosen-model');
+  });
   test('refreshes SQL issues when detection finishes and recovers progress after reload', async () => {
     issues = [];
     latestRun = {
@@ -233,6 +265,82 @@ describe('Experiment Issues', () => {
     act(() => window.dispatchEvent(new CustomEvent(ISSUE_DETECTION_JOB_SUBMITTED_EVENT)));
     expect(await screen.findByText('Detecting issues')).toBeInTheDocument();
   });
+  test('hides cancellation until job status is readable, including permission failures', async () => {
+    latestRun = {
+      info: { run_id: 'run-1', status: 'RUNNING' },
+      data: { tags: [{ key: 'mlflow.issueDetection.jobId', value: 'job-1' }] },
+    };
+    server.use(
+      rest.get('*/ajax-api/3.0/mlflow/jobs/job-1', (_req, res, ctx) =>
+        res(ctx.delay(100), ctx.status(403), ctx.json({ message: 'Not the job owner' })),
+      ),
+    );
+    renderPage();
+    await screen.findByText('Detecting issues');
+    expect(screen.queryByRole('button', { name: 'Cancel detection' })).not.toBeInTheDocument();
+    await screen.findByText('Unable to update detection progress');
+    expect(screen.queryByRole('button', { name: 'Cancel detection' })).not.toBeInTheDocument();
+  });
+  test('retries failed job polling and refreshes issues on completion', async () => {
+    issues = [];
+    latestRun = {
+      info: { run_id: 'run-1', status: 'RUNNING' },
+      data: { tags: [{ key: 'mlflow.issueDetection.jobId', value: 'job-1' }] },
+    };
+    jobStatus = 'RUNNING';
+    const { client } = renderPage();
+    await screen.findByRole('button', { name: 'Cancel detection' });
+    server.use(rest.get('*/ajax-api/3.0/mlflow/jobs/job-1', (_req, res, ctx) => res(ctx.status(500))));
+    await act(async () => {
+      await client.invalidateQueries(['FETCH_JOB_STATUS', 'job-1']);
+    });
+    await screen.findByText('Unable to update detection progress');
+    expect(screen.queryByRole('button', { name: 'Cancel detection' })).not.toBeInTheDocument();
+    issues = [makeIssue('iss-recovered', 'Found after retry')];
+    latestRun.info.status = 'FINISHED';
+    server.use(
+      rest.get('*/ajax-api/3.0/mlflow/jobs/job-1', (_req, res, ctx) => res(ctx.json({ status: 'SUCCEEDED' }))),
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Retry status' }));
+    expect(await screen.findByText('Issue detection completed')).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: /Found after retry/ })).toBeInTheDocument();
+    expect(screen.queryByText('Unable to update detection progress')).not.toBeInTheDocument();
+  });
+  test.each([false, true])(
+    'refreshes issues once when the run completes with unavailable job status (cached running status: %s)',
+    async (cachedJob) => {
+      issues = [];
+      latestRun = {
+        info: { run_id: 'run-1', status: 'RUNNING' },
+        data: { tags: [{ key: 'mlflow.issueDetection.jobId', value: 'job-1' }] },
+      };
+      jobStatus = 'RUNNING';
+      if (!cachedJob) {
+        server.use(rest.get('*/ajax-api/3.0/mlflow/jobs/job-1', (_req, res, ctx) => res(ctx.status(403))));
+      }
+      const { client } = renderPage();
+      if (cachedJob) {
+        await screen.findByRole('button', { name: 'Cancel detection' });
+        server.use(rest.get('*/ajax-api/3.0/mlflow/jobs/job-1', (_req, res, ctx) => res(ctx.status(500))));
+        await act(async () => {
+          await client.invalidateQueries(['FETCH_JOB_STATUS', 'job-1']);
+        });
+      }
+      await screen.findByText('Unable to update detection progress');
+      issues = [makeIssue('iss-other-user', 'Found by another user')];
+      latestRun.info.status = 'FINISHED';
+      await act(async () => {
+        await client.invalidateQueries(['LATEST_ISSUE_DETECTION']);
+      });
+      expect(await screen.findByText('Issue detection completed')).toBeInTheDocument();
+      expect(await screen.findByRole('button', { name: /Found by another user/ })).toBeInTheDocument();
+      const searchCount = searches.length;
+      await act(async () => {
+        await client.invalidateQueries(['LATEST_ISSUE_DETECTION']);
+      });
+      expect(searches).toHaveLength(searchCount);
+    },
+  );
   test('distinguishes a missing Issue from denied access', async () => {
     const { unmount } = renderPage('?selectedIssueId=iss-missing');
     expect(await screen.findByText('Issue not found in this experiment')).toBeInTheDocument();

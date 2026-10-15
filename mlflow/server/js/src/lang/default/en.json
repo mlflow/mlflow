@@ -11995,6 +11995,10 @@
     "defaultMessage": "collapse {title}",
     "description": "Common component > collapsible section > alternative label when expand"
   },
+  "ibNiXU": {
+    "defaultMessage": "Retry status",
+    "description": "Issues detection job status retry action"
+  },
   "ibSBwh": {
     "defaultMessage": "Output",
     "description": "Header for the traces table output column"

@@ -287,7 +287,7 @@ const ExperimentIssuesContent = ({ experimentId }: { experimentId: string }) => 
           list
         )}
       </div>
-      {showDetection && traces.data && !traces.isFetching && !traces.error && (
+      {showDetection && traces.data && (
         <IssueDetectionModal
           experimentId={experimentId}
           availableTraceIds={traces.data}

@@ -991,6 +991,7 @@ module.exports = {
   "mlflow.experiment-issues.reopen": "",
   "mlflow.experiment-issues.resolve": "",
   "mlflow.experiment-issues.retry": "",
+  "mlflow.experiment-issues.retry-job-status": "",
   "mlflow.experiment-issues.retry-refresh": "",
   "mlflow.experiment-issues.row": "",
   "mlflow.experiment-issues.search": "",

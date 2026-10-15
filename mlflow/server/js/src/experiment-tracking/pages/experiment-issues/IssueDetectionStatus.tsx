@@ -39,6 +39,7 @@ export const IssueDetectionStatus = ({
   }
   if (!run) return null;
   const failed = status === JobStatus.FAILED || status === JobStatus.TIMEOUT;
+  const canCancel = canEdit && Boolean(jobId && job.status) && !job.error && !isJobComplete(status);
   return (
     <>
       <Alert
@@ -90,7 +91,7 @@ export const IssueDetectionStatus = ({
             >
               <FormattedMessage defaultMessage="View detection run" description="Issues latest detection run link" />
             </Link>
-            {canEdit && jobId && !isJobComplete(status) && (
+            {canCancel && (
               <Button componentId="mlflow.experiment-issues.cancel" size="small" onClick={() => setConfirmCancel(true)}>
                 <FormattedMessage defaultMessage="Cancel detection" description="Issues cancel detection action" />
               </Button>
@@ -109,11 +110,28 @@ export const IssueDetectionStatus = ({
               description="Issues job status or cancellation error"
             />
           }
-          description={(cancel.error ?? job.error)?.message}
+          description={
+            <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.md, flexWrap: 'wrap' }}>
+              {(cancel.error ?? job.error)?.message}
+              {job.error && (
+                <Button
+                  componentId="mlflow.experiment-issues.retry-job-status"
+                  size="small"
+                  loading={job.isFetching}
+                  onClick={() => job.refetch()}
+                >
+                  <FormattedMessage
+                    defaultMessage="Retry status"
+                    description="Issues detection job status retry action"
+                  />
+                </Button>
+              )}
+            </div>
+          }
         />
       )}
       <ConfirmModal
-        isOpen={confirmCancel}
+        isOpen={confirmCancel && canCancel}
         onClose={() => setConfirmCancel(false)}
         handleSubmit={() =>
           cancel.cancelJobAsync({ jobId: jobId ?? '', runUuid: run.info.run_id }).catch(() => undefined)
