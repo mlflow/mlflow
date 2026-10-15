@@ -18,6 +18,7 @@ import {
   SpeechBubbleIcon,
   TextBoxIcon,
   UserGroupIcon,
+  WarningIcon,
 } from '@databricks/design-system';
 import { shouldEnableWorkflowBasedNavigation } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 
@@ -46,6 +47,8 @@ export const getTabDisplayIcon = (tabName: ExperimentPageTabName | undefined) =>
       return <ListIcon />;
     case ExperimentPageTabName.Traces:
       return <ForkHorizontalIcon />;
+    case ExperimentPageTabName.Issues:
+      return <WarningIcon />;
     case ExperimentPageTabName.Models:
       return <ModelsIcon />;
     case ExperimentPageTabName.ChatSessions:
@@ -123,6 +126,8 @@ const getMLTabDisplayName = (tabName: ExperimentPageTabName) => {
           description="Label for the traces tab in the MLflow experiment navbar"
         />
       );
+    case ExperimentPageTabName.Issues:
+      return <FormattedMessage defaultMessage="Issues" description="Label for the experiment Issues tab" />;
     case ExperimentPageTabName.SingleChatSession:
     case ExperimentPageTabName.ChatSessions:
       return (

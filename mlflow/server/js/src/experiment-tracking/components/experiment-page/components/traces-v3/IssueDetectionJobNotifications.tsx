@@ -1,3 +1,5 @@
+import { useQueryClient } from '@databricks/web-shared/query-client';
+import { SEARCH_ISSUES_QUERY_KEY } from '../../../run-page/hooks/useSearchIssuesQuery';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { NotFoundError } from '@databricks/web-shared/errors';
 import { Typography, useLegacyNotification } from '@databricks/design-system';
@@ -22,7 +24,7 @@ type StoredSubmittedIssueDetectionJob = Omit<SubmittedIssueDetectionJob, 'experi
 export const ISSUE_DETECTION_SUBMITTED_JOBS_STORAGE_KEY = 'mlflow.issueDetection.submittedJobs';
 const ISSUE_DETECTION_TRACKED_EXPERIMENTS_STORAGE_KEY = 'mlflow.issueDetection.trackedExperiments';
 const ISSUE_DETECTION_JOB_STORAGE_COMPONENT = 'IssueDetectionJobWatcher';
-const ISSUE_DETECTION_JOB_SUBMITTED_EVENT = 'mlflow.issueDetection.jobSubmitted';
+export const ISSUE_DETECTION_JOB_SUBMITTED_EVENT = 'mlflow.issueDetection.jobSubmitted';
 const ISSUE_DETECTION_JOB_TTL_MS = 60 * 60 * 1000;
 
 const getSubmittedJobStore = (experimentId: string) =>
@@ -225,6 +227,7 @@ const TrackedIssueDetectionJobNotification = ({
 };
 
 export const IssueDetectionJobNotifications = () => {
+  const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [notification, notificationContextHolder] = useLegacyNotification();
@@ -315,6 +318,7 @@ export const IssueDetectionJobNotifications = () => {
       const { experimentId, jobId, runId } = trackedJob;
       if (!notifiedCompletionJobIdsRef.current.has(jobId)) {
         notifiedCompletionJobIdsRef.current.add(jobId);
+        queryClient.invalidateQueries([SEARCH_ISSUES_QUERY_KEY]);
         const completedKey = `issue-detection-completed-${jobId}`;
         if (status === JobStatus.SUCCEEDED) {
           const jobResult =
@@ -392,7 +396,7 @@ export const IssueDetectionJobNotifications = () => {
       }
       stopTrackingJob(trackedJob);
     },
-    [notification, navigate, stopTrackingJob, withPreservedQueryString],
+    [notification, navigate, stopTrackingJob, withPreservedQueryString, queryClient],
   );
 
   return (

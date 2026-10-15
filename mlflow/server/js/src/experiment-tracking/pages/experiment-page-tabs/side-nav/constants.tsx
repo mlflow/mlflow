@@ -3,6 +3,7 @@ import { ExperimentKind } from '../../../constants';
 import { ExperimentPageTabName } from '../../../constants';
 import {
   ChartLineIcon,
+  WarningIcon,
   DatabaseIcon,
   ForkHorizontalIcon,
   GavelIcon,
@@ -16,7 +17,7 @@ import {
 } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { shouldEnableExperimentOverviewTab } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
-import { SERVER_FEATURE_KEYS, useFeatureEnabled } from '../../../hooks/useServerInfo';
+import { SERVER_FEATURE_KEYS, useFeatureEnabled, useServerInfo } from '../../../hooks/useServerInfo';
 
 export const FULL_WIDTH_CLASS_NAME = 'mlflow-experiment-page-side-nav-full';
 export const COLLAPSED_CLASS_NAME = 'mlflow-experiment-page-side-nav-collapsed';
@@ -208,6 +209,7 @@ export const useExperimentPageSideNavConfig = ({
   hasV4Location?: boolean;
 }): ExperimentPageSideNavConfig => {
   const gatewayEnabled = useFeatureEnabled(SERVER_FEATURE_KEYS.GATEWAY);
+  const { data: serverInfo } = useServerInfo();
 
   if (
     experimentKind === ExperimentKind.GENAI_DEVELOPMENT ||
@@ -247,6 +249,19 @@ export const useExperimentPageSideNavConfig = ({
           : []),
       ],
       ...ExperimentPageSideNavGenAIConfig,
+      observability: [
+        ...ExperimentPageSideNavGenAIConfig.observability,
+        ...(serverInfo?.store_type === 'SqlStore'
+          ? [
+              {
+                label: <FormattedMessage defaultMessage="Issues" description="Label for the experiment Issues tab" />,
+                icon: <WarningIcon />,
+                tabName: ExperimentPageTabName.Issues,
+                componentId: 'mlflow.experiment-side-nav.genai.issues',
+              },
+            ]
+          : []),
+      ],
       'prompts-versions': gatewayEnabled
         ? ExperimentPageSideNavGenAIConfig['prompts-versions']
         : ExperimentPageSideNavGenAIConfig['prompts-versions'].filter(

@@ -20,6 +20,10 @@ export interface Issue {
   last_updated_timestamp: number;
   categories?: string[];
   trace_count?: number;
+  root_causes?: string[];
+  last_seen_timestamp?: number;
+  last_updated_by?: string;
+  metadata?: Record<string, string>;
 }
 
 type SearchIssuesResponse = {
