@@ -10398,7 +10398,12 @@ def _get_orderby_clauses_for_search_traces(order_by_list: list[str], session):
                 "represented by multiple columns."
             )
         needs_null_ordering = True
-        if SearchTraceUtils.is_attribute(key_type, key, "="):
+        if SearchTraceUtils.is_attribute(key_type, key, "=") and key == "end_time_ms":
+            order_value = SqlTraceInfo.timestamp_ms + func.coalesce(
+                SqlTraceInfo.execution_time_ms, 0
+            )
+            needs_null_ordering = False
+        elif SearchTraceUtils.is_attribute(key_type, key, "="):
             order_value = getattr(SqlTraceInfo, key)
             needs_null_ordering = order_value.nullable
         elif SearchTraceUtils.is_tag(key_type, "=") and key == TraceTagKey.TRACE_NAME:
