@@ -1057,6 +1057,32 @@ async def test_bedrock_anthropic_passthrough_posts_to_invoke(model_name, model_p
     assert captured_session_headers["x-request-id"] == "req-1"
 
 
+@pytest.mark.parametrize(
+    ("model_name", "model_path"),
+    [
+        (_CLAUDE_MODEL_ID, _CLAUDE_MODEL_ID),
+        (
+            "arn:aws:bedrock:eu-west-1:123456789012:application-inference-profile/abc123",
+            "arn:aws:bedrock:eu-west-1:123456789012:application-inference-profile%2Fabc123",
+        ),
+    ],
+)
+@pytest.mark.asyncio
+async def test_bedrock_converse_chat_with_api_key_posts_to_converse(model_name, model_path):
+    provider = _make_api_key_provider(model_name)
+    mock_client = mock_http_client(MockAsyncResponse(_converse_response()))
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
+        response = await provider.chat(
+            chat.RequestPayload(messages=[{"role": "user", "content": "Hello"}])
+        )
+
+    assert response.choices[0].message.content == "Hello from Bedrock!"
+    assert mock_client.post.call_args.args[0] == (
+        f"https://bedrock-runtime.eu-west-1.amazonaws.com/model/{model_path}/converse"
+    )
+
+
 @pytest.mark.asyncio
 async def test_bedrock_anthropic_passthrough_stream_converts_event_stream_to_sse():
     provider = _make_api_key_provider()
