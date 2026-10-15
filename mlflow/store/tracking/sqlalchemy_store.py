@@ -9013,6 +9013,8 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
 
             if name is not None:
                 escaped = name.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+                if self.db_type == MSSQL:
+                    escaped = escaped.replace("[", "\\[")
                 query = query.filter(SqlIssue.name.ilike(f"%{escaped}%", escape="\\"))
             if statuses:
                 query = query.filter(SqlIssue.status.in_(statuses))

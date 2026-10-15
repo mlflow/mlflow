@@ -24,7 +24,7 @@ from sqlalchemy import (
     UniqueConstraint,
 )
 from sqlalchemy.dialects.mssql import NVARCHAR
-from sqlalchemy.dialects.mysql import MEDIUMTEXT
+from sqlalchemy.dialects.mysql import LONGTEXT, MEDIUMTEXT
 from sqlalchemy.ext.mutable import MutableDict, MutableList
 from sqlalchemy.inspection import inspect
 from sqlalchemy.orm import (
@@ -1480,7 +1480,7 @@ class SqlIssue(Base):
 
     last_seen_timestamp = Column(BigInteger, nullable=True)
     last_updated_by = Column(String(255), nullable=True)
-    issue_metadata = Column("metadata", Text, nullable=True)
+    issue_metadata = Column("metadata", Text().with_variant(LONGTEXT(), "mysql"), nullable=True)
     issue_categories = relationship("SqlIssueCategory", cascade="all, delete-orphan")
 
     run = relationship("SqlRun", foreign_keys=[source_run_id], backref=backref("issues"))

@@ -1,11 +1,38 @@
+import importlib
+import io
 import json
+from unittest import mock
 
 import sqlalchemy as sa
 from alembic import command
+from alembic.migration import MigrationContext
+from alembic.operations import Operations
+from sqlalchemy.dialects import mysql
 
 from mlflow.store.db.utils import _get_alembic_config
 from mlflow.store.tracking.dbmodels.initial_models import Base as InitialBase
+from mlflow.store.tracking.dbmodels.models import SqlIssue
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+
+
+def test_issue_metadata_mysql_schema_capacity():
+    migration = importlib.import_module(
+        "mlflow.store.db_migrations.versions.8b6ad64cb8f5_extend_issue_contract"
+    )
+    output = io.StringIO()
+    context = MigrationContext.configure(
+        dialect_name="mysql", opts={"as_sql": True, "output_buffer": output}
+    )
+    connection = mock.Mock()
+    connection.execute.return_value.fetchmany.return_value = []
+    with (
+        Operations.context(context),
+        mock.patch.object(migration.op, "get_bind", return_value=connection) as get_bind,
+    ):
+        migration.upgrade()
+        get_bind.assert_called_once()
+    assert "ADD COLUMN metadata LONGTEXT" in output.getvalue()
+    assert SqlIssue.__table__.c.metadata.type.compile(dialect=mysql.dialect()) == "LONGTEXT"
 
 
 def test_issue_contract_migration_preserves_existing_issues(tmp_path):

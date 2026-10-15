@@ -11327,3 +11327,46 @@ def test_issue_invalid_status_returns_400(status):
         response = _create_issue()
         assert response.status_code == 400
         assert json.loads(response.get_data())["error_code"] == "INVALID_PARAMETER_VALUE"
+
+
+@pytest.mark.parametrize(
+    ("operation", "invalid_fields"),
+    [
+        ("create", {"categories": "cost"}),
+        ("create", {"metadata": {"key": 1}}),
+        ("create", {"metadata": []}),
+        ("create", {"last_seen_timestamp": "invalid"}),
+        ("update", {"categories": "cost"}),
+        ("update", {"metadata": {"key": 1}}),
+        ("update", {"metadata": []}),
+        ("update", {"delete_metadata_keys": "owner"}),
+        ("update", {"last_seen_timestamp": "invalid"}),
+        ("search", {"statuses": "pending"}),
+        ("search", {"severities": "high"}),
+        ("search", {"categories": "cost"}),
+        ("search", {"order_by": "name ASC"}),
+        ("search", {"include_total_count": "true"}),
+    ],
+)
+def test_issue_handlers_reject_malformed_fields_before_store_access(operation, invalid_fields):
+    payload = {
+        "experiment_id": "0",
+        "issue_id": "iss-test",
+        "name": "Changed",
+        "description": "Details",
+        **invalid_fields,
+    }
+    with (
+        app.test_request_context(method="PATCH" if operation == "update" else "POST", json=payload),
+        mock.patch("mlflow.server.handlers._get_tracking_store") as mock_store,
+    ):
+        match operation:
+            case "create":
+                response = _create_issue()
+            case "update":
+                response = _update_issue("iss-test")
+            case "search":
+                response = _search_issues()
+        assert response.status_code == 400
+        assert json.loads(response.get_data())["error_code"] == "INVALID_PARAMETER_VALUE"
+        mock_store.assert_not_called()

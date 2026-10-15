@@ -1155,7 +1155,7 @@ def _raw_request_has_field(field: descriptor.FieldDescriptor) -> bool:
         return False
 
 
-def _get_request_message(request_message, flask_request=request, schema=None):
+def _get_request_message(request_message, flask_request=request, schema=None, *, strict=False):
     if flask_request.method == "GET" and flask_request.args:
         # Convert atomic values of repeated fields to lists before calling protobuf deserialization.
         # Context: We parse the parameter string into a dictionary outside of protobuf since
@@ -1192,7 +1192,9 @@ def _get_request_message(request_message, flask_request=request, schema=None):
     proto_parsing_succeeded = True
     try:
         parse_dict(request_json, request_message)
-    except ParseError:
+    except ParseError as e:
+        if strict:
+            raise MlflowException.invalid_parameter_value(f"Invalid request: {e}") from e
         proto_parsing_succeeded = False
 
     _validate_request_json_with_schema(request_json, schema, proto_parsing_succeeded)
@@ -5009,6 +5011,7 @@ def _create_issue():
     """
     request_message = _get_request_message(
         CreateIssue(),
+        strict=True,
         schema={
             "name": [_assert_required, _assert_string],
             "description": [_assert_required, _assert_string],
@@ -5056,6 +5059,7 @@ def _update_issue(issue_id):
     """
     request_message = _get_request_message(
         UpdateIssue(),
+        strict=True,
         schema={
             "issue_id": [_assert_required],
         },
@@ -5115,7 +5119,7 @@ def _search_issues():
     """
     A request handler for `POST /mlflow/issues/search` to search for issues.
     """
-    request_message = _get_request_message(SearchIssues())
+    request_message = _get_request_message(SearchIssues(), strict=True)
 
     # Build kwargs for search_issues
     search_kwargs = {

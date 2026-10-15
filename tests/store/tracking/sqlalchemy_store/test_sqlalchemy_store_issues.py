@@ -1128,6 +1128,24 @@ def test_issue_patch_validation_is_atomic(store):
     assert store.get_issue(issue.issue_id).name == "Original"
 
 
+@pytest.mark.parametrize("value", ["x" * 1000, "\x00" * 1000], ids=["ascii", "json-escaped"])
+def test_issue_large_metadata_round_trip(store, value):
+    metadata = {str(index): value for index in range(70)}
+    issue = store.create_issue("0", "Large metadata", "", metadata=metadata)
+    assert store.get_issue(issue.issue_id).metadata == metadata
+    patch = {str(index): value for index in range(70, 100)}
+    store.update_issue(issue.issue_id, metadata=patch)
+    assert store.get_issue(issue.issue_id).metadata == metadata | patch
+
+
+def test_issue_name_search_treats_brackets_literally(store):
+    issue = store.create_issue("0", "Error [500]", "")
+    store.create_issue("0", "Error 5", "")
+    results = store.search_issues(name="error [500]", include_total_count=True)
+    assert [result.issue_id for result in results] == [issue.issue_id]
+    assert results.total_count == 1
+
+
 def test_issue_source_run_ownership(store):
     experiment_id = store.create_experiment("other")
     run = store.create_run(experiment_id, "user", 1, [], "run")

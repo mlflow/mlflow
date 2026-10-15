@@ -5,6 +5,7 @@ import json
 
 import sqlalchemy as sa
 from alembic import op
+from sqlalchemy.dialects.mysql import LONGTEXT
 
 revision = "8b6ad64cb8f5"
 down_revision = "dc11669786a5"
@@ -16,7 +17,9 @@ def upgrade():
     with op.batch_alter_table("issues") as batch_op:
         batch_op.add_column(sa.Column("last_seen_timestamp", sa.BigInteger(), nullable=True))
         batch_op.add_column(sa.Column("last_updated_by", sa.String(255), nullable=True))
-        batch_op.add_column(sa.Column("metadata", sa.Text(), nullable=True))
+        batch_op.add_column(
+            sa.Column("metadata", sa.Text().with_variant(LONGTEXT(), "mysql"), nullable=True)
+        )
         batch_op.create_index(
             "index_issues_experiment_last_seen", ["experiment_id", "last_seen_timestamp"]
         )
