@@ -10,7 +10,7 @@ from mlflow.tracing.utils.session_hierarchy import (
     session_group_key,
     set_session_hierarchy,
 )
-from mlflow.tracking.client import MlflowClient
+from mlflow.tracking._tracking_service.utils import _get_store
 from mlflow.utils.mlflow_tags import MLFLOW_EXPERIMENT_SESSION_HIERARCHY
 
 
@@ -138,7 +138,7 @@ def test_set_session_hierarchy_writes_valid_tag():
 
     set_session_hierarchy(["trip", "episode"], experiment_id=experiment_id)
 
-    tags = MlflowClient().get_experiment(experiment_id).tags
+    tags = _get_store().get_experiment(experiment_id).tags
     tag_value = tags[MLFLOW_EXPERIMENT_SESSION_HIERARCHY]
     assert parse_session_hierarchy_levels(tag_value) == ["trip", "episode"]
     # Compact JSON, versioned schema.
@@ -151,5 +151,5 @@ def test_set_session_hierarchy_defaults_to_current_experiment():
     set_session_hierarchy(["trip"])
 
     assert parse_session_hierarchy_levels(
-        MlflowClient().get_experiment(experiment_id).tags[MLFLOW_EXPERIMENT_SESSION_HIERARCHY]
+        _get_store().get_experiment(experiment_id).tags[MLFLOW_EXPERIMENT_SESSION_HIERARCHY]
     ) == ["trip"]

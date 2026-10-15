@@ -10,9 +10,10 @@ import json
 import logging
 from typing import Any
 
+from mlflow.entities import ExperimentTag
 from mlflow.exceptions import MlflowException
 from mlflow.tracing.utils import serialize_session_id
-from mlflow.tracking.client import MlflowClient
+from mlflow.tracking._tracking_service.utils import _get_store
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.annotations import experimental
 from mlflow.utils.mlflow_tags import MLFLOW_EXPERIMENT_SESSION_HIERARCHY
@@ -125,4 +126,6 @@ def set_session_hierarchy(levels: list[str], experiment_id: str | None = None) -
         separators=(",", ":"),
         ensure_ascii=False,
     )
-    MlflowClient().set_experiment_tag(experiment_id, MLFLOW_EXPERIMENT_SESSION_HIERARCHY, tag_value)
+    _get_store().set_experiment_tag(
+        experiment_id, ExperimentTag(MLFLOW_EXPERIMENT_SESSION_HIERARCHY, tag_value)
+    )
