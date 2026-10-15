@@ -4,14 +4,14 @@ import { rest } from 'msw';
 import { IntlProvider } from 'react-intl';
 import { getAjaxUrl } from '@mlflow/mlflow/src/common/utils/FetchUtils';
 import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
-import { setupServer } from '../../common/utils/setup-msw';
+import { setupServer } from '../utils/setup-msw';
 import { useCursorPaginatedQuery } from './useCursorPaginatedQuery';
 
 const BASE_URL = 'ajax-api/3.0/mlflow/test-endpoint';
 
 interface TestResponse {
   items: string[];
-  next_page_token?: string;
+  next_page_token?: string | null;
 }
 
 describe('useCursorPaginatedQuery', () => {
@@ -67,6 +67,25 @@ describe('useCursorPaginatedQuery', () => {
     expect(result.current.data).toEqual(['item-1', 'item-2']);
     expect(result.current.hasNextPage).toBe(true);
     expect(result.current.hasPreviousPage).toBe(false);
+  });
+
+  it('treats a null next_page_token as the end of the result set', async () => {
+    mockServer.use(
+      rest.get(getAjaxUrl(BASE_URL), (_req, res, ctx) =>
+        res(ctx.json({ items: ['only-page'], next_page_token: null })),
+      ),
+    );
+
+    const { result } = renderHook(() => useCursorPaginatedQuery(defaultOptions), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    expect(result.current.data).toEqual(['only-page']);
+    expect(result.current.hasNextPage).toBe(false);
   });
 
   it('onNextPage advances the page token', async () => {
@@ -155,7 +174,6 @@ describe('useCursorPaginatedQuery', () => {
       expect(result.current.isLoading).toBe(false);
     });
 
-    // Navigate to page 2
     act(() => {
       result.current.onNextPage();
     });
@@ -164,7 +182,6 @@ describe('useCursorPaginatedQuery', () => {
       expect(capturedTokens).toContain('next');
     });
 
-    // Change filter — should reset token
     rerender({ filter: 'new-filter' });
 
     await waitFor(() => {
@@ -210,6 +227,47 @@ describe('useCursorPaginatedQuery', () => {
     expect(result.current.hasPreviousPage).toBe(false);
   });
 
+  it('resets the cursor before querying a changed scope', async () => {
+    const capturedRequests: { scope: string | null; token: string | null }[] = [];
+    mockServer.use(
+      rest.get(getAjaxUrl(BASE_URL), (req, res, ctx) => {
+        capturedRequests.push({
+          scope: req.url.searchParams.get('scope'),
+          token: req.url.searchParams.get('page_token'),
+        });
+        return res(ctx.json({ items: ['item'], next_page_token: 'next' }));
+      }),
+    );
+
+    const { result, rerender } = renderHook(
+      ({ scope }: { scope: string }) =>
+        useCursorPaginatedQuery({
+          ...defaultOptions,
+          extraQueryKeys: { scope },
+          queryFn: ({ pageToken, pageSize }) => {
+            const params = new URLSearchParams({ scope, max_results: String(pageSize) });
+            if (pageToken) params.set('page_token', pageToken);
+            return fetch(getAjaxUrl(`${BASE_URL}?${params.toString()}`)).then((r) => r.json()) as Promise<TestResponse>;
+          },
+        }),
+      { wrapper: createWrapper(), initialProps: { scope: 'team-a' } },
+    );
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    act(() => result.current.onNextPage());
+    await waitFor(() =>
+      expect(capturedRequests.some(({ scope, token }) => scope === 'team-a' && token === 'next')).toBe(true),
+    );
+
+    rerender({ scope: 'team-b' });
+
+    await waitFor(() => {
+      expect(capturedRequests.filter(({ scope }) => scope === 'team-b')).toHaveLength(1);
+    });
+    expect(capturedRequests.filter(({ scope }) => scope === 'team-b')).toEqual([{ scope: 'team-b', token: null }]);
+    expect(result.current.hasPreviousPage).toBe(false);
+  });
+
   it('enabled=false prevents query from firing', async () => {
     let requestCount = 0;
     mockServer.use(
@@ -223,7 +281,6 @@ describe('useCursorPaginatedQuery', () => {
       wrapper: createWrapper(),
     });
 
-    // Wait a tick to ensure no request fires
     await new Promise((r) => setTimeout(r, 50));
     expect(result.current.data).toBeUndefined();
     expect(result.current.isLoading).toBe(true);
