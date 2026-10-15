@@ -1037,6 +1037,21 @@ def test_trace_analytics_migration_backfills_multiple_keyset_pages(tmp_path, cap
                 1_800_000_000_000 + _PAGINATION_ROW_COUNT - 1,
                 float(_PAGINATION_ROW_COUNT - 1),
             )
+
+            # The legacy cleanup deletes in cursor-paged batches; every batch must be removed.
+            for table_name, key in (
+                ("trace_tags", TraceTagKey.TRACE_NAME),
+                ("trace_request_metadata", TraceMetadataKey.TRACE_SESSION),
+                ("trace_metrics", TokenUsageKey.INPUT_TOKENS),
+                ("span_metrics", CostKey.TOTAL_COST),
+            ):
+                table = _table(conn, table_name)
+                assert (
+                    conn.execute(
+                        sa.select(sa.func.count()).select_from(table).where(table.c.key == key)
+                    ).scalar_one()
+                    == 0
+                )
     finally:
         engine.dispose()
 
@@ -1262,16 +1277,30 @@ def test_span_metrics_for_keys_query_matches_exact_pairs():
 
 
 @pytest.mark.parametrize(
-    "dialect", [postgresql.dialect(), sqlite.dialect(), mysql.dialect(), mssql.dialect()]
+    ("dialect", "expected"),
+    [
+        (postgresql.dialect(), "(spans.trace_id, spans.span_id) > (%(param_1)s, %(param_2)s)"),
+        (sqlite.dialect(), "(spans.trace_id, spans.span_id) > (?, ?)"),
+        (
+            mysql.dialect(),
+            "spans.trace_id >= %s AND (spans.trace_id > %s "
+            "OR spans.trace_id = %s AND spans.span_id > %s)",
+        ),
+        (
+            mssql.dialect(),
+            "spans.trace_id >= :trace_id_1 AND (spans.trace_id > :trace_id_2 "
+            "OR spans.trace_id = :trace_id_3 AND spans.span_id > :span_id_1)",
+        ),
+    ],
 )
-def test_span_key_after_has_a_seekable_leading_bound(dialect):
+def test_span_key_after_compiles_for_supported_dialects(dialect, expected):
     spans = sa.table(
         "spans", sa.column("trace_id", sa.String(50)), sa.column("span_id", sa.String(50))
     )
 
-    condition = MIGRATION_MODULE._span_key_after(spans, "trace-1", "span-1")
+    condition = MIGRATION_MODULE._span_key_after(spans, "trace-1", "span-1", dialect.name)
 
-    assert str(condition.compile(dialect=dialect)).startswith("spans.trace_id >= ")
+    assert str(condition.compile(dialect=dialect)) == expected
 
 
 @pytest.mark.skipif(
@@ -1285,18 +1314,30 @@ def test_span_key_after_seeks_the_spans_primary_key_on_postgres(tmp_path):
             page = (
                 sa
                 .select(spans.c.trace_id, spans.c.span_id)
-                .where(MIGRATION_MODULE._span_key_after(spans, "trace-1", "span-1"))
+                .where(
+                    MIGRATION_MODULE._span_key_after(spans, "trace-1", "span-1", conn.dialect.name)
+                )
                 .order_by(spans.c.trace_id, spans.c.span_id)
                 .limit(MIGRATION_MODULE._BATCH_SIZE)
             )
             sql = str(page.compile(conn, compile_kwargs={"literal_binds": True}))
             # An empty table plans a sequential scan; force the index to inspect how it is used.
             conn.exec_driver_sql("SET LOCAL enable_seqscan = off")
-            plan = "\n".join(conn.exec_driver_sql(f"EXPLAIN {sql}").scalars())
+            [[plan]] = conn.exec_driver_sql(f"EXPLAIN (FORMAT JSON) {sql}").all()
     finally:
         engine.dispose()
 
-    assert "Index Cond: ((trace_id)::text >= 'trace-1'::text)" in plan
+    def scan_nodes(node):
+        yield node
+        for child in node.get("Plans", []):
+            yield from scan_nodes(child)
+
+    [scan] = [node for node in scan_nodes(plan[0]["Plan"]) if "Index Name" in node]
+    # The whole (trace_id, span_id) key must be the index condition. If any part of it is left
+    # as a filter, each page within a trace rescans the spans earlier pages already returned.
+    assert scan["Index Name"] == "spans_pk"
+    assert "span_id" in scan["Index Cond"]
+    assert "Filter" not in scan
 
 
 @pytest.mark.parametrize(

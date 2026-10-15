@@ -549,7 +549,9 @@ def _backfill_span_analytics():
         ).order_by(spans.c.trace_id, spans.c.span_id)
         if last_span_key is not None:
             last_trace_id, last_span_id = last_span_key
-            page_stmt = page_stmt.where(_span_key_after(spans, last_trace_id, last_span_id))
+            page_stmt = page_stmt.where(
+                _span_key_after(spans, last_trace_id, last_span_id, bind.dialect.name)
+            )
         batch = bind.execute(page_stmt.limit(_BATCH_SIZE)).all()
         if not batch:
             break
@@ -770,7 +772,9 @@ def _validate_dimension_attributes():
         )
         if last_span_key is not None:
             last_trace_id, last_span_id = last_span_key
-            stmt = stmt.where(_span_key_after(spans, last_trace_id, last_span_id))
+            stmt = stmt.where(
+                _span_key_after(spans, last_trace_id, last_span_id, bind.dialect.name)
+            )
         rows = bind.execute(stmt.limit(_BATCH_SIZE)).all()
         if not rows:
             break
@@ -813,15 +817,21 @@ def _validated_dimension_attributes(value, span_key):
     return value
 
 
-def _span_key_after(spans, last_trace_id, last_span_id):
-    # The redundant leading bound lets PostgreSQL seek the primary key index. With only the OR
-    # it applies the predicate as a filter and rescans every earlier span on each page.
-    return sa.and_(
-        spans.c.trace_id >= last_trace_id,
-        sa.or_(
-            spans.c.trace_id > last_trace_id,
-            sa.and_(spans.c.trace_id == last_trace_id, spans.c.span_id > last_span_id),
-        ),
+def _span_key_after(table, last_trace_id, last_span_id, dialect_name):
+    if dialect_name in ("mysql", "mssql"):
+        # SQL Server lacks row-value comparison, and MySQL doesn't seek on a row-value inequality
+        # (it scans the index from the start), but both turn this expanded form into a range seek.
+        return sa.and_(
+            table.c.trace_id >= last_trace_id,
+            sa.or_(
+                table.c.trace_id > last_trace_id,
+                sa.and_(table.c.trace_id == last_trace_id, table.c.span_id > last_span_id),
+            ),
+        )
+    # A row-value comparison lets the index seek land on the cursor itself rather than at the
+    # start of its trace, so pages within a large trace don't rescan earlier spans.
+    return sa.tuple_(table.c.trace_id, table.c.span_id) > sa.tuple_(
+        sa.literal(last_trace_id), sa.literal(last_span_id)
     )
 
 
@@ -869,36 +879,41 @@ def _execute_backfill_updates(bind, update_stmt, updates, entity):
 
 def _delete_trace_rows(table, keys):
     bind = op.get_bind()
+    last_request_id = None
     while True:
-        request_ids = (
-            bind
-            .execute(
-                sa
-                .select(table.c.request_id)
-                .where(table.c.key.in_(keys))
-                .order_by(table.c.request_id)
-                .limit(_BATCH_SIZE)
-            )
-            .scalars()
-            .all()
+        # Rows deleted earlier in this transaction stay in the index until commit, so page with a
+        # cursor instead of rescanning them from the start on every batch.
+        stmt = (
+            sa.select(table.c.request_id).where(table.c.key.in_(keys)).order_by(table.c.request_id)
         )
+        if last_request_id is not None:
+            stmt = stmt.where(table.c.request_id > last_request_id)
+        request_ids = bind.execute(stmt.limit(_BATCH_SIZE)).scalars().all()
         if not request_ids:
             break
         bind.execute(
             table.delete().where(table.c.request_id.in_(request_ids), table.c.key.in_(keys))
         )
+        last_request_id = request_ids[-1]
 
 
 def _delete_span_metric_rows(span_metrics):
     bind = op.get_bind()
+    last_span_key = None
     while True:
-        rows = bind.execute(
+        # See _delete_trace_rows for why this pages with a cursor.
+        stmt = (
             sa
             .select(span_metrics.c.trace_id, span_metrics.c.span_id)
             .where(span_metrics.c.key.in_(list(_COST_COLUMNS)))
             .order_by(span_metrics.c.trace_id, span_metrics.c.span_id)
-            .limit(_BATCH_SIZE)
-        ).all()
+        )
+        if last_span_key is not None:
+            last_trace_id, last_span_id = last_span_key
+            stmt = stmt.where(
+                _span_key_after(span_metrics, last_trace_id, last_span_id, bind.dialect.name)
+            )
+        rows = bind.execute(stmt.limit(_BATCH_SIZE)).all()
         if not rows:
             break
         key_filter = sa.or_(
@@ -916,6 +931,7 @@ def _delete_span_metric_rows(span_metrics):
                 span_metrics.c.key.in_(list(_COST_COLUMNS)),
             )
         )
+        last_span_key = (rows[-1].trace_id, rows[-1].span_id)
 
 
 def _cleanup_legacy_analytics():
@@ -1028,7 +1044,9 @@ def _reconstruct_legacy_analytics():
         stmt = sa.select(spans).order_by(spans.c.trace_id, spans.c.span_id)
         if last_span_key is not None:
             last_trace_id, last_span_id = last_span_key
-            stmt = stmt.where(_span_key_after(spans, last_trace_id, last_span_id))
+            stmt = stmt.where(
+                _span_key_after(spans, last_trace_id, last_span_id, bind.dialect.name)
+            )
         rows = bind.execute(stmt.limit(_BATCH_SIZE)).mappings().all()
         if not rows:
             break

@@ -320,16 +320,23 @@ def _span_metrics_for_keys_query(
 
 
 def _span_key_after(
-    spans: sa.Table, last_trace_id: str, last_span_id: str
+    table: sa.Table, last_trace_id: str, last_span_id: str, dialect_name: str
 ) -> sa.ColumnElement[bool]:
-    # The redundant leading bound lets PostgreSQL seek the primary key index. With only the OR
-    # it applies the predicate as a filter and rescans every earlier span on each page.
-    return sa.and_(
-        spans.c.trace_id >= last_trace_id,
-        sa.or_(
-            spans.c.trace_id > last_trace_id,
-            sa.and_(spans.c.trace_id == last_trace_id, spans.c.span_id > last_span_id),
-        ),
+    # Keep in sync with the trace analytics migration's _span_key_after.
+    if dialect_name in ("mysql", "mssql"):
+        # SQL Server lacks row-value comparison, and MySQL doesn't seek on a row-value inequality
+        # (it scans the index from the start), but both turn this expanded form into a range seek.
+        return sa.and_(
+            table.c.trace_id >= last_trace_id,
+            sa.or_(
+                table.c.trace_id > last_trace_id,
+                sa.and_(table.c.trace_id == last_trace_id, table.c.span_id > last_span_id),
+            ),
+        )
+    # A row-value comparison lets the index seek land on the cursor itself rather than at the
+    # start of its trace, so pages within a large trace don't rescan earlier spans.
+    return sa.tuple_(table.c.trace_id, table.c.span_id) > sa.tuple_(
+        sa.literal(last_trace_id), sa.literal(last_span_id)
     )
 
 
@@ -349,7 +356,9 @@ def _span_batch(
     ).order_by(spans.c.trace_id, spans.c.span_id)
     if cursor is not None:
         last_trace_id, last_span_id = cursor
-        page_statement = page_statement.where(_span_key_after(spans, last_trace_id, last_span_id))
+        page_statement = page_statement.where(
+            _span_key_after(spans, last_trace_id, last_span_id, connection.dialect.name)
+        )
     rows = connection.execute(page_statement.limit(batch_size)).all()
     if not rows:
         return _BatchResult(cursor, 0, 0)
