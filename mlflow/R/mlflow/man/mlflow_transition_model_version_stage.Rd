@@ -29,3 +29,7 @@ MLflow will use the tracking server associated with the current tracking URI.}
 \description{
 Transition a model version to a different stage.
 }
+\details{
+Stages are not supported when the registry URI is `databricks-uc`. Use model aliases
+for registries that reject stages.
+}
