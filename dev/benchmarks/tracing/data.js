@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792079725634,
+  "lastUpdate": 1792086324314,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "veronica.lyu@databricks.com",
-            "name": "veronicalyu320",
-            "username": "veronicalyu320"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "4c1f89ce06fe75fdb63512868160b7635683c834",
-          "message": "Fix MemAlign guideline distillation against Databricks structured-output models (#24547)\n\nSigned-off-by: Veronica Lyu <veronica.lyu@databricks.com>",
-          "timestamp": "2026-07-21T03:17:13Z",
-          "tree_id": "362c560cd27933027bb501c3ace854563ee8d643",
-          "url": "https://github.com/mlflow/mlflow/commit/4c1f89ce06fe75fdb63512868160b7635683c834"
-        },
-        "date": 1784604066801,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 39.37058690000086,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 23.743792285716022,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 21.63057101639358,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 23.059612052631554,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 22.441760966100524,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 6.5201369999954295,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 11.229787200002761,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mprahl@users.noreply.github.com",
+            "name": "Matthew Prahl",
+            "username": "mprahl"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "fb519dbbc82746675ff8ab9c2b5386c17a73fe46",
+          "message": "Add the skill registry (#26736)\n\nSigned-off-by: Khaled Sulayman <ksulayma@redhat.com>\nSigned-off-by: Khaled Sulayman <55605301+khaledsulayman@users.noreply.github.com>\nSigned-off-by: Nehanth Narendrula <nehanthnarendrula@gmail.com>\nSigned-off-by: Robin Narsingh Ranabhat <robinnarsingha123@gmail.com>\nSigned-off-by: Nehanth <nehanthnarendrula@gmail.com>\nSigned-off-by: Hamid Moghani <hmoghani@gmail.com>\nSigned-off-by: Mike Sager <53917070+msager27@users.noreply.github.com>\nSigned-off-by: Ryan Barden <79597212+bardenr@users.noreply.github.com>\nSigned-off-by: Juntao Wang <37624318+DaoDaoNoCode@users.noreply.github.com>\nSigned-off-by: Aakanksha Duggal <aduggal@redhat.com>\nSigned-off-by: Nana Nosirova <10577112+nananosirova@users.noreply.github.com>\nSigned-off-by: mprahl <mprahl@users.noreply.github.com>\nCo-authored-by: Khaled Sulayman <55605301+khaledsulayman@users.noreply.github.com>\nCo-authored-by: Nehanth Narendrula <nehanthnarendrula@gmail.com>\nCo-authored-by: Claude Fable 5.1 <noreply@anthropic.com>\nCo-authored-by: Robin Narsingh Ranabhat <robinnarsingha123@gmail.com>\nCo-authored-by: Copilot Autofix powered by AI <175728472+Copilot@users.noreply.github.com>\nCo-authored-by: Hamid Moghani <hmoghani@gmail.com>\nCo-authored-by: Mike Sager <53917070+msager27@users.noreply.github.com>\nCo-authored-by: Codex <noreply@openai.com>\nCo-authored-by: Ryan Barden <79597212+bardenr@users.noreply.github.com>\nCo-authored-by: Juntao Wang <37624318+DaoDaoNoCode@users.noreply.github.com>\nCo-authored-by: Aakanksha Duggal <aduggal@redhat.com>\nCo-authored-by: Codex <codex@openai.com>\nCo-authored-by: Nana Nosirova <10577112+nananosirova@users.noreply.github.com>",
+          "timestamp": "2026-10-15T17:41:37Z",
+          "tree_id": "c05ea28e2eab791c67aeaa1996aa05651898f935",
+          "url": "https://github.com/mlflow/mlflow/commit/fb519dbbc82746675ff8ab9c2b5386c17a73fe46"
+        },
+        "date": 1792086320721,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 50.774025849998594,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 7.201030545455338,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 6.344167966387084,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 6.3758549193547625,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 6.925873860869619,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 32.25512839999851,
             "unit": "ms"
           }
         ]
