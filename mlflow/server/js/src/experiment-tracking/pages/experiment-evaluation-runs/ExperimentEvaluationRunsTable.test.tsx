@@ -311,6 +311,20 @@ describe('ExperimentEvaluationRunsTable run name cell', () => {
     expect(container.querySelectorAll('div[aria-hidden="true"]')).toHaveLength(0);
   });
 
+  test('flag on: the sticky header row stacks above row checkboxes scrolled under it', () => {
+    renderTable({ data: [makeRun('run-1')], enableNewEvalRunsUi: true });
+
+    const headerRow = screen.getAllByRole('row')[0];
+    expect(within(headerRow).getByRole('checkbox', { name: 'Select all runs' })).toBeInTheDocument();
+    expect(headerRow).toHaveStyle({ zIndex: '2' });
+  });
+
+  test('flag off: the header row keeps the default stacking', () => {
+    renderTable({ data: [makeRun('run-1')] });
+
+    expect(screen.getAllByRole('row')[0].style.zIndex).toBe('');
+  });
+
   test('flag on: issue-detection run names are real links to the issue-detection page', () => {
     const run = makeRun('issue-run', {
       data: {

@@ -259,6 +259,9 @@ export const ExperimentEvaluationRunsTable = forwardRef<HTMLDivElement, Experime
     // Rows span the summed column width (not the viewport) so fixed columns don't overflow; a trailing
     // filler cell takes any leftover width.
     const rowWidthStyle = enableNewEvalRunsUi ? EVAL_RUNS_COLUMN_SIZING.rowWidthStyle : undefined;
+    // The sticky header and each row checkbox's hidden input both sit at z-index 1, so rows scrolled
+    // under the header would take its clicks (the select-all checkbox toggled a single row).
+    const headerRowStyle = enableNewEvalRunsUi ? { ...EVAL_RUNS_COLUMN_SIZING.rowWidthStyle, zIndex: 2 } : undefined;
     const columnStyles = useMemo(() => {
       if (!enableNewEvalRunsUi) {
         return undefined;
@@ -302,7 +305,7 @@ export const ExperimentEvaluationRunsTable = forwardRef<HTMLDivElement, Experime
 
     return (
       <Table css={{ flex: 1 }} style={tableSizeVariables} scrollable onScroll={onScroll} ref={ref}>
-        <TableRow isHeader style={rowWidthStyle}>
+        <TableRow isHeader style={headerRowStyle}>
           {leafHeaders.map((header) => {
             const label = flexRender(header.column.columnDef.header, header.getContext());
             return (
