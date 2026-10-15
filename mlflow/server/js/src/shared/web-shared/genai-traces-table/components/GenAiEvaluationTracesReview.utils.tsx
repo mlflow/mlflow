@@ -161,8 +161,38 @@ export const ASSESSMENTS_DOC_LINKS: Record<string, AssessmentLearnMoreLink> = {
 export enum KnownEvaluationResultAssessmentStringValue {
   YES = 'yes',
   NO = 'no',
+  PASS = 'PASS',
+  FAIL = 'FAIL',
   UNKNOWN = 'unknown',
 }
+
+export const normalizePassFailValue = (value: unknown): unknown => {
+  if (typeof value !== 'string') {
+    return value;
+  }
+
+  const normalizedValue = value.toUpperCase();
+  if (
+    normalizedValue === KnownEvaluationResultAssessmentStringValue.YES.toUpperCase() ||
+    normalizedValue === KnownEvaluationResultAssessmentStringValue.PASS
+  ) {
+    return KnownEvaluationResultAssessmentStringValue.YES;
+  }
+  if (
+    normalizedValue === KnownEvaluationResultAssessmentStringValue.NO.toUpperCase() ||
+    normalizedValue === KnownEvaluationResultAssessmentStringValue.FAIL
+  ) {
+    return KnownEvaluationResultAssessmentStringValue.NO;
+  }
+
+  return value;
+};
+
+export const isPassingValue = (value: unknown): boolean =>
+  normalizePassFailValue(value) === KnownEvaluationResultAssessmentStringValue.YES;
+
+export const isFailingValue = (value: unknown): boolean =>
+  normalizePassFailValue(value) === KnownEvaluationResultAssessmentStringValue.NO;
 
 export function getAssessmentValueLabel(
   intl: IntlShape,
@@ -180,7 +210,10 @@ export function getAssessmentValueLabel(
     };
   }
   if (assessmentInfo.dtype === 'pass-fail') {
-    if (value === KnownEvaluationResultAssessmentStringValue.YES) {
+    const normalizedPassFailValue = normalizePassFailValue(value);
+    const passFailStringValue = typeof normalizedPassFailValue === 'string' ? normalizedPassFailValue : String(value);
+
+    if (isPassingValue(normalizedPassFailValue)) {
       return {
         content: intl.formatMessage({
           defaultMessage: 'Pass',
@@ -190,7 +223,7 @@ export function getAssessmentValueLabel(
           <span
             css={{
               color: `${getEvaluationResultIconColor(theme, assessmentInfo, {
-                stringValue: KnownEvaluationResultAssessmentStringValue.YES,
+                stringValue: passFailStringValue,
               })} !important`,
               svg: {
                 width: '12px',
@@ -201,7 +234,7 @@ export function getAssessmentValueLabel(
             <CheckCircleIcon
               css={{
                 backgroundColor: getEvaluationResultAssessmentBackgroundColor(theme, assessmentInfo, {
-                  stringValue: KnownEvaluationResultAssessmentStringValue.YES,
+                  stringValue: passFailStringValue,
                 }),
                 borderRadius: '50%',
               }}
@@ -209,7 +242,7 @@ export function getAssessmentValueLabel(
           </span>
         ),
       };
-    } else if (value === KnownEvaluationResultAssessmentStringValue.NO) {
+    } else if (isFailingValue(normalizedPassFailValue)) {
       return {
         content: intl.formatMessage({
           defaultMessage: 'Fail',
@@ -219,7 +252,7 @@ export function getAssessmentValueLabel(
           <span
             css={{
               color: `${getEvaluationResultIconColor(theme, assessmentInfo, {
-                stringValue: KnownEvaluationResultAssessmentStringValue.NO,
+                stringValue: passFailStringValue,
               })} !important`,
               svg: {
                 width: '12px',
@@ -230,7 +263,7 @@ export function getAssessmentValueLabel(
             <XCircleIcon
               css={{
                 backgroundColor: getEvaluationResultAssessmentBackgroundColor(theme, assessmentInfo, {
-                  stringValue: KnownEvaluationResultAssessmentStringValue.NO,
+                  stringValue: passFailStringValue,
                 }),
                 borderRadius: '50%',
               }}
