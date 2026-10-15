@@ -6992,6 +6992,7 @@ def test_model_version_presigned_download_uses_registry_authorization(
     from mlflow.store.artifact.artifact_repo import MultipartDownloadMixin
 
     monkeypatch.setenv("MLFLOW_ARTIFACTS_PRESIGNED_ONLY", str(presigned_only).lower())
+    monkeypatch.setenv("MLFLOW_PRESIGNED_DOWNLOAD_URL_TTL_SECONDS", "30")
     repo = mock.MagicMock(spec=MultipartDownloadMixin)
     repo.get_download_presigned_url.return_value = PresignedDownloadUrlResponse(
         url="https://storage.example/model", headers={"x-storage": "required"}, file_size=12
@@ -7022,7 +7023,7 @@ def test_model_version_presigned_download_uses_registry_authorization(
     registry.assert_called_once()
     registry.return_value.get_model_version_download_uri.assert_called_once_with("MyModel", "1")
     repo.get_download_presigned_url.assert_called_once_with(
-        "models/MyModel/1/MLmodel" if proxied else "MLmodel"
+        "models/MyModel/1/MLmodel" if proxied else "MLmodel", expiration=30
     )
     if proxied:
         proxy_repo.assert_called_once()
@@ -7041,6 +7042,7 @@ def test_logged_model_presigned_request_never_streams_bytes(
     from mlflow.store.artifact.artifact_repo import MultipartDownloadMixin
 
     monkeypatch.setenv("MLFLOW_ARTIFACTS_PRESIGNED_ONLY", "true")
+    monkeypatch.setenv("MLFLOW_PRESIGNED_DOWNLOAD_URL_TTL_SECONDS", "30")
     repo = mock.MagicMock(spec=MultipartDownloadMixin)
     repo.get_download_presigned_url.return_value = PresignedDownloadUrlResponse(
         url="https://storage.example/model", headers={}
@@ -7070,7 +7072,7 @@ def test_logged_model_presigned_request_never_streams_bytes(
     tracking.assert_called_once()
     tracking.return_value.get_logged_model.assert_called_once_with("m-1")
     repo.get_download_presigned_url.assert_called_once_with(
-        "12/models/m-1/artifacts/MLmodel" if proxied else "MLmodel"
+        "12/models/m-1/artifacts/MLmodel" if proxied else "MLmodel", expiration=30
     )
     if proxied:
         proxy_repo.assert_called_once()

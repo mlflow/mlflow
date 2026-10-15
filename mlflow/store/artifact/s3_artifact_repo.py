@@ -816,10 +816,16 @@ class S3ArtifactRepository(
         (bucket, dest_path) = self.parse_s3_compliant_uri(self.artifact_uri)
         key = posixpath.join(dest_path, artifact_path) if artifact_path else dest_path
         s3_client = self._get_s3_client()
+        download_args = _normalize_sse_customer_args({
+            name: value
+            for name, value in (self.get_s3_file_upload_extra_args() or {}).items()
+            if name
+            in {"SSECustomerAlgorithm", "SSECustomerKey", "SSECustomerKeyMD5", "RequestPayer"}
+        })
 
         try:
             head_response = s3_client.head_object(
-                Bucket=bucket, Key=key, **self._bucket_owner_params
+                Bucket=bucket, Key=key, **download_args, **self._bucket_owner_params
             )
         except ClientError as error:
             error_code = error.response["Error"]["Code"]
@@ -848,8 +854,10 @@ class S3ArtifactRepository(
                 ),
                 # Range offsets refer to stored bytes. Prevent automatic gzip decompression.
                 "ResponseContentEncoding": "identity",
+                **download_args,
                 **self._bucket_owner_params,
             },
             ExpiresIn=expiration,
         )
-        return PresignedDownloadUrlResponse(url=url, headers={}, file_size=file_size)
+        headers = {_S3_PARAM_TO_HEADER[name]: str(value) for name, value in download_args.items()}
+        return PresignedDownloadUrlResponse(url=url, headers=headers, file_size=file_size)

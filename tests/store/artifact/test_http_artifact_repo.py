@@ -828,7 +828,7 @@ def test_download_without_file_size_uses_storage(
             pass
 
     server = HTTPServer(("127.0.0.1", 0), StorageHandler)
-    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread = threading.Thread(target=server.serve_forever, daemon=True, name="presigned-storage")
     thread.start()
     response = PresignedDownloadUrlResponse(
         url=f"http://127.0.0.1:{server.server_port}/signed-artifact",

@@ -3529,7 +3529,10 @@ def get_model_version_artifact_handler():
         # This route already checks model-version READ permission, independently of
         # access to the source run. Signing must retain that authorization boundary.
         _validate_support_presigned_download(artifact_repo)
-        return jsonify(artifact_repo.get_download_presigned_url(artifact_path).to_dict())
+        presigned = artifact_repo.get_download_presigned_url(
+            artifact_path, expiration=MLFLOW_PRESIGNED_DOWNLOAD_URL_TTL_SECONDS.get()
+        )
+        return jsonify(presigned.to_dict())
     return _send_artifact(artifact_repo, artifact_path)
 
 
@@ -6064,7 +6067,10 @@ def get_logged_model_artifact_handler(model_id: str):
 
     if request.args.get("presigned") == "true":
         _validate_support_presigned_download(artifact_repo)
-        return jsonify(artifact_repo.get_download_presigned_url(artifact_path).to_dict())
+        presigned = artifact_repo.get_download_presigned_url(
+            artifact_path, expiration=MLFLOW_PRESIGNED_DOWNLOAD_URL_TTL_SECONDS.get()
+        )
+        return jsonify(presigned.to_dict())
     return _send_artifact(artifact_repo, artifact_path)
 
 
