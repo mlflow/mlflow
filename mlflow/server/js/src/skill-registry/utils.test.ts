@@ -351,12 +351,26 @@ describe('skill URI and pull snippets', () => {
   });
 
   it('scopes pull examples to the active workspace', () => {
-    expect(formatSkillPullCli('skills:/code-review', './skills/code-review', "team's-a")).toBe(
-      "MLFLOW_WORKSPACE='team'\\''s-a' mlflow skills pull skills:/code-review \\\n    --destination ./skills/code-review",
+    const cliLines = formatSkillPullCli('skills:/code-review', './skills/code-review', { workspace: 'team-a' }).split(
+      '\n',
     );
-    expect(formatSkillPullPython('skills:/code-review', './skills/code-review', 'team-a')).toBe(
+    expect(cliLines[0]).toBe("MLFLOW_WORKSPACE='team-a' \\");
+    expect(cliLines[1]).toContain('mlflow skills pull skills:/code-review');
+    expect(formatSkillPullPython('skills:/code-review', './skills/code-review', { workspace: 'team-a' })).toBe(
       'import mlflow.genai\n\nmlflow.set_workspace("team-a")\nmlflow.genai.pull(\n    "skills:/code-review",\n    destination="./skills/code-review",\n)',
     );
+  });
+
+  it('includes the tracking connection in pull examples', () => {
+    const connection = { trackingUri: 'https://example.com/mlflow', trackingAuth: 'kubernetes' };
+    const cliLines = formatSkillPullCli('skills:/code-review', './skills/code-review', connection).split('\n');
+    expect(cliLines[0]).toContain("MLFLOW_TRACKING_URI='https://example.com/mlflow'");
+    expect(cliLines[1]).toContain("MLFLOW_TRACKING_AUTH='kubernetes'");
+    expect(cliLines[2]).toContain('mlflow skills pull');
+    const pullPython = formatSkillPullPython('skills:/code-review', './skills/code-review', connection);
+    expect(pullPython).toContain('os.environ["MLFLOW_TRACKING_AUTH"] = "kubernetes"\n\nimport mlflow.genai');
+    expect(pullPython).not.toContain('MLFLOW_TRACKING_URI');
+    expect(pullPython).toContain('mlflow.set_tracking_uri("https://example.com/mlflow")\nmlflow.genai.pull(');
   });
 });
 

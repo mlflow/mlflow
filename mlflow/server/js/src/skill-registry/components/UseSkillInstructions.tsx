@@ -11,7 +11,7 @@ import { FormattedMessage, useIntl } from 'react-intl';
 
 import type { Skill } from '../types';
 import { formatSkillUri, SKILL_INSTALL_TARGETS, type SkillInstallTargetId } from '../utils';
-import { useActiveWorkspace } from '../../workspaces/utils/WorkspaceUtils';
+import { useTrackingSnippetConnection } from '../../common/utils/trackingSnippetConnection';
 import { formatSkillPullCli, formatSkillPullPython } from '../snippets';
 import { CopyableSnippet, type SnippetFormat } from './CopyableSnippet';
 
@@ -30,7 +30,7 @@ export const UseSkillInstructions = ({
 }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
-  const workspace = useActiveWorkspace();
+  const connection = useTrackingSnippetConnection();
   const [format, setFormat] = useState<SnippetFormat>('cli');
   const [targetId, setTargetId] = useState<SkillInstallTargetId>('claude-code');
   const skillsDirectory = SKILL_INSTALL_TARGETS.find((target) => target.id === targetId)?.destination ?? './skills';
@@ -39,8 +39,8 @@ export const UseSkillInstructions = ({
   const uri = formatSkillUri(skill.name, skill.organization, version);
   const snippet =
     format === 'cli'
-      ? formatSkillPullCli(uri, destination, workspace)
-      : formatSkillPullPython(uri, destination, workspace);
+      ? formatSkillPullCli(uri, destination, connection)
+      : formatSkillPullPython(uri, destination, connection);
 
   const installLabel = intl.formatMessage({
     defaultMessage: 'Install for',

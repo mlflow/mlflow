@@ -257,6 +257,34 @@ describe('local skill registration', () => {
     ).toBe("mlflow skills register oci \\\n    --image 'quay.io/acme/skill:1.0'");
   });
 
+  it('includes tracking connection settings in register and import snippets', () => {
+    const register = {
+      location: 'https://github.com/acme/skills',
+      local: false,
+      trackingUri: 'https://example.com/mlflow',
+      trackingAuth: 'kubernetes',
+    };
+    const cliLines = formatSkillRegisterCli(register).split('\n');
+    expect(cliLines[0]).toContain("MLFLOW_TRACKING_URI='https://example.com/mlflow'");
+    expect(cliLines[1]).toContain("MLFLOW_TRACKING_AUTH='kubernetes'");
+    expect(cliLines[2]).toContain('mlflow skills register');
+    const registerPython = formatSkillRegisterPython(register);
+    expect(registerPython).toContain('os.environ["MLFLOW_TRACKING_AUTH"] = "kubernetes"\n\nimport mlflow');
+    expect(registerPython).not.toContain('MLFLOW_TRACKING_URI');
+    expect(formatSkillRegisterPython({ ...register, workspace: 'team-a' })).toContain(
+      'mlflow.set_tracking_uri("https://example.com/mlflow")\nmlflow.set_workspace("team-a")\nmlflow.genai.register_skill(',
+    );
+    expect(formatSkillImportCli({ source: register.location, ...register })).toContain('MLFLOW_TRACKING_AUTH');
+    const importPython = formatSkillImportPython({ source: register.location, ...register });
+    expect(importPython).toContain('MLFLOW_TRACKING_AUTH');
+    expect(importPython).not.toContain('MLFLOW_TRACKING_URI');
+    expect(importPython).toContain(
+      'mlflow.set_tracking_uri("https://example.com/mlflow")\nmlflow.genai.import_skills(',
+    );
+    expect(formatSkillRegisterCli({ ...register, trackingAuth: undefined })).not.toContain('MLFLOW_TRACKING_AUTH');
+    expect(formatSkillRegisterPython({ ...register, trackingAuth: undefined })).not.toContain('import os');
+  });
+
   it('scopes register and import examples to the active workspace', () => {
     const register = {
       sourceType: 'git' as const,
@@ -265,17 +293,18 @@ describe('local skill registration', () => {
       name: 'code-review',
       workspace: 'team-a',
     };
-    expect(formatSkillRegisterCli(register).split('\n')[0]).toBe(
-      "MLFLOW_WORKSPACE='team-a' mlflow skills register git \\",
-    );
+    const cliLines = formatSkillRegisterCli(register).split('\n');
+    expect(cliLines[0]).toContain("MLFLOW_WORKSPACE='team-a'");
+    expect(cliLines[1]).toContain('mlflow skills register git');
     expect(formatSkillRegisterPython(register)).toContain(
       '\n\nmlflow.set_workspace("team-a")\nmlflow.genai.register_skill(',
     );
 
     const repositoryImport = { source: 'https://github.com/acme/skills', workspace: 'team-a' };
-    expect(formatSkillImportCli(repositoryImport)).toBe(
-      "MLFLOW_WORKSPACE='team-a' mlflow skills import --source 'https://github.com/acme/skills'",
-    );
+    expect(formatSkillImportCli(repositoryImport).split('\n')).toEqual([
+      "MLFLOW_WORKSPACE='team-a' \\",
+      "mlflow skills import --source 'https://github.com/acme/skills'",
+    ]);
     expect(formatSkillImportPython(repositoryImport)).toContain(
       'mlflow.set_workspace("team-a")\nmlflow.genai.import_skills(',
     );

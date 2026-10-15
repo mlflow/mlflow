@@ -487,6 +487,16 @@ def test_server_info():
         assert data[SERVER_INFO_PRESIGNED_UPLOAD_MODEL_ID_SUPPORTED] is True
 
 
+def test_server_info_advertises_configured_tracking_auth(monkeypatch):
+    monkeypatch.delenv("MLFLOW_SERVER_INFO_TRACKING_AUTH", raising=False)
+    monkeypatch.setenv("MLFLOW_TRACKING_AUTH", "server-outbound-provider")
+    with app.test_client() as c:
+        assert c.get("/api/3.0/mlflow/server-info").get_json()["tracking_auth"] == ""
+
+        monkeypatch.setenv("MLFLOW_SERVER_INFO_TRACKING_AUTH", "kubernetes")
+        assert c.get("/api/3.0/mlflow/server-info").get_json()["tracking_auth"] == "kubernetes"
+
+
 def test_server_info_trace_archival_enabled(monkeypatch):
     monkeypatch.setattr(
         "mlflow.server.handlers.get_trace_archival_server_config",
