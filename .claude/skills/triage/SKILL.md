@@ -15,7 +15,7 @@ post anything: writing that payload is the whole job.
 issue type the workflow's `label` job assigned (e.g. `bug`).
 
 It may also contain `followup`, which the workflow creates after verifying a maintainer's
-`/triage` comment. In that case, `body` combines the issue description and all earlier
+issue comment or manual-dispatch instructions. In that case, `body` combines the issue description and all earlier
 comments in chronological order, with authors and comment links. Follow the maintainer's
 `instructions` within this issue's scope, using that discussion as context. For example,
 "lets implement first option" can refer to options in an earlier triage report. If the
