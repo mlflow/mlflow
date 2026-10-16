@@ -1515,6 +1515,7 @@ module.exports = {
   "mlflow.genai-overview.eval-chart.view-runs": "",
   "mlflow.genai-overview.issue-chart.ask-assistant": "",
   "mlflow.genai-overview.issue-chart.view-issues": "",
+  "mlflow.genai-overview.issue-detection-docs": "",
   "mlflow.genai-overview.monitor-chart.ask-assistant": "",
   "mlflow.genai-overview.monitor-chart.view-dashboard": "",
   "mlflow.genai-overview.monitor.assessment-selector": "",
