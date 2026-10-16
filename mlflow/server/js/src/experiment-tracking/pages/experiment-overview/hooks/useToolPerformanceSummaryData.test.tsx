@@ -171,6 +171,28 @@ describe('useToolPerformanceSummaryData', () => {
       expect(result.current.toolsData[0].avgLatency).toBe(150);
     });
 
+    it('should count UNSET spans as successful', async () => {
+      setupTraceMetricsHandler(
+        [
+          createCountDataPoint('tool_a', SpanStatus.UNSET, 70),
+          createCountDataPoint('tool_a', SpanStatus.OK, 10),
+          createCountDataPoint('tool_a', SpanStatus.ERROR, 20),
+        ],
+        [createLatencyDataPoint('tool_a', 150)],
+      );
+
+      const { result } = renderHook(() => useToolPerformanceSummaryData(), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      expect(result.current.toolsData[0].totalCalls).toBe(100);
+      expect(result.current.toolsData[0].successRate).toBe(80);
+    });
+
     it('should handle 100% success rate', async () => {
       setupTraceMetricsHandler(
         [createCountDataPoint('tool_a', SpanStatus.OK, 100)],

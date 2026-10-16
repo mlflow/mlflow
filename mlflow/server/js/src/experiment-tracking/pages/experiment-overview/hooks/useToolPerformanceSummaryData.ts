@@ -98,7 +98,8 @@ export function useToolPerformanceSummaryData({
 
         const existing = toolCountsMap.get(toolName) || { total: 0, success: 0 };
         existing.total += count;
-        if (status === SpanStatus.OK) {
+        // OpenTelemetry instrumentations leave a span that completed normally UNSET.
+        if (status === SpanStatus.OK || status === SpanStatus.UNSET) {
           existing.success += count;
         }
         toolCountsMap.set(toolName, existing);

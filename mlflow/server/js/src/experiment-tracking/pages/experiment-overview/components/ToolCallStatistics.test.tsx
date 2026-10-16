@@ -195,7 +195,7 @@ describe('ToolCallStatistics', () => {
       });
     });
 
-    it('should handle UNSET status in addition to OK and ERROR', async () => {
+    it('should count UNSET status as a success alongside OK', async () => {
       const countData = [
         createCountByStatusDataPoint('OK', 80),
         createCountByStatusDataPoint('ERROR', 15),
@@ -208,8 +208,8 @@ describe('ToolCallStatistics', () => {
       await waitFor(() => {
         // Total should include all statuses (80 + 15 + 5 = 100)
         expect(screen.getByText('100')).toBeInTheDocument();
-        // Success rate based on OK only (80/100 = 80%)
-        expect(screen.getByText('80.00%')).toBeInTheDocument();
+        // Success rate counts OK and UNSET ((80 + 5)/100 = 85%)
+        expect(screen.getByText('85.00%')).toBeInTheDocument();
         // Failed count based on ERROR only (15)
         expect(screen.getByText('15')).toBeInTheDocument();
       });

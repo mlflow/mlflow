@@ -90,7 +90,9 @@ export function useToolCallStatisticsData({
       const count = dp.values?.[AggregationType.COUNT] || 0;
       const status = dp.dimensions?.[SpanDimensionKey.SPAN_STATUS];
       total += count;
-      if (status === SpanStatus.OK) {
+      // OpenTelemetry instrumentations leave a span that completed normally UNSET, so it
+      // counts as a success, matching how the root span's status sets the trace's state.
+      if (status === SpanStatus.OK || status === SpanStatus.UNSET) {
         success += count;
       } else if (status === SpanStatus.ERROR) {
         failed += count;
