@@ -154,6 +154,40 @@ export const spanTimeFormatter = (executionTimeUs: number): string => {
   }
 };
 
+/** Formats a unit-suffixed duration string (e.g. a trace's `execution_duration`, "0.071573s") like `spanTimeFormatter`. */
+export const formatExecutionDuration = (value: string): string => {
+  const match = value.match(/^(-?\d+(?:\.\d+)?)(.*)$/);
+  if (!match) {
+    return value;
+  }
+
+  const numericValue = Number(match[1]);
+  if (!Number.isFinite(numericValue)) {
+    return value;
+  }
+
+  let multiplier: number | undefined;
+  switch (match[2]) {
+    case 'm':
+      multiplier = 60 * 1e6;
+      break;
+    case 's':
+      multiplier = 1e6;
+      break;
+    case 'ms':
+      multiplier = 1e3;
+      break;
+    case 'us':
+    case 'µs':
+      multiplier = 1;
+      break;
+  }
+
+  return multiplier === undefined
+    ? `${numericValue.toFixed(2)}${match[2]}`
+    : spanTimeFormatter(numericValue * multiplier);
+};
+
 export const getActiveChildIndex = (node: ModelTraceSpanNode, activeNodeId: string): number => {
   if (node.key === activeNodeId) {
     return 0;
