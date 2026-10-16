@@ -2302,6 +2302,20 @@ module.exports = {
   // -- mlflow.telemetry --
   "mlflow.telemetry.info_alert.documentation_link": "",
 
+  // -- mlflow.trace-explorer --
+  "mlflow.trace-explorer.comparison.baseline-id-tooltip": "",
+  "mlflow.trace-explorer.comparison.baseline-run": "",
+  "mlflow.trace-explorer.comparison.baseline-run-name-tooltip": "",
+  "mlflow.trace-explorer.comparison.baseline-run-trigger": "",
+  "mlflow.trace-explorer.comparison.candidate-id-tooltip": "",
+  "mlflow.trace-explorer.comparison.candidate-run": "",
+  "mlflow.trace-explorer.comparison.candidate-run-name-tooltip": "",
+  "mlflow.trace-explorer.comparison.candidate-run-trigger": "",
+  "mlflow.trace-explorer.comparison.same-trace-tag": "",
+  "mlflow.trace-explorer.comparison.same-trace-tooltip": "",
+  "mlflow.trace-explorer.comparison.swap": "",
+  "mlflow.trace-explorer.comparison.swap-tooltip": "",
+
   // -- mlflow.traces --
   "mlflow.traces.empty_state_generic_quickstart.copy": "",
   "mlflow.traces.issue-detection-modal": "",
