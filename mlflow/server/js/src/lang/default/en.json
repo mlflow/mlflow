@@ -12659,6 +12659,10 @@
     "defaultMessage": "Medium",
     "description": "Medium row size"
   },
+  "fdP5uH": {
+    "defaultMessage": "{label} · R",
+    "description": "Tooltip for flagging a trace for review with the keyboard shortcut"
+  },
   "fdfi96": {
     "defaultMessage": "Create judge",
     "description": "Button to create a new judge"
@@ -17346,6 +17350,10 @@
   "v+uGcN": {
     "defaultMessage": "Allow multiple selections (multi-select)",
     "description": "Categorical multi-select checkbox"
+  },
+  "v/RzmD": {
+    "defaultMessage": "{label} · D",
+    "description": "Tooltip for adding a trace to a dataset with the keyboard shortcut"
   },
   "v/njcq": {
     "defaultMessage": "Comparing",

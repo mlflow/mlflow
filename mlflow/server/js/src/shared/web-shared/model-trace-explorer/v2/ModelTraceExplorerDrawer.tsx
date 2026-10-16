@@ -82,6 +82,39 @@ const formatHeaderDuration = (value: string): string => {
 const formatHeaderCost = (cost: number): string =>
   shouldEnableNewEvalRunsUi() ? formatCostUSD(cost, 4) : `$${cost.toFixed(2)}`;
 
+// Targets where a plain letter key belongs to the focused control, so the drawer's single-key
+// shortcuts must not fire.
+const SHORTCUT_INTERACTIVE_TARGET_SELECTOR = [
+  'input',
+  'select',
+  'textarea',
+  '[contenteditable="true"]',
+  '[role="checkbox"]',
+  '[role="combobox"]',
+  '[role="menuitem"]',
+  '[role="menuitemcheckbox"]',
+  '[role="menuitemradio"]',
+  '[role="option"]',
+  '[role="radio"]',
+  '[role="searchbox"]',
+  '[role="slider"]',
+  '[role="spinbutton"]',
+  '[role="switch"]',
+  '[role="tab"]',
+  '[role="textbox"]',
+  '[role="treeitem"]',
+  '[data-radix-popper-content-wrapper]',
+  '[data-radix-menu-content]',
+  '[data-radix-select-content]',
+].join(', ');
+
+const isShortcutInteractiveTarget = (target: EventTarget | null): boolean => {
+  if (!(target instanceof Element)) {
+    return false;
+  }
+  return target.closest(SHORTCUT_INTERACTIVE_TARGET_SELECTOR) !== null;
+};
+
 const resolveWidthToPixels = (width: number | string, viewportWidth = window.innerWidth): number => {
   if (typeof width === 'number') {
     return width;
@@ -319,8 +352,27 @@ export const ModelTraceExplorerDrawer = ({
     [],
   );
 
+  const showAddToDatasetButton = Boolean(
+    (renderManagedAddToDatasetDropdown || renderExportTracesToDatasetsModal) && experimentId && traceInfo,
+  );
+  const [isAddToDatasetDropdownOpen, setIsAddToDatasetDropdownOpen] = useState(false);
+  const [isAddToDatasetTooltipOpen, setIsAddToDatasetTooltipOpen] = useState(false);
+  const handleAddToDatasetClick = useCallback(() => {
+    if (renderManagedAddToDatasetDropdown) {
+      setIsAddToDatasetDropdownOpen(true);
+      setIsAddToDatasetTooltipOpen(false);
+    } else {
+      setShowDatasetModal(true);
+    }
+  }, [renderManagedAddToDatasetDropdown]);
+  const isNewEvalRunsUi = shouldEnableNewEvalRunsUi();
+  const canFlagForReview = Boolean(renderAddToReviewQueueDropdown && experimentId && traceInfo);
+
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
+      if (isNewEvalRunsUi && (!isDrawerOpen || isClosingRef.current)) {
+        return;
+      }
       if (e.target instanceof HTMLElement) {
         if (e.target.role === 'tab') {
           return;
@@ -338,9 +390,42 @@ export const ModelTraceExplorerDrawer = ({
         e.preventDefault();
         e.stopPropagation();
         selectNextEval();
+      } else if (isNewEvalRunsUi && !e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey && !e.repeat) {
+        // The new eval runs UI opens the dataset (d) and review (r) actions from the keyboard.
+        if (
+          showDatasetModal ||
+          isAddToDatasetDropdownOpen ||
+          isFlagForReviewDropdownOpen ||
+          isShortcutInteractiveTarget(e.target)
+        ) {
+          return;
+        }
+        if (e.key === 'd' && showAddToDatasetButton) {
+          e.preventDefault();
+          setIsFlagForReviewDropdownOpen(false);
+          handleAddToDatasetClick();
+        } else if (e.key === 'r' && canFlagForReview) {
+          e.preventDefault();
+          setIsAddToDatasetDropdownOpen(false);
+          setIsFlagForReviewDropdownOpen(true);
+          setIsFlagForReviewTooltipOpen(false);
+        }
       }
     },
-    [isPreviousAvailable, isNextAvailable, selectPreviousEval, selectNextEval],
+    [
+      isPreviousAvailable,
+      isNextAvailable,
+      selectPreviousEval,
+      selectNextEval,
+      isNewEvalRunsUi,
+      isDrawerOpen,
+      showDatasetModal,
+      isAddToDatasetDropdownOpen,
+      isFlagForReviewDropdownOpen,
+      showAddToDatasetButton,
+      handleAddToDatasetClick,
+      canFlagForReview,
+    ],
   );
 
   useEffect(() => {
@@ -350,9 +435,6 @@ export const ModelTraceExplorerDrawer = ({
     };
   }, [handleKeyDown]);
 
-  const showAddToDatasetButton = Boolean(
-    (renderManagedAddToDatasetDropdown || renderExportTracesToDatasetsModal) && experimentId && traceInfo,
-  );
   const addToDatasetLabel = intl.formatMessage({
     defaultMessage: 'Add to dataset',
     description: 'Accessible label and tooltip for adding a trace to a dataset',
@@ -373,16 +455,6 @@ export const ModelTraceExplorerDrawer = ({
     defaultMessage: 'Share',
     description: 'Accessible label for sharing a trace',
   });
-  const [isAddToDatasetDropdownOpen, setIsAddToDatasetDropdownOpen] = useState(false);
-  const [isAddToDatasetTooltipOpen, setIsAddToDatasetTooltipOpen] = useState(false);
-  const handleAddToDatasetClick = useCallback(() => {
-    if (renderManagedAddToDatasetDropdown) {
-      setIsAddToDatasetDropdownOpen(true);
-      setIsAddToDatasetTooltipOpen(false);
-    } else {
-      setShowDatasetModal(true);
-    }
-  }, [renderManagedAddToDatasetDropdown]);
   const addToDatasetTrigger = (
     <Button
       componentId="mlflow.evaluations_review.modal.add_to_dataset"
@@ -400,7 +472,17 @@ export const ModelTraceExplorerDrawer = ({
   const addToDatasetButton = showAddToDatasetButton ? (
     <Tooltip
       componentId="mlflow.evaluations_review.modal.add_to_dataset.tooltip"
-      content={addToDatasetLabel}
+      content={
+        isNewEvalRunsUi
+          ? intl.formatMessage(
+              {
+                defaultMessage: '{label} · D',
+                description: 'Tooltip for adding a trace to a dataset with the keyboard shortcut',
+              },
+              { label: addToDatasetLabel },
+            )
+          : addToDatasetLabel
+      }
       open={renderManagedAddToDatasetDropdown ? !isAddToDatasetDropdownOpen && isAddToDatasetTooltipOpen : undefined}
       onOpenChange={renderManagedAddToDatasetDropdown ? setIsAddToDatasetTooltipOpen : undefined}
     >
@@ -422,7 +504,17 @@ export const ModelTraceExplorerDrawer = ({
     renderAddToReviewQueueDropdown && experimentId && traceInfo ? (
       <Tooltip
         componentId="mlflow.evaluations_review.modal.flag_for_review.tooltip"
-        content={sendToReviewLabel}
+        content={
+          isNewEvalRunsUi
+            ? intl.formatMessage(
+                {
+                  defaultMessage: '{label} · R',
+                  description: 'Tooltip for flagging a trace for review with the keyboard shortcut',
+                },
+                { label: sendToReviewLabel },
+              )
+            : sendToReviewLabel
+        }
         open={!isFlagForReviewDropdownOpen && isFlagForReviewTooltipOpen}
         onOpenChange={setIsFlagForReviewTooltipOpen}
       >
