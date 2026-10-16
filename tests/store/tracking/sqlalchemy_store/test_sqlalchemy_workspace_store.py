@@ -3335,10 +3335,10 @@ def test_extended_issue_fields_and_paging_are_workspace_scoped(workspace_trackin
                 f"Issue {index}",
                 "",
                 issue_id=f"iss-team-a-{index}",
-                categories=["cost"],
+                categories=["Cost", " COST "],
                 metadata={"private": "value"},
             )
-        page = store.search_issues(categories=["cost"], include_total_count=True, max_results=1)
+        page = store.search_issues(categories=[" cOsT "], include_total_count=True, max_results=1)
         assert page.total_count == 2
         assert page.token
         run = store.create_run(experiment_id, "user", 1, [], "run")
@@ -3360,6 +3360,11 @@ def test_extended_issue_fields_and_paging_are_workspace_scoped(workspace_trackin
             )
     with WorkspaceContext("team-a"):
         assert store.get_issue("iss-team-a-0").metadata == {"private": "value"}
+        second = store.search_issues(
+            categories=["COST"], include_total_count=True, max_results=1, page_token=page.token
+        )
+        assert second.total_count == 2
+        assert second[0].issue_id != page[0].issue_id
 
 
 def _seed_skill_registry_graph(session, workspace):

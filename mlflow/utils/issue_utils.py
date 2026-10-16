@@ -112,7 +112,7 @@ def issue_page_token(offset: int, fingerprint: str | None) -> str:
 
 def issue_category_hash(category: str) -> str:
     # A fixed-width key also accommodates unbounded categories stored by older clients.
-    return hashlib.sha256(category.encode()).hexdigest()
+    return hashlib.sha256(category.strip().lower().encode()).hexdigest()
 
 
 def validate_issue_search(name, statuses, severities, order_by):
