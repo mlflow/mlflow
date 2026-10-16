@@ -91,7 +91,7 @@ picking one, unless the maintainer follow-up already specifies the intended beha
 Propose a pull request only when all of these hold:
 
 - The `PR_DISABLED` environment variable is not `true`.
-- The verdict is Reproduced.
+- The bug reproduces at the current checkout.
 - The fix is verified as in step 3 and leaves no design choice or trade-off unresolved. On
   initial triage, only propose a PR for a simple issue with a straightforward fix. On a
   maintainer follow-up, implement the requested fix, including a previously suggested option.
@@ -115,8 +115,8 @@ git diff HEAD --stat
 ```
 
 The last command must list only the files in the patch. Then add `pull_request` to the payload
-using the template in `pull_request` of `payload.schema.yml`. The comment's suggested fix
-still describes the change in full.
+using `pull_request` from the selected payload schema. For initial triage, the comment's
+suggested fix still describes the change in full.
 
 For visible UI fixes, include a before/after comparison in the PR body when it helps
 reviewers assess the change. Stack screenshots vertically with **Before** above **After**, rather than
@@ -127,8 +127,9 @@ and **After**, save them under `$out_dir/media`, and cite their exact paths as d
 
 ## 5. Decide the verdict
 
-Pick exactly one verdict using the label descriptions in `payload.schema.yml`, and set the
-payload's `label` to that exact `const` value.
+For initial triage, pick exactly one verdict using the label descriptions in
+`payload.schema.yml`, and set the payload's `label` to that exact `const` value.
+Follow-ups use `followup-payload.schema.yml` and do not include a label.
 
 ## 6. Comment
 

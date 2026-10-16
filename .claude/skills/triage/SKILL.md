@@ -143,16 +143,22 @@ indefinitely.
 
 ## Payload
 
-Create `$out_dir` first, then write `$out_dir/payload.json`:
+Create `$out_dir` first, then write `$out_dir/payload.json`. For initial triage:
 
 ```json
 { "label": "<label from the type schema>", "comment": "<Markdown>" }
 ```
 
-Read `$type/payload.schema.yml` before writing the payload; it defines the required fields and
-their constraints. Choose `label` from its allowed values. A type may also accept an optional
-`pull_request`, paired with `$out_dir/fix.patch`; its README says when. `comment` is the
-Markdown comment for the issue. It:
+When the input has a non-null `followup`, use `$type/followup-payload.schema.yml` instead:
+
+```json
+{ "comment": "<free-form reply>" }
+```
+
+Read the selected schema before writing the payload. Initial triage requires a `label` from
+its allowed values; follow-ups do not include one. Either schema may accept an optional
+`pull_request`, paired with `$out_dir/fix.patch`; the type's README says when. `comment` is
+the Markdown comment for the issue. It:
 
 - Follows the type's template, written for a reader who has read the issue: lead with
   conclusions, not the investigation trail.
@@ -171,8 +177,12 @@ Markdown comment for the issue. It:
 Validate before finishing:
 
 ```bash
+payload_schema=.claude/skills/triage/$type/payload.schema.yml
+if jq -e '.followup != null' "$issue_path" > /dev/null; then
+  payload_schema=.claude/skills/triage/$type/followup-payload.schema.yml
+fi
 uvx check-jsonschema@0.37.4 \
-  --schemafile .claude/skills/triage/$type/payload.schema.yml "$out_dir/payload.json"
+  --schemafile "$payload_schema" "$out_dir/payload.json"
 ```
 
 Fix any errors and rerun until it passes. If you wrote media, also check its citations:

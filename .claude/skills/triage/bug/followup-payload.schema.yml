@@ -1,0 +1,34 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+title: Bug Triage Follow-up Payload
+description: A reply to a maintainer's follow-up request, with an optional verified fix proposal.
+type: object
+additionalProperties: false
+required:
+  - comment
+properties:
+  comment:
+    description: |
+      A concise, free-form reply to the maintainer's request. Avoid repeating the original
+      triage report. A pull_request is only a proposal; do not claim it has been opened.
+    type: string
+    minLength: 1
+    maxLength: 5000
+  pull_request:
+    description: A PR proposal for fix.patch, only after reproducing the bug and verifying the fix.
+    type: object
+    additionalProperties: false
+    required:
+      - title
+      - body
+    properties:
+      title:
+        description: One-line PR title.
+        type: string
+        pattern: "^[^\\r\\n]+$"
+        minLength: 1
+        maxLength: 120
+      body:
+        description: PR body following .github/pull_request_template.md.
+        type: string
+        minLength: 1
+        maxLength: 20000
