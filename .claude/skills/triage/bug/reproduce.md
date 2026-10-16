@@ -20,9 +20,9 @@ Trigger the bug in whatever form fits it: a CLI command, a short Python snippet,
 local server, a pytest test, or UI steps. Use as little setup as possible: a local SQLite
 store, tiny models and datasets, no external services. Put scratch files under
 `$out_dir/work`. For UI bugs, seed the data the page needs through the Python client, then
-drive the UI as described in "Running the UI" in [runtime.md](runtime.md) and record the observed behavior.
+drive the UI as described in "Running the UI" in [runtime.md](../runtime.md) and record the observed behavior.
 Capture an image or short recording under `$out_dir/media` only when it helps a reader see the
-symptom; cite the exact path in the comment as described in [output.md](output.md).
+symptom; cite the exact path in the comment as described in [output.md](../output.md).
 
 If the symptom is not obvious in the screenshot, use `agent-browser eval` to add temporary
 JavaScript overlays such as an arrow, outline, or short label pointing out the bug, then
@@ -53,7 +53,7 @@ such as the browser's Back button, a key press, or a wait: add
 If the batch times out, retry once in a fresh session, then fall back to screenshots. Check the
 contact sheet to confirm the video shows the bug before citing it.
 When you propose a fix for a visible UI bug, record the same steps again after applying it,
-against the same servers from "Running the UI" in [runtime.md](runtime.md), and cite both videos in the
+against the same servers from "Running the UI" in [runtime.md](../runtime.md), and cite both videos in the
 `pull_request` body as a before/after comparison. Adjust the captions for the after video if
 needed.
 
@@ -76,7 +76,7 @@ Only when the bug reproduces at the current checkout. Find the line that is wron
 just where the error surfaces, then verify: patch the code, rerun the reproduction, and confirm the
 symptom goes away without breaking the tests that cover that code.
 
-For frontend fixes, verify against the dev servers from "Running the UI" in [runtime.md](runtime.md), which
+For frontend fixes, verify against the dev servers from "Running the UI" in [runtime.md](../runtime.md), which
 reload code changes. For simple visual or UI changes, manual browser inspection of the
 reproduction before and after the fix can be sufficient verification. Run relevant existing
 tests when they meaningfully cover the affected behavior.

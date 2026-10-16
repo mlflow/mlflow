@@ -9,12 +9,12 @@ arguments: [action, issue_path, out_dir]
 # Triage
 
 Read `$issue_path`: JSON with `title`, `body`, `repository`, `issue_number`, and optional
-`followup`. The workflow selects `$action` explicitly:
+`followup`. This skill currently supports bugs. The workflow selects `$action` explicitly:
 
-| Action     | Instructions               | Output schema                              | Input requirement          |
-| ---------- | -------------------------- | ------------------------------------------ | -------------------------- |
-| `initial`  | [initial.md](initial.md)   | [initial.schema.yml](initial.schema.yml)   | `followup` missing or null |
-| `followup` | [followup.md](followup.md) | [followup.schema.yml](followup.schema.yml) | `followup` non-null        |
+| Action     | Instructions                   | Output schema                                  | Input requirement          |
+| ---------- | ------------------------------ | ---------------------------------------------- | -------------------------- |
+| `initial`  | [initial.md](bug/initial.md)   | [initial.schema.yml](bug/initial.schema.yml)   | `followup` missing or null |
+| `followup` | [followup.md](bug/followup.md) | [followup.schema.yml](bug/followup.schema.yml) | `followup` non-null        |
 
 Stop without writing a payload if the action is unknown or its input requirement is unmet.
 Read only the selected action's instructions and schema, plus the shared
@@ -24,7 +24,7 @@ Write `$out_dir/payload.json`, then validate it against the selected action's sc
 
 ```bash
 uvx check-jsonschema@0.37.4 \
-  --schemafile ".claude/skills/triage/$action.schema.yml" "$out_dir/payload.json"
+  --schemafile ".claude/skills/triage/bug/$action.schema.yml" "$out_dir/payload.json"
 ```
 
 Fix validation errors before finishing.
