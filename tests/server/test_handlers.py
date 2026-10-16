@@ -11431,19 +11431,39 @@ def test_issue_invalid_status_returns_400(status):
     ("operation", "invalid_fields"),
     [
         ("create", {"categories": "cost"}),
+        ("create", {"categories": ["cost", 1]}),
         ("create", {"metadata": {"key": 1}}),
         ("create", {"metadata": []}),
         ("create", {"last_seen_timestamp": "invalid"}),
+        ("create", {"last_seen_timestamp": []}),
+        ("create", {"last_seen_timestamp": True}),
+        ("create", {"last_seen_timestamp": 1.5}),
+        ("create", {"last_seen_timestamp": 2**63}),
+        ("create", {"root_causes": ["cause", 1]}),
+        ("create", {"source_run_id": {}}),
         ("update", {"categories": "cost"}),
+        ("update", {"categories": ["cost", 1]}),
         ("update", {"metadata": {"key": 1}}),
+        ("update", {"metadata": {"valid": "value", "invalid": False}}),
         ("update", {"metadata": []}),
         ("update", {"delete_metadata_keys": "owner"}),
+        ("update", {"delete_metadata_keys": ["owner", 1]}),
         ("update", {"last_seen_timestamp": "invalid"}),
+        ("update", {"last_seen_timestamp": {}}),
+        ("update", {"last_seen_timestamp": True}),
+        ("update", {"last_seen_timestamp": -1}),
+        ("update", {"name": []}),
+        ("update", {"description": {}}),
+        ("update", {"status": 1}),
         ("search", {"statuses": "pending"}),
+        ("search", {"statuses": ["pending", 1]}),
         ("search", {"severities": "high"}),
         ("search", {"categories": "cost"}),
         ("search", {"order_by": "name ASC"}),
         ("search", {"include_total_count": "true"}),
+        ("search", {"include_trace_count": "true"}),
+        ("search", {"name": []}),
+        ("search", {"max_results": "invalid"}),
     ],
 )
 def test_issue_handlers_reject_malformed_fields_before_store_access(operation, invalid_fields):
@@ -11468,3 +11488,35 @@ def test_issue_handlers_reject_malformed_fields_before_store_access(operation, i
         assert response.status_code == 400
         assert json.loads(response.get_data())["error_code"] == "INVALID_PARAMETER_VALUE"
         mock_store.assert_not_called()
+
+
+@pytest.mark.parametrize("operation", ["create", "update"])
+@pytest.mark.parametrize("timestamp", [0, "0", 2**63 - 1, str(2**63 - 1), None])
+def test_issue_handlers_accept_int64_timestamps_and_omitted_optional_fields(operation, timestamp):
+    issue = Issue("iss-test", "0", "Title", "Details", IssueStatus.PENDING, 1, 1)
+    payload = {
+        "experiment_id": "0",
+        "issue_id": "iss-test",
+        "name": "Title",
+        "description": "Details",
+        "last_seen_timestamp": timestamp,
+        "metadata": None,
+        "categories": None,
+        "unknown_field": "ignored",
+    }
+    with (
+        app.test_request_context(method="PATCH" if operation == "update" else "POST", json=payload),
+        mock.patch(
+            "mlflow.server.handlers._get_tracking_store",
+            **{f"return_value.{operation}_issue.return_value": issue},
+        ) as mock_store,
+    ):
+        method = getattr(mock_store.return_value, f"{operation}_issue")
+        response = _create_issue() if operation == "create" else _update_issue("iss-test")
+        assert response.status_code == 200
+        method.assert_called_once()
+        if timestamp is None:
+            assert "last_seen_timestamp" not in method.call_args.kwargs
+        else:
+            assert method.call_args.kwargs["last_seen_timestamp"] == int(timestamp)
+        assert "metadata" not in method.call_args.kwargs
