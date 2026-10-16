@@ -65,6 +65,7 @@ jobs:
       url: ${{ fromJSON(steps.issue.outputs.json).html_url }}
       author_association: ${{ fromJSON(steps.issue.outputs.json).author_association }}
       followup: ${{ steps.followup.outputs.json }}
+      payload_schema: ${{ steps.followup.outputs.json != 'null' && 'followup-payload.schema.yml' || 'payload.schema.yml' }}
       dry_run: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
       # Set the TRIAGE_PR_DISABLED repository Actions variable to "true" to stop opening pull requests.
       pr_enabled: ${{ vars.TRIAGE_PR_DISABLED != 'true' }}
@@ -271,6 +272,7 @@ jobs:
           DETECTED_TYPE: ${{ steps.detect.outputs.type }}
           CLASSIFIED_TYPE: ${{ steps.classify.outputs.type }}
           DRY_RUN: ${{ needs.issue.outputs.dry_run }}
+          IS_FOLLOWUP: ${{ needs.issue.outputs.followup != 'null' }}
         run: |
           type="$DETECTED_TYPE"
           if [ "$type" = unknown ]; then
@@ -289,6 +291,10 @@ jobs:
             if [ "$DRY_RUN" = true ]; then
               echo "Dry run: no type label would be added to $ISSUE_URL." >> "$GITHUB_STEP_SUMMARY"
             fi
+            exit 0
+          fi
+          if [ "$IS_FOLLOWUP" = true ]; then
+            echo "Keeping existing labels for a maintainer follow-up."
             exit 0
           fi
           if [ "$DRY_RUN" = true ]; then
@@ -889,6 +895,7 @@ jobs:
     permissions:
       issues: write
     env:
+      PAYLOAD_SCHEMA: .claude/skills/triage/${{ needs.label.outputs.type }}/${{ needs.issue.outputs.payload_schema }}
       TRIAGE_NOTICE: |-
         > [!NOTE]
         > [Automated triage](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}). Please verify the findings.
@@ -906,11 +913,10 @@ jobs:
       - name: Validate triage payload
         if: needs.triage.result == 'success'
         env:
-          ISSUE_TYPE: ${{ needs.label.outputs.type }}
           PAYLOAD_PATH: /tmp/triage-out/payload.json
         run: |
           uvx check-jsonschema@0.37.4 \
-            --schemafile ".claude/skills/triage/$ISSUE_TYPE/payload.schema.yml" "$PAYLOAD_PATH"
+            --schemafile "$PAYLOAD_SCHEMA" "$PAYLOAD_PATH"
       - name: Validate triage media
         if: needs.triage.result == 'success'
         env:
@@ -954,7 +960,6 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.UPLOAD_MEDIA_TOKEN }}
           REPOSITORY_ID: ${{ github.repository_id }}
-          ISSUE_TYPE: ${{ needs.label.outputs.type }}
           PAYLOAD_PATH: /tmp/triage-out/payload.json
           MEDIA_DIR: /tmp/triage-out/media
         run: |
@@ -965,11 +970,10 @@ jobs:
             "$PAYLOAD_PATH" > "$RUNNER_TEMP/triage-payload.json"
           mv "$RUNNER_TEMP/triage-payload.json" "$PAYLOAD_PATH"
           uvx check-jsonschema@0.37.4 \
-            --schemafile ".claude/skills/triage/$ISSUE_TYPE/payload.schema.yml" "$PAYLOAD_PATH"
+            --schemafile "$PAYLOAD_SCHEMA" "$PAYLOAD_PATH"
       - name: Sanitize triage comment
         if: needs.triage.result == 'success'
         env:
-          ISSUE_TYPE: ${{ needs.label.outputs.type }}
           PAYLOAD_PATH: /tmp/triage-out/payload.json
         run: |
           jq -j .comment "$PAYLOAD_PATH" |
@@ -978,8 +982,8 @@ jobs:
             "$PAYLOAD_PATH" > "$RUNNER_TEMP/sanitized-triage-payload.json"
           mv "$RUNNER_TEMP/sanitized-triage-payload.json" "$PAYLOAD_PATH"
           uvx check-jsonschema@0.37.4 \
-            --schemafile ".claude/skills/triage/$ISSUE_TYPE/payload.schema.yml" "$PAYLOAD_PATH"
-      - name: Preview and post triage comment and label
+            --schemafile "$PAYLOAD_SCHEMA" "$PAYLOAD_PATH"
+      - name: Preview and post triage response
         id: post
         if: needs.triage.result == 'success'
         env:
@@ -990,28 +994,33 @@ jobs:
           PAYLOAD_PATH: /tmp/triage-out/payload.json
           SHOULD_POST: ${{ needs.issue.outputs.dry_run == 'false' }}
         run: |
+          triage_label=$(jq -r '.label // empty' "$PAYLOAD_PATH")
           comment=$(jq -r --arg notice "$TRIAGE_NOTICE" \
             --arg marker "<!-- mlflow-triage-run:$GITHUB_RUN_ID -->" \
             '"\($marker)\n\n\($notice)\n\n\(.comment)"' "$PAYLOAD_PATH")
           if [ "$SHOULD_POST" = true ]; then
-            state="Replacing the triage status comment with this report and adding the label."
+            state="Replacing the triage status comment with this response."
           else
-            state="Comment and label not posted (dry run). Media was not uploaded; local media paths below are not working GitHub links."
+            state="Response not posted (dry run). Media was not uploaded; local media paths below are not working GitHub links."
           fi
           {
             echo "### Triage comment preview"
             echo
             echo "$state"
             echo
-            jq -r '"Label: <code>\(.label | @html)</code>"' "$PAYLOAD_PATH"
-            echo
+            if [ -n "$triage_label" ]; then
+              jq -r '"Label: <code>\(.label | @html)</code>"' "$PAYLOAD_PATH"
+              echo
+            fi
             jq -nr --arg comment "$comment" '"<pre>\($comment | @html)</pre>"'
           } >> "$GITHUB_STEP_SUMMARY"
           if [ "$SHOULD_POST" != true ]; then
             exit 0
           fi
           gh api "repos/$REPO/issues/comments/$COMMENT_ID" -X PATCH -f body="$comment" > /dev/null
-          gh issue edit "$ISSUE_NUMBER" --repo "$REPO" --add-label "$(jq -r .label "$PAYLOAD_PATH")"
+          if [ -n "$triage_label" ]; then
+            gh issue edit "$ISSUE_NUMBER" --repo "$REPO" --add-label "$triage_label"
+          fi
       - name: Update unfinished triage status
         if: always() && needs.issue.outputs.dry_run == 'false' && steps.post.outcome != 'success'
         env:
@@ -1040,6 +1049,8 @@ jobs:
       contents: read
       issues: write
       pull-requests: read
+    env:
+      PAYLOAD_SCHEMA: .claude/skills/triage/${{ needs.label.outputs.type }}/${{ needs.issue.outputs.payload_schema }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -1053,7 +1064,6 @@ jobs:
       - name: Check proposed fix
         id: check
         env:
-          ISSUE_TYPE: ${{ needs.label.outputs.type }}
           OUT_DIR: /tmp/triage-out
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
@@ -1061,7 +1071,7 @@ jobs:
         run: |
           payload="$OUT_DIR/payload.json"
           uvx check-jsonschema@0.37.4 \
-            --schemafile ".claude/skills/triage/$ISSUE_TYPE/payload.schema.yml" "$payload"
+            --schemafile "$PAYLOAD_SCHEMA" "$payload"
           has_pr=$(jq 'has("pull_request")' "$payload")
           has_patch=$([ -f "$OUT_DIR/fix.patch" ] && echo true || echo false)
           if [ "$has_pr" = false ] && [ "$has_patch" = false ]; then
