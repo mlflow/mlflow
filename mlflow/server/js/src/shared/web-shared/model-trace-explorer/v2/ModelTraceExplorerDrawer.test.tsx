@@ -123,6 +123,36 @@ describe('ModelTraceExplorerDrawer', () => {
       expect(screen.getByText('≈$0.0002')).toBeInTheDocument();
     });
 
+    describe('in a narrow window', () => {
+      const originalInnerWidth = window.innerWidth;
+      beforeEach(() => {
+        Object.defineProperty(window, 'innerWidth', { configurable: true, value: 700 });
+      });
+      afterEach(() => {
+        Object.defineProperty(window, 'innerWidth', { configurable: true, value: originalInnerWidth });
+      });
+
+      test('flag on: fullscreen keeps compact actions and hides trace metadata', async () => {
+        jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(true);
+        renderDrawerWithTraceInfo();
+        await userEvent.click(screen.getByRole('button', { name: 'Full screen' }));
+
+        expect(screen.queryByText('Find')).not.toBeInTheDocument();
+        expect(screen.queryByText('Share')).not.toBeInTheDocument();
+        expect(screen.queryByText('2.20s')).not.toBeInTheDocument();
+      });
+
+      test('flag off: fullscreen shows action labels and trace metadata', async () => {
+        jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(false);
+        renderDrawerWithTraceInfo();
+        await userEvent.click(screen.getByRole('button', { name: 'Full screen' }));
+
+        expect(screen.getByText('Find')).toBeInTheDocument();
+        expect(screen.getByText('Share')).toBeInTheDocument();
+        expect(screen.getByText('2201.50ms')).toBeInTheDocument();
+      });
+    });
+
     test('flag off: keeps the existing header formats', async () => {
       jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(false);
       renderDrawerWithTraceInfo();

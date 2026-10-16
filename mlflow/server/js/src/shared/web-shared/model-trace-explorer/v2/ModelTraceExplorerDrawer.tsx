@@ -53,6 +53,8 @@ const MAX_DRAWER_WIDTH_RATIO = 0.9;
 const DRAWER_CLOSE_ANIMATION_MS = 180;
 const TRACE_METADATA_MIN_WIDTH = 960;
 const LABELED_PRIMARY_ACTIONS_MIN_WIDTH = 800;
+// The new eval runs UI keeps action labels down to a narrower drawer.
+const NEW_UI_LABELED_PRIMARY_ACTIONS_MIN_WIDTH = 720;
 // Targets the design system Drawer.Content node (it renders these data attributes from the
 // Content componentId below), used by the Global rules that reproduce managed's header layout.
 const DRAWER_CONTENT_SELECTOR =
@@ -176,16 +178,6 @@ export const ModelTraceExplorerDrawer = ({
   const [isSearchVisible, setSearchVisible] = useState(false);
   const [isFlagForReviewDropdownOpen, setIsFlagForReviewDropdownOpen] = useState(false);
   const [isFlagForReviewTooltipOpen, setIsFlagForReviewTooltipOpen] = useState(false);
-  const fullscreenActionButtonCss = isFullscreen
-    ? {
-        '&&, &&:hover, &&:active': {
-          borderColor: 'transparent !important',
-        },
-        '&& > .anticon + span': {
-          marginLeft: `${theme.spacing.sm}px !important`,
-        },
-      }
-    : undefined;
   const closeTimerRef = useRef<number | undefined>(undefined);
   const isClosingRef = useRef(false);
   const {
@@ -225,8 +217,28 @@ export const ModelTraceExplorerDrawer = ({
   const [viewportWidth, setViewportWidth] = useState(() => window.innerWidth);
   const width = isFullscreen ? '100vw' : resizedWidth;
   const drawerWidthPixels = isFullscreen ? viewportWidth : resolveWidthToPixels(resizedWidth, viewportWidth);
-  const showTraceMetadata = isFullscreen || drawerWidthPixels >= TRACE_METADATA_MIN_WIDTH;
-  const compactPrimaryActions = !isFullscreen && drawerWidthPixels < LABELED_PRIMARY_ACTIONS_MIN_WIDTH;
+  // The new eval runs UI sizes the header by the drawer width in fullscreen too, so a narrow window
+  // gets compact, icon-only actions and no trace metadata instead of an overcrowded header.
+  const isNewEvalRunsUi = shouldEnableNewEvalRunsUi();
+  const showTraceMetadata = isNewEvalRunsUi
+    ? drawerWidthPixels >= TRACE_METADATA_MIN_WIDTH
+    : isFullscreen || drawerWidthPixels >= TRACE_METADATA_MIN_WIDTH;
+  const showFullscreenActionLabels = isNewEvalRunsUi
+    ? isFullscreen && drawerWidthPixels >= NEW_UI_LABELED_PRIMARY_ACTIONS_MIN_WIDTH
+    : isFullscreen;
+  const compactPrimaryActions = isNewEvalRunsUi
+    ? drawerWidthPixels < NEW_UI_LABELED_PRIMARY_ACTIONS_MIN_WIDTH
+    : !isFullscreen && drawerWidthPixels < LABELED_PRIMARY_ACTIONS_MIN_WIDTH;
+  const fullscreenActionButtonCss = showFullscreenActionLabels
+    ? {
+        '&&, &&:hover, &&:active': {
+          borderColor: 'transparent !important',
+        },
+        '&& > .anticon + span': {
+          marginLeft: `${theme.spacing.sm}px !important`,
+        },
+      }
+    : undefined;
   const resizeHandleOffset = useMemo(
     () => resolveWidthToPixels(resizedWidth, viewportWidth),
     [resizedWidth, viewportWidth],
@@ -362,7 +374,6 @@ export const ModelTraceExplorerDrawer = ({
       setShowDatasetModal(true);
     }
   }, [renderManagedAddToDatasetDropdown]);
-  const isNewEvalRunsUi = shouldEnableNewEvalRunsUi();
   const canFlagForReview = Boolean(renderAddToReviewQueueDropdown && experimentId && traceInfo);
 
   const handleKeyDown = useCallback(
@@ -461,7 +472,7 @@ export const ModelTraceExplorerDrawer = ({
       size="small"
       css={fullscreenActionButtonCss}
     >
-      {isFullscreen ? (
+      {showFullscreenActionLabels ? (
         <FormattedMessage defaultMessage="Dataset" description="Visible label for adding a trace to a dataset" />
       ) : undefined}
     </Button>
@@ -533,7 +544,7 @@ export const ModelTraceExplorerDrawer = ({
                 size="small"
                 css={fullscreenActionButtonCss}
               >
-                {isFullscreen ? reviewLabel : undefined}
+                {showFullscreenActionLabels ? reviewLabel : undefined}
               </Button>
             ),
           })}
@@ -876,7 +887,7 @@ export const ModelTraceExplorerDrawer = ({
                   size="small"
                   css={fullscreenActionButtonCss}
                 >
-                  {isFullscreen ? (
+                  {showFullscreenActionLabels ? (
                     <FormattedMessage
                       defaultMessage="Find"
                       description="Visible label for finding content in a trace"
@@ -900,7 +911,7 @@ export const ModelTraceExplorerDrawer = ({
                   size="small"
                   css={fullscreenActionButtonCss}
                 >
-                  {isFullscreen ? (
+                  {showFullscreenActionLabels ? (
                     <FormattedMessage
                       defaultMessage="Share"
                       description="Visible label for copying a link to a trace"
