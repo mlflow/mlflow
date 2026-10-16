@@ -109,6 +109,46 @@ describe('useExperimentEvaluationRunsData', () => {
     expect(queryClient.getQueryCache().findAll({ queryKey: ['SEARCH_RUNS'] })).toHaveLength(1);
   });
 
+  test("uses the first page's resolved filter for later pages, and resolves again on refetch", async () => {
+    const sent: { filter: string; pageToken?: string }[] = [];
+    server.use(
+      rest.post('/ajax-api/2.0/mlflow/runs/search', async (req, res, ctx) => {
+        const body = await req.json();
+        sent.push({ filter: body.filter, pageToken: body.page_token });
+        return res(ctx.json({ runs: [], ...(body.page_token ? {} : { next_page_token: 'page-2' }) }));
+      }),
+    );
+    let call = 0;
+    const resolveFilter = () => `attributes.start_time > ${++call}`;
+    const { result } = renderHook(
+      () =>
+        useExperimentEvaluationRunsData({
+          experimentId: 'test-experiment',
+          enabled: true,
+          filter: 'attributes.start_time > 0',
+          resolveFilter,
+        }),
+      { wrapper: ({ children }) => <QueryClientProvider client={new QueryClient()}>{children}</QueryClientProvider> },
+    );
+    await waitFor(() => expect(result.current.hasNextPage).toBe(true));
+
+    await act(async () => {
+      await result.current.fetchNextPage();
+    });
+    expect(sent).toEqual([
+      { filter: 'attributes.start_time > 1', pageToken: undefined },
+      { filter: 'attributes.start_time > 1', pageToken: 'page-2' },
+    ]);
+
+    await act(async () => {
+      await result.current.refetch();
+    });
+    expect(sent.slice(2)).toEqual([
+      { filter: 'attributes.start_time > 2', pageToken: undefined },
+      { filter: 'attributes.start_time > 2', pageToken: 'page-2' },
+    ]);
+  });
+
   test('sends the filter as given without resolveFilter', async () => {
     const sentFilters: string[] = [];
     server.use(

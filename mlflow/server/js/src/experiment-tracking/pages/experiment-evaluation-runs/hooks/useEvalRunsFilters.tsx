@@ -170,15 +170,15 @@ export const useEvalRunsFilters = ({
   const isAnyFilterActive =
     searchFilter.trim().length > 0 || datePreset !== EvalRunsDatePreset.ALL || clauses.length > 0;
 
-  // Recomputing on every render would make the relative date boundary drift and
-  // change the query key, refetching constantly. Pin it to the filter state.
+  // Query key: the date window is measured once, when the filters change. Recomputing on every render
+  // would make the boundary drift and change the key, refetching constantly.
   const filterString = useMemo(
-    () => (enabled ? buildEvalRunsFilterString(filters, searchFilter) : searchFilter),
+    () => (enabled ? buildEvalRunsFilterString(filters, searchFilter, Date.now()) : searchFilter),
     [enabled, filters, searchFilter],
   );
-  // The same filter with the date window measured from now, for each request (including a refresh).
+  // Request filter: the same filter with the window measured when it's called, so a refresh moves it forward.
   const resolveFilterString = useCallback(
-    () => (enabled ? buildEvalRunsFilterString(filters, searchFilter) : searchFilter),
+    () => (enabled ? buildEvalRunsFilterString(filters, searchFilter, Date.now()) : searchFilter),
     [enabled, filters, searchFilter],
   );
 
