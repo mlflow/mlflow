@@ -855,6 +855,10 @@
     "defaultMessage": "Questions are locked once the queue has traces attached.",
     "description": "Queue settings: questions frozen hint"
   },
+  "1G2CPT": {
+    "defaultMessage": "View prompt {promptName} version {promptVersion}",
+    "description": "Accessible label for a link that opens the prompt version an evaluation run is linked to"
+  },
   "1IExHV": {
     "defaultMessage": "Delete",
     "description": "Confirm-button text for the V2 dataset records bulk-delete modal"
@@ -1254,6 +1258,10 @@
   "2kbhHk": {
     "defaultMessage": "A ZIP source must be an http(s) URL.",
     "description": "Validation error for a non-HTTP skill ZIP source"
+  },
+  "2lbqQU": {
+    "defaultMessage": "Source type",
+    "description": "Label for the source type in a dataset hover card"
   },
   "2mRfvl": {
     "defaultMessage": "Request error",
@@ -4899,6 +4907,10 @@
     "defaultMessage": "Date created",
     "description": "Eval run detail: when the run was created"
   },
+  "G9oKch": {
+    "defaultMessage": "Prompt",
+    "description": "Eval run detail: prompt used by the run"
+  },
   "GA0YXz": {
     "defaultMessage": "CLI",
     "description": "CLI format of the skill pull instructions"
@@ -6967,6 +6979,10 @@
     "defaultMessage": "Save",
     "description": "Button label to save the current custom trace view"
   },
+  "NTJ25q": {
+    "defaultMessage": "{promptName} (v{promptVersion})",
+    "description": "Eval run detail sidebar: a linked prompt and its version"
+  },
   "NU5iHM": {
     "defaultMessage": "Value",
     "description": "Label for the value column in the logged model details metrics table"
@@ -7614,6 +7630,10 @@
   "PewjIJ": {
     "defaultMessage": "GenAI apps & agents",
     "description": "Label for experiments focused on generative AI model development"
+  },
+  "Pg4SI9": {
+    "defaultMessage": "View dataset {datasetName}",
+    "description": "Accessible label for a link that opens the evaluation dataset an evaluation run used"
   },
   "Pgxfhl": {
     "defaultMessage": "Role",
@@ -8962,6 +8982,10 @@
   "Uod74j": {
     "defaultMessage": "Unassign",
     "description": "Review queue: button that removes the selected traces from the queue (the traces themselves are not deleted)"
+  },
+  "UonXG6": {
+    "defaultMessage": "View scorer {scorerName}",
+    "description": "Accessible label for a link that opens the registered scorer behind an evaluation run assessment"
   },
   "UpVskF": {
     "defaultMessage": "Expectations",
@@ -11283,6 +11307,10 @@
     "defaultMessage": "Toggle session grouping",
     "description": "Tooltip for the group by session button in the traces table toolbar"
   },
+  "d8CXjO": {
+    "defaultMessage": "Digest",
+    "description": "Label for the digest in a dataset hover card"
+  },
   "d8I3cy": {
     "defaultMessage": "Show only visible",
     "description": "Experiment page > compare runs tab > chart header > move down option"
@@ -11518,10 +11546,6 @@
   "e515YD": {
     "defaultMessage": "Grounded",
     "description": "Evaluation results > retrieval grounded assessment > positive value label. Displayed if evaluation result is considered as grounded."
-  },
-  "e53BsC": {
-    "defaultMessage": "Dataset source type: {sourceType}",
-    "description": "Dataset cell tooltip row showing the dataset's source type"
   },
   "e5r+Np": {
     "defaultMessage": "The SQL query timed out. Please retry, and if the problem persists, try selecting a larger SQL warehouse.",
@@ -13011,6 +13035,10 @@
     "defaultMessage": "ID",
     "description": "Label for the ID section"
   },
+  "inPe9q": {
+    "defaultMessage": "Unnamed dataset",
+    "description": "Eval run detail sidebar: label for a dataset logged without a meaningful name"
+  },
   "ioD6Ho": {
     "defaultMessage": "Dark",
     "description": "Dark theme label"
@@ -13886,6 +13914,10 @@
   "lzW28v": {
     "defaultMessage": "Metadata",
     "description": "Section label for metadata columns in the traces table column selector"
+  },
+  "lzsFry": {
+    "defaultMessage": "Dataset digest",
+    "description": "Eval run detail: digest identifying the evaluated dataset contents"
   },
   "m/gY3l": {
     "defaultMessage": "Viewing version {version}",
@@ -14862,6 +14894,10 @@
   "pGmDzQ": {
     "defaultMessage": "This skill may have been deleted or the URL may be incorrect.",
     "description": "Description when a Skill cannot be loaded"
+  },
+  "pIgQXZ": {
+    "defaultMessage": "View dataset",
+    "description": "Link in the dataset hover card that opens the evaluation dataset"
   },
   "pJ57zV": {
     "defaultMessage": "Link to \"{name}\" copied — anyone with access can open this view.",
