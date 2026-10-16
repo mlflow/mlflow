@@ -84,19 +84,21 @@ tests when they meaningfully cover the affected behavior.
 
 Keep the fix minimal and in the style of the surrounding code. When the right fix is a design
 decision (a public API, a default, or a storage schema), describe the options instead of
-picking one.
+picking one, unless the maintainer follow-up already specifies the intended behavior.
 
 ## 4. Propose a pull request
 
 Propose a pull request only when all of these hold:
 
 - The `PR_DISABLED` environment variable is not `true`.
-- The verdict is Reproduced and the issue is simple.
-- The fix is straightforward, verified as in step 3, and needs no decisions: no design choice,
-  no trade-off between plausible fixes, nothing a maintainer should weigh in on first.
+- The verdict is Reproduced.
+- The fix is verified as in step 3 and leaves no design choice or trade-off unresolved. On
+  initial triage, only propose a PR for a simple issue with a straightforward fix. On a
+  maintainer follow-up, implement the requested fix, including a previously suggested option.
 - Every changed file is under `mlflow/` or `tests/`.
 - The issue author has not offered to fix it themselves in the issue body (for
-  example, "I'd be happy to submit a PR"). If they have, leave the fix to them.
+  example, "I'd be happy to submit a PR"), unless the maintainer follow-up requests an
+  automated fix. Otherwise, leave the fix to the author.
 
 Otherwise, skip this step: the comment's suggested fix is enough.
 

@@ -67,7 +67,7 @@ properties:
     maxLength: 5000
   pull_request:
     description: |
-      Draft pull request for `fix.patch`. Only for a Reproduced bug whose fix is small, verified,
+      Draft pull request for `fix.patch`. Only for a Reproduced bug whose fix is verified
       and leaves nothing for a maintainer to decide.
     type: object
     additionalProperties: false
