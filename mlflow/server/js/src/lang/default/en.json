@@ -1103,6 +1103,10 @@
     "defaultMessage": "Output tokens",
     "description": "Label for output token usage"
   },
+  "2IZ7j4": {
+    "defaultMessage": "Trace",
+    "description": "Experiment issues tab > Evidence card > Fallback trace name"
+  },
   "2Im7IU": {
     "defaultMessage": "Move to pending",
     "description": "Button to move an issue back to pending status"
@@ -1146,6 +1150,10 @@
   "2OrFCG": {
     "defaultMessage": "Created at",
     "description": "Column header for created timestamp in the evaluation runs table"
+  },
+  "2QproO": {
+    "defaultMessage": "Open trace",
+    "description": "Experiment issues tab > Evidence card > Opens the full trace"
   },
   "2ROAqe": {
     "defaultMessage": "Record {id}",
@@ -1683,6 +1691,10 @@
     "defaultMessage": "Traces",
     "description": "Region label wrapping the traces table"
   },
+  "4LicHM": {
+    "defaultMessage": "+{count} more",
+    "description": "Experiment issues tab > Legacy evidence step > Count of hidden span input fields"
+  },
   "4M9wXl": {
     "defaultMessage": "Retry",
     "description": "Experiment Issues read retry action"
@@ -2178,6 +2190,14 @@
   "6BqLF2": {
     "defaultMessage": "Search for a field",
     "description": "Placeholder for search input in schema table"
+  },
+  "6CJkC/": {
+    "defaultMessage": "No affected traces are recorded for this issue.",
+    "description": "Experiment issues tab > Evidence section > Shown when the issue names no affected traces"
+  },
+  "6DzJXb": {
+    "defaultMessage": "View span",
+    "description": "Experiment issues tab > Evidence step > Opens the span supporting this step"
   },
   "6HjFD0": {
     "defaultMessage": "Key name",
@@ -4171,6 +4191,10 @@
     "defaultMessage": "overall error rate",
     "description": "Subtitle for overall tool error rate"
   },
+  "D5v8Rw": {
+    "defaultMessage": "Evidence",
+    "description": "Experiment issues tab > Issue detail > Evidence section heading"
+  },
   "D6gLbL": {
     "defaultMessage": "Enter workspace description",
     "description": "Placeholder for workspace description input"
@@ -5015,6 +5039,10 @@
     "defaultMessage": "Context sufficiency",
     "description": "Evaluation results > known type of evaluation result assessment > context sufficiency assessment. Used to indicate if the retrieved context is sufficient to generate the expected response. Label displayed if user provided custom value, e.g. \"Context Sufficiency: mostly sufficient\""
   },
+  "GRodhL": {
+    "defaultMessage": "Expand evidence for {traceName}",
+    "description": "Experiment issues tab > Evidence card > Expand evidence"
+  },
   "GU5EuF": {
     "defaultMessage": "You do not have permission to view these issues",
     "description": "Experiment Issues permission error"
@@ -5563,6 +5591,10 @@
     "defaultMessage": "Stage",
     "description": "Label name for stage metadata in model version page"
   },
+  "IIw/Vg": {
+    "defaultMessage": "This trace reported an error with no message recorded.",
+    "description": "Experiment issues tab > Legacy evidence step > Trace's error had no details"
+  },
   "IJ+hiP": {
     "defaultMessage": "Prompt tag deleted",
     "description": "Webhook event label"
@@ -6050,6 +6082,10 @@
   "K5rmCE": {
     "defaultMessage": "S3",
     "description": "Experiment dataset drawer > source type > S3 source type label"
+  },
+  "K6T5Xt": {
+    "defaultMessage": "Error: {value}",
+    "description": "Experiment issues tab > Legacy evidence step > Trace or span's error"
   },
   "K7sH7k": {
     "defaultMessage": "Experiment renamed",
@@ -6883,6 +6919,10 @@
     "defaultMessage": "Filter key",
     "description": "Aria label for the trace filter key input"
   },
+  "N4vqNW": {
+    "defaultMessage": "The traces behind this issue could not be loaded.",
+    "description": "Experiment issues tab > Evidence section > Shown when the affected traces could not be fetched"
+  },
   "N53jAt": {
     "defaultMessage": "Create custom code judge",
     "description": "Title for new custom code judge modal"
@@ -7510,6 +7550,10 @@
   "PHTzk8": {
     "defaultMessage": "About run locally",
     "description": "Aria label for packages subsection help popover"
+  },
+  "PIIRft": {
+    "defaultMessage": "Retry",
+    "description": "Experiment issues tab > Evidence section > Retries the affected trace search"
   },
   "PIPzZY": {
     "defaultMessage": "General",
@@ -9247,6 +9291,10 @@
     "defaultMessage": "{hours}h ago",
     "description": "Review queue table: date-added cell, hours ago"
   },
+  "VYlxnd": {
+    "defaultMessage": "Collapse evidence for {traceName}",
+    "description": "Experiment issues tab > Evidence card > Collapse evidence"
+  },
   "VZRc73": {
     "defaultMessage": "Using the list of logged table artifacts, select at least one to start comparing results.",
     "description": "Experiment page > artifact compare view > table select dropdown tooltip"
@@ -10467,6 +10515,10 @@
     "defaultMessage": "New run name",
     "description": "Experiment page > new run modal > run name input label"
   },
+  "ZrE17j": {
+    "defaultMessage": "Request: {value}",
+    "description": "Experiment issues tab > Legacy evidence step > Trace's request preview"
+  },
   "ZstVNI": {
     "defaultMessage": "Outputs",
     "description": "Model trace explorer > selected span > outputs header"
@@ -11642,6 +11694,10 @@
   "e7K2T3": {
     "defaultMessage": "Show all runs",
     "description": "Experiment page > compare runs tab > chart header > move down option"
+  },
+  "e9b27m": {
+    "defaultMessage": "Inputs: {fields}",
+    "description": "Experiment issues tab > Legacy evidence step > Span's input fields"
   },
   "e9qVjz": {
     "defaultMessage": "Cancel",
@@ -12823,6 +12879,10 @@
     "defaultMessage": "Close",
     "description": "Button to close the assistant panel on remote servers"
   },
+  "hvYszt": {
+    "defaultMessage": "More affected traces could not be loaded.",
+    "description": "Experiment issues tab > Evidence section > Shown when a later page of traces fails"
+  },
   "hwSDOP": {
     "defaultMessage": "Previous",
     "description": "Previous page button"
@@ -13106,6 +13166,10 @@
   "ieY8lf": {
     "defaultMessage": "Evaluating {isTraces, select, true {traces} other {sessions}}...",
     "description": "Status text while evaluating traces or sessions"
+  },
+  "igH0+2": {
+    "defaultMessage": "Response: {value}",
+    "description": "Experiment issues tab > Legacy evidence step > Trace's response preview"
   },
   "igK5Su": {
     "defaultMessage": "Error",
@@ -14083,6 +14147,10 @@
     "defaultMessage": "New prompt",
     "description": "Option to save the playground messages as a brand-new prompt in the save modal"
   },
+  "mFQ3Pf": {
+    "defaultMessage": "No evidence details were recorded for this trace.",
+    "description": "Experiment issues tab > Evidence card > No assessment or legacy evidence"
+  },
   "mGUpJv": {
     "defaultMessage": "Failed to create record",
     "description": "Generic fallback save-error text for the dataset record side panel (create mode)"
@@ -14274,6 +14342,10 @@
   "mqDCNl": {
     "defaultMessage": "Unable to parse JSON file. The file should contain an object with 'columns' and 'data' keys.",
     "description": "An error message displayed when the logged table JSON file is malformed or does not contain 'columns' and 'data' keys"
+  },
+  "mqFRJb": {
+    "defaultMessage": "Evidence details could not be loaded for this trace.",
+    "description": "Experiment issues tab > Legacy evidence step > Trace details couldn't be loaded"
   },
   "mqTFL+": {
     "defaultMessage": "Cancel",
@@ -15891,6 +15963,10 @@
     "defaultMessage": "None",
     "description": "Label for the button disabling grouping in the logged model list page"
   },
+  "sOhO4e": {
+    "defaultMessage": "Show {count} more",
+    "description": "Experiment issues tab > Evidence section > Loads the next page of evidence cards"
+  },
   "sPjG+W": {
     "defaultMessage": "Assistant unavailable",
     "description": "Empty state title shown when the custom view assistant connector is not available"
@@ -16327,6 +16403,10 @@
     "defaultMessage": "Prompt Template",
     "description": "Experiment page > new run modal > prompt template input label"
   },
+  "uCvU1I": {
+    "defaultMessage": "This span reported an error with no message or exception recorded.",
+    "description": "Experiment issues tab > Legacy evidence step > Span's error had no details"
+  },
   "uDwMEr": {
     "defaultMessage": "Unavailable",
     "description": "Label for a registry entity without any version"
@@ -16598,6 +16678,10 @@
   "vHNP+J": {
     "defaultMessage": "Add tags",
     "description": "Button text to add tags to a trace in the experiment traces table"
+  },
+  "vHgCMH": {
+    "defaultMessage": "No evidence details were recorded for this trace.",
+    "description": "Experiment issues tab > Legacy evidence step > Trace has no displayable details"
   },
   "vK1v9d": {
     "defaultMessage": "datasets used",

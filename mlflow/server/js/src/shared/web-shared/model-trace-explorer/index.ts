@@ -94,3 +94,12 @@ export {
 export { ModelTraceExplorerDrawer, type ModelTraceExplorerDrawerProps } from './ModelTraceExplorerDrawerEntrypoint';
 export { formatCostUSD } from './CostUtils';
 export { SimplifiedAssessmentView } from './right-pane/SimplifiedAssessmentView';
+export {
+  getIssueReferenceFromAssessment,
+  getUniqueIssueReferences,
+  ISSUE_EVIDENCE_METADATA_KEY,
+  type IssueEvidence,
+  type IssueEvidenceHighlightTone,
+  type IssueEvidenceStep,
+  type TraceIssueReference,
+} from './IssueAssessmentUtils';
