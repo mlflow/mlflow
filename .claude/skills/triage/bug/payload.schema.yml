@@ -56,8 +56,10 @@ properties:
 
       ### Next steps
 
-      - Reporter: <short imperative phrase, e.g. "Open a PR." or "Share a minimal reproduction."; omit details already covered above>
-      - Maintainers: <short imperative phrase, e.g. "Review the proposed fix." or "Choose a fix direction."; omit details already covered above>
+      <Keep steps brief; omit repeated details. Opening a PR requires a maintainer to add the `ready` issue label first.>
+
+      - Reporter: <e.g. "Wait for the `ready` label before opening a PR." or "Share a minimal reproduction.">
+      - Maintainers: <e.g. "Review findings and add the `ready` label if appropriate." or "Choose a fix direction.">
     type: string
     minLength: 1
     maxLength: 5000
