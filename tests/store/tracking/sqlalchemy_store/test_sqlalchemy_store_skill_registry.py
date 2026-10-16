@@ -626,6 +626,39 @@ def test_search_skills_filters_source_type_by_latest_resolved_version(store):
     )
     assert [skill.name for skill in zip_ordered_matches] == ["draft-zip-reviewer"]
 
+    # Deleting the latest version moves the filter to the version that becomes latest. Both are
+    # drafts, so a deleted v2 would still be latest if deleted versions were not left out.
+    store.create_skill_version(
+        "evolving-reviewer",
+        organization="acme",
+        source_type=SkillSourceType.GIT,
+        source="https://example.com/evolving.git",
+        status=SkillStatus.DRAFT,
+    )
+    store.create_skill_version(
+        "evolving-reviewer",
+        organization="acme",
+        source_type=SkillSourceType.ZIP,
+        source="https://example.com/evolving.zip",
+        status=SkillStatus.DRAFT,
+    )
+
+    def matching(source_type):
+        return [
+            skill.name
+            for skill in store.search_skills(
+                filter_string=f"organization = 'acme' AND source_type = '{source_type}'",
+                order_by=["name ASC"],
+            )
+        ]
+
+    assert matching("zip") == ["draft-zip-reviewer", "evolving-reviewer"]
+
+    store.delete_skill_version("evolving-reviewer", 2, organization="acme")
+
+    assert matching("zip") == ["draft-zip-reviewer"]
+    assert matching("git") == ["evolving-reviewer", "git-reviewer"]
+
 
 def test_search_skills_reuses_joined_latest_version_columns(store):
     store.create_skill_version(
