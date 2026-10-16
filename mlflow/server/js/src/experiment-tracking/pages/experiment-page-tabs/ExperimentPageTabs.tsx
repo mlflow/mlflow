@@ -43,6 +43,7 @@ import type { ExperimentEntity } from '../../types';
 import { ExperimentPageBreadcrumbs } from './ExperimentPageBreadcrumbs';
 import { ExperimentPageMainContent } from './ExperimentPageMainContent';
 import { ExperimentPageRevampProvider } from './ExperimentPageRevampContext';
+import { ExperimentPageShellExperimentActions } from './ExperimentPageShellExperimentActions';
 
 // Lazy so experiment tabs other than evaluation runs don't load the evaluation flow's modules.
 const RunEvaluationButton = React.lazy(() =>
@@ -231,12 +232,20 @@ const ExperimentPageTabsImpl = () => {
     ) : undefined;
 
   const isEvaluationRunsListRoute = Boolean(matchPath(RoutePaths.experimentPageTabEvaluationRuns, pathname));
-  const pageActions = isEvaluationRunsListRoute ? (
-    <React.Suspense fallback={<GenericSkeleton css={{ width: 124, height: theme.general.heightSm }} loading />}>
-      <RunEvaluationButton experimentId={experimentId} isPageAction />
-    </React.Suspense>
-  ) : (
-    headerSavedViewsSlot
+  const pageActions = (
+    <ExperimentPageShellExperimentActions
+      experiment={experiment}
+      onNoteUpdated={refetchExperiment}
+      pageAction={
+        isEvaluationRunsListRoute ? (
+          <React.Suspense fallback={<GenericSkeleton css={{ width: 124, height: theme.general.heightSm }} loading />}>
+            <RunEvaluationButton experimentId={experimentId} isPageAction />
+          </React.Suspense>
+        ) : (
+          headerSavedViewsSlot
+        )
+      }
+    />
   );
   // Review queue focus mode hides the page header; with the shell that is the breadcrumb row.
   const mainContent = showRevamp ? (
