@@ -8841,6 +8841,8 @@ class SqlAlchemyStore(
             if self.db_type == SQLITE:
                 # SQLite ignores FOR UPDATE. Start a write transaction before reading maps so
                 # concurrent per-key patches cannot overwrite each other's unrelated entries.
+                # If the workspace-scoped query misses, the same scoped read below raises before
+                # applying any changes.
                 scoped_ids = (
                     self
                     ._get_query(session, SqlIssue)
@@ -8880,7 +8882,9 @@ class SqlAlchemyStore(
                 sql_issue.severity = IssueSeverity(severity).value
 
             if categories is not None:
-                sql_issue.categories = json.dumps(list(dict.fromkeys(categories)))
+                sql_issue.categories = (
+                    json.dumps(list(dict.fromkeys(categories))) if categories else None
+                )
                 # Keep searchable categories and the legacy JSON representation in one transaction.
                 existing = {entry.category_hash: entry for entry in sql_issue.issue_categories}
                 indexed_categories = []

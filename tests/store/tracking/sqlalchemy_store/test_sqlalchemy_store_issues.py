@@ -4,7 +4,7 @@ from unittest import mock
 
 import pytest
 
-from mlflow.entities import IssueSeverity, IssueStatus, TraceState
+from mlflow.entities import Issue, IssueSeverity, IssueStatus, TraceState
 from mlflow.entities.assessment import IssueReference
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_location import TraceLocation
@@ -1082,7 +1082,7 @@ def test_issue_extended_contract_and_partial_updates(store):
     )
     assert updated.metadata == {"keep": "1", "change": "new"}
     assert updated.description == ""
-    assert updated.categories == []
+    assert updated.categories is None
     assert updated.root_causes == ["Legacy cause"]
     assert updated.created_by == "author"
     assert updated.last_updated_by == "editor"
@@ -1090,6 +1090,52 @@ def test_issue_extended_contract_and_partial_updates(store):
     assert store.update_issue(issue.issue_id, last_seen_timestamp=5).last_seen_timestamp == 10
     assert store.update_issue(issue.issue_id, name="New name").last_seen_timestamp == 10
     assert store.search_issues(categories=["cost"]) == []
+
+
+@pytest.mark.parametrize("actor", ["", "a" * 255], ids=["empty", "max-length"])
+def test_issue_create_actor(store, actor):
+    issue = store.create_issue("0", "Issue", "", created_by=actor)
+    for result in (issue, store.get_issue(issue.issue_id)):
+        assert result.created_by == actor
+        assert result.last_updated_by == actor
+
+
+@pytest.mark.parametrize("actor", ["", "a" * 255], ids=["empty", "max-length"])
+def test_issue_update_actor(store, actor):
+    issue = store.create_issue("0", "Issue", "", created_by="author")
+    updated = store.update_issue(issue.issue_id, last_updated_by=actor)
+    for result in (updated, store.get_issue(issue.issue_id)):
+        assert result.created_by == "author"
+        assert result.last_updated_by == actor
+
+
+@pytest.mark.parametrize("actor", [123, "a" * 256], ids=["non-string", "too-long"])
+def test_issue_update_actor_validation_is_atomic(store, actor):
+    issue = store.create_issue("0", "Original", "", created_by="author")
+    with pytest.raises(MlflowException, match="Invalid last_updated_by") as exc:
+        store.update_issue(issue.issue_id, name="Changed", last_updated_by=actor)
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+    unchanged = store.get_issue(issue.issue_id)
+    assert unchanged.name == "Original"
+    assert unchanged.last_updated_by == "author"
+
+
+@pytest.mark.parametrize("categories", [None, [], ["cost"]])
+def test_issue_empty_categories_match_create_and_clear(store, categories):
+    issue = store.create_issue("0", "Issue", "", categories=categories)
+    assert issue.categories == (categories or None)
+    unchanged = store.update_issue(issue.issue_id, name="Renamed", categories=None)
+    assert unchanged.categories == issue.categories
+    matching_ids = [result.issue_id for result in store.search_issues(categories=["cost"])]
+    assert matching_ids == ([issue.issue_id] if categories else [])
+
+    cleared = store.update_issue(issue.issue_id, categories=[])
+    for result in (cleared, store.get_issue(issue.issue_id), *store.search_issues()):
+        assert result.categories is None
+        assert Issue.from_proto(result.to_proto()).categories is None
+    filtered = store.search_issues(categories=["cost"], include_total_count=True)
+    assert filtered == []
+    assert filtered.total_count == 0
 
 
 @pytest.mark.parametrize(
@@ -1103,6 +1149,8 @@ def test_issue_extended_contract_and_partial_updates(store):
         {"categories": "cost"},
         {"status": "invalid"},
         {"severity": "critical"},
+        {"created_by": 123},
+        {"created_by": "a" * 256},
     ],
 )
 def test_issue_create_validation(store, kwargs):
