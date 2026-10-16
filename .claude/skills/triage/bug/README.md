@@ -1,7 +1,6 @@
-# Bug Triage
+# Bug reproduction and fix verification
 
-Reproduce the reported bug at the current checkout, show exactly how to reproduce it, and
-suggest a fix.
+Use these steps when the selected triage mode requires investigating a bug or proposing a fix.
 
 ## 1. Understand the issue
 
@@ -82,9 +81,9 @@ reload code changes. For simple visual or UI changes, manual browser inspection 
 reproduction before and after the fix can be sufficient verification. Run relevant existing
 tests when they meaningfully cover the affected behavior.
 
-Keep the fix minimal and in the style of the surrounding code. When the right fix is a design
-decision (a public API, a default, or a storage schema), describe the options instead of
-picking one, unless the maintainer follow-up already specifies the intended behavior.
+Keep the fix minimal and in the style of the surrounding code. If a design choice remains
+unresolved (a public API, a default, or a storage schema), describe the options instead of
+picking one.
 
 ## 4. Propose a pull request
 
@@ -92,15 +91,11 @@ Propose a pull request only when all of these hold:
 
 - The `PR_DISABLED` environment variable is not `true`.
 - The bug reproduces at the current checkout.
-- The fix is verified as in step 3 and leaves no design choice or trade-off unresolved. On
-  initial triage, only propose a PR for a simple issue with a straightforward fix. On a
-  maintainer follow-up, implement the requested fix, including a previously suggested option.
+- The fix is verified as in step 3 and leaves no design choice or trade-off unresolved.
 - Every changed file is under `mlflow/` or `tests/`.
-- The issue author has not offered to fix it themselves in the issue body (for
-  example, "I'd be happy to submit a PR"), unless the maintainer follow-up requests an
-  automated fix. Otherwise, leave the fix to the author.
 
-Otherwise, skip this step: the comment's suggested fix is enough.
+Also apply the PR eligibility rules in the selected mode. If any requirement is unmet,
+explain the findings in the comment without proposing a PR.
 
 Add regression tests when they add meaningful coverage. Place new regression tests next to
 the existing tests for that code, verify that they fail without the fix and pass with it,
@@ -115,8 +110,7 @@ git diff HEAD --stat
 ```
 
 The last command must list only the files in the patch. Then add `pull_request` to the payload
-using `pull_request` from the selected payload schema. For initial triage, the comment's
-suggested fix still describes the change in full.
+using `pull_request` from the selected payload schema.
 
 For visible UI fixes, include a before/after comparison in the PR body when it helps
 reviewers assess the change. Stack screenshots vertically with **Before** above **After**, rather than
@@ -124,20 +118,3 @@ side-by-side. Capture the broken behavior before applying the fix and the
 fixed behavior with the same data, page state, and viewport. Label the captures **Before**
 and **After**, save them under `$out_dir/media`, and cite their exact paths as described in
 `SKILL.md`.
-
-## 5. Decide the verdict
-
-For initial triage, pick exactly one verdict using the label descriptions in
-`payload.schema.yml`, and set the payload's `label` to that exact `const` value.
-Follow-ups use `followup-payload.schema.yml` and do not include a label.
-
-## 6. Comment
-
-For initial triage, use the template in `comment.description` of `payload.schema.yml`.
-
-For a follow-up, write a free-form reply to the maintainer's request. Keep it concise and
-avoid repeating the original triage report. A PR in the payload is only a proposal; the
-workflow publishes it later, so do not claim a PR has already been opened.
-
-Prefer code to prose: give commands and code a reader can paste and run, not steps
-to follow by hand. Keep the comment tight.
