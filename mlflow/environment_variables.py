@@ -1866,6 +1866,12 @@ MLFLOW_ALLOW_PICKLE_DESERIALIZATION = _BooleanEnvironmentVariable(
 )
 
 
+#: Specifies whether to allow loading Python code from model artifacts
+MLFLOW_ALLOW_MODEL_CODE_LOADING = _BooleanEnvironmentVariable(
+    "MLFLOW_ALLOW_MODEL_CODE_LOADING", False
+)
+
+
 #: Internal env var for the shared gateway auth token. The server generates a random
 #: token at startup and sets it in the environment so all uvicorn workers and job
 #: subprocesses can use it to authenticate internal gateway requests.

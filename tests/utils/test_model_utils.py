@@ -8,6 +8,7 @@ from sklearn import datasets
 
 import mlflow.sklearn
 import mlflow.utils.model_utils as mlflow_model_utils
+from mlflow.environment_variables import MLFLOW_ALLOW_MODEL_CODE_LOADING
 from mlflow.environment_variables import MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
@@ -54,7 +55,7 @@ def test_get_flavor_configuration_with_present_flavor_returns_expected_configura
     assert sklearn_flavor_config == model_config.flavors[mlflow.sklearn.FLAVOR_NAME]
 
 
-def test_add_code_to_system_path(sklearn_knn_model, model_path):
+def test_add_code_to_system_path(sklearn_knn_model, model_path, monkeypatch):
     mlflow.sklearn.save_model(
         sk_model=sklearn_knn_model,
         path=model_path,
@@ -63,6 +64,7 @@ def test_add_code_to_system_path(sklearn_knn_model, model_path):
             "tests/utils/test_resources/dummy_package",
         ],
     )
+    monkeypatch.setenv(MLFLOW_ALLOW_MODEL_CODE_LOADING.name, "true")
 
     sklearn_flavor_config = mlflow_model_utils._get_flavor_configuration(
         model_path=model_path, flavor_name=mlflow.sklearn.FLAVOR_NAME
@@ -86,6 +88,18 @@ def test_add_code_to_system_path(sklearn_knn_model, model_path):
     assert "dummy_package" in sys.modules
     assert "pandas" in sys.modules
     assert "site-packages" in sys.modules["pandas"].__file__
+
+
+def test_add_code_to_system_path_disallowed_by_default(model_path):
+    original_sys_path = sys.path.copy()
+
+    with pytest.raises(
+        MlflowException,
+        match="Loading Python code from a model artifact is disallowed",
+    ):
+        mlflow_model_utils._add_code_to_system_path(str(model_path))
+
+    assert sys.path == original_sys_path
 
 
 def test_add_code_to_system_path_not_copyable_file(sklearn_knn_model, model_path):

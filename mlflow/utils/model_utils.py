@@ -9,6 +9,7 @@ from typing import Any
 
 import yaml
 
+from mlflow.environment_variables import MLFLOW_ALLOW_MODEL_CODE_LOADING
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
@@ -312,6 +313,14 @@ def _validate_and_copy_file_to_directory(file_path: str, dir_path: str, name: st
 
 
 def _add_code_to_system_path(code_path):
+    if not MLFLOW_ALLOW_MODEL_CODE_LOADING.get():
+        raise MlflowException(
+            message=(
+                "Loading Python code from a model artifact is disallowed. Set "
+                "MLFLOW_ALLOW_MODEL_CODE_LOADING=true only for trusted model artifacts."
+            ),
+            error_code=INVALID_PARAMETER_VALUE,
+        )
     sys.path = [code_path] + sys.path
 
 
