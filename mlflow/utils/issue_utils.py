@@ -48,7 +48,7 @@ def validate_issue_fields(
         ("created_by", created_by, 255),
         ("last_updated_by", last_updated_by, 255),
     ):
-        if value is not None and (not isinstance(value, str) or not 1 <= len(value) <= limit):
+        if value is not None and (not isinstance(value, str) or len(value) > limit):
             raise MlflowException.invalid_parameter_value(f"Invalid {field}")
     for field, values in (
         ("categories", categories),
