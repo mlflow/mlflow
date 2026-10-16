@@ -23,8 +23,9 @@ properties:
         description: Reproduction needs resources the sandbox lacks.
   comment:
     description: |
-      Markdown comment for the issue. Fill in this template: replace each `<...>` placeholder,
-      and drop a line or section that has nothing to say, except the verdict.
+      Markdown comment for the issue. For follow-ups, use a free-form reply as described in
+      `bug/README.md`. For initial triage, fill in this template: replace each `<...>`
+      placeholder, and drop a line or section that has nothing to say, except the verdict.
 
       ### Summary
 

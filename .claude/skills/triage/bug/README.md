@@ -132,7 +132,11 @@ payload's `label` to that exact `const` value.
 
 ## 6. Comment
 
-Write the comment using the template in `comment.description` of `payload.schema.yml`.
+For initial triage, use the template in `comment.description` of `payload.schema.yml`.
+
+For a follow-up, write a free-form reply to the maintainer's request. Keep it concise and
+avoid repeating the original triage report. A PR in the payload is only a proposal; the
+workflow publishes it later, so do not claim a PR has already been opened.
 
 Prefer code to prose: give commands and code a reader can paste and run, not steps
 to follow by hand. Keep the comment tight.
