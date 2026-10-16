@@ -49,6 +49,7 @@ def _load_study_on_executor(
     experiment_id: str,
     batch_flush_interval: float,
     batch_size_threshold: int,
+    reseed_sampler: bool,
 ) -> "optuna.Study":
     storage = MlflowStorage(
         experiment_id=experiment_id,
@@ -59,9 +60,10 @@ def _load_study_on_executor(
         study_name=study_name, sampler=sampler, pruner=pruner, storage=storage
     )
     # Every Spark task unpickles an identical copy of the sampler, including its RNG state.
-    # Reseed it so tasks don't suggest the same parameters, matching Optuna's behavior for
-    # n_jobs > 1.
-    study.sampler.reseed_rng()
+    # With parallel tasks, reseed it so they don't suggest the same parameters. A single
+    # task keeps the seeded RNG so runs stay reproducible, matching Optuna's n_jobs handling.
+    if reseed_sampler:
+        study.sampler.reseed_rng()
     return study
 
 
@@ -387,6 +389,11 @@ class MlflowSparkStudy(Study):
         sampler = self.sampler
         pruner = self.pruner
 
+        num_tasks = n_trials
+        if n_jobs == -1:
+            n_jobs = num_tasks
+        reseed_sampler = n_jobs > 1
+
         def run_task_on_executor_pd(iterator):
             mlflow.set_tracking_uri(mlflow_tracking_env)
             mlflow_client = MlflowClient()
@@ -398,6 +405,7 @@ class MlflowSparkStudy(Study):
                 experiment_id=experiment_id,
                 batch_flush_interval=batch_flush_interval,
                 batch_size_threshold=batch_size_threshold,
+                reseed_sampler=reseed_sampler,
             )
             num_trials = sum(map(len, iterator))
 
@@ -416,9 +424,6 @@ class MlflowSparkStudy(Study):
                 error_message = traceback.format_exc()
             yield pd.DataFrame({"error": [error_message]})
 
-        num_tasks = n_trials
-        if n_jobs == -1:
-            n_jobs = num_tasks
         input_df = self.spark.range(start=0, end=num_tasks, step=1, numPartitions=n_jobs)
         trial_tag = f"optuna_trial_{study_name}_{experiment_id}"
         if self._is_spark_connect_mode:
