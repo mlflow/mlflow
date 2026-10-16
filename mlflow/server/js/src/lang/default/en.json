@@ -8667,6 +8667,10 @@
     "defaultMessage": "Cancel",
     "description": "Cancel button label within a modal for adding/editing a new runs comparison chart"
   },
+  "TljEM2": {
+    "defaultMessage": "Can't load run details",
+    "description": "Eval run detail page > error loading the run title"
+  },
   "TnD/vL": {
     "defaultMessage": "No records found",
     "description": "Empty state for the evaluation dataset records table"
