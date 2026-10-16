@@ -2,9 +2,16 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import { type InputRef, useDesignSystemTheme } from '@databricks/design-system';
 import { useIntl } from 'react-intl';
 import { createTraceV4LongIdentifier, type ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
-import { doesTraceSupportV4API } from '@databricks/web-shared/genai-traces-table';
+import {
+  doesTraceSupportV4API,
+  type AssessmentFilter,
+  type AssessmentValueType,
+} from '@databricks/web-shared/genai-traces-table';
+// Not re-exported from the genai-traces-table barrel in OSS — import from its module.
+import { ERROR_KEY } from '@databricks/web-shared/genai-traces-table/utils/AggregationUtils';
 import {
   EMPTY_FILTER_MODEL,
+  FilterOp,
   TRACE_COLUMN_IDS,
   TracesErrorAlert,
   type SessionHrefGetter,
@@ -38,6 +45,12 @@ import type { TracesV4TraceDrawerProps } from '../../components/experiment-page/
 import { useEvalRunTracesV4Controller } from './useEvalRunTracesV4Controller';
 import { EvalRunSelectedTraceErrorAlert, EvalRunTracesEmptyState } from './EvalRunTracesV4States';
 import { buildEvalRunTableColumnOrder, EVAL_RUN_DEFAULT_COLUMN_SIZING } from './evalRunTracesV4TableConfig';
+import { useEvalRunAssessmentAggregates } from './useEvalRunAssessmentAggregates';
+import {
+  buildEvalRunAssessmentColumnDefs,
+  EvalRunAssessmentHeaderToggle,
+  hasCollapsibleAssessmentChart,
+} from './EvalRunAssessmentColumnHeader';
 
 export interface EvalRunTracesV4TableProps {
   experimentId: string;
@@ -79,7 +92,92 @@ export const EvalRunTracesV4Table = ({ experimentId, runUuid }: EvalRunTracesV4T
   const controller = useEvalRunTracesV4Controller({ experimentId, runUuid });
   const { url, page, columns, assessments, columnSizing, bulk, searchInput, filterModel, flags } = controller;
   const { density, setDensity } = useTracesV4Density(persistenceId);
-  const actions = useTracesV4TraceActions(experimentId, page.traces, page.refetch);
+  const assessmentSummaries = useEvalRunAssessmentAggregates({ experimentId, runUuid });
+  // Edits, judge runs and deletes change the scores, so they reload the header summaries with the rows.
+  const { refetch: refetchPage } = page;
+  const { refetch: refetchAssessmentSummaries } = assessmentSummaries;
+  const refetchTracesAndSummaries = useCallback(() => {
+    refetchPage();
+    refetchAssessmentSummaries();
+  }, [refetchPage, refetchAssessmentSummaries]);
+  const actions = useTracesV4TraceActions(experimentId, page.traces, refetchTracesAndSummaries);
+
+  // Header summaries: the scorer's rate or value over the run, with a chart for pass/fail scores. A chart
+  // click toggles a filter on that value.
+  const [areAssessmentChartsCollapsed, setAreAssessmentChartsCollapsed] = useState(false);
+  const toggleAssessmentCharts = useCallback(() => setAreAssessmentChartsCollapsed((collapsed) => !collapsed), []);
+  const scorersByName = useMemo(
+    () => new Map(assessmentSummaries.scorers.map((scorer) => [scorer.name, scorer])),
+    [assessmentSummaries.scorers],
+  );
+  const assessmentFilters = useMemo<AssessmentFilter[]>(
+    () =>
+      filterModel.flatMap((clause) => {
+        if (clause.field !== 'assessment' || !clause.key || clause.operator !== FilterOp.EQUALS) {
+          return [];
+        }
+        const dtype = scorersByName.get(clause.key)?.dtype;
+        const filterValue =
+          dtype === 'boolean' ? clause.value === 'true' : dtype === 'numeric' ? Number(clause.value) : clause.value;
+        return [{ assessmentName: clause.key, filterValue, run: runUuid }];
+      }),
+    [filterModel, scorersByName, runUuid],
+  );
+  const { setFilterModel } = controller;
+  const toggleAssessmentFilter = useCallback(
+    (assessmentName: string, filterValue: AssessmentValueType) => {
+      // The trace search can't match a missing or errored assessment, so those rows don't filter.
+      if (filterValue === undefined || filterValue === ERROR_KEY) {
+        return;
+      }
+      const value = String(filterValue);
+      const otherClauses = filterModel.filter(
+        (clause) => clause.field !== 'assessment' || clause.key !== assessmentName,
+      );
+      const isActive = filterModel.some(
+        (clause) =>
+          clause.field === 'assessment' &&
+          clause.key === assessmentName &&
+          clause.operator === FilterOp.EQUALS &&
+          clause.value === value,
+      );
+      setFilterModel(
+        isActive
+          ? otherClauses
+          : [...otherClauses, { field: 'assessment', key: assessmentName, operator: FilterOp.EQUALS, value }],
+      );
+    },
+    [filterModel, setFilterModel],
+  );
+  const assessmentColumnDefs = useMemo(
+    () =>
+      buildEvalRunAssessmentColumnDefs({
+        columnDefs: assessments.columnDefs,
+        scorersByName,
+        assessmentFilters,
+        toggleAssessmentFilter,
+        runUuid,
+        areChartsCollapsed: areAssessmentChartsCollapsed,
+      }),
+    [
+      assessments.columnDefs,
+      scorersByName,
+      assessmentFilters,
+      toggleAssessmentFilter,
+      runUuid,
+      areAssessmentChartsCollapsed,
+    ],
+  );
+  const assessmentHeaderBottomOverlay = useMemo(
+    () =>
+      hasCollapsibleAssessmentChart(assessmentColumnDefs) ? (
+        <EvalRunAssessmentHeaderToggle
+          areChartsCollapsed={areAssessmentChartsCollapsed}
+          onToggle={toggleAssessmentCharts}
+        />
+      ) : undefined,
+    [assessmentColumnDefs, areAssessmentChartsCollapsed, toggleAssessmentCharts],
+  );
 
   // Assessments lead the default order so scores are on the first screen. A drag in the column selector
   // reorders this view until the run changes.
@@ -206,7 +304,7 @@ export const EvalRunTracesV4Table = ({ experimentId, runUuid }: EvalRunTracesV4T
           bulk.clear();
           setDeleteOpen(false);
           setPendingDeleteIds([]);
-          page.refetch();
+          refetchTracesAndSummaries();
           notify.success(
             intl.formatMessage(
               {
@@ -220,7 +318,7 @@ export const EvalRunTracesV4Table = ({ experimentId, runUuid }: EvalRunTracesV4T
         onError: (err) => notify.error(err),
       },
     );
-  }, [pendingDeleteIds, deleteTracesMutation, experimentId, bulk, page, notify, intl]);
+  }, [pendingDeleteIds, deleteTracesMutation, experimentId, bulk, refetchTracesAndSummaries, notify, intl]);
 
   const unifiedSearch = useTracesV4UnifiedSearch({
     filterModel,
@@ -278,7 +376,7 @@ export const EvalRunTracesV4Table = ({ experimentId, runUuid }: EvalRunTracesV4T
     viewState,
     traces: page.traces,
     visibleColumns,
-    extraColumns: assessments.columnDefs,
+    extraColumns: assessmentColumnDefs,
     columnOrder: tableColumnOrder,
     initialColumnSizing: evalRunColumnSizing,
     onColumnSizingSettled: columnSizing.setColumnSizing,
@@ -302,6 +400,7 @@ export const EvalRunTracesV4Table = ({ experimentId, runUuid }: EvalRunTracesV4T
     onSessionSelected: handleSessionSelected,
     onFilterByTag: controller.onFilterByTag,
     onHideColumn: handleHideColumn,
+    headerBottomOverlay: assessmentHeaderBottomOverlay,
     isGroupedBySession: controller.isGroupedBySession,
     sessionsMayBeIncomplete: controller.isGroupedBySession && (page.hasNext || page.hasPrev),
     onReorderColumn: reorderColumn,
@@ -325,6 +424,13 @@ export const EvalRunTracesV4Table = ({ experimentId, runUuid }: EvalRunTracesV4T
         {controller.selectedTraceValidation.error ? (
           <EvalRunSelectedTraceErrorAlert onRetry={controller.selectedTraceValidation.refetch} />
         ) : null}
+        {assessmentSummaries.error && (
+          <TracesErrorAlert
+            error={assessmentSummaries.error}
+            onRetry={refetchAssessmentSummaries}
+            getErrorDescription={getErrorDescription}
+          />
+        )}
         {showErrorAlert && (
           <TracesErrorAlert error={page.error} onRetry={page.refetch} getErrorDescription={getErrorDescription} />
         )}

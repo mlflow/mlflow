@@ -248,4 +248,76 @@ describe('EvalRunTracesV4Table', () => {
     expect(await findTraceRow('tr-own-no')).toBeInTheDocument();
     await waitFor(() => expect(screen.queryByText(/tr-linked/)).not.toBeInTheDocument());
   });
+
+  describe('assessment summaries in the column headers', () => {
+    const ofRun = { metadata: { 'mlflow.assessment.sourceRunId': RUN_UUID } };
+    const summaryTraces = () => [
+      makeRunTrace('tr-000', { assessments: [makeFeedbackAssessment('correctness', 'yes', ofRun)] }),
+      makeRunTrace('tr-001', { assessments: [makeFeedbackAssessment('correctness', 'yes', ofRun)] }),
+      makeRunTrace('tr-002', { assessments: [makeFeedbackAssessment('correctness', 'no', ofRun)] }),
+      makeRunTrace('tr-003', { assessments: [makeFeedbackAssessment('correctness', 'yes', ofRun)] }),
+    ];
+
+    test('summarizes each scorer over the whole run in its header', async () => {
+      state.traces = summaryTraces();
+      renderTable();
+
+      const header = await screen.findByRole('columnheader', { name: /^Correctness PASS 75% / });
+      expect(within(header).getByRole('progressbar', { name: 'Pass' })).toHaveAttribute('aria-valuenow', '75');
+      // The summaries search the whole run, independently of the table's page and filters.
+      expect(state.searchCalls.filter((call) => call.filter === RUN_FILTER).length).toBeGreaterThanOrEqual(2);
+    });
+
+    test('filters the table on a value clicked in a header chart, and clears it on a second click', async () => {
+      state.traces = summaryTraces();
+      renderTable();
+
+      const header = await screen.findByRole('columnheader', { name: /^Correctness PASS 75% / });
+      await userEvent.click(within(header).getByRole('progressbar', { name: 'Fail' }));
+      await waitFor(() =>
+        expect(state.searchCalls[state.searchCalls.length - 1]?.filter).toBe(
+          `${RUN_FILTER} AND feedback.\`correctness\` = 'no'`,
+        ),
+      );
+
+      const pill = await screen.findByRole('button', { name: "Edit filter feedback.correctness = 'no'" });
+      expect(pill).toBeInTheDocument();
+
+      await userEvent.click(
+        within(screen.getByRole('columnheader', { name: /^Correctness PASS 75% / })).getByRole('progressbar', {
+          name: 'Fail',
+        }),
+      );
+      await waitFor(() =>
+        expect(
+          screen.queryByRole('button', { name: "Edit filter feedback.correctness = 'no'" }),
+        ).not.toBeInTheDocument(),
+      );
+    });
+
+    test('collapses and expands the header charts', async () => {
+      state.traces = summaryTraces();
+      renderTable();
+
+      const header = await screen.findByRole('columnheader', { name: /^Correctness PASS 75% / });
+      expect(within(header).getAllByRole('progressbar').length).toBeGreaterThan(0);
+
+      await userEvent.click(screen.getByRole('button', { name: 'Collapse assessment charts' }));
+      expect(within(screen.getByRole('columnheader', { name: /^Correctness/ })).queryByRole('progressbar')).toBeNull();
+      expect(screen.getByRole('columnheader', { name: /^Correctness/ })).toHaveAccessibleName('Correctness PASS 75%');
+
+      await userEvent.click(screen.getByRole('button', { name: 'Expand assessment charts' }));
+      expect(
+        within(screen.getByRole('columnheader', { name: /^Correctness/ })).getAllByRole('progressbar').length,
+      ).toBeGreaterThan(0);
+    });
+
+    test('shows no summary toggle when no scorer has a chart', async () => {
+      state.traces = [makeRunTrace('tr-000', { assessments: [makeFeedbackAssessment('relevance', 4, ofRun)] })];
+      renderTable();
+
+      expect(await screen.findByRole('columnheader', { name: 'relevance AVG 4' })).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /assessment charts/ })).not.toBeInTheDocument();
+    });
+  });
 });

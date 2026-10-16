@@ -10,7 +10,7 @@ import {
   type AssessmentInfo,
   type AssessmentValueType,
 } from '../../types';
-import { ERROR_KEY, getBarChartData } from '../../utils/AggregationUtils';
+import { ERROR_KEY, getBarChartData, type StackedBarchartItem } from '../../utils/AggregationUtils';
 import { getDisplayScore, getDisplayScoreChange } from '../../utils/DisplayUtils';
 
 const MAX_VISIBLE_ITEMS = 4;
@@ -26,6 +26,7 @@ export const CategoricalAggregateChart = React.memo(
     toggleAssessmentFilter,
     currentRunDisplayName,
     compareToRunDisplayName,
+    layout = 'stacked',
   }: {
     theme: ThemeType;
     intl: IntlShape;
@@ -40,6 +41,8 @@ export const CategoricalAggregateChart = React.memo(
     ) => void;
     currentRunDisplayName?: string;
     compareToRunDisplayName?: string;
+    /** `'inline'` puts each value's label, bar and share on one line, for compact table headers. */
+    layout?: 'stacked' | 'inline';
   }) => {
     /** Bar data */
     const barChartData = useMemo(
@@ -70,7 +73,12 @@ export const CategoricalAggregateChart = React.memo(
     const sortedBarChartData = useMemo(() => {
       // Keep original order for pass-fail and boolean assessments
       if (assessmentInfo.dtype === 'pass-fail' || assessmentInfo.dtype === 'boolean') {
-        return barChartData;
+        if (layout === 'stacked') {
+          return barChartData;
+        }
+        // Inline rows list the real values first, then missing and errored ones.
+        const isBottomEntry = (item: StackedBarchartItem) => item.name === 'null' || item.name === ERROR_KEY;
+        return [...barChartData.filter((item) => !isBottomEntry(item)), ...barChartData.filter(isBottomEntry)];
       }
 
       return barChartData
@@ -92,7 +100,7 @@ export const CategoricalAggregateChart = React.memo(
           // Resolve ties by original order
           return a.originalIndex - b.originalIndex;
         });
-    }, [barChartData, assessmentInfo]);
+    }, [barChartData, assessmentInfo, layout]);
 
     // If there's more than MAX_VISIBLE_ITEMS, show a popover with the <MAX_VISIBLE_ITEMS>th item and the rest
     const visibleItems =
@@ -107,7 +115,13 @@ export const CategoricalAggregateChart = React.memo(
     const selectedBarColor = theme.colors.actionDefaultBackgroundPress;
 
     return (
-      <table>
+      <table
+        css={
+          layout === 'inline'
+            ? { width: theme.spacing.xl * 4, maxWidth: '100%', borderCollapse: 'collapse' }
+            : undefined
+        }
+      >
         <tbody>
           {visibleItems.map((barData) => (
             <ChartRow
@@ -117,6 +131,7 @@ export const CategoricalAggregateChart = React.memo(
               hoverBarColor={hoverBarColor}
               selectedBarColor={selectedBarColor}
               assessmentInfo={assessmentInfo}
+              layout={layout}
             />
           ))}
           {hasMoreItems && (
@@ -167,6 +182,7 @@ export const CategoricalAggregateChart = React.memo(
                             hoverBarColor={hoverBarColor}
                             selectedBarColor={selectedBarColor}
                             assessmentInfo={assessmentInfo}
+                            layout={layout}
                           />
                         ))}
                       </tbody>
@@ -188,15 +204,29 @@ const ChartRow = ({
   hoverBarColor,
   selectedBarColor,
   assessmentInfo,
+  layout,
 }: {
   barData: any;
   theme: ThemeType;
   hoverBarColor: string;
   selectedBarColor: string;
   assessmentInfo: AssessmentInfo;
+  layout: 'stacked' | 'inline';
 }) => {
   const isError = barData.name === ERROR_KEY;
   const isNull = barData.name === 'null';
+
+  if (layout === 'inline') {
+    return (
+      <InlineChartRow
+        barData={barData}
+        theme={theme}
+        hoverBarColor={hoverBarColor}
+        selectedBarColor={selectedBarColor}
+        assessmentInfo={assessmentInfo}
+      />
+    );
+  }
 
   if (isError || isNull) {
     return (
@@ -356,6 +386,100 @@ const ChartRow = ({
             ? getDisplayScoreChange(assessmentInfo, barData.scoreChange)
             : getDisplayScore(assessmentInfo, barData.current.fraction)}
         </span>
+      </td>
+    </tr>
+  );
+};
+
+const InlineChartRow = ({
+  barData,
+  theme,
+  hoverBarColor,
+  selectedBarColor,
+  assessmentInfo,
+}: {
+  barData: StackedBarchartItem;
+  theme: ThemeType;
+  hoverBarColor: string;
+  selectedBarColor: string;
+  assessmentInfo: AssessmentInfo;
+}) => {
+  const isError = barData.name === ERROR_KEY;
+  const isNull = barData.name === 'null';
+  const isCount = isError || isNull;
+  const value = isCount
+    ? !isNil(barData.scoreChange)
+      ? getDisplayScoreChange(assessmentInfo, barData.scoreChange, false)
+      : barData.current.value
+    : !isNil(barData.scoreChange)
+      ? getDisplayScoreChange(assessmentInfo, barData.scoreChange)
+      : getDisplayScore(assessmentInfo, barData.current.fraction);
+  const textCss = {
+    color: isError ? theme.colors.textValidationWarning : theme.colors.textSecondary,
+    fontSize: 11,
+    fontWeight: theme.typography.typographyBoldFontWeight,
+    lineHeight: '15px',
+  };
+
+  return (
+    <tr
+      css={{
+        cursor: 'pointer',
+        ':hover': {
+          backgroundColor: hoverBarColor,
+        },
+      }}
+      onClick={barData.current.toggleFilter}
+    >
+      <td
+        colSpan={2}
+        css={{
+          padding: 0,
+          borderRadius: theme.general.borderRadiusBase,
+          backgroundColor: barData.current.isSelected ? selectedBarColor : undefined,
+        }}
+      >
+        <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm, width: '100%' }}>
+          <span
+            css={{
+              ...textCss,
+              width: 34,
+              flexShrink: 0,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              fontStyle: isNull ? 'italic' : undefined,
+            }}
+          >
+            {barData.name}
+          </span>
+          {isCount ? (
+            <div css={{ flex: 1 }} />
+          ) : (
+            <div
+              role="progressbar"
+              aria-label={barData.name}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={barData.current.fraction * 100}
+              css={{
+                flex: 1,
+                minWidth: 34,
+                height: 6,
+                overflow: 'hidden',
+                borderRadius: 3,
+                backgroundColor: theme.colors.backgroundSecondary,
+              }}
+            >
+              <div
+                data-testid="assessment-bar-fill"
+                style={{ width: `${barData.current.fraction * 100}%`, backgroundColor: barData.backgroundColor }}
+                css={{ height: '100%', borderRadius: 3, transition: 'width 0.3s' }}
+              />
+            </div>
+          )}
+          <span css={{ ...textCss, minWidth: 30, flexShrink: 0, textAlign: 'right' }}>{value}</span>
+        </div>
       </td>
     </tr>
   );
