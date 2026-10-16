@@ -1331,6 +1331,10 @@
     "defaultMessage": "Skills",
     "description": "Skill Registry page title"
   },
+  "2zmTqw": {
+    "defaultMessage": "Filter value",
+    "description": "Aria label for the trace filter value combobox"
+  },
   "2zrxcq": {
     "defaultMessage": "Unpublish or deprecate this version first. Deprecating keeps it resolving for anything that pins it.",
     "description": "Tooltip when an active skill version cannot be deleted yet"
@@ -5827,6 +5831,10 @@
     "defaultMessage": "Trace deletion is not supported for traces located in Unity Catalog schema. You can delete traces from corresponding Delta table.",
     "description": "Trace deletion disabled reason. Displayed in a tooltip when a user attempts to delete a trace housed in the UC delta table."
   },
+  "JRoI+9": {
+    "defaultMessage": "Select or type",
+    "description": "Placeholder for a searchable trace filter value combobox"
+  },
   "JUTcIz": {
     "defaultMessage": "Time created",
     "description": "Header for the time created column in the experiments table"
@@ -6942,6 +6950,10 @@
   "NPlcrl": {
     "defaultMessage": "Clear filters",
     "description": "Button to clear filters in the tags filter popover for experiments page search by tags"
+  },
+  "NQWaCA": {
+    "defaultMessage": "Select or type a run ID",
+    "description": "Run filter accepts a suggested run ID or a typed one"
   },
   "NQYTBb": {
     "defaultMessage": "Cached",

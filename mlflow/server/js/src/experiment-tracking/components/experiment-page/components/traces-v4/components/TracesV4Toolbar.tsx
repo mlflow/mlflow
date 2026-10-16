@@ -68,6 +68,8 @@ export interface TracesV4ToolbarParams {
    * search renders the filter editor itself (through `renderFilterEditor`).
    */
   hideFilterButton?: boolean;
+  /** Traces on the current page; with the new evaluation runs UI the filter editor suggests their values. */
+  traces?: ModelTraceInfoV3[];
 }
 
 // Column-selector options: static componentIds (lint requires static ids) + localized labels. Adding
@@ -165,6 +167,7 @@ export const useTracesV4ToolbarSlots = ({
   onDetectIssues,
   savedViewsButton,
   hideFilterButton = false,
+  traces,
   isGroupedBySession,
   onToggleSessionGrouping,
   columnOrder,
@@ -173,7 +176,7 @@ export const useTracesV4ToolbarSlots = ({
   const intl = useIntl();
   const { theme } = useDesignSystemTheme();
   const hasSelection = selectionCount > 0;
-  const filterFields = useMlflowTraceFilterFields(assessmentColumns.candidateNames);
+  const filterFields = useMlflowTraceFilterFields(assessmentColumns.candidateNames, traces);
 
   // While grouped by session the table force-shows the Session column, so lock its column-selector
   // toggle (checked + disabled) rather than letting an unchecking click silently no-op.

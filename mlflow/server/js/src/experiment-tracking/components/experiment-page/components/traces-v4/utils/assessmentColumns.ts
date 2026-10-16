@@ -115,3 +115,6 @@ export const pickCellAssessment = (trace: ModelTraceInfoV3, name: string): Asses
     }
     return best && (best.create_time ?? '') >= (assessment.create_time ?? '') ? best : assessment;
   }, undefined);
+
+/** Whether an assessment would get a column, so filter suggestions offer the same names. */
+export const isAssessmentColumnEligible = (assessment: Assessment): boolean => isDisplayableTraceAssessment(assessment);

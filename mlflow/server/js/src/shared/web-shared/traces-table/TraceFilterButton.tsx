@@ -63,7 +63,7 @@ interface FilterClauseRowProps {
   onDelete: (index: number) => void;
 }
 
-interface FilterKeyComboboxProps {
+export interface FilterComboboxProps {
   id: string;
   value: string;
   options: FilterFieldSelectOption[];
@@ -72,15 +72,20 @@ interface FilterKeyComboboxProps {
   onChange: (value: string) => void;
   /** z-index for the portaled option list (lifted above the enclosing Popover.Content). */
   zIndex: number;
+  /**
+   * Clear the typed search whenever the list opens and show the selected option's label in the
+   * trigger. Value comboboxes set this; key comboboxes keep their previous behaviour.
+   */
+  resetOnOpen?: boolean;
 }
 
 /**
- * Freeform-capable key combobox: suggests `options` and offers a `Use "<typed>"` item so an arbitrary
- * key can still be entered (the v3 assessment-filter typeahead pattern). Module-scope (not nested)
- * per the repo nested-component rule; the freeform-search state lives here, and the selected key is
- * controlled by the parent via `value`/`onChange`.
+ * Freeform-capable filter combobox: suggests `options` and offers a `Use "<typed>"` item so an
+ * arbitrary key or value can still be entered (the v3 assessment-filter typeahead pattern).
+ * Module-scope (not nested) per the repo nested-component rule; the selected option stays controlled
+ * by the parent via `value`/`onChange` while the search is local to this input.
  */
-const FilterKeyCombobox = ({
+const FilterCombobox = ({
   id,
   value,
   options,
@@ -88,20 +93,36 @@ const FilterKeyCombobox = ({
   ariaLabel,
   onChange,
   zIndex,
-}: FilterKeyComboboxProps) => {
+  resetOnOpen,
+}: FilterComboboxProps) => {
   const intl = useIntl();
   const [searchValue, setSearchValue] = useState('');
   const trimmedSearch = searchValue.trim();
   const showCustomValue = trimmedSearch.length > 0 && !options.some((option) => option.value === searchValue);
 
+  const resetSearchOnOpen = (isOpen: boolean) => {
+    if (isOpen) {
+      setSearchValue('');
+    }
+  };
+
+  const renderDisplayedValue = (selectedValue: string) =>
+    options.find((option) => option.value === selectedValue)?.label ?? selectedValue;
+
   return (
-    <DialogCombobox componentId={`${COMPONENT_ID}.filter.key-combobox`} id={id} value={value ? [value] : []}>
+    <DialogCombobox
+      componentId={`${COMPONENT_ID}.filter.key-combobox`}
+      id={id}
+      value={value ? [value] : []}
+      {...(resetOnOpen ? { onOpenChange: resetSearchOnOpen } : {})}
+    >
       <DialogComboboxTrigger
         aria-label={ariaLabel}
         withInlineLabel={false}
         placeholder={placeholder}
         width={160}
         allowClear={false}
+        {...(resetOnOpen ? { renderDisplayedValue } : {})}
       />
       <DialogComboboxContent width={160} style={{ zIndex }}>
         <DialogComboboxOptionList>
@@ -146,6 +167,7 @@ const FilterClauseRow = ({ clause, index, fields, onChangeClause, onDelete }: Fi
   const intl = useIntl();
   const field = fields.find((f) => f.id === clause.field);
   const operators = field?.operators ?? [];
+  const valueOptions = field?.getValueOptions?.(clause.key ?? '', clause.operator) ?? field?.options ?? [];
   const operatorDisabled = operators.length <= 1;
 
   const fieldId = `${COMPONENT_ID}-filter-field-${index}`;
@@ -196,7 +218,7 @@ const FilterClauseRow = ({ clause, index, fields, onChangeClause, onDelete }: Fi
             <FormattedMessage defaultMessage="Key" description="Label for the key input in the traces filter" />
           </FormUI.Label>
           {field.keyInput === 'combobox' ? (
-            <FilterKeyCombobox
+            <FilterCombobox
               id={keyId}
               value={clause.key ?? ''}
               options={field.keyOptions ?? []}
@@ -283,12 +305,33 @@ const FilterClauseRow = ({ clause, index, fields, onChangeClause, onDelete }: Fi
             })}
             onChange={(e) => onChangeClause(index, { ...clause, value: e.target.value })}
           >
-            {(field.options ?? []).map((option) => (
+            {valueOptions.map((option) => (
               <SimpleSelectOption key={option.value} value={option.value}>
                 {option.label}
               </SimpleSelectOption>
             ))}
           </SimpleSelect>
+        ) : field?.valueInput === 'combobox' ? (
+          <FilterCombobox
+            key={`${field.id}:${clause.key ?? ''}`}
+            id={valueId}
+            value={clause.value}
+            options={valueOptions}
+            ariaLabel={intl.formatMessage({
+              defaultMessage: 'Filter value',
+              description: 'Aria label for the trace filter value combobox',
+            })}
+            placeholder={
+              field.valuePlaceholder ??
+              intl.formatMessage({
+                defaultMessage: 'Select or type',
+                description: 'Placeholder for a searchable trace filter value combobox',
+              })
+            }
+            onChange={(value) => onChangeClause(index, { ...clause, value })}
+            zIndex={theme.options.zIndexBase + 100}
+            resetOnOpen
+          />
         ) : (
           <Input
             id={valueId}
