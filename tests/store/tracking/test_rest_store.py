@@ -6,6 +6,9 @@ import time
 from unittest import mock
 
 import pytest
+from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceRequest
+from opentelemetry.sdk.resources import Resource
+from packaging.version import Version
 
 import mlflow
 from mlflow.entities import (
@@ -3127,6 +3130,49 @@ def _create_test_spans() -> list[LiveSpan]:
         end_time=2000000,
     )
     return [LiveSpan(otel_span, trace_id="tr-123")]
+
+
+def test_log_spans_preserves_each_resource_group():
+    spans = []
+    resources = [
+        Resource({"service.name": "checkout-service", "deployment.environment": "prod"}),
+        Resource({"service.name": "payments-service"}),
+        Resource({"deployment.environment": "prod", "service.name": "checkout-service"}),
+    ]
+    for span_id, resource in enumerate(resources, start=1):
+        otel_span = create_mock_otel_span(
+            trace_id=123,
+            span_id=span_id,
+            name=f"span-{span_id}",
+            start_time=1000000,
+            end_time=2000000,
+        )
+        otel_span._resource = resource
+        spans.append(LiveSpan(otel_span, trace_id="tr-123"))
+
+    store = RestStore(lambda: MlflowHostCreds("https://resource-grouping-host"))
+    with (
+        mock.patch.object(store, "_get_server_version", return_value=Version("3.4")),
+        mock.patch(
+            "mlflow.store.tracking.rest_store.http_request",
+            return_value=_create_mock_response(),
+        ) as mock_http,
+    ):
+        store.log_spans("exp-123", spans)
+
+    request = ExportTraceServiceRequest.FromString(mock_http.call_args.kwargs["data"])
+    spans_by_service = {
+        next(
+            attribute.value.string_value
+            for attribute in resource_spans.resource.attributes
+            if attribute.key == "service.name"
+        ): [span.name for scope in resource_spans.scope_spans for span in scope.spans]
+        for resource_spans in request.resource_spans
+    }
+    assert spans_by_service == {
+        "checkout-service": ["span-1", "span-3"],
+        "payments-service": ["span-2"],
+    }
 
 
 # flaky: auto-detected from CI re-runs; see the weekly flaky-test report
