@@ -113,14 +113,14 @@ describe('ModelTraceExplorerDrawer', () => {
         </IntlProvider>,
       );
 
-    test('flag on: formats duration like span durations, abbreviates tokens and rounds cost to 4 decimals', async () => {
+    test('flag on: formats duration like span durations, abbreviates tokens and rounds the estimated cost to 4 decimals', async () => {
       jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(true);
       renderDrawerWithTraceInfo();
       await userEvent.click(screen.getByRole('button', { name: 'Full screen' }));
 
       expect(screen.getByText('2.20s')).toBeInTheDocument();
       expect(screen.getByText('1.5K tokens')).toBeInTheDocument();
-      expect(screen.getByText('$0.0002')).toBeInTheDocument();
+      expect(screen.getByText('≈$0.0002')).toBeInTheDocument();
     });
 
     test('flag off: keeps the existing header formats', async () => {

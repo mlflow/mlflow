@@ -1,8 +1,13 @@
 import React, { useCallback, useMemo } from 'react';
-import { useDesignSystemTheme, ChartLineIcon } from '@databricks/design-system';
+import { useDesignSystemTheme, ChartLineIcon, Typography } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { formatCostUSD } from '@databricks/web-shared/model-trace-explorer';
+import {
+  estimatedCostMessages,
+  formatCostUSD,
+  formatEstimatedCostUSD,
+} from '@databricks/web-shared/model-trace-explorer';
+import { shouldEnableNewEvalRunsUi } from '../../../../common/utils/FeatureUtils';
 import { useTraceCostOverTimeChartData } from '../hooks/useTraceCostOverTimeChartData';
 import { useTraceCostDimension } from '../hooks/useTraceCostDimension';
 import { useItemSelection } from '../hooks/useItemSelection';
@@ -21,6 +26,10 @@ import {
   DEFAULT_CHART_CONTENT_HEIGHT,
 } from './OverviewChartComponents';
 import { useChartColors, useLegendHighlight, getLineDotStyle } from '../utils/chartUtils';
+
+// The new eval runs UI marks pricing-table costs as estimated (≈ prefix and a footnote).
+const formatChartCost = (cost: number): string =>
+  shouldEnableNewEvalRunsUi() ? formatEstimatedCostUSD(cost) : formatCostUSD(cost);
 
 export const TraceCostOverTimeChart: React.FC = () => {
   const { theme } = useDesignSystemTheme();
@@ -71,7 +80,7 @@ export const TraceCostOverTimeChart: React.FC = () => {
   );
 
   const tooltipFormatter = useCallback(
-    (value: number, name: string) => [formatCostUSD(value), name] as [string, string],
+    (value: number, name: string) => [formatChartCost(value), name] as [string, string],
     [],
   );
 
@@ -94,7 +103,7 @@ export const TraceCostOverTimeChart: React.FC = () => {
               description="Title for the cost over time by model chart"
             />
           }
-          value={formatCostUSD(totalCost)}
+          value={formatChartCost(totalCost)}
           subtitle={
             <FormattedMessage defaultMessage="Total Cost" description="Subtitle for the cost over time chart total" />
           }
@@ -172,6 +181,11 @@ export const TraceCostOverTimeChart: React.FC = () => {
           />
         )}
       </div>
+      {shouldEnableNewEvalRunsUi() && (
+        <Typography.Text size="sm" color="secondary" css={{ marginTop: theme.spacing.xs }}>
+          <FormattedMessage {...estimatedCostMessages.tooltip} />
+        </Typography.Text>
+      )}
     </OverviewChartContainer>
   );
 };

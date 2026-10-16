@@ -60,9 +60,16 @@ describe('getTimelineTreeMetricValue', () => {
       cost: { input_cost: 0.00005, output_cost: 0.000073, total_cost: 0.000123 },
     };
 
-    it('flag on: limits cost metrics to four decimal places', () => {
+    it('flag on: limits cost metrics to four decimal places and marks them as estimated', () => {
       jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(true);
-      expect(getTimelineTreeMetricValue('cost', lowCostSpan, intl)?.value).toBe('$0.0001');
+      expect(getTimelineTreeMetricValue('cost', lowCostSpan, intl)?.value).toBe('≈$0.0001');
+    });
+
+    it('flag on: includes the estimation explanation in the cost metric title', () => {
+      jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(true);
+      expect(getTimelineTreeMetricValue('cost', lowCostSpan, intl)?.title).toContain(
+        'Cost is estimated from token usage and public model pricing.',
+      );
     });
 
     it('flag off: keeps up to six decimal places', () => {
