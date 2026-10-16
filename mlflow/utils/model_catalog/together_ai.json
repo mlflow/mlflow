@@ -1281,6 +1281,26 @@
       },
       "last_updated_at": "2026-08-31"
     },
+    "meta-models/Muse-Spark-Open-816B-A42B": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_tokens": 1048576
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.25,
+        "output_per_million_tokens": 4.25,
+        "cache_read_per_million_tokens": 0.15
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-10-16"
+    },
     "mistralai/Ministral-3-14B-Instruct-2512": {
       "mode": "chat",
       "context_window": {
@@ -1523,6 +1543,26 @@
         "response_schema": false
       },
       "last_updated_at": "2026-09-24"
+    },
+    "nvidia/NVIDIA-Nemotron-3.5-Super-VL": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 262144,
+        "max_tokens": 262144
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.15,
+        "output_per_million_tokens": 0.5,
+        "cache_read_per_million_tokens": 0.02
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-10-16"
     },
     "nvidia/NVIDIA-Nemotron-Nano-9B-v2": {
       "mode": "chat",

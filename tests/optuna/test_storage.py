@@ -18,7 +18,9 @@ from optuna.trial import FrozenTrial, TrialState
 
 import mlflow
 from mlflow.entities import Metric, Param, RunTag
+from mlflow.exceptions import MlflowException
 from mlflow.optuna.storage import MlflowStorage
+from mlflow.protos.databricks_pb2 import REQUEST_LIMIT_EXCEEDED
 
 ALL_STATES = list(TrialState)
 
@@ -542,6 +544,155 @@ def test_set_trial_state_values_uses_existing_run_state_for_waiting_trial(setup_
         assert not storage.set_trial_state_values(trial_id, state=TrialState.RUNNING)
 
     get_run.assert_called_once_with(trial_id)
+
+
+@pytest.fixture
+def writer_and_reader(setup_storage):
+    # Two storages on the same experiment simulate two parallel workers. The writer's large
+    # flush interval and threshold ensure nothing is flushed in the background.
+    writer = MlflowStorage(
+        experiment_id=setup_storage._experiment_id,
+        batch_flush_interval=60,
+        batch_size_threshold=100,
+    )
+    return writer, setup_storage
+
+
+@pytest.mark.parametrize(
+    ("directions", "values"),
+    [
+        ([StudyDirection.MINIMIZE], [1.0]),
+        ([StudyDirection.MINIMIZE, StudyDirection.MAXIMIZE], [1.0, 2.0]),
+    ],
+)
+def test_set_trial_state_values_persists_value_before_terminating(
+    writer_and_reader, directions, values
+):
+    writer, reader = writer_and_reader
+    study_id = writer.create_new_study(directions=directions)
+    trial_id = writer.create_new_trial(study_id)
+
+    writer.set_trial_state_values(trial_id, state=TrialState.COMPLETE, values=values)
+
+    trial = reader.get_trial(trial_id)
+    assert trial.state == TrialState.COMPLETE
+    assert trial.values == values
+
+
+def test_set_trial_state_values_logs_value_before_set_terminated(writer_and_reader):
+    writer, _ = writer_and_reader
+    study_id = writer.create_new_study(directions=[StudyDirection.MINIMIZE])
+    trial_id = writer.create_new_trial(study_id)
+
+    with patch.object(writer, "_mlflow_client", wraps=writer._mlflow_client) as client:
+        writer.set_trial_state_values(trial_id, state=TrialState.COMPLETE, values=[1.0])
+
+    call_names = [name for name, _, _ in client.mock_calls]
+    value_log_index = next(
+        i
+        for i, (name, _, kwargs) in enumerate(client.mock_calls)
+        if name == "log_batch" and any(m.key == "value" for m in kwargs.get("metrics", []))
+    )
+    assert value_log_index < call_names.index("set_terminated")
+
+
+def test_set_trial_state_values_raises_and_does_not_terminate_on_value_write_failure(
+    writer_and_reader,
+):
+    writer, _ = writer_and_reader
+    study_id = writer.create_new_study(directions=[StudyDirection.MINIMIZE])
+    trial_id = writer.create_new_trial(study_id)
+    writer.flush_all_batches()
+
+    with (
+        patch.object(
+            writer._mlflow_client,
+            "log_batch",
+            side_effect=MlflowException("Too many requests", error_code=REQUEST_LIMIT_EXCEEDED),
+        ) as log_batch,
+        pytest.raises(MlflowException, match="Too many requests"),
+    ):
+        writer.set_trial_state_values(trial_id, state=TrialState.COMPLETE, values=[1.0])
+
+    log_batch.assert_called_once()
+    assert writer._mlflow_client.get_run(trial_id).info.status == "RUNNING"
+
+
+def test_set_trial_state_values_persists_value_before_terminating_with_async_logging(
+    writer_and_reader, monkeypatch
+):
+    monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_LOGGING", "true")
+    writer, reader = writer_and_reader
+    study_id = writer.create_new_study(directions=[StudyDirection.MINIMIZE])
+    trial_id = writer.create_new_trial(study_id)
+
+    writer.set_trial_state_values(trial_id, state=TrialState.COMPLETE, values=[1.0])
+
+    trial = reader.get_trial(trial_id)
+    assert trial.state == TrialState.COMPLETE
+    assert trial.values == [1.0]
+
+
+def test_set_trial_state_values_logs_synchronously_with_async_logging(
+    writer_and_reader, monkeypatch
+):
+    monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_LOGGING", "true")
+    writer, _ = writer_and_reader
+    study_id = writer.create_new_study(directions=[StudyDirection.MINIMIZE])
+    trial_id = writer.create_new_trial(study_id)
+
+    with patch.object(
+        writer._mlflow_client, "log_batch", wraps=writer._mlflow_client.log_batch
+    ) as log_batch:
+        writer.set_trial_state_values(trial_id, state=TrialState.COMPLETE, values=[1.0])
+
+    # One call flushes the pending trial data, the other writes the value.
+    assert log_batch.call_count == 2
+    assert all(c.kwargs.get("synchronous") is True for c in log_batch.call_args_list)
+
+
+def test_set_trial_state_values_raises_on_value_write_failure_with_async_logging(
+    writer_and_reader, monkeypatch
+):
+    writer, _ = writer_and_reader
+    study_id = writer.create_new_study(directions=[StudyDirection.MINIMIZE])
+    trial_id = writer.create_new_trial(study_id)
+    writer.flush_all_batches()
+
+    monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_LOGGING", "true")
+    # Patch the store rather than the client so the failure happens inside the write that
+    # async logging would otherwise defer to a background thread.
+    store = writer._mlflow_client._tracking_client.store
+    with (
+        patch.object(
+            store,
+            "_log_metrics",
+            side_effect=MlflowException("Too many requests", error_code=REQUEST_LIMIT_EXCEEDED),
+        ) as log_metrics,
+        pytest.raises(MlflowException, match="Too many requests"),
+    ):
+        writer.set_trial_state_values(trial_id, state=TrialState.COMPLETE, values=[1.0])
+
+    log_metrics.assert_called_once()
+    assert writer._mlflow_client.get_run(trial_id).info.status == "RUNNING"
+
+
+def test_flush_batch_raise_on_error_keeps_batch(setup_storage):
+    storage = setup_storage
+    run_id = "test-run-id"
+    metrics = [Metric("test_metric", 1.0, int(time.time() * 1000), 0)]
+    storage._batch_queue[run_id] = {"metrics": metrics[:], "params": [], "tags": []}
+
+    with (
+        patch.object(
+            storage._mlflow_client, "log_batch", side_effect=MlflowException("Internal error")
+        ) as log_batch,
+        pytest.raises(MlflowException, match="Internal error"),
+    ):
+        storage._flush_batch(run_id, raise_on_error=True)
+
+    log_batch.assert_called_once()
+    assert storage._batch_queue[run_id]["metrics"] == metrics
 
 
 def test_get_trial_param_and_get_trial_params(setup_storage):

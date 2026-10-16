@@ -24,7 +24,9 @@ from sqlalchemy import (
     UniqueConstraint,
 )
 from sqlalchemy.dialects.mssql import NVARCHAR
+from sqlalchemy.dialects.mssql import VARCHAR as MSSQL_VARCHAR
 from sqlalchemy.dialects.mysql import MEDIUMTEXT
+from sqlalchemy.dialects.mysql import VARCHAR as MYSQL_VARCHAR
 from sqlalchemy.ext.mutable import MutableDict, MutableList
 from sqlalchemy.inspection import inspect
 from sqlalchemy.orm import (
@@ -76,6 +78,10 @@ from mlflow.entities import (
     RunInfo,
     RunStatus,
     RunTag,
+    Skill,
+    SkillSourceType,
+    SkillStatus,
+    SkillVersion,
     SourceType,
     TraceInfo,
     ViewType,
@@ -100,11 +106,16 @@ from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.logged_model_parameter import LoggedModelParameter
 from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.entities.logged_model_tag import LoggedModelTag
+from mlflow.entities.skill_source import build_source
 from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.exceptions import MlflowException
 from mlflow.genai.scorers.online.entities import OnlineScoringConfig
 from mlflow.store.db.base_sql_model import Base
+from mlflow.store.tracking.skill_registry.constants import (
+    SKILL_VERSION_DIGEST_LENGTH,
+    SKILL_VERSION_SOURCE_MAX_LENGTH,
+)
 from mlflow.store.tracking.utils.trace_analytics import (
     PROMOTED_TRACE_METADATA_KEYS,
     assessment_aggregate,
@@ -4700,3 +4711,374 @@ class SqlMCPAccessEndpoint(Base):
             creation_timestamp=self.created_at,
             last_updated_timestamp=self.last_updated_at,
         )
+
+
+# Skill registry tag keys must be case-sensitive because filter strings address
+# tags by exact key, e.g. ``tags.team``. MySQL and SQL Server default collations
+# are commonly case-insensitive, so configure tag key PK members explicitly.
+SKILL_REGISTRY_TAG_KEY_STRING = (
+    String(250)
+    .with_variant(MYSQL_VARCHAR(250, collation="utf8mb4_bin"), "mysql")
+    .with_variant(MSSQL_VARCHAR(250, collation="SQL_Latin1_General_CP1_CS_AS"), "mssql")
+)
+
+SKILL_REGISTRY_TAG_VALUE_TEXT = (
+    Text().with_variant(MEDIUMTEXT, "mysql").with_variant(NVARCHAR(None), "mssql")
+)
+
+
+# ---------------------------------------------------------------------------
+# Skill Registry (RFC-0008) ORM models
+# ---------------------------------------------------------------------------
+
+
+class SqlSkill(Base):
+    __tablename__ = "skills"
+
+    workspace = Column(
+        String(63),
+        nullable=False,
+        default=DEFAULT_WORKSPACE_NAME,
+        server_default=sa.text(f"'{DEFAULT_WORKSPACE_NAME}'"),
+    )
+    organization = Column(String(64), nullable=False, default="", server_default=sa.text("''"))
+    name = Column(String(128), nullable=False)
+    description = Column(Text, nullable=True)
+    icons = Column(JSON, nullable=True)
+    search_text = Column(Text, nullable=True)
+    created_by = Column(String(256), nullable=True)
+    last_updated_by = Column(String(256), nullable=True)
+    created_at = Column(BigInteger, default=get_current_time_millis, nullable=False)
+    last_updated_at = Column(BigInteger, default=get_current_time_millis, nullable=False)
+
+    resolved_latest_version = query_expression()
+    resolved_source_type = query_expression()
+    resolved_status = query_expression()
+
+    __table_args__ = (PrimaryKeyConstraint("workspace", "organization", "name", name="skills_pk"),)
+
+    def __repr__(self):
+        return f"<SqlSkill ({self.workspace}, {self.organization}, {self.name})>"
+
+    @classmethod
+    def _resolved_latest_candidates_query(cls):
+        # Skill versions are monotonic integers, so a plain descending version
+        # comparison is a total order; no SemVer machinery is needed. Active
+        # versions win; otherwise the highest non-deleted non-active version.
+        status_priority = sa.case(
+            (SqlSkillVersion.status == SkillStatus.ACTIVE.value, 0),
+            else_=1,
+        )
+        return sa.select(
+            SqlSkillVersion.workspace.label("workspace"),
+            SqlSkillVersion.organization.label("organization"),
+            SqlSkillVersion.name.label("name"),
+            SqlSkillVersion.version.label("version"),
+            SqlSkillVersion.status.label("status"),
+            SqlSkillVersion.source_type.label("source_type"),
+            sa.func
+            .row_number()
+            .over(
+                partition_by=(
+                    SqlSkillVersion.workspace,
+                    SqlSkillVersion.organization,
+                    SqlSkillVersion.name,
+                ),
+                order_by=(status_priority.asc(), SqlSkillVersion.version.desc()),
+            )
+            .label("row_num"),
+        ).where(SqlSkillVersion.status != SkillStatus.DELETED.value)
+
+    @classmethod
+    def resolved_status_expression(cls):
+        """Build a SQL expression for the resolved status, usable in ``.filter()``."""
+        latest_candidates = cls._resolved_latest_candidates_query().subquery(
+            "resolved_skill_status_candidates"
+        )
+        return (
+            sa
+            .select(latest_candidates.c.status)
+            .where(
+                sa.and_(
+                    latest_candidates.c.workspace == cls.workspace,
+                    latest_candidates.c.organization == cls.organization,
+                    latest_candidates.c.name == cls.name,
+                    latest_candidates.c.row_num == 1,
+                )
+            )
+            .correlate(cls)
+            .scalar_subquery()
+        )
+
+    @classmethod
+    def with_resolved_latest_columns(cls, query):
+        latest_candidates = cls._resolved_latest_candidates_query().subquery(
+            "skill_latest_candidates"
+        )
+        query = query.outerjoin(
+            latest_candidates,
+            sa.and_(
+                latest_candidates.c.workspace == cls.workspace,
+                latest_candidates.c.organization == cls.organization,
+                latest_candidates.c.name == cls.name,
+                latest_candidates.c.row_num == 1,
+            ),
+        ).options(
+            with_expression(cls.resolved_latest_version, latest_candidates.c.version),
+            with_expression(cls.resolved_source_type, latest_candidates.c.source_type),
+            with_expression(cls.resolved_status, latest_candidates.c.status),
+        )
+        return query, {
+            "latest_version": latest_candidates.c.version,
+            "status": latest_candidates.c.status,
+            "source_type": latest_candidates.c.source_type,
+        }
+
+    @classmethod
+    def with_resolved_latest(cls, query):
+        query, _ = cls.with_resolved_latest_columns(query)
+        return query
+
+    def to_mlflow_entity(
+        self,
+        *,
+        resolved_latest_version: int | None = None,
+        resolved_source_type: str | None = None,
+        resolved_status: str | None = None,
+    ):
+        tags = {t.key: t.value for t in self.tags}
+        aliases = {a.alias: a.version for a in self.skill_aliases}
+        resolved_latest_version = (
+            self.resolved_latest_version
+            if resolved_latest_version is None
+            else resolved_latest_version
+        )
+        resolved_source_type = (
+            self.resolved_source_type if resolved_source_type is None else resolved_source_type
+        )
+        resolved_status = self.resolved_status if resolved_status is None else resolved_status
+        source_type = (
+            SkillSourceType(resolved_source_type) if resolved_source_type is not None else None
+        )
+        status = SkillStatus(resolved_status) if resolved_status is not None else None
+        return Skill(
+            name=self.name,
+            organization=self.organization,
+            description=self.description,
+            icons=self.icons,
+            workspace=self.workspace,
+            status=status,
+            tags=tags,
+            aliases=aliases,
+            latest_version=resolved_latest_version,
+            source_type=source_type,
+            created_by=self.created_by,
+            last_updated_by=self.last_updated_by,
+            creation_timestamp=self.created_at,
+            last_updated_timestamp=self.last_updated_at,
+        )
+
+
+class SqlSkillVersion(Base):
+    __tablename__ = "skill_versions"
+
+    workspace = Column(
+        String(63),
+        nullable=False,
+        default=DEFAULT_WORKSPACE_NAME,
+        server_default=sa.text(f"'{DEFAULT_WORKSPACE_NAME}'"),
+    )
+    organization = Column(String(64), nullable=False, default="", server_default=sa.text("''"))
+    name = Column(String(128), nullable=False)
+    version = Column(Integer, nullable=False)
+    source_type = Column(String(20), nullable=True)
+    source = Column(String(SKILL_VERSION_SOURCE_MAX_LENGTH), nullable=True)
+    ref = Column(String(SKILL_VERSION_SOURCE_MAX_LENGTH), nullable=True)
+    subpath = Column(String(SKILL_VERSION_SOURCE_MAX_LENGTH), nullable=True)
+    digest = Column(String(SKILL_VERSION_DIGEST_LENGTH), nullable=True)
+    status = Column(
+        String(20),
+        nullable=False,
+        default=SkillStatus.ACTIVE.value,
+        server_default=sa.text(f"'{SkillStatus.ACTIVE.value}'"),
+    )
+    created_by = Column(String(256), nullable=True)
+    last_updated_by = Column(String(256), nullable=True)
+    created_at = Column(BigInteger, default=get_current_time_millis, nullable=False)
+    last_updated_at = Column(BigInteger, default=get_current_time_millis, nullable=False)
+
+    skill = relationship(
+        "SqlSkill",
+        backref=backref("skill_versions", cascade="all, delete-orphan"),
+        foreign_keys=[workspace, organization, name],
+    )
+
+    __table_args__ = (
+        PrimaryKeyConstraint(
+            "workspace", "organization", "name", "version", name="skill_versions_pk"
+        ),
+        ForeignKeyConstraint(
+            ["workspace", "organization", "name"],
+            ["skills.workspace", "skills.organization", "skills.name"],
+            ondelete="CASCADE",
+            onupdate="CASCADE",
+            name="skill_versions_skill_fkey",
+        ),
+        Index(
+            "ix_skill_versions_latest_lookup",
+            "workspace",
+            "organization",
+            "name",
+            "status",
+            "version",
+        ),
+        Index(
+            "ix_skill_versions_digest",
+            "workspace",
+            "organization",
+            "name",
+            "digest",
+        ),
+    )
+
+    def __repr__(self):
+        return f"<SqlSkillVersion ({self.name}, {self.version}, {self.status})>"
+
+    def to_mlflow_entity(self, alias_names=None):
+        tags = {t.key: t.value for t in self.version_tags}
+        if alias_names is None:
+            alias_names = [a.alias for a in self.skill.skill_aliases if a.version == self.version]
+        source_type = SkillSourceType(self.source_type) if self.source_type is not None else None
+        return SkillVersion(
+            name=self.name,
+            version=self.version,
+            organization=self.organization,
+            source=build_source(source_type, self.source, self.ref, self.subpath),
+            source_type=source_type,
+            digest=self.digest,
+            status=SkillStatus(self.status),
+            tags=tags,
+            aliases=alias_names,
+            workspace=self.workspace,
+            created_by=self.created_by,
+            last_updated_by=self.last_updated_by,
+            creation_timestamp=self.created_at,
+            last_updated_timestamp=self.last_updated_at,
+        )
+
+
+class SqlSkillTag(Base):
+    __tablename__ = "skill_tags"
+
+    workspace = Column(
+        String(63),
+        nullable=False,
+        default=DEFAULT_WORKSPACE_NAME,
+        server_default=sa.text(f"'{DEFAULT_WORKSPACE_NAME}'"),
+    )
+    organization = Column(String(64), nullable=False, default="", server_default=sa.text("''"))
+    name = Column(String(128), nullable=False)
+    key = Column(SKILL_REGISTRY_TAG_KEY_STRING, nullable=False)
+    value = Column(SKILL_REGISTRY_TAG_VALUE_TEXT, nullable=True)
+
+    skill = relationship(
+        "SqlSkill",
+        backref=backref("tags", cascade="all, delete-orphan"),
+        foreign_keys=[workspace, organization, name],
+    )
+
+    __table_args__ = (
+        PrimaryKeyConstraint("workspace", "organization", "name", "key", name="skill_tags_pk"),
+        ForeignKeyConstraint(
+            ["workspace", "organization", "name"],
+            ["skills.workspace", "skills.organization", "skills.name"],
+            ondelete="CASCADE",
+            onupdate="CASCADE",
+            name="skill_tags_skill_fkey",
+        ),
+    )
+
+    def __repr__(self):
+        return f"<SqlSkillTag ({self.name}, {self.key}={self.value})>"
+
+
+class SqlSkillVersionTag(Base):
+    __tablename__ = "skill_version_tags"
+
+    workspace = Column(
+        String(63),
+        nullable=False,
+        default=DEFAULT_WORKSPACE_NAME,
+        server_default=sa.text(f"'{DEFAULT_WORKSPACE_NAME}'"),
+    )
+    organization = Column(String(64), nullable=False, default="", server_default=sa.text("''"))
+    name = Column(String(128), nullable=False)
+    version = Column(Integer, nullable=False)
+    key = Column(SKILL_REGISTRY_TAG_KEY_STRING, nullable=False)
+    value = Column(SKILL_REGISTRY_TAG_VALUE_TEXT, nullable=True)
+
+    skill_version = relationship(
+        "SqlSkillVersion",
+        backref=backref("version_tags", cascade="all, delete-orphan"),
+        foreign_keys=[workspace, organization, name, version],
+    )
+
+    __table_args__ = (
+        PrimaryKeyConstraint(
+            "workspace", "organization", "name", "version", "key", name="skill_version_tags_pk"
+        ),
+        ForeignKeyConstraint(
+            ["workspace", "organization", "name", "version"],
+            [
+                "skill_versions.workspace",
+                "skill_versions.organization",
+                "skill_versions.name",
+                "skill_versions.version",
+            ],
+            ondelete="CASCADE",
+            onupdate="CASCADE",
+            name="skill_version_tags_version_fkey",
+        ),
+    )
+
+    def __repr__(self):
+        return f"<SqlSkillVersionTag ({self.name}, {self.version}, {self.key}={self.value})>"
+
+
+class SqlSkillAlias(Base):
+    __tablename__ = "skill_aliases"
+
+    workspace = Column(
+        String(63),
+        nullable=False,
+        default=DEFAULT_WORKSPACE_NAME,
+        server_default=sa.text(f"'{DEFAULT_WORKSPACE_NAME}'"),
+    )
+    organization = Column(String(64), nullable=False, default="", server_default=sa.text("''"))
+    name = Column(String(128), nullable=False)
+    alias = Column(String(256), nullable=False)
+    version = Column(Integer, nullable=False)
+
+    skill = relationship(
+        "SqlSkill",
+        backref=backref(
+            "skill_aliases",
+            cascade="all, delete-orphan",
+            order_by="SqlSkillAlias.alias",
+        ),
+        foreign_keys=[workspace, organization, name],
+    )
+
+    __table_args__ = (
+        PrimaryKeyConstraint("workspace", "organization", "name", "alias", name="skill_aliases_pk"),
+        ForeignKeyConstraint(
+            ["workspace", "organization", "name"],
+            ["skills.workspace", "skills.organization", "skills.name"],
+            ondelete="CASCADE",
+            onupdate="CASCADE",
+            name="skill_aliases_skill_fkey",
+        ),
+    )
+
+    def __repr__(self):
+        return f"<SqlSkillAlias ({self.name}, {self.alias} -> {self.version})>"

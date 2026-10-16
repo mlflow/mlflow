@@ -43,7 +43,7 @@ const mockHoverData: RunsMetricsSingleTraceTooltipData = {
   label: 'Step',
 };
 
-const renderTooltip = (run: RunsChartsRunData, isHovering = true) => {
+const renderTooltip = (run: RunsChartsRunData, isHovering = true, compactRunDescription = false) => {
   render(
     <DesignSystemProvider>
       <IntlProvider locale="en">
@@ -54,7 +54,12 @@ const renderTooltip = (run: RunsChartsRunData, isHovering = true) => {
             mode={RunsChartsTooltipMode.Simple}
             hoverData={mockHoverData}
             chartData={barChartConfig}
-            contextData={{ runs: [run], onTogglePin: jest.fn(), onHideRun: jest.fn() }}
+            contextData={{
+              runs: [run],
+              onTogglePin: jest.fn(),
+              onHideRun: jest.fn(),
+              compactRunDescription,
+            }}
             closeContextMenu={jest.fn()}
           />
         </MemoryRouter>
@@ -74,6 +79,25 @@ describe('RunsChartsTooltipBody', () => {
     renderTooltip(runWithDescription);
     expect(screen.getByText('This is a test run description.')).toBeInTheDocument();
   });
+
+  it.each([
+    { compactRunDescription: false, expectedSingleLine: false },
+    { compactRunDescription: true, expectedSingleLine: true },
+  ])(
+    'sets single-line truncation to $expectedSingleLine when compact mode is $compactRunDescription',
+    ({ compactRunDescription, expectedSingleLine }) => {
+      const runWithDescription: RunsChartsRunData = {
+        ...baseRun,
+        tags: {
+          [NOTE_CONTENT_TAG]: { key: NOTE_CONTENT_TAG, value: 'This is a test run description.' },
+        },
+      };
+      renderTooltip(runWithDescription, true, compactRunDescription);
+      expect(screen.getByText('This is a test run description.').className.includes('typography-single-line')).toBe(
+        expectedSingleLine,
+      );
+    },
+  );
 
   it('does not show description section when run has no description', () => {
     renderTooltip(baseRun);

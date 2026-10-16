@@ -158,6 +158,21 @@ CREATE TABLE secrets (
 )
 
 
+CREATE TABLE skills (
+	workspace VARCHAR(63) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT ('default') NOT NULL,
+	organization VARCHAR(64) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT ('') NOT NULL,
+	name VARCHAR(128) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	description VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	icons NVARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	search_text VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	created_by VARCHAR(256) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	last_updated_by VARCHAR(256) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	created_at BIGINT NOT NULL,
+	last_updated_at BIGINT NOT NULL,
+	CONSTRAINT skills_pk PRIMARY KEY (workspace, organization, name)
+)
+
+
 CREATE TABLE webhooks (
 	webhook_id VARCHAR(256) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	name VARCHAR(256) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
@@ -512,6 +527,48 @@ CREATE TABLE sql_trace_rollup_rebuild_queue (
 )
 
 
+CREATE TABLE skill_aliases (
+	workspace VARCHAR(63) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT ('default') NOT NULL,
+	organization VARCHAR(64) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT ('') NOT NULL,
+	name VARCHAR(128) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	alias VARCHAR(256) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	version INTEGER NOT NULL,
+	CONSTRAINT skill_aliases_pk PRIMARY KEY (workspace, organization, name, alias),
+	CONSTRAINT skill_aliases_skill_fkey FOREIGN KEY(workspace, organization, name) REFERENCES skills (workspace, organization, name) ON DELETE CASCADE ON UPDATE CASCADE
+)
+
+
+CREATE TABLE skill_tags (
+	workspace VARCHAR(63) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT ('default') NOT NULL,
+	organization VARCHAR(64) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT ('') NOT NULL,
+	name VARCHAR(128) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	key VARCHAR(250) COLLATE "SQL_Latin1_General_CP1_CS_AS" NOT NULL,
+	value NVARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	CONSTRAINT skill_tags_pk PRIMARY KEY (workspace, organization, name, key),
+	CONSTRAINT skill_tags_skill_fkey FOREIGN KEY(workspace, organization, name) REFERENCES skills (workspace, organization, name) ON DELETE CASCADE ON UPDATE CASCADE
+)
+
+
+CREATE TABLE skill_versions (
+	workspace VARCHAR(63) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT ('default') NOT NULL,
+	organization VARCHAR(64) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT ('') NOT NULL,
+	name VARCHAR(128) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	version INTEGER NOT NULL,
+	source_type VARCHAR(20) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	source VARCHAR(2048) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	ref VARCHAR(2048) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	subpath VARCHAR(2048) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	digest VARCHAR(64) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	status VARCHAR(20) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT ('active') NOT NULL,
+	created_by VARCHAR(256) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	last_updated_by VARCHAR(256) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	created_at BIGINT NOT NULL,
+	last_updated_at BIGINT NOT NULL,
+	CONSTRAINT skill_versions_pk PRIMARY KEY (workspace, organization, name, version),
+	CONSTRAINT skill_versions_skill_fkey FOREIGN KEY(workspace, organization, name) REFERENCES skills (workspace, organization, name) ON DELETE CASCADE ON UPDATE CASCADE
+)
+
+
 CREATE TABLE trace_info (
 	request_id VARCHAR(50) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	experiment_id INTEGER NOT NULL,
@@ -774,6 +831,18 @@ CREATE TABLE scorer_versions (
 	creation_time BIGINT,
 	CONSTRAINT scorer_version_pk PRIMARY KEY (scorer_id, scorer_version),
 	CONSTRAINT fk_scorer_versions_scorer_id FOREIGN KEY(scorer_id) REFERENCES scorers (scorer_id) ON DELETE CASCADE
+)
+
+
+CREATE TABLE skill_version_tags (
+	workspace VARCHAR(63) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT ('default') NOT NULL,
+	organization VARCHAR(64) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT ('') NOT NULL,
+	name VARCHAR(128) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	version INTEGER NOT NULL,
+	key VARCHAR(250) COLLATE "SQL_Latin1_General_CP1_CS_AS" NOT NULL,
+	value NVARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	CONSTRAINT skill_version_tags_pk PRIMARY KEY (workspace, organization, name, version, key),
+	CONSTRAINT skill_version_tags_version_fkey FOREIGN KEY(workspace, organization, name, version) REFERENCES skill_versions (workspace, organization, name, version) ON DELETE CASCADE ON UPDATE CASCADE
 )
 
 
