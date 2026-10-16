@@ -5,6 +5,7 @@ import { FilterOp, type FilterClause } from '@databricks/web-shared/traces-table
 import { shouldEnableNewEvalRunsUi } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 import { makeFeedbackAssessment, makeTrace } from '../test-utils/mockTraces';
 import { compileFilterModel, isSupportedFilterClause, useMlflowTraceFilterFields } from './filterModel';
+import { assessmentValueKindKey } from './assessmentColumns';
 
 jest.mock('@mlflow/mlflow/src/common/utils/FeatureUtils', () => ({
   ...jest.requireActual<typeof import('@mlflow/mlflow/src/common/utils/FeatureUtils')>(
@@ -12,6 +13,13 @@ jest.mock('@mlflow/mlflow/src/common/utils/FeatureUtils', () => ({
   ),
   shouldEnableNewEvalRunsUi: jest.fn(() => true),
 }));
+
+const NUMERIC_KEYS: ReadonlySet<string> = new Set([
+  assessmentValueKindKey('feedback', 'relevance'),
+  assessmentValueKindKey('feedback', 'score'),
+  assessmentValueKindKey('feedback', 'delta'),
+  assessmentValueKindKey('expectation', 'expected_score'),
+]);
 
 const wrapper = ({ children }: { children: React.ReactNode }) => <IntlProvider locale="en">{children}</IntlProvider>;
 
@@ -91,7 +99,37 @@ describe('filters with the new evaluation runs UI', () => {
         expected: 'expectation.`expected_score` >= 3 AND expectation.`expected_score` <= 3',
       },
     ])('$name', ({ clause, expected }) => {
-      expect(compileFilterModel([clause])).toEqual([expected]);
+      expect(compileFilterModel([clause], NUMERIC_KEYS)).toEqual([expected]);
+    });
+
+    test('a numeric-looking value on a text assessment keeps the literal comparison', () => {
+      expect(
+        compileFilterModel(
+          [
+            { field: 'assessment', key: 'rating', operator: FilterOp.EQUALS, value: '5' },
+            { field: 'assessment', key: 'rating', operator: FilterOp.NOT_EQUALS, value: '5' },
+          ],
+          NUMERIC_KEYS,
+        ),
+      ).toEqual(["feedback.`rating` = '5'", "feedback.`rating` != '5'"]);
+    });
+
+    test('an assessment of unknown type keeps the literal comparison', () => {
+      expect(
+        compileFilterModel([
+          { field: 'assessment', key: 'relevance', operator: FilterOp.EQUALS, value: '4' },
+          { field: 'expectation', key: 'expected_score', operator: FilterOp.EQUALS, value: '3' },
+        ]),
+      ).toEqual(["feedback.`relevance` = '4'", "expectation.`expected_score` = '3'"]);
+    });
+
+    test('feedback and expectations with the same name are typed separately', () => {
+      expect(
+        compileFilterModel(
+          [{ field: 'expectation', key: 'relevance', operator: FilterOp.EQUALS, value: '4' }],
+          new Set([assessmentValueKindKey('feedback', 'relevance')]),
+        ),
+      ).toEqual(["expectation.`relevance` = '4'"]);
     });
   });
 
@@ -160,12 +198,15 @@ describe('filters with the new evaluation runs UI off', () => {
 
   test('compile as before', () => {
     expect(
-      compileFilterModel([
-        { field: 'state', operator: FilterOp.EQUALS, value: 'ERROR' },
-        { field: 'session', operator: FilterOp.EQUALS, value: 's-1' },
-        { field: 'assessment', key: 'relevance', operator: FilterOp.EQUALS, value: '4' },
-        { field: 'expectation', key: 'expected_score', operator: FilterOp.NOT_EQUALS, value: '3' },
-      ]),
+      compileFilterModel(
+        [
+          { field: 'state', operator: FilterOp.EQUALS, value: 'ERROR' },
+          { field: 'session', operator: FilterOp.EQUALS, value: 's-1' },
+          { field: 'assessment', key: 'relevance', operator: FilterOp.EQUALS, value: '4' },
+          { field: 'expectation', key: 'expected_score', operator: FilterOp.NOT_EQUALS, value: '3' },
+        ],
+        NUMERIC_KEYS,
+      ),
     ).toEqual([
       "attributes.status = 'ERROR'",
       "request_metadata.mlflow.trace.session = 's-1'",

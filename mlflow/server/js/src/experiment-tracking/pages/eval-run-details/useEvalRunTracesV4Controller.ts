@@ -43,6 +43,7 @@ import {
   compileTagFilters,
 } from '../../components/experiment-page/components/traces-v4/utils/filterModel';
 import { SEARCH_DEBOUNCE_MS } from '../../components/experiment-page/components/traces-v4/utils/constants';
+import { useNumericAssessmentKeys } from '../../components/experiment-page/components/traces-v4/hooks/useNumericAssessmentKeys';
 import { useEvalRunTracesV4UrlState } from './useEvalRunTracesV4UrlState';
 
 const EXCLUDE_SCORER_TRACES_CLAUSE = 'tags.`mlflow.trace.sourceScorer` IS NULL';
@@ -133,14 +134,15 @@ export const useEvalRunTracesV4Controller = ({
     () => [createTraceLocationForExperiment(experimentId)],
     [experimentId],
   );
+  const { numericAssessmentKeys, recordTraces } = useNumericAssessmentKeys(persistenceId);
   const filter = useMemo(
     () =>
       buildEvalRunTraceFilter({
         runUuid,
         searchQuery: url.search,
-        extraClauses: [...compileFilterModel(filterModel), ...compileTagFilters(url.tagFilters)],
+        extraClauses: [...compileFilterModel(filterModel, numericAssessmentKeys), ...compileTagFilters(url.tagFilters)],
       }),
-    [runUuid, url.search, url.tagFilters, filterModel],
+    [runUuid, url.search, url.tagFilters, filterModel, numericAssessmentKeys],
   );
   const orderBy = useMemo(() => buildOrderBy(url.sort, url.dir), [url.sort, url.dir]);
   const queryPageSize = isGroupedBySession ? GROUPED_TRACES_LIMIT : url.pageSize;
@@ -161,6 +163,7 @@ export const useEvalRunTracesV4Controller = ({
     () => filterTracesByAssessmentSourceRunId(searchPage.traces, runUuid) ?? [],
     [searchPage.traces, runUuid],
   );
+  useEffect(() => recordTraces(runScopedTraces), [runScopedTraces, recordTraces]);
   const page = useMemo<TracesPageQueryResult>(
     () => ({ ...searchPage, traces: runScopedTraces }),
     [searchPage, runScopedTraces],
