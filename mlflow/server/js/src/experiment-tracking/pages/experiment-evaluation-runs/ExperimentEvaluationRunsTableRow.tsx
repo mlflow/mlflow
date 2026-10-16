@@ -44,6 +44,8 @@ type TracesViewTableRowProps = {
   fillerCellStyle?: CSSProperties;
   /** New UI: group rows get the secondary background and show per-metric averages. */
   showGroupSummaries?: boolean;
+  /** New UI: the experiment's baseline run, highlighted and pinned to the top. */
+  isBaseline?: boolean;
 };
 
 const GroupTag = ({ groupKey, groupValue }: { groupKey: string; groupValue: string }): React.ReactElement => {
@@ -93,8 +95,16 @@ export const ExperimentEvaluationRunsTableRow = React.memo(
     rowWidthStyle,
     fillerCellStyle,
     showGroupSummaries,
+    isBaseline,
   }: TracesViewTableRowProps) => {
     const { theme } = useDesignSystemTheme();
+    const rowBackgroundColor = isActive
+      ? theme.colors.actionDefaultBackgroundHover
+      : isBaseline
+        ? theme.isDarkMode
+          ? theme.colors.blue800
+          : theme.colors.blue100
+        : 'transparent';
     const navigate = useNavigate();
     const getColumnStyles = (columnId: string) => columns.find((column) => column.id === columnId)?.meta?.styles;
     // Data cells align with the header; icon-only columns keep the tight default.
@@ -194,7 +204,7 @@ export const ExperimentEvaluationRunsTableRow = React.memo(
             css={[
               columnStyles ? undefined : (cell.column.columnDef as EvalRunsTableColumnDef).meta?.styles,
               {
-                backgroundColor: isActive ? theme.colors.actionDefaultBackgroundHover : 'transparent',
+                backgroundColor: rowBackgroundColor,
               },
             ]}
           >
@@ -202,11 +212,7 @@ export const ExperimentEvaluationRunsTableRow = React.memo(
           </TableCell>
         ))}
         {fillerCellStyle && (
-          <TableCell
-            aria-hidden="true"
-            style={fillerCellStyle}
-            css={{ backgroundColor: isActive ? theme.colors.actionDefaultBackgroundHover : 'transparent' }}
-          />
+          <TableCell aria-hidden="true" style={fillerCellStyle} css={{ backgroundColor: rowBackgroundColor }} />
         )}
       </TableRow>
     );
@@ -215,6 +221,7 @@ export const ExperimentEvaluationRunsTableRow = React.memo(
   (prev, next) => {
     return (
       prev.isActive === next.isActive &&
+      prev.isBaseline === next.isBaseline &&
       prev.isSelected === next.isSelected &&
       prev.columns === next.columns &&
       prev.isExpanded === next.isExpanded &&

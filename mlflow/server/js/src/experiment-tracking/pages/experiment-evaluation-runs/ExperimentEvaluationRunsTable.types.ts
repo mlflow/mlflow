@@ -13,6 +13,7 @@ export interface ExperimentEvaluationRunsTableMeta {
   hasExpandableRows?: boolean;
   /** Last clicked checkbox row; the start of a shift-click range. */
   selectionAnchorRowIdRef?: MutableRefObject<string | undefined>;
+  baselineRunUuid?: string;
 }
 
 // TanStack types `meta` as the empty `TableMeta`, so cells narrow it here instead of casting.

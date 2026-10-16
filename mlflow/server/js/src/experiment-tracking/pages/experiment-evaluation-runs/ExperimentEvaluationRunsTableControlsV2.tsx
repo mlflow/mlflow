@@ -1,5 +1,13 @@
 import { useMemo, type Ref } from 'react';
-import { useDesignSystemTheme, Button, SyncIcon, Tooltip, Typography } from '@databricks/design-system';
+import {
+  useDesignSystemTheme,
+  Button,
+  SyncIcon,
+  PinCancelIcon,
+  PinIcon,
+  Tooltip,
+  Typography,
+} from '@databricks/design-system';
 import type { OnChangeFn, RowSelectionState, SortingState } from '@tanstack/react-table';
 import { FormattedMessage, FormattedRelativeTime, useIntl } from 'react-intl';
 import type { RunEntity } from '../../types';
@@ -15,6 +23,8 @@ import { ExperimentEvaluationRunsDisplayButton } from './ExperimentEvaluationRun
 import { EvalRunsUnifiedSearch } from './EvalRunsUnifiedSearch';
 import type { EvalRunsDatePreset, EvalRunsFiltersState } from './hooks/useEvalRunsFilters';
 import type { EvalRunsFilterClause } from './evalRunsFilterFields';
+import { isMatchingEvalRunsBaseline } from './hooks/useEvalRunsBaseline';
+import { MLFLOW_RUN_TYPE_TAG, MLFLOW_RUN_TYPE_VALUE_ISSUE_DETECTION } from '../../constants';
 
 const SEARCH_MIN_WIDTH = 240;
 
@@ -52,6 +62,10 @@ export const ExperimentEvaluationRunsTableControlsV2 = ({
   selectedRunUuid,
   compareToRunUuid,
   setIsComparisonMode,
+  onSetBaseline,
+  onClearBaseline,
+  baselineRunUuid,
+  isSavingBaseline,
   onFilterChartToSelectedRuns,
   isChartFilteredToSelection,
 }: {
@@ -85,13 +99,52 @@ export const ExperimentEvaluationRunsTableControlsV2 = ({
   selectedRunUuid?: string;
   compareToRunUuid?: string;
   setIsComparisonMode: (isComparisonMode: boolean) => void;
+  onSetBaseline?: (runUuid: string) => void;
+  onClearBaseline?: () => void;
+  baselineRunUuid?: string;
+  isSavingBaseline?: boolean;
   onFilterChartToSelectedRuns?: () => void;
   isChartFilteredToSelection?: boolean;
 }) => {
   const intl = useIntl();
   const { theme } = useDesignSystemTheme();
 
-  const hasSelection = Object.values(rowSelection).some(Boolean);
+  const selectedRunUuids = Object.entries(rowSelection)
+    .filter(([_, value]) => value)
+    .map(([key]) => key);
+  const hasSelection = selectedRunUuids.length > 0;
+  const selectedBaselineCandidateUuid = selectedRunUuids.length === 1 ? selectedRunUuids[0] : undefined;
+  const selectedRunIsBaseline = selectedBaselineCandidateUuid === baselineRunUuid;
+  const isSelectedRunIssueDetection = runs
+    .find((run) => run.info.runUuid === selectedBaselineCandidateUuid)
+    // The OSS server omits empty repeated fields, so a run without tags has no `tags` array.
+    ?.data?.tags?.some(
+      ({ key, value }) => key === MLFLOW_RUN_TYPE_TAG && value === MLFLOW_RUN_TYPE_VALUE_ISSUE_DETECTION,
+    );
+  const baselineActionLabel = selectedRunIsBaseline
+    ? intl.formatMessage({
+        defaultMessage: 'Clear baseline',
+        description: 'Label for clearing the selected baseline run',
+      })
+    : baselineRunUuid
+      ? intl.formatMessage({
+          defaultMessage: 'Replace baseline',
+          description: 'Label for replacing the baseline run with the selected run',
+        })
+      : intl.formatMessage({
+          defaultMessage: 'Set baseline',
+          description: 'Label for setting the selected run as the baseline',
+        });
+  const isSelectedRunAvailable = useMemo(() => {
+    if (!selectedBaselineCandidateUuid) {
+      return true;
+    }
+    return isMatchingEvalRunsBaseline(
+      runs.find((run) => run.info.runUuid === selectedBaselineCandidateUuid),
+      selectedBaselineCandidateUuid,
+      experimentId,
+    );
+  }, [experimentId, runs, selectedBaselineCandidateUuid]);
 
   // Used by the unified search and its filter editor.
   const runsData = useMemo(() => getRunTableMetadata(runs), [runs]);
@@ -155,6 +208,62 @@ export const ExperimentEvaluationRunsTableControlsV2 = ({
           viewMode={viewMode}
           setViewMode={setViewMode}
         />
+
+        {selectedBaselineCandidateUuid &&
+          ((selectedRunIsBaseline && onClearBaseline) || (!selectedRunIsBaseline && onSetBaseline)) && (
+            <Tooltip
+              componentId="mlflow.eval-runs.baseline-action.tooltip"
+              content={
+                isSelectedRunIssueDetection && !selectedRunIsBaseline ? (
+                  <FormattedMessage
+                    defaultMessage="Issue detection runs cannot be used as a baseline"
+                    description="Tooltip explaining why an issue detection run cannot be set as the baseline"
+                  />
+                ) : (
+                  baselineActionLabel
+                )
+              }
+            >
+              <Button
+                componentId="mlflow.eval-runs.baseline-action"
+                aria-label={baselineActionLabel}
+                css={{
+                  flexShrink: 0,
+                  '&&&': {
+                    padding: `${theme.spacing.xs}px ${theme.spacing.sm}px !important`,
+                  },
+                }}
+                disabled={
+                  isSavingBaseline ||
+                  (!selectedRunIsBaseline && (!isSelectedRunAvailable || isSelectedRunIssueDetection))
+                }
+                onClick={() => {
+                  if (selectedRunIsBaseline) {
+                    onClearBaseline?.();
+                  } else {
+                    onSetBaseline?.(selectedBaselineCandidateUuid);
+                  }
+                  setRowSelection({});
+                }}
+              >
+                {selectedRunIsBaseline ? (
+                  <PinCancelIcon
+                    css={{
+                      fontSize: EVAL_RUNS_TOOLBAR_ICON_SIZE,
+                      color: theme.colors.textPlaceholder,
+                    }}
+                  />
+                ) : (
+                  <PinIcon
+                    css={{
+                      fontSize: EVAL_RUNS_TOOLBAR_ICON_SIZE,
+                      color: theme.colors.textPlaceholder,
+                    }}
+                  />
+                )}
+              </Button>
+            </Tooltip>
+          )}
 
         {hasSelection && (
           <ExperimentEvaluationRunsTableActions
