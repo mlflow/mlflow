@@ -24,7 +24,8 @@ properties:
   comment:
     description: |
       Markdown comment for the issue. Fill in this template: replace each `<...>` placeholder,
-      and drop a line or section that has nothing to say, except the verdict.
+      and drop a line or section that has nothing to say, except the verdict and Next steps.
+      Keep each owner's next step to one concise sentence specific to the verdict and evidence.
 
       ### Summary
 
@@ -53,6 +54,11 @@ properties:
       ### What I tried
 
       <for any verdict other than Reproduced: the attempts and why each did not reproduce it>
+
+      ### Next steps
+
+      - Reporter: <one concise sentence describing the next step>
+      - Maintainers: <one concise sentence describing the next step>
     type: string
     minLength: 1
     maxLength: 5000
