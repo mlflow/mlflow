@@ -63,6 +63,17 @@ describe('ShowArtifactPage', () => {
     expect(wrapper.text().includes('Select a file to preview')).toBe(false);
     expect(wrapper.text().includes('File is too large to preview')).toBe(true);
   });
+  test('should skip text previews above 20 MiB', () => {
+    wrapper.setProps({ path: 'large.txt', size: 20 * 1024 * 1024 + 1 });
+    expect(wrapper.find(ShowArtifactTextView).length).toBe(0);
+    expect(wrapper.text()).toContain('File is too large to preview');
+    expect(wrapper.text()).toContain('Maximum file size for preview: 20MiB');
+  });
+  test('should allow text previews at 20 MiB', () => {
+    wrapper.setProps({ path: 'small.txt', size: 20 * 1024 * 1024 });
+    expect(wrapper.find(ShowArtifactTextView).length).toBe(1);
+    expect(wrapper.text()).not.toContain('File is too large to preview');
+  });
   test('should render logged model view when path is in runs tag logged model history', () => {
     wrapper.setProps({
       path: 'somePath',
