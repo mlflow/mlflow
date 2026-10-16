@@ -11,12 +11,8 @@ from click.testing import CliRunner
 
 import mlflow
 from mlflow.cli.skills import commands
-from mlflow.server import ARTIFACTS_DESTINATION_ENV_VAR, SERVE_ARTIFACTS_ENV_VAR, handlers
-from mlflow.server.fastapi_app import app
-from mlflow.server.handlers import initialize_backend_stores
 
-from tests.helper_functions import get_safe_port
-from tests.tracking.integration_test_utils import ServerThread
+from tests.server.skill_registry.live_server import serve_tracking_app
 
 pytestmark = pytest.mark.notrackingurimock
 
@@ -28,16 +24,7 @@ def runner():
 
 @pytest.fixture
 def tracking_server(db_uri: str, tmp_path: Path, monkeypatch):
-    handlers._tracking_store = None
-    handlers._model_registry_store = None
-    artifact_root = tmp_path / "artifacts"
-    artifact_root.mkdir()
-    monkeypatch.setenv(SERVE_ARTIFACTS_ENV_VAR, "true")
-    monkeypatch.setenv(ARTIFACTS_DESTINATION_ENV_VAR, str(artifact_root))
-    monkeypatch.setattr(handlers, "_artifact_repo", None)
-    initialize_backend_stores(db_uri, default_artifact_root=artifact_root.as_uri())
-
-    with ServerThread(app, get_safe_port()) as url:
+    with serve_tracking_app(db_uri, tmp_path / "artifacts", monkeypatch) as url:
         mlflow.set_tracking_uri(url)
         yield url
         mlflow.set_tracking_uri(None)

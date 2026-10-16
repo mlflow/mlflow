@@ -1,5 +1,4 @@
 import subprocess
-import uuid
 from pathlib import Path
 
 import pytest
@@ -11,11 +10,14 @@ from mlflow.entities.skill import SkillStatus
 from mlflow.entities.skill_source import GitSource, SkillSourceType
 from mlflow.exceptions import MlflowException
 from mlflow.genai.skill_content.digest import compute_tree_digest
-from mlflow.server import ARTIFACTS_DESTINATION_ENV_VAR, SERVE_ARTIFACTS_ENV_VAR
 from mlflow.tracking import MlflowClient
 
 from tests.genai.skill_content.conftest import serve_git_repositories
-from tests.tracking.integration_test_utils import _init_server
+from tests.server.skill_registry.live_server import serve_tracking_app
+
+# tests/genai/conftest.py fakes `requests.get` in every test, for telemetry. The live server's
+# readiness check calls `requests.get`, so without the real one it reports ready too early.
+pytestmark = pytest.mark.no_mock_requests_get
 
 SKILL_MD = "---\nname: review\ndescription: Reviews code\n---\n# Review\n"
 
@@ -26,17 +28,9 @@ def _git(*args, cwd):
     )
 
 
-@pytest.fixture(scope="module")
-def tracking_server(tmp_path_factory):
-    root = tmp_path_factory.mktemp("server")
-    with _init_server(
-        backend_uri=f"sqlite:///{root / 'mlflow.db'}",
-        root_artifact_uri="mlflow-artifacts:/",
-        extra_env={
-            SERVE_ARTIFACTS_ENV_VAR: "true",
-            ARTIFACTS_DESTINATION_ENV_VAR: str(root / "artifacts"),
-        },
-    ) as url:
+@pytest.fixture
+def tracking_server(db_uri, tmp_path, monkeypatch):
+    with serve_tracking_app(db_uri, tmp_path / "server-artifacts", monkeypatch) as url:
         yield url
 
 
@@ -63,13 +57,8 @@ def _write_skill(root: Path, body: str) -> Path:
     return root
 
 
-def _unique(name: str) -> str:
-    # The module-scoped server keeps every registration, so each test uses its own skill name.
-    return f"{name}-{uuid.uuid4().hex[:8]}"
-
-
 def test_pull_uploaded_skill_by_version_alias_and_latest(client, tmp_path, request):
-    name = _unique("review")
+    name = "review"
     first = _write_skill(tmp_path / "v1", "first\n")
     second = _write_skill(tmp_path / "v2", "second\n")
     v1 = mlflow.genai.register_skill(source=str(first), name=name, organization="acme")
@@ -95,7 +84,7 @@ def test_pull_uploaded_skill_by_version_alias_and_latest(client, tmp_path, reque
 
 
 def test_pull_registered_git_skill_and_detect_changed_source(client, tmp_path, git_server):
-    name = _unique("review")
+    name = "review"
     repo = tmp_path / "repo"
     _write_skill(repo / "skills" / name, "v1\n")
     (repo / "README.md").write_text("not part of the skill\n")
@@ -121,7 +110,7 @@ def test_pull_registered_git_skill_and_detect_changed_source(client, tmp_path, g
 
 
 def test_deprecated_version_still_pulls(client, tmp_path, request):
-    name = _unique("review")
+    name = "review"
     skill = _write_skill(tmp_path / "skill", "deprecated\n")
     version = mlflow.genai.register_skill(source=str(skill), name=name)
     client.update_skill_version(name=name, version=version.version, status="deprecated")
@@ -140,7 +129,7 @@ def test_pull_unknown_skill_writes_nothing(client, tmp_path):
 
 
 def test_cli_pull(client, tmp_path, request, monkeypatch):
-    name = _unique("review")
+    name = "review"
     skill = _write_skill(tmp_path / "skill", "cli\n")
     mlflow.genai.register_skill(source=str(skill), name=name)
     runner = CliRunner()

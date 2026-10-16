@@ -59,6 +59,12 @@ def isolated_credentials(tmp_path, monkeypatch):
     monkeypatch.setenv("XDG_CONFIG_HOME", str(empty / "config"))
     monkeypatch.setenv("NETRC", str(empty / "netrc"))
     monkeypatch.delenv("REGISTRY_AUTH_FILE", raising=False)
+    # Keep editor askpass helpers and system credential helpers away from the private-repo cases.
+    monkeypatch.delenv("GIT_ASKPASS", raising=False)
+    monkeypatch.delenv("SSH_ASKPASS", raising=False)
+    monkeypatch.setenv("GIT_TERMINAL_PROMPT", "0")
+    monkeypatch.setenv("GIT_CONFIG_NOSYSTEM", "1")
+    monkeypatch.setenv("GIT_CONFIG_GLOBAL", os.devnull)
 
 
 @pytest.fixture
