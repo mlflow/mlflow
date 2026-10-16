@@ -78,6 +78,8 @@ import {
   isRawModelTraceChatMessage,
 } from '../modelTraceChatMessageTypes';
 import { getSpanExceptionCount, getSpanExceptionEvents } from '../spanExceptionEvents';
+import { shouldEnableNewEvalRunsUi } from '../../../../common/utils/FeatureUtils';
+import { inferSpanTypeFromAttributes } from '../otlpSpanTypeInference';
 import { getSpanTokenUsage } from './ModelTraceTokenUsage.utils';
 import {
   ASSESSMENT_SESSION_METADATA_KEY,
@@ -356,7 +358,10 @@ export function searchTree(
 
   // check if the span passes the text and type filters
   const nodeMatchesSearch = spanMatches.length > 0 || spanName.includes(searchFilterLowercased);
-  const spanTypeIsDisplayed = rootNode.type ? spanFilterState.spanTypeDisplayState[rootNode.type] : true;
+  const spanTypeDisplayState = rootNode.type ? spanFilterState.spanTypeDisplayState[rootNode.type] : true;
+  // With the new eval runs UI, a span type absent from the filter map (e.g. UNKNOWN first appearing on a
+  // later trace) stays visible instead of being filtered out.
+  const spanTypeIsDisplayed = shouldEnableNewEvalRunsUi() ? (spanTypeDisplayState ?? true) : spanTypeDisplayState;
   const nodePassesSpanFilters = nodeMatchesSearch && spanTypeIsDisplayed;
 
   const hasMatchingChild = filteredChildren.length > 0;
@@ -522,7 +527,12 @@ export const normalizeNewSpanData = (
   assessmentMap: Record<string, Assessment[]>,
   traceId: string,
 ): ModelTraceSpanNode => {
-  const spanType = tryDeserializeAttribute(getSpanAttribute(span.attributes, 'mlflow.spanType') as string);
+  const rawMlflowSpanType = tryDeserializeAttribute(getSpanAttribute(span.attributes, 'mlflow.spanType') as string);
+  // With the new eval runs UI, mlflow.spanType still wins; spans without it (e.g. ingested OTel spans)
+  // fall back to a type inferred from their attributes, then UNKNOWN.
+  const spanType = shouldEnableNewEvalRunsUi()
+    ? (rawMlflowSpanType ?? inferSpanTypeFromAttributes(span.attributes) ?? ModelSpanType.UNKNOWN)
+    : rawMlflowSpanType;
   const inputs = tryDeserializeAttribute(getSpanAttribute(span.attributes, 'mlflow.spanInputs') as string);
   const outputs = tryDeserializeAttribute(getSpanAttribute(span.attributes, 'mlflow.spanOutputs') as string);
   const parentId = getModelTraceSpanParentId(span);
