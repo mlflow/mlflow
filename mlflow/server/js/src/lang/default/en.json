@@ -1719,6 +1719,10 @@
     "defaultMessage": "Install for",
     "description": "Label for the agent selector in the skill pull instructions"
   },
+  "4UrSLV": {
+    "defaultMessage": "Session assessments",
+    "description": "Title for the session-level assessments pane"
+  },
   "4V8wtm": {
     "defaultMessage": "After your script runs, open the MLflow UI to review the recorded traces.",
     "description": "Introductory text for viewing traces in the MLflow UI"
@@ -3419,6 +3423,10 @@
     "defaultMessage": "Error",
     "description": "Error assessment status in the evaluations table."
   },
+  "AaDw3+": {
+    "defaultMessage": "Turn display settings",
+    "description": "Accessible label for session turn display settings button"
+  },
   "AanBxl": {
     "defaultMessage": "my-endpoint",
     "description": "Placeholder for endpoint name input"
@@ -3586,6 +3594,10 @@
   "B80MC6": {
     "defaultMessage": "Contour Plot",
     "description": "Tab pane title for contour plots on the compare runs page"
+  },
+  "B81vC6": {
+    "defaultMessage": "Duration",
+    "description": "Session turn metric option"
   },
   "B8RvlZ": {
     "defaultMessage": "Comparing version {baseline} with version {compared}",
@@ -5375,6 +5387,10 @@
     "defaultMessage": "Add record",
     "description": "Primary button text for adding a new dataset record on the V2 dataset records page"
   },
+  "HnTIOq": {
+    "defaultMessage": "Session",
+    "description": "Title for the trace drawer when it shows a session"
+  },
   "HoCtWl": {
     "defaultMessage": "Are you sure you want to delete {name} and all of its versions? This action cannot be undone.",
     "description": "Confirmation for hard-deleting a skill and its versions"
@@ -5978,6 +5994,10 @@
   "JuHp/q": {
     "defaultMessage": "Hugging Face",
     "description": "Experiment dataset drawer > source type > Hugging Face source type label"
+  },
+  "JwYyw9": {
+    "defaultMessage": "Timestamp",
+    "description": "Session turn metric option"
   },
   "JwhonN": {
     "defaultMessage": "Authentication method",
@@ -7571,6 +7591,10 @@
     "defaultMessage": "Run",
     "description": "Field group heading in the evaluation runs filter field picker"
   },
+  "PUtV09": {
+    "defaultMessage": "No conversation turns found in this session.",
+    "description": "Empty state in the V4 session drawer"
+  },
   "PX5Nlz": {
     "defaultMessage": "Clear selection",
     "description": "Clear model selection"
@@ -7899,6 +7923,10 @@
     "defaultMessage": "Hide all runs",
     "description": "Menu option for revealing all hidden runs in the experiment view runs compare mode"
   },
+  "QjVLIz": {
+    "defaultMessage": "Retry",
+    "description": "Button to retry loading a session in the V4 trace drawer"
+  },
   "QnZkGt": {
     "defaultMessage": "Not configured",
     "description": "Summary not configured"
@@ -8006,6 +8034,10 @@
   "R6dCZ5": {
     "defaultMessage": "View your traces",
     "description": "Step 3 title for traces onboarding"
+  },
+  "R7h+T3": {
+    "defaultMessage": "Back to session",
+    "description": "Action to return from a full trace to its session conversation"
   },
   "R7s1xC": {
     "defaultMessage": "Provider is required",
@@ -9995,6 +10027,10 @@
     "defaultMessage": "Metric",
     "description": "Column title for the column displaying the metric names for a run"
   },
+  "YJVvRW": {
+    "defaultMessage": "Refresh session",
+    "description": "Action to refresh all turns in the open trace session"
+  },
   "YKE3h7": {
     "defaultMessage": "Define custom instructions for LLM-based evaluation. {learnMore}",
     "description": "Hint text for Instructions section with documentation link"
@@ -11119,6 +11155,10 @@
     "defaultMessage": "Something went wrong",
     "description": "Generic title used when a dataset action surfaces an unexpected error"
   },
+  "cV8FpL": {
+    "defaultMessage": "Trace from session",
+    "description": "Context shown above a trace opened from a session conversation"
+  },
   "cVnOIo": {
     "defaultMessage": "Save",
     "description": "Confirm button label on the name-custom-view modal"
@@ -11818,6 +11858,10 @@
   "f/Oiy3": {
     "defaultMessage": "Add traces",
     "description": "Review queue: button to navigate to Traces tab"
+  },
+  "f3Ck6m": {
+    "defaultMessage": "Total tokens",
+    "description": "Session turn metric option"
   },
   "f3LAjV": {
     "defaultMessage": "Select ({count})",
@@ -13139,6 +13183,10 @@
     "defaultMessage": "Point the OTLP exporter at this MLflow server by setting these environment variables. See the <a>OpenTelemetry export docs</a> for the full reference.",
     "description": "Step 1 description for OpenTelemetry traces onboarding"
   },
+  "jEOQQ/": {
+    "defaultMessage": "Session",
+    "description": "Title for the session conversation pane"
+  },
   "jFk49l": {
     "defaultMessage": "Quick-start with a popular model below, or create an endpoint from 60+ providers and all their supported models.",
     "description": "Gateway > Endpoints > Quick start call to action"
@@ -13479,6 +13527,10 @@
     "defaultMessage": "Search runs using a simplified version of the SQL {whereBold} clause.",
     "description": "Tooltip string to explain how to search runs from the experiments table"
   },
+  "kIn9yR": {
+    "defaultMessage": "{count, plural, one {# turn} other {# turns}}",
+    "description": "Turn count shown beside the turns pane title"
+  },
   "kItpVi": {
     "defaultMessage": "About response formats",
     "description": "Aria label for the info popover next to the Response format section header"
@@ -13662,6 +13714,10 @@
   "lA8QO2": {
     "defaultMessage": "Edit tags",
     "description": "Label for the edit tags button in the registered prompts table"
+  },
+  "lAX0eA": {
+    "defaultMessage": "Failed to load session",
+    "description": "Title shown in the V4 session drawer when the session fails to load"
   },
   "lCfyQO": {
     "defaultMessage": "Dataset",
@@ -14755,6 +14811,10 @@
     "defaultMessage": "No group by columns selected",
     "description": "Experiment page > artifact compare view > empty state for no group by columns selected > title"
   },
+  "oxy7iI": {
+    "defaultMessage": "Display metric types",
+    "description": "Session turn settings submenu for visible metrics"
+  },
   "oy2LTl": {
     "defaultMessage": "Filter",
     "description": "Label for the span filters popover in the trace explorer."
@@ -15122,6 +15182,10 @@
   "qJEdUj": {
     "defaultMessage": "Cancel",
     "description": "Cancel button in the select sessions modal"
+  },
+  "qJY7OW": {
+    "defaultMessage": "Turn {turnNumber}",
+    "description": "Label for a turn in the session navigation pane"
   },
   "qKGnLV": {
     "defaultMessage": "Model Config:",
@@ -15570,6 +15634,10 @@
   "ruFdDg": {
     "defaultMessage": "Output",
     "description": "Traces table output column name"
+  },
+  "rvGJHj": {
+    "defaultMessage": "Estimated LLM cost",
+    "description": "Session turn metric option"
   },
   "rvRhzv": {
     "defaultMessage": "Masked Key:",
@@ -16963,6 +17031,10 @@
     "defaultMessage": "Are you sure you want to delete the prompt version?",
     "description": "A content for the delete prompt version confirmation modal"
   },
+  "x353Vr": {
+    "defaultMessage": "{count} total tokens",
+    "description": "Tooltip for a session turn token count"
+  },
   "x5IuGA": {
     "defaultMessage": "Loaded {name} v{version}",
     "description": "Success toast shown on the playground after loading a prompt version that did not include stored settings"
@@ -17186,6 +17258,10 @@
   "xnr5KT": {
     "defaultMessage": "No events found",
     "description": "Empty state for the events tab in the model trace explorer. Events are logs of arbitrary things (e.g. exceptions) that occur during the execution of a span, and can be user-defined."
+  },
+  "xoNwg8": {
+    "defaultMessage": "Turns",
+    "description": "Header for turns in the trace session drawer"
   },
   "xpNkK7": {
     "defaultMessage": "Hide raw tools JSON",

@@ -1,6 +1,9 @@
 import {
   ApplyDesignSystemContextOverrides,
   GenericSkeleton,
+  SpeechBubbleIcon,
+  Tag,
+  Tooltip,
   Typography,
   useDesignSystemTheme,
   DangerIcon,
@@ -28,6 +31,20 @@ import {
 import { EvaluationsReviewDetailsHeader } from '@databricks/web-shared/genai-traces-table/components/EvaluationsReviewDetails';
 import { useGetTrace } from '../hooks/useGetTrace';
 import type { TracesV4TraceActions } from '../hooks/useTracesV4TraceActions';
+import { TracesV4SessionDrawerBody } from './TracesV4SessionDrawerContent';
+
+/** A session opened in the drawer: its conversation, or one of its traces with a way back. */
+export interface TracesV4TraceDrawerSession {
+  sessionId: string;
+  viewMode: 'trace' | 'session';
+  /** Shows one of the session's traces (by its URL id) in the drawer. */
+  onViewTrace: (traceId: string) => void;
+  /** Returns from a trace to the session's conversation. */
+  onBackToSession: () => void;
+  /** Moves to the previous or next session on the page; omitted when there is none. */
+  onPreviousSession?: () => void;
+  onNextSession?: () => void;
+}
 
 export interface TracesV4TraceDrawerProps {
   /** Long id (`trace:/<catalog.schema>/<id>`) of the open trace, or undefined when the drawer is closed. */
@@ -40,7 +57,11 @@ export interface TracesV4TraceDrawerProps {
   onSelectTrace: (traceId: string) => void;
   /** Optional in-explorer run-judges config (enables "Run judge" from within a span's assessments). */
   runJudgeConfiguration?: NonNullable<TracesV4TraceActions['runJudges']>['runJudgeConfiguration'];
+  /** Opens the drawer on a session instead of a single trace. Omit for trace-only drawers. */
+  session?: TracesV4TraceDrawerSession;
 }
+
+const SESSION_ID_PREVIEW_LENGTH = 8;
 
 /** The id the URL uses for a trace: the V4 long id for UC-backed traces, the bare id otherwise. */
 const idOf = (trace: ModelTraceInfoV3): string =>
@@ -63,6 +84,7 @@ export const TracesV4TraceDrawer = ({
   traces,
   onSelectTrace,
   runJudgeConfiguration,
+  session,
 }: TracesV4TraceDrawerProps) => {
   const { theme } = useDesignSystemTheme();
 
@@ -98,6 +120,29 @@ export const TracesV4TraceDrawer = ({
     },
   });
 
+  if (session?.viewMode === 'session') {
+    return (
+      <ModelTraceExplorerDrawer
+        handleClose={onClose}
+        selectPreviousEval={session.onPreviousSession ?? (() => {})}
+        selectNextEval={session.onNextSession ?? (() => {})}
+        isPreviousAvailable={Boolean(session.onPreviousSession)}
+        isNextAvailable={Boolean(session.onNextSession)}
+        renderModalTitle={() => <Typography.Text bold>{session.sessionId}</Typography.Text>}
+        headerTitle={<SessionDrawerTitle sessionId={session.sessionId} />}
+        isLoading={false}
+        experimentId={experimentId}
+      >
+        <TracesV4SessionDrawerBody
+          experimentId={experimentId}
+          sessionId={session.sessionId}
+          selectedTraceId={traceId}
+          onViewTrace={(traceInfo) => session.onViewTrace(idOf(traceInfo))}
+        />
+      </ModelTraceExplorerDrawer>
+    );
+  }
+
   // Only mount once a trace is selected.
   if (!traceId) {
     return null;
@@ -122,7 +167,7 @@ export const TracesV4TraceDrawer = ({
       return <TraceLoadError traceId={traceId} />;
     }
     if (traceData) {
-      return (
+      const explorer = (
         <div css={{ height: '100%', marginLeft: -theme.spacing.lg, marginRight: -theme.spacing.lg }}>
           <ModelTraceExplorerPreferencesProvider>
             <ModelTraceExplorerUpdateTraceContextProvider
@@ -136,6 +181,15 @@ export const TracesV4TraceDrawer = ({
               <ModelTraceExplorer modelTrace={traceData} />
             </ModelTraceExplorerUpdateTraceContextProvider>
           </ModelTraceExplorerPreferencesProvider>
+        </div>
+      );
+      if (!session) {
+        return explorer;
+      }
+      return (
+        <div css={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+          <SessionTraceBanner sessionId={session.sessionId} onBackToSession={session.onBackToSession} />
+          <div css={{ flex: 1, minHeight: 0 }}>{explorer}</div>
         </div>
       );
     }
@@ -188,6 +242,70 @@ export const TracesV4TraceDrawer = ({
         {TagAssignmentModal}
       </ApplyDesignSystemContextOverrides>
     </>
+  );
+};
+
+/** Drawer title for a session: "Session" and its id, which the full id shows on hover. */
+const SessionDrawerTitle = ({ sessionId }: { sessionId: string }) => (
+  <>
+    <Typography.Text css={{ whiteSpace: 'nowrap' }}>
+      <FormattedMessage defaultMessage="Session" description="Title for the trace drawer when it shows a session" />
+    </Typography.Text>
+    <Tooltip componentId="mlflow.traces-v4.session-drawer.session-id-tooltip" content={sessionId}>
+      <Tag componentId="mlflow.traces-v4.session-drawer.session-id" color="default" css={{ margin: 0, maxWidth: 160 }}>
+        <Typography.Text size="sm" color="secondary" ellipsis css={{ fontFamily: 'monospace' }}>
+          {sessionId}
+        </Typography.Text>
+      </Tag>
+    </Tooltip>
+  </>
+);
+
+/** Context shown above a trace opened from a session's conversation, with a way back to it. */
+const SessionTraceBanner = ({ sessionId, onBackToSession }: { sessionId: string; onBackToSession: () => void }) => {
+  const { theme } = useDesignSystemTheme();
+  return (
+    <div
+      css={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: theme.spacing.xs,
+        minWidth: 0,
+        paddingBottom: theme.spacing.sm,
+      }}
+    >
+      <SpeechBubbleIcon css={{ flexShrink: 0 }} />
+      <Typography.Text size="sm" color="secondary" css={{ whiteSpace: 'nowrap' }}>
+        <FormattedMessage
+          defaultMessage="Trace from session"
+          description="Context shown above a trace opened from a session conversation"
+        />
+      </Typography.Text>
+      <Tooltip componentId="mlflow.traces-v4.trace-context.session-id-tooltip" content={sessionId}>
+        <Tag componentId="mlflow.traces-v4.trace-context.session-id" color="default" css={{ margin: 0, maxWidth: 96 }}>
+          <Typography.Text size="sm" color="secondary" css={{ fontFamily: 'monospace', whiteSpace: 'nowrap' }}>
+            {sessionId.slice(0, SESSION_ID_PREVIEW_LENGTH)}
+          </Typography.Text>
+        </Tag>
+      </Tooltip>
+      <Typography.Text size="sm" color="secondary">
+        ·
+      </Typography.Text>
+      <Typography.Link
+        componentId="mlflow.traces-v4.trace-context.back-to-session"
+        href="#"
+        css={{ fontSize: theme.typography.fontSizeSm, whiteSpace: 'nowrap' }}
+        onClick={(event) => {
+          event.preventDefault();
+          onBackToSession();
+        }}
+      >
+        <FormattedMessage
+          defaultMessage="Back to session"
+          description="Action to return from a full trace to its session conversation"
+        />
+      </Typography.Link>
+    </div>
   );
 };
 
