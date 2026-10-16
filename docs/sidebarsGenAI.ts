@@ -430,6 +430,11 @@ const sidebarsGenAI: SidebarsConfig = {
                 },
                 {
                   type: 'doc',
+                  id: 'tracing/integrations/listing/claude-platform',
+                  label: 'Claude Platform',
+                },
+                {
+                  type: 'doc',
                   id: 'tracing/integrations/listing/bedrock',
                   label: 'AWS Bedrock',
                 },

@@ -1,0 +1,324 @@
+---
+title: Tracing Claude Platform
+description: Send OpenTelemetry traces of Claude Messages API requests and Claude Managed Agents sessions to MLflow for full observability into model calls, tool uses, and token usage.
+sidebar_position: 8.5
+sidebar_label: Claude Platform
+keywords: [claude platform, claude managed agents, anthropic, claude, tracing, opentelemetry, mlflow]
+---
+
+import { APILink } from "@site/src/components/APILink";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+import TabsWrapper from "@site/src/components/TabsWrapper";
+import StepHeader from "@site/src/components/StepHeader";
+import TilesGrid from "@site/src/components/TilesGrid";
+import TileCard from "@site/src/components/TileCard";
+import { Users, BookOpen, Scale } from "lucide-react";
+
+# Tracing Claude Platform
+
+[MLflow Tracing](/genai/tracing) supports the native [OpenTelemetry export](https://platform.claude.com/docs/en/manage-claude/opentelemetry) of the [Claude Platform](https://platform.claude.com), Anthropic's first-party API for the Messages API and [Claude Managed Agents](https://platform.claude.com/docs/en/managed-agents/overview). Because the spans follow the [OpenTelemetry GenAI semantic conventions](/genai/tracing/opentelemetry/genai-semconv), MLflow recognizes them through its [OpenTelemetry integration](/genai/tracing/opentelemetry) without any extra setup.
+
+The Claude Platform can send traces in two ways. You can use either one or both:
+
+- **API tracing**: The Claude API sends spans for each model request, server tool use, and Managed Agents turn directly to your MLflow server. You add a destination in the Claude Console and don't need to change your code.
+- **SDK tracing**: The Claude SDK in your application emits spans for each request that it sends and each tool that its tool runner runs. Your application exports them to your MLflow server.
+
+When you use both, the SDK sends the trace context to the API with each request, so that the SDK spans and the API spans appear in one trace.
+
+MLflow captures the following information from Claude Platform traces:
+
+- Prompts, system instructions, and responses (with the **Full content** mode)
+- Model requests, server tool uses, and client tool uses
+- Managed Agents sessions and turns
+- Latencies
+- Model name and request parameters
+- Token usage and cost
+- Any exception if raised
+
+:::tip[Which integration to choose]
+To trace the Anthropic Python or TypeScript SDK inside your application only, you can also use [MLflow's Anthropic autolog](/genai/tracing/integrations/listing/anthropic). Use the Claude Platform integration when you want to trace Claude Managed Agents or the model requests and server tools that run inside the Claude API. Don't enable both for the same client, or each request appears twice.
+:::
+
+## Getting Started
+
+<StepHeader number={1} title="Start the MLflow Tracking Server" />
+
+Start the MLflow Tracking Server with a SQL-based backend store:
+
+```bash
+mlflow server --backend-store-uri sqlite:///mlflow.db --port 5000
+```
+
+This example uses SQLite as the backend store. To use other types of SQL databases such as PostgreSQL, MySQL, and MSSQL, change the store URI as described in the [backend store documentation](/self-hosting/architecture/backend-store). OpenTelemetry ingestion is not supported with file-based backend stores.
+
+<StepHeader number={2} title="Make the Server Reachable from the Claude API" />
+
+The Claude API sends spans from Anthropic's infrastructure, so it can't reach a server on `localhost`. The endpoint must be an HTTPS URL on port 443 with a public hostname, for example `https://mlflow.example.com`. Put a reverse proxy, a load balancer, or a tunnel in front of the MLflow server, or use a hosted MLflow server.
+
+By default, the MLflow server only accepts requests whose `Host` header is a local or private address. Add your public hostname with the `--allowed-hosts` option:
+
+```bash
+mlflow server --backend-store-uri sqlite:///mlflow.db --port 5000 --allowed-hosts "mlflow.example.com"
+```
+
+See [Network Security](/self-hosting/security/network) for more details.
+
+:::note
+This step is only necessary for API tracing. For SDK tracing only, your application exports the spans, so a local MLflow server works. Go to [Add SDK Spans](#add-sdk-spans).
+:::
+
+<StepHeader number={3} title="Create an MLflow Experiment" />
+
+Create an experiment to store the traces, and note its ID:
+
+```bash
+mlflow experiments create --experiment-name "Claude Platform"
+```
+
+You can also create the experiment from the MLflow UI or with <APILink fn="mlflow.create_experiment" />.
+
+<StepHeader number={4} title="Add a Destination in the Claude Console" />
+
+You need the admin role in your Claude Console organization to add a destination.
+
+1. Open the [OpenTelemetry settings page](https://platform.claude.com/settings/telemetry-destinations) in the Claude Console and click **Add destination**.
+2. Configure the destination:
+
+   | Field                 | Value                                                                                                                           |
+   | --------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+   | **Provider**          | **Custom**                                                                                                                      |
+   | **OTLP endpoint URL** | The public URL of your MLflow server, for example `https://mlflow.example.com`. Don't add `/v1/traces`, because the API adds it. |
+   | **Request headers**   | `x-mlflow-experiment-id` with the experiment ID from step 3.                                                                    |
+   | **Content mode**      | **Full content**, to see prompts and responses in MLflow. With **Metadata only**, spans have timing, status, and token usage.    |
+   | **Workspaces**        | The workspaces whose requests you want to trace.                                                                                |
+
+3. Click **Add destination**.
+4. In the destination's **More actions** menu, click **Test**. Check that an `anthropic.test` span arrives in your MLflow experiment.
+
+If your MLflow server has [authentication](/self-hosting/security/basic-http-auth) enabled, also add an `Authorization` header with your credentials. To add the destination with the Admin API instead of the Console, see [Set up OpenTelemetry with the Claude API](https://platform.claude.com/docs/en/manage-claude/opentelemetry/api#admin-api-and-cli).
+
+<StepHeader number={5} title="Send a Request" />
+
+Send a request in a workspace that the destination covers. You can use the [Console playground](https://platform.claude.com/playground), your application, or the Claude SDK:
+
+<TabsWrapper>
+<Tabs>
+  <TabItem value="messages" label="Messages API" default>
+
+```python
+import anthropic
+
+# Make sure your API key is set via the ANTHROPIC_API_KEY environment variable.
+client = anthropic.Anthropic()
+
+message = client.messages.create(
+    model="claude-opus-5-5",
+    max_tokens=1024,
+    messages=[{"role": "user", "content": "Hello, Claude"}],
+)
+print(message.content)
+```
+
+  </TabItem>
+  <TabItem value="managed-agents" label="Managed Agents">
+
+Start a session and send a message to it as described in [Get started with Claude Managed Agents](https://platform.claude.com/docs/en/managed-agents/quickstart). The API traces each turn of the session, with its model requests and tool uses.
+
+  </TabItem>
+</Tabs>
+</TabsWrapper>
+
+<StepHeader number={6} title="View Traces in the MLflow UI" />
+
+Open the MLflow UI at your MLflow server URL and navigate to the experiment. The spans can take about a minute to arrive. In the Claude Console, the **Delivery** column of the destination shows **Healthy** after a successful delivery.
+
+MLflow maps the Claude Platform spans to MLflow span types:
+
+| Claude Platform span                                                        | MLflow span type |
+| --------------------------------------------------------------------------- | ---------------- |
+| `anthropic.messages.create`, `anthropic.model_request` (Managed Agents)     | `CHAT_MODEL`     |
+| `anthropic.session.turn`, `anthropic.messages.tool_runner`                  | `AGENT`          |
+| `anthropic.tool_use`, `anthropic.mcp_tool_use`, `anthropic.custom_tool_use` | `TOOL`           |
+
+For each span and its attributes, see the [OpenTelemetry span reference](https://platform.claude.com/docs/en/api/opentelemetry/spans).
+
+## Add SDK Spans
+
+With SDK tracing, the Claude SDK emits a span for each request that your application sends and each tool that the [tool runner](https://platform.claude.com/docs/en/agents-and-tools/tool-use/tool-runner) runs, such as your own client tools. Register an OpenTelemetry tracer provider that exports to MLflow before the first call that you want to trace.
+
+<StepHeader number={1} title="Install Dependencies" />
+
+<TabsWrapper>
+<Tabs>
+  <TabItem value="python" label="Python" default>
+```bash
+pip install --upgrade mlflow anthropic opentelemetry-sdk opentelemetry-exporter-otlp-proto-http
+```
+  </TabItem>
+  <TabItem value="typescript" label="JS / TS">
+```bash
+npm install @anthropic-ai/sdk@latest @opentelemetry/sdk-trace-node @opentelemetry/exporter-trace-otlp-proto
+```
+  </TabItem>
+</Tabs>
+</TabsWrapper>
+
+<StepHeader number={2} title="Configure OpenTelemetry" />
+
+Set the endpoint to the MLflow Tracking Server and the `x-mlflow-experiment-id` header to the experiment ID. To include prompts and responses in the SDK spans, set the content mode to `content`.
+
+```bash
+export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:5000
+export OTEL_EXPORTER_OTLP_HEADERS=x-mlflow-experiment-id=123
+export ANTHROPIC_OPEN_TELEMETRY_TRACES_CONTENT_MODE=content
+```
+
+<StepHeader number={3} title="Register a Tracer Provider and Make API Calls" />
+
+<TabsWrapper>
+<Tabs>
+  <TabItem value="python" label="Python" default>
+
+```python
+import anthropic
+from opentelemetry import trace
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+
+# Configure the tracer provider and add the exporter
+tracer_provider = TracerProvider()
+tracer_provider.add_span_processor(SimpleSpanProcessor(OTLPSpanExporter()))
+trace.set_tracer_provider(tracer_provider)
+
+client = anthropic.Anthropic()
+
+message = client.messages.create(
+    model="claude-opus-5-5",
+    max_tokens=1024,
+    messages=[{"role": "user", "content": "Hello, Claude"}],
+)
+```
+
+  </TabItem>
+  <TabItem value="typescript" label="JS / TS">
+
+```typescript
+import Anthropic from "@anthropic-ai/sdk";
+import { NodeTracerProvider, SimpleSpanProcessor } from "@opentelemetry/sdk-trace-node";
+import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-proto";
+
+// Configure the tracer provider and add the exporter
+const provider = new NodeTracerProvider({
+  spanProcessors: [new SimpleSpanProcessor(new OTLPTraceExporter())],
+});
+provider.register();
+
+const client = new Anthropic();
+
+const message = await client.messages.create({
+  model: "claude-opus-5-5",
+  max_tokens: 1024,
+  messages: [{ role: "user", content: "Hello, Claude" }],
+});
+
+// Flush the remaining spans before the process exits
+await provider.shutdown();
+```
+
+  </TabItem>
+</Tabs>
+</TabsWrapper>
+
+If you also set up API tracing, the API spans of each request appear under its SDK span in the same trace. Because the SDK spans and the API spans are both named `anthropic.messages.create`, tell them apart by their span kind: the SDK span is `CLIENT` and the API span is `SERVER`.
+
+For more options, such as the content limit of each span and the conversation ID, see [Set up OpenTelemetry with the Claude SDK](https://platform.claude.com/docs/en/manage-claude/opentelemetry/sdk).
+
+## Combine with the MLflow Tracing SDK
+
+Since this integration is built on OpenTelemetry, you can combine the Claude Platform spans with the [MLflow Tracing SDK](/genai/tracing) to add custom spans, set tags, and log assessments within the same trace. For example, wrap a request in your own span to link it to the user or feature that sent it.
+
+To enable this, set the `MLFLOW_USE_DEFAULT_TRACER_PROVIDER` environment variable to `false` and call <APILink fn="mlflow.tracing.set_destination" /> to merge spans from both SDKs into a single trace.
+
+```python
+import os
+
+os.environ["MLFLOW_USE_DEFAULT_TRACER_PROVIDER"] = "false"
+
+import anthropic
+import mlflow
+from mlflow.entities.trace_location import MlflowExperimentLocation
+
+mlflow.set_tracking_uri("http://localhost:5000")
+exp_id = mlflow.set_experiment("Claude Platform").experiment_id
+mlflow.tracing.set_destination(MlflowExperimentLocation(exp_id))
+
+client = anthropic.Anthropic()
+
+
+@mlflow.trace
+def answer_question(question: str) -> str:
+    message = client.messages.create(
+        model="claude-opus-5-5",
+        max_tokens=1024,
+        messages=[{"role": "user", "content": question}],
+    )
+    return message.content[0].text
+
+
+answer_question("What is MLflow?")
+```
+
+For detailed instructions and examples, see [Combining the OpenTelemetry SDK and the MLflow Tracing SDK](/genai/tracing/app-instrumentation/opentelemetry#combining-the-opentelemetry-sdk-and-the-mlflow-tracing-sdk).
+
+## Tracking Token Usage and Cost
+
+MLflow reads the token usage from the `gen_ai.usage.*` attributes of the Claude Platform spans, including the tokens read from and written to the prompt cache, and calculates the cost of each request. The aggregated token usage and cost are displayed in the trace view and the built-in dashboard. See the [Token Usage and Cost Tracking](/genai/tracing/token-usage-cost) documentation for details.
+
+The SDK span and the API spans of a request all carry its token usage. MLflow counts only the outermost span with token usage in each branch of the trace, so the tokens of a request aren't counted twice.
+
+## Troubleshooting
+
+The Claude Console shows the last delivery error when you hover over **Failing** in the **Delivery** column of the destination.
+
+| Error                       | Likely cause                                                                                                                       |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| HTTP error (status 401)     | The MLflow server has authentication enabled and the `Authorization` header is missing or wrong.                                   |
+| HTTP error (status 403)     | The hostname isn't in the `--allowed-hosts` option of the MLflow server, or the user doesn't have permission on the experiment.    |
+| HTTP error (status 404)     | The **OTLP endpoint URL** ends with `/v1/traces`, or the experiment ID in the `x-mlflow-experiment-id` header doesn't exist.        |
+| HTTP error (status 422)     | The `x-mlflow-experiment-id` header is missing.                                                                                    |
+| Spans have no prompts       | The content mode of the destination or the SDK is **Metadata only**. Change it to **Full content** (`content` in the SDK).         |
+| Each request appears twice  | Both MLflow's Anthropic autolog and the Claude SDK trace the same client. Disable one of them, for example with `ANTHROPIC_OPEN_TELEMETRY=false`. |
+
+## Next steps
+
+<TilesGrid>
+  <TileCard
+    icon={Users}
+    iconSize={48}
+    title="Track User Feedback"
+    description="Record user feedback on traces for tracking user satisfaction."
+    href="/genai/tracing/collect-user-feedback"
+    linkText="Learn about feedback →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={BookOpen}
+    iconSize={48}
+    title="Manage Prompts"
+    description="Learn how to manage prompts with MLflow's prompt registry."
+    href="/genai/prompt-registry"
+    linkText="Manage prompts →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={Scale}
+    iconSize={48}
+    title="Evaluate Traces"
+    description="Evaluate traces with LLM judges to understand and improve your AI application's behavior."
+    href="/genai/eval-monitor/running-evaluation/traces"
+    linkText="Evaluate traces →"
+    containerHeight={64}
+  />
+</TilesGrid>
