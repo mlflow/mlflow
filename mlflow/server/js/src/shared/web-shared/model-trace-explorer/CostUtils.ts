@@ -10,3 +10,10 @@ export const formatCostUSD = (cost: number, maximumFractionDigits = 6): string =
     maximumFractionDigits,
   }).format(cost);
 };
+
+/** ≈ prefix for all pricing-table-estimated cost values — defined once to keep the glyph out of call sites. */
+export const ESTIMATED_COST_PREFIX = '≈';
+
+/** Formats a cost as an estimated USD amount, prefixed with ≈ to signal it is computed from token usage, not provider-reported. */
+export const formatEstimatedCostUSD = (cost: number, maximumFractionDigits = 6): string =>
+  `${ESTIMATED_COST_PREFIX}${formatCostUSD(cost, maximumFractionDigits)}`;

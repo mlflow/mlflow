@@ -3995,6 +3995,10 @@
     "defaultMessage": "Does the response follow per-example guidelines from expectations?",
     "description": "Hint for ExpectationsGuidelines template"
   },
+  "CbG0s1": {
+    "defaultMessage": "Estimated cost: {value}. {explanation}",
+    "description": "Tooltip for span cost in the timeline tree, including the estimation explanation"
+  },
   "CbRDlp": {
     "defaultMessage": "Type",
     "description": "Row heading in a table that contains the type of a function parameter (e.g. string, boolean)"
@@ -4138,6 +4142,10 @@
   "DCkSC3": {
     "defaultMessage": "Promote",
     "description": "Confirmation text to promote the model"
+  },
+  "DD/MkR": {
+    "defaultMessage": "Estimated cost: {cost}",
+    "description": "Accessible name for the ≈-prefixed cost value; {cost} is the plain dollar amount (no ≈ glyph) so screen readers announce it as \"Estimated cost: $X\" rather than reading the glyph literally"
   },
   "DEGkua": {
     "defaultMessage": "Filter by active status",
@@ -8054,6 +8062,10 @@
   "RlBbjb": {
     "defaultMessage": "A tag key is required",
     "description": "Key-value tag editor modal > Tag dropdown > Tag key required error message"
+  },
+  "RlOzR4": {
+    "defaultMessage": "Cost is estimated from token usage and public model pricing.",
+    "description": "Tooltip explaining that cost is estimated, not reported by the provider"
   },
   "RlRsah": {
     "defaultMessage": "loading...",
