@@ -15,6 +15,8 @@ from mlflow.protos.databricks_tracing_pb2 import TraceInfo as ProtoTraceInfoV4
 from mlflow.protos.service_pb2 import TraceInfoV3 as ProtoTraceInfoV3
 from mlflow.tracing.constant import TraceMetadataKey
 
+_KNOWN_ASSESSMENT_VALUE_TYPES = {"expectation", "feedback", "issue"}
+
 
 @dataclass
 class TraceInfo(_MlflowObject):
@@ -76,7 +78,13 @@ class TraceInfo(_MlflowObject):
 
         d = d.copy()
         if assessments := d.get("assessments"):
-            d["assessments"] = [Assessment.from_dictionary(a) for a in assessments]
+            # An older client cannot deserialize a value type introduced by a newer server. Keep
+            # the trace readable and omit only assessments whose value type is unknown.
+            d["assessments"] = [
+                Assessment.from_dictionary(a)
+                for a in assessments
+                if _KNOWN_ASSESSMENT_VALUE_TYPES.intersection(a)
+            ]
 
         if trace_location := d.get("trace_location"):
             d["trace_location"] = TraceLocation.from_dict(trace_location)
@@ -161,7 +169,11 @@ class TraceInfo(_MlflowObject):
             state=TraceState.from_proto(proto.state),
             trace_metadata=dict(proto.trace_metadata),
             tags=dict(proto.tags),
-            assessments=[Assessment.from_proto(a) for a in proto.assessments],
+            assessments=[
+                Assessment.from_proto(a)
+                for a in proto.assessments
+                if a.WhichOneof("value") in _KNOWN_ASSESSMENT_VALUE_TYPES
+            ],
         )
 
     # Aliases for backward compatibility with V2 format
