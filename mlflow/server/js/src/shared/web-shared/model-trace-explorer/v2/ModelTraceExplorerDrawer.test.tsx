@@ -9,6 +9,7 @@ import { IntlProvider } from '@databricks/i18n';
 import { HashRouter } from '../../genai-traces-table/utils/RoutingUtils';
 import { COST_METADATA_KEY, TOKEN_USAGE_METADATA_KEY } from '../constants';
 import type { ModelTraceInfoV3 } from './ModelTrace.types';
+import { ModelTraceExplorerContextProvider } from './ModelTraceExplorerContext';
 import { ModelTraceExplorerDrawer } from './ModelTraceExplorerDrawer';
 import { shouldEnableNewEvalRunsUi } from '../../../../common/utils/FeatureUtils';
 
@@ -130,6 +131,101 @@ describe('ModelTraceExplorerDrawer', () => {
       expect(screen.getByText('2201.50ms')).toBeInTheDocument();
       expect(screen.getByText('1,545 tokens')).toBeInTheDocument();
       expect(screen.getByText('$0.00')).toBeInTheDocument();
+    });
+  });
+
+  describe('dataset and review shortcuts', () => {
+    const traceInfo = {
+      trace_id: 'tr-abc123',
+      request_time: '2025-01-01T00:00:00Z',
+      state: 'OK',
+      trace_metadata: {},
+      tags: {},
+    } as unknown as ModelTraceInfoV3;
+
+    const renderDrawerWithActions = () =>
+      render(
+        <IntlProvider locale="en">
+          <DesignSystemProvider>
+            <HashRouter>
+              <ModelTraceExplorerContextProvider
+                renderExportTracesToDatasetsModal={({ visible }) => (visible ? <div>dataset modal</div> : null)}
+                renderAddToReviewQueueDropdown={({ children, open }) => (
+                  <>
+                    {children}
+                    {open && (
+                      <div role="menu">
+                        <button role="menuitem">review menu option</button>
+                      </div>
+                    )}
+                  </>
+                )}
+              >
+                <ModelTraceExplorerDrawer
+                  selectPreviousEval={jest.fn()}
+                  selectNextEval={jest.fn()}
+                  isPreviousAvailable={false}
+                  isNextAvailable={false}
+                  handleClose={jest.fn()}
+                  experimentId="1"
+                  traceInfo={traceInfo}
+                >
+                  <input aria-label="Trace input" />
+                </ModelTraceExplorerDrawer>
+              </ModelTraceExplorerContextProvider>
+            </HashRouter>
+          </DesignSystemProvider>
+        </IntlProvider>,
+      );
+
+    test('flag on: d opens the dataset modal and r opens the review menu, but not while typing', async () => {
+      jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(true);
+      const user = userEvent.setup();
+      renderDrawerWithActions();
+
+      await user.click(screen.getByRole('textbox', { name: 'Trace input' }));
+      await user.keyboard('dr');
+      expect(screen.queryByText('dataset modal')).not.toBeInTheDocument();
+      expect(screen.queryByRole('menuitem', { name: 'review menu option' })).not.toBeInTheDocument();
+
+      screen.getByRole('button', { name: 'Flag for review' }).focus();
+      await user.keyboard('r');
+      expect(screen.getByRole('menuitem', { name: 'review menu option' })).toBeVisible();
+
+      // A focused option inside the open review menu keeps its keys.
+      screen.getByRole('menuitem', { name: 'review menu option' }).focus();
+      await user.keyboard('d');
+      expect(screen.queryByText('dataset modal')).not.toBeInTheDocument();
+    });
+
+    test('flag on: d opens the dataset modal from the drawer', async () => {
+      jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(true);
+      const user = userEvent.setup();
+      renderDrawerWithActions();
+
+      screen.getByRole('button', { name: 'Add to dataset' }).focus();
+      await user.keyboard('d');
+      expect(screen.getByText('dataset modal')).toBeInTheDocument();
+    });
+
+    test('flag on: the review tooltip names its shortcut', async () => {
+      jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(true);
+      const user = userEvent.setup();
+      renderDrawerWithActions();
+
+      await user.hover(screen.getByRole('button', { name: 'Flag for review' }));
+      expect(await screen.findByRole('tooltip')).toHaveTextContent('Flag for review · R');
+    });
+
+    test('flag off: d and r do nothing', async () => {
+      jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(false);
+      const user = userEvent.setup();
+      renderDrawerWithActions();
+
+      screen.getByRole('button', { name: 'Add to dataset' }).focus();
+      await user.keyboard('dr');
+      expect(screen.queryByText('dataset modal')).not.toBeInTheDocument();
+      expect(screen.queryByRole('menuitem', { name: 'review menu option' })).not.toBeInTheDocument();
     });
   });
 });
