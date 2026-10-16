@@ -62,10 +62,13 @@ def upgrade():
             {
                 "issue_id": row.issue_id,
                 "category": category,
-                "category_hash": hashlib.sha256(category.encode()).hexdigest(),
+                "category_hash": category_hash,
             }
             for row in batch
-            for category in set(json.loads(row.categories))
+            for category_hash, category in {
+                hashlib.sha256(category.strip().lower().encode()).hexdigest(): category
+                for category in json.loads(row.categories)
+            }.items()
         ]
         if entries:
             conn.execute(categories.insert(), entries)

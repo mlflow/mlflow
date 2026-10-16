@@ -83,7 +83,7 @@ def test_issue_contract_migration_preserves_existing_issues(tmp_path, previous_r
                 status="pending",
                 severity=None,
                 root_causes=json.dumps(["Old cause"]),
-                categories=json.dumps(["cost", "cost", "c" * 300]),
+                categories=json.dumps(["cost", "COST", " Cost ", "c" * 300]),
                 created_timestamp=100,
                 last_updated_timestamp=200,
                 source_run_id="old-run",
@@ -97,10 +97,12 @@ def test_issue_contract_migration_preserves_existing_issues(tmp_path, previous_r
     assert issue.last_updated_timestamp == 200
     assert issue.last_updated_by is None
     assert issue.root_causes == ["Old cause"]
-    assert issue.categories == ["cost", "cost", "c" * 300]
+    assert issue.categories == ["cost", "COST", " Cost ", "c" * 300]
     assert issue.source_run_id == "old-run"
     assert issue.severity is None
-    assert [result.issue_id for result in store.search_issues(categories=["cost"])] == ["iss-old"]
+    results = store.search_issues(categories=[" CoSt "], include_total_count=True)
+    assert [result.issue_id for result in results] == ["iss-old"]
+    assert results.total_count == 1
     assert store.update_issue("iss-old", categories=["latency"]).categories == ["latency"]
     assert store.search_issues(categories=["cost"]) == []
 
@@ -187,7 +189,7 @@ def test_issue_contract_migration_downgrade_and_reupgrade(tmp_path, monkeypatch)
             assert restored.last_seen_timestamp == issue.created_timestamp
             assert restored.metadata is None
             assert restored.last_updated_by is None
-            found = store.search_issues(categories=["custom-category"], include_trace_count=True)
+            found = store.search_issues(categories=[" CUSTOM-Category "], include_trace_count=True)
             assert [(result.issue_id, result.trace_count) for result in found] == [
                 (issue.issue_id, 1)
             ]

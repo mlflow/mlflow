@@ -8752,8 +8752,10 @@ class SqlAlchemyStore(
                 last_updated_by=created_by,
                 issue_metadata=json.dumps(metadata) if metadata else None,
                 issue_categories=[
-                    SqlIssueCategory(category=category, category_hash=issue_category_hash(category))
-                    for category in dict.fromkeys(categories or [])
+                    SqlIssueCategory(category=category, category_hash=category_hash)
+                    for category_hash, category in {
+                        issue_category_hash(category): category for category in categories or []
+                    }.items()
                 ],
             )
 
@@ -8880,14 +8882,17 @@ class SqlAlchemyStore(
             if categories is not None:
                 sql_issue.categories = json.dumps(list(dict.fromkeys(categories)))
                 # Keep searchable categories and the legacy JSON representation in one transaction.
-                existing = {entry.category: entry for entry in sql_issue.issue_categories}
-                sql_issue.issue_categories = [
-                    existing.get(category)
-                    or SqlIssueCategory(
-                        category=category, category_hash=issue_category_hash(category)
+                existing = {entry.category_hash: entry for entry in sql_issue.issue_categories}
+                indexed_categories = []
+                for category_hash, category in {
+                    issue_category_hash(category): category for category in categories
+                }.items():
+                    entry = existing.get(category_hash) or SqlIssueCategory(
+                        category_hash=category_hash
                     )
-                    for category in dict.fromkeys(categories)
-                ]
+                    entry.category = category
+                    indexed_categories.append(entry)
+                sql_issue.issue_categories = indexed_categories
             if last_seen_timestamp is not None:
                 sql_issue.last_seen_timestamp = max(
                     sql_issue.last_seen_timestamp
@@ -8945,7 +8950,8 @@ class SqlAlchemyStore(
             name: Case-insensitive literal substring of the name (not a wildcard pattern).
             statuses: Accepted status values, ORed within the list.
             severities: Accepted severity values, ORed within the list.
-            categories: Match any of these categories. Different filter fields are ANDed.
+            categories: Match any category, ignoring case and surrounding whitespace.
+                Different filter fields are ANDed.
             order_by: Field and optional ASC/DESC; supports name, status, severity and timestamps.
                 Issue ID breaks ties. Omit to retain the legacy severity/count/creation ordering.
             include_total_count: Return the matching count before pagination in total_count.
@@ -8981,7 +8987,7 @@ class SqlAlchemyStore(
             name=name,
             statuses=sorted(set(statuses or [])),
             severities=sorted(set(severities or [])),
-            categories=sorted(set(categories or [])),
+            categories=sorted({issue_category_hash(category) for category in categories or []}),
             order_by=order_by or [],
             include_trace_count=include_trace_count,
             include_total_count=include_total_count,

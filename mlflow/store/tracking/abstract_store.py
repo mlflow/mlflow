@@ -808,7 +808,8 @@ class AbstractStore(SkillRegistryMixin, MCPServerRegistryMixin, GatewayStoreMixi
             name: Case-insensitive literal substring of the name (not a wildcard pattern).
             statuses: Accepted status values, ORed within the list.
             severities: Accepted severity values, ORed within the list.
-            categories: Match any of these categories. Different filter fields are ANDed.
+            categories: Match any category, ignoring case and surrounding whitespace.
+                Different filter fields are ANDed.
             order_by: Field and optional ASC/DESC; supports name, status, severity and timestamps.
                 Issue ID breaks ties. Omit to retain the legacy severity/count/creation ordering.
             include_total_count: Return the matching count before pagination in total_count.

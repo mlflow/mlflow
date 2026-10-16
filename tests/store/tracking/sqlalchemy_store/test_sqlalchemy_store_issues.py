@@ -1147,6 +1147,46 @@ def test_issue_name_search_treats_brackets_literally(store):
     assert results.total_count == 1
 
 
+@pytest.mark.parametrize("category", ["Cost", "CustomerSupport", "Café"])
+@pytest.mark.parametrize("include_trace_count", [False, True])
+def test_issue_category_search_ignores_case_and_surrounding_whitespace(
+    store, category, include_trace_count
+):
+    categories = [category, category.upper(), f" {category.lower()} "]
+    issue = store.create_issue("0", "Issue", "", categories=categories)
+    store.create_issue("0", "Different category", "", categories=[f"{category}Extra"])
+    assert store.get_issue(issue.issue_id).categories == categories
+
+    options = {"include_total_count": True, "include_trace_count": include_trace_count}
+    results = store.search_issues(categories=[f" {category.upper()} "], **options)
+    assert [result.issue_id for result in results] == [issue.issue_id]
+    assert results.total_count == 1
+
+    # Reuse the index entry when only the spelling changes, including repeated updates.
+    for replacement in ([category.upper()], [f" {category.lower()} ", category]):
+        assert store.update_issue(issue.issue_id, categories=replacement).categories == replacement
+        results = store.search_issues(categories=[category.lower()], **options)
+        assert [result.issue_id for result in results] == [issue.issue_id]
+        assert results.total_count == 1
+
+    store.update_issue(issue.issue_id, categories=["replacement"])
+    assert store.search_issues(categories=[category], **options).total_count == 0
+    store.update_issue(issue.issue_id, categories=[])
+    assert store.search_issues(categories=["REPLACEMENT"], **options).total_count == 0
+
+
+def test_issue_category_paging_accepts_equivalent_filters(store):
+    for index in range(3):
+        store.create_issue("0", "Issue", "", issue_id=f"iss-{index}", categories=["Cost", "COST"])
+    options = {"max_results": 1, "include_total_count": True}
+    first = store.search_issues(categories=["cost"], **options)
+    second = store.search_issues(categories=[" COST "], page_token=first.token, **options)
+    third = store.search_issues(categories=["cost", "Cost"], page_token=second.token, **options)
+    assert [issue.issue_id for issue in first + second + third] == ["iss-2", "iss-1", "iss-0"]
+    assert first.total_count == second.total_count == third.total_count == 3
+    assert third.token is None
+
+
 def test_issue_source_run_ownership(store):
     experiment_id = store.create_experiment("other")
     run = store.create_run(experiment_id, "user", 1, [], "run")
