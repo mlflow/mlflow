@@ -1,6 +1,12 @@
+# Skill Registry permissions, checked without a network: TestClient hands each request to an
+# app with the basic-auth permission middleware and the Skill routes, so no server is started.
+# Checks that need a live server (logging in, the SDK's own client, pull) are in
+# test_skill_registry_integration.py.
 import asyncio
 import io
 import json
+from dataclasses import dataclass
+from typing import Any
 from unittest import mock
 
 import pytest
@@ -15,19 +21,34 @@ from mlflow.entities.skill_version import SkillVersion
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import TEMPORARILY_UNAVAILABLE
 from mlflow.server import auth, handlers, skill_registry_api, workspace_helpers
-from mlflow.server.auth.permissions import DENY, EDIT, MANAGE, NO_PERMISSIONS, READ, USE
+from mlflow.server.auth.permissions import (
+    DENY,
+    EDIT,
+    MANAGE,
+    NO_PERMISSIONS,
+    READ,
+    USE,
+    Permission,
+)
 from mlflow.server.auth.sqlalchemy_store import SqlAlchemyStore as AuthStore
 from mlflow.server.fastapi_app import (
     add_fastapi_workspace_middleware,
     add_registry_exception_handlers,
 )
-from mlflow.server.skill_registry_api import skill_registry_router
+from mlflow.server.skill_registry_api import (
+    get_skill_registry_api_route_prefixes,
+    skill_registry_router,
+)
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore as TrackingStore
 from mlflow.store.tracking.sqlalchemy_workspace_store import WorkspaceAwareSqlAlchemyStore
 from mlflow.store.workspace.sqlalchemy_store import SqlAlchemyStore as WorkspaceStore
 from mlflow.utils.validation import _MAX_BULK_REGISTER_SKILLS
 from mlflow.utils.workspace_context import ServerWorkspaceContext
 from mlflow.utils.workspace_utils import WORKSPACE_HEADER_NAME
+
+SKILLS = "/api/3.0/mlflow/skills"
+SOURCE = "https://example.com/skill.zip"
+ICONS = [{"src": "https://8.8.8.8/reviewer.png"}]
 
 
 def test_every_skill_route_has_one_auth_policy():
@@ -165,9 +186,17 @@ def workspace_registry(tmp_path, monkeypatch, db_uri):
         auth, "auth_config", auth.auth_config._replace(default_permission=NO_PERMISSIONS.name)
     )
     monkeypatch.setattr(auth, "_auth_initialized", True)
-    monkeypatch.setattr(auth, "_authenticate_fastapi_request", lambda request: creator)
+    # Requests act as the user named in `x-user`, or as `creator` when the header is absent.
+    # `get_user` is bound here, so tests that count the store's user lookups don't count logins.
+    get_user = auth_store.get_user
+    monkeypatch.setattr(
+        auth,
+        "_authenticate_fastapi_request",
+        lambda request: get_user(request.headers.get("x-user", creator.username)),
+    )
     app = FastAPI()
-    app.include_router(skill_registry_router, prefix="/api/3.0/mlflow/skills")
+    for prefix in get_skill_registry_api_route_prefixes():
+        app.include_router(skill_registry_router, prefix=prefix)
     add_registry_exception_handlers(app)
     auth.add_fastapi_permission_middleware(app)
     try:
@@ -811,72 +840,243 @@ def test_skill_rest_enforces_grants_and_filters_before_pagination(
         tracking_store.engine.dispose()
 
 
-@pytest.mark.parametrize("endpoint", ["versions", "bulk-register"])
-@pytest.mark.parametrize("is_admin", [False, True])
-def test_registration_creator_grants_with_workspaces(
-    tmp_path, monkeypatch, endpoint, is_admin, db_uri
-):
-    monkeypatch.setenv("MLFLOW_ENABLE_WORKSPACES", "true")
-    monkeypatch.setenv("MLFLOW_WORKSPACE", "default")
-    auth_store = AuthStore()
-    auth_store.init_db(f"sqlite:///{tmp_path / 'auth.db'}")
-    tracking_store = TrackingStore(db_uri, str(tmp_path / "artifacts"))
-    creator = auth_store.create_user("creator", "strong-password", is_admin=is_admin)
-    if not is_admin:
+def _identity(name, organization):
+    return f"@{organization}/{name}" if organization else name
+
+
+def _skill_url(name, organization, prefix=SKILLS):
+    return f"{prefix}/{_identity(name, organization)}"
+
+
+def _bulk_definition(name):
+    return {
+        "name": name,
+        "source": "https://example.com/repo.git",
+        "ref": "main",
+        "digest": "a" * 64,
+    }
+
+
+def _create(client, endpoint, name, *, user):
+    headers = {"x-user": user}
+    if endpoint == "create":
+        return client.post(SKILLS, json={"name": name}, headers=headers)
+    if endpoint == "versions":
+        return client.post(f"{SKILLS}/{name}/versions", json={"source": SOURCE}, headers=headers)
+    return client.post(
+        f"{SKILLS}/bulk-register", json={"skills": [_bulk_definition(name)]}, headers=headers
+    )
+
+
+def _seed_skill(tracking_store, name, organization):
+    tracking_store.create_skill(
+        name, organization=organization, description="original", icons=ICONS
+    )
+    tracking_store.create_skill_version(
+        name=name, organization=organization, source_type="zip", source=SOURCE
+    )
+    tracking_store.set_skill_tag(name, "team", "original", organization=organization)
+    tracking_store.set_skill_version_tag(name, 1, "team", "original", organization=organization)
+    tracking_store.set_skill_alias(name, "stable", 1, organization=organization)
+
+
+def _snapshot(tracking_store, name, organization):
+    return (
+        tracking_store.get_skill(name, organization=organization),
+        list(tracking_store.search_skill_versions(name, organization=organization)),
+    )
+
+
+@pytest.mark.parametrize("endpoint", ["create", "versions", "bulk-register"])
+@pytest.mark.parametrize("creator_kind", ["workspace-use", "workspace-manage", "admin"])
+def test_registration_creator_grants_with_workspaces(workspace_registry, endpoint, creator_kind):
+    client, auth_store, tracking_store, creator = workspace_registry
+    if creator_kind == "workspace-manage":
         auth_store.set_workspace_permission("default", creator.username, MANAGE.name)
-    monkeypatch.setattr(auth, "store", auth_store)
-    monkeypatch.setattr(auth, "_get_tracking_store", lambda: tracking_store)
-    monkeypatch.setattr(handlers, "_get_tracking_store", lambda: tracking_store)
-    monkeypatch.setattr(
-        auth,
-        "auth_config",
-        auth.auth_config._replace(
-            default_permission=NO_PERMISSIONS.name, grant_default_workspace_access=False
-        ),
+    is_admin = creator_kind == "admin"
+    if is_admin:
+        creator = auth_store.create_user("admin", "strong-password", is_admin=True)
+    assert auth.validate_can_create_skill(creator.username) is (not is_admin)
+    response = _create(client, endpoint, "private", user=creator.username)
+    assert response.status_code == 200, response.text
+    assert tracking_store.get_skill("private").created_by == creator.username
+    permission = auth_store.get_role_permission_for_resource(
+        creator.id, "skill", "private", "default"
     )
-    monkeypatch.setattr(auth, "_auth_initialized", True)
-    monkeypatch.setattr(
-        auth,
-        "_authenticate_fastapi_request",
-        lambda request: auth_store.get_user(request.headers["x-user"]),
+    assert (permission.name if permission else None) == (MANAGE.name if not is_admin else None)
+
+
+@pytest.mark.parametrize("permission", [READ, EDIT, MANAGE], ids=lambda permission: permission.name)
+def test_skill_grants_without_workspace_use_cannot_create_skills(workspace_registry, permission):
+    client, auth_store, tracking_store, _ = workspace_registry
+    user = auth_store.create_user("grantee", "strong-password")
+    auth_store.grant_user_permission(user.username, "skill", "*", permission.name)
+    for endpoint in ("create", "versions", "bulk-register"):
+        response = _create(client, endpoint, "private", user=user.username)
+        assert response.status_code == 403, response.text
+    assert list(tracking_store.search_skills()) == []
+
+
+@pytest.mark.parametrize("organization", ["", "acme"])
+def test_mixed_bulk_batch_is_denied_as_a_whole(workspace_registry, organization):
+    client, auth_store, tracking_store, _ = workspace_registry
+    _seed_skill(tracking_store, "existing", organization)
+    user = auth_store.create_user("bulk-writer", "strong-password")
+    auth_store.set_workspace_permission("default", user.username, USE.name)
+    existing = _identity("existing", organization)
+    auth_store.grant_user_permission(user.username, "skill", existing, READ.name)
+    headers = {"x-user": user.username}
+    batch = {
+        "organization": organization,
+        "skills": [_bulk_definition("new"), _bulk_definition("existing")],
+    }
+    before = _snapshot(tracking_store, "existing", organization)
+
+    # USE lets the caller create `new`, but READ on `existing` cannot add a version to it.
+    response = client.post(f"{SKILLS}/bulk-register", json=batch, headers=headers)
+    assert response.status_code == 403, response.text
+    assert _snapshot(tracking_store, "existing", organization) == before
+    assert [skill.name for skill in tracking_store.search_skills()] == ["existing"]
+
+    auth_store.grant_user_permission(user.username, "skill", existing, EDIT.name)
+    response = client.post(f"{SKILLS}/bulk-register", json=batch, headers=headers)
+    assert response.status_code == 200, response.text
+    versions = response.json()["skill_versions"]
+    assert [(version["name"], version["version"]) for version in versions] == [
+        ("new", 1),
+        ("existing", 2),
+    ]
+    # Only the parent this batch created grants its creator MANAGE; `existing` stays at EDIT.
+    assert client.delete(_skill_url("new", organization), headers=headers).status_code == 200
+    assert client.delete(_skill_url("existing", organization), headers=headers).status_code == 403
+
+
+def test_edit_on_an_existing_skill_lets_bulk_register_add_a_version(workspace_registry):
+    client, auth_store, tracking_store, _ = workspace_registry
+    _seed_skill(tracking_store, "existing", "")
+    batch = {"skills": [_bulk_definition("existing")]}
+    before = _snapshot(tracking_store, "existing", "")
+
+    # Neither user holds workspace USE: adding a version needs EDIT on the Skill, not the right
+    # to create Skills.
+    response = client.post(
+        f"{SKILLS}/bulk-register", json=batch, headers=_user_holding(auth_store, READ)
     )
-    app = FastAPI()
-    app.include_router(skill_registry_router, prefix="/api/3.0/mlflow/skills")
-    add_registry_exception_handlers(app)
-    auth.add_fastapi_permission_middleware(app)
-    client = TestClient(app)
-    prefix = "/api/3.0/mlflow/skills"
-    headers = {"x-user": creator.username}
-    try:
-        with ServerWorkspaceContext("default"):
-            assert auth.validate_can_create_skill(creator.username) is (not is_admin)
-            if endpoint == "bulk-register":
-                response = client.post(
-                    f"{prefix}/bulk-register",
-                    json={
-                        "skills": [
-                            {
-                                "name": "private",
-                                "source": "https://example.com/repo.git",
-                                "ref": "main",
-                                "digest": "a" * 64,
-                            }
-                        ]
-                    },
-                    headers=headers,
-                )
-            else:
-                url = f"{prefix}/private/versions"
-                body = {"source": "https://example.com/skill.zip"}
-                response = client.post(url, json=body, headers=headers)
-            assert response.status_code == 200, response.text
-            assert tracking_store.get_skill("private").created_by == creator.username
-            permission = auth_store.get_role_permission_for_resource(
-                creator.id, "skill", "private", "default"
-            )
-            assert (permission.name if permission else None) == (
-                MANAGE.name if not is_admin else None
-            )
-    finally:
-        auth_store.engine.dispose()
-        tracking_store.engine.dispose()
+    assert response.status_code == 403, response.text
+    assert _snapshot(tracking_store, "existing", "") == before
+
+    headers = _user_holding(auth_store, EDIT)
+    response = client.post(f"{SKILLS}/bulk-register", json=batch, headers=headers)
+    assert response.status_code == 200, response.text
+    assert [version["version"] for version in response.json()["skill_versions"]] == [2]
+    assert tracking_store.get_skill_version("existing", 2).created_by == headers["x-user"]
+
+
+@dataclass(frozen=True)
+class SkillRoute:
+    operation: str
+    method: str
+    suffix: str
+    required: Permission
+    body: dict[str, Any] | None = None
+    # An active version cannot be deleted by anyone, so these routes start from a deprecated one.
+    deprecate_first: bool = False
+
+
+# The permission each route needs, written out here rather than read from the middleware's own
+# table. Deleting a parent tag needs EDIT but deleting a version tag needs MANAGE
+# (https://github.com/mlflow/mlflow/pull/25988, https://github.com/mlflow/rfcs/pull/65), and a
+# status PATCH to `deleted` needs MANAGE although other status changes need EDIT.
+SKILL_ROUTES = [
+    SkillRoute("get_skill", "GET", "", READ),
+    SkillRoute("get_skill_version", "GET", "/versions/1", READ),
+    SkillRoute("get_skill_version_by_alias", "GET", "/aliases/stable", READ),
+    SkillRoute("get_latest_skill_version", "GET", "/aliases/latest", READ),
+    SkillRoute("search_skill_versions", "GET", "/versions", READ),
+    SkillRoute(
+        "update_skill",
+        "PATCH",
+        "",
+        EDIT,
+        {"description": "updated", "icons": [{"src": "https://8.8.8.8/updated.png"}]},
+    ),
+    SkillRoute("create_skill_version", "POST", "/versions", EDIT, {"source": SOURCE}),
+    SkillRoute("update_skill_version", "PATCH", "/versions/1", EDIT, {"status": "deprecated"}),
+    SkillRoute("set_skill_tag", "POST", "/tags", EDIT, {"key": "team", "value": "updated"}),
+    SkillRoute("delete_skill_tag", "DELETE", "/tags/team", EDIT),
+    SkillRoute(
+        "set_skill_version_tag", "POST", "/versions/1/tags", EDIT, {"key": "team", "value": "new"}
+    ),
+    SkillRoute("delete_skill_version_tag", "DELETE", "/versions/1/tags/team", MANAGE),
+    SkillRoute("set_skill_alias", "POST", "/aliases", EDIT, {"alias": "candidate", "version": 1}),
+    SkillRoute("delete_skill_alias", "DELETE", "/aliases/stable", MANAGE),
+    SkillRoute("delete_skill_version", "DELETE", "/versions/1", MANAGE, deprecate_first=True),
+    SkillRoute(
+        "update_skill_version_to_deleted",
+        "PATCH",
+        "/versions/1",
+        MANAGE,
+        {"status": "deleted"},
+        deprecate_first=True,
+    ),
+    SkillRoute("delete_skill", "DELETE", "", MANAGE),
+]
+_TIERS = [None, READ, EDIT, MANAGE]
+
+
+def _user_holding(auth_store, permission):
+    label = permission.name.lower() if permission else "no-grant"
+    user = auth_store.create_user(f"{label}-user", "strong-password")
+    if permission:
+        auth_store.grant_user_permission(user.username, "skill", "*", permission.name)
+    return {"x-user": user.username}
+
+
+# Each route is tried with the two tiers on either side of what it needs: the highest that must
+# be refused and the lowest that must be let through. Tiers are cumulative (MANAGE includes EDIT
+# includes READ; test_auth_workspace.py::test_role_grant_on_skill_registry_parent_gates_capabilities
+# checks that), so tiers further out add nothing.
+@pytest.mark.parametrize(
+    "organization", ["", "acme"], ids=["default-organization", "named-organization"]
+)
+@pytest.mark.parametrize("route", SKILL_ROUTES, ids=lambda route: route.operation)
+def test_each_skill_route_requires_its_permission_tier(workspace_registry, route, organization):
+    client, auth_store, tracking_store, _ = workspace_registry
+    _seed_skill(tracking_store, "reviewer", organization)
+    if route.deprecate_first:
+        tracking_store.update_skill_version(
+            "reviewer", 1, organization=organization, status="deprecated"
+        )
+    url = f"{_skill_url('reviewer', organization)}{route.suffix}"
+    refused = _TIERS[_TIERS.index(route.required) - 1]
+    before = _snapshot(tracking_store, "reviewer", organization)
+
+    headers = _user_holding(auth_store, refused)
+    response = client.request(route.method, url, json=route.body, headers=headers)
+    assert response.status_code == 403, response.text
+    assert _snapshot(tracking_store, "reviewer", organization) == before
+
+    headers = _user_holding(auth_store, route.required)
+    response = client.request(route.method, url, json=route.body, headers=headers)
+    assert response.status_code == 200, response.text
+
+
+@pytest.mark.parametrize(
+    "organization", ["", "acme"], ids=["default-organization", "named-organization"]
+)
+def test_workspace_use_alone_grants_nothing_on_someone_elses_skill(
+    workspace_registry, organization
+):
+    client, _, tracking_store, _ = workspace_registry
+    _seed_skill(tracking_store, "reviewer", organization)
+    before = _snapshot(tracking_store, "reviewer", organization)
+    # Requests without `x-user` act as `creator`, which holds workspace USE and nothing else.
+    for prefix in get_skill_registry_api_route_prefixes():
+        for route in SKILL_ROUTES:
+            url = f"{_skill_url('reviewer', organization, prefix)}{route.suffix}"
+            response = client.request(route.method, url, json=route.body)
+            assert response.status_code == 403, (route.operation, response.text)
+        identity = _identity("reviewer", organization)
+        response = client.get(prefix, params={"include_skill_identities": identity})
+        assert response.json()["skills"] == []
+    assert _snapshot(tracking_store, "reviewer", organization) == before
