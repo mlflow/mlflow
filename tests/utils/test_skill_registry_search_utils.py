@@ -232,6 +232,15 @@ def test_filter_accepts_list_for_list_comparators(utils, comparator):
 
 
 @pytest.mark.parametrize("utils", _ALL_SEARCH_UTILS)
+def test_filter_rejects_or(utils):
+    # The Skill parsers rewrite keywords before the base parser runs, so check they still
+    # reject OR rather than AND-ing both conditions.
+    with pytest.raises(MlflowException, match=r"(?i)invalid clause") as exc:
+        utils.parse_search_filter("status = 'active' OR status = 'draft'")
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+
+
+@pytest.mark.parametrize("utils", _ALL_SEARCH_UTILS)
 @pytest.mark.parametrize("filter_string", ["status IN 'active'", "status NOT IN 'active'"])
 def test_filter_rejects_scalar_value_for_list_comparators(utils, filter_string):
     # The base parser rejects this shape before the registry check runs, so the
