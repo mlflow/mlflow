@@ -48,6 +48,7 @@ export {
   shouldEnableTracesTabLabelingSchemas,
   shouldEnableAssessmentsInSessions,
   shouldUseModelTraceExplorerDrawerUI,
+  shouldEnableModelTraceComparisonV2,
   shouldUseUnifiedModelTraceComparisonUI,
   isEvaluatingTracesInDetailsViewEnabled,
   shouldEnableTracesTableStatePersistence,

@@ -9,6 +9,14 @@ import {
   waitForRoutesToBeRendered,
 } from '@mlflow/mlflow/src/common/utils/RoutingTestUtils';
 import { useTracesV4UrlState } from './useTracesV4UrlState';
+import { shouldEnableNewEvalRunsUi } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
+
+jest.mock('@mlflow/mlflow/src/common/utils/FeatureUtils', () => ({
+  ...jest.requireActual<typeof import('@mlflow/mlflow/src/common/utils/FeatureUtils')>(
+    '@mlflow/mlflow/src/common/utils/FeatureUtils',
+  ),
+  shouldEnableNewEvalRunsUi: jest.fn(() => false),
+}));
 
 describe('useTracesV4UrlState', () => {
   // setupTestRouter registers beforeAll/afterAll hooks; must live at describe scope.
@@ -49,6 +57,7 @@ describe('useTracesV4UrlState', () => {
 
   afterEach(() => {
     jest.clearAllMocks();
+    jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(false);
   });
 
   test('reads search, page, pageSize, sort/dir, and traceId from the URL', async () => {
@@ -134,6 +143,25 @@ describe('useTracesV4UrlState', () => {
 
     act(() => result.current.setTraceId(undefined));
     expect(param('traceId')).toBeNull();
+  });
+
+  test('setTraceId(undefined) also clears a trace comparison with the new eval runs UI', async () => {
+    jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(true);
+    const { result } = await mountHook('/p?page=2&traceId=tr-b&baselineTraceId=tr-a&candidateTraceId=tr-b');
+    act(() => result.current.setTraceId(undefined));
+    expect(param('traceId')).toBeNull();
+    expect(param('baselineTraceId')).toBeNull();
+    expect(param('candidateTraceId')).toBeNull();
+    expect(param('page')).toBe('2');
+  });
+
+  test('setTraceId(undefined) leaves comparison params alone without the new eval runs UI', async () => {
+    jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(false);
+    const { result } = await mountHook('/p?traceId=tr-b&baselineTraceId=tr-a&candidateTraceId=tr-b');
+    act(() => result.current.setTraceId(undefined));
+    expect(param('traceId')).toBeNull();
+    expect(param('baselineTraceId')).toBe('tr-a');
+    expect(param('candidateTraceId')).toBe('tr-b');
   });
 
   test('falls back to the legacy selectedEvaluationId param when traceId is absent', async () => {
