@@ -19,7 +19,11 @@ from mlflow.entities import SpanLogLevel
 from mlflow.entities.span import SpanType
 from mlflow.exceptions import MlflowException
 from mlflow.openai.autolog import _get_span_type
-from mlflow.openai.utils.chat_schema import _parse_tools, _parse_usage
+from mlflow.openai.utils.chat_schema import (
+    _parse_tools,
+    _parse_usage,
+    set_span_chat_attributes,
+)
 from mlflow.tracing.constant import (
     STREAM_CHUNK_EVENT_VALUE_KEY,
     CostKey,
@@ -1289,6 +1293,55 @@ async def test_images_generate_autolog(client):
 )
 def test_parse_tools_handles_openai_not_given_sentinel(sentinel):
     assert _parse_tools({"tools": sentinel}) == []
+
+
+@pytest.mark.asyncio
+async def test_autolog_tool_without_properties(client):
+    mlflow.openai.autolog()
+    tools = [
+        {
+            "type": "function",
+            "function": {
+                "name": "get_time",
+                "description": "Get the current time",
+                "parameters": {"type": "object"},
+            },
+        }
+    ]
+
+    response = client.chat.completions.create(
+        messages=[{"role": "user", "content": "test"}],
+        model="gpt-4o-mini",
+        tools=tools,
+    )
+    if client._is_async:
+        await response
+
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    assert trace is not None
+    assert trace.info.status == "OK"
+    span = trace.data.spans[0]
+    assert span.attributes[SpanAttributeKey.CHAT_TOOLS] == tools
+
+
+def test_set_span_chat_attributes_ignores_invalid_tool_schema():
+    tools = [
+        {
+            "type": "function",
+            "function": {
+                "name": "broken",
+                "parameters": {"type": "object", "properties": "not a dict"},
+            },
+        }
+    ]
+
+    with mlflow.start_span(name="chat", span_type=SpanType.CHAT_MODEL) as span:
+        set_span_chat_attributes(span, {"tools": tools, "model": "gpt-4o-mini"}, None)
+
+    trace = mlflow.get_trace(span.trace_id)
+    chat_span = trace.data.spans[0]
+    assert SpanAttributeKey.CHAT_TOOLS not in chat_span.attributes
+    assert chat_span.model_name == "gpt-4o-mini"
 
 
 @skip_when_testing_trace_sdk
