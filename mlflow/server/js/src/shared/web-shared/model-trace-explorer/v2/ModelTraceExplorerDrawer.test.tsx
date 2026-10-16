@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, jest, test } from '@jest/globals';
-import { screen } from '@testing-library/react';
+import { act, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { render } from '@databricks/web-shared/test-utils/render';
 
@@ -9,7 +9,7 @@ import { IntlProvider } from '@databricks/i18n';
 import { HashRouter } from '../../genai-traces-table/utils/RoutingUtils';
 import { COST_METADATA_KEY, TOKEN_USAGE_METADATA_KEY } from '../constants';
 import type { ModelTraceInfoV3 } from './ModelTrace.types';
-import { ModelTraceExplorerContextProvider } from './ModelTraceExplorerContext';
+import { type DrawerComponentType, ModelTraceExplorerContextProvider } from './ModelTraceExplorerContext';
 import { ModelTraceExplorerDrawer } from './ModelTraceExplorerDrawer';
 import { shouldEnableNewEvalRunsUi } from '../../../../common/utils/FeatureUtils';
 
@@ -256,6 +256,159 @@ describe('ModelTraceExplorerDrawer', () => {
       await user.keyboard('dr');
       expect(screen.queryByText('dataset modal')).not.toBeInTheDocument();
       expect(screen.queryByRole('menuitem', { name: 'review menu option' })).not.toBeInTheDocument();
+    });
+  });
+
+  describe('scoped to a container (the MLflow panel beside the open Assistant)', () => {
+    const traceInfo = {
+      trace_id: 'tr-abc123',
+      request_time: '2025-01-01T00:00:00Z',
+      execution_duration: '2.201498101s',
+      state: 'OK',
+      trace_metadata: {},
+      tags: {},
+    } as unknown as ModelTraceInfoV3;
+
+    // Surfaces the props the drawer drives (modal, position, width, fullscreen) without the design
+    // system's Radix portals.
+    const TestDrawerComponent: DrawerComponentType = {
+      Root: ({ children, modal }) => (
+        <div data-testid="test-drawer-root" data-modal={String(modal)}>
+          {children}
+        </div>
+      ),
+      Content: ({ position, title, width, children, isFullscreen }) => (
+        <div
+          role="dialog"
+          data-position={position ?? 'right'}
+          data-width={width}
+          data-fullscreen={String(Boolean(isFullscreen))}
+        >
+          <div>{title}</div>
+          {children}
+        </div>
+      ),
+    };
+
+    let drawerScope: HTMLDivElement;
+    beforeEach(() => {
+      drawerScope = document.createElement('div');
+      drawerScope.getBoundingClientRect = () =>
+        ({ left: 100, right: 1100, width: 1000, top: 50, bottom: 650, height: 600, x: 100, y: 50 }) as DOMRect;
+      document.body.appendChild(drawerScope);
+    });
+    afterEach(() => {
+      drawerScope.remove();
+    });
+
+    const renderScopedDrawer = ({
+      drawerWidth,
+      initiallyFullscreen,
+      handleClose = jest.fn(),
+    }: {
+      drawerWidth?: number | string;
+      initiallyFullscreen?: boolean;
+      handleClose?: () => void;
+    } = {}) =>
+      render(
+        <IntlProvider locale="en">
+          <DesignSystemProvider>
+            <HashRouter>
+              <ModelTraceExplorerContextProvider
+                DrawerComponent={TestDrawerComponent}
+                drawerWidth={drawerWidth}
+                getDrawerPortalContainer={() => drawerScope}
+                initiallyFullscreen={initiallyFullscreen}
+                renderExportTracesToDatasetsModal={() => null}
+                renderAddToReviewQueueDropdown={({ children }) => <>{children}</>}
+              >
+                <ModelTraceExplorerDrawer
+                  selectPreviousEval={jest.fn()}
+                  selectNextEval={jest.fn()}
+                  isPreviousAvailable={false}
+                  isNextAvailable={false}
+                  handleClose={handleClose}
+                  experimentId="1"
+                  traceInfo={traceInfo}
+                >
+                  <div />
+                </ModelTraceExplorerDrawer>
+              </ModelTraceExplorerContextProvider>
+            </HashRouter>
+          </DesignSystemProvider>
+        </IntlProvider>,
+      );
+
+    test('flag on: opens fullscreen within the container with icon-only actions', async () => {
+      jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(true);
+      renderScopedDrawer({ drawerWidth: '90%', initiallyFullscreen: true });
+
+      expect(screen.getByRole('dialog')).toHaveAttribute('data-fullscreen', 'true');
+      expect(screen.getByRole('dialog')).toHaveAttribute('data-width', '100%');
+      expect(screen.getByTestId('test-drawer-root')).toHaveAttribute('data-modal', 'false');
+      expect(screen.getByRole('button', { name: 'Exit full screen' })).toBeInTheDocument();
+      // The 1000px container is wide enough for labels in a viewport-fullscreen drawer, but a scoped
+      // drawer keeps its actions icon-only.
+      expect(screen.queryByText('Find')).not.toBeInTheDocument();
+      expect(screen.queryByText('Share')).not.toBeInTheDocument();
+      expect(screen.queryByText('Dataset')).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Share' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Add to dataset' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Flag for review' })).toBeInTheDocument();
+      // Trace metadata still shows: the container is at least 960px wide.
+      expect(screen.getByText('2.20s')).toBeInTheDocument();
+      expect(screen.queryByRole('separator', { name: 'Resize trace drawer' })).not.toBeInTheDocument();
+    });
+
+    test('flag on: exiting full screen leaves a resizable 90% drawer inside the container', async () => {
+      jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(true);
+      const user = userEvent.setup();
+      renderScopedDrawer({ drawerWidth: '90%', initiallyFullscreen: true });
+
+      await user.click(screen.getByRole('button', { name: 'Exit full screen' }));
+
+      expect(screen.getByRole('dialog')).toHaveAttribute('data-width', '90%');
+      expect(screen.getByRole('dialog')).toHaveAttribute('data-fullscreen', 'false');
+      expect(screen.getByRole('button', { name: 'Full screen' })).toBeInTheDocument();
+      expect(drawerScope).toContainElement(screen.getByRole('separator', { name: 'Resize trace drawer' }));
+    });
+
+    test('flag on: waits for the close animation before notifying the host', async () => {
+      jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(true);
+      jest.useFakeTimers();
+      try {
+        const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+        const handleClose = jest.fn();
+        renderScopedDrawer({ handleClose });
+
+        await user.click(screen.getByRole('button', { name: 'Close trace panel' }));
+        expect(screen.getByRole('dialog')).toBeInTheDocument();
+        expect(handleClose).not.toHaveBeenCalled();
+
+        act(() => {
+          jest.advanceTimersByTime(179);
+        });
+        expect(handleClose).not.toHaveBeenCalled();
+        act(() => {
+          jest.advanceTimersByTime(1);
+        });
+        expect(handleClose).toHaveBeenCalledTimes(1);
+      } finally {
+        jest.runOnlyPendingTimers();
+        jest.useRealTimers();
+      }
+    });
+
+    test('flag off: ignores the container and opens as a modal, resizable drawer on the page', async () => {
+      jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(false);
+      renderScopedDrawer({ drawerWidth: 500, initiallyFullscreen: true });
+
+      expect(screen.getByRole('dialog')).toHaveAttribute('data-fullscreen', 'false');
+      expect(screen.getByRole('dialog')).toHaveAttribute('data-width', '500');
+      expect(screen.getByTestId('test-drawer-root')).toHaveAttribute('data-modal', 'true');
+      expect(screen.getByRole('button', { name: 'Full screen' })).toBeInTheDocument();
+      const resizeHandle = screen.getByRole('separator', { name: 'Resize trace drawer' });
+      expect(drawerScope).not.toContainElement(resizeHandle);
     });
   });
 });
