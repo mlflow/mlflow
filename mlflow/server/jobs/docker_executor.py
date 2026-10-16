@@ -16,30 +16,25 @@ Limits of this mode:
 - the Docker daemon must run on the same host as the MLflow server, because inputs and results are
   exchanged through bind mounts;
 - the output directory, a host temporary directory, has no size limit of its own: each file the
-  job writes is capped (see ``_MAX_FILE_BYTES``), but not the number of files, so a malicious
-  scorer can fill the host disk (or memory, where the temporary directory is a tmpfs) until the job
-  times out;
+  job writes is capped (see ``job_container._MAX_FILE_BYTES``), but not the number of files, so a
+  malicious scorer can fill the host disk (or memory, where the temporary directory is a tmpfs)
+  until the job times out;
 - stopping the MLflow server does not stop job containers that are running: the job runner exits
   without stopping them, and their time limit is enforced from the host. They are removed when the
   job runner next starts (or with ``docker rm -f $(docker ps -aq --filter label=mlflow.job_id)``).
 """
 
-import json
 import logging
-import math
 import os
-import stat
 import tempfile
 import threading
 import time
-from dataclasses import dataclass, fields
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
-import mlflow
 from mlflow.entities._job_status import JobStatus
 from mlflow.environment_variables import (
-    MLFLOW_JOB_EXTRA_LABELS,
     MLFLOW_JOB_IMAGE,
     MLFLOW_JOBS_DOCKER_HOST,
 )
@@ -51,18 +46,23 @@ from mlflow.server.jobs.executor import (
     JobRecoveryResult,
     JobResult,
 )
-from mlflow.server.jobs.utils import (
-    _JOB_ENTRY_MODULE,
-    MLFLOW_SERVER_JOB_FUNCTION_FULLNAME_ENV_VAR,
-    MLFLOW_SERVER_JOB_PARAMS_ENV_VAR,
-    MLFLOW_SERVER_JOB_RESULT_DUMP_PATH_ENV_VAR,
-    MLFLOW_SERVER_JOB_TRANSIENT_ERROR_CLASSES_PATH_ENV_VAR,
-    _load_function,
-    _SubprocessJobResult,
-    get_job_fn_fullname,
+from mlflow.server.jobs.job_container import (
+    _CONTAINER_INPUT_DIR,
+    LABEL_JOB_ID,
+    DockerJobPlan,
+    _container_labels,
+    _declared_resource_limits,
+    _default_image,
+    _resource_limits,
+    job_container_environment,
+    job_result_from_container,
+    make_job_container_dirs,
+    remove_job_containers,
+    run_job_container,
+    write_transient_error_classes,
 )
+from mlflow.server.jobs.utils import _load_function
 from mlflow.server.sandbox.container import (
-    _PIDS_LIMIT,
     _ensure_image,
     _is_read_timeout,
     _kill_quietly,
@@ -71,9 +71,6 @@ from mlflow.server.sandbox.container import (
 from mlflow.utils.environment import _PythonEnv
 
 _logger = logging.getLogger(__name__)
-
-LABEL_JOB_ID = "mlflow.job_id"
-LABEL_JOB_NAME = "mlflow.job_name"
 
 # Job types this backend can run, mapped to the host-side function that plans the run (see
 # ``DockerJobPlan``). Keyed by job name so this module does not import the job modules eagerly.
@@ -86,69 +83,9 @@ _JOB_SUPPORT_CHECKS = {
     "invoke_scorer": "mlflow.genai.scorers.job._docker_supports_invoke_scorer_params",
 }
 
-_CONTAINER_INPUT_DIR = "/job/input"
-_CONTAINER_OUTPUT_DIR = "/job/output"
-_RESULT_FILE = "result.json"
-_TRANSIENT_ERROR_CLASSES_FILE = "transient_error_classes"
-
-# Default resource limits for a job container. A job type can declare its own with
-# ``@job(resource_limits=...)``, and ``MLFLOW_JOB_RESOURCE_LIMITS_<job_name>`` overrides both (see
-# ``MLFLOW_JOB_IMAGE``).
-_DEFAULT_MEMORY_BYTES = 1024**3
-_DEFAULT_NANO_CPUS = 1_000_000_000
-
-# The container writes the result file, so its size is untrusted; refuse to load anything larger.
-# Parsing JSON can take far more memory than its size (around 20x for many small numbers), and the
-# host parses the result before checking it, so this cap also bounds that memory per job. Results
-# are a few assessments per trace, so this leaves ample room.
-_MAX_RESULT_BYTES = 8 * 1024**2
-# Caps every file the job writes (the ``fsize`` ulimit), including scratch files under /tmp and in
-# the output directory, which has no quota of its own. Larger than the result cap so a scorer's own
-# files are not limited by it, and a too-large result fails on the host with a clear error.
-_MAX_FILE_BYTES = 64 * 1024**2
 # How long ``stop_executor`` waits for container starts in progress before giving up on them, which
 # bounds how long that wait can delay shutdown when the Docker daemon hangs.
 _STOP_WAIT_FOR_STARTS_SECONDS = 30.0
-
-# How much of the container's logs to keep in a failure message, and how much the Docker daemon
-# keeps on disk for a job container.
-_LOG_TAIL_LINES = 50
-_LOG_TAIL_BYTES = 4000
-_LOG_CONFIG = {"type": "json-file", "config": {"max-size": "10m", "max-file": "1"}}
-
-_MEMORY_SUFFIXES = {
-    "Ki": 1024,
-    "Mi": 1024**2,
-    "Gi": 1024**3,
-    "Ti": 1024**4,
-    "k": 1000,
-    "K": 1000,
-    "M": 1000**2,
-    "G": 1000**3,
-    "T": 1000**4,
-}
-
-
-@dataclass
-class DockerJobPlan:
-    """How to run one job in a container that has no network access.
-
-    Produced on the host by the job type's planner (see ``_JOB_PLANNERS``) after it has written the
-    job's inputs to the input directory.
-
-    Args:
-        fn_fullname: Fully qualified name of the function the container runs. It reads its inputs
-            from the input directory and returns a JSON-serializable value.
-        params: Keyword arguments for that function.
-        finalize: Runs on the host after the container exits successfully. It receives the value
-            the container returned, which is untrusted, and returns the job's final result. It
-            must validate that value and perform any writes the container could not (for example
-            logging assessments).
-    """
-
-    fn_fullname: str
-    params: dict[str, Any]
-    finalize: Callable[[Any], Any]
 
 
 @dataclass
@@ -160,150 +97,6 @@ class _DockerJob:
     container_id: str | None = None
     cancel_requested: bool = False
     starting: bool = False
-
-
-def _parse_cpu(value: str) -> int:
-    """Convert a CPU quantity such as ``"500m"`` or ``"2"`` to Docker nano-CPUs."""
-    text = str(value).strip()
-    cpus = float(text[:-1]) / 1000 if text.endswith("m") else float(text)
-    if not math.isfinite(cpus) or cpus <= 0:
-        raise ValueError(f"CPU limit must be positive, got {value!r}")
-    return int(cpus * 1_000_000_000)
-
-
-def _parse_memory(value: str) -> int:
-    """Convert a memory quantity such as ``"512Mi"``, ``"1G"``, or ``"1048576"`` to bytes."""
-    text = str(value).strip()
-    for suffix, factor in sorted(_MEMORY_SUFFIXES.items(), key=lambda item: -len(item[0])):
-        if text.endswith(suffix):
-            amount = float(text[: -len(suffix)]) * factor
-            break
-    else:
-        amount = float(text)
-    if not math.isfinite(amount) or amount <= 0:
-        raise ValueError(f"Memory limit must be positive, got {value!r}")
-    return int(amount)
-
-
-def _resource_limits(job_name: str, declared: dict[str, str] | None = None) -> tuple[int, int]:
-    """Return ``(memory_bytes, nano_cpus)`` for a job type.
-
-    Each limit comes from ``MLFLOW_JOB_RESOURCE_LIMITS_<job_name>`` if set there, else from the
-    limits the job type declares with ``@job(resource_limits=...)`` (``declared``), else from the
-    defaults.
-    """
-    raw = os.environ.get(f"MLFLOW_JOB_RESOURCE_LIMITS_{job_name}") or os.environ.get(
-        f"MLFLOW_JOB_RESOURCE_LIMITS_{job_name.upper()}"
-    )
-    limits = dict(declared or {})
-    try:
-        if raw:
-            overrides = json.loads(raw)
-            if not isinstance(overrides, dict):
-                raise ValueError("expected a JSON object")
-            limits.update(overrides)
-        memory = _parse_memory(limits["memory"]) if "memory" in limits else _DEFAULT_MEMORY_BYTES
-        cpus = _parse_cpu(limits["cpu"]) if "cpu" in limits else _DEFAULT_NANO_CPUS
-    except (ValueError, TypeError) as e:
-        raise MlflowException.invalid_parameter_value(
-            f"Invalid resource limits for job type {job_name!r} (from "
-            f"MLFLOW_JOB_RESOURCE_LIMITS_{job_name} or the job's declared resource_limits): {e}. "
-            'Expected an object such as {"cpu": "500m", "memory": "1Gi"}.'
-        ) from e
-    return memory, cpus
-
-
-def _declared_resource_limits(job_name: str) -> dict[str, str] | None:
-    """The resource limits a job type declares with ``@job(resource_limits=...)``, if known."""
-    try:
-        fn_fullname = get_job_fn_fullname(job_name)
-    except MlflowException:
-        return None
-    return _load_function(fn_fullname)._job_fn_metadata.resource_limits
-
-
-def _container_labels(job_id: str, job_name: str) -> dict[str, str]:
-    labels = {}
-    if raw := MLFLOW_JOB_EXTRA_LABELS.get():
-        try:
-            extra = json.loads(raw)
-        except ValueError as e:
-            raise MlflowException.invalid_parameter_value(
-                f"MLFLOW_JOB_EXTRA_LABELS must be a JSON object of strings: {e}"
-            ) from e
-        if not isinstance(extra, dict) or not all(
-            isinstance(k, str) and isinstance(v, str) for k, v in extra.items()
-        ):
-            raise MlflowException.invalid_parameter_value(
-                "MLFLOW_JOB_EXTRA_LABELS must be a JSON object with string keys and values."
-            )
-        labels.update(extra)
-    # The job labels are applied last so they cannot be overridden: recovery relies on them.
-    labels[LABEL_JOB_ID] = job_id
-    labels[LABEL_JOB_NAME] = job_name
-    return labels
-
-
-def _default_image() -> str:
-    return f"mlflow-job:{mlflow.__version__}"
-
-
-_RESULT_FIELDS = {f.name for f in fields(_SubprocessJobResult)}
-
-
-def _load_result(path: Path) -> _SubprocessJobResult:
-    """Load the container's result file, treating it and its contents as untrusted.
-
-    The container can write anything to its output directory, so the result must be a regular file
-    (not a symlink to a host file, a FIFO, or a device) no larger than ``_MAX_RESULT_BYTES``.
-    """
-    try:
-        # O_NONBLOCK keeps opening a FIFO from blocking; it has no effect on regular files.
-        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
-    except OSError as e:
-        raise MlflowException(f"The job container's result could not be opened: {e}") from e
-    try:
-        if not stat.S_ISREG(os.fstat(fd).st_mode):
-            raise MlflowException("The job container's result is not a regular file.")
-        with os.fdopen(fd, "rb", closefd=False) as fp:
-            data = fp.read(_MAX_RESULT_BYTES + 1)
-    except OSError as e:
-        raise MlflowException(f"The job container's result could not be read: {e}") from e
-    finally:
-        os.close(fd)
-    if len(data) > _MAX_RESULT_BYTES:
-        raise MlflowException(
-            f"The job container's result is larger than {_MAX_RESULT_BYTES} bytes. For a "
-            "single-turn scorer, lower MLFLOW_SERVER_SCORER_INVOKE_BATCH_SIZE to score fewer "
-            "traces per job."
-        )
-    try:
-        raw = json.loads(data)
-    except (ValueError, RecursionError) as e:
-        raise MlflowException(f"The job container wrote a malformed result: {e}") from e
-    if (
-        not isinstance(raw, dict)
-        or not set(raw) <= _RESULT_FIELDS
-        or not isinstance(raw.get("succeeded"), bool)
-        or not isinstance(raw.get("result"), (str, type(None)))
-        or not isinstance(raw.get("is_transient_error"), (bool, type(None)))
-        or not isinstance(raw.get("error"), (str, type(None)))
-    ):
-        raise MlflowException("The job container wrote a malformed result.")
-    return _SubprocessJobResult(
-        succeeded=raw["succeeded"],
-        result=raw.get("result"),
-        is_transient_error=raw.get("is_transient_error"),
-        error=raw.get("error"),
-    )
-
-
-def _log_tail(container) -> str:
-    try:
-        logs = container.logs(tail=_LOG_TAIL_LINES)
-    except Exception:
-        return ""
-    return logs.decode("utf-8", errors="replace")[-_LOG_TAIL_BYTES:]
 
 
 class DockerJobExecutor(AbstractJobExecutor):
@@ -467,10 +260,7 @@ class DockerJobExecutor(AbstractJobExecutor):
         params: dict[str, Any],
         job: _DockerJob,
     ) -> None:
-        input_dir = Path(job.workdir.name, "input")
-        output_dir = Path(job.workdir.name, "output")
-        input_dir.mkdir()
-        output_dir.mkdir()
+        input_dir, output_dir = make_job_container_dirs(Path(job.workdir.name))
 
         planner = _load_function(_JOB_PLANNERS[job_name])
         job.plan = planner(
@@ -478,31 +268,9 @@ class DockerJobExecutor(AbstractJobExecutor):
         )
 
         fn_meta = _load_function(fn_fullname)._job_fn_metadata
-        (input_dir / _TRANSIENT_ERROR_CLASSES_FILE).write_text(
-            "".join(
-                f"{cls.__module__}.{cls.__name__}\n"
-                for cls in fn_meta.transient_error_classes or []
-            )
-        )
+        write_transient_error_classes(input_dir, fn_meta.transient_error_classes)
         memory, nano_cpus = _resource_limits(job_name, fn_meta.resource_limits)
-
-        environment = {
-            MLFLOW_SERVER_JOB_FUNCTION_FULLNAME_ENV_VAR: job.plan.fn_fullname,
-            MLFLOW_SERVER_JOB_PARAMS_ENV_VAR: json.dumps(job.plan.params),
-            MLFLOW_SERVER_JOB_RESULT_DUMP_PATH_ENV_VAR: f"{_CONTAINER_OUTPUT_DIR}/{_RESULT_FILE}",
-            MLFLOW_SERVER_JOB_TRANSIENT_ERROR_CLASSES_PATH_ENV_VAR: (
-                f"{_CONTAINER_INPUT_DIR}/{_TRANSIENT_ERROR_CLASSES_FILE}"
-            ),
-            # The operator enabled custom scorers for this server (otherwise the job could not have
-            # been submitted), and the container is where their code is meant to run.
-            "MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS": "true",
-            # There is nowhere to send scorer traces or telemetry without network access.
-            "MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING": "false",
-            "MLFLOW_DISABLE_TELEMETRY": "true",
-            "DO_NOT_TRACK": "true",
-            # The root filesystem is read-only; give tools that write under HOME a writable one.
-            "HOME": "/tmp",
-        }
+        environment = job_container_environment(job.plan)
 
         with self._lock:
             if self._stopped or self._jobs.get(job_id) is not job or job.cancel_requested:
@@ -512,8 +280,16 @@ class DockerJobExecutor(AbstractJobExecutor):
         # and stop_executor also take it, so a slow or hung daemon would stall scheduling and
         # shutdown.
         try:
-            container = self._run_container(
-                job_id, job_name, input_dir, output_dir, environment, memory, nano_cpus
+            container = run_job_container(
+                self._get_client(),
+                self._image(),
+                job_id,
+                job_name,
+                input_dir,
+                output_dir,
+                environment,
+                memory,
+                nano_cpus,
             )
         except Exception:
             with self._lock:
@@ -546,45 +322,6 @@ class DockerJobExecutor(AbstractJobExecutor):
             return
         _logger.info(
             "Started docker job container %s for job %s (%s)", container.short_id, job_id, job_name
-        )
-
-    def _run_container(
-        self,
-        job_id: str,
-        job_name: str,
-        input_dir: Path,
-        output_dir: Path,
-        environment: dict[str, str],
-        memory: int,
-        nano_cpus: int,
-    ):
-        import docker.types
-
-        return self._get_client().containers.run(
-            self._image(),
-            command=["python", "-m", _JOB_ENTRY_MODULE],
-            detach=True,
-            labels=_container_labels(job_id, job_name),
-            network_mode="none",
-            mem_limit=memory,
-            memswap_limit=memory,
-            nano_cpus=nano_cpus,
-            pids_limit=_PIDS_LIMIT,
-            read_only=True,
-            cap_drop=["ALL"],
-            security_opt=["no-new-privileges:true"],
-            tmpfs={"/tmp": ""},
-            log_config=_LOG_CONFIG,
-            ulimits=[docker.types.Ulimit(name="fsize", soft=_MAX_FILE_BYTES, hard=_MAX_FILE_BYTES)],
-            # Run as the server's user so the result file is owned by the server, not root. If the
-            # server runs as root the container does too (``start_executor`` warns about it).
-            user=f"{os.getuid()}:{os.getgid()}",
-            working_dir=_CONTAINER_OUTPUT_DIR,
-            environment=environment,
-            volumes={
-                str(input_dir): {"bind": _CONTAINER_INPUT_DIR, "mode": "ro"},
-                str(output_dir): {"bind": _CONTAINER_OUTPUT_DIR, "mode": "rw"},
-            },
         )
 
     def wait_for_job(self, job_id: str) -> JobResult:
@@ -640,39 +377,13 @@ class DockerJobExecutor(AbstractJobExecutor):
             return JobResult(status=JobStatus.CANCELED)
         self._raise_if_stopped(job_id)
 
-        exit_code = outcome.get("StatusCode")
-        result_path = Path(job.workdir.name, "output", _RESULT_FILE)
-        if not os.path.lexists(result_path):
-            logs = _log_tail(container)
-            return JobResult(
-                status=JobStatus.FAILED,
-                error_message=(
-                    f"The container for job {job_id!r} exited with code {exit_code} without "
-                    f"writing a result. Container logs:\n{logs}"
-                ),
-            )
-
-        try:
-            subprocess_result = _load_result(result_path)
-        except MlflowException as e:
-            return JobResult(status=JobStatus.FAILED, error_message=e.message)
-        if not subprocess_result.succeeded:
-            return JobResult(
-                status=JobStatus.FAILED,
-                error_message=subprocess_result.error,
-                is_transient_error=bool(subprocess_result.is_transient_error),
-            )
-
-        try:
-            value = json.loads(subprocess_result.result) if subprocess_result.result else None
-            final = job.plan.finalize(value)
-        except Exception as e:
-            _logger.exception("Failed to record the result of docker job %s", job_id)
-            return JobResult(
-                status=JobStatus.FAILED,
-                error_message=f"Failed to record the result of docker job {job_id!r}: {e!r}",
-            )
-        return JobResult(status=JobStatus.SUCCEEDED, result=json.dumps(final))
+        return job_result_from_container(
+            container,
+            outcome.get("StatusCode"),
+            Path(job.workdir.name, "output"),
+            job_id,
+            job.plan,
+        )
 
     def _raise_if_stopped(self, job_id: str) -> None:
         if self._stopped:
@@ -715,14 +426,11 @@ class DockerJobExecutor(AbstractJobExecutor):
 
     def _remove_job_containers(self, job_id: str) -> None:
         try:
-            containers = self._get_client().containers.list(
-                all=True, filters={"label": f"{LABEL_JOB_ID}={job_id}"}
-            )
+            client = self._get_client()
         except Exception:
             _logger.debug("Could not list containers for job %s", job_id, exc_info=True)
             return
-        for container in containers:
-            _remove_quietly(container)
+        remove_job_containers(client, job_id)
 
     def _remove_container(self, job: _DockerJob, kill: bool = False) -> None:
         if job.container_id is None:
