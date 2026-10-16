@@ -168,6 +168,41 @@ def test_batch_get_traces_without_location():
     mock_store.batch_get_traces.assert_called_once_with(["id1"], None)
 
 
+@pytest.mark.parametrize(
+    ("tracking_uri", "expected_batches"),
+    [
+        # A SQL store loads every trace in a single call.
+        ("sqlite:///mlflow.db", [[f"id{i}" for i in range(25)]]),
+        # The REST BatchGetTraces endpoint accepts at most 10 traces per request.
+        (
+            "http://localhost:5000",
+            [[f"id{i}" for i in range(j, min(j + 10, 25))] for j in range(0, 25, 10)],
+        ),
+    ],
+)
+def test_batch_get_traces_batch_size_depends_on_store(tracking_uri, expected_batches):
+    trace_ids = [f"id{i}" for i in range(25)]
+    mock_store = Mock()
+    mock_store.batch_get_trace_infos.return_value = [
+        TraceInfo(
+            trace_id=trace_id,
+            trace_location=TraceLocation.from_experiment_id("0"),
+            request_time=1000,
+            state=TraceState.OK,
+            tags={TraceTagKey.SPANS_LOCATION: SpansLocation.TRACKING_STORE},
+        )
+        for trace_id in trace_ids
+    ]
+    mock_store.batch_get_traces.side_effect = lambda ids, location: list(ids)
+
+    with patch("mlflow.tracing.client._get_store", return_value=mock_store):
+        traces = TracingClient(tracking_uri).batch_get_traces(trace_ids)
+
+    assert traces == trace_ids
+    batches = [call.args[0] for call in mock_store.batch_get_traces.call_args_list]
+    assert sorted(batches) == sorted(expected_batches)
+
+
 _REQUEST_CTX = contextvars.ContextVar("request_ctx", default=None)
 
 

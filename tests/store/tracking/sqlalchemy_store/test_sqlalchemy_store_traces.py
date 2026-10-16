@@ -6201,6 +6201,7 @@ def test_batch_get_trace_ids_chunking_without_experiment_ids(
     trace_infos = store.batch_get_trace_infos(requested_trace_ids)
 
     assert [trace.info.trace_id for trace in traces] == requested_trace_ids
+    assert [trace.data.spans[0].name for trace in traces] == ["span_2", "span_0", "span_1"]
     assert [trace_info.trace_id for trace_info in trace_infos] == requested_trace_ids
 
 
