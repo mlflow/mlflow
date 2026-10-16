@@ -674,9 +674,10 @@ def run(
 
     Rate limiting is controlled via environment variables:
     - MLFLOW_GENAI_EVAL_PREDICT_RATE_LIMIT: max predict_fn calls/second
-    - MLFLOW_GENAI_EVAL_SCORER_RATE_LIMIT: max scorer calls/second, or Databricks
-      RetrievalRelevance request attempts/second with a compatible agents SDK
-      unless RAG_EVAL_ENABLE_RETRIEVAL_REQUEST_RATE_LIMITING=false
+    - MLFLOW_GENAI_EVAL_SCORER_RATE_LIMIT: max scorer calls/second
+    - ENABLE_RETRIEVAL_JUDGE_PER_REQUEST_RATE_LIMITING: Databricks
+      only; whether RetrievalRelevance with databricks-agents SDK is rate limited
+      based on scorer invocation or per-chunk requests.
     """
     eval_items = [EvalItem.from_dataset_row(row) for row in eval_df.to_dict(orient="records")]
     eval_start_time = int(time.time() * 1000)
