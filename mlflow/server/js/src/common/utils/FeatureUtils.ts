@@ -233,14 +233,6 @@ export const shouldEnableNewEvalRunsUi = () => {
   return false;
 };
 
-/**
- * Enables the GenAI experiment page shell: a breadcrumb header with page actions instead of the experiment
- * title header. Rolls out with the new evaluation runs UI.
- */
-export const shouldEnableGenAIExperimentPageRevamp = () => {
-  return shouldEnableNewEvalRunsUi();
-};
-
 export const isScorerModelSelectionEnabled = () => {
   return true;
 };

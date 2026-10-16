@@ -16,7 +16,7 @@ import { coerceToEnum } from '@databricks/web-shared/utils';
 import { ExperimentKind, ExperimentPageTabName, MLFLOW_EXPERIMENT_TRACE_STORAGE_UC_SCHEMA_TAG } from '../../constants';
 import {
   shouldEnableExperimentOverviewTab,
-  shouldEnableGenAIExperimentPageRevamp,
+  shouldEnableNewEvalRunsUi,
   shouldEnableWorkflowBasedNavigation,
 } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 import {
@@ -133,7 +133,7 @@ const ExperimentPageTabsImpl = () => {
       ? inferredExperimentKind
       : undefined) ??
     ExperimentKind.GENAI_DEVELOPMENT;
-  const revampFlagEnabled = shouldEnableGenAIExperimentPageRevamp();
+  const revampFlagEnabled = shouldEnableNewEvalRunsUi();
   const showRevamp =
     Boolean(experiment && !inferringExperimentType) &&
     revampFlagEnabled &&
@@ -331,7 +331,7 @@ const ExperimentPageTabs = () => {
           overflow: 'hidden',
           display: 'flex',
           flexDirection: 'column',
-          ...(shouldEnableGenAIExperimentPageRevamp()
+          ...(shouldEnableNewEvalRunsUi()
             ? { paddingLeft: theme.spacing.md, paddingRight: theme.spacing.md }
             : { padding: theme.spacing.md }),
           height: '100%',

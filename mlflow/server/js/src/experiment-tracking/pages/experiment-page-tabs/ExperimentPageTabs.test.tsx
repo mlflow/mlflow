@@ -17,10 +17,7 @@ import { ExperimentKind } from '../../constants';
 import { createLazyRouteElement, createRouteElement, createMLflowRoutePath } from '../../../common/utils/RoutingUtils';
 import { PageId, RoutePaths } from '../../routes';
 import ExperimentPageTabs from './ExperimentPageTabs';
-import {
-  shouldEnableGenAIExperimentPageRevamp,
-  shouldEnableWorkflowBasedNavigation,
-} from '../../../common/utils/FeatureUtils';
+import { shouldEnableNewEvalRunsUi, shouldEnableWorkflowBasedNavigation } from '../../../common/utils/FeatureUtils';
 import { WorkflowTypeProvider } from '../../../common/contexts/WorkflowTypeContext';
 import ExperimentTracesPage from '../experiment-traces/ExperimentTracesPage';
 import { useHeaderVisibility } from './ExperimentPageHeaderVisibilityContext';
@@ -31,7 +28,7 @@ jest.setTimeout(60000); // Larger timeout for integration testing
 jest.mock('../../../common/utils/FeatureUtils', () => ({
   ...jest.requireActual<typeof import('../../../common/utils/FeatureUtils')>('../../../common/utils/FeatureUtils'),
   shouldEnableWorkflowBasedNavigation: jest.fn().mockReturnValue(false),
-  shouldEnableGenAIExperimentPageRevamp: jest.fn().mockReturnValue(false),
+  shouldEnableNewEvalRunsUi: jest.fn().mockReturnValue(false),
 }));
 
 jest.mock('../experiment-evaluation-runs/ExperimentEvaluationRunsPage', () => ({
@@ -377,7 +374,7 @@ describe('ExperimentLoggedModelListPage', () => {
     });
 
     test('flag off: keeps the experiment title header', async () => {
-      jest.mocked(shouldEnableGenAIExperimentPageRevamp).mockReturnValue(false);
+      jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(false);
       renderTestComponent('/experiments/12345678/evaluation-runs');
 
       expect(await screen.findByText('Experiment evaluation runs page')).toBeInTheDocument();
@@ -387,7 +384,7 @@ describe('ExperimentLoggedModelListPage', () => {
     });
 
     test('flag on: shows the breadcrumb header with the run evaluation action on the evaluation runs tab', async () => {
-      jest.mocked(shouldEnableGenAIExperimentPageRevamp).mockReturnValue(true);
+      jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(true);
       renderTestComponent('/experiments/12345678/evaluation-runs');
 
       const breadcrumb = await screen.findByRole('navigation', { name: 'Breadcrumb' });
@@ -400,7 +397,7 @@ describe('ExperimentLoggedModelListPage', () => {
     });
 
     test('flag on: shows no page action outside the evaluation runs tab', async () => {
-      jest.mocked(shouldEnableGenAIExperimentPageRevamp).mockReturnValue(true);
+      jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(true);
       renderTestComponent('/experiments/12345678/traces');
 
       const breadcrumb = await screen.findByRole('navigation', { name: 'Breadcrumb' });
@@ -409,7 +406,7 @@ describe('ExperimentLoggedModelListPage', () => {
     });
 
     test('flag on: keeps the experiment title header for non-GenAI experiments', async () => {
-      jest.mocked(shouldEnableGenAIExperimentPageRevamp).mockReturnValue(true);
+      jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(true);
       server.use(
         graphql.query('MlflowGetExperimentQuery', (req, res, ctx) =>
           res(ctx.data(createTestExperimentResponse(createTestExperiment()))),
@@ -422,7 +419,7 @@ describe('ExperimentLoggedModelListPage', () => {
     });
 
     test('flag on: hides the breadcrumb row while a page hides the header', async () => {
-      jest.mocked(shouldEnableGenAIExperimentPageRevamp).mockReturnValue(true);
+      jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(true);
       jest.mocked(ExperimentTracesPage).mockImplementation(FocusModeTracesPage);
       try {
         renderTestComponent('/experiments/12345678/traces');
@@ -438,7 +435,7 @@ describe('ExperimentLoggedModelListPage', () => {
     describe('with workflow-based navigation (the OSS default)', () => {
       beforeEach(() => {
         jest.mocked(shouldEnableWorkflowBasedNavigation).mockReturnValue(true);
-        jest.mocked(shouldEnableGenAIExperimentPageRevamp).mockReturnValue(true);
+        jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(true);
         localStorage.clear();
       });
 
