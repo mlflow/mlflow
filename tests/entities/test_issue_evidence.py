@@ -5,7 +5,7 @@ import pytest
 from mlflow.entities.assessment import Feedback, IssueReference
 from mlflow.entities.issue_evidence import (
     ISSUE_EVIDENCE_METADATA_KEY,
-    MAX_ISSUE_EVIDENCE_BYTES,
+    MAX_ASSESSMENT_METADATA_BYTES,
     IssueEvidence,
     IssueEvidenceStep,
 )
@@ -97,17 +97,33 @@ def test_validate_spans_rejects_a_span_outside_the_trace():
         evidence.validate_spans(["span-1"])
 
 
-def test_oversized_evidence_is_rejected():
-    text = "x" * (MAX_ISSUE_EVIDENCE_BYTES // 2)
-    evidence = IssueEvidence(
-        summary="s",
-        steps=[
-            _step(text=text, highlights=["x"]),
-            _step(span_id="span-2", text=text, highlights=["x"]),
-        ],
-    )
-    with pytest.raises(MlflowException, match="exceeds 65535 bytes"):
-        evidence.to_metadata_value()
+def test_metadata_is_bounded_by_what_the_store_writes():
+    # Quotes double in size once the outer metadata document escapes them, so a payload that fits
+    # on its own can still overflow the column.
+    text = '"' * (MAX_ASSESSMENT_METADATA_BYTES // 3)
+    evidence = IssueEvidence(summary="s", steps=[_step(text=text, highlights=['"'])])
+
+    assert len(evidence.to_metadata_value().encode("utf-8")) < MAX_ASSESSMENT_METADATA_BYTES
+    with pytest.raises(MlflowException, match="exceeds the 65535-byte limit"):
+        evidence.to_metadata()
+
+
+def test_caller_metadata_counts_against_the_same_budget():
+    text = "x" * (MAX_ASSESSMENT_METADATA_BYTES - 200)
+    evidence = IssueEvidence(summary="s", steps=[_step(text=text, highlights=["x"])])
+
+    assert ISSUE_EVIDENCE_METADATA_KEY in evidence.to_metadata()
+    with pytest.raises(MlflowException, match="exceeds the 65535-byte limit"):
+        evidence.to_metadata({"detector": "x" * 300})
+
+
+def test_metadata_merges_without_dropping_caller_keys():
+    evidence = IssueEvidence(summary="s", steps=[_step()])
+
+    merged = evidence.to_metadata({"detector": "offline"})
+
+    assert merged["detector"] == "offline"
+    assert merged[ISSUE_EVIDENCE_METADATA_KEY] == evidence.to_metadata_value()
 
 
 @pytest.mark.parametrize(

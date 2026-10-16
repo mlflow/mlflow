@@ -10,9 +10,10 @@ from mlflow.entities.assessment import (
     IssueReference,
 )
 from mlflow.entities.assessment_source import AssessmentSource
-from mlflow.entities.issue_evidence import ISSUE_EVIDENCE_METADATA_KEY, IssueEvidence
+from mlflow.entities.issue_evidence import IssueEvidence
 from mlflow.exceptions import MlflowException
 from mlflow.tracing.client import TracingClient
+from mlflow.tracing.trace_manager import InMemoryTraceManager
 
 
 def get_assessment(trace_id: str, assessment_id: str) -> Assessment:
@@ -330,6 +331,20 @@ def log_feedback(
     return TracingClient().log_assessment(trace_id, assessment)
 
 
+def _get_trace_span_ids(trace_id: str) -> list[str]:
+    """
+    Every span ID the trace carries, read from the in-progress trace when there is one.
+
+    An issue can be logged from inside the traced call, before anything has been exported, which
+    is why the active trace is consulted first -- the same order ``get_trace_info`` uses. A trace
+    recorded elsewhere, or already finished, is read from the store.
+    """
+    with InMemoryTraceManager.get_instance().get_trace(trace_id) as trace:
+        if trace is not None:
+            return list(trace.span_dict)
+    return [span.span_id for span in TracingClient().get_trace(trace_id).data.spans]
+
+
 def log_issue(
     *,
     trace_id: str,
@@ -399,9 +414,16 @@ def log_issue(
         evidence = evidence if isinstance(evidence, IssueEvidence) else IssueEvidence(**evidence)
         # Validate the cited spans against the trace itself: a fabricated locator would render a
         # step that opens nothing, and only the trace can say which spans exist.
-        trace = TracingClient().get_trace(trace_id)
-        evidence.validate_spans(span.span_id for span in trace.data.spans)
-        metadata = {**(metadata or {}), ISSUE_EVIDENCE_METADATA_KEY: evidence.to_metadata_value()}
+        evidence.validate_spans(_get_trace_span_ids(trace_id))
+        # The reference's span is what the UI opens from the card, so it has to be a span the
+        # walkthrough actually explains. An override that isn't cited would send the reader to a
+        # span nothing on the card describes.
+        if span_id is not None and span_id not in evidence.span_ids:
+            raise MlflowException.invalid_parameter_value(
+                f"span_id {span_id!r} is not cited by any evidence step. Pass a span the evidence "
+                "explains, or leave span_id unset to use the evidence's primary span."
+            )
+        metadata = evidence.to_metadata(metadata)
         # The summary is the rationale, so a reader without this schema still explains the issue.
         rationale = rationale or evidence.summary
         span_id = span_id or evidence.primary_span_id

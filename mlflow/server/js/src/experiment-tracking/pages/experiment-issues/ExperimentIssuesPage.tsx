@@ -117,6 +117,8 @@ const ExperimentIssuesContent = ({ experimentId }: { experimentId: string }) => 
       setParams(
         (current) => {
           current.set(SELECTED_ISSUE_ID_PARAM, firstIssueId);
+          current.delete(SELECTED_EVALUATION_ID_PARAM);
+          current.delete(SELECTED_ISSUE_SPAN_ID_PARAM);
           return current;
         },
         { replace: true },
@@ -134,6 +136,8 @@ const ExperimentIssuesContent = ({ experimentId }: { experimentId: string }) => 
         (current) => {
           if (firstIssueId) current.set(SELECTED_ISSUE_ID_PARAM, firstIssueId);
           else current.delete(SELECTED_ISSUE_ID_PARAM);
+          current.delete(SELECTED_EVALUATION_ID_PARAM);
+          current.delete(SELECTED_ISSUE_SPAN_ID_PARAM);
           return current;
         },
         { replace: true },
@@ -157,6 +161,10 @@ const ExperimentIssuesContent = ({ experimentId }: { experimentId: string }) => 
   const selectIssue = (issueId: string) =>
     setParams((current) => {
       current.set(SELECTED_ISSUE_ID_PARAM, issueId);
+      // Another Issue's evidence names other traces, so a trace left open from the previous one
+      // would keep its drawer mounted over a selection the new Issue does not contain.
+      current.delete(SELECTED_EVALUATION_ID_PARAM);
+      current.delete(SELECTED_ISSUE_SPAN_ID_PARAM);
       return current;
     });
   const total = search.data?.pages[0]?.total_count;

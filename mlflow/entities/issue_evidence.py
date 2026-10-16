@@ -5,9 +5,10 @@ from mlflow.exceptions import MlflowException
 
 ISSUE_EVIDENCE_METADATA_KEY = "mlflow.issue.evidence"
 ISSUE_EVIDENCE_SCHEMA_VERSION = 1
-# The assessment metadata column is sized for 64 KiB, so an oversized walkthrough has to be
-# rejected here rather than truncated into unreadable JSON by the store.
-MAX_ISSUE_EVIDENCE_BYTES = 65_535
+# The assessment metadata column is `TEXT`, which MySQL caps at 65,535 bytes. The store writes the
+# whole metadata map as one JSON document, so that budget covers every key, every value and the
+# escaping the outer encoding adds -- not the evidence payload alone.
+MAX_ASSESSMENT_METADATA_BYTES = 65_535
 HIGHLIGHT_TONES = ("error", "warning", "success")
 
 
@@ -148,18 +149,33 @@ class IssueEvidence:
             )
 
     def to_metadata_value(self) -> str:
-        payload = json.dumps(
+        return json.dumps(
             {
                 "schema_version": ISSUE_EVIDENCE_SCHEMA_VERSION,
                 "steps": [step.to_dict() for step in self.steps],
             },
             separators=(",", ":"),
         )
-        if len(payload.encode("utf-8")) > MAX_ISSUE_EVIDENCE_BYTES:
+
+    def to_metadata(self, metadata: dict[str, str] | None = None) -> dict[str, str]:
+        """
+        Merge this evidence into an assessment's metadata, bounded by what the store can hold.
+
+        The size is checked on the merged map encoded the way the store encodes it, because that
+        is the document the column has to fit: evidence that passes on its own can still overflow
+        once the outer encoding escapes it and the caller's own keys are added.
+
+        Raises:
+            MlflowException: If the resulting metadata would not fit in the column.
+        """
+        merged = {**(metadata or {}), ISSUE_EVIDENCE_METADATA_KEY: self.to_metadata_value()}
+        stored_bytes = len(json.dumps(merged).encode("utf-8"))
+        if stored_bytes > MAX_ASSESSMENT_METADATA_BYTES:
             raise MlflowException.invalid_parameter_value(
-                f"Serialized issue evidence exceeds {MAX_ISSUE_EVIDENCE_BYTES} bytes"
+                f"Issue reference metadata is {stored_bytes} bytes once stored, which exceeds the "
+                f"{MAX_ASSESSMENT_METADATA_BYTES}-byte limit. Shorten the evidence steps."
             )
-        return payload
+        return merged
 
     @classmethod
     def from_metadata_value(cls, summary, value) -> "IssueEvidence | None":
