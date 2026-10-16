@@ -5935,6 +5935,10 @@
     "defaultMessage": "Time created",
     "description": "Header for the time created column in the experiments table"
   },
+  "JVMgut": {
+    "defaultMessage": "Search text “{text}”",
+    "description": "Run a plain text trace search instead of adding a filter"
+  },
   "JW0GbU": {
     "defaultMessage": "You can set a maximum of {maxLength} values",
     "description": "Error message when trying to submit a key-value pair form with more than the maximum allowed values"
@@ -12671,6 +12675,10 @@
     "defaultMessage": "Settings",
     "description": "Tooltip for the Assistant settings button"
   },
+  "h5CrKm": {
+    "defaultMessage": "Apply filter",
+    "description": "Primary button that applies changes to one trace filter clause"
+  },
   "h5Dryo": {
     "defaultMessage": "Resource",
     "description": "Permissions table column header for the resource"
@@ -12950,6 +12958,10 @@
   "i11rPa": {
     "defaultMessage": "Columns",
     "description": "Display menu item opening the traces table column-visibility submenu"
+  },
+  "i12QrD": {
+    "defaultMessage": "Type something to use full text search",
+    "description": "Trace typeahead search placeholder"
   },
   "i1Hj20": {
     "defaultMessage": "{count, plural, =1 {1 hour} other {# hours}} ago",
@@ -13486,6 +13498,10 @@
   "jhjCgW": {
     "defaultMessage": "Agent versions",
     "description": "Label for the agent versions tab in the MLflow experiment navbar"
+  },
+  "jhkdjs": {
+    "defaultMessage": "Add a filter",
+    "description": "Idle trace search placeholder"
   },
   "ji3A2G": {
     "defaultMessage": "Install and initialize the MLflow TypeScript SDK",

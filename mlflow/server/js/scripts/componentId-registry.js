@@ -2350,6 +2350,7 @@ module.exports = {
   "mlflow.traces-v4.saved_views": "",
   "mlflow.traces-v4.saved_views.delete_confirm": "",
   "mlflow.traces-v4.saved_views.trigger": "",
+  "mlflow.traces-v4.search.typeahead": "",
 
   // -- mlflow.unified-search --
   "mlflow.unified-search.add-filter": "",

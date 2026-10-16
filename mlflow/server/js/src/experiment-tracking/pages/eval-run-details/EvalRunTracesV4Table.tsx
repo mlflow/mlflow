@@ -25,6 +25,7 @@ import { useDeleteTracesMutation } from '../../components/evaluations/hooks/useD
 import { useTracesV4Density } from '../../components/experiment-page/components/traces-v4/hooks/useTracesV4Density';
 import { useTracesV4Notifications } from '../../components/experiment-page/components/traces-v4/hooks/useTracesV4Notifications';
 import { useTracesV4TraceActions } from '../../components/experiment-page/components/traces-v4/hooks/useTracesV4TraceActions';
+import { useTracesV4UnifiedSearch } from '../../components/experiment-page/components/traces-v4/hooks/useTracesV4UnifiedSearch';
 import { isAssessmentColumnId } from '../../components/experiment-page/components/traces-v4/utils/assessmentColumns';
 import { useTracesV4ToolbarSlots } from '../../components/experiment-page/components/traces-v4/components/TracesV4Toolbar';
 import { TracesV4DeleteModal } from '../../components/experiment-page/components/traces-v4/components/TracesV4DeleteModal';
@@ -221,9 +222,18 @@ export const EvalRunTracesV4Table = ({ experimentId, runUuid }: EvalRunTracesV4T
     );
   }, [pendingDeleteIds, deleteTracesMutation, experimentId, bulk, page, notify, intl]);
 
-  const toolbarSlots = useTracesV4ToolbarSlots({
+  const unifiedSearch = useTracesV4UnifiedSearch({
     filterModel,
-    onFilterChange: controller.setFilterModel,
+    setFilterModel: controller.setFilterModel,
+    tagFilters: url.tagFilters,
+    clearTagFilters: url.clearTagFilters,
+    searchInput,
+  });
+
+  const toolbarSlots = useTracesV4ToolbarSlots({
+    filterModel: unifiedSearch.searchFilterModel,
+    onFilterChange: unifiedSearch.setSearchFilters,
+    hideFilterButton: true,
     onClearFilters: clearAllFilters,
     activeFilterCount: controller.activeFilterCount,
     visibleColumns,
@@ -299,6 +309,14 @@ export const EvalRunTracesV4Table = ({ experimentId, runUuid }: EvalRunTracesV4T
     onSearchClear: searchInput.clear,
     onSearchSubmit: searchInput.submit,
     searchInputRef,
+    expandSearch: true,
+    searchMinimumWidth: unifiedSearch.searchMinimumWidth,
+    searchControl: unifiedSearch.renderSearchControl({
+      renderFilterEditor: toolbarSlots.renderFilterEditor,
+      traces: page.traces,
+      inputRef: searchInputRef,
+      resetKey: runUuid,
+    }),
     rightControls: toolbarSlots.rightControls,
     bannerSlot: (
       <>
