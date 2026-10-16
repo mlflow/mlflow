@@ -1,5 +1,5 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, jest, test } from '@jest/globals';
-import { screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useEffect } from 'react';
 import { rest } from 'msw';
@@ -179,5 +179,25 @@ describe('EvalRunTracesV4Table', () => {
     await user.click(within(menu).getByRole('menuitem', { name: /Columns/ }));
     expect(await screen.findByRole('menuitemcheckbox', { name: /Time/ })).not.toBeChecked();
     expect(screen.queryByRole('menuitemcheckbox', { name: /^Run/ })).not.toBeInTheDocument();
+  });
+
+  test('turns a typed query into a filter on the run’s traces', async () => {
+    state.traces = [makeRunTrace('tr-000', { assessments: [makeFeedbackAssessment('relevance', 'yes')] })];
+    renderTable();
+
+    await findTraceRow('tr-000');
+    expect(screen.queryByRole('button', { name: 'Filters' })).not.toBeInTheDocument();
+    const searchBox = screen.getByRole('combobox', { name: 'Type something to use full text search' });
+    expect(searchBox).toHaveAttribute('placeholder', 'Add a filter');
+
+    fireEvent.change(searchBox, { target: { value: "feedback.relevance = 'yes'" } });
+    fireEvent.keyDown(searchBox, { key: 'Enter', code: 'Enter', keyCode: 13, which: 13 });
+
+    await waitFor(() =>
+      expect(state.searchCalls[state.searchCalls.length - 1]?.filter).toBe(
+        `${RUN_FILTER} AND feedback.\`relevance\` = 'yes'`,
+      ),
+    );
+    expect(await screen.findByRole('button', { name: "Edit filter feedback.relevance = 'yes'" })).toBeInTheDocument();
   });
 });

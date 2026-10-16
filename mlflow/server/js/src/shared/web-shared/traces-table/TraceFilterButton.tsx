@@ -28,6 +28,7 @@ import {
   type FilterFieldSelectOption,
   type FilterOp,
   type TraceFilterModel,
+  isClauseComplete,
   makeEmptyClause,
 } from './filterModel';
 import { ToolbarCollapsibleLabel } from './TracesToolbarResponsive';
@@ -46,6 +47,12 @@ export interface TraceFilterButtonProps {
    */
   onClearAll: () => void;
   activeCount: number;
+  /**
+   * Replaces the default trigger with a consumer-rendered anchor, such as a search box that shows the
+   * applied clauses as pills. `openEditor()` opens the editor with a new blank clause after the applied
+   * ones; `openEditor(index)` opens it on that one applied clause.
+   */
+  renderTrigger?: (openEditor: (filterIndex?: number) => void) => React.ReactNode;
 }
 
 interface FilterClauseRowProps {
@@ -332,19 +339,41 @@ export const TraceFilterButton: React.FC<TraceFilterButtonProps> = ({
   onChange,
   onClearAll,
   activeCount,
+  renderTrigger,
 }: TraceFilterButtonProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<FilterClause[]>([]);
+  // The applied clause being edited on its own; only a custom trigger opens the editor this way.
+  const [editIndex, setEditIndex] = useState<number>();
+  const hasCustomTrigger = Boolean(renderTrigger);
 
   // Seed the draft from the applied model whenever the popover opens, so it reflects the current
-  // filters (and a fresh blank row when nothing is applied yet).
+  // filters (and a fresh blank row when nothing is applied yet). A custom trigger seeds it in `openEditor`.
   useEffect(() => {
-    if (open) {
+    if (open && !hasCustomTrigger) {
       setDraft(filterModel.length > 0 ? filterModel.map((clause) => ({ ...clause })) : [makeEmptyClause(fields)]);
     }
-  }, [open, filterModel, fields]);
+  }, [open, filterModel, fields, hasCustomTrigger]);
+
+  const openTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  useEffect(() => () => clearTimeout(openTimerRef.current), []);
+  const openEditor = (filterIndex?: number) => {
+    if (filterIndex !== undefined && !filterModel[filterIndex]) return;
+    clearTimeout(openTimerRef.current);
+    setEditIndex(filterIndex);
+    setDraft(
+      filterIndex === undefined
+        ? [...filterModel.map((clause) => ({ ...clause })), makeEmptyClause(fields)]
+        : [{ ...filterModel[filterIndex] }],
+    );
+    // Let the caller's suggestions popup close and restore focus before this editor opens.
+    openTimerRef.current = setTimeout(() => {
+      openTimerRef.current = undefined;
+      setOpen(true);
+    }, 0);
+  };
 
   const hasActiveFilters = activeCount > 0;
   const anchorRef = useRef<HTMLDivElement>(null);
@@ -359,16 +388,28 @@ export const TraceFilterButton: React.FC<TraceFilterButtonProps> = ({
   const changeClause = (index: number, next: FilterClause) =>
     setDraft((prev) => prev.map((clause, i) => (i === index ? next : clause)));
 
-  const deleteClause = (index: number) =>
+  const deleteClause = (index: number) => {
+    if (editIndex !== undefined) {
+      onChange(filterModel.filter((_, i) => i !== editIndex));
+      setOpen(false);
+      return;
+    }
     setDraft((prev) => {
       const next = prev.filter((_, i) => i !== index);
       return next.length > 0 ? next : [makeEmptyClause(fields)];
     });
+  };
 
   const addClause = () => setDraft((prev) => [...prev, makeEmptyClause(fields)]);
 
   const applyFilters = () => {
-    onChange(draft);
+    if (editIndex !== undefined) {
+      if (!isClauseComplete(draft[0])) return;
+      onChange(filterModel.map((clause, index) => (index === editIndex ? draft[0] : clause)));
+    } else {
+      // A custom trigger shows only complete clauses, so it doesn't keep a blank row it can't display.
+      onChange(hasCustomTrigger ? draft.filter(isClauseComplete) : draft);
+    }
     setOpen(false);
   };
 
@@ -392,22 +433,28 @@ export const TraceFilterButton: React.FC<TraceFilterButtonProps> = ({
       <Popover.Anchor asChild>
         <div
           ref={anchorRef}
-          css={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            borderRadius: theme.borders.borderRadiusSm,
-            border: `1px solid ${
-              hasActiveFilters ? theme.colors.actionDefaultBorderFocus : theme.colors.actionDefaultBorderDefault
-            }`,
-            backgroundColor: hasActiveFilters ? theme.colors.actionDefaultBackgroundHover : undefined,
-            '& > button': {
-              border: 'none !important',
-              boxShadow: 'none !important',
-              backgroundColor: 'transparent !important',
-            },
-          }}
+          css={
+            renderTrigger
+              ? { width: '100%' }
+              : {
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  borderRadius: theme.borders.borderRadiusSm,
+                  border: `1px solid ${
+                    hasActiveFilters ? theme.colors.actionDefaultBorderFocus : theme.colors.actionDefaultBorderDefault
+                  }`,
+                  backgroundColor: hasActiveFilters ? theme.colors.actionDefaultBackgroundHover : undefined,
+                  '& > button': {
+                    border: 'none !important',
+                    boxShadow: 'none !important',
+                    backgroundColor: 'transparent !important',
+                  },
+                }
+          }
         >
-          {hasActiveFilters ? (
+          {renderTrigger ? (
+            renderTrigger(openEditor)
+          ) : hasActiveFilters ? (
             <>
               <Button
                 componentId={`${COMPONENT_ID}.filter.trigger`}
@@ -482,13 +529,14 @@ export const TraceFilterButton: React.FC<TraceFilterButtonProps> = ({
         </div>
       </Popover.Anchor>
       <Popover.Content
-        align="end"
+        align={renderTrigger ? 'start' : 'end'}
         css={{ padding: theme.spacing.md }}
         // Clicks on the anchor pill (the toggle buttons) must not trigger Radix's outside-close, or the
-        // close races our onClick toggle and reopens — a flicker. Let our toggle own those clicks.
+        // close races our onClick toggle and reopens — a flicker. Let our toggle own those clicks. A
+        // custom trigger holds a search input, and focusing it should close the editor.
         onInteractOutside={(event) => {
           const target = event.detail.originalEvent.target;
-          if (target instanceof Node && anchorRef.current?.contains(target)) {
+          if (!renderTrigger && target instanceof Node && anchorRef.current?.contains(target)) {
             event.preventDefault();
           }
         }}
@@ -506,16 +554,18 @@ export const TraceFilterButton: React.FC<TraceFilterButtonProps> = ({
               />
             ))}
           </div>
-          <div>
-            <Button componentId={`${COMPONENT_ID}.filter.add-clause`} icon={<PlusIcon />} onClick={addClause}>
-              <FormattedMessage
-                defaultMessage="Add filter"
-                description="Button that adds another trace filter clause"
-              />
-            </Button>
-          </div>
+          {editIndex === undefined && (
+            <div>
+              <Button componentId={`${COMPONENT_ID}.filter.add-clause`} icon={<PlusIcon />} onClick={addClause}>
+                <FormattedMessage
+                  defaultMessage="Add filter"
+                  description="Button that adds another trace filter clause"
+                />
+              </Button>
+            </div>
+          )}
           <div css={{ display: 'flex', justifyContent: 'flex-end', gap: theme.spacing.sm }}>
-            {hasActiveFilters && (
+            {editIndex === undefined && hasActiveFilters && (
               <Button componentId={`${COMPONENT_ID}.filter.clear`} onClick={clearAll}>
                 <FormattedMessage
                   defaultMessage="Clear filters"
@@ -523,11 +573,23 @@ export const TraceFilterButton: React.FC<TraceFilterButtonProps> = ({
                 />
               </Button>
             )}
-            <Button componentId={`${COMPONENT_ID}.filter.apply`} type="primary" onClick={applyFilters}>
-              <FormattedMessage
-                defaultMessage="Apply filters"
-                description="Primary button that applies the trace filter clauses"
-              />
+            <Button
+              componentId={`${COMPONENT_ID}.filter.apply`}
+              type="primary"
+              onClick={applyFilters}
+              disabled={editIndex !== undefined ? !isClauseComplete(draft[0]) : undefined}
+            >
+              {editIndex === undefined ? (
+                <FormattedMessage
+                  defaultMessage="Apply filters"
+                  description="Primary button that applies the trace filter clauses"
+                />
+              ) : (
+                <FormattedMessage
+                  defaultMessage="Apply filter"
+                  description="Primary button that applies changes to one trace filter clause"
+                />
+              )}
             </Button>
           </div>
         </div>

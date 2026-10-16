@@ -19,7 +19,7 @@ import { AssistantAwareDrawer } from '@mlflow/mlflow/src/common/components/Assis
 import { AssistantAwareActionBar } from '@mlflow/mlflow/src/common/components/AssistantAwareActionBar';
 import Routes from '@mlflow/mlflow/src/experiment-tracking/routes';
 import { useNavigate, useSearchParams, useLocation } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
-import { shouldEnableIssueDetection } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
+import { shouldEnableIssueDetection, shouldEnableNewEvalRunsUi } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 import { SELECTED_TRACE_ID_QUERY_PARAM } from '@mlflow/mlflow/src/experiment-tracking/constants';
 // Reuse the generic (branding-free) "/" hotkey hook from datasets-v2.
 import { useSlashFocusSearch } from '@mlflow/mlflow/src/experiment-tracking/pages/experiment-evaluation-datasets-v2/hooks/useSlashFocusSearch';
@@ -29,6 +29,7 @@ import { useTracesV4Controller } from '../hooks/useTracesV4Controller';
 import { useTracesV4Density } from '../hooks/useTracesV4Density';
 import { useTracesV4Notifications } from '../hooks/useTracesV4Notifications';
 import { useTracesV4TraceActions } from '../hooks/useTracesV4TraceActions';
+import { useTracesV4UnifiedSearch } from '../hooks/useTracesV4UnifiedSearch';
 import { TracesV4TableSurface } from './TracesV4TableSurface';
 import { useTracesV4ToolbarSlots } from './TracesV4Toolbar';
 import { TracesV4DeleteModal } from './TracesV4DeleteModal';
@@ -320,9 +321,21 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
     [page.traces],
   );
 
-  const toolbarSlots = useTracesV4ToolbarSlots({
+  // The new evaluation runs UI replaces the search box and the Filters button with one search that
+  // shows the applied filters as pills and turns typed queries into filters.
+  const unifiedSearchEnabled = shouldEnableNewEvalRunsUi();
+  const unifiedSearch = useTracesV4UnifiedSearch({
     filterModel,
-    onFilterChange: controller.setFilterModel,
+    setFilterModel: controller.setFilterModel,
+    tagFilters: url.tagFilters,
+    clearTagFilters: url.clearTagFilters,
+    searchInput,
+  });
+
+  const toolbarSlots = useTracesV4ToolbarSlots({
+    filterModel: unifiedSearchEnabled ? unifiedSearch.searchFilterModel : filterModel,
+    onFilterChange: unifiedSearchEnabled ? unifiedSearch.setSearchFilters : controller.setFilterModel,
+    hideFilterButton: unifiedSearchEnabled,
     onClearFilters: clearAllFilters,
     activeFilterCount: controller.activeFilterCount,
     visibleColumns: columns.visibleColumns,
@@ -406,6 +419,18 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
     onSearchClear: searchInput.clear,
     onSearchSubmit: searchInput.submit,
     searchInputRef,
+    ...(unifiedSearchEnabled
+      ? {
+          expandSearch: true,
+          searchMinimumWidth: unifiedSearch.searchMinimumWidth,
+          searchControl: unifiedSearch.renderSearchControl({
+            renderFilterEditor: toolbarSlots.renderFilterEditor,
+            traces: page.traces,
+            inputRef: searchInputRef,
+            resetKey: experimentId,
+          }),
+        }
+      : {}),
     leftControls: toolbarSlots.leftControls,
     rightControls: toolbarSlots.rightControls,
     bannerSlot: (
