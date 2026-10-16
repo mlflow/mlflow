@@ -27,6 +27,8 @@ import { Global, keyframes } from '@emotion/react';
 import { useAssistant } from '@mlflow/mlflow/src/assistant';
 
 import { shouldEnableModelTraceExplorerCustomTraceView } from '../FeatureUtils';
+import { shouldEnableNewEvalRunsUi } from '../../../../common/utils/FeatureUtils';
+import { formatCostUSD } from '../CostUtils';
 import { ModelTraceExplorerCustomViewSelector } from './ModelTraceExplorerCustomViewSelector';
 import { isTraceCostType } from '../ModelTraceExplorerCostHoverCard';
 import { ModelTraceExplorerAssistantButton } from './ModelTraceExplorerAssistantButton';
@@ -41,6 +43,7 @@ import { useOptionalCustomViewDefinition } from '../custom-view/CustomViewDefini
 import type { ModelTraceInfoV3 } from './ModelTrace.types';
 import { getTraceCost, getTraceTokenUsage } from './ModelTraceExplorer.utils';
 import { CostMetadataItem, TokenUsageMetadataItem } from './right-pane/ModelTraceExplorerRightPaneHeader';
+import { spanTimeFormatter } from './timeline-tree/TimelineTree.utils';
 import { useCopyController } from '../../copy/useCopyController';
 import { useLocation } from '../RoutingUtils';
 
@@ -68,10 +71,35 @@ const formatHeaderDuration = (value: string): string => {
     return value;
   }
 
-  return match[2] === 's' ? `${(numericValue * 1000).toFixed(2)}ms` : `${numericValue.toFixed(2)}${match[2]}`;
+  if (!shouldEnableNewEvalRunsUi()) {
+    return match[2] === 's' ? `${(numericValue * 1000).toFixed(2)}ms` : `${numericValue.toFixed(2)}${match[2]}`;
+  }
+
+  // The new eval runs UI formats the header duration like span durations (e.g. "1.2s", "350ms").
+  let multiplier: number | undefined;
+  switch (match[2]) {
+    case 'm':
+      multiplier = 60 * 1e6;
+      break;
+    case 's':
+      multiplier = 1e6;
+      break;
+    case 'ms':
+      multiplier = 1e3;
+      break;
+    case 'us':
+    case 'µs':
+      multiplier = 1;
+      break;
+  }
+
+  return multiplier === undefined
+    ? `${numericValue.toFixed(2)}${match[2]}`
+    : spanTimeFormatter(numericValue * multiplier);
 };
 
-const formatHeaderCost = (cost: number): string => `$${cost.toFixed(2)}`;
+const formatHeaderCost = (cost: number): string =>
+  shouldEnableNewEvalRunsUi() ? formatCostUSD(cost, 4) : `$${cost.toFixed(2)}`;
 
 const resolveWidthToPixels = (width: number | string, viewportWidth = window.innerWidth): number => {
   if (typeof width === 'number') {

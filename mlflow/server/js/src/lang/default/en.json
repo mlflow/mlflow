@@ -7343,6 +7343,10 @@
     "defaultMessage": "Search skills",
     "description": "Placeholder for Skill Registry free-text search"
   },
+  "P2LLVj": {
+    "defaultMessage": "{tokenCount} tokens",
+    "description": "Compact token count in the trace details header, abbreviated (e.g. 1.2K)"
+  },
   "P31kXd": {
     "defaultMessage": "Cost breakdown",
     "description": "Header for span cost breakdown"

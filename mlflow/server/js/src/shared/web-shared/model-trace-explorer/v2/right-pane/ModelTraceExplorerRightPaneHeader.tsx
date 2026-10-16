@@ -28,9 +28,10 @@ import { Link, useParams } from '../../RoutingUtils';
 import { SELECTED_TRACE_ID_QUERY_PARAM, SESSION_ID_METADATA_KEY } from '../../constants';
 import { isUserFacingTag, truncateToFirstLineWithMaxLength } from '../../TagUtils';
 import { AssessmentPaneToggle } from '../assessments-pane/AssessmentPaneToggle';
-import { getSpanTokenUsage, type SpanTokenUsage } from '../ModelTraceTokenUsage.utils';
+import { formatCompactNumber, getSpanTokenUsage, type SpanTokenUsage } from '../ModelTraceTokenUsage.utils';
 import { ModelTraceExplorerLinkedPromptsPopover } from '../../linked-prompts/ModelTraceExplorerLinkedPromptsPopover';
 import { MLFLOW_LINKED_PROMPTS_TAG, parseLinkedPrompts } from '../../linked-prompts/utils';
+import { shouldEnableNewEvalRunsUi } from '../../../../../common/utils/FeatureUtils';
 
 export type HeaderTokenUsage = SpanTokenUsage;
 
@@ -208,11 +209,19 @@ export const TokenUsageMetadataItem = ({ tokenUsage }: { tokenUsage: HeaderToken
         >
           <TokenIcon />
           <Typography.Text color="secondary" size="sm">
-            <FormattedMessage
-              defaultMessage="{tokenCount, number} tokens"
-              description="Compact token count in the trace details header"
-              values={{ tokenCount: tokenUsage.total_tokens }}
-            />
+            {shouldEnableNewEvalRunsUi() ? (
+              <FormattedMessage
+                defaultMessage="{tokenCount} tokens"
+                description="Compact token count in the trace details header, abbreviated (e.g. 1.2K)"
+                values={{ tokenCount: formatCompactNumber(tokenUsage.total_tokens) }}
+              />
+            ) : (
+              <FormattedMessage
+                defaultMessage="{tokenCount, number} tokens"
+                description="Compact token count in the trace details header"
+                values={{ tokenCount: tokenUsage.total_tokens }}
+              />
+            )}
           </Typography.Text>
         </span>
       }

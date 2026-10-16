@@ -3,9 +3,10 @@ import type { IntlShape } from '@databricks/i18n';
 
 import type { ModelTraceSpanNode } from '../ModelTrace.types';
 import type { TimelineTreeMetric } from '../ModelTraceExplorerPreferencesContext';
-import { getSpanTokenUsage } from '../ModelTraceTokenUsage.utils';
+import { formatCompactNumber, getSpanTokenUsage } from '../ModelTraceTokenUsage.utils';
 import { formatCostUSD } from '../../CostUtils';
 import { spanTimeFormatter } from './TimelineTree.utils';
+import { shouldEnableNewEvalRunsUi } from '../../../../../common/utils/FeatureUtils';
 
 export interface TimelineTreeMetricValue {
   key: TimelineTreeMetric;
@@ -13,9 +14,6 @@ export interface TimelineTreeMetricValue {
   title: string;
   icon?: React.ReactNode;
 }
-
-const formatCompactNumber = (value: number) =>
-  new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 }).format(value);
 
 export const getTimelineTreeMetricValue = (
   metric: TimelineTreeMetric,
@@ -47,16 +45,22 @@ export const getTimelineTreeMetricValue = (
             icon: <TokenIcon />,
           };
     }
-    case 'cost':
-      return node.cost
-        ? {
-            key: metric,
-            value: formatCostUSD(node.cost.total_cost),
-            title: intl.formatMessage(
-              { defaultMessage: 'Estimated cost: {value}', description: 'Trace span estimated cost metric tooltip' },
-              { value: formatCostUSD(node.cost.total_cost) },
-            ),
-          }
-        : undefined;
+    case 'cost': {
+      if (!node.cost) {
+        return undefined;
+      }
+      // The new eval runs UI rounds span costs to 4 decimal places.
+      const cost = shouldEnableNewEvalRunsUi()
+        ? formatCostUSD(node.cost.total_cost, 4)
+        : formatCostUSD(node.cost.total_cost);
+      return {
+        key: metric,
+        value: cost,
+        title: intl.formatMessage(
+          { defaultMessage: 'Estimated cost: {value}', description: 'Trace span estimated cost metric tooltip' },
+          { value: cost },
+        ),
+      };
+    }
   }
 };

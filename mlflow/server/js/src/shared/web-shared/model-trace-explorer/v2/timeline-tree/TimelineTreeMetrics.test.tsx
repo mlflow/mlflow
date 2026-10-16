@@ -1,4 +1,4 @@
-import { beforeAll, describe, expect, it } from '@jest/globals';
+import { beforeAll, describe, expect, it, jest } from '@jest/globals';
 
 import type { IntlShape } from '@databricks/i18n';
 import { I18nUtils } from '@databricks/i18n';
@@ -6,6 +6,14 @@ import { I18nUtils } from '@databricks/i18n';
 import { ModelSpanType, type ModelTraceSpanNode } from '../ModelTrace.types';
 import type { TimelineTreeMetric } from '../ModelTraceExplorerPreferencesContext';
 import { getTimelineTreeMetricValue } from './TimelineTreeMetrics';
+import { shouldEnableNewEvalRunsUi } from '../../../../../common/utils/FeatureUtils';
+
+jest.mock('../../../../../common/utils/FeatureUtils', () => ({
+  ...jest.requireActual<typeof import('../../../../../common/utils/FeatureUtils')>(
+    '../../../../../common/utils/FeatureUtils',
+  ),
+  shouldEnableNewEvalRunsUi: jest.fn(() => false),
+}));
 
 const span: ModelTraceSpanNode = {
   key: 'span-1',
@@ -44,6 +52,23 @@ describe('getTimelineTreeMetricValue', () => {
     { metric: 'cost', expected: '$0.03' },
   ])('formats the available $metric metric', ({ metric, expected }) => {
     expect(getTimelineTreeMetricValue(metric, span, intl)?.value).toBe(expected);
+  });
+
+  describe('cost precision', () => {
+    const lowCostSpan: ModelTraceSpanNode = {
+      ...span,
+      cost: { input_cost: 0.00005, output_cost: 0.000073, total_cost: 0.000123 },
+    };
+
+    it('flag on: limits cost metrics to four decimal places', () => {
+      jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(true);
+      expect(getTimelineTreeMetricValue('cost', lowCostSpan, intl)?.value).toBe('$0.0001');
+    });
+
+    it('flag off: keeps up to six decimal places', () => {
+      jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(false);
+      expect(getTimelineTreeMetricValue('cost', lowCostSpan, intl)?.value).toBe('$0.000123');
+    });
   });
 
   it('formats token usage from OTel GenAI span attributes', () => {
