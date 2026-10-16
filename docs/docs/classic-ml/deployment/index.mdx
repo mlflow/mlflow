@@ -109,6 +109,27 @@ SageMaker deployments, and the [azureml-mlflow](https://pypi.org/project/azureml
 
 Therefore, it is advisable to consult the specific documentation for your chosen target to identify the appropriate commands.
 
+#### Tensor inputs for deployment plugins
+
+For a deployment target that accepts tensor inputs, use `--json-format tf-serving` with
+`mlflow deployments predict`. The input file must contain either an `inputs` or an `instances`
+key. For example, save the following two-dimensional tensor as `input.json`:
+
+```json
+{"inputs": [[1.0, 2.0], [3.0, 4.0]]}
+```
+
+```bash
+mlflow deployments predict --target my-target --name my-deployment \
+  --input-path input.json --json-format tf-serving
+```
+
+The CLI passes this input to the deployment client as a NumPy array. For named tensors, use
+an object under `inputs`, such as `{"inputs": {"features": [[1.0, 2.0]], "weights": [0.5]}}`;
+the client receives a dictionary of NumPy arrays. The target must support the supplied shapes
+and data types. Without `--json-format tf-serving`, the CLI continues to read the input file
+as a pandas DataFrame.
+
 ### Python APIs \{#deployment-python-api}
 
 Almost all functionalities available in MLflow deployment can also be accessed via Python APIs. For more details, refer to the following API references:
