@@ -174,7 +174,7 @@ const ExperimentEvaluationRunsPageImpl = ({ baseline }: { baseline?: EvalRunsBas
     experimentId,
     enabled: true,
     filter: filterString,
-    resolveFilter: enableNewEvalRunsUi ? resolveFilterString : undefined,
+    resolveFilter: resolveFilterString,
   });
 
   // The filtered query cannot report the unfiltered total, so keep a first-page unfiltered query
