@@ -885,6 +885,8 @@ def test_create_get_and_update_skill_version(tmp_path: Path, db_uri: str):
         )
         assert response.status_code == 200, response.text
         assert response.json()["version"] == 1
+        # The request sends no status, so the route's default applies.
+        assert response.json()["status"] == "active"
         assert response.json()["source_type"] == "git"
         assert response.json()["source"] == "https://github.com/acme/skills.git"
         assert response.json()["ref"] == "v1.0.0"
