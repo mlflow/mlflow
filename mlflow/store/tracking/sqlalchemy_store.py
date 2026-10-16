@@ -3420,6 +3420,13 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
 
     @staticmethod
     def _validate_online_custom_scorer(scorer_name: str, serialized_data: dict[str, Any]) -> None:
+        if not container_scoring_enabled():
+            raise MlflowException(
+                f"Scorer '{scorer_name}' is a custom scorer, and online scoring runs custom "
+                "scorers only in job containers. To run them, an operator must set the "
+                "environment variable 'MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND' to 'docker'.",
+                INVALID_PARAMETER_VALUE,
+            )
         if custom_scorer_execution_blocked(serialized_data):
             raise MlflowException(
                 f"Scorer '{scorer_name}' is a custom scorer, and custom scorers are disabled on "
@@ -3519,6 +3526,8 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             )
             if latest_version is not None and sample_rate > 0:
                 serialized_data = json.loads(latest_version.serialized_scorer)
+                # Without job containers, a custom scorer gets the judge checks, so it keeps the
+                # "does not use a gateway model" error on servers that do not run custom scorers.
                 if (
                     _serialized_scorer_is_custom_code(serialized_data)
                     and container_scoring_enabled()
@@ -3598,9 +3607,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 model = extract_model_from_serialized_scorer(serialized_data)
                 if is_gateway_model(model):
                     gateway_results.append((config, scorer, version))
-                elif container_scoring_enabled() and _serialized_scorer_is_custom_code(
-                    serialized_data
-                ):
+                elif _serialized_scorer_is_custom_code(serialized_data):
                     # The latest version can be registered, or the server's settings changed,
                     # after the config was enabled, so the checks made then are made again.
                     try:

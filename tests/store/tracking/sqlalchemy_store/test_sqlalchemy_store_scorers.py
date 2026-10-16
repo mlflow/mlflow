@@ -814,7 +814,7 @@ def test_upsert_online_scoring_config_rejects_custom_scorer_without_job_containe
 
 @pytest.mark.parametrize("backend", [None, "docker"])
 def test_get_active_online_scorers_includes_custom_scorers_only_in_job_containers(
-    store: SqlAlchemyStore, backend, monkeypatch
+    store: SqlAlchemyStore, backend, monkeypatch, caplog
 ):
     monkeypatch.setenv("MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS", "true")
     monkeypatch.setenv("MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND", "docker")
@@ -829,6 +829,9 @@ def test_get_active_online_scorers_includes_custom_scorers_only_in_job_container
     names = [s.name for s in store.get_active_online_scorers()]
 
     assert names == (["output_length"] if backend else [])
+    # Turning the job containers off after the config was saved is logged.
+    assert ("Skipping online scorer 'output_length'" in caplog.text) == (not backend)
+    assert ("only in job containers" in caplog.text) == (not backend)
 
 
 def test_upsert_online_scoring_config_rejects_custom_scorer_ensemble_in_job_containers(
