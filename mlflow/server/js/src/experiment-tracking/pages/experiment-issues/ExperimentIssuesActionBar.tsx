@@ -1,5 +1,6 @@
-import { Button, Input, SearchIcon, SparkleIcon, useDesignSystemTheme } from '@databricks/design-system';
-import { FormattedMessage, useIntl } from 'react-intl';
+import { Input, SearchIcon, useDesignSystemTheme } from '@databricks/design-system';
+import { useIntl } from 'react-intl';
+import { DetectIssuesButton } from '@databricks/web-shared/genai-traces-table/components/DetectIssuesButton';
 import { ExperimentIssuesFilterControl } from './ExperimentIssuesToolbar';
 import type { ExperimentIssuesToolbarControls } from './useExperimentIssuesListControls';
 
@@ -18,7 +19,7 @@ export interface ExperimentIssuesActionBarProps {
   canDetect: boolean;
   detectionEnabled: boolean;
 
-  onRunDetection?: () => void;
+  onRunDetection: () => void;
 }
 
 /**
@@ -71,23 +72,12 @@ export const ExperimentIssuesActionBar = ({
       <ExperimentIssuesFilterControl controls={controls} align="start" />
       <div css={{ flex: 1 }} />
       {detectionEnabled && (
-        <Button
+        <DetectIssuesButton
           componentId="mlflow.experiment-issues.detect"
-          icon={<SparkleIcon />}
           onClick={onRunDetection}
           loading={isDetecting}
           disabled={!canDetect}
-          aria-busy={isDetecting}
-          aria-label={intl.formatMessage({
-            defaultMessage: 'Detect new issues',
-            description: 'Experiment Issues launch detection action',
-          })}
-        >
-          <FormattedMessage
-            defaultMessage="Detect new issues"
-            description="Experiment Issues launch detection action"
-          />
-        </Button>
+        />
       )}
     </div>
   );

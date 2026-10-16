@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Alert, Button, Empty, Typography, TableSkeleton, useDesignSystemTheme } from '@databricks/design-system';
 import { NotFoundError, PermissionError } from '@databricks/web-shared/errors';
 import { FormattedMessage } from 'react-intl';
@@ -45,7 +45,7 @@ const CenteredState = ({ children }: { children: ReactNode }) => (
   </div>
 );
 
-const ReadError = ({ error, retry }: { error: Error; retry: () => void }) => (
+const ReadError = ({ error, retry, message }: { error?: Error; retry: () => void; message?: ReactNode }) => (
   <CenteredState>
     <div>
       <Alert
@@ -53,7 +53,8 @@ const ReadError = ({ error, retry }: { error: Error; retry: () => void }) => (
         type="error"
         closable={false}
         message={
-          error instanceof PermissionError ? (
+          message ??
+          (error instanceof PermissionError ? (
             <FormattedMessage
               defaultMessage="You do not have permission to view these issues"
               description="Experiment Issues permission error"
@@ -65,9 +66,9 @@ const ReadError = ({ error, retry }: { error: Error; retry: () => void }) => (
             />
           ) : (
             <FormattedMessage defaultMessage="Unable to load issues" description="Experiment Issues load error" />
-          )
+          ))
         }
-        description={error.message}
+        description={error?.message}
       />
       <Button componentId="mlflow.experiment-issues.retry" onClick={retry}>
         <FormattedMessage defaultMessage="Retry" description="Experiment Issues read retry action" />
@@ -89,9 +90,41 @@ const ExperimentIssuesContent = ({ experimentId }: { experimentId: string }) => 
   const traces = useDetectionTraceIds(experimentId, showDetection);
   const isDetectionButtonLoading = isDetecting || (showDetection && traces.isFetching);
   const [params, setParams] = useSearchParams();
-  const issues = search.data?.pages.flatMap((page) => page.issues ?? []) ?? [];
-  const selectedId = params.get(SELECTED_ISSUE_ID_PARAM) ?? issues[0]?.issue_id;
+  const issues = useMemo(() => search.data?.pages.flatMap((page) => page.issues ?? []) ?? [], [search.data]);
+  const requestedIssueId = params.get(SELECTED_ISSUE_ID_PARAM) ?? undefined;
+  const firstIssueId = issues[0]?.issue_id;
+  const selectedId = requestedIssueId ?? firstIssueId;
   const detail = useExperimentIssue(experimentId, selectedId);
+
+  useEffect(() => {
+    if (!search.isLoading && !search.error && !requestedIssueId && firstIssueId) {
+      setParams(
+        (current) => {
+          current.set(SELECTED_ISSUE_ID_PARAM, firstIssueId);
+          return current;
+        },
+        { replace: true },
+      );
+    }
+  }, [search.isLoading, search.error, requestedIssueId, firstIssueId, setParams]);
+
+  // A new title search selects its first match. Filters retain the selected Issue's detail.
+  const searchedQueryRef = useRef(controls.filters.name);
+  useEffect(() => {
+    if (search.isLoading || search.error || searchedQueryRef.current === controls.filters.name) return;
+    searchedQueryRef.current = controls.filters.name;
+    if (selectedId && !issues.some((issue) => issue.issue_id === selectedId)) {
+      setParams(
+        (current) => {
+          if (firstIssueId) current.set(SELECTED_ISSUE_ID_PARAM, firstIssueId);
+          else current.delete(SELECTED_ISSUE_ID_PARAM);
+          return current;
+        },
+        { replace: true },
+      );
+    }
+  }, [search.isLoading, search.error, controls.filters.name, issues, selectedId, firstIssueId, setParams]);
+
   const selectIssue = (issueId: string) =>
     setParams((current) => {
       current.set(SELECTED_ISSUE_ID_PARAM, issueId);
@@ -298,6 +331,20 @@ const ExperimentIssuesPage = () => {
   const server = useServerInfo();
   if (server.isLoading) return <TableSkeleton lines={5} />;
   if (!shouldEnableExperimentIssuesTab()) return <PageNotFoundView />;
+  if (server.isError || server.data?.store_type === undefined || server.data.store_type === '') {
+    return (
+      <ReadError
+        error={server.error instanceof Error ? server.error : undefined}
+        message={
+          <FormattedMessage
+            defaultMessage="Unable to load server information"
+            description="Experiment Issues server information load error"
+          />
+        }
+        retry={() => server.refetch()}
+      />
+    );
+  }
   if (server.data?.store_type !== 'SqlStore') {
     return (
       <CenteredState>

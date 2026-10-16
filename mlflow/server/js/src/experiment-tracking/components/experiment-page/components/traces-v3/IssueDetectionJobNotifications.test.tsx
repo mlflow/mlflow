@@ -13,11 +13,6 @@ import {
 import { JobStatus, useFetchJobStatus, type UseFetchJobStatusResult } from '../../../run-page/hooks/useFetchJobStatus';
 import { useNavigate, useSearchParams } from '../../../../../common/utils/RoutingUtils';
 
-const mockInvalidateQueries = jest.fn();
-jest.mock('@databricks/web-shared/query-client', () => ({
-  useQueryClient: () => ({ invalidateQueries: mockInvalidateQueries }),
-}));
-
 jest.mock('../../../run-page/hooks/useFetchJobStatus', () => ({
   ...jest.requireActual<typeof import('../../../run-page/hooks/useFetchJobStatus')>(
     '../../../run-page/hooks/useFetchJobStatus',
@@ -154,7 +149,6 @@ describe('IssueDetectionJobNotifications', () => {
     rerender(<IssueDetectionJobNotifications />);
 
     expect(await screen.findByText('Issue detection completed')).toBeInTheDocument();
-    expect(mockInvalidateQueries).toHaveBeenCalledWith(['SEARCH_ISSUES']);
     expect(screen.getByText('Found 4 issues across 48 traces.')).toBeInTheDocument();
 
     await userEvent.click(screen.getByText('View issues'));

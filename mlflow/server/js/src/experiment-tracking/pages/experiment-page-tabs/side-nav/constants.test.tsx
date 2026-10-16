@@ -82,9 +82,11 @@ test.each([
       { wrapper },
     );
     await waitFor(() => expect(result.current.server.isLoading).toBe(false));
-    expect(
-      (result.current.genai.observability ?? []).some(({ tabName }) => tabName === ExperimentPageTabName.Issues),
-    ).toBe(enabled && storeType === 'SqlStore');
+    expect(result.current.genai.observability?.map(({ tabName }) => tabName)).toEqual([
+      ExperimentPageTabName.Traces,
+      ...(enabled && storeType === 'SqlStore' ? [ExperimentPageTabName.Issues] : []),
+      ExperimentPageTabName.ChatSessions,
+    ]);
     expect(
       Object.values(result.current.custom)
         .flat()

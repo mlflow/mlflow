@@ -52,6 +52,12 @@ const ExperimentPageSideNavGenAIConfig = {
       componentId: 'mlflow.experiment-side-nav.genai.traces',
     },
     {
+      label: <FormattedMessage defaultMessage="Issues" description="Label for the experiment Issues tab" />,
+      icon: <BugIcon />,
+      tabName: ExperimentPageTabName.Issues,
+      componentId: 'mlflow.experiment-side-nav.genai.issues',
+    },
+    {
       label: (
         <FormattedMessage
           defaultMessage="Sessions"
@@ -252,19 +258,11 @@ export const useExperimentPageSideNavConfig = ({
           : []),
       ],
       ...ExperimentPageSideNavGenAIConfig,
-      observability: [
-        ...ExperimentPageSideNavGenAIConfig.observability,
-        ...(shouldEnableExperimentIssuesTab() && serverInfo?.store_type === 'SqlStore'
-          ? [
-              {
-                label: <FormattedMessage defaultMessage="Issues" description="Label for the experiment Issues tab" />,
-                icon: <BugIcon />,
-                tabName: ExperimentPageTabName.Issues,
-                componentId: 'mlflow.experiment-side-nav.genai.issues',
-              },
-            ]
-          : []),
-      ],
+      observability: ExperimentPageSideNavGenAIConfig.observability.filter(
+        ({ tabName }) =>
+          tabName !== ExperimentPageTabName.Issues ||
+          (shouldEnableExperimentIssuesTab() && serverInfo?.store_type === 'SqlStore'),
+      ),
       'prompts-versions': gatewayEnabled
         ? ExperimentPageSideNavGenAIConfig['prompts-versions']
         : ExperimentPageSideNavGenAIConfig['prompts-versions'].filter(

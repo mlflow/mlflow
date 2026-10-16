@@ -4,11 +4,17 @@ import userEvent from '@testing-library/user-event';
 import { act, fireEvent, renderWithDesignSystem, screen, waitFor } from '../../../common/utils/TestUtils.react18';
 import { setupServer } from '../../../common/utils/setup-msw';
 import { shouldEnableExperimentIssuesTab } from '../../../common/utils/FeatureUtils';
-import { MemoryRouter, Route, Routes, useNavigate } from '../../../common/utils/RoutingUtils';
+import { MemoryRouter, Route, Routes, useLocation, useNavigate } from '../../../common/utils/RoutingUtils';
 import { QueryClient, QueryClientProvider } from '../../../common/utils/reactQueryHooks';
 import { ServerInfoProvider } from '../../hooks/useServerInfo';
 import type { Issue } from '../../components/run-page/hooks/useSearchIssuesQuery';
-import { ISSUE_DETECTION_JOB_SUBMITTED_EVENT } from '../../components/experiment-page/components/traces-v3/IssueDetectionJobNotifications';
+import {
+  clearSubmittedIssueDetectionJob,
+  ISSUE_DETECTION_JOB_SUBMITTED_EVENT,
+  IssueDetectionJobNotifications,
+  recordSubmittedIssueDetectionJob,
+} from '../../components/experiment-page/components/traces-v3/IssueDetectionJobNotifications';
+import { DEFAULT_DETECT_ISSUES_GUIDANCE_STORAGE_KEY } from '@databricks/web-shared/genai-traces-table/components/DetectIssuesButton';
 import { useExperimentPermission } from '../../hooks/useExperimentPermission';
 import ExperimentIssuesPage from './ExperimentIssuesPage';
 
@@ -89,15 +95,22 @@ const server = setupServer(
 );
 const Navigation = () => {
   const navigate = useNavigate();
-  return <button onClick={() => navigate(-1)}>Back</button>;
+  const location = useLocation();
+  return (
+    <>
+      <button onClick={() => navigate(-1)}>Back</button>
+      <output aria-label="Current URL">{location.pathname + location.search}</output>
+    </>
+  );
 };
-const renderPage = (query = '') => {
+const renderPage = (query = '', withNotifications = false) => {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, cacheTime: 0 } } });
   const result = renderWithDesignSystem(
     <QueryClientProvider client={client}>
       <ServerInfoProvider>
         <MemoryRouter initialEntries={[`/experiments/1/issues${query}`]}>
           <Navigation />
+          {withNotifications && <IssueDetectionJobNotifications />}
           <Routes>
             <Route path="/experiments/:experimentId/issues" element={<ExperimentIssuesPage />} />
           </Routes>
@@ -108,6 +121,8 @@ const renderPage = (query = '') => {
   return { ...result, client };
 };
 beforeEach(() => {
+  localStorage.setItem(`${DEFAULT_DETECT_ISSUES_GUIDANCE_STORAGE_KEY}_v1`, JSON.stringify(true));
+  clearSubmittedIssueDetectionJob();
   jest.mocked(shouldEnableExperimentIssuesTab).mockReturnValue(true);
   jest.mocked(useExperimentPermission).mockReturnValue(true);
   issues = [makeIssue('iss-a', 'Slow response'), makeIssue('iss-b', 'Wrong answer')];
@@ -118,6 +133,85 @@ beforeEach(() => {
   jobStatus = 'SUCCEEDED';
 });
 describe('Experiment Issues', () => {
+  test.each(['network', 'server'])('allows retry when server information fails (%s)', async (failure) => {
+    server.use(
+      rest.get('*/ajax-api/3.0/mlflow/server-info', (_req, res, ctx) =>
+        failure === 'network' ? res.networkError('Connection failed') : res(ctx.status(500)),
+      ),
+    );
+    renderPage();
+    expect(await screen.findByText('Unable to load server information')).toBeInTheDocument();
+    expect(screen.queryByText('The Issues tab requires an MLflow server with SQL storage.')).not.toBeInTheDocument();
+    expect(searches).toHaveLength(0);
+    server.use(
+      rest.get('*/ajax-api/3.0/mlflow/server-info', (_req, res, ctx) => res(ctx.json({ store_type: 'SqlStore' }))),
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    expect(await screen.findByText('Description for iss-a')).toBeInTheDocument();
+  });
+  test('shows the SQL storage requirement for a known unsupported store', async () => {
+    server.use(
+      rest.get('*/ajax-api/3.0/mlflow/server-info', (_req, res, ctx) => res(ctx.json({ store_type: 'FileStore' }))),
+    );
+    renderPage();
+    expect(await screen.findByText('The Issues tab requires an MLflow server with SQL storage.')).toBeInTheDocument();
+    expect(screen.queryByText('Unable to load server information')).not.toBeInTheDocument();
+    expect(searches).toHaveLength(0);
+  });
+  test('writes the initial selection to the URL and selects the first match of a new title search', async () => {
+    renderPage('?issueSeverity=high');
+    expect(await screen.findByText('Description for iss-a')).toBeInTheDocument();
+    expect(screen.getByLabelText('Current URL')).toHaveTextContent('issueSeverity=high&selectedIssueId=iss-a');
+    fireEvent.change(screen.getByRole('textbox', { name: 'Search issues by title' }), {
+      target: { value: 'Wrong' },
+    });
+    expect(await screen.findByText('Description for iss-b')).toBeInTheDocument();
+    expect(screen.getByLabelText('Current URL')).toHaveTextContent('selectedIssueId=iss-b');
+    expect(screen.getByLabelText('Current URL')).toHaveTextContent('issueSearch=Wrong');
+  });
+  test.each(['latest', 'older'])('refreshes Issues once when the %s tracked run completes', async (whichRun) => {
+    issues = [];
+    latestRun = {
+      info: { run_id: 'run-1', status: 'RUNNING' },
+      data: { tags: [{ key: 'mlflow.issueDetection.jobId', value: 'job-1' }] },
+    };
+    jobStatus = 'RUNNING';
+    let olderJobStatus = 'RUNNING';
+    server.use(
+      rest.get('*/ajax-api/3.0/mlflow/jobs/job-2', (_req, res, ctx) =>
+        res(ctx.json({ status: olderJobStatus, result: { issues: issues.length, total_traces_analyzed: 50 } })),
+      ),
+    );
+    const trackedJobId = whichRun === 'latest' ? 'job-1' : 'job-2';
+    recordSubmittedIssueDetectionJob({
+      experimentId: '1',
+      jobId: trackedJobId,
+      runId: whichRun === 'latest' ? 'run-1' : 'run-2',
+      traceCount: 50,
+      submittedAtMs: Date.now(),
+    });
+    const { client } = renderPage('', true);
+    await screen.findByRole('button', { name: 'Detect issues in traces', busy: true });
+    await waitFor(() => expect(client.isFetching()).toBe(0));
+    const invalidate = jest.spyOn(client, 'invalidateQueries');
+    issues = [makeIssue('iss-detected', 'Detected by job')];
+    if (whichRun === 'latest') {
+      jobStatus = 'SUCCEEDED';
+      latestRun.info.status = 'FINISHED';
+    } else {
+      olderJobStatus = 'SUCCEEDED';
+    }
+    await act(async () => {
+      await client.invalidateQueries(['FETCH_JOB_STATUS', trackedJobId]);
+    });
+    expect(await screen.findByRole('button', { name: /Detected by job/ })).toBeInTheDocument();
+    expect(await screen.findByText('Issue detection completed')).toBeInTheDocument();
+    await act(async () => {
+      await client.invalidateQueries(['LATEST_ISSUE_DETECTION']);
+    });
+    expect(invalidate.mock.calls.filter(([key]) => Array.isArray(key) && key[0] === 'SEARCH_ISSUES')).toHaveLength(1);
+    invalidate.mockRestore();
+  });
   test.each(['', '?selectedIssueId=iss-a'])(
     'does not load Issues or detection data from a direct link when the flag is disabled (%s)',
     async (query) => {
@@ -131,7 +225,7 @@ describe('Experiment Issues', () => {
       );
       renderPage(query);
       expect(await screen.findByRole('heading', { name: 'Page Not Found' })).toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: 'Detect new issues' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Detect issues in traces' })).not.toBeInTheDocument();
       expect(screen.queryByRole('textbox', { name: 'Search issues by title' })).not.toBeInTheDocument();
       expect(fetchIssueData).not.toHaveBeenCalled();
     },
@@ -307,12 +401,12 @@ describe('Experiment Issues', () => {
   });
   test('opens the existing detector with recent trace IDs', async () => {
     renderPage();
-    await userEvent.click(await screen.findByRole('button', { name: 'Detect new issues' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Detect issues in traces' }));
     expect(await screen.findByRole('dialog')).toHaveTextContent('Selected traces: trace-1, trace-2');
   });
   test.each([200, 500])('preserves detection dialog drafts during a trace refetch (%s)', async (status) => {
     const { client } = renderPage();
-    await userEvent.click(await screen.findByRole('button', { name: 'Detect new issues' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Detect issues in traces' }));
     const dialog = await screen.findByRole('dialog');
     await userEvent.type(screen.getByRole('textbox', { name: 'Detection model draft' }), 'chosen-model');
     let finishResponse: () => void;
@@ -349,7 +443,7 @@ describe('Experiment Issues', () => {
       };
       jobStatus = status;
       const { client } = renderPage();
-      const detectButton = await screen.findByRole('button', { name: 'Detect new issues', busy: true });
+      const detectButton = await screen.findByRole('button', { name: 'Detect issues in traces', busy: true });
       await waitFor(() =>
         expect(client.getQueryData(['FETCH_JOB_STATUS', 'job-1'])).toEqual(expect.objectContaining({ status })),
       );
@@ -381,7 +475,7 @@ describe('Experiment Issues', () => {
     };
     jobStatus = 'RUNNING';
     act(() => window.dispatchEvent(new CustomEvent(ISSUE_DETECTION_JOB_SUBMITTED_EVENT)));
-    expect(await screen.findByRole('button', { name: 'Detect new issues', busy: true })).toBeDisabled();
+    expect(await screen.findByRole('button', { name: 'Detect issues in traces', busy: true })).toBeDisabled();
   });
   test('keeps the button spinning while job status is unavailable, including permission failures', async () => {
     latestRun = {
@@ -394,7 +488,7 @@ describe('Experiment Issues', () => {
       ),
     );
     renderPage();
-    const detectButton = await screen.findByRole('button', { name: 'Detect new issues', busy: true });
+    const detectButton = await screen.findByRole('button', { name: 'Detect issues in traces', busy: true });
     expect(detectButton).toBeDisabled();
     await screen.findByText('Unable to update detection progress');
     expect(detectButton).toHaveAttribute('aria-busy', 'true');
@@ -409,7 +503,7 @@ describe('Experiment Issues', () => {
     };
     jobStatus = 'RUNNING';
     const { client } = renderPage();
-    const detectButton = await screen.findByRole('button', { name: 'Detect new issues', busy: true });
+    const detectButton = await screen.findByRole('button', { name: 'Detect issues in traces', busy: true });
     await waitFor(() => expect(client.isFetching(['FETCH_JOB_STATUS', 'job-1'])).toBe(0));
     server.use(rest.get('*/ajax-api/3.0/mlflow/jobs/job-1', (_req, res, ctx) => res(ctx.status(500))));
     await act(async () => {
@@ -443,7 +537,7 @@ describe('Experiment Issues', () => {
         server.use(rest.get('*/ajax-api/3.0/mlflow/jobs/job-1', (_req, res, ctx) => res(ctx.status(403))));
       }
       const { client } = renderPage();
-      const detectButton = await screen.findByRole('button', { name: 'Detect new issues', busy: true });
+      const detectButton = await screen.findByRole('button', { name: 'Detect issues in traces', busy: true });
       if (cachedJob) {
         await waitFor(() => expect(client.isFetching(['FETCH_JOB_STATUS', 'job-1'])).toBe(0));
         server.use(rest.get('*/ajax-api/3.0/mlflow/jobs/job-1', (_req, res, ctx) => res(ctx.status(500))));
@@ -487,9 +581,9 @@ describe('Experiment Issues', () => {
     jobStatus = 'SUCCEEDED';
     renderPage();
     await screen.findByText('Description for iss-a');
-    expect(screen.getByRole('button', { name: 'Detect new issues' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Detect issues in traces' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Open' })).toBeDisabled();
-    await screen.findByRole('button', { name: 'Detect new issues', busy: false });
+    await screen.findByRole('button', { name: 'Detect issues in traces', busy: false });
   });
   test('shows no matches separately from a clean scan', async () => {
     renderPage('?issueSearch=no-match');
@@ -531,7 +625,7 @@ describe('Experiment Issues', () => {
       };
       jobStatus = 'RUNNING';
       const { client } = renderPage();
-      const detectButton = await screen.findByRole('button', { name: 'Detect new issues', busy: true });
+      const detectButton = await screen.findByRole('button', { name: 'Detect issues in traces', busy: true });
       await waitFor(() => expect(client.isFetching(['FETCH_JOB_STATUS', 'job-1'])).toBe(0));
       jobStatus = status;
       await act(async () => {
