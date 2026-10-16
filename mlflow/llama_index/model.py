@@ -132,6 +132,7 @@ def save_model(
     extra_pip_requirements: list[str] | str | None = None,
     conda_env=None,
     metadata: dict[str, Any] | None = None,
+    uv=None,
 ) -> None:
     """
     Save a LlamaIndex model to a path on the local file system.
@@ -188,6 +189,7 @@ def save_model(
         extra_pip_requirements: {{ extra_pip_requirements }}
         conda_env: {{ conda_env }}
         metadata: {{ metadata }}
+        uv: {{ uv }}
     """
     from llama_index.core.indices.base import BaseIndex
 
@@ -286,7 +288,7 @@ def save_model(
         if pip_requirements is None:
             default_reqs = get_default_pip_requirements()
             inferred_reqs = mlflow.models.infer_pip_requirements(
-                str(path), FLAVOR_NAME, fallback=default_reqs
+                str(path), FLAVOR_NAME, fallback=default_reqs, uv=uv
             )
             default_reqs = sorted(set(inferred_reqs).union(default_reqs))
         else:
@@ -306,6 +308,14 @@ def save_model(
         write_to(os.path.join(path, _CONSTRAINTS_FILE_NAME), "\n".join(pip_constraints))
 
     write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
+
+    # Copy uv project files if configured
+    if uv is not None:
+        from mlflow.utils.uv_utils import copy_uv_project_files, resolve_uv_source_dir
+
+        uv_source = resolve_uv_source_dir(uv)
+        if uv_source is not None:
+            copy_uv_project_files(dest_dir=path, source_dir=uv_source)
 
     _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
 
@@ -333,6 +343,7 @@ def log_model(
     model_type: str | None = None,
     step: int = 0,
     model_id: str | None = None,
+    uv=None,
     **kwargs,
 ):
     """
@@ -449,6 +460,7 @@ def log_model(
         model_type: {{ model_type }}
         step: {{ step }}
         model_id: {{ model_id }}
+        uv: {{ uv }}
         kwargs: Additional arguments for :py:class:`mlflow.models.model.Model`
     """
     return Model.log(
@@ -473,6 +485,7 @@ def log_model(
         model_type=model_type,
         step=step,
         model_id=model_id,
+        uv=uv,
         **kwargs,
     )
 
