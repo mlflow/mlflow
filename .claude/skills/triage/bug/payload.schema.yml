@@ -56,8 +56,8 @@ properties:
 
       ### Next steps
 
-      - Reporter: <one concise sentence describing the next step>
-      - Maintainers: <one concise sentence describing the next step>
+      - Reporter: <short imperative phrase, e.g. "Open a PR." or "Share a minimal reproduction."; omit details already covered above>
+      - Maintainers: <short imperative phrase, e.g. "Review the proposed fix." or "Choose a fix direction."; omit details already covered above>
     type: string
     minLength: 1
     maxLength: 5000
