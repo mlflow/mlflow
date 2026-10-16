@@ -17,7 +17,7 @@ function parseCommand(body) {
   return match[1]?.trim() ?? "";
 }
 
-function escapeXml(text) {
+function escapeMarkup(text) {
   return text.replace(/[&<>"']/g, (character) => {
     return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&apos;" }[character];
   });
@@ -57,15 +57,15 @@ function prepareFollowup({ repo, issue, comment, api = ghApi }) {
     .sort((a, b) => a.id - b.id)
     .map(
       (candidate) =>
-        `<comment author="${escapeXml(candidate.user?.login ?? "deleted user")}" ` +
-        `created_at="${escapeXml(candidate.created_at)}" url="${escapeXml(
+        `<comment author="${escapeMarkup(candidate.user?.login ?? "deleted user")}" ` +
+        `created_at="${escapeMarkup(candidate.created_at)}" url="${escapeMarkup(
           candidate.html_url
         )}">\n` +
-        `${escapeXml(candidate.body ?? "")}\n</comment>`
+        `${escapeMarkup(candidate.body ?? "")}\n</comment>`
     );
   return {
     body:
-      `<issue>\n${escapeXml(issue.body ?? "")}\n</issue>\n\n<comments>\n` +
+      `<issue>\n${escapeMarkup(issue.body ?? "")}\n</issue>\n\n<comments>\n` +
       `${discussion.join("\n\n")}\n</comments>`,
     followup: {
       instructions: sanitizeInput(instructions),
