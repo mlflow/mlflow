@@ -90,14 +90,22 @@ from mlflow.genai.judges.instructions_judge import (
     EXPECTATIONS_FIELD,
     InstructionsJudge,
 )
-from mlflow.genai.scorers.base import Scorer
+from mlflow.genai.scorers.base import (
+    Scorer,
+    SerializedScorer,
+    _is_decorator_scorer,
+    _serialized_scorer_is_custom_code,
+)
 from mlflow.genai.scorers.online.entities import (
     CompletedSession,
     OnlineScorer,
     OnlineScoringConfig,
 )
 from mlflow.genai.scorers.scorer_utils import (
+    _signature_param_names,
     build_gateway_model,
+    container_scoring_enabled,
+    custom_scorer_execution_blocked,
     extract_endpoint_ref,
     extract_model_from_serialized_scorer,
     is_gateway_model,
@@ -3387,6 +3395,70 @@ class SqlAlchemyStore(
 
             return [config.to_mlflow_entity() for config in results]
 
+    @staticmethod
+    def _validate_online_judge(scorer_name: str, serialized_scorer: str) -> None:
+        serialized_data = json.loads(serialized_scorer)
+        model = extract_model_from_serialized_scorer(serialized_data)
+        if not is_gateway_model(model):
+            raise MlflowException(
+                f"Scorer '{scorer_name}' does not use a gateway model. "
+                "Automatic evaluation is only supported for scorers that use "
+                "gateway models.",
+                INVALID_PARAMETER_VALUE,
+            )
+
+        # Check if scorer requires expectations (ground truth data)
+        try:
+            scorer_obj = Scorer.model_validate_json(serialized_scorer)
+        except Exception:
+            # Deserialization should not fail for valid registered scorers. If it does,
+            # fail open (skip validation) to avoid blocking users in case this is an
+            # internal issue.
+            scorer_obj = None
+
+        if (
+            isinstance(scorer_obj, InstructionsJudge)
+            and EXPECTATIONS_FIELD in scorer_obj.get_input_fields()
+        ):
+            raise MlflowException(
+                f"Scorer '{scorer_name}' requires expectations, but scorers with "
+                "expectations are not currently supported for automatic evaluation.",
+                INVALID_PARAMETER_VALUE,
+            )
+
+    @staticmethod
+    def _validate_online_custom_scorer(scorer_name: str, serialized_data: dict[str, Any]) -> None:
+        if not container_scoring_enabled():
+            raise MlflowException(
+                f"Scorer '{scorer_name}' is a custom scorer, and online scoring runs custom "
+                "scorers only in job containers. To run them, an operator must set the "
+                "environment variable 'MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND' to 'docker'.",
+                INVALID_PARAMETER_VALUE,
+            )
+        if custom_scorer_execution_blocked(serialized_data):
+            raise MlflowException(
+                f"Scorer '{scorer_name}' is a custom scorer, and custom scorers are disabled on "
+                "this server. To run them, an operator must set the environment variable "
+                "'MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS' to 'true'.",
+                INVALID_PARAMETER_VALUE,
+            )
+        # Online scoring jobs run custom scorers in job containers one at a time, so a custom
+        # scorer in an ensemble cannot run there (the jobs skip it).
+        serialized = SerializedScorer.from_dict(serialized_data)
+        if not _is_decorator_scorer(serialized):
+            raise MlflowException(
+                f"Scorer '{scorer_name}' is not a single custom scorer (for example, it is an "
+                "ensemble that includes custom scorers). Automatic evaluation supports custom "
+                "scorers only on their own.",
+                INVALID_PARAMETER_VALUE,
+            )
+        if EXPECTATIONS_FIELD.name in _signature_param_names(serialized.call_signature):
+            raise MlflowException(
+                f"Scorer '{scorer_name}' requires expectations, but scorers with "
+                "expectations are not currently supported for automatic evaluation.",
+                INVALID_PARAMETER_VALUE,
+            )
+
     def upsert_online_scoring_config(
         self,
         experiment_id: str,
@@ -3410,7 +3482,10 @@ class SqlAlchemyStore(
             MlflowException: If sample_rate is not a number, if sample_rate is outside
                 the range [0.0, 1.0], if filter_string is not a string, if the
                 filter_string syntax is invalid, if the scorer is not found, or if the
-                scorer does not use a gateway model.
+                scorer does not use a gateway model. When online scoring runs custom scorers
+                in job containers, a custom scorer is accepted instead, unless custom scorers
+                are disabled on the server or it is not a single custom scorer (for example,
+                an ensemble that includes one).
         """
         if not isinstance(sample_rate, (int, float)):
             raise MlflowException.invalid_parameter_value(
@@ -3459,34 +3534,15 @@ class SqlAlchemyStore(
             )
             if latest_version is not None and sample_rate > 0:
                 serialized_data = json.loads(latest_version.serialized_scorer)
-
-                model = extract_model_from_serialized_scorer(serialized_data)
-                if not is_gateway_model(model):
-                    raise MlflowException(
-                        f"Scorer '{scorer_name}' does not use a gateway model. "
-                        "Automatic evaluation is only supported for scorers that use "
-                        "gateway models.",
-                        INVALID_PARAMETER_VALUE,
-                    )
-
-                # Check if scorer requires expectations (ground truth data)
-                try:
-                    scorer_obj = Scorer.model_validate_json(latest_version.serialized_scorer)
-                except Exception:
-                    # Deserialization should not fail for valid registered scorers. If it does,
-                    # fail open (skip validation) to avoid blocking users in case this is an
-                    # internal issue.
-                    scorer_obj = None
-
+                # Without job containers, a custom scorer gets the judge checks, so it keeps the
+                # "does not use a gateway model" error on servers that do not run custom scorers.
                 if (
-                    isinstance(scorer_obj, InstructionsJudge)
-                    and EXPECTATIONS_FIELD in scorer_obj.get_input_fields()
+                    _serialized_scorer_is_custom_code(serialized_data)
+                    and container_scoring_enabled()
                 ):
-                    raise MlflowException(
-                        f"Scorer '{scorer_name}' requires expectations, but scorers with "
-                        "expectations are not currently supported for automatic evaluation.",
-                        INVALID_PARAMETER_VALUE,
-                    )
+                    self._validate_online_custom_scorer(scorer_name, serialized_data)
+                else:
+                    self._validate_online_judge(scorer_name, latest_version.serialized_scorer)
 
             # Delete existing online configs for this scorer
             session.query(SqlOnlineScoringConfig).filter(
@@ -3510,8 +3566,9 @@ class SqlAlchemyStore(
         """
         Get all active online scorers across all experiments.
 
-        Active online scorers are those with a sample_rate greater than zero.
-        Gateway endpoint IDs in the serialized scorers are resolved to endpoint names.
+        Active online scorers are those with a sample_rate greater than zero whose latest version
+        online scoring can run. Gateway endpoint IDs in the serialized scorers are resolved to
+        endpoint names.
 
         Returns:
             List of OnlineScorer entities with name, experiment_id, serialized_scorer,
@@ -3550,13 +3607,26 @@ class SqlAlchemyStore(
                 .all()
             )
 
-            # Filter to only include scorers whose max version uses a gateway model
+            # Filter to only include scorers whose max version uses a gateway model, or that are
+            # custom scorers when online scoring runs them in job containers
             gateway_results = []
             for config, scorer, version in results:
                 serialized_data = json.loads(version.serialized_scorer)
                 model = extract_model_from_serialized_scorer(serialized_data)
                 if is_gateway_model(model):
                     gateway_results.append((config, scorer, version))
+                elif _serialized_scorer_is_custom_code(serialized_data):
+                    # The latest version can be registered, or the server's settings changed,
+                    # after the config was enabled, so the checks made then are made again.
+                    try:
+                        self._validate_online_custom_scorer(scorer.scorer_name, serialized_data)
+                    except MlflowException as e:
+                        _logger.warning(
+                            f"Skipping online scorer '{scorer.scorer_name}' in experiment "
+                            f"{config.experiment_id}: {e.message}"
+                        )
+                    else:
+                        gateway_results.append((config, scorer, version))
 
             # Resolve gateway endpoint IDs to names
             return [

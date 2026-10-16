@@ -10,6 +10,7 @@ from mlflow.genai.scorers.base import (
     Scorer,
     ScorerSamplingConfig,
     SerializedScorer,
+    _is_decorator_scorer,
     _serialized_scorer_is_custom_code,
 )
 from mlflow.genai.scorers.scorer_utils import _parse_serialized_scorer
@@ -75,9 +76,7 @@ class OnlineScorerSampler:
         serialized = SerializedScorer.from_dict(
             _parse_serialized_scorer(online_scorer.serialized_scorer)
         )
-        if not (
-            serialized.call_source and serialized.call_signature and serialized.original_func_name
-        ):
+        if not _is_decorator_scorer(serialized):
             _logger.warning(
                 f"Skipping scorer '{online_scorer.name}': ensembles that include custom scorers "
                 "are not supported when custom scorers run in a job container."

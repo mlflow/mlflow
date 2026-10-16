@@ -154,9 +154,10 @@ class DockerJobExecutor(AbstractJobExecutor):
         self.check_requirements()
         self._prepare_image()
         _logger.warning(
-            "The docker job executor runs custom scorers without network access. Only on-demand "
-            "scorer runs made only of custom scorers use it; other jobs with custom scorers, such "
-            "as evaluation jobs, keep running on the default executor backend."
+            "The docker job executor runs custom scorers without network access. On-demand scorer "
+            "runs made only of custom scorers use it, and online scoring jobs run their custom "
+            "scorers in job containers too; other jobs with custom scorers, such as evaluation "
+            "jobs, keep running them on the default executor backend."
         )
         if os.getuid() == 0:
             _logger.warning(

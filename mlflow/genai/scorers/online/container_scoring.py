@@ -18,14 +18,12 @@ from typing import Any, Callable, Iterator
 from mlflow.entities import Feedback, Trace
 from mlflow.entities._job_status import JobStatus
 from mlflow.environment_variables import (
-    MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND,
     MLFLOW_SERVER_JOB_DEFAULT_TIMEOUT,
     MLFLOW_SERVER_SCORER_INVOKE_BATCH_SIZE,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.genai.scorers.online.entities import OnlineScorer
 from mlflow.server.jobs.executor import JobResult
-from mlflow.server.jobs.executor_registry import DOCKER_EXECUTOR_BACKEND
 from mlflow.server.jobs.job_container import (
     _CONTAINER_INPUT_DIR,
     job_docker_client,
@@ -56,11 +54,6 @@ _OUT_OF_TIME_ERROR = (
     "Not scored: the online scoring job had no time left to run this in a job container. Lower the "
     "sample rate or the number of custom scorers, or raise MLFLOW_SERVER_JOB_DEFAULT_TIMEOUT."
 )
-
-
-def container_scoring_enabled() -> bool:
-    """Whether online scoring jobs run custom scorers in job containers."""
-    return MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND.get() == DOCKER_EXECUTOR_BACKEND
 
 
 def _is_lasting_setup_error(e: Exception) -> bool:
