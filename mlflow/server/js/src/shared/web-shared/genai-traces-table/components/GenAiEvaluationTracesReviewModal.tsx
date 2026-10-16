@@ -61,6 +61,7 @@ export const GenAiEvaluationTracesReviewModal = React.memo(
     assessmentInfos,
     getTrace,
     saveAssessmentsQuery,
+    selectedSpanId,
   }: {
     experimentId: string;
     runUuid?: string;
@@ -73,6 +74,8 @@ export const GenAiEvaluationTracesReviewModal = React.memo(
     assessmentInfos: AssessmentInfo[];
     getTrace?: GetTraceFunction;
     saveAssessmentsQuery?: SaveAssessmentsQuery;
+    /** Opens the single-trace view on this span, for a caller that knows which span it means. */
+    selectedSpanId?: string;
   }) => {
     const { theme } = useDesignSystemTheme();
     const [showAddToEvaluationDatasetModal, setShowAddToEvaluationDatasetModal] = useState(false);
@@ -233,6 +236,7 @@ export const GenAiEvaluationTracesReviewModal = React.memo(
               {/* prettier-ignore */}
               <ModelTraceExplorerModalBody
                 traceData={currentTraceQueryResult.data}
+                selectedSpanId={selectedSpanId}
               />
             </div>
           ) : (
@@ -494,12 +498,15 @@ const ModalWrapper = ({
 // prettier-ignore
 const ModelTraceExplorerModalBody = ({
   traceData,
+  selectedSpanId,
 }: {
   traceData: ModelTrace;
+  selectedSpanId?: string;
 }) => {
   return (
     <ModelTraceExplorer
       modelTrace={traceData}
+      selectedSpanId={selectedSpanId}
     />
   );
 };

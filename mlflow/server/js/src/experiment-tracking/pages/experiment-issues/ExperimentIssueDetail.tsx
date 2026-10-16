@@ -16,6 +16,7 @@ import { SEVERITY_LABELS, STATUS_LABELS } from './issueLabels';
 import { IssueDetailSectionTitle } from './IssueDetailSectionTitle';
 import { IssueDetailColumn } from './IssueDetailColumn';
 import { useTriageExperimentIssue } from './useExperimentIssues';
+import { IssueEvidenceSection } from './IssueEvidenceSection';
 import { Link } from '../../../common/utils/RoutingUtils';
 import Routes from '../../routes';
 
@@ -137,7 +138,14 @@ export const ExperimentIssueDescription = ({ description }: { description: strin
   );
 };
 
-export const ExperimentIssueDetail = ({ issue }: { issue: Issue }) => {
+export const ExperimentIssueDetail = ({
+  issue,
+  onViewTrace,
+}: {
+  issue: Issue;
+  /** Opens one of the issue's traces, on the span its evidence blames where there is one. */
+  onViewTrace: (linkableTraceId: string, spanId?: string) => void;
+}) => {
   const triage = useTriageExperimentIssue(issue.experiment_id);
   return (
     <IssueDetailColumn
@@ -167,6 +175,7 @@ export const ExperimentIssueDetail = ({ issue }: { issue: Issue }) => {
         />
       )}
       <ExperimentIssueDescription description={issue.description ?? ''} />
+      <IssueEvidenceSection experimentId={issue.experiment_id} issueId={issue.issue_id} onViewTrace={onViewTrace} />
       <Typography.Text color="secondary">
         <FormattedMessage
           defaultMessage="Last seen {time}"
