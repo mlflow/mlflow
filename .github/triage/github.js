@@ -1,0 +1,106 @@
+const { execFileSync } = require("node:child_process");
+const { readFileSync } = require("node:fs");
+const { sanitizeInput } = require("../workflows/sanitize.js");
+
+function ghApi(endpoint, ...args) {
+  return JSON.parse(
+    execFileSync("gh", ["api", endpoint, ...args], {
+      encoding: "utf8",
+      maxBuffer: 64 * 1024 * 1024,
+    })
+  );
+}
+
+function parseCommand(body) {
+  const match = /^\/triage(?:\s+([\s\S]+))?$/.exec(body.trim());
+  if (!match) throw new Error("Use /triage followed by your instructions.");
+  return match[1]?.trim() ?? "";
+}
+
+function findOpenPr(repo, issueNumber, api = ghApi) {
+  const pulls = api(`repos/${repo}/pulls?state=open&per_page=100`, "--paginate", "--slurp").flat();
+  return pulls.find(
+    (pr) =>
+      pr.head.repo?.full_name === repo && pr.head.ref.startsWith(`triage/issue-${issueNumber}-`)
+  );
+}
+
+function prepareFollowup({ repo, issue, comment, api = ghApi }) {
+  if (issue.pull_request || issue.state !== "open")
+    throw new Error("Triage requires an open issue.");
+  if (comment.issue_url !== issue.url || comment.user.type !== "User") {
+    throw new Error("The command must be a user comment on this issue.");
+  }
+  const instructions = parseCommand(comment.body);
+  const permission = api(
+    `repos/${repo}/collaborators/${encodeURIComponent(comment.user.login)}/permission`
+  );
+  if (!["admin", "maintain"].includes(permission.role_name)) {
+    throw new Error("Only repository admins and maintainers can request follow-up triage.");
+  }
+  const existing = findOpenPr(repo, issue.number, api);
+  if (existing) throw new Error(`A triage PR already exists: ${existing.html_url}`);
+
+  const comments = api(
+    `repos/${repo}/issues/${issue.number}/comments?per_page=100`,
+    "--paginate",
+    "--slurp"
+  ).flat();
+  const report = comments
+    .filter(
+      (candidate) =>
+        candidate.id < comment.id &&
+        candidate.user.login === "github-actions[bot]" &&
+        candidate.user.type === "Bot" &&
+        /<!-- mlflow-triage-run:\d+ -->/.test(candidate.body)
+    )
+    .sort((a, b) => b.id - a.id)[0];
+  if (report && Date.parse(report.updated_at) > Date.parse(comment.created_at)) {
+    throw new Error("The preceding report changed after the command. Post the follow-up again.");
+  }
+  return {
+    instructions: sanitizeInput(instructions),
+    report: report ? sanitizeInput(report.body) : null,
+    report_url: report?.html_url ?? null,
+    command_url: comment.html_url,
+    maintainer: comment.user.login,
+  };
+}
+
+function loadFollowup({ repo, issue, event, commentId, api = ghApi }) {
+  let comment = event.comment;
+  if (!comment && commentId && commentId !== "0") {
+    if (!/^[1-9]\d*$/.test(commentId) || !Number.isSafeInteger(Number(commentId))) {
+      throw new Error("comment_id must be a positive integer.");
+    }
+    comment = api(`repos/${repo}/issues/comments/${commentId}`);
+  }
+  return comment ? prepareFollowup({ repo, issue, comment, api }) : null;
+}
+
+module.exports = { parseCommand, findOpenPr, prepareFollowup, loadFollowup };
+
+if (require.main === module) {
+  try {
+    const mode = process.argv[2];
+    if (mode === "prepare") {
+      const event = JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH, "utf8"));
+      const issue = JSON.parse(readFileSync(process.argv[3], "utf8"));
+      const followup = loadFollowup({
+        repo: process.env.REPO,
+        issue,
+        event,
+        commentId: process.env.COMMENT_ID,
+      });
+      process.stdout.write(JSON.stringify(followup));
+    } else if (mode === "check-pr") {
+      const existing = findOpenPr(process.env.REPO, process.env.ISSUE_NUMBER);
+      if (existing) throw new Error(`A triage PR already exists: ${existing.html_url}`);
+    } else {
+      throw new Error("Usage: node .github/triage/github.js <prepare|check-pr> [path]");
+    }
+  } catch (error) {
+    console.error(error.message);
+    process.exitCode = 1;
+  }
+}
