@@ -47,7 +47,7 @@ function prepareFollowup({ repo, issue, comment, api = ghApi }) {
     "--slurp"
   ).flat();
   const discussion = comments
-    .filter((candidate) => candidate.id < comment.id)
+    .filter((candidate) => comment.id === undefined || candidate.id < comment.id)
     .sort((a, b) => a.id - b.id)
     .map(
       (candidate) =>
@@ -64,16 +64,19 @@ function prepareFollowup({ repo, issue, comment, api = ghApi }) {
   };
 }
 
-function prepareContext({ repo, issue, event, commentId, api = ghApi }) {
-  let comment = event.comment;
-  if (!comment && commentId && commentId !== "0") {
-    if (!/^[1-9]\d*$/.test(commentId) || !Number.isSafeInteger(Number(commentId))) {
-      throw new Error("comment_id must be a positive integer.");
-    }
-    comment = api(`repos/${repo}/issues/comments/${commentId}`);
+function prepareContext({ repo, issue, event, comment, runUrl, api = ghApi }) {
+  let request = event.comment;
+  if (!request && comment?.trim()) {
+    const text = comment.trim();
+    request = {
+      body: text.startsWith("/triage") ? text : `/triage ${text}`,
+      issue_url: issue.url,
+      html_url: runUrl,
+      user: event.sender,
+    };
   }
-  const context = comment
-    ? prepareFollowup({ repo, issue, comment, api })
+  const context = request
+    ? prepareFollowup({ repo, issue, comment: request, api })
     : { body: issue.body ?? "", followup: null };
   return { title: issue.title, repository: repo, issue_number: issue.number, ...context };
 }
@@ -90,7 +93,8 @@ if (require.main === module) {
         repo: process.env.REPO,
         issue,
         event,
-        commentId: process.env.COMMENT_ID,
+        comment: process.env.COMMENT,
+        runUrl: process.env.RUN_URL,
       });
       process.stdout.write(JSON.stringify(context));
     } else if (mode === "check-pr") {

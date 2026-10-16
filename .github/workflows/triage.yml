@@ -13,10 +13,10 @@ on:
         description: "Issue number to triage"
         required: true
         type: number
-      comment_id:
-        description: "Existing maintainer /triage comment to act on (optional)"
+      comment:
+        description: "Optional follow-up instructions, e.g. lets implement first option"
         required: false
-        type: number
+        type: string
       model:
         description: "AI Gateway Claude model for the triage agent"
         required: false
@@ -99,7 +99,8 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
-          COMMENT_ID: ${{ inputs.comment_id || '' }}
+          COMMENT: ${{ inputs.comment || '' }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           node .github/triage/github.js prepare "$RUNNER_TEMP/issue.json" > "$RUNNER_TEMP/issue-context.json"
           echo "json=$(jq -c .followup "$RUNNER_TEMP/issue-context.json")" >> "$GITHUB_OUTPUT"
