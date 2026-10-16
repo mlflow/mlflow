@@ -192,6 +192,7 @@ export const RunNameCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({
             target="_blank"
             rel="noreferrer"
             to={Routes.getRunPageTabRoute(row.original.info.experimentId, runUuid, RunPageTabName.EVALUATIONS)}
+            onClick={(e) => e.stopPropagation()}
           >
             <Tooltip
               content={
