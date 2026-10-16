@@ -2,12 +2,14 @@ import { useMemo } from 'react';
 import { useGetRunQuery } from '../../components/run-page/hooks/useGetRunQuery';
 import { MlflowRunStatus } from '../../../graphql/__generated__/graphql';
 import type { KeyValueEntity } from '../../../common/types';
+import { ErrorCodes } from '../../../common/constants';
+import { getGraphQLErrorMessage } from '../../../graphql/get-graphql-error';
 
 const TERMINAL_STATUSES = [MlflowRunStatus.FINISHED, MlflowRunStatus.FAILED, MlflowRunStatus.KILLED];
 
 /** Loads the run behind the evaluation run details page: its name, status, experiment and tags. */
 export const useEvalRunProgress = ({ runUuid }: { runUuid: string }) => {
-  const { data: run, loading } = useGetRunQuery({ runUuid });
+  const { data: run, loading, apiError, apolloError } = useGetRunQuery({ runUuid });
   const status = run?.info?.status ?? undefined;
   const runName = run?.info?.runName ?? undefined;
   const experiment = run?.experiment ?? undefined;
@@ -21,9 +23,18 @@ export const useEvalRunProgress = ({ runUuid }: { runUuid: string }) => {
     [run?.data?.tags],
   );
   const isFinished = status ? TERMINAL_STATUSES.includes(status) : false;
+  // Same checks as the run page: the API error code, or the GraphQL message for a missing run.
+  const isNotFound =
+    apiError?.code === ErrorCodes.RESOURCE_DOES_NOT_EXIST ||
+    Boolean(apolloError && getGraphQLErrorMessage(apolloError).match(/not found$/));
+  // A nested resolver can fail while the run itself loads, so only report an error without run data.
+  const loadError =
+    !run && (apiError || apolloError) ? (getGraphQLErrorMessage(apiError ?? apolloError) ?? '') : undefined;
 
   return {
     isLoading: loading && !run,
+    isNotFound,
+    loadError,
     status,
     runName,
     experiment,

@@ -1,6 +1,15 @@
 import { useEffect } from 'react';
 import { FormattedMessage } from 'react-intl';
-import { Breadcrumb, Icon, ParagraphSkeleton, Tag, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import {
+  Breadcrumb,
+  DangerIcon,
+  Empty,
+  Icon,
+  ParagraphSkeleton,
+  Tag,
+  Typography,
+  useDesignSystemTheme,
+} from '@databricks/design-system';
 import { Link, useNavigate, useParams } from '../../../common/utils/RoutingUtils';
 import { shouldEnableNewEvalRunsUi } from '../../../common/utils/FeatureUtils';
 import { MonitoringConfigProvider } from '../../hooks/useMonitoringConfig';
@@ -9,6 +18,7 @@ import { ExperimentPageTabName } from '../../constants';
 import { RunViewEvaluationsTab } from '../../components/evaluations/RunViewEvaluationsTab';
 import { useRunLoggedTraceTableArtifacts } from '../../components/evaluations/hooks/useRunLoggedTraceTableArtifacts';
 import { RunIcon } from '../../components/run-page/assets/RunIcon';
+import { RunNotFoundView } from '../../components/RunNotFoundView';
 import { TracesV4PageWrapper } from '../../components/experiment-page/components/traces-v4/components/TracesV4PageWrapper';
 import { useEvalRunProgress } from './useEvalRunProgress';
 import { EvalRunTracesSidebar } from './EvalRunTracesSidebar';
@@ -51,13 +61,36 @@ const EvalRunDetailsPageContent = ({ experimentId, runUuid }: { experimentId: st
   const { theme } = useDesignSystemTheme();
   const { enabled: revampEnabled } = useExperimentPageRevampContext();
 
-  const { isLoading, status, runName, experiment, runTags, isFinished } = useEvalRunProgress({ runUuid });
+  const { isLoading, isNotFound, loadError, status, runName, experiment, runTags, isFinished } = useEvalRunProgress({
+    runUuid,
+  });
   const displayName = runName || runUuid;
   const runStatusLabel = !isFinished && status ? status : undefined;
   useSetExperimentBreadcrumbTitle(displayName, runStatusLabel);
 
   // Runs that logged their results as trace table artifacts keep the artifact-backed results view.
   const traceTablesLoggedInRun = useRunLoggedTraceTableArtifacts(runTags);
+
+  if (isNotFound) {
+    return <RunNotFoundView runId={runUuid} />;
+  }
+
+  if (loadError !== undefined) {
+    return (
+      <div css={{ marginTop: theme.spacing.lg }}>
+        <Empty
+          title={
+            <FormattedMessage
+              defaultMessage="Can't load run details"
+              description="Eval run detail page > error loading the run title"
+            />
+          }
+          description={loadError}
+          image={<DangerIcon />}
+        />
+      </div>
+    );
+  }
 
   if (isLoading) {
     return <EvalRunDetailsLoadingSkeleton />;

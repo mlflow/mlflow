@@ -37,6 +37,8 @@ jest.mock('../../components/experiment-page/components/traces-v4/components/Trac
 type Progress = ReturnType<typeof useEvalRunProgress>;
 const baseProgress: Progress = {
   isLoading: false,
+  isNotFound: false,
+  loadError: undefined,
   status: MlflowRunStatus.RUNNING,
   runName: 'my-eval-run',
   experiment: undefined,
@@ -147,5 +149,22 @@ describe('EvalRunDetailsPage', () => {
     await screen.findByTestId('eval-results-v4');
     expect(screen.queryByText(MlflowRunStatus.RUNNING)).not.toBeInTheDocument();
     expect(screen.queryByText('my-eval-run')).not.toBeInTheDocument();
+  });
+
+  test('shows the run not found page for a missing run', async () => {
+    jest.mocked(useEvalRunProgress).mockReturnValue({ ...baseProgress, runName: undefined, isNotFound: true });
+    renderAt('/experiments/123/evaluation-runs/missing-run/details');
+
+    expect(await screen.findByText(/Run ID missing-run does not exist/)).toBeInTheDocument();
+    expect(screen.queryByTestId('eval-results-v4')).not.toBeInTheDocument();
+  });
+
+  test('shows an error instead of an empty run when the run fails to load', async () => {
+    jest.mocked(useEvalRunProgress).mockReturnValue({ ...baseProgress, runName: undefined, loadError: 'Boom' });
+    renderAt('/experiments/123/evaluation-runs/run-1/details');
+
+    expect(await screen.findByText("Can't load run details")).toBeInTheDocument();
+    expect(screen.getByText('Boom')).toBeInTheDocument();
+    expect(screen.queryByTestId('eval-results-v4')).not.toBeInTheDocument();
   });
 });
