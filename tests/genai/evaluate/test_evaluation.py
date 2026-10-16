@@ -1,6 +1,8 @@
 import hashlib
 import inspect
 import json
+import logging
+import queue
 import threading
 import uuid
 from concurrent.futures import ThreadPoolExecutor
@@ -45,7 +47,7 @@ from mlflow.genai.simulators import ConversationSimulator
 from mlflow.server import handlers
 from mlflow.server.fastapi_app import app
 from mlflow.server.handlers import initialize_backend_stores
-from mlflow.tracing.constant import AssessmentMetadataKey, TraceMetadataKey
+from mlflow.tracing.constant import AssessmentMetadataKey, TraceMetadataKey, TraceTagKey
 from mlflow.utils.mlflow_tags import (
     MLFLOW_GENAI_EVALUATE_AGENT_DIGEST,
     MLFLOW_GENAI_EVALUATE_AGENT_FUNCTION,
@@ -534,6 +536,72 @@ def test_evaluate_with_predict_fn(is_predict_fn_traced, server_config):
 
     _validate_assessments(traces)
     _validate_eval_result_df(result)
+
+
+def test_evaluate_warns_when_eval_request_id_tag_is_missing(server_config, caplog):
+    caplog.set_level(logging.WARNING, logger="mlflow.genai.evaluation.harness")
+    question = "What is MLflow?"
+
+    @mlflow.trace
+    def predict(question: str) -> str:
+        return f"answer: {question}"
+
+    jobs = queue.Queue()
+    outputs = queue.Queue()
+
+    def worker():
+        while True:
+            item = jobs.get()
+            if item is None:
+                break
+            outputs.put(predict(item))
+
+    thread = threading.Thread(target=worker, name="prestarted-eval-worker")
+    thread.start()
+    try:
+
+        def predict_fn(question: str) -> str:
+            jobs.put(question)
+            return outputs.get(timeout=10)
+
+        mlflow.genai.evaluate(
+            predict_fn=predict_fn,
+            data=[{"inputs": {"question": question}}],
+            scorers=[has_trace],
+        )
+    finally:
+        jobs.put(None)
+        thread.join(timeout=10)
+
+    assert "no trace tagged with mlflow.eval.requestId was found for this item" in caplog.text
+    assert f"inputs={{'question': '{question}'}}" in caplog.text
+    assert "NoneType" not in caplog.text
+
+
+def test_evaluate_keeps_untagged_run_traces_when_eval_request_id_is_missing(server_config):
+    questions = ["What is MLflow?", "What is Spark?"]
+
+    @mlflow.trace
+    def predict(question: str) -> str:
+        return f"answer: {question}"
+
+    def predict_fn(question: str) -> str:
+        with ThreadPoolExecutor(max_workers=1) as ex:
+            return ex.submit(predict, question).result()
+
+    result = mlflow.genai.evaluate(
+        predict_fn=predict_fn,
+        data=[{"inputs": {"question": q}} for q in questions],
+        scorers=[has_trace],
+    )
+    mlflow.flush_trace_async_logging()
+
+    traces = mlflow.search_traces(run_id=result.run_id, return_type="list")
+    # Validation plus each predict_fn call can emit an untagged agent trace. The
+    # contract is that those traces stay on the run without assessments.
+    assert len(traces) >= len(questions)
+    assert all(trace.info.tags.get(TraceTagKey.EVAL_REQUEST_ID) is None for trace in traces)
+    assert all(not trace.info.assessments for trace in traces)
 
 
 @pytest.mark.parametrize("return_type", ["pandas", "list"])
