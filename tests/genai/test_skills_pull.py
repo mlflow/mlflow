@@ -1,3 +1,4 @@
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -29,8 +30,14 @@ def _git(*args, cwd):
 
 
 @pytest.fixture
-def tracking_server(db_uri, tmp_path, monkeypatch):
-    with serve_tracking_app(db_uri, tmp_path / "server-artifacts", monkeypatch) as url:
+def server_artifacts(tmp_path):
+    # Where the server stores uploaded skill content, so a test can change it behind the server.
+    return tmp_path / "server-artifacts"
+
+
+@pytest.fixture
+def tracking_server(db_uri, server_artifacts, monkeypatch):
+    with serve_tracking_app(db_uri, server_artifacts, monkeypatch) as url:
         yield url
 
 
@@ -128,6 +135,49 @@ def test_pull_unknown_skill_writes_nothing(client, tmp_path):
     assert not destination.exists()
 
 
+@pytest.mark.parametrize(
+    ("change", "match"),
+    [
+        ("modified", "does not match its recorded digest"),
+        ("removed", "Failed to fetch skill content"),
+    ],
+)
+def test_uploaded_content_changed_on_the_server_fails_the_pull(
+    change, match, client, server_artifacts, tmp_path
+):
+    skill = _write_skill(tmp_path / "skill", "uploaded\n")
+    version = mlflow.genai.register_skill(source=str(skill), name="review")
+    stored = server_artifacts / version.source.artifact_path.removeprefix("mlflow-artifacts:/")
+    assert (stored / "SKILL.md").is_file()
+    if change == "modified":
+        (stored / "SKILL.md").write_text("changed after registration\n")
+    else:
+        shutil.rmtree(stored)
+    destination = tmp_path / "out"
+
+    with pytest.raises(MlflowException, match=match) as exc:
+        mlflow.genai.pull(f"skills:/review/{version.version}", destination=destination)
+
+    assert not destination.exists()
+    if change == "modified":
+        assert exc.value.error_code == "INVALID_STATE"
+
+
+# If a version's uploaded files go missing from artifact storage outside MLflow (for example,
+# deleted by hand) while its record remains, pull fails with INTERNAL_ERROR, unlike a missing
+# source of any other type. No MLflow command does this; the test deletes the files itself.
+@pytest.mark.xfail(strict=True, raises=AssertionError)
+def test_removed_uploaded_content_is_reported_as_missing(client, server_artifacts, tmp_path):
+    skill = _write_skill(tmp_path / "skill", "uploaded\n")
+    version = mlflow.genai.register_skill(source=str(skill), name="review")
+    shutil.rmtree(
+        server_artifacts / version.source.artifact_path.removeprefix("mlflow-artifacts:/")
+    )
+    with pytest.raises(MlflowException, match="Failed to fetch skill content") as exc:
+        mlflow.genai.pull(f"skills:/review/{version.version}", destination=tmp_path / "out")
+    assert exc.value.error_code == "RESOURCE_DOES_NOT_EXIST"
+
+
 def test_cli_pull(client, tmp_path, request, monkeypatch):
     name = "review"
     skill = _write_skill(tmp_path / "skill", "cli\n")
@@ -164,3 +214,12 @@ def test_cli_pull_usage_errors(args, message, tmp_path):
     assert result.exit_code != 0
     assert message in result.output
     assert not (tmp_path / "out").exists()
+
+
+def test_cli_pull_refuses_a_file_destination(tmp_path):
+    destination = tmp_path / "out"
+    destination.write_text("keep")
+    result = CliRunner().invoke(cli, ["skills", "pull", "skills:/a/1", "-d", str(destination)])
+    assert result.exit_code == 2
+    assert "is a file" in result.output
+    assert destination.read_text() == "keep"
