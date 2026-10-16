@@ -90,6 +90,9 @@ import {
   TOKEN_USAGE_METADATA_KEY,
 } from './constants';
 import { getExperimentPageTracesTabRoute } from './routes';
+import { shouldEnableNewEvalRunsUi } from '../../../common/utils/FeatureUtils';
+import { inferSpanTypeFromAttributes } from './otlpSpanTypeInference';
+import { tryDeserializeAttribute } from './spanAttributeDeserializer';
 
 export const FETCH_TRACE_INFO_QUERY_KEY = 'model-trace-info-v3';
 
@@ -163,28 +166,7 @@ export function getDisplayNameForSpanType(spanType: ModelSpanType | string): str
   }
 }
 
-export function tryDeserializeAttribute(value: string): any {
-  try {
-    const parsed = JSON.parse(value);
-    // Guard against precision loss for a top-level integer-literal value (e.g. an int64-range
-    // ID like "2051281657916407550"): anything outside the safe-integer range has already been
-    // rounded by `JSON.parse`, so keep the original string instead of the corrupted number.
-    // Re-stringifying is not a sufficient check — JS prints the shortest text that round-trips
-    // to the same double, so a rounded value like `1000000000000000100` (stored as
-    // ...0128) reproduces its input text exactly. This matches the `Number.isSafeInteger`
-    // policy in `decodeOtelAnyValue`. Only integer literals are checked — floats like "1.0" or
-    // "1e-05" deserialize losslessly and are left alone. Numbers nested inside a JSON-encoded
-    // attribute value (e.g. `mlflow.spanInputs`) are out of scope here and can still lose
-    // precision. The text is trimmed before matching because `JSON.parse` accepts surrounding
-    // whitespace; the untrimmed original is what gets returned.
-    if (typeof parsed === 'number' && /^-?\d+$/.test(value.trim()) && !Number.isSafeInteger(parsed)) {
-      return value;
-    }
-    return parsed;
-  } catch (e) {
-    return value;
-  }
-}
+export { tryDeserializeAttribute };
 
 export const SPAN_LOG_LEVEL_ATTRIBUTE_KEY = 'mlflow.spanLogLevel';
 
@@ -392,7 +374,10 @@ export function searchTree(
 
   // check if the span passes the text, type, and log-level filters
   const nodeMatchesSearch = spanMatches.length > 0 || spanName.includes(searchFilterLowercased);
-  const spanTypeIsDisplayed = rootNode.type ? spanFilterState.spanTypeDisplayState[rootNode.type] : true;
+  const spanTypeDisplayState = rootNode.type ? spanFilterState.spanTypeDisplayState[rootNode.type] : true;
+  // With the new eval runs UI, a span type absent from the filter map (e.g. UNKNOWN first appearing on a
+  // later trace) stays visible instead of being filtered out.
+  const spanTypeIsDisplayed = shouldEnableNewEvalRunsUi() ? (spanTypeDisplayState ?? true) : spanTypeDisplayState;
   const spanPassesLogLevel = getSpanLogLevel(rootNode) >= spanFilterState.minLogLevel;
   const nodePassesSpanFilters = nodeMatchesSearch && spanTypeIsDisplayed && spanPassesLogLevel;
 
@@ -541,7 +526,12 @@ export const normalizeNewSpanData = (
   assessmentMap: Record<string, Assessment[]>,
   traceId: string,
 ): ModelTraceSpanNode => {
-  const spanType = tryDeserializeAttribute(getSpanAttribute(span.attributes, 'mlflow.spanType') as string);
+  const rawMlflowSpanType = tryDeserializeAttribute(getSpanAttribute(span.attributes, 'mlflow.spanType') as string);
+  // With the new eval runs UI, mlflow.spanType still wins; spans without it (e.g. ingested OTel spans)
+  // fall back to a type inferred from their attributes, then UNKNOWN.
+  const spanType = shouldEnableNewEvalRunsUi()
+    ? (rawMlflowSpanType ?? inferSpanTypeFromAttributes(span.attributes) ?? ModelSpanType.UNKNOWN)
+    : rawMlflowSpanType;
   const inputs = tryDeserializeAttribute(getSpanAttribute(span.attributes, 'mlflow.spanInputs') as string);
   const outputs = tryDeserializeAttribute(getSpanAttribute(span.attributes, 'mlflow.spanOutputs') as string);
   const parentId = getModelTraceSpanParentId(span);
