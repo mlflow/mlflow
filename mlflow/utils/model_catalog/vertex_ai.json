@@ -1703,9 +1703,9 @@
         "max_tokens": 1048576
       },
       "pricing": {
-        "input_per_million_tokens": 0.0,
-        "output_per_million_tokens": 0.0,
-        "cache_read_per_million_tokens": 0.0
+        "input_per_million_tokens": 0.3,
+        "output_per_million_tokens": 1.2,
+        "cache_read_per_million_tokens": 0.03
       },
       "capabilities": {
         "function_calling": true,
@@ -2202,8 +2202,7 @@
           },
           "flex": {
             "input_per_million_tokens": 0.25,
-            "output_per_million_tokens": 1.5,
-            "cache_read_per_million_tokens": 0.05
+            "output_per_million_tokens": 1.5
           },
           "priority": {
             "input_per_million_tokens": 0.9,
@@ -2232,7 +2231,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-15"
+      "last_updated_at": "2026-10-16"
     },
     "gemini-3-pro-image": {
       "mode": "image_generation",
@@ -2632,8 +2631,7 @@
           },
           "flex": {
             "input_per_million_tokens": 1.0,
-            "output_per_million_tokens": 6.0,
-            "cache_read_per_million_tokens": 0.2
+            "output_per_million_tokens": 6.0
           },
           "priority": {
             "input_per_million_tokens": 3.6,
@@ -2644,8 +2642,8 @@
         "long_context": [
           {
             "threshold_tokens": 200000,
-            "cache_read_per_million_tokens": 0.4,
             "cache_write_per_million_tokens": 0.25,
+            "cache_read_per_million_tokens": 0.4,
             "input_per_million_tokens": 4.0,
             "output_per_million_tokens": 18.0
           }
@@ -2665,7 +2663,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-15"
+      "last_updated_at": "2026-10-16"
     },
     "gemini-3.1-pro-preview-customtools": {
       "mode": "chat",
