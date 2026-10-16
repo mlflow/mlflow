@@ -2328,6 +2328,7 @@ module.exports = {
   "mlflow.traces-v4.saved_views.delete_confirm": "",
   "mlflow.traces-v4.saved_views.trigger": "",
   "mlflow.traces-v4.search.typeahead": "",
+  "mlflow.traces-v4.session-copy-id": "",
   "mlflow.traces-v4.session-drawer.session-id": "",
   "mlflow.traces-v4.session-drawer.session-id-tooltip": "",
   "mlflow.traces-v4.session-id-tooltip": "",

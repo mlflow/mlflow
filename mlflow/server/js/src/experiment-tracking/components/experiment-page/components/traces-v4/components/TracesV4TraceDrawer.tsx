@@ -8,6 +8,7 @@ import {
   useDesignSystemTheme,
   DangerIcon,
 } from '@databricks/design-system';
+import { useEffect, useMemo, useState } from 'react';
 import { FormattedMessage } from 'react-intl';
 import {
   createTraceV4LongIdentifier,
@@ -23,10 +24,14 @@ import {
 import { useQueryClient } from '@databricks/web-shared/query-client';
 import {
   convertTraceInfoV3ToRunEvalEntry,
+  createTraceLocationForExperiment,
   doesTraceSupportV4API,
   getTraceV4QueryKey,
   invalidateMlflowSearchTracesCache,
+  useSearchMlflowTraces,
 } from '@databricks/web-shared/genai-traces-table';
+import { useRegisterAssistantContext } from '@mlflow/mlflow/src/assistant';
+import { getChatSessionsFilter } from '@mlflow/mlflow/src/experiment-tracking/pages/experiment-chat-sessions/utils';
 // Not re-exported from the genai-traces-table barrel in OSS — import from its module.
 import { EvaluationsReviewDetailsHeader } from '@databricks/web-shared/genai-traces-table/components/EvaluationsReviewDetails';
 import { useGetTrace } from '../hooks/useGetTrace';
@@ -87,6 +92,8 @@ export const TracesV4TraceDrawer = ({
   session,
 }: TracesV4TraceDrawerProps) => {
   const { theme } = useDesignSystemTheme();
+  // A session's turns in order (URL ids), reported by `SessionTurnsLoader` while one of its traces is open.
+  const [sessionTurnIds, setSessionTurnIds] = useState<string[]>();
 
   // Depends only on props (`traces`, `traceId`), so it's safe to compute before the hooks below and
   // feed the clicked row's timing into `useGetTrace` for time-hint derivation. `undefined` for a
@@ -148,15 +155,29 @@ export const TracesV4TraceDrawer = ({
     return null;
   }
 
-  const isPreviousAvailable = currentIndex > 0;
-  const isNextAvailable = currentIndex >= 0 && currentIndex < traces.length - 1;
+  // A trace opened from a session moves between the session's turns, as on the session page.
+  const turnIndex = session && sessionTurnIds ? sessionTurnIds.indexOf(traceId) : -1;
+  const isPreviousAvailable = session ? turnIndex > 0 : currentIndex > 0;
+  const isNextAvailable = session
+    ? turnIndex >= 0 && sessionTurnIds !== undefined && turnIndex < sessionTurnIds.length - 1
+    : currentIndex >= 0 && currentIndex < traces.length - 1;
   const selectPreviousEval = () => {
-    if (isPreviousAvailable) {
+    if (!isPreviousAvailable) {
+      return;
+    }
+    if (session && sessionTurnIds) {
+      session.onViewTrace(sessionTurnIds[turnIndex - 1]);
+    } else {
       onSelectTrace(idOf(traces[currentIndex - 1]));
     }
   };
   const selectNextEval = () => {
-    if (isNextAvailable) {
+    if (!isNextAvailable) {
+      return;
+    }
+    if (session && sessionTurnIds) {
+      session.onViewTrace(sessionTurnIds[turnIndex + 1]);
+    } else {
       onSelectTrace(idOf(traces[currentIndex + 1]));
     }
   };
@@ -178,7 +199,11 @@ export const TracesV4TraceDrawer = ({
               // (has a trace identity); a resolved-but-unidentifiable trace (no location) offers no edit.
               onEditTags={isV3ModelTraceInfo(traceData.info) ? showTagAssignmentModal : undefined}
             >
-              <ModelTraceExplorer modelTrace={traceData} />
+              {/* A session's trace opens with its assessments showing, as on the session page. */}
+              <ModelTraceExplorer
+                modelTrace={traceData}
+                {...(session ? { collapseAssessmentPane: 'force-open' as const } : {})}
+              />
             </ModelTraceExplorerUpdateTraceContextProvider>
           </ModelTraceExplorerPreferencesProvider>
         </div>
@@ -188,6 +213,12 @@ export const TracesV4TraceDrawer = ({
       }
       return (
         <div css={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+          <SessionTurnsLoader
+            experimentId={experimentId}
+            sessionId={session.sessionId}
+            traceId={traceId}
+            onTurnsLoaded={setSessionTurnIds}
+          />
           <SessionTraceBanner sessionId={session.sessionId} onBackToSession={session.onBackToSession} />
           <div css={{ flex: 1, minHeight: 0 }}>{explorer}</div>
         </div>
@@ -260,6 +291,36 @@ const SessionDrawerTitle = ({ sessionId }: { sessionId: string }) => (
     </Tooltip>
   </>
 );
+
+/**
+ * Loads the turns of the session a trace was opened from, so the drawer's previous/next buttons move between
+ * them, and tells the assistant which session and trace are open. Renders nothing.
+ */
+const SessionTurnsLoader = ({
+  experimentId,
+  sessionId,
+  traceId,
+  onTurnsLoaded,
+}: {
+  experimentId: string;
+  sessionId: string;
+  traceId: string;
+  onTurnsLoaded: (turnIds: string[]) => void;
+}) => {
+  const locations = useMemo(() => [createTraceLocationForExperiment(experimentId)], [experimentId]);
+  const filters = useMemo(() => getChatSessionsFilter({ sessionId }), [sessionId]);
+  const { data: traceInfos } = useSearchMlflowTraces({ locations, filters });
+  useEffect(() => {
+    if (traceInfos) {
+      onTurnsLoaded(
+        [...traceInfos].sort((left, right) => Date.parse(left.request_time) - Date.parse(right.request_time)).map(idOf),
+      );
+    }
+  }, [traceInfos, onTurnsLoaded]);
+  useRegisterAssistantContext('sessionId', sessionId);
+  useRegisterAssistantContext('traceId', traceId);
+  return null;
+};
 
 /** Context shown above a trace opened from a session's conversation, with a way back to it. */
 const SessionTraceBanner = ({ sessionId, onBackToSession }: { sessionId: string; onBackToSession: () => void }) => {

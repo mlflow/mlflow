@@ -33,6 +33,7 @@ import {
   getModelTraceId,
   getTraceCost,
   getTraceTokenUsage,
+  isEvaluatingTracesInDetailsViewEnabled,
   isSessionLevelAssessment,
   isV3ModelTraceInfo,
   ModelTraceExplorerResizablePane,
@@ -55,7 +56,15 @@ import {
   useGetTraces,
   useSearchMlflowTraces,
 } from '@databricks/web-shared/genai-traces-table';
+import { CopyActionButton } from '@databricks/web-shared/copy';
+import { useRegisterAssistantContext } from '@mlflow/mlflow/src/assistant';
 import { getChatSessionsFilter } from '@mlflow/mlflow/src/experiment-tracking/pages/experiment-chat-sessions/utils';
+import { ExperimentSingleChatSessionMetrics } from '@mlflow/mlflow/src/experiment-tracking/pages/experiment-chat-sessions/single-chat-view/ExperimentSingleChatSessionMetrics';
+import { SessionRunJudgesContextProvider } from '@mlflow/mlflow/src/experiment-tracking/pages/experiment-chat-sessions/single-chat-view/ExperimentSingleChatSessionScoreResults';
+import {
+  useExperimentSingleChatMetrics,
+  type ExperimentSingleChatMetrics,
+} from '@mlflow/mlflow/src/experiment-tracking/pages/experiment-chat-sessions/single-chat-view/useExperimentSingleChatMetrics';
 import { getTrace as getTraceV3 } from '@mlflow/mlflow/src/experiment-tracking/utils/TraceUtils';
 import { ExperimentSingleChatIcon } from '@mlflow/mlflow/src/experiment-tracking/pages/experiment-chat-sessions/single-chat-view/ExperimentSingleChatIcon';
 
@@ -561,9 +570,13 @@ const SessionConversationPane = ({
   onViewTrace,
   chatRefs,
   getAssessmentTitle,
+  sessionMetrics,
+  onRefreshSession,
 }: {
   sessionId: string;
   traces: ModelTrace[];
+  sessionMetrics?: ExperimentSingleChatMetrics;
+  onRefreshSession: () => void;
   selectedTurnIndex: number | null;
   setSelectedTurnIndex: (turnIndex: number | null) => void;
   onViewTrace: (trace: ModelTrace) => void;
@@ -618,9 +631,15 @@ const SessionConversationPane = ({
             {sessionId}
           </Typography.Text>
         </Tooltip>
+        <CopyActionButton copyText={sessionId} componentId="mlflow.traces-v4.session-copy-id" />
         <div css={{ flex: 1 }} />
         <AssessmentPaneToggle assessmentCount={sessionAssessments.length} />
       </div>
+      {sessionMetrics && shouldEnableAssessmentsInSessions() && (
+        <div css={{ padding: `${theme.spacing.sm}px ${theme.spacing.md}px 0` }}>
+          <ExperimentSingleChatSessionMetrics chatSessionMetrics={sessionMetrics} />
+        </div>
+      )}
       <SessionConversation
         traces={traces}
         selectedTurnIndex={selectedTurnIndex}
@@ -644,12 +663,25 @@ const SessionConversationPane = ({
       leftChild={conversation}
       leftMinWidth={160}
       rightChild={
-        <AssessmentsPane
-          assessments={sessionAssessments}
-          traceId={firstTraceInfo.trace_id}
-          sessionId={sessionId}
-          assessmentsTitleOverride={SessionAssessmentsTitle}
-        />
+        isEvaluatingTracesInDetailsViewEnabled() ? (
+          // Judges can run on the whole session from here, as on the session page.
+          <SessionRunJudgesContextProvider onRefreshSession={onRefreshSession} sessionId={sessionId}>
+            <AssessmentsPane
+              assessments={sessionAssessments}
+              traceId={firstTraceInfo.trace_id}
+              sessionId={sessionId}
+              assessmentsTitleOverride={SessionAssessmentsTitle}
+              enableRunScorer
+            />
+          </SessionRunJudgesContextProvider>
+        ) : (
+          <AssessmentsPane
+            assessments={sessionAssessments}
+            traceId={firstTraceInfo.trace_id}
+            sessionId={sessionId}
+            assessmentsTitleOverride={SessionAssessmentsTitle}
+          />
+        )
       }
       rightMinWidth={280}
     />
@@ -665,6 +697,8 @@ export interface TracesV4SessionDrawerContentProps {
   error?: unknown;
   getAssessmentTitle: (assessmentName: string) => string;
   onViewTrace: (traceInfo: ModelTraceInfoV3) => void;
+  /** Session totals, simulation goal and persona, shown above the conversation. */
+  sessionMetrics?: ExperimentSingleChatMetrics;
 }
 
 export const TracesV4SessionDrawerContent = ({
@@ -676,6 +710,7 @@ export const TracesV4SessionDrawerContent = ({
   error,
   getAssessmentTitle,
   onViewTrace,
+  sessionMetrics,
 }: TracesV4SessionDrawerContentProps) => {
   const { theme } = useDesignSystemTheme();
   const [selectedTurnIndex, setSelectedTurnIndex] = useState<number | null>(null);
@@ -805,6 +840,8 @@ export const TracesV4SessionDrawerContent = ({
                   onViewTrace={handleViewTrace}
                   chatRefs={chatRefs}
                   getAssessmentTitle={getAssessmentTitle}
+                  sessionMetrics={sessionMetrics}
+                  onRefreshSession={onRefreshSession}
                 />
               </ModelTraceExplorerViewStateProvider>
             </ModelTraceExplorerUpdateTraceContextProvider>
@@ -853,6 +890,8 @@ export const TracesV4SessionDrawerBody = ({
     refetchMlflowTraces?.();
     sortedTraceInfos.forEach((traceInfo) => invalidateSingleTraceQuery(traceInfo.trace_id));
   }, [invalidateSingleTraceQuery, refetchMlflowTraces, sortedTraceInfos]);
+  const sessionMetrics = useExperimentSingleChatMetrics({ traceInfos: sortedTraceInfos });
+  useRegisterAssistantContext('sessionId', sessionId);
 
   return (
     <TracesV4SessionDrawerContent
@@ -864,6 +903,7 @@ export const TracesV4SessionDrawerBody = ({
       error={traces.length === 0 ? error : undefined}
       getAssessmentTitle={getAssessmentTitle}
       onViewTrace={onViewTrace}
+      sessionMetrics={sessionMetrics}
     />
   );
 };
