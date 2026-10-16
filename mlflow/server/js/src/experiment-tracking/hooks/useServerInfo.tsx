@@ -5,6 +5,9 @@ import { useQuery, useQueryClient } from '../../common/utils/reactQueryHooks';
 import { fetchAPI, getAjaxUrl } from '../../common/utils/FetchUtils';
 
 const SERVER_INFO_QUERY_KEY = 'serverInfo';
+export const SERVER_INFO_PATH = 'ajax-api/3.0/mlflow/server-info';
+
+export const getServerInfoUrl = (): string => getAjaxUrl(SERVER_INFO_PATH);
 
 interface ServerInfoResponse {
   store_type: string | null;
@@ -12,6 +15,13 @@ interface ServerInfoResponse {
   trace_archival_enabled: boolean;
   multipart_uploads_enabled: boolean;
   multipart_downloads_enabled: boolean;
+  /** Absent on servers that predate it. */
+  artifact_serving_enabled?: boolean;
+  /** Skill upload limits: total file bytes and file count. Absent on servers that predate them. */
+  skill_content_max_size?: number;
+  skill_content_max_files?: number;
+  /** Client auth provider name, when the server advertises one for generated snippets. */
+  tracking_auth?: string;
   features_enabled?: Record<FeatureKey, boolean>;
 }
 
@@ -65,7 +75,7 @@ async function fetchServerInfo(): Promise<ServerInfoResponse> {
   const timeoutId = setTimeout(() => controller.abort(), SERVER_INFO_TIMEOUT_MS);
 
   try {
-    return await fetchAPI(getAjaxUrl('ajax-api/3.0/mlflow/server-info'), { signal: controller.signal });
+    return await fetchAPI(getServerInfoUrl(), { signal: controller.signal });
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') {
       // Without this the timeout is indistinguishable from a server that reports these defaults.
@@ -112,6 +122,22 @@ export function useTraceArchivalEnabled(): boolean {
 export function useMultipartDownloadsEnabled(): boolean {
   const { data } = useServerInfo();
   return data?.multipart_downloads_enabled ?? false;
+}
+
+/**
+ * Whether the server stores content itself (`mlflow server --serve-artifacts`), as uploaded skills need.
+ * Unknown (an older server, or server-info failed) counts as enabled: the server still refuses content
+ * it can't store, and an option shouldn't disappear because a capability check didn't answer.
+ */
+export function useArtifactServingEnabled(): boolean {
+  const { data } = useServerInfo();
+  return data?.artifact_serving_enabled !== false;
+}
+
+/** The limits the server checks a skill upload against, or undefined for a server that does not report them. */
+export function useSkillContentLimits(): { maxBytes?: number; maxFiles?: number } {
+  const { data } = useServerInfo();
+  return { maxBytes: data?.skill_content_max_size, maxFiles: data?.skill_content_max_files };
 }
 
 interface ServerInfoProviderProps {

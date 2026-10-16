@@ -295,6 +295,12 @@ MLFLOW_TRACKING_AWS_SIGV4 = _BooleanEnvironmentVariable("MLFLOW_TRACKING_AWS_SIG
 #: (default: ``None``). When set, it will overwrite the "Authorization" HTTP header.
 MLFLOW_TRACKING_AUTH = _EnvironmentVariable("MLFLOW_TRACKING_AUTH", str, None)
 
+#: Auth provider name to advertise in server-info for client snippets.
+#: This does not affect the server's own tracking requests. (default: ``None``)
+MLFLOW_SERVER_INFO_TRACKING_AUTH = _EnvironmentVariable(
+    "MLFLOW_SERVER_INFO_TRACKING_AUTH", str, None
+)
+
 #: Specifies the chunk size to use when downloading a file from GCS
 #: (default: ``None``). If None, the chunk size is automatically determined by the
 #: ``google-cloud-storage`` package.
@@ -1982,4 +1988,12 @@ MLFLOW_SKIP_PIP_REQUIREMENTS_CHECK = _BooleanEnvironmentVariable(
 #: (default: ``None``)
 MLFLOW_READ_REPLICA_BACKEND_STORE_URI = _EnvironmentVariable(
     "MLFLOW_READ_REPLICA_BACKEND_STORE_URI", str, None
+)
+
+#: Specifies the maximum decompressed size in bytes of skill content handled by the skill
+#: registry client and server: uploaded skill archives, fetched ZIP and OCI sources, and
+#: cloned or downloaded skill trees. Content larger than this limit is rejected.
+#: (default: ``26214400``, 25 MiB)
+MLFLOW_SKILL_CONTENT_MAX_DECOMPRESSED_SIZE = _EnvironmentVariable(
+    "MLFLOW_SKILL_CONTENT_MAX_DECOMPRESSED_SIZE", int, 25 * 1024**2
 )

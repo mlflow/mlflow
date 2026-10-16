@@ -988,9 +988,8 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
-      contents: write
+      contents: read
       issues: write
-      pull-requests: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -1074,11 +1073,11 @@ jobs:
           node .github/workflows/sanitize.js output \
             < "$RUNNER_TEMP/pr-body-media.md" > "$RUNNER_TEMP/pr-body-agent.md"
           {
-            printf '> [!NOTE]\n> Drafted by [automated triage](%s). Please review carefully before marking it ready.\n\n' "$RUN_URL"
+            printf '> [!NOTE]\n> Created by [automated triage](%s). Please review carefully.\n\n' "$RUN_URL"
             cat "$RUNNER_TEMP/pr-body-agent.md"
           } > "$RUNNER_TEMP/pr-body.md"
           if [ "$SHOULD_POST" = true ]; then
-            state="Opening a draft pull request with this fix."
+            state="Opening a pull request with this fix."
           else
             state="Pull request not opened (dry run). Media was not uploaded; local media paths below are not working GitHub links."
           fi
@@ -1094,25 +1093,33 @@ jobs:
             # Context lines start with a space, which can still close a Markdown fence, so escape instead.
             jq -Rsr '"<pre>\(@html)</pre>"' "$OUT_DIR/fix.patch"
           } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        id: app-token
+        if: steps.check.outputs.proposed == 'true' && needs.issue.outputs.dry_run == 'false'
+        with:
+          client-id: ${{ secrets.APP_CLIENT_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: mlflow
+          repositories: mlflow
+          permission-contents: write
+          permission-pull-requests: write
       - name: Open pull request
         id: open
         if: steps.check.outputs.proposed == 'true' && needs.issue.outputs.dry_run == 'false'
         env:
-          # Not an app token: CI on PRs opened with GITHUB_TOKEN waits for maintainer approval,
-          # so agent-written code doesn't run in CI unreviewed.
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
           REPO: ${{ github.repository }}
           BASE: ${{ github.event.repository.default_branch }}
           ISSUE_NUMBER: ${{ needs.issue.outputs.number }}
         run: |
           branch="triage/issue-$ISSUE_NUMBER-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git config user.name 'mlflow-app[bot]'
+          git config user.email '191841109+mlflow-app[bot]@users.noreply.github.com'
           # The check step already applied the patch to the index.
           git switch -c "$branch"
           git commit -s -F "$RUNNER_TEMP/pr-title.txt"
           git push "https://x-access-token:$GH_TOKEN@github.com/$REPO.git" "HEAD:refs/heads/$branch"
-          pr_url=$(gh pr create --repo "$REPO" --draft \
+          pr_url=$(gh pr create --repo "$REPO" \
             --base "$BASE" --head "$branch" \
             --title "$(cat "$RUNNER_TEMP/pr-title.txt")" \
             --body-file "$RUNNER_TEMP/pr-body.md")

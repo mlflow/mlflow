@@ -31,9 +31,17 @@
     "defaultMessage": "Store it securely and restrict access to server administrators only.",
     "description": "AI Gateway setup guide > Passphrase warning security note"
   },
+  "+4Kxeq": {
+    "defaultMessage": "Edit",
+    "description": "Skill detail action that edits description and icons"
+  },
   "+634bT": {
     "defaultMessage": "Feedback",
     "description": "Review question type: feedback"
+  },
+  "+6384I": {
+    "defaultMessage": "Show less",
+    "description": "Collapse the SKILL.md preview on a skill page"
   },
   "+6406R": {
     "defaultMessage": "Name",
@@ -42,6 +50,10 @@
   "+6tmRn": {
     "defaultMessage": "Name",
     "description": "Field label for assessment name in a creation form"
+  },
+  "+7qu4I": {
+    "defaultMessage": "Version {version}",
+    "description": "Skill version list item label"
   },
   "+8+eEg": {
     "defaultMessage": "Follow these steps to enable the AI Gateway feature for managing AI provider credentials.",
@@ -319,6 +331,10 @@
     "defaultMessage": "Error",
     "description": "Error assessment label for filter dropdown"
   },
+  "/F/mYf": {
+    "defaultMessage": "Skill folder",
+    "description": "Aria label for the skill directory picker"
+  },
   "/FWWkj": {
     "defaultMessage": "Issue detection run",
     "description": "Tooltip for the AI icon indicating this is an issue detection run"
@@ -366,6 +382,10 @@
   "/NF6sl": {
     "defaultMessage": "Use existing API key",
     "description": "Option to use existing API key"
+  },
+  "/NI9qg": {
+    "defaultMessage": "Showing the first {count} files. Pull the skill to see the rest.",
+    "description": "Hint when a skill version has more files than the file list shows"
   },
   "/Ni371": {
     "defaultMessage": "Fix the response format schema: {error}",
@@ -439,6 +459,10 @@
     "defaultMessage": "No existing model definitions. Create a new one below.",
     "description": "Message when no existing model definitions"
   },
+  "/c/HOe": {
+    "defaultMessage": "Could not package the folder.",
+    "description": "Error when a skill folder cannot be packaged for upload"
+  },
   "/g45Xz": {
     "defaultMessage": "Share and manage machine learning models.",
     "description": "Default text for model registry onboarding on the model list page"
@@ -454,6 +478,10 @@
   "/icjNP": {
     "defaultMessage": "Logged in as <strong>{username}</strong>",
     "description": "Subtitle showing the currently authenticated username"
+  },
+  "/jC6yx": {
+    "defaultMessage": "Deleted",
+    "description": "Skill version status: deleted"
   },
   "/jSBSV": {
     "defaultMessage": "Temperature",
@@ -587,6 +615,10 @@
     "defaultMessage": "State",
     "description": "Gateway endpoint usage > metrics filter > state column option label"
   },
+  "0EFU+8": {
+    "defaultMessage": "Couldn't load this file.",
+    "description": "Skill file preview load error"
+  },
   "0ElvS9": {
     "defaultMessage": "Y-axis:",
     "description": "Label text for y-axis in contour plot comparison in MLflow"
@@ -646,6 +678,10 @@
   "0T1I+b": {
     "defaultMessage": "MLflow documentation",
     "description": "Link to tracing documentation"
+  },
+  "0U1OTy": {
+    "defaultMessage": "A draft is passed over whenever any active version exists. A draft can always be reached by an explicit version pin or an alias.",
+    "description": "Hint for the initial skill version status"
   },
   "0W7Pi4": {
     "defaultMessage": "Tag{count, plural, =0 {} other { · #}}",
@@ -995,6 +1031,10 @@
     "defaultMessage": "added {when} by {user}",
     "description": "Evaluation review > assessments > detailed history > added history entry"
   },
+  "21rwGc": {
+    "defaultMessage": "Status",
+    "description": "Label for the initial skill version status"
+  },
   "24pi72": {
     "defaultMessage": "Settings",
     "description": "Title for the MLflow Assistant settings page"
@@ -1139,6 +1179,10 @@
     "defaultMessage": "Open",
     "description": "Experiment issues tab > Open issue status label"
   },
+  "2Yt+lw": {
+    "defaultMessage": "Python",
+    "description": "Python example for skill registration"
+  },
   "2ZB29e": {
     "defaultMessage": "A new prompt will be created in the registry.",
     "description": "Note shown in the playground save modal when no prompt is loaded, so a new prompt is created"
@@ -1207,6 +1251,10 @@
     "defaultMessage": "Tool Error Rates",
     "description": "Title for the tool error rates section"
   },
+  "2kbhHk": {
+    "defaultMessage": "A ZIP source must be an http(s) URL.",
+    "description": "Validation error for a non-HTTP skill ZIP source"
+  },
   "2mRfvl": {
     "defaultMessage": "Request error",
     "description": "A title shown on the experiment page if the runs request fails"
@@ -1274,6 +1322,18 @@
   "2xFiOo": {
     "defaultMessage": "Git commit",
     "description": "Usage overview > metrics filter > git commit column option label"
+  },
+  "2xOenV": {
+    "defaultMessage": "Description",
+    "description": "Header for the description column in the Skill Registry table"
+  },
+  "2yONCo": {
+    "defaultMessage": "Skills",
+    "description": "Skill Registry page title"
+  },
+  "2zrxcq": {
+    "defaultMessage": "Unpublish or deprecate this version first. Deprecating keeps it resolving for anything that pins it.",
+    "description": "Tooltip when an active skill version cannot be deleted yet"
   },
   "2zy+D5": {
     "defaultMessage": "Add new tag",
@@ -1362,6 +1422,10 @@
   "3PBIB8": {
     "defaultMessage": "Appearance, product feedback, telemetry, and workspace demo data.",
     "description": "Settings content section subtitle for general preferences including demo data"
+  },
+  "3PV8Q2": {
+    "defaultMessage": "Use",
+    "description": "Header for the use-skill action column in the Skill Registry table"
   },
   "3Rb4sG": {
     "defaultMessage": "Delete",
@@ -1459,10 +1523,6 @@
     "defaultMessage": "Delete",
     "description": "Text for delete button on model version view page header"
   },
-  "4/bsMk": {
-    "defaultMessage": "Add icon",
-    "description": "Tooltip for add icon button in MCP server icon editor"
-  },
   "40TLJk": {
     "defaultMessage": "Structured output:",
     "description": "Label for structured output schema in the prompt details page"
@@ -1514,6 +1574,10 @@
   "46xd2Z": {
     "defaultMessage": "Compare",
     "description": "Runs charts > components > config > RunsChartsConfigureDifferenceChart > Compare config section"
+  },
+  "470t+y": {
+    "defaultMessage": "Registers {summary}",
+    "description": "Summary of what a skill location registers"
   },
   "47JmSp": {
     "defaultMessage": "Configure new model",
@@ -1619,6 +1683,10 @@
     "defaultMessage": "Add a message to send to the endpoint.",
     "description": "Empty-state hint for the playground messages panel"
   },
+  "4Q1r/g": {
+    "defaultMessage": "A skill named \"{name}\" is already registered.",
+    "description": "Error when a new skill's name belongs to an existing skill"
+  },
   "4Qft47": {
     "defaultMessage": "{nodeCount, plural, =0 {} one {# node} other {# nodes}}",
     "description": "Count of selected nodes displayed in the node level metric charts node selector"
@@ -1635,6 +1703,10 @@
     "defaultMessage": "False",
     "description": "Label for an assessment with a 'false' boolean value"
   },
+  "4UgBtX": {
+    "defaultMessage": "Install for",
+    "description": "Label for the agent selector in the skill pull instructions"
+  },
   "4V8wtm": {
     "defaultMessage": "After your script runs, open the MLflow UI to review the recorded traces.",
     "description": "Introductory text for viewing traces in the MLflow UI"
@@ -1650,6 +1722,10 @@
   "4a2Kqx": {
     "defaultMessage": "View trace",
     "description": "Link text for navigating to the corresponding judge trace"
+  },
+  "4aFOn8": {
+    "defaultMessage": "Theme",
+    "description": "Registry icon editor label for an icon theme"
   },
   "4aoazH": {
     "defaultMessage": "Close",
@@ -1671,13 +1747,13 @@
     "defaultMessage": "Delete question?",
     "description": "Manage review questions: delete confirmation title"
   },
+  "4eOBj2": {
+    "defaultMessage": "Copy code",
+    "description": "Aria label for copying a code block in a rendered skill markdown file"
+  },
   "4g2H7S": {
     "defaultMessage": "Prompt content is required",
     "description": "A validation state for the chat prompt content in the prompt creation modal"
-  },
-  "4hE4IF": {
-    "defaultMessage": "default",
-    "description": "Tooltip for default fallback icon"
   },
   "4iVjvu": {
     "defaultMessage": "Create a user to get started.",
@@ -1694,6 +1770,10 @@
   "4kSYNV": {
     "defaultMessage": "No issues found",
     "description": "Issue detection run details > Issues tab > Empty state title"
+  },
+  "4mB25c": {
+    "defaultMessage": "Removing tags requires the Manage permission on this skill.",
+    "description": "Error when a user without delete permission removes skill tags"
   },
   "4n2n7G": {
     "defaultMessage": "Loading records",
@@ -1739,6 +1819,10 @@
     "defaultMessage": "Copy for coding agent",
     "description": "Tab label for the copy-prompt-to-coding-agent path in the agent action card"
   },
+  "5/g+b+": {
+    "defaultMessage": "Could not register the skill.",
+    "description": "Fallback error when skill registration fails"
+  },
   "502XWr": {
     "defaultMessage": "Search inputs, expectations…",
     "description": "Placeholder for the search input on the V2 dataset records page"
@@ -1779,6 +1863,10 @@
     "defaultMessage": "Create your first prompt",
     "description": "Title for the empty state on the prompts list page"
   },
+  "5AqKdf": {
+    "defaultMessage": "Edit tags",
+    "description": "Aria label for editing skill parent tags"
+  },
   "5B5dhT": {
     "defaultMessage": "Validate the model before deployment",
     "description": "Heading text for validating the model before deploying it for serving"
@@ -1794,6 +1882,10 @@
   "5GCYzy": {
     "defaultMessage": "Experiment Runs - Databricks",
     "description": "Title on a page used to manage MLflow experiments runs"
+  },
+  "5JJwul": {
+    "defaultMessage": "This file can't be previewed as text. Pull the skill to read it.",
+    "description": "Skill file preview message for a binary file"
   },
   "5K6npM": {
     "defaultMessage": "Analyze with Assistant",
@@ -1831,6 +1923,10 @@
     "defaultMessage": "This request exceeds the maximum queries per second limit. Please wait and try again.",
     "description": "Too many requests (HTTP STATUS 429) generic error message"
   },
+  "5PnvCO": {
+    "defaultMessage": "Specify a source and name below to register a skill to MLflow, or {apiLink}",
+    "description": "Intro for the skill registration dialog"
+  },
   "5RWIet": {
     "defaultMessage": "Schema {sectionName}",
     "description": "Field name text for schema table in the model comparison page"
@@ -1838,6 +1934,10 @@
   "5S0B47": {
     "defaultMessage": "JSON",
     "description": "Label for the JSON render mode in the model trace explorer inputs/outputs section"
+  },
+  "5SDHB3": {
+    "defaultMessage": "Status:",
+    "description": "Skill version stored status label"
   },
   "5Sk9A1": {
     "defaultMessage": "Input cost",
@@ -1899,10 +1999,6 @@
     "defaultMessage": "Cancel",
     "description": "Evaluation review > assessments > cancel assessment button label"
   },
-  "5eAD8n": {
-    "defaultMessage": "https://example.com/icon.svg",
-    "description": "Placeholder for icon URL input in MCP server icon editor"
-  },
   "5gnjlc": {
     "defaultMessage": "{value} tokens",
     "description": "Trace span token metric tooltip"
@@ -1938,6 +2034,10 @@
   "5tLj84": {
     "defaultMessage": "Good",
     "description": "Label for an assessment with a 'good' value"
+  },
+  "5tdnqz": {
+    "defaultMessage": "Remove credentials from the URL. They would be stored with the skill.",
+    "description": "Validation error when a skill source URL contains credentials"
   },
   "5uIHxj": {
     "defaultMessage": "Unable to refresh or load more issues",
@@ -1975,6 +2075,10 @@
     "defaultMessage": "finetuning",
     "description": "A short label for experiments focused on model finetuning"
   },
+  "61XJhx": {
+    "defaultMessage": "Cancel",
+    "description": "Cancel skill presentation edits"
+  },
   "61j1EM": {
     "defaultMessage": "Model",
     "description": "Tooltip for span model metadata item"
@@ -2003,6 +2107,10 @@
     "defaultMessage": "No data found for trace ID: {traceId}",
     "description": "Body shown in the V4 trace drawer when a trace has no data"
   },
+  "67wL4+": {
+    "defaultMessage": "This version is no longer available.",
+    "description": "Skill detail message when the selected version is missing or deleted"
+  },
   "68Lr/+": {
     "defaultMessage": "Save",
     "description": "MCP registry edit access endpoint modal save button"
@@ -2010,6 +2118,10 @@
   "6AUuoS": {
     "defaultMessage": "Run judge on {isTraces, select, true {traces} other {sessions}}",
     "description": "Title for running judge on traces or sessions"
+  },
+  "6BOMtf": {
+    "defaultMessage": "SHA-256 of the skill's files, recorded at registration. Pulling this version fails if the fetched content no longer matches.",
+    "description": "Tooltip for a recorded skill version content digest"
   },
   "6BRlPU": {
     "defaultMessage": "Rationale",
@@ -2046,6 +2158,10 @@
   "6K04VZ": {
     "defaultMessage": "Max. tokens: {max_tokens}",
     "description": "Experiment page > artifact compare view > run column header prompt metadata > max tokens parameter"
+  },
+  "6OPA3U": {
+    "defaultMessage": "Metadata:",
+    "description": "Skill version tags label"
   },
   "6Q/0BO": {
     "defaultMessage": "The retrieval groundedness LLM judge returns a binary evaluation and written rationale on whether the generated response is factually consistent with the agent's retrieved context.",
@@ -2291,6 +2407,10 @@
     "defaultMessage": "Add traces from the Traces tab to start reviewing them with your team.",
     "description": "Review queue: empty queue description"
   },
+  "7IgbLz": {
+    "defaultMessage": "light theme",
+    "description": "Registry icon editor label for the light preview"
+  },
   "7KKvmS": {
     "defaultMessage": "Created by",
     "description": "Run page > Overview > Run author section label"
@@ -2342,6 +2462,10 @@
   "7NfBeq": {
     "defaultMessage": "Display name and description could not be saved",
     "description": "Error notification when updating MCP server display name fails"
+  },
+  "7NvyO+": {
+    "defaultMessage": "Registering every skill under this folder? Run this instead:",
+    "description": "Pointer from single-skill registration to importing every skill under a repository folder"
   },
   "7O0x9Q": {
     "defaultMessage": "Create a custom judge function using the {decorator} decorator. All parameters ({inputs}, {outputs}, {expectations}, {trace}) are optional — include only the ones your logic needs. {link}",
@@ -2406,6 +2530,10 @@
   "7cd+cQ": {
     "defaultMessage": "Trace Archival Retention",
     "description": "Label for displaying the experiment trace archival retention"
+  },
+  "7e1NL+": {
+    "defaultMessage": "Enter a source location.",
+    "description": "Validation error when skill registration has no source URL"
   },
   "7hHw+R": {
     "defaultMessage": "Instructions",
@@ -2599,6 +2727,10 @@
     "defaultMessage": "The provided value is not valid JSON",
     "description": "Error message for invalid JSON in an assessment edit form"
   },
+  "8Jnxjy": {
+    "defaultMessage": "Advanced settings (optional)",
+    "description": "Toggle for optional skill registration fields"
+  },
   "8Mwwrq": {
     "defaultMessage": "No matching users",
     "description": "Review queue: no users match the owner search"
@@ -2762,6 +2894,10 @@
   "90mZic": {
     "defaultMessage": "Budget",
     "description": "Budget amount column header"
+  },
+  "915mRE": {
+    "defaultMessage": "Group skills with an organization by adding it to the name, e.g. @my-org/my-skill-name.",
+    "description": "Hint for the skill registration name field"
   },
   "917MAH": {
     "defaultMessage": "Trace archival retention must be at most {maxLength} characters.",
@@ -2995,6 +3131,10 @@
     "defaultMessage": "Stop Sequences (comma-separated)",
     "description": "Label for stop sequences input"
   },
+  "9otBPb": {
+    "defaultMessage": "More actions",
+    "description": "Aria label for skill detail actions menu"
+  },
   "9pJlQd": {
     "defaultMessage": "No prompt versions created",
     "description": "A header for the empty state in the prompt versions table"
@@ -3103,13 +3243,17 @@
     "defaultMessage": "Failed",
     "description": "Fail status pill in the regression-test detail"
   },
-  "A8PsVy": {
-    "defaultMessage": "Remove icon",
-    "description": "Aria label for remove icon button in MCP server icon editor"
+  "A9zAcE": {
+    "defaultMessage": "This folder has no SKILL.md at its top level.",
+    "description": "Error when a selected skill folder has no SKILL.md"
   },
   "AAdQxU": {
     "defaultMessage": "Messages",
     "description": "Section header in the chat tab that displays the message history between the user and the chat model"
+  },
+  "AAxEMU": {
+    "defaultMessage": "Create skill",
+    "description": "Button that opens skill registration"
   },
   "AB6/gE": {
     "defaultMessage": "Endpoints",
@@ -3122,6 +3266,10 @@
   "ABM9Yz": {
     "defaultMessage": "Create User",
     "description": "Button to create a new user"
+  },
+  "ABtpjp": {
+    "defaultMessage": "Edit aliases",
+    "description": "Aria label for editing skill version aliases"
   },
   "ACNZd9": {
     "defaultMessage": "GenAI apps & agents",
@@ -3142,6 +3290,10 @@
   "AFrm2A": {
     "defaultMessage": "Created {date}",
     "description": "Gateway > Endpoint bindings drawer > Created date"
+  },
+  "AG9haN": {
+    "defaultMessage": "Retry",
+    "description": "Retry button for Skill Registry catalog error"
   },
   "AGLzB5": {
     "defaultMessage": "my-api-key",
@@ -3239,6 +3391,10 @@
     "defaultMessage": "Previous",
     "description": "Button text for previous trace"
   },
+  "Ahh9Q+": {
+    "defaultMessage": "No digest was recorded, so pulls aren't checked. This version points at {ref}; if that is a branch, a pull returns whatever it holds at the time.",
+    "description": "Tooltip for a missing digest on a skill version that points at a Git branch or tag"
+  },
   "Ai/ANo": {
     "defaultMessage": "Usage",
     "description": "Page title"
@@ -3250,6 +3406,10 @@
   "AiESnf": {
     "defaultMessage": "This view is too large to save. Try hiding some columns or charts, then save again.",
     "description": "Error shown when a saved experiment view exceeds the experiment-tag size limit"
+  },
+  "Aj02Lg": {
+    "defaultMessage": "Remove icon",
+    "description": "Registry icon editor label for removing an icon"
   },
   "Aj5dMu": {
     "defaultMessage": "Icons",
@@ -3310,6 +3470,10 @@
   "AyceYA": {
     "defaultMessage": "Served LLM model",
     "description": "Experiment page > new run modal > served LLM model endpoint label"
+  },
+  "AypH5H": {
+    "defaultMessage": "dark theme",
+    "description": "Registry icon editor label for the dark preview"
   },
   "AzOnmT": {
     "defaultMessage": "Automatically log traces for Anthropic API calls by calling the {code} function. For example:",
@@ -3394,6 +3558,10 @@
   "BEXAt0": {
     "defaultMessage": "(empty)",
     "description": "Placeholder for an empty JSON cell"
+  },
+  "BEugM0": {
+    "defaultMessage": "Loading files...",
+    "description": "Loading state for a skill version file list"
   },
   "BF9qQD": {
     "defaultMessage": "Use \"Create API key\" button to create a new API key",
@@ -3515,6 +3683,10 @@
     "defaultMessage": "Instructions",
     "description": "Label for guardrail judge instructions"
   },
+  "BgqtzK": {
+    "defaultMessage": "The frontmatter in SKILL.md couldn't be parsed. It must be a YAML mapping between {fence} lines, without aliases or merge keys.",
+    "description": "Error when a skill folder's SKILL.md frontmatter is not a valid YAML mapping"
+  },
   "Bh7AL1": {
     "defaultMessage": "Latest version",
     "description": "Header for the latest version column in the MCP servers table"
@@ -3623,6 +3795,10 @@
     "defaultMessage": "New question",
     "description": "Review queue: create new question link in dropdown"
   },
+  "C7sCoZ": {
+    "defaultMessage": "Model Context Protocol",
+    "description": "MCP Registry page title"
+  },
   "C83vFj": {
     "defaultMessage": "Latency",
     "description": "Title for the latency chart"
@@ -3667,9 +3843,21 @@
     "defaultMessage": "System Metrics",
     "description": "Experiment tracking > runs charts > cards > RunsChartsDifferenceChartCard > system metrics heading"
   },
+  "CE32Hw": {
+    "defaultMessage": "Skill not found",
+    "description": "Title when a Skill cannot be loaded"
+  },
+  "CEhtNe": {
+    "defaultMessage": "Skills you can read will appear here once they are registered.",
+    "description": "Empty state description for a Skill Registry page without skills"
+  },
   "CHQQ0K": {
     "defaultMessage": "Find",
     "description": "Visible label for finding content in a trace"
+  },
+  "CI6Mdr": {
+    "defaultMessage": "This alias is automatically maintained and always resolves to the newest active version, or to the newest version that is not deleted when none is active.",
+    "description": "Tooltip explaining the automatic latest alias on a skill version"
   },
   "CIIUsc": {
     "defaultMessage": "SHA-256",
@@ -3879,10 +4067,6 @@
     "defaultMessage": "Cancel",
     "description": "Button to cancel editing"
   },
-  "DAnoyO": {
-    "defaultMessage": "MCP registry",
-    "description": "Sidebar link for MCP registry page"
-  },
   "DCC164": {
     "defaultMessage": "GenAI",
     "description": "Label for GenAI workflow type option"
@@ -3894,6 +4078,10 @@
   "DCkSC3": {
     "defaultMessage": "Promote",
     "description": "Confirmation text to promote the model"
+  },
+  "DEGkua": {
+    "defaultMessage": "Filter by active status",
+    "description": "Aria label for Skill Registry active status filter toggle"
   },
   "DHFf28": {
     "defaultMessage": "Or {enterManually}",
@@ -3951,6 +4139,10 @@
     "defaultMessage": "Select reviewers",
     "description": "Review queue: reviewers dropdown label"
   },
+  "DTu1X9": {
+    "defaultMessage": "Permission denied",
+    "description": "Title for Skill detail permission-denied state"
+  },
   "DUcwbU": {
     "defaultMessage": "Source run",
     "description": "Experiment Issue source run link"
@@ -3970,6 +4162,10 @@
   "DaF+KK": {
     "defaultMessage": "Y axis",
     "description": "Label for Y axis in scatter chart configurator in compare runs chart config modal"
+  },
+  "Db6FRy": {
+    "defaultMessage": "The CLI reads the skill locally, so it can infer the name and record a digest.",
+    "description": "Explanation of the skill registration CLI example"
   },
   "DcGPfO": {
     "defaultMessage": "Row height",
@@ -4003,6 +4199,10 @@
     "defaultMessage": "No issues have been recorded.",
     "description": "Experiment Issues empty issue store"
   },
+  "DkO9C5": {
+    "defaultMessage": "Use {identity}",
+    "description": "Title for the Skill Registry use-skill modal"
+  },
   "Dm4Ez0": {
     "defaultMessage": "Filter",
     "description": "Label for the filter button in the trace explorer."
@@ -4018,6 +4218,10 @@
   "Dma9ZE": {
     "defaultMessage": "Versions",
     "description": "Header for the version column in the registered prompts table"
+  },
+  "DpfEr5": {
+    "defaultMessage": "Adding a version to {identity}, or {apiLink}",
+    "description": "Intro for adding an external skill version"
   },
   "Druqym": {
     "defaultMessage": "Filters",
@@ -4066,10 +4270,6 @@
   "E1nBWS": {
     "defaultMessage": "Overwrite \"{name}\"",
     "description": "Menu item that overwrites the active saved view with the current, edited state"
-  },
-  "E2V1sV": {
-    "defaultMessage": "Light",
-    "description": "Light mode icon option"
   },
   "E4Te7L": {
     "defaultMessage": "Experiment load error: {errorMessage}",
@@ -4195,6 +4395,10 @@
     "defaultMessage": "Using regular expression quick filter. The following query will be used: {filterSample}",
     "description": "Experiment page > control bar > search filter > a label displayed when user has entered a simple query that will be automatically transformed into RLIKE SQL query before being sent to the API"
   },
+  "ET2qrH": {
+    "defaultMessage": "The Python SDK reads the skill locally, so it can infer the name and record a digest.",
+    "description": "Explanation of the skill registration Python example"
+  },
   "EWf8NH": {
     "defaultMessage": "Learn more",
     "description": "Documentation link text"
@@ -4263,6 +4467,10 @@
     "defaultMessage": "Question preview",
     "description": "Create review queue: question preview section label"
   },
+  "Et1NzU": {
+    "defaultMessage": "Source type",
+    "description": "Aria label for the skill source type override"
+  },
   "EtPSl6": {
     "defaultMessage": "Discard unsaved changes?",
     "description": "Title of the prompt shown when leaving the dataset record side panel with unsaved edits"
@@ -4330,6 +4538,10 @@
   "FBR3Q/": {
     "defaultMessage": "Overview",
     "description": "Label for the overview tab on the logged model details page"
+  },
+  "FBfSN1": {
+    "defaultMessage": "Active",
+    "description": "Skill catalog status label for active"
   },
   "FBlbEZ": {
     "defaultMessage": "Remove message",
@@ -4459,6 +4671,10 @@
     "defaultMessage": "Last modified",
     "description": "Header for the last modified column in the registered prompts table"
   },
+  "FiPeGT": {
+    "defaultMessage": "https://example.com/icon.svg",
+    "description": "Registry icon editor placeholder for an icon URL"
+  },
   "FijsAB": {
     "defaultMessage": "Endpoint URL:",
     "description": "MCP registry endpoint modal endpoint label"
@@ -4511,6 +4727,10 @@
     "defaultMessage": "Create Role",
     "description": "Button to create a new role"
   },
+  "FslHqc": {
+    "defaultMessage": "Icon URL {number}",
+    "description": "Registry icon editor label for an icon URL"
+  },
   "Ft2NsS": {
     "defaultMessage": "High",
     "description": "Issue severity tag label for high severity"
@@ -4539,6 +4759,10 @@
     "defaultMessage": "End Time:",
     "description": "Row title for the end time of runs on the experiment compare runs page"
   },
+  "G1TBVx": {
+    "defaultMessage": "Loading version...",
+    "description": "Loading state for Skill version detail"
+  },
   "G2zMpZ": {
     "defaultMessage": "Delete ({count})",
     "description": "Gateway > API keys list > Delete button with count"
@@ -4550,6 +4774,10 @@
   "G4CVdi": {
     "defaultMessage": "Persona",
     "description": "Column label for simulation persona"
+  },
+  "G4tB4L": {
+    "defaultMessage": "Key",
+    "description": "Aria label for a skill tag key"
   },
   "G4x6G7": {
     "defaultMessage": "Finetuning",
@@ -4571,6 +4799,10 @@
     "defaultMessage": "Hide details",
     "description": "Evaluation review > assessments > hide details button"
   },
+  "GA0YXz": {
+    "defaultMessage": "CLI",
+    "description": "CLI format of the skill pull instructions"
+  },
   "GAJL1v": {
     "defaultMessage": "Input and output schema for your model. <link>Learn more</link>",
     "description": "Input and output params of the model that is registered from the experiment run"
@@ -4590,6 +4822,10 @@
   "GDzD7I": {
     "defaultMessage": "Prompt Template",
     "description": "Experiment page > new run modal > prompt examples > prompt template title"
+  },
+  "GENO9m": {
+    "defaultMessage": "Loading file...",
+    "description": "Loading state for a skill file preview"
   },
   "GEVu99": {
     "defaultMessage": "Identifier",
@@ -4646,6 +4882,10 @@
   "GYxv/z": {
     "defaultMessage": "Unassign {count, plural, one {# trace} other {# traces}} from the queue",
     "description": "Review queue: tooltip explaining that the button removes the selected traces from the queue (the traces themselves are not deleted)"
+  },
+  "GZg91B": {
+    "defaultMessage": "Name",
+    "description": "Label for the skill registration name"
   },
   "Ga2Oyg": {
     "defaultMessage": "Share queue link",
@@ -4783,6 +5023,10 @@
     "defaultMessage": "URL Variables",
     "description": "MCP server remote URL variables heading"
   },
+  "H3vpDh": {
+    "defaultMessage": "Edit tags for version {version}",
+    "description": "Title for editing tags on a skill version"
+  },
   "H6aarx": {
     "defaultMessage": "Reset to saved",
     "description": "Menu item that discards unsaved edits and re-applies the active saved view's stored state"
@@ -4794,6 +5038,10 @@
   "H9MulE": {
     "defaultMessage": "Always show parents of matched spans, regardless of filter conditions",
     "description": "Tooltip for a span filter setting that enables showing parents of matched spans"
+  },
+  "HB+3ip": {
+    "defaultMessage": "Any",
+    "description": "Registry icon editor option for a theme-agnostic icon"
   },
   "HCAsed": {
     "defaultMessage": "Aliases:",
@@ -4819,13 +5067,25 @@
     "defaultMessage": "Model version tag set",
     "description": "Webhook event label"
   },
+  "HGsGOJ": {
+    "defaultMessage": "Select a version to view details.",
+    "description": "Skill detail placeholder when no version is selected"
+  },
   "HHRU4d": {
     "defaultMessage": "Detection progress",
     "description": "Issue detection progress > Title"
   },
+  "HHruY/": {
+    "defaultMessage": "Enter a remote Git, OCI, or ZIP location.",
+    "description": "Validation error for an invalid skill source location"
+  },
   "HLbyGb": {
     "defaultMessage": "Show more",
     "description": "Button text to show more description text for the entity"
+  },
+  "HLtR/C": {
+    "defaultMessage": "Show more",
+    "description": "Expand the SKILL.md preview on a skill page"
   },
   "HNLDYl": {
     "defaultMessage": "Failed to set tag. Error: {userVisibleError}",
@@ -4947,6 +5207,10 @@
     "defaultMessage": "Error",
     "description": "Failed trace status in the trace drawer header"
   },
+  "Hia8kG": {
+    "defaultMessage": "There is no version to resolve.",
+    "description": "Tooltip for a registry entity without any version"
+  },
   "Hj7ob9": {
     "defaultMessage": "Rebuild this invalid view with the assistant and save it to enable renaming.",
     "description": "Tooltip explaining why renaming is disabled for a custom view whose saved definition is unreadable"
@@ -4963,6 +5227,10 @@
     "defaultMessage": "Delete sessions",
     "description": "Delete sessions and all their traces action"
   },
+  "HlU98m": {
+    "defaultMessage": "Version status",
+    "description": "Aria label for changing a skill version status"
+  },
   "HlqAH9": {
     "defaultMessage": "Output type",
     "description": "Section header for judge output type selection"
@@ -4978,6 +5246,10 @@
   "HnSLPT": {
     "defaultMessage": "Add record",
     "description": "Primary button text for adding a new dataset record on the V2 dataset records page"
+  },
+  "HoCtWl": {
+    "defaultMessage": "Are you sure you want to delete {name} and all of its versions? This action cannot be undone.",
+    "description": "Confirmation for hard-deleting a skill and its versions"
   },
   "Hq/PKm": {
     "defaultMessage": "Enter a model identifier (e.g., openai:/gpt-4.1-mini). Scorers using direct models must configure API keys in your local environment.",
@@ -5003,13 +5275,13 @@
     "defaultMessage": "Format",
     "description": "Button that pretty-prints the tool parameters JSON in the playground"
   },
-  "HstzaX": {
-    "defaultMessage": "Only the most recent 100 versions are shown.",
-    "description": "Warning shown when the MCP server has more versions than can be displayed"
-  },
   "Ht3zGx": {
     "defaultMessage": "Hide column",
     "description": "Traces table column header menu item to hide the column"
+  },
+  "HuZ53A": {
+    "defaultMessage": "Skill name",
+    "description": "SKILL.md name field label"
   },
   "Hvznjh": {
     "defaultMessage": "Assistant",
@@ -5042,6 +5314,10 @@
   "I2UqCo": {
     "defaultMessage": "Search registered models",
     "description": "Placeholder text inside model search bar"
+  },
+  "I4g8cH": {
+    "defaultMessage": "Select the directory containing SKILL.md.",
+    "description": "Hint for the skill directory picker"
   },
   "I9bJ/T": {
     "defaultMessage": "Select All",
@@ -5099,6 +5375,10 @@
     "defaultMessage": "{count, plural, one {# question} other {# questions}} selected",
     "description": "Create review queue: questions dropdown selected-count summary"
   },
+  "IG9BAn": {
+    "defaultMessage": "GitHub links don't show where a branch name ends, so this assumes the branch is {ref}. If the branch name contains a slash, correct the branch and path under Advanced settings.",
+    "description": "Warning that a GitHub link's branch and path split is a guess"
+  },
   "IHyeUr": {
     "defaultMessage": "Stage",
     "description": "Label name for stage metadata in model version page"
@@ -5134,6 +5414,10 @@
   "IMkDgM": {
     "defaultMessage": "Experiments",
     "description": "Link label for the experiments page"
+  },
+  "INEEmz": {
+    "defaultMessage": "Couldn't load the files for this version.",
+    "description": "Skill version file list load error"
   },
   "INrdWe": {
     "defaultMessage": "{count, plural, one {1 trace selected} other {# traces selected}}",
@@ -5222,6 +5506,10 @@
   "Ikj6rr": {
     "defaultMessage": "Quick start",
     "description": "Gateway > Endpoints > Compact quick start section label"
+  },
+  "IkzORE": {
+    "defaultMessage": "Edit version status",
+    "description": "Aria label for the skill version status pencil"
   },
   "IlYdrX": {
     "defaultMessage": "Tokens per Trace",
@@ -5355,6 +5643,10 @@
     "defaultMessage": "Record ID",
     "description": "Header for the dataset record id column"
   },
+  "JM08Uq": {
+    "defaultMessage": "Delete version {version}? Its number is retained and never reused, but the version is removed from resolution, discovery and pull, the registry stops returning it, and any alias pointing at it is dropped. This cannot be undone.",
+    "description": "Confirmation for soft-deleting a skill version"
+  },
   "JM3sti": {
     "defaultMessage": "Auto-discover tools",
     "description": "MCP server auto-discover tools button"
@@ -5370,6 +5662,10 @@
   "JNv3nr": {
     "defaultMessage": "Moving average over time",
     "description": "Label for assessment score over time chart"
+  },
+  "JP170S": {
+    "defaultMessage": "Retry",
+    "description": "Retry button for Skill detail load error"
   },
   "JPd7WA": {
     "defaultMessage": "Key must be unique",
@@ -5419,6 +5715,10 @@
     "defaultMessage": "Tools",
     "description": "Filter option for tool support"
   },
+  "Jb73S0": {
+    "defaultMessage": "Description",
+    "description": "Aria label for the skill description"
+  },
   "JcRo6a": {
     "defaultMessage": "User",
     "description": "Column label for user"
@@ -5447,9 +5747,25 @@
     "defaultMessage": "No details for assessment",
     "description": "Evaluation review > assessments > no history"
   },
+  "JjLtKC": {
+    "defaultMessage": "Deprecated",
+    "description": "Skill version status: deprecated"
+  },
+  "JkFprj": {
+    "defaultMessage": "Use",
+    "description": "Button to use a skill from the Skill Registry catalog"
+  },
+  "JlMLaX": {
+    "defaultMessage": "No aliases",
+    "description": "Accessible label for an empty skill alias list"
+  },
   "JmNdE4": {
     "defaultMessage": "required",
     "description": "Text displayed next to a function parameter to indicate that it is required"
+  },
+  "JmgWwh": {
+    "defaultMessage": "Removing aliases requires the Manage permission on this skill.",
+    "description": "Error when a user without delete permission removes skill aliases"
   },
   "JnIbS3": {
     "defaultMessage": "Evaluate all",
@@ -5567,10 +5883,6 @@
     "defaultMessage": "Track every version of your app's code and prompts to understand how quality changes over time. {learnMoreLink}",
     "description": "Empty state description displayed when no models are logged in the genai logged models list page"
   },
-  "KD4sAs": {
-    "defaultMessage": "MCP Registry",
-    "description": "MCP Registry breadcrumb link"
-  },
   "KDxbQI": {
     "defaultMessage": "An error occurred while rendering the trace",
     "description": "Description for default error message in the Trace Explorer UI"
@@ -5582,6 +5894,10 @@
   "KGMbzq": {
     "defaultMessage": "Commit message:",
     "description": "A label for the commit message in the prompt details page"
+  },
+  "KHC1o8": {
+    "defaultMessage": "Files",
+    "description": "Title of a skill version's files section"
   },
   "KIlp8v": {
     "defaultMessage": "No models selected",
@@ -5622,6 +5938,10 @@
   "KRzwkL": {
     "defaultMessage": "Type {itemName} to confirm deletion:",
     "description": "Type to confirm instruction"
+  },
+  "KSLU3H": {
+    "defaultMessage": "Names must be lowercase letters, digits, and single hyphens, as in @my-org/my-skill.",
+    "description": "Validation error for a skill registration name"
   },
   "KSgUAW": {
     "defaultMessage": "Name",
@@ -5695,6 +6015,10 @@
     "defaultMessage": "Turn {turnNumber}",
     "description": "Sequential turn number for a trace within an expanded session"
   },
+  "KnSQrl": {
+    "defaultMessage": "Branch, tag or commit",
+    "description": "Aria label for an optional skill git ref"
+  },
   "KoMa6+": {
     "defaultMessage": "Select visible columns",
     "description": "Aria label for the column-selector dropdown trigger on the V2 dataset records page"
@@ -5767,6 +6091,10 @@
     "defaultMessage": "Runs",
     "description": "Label for the runs tab in the MLflow experiment navbar"
   },
+  "L0a+li": {
+    "defaultMessage": "Path within the source",
+    "description": "Label for an optional skill source subpath"
+  },
   "L12vyN": {
     "defaultMessage": "The following {count, plural, one {endpoint} other {endpoints}} will be deleted:",
     "description": "Gateway > Bulk delete endpoints modal > Description"
@@ -5787,6 +6115,10 @@
     "defaultMessage": "Transport type",
     "description": "Remote transport type label"
   },
+  "L5uIah": {
+    "defaultMessage": "Registering every skill in this repository? Run this instead:",
+    "description": "Pointer from single-skill registration to the repository import command"
+  },
   "L71uzj": {
     "defaultMessage": "Provider",
     "description": "Dimension toggle option for provider"
@@ -5794,6 +6126,10 @@
   "L8czct": {
     "defaultMessage": "Latency Comparison",
     "description": "Title for the tool latency comparison chart"
+  },
+  "L9FKFb": {
+    "defaultMessage": "No versions",
+    "description": "Empty state when a Skill has no versions"
   },
   "LBaK9z": {
     "defaultMessage": "Open dataset",
@@ -5818,6 +6154,10 @@
   "LH14Ea": {
     "defaultMessage": "Continue",
     "description": "Confirm button of the inline assistant API key prompt"
+  },
+  "LI9WuK": {
+    "defaultMessage": "Preview",
+    "description": "Show a markdown file rendered"
   },
   "LIgbTd": {
     "defaultMessage": "Retrieval Relevance",
@@ -5862,6 +6202,10 @@
   "LQVkoY": {
     "defaultMessage": "Select the type of guardrail you want to create.",
     "description": "Step 1 subtitle"
+  },
+  "LR6+ar": {
+    "defaultMessage": "Select a source type",
+    "description": "Placeholder for the skill source type override"
   },
   "LTbwXS": {
     "defaultMessage": "Artifact evaluation",
@@ -6027,9 +6371,17 @@
     "defaultMessage": "Attributes",
     "description": "Experiment tracking > runs charts > cards > RunsChartsDifferenceChartCard > attributes heading"
   },
+  "MC4CQr": {
+    "defaultMessage": "Create skill",
+    "description": "Empty state title for the Skill Registry"
+  },
   "MEbk2j": {
     "defaultMessage": "Source",
     "description": "Trace filter field: source name"
+  },
+  "MFrVJW": {
+    "defaultMessage": "Create skill version",
+    "description": "Title for adding a skill version"
   },
   "MGTSWI": {
     "defaultMessage": "Remove filter",
@@ -6047,6 +6399,10 @@
     "defaultMessage": "Year",
     "description": "Time unit: year"
   },
+  "MHhHib": {
+    "defaultMessage": "branch {ref}",
+    "description": "Git ref in the skill location summary"
+  },
   "MJGFlf": {
     "defaultMessage": "Loading endpoints...",
     "description": "Loading endpoints message"
@@ -6062,6 +6418,14 @@
   "ML7TiJ": {
     "defaultMessage": "Could not save your review: {error}",
     "description": "Review focused view: error toast when saving a review fails"
+  },
+  "MMlQUq": {
+    "defaultMessage": "The name in SKILL.md, \"{name}\", is not a valid skill name. Use lowercase letters, digits, and single hyphens.",
+    "description": "Error when a skill folder's SKILL.md declares an invalid name"
+  },
+  "MN6Mz+": {
+    "defaultMessage": "Icon URL",
+    "description": "Registry icon editor column header for icon URLs"
   },
   "MNCAQh": {
     "defaultMessage": "Calls",
@@ -6106,6 +6470,10 @@
   "MUrZoz": {
     "defaultMessage": "The provider's CLI is not installed on the MLflow server. Install it, or switch to another provider.",
     "description": "Callout shown when the assistant provider CLI is missing"
+  },
+  "MVXvKf": {
+    "defaultMessage": "Create skill",
+    "description": "Title for registering a skill"
   },
   "MX4ypf": {
     "defaultMessage": "Save",
@@ -6179,6 +6547,10 @@
     "defaultMessage": "You cannot evaluate this cell, this run was not created using served LLM model route",
     "description": "Experiment page > artifact compare view > text cell > run not evaluable tooltip"
   },
+  "MiMryr": {
+    "defaultMessage": "No digest was recorded, so pulls aren't checked. This version points at the repository's default branch, so a pull returns whatever it holds at the time.",
+    "description": "Tooltip for a missing digest on a skill version that points at the default Git branch"
+  },
   "Mib3VA": {
     "defaultMessage": "Override saved view",
     "description": "Experiment page Views menu > entry that overwrites the user's saved view with the applied shared view"
@@ -6242,6 +6614,10 @@
   "N/Svk+": {
     "defaultMessage": "Guidelines",
     "description": "LLM template option"
+  },
+  "N/ZudE": {
+    "defaultMessage": "Source",
+    "description": "Label for the skill registration source choice"
   },
   "N/tNrE": {
     "defaultMessage": "Actions",
@@ -6358,6 +6734,10 @@
   "NMZBYc": {
     "defaultMessage": "From server.json: {url}",
     "description": "Tooltip for server.json icon"
+  },
+  "NN/30s": {
+    "defaultMessage": "Create",
+    "description": "Submit button for skill registration"
   },
   "NN0ScV": {
     "defaultMessage": "Comparing {numRuns} Runs from 1 Experiment",
@@ -6535,6 +6915,10 @@
     "defaultMessage": "Create Workspace",
     "description": "Title for create workspace modal"
   },
+  "O/9Cgn": {
+    "defaultMessage": "Copy pull command",
+    "description": "Aria label for copying the Skill pull command"
+  },
   "O1K7/e": {
     "defaultMessage": "Feedback",
     "description": "Review question answer type: feedback"
@@ -6550,6 +6934,10 @@
   "O45Gdv": {
     "defaultMessage": "Showing the first {count} matches — refine your search",
     "description": "Review queue: hint that the owner search results were capped"
+  },
+  "O4EngZ": {
+    "defaultMessage": "Reference URIs:",
+    "description": "Pinned skills URI label for a Skill version"
   },
   "O4KXrW": {
     "defaultMessage": "Enter the retention",
@@ -6655,6 +7043,10 @@
     "defaultMessage": "Show first 20",
     "description": "Menu option for showing only 10 first runs in the experiment view runs compare mode"
   },
+  "OOEQID": {
+    "defaultMessage": "This folder is {size}. The server accepts up to {max} of files.",
+    "description": "Error when a skill folder is larger than the server accepts"
+  },
   "OQOckC": {
     "defaultMessage": "Review queues let your team evaluate trace quality with structured questions. Add traces to a queue from the Traces tab, or create a new queue to get started.",
     "description": "Review queue: empty state description when no queues exist"
@@ -6714,6 +7106,10 @@
   "OeKIA4": {
     "defaultMessage": "Expectations added for a trace",
     "description": "Description for expectations variable"
+  },
+  "OePzrg": {
+    "defaultMessage": "Only the most recent 100 versions are shown.",
+    "description": "Hint when a registry entity has more versions than its detail page lists"
   },
   "OfLABN": {
     "defaultMessage": "Close",
@@ -6775,6 +7171,10 @@
     "defaultMessage": "Attributes",
     "description": "Label for the attributes section of a span link"
   },
+  "Oqyk1X": {
+    "defaultMessage": "Registered at:",
+    "description": "Skill version creation timestamp label"
+  },
   "Ortr1x": {
     "defaultMessage": "<link>Add user feedback</link> to traces so real failures stand out",
     "description": "Suggestion to collect user feedback on traces, with documentation link"
@@ -6819,9 +7219,17 @@
     "defaultMessage": "Workspace Manager",
     "description": "Admin page title shown when the URL is scoped to a single workspace via ?workspace=…"
   },
+  "P1Bmq/": {
+    "defaultMessage": "Search skills",
+    "description": "Placeholder for Skill Registry free-text search"
+  },
   "P31kXd": {
     "defaultMessage": "Cost breakdown",
     "description": "Header for span cost breakdown"
+  },
+  "P4DtIO": {
+    "defaultMessage": "Source",
+    "description": "Aria label for Skill Registry source type filter"
   },
   "P5OG6u": {
     "defaultMessage": "Select field",
@@ -6971,6 +7379,10 @@
     "defaultMessage": "Copy",
     "description": "Copy button tooltip"
   },
+  "PesjF7": {
+    "defaultMessage": "Cancel",
+    "description": "Cancel skill registration"
+  },
   "PewjIJ": {
     "defaultMessage": "GenAI apps & agents",
     "description": "Label for experiments focused on generative AI model development"
@@ -6995,6 +7407,10 @@
     "defaultMessage": "Maximum of {max} sessions can be selected",
     "description": "Tooltip shown when too many sessions are selected"
   },
+  "PoRTL+": {
+    "defaultMessage": "That source type does not match this location.",
+    "description": "Validation error when a skill source type override contradicts the URL"
+  },
   "Potju2": {
     "defaultMessage": "Restore",
     "description": "String for the restore button to undo the experiments that were deleted"
@@ -7002,6 +7418,10 @@
   "PpP8du": {
     "defaultMessage": "Model configuration",
     "description": "Label for model configuration section"
+  },
+  "PqfbSD": {
+    "defaultMessage": "Deprecated",
+    "description": "Skill catalog status label for deprecated"
   },
   "PtjdJS": {
     "defaultMessage": "Graph",
@@ -7063,6 +7483,10 @@
     "defaultMessage": "Add to labeling session",
     "description": "Accessible label for adding a trace to a labeling session"
   },
+  "Q0Rr8J": {
+    "defaultMessage": "Failed to load skill",
+    "description": "Skill detail page error title"
+  },
   "Q0i5xG": {
     "defaultMessage": "Scatter chart",
     "description": "Experiment tracking > runs charts > add chart menu > scatter plot"
@@ -7115,6 +7539,10 @@
     "defaultMessage": "This assessment is the root cause of the overall evaluation failure.",
     "description": "Root cause assessment hint that explains that this assessment is causing the overall assessment to fail."
   },
+  "QEiCO8": {
+    "defaultMessage": "The location, ref, or path is too long.",
+    "description": "Validation error when a skill source field exceeds the length limit"
+  },
   "QGiy9C": {
     "defaultMessage": "About this run",
     "description": "Title for the details/metadata section on the run details page"
@@ -7126,6 +7554,10 @@
   "QHDNHn": {
     "defaultMessage": "You don't have access to this queue.",
     "description": "Review queue sidebar: tooltip for a queue the reviewer cannot open"
+  },
+  "QHMKhB": {
+    "defaultMessage": "Content digest:",
+    "description": "Skill version content digest label"
   },
   "QJ5wvd": {
     "defaultMessage": "Input for the trace",
@@ -7155,10 +7587,6 @@
     "defaultMessage": "Add an option",
     "description": "Categorical options: add-option input placeholder"
   },
-  "QRBRG1": {
-    "defaultMessage": "Preview",
-    "description": "Preview label in MCP server icon editor"
-  },
   "QRnRh3": {
     "defaultMessage": "No experiments found",
     "description": "Label for the empty state in the experiments table when no experiments are found"
@@ -7174,6 +7602,10 @@
   "QUMV9L": {
     "defaultMessage": "On",
     "description": "Runs charts > line chart > display points > on setting label"
+  },
+  "QUpam+": {
+    "defaultMessage": "Key/value metadata stored with the skill. You can edit it later from the skill page.",
+    "description": "Hint for skill registration tags"
   },
   "QWJklp": {
     "defaultMessage": "Connect to {name}",
@@ -7254,6 +7686,10 @@
   "Qr3GVE": {
     "defaultMessage": "Model Training",
     "description": "Feature card title for model training"
+  },
+  "QrY8Lb": {
+    "defaultMessage": "Pinned to this commit, so every pull of this version gets the same content.",
+    "description": "Hint when the skill git ref is a commit SHA"
   },
   "QravWY": {
     "defaultMessage": "Optimize Prompt",
@@ -7403,6 +7839,10 @@
     "defaultMessage": "Scan your traces to surface failure modes, quality regressions, and cost anomalies, then triage and fix them in one place.",
     "description": "Experiment issues tab > Empty state description before detection has been run"
   },
+  "ROlEsm": {
+    "defaultMessage": "Path within the source",
+    "description": "Aria label for an optional skill source subpath"
+  },
   "RP7EUg": {
     "defaultMessage": "Source",
     "description": "Label for the source section of an assessment hover card"
@@ -7426,6 +7866,10 @@
   "RUju4k": {
     "defaultMessage": "Charts",
     "description": "Tooltip for charts page mode toggle in evaluation runs table controls"
+  },
+  "RUqpLa": {
+    "defaultMessage": "Latest version",
+    "description": "Header for the latest version column in the Skill Registry table"
   },
   "RWVGkL": {
     "defaultMessage": "Columns",
@@ -7466,6 +7910,10 @@
   "RekJb/": {
     "defaultMessage": "Account",
     "description": "Sidebar account menu item"
+  },
+  "Rfs/Cv": {
+    "defaultMessage": "No skills found",
+    "description": "Empty state when skill search returns no results"
   },
   "RgVN+O": {
     "defaultMessage": "View all",
@@ -7530,6 +7978,10 @@
   "RtRy6v": {
     "defaultMessage": "Name must start and end with a letter or digit, be less than 63 characters long, and contain only letters, digits, dots (.), underscores (_), and hyphens (-).",
     "description": "Webhook name validation error"
+  },
+  "RvdwBR": {
+    "defaultMessage": "Examples:",
+    "description": "Text header for examples of Skill Registry search syntax"
   },
   "Rwi+VC": {
     "defaultMessage": "avg score",
@@ -7619,6 +8071,10 @@
     "defaultMessage": "e.g. Get the weather in a given location",
     "description": "Placeholder for the tool description input in the playground Tools card"
   },
+  "SGztFX": {
+    "defaultMessage": "Ref: {ref}",
+    "description": "Skill version git ref"
+  },
   "SHoy6d": {
     "defaultMessage": "Open full trace viewer",
     "description": "Link to open the full trace viewer for the endpoint's experiment"
@@ -7679,6 +8135,10 @@
     "defaultMessage": "Description",
     "description": "Header for the description column in the experiments table"
   },
+  "SUbQI6": {
+    "defaultMessage": "Delete",
+    "description": "Confirm button for deleting a skill version"
+  },
   "SUtPqy": {
     "defaultMessage": "Choose any of the following options to set up tracing",
     "description": "Headline for the agent CTA card in the traces empty state"
@@ -7690,10 +8150,6 @@
   "SVXXp4": {
     "defaultMessage": "Input type",
     "description": "Review question input variant selector"
-  },
-  "SW4qfw": {
-    "defaultMessage": "{label} theme",
-    "description": "Preview item theme label"
   },
   "SYa+JC": {
     "defaultMessage": "Select a prompt",
@@ -7842,6 +8298,10 @@
   "T4eipT": {
     "defaultMessage": "Line Smoothness",
     "description": "Label for the smoothness slider for the graph plot for metrics"
+  },
+  "T7b0ai": {
+    "defaultMessage": "Register and catalog skills for your organization.",
+    "description": "Empty state description for an empty Skill Registry"
   },
   "TBX+Gs": {
     "defaultMessage": "Add/Edit tags",
@@ -8003,6 +8463,10 @@
     "defaultMessage": "Name",
     "description": "Create review queue: name field label"
   },
+  "TnTYBs": {
+    "defaultMessage": "Enter a skill name.",
+    "description": "Validation error when skill registration has no name"
+  },
   "Tpj2su": {
     "defaultMessage": "Attributes",
     "description": "Label for the attributes column group in the logged model column selector"
@@ -8083,6 +8547,10 @@
     "defaultMessage": "Next page",
     "description": "Aria label for the next-page button in the traces table pagination"
   },
+  "U2RJuk": {
+    "defaultMessage": "The skill was created, but its tags could not be saved: {reason}",
+    "description": "Error when saving a new skill tags fails after registration"
+  },
   "U2x2cM": {
     "defaultMessage": "Endpoint:",
     "description": "Label for endpoint selection"
@@ -8138,6 +8606,10 @@
   "UIi6pp": {
     "defaultMessage": "Guidelines should not be empty",
     "description": "Tooltip message when guidelines are empty"
+  },
+  "UL8ZGk": {
+    "defaultMessage": "Icons",
+    "description": "Label for the skill icon editor"
   },
   "ULljUX": {
     "defaultMessage": "Filter: {filterString}",
@@ -8223,6 +8695,10 @@
     "defaultMessage": "Transition to",
     "description": "Text for transitioning a model version to a different stage under\n                 dropdown menu in model version page"
   },
+  "UjxgWD": {
+    "defaultMessage": "Aliases:",
+    "description": "Skill version aliases label"
+  },
   "UkVgwL": {
     "defaultMessage": "Create endpoint",
     "description": "Page title for create endpoint"
@@ -8299,6 +8775,10 @@
     "defaultMessage": "View logs for this period",
     "description": "Link text to navigate to gateway endpoint logs tab"
   },
+  "V+wWQJ": {
+    "defaultMessage": "New icon URL",
+    "description": "Registry icon editor label for the URL of an icon being added"
+  },
   "V/EeFG": {
     "defaultMessage": "Flag for review",
     "description": "Assign traces to reviewers via a review queue action"
@@ -8338,10 +8818,6 @@
   "V5cjvM": {
     "defaultMessage": "Copy your MLflow models to another registered model for simple model promotion across environments. For more mature production-grade setups, we recommend setting up automated model training workflows to produce models in controlled environments. <link>Learn more</link>",
     "description": "Model registry > OSS Promote model modal > description paragraph body"
-  },
-  "V5hAI0": {
-    "defaultMessage": "MCP Registry",
-    "description": "MCP Registry page title"
   },
   "V6AwxC": {
     "defaultMessage": "Run judges",
@@ -8391,6 +8867,10 @@
     "defaultMessage": "Latency",
     "description": "Experiment issues tab > Latency category filter option"
   },
+  "VH98/H": {
+    "defaultMessage": "Dark",
+    "description": "Registry icon editor option for a dark mode icon"
+  },
   "VHuRTt": {
     "defaultMessage": "Doc",
     "description": "Label for the document preview in a chunk relevance assessment"
@@ -8439,6 +8919,10 @@
     "defaultMessage": "Compare parameter importance",
     "description": "Experiment page > compare runs > parallel coordinates chart > chart not configured warning > title"
   },
+  "VQL4C0": {
+    "defaultMessage": "Aliases are mutable, named pointers to a specific skill version, referenced as {uri}. The alias latest is reserved and always resolves to the skill's latest version.",
+    "description": "Description for the skill alias editor"
+  },
   "VS9L0H": {
     "defaultMessage": "Add a parameters schema",
     "description": "Inline error shown when a tool parameters editor is empty"
@@ -8450,6 +8934,10 @@
   "VTNUPu": {
     "defaultMessage": "Automatic evaluation is not available for judges that use expectations.",
     "description": "Hint text explaining why automatic evaluation is disabled for judges with expectations"
+  },
+  "VTQzhu": {
+    "defaultMessage": "Up to {max} of files.",
+    "description": "Hint for the server's size limit of an uploaded skill folder"
   },
   "VTT91L": {
     "defaultMessage": "No versions",
@@ -8474,6 +8962,10 @@
   "VXduJD": {
     "defaultMessage": "The provided value is not valid JSON",
     "description": "Error message for invalid JSON in an assessment creation form"
+  },
+  "VYEXZx": {
+    "defaultMessage": "All sources",
+    "description": "Skill catalog source filter option for any source"
   },
   "VYfxMp": {
     "defaultMessage": "{hours}h ago",
@@ -8567,9 +9059,17 @@
     "defaultMessage": "Select at least one question. A queue with no questions can't be reviewed.",
     "description": "Queue settings: validation shown when no questions are selected"
   },
+  "VuCIj8": {
+    "defaultMessage": "Couldn't check whether this name is already registered: {reason} Try again.",
+    "description": "Error when the skill name availability check fails before registration"
+  },
   "VuoTZe": {
     "defaultMessage": "Cancel run",
     "description": "Confirm button that cancels the issue detection run"
+  },
+  "VuqpXo": {
+    "defaultMessage": "AI Registry",
+    "description": "Sidebar label for the AI Registry section"
   },
   "Vvs+79": {
     "defaultMessage": "Low",
@@ -8626,6 +9126,10 @@
   "W8A4OF": {
     "defaultMessage": "Configure OpenTelemetry export",
     "description": "Step 1 title for OpenTelemetry traces onboarding"
+  },
+  "W8Q4ks": {
+    "defaultMessage": "Type text to search skill names and descriptions. To search by tags or by names and tags,{newline}use a simplified version of the SQL {whereBold} clause.",
+    "description": "Tooltip explaining how to search skills in the registry"
   },
   "W8bOkn": {
     "defaultMessage": "250",
@@ -8723,6 +9227,10 @@
     "defaultMessage": "Cancel",
     "description": "A label for the cancel button in the prompt creation modal in the prompt management UI"
   },
+  "WPKWsJ": {
+    "defaultMessage": "Fetches the content from its source into {destination}, where the agent looks for skills.",
+    "description": "Hint under the Skill pull command explaining the install destination"
+  },
   "WPV4fF": {
     "defaultMessage": "Relevance",
     "description": "Experiment issues tab > Relevance category filter option"
@@ -8794,6 +9302,10 @@
   "Wig7z4": {
     "defaultMessage": "Trace ID",
     "description": "Header for the traces table trace-id column"
+  },
+  "Wio9LS": {
+    "defaultMessage": "New icon theme",
+    "description": "Registry icon editor label for the theme of an icon being added"
   },
   "WlZLz9": {
     "defaultMessage": "Expectations Guidelines",
@@ -8870,6 +9382,10 @@
   "WyO4fq": {
     "defaultMessage": "Flag for review",
     "description": "Button text for assigning a trace to reviewers via a review queue"
+  },
+  "WyQmOr": {
+    "defaultMessage": "Draft",
+    "description": "Skill catalog status label for draft"
   },
   "WybkD9": {
     "defaultMessage": "Review",
@@ -9007,10 +9523,6 @@
     "defaultMessage": "Create prompt version",
     "description": "A header for the create prompt version modal in the prompt management UI"
   },
-  "XN0pQz": {
-    "defaultMessage": "Unavailable",
-    "description": "Label for MCP server that is not active"
-  },
   "XOUsyq": {
     "defaultMessage": "Loading model definitions...",
     "description": "Loading message for model definitions"
@@ -9083,9 +9595,17 @@
     "defaultMessage": "Request error",
     "description": "Error state title displayed in the logged models list page"
   },
+  "XmnFT7": {
+    "defaultMessage": "Opens a third-party site. Check you trust the source before using what it contains.",
+    "description": "Warning shown when a Skill version source links to an external site"
+  },
   "Xn0LxG": {
     "defaultMessage": "Direct access to Anthropic's Messages API with Claude-specific features.",
     "description": "Anthropic passthrough description"
+  },
+  "XnqmX2": {
+    "defaultMessage": "Raw",
+    "description": "Show a markdown file as raw text"
   },
   "Xo3L6r": {
     "defaultMessage": "Analyze evaluation run with Assistant",
@@ -9098,10 +9618,6 @@
   "XpiGwc": {
     "defaultMessage": "Select a queue to get started",
     "description": "Review queue: empty state title when no queue selected"
-  },
-  "XpksEQ": {
-    "defaultMessage": "Icon URL",
-    "description": "Column header for icon URL"
   },
   "Xs1oJm": {
     "defaultMessage": "Search metric charts",
@@ -9199,6 +9715,10 @@
     "defaultMessage": "Endpoint name is required",
     "description": "Error message when endpoint name is empty"
   },
+  "Y763zC": {
+    "defaultMessage": "Active",
+    "description": "Filter toggle for skills with an active latest version"
+  },
   "Y7DzTT": {
     "defaultMessage": "Input",
     "description": "Label for the input tokens in the tooltip for the tokens cell."
@@ -9266,6 +9786,10 @@
   "YQ+Eon": {
     "defaultMessage": "Register model",
     "description": "Button text to register the model for deployment"
+  },
+  "YQrlk4": {
+    "defaultMessage": "Your browser reads the folder and uploads it. MLflow stores the content.",
+    "description": "Explanation of the local skill folder upload flow"
   },
   "YRBURU": {
     "defaultMessage": "Sort: {sortBy}",
@@ -9655,6 +10179,10 @@
     "defaultMessage": "Users",
     "description": "Admin users tab"
   },
+  "Zzuohs": {
+    "defaultMessage": "Pinned version: v{version}",
+    "description": "Pinned Skill version shown in the use-skill modal"
+  },
   "a02Pn6": {
     "defaultMessage": "Step",
     "description": "Run page > Charts tab > Chart tooltip > Step label"
@@ -9807,6 +10335,10 @@
     "defaultMessage": "Default",
     "description": "Display name shown for the reserved no-auth default review user"
   },
+  "aXUNZM": {
+    "defaultMessage": "Active",
+    "description": "Skill version status: active"
+  },
   "aXw0NO": {
     "defaultMessage": "Please select metric",
     "description": "Placeholder text where one can select metrics from the list of available metrics to render on the graph"
@@ -9831,9 +10363,17 @@
     "defaultMessage": "No results",
     "description": "Experiment page > group by runs control > no results after filtering by search query"
   },
+  "ab/eEU": {
+    "defaultMessage": "All organizations",
+    "description": "Placeholder for Skill Registry organization typeahead when no organization is selected"
+  },
   "abIH3b": {
     "defaultMessage": "All providers",
     "description": "Label for selector when all providers are selected"
+  },
+  "acLHXI": {
+    "defaultMessage": "Theme",
+    "description": "Registry icon editor column header for icon themes"
   },
   "adOmg9": {
     "defaultMessage": "Add more traces for broader coverage",
@@ -9871,10 +10411,6 @@
     "defaultMessage": "Irrelevant",
     "description": "Evaluation results > retrieval relevancy assessment > negative value label. Displayed if evaluation result is considered as irrelevant to the query."
   },
-  "alHtT0": {
-    "defaultMessage": "Set the server status to active to make it available",
-    "description": "Tooltip for unavailable label on MCP server detail page"
-  },
   "an4yfn": {
     "defaultMessage": "Your changes will be lost if you leave this panel without saving.",
     "description": "Body text for the discard-unsaved-changes prompt on the dataset record side panel"
@@ -9898,6 +10434,10 @@
   "au61Yy": {
     "defaultMessage": "Maximum",
     "description": "Experiment page > group by runs control > maximum aggregate function"
+  },
+  "au96GU": {
+    "defaultMessage": "Save",
+    "description": "Save skill presentation edits"
   },
   "aw59+I": {
     "defaultMessage": "Sanitize",
@@ -9935,6 +10475,10 @@
     "defaultMessage": "A cleared answer can't be saved. Enter a value for each question, or keep the previous answer.",
     "description": "Review focused view: shown when a previously-answered question is cleared, which can't be saved"
   },
+  "b1smv4": {
+    "defaultMessage": "This folder has {count} files. The server accepts up to {max}.",
+    "description": "Error when a skill folder has more files than the server accepts"
+  },
   "b1yfI9": {
     "defaultMessage": "Run details",
     "description": "Run page > Overview > Run details section heading"
@@ -9942,6 +10486,10 @@
   "b3AmzB": {
     "defaultMessage": "Select an MCP server",
     "description": "MCP registry endpoint modal server placeholder"
+  },
+  "b3OdDc": {
+    "defaultMessage": "Organization names must be lowercase letters, digits, hyphens, and periods.",
+    "description": "Validation error for a skill registration organization"
   },
   "b5Aw4a": {
     "defaultMessage": "Delete{count, select, 0 {} other { ({count})}}",
@@ -9954,6 +10502,10 @@
   "b7OpMB": {
     "defaultMessage": "Data Type",
     "description": "Field label for assessment data type in an edit form"
+  },
+  "b7Ur1m": {
+    "defaultMessage": "Copy register command",
+    "description": "Aria label for copying the skill registration API example"
   },
   "b9zfzK": {
     "defaultMessage": "Edit the request body below and click Send request to call the endpoint.",
@@ -10183,6 +10735,10 @@
     "defaultMessage": "Create an evaluation dataset",
     "description": "Evaluation datasets empty state title"
   },
+  "c2Gj7n": {
+    "defaultMessage": "Value",
+    "description": "Aria label for a skill tag value"
+  },
   "c3BXHk": {
     "defaultMessage": "Execution",
     "description": "Experiment issues tab > Execution category filter option"
@@ -10234,10 +10790,6 @@
   "cC4HC1": {
     "defaultMessage": "Pre-built LLM-as-a-judge ({templateCount})",
     "description": "Label for the pre-built LLM-as-a-judge filter pill in the run evaluation modal"
-  },
-  "cCMnlB": {
-    "defaultMessage": "Dark",
-    "description": "Dark mode icon option"
   },
   "cEj56l": {
     "defaultMessage": "Step",
@@ -10310,6 +10862,10 @@
   "cNkqxA": {
     "defaultMessage": "API key",
     "description": "Label for API key selector"
+  },
+  "cOVXpA": {
+    "defaultMessage": "No version is active, so this resolves to version {version}. Make a version active to recommend it.",
+    "description": "Tooltip for a registry entity whose latest version is not active"
   },
   "cQQnzX": {
     "defaultMessage": "Hide assessments",
@@ -10447,10 +11003,6 @@
     "defaultMessage": "Remove {value} from {dimension} filter",
     "description": "Experiment issues tab > Accessible label for removing one selected value from a filter"
   },
-  "d/dx+q": {
-    "defaultMessage": "Add icon",
-    "description": "Aria label for add icon button in MCP server icon editor"
-  },
   "d00egE": {
     "defaultMessage": "No span with type RETRIEVER found in trace.",
     "description": "GenAi Traces Table > Modal > Message displayed when no retrievals are found"
@@ -10475,6 +11027,10 @@
     "defaultMessage": "Reopen review",
     "description": "Evaluation review > assessments > reopen review tooltip"
   },
+  "d4GFDp": {
+    "defaultMessage": "Filled in from the source. Edit it to rename the skill or change its organization.",
+    "description": "Hint when the skill registration name was suggested from the source"
+  },
   "d4foU0": {
     "defaultMessage": "Learn more about configuring judges",
     "description": "Link text for configuring judges documentation"
@@ -10486,6 +11042,10 @@
   "d6Mx+/": {
     "defaultMessage": "Current password is required",
     "description": "Validation error when the current-password field is empty"
+  },
+  "d6Yz2I": {
+    "defaultMessage": "Location",
+    "description": "Label for the skill registration source URL"
   },
   "d72zLS": {
     "defaultMessage": "Toggle session grouping",
@@ -10627,6 +11187,10 @@
     "defaultMessage": "Flag for review",
     "description": "Bulk action that assigns the selected traces to a review queue"
   },
+  "dkv7sq": {
+    "defaultMessage": "Beta",
+    "description": "Skill Registry beta feature tag"
+  },
   "dkw8bG": {
     "defaultMessage": "Deny",
     "description": "Button to deny a tool-call permission request"
@@ -10670,6 +11234,10 @@
   "dt3hj5": {
     "defaultMessage": "Add tags",
     "description": "Run page > Overview > Tags cell > 'Add' button label"
+  },
+  "duock9": {
+    "defaultMessage": "Details",
+    "description": "Title of a skill version's metadata section"
   },
   "dvL+4V": {
     "defaultMessage": "Automatically log traces for LangGraph workflows by calling the {code} function. For example:",
@@ -10730,6 +11298,10 @@
   "e5r+Np": {
     "defaultMessage": "The SQL query timed out. Please retry, and if the problem persists, try selecting a larger SQL warehouse.",
     "description": "V4 traces > SQL warehouse timeout error description with CTA to select a larger warehouse"
+  },
+  "e67EDw": {
+    "defaultMessage": "Content stays where it is. Clients fetch it with their own credentials.",
+    "description": "Explanation of pointer-only skill registration"
   },
   "e6reUn": {
     "defaultMessage": "Failed",
@@ -10834,6 +11406,10 @@
   "eQsXm7": {
     "defaultMessage": "Last 7 days",
     "description": "Option for the start select dropdown to filter runs from the last 7 days"
+  },
+  "eSDaY2": {
+    "defaultMessage": "Up to 25 MB of files, unless your server sets a different limit.",
+    "description": "Hint for the default size limit of an uploaded skill folder"
   },
   "eSVff7": {
     "defaultMessage": "Span name",
@@ -10979,6 +11555,10 @@
     "defaultMessage": "Created:",
     "description": "Label for created date"
   },
+  "evp+Dn": {
+    "defaultMessage": "Read more",
+    "description": "Expands a long skill description"
+  },
   "ew8ReB": {
     "defaultMessage": "Max Input Tokens",
     "description": "Table header for max input tokens"
@@ -10990,6 +11570,10 @@
   "ez06Dt": {
     "defaultMessage": "No images found",
     "description": "Title for the empty state when no images are found in the currently visible runs"
+  },
+  "f+SL+E": {
+    "defaultMessage": "Add tag",
+    "description": "Aria label for adding a skill tag"
   },
   "f+fpq2": {
     "defaultMessage": "Tag",
@@ -11259,6 +11843,10 @@
     "defaultMessage": "Does the response follow the provided guidelines?",
     "description": "Hint for Guidelines template"
   },
+  "g+Wj/d": {
+    "defaultMessage": "The skill was created, but its description or icons could not be saved: {reason}",
+    "description": "Error when saving new skill presentation fails after registration"
+  },
   "g+YDB/": {
     "defaultMessage": "Group by",
     "description": "Label for the grouping selector button in the logged model list page when no grouping is selected"
@@ -11334,10 +11922,6 @@
   "gCQwvN": {
     "defaultMessage": "Delete",
     "description": "Manage review questions: confirm delete"
-  },
-  "gDwgKT": {
-    "defaultMessage": "Image failed to load",
-    "description": "Error message when icon URL fails to load in preview"
   },
   "gEKaYI": {
     "defaultMessage": "Use the MLflow Python client to register an MCP server from a URL:",
@@ -11519,6 +12103,10 @@
     "defaultMessage": "The SQL query timed out. Please retry, and if the problem persists, try selecting a larger SQL warehouse.",
     "description": "Traces empty state > SQL warehouse timeout error description with CTA to select larger warehouse"
   },
+  "gjfRjy": {
+    "defaultMessage": "Name",
+    "description": "Header for the name column in the Skill Registry table"
+  },
   "gkGvc6": {
     "defaultMessage": "Add a new question, or click a question to edit it.",
     "description": "Manage review questions: explanatory hint"
@@ -11599,6 +12187,10 @@
     "defaultMessage": "Automatically log traces for DSPy executions by calling the {code} function. For example:",
     "description": "Description of how to log traces for the DSPy package using MLflow autologging. This message is followed by a code example."
   },
+  "h1OKWL": {
+    "defaultMessage": "Import from existing source, e.g. Git, OCI",
+    "description": "Skill registration option for a remote source pointer"
+  },
   "h1VO0z": {
     "defaultMessage": "Failed to remove one or more guardrails. Please try again.",
     "description": "Error when bulk guardrail removal fails"
@@ -11634,6 +12226,10 @@
   "h5Dryo": {
     "defaultMessage": "Resource",
     "description": "Permissions table column header for the resource"
+  },
+  "h6q5Al": {
+    "defaultMessage": "If this is a branch, pulls of this version get whatever it points to then. Use a tag or commit SHA to pin the content.",
+    "description": "Hint when the skill git ref may be a moving branch"
   },
   "h9x9X7": {
     "defaultMessage": "Time range",
@@ -11947,6 +12543,10 @@
     "defaultMessage": "Delete",
     "description": "Confirm button for deleting a saved experiment view"
   },
+  "i82Hjx": {
+    "defaultMessage": "Skills",
+    "description": "Sidebar link for skills tab"
+  },
   "i8n8uH": {
     "defaultMessage": "Filter issues",
     "description": "Experiment issues tab > Accessible label for the filter toolbar button"
@@ -12054,6 +12654,10 @@
   "iUTr0e": {
     "defaultMessage": "{tagCount, plural, one {1 tag} other {# tags}}",
     "description": "Compact trace tags count in the trace details header"
+  },
+  "iVNBVv": {
+    "defaultMessage": "Source",
+    "description": "Header for the latest-resolved source type column in the Skill Registry table"
   },
   "iVeCOa": {
     "defaultMessage": "My webhook",
@@ -12199,6 +12803,10 @@
     "defaultMessage": "Cancel",
     "description": "Cancel button text to cancel the flow to register the model"
   },
+  "iz9koK": {
+    "defaultMessage": "Copy file contents",
+    "description": "Aria label for copying a skill file preview"
+  },
   "izKjfs": {
     "defaultMessage": "No resource permissions to show.",
     "description": "Empty-state description for the permissions table"
@@ -12323,9 +12931,17 @@
     "defaultMessage": "Step",
     "description": "Header title for the step column in the logged model list table. Step indicates the run step where the model was logged."
   },
+  "jPK/xS": {
+    "defaultMessage": "Edit version tags",
+    "description": "Aria label for editing skill version tags"
+  },
   "jPW0Lj": {
     "defaultMessage": "Groundedness assessment is missing. This is likely because your agent is not returning retrieved_context.",
     "description": "Evaluation results > known type of evaluation result assessment > groundedness assessment. Used to indicate if the result is grounded in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Groundedness: moderately grounded\""
+  },
+  "jQRGII": {
+    "defaultMessage": "Tags",
+    "description": "Label for skill tags saved after registration"
   },
   "jR08Zd": {
     "defaultMessage": "This judge template is not yet supported for sample judge output",
@@ -12354,6 +12970,10 @@
   "jW3Cwp": {
     "defaultMessage": "User",
     "description": "Trace filter field: user"
+  },
+  "jW4jRl": {
+    "defaultMessage": "Image failed to load",
+    "description": "Registry icon editor error when an icon URL fails to load in the preview"
   },
   "jXfgov": {
     "defaultMessage": "All runs are hidden. Select at least one run to view charts.",
@@ -12419,9 +13039,21 @@
     "defaultMessage": "Unpin group",
     "description": "A tooltip for the pin icon button in the runs table next to the pinned run group"
   },
+  "jl47SF": {
+    "defaultMessage": "New versions can be Active or Draft.",
+    "description": "Validation error when a new skill version status is not active or draft"
+  },
   "jlGW/p": {
     "defaultMessage": "Linked span",
     "description": "Label for the span referenced by a same-trace span link"
+  },
+  "jmQK7U": {
+    "defaultMessage": "Ref is only used for Git sources.",
+    "description": "Validation error when a skill ref is set for a non-Git source"
+  },
+  "jnbWGa": {
+    "defaultMessage": "Path: {path}",
+    "description": "Skill version source subpath"
   },
   "jo4LfR": {
     "defaultMessage": "Pending",
@@ -12446,6 +13078,10 @@
   "js4/Y8": {
     "defaultMessage": "You can also <link>register it to the model registry</link> to version control",
     "description": "Sub text to tell the users where one can go to register the model artifact"
+  },
+  "jueuhC": {
+    "defaultMessage": "This file is stored but too large to preview here. Pull the skill to read it.",
+    "description": "Skill file preview message for a large file"
   },
   "jwALGI": {
     "defaultMessage": "Cancel",
@@ -12623,13 +13259,17 @@
     "defaultMessage": "Test succeeded (HTTP {status})",
     "description": "Message informing the user that the webhook test succeeded"
   },
+  "kRwhg1": {
+    "defaultMessage": "Choose a source type in Advanced settings. The location is not a Git, OCI, or ZIP URL.",
+    "description": "Validation error when a skill source type cannot be inferred"
+  },
+  "kSC6Nl": {
+    "defaultMessage": "Enter a valid URL",
+    "description": "Registry icon editor error for an empty icon URL"
+  },
   "kSrJQC": {
     "defaultMessage": "Agent responds within acceptable time bounds",
     "description": "Issue category description for latency"
-  },
-  "kSuq8Q": {
-    "defaultMessage": "Any",
-    "description": "Theme-agnostic icon option"
   },
   "kTkJkb": {
     "defaultMessage": "Parallel coordinates chart does not support aggregated string values. Use other parameters or disable run grouping to continue.",
@@ -12650,6 +13290,10 @@
   "kWUhea": {
     "defaultMessage": "Params",
     "description": "Label for 'params' option group in the compare runs chart configure modal"
+  },
+  "kYnTgg": {
+    "defaultMessage": "Delete version",
+    "description": "Title for confirming skill version deletion"
   },
   "kZaBMS": {
     "defaultMessage": "trace.status = 'OK'",
@@ -12710,6 +13354,10 @@
   "knJfuf": {
     "defaultMessage": "Learn more about the AI Gateway in the {gatewayDocs}.",
     "description": "AI Gateway setup guide > Documentation link"
+  },
+  "kqXT2V": {
+    "defaultMessage": "Description",
+    "description": "SKILL.md description field label"
   },
   "krNsnQ": {
     "defaultMessage": "Trace name",
@@ -12863,6 +13511,10 @@
     "defaultMessage": "No matching data found for the available runs.",
     "description": "Experiment tracking > runs charts > parallel coordinates chart preview > no data found description"
   },
+  "lVtl/C": {
+    "defaultMessage": "Copy SKILL.md",
+    "description": "Aria label for copying the SKILL.md preview on a skill page"
+  },
   "lY4pBq": {
     "defaultMessage": "Delete \"{name}\"? This can't be undone.",
     "description": "Body of the confirmation dialog for deleting a saved experiment view"
@@ -12874,6 +13526,10 @@
   "lbKQH6": {
     "defaultMessage": "Trace name",
     "description": "Header for the traces table trace-name column"
+  },
+  "lbKTmC": {
+    "defaultMessage": "← Back to form",
+    "description": "Return from the skill API example to the form"
   },
   "ld2Xn9": {
     "defaultMessage": "Compare",
@@ -12947,6 +13603,10 @@
     "defaultMessage": "Guidelines",
     "description": "Evaluation results > known type of evaluation result assessment > guidelines assessment. Used to indicate if the result adheres to the guidelines in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Guidelines: moderate\""
   },
+  "lsnwFv": {
+    "defaultMessage": "You do not have permission to view skills.",
+    "description": "Description for Skill Registry permission-denied state"
+  },
   "ltqNpe": {
     "defaultMessage": "Creation time",
     "description": "Label for the creation time column in the logged model list page"
@@ -12970,6 +13630,14 @@
   "lzW28v": {
     "defaultMessage": "Metadata",
     "description": "Section label for metadata columns in the traces table column selector"
+  },
+  "m/gY3l": {
+    "defaultMessage": "Viewing version {version}",
+    "description": "Skill version detail heading"
+  },
+  "m/lqp9": {
+    "defaultMessage": "Defaults to the repository's default branch. A branch keeps moving, so pulls of this version get whatever it points to then. Use a tag or commit SHA to pin the content.",
+    "description": "Hint for an empty skill git ref field"
   },
   "m1Nb7W": {
     "defaultMessage": "Save",
@@ -12998,6 +13666,10 @@
   "m9iKMJ": {
     "defaultMessage": "Choose a saved view from the menu to render it for this trace.",
     "description": "Empty-state description prompting the user to pick a saved custom view"
+  },
+  "mAedgL": {
+    "defaultMessage": "Delete version",
+    "description": "Button that soft-deletes the selected skill version"
   },
   "mBgoBC": {
     "defaultMessage": "Frequency penalty",
@@ -13111,6 +13783,14 @@
     "defaultMessage": "The Overview tab requires a SQL-based tracking store for full functionality, file-based backend is not supported.",
     "description": "Warning banner shown on the Overview tab when using FileStore backend"
   },
+  "mZMiwJ": {
+    "defaultMessage": "default",
+    "description": "Registry icon editor tooltip for a preview showing the default icon"
+  },
+  "mZeFOg": {
+    "defaultMessage": "Add/Edit alias for skill version {version}",
+    "description": "Title for editing aliases on a skill version"
+  },
   "mZtok7": {
     "defaultMessage": "Linked prompts",
     "description": "Label for the linked prompts view tab in the model trace explorer"
@@ -13151,6 +13831,10 @@
     "defaultMessage": "This experiment has reached the maximum of {max} saved views. Delete a view before saving a new one.",
     "description": "Message shown in the save-traces-view modal when the experiment has reached the saved-view cap"
   },
+  "mlgMyF": {
+    "defaultMessage": "AI Registry",
+    "description": "Sidebar link for the AI Registry section"
+  },
   "mltH0e": {
     "defaultMessage": "Show assessments",
     "description": "Label for the button to show the assessments pane"
@@ -13166,6 +13850,10 @@
   "mmz4aA": {
     "defaultMessage": "Delete {numRuns, plural, =1 {1 run} other {# runs}}",
     "description": "Delete evaluation runs modal title"
+  },
+  "mnSCXo": {
+    "defaultMessage": "Versions",
+    "description": "Header for the version column in the Skill versions table"
   },
   "mo1su3": {
     "defaultMessage": "Provider",
@@ -13271,6 +13959,10 @@
     "defaultMessage": "Edit history",
     "description": "Title of a modal that shows the edit history of an assessment"
   },
+  "n6knMc": {
+    "defaultMessage": "Preview",
+    "description": "Registry icon editor label for the icon previews"
+  },
   "n7MxV7": {
     "defaultMessage": "Use multiple models for load balancing by splitting traffic with weights",
     "description": "Gateway > Endpoint details > Description for adding more primary models"
@@ -13278,6 +13970,10 @@
   "nAJlQl": {
     "defaultMessage": "Deprecated",
     "description": "Deprecated status option in create MCP server modal"
+  },
+  "nAZXwf": {
+    "defaultMessage": "Show less",
+    "description": "Collapses a long skill description"
   },
   "nAhHpm": {
     "defaultMessage": "Cancel",
@@ -13290,6 +13986,10 @@
   "nC54Nf": {
     "defaultMessage": "Tags",
     "description": "Column title for model tags in the registered model page"
+  },
+  "nDUe0U": {
+    "defaultMessage": "Couldn't read SKILL.md. Select the folder again.",
+    "description": "Error when a skill folder's SKILL.md cannot be read from disk"
   },
   "nDVJ/n": {
     "defaultMessage": "Pass",
@@ -13306,6 +14006,14 @@
   "nF10K1": {
     "defaultMessage": "Machine learning",
     "description": "Label for custom experiments focused on machine learning"
+  },
+  "nGK/JU": {
+    "defaultMessage": "create through API →",
+    "description": "Link from skill registration to the API example"
+  },
+  "nH4XMO": {
+    "defaultMessage": "File view",
+    "description": "Aria label for switching a markdown file between rendered and raw text"
   },
   "nH5645": {
     "defaultMessage": "Package arguments",
@@ -13343,10 +14051,6 @@
     "defaultMessage": "https://example.com/webhook",
     "description": "Webhook URL placeholder"
   },
-  "nPKNLt": {
-    "defaultMessage": "Theme",
-    "description": "Column header for icon theme"
-  },
   "nPWZsh": {
     "defaultMessage": "Make sure that at least one experiment run is visible and available to compare",
     "description": "Experiment page > artifact compare view > empty state for no runs selected > subtitle with the hint"
@@ -13374,6 +14078,10 @@
   "nSbbT5": {
     "defaultMessage": "Submit",
     "description": "Review focused view: submit answers and mark the trace complete"
+  },
+  "nVfMhT": {
+    "defaultMessage": "Failed to load this version.",
+    "description": "Skill detail message when the selected version cannot be loaded"
   },
   "nVndit": {
     "defaultMessage": "Registered on {registeredDate}",
@@ -13439,6 +14147,10 @@
     "defaultMessage": "Absolute date and time",
     "description": "A tooltip line chart configuration for the step function of wall time"
   },
+  "nlo8de": {
+    "defaultMessage": "Get started",
+    "description": "Title of the section showing how to use a skill"
+  },
   "nme251": {
     "defaultMessage": "Test failed with no error message",
     "description": "Message informing the user that the webhook test failed with no error message"
@@ -13483,6 +14195,10 @@
     "defaultMessage": "Show less",
     "description": "Button label to collapse conversation messages in model trace explorer"
   },
+  "nupCo/": {
+    "defaultMessage": "Loading SKILL.md...",
+    "description": "Loading state for the SKILL.md preview"
+  },
   "nvjkTA": {
     "defaultMessage": "False",
     "description": "False assessment label"
@@ -13494,6 +14210,10 @@
   "ny+fBZ": {
     "defaultMessage": "Columns",
     "description": "Dropdown text to display columns names that could to be rendered for the experiment runs table"
+  },
+  "nyBqWG": {
+    "defaultMessage": "MCP",
+    "description": "Sidebar link for MCP tab"
   },
   "nyHcAz": {
     "defaultMessage": "MLflow deployment returned the following error: \"{errorMessage}\"",
@@ -13595,6 +14315,10 @@
     "defaultMessage": "Add to dataset",
     "description": "Button text for adding a trace to a dataset"
   },
+  "oLcvO7": {
+    "defaultMessage": "Create skill",
+    "description": "Skill Registry empty state call to action"
+  },
   "oM+XmM": {
     "defaultMessage": "Column options for {column}",
     "description": "Accessible label for the per-column options menu button in the traces table header"
@@ -13606,6 +14330,10 @@
   "oMP6X7": {
     "defaultMessage": "Structured Output",
     "description": "Filter option for structured JSON output support"
+  },
+  "oPNOOz": {
+    "defaultMessage": "MCP",
+    "description": "MCP Registry breadcrumb link"
   },
   "oQO1tC": {
     "defaultMessage": "Enter workspace name",
@@ -13763,6 +14491,10 @@
     "defaultMessage": "Add at least one non-empty message before saving.",
     "description": "Warning shown in the playground save-prompt-version modal when there are no messages to save"
   },
+  "p0PuFZ": {
+    "defaultMessage": "Delete",
+    "description": "Skill detail action that deletes the skill"
+  },
   "p0qzQo": {
     "defaultMessage": "Open",
     "description": "Experiment issues tab > Open (pending) status option"
@@ -13774,6 +14506,10 @@
   "p1H1KR": {
     "defaultMessage": "Last 30 days",
     "description": "Option for the start select dropdown to filter runs from the last 30 days"
+  },
+  "p1lhs7": {
+    "defaultMessage": "Edit skill",
+    "description": "Title for editing a skill's description and icons"
   },
   "p2po2x": {
     "defaultMessage": "Delete prompt",
@@ -13843,9 +14579,21 @@
     "defaultMessage": "Show all parent spans",
     "description": "Trace span filter option"
   },
+  "pGmDzQ": {
+    "defaultMessage": "This skill may have been deleted or the URL may be incorrect.",
+    "description": "Description when a Skill cannot be loaded"
+  },
   "pJ57zV": {
     "defaultMessage": "Link to \"{name}\" copied — anyone with access can open this view.",
     "description": "Confirmation toast shown after copying a saved experiment view share link"
+  },
+  "pKPHyQ": {
+    "defaultMessage": "Permission denied",
+    "description": "Title for Skill Registry permission-denied state"
+  },
+  "pKpwfT": {
+    "defaultMessage": "Delete",
+    "description": "Confirm button for deleting a skill"
   },
   "pMb1cg": {
     "defaultMessage": "Download {contentType} ({size})",
@@ -13975,6 +14723,10 @@
     "defaultMessage": "High",
     "description": "Experiment issues tab > High severity label"
   },
+  "pwko9l": {
+    "defaultMessage": "Try clearing your filters or searching for a different term.",
+    "description": "Empty-search description for the Skill Registry catalog"
+  },
   "pxRaW6": {
     "defaultMessage": "Schema",
     "description": "Label for the playground response_format JSON schema editor"
@@ -14010,6 +14762,10 @@
   "q1okqz": {
     "defaultMessage": "Registry URL",
     "description": "Package registry URL label"
+  },
+  "q8qLrG": {
+    "defaultMessage": "Add icon",
+    "description": "Registry icon editor label for adding an icon"
   },
   "q8rYCQ": {
     "defaultMessage": "Data Type",
@@ -14058,6 +14814,10 @@
   "qGL2Jy": {
     "defaultMessage": "Settings",
     "description": "Title of the playground settings drawer"
+  },
+  "qGal7m": {
+    "defaultMessage": "About the content digest",
+    "description": "Aria label for the skill version content digest info icon"
   },
   "qGqURi": {
     "defaultMessage": "Manage",
@@ -14155,6 +14915,10 @@
     "defaultMessage": "Block",
     "description": "Block action title"
   },
+  "qc+sQc": {
+    "defaultMessage": "No digest was recorded. This version's files are stored in MLflow, so its content does not change.",
+    "description": "Tooltip for a missing digest on an uploaded skill version"
+  },
   "qcO5RW": {
     "defaultMessage": "Select an owner",
     "description": "Review queue: owner dropdown placeholder"
@@ -14182,6 +14946,10 @@
   "qhgn2K": {
     "defaultMessage": ".mcp.json",
     "description": "mcp.json install format label"
+  },
+  "qi3D8L": {
+    "defaultMessage": "SKILL.md needs a name in its frontmatter, as in {example}.",
+    "description": "Error when a skill folder's SKILL.md has no name in its frontmatter"
   },
   "qj+LhB": {
     "defaultMessage": "Name",
@@ -14222,6 +14990,10 @@
   "qwSqlQ": {
     "defaultMessage": "Rationale (optional)",
     "description": "Review question preview free-form rationale placeholder"
+  },
+  "qxjHQW": {
+    "defaultMessage": "Status",
+    "description": "Header for the derived parent status column in the Skill Registry table"
   },
   "qz9XeG": {
     "defaultMessage": "Cancel",
@@ -14275,6 +15047,10 @@
     "defaultMessage": "Try in Browser",
     "description": "Button to open try-it dialog for endpoint"
   },
+  "r2o+RT": {
+    "defaultMessage": "Copy content digest",
+    "description": "Aria label for copying a Skill version content digest"
+  },
   "r2sQnb": {
     "defaultMessage": "Date added",
     "description": "Review queue table: date-added column"
@@ -14310,6 +15086,10 @@
   "r7bY37": {
     "defaultMessage": "Dataset id copied",
     "description": "Tooltip displayed after dataset id was successfully copied to clipboard"
+  },
+  "r7ziwW": {
+    "defaultMessage": "What this skill does and when to use it.",
+    "description": "Placeholder for the skill description editor"
   },
   "r91Gz/": {
     "defaultMessage": "Duplicate",
@@ -14422,6 +15202,10 @@
   "rY00Iw": {
     "defaultMessage": "Add filter",
     "description": "Button to add a new filter in the tags filter popover for experiments page search by tags"
+  },
+  "rYM3s1": {
+    "defaultMessage": "Source:",
+    "description": "Skill version source label"
   },
   "rZyNgx": {
     "defaultMessage": "Violates global guidelines",
@@ -14547,6 +15331,10 @@
     "defaultMessage": "Download as PNG",
     "description": "Experiment page > compare runs tab > chart header > download as PNG option"
   },
+  "s6gWQs": {
+    "defaultMessage": "Copy repository import command",
+    "description": "Aria label for copying the skill repository import command"
+  },
   "s8a93+": {
     "defaultMessage": "Traces",
     "description": "Run details page > tab selector > Traces tab"
@@ -14603,6 +15391,10 @@
     "defaultMessage": "Welcome to MLflow",
     "description": "Home page hero title"
   },
+  "sH/tur": {
+    "defaultMessage": "Draft",
+    "description": "Skill version status: draft"
+  },
   "sHvLH2": {
     "defaultMessage": "Browse all providers →",
     "description": "Gateway > Endpoints > Compact quick start browse all providers link"
@@ -14610,6 +15402,10 @@
   "sIC5K3": {
     "defaultMessage": "Time (relative)",
     "description": "Experiment page > view controls > global settings for line chart view > settings for x-axis > label for setting to use relative time axis in all charts"
+  },
+  "sIEZEN": {
+    "defaultMessage": "No files are stored for this version.",
+    "description": "Empty state for a skill version file list"
   },
   "sIe4Ds": {
     "defaultMessage": "Created:",
@@ -14622,6 +15418,10 @@
   "sKaamx": {
     "defaultMessage": "Sort",
     "description": "Experiment page > sort selector > label for the dropdown button"
+  },
+  "sL7fWy": {
+    "defaultMessage": "Created by:",
+    "description": "Skill version creator label"
   },
   "sLBHQp": {
     "defaultMessage": "Key must be unique",
@@ -14811,6 +15611,10 @@
     "defaultMessage": "Last updated by",
     "description": "Column selector label for the last-updated-by column"
   },
+  "t1v6ox": {
+    "defaultMessage": "Delete skill",
+    "description": "Title for confirming deletion of a skill"
+  },
   "t3mHNt": {
     "defaultMessage": "Errors",
     "description": "Title for the errors chart"
@@ -14951,6 +15755,10 @@
     "defaultMessage": "Delete",
     "description": "Confirm button label on the delete-custom-view modal"
   },
+  "tgR0Io": {
+    "defaultMessage": "Description",
+    "description": "Label for the skill description editor"
+  },
   "tiQptW": {
     "defaultMessage": "Learn more",
     "description": "Link to the documentation page for GenAI evaluation"
@@ -15023,6 +15831,10 @@
     "defaultMessage": "e.g. Hallucination review",
     "description": "Create review queue: name field placeholder"
   },
+  "u2ClJj": {
+    "defaultMessage": "Organization",
+    "description": "Header for the organization column in the Skill Registry table"
+  },
   "u5B9TA": {
     "defaultMessage": "Load prompt",
     "description": "Label for the playground top-bar button that opens the registered prompt picker"
@@ -15050,6 +15862,10 @@
   "uBTAtY": {
     "defaultMessage": "Prompt Template",
     "description": "Experiment page > new run modal > prompt template input label"
+  },
+  "uDwMEr": {
+    "defaultMessage": "Unavailable",
+    "description": "Label for a registry entity without any version"
   },
   "uFM4rv": {
     "defaultMessage": "Digest",
@@ -15102,6 +15918,10 @@
   "uSj3Ta": {
     "defaultMessage": "Breadcrumb",
     "description": "Aria label for the V2 evaluation datasets breadcrumb navigation landmark"
+  },
+  "uVhhMt": {
+    "defaultMessage": "Create skill version",
+    "description": "Button that adds an external-source version to this skill"
   },
   "uW5+ph": {
     "defaultMessage": "Pass the function directly to {evaluate}, just like other predefined or LLM-based judges.",
@@ -15215,6 +16035,10 @@
     "defaultMessage": "Feedback",
     "description": "Label for the feedback section in the assessments pane"
   },
+  "uusQCE": {
+    "defaultMessage": "You do not have permission to view this skill.",
+    "description": "Description for Skill detail permission-denied state"
+  },
   "uw/A3k": {
     "defaultMessage": "Undo",
     "description": "Traces page > shared view > undo button on the override confirmation toast"
@@ -15247,6 +16071,10 @@
     "defaultMessage": "Deleted {count, plural, one {# record} other {# records}}",
     "description": "Success toast after bulk-deleting V2 dataset records"
   },
+  "v5YEGx": {
+    "defaultMessage": "Branch, tag or commit",
+    "description": "Label for an optional skill git ref"
+  },
   "v5gzhw": {
     "defaultMessage": "Runtime arguments",
     "description": "Package runtime arguments label"
@@ -15259,6 +16087,10 @@
     "defaultMessage": "Delete",
     "description": "Bulk-delete button on the roles table (no rows selected)"
   },
+  "vAsKGb": {
+    "defaultMessage": "path {subpath}",
+    "description": "Subpath in the skill location summary"
+  },
   "vBKFgp": {
     "defaultMessage": "X axis",
     "description": "Label for X axis in scatter chart configurator in compare runs chart config modal"
@@ -15266,6 +16098,10 @@
   "vCUglz": {
     "defaultMessage": "Suggested actions",
     "description": "Evaluation review > assessments > suggested actions > title"
+  },
+  "vCZkhL": {
+    "defaultMessage": "The directory holding SKILL.md. Leave blank if it is at the root.",
+    "description": "Hint for the skill source subpath field"
   },
   "vDAb7C": {
     "defaultMessage": "Auto-create experiment",
@@ -15347,6 +16183,14 @@
     "defaultMessage": "Processing",
     "description": "Processing indicator while Assistant is streaming a response"
   },
+  "vWypK7": {
+    "defaultMessage": "Source type",
+    "description": "Label for the skill source type override"
+  },
+  "vZmzdA": {
+    "defaultMessage": "Skills",
+    "description": "Breadcrumb link back to the Skill Registry catalog"
+  },
   "vaJYHp": {
     "defaultMessage": "At least one form field has incorrect value. Please correct and try again.",
     "description": "Generic error message for an invalid form input"
@@ -15366,6 +16210,10 @@
   "vcK5wo": {
     "defaultMessage": "To search by tags or by names and tags, use a simplified version{newline}of the SQL {whereBold} clause.",
     "description": "Tooltip to explain how to search MCP servers in the registry"
+  },
+  "ve0pd3": {
+    "defaultMessage": "No skills yet",
+    "description": "Empty state title for a Skill Registry page"
   },
   "vedifc": {
     "defaultMessage": "Enter API key or select saved key",
@@ -15427,6 +16275,10 @@
     "defaultMessage": "Save version",
     "description": "Confirm-button label on the playground save-prompt-version modal"
   },
+  "vvBDNJ": {
+    "defaultMessage": "Edit tags",
+    "description": "Title for editing skill parent tags"
+  },
   "vwD2zW": {
     "defaultMessage": "Unified APIs",
     "description": "Unified APIs tab title"
@@ -15454,6 +16306,10 @@
   "w/sljb": {
     "defaultMessage": "Sort descending",
     "description": "Label for the sort descending button in the logged model list page"
+  },
+  "w0ZdqD": {
+    "defaultMessage": "Last modified",
+    "description": "Header for the last modified column in the Skill Registry table"
   },
   "w2+rkp": {
     "defaultMessage": "Search metrics",
@@ -15490,6 +16346,10 @@
   "wBFfWW": {
     "defaultMessage": "Register",
     "description": "Register button text to register the model"
+  },
+  "wBH0qi": {
+    "defaultMessage": "CLI",
+    "description": "CLI example for skill registration"
   },
   "wCaDws": {
     "defaultMessage": "Default",
@@ -15535,6 +16395,10 @@
     "defaultMessage": "Provider",
     "description": "Label for model provider input"
   },
+  "wJddJO": {
+    "defaultMessage": "Light",
+    "description": "Registry icon editor option for a light mode icon"
+  },
   "wKE2q+": {
     "defaultMessage": "Direct",
     "description": "Source label for a per-resource permission granted directly to the user (not via a role)"
@@ -15559,6 +16423,10 @@
     "defaultMessage": "To search by tags or by names and tags, use a simplified version{newline}of the SQL {whereBold} clause.",
     "description": "Tooltip string to explain how to search models from the model registry table"
   },
+  "wMsymM": {
+    "defaultMessage": "Description",
+    "description": "Label for the skill description saved after registration"
+  },
   "wNHR0W": {
     "defaultMessage": "Aliases",
     "description": "Column title text for model version aliases in model version table"
@@ -15570,6 +16438,10 @@
   "wOupuD": {
     "defaultMessage": "Expected facts for evaluation",
     "description": "Tooltip description for the Expected facts column in the traces table"
+  },
+  "wR9jbK": {
+    "defaultMessage": "Upload a folder",
+    "description": "Skill registration option that uploads a local skill folder"
   },
   "wSIkSJ": {
     "defaultMessage": "Select trace {traceId}",
@@ -15610,6 +16482,10 @@
   "waKoIu": {
     "defaultMessage": "Save",
     "description": "Button that saves the current experiment view as a named view"
+  },
+  "wbIbYX": {
+    "defaultMessage": "Pull version {version} into the folder your coding agent loads skills from.",
+    "description": "Description of the section showing how to use a skill version"
   },
   "wbRVln": {
     "defaultMessage": "Metrics",
@@ -15774,6 +16650,10 @@
   "x90XmL": {
     "defaultMessage": "The model must call at least one tool.",
     "description": "Hint shown under the tool choice selector when Required is selected"
+  },
+  "xAfhMB": {
+    "defaultMessage": "Removes this version from resolution, discovery and pull. Its number is never reused.",
+    "description": "Tooltip for deleting a draft or deprecated skill version"
   },
   "xBAujd": {
     "defaultMessage": "Filters",
@@ -15971,10 +16851,6 @@
     "defaultMessage": "Unhide run",
     "description": "A tooltip for the visibility icon button in the runs table next to the hidden run"
   },
-  "xnBJe0": {
-    "defaultMessage": "Remove icon",
-    "description": "Tooltip for remove icon button in MCP server icon editor"
-  },
   "xnJX7N": {
     "defaultMessage": "Source",
     "description": "Traces table source column name"
@@ -16139,13 +17015,13 @@
     "defaultMessage": "State",
     "description": "Column label for state"
   },
-  "yTtneR": {
-    "defaultMessage": "Enter a valid URL",
-    "description": "Error message when icon URL is empty"
-  },
   "yWRwlk": {
     "defaultMessage": "Traces show you how your LLM calls behave: what they cost, how they perform, and where things go wrong. Get started in a few minutes.",
     "description": "Subtitle for the empty state when no traces are recorded"
+  },
+  "yXMgCt": {
+    "defaultMessage": "Python",
+    "description": "Python format of the skill pull instructions"
   },
   "yYLKl8": {
     "defaultMessage": "Please select at least 1 run to delete",
@@ -16166,6 +17042,10 @@
   "yjerKR": {
     "defaultMessage": "<link>Version {versionNumber}</link>",
     "description": "Link to model version in the model version table"
+  },
+  "ykqsKn": {
+    "defaultMessage": "Retiring this version rather than withdrawing it? Deprecate it instead — a deprecated version still resolves for anything that pins it, so consumers keep working.",
+    "description": "Hint that deprecating a skill version is less disruptive than deleting it"
   },
   "ylLjh0": {
     "defaultMessage": "Opens the MLflow assistant in the browser with a suggested prompt.",
@@ -16263,6 +17143,10 @@
     "defaultMessage": "Discard",
     "description": "Confirm-button text for the discard-unsaved-changes prompt"
   },
+  "z55yPh": {
+    "defaultMessage": "Status",
+    "description": "Aria label for the initial skill version status"
+  },
   "z6K3IC": {
     "defaultMessage": "Create an AI Gateway endpoint in AI Gateway → Endpoints tab to reuse it here",
     "description": "Tooltip suggesting to create an endpoint for reuse"
@@ -16286,6 +17170,10 @@
   "z94r4F": {
     "defaultMessage": "This assessment is produced by a human judge.",
     "description": "Human judge assessment description"
+  },
+  "z9F4ZT": {
+    "defaultMessage": "No digest was recorded, so pulls aren't checked against the content that was registered.",
+    "description": "Tooltip for a missing digest on a skill version"
   },
   "z9UqPZ": {
     "defaultMessage": "Description",
@@ -16474,6 +17362,10 @@
   "znEC5M": {
     "defaultMessage": "Adherence",
     "description": "Issue category title for adherence"
+  },
+  "znpWR2": {
+    "defaultMessage": "The alias latest is reserved. Choose a different name.",
+    "description": "Error when a user tries to set the reserved skill alias latest"
   },
   "zp4MBw": {
     "defaultMessage": "Token count",
