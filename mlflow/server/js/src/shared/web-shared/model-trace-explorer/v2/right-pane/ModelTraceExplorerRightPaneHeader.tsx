@@ -32,6 +32,7 @@ import { AssessmentPaneToggle } from '../assessments-pane/AssessmentPaneToggle';
 import { formatCompactNumber, getSpanTokenUsage, type SpanTokenUsage } from '../ModelTraceTokenUsage.utils';
 import { ModelTraceExplorerLinkedPromptsPopover } from '../../linked-prompts/ModelTraceExplorerLinkedPromptsPopover';
 import { MLFLOW_LINKED_PROMPTS_TAG, parseLinkedPrompts } from '../../linked-prompts/utils';
+import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateContext';
 import { shouldEnableNewEvalRunsUi } from '../../../../../common/utils/FeatureUtils';
 
 export type HeaderTokenUsage = SpanTokenUsage;
@@ -427,6 +428,8 @@ export const ModelTraceExplorerRightPaneHeader = ({
   showAssessmentsToggle: boolean;
 }): React.ReactElement | null => {
   const { theme } = useDesignSystemTheme();
+  const intl = useIntl();
+  const { selectedComparisonNode, selectedNodeComparisonRole: comparisonRole } = useModelTraceExplorerViewState();
   const { experimentId: experimentIdFromParams } = useParams();
   const { experimentId: experimentIdFromContext, rightPaneHeaderActions } = useModelTraceExplorerContext();
   const experimentId = experimentIdFromContext ?? experimentIdFromParams;
@@ -434,6 +437,14 @@ export const ModelTraceExplorerRightPaneHeader = ({
   const hasException = getSpanExceptionCount(activeSpan) > 0;
   const isRootSpan = !activeSpan.parentId;
   const modelName = activeSpan.modelName;
+  const baselineModelName = comparisonRole === 'candidate' ? selectedComparisonNode?.modelName : modelName;
+  const candidateModelName = comparisonRole === 'candidate' ? modelName : selectedComparisonNode?.modelName;
+  const hasComparisonModelName = Boolean(comparisonRole && (baselineModelName || candidateModelName));
+  const comparisonModelNameUnchanged = Boolean(
+    baselineModelName && candidateModelName && baselineModelName === candidateModelName,
+  );
+  const formattedBaselineModelName = baselineModelName ?? '—';
+  const formattedCandidateModelName = candidateModelName ?? '—';
 
   const tokenUsage = useMemo<HeaderTokenUsage | undefined>(() => getSpanTokenUsage(activeSpan), [activeSpan]);
   const cost = activeSpan.cost;
@@ -462,8 +473,10 @@ export const ModelTraceExplorerRightPaneHeader = ({
     isV3ModelTraceInfo(modelTraceInfo) &&
     parseLinkedPrompts(modelTraceInfo.tags?.[MLFLOW_LINKED_PROMPTS_TAG]).length > 0;
 
-  const hasMetadata =
-    modelName || tokenUsage || isTraceCostType(cost) || sessionId || tags.length > 0 || hasLinkedPrompts;
+  const hasSpanMetadata = comparisonRole
+    ? hasComparisonModelName
+    : Boolean(modelName || tokenUsage || isTraceCostType(cost));
+  const hasMetadata = hasSpanMetadata || sessionId || tags.length > 0 || hasLinkedPrompts;
 
   return (
     <div
@@ -546,7 +559,51 @@ export const ModelTraceExplorerRightPaneHeader = ({
               },
             }}
           >
-            {modelName && (
+            {comparisonRole && hasComparisonModelName ? (
+              <MetadataItem
+                tooltip={
+                  comparisonModelNameUnchanged
+                    ? intl.formatMessage(
+                        {
+                          defaultMessage: 'Model: {modelName}',
+                          description: 'Tooltip for an unchanged model name in a trace comparison',
+                        },
+                        { modelName: formattedBaselineModelName },
+                      )
+                    : intl.formatMessage(
+                        {
+                          defaultMessage: 'Model: {baselineModelName} → {candidateModelName}',
+                          description: 'Tooltip for baseline and candidate model names in a trace comparison',
+                        },
+                        {
+                          baselineModelName: formattedBaselineModelName,
+                          candidateModelName: formattedCandidateModelName,
+                        },
+                      )
+                }
+              >
+                <ModelsIcon />
+                {comparisonModelNameUnchanged ? (
+                  <Typography.Text color="secondary" size="sm" title={formattedBaselineModelName}>
+                    {formattedBaselineModelName}
+                  </Typography.Text>
+                ) : (
+                  <span css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.xs, minWidth: 0 }}>
+                    <Typography.Text color="secondary" size="sm" title={formattedBaselineModelName}>
+                      {formattedBaselineModelName}
+                    </Typography.Text>
+                    <span>→</span>
+                    <Typography.Text
+                      size="sm"
+                      title={formattedCandidateModelName}
+                      css={{ '&&': { color: theme.colors.actionLinkDefault } }}
+                    >
+                      {formattedCandidateModelName}
+                    </Typography.Text>
+                  </span>
+                )}
+              </MetadataItem>
+            ) : modelName ? (
               <MetadataItem
                 tooltip={<FormattedMessage defaultMessage="Model" description="Tooltip for span model metadata item" />}
               >
@@ -576,9 +633,9 @@ export const ModelTraceExplorerRightPaneHeader = ({
                   {modelName}
                 </Typography.Text>
               </MetadataItem>
-            )}
-            {tokenUsage && <TokenUsageMetadataItem tokenUsage={tokenUsage} />}
-            {isTraceCostType(cost) && <CostMetadataItem cost={cost} />}
+            ) : null}
+            {!comparisonRole && tokenUsage && <TokenUsageMetadataItem tokenUsage={tokenUsage} />}
+            {!comparisonRole && isTraceCostType(cost) && <CostMetadataItem cost={cost} />}
             {sessionId && <SessionMetadataItem sessionId={sessionId} sessionPageUrl={sessionPageUrl} />}
             <TagsMetadataItem tags={tags} />
             {hasLinkedPrompts && isV3ModelTraceInfo(modelTraceInfo) && (
@@ -586,7 +643,7 @@ export const ModelTraceExplorerRightPaneHeader = ({
             )}
           </div>
         )}
-        {(showAssessmentsToggle || rightPaneHeaderActions) && (
+        {!comparisonRole && (showAssessmentsToggle || rightPaneHeaderActions) && (
           <div
             css={{
               display: 'flex',
