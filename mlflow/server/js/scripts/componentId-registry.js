@@ -1126,6 +1126,12 @@ module.exports = {
   "mlflow.experiment_list_view.tag_filter.trigger": "",
 
   // -- mlflow.experiment_page --
+  "mlflow.experiment_page.breadcrumb.copy_link": "",
+  "mlflow.experiment_page.breadcrumb.experiment": "",
+  "mlflow.experiment_page.breadcrumb.experiment_name_tooltip": "",
+  "mlflow.experiment_page.breadcrumb.experiments": "",
+  "mlflow.experiment_page.breadcrumb.leaf_name_tooltip": "",
+  "mlflow.experiment_page.breadcrumb.tab": "",
   "mlflow.experiment_page.grouped_runs.open_runs_in_new_tab": "",
   "mlflow.experiment_page.mode.artifact": "",
   "mlflow.experiment_page.runs.add_new_tag": "",
