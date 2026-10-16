@@ -65,7 +65,7 @@ jobs:
       url: ${{ fromJSON(steps.issue.outputs.json).html_url }}
       author_association: ${{ fromJSON(steps.issue.outputs.json).author_association }}
       followup: ${{ steps.followup.outputs.json }}
-      payload_schema: ${{ steps.followup.outputs.json != 'null' && 'followup-payload.schema.yml' || 'payload.schema.yml' }}
+      skill: ${{ steps.followup.outputs.json != 'null' && 'triage-followup' || 'triage' }}
       dry_run: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
       # Set the TRIAGE_PR_DISABLED repository Actions variable to "true" to stop opening pull requests.
       pr_enabled: ${{ vars.TRIAGE_PR_DISABLED != 'true' }}
@@ -591,7 +591,7 @@ jobs:
         run: |
           jq .followup "$RUNNER_TEMP/sanitized-issue/sanitized_issue.json" > "$RUNNER_TEMP/followup.json"
           uvx check-jsonschema@0.37.4 \
-            --schemafile .claude/skills/triage/followup.schema.yml "$RUNNER_TEMP/followup.json"
+            --schemafile .github/triage/followup.schema.yml "$RUNNER_TEMP/followup.json"
       # Needs setup-node.
       - name: Install sandbox runtime
         run: |
@@ -768,7 +768,7 @@ jobs:
           AGENT_BROWSER_SCREENSHOT_DIR: /tmp/triage-out/media
           MODEL: ${{ inputs.model || 'databricks-claude-opus-5-5' }}
           ISSUE_PATH: ${{ runner.temp }}/sanitized-issue/sanitized_issue.json
-          ISSUE_TYPE: ${{ needs.label.outputs.type }}
+          TRIAGE_SKILL: ${{ needs.issue.outputs.skill }}
           PR_DISABLED: ${{ needs.issue.outputs.pr_enabled != 'true' }}
           # OpenTelemetry export through the telemetry proxy. Spans need the enhanced telemetry beta;
           # logs carry per-call cost and the final response; metrics carry session counters. The OTEL_LOG_* flags include prompt,
@@ -809,7 +809,7 @@ jobs:
             --print \
             --verbose \
             --output-format stream-json \
-            "/triage $ISSUE_PATH $ISSUE_TYPE /tmp/triage-out" \
+            "/$TRIAGE_SKILL $ISSUE_PATH /tmp/triage-out" \
             | .claude/scripts/stream.sh || { echo "::$token::"; exit 1; }
           echo "::$token::"
       - name: Stage triage report for upload
@@ -894,7 +894,7 @@ jobs:
     permissions:
       issues: write
     env:
-      PAYLOAD_SCHEMA: .claude/skills/triage/${{ needs.label.outputs.type }}/${{ needs.issue.outputs.payload_schema }}
+      PAYLOAD_SCHEMA: .claude/skills/${{ needs.issue.outputs.skill }}/payload.schema.yml
       TRIAGE_NOTICE: |-
         > [!NOTE]
         > [Automated triage](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}). Please verify the findings.
@@ -1049,7 +1049,7 @@ jobs:
       issues: write
       pull-requests: read
     env:
-      PAYLOAD_SCHEMA: .claude/skills/triage/${{ needs.label.outputs.type }}/${{ needs.issue.outputs.payload_schema }}
+      PAYLOAD_SCHEMA: .claude/skills/${{ needs.issue.outputs.skill }}/payload.schema.yml
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

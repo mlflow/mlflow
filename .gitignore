@@ -146,6 +146,7 @@ CLAUDE.local.md
 !.claude/rules/
 !.claude/scripts/
 !.claude/sandbox/
+!.claude/triage/
 !.claude/settings.json
 !.claude/statusline.sh
 
