@@ -24,7 +24,7 @@ properties:
   comment:
     description: |
       Markdown comment for the issue. Fill in this template: replace each `<...>` placeholder,
-      and drop a line or section that has nothing to say, except the verdict and Next steps.
+      and drop a line or section that has nothing to say, except the verdict.
 
       ### Summary
 
