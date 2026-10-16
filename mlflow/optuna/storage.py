@@ -498,16 +498,16 @@ class MlflowStorage(BaseStorage):
             param_distribution = json_to_distribution(distributions_dict[param_name])
             check_distribution_compatibility(param_distribution, distribution)
 
-        # Queue parameter update
+        distributions_dict[param_name] = distribution_to_json(distribution)
+        # Queue the param value and its distribution together so they are flushed in the same
+        # log_batch; otherwise other workers can read the value without its distribution.
         self._queue_batch_operation(
             trial_id,
             params=[Param(param_name, distribution.to_external_repr(param_value_internal))],
-            tags=[RunTag(f"param_internal_val_{param_name}", json.dumps(param_value_internal))],
-        )
-
-        distributions_dict[param_name] = distribution_to_json(distribution)
-        self._queue_batch_operation(
-            trial_id, tags=[RunTag("param_directions", json.dumps(distributions_dict))]
+            tags=[
+                RunTag(f"param_internal_val_{param_name}", json.dumps(param_value_internal)),
+                RunTag("param_directions", json.dumps(distributions_dict)),
+            ],
         )
 
     def get_trial_id_from_study_id_trial_number(self, study_id, trial_number: int) -> int:
