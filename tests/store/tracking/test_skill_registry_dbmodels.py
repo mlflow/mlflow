@@ -11,8 +11,7 @@ from pathlib import Path
 
 import pytest
 import sqlalchemy as sa
-from alembic.migration import MigrationContext
-from alembic.operations import Operations
+from alembic import command
 from sqlalchemy.orm import Session
 
 from mlflow.entities import (
@@ -23,9 +22,7 @@ from mlflow.entities import (
     SkillStatus,
     ZipSource,
 )
-from mlflow.store.db_migrations.versions import (
-    e7d1f4b2a9c6_add_skill_registry_tables as skill_registry_migration,
-)
+from mlflow.store.db.utils import _get_alembic_config
 from mlflow.store.tracking.dbmodels.models import (
     SqlSkill,
     SqlSkillAlias,
@@ -277,15 +274,17 @@ _SKILL_REGISTRY_TABLES = frozenset({
 })
 
 
-def test_migration_downgrade_and_reupgrade(store):
-    # Exercise this revision alone: later migrations may not support downgrade.
-    with store.engine.begin() as connection:
-        original_tables = set(sa.inspect(connection).get_table_names())
-        assert _SKILL_REGISTRY_TABLES <= original_tables
-        with Operations.context(MigrationContext.configure(connection)):
-            skill_registry_migration.downgrade()
-            assert set(sa.inspect(connection).get_table_names()) == (
-                original_tables - _SKILL_REGISTRY_TABLES
-            )
-            skill_registry_migration.upgrade()
-        assert set(sa.inspect(connection).get_table_names()) == original_tables
+def test_migration_downgrade_and_reupgrade(store, db_uri):
+    # Fast SQLite check that the migration downgrades cleanly (the cross-dialect twin
+    # is in tests/db/test_skill_registry_schema.py). db_uri is an isolated, per-test
+    # copy, so downgrading it here does not affect other tests.
+    config = _get_alembic_config(db_uri)
+    assert _SKILL_REGISTRY_TABLES <= set(sa.inspect(store.engine).get_table_names())
+
+    # Downgrade removes exactly this migration's tables (FK-safe drop order).
+    command.downgrade(config, "b7e2c1a4d9f3")
+    assert _SKILL_REGISTRY_TABLES.isdisjoint(set(sa.inspect(store.engine).get_table_names()))
+
+    # Re-upgrade restores them, proving the up/down pair round-trips.
+    command.upgrade(config, "head")
+    assert _SKILL_REGISTRY_TABLES <= set(sa.inspect(store.engine).get_table_names())
