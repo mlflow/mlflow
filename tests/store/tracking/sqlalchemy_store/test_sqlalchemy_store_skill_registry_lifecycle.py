@@ -711,6 +711,24 @@ def test_alias_targets_must_exist_and_must_not_be_deleted(store):
         store.get_skill_version_by_alias("reviewer", "stale")
 
 
+def test_aliases_are_scoped_to_their_organization(store):
+    # Every organization has its own `reviewer` v1, so an alias that ignored the organization
+    # would still find a version.
+    for organization in ("", "acme", "globex"):
+        _seed_skill(store, [(1, SkillStatus.ACTIVE)], organization=organization)
+    store.set_skill_alias("reviewer", "stable", 1, organization="acme")
+
+    for organization in ("", "globex"):
+        with pytest.raises(MlflowException, match="Alias 'stable'") as exc:
+            store.get_skill_version_by_alias("reviewer", "stable", organization=organization)
+        assert exc.value.error_code == "RESOURCE_DOES_NOT_EXIST"
+        with pytest.raises(MlflowException, match="Alias 'stable'"):
+            store.delete_skill_alias("reviewer", "stable", organization=organization)
+
+    found = store.get_skill_version_by_alias("reviewer", "stable", organization="acme")
+    assert (found.organization, found.version) == ("acme", 1)
+
+
 def test_deleting_a_missing_alias_raises(store):
     _seed_skill(store, [(1, SkillStatus.ACTIVE)])
 
