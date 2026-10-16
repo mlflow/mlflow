@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792115995246,
+  "lastUpdate": 1792127622667,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "95551900+AknA13@users.noreply.github.com",
-            "name": "Akshay Anand",
-            "username": "AknA13"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "7e29ca6c54e3d585a41af88def3be1ff95af2f8f",
-          "message": "[Model Registry] Gate UC model-registry client on native `/api/2.1` endpoints (#24517)\n\nSigned-off-by: Akshay Anand <akshay.anand@databricks.com>\nSigned-off-by: B-Step62 <yuki.watanabe@databricks.com>\nCo-authored-by: Akshay Anand <akshay.anand@databricks.com>\nCo-authored-by: Claude <noreply@anthropic.com>\nCo-authored-by: B-Step62 <yuki.watanabe@databricks.com>",
-          "timestamp": "2026-07-21T21:07:20Z",
-          "tree_id": "a89508abcb2223c4cdb8e00fbb55844b8c569a4b",
-          "url": "https://github.com/mlflow/mlflow/commit/7e29ca6c54e3d585a41af88def3be1ff95af2f8f"
-        },
-        "date": 1784668264660,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 42.26233565000186,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 22.834558114285283,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 21.294906841269665,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 23.792032000000535,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 22.397322413791564,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 9.43179199999804,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 8.133615200000577,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "84737625+kriscon-db@users.noreply.github.com",
+            "name": "Kris Concepcion",
+            "username": "kriscon-db"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2e0e0457887bd4560105ca9ad226a2da73c4f6c9",
+          "message": "Move the docker job container into `job_container.py` for reuse by online scoring jobs (#26684)\n\nSigned-off-by: Kris Concepcion <kris.concepcion@databricks.com>\nCo-authored-by: Isaac <no-reply@databricks.com>",
+          "timestamp": "2026-10-16T05:10:22Z",
+          "tree_id": "1277c8ec5baee5d81c1c676346f7c0645f7fb9d5",
+          "url": "https://github.com/mlflow/mlflow/commit/2e0e0457887bd4560105ca9ad226a2da73c4f6c9"
+        },
+        "date": 1792127619545,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 40.9156563499991,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 4.911346418914967,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 4.039612520466761,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 3.845703682541339,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 5.14225166486503,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 4.39213499999726,
             "unit": "ms"
           }
         ]
