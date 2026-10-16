@@ -1,3 +1,4 @@
+import functools
 import json
 import logging
 from typing import Any, AsyncIterator, Iterator
@@ -169,6 +170,22 @@ def _autolog(
         safe_patch(FLAVOR_NAME, AsyncResponses, "parse", async_patched_call)
         safe_patch(FLAVOR_NAME, Responses, "parse", patched_call)
 
+    try:
+        from openai.resources.decisions import AsyncDecisions, Decisions
+    except ImportError:
+        pass
+    else:
+        safe_patch(FLAVOR_NAME, Decisions, "create", patched_call)
+        safe_patch(FLAVOR_NAME, AsyncDecisions, "create", async_patched_call)
+
+
+def _is_decisions_api(task: type) -> bool:
+    try:
+        from openai.resources.decisions import AsyncDecisions, Decisions
+    except ImportError:
+        return False
+    return issubclass(task, (Decisions, AsyncDecisions))
+
 
 def _get_span_type(task: type) -> str:
     from openai.resources.chat.completions import AsyncCompletions as AsyncChatCompletions
@@ -215,6 +232,9 @@ def _get_span_type(task: type) -> str:
         span_type_mapping[AsyncResponses] = SpanType.CHAT_MODEL
     except ImportError:
         pass
+
+    if _is_decisions_api(task):
+        return SpanType.LLM
 
     # Walk the MRO so subclasses (e.g. third-party wrappers like
     # `DatabricksOpenAI`'s `ChatCompletions`) resolve to the right type.
@@ -308,7 +328,9 @@ def _start_span(
     span_type = _get_span_type(instance.__class__)
     # Record input parameters to attributes
     attributes = {k: v for k, v in inputs.items() if k not in ("messages", "input")}
-    if span_type in (SpanType.CHAT_MODEL, SpanType.LLM):
+    if _is_decisions_api(instance.__class__):
+        attributes[SpanAttributeKey.MESSAGE_FORMAT] = "openai_decisions"
+    elif span_type in (SpanType.CHAT_MODEL, SpanType.LLM):
         attributes[SpanAttributeKey.MESSAGE_FORMAT] = "openai"
 
     # If there is an active span, create a child span under it, otherwise create a new trace
@@ -339,12 +361,27 @@ def _end_span_on_success(
 
     result = _try_parse_raw_response(raw_result)
 
+    if isinstance(result, (Stream, AsyncStream)):
+        output = []
+        finished = False
+
+        def _finish_stream(error=None):
+            nonlocal finished
+            if finished:
+                return
+            finished = True
+            if error is not None:
+                _end_span_on_exception(span, error)
+            else:
+                chunk = output[-1] if output else None
+                _process_last_chunk(span, chunk, inputs, output, is_responses_api)
+
+        original_close = result.close
+
     if isinstance(result, Stream):
         # If the output is a stream, we add a hook to store the intermediate chunks
         # and then log the outputs as a single artifact when the stream ends
         def _stream_output_logging_hook(stream: Iterator) -> Iterator:
-            output = []
-            chunk = None
             try:
                 for i, chunk in enumerate(stream):
                     _add_span_event(span, i, chunk)
@@ -353,27 +390,51 @@ def _end_span_on_success(
             except Exception as e:
                 # The SDK raises mid-stream (e.g. an error event from the server). End the
                 # span with an error status, otherwise the trace is never exported.
-                _end_span_on_exception(span, e)
+                _finish_stream(e)
                 raise
-            _process_last_chunk(span, chunk, inputs, output, is_responses_api)
+            finally:
+                _finish_stream()
+
+        @functools.wraps(original_close)
+        def _close():
+            try:
+                close_result = original_close()
+            except BaseException as e:
+                _finish_stream(e)
+                raise
+            _finish_stream()
+            return close_result
 
         result._iterator = _stream_output_logging_hook(result._iterator)
+        result.close = _close
     elif isinstance(result, AsyncStream):
 
         async def _stream_output_logging_hook(stream: AsyncIterator) -> AsyncIterator:
-            output = []
-            chunk = None
             try:
                 async for chunk in stream:
                     _add_span_event(span, len(output), chunk)
                     output.append(chunk)
                     yield chunk
-            except Exception as e:
-                _end_span_on_exception(span, e)
+            except GeneratorExit:
                 raise
-            _process_last_chunk(span, chunk, inputs, output, is_responses_api)
+            except BaseException as e:
+                _finish_stream(e)
+                raise
+            finally:
+                _finish_stream()
+
+        @functools.wraps(original_close)
+        async def _close():
+            try:
+                close_result = await original_close()
+            except BaseException as e:
+                _finish_stream(e)
+                raise
+            _finish_stream()
+            return close_result
 
         result._iterator = _stream_output_logging_hook(result._iterator)
+        result.close = _close
     else:
         try:
             set_span_chat_attributes(span, inputs, result)

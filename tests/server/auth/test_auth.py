@@ -22,6 +22,7 @@ from mlflow import MlflowClient
 from mlflow.entities import Dataset, DatasetInput, InputTag, LoggedModelOutput
 from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.environment_variables import (
+    _MLFLOW_ASSISTANT_DELEGATION_SIGNING_KEY,
     _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN,
     MLFLOW_AUTH_ADMIN_PASSWORD,
     MLFLOW_ENABLE_WORKSPACES,
@@ -38,11 +39,14 @@ from mlflow.protos.databricks_pb2 import (
 )
 from mlflow.server import auth as auth_module
 from mlflow.server.asgi_utils import get_routed_asgi_path
+from mlflow.server.assistant.delegation import mint_delegation_credential
 from mlflow.server.auth import (
     _authenticate_fastapi_request,
+    _authenticate_flask_delegation_token,
     _find_fastapi_response_filter,
     _find_fastapi_validator,
     _re_compile_path,
+    authenticate_fastapi_request_user,
 )
 from mlflow.server.auth.permissions import (
     DENY,
@@ -66,6 +70,9 @@ from mlflow.server.mcp_server_api import (
     search_mcp_servers,
 )
 from mlflow.store.jobs.sqlalchemy_store import SqlAlchemyJobStore
+from mlflow.tracking.request_auth.assistant_delegation_request_auth_provider import (
+    ASSISTANT_DELEGATION_HEADER,
+)
 from mlflow.utils import workspace_context
 from mlflow.utils.os import is_windows
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
@@ -412,41 +419,51 @@ def test_proxy_artifact_mpu_path_detection():
 
 def test_extract_experiment_id_from_artifact_proxy_path():
     assert (
-        auth_module._extract_experiment_id_from_artifact_proxy_path(
-            "/api/2.0/mlflow-artifacts/artifacts/42/run-id/artifacts/model.pkl"
-        )
+        auth_module._parse_artifact_auth_target(
+            auth_module._effective_artifact_proxy_path(
+                "/api/2.0/mlflow-artifacts/artifacts/42/run-id/artifacts/model.pkl"
+            )
+        ).experiment_id
         == "42"
     )
     assert (
-        auth_module._extract_experiment_id_from_artifact_proxy_path(
-            "/ajax-api/2.0/mlflow-artifacts/artifacts/workspaces/team-a/7/run-id/artifacts/f"
-        )
+        auth_module._parse_artifact_auth_target(
+            auth_module._effective_artifact_proxy_path(
+                "/ajax-api/2.0/mlflow-artifacts/artifacts/workspaces/team-a/7/run-id/artifacts/f"
+            )
+        ).experiment_id
         == "7"
     )
     for action in ("create", "complete", "abort"):
         assert (
-            auth_module._extract_experiment_id_from_artifact_proxy_path(
-                f"/api/2.0/mlflow-artifacts/mpu/{action}/99/run-id/artifacts/model"
-            )
+            auth_module._parse_artifact_auth_target(
+                auth_module._effective_artifact_proxy_path(
+                    f"/api/2.0/mlflow-artifacts/mpu/{action}/99/run-id/artifacts/model"
+                )
+            ).experiment_id
             == "99"
         )
         assert (
-            auth_module._extract_experiment_id_from_artifact_proxy_path(
-                f"/ajax-api/2.0/mlflow-artifacts/mpu/{action}/workspaces/ws/3/run/artifacts/x"
-            )
+            auth_module._parse_artifact_auth_target(
+                auth_module._effective_artifact_proxy_path(
+                    f"/ajax-api/2.0/mlflow-artifacts/mpu/{action}/workspaces/ws/3/run/artifacts/x"
+                )
+            ).experiment_id
             == "3"
         )
     assert (
-        auth_module._extract_experiment_id_from_artifact_proxy_path(
-            "/api/2.0/mlflow-artifacts/artifacts",
-            query_path="55/models/m-abc123/artifacts",
-        )
+        auth_module._parse_artifact_auth_target(
+            auth_module._effective_artifact_proxy_path(
+                "/api/2.0/mlflow-artifacts/artifacts",
+                query_path="55/models/m-abc123/artifacts",
+            )
+        ).experiment_id
         == "55"
     )
     assert (
-        auth_module._extract_experiment_id_from_artifact_proxy_path(
-            "/api/2.0/mlflow/experiments/get"
-        )
+        auth_module._parse_artifact_auth_target(
+            auth_module._effective_artifact_proxy_path("/api/2.0/mlflow/experiments/get")
+        ).experiment_id
         is None
     )
 
@@ -587,11 +604,12 @@ def test_proxy_artifact_permission_reuses_authenticated_flask_user(monkeypatch):
     authenticate_request = mock.Mock(side_effect=AssertionError("should not re-authenticate"))
 
     monkeypatch.setattr(auth_module, "authenticate_request", authenticate_request)
-    monkeypatch.setattr(auth_module, "_get_experiment_id_from_view_args", lambda: "123")
     monkeypatch.setattr(auth_module, "_role_permission_for", lambda **_: permission)
     monkeypatch.setattr(auth_module, "_get_role_permission_or_default", lambda perm: perm)
 
-    with auth_module.app.test_request_context("/api/2.0/mlflow-artifacts/artifacts"):
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow-artifacts/artifacts?path=123/run/artifacts/file"
+    ):
         auth_module.g.mlflow_authenticated_user = "alice"
         result = auth_module._get_permission_from_experiment_id_artifact_proxy()
 
@@ -6073,6 +6091,24 @@ def test_basic_auth_with_internal_token_returns_user(
     mock_auth_store.authenticate_user.assert_not_called()
 
 
+def test_gateway_internal_token_honored_under_custom_authorization(
+    mock_auth_store, mock_auth_config, monkeypatch
+):
+    # A custom authorization_function does not consult the internal gateway token, so the public
+    # entry point checks the token before dispatching to it -- otherwise a server-internal caller
+    # (e.g. the Assistant's gateway provider) would get 401 on a custom-auth deployment.
+    monkeypatch.setenv(_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.name, "internal-secret")
+    mock_auth_config.authorization_function = "custom_auth:authorize"
+    credentials = base64.b64encode(b"alice:internal-secret").decode("ascii")
+    request = _make_request("/gateway/mlflow/v1/chat", mlflow_authorization=f"Basic {credentials}")
+
+    with mock.patch("mlflow.server.auth._authenticate_custom_for_fastapi") as mock_custom:
+        user = authenticate_fastapi_request_user(request)
+
+    assert user.username == "alice"
+    mock_custom.assert_not_called()
+
+
 def test_basic_auth_with_internal_token_deleted_user_returns_none(
     mock_auth_store, mock_auth_config, monkeypatch
 ):
@@ -6102,6 +6138,100 @@ def test_basic_auth_with_internal_token_uses_scope_path(
     assert user.username == "alice"
     mock_auth_store.authenticate_user.assert_called_once_with("alice", "internal-secret")
     mock_auth_store.get_user.assert_called_once_with("alice")
+
+
+# -- Assistant delegation credential (user-scoped, honored on any route) --
+
+
+def test_delegation_credential_authenticates_on_a_non_gateway_route(
+    mock_auth_store, mock_auth_config, monkeypatch
+):
+    # Unlike the gateway token, the delegation credential is honored on any route: the classic REST
+    # API an Assistant tool calls is not under /gateway/.
+    monkeypatch.setenv(_MLFLOW_ASSISTANT_DELEGATION_SIGNING_KEY.name, "signing-secret")
+    request = _make_request("/api/2.0/mlflow/experiments/search")
+    request.headers[ASSISTANT_DELEGATION_HEADER] = mint_delegation_credential("alice")
+
+    user = _authenticate_fastapi_request(request)
+
+    assert user.username == "alice"
+    mock_auth_store.get_user.assert_called_once_with("alice")
+    mock_auth_store.authenticate_user.assert_not_called()
+
+
+def test_delegation_credential_tampered_signature_is_not_authenticated(
+    mock_auth_store, mock_auth_config, monkeypatch
+):
+    monkeypatch.setenv(_MLFLOW_ASSISTANT_DELEGATION_SIGNING_KEY.name, "signing-secret")
+    head, sig = mint_delegation_credential("alice").rsplit(":", 1)
+    request = _make_request("/api/2.0/mlflow/experiments/search")
+    request.headers[ASSISTANT_DELEGATION_HEADER] = (
+        f"{head}:{sig[:-1]}{'A' if sig[-1] != 'A' else 'B'}"
+    )
+
+    assert _authenticate_fastapi_request(request) is None
+
+
+def test_delegation_credential_deleted_user_is_not_authenticated(
+    mock_auth_store, mock_auth_config, monkeypatch
+):
+    monkeypatch.setenv(_MLFLOW_ASSISTANT_DELEGATION_SIGNING_KEY.name, "signing-secret")
+    mock_auth_store.get_user.side_effect = MlflowException("User not found")
+    request = _make_request("/api/2.0/mlflow/experiments/search")
+    request.headers[ASSISTANT_DELEGATION_HEADER] = mint_delegation_credential("ghost")
+
+    assert _authenticate_fastapi_request(request) is None
+
+
+def test_delegation_credential_honored_under_custom_authorization(
+    mock_auth_store, mock_auth_config, monkeypatch
+):
+    # A custom authorization_function does not know about the delegation credential, so the public
+    # entry point checks it before dispatching to that function (mirroring the gateway token).
+    monkeypatch.setenv(_MLFLOW_ASSISTANT_DELEGATION_SIGNING_KEY.name, "signing-secret")
+    mock_auth_config.authorization_function = "custom_auth:authorize"
+    request = _make_request("/api/2.0/mlflow/experiments/search")
+    request.headers[ASSISTANT_DELEGATION_HEADER] = mint_delegation_credential("alice")
+
+    with mock.patch("mlflow.server.auth._authenticate_custom_for_fastapi") as mock_custom:
+        user = authenticate_fastapi_request_user(request)
+
+    assert user.username == "alice"
+    mock_custom.assert_not_called()
+
+
+def test_delegation_credential_authenticates_flask_route(mock_auth_store, monkeypatch):
+    monkeypatch.setenv(_MLFLOW_ASSISTANT_DELEGATION_SIGNING_KEY.name, "signing-secret")
+    credential = mint_delegation_credential("alice")
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/experiments/search",
+        headers={ASSISTANT_DELEGATION_HEADER: credential},
+    ):
+        authorization = _authenticate_flask_delegation_token()
+
+    assert authorization is not None
+    assert authorization.username == "alice"
+    mock_auth_store.get_user.assert_called_once_with("alice")
+
+
+def test_delegation_credential_flask_rejects_invalid_signature(mock_auth_store, monkeypatch):
+    monkeypatch.setenv(_MLFLOW_ASSISTANT_DELEGATION_SIGNING_KEY.name, "signing-secret")
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/experiments/search",
+        headers={ASSISTANT_DELEGATION_HEADER: "v1:alice:99999999999999:not-a-valid-signature"},
+    ):
+        assert _authenticate_flask_delegation_token() is None
+
+
+def test_delegation_credential_flask_rejects_deleted_user(mock_auth_store, monkeypatch):
+    monkeypatch.setenv(_MLFLOW_ASSISTANT_DELEGATION_SIGNING_KEY.name, "signing-secret")
+    mock_auth_store.get_user.side_effect = MlflowException("User not found")
+    credential = mint_delegation_credential("ghost")
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/experiments/search",
+        headers={ASSISTANT_DELEGATION_HEADER: credential},
+    ):
+        assert _authenticate_flask_delegation_token() is None
 
 
 @pytest.mark.parametrize(

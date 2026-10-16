@@ -103,6 +103,8 @@ const ShowArtifactTableView = ({
       dataIndex: f,
       key: f,
       sorter: (a: any, b: any) => (typeof a[f] === 'string' ? a[f].localeCompare(b[f]) : a[f] - b[f]),
+      // `dynamicTyping` parses "true"/"false" into booleans, which React renders as nothing
+      render: (value: any) => (typeof value === 'boolean' ? String(value) : value),
       width: 200,
 
       ellipsis: {

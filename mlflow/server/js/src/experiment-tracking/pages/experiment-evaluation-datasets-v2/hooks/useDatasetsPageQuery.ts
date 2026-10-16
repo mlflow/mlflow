@@ -1,6 +1,6 @@
 import { useQuery } from '@databricks/web-shared/query-client';
 import { fetchAPI, getAjaxUrl } from '@mlflow/mlflow/src/common/utils/FetchUtils';
-import type { Dataset } from './useDatasetsQueries';
+import { type Dataset, type OssDataset, ossDatasetToUniverse } from './useDatasetsQueries';
 import { DEFAULT_DATASETS_ORDER_BY } from '../utils/constants';
 
 export const V2_DATASETS_PAGE_QUERY_KEY = 'v2ListDatasetsPage';
@@ -31,7 +31,7 @@ const fetchDatasetsPage = async ({
   // through and let the OSS handler build its own filter.
   const trimmedFilter = nameFilter.trim();
   const filterString = trimmedFilter ? `name ILIKE '%${trimmedFilter.replace(/'/g, "''")}%'` : undefined;
-  return (await fetchAPI(getAjaxUrl('ajax-api/3.0/mlflow/datasets/search'), {
+  const response = (await fetchAPI(getAjaxUrl('ajax-api/3.0/mlflow/datasets/search'), {
     method: 'POST',
     body: {
       experiment_ids: [experimentId],
@@ -40,7 +40,11 @@ const fetchDatasetsPage = async ({
       max_results: pageSize,
       page_token: pageToken,
     },
-  })) as ListDatasetsPageResponse;
+  })) as { datasets?: OssDataset[]; next_page_token?: string };
+  return {
+    datasets: response.datasets?.map(ossDatasetToUniverse),
+    next_page_token: response.next_page_token,
+  };
 };
 
 /**

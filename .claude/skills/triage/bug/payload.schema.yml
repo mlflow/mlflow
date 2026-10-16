@@ -53,6 +53,44 @@ properties:
       ### What I tried
 
       <for any verdict other than Reproduced: the attempts and why each did not reproduce it>
+
+      ### Next steps
+
+      <Keep steps brief; omit repeated details. If you open a pull request, the reporter tests it and
+      maintainers review it. Otherwise, anyone else who wants to open a PR must wait for a maintainer
+      to add the `ready` issue label.>
+
+      - Reporter: <e.g. "Test the PR." or "Wait for the `ready` label before opening a PR." or "Share a minimal reproduction.">
+      - Maintainers: <e.g. "Review the PR." or "Review findings and add the `ready` label if appropriate." or "Choose a fix direction.">
     type: string
     minLength: 1
     maxLength: 5000
+  pull_request:
+    description: |
+      Draft pull request for `fix.patch`. Only for a Reproduced bug whose fix is small, verified,
+      and leaves nothing for a maintainer to decide.
+    type: object
+    additionalProperties: false
+    required:
+      - title
+      - body
+    properties:
+      title:
+        description: One-line PR title.
+        type: string
+        pattern: "^[^\\r\\n]+$"
+        minLength: 1
+        maxLength: 120
+      body:
+        description: PR body following `.github/pull_request_template.md`.
+        type: string
+        minLength: 1
+        maxLength: 20000
+if:
+  properties:
+    label:
+      const: "triage: reproduced"
+else:
+  not:
+    required:
+      - pull_request

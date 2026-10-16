@@ -13,7 +13,7 @@ from starlette.testclient import TestClient
 from mlflow.entities.mcp_server import MCPTool
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import PERMISSION_DENIED, RESOURCE_ALREADY_EXISTS, ErrorCode
-from mlflow.server.fastapi_app import add_mcp_exception_handlers
+from mlflow.server.fastapi_app import add_registry_exception_handlers
 from mlflow.server.mcp_server_api import (
     _ensure_version_create_parent_access,
     get_mcp_server_api_route_prefixes,
@@ -56,7 +56,7 @@ def _create_version(client, name: str, version: str, status: str = "draft", **se
 
 def _create_registry_fastapi_app(route_prefixes=None):
     fastapi_app = FastAPI()
-    add_mcp_exception_handlers(fastapi_app)
+    add_registry_exception_handlers(fastapi_app)
     if route_prefixes is None:
         route_prefixes = get_mcp_server_api_route_prefixes()
     elif isinstance(route_prefixes, str):

@@ -1,16 +1,48 @@
-"""Event-loop-independent subprocess streaming for Assistant CLI providers."""
+"""Subprocess helpers for the MLflow Assistant: the environment every Assistant subprocess gets,
+and event-loop-independent streaming for the CLI providers.
+"""
 
 import asyncio
+import os
 import subprocess
 import threading
 from collections.abc import AsyncIterator
 from contextlib import suppress
 from pathlib import Path
 
+from mlflow.environment_variables import (
+    _MLFLOW_ASSISTANT_DELEGATION_SIGNING_KEY,
+    _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN,
+)
+
 _MAX_BUFFERED_BYTES = 256 * 1024 * 1024
 _MAX_LINE_BYTES = 128 * 1024 * 1024
 _MAX_STDERR_BYTES = 1024 * 1024
 _EOF = object()
+
+# Secrets the MLflow server shares only among its own processes. They are kept out of the
+# environment that code started by the Assistant (the CLI providers and tool commands) inherits:
+# the delegation signing key can mint a credential for any user, and the internal gateway token
+# authenticates as any user on the gateway. This is not an isolation boundary: a process on the
+# host that runs as the server's user can still read the server's environment. Only the sandbox
+# isolates the secrets.
+_SERVER_INTERNAL_SECRETS = frozenset({
+    _MLFLOW_ASSISTANT_DELEGATION_SIGNING_KEY.name,
+    _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.name,
+})
+
+
+def assistant_subprocess_env(env: dict[str, str] | None = None, **overrides: str) -> dict[str, str]:
+    """The environment for a subprocess that the Assistant starts.
+
+    ``env`` (by default this process's environment) with ``overrides`` applied and without the
+    server's internal secrets. Every Assistant subprocess must be started with it.
+    """
+    base = os.environ if env is None else env
+    result = dict(base) | overrides
+    for name in _SERVER_INTERNAL_SECRETS:
+        result.pop(name, None)
+    return result
 
 
 class SubprocessLineStream:
@@ -43,7 +75,8 @@ class SubprocessLineStream:
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             cwd=cwd,
-            env=env,
+            # Scrubbed here too, so an environment a caller passes can never carry the secrets.
+            env=assistant_subprocess_env(env),
         )
         pid = self._proc.pid
         self._stdout_thread = threading.Thread(

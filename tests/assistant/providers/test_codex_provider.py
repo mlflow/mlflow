@@ -1,5 +1,6 @@
 import json
 import os
+import subprocess
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -66,6 +67,27 @@ def test_provider_name():
 
 def test_provider_display_name():
     assert CodexProvider().display_name == "Codex"
+
+
+def test_check_connection_probe_does_not_get_the_server_internal_secrets(monkeypatch):
+    monkeypatch.setattr("mlflow.assistant.providers.codex.assistant_sandbox_enabled", lambda: False)
+    monkeypatch.setenv("_MLFLOW_ASSISTANT_DELEGATION_SIGNING_KEY", "secret")
+    monkeypatch.setenv("_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN", "secret")
+    monkeypatch.setenv("SOME_SETTING", "kept")
+    completed = subprocess.CompletedProcess(args=[], returncode=0, stdout=b"", stderr=b"")
+
+    with (
+        patch("mlflow.assistant.providers.codex.shutil.which", return_value="/usr/bin/codex"),
+        patch("mlflow.assistant.providers.codex.subprocess.run", return_value=completed) as run,
+    ):
+        CodexProvider().check_connection()
+
+    env = run.call_args.kwargs["env"]
+    assert not {
+        "_MLFLOW_ASSISTANT_DELEGATION_SIGNING_KEY",
+        "_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN",
+    } & set(env)
+    assert env["SOME_SETTING"] == "kept"
 
 
 def test_check_connection_skips_host_probe_in_sandbox_mode(monkeypatch):
@@ -983,14 +1005,14 @@ def test_is_available_true_in_sandbox_mode(monkeypatch):
         assert CodexProvider().is_available() is True
 
 
-def test_allows_remote_access_follows_sandbox_mode(monkeypatch):
-    # The CLI provider serves remote clients only when sandboxed (isolated in a container);
-    # in local mode it runs on the host and must stay localhost-only.
+def test_never_allows_remote_access(monkeypatch):
+    # The CLI provider is local-only: it authenticates with host-side operator credentials, so it
+    # must never serve remote clients, even when sandboxed. Only the Gateway provider serves remote.
     provider = CodexProvider()
     monkeypatch.setattr("mlflow.assistant.providers.codex.assistant_sandbox_enabled", lambda: False)
     assert provider.allows_remote_access is False
     monkeypatch.setattr("mlflow.assistant.providers.codex.assistant_sandbox_enabled", lambda: True)
-    assert provider.allows_remote_access is True
+    assert provider.allows_remote_access is False
 
 
 @pytest.mark.asyncio

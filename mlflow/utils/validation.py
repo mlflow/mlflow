@@ -35,7 +35,7 @@ from mlflow.utils.string_utils import is_string_type
 
 _logger = logging.getLogger(__name__)
 
-_MAX_MCP_ICONS_PER_LIST = 100
+_MAX_REGISTRY_ICONS_PER_LIST = 100
 _MAX_MCP_TOOLS_PER_LIST = 1000
 _HOSTNAME_RESOLUTION_TIMEOUT_SECONDS = 5.0
 _MAX_CONCURRENT_HOSTNAME_RESOLUTIONS = 8
@@ -322,11 +322,11 @@ def validate_param_and_metric_name(name):
     # In windows system valid param and metric names: may only contain slashes, alphanumerics,
     # underscores, periods, dashes, and spaces.
     if is_windows():
-        return re.match(r"^[/\w.\- ]*$", name)
+        return re.fullmatch(r"^[/\w.\- ]*$", name)
 
     # For other system valid param and metric names: may only contain slashes, alphanumerics,
     # underscores, periods, dashes, colons, and spaces.
-    return re.match(r"^[/\w.\- :]*$", name)
+    return re.fullmatch(r"^[/\w.\- :]*$", name)
 
 
 def bad_character_message():
@@ -563,13 +563,13 @@ def _validate_length_limit(entity_name, limit, value, *, truncate=False):
 
 def _validate_run_id(run_id, path="run_id"):
     """Check that `run_id` is a valid run ID and raise an exception if it isn't."""
-    if _RUN_ID_REGEX.match(run_id) is None:
+    if _RUN_ID_REGEX.fullmatch(run_id) is None:
         raise MlflowException(invalid_value(path, run_id), error_code=INVALID_PARAMETER_VALUE)
 
 
 def _validate_experiment_id(exp_id):
     """Check that `experiment_id`is a valid string or None, raise an exception if it isn't."""
-    if exp_id is not None and _EXPERIMENT_ID_REGEX.match(exp_id) is None:
+    if exp_id is not None and _EXPERIMENT_ID_REGEX.fullmatch(exp_id) is None:
         raise MlflowException(
             f"Invalid experiment ID: '{exp_id}'", error_code=INVALID_PARAMETER_VALUE
         )
@@ -636,7 +636,7 @@ def _validate_batch_log_api_req(json_req):
 
 def _validate_experiment_name(experiment_name):
     """Check that `experiment_name` is a valid string and raise an exception if it isn't."""
-    if experiment_name == "" or experiment_name is None:
+    if experiment_name is None or (is_string_type(experiment_name) and not experiment_name.strip()):
         raise MlflowException(
             f"Invalid experiment name: '{experiment_name}'",
             error_code=INVALID_PARAMETER_VALUE,
@@ -720,34 +720,123 @@ def _validate_model_version(model_version):
         )
 
 
-def _validate_model_alias_name(model_alias_name):
-    if model_alias_name is None or model_alias_name == "":
+def _validate_alias_name(alias, resource_type="Registered model"):
+    if alias is None or alias == "":
         raise MlflowException(
-            "Registered model alias name cannot be empty.", INVALID_PARAMETER_VALUE
+            f"{resource_type} alias name cannot be empty.", INVALID_PARAMETER_VALUE
         )
-    if not _REGISTERED_MODEL_ALIAS_REGEX.match(model_alias_name):
+    if not _REGISTERED_MODEL_ALIAS_REGEX.fullmatch(alias):
         raise MlflowException(
-            f"Invalid alias name: '{model_alias_name}'. {_BAD_ALIAS_CHARACTERS_MESSAGE}",
+            f"Invalid alias name: '{alias}'. {_BAD_ALIAS_CHARACTERS_MESSAGE}",
             INVALID_PARAMETER_VALUE,
         )
     _validate_length_limit(
-        "Registered model alias name",
+        f"{resource_type} alias name",
         MAX_REGISTERED_MODEL_ALIAS_LENGTH,
-        model_alias_name,
+        alias,
     )
 
 
-def _validate_model_alias_name_reserved(model_alias_name):
-    if model_alias_name.lower() == "latest":
+def _validate_alias_name_reserved(alias):
+    if alias.lower() == "latest":
         raise MlflowException(
             "'latest' alias name (case insensitive) is reserved.",
             INVALID_PARAMETER_VALUE,
         )
-    if _REGISTERED_MODEL_ALIAS_VERSION_REGEX.match(model_alias_name):
+    if _REGISTERED_MODEL_ALIAS_VERSION_REGEX.fullmatch(alias):
         raise MlflowException(
-            f"Version alias name '{model_alias_name}' is reserved.",
+            f"Version alias name '{alias}' is reserved.",
             INVALID_PARAMETER_VALUE,
         )
+
+
+MAX_SKILL_NAME_LENGTH = 64
+MAX_ORGANIZATION_NAME_LENGTH = 64
+MAX_SKILL_VERSION = 2_147_483_647
+_MAX_BULK_REGISTER_SKILLS = 500
+
+# Skill names: lowercase ASCII letters, digits, and single hyphens; alphanumeric first
+# and last characters; no consecutive hyphens.
+_SKILL_NAME_REGEX = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
+# Organization names additionally allow single periods between alphanumeric groups.
+_ORGANIZATION_NAME_REGEX = re.compile(r"^[a-z0-9]+([-.][a-z0-9]+)*$")
+
+
+def _validate_skill_name(name):
+    if not name:
+        raise MlflowException.invalid_parameter_value("Skill name must not be empty.")
+    if _SKILL_NAME_REGEX.fullmatch(name) is None:
+        raise MlflowException.invalid_parameter_value(
+            f"Invalid skill name {name!r}. Names must be 1-64 lowercase ASCII letters, digits, "
+            "and hyphens; cannot begin or end with a hyphen; and cannot contain consecutive "
+            "hyphens."
+        )
+    _validate_length_limit("Skill name", MAX_SKILL_NAME_LENGTH, name)
+
+
+def _validate_organization_name(organization):
+    if organization == "":
+        return
+    if (
+        not isinstance(organization, str)
+        or _ORGANIZATION_NAME_REGEX.fullmatch(organization) is None
+    ):
+        raise MlflowException.invalid_parameter_value(
+            f"Invalid organization name {organization!r}. Organizations must be 1-64 lowercase "
+            "ASCII letters, digits, hyphens, and periods; must have alphanumeric first and last "
+            "characters; and cannot contain consecutive hyphens or periods."
+        )
+    _validate_length_limit("Organization name", MAX_ORGANIZATION_NAME_LENGTH, organization)
+
+
+def _parse_skill_identities(identities: list[str] | None) -> list[tuple[str, str]] | None:
+    """Validate a search selector and resolve ``name`` or ``@organization/name`` identities."""
+    if identities is None:
+        return None
+    if not isinstance(identities, list) or any(not isinstance(key, str) for key in identities):
+        raise MlflowException.invalid_parameter_value(
+            "include_skill_identities must be a list of Skill identity strings."
+        )
+    result = []
+    for identity in identities:
+        organization = ""
+        name = identity
+        if identity.startswith("@"):
+            organization, separator, name = identity[1:].partition("/")
+            if not separator or not organization:
+                raise MlflowException.invalid_parameter_value(
+                    "Skill identities must be 'name' or '@organization/name'."
+                )
+        _validate_organization_name(organization)
+        _validate_skill_name(name)
+        result.append((organization, name))
+    return result
+
+
+def _validate_skill_version(version):
+    if (
+        isinstance(version, bool)
+        or not isinstance(version, int)
+        or not 1 <= version <= MAX_SKILL_VERSION
+    ):
+        raise MlflowException.invalid_parameter_value(
+            f"Skill version must be a positive integer <= {MAX_SKILL_VERSION}, got {version!r}."
+        )
+
+
+def _validate_skill_alias(alias, *, allow_latest=False):
+    _validate_alias_name(alias, resource_type="Skill")
+    if not (allow_latest and alias.lower() == "latest"):
+        _validate_alias_name_reserved(alias)
+
+
+def _validate_skill_tag(key, value):
+    _validate_tag_name(key)
+    _validate_tag_value(value)
+    return RunTag(
+        _validate_length_limit("key", MAX_MODEL_REGISTRY_TAG_KEY_LENGTH, key),
+        _validate_length_limit("value", MAX_MODEL_REGISTRY_TAG_VALUE_LENGTH, value),
+    )
 
 
 def _validate_experiment_artifact_location(artifact_location):
@@ -1198,8 +1287,8 @@ def _validate_third_party_scorer_data(serialized_scorer: dict[str, Any]) -> None
             )
 
 
-def _validate_mcp_icon_url(url: str) -> None:
-    """Validate an MCP icon URL on write/update requests.
+def _validate_icon_url(url: str) -> None:
+    """Validate a registry icon URL on write/update requests.
 
     Default behavior accepts only public HTTPS targets. This follows the
     existing webhook pattern for scheme and private-IP controls, with an
@@ -1237,7 +1326,7 @@ def _validate_mcp_icon_url(url: str) -> None:
         )
 
 
-def _validate_mcp_icon_mime_type(mime_type: str | None) -> None:
+def _validate_icon_mime_type(mime_type: str | None) -> None:
     if mime_type is None:
         return
 
@@ -1255,7 +1344,7 @@ def _validate_mcp_icon_mime_type(mime_type: str | None) -> None:
         )
 
 
-def _validate_mcp_list_max_length(items: list[Any], field_name: str, max_length: int) -> None:
+def _validate_list_max_length(items: list[Any], field_name: str, max_length: int) -> None:
     if len(items) > max_length:
         raise MlflowException.invalid_parameter_value(
             f"Invalid {field_name}. It must contain at most {max_length} items."
@@ -1270,14 +1359,14 @@ def _validate_mcp_initial_status(status: Any, field_name: str = "status") -> Non
         )
 
 
-def _validate_mcp_icon_payloads(icons: Any, field_name: str = "icons") -> None:
+def _validate_icon_payloads(icons: Any, field_name: str = "icons") -> None:
     if icons is None:
         return
 
     if not isinstance(icons, list):
         raise MlflowException.invalid_parameter_value(f"Invalid {field_name}. Expected a list.")
 
-    _validate_mcp_list_max_length(icons, field_name, _MAX_MCP_ICONS_PER_LIST)
+    _validate_list_max_length(icons, field_name, _MAX_REGISTRY_ICONS_PER_LIST)
 
     for idx, icon in enumerate(icons):
         icon_field_name = f"{field_name}[{idx}]"
@@ -1290,8 +1379,8 @@ def _validate_mcp_icon_payloads(icons: Any, field_name: str = "icons") -> None:
                 f"Invalid {icon_field_name}. Missing required key 'src'."
             )
 
-        _validate_mcp_icon_url(icon["src"])
-        _validate_mcp_icon_mime_type(icon.get("mimeType"))
+        _validate_icon_url(icon["src"])
+        _validate_icon_mime_type(icon.get("mimeType"))
 
 
 def _strip_mcp_icon_response_fields(
@@ -1334,7 +1423,7 @@ def _validate_mcp_tool_payloads(tools: Any, field_name: str = "tools") -> None:
     if not isinstance(tools, list):
         raise MlflowException.invalid_parameter_value(f"Invalid {field_name}. Expected a list.")
 
-    _validate_mcp_list_max_length(tools, field_name, _MAX_MCP_TOOLS_PER_LIST)
+    _validate_list_max_length(tools, field_name, _MAX_MCP_TOOLS_PER_LIST)
 
 
 def _validate_webhook_url(url: str) -> None:
