@@ -7,6 +7,8 @@ import {
   ListIcon,
   ModelsIcon,
   NewWindowIcon,
+  SidebarCollapseIcon,
+  SidebarExpandIcon,
   SpeechBubbleIcon,
   Tag,
   TokenIcon,
@@ -422,10 +424,14 @@ export const ModelTraceExplorerRightPaneHeader = ({
   activeSpan,
   modelTraceInfo,
   showAssessmentsToggle,
+  showSpanTree,
+  onShowSpanTreeChange,
 }: {
   activeSpan: ModelTraceSpanNode;
   modelTraceInfo?: ModelTrace['info'];
   showAssessmentsToggle: boolean;
+  showSpanTree?: boolean;
+  onShowSpanTreeChange?: (showSpanTree: boolean) => void;
 }): React.ReactElement | null => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -477,6 +483,15 @@ export const ModelTraceExplorerRightPaneHeader = ({
     ? hasComparisonModelName
     : Boolean(modelName || tokenUsage || isTraceCostType(cost));
   const hasMetadata = hasSpanMetadata || sessionId || tags.length > 0 || hasLinkedPrompts;
+  const spanTreeToggleLabel = showSpanTree
+    ? intl.formatMessage({
+        defaultMessage: 'Hide span tree',
+        description: 'Accessible label for hiding the span tree in the trace explorer',
+      })
+    : intl.formatMessage({
+        defaultMessage: 'Show span tree',
+        description: 'Accessible label for showing the span tree in the trace explorer',
+      });
 
   return (
     <div
@@ -509,6 +524,20 @@ export const ModelTraceExplorerRightPaneHeader = ({
             flexShrink: 1,
           }}
         >
+          {onShowSpanTreeChange && (
+            <Tooltip componentId="shared.model-trace-explorer.span-tree-toggle-tooltip" content={spanTreeToggleLabel}>
+              <Button
+                componentId="shared.model-trace-explorer.span-tree-toggle"
+                type="tertiary"
+                size="small"
+                icon={showSpanTree ? <SidebarCollapseIcon /> : <SidebarExpandIcon />}
+                aria-label={spanTreeToggleLabel}
+                aria-pressed={showSpanTree}
+                onClick={() => onShowSpanTreeChange(!showSpanTree)}
+                css={showSpanTree ? { backgroundColor: theme.colors.actionDefaultBackgroundHover } : undefined}
+              />
+            </Tooltip>
+          )}
           <span
             css={{
               display: 'inline-flex',

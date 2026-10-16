@@ -3,7 +3,10 @@ import { ModelTraceExplorer as RedesignedModelTraceExplorer } from './v2/ModelTr
 import { shouldEnableRedesignedTraceExplorer } from './shouldEnableRedesignedTraceExplorer';
 
 export type ModelTraceExplorerProps = React.ComponentProps<typeof LegacyModelTraceExplorer> &
-  Pick<React.ComponentProps<typeof RedesignedModelTraceExplorer>, 'comparisonModelTrace' | 'comparisonRole'>;
+  Pick<
+    React.ComponentProps<typeof RedesignedModelTraceExplorer>,
+    'comparisonModelTrace' | 'comparisonRole' | 'showSpanTree' | 'onShowSpanTreeChange' | 'hideAssessments'
+  >;
 
 export const ModelTraceExplorer = (props: ModelTraceExplorerProps): JSX.Element => {
   if (!shouldEnableRedesignedTraceExplorer()) {
