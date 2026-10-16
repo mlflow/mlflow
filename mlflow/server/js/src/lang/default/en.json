@@ -867,6 +867,10 @@
     "defaultMessage": "Unfortunately, the trace could not be rendered due to an unknown error. You can reload the page to try again. If the problem persists, please contact support.",
     "description": "Description for the error state in the model trace explorer"
   },
+  "1a2wkX": {
+    "defaultMessage": "Learn more about enabling issue detection",
+    "description": "Accessible label for the issue detection documentation button"
+  },
   "1b3c+B": {
     "defaultMessage": "No dataset",
     "description": "Label for the ungrouped metrics column group in the logged model column selector"
@@ -1306,10 +1310,6 @@
   "3JAJtl": {
     "defaultMessage": "Current password",
     "description": "Label for the current-password field"
-  },
-  "3KT/DS": {
-    "defaultMessage": "Waiting for traces…",
-    "description": "Status shown while MLflow waits for the first trace"
   },
   "3Ld280": {
     "defaultMessage": "No traces yet",
@@ -1998,6 +1998,10 @@
   "6BqLF2": {
     "defaultMessage": "Search for a field",
     "description": "Placeholder for search input in schema table"
+  },
+  "6HiT14": {
+    "defaultMessage": "Detect issues",
+    "description": "Button to detect issues in traces"
   },
   "6HjFD0": {
     "defaultMessage": "Key name",
@@ -3722,6 +3726,10 @@
   "CUOH4i": {
     "defaultMessage": "Error",
     "description": "Traces table state badge label for an errored trace"
+  },
+  "CWlqGc": {
+    "defaultMessage": "Issue detection is not enabled for this MLflow server. Ask an administrator to restart the server with MLFLOW_ENABLE_AI_GATEWAY=true.",
+    "description": "Analyze overview description shown when issue detection is unavailable"
   },
   "CX/MSu": {
     "defaultMessage": "Unsafe",
@@ -5794,6 +5802,10 @@
   "L8czct": {
     "defaultMessage": "Latency Comparison",
     "description": "Title for the tool latency comparison chart"
+  },
+  "LAfLd4": {
+    "defaultMessage": "Learn more",
+    "description": "Analyze overview documentation button shown when issue detection is unavailable"
   },
   "LBaK9z": {
     "defaultMessage": "Open dataset",
@@ -10907,10 +10919,6 @@
     "defaultMessage": "Remove model",
     "description": "Tooltip for remove traffic split model button"
   },
-  "eYB6j0": {
-    "defaultMessage": "Detect Issues",
-    "description": "Button to detect issues in traces"
-  },
   "eYEyfq": {
     "defaultMessage": "Delete",
     "description": "Confirm button for deleting a traces view"
@@ -11830,10 +11838,6 @@
   "he7/4n": {
     "defaultMessage": "Pick your language and follow the steps.",
     "description": "Description above the manual setup steps in the traces empty state"
-  },
-  "hfX9nM": {
-    "defaultMessage": "The previous Overview page is now under <dashboardLink>Dashboard</dashboardLink>, with no changes to its functionality.",
-    "description": "Notice that the previous experiment Overview charts moved to the Dashboard tab"
   },
   "hg+bcy": {
     "defaultMessage": "Enable telemetry",
@@ -12794,10 +12798,6 @@
   "kyC8/W": {
     "defaultMessage": "Debug the error in trace {traceId}.",
     "description": "Prompt sent to the assistant for analyzing a failed trace"
-  },
-  "kyQdxA": {
-    "defaultMessage": "View Issues",
-    "description": "Action to view detected issues"
   },
   "kzfRC2": {
     "defaultMessage": "Impacted traces: {count}",
@@ -13894,6 +13894,10 @@
   "pEpexK": {
     "defaultMessage": "Clear filters",
     "description": "Label for a button that clears all filters, visible on a experiment runs page next to a empty state when all runs have been filtered out"
+  },
+  "pG2DnZ": {
+    "defaultMessage": "View issues",
+    "description": "Action to view detected issues"
   },
   "pG8G2A": {
     "defaultMessage": "Show all parent spans",

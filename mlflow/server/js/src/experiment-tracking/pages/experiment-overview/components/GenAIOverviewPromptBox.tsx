@@ -14,6 +14,8 @@ const contextBorderPulse = keyframes({
   '30%': { opacity: 1 },
 });
 
+const PROMPT_INPUT_MAX_ROWS = 8;
+
 export interface GenAIOverviewPromptBoxProps {
   chartContext?: GenAIOverviewChartContext;
   onClearChartContext: () => void;
@@ -32,6 +34,7 @@ export const GenAIOverviewPromptBox = ({
   const intl = useIntl();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const submissionInFlightRef = useRef(false);
+  const promptInputLineHeight = Number.parseFloat(String(theme.typography.lineHeightBase));
   const [draft, setDraft] = useState('');
   const [placeholderIndex, setPlaceholderIndex] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -66,6 +69,16 @@ export const GenAIOverviewPromptBox = ({
   useEffect(() => {
     if (chartContext) textareaRef.current?.focus();
   }, [chartContext]);
+
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+
+    const maximumHeight = promptInputLineHeight * PROMPT_INPUT_MAX_ROWS;
+    textarea.style.height = 'auto';
+    textarea.style.height = `${Math.min(Math.max(textarea.scrollHeight, promptInputLineHeight), maximumHeight)}px`;
+    textarea.style.overflowY = textarea.scrollHeight > maximumHeight ? 'auto' : 'hidden';
+  }, [draft, promptInputLineHeight]);
 
   const submit = async () => {
     const prompt = draft.trim();
@@ -182,13 +195,15 @@ export const GenAIOverviewPromptBox = ({
           padding: `0 ${theme.spacing.lg}px`,
         }}
       >
-        <div css={{ position: 'relative', minWidth: 0, flex: 1, height: theme.typography.lineHeightBase }}>
+        <div css={{ position: 'relative', minWidth: 0, flex: 1 }}>
           {!draft && (
             <span
               key={placeholderIndex}
               css={{
                 position: 'absolute',
                 inset: 0,
+                display: 'flex',
+                alignItems: 'center',
                 color: theme.colors.textPlaceholder,
                 pointerEvents: 'none',
                 animation: `${placeholderSlideIn} ${theme.animation.transitionDuration}ms ease-out`,
@@ -224,33 +239,34 @@ export const GenAIOverviewPromptBox = ({
               boxSizing: 'border-box',
               border: 0,
               outline: 0,
-              overflow: 'hidden',
+              overflowX: 'hidden',
+              overflowY: 'hidden',
               padding: 0,
               resize: 'none',
               backgroundColor: 'transparent',
               font: 'inherit',
               lineHeight: theme.typography.lineHeightBase,
+              maxHeight: promptInputLineHeight * PROMPT_INPUT_MAX_ROWS,
             }}
           />
         </div>
-        <div
-          css={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flex: `0 0 ${theme.spacing.lg}px`,
-            width: theme.spacing.lg,
-            height: theme.spacing.lg,
-            borderRadius: '50%',
-            backgroundColor: draft.trim()
-              ? theme.colors.actionPrimaryBackgroundDefault
-              : theme.colors.actionDisabledBackground,
-          }}
-        >
+        <div css={{ flexShrink: 0 }}>
           <Button
             componentId="mlflow.genai-overview.submit-prompt"
-            type="link"
             icon={<ArrowRightIcon />}
+            css={{
+              borderRadius: `${theme.borders.borderRadiusFull}px !important`,
+              paddingRight: theme.spacing.sm,
+              paddingLeft: theme.spacing.sm,
+              flexShrink: 0,
+              '&&': {
+                '&[class*="btn-icon-only"]': {
+                  '&&:enabled:not(:hover), &&:disabled': {
+                    background: `${theme.colors.backgroundSecondary} !important`,
+                  },
+                },
+              },
+            }}
             disabled={!draft.trim()}
             loading={isSubmitting}
             loadingDescription="Sending prompt to Assistant"
@@ -268,7 +284,6 @@ export const GenAIOverviewPromptBox = ({
                     description: 'Overview assistant submit label',
                   })
             }
-            size="small"
           />
         </div>
       </div>

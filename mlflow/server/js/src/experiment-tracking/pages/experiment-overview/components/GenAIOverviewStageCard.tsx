@@ -24,6 +24,7 @@ export interface GenAIOverviewStageCardProps {
   content?: ReactNode;
   action?: ReactNode;
   expanded?: boolean;
+  verticalPadding?: 'default' | 'spacious';
 }
 
 const MiniActivityChart = ({ values }: { values: number[] }) => {
@@ -69,10 +70,12 @@ export const GenAIOverviewStageCard = ({
   content,
   action,
   expanded = false,
+  verticalPadding = 'default',
 }: GenAIOverviewStageCardProps) => {
   const { theme } = useDesignSystemTheme();
   const navigate = useNavigate();
   const isReady = status.status === 'ready';
+  const verticalPaddingSize = verticalPadding === 'spacious' ? theme.spacing.md : theme.spacing.sm;
   const activity = isReady ? status.activity.map(({ count }) => count) : [];
   const artifactAction = isReady && artifactHref && artifactLabel && (
     <Button
@@ -106,7 +109,7 @@ export const GenAIOverviewStageCard = ({
           : isReady
             ? theme.spacing.xl * 3
             : theme.spacing.xl * 2 + theme.spacing.mid,
-        padding: expanded ? theme.spacing.md : `${theme.spacing.sm}px ${theme.spacing.lg}px`,
+        padding: expanded ? theme.spacing.md : `${verticalPaddingSize}px ${theme.spacing.lg}px`,
         backgroundColor: theme.colors.backgroundPrimary,
         '&:hover': hasHoverTreatment ? { backgroundColor: theme.colors.actionDefaultBackgroundHover } : undefined,
         [`&:hover .${OVERVIEW_STAGE_ICON_CLASS_NAME}`]: hasHoverTreatment

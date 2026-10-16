@@ -199,25 +199,35 @@ describe('ExperimentGenAIJourneyOverviewPage', () => {
     expect(await screen.findByRole('heading', { name: "Let's improve your agent with MLflow" })).toBeVisible();
     expect(screen.queryByRole('textbox', { name: 'Ask MLflow about this agent' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Attach trace chart' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Detect Issues' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Detect issues' })).not.toBeInTheDocument();
   });
 
-  test('prefills the Assistant when native issue detection is unavailable', async () => {
+  test('explains how to enable issue detection and links to its documentation', async () => {
     renderPage();
 
-    await userEvent.click(await screen.findByRole('button', { name: 'Detect Issues' }));
-
-    expect(mockOpenAssistantPanel).toHaveBeenCalledTimes(1);
-    expect(mockPrefillAssistantPrompt).toHaveBeenCalledWith(
-      expect.stringContaining('Analyze these traces for systematic issues'),
+    expect(
+      await screen.findByText(
+        'Issue detection is not enabled for this MLflow server. Ask an administrator to restart the server with MLFLOW_ENABLE_AI_GATEWAY=true.',
+      ),
+    ).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Detect issues' })).not.toBeInTheDocument();
+    const docsLink = screen.getByRole('link', { name: 'Learn more about enabling issue detection' });
+    expect(docsLink).toHaveTextContent('Learn more');
+    expect(docsLink).toHaveAttribute(
+      'href',
+      'https://mlflow.org/docs/latest/genai/eval-monitor/ai-insights/detect-issues/',
     );
+    expect(docsLink).toHaveAttribute('target', '_blank');
+    expect(docsLink).toHaveAttribute('rel', 'noopener noreferrer');
+    expect(mockOpenAssistantPanel).not.toHaveBeenCalled();
+    expect(mockPrefillAssistantPrompt).not.toHaveBeenCalled();
   });
 
   test('opens native issue detection with loaded traces and tracks the new job', async () => {
     mockShouldEnableIssueDetection.mockReturnValue(true);
     renderPage();
 
-    await userEvent.click(await screen.findByRole('button', { name: 'Detect Issues' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Detect issues' }));
     expect(await screen.findByRole('dialog', { name: 'Detect Issues' })).toHaveTextContent('trace-1,trace-2');
     await userEvent.click(screen.getByRole('button', { name: 'Start mocked detection' }));
 
@@ -228,5 +238,40 @@ describe('ExperimentGenAIJourneyOverviewPage', () => {
       traceCount: 2,
       submittedAtMs: 1,
     });
+  });
+
+  test('keeps completed results when issue detection is unavailable', async () => {
+    mockUseGenAIOverviewAnalyzeState.mockReturnValue({
+      state: {
+        status: 'completed',
+        runUuid: 'run-1',
+        latestRunCompletedAtMs: 1,
+        issueCount: 2,
+        issuesCreatedInLastSevenDays: 0,
+        activity: [],
+      },
+      refetch: jest.fn(),
+    });
+
+    renderPage();
+
+    expect(await screen.findByRole('button', { name: 'View issues' })).toBeVisible();
+    expect(screen.queryByText(/MLFLOW_ENABLE_AI_GATEWAY=true/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Learn more about enabling issue detection' })).not.toBeInTheDocument();
+  });
+
+  test('does not show a waiting status before the first trace arrives', async () => {
+    mockUseGenAIOverviewTraceState.mockReturnValue({
+      state: { status: 'empty', activity: [] },
+      retry: jest.fn(),
+    });
+    mockUseExperimentContainsTraces.mockReturnValue({ containsTraces: false, isLoading: false });
+
+    renderPage();
+
+    expect(
+      await screen.findByRole('heading', { name: 'Send your first trace to MLflow in just a minute' }),
+    ).toBeVisible();
+    expect(screen.queryByText('Waiting for traces…')).not.toBeInTheDocument();
   });
 });

@@ -5,6 +5,7 @@ import {
   Button,
   ChartLineIcon,
   ForkHorizontalIcon,
+  InfoBookIcon,
   SparkleIcon,
   Spinner,
   Typography,
@@ -31,7 +32,7 @@ import {
 } from './components/GenAIOverviewMonitorTrendChart';
 import { GenAIOverviewTraceActivityChart } from './components/GenAIOverviewTraceActivityChart';
 import { GenAIOverviewStaleIssueDetectionAlert } from './components/GenAIOverviewStaleIssueDetectionAlert';
-import { ManualTracingSetupLink, TracingSetup, WaitingForFirstTrace } from './components/GenAIOverviewTracingSetup';
+import { ManualTracingSetupLink, TracingSetup } from './components/GenAIOverviewTracingSetup';
 import type { GenAIOverviewChartContext, GenAIOverviewStageStatus } from './genAIOverview.types';
 import { useExperimentContainsTraces } from '../../components/traces/hooks/useExperimentContainsTraces';
 import { IssueDetectionModal } from '../../components/experiment-page/components/traces-v3/IssueDetectionModal';
@@ -40,11 +41,10 @@ import { OverviewTab } from './hooks/useOverviewTab';
 import { useGenAIOverviewStaleIssueDetectionState } from './hooks/useGenAIOverviewStaleIssueDetectionState';
 import { useSqlWarehouseContextSafe } from '../experiment-page-tabs/SqlWarehouseContext';
 
-const GENAI_OVERVIEW_ISSUE_DETECTION_PROMPT =
-  'Analyze these traces for systematic issues. Cover response quality (correctness, relevance, adherence to instructions, safety) as well as errors and latency. A trace can complete without errors and still be low quality — inspect the actual inputs and outputs, do not judge on status alone. Report the most important issues grouped by root cause.';
-
 const GENAI_OVERVIEW_EVAL_SETUP_PROMPT =
   'Set up and run an offline evaluation for this MLflow experiment. Inspect its traces and issue-detection results, propose an evaluation dataset and offline evaluation scorers, and ask for confirmation. After confirmation, create the dataset and any scorer definitions needed only for this offline evaluation, then run it using MLflow so the result is logged as an evaluation run in this experiment. Do not register or schedule online scorers, enable monitoring, or change sampling settings.';
+
+const ISSUE_DETECTION_DOCS_URL = 'https://mlflow.org/docs/latest/genai/eval-monitor/ai-insights/detect-issues/';
 
 const EVAL_REGRESSION_MARGIN = 0.05;
 
@@ -400,8 +400,6 @@ export const ExperimentGenAIJourneyOverviewPage = () => {
   const startIssueDetection = () => {
     if (isIssueDetectionEnabled) {
       setIsIssueDetectionModalOpen(true);
-    } else if (canUseAssistant) {
-      openAssistantWithPrompt(GENAI_OVERVIEW_ISSUE_DETECTION_PROMPT);
     }
   };
   const analyzeAction =
@@ -416,16 +414,32 @@ export const ExperimentGenAIJourneyOverviewPage = () => {
       >
         <FormattedMessage defaultMessage="Cancel" description="Cancel issue detection action" />
       </Button>
-    ) : !latestIssueDetectionRunRoute &&
-      traceState.status === 'ready' &&
-      (isIssueDetectionEnabled || canUseAssistant) ? (
+    ) : analyzeState.status === 'completed' ? undefined : !isIssueDetectionEnabled ? (
+      <Button
+        componentId="mlflow.genai-overview.issue-detection-docs"
+        size="small"
+        icon={<InfoBookIcon css={{ color: theme.colors.textSecondary, transform: 'scale(0.75)' }} />}
+        href={ISSUE_DETECTION_DOCS_URL}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label={intl.formatMessage({
+          defaultMessage: 'Learn more about enabling issue detection',
+          description: 'Accessible label for the issue detection documentation button',
+        })}
+      >
+        <FormattedMessage
+          defaultMessage="Learn more"
+          description="Analyze overview documentation button shown when issue detection is unavailable"
+        />
+      </Button>
+    ) : traceState.status === 'ready' ? (
       <Button
         componentId="mlflow.genai-overview.detect-issues"
         type={primaryStage === 'analyze' ? 'primary' : undefined}
         size="small"
         onClick={startIssueDetection}
       >
-        <FormattedMessage defaultMessage="Detect Issues" description="Button to detect issues in traces" />
+        <FormattedMessage defaultMessage="Detect issues" description="Button to detect issues in traces" />
       </Button>
     ) : undefined;
 
@@ -545,7 +559,6 @@ export const ExperimentGenAIJourneyOverviewPage = () => {
                   description={tracingOnboardingDescription}
                   status={traceState}
                   content={<TracingSetup experimentIds={[experimentId]} />}
-                  action={<WaitingForFirstTrace />}
                   expanded
                 />
               </div>
@@ -660,12 +673,22 @@ export const ExperimentGenAIJourneyOverviewPage = () => {
                   label={<FormattedMessage defaultMessage="Analyze" description="Analyze step" />}
                   caption={issueCaption}
                   description={
-                    <FormattedMessage
-                      defaultMessage="Review real traces to surface failure modes and quality issues worth fixing."
-                      description="Analyze step description"
-                    />
+                    !isIssueDetectionEnabled && analyzeState.status !== 'completed' ? (
+                      <FormattedMessage
+                        defaultMessage="Issue detection is not enabled for this MLflow server. Ask an administrator to restart the server with MLFLOW_ENABLE_AI_GATEWAY=true."
+                        description="Analyze overview description shown when issue detection is unavailable"
+                      />
+                    ) : (
+                      <FormattedMessage
+                        defaultMessage="Review real traces to surface failure modes and quality issues worth fixing."
+                        description="Analyze step description"
+                      />
+                    )
                   }
                   status={analyzeCardState}
+                  verticalPadding={
+                    !isIssueDetectionEnabled && analyzeState.status !== 'completed' ? 'spacious' : undefined
+                  }
                   headline={
                     analyzeState.status === 'completed' ? (
                       <>
@@ -698,7 +721,7 @@ export const ExperimentGenAIJourneyOverviewPage = () => {
                   action={analyzeAction}
                   artifactHref={latestIssueDetectionRunRoute}
                   artifactLabel={
-                    <FormattedMessage defaultMessage="View Issues" description="Action to view detected issues" />
+                    <FormattedMessage defaultMessage="View issues" description="Action to view detected issues" />
                   }
                 />
                 <GenAIOverviewStaleIssueDetectionAlert

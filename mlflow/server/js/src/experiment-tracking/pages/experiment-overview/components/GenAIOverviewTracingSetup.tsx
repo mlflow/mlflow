@@ -1,12 +1,4 @@
-import {
-  Button,
-  CopyIcon,
-  Drawer,
-  LoadingIcon,
-  Tabs,
-  Typography,
-  useDesignSystemTheme,
-} from '@databricks/design-system';
+import { Button, CopyIcon, Drawer, Tabs, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { CopyButton } from '../../../../shared/building_blocks/CopyButton';
 import { TracesViewTableNoTracesQuickstart } from '../../../components/traces/quickstart/TracesViewTableNoTracesQuickstart';
@@ -19,38 +11,6 @@ const getAgentSetupCommand = ({ serverUrl, experimentId }: { serverUrl: string; 
   const args = ['--tracking-uri', shellQuote(serverUrl), '--experiment-id', shellQuote(experimentId)];
 
   return `curl -LsSf ${AGENT_SETUP_SCRIPT_URL} | sh -s -- ${args.join(' ')}`;
-};
-
-export const WaitingForFirstTrace = () => {
-  const { theme } = useDesignSystemTheme();
-
-  return (
-    <div
-      role="status"
-      css={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: theme.spacing.sm,
-        boxSizing: 'border-box',
-        flexShrink: 0,
-        width: theme.spacing.xl * 5,
-        padding: `${theme.spacing.xs}px ${theme.spacing.sm}px`,
-        borderRadius: theme.borders.borderRadiusFull,
-        backgroundColor: theme.colors.actionDefaultBackgroundHover,
-        color: theme.colors.actionTertiaryTextDefault,
-        whiteSpace: 'nowrap',
-      }}
-    >
-      <LoadingIcon spin aria-hidden="true" />
-      <span>
-        <FormattedMessage
-          defaultMessage="Waiting for traces…"
-          description="Status shown while MLflow waits for the first trace"
-        />
-      </span>
-    </div>
-  );
 };
 
 const SetupCopyBox = ({
