@@ -952,6 +952,7 @@ class Scorer(BaseModel):
             aggregations=serialized.aggregations,
             description=serialized.description,
             timeout=serialized.timeout,
+            session_level=serialized.session_level,
         )
         object.__setattr__(handle, "_is_session_level", serialized.is_session_level_scorer)
         object.__setattr__(handle, "_cached_dump", asdict(serialized))

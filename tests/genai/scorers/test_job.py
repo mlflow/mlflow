@@ -20,9 +20,11 @@ from mlflow.genai.scorers.job import (
     _run_session_scorer,
     _score_single_turn_traces,
     invoke_scorer_job,
+    run_online_session_scorer_job,
     run_online_trace_scorer_job,
 )
 from mlflow.genai.scorers.online.container_scoring import OnlineContainerScorer
+from mlflow.genai.scorers.online.session_processor import OnlineSessionScoringProcessor
 from mlflow.genai.scorers.online.trace_processor import OnlineTraceScoringProcessor
 from mlflow.server.constants import BACKEND_STORE_URI_ENV_VAR
 from mlflow.server.jobs.utils import _load_function
@@ -382,9 +384,16 @@ def test_docker_plan_logs_assessments_in_the_job_workspace(db_uri, tmp_path, mon
                 plan_and_finalize()
 
 
+@pytest.mark.parametrize(
+    ("job_fn", "processor_cls"),
+    [
+        (run_online_trace_scorer_job, OnlineTraceScoringProcessor),
+        (run_online_session_scorer_job, OnlineSessionScoringProcessor),
+    ],
+)
 @pytest.mark.parametrize("backend", [None, "docker"])
-def test_online_trace_job_runs_custom_scorer_code_only_when_not_in_a_container(
-    backend, monkeypatch
+def test_online_jobs_run_custom_scorer_code_only_when_not_in_a_container(
+    backend, job_fn, processor_cls, monkeypatch
 ):
     if backend:
         monkeypatch.setenv("MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND", backend)
@@ -398,10 +407,10 @@ def test_online_trace_job_runs_custom_scorer_code_only_when_not_in_a_container(
         return mock.Mock()
 
     with (
-        mock.patch.object(OnlineTraceScoringProcessor, "create", side_effect=create),
+        mock.patch.object(processor_cls, "create", side_effect=create),
         mock.patch("mlflow.genai.scorers.job._get_tracking_store"),
     ):
-        run_online_trace_scorer_job(experiment_id="exp-1", online_scorers=[])
+        job_fn(experiment_id="exp-1", online_scorers=[])
 
     if backend:
         # Custom scorer code is never loaded in this process; it runs in job containers.

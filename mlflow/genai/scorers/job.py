@@ -170,7 +170,21 @@ def run_online_session_scorer_job(
         for scorer_dict in online_scorers
     ]
 
+    # Lazy import: see run_online_trace_scorer_job.
+    from mlflow.genai.scorers.online.container_scoring import (
+        OnlineContainerScorer,
+        container_scoring_enabled,
+    )
+
     tracking_store = _get_tracking_store()
+    if container_scoring_enabled():
+        # Custom scorers run in job containers, so their code is never loaded in this process.
+        container_scorer = OnlineContainerScorer(experiment_id, ONLINE_SESSION_SCORER_JOB_NAME)
+        processor = OnlineSessionScoringProcessor.create(
+            experiment_id, scorer_objects, tracking_store, container_scorer=container_scorer
+        )
+        processor.process_sessions()
+        return
     # Reconstructing custom scorers executes their code, which is permitted only in the executor.
     with _job_executor_scorer_context():
         processor = OnlineSessionScoringProcessor.create(
