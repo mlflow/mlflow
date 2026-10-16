@@ -13,6 +13,7 @@ import {
   compact,
   keyBy,
   isEmpty,
+  isEqual,
 } from 'lodash';
 
 import Utils from '../../../../common/utils/Utils';
@@ -37,6 +38,7 @@ import type {
   ModelTraceEvent,
   ModelTraceSpanLink,
   ModelTraceExplorerTab,
+  ModelTraceComparisonRole,
 } from './ModelTrace.types';
 import { ModelSpanType, ModelIconType, MLFLOW_TRACE_SCHEMA_VERSION_KEY, type SpanCostInfo } from './ModelTrace.types';
 import { ModelTraceExplorerIcon } from './ModelTraceExplorerIcon';
@@ -838,6 +840,239 @@ export function parseModelTraceToTreeWithMultipleRoots(trace: ModelTrace): Model
   });
   return topLevelNodes;
 }
+
+const getModelTraceSpanNodeComparisonName = (node: ModelTraceSpanNode): string => String(node.title ?? '');
+
+interface ModelTraceSpanNodeAlignment {
+  baselineNode?: ModelTraceSpanNode;
+  candidateNode?: ModelTraceSpanNode;
+}
+
+const groupModelTraceSpanNodesByComparisonName = (nodes: ModelTraceSpanNode[]) => {
+  const groups = new Map<string, ModelTraceSpanNode[]>();
+  nodes.forEach((node) => {
+    const name = getModelTraceSpanNodeComparisonName(node);
+    const occurrences = groups.get(name) ?? [];
+    occurrences.push(node);
+    groups.set(name, occurrences);
+  });
+  return groups;
+};
+
+const haveSameModelTraceSpanInputs = (baselineNode: ModelTraceSpanNode, candidateNode: ModelTraceSpanNode) =>
+  baselineNode.inputs !== undefined &&
+  candidateNode.inputs !== undefined &&
+  isEqual(baselineNode.inputs, candidateNode.inputs);
+
+const alignModelTraceSpanOccurrences = (
+  baselineNodes: ModelTraceSpanNode[],
+  candidateNodes: ModelTraceSpanNode[],
+): ModelTraceSpanNodeAlignment[] => {
+  // Exact inputs anchor spans without allowing a later match to cross an earlier one. Spans between
+  // anchors remain positional so changed inputs can still be compared.
+  const matchingInputCounts = Array.from({ length: baselineNodes.length + 1 }, () =>
+    Array<number>(candidateNodes.length + 1).fill(0),
+  );
+
+  for (let baselineIndex = baselineNodes.length - 1; baselineIndex >= 0; baselineIndex -= 1) {
+    for (let candidateIndex = candidateNodes.length - 1; candidateIndex >= 0; candidateIndex -= 1) {
+      matchingInputCounts[baselineIndex][candidateIndex] = haveSameModelTraceSpanInputs(
+        baselineNodes[baselineIndex],
+        candidateNodes[candidateIndex],
+      )
+        ? matchingInputCounts[baselineIndex + 1][candidateIndex + 1] + 1
+        : Math.max(
+            matchingInputCounts[baselineIndex + 1][candidateIndex],
+            matchingInputCounts[baselineIndex][candidateIndex + 1],
+          );
+    }
+  }
+
+  const anchors: Array<[number, number]> = [];
+  let baselineIndex = 0;
+  let candidateIndex = 0;
+  while (baselineIndex < baselineNodes.length && candidateIndex < candidateNodes.length) {
+    if (haveSameModelTraceSpanInputs(baselineNodes[baselineIndex], candidateNodes[candidateIndex])) {
+      anchors.push([baselineIndex, candidateIndex]);
+      baselineIndex += 1;
+      candidateIndex += 1;
+    } else if (
+      matchingInputCounts[baselineIndex][candidateIndex + 1] >= matchingInputCounts[baselineIndex + 1][candidateIndex]
+    ) {
+      candidateIndex += 1;
+    } else {
+      baselineIndex += 1;
+    }
+  }
+
+  const alignment: ModelTraceSpanNodeAlignment[] = [];
+  let previousBaselineIndex = 0;
+  let previousCandidateIndex = 0;
+  [...anchors, [baselineNodes.length, candidateNodes.length] as [number, number]].forEach(
+    ([anchorBaselineIndex, anchorCandidateIndex], anchorIndex) => {
+      const unanchoredCount = Math.max(
+        anchorBaselineIndex - previousBaselineIndex,
+        anchorCandidateIndex - previousCandidateIndex,
+      );
+      for (let offset = 0; offset < unanchoredCount; offset += 1) {
+        alignment.push({
+          baselineNode:
+            previousBaselineIndex + offset < anchorBaselineIndex
+              ? baselineNodes[previousBaselineIndex + offset]
+              : undefined,
+          candidateNode:
+            previousCandidateIndex + offset < anchorCandidateIndex
+              ? candidateNodes[previousCandidateIndex + offset]
+              : undefined,
+        });
+      }
+
+      if (anchorIndex < anchors.length) {
+        alignment.push({
+          baselineNode: baselineNodes[anchorBaselineIndex],
+          candidateNode: candidateNodes[anchorCandidateIndex],
+        });
+        previousBaselineIndex = anchorBaselineIndex + 1;
+        previousCandidateIndex = anchorCandidateIndex + 1;
+      }
+    },
+  );
+  return alignment;
+};
+
+export const pairModelTraceSpanTrees = (
+  baselineNodes: ModelTraceSpanNode[],
+  candidateNodes: ModelTraceSpanNode[],
+): {
+  baselineToCandidate: Record<string, ModelTraceSpanNode>;
+  candidateToBaseline: Record<string, ModelTraceSpanNode>;
+} => {
+  const baselineToCandidate: Record<string, ModelTraceSpanNode> = {};
+  const candidateToBaseline: Record<string, ModelTraceSpanNode> = {};
+
+  const pairSiblings = (baselineSiblings: ModelTraceSpanNode[], candidateSiblings: ModelTraceSpanNode[]) => {
+    const baselineGroups = groupModelTraceSpanNodesByComparisonName(baselineSiblings);
+    const candidateGroups = groupModelTraceSpanNodesByComparisonName(candidateSiblings);
+    baselineGroups.forEach((baselineNodes, name) => {
+      alignModelTraceSpanOccurrences(baselineNodes, candidateGroups.get(name) ?? []).forEach(
+        ({ baselineNode, candidateNode }) => {
+          if (!baselineNode || !candidateNode) {
+            return;
+          }
+          baselineToCandidate[String(baselineNode.key)] = candidateNode;
+          candidateToBaseline[String(candidateNode.key)] = baselineNode;
+          pairSiblings(baselineNode.children ?? [], candidateNode.children ?? []);
+        },
+      );
+    });
+  };
+
+  pairSiblings(baselineNodes, candidateNodes);
+  return { baselineToCandidate, candidateToBaseline };
+};
+
+export interface ModelTraceComparisonForest {
+  topLevelNodes: ModelTraceSpanNode[];
+  comparisonNodeMap: Record<string, ModelTraceSpanNode>;
+  comparisonNodeRoleMap: Record<string, ModelTraceComparisonRole>;
+  sourceNodeToDisplayNodeMap: Record<string, ModelTraceSpanNode>;
+}
+
+export const buildModelTraceComparisonForest = (
+  baselineNodes: ModelTraceSpanNode[],
+  candidateNodes: ModelTraceSpanNode[],
+): ModelTraceComparisonForest => {
+  const comparisonNodeMap: Record<string, ModelTraceSpanNode> = {};
+  const comparisonNodeRoleMap: Record<string, ModelTraceComparisonRole> = {};
+  const sourceNodeToDisplayNodeMap: Record<string, ModelTraceSpanNode> = {};
+
+  const sourceKey = (role: ModelTraceComparisonRole, node: ModelTraceSpanNode) => `${role}:${String(node.key)}`;
+
+  const cloneOneSidedSubtree = (
+    node: ModelTraceSpanNode,
+    role: ModelTraceComparisonRole,
+    displayParentId?: string,
+  ): ModelTraceSpanNode => {
+    const displayNode: ModelTraceSpanNode = {
+      ...node,
+      parentId: displayParentId,
+      children: node.children?.map((child) => cloneOneSidedSubtree(child, role, String(node.key))),
+    };
+    comparisonNodeRoleMap[String(displayNode.key)] = role;
+    sourceNodeToDisplayNodeMap[sourceKey(role, node)] = displayNode;
+    return displayNode;
+  };
+
+  const mergeSiblings = (
+    baselineSiblings: ModelTraceSpanNode[],
+    candidateSiblings: ModelTraceSpanNode[],
+    displayParentId?: string,
+  ): ModelTraceSpanNode[] => {
+    const baselineGroups = groupModelTraceSpanNodesByComparisonName(baselineSiblings);
+    const candidateGroups = groupModelTraceSpanNodesByComparisonName(candidateSiblings);
+    const alignments = new Map<string, ModelTraceSpanNodeAlignment[]>();
+    const alignmentIndexes = new Map<string, number>();
+    baselineGroups.forEach((baselineNodes, name) => {
+      alignments.set(name, alignModelTraceSpanOccurrences(baselineNodes, candidateGroups.get(name) ?? []));
+    });
+
+    const displayNodes: ModelTraceSpanNode[] = [];
+    baselineSiblings.forEach((baselineNode) => {
+      const baselineName = getModelTraceSpanNodeComparisonName(baselineNode);
+      const alignment = alignments.get(baselineName) ?? [];
+      let alignmentIndex = alignmentIndexes.get(baselineName) ?? 0;
+      while (alignmentIndex < alignment.length && alignment[alignmentIndex].baselineNode !== baselineNode) {
+        const candidateNode = alignment[alignmentIndex]?.candidateNode;
+        if (candidateNode) {
+          displayNodes.push(cloneOneSidedSubtree(candidateNode, 'candidate', displayParentId));
+        }
+        alignmentIndex += 1;
+      }
+
+      const candidateNode = alignment[alignmentIndex]?.candidateNode;
+      if (!candidateNode) {
+        displayNodes.push(cloneOneSidedSubtree(baselineNode, 'baseline', displayParentId));
+      } else {
+        const displayNode: ModelTraceSpanNode = {
+          ...baselineNode,
+          parentId: displayParentId,
+          children: mergeSiblings(baselineNode.children ?? [], candidateNode.children ?? [], String(baselineNode.key)),
+        };
+        comparisonNodeMap[String(displayNode.key)] = candidateNode;
+        comparisonNodeRoleMap[String(displayNode.key)] = 'baseline';
+        sourceNodeToDisplayNodeMap[sourceKey('baseline', baselineNode)] = displayNode;
+        sourceNodeToDisplayNodeMap[sourceKey('candidate', candidateNode)] = displayNode;
+        displayNodes.push(displayNode);
+      }
+
+      alignmentIndex += 1;
+      if (baselineGroups.get(baselineName)?.at(-1) === baselineNode) {
+        while (alignmentIndex < alignment.length) {
+          const trailingCandidateNode = alignment[alignmentIndex].candidateNode;
+          if (trailingCandidateNode) {
+            displayNodes.push(cloneOneSidedSubtree(trailingCandidateNode, 'candidate', displayParentId));
+          }
+          alignmentIndex += 1;
+        }
+      }
+      alignmentIndexes.set(baselineName, alignmentIndex);
+    });
+
+    candidateSiblings.forEach((candidateNode) => {
+      if (!baselineGroups.has(getModelTraceSpanNodeComparisonName(candidateNode))) {
+        displayNodes.push(cloneOneSidedSubtree(candidateNode, 'candidate', displayParentId));
+      }
+    });
+    return displayNodes;
+  };
+
+  return {
+    topLevelNodes: mergeSiblings(baselineNodes, candidateNodes),
+    comparisonNodeMap,
+    comparisonNodeRoleMap,
+    sourceNodeToDisplayNodeMap,
+  };
+};
 
 // returns a map of { [span_id: string] : Assessment[] }
 export const getAssessmentMap = (traceInfo: ModelTrace['info']): Record<string, Assessment[]> => {
