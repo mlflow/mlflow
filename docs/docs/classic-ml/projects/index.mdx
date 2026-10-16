@@ -178,6 +178,23 @@ entry_points:
     command: "python train.py"
 ```
 
+:::note[Environment reuse]
+
+MLflow caches Python environments created for project runs and reuses an existing environment
+when its environment definition matches. Reusing an environment does not reinstall its
+packages. An unpinned dependency, or a package served at an unchanged URL, therefore does
+not automatically update when a newer version becomes available.
+
+Pin package versions or Git revisions in `python_env.yaml` or its referenced requirements
+file. To use a different version, update the pin in the environment definition. For example,
+changing `scikit-learn==1.2.0` to `scikit-learn==1.2.1` selects a different cached environment.
+
+To rebuild an unchanged environment definition, first stop any project runs using that
+environment. Remove the specific cached environment directory identified by the
+`Environment ... already exists` log message, then rerun the project.
+
+:::
+
 ### Conda Environments
 
 For projects requiring native libraries or complex dependencies:
