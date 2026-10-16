@@ -6,6 +6,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from unittest import mock
 
 import pytest
+from opentelemetry import context as otel_context
 from requests import HTTPError
 
 from mlflow.entities.multipart_upload import (
@@ -26,6 +27,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.artifact.http_artifact_repo import HttpArtifactRepository
 from mlflow.store.artifact.mlflow_artifacts_repo import MlflowArtifactsRepository
+from mlflow.tracing.export.async_export_queue import Task
 from mlflow.utils.credentials import get_default_host_creds
 from mlflow.utils.request_utils import cloud_storage_http_request
 from mlflow.utils.rest_utils import MlflowHostCreds
@@ -344,6 +346,35 @@ def test_empty_file_uses_one_multipart_upload_part(http_artifact_repo, tmp_path)
         start_byte=0,
     )
     mock_complete.assert_called_once()
+
+
+def test_multipart_upload_parts_run_with_trace_export_suppression(http_artifact_repo, tmp_path):
+    # Presigned-only servers upload every trace artifact in parts on `thread_pool`, which must
+    # keep the suppression that trace export runs under.
+    file_path = tmp_path / "traces.json"
+    file_path.write_text("{}")
+    credential = MultipartUploadCredential(url="url", part_number=1, headers={})
+    suppressed = []
+
+    def upload_part(**kwargs):
+        suppressed.append(otel_context.get_value(otel_context._SUPPRESS_INSTRUMENTATION_KEY))
+        return MultipartUploadPart(part_number=1, etag="etag")
+
+    with (
+        mock.patch.object(http_artifact_repo, "_is_artifacts_presigned_only", return_value=True),
+        mock.patch.object(
+            http_artifact_repo,
+            "create_multipart_upload",
+            return_value=CreateMultipartUploadResponse(
+                upload_id="upload_id", credentials=[credential]
+            ),
+        ),
+        mock.patch.object(http_artifact_repo, "_upload_part", side_effect=upload_part),
+        mock.patch.object(http_artifact_repo, "complete_multipart_upload"),
+    ):
+        Task(handler=http_artifact_repo.log_artifact, args=(file_path,)).handle()
+
+    assert suppressed == [True]
 
 
 @pytest.mark.parametrize(

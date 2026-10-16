@@ -1,18 +1,24 @@
 import os
 import posixpath
+import threading
+import uuid
 from datetime import datetime, timezone
 from unittest import mock
 from unittest.mock import ANY
 
+import boto3
 import pytest
 import requests
+from opentelemetry import context as otel_context
 
 from mlflow.protos.service_pb2 import FileInfo
+from mlflow.store.artifact.b2_artifact_repo import B2ArtifactRepository
 from mlflow.store.artifact.optimized_s3_artifact_repo import OptimizedS3ArtifactRepository
 from mlflow.store.artifact.s3_artifact_repo import (
     _MAX_CACHE_SECONDS,
     _cached_get_s3_client,
 )
+from mlflow.tracing.export.async_export_queue import Task
 
 from tests.helper_functions import set_boto_credentials  # noqa: F401
 
@@ -398,3 +404,119 @@ def test_refresh_credentials():
             region_name="us-west-2",
             s3_endpoint_url=None,
         )
+
+
+def test_trace_uploads_put_objects_with_instrumentation_suppressed(mock_s3_bucket, monkeypatch):
+    monkeypatch.setenv("MLFLOW_S3_UPLOAD_EXTRA_ARGS", '{"Metadata": {"origin": "mlflow"}}')
+    monkeypatch.setenv("MLFLOW_S3_EXPECTED_BUCKET_OWNER", "123456789012")
+    repo = B2ArtifactRepository(
+        f"b2://{mock_s3_bucket}@s3.us-west-004.backblazeb2.com/some/path",
+        s3_upload_extra_args={"ServerSideEncryption": "AES256"},
+    )
+    # B2's own client targets Backblaze; this one is served by moto.
+    s3_client = boto3.client("s3")
+    attachment_id = str(uuid.uuid4())
+    # Trace export runs uploads in a Task that suppresses instrumentation through a contextvar.
+    # Record whether each PutObject still sees it, and the bucket owner it sends.
+    calls = []
+    s3_client.meta.events.register(
+        "before-call.s3.PutObject",
+        lambda params, **kwargs: calls.append((
+            otel_context.get_value(otel_context._SUPPRESS_INSTRUMENTATION_KEY),
+            params["headers"].get("x-amz-expected-bucket-owner"),
+        )),
+    )
+
+    with mock.patch.object(repo, "_get_s3_client", return_value=s3_client) as mock_get_s3_client:
+        Task(handler=repo.upload_trace_data, args=('{"spans": []}',)).handle()
+        Task(handler=repo.upload_attachment, args=(attachment_id, b"\x89PNG data")).handle()
+        assert repo.download_trace_data() == {"spans": []}
+        assert repo.download_trace_attachment(attachment_id) == b"\x89PNG data"
+
+    mock_get_s3_client.assert_called()
+    assert calls == [(True, "123456789012"), (True, "123456789012")]
+    trace_data = s3_client.get_object(Bucket=mock_s3_bucket, Key="some/path/traces.json")
+    assert trace_data["ContentType"] == "application/json"
+    assert trace_data["Metadata"] == {"origin": "mlflow"}
+    assert trace_data["ServerSideEncryption"] == "AES256"
+    attachment = s3_client.get_object(
+        Bucket=mock_s3_bucket, Key=f"some/path/attachments/{attachment_id}"
+    )
+    assert attachment["Metadata"] == {"origin": "mlflow"}
+    assert attachment["ServerSideEncryption"] == "AES256"
+
+
+def test_upload_attachment_uses_multipart_on_calling_thread(mock_s3_bucket, monkeypatch):
+    # moto stores multipart bodies with aws-chunked checksum framing unless this is set.
+    monkeypatch.setenv("AWS_REQUEST_CHECKSUM_CALCULATION", "when_required")
+    repo = B2ArtifactRepository(f"b2://{mock_s3_bucket}@s3.us-west-004.backblazeb2.com/some/path")
+    s3_client = boto3.client("s3")
+    calls = {}
+    for op in ("CreateMultipartUpload", "UploadPart", "CompleteMultipartUpload"):
+        s3_client.meta.events.register(
+            f"before-call.s3.{op}",
+            lambda params, op=op, **kwargs: calls.setdefault(op, []).append((
+                threading.current_thread() is threading.main_thread(),
+                otel_context.get_value(otel_context._SUPPRESS_INSTRUMENTATION_KEY),
+            )),
+        )
+    attachment_id = str(uuid.uuid4())
+    body = os.urandom(8 * 1024 * 1024 + 1024)
+
+    with mock.patch.object(repo, "_get_s3_client", return_value=s3_client):
+        Task(handler=repo.upload_attachment, args=(attachment_id, body)).handle()
+        assert repo.download_trace_attachment(attachment_id) == body
+
+    assert calls == {
+        "CreateMultipartUpload": [(True, True)],
+        "UploadPart": [(True, True)] * 2,
+        "CompleteMultipartUpload": [(True, True)],
+    }
+
+
+def test_upload_trace_data_drops_extra_args_put_object_rejects(
+    s3_artifact_root, mock_s3_bucket, monkeypatch
+):
+    # s3transfer consumes these for multipart and strips them before PutObject.
+    monkeypatch.setenv(
+        "MLFLOW_S3_UPLOAD_EXTRA_ARGS",
+        '{"ChecksumType": "FULL_OBJECT", "MpuObjectSize": 13, "Metadata": {"origin": "mlflow"}}',
+    )
+    repo = OptimizedS3ArtifactRepository(posixpath.join(s3_artifact_root, "some/path"))
+
+    repo.upload_trace_data('{"spans": []}')
+
+    obj = repo._get_s3_client().get_object(Bucket=mock_s3_bucket, Key="some/path/traces.json")
+    assert obj["Metadata"] == {"origin": "mlflow"}
+
+
+def test_upload_trace_data_retries_with_refreshed_credentials():
+    expired_client = mock.Mock(**{"upload_fileobj.side_effect": Exception("ExpiredToken")})
+    refreshed_client = mock.Mock()
+    with mock.patch.object(
+        OptimizedS3ArtifactRepository, "_get_region_name", return_value="us-west-2"
+    ) as mock_get_region_name:
+        repo = OptimizedS3ArtifactRepository(
+            "s3://my_bucket/my_path",
+            credential_refresh_def=lambda: {
+                "access_key_id": "my-id-2",
+                "secret_access_key": "my-key-2",
+                "session_token": "my-session-2",
+                "s3_upload_extra_args": {},
+            },
+        )
+    mock_get_region_name.assert_called_once()
+
+    with mock.patch.object(
+        repo, "_get_s3_client", side_effect=[expired_client, refreshed_client]
+    ) as mock_get_s3_client:
+        repo.upload_trace_data('{"spans": []}')
+
+    assert mock_get_s3_client.call_count == 2
+    expired_client.upload_fileobj.assert_called_once()
+    refreshed_client.upload_fileobj.assert_called_once()
+    args, kwargs = refreshed_client.upload_fileobj.call_args
+    assert args[0].read() == b'{"spans": []}'
+    assert args[1:] == ("my_bucket", "my_path/traces.json")
+    assert kwargs["ExtraArgs"] == {"ContentType": "application/json"}
+    assert kwargs["Config"].use_threads is False
