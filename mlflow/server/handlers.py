@@ -81,6 +81,7 @@ from mlflow.environment_variables import (
     MLFLOW_ENABLE_AI_GATEWAY,
     MLFLOW_ENABLE_WORKSPACES,
     MLFLOW_PRESIGNED_DOWNLOAD_URL_TTL_SECONDS,
+    MLFLOW_SERVER_INFO_TRACKING_AUTH,
 )
 from mlflow.exceptions import (
     MlflowException,
@@ -103,6 +104,7 @@ from mlflow.genai.scorers.scorer_utils import (
     DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR,
     custom_scorer_execution_blocked,
 )
+from mlflow.genai.skill_content.archive import MAX_ARCHIVE_ENTRIES, get_max_decompressed_size
 from mlflow.models import Model
 from mlflow.prompt.constants import (
     _PROMPT_SOURCE_PLACEHOLDERS,
@@ -408,13 +410,17 @@ from mlflow.utils.providers import (
     get_provider_config_response,
 )
 from mlflow.utils.server_info import (
+    SERVER_INFO_ARTIFACT_SERVING_ENABLED,
     SERVER_INFO_FEATURES_ENABLED,
     SERVER_INFO_MULTIPART_DOWNLOADS_ENABLED,
     SERVER_INFO_MULTIPART_UPLOADS_ENABLED,
     SERVER_INFO_PRESIGNED_UPLOAD_MODEL_ID_SUPPORTED,
     SERVER_INFO_PRESIGNED_UPLOAD_RUN_ID_SUPPORTED,
+    SERVER_INFO_SKILL_CONTENT_MAX_FILES,
+    SERVER_INFO_SKILL_CONTENT_MAX_SIZE,
     SERVER_INFO_STORE_TYPE,
     SERVER_INFO_TRACE_ARCHIVAL_ENABLED,
+    SERVER_INFO_TRACKING_AUTH,
     SERVER_INFO_WORKSPACES_ENABLED,
 )
 from mlflow.utils.string_utils import is_string_type
@@ -4008,6 +4014,16 @@ def _download_artifact(artifact_path):
         raise
 
 
+def _reject_skill_artifact_mutation(artifact_path: str) -> None:
+    from mlflow.store.tracking.skill_registry.artifact_paths import is_skill_upload_namespace
+
+    if is_skill_upload_namespace(artifact_path):
+        raise MlflowException(
+            "Skill upload content is immutable; register a new version instead",
+            error_code=PERMISSION_DENIED,
+        )
+
+
 @catch_mlflow_exception
 @_disable_unless_serve_artifacts
 def _upload_artifact(artifact_path):
@@ -4016,6 +4032,7 @@ def _upload_artifact(artifact_path):
     to `artifact_path` (a relative path from the root artifact directory).
     """
     artifact_path = validate_path_is_safe(artifact_path)
+    _reject_skill_artifact_mutation(artifact_path)
     artifact_path = _get_workspace_scoped_repo_path_if_enabled(artifact_path)
     head, tail = posixpath.split(artifact_path)
     artifact_repo = _get_artifact_repo_mlflow_artifacts()
@@ -4064,6 +4081,7 @@ def _delete_artifact_mlflow_artifacts(artifact_path):
     `path` (a relative path from the root artifact directory).
     """
     artifact_path = validate_path_is_safe(artifact_path)
+    _reject_skill_artifact_mutation(artifact_path)
     artifact_path = _get_workspace_scoped_repo_path_if_enabled(artifact_path)
     _get_request_message(DeleteArtifact())
     artifact_repo = _get_artifact_repo_mlflow_artifacts()
@@ -4268,6 +4286,7 @@ def _create_multipart_upload_artifact(artifact_path):
     to `artifact_path` (a relative path from the root artifact directory).
     """
     artifact_path = validate_path_is_safe(artifact_path)
+    _reject_skill_artifact_mutation(artifact_path)
     artifact_path = _get_workspace_scoped_repo_path_if_enabled(artifact_path)
 
     request_message = _get_request_message(
@@ -4277,8 +4296,9 @@ def _create_multipart_upload_artifact(artifact_path):
             "num_parts": [_assert_intlike],
         },
     )
-    path = request_message.path
+    path = validate_path_is_safe(request_message.path)
     num_parts = request_message.num_parts
+    _reject_skill_artifact_mutation(posixpath.join(artifact_path, path))
 
     artifact_repo = _get_artifact_repo_mlflow_artifacts()
     _validate_support_multipart_upload(artifact_repo)
@@ -4302,6 +4322,7 @@ def _complete_multipart_upload_artifact(artifact_path):
     to `artifact_path` (a relative path from the root artifact directory).
     """
     artifact_path = validate_path_is_safe(artifact_path)
+    _reject_skill_artifact_mutation(artifact_path)
     artifact_path = _get_workspace_scoped_repo_path_if_enabled(artifact_path)
 
     request_message = _get_request_message(
@@ -4312,9 +4333,10 @@ def _complete_multipart_upload_artifact(artifact_path):
             "parts": [_assert_required],
         },
     )
-    path = request_message.path
+    path = validate_path_is_safe(request_message.path)
     upload_id = request_message.upload_id
     parts = [MultipartUploadPart.from_proto(part) for part in request_message.parts]
+    _reject_skill_artifact_mutation(posixpath.join(artifact_path, path))
 
     artifact_repo = _get_artifact_repo_mlflow_artifacts()
     _validate_support_multipart_upload(artifact_repo)
@@ -4336,6 +4358,7 @@ def _abort_multipart_upload_artifact(artifact_path):
     to `artifact_path` (a relative path from the root artifact directory).
     """
     artifact_path = validate_path_is_safe(artifact_path)
+    _reject_skill_artifact_mutation(artifact_path)
     artifact_path = _get_workspace_scoped_repo_path_if_enabled(artifact_path)
 
     request_message = _get_request_message(
@@ -4345,8 +4368,9 @@ def _abort_multipart_upload_artifact(artifact_path):
             "upload_id": [_assert_string],
         },
     )
-    path = request_message.path
+    path = validate_path_is_safe(request_message.path)
     upload_id = request_message.upload_id
+    _reject_skill_artifact_mutation(posixpath.join(artifact_path, path))
 
     artifact_repo = _get_artifact_repo_mlflow_artifacts()
     _validate_support_multipart_upload(artifact_repo)
@@ -7518,6 +7542,20 @@ def build_server_info_payload() -> dict[str, Any]:
             exc_info=True,
         )
         trace_archival_config = None
+    # The limits a skill upload is checked against, so a client can refuse an oversized folder
+    # before packaging it. A malformed limit setting leaves them out rather than failing the
+    # whole response, which every client reads at startup.
+    try:
+        skill_content_limits = {
+            SERVER_INFO_SKILL_CONTENT_MAX_SIZE: get_max_decompressed_size(),
+            SERVER_INFO_SKILL_CONTENT_MAX_FILES: MAX_ARCHIVE_ENTRIES,
+        }
+    except Exception:
+        _logger.warning(
+            "Invalid skill content size limit while serving server-info; leaving it out.",
+            exc_info=True,
+        )
+        skill_content_limits = {}
     trace_archival_enabled = bool(
         trace_archival_config
         and trace_archival_config.enabled
@@ -7551,12 +7589,18 @@ def build_server_info_payload() -> dict[str, Any]:
         SERVER_INFO_TRACE_ARCHIVAL_ENABLED: trace_archival_enabled,
         SERVER_INFO_MULTIPART_UPLOADS_ENABLED: multipart_uploads_enabled,
         SERVER_INFO_MULTIPART_DOWNLOADS_ENABLED: multipart_downloads_enabled,
+        # Whether the server proxies artifact storage (`--serve-artifacts`), which content the
+        # server stores itself, such as uploaded skills, requires. Unlike the multipart flags, it
+        # doesn't depend on the artifact repository's capabilities.
+        SERVER_INFO_ARTIFACT_SERVING_ENABLED: _is_serving_proxied_artifacts(),
+        **skill_content_limits,
         # These advertise request-contract support; repository support is checked per resource.
         SERVER_INFO_PRESIGNED_UPLOAD_RUN_ID_SUPPORTED: True,
         SERVER_INFO_PRESIGNED_UPLOAD_MODEL_ID_SUPPORTED: True,
         SERVER_INFO_FEATURES_ENABLED: {
             "gateway": MLFLOW_ENABLE_AI_GATEWAY.get(),
         },
+        SERVER_INFO_TRACKING_AUTH: MLFLOW_SERVER_INFO_TRACKING_AUTH.get() or "",
     }
 
 

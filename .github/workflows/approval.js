@@ -65,7 +65,9 @@ function hasAnyApproval(reviews) {
 module.exports = async ({ github, context, core }) => {
   const { pull_request: pr } = context.payload;
   const authorLogin = pr?.user?.login;
-  if (["mlflow-app[bot]", "dependabot[bot]"].includes(authorLogin)) {
+  const isTriageBotPr =
+    authorLogin === "mlflow-app[bot]" && pr?.head?.ref?.startsWith("triage/") === true;
+  if (!isTriageBotPr && ["mlflow-app[bot]", "dependabot[bot]"].includes(authorLogin)) {
     return;
   }
 

@@ -3,6 +3,7 @@ import io
 import json
 from unittest import mock
 
+import pytest
 import sqlalchemy as sa
 from alembic import command
 from alembic.migration import MigrationContext
@@ -35,12 +36,13 @@ def test_issue_metadata_mysql_schema_capacity():
     assert SqlIssue.__table__.c.metadata.type.compile(dialect=mysql.dialect()) == "LONGTEXT"
 
 
-def test_issue_contract_migration_preserves_existing_issues(tmp_path):
+@pytest.mark.parametrize("previous_revision", ["dc11669786a5", "e7d1f4b2a9c6"])
+def test_issue_contract_migration_preserves_existing_issues(tmp_path, previous_revision):
     db_url = f"sqlite:///{tmp_path / 'issue-migration.db'}"
     engine = sa.create_engine(db_url)
     InitialBase.metadata.create_all(engine)
     config = _get_alembic_config(db_url)
-    command.upgrade(config, "dc11669786a5")
+    command.upgrade(config, previous_revision)
     tables = sa.MetaData()
     tables.reflect(engine)
     with engine.begin() as conn:

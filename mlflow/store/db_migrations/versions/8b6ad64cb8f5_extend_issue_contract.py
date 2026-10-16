@@ -8,7 +8,7 @@ from alembic import op
 from sqlalchemy.dialects.mysql import LONGTEXT
 
 revision = "8b6ad64cb8f5"
-down_revision = "dc11669786a5"
+down_revision = "e7d1f4b2a9c6"
 branch_labels = None
 depends_on = None
 
