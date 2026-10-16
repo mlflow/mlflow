@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event';
 import { AggregationType } from '@databricks/web-shared/model-trace-explorer';
 
 import { EvalRunsEmptyStateCard } from './EvalRunsEmptyStateCard';
+import { ExperimentPageRevampProvider } from '../experiment-page-tabs/ExperimentPageRevampContext';
 
 const mockUseTraceMetricsQuery = jest.fn();
 jest.mock('../experiment-overview/hooks/useTraceMetricsQuery', () => ({
@@ -154,5 +155,26 @@ describe('EvalRunsEmptyStateCard', () => {
     await user.click(screen.getByRole('tab', { name: /Python/ }));
     const lastCallArgs = mockUseTraceMetricsQuery.mock.calls.at(-1)?.[0] as { enabled?: boolean };
     expect(lastCallArgs.enabled).toBe(true);
+  });
+});
+
+describe('EvalRunsEmptyStateCard in the experiment page shell', () => {
+  it.each([
+    { shellEnabled: false, shown: true },
+    { shellEnabled: true, shown: false },
+  ])('shows its own Evaluate traces button: $shown (shell on: $shellEnabled)', ({ shellEnabled, shown }) => {
+    renderWithIntl(
+      <DesignSystemProvider>
+        <ExperimentPageRevampProvider enabled={shellEnabled}>
+          <EvalRunsEmptyStateCard experimentId="42" />
+        </ExperimentPageRevampProvider>
+      </DesignSystemProvider>,
+    );
+
+    if (shown) {
+      expect(screen.getByTestId('run-evaluation-button')).toBeInTheDocument();
+    } else {
+      expect(screen.queryByTestId('run-evaluation-button')).not.toBeInTheDocument();
+    }
   });
 });
