@@ -973,6 +973,52 @@ def test_refresh_mcp_server_version_tools_uses_alias_endpoint():
     )
 
 
+def test_refresh_mcp_server_version_tools_selects_oldest_matching_pinned_or_alias_endpoint():
+    sj = _server_json("io.github.test/refresh-multiple-endpoints", "1.0.0")
+    genai.register_mcp_server(server_json=sj, tools=None)
+    genai.set_mcp_server_alias(name=sj["name"], alias="production", version=sj["version"])
+
+    with mock.patch(
+        "mlflow.store.tracking.mcp_server_registry.sqlalchemy_mixin.get_current_time_millis",
+        side_effect=[1000, 2000, 3000],
+    ):
+        alias_endpoint = genai.create_mcp_access_endpoint(
+            server_name=sj["name"],
+            url="https://mcp.example.com/alias-endpoint",
+            server_alias="production",
+        )
+        first_pinned_endpoint = genai.create_mcp_access_endpoint(
+            server_name=sj["name"],
+            url="https://mcp.example.com/first-pinned-endpoint",
+            server_version=sj["version"],
+        )
+        second_pinned_endpoint = genai.create_mcp_access_endpoint(
+            server_name=sj["name"],
+            url="https://mcp.example.com/second-pinned-endpoint",
+            server_version=sj["version"],
+        )
+
+    endpoints = [alias_endpoint, first_pinned_endpoint, second_pinned_endpoint]
+    assert [endpoint.creation_timestamp for endpoint in endpoints] == [1000, 2000, 3000]
+    assert all(
+        endpoint.resolved_version is not None and endpoint.resolved_version.version == sj["version"]
+        for endpoint in endpoints
+    )
+
+    with mock.patch(
+        "mlflow.genai.mcp_tool_discovery.discover_mcp_tools",
+        return_value=[MCPTool(name="refreshed")],
+    ) as mock_discover:
+        genai.refresh_mcp_server_version_tools(name=sj["name"], version=sj["version"])
+
+    mock_discover.assert_called_once_with(
+        url=alias_endpoint.url,
+        transport_type=MCPRemoteTransportType.STREAMABLE_HTTP,
+        headers=None,
+        timeout=DEFAULT_MCP_TOOL_DISCOVER_TIMEOUT_SECONDS,
+    )
+
+
 @pytest.mark.parametrize(
     "exc",
     [

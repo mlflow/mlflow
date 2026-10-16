@@ -254,11 +254,11 @@ def discover_tools_for_version(
                 timeout=timeout,
             )
         except MlflowException as e:
-            # Omit the URL from the outer prefix — if the inner message already
-            # embeds it (e.g. timeout errors), adding it again would duplicate it.
+            error_message = str(e)
+            endpoint_url = "" if endpoint.url in error_message else f" ({endpoint.url!r})"
             raise MlflowException.invalid_parameter_value(
-                f"MCP tool discovery failed for access endpoint '{endpoint.id}' "
-                f"resolving to version '{version}': {e}"
+                f"MCP tool discovery failed for access endpoint '{endpoint.id}'{endpoint_url} "
+                f"resolving to version '{version}': {error_message}"
             ) from e
         except Exception as e:
             # Plain exceptions lack URL context; add it here.
