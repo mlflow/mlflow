@@ -72,6 +72,11 @@ def upgrade():
 
 
 def downgrade():
-    raise NotImplementedError(
-        "Downgrading the Issue schema would discard metadata and observation timestamps"
-    )
+    op.drop_index("index_issue_categories_hash", table_name="issue_categories")
+    op.drop_table("issue_categories")
+    with op.batch_alter_table("issues") as batch_op:
+        batch_op.drop_index("index_issues_experiment_updated")
+        batch_op.drop_index("index_issues_experiment_last_seen")
+        batch_op.drop_column("metadata")
+        batch_op.drop_column("last_updated_by")
+        batch_op.drop_column("last_seen_timestamp")
