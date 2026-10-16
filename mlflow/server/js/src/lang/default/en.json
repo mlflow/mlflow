@@ -55,6 +55,10 @@
     "defaultMessage": "Name",
     "description": "Field label for assessment name in a creation form"
   },
+  "+7/mG0": {
+    "defaultMessage": "Show span tree",
+    "description": "Accessible label for showing the span tree in the trace explorer"
+  },
   "+7qu4I": {
     "defaultMessage": "Version {version}",
     "description": "Skill version list item label"
@@ -494,6 +498,10 @@
   "/k7Xvj": {
     "defaultMessage": "Key",
     "description": "Tag filter input for key field in the tags filter popover for experiments page search by tags"
+  },
+  "/l44ud": {
+    "defaultMessage": "Lose",
+    "description": "Label for a losing pairwise preference assessment"
   },
   "/la8K9": {
     "defaultMessage": "Date",
@@ -1042,6 +1050,10 @@
   "2/B9Zg": {
     "defaultMessage": "added {when} by {user}",
     "description": "Evaluation review > assessments > detailed history > added history entry"
+  },
+  "21Sf6U": {
+    "defaultMessage": "Add a comment (optional)",
+    "description": "Placeholder for an optional comment in pairwise trace review"
   },
   "21rwGc": {
     "defaultMessage": "Status",
@@ -1606,6 +1618,10 @@
   "47QsAK": {
     "defaultMessage": "{fieldName} are empty",
     "description": "Default text in data table where items are empty in the model\n                  comparison page"
+  },
+  "47VSj1": {
+    "defaultMessage": "Failed to save pairwise review. Error: {error}",
+    "description": "Error shown when saving a pairwise trace review fails"
   },
   "47li88": {
     "defaultMessage": "Created",
@@ -3638,6 +3654,10 @@
   "BEG0mS": {
     "defaultMessage": "(no name yet)",
     "description": "Review question preview placeholder for blank name"
+  },
+  "BEW/bM": {
+    "defaultMessage": "Pairwise trace details",
+    "description": "Accessible label for the side-by-side trace details in pairwise review"
   },
   "BEXAt0": {
     "defaultMessage": "(empty)",
@@ -5831,6 +5851,10 @@
     "defaultMessage": "Time created",
     "description": "Header for the time created column in the experiments table"
   },
+  "JVrnss": {
+    "defaultMessage": "Saving…",
+    "description": "Status shown while a pairwise trace review is being saved"
+  },
   "JW0GbU": {
     "defaultMessage": "You can set a maximum of {maxLength} values",
     "description": "Error message when trying to submit a key-value pair form with more than the maximum allowed values"
@@ -6090,6 +6114,10 @@
   "KObL+y": {
     "defaultMessage": "Endpoints ({count})",
     "description": "Gateway > Endpoints using key drawer > Title"
+  },
+  "KPIs28": {
+    "defaultMessage": "Pairwise review question",
+    "description": "Accessible label for the pairwise review question banner"
   },
   "KQMhjY": {
     "defaultMessage": "Status:",
@@ -7002,6 +7030,10 @@
   "NekUba": {
     "defaultMessage": "Add to dataset",
     "description": "Button text for adding a trace to an evaluation dataset"
+  },
+  "NfKgNa": {
+    "defaultMessage": "Win",
+    "description": "Label for a winning pairwise preference assessment"
   },
   "NhEmyj": {
     "defaultMessage": "Training runs",
@@ -9471,6 +9503,10 @@
     "defaultMessage": "Run name",
     "description": "Header for the traces table run-name column"
   },
+  "WZpT6f": {
+    "defaultMessage": "Comment",
+    "description": "Accessible label for the comment in pairwise trace review"
+  },
   "Wbpp7P": {
     "defaultMessage": "Create a role to assign permissions to users.",
     "description": "Empty state description for roles table"
@@ -10522,6 +10558,10 @@
   "aVIoIw": {
     "defaultMessage": "No tools selected",
     "description": "Label for tool selector when no tools are selected"
+  },
+  "aVam/F": {
+    "defaultMessage": "Hide span tree",
+    "description": "Accessible label for hiding the span tree in the trace explorer"
   },
   "aW3CeS": {
     "defaultMessage": "Bound {date}",
@@ -13591,6 +13631,10 @@
     "defaultMessage": "Learn more about the AI Gateway in the {gatewayDocs}.",
     "description": "AI Gateway setup guide > Documentation link"
   },
+  "ko0/Vb": {
+    "defaultMessage": "Review",
+    "description": "Action that opens pairwise review for the compared traces"
+  },
   "kqXT2V": {
     "defaultMessage": "Description",
     "description": "SKILL.md description field label"
@@ -14402,6 +14446,10 @@
   "nhqO2Z": {
     "defaultMessage": "Save",
     "description": "Experiment page > artifact compare view > prompt lab artifact synchronization > cancel button label"
+  },
+  "nicnCg": {
+    "defaultMessage": "{label} (R)",
+    "description": "Tooltip for the pairwise review action with its keyboard shortcut"
   },
   "nkh1zr": {
     "defaultMessage": "Negative label",
@@ -16754,6 +16802,10 @@
   "wU/MOk": {
     "defaultMessage": "Create MCP server",
     "description": "MCP servers empty state CTA button"
+  },
+  "wU8Ziv": {
+    "defaultMessage": "Which run is better?",
+    "description": "Question shown while reviewing two traces side by side"
   },
   "wY58OE": {
     "defaultMessage": "Retrieval groundedness",

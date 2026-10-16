@@ -22,6 +22,7 @@ const DIR_PARAM = 'dir';
 export const TRACE_ID_PARAM = 'traceId';
 export const BASELINE_TRACE_ID_PARAM = 'baselineTraceId';
 export const CANDIDATE_TRACE_ID_PARAM = 'candidateTraceId';
+export const PAIRWISE_REVIEW_MODE_PARAM = 'pairwiseReview';
 // v3 (and several still-live producers: the `/traces/:traceId` redirect, the issue-detection trace
 // picker, regression test-case links) open a trace by writing `?selectedEvaluationId=`. v4 reads
 // `traceId`, so honor the legacy param as a fallback and normalize it away on the next write.
@@ -190,12 +191,13 @@ export const useTracesV4UrlState = (): TracesV4UrlState => {
           params.set(TRACE_ID_PARAM, next);
         } else {
           params.delete(TRACE_ID_PARAM);
-          // With the new eval runs UI, closing the trace also leaves a trace comparison. Done in this
-          // same update: a second functional update in the same tick would start from the old params
-          // and restore them.
+          // With the new eval runs UI, closing the trace also leaves a trace comparison and its pairwise
+          // review. Done in this same update: a second functional update in the same tick would start
+          // from the old params and restore them.
           if (shouldEnableNewEvalRunsUi()) {
             params.delete(BASELINE_TRACE_ID_PARAM);
             params.delete(CANDIDATE_TRACE_ID_PARAM);
+            params.delete(PAIRWISE_REVIEW_MODE_PARAM);
           }
         }
         return params;
