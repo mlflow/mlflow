@@ -31,6 +31,7 @@ import { useSetReviewQueueItemStatusMutation } from './hooks/useSetReviewQueueIt
 import { canDeleteQueue, canManageQueue, canRemoveQueueItems, sameUser } from './queuePermissions';
 import { useHeaderVisibility } from '../experiment-page-tabs/ExperimentPageHeaderVisibilityContext';
 import type { ReviewQueueItem, ReviewStatus } from './types';
+import { useSetExperimentBreadcrumbTitle } from '../experiment-page-tabs/ExperimentPageRevampContext';
 
 /**
  * Review tab — a master/detail surface modeled on the labeling-session page:
@@ -117,6 +118,13 @@ const ExperimentReviewQueuePage = () => {
   const selectedQueue = useMemo(
     () => reviewQueues.find((q) => q.queue_id === selectedQueueId) ?? null,
     [reviewQueues, selectedQueueId],
+  );
+  useSetExperimentBreadcrumbTitle(
+    selectedQueue
+      ? selectedQueue.queue_type === 'USER'
+        ? displayUser(selectedQueue.name, intl)
+        : selectedQueue.name
+      : undefined,
   );
   const editingQueue = useMemo(
     () => (editingQueueId ? (reviewQueues.find((q) => q.queue_id === editingQueueId) ?? null) : null),

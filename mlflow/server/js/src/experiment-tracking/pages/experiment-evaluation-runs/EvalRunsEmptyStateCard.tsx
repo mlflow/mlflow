@@ -9,6 +9,7 @@ import { useTraceMetricsQuery } from '../experiment-overview/hooks/useTraceMetri
 import { buildEvaluateAssistantPrompt, buildEvaluatePrompt } from './evalRunsAgentPrompt';
 import { getDatasetCodeSnippet, getTraceCodeSnippet } from './evaluationCodeSnippets';
 import { RunEvaluationButton } from './RunEvaluationButton';
+import { useExperimentPageRevampContext } from '../experiment-page-tabs/ExperimentPageRevampContext';
 
 const PYTHON_TAB_LABEL = (
   <FormattedMessage
@@ -19,6 +20,7 @@ const PYTHON_TAB_LABEL = (
 
 export const EvalRunsEmptyStateCard = ({ experimentId }: { experimentId: string }) => {
   const { theme } = useDesignSystemTheme();
+  const { enabled: experimentPageRevampEnabled } = useExperimentPageRevampContext();
 
   // Only fire the trace-count query once the user actually opens the Python tab — most
   // empty-state visitors click "Evaluate traces" or the coding-agent path and never need it.
@@ -49,9 +51,11 @@ export const EvalRunsEmptyStateCard = ({ experimentId }: { experimentId: string 
 
   const header = (
     <>
-      <div css={{ display: 'flex', justifyContent: 'center' }}>
-        <RunEvaluationButton experimentId={experimentId} />
-      </div>
+      {!experimentPageRevampEnabled && (
+        <div css={{ display: 'flex', justifyContent: 'center' }}>
+          <RunEvaluationButton experimentId={experimentId} />
+        </div>
+      )}
       <div
         css={{
           display: 'flex',
