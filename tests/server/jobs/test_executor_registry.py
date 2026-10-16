@@ -158,6 +158,7 @@ def test_custom_config_propagated():
 
 
 def test_register_default_executors():
+    from mlflow.server.jobs.docker_executor import DockerJobExecutor
     from mlflow.server.jobs.local_executor import LocalJobExecutor
 
     registry = JobExecutorRegistry()
@@ -165,6 +166,7 @@ def test_register_default_executors():
 
     assert "local" in registry.get_registered_names()
     assert isinstance(registry.get("local"), LocalJobExecutor)
+    assert isinstance(registry.get("docker"), DockerJobExecutor)
 
 
 # ---------------------------------------------------------------------------
@@ -356,3 +358,34 @@ def test_executor_remote_execution_defaults_to_false():
 def test_executor_check_requirements_default_is_noop():
     executor = StubExecutor(JobExecutorConfig())
     executor.check_requirements()
+
+
+@pytest.mark.parametrize("default_backend", ["local", "docker"])
+def test_validate_executor_config_rejects_custom_scorer_backend_without_executor_engine(
+    monkeypatch, default_backend
+):
+    # Rejected even when the default backend names the same backend: without the executor engine,
+    # jobs never run on a backend.
+    monkeypatch.delenv("MLFLOW_SERVER_JOB_EXECUTION_ENGINE", raising=False)
+    monkeypatch.setenv("MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND", default_backend)
+    monkeypatch.setenv("MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND", "docker")
+
+    with pytest.raises(
+        MlflowException, match="requires MLFLOW_SERVER_JOB_EXECUTION_ENGINE=executor"
+    ):
+        validate_executor_config()
+
+
+def test_validate_executor_config_allows_local_custom_scorer_backend_without_executor_engine(
+    monkeypatch,
+):
+    monkeypatch.delenv("MLFLOW_SERVER_JOB_EXECUTION_ENGINE", raising=False)
+    monkeypatch.setenv("MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND", "local")
+    monkeypatch.setenv("MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND", "local")
+    monkeypatch.setattr(
+        "mlflow.server.jobs.local_executor.LocalJobExecutor.check_requirements",
+        lambda self: None,
+    )
+
+    with mock.patch("mlflow.server.jobs.executor_registry.get_entry_points", return_value=[]):
+        validate_executor_config()

@@ -17,7 +17,12 @@ from opentelemetry.trace import (
 from mlflow.entities.span import create_mlflow_span
 from mlflow.semantic_kernel.tracing_utils import set_model, set_span_type, set_token_usage
 from mlflow.tracing.constant import SpanAttributeKey
-from mlflow.tracing.provider import _get_tracer, mlflow_runtime_context
+from mlflow.tracing.provider import (
+    _add_span_processor_first,
+    _get_tracer_for_span_end,
+    _get_tracer_for_span_start,
+    mlflow_runtime_context,
+)
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import (
     _bypass_attribute_guard,
@@ -78,7 +83,7 @@ def setup_semantic_kernel_tracing():
             isinstance(p, SemanticKernelSpanProcessor)
             for p in provider._active_span_processor._span_processors
         ):
-            provider.add_span_processor(sk_processor)
+            _add_span_processor_first(provider, sk_processor)
 
 
 class SemanticKernelSpanProcessor(SimpleSpanProcessor):
@@ -97,15 +102,16 @@ class SemanticKernelSpanProcessor(SimpleSpanProcessor):
             return
         self._processing_local.in_on_start = True
         try:
-            # Trigger MLflow's span processor
-            tracer = _get_tracer(__name__)
-            tracer.span_processor.on_start(span, parent_context)
+            tracer, should_forward = _get_tracer_for_span_start(self, __name__)
+            if should_forward:
+                # Trigger MLflow's span processor
+                tracer.span_processor.on_start(span, parent_context)
 
-            trace_id = get_otel_attribute(span, SpanAttributeKey.REQUEST_ID)
-            mlflow_span = create_mlflow_span(span, trace_id)
+                trace_id = get_otel_attribute(span, SpanAttributeKey.REQUEST_ID)
+                mlflow_span = create_mlflow_span(span, trace_id)
 
-            # Register new span in the in-memory trace manager
-            InMemoryTraceManager.get_instance().register_span(mlflow_span)
+                # Register new span in the in-memory trace manager
+                InMemoryTraceManager.get_instance().register_span(mlflow_span)
 
             # Also set this span in MLflow's runtime context so that other autolog integrations
             # (like OpenAI) can correctly parent their spans to Semantic Kernel spans.
@@ -146,7 +152,8 @@ class SemanticKernelSpanProcessor(SimpleSpanProcessor):
                     set_span_cost_attribute(mlflow_span)
 
             # Export the span using MLflow's span processor
-            tracer = _get_tracer(__name__)
-            tracer.span_processor.on_end(span)
+            tracer, should_forward = _get_tracer_for_span_end(self, __name__)
+            if should_forward:
+                tracer.span_processor.on_end(span)
         finally:
             self._processing_local.in_on_end = False

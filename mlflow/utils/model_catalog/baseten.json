@@ -134,13 +134,13 @@
       "mode": "chat",
       "context_window": {
         "max_input": 1048576,
-        "max_output": 32768,
-        "max_tokens": 32768
+        "max_output": 131072,
+        "max_tokens": 131072
       },
       "pricing": {
         "input_per_million_tokens": 0.6,
         "output_per_million_tokens": 2.4,
-        "cache_read_per_million_tokens": 0.14
+        "cache_read_per_million_tokens": 0.014
       },
       "capabilities": {
         "function_calling": true,
@@ -149,7 +149,28 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-30"
+      "last_updated_at": "2026-10-09"
+    },
+    "meta-models/muse-spark-open": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 1048576,
+        "max_tokens": 1048576
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.25,
+        "output_per_million_tokens": 4.25,
+        "cache_read_per_million_tokens": 0.15
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-10-16"
     },
     "moonshotai/Kimi-K2-Instruct-0905": {
       "mode": "chat",
@@ -279,6 +300,27 @@
         "response_schema": true
       },
       "last_updated_at": "2026-09-23"
+    },
+    "nvidia/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 1048576,
+        "max_tokens": 1048576
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.2,
+        "output_per_million_tokens": 0.5,
+        "cache_read_per_million_tokens": 0.04
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-10-16"
     },
     "nvidia/Nemotron-120B-A12B": {
       "mode": "chat",

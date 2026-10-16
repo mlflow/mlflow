@@ -15,7 +15,7 @@ import { useOverviewChartContext } from '../OverviewChartContext';
 
 export interface ToolLatencyDataPoint {
   timestamp: string;
-  [toolName: string]: string | number;
+  values: Record<string, number>;
 }
 
 export interface UseToolLatencyChartDataResult {
@@ -89,12 +89,8 @@ export function useToolLatencyChartData({ enabled = true }: { enabled?: boolean 
       const toolLatencies = dataByTimestamp.get(timestampMs);
       const dataPoint: ToolLatencyDataPoint = {
         timestamp: formatTimestampForTraceMetrics(timestampMs, timeIntervalSeconds),
+        values: Object.fromEntries(sortedToolNames.map((toolName) => [toolName, toolLatencies?.get(toolName) ?? 0])),
       };
-
-      // Add latency for each tool (0 if not present)
-      for (const toolName of sortedToolNames) {
-        dataPoint[toolName] = toolLatencies?.get(toolName) ?? 0;
-      }
 
       return dataPoint;
     });

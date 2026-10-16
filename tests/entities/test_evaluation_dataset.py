@@ -1,3 +1,4 @@
+import copy
 import json
 from unittest.mock import Mock, patch
 
@@ -16,6 +17,7 @@ from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.exceptions import MlflowException
 from mlflow.tracing.utils import build_otel_context
+from mlflow.utils.mlflow_tags import MLFLOW_USER
 
 
 def test_evaluation_dataset_creation():
@@ -777,3 +779,37 @@ def test_validate_schema_with_empty_records_after_to_dict():
         dataset.merge_records([new_record])
 
     mock_store.upsert_dataset_records.assert_called_once()
+
+
+def test_merge_records_does_not_modify_input_records():
+    dataset = EvaluationDataset(
+        dataset_id="dataset123",
+        name="test_dataset",
+        digest="digest123",
+        created_time=123456789,
+        last_update_time=123456789,
+    )
+    records = [
+        {"inputs": {"q": "a"}, "expectations": {"answer": "x"}, "tags": {"team": "eval"}},
+        {"inputs": {"q": "b"}, "tags": None},
+    ]
+    original = copy.deepcopy(records)
+
+    mock_store = Mock()
+    mock_store.get_dataset.return_value.schema = None
+
+    with (
+        patch("mlflow.tracking._tracking_service.utils._get_store", return_value=mock_store),
+        patch(
+            "mlflow.tracking.context.registry.resolve_tags",
+            return_value={MLFLOW_USER: "alice"},
+        ),
+    ):
+        dataset.merge_records(records)
+
+    assert records == original
+    upserted = mock_store.upsert_dataset_records.call_args.kwargs["records"]
+    assert [r["tags"] for r in upserted] == [
+        {"team": "eval", MLFLOW_USER: "alice"},
+        {MLFLOW_USER: "alice"},
+    ]

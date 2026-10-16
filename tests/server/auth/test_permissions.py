@@ -10,6 +10,9 @@ from mlflow.server.auth.permissions import (
     PERMISSION_PRIORITY,
     READ,
     RESOURCE_GRANTABLE_PERMISSIONS,
+    RESOURCE_TYPE_SKILL,
+    SKILL_REGISTRY_GRANTABLE_PERMISSIONS,
+    SKILL_REGISTRY_RESOURCE_TYPES,
     USE,
     VALID_RESOURCE_TYPES,
     WORKSPACE_GRANTABLE_PERMISSIONS,
@@ -157,6 +160,11 @@ def test_prompt_is_a_first_class_resource_type():
     assert "prompt" != "registered_model"
 
 
+def test_skill_is_a_first_class_resource_type():
+    assert RESOURCE_TYPE_SKILL in VALID_RESOURCE_TYPES
+    assert SKILL_REGISTRY_RESOURCE_TYPES == {RESOURCE_TYPE_SKILL}
+
+
 # ---- Scope-aware validator --------------------------------------------------
 
 
@@ -181,6 +189,12 @@ def test_grantable_permission_sets_pin_simplified_model():
     # DENY is NOT grantable workspace-wide: an admin-wide veto has no use case and
     # would be unremovable once roles relied on it.
     assert DENY.name not in WORKSPACE_GRANTABLE_PERMISSIONS
+    assert SKILL_REGISTRY_GRANTABLE_PERMISSIONS == {
+        READ.name,
+        EDIT.name,
+        MANAGE.name,
+        DENY.name,
+    }
 
 
 @pytest.mark.parametrize(
@@ -195,9 +209,27 @@ def test_validate_resource_grant_accepts_grantable(permission):
     _validate_permission_for_resource_type(permission, "mcp_server")
 
 
+@pytest.mark.parametrize("permission", [READ.name, EDIT.name, MANAGE.name, DENY.name])
+def test_validate_skill_resource_grant_accepts_rbac_tiers(permission):
+    _validate_permission_for_resource_type(permission, RESOURCE_TYPE_SKILL)
+
+
+def test_validate_skill_resource_grant_rejects_use():
+    with pytest.raises(MlflowException, match="Skill Registry grants accept only"):
+        _validate_permission_for_resource_type(USE.name, RESOURCE_TYPE_SKILL)
+
+
 @pytest.mark.parametrize(
     "resource_type",
-    ["experiment", "registered_model", "prompt", "scorer", "gateway_endpoint", "mcp_server"],
+    [
+        "experiment",
+        "registered_model",
+        "prompt",
+        "scorer",
+        "gateway_endpoint",
+        "mcp_server",
+        RESOURCE_TYPE_SKILL,
+    ],
 )
 def test_validate_resource_grant_rejects_no_permissions(resource_type):
     with pytest.raises(MlflowException, match="NO_PERMISSIONS"):

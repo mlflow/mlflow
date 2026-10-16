@@ -1,11 +1,15 @@
 # This file contains utility functions for scorer functionality.
 
 import ast
+import hashlib
 import inspect
 import json
 import logging
+import threading
 from textwrap import dedent
-from typing import TYPE_CHECKING, Any, Callable, NamedTuple
+from typing import TYPE_CHECKING, Any, Callable, Iterator, NamedTuple
+
+from pydantic import BaseModel
 
 from mlflow.exceptions import INVALID_PARAMETER_VALUE, MlflowException
 
@@ -139,6 +143,18 @@ def _extract_params_from_signature(signature: str) -> str:
     raise MlflowException(
         f"Invalid signature format: '{signature}'", error_code=INVALID_PARAMETER_VALUE
     )
+
+
+def _signature_param_names(signature: str) -> set[str]:
+    """The parameter names in a stored ``@scorer`` signature, read without running any code."""
+    try:
+        args = ast.parse(f"def _f{signature}: pass").body[0].args
+    # Before Python 3.12, a null byte in the source raises ValueError instead of SyntaxError.
+    except (SyntaxError, ValueError):
+        raise MlflowException(
+            f"Invalid signature format: {signature!r}", error_code=INVALID_PARAMETER_VALUE
+        )
+    return {arg.arg for arg in (*args.posonlyargs, *args.args, *args.kwonlyargs)}
 
 
 def recreate_function(source: str, signature: str, func_name: str) -> Callable[..., Any]:
@@ -432,6 +448,18 @@ def params_contain_custom_scorer_code(job_name: str, params: dict[str, Any]) -> 
     )
 
 
+# Same value as ``mlflow.server.jobs.executor_registry.DOCKER_EXECUTOR_BACKEND``, kept here because
+# importing that module loads the server package, which the tracking store must not do.
+_DOCKER_EXECUTOR_BACKEND = "docker"
+
+
+def container_scoring_enabled() -> bool:
+    """Whether online scoring jobs run custom scorers in job containers."""
+    from mlflow.environment_variables import MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND
+
+    return MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND.get() == _DOCKER_EXECUTOR_BACKEND
+
+
 def custom_scorer_execution_blocked(serialized_data: Any) -> bool:
     """Return True if this server must NOT execute the custom code in ``serialized_data``.
 
@@ -489,3 +517,78 @@ def scorer_params_use_direct_provider_model(job_name: str, params: dict[str, Any
             if provider not in _GATEWAY_BACKED_SCHEMES:
                 return True
     return False
+
+
+# Version fields change on every MLflow upgrade, and `timeout` is a run limit rather than scoring
+# logic (a scorer registered before the field existed loads with 0 where a fresh copy has None).
+_DEFINITION_DIGEST_IGNORED_KEYS = frozenset({"mlflow_version", "serialization_version", "timeout"})
+# Built-in scorers store these as sets, so their dumped order depends on the string hash seed.
+_DEFINITION_DIGEST_UNORDERED_KEYS = frozenset({"required_columns"})
+
+
+def _normalize_definition(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {
+            key: sorted(item)
+            if key in _DEFINITION_DIGEST_UNORDERED_KEYS and isinstance(item, list)
+            else _normalize_definition(item)
+            for key, item in value.items()
+            if key not in _DEFINITION_DIGEST_IGNORED_KEYS
+        }
+    if isinstance(value, list):
+        return [_normalize_definition(item) for item in value]
+    return value
+
+
+# `evaluate()` scores rows in parallel, so threads would otherwise interleave the cache restore.
+_MODEL_DUMP_LOCK = threading.Lock()
+
+
+def _iter_scorer_tree(scorer: Any) -> Iterator[Any]:
+    yield scorer
+    for sub_scorer in getattr(scorer, "_scorers", []):
+        yield from _iter_scorer_tree(sub_scorer)
+
+
+def _model_dump_without_caching(scorer: Any) -> dict[str, Any]:
+    # `model_dump()` caches its result on the scorer and on every nested ensemble sub-scorer, and
+    # `register()` reuses that cache. Restore it, so hashing doesn't freeze the definition at its
+    # first digest.
+    with _MODEL_DUMP_LOCK:
+        scorers = [s for s in _iter_scorer_tree(scorer) if hasattr(s, "_cached_dump")]
+        cached_dumps = [s._cached_dump for s in scorers]
+        try:
+            return scorer.model_dump()
+        finally:
+            for s, cached_dump in zip(scorers, cached_dumps):
+                s._cached_dump = cached_dump
+
+
+def get_scorer_definition_digest(scorer: Any) -> str | None:
+    """
+    Hash the serialized definition of a scorer, so that the same definition has the same digest
+    whether or not it is registered. Returns None when the definition can't be hashed.
+    """
+    try:
+        try:
+            definition = _model_dump_without_caching(scorer)
+        except Exception:
+            scorer_class = type(scorer)
+            if scorer_class.__module__.startswith("mlflow."):
+                # Every scorer of this class would share the class source, so it isn't an identity.
+                return None
+            definition = {
+                "name": scorer.name,
+                "class_source": inspect.getsource(scorer_class),
+                "fields": BaseModel.model_dump(scorer, mode="json"),
+            }
+        try:
+            text = json.dumps(
+                _normalize_definition(definition), sort_keys=True, separators=(",", ":")
+            )
+        except TypeError:
+            return None
+        return "sha256:" + hashlib.sha256(text.encode("utf-8")).hexdigest()
+    except Exception:
+        _logger.debug("Failed to compute the scorer definition digest", exc_info=True)
+        return None

@@ -72,6 +72,7 @@ from mlflow.protos.databricks_pb2 import (
     PERMISSION_DENIED,
     RESOURCE_DOES_NOT_EXIST,
 )
+from mlflow.protos.issues_pb2 import CreateIssue, SearchIssues, UpdateIssue
 from mlflow.protos.service_pb2 import (
     AddDatasetToExperiments,
     AttachModelToGatewayEndpoint,
@@ -4136,3 +4137,71 @@ def test_search_issues_with_trace_count():
     assert result[0].trace_count == 2
     assert result[1].trace_count == 0
     assert result.token is None
+
+
+def test_issue_rest_extended_contract():
+    store = RestStore(lambda: MlflowHostCreds("https://hello"))
+    issue = Issue(
+        "iss-chosen",
+        "0",
+        "Title",
+        "",
+        IssueStatus.PENDING,
+        1,
+        1,
+        last_seen_timestamp=0,
+        metadata={"key": "value"},
+    )
+    with mock.patch.object(
+        store, "_call_endpoint", return_value=CreateIssue.Response(issue=issue.to_proto())
+    ) as call:
+        result = store.create_issue(
+            "0",
+            "Title",
+            "",
+            issue_id="iss-chosen",
+            last_seen_timestamp=0,
+            metadata={"key": "value"},
+        )
+        call.assert_called_once()
+        body = json.loads(call.call_args.args[1])
+        assert body["issue_id"] == "iss-chosen"
+        assert body["last_seen_timestamp"] == 0
+        assert body["metadata"] == {"key": "value"}
+        assert result == issue
+    with mock.patch.object(
+        store, "_call_endpoint", return_value=UpdateIssue.Response(issue=issue.to_proto())
+    ) as call:
+        store.update_issue(
+            "iss-chosen",
+            categories=[],
+            metadata={"new": "value"},
+            delete_metadata_keys=["old"],
+        )
+        call.assert_called_once()
+        body = json.loads(call.call_args.args[1])
+        assert body["categories"] == []
+        assert body["delete_metadata_keys"] == ["old"]
+    with mock.patch.object(
+        store,
+        "_call_endpoint",
+        return_value=SearchIssues.Response(
+            issues=[issue.to_proto()], total_count=5, next_page_token="next"
+        ),
+    ) as call:
+        result = store.search_issues(
+            "0",
+            name="Title",
+            statuses=["pending"],
+            categories=["cost"],
+            order_by=["status ASC"],
+            include_total_count=True,
+            view="basic",
+        )
+        call.assert_called_once()
+        body = json.loads(call.call_args.args[1])
+        assert body["statuses"] == ["pending"]
+        assert body["order_by"] == ["status ASC"]
+        assert body["include_total_count"] is True
+        assert result.total_count == 5
+        assert result.token == "next"

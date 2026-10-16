@@ -31,9 +31,31 @@ from mlflow.utils.search_utils import (
     SearchMCPAccessEndpointUtils,
     SearchMCPServerUtils,
     SearchMCPServerVersionUtils,
+    SearchModelUtils,
+    SearchModelVersionUtils,
     SearchTraceUtils,
     SearchUtils,
 )
+
+
+@pytest.mark.parametrize(
+    ("search_utils", "search_type"),
+    [
+        (SearchModelUtils, "registered model"),
+        (SearchModelVersionUtils, "model version"),
+    ],
+)
+@pytest.mark.parametrize("identifier", ["tags.stage", "name"])
+@pytest.mark.parametrize("comparator", ["IS NULL", "IS NOT NULL", "is null", "is not null"])
+def test_model_registry_search_rejects_null_comparisons(
+    search_utils, search_type, identifier, comparator
+):
+    with pytest.raises(
+        MlflowException,
+        match=f"IS NULL / IS NOT NULL is not supported for {search_type} search",
+    ) as exc:
+        search_utils.parse_search_filter(f"{identifier} {comparator}")
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
 
 
 @pytest.mark.parametrize(
@@ -1051,3 +1073,46 @@ def test_search_trace_utils_filter_metadata_is_null():
 
     result = SearchTraceUtils.filter(traces, "metadata.session IS NOT NULL")
     assert {t.trace_id for t in result} == {"t1"}
+
+
+def _mysql_sql(comparator, expression, value):
+    from sqlalchemy.dialects import mysql
+
+    func = SearchUtils.get_sql_expression_comparison_func(comparator, "mysql")
+    return str(func(expression, value).compile(dialect=mysql.dialect()))
+
+
+def _collated_column():
+    from mlflow.store.tracking.dbmodels.models import SqlSkillVersion
+
+    # A collated column is an expression rather than a mapped column, so it has
+    # no .class_ for the raw BINARY SQL that get_sql_comparison_func builds.
+    return SqlSkillVersion.status.__clause_element__().collate("utf8mb4_bin")
+
+
+@pytest.mark.parametrize("comparator", ["=", "!=", "LIKE"])
+def test_sql_expression_comparison_func_is_case_sensitive_on_mysql(comparator):
+    assert "binary(" in _mysql_sql(comparator, _collated_column(), "Act%")
+
+
+def test_sql_expression_comparison_func_keeps_ilike_case_insensitive_on_mysql():
+    from sqlalchemy.dialects import mysql
+
+    column = _collated_column()
+    expected = str(column.ilike("ACT%").compile(dialect=mysql.dialect()))
+    assert _mysql_sql("ILIKE", column, "ACT%") == expected
+    assert "lower(" in expected
+
+
+@pytest.mark.parametrize("comparator", ["IN", "NOT IN"])
+def test_sql_expression_comparison_func_binds_lists_on_mysql(comparator):
+    assert "binary(" in _mysql_sql(comparator, _collated_column(), ["active", "draft"])
+
+
+@pytest.mark.parametrize("dialect", ["sqlite", "postgresql", "mssql"])
+@pytest.mark.parametrize("comparator", ["=", "LIKE", "ILIKE"])
+def test_sql_expression_comparison_func_delegates_on_other_dialects(dialect, comparator):
+    column = _collated_column()
+    expression_func = SearchUtils.get_sql_expression_comparison_func(comparator, dialect)
+    column_func = SearchUtils.get_sql_comparison_func(comparator, dialect)
+    assert expression_func(column, "act%").compare(column_func(column, "act%"))

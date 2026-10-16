@@ -386,6 +386,17 @@ def test_log_metrics_uses_millisecond_timestamp_resolution_client():
     assert {(m.value, m.timestamp) for m in metric_history_name2} == {(-3, 123 * 1000)}
 
 
+def test_log_metric_and_log_metrics_preserve_zero_timestamp():
+    with start_run() as active_run:
+        run_id = active_run.info.run_id
+        mlflow.log_metric("single", 1, timestamp=0)
+        mlflow.log_metrics({"batch": 2}, timestamp=0)
+
+    client = tracking.MlflowClient()
+    assert [m.timestamp for m in client.get_metric_history(run_id, "single")] == [0]
+    assert [m.timestamp for m in client.get_metric_history(run_id, "batch")] == [0]
+
+
 @pytest.mark.parametrize("step_kwarg", [None, -10, 5])
 def test_log_metrics_uses_common_timestamp_and_step_per_invocation(step_kwarg):
     expected_metrics = {"name_1": 30, "name_2": -3, "nested/nested/name": 40}

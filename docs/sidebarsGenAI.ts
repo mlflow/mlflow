@@ -876,6 +876,11 @@ const sidebarsGenAI: SidebarsConfig = {
                   id: 'eval-monitor/scorers/custom/tutorial',
                   label: 'Tutorial: Develop code-based scorers',
                 },
+                {
+                  type: 'doc',
+                  id: 'eval-monitor/scorers/custom/job-containers',
+                  label: 'Run in Job Containers (Experimental)',
+                },
               ],
               collapsed: false,
             },
