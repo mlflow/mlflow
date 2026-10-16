@@ -1,7 +1,7 @@
 import json
 import logging
 from functools import cached_property
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 from packaging.version import Version
 
@@ -230,7 +230,8 @@ def load_delta(
     targets: str | None = None,
     name: str | None = None,
     digest: str | None = None,
-) -> SparkDataset:
+    dataset_type: Literal["spark", "pandas", "polars"] = "spark",
+) -> SparkDataset | "PandasDataset" | "PolarsDataset":
     """
     Loads a :py:class:`SparkDataset <mlflow.data.spark_dataset.SparkDataset>` from a Delta table
     for use with MLflow Tracking.
@@ -246,14 +247,23 @@ def load_delta(
             automatically generated.
         digest: The digest (hash, fingerprint) of the dataset. If unspecified, a digest
             is automatically computed.
+        dataset_type: The dataset type to load. ``spark`` uses Spark to return a
+            :py:class:`SparkDataset <mlflow.data.spark_dataset.SparkDataset>`. ``pandas`` and
+            ``polars`` use the optional ``deltalake`` package to return
+            :py:class:`PandasDataset <mlflow.data.pandas_dataset.PandasDataset>` and
+            :py:class:`PolarsDataset <mlflow.data.polars_dataset.PolarsDataset>`, respectively.
+            ``pandas`` and ``polars`` require ``path`` to be specified.
 
     Returns:
-        An instance of :py:class:`SparkDataset <mlflow.data.spark_dataset.SparkDataset>`.
+        An instance of :py:class:`SparkDataset <mlflow.data.spark_dataset.SparkDataset>`,
+        :py:class:`PandasDataset <mlflow.data.pandas_dataset.PandasDataset>`, or
+        :py:class:`PolarsDataset <mlflow.data.polars_dataset.PolarsDataset>`.
     """
-    from mlflow.data.spark_delta_utils import (
-        _try_get_delta_table_latest_version_from_path,
-        _try_get_delta_table_latest_version_from_table_name,
-    )
+    if dataset_type not in {"spark", "pandas", "polars"}:
+        raise MlflowException(
+            "`dataset_type` must be one of 'spark', 'pandas', or 'polars'.",
+            INVALID_PARAMETER_VALUE,
+        )
 
     if (path, table_name).count(None) != 1:
         raise MlflowException(
@@ -261,7 +271,12 @@ def load_delta(
             INVALID_PARAMETER_VALUE,
         )
 
-    if version is None:
+    if version is None and dataset_type == "spark":
+        from mlflow.data.spark_delta_utils import (
+            _try_get_delta_table_latest_version_from_path,
+            _try_get_delta_table_latest_version_from_table_name,
+        )
+
         if path is not None:
             version = _try_get_delta_table_latest_version_from_path(path)
         else:
@@ -270,7 +285,58 @@ def load_delta(
     if name is None and table_name is not None:
         name = table_name + (f"@v{version}" if version is not None else "")
 
-    source = DeltaDatasetSource(path=path, delta_table_name=table_name, delta_table_version=version)
+    source = DeltaDatasetSource(
+        path=path,
+        delta_table_name=table_name,
+        delta_table_version=version,
+    )
+
+    if dataset_type != "spark":
+        if path is None:
+            raise MlflowException(
+                "`dataset_type='pandas'` and `dataset_type='polars'` require `path`.",
+                INVALID_PARAMETER_VALUE,
+            )
+
+        try:
+            from deltalake import DeltaTable
+        except ImportError as e:
+            raise MlflowException(
+                "The `deltalake` package is required when `dataset_type` is 'pandas' or"
+                " 'polars'. Install it with `pip install deltalake`.",
+                INVALID_PARAMETER_VALUE,
+            ) from e
+
+        delta_table = DeltaTable(path, version=version)
+        if source.delta_table_version is None:
+            source = DeltaDatasetSource(
+                path=path,
+                delta_table_name=table_name,
+                delta_table_version=delta_table.version(),
+            )
+
+        if dataset_type == "pandas":
+            from mlflow.data.pandas_dataset import from_pandas
+
+            return from_pandas(
+                df=delta_table.to_pandas(),
+                source=source,
+                targets=targets,
+                name=name,
+                digest=digest,
+            )
+
+        from mlflow.data.polars_dataset import from_polars
+        import polars as pl
+
+        return from_polars(
+            df=pl.from_arrow(delta_table.to_pyarrow_table()),
+            source=source,
+            targets=targets,
+            name=name,
+            digest=digest,
+        )
+
     df = source.load()
 
     return SparkDataset(
