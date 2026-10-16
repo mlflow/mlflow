@@ -1161,7 +1161,7 @@ def _raw_request_has_field(field: descriptor.FieldDescriptor) -> bool:
         return False
 
 
-def _get_request_message(request_message, flask_request=request, schema=None, *, strict=False):
+def _get_request_message(request_message, flask_request=request, schema=None):
     if flask_request.method == "GET" and flask_request.args:
         # Convert atomic values of repeated fields to lists before calling protobuf deserialization.
         # Context: We parse the parameter string into a dictionary outside of protobuf since
@@ -1198,9 +1198,7 @@ def _get_request_message(request_message, flask_request=request, schema=None, *,
     proto_parsing_succeeded = True
     try:
         parse_dict(request_json, request_message)
-    except ParseError as e:
-        if strict:
-            raise MlflowException.invalid_parameter_value(f"Invalid request: {e}") from e
+    except ParseError:
         proto_parsing_succeeded = False
 
     _validate_request_json_with_schema(request_json, schema, proto_parsing_succeeded)
@@ -5027,6 +5025,16 @@ def _delete_assessment(trace_id, assessment_id):
     return _wrap_response(response_message)
 
 
+def _validate_issue_last_seen_timestamp(value):
+    # Protobuf JSON also accepts decimal strings for int64 fields.
+    if isinstance(value, str):
+        try:
+            value = int(value)
+        except ValueError:
+            pass
+    validate_issue_fields(last_seen_timestamp=value)
+
+
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _create_issue():
@@ -5035,11 +5043,19 @@ def _create_issue():
     """
     request_message = _get_request_message(
         CreateIssue(),
-        strict=True,
         schema={
             "name": [_assert_required, _assert_string],
             "description": [_assert_required, _assert_string],
             "experiment_id": [_assert_required, _assert_string],
+            "status": [_assert_string],
+            "severity": [_assert_string],
+            "root_causes": [_assert_array, _assert_item_type_string],
+            "source_run_id": [_assert_string],
+            "created_by": [_assert_string],
+            "categories": [_assert_array, _assert_item_type_string],
+            "issue_id": [_assert_string],
+            "last_seen_timestamp": [_validate_issue_last_seen_timestamp],
+            "metadata": [lambda value: validate_issue_fields(metadata=value)],
         },
     )
 
@@ -5083,9 +5099,17 @@ def _update_issue(issue_id):
     """
     request_message = _get_request_message(
         UpdateIssue(),
-        strict=True,
         schema={
-            "issue_id": [_assert_required],
+            "issue_id": [_assert_required, _assert_string],
+            "name": [_assert_string],
+            "description": [_assert_string],
+            "status": [_assert_string],
+            "severity": [_assert_string],
+            "categories": [_assert_array, _assert_item_type_string],
+            "last_seen_timestamp": [_validate_issue_last_seen_timestamp],
+            "last_updated_by": [_assert_string],
+            "metadata": [lambda value: validate_issue_fields(metadata=value)],
+            "delete_metadata_keys": [_assert_array, _assert_item_type_string],
         },
     )
 
@@ -5143,7 +5167,23 @@ def _search_issues():
     """
     A request handler for `POST /mlflow/issues/search` to search for issues.
     """
-    request_message = _get_request_message(SearchIssues(), strict=True)
+    request_message = _get_request_message(
+        SearchIssues(),
+        schema={
+            "experiment_id": [_assert_string],
+            "filter_string": [_assert_string],
+            "max_results": [_assert_intlike],
+            "page_token": [_assert_string],
+            "include_trace_count": [_assert_bool],
+            "name": [_assert_string],
+            "statuses": [_assert_array, _assert_item_type_string],
+            "severities": [_assert_array, _assert_item_type_string],
+            "categories": [_assert_array, _assert_item_type_string],
+            "order_by": [_assert_array, _assert_item_type_string],
+            "include_total_count": [_assert_bool],
+            "view": [_assert_string],
+        },
+    )
 
     # Build kwargs for search_issues
     search_kwargs = {
