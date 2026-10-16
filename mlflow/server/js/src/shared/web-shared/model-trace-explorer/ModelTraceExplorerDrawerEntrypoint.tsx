@@ -20,6 +20,8 @@ export const ModelTraceExplorerDrawer = (props: ModelTraceExplorerDrawerProps): 
       renderAddToReviewQueueDropdown={context.renderAddToReviewQueueDropdown}
       DrawerComponent={context.DrawerComponent}
       drawerWidth={context.drawerWidth}
+      getDrawerPortalContainer={context.getDrawerPortalContainer}
+      initiallyFullscreen={context.initiallyFullscreen}
     >
       <ModelTraceExplorerV2Drawer {...props} />
     </ModelTraceExplorerV2ContextProvider>

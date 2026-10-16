@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 import {
@@ -55,6 +55,8 @@ const TRACE_METADATA_MIN_WIDTH = 960;
 const LABELED_PRIMARY_ACTIONS_MIN_WIDTH = 800;
 // The new eval runs UI keeps action labels down to a narrower drawer.
 const NEW_UI_LABELED_PRIMARY_ACTIONS_MIN_WIDTH = 720;
+// Below this width the new UI hides the "Trace" title text (kept for screen readers) so the trace ID fits beside the actions.
+const NEW_UI_TRACE_TITLE_MIN_WIDTH = 560;
 // Targets the design system Drawer.Content node (it renders these data attributes from the
 // Content componentId below), used by the Global rules that reproduce managed's header layout.
 const DRAWER_CONTENT_SELECTOR =
@@ -117,11 +119,47 @@ const isShortcutInteractiveTarget = (target: EventTarget | null): boolean => {
   return target.closest(SHORTCUT_INTERACTIVE_TARGET_SELECTOR) !== null;
 };
 
+interface DrawerContainerBounds {
+  top: number;
+  right: number;
+  bottom: number;
+  left: number;
+  width: number;
+  height: number;
+}
+
+const getViewportBounds = (): DrawerContainerBounds => ({
+  top: 0,
+  right: window.innerWidth,
+  bottom: window.innerHeight,
+  left: 0,
+  width: window.innerWidth,
+  height: window.innerHeight,
+});
+
+// A drawer scoped to a host container (the MLflow panel beside the open Assistant) stays open when
+// the user interacts outside that container, e.g. with the Assistant itself.
+const shouldKeepScopedDrawerOpenForOutsideInteraction = (target: EventTarget | null, drawerScope?: HTMLElement) => {
+  if (!(target instanceof Node)) {
+    return false;
+  }
+  if (drawerScope && !drawerScope.contains(target)) {
+    return true;
+  }
+  return (
+    target instanceof Element &&
+    Boolean(target.closest('[data-assistant-ui="true"], [data-drawer-resize-handle="true"]'))
+  );
+};
+
 const resolveWidthToPixels = (width: number | string, viewportWidth = window.innerWidth): number => {
   if (typeof width === 'number') {
     return width;
   }
   if (width.endsWith('vw')) {
+    return (parseFloat(width) / 100) * viewportWidth;
+  }
+  if (width.endsWith('%')) {
     return (parseFloat(width) / 100) * viewportWidth;
   }
   if (width.endsWith('px')) {
@@ -174,7 +212,6 @@ export const ModelTraceExplorerDrawer = ({
   const customViewDefinition = useOptionalCustomViewDefinition();
   const [showDatasetModal, setShowDatasetModal] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(true);
-  const [isFullscreen, setIsFullscreen] = useState(false);
   const [isSearchVisible, setSearchVisible] = useState(false);
   const [isFlagForReviewDropdownOpen, setIsFlagForReviewDropdownOpen] = useState(false);
   const [isFlagForReviewTooltipOpen, setIsFlagForReviewTooltipOpen] = useState(false);
@@ -186,7 +223,14 @@ export const ModelTraceExplorerDrawer = ({
     DrawerComponent,
     drawerWidth = '90vw',
     isAssistantPanelOpen,
+    getDrawerPortalContainer,
+    initiallyFullscreen,
   } = useModelTraceExplorerContext();
+  const isNewEvalRunsUi = shouldEnableNewEvalRunsUi();
+  // With the new eval runs UI, a host can scope the drawer to a container (the MLflow panel beside
+  // the open Assistant): it then opens fullscreen within that container instead of the viewport.
+  const isDrawerScoped = isNewEvalRunsUi && Boolean(getDrawerPortalContainer);
+  const [isFullscreen, setIsFullscreen] = useState(() => isNewEvalRunsUi && Boolean(initiallyFullscreen));
   const { canUseAssistant, isPanelOpen, openPanel, sendMessageWhenReady } = useAssistant();
   // The drawer must go non-modal while the assistant panel is open so its focus
   // trap doesn't yank focus back from the chat composer (e.g. right after
@@ -206,28 +250,33 @@ export const ModelTraceExplorerDrawer = ({
     customViewDefinition?.startNewView('');
     setTraceExplorerDisplayMode('custom');
   }, [canCreateCustomView, customViewDefinition]);
-  const snapDrawerLeft = enableCustomTraceView && Boolean(isAssistantPanelOpen) && !isFullscreen;
+  const snapDrawerLeft = !isDrawerScoped && enableCustomTraceView && Boolean(isAssistantPanelOpen) && !isFullscreen;
   // Non-modal whenever the drawer snaps beside a host-repositioned assistant, OR
   // whenever the live assistant panel is open (OSS: AssistantAwareDrawer flips the
   // drawer to the left itself). Either way the modal focus trap must be off.
-  const isDrawerModal = !snapDrawerLeft && !assistantPanelOpen;
+  const isDrawerModal = !snapDrawerLeft && !assistantPanelOpen && !isDrawerScoped;
   const notificationClassName = getPrefixedClassName('notification');
   const baseDrawerWidth = snapDrawerLeft ? CUSTOM_VIEW_INITIAL_WIDTH : drawerWidth;
   const [resizedWidth, setResizedWidth] = useState<number | string>(baseDrawerWidth);
   const [viewportWidth, setViewportWidth] = useState(() => window.innerWidth);
-  const width = isFullscreen ? '100vw' : resizedWidth;
-  const drawerWidthPixels = isFullscreen ? viewportWidth : resolveWidthToPixels(resizedWidth, viewportWidth);
+  const [drawerContainerBounds, setDrawerContainerBounds] = useState(getViewportBounds);
+  // A scoped drawer measures against its container; otherwise against the viewport.
+  const drawerContainerWidth = isDrawerScoped ? drawerContainerBounds.width : viewportWidth;
+  const width = isFullscreen ? (isDrawerScoped ? '100%' : '100vw') : resizedWidth;
+  const drawerWidthPixels = isFullscreen
+    ? drawerContainerWidth
+    : resolveWidthToPixels(resizedWidth, drawerContainerWidth);
   // The new eval runs UI sizes the header by the drawer width in fullscreen too, so a narrow window
   // gets compact, icon-only actions and no trace metadata instead of an overcrowded header.
-  const isNewEvalRunsUi = shouldEnableNewEvalRunsUi();
+  const hideTraceTitleText = isNewEvalRunsUi && drawerWidthPixels < NEW_UI_TRACE_TITLE_MIN_WIDTH;
   const showTraceMetadata = isNewEvalRunsUi
     ? drawerWidthPixels >= TRACE_METADATA_MIN_WIDTH
     : isFullscreen || drawerWidthPixels >= TRACE_METADATA_MIN_WIDTH;
   const showFullscreenActionLabels = isNewEvalRunsUi
-    ? isFullscreen && drawerWidthPixels >= NEW_UI_LABELED_PRIMARY_ACTIONS_MIN_WIDTH
+    ? isFullscreen && !isDrawerScoped && drawerWidthPixels >= NEW_UI_LABELED_PRIMARY_ACTIONS_MIN_WIDTH
     : isFullscreen;
   const compactPrimaryActions = isNewEvalRunsUi
-    ? drawerWidthPixels < NEW_UI_LABELED_PRIMARY_ACTIONS_MIN_WIDTH
+    ? isDrawerScoped || drawerWidthPixels < NEW_UI_LABELED_PRIMARY_ACTIONS_MIN_WIDTH
     : !isFullscreen && drawerWidthPixels < LABELED_PRIMARY_ACTIONS_MIN_WIDTH;
   const fullscreenActionButtonCss = showFullscreenActionLabels
     ? {
@@ -240,8 +289,8 @@ export const ModelTraceExplorerDrawer = ({
       }
     : undefined;
   const resizeHandleOffset = useMemo(
-    () => resolveWidthToPixels(resizedWidth, viewportWidth),
-    [resizedWidth, viewportWidth],
+    () => resolveWidthToPixels(resizedWidth, drawerContainerWidth),
+    [resizedWidth, drawerContainerWidth],
   );
   const isResizingRef = useRef(false);
 
@@ -285,6 +334,49 @@ export const ModelTraceExplorerDrawer = ({
     setResizedWidth(baseDrawerWidth);
   }, [baseDrawerWidth]);
 
+  useLayoutEffect(() => {
+    if (isNewEvalRunsUi) {
+      setIsFullscreen(Boolean(initiallyFullscreen));
+    }
+  }, [initiallyFullscreen, isNewEvalRunsUi]);
+
+  useLayoutEffect(() => {
+    if (!isDrawerScoped) {
+      return undefined;
+    }
+    const drawerContainer = getDrawerPortalContainer?.();
+    const updateDrawerContainerBounds = () => {
+      const bounds = drawerContainer?.getBoundingClientRect();
+      setDrawerContainerBounds(
+        bounds
+          ? {
+              top: bounds.top,
+              right: bounds.right,
+              bottom: bounds.bottom,
+              left: bounds.left,
+              width: bounds.width,
+              height: bounds.height,
+            }
+          : getViewportBounds(),
+      );
+    };
+    updateDrawerContainerBounds();
+    const resizeObserver =
+      drawerContainer && typeof ResizeObserver !== 'undefined'
+        ? new ResizeObserver(updateDrawerContainerBounds)
+        : undefined;
+    if (drawerContainer) {
+      resizeObserver?.observe(drawerContainer);
+    }
+    window.addEventListener('resize', updateDrawerContainerBounds);
+    window.addEventListener('scroll', updateDrawerContainerBounds, true);
+    return () => {
+      resizeObserver?.disconnect();
+      window.removeEventListener('resize', updateDrawerContainerBounds);
+      window.removeEventListener('scroll', updateDrawerContainerBounds, true);
+    };
+  }, [getDrawerPortalContainer, isDrawerScoped]);
+
   useEffect(() => {
     const handleViewportResize = () => setViewportWidth(window.innerWidth);
     window.addEventListener('resize', handleViewportResize);
@@ -298,11 +390,21 @@ export const ModelTraceExplorerDrawer = ({
       if (!isResizingRef.current) {
         return;
       }
+      if (isDrawerScoped) {
+        // A scoped drawer resizes within its container, up to the container's full width.
+        const drawerContainerRect = getDrawerPortalContainer?.().getBoundingClientRect();
+        const containerLeft = drawerContainerRect?.left ?? 0;
+        const containerRight = drawerContainerRect?.right ?? window.innerWidth;
+        const containerWidth = drawerContainerRect?.width ?? window.innerWidth;
+        const nextWidth = snapDrawerLeft ? e.clientX - containerLeft : containerRight - e.clientX;
+        setResizedWidth(Math.min(Math.max(nextWidth, MIN_DRAWER_WIDTH), containerWidth));
+        return;
+      }
       const maxWidth = window.innerWidth * MAX_DRAWER_WIDTH_RATIO;
       const nextWidth = snapDrawerLeft ? e.clientX : window.innerWidth - e.clientX;
       setResizedWidth(Math.min(Math.max(nextWidth, MIN_DRAWER_WIDTH), maxWidth));
     },
-    [snapDrawerLeft],
+    [getDrawerPortalContainer, isDrawerScoped, snapDrawerLeft],
   );
 
   const stopResizing = useCallback(() => {
@@ -690,7 +792,7 @@ export const ModelTraceExplorerDrawer = ({
           },
         }}
       />
-      {isFullscreen && (
+      {isFullscreen && !isDrawerScoped && (
         <Global
           styles={{
             '[data-component-id="mlflow.evaluations_review.modal"]': {
@@ -720,8 +822,15 @@ export const ModelTraceExplorerDrawer = ({
       )}
       <DrawerComponent.Content
         componentId="mlflow.evaluations_review.modal"
+        {...(isDrawerScoped ? { isFullscreen, 'data-trace-drawer-fullscreen': isFullscreen } : {})}
         position={snapDrawerLeft ? 'left' : undefined}
         onInteractOutside={(event) => {
+          if (isDrawerScoped) {
+            if (shouldKeepScopedDrawerOpenForOutsideInteraction(event.target, getDrawerPortalContainer?.())) {
+              event.preventDefault();
+            }
+            return;
+          }
           const target = event.target as HTMLElement;
           if (target?.closest('[data-drawer-resize-handle="true"]') || snapDrawerLeft) {
             event.preventDefault();
@@ -790,7 +899,20 @@ export const ModelTraceExplorerDrawer = ({
                 flex: '1 1 auto',
               }}
             >
-              <Typography.Text css={{ whiteSpace: 'nowrap' }}>
+              <Typography.Text
+                css={
+                  hideTraceTitleText
+                    ? {
+                        position: 'absolute',
+                        width: 1,
+                        height: 1,
+                        overflow: 'hidden',
+                        clip: 'rect(0 0 0 0)',
+                        whiteSpace: 'nowrap',
+                      }
+                    : { whiteSpace: 'nowrap' }
+                }
+              >
                 <FormattedMessage defaultMessage="Trace" description="Title for the trace details drawer" />
               </Typography.Text>
               {displayedTraceId && traceInfo && (
@@ -813,12 +935,25 @@ export const ModelTraceExplorerDrawer = ({
                     }}
                     role="button"
                     tabIndex={0}
-                    css={{ cursor: 'pointer', margin: 0, maxWidth: 96 }}
+                    css={
+                      isNewEvalRunsUi
+                        ? { cursor: 'pointer', margin: 0, maxWidth: 96, minWidth: 0, overflow: 'hidden' }
+                        : { cursor: 'pointer', margin: 0, maxWidth: 96 }
+                    }
                   >
                     <Typography.Text
                       size="sm"
                       color="secondary"
-                      css={{ fontFamily: 'monospace', whiteSpace: 'nowrap' }}
+                      css={
+                        isNewEvalRunsUi
+                          ? {
+                              fontFamily: 'monospace',
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                            }
+                          : { fontFamily: 'monospace', whiteSpace: 'nowrap' }
+                      }
                     >
                       {displayedTraceId}
                     </Typography.Text>
@@ -876,7 +1011,14 @@ export const ModelTraceExplorerDrawer = ({
                 <CostMetadataItem cost={traceCost} formatTotalCost={formatHeaderCost} />
               )}
             </div>
-            <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.md, flexShrink: 0 }}>
+            <div
+              css={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: hideTraceTitleText ? theme.spacing.sm : theme.spacing.md,
+                flexShrink: 0,
+              }}
+            >
               <Tooltip componentId="mlflow.evaluations_review.modal.find-tooltip" content={findInTraceLabel}>
                 <Button
                   componentId="mlflow.evaluations_review.modal.find-button"
@@ -964,7 +1106,7 @@ export const ModelTraceExplorerDrawer = ({
         css={[
           {
             paddingTop: 0,
-            ...(isFullscreen
+            ...(isFullscreen && !isDrawerScoped
               ? {
                   left: 0,
                   right: 0,
@@ -1031,9 +1173,19 @@ export const ModelTraceExplorerDrawer = ({
             onPointerCancel={handleResizePointerUp}
             css={{
               position: 'fixed',
-              top: 0,
-              bottom: 0,
-              ...(snapDrawerLeft ? { left: resizeHandleOffset - 6 } : { right: resizeHandleOffset - 6 }),
+              ...(isDrawerScoped
+                ? {
+                    top: drawerContainerBounds.top,
+                    height: drawerContainerBounds.height,
+                    ...(snapDrawerLeft
+                      ? { left: drawerContainerBounds.left + resizeHandleOffset - 6 }
+                      : { right: window.innerWidth - drawerContainerBounds.right + resizeHandleOffset - 6 }),
+                  }
+                : {
+                    top: 0,
+                    bottom: 0,
+                    ...(snapDrawerLeft ? { left: resizeHandleOffset - 6 } : { right: resizeHandleOffset - 6 }),
+                  }),
               width: 12,
               cursor: 'col-resize',
               touchAction: 'none',
@@ -1061,7 +1213,7 @@ export const ModelTraceExplorerDrawer = ({
               },
             }}
           />,
-          document.body,
+          (isDrawerScoped ? getDrawerPortalContainer?.() : undefined) ?? document.body,
         )}
     </DrawerComponent.Root>
   );

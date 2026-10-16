@@ -1,5 +1,13 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { type InputRef, ColumnSplitIcon, useDesignSystemTheme } from '@databricks/design-system';
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { Global, keyframes } from '@emotion/react';
+import {
+  ApplyDesignSystemContextOverrides,
+  Drawer,
+  type InputRef,
+  ColumnSplitIcon,
+  useDesignSystemTheme,
+} from '@databricks/design-system';
 import { useIntl, FormattedMessage } from 'react-intl';
 import { createTraceV4LongIdentifier, type ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
 import { doesTraceSupportV4API, MLFLOW_SOURCE_RUN_KEY, RunName } from '@databricks/web-shared/genai-traces-table';
@@ -15,11 +23,16 @@ import {
   type TracesTableViewState,
 } from '@databricks/web-shared/traces-table';
 import { useDeleteTracesMutation } from '@mlflow/mlflow/src/experiment-tracking/components/evaluations/hooks/useDeleteTraces';
-import { AssistantAwareDrawer } from '@mlflow/mlflow/src/common/components/AssistantAwareDrawer';
+import {
+  AssistantAwareDrawer,
+  shouldPreventDrawerDismiss,
+} from '@mlflow/mlflow/src/common/components/AssistantAwareDrawer';
+import { useAssistant } from '@mlflow/mlflow/src/assistant';
+import { useExperimentPageLayoutContainer } from '@mlflow/mlflow/src/experiment-tracking/pages/experiment-page-tabs/ExperimentPageLayout';
 import { AssistantAwareActionBar } from '@mlflow/mlflow/src/common/components/AssistantAwareActionBar';
 import Routes from '@mlflow/mlflow/src/experiment-tracking/routes';
 import { useNavigate, useSearchParams, useLocation } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
-import { shouldEnableIssueDetection } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
+import { shouldEnableIssueDetection, shouldEnableNewEvalRunsUi } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 import { SELECTED_TRACE_ID_QUERY_PARAM } from '@mlflow/mlflow/src/experiment-tracking/constants';
 // Reuse the generic (branding-free) "/" hotkey hook from datasets-v2.
 import { useSlashFocusSearch } from '@mlflow/mlflow/src/experiment-tracking/pages/experiment-evaluation-datasets-v2/hooks/useSlashFocusSearch';
@@ -51,6 +64,200 @@ const PREVIEW_LINE_CLAMP_BY_DENSITY = {
 
 // Narrows a column id to a standard `TraceColumnId` (assessment columns are namespaced separately).
 const isStandardColumnId = (id: string): id is TraceColumnId => (TRACE_COLUMN_IDS as readonly string[]).includes(id);
+
+const SCOPED_DRAWER_TRANSITION_DURATION_MS = 100;
+
+const TracesV4DrawerScopeContext = createContext<HTMLElement | null>(null);
+
+interface DrawerScopeBounds {
+  top: number;
+  left: number;
+  width: number;
+  height: number;
+}
+
+const measureDrawerScope = (drawerScope: HTMLElement | null): DrawerScopeBounds => {
+  const scopeBounds = drawerScope?.getBoundingClientRect();
+  return {
+    top: scopeBounds?.top ?? 0,
+    left: scopeBounds?.left ?? 0,
+    width: scopeBounds?.width ?? window.innerWidth,
+    height: scopeBounds?.height ?? window.innerHeight,
+  };
+};
+
+const areDrawerScopeBoundsEqual = (first: DrawerScopeBounds, second: DrawerScopeBounds): boolean =>
+  first.top === second.top &&
+  first.left === second.left &&
+  first.width === second.width &&
+  first.height === second.height;
+
+const resolveScopedDrawerWidth = (width: number | string | undefined, scopeWidth: number): number | string => {
+  if (typeof width === 'string' && width.endsWith('%')) {
+    return (parseFloat(width) / 100) * scopeWidth;
+  }
+  return width ?? scopeWidth;
+};
+
+interface ResponsiveTraceDrawerContentProps extends Drawer.DrawerContentProps {
+  isFullscreen?: boolean;
+}
+
+type DrawerScopeTransitionDirection = 'entering' | 'leaving' | null;
+
+const scopedDrawerEnterAnimation = keyframes({
+  from: { opacity: 0, transform: 'translate(100%, 0)' },
+  to: { opacity: 1, transform: 'translate(0, 0)' },
+});
+
+const scopedDrawerExitAnimation = keyframes({
+  from: { opacity: 1, transform: 'translate(0, 0)' },
+  to: { opacity: 0, transform: 'translate(100%, 0)' },
+});
+
+/**
+ * New eval runs UI: renders the trace drawer inside a body-level clipping container that tracks the
+ * experiment page while the MLflow Assistant is open, so the drawer fills the page beside the
+ * Assistant panel instead of covering it. The portal stays mounted while the Assistant opens or
+ * closes, so the drawer resizes in place without replaying its enter animation.
+ */
+const ResponsiveTraceDrawerContent = (props: ResponsiveTraceDrawerContentProps) => {
+  const { theme } = useDesignSystemTheme();
+  const drawerScope = useContext(TracesV4DrawerScopeContext);
+  const { isFullscreen = false, css: drawerCss, width, onInteractOutside, ...drawerProps } = props;
+  const [scopeBounds, setScopeBounds] = useState(() => measureDrawerScope(drawerScope));
+  const [drawerPortalContainer, setDrawerPortalContainer] = useState<HTMLDivElement | null>(null);
+  const previousDrawerScopeRef = useRef(drawerScope);
+  const [suppressEnterAnimation, setSuppressEnterAnimation] = useState(false);
+  const [scopeTransitionDirection, setScopeTransitionDirection] = useState<DrawerScopeTransitionDirection>(null);
+  const getPopupContainer = useCallback(() => drawerPortalContainer ?? document.body, [drawerPortalContainer]);
+
+  // Radix replaces its internal dialog when modal behavior changes. Disable the replacement's
+  // enter animation before paint so opening or closing the Assistant reads as one continuous resize.
+  useLayoutEffect(() => {
+    if (drawerScope !== previousDrawerScopeRef.current) {
+      previousDrawerScopeRef.current = drawerScope;
+      setSuppressEnterAnimation(true);
+      const nextBounds = measureDrawerScope(drawerScope);
+      setScopeTransitionDirection(
+        window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ||
+          areDrawerScopeBoundsEqual(scopeBounds, nextBounds)
+          ? null
+          : drawerScope
+            ? 'entering'
+            : 'leaving',
+      );
+    }
+  }, [drawerScope, scopeBounds]);
+
+  // A stable body-level clipping container lets the bounds transition while preventing the
+  // translated drawer from becoming visible over the adjacent Assistant panel.
+  useEffect(() => {
+    const updateScopeBounds = () => {
+      const nextBounds = measureDrawerScope(drawerScope);
+      setScopeBounds((currentBounds) =>
+        areDrawerScopeBoundsEqual(currentBounds, nextBounds) ? currentBounds : nextBounds,
+      );
+    };
+
+    updateScopeBounds();
+    const resizeObserver =
+      drawerScope && typeof ResizeObserver !== 'undefined' ? new ResizeObserver(updateScopeBounds) : undefined;
+    if (drawerScope) {
+      resizeObserver?.observe(drawerScope);
+    }
+    window.addEventListener('resize', updateScopeBounds);
+    window.addEventListener('scroll', updateScopeBounds, true);
+    return () => {
+      resizeObserver?.disconnect();
+      window.removeEventListener('resize', updateScopeBounds);
+      window.removeEventListener('scroll', updateScopeBounds, true);
+    };
+  }, [drawerScope]);
+
+  const drawerWidth =
+    scopeTransitionDirection === 'entering' ? '100%' : resolveScopedDrawerWidth(width, scopeBounds.width);
+  const openCloseDuration = theme.animation.transitionDuration;
+  const drawerContent = drawerPortalContainer ? (
+    <ApplyDesignSystemContextOverrides getPopupContainer={getPopupContainer}>
+      {/* The drawer is non-modal here, so keep its overlay transparent like AssistantAwareDrawer does. */}
+      <Global styles={{ '[data-testid="drawer-overlay"]': { backgroundColor: 'transparent !important' } }} />
+      <Drawer.Content
+        {...drawerProps}
+        data-trace-drawer-fullscreen={isFullscreen}
+        data-trace-drawer-scope-transition={Boolean(scopeTransitionDirection)}
+        // Same rule as AssistantAwareDrawer.Content, which this replaces: clicks in the Assistant, on the resize
+        // handle or in a body-level popover are not outside the drawer.
+        onInteractOutside={(event) => {
+          if (shouldPreventDrawerDismiss(event.target as HTMLElement)) {
+            event.preventDefault();
+          }
+          onInteractOutside?.(event);
+        }}
+        width={drawerWidth}
+        css={[
+          { boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08), 0 2px 8px rgba(0, 0, 0, 0.04)' },
+          drawerCss,
+          {
+            top: 0,
+            right: 0,
+            width: drawerWidth,
+            maxWidth: scopeTransitionDirection === 'entering' ? '100%' : scopeBounds.width,
+            height: '100%',
+            maxHeight: '100%',
+            pointerEvents: 'auto',
+            '@media (prefers-reduced-motion: no-preference)': {
+              '&[data-state="open"]': {
+                animation: suppressEnterAnimation
+                  ? 'none'
+                  : `${scopedDrawerEnterAnimation} ${openCloseDuration}ms ease-out forwards`,
+              },
+              '&[data-state="closed"]': {
+                animation: `${scopedDrawerExitAnimation} ${openCloseDuration}ms ease-in forwards`,
+              },
+            },
+          },
+        ]}
+      />
+    </ApplyDesignSystemContextOverrides>
+  ) : null;
+
+  return createPortal(
+    <div
+      ref={setDrawerPortalContainer}
+      data-testid="trace-drawer-portal"
+      style={{
+        top: scopeBounds.top,
+        left: scopeBounds.left,
+        width: scopeBounds.width,
+        height: scopeBounds.height,
+      }}
+      onTransitionEnd={(event) => {
+        if (event.target === event.currentTarget) {
+          setScopeTransitionDirection(null);
+        }
+      }}
+      css={{
+        position: 'fixed',
+        overflow: 'hidden',
+        contain: 'layout paint',
+        pointerEvents: 'none',
+        zIndex: theme.options.zIndexBase + 2,
+        '@media (prefers-reduced-motion: no-preference)': {
+          transition: `top ${SCOPED_DRAWER_TRANSITION_DURATION_MS}ms ease-out, left ${SCOPED_DRAWER_TRANSITION_DURATION_MS}ms ease-out, width ${SCOPED_DRAWER_TRANSITION_DURATION_MS}ms ease-out, height ${SCOPED_DRAWER_TRANSITION_DURATION_MS}ms ease-out`,
+        },
+      }}
+    >
+      {drawerContent}
+    </div>,
+    document.body,
+  );
+};
+
+const ResponsiveTraceDrawer = {
+  Root: AssistantAwareDrawer.Root,
+  Content: ResponsiveTraceDrawerContent,
+};
 
 /**
  * Layout controller for the V4 traces tab. Owns URL/data state via `useTracesV4Controller` and feeds
@@ -158,6 +365,15 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
   }, [customColumns.tags, customColumns.metadata, intl]);
 
   const actions = useTracesV4TraceActions(experimentId, page.traces, page.refetch);
+  // With the new eval runs UI, the drawer opens fullscreen within the experiment page (falling back
+  // to this tab's content) while the MLflow Assistant is open, so it sits beside the Assistant panel.
+  const isNewEvalRunsUi = shouldEnableNewEvalRunsUi();
+  const { isPanelOpen: isAssistantPanelOpen } = useAssistant();
+  const experimentPageLayoutContainer = useExperimentPageLayoutContainer();
+  const [tracesContentContainer, setTracesContentContainer] = useState<HTMLDivElement | null>(null);
+  const drawerScope = experimentPageLayoutContainer ?? tracesContentContainer;
+  const getDrawerPortalContainer = useCallback(() => drawerScope ?? document.body, [drawerScope]);
+  const isDrawerScoped = isNewEvalRunsUi && isAssistantPanelOpen;
 
   // The selection stores the full `ModelTraceInfoV3` per trace (keyed by id), so this is the entire
   // cross-page selection — every bulk action (judges, Genie, add-to-dataset, labeling, review queue)
@@ -454,7 +670,7 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
       ) : undefined,
   };
 
-  return (
+  const content = (
     // The two providers expose the shared trace-action building blocks (drawer add-to-dataset
     // and the dataset modal) to the drawer and Actions menu. The negative bottom margin bleeds the
     // pinned pagination bar into the shared content wrapper's 8px bottom padding, aligning it with the
@@ -464,7 +680,14 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
         modelTraceExplorer: {
           renderExportTracesToDatasetsModal: actions.renderExportTracesToDatasetsModal,
           renderAddToReviewQueueDropdown: actions.AddToReviewQueueDropdown,
-          DrawerComponent: AssistantAwareDrawer,
+          DrawerComponent: isNewEvalRunsUi ? ResponsiveTraceDrawer : AssistantAwareDrawer,
+          ...(isNewEvalRunsUi
+            ? {
+                drawerWidth: isDrawerScoped ? '90%' : undefined,
+                getDrawerPortalContainer: isDrawerScoped ? getDrawerPortalContainer : undefined,
+                initiallyFullscreen: isDrawerScoped,
+              }
+            : {}),
         },
         genAITracesTable: {
           experimentId,
@@ -484,7 +707,8 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
       layoutProps={{
         paddingTop: revampEnabled ? 0 : theme.spacing.md,
         paddingLeft: revampEnabled ? 0 : theme.spacing.md,
-        marginBottom: -theme.spacing.sm,
+        // With the new eval runs UI the scope wrapper below clips its content, so the wrapper bleeds instead.
+        marginBottom: isNewEvalRunsUi ? 0 : -theme.spacing.sm,
       }}
       overlaySlots={{
         deleteModal: (
@@ -516,5 +740,30 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
         notificationContainer,
       }}
     />
+  );
+
+  if (!isNewEvalRunsUi) {
+    return content;
+  }
+
+  return (
+    <div
+      ref={setTracesContentContainer}
+      data-testid="traces-v4-drawer-scope"
+      css={{
+        position: 'relative',
+        marginBottom: -theme.spacing.sm,
+        display: 'flex',
+        flexDirection: 'column',
+        flex: 1,
+        minHeight: 0,
+        overflow: 'hidden',
+        contain: 'layout paint',
+      }}
+    >
+      <TracesV4DrawerScopeContext.Provider value={isDrawerScoped ? drawerScope : null}>
+        {content}
+      </TracesV4DrawerScopeContext.Provider>
+    </div>
   );
 };
