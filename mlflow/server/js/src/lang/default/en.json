@@ -3359,6 +3359,10 @@
     "defaultMessage": "Add tags",
     "description": "Tag assignment modal > Title of the add tags modal"
   },
+  "AGn2fU": {
+    "defaultMessage": "Expand assessment charts",
+    "description": "Accessible label for expanding the score charts in the evaluation run table headers"
+  },
   "AHaom4": {
     "defaultMessage": "No assessments available",
     "description": "Message shown when there are no assessments to display"
@@ -15542,6 +15546,10 @@
   "rksffW": {
     "defaultMessage": "Saving…",
     "description": "Status text shown in the dataset record drawer while a save is in flight"
+  },
+  "rlxFiB": {
+    "defaultMessage": "Collapse assessment charts",
+    "description": "Accessible label for collapsing the score charts in the evaluation run table headers"
   },
   "rmAWZX": {
     "defaultMessage": "just now",

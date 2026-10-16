@@ -54,6 +54,9 @@ import { shouldEnableNewEvalRunsUi } from '../../../common/utils/FeatureUtils';
 // No-op sort handlers for non-sortable columns (their header menu omits the sort items anyway).
 const noop = () => {};
 
+const getTraceColumnHeaderVariant = (columnDef: TraceTableColumn): TraceTableColumn['headerVariant'] =>
+  columnDef.headerVariant === 'standard' || columnDef.headerVariant === 'rich' ? columnDef.headerVariant : undefined;
+
 // Module-local static analytics-id namespace (the `@databricks/no-dynamic-property-value` rule
 // requires `componentId` values to be static, so a runtime-injected prefix isn't possible).
 const COMPONENT_ID = 'web-shared.traces-table';
@@ -297,6 +300,8 @@ export interface TracesTableProps {
   isGroupedBySession?: boolean;
   /** Maximum lines shown by input and output previews before truncation. Defaults to one line. */
   previewLineClamp?: number;
+  /** Control rendered over the bottom edge of the header row, such as a toggle for rich headers. */
+  headerBottomOverlay?: React.ReactNode;
   /** Reorders columns when a user drags one header onto another; absent → headers aren't draggable. */
   onReorderColumn?: (activeColumn: string, targetColumn: string) => void;
   /** When true, session-level column aggregates (e.g. token totals) are suppressed because the
@@ -361,6 +366,7 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
     columnHeaderActions,
     isGroupedBySession = false,
     previewLineClamp = 1,
+    headerBottomOverlay,
     onReorderColumn,
     sessionsMayBeIncomplete = false,
   }: TracesTableProps) {
@@ -622,18 +628,42 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
       [table, columns],
     );
 
+    const renderHeaderBottomOverlay = () => (
+      <div
+        data-testid="traces-table-header-bottom-overlay"
+        css={{
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          bottom: -theme.spacing.xs,
+          padding: 0,
+          zIndex: 101,
+          pointerEvents: 'none',
+        }}
+      >
+        {headerBottomOverlay}
+      </div>
+    );
+    // Leaves room under the header for the part of the overlay that hangs below it.
+    const renderHeaderBottomOverlaySpacer = () => <div aria-hidden css={{ height: theme.spacing.sm, flexShrink: 0 }} />;
+
     // Above the isolated body rows and the sticky session rows (see `isolateBodyRows`).
     const headerRowStyle = isolateBodyRows ? { ...rowWidthStyle, zIndex: 2 } : rowWidthStyle;
+
+    const hasRichHeaders = leafHeaders.some(
+      (header) => getTraceColumnHeaderVariant(header.column.columnDef as TraceTableColumn) === 'rich',
+    );
 
     // Header-row overrides: align its contents and set the header's bottom border.
     const headerRowCss = {
       ...selectCellCss,
+      ...(hasRichHeaders ? { '.table-row-select-cell > *': { transform: 'translateY(2px)' } } : {}),
       borderBottom: `1px solid ${theme.colors.border}`,
       // Center each header label against the (vertically-centered) select-all checkbox. Padding sets
       // the label→divider gap directly — DS applies --table-row-vertical-padding via an inline style,
-      // so a `css` override of it is a no-op.
+      // so a `css` override of it is a no-op. Rich headers make a tall row, so labels align to its top.
       '[role="columnheader"]': {
-        alignItems: 'center',
+        alignItems: hasRichHeaders ? 'flex-start' : 'center',
         paddingBottom: theme.spacing.mid - 2,
         '&:hover .traces-table-header-menu-trigger, &:focus-within .traces-table-header-menu-trigger': {
           opacity: 1,
@@ -832,13 +862,16 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
                           sortDirection={sort === columnId ? dir : 'none'}
                           onHide={() => onHideColumn(columnId)}
                           action={columnHeaderActions?.[columnId]}
+                          headerVariant={getTraceColumnHeaderVariant(columnDef)}
                           {...sortHandlers}
                         />
                       </SortableTraceTableHeader>
                     );
                   })}
                 </SortableContext>
+                {headerBottomOverlay && renderHeaderBottomOverlay()}
               </TableRow>
+              {headerBottomOverlay && renderHeaderBottomOverlaySpacer()}
 
               {isLoading
                 ? Array.from({ length: skeletonRowCount }, (_, i) => (
@@ -1034,12 +1067,15 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
                       sortDirection={sort === columnId ? dir : 'none'}
                       onHide={() => onHideColumn(columnId)}
                       action={columnHeaderActions?.[columnId]}
+                      headerVariant={getTraceColumnHeaderVariant(columnDef)}
                       {...sortHandlers}
                     />
                   </TableHeader>
                 );
               })}
+              {headerBottomOverlay && renderHeaderBottomOverlay()}
             </TableRow>
+            {headerBottomOverlay && renderHeaderBottomOverlaySpacer()}
 
             {isLoading
               ? Array.from({ length: skeletonRowCount }, (_, i) => (

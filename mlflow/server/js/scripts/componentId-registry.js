@@ -837,6 +837,9 @@ module.exports = {
   "mlflow.eval-run.traces.selected-trace-error": "",
   "mlflow.eval-run.traces.selected-trace-error.retry": "",
 
+  // -- mlflow.eval-run-traces-v4 --
+  "mlflow.eval-run-traces-v4.toggle-assessment-charts": "",
+
   // -- mlflow.eval-runs --
   "mlflow.eval-runs.actions-button": "",
   "mlflow.eval-runs.actions.compare": "",

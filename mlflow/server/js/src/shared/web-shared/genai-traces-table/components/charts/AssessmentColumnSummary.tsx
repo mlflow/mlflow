@@ -27,6 +27,7 @@ export const AssessmentColumnSummary = React.memo(
     currentRunDisplayName,
     compareToRunDisplayName,
     collapsedHeader,
+    categoricalChartLayout,
   }: {
     theme: ThemeType;
     intl: IntlShape;
@@ -42,6 +43,8 @@ export const AssessmentColumnSummary = React.memo(
     currentRunDisplayName?: string;
     compareToRunDisplayName?: string;
     collapsedHeader?: boolean;
+    /** Layout of the categorical chart; defaults to the stacked layout. */
+    categoricalChartLayout?: 'stacked' | 'inline';
   }) => {
     const dtypeAggregateLabel = useMemo(() => {
       if (assessmentInfo.dtype === 'pass-fail') {
@@ -147,6 +150,7 @@ export const AssessmentColumnSummary = React.memo(
               toggleAssessmentFilter={toggleAssessmentFilter}
               currentRunDisplayName={currentRunDisplayName}
               compareToRunDisplayName={compareToRunDisplayName}
+              layout={categoricalChartLayout}
             />
           ))}
       </div>
