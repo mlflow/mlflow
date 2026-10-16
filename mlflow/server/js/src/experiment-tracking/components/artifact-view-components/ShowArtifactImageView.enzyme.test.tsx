@@ -31,6 +31,7 @@ describe('ShowArtifactImageView', () => {
     minimalProps = {
       path: 'fakePath',
       runUuid: 'fakeUuid',
+      artifactRootUri: 'mlflow-artifacts:/1/fakeUuid/artifacts',
     };
   });
 
@@ -44,7 +45,7 @@ describe('ShowArtifactImageView', () => {
     wrapper = mountWithIntl(<ShowArtifactImageView {...minimalProps} getArtifact={getArtifact} />);
     await new Promise(setImmediate);
     // @ts-expect-error Expected 0 arguments, but got 1
-    expect(getArtifact).toHaveBeenCalledWith(expect.stringMatching(/get-artifact\?path=fakePath&run_uuid=fakeUuid/));
+    expect(getArtifact).toHaveBeenCalledWith('ajax-api/2.0/mlflow-artifacts/artifacts/1/fakeUuid/artifacts/fakePath');
     wrapper.update();
     expect(wrapper.find('img[src="blob:abc-12345"]').length).toBeTruthy();
   });
@@ -54,6 +55,7 @@ describe('ShowArtifactImageView', () => {
     expect(wrapper.find(ArtifactViewSkeleton)).toHaveLength(1);
     await new Promise(setImmediate);
     wrapper.update();
+    expect(getArtifact).toHaveBeenCalledTimes(1);
     expect(wrapper.find(ArtifactViewSkeleton)).toHaveLength(0);
     expect(wrapper.find(ArtifactViewErrorState)).toHaveLength(1);
     expect(wrapper.find('img[src="blob:abc-12345"]')).toHaveLength(0);

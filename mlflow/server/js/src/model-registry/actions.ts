@@ -11,8 +11,14 @@ import { getArtifactContent } from '../common/utils/ArtifactUtils';
 import yaml from 'js-yaml';
 import type { ModelVersionInfoEntity } from '../experiment-tracking/types';
 import type { KeyValueEntity } from '../common/types';
-import { fetchArtifactPreferPresigned } from '../experiment-tracking/utils/PresignedArtifactUtils';
-import { getArtifactsPresignedOnlySync } from '../experiment-tracking/hooks/useServerInfo';
+import {
+  fetchArtifactPreferPresigned,
+  shouldFallBackToProxy,
+} from '../experiment-tracking/utils/PresignedArtifactUtils';
+import {
+  getArtifactsPresignedOnlySync,
+  getModelArtifactPresignedDownloadsSupportedSync,
+} from '../experiment-tracking/hooks/useServerInfo';
 import { MlflowService } from '../experiment-tracking/sdk/MlflowService';
 import { ErrorWrapper } from '../common/utils/ErrorWrapper';
 import { getProtoField } from './utils';
@@ -115,43 +121,62 @@ export const createModelVersionApi = (
 });
 
 export const GET_MODEL_VERSION_ARTIFACT = 'GET_MODEL_VERSION_ARTIFACT';
-export const fetchModelVersionArtifact = async (modelName: any, version: any) => {
+type ModelVersionArtifactSource = Partial<ModelVersionInfoEntity> & { model_id?: string };
+
+export type ModelVersionArtifactMetadata = {
+  modelVersion: Promise<ModelVersionArtifactSource | undefined>;
+  getRunArtifactRootUri: (runId: string) => Promise<string | undefined>;
+};
+
+export const shouldNotifyModelVersionArtifactError = (error: unknown) =>
+  error instanceof ErrorWrapper &&
+  ((error.getStatus() === 403 &&
+    (error.textJson?.artifacts_presigned_only === true || error.textJson?.external_artifact_service === true)) ||
+    (error.getStatus() === 400 && error.textJson?.invalid_artifact_root === true));
+
+export const fetchModelVersionArtifact = async (
+  modelName: any,
+  version: any,
+  metadata?: ModelVersionArtifactMetadata,
+) => {
   const baseUri = 'model-versions/get-artifact?path=MLmodel';
   const uriEncodedModelName = `name=${encodeURIComponent(modelName)}`;
   const uriEncodedModelVersion = `version=${encodeURIComponent(version)}`;
   const artifactLocation = `${baseUri}&${uriEncodedModelName}&${uriEncodedModelVersion}`;
-  if (getArtifactsPresignedOnlySync()) {
-    const response = await MlflowService.getModelVersionPresignedDownloadUrl({
-      name: modelName,
-      version,
-      path: 'MLmodel',
-    });
-    if (!response.url) {
-      throw new ErrorWrapper('The server did not return a presigned URL for this model version.', 501);
+  const presignedOnly = getArtifactsPresignedOnlySync();
+  if (presignedOnly || getModelArtifactPresignedDownloadsSupportedSync()) {
+    let response;
+    try {
+      response = await MlflowService.getModelVersionPresignedDownloadUrl({
+        name: modelName,
+        version,
+        path: 'MLmodel',
+      });
+      if (!response.url) {
+        throw new ErrorWrapper('The server did not return a presigned URL for this model version.', 501);
+      }
+    } catch (error) {
+      if (shouldFallBackToProxy(error, presignedOnly)) return getArtifactContent(artifactLocation);
+      throw error;
     }
     return fetchArtifactPreferPresigned({ runUuid: '', path: 'MLmodel' }, artifactLocation, getArtifactContent, {
       url: response.url,
       headers: response.headers ?? {},
     });
   }
-  const fetchRegistryArtifact = () => {
-    if (getArtifactsPresignedOnlySync()) {
-      throw new ErrorWrapper(
-        'This model version does not support presigned artifact reads with your current permissions.',
-        501,
-      );
-    }
-    return getArtifactContent(artifactLocation);
-  };
+  const fetchRegistryArtifact = () => getArtifactContent(artifactLocation);
 
-  let modelVersionResponse: any;
+  let modelVersion: ModelVersionArtifactSource | undefined;
   try {
-    modelVersionResponse = await Services.getModelVersion({ name: modelName, version });
+    modelVersion = metadata
+      ? await metadata.modelVersion
+      : ((await Services.getModelVersion({ name: modelName, version })) as Record<string, ModelVersionArtifactSource>)[
+          getProtoField('model_version')
+        ];
   } catch {
     return fetchRegistryArtifact();
   }
 
-  const modelVersion = modelVersionResponse[getProtoField('model_version')];
   const modelSource = modelVersion?.source as string | undefined;
   const loggedModelId = modelVersion?.model_id ?? extractLoggedModelIdFromModelSource(modelSource);
   const getSourceArtifactRoot = async (getRoot: () => Promise<string | undefined>) => {
@@ -160,11 +185,7 @@ export const fetchModelVersionArtifact = async (modelName: any, version: any) =>
     } catch (error) {
       // Registered artifacts remain readable when the source is inaccessible or soft-deleted.
       // Only this metadata lookup may fall back to the separately authorized registry route.
-      if (
-        error instanceof ErrorWrapper &&
-        [401, 403, 404].includes(error.getStatus()) &&
-        !getArtifactsPresignedOnlySync()
-      ) {
+      if (error instanceof ErrorWrapper && [401, 403, 404].includes(error.getStatus())) {
         return undefined;
       }
       throw error;
@@ -192,7 +213,9 @@ export const fetchModelVersionArtifact = async (modelName: any, version: any) =>
   const modelArtifactPath = runId && modelSource ? extractArtifactPathFromModelSource(modelSource, runId) : undefined;
   if (runId && modelArtifactPath !== undefined) {
     const artifactRootUri = await getSourceArtifactRoot(
-      async () => (await MlflowService.getRun({ run_id: runId }))?.run?.info?.artifactUri,
+      metadata
+        ? () => metadata.getRunArtifactRootUri(runId)
+        : async () => (await MlflowService.getRun({ run_id: runId }))?.run?.info?.artifactUri,
     );
     if (!artifactRootUri) return fetchRegistryArtifact();
     const mlModelPath = [modelArtifactPath, 'MLmodel'].filter(Boolean).join('/');
@@ -206,10 +229,15 @@ export const fetchModelVersionArtifact = async (modelName: any, version: any) =>
   return fetchRegistryArtifact();
 };
 
-export const getModelVersionArtifactApi = (modelName: any, version: any, id = getUUID()) => {
+export const getModelVersionArtifactApi = (
+  modelName: any,
+  version: any,
+  id = getUUID(),
+  metadata?: ModelVersionArtifactMetadata,
+) => {
   return {
     type: GET_MODEL_VERSION_ARTIFACT,
-    payload: fetchModelVersionArtifact(modelName, version),
+    payload: fetchModelVersionArtifact(modelName, version, metadata),
     meta: { id, modelName, version },
   };
 };

@@ -15,6 +15,7 @@ const operations = [
       MlflowService.completeMlflowArtifactsMultipartUpload('run', { path: 'file.txt', parts: [] }, base),
   ],
   ['abort', (base: string) => MlflowService.abortMlflowArtifactsMultipartUpload('run', { path: 'file.txt' }, base)],
+  ['proxy upload', (base: string) => MlflowService.uploadMlflowArtifact('run/file.txt', 'contents', base)],
 ] as const;
 
 describe('artifact-service credential scope', () => {
@@ -75,5 +76,19 @@ describe('artifact-service credential scope', () => {
     const headers = new Headers(options?.headers);
     expect(headers.get('Authorization')).toBe('secret');
     expect(headers.get('X-MLFLOW-WORKSPACE')).toBe('team-a');
+  });
+
+  it('rejects external byte URLs even when signing is disabled', () => {
+    expect(() => MlflowService.getMlflowArtifactsProxyUrl('root/file.txt', 'https://artifacts.example/')).toThrow();
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it('preserves the service prefix and escapes every byte-route path segment', async () => {
+    const base = `${window.location.origin}/artifacts/`;
+    const path = 'custom root/run/a?#.json';
+    const url = `${base}api/2.0/mlflow-artifacts/artifacts/custom%20root/run/a%3F%23.json`;
+    expect(MlflowService.getMlflowArtifactsProxyUrl(path, base)).toBe(url);
+    await MlflowService.uploadMlflowArtifact(path, 'raw contents', base);
+    expect(global.fetch).toHaveBeenCalledWith(url, expect.objectContaining({ method: 'PUT', body: 'raw contents' }));
   });
 });

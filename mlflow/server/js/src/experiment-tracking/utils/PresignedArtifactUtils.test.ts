@@ -1,6 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { ErrorWrapper } from '../../common/utils/ErrorWrapper';
 import { setActiveWorkspace } from '../../workspaces/utils/WorkspaceUtils';
+import { getDefaultHeaders } from '../../common/utils/FetchUtils';
+import configureStore from 'redux-mock-store';
+import thunk from 'redux-thunk';
+import promiseMiddleware from 'redux-promise-middleware';
+import { uploadArtifactApi } from '../actions';
 import {
   getArtifactsPresignedOnlySync,
   getLoggedModelArtifactReadCredentialsSupportedSync,
@@ -14,7 +19,8 @@ import {
   fetchArtifactPreferPresigned,
   fetchRunArtifactPreferPresigned,
   getProxiedArtifactRoute,
-  resolvePresignedArtifactDownload,
+  resolveArtifactDownload,
+  type PresignedArtifactParams,
   uploadArtifactWithPresignedUrl,
 } from './PresignedArtifactUtils';
 
@@ -33,6 +39,11 @@ const mockedModelPresignedDownloadsSupported = jest.mocked(getModelArtifactPresi
 const mockedMultipartDownloads = jest.mocked(getMultipartDownloadsEnabledSync);
 const mockedMultipartUploads = jest.mocked(getMultipartUploadsEnabledSync);
 const mockedRunUploadSupported = jest.mocked(getPresignedUploadRunIdSupportedSync);
+
+// Existing signing assertions focus on the signed response; destination tests
+// below exercise the complete resolution and its compatibility URL.
+const resolvePresignedArtifactDownload = async (params: PresignedArtifactParams) =>
+  (await resolveArtifactDownload(params)).presigned;
 
 describe('presigned artifact utilities', () => {
   let now = 0;
@@ -205,17 +216,19 @@ describe('presigned artifact utilities', () => {
   );
 
   it.each([
-    { error: new ErrorWrapper('run not found', 404), fallback: true },
-    { error: new ErrorWrapper('run denied', 403), fallback: false },
-  ])('applies upload fallback policy to root discovery: $error', async ({ error, fallback }) => {
+    new ErrorWrapper('run not found', 404),
+    new ErrorWrapper('run denied', 403),
+    new TypeError('metadata transport failed'),
+  ])('does not guess an upload destination after root discovery fails: %s', async (error) => {
     const getRun = jest.spyOn(MlflowService, 'getRun').mockRejectedValue(error);
     const create = jest.spyOn(MlflowService, 'createMlflowArtifactsMultipartUpload');
-    if (fallback) await expect(uploadArtifactWithPresignedUrl('run', 'file.txt', 'data')).resolves.toBe(false);
-    else await expect(uploadArtifactWithPresignedUrl('run', 'file.txt', 'data')).rejects.toBe(error);
+    const proxy = jest.spyOn(MlflowService, 'uploadMlflowArtifact');
+    await expect(uploadArtifactWithPresignedUrl('run', 'file.txt', 'data')).rejects.toBe(error);
     mockedPresignedOnly.mockReturnValue(true);
     await expect(uploadArtifactWithPresignedUrl('run', 'file.txt', 'data')).rejects.toBe(error);
     expect(getRun).toHaveBeenCalledTimes(2);
     expect(create).not.toHaveBeenCalled();
+    expect(proxy).not.toHaveBeenCalled();
   });
 
   it('matches AJAX routes at a boundary and uses the first artifact-service route', () => {
@@ -254,9 +267,12 @@ describe('presigned artifact utilities', () => {
       .mockResolvedValue({ run: { info: { artifactUri: 'mlflow-artifacts:/12/run/artifacts' } } } as any);
     const error = new ErrorWrapper(new TypeError('CORS blocked'), 500);
     jest.spyOn(MlflowService, 'createMlflowArtifactsMultipartUpload').mockRejectedValue(error);
-    await expect(uploadArtifactWithPresignedUrl('run', 'file.txt', 'data')).resolves.toBe(false);
+    const proxyUpload = jest.spyOn(MlflowService, 'uploadMlflowArtifact').mockResolvedValue({});
+    await expect(uploadArtifactWithPresignedUrl('run', 'file.txt', 'data')).resolves.toBe(true);
+    expect(proxyUpload).toHaveBeenCalledWith('12/run/artifacts/file.txt', 'data', undefined);
     mockedPresignedOnly.mockReturnValue(true);
     await expect(uploadArtifactWithPresignedUrl('run', 'file.txt', 'data')).rejects.toBe(error);
+    expect(proxyUpload).toHaveBeenCalledTimes(1);
   });
 
   it('discovers a logged model root and signs its artifact-service path in presigned-only mode', async () => {
@@ -316,7 +332,10 @@ describe('presigned artifact utilities', () => {
 
     await expect(fetchArtifactPreferPresigned(params, '/get-artifact', getArtifact)).resolves.toBe('legacy contents');
     expect(getArtifact).toHaveBeenNthCalledWith(1, 'https://storage.example/file', { headers: {} });
-    expect(getArtifact).toHaveBeenNthCalledWith(2, '/get-artifact');
+    expect(getArtifact).toHaveBeenNthCalledWith(
+      2,
+      'ajax-api/2.0/mlflow-artifacts/artifacts/12/run-id/artifacts/file.txt',
+    );
 
     mockedPresignedOnly.mockReturnValue(true);
     getArtifact.mockReset().mockRejectedValue(new TypeError('Failed to fetch'));
@@ -463,14 +482,16 @@ describe('presigned artifact utilities', () => {
 
   it('uses provided run roots without fetching run metadata', async () => {
     const getRun = jest.spyOn(MlflowService, 'getRun');
+    const proxyUpload = jest.spyOn(MlflowService, 'uploadMlflowArtifact').mockResolvedValue({});
     const getArtifact = jest.fn(async (_url: string) => 'contents');
     const root = 'mlflow-artifacts:/12/run/artifacts';
     await expect(fetchRunArtifactPreferPresigned('run', 'file.txt', '/file', getArtifact, root)).resolves.toBe(
       'contents',
     );
-    await expect(uploadArtifactWithPresignedUrl('run', 'file.txt', 'contents', root)).resolves.toBe(false);
+    await expect(uploadArtifactWithPresignedUrl('run', 'file.txt', 'contents', root)).resolves.toBe(true);
     expect(getRun).not.toHaveBeenCalled();
-    expect(getArtifact).toHaveBeenCalledWith('/file');
+    expect(getArtifact).toHaveBeenCalledWith('ajax-api/2.0/mlflow-artifacts/artifacts/12/run/artifacts/file.txt');
+    expect(proxyUpload).toHaveBeenCalledWith('12/run/artifacts/file.txt', 'contents', undefined);
   });
 
   it('separates cached run roots by run, workspace, authentication, and deployment', async () => {
@@ -488,7 +509,7 @@ describe('presigned artifact utilities', () => {
     document.cookie = 'mlflow-request-header-Authorization=new-session; path=/';
     await read();
     const base = document.createElement('base');
-    base.href = 'https://other-tracking.example/mlflow/';
+    base.href = `${window.location.origin}/other-mlflow/`;
     document.head.append(base);
     try {
       await read();
@@ -683,4 +704,360 @@ describe('presigned artifact utilities', () => {
     expect(completeSpy).not.toHaveBeenCalled();
     expect(abortSpy).toHaveBeenCalledWith('12/run-id/artifacts', { path: 'table.json', upload_id: 'upload-id' });
   });
+
+  it.each(['unsupported signing', 'storage CORS', 'hidden ETag'] as const)(
+    'keeps uploads in the original store after %s under a different service prefix',
+    async (failure) => {
+      const fixture = mockSeparateArtifactStores(failure);
+      try {
+        const getRun = jest.spyOn(MlflowService, 'getRun').mockResolvedValue({
+          run: { info: { artifactUri: fixture.artifactRootUri } },
+        } as any);
+        const store = configureStore([thunk, promiseMiddleware()])({});
+        await store.dispatch(uploadArtifactApi('run-id', 'table.json', { value: 'new contents' }));
+
+        expect(getRun).toHaveBeenCalledTimes(1);
+        expect(fixture.trackingStore.get('table.json')).toBe('contents from tracking store A');
+        expect(fixture.artifactStore.get('table.json')).toBe('{"value":"new contents"}');
+        expect(
+          fixture.requests.filter(({ method, path }) => method === 'PUT' && path === fixture.proxyPath),
+        ).toHaveLength(1);
+        expect(fixture.requests.some(({ path }) => path.startsWith('/tracking/'))).toBe(false);
+        expect(fixture.requests.some(({ path }) => path.includes('/mpu/complete/'))).toBe(false);
+        expect(fixture.multipartParts.size).toBe(0);
+        const abortIndex = fixture.requests.findIndex(({ path }) => path.includes('/mpu/abort/'));
+        if (failure === 'unsupported signing') {
+          expect(abortIndex).toBe(-1);
+        } else {
+          expect(abortIndex).toBeGreaterThan(-1);
+          expect(abortIndex).toBeLessThan(fixture.requests.findIndex(({ path }) => path === fixture.proxyPath));
+        }
+        for (const request of fixture.requests.filter(({ path }) => path.startsWith('/artifacts/'))) {
+          expect(request.headers.get('X-MLFLOW-WORKSPACE')).toBe('team-a');
+          expect(request.headers.get('Authorization')).toBe('tracking-secret');
+        }
+        for (const request of fixture.requests.filter(({ path }) => path === '/part')) {
+          expect(request.headers.get('X-MLFLOW-WORKSPACE')).toBeNull();
+          expect(request.headers.get('Authorization')).toBeNull();
+        }
+      } finally {
+        fixture.cleanup();
+      }
+    },
+  );
+
+  it('keeps the committed destination correct when multipart abort cleanup fails', async () => {
+    const fixture = mockSeparateArtifactStores('hidden ETag', true);
+    try {
+      await expect(
+        uploadArtifactWithPresignedUrl('run-id', 'table.json', 'new contents', fixture.artifactRootUri),
+      ).resolves.toBe(true);
+      expect(fixture.artifactStore.get('table.json')).toBe('new contents');
+      expect(fixture.trackingStore.get('table.json')).toBe('contents from tracking store A');
+      // Failed cleanup leaves an uncommitted multipart part, never a committed
+      // object in a different store. Storage lifecycle cleanup can remove the part.
+      expect(fixture.multipartParts.get('upload-id')).toBe('new contents');
+      const abortIndex = fixture.requests.findIndex(({ path }) => path.includes('/mpu/abort/'));
+      expect(abortIndex).toBeGreaterThan(-1);
+      expect(abortIndex).toBeLessThan(fixture.requests.findIndex(({ path }) => path === fixture.proxyPath));
+      expect(fixture.requests.some(({ path }) => path.startsWith('/tracking/'))).toBe(false);
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  it.each(['unsupported signing', 'storage CORS'] as const)(
+    'keeps downloads in the original store after %s under a different service prefix',
+    async (failure) => {
+      const fixture = mockSeparateArtifactStores(failure);
+      try {
+        await expect(
+          fetchArtifactPreferPresigned(
+            { runUuid: 'run-id', path: 'table.json', artifactRootUri: fixture.artifactRootUri },
+            `${window.location.origin}/tracking/get-artifact?run_uuid=run-id&path=table.json`,
+            fixture.readText,
+          ),
+        ).resolves.toBe('contents from artifact store B');
+        expect(fixture.requests.some(({ path }) => path.startsWith('/tracking/'))).toBe(false);
+        expect(fixture.requests.filter(({ path }) => path === fixture.proxyPath)).toHaveLength(1);
+      } finally {
+        fixture.cleanup();
+      }
+    },
+  );
+
+  it('discovers an omitted run root once before choosing a normal-mode fallback store', async () => {
+    const fixture = mockSeparateArtifactStores('unsupported signing');
+    try {
+      const getRun = jest
+        .spyOn(MlflowService, 'getRun')
+        .mockResolvedValue({ run: { info: { artifactUri: fixture.artifactRootUri } } } as any);
+      await expect(
+        fetchArtifactPreferPresigned(
+          { runUuid: 'run-id', path: 'table.json' },
+          '/tracking/get-artifact',
+          fixture.readText,
+        ),
+      ).resolves.toBe('contents from artifact store B');
+      expect(getRun).toHaveBeenCalledTimes(1);
+      expect(fixture.requests.some(({ path }) => path.startsWith('/tracking/'))).toBe(false);
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  it.each([new TypeError('metadata transport failure'), new ErrorWrapper('missing metadata', 404)])(
+    'does not guess a normal-mode download store after discovery failure: %s',
+    async (error) => {
+      const getRun = jest.spyOn(MlflowService, 'getRun').mockRejectedValue(error);
+      const read = jest.fn<(url: string) => Promise<string>>();
+      await expect(
+        fetchArtifactPreferPresigned({ runUuid: 'run-id', path: 'table.json' }, '/tracking/get-artifact', read),
+      ).rejects.toBe(error);
+      expect(getRun).toHaveBeenCalledTimes(1);
+      expect(read).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([false, true])('rejects metadata without an artifact URI (logged model: %s)', async (loggedModel) => {
+    const run = jest.spyOn(MlflowService, 'getRun').mockResolvedValue({ run: { info: {} } } as any);
+    const model = jest.mocked(MlflowService.getLoggedModel).mockResolvedValue({ model: { info: {} } } as any);
+    const read = jest.fn<(url: string) => Promise<string>>();
+    await expect(
+      fetchArtifactPreferPresigned(
+        {
+          runUuid: 'run-id',
+          path: 'file',
+          isLoggedModelsMode: loggedModel,
+          loggedModelId: loggedModel ? 'm-1' : undefined,
+        },
+        '/tracking/get-artifact',
+        read,
+      ),
+    ).rejects.toMatchObject({ status: 501, text: expect.stringContaining('artifact root') });
+    expect(read).not.toHaveBeenCalled();
+    expect(loggedModel ? model : run).toHaveBeenCalledTimes(1);
+  });
+
+  it('awaits local multipart abort before a normal-mode hidden-ETag proxy upload', async () => {
+    mockedMultipartUploads.mockReturnValue(true);
+    const create = jest
+      .spyOn(MlflowService, 'createMlflowArtifactsMultipartUpload')
+      .mockResolvedValue({ upload_id: 'id', credentials: [{ url: 'https://storage.example/part', part_number: 1 }] });
+    const part = jest.spyOn(global, 'fetch').mockResolvedValue(new Response(undefined, { status: 200 }));
+    let finishAbort = () => {};
+    let markAbortStarted = () => {};
+    const abortStarted = new Promise<void>((resolve) => {
+      markAbortStarted = resolve;
+    });
+    const abortFinished = new Promise<unknown>((resolve) => {
+      finishAbort = () => resolve({});
+    });
+    const abort = jest.spyOn(MlflowService, 'abortMlflowArtifactsMultipartUpload').mockImplementation(() => {
+      markAbortStarted();
+      return abortFinished;
+    });
+    const proxy = jest.spyOn(MlflowService, 'uploadMlflowArtifact').mockResolvedValue({});
+    const upload = uploadArtifactWithPresignedUrl(
+      'run-id',
+      'table.json',
+      'raw bytes',
+      'mlflow-artifacts:/custom/local/root',
+    );
+    await abortStarted;
+    expect(proxy).not.toHaveBeenCalled();
+    finishAbort();
+    await expect(upload).resolves.toBe(true);
+    expect(create).toHaveBeenCalledTimes(1);
+    expect(part).toHaveBeenCalledTimes(1);
+    expect(abort).toHaveBeenCalledTimes(1);
+    expect(proxy).toHaveBeenCalledWith('custom/local/root/table.json', 'raw bytes', undefined);
+  });
+
+  it('reuses one discovered logged-model root when signing falls back', async () => {
+    const root = `${window.location.origin}/artifacts/api/2.0/mlflow-artifacts/artifacts/custom/model/root`;
+    const model = jest
+      .mocked(MlflowService.getLoggedModel)
+      .mockResolvedValue({ model: { info: { artifact_uri: root } } });
+    const sign = jest
+      .spyOn(MlflowService, 'getMlflowArtifactsPresignedDownloadUrl')
+      .mockRejectedValue(new ErrorWrapper('unsupported', 501));
+    const read = jest.fn<(url: string) => Promise<string>>().mockResolvedValue('model contents');
+    await expect(
+      fetchArtifactPreferPresigned(
+        { runUuid: '', path: 'MLmodel', isLoggedModelsMode: true, loggedModelId: 'm-1' },
+        '/tracking/model-files',
+        read,
+      ),
+    ).resolves.toBe('model contents');
+    expect(model).toHaveBeenCalledTimes(1);
+    expect(sign).toHaveBeenCalledWith('custom/model/root/MLmodel', `${window.location.origin}/artifacts/`);
+    expect(read).toHaveBeenCalledWith(
+      `${window.location.origin}/artifacts/api/2.0/mlflow-artifacts/artifacts/custom/model/root/MLmodel`,
+    );
+  });
+
+  it.each([401, 403, 500])('does not convert a genuine upload %s into proxy fallback', async (status) => {
+    mockedMultipartUploads.mockReturnValue(true);
+    const root = 'mlflow-artifacts:/custom/root/run-id/artifacts';
+    const create = jest
+      .spyOn(MlflowService, 'createMlflowArtifactsMultipartUpload')
+      .mockResolvedValue({ upload_id: 'id', credentials: [{ url: 'https://storage.example/part', part_number: 1 }] });
+    const put = jest.spyOn(global, 'fetch').mockResolvedValue(new Response('storage error', { status }));
+    const abort = jest.spyOn(MlflowService, 'abortMlflowArtifactsMultipartUpload').mockResolvedValue({});
+    const proxy = jest.spyOn(MlflowService, 'uploadMlflowArtifact');
+    await expect(uploadArtifactWithPresignedUrl('run-id', 'table.json', '{}', root)).rejects.toMatchObject({ status });
+    expect(create).toHaveBeenCalledTimes(1);
+    expect(put).toHaveBeenCalledTimes(1);
+    expect(abort).toHaveBeenCalledTimes(1);
+    expect(proxy).not.toHaveBeenCalled();
+  });
+
+  it('does not retry a failed compatibility upload or switch back to tracking', async () => {
+    const error = new ErrorWrapper('missing byte route', 404);
+    const proxy = jest.spyOn(MlflowService, 'uploadMlflowArtifact').mockRejectedValue(error);
+    await expect(
+      uploadArtifactWithPresignedUrl('run-id', 'table.json', '{}', 'mlflow-artifacts:/custom/run/root'),
+    ).rejects.toBe(error);
+    expect(proxy).toHaveBeenCalledTimes(1);
+  });
+
+  it('preserves literal percent signs alongside valid UTF-8 escapes and separators', async () => {
+    const root = `${window.location.origin}/artifacts/api/2.0/mlflow-artifacts/artifacts/100%complete/a%20b/%E2%82%AC/encoded%2Fchild`;
+    const expected = `${window.location.origin}/artifacts/api/2.0/mlflow-artifacts/artifacts/100%25complete/a%20b/%E2%82%AC/encoded/child/file.txt`;
+    const sign = jest
+      .spyOn(MlflowService, 'getMlflowArtifactsPresignedDownloadUrl')
+      .mockRejectedValue(new ErrorWrapper('unsupported', 501));
+    const create = jest
+      .spyOn(MlflowService, 'createMlflowArtifactsMultipartUpload')
+      .mockRejectedValue(new ErrorWrapper('unsupported', 501));
+    const fetch = jest.spyOn(global, 'fetch').mockResolvedValue(new Response('{}'));
+    const read = jest.fn(async (url: string) => url);
+    await expect(
+      fetchArtifactPreferPresigned(
+        { runUuid: 'run', path: 'file.txt', artifactRootUri: root },
+        '/tracking/get-artifact',
+        read,
+      ),
+    ).resolves.toBe(expected);
+    await expect(uploadArtifactWithPresignedUrl('run', 'file.txt', 'raw contents', root)).resolves.toBe(true);
+    expect(sign).toHaveBeenCalledWith(
+      '100%complete/a b/€/encoded/child/file.txt',
+      `${window.location.origin}/artifacts/`,
+    );
+    expect(create).toHaveBeenCalledWith(
+      '100%complete/a b/€/encoded/child',
+      { path: 'file.txt', num_parts: 1 },
+      `${window.location.origin}/artifacts/`,
+    );
+    expect(fetch).toHaveBeenCalledWith(expected, expect.objectContaining({ method: 'PUT', body: 'raw contents' }));
+    expect(read).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    { root: `${window.location.origin}/artifacts/api/2.0/mlflow-artifacts/artifacts/%E9/root`, status: 400 },
+    { root: 'https://external.example/api/2.0/mlflow-artifacts/artifacts/%E9/root', status: 400 },
+    { root: 'https://external.example/api/2.0/mlflow-artifacts/artifacts/100%complete/root', status: 403 },
+    { root: 'mlflow-artifacts://%bad/root', status: 400 },
+  ])(
+    'fails closed for an unsafe proxied root without direct signing or tracking fallback: $root',
+    async ({ root, status }) => {
+      const read = jest.fn<(url: string) => Promise<string>>();
+      const directSign = jest.spyOn(MlflowService, 'createPresignedDownloadUrl');
+      const directUpload = jest.spyOn(MlflowService, 'createPresignedUploadUrl');
+      const fetch = jest.spyOn(global, 'fetch');
+      await expect(
+        fetchArtifactPreferPresigned(
+          { runUuid: 'run', path: 'file.txt', artifactRootUri: root },
+          '/tracking/get-artifact',
+          read,
+        ),
+      ).rejects.toMatchObject({ status });
+      await expect(uploadArtifactWithPresignedUrl('run', 'file.txt', 'data', root)).rejects.toMatchObject({ status });
+      expect(read).not.toHaveBeenCalled();
+      expect(directSign).not.toHaveBeenCalled();
+      expect(directUpload).not.toHaveBeenCalled();
+      expect(fetch).not.toHaveBeenCalled();
+    },
+  );
 });
+
+/** A reverse proxy serves tracking store A and artifact store B under one origin. */
+const mockSeparateArtifactStores = (
+  failure: 'unsupported signing' | 'storage CORS' | 'hidden ETag',
+  abortFails = false,
+) => {
+  const base = document.createElement('base');
+  base.href = `${window.location.origin}/tracking/`;
+  document.head.append(base);
+  const previousAbsoluteUrls = process.env['MLFLOW_USE_ABSOLUTE_AJAX_URLS'];
+  process.env['MLFLOW_USE_ABSOLUTE_AJAX_URLS'] = 'false';
+  setActiveWorkspace('team-a');
+  document.cookie = 'mlflow-request-header-Authorization=tracking-secret; path=/';
+  mockedMultipartUploads.mockReturnValue(true);
+  const artifactRootUri = `${window.location.origin}/artifacts/api/2.0/mlflow-artifacts/artifacts/custom/root/run-id/artifacts`;
+  const proxyPath = '/artifacts/api/2.0/mlflow-artifacts/artifacts/custom/root/run-id/artifacts/table.json';
+  const trackingStore = new Map([['table.json', 'contents from tracking store A']]);
+  const artifactStore = new Map([['table.json', 'contents from artifact store B']]);
+  const multipartParts = new Map<string, string>();
+  const requests: { method: string; path: string; headers: Headers }[] = [];
+  jest.spyOn(global, 'fetch').mockImplementation(async (input, options) => {
+    const request =
+      input instanceof Request ? input : new Request(new URL(String(input), document.baseURI).toString(), options);
+    const url = new URL(request.url, document.baseURI);
+    requests.push({ method: request.method, path: url.pathname, headers: request.headers });
+    if (url.origin === 'https://storage.example') {
+      if (request.method === 'GET') throw new TypeError('Storage CORS denied');
+      multipartParts.set('upload-id', await request.text());
+      if (failure === 'storage CORS') throw new TypeError('Storage CORS denied');
+      return new Response(undefined, { status: 200 });
+    }
+    if (url.pathname.includes('/presigned/') || url.pathname.includes('/mpu/create/')) {
+      if (failure === 'unsupported signing') return new Response('{"message":"unsupported"}', { status: 501 });
+      return new Response(
+        JSON.stringify(
+          request.method === 'GET'
+            ? { url: 'https://storage.example/part' }
+            : { upload_id: 'upload-id', credentials: [{ url: 'https://storage.example/part', part_number: 1 }] },
+        ),
+      );
+    }
+    if (url.pathname.includes('/mpu/abort/')) {
+      if (abortFails) return new Response('{"message":"abort unavailable"}', { status: 500 });
+      multipartParts.clear();
+      return new Response('{}');
+    }
+    if (url.pathname === proxyPath) {
+      if (request.method === 'PUT') artifactStore.set('table.json', await request.text());
+      return new Response(request.method === 'PUT' ? '{}' : artifactStore.get('table.json'));
+    }
+    if (url.pathname.startsWith('/tracking/')) {
+      if (request.method === 'POST') trackingStore.set('table.json', await request.text());
+      return new Response(request.method === 'POST' ? '{}' : trackingStore.get('table.json'));
+    }
+    throw new Error(`Unexpected request: ${request.method} ${url}`);
+  });
+  const readText = async (url: string, options?: { headers?: HeadersInit }) => {
+    const response = await global.fetch(
+      new Request(new URL(url, document.baseURI).toString(), {
+        headers: options?.headers ?? getDefaultHeaders(document.cookie),
+      }),
+    );
+    if (!response.ok) throw new ErrorWrapper(await response.text(), response.status);
+    return response.text();
+  };
+  return {
+    artifactRootUri,
+    proxyPath,
+    trackingStore,
+    artifactStore,
+    multipartParts,
+    requests,
+    readText,
+    cleanup: () => {
+      base.remove();
+      if (previousAbsoluteUrls === undefined) delete process.env['MLFLOW_USE_ABSOLUTE_AJAX_URLS'];
+      else process.env['MLFLOW_USE_ABSOLUTE_AJAX_URLS'] = previousAbsoluteUrls;
+    },
+  };
+};

@@ -29,13 +29,20 @@ jest.mock('../../../common/utils/ArtifactUtils', () => ({
 describe('ShowArtifactLoggedTableView', () => {
   const originalRevokeObjectURL = (URL as any).revokeObjectURL;
   const renderComponent = () => {
-    render(<ShowArtifactLoggedTableView runUuid="test-run-uuid" path="/path/to/artifact" />, {
-      wrapper: ({ children }) => (
-        <IntlProvider locale="en">
-          <DesignSystemProvider>{children}</DesignSystemProvider>
-        </IntlProvider>
-      ),
-    });
+    render(
+      <ShowArtifactLoggedTableView
+        runUuid="test-run-uuid"
+        path="/path/to/artifact"
+        artifactRootUri="mlflow-artifacts:/1/test-run-uuid/artifacts"
+      />,
+      {
+        wrapper: ({ children }) => (
+          <IntlProvider locale="en">
+            <DesignSystemProvider>{children}</DesignSystemProvider>
+          </IntlProvider>
+        ),
+      },
+    );
   };
 
   beforeEach(() => {
@@ -247,7 +254,7 @@ describe('ShowArtifactLoggedTableView', () => {
 
     await waitFor(() => {
       expect(getArtifactBlob).toHaveBeenCalledWith(
-        expect.stringContaining('get-artifact?path=fakePath&run_uuid=test-run-uuid'),
+        'ajax-api/2.0/mlflow-artifacts/artifacts/1/test-run-uuid/artifacts/fakePath',
       );
     });
 
@@ -257,12 +264,12 @@ describe('ShowArtifactLoggedTableView', () => {
       expect(images.length).toBeGreaterThan(0);
       expect(images.some((image) => image.getAttribute('src') === 'blob:artifact-image')).toBe(true);
     });
-    expect(getArtifactBlob).not.toHaveBeenCalledWith(expect.stringContaining('path=fakePathUncompressed&'));
+    expect(getArtifactBlob).not.toHaveBeenCalledWith(expect.stringContaining('/fakePathUncompressed'));
     const thumbnail = screen.getAllByRole('img').find((image) => image.getAttribute('src') === 'blob:artifact-image');
     await userEvent.click(thumbnail!);
     await waitFor(() =>
       expect(getArtifactBlob).toHaveBeenCalledWith(
-        expect.stringContaining('get-artifact?path=fakePathUncompressed&run_uuid=test-run-uuid'),
+        'ajax-api/2.0/mlflow-artifacts/artifacts/1/test-run-uuid/artifacts/fakePathUncompressed',
       ),
     );
   });

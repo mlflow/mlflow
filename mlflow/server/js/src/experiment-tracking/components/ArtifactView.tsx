@@ -57,7 +57,7 @@ import { getLoggedTablesFromTags } from '@mlflow/mlflow/src/common/utils/TagUtil
 import { CopyButton } from '../../shared/building_blocks/CopyButton';
 import type { LoggedModelArtifactViewerProps } from './artifact-view-components/ArtifactViewComponents.types';
 import type { KeyValueEntity } from '../../common/types';
-import { fetchArtifactPreferPresigned, resolvePresignedArtifactDownload } from '../utils/PresignedArtifactUtils';
+import { fetchArtifactPreferPresigned, resolveArtifactDownload } from '../utils/PresignedArtifactUtils';
 
 const { Text } = Typography;
 type ArtifactViewImplProps = DesignSystemHocProps & {
@@ -266,7 +266,7 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
         isLoggedModelsMode && loggedModelId
           ? getLoggedModelArtifactLocationUrl(artifactPath, loggedModelId)
           : getArtifactLocationUrl(artifactPath, runUuid);
-      const presigned = await resolvePresignedArtifactDownload(params);
+      const { presigned, proxyUrl } = await resolveArtifactDownload(params);
       if (presigned) {
         if (Object.keys(presigned.headers).length === 0) {
           window.location.assign(presigned.url);
@@ -276,7 +276,7 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
               params,
               legacyArtifactLocation,
               (url, options) => getArtifactDownloadBlob(url, options),
-              presigned,
+              { ...presigned, proxyUrl },
             ),
             artifactPath,
           );
@@ -285,9 +285,15 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
       }
 
       if (!isLoggedModelsMode && runUuid) {
-        await this.downloadArtifactViaBlob(getArtifactDownloadBlob(legacyArtifactLocation, undefined), artifactPath);
+        await this.downloadArtifactViaBlob(
+          getArtifactDownloadBlob(proxyUrl ?? legacyArtifactLocation, undefined),
+          artifactPath,
+        );
       } else if (loggedModelId) {
-        await this.downloadArtifactViaBlob(getArtifactDownloadBlob(legacyArtifactLocation, undefined), artifactPath);
+        await this.downloadArtifactViaBlob(
+          getArtifactDownloadBlob(proxyUrl ?? legacyArtifactLocation, undefined),
+          artifactPath,
+        );
       }
     } catch (error) {
       Utils.logErrorAndNotifyUser(error);
