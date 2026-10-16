@@ -675,6 +675,27 @@ def test_abort_multipart_upload(http_artifact_repo, monkeypatch):
         )
 
 
+@pytest.mark.parametrize("operation", ["create", "complete", "abort"])
+def test_multipart_control_requests_send_only_the_filename(http_artifact_repo, tmp_path, operation):
+    local_file = tmp_path / "artifact.txt"
+    response = {"upload_id": "upload_id", "credentials": []} if operation == "create" else {}
+    with mock.patch(
+        "mlflow.store.artifact.http_artifact_repo.http_request",
+        return_value=MockResponse(response, 200),
+    ) as mock_request:
+        if operation == "create":
+            http_artifact_repo.create_multipart_upload(local_file, num_parts=1)
+        elif operation == "complete":
+            http_artifact_repo.complete_multipart_upload(local_file, "upload_id", parts=[])
+        else:
+            http_artifact_repo.abort_multipart_upload(local_file, "upload_id")
+
+    mock_request.assert_called_once()
+    # Local file paths are not artifact paths and the server rejects absolute paths.
+    assert mock_request.call_args.kwargs["json"]["path"] == "artifact.txt"
+    assert f"/mpu/{operation}" in mock_request.call_args.args[1]
+
+
 # Tests for multipart download functionality
 
 

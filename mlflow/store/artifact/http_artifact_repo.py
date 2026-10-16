@@ -416,7 +416,7 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         )
         host_creds = get_default_host_creds(uri)
         params = {
-            "path": local_file,
+            "path": os.path.basename(local_file),
             "num_parts": num_parts,
         }
         resp = http_request(host_creds, endpoint, "POST", json=params)
@@ -429,7 +429,7 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         )
         host_creds = get_default_host_creds(uri)
         params = {
-            "path": local_file,
+            "path": os.path.basename(local_file),
             "upload_id": upload_id,
             "parts": [part.to_dict() for part in parts],
         }
@@ -442,7 +442,7 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         )
         host_creds = get_default_host_creds(uri)
         params = {
-            "path": local_file,
+            "path": os.path.basename(local_file),
             "upload_id": upload_id,
         }
         resp = http_request(host_creds, endpoint, "POST", json=params)
