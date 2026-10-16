@@ -336,6 +336,7 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
     filterModel: unifiedSearchEnabled ? unifiedSearch.searchFilterModel : filterModel,
     onFilterChange: unifiedSearchEnabled ? unifiedSearch.setSearchFilters : controller.setFilterModel,
     hideFilterButton: unifiedSearchEnabled,
+    ...(unifiedSearchEnabled ? { traces: page.traces } : {}),
     onClearFilters: clearAllFilters,
     activeFilterCount: controller.activeFilterCount,
     visibleColumns: columns.visibleColumns,

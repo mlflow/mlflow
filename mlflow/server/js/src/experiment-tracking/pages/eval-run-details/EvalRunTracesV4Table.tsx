@@ -234,6 +234,7 @@ export const EvalRunTracesV4Table = ({ experimentId, runUuid }: EvalRunTracesV4T
     filterModel: unifiedSearch.searchFilterModel,
     onFilterChange: unifiedSearch.setSearchFilters,
     hideFilterButton: true,
+    traces: page.traces,
     onClearFilters: clearAllFilters,
     activeFilterCount: controller.activeFilterCount,
     visibleColumns,
