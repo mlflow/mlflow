@@ -112,7 +112,9 @@ if (require.main === module) {
       const existing = findOpenPr(process.env.REPO, process.env.ISSUE_NUMBER);
       if (existing) throw new Error(`A triage PR already exists: ${existing.html_url}`);
     } else {
-      throw new Error("Usage: node .github/triage/github.js <prepare|check-pr> [path]");
+      throw new Error(
+        "Usage: node .claude/skills/triage/scripts/github.js <prepare|check-pr> [path]"
+      );
     }
   } catch (error) {
     console.error(error.message);

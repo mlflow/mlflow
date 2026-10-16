@@ -75,7 +75,7 @@ jobs:
           ref: ${{ github.sha }}
           persist-credentials: false
           sparse-checkout: |
-            .github/triage
+            .claude/skills/triage/scripts
           sparse-checkout-cone-mode: false
       - name: Load issue
         id: issue
@@ -102,7 +102,7 @@ jobs:
           COMMENT: ${{ inputs.comment || '' }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          node .github/triage/github.js prepare "$RUNNER_TEMP/issue.json" > "$RUNNER_TEMP/issue-context.json"
+          node .claude/skills/triage/scripts/github.js prepare "$RUNNER_TEMP/issue.json" > "$RUNNER_TEMP/issue-context.json"
           echo "json=$(jq -c .followup "$RUNNER_TEMP/issue-context.json")" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -362,7 +362,7 @@ jobs:
           persist-credentials: false
           sparse-checkout: |
             .github/actions/setup-gateway
-            .github/triage/sanitize.js
+            .claude/skills/triage/scripts/sanitize.js
           sparse-checkout-cone-mode: false
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
@@ -374,7 +374,7 @@ jobs:
           jq '{title, body}' "$context" > "$RUNNER_TEMP/original_issue.json"
           for field in title body; do
             jq -j ".$field" "$RUNNER_TEMP/original_issue.json" \
-              | node .github/triage/sanitize.js input > "$RUNNER_TEMP/sanitized_$field.txt"
+              | node .claude/skills/triage/scripts/sanitize.js input > "$RUNNER_TEMP/sanitized_$field.txt"
           done
           jq --rawfile title "$RUNNER_TEMP/sanitized_title.txt" \
             --rawfile body "$RUNNER_TEMP/sanitized_body.txt" \
@@ -591,7 +591,7 @@ jobs:
         run: |
           jq .followup "$RUNNER_TEMP/sanitized-issue/sanitized_issue.json" > "$RUNNER_TEMP/followup.json"
           uvx check-jsonschema@0.37.4 \
-            --schemafile .github/triage/followup.schema.yml "$RUNNER_TEMP/followup.json"
+            --schemafile .claude/skills/triage/followup-input.schema.yml "$RUNNER_TEMP/followup.json"
       # Needs setup-node.
       - name: Install sandbox runtime
         run: |
@@ -976,7 +976,7 @@ jobs:
           PAYLOAD_PATH: /tmp/triage-out/payload.json
         run: |
           jq -j .comment "$PAYLOAD_PATH" |
-            node .github/triage/sanitize.js output > "$RUNNER_TEMP/sanitized-triage-comment.md"
+            node .claude/skills/triage/scripts/sanitize.js output > "$RUNNER_TEMP/sanitized-triage-comment.md"
           jq --rawfile comment "$RUNNER_TEMP/sanitized-triage-comment.md" '.comment = $comment' \
             "$PAYLOAD_PATH" > "$RUNNER_TEMP/sanitized-triage-payload.json"
           mv "$RUNNER_TEMP/sanitized-triage-payload.json" "$PAYLOAD_PATH"
@@ -1082,7 +1082,7 @@ jobs:
             echo "::error::pull_request and fix.patch must be provided together"
             exit 1
           fi
-          node .github/triage/github.js check-pr
+          node .claude/skills/triage/scripts/github.js check-pr
           jq -j .pull_request.body "$payload" |
             uv run --quiet --directory .claude/skills --package skills skills embed-media \
               --check --dir "$OUT_DIR/media"
@@ -1129,12 +1129,12 @@ jobs:
           FOLLOWUP: ${{ needs.issue.outputs.followup }}
         run: |
           jq -j .pull_request.title "$OUT_DIR/payload.json" |
-            node .github/triage/sanitize.js output > "$RUNNER_TEMP/pr-title.txt"
+            node .claude/skills/triage/scripts/sanitize.js output > "$RUNNER_TEMP/pr-title.txt"
           if ! grep -q '[^[:space:]]' "$RUNNER_TEMP/pr-title.txt"; then
             echo "::error::pull request title is empty after sanitization"
             exit 1
           fi
-          node .github/triage/sanitize.js output \
+          node .claude/skills/triage/scripts/sanitize.js output \
             < "$RUNNER_TEMP/pr-body-media.md" > "$RUNNER_TEMP/pr-body-agent.md"
           {
             printf '> [!NOTE]\n> Created by [automated triage](%s). Please review carefully.\n\n' "$RUN_URL"

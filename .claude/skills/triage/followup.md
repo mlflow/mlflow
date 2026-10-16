@@ -14,7 +14,7 @@ first option" can select a fix from an earlier report. If the reference or inten
 behavior is ambiguous, explain what needs clarification instead of choosing a design.
 Empty instructions mean rerun triage using the discussion.
 
-When investigation or a fix is needed, use [bug reproduction and verification](../../triage/bug.md).
+When investigation or a fix is needed, use [bug reproduction and verification](bug.md).
 Recheck the current code and reproduce the bug before proposing a PR; previous results can
 be stale. Implement the requested fix, including a previously suggested option. A specific
 maintainer request can resolve that design choice. Leave fixes offered by the author to

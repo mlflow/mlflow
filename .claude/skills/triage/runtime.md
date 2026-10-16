@@ -77,7 +77,7 @@ short. Logs go to `$out_dir/work`.
    (`MLFLOW_TRACKING_URI=http://localhost:5000`), and open the UI at `http://localhost:3000`.
 4. Drive it with `agent-browser`: `open <url>` and `snapshot -i` to inspect the page, then
    interact with it to reproduce the reported behavior. Only navigate to local MLflow URLs.
-   Start every session with `--init-script .claude/triage/init.js` on its first
+   Start every session with `--init-script .claude/skills/triage/scripts/init.js` on its first
    `open`. It reports the browser as online: the sandbox browser otherwise reports
    `navigator.onLine === false`, and the UI never sends requests that change data (Create,
    Save, Delete).

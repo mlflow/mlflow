@@ -1,6 +1,6 @@
 # Initial bug triage
 
-Investigate the reported bug using [bug reproduction and verification](../../triage/bug.md).
+Investigate the reported bug using [bug reproduction and verification](bug.md).
 Explain what reproduces on the current checkout, the root cause, and the suggested fix.
 
 ## Automatic fix
