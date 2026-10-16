@@ -145,6 +145,7 @@ export const ModelTraceExplorerDetailView = ({
     topLevelNodes,
     selectedNode: viewStateSelectedNode,
     setSelectedNode: setViewStateSelectedNode,
+    comparisonNodeMap,
   } = useModelTraceExplorerViewState();
 
   const activeLayoutConfig = isGraphExpanded ? EXPANDED_WORKFLOW_LAYOUT_CONFIG : DEFAULT_WORKFLOW_LAYOUT_CONFIG;
@@ -309,6 +310,7 @@ export const ModelTraceExplorerDetailView = ({
     setSelectedNodeAndTab: setSearchSelectedNodeAndTab,
     setExpandedKeys,
     modelTraceInfo,
+    comparisonNodeMap,
   });
 
   useEffect(() => {
