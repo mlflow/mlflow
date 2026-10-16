@@ -6249,6 +6249,43 @@
       },
       "last_updated_at": "2026-04-24"
     },
+    "jp.amazon.nova-2-lite-v1:0": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 64000,
+        "max_tokens": 64000
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.396,
+        "output_per_million_tokens": 3.311,
+        "cache_read_per_million_tokens": 0.099,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 0.198,
+            "output_per_million_tokens": 1.6555
+          },
+          "flex": {
+            "input_per_million_tokens": 0.198,
+            "output_per_million_tokens": 1.6555,
+            "cache_read_per_million_tokens": 0.0495
+          },
+          "priority": {
+            "input_per_million_tokens": 0.693,
+            "output_per_million_tokens": 5.79425,
+            "cache_read_per_million_tokens": 0.17325
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-10-16"
+    },
     "jp.anthropic.claude-haiku-4-5-20251001-v1:0": {
       "mode": "chat",
       "context_window": {
@@ -7637,7 +7674,17 @@
       },
       "pricing": {
         "input_per_million_tokens": 0.15,
-        "output_per_million_tokens": 0.6
+        "output_per_million_tokens": 0.6,
+        "service_tiers": {
+          "flex": {
+            "input_per_million_tokens": 0.075,
+            "output_per_million_tokens": 0.3
+          },
+          "priority": {
+            "input_per_million_tokens": 0.2625,
+            "output_per_million_tokens": 1.05
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -7646,7 +7693,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-09"
+      "last_updated_at": "2026-10-16"
     },
     "openai.gpt-oss-20b-1:0": {
       "mode": "chat",
@@ -7657,7 +7704,17 @@
       },
       "pricing": {
         "input_per_million_tokens": 0.07,
-        "output_per_million_tokens": 0.3
+        "output_per_million_tokens": 0.3,
+        "service_tiers": {
+          "flex": {
+            "input_per_million_tokens": 0.035,
+            "output_per_million_tokens": 0.15
+          },
+          "priority": {
+            "input_per_million_tokens": 0.1225,
+            "output_per_million_tokens": 0.525
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -7666,7 +7723,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-09"
+      "last_updated_at": "2026-10-16"
     },
     "openai.gpt-oss-safeguard-120b": {
       "mode": "chat",
