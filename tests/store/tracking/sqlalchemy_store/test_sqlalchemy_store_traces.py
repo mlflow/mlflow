@@ -32,7 +32,7 @@ from mlflow.entities import (
     trace_location,
 )
 from mlflow.entities.model_registry import PromptVersion
-from mlflow.entities.span import Span, create_mlflow_span
+from mlflow.entities.span import Span, SpanType, create_mlflow_span
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
@@ -6671,6 +6671,33 @@ def test_log_spans_stores_cost_columns_per_span(store: SqlAlchemyStore) -> None:
         assert (
             session.query(SqlSpanMetrics).filter(SqlSpanMetrics.trace_id == trace_id).count() == 0
         )
+
+
+def test_log_spans_stores_span_type_translated_from_otel_attributes(
+    store: SqlAlchemyStore,
+) -> None:
+    experiment_id = store.create_experiment("test_log_spans_translated_span_type")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    # An OTLP span from a GenAI semconv emitter carries no `mlflow.spanType`, only the operation.
+    otel_span = create_test_otel_span(trace_id=trace_id, name="execute_tool lookup")
+    otel_span._attributes = {
+        "mlflow.traceRequestId": json.dumps(trace_id),
+        "gen_ai.operation.name": json.dumps("execute_tool"),
+    }
+    store.log_spans(experiment_id, [create_mlflow_span(otel_span, trace_id)])
+
+    with store.ManagedSessionMaker() as session:
+        sql_span = session.query(SqlSpan).filter(SqlSpan.trace_id == trace_id).one()
+        assert sql_span.type == SpanType.TOOL
+        assert json.loads(sql_span.content)["attributes"]["mlflow.spanType"] == json.dumps(
+            SpanType.TOOL
+        )
+
+    traces, _ = store.search_traces(
+        locations=[experiment_id], filter_string=f"span.type = '{SpanType.TOOL}'"
+    )
+    assert [t.trace_id for t in traces] == [trace_id]
 
 
 def test_get_trace_basic(store: SqlAlchemyStore) -> None:

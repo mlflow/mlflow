@@ -5887,7 +5887,11 @@ class SqlAlchemyStore(
                     "span_id": span.span_id,
                     "parent_span_id": span.parent_id,
                     "name": span.name,
-                    "type": span.span_type,
+                    # Read from the translated attributes, which carry the type the translators
+                    # derived for OTel spans that arrive without `mlflow.spanType`.
+                    "type": _try_parse_json_string(
+                        span_attributes.get(SpanAttributeKey.SPAN_TYPE)
+                    ),
                     "status": span.status.status_code,
                     "start_time_unix_nano": span.start_time_ns,
                     "end_time_unix_nano": span.end_time_ns,
