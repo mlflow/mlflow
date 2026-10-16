@@ -582,6 +582,11 @@ jobs:
             run: |
               .claude/scripts/install-agent-browser.sh
               agent-browser --version
+      - name: Validate follow-up context
+        run: |
+          jq .followup "$RUNNER_TEMP/sanitized-issue/sanitized_issue.json" > "$RUNNER_TEMP/followup.json"
+          uvx check-jsonschema@0.37.4 \
+            --schemafile .claude/skills/triage/followup.schema.yml "$RUNNER_TEMP/followup.json"
       # Needs setup-node.
       - name: Install sandbox runtime
         run: |
