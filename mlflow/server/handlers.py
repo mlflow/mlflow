@@ -389,6 +389,7 @@ from mlflow.utils import workspace_context
 from mlflow.utils.crypto import CRYPTO_KEK_PASSPHRASE_ENV_VAR
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.file_utils import local_file_uri_to_path
+from mlflow.utils.issue_utils import validate_issue_fields
 from mlflow.utils.mime_type_utils import _guess_mime_type
 from mlflow.utils.mlflow_tags import (
     MLFLOW_CUSTOM_VIEW_TAG_PREFIX,
@@ -5024,6 +5025,16 @@ def _delete_assessment(trace_id, assessment_id):
     return _wrap_response(response_message)
 
 
+def _validate_issue_last_seen_timestamp(value):
+    # Protobuf JSON also accepts decimal strings for int64 fields.
+    if isinstance(value, str):
+        try:
+            value = int(value)
+        except ValueError:
+            pass
+    validate_issue_fields(last_seen_timestamp=value)
+
+
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _create_issue():
@@ -5036,7 +5047,21 @@ def _create_issue():
             "name": [_assert_required, _assert_string],
             "description": [_assert_required, _assert_string],
             "experiment_id": [_assert_required, _assert_string],
+            "status": [_assert_string],
+            "severity": [_assert_string],
+            "root_causes": [_assert_array, _assert_item_type_string],
+            "source_run_id": [_assert_string],
+            "created_by": [_assert_string],
+            "categories": [_assert_array, _assert_item_type_string],
+            "issue_id": [_assert_string],
+            "last_seen_timestamp": [_validate_issue_last_seen_timestamp],
+            "metadata": [lambda value: validate_issue_fields(metadata=value)],
         },
+    )
+
+    validate_issue_fields(
+        status=request_message.status if request_message.HasField("status") else None,
+        severity=request_message.severity if request_message.HasField("severity") else None,
     )
 
     # Build kwargs for create_issue
@@ -5047,7 +5072,7 @@ def _create_issue():
         "source_run_id": request_message.source_run_id or None,
         "root_causes": list(request_message.root_causes) or None,
         "categories": list(request_message.categories) or None,
-        "created_by": request_message.created_by or None,
+        "created_by": _get_request_username() or request_message.created_by or None,
     }
 
     if request_message.HasField("status"):
@@ -5055,6 +5080,11 @@ def _create_issue():
     if request_message.HasField("severity"):
         create_kwargs["severity"] = IssueSeverity(request_message.severity)
 
+    for field in ("issue_id", "last_seen_timestamp"):
+        if request_message.HasField(field):
+            create_kwargs[field] = getattr(request_message, field)
+    if request_message.metadata:
+        create_kwargs["metadata"] = dict(request_message.metadata)
     created_issue = _get_tracking_store().create_issue(**create_kwargs)
 
     response_message = CreateIssue.Response(issue=created_issue.to_proto())
@@ -5070,8 +5100,22 @@ def _update_issue(issue_id):
     request_message = _get_request_message(
         UpdateIssue(),
         schema={
-            "issue_id": [_assert_required],
+            "issue_id": [_assert_required, _assert_string],
+            "name": [_assert_string],
+            "description": [_assert_string],
+            "status": [_assert_string],
+            "severity": [_assert_string],
+            "categories": [_assert_array, _assert_item_type_string],
+            "last_seen_timestamp": [_validate_issue_last_seen_timestamp],
+            "last_updated_by": [_assert_string],
+            "metadata": [lambda value: validate_issue_fields(metadata=value)],
+            "delete_metadata_keys": [_assert_array, _assert_item_type_string],
         },
+    )
+
+    validate_issue_fields(
+        status=request_message.status if request_message.HasField("status") else None,
+        severity=request_message.severity if request_message.HasField("severity") else None,
     )
 
     status = IssueStatus(request_message.status) if request_message.HasField("status") else None
@@ -5079,12 +5123,26 @@ def _update_issue(issue_id):
         IssueSeverity(request_message.severity) if request_message.HasField("severity") else None
     )
 
+    options = {}
+    if _get_normalized_request_json().get("categories") is not None:
+        options["categories"] = list(request_message.categories)
+    if request_message.HasField("last_seen_timestamp"):
+        options["last_seen_timestamp"] = request_message.last_seen_timestamp
+    if actor := _get_request_username() or request_message.last_updated_by:
+        options["last_updated_by"] = actor
+    if request_message.metadata:
+        options["metadata"] = dict(request_message.metadata)
+    if request_message.delete_metadata_keys:
+        options["delete_metadata_keys"] = list(request_message.delete_metadata_keys)
     updated_issue = _get_tracking_store().update_issue(
         issue_id=issue_id,
         status=status,
-        name=request_message.name or None,
-        description=request_message.description or None,
+        name=request_message.name if request_message.HasField("name") else None,
+        description=request_message.description
+        if request_message.HasField("description")
+        else None,
         severity=severity,
+        **options,
     )
 
     response_message = UpdateIssue.Response(issue=updated_issue.to_proto())
@@ -5109,7 +5167,23 @@ def _search_issues():
     """
     A request handler for `POST /mlflow/issues/search` to search for issues.
     """
-    request_message = _get_request_message(SearchIssues())
+    request_message = _get_request_message(
+        SearchIssues(),
+        schema={
+            "experiment_id": [_assert_string],
+            "filter_string": [_assert_string],
+            "max_results": [_assert_intlike],
+            "page_token": [_assert_string],
+            "include_trace_count": [_assert_bool],
+            "name": [_assert_string],
+            "statuses": [_assert_array, _assert_item_type_string],
+            "severities": [_assert_array, _assert_item_type_string],
+            "categories": [_assert_array, _assert_item_type_string],
+            "order_by": [_assert_array, _assert_item_type_string],
+            "include_total_count": [_assert_bool],
+            "view": [_assert_string],
+        },
+    )
 
     # Build kwargs for search_issues
     search_kwargs = {
@@ -5124,11 +5198,19 @@ def _search_issues():
     if request_message.HasField("include_trace_count"):
         search_kwargs["include_trace_count"] = request_message.include_trace_count
 
+    for field in ("name", "view", "include_total_count"):
+        if request_message.HasField(field):
+            search_kwargs[field] = getattr(request_message, field)
+    for field in ("statuses", "severities", "categories", "order_by"):
+        if values := list(getattr(request_message, field)):
+            search_kwargs[field] = values
     issues = _get_tracking_store().search_issues(**search_kwargs)
 
     issue_protos = [issue.to_proto() for issue in issues]
     response_message = SearchIssues.Response(
-        issues=issue_protos, next_page_token=issues.token or ""
+        issues=issue_protos,
+        next_page_token=issues.token or "",
+        total_count=issues.total_count if request_message.include_total_count else None,
     )
     return _wrap_response(response_message)
 
