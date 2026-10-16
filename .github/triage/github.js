@@ -1,6 +1,6 @@
 const { execFileSync } = require("node:child_process");
 const { readFileSync } = require("node:fs");
-const { sanitizeInput } = require("../workflows/sanitize.js");
+const { sanitizeInput } = require("./sanitize.js");
 
 function ghApi(endpoint, ...args) {
   return JSON.parse(

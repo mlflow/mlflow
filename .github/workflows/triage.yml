@@ -76,7 +76,6 @@ jobs:
           persist-credentials: false
           sparse-checkout: |
             .github/triage
-            .github/workflows/sanitize.js
           sparse-checkout-cone-mode: false
       - name: Load issue
         id: issue
@@ -363,7 +362,7 @@ jobs:
           persist-credentials: false
           sparse-checkout: |
             .github/actions/setup-gateway
-            .github/workflows/sanitize.js
+            .github/triage/sanitize.js
           sparse-checkout-cone-mode: false
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
@@ -375,7 +374,7 @@ jobs:
           jq '{title, body}' "$context" > "$RUNNER_TEMP/original_issue.json"
           for field in title body; do
             jq -j ".$field" "$RUNNER_TEMP/original_issue.json" \
-              | node .github/workflows/sanitize.js input > "$RUNNER_TEMP/sanitized_$field.txt"
+              | node .github/triage/sanitize.js input > "$RUNNER_TEMP/sanitized_$field.txt"
           done
           jq --rawfile title "$RUNNER_TEMP/sanitized_title.txt" \
             --rawfile body "$RUNNER_TEMP/sanitized_body.txt" \
@@ -977,7 +976,7 @@ jobs:
           PAYLOAD_PATH: /tmp/triage-out/payload.json
         run: |
           jq -j .comment "$PAYLOAD_PATH" |
-            node .github/workflows/sanitize.js output > "$RUNNER_TEMP/sanitized-triage-comment.md"
+            node .github/triage/sanitize.js output > "$RUNNER_TEMP/sanitized-triage-comment.md"
           jq --rawfile comment "$RUNNER_TEMP/sanitized-triage-comment.md" '.comment = $comment' \
             "$PAYLOAD_PATH" > "$RUNNER_TEMP/sanitized-triage-payload.json"
           mv "$RUNNER_TEMP/sanitized-triage-payload.json" "$PAYLOAD_PATH"
@@ -1130,12 +1129,12 @@ jobs:
           FOLLOWUP: ${{ needs.issue.outputs.followup }}
         run: |
           jq -j .pull_request.title "$OUT_DIR/payload.json" |
-            node .github/workflows/sanitize.js output > "$RUNNER_TEMP/pr-title.txt"
+            node .github/triage/sanitize.js output > "$RUNNER_TEMP/pr-title.txt"
           if ! grep -q '[^[:space:]]' "$RUNNER_TEMP/pr-title.txt"; then
             echo "::error::pull request title is empty after sanitization"
             exit 1
           fi
-          node .github/workflows/sanitize.js output \
+          node .github/triage/sanitize.js output \
             < "$RUNNER_TEMP/pr-body-media.md" > "$RUNNER_TEMP/pr-body-agent.md"
           {
             printf '> [!NOTE]\n> Created by [automated triage](%s). Please review carefully.\n\n' "$RUN_URL"
