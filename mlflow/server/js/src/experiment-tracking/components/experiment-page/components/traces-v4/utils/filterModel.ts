@@ -10,6 +10,7 @@ import {
 import type { ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
 import { shouldEnableNewEvalRunsUi } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 import { escapeFilterValue } from './buildTracesV4SearchParams';
+import { assessmentValueKindKey } from './assessmentColumns';
 import {
   buildTraceFilterSuggestions,
   getTraceFilterValueOptions,
@@ -306,17 +307,25 @@ const compileSpanTextClause = (field: string, operator: FilterOp, value: string)
 const tagFieldRef = (key: string): string =>
   key.includes('.') || key.includes(' ') ? `tags.\`${key}\`` : `tags.${key}`;
 
+const NO_NUMERIC_ASSESSMENT_KEYS: ReadonlySet<string> = new Set();
+
 const NUMERIC_LITERAL = /^-?\d+(\.\d+)?$/;
 
 /**
  * Compile a feedback or expectation clause. The server compares `=`/`!=` against the stored value's
- * text, so a number logged as `2.0` doesn't match `'2'`. A numeric `=` therefore compiles to a
- * `>= n AND <= n` range, which the server compares as numbers, and a numeric `!=` excludes both of a
- * whole number's spellings (`'2'` and `'2.0'`).
+ * text, so a number logged as `2.0` doesn't match `'2'`. For an assessment known to hold numbers
+ * (`isNumeric`), a numeric `=` therefore compiles to a `>= n AND <= n` range, which the server
+ * compares as numbers, and a numeric `!=` excludes both of a whole number's spellings (`'2'` and
+ * `'2.0'`). Anything else, including an assessment whose type isn't known yet, keeps the literal
+ * comparison, so a text value such as `'5'` still matches exactly.
  */
-const compileAssessmentClause = (fieldRef: string, operator: FilterOp, value: string): string => {
+const compileAssessmentClause = (fieldRef: string, operator: FilterOp, value: string, isNumeric: boolean): string => {
   const trimmed = value.trim();
-  if (NUMERIC_LITERAL.test(trimmed) && (operator === FilterOp.EQUALS || operator === FilterOp.NOT_EQUALS)) {
+  if (
+    isNumeric &&
+    NUMERIC_LITERAL.test(trimmed) &&
+    (operator === FilterOp.EQUALS || operator === FilterOp.NOT_EQUALS)
+  ) {
     const number = Number(trimmed);
     if (operator === FilterOp.EQUALS) {
       return `${fieldRef} >= ${number} AND ${fieldRef} <= ${number}`;
@@ -332,7 +341,11 @@ const compileAssessmentClause = (fieldRef: string, operator: FilterOp, value: st
  * shared `createMlflowSearchFilter` (`useMlflowTraces.tsx`). Returns `undefined` for an incomplete
  * clause so it's dropped rather than emitted half-formed. `enhanced` is the new evaluation runs UI.
  */
-const compileClause = (clause: FilterClause, enhanced: boolean): string | undefined => {
+const compileClause = (
+  clause: FilterClause,
+  enhanced: boolean,
+  numericAssessmentKeys: ReadonlySet<string>,
+): string | undefined => {
   if (!isClauseComplete(clause)) {
     return undefined;
   }
@@ -388,13 +401,23 @@ const compileClause = (clause: FilterClause, enhanced: boolean): string | undefi
       // Compiles to a `feedback.\`<name>\`` clause (matching the shared `createMlflowSearchFilter`);
       // the name is backtick-escaped so dots/spaces survive.
       return enhanced
-        ? compileAssessmentClause(`feedback.\`${key ?? ''}\``, operator, value)
+        ? compileAssessmentClause(
+            `feedback.\`${key ?? ''}\``,
+            operator,
+            value,
+            numericAssessmentKeys.has(assessmentValueKindKey('feedback', key ?? '')),
+          )
         : `feedback.\`${key ?? ''}\` ${operator} '${v}'`;
     case 'expectation':
       // The key is the expectation name; `isClauseComplete` guarantees it's non-blank (requiresKey).
       // Compiles to an `expectation.\`<name>\`` clause, matching the trace-search DSL.
       return enhanced
-        ? compileAssessmentClause(`expectation.\`${key ?? ''}\``, operator, value)
+        ? compileAssessmentClause(
+            `expectation.\`${key ?? ''}\``,
+            operator,
+            value,
+            numericAssessmentKeys.has(assessmentValueKindKey('expectation', key ?? '')),
+          )
         : `expectation.\`${key ?? ''}\` ${operator} '${v}'`;
     default:
       return undefined;
@@ -405,10 +428,17 @@ const compileClause = (clause: FilterClause, enhanced: boolean): string | undefi
  * Compile the filter model into search-API clause strings (one per complete clause). These flow
  * through `buildFilter({ extraClauses })` unchanged, ANDed with the search + time-range clauses.
  */
-export const compileFilterModel = (model: TraceFilterModel): string[] => {
+export const compileFilterModel = (
+  model: TraceFilterModel,
+  /**
+   * Feedback and expectation names known to hold numbers (see `useNumericAssessmentKeys`); only these
+   * compare as numbers with the new evaluation runs UI.
+   */
+  numericAssessmentKeys: ReadonlySet<string> = NO_NUMERIC_ASSESSMENT_KEYS,
+): string[] => {
   const enhanced = shouldEnableNewEvalRunsUi();
   return model
-    .map((clause) => compileClause(clause, enhanced))
+    .map((clause) => compileClause(clause, enhanced, numericAssessmentKeys))
     .filter((clause): clause is string => clause !== undefined);
 };
 

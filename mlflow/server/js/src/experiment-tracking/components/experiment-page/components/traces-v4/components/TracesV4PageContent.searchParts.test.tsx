@@ -62,6 +62,24 @@ describe('TracesV4PageContent search parts', () => {
     await waitFor(() => expect(lastFilter()).toContain('feedback.`relevance` >= 4 AND feedback.`relevance` <= 4'));
   }, 20000);
 
+  test('with the new eval runs UI on, a numeric-looking value on a text feedback stays literal', async () => {
+    jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(true);
+    state.pages = {
+      '': {
+        traces: [makeTrace('tr-000', { assessments: [makeFeedbackAssessment('rating', '5')] })],
+        next_page_token: undefined,
+      },
+    };
+    renderPage();
+    await findTraceRow('tr-000');
+
+    typeQuery("feedback.rating = '5'");
+    pressEnter();
+
+    await waitFor(() => expect(lastFilter()).toContain("feedback.`rating` = '5'"));
+    expect(lastFilter()).not.toContain('>=');
+  }, 20000);
+
   test('with the new eval runs UI off, state is not offered as a sort', async () => {
     jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(false);
     const user = userEvent.setup();
