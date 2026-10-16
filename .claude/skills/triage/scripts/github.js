@@ -64,9 +64,7 @@ function prepareFollowup({ repo, issue, comment, api = ghApi }) {
         `${escapeMarkup(candidate.body ?? "")}\n</comment>`
     );
   return {
-    body:
-      `<issue>\n${escapeMarkup(issue.body ?? "")}\n</issue>\n\n<comments>\n` +
-      `${discussion.join("\n\n")}\n</comments>`,
+    body: [`<issue>\n${escapeMarkup(issue.body ?? "")}\n</issue>`, ...discussion].join("\n\n"),
     followup: {
       instructions: sanitizeInput(instructions),
       command_url: comment.html_url,
