@@ -43,7 +43,7 @@ import { useOptionalCustomViewDefinition } from '../custom-view/CustomViewDefini
 import type { ModelTraceInfoV3 } from './ModelTrace.types';
 import { getTraceCost, getTraceTokenUsage } from './ModelTraceExplorer.utils';
 import { CostMetadataItem, TokenUsageMetadataItem } from './right-pane/ModelTraceExplorerRightPaneHeader';
-import { spanTimeFormatter } from './timeline-tree/TimelineTree.utils';
+import { formatExecutionDuration } from './timeline-tree/TimelineTree.utils';
 import { useCopyController } from '../../copy/useCopyController';
 import { useLocation } from '../RoutingUtils';
 
@@ -61,6 +61,11 @@ const headerIconCss = { svg: { width: 15, height: 15 } };
 const statusIconCss = { svg: { width: 12, height: 12 } };
 
 const formatHeaderDuration = (value: string): string => {
+  // The new eval runs UI formats the header duration like span durations (e.g. "2.20s", "71.57ms").
+  if (shouldEnableNewEvalRunsUi()) {
+    return formatExecutionDuration(value);
+  }
+
   const match = value.match(/^(-?\d+(?:\.\d+)?)(.*)$/);
   if (!match) {
     return value;
@@ -71,31 +76,7 @@ const formatHeaderDuration = (value: string): string => {
     return value;
   }
 
-  if (!shouldEnableNewEvalRunsUi()) {
-    return match[2] === 's' ? `${(numericValue * 1000).toFixed(2)}ms` : `${numericValue.toFixed(2)}${match[2]}`;
-  }
-
-  // The new eval runs UI formats the header duration like span durations (e.g. "1.2s", "350ms").
-  let multiplier: number | undefined;
-  switch (match[2]) {
-    case 'm':
-      multiplier = 60 * 1e6;
-      break;
-    case 's':
-      multiplier = 1e6;
-      break;
-    case 'ms':
-      multiplier = 1e3;
-      break;
-    case 'us':
-    case 'µs':
-      multiplier = 1;
-      break;
-  }
-
-  return multiplier === undefined
-    ? `${numericValue.toFixed(2)}${match[2]}`
-    : spanTimeFormatter(numericValue * multiplier);
+  return match[2] === 's' ? `${(numericValue * 1000).toFixed(2)}ms` : `${numericValue.toFixed(2)}${match[2]}`;
 };
 
 const formatHeaderCost = (cost: number): string =>
