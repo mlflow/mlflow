@@ -53,7 +53,7 @@ from mlflow.tracing.constant import AssessmentMetadataKey, TraceMetadataKey
 from mlflow.utils.workspace_context import WorkspaceContext
 
 if TYPE_CHECKING:
-    from mlflow.server.jobs.docker_executor import DockerJobPlan
+    from mlflow.server.jobs.job_container import DockerJobPlan
 
 _logger = logging.getLogger(__name__)
 
@@ -116,7 +116,22 @@ def run_online_trace_scorer_job(
         for scorer_dict in online_scorers
     ]
 
+    # Lazy import: the container scoring module imports the job utils, which load this module's job
+    # functions when imported.
+    from mlflow.genai.scorers.online.container_scoring import (
+        OnlineContainerScorer,
+        container_scoring_enabled,
+    )
+
     tracking_store = _get_tracking_store()
+    if container_scoring_enabled():
+        # Custom scorers run in job containers, so their code is never loaded in this process.
+        container_scorer = OnlineContainerScorer(experiment_id, ONLINE_TRACE_SCORER_JOB_NAME)
+        processor = OnlineTraceScoringProcessor.create(
+            experiment_id, scorer_objects, tracking_store, container_scorer=container_scorer
+        )
+        processor.process_traces()
+        return
     # Reconstructing custom scorers executes their code, which is permitted only in the executor.
     with _job_executor_scorer_context():
         processor = OnlineTraceScoringProcessor.create(
@@ -364,8 +379,9 @@ def _plan_invoke_scorer_job_for_docker(
     untrusted output and logs the assessments, only on this job's own traces, using the traces
     fetched here rather than anything the container could have changed.
     """
-    # Lazy import: the docker executor module imports the server package, which loads this module.
-    from mlflow.server.jobs.docker_executor import DockerJobPlan
+    # Lazy import: the job container module imports the job utils, which load this module's job
+    # functions when imported.
+    from mlflow.server.jobs.job_container import DockerJobPlan
 
     serialized_scorer = params["serialized_scorer"]
     if not _docker_supports_invoke_scorer_params(params):

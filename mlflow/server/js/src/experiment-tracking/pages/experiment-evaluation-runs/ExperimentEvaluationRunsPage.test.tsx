@@ -5,6 +5,7 @@ import { setupServer } from '../../../common/utils/setup-msw';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import ExperimentEvaluationRunsPage from './ExperimentEvaluationRunsPage';
 import { setupTestRouter, testRoute, TestRouter } from '../../../common/utils/RoutingTestUtils';
+import { useLocation } from '../../../common/utils/RoutingUtils';
 import { TestApolloProvider } from '../../../common/utils/TestApolloProvider';
 import { MockedReduxStoreProvider } from '../../../common/utils/TestUtils';
 import { IntlProvider } from 'react-intl';
@@ -26,6 +27,8 @@ jest.mock('@databricks/web-shared/genai-traces-table', () => ({
 
 // eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(30000); // higher timeout for heavier table testing
+
+const LocationSearch = () => <div data-testid="location-search">{useLocation().search}</div>;
 
 const createMockRun = ({ index }: { index: number }) => ({
   data: {
@@ -93,7 +96,15 @@ describe('ExperimentEvaluationRunsPage', () => {
             <IntlProvider locale="en">
               <DesignSystemProvider>
                 <TestRouter
-                  routes={[testRoute(<ExperimentEvaluationRunsPage />, '/experiments/:experimentId/evaluation-runs')]}
+                  routes={[
+                    testRoute(
+                      <>
+                        <ExperimentEvaluationRunsPage />
+                        <LocationSearch />
+                      </>,
+                      '/experiments/:experimentId/evaluation-runs',
+                    ),
+                  ]}
                   history={history}
                   initialEntries={['/experiments/exp-1/evaluation-runs']}
                 />
@@ -153,5 +164,21 @@ describe('ExperimentEvaluationRunsPage', () => {
     fireEvent.click(refreshButton);
 
     expect(invalidateMlflowSearchTracesCache).toHaveBeenCalled();
+  });
+
+  test('should open the run in the side panel when the run name is clicked', async () => {
+    fireEvent.click(await screen.findByText('Test Run 0'));
+
+    await waitFor(() => expect(screen.getByTestId('location-search')).toHaveTextContent('selectedRunUuid=run-0'));
+  });
+
+  test('should not open the side panel when the run page link is clicked', async () => {
+    await screen.findByText('Test Run 0');
+    const runPageLink = screen.getAllByRole('link').find((link) => link.getAttribute('href')?.includes('/runs/run-0/'));
+    expect(runPageLink).toBeDefined();
+
+    fireEvent.click(runPageLink!);
+
+    expect(screen.getByTestId('location-search')).not.toHaveTextContent('selectedRunUuid');
   });
 });
