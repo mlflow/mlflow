@@ -46,28 +46,25 @@ function prepareFollowup({ repo, issue, comment, api = ghApi }) {
     "--paginate",
     "--slurp"
   ).flat();
-  const report = comments
-    .filter(
+  const discussion = comments
+    .filter((candidate) => candidate.id < comment.id)
+    .sort((a, b) => a.id - b.id)
+    .map(
       (candidate) =>
-        candidate.id < comment.id &&
-        candidate.user.login === "github-actions[bot]" &&
-        candidate.user.type === "Bot" &&
-        /<!-- mlflow-triage-run:\d+ -->/.test(candidate.body)
-    )
-    .sort((a, b) => b.id - a.id)[0];
-  if (report && Date.parse(report.updated_at) > Date.parse(comment.created_at)) {
-    throw new Error("The preceding report changed after the command. Post the follow-up again.");
-  }
+        `## Comment by ${candidate.user?.login ?? "deleted user"} (${candidate.created_at})\n\n` +
+        `${candidate.html_url}\n\n${candidate.body ?? ""}`
+    );
   return {
-    instructions: sanitizeInput(instructions),
-    report: report ? sanitizeInput(report.body) : null,
-    report_url: report?.html_url ?? null,
-    command_url: comment.html_url,
-    maintainer: comment.user.login,
+    body: [`## Issue description\n\n${issue.body ?? ""}`, ...discussion].join("\n\n---\n\n"),
+    followup: {
+      instructions: sanitizeInput(instructions),
+      command_url: comment.html_url,
+      maintainer: comment.user.login,
+    },
   };
 }
 
-function loadFollowup({ repo, issue, event, commentId, api = ghApi }) {
+function prepareContext({ repo, issue, event, commentId, api = ghApi }) {
   let comment = event.comment;
   if (!comment && commentId && commentId !== "0") {
     if (!/^[1-9]\d*$/.test(commentId) || !Number.isSafeInteger(Number(commentId))) {
@@ -75,10 +72,13 @@ function loadFollowup({ repo, issue, event, commentId, api = ghApi }) {
     }
     comment = api(`repos/${repo}/issues/comments/${commentId}`);
   }
-  return comment ? prepareFollowup({ repo, issue, comment, api }) : null;
+  const context = comment
+    ? prepareFollowup({ repo, issue, comment, api })
+    : { body: issue.body ?? "", followup: null };
+  return { title: issue.title, repository: repo, issue_number: issue.number, ...context };
 }
 
-module.exports = { parseCommand, findOpenPr, prepareFollowup, loadFollowup };
+module.exports = { parseCommand, findOpenPr, prepareContext };
 
 if (require.main === module) {
   try {
@@ -86,13 +86,13 @@ if (require.main === module) {
     if (mode === "prepare") {
       const event = JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH, "utf8"));
       const issue = JSON.parse(readFileSync(process.argv[3], "utf8"));
-      const followup = loadFollowup({
+      const context = prepareContext({
         repo: process.env.REPO,
         issue,
         event,
         commentId: process.env.COMMENT_ID,
       });
-      process.stdout.write(JSON.stringify(followup));
+      process.stdout.write(JSON.stringify(context));
     } else if (mode === "check-pr") {
       const existing = findOpenPr(process.env.REPO, process.env.ISSUE_NUMBER);
       if (existing) throw new Error(`A triage PR already exists: ${existing.html_url}`);
