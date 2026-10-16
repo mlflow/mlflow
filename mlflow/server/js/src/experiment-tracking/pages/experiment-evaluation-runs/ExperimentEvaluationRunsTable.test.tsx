@@ -1,6 +1,6 @@
 import { jest, describe, beforeEach, test, expect } from '@jest/globals';
 import type { TableOptions } from '@tanstack/react-table';
-import { render, screen, within } from '@testing-library/react';
+import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ExperimentEvaluationRunsTable } from './ExperimentEvaluationRunsTable';
 import { IntlProvider } from 'react-intl';
@@ -144,6 +144,7 @@ const renderTable = ({
   setSelectedRunUuid = jest.fn(),
   setSelectedColumns = jest.fn(),
   initialEntries,
+  baselineRun,
 }: {
   data: RunEntityOrGroupData[];
   enableNewEvalRunsUi?: boolean;
@@ -154,6 +155,7 @@ const renderTable = ({
   setSelectedRunUuid?: jest.Mock;
   setSelectedColumns?: jest.Mock;
   initialEntries?: string[];
+  baselineRun?: RunEntityWithChildren;
 }) => {
   const table = (tableData: RunEntityOrGroupData[]) => (
     <IntlProvider locale="en">
@@ -165,6 +167,7 @@ const renderTable = ({
               testRoute(
                 <ExperimentEvaluationRunsTable
                   data={tableData}
+                  {...(baselineRun ? { baselineRun } : {})}
                   uniqueColumns={uniqueColumns}
                   selectedColumns={
                     selectedColumns ?? {
@@ -194,6 +197,106 @@ const renderTable = ({
   const result = render(table(data));
   return { ...result, rerenderWithData: (nextData: RunEntityOrGroupData[]) => result.rerender(table(nextData)) };
 };
+
+describe('ExperimentEvaluationRunsTable baseline', () => {
+  beforeEach(() => {
+    capturedTableOptions = undefined;
+  });
+
+  test('shows group metric averages without a filtered-out baseline', () => {
+    const group: ExperimentEvaluationRunsGroupData = {
+      groupKey: 'dataset-a',
+      groupValues: [{ mode: RunGroupingMode.Dataset, groupByData: 'dataset', value: 'dataset-a' }],
+      subRuns: [withAccuracy('group-1', 0.8), withAccuracy('group-2', 1)],
+    };
+
+    renderTable({
+      data: [group],
+      enableNewEvalRunsUi: true,
+      uniqueColumns: [metricColumn],
+      isGrouped: true,
+      baselineRun: withAccuracy('baseline', 0),
+    });
+
+    expect(screen.getByText('BASELINE')).toBeInTheDocument();
+    expect(screen.getByText('avg')).toBeInTheDocument();
+    expect(screen.getByText('0.9')).toBeInTheDocument();
+    expect(screen.queryByText('0.6')).not.toBeInTheDocument();
+  });
+
+  test('shows and pins the baseline when filtered results exclude it', () => {
+    renderTable({ data: [makeRun('newer')], enableNewEvalRunsUi: true, baselineRun: makeRun('baseline') });
+
+    expect(screen.getByText('BASELINE')).toBeInTheDocument();
+    expect(screen.getAllByText(/^Run (baseline|newer)$/).map((node) => node.textContent)).toEqual([
+      'Run baseline',
+      'Run newer',
+    ]);
+  });
+
+  test('shows the baseline when filters return no runs', () => {
+    renderTable({ data: [], enableNewEvalRunsUi: true, baselineRun: makeRun('baseline') });
+
+    expect(screen.getByText('Run baseline')).toBeInTheDocument();
+    expect(screen.getByText('BASELINE')).toBeInTheDocument();
+  });
+
+  test('pins the baseline group while keeping the baseline inside it', () => {
+    const baseline = makeRun('baseline');
+    const baselineGroup: ExperimentEvaluationRunsGroupData = {
+      groupKey: 'baseline-group',
+      groupValues: [{ mode: RunGroupingMode.Dataset, groupByData: 'dataset', value: 'baseline-dataset' }],
+      subRuns: [makeRun('companion'), baseline],
+    };
+    const otherGroup: ExperimentEvaluationRunsGroupData = {
+      groupKey: 'other-group',
+      groupValues: [{ mode: RunGroupingMode.Dataset, groupByData: 'dataset', value: 'other-dataset' }],
+      subRuns: [makeRun('other')],
+    };
+
+    renderTable({
+      data: [otherGroup, baselineGroup],
+      enableNewEvalRunsUi: true,
+      isGrouped: true,
+      baselineRun: baseline,
+    });
+
+    const pinnedGroup = capturedTableOptions!.data[0] as ExperimentEvaluationRunsGroupData;
+    expect(pinnedGroup.groupKey).toBe('baseline-group');
+    expect(pinnedGroup.subRuns.map((run) => run.info.runUuid)).toEqual(['companion', 'baseline']);
+    expect(capturedTableOptions!.data).toHaveLength(2);
+
+    const rows = screen.getAllByRole('row');
+    const baselineGroupIndex = rows.findIndex((row) => row.textContent?.includes('baseline-dataset'));
+    const baselineIndex = rows.findIndex((row) => row.textContent?.includes('Run baseline'));
+    const otherGroupIndex = rows.findIndex((row) => row.textContent?.includes('other-dataset'));
+    expect(baselineGroupIndex).toBeGreaterThan(0);
+    expect(baselineIndex).toBeGreaterThan(baselineGroupIndex);
+    expect(baselineIndex).toBeLessThan(otherGroupIndex);
+    expect(screen.getByText('BASELINE')).toBeInTheDocument();
+  });
+
+  test('keeps an expanded baseline subtree together when sorting', () => {
+    const baseline = makeRun('parent', { children: [makeRun('child')] });
+    renderTable({ data: [makeRun('aaa'), baseline], enableNewEvalRunsUi: true, baselineRun: makeRun('parent') });
+
+    act(() => capturedTableOptions!.onSortingChange?.([{ id: EvalRunsTableColumnId.runName, desc: false }]));
+
+    expect(screen.getAllByText(/^Run (parent|child|aaa)$/).map((node) => node.textContent)).toEqual([
+      'Run parent',
+      'Run child',
+      'Run aaa',
+    ]);
+  });
+
+  test('pins nothing and shows no BASELINE pill with the flag off', () => {
+    renderTable({ data: [makeRun('aaa'), makeRun('bbb')], baselineRun: makeRun('bbb') });
+
+    expect(screen.queryByText('BASELINE')).not.toBeInTheDocument();
+    expect(screen.getAllByText(/^Run (aaa|bbb)$/).map((node) => node.textContent)).toEqual(['Run aaa', 'Run bbb']);
+    expect(capturedTableOptions!.meta).not.toHaveProperty('baselineRunUuid');
+  });
+});
 
 describe('ExperimentEvaluationRunsTable metric cells', () => {
   test('rounds metric values to four decimal places in the cell and its title', () => {

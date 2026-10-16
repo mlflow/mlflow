@@ -26,7 +26,7 @@ import type { RunEntity } from '../../../types';
 import { RUNS_COLOR_PALETTE } from '../../../../common/color-palette';
 import { useGetExperimentRunColor } from '../../../components/experiment-page/hooks/useExperimentRunColor';
 import { useResizeObserver } from '../../../../shared/web-shared/hooks/useResizeObserver';
-import { formatEvalRunsNumericValue } from '../ExperimentEvaluationRunsNumberFormat';
+import { formatEvalRunsAxisValue, formatEvalRunsNumericValue } from '../ExperimentEvaluationRunsNumberFormat';
 
 const ASSESSMENT_COLOR_PALETTE = RUNS_COLOR_PALETTE.slice(0, 9);
 
@@ -1029,7 +1029,7 @@ export const EvalRunsRecentRunsChart = ({
                       fontSize: theme.typography.fontSizeSm,
                     }}
                     tickFormatter={(value: number) =>
-                      isFractional ? `${formatEvalRunsNumericValue(value * 100)}%` : formatEvalRunsNumericValue(value)
+                      isFractional ? `${formatEvalRunsAxisValue(value * 100)}%` : formatEvalRunsAxisValue(value)
                     }
                   />
                   <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }} />

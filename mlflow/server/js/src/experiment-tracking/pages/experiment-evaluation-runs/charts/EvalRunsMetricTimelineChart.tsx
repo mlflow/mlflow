@@ -14,7 +14,7 @@ import {
 } from 'recharts';
 import type { DotItemDotProps, LegendPayload, NumberDomain } from 'recharts';
 import { RUNS_COLOR_PALETTE } from '../../../../common/color-palette';
-import { formatEvalRunsNumericValue } from '../ExperimentEvaluationRunsNumberFormat';
+import { formatEvalRunsAxisValue, formatEvalRunsNumericValue } from '../ExperimentEvaluationRunsNumberFormat';
 
 const EVAL_RUNS_ASSESSMENT_COLOR_PALETTE = RUNS_COLOR_PALETTE.slice(0, 9);
 const INACTIVE_RUN_OPACITY = 0.55;
@@ -421,7 +421,7 @@ export const EvalRunsMetricTimelineChart = ({
               fontSize: compact ? 9 : theme.typography.fontSizeSm,
             }}
             tickFormatter={(value: number) =>
-              resolvedIsFractional ? `${formatEvalRunsNumericValue(value * 100)}%` : formatEvalRunsNumericValue(value)
+              resolvedIsFractional ? `${formatEvalRunsAxisValue(value * 100)}%` : formatEvalRunsAxisValue(value)
             }
           />
         )}

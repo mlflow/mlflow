@@ -1031,6 +1031,10 @@
     "defaultMessage": "Cancel",
     "description": "Delete evaluation runs cancel button text"
   },
+  "2+sQ7k": {
+    "defaultMessage": "Experiments",
+    "description": "Breadcrumb link to the experiments list"
+  },
   "2+uccV": {
     "defaultMessage": "Workspaces",
     "description": "Home page workspaces section title"
@@ -2407,6 +2411,10 @@
     "defaultMessage": "Add new variable",
     "description": "Experiment page > new run modal > \"add new variable\" button label"
   },
+  "721IC2": {
+    "defaultMessage": "Replace baseline",
+    "description": "Label for replacing the baseline run with the selected run"
+  },
   "72uGpl": {
     "defaultMessage": "Evaluate",
     "description": "Experiment page > new run modal > \"evaluate\" button label"
@@ -3306,6 +3314,10 @@
   "A1ljDC": {
     "defaultMessage": "Docs",
     "description": "Sidebar link for docs page"
+  },
+  "A23pxC": {
+    "defaultMessage": "Clear baseline",
+    "description": "Label for clearing the selected baseline run"
   },
   "A3bM/D": {
     "defaultMessage": "Assistant",
@@ -5070,6 +5082,10 @@
   "GifD0J": {
     "defaultMessage": "Explore GenAI features with pre-populated sample data including traces, evaluations, and prompts.",
     "description": "Demo banner description"
+  },
+  "Gj+C1W": {
+    "defaultMessage": "Breadcrumb",
+    "description": "Aria label for experiment page breadcrumb navigation"
   },
   "Gk9Z7W": {
     "defaultMessage": "Created by",
@@ -10839,6 +10855,10 @@
     "defaultMessage": "Edit judge",
     "description": "Title for edit judge modal"
   },
+  "bKCGPW": {
+    "defaultMessage": "Copy link to this experiment",
+    "description": "Accessible label for the button that copies a link to the current experiment page"
+  },
   "bKSd3c": {
     "defaultMessage": "An unknown error occurred.",
     "description": "Generic message for an unknown error"
@@ -12507,6 +12527,10 @@
     "defaultMessage": "Assign reviewers who should answer this queue's questions. They'll find it under “Feedback requested”.",
     "description": "Create review queue: reviewers field hint"
   },
+  "gyKTCv": {
+    "defaultMessage": "Run evaluation",
+    "description": "Label for the page action button that opens the run-evaluation modal"
+  },
   "gyq74j": {
     "defaultMessage": "Trace name",
     "description": "Trace filter field: trace name"
@@ -13090,6 +13114,10 @@
   "ijHH2H": {
     "defaultMessage": "Failed to duplicate some endpoints. Please try again.",
     "description": "Gateway > Endpoints list > Duplicate error message"
+  },
+  "ijKLdS": {
+    "defaultMessage": "Set baseline",
+    "description": "Label for setting the selected run as the baseline"
   },
   "ik/j6P": {
     "defaultMessage": "Show {count} more",
@@ -16139,6 +16167,10 @@
     "defaultMessage": "An API key with this name already exists. Please choose a different name.",
     "description": "Error message for duplicate key name"
   },
+  "tQDJsj": {
+    "defaultMessage": "Issue detection runs cannot be used as a baseline",
+    "description": "Tooltip explaining why an issue detection run cannot be set as the baseline"
+  },
   "tQrhZ8": {
     "defaultMessage": "An error occurred while rendering this component.",
     "description": "Description for default error message in experiment evaluation runs UI"
@@ -17494,6 +17526,10 @@
   "yYLKl8": {
     "defaultMessage": "Please select at least 1 run to delete",
     "description": "Tooltip for disabled delete action in evaluation runs table actions"
+  },
+  "yazqRQ": {
+    "defaultMessage": "BASELINE",
+    "description": "Label for the baseline evaluation run"
   },
   "yd6Poj": {
     "defaultMessage": "No traces to analyze. Log traces to this experiment first.",

@@ -695,6 +695,29 @@ def test_flush_batch_raise_on_error_keeps_batch(setup_storage):
     assert storage._batch_queue[run_id]["metrics"] == metrics
 
 
+def test_set_trial_param_flushes_value_and_distribution_together(setup_storage):
+    reader = setup_storage
+    writer = MlflowStorage(
+        experiment_id=reader._experiment_id, batch_flush_interval=60, batch_size_threshold=1
+    )
+    study_id = writer.create_new_study(directions=[StudyDirection.MINIMIZE])
+    trial_id = writer.create_new_trial(study_id)
+    distribution = CategoricalDistribution(choices=("a", "b"))
+
+    with patch.object(
+        writer._mlflow_client, "log_batch", wraps=writer._mlflow_client.log_batch
+    ) as log_batch:
+        writer.set_trial_param(trial_id, "x", 1, distribution)
+
+    log_batch.assert_called_once()
+    tag_keys = {tag.key for tag in log_batch.call_args.kwargs["tags"]}
+    assert {"param_internal_val_x", "param_directions"} <= tag_keys
+
+    trial = reader.get_trial(trial_id)
+    assert trial.params == {"x": "b"}
+    assert trial.distributions == {"x": distribution}
+
+
 def test_get_trial_param_and_get_trial_params(setup_storage):
     storage = setup_storage
     _, study_to_trials = _setup_studies(storage, n_study=2, n_trial=5, seed=1)

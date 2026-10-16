@@ -22,7 +22,7 @@ import {
 import { EvalRunsColumnHeaderMenu, EvalRunsHeaderSortToggle } from './EvalRunsColumnHeaderMenu';
 import type { ColumnSizingState, OnChangeFn, SortDirection, SortingState } from '@tanstack/react-table';
 import { flexRender, getCoreRowModel, getExpandedRowModel, getSortedRowModel } from '@tanstack/react-table';
-import type { ExpandedState, RowSelectionState } from '@tanstack/react-table';
+import type { ExpandedState, Row, RowSelectionState } from '@tanstack/react-table';
 import { ExperimentEvaluationRunsTableRow } from './ExperimentEvaluationRunsTableRow';
 import type { DatasetWithRunType } from '../../components/experiment-page/components/runs/ExperimentViewDatasetDrawer';
 import { useCallback, useMemo, useRef, useState, forwardRef, type CSSProperties } from 'react';
@@ -32,6 +32,8 @@ import {
   parseEvalRunsTableKeyedColumnKey,
 } from './ExperimentEvaluationRunsTable.utils';
 import type { RunEntityOrGroupData } from './ExperimentEvaluationRunsPage.utils';
+import { containsRun, pinBaselineRows } from './evalRunsRowSelection';
+import type { RunEntity, RunEntityWithChildren } from '../../types';
 import { getEvalRunsFilterFieldForColumn } from './evalRunsFilterFields';
 import type { ExperimentEvaluationRunsPageMode } from './hooks/useExperimentEvaluationRunsPageMode';
 import { useExperimentEvaluationRunsRowVisibility } from './hooks/useExperimentEvaluationRunsRowVisibility';
@@ -39,11 +41,39 @@ import { useExperimentEvaluationRunsRowVisibility } from './hooks/useExperimentE
 const EVAL_RUNS_COLUMN_SIZING = createResizableColumnSizing('eval-runs-table');
 
 const EVAL_RUNS_COLUMN_SIZING_STORAGE_KEY = 'mlflow.eval-runs.column-sizing';
+
+// The baseline (or its group) leads the table even when the current sort or filters would move or hide it.
+const pinBaselineData = (data: RunEntityOrGroupData[], baselineRun: RunEntity): RunEntityOrGroupData[] => {
+  const baselineGroupIndex = data.findIndex(
+    (row) => 'groupValues' in row && containsRun(row, baselineRun.info.runUuid),
+  );
+  if (baselineGroupIndex >= 0) {
+    return [data[baselineGroupIndex], ...data.slice(0, baselineGroupIndex), ...data.slice(baselineGroupIndex + 1)];
+  }
+
+  let pinnedRun: RunEntityWithChildren = baselineRun;
+  const removeBaseline = (rows: RunEntityOrGroupData[]): RunEntityOrGroupData[] =>
+    rows.flatMap((row) => {
+      if ('info' in row && row.info.runUuid === baselineRun.info.runUuid) {
+        pinnedRun = row;
+        return [];
+      }
+      if ('children' in row && row.children?.length) {
+        return [{ ...row, children: removeBaseline(row.children) as RunEntityWithChildren[] }];
+      }
+      return [row];
+    });
+  const remainingData = removeBaseline(data);
+  return [pinnedRun, ...remainingData];
+};
+
 // localStorage version for persisted column widths — bump when the column set or sizing scheme changes.
 const EVAL_RUNS_COLUMN_SIZING_STORAGE_VERSION = 2;
 
 export interface ExperimentEvaluationRunsTableProps {
   data: RunEntityOrGroupData[];
+  /** New UI: the experiment's baseline run, pinned to the top of the table. */
+  baselineRun?: RunEntity;
   uniqueColumns: string[];
   selectedColumns: { [key: string]: boolean };
   // The header menu's "Hide column" flips a column off in this shared state (same state the column
@@ -73,7 +103,8 @@ export const ExperimentEvaluationRunsTable = forwardRef<HTMLDivElement, Experime
   // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
   (
     {
-      data,
+      data: dataProp,
+      baselineRun,
       uniqueColumns,
       selectedColumns,
       setSelectedColumns = () => {},
@@ -97,6 +128,12 @@ export const ExperimentEvaluationRunsTable = forwardRef<HTMLDivElement, Experime
     ref,
   ) => {
     const { theme } = useDesignSystemTheme();
+    const pinnedBaselineRun = enableNewEvalRunsUi ? baselineRun : undefined;
+    const data = useMemo(
+      () => (pinnedBaselineRun ? pinBaselineData(dataProp, pinnedBaselineRun) : dataProp),
+      [pinnedBaselineRun, dataProp],
+    );
+    const baselineRunUuid = pinnedBaselineRun?.info.runUuid;
     const selectionAnchorRowIdRef = useRef<string>();
     const [localSorting, setLocalSorting] = useState<SortingState>([]);
     const sorting = controlledSorting ?? localSorting;
@@ -235,7 +272,9 @@ export const ExperimentEvaluationRunsTable = forwardRef<HTMLDivElement, Experime
           setSelectedDatasetWithRun,
           setIsDrawerOpen,
           flatRunIndexMap,
-          ...(enableNewEvalRunsUi ? { enableNewEvalRunsUi, hasExpandableRows, selectionAnchorRowIdRef } : {}),
+          ...(enableNewEvalRunsUi
+            ? { enableNewEvalRunsUi, hasExpandableRows, selectionAnchorRowIdRef, baselineRunUuid }
+            : {}),
         },
         onRowSelectionChange: setRowSelection,
         state: {
@@ -376,32 +415,37 @@ export const ExperimentEvaluationRunsTable = forwardRef<HTMLDivElement, Experime
         </TableRow>
 
         {!isLoading &&
-          table.getRowModel().rows.map((row) => {
-            const isActive = 'info' in row.original ? row.original.info.runUuid === selectedRunUuid : false;
-            const runStatus = 'info' in row.original ? row.original.info.status : undefined;
+          (baselineRunUuid ? pinBaselineRows(table.getRowModel().rows, baselineRunUuid) : table.getRowModel().rows).map(
+            (row) => {
+              const isActive = 'info' in row.original ? row.original.info.runUuid === selectedRunUuid : false;
+              const runStatus = 'info' in row.original ? row.original.info.status : undefined;
 
-            // Get flat run index from pre-calculated map (excludes group rows)
-            const runUuid = 'info' in row.original ? row.original.info.runUuid : undefined;
-            const currentFlatIndex = runUuid && flatRunIndexMap[runUuid] !== undefined ? flatRunIndexMap[runUuid] : -1;
+              // Get flat run index from pre-calculated map (excludes group rows)
+              const runUuid = 'info' in row.original ? row.original.info.runUuid : undefined;
+              const currentFlatIndex =
+                runUuid && flatRunIndexMap[runUuid] !== undefined ? flatRunIndexMap[runUuid] : -1;
+              const isBaseline = baselineRunUuid !== undefined && row.id === baselineRunUuid;
 
-            return (
-              <ExperimentEvaluationRunsTableRow
-                key={row.id}
-                row={row}
-                isActive={isActive}
-                isSelected={rowSelection[row.id]}
-                isExpanded={row.getIsExpanded()}
-                isHidden={isRowHidden(row.id, currentFlatIndex, runStatus)}
-                columns={columns}
-                isGrouped={isGrouped}
-                enableImprovedComparison={enableImprovedComparison}
-                columnStyles={columnStyles}
-                rowWidthStyle={rowWidthStyle}
-                showGroupSummaries={Boolean(enableNewEvalRunsUi)}
-                {...(enableNewEvalRunsUi ? { fillerCellStyle: EVAL_RUNS_COLUMN_SIZING.fillerCellStyle } : {})}
-              />
-            );
-          })}
+              return (
+                <ExperimentEvaluationRunsTableRow
+                  key={row.id}
+                  row={row}
+                  isActive={isActive}
+                  isSelected={rowSelection[row.id]}
+                  isExpanded={row.getIsExpanded()}
+                  isHidden={!isBaseline && isRowHidden(row.id, currentFlatIndex, runStatus)}
+                  columns={columns}
+                  isGrouped={isGrouped}
+                  enableImprovedComparison={enableImprovedComparison}
+                  columnStyles={columnStyles}
+                  rowWidthStyle={rowWidthStyle}
+                  showGroupSummaries={Boolean(enableNewEvalRunsUi)}
+                  {...(enableNewEvalRunsUi ? { fillerCellStyle: EVAL_RUNS_COLUMN_SIZING.fillerCellStyle } : {})}
+                  {...(isBaseline ? { isBaseline } : {})}
+                />
+              );
+            },
+          )}
         {(isLoading || hasNextPage) && <TableSkeletonRows table={table} />}
       </Table>
     );

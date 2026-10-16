@@ -82,7 +82,7 @@ _JOB_SUPPORT_CHECKS = {
 
 # Online scoring jobs that run custom scorers in job containers of their own (see
 # ``mlflow.genai.scorers.online.container_scoring``) rather than through this executor.
-_ONLINE_CONTAINER_JOB_NAMES = ("run_online_trace_scorer",)
+_ONLINE_CONTAINER_JOB_NAMES = ("run_online_trace_scorer", "run_online_session_scorer")
 
 # How long ``stop_executor`` waits for container starts in progress before giving up on them, which
 # bounds how long that wait can delay shutdown when the Docker daemon hangs.
@@ -154,9 +154,10 @@ class DockerJobExecutor(AbstractJobExecutor):
         self.check_requirements()
         self._prepare_image()
         _logger.warning(
-            "The docker job executor runs custom scorers without network access. Only on-demand "
-            "scorer runs made only of custom scorers use it; other jobs with custom scorers, such "
-            "as evaluation jobs, keep running on the default executor backend."
+            "The docker job executor runs custom scorers without network access. On-demand scorer "
+            "runs made only of custom scorers use it, and online scoring jobs run their custom "
+            "scorers in job containers too; other jobs with custom scorers, such as evaluation "
+            "jobs, keep running them on the default executor backend."
         )
         if os.getuid() == 0:
             _logger.warning(

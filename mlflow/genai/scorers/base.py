@@ -386,6 +386,15 @@ def _job_executor_scorer_context():
             os.environ[_MLFLOW_IN_JOB_EXECUTOR.name] = previous
 
 
+def _is_decorator_scorer(serialized: SerializedScorer) -> bool:
+    """Whether a serialized scorer is a single custom ``@scorer``, not, for example, an ensemble
+    that includes one.
+    """
+    return bool(
+        serialized.call_source and serialized.call_signature and serialized.original_func_name
+    )
+
+
 def _serialized_scorer_is_custom_code(
     serialized_scorer: "str | dict[str, Any] | SerializedScorer",
 ) -> bool:
@@ -664,7 +673,7 @@ class Scorer(BaseModel):
             return BuiltInScorer.model_validate(obj)
 
         # Handle decorator scorers
-        elif serialized.call_source and serialized.call_signature and serialized.original_func_name:
+        elif _is_decorator_scorer(serialized):
             # Reconstructing a custom scorer executes its stored source via exec(). The tracking
             # server must never do that: it returns a non-executing handle that carries the
             # scorer's metadata and serialized form and forwards it to the job executor, which
@@ -952,6 +961,7 @@ class Scorer(BaseModel):
             aggregations=serialized.aggregations,
             description=serialized.description,
             timeout=serialized.timeout,
+            session_level=serialized.session_level,
         )
         object.__setattr__(handle, "_is_session_level", serialized.is_session_level_scorer)
         object.__setattr__(handle, "_cached_dump", asdict(serialized))
