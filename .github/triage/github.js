@@ -17,6 +17,12 @@ function parseCommand(body) {
   return match[1]?.trim() ?? "";
 }
 
+function escapeXml(text) {
+  return text.replace(/[&<>"']/g, (character) => {
+    return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&apos;" }[character];
+  });
+}
+
 function findOpenPr(repo, issueNumber, api = ghApi) {
   const pulls = api(`repos/${repo}/pulls?state=open&per_page=100`, "--paginate", "--slurp").flat();
   return pulls.find(
@@ -51,11 +57,16 @@ function prepareFollowup({ repo, issue, comment, api = ghApi }) {
     .sort((a, b) => a.id - b.id)
     .map(
       (candidate) =>
-        `## Comment by ${candidate.user?.login ?? "deleted user"} (${candidate.created_at})\n\n` +
-        `${candidate.html_url}\n\n${candidate.body ?? ""}`
+        `<comment author="${escapeXml(candidate.user?.login ?? "deleted user")}" ` +
+        `created_at="${escapeXml(candidate.created_at)}" url="${escapeXml(
+          candidate.html_url
+        )}">\n` +
+        `${escapeXml(candidate.body ?? "")}\n</comment>`
     );
   return {
-    body: [`## Issue description\n\n${issue.body ?? ""}`, ...discussion].join("\n\n---\n\n"),
+    body:
+      `<issue>\n${escapeXml(issue.body ?? "")}\n</issue>\n\n<comments>\n` +
+      `${discussion.join("\n\n")}\n</comments>`,
     followup: {
       instructions: sanitizeInput(instructions),
       command_url: comment.html_url,
