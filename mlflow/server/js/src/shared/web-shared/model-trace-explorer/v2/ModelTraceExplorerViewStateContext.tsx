@@ -55,6 +55,7 @@ export type ModelTraceExplorerViewState = {
   updatePaneSizeRatios: (sizes: Partial<PaneSizeRatios>) => void;
   getPaneSizeRatios: () => PaneSizeRatios;
   readOnly?: boolean;
+  hideAssessments: boolean;
   // NB: There can be multiple top-level spans in the trace when it is in-progress. They are not
   // root spans, but used as a tentative roots until the trace is complete.
   topLevelNodes: ModelTraceSpanNode[];
@@ -91,6 +92,7 @@ export const ModelTraceExplorerViewStateContext: React.Context<ModelTraceExplore
     updatePaneSizeRatios: () => {},
     getPaneSizeRatios: () => getDefaultPaneSizeRatios(),
     readOnly: false,
+    hideAssessments: false,
     topLevelNodes: [],
     subscribeToHighlightEvent: () => () => {},
     highlightAssessment: () => {},
@@ -119,6 +121,7 @@ export const ModelTraceExplorerViewStateProvider = ({
   isTraceInitialLoading = false,
   children,
   readOnly = false,
+  hideAssessments = false,
   // Seeds the initial tree-vs-timeline toggle; the AI Gateway opts into timeline (true).
   // All other callers omit this prop and keep the default tree view (false).
   initialShowTimelineTreeGantt = false,
@@ -134,6 +137,7 @@ export const ModelTraceExplorerViewStateProvider = ({
   initialAssessmentsPaneCollapsed?: boolean | 'force-open';
   isTraceInitialLoading?: boolean;
   readOnly?: boolean;
+  hideAssessments?: boolean;
   initialShowTimelineTreeGantt?: boolean;
   refreshTrace?: () => Promise<void>;
   isRefreshingTrace?: boolean;
@@ -278,6 +282,7 @@ export const ModelTraceExplorerViewStateProvider = ({
       updatePaneSizeRatios,
       getPaneSizeRatios,
       readOnly,
+      hideAssessments,
       topLevelNodes,
       subscribeToHighlightEvent,
       highlightAssessment,
@@ -307,6 +312,7 @@ export const ModelTraceExplorerViewStateProvider = ({
       updatePaneSizeRatios,
       getPaneSizeRatios,
       readOnly,
+      hideAssessments,
       topLevelNodes,
       refreshTrace,
       isRefreshingTrace,

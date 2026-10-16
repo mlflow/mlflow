@@ -29,6 +29,9 @@ export const ModelTraceExplorerImpl = ({
   enableGraphView = true,
   comparisonModelTrace,
   comparisonRole,
+  showSpanTree = true,
+  onShowSpanTreeChange,
+  hideAssessments = false,
 }: {
   modelTrace: ModelTrace;
   className?: string;
@@ -48,6 +51,9 @@ export const ModelTraceExplorerImpl = ({
   enableGraphView?: boolean;
   comparisonModelTrace?: ModelTrace;
   comparisonRole?: ModelTraceComparisonRole;
+  showSpanTree?: boolean;
+  onShowSpanTreeChange?: (showSpanTree: boolean) => void;
+  hideAssessments?: boolean;
   // Accepted for prop-shape parity with the legacy explorer so the shared entrypoint can forward one
   // prop set to either implementation; the redesigned explorer replaces the summary view and ignores it.
   initialActiveView?: 'summary' | 'detail';
@@ -109,6 +115,7 @@ export const ModelTraceExplorerImpl = ({
         isRefreshingTrace={isRefreshingTrace}
         comparisonModelTrace={comparisonModelTrace}
         comparisonRole={comparisonRole}
+        hideAssessments={hideAssessments}
       >
         {showLoadingState ? (
           <ModelTraceExplorerSkeleton />
@@ -119,6 +126,8 @@ export const ModelTraceExplorerImpl = ({
             selectedSpanId={selectedSpanId}
             onSelectSpan={onSelectSpan}
             enableGraphView={enableGraphView}
+            showSpanTree={showSpanTree}
+            onShowSpanTreeChange={onShowSpanTreeChange}
           />
         )}
       </ModelTraceExplorerViewStateProvider>
