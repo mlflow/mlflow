@@ -61,8 +61,8 @@ from mlflow.utils.string_utils import is_string_type
 from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.validation import (
     _REGISTERED_MODEL_ALIAS_LATEST,
-    _validate_model_alias_name,
-    _validate_model_alias_name_reserved,
+    _validate_alias_name,
+    _validate_alias_name_reserved,
     _validate_model_version,
     _validate_model_version_tag,
     _validate_registered_model_tag,
@@ -1010,7 +1010,7 @@ class FileStore(AbstractStore):
 
     def _get_registered_model_alias_path(self, name, alias):
         _validate_model_name(name)
-        _validate_model_alias_name(alias)
+        _validate_alias_name(alias)
         registered_model_path = self._get_registered_model_path(name)
         if not exists(registered_model_path):
             raise MlflowException(
@@ -1034,7 +1034,7 @@ class FileStore(AbstractStore):
             None
         """
         alias_path = self._get_registered_model_alias_path(name, alias)
-        _validate_model_alias_name_reserved(alias)
+        _validate_alias_name_reserved(alias)
         self._fetch_file_model_version_if_exists(name, version)
         make_containing_dirs(alias_path)
         write_to(alias_path, self._writeable_value(version))

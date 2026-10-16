@@ -57,6 +57,11 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlAssessmentDailyRollup,
     SqlEntityAssociation,
     SqlExperiment,
+    SqlSkill,
+    SqlSkillAlias,
+    SqlSkillTag,
+    SqlSkillVersion,
+    SqlSkillVersionTag,
     SqlSpanCostDailyRollup,
     SqlTraceInfo,
     SqlTraceMetricDailyRollup,
@@ -3318,3 +3323,63 @@ def test_review_queue_question_lock_holds_in_workspace_store(workspace_tracking_
             workspace_tracking_store.update_review_queue(queue.queue_id, schema_ids=[ls1.schema_id])
         updated = workspace_tracking_store.update_review_queue(queue.queue_id, users=["alice"])
         assert updated.users == ["alice"]
+
+
+def _seed_skill_registry_graph(session, workspace):
+    """One row in every skill-registry table, all belonging to *workspace*."""
+    session.add(SqlSkill(workspace=workspace, organization="acme", name="code-review"))
+    session.add(
+        SqlSkillVersion(
+            workspace=workspace,
+            organization="acme",
+            name="code-review",
+            version=1,
+            source_type="git",
+            source="s.git",
+        )
+    )
+    session.add(
+        SqlSkillTag(
+            workspace=workspace, organization="acme", name="code-review", key="k", value="v"
+        )
+    )
+    session.add(
+        SqlSkillVersionTag(
+            workspace=workspace,
+            organization="acme",
+            name="code-review",
+            version=1,
+            key="k",
+            value="v",
+        )
+    )
+    session.add(
+        SqlSkillAlias(
+            workspace=workspace, organization="acme", name="code-review", alias="prod", version=1
+        )
+    )
+
+
+@pytest.mark.parametrize(
+    ("model", "workspace_attribute"),
+    [
+        (SqlSkill, "workspace"),
+        (SqlSkillVersion, "workspace"),
+        (SqlSkillTag, "workspace"),
+        (SqlSkillVersionTag, "workspace"),
+        (SqlSkillAlias, "workspace"),
+    ],
+)
+def test_get_query_scopes_skill_registry_models_to_active_workspace(
+    workspace_tracking_store, model, workspace_attribute
+):
+    # Identical rows in two workspaces: a query that forgot to filter returns both.
+    with workspace_tracking_store.ManagedSessionMaker(read_only=False) as session:
+        _seed_skill_registry_graph(session, "team-a")
+        _seed_skill_registry_graph(session, "team-b")
+
+    for workspace in ("team-a", "team-b"):
+        with WorkspaceContext(workspace):
+            with workspace_tracking_store.ManagedSessionMaker() as session:
+                rows = workspace_tracking_store._get_query(session, model).all()
+                assert [getattr(row, workspace_attribute) for row in rows] == [workspace]

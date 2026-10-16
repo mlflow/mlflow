@@ -21,7 +21,7 @@ jobs:
       github.event.pull_request.draft == false
       && (contains(fromJson('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association)
       || (github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
-      || (github.event.pull_request.user.login == 'github-actions[bot]'
+      || (github.event.pull_request.user.login == 'mlflow-app[bot]'
       && startsWith(github.event.pull_request.head.ref, 'triage/issue-')))
     runs-on: ubuntu-slim
     timeout-minutes: 5

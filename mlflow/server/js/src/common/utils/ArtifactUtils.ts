@@ -35,43 +35,33 @@ class TextArtifactTooLargeError extends Error {}
  * Async function to fetch and return the specified text artifact.
  * Avoids unnecessary conversion to blob, parses chunked responses directly to text.
  */
-export const getArtifactChunkedText = async (artifactLocation: string) =>
-  new Promise<string>(async (resolve, reject) => {
-    const getArtifactRequest = new Request(artifactLocation, {
-      method: HTTPMethods.GET,
-      redirect: 'follow',
-      headers: new Headers(getDefaultHeaders(document.cookie) as HeadersInit),
-    });
-    // eslint-disable-next-line no-restricted-globals -- See go/spog-fetch
-    const response = await fetch(getArtifactRequest);
-
-    if (!response.ok) {
-      const errorMessage = (await response.text()) || response.statusText;
-      reject(new ErrorWrapper(errorMessage, response.status));
-      return;
-    }
-    const reader = response.body?.getReader();
-
-    if (reader) {
-      let resultData = '';
-      const decoder = new TextDecoder();
-      const appendChunk = async (result: ReadableStreamReadResult<Uint8Array>) => {
-        const decodedChunk = decoder.decode(result.value || new Uint8Array(), {
-          stream: !result.done,
-        });
-        resultData += decodedChunk;
-        if (result.done) {
-          resolve(resultData);
-        } else {
-          reader.read().then(appendChunk).catch(reject);
-        }
-      };
-
-      reader.read().then(appendChunk).catch(reject);
-    } else {
-      reject(new Error("Can't get artifact data from the server"));
-    }
+export const getArtifactChunkedText = async (artifactLocation: string): Promise<string> => {
+  const getArtifactRequest = new Request(artifactLocation, {
+    method: HTTPMethods.GET,
+    redirect: 'follow',
+    headers: new Headers(getDefaultHeaders(document.cookie) as HeadersInit),
   });
+  // A plain async function, so a failed fetch rejects instead of leaving the promise pending.
+  // eslint-disable-next-line no-restricted-globals -- See go/spog-fetch
+  const response = await fetch(getArtifactRequest);
+
+  if (!response.ok) {
+    const errorMessage = (await response.text()) || response.statusText;
+    throw new ErrorWrapper(errorMessage, response.status);
+  }
+  const reader = response.body?.getReader();
+  if (!reader) {
+    throw new Error("Can't get artifact data from the server");
+  }
+
+  let resultData = '';
+  const decoder = new TextDecoder();
+  for (;;) {
+    const result = await reader.read();
+    resultData += decoder.decode(result.value || new Uint8Array(), { stream: !result.done });
+    if (result.done) return resultData;
+  }
+};
 
 /**
  * Fetches the specified artifact, returning a Promise that resolves with

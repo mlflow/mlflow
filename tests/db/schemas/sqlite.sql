@@ -159,6 +159,21 @@ CREATE TABLE secrets (
 )
 
 
+CREATE TABLE skills (
+	workspace VARCHAR(63) DEFAULT 'default' NOT NULL,
+	organization VARCHAR(64) DEFAULT '' NOT NULL,
+	name VARCHAR(128) NOT NULL,
+	description TEXT,
+	icons JSON,
+	search_text TEXT,
+	created_by VARCHAR(256),
+	last_updated_by VARCHAR(256),
+	created_at BIGINT NOT NULL,
+	last_updated_at BIGINT NOT NULL,
+	CONSTRAINT skills_pk PRIMARY KEY (workspace, organization, name)
+)
+
+
 CREATE TABLE sql_assessment_daily_rollups (
 	id INTEGER NOT NULL,
 	experiment_id INTEGER NOT NULL,
@@ -520,6 +535,48 @@ CREATE TABLE scorers (
 )
 
 
+CREATE TABLE skill_aliases (
+	workspace VARCHAR(63) DEFAULT 'default' NOT NULL,
+	organization VARCHAR(64) DEFAULT '' NOT NULL,
+	name VARCHAR(128) NOT NULL,
+	alias VARCHAR(256) NOT NULL,
+	version INTEGER NOT NULL,
+	CONSTRAINT skill_aliases_pk PRIMARY KEY (workspace, organization, name, alias),
+	CONSTRAINT skill_aliases_skill_fkey FOREIGN KEY(workspace, organization, name) REFERENCES skills (workspace, organization, name) ON DELETE CASCADE ON UPDATE CASCADE
+)
+
+
+CREATE TABLE skill_tags (
+	workspace VARCHAR(63) DEFAULT 'default' NOT NULL,
+	organization VARCHAR(64) DEFAULT '' NOT NULL,
+	name VARCHAR(128) NOT NULL,
+	key VARCHAR(250) NOT NULL,
+	value TEXT,
+	CONSTRAINT skill_tags_pk PRIMARY KEY (workspace, organization, name, key),
+	CONSTRAINT skill_tags_skill_fkey FOREIGN KEY(workspace, organization, name) REFERENCES skills (workspace, organization, name) ON DELETE CASCADE ON UPDATE CASCADE
+)
+
+
+CREATE TABLE skill_versions (
+	workspace VARCHAR(63) DEFAULT 'default' NOT NULL,
+	organization VARCHAR(64) DEFAULT '' NOT NULL,
+	name VARCHAR(128) NOT NULL,
+	version INTEGER NOT NULL,
+	source_type VARCHAR(20),
+	source VARCHAR(2048),
+	ref VARCHAR(2048),
+	subpath VARCHAR(2048),
+	digest VARCHAR(64),
+	status VARCHAR(20) DEFAULT 'active' NOT NULL,
+	created_by VARCHAR(256),
+	last_updated_by VARCHAR(256),
+	created_at BIGINT NOT NULL,
+	last_updated_at BIGINT NOT NULL,
+	CONSTRAINT skill_versions_pk PRIMARY KEY (workspace, organization, name, version),
+	CONSTRAINT skill_versions_skill_fkey FOREIGN KEY(workspace, organization, name) REFERENCES skills (workspace, organization, name) ON DELETE CASCADE ON UPDATE CASCADE
+)
+
+
 CREATE TABLE trace_info (
 	request_id VARCHAR(50) NOT NULL,
 	experiment_id INTEGER NOT NULL,
@@ -690,6 +747,7 @@ CREATE TABLE logged_model_tags (
 	CONSTRAINT fk_logged_model_tags_model_id FOREIGN KEY(model_id) REFERENCES logged_models (model_id) ON DELETE CASCADE
 )
 
+
 CREATE TABLE mcp_server_version_tags (
 	workspace VARCHAR(63) DEFAULT 'default' NOT NULL,
 	name VARCHAR(256) NOT NULL,
@@ -783,6 +841,18 @@ CREATE TABLE scorer_versions (
 	creation_time BIGINT,
 	CONSTRAINT scorer_version_pk PRIMARY KEY (scorer_id, scorer_version),
 	CONSTRAINT fk_scorer_versions_scorer_id FOREIGN KEY(scorer_id) REFERENCES scorers (scorer_id) ON DELETE CASCADE
+)
+
+
+CREATE TABLE skill_version_tags (
+	workspace VARCHAR(63) DEFAULT 'default' NOT NULL,
+	organization VARCHAR(64) DEFAULT '' NOT NULL,
+	name VARCHAR(128) NOT NULL,
+	version INTEGER NOT NULL,
+	key VARCHAR(250) NOT NULL,
+	value TEXT,
+	CONSTRAINT skill_version_tags_pk PRIMARY KEY (workspace, organization, name, version, key),
+	CONSTRAINT skill_version_tags_version_fkey FOREIGN KEY(workspace, organization, name, version) REFERENCES skill_versions (workspace, organization, name, version) ON DELETE CASCADE ON UPDATE CASCADE
 )
 
 
