@@ -999,10 +999,6 @@
     "defaultMessage": "Show less",
     "description": "Link that collapses an expanded list when clicked"
   },
-  "1rGV4J": {
-    "defaultMessage": "Issue detection failed",
-    "description": "Issues failed detection status"
-  },
   "1rqKJk": {
     "defaultMessage": "View details",
     "description": "Link to the issue detection run overview from the completion notification"
@@ -2590,6 +2586,10 @@
   "7ZzboF": {
     "defaultMessage": "Link prompts to your traces by loading your registered prompts inside the traced function.",
     "description": "Helper text describing how to link prompts when no prompt records are available"
+  },
+  "7axnPE": {
+    "defaultMessage": "The previous issue detection timed out. Start a new detection to try again.",
+    "description": "Experiment issues tab > Empty state description after issue detection timed out"
   },
   "7b9zBN": {
     "defaultMessage": "Delete the view \"{name}\"? This removes it from the experiment for everyone.",
@@ -4319,10 +4319,6 @@
     "defaultMessage": "Pre-built LLM-as-a-judge | Trace level",
     "description": "Label indicating a pre-built trace-level LLM-as-a-judge template"
   },
-  "DkMX3S": {
-    "defaultMessage": "No issues have been recorded.",
-    "description": "Experiment Issues empty issue store"
-  },
   "DkO9C5": {
     "defaultMessage": "Use {identity}",
     "description": "Title for the Skill Registry use-skill modal"
@@ -4570,10 +4566,6 @@
   "EjPmMR": {
     "defaultMessage": "Workspace Manager",
     "description": "Roles table column header for the workspace-admin marker (multi-tenant)"
-  },
-  "Ek44pz": {
-    "defaultMessage": "The latest detection found no issues in the selected traces.",
-    "description": "Experiment Issues completed empty scan"
   },
   "EkUD0b": {
     "defaultMessage": "No results",
@@ -8179,10 +8171,6 @@
     "defaultMessage": "Remove filter",
     "description": "Usage overview > filter row > remove row button aria label"
   },
-  "RkpJiK": {
-    "defaultMessage": "Loading detection history…",
-    "description": "Experiment Issues empty state while checking history"
-  },
   "RlBbjb": {
     "defaultMessage": "A tag key is required",
     "description": "Key-value tag editor modal > Tag dropdown > Tag key required error message"
@@ -9474,6 +9462,10 @@
   "WHwU2F": {
     "defaultMessage": "Tokens per Request",
     "description": "Title for the token stats chart in gateway"
+  },
+  "WI6Pdv": {
+    "defaultMessage": "Start new detection",
+    "description": "Experiment issues tab > Empty state action after issue detection failed or timed out"
   },
   "WIl5iN": {
     "defaultMessage": "Shown in Connect tab. Click to hide.",
@@ -13103,10 +13095,6 @@
     "defaultMessage": "Show {count} more",
     "description": "MCP server package show more env vars button"
   },
-  "ikmZTe": {
-    "defaultMessage": "View detection run",
-    "description": "Issues latest detection run link"
-  },
   "ilJcHq": {
     "defaultMessage": "Could not submit feedback. Try again.",
     "description": "Inline error shown when submitting staged feedback fails in a custom trace view"
@@ -13211,6 +13199,10 @@
     "defaultMessage": "Save aliases",
     "description": "Alias editor > Confirm change of aliases"
   },
+  "j5NkP3": {
+    "defaultMessage": "Run issue detection",
+    "description": "Experiment issues tab > Empty state action to run issue detection"
+  },
   "j6ijji": {
     "defaultMessage": "Are you sure you want to delete this access endpoint? This action cannot be undone.",
     "description": "Access endpoint delete confirmation message"
@@ -13238,10 +13230,6 @@
   "j8JWDD": {
     "defaultMessage": "Enter issue description",
     "description": "Placeholder text for issue description field"
-  },
-  "jCW5Jr": {
-    "defaultMessage": "No issues are available for this search.",
-    "description": "Experiment Issues empty search with unavailable history"
   },
   "jClVwe": {
     "defaultMessage": "Point the OTLP exporter at this MLflow server by setting these environment variables. See the <a>OpenTelemetry export docs</a> for the full reference.",
@@ -13542,6 +13530,10 @@
   "kAVQ2/": {
     "defaultMessage": "Range",
     "description": "Label for the range in the tooltip for the numeric aggregate chart."
+  },
+  "kB6rea": {
+    "defaultMessage": "Learn how it works",
+    "description": "Experiment issues tab > Empty state documentation link"
   },
   "kBDjOX": {
     "defaultMessage": "Queue settings — “{name}”",
@@ -14534,10 +14526,6 @@
   "nkh1zr": {
     "defaultMessage": "Negative label",
     "description": "Pass/Fail negative label input"
-  },
-  "nkoTND": {
-    "defaultMessage": "Detect issues to find problems in your traces.",
-    "description": "Experiment Issues before the first detection"
   },
   "nlXn2G": {
     "defaultMessage": "Absolute date and time",
@@ -17298,6 +17286,10 @@
   "xhAFcl": {
     "defaultMessage": "Failed to cancel job: {error}",
     "description": "Error message when job cancellation fails"
+  },
+  "xhpUB1": {
+    "defaultMessage": "The previous issue detection failed. Start a new detection to try again.",
+    "description": "Experiment issues tab > Empty state description after issue detection failed"
   },
   "xiFkTH": {
     "defaultMessage": "Use for evaluation",

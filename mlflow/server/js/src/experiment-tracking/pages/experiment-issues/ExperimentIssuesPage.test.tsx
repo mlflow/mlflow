@@ -15,7 +15,6 @@ import {
   recordSubmittedIssueDetectionJob,
 } from '../../components/experiment-page/components/traces-v3/IssueDetectionJobNotifications';
 import { DEFAULT_DETECT_ISSUES_GUIDANCE_STORAGE_KEY } from '@databricks/web-shared/genai-traces-table/components/DetectIssuesButton';
-import { useExperimentPermission } from '../../hooks/useExperimentPermission';
 import ExperimentIssuesPage from './ExperimentIssuesPage';
 
 jest.mock('../../../common/utils/FeatureUtils', () => ({
@@ -23,7 +22,10 @@ jest.mock('../../../common/utils/FeatureUtils', () => ({
   shouldEnableExperimentIssuesTab: jest.fn(),
 }));
 
-jest.mock('../../hooks/useExperimentPermission', () => ({ useExperimentPermission: jest.fn(() => true) }));
+jest.mock('../../../account/hooks', () => ({
+  useIsAuthAvailable: () => true,
+  useMyPermissionsQuery: () => ({ data: { is_admin: false, permissions: [] } }),
+}));
 jest.mock('../../components/experiment-page/components/traces-v3/IssueDetectionModal', () => ({
   IssueDetectionModal: ({ availableTraceIds }: { availableTraceIds: string[] }) => (
     <div role="dialog">
@@ -124,9 +126,7 @@ beforeEach(() => {
   localStorage.setItem(`${DEFAULT_DETECT_ISSUES_GUIDANCE_STORAGE_KEY}_v1`, JSON.stringify(true));
   clearSubmittedIssueDetectionJob();
   jest.mocked(shouldEnableExperimentIssuesTab).mockReturnValue(true);
-  jest.mocked(useExperimentPermission).mockReturnValue(true);
   issues = [makeIssue('iss-a', 'Slow response'), makeIssue('iss-b', 'Wrong answer')];
-  issues[0].root_causes = ['Repeated model calls'];
   searches = [];
   responsePageSize = undefined;
   latestRun = undefined;
@@ -191,7 +191,7 @@ describe('Experiment Issues', () => {
       submittedAtMs: Date.now(),
     });
     const { client } = renderPage('', true);
-    await screen.findByRole('button', { name: 'Detect issues in traces', busy: true });
+    await screen.findByRole('button', { name: 'Run issue detection', busy: true });
     await waitFor(() => expect(client.isFetching()).toBe(0));
     const invalidate = jest.spyOn(client, 'invalidateQueries');
     issues = [makeIssue('iss-detected', 'Detected by job')];
@@ -230,9 +230,11 @@ describe('Experiment Issues', () => {
       expect(fetchIssueData).not.toHaveBeenCalled();
     },
   );
-  test('reads SQL issues, renders legacy causes and preserves selection through back navigation', async () => {
+  test('renders the description without deprecated root causes and preserves selection through back navigation', async () => {
+    Object.assign(issues[0], { root_causes: ['Repeated model calls'] });
     renderPage('?selectedIssueId=iss-a');
-    expect(await screen.findByText('Repeated model calls')).toBeInTheDocument();
+    expect(await screen.findByText('Description for iss-a')).toBeInTheDocument();
+    expect(screen.queryByText('Repeated model calls')).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: /Wrong answer/ }));
     expect(await screen.findByText('Description for iss-b')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Back' }));
@@ -399,7 +401,7 @@ describe('Experiment Issues', () => {
     await waitFor(() => expect(issues[1].status).toBe('rejected'));
     expect(await screen.findByRole('button', { name: 'Not an issue' })).toBeInTheDocument();
   });
-  test('opens the existing detector with recent trace IDs', async () => {
+  test('opens the existing detector with recent trace IDs without an experiment EDIT grant', async () => {
     renderPage();
     await userEvent.click(await screen.findByRole('button', { name: 'Detect issues in traces' }));
     expect(await screen.findByRole('dialog')).toHaveTextContent('Selected traces: trace-1, trace-2');
@@ -443,7 +445,7 @@ describe('Experiment Issues', () => {
       };
       jobStatus = status;
       const { client } = renderPage();
-      const detectButton = await screen.findByRole('button', { name: 'Detect issues in traces', busy: true });
+      const detectButton = await screen.findByRole('button', { name: 'Run issue detection', busy: true });
       await waitFor(() =>
         expect(client.getQueryData(['FETCH_JOB_STATUS', 'job-1'])).toEqual(expect.objectContaining({ status })),
       );
@@ -462,8 +464,8 @@ describe('Experiment Issues', () => {
       expect(await screen.findByRole('button', { name: /Detected by job/ })).toBeInTheDocument();
       expect(screen.queryByText('Issue detection completed')).not.toBeInTheDocument();
       expect(screen.queryByText('Detecting issues')).not.toBeInTheDocument();
-      expect(detectButton).toHaveAttribute('aria-busy', 'false');
-      expect(detectButton).toBeEnabled();
+      expect(screen.getByRole('button', { name: 'Detect issues in traces' })).toHaveAttribute('aria-busy', 'false');
+      expect(screen.getByRole('button', { name: 'Detect issues in traces' })).toBeEnabled();
     },
   );
   test('discovers a newly submitted job without navigating away', async () => {
@@ -503,7 +505,7 @@ describe('Experiment Issues', () => {
     };
     jobStatus = 'RUNNING';
     const { client } = renderPage();
-    const detectButton = await screen.findByRole('button', { name: 'Detect issues in traces', busy: true });
+    const detectButton = await screen.findByRole('button', { name: 'Run issue detection', busy: true });
     await waitFor(() => expect(client.isFetching(['FETCH_JOB_STATUS', 'job-1'])).toBe(0));
     server.use(rest.get('*/ajax-api/3.0/mlflow/jobs/job-1', (_req, res, ctx) => res(ctx.status(500))));
     await act(async () => {
@@ -521,8 +523,8 @@ describe('Experiment Issues', () => {
     expect(screen.queryByText('Issue detection completed')).not.toBeInTheDocument();
     expect(screen.queryByText('Detecting issues')).not.toBeInTheDocument();
     expect(screen.queryByText('Unable to update detection progress')).not.toBeInTheDocument();
-    expect(detectButton).toHaveAttribute('aria-busy', 'false');
-    expect(detectButton).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Detect issues in traces' })).toHaveAttribute('aria-busy', 'false');
+    expect(screen.getByRole('button', { name: 'Detect issues in traces' })).toBeEnabled();
   });
   test.each([false, true])(
     'refreshes issues once when the run completes with unavailable job status (cached running status: %s)',
@@ -537,7 +539,7 @@ describe('Experiment Issues', () => {
         server.use(rest.get('*/ajax-api/3.0/mlflow/jobs/job-1', (_req, res, ctx) => res(ctx.status(403))));
       }
       const { client } = renderPage();
-      const detectButton = await screen.findByRole('button', { name: 'Detect issues in traces', busy: true });
+      const detectButton = await screen.findByRole('button', { name: 'Run issue detection', busy: true });
       if (cachedJob) {
         await waitFor(() => expect(client.isFetching(['FETCH_JOB_STATUS', 'job-1'])).toBe(0));
         server.use(rest.get('*/ajax-api/3.0/mlflow/jobs/job-1', (_req, res, ctx) => res(ctx.status(500))));
@@ -555,8 +557,8 @@ describe('Experiment Issues', () => {
       expect(screen.queryByText('Issue detection completed')).not.toBeInTheDocument();
       expect(screen.queryByText('Detecting issues')).not.toBeInTheDocument();
       expect(screen.queryByText('Unable to update detection progress')).not.toBeInTheDocument();
-      expect(detectButton).toHaveAttribute('aria-busy', 'false');
-      expect(detectButton).toBeEnabled();
+      expect(screen.getByRole('button', { name: 'Detect issues in traces' })).toHaveAttribute('aria-busy', 'false');
+      expect(screen.getByRole('button', { name: 'Detect issues in traces' })).toBeEnabled();
       const searchCount = searches.length;
       await act(async () => {
         await client.invalidateQueries(['LATEST_ISSUE_DETECTION']);
@@ -572,22 +574,63 @@ describe('Experiment Issues', () => {
     renderPage('?selectedIssueId=iss-a');
     expect(await screen.findByText('You do not have permission to view these issues')).toBeInTheDocument();
   });
-  test('disables detection and triage for read-only users', async () => {
-    jest.mocked(useExperimentPermission).mockReturnValue(false);
+  test.each(['?issueSearch=no-match', ''])('retains filters when existing issues are hidden (%s)', async (query) => {
+    issues.forEach((issue) => {
+      issue.status = 'resolved';
+    });
+    renderPage(query);
+    expect(await screen.findByText('No issues match these filters.')).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'Search issues by title' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Filter issues' })).toBeInTheDocument();
+    expect(screen.queryByText('Discover issues automatically')).not.toBeInTheDocument();
+  });
+  test('shows the empty state without list controls and opens detection from its primary action', async () => {
+    issues = [];
+    renderPage();
+    expect(await screen.findByText('Discover issues automatically')).toBeInTheDocument();
+    expect(screen.queryByRole('toolbar')).not.toBeInTheDocument();
+    expect(screen.queryByRole('textbox', { name: 'Search issues by title' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Filter issues' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Sort / })).not.toBeInTheDocument();
+    expect(screen.queryByText('Status:')).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Learn how it works' })).toHaveAttribute(
+      'href',
+      'https://mlflow.org/docs/latest/genai/eval-monitor/ai-insights/detect-issues/',
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Run issue detection' }));
+    expect(await screen.findByRole('dialog')).toHaveTextContent('Selected traces: trace-1, trace-2');
+  });
+  test.each(['FAILED', 'TIMEOUT'])('offers a centered new detection after an empty %s run', async (status) => {
+    issues = [];
     latestRun = {
       info: { run_id: 'run-1', status: 'RUNNING' },
       data: { tags: [{ key: 'mlflow.issueDetection.jobId', value: 'job-1' }] },
     };
-    jobStatus = 'SUCCEEDED';
+    jobStatus = status;
     renderPage();
-    await screen.findByText('Description for iss-a');
-    expect(screen.getByRole('button', { name: 'Detect issues in traces' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Open' })).toBeDisabled();
-    await screen.findByRole('button', { name: 'Detect issues in traces', busy: false });
+    const restart = await screen.findByRole('button', { name: 'Start new detection' });
+    expect(screen.queryByRole('toolbar')).not.toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.queryByText('No issues detected')).not.toBeInTheDocument();
+    expect(
+      screen.getByText(
+        status === 'TIMEOUT'
+          ? 'The previous issue detection timed out. Start a new detection to try again.'
+          : 'The previous issue detection failed. Start a new detection to try again.',
+      ),
+    ).toBeInTheDocument();
+    await userEvent.click(restart);
+    expect(await screen.findByRole('dialog')).toBeInTheDocument();
   });
-  test('shows no matches separately from a clean scan', async () => {
-    renderPage('?issueSearch=no-match');
-    expect(await screen.findByText('No issues match these filters.')).toBeInTheDocument();
+  test('retries unavailable detection history from the empty page', async () => {
+    issues = [];
+    server.use(rest.post('*/ajax-api/2.0/mlflow/runs/search', (_req, res, ctx) => res(ctx.status(500))));
+    renderPage();
+    expect(await screen.findByText('Unable to load detection history')).toBeInTheDocument();
+    server.use(rest.post('*/ajax-api/2.0/mlflow/runs/search', (_req, res, ctx) => res(ctx.json({ runs: [] }))));
+    await userEvent.click(screen.getByRole('button', { name: 'Retry status' }));
+    await waitFor(() => expect(screen.queryByText('Unable to load detection history')).not.toBeInTheDocument());
+    expect(screen.getByRole('button', { name: 'Run issue detection' })).toBeEnabled();
   });
   test.each(['FINISHED', 'FAILED'])('only reports a clean scan after successful completion (%s)', async (status) => {
     issues = [];
@@ -608,7 +651,9 @@ describe('Experiment Issues', () => {
         ),
       ).toBeInTheDocument();
     } else {
-      expect(await screen.findByText('Issue detection failed')).toBeInTheDocument();
+      expect(
+        await screen.findByText('The previous issue detection failed. Start a new detection to try again.'),
+      ).toBeInTheDocument();
       expect(
         screen.queryByText(
           'Issue detection did not find problems in the analyzed traces. Run it again as your application changes.',
@@ -633,10 +678,7 @@ describe('Experiment Issues', () => {
       });
       expect(detectButton).toHaveAttribute('aria-busy', 'false');
       expect(detectButton).toBeEnabled();
-      if (status === 'FAILED' || status === 'TIMEOUT') {
-        expect(await screen.findByText('Issue detection failed')).toBeInTheDocument();
-        expect(screen.getByRole('link', { name: 'View detection run' })).toBeInTheDocument();
-      }
+      expect(screen.queryByRole('link', { name: 'View detection run' })).not.toBeInTheDocument();
       await userEvent.click(detectButton);
       expect(await screen.findByRole('dialog')).toBeInTheDocument();
     },

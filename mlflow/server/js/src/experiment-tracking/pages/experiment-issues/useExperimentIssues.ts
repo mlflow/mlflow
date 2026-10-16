@@ -130,9 +130,3 @@ export const useTriageExperimentIssue = (experimentId: string) => {
     },
   });
 };
-
-export const getIssueDescription = (issue: Issue): string => {
-  const description = issue.description ?? '';
-  const legacyCauses = issue.root_causes?.filter((cause) => cause && !description.includes(cause)) ?? [];
-  return [description, ...legacyCauses.map((cause) => `- ${cause}`)].filter(Boolean).join('\n\n');
-};

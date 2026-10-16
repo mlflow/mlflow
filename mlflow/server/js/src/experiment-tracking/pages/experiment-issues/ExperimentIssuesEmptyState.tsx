@@ -1,13 +1,15 @@
 import { keyframes, type CSSObject } from '@emotion/react';
 import {
   BracketsErrorIcon,
+  Button,
   DollarIcon,
   Empty,
   RobotIcon,
+  SparkleIcon,
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { FormattedMessage } from 'react-intl';
+import { FormattedMessage, useIntl } from 'react-intl';
 
 const revealBlock = keyframes({
   '0%': { opacity: 0, transform: 'translateY(25%)' },
@@ -245,10 +247,33 @@ const IssueDetectionExampleBubbles = () => {
 
 export interface ExperimentIssuesEmptyStateProps {
   hasCompletedDetectionRuns: boolean;
+  hasTimedOutDetectionRun: boolean;
+  hasFailedDetectionRun: boolean;
+  isDetecting: boolean;
+  detectionEnabled: boolean;
+  onRunIssueDetection: () => void;
 }
 
-export const ExperimentIssuesEmptyState = ({ hasCompletedDetectionRuns }: ExperimentIssuesEmptyStateProps) => {
+export const ExperimentIssuesEmptyState = ({
+  hasCompletedDetectionRuns,
+  hasTimedOutDetectionRun,
+  hasFailedDetectionRun,
+  isDetecting,
+  detectionEnabled,
+  onRunIssueDetection,
+}: ExperimentIssuesEmptyStateProps) => {
   const { theme } = useDesignSystemTheme();
+  const intl = useIntl();
+  const buttonText =
+    hasTimedOutDetectionRun || hasFailedDetectionRun
+      ? intl.formatMessage({
+          defaultMessage: 'Start new detection',
+          description: 'Experiment issues tab > Empty state action after issue detection failed or timed out',
+        })
+      : intl.formatMessage({
+          defaultMessage: 'Run issue detection',
+          description: 'Experiment issues tab > Empty state action to run issue detection',
+        });
 
   return (
     <Empty
@@ -270,7 +295,17 @@ export const ExperimentIssuesEmptyState = ({ hasCompletedDetectionRuns }: Experi
         </span>
       }
       description={
-        hasCompletedDetectionRuns ? (
+        hasTimedOutDetectionRun ? (
+          <FormattedMessage
+            defaultMessage="The previous issue detection timed out. Start a new detection to try again."
+            description="Experiment issues tab > Empty state description after issue detection timed out"
+          />
+        ) : hasFailedDetectionRun ? (
+          <FormattedMessage
+            defaultMessage="The previous issue detection failed. Start a new detection to try again."
+            description="Experiment issues tab > Empty state description after issue detection failed"
+          />
+        ) : hasCompletedDetectionRuns ? (
           <FormattedMessage
             defaultMessage="Issue detection did not find problems in the analyzed traces. Run it again as your application changes."
             description="Experiment issues tab > Empty state description after a completed detection found no issues"
@@ -281,6 +316,42 @@ export const ExperimentIssuesEmptyState = ({ hasCompletedDetectionRuns }: Experi
             description="Experiment issues tab > Empty state description before detection has been run"
           />
         )
+      }
+      button={
+        <div css={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: theme.spacing.sm }}>
+          {detectionEnabled && (
+            <Button
+              componentId="mlflow.experiment-issues.empty-state.run-detection"
+              type="primary"
+              icon={<SparkleIcon />}
+              loading={isDetecting}
+              disabled={isDetecting}
+              aria-busy={isDetecting}
+              aria-label={buttonText}
+              onClick={onRunIssueDetection}
+            >
+              {buttonText}
+            </Button>
+          )}
+          <Typography.Link
+            componentId="mlflow.experiment-issues.empty-state.learn-how"
+            href="https://mlflow.org/docs/latest/genai/eval-monitor/ai-insights/detect-issues/"
+            openInNewTab
+            css={{
+              '&&, &&:focus, &&:hover, &&:active': {
+                color: theme.colors.textSecondary,
+                '.anticon': {
+                  color: theme.colors.textSecondary,
+                },
+              },
+            }}
+          >
+            <FormattedMessage
+              defaultMessage="Learn how it works"
+              description="Experiment issues tab > Empty state documentation link"
+            />
+          </Typography.Link>
+        </div>
       }
     />
   );

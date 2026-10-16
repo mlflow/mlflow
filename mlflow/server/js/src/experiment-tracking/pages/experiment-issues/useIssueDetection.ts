@@ -96,7 +96,17 @@ export const useLatestIssueDetection = (experimentId: string) => {
             total_traces_analyzed: readCount(MLFLOW_ISSUE_DETECTION_RESULT_TOTAL_TRACES_TAG),
           }
         : undefined;
-  return { run, jobId, job, status, result, isLoading: latest.isLoading, error: latest.error };
+  return {
+    run,
+    jobId,
+    job,
+    status,
+    result,
+    isLoading: latest.isLoading,
+    isFetching: latest.isFetching,
+    error: latest.error,
+    refetch: latest.refetch,
+  };
 };
 
 export const useDetectionTraceIds = (experimentId: string, enabled: boolean) => {

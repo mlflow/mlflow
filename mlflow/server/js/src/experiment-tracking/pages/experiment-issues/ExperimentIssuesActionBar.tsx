@@ -14,9 +14,8 @@ export interface ExperimentIssuesActionBarProps {
   /** Commits the typed search now, rather than after the debounce. */
   onSearchSubmit: () => void;
   onSearchClear: () => void;
-  /** Loading and permission state come from the OSS job lifecycle. */
+  /** Loading state comes from the OSS job lifecycle. */
   isDetecting: boolean;
-  canDetect: boolean;
   detectionEnabled: boolean;
 
   onRunDetection: () => void;
@@ -33,7 +32,6 @@ export const ExperimentIssuesActionBar = ({
   onSearchSubmit,
   onSearchClear,
   isDetecting,
-  canDetect,
   detectionEnabled,
   onRunDetection,
 }: ExperimentIssuesActionBarProps) => {
@@ -76,7 +74,6 @@ export const ExperimentIssuesActionBar = ({
           componentId="mlflow.experiment-issues.detect"
           onClick={onRunDetection}
           loading={isDetecting}
-          disabled={!canDetect}
         />
       )}
     </div>

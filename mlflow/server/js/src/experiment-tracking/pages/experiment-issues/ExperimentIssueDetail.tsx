@@ -15,7 +15,7 @@ import { IssueCategoryTag } from './IssueCategoryTag';
 import { SEVERITY_LABELS, STATUS_LABELS } from './issueLabels';
 import { IssueDetailSectionTitle } from './IssueDetailSectionTitle';
 import { IssueDetailColumn } from './IssueDetailColumn';
-import { getIssueDescription, useTriageExperimentIssue } from './useExperimentIssues';
+import { useTriageExperimentIssue } from './useExperimentIssues';
 import { Link } from '../../../common/utils/RoutingUtils';
 import Routes from '../../routes';
 
@@ -28,7 +28,6 @@ const IssueAge = ({ issue }: { issue: Issue }) => {
 export interface ExperimentIssueDetailProps {
   issue: Issue;
   onUpdateStatus: (status: IssueStatus) => void;
-  canEdit: boolean;
   isUpdatingStatus?: boolean;
 }
 
@@ -40,7 +39,6 @@ export const ExperimentIssueDetailHeader = ({
   issue,
   onUpdateStatus,
   isUpdatingStatus,
-  canEdit,
 }: ExperimentIssueDetailProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -66,7 +64,6 @@ export const ExperimentIssueDetailHeader = ({
                 size="small"
                 endIcon={<ChevronDownIcon />}
                 loading={isUpdatingStatus}
-                disabled={!canEdit}
               >
                 <span css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.xs }}>
                   <IssueStatusMarker status={issue.status} />
@@ -79,14 +76,14 @@ export const ExperimentIssueDetailHeader = ({
                 <>
                   <DropdownMenu.Item
                     componentId="mlflow.experiment-issues.detail.status.resolve"
-                    disabled={!canEdit || isUpdatingStatus}
+                    disabled={isUpdatingStatus}
                     onClick={() => onUpdateStatus('resolved')}
                   >
                     <FormattedMessage defaultMessage="Mark resolved" description="Experiment issue resolve action" />
                   </DropdownMenu.Item>
                   <DropdownMenu.Item
                     componentId="mlflow.experiment-issues.detail.status.reject"
-                    disabled={!canEdit || isUpdatingStatus}
+                    disabled={isUpdatingStatus}
                     onClick={() => onUpdateStatus('rejected')}
                   >
                     <FormattedMessage defaultMessage="Not an issue" description="Experiment issue reject action" />
@@ -95,7 +92,7 @@ export const ExperimentIssueDetailHeader = ({
               ) : (
                 <DropdownMenu.Item
                   componentId="mlflow.experiment-issues.detail.status.reopen"
-                  disabled={!canEdit || isUpdatingStatus}
+                  disabled={isUpdatingStatus}
                   onClick={() => onUpdateStatus('pending')}
                 >
                   <FormattedMessage defaultMessage="Reopen" description="Experiment issue reopen action" />
@@ -140,7 +137,7 @@ export const ExperimentIssueDescription = ({ description }: { description: strin
   );
 };
 
-export const ExperimentIssueDetail = ({ issue, canEdit }: { issue: Issue; canEdit: boolean }) => {
+export const ExperimentIssueDetail = ({ issue }: { issue: Issue }) => {
   const triage = useTriageExperimentIssue(issue.experiment_id);
   return (
     <IssueDetailColumn
@@ -150,7 +147,6 @@ export const ExperimentIssueDetail = ({ issue, canEdit }: { issue: Issue; canEdi
       header={
         <ExperimentIssueDetailHeader
           issue={issue}
-          canEdit={canEdit}
           onUpdateStatus={(status) => triage.mutate({ issueId: issue.issue_id, status })}
           isUpdatingStatus={triage.isLoading}
         />
@@ -170,7 +166,7 @@ export const ExperimentIssueDetail = ({ issue, canEdit }: { issue: Issue; canEdi
           description={triage.error.message}
         />
       )}
-      <ExperimentIssueDescription description={getIssueDescription(issue)} />
+      <ExperimentIssueDescription description={issue.description ?? ''} />
       <Typography.Text color="secondary">
         <FormattedMessage
           defaultMessage="Last seen {time}"

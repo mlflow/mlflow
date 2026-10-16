@@ -9,7 +9,6 @@ import { useActiveWorkspace } from '../../../workspaces/utils/WorkspaceUtils';
 import { IssueDetectionModal } from '../../components/experiment-page/components/traces-v3/IssueDetectionModal';
 import { JobStatus, isJobComplete } from '../../components/run-page/hooks/useFetchJobStatus';
 import { SELECTED_ISSUE_ID_PARAM } from '../../constants';
-import { useExperimentPermission } from '../../hooks/useExperimentPermission';
 import { SERVER_FEATURE_KEYS, useFeatureEnabled, useServerInfo } from '../../hooks/useServerInfo';
 import { ExperimentIssueDetail } from './ExperimentIssueDetail';
 import { ExperimentIssueRow } from './ExperimentIssueRow';
@@ -18,7 +17,6 @@ import { useIssueListControls } from './useExperimentIssuesListControls';
 import { ExperimentIssuesActionBar } from './ExperimentIssuesActionBar';
 import { IssueSplitPane } from './IssueSplitPane';
 import { ExperimentIssuesEmptyState } from './ExperimentIssuesEmptyState';
-import { IssueDetectionStatus } from './IssueDetectionStatus';
 import { useDetectionTraceIds, useLatestIssueDetection } from './useIssueDetection';
 import { useExperimentIssue, useExperimentIssues, useHasExperimentIssues } from './useExperimentIssues';
 
@@ -84,7 +82,6 @@ const ExperimentIssuesContent = ({ experimentId }: { experimentId: string }) => 
   const anyIssue = useHasExperimentIssues(experimentId);
   const detection = useLatestIssueDetection(experimentId);
   const isDetecting = Boolean(detection.run) && !isJobComplete(detection.status);
-  const canEdit = useExperimentPermission(experimentId, ['EDIT', 'MANAGE']);
   const detectionEnabled = useFeatureEnabled(SERVER_FEATURE_KEYS.GATEWAY);
   const [showDetection, setShowDetection] = useState(false);
   const traces = useDetectionTraceIds(experimentId, showDetection);
@@ -133,6 +130,26 @@ const ExperimentIssuesContent = ({ experimentId }: { experimentId: string }) => 
   const total = search.data?.pages[0]?.total_count;
   const hasAny = Boolean(anyIssue.data?.issues?.length);
   const cleanScan = detection.status === JobStatus.SUCCEEDED && detection.result?.issues === 0;
+  const isEmptyState =
+    !requestedIssueId &&
+    !search.isLoading &&
+    !search.error &&
+    !issues.length &&
+    !hasAny &&
+    !anyIssue.isLoading &&
+    !anyIssue.error;
+  const isResolvingEmptyState =
+    !requestedIssueId &&
+    !issues.length &&
+    !hasAny &&
+    !search.error &&
+    !anyIssue.error &&
+    (search.isLoading || anyIssue.isLoading || detection.isLoading);
+  const detectionError = detection.error ?? (!isJobComplete(detection.status) ? detection.job.error : undefined);
+  const startDetection = () => {
+    setShowDetection(true);
+    if (traces.error) traces.refetch();
+  };
   const list = (
     <div css={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0, minHeight: 0, overflow: 'hidden' }}>
       <div
@@ -175,47 +192,15 @@ const ExperimentIssuesContent = ({ experimentId }: { experimentId: string }) => 
           <>
             {issues.length === 0 ? (
               <CenteredState>
-                {!hasAny &&
-                !anyIssue.isLoading &&
-                !detection.isLoading &&
-                !anyIssue.error &&
-                !detection.error &&
-                (!detection.run || cleanScan) ? (
-                  <ExperimentIssuesEmptyState hasCompletedDetectionRuns={cleanScan} />
+                {anyIssue.error ? (
+                  <ReadError error={anyIssue.error} retry={() => anyIssue.refetch()} />
                 ) : (
                   <Empty
                     description={
-                      hasAny ? (
-                        <FormattedMessage
-                          defaultMessage="No issues match these filters."
-                          description="Experiment Issues no matching results"
-                        />
-                      ) : anyIssue.error || detection.error ? (
-                        <FormattedMessage
-                          defaultMessage="No issues are available for this search."
-                          description="Experiment Issues empty search with unavailable history"
-                        />
-                      ) : detection.isLoading || anyIssue.isLoading ? (
-                        <FormattedMessage
-                          defaultMessage="Loading detection history…"
-                          description="Experiment Issues empty state while checking history"
-                        />
-                      ) : cleanScan ? (
-                        <FormattedMessage
-                          defaultMessage="The latest detection found no issues in the selected traces."
-                          description="Experiment Issues completed empty scan"
-                        />
-                      ) : !detection.run ? (
-                        <FormattedMessage
-                          defaultMessage="Detect issues to find problems in your traces."
-                          description="Experiment Issues before the first detection"
-                        />
-                      ) : (
-                        <FormattedMessage
-                          defaultMessage="No issues have been recorded."
-                          description="Experiment Issues empty issue store"
-                        />
-                      )
+                      <FormattedMessage
+                        defaultMessage="No issues match these filters."
+                        description="Experiment Issues no matching results"
+                      />
                     }
                   />
                 )}
@@ -278,27 +263,60 @@ const ExperimentIssuesContent = ({ experimentId }: { experimentId: string }) => 
       <TableSkeleton lines={5} />
     </div>
   ) : detail.data ? (
-    <ExperimentIssueDetail key={selectedId} issue={detail.data} canEdit={canEdit} />
+    <ExperimentIssueDetail key={selectedId} issue={detail.data} />
   ) : undefined;
   return (
     <div css={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, height: '100%' }}>
-      <div css={{ flexShrink: 0, paddingBottom: theme.spacing.md, borderBottom: `1px solid ${theme.colors.border}` }}>
-        <ExperimentIssuesActionBar
-          controls={{ ...controls, totalCount: total }}
-          searchInput={controls.search.input}
-          onSearchInputChange={controls.search.setInput}
-          onSearchSubmit={controls.search.flush}
-          onSearchClear={controls.search.clear}
-          isDetecting={isDetectionButtonLoading}
-          canDetect={canEdit && !isDetecting}
-          detectionEnabled={detectionEnabled}
-          onRunDetection={() => {
-            setShowDetection(true);
-            if (traces.error) traces.refetch();
-          }}
+      {!isEmptyState && !isResolvingEmptyState && (
+        <div css={{ flexShrink: 0, paddingBottom: theme.spacing.md, borderBottom: `1px solid ${theme.colors.border}` }}>
+          <ExperimentIssuesActionBar
+            controls={{ ...controls, totalCount: total }}
+            searchInput={controls.search.input}
+            onSearchInputChange={controls.search.setInput}
+            onSearchSubmit={controls.search.flush}
+            onSearchClear={controls.search.clear}
+            isDetecting={isDetectionButtonLoading}
+            detectionEnabled={detectionEnabled}
+            onRunDetection={startDetection}
+          />
+        </div>
+      )}
+      {detectionError && (
+        <Alert
+          componentId="mlflow.experiment-issues.detection-error"
+          type="warning"
+          closable={false}
+          message={
+            detection.error ? (
+              <FormattedMessage
+                defaultMessage="Unable to load detection history"
+                description="Issues detection history read failure"
+              />
+            ) : (
+              <FormattedMessage
+                defaultMessage="Unable to update detection progress"
+                description="Issues job status error"
+              />
+            )
+          }
+          description={
+            <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.md, flexWrap: 'wrap' }}>
+              {detectionError.message}
+              <Button
+                componentId="mlflow.experiment-issues.retry-detection"
+                size="small"
+                loading={detection.isFetching || detection.job.isFetching}
+                onClick={() => (detection.error ? detection.refetch() : detection.job.refetch())}
+              >
+                <FormattedMessage
+                  defaultMessage="Retry status"
+                  description="Issues detection job status retry action"
+                />
+              </Button>
+            </div>
+          }
         />
-      </div>
-      <IssueDetectionStatus detection={detection} experimentId={experimentId} />
+      )}
       {showDetection && traces.error && (
         <Alert
           componentId="mlflow.experiment-issues.trace-error"
@@ -313,7 +331,22 @@ const ExperimentIssuesContent = ({ experimentId }: { experimentId: string }) => 
           description={traces.error.message}
         />
       )}
-      <IssueSplitPane list={list} detail={detailPane} />
+      {isResolvingEmptyState ? (
+        <TableSkeleton lines={5} />
+      ) : isEmptyState ? (
+        <CenteredState>
+          <ExperimentIssuesEmptyState
+            hasCompletedDetectionRuns={cleanScan}
+            hasTimedOutDetectionRun={detection.status === JobStatus.TIMEOUT}
+            hasFailedDetectionRun={detection.status === JobStatus.FAILED}
+            isDetecting={isDetectionButtonLoading}
+            detectionEnabled={detectionEnabled}
+            onRunIssueDetection={startDetection}
+          />
+        </CenteredState>
+      ) : (
+        <IssueSplitPane list={list} detail={detailPane} />
+      )}
       {showDetection && traces.data && (
         <IssueDetectionModal
           experimentId={experimentId}
