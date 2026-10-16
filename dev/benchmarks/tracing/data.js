@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792145489889,
+  "lastUpdate": 1792148597133,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "mprahl@users.noreply.github.com",
-            "name": "Matthew Prahl",
-            "username": "mprahl"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "7d4226d879e1e15e5bc7c5233fb416e5f7322ca2",
-          "message": "Improve query efficiency for text search of spans (#24377)\n\nSigned-off-by: mprahl <mprahl@users.noreply.github.com>",
-          "timestamp": "2026-07-22T20:15:39Z",
-          "tree_id": "44ef04e1e63d23fb5206a1385b9211e2c7a2f989",
-          "url": "https://github.com/mlflow/mlflow/commit/7d4226d879e1e15e5bc7c5233fb416e5f7322ca2"
-        },
-        "date": 1784751698471,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 258.50945760000315,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 24.23396325581359,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 23.570163808220475,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 23.673633546874573,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 25.092222745761568,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 4.958608399999775,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 9.986451799997553,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "84731421+iyashk@users.noreply.github.com",
+            "name": "Yashwanth Kiran",
+            "username": "iyashk"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "bbee48588c3c5dd62cae8e464de77a90b2bcd621",
+          "message": "Reseed sampler and forward batch settings on `MlflowSparkStudy` executors (#26714)\n\nSigned-off-by: Yashwanth Kiran <yashwanthkiran2624@gmail.com>",
+          "timestamp": "2026-10-16T10:59:54Z",
+          "tree_id": "87b009a7d8d4cd93937c6e9c1f53b0ae6b1dc15a",
+          "url": "https://github.com/mlflow/mlflow/commit/bbee48588c3c5dd62cae8e464de77a90b2bcd621"
+        },
+        "date": 1792148594350,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 37.64783860000023,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 4.185402068182368,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 3.592177369458045,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 3.6232474215683723,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 4.819467324324171,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 33.954703428571115,
             "unit": "ms"
           }
         ]
