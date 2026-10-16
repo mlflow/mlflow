@@ -401,24 +401,41 @@ def test_online_jobs_never_run_custom_scorer_code_in_their_own_process(
         monkeypatch.setenv("MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND", backend)
     else:
         monkeypatch.delenv("MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND", raising=False)
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS", "true")
     seen = {}
 
     def create(experiment_id, online_scorers, tracking_store, container_scorer=None):
         seen["may_run_scorer_code"] = _in_job_executor()
         seen["container_scorer"] = container_scorer
+        seen["scorers"] = [s.name for s in online_scorers]
         return mock.Mock()
+
+    custom_scorer = {
+        "name": "output_length",
+        "serialized_scorer": _custom_scorer_json(),
+        "online_config": {
+            "online_scoring_config_id": "c",
+            "scorer_id": "s",
+            "sample_rate": 1.0,
+            "experiment_id": "exp-1",
+            "filter_string": None,
+        },
+    }
 
     with (
         mock.patch.object(processor_cls, "create", side_effect=create),
         mock.patch("mlflow.genai.scorers.job._get_tracking_store"),
     ):
-        job_fn(experiment_id="exp-1", online_scorers=[])
+        job_fn(experiment_id="exp-1", online_scorers=[custom_scorer])
 
     assert seen["may_run_scorer_code"] is False
     if backend:
         assert isinstance(seen["container_scorer"], OnlineContainerScorer)
+        assert seen["scorers"] == ["output_length"]
     else:
         assert seen["container_scorer"] is None
+        # The job drops the custom scorer before its processor loads it.
+        assert seen["scorers"] == []
 
 
 def test_importing_the_scorer_jobs_first_registers_every_job_function():
