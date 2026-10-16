@@ -997,6 +997,66 @@ def _enforce_named_col_schema(pf_input: pd.DataFrame, input_schema: Schema):
     return pd.DataFrame(new_pf_input)
 
 
+def _validate_tensor_spec_cast(values, target_type, name):
+    """
+    Validate that casting ``values`` to ``target_type`` is safe, i.e. it does not silently
+    truncate, wrap, or overflow values.
+
+    Float64 -> float32 precision loss is allowed (JSON can only carry float64), but a finite
+    value becoming ``inf`` is rejected. Integer wraparound is rejected via range checks rather
+    than a cast round-trip, since uint64 ``2**63`` -> int64 wraps yet survives a round trip.
+
+    Raises ``MlflowException`` if the cast is unsafe; returns ``None`` otherwise.
+    """
+    import numpy as np
+
+    values = np.asarray(values)
+    actual_type = values.dtype
+    if actual_type == target_type:
+        return
+
+    actual_kind = actual_type.kind
+    target_kind = target_type.kind
+
+    # Only numeric casts are validated; other dtype combinations keep the existing behavior.
+    if actual_kind not in ("f", "i", "u") or target_kind not in ("i", "u", "f", "b"):
+        return
+
+    flat = values.ravel()
+
+    if target_kind in ("i", "u"):
+        info = np.iinfo(target_type)
+        # Any -> int: reject values outside the target's representable range (range check,
+        # not a cast round-trip, so uint64 2**63 -> int64 wraparound is caught).
+        if np.any(flat < info.min) or np.any(flat > info.max):
+            _raise_cast_error(name, actual_type, target_type)
+        # Float -> int: additionally reject NaN, inf, and fractional parts.
+        if actual_kind == "f":
+            if not np.all(np.isfinite(flat)):
+                _raise_cast_error(name, actual_type, target_type)
+            if np.any(flat != np.trunc(flat)):
+                _raise_cast_error(name, actual_type, target_type)
+    elif target_kind == "b":
+        # -> bool: only 0/1 allowed
+        if not np.all((flat == 0) | (flat == 1)):
+            _raise_cast_error(name, actual_type, target_type)
+    elif target_kind == "f":
+        # -> float: a finite value becoming inf is not allowed
+        with np.errstate(over="ignore"):
+            casted = flat.astype(target_type)
+        finite = np.isfinite(flat)
+        if np.any(finite) and np.any(np.isinf(casted[finite])):
+            _raise_cast_error(name, actual_type, target_type)
+
+
+def _raise_cast_error(name, actual_type, target_type):
+    raise MlflowException(
+        f"Incompatible input types for {name}. Can not safely convert "
+        f"{actual_type} to {target_type}.",
+        error_code=INVALID_PARAMETER_VALUE,
+    )
+
+
 def _reshape_and_cast_pandas_column_values(name, pd_series, tensor_spec):
     if tensor_spec.shape[0] != -1 or -1 in tensor_spec.shape[1:]:
         raise MlflowException(
@@ -1009,8 +1069,10 @@ def _reshape_and_cast_pandas_column_values(name, pd_series, tensor_spec):
     if np.isscalar(first_value):
         for shape in [(-1,), (-1, 1)]:
             if tensor_spec.shape == shape:
+                arr = np.array(pd_series)
+                _validate_tensor_spec_cast(arr, tensor_spec.type, name)
                 return _enforce_tensor_spec(
-                    np.array(pd_series, dtype=tensor_spec.type).reshape(shape), tensor_spec
+                    arr.astype(tensor_spec.type).reshape(shape), tensor_spec
                 )
         raise MlflowException(
             f"The input pandas dataframe column '{name}' contains scalar "
@@ -1032,6 +1094,7 @@ def _reshape_and_cast_pandas_column_values(name, pd_series, tensor_spec):
         )
         try:
             flattened_numpy_arr = np.vstack(pd_series.tolist())
+            _validate_tensor_spec_cast(flattened_numpy_arr, tensor_spec.type, name)
             reshaped_numpy_arr = flattened_numpy_arr.reshape(tensor_spec.shape).astype(
                 tensor_spec.type
             )
@@ -1055,7 +1118,8 @@ def _reshape_and_cast_pandas_column_values(name, pd_series, tensor_spec):
             raise MlflowException(reshape_err_msg, error_code=INVALID_PARAMETER_VALUE)
         if len(reshaped_numpy_arr) != len(pd_series):
             raise MlflowException(reshape_err_msg, error_code=INVALID_PARAMETER_VALUE)
-        return reshaped_numpy_arr
+        _validate_tensor_spec_cast(reshaped_numpy_arr, tensor_spec.type, name)
+        return reshaped_numpy_arr.astype(tensor_spec.type)
     else:
         raise MlflowException(
             "Because the model signature requires tensor spec input, the input "
