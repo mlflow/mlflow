@@ -56,10 +56,12 @@ properties:
 
       ### Next steps
 
-      <Keep steps brief; omit repeated details. Opening a PR requires a maintainer to add the `ready` issue label first.>
+      <Keep steps brief; omit repeated details. If you open a pull request, the reporter tests it and
+      maintainers review it. Otherwise, anyone else who wants to open a PR must wait for a maintainer
+      to add the `ready` issue label.>
 
-      - Reporter: <e.g. "Wait for the `ready` label before opening a PR." or "Share a minimal reproduction.">
-      - Maintainers: <e.g. "Review findings and add the `ready` label if appropriate." or "Choose a fix direction.">
+      - Reporter: <e.g. "Test the PR." or "Wait for the `ready` label before opening a PR." or "Share a minimal reproduction.">
+      - Maintainers: <e.g. "Review the PR." or "Review findings and add the `ready` label if appropriate." or "Choose a fix direction.">
     type: string
     minLength: 1
     maxLength: 5000
