@@ -1,18 +1,13 @@
 # Cross-dialect (Docker matrix) tests for the RFC-0008 skill registry schema: they run
-# against every backend in the MLflow DB test matrix (SQLite, PostgreSQL, MySQL, MSSQL)
-# and prove cascade behavior at the SQL
-# layer rather than through application checks. They operate on the ORM models and raw
-# SQL rather than the store, so a rule enforced only in application code would fail
-# here. The store's behavior on every engine is covered separately by
-# tests/store/tracking/sqlalchemy_store, which the database CI job also runs.
+# against every backend in the MLflow DB test matrix (SQLite, PostgreSQL, MySQL, MSSQL).
+# They work on the ORM models and the migration rather than the store: key widths, the
+# ORM's cascade on delete, and downgrading and re-upgrading the migration. The database's
+# own cascade, without the ORM, is checked in
+# tests/store/tracking/sqlalchemy_store/test_sqlalchemy_store_skill_registry_constraints.py,
+# and the store's behavior on every engine in tests/store/tracking/sqlalchemy_store. The
+# database CI job runs both.
 #
-# Several tests here intentionally mirror SQLite-only tests in
-# tests/store/tracking/test_skill_registry_dbmodels.py: those give fast feedback in the
-# normal test suite, while these re-prove the same guarantees on every engine, where
-# constraint enforcement (foreign keys, primary keys) and text sort order can differ
-# between databases. Each such test names its counterpart.
-#
-# NOTE: all tests here deliberately share one database, unlike the SQLite twin file, where
+# NOTE: all tests here deliberately share one database, unlike the store tests, where
 # each test can create and discard its own database cheaply. So keep every test to its own
 # data: give skills names unique to the test that creates them, and filter
 # queries by those names rather than relying on a bare `.all()`. Also remember that
@@ -74,10 +69,10 @@ def _seed_skill(session, *, organization, name, version=1):
 
 
 def test_db_backend_cascade_delete_skill(store):
-    # Cross-dialect twin of test_cascade_delete_skill_removes_children.
     # Deletes through the ORM (not raw DB constraints), so relationship
-    # `cascade="all, delete-orphan"` removes the children.
-    # test_db_backend_cascade_is_enforced_by_the_database is the database-level proof.
+    # `cascade="all, delete-orphan"` removes the children. The database-level proof is
+    # test_database_cascades_skill_deletion_to_all_children in
+    # tests/store/tracking/sqlalchemy_store/test_sqlalchemy_store_skill_registry_constraints.py.
     with session_scope(store) as session:
         _seed_skill(session, organization="acme", name="cascade-skill")
         session.add(SqlSkillTag(organization="acme", name="cascade-skill", key="k", value="v"))
@@ -97,41 +92,6 @@ def test_db_backend_cascade_delete_skill(store):
                 session.query(model).filter_by(organization="acme", name="cascade-skill").count()
             )
             assert remaining == 0
-
-
-def test_db_backend_cascade_is_enforced_by_the_database(store):
-    # Same as test_db_backend_cascade_delete_skill, but relies on the raw
-    # `ON DELETE CASCADE` rule.
-    with session_scope(store) as session:
-        _seed_skill(session, organization="acme", name="raw-cascade-skill")
-        session.add(SqlSkillTag(organization="acme", name="raw-cascade-skill", key="k", value="v"))
-        session.add(
-            SqlSkillVersionTag(
-                organization="acme", name="raw-cascade-skill", version=1, key="k", value="v"
-            )
-        )
-        session.add(
-            SqlSkillAlias(organization="acme", name="raw-cascade-skill", alias="prod", version=1)
-        )
-    # Deleting the parent skill must take every child row with it.
-    with session_scope(store) as session:
-        session.execute(
-            sa.delete(SqlSkill).where(
-                SqlSkill.workspace == "default",
-                SqlSkill.organization == "acme",
-                SqlSkill.name == "raw-cascade-skill",
-            )
-        )
-
-    with session_scope(store, commit=False) as session:
-        for model in (SqlSkillVersion, SqlSkillTag, SqlSkillVersionTag, SqlSkillAlias):
-            assert (
-                session
-                .query(model)
-                .filter_by(organization="acme", name="raw-cascade-skill")
-                .count()
-                == 0
-            )
 
 
 def _widest(model, column, fill):
@@ -189,9 +149,8 @@ def _skill_registry_migration_parent(config):
 
 
 def test_db_backend_migration_downgrade_and_reupgrade(store):
-    # Cross-dialect twin of test_migration_downgrade_and_reupgrade. FK-aware drop
-    # ordering is stricter on MySQL/MSSQL than on SQLite, so this re-proves a clean
-    # downgrade on the full matrix. The store fixture leaves the DB at head; downgrade
+    # FK-aware drop ordering is stricter on MySQL/MSSQL than on SQLite, so this proves a
+    # clean downgrade on the full matrix. The store fixture leaves the DB at head; downgrade
     # drops this migration's tables, and the finally restores head so the other
     # tests/db tests still see the full schema.
     url = MLFLOW_TRACKING_URI.get()

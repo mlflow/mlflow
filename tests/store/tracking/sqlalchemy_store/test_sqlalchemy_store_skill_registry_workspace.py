@@ -135,6 +135,7 @@ def test_skill_mutations_only_change_the_current_workspace(
             store.get_skill_version_by_alias("reviewer", "preview", organization="acme")
             == original[1][0]
         )
+        assert store.get_latest_skill_version("reviewer", organization="acme") == original[1][1]
 
 
 @pytest.mark.parametrize(

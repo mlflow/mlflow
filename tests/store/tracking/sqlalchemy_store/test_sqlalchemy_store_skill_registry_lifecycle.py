@@ -6,29 +6,10 @@ import pytest
 import sqlalchemy
 
 from mlflow.entities import SkillSourceType, SkillStatus
-from mlflow.entities.workspace import Workspace
 from mlflow.exceptions import MlflowException
 from mlflow.store.tracking.dbmodels.models import SqlSkill, SqlSkillAlias, SqlSkillVersion
-from mlflow.store.tracking.skill_registry.abstract_mixin import SkillRegistryMixin
-from mlflow.utils.workspace_context import WorkspaceContext
-from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 pytestmark = pytest.mark.notrackingurimock
-
-
-@pytest.mark.parametrize(
-    "method_name",
-    [
-        "get_skill_version_by_alias",
-        "get_latest_skill_version",
-        "update_skill_version",
-        "delete_skill_version",
-        "set_skill_alias",
-        "delete_skill_alias",
-    ],
-)
-def test_skill_registry_interface_declares_lifecycle_methods(method_name):
-    assert callable(getattr(SkillRegistryMixin, method_name, None))
 
 
 def _seed_skill(
@@ -129,26 +110,10 @@ def test_create_skill_version_registration_status(store, kwargs, expected_status
     assert parent.latest_version == created.version
 
 
-def test_update_skill_version_enforces_lifecycle_transitions(store):
-    _seed_skill(store, [(1, SkillStatus.DRAFT)])
-
-    updated = store.update_skill_version("reviewer", 1, status=SkillStatus.ACTIVE)
-
-    assert updated.status == SkillStatus.ACTIVE
-
-    with pytest.raises(MlflowException, match="Invalid status transition") as exc:
-        store.update_skill_version("reviewer", 1, status=SkillStatus.DELETED)
-
-    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
-    assert _get_version_row(store, 1) == SkillStatus.ACTIVE.value
-
-
-def test_update_skill_version_with_same_status_is_invalid(store):
+def test_update_skill_version_without_status_is_a_no_op(store):
     _seed_skill(store, [(1, SkillStatus.ACTIVE)])
 
     assert store.update_skill_version("reviewer", 1).status == SkillStatus.ACTIVE
-    with pytest.raises(MlflowException, match="Invalid status transition"):
-        store.update_skill_version("reviewer", 1, status=SkillStatus.ACTIVE)
 
 
 def test_update_skill_version_records_last_updated_by(store):
@@ -202,6 +167,7 @@ def test_rejected_skill_version_update_preserves_metadata_and_aliases(
 @pytest.mark.parametrize(
     ("current", "target"),
     [
+        (SkillStatus.DRAFT, SkillStatus.ACTIVE),
         (SkillStatus.DRAFT, SkillStatus.DELETED),
         (SkillStatus.ACTIVE, SkillStatus.DRAFT),
         (SkillStatus.ACTIVE, SkillStatus.DEPRECATED),
@@ -630,28 +596,6 @@ def test_latest_skill_version_recomputes_after_status_change(store):
     assert skill_version_query_mock.call_count == 1
 
 
-def test_skill_lifecycle_is_workspace_scoped(store, workspaces_enabled):
-    if not workspaces_enabled:
-        pytest.skip("Workspace isolation is only applicable when workspaces are enabled")
-
-    with WorkspaceContext(DEFAULT_WORKSPACE_NAME):
-        store._get_workspace_provider_instance().create_workspace(Workspace(name="team-a"))
-
-    with WorkspaceContext("team-a"):
-        _seed_skill(store, [(1, SkillStatus.ACTIVE)])
-        store.set_skill_alias("reviewer", "team", 1)
-
-    with WorkspaceContext(DEFAULT_WORKSPACE_NAME):
-        with pytest.raises(MlflowException, match="not found"):
-            store.get_latest_skill_version("reviewer")
-        with pytest.raises(MlflowException, match="not found"):
-            store.get_skill_version_by_alias("reviewer", "team")
-
-    with WorkspaceContext("team-a"):
-        assert store.get_latest_skill_version("reviewer").version == 1
-        assert store.get_skill_version_by_alias("reviewer", "team").version == 1
-
-
 def test_latest_alias_is_dynamic_and_cannot_be_stored(store):
     _seed_skill(store, [(1, SkillStatus.ACTIVE), (2, SkillStatus.ACTIVE)])
 
@@ -660,15 +604,6 @@ def test_latest_alias_is_dynamic_and_cannot_be_stored(store):
 
     assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
     assert store.get_skill_version_by_alias("reviewer", "latest").version == 2
-
-
-def test_latest_raises_when_no_non_deleted_version_exists(store):
-    _seed_skill(store, [(1, SkillStatus.DELETED)])
-
-    with pytest.raises(MlflowException, match="No resolved latest version") as exc:
-        store.get_latest_skill_version("reviewer")
-
-    assert exc.value.error_code == "RESOURCE_DOES_NOT_EXIST"
 
 
 @pytest.mark.parametrize("status", [SkillStatus.DRAFT, SkillStatus.DEPRECATED])

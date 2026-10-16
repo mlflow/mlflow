@@ -889,39 +889,6 @@ def test_create_skill_rejects_invalid_name(store, name):
         store.create_skill(name)
 
 
-def test_skill_identity_is_workspace_scoped(store, workspaces_enabled):
-    if not workspaces_enabled:
-        pytest.skip("Workspace isolation is only applicable when workspaces are enabled")
-
-    with WorkspaceContext("team-a"):
-        store.create_skill("reviewer", organization="acme")
-
-    with WorkspaceContext("team-b"):
-        store.create_skill("reviewer", organization="acme")
-        assert store.get_skill("reviewer", organization="acme").workspace == "team-b"
-
-    with WorkspaceContext("team-a"):
-        assert store.get_skill("reviewer", organization="acme").workspace == "team-a"
-
-
-def test_skill_tag_search_is_workspace_scoped(store, workspaces_enabled):
-    if not workspaces_enabled:
-        pytest.skip("Workspace isolation is only applicable when workspaces are enabled")
-
-    with WorkspaceContext("team-a"):
-        store.create_skill("reviewer", organization="acme")
-        store.set_skill_tag("reviewer", "team", "platform", organization="acme")
-
-    with WorkspaceContext("team-b"):
-        store.create_skill("reviewer", organization="acme")
-        assert store.get_skill("reviewer", organization="acme").tags == {}
-        assert store.search_skills(filter_string="tags.team = 'platform'") == []
-
-    with WorkspaceContext("team-a"):
-        results = store.search_skills(filter_string="tags.team = 'platform'")
-        assert [skill.workspace for skill in results] == ["team-a"]
-
-
 def _persist_skill_version(store, version=1, **kwargs):
     with store.ManagedSessionMaker(read_only=False) as session:
         return store._persist_skill_version(
@@ -1015,26 +982,6 @@ def test_skill_version_auto_creates_parent_and_preserves_existing_parent(
     parent = store.get_skill("reviewer", organization="acme")
     assert parent.description == "Reviews code"
     assert parent.icons == [{"src": "https://example.com/reviewer.svg"}]
-
-
-def test_skill_version_identity_is_workspace_scoped(store, workspaces_enabled):
-    if not workspaces_enabled:
-        pytest.skip("Workspace isolation is only applicable when workspaces are enabled")
-
-    with WorkspaceContext("team-a"):
-        version_a = store.create_skill_version("reviewer", organization="acme")
-
-    with WorkspaceContext("team-b"):
-        version_b = store.create_skill_version("reviewer", organization="acme")
-
-    assert version_a.version == 1
-    assert version_b.version == 1
-
-    with WorkspaceContext("team-a"):
-        assert store.get_skill_version("reviewer", 1, organization="acme").workspace == "team-a"
-
-    with WorkspaceContext("team-b"):
-        assert store.get_skill_version("reviewer", 1, organization="acme").workspace == "team-b"
 
 
 def test_duplicate_skill_version_raises(store):

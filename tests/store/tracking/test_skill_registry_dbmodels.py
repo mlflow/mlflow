@@ -1,18 +1,14 @@
 # ORM-level tests for the RFC-0008 skill registry models: ORM mappings,
-# ``to_mlflow_entity`` conversion, pure-SQL latest resolution, and database-level
-# cascade constraints against a migrated SQLite database
-# (the store layer does not exist yet). Constraint proofs use a foreign-key-
-# enforcing session so they assert real DB behavior. These run on SQLite in the normal
-# test suite for fast feedback; the same constraint/resolution guarantees are re-proved
-# on every engine in the Docker matrix at tests/db/test_skill_registry_schema.py.
+# ``to_mlflow_entity`` conversion, and pure-SQL latest resolution against a migrated
+# SQLite database (the store layer does not exist yet). Sessions enforce foreign keys so
+# they assert real DB behavior. Cascade and migration proofs run on every engine in
+# tests/db/test_skill_registry_schema.py.
 
 from contextlib import contextmanager
 from pathlib import Path
 
 import pytest
 import sqlalchemy as sa
-from alembic import command
-from alembic.script import ScriptDirectory
 from sqlalchemy.orm import Session
 
 from mlflow.entities import (
@@ -23,7 +19,6 @@ from mlflow.entities import (
     SkillStatus,
     ZipSource,
 )
-from mlflow.store.db.utils import _get_alembic_config
 from mlflow.store.tracking.dbmodels.models import (
     SqlSkill,
     SqlSkillAlias,
@@ -218,28 +213,6 @@ def test_skill_icons_round_trip(store, icons):
     assert skill.icons == icons
 
 
-def test_cascade_delete_skill_removes_children(store):
-    # Deletes through the ORM (not raw DB constraints), so `cascade="all, delete-orphan"`
-    # removes the children. The database-level proof is
-    # test_db_backend_cascade_is_enforced_by_the_database in tests/db.
-    with session_scope(store) as session:
-        _add_skill_version(session, version=1, source_type="git", source="s.git")
-        session.add(SqlSkillTag(organization="acme", name="code-review", key="k", value="v"))
-        session.add(
-            SqlSkillVersionTag(
-                organization="acme", name="code-review", version=1, key="k", value="v"
-            )
-        )
-        session.add(SqlSkillAlias(organization="acme", name="code-review", alias="prod", version=1))
-    with session_scope(store) as session:
-        session.delete(session.get(SqlSkill, ("default", "acme", "code-review")))
-    with session_scope(store, commit=False) as session:
-        assert session.query(SqlSkillVersion).count() == 0
-        assert session.query(SqlSkillTag).count() == 0
-        assert session.query(SqlSkillVersionTag).count() == 0
-        assert session.query(SqlSkillAlias).count() == 0
-
-
 def test_workspace_isolation_same_org_and_name(store):
     with session_scope(store) as session:
         _add_skill_version(session, workspace="alpha", version=1, source_type="git", source="a.git")
@@ -264,31 +237,3 @@ def test_search_text_round_trip(store):
     with session_scope(store, commit=False) as session:
         skill = session.get(SqlSkill, ("default", "acme", "code-review"))
         assert skill.search_text == "code review lint"
-
-
-_SKILL_REGISTRY_TABLES = frozenset({
-    "skills",
-    "skill_versions",
-    "skill_tags",
-    "skill_version_tags",
-    "skill_aliases",
-})
-
-
-def test_migration_downgrade_and_reupgrade(store, db_uri):
-    # Fast SQLite check that the migration downgrades cleanly (the cross-dialect twin
-    # is in tests/db/test_skill_registry_schema.py). db_uri is an isolated, per-test
-    # copy, so downgrading it here does not affect other tests.
-    config = _get_alembic_config(db_uri)
-    assert _SKILL_REGISTRY_TABLES <= set(sa.inspect(store.engine).get_table_names())
-
-    # Downgrade removes exactly this migration's tables (FK-safe drop order). The target is
-    # read from the migration rather than hardcoded, so the downgrade undoes only this
-    # migration even after other migrations are added beneath it.
-    parent = ScriptDirectory.from_config(config).get_revision("e7d1f4b2a9c6").down_revision
-    command.downgrade(config, parent)
-    assert _SKILL_REGISTRY_TABLES.isdisjoint(set(sa.inspect(store.engine).get_table_names()))
-
-    # Re-upgrade restores them, proving the up/down pair round-trips.
-    command.upgrade(config, "head")
-    assert _SKILL_REGISTRY_TABLES <= set(sa.inspect(store.engine).get_table_names())
