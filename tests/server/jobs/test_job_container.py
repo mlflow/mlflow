@@ -8,7 +8,7 @@ from mlflow.entities._job_status import JobStatus
 from mlflow.server.jobs import job_container as jc
 from mlflow.server.jobs.utils import MLFLOW_SERVER_JOB_PARAMS_ENV_VAR, _SubprocessJobResult
 
-from tests.server.jobs.docker_fakes import FakeClient, succeed_with
+from tests.server.jobs.docker_fakes import FakeClient, FakeContainer, succeed_with
 
 pytestmark = pytest.mark.skipif(os.name == "nt", reason="Job containers require a POSIX host")
 
@@ -156,3 +156,18 @@ def test_finalize_error_fails_the_run_and_removes_the_container(tmp_path):
     assert result.status == JobStatus.FAILED
     assert "bad result" in result.error_message
     assert client.started[0].removed
+
+
+def test_cleanup_removes_only_this_servers_containers_for_the_job():
+    client = FakeClient(succeed_with(None))
+    labels = jc._container_labels("online-1", "run_online_trace_scorer")
+    ours = FakeContainer(client, {"volumes": {}, "labels": labels})
+    other_job = FakeContainer(client, {"volumes": {}, "labels": {**labels, jc.LABEL_JOB_ID: "x"}})
+    other_server = FakeContainer(
+        client, {"volumes": {}, "labels": {**labels, jc.LABEL_BACKEND_STORE: "elsewhere"}}
+    )
+    client.leftovers = [ours, other_job, other_server]
+
+    jc.remove_job_containers(client, "online-1")
+
+    assert [c.removed for c in client.leftovers] == [True, False, False]

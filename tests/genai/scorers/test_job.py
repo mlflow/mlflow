@@ -14,13 +14,16 @@ from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
 from mlflow.exceptions import MlflowException
 from mlflow.genai import scorer
 from mlflow.genai.evaluation.entities import EvalItem, EvalResult
-from mlflow.genai.scorers.base import SCORER_BACKEND_TRACKING
+from mlflow.genai.scorers.base import SCORER_BACKEND_TRACKING, _in_job_executor
 from mlflow.genai.scorers.job import (
     _plan_invoke_scorer_job_for_docker,
     _run_session_scorer,
     _score_single_turn_traces,
     invoke_scorer_job,
+    run_online_trace_scorer_job,
 )
+from mlflow.genai.scorers.online.container_scoring import OnlineContainerScorer
+from mlflow.genai.scorers.online.trace_processor import OnlineTraceScoringProcessor
 from mlflow.server.constants import BACKEND_STORE_URI_ENV_VAR
 from mlflow.server.jobs.utils import _load_function
 from mlflow.tracing.constant import AssessmentMetadataKey, TraceMetadataKey
@@ -377,6 +380,36 @@ def test_docker_plan_logs_assessments_in_the_job_workspace(db_uri, tmp_path, mon
         with WorkspaceContext("team-b"):
             with pytest.raises(MlflowException, match=trace_id):
                 plan_and_finalize()
+
+
+@pytest.mark.parametrize("backend", [None, "docker"])
+def test_online_trace_job_runs_custom_scorer_code_only_when_not_in_a_container(
+    backend, monkeypatch
+):
+    if backend:
+        monkeypatch.setenv("MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND", backend)
+    else:
+        monkeypatch.delenv("MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND", raising=False)
+    seen = {}
+
+    def create(experiment_id, online_scorers, tracking_store, container_scorer=None):
+        seen["may_run_scorer_code"] = _in_job_executor()
+        seen["container_scorer"] = container_scorer
+        return mock.Mock()
+
+    with (
+        mock.patch.object(OnlineTraceScoringProcessor, "create", side_effect=create),
+        mock.patch("mlflow.genai.scorers.job._get_tracking_store"),
+    ):
+        run_online_trace_scorer_job(experiment_id="exp-1", online_scorers=[])
+
+    if backend:
+        # Custom scorer code is never loaded in this process; it runs in job containers.
+        assert seen["may_run_scorer_code"] is False
+        assert isinstance(seen["container_scorer"], OnlineContainerScorer)
+    else:
+        assert seen["may_run_scorer_code"] is True
+        assert seen["container_scorer"] is None
 
 
 def test_importing_the_scorer_jobs_first_registers_every_job_function():

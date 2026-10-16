@@ -59,8 +59,10 @@ class FakeContainers:
     def list(self, all=False, filters=None):
         containers = list(self._client.leftovers)
         if filters and "label" in filters:
-            key, _, value = filters["label"].partition("=")
-            containers = [c for c in containers if c.kwargs.get("labels", {}).get(key) == value]
+            wanted = filters["label"] if isinstance(filters["label"], list) else [filters["label"]]
+            for label in wanted:
+                key, _, value = label.partition("=")
+                containers = [c for c in containers if c.kwargs.get("labels", {}).get(key) == value]
         return containers
 
 

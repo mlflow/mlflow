@@ -9,6 +9,7 @@ import requests
 
 from mlflow.entities._job_status import JobStatus
 from mlflow.exceptions import MlflowException
+from mlflow.genai.scorers.job import ONLINE_TRACE_SCORER_JOB_NAME
 from mlflow.server.jobs import docker_executor as de
 from mlflow.server.jobs import job
 from mlflow.server.jobs import job_container as jc
@@ -589,3 +590,13 @@ def test_invalid_declared_resource_limits_fail_the_submission(executor, client, 
         _submit(executor, fn_name="fake_docker_job_with_limits")
     assert client.started == []
     assert executor._jobs == {}
+
+
+def test_check_requirements_validates_online_scoring_resource_limits(executor, monkeypatch):
+    monkeypatch.setenv("MLFLOW_JOB_RESOURCE_LIMITS_run_online_trace_scorer", "not json")
+    with pytest.raises(MlflowException, match="run_online_trace_scorer"):
+        executor.check_requirements()
+
+
+def test_online_container_job_names_match_the_online_jobs():
+    assert de._ONLINE_CONTAINER_JOB_NAMES == (ONLINE_TRACE_SCORER_JOB_NAME,)
