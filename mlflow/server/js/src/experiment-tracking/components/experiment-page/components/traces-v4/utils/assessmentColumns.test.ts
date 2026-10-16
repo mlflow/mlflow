@@ -5,7 +5,9 @@ import {
   computeAssessmentColumns,
   extractTraceIssues,
   getAssessmentColumnType,
+  getSessionAssessmentNames,
   pickCellAssessment,
+  pickSessionCellAssessment,
 } from './assessmentColumns';
 import { makeFeedbackAssessment, makeIssueAssessment, makeTrace } from '../test-utils/mockTraces';
 
@@ -177,5 +179,51 @@ describe('getAssessmentColumnType', () => {
   test('returns "categorical" when no assessments match the name', () => {
     const traces = [traceWith('t1', [makeFeedbackAssessment('other', 'yes')])];
     expect(getAssessmentColumnType(traces, 'score')).toBe('categorical');
+  });
+});
+
+describe('session-level assessment columns', () => {
+  const sessionFeedback = (name: string, value: string | number, createTime = '2025-01-01T00:00:00.000Z') =>
+    makeFeedbackAssessment(name, value, {
+      metadata: { [ASSESSMENT_SESSION_METADATA_KEY]: 'session-1' },
+      create_time: createTime,
+    });
+  const traces = [
+    traceWith('turn-1', [makeFeedbackAssessment('correctness', 'yes'), sessionFeedback('completeness', 'yes')]),
+    traceWith('turn-2', [makeFeedbackAssessment('correctness', 'no')]),
+  ];
+
+  test('are not columns by default', () => {
+    expect(computeAssessmentColumns(traces, {}).candidateNames).toEqual(['correctness']);
+  });
+
+  test('become columns when session assessments are included', () => {
+    expect(computeAssessmentColumns(traces, {}, { includeSessionAssessments: true })).toEqual({
+      candidateNames: ['completeness', 'correctness'],
+      visibleNames: ['completeness', 'correctness'],
+    });
+  });
+
+  test('getSessionAssessmentNames lists only valid session-level names', () => {
+    const invalid = makeFeedbackAssessment('ignored', 'x', {
+      metadata: { [ASSESSMENT_SESSION_METADATA_KEY]: 'session-1' },
+      valid: false,
+    });
+    expect([...getSessionAssessmentNames([...traces, traceWith('turn-3', [invalid])])]).toEqual(['completeness']);
+  });
+
+  test('pickSessionCellAssessment finds the latest session value across the turns, and only session values', () => {
+    const later = traceWith('turn-3', [sessionFeedback('completeness', 'no', '2025-02-01T00:00:00.000Z')]);
+    expect(pickSessionCellAssessment([...traces, later], 'completeness')).toEqual(
+      expect.objectContaining({ feedback: { value: 'no' } }),
+    );
+    expect(pickSessionCellAssessment(traces, 'correctness')).toBeUndefined();
+    expect(pickSessionCellAssessment([traces[1]], 'completeness')).toBeUndefined();
+  });
+
+  test('getAssessmentColumnType reads session values only when they are included', () => {
+    const numeric = [traceWith('turn-1', [sessionFeedback('score', 0.5)])];
+    expect(getAssessmentColumnType(numeric, 'score')).toBe('categorical');
+    expect(getAssessmentColumnType(numeric, 'score', { includeSessionAssessments: true })).toBe('numeric');
   });
 });

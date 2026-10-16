@@ -33,6 +33,42 @@ const isDisplayableTraceAssessment = (assessment: Assessment): boolean =>
   assessment.assessment_name !== NOTES_ASSESSMENT_NAME &&
   assessment.assessment_name !== INTERNAL_ASSESSMENT_ISSUE_DISCOVERY_JUDGE;
 
+// A session-level assessment worth a column for tables that show session feedback (the evaluation run
+// view): the same rules as a trace-level one, but attached to the session through its metadata.
+const isDisplayableSessionAssessment = (assessment: Assessment): boolean =>
+  assessment.valid !== false &&
+  isSessionLevelAssessment(assessment) &&
+  !isIssueReferenceAssessment(assessment) &&
+  assessment.assessment_name !== NOTES_ASSESSMENT_NAME &&
+  assessment.assessment_name !== INTERNAL_ASSESSMENT_ISSUE_DISCOVERY_JUDGE;
+
+/** Names of the displayable session-level assessments on these traces. */
+export const getSessionAssessmentNames = (traces: ModelTraceInfoV3[]): Set<string> => {
+  const names = new Set<string>();
+  for (const trace of traces) {
+    for (const assessment of trace.assessments ?? []) {
+      if (isDisplayableSessionAssessment(assessment)) {
+        names.add(assessment.assessment_name);
+      }
+    }
+  }
+  return names;
+};
+
+/**
+ * The session-level assessment shown for `name` across `traces` (a session's turns, or the one trace
+ * it is attached to in a flat table): the most recent displayable one, or none.
+ */
+export const pickSessionCellAssessment = (traces: ModelTraceInfoV3[], name: string): Assessment | undefined =>
+  traces
+    .flatMap((trace) => trace.assessments ?? [])
+    .reduce<Assessment | undefined>((best, assessment) => {
+      if (assessment.assessment_name !== name || !isDisplayableSessionAssessment(assessment)) {
+        return best;
+      }
+      return best && (best.create_time ?? '') >= (assessment.create_time ?? '') ? best : assessment;
+    }, undefined);
+
 /**
  * Extract a trace's detected issues for the dedicated Issues column, mirroring the prior tab
  * (`TraceUtils.convertTraceInfoV3ToRunEvalEntry`): the assessment name is the issue id, and
@@ -67,6 +103,7 @@ export interface AssessmentColumnSelection {
 export const computeAssessmentColumns = (
   traces: ModelTraceInfoV3[],
   overrides: Record<string, boolean>,
+  { includeSessionAssessments = false }: { includeSessionAssessments?: boolean } = {},
 ): AssessmentColumnSelection => {
   const names = new Set<string>();
   for (const trace of traces) {
@@ -75,6 +112,9 @@ export const computeAssessmentColumns = (
         names.add(assessment.assessment_name);
       }
     }
+  }
+  if (includeSessionAssessments) {
+    getSessionAssessmentNames(traces).forEach((name) => names.add(name));
   }
   for (const [name, on] of Object.entries(overrides)) {
     if (on) {
@@ -92,9 +132,15 @@ export type AssessmentColumnType = 'numeric' | 'categorical';
  * Determine whether an assessment column should be rendered as numeric (a score with a bar)
  * or categorical (a simple tag value). Numeric if any value is not an integer; categorical otherwise.
  */
-export const getAssessmentColumnType = (traces: ModelTraceInfoV3[], name: string): AssessmentColumnType => {
+export const getAssessmentColumnType = (
+  traces: ModelTraceInfoV3[],
+  name: string,
+  { includeSessionAssessments = false }: { includeSessionAssessments?: boolean } = {},
+): AssessmentColumnType => {
   for (const trace of traces) {
-    const assessment = pickCellAssessment(trace, name);
+    const assessment =
+      pickCellAssessment(trace, name) ??
+      (includeSessionAssessments ? pickSessionCellAssessment([trace], name) : undefined);
     if (assessment) {
       const value = getAssessmentValue(assessment);
       // If any value is not an integer, treat as numeric (e.g., 0.75 score).

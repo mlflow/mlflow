@@ -200,4 +200,33 @@ describe('EvalRunTracesV4Table', () => {
     );
     expect(await screen.findByRole('button', { name: "Edit filter feedback.relevance = 'yes'" })).toBeInTheDocument();
   });
+
+  describe('session-level feedback', () => {
+    const sessionTurn = (id: string, assessments: ReturnType<typeof makeFeedbackAssessment>[] = []) =>
+      makeRunTrace(id, { trace_metadata: { 'mlflow.trace.session': 's1' }, assessments });
+    const sessionJudge = makeFeedbackAssessment('completeness', 'complete-yes', {
+      metadata: { 'mlflow.assessment.sourceRunId': RUN_UUID, 'mlflow.trace.session': 's1' },
+    });
+
+    test('flat: shows session feedback in its own column on the trace it is attached to', async () => {
+      state.traces = [sessionTurn('tr-turn-2'), sessionTurn('tr-turn-1', [sessionJudge])];
+      renderTable();
+
+      expect(await screen.findByRole('columnheader', { name: /completeness/ })).toBeInTheDocument();
+      const attachmentRow = (await findTraceRow('tr-turn-1')).closest('[role="row"]') as HTMLElement;
+      expect(within(attachmentRow).getByText('complete-yes')).toBeInTheDocument();
+      const otherRow = (await findTraceRow('tr-turn-2')).closest('[role="row"]') as HTMLElement;
+      expect(within(otherRow).queryByText('complete-yes')).not.toBeInTheDocument();
+    });
+
+    test('grouped: shows session feedback once, on the session row', async () => {
+      state.traces = [sessionTurn('tr-turn-2'), sessionTurn('tr-turn-1', [sessionJudge])];
+      renderTable(`${RUN_URL}?groupBy=session`);
+
+      expect(await screen.findByRole('columnheader', { name: /completeness/ })).toBeInTheDocument();
+      const sessionRow = await screen.findByRole('row', { name: /Select session s1/ });
+      expect(within(sessionRow).getByText('complete-yes')).toBeInTheDocument();
+      expect(screen.getAllByText('complete-yes')).toHaveLength(1);
+    });
+  });
 });
