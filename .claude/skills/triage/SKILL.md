@@ -1,39 +1,30 @@
 ---
 name: triage
-description: Perform initial bug triage in a sandbox and write a verdict, report, and optional fix proposal for the workflow to publish.
+description: Triage bugs or handle authenticated maintainer follow-ups in a sandbox, writing a response and optional verified fix proposal for the workflow to publish.
 disable-model-invocation: true
-argument-hint: "<issue_path> <out_dir>"
-arguments: [issue_path, out_dir]
+argument-hint: "<initial|followup> <issue_path> <out_dir>"
+arguments: [action, issue_path, out_dir]
 ---
 
-# Initial bug triage
+# Triage
 
-Read `$issue_path`: JSON with `title`, `body`, `repository`, and `issue_number`.
-This entry point handles initial triage only. If `followup` is non-null, stop without
-writing a payload; the workflow must invoke `/triage-followup` for that request.
+Read `$issue_path`: JSON with `title`, `body`, `repository`, `issue_number`, and optional
+`followup`. The workflow selects `$action` explicitly:
 
-Read the shared [runtime](../../triage/runtime.md) and [output rules](../../triage/output.md).
-Investigate the reported bug using [bug reproduction and verification](../../triage/bug.md).
-Explain what reproduces on the current checkout, the root cause, and the suggested fix.
+| Action     | Instructions               | Output schema                              | Input requirement          |
+| ---------- | -------------------------- | ------------------------------------------ | -------------------------- |
+| `initial`  | [initial.md](initial.md)   | [initial.schema.yml](initial.schema.yml)   | `followup` missing or null |
+| `followup` | [followup.md](followup.md) | [followup.schema.yml](followup.schema.yml) | `followup` non-null        |
 
-## Automatic fix
+Stop without writing a payload if the action is unknown or its input requirement is unmet.
+Read only the selected action's instructions and schema, plus the shared
+[runtime](../../triage/runtime.md) and [output rules](../../triage/output.md).
 
-Only propose a PR for a simple issue with a straightforward fix that meets the shared
-output requirements. If the author offers to implement it (for example, "I'd be happy to
-submit a PR"), leave the fix to them. Describe unresolved design options for a maintainer
-to choose.
-
-## Response
-
-Read [payload.schema.yml](payload.schema.yml). Pick exactly one verdict from its label
-descriptions and set `label` to that exact value. Write `comment` using its report template.
-When proposing a PR, still describe the suggested fix in full in the issue comment.
-
-Write `$out_dir/payload.json`, then validate it:
+Write `$out_dir/payload.json`, then validate it against the selected action's schema:
 
 ```bash
 uvx check-jsonschema@0.37.4 \
-  --schemafile .claude/skills/triage/payload.schema.yml "$out_dir/payload.json"
+  --schemafile ".claude/skills/triage/$action.schema.yml" "$out_dir/payload.json"
 ```
 
 Fix validation errors before finishing.

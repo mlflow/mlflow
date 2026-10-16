@@ -1,6 +1,6 @@
 # Triage output
 
-Create `$out_dir` and write `$out_dir/payload.json` using the selected skill's schema.
+Create `$out_dir` and write `$out_dir/payload.json` using the selected action's schema.
 The issue comment and optional PR body should lead with conclusions for someone who has
 read the issue, use runnable examples where helpful, and avoid @-mentions.
 Prefer permalinks to file paths:
@@ -20,7 +20,7 @@ Propose a pull request only when all of these hold:
 - The fix is verified against the reproduction and relevant tests and leaves no design choice or trade-off unresolved.
 - Every changed file is under `mlflow/` or `tests/`.
 
-Also apply the PR eligibility rules in the selected skill. If any requirement is unmet,
+Also apply the PR eligibility rules in the selected action. If any requirement is unmet,
 explain the findings in the comment without proposing a PR.
 
 Add regression tests when they add meaningful coverage. Place new regression tests next to
@@ -36,7 +36,7 @@ git diff HEAD --stat
 ```
 
 The last command must list only the files in the patch. Then add `pull_request` to the payload
-using `pull_request` from the selected skill's payload schema.
+using `pull_request` from the selected action's payload schema.
 
 For visible UI fixes, include a before/after comparison in the PR body when it helps
 reviewers assess the change. Stack screenshots vertically with **Before** above **After**, rather than
