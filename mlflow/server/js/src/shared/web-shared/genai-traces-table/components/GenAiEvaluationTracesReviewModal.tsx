@@ -503,8 +503,15 @@ const ModelTraceExplorerModalBody = ({
   traceData: ModelTrace;
   selectedSpanId?: string;
 }) => {
+  // The explorer picks its selected node up from `selectedSpanId` on mount only, so stepping to
+  // another trace would otherwise land on that trace's root while the URL names a span. Remount
+  // it per trace and span when a caller asks for one; callers that pass none keep one instance.
+  const spanSelectionKey = selectedSpanId
+    ? `${isV3ModelTraceInfo(traceData.info) ? traceData.info.trace_id : ''}-${selectedSpanId}`
+    : undefined;
   return (
     <ModelTraceExplorer
+      key={spanSelectionKey}
       modelTrace={traceData}
       selectedSpanId={selectedSpanId}
     />
