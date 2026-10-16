@@ -32,6 +32,8 @@ export interface TracesPaginationBarProps {
   count?: number;
   total?: number;
   isCountLoading?: boolean;
+  /** `count` and `total` are sessions rather than traces (grouped-by-session mode); labels the count. */
+  isSessionCount?: boolean;
   /** Hide the page-size selector — grouped-by-session mode fetches one large page, so it's moot. */
   hidePageSizeSelector?: boolean;
 }
@@ -51,6 +53,7 @@ export const TracesPaginationBar: React.FC<TracesPaginationBarProps> = ({
   count,
   total,
   isCountLoading,
+  isSessionCount,
   hidePageSizeSelector,
 }: TracesPaginationBarProps) => {
   const { theme } = useDesignSystemTheme();
@@ -74,11 +77,19 @@ export const TracesPaginationBar: React.FC<TracesPaginationBarProps> = ({
             <Spinner size="small" />
           ) : (
             <Typography.Text color="secondary" size="sm">
-              <FormattedMessage
-                defaultMessage="{count} of {total}"
-                description="Traces table footer showing how many traces are loaded out of the total"
-                values={{ count, total: total ?? count }}
-              />
+              {isSessionCount ? (
+                <FormattedMessage
+                  defaultMessage="{count} of {total} sessions"
+                  description="Traces table footer showing how many sessions are loaded out of the total when traces are grouped by session"
+                  values={{ count, total: total ?? count }}
+                />
+              ) : (
+                <FormattedMessage
+                  defaultMessage="{count} of {total}"
+                  description="Traces table footer showing how many traces are loaded out of the total"
+                  values={{ count, total: total ?? count }}
+                />
+              )}
             </Typography.Text>
           ))}
       </span>

@@ -101,6 +101,8 @@ export interface TracesTableViewProps {
   traceCount?: number;
   traceTotal?: number;
   isTraceCountLoading?: boolean;
+  /** `traceCount` / `traceTotal` count sessions rather than traces (labels the footer accordingly). */
+  isSessionCount?: boolean;
   /** Hide the whole pagination bar — grouped-by-session mode when the one big page holds everything. */
   hidePagination?: boolean;
   /** Hide just the page-size selector — grouped mode fetches one large page, so it's moot. */
@@ -172,6 +174,7 @@ export const TracesTableView: React.FC<TracesTableViewProps> = (props: TracesTab
       count={props.traceCount}
       total={props.traceTotal}
       isCountLoading={props.isTraceCountLoading}
+      isSessionCount={props.isSessionCount}
       hidePageSizeSelector={props.hidePageSizeSelector}
     />
   );
