@@ -14,7 +14,7 @@ export const ExperimentEvaluationRunsTableActions = ({
   selectedRunUuid,
   compareToRunUuid,
   enableImprovedComparison,
-  showSelectedRunCount = false,
+  foldCompareIntoMenu = false,
   setIsComparisonMode,
   onFilterChartToSelectedRuns,
   isChartFilteredToSelection = false,
@@ -26,8 +26,8 @@ export const ExperimentEvaluationRunsTableActions = ({
   selectedRunUuid?: string;
   compareToRunUuid?: string;
   enableImprovedComparison?: boolean;
-  /** The V2 toolbar shows the selected-run count in the button label and has no Compare item. */
-  showSelectedRunCount?: boolean;
+  /** V2 folds Compare into this menu and includes the selected-run count in the trigger label. */
+  foldCompareIntoMenu?: boolean;
   setIsComparisonMode?: (isComparisonMode: boolean) => void;
   onFilterChartToSelectedRuns?: () => void;
   isChartFilteredToSelection?: boolean;
@@ -76,6 +76,9 @@ export const ExperimentEvaluationRunsTableActions = ({
 
   const isCompareDisabled = !isCompareEnabled || isAlreadyComparingSelectedRuns;
 
+  // The legacy toolbar with improved comparison renders its own Compare button; V2 always folds it in here.
+  const showCompareItem = foldCompareIntoMenu || !enableImprovedComparison;
+
   const noRunsSelected = selectedRunUuids.length === 0;
 
   return (
@@ -88,7 +91,7 @@ export const ExperimentEvaluationRunsTableActions = ({
             disabled={noRunsSelected}
             endIcon={<ChevronDownIcon />}
           >
-            {showSelectedRunCount ? (
+            {foldCompareIntoMenu ? (
               <FormattedMessage
                 defaultMessage="Actions ({numRuns})"
                 description="Experiment evaluation runs table actions button, with the number of selected runs"
@@ -117,8 +120,7 @@ export const ExperimentEvaluationRunsTableActions = ({
               <DropdownMenu.ItemIndicator css={{ position: 'static', marginLeft: 'auto' }} />
             </DropdownMenu.CheckboxItem>
           )}
-          {/* Original Compare option in dropdown (when flag is OFF) */}
-          {!showSelectedRunCount && !enableImprovedComparison && (
+          {showCompareItem && (
             <DropdownMenu.Item
               componentId="mlflow.eval-runs.actions.compare"
               onClick={handleCompare}

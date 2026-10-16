@@ -48,6 +48,10 @@ export const ExperimentEvaluationRunsTableControlsV2 = ({
   onSortingChange,
   viewMode,
   setViewMode,
+  onCompare,
+  selectedRunUuid,
+  compareToRunUuid,
+  setIsComparisonMode,
   onFilterChartToSelectedRuns,
   isChartFilteredToSelection,
 }: {
@@ -77,6 +81,10 @@ export const ExperimentEvaluationRunsTableControlsV2 = ({
   onSortingChange?: OnChangeFn<SortingState>;
   viewMode?: ExperimentEvaluationRunsPageMode;
   setViewMode?: (mode: ExperimentEvaluationRunsPageMode) => void;
+  onCompare: (runUuid1: string, runUuid2: string) => void;
+  selectedRunUuid?: string;
+  compareToRunUuid?: string;
+  setIsComparisonMode: (isComparisonMode: boolean) => void;
   onFilterChartToSelectedRuns?: () => void;
   isChartFilteredToSelection?: boolean;
 }) => {
@@ -153,7 +161,11 @@ export const ExperimentEvaluationRunsTableControlsV2 = ({
             rowSelection={rowSelection}
             setRowSelection={setRowSelection}
             refetchRuns={refetchRuns}
-            showSelectedRunCount
+            onCompare={onCompare}
+            selectedRunUuid={selectedRunUuid}
+            compareToRunUuid={compareToRunUuid}
+            foldCompareIntoMenu
+            setIsComparisonMode={setIsComparisonMode}
             onFilterChartToSelectedRuns={onFilterChartToSelectedRuns}
             isChartFilteredToSelection={isChartFilteredToSelection}
           />

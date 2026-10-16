@@ -515,6 +515,10 @@ const ExperimentEvaluationRunsPageImpl = () => {
         onSortingChange={setEvalRunsSorting}
         viewMode={viewMode}
         setViewMode={setViewMode}
+        onCompare={handleCompare}
+        selectedRunUuid={selectedRunUuid}
+        compareToRunUuid={compareToRunUuid}
+        setIsComparisonMode={setIsComparisonMode}
         onFilterChartToSelectedRuns={
           isNewEvalRunsChartMounted ? () => setFilterChartToSelectedRuns((current) => !current) : undefined
         }

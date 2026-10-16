@@ -145,13 +145,26 @@ describe('ExperimentEvaluationRunsPage new eval runs UI', () => {
     expect(screen.queryByText('Earliest run')).not.toBeInTheDocument();
   });
 
-  test('flag on: the actions menu counts the selection, filters the chart, and has no Compare item', async () => {
+  test('flag on: the actions menu counts the selection, filters the chart, and keeps Compare', async () => {
     jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(true);
     const menu = await openActionsForRunA('Actions (1)');
 
     expect(within(menu).getByText('Filter chart to selected runs')).toBeInTheDocument();
     expect(within(menu).getByText('Delete runs')).toBeInTheDocument();
-    expect(within(menu).queryByText(/Compare/)).not.toBeInTheDocument();
+    expect(within(menu).getByRole('menuitem', { name: 'Compare' })).toHaveAttribute('aria-disabled', 'true');
+  });
+
+  test('flag on: Compare with two runs selected opens the comparison view', async () => {
+    jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(true);
+    renderPage();
+    await userEvent.click(await screen.findByTestId('eval-runs-table-cell-checkbox-run-a'));
+    await userEvent.click(screen.getByTestId('eval-runs-table-cell-checkbox-run-b'));
+    expect(screen.getByText('Earliest run')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Actions (2)' }));
+    await userEvent.click(within(await screen.findByRole('menu')).getByRole('menuitem', { name: 'Compare' }));
+
+    await waitFor(() => expect(screen.queryByText('Earliest run')).not.toBeInTheDocument());
   });
 
   test('flag off: the actions menu keeps Compare', async () => {
