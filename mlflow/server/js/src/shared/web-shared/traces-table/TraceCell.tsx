@@ -18,6 +18,8 @@ import { getTimeAgoStrings } from '../browse/TimeAgo';
 import { formatCostUSD } from '../model-trace-explorer/CostUtils';
 import {
   createTraceV4LongIdentifier,
+  getSessionCost,
+  getSessionTokenUsage,
   getTraceCost,
   getTraceTokenUsage,
 } from '../model-trace-explorer/ModelTraceExplorer.utils';
@@ -193,8 +195,16 @@ const TraceTextCell = ({ value }: { value?: string }) => {
 };
 
 /** User identity, matching the legacy metadata-first fallback to the older tag. */
+const getTraceUser = (trace: ModelTraceInfoV3) =>
+  trace.trace_metadata?.['mlflow.trace.user'] || trace.tags?.['mlflow.user'];
+
 export const TraceUserCell = ({ trace }: { trace: ModelTraceInfoV3 }): JSX.Element => (
-  <TraceTextCell value={trace.trace_metadata?.['mlflow.trace.user'] || trace.tags?.['mlflow.user']} />
+  <TraceTextCell value={getTraceUser(trace)} />
+);
+
+/** Session user: the first turn (oldest-first) that records one. */
+export const SessionUserCell = ({ traces }: { traces: ModelTraceInfoV3[] }): JSX.Element => (
+  <TraceTextCell value={traces.map(getTraceUser).find(Boolean)} />
 );
 
 /** Display name recorded on the trace. */
@@ -654,51 +664,50 @@ export const TraceTokensCell: React.MemoExoticComponent<(props: { trace: ModelTr
 /** Session token count, aggregated across all traces in the collapsed session header. */
 export const SessionTokensCell: React.MemoExoticComponent<(props: { traces: ModelTraceInfoV3[] }) => JSX.Element> =
   memo(function SessionTokensCell({ traces }: { traces: ModelTraceInfoV3[] }) {
-    const usage = traces.reduce<TokenUsage>((totals, trace) => {
-      const traceUsage = getTraceTokenUsage(trace) ?? {};
-      return {
-        input_tokens:
-          totals.input_tokens === undefined && traceUsage.input_tokens === undefined
-            ? undefined
-            : (totals.input_tokens ?? 0) + (traceUsage.input_tokens ?? 0),
-        output_tokens:
-          totals.output_tokens === undefined && traceUsage.output_tokens === undefined
-            ? undefined
-            : (totals.output_tokens ?? 0) + (traceUsage.output_tokens ?? 0),
-        total_tokens:
-          totals.total_tokens === undefined && traceUsage.total_tokens === undefined
-            ? undefined
-            : (totals.total_tokens ?? 0) + (traceUsage.total_tokens ?? 0),
-      };
-    }, {});
-    return <TokenUsageCell usage={usage} />;
+    return <TokenUsageCell usage={getSessionTokenUsage(traces)} />;
   });
+
+type Cost = {
+  input_cost?: number;
+  output_cost?: number;
+  total_cost?: number;
+};
+
+const CostCell = ({ cost }: { cost: Cost }): JSX.Element => {
+  if (cost.total_cost === undefined || cost.total_cost === null) {
+    return <EmptyValue />;
+  }
+  const parts = [
+    cost.input_cost !== undefined ? `Input ${formatCostUSD(cost.input_cost)}` : undefined,
+    cost.output_cost !== undefined ? `Output ${formatCostUSD(cost.output_cost)}` : undefined,
+  ].filter(Boolean);
+  const content = <span css={truncateCss}>{formatCostUSD(cost.total_cost)}</span>;
+  if (parts.length === 0) {
+    return content;
+  }
+  return (
+    <Tooltip
+      componentId={`${COMPONENT_ID}.cell.cost-tooltip`}
+      content={<WrappedTooltipText>{parts.join(' · ')}</WrappedTooltipText>}
+      maxWidth={CELL_OVERLAY_MAX_WIDTH}
+    >
+      {content}
+    </Tooltip>
+  );
+};
 
 /** Total cost in USD in a tag, with an input/output breakdown on hover. */
 export const TraceCostCell: React.MemoExoticComponent<(props: { trace: ModelTraceInfoV3 }) => JSX.Element> = memo(
   function TraceCostCell({ trace }: { trace: ModelTraceInfoV3 }) {
     // Guard against undefined from unparseable cost metadata (see TraceTokensCell).
-    const cost = getTraceCost(trace) ?? {};
-    if (cost.total_cost === undefined || cost.total_cost === null) {
-      return <EmptyValue />;
-    }
-    const parts = [
-      cost.input_cost !== undefined ? `Input ${formatCostUSD(cost.input_cost)}` : undefined,
-      cost.output_cost !== undefined ? `Output ${formatCostUSD(cost.output_cost)}` : undefined,
-    ].filter(Boolean);
-    const content = <span css={truncateCss}>{formatCostUSD(cost.total_cost)}</span>;
-    if (parts.length === 0) {
-      return content;
-    }
-    return (
-      <Tooltip
-        componentId={`${COMPONENT_ID}.cell.cost-tooltip`}
-        content={<WrappedTooltipText>{parts.join(' · ')}</WrappedTooltipText>}
-        maxWidth={CELL_OVERLAY_MAX_WIDTH}
-      >
-        {content}
-      </Tooltip>
-    );
+    return <CostCell cost={getTraceCost(trace) ?? {}} />;
+  },
+);
+
+/** Session cost, summed across all traces in the collapsed session header. */
+export const SessionCostCell: React.MemoExoticComponent<(props: { traces: ModelTraceInfoV3[] }) => JSX.Element> = memo(
+  function SessionCostCell({ traces }: { traces: ModelTraceInfoV3[] }) {
+    return <CostCell cost={getSessionCost(traces)} />;
   },
 );
 

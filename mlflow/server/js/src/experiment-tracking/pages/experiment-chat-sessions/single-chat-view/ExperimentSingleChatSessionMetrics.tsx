@@ -1,4 +1,5 @@
 import { ClockIcon, Tag, TokenIcon, Tooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { formatCostUSD } from '@databricks/web-shared/model-trace-explorer';
 import type { ExperimentSingleChatMetrics } from './useExperimentSingleChatMetrics';
 
 import { FormattedMessage } from '@databricks/i18n';
@@ -34,6 +35,24 @@ export const ExperimentSingleChatSessionMetrics = ({
           </Typography.Text>
           <Tag componentId="mlflow.experiment.chat-session.metrics.tokens-tag" icon={<TokenIcon />}>
             {chatSessionMetrics.sessionTokens.total_tokens}
+          </Tag>
+        </div>
+      )}
+      {chatSessionMetrics.sessionCost.total_cost !== undefined && (
+        <div
+          css={{
+            display: 'flex',
+            gap: theme.spacing.xs,
+          }}
+        >
+          <Typography.Text color="secondary">
+            <FormattedMessage
+              defaultMessage="Cost"
+              description="Label for the total cost metric in chat session metrics"
+            />
+          </Typography.Text>
+          <Tag componentId="mlflow.experiment.chat-session.metrics.cost-tag">
+            {formatCostUSD(chatSessionMetrics.sessionCost.total_cost)}
           </Tag>
         </div>
       )}

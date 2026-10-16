@@ -1610,6 +1610,32 @@ export const getTraceCost = (
 ): { input_cost?: number; output_cost?: number; total_cost?: number } =>
   parseJSONSafe(traceInfo?.trace_metadata?.[COST_METADATA_KEY] ?? '{}');
 
+// Stays undefined only while neither side has a value, so a session with no data renders blank, not 0.
+const addOptional = (left?: number, right?: number) =>
+  left === undefined && right === undefined ? undefined : (left ?? 0) + (right ?? 0);
+
+/** Token usage summed across a session's traces. Unparseable per-trace metadata counts as absent. */
+export const getSessionTokenUsage = (traceInfos: ModelTraceInfoV3[]) =>
+  traceInfos.reduce<{ input_tokens?: number; output_tokens?: number; total_tokens?: number }>((totals, traceInfo) => {
+    const usage = getTraceTokenUsage(traceInfo) ?? {};
+    return {
+      input_tokens: addOptional(totals.input_tokens, usage.input_tokens),
+      output_tokens: addOptional(totals.output_tokens, usage.output_tokens),
+      total_tokens: addOptional(totals.total_tokens, usage.total_tokens),
+    };
+  }, {});
+
+/** Cost summed across a session's traces. Unparseable per-trace metadata counts as absent. */
+export const getSessionCost = (traceInfos: ModelTraceInfoV3[]) =>
+  traceInfos.reduce<{ input_cost?: number; output_cost?: number; total_cost?: number }>((totals, traceInfo) => {
+    const cost = getTraceCost(traceInfo) ?? {};
+    return {
+      input_cost: addOptional(totals.input_cost, cost.input_cost),
+      output_cost: addOptional(totals.output_cost, cost.output_cost),
+      total_cost: addOptional(totals.total_cost, cost.total_cost),
+    };
+  }, {});
+
 export const isSessionLevelAssessment = (assessment: Assessment): boolean => {
   return !isEmpty(assessment.metadata?.[ASSESSMENT_SESSION_METADATA_KEY]);
 };

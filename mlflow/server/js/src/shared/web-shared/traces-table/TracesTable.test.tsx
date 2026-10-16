@@ -7,6 +7,7 @@ import { TRACE_COLUMN_IDS } from './constants';
 import type { TraceColumnId } from './types';
 import { makeTrace, makeSessionTrace, makeTraces } from './test-utils/mockTraces';
 import { renderWithProviders } from './test-utils/renderWithProviders';
+import { SESSION_ID_METADATA_KEY } from '../model-trace-explorer/constants';
 
 // Each header renders a per-column options menu; every trigger shares the generic "Column options"
 // label, so scope to the target column's header cell before opening its menu.
@@ -251,6 +252,51 @@ describe('TracesTable', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Expand session s1' }));
     expect(screen.getAllByText('15')).toHaveLength(2);
+  });
+
+  test('sums cost in a grouped session header', async () => {
+    const traces = [
+      makeSessionTrace('s1-turn-1', 's1'),
+      makeSessionTrace('s1-turn-2', 's1'),
+      makeTrace('s2-turn-1', { trace_metadata: { [SESSION_ID_METADATA_KEY]: 's2' } }),
+    ];
+    await renderWithProviders(
+      <TracesTable {...baseProps({ traces, visibleColumns: ['cost'], isGroupedBySession: true })} />,
+    );
+
+    // The standard fixture gives each turn $0.003, so s1 shows their sum. s2 records no cost at all
+    // and shows the empty placeholder rather than $0.00.
+    expect(screen.getByText('$0.006')).toBeInTheDocument();
+    expect(screen.getByText('-')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Expand session s1' }));
+    expect(screen.getAllByText('$0.003')).toHaveLength(2);
+  });
+
+  test('shows the first recorded user in a grouped session header', async () => {
+    // Newest first, as the search API returns them. The first turn has no user, the second only the
+    // legacy `mlflow.user` tag, and the third the metadata key.
+    const traces = [
+      makeTrace('s1-turn-3', {
+        request_time: '2025-01-01T00:03:00.000Z',
+        trace_metadata: { [SESSION_ID_METADATA_KEY]: 's1', 'mlflow.trace.user': 'bob' },
+      }),
+      makeTrace('s1-turn-2', {
+        request_time: '2025-01-01T00:02:00.000Z',
+        trace_metadata: { [SESSION_ID_METADATA_KEY]: 's1' },
+        tags: { 'mlflow.user': 'alice' },
+      }),
+      makeTrace('s1-turn-1', {
+        request_time: '2025-01-01T00:01:00.000Z',
+        trace_metadata: { [SESSION_ID_METADATA_KEY]: 's1' },
+      }),
+    ];
+    await renderWithProviders(
+      <TracesTable {...baseProps({ traces, visibleColumns: ['user'], isGroupedBySession: true })} />,
+    );
+
+    expect(screen.getByText('alice')).toBeInTheDocument();
+    expect(screen.queryByText('bob')).not.toBeInTheDocument();
   });
 
   test('passes all child traces to an extra column session renderer', async () => {

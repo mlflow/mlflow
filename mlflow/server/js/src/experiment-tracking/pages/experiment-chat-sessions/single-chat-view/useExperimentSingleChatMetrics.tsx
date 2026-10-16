@@ -1,11 +1,17 @@
-import { getTraceTokenUsage, type ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
+import {
+  getSessionCost,
+  getSessionTokenUsage,
+  getTraceTokenUsage,
+  type ModelTraceInfoV3,
+} from '@databricks/web-shared/model-trace-explorer';
 import { SIMULATION_GOAL_KEY, SIMULATION_PERSONA_KEY } from '@databricks/web-shared/genai-traces-table';
-import { first, last } from 'lodash';
+import { first } from 'lodash';
 import { useMemo } from 'react';
 
 type TraceTokenUsage = ReturnType<typeof getTraceTokenUsage>;
 export interface ExperimentSingleChatMetrics {
   sessionTokens: TraceTokenUsage;
+  sessionCost: ReturnType<typeof getSessionCost>;
   sessionLatency: number | undefined;
   goal?: string;
   persona?: string;
@@ -17,6 +23,7 @@ export interface ExperimentSingleChatMetrics {
 
 const emptyMetrics: ExperimentSingleChatMetrics = {
   sessionTokens: { input_tokens: 0, output_tokens: 0 },
+  sessionCost: {},
   sessionLatency: 0,
   goal: undefined,
   persona: undefined,
@@ -29,11 +36,11 @@ export const useExperimentSingleChatMetrics = ({
   traceInfos?: ModelTraceInfoV3[];
 }): ExperimentSingleChatMetrics =>
   useMemo(() => {
-    const lastTurn = last(traceInfos);
-    if (!lastTurn) {
+    if (!traceInfos?.length) {
       return emptyMetrics;
     }
-    const sessionTokens = getTraceTokenUsage(lastTurn);
+    const sessionTokens = getSessionTokenUsage(traceInfos);
+    const sessionCost = getSessionCost(traceInfos);
 
     const firstTurn = first(traceInfos);
     const goal = firstTurn?.trace_metadata?.[SIMULATION_GOAL_KEY];
@@ -67,6 +74,7 @@ export const useExperimentSingleChatMetrics = ({
 
     return {
       sessionTokens,
+      sessionCost,
       sessionLatency,
       goal,
       persona,

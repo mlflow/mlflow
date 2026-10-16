@@ -79,6 +79,8 @@ export { SingleChatTurnAssessments } from './session-view/SingleChatTurnAssessme
 export {
   getTraceTokenUsage,
   getTraceCost,
+  getSessionTokenUsage,
+  getSessionCost,
   createTraceV4LongIdentifier,
   isSessionLevelAssessment,
 } from './ModelTraceExplorer.utils';

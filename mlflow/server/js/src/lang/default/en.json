@@ -16435,6 +16435,10 @@
     "defaultMessage": "Back to experiment list",
     "description": "Tooltip for experiments button"
   },
+  "vsQD7E": {
+    "defaultMessage": "Cost",
+    "description": "Label for the total cost metric in chat session metrics"
+  },
   "vsxMvp": {
     "defaultMessage": "Delete this view? This removes it from the experiment for everyone.",
     "description": "Confirmation text when deleting an unnamed custom trace view"

@@ -11,6 +11,7 @@ describe('useExperimentSingleChatMetrics', () => {
     // Assert
     expect(result.current).toEqual({
       sessionTokens: { input_tokens: 0, output_tokens: 0 },
+      sessionCost: {},
       sessionLatency: 0,
       perTurnMetrics: [],
     });
@@ -62,6 +63,7 @@ describe('useExperimentSingleChatMetrics', () => {
           'mlflow.trace.tokenUsage': JSON.stringify({
             input_tokens: 100,
             output_tokens: 50,
+            total_tokens: 150,
           }),
         },
       },
@@ -72,6 +74,7 @@ describe('useExperimentSingleChatMetrics', () => {
           'mlflow.trace.tokenUsage': JSON.stringify({
             input_tokens: 150,
             output_tokens: 75,
+            total_tokens: 225,
           }),
         },
       },
@@ -82,6 +85,7 @@ describe('useExperimentSingleChatMetrics', () => {
           'mlflow.trace.tokenUsage': JSON.stringify({
             input_tokens: 200,
             output_tokens: 100,
+            total_tokens: 300,
           }),
         },
       },
@@ -90,15 +94,43 @@ describe('useExperimentSingleChatMetrics', () => {
     const { result } = renderHook(() => useExperimentSingleChatMetrics({ traceInfos }));
 
     // Assert
-    // Session tokens should be from the last trace
+    // Session tokens should be the sum of all traces, like session latency
     expect(result.current.sessionTokens).toEqual({
-      input_tokens: 200,
-      output_tokens: 100,
+      input_tokens: 450,
+      output_tokens: 225,
+      total_tokens: 675,
     });
     // Session latency should be sum of all traces
     expect(result.current.sessionLatency).toBeCloseTo(5.0);
     // Should have metrics for all three turns
     expect(result.current.perTurnMetrics).toHaveLength(3);
+  });
+
+  it('should sum cost across traces and skip traces without cost', () => {
+    // Arrange
+    const traceInfos: ModelTraceInfoV3[] = [
+      {
+        request_id: 'trace-1',
+        trace_metadata: {
+          'mlflow.trace.cost': JSON.stringify({ input_cost: 0.25, output_cost: 0.5, total_cost: 0.75 }),
+        },
+      },
+      {
+        request_id: 'trace-2',
+        trace_metadata: {},
+      },
+      {
+        request_id: 'trace-3',
+        trace_metadata: {
+          'mlflow.trace.cost': JSON.stringify({ input_cost: 0.5, output_cost: 1, total_cost: 1.5 }),
+        },
+      },
+    ] as any;
+
+    const { result } = renderHook(() => useExperimentSingleChatMetrics({ traceInfos }));
+
+    // Assert
+    expect(result.current.sessionCost).toEqual({ input_cost: 0.75, output_cost: 1.5, total_cost: 2.25 });
   });
 
   it('should handle traces with missing token usage metadata', () => {
@@ -134,7 +166,7 @@ describe('useExperimentSingleChatMetrics', () => {
     const { result } = renderHook(() => useExperimentSingleChatMetrics({ traceInfos }));
 
     // Assert
-    expect(result.current.sessionTokens).toBeUndefined();
+    expect(result.current.sessionTokens).toEqual({});
     expect(result.current.sessionLatency).toBe(1.5);
   });
 
