@@ -12,7 +12,7 @@ export const useExperimentEvaluationRunsData = ({
   enabled: boolean;
   filter: string;
 }) => {
-  const { data, fetchNextPage, hasNextPage, isLoading, isFetching, refetch, error } = useInfiniteQuery<
+  const { data, fetchNextPage, hasNextPage, isLoading, isFetching, refetch, error, dataUpdatedAt } = useInfiniteQuery<
     SearchRunsApiResponse,
     Error
   >({
@@ -66,5 +66,6 @@ export const useExperimentEvaluationRunsData = ({
     isLoading,
     isFetching,
     error,
+    dataUpdatedAt,
   };
 };
