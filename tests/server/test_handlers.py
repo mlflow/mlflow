@@ -285,6 +285,7 @@ from mlflow.store.artifact.artifact_repo import (
     PresignedUploadMixin,
 )
 from mlflow.store.artifact.azure_blob_artifact_repo import AzureBlobArtifactRepository
+from mlflow.store.artifact.gcs_artifact_repo import GCSArtifactRepository
 from mlflow.store.artifact.local_artifact_repo import LocalArtifactRepository
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.store.entities.paged_list import PagedList
@@ -651,6 +652,169 @@ def test_server_info_multipart_capabilities_handles_repo_error(monkeypatch):
         assert response.status_code == 200
         data = response.get_json()
         assert data[SERVER_INFO_MULTIPART_UPLOADS_ENABLED] is False
+        assert data[SERVER_INFO_MULTIPART_DOWNLOADS_ENABLED] is False
+
+
+def _gcs_repo_with_signing_credentials():
+    from google.auth import crypt
+    from google.cloud import storage as gcs_storage
+    from google.oauth2 import service_account
+
+    class _FakeSigner(crypt.Signer):
+        key_id = "key-id"
+
+        def sign(self, message):
+            return b"signature"
+
+    credentials = service_account.Credentials(
+        _FakeSigner(), "sa@project.iam.gserviceaccount.com", "https://oauth2.googleapis.com/token"
+    )
+    client = gcs_storage.Client(project="project", credentials=credentials)
+    return GCSArtifactRepository("gs://bucket/artifacts", client=client)
+
+
+def _gcs_repo_with_user_credentials():
+    # e.g. `gcloud auth application-default login`
+    from google.cloud import storage as gcs_storage
+    from google.oauth2 import credentials as user_credentials
+
+    client = gcs_storage.Client(project="project", credentials=user_credentials.Credentials("t"))
+    return GCSArtifactRepository("gs://bucket/artifacts", client=client)
+
+
+def _gcs_repo_with_anonymous_credentials():
+    from google.auth.credentials import AnonymousCredentials
+    from google.cloud import storage as gcs_storage
+
+    client = gcs_storage.Client(project="project", credentials=AnonymousCredentials())
+    return GCSArtifactRepository("gs://bucket/artifacts", client=client)
+
+
+def _azure_repo_with_account_key():
+    import base64
+
+    from azure.storage.blob import BlobServiceClient
+
+    client = BlobServiceClient(
+        account_url="https://account.blob.core.windows.net",
+        credential=base64.b64encode(b"some-key").decode("utf-8"),
+    )
+    return AzureBlobArtifactRepository(
+        "wasbs://container@account.blob.core.windows.net/artifacts", client=client
+    )
+
+
+def _azure_repo_with_account_key_connection_string():
+    import base64
+
+    from azure.storage.blob import BlobServiceClient
+
+    account_key = base64.b64encode(b"some-key").decode("utf-8")
+    client = BlobServiceClient.from_connection_string(
+        "DefaultEndpointsProtocol=https;AccountName=account;"
+        f"AccountKey={account_key};EndpointSuffix=core.windows.net"
+    )
+    return AzureBlobArtifactRepository(
+        "wasbs://container@account.blob.core.windows.net/artifacts", client=client
+    )
+
+
+def _azure_repo_with_token_credential():
+    # e.g. DefaultAzureCredential (Microsoft Entra ID)
+    from azure.storage.blob import BlobServiceClient
+
+    client = BlobServiceClient(
+        account_url="https://account.blob.core.windows.net",
+        credential=mock.Mock(spec=["get_token"]),
+    )
+    return AzureBlobArtifactRepository(
+        "wasbs://container@account.blob.core.windows.net/artifacts", client=client
+    )
+
+
+def _azure_repo_with_sas_connection_string():
+    from azure.storage.blob import BlobServiceClient
+
+    client = BlobServiceClient.from_connection_string(
+        "BlobEndpoint=https://account.blob.core.windows.net;SharedAccessSignature=sv=2021&sig=abc"
+    )
+    return AzureBlobArtifactRepository(
+        "wasbs://container@account.blob.core.windows.net/artifacts", client=client
+    )
+
+
+def _azure_repo_with_sas_credential():
+    from azure.core.credentials import AzureSasCredential
+    from azure.storage.blob import BlobServiceClient
+
+    client = BlobServiceClient(
+        account_url="https://account.blob.core.windows.net",
+        credential=AzureSasCredential("sv=2021&sig=abc"),
+    )
+    return AzureBlobArtifactRepository(
+        "wasbs://container@account.blob.core.windows.net/artifacts", client=client
+    )
+
+
+@pytest.mark.parametrize(
+    ("repo_factory", "expected_downloads_enabled"),
+    [
+        (lambda: S3ArtifactRepository("s3://bucket/artifacts"), True),
+        (_gcs_repo_with_signing_credentials, True),
+        (_gcs_repo_with_user_credentials, False),
+        (_gcs_repo_with_anonymous_credentials, False),
+        (_azure_repo_with_account_key, True),
+        (_azure_repo_with_account_key_connection_string, True),
+        (_azure_repo_with_token_credential, False),
+        (_azure_repo_with_sas_connection_string, False),
+        (_azure_repo_with_sas_credential, False),
+    ],
+    ids=[
+        "s3",
+        "gcs_signing_credentials",
+        "gcs_user_credentials",
+        "gcs_anonymous_credentials",
+        "azure_account_key",
+        "azure_connection_string_account_key",
+        "azure_token_credential",
+        "azure_sas_connection_string",
+        "azure_sas_credential",
+    ],
+)
+def test_server_info_advertises_presigned_downloads_only_when_repo_can_sign(
+    monkeypatch, repo_factory, expected_downloads_enabled
+):
+    monkeypatch.setattr("mlflow.server.handlers._is_serving_proxied_artifacts", lambda: True)
+    artifact_repo = repo_factory()
+    monkeypatch.setattr(
+        "mlflow.server.handlers._get_artifact_repo_mlflow_artifacts", lambda: artifact_repo
+    )
+
+    with app.test_client() as c:
+        response = c.get("/api/3.0/mlflow/server-info")
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data[SERVER_INFO_MULTIPART_DOWNLOADS_ENABLED] is expected_downloads_enabled
+        # The ability to sign downloads does not affect the multipart upload capability
+        assert data[SERVER_INFO_MULTIPART_UPLOADS_ENABLED] is True
+
+
+def test_server_info_presigned_downloads_disabled_when_signing_check_fails(monkeypatch):
+    artifact_repo = _gcs_repo_with_signing_credentials()
+    monkeypatch.setattr("mlflow.server.handlers._is_serving_proxied_artifacts", lambda: True)
+    monkeypatch.setattr(
+        "mlflow.server.handlers._get_artifact_repo_mlflow_artifacts", lambda: artifact_repo
+    )
+    monkeypatch.setattr(
+        GCSArtifactRepository,
+        "supports_presigned_download",
+        mock.Mock(side_effect=RuntimeError("unexpected")),
+    )
+
+    with app.test_client() as c:
+        response = c.get("/api/3.0/mlflow/server-info")
+        assert response.status_code == 200
+        data = response.get_json()
         assert data[SERVER_INFO_MULTIPART_DOWNLOADS_ENABLED] is False
 
 
@@ -2599,6 +2763,79 @@ def test_create_presigned_download_url_unsupported_repo():
     ):
         mock_store.return_value.get_run.return_value = mock_run
         response = _create_presigned_download_url()
+
+    assert response.status_code == 501
+    json_response = json.loads(response.get_data())
+    assert json_response["error_code"] == ErrorCode.Name(NOT_IMPLEMENTED)
+    assert "presigned download" in json_response["message"].lower()
+
+
+def _gcs_repo_that_cannot_sign():
+    client = mock.MagicMock()
+    blob = client.bucket.return_value.get_blob.return_value
+    # What google-cloud-storage raises for credentials without a private key
+    blob.generate_signed_url.side_effect = AttributeError("you need a private key to sign")
+    return GCSArtifactRepository("gs://bucket/0/abc123/artifacts", client=client)
+
+
+def _azure_repo_that_cannot_sign():
+    client = mock.MagicMock()
+    client.credential = None  # e.g. a SAS-token connection string: cannot mint a SAS
+    return AzureBlobArtifactRepository(
+        "wasbs://container@account.blob.core.windows.net/0/abc123/artifacts", client=client
+    )
+
+
+@pytest.mark.parametrize(
+    "repo_factory", [_gcs_repo_that_cannot_sign, _azure_repo_that_cannot_sign], ids=["gcs", "azure"]
+)
+def test_create_presigned_download_url_returns_501_when_signing_fails(repo_factory):
+    mock_run = mock.MagicMock()
+    mock_run.info.artifact_uri = "gs://bucket/0/abc123/artifacts"
+
+    from mlflow.protos.service_pb2 import CreatePresignedDownloadUrl
+
+    request_proto = CreatePresignedDownloadUrl()
+    request_proto.run_id = "abc123"
+    request_proto.path = "model.pkl"
+
+    with (
+        app.test_request_context(method="POST", content_type="application/json"),
+        mock.patch(
+            "mlflow.server.handlers._get_request_message",
+            return_value=request_proto,
+        ),
+        mock.patch(
+            "mlflow.server.handlers._get_tracking_store",
+        ) as mock_store,
+        mock.patch(
+            "mlflow.server.handlers._get_artifact_repo",
+            return_value=repo_factory(),
+        ),
+    ):
+        mock_store.return_value.get_run.return_value = mock_run
+        response = _create_presigned_download_url()
+
+    assert response.status_code == 501
+    json_response = json.loads(response.get_data())
+    assert json_response["error_code"] == ErrorCode.Name(NOT_IMPLEMENTED)
+    assert "presigned download" in json_response["message"].lower()
+
+
+@pytest.mark.parametrize(
+    "repo_factory", [_gcs_repo_that_cannot_sign, _azure_repo_that_cannot_sign], ids=["gcs", "azure"]
+)
+def test_get_presigned_download_url_returns_501_when_signing_fails(
+    enable_serve_artifacts, repo_factory
+):
+    with (
+        app.test_request_context(method="GET"),
+        mock.patch(
+            "mlflow.server.handlers._get_artifact_repo_mlflow_artifacts",
+            return_value=repo_factory(),
+        ),
+    ):
+        response = _get_presigned_download_url("some/artifact/path")
 
     assert response.status_code == 501
     json_response = json.loads(response.get_data())

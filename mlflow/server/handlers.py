@@ -7615,7 +7615,13 @@ def build_server_info_payload() -> dict[str, Any]:
         try:
             artifact_repo = _get_artifact_repo_mlflow_artifacts()
             multipart_uploads_enabled = isinstance(artifact_repo, MultipartUploadMixin)
-            multipart_downloads_enabled = isinstance(artifact_repo, MultipartDownloadMixin)
+            # Only advertise presigned downloads when the server can actually sign: clients
+            # released before the 501 fallback trust this flag and fail on a 501 instead of
+            # falling back to the proxied download.
+            multipart_downloads_enabled = (
+                isinstance(artifact_repo, MultipartDownloadMixin)
+                and artifact_repo.supports_presigned_download()
+            )
         except Exception:
             _logger.debug(
                 "Failed to resolve artifact repo for multipart capability advertisement; "
