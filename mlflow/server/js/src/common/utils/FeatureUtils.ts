@@ -225,6 +225,14 @@ export const shouldEnableImprovedEvalRunsComparison = () => {
   return false;
 };
 
+/**
+ * Enables the refreshed evaluation runs table: status in the run name cell, rounded metric values,
+ * group averages, the dataset version column and the restyled dataset cell.
+ */
+export const shouldEnableNewEvalRunsUi = () => {
+  return false;
+};
+
 export const isScorerModelSelectionEnabled = () => {
   return true;
 };

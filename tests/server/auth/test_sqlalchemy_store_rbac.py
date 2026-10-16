@@ -2,14 +2,36 @@ import pytest
 
 from mlflow.exceptions import MlflowException
 from mlflow.server.auth.entities import Role, RolePermission, UserRoleAssignment
-from mlflow.server.auth.permissions import DENY, EDIT, MANAGE, READ, USE, VALID_RESOURCE_TYPES
+from mlflow.server.auth.permissions import (
+    DENY,
+    EDIT,
+    MANAGE,
+    READ,
+    RESOURCE_TYPE_SKILL,
+    USE,
+    VALID_RESOURCE_TYPES,
+)
 
 # Every concrete resource type the resolver accepts, excluding the special
 # ``"workspace"`` (admin-only grant form) and ``"*"`` (workspace-wide grant
 # form). Those two carry their own validation rules and are exercised by
 # scope-specific tests rather than the shared parametrised matrix below.
 _CONCRETE_RESOURCE_TYPES = sorted(VALID_RESOURCE_TYPES - {"workspace", "*"})
+_SKILL_REGISTRY_RESOURCE_TYPES = {RESOURCE_TYPE_SKILL}
+_COMMON_CONCRETE_RESOURCE_TYPES = sorted(
+    set(_CONCRETE_RESOURCE_TYPES) - _SKILL_REGISTRY_RESOURCE_TYPES
+)
+_RESOURCE_GRANT_CASES = [
+    (resource_type, permission.name, permission)
+    for resource_type in _COMMON_CONCRETE_RESOURCE_TYPES
+    for permission in (READ, USE, EDIT, MANAGE)
+] + [
+    (resource_type, permission.name, permission)
+    for resource_type in sorted(_SKILL_REGISTRY_RESOURCE_TYPES)
+    for permission in (READ, EDIT, MANAGE)
+]
 from mlflow.server.auth.sqlalchemy_store import SqlAlchemyStore
+from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 from tests.helper_functions import random_str
 
@@ -400,6 +422,86 @@ def test_update_role_permission_invalid_permission(store):
     rp = store.add_role_permission(role.id, "experiment", "123", "READ")
     with pytest.raises(MlflowException, match="Invalid permission"):
         store.update_role_permission(rp.id, "INVALID")
+
+
+# ---- User grant batches ----
+
+
+def test_grant_user_permissions_commits_batch(store, user):
+    store.grant_user_permissions(
+        user.username,
+        [
+            (RESOURCE_TYPE_SKILL, "demo-skill", MANAGE.name),
+            (RESOURCE_TYPE_SKILL, "@acme/other-skill", MANAGE.name),
+        ],
+    )
+    for key in ("demo-skill", "@acme/other-skill"):
+        assert (
+            store.get_role_permission_for_resource(
+                user.id, RESOURCE_TYPE_SKILL, key, DEFAULT_WORKSPACE_NAME
+            )
+            == MANAGE
+        )
+
+
+def test_grant_user_permissions_rolls_back_entire_batch(store, user):
+    store.grant_user_permission(user.username, RESOURCE_TYPE_SKILL, "existing", READ.name)
+    with pytest.raises(MlflowException, match="Invalid Skill Registry resource_id"):
+        store.grant_user_permissions(
+            user.username,
+            [
+                (RESOURCE_TYPE_SKILL, "new", MANAGE.name),
+                (RESOURCE_TYPE_SKILL, "existing", MANAGE.name),
+                (RESOURCE_TYPE_SKILL, "@acme/", MANAGE.name),
+            ],
+        )
+    assert (
+        store.get_role_permission_for_resource(
+            user.id, RESOURCE_TYPE_SKILL, "new", DEFAULT_WORKSPACE_NAME
+        )
+        is None
+    )
+    assert (
+        store.get_role_permission_for_resource(
+            user.id, RESOURCE_TYPE_SKILL, "existing", DEFAULT_WORKSPACE_NAME
+        )
+        == READ
+    )
+
+
+def test_grant_user_permissions_upserts_existing_grants(store, user):
+    store.grant_user_permission(user.username, RESOURCE_TYPE_SKILL, "demo", READ.name)
+    store.grant_user_permissions(user.username, [(RESOURCE_TYPE_SKILL, "demo", MANAGE.name)])
+    assert (
+        store.get_role_permission_for_resource(
+            user.id, RESOURCE_TYPE_SKILL, "demo", DEFAULT_WORKSPACE_NAME
+        )
+        == MANAGE
+    )
+
+
+@pytest.mark.parametrize("resource_pattern", ["acme/name", "@", "@acme/", "@acme/name/extra"])
+def test_skill_registry_grant_rejects_invalid_resource_pattern(store, user, resource_pattern):
+    with pytest.raises(MlflowException, match="Invalid Skill Registry resource_id"):
+        store.grant_user_permission(
+            user.username, RESOURCE_TYPE_SKILL, resource_pattern, MANAGE.name
+        )
+
+
+def test_skill_registry_role_permission_rejects_invalid_resource_pattern(store):
+    role = store.create_role("skill-admin", DEFAULT_WORKSPACE_NAME)
+    with pytest.raises(MlflowException, match="Invalid Skill Registry resource_id"):
+        store.add_role_permission(role.id, RESOURCE_TYPE_SKILL, "acme/name", MANAGE.name)
+
+
+def test_skill_registry_grant_allows_resource_type_wildcard(store, user):
+    store.grant_user_permission(user.username, RESOURCE_TYPE_SKILL, "*", MANAGE.name)
+    assert (
+        store.get_role_permission_for_resource(
+            user.id, RESOURCE_TYPE_SKILL, "any-skill", DEFAULT_WORKSPACE_NAME
+        )
+        == MANAGE
+    )
 
 
 # ---- UserRoleAssignment CRUD ----
@@ -802,15 +904,9 @@ def test_resolver_resource_type_filter(store, user):
 # ---- Resolver coverage: permission hierarchy matrix ----
 
 
-@pytest.mark.parametrize("resource_type", _CONCRETE_RESOURCE_TYPES)
 @pytest.mark.parametrize(
-    ("granted", "expected"),
-    [
-        ("READ", READ),
-        ("USE", USE),
-        ("EDIT", EDIT),
-        ("MANAGE", MANAGE),
-    ],
+    ("resource_type", "granted", "expected"),
+    _RESOURCE_GRANT_CASES,
 )
 def test_resolver_returns_granted_permission_for_each_resource_type(
     store, user, resource_type, granted, expected

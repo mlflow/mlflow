@@ -7,6 +7,11 @@ from sqlalchemy.exc import IntegrityError
 from mlflow.entities.workspace import Workspace, WorkspaceDeletionMode
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
+from mlflow.store.tracking.dbmodels.models import (
+    SqlGatewayEndpoint,
+    SqlSkill,
+    SqlSkillVersion,
+)
 from mlflow.store.workspace.dbmodels.models import SqlWorkspace
 from mlflow.store.workspace.sqlalchemy_store import SqlAlchemyStore
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
@@ -540,6 +545,163 @@ def test_delete_workspace_fails_on_naming_conflict(workspace_store):
     # Workspace should still exist (transaction rolled back)
     ws = workspace_store.get_workspace("team-a")
     assert ws.name == "team-a"
+
+
+def _insert_skill(session, *, workspace, organization, name):
+    session.execute(
+        sa.text(
+            "INSERT INTO skills (workspace, organization, name, created_at, "
+            "last_updated_at) VALUES (:ws, :org, :name, 0, 0)"
+        ),
+        {"ws": workspace, "org": organization, "name": name},
+    )
+
+
+def test_delete_workspace_set_default_allows_same_name_different_organization(workspace_store):
+    # Skills are keyed on (organization, name), so the same name under different
+    # organizations is not a conflict when merging into the default workspace.
+    workspace_store.create_workspace(Workspace(name="team-a", description=None))
+    with workspace_store.ManagedSessionMaker(read_only=False) as session:
+        _insert_skill(session, workspace="team-a", organization="acme", name="code-review")
+        _insert_skill(
+            session, workspace=DEFAULT_WORKSPACE_NAME, organization="other", name="code-review"
+        )
+
+    workspace_store.delete_workspace("team-a", mode=WorkspaceDeletionMode.SET_DEFAULT)
+
+    with workspace_store.ManagedSessionMaker() as session:
+        moved = session.execute(
+            sa.text("SELECT COUNT(*) FROM skills WHERE workspace = :ws"),
+            {"ws": DEFAULT_WORKSPACE_NAME},
+        ).scalar_one()
+    assert moved == 2
+
+
+def test_delete_workspace_set_default_blocks_same_organization_and_name(workspace_store):
+    workspace_store.create_workspace(Workspace(name="team-a", description=None))
+    with workspace_store.ManagedSessionMaker(read_only=False) as session:
+        _insert_skill(session, workspace="team-a", organization="acme", name="code-review")
+        _insert_skill(
+            session, workspace=DEFAULT_WORKSPACE_NAME, organization="acme", name="code-review"
+        )
+
+    with pytest.raises(MlflowException, match="already exist in the default workspace"):
+        workspace_store.delete_workspace("team-a", mode=WorkspaceDeletionMode.SET_DEFAULT)
+    assert workspace_store.get_workspace("team-a").name == "team-a"
+
+
+def test_delete_workspace_set_default_blocks_conflicting_secret_names(workspace_store):
+
+    def _insert_secret(session, *, workspace, secret_name, secret_id):
+        session.execute(
+            sa.text(
+                "INSERT INTO secrets (secret_id, secret_name, workspace, encrypted_value, "
+                "wrapped_dek, kek_version, masked_value, created_at, last_updated_at) "
+                "VALUES (:secret_id, :secret_name, :ws, :value, :dek, 1, 'masked', 0, 0)"
+            ),
+            {
+                "secret_id": secret_id,
+                "secret_name": secret_name,
+                "ws": workspace,
+                "value": b"encrypted",
+                "dek": b"dek",
+            },
+        )
+
+    workspace_store.create_workspace(Workspace(name="team-a", description=None))
+    with workspace_store.ManagedSessionMaker(read_only=False) as session:
+        _insert_secret(session, workspace="team-a", secret_name="shared", secret_id="s-team-a")
+        _insert_secret(
+            session, workspace=DEFAULT_WORKSPACE_NAME, secret_name="shared", secret_id="s-default"
+        )
+
+    with pytest.raises(MlflowException, match=r"secrets: 'shared'"):
+        workspace_store.delete_workspace("team-a", mode=WorkspaceDeletionMode.SET_DEFAULT)
+    assert workspace_store.get_workspace("team-a").name == "team-a"
+
+
+def test_delete_workspace_set_default_merges_unnamed_endpoints(workspace_store):
+    # Fast guard to record the following behaviour: `endpoints.name` is nullable, and SQL
+    # treats NULL = NULL as unknown, so two unnamed endpoints are not a clash currently.
+    # Comparing the names in Python, where None == None, would refuse this merge (i.e. the
+    # reassignment of each resource's workspace to `default`). The cross-dialect version,
+    # which also covers SQL Server refusing that merge at the database level, is
+    # tests/db/test_workspace_set_default.py.
+    workspace_store.create_workspace(Workspace(name="team-a", description=None))
+    with workspace_store.ManagedSessionMaker(read_only=False) as session:
+        session.add_all([
+            SqlGatewayEndpoint(endpoint_id="e-a", name=None, workspace="team-a"),
+            SqlGatewayEndpoint(
+                endpoint_id="e-default", name=None, workspace=DEFAULT_WORKSPACE_NAME
+            ),
+        ])
+
+    workspace_store.delete_workspace("team-a", mode=WorkspaceDeletionMode.SET_DEFAULT)
+
+    with workspace_store.ManagedSessionMaker() as session:
+        moved = {
+            (endpoint.endpoint_id, endpoint.workspace)
+            for endpoint in session.query(SqlGatewayEndpoint)
+        }
+    assert moved == {
+        ("e-a", DEFAULT_WORKSPACE_NAME),
+        ("e-default", DEFAULT_WORKSPACE_NAME),
+    }
+
+
+def _seed_skill_with_version(session, workspace, source_type="git"):
+    session.add(SqlSkill(workspace=workspace, organization="acme", name="code-review"))
+    session.add(
+        SqlSkillVersion(
+            workspace=workspace,
+            organization="acme",
+            name="code-review",
+            version=1,
+            source_type=source_type,
+            source="mlflow-artifacts:/skills/@acme/code-review/content"
+            if source_type == "mlflow"
+            else "s.git",
+        )
+    )
+
+
+def test_delete_workspace_set_default_blocks_mlflow_backed_skills(workspace_store):
+    workspace_store.create_workspace(Workspace(name="team-a", description=None))
+    with workspace_store.ManagedSessionMaker(read_only=False) as session:
+        _seed_skill_with_version(session, "team-a", source_type="mlflow")
+
+    with pytest.raises(MlflowException, match="MLflow-backed skill versions") as exc:
+        workspace_store.delete_workspace("team-a", mode=WorkspaceDeletionMode.SET_DEFAULT)
+    assert exc.value.error_code == "INVALID_STATE"
+    assert workspace_store.get_workspace("team-a").name == "team-a"
+    with workspace_store.ManagedSessionMaker() as session:
+        assert session.query(SqlSkillVersion.workspace).one()[0] == "team-a"
+
+
+def test_delete_workspace_set_default_allows_external_skill_sources(workspace_store):
+    workspace_store.create_workspace(Workspace(name="team-a", description=None))
+    with workspace_store.ManagedSessionMaker(read_only=False) as session:
+        _seed_skill_with_version(session, "team-a")
+
+    workspace_store.delete_workspace("team-a", mode=WorkspaceDeletionMode.SET_DEFAULT)
+
+    with workspace_store.ManagedSessionMaker() as session:
+        assert session.query(SqlSkillVersion.workspace).one()[0] == DEFAULT_WORKSPACE_NAME
+
+
+def test_delete_workspace_cascade_removes_skill_graph(workspace_store):
+    workspace_store.create_workspace(Workspace(name="team-a", description=None))
+    with workspace_store.ManagedSessionMaker(read_only=False) as session:
+        _seed_skill_with_version(session, "team-a")
+
+    workspace_store.delete_workspace("team-a", mode=WorkspaceDeletionMode.CASCADE)
+
+    with workspace_store.ManagedSessionMaker() as session:
+        for model in (
+            SqlSkill,
+            SqlSkillVersion,
+        ):
+            assert session.query(model).count() == 0
 
 
 def test_delete_workspace_cascade_removes_resources(workspace_store):
