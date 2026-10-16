@@ -454,6 +454,73 @@ def test_bedrock_aws_client(provider, config, aws_config):
             )
 
 
+def test_bedrock_config_endpoint_url_defaults_to_none():
+    config = AmazonBedrockConfig.model_validate(
+        {"aws_config": {"aws_region": "us-east-1", "aws_role_arn": "test-aws-role-arn"}}
+    )
+    assert config.endpoint_url is None
+
+
+def test_bedrock_config_accepts_endpoint_url():
+    config = AmazonBedrockConfig.model_validate(
+        {
+            "aws_config": {"aws_region": "us-east-1", "aws_role_arn": "test-aws-role-arn"},
+            "endpoint_url": "https://bedrock-runtime.example-vpce.amazonaws.com",
+        }
+    )
+    assert config.endpoint_url == "https://bedrock-runtime.example-vpce.amazonaws.com"
+
+
+def test_bedrock_client_passes_endpoint_url_when_set():
+    fixture = bedrock_model_provider_fixtures[0]
+    aws_config = {
+        "aws_region": "us-east-1",
+        "aws_access_key_id": "test-access-key-id",
+        "aws_secret_access_key": "test-secret-access-key",
+    }
+    endpoint_url = "https://bedrock-runtime.example-vpce.amazonaws.com"
+
+    with mock.patch("boto3.Session") as mock_session:
+        mock_client = mock.Mock()
+        mock_session.return_value.client = mock_client
+
+        endpoint_config = _merge_model_and_aws_config(fixture["config"], aws_config)
+        endpoint_config["model"]["config"]["endpoint_url"] = endpoint_url
+
+        provider = AmazonBedrockProvider(EndpointConfig(**endpoint_config))
+        provider.get_bedrock_client()
+
+        _assert_any_call_at_least(
+            mock_client, service_name="bedrock-runtime", endpoint_url=endpoint_url
+        )
+
+
+def test_bedrock_client_omits_endpoint_url_when_unset():
+    fixture = bedrock_model_provider_fixtures[0]
+    aws_config = {
+        "aws_region": "us-east-1",
+        "aws_access_key_id": "test-access-key-id",
+        "aws_secret_access_key": "test-secret-access-key",
+    }
+
+    with mock.patch("boto3.Session") as mock_session:
+        mock_client = mock.Mock()
+        mock_session.return_value.client = mock_client
+
+        provider = AmazonBedrockProvider(
+            EndpointConfig(**_merge_model_and_aws_config(fixture["config"], aws_config))
+        )
+        provider.get_bedrock_client()
+
+        runtime_calls = [
+            call
+            for call in mock_client.call_args_list
+            if call.kwargs.get("service_name") == "bedrock-runtime"
+        ]
+        assert runtime_calls, "bedrock-runtime client was never created"
+        assert all("endpoint_url" not in call.kwargs for call in runtime_calls)
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize("aws_config", [c[0] for c in bedrock_aws_configs])
 @pytest.mark.parametrize(

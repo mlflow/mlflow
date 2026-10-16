@@ -303,9 +303,10 @@ class AmazonBedrockProvider(BaseProvider):
         session = boto3.Session(**self._construct_session_args())
 
         try:
-            self._client = session.client(
-                service_name="bedrock-runtime", **self._construct_client_args(session)
-            )
+            client_args = self._construct_client_args(session)
+            if self.bedrock_config.endpoint_url:
+                client_args["endpoint_url"] = self.bedrock_config.endpoint_url
+            self._client = session.client(service_name="bedrock-runtime", **client_args)
             self._client_created = time.monotonic_ns()
             return self._client
         except botocore.exceptions.UnknownServiceError as e:
