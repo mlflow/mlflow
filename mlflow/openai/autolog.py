@@ -529,16 +529,36 @@ def _reconstruct_completion_from_stream(chunks: list[Any]) -> Any:
             return "".join(text_parts)
         return content
 
+    tool_calls: list[dict[str, Any]] = []
+    finish_reason = "stop"
+    for chunk in chunks:
+        if not chunk.choices:
+            continue
+        chunk_choice = chunk.choices[0]
+        if chunk_choice.finish_reason:
+            finish_reason = chunk_choice.finish_reason
+        for tool_call_delta in getattr(chunk_choice.delta, "tool_calls", None) or []:
+            while tool_call_delta.index >= len(tool_calls):
+                tool_calls.append({
+                    "id": "",
+                    "type": "function",
+                    "function": {"name": "", "arguments": ""},
+                })
+            tool_call = tool_calls[tool_call_delta.index]
+            if tool_call_delta.id:
+                tool_call["id"] = tool_call_delta.id
+            if function := tool_call_delta.function:
+                tool_call["function"]["name"] += function.name or ""
+                tool_call["function"]["arguments"] += function.arguments or ""
+
+    content = "".join(map(_extract_content, chunks))
     message = ChatCompletionMessage(
-        role="assistant", content="".join(map(_extract_content, chunks))
+        role="assistant",
+        content=None if tool_calls and not content else content,
+        tool_calls=tool_calls or None,
     )
 
-    # Extract metadata from the last chunk
     last_chunk = chunks[-1]
-    finish_reason = "stop"
-    if choices := getattr(last_chunk, "choices", None):
-        if chunk_choice := choices[0]:
-            finish_reason = getattr(chunk_choice, "finish_reason") or finish_reason
 
     choice = Choice(index=0, message=message, finish_reason=finish_reason)
 
