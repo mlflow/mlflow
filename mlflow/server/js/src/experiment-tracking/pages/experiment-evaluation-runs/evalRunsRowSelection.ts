@@ -1,5 +1,26 @@
 import type { Row, Table } from '@tanstack/react-table';
 import type { MutableRefObject } from 'react';
+import type { RunEntityOrGroupData } from './ExperimentEvaluationRunsPage.utils';
+
+export const containsRun = (row: RunEntityOrGroupData, runUuid: string): boolean =>
+  ('info' in row && row.info.runUuid === runUuid) ||
+  ('subRuns' in row && row.subRuns.some((subRun) => containsRun(subRun, runUuid))) ||
+  Boolean('children' in row && row.children?.some((child) => containsRun(child, runUuid)));
+
+// Moves the baseline row (or its group) and its subtree to the top, matching the pinned table order.
+export const pinBaselineRows = (rows: Row<RunEntityOrGroupData>[], baselineRunUuid: string) => {
+  const baselineIndex = rows.findIndex(
+    (row) =>
+      row.id === baselineRunUuid || ('groupValues' in row.original && containsRun(row.original, baselineRunUuid)),
+  );
+  if (baselineIndex <= 0) {
+    return rows;
+  }
+  const baselineDepth = rows[baselineIndex].depth;
+  const subtreeEnd = rows.findIndex((row, index) => index > baselineIndex && row.depth <= baselineDepth);
+  const end = subtreeEnd === -1 ? rows.length : subtreeEnd;
+  return [...rows.slice(baselineIndex, end), ...rows.slice(0, baselineIndex), ...rows.slice(end)];
+};
 
 /**
  * Toggles one row, or on shift-click every selectable visible row from the anchor (the last clicked
@@ -13,17 +34,21 @@ export const toggleEvalRunRowSelection = <TData>({
   row,
   selectRange,
   anchorRowIdRef,
+  orderRows,
 }: {
   table: Table<TData>;
   row: Row<TData>;
   selectRange: boolean;
   anchorRowIdRef: MutableRefObject<string | undefined>;
+  /** Reorders the row model to match the rendered order, so a range covers the rows shown between the clicks. */
+  orderRows?: (rows: Row<TData>[]) => Row<TData>[];
 }): void => {
   const { rowSelection } = table.getState();
   const anchorRowId = anchorRowIdRef.current;
   anchorRowIdRef.current = row.id;
 
-  const rows = table.getRowModel().rows;
+  const modelRows = table.getRowModel().rows;
+  const rows = orderRows ? orderRows(modelRows) : modelRows;
   const anchorIndex =
     selectRange && anchorRowId && rowSelection[anchorRowId] ? rows.findIndex((r) => r.id === anchorRowId) : -1;
   const targetIndex = rows.findIndex((r) => r.id === row.id);

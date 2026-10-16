@@ -32,6 +32,7 @@ import {
   parseEvalRunsTableKeyedColumnKey,
 } from './ExperimentEvaluationRunsTable.utils';
 import type { RunEntityOrGroupData } from './ExperimentEvaluationRunsPage.utils';
+import { containsRun, pinBaselineRows } from './evalRunsRowSelection';
 import type { RunEntity, RunEntityWithChildren } from '../../types';
 import { getEvalRunsFilterFieldForColumn } from './evalRunsFilterFields';
 import type { ExperimentEvaluationRunsPageMode } from './hooks/useExperimentEvaluationRunsPageMode';
@@ -40,11 +41,6 @@ import { useExperimentEvaluationRunsRowVisibility } from './hooks/useExperimentE
 const EVAL_RUNS_COLUMN_SIZING = createResizableColumnSizing('eval-runs-table');
 
 const EVAL_RUNS_COLUMN_SIZING_STORAGE_KEY = 'mlflow.eval-runs.column-sizing';
-
-const containsRun = (row: RunEntityOrGroupData, runUuid: string): boolean =>
-  ('info' in row && row.info.runUuid === runUuid) ||
-  ('subRuns' in row && row.subRuns.some((subRun) => containsRun(subRun, runUuid))) ||
-  Boolean('children' in row && row.children?.some((child) => containsRun(child, runUuid)));
 
 // The baseline (or its group) leads the table even when the current sort or filters would move or hide it.
 const pinBaselineData = (data: RunEntityOrGroupData[], baselineRun: RunEntity): RunEntityOrGroupData[] => {
@@ -71,19 +67,6 @@ const pinBaselineData = (data: RunEntityOrGroupData[], baselineRun: RunEntity): 
   return [pinnedRun, ...remainingData];
 };
 
-const pinBaselineRows = (rows: Row<RunEntityOrGroupData>[], baselineRunUuid: string) => {
-  const baselineIndex = rows.findIndex(
-    (row) =>
-      row.id === baselineRunUuid || ('groupValues' in row.original && containsRun(row.original, baselineRunUuid)),
-  );
-  if (baselineIndex <= 0) {
-    return rows;
-  }
-  const baselineDepth = rows[baselineIndex].depth;
-  const subtreeEnd = rows.findIndex((row, index) => index > baselineIndex && row.depth <= baselineDepth);
-  const end = subtreeEnd === -1 ? rows.length : subtreeEnd;
-  return [...rows.slice(baselineIndex, end), ...rows.slice(0, baselineIndex), ...rows.slice(end)];
-};
 // localStorage version for persisted column widths — bump when the column set or sizing scheme changes.
 const EVAL_RUNS_COLUMN_SIZING_STORAGE_VERSION = 2;
 

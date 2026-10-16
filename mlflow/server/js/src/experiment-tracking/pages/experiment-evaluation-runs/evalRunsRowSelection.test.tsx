@@ -1,12 +1,12 @@
 import { jest, describe, test, expect } from '@jest/globals';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type { RowSelectionState } from '@tanstack/react-table';
+import type { RowSelectionState, SortingState } from '@tanstack/react-table';
 import { useState } from 'react';
 import { IntlProvider } from 'react-intl';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { ExperimentEvaluationRunsTable } from './ExperimentEvaluationRunsTable';
-import { getEvalRunsBaseSelectionState } from './ExperimentEvaluationRunsTable.constants';
+import { EvalRunsTableColumnId, getEvalRunsBaseSelectionState } from './ExperimentEvaluationRunsTable.constants';
 import { ExperimentEvaluationRunsRowVisibilityProvider } from './hooks/useExperimentEvaluationRunsRowVisibility';
 import { ExperimentEvaluationRunsPageMode } from './hooks/useExperimentEvaluationRunsPageMode';
 import type { RunEntityWithChildren } from '../../types';
@@ -36,12 +36,23 @@ const makeRun = (runUuid: string): RunEntityWithChildren =>
     outputs: { modelOutputs: [] },
   }) as unknown as RunEntityWithChildren;
 
-const SelectionHarness = ({ enableNewEvalRunsUi }: { enableNewEvalRunsUi: boolean }) => {
+const SelectionHarness = ({
+  enableNewEvalRunsUi,
+  baselineRunUuid,
+  sorting,
+}: {
+  enableNewEvalRunsUi: boolean;
+  baselineRunUuid?: string;
+  sorting?: SortingState;
+}) => {
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   return (
     <>
       <ExperimentEvaluationRunsTable
         data={RUN_IDS.map(makeRun)}
+        baselineRun={baselineRunUuid ? makeRun(baselineRunUuid) : undefined}
+        sorting={sorting}
+        onSortingChange={sorting ? jest.fn() : undefined}
         uniqueColumns={[]}
         selectedColumns={getEvalRunsBaseSelectionState(enableNewEvalRunsUi)}
         setSelectedRunUuid={jest.fn()}
@@ -59,12 +70,17 @@ const SelectionHarness = ({ enableNewEvalRunsUi }: { enableNewEvalRunsUi: boolea
   );
 };
 
-const renderHarness = (enableNewEvalRunsUi: boolean) =>
+const renderHarness = (
+  enableNewEvalRunsUi: boolean,
+  options: { baselineRunUuid?: string; sorting?: SortingState } = {},
+) =>
   render(
     <IntlProvider locale="en">
       <DesignSystemProvider>
         <ExperimentEvaluationRunsRowVisibilityProvider>
-          <TestRouter routes={[testRoute(<SelectionHarness enableNewEvalRunsUi={enableNewEvalRunsUi} />)]} />
+          <TestRouter
+            routes={[testRoute(<SelectionHarness enableNewEvalRunsUi={enableNewEvalRunsUi} {...options} />)]}
+          />
         </ExperimentEvaluationRunsRowVisibilityProvider>
       </DesignSystemProvider>
     </IntlProvider>,
@@ -111,6 +127,23 @@ describe('eval runs row selection', () => {
     // The clicked row becomes the anchor for the next range.
     await shiftClick(getRowCheckbox('run-2'));
     expect(getSelectedRuns()).toBe('run-2,run-3,run-4');
+  });
+
+  test('flag on: shift-click ranges follow the pinned baseline order, not the sorted order', async () => {
+    // Sorted by name the baseline (run-4) is last, but it renders first, directly above run-1.
+    renderHarness(true, {
+      baselineRunUuid: 'run-4',
+      sorting: [{ id: EvalRunsTableColumnId.runName, desc: false }],
+    });
+    const renderedRunIds = screen
+      .getAllByTestId(/^eval-runs-table-cell-checkbox-/)
+      .map((checkbox) => checkbox.getAttribute('data-testid')?.replace('eval-runs-table-cell-checkbox-', ''));
+    expect(renderedRunIds).toEqual(['run-4', 'run-1', 'run-2', 'run-3']);
+
+    await userEvent.click(getRowCheckbox('run-4'));
+    await shiftClick(getRowCheckbox('run-1'));
+
+    expect(getSelectedRuns()).toBe('run-1,run-4');
   });
 
   test('flag on: the header checkbox selects and clears every run', async () => {

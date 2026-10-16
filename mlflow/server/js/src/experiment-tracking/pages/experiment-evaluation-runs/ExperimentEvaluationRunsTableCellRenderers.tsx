@@ -40,7 +40,7 @@ import type { DatasetWithRunType } from '../../components/experiment-page/compon
 import { isEvalRunsTableMeta } from './ExperimentEvaluationRunsTable.types';
 import { EvalRunsTableKeyedColumnPrefix } from './ExperimentEvaluationRunsTable.constants';
 import { formatEvalRunsNumericValue } from './ExperimentEvaluationRunsNumberFormat';
-import { toggleEvalRunRowSelection } from './evalRunsRowSelection';
+import { pinBaselineRows, toggleEvalRunRowSelection } from './evalRunsRowSelection';
 import { getEvalRunsGroupMetricMean } from './EvalRunsGroup.utils';
 import { useExperimentEvaluationRunsRowVisibility } from './hooks/useExperimentEvaluationRunsRowVisibility';
 import { RunPageTabName } from '../../constants';
@@ -91,7 +91,14 @@ export const CheckboxCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({ row, tab
           row.toggleSelected();
           return;
         }
-        toggleEvalRunRowSelection({ table, row, selectRange: event.nativeEvent.shiftKey, anchorRowIdRef });
+        const baselineRunUuid = isEvalRunsTableMeta(meta) ? meta.baselineRunUuid : undefined;
+        toggleEvalRunRowSelection({
+          table,
+          row,
+          selectRange: event.nativeEvent.shiftKey,
+          anchorRowIdRef,
+          orderRows: baselineRunUuid ? (rows) => pinBaselineRows(rows, baselineRunUuid) : undefined,
+        });
       }}
       onClick={(e) => e.stopPropagation()}
     />
