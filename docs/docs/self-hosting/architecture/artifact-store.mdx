@@ -273,12 +273,15 @@ store's CORS policy to allow the MLflow UI origin, the required `GET` and `PUT` 
 the signed credentials. For S3 multipart uploads, expose the `ETag` response header so the browser can complete
 the upload.
 When the server still permits proxy transfers, the UI falls back to the proxy if a
-browser network or CORS error prevents the direct request.
+browser network or CORS error prevents the direct request. If an S3 upload succeeds but its `ETag` is
+hidden, the UI aborts the multipart upload before retrying through that artifact service's proxy.
+Compatibility transfers preserve the artifact service's deployment prefix and full artifact path,
+including when the Tracking Server and artifact service use separate prefixes under the same origin.
 
 The UI also uses presigned URLs with
 [proxied artifact access](/self-hosting/architecture/tracking-server#tracking-server-artifact-store)
 when the artifact service supports multipart downloads. If presigned downloads are unavailable, the UI downloads
-through the Tracking Server when proxied transfers are allowed.
+through the original artifact service when proxied transfers are allowed.
 
 The UI requires the artifact service's signing and multipart-upload endpoints to share the UI's origin
 (scheme, host, and port). For a separately deployed artifact server, configure a reverse proxy under the

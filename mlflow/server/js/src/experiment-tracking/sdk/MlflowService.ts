@@ -179,6 +179,18 @@ export class MlflowService {
       file_size?: number;
     }>;
 
+  static getMlflowArtifactsProxyUrl = (path: string, artifactServiceBaseUrl?: string) =>
+    getMlflowArtifactsRequest('artifacts', path, artifactServiceBaseUrl).relativeUrl;
+
+  static uploadMlflowArtifact = async (path: string, body: BodyInit, artifactServiceBaseUrl?: string) =>
+    fetchEndpoint({
+      ...getMlflowArtifactsRequest('artifacts', path, artifactServiceBaseUrl),
+      method: HTTPMethods.PUT,
+      body,
+      success: defaultResponseParser,
+      retries: 0,
+    });
+
   static createMlflowArtifactsMultipartUpload = async (
     artifactPath: string,
     data: { path: string; num_parts: number },

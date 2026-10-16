@@ -31,6 +31,10 @@ describe('fetchArtifactUnified', () => {
 
   let capturedRequests: { url: string; workspaceHeader: string | null }[] = [];
   const server = setupServer(
+    rest.get(/\/ajax-api\/2\.0\/mlflow\/runs\/get$/, (req, res, ctx) => {
+      capturedRequests.push({ url: req.url.toString(), workspaceHeader: req.headers.get('X-MLFLOW-WORKSPACE') });
+      return res(ctx.json({ run: { info: { artifact_uri: 'mlflow-artifacts:/1/test-run-uuid/artifacts' } } }));
+    }),
     rest.get(/\/logged-models\/test-logged-model-id$/, (req, res, ctx) => {
       capturedRequests.push({ url: req.url.toString(), workspaceHeader: req.headers.get('X-MLFLOW-WORKSPACE') });
       return res(ctx.json({ model: { info: { artifact_uri: 's3://bucket/model/artifacts' } } }));
@@ -39,14 +43,13 @@ describe('fetchArtifactUnified', () => {
       capturedRequests.push({ url: req.url.toString(), workspaceHeader: req.headers.get('X-MLFLOW-WORKSPACE') });
       return res(ctx.status(501));
     }),
-    rest.get(/\/?get-artifact/, (req, res, ctx) => {
-      capturedRequests.push({ url: req.url.toString(), workspaceHeader: req.headers.get('X-MLFLOW-WORKSPACE') });
-      return res(ctx.body(runArtifactContent));
-    }),
-    rest.get(/\/?ajax-api\/2\.0\/mlflow\/get-artifact/, (req, res, ctx) => {
-      capturedRequests.push({ url: req.url.toString(), workspaceHeader: req.headers.get('X-MLFLOW-WORKSPACE') });
-      return res(ctx.body(runArtifactContent));
-    }),
+    rest.get(
+      /\/ajax-api\/2\.0\/mlflow-artifacts\/artifacts\/1\/test-run-uuid\/artifacts\/path\/to\/artifact$/,
+      (req, res, ctx) => {
+        capturedRequests.push({ url: req.url.toString(), workspaceHeader: req.headers.get('X-MLFLOW-WORKSPACE') });
+        return res(ctx.body(runArtifactContent));
+      },
+    ),
     rest.get(/\/?ajax-api\/2\.0\/mlflow\/logged-models\/test-logged-model-id\/artifacts\/files/, (req, res, ctx) => {
       capturedRequests.push({ url: req.url.toString(), workspaceHeader: req.headers.get('X-MLFLOW-WORKSPACE') });
       return res(ctx.body(loggedModelArtifactContent));
@@ -83,8 +86,10 @@ describe('fetchArtifactUnified', () => {
     );
 
     expect(result).toEqual(runArtifactContent);
-
-    expect(capturedRequests.length).toBeGreaterThan(0);
+    expect(capturedRequests.map(({ url }) => new URL(url).pathname)).toEqual([
+      '/ajax-api/2.0/mlflow/runs/get',
+      '/ajax-api/2.0/mlflow-artifacts/artifacts/1/test-run-uuid/artifacts/path/to/artifact',
+    ]);
     for (const req of capturedRequests) {
       expect(req.workspaceHeader).toBe('team-a');
     }

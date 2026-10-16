@@ -177,6 +177,7 @@ export const ImagePlot = ({
                 bottom: 0,
                 width: '100%',
                 textAlign: 'center',
+                whiteSpace: 'normal',
                 backgroundColor: theme.colors.backgroundSecondary,
               }}
             >

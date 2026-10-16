@@ -14,8 +14,9 @@ const getArtifactErrorDescription = (error: unknown) => {
   if (error instanceof ArtifactPreviewTooLargeError) return error.message;
   if (
     error instanceof ErrorWrapper &&
-    error.getStatus() === 403 &&
-    (error.textJson?.artifacts_presigned_only === true || error.textJson?.external_artifact_service === true)
+    ((error.getStatus() === 403 &&
+      (error.textJson?.artifacts_presigned_only === true || error.textJson?.external_artifact_service === true)) ||
+      (error.getStatus() === 400 && error.textJson?.invalid_artifact_root === true))
   ) {
     return error.getMessageField();
   }

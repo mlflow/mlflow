@@ -18,7 +18,28 @@ const PRESIGNED_FALLBACK_STATUSES = [400, 404, 501, 503];
 const joinArtifactPaths = (rootPath: string, artifactPath: string) =>
   [rootPath.replace(/^\/+|\/+$/g, ''), artifactPath.replace(/^\/+/, '')].filter(Boolean).join('/');
 
-const getDecodedPathname = (url: URL) => decodeURIComponent(url.pathname);
+class ArtifactRootResolutionError extends ErrorWrapper {
+  constructor() {
+    super(
+      {
+        error_code: 'INVALID_PARAMETER_VALUE',
+        message: 'The artifact root URI cannot be decoded safely.',
+        invalid_artifact_root: true,
+      },
+      400,
+    );
+  }
+}
+
+const getDecodedPathname = (url: URL) => {
+  try {
+    // URI roots can contain a literal percent sign. Preserve stray percent
+    // signs while still decoding valid UTF-8 escapes and encoded separators.
+    return decodeURIComponent(url.pathname.replace(/%(?![0-9a-f]{2})/gi, '%25'));
+  } catch {
+    throw new ArtifactRootResolutionError();
+  }
+};
 
 /**
  * Returns an artifact-service-relative path for proxied artifact URIs.
@@ -44,9 +65,12 @@ export const getProxiedArtifactRoute = (
         // Explicit authorities replace the tracking host, retaining its scheme and
         // deployment prefix, just as the Python artifact repository does.
         const artifactServiceUrl = new URL(getAjaxUrl('./'), document.baseURI);
-        artifactServiceUrl.host = parsedArtifactRootUri.host;
+        // Parse as an HTTP origin first: assigning an invalid URL.host can fail
+        // silently and leave the tracking host in place.
+        const artifactOrigin = new URL(`${artifactServiceUrl.protocol}//${parsedArtifactRootUri.host}/`);
+        artifactServiceUrl.hostname = artifactOrigin.hostname;
         // Setting host without a port leaves the old URL's port unchanged.
-        artifactServiceUrl.port = parsedArtifactRootUri.port;
+        artifactServiceUrl.port = artifactOrigin.port;
         return { path, artifactServiceBaseUrl: artifactServiceUrl.toString() };
       }
       return { path };
@@ -63,7 +87,14 @@ export const getProxiedArtifactRoute = (
         };
       }
     }
-  } catch {
+  } catch (error) {
+    if (
+      error instanceof ArtifactRootResolutionError ||
+      artifactRootUri.toLowerCase().startsWith('mlflow-artifacts:') ||
+      MLFLOW_ARTIFACTS_ROUTE.test(artifactRootUri)
+    ) {
+      throw error instanceof ArtifactRootResolutionError ? error : new ArtifactRootResolutionError();
+    }
     return undefined;
   }
   return undefined;
@@ -71,8 +102,8 @@ export const getProxiedArtifactRoute = (
 
 const getErrorStatus = (error: unknown) => (error instanceof ErrorWrapper ? error.getStatus() : undefined);
 
-const shouldFallBackToProxy = (error: unknown, presignedOnly: boolean) => {
-  if (presignedOnly) return false;
+export const shouldFallBackToProxy = (error: unknown, presignedOnly: boolean) => {
+  if (presignedOnly || error instanceof ArtifactRootResolutionError) return false;
   // Browser fetch reports network and CORS failures as TypeError without an HTTP status.
   if (
     error instanceof TypeError ||
@@ -143,33 +174,46 @@ export type PresignedArtifactParams = {
 export type PresignedArtifactDownload = {
   url: string;
   headers: Record<string, string>;
+  /** Same-service byte route retained when a previously resolved download is reused. */
+  proxyUrl?: string;
 };
 
-/**
- * Resolves the direct download URL for an artifact. Returning undefined means
- * that callers may use the legacy tracking-server route for compatibility.
- */
-export const resolvePresignedArtifactDownload = async (
-  params: PresignedArtifactParams,
-): Promise<PresignedArtifactDownload | undefined> => {
+export type ArtifactDownloadResolution = {
+  presigned?: PresignedArtifactDownload;
+  proxyUrl?: string;
+};
+
+/** Resolve signing and its compatibility destination together so fallback preserves the artifact store. */
+export const resolveArtifactDownload = async (params: PresignedArtifactParams): Promise<ArtifactDownloadResolution> => {
   const artifactsPresignedOnly = getArtifactsPresignedOnlySync();
   const canResolveLoggedModel = params.isLoggedModelsMode && params.loggedModelId;
-  if (!params.artifactRootUri && !artifactsPresignedOnly && !canResolveLoggedModel) {
-    return undefined;
+  if (!params.artifactRootUri && !params.runUuid && !artifactsPresignedOnly && !canResolveLoggedModel) {
+    return {};
   }
+  // Discovery failures do not identify a safe compatibility destination.
+  const artifactRootUri =
+    params.artifactRootUri ??
+    (canResolveLoggedModel
+      ? (await MlflowService.getLoggedModel(canResolveLoggedModel))?.model?.info?.artifact_uri
+      : params.runUuid
+        ? await getRunArtifactRootUri(params.runUuid)
+        : undefined);
+  if (!artifactRootUri) {
+    throw new ErrorWrapper('The server did not return an artifact root for this artifact.', 501);
+  }
+  let proxyUrl: string | undefined;
   try {
-    const artifactRootUri =
-      params.artifactRootUri ??
-      (canResolveLoggedModel
-        ? (await MlflowService.getLoggedModel(canResolveLoggedModel))?.model?.info?.artifact_uri
-        : params.runUuid
-          ? await getRunArtifactRootUri(params.runUuid)
-          : undefined);
     const proxiedArtifactRoute = getProxiedArtifactRoute(artifactRootUri, params.path);
     if (proxiedArtifactRoute) {
+      // Validate the origin even when signing is disabled, and retain the exact
+      // service prefix and artifact root rather than switching to the tracking proxy.
+      proxyUrl = MlflowService.getMlflowArtifactsProxyUrl(
+        proxiedArtifactRoute.path,
+        proxiedArtifactRoute.artifactServiceBaseUrl,
+      );
       const multipartDownloadsEnabled = params.multipartDownloadsEnabled ?? getMultipartDownloadsEnabledSync();
       if (!multipartDownloadsEnabled && !artifactsPresignedOnly && !proxiedArtifactRoute.artifactServiceBaseUrl) {
-        return undefined;
+        return { proxyUrl };
       }
       const response = proxiedArtifactRoute.artifactServiceBaseUrl
         ? await MlflowService.getMlflowArtifactsPresignedDownloadUrl(
@@ -178,7 +222,7 @@ export const resolvePresignedArtifactDownload = async (
           )
         : await MlflowService.getMlflowArtifactsPresignedDownloadUrl(proxiedArtifactRoute.path);
       if (response.url) {
-        return { url: response.url, headers: response.headers ?? {} };
+        return { presigned: { url: response.url, headers: response.headers ?? {} }, proxyUrl };
       }
     } else if (params.isLoggedModelsMode && params.loggedModelId) {
       if (artifactsPresignedOnly || getModelArtifactPresignedDownloadsSupportedSync()) {
@@ -186,10 +230,10 @@ export const resolvePresignedArtifactDownload = async (
           loggedModelId: params.loggedModelId,
           path: params.path,
         });
-        if (response.url) return { url: response.url, headers: response.headers ?? {} };
+        if (response.url) return { presigned: { url: response.url, headers: response.headers ?? {} } };
         throw new ErrorWrapper('The server did not return a presigned logged-model artifact URL.', 501);
       }
-      if (!getLoggedModelArtifactReadCredentialsSupportedSync()) return undefined;
+      if (!getLoggedModelArtifactReadCredentialsSupportedSync()) return {};
       const response = await MlflowService.getCredentialsForLoggedModelArtifactRead({
         loggedModelId: params.loggedModelId,
         path: params.path,
@@ -200,8 +244,10 @@ export const resolvePresignedArtifactDownload = async (
         credentials[0]?.credential_info;
       if (credential?.signed_uri) {
         return {
-          url: credential.signed_uri,
-          headers: normalizeCredentialHeaders(credential.headers),
+          presigned: {
+            url: credential.signed_uri,
+            headers: normalizeCredentialHeaders(credential.headers),
+          },
         };
       }
     } else if (!params.isLoggedModelsMode && params.runUuid) {
@@ -210,16 +256,16 @@ export const resolvePresignedArtifactDownload = async (
         path: params.path,
       });
       if (response.presigned_url) {
-        return { url: response.presigned_url, headers: response.headers ?? {} };
+        return { presigned: { url: response.presigned_url, headers: response.headers ?? {} } };
       }
     } else if (!artifactsPresignedOnly) {
-      return undefined;
+      return {};
     }
 
     throw new ErrorWrapper('The server did not return a presigned artifact URL.', 501);
   } catch (error) {
     if (shouldFallBackToProxy(error, artifactsPresignedOnly)) {
-      return undefined;
+      return { proxyUrl };
     }
     throw error;
   }
@@ -233,15 +279,28 @@ export const fetchArtifactPreferPresigned = async <T>(
   getArtifactData: GetArtifactDataFn<T>,
   presignedDownload?: PresignedArtifactDownload,
 ) => {
-  const presigned = presignedDownload ?? (await resolvePresignedArtifactDownload(params));
+  let resolution: ArtifactDownloadResolution;
+  if (presignedDownload) {
+    const route = getProxiedArtifactRoute(params.artifactRootUri, params.path);
+    resolution = {
+      presigned: presignedDownload,
+      proxyUrl:
+        presignedDownload.proxyUrl ??
+        (route && MlflowService.getMlflowArtifactsProxyUrl(route.path, route.artifactServiceBaseUrl)),
+    };
+  } else {
+    resolution = await resolveArtifactDownload(params);
+  }
+  const { presigned } = resolution;
+  const proxyLocation = resolution.proxyUrl ?? legacyArtifactLocation;
   if (!presigned) {
-    return getArtifactData(legacyArtifactLocation);
+    return getArtifactData(proxyLocation);
   }
   try {
     return await getArtifactData(presigned.url, { headers: presigned.headers });
   } catch (error) {
     if (shouldFallBackToProxy(error, getArtifactsPresignedOnlySync())) {
-      return getArtifactData(legacyArtifactLocation);
+      return getArtifactData(proxyLocation);
     }
     throw error;
   }
@@ -282,6 +341,15 @@ const splitArtifactPath = (path: string) => {
     : { directory: normalized.slice(0, separatorIndex), filename: normalized.slice(separatorIndex + 1) };
 };
 
+class MissingMultipartUploadETagError extends ErrorWrapper {
+  constructor() {
+    super(
+      'The storage upload response did not include an ETag. Configure storage CORS to expose the ETag response header.',
+      500,
+    );
+  }
+}
+
 const uploadProxiedArtifact = async (proxiedArtifactRoute: ProxiedArtifactRoute, body: BodyInit) => {
   const { directory, filename } = splitArtifactPath(proxiedArtifactRoute.path);
   const createData = { path: filename, num_parts: 1 };
@@ -304,10 +372,7 @@ const uploadProxiedArtifact = async (proxiedArtifactRoute: ProxiedArtifactRoute,
     const isAzureBlockUpload =
       uploadUrl.searchParams.get('comp') === 'block' && Boolean(uploadUrl.searchParams.get('blockid'));
     if (!etag && !isAzureBlockUpload) {
-      throw new ErrorWrapper(
-        'The storage upload response did not include an ETag. Configure storage CORS to expose the ETag response header.',
-        500,
-      );
+      throw new MissingMultipartUploadETagError();
     }
     const completeData = {
       path: filename,
@@ -361,12 +426,26 @@ export const uploadArtifactWithPresignedUrl = async (
   const artifactsPresignedOnly = getArtifactsPresignedOnlySync();
   const multipartUploadsEnabled = getMultipartUploadsEnabledSync();
   const presignedUploadRunIdSupported = getPresignedUploadRunIdSupportedSync();
+  // A failed metadata lookup must not redirect an upload to an unknown store.
+  const root = artifactRootUri ?? (await getRunArtifactRootUri(runUuid));
+  if (!root) {
+    throw new ErrorWrapper('The server did not return an artifact root for this run.', 501);
+  }
+  let proxiedArtifactRoute: ProxiedArtifactRoute | undefined;
+  let proxyUploadAttempted = false;
   try {
-    const root = artifactRootUri ?? (await getRunArtifactRootUri(runUuid));
-    const proxiedArtifactRoute = getProxiedArtifactRoute(root, path);
+    proxiedArtifactRoute = getProxiedArtifactRoute(root, path);
     if (proxiedArtifactRoute) {
+      // Reject unsupported origins before either direct or compatibility transfer.
+      MlflowService.getMlflowArtifactsProxyUrl(proxiedArtifactRoute.path, proxiedArtifactRoute.artifactServiceBaseUrl);
       if (!multipartUploadsEnabled && !artifactsPresignedOnly && !proxiedArtifactRoute.artifactServiceBaseUrl) {
-        return false;
+        proxyUploadAttempted = true;
+        await MlflowService.uploadMlflowArtifact(
+          proxiedArtifactRoute.path,
+          body,
+          proxiedArtifactRoute.artifactServiceBaseUrl,
+        );
+        return true;
       }
       await uploadProxiedArtifact(proxiedArtifactRoute, body);
       return true;
@@ -383,7 +462,22 @@ export const uploadArtifactWithPresignedUrl = async (
 
     return false;
   } catch (error) {
-    if (shouldFallBackToProxy(error, artifactsPresignedOnly)) {
+    if (
+      proxiedArtifactRoute &&
+      !proxyUploadAttempted &&
+      !artifactsPresignedOnly &&
+      (error instanceof MissingMultipartUploadETagError || shouldFallBackToProxy(error, false))
+    ) {
+      // Multipart cleanup has completed before errors reach here. Compatibility
+      // uploads must use that same service and full root path, including custom roots.
+      await MlflowService.uploadMlflowArtifact(
+        proxiedArtifactRoute.path,
+        body,
+        proxiedArtifactRoute.artifactServiceBaseUrl,
+      );
+      return true;
+    }
+    if (!proxiedArtifactRoute && shouldFallBackToProxy(error, artifactsPresignedOnly)) {
       return false;
     }
     throw error;

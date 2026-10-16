@@ -38,6 +38,13 @@ describe('ArtifactViewErrorState', () => {
       new ErrorWrapper({ external_artifact_service: true, message: 'Use a same-origin artifact service.' }, 403),
       /Use a same-origin artifact service/,
     ],
+    [
+      new ErrorWrapper(
+        { invalid_artifact_root: true, message: 'The artifact root URI cannot be decoded safely.' },
+        400,
+      ),
+      /The artifact root URI cannot be decoded safely/,
+    ],
   ])('prioritizes actionable artifact guidance over caller descriptions: %s', (error, guidance) => {
     renderError(error, 'Could not load model information.');
     expect(screen.getByText(guidance)).toBeInTheDocument();

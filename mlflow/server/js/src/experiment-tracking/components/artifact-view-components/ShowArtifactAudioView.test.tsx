@@ -43,6 +43,7 @@ afterEach(() => {
 const minimalProps = {
   path: 'fakepath',
   runUuid: 'fakeUuid',
+  artifactRootUri: 'mlflow-artifacts:/1/fakeUuid/artifacts',
   getArtifact: mockGetArtifact,
 };
 
@@ -76,7 +77,7 @@ describe('ShowArtifactAudioView tests', () => {
     });
   });
 
-  test('fetches artifact from the run artifact endpoint by default', async () => {
+  test('fetches artifact from its configured run artifact root by default', async () => {
     await act(async () => {
       render(
         <IntlProvider locale="en">
@@ -86,7 +87,7 @@ describe('ShowArtifactAudioView tests', () => {
     });
 
     expect(mockGetArtifact).toHaveBeenCalledWith(
-      expect.stringContaining('get-artifact?path=fakepath&run_uuid=fakeUuid'),
+      'ajax-api/2.0/mlflow-artifacts/artifacts/1/fakeUuid/artifacts/fakepath',
     );
   });
 
@@ -94,7 +95,12 @@ describe('ShowArtifactAudioView tests', () => {
     await act(async () => {
       render(
         <IntlProvider locale="en">
-          <ShowArtifactAudioView {...minimalProps} isLoggedModelsMode loggedModelId="m-123" />
+          <ShowArtifactAudioView
+            {...minimalProps}
+            artifactRootUri={undefined}
+            isLoggedModelsMode
+            loggedModelId="m-123"
+          />
         </IntlProvider>,
       );
     });
