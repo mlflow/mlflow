@@ -745,7 +745,9 @@ class AbstractStore:
                 tags=user_tags,
             )
 
-        except Exception:
+        except MlflowException as e:
+            if e.error_code != ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+                raise
             return None
 
     def create_prompt_version(
