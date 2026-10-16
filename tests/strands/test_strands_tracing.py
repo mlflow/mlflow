@@ -2,7 +2,10 @@ import json
 from collections.abc import AsyncIterator, Sequence
 from typing import Any
 
+import pytest
 from opentelemetry import trace as otel_trace
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 from strands import Agent
 from strands.models.model import Model
 from strands.tools.tools import PythonAgentTool
@@ -325,6 +328,38 @@ def test_strands_autolog_shared_provider_no_recursion(monkeypatch):
     assert len(traces) == 1
     spans = traces[0].data.spans
     agent_span = next(span for span in spans if span.span_type == SpanType.AGENT)
+    assert agent_span.inputs == [{"role": "user", "content": [{"text": "hello"}]}]
+    assert agent_span.outputs.strip() == "hi"
+
+
+@pytest.mark.parametrize("init_tracing_before_autolog", [False, True])
+def test_strands_autolog_shared_provider_exports_each_span_once(
+    monkeypatch, init_tracing_before_autolog
+):
+    monkeypatch.setenv(MLFLOW_USE_DEFAULT_TRACER_PROVIDER.name, "false")
+
+    if init_tracing_before_autolog:
+        # Registers MLflow's span processor on the shared provider before Strands' processor.
+        with mlflow.start_span(name="warmup"):
+            pass
+
+    mlflow.strands.autolog()
+
+    # Every processor on the shared provider sees what MLflow's processor sees, so an
+    # in-memory exporter there records each span once per dispatch.
+    exporter = InMemorySpanExporter()
+    otel_trace.get_tracer_provider().add_span_processor(SimpleSpanProcessor(exporter))
+
+    agent = Agent(model=DummyModel("hi"), name="agent")
+    agent("hello")
+    with mlflow.start_span(name="manual"):
+        pass
+
+    span_ids = [span.context.span_id for span in exporter.get_finished_spans()]
+    assert len(span_ids) == len(set(span_ids))
+
+    agent_trace = next(t for t in get_traces() if t.data.spans[0].name == "invoke_agent agent")
+    agent_span = next(s for s in agent_trace.data.spans if s.span_type == SpanType.AGENT)
     assert agent_span.inputs == [{"role": "user", "content": [{"text": "hello"}]}]
     assert agent_span.outputs.strip() == "hi"
 

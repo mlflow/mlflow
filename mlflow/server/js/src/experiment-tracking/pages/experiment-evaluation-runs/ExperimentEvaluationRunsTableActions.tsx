@@ -14,7 +14,10 @@ export const ExperimentEvaluationRunsTableActions = ({
   selectedRunUuid,
   compareToRunUuid,
   enableImprovedComparison,
+  foldCompareIntoMenu = false,
   setIsComparisonMode,
+  onFilterChartToSelectedRuns,
+  isChartFilteredToSelection = false,
 }: {
   rowSelection: RowSelectionState;
   setRowSelection: (selection: RowSelectionState) => void;
@@ -23,7 +26,11 @@ export const ExperimentEvaluationRunsTableActions = ({
   selectedRunUuid?: string;
   compareToRunUuid?: string;
   enableImprovedComparison?: boolean;
+  /** V2 folds Compare into this menu and includes the selected-run count in the trigger label. */
+  foldCompareIntoMenu?: boolean;
   setIsComparisonMode?: (isComparisonMode: boolean) => void;
+  onFilterChartToSelectedRuns?: () => void;
+  isChartFilteredToSelection?: boolean;
 }) => {
   const intl = useIntl();
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
@@ -69,6 +76,9 @@ export const ExperimentEvaluationRunsTableActions = ({
 
   const isCompareDisabled = !isCompareEnabled || isAlreadyComparingSelectedRuns;
 
+  // The legacy toolbar with improved comparison renders its own Compare button; V2 always folds it in here.
+  const showCompareItem = foldCompareIntoMenu || !enableImprovedComparison;
+
   const noRunsSelected = selectedRunUuids.length === 0;
 
   return (
@@ -81,12 +91,36 @@ export const ExperimentEvaluationRunsTableActions = ({
             disabled={noRunsSelected}
             endIcon={<ChevronDownIcon />}
           >
-            <FormattedMessage defaultMessage="Actions" description="Experiment evaluation runs table actions button" />
+            {foldCompareIntoMenu ? (
+              <FormattedMessage
+                defaultMessage="Actions ({numRuns})"
+                description="Experiment evaluation runs table actions button, with the number of selected runs"
+                values={{ numRuns: selectedRunUuids.length }}
+              />
+            ) : (
+              <FormattedMessage
+                defaultMessage="Actions"
+                description="Experiment evaluation runs table actions button"
+              />
+            )}
           </Button>
         </DropdownMenu.Trigger>
         <DropdownMenu.Content>
-          {/* Original Compare option in dropdown (when flag is OFF) */}
-          {!enableImprovedComparison && (
+          {onFilterChartToSelectedRuns && (
+            <DropdownMenu.CheckboxItem
+              componentId="mlflow.eval-runs.actions.filter-chart-to-selected"
+              checked={isChartFilteredToSelection}
+              onSelect={onFilterChartToSelectedRuns}
+              css={(theme) => ({ paddingLeft: theme.spacing.sm + theme.spacing.xs })}
+            >
+              <FormattedMessage
+                defaultMessage="Filter chart to selected runs"
+                description="Evaluation runs action to show only selected runs in the chart"
+              />
+              <DropdownMenu.ItemIndicator css={{ position: 'static', marginLeft: 'auto' }} />
+            </DropdownMenu.CheckboxItem>
+          )}
+          {showCompareItem && (
             <DropdownMenu.Item
               componentId="mlflow.eval-runs.actions.compare"
               onClick={handleCompare}

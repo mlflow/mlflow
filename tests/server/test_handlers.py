@@ -172,10 +172,12 @@ from mlflow.server.handlers import (
     STATIC_PREFIX_ENV_VAR,
     ModelRegistryStoreRegistryWrapper,
     TrackingStoreRegistryWrapper,
+    _abort_multipart_upload_artifact,
     _batch_get_trace_infos,
     _batch_get_traces,
     _calculate_trace_filter_correlation,
     _cancel_prompt_optimization_job,
+    _complete_multipart_upload_artifact,
     _convert_path_parameter_to_flask_format,
     _create_artifact_file_response,
     _create_dataset_handler,
@@ -183,6 +185,7 @@ from mlflow.server.handlers import (
     _create_gateway_secret,
     _create_issue,
     _create_model_version,
+    _create_multipart_upload_artifact,
     _create_presigned_download_url,
     _create_presigned_upload_url,
     _create_prompt_optimization_job,
@@ -300,10 +303,13 @@ from mlflow.utils.mlflow_tags import MLFLOW_ARTIFACT_LOCATION, MLFLOW_CUSTOM_VIE
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import MlflowHostCreds
 from mlflow.utils.server_info import (
+    SERVER_INFO_ARTIFACT_SERVING_ENABLED,
     SERVER_INFO_MULTIPART_DOWNLOADS_ENABLED,
     SERVER_INFO_MULTIPART_UPLOADS_ENABLED,
     SERVER_INFO_PRESIGNED_UPLOAD_MODEL_ID_SUPPORTED,
     SERVER_INFO_PRESIGNED_UPLOAD_RUN_ID_SUPPORTED,
+    SERVER_INFO_SKILL_CONTENT_MAX_FILES,
+    SERVER_INFO_SKILL_CONTENT_MAX_SIZE,
     SERVER_INFO_STORE_TYPE,
     SERVER_INFO_TRACE_ARCHIVAL_ENABLED,
     SERVER_INFO_WORKSPACES_ENABLED,
@@ -481,6 +487,16 @@ def test_server_info():
         assert data[SERVER_INFO_PRESIGNED_UPLOAD_MODEL_ID_SUPPORTED] is True
 
 
+def test_server_info_advertises_configured_tracking_auth(monkeypatch):
+    monkeypatch.delenv("MLFLOW_SERVER_INFO_TRACKING_AUTH", raising=False)
+    monkeypatch.setenv("MLFLOW_TRACKING_AUTH", "server-outbound-provider")
+    with app.test_client() as c:
+        assert c.get("/api/3.0/mlflow/server-info").get_json()["tracking_auth"] == ""
+
+        monkeypatch.setenv("MLFLOW_SERVER_INFO_TRACKING_AUTH", "kubernetes")
+        assert c.get("/api/3.0/mlflow/server-info").get_json()["tracking_auth"] == "kubernetes"
+
+
 def test_server_info_trace_archival_enabled(monkeypatch):
     monkeypatch.setattr(
         "mlflow.server.handlers.get_trace_archival_server_config",
@@ -575,6 +591,52 @@ def test_server_info_multipart_capabilities_with_local_backend(monkeypatch):
         data = response.get_json()
         assert data[SERVER_INFO_MULTIPART_UPLOADS_ENABLED] is False
         assert data[SERVER_INFO_MULTIPART_DOWNLOADS_ENABLED] is False
+
+
+def test_server_info_artifact_serving_disabled_by_default():
+    with app.test_client() as c:
+        response = c.get("/api/3.0/mlflow/server-info")
+        assert response.status_code == 200
+        assert response.get_json()[SERVER_INFO_ARTIFACT_SERVING_ENABLED] is False
+
+
+def test_server_info_artifact_serving_does_not_depend_on_multipart_support(monkeypatch):
+    monkeypatch.setattr("mlflow.server.handlers._is_serving_proxied_artifacts", lambda: True)
+    # A local artifact repository supports no multipart operations.
+    monkeypatch.setattr(
+        "mlflow.server.handlers._get_artifact_repo_mlflow_artifacts",
+        lambda: mock.Mock(spec=[]),
+    )
+
+    with app.test_client() as c:
+        response = c.get("/api/3.0/mlflow/server-info")
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data[SERVER_INFO_ARTIFACT_SERVING_ENABLED] is True
+        assert data[SERVER_INFO_MULTIPART_UPLOADS_ENABLED] is False
+
+
+def test_server_info_reports_skill_content_limits(monkeypatch):
+    monkeypatch.setenv("MLFLOW_SKILL_CONTENT_MAX_DECOMPRESSED_SIZE", str(5 * 1024 * 1024))
+
+    with app.test_client() as c:
+        response = c.get("/api/3.0/mlflow/server-info")
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data[SERVER_INFO_SKILL_CONTENT_MAX_SIZE] == 5 * 1024 * 1024
+        assert data[SERVER_INFO_SKILL_CONTENT_MAX_FILES] == 10_000
+
+
+def test_server_info_omits_skill_content_limits_when_misconfigured(monkeypatch):
+    monkeypatch.setenv("MLFLOW_SKILL_CONTENT_MAX_DECOMPRESSED_SIZE", "25MB")
+
+    with app.test_client() as c:
+        response = c.get("/api/3.0/mlflow/server-info")
+        assert response.status_code == 200
+        data = response.get_json()
+        assert SERVER_INFO_SKILL_CONTENT_MAX_SIZE not in data
+        assert SERVER_INFO_SKILL_CONTENT_MAX_FILES not in data
+        assert data[SERVER_INFO_STORE_TYPE] == "SqlStore"
 
 
 def test_server_info_multipart_capabilities_handles_repo_error(monkeypatch):
@@ -7019,6 +7081,42 @@ def test_upload_artifact_falls_back_to_log_artifact_without_mixin(enable_serve_a
     assert args[0].endswith("model.pkl")
     assert kwargs["artifact_path"] == "nested"
     assert response.status_code == 200
+
+
+@pytest.mark.parametrize(
+    ("handler", "method"),
+    [(_upload_artifact, "PUT"), (_delete_artifact_mlflow_artifacts, "DELETE")],
+)
+@pytest.mark.parametrize(
+    "path",
+    ["skills/private/token/SKILL.md", "%2e/workspaces/team-a/skills/private/token/SKILL.md"],
+)
+def test_skill_content_cannot_be_mutated_through_flask_artifact_handlers(
+    enable_serve_artifacts, handler, method, path
+):
+    with (
+        app.test_request_context(method=method, data=b"changed"),
+        mock.patch("mlflow.server.handlers._get_artifact_repo_mlflow_artifacts") as get_repo,
+    ):
+        response = handler(path)
+    assert response.status_code == 403
+    get_repo.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "handler",
+    [
+        _create_multipart_upload_artifact,
+        _complete_multipart_upload_artifact,
+        _abort_multipart_upload_artifact,
+    ],
+)
+def test_skill_content_cannot_be_mutated_through_multipart_artifact_handlers(
+    enable_serve_artifacts, handler
+):
+    with app.test_request_context(method="POST"):
+        response = handler("skills/private/token")
+    assert response.status_code == 403
 
 
 def test_download_artifact_streams_in_chunks(enable_serve_artifacts, tmp_path):

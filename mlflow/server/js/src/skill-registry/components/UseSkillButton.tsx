@@ -1,0 +1,54 @@
+import { useState } from 'react';
+import { Button, PlayIcon, useDesignSystemTheme } from '@databricks/design-system';
+import { useIntl } from 'react-intl';
+
+import type { Skill, SkillStatus } from '../types';
+import { UseSkillModal } from './UseSkillModal';
+
+export const UseSkillButton = ({
+  skill,
+  version,
+  versionStatus,
+}: {
+  skill: Skill;
+  version?: number;
+  versionStatus?: SkillStatus;
+}) => {
+  const { theme } = useDesignSystemTheme();
+  const intl = useIntl();
+  const [useModalOpen, setUseModalOpen] = useState(false);
+  const pinnedVersion = version ?? skill.latest_version ?? undefined;
+  const pinnedStatus = versionStatus ?? skill.status ?? undefined;
+  const label = intl.formatMessage({
+    defaultMessage: 'Use',
+    description: 'Button to use a skill from the Skill Registry catalog',
+  });
+  // A skill whose versions were all deleted has nothing to pull.
+  if (pinnedVersion == null) return null;
+  return (
+    <span onClick={(e) => e.stopPropagation()} css={{ display: 'inline-flex' }}>
+      <Button
+        componentId="mlflow.skill_registry.use"
+        type="tertiary"
+        size="small"
+        icon={<PlayIcon />}
+        aria-label={label}
+        onClick={(e) => {
+          e.stopPropagation();
+          e.preventDefault();
+          setUseModalOpen(true);
+        }}
+        css={{ color: theme.colors.actionPrimaryBackgroundDefault }}
+      />
+      {useModalOpen && (
+        <UseSkillModal
+          visible={useModalOpen}
+          skill={skill}
+          version={pinnedVersion}
+          versionStatus={pinnedStatus}
+          onClose={() => setUseModalOpen(false)}
+        />
+      )}
+    </span>
+  );
+};

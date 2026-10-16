@@ -1207,7 +1207,7 @@ def log_metric(
             Metric(
                 key=key,
                 value=value,
-                timestamp=timestamp or get_current_time_millis(),
+                timestamp=timestamp if timestamp is not None else get_current_time_millis(),
                 step=step or 0,
                 model_id=model_id,
                 dataset_name=dataset.name if dataset is not None else None,
@@ -1216,7 +1216,7 @@ def log_metric(
         ],
         datasets=[dataset] if dataset is not None else None,
     )
-    timestamp = timestamp or get_current_time_millis()
+    timestamp = timestamp if timestamp is not None else get_current_time_millis()
     step = step or 0
     model_ids = (
         [model_id]
@@ -1352,7 +1352,7 @@ def log_metrics(
     """
     run = _get_or_start_run() if run_id is None else MlflowClient().get_run(run_id)
     run_id = run.info.run_id
-    timestamp = timestamp or get_current_time_millis()
+    timestamp = timestamp if timestamp is not None else get_current_time_millis()
     step = step or 0
     dataset_name = dataset.name if dataset is not None else None
     dataset_digest = dataset.digest if dataset is not None else None
