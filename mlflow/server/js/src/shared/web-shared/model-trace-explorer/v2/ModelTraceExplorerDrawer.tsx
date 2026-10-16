@@ -28,7 +28,7 @@ import { useAssistant } from '@mlflow/mlflow/src/assistant';
 
 import { shouldEnableModelTraceExplorerCustomTraceView } from '../FeatureUtils';
 import { shouldEnableNewEvalRunsUi } from '../../../../common/utils/FeatureUtils';
-import { formatCostUSD } from '../CostUtils';
+import { formatEstimatedCostUSD } from '../CostUtils';
 import { ModelTraceExplorerCustomViewSelector } from './ModelTraceExplorerCustomViewSelector';
 import { isTraceCostType } from '../ModelTraceExplorerCostHoverCard';
 import { ModelTraceExplorerAssistantButton } from './ModelTraceExplorerAssistantButton';
@@ -80,7 +80,7 @@ const formatHeaderDuration = (value: string): string => {
 };
 
 const formatHeaderCost = (cost: number): string =>
-  shouldEnableNewEvalRunsUi() ? formatCostUSD(cost, 4) : `$${cost.toFixed(2)}`;
+  shouldEnableNewEvalRunsUi() ? formatEstimatedCostUSD(cost, 4) : `$${cost.toFixed(2)}`;
 
 // Targets where a plain letter key belongs to the focused control, so the drawer's single-key
 // shortcuts must not fire.
