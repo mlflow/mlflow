@@ -146,12 +146,20 @@ const ExperimentEvaluationRunsPageImpl = ({ baseline }: { baseline?: EvalRunsBas
   const filterButtonRef = useRef<EvalRunsFilterButtonHandle>(null);
   const handleFilterByColumn = useCallback((field: string) => filterButtonRef.current?.openForField(field), []);
 
-  const { searchFilter, filters, filterString, isAnyFilterActive, setSearchFilter, setDatePreset, setClauses } =
-    useEvalRunsFilters({
-      experimentId,
-      enabled: enableNewEvalRunsUi,
-      persistDatePreset: enableNewEvalRunsUi,
-    });
+  const {
+    searchFilter,
+    filters,
+    filterString,
+    resolveFilterString,
+    isAnyFilterActive,
+    setSearchFilter,
+    setDatePreset,
+    setClauses,
+  } = useEvalRunsFilters({
+    experimentId,
+    enabled: enableNewEvalRunsUi,
+    persistDatePreset: enableNewEvalRunsUi,
+  });
 
   const {
     data: runs,
@@ -166,6 +174,7 @@ const ExperimentEvaluationRunsPageImpl = ({ baseline }: { baseline?: EvalRunsBas
     experimentId,
     enabled: true,
     filter: filterString,
+    resolveFilter: enableNewEvalRunsUi ? resolveFilterString : undefined,
   });
 
   // The filtered query cannot report the unfiltered total, so keep a first-page unfiltered query

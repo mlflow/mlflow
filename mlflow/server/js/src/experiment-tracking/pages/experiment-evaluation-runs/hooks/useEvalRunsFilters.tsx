@@ -176,11 +176,17 @@ export const useEvalRunsFilters = ({
     () => (enabled ? buildEvalRunsFilterString(filters, searchFilter) : searchFilter),
     [enabled, filters, searchFilter],
   );
+  // The same filter with the date window measured from now, for each request (including a refresh).
+  const resolveFilterString = useCallback(
+    () => (enabled ? buildEvalRunsFilterString(filters, searchFilter) : searchFilter),
+    [enabled, filters, searchFilter],
+  );
 
   return {
     searchFilter,
     filters,
     filterString,
+    resolveFilterString,
     isAnyFilterActive,
     setSearchFilter,
     setDatePreset,

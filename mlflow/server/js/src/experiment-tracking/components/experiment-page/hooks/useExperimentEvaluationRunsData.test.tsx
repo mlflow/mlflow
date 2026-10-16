@@ -1,6 +1,6 @@
 import { describe, beforeAll, beforeEach, test, expect } from '@jest/globals';
 
-import { renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { rest } from 'msw';
 import { setupServer } from '../../../../common/utils/setup-msw';
 import { useExperimentEvaluationRunsData } from './useExperimentEvaluationRunsData';
@@ -76,5 +76,51 @@ describe('useExperimentEvaluationRunsData', () => {
         }),
       }),
     );
+  });
+
+  test('sends the filter built at request time when resolveFilter is given, and keeps the key stable', async () => {
+    const sentFilters: string[] = [];
+    server.use(
+      rest.post('/ajax-api/2.0/mlflow/runs/search', async (req, res, ctx) => {
+        sentFilters.push((await req.json()).filter);
+        return res(ctx.json({ runs: [] }));
+      }),
+    );
+    let call = 0;
+    const resolveFilter = () => `attributes.start_time > ${++call}`;
+    const queryClient = new QueryClient();
+    const { result } = renderHook(
+      () =>
+        useExperimentEvaluationRunsData({
+          experimentId: 'test-experiment',
+          enabled: true,
+          filter: 'attributes.start_time > 0',
+          resolveFilter,
+        }),
+      { wrapper: ({ children }) => <QueryClientProvider client={queryClient}>{children}</QueryClientProvider> },
+    );
+    await waitFor(() => expect(sentFilters).toEqual(['attributes.start_time > 1']));
+
+    await act(async () => {
+      await result.current.refetch();
+    });
+
+    expect(sentFilters).toEqual(['attributes.start_time > 1', 'attributes.start_time > 2']);
+    expect(queryClient.getQueryCache().findAll({ queryKey: ['SEARCH_RUNS'] })).toHaveLength(1);
+  });
+
+  test('sends the filter as given without resolveFilter', async () => {
+    const sentFilters: string[] = [];
+    server.use(
+      rest.post('/ajax-api/2.0/mlflow/runs/search', async (req, res, ctx) => {
+        sentFilters.push((await req.json()).filter);
+        return res(ctx.json({ runs: [] }));
+      }),
+    );
+    renderHook(
+      () => useExperimentEvaluationRunsData({ experimentId: 'test-experiment', enabled: true, filter: 'name = "x"' }),
+      { wrapper: ({ children }) => <QueryClientProvider client={new QueryClient()}>{children}</QueryClientProvider> },
+    );
+    await waitFor(() => expect(sentFilters).toEqual(['name = "x"']));
   });
 });

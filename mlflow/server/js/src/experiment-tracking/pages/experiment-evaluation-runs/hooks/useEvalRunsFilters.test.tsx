@@ -283,6 +283,30 @@ describe('useEvalRunsFilters', () => {
     expect(result.current.filterString).toBe("dataset.name LIKE '%candidate%'");
   });
 
+  it('measures the relative date window from the time of each request, not from when it was set', async () => {
+    const nowSpy = jest.spyOn(Date, 'now').mockReturnValue(10 * 60 * 60 * 1000);
+    const { result } = await mountHook({ fallbackDatePreset: EvalRunsDatePreset.ALL, persistDatePreset: true });
+
+    act(() => result.current.setDatePreset(EvalRunsDatePreset.LAST_HOUR));
+    const cutoffWhenSet = `attributes.start_time > ${9 * 60 * 60 * 1000}`;
+    expect(result.current.filterString).toBe(cutoffWhenSet);
+    expect(result.current.resolveFilterString()).toBe(cutoffWhenSet);
+
+    // An hour later the query key is unchanged, but a request (such as a refresh) uses the new window.
+    nowSpy.mockReturnValue(11 * 60 * 60 * 1000);
+    expect(result.current.filterString).toBe(cutoffWhenSet);
+    expect(result.current.resolveFilterString()).toBe(`attributes.start_time > ${10 * 60 * 60 * 1000}`);
+    nowSpy.mockRestore();
+  });
+
+  it('resolves to the plain search filter when the new filters are disabled', async () => {
+    const { result } = await mountHook({ fallbackDatePreset: EvalRunsDatePreset.LAST_HOUR, enabled: false });
+
+    act(() => result.current.setSearchFilter('attributes.run_name = "a"'));
+    expect(result.current.resolveFilterString()).toBe('attributes.run_name = "a"');
+    expect(result.current.resolveFilterString()).toBe(result.current.filterString);
+  });
+
   it('includes every persisted date preset in the dropdown exactly once', () => {
     expect([...DATE_PRESET_ORDER].sort()).toEqual(Object.values(EvalRunsDatePreset).sort());
   });

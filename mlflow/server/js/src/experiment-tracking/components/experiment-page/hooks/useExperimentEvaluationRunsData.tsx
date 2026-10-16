@@ -7,10 +7,17 @@ export const useExperimentEvaluationRunsData = ({
   experimentId,
   enabled,
   filter,
+  resolveFilter,
 }: {
   experimentId: string;
   enabled: boolean;
   filter: string;
+  /**
+   * Builds the filter sent with each request, for filters with a relative date window. `filter` stays
+   * the query key, so a refetch re-resolves the window instead of reusing the cutoff from when the
+   * filter was set.
+   */
+  resolveFilter?: () => string;
 }) => {
   const { data, fetchNextPage, hasNextPage, isLoading, isFetching, refetch, error, dataUpdatedAt } = useInfiniteQuery<
     SearchRunsApiResponse,
@@ -22,7 +29,7 @@ export const useExperimentEvaluationRunsData = ({
         experiment_ids: [experimentId],
         order_by: ['attributes.start_time DESC'],
         run_view_type: 'ACTIVE_ONLY',
-        filter,
+        filter: resolveFilter ? resolveFilter() : filter,
         max_results: 50,
         page_token: pageParam,
       };
