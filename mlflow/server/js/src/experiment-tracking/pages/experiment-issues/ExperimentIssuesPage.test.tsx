@@ -40,6 +40,7 @@ const makeIssue = (id: string, name = id): Issue => ({
 });
 let issues: Issue[];
 let searches: Record<string, unknown>[];
+let responsePageSize: number | undefined;
 let latestRun:
   | { info: { run_id: string; status: string }; data: { tags: { key: string; value: string }[] } }
   | undefined;
@@ -57,11 +58,12 @@ const server = setupServer(
         (!body.statuses?.length || body.statuses.includes(issue.status)),
     );
     const offset = Number(body.page_token ?? 0);
+    const pageSize = responsePageSize ?? body.max_results;
     return res(
       ctx.json({
-        issues: matches.slice(offset, offset + body.max_results),
+        issues: matches.slice(offset, offset + pageSize),
         total_count: matches.length,
-        next_page_token: offset + body.max_results < matches.length ? String(offset + body.max_results) : undefined,
+        next_page_token: offset + pageSize < matches.length ? String(offset + pageSize) : undefined,
       }),
     );
   }),
@@ -111,6 +113,7 @@ beforeEach(() => {
   issues = [makeIssue('iss-a', 'Slow response'), makeIssue('iss-b', 'Wrong answer')];
   issues[0].root_causes = ['Repeated model calls'];
   searches = [];
+  responsePageSize = undefined;
   latestRun = undefined;
   jobStatus = 'SUCCEEDED';
 });
@@ -149,14 +152,35 @@ describe('Experiment Issues', () => {
       }),
     );
   });
-  test('searches beyond the loaded page and loads the next page from SQL', async () => {
-    issues = Array.from({ length: 51 }, (_, index) =>
-      makeIssue(`iss-${index}`, index === 50 ? 'Later match' : `Issue ${index}`),
+  test('loads the next page from SQL and resets pagination when searching', async () => {
+    responsePageSize = 2;
+    issues = Array.from({ length: 3 }, (_, index) =>
+      makeIssue(`iss-${index}`, index === 2 ? 'Later match' : `Issue ${index}`),
     );
     renderPage();
-    await userEvent.click(await screen.findByRole('button', { name: 'Load more' }));
+    const loadMore = await screen.findByRole('button', { name: 'Load more' });
+    expect(screen.queryByRole('button', { name: /Later match/ })).not.toBeInTheDocument();
+    await userEvent.click(loadMore);
     expect(await screen.findByRole('button', { name: /Later match/ })).toBeInTheDocument();
-    expect(searches).toContainEqual(expect.objectContaining({ page_token: '50' }));
+    expect(searches).toContainEqual(expect.objectContaining({ page_token: '2', max_results: 50 }));
+    fireEvent.change(screen.getByRole('textbox', { name: 'Search issues by title' }), {
+      target: { value: 'Later match' },
+    });
+    await waitFor(() => expect(screen.queryByRole('button', { name: /Issue 0/ })).not.toBeInTheDocument());
+    await waitFor(() =>
+      expect(searches[searches.length - 1]).toEqual(expect.objectContaining({ name: 'Later match', max_results: 50 })),
+    );
+    expect(searches[searches.length - 1]['page_token']).toBeUndefined();
+    expect(await screen.findByRole('button', { name: /Later match/ })).toBeInTheDocument();
+  });
+  test('searches beyond the loaded page in SQL', async () => {
+    responsePageSize = 2;
+    issues = Array.from({ length: 3 }, (_, index) =>
+      makeIssue(`iss-${index}`, index === 2 ? 'Later match' : `Issue ${index}`),
+    );
+    renderPage();
+    await screen.findByRole('button', { name: /Issue 0/ });
+    expect(screen.queryByRole('button', { name: /Later match/ })).not.toBeInTheDocument();
     fireEvent.change(screen.getByRole('textbox', { name: 'Search issues by title' }), {
       target: { value: 'Later match' },
     });
@@ -164,7 +188,7 @@ describe('Experiment Issues', () => {
       expect(searches).toContainEqual(expect.objectContaining({ name: 'Later match', max_results: 50 })),
     );
     await waitFor(() => expect(screen.queryByRole('button', { name: /Issue 0/ })).not.toBeInTheDocument());
-    expect(screen.getByRole('button', { name: /Later match/ })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: /Later match/ })).toBeInTheDocument();
   });
   test('keeps loaded rows when loading another page fails', async () => {
     server.use(
