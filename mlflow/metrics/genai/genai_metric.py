@@ -82,9 +82,11 @@ def _extract_score_and_justification(text):
         # Attempt to parse JSON
         try:
             data = json.loads(text)
+            if not isinstance(data, dict):
+                raise TypeError
             score = int(data.get("score"))
             justification = data.get("justification")
-        except json.JSONDecodeError:
+        except (json.JSONDecodeError, TypeError, ValueError):
             # If parsing fails, use regex
             if (match := re.search(r"score: (\d+),?\s*justification: (.+)", text)) or (
                 match := re.search(r"\s*score:\s*(\d+)\s*justification:\s*(.+)", text, re.DOTALL)
