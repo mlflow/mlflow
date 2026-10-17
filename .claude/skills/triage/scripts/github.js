@@ -67,20 +67,18 @@ function prepareFollowup({ repo, issue, comment, api = ghApi }) {
     body: [`<issue>\n${escapeMarkup(issue.body ?? "")}\n</issue>`, ...discussion].join("\n\n"),
     followup: {
       instructions: sanitizeInput(instructions),
-      command_url: comment.html_url,
       maintainer: comment.user.login,
     },
   };
 }
 
-function prepareContext({ repo, issue, event, comment, runUrl, api = ghApi }) {
+function prepareContext({ repo, issue, event, comment, api = ghApi }) {
   let request = event.comment;
   if (!request && comment?.trim()) {
     const text = comment.trim();
     request = {
       body: text.startsWith("/triage") ? text : `/triage ${text}`,
       issue_url: issue.url,
-      html_url: runUrl,
       user: event.sender,
     };
   }
@@ -103,7 +101,6 @@ if (require.main === module) {
         issue,
         event,
         comment: process.env.COMMENT,
-        runUrl: process.env.RUN_URL,
       });
       process.stdout.write(JSON.stringify(context));
     } else if (mode === "check-pr") {
