@@ -45,6 +45,65 @@ import {
 
 const NANOSECONDS_PER_MS = 1e6;
 const NANOSECONDS_PER_S = 1e9;
+const EXIT_PLAN_MODE_TOOL = 'ExitPlanMode';
+
+// ============================================================================
+// Plan mode
+// ============================================================================
+
+/**
+ * Find the ExitPlanMode calls the user approved after startIdx, as the index
+ * of the approving tool_result entry plus the plan text. Claude Code keeps
+ * going in the same turn after a plan is approved, so these mark where
+ * planning ends and execution starts.
+ */
+function findApprovedPlans(
+  transcript: TranscriptEntry[],
+  startIdx: number,
+): Array<{ resultIdx: number; plan: string }> {
+  const plansByToolUseId = new Map<string, string>();
+  const approved: Array<{ resultIdx: number; plan: string }> = [];
+
+  for (let i = startIdx; i < transcript.length; i++) {
+    const content = transcript[i].message?.content;
+    if (!Array.isArray(content)) {
+      continue;
+    }
+    for (const part of content) {
+      if (part.type === 'tool_use' && part.name === EXIT_PLAN_MODE_TOOL) {
+        const plan = part.input?.plan;
+        plansByToolUseId.set(part.id, typeof plan === 'string' ? plan : '');
+      } else if (part.type === 'tool_result' && !part.is_error) {
+        const plan = plansByToolUseId.get(part.tool_use_id);
+        if (plan?.trim()) {
+          approved.push({ resultIdx: i, plan });
+        }
+      }
+    }
+  }
+
+  return approved;
+}
+
+/**
+ * The permission mode in effect for the phase of the transcript that ends at endIdx
+ * (exclusive): the last `permission-mode` entry before it, falling back to the mode recorded
+ * on the user prompt. After an approved plan the transcript records the switch (e.g. to
+ * `acceptEdits`) before the first execution step, so the execution trace picks that up.
+ */
+function permissionModeBefore(
+  transcript: TranscriptEntry[],
+  endIdx: number,
+  fallback: string | undefined,
+): string | undefined {
+  for (let i = Math.min(endIdx, transcript.length) - 1; i >= 0; i--) {
+    const entry = transcript[i];
+    if (entry.type === 'permission-mode' && typeof entry.permissionMode === 'string') {
+      return entry.permissionMode;
+    }
+  }
+  return fallback;
+}
 
 // ============================================================================
 // Tool result finding
@@ -526,7 +585,99 @@ function createLlmAndToolSpans(
 // ============================================================================
 
 /**
- * Process a Claude conversation transcript and create an MLflow trace with spans.
+ * Create a trace for the entries after transcript[promptIdx].
+ */
+function createConversationTrace(
+  transcript: TranscriptEntry[],
+  transcriptPath: string,
+  promptIdx: number,
+  userPromptText: string,
+  finalResponse: string | null,
+  sessionId: string,
+  permissionMode: string | undefined,
+): void {
+  const convStartNs = parseTimestampToNs(transcript[promptIdx].timestamp);
+
+  const parentSpan = startSpan({
+    name: 'claude_code_conversation',
+    inputs: { prompt: userPromptText },
+    startTimeNs: convStartNs ?? undefined,
+    spanType: SpanType.AGENT,
+  });
+
+  // Create spans for all assistant responses and tool uses
+  createLlmAndToolSpans(parentSpan, transcript, promptIdx + 1, transcriptPath);
+
+  // Set trace previews and metadata
+  try {
+    const traceManager = InMemoryTraceManager.getInstance();
+    const trace = traceManager.getTrace(parentSpan.traceId);
+    if (trace) {
+      if (userPromptText) {
+        trace.info.requestPreview = userPromptText.slice(0, MAX_PREVIEW_LENGTH);
+      }
+      if (finalResponse) {
+        trace.info.responsePreview = finalResponse.slice(0, MAX_PREVIEW_LENGTH);
+      }
+
+      const metadata: Record<string, string> = {
+        ...trace.info.traceMetadata,
+        [TraceMetadataKey.TRACE_SESSION]: sessionId,
+        [TraceMetadataKey.TRACE_USER]: getCurrentUser(),
+        [METADATA_KEY_WORKING_DIRECTORY]: process.cwd(),
+      };
+
+      // Capture permission mode
+      if (permissionMode) {
+        metadata[METADATA_KEY_PERMISSION_MODE] = permissionMode;
+      }
+
+      // Extract Claude Code version from transcript entries
+      const claudeCodeVersion = transcript.reduce<string | undefined>(
+        (found, entry) => found ?? entry.version,
+        undefined,
+      );
+      if (claudeCodeVersion) {
+        metadata[METADATA_KEY_CLAUDE_CODE_VERSION] = claudeCodeVersion;
+      }
+
+      // Aggregate per-call costs (including sub-agents, which share this trace)
+      // into a trace-level total so the trace's cost column is populated.
+      const traceCost = sumCosts(
+        Array.from(trace.spanDict.values())
+          .map((span) => span.getAttribute(LLM_COST_ATTRIBUTE) as LlmCost | undefined)
+          .filter((c): c is LlmCost => c != null),
+      );
+      if (traceCost) {
+        metadata[TRACE_COST_METADATA] = JSON.stringify(traceCost);
+      }
+
+      trace.info.traceMetadata = metadata;
+    }
+  } catch (err) {
+    console.error('[mlflow] Failed to update trace metadata:', err);
+  }
+
+  // Calculate end time
+  const lastEntry = transcript[transcript.length - 1];
+  let convEndNs = parseTimestampToNs(lastEntry.timestamp);
+  if (convEndNs) {
+    convEndNs += NANOSECONDS_PER_S;
+  }
+  if (!convEndNs || (convStartNs && convEndNs <= convStartNs)) {
+    convEndNs = (convStartNs ?? 0) + Math.floor(10 * NANOSECONDS_PER_S);
+  }
+
+  const outputs: Record<string, string> = { status: 'completed' };
+  if (finalResponse) {
+    outputs.response = finalResponse;
+  }
+  parentSpan.setOutputs(outputs);
+  parentSpan.end({ endTimeNs: convEndNs });
+}
+
+/**
+ * Process a Claude conversation transcript and create MLflow traces with spans.
  */
 export async function processTranscript(transcriptPath: string, sessionId?: string): Promise<void> {
   try {
@@ -550,92 +701,36 @@ export async function processTranscript(transcriptPath: string, sessionId?: stri
       sessionId = `claude-${new Date().toISOString().replace(/[:.]/g, '').slice(0, 15)}`;
     }
 
-    const convStartNs = parseTimestampToNs(lastUserEntry.timestamp);
-
     // Prefer fresh rates from the published model catalog (filesystem TTL cache);
     // calculateCost falls back to the bundled snapshot when unavailable.
     setModelRates(await loadCatalogRates());
 
-    const parentSpan = startSpan({
-      name: 'claude_code_conversation',
-      inputs: { prompt: userPromptText },
-      startTimeNs: convStartNs ?? undefined,
-      spanType: SpanType.AGENT,
-    });
-
-    // Create spans for all assistant responses and tool uses
-    createLlmAndToolSpans(parentSpan, transcript, lastUserIdx + 1, transcriptPath);
-
-    // Find final response for preview
-    const finalResponse = findFinalAssistantResponse(transcript, lastUserIdx + 1);
-
-    // Set trace previews and metadata
-    try {
-      const traceManager = InMemoryTraceManager.getInstance();
-      const trace = traceManager.getTrace(parentSpan.traceId);
-      if (trace) {
-        if (userPromptText) {
-          trace.info.requestPreview = userPromptText.slice(0, MAX_PREVIEW_LENGTH);
-        }
-        if (finalResponse) {
-          trace.info.responsePreview = finalResponse.slice(0, MAX_PREVIEW_LENGTH);
-        }
-
-        const metadata: Record<string, string> = {
-          ...trace.info.traceMetadata,
-          [TraceMetadataKey.TRACE_SESSION]: sessionId,
-          [TraceMetadataKey.TRACE_USER]: getCurrentUser(),
-          [METADATA_KEY_WORKING_DIRECTORY]: process.cwd(),
-        };
-
-        // Capture permission mode
-        const permissionMode = lastUserEntry.permissionMode;
-        if (permissionMode) {
-          metadata[METADATA_KEY_PERMISSION_MODE] = permissionMode;
-        }
-
-        // Extract Claude Code version from transcript entries
-        const claudeCodeVersion = transcript.reduce<string | undefined>(
-          (found, entry) => found ?? entry.version,
-          undefined,
-        );
-        if (claudeCodeVersion) {
-          metadata[METADATA_KEY_CLAUDE_CODE_VERSION] = claudeCodeVersion;
-        }
-
-        // Aggregate per-call costs (including sub-agents, which share this trace)
-        // into a trace-level total so the trace's cost column is populated.
-        const traceCost = sumCosts(
-          Array.from(trace.spanDict.values())
-            .map((span) => span.getAttribute(LLM_COST_ATTRIBUTE) as LlmCost | undefined)
-            .filter((c): c is LlmCost => c != null),
-        );
-        if (traceCost) {
-          metadata[TRACE_COST_METADATA] = JSON.stringify(traceCost);
-        }
-
-        trace.info.traceMetadata = metadata;
-      }
-    } catch (err) {
-      console.error('[mlflow] Failed to update trace metadata:', err);
+    // Trace the planning phase and the execution of each approved plan
+    // separately, so plan mode shows up as its own turn in the session.
+    let promptIdx = lastUserIdx;
+    let promptText = userPromptText;
+    for (const { resultIdx, plan } of findApprovedPlans(transcript, lastUserIdx + 1)) {
+      createConversationTrace(
+        transcript.slice(0, resultIdx + 1),
+        transcriptPath,
+        promptIdx,
+        promptText,
+        plan,
+        sessionId,
+        permissionModeBefore(transcript, resultIdx + 1, lastUserEntry.permissionMode),
+      );
+      promptIdx = resultIdx;
+      promptText = plan;
     }
-
-    // Calculate end time
-    const lastEntry = transcript[transcript.length - 1];
-    let convEndNs = parseTimestampToNs(lastEntry.timestamp);
-    if (convEndNs) {
-      convEndNs += NANOSECONDS_PER_S;
-    }
-    if (!convEndNs || (convStartNs && convEndNs <= convStartNs)) {
-      convEndNs = (convStartNs ?? 0) + Math.floor(10 * NANOSECONDS_PER_S);
-    }
-
-    const outputs: Record<string, string> = { status: 'completed' };
-    if (finalResponse) {
-      outputs.response = finalResponse;
-    }
-    parentSpan.setOutputs(outputs);
-    parentSpan.end({ endTimeNs: convEndNs });
+    createConversationTrace(
+      transcript,
+      transcriptPath,
+      promptIdx,
+      promptText,
+      findFinalAssistantResponse(transcript, promptIdx + 1),
+      sessionId,
+      permissionModeBefore(transcript, transcript.length, lastUserEntry.permissionMode),
+    );
 
     await flushTraces();
   } catch (err) {
