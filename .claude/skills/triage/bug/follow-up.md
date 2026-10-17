@@ -22,6 +22,6 @@ the author unless this request asks for an automated fix. All shared PR requirem
 
 ## Response
 
-Read [followup.schema.yml](followup.schema.yml). Write a concise, free-form `comment`
+Read [follow-up.schema.yml](follow-up.schema.yml). Write a concise, free-form `comment`
 addressing the request without repeating the original report. Do not include a `label`.
 Include `pull_request` only with a verified `fix.patch` that meets the shared requirements.
