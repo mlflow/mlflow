@@ -169,12 +169,18 @@ export const useEvalRunsFilters = ({
 
   const isAnyFilterActive =
     searchFilter.trim().length > 0 || datePreset !== EvalRunsDatePreset.ALL || clauses.length > 0;
+  const hasRelativeDateWindow = enabled && datePreset !== EvalRunsDatePreset.ALL;
+
+  // Moves a relative date window ("Last hour") forward to now, as the Traces tab does on refresh.
+  const [dateWindowRefreshCount, setDateWindowRefreshCount] = useState(0);
+  const refreshDateWindow = useCallback(() => setDateWindowRefreshCount((count) => count + 1), []);
 
   // Recomputing on every render would make the relative date boundary drift and
-  // change the query key, refetching constantly. Pin it to the filter state.
+  // change the query key, refetching constantly. Pin it to the filter state and to refreshes.
   const filterString = useMemo(
     () => (enabled ? buildEvalRunsFilterString(filters, searchFilter) : searchFilter),
-    [enabled, filters, searchFilter],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- a refresh recomputes the date boundary
+    [enabled, filters, searchFilter, dateWindowRefreshCount],
   );
 
   return {
@@ -182,6 +188,8 @@ export const useEvalRunsFilters = ({
     filters,
     filterString,
     isAnyFilterActive,
+    hasRelativeDateWindow,
+    refreshDateWindow,
     setSearchFilter,
     setDatePreset,
     setClauses,

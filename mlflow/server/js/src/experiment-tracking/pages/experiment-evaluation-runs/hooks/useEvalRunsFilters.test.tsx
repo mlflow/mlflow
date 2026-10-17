@@ -283,6 +283,29 @@ describe('useEvalRunsFilters', () => {
     expect(result.current.filterString).toBe("dataset.name LIKE '%candidate%'");
   });
 
+  it('moves a relative date window forward only when refreshed', async () => {
+    const nowSpy = jest.spyOn(Date, 'now').mockReturnValue(10 * 60 * 60 * 1000);
+    const { result } = await mountHook({ fallbackDatePreset: EvalRunsDatePreset.ALL, persistDatePreset: true });
+
+    expect(result.current.hasRelativeDateWindow).toBe(false);
+    act(() => result.current.setDatePreset(EvalRunsDatePreset.LAST_HOUR));
+    expect(result.current.hasRelativeDateWindow).toBe(true);
+    expect(result.current.filterString).toBe(`attributes.start_time > ${9 * 60 * 60 * 1000}`);
+
+    // An hour later the filter keeps its cutoff until a refresh moves it to the last hour from now.
+    nowSpy.mockReturnValue(11 * 60 * 60 * 1000);
+    expect(result.current.filterString).toBe(`attributes.start_time > ${9 * 60 * 60 * 1000}`);
+    act(() => result.current.refreshDateWindow());
+    expect(result.current.filterString).toBe(`attributes.start_time > ${10 * 60 * 60 * 1000}`);
+    nowSpy.mockRestore();
+  });
+
+  it('has no relative date window to refresh when the new filters are disabled', async () => {
+    const { result } = await mountHook({ fallbackDatePreset: EvalRunsDatePreset.LAST_HOUR, enabled: false });
+
+    expect(result.current.hasRelativeDateWindow).toBe(false);
+  });
+
   it('includes every persisted date preset in the dropdown exactly once', () => {
     expect([...DATE_PRESET_ORDER].sort()).toEqual(Object.values(EvalRunsDatePreset).sort());
   });
