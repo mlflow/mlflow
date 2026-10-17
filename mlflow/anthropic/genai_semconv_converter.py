@@ -66,11 +66,20 @@ def _convert_block(block: dict[str, Any]) -> dict[str, Any]:
     match block_type:
         case "text":
             return {"type": "text", "content": block.get("text", "")}
+        case "thinking":
+            if not isinstance(thinking := block.get("thinking"), str):
+                return dict(block)
+            part = {"type": "reasoning", "content": thinking}
+            if (signature := block.get("signature")) is not None:
+                part["signature"] = signature
+            return part
         case "image" | "document":
             source = block.get("source", {})
             source_type = source.get("type")
+            metadata = {k: v for k, v in block.items() if k not in ("type", "source")}
             if source_type == "base64":
                 return {
+                    **metadata,
                     "type": "blob",
                     "modality": block_type,
                     "mime_type": source.get("media_type", ""),
@@ -78,11 +87,21 @@ def _convert_block(block: dict[str, Any]) -> dict[str, Any]:
                 }
             if source_type == "url":
                 return {
+                    **metadata,
                     "type": "uri",
                     "modality": block_type,
                     "uri": source.get("url", ""),
                 }
-            return {"type": "text", "content": json.dumps(block)}
+            if source_type == "file":
+                return {
+                    **metadata,
+                    "type": "file",
+                    "modality": block_type,
+                    "file_id": source.get("file_id", ""),
+                }
+            if source_type == "text":
+                return {**metadata, "type": "text", "content": source.get("data", "")}
+            return {**block, "type": block_type}
         case "tool_use":
             return {
                 "type": "tool_call",
@@ -97,5 +116,5 @@ def _convert_block(block: dict[str, Any]) -> dict[str, Any]:
                 "response": block.get("content", ""),
             }
         case _:
-            # Fallback to text with dumped content block
-            return {"type": "text", "content": json.dumps(block)}
+            # Keep redacted thinking and provider-specific blocks inspectable as generic parts.
+            return {**block, "type": block_type or "unknown"}
