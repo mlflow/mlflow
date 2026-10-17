@@ -39,8 +39,8 @@ git diff HEAD --stat
 The last command must list only the files in the patch. Then add `pull_request` to the payload
 using `pull_request` from the selected action's payload schema.
 
-For visible UI fixes, include a before/after comparison in the PR body when it helps
-reviewers assess the change. Stack screenshots vertically with **Before** above **After**, rather than
+For visible UI fixes, include a before/after comparison in the PR body.
+Stack screenshots vertically with **Before** above **After**, rather than
 side-by-side. Capture the broken behavior before applying the fix and the
 fixed behavior with the same data, page state, and viewport. Label the captures **Before**
 and **After**, save them under `$out_dir/media`, and cite their exact paths as described below.
