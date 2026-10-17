@@ -567,6 +567,29 @@ def _validate_run_id(run_id, path="run_id"):
         raise MlflowException(invalid_value(path, run_id), error_code=INVALID_PARAMETER_VALUE)
 
 
+def _validate_file_store_trace_id(trace_id):
+    """Require a single filesystem component that is also safe in an artifact URI."""
+    if (
+        not isinstance(trace_id, str)
+        or not trace_id
+        or trace_id in {".", ".."}
+        or trace_id.endswith((".", " "))
+        or any(c in '/\\:<>"|?*%#' or ord(c) < 32 or ord(c) == 127 for c in trace_id)
+        # Windows treats device names as reserved even when followed by an extension.
+        or re.fullmatch(
+            r"CON|PRN|AUX|NUL|CONIN\$|CONOUT\$|COM[1-9¹²³]|LPT[1-9¹²³]",
+            trace_id.partition(".")[0].rstrip(" "),
+            flags=re.IGNORECASE | re.ASCII,
+        )
+    ):
+        raise MlflowException(
+            "Invalid FileStore trace ID: expected a single non-empty directory name, "
+            "without path separators, reserved Windows names or characters, control "
+            "characters, URI delimiters (%, ?, #), or a trailing dot or space.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+
 def _validate_experiment_id(exp_id):
     """Check that `experiment_id`is a valid string or None, raise an exception if it isn't."""
     if exp_id is not None and _EXPERIMENT_ID_REGEX.fullmatch(exp_id) is None:
