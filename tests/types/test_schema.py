@@ -14,7 +14,11 @@ from scipy.sparse import csc_matrix, csr_matrix
 
 from mlflow.exceptions import MlflowException
 from mlflow.models import rag_signatures
-from mlflow.models.utils import _enforce_tensor_spec
+from mlflow.models.utils import (
+    _enforce_tensor_spec,
+    _reshape_and_cast_pandas_column_values,
+    _validate_tensor_spec_cast,
+)
 from mlflow.pyfunc import _parse_spark_datatype
 from mlflow.types import DataType
 from mlflow.types.schema import (
@@ -755,7 +759,138 @@ def test_enforce_tensor_spec_variable_signature():
         _enforce_tensor_spec(ragged_array, standard_spec)
 
 
-def test_datatype_type_check():
+def test_validate_tensor_spec_cast_safe_cast():
+    # Valid casts that should not raise
+    _validate_tensor_spec_cast(np.array([1, 2, 3]), np.dtype("int64"), "col")
+    _validate_tensor_spec_cast(np.array([1.0, 2.0, 3.0]), np.dtype("int32"), "col")
+    _validate_tensor_spec_cast(np.array([0.1]), np.dtype("float32"), "col")
+    _validate_tensor_spec_cast(np.array([1, 2, 3]), np.dtype("int64"), "col")
+    _validate_tensor_spec_cast(np.array([0, 1]), np.dtype("bool"), "col")
+
+
+def test_validate_tensor_spec_cast_unsafe_float_to_int():
+    # float -> int with fractional part should raise
+    with pytest.raises(MlflowException, match="Can not safely convert float64 to int64"):
+        _validate_tensor_spec_cast(np.array([1.7, -2.9, 3.5]), np.dtype("int64"), "col")
+
+    # float -> int with out of range should raise
+    with pytest.raises(MlflowException, match="Can not safely convert int64 to int32"):
+        _validate_tensor_spec_cast(np.array([2**31, 2**40 + 7]), np.dtype("int32"), "col")
+
+    # float -> int with NaN should raise
+    with pytest.raises(MlflowException, match="Can not safely convert float64 to int32"):
+        _validate_tensor_spec_cast(np.array([1.0, np.nan]), np.dtype("int32"), "col")
+
+    # float -> int with inf should raise
+    with pytest.raises(MlflowException, match="Can not safely convert float64 to int32"):
+        _validate_tensor_spec_cast(np.array([1.0, np.inf]), np.dtype("int32"), "col")
+
+
+def test_validate_tensor_spec_cast_unsafe_to_bool():
+    # -> bool: only 0/1 allowed
+    with pytest.raises(MlflowException, match="Can not safely convert int64 to bool"):
+        _validate_tensor_spec_cast(np.array([0, 5, -3]), np.dtype("bool"), "col")
+
+    with pytest.raises(MlflowException, match="Can not safely convert float64 to bool"):
+        _validate_tensor_spec_cast(np.array([0.0, 1.0, 2.0]), np.dtype("bool"), "col")
+
+
+def test_validate_tensor_spec_cast_unsafe_to_float():
+    # float -> float with overflow to inf should raise
+    with pytest.raises(MlflowException, match="Can not safely convert float64 to float32"):
+        _validate_tensor_spec_cast(np.array([1e300]), np.dtype("float32"), "col")
+
+    # finite values should be fine
+    _validate_tensor_spec_cast(np.array([0.1, 0.2]), np.dtype("float32"), "col")
+
+
+def test_validate_tensor_spec_cast_non_numeric():
+    # Non-numeric casts should not raise
+    _validate_tensor_spec_cast(np.array(["a", "b"]), np.dtype("object"), "col")
+    _validate_tensor_spec_cast(np.array(["a", "b"]), np.dtype("U1"), "col")
+
+
+def test_reshape_and_cast_pandas_column_values_scalar():
+    import pandas as pd
+
+    # Valid case: float -> int64 with integer values should work
+    result = _reshape_and_cast_pandas_column_values(
+        "a", pd.Series([1.0, 2.0, 3.0]), TensorSpec(np.dtype(np.int64), (-1,), "a")
+    )
+    np.testing.assert_array_equal(result, np.array([1, 2, 3], dtype=np.int64))
+
+    # Invalid: float -> int64 with fractional part should raise
+    with pytest.raises(MlflowException, match="Can not safely convert float64 to int64"):
+        _reshape_and_cast_pandas_column_values(
+            "a", pd.Series([1.7, -2.9, 3.5]), TensorSpec(np.dtype(np.int64), (-1,), "a")
+        )
+
+    # Invalid: int -> int32 out of range should raise
+    with pytest.raises(MlflowException, match="Can not safely convert int64 to int32"):
+        _reshape_and_cast_pandas_column_values(
+            "a",
+            pd.Series([2**31, 2**40 + 7]),
+            TensorSpec(np.dtype(np.int32), (-1,), "a"),
+        )
+
+
+def test_reshape_and_cast_pandas_column_values_list_valued():
+    import pandas as pd
+
+    # Invalid: list-valued with wrap should raise
+    with pytest.raises(MlflowException, match="Can not safely convert int64 to int32"):
+        _reshape_and_cast_pandas_column_values(
+            "a",
+            pd.Series([[1, 2**31], [3, 4]]),
+            TensorSpec(np.dtype(np.int32), (-1, 2), "a"),
+        )
+
+    # Valid: list-valued with valid values should work
+    result = _reshape_and_cast_pandas_column_values(
+        "a", pd.Series([[1.0, 2.0]]), TensorSpec(np.dtype(np.float32), (-1, 2), "a")
+    )
+    np.testing.assert_array_equal(result, np.array([[1.0, 2.0]], dtype=np.float32))
+
+
+def test_reshape_and_cast_pandas_column_values_ndarray_valued():
+    import pandas as pd
+
+    # Invalid: ndarray-valued with fractional float -> int32 should raise
+    with pytest.raises(MlflowException, match="Can not safely convert float64 to int32"):
+        _reshape_and_cast_pandas_column_values(
+            "a",
+            pd.Series([np.array([1.5, 2.5])]),
+            TensorSpec(np.dtype(np.int32), (-1, 2), "a"),
+        )
+
+    # Valid: ndarray-valued with integer-valued float -> int32 should work
+    result = _reshape_and_cast_pandas_column_values(
+        "a", pd.Series([np.array([1.0, 2.0])]), TensorSpec(np.dtype(np.int32), (-1, 2), "a")
+    )
+    np.testing.assert_array_equal(result, np.array([[1, 2]], dtype=np.int32))
+
+
+def test_convert_data_type_tensor_spec():
+    from mlflow.utils.proto_json_utils import convert_data_type
+
+    # Valid case
+    result = convert_data_type(
+        [1.0, 2.0, 3.0], TensorSpec(np.dtype(np.int64), (-1,), "a"), name="a"
+    )
+    np.testing.assert_array_equal(result, np.array([1, 2, 3], dtype=np.int64))
+
+    # Invalid: float -> int with fractional part
+    with pytest.raises(MlflowException, match="Can not safely convert float64 to int64"):
+        convert_data_type([1.7, -2.9, 3.5], TensorSpec(np.dtype(np.int64), (-1,), "a"), name="a")
+
+    # Invalid: float -> int out of range
+    with pytest.raises(MlflowException, match="Can not safely convert int64 to int32"):
+        convert_data_type([2**31, 2**40 + 7], TensorSpec(np.dtype(np.int32), (-1,), "a"), name="a")
+
+    # float64 -> float32 precision loss allowed
+    result = convert_data_type([0.1], TensorSpec(np.dtype(np.float32), (-1,), "a"), name="a")
+    assert result.dtype == np.dtype("float32")
+
     assert DataType.check_type(DataType.string, "string")
 
     integer_type = DataType.integer

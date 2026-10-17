@@ -277,7 +277,12 @@ def cast_df_types_according_to_schema(pdf, schema):
     import numpy as np
     import pandas as pd
 
-    from mlflow.models.utils import _enforce_array, _enforce_map, _enforce_object
+    from mlflow.models.utils import (
+        _enforce_array,
+        _enforce_map,
+        _enforce_object,
+        _validate_tensor_spec_cast,
+    )
     from mlflow.types.schema import AnyType, Array, DataType, Map, Object
 
     actual_cols = set(pdf.columns)
@@ -345,6 +350,11 @@ def cast_df_types_according_to_schema(pdf, schema):
                         or (isinstance(col_type, np.dtype) and col_type.kind == "U")
                     ) and isinstance(pdf[col_name].dtype, pd.StringDtype):
                         continue
+                    if schema.is_tensor_spec():
+                        # A tensor-based schema narrows columns to the signature dtype here.
+                        # Guard against silent truncation/wraparound/overflow, e.g. JSON always
+                        # yields int64/float64 so an int32 model would otherwise wrap values.
+                        _validate_tensor_spec_cast(np.asarray(pdf[col_name]), col_type, col_name)
                     pdf[col_name] = pdf[col_name].astype(col_type)
             except Exception as ex:
                 raise MlflowFailedTypeConversion(col_name, col_type, ex)
@@ -461,24 +471,32 @@ def _get_jsonable_obj(data, pandas_orient="records"):
         return data
 
 
-def convert_data_type(data, spec):
+def convert_data_type(data, spec, name=None):
     """
     Convert input data to the type specified in the spec.
 
     Args:
         data: Input data.
         spec: ColSpec or TensorSpec.
+        name: Name of the input column, used in error messages.
     """
     import numpy as np
 
-    from mlflow.models.utils import _enforce_array, _enforce_map, _enforce_object
+    from mlflow.models.utils import (
+        _enforce_array,
+        _enforce_map,
+        _enforce_object,
+        _validate_tensor_spec_cast,
+    )
     from mlflow.types.schema import AnyType, Array, ColSpec, DataType, Map, Object, TensorSpec
 
     try:
         if spec is None:
             return np.array(data)
         if isinstance(spec, TensorSpec):
-            return np.array(data, dtype=spec.type)
+            arr = np.asarray(data)
+            _validate_tensor_spec_cast(arr, spec.type, name)
+            return arr.astype(spec.type)
         if isinstance(spec, ColSpec):
             if isinstance(spec.type, DataType):
                 return (
@@ -533,14 +551,18 @@ def _cast_schema_type(input_data, schema=None):
         # each key corresponds to a column, values should be
         # checked against the schema
         input_data = {
-            col: convert_data_type(data, types_dict.get(col)) for col, data in input_data.items()
+            col: convert_data_type(data, types_dict.get(col), col)
+            for col, data in input_data.items()
         }
     elif isinstance(input_data, list):
         # List of dictionaries of column_name -> value mapping
         # List[Dict] must correspond to a schema with named columns
         if all(isinstance(x, dict) for x in input_data):
             input_data = [
-                {col: convert_data_type(value, types_dict.get(col)) for col, value in data.items()}
+                {
+                    col: convert_data_type(value, types_dict.get(col), col)
+                    for col, value in data.items()
+                }
                 for data in input_data
             ]
         # List of values
@@ -574,7 +596,7 @@ def parse_instances_data(data, schema=None):
         types_dict = schema.input_dict() if schema and schema.has_input_names() else {}
         for item in data:
             for col, v in item.items():
-                data_dict[col].append(convert_data_type(v, types_dict.get(col)))
+                data_dict[col].append(convert_data_type(v, types_dict.get(col), col))
         # convert to numpy array for backwards compatibility
         data = {col: np.array(v) for col, v in data_dict.items()}
     else:
