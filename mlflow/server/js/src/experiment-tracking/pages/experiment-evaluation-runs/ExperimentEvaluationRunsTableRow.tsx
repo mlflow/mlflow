@@ -25,6 +25,7 @@ import { FormattedMessage } from 'react-intl';
 import { useNavigate } from '../../../common/utils/RoutingUtils';
 import Routes from '../../routes';
 import { RunPageTabName } from '../../constants';
+import { shouldEnableNewEvalRunsUi } from '../../../common/utils/FeatureUtils';
 
 type TracesViewTableRowProps = {
   row: Row<RunEntityOrGroupData>;
@@ -122,6 +123,10 @@ export const ExperimentEvaluationRunsTableRow = React.memo(
       }
       if ('info' in row.original) {
         const { experimentId, runUuid } = row.original.info;
+        if (shouldEnableNewEvalRunsUi()) {
+          navigate(Routes.getEvaluationRunDetailsRoute(experimentId, runUuid));
+          return;
+        }
         navigate(Routes.getRunPageTabRoute(experimentId, runUuid, RunPageTabName.EVALUATIONS));
       }
     }, [enableImprovedComparison, navigate, row.original]);

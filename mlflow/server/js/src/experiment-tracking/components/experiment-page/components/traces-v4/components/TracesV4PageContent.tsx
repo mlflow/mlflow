@@ -1,26 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { type InputRef, ColumnSplitIcon, useDesignSystemTheme } from '@databricks/design-system';
 import { useIntl, FormattedMessage } from 'react-intl';
-import {
-  createTraceV4LongIdentifier,
-  ModelTraceExplorerContextProvider,
-  type ModelTraceInfoV3,
-} from '@databricks/web-shared/model-trace-explorer';
-import {
-  doesTraceSupportV4API,
-  GenAITracesTableProvider,
-  MLFLOW_SOURCE_RUN_KEY,
-  RunName,
-} from '@databricks/web-shared/genai-traces-table';
+import { createTraceV4LongIdentifier, type ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
+import { doesTraceSupportV4API, MLFLOW_SOURCE_RUN_KEY, RunName } from '@databricks/web-shared/genai-traces-table';
 import {
   EMPTY_FILTER_MODEL,
   TRACE_COLUMN_IDS,
   TracesErrorAlert,
-  TracesTableView,
   type SessionHrefGetter,
   type SessionSelectionHandler,
   type TraceColumnId,
   type TraceHrefGetter,
+  type TracesTableViewProps,
   type TracesTableViewState,
 } from '@databricks/web-shared/traces-table';
 import { useDeleteTracesMutation } from '@mlflow/mlflow/src/experiment-tracking/components/evaluations/hooks/useDeleteTraces';
@@ -28,7 +19,7 @@ import { AssistantAwareDrawer } from '@mlflow/mlflow/src/common/components/Assis
 import { AssistantAwareActionBar } from '@mlflow/mlflow/src/common/components/AssistantAwareActionBar';
 import Routes from '@mlflow/mlflow/src/experiment-tracking/routes';
 import { useNavigate, useSearchParams, useLocation } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
-import { shouldEnableIssueDetection } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
+import { shouldEnableIssueDetection, shouldEnableNewEvalRunsUi } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 import { SELECTED_TRACE_ID_QUERY_PARAM } from '@mlflow/mlflow/src/experiment-tracking/constants';
 // Reuse the generic (branding-free) "/" hotkey hook from datasets-v2.
 import { useSlashFocusSearch } from '@mlflow/mlflow/src/experiment-tracking/pages/experiment-evaluation-datasets-v2/hooks/useSlashFocusSearch';
@@ -38,7 +29,8 @@ import { useTracesV4Controller } from '../hooks/useTracesV4Controller';
 import { useTracesV4Density } from '../hooks/useTracesV4Density';
 import { useTracesV4Notifications } from '../hooks/useTracesV4Notifications';
 import { useTracesV4TraceActions } from '../hooks/useTracesV4TraceActions';
-import { TracesV4TraceDrawer } from './TracesV4TraceDrawer';
+import { useTracesV4UnifiedSearch } from '../hooks/useTracesV4UnifiedSearch';
+import { TracesV4TableSurface } from './TracesV4TableSurface';
 import { useTracesV4ToolbarSlots } from './TracesV4Toolbar';
 import { TracesV4DeleteModal } from './TracesV4DeleteModal';
 import { makeTracesV4ErrorDescription } from './TracesV4States';
@@ -329,9 +321,22 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
     [page.traces],
   );
 
-  const toolbarSlots = useTracesV4ToolbarSlots({
+  // The new evaluation runs UI replaces the search box and the Filters button with one search that
+  // shows the applied filters as pills and turns typed queries into filters.
+  const unifiedSearchEnabled = shouldEnableNewEvalRunsUi();
+  const unifiedSearch = useTracesV4UnifiedSearch({
     filterModel,
-    onFilterChange: controller.setFilterModel,
+    setFilterModel: controller.setFilterModel,
+    tagFilters: url.tagFilters,
+    clearTagFilters: url.clearTagFilters,
+    searchInput,
+  });
+
+  const toolbarSlots = useTracesV4ToolbarSlots({
+    filterModel: unifiedSearchEnabled ? unifiedSearch.searchFilterModel : filterModel,
+    onFilterChange: unifiedSearchEnabled ? unifiedSearch.setSearchFilters : controller.setFilterModel,
+    hideFilterButton: unifiedSearchEnabled,
+    ...(unifiedSearchEnabled ? { traces: page.traces } : {}),
     onClearFilters: clearAllFilters,
     activeFilterCount: controller.activeFilterCount,
     visibleColumns: columns.visibleColumns,
@@ -371,135 +376,143 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
           ? 'no-results'
           : 'ready';
 
-  const content = (
-    // The two providers expose the shared trace-action building blocks (drawer add-to-dataset
-    // and the dataset modal) to the drawer and Actions menu.
-    <ModelTraceExplorerContextProvider
-      renderExportTracesToDatasetsModal={actions.renderExportTracesToDatasetsModal}
-      renderAddToReviewQueueDropdown={actions.AddToReviewQueueDropdown}
-      DrawerComponent={AssistantAwareDrawer}
-    >
-      <GenAITracesTableProvider
-        experimentId={experimentId}
-        getTrace={actions.getTrace}
-        isGroupedBySession={controller.isGroupedBySession}
-      >
-        {/* Vertical-fill column for the tab. Horizontal scroll stays inside the table (TracesTable's
-            own `<Table scrollable>`), so the toolbar and pagination bar keep to the visible width
-            without a second scroll container of our own (ML-68750/68769) — the toolbar instead
-            collapses its control labels to fit (see TracesToolbarResponsive). The negative bottom
-            margin bleeds the pinned pagination bar into the shared content wrapper's 8px bottom
-            padding, aligning it with the sidebar. */}
-        <div
-          css={{
-            display: 'flex',
-            flexDirection: 'column',
-            flex: 1,
-            minHeight: 0,
-            gap: theme.spacing.md,
-            paddingTop: revampEnabled ? 0 : theme.spacing.md,
-            paddingLeft: revampEnabled ? 0 : theme.spacing.md,
-            marginBottom: -theme.spacing.sm,
-          }}
-        >
-          <TracesTableView
-            viewState={viewState}
-            // Table
-            traces={page.traces}
-            visibleColumns={columns.visibleColumns}
-            extraColumns={extraColumns}
-            columnHeaderActions={columnHeaderActions}
-            columnOrder={columnOrder.columnOrder}
-            initialColumnSizing={columnSizing.columnSizing}
-            onColumnSizingSettled={columnSizing.setColumnSizing}
-            isLoading={page.isFetching}
-            isFetching={page.isFetching}
-            skeletonRowCount={url.pageSize}
-            onTraceSelected={handleTraceSelected}
-            selectedTraceId={url.traceId}
-            selectedForBulk={bulk.selected}
-            isAllOnPageSelected={bulk.isAllVisibleChecked}
-            isSomeOnPageSelected={bulk.isSomeVisibleChecked}
-            onToggleBulkRow={bulk.toggle}
-            // Session-level select needs the whole session's traces; when a grouped page spans
-            // multiple pages the off-page traces aren't loaded, so disable it (mirrors universe).
-            onToggleBulkRows={
-              controller.isGroupedBySession && (page.hasNext || page.hasPrev) ? undefined : bulk.toggleMany
-            }
-            onToggleBulkAll={bulk.toggleAll}
-            sort={url.sort}
-            dir={url.dir}
-            onSort={url.setSort}
-            previewLineClamp={PREVIEW_LINE_CLAMP_BY_DENSITY[density]}
-            getTraceHref={getTraceHref}
-            getSessionHref={getSessionHref}
-            onSessionSelected={handleSessionSelected}
-            onFilterByTag={controller.onFilterByTag}
-            renderRunName={renderRunName}
-            onHideColumn={handleHideColumn}
-            isGroupedBySession={controller.isGroupedBySession}
-            // Session-level aggregates (e.g. token totals) may be incomplete when off-page traces
-            // exist — suppress them for the same reason onToggleBulkRows is disabled above.
-            sessionsMayBeIncomplete={controller.isGroupedBySession && (page.hasNext || page.hasPrev)}
-            onReorderColumn={columnOrder.reorderColumn}
-            // Toolbar slots (built by useTracesV4ToolbarSlots) + banner slot
-            searchValue={searchInput.input}
-            onSearchChange={searchInput.setInput}
-            onSearchClear={searchInput.clear}
-            onSearchSubmit={searchInput.submit}
-            searchInputRef={searchInputRef}
-            leftControls={toolbarSlots.leftControls}
-            rightControls={toolbarSlots.rightControls}
-            bannerSlot={
-              <>
-                {actions.runJudges?.JudgesStatusBanner}
-                {showErrorAlert && (
-                  <TracesErrorAlert
-                    error={page.error}
-                    onRetry={page.refetch}
-                    getErrorDescription={getErrorDescription}
-                  />
-                )}
-              </>
-            }
-            // Pagination
-            pageIndex={url.pageIndex}
-            pageSize={url.pageSize}
-            onPageChange={controller.goToPage}
-            onPageSizeChange={url.setPageSize}
-            hasNext={page.hasNext}
-            hasPrev={page.hasPrev}
-            // Grouped mode fetches one big page: hide the page-size selector always, and hide the whole
-            // bar when that page holds everything (no prev/next to offer).
-            hidePagination={controller.isGroupedBySession && !page.hasNext && !page.hasPrev}
-            hidePageSizeSelector={controller.isGroupedBySession}
-            // "{n} of {total}" footer count (bottom-left).
-            traceCount={page.traces.length}
-            traceTotal={controller.traceCount.totalCount}
-            isTraceCountLoading={controller.traceCount.isTotalLoading}
-            // Reserve the pinned pagination bar's height with the floating-obstruction store so the
-            // Assistant FAB rises above it instead of overlapping the prev/next/page-size controls.
-            PaginationBarWrapper={AssistantAwareActionBar}
-            // States
-            onClearFilters={clearFilters}
-            onRetry={page.refetch}
-            error={page.error}
-            getErrorDescription={getErrorDescription}
-            customEmptyState={
-              // Short-circuits before the viewState switch (keeping toolbar + banner). Gated on the
-              // resolved `empty` state, not `hasNoTracesInRange` alone, so error / no-results /
-              // no-more-results still flow through the switch — a trace-id-search miss lands on
-              // `no-results`, and a first-load error on `error`, not the quickstart.
-              viewState === 'empty' ? (
-                <TracesV4EmptyState
-                  kind={controller.emptyStateKind}
-                  timeLabel={controller.timeLabel}
-                  onViewAll={() => controller.setTimeRange({ timeLabel: 'ALL' })}
-                />
-              ) : undefined
-            }
-          />
+  const tableViewProps: TracesTableViewProps = {
+    viewState,
+    // Table
+    traces: page.traces,
+    visibleColumns: columns.visibleColumns,
+    extraColumns,
+    columnHeaderActions,
+    columnOrder: columnOrder.columnOrder,
+    initialColumnSizing: columnSizing.columnSizing,
+    onColumnSizingSettled: columnSizing.setColumnSizing,
+    isLoading: page.isFetching,
+    isFetching: page.isFetching,
+    skeletonRowCount: url.pageSize,
+    onTraceSelected: handleTraceSelected,
+    selectedTraceId: url.traceId,
+    selectedForBulk: bulk.selected,
+    isAllOnPageSelected: bulk.isAllVisibleChecked,
+    isSomeOnPageSelected: bulk.isSomeVisibleChecked,
+    onToggleBulkRow: bulk.toggle,
+    // Session-level select needs the whole session's traces; when a grouped page spans
+    // multiple pages the off-page traces aren't loaded, so disable it (mirrors universe).
+    onToggleBulkRows: controller.isGroupedBySession && (page.hasNext || page.hasPrev) ? undefined : bulk.toggleMany,
+    onToggleBulkAll: bulk.toggleAll,
+    sort: url.sort,
+    dir: url.dir,
+    onSort: url.setSort,
+    previewLineClamp: PREVIEW_LINE_CLAMP_BY_DENSITY[density],
+    getTraceHref,
+    getSessionHref,
+    onSessionSelected: handleSessionSelected,
+    onFilterByTag: controller.onFilterByTag,
+    renderRunName,
+    onHideColumn: handleHideColumn,
+    isGroupedBySession: controller.isGroupedBySession,
+    // Session-level aggregates (e.g. token totals) may be incomplete when off-page traces
+    // exist — suppress them for the same reason onToggleBulkRows is disabled above.
+    sessionsMayBeIncomplete: controller.isGroupedBySession && (page.hasNext || page.hasPrev),
+    onReorderColumn: columnOrder.reorderColumn,
+    // Toolbar slots (built by useTracesV4ToolbarSlots) + banner slot
+    searchValue: searchInput.input,
+    onSearchChange: searchInput.setInput,
+    onSearchClear: searchInput.clear,
+    onSearchSubmit: searchInput.submit,
+    searchInputRef,
+    ...(unifiedSearchEnabled
+      ? {
+          expandSearch: true,
+          searchMinimumWidth: unifiedSearch.searchMinimumWidth,
+          searchControl: unifiedSearch.renderSearchControl({
+            renderFilterEditor: toolbarSlots.renderFilterEditor,
+            traces: page.traces,
+            inputRef: searchInputRef,
+            resetKey: experimentId,
+          }),
+        }
+      : {}),
+    leftControls: toolbarSlots.leftControls,
+    rightControls: toolbarSlots.rightControls,
+    bannerSlot: (
+      <>
+        {actions.runJudges?.JudgesStatusBanner}
+        {showErrorAlert && (
+          <TracesErrorAlert error={page.error} onRetry={page.refetch} getErrorDescription={getErrorDescription} />
+        )}
+      </>
+    ),
+    // Pagination
+    pageIndex: url.pageIndex,
+    pageSize: url.pageSize,
+    onPageChange: controller.goToPage,
+    onPageSizeChange: url.setPageSize,
+    hasNext: page.hasNext,
+    hasPrev: page.hasPrev,
+    // Grouped mode fetches one big page: hide the page-size selector always, and hide the whole
+    // bar when that page holds everything (no prev/next to offer).
+    hidePagination: controller.isGroupedBySession && !page.hasNext && !page.hasPrev,
+    hidePageSizeSelector: controller.isGroupedBySession,
+    // "{n} of {total}" footer count (bottom-left).
+    traceCount: page.traces.length,
+    traceTotal: controller.traceCount.totalCount,
+    isTraceCountLoading: controller.traceCount.isTotalLoading,
+    // Reserve the pinned pagination bar's height with the floating-obstruction store so the
+    // Assistant FAB rises above it instead of overlapping the prev/next/page-size controls.
+    PaginationBarWrapper: AssistantAwareActionBar,
+    // States
+    onClearFilters: clearFilters,
+    onRetry: page.refetch,
+    error: page.error,
+    getErrorDescription,
+    customEmptyState:
+      // Short-circuits before the viewState switch (keeping toolbar + banner). Gated on the
+      // resolved `empty` state, not `hasNoTracesInRange` alone, so error / no-results /
+      // no-more-results still flow through the switch — a trace-id-search miss lands on
+      // `no-results`, and a first-load error on `error`, not the quickstart.
+      viewState === 'empty' ? (
+        <TracesV4EmptyState
+          kind={controller.emptyStateKind}
+          timeLabel={controller.timeLabel}
+          onViewAll={() => controller.setTimeRange({ timeLabel: 'ALL' })}
+        />
+      ) : undefined,
+  };
 
+  return (
+    // The two providers expose the shared trace-action building blocks (drawer add-to-dataset
+    // and the dataset modal) to the drawer and Actions menu. The negative bottom margin bleeds the
+    // pinned pagination bar into the shared content wrapper's 8px bottom padding, aligning it with the
+    // sidebar.
+    <TracesV4TableSurface
+      providerProps={{
+        modelTraceExplorer: {
+          renderExportTracesToDatasetsModal: actions.renderExportTracesToDatasetsModal,
+          renderAddToReviewQueueDropdown: actions.AddToReviewQueueDropdown,
+          DrawerComponent: AssistantAwareDrawer,
+        },
+        genAITracesTable: {
+          experimentId,
+          getTrace: actions.getTrace,
+          isGroupedBySession: controller.isGroupedBySession,
+        },
+      }}
+      tableViewProps={tableViewProps}
+      drawerProps={{
+        traceId: url.traceId,
+        onClose: closeDrawer,
+        experimentId,
+        traces: page.traces,
+        onSelectTrace: url.setTraceId,
+        runJudgeConfiguration: actions.runJudges?.runJudgeConfiguration,
+      }}
+      layoutProps={{
+        paddingTop: revampEnabled ? 0 : theme.spacing.md,
+        paddingLeft: revampEnabled ? 0 : theme.spacing.md,
+        marginBottom: -theme.spacing.sm,
+      }}
+      overlaySlots={{
+        deleteModal: (
           <TracesV4DeleteModal
             open={deleteOpen}
             count={pendingDeleteIds.length}
@@ -508,34 +521,25 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
             onConfirm={confirmDelete}
             onCancel={cancelDelete}
           />
+        ),
+        actionModals: (
+          <>
+            {actions.runJudges?.RunJudgesModal}
+            {actions.editTags.EditTagsModal}
 
-          <TracesV4TraceDrawer
-            traceId={url.traceId}
-            onClose={closeDrawer}
-            experimentId={experimentId}
-            traces={page.traces}
-            onSelectTrace={url.setTraceId}
-            runJudgeConfiguration={actions.runJudges?.runJudgeConfiguration}
-          />
-
-          {actions.runJudges?.RunJudgesModal}
-          {actions.editTags.EditTagsModal}
-
-          {isIssueDetectionOpen && (
-            <IssueDetectionModal
-              key={experimentId}
-              onClose={() => setIsIssueDetectionOpen(false)}
-              experimentId={experimentId}
-              initialSelectedTraceIds={selectedTraceIds}
-              availableTraceIds={availableTraceIds}
-            />
-          )}
-
-          {notificationContainer}
-        </div>
-      </GenAITracesTableProvider>
-    </ModelTraceExplorerContextProvider>
+            {isIssueDetectionOpen && (
+              <IssueDetectionModal
+                key={experimentId}
+                onClose={() => setIsIssueDetectionOpen(false)}
+                experimentId={experimentId}
+                initialSelectedTraceIds={selectedTraceIds}
+                availableTraceIds={availableTraceIds}
+              />
+            )}
+          </>
+        ),
+        notificationContainer,
+      }}
+    />
   );
-
-  return content;
 };

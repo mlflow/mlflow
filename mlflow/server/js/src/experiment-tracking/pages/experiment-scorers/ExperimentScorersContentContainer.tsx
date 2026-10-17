@@ -15,6 +15,7 @@ import ScorerModalRenderer from './ScorerModalRenderer';
 import ScorerEmptyStateRenderer from './ScorerEmptyStateRenderer';
 import { shouldPaginateScorers } from '../../../common/utils/FeatureUtils';
 import { useGetScheduledScorers } from './hooks/useGetScheduledScorers';
+import { useSelectedScorerName } from './hooks/useSelectedScorerName';
 import { SCORER_FORM_MODE } from './constants';
 import type { ScorerFormData } from './utils/scorerTransformUtils';
 
@@ -28,6 +29,7 @@ const ExperimentScorersContentContainer: React.FC<ExperimentScorersContentContai
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [initialScorerType, setInitialScorerType] = useState<ScorerFormData['scorerType']>('llm');
   const scheduledScorersResult = useGetScheduledScorers(experimentId);
+  const selectedScorerName = useSelectedScorerName();
   const scorers = scheduledScorersResult.data?.scheduledScorers || [];
   const isLoading = scheduledScorersResult.isLoading;
   const isError = scheduledScorersResult.isError;
@@ -150,7 +152,12 @@ const ExperimentScorersContentContainer: React.FC<ExperimentScorersContentContai
           }}
         >
           {scorers.map((scorer) => (
-            <ScorerCardContainer key={scorer.name} scorer={scorer} experimentId={experimentId} />
+            <ScorerCardContainer
+              key={scorer.name}
+              scorer={scorer}
+              experimentId={experimentId}
+              {...(scorer.name === selectedScorerName ? { initiallyExpanded: true } : {})}
+            />
           ))}
         </div>
       </div>

@@ -145,6 +145,7 @@ const renderTable = ({
   setSelectedColumns = jest.fn(),
   initialEntries,
   baselineRun,
+  extraRoutes = [],
 }: {
   data: RunEntityOrGroupData[];
   enableNewEvalRunsUi?: boolean;
@@ -156,6 +157,7 @@ const renderTable = ({
   setSelectedColumns?: jest.Mock;
   initialEntries?: string[];
   baselineRun?: RunEntityWithChildren;
+  extraRoutes?: ReturnType<typeof testRoute>[];
 }) => {
   const table = (tableData: RunEntityOrGroupData[]) => (
     <IntlProvider locale="en">
@@ -188,6 +190,7 @@ const renderTable = ({
                   enableNewEvalRunsUi={enableNewEvalRunsUi}
                 />,
               ),
+              ...extraRoutes,
             ]}
           />
         </ExperimentEvaluationRunsRowVisibilityProvider>
@@ -443,7 +446,22 @@ describe('ExperimentEvaluationRunsTable run name cell', () => {
       'href',
       Routes.getIssueDetectionRunDetailsRoute('exp-1', 'issue-run'),
     );
+  });
+
+  test('flag on: eval run names are real links to the evaluation run details page', () => {
+    renderTable({ data: [makeRun('eval-run')], enableNewEvalRunsUi: true });
+
+    expect(screen.getByRole('link', { name: 'Run eval-run' })).toHaveAttribute(
+      'href',
+      Routes.getEvaluationRunDetailsRoute('exp-1', 'eval-run'),
+    );
+  });
+
+  test('flag off: eval run names are not links', () => {
+    renderTable({ data: [makeRun('eval-run')] });
+
     expect(screen.queryByRole('link', { name: 'Run eval-run' })).not.toBeInTheDocument();
+    expect(screen.getByText('Run eval-run')).toBeInTheDocument();
   });
 
   test('flag on: issue-detection run links keep the time range query', () => {
@@ -467,9 +485,27 @@ describe('ExperimentEvaluationRunsTable run name cell', () => {
     );
   });
 
-  test('flag on: clicking an eval run name opens the run in the split view', async () => {
+  test('flag on: clicking an eval run name opens the evaluation run details page', async () => {
     const setSelectedRunUuid = jest.fn();
-    renderTable({ data: [makeRun('eval-run')], enableNewEvalRunsUi: true, setSelectedRunUuid });
+    renderTable({
+      data: [makeRun('eval-run')],
+      enableNewEvalRunsUi: true,
+      setSelectedRunUuid,
+      initialEntries: ['/experiments/exp-1/evaluation-runs'],
+      extraRoutes: [
+        testRoute(<div>Evaluation run details</div>, '/experiments/:experimentId/evaluation-runs/:runUuid/details'),
+      ],
+    });
+
+    await userEvent.click(screen.getByText('Run eval-run'));
+
+    expect(await screen.findByText('Evaluation run details')).toBeInTheDocument();
+    expect(setSelectedRunUuid).not.toHaveBeenCalled();
+  });
+
+  test('flag off: clicking an eval run name opens the run in the split view', async () => {
+    const setSelectedRunUuid = jest.fn();
+    renderTable({ data: [makeRun('eval-run')], setSelectedRunUuid });
 
     await userEvent.click(screen.getByText('Run eval-run'));
 
@@ -562,9 +598,10 @@ describe('ExperimentEvaluationRunsTable dataset cell', () => {
     renderTable({ data: [withDataset('run-1', 'my-bucket-data', 's3')], enableNewEvalRunsUi: true });
     expect(screen.getByText('my-bucket-data')).toBeInTheDocument();
     expect(screen.queryByText('Unnamed dataset')).not.toBeInTheDocument();
-    // The new-UI tooltip pairs the real name with its source type.
+    // The new-UI hover card pairs the real name with its digest and source type.
     await userEvent.hover(screen.getByText('my-bucket-data'));
-    expect(await screen.findByRole('tooltip')).toHaveTextContent('my-bucket-dataDataset source type: s3');
+    expect(await screen.findByText('abc123def')).toBeInTheDocument();
+    expect(screen.getByText('s3')).toBeInTheDocument();
   });
 
   test('shows the real name even for a named code/local dataset', async () => {
@@ -572,7 +609,45 @@ describe('ExperimentEvaluationRunsTable dataset cell', () => {
     expect(screen.getByText('qa_smoke_set')).toBeInTheDocument();
     expect(screen.queryByText('Unnamed dataset')).not.toBeInTheDocument();
     await userEvent.hover(screen.getByText('qa_smoke_set'));
-    expect(await screen.findByRole('tooltip')).toHaveTextContent('qa_smoke_setDataset source type: code');
+    expect(await screen.findByText('abc123def')).toBeInTheDocument();
+    expect(screen.getByText('code')).toBeInTheDocument();
+    // Datasets that weren't logged from an evaluation dataset have nothing to open.
+    expect(screen.queryByRole('link', { name: /View dataset/ })).not.toBeInTheDocument();
+  });
+
+  test('links to the evaluation dataset from the hover card when the input came from one', async () => {
+    const run = makeRun('run-1', {
+      inputs: {
+        datasetInputs: [
+          {
+            dataset: {
+              digest: 'd1',
+              name: 'golden-set',
+              profile: '',
+              schema: '',
+              source: JSON.stringify({ dataset_id: 'd-123' }),
+              sourceType: 'mlflow_evaluation_dataset',
+            },
+            tags: [],
+          },
+        ],
+        modelInputs: [],
+      },
+    } as Partial<RunEntityWithChildren>);
+    renderTable({ data: [run], enableNewEvalRunsUi: true });
+
+    await userEvent.hover(screen.getByText('golden-set'));
+    const link = await screen.findByRole('link', { name: /View dataset/ });
+    expect(link).toHaveAttribute('href', Routes.getExperimentPageDatasetDetailRoute('exp-1', 'd-123'));
+    expect(link).toHaveAttribute('target', '_blank');
+  });
+
+  test('flag off: the dataset pill keeps the name-only tooltip', async () => {
+    renderTable({ data: [withDataset('run-1', 'qa_smoke_set', 'code')] });
+
+    await userEvent.hover(screen.getByText('qa_smoke_set'));
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(/^qa_smoke_set$/);
+    expect(screen.queryByText('abc123def')).not.toBeInTheDocument();
   });
 
   test('flag off: a default-named dataset keeps its raw name', () => {
