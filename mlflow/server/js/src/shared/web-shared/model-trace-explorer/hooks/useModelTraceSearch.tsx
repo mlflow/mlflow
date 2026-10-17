@@ -9,12 +9,14 @@ import type {
   ModelTrace,
 } from '../ModelTrace.types';
 import { SpanLogLevel } from '../ModelTrace.types';
-import { searchTree } from '../ModelTraceExplorer.utils';
+import { getMatchesFromSpan, getSpanExceptionCount, getSpanLogLevel, searchTree } from '../ModelTraceExplorer.utils';
 import {
   getSpanNodeParentIds,
   getTimelineTreeNodesList,
   getTimelineTreeNodesMap,
 } from '../timeline-tree/TimelineTree.utils';
+
+const EMPTY_COMPARISON_NODE_MAP: Record<string, ModelTraceSpanNode> = {};
 
 const getDefaultSpanFilterState = (treeNodes: ModelTraceSpanNode[]): SpanFilterState => {
   const spanTypeDisplayState: Record<string, boolean> = {};
@@ -54,6 +56,68 @@ const getTabForMatch = (match: SearchMatch): ModelTraceExplorerTab => {
   }
 };
 
+// Searches a merged comparison tree: a span matches when either its baseline or its candidate side matches.
+// Comparison trees exist only with the new eval runs UI, so a span type absent from the filter map stays visible.
+const searchComparisonTree = (
+  rootNode: ModelTraceSpanNode,
+  searchFilter: string,
+  spanFilterState: SpanFilterState,
+  comparisonNodeMap: Record<string, ModelTraceSpanNode>,
+): { filteredTreeNodes: ModelTraceSpanNode[]; matches: SearchMatch[] } => {
+  const searchFilterLowercased = searchFilter.toLowerCase().trim();
+  const allSpanTypesSelected = Object.values(spanFilterState.spanTypeDisplayState).every(Boolean);
+  const logLevelThresholdAtMin = spanFilterState.minLogLevel === SpanLogLevel.DEBUG;
+  if (searchFilterLowercased === '' && allSpanTypesSelected && logLevelThresholdAtMin) {
+    return { filteredTreeNodes: [rootNode], matches: [] };
+  }
+
+  const childResults = (rootNode.children ?? []).map((child) =>
+    searchComparisonTree(child, searchFilterLowercased, spanFilterState, comparisonNodeMap),
+  );
+  const filteredChildren = childResults.flatMap(({ filteredTreeNodes }) => filteredTreeNodes);
+  const childMatches = childResults.flatMap(({ matches }) => matches);
+  const baselineMatches = getMatchesFromSpan(rootNode, searchFilterLowercased);
+  const comparisonNode = comparisonNodeMap[String(rootNode.key)];
+  const baselineMatchKeys = new Set(
+    baselineMatches.map(
+      ({ section, key, isKeyMatch, matchIndex }) => `${section}:${key}:${String(isKeyMatch)}:${matchIndex}`,
+    ),
+  );
+  const comparisonMatches = comparisonNode
+    ? getMatchesFromSpan(comparisonNode, searchFilterLowercased)
+        .filter(
+          ({ section, key, isKeyMatch, matchIndex }) =>
+            !baselineMatchKeys.has(`${section}:${key}:${String(isKeyMatch)}:${matchIndex}`),
+        )
+        .map((match) => ({ ...match, span: rootNode }))
+    : [];
+  const spanMatches = [...baselineMatches, ...comparisonMatches];
+  const spanName = String(rootNode.title ?? '').toLowerCase();
+  const comparisonSpanName = String(comparisonNode?.title ?? '').toLowerCase();
+  const nodeMatchesSearch =
+    spanMatches.length > 0 ||
+    spanName.includes(searchFilterLowercased) ||
+    comparisonSpanName.includes(searchFilterLowercased);
+  const spanTypeIsDisplayed = rootNode.type ? (spanFilterState.spanTypeDisplayState[rootNode.type] ?? true) : true;
+  const spanPassesLogLevel =
+    getSpanLogLevel(rootNode) >= spanFilterState.minLogLevel ||
+    (comparisonNode ? getSpanLogLevel(comparisonNode) >= spanFilterState.minLogLevel : false);
+  const nodePassesSpanFilters = nodeMatchesSearch && spanTypeIsDisplayed && spanPassesLogLevel;
+  const hasException =
+    getSpanExceptionCount(rootNode) > 0 || (comparisonNode ? getSpanExceptionCount(comparisonNode) > 0 : false);
+  const nodeShouldBeDisplayed =
+    nodePassesSpanFilters ||
+    (spanFilterState.showParents && filteredChildren.length > 0) ||
+    (spanFilterState.showExceptions && hasException);
+
+  return nodeShouldBeDisplayed
+    ? {
+        filteredTreeNodes: [{ ...rootNode, children: filteredChildren }],
+        matches: [...spanMatches, ...childMatches],
+      }
+    : { filteredTreeNodes: filteredChildren, matches: childMatches };
+};
+
 export const useModelTraceSearch = ({
   treeNodes,
   selectedNode,
@@ -61,6 +125,7 @@ export const useModelTraceSearch = ({
   setSelectedNodeAndTab,
   setExpandedKeys,
   modelTraceInfo,
+  comparisonNodeMap = EMPTY_COMPARISON_NODE_MAP,
 }: {
   treeNodes: ModelTraceSpanNode[];
   selectedNode: ModelTraceSpanNode | undefined;
@@ -68,6 +133,7 @@ export const useModelTraceSearch = ({
   setSelectedNodeAndTab: (node: ModelTraceSpanNode, tab: ModelTraceExplorerTab) => void;
   setExpandedKeys: React.Dispatch<React.SetStateAction<Set<string | number>>>;
   modelTraceInfo: ModelTrace['info'] | null;
+  comparisonNodeMap?: Record<string, ModelTraceSpanNode>;
 }): {
   searchFilter: string;
   setSearchFilter: (filter: string) => void;
@@ -95,7 +161,12 @@ export const useModelTraceSearch = ({
     }
 
     // Run search over each root and merge results
-    const merged = treeNodes.map((root) => searchTree(root, searchFilter, spanFilterState));
+    const hasComparisonNodes = Object.keys(comparisonNodeMap).length > 0;
+    const merged = treeNodes.map((root) =>
+      hasComparisonNodes
+        ? searchComparisonTree(root, searchFilter, spanFilterState, comparisonNodeMap)
+        : searchTree(root, searchFilter, spanFilterState),
+    );
     return {
       filteredTreeNodes: merged.flatMap((r) => r.filteredTreeNodes),
       matches: merged.flatMap((r) => r.matches),
@@ -104,7 +175,7 @@ export const useModelTraceSearch = ({
     // using the whole object seems to cause the state to be reset at
     // unexpected times.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [treeNodesKeys, searchFilter, spanFilterState, modelTraceInfo]);
+  }, [treeNodesKeys, searchFilter, spanFilterState, modelTraceInfo, comparisonNodeMap]);
 
   const nodeMap = useMemo(() => {
     return getTimelineTreeNodesMap(filteredTreeNodes);

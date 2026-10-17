@@ -3,14 +3,21 @@ import { createPortal } from 'react-dom';
 
 import {
   ApplyDesignSystemContextOverrides,
+  ArrowsUpDownIcon,
   Button,
   CheckCircleIcon,
   CheckboxIcon,
+  ChevronDownIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   CloseIcon,
   ClockIcon,
   DatabaseIcon,
+  DialogCombobox,
+  DialogComboboxContent,
+  DialogComboboxCustomButtonTriggerWrapper,
+  DialogComboboxOptionList,
+  DialogComboboxOptionListSelectItem,
   FullscreenExitIcon,
   FullscreenIcon,
   LinkIcon,
@@ -18,6 +25,7 @@ import {
   SearchIcon,
   Tag,
   Tooltip,
+  TruncationTooltip,
   Typography,
   useDesignSystemTheme,
   XCircleIcon,
@@ -46,6 +54,7 @@ import { CostMetadataItem, TokenUsageMetadataItem } from './right-pane/ModelTrac
 import { formatExecutionDuration } from './timeline-tree/TimelineTree.utils';
 import { useCopyController } from '../../copy/useCopyController';
 import { useLocation } from '../RoutingUtils';
+import { RunColorCircle } from '../../genai-traces-table/components/RunColorCircle';
 
 const CUSTOM_VIEW_INITIAL_WIDTH = '50vw';
 const MIN_DRAWER_WIDTH = 480;
@@ -79,6 +88,11 @@ const formatHeaderDuration = (value: string): string => {
   }
 
   return match[2] === 's' ? `${(numericValue * 1000).toFixed(2)}ms` : `${numericValue.toFixed(2)}${match[2]}`;
+};
+
+const getTraceIdPreview = (traceId: string): string => {
+  const shortTraceId = traceId.split('/').at(-1) ?? traceId;
+  return shortTraceId.replace(/^tr-/, '').slice(0, 8);
 };
 
 const formatHeaderCost = (cost: number): string =>
@@ -190,6 +204,22 @@ export interface ModelTraceExplorerDrawerProps {
     onOpenChange: (open: boolean) => void;
     open: boolean;
   }) => React.ReactNode;
+  traceComparison?: {
+    baselineTraceId: string;
+    candidateTraceId: string;
+    baselineTraceUrl: string;
+    candidateTraceUrl: string;
+    onSwap: () => void;
+    baselineTraceInfo?: ModelTraceInfoV3;
+    candidateTraceInfo?: ModelTraceInfoV3;
+    runOptions?: {
+      runUuid: string;
+      runName: string;
+      traceId?: string;
+    }[];
+    onSelectBaselineTrace?: (traceId: string) => void;
+    onSelectCandidateTrace?: (traceId: string) => void;
+  };
 }
 
 export const ModelTraceExplorerDrawer = ({
@@ -203,6 +233,7 @@ export const ModelTraceExplorerDrawer = ({
   experimentId,
   traceInfo,
   renderManagedAddToDatasetDropdown,
+  traceComparison,
 }: ModelTraceExplorerDrawerProps): JSX.Element => {
   const { getPrefixedClassName, theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -461,7 +492,10 @@ export const ModelTraceExplorerDrawer = ({
   );
 
   const showAddToDatasetButton = Boolean(
-    (renderManagedAddToDatasetDropdown || renderExportTracesToDatasetsModal) && experimentId && traceInfo,
+    !traceComparison &&
+    (renderManagedAddToDatasetDropdown || renderExportTracesToDatasetsModal) &&
+    experimentId &&
+    traceInfo,
   );
   const [isAddToDatasetDropdownOpen, setIsAddToDatasetDropdownOpen] = useState(false);
   const [isAddToDatasetTooltipOpen, setIsAddToDatasetTooltipOpen] = useState(false);
@@ -497,7 +531,15 @@ export const ModelTraceExplorerDrawer = ({
         e.preventDefault();
         e.stopPropagation();
         selectNextEval();
-      } else if (isNewEvalRunsUi && !e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey && !e.repeat) {
+      } else if (
+        isNewEvalRunsUi &&
+        !traceComparison &&
+        !e.altKey &&
+        !e.ctrlKey &&
+        !e.metaKey &&
+        !e.shiftKey &&
+        !e.repeat
+      ) {
         // The new eval runs UI opens the dataset (d) and review (r) actions from the keyboard.
         if (
           showDatasetModal ||
@@ -525,6 +567,7 @@ export const ModelTraceExplorerDrawer = ({
       selectPreviousEval,
       selectNextEval,
       isNewEvalRunsUi,
+      traceComparison,
       isDrawerOpen,
       showDatasetModal,
       isAddToDatasetDropdownOpen,
@@ -608,7 +651,7 @@ export const ModelTraceExplorerDrawer = ({
     </Tooltip>
   ) : null;
   const flagForReviewButton =
-    renderAddToReviewQueueDropdown && experimentId && traceInfo ? (
+    !traceComparison && renderAddToReviewQueueDropdown && experimentId && traceInfo ? (
       <Tooltip
         componentId="mlflow.evaluations_review.modal.flag_for_review.tooltip"
         content={
@@ -652,12 +695,28 @@ export const ModelTraceExplorerDrawer = ({
     ) : null;
   const handleToggleFullscreen = useCallback(() => setIsFullscreen((value) => !value), []);
   const handleFindClick = useCallback(() => setSearchVisible((visible) => !visible), []);
-  const analyzeTraceLabel = intl.formatMessage({
-    defaultMessage: 'Analyze trace',
-    description: 'Button label for asking the assistant to analyze a trace',
-  });
-  const analyzeTracePrompt =
-    traceInfo?.state === 'ERROR'
+  const analyzeTraceLabel = traceComparison
+    ? intl.formatMessage({
+        defaultMessage: 'Analyze traces',
+        description: 'Button label for asking the assistant to compare two traces',
+      })
+    : intl.formatMessage({
+        defaultMessage: 'Analyze trace',
+        description: 'Button label for asking the assistant to analyze a trace',
+      });
+  const analyzeTracePrompt = traceComparison
+    ? intl.formatMessage(
+        {
+          defaultMessage:
+            'Compare baseline trace {baselineTraceId} with candidate trace {candidateTraceId}. Highlight differences in their span structure, inputs, outputs, attributes, duration, token usage, and estimated cost.',
+          description: 'Prompt sent to the assistant for comparing two traces',
+        },
+        {
+          baselineTraceId: traceComparison.baselineTraceId,
+          candidateTraceId: traceComparison.candidateTraceId,
+        },
+      )
+    : traceInfo?.state === 'ERROR'
       ? intl.formatMessage(
           {
             defaultMessage: 'Debug the error in trace {traceId}.',
@@ -715,6 +774,361 @@ export const ModelTraceExplorerDrawer = ({
   const traceTokenUsage = traceInfo ? getTraceTokenUsage(traceInfo) : undefined;
   const totalTokens = traceTokenUsage?.total_tokens;
   const traceCost = traceInfo ? getTraceCost(traceInfo) : undefined;
+  const baselineRunOption = traceComparison?.runOptions?.find(
+    (option) => option.traceId === traceComparison.baselineTraceId,
+  );
+  const candidateRunOption = traceComparison?.runOptions?.find(
+    (option) => option.traceId === traceComparison.candidateTraceId,
+  );
+  const showComparisonRunSelectors = Boolean(
+    traceComparison?.runOptions?.length &&
+    baselineRunOption &&
+    candidateRunOption &&
+    traceComparison.onSelectBaselineTrace &&
+    traceComparison.onSelectCandidateTrace,
+  );
+  const comparisonTraceContext = traceComparison ? (
+    <div
+      css={{
+        display: 'grid',
+        gridTemplateColumns: showComparisonRunSelectors
+          ? 'max-content minmax(0, 240px) max-content minmax(0, 240px) max-content'
+          : 'repeat(5, max-content)',
+        alignItems: 'center',
+        alignSelf: 'stretch',
+        columnGap: theme.spacing.sm,
+        flex: '1 1 0',
+        width: '100%',
+        minWidth: 0,
+        overflow: 'hidden',
+      }}
+    >
+      <span css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.xs, whiteSpace: 'nowrap' }}>
+        <Typography.Text size="sm" color="secondary">
+          {showComparisonRunSelectors ? (
+            <FormattedMessage
+              defaultMessage="Comparing traces from Runs"
+              description="Context shown in an evaluation run trace comparison header"
+            />
+          ) : (
+            <FormattedMessage
+              defaultMessage="Comparing traces"
+              description="Context shown in a trace comparison header"
+            />
+          )}
+        </Typography.Text>
+        {traceComparison.baselineTraceId === traceComparison.candidateTraceId && (
+          <Tooltip
+            componentId="mlflow.trace-explorer.comparison.same-trace-tooltip"
+            content={intl.formatMessage({
+              defaultMessage: 'Both runs reference the same trace.',
+              description: 'Tooltip explaining the same trace badge in a trace comparison header',
+            })}
+          >
+            <Tag componentId="mlflow.trace-explorer.comparison.same-trace-tag">
+              <FormattedMessage
+                defaultMessage="Same trace"
+                description="Badge shown when both sides of a trace comparison reference the same trace"
+              />
+            </Tag>
+          </Tooltip>
+        )}
+      </span>
+      {showComparisonRunSelectors ? (
+        <span
+          css={{
+            display: 'flex',
+            alignItems: 'center',
+            alignSelf: 'center',
+            width: '100%',
+            minWidth: 0,
+            overflow: 'hidden',
+          }}
+        >
+          <DialogCombobox
+            componentId="mlflow.trace-explorer.comparison.baseline-run"
+            id="trace-comparison-baseline-run"
+            value={[baselineRunOption?.runUuid ?? '']}
+          >
+            <DialogComboboxCustomButtonTriggerWrapper>
+              <Button
+                componentId="mlflow.trace-explorer.comparison.baseline-run-trigger"
+                type="tertiary"
+                size="small"
+                block
+                dangerouslyAppendWrapperCss={{ width: '100%', minWidth: 0, overflow: 'hidden' }}
+                css={{
+                  minWidth: 0,
+                  maxWidth: '100%',
+                  width: '100%',
+                  overflow: 'hidden',
+                }}
+              >
+                <span
+                  css={{
+                    display: 'grid',
+                    gridTemplateColumns: `${theme.spacing.sm}px minmax(0, 1fr) auto`,
+                    alignItems: 'center',
+                    gap: theme.spacing.xs,
+                    width: '100%',
+                    minWidth: 0,
+                    maxWidth: '100%',
+                    overflow: 'hidden',
+                  }}
+                >
+                  <span
+                    css={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: theme.spacing.sm,
+                      height: theme.spacing.sm,
+                      flexShrink: 0,
+                      '& > label': { transform: 'scale(0.67)', transformOrigin: 'center' },
+                    }}
+                  >
+                    <RunColorCircle color={theme.colors.textSecondary} />
+                  </span>
+                  <span css={{ display: 'block', width: '100%', minWidth: 0, overflow: 'hidden' }}>
+                    <TruncationTooltip componentId="mlflow.trace-explorer.comparison.baseline-run-name-tooltip">
+                      <Typography.Text
+                        css={{
+                          display: 'block',
+                          width: '100%',
+                          minWidth: 0,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {baselineRunOption?.runName}
+                      </Typography.Text>
+                    </TruncationTooltip>
+                  </span>
+                  <ChevronDownIcon css={{ color: theme.colors.textSecondary }} />
+                </span>
+              </Button>
+            </DialogComboboxCustomButtonTriggerWrapper>
+            <DialogComboboxContent>
+              <DialogComboboxOptionList>
+                {traceComparison.runOptions?.map((option) => (
+                  <DialogComboboxOptionListSelectItem
+                    key={option.runUuid}
+                    value={option.runName}
+                    checked={option.traceId === traceComparison.baselineTraceId}
+                    disabled={!option.traceId || option.traceId === traceComparison.candidateTraceId}
+                    onChange={() => option.traceId && traceComparison.onSelectBaselineTrace?.(option.traceId)}
+                  >
+                    {option.runName}
+                  </DialogComboboxOptionListSelectItem>
+                ))}
+              </DialogComboboxOptionList>
+            </DialogComboboxContent>
+          </DialogCombobox>
+        </span>
+      ) : (
+        <Tooltip
+          componentId="mlflow.trace-explorer.comparison.baseline-id-tooltip"
+          content={traceComparison.baselineTraceId}
+        >
+          <Typography.Text size="sm" color="secondary" css={{ whiteSpace: 'nowrap' }}>
+            <span
+              css={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: theme.spacing.xs,
+                fontFamily: 'monospace',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              <span
+                css={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: theme.spacing.sm,
+                  height: theme.spacing.sm,
+                  '& > label': { transform: 'scale(0.67)', transformOrigin: 'center' },
+                }}
+              >
+                <RunColorCircle color={theme.colors.textSecondary} />
+              </span>
+              <FormattedMessage
+                defaultMessage="{traceId}"
+                description="Baseline trace identifier in the trace comparison header"
+                values={{ traceId: getTraceIdPreview(traceComparison.baselineTraceId) }}
+              />
+            </span>
+          </Typography.Text>
+        </Tooltip>
+      )}
+      <span
+        css={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0,
+        }}
+      >
+        <Tooltip
+          componentId="mlflow.trace-explorer.comparison.swap-tooltip"
+          content={intl.formatMessage({
+            defaultMessage: 'Swap baseline and candidate',
+            description: 'Tooltip for reversing the trace comparison order',
+          })}
+        >
+          <Button
+            componentId="mlflow.trace-explorer.comparison.swap"
+            size="small"
+            icon={<ArrowsUpDownIcon rotate={90} css={headerIconCss} />}
+            aria-label={intl.formatMessage({
+              defaultMessage: 'Swap baseline and candidate',
+              description: 'Accessible label for reversing the trace comparison order',
+            })}
+            onClick={traceComparison.onSwap}
+          />
+        </Tooltip>
+      </span>
+      {showComparisonRunSelectors ? (
+        <span
+          css={{
+            display: 'flex',
+            alignItems: 'center',
+            alignSelf: 'center',
+            width: '100%',
+            minWidth: 0,
+            overflow: 'hidden',
+          }}
+        >
+          <DialogCombobox
+            componentId="mlflow.trace-explorer.comparison.candidate-run"
+            id="trace-comparison-candidate-run"
+            value={[candidateRunOption?.runUuid ?? '']}
+          >
+            <DialogComboboxCustomButtonTriggerWrapper>
+              <Button
+                componentId="mlflow.trace-explorer.comparison.candidate-run-trigger"
+                type="tertiary"
+                size="small"
+                block
+                dangerouslyAppendWrapperCss={{ width: '100%', minWidth: 0, overflow: 'hidden' }}
+                css={{
+                  minWidth: 0,
+                  maxWidth: '100%',
+                  width: '100%',
+                  overflow: 'hidden',
+                }}
+              >
+                <span
+                  css={{
+                    display: 'grid',
+                    gridTemplateColumns: `${theme.spacing.sm}px minmax(0, 1fr) auto`,
+                    alignItems: 'center',
+                    gap: theme.spacing.xs,
+                    width: '100%',
+                    minWidth: 0,
+                    maxWidth: '100%',
+                    overflow: 'hidden',
+                  }}
+                >
+                  <span
+                    css={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: theme.spacing.sm,
+                      height: theme.spacing.sm,
+                      flexShrink: 0,
+                      '& > label': { transform: 'scale(0.67)', transformOrigin: 'center' },
+                    }}
+                  >
+                    <RunColorCircle color={theme.colors.actionLinkDefault} />
+                  </span>
+                  <span css={{ display: 'block', width: '100%', minWidth: 0, overflow: 'hidden' }}>
+                    <TruncationTooltip componentId="mlflow.trace-explorer.comparison.candidate-run-name-tooltip">
+                      <Typography.Text
+                        css={{
+                          display: 'block',
+                          width: '100%',
+                          minWidth: 0,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {candidateRunOption?.runName}
+                      </Typography.Text>
+                    </TruncationTooltip>
+                  </span>
+                  <ChevronDownIcon css={{ color: theme.colors.textSecondary }} />
+                </span>
+              </Button>
+            </DialogComboboxCustomButtonTriggerWrapper>
+            <DialogComboboxContent>
+              <DialogComboboxOptionList>
+                {traceComparison.runOptions?.map((option) => (
+                  <DialogComboboxOptionListSelectItem
+                    key={option.runUuid}
+                    value={option.runName}
+                    checked={option.traceId === traceComparison.candidateTraceId}
+                    disabled={!option.traceId || option.traceId === traceComparison.baselineTraceId}
+                    onChange={() => option.traceId && traceComparison.onSelectCandidateTrace?.(option.traceId)}
+                  >
+                    {option.runName}
+                  </DialogComboboxOptionListSelectItem>
+                ))}
+              </DialogComboboxOptionList>
+            </DialogComboboxContent>
+          </DialogCombobox>
+        </span>
+      ) : (
+        <Tooltip
+          componentId="mlflow.trace-explorer.comparison.candidate-id-tooltip"
+          content={traceComparison.candidateTraceId}
+        >
+          <Typography.Text size="sm" color="secondary" css={{ whiteSpace: 'nowrap' }}>
+            <span
+              css={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: theme.spacing.xs,
+                fontFamily: 'monospace',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              <span
+                css={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: theme.spacing.sm,
+                  height: theme.spacing.sm,
+                  '& > label': { transform: 'scale(0.67)', transformOrigin: 'center' },
+                }}
+              >
+                <RunColorCircle color={theme.colors.actionLinkDefault} />
+              </span>
+              <FormattedMessage
+                defaultMessage="{traceId}"
+                description="Candidate trace identifier in the trace comparison header"
+                values={{ traceId: getTraceIdPreview(traceComparison.candidateTraceId) }}
+              />
+            </span>
+          </Typography.Text>
+        </Tooltip>
+      )}
+      <div
+        css={{
+          width: 1,
+          height: theme.spacing.lg,
+          flexShrink: 0,
+          backgroundColor: theme.colors.border,
+          marginLeft: theme.spacing.xs,
+          marginRight: theme.spacing.xs,
+        }}
+      />
+    </div>
+  ) : null;
   const traceStatus =
     traceInfo?.state === 'OK'
       ? {
@@ -896,10 +1310,12 @@ export const ModelTraceExplorerDrawer = ({
                 flex: '1 1 auto',
               }}
             >
-              <Typography.Text css={{ whiteSpace: 'nowrap' }}>
-                <FormattedMessage defaultMessage="Trace" description="Title for the trace details drawer" />
-              </Typography.Text>
-              {displayedTraceId && traceInfo && (
+              {!traceComparison && (
+                <Typography.Text css={{ whiteSpace: 'nowrap' }}>
+                  <FormattedMessage defaultMessage="Trace" description="Title for the trace details drawer" />
+                </Typography.Text>
+              )}
+              {displayedTraceId && traceInfo && !traceComparison && (
                 <Tooltip
                   componentId="mlflow.evaluations_review.modal.trace-id-tooltip"
                   content={traceIdTooltipMessage}
@@ -931,7 +1347,8 @@ export const ModelTraceExplorerDrawer = ({
                   </Tag>
                 </Tooltip>
               )}
-              {showTraceMetadata && traceStatus && (
+              {showTraceMetadata && comparisonTraceContext}
+              {showTraceMetadata && !traceComparison && traceStatus && (
                 <>
                   <div
                     css={{
@@ -959,7 +1376,7 @@ export const ModelTraceExplorerDrawer = ({
                   </div>
                 </>
               )}
-              {showTraceMetadata && formattedExecutionDuration && (
+              {showTraceMetadata && !traceComparison && formattedExecutionDuration && (
                 <div
                   css={{
                     display: 'flex',
@@ -975,10 +1392,13 @@ export const ModelTraceExplorerDrawer = ({
                   </Typography.Text>
                 </div>
               )}
-              {showTraceMetadata && typeof totalTokens === 'number' && Number.isFinite(totalTokens) && (
-                <TokenUsageMetadataItem tokenUsage={{ ...traceTokenUsage, total_tokens: totalTokens }} />
-              )}
-              {showTraceMetadata && isTraceCostType(traceCost) && (
+              {showTraceMetadata &&
+                !traceComparison &&
+                typeof totalTokens === 'number' &&
+                Number.isFinite(totalTokens) && (
+                  <TokenUsageMetadataItem tokenUsage={{ ...traceTokenUsage, total_tokens: totalTokens }} />
+                )}
+              {showTraceMetadata && !traceComparison && isTraceCostType(traceCost) && (
                 <CostMetadataItem cost={traceCost} formatTotalCost={formatHeaderCost} />
               )}
             </div>
@@ -1026,15 +1446,17 @@ export const ModelTraceExplorerDrawer = ({
                 </Button>
               </Tooltip>
             </div>
-            <ModelTraceExplorerCustomViewSelector
-              value={isCustomViewEnabled ? traceExplorerDisplayMode : 'default'}
-              onValueChange={setTraceExplorerDisplayMode}
-              onCreateCustomView={handleCreateCustomView}
-              isCustomViewEnabled={isCustomViewEnabled}
-              canCreateCustomView={canCreateCustomView}
-              compact={compactPrimaryActions}
-              componentId="mlflow.model_trace_explorer.drawer.custom_view_selector"
-            />
+            {!traceComparison && (
+              <ModelTraceExplorerCustomViewSelector
+                value={isCustomViewEnabled ? traceExplorerDisplayMode : 'default'}
+                onValueChange={setTraceExplorerDisplayMode}
+                onCreateCustomView={handleCreateCustomView}
+                isCustomViewEnabled={isCustomViewEnabled}
+                canCreateCustomView={canCreateCustomView}
+                compact={compactPrimaryActions}
+                componentId="mlflow.model_trace_explorer.drawer.custom_view_selector"
+              />
+            )}
             {canUseAssistant && (
               <ModelTraceExplorerAssistantButton
                 componentId="mlflow.evaluations_review.modal.analyze-trace"

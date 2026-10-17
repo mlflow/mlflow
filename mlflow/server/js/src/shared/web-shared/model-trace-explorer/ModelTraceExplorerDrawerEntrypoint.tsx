@@ -1,17 +1,25 @@
 import {
   ModelTraceExplorerDrawer as LegacyModelTraceExplorerDrawer,
-  type ModelTraceExplorerDrawerProps,
+  type ModelTraceExplorerDrawerProps as LegacyModelTraceExplorerDrawerProps,
 } from './ModelTraceExplorerDrawer';
 import { useModelTraceExplorerContext } from './ModelTraceExplorerContext';
-import { ModelTraceExplorerDrawer as ModelTraceExplorerV2Drawer } from './v2/ModelTraceExplorerDrawer';
+import {
+  ModelTraceExplorerDrawer as ModelTraceExplorerV2Drawer,
+  type ModelTraceExplorerDrawerProps as ModelTraceExplorerV2DrawerProps,
+} from './v2/ModelTraceExplorerDrawer';
 import { ModelTraceExplorerContextProvider as ModelTraceExplorerV2ContextProvider } from './v2/ModelTraceExplorerContext';
 import { shouldEnableRedesignedTraceExplorer } from './shouldEnableRedesignedTraceExplorer';
+
+export interface ModelTraceExplorerDrawerProps extends LegacyModelTraceExplorerDrawerProps {
+  traceComparison?: ModelTraceExplorerV2DrawerProps['traceComparison'];
+}
 
 export const ModelTraceExplorerDrawer = (props: ModelTraceExplorerDrawerProps): JSX.Element => {
   const context = useModelTraceExplorerContext();
 
   if (!shouldEnableRedesignedTraceExplorer()) {
-    return <LegacyModelTraceExplorerDrawer {...props} />;
+    const { traceComparison: _traceComparison, ...legacyProps } = props;
+    return <LegacyModelTraceExplorerDrawer {...legacyProps} />;
   }
 
   return (
@@ -27,5 +35,3 @@ export const ModelTraceExplorerDrawer = (props: ModelTraceExplorerDrawerProps): 
     </ModelTraceExplorerV2ContextProvider>
   );
 };
-
-export type { ModelTraceExplorerDrawerProps };
