@@ -32,8 +32,16 @@ on:
         default: true
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.issue.number || inputs.issue_number }}
+  group: >-
+    ${{ format('{0}-{1}', github.workflow,
+      github.event_name == 'issue_comment' &&
+      (github.event.issue.pull_request || github.event.issue.state != 'open' ||
+       !contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association) ||
+       !startsWith(github.event.comment.body, '/triage')) &&
+      format('ignored-{0}', github.run_id) ||
+      github.event.issue.number || inputs.issue_number) }}
   cancel-in-progress: false
+  queue: max
 
 defaults:
   run:
@@ -333,12 +341,21 @@ jobs:
           esac
           since=$(date -u -d '60 minutes ago' +%Y-%m-%dT%H:%M:%SZ)
           workflow=${WORKFLOW_FILE##*/}
-          # Count both initial triage and comment-triggered follow-ups by this actor.
-          count=$(
-            gh api "repos/$REPO/actions/workflows/$workflow/runs?actor=$ACTOR&per_page=100" \
-              | jq -er --arg since "$since" --argjson current "$GITHUB_RUN_NUMBER" \
-                '[.workflow_runs[] | select((.event == "issues" or .event == "issue_comment") and .run_number < $current and .created_at >= $since)] | length'
+          runs=$(
+            gh api "repos/$REPO/actions/workflows/$workflow/runs?actor=$ACTOR&created=>=$since&per_page=100" --paginate --slurp \
+              | jq -r --argjson current "$GITHUB_RUN_NUMBER" \
+                '.[] | .workflow_runs[] | select((.event == "issues" or .event == "issue_comment") and .run_number < $current) | .id'
           )
+          count=0
+          while read -r run; do
+            [ -n "$run" ] || continue
+            # The issue job succeeds only after command and permission validation.
+            accepted=$(
+              gh api "repos/$REPO/actions/runs/$run/jobs?per_page=100" --paginate --slurp \
+                | jq '[.[] | .jobs[] | select(.name == "issue" and .conclusion == "success")] | length'
+            )
+            count=$((count + accepted))
+          done <<< "$runs"
           if [ "$count" -ge "$limit" ]; then
             echo 'allowed=false' >> "$GITHUB_OUTPUT"
             echo "Triage rate limit reached: $count prior issue runs by $ACTOR in 60 minutes (limit: $limit)." >> "$GITHUB_STEP_SUMMARY"

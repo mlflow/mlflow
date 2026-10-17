@@ -61,10 +61,13 @@ function prepareFollowup({ repo, issue, comment, api = ghApi }) {
         `created_at="${escapeMarkup(candidate.created_at)}" url="${escapeMarkup(
           candidate.html_url
         )}">\n` +
-        `${escapeMarkup(candidate.body ?? "")}\n</comment>`
+        `${escapeMarkup(sanitizeInput(candidate.body ?? ""))}\n</comment>`
     );
   return {
-    body: [`<issue>\n${escapeMarkup(issue.body ?? "")}\n</issue>`, ...discussion].join("\n\n"),
+    body: [
+      `<issue>\n${escapeMarkup(sanitizeInput(issue.body ?? ""))}\n</issue>`,
+      ...discussion,
+    ].join("\n\n"),
     followup: {
       instructions: sanitizeInput(instructions),
       author: comment.user.login,
