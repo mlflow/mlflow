@@ -4296,7 +4296,7 @@ def _create_multipart_upload_artifact(artifact_path):
             "num_parts": [_assert_intlike],
         },
     )
-    path = validate_path_is_safe(request_message.path)
+    path = validate_path_is_safe(posixpath.basename(request_message.path))
     num_parts = request_message.num_parts
     _reject_skill_artifact_mutation(posixpath.join(artifact_path, path))
 
@@ -4333,7 +4333,7 @@ def _complete_multipart_upload_artifact(artifact_path):
             "parts": [_assert_required],
         },
     )
-    path = validate_path_is_safe(request_message.path)
+    path = validate_path_is_safe(posixpath.basename(request_message.path))
     upload_id = request_message.upload_id
     parts = [MultipartUploadPart.from_proto(part) for part in request_message.parts]
     _reject_skill_artifact_mutation(posixpath.join(artifact_path, path))
@@ -4368,7 +4368,7 @@ def _abort_multipart_upload_artifact(artifact_path):
             "upload_id": [_assert_string],
         },
     )
-    path = validate_path_is_safe(request_message.path)
+    path = validate_path_is_safe(posixpath.basename(request_message.path))
     upload_id = request_message.upload_id
     _reject_skill_artifact_mutation(posixpath.join(artifact_path, path))
 

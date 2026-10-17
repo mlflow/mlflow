@@ -46,6 +46,7 @@ from mlflow.entities.model_registry import (
     RegisteredModelTag,
 )
 from mlflow.entities.model_registry.prompt_version import IS_PROMPT_TAG_KEY, PROMPT_TEXT_TAG_KEY
+from mlflow.entities.multipart_upload import CreateMultipartUploadResponse, MultipartUploadPart
 from mlflow.entities.presigned_download import PresignedDownloadUrlResponse
 from mlflow.entities.presigned_upload import CreatePresignedUploadResponse
 from mlflow.entities.trace_location import TraceLocation as EntityTraceLocation
@@ -7139,6 +7140,51 @@ def test_skill_content_cannot_be_mutated_through_multipart_artifact_handlers(
     with app.test_request_context(method="POST"):
         response = handler("skills/private/token")
     assert response.status_code == 403
+
+
+@pytest.mark.parametrize(
+    ("handler", "repo_method", "body", "expected_args"),
+    [
+        (
+            _create_multipart_upload_artifact,
+            "create_multipart_upload",
+            {"num_parts": 2},
+            (2, "0/run/artifacts"),
+        ),
+        (
+            _complete_multipart_upload_artifact,
+            "complete_multipart_upload",
+            {"upload_id": "upload-id", "parts": [{"part_number": 1, "etag": "etag"}]},
+            ("upload-id", [MultipartUploadPart(part_number=1, etag="etag")], "0/run/artifacts"),
+        ),
+        (
+            _abort_multipart_upload_artifact,
+            "abort_multipart_upload",
+            {"upload_id": "upload-id"},
+            ("upload-id", "0/run/artifacts"),
+        ),
+    ],
+)
+def test_multipart_artifact_handlers_accept_absolute_local_path(
+    enable_serve_artifacts, handler, repo_method, body, expected_args
+):
+    artifact_repo = mock.MagicMock(spec=S3ArtifactRepository)
+    artifact_repo.create_multipart_upload.return_value = CreateMultipartUploadResponse(
+        upload_id="upload-id", credentials=[]
+    )
+    with (
+        app.test_request_context(
+            method="POST", json={"path": "/home/user/project/model.bin", **body}
+        ),
+        mock.patch(
+            "mlflow.server.handlers._get_artifact_repo_mlflow_artifacts",
+            return_value=artifact_repo,
+        ),
+    ):
+        response = handler("0/run/artifacts")
+
+    assert response.status_code == 200
+    getattr(artifact_repo, repo_method).assert_called_once_with("model.bin", *expected_args)
 
 
 def test_download_artifact_streams_in_chunks(enable_serve_artifacts, tmp_path):
