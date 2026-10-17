@@ -464,7 +464,7 @@ jobs:
             In the rationale, say in one sentence what would take the agent beyond normal
             work on the issue, or why nothing does, without quoting the issue.
         run: |
-          payload=$(jq -c --arg prompt "$PROMPT" '{
+          jq -c --arg prompt "$PROMPT" '{
             model: "databricks-gpt-6-luna",
             max_tokens: 4096,
             messages: [
@@ -484,13 +484,13 @@ jobs:
                 }
               }
             }}
-          }' "$RUNNER_TEMP/issue-context/issue-context.json")
+          }' "$RUNNER_TEMP/issue-context/issue-context.json" > "$RUNNER_TEMP/safety-request.json"
           # On failure, print the gateway's error body; it names the cause (e.g. an unknown model).
           response=$(curl -sS --fail-with-body --max-time 30 --retry 3 \
             -H "Authorization: Bearer $TOKEN" \
             -H "Content-Type: application/json" \
             -H "$CUSTOM_HEADERS" \
-            --data-binary "$payload" \
+            --data-binary "@$RUNNER_TEMP/safety-request.json" \
             "$BASE_URL/openai/v1/chat/completions") || { printf '%s\n' "$response" >&2; exit 1; }
           # Structured outputs guarantee the schema on a complete reply. Anything else
           # (refusal, length) produces no result, so jq -e fails the step.
