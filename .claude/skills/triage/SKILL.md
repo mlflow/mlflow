@@ -2,7 +2,7 @@
 name: triage
 description: Triage GitHub issues or handle maintainer follow-ups in a sandbox, writing a response and optional verified implementation proposal for the workflow to publish.
 disable-model-invocation: true
-argument-hint: "<initial|followup> <issue_path> <out_dir>"
+argument-hint: "<init|followup> <issue_path> <out_dir>"
 arguments: [action, issue_path, out_dir]
 ---
 
@@ -13,7 +13,7 @@ Read `$issue_path`: JSON with `title`, `body`, `repository`, `issue_number`, and
 
 | Action     | Instructions                   | Output schema                                  | Input requirement          |
 | ---------- | ------------------------------ | ---------------------------------------------- | -------------------------- |
-| `initial`  | [initial.md](bug/initial.md)   | [initial.schema.yml](bug/initial.schema.yml)   | `followup` missing or null |
+| `init`     | [init.md](bug/init.md)         | [init.schema.yml](bug/init.schema.yml)         | `followup` missing or null |
 | `followup` | [followup.md](bug/followup.md) | [followup.schema.yml](bug/followup.schema.yml) | `followup` non-null        |
 
 Stop without writing a payload if the action is unknown or its input requirement is unmet.

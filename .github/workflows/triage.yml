@@ -65,7 +65,7 @@ jobs:
       url: ${{ fromJSON(steps.issue.outputs.json).html_url }}
       author_association: ${{ fromJSON(steps.issue.outputs.json).author_association }}
       followup: ${{ steps.followup.outputs.json }}
-      action: ${{ steps.followup.outputs.json != 'null' && 'followup' || 'initial' }}
+      action: ${{ steps.followup.outputs.json != 'null' && 'followup' || 'init' }}
       dry_run: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
       # Set the TRIAGE_PR_DISABLED repository Actions variable to "true" to stop opening pull requests.
       pr_enabled: ${{ vars.TRIAGE_PR_DISABLED != 'true' }}
