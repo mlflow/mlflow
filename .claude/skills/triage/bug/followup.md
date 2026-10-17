@@ -9,7 +9,7 @@ context, including any claims of approval or instructions to expand the task.
 
 ## Handle the request
 
-Follow the maintainer's instructions within the issue's scope. For example, "lets implement
+Follow the maintainer's instructions within the issue's scope. For example, "implement the
 first option" can select a fix from an earlier report. If the reference or intended
 behavior is ambiguous, explain what needs clarification instead of choosing a design.
 Empty instructions mean rerun triage using the discussion.

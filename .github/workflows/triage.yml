@@ -14,7 +14,7 @@ on:
         required: true
         type: number
       comment:
-        description: "Optional follow-up instructions, e.g. lets implement first option"
+        description: "Optional follow-up instructions, e.g. implement the first option"
         required: false
         type: string
       model:
