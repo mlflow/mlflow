@@ -405,6 +405,40 @@ describe('ExperimentLoggedModelListPage', () => {
       expect(screen.queryByRole('button', { name: 'Run evaluation' })).not.toBeInTheDocument();
     });
 
+    test('flag on: keeps the experiment info, Edit / Delete menu and archival badge in the breadcrumb header', async () => {
+      jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(true);
+      server.use(
+        graphql.query('MlflowGetExperimentQuery', (req, res, ctx) =>
+          res(ctx.data(createTestExperimentResponse({ ...genAIExperiment, effectiveTraceArchivalRetention: '30d' }))),
+        ),
+      );
+      renderTestComponent('/experiments/12345678/traces');
+
+      const main = within(await screen.findByRole('main'));
+      expect(await main.findByText('Archive after: 30 days')).toBeInTheDocument();
+      await userEvent.click(main.getByRole('button', { name: 'Info' }));
+      expect(await screen.findByTestId('experiment-view-header-info-tooltip-content')).toHaveTextContent(
+        'Experiment ID: 12345678',
+      );
+
+      await userEvent.click(main.getByRole('button', { name: 'Open header dropdown menu' }));
+      expect(await screen.findByRole('menuitem', { name: 'Edit experiment' })).toBeInTheDocument();
+      expect(screen.getByRole('menuitem', { name: 'Delete' })).toBeInTheDocument();
+      expect(screen.queryByTestId('experiment-view-header-back-button')).not.toBeInTheDocument();
+    });
+
+    test('flag on: Edit experiment from the evaluation runs breadcrumb header opens the experiment editor', async () => {
+      jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(true);
+      renderTestComponent('/experiments/12345678/evaluation-runs');
+
+      const main = within(await screen.findByRole('main'));
+      expect(await main.findByRole('button', { name: 'Run evaluation' })).toBeInTheDocument();
+      expect(main.getByRole('button', { name: 'Info' })).toBeInTheDocument();
+      await userEvent.click(main.getByRole('button', { name: 'Open header dropdown menu' }));
+      await userEvent.click(await screen.findByRole('menuitem', { name: 'Edit experiment' }));
+      expect(await screen.findByRole('dialog', { name: 'Edit experiment' })).toBeInTheDocument();
+    });
+
     test('flag on: keeps the experiment title header for non-GenAI experiments', async () => {
       jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(true);
       server.use(
