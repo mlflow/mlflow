@@ -137,6 +137,36 @@ def test_mlflow_login(tmp_path, monkeypatch):
     assert get_tracking_uri() == "databricks"
 
 
+def test_mlflow_login_reprompts_for_invalid_host(tmp_path, monkeypatch):
+    file_name = f"{tmp_path}/.databrickscfg"
+    monkeypatch.setenv("DATABRICKS_CONFIG_FILE", file_name)
+    monkeypatch.setenv("DATABRICKS_CONFIG_PROFILE", "TEST")
+    with (
+        patch(
+            "builtins.input",
+            side_effect=[
+                "community.cloud.databricks.com",
+                "https://community.cloud.databricks.com/",
+                "user",
+            ],
+        ) as mock_input,
+        patch("getpass.getpass", side_effect=["password"]),
+        patch(
+            "mlflow.utils.credentials._validate_databricks_auth",
+            side_effect=[MlflowException("Invalid databricks credentials."), None],
+        ),
+        patch("mlflow.utils.credentials._logger.error") as mock_error,
+    ):
+        login("databricks")
+
+    assert mock_input.call_count == 3
+    mock_error.assert_called_once_with(
+        "Invalid host: community.cloud.databricks.com, host must begin with https://, please retry."
+    )
+    with open(file_name) as f:
+        assert "host = https://community.cloud.databricks.com/\n" in f.readlines()
+
+
 def test_mlflow_login_noninteractive():
     # Forces mlflow.utils.credentials._validate_databricks_auth to raise `MlflowException()`
     with patch(
