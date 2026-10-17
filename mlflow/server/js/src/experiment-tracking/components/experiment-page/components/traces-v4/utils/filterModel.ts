@@ -7,7 +7,15 @@ import {
   type FilterFieldDef,
   type TraceFilterModel,
 } from '@databricks/web-shared/traces-table';
+import type { ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
+import { shouldEnableNewEvalRunsUi } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 import { escapeFilterValue } from './buildTracesV4SearchParams';
+import { assessmentValueKindKey } from './assessmentColumns';
+import {
+  buildTraceFilterSuggestions,
+  getTraceFilterValueOptions,
+  type TraceFilterSuggestions,
+} from './filterSuggestions';
 
 /**
  * MLflow's trace-filter field set + server-clause compilation. The neutral multi-clause AST (
@@ -20,7 +28,11 @@ import { escapeFilterValue } from './buildTracesV4SearchParams';
  * Metadata key fields (free-text key + value, mirroring v1's `handleTagKey` / `handleMetadataKey`),
  * plus "Feedback" and "Expectation" fields whose keys are rendered as comboboxes that suggest
  * the current page's candidate names and also accept a freeform-typed name (the v3 pattern). Null
- * (IS_NULL/IS_NOT_NULL) feedback and expectation filters stay out of scope (backend-unsupported).
+ * (IS_NULL/IS_NOT_NULL) filters stay out of scope.
+ *
+ * With the new evaluation runs UI, State, User and Session also offer `!=`, value inputs suggest the
+ * values on the loaded rows (while still accepting a typed value), and numeric feedback and
+ * expectation values compare as numbers.
  */
 
 const NUMERIC_OPERATORS: FilterOp[] = [
@@ -31,6 +43,9 @@ const NUMERIC_OPERATORS: FilterOp[] = [
   FilterOp.GREATER_THAN_OR_EQUALS,
   FilterOp.LESS_THAN_OR_EQUALS,
 ];
+
+/** Session operators with the new evaluation runs UI (the server has no null checks for them here). */
+const SESSION_OPERATORS: FilterOp[] = [FilterOp.EQUALS, FilterOp.NOT_EQUALS, FilterOp.CONTAINS];
 
 /** Selectable trace states (value = the token the API matches on). */
 const STATE_VALUES = ['OK', 'ERROR', 'IN_PROGRESS'] as const;
@@ -54,14 +69,51 @@ const stateLabel = (intl: IntlShape, value: string): string => {
  * first operator is the default when a field is selected. A single "Feedback" field is appended
  * whose key (the feedback name) is a freeform-capable combobox suggesting the candidate names.
  */
-export const useMlflowTraceFilterFields = (assessmentNames: string[] = []): FilterFieldDef[] => {
+export const useMlflowTraceFilterFields = (
+  assessmentNames: string[] = [],
+  /** Rows on the current page, used for value suggestions with the new evaluation runs UI. */
+  traces?: ModelTraceInfoV3[],
+): FilterFieldDef[] => {
   const intl = useIntl();
-  return useMemo(
-    () => [
+  const enhanced = shouldEnableNewEvalRunsUi();
+  const suggestionTraces = enhanced ? traces : undefined;
+  const traceSuggestions = useMemo<TraceFilterSuggestions | undefined>(
+    () => (suggestionTraces !== undefined ? buildTraceFilterSuggestions(suggestionTraces) : undefined),
+    [suggestionTraces],
+  );
+  const availableAssessmentNames = useMemo(
+    () =>
+      [
+        ...new Set([
+          ...assessmentNames.filter((name) => !traceSuggestions?.keyedValues.expectation.valuesByKey.has(name)),
+          ...(traceSuggestions?.assessmentNames.map(({ value }) => value) ?? []),
+        ]),
+      ]
+        .sort((left, right) => left.localeCompare(right))
+        .map((name) => ({ value: name, label: name })),
+    [assessmentNames, traceSuggestions],
+  );
+  return useMemo(() => {
+    const scalarValueInput = (field: keyof TraceFilterSuggestions['values']) =>
+      enhanced
+        ? { valueInput: 'combobox' as const, options: traceSuggestions?.values[field] ?? [] }
+        : { valueInput: 'text' as const };
+    const keyedValueInput = (field: 'tag' | 'metadata' | 'assessment' | 'expectation') =>
+      enhanced
+        ? {
+            valueInput: 'combobox' as const,
+            getValueOptions: (key: string) =>
+              traceSuggestions ? getTraceFilterValueOptions(traceSuggestions, field, key) : [],
+          }
+        : { valueInput: 'text' as const };
+    const keyedFieldInput = (field: 'tag' | 'metadata') =>
+      enhanced ? { keyInput: 'combobox' as const, keyOptions: traceSuggestions?.keyedValues[field].keys ?? [] } : {};
+
+    return [
       {
         id: 'state',
         label: intl.formatMessage({ defaultMessage: 'State', description: 'Trace filter field: run state' }),
-        operators: [FilterOp.EQUALS],
+        operators: enhanced ? [FilterOp.EQUALS, FilterOp.NOT_EQUALS] : [FilterOp.EQUALS],
         valueInput: 'select',
         options: STATE_VALUES.map((value) => ({ value, label: stateLabel(intl, value) })),
       },
@@ -79,43 +131,51 @@ export const useMlflowTraceFilterFields = (assessmentNames: string[] = []): Filt
         id: 'trace_name',
         label: intl.formatMessage({ defaultMessage: 'Trace name', description: 'Trace filter field: trace name' }),
         operators: [FilterOp.EQUALS, FilterOp.NOT_EQUALS, FilterOp.CONTAINS],
-        valueInput: 'text',
+        ...scalarValueInput('trace_name'),
       },
       {
         id: 'user',
         label: intl.formatMessage({ defaultMessage: 'User', description: 'Trace filter field: user' }),
-        operators: [FilterOp.EQUALS],
-        valueInput: 'text',
+        operators: enhanced ? [FilterOp.EQUALS, FilterOp.NOT_EQUALS] : [FilterOp.EQUALS],
+        ...scalarValueInput('user'),
       },
       {
         id: 'session',
         label: intl.formatMessage({ defaultMessage: 'Session', description: 'Trace filter field: session id' }),
-        operators: [FilterOp.EQUALS, FilterOp.CONTAINS],
-        valueInput: 'text',
+        operators: enhanced ? SESSION_OPERATORS : [FilterOp.EQUALS, FilterOp.CONTAINS],
+        ...scalarValueInput('session'),
       },
       {
         id: 'run_name',
         label: intl.formatMessage({ defaultMessage: 'Run name', description: 'Trace filter field: run' }),
         operators: [FilterOp.EQUALS],
-        valueInput: 'text',
+        ...scalarValueInput('run_name'),
+        ...(enhanced
+          ? {
+              valuePlaceholder: intl.formatMessage({
+                defaultMessage: 'Select or type a run ID',
+                description: 'Run filter accepts a suggested run ID or a typed one',
+              }),
+            }
+          : {}),
       },
       {
         id: 'source',
         label: intl.formatMessage({ defaultMessage: 'Source', description: 'Trace filter field: source name' }),
         operators: [FilterOp.EQUALS, FilterOp.NOT_EQUALS, FilterOp.CONTAINS],
-        valueInput: 'text',
+        ...scalarValueInput('source'),
       },
       {
         id: 'input',
         label: intl.formatMessage({ defaultMessage: 'Input', description: 'Trace filter field: request/input' }),
         operators: [FilterOp.CONTAINS],
-        valueInput: 'text',
+        ...scalarValueInput('input'),
       },
       {
         id: 'output',
         label: intl.formatMessage({ defaultMessage: 'Output', description: 'Trace filter field: response/output' }),
         operators: [FilterOp.CONTAINS],
-        valueInput: 'text',
+        ...scalarValueInput('output'),
       },
       {
         id: 'span_name',
@@ -141,7 +201,8 @@ export const useMlflowTraceFilterFields = (assessmentNames: string[] = []): Filt
         id: 'tag',
         label: intl.formatMessage({ defaultMessage: 'Tag', description: 'Trace filter field: arbitrary tag key' }),
         operators: [FilterOp.EQUALS, FilterOp.NOT_EQUALS],
-        valueInput: 'text',
+        ...keyedValueInput('tag'),
+        ...keyedFieldInput('tag'),
         requiresKey: true,
         keyPlaceholder: intl.formatMessage({
           defaultMessage: 'Tag key',
@@ -155,7 +216,8 @@ export const useMlflowTraceFilterFields = (assessmentNames: string[] = []): Filt
           description: 'Trace filter field: trace metadata key',
         }),
         operators: [FilterOp.EQUALS, FilterOp.NOT_EQUALS, FilterOp.CONTAINS],
-        valueInput: 'text',
+        ...keyedValueInput('metadata'),
+        ...keyedFieldInput('metadata'),
         requiresKey: true,
         keyPlaceholder: intl.formatMessage({
           defaultMessage: 'Metadata key',
@@ -172,10 +234,10 @@ export const useMlflowTraceFilterFields = (assessmentNames: string[] = []): Filt
           description: 'Trace filter field: feedback assessment',
         }),
         operators: [FilterOp.EQUALS, FilterOp.NOT_EQUALS],
-        valueInput: 'text',
+        ...keyedValueInput('assessment'),
         requiresKey: true,
         keyInput: 'combobox',
-        keyOptions: assessmentNames.map((name) => ({ value: name, label: name })),
+        keyOptions: enhanced ? availableAssessmentNames : assessmentNames.map((name) => ({ value: name, label: name })),
         keyPlaceholder: intl.formatMessage({
           defaultMessage: 'Feedback name',
           description: 'Placeholder for the feedback-name key input in the traces filter',
@@ -188,18 +250,20 @@ export const useMlflowTraceFilterFields = (assessmentNames: string[] = []): Filt
           description: 'Trace filter field: expectation name',
         }),
         operators: [FilterOp.EQUALS, FilterOp.NOT_EQUALS],
-        valueInput: 'text',
+        ...keyedValueInput('expectation'),
         requiresKey: true,
         keyInput: 'combobox',
-        keyOptions: assessmentNames.map((name) => ({ value: name, label: name })),
+        keyOptions:
+          enhanced && traceSuggestions
+            ? traceSuggestions.keyedValues.expectation.keys
+            : assessmentNames.map((name) => ({ value: name, label: name })),
         keyPlaceholder: intl.formatMessage({
           defaultMessage: 'Expectation name',
           description: 'Placeholder for the expectation-name key input in the traces filter',
         }),
       },
-    ],
-    [intl, assessmentNames],
-  );
+    ];
+  }, [intl, assessmentNames, enhanced, traceSuggestions, availableAssessmentNames]);
 };
 
 /**
@@ -243,12 +307,45 @@ const compileSpanTextClause = (field: string, operator: FilterOp, value: string)
 const tagFieldRef = (key: string): string =>
   key.includes('.') || key.includes(' ') ? `tags.\`${key}\`` : `tags.${key}`;
 
+const NO_NUMERIC_ASSESSMENT_KEYS: ReadonlySet<string> = new Set();
+
+const NUMERIC_LITERAL = /^-?\d+(\.\d+)?$/;
+
+/**
+ * Compile a feedback or expectation clause. The server compares `=`/`!=` against the stored value's
+ * text, so a number logged as `2.0` doesn't match `'2'`. For an assessment known to hold numbers
+ * (`isNumeric`), a numeric `=` therefore compiles to a `>= n AND <= n` range, which the server
+ * compares as numbers, and a numeric `!=` excludes both of a whole number's spellings (`'2'` and
+ * `'2.0'`). Anything else, including an assessment whose type isn't known yet, keeps the literal
+ * comparison, so a text value such as `'5'` still matches exactly.
+ */
+const compileAssessmentClause = (fieldRef: string, operator: FilterOp, value: string, isNumeric: boolean): string => {
+  const trimmed = value.trim();
+  if (
+    isNumeric &&
+    NUMERIC_LITERAL.test(trimmed) &&
+    (operator === FilterOp.EQUALS || operator === FilterOp.NOT_EQUALS)
+  ) {
+    const number = Number(trimmed);
+    if (operator === FilterOp.EQUALS) {
+      return `${fieldRef} >= ${number} AND ${fieldRef} <= ${number}`;
+    }
+    const spellings = Number.isInteger(number) ? [`${number}`, `${number}.0`] : [`${number}`];
+    return spellings.map((spelling) => `${fieldRef} != '${spelling}'`).join(' AND ');
+  }
+  return `${fieldRef} ${operator} '${escapeFilterValue(value)}'`;
+};
+
 /**
  * Compile a single clause into a search-API clause string, matching the per-field handling in the
  * shared `createMlflowSearchFilter` (`useMlflowTraces.tsx`). Returns `undefined` for an incomplete
- * clause so it's dropped rather than emitted half-formed.
+ * clause so it's dropped rather than emitted half-formed. `enhanced` is the new evaluation runs UI.
  */
-const compileClause = (clause: FilterClause): string | undefined => {
+const compileClause = (
+  clause: FilterClause,
+  enhanced: boolean,
+  numericAssessmentKeys: ReadonlySet<string>,
+): string | undefined => {
   if (!isClauseComplete(clause)) {
     return undefined;
   }
@@ -258,7 +355,7 @@ const compileClause = (clause: FilterClause): string | undefined => {
   const v = escapeFilterValue(value);
   switch (field) {
     case 'state':
-      return `attributes.status = '${v}'`;
+      return enhanced ? `attributes.status ${operator} '${v}'` : `attributes.status = '${v}'`;
     case 'duration':
       return `attributes.execution_time_ms ${operator} ${value}`;
     case 'trace_name':
@@ -268,8 +365,13 @@ const compileClause = (clause: FilterClause): string | undefined => {
         ? `span.service_name LIKE '%${v}%'`
         : `span.service_name ${operator} '${v}'`;
     case 'user':
-      return `request_metadata."mlflow.trace.user" = '${v}'`;
+      return enhanced
+        ? compileContainsAwareClause('request_metadata."mlflow.trace.user"', operator, value)
+        : `request_metadata."mlflow.trace.user" = '${v}'`;
     case 'session':
+      if (enhanced) {
+        return compileContainsAwareClause('request_metadata.mlflow.trace.session', operator, value);
+      }
       return operator === FilterOp.CONTAINS
         ? `request_metadata.mlflow.trace.session ILIKE '%${v}%'`
         : `request_metadata.mlflow.trace.session = '${v}'`;
@@ -298,11 +400,25 @@ const compileClause = (clause: FilterClause): string | undefined => {
       // The key is the assessment name; `isClauseComplete` guarantees it's non-blank (requiresKey).
       // Compiles to a `feedback.\`<name>\`` clause (matching the shared `createMlflowSearchFilter`);
       // the name is backtick-escaped so dots/spaces survive.
-      return `feedback.\`${key ?? ''}\` ${operator} '${v}'`;
+      return enhanced
+        ? compileAssessmentClause(
+            `feedback.\`${key ?? ''}\``,
+            operator,
+            value,
+            numericAssessmentKeys.has(assessmentValueKindKey('feedback', key ?? '')),
+          )
+        : `feedback.\`${key ?? ''}\` ${operator} '${v}'`;
     case 'expectation':
       // The key is the expectation name; `isClauseComplete` guarantees it's non-blank (requiresKey).
       // Compiles to an `expectation.\`<name>\`` clause, matching the trace-search DSL.
-      return `expectation.\`${key ?? ''}\` ${operator} '${v}'`;
+      return enhanced
+        ? compileAssessmentClause(
+            `expectation.\`${key ?? ''}\``,
+            operator,
+            value,
+            numericAssessmentKeys.has(assessmentValueKindKey('expectation', key ?? '')),
+          )
+        : `expectation.\`${key ?? ''}\` ${operator} '${v}'`;
     default:
       return undefined;
   }
@@ -312,8 +428,19 @@ const compileClause = (clause: FilterClause): string | undefined => {
  * Compile the filter model into search-API clause strings (one per complete clause). These flow
  * through `buildFilter({ extraClauses })` unchanged, ANDed with the search + time-range clauses.
  */
-export const compileFilterModel = (model: TraceFilterModel): string[] =>
-  model.map(compileClause).filter((clause): clause is string => clause !== undefined);
+export const compileFilterModel = (
+  model: TraceFilterModel,
+  /**
+   * Feedback and expectation names known to hold numbers (see `useNumericAssessmentKeys`); only these
+   * compare as numbers with the new evaluation runs UI.
+   */
+  numericAssessmentKeys: ReadonlySet<string> = NO_NUMERIC_ASSESSMENT_KEYS,
+): string[] => {
+  const enhanced = shouldEnableNewEvalRunsUi();
+  return model
+    .map((clause) => compileClause(clause, enhanced, numericAssessmentKeys))
+    .filter((clause): clause is string => clause !== undefined);
+};
 
 /**
  * Compile URL-backed click-to-filter tag constraints into `tags.<key> = '<value>'` clauses. The key

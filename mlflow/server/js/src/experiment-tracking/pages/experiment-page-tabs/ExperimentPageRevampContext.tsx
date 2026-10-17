@@ -4,6 +4,7 @@ import { useLocation } from '../../../common/utils/RoutingUtils';
 interface PublishedTitle {
   routeKey: string;
   title?: string;
+  status?: string;
 }
 
 interface ExperimentPageRevampContextValue {
@@ -37,11 +38,18 @@ export const useExperimentBreadcrumbTitle = () => {
   return enabled && publishedTitle?.routeKey === pathname ? publishedTitle.title : undefined;
 };
 
+export const useExperimentBreadcrumbStatus = () => {
+  const pathname = useLocation().pathname;
+  const { enabled, publishedTitle } = useExperimentPageRevampContext();
+  return enabled && publishedTitle?.routeKey === pathname ? publishedTitle.status : undefined;
+};
+
 /**
  * Publishes a display name for the current route's breadcrumb leaf, for example a dataset name in place
- * of its ID. Does nothing unless the experiment page shell is enabled.
+ * of its ID, with an optional status shown next to the breadcrumb. Does nothing unless the experiment page
+ * shell is enabled.
  */
-export const useSetExperimentBreadcrumbTitle = (title?: string) => {
+export const useSetExperimentBreadcrumbTitle = (title?: string, status?: string) => {
   const pathname = useLocation().pathname;
   const { enabled, setPublishedTitle } = useExperimentPageRevampContext();
 
@@ -55,10 +63,10 @@ export const useSetExperimentBreadcrumbTitle = (title?: string) => {
       return undefined;
     }
     if (title) {
-      setPublishedTitle({ routeKey: pathname, title });
+      setPublishedTitle({ routeKey: pathname, title, status });
     } else {
       clearTitle();
     }
     return clearTitle;
-  }, [pathname, clearTitle, enabled, setPublishedTitle, title]);
+  }, [pathname, clearTitle, enabled, setPublishedTitle, title, status]);
 };
