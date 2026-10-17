@@ -88,3 +88,21 @@ def test_chat_message_list_content_with_non_dict_item_raises():
 
     with pytest.raises(ValueError, match="content` list items must all be dicts"):
         ChatMessage(role="user", content=[{"type": "text", "text": "ok"}, "not-a-dict"])
+
+
+def test_function_params_default_empty_properties():
+    from mlflow.types.chat import ChatTool, FunctionParams
+
+    params = FunctionParams(type="object")
+    assert params.properties == {}
+
+    tool = ChatTool(
+        type="function",
+        function={
+            "name": "now",
+            "parameters": {"type": "object"},
+        },
+    )
+    assert tool.function.parameters.type == "object"
+    assert tool.function.parameters.properties == {}
+

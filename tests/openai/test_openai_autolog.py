@@ -1291,6 +1291,34 @@ def test_parse_tools_handles_openai_not_given_sentinel(sentinel):
     assert _parse_tools({"tools": sentinel}) == []
 
 
+def test_parse_tools_with_object_type_no_properties():
+    tools = [
+        {
+            "type": "function",
+            "function": {
+                "name": "now",
+                "parameters": {"type": "object"},
+            },
+        }
+    ]
+    parsed = _parse_tools({"tools": tools})
+    assert len(parsed) == 1
+    assert parsed[0].function.name == "now"
+    assert parsed[0].function.parameters.type == "object"
+    assert parsed[0].function.parameters.properties == {}
+
+
+def test_set_span_chat_attributes_handles_validation_error():
+    from mlflow.entities.span import LiveSpan
+    from mlflow.openai.utils.chat_schema import set_span_chat_attributes
+
+    span = mock.MagicMock(spec=LiveSpan)
+    # A malformed tool that fails ChatTool validation should not raise or drop the trace
+    inputs = {"tools": [{"type": "function", "function": {"name": 123}}]}
+    set_span_chat_attributes(span, inputs, None)
+
+
+
 @skip_when_testing_trace_sdk
 @pytest.mark.asyncio
 async def test_model_loading_set_active_model_id_without_fetching_logged_model(
