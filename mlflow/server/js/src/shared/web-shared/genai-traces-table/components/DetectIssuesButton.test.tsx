@@ -20,8 +20,8 @@ describe('DetectIssuesButton', () => {
     localStorage.clear();
   });
 
-  const renderTestComponent = () =>
-    render(<DetectIssuesButton componentId={componentId} onClick={onClickMock} />, {
+  const renderTestComponent = (props: { loading?: boolean; disabled?: boolean } = {}) =>
+    render(<DetectIssuesButton componentId={componentId} onClick={onClickMock} {...props} />, {
       wrapper: ({ children }) => <IntlProvider locale="en">{children}</IntlProvider>,
     });
 
@@ -29,6 +29,19 @@ describe('DetectIssuesButton', () => {
     renderTestComponent();
     expect(screen.getByText('Detect Issues')).toBeInTheDocument();
   });
+
+  test.each([{ loading: true }, { disabled: true }])(
+    'prevents detection and guidance when unavailable (%o)',
+    async (props) => {
+      renderTestComponent(props);
+      const button = screen.getByRole('button', { name: 'Detect issues in traces' });
+      expect(button).toBeDisabled();
+      expect(button).toHaveAttribute('aria-busy', String(Boolean(props.loading)));
+      expect(screen.queryByText('Detect Issues in Your Traces')).not.toBeInTheDocument();
+      await userEvent.click(button);
+      expect(onClickMock).not.toHaveBeenCalled();
+    },
+  );
 
   test('shows guidance popover on first visit when hasSeenGuidance is false', async () => {
     renderTestComponent();

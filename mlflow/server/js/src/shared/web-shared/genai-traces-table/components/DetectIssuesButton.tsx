@@ -15,9 +15,16 @@ export const DETECT_ISSUES_GUIDANCE_DISMISSED_EVENT = 'mlflow.detectIssues.guida
 interface DetectIssuesButtonProps {
   componentId: string;
   onClick: () => void;
+  loading?: boolean;
+  disabled?: boolean;
 }
 
-export const DetectIssuesButton: React.FC<DetectIssuesButtonProps> = ({ componentId, onClick }) => {
+export const DetectIssuesButton: React.FC<DetectIssuesButtonProps> = ({
+  componentId,
+  onClick,
+  loading = false,
+  disabled = false,
+}) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
 
@@ -37,6 +44,9 @@ export const DetectIssuesButton: React.FC<DetectIssuesButtonProps> = ({ componen
     <Button
       componentId={componentId}
       onClick={onClick}
+      loading={loading}
+      disabled={disabled || loading}
+      aria-busy={loading}
       aria-label={intl.formatMessage({
         defaultMessage: 'Detect issues in traces',
         description: 'Aria label for the detect issues button',
@@ -51,7 +61,7 @@ export const DetectIssuesButton: React.FC<DetectIssuesButtonProps> = ({ componen
   );
 
   // Wrap in Popover if guidance should be shown
-  if (!hasSeenGuidance) {
+  if (!hasSeenGuidance && !loading && !disabled) {
     return (
       <Popover.Root
         componentId="mlflow.detect_issues.guidance"
