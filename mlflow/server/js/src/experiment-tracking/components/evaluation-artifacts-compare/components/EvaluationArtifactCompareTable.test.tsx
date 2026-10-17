@@ -9,6 +9,7 @@ import thunk from 'redux-thunk';
 import promiseMiddleware from 'redux-promise-middleware';
 import { BrowserRouter } from '../../../../common/utils/RoutingUtils';
 import { DesignSystemProvider } from '@databricks/design-system';
+import { fetchArtifactPreferPresigned } from '../../../utils/PresignedArtifactUtils';
 
 // eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(90000);
@@ -17,10 +18,22 @@ jest.mock('../../experiment-page/hooks/useExperimentRunColor', () => ({
   useGetExperimentRunColor: jest.fn().mockReturnValue((_: string) => '#000000'),
 }));
 
+jest.mock('../../../utils/PresignedArtifactUtils', () => ({
+  fetchArtifactPreferPresigned: jest.fn(),
+}));
+
 describe('EvaluationArtifactCompareTable', () => {
   let originalImageSrc: any;
+  const originalCreateObjectURL = Object.getOwnPropertyDescriptor(URL, 'createObjectURL');
+  const originalRevokeObjectURL = Object.getOwnPropertyDescriptor(URL, 'revokeObjectURL');
 
   beforeAll(() => {
+    jest.mocked(fetchArtifactPreferPresigned).mockResolvedValue(new Blob(['image']));
+    Object.defineProperty(URL, 'createObjectURL', {
+      configurable: true,
+      value: jest.fn().mockReturnValue('blob:evaluation-image'),
+    });
+    Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: jest.fn() });
     // Mock <img> src setter to trigger load callback
     originalImageSrc = Object.getOwnPropertyDescriptor(window.Image.prototype, 'src');
     Object.defineProperty(window.Image.prototype, 'src', {
@@ -33,6 +46,10 @@ describe('EvaluationArtifactCompareTable', () => {
 
   afterAll(() => {
     Object.defineProperty(window.Image.prototype, 'src', originalImageSrc);
+    if (originalCreateObjectURL) Object.defineProperty(URL, 'createObjectURL', originalCreateObjectURL);
+    else delete (URL as Partial<typeof URL>).createObjectURL;
+    if (originalRevokeObjectURL) Object.defineProperty(URL, 'revokeObjectURL', originalRevokeObjectURL);
+    else delete (URL as Partial<typeof URL>).revokeObjectURL;
   });
 
   const renderComponent = (
@@ -798,8 +815,9 @@ describe('EvaluationArtifactCompareTable', () => {
 
   it('should render the component with images', async () => {
     const imageJson = {
-      url: 'get-artifact?path=fakePathUncompressed&run_uuid=test-run-uuid',
-      compressed_url: 'get-artifact?path=fakePath&run_uuid=test-run-uuid',
+      runUuid: 'test-run-uuid',
+      filepath: 'fakePathUncompressed',
+      compressedFilepath: 'fakePath',
     };
     const resultList: UseEvaluationArtifactTableDataResult = [
       {
@@ -853,10 +871,12 @@ describe('EvaluationArtifactCompareTable', () => {
       const image = screen.getAllByRole('img');
       expect(image.length).toBeGreaterThan(0);
       expect(image[0]).toBeInTheDocument();
-      expect(image[0]).toHaveAttribute(
-        'src',
-        expect.stringContaining('get-artifact?path=fakePath&run_uuid=test-run-uuid'),
-      );
+      expect(image[0]).toHaveAttribute('src', 'blob:evaluation-image');
     });
+    expect(fetchArtifactPreferPresigned).toHaveBeenCalledWith(
+      expect.objectContaining({ runUuid: 'test-run-uuid', path: 'fakePath' }),
+      expect.stringContaining('get-artifact?path=fakePath&run_uuid=test-run-uuid'),
+      expect.any(Function),
+    );
   });
 });
