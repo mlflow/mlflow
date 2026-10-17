@@ -694,6 +694,54 @@ def test_pyfunc_predict_supports_models_with_list_outputs(onnx_sklearn_model, mo
     wrapper.predict(pd.DataFrame(x))
 
 
+@pytest.fixture(scope="module")
+def onnx_multi_dim_output_model():
+    """
+    A model with a (batch, 2) output ``scores`` and a (batch,) output ``label``, the shape of a
+    multi-target regressor or a classifier returning a probability matrix next to its label.
+    """
+    weights = onnx.helper.make_tensor(
+        "weights", onnx.TensorProto.FLOAT, [3, 2], [1.0, 0.0, 0.0, 1.0, 1.0, 1.0]
+    )
+    graph = onnx.helper.make_graph(
+        [
+            onnx.helper.make_node("MatMul", ["input", "weights"], ["scores"]),
+            onnx.helper.make_node("ArgMax", ["scores"], ["label"], axis=1, keepdims=0),
+        ],
+        "multi_dim_output",
+        [onnx.helper.make_tensor_value_info("input", onnx.TensorProto.FLOAT, ["batch", 3])],
+        [
+            onnx.helper.make_tensor_value_info("scores", onnx.TensorProto.FLOAT, ["batch", 2]),
+            onnx.helper.make_tensor_value_info("label", onnx.TensorProto.INT64, ["batch"]),
+        ],
+        initializer=[weights],
+    )
+    model = onnx.helper.make_model(graph, opset_imports=[onnx.helper.make_opsetid("", 13)])
+    model.ir_version = 7
+    onnx.checker.check_model(model)
+    return model
+
+
+def test_pyfunc_predict_keeps_one_row_per_input_row_for_multi_dim_outputs(
+    onnx_multi_dim_output_model, model_path
+):
+    # https://github.com/mlflow/mlflow/issues/12539
+    mlflow.onnx.save_model(onnx_multi_dim_output_model, model_path)
+    wrapper = mlflow.pyfunc.load_model(model_path)
+    x = np.array([[1.0, 2.0, 0.0], [5.0, 1.0, 1.0], [0.0, 0.0, 3.0]], dtype=np.float32)
+    expected_scores = x @ np.array([[1.0, 0.0], [0.0, 1.0], [1.0, 1.0]], dtype=np.float32)
+
+    predictions = wrapper.predict(pd.DataFrame(x))
+
+    assert list(predictions.columns) == ["scores", "label"]
+    assert len(predictions) == len(x)
+    np.testing.assert_allclose(np.stack(predictions["scores"].to_numpy()), expected_scores)
+    np.testing.assert_array_equal(predictions["label"], expected_scores.argmax(axis=1))
+    # Ndarray input is unaffected and returns the raw output tensors.
+    raw = wrapper.predict(x)
+    np.testing.assert_allclose(raw["scores"], expected_scores)
+
+
 def test_log_model_with_code_paths(onnx_model):
     artifact_path = "model"
     with (
