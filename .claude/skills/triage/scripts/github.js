@@ -67,7 +67,7 @@ function prepareFollowup({ repo, issue, comment, api = ghApi }) {
     body: [`<issue>\n${escapeMarkup(issue.body ?? "")}\n</issue>`, ...discussion].join("\n\n"),
     followup: {
       instructions: sanitizeInput(instructions),
-      maintainer: comment.user.login,
+      author: comment.user.login,
     },
   };
 }
