@@ -39,8 +39,10 @@ def test_custom_gcs_client_used():
 
 
 def test_list_artifacts(mock_client):
-    artifact_root_path = "/experiment_id/run_id/"
-    repo = GCSArtifactRepository("gs://test_bucket" + artifact_root_path, client=mock_client)
+    # GCS object names are not prefixed with "/", so neither is the artifact root used to
+    # build the mocked blob names below.
+    artifact_root_path = "experiment_id/run_id/"
+    repo = GCSArtifactRepository("gs://test_bucket/" + artifact_root_path, client=mock_client)
 
     # mocked bucket/blob structure
     # gs://test_bucket/experiment_id/run_id/
@@ -79,8 +81,8 @@ def test_list_artifacts(mock_client):
 
 @pytest.mark.parametrize("dir_name", ["model", "model/"])
 def test_list_artifacts_with_subdir(mock_client, dir_name):
-    artifact_root_path = "/experiment_id/run_id/"
-    repo = GCSArtifactRepository("gs://test_bucket" + artifact_root_path, client=mock_client)
+    artifact_root_path = "experiment_id/run_id/"
+    repo = GCSArtifactRepository("gs://test_bucket/" + artifact_root_path, client=mock_client)
 
     # mocked bucket/blob structure
     # gs://test_bucket/experiment_id/run_id/
@@ -105,7 +107,7 @@ def test_list_artifacts_with_subdir(mock_client, dir_name):
 
     artifacts = repo.list_artifacts(path=dir_name)
     mock_client.bucket().list_blobs.assert_called_with(
-        prefix=posixpath.join(artifact_root_path[1:], "model/"), delimiter="/"
+        prefix=posixpath.join(artifact_root_path, "model/"), delimiter="/"
     )
     assert len(artifacts) == 2
     assert artifacts[0].path == file_path
@@ -114,6 +116,36 @@ def test_list_artifacts_with_subdir(mock_client, dir_name):
     assert artifacts[1].path == subdir_name
     assert artifacts[1].is_dir is True
     assert artifacts[1].file_size is None
+
+
+@pytest.mark.parametrize(
+    ("artifact_uri", "expected_prefix", "blob_name", "dir_prefix"),
+    [
+        ("gs://test_bucket/exp/run", "exp/run/", "exp/run/file.txt", "exp/run/model/"),
+        ("gs://test_bucket/exp/run/", "exp/run/", "exp/run/file.txt", "exp/run/model/"),
+        ("gs://test_bucket", "", "file.txt", "model/"),
+        ("gs://test_bucket/", "", "file.txt", "model/"),
+    ],
+)
+def test_list_artifacts_normalizes_artifact_root(
+    mock_client, artifact_uri, expected_prefix, blob_name, dir_prefix
+):
+    repo = GCSArtifactRepository(artifact_uri, client=mock_client)
+
+    obj_mock = mock.Mock()
+    obj_mock.configure_mock(name=blob_name, size=1)
+    dir_mock = mock.Mock()
+    dir_mock.configure_mock(prefixes=(dir_prefix,))
+
+    mock_results = mock.MagicMock()
+    mock_results.configure_mock(pages=[dir_mock])
+    mock_results.__iter__.return_value = [obj_mock]
+    mock_client.bucket.return_value.list_blobs.return_value = mock_results
+
+    artifacts = repo.list_artifacts()
+
+    mock_client.bucket().list_blobs.assert_called_with(prefix=expected_prefix, delimiter="/")
+    assert [(a.path, a.is_dir) for a in artifacts] == [("file.txt", False), ("model", True)]
 
 
 def test_log_artifact(mock_client, tmp_path):
@@ -233,8 +265,8 @@ def test_get_anonymous_bucket():
 
 
 def test_download_artifacts_downloads_expected_content(mock_client, tmp_path):
-    artifact_root_path = "/experiment_id/run_id/"
-    repo = GCSArtifactRepository("gs://test_bucket" + artifact_root_path, client=mock_client)
+    artifact_root_path = "experiment_id/run_id/"
+    repo = GCSArtifactRepository("gs://test_bucket/" + artifact_root_path, client=mock_client)
 
     obj_mock_1 = mock.Mock()
     file_path_1 = "file1"
@@ -257,8 +289,7 @@ def test_download_artifacts_downloads_expected_content(mock_client, tmp_path):
         directory traversal.
         """
 
-        prefix = os.path.join("/", prefix)
-        if os.path.abspath(prefix) == os.path.abspath(artifact_root_path):
+        if os.path.normpath(prefix) == os.path.normpath(artifact_root_path):
             return mock_populated_results
         else:
             return mock_empty_results
