@@ -5,10 +5,12 @@ import { FormattedMessage } from 'react-intl';
 import { PageNotFoundView } from '../../../common/components/PageNotFoundView';
 import { shouldEnableExperimentIssuesTab } from '../../../common/utils/FeatureUtils';
 import { useParams, useSearchParams } from '../../../common/utils/RoutingUtils';
+
 import { useActiveWorkspace } from '../../../workspaces/utils/WorkspaceUtils';
 import { IssueDetectionModal } from '../../components/experiment-page/components/traces-v3/IssueDetectionModal';
 import { JobStatus, isJobComplete } from '../../components/run-page/hooks/useFetchJobStatus';
-import { SELECTED_ISSUE_ID_PARAM } from '../../constants';
+import { SELECTED_EVALUATION_ID_PARAM } from '../../../shared/web-shared/genai-traces-table';
+import { SELECTED_ISSUE_ID_PARAM, SELECTED_ISSUE_SPAN_ID_PARAM } from '../../constants';
 import { SERVER_FEATURE_KEYS, useFeatureEnabled, useServerInfo } from '../../hooks/useServerInfo';
 import { ExperimentIssueDetail } from './ExperimentIssueDetail';
 import { ExperimentIssueRow } from './ExperimentIssueRow';
@@ -98,6 +100,8 @@ const ExperimentIssuesContent = ({ experimentId }: { experimentId: string }) => 
       setParams(
         (current) => {
           current.set(SELECTED_ISSUE_ID_PARAM, firstIssueId);
+          current.delete(SELECTED_EVALUATION_ID_PARAM);
+          current.delete(SELECTED_ISSUE_SPAN_ID_PARAM);
           return current;
         },
         { replace: true },
@@ -115,6 +119,8 @@ const ExperimentIssuesContent = ({ experimentId }: { experimentId: string }) => 
         (current) => {
           if (firstIssueId) current.set(SELECTED_ISSUE_ID_PARAM, firstIssueId);
           else current.delete(SELECTED_ISSUE_ID_PARAM);
+          current.delete(SELECTED_EVALUATION_ID_PARAM);
+          current.delete(SELECTED_ISSUE_SPAN_ID_PARAM);
           return current;
         },
         { replace: true },
@@ -122,9 +128,26 @@ const ExperimentIssuesContent = ({ experimentId }: { experimentId: string }) => 
     }
   }, [search.isLoading, search.error, controls.filters.name, issues, selectedId, firstIssueId, setParams]);
 
+  // A trace selection travels in the URL, next to the selected Issue, so a copied link reopens
+  // the same trace on the same span.
+  const viewTrace = (linkableTraceId: string, spanId?: string) =>
+    setParams((current) => {
+      current.set(SELECTED_EVALUATION_ID_PARAM, linkableTraceId);
+      if (spanId) {
+        current.set(SELECTED_ISSUE_SPAN_ID_PARAM, spanId);
+      } else {
+        current.delete(SELECTED_ISSUE_SPAN_ID_PARAM);
+      }
+      return current;
+    });
+
   const selectIssue = (issueId: string) =>
     setParams((current) => {
       current.set(SELECTED_ISSUE_ID_PARAM, issueId);
+      // Another Issue's evidence names other traces, so a trace left open from the previous one
+      // would keep its drawer mounted over a selection the new Issue does not contain.
+      current.delete(SELECTED_EVALUATION_ID_PARAM);
+      current.delete(SELECTED_ISSUE_SPAN_ID_PARAM);
       return current;
     });
   const total = search.data?.pages[0]?.total_count;
@@ -263,7 +286,7 @@ const ExperimentIssuesContent = ({ experimentId }: { experimentId: string }) => 
       <TableSkeleton lines={5} />
     </div>
   ) : detail.data ? (
-    <ExperimentIssueDetail key={selectedId} issue={detail.data} />
+    <ExperimentIssueDetail key={selectedId} issue={detail.data} onViewTrace={viewTrace} />
   ) : undefined;
   return (
     <div css={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, height: '100%' }}>

@@ -10,8 +10,10 @@ from mlflow.entities.assessment import (
     IssueReference,
 )
 from mlflow.entities.assessment_source import AssessmentSource
+from mlflow.entities.issue_evidence import IssueEvidence
 from mlflow.exceptions import MlflowException
 from mlflow.tracing.client import TracingClient
+from mlflow.tracing.trace_manager import InMemoryTraceManager
 
 
 def get_assessment(trace_id: str, assessment_id: str) -> Assessment:
@@ -329,6 +331,20 @@ def log_feedback(
     return TracingClient().log_assessment(trace_id, assessment)
 
 
+def _get_trace_span_ids(trace_id: str) -> list[str]:
+    """
+    Every span ID the trace carries, read from the in-progress trace when there is one.
+
+    An issue can be logged from inside the traced call, before anything has been exported, which
+    is why the active trace is consulted first -- the same order ``get_trace_info`` uses. A trace
+    recorded elsewhere, or already finished, is read from the store.
+    """
+    with InMemoryTraceManager.get_instance().get_trace(trace_id) as trace:
+        if trace is not None:
+            return list(trace.span_dict)
+    return [span.span_id for span in TracingClient().get_trace(trace_id).data.spans]
+
+
 def log_issue(
     *,
     trace_id: str,
@@ -339,6 +355,7 @@ def log_issue(
     rationale: str | None = None,
     metadata: dict[str, str] | None = None,
     span_id: str | None = None,
+    evidence: IssueEvidence | dict[str, Any] | None = None,
 ) -> Assessment:
     """
     Logs an issue reference to a Trace. This links a trace to a discovered issue.
@@ -357,7 +374,13 @@ def log_issue(
         rationale: The rationale / justification for the issue reference.
         metadata: Additional metadata for the issue reference.
         span_id: The ID of the span associated with the issue, if it needs to be
-                associated with a specific span in the trace.
+                associated with a specific span in the trace. Defaults to the evidence's
+                primary span when ``evidence`` names one.
+        evidence: Optional :py:class:`~mlflow.entities.IssueEvidence` (or its dictionary form)
+                explaining the issue on this trace as an ordered walkthrough of its spans. Its
+                summary is stored as the reference's rationale and its steps as versioned
+                metadata, so clients that predate structured evidence still read the summary.
+                Every cited span must belong to the trace.
 
     Returns:
         :py:class:`~mlflow.entities.Assessment`: The created issue reference assessment.
@@ -387,6 +410,24 @@ def log_issue(
             f"Provided issue name {issue_name!r} does not match the issue name "
             f"{fetched_issue_name!r} with issue ID {issue_id}."
         )
+    if evidence is not None:
+        evidence = evidence if isinstance(evidence, IssueEvidence) else IssueEvidence(**evidence)
+        # Validate the cited spans against the trace itself: a fabricated locator would render a
+        # step that opens nothing, and only the trace can say which spans exist.
+        evidence.validate_spans(_get_trace_span_ids(trace_id))
+        # The reference's span is what the UI opens from the card, so it has to be a span the
+        # walkthrough actually explains. An override that isn't cited would send the reader to a
+        # span nothing on the card describes.
+        if span_id is not None and span_id not in evidence.span_ids:
+            raise MlflowException.invalid_parameter_value(
+                f"span_id {span_id!r} is not cited by any evidence step. Pass a span the evidence "
+                "explains, or leave span_id unset to use the evidence's primary span."
+            )
+        metadata = evidence.to_metadata(metadata)
+        # The summary is the rationale, so a reader without this schema still explains the issue.
+        rationale = rationale or evidence.summary
+        span_id = span_id or evidence.primary_span_id
+
     assessment = IssueReference(
         issue_id=issue_id,
         issue_name=issue_name,
