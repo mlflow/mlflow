@@ -461,12 +461,13 @@ class GatewayStoreMixin:
             budget_unit: Budget measurement unit (e.g. USD).
             budget_amount: Budget limit amount.
             duration: Fixed time window (unit + length pair).
-            target_scope: Scope of the budget (GLOBAL, WORKSPACE, ENDPOINT, or USER).
+            target_scope: Scope of the budget (GLOBAL, WORKSPACE, ENDPOINT, USER, or ROLE).
             budget_action: Action when budget is exceeded.
             created_by: Username of the creator.
             target_value: Target the policy applies to, interpreted per
                 ``target_scope``: a gateway endpoint ID for ENDPOINT scope, a
-                username for USER scope. Required for those scopes.
+                username for USER scope, an auth role ID for ROLE scope. Required
+                for those scopes.
 
         Returns:
             GatewayBudgetPolicy entity.
@@ -511,7 +512,8 @@ class GatewayStoreMixin:
             budget_action: Optional new budget action.
             updated_by: Username of the updater.
             target_value: Optional new target the policy applies to (endpoint ID for
-                ENDPOINT scope, username for USER scope). Required when switching to
+                ENDPOINT scope, username for USER scope, role ID for ROLE scope).
+                Required when switching to
                 a targeted scope; cleared automatically for GLOBAL/WORKSPACE.
 
         Returns:
