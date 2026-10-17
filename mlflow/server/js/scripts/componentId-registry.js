@@ -833,6 +833,10 @@ module.exports = {
   "mlflow.eval-datasets-v2.side-panel.source-trace-link": "",
   "mlflow.eval-datasets-v2.trace-modal": "",
 
+  // -- mlflow.eval-run --
+  "mlflow.eval-run.traces.selected-trace-error": "",
+  "mlflow.eval-run.traces.selected-trace-error.retry": "",
+
   // -- mlflow.eval-runs --
   "mlflow.eval-runs.actions-button": "",
   "mlflow.eval-runs.actions.compare": "",
@@ -903,6 +907,15 @@ module.exports = {
   "mlflow.eval-runs.unified-search.error": "",
   "mlflow.eval-runs.unified-search.input": "",
   "mlflow.eval-runs.visibility-mode-selector": "",
+
+  // -- mlflow.eval_run_details --
+  "mlflow.eval_run_details.breadcrumb.evaluation_runs": "",
+  "mlflow.eval_run_details.overview.tag": "",
+  "mlflow.eval_run_details.overview.tag_tooltip": "",
+  "mlflow.eval_run_details.run_stats.total_cost.info": "",
+  "mlflow.eval_run_details.sidebar.footer_toggle": "",
+  "mlflow.eval_run_details.sidebar.toggle": "",
+  "mlflow.eval_run_details.status_tag": "",
 
   // -- mlflow.evaluations_overview --
   "mlflow.evaluations_overview.column_selector_dropdown": "",
@@ -2314,6 +2327,21 @@ module.exports = {
   "mlflow.traces-v4.saved_views": "",
   "mlflow.traces-v4.saved_views.delete_confirm": "",
   "mlflow.traces-v4.saved_views.trigger": "",
+  "mlflow.traces-v4.search.typeahead": "",
+  "mlflow.traces-v4.session-copy-id": "",
+  "mlflow.traces-v4.session-drawer.session-id": "",
+  "mlflow.traces-v4.session-drawer.session-id-tooltip": "",
+  "mlflow.traces-v4.session-id-tooltip": "",
+  "mlflow.traces-v4.session-load-error.retry": "",
+  "mlflow.traces-v4.session-refresh": "",
+  "mlflow.traces-v4.session-toggle-turn-metric": "",
+  "mlflow.traces-v4.session-turn-metric-tooltip": "",
+  "mlflow.traces-v4.session-turn-settings": "",
+  "mlflow.traces-v4.session-turn-settings-tooltip": "",
+  "mlflow.traces-v4.session-view-trace": "",
+  "mlflow.traces-v4.trace-context.back-to-session": "",
+  "mlflow.traces-v4.trace-context.session-id": "",
+  "mlflow.traces-v4.trace-context.session-id-tooltip": "",
 
   // -- mlflow.unified-search --
   "mlflow.unified-search.add-filter": "",
