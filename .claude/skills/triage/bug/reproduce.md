@@ -21,8 +21,8 @@ local server, a pytest test, or UI steps. Use as little setup as possible: a loc
 store, tiny models and datasets, no external services. Put scratch files under
 `$out_dir/work`. For UI bugs, seed the data the page needs through the Python client, then
 drive the UI as described in "Running the UI" in [runtime.md](../runtime.md) and record the observed behavior.
-Capture an image or short recording under `$out_dir/media` only when it helps a reader see the
-symptom; cite the exact path in the comment as described in [output.md](../output.md).
+For visible UI bugs, capture an image or short recording of the symptom under `$out_dir/media`;
+cite the exact path in the comment as described in [output.md](../output.md).
 
 If the symptom is not obvious in the screenshot, use `agent-browser eval` to add temporary
 JavaScript overlays such as an arrow, outline, or short label pointing out the bug, then
