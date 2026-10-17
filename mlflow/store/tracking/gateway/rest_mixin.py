@@ -200,6 +200,10 @@ class RestGatewayStoreMixin:
             auth_config: Optional dict with authentication configuration.
             updated_by: Optional identifier of the user updating the secret.
 
+        When auth_config sets api_base to a different hostname, supply secret_value
+        in the same request. Clearing api_base and changes to the path, scheme,
+        or port do not require it.
+
         Returns:
             The updated GatewaySecretInfo object with masked value.
         """
