@@ -358,7 +358,7 @@ jobs:
     permissions:
       actions: read
     concurrency:
-      group: triage-rate-limit-${{ github.event_name == 'workflow_dispatch' && github.run_id || github.actor }}
+      group: triage-rate-limit-${{ github.event_name == 'issues' && github.actor || github.run_id }}
       cancel-in-progress: false
       queue: max
     outputs:
@@ -371,9 +371,9 @@ jobs:
           REPO: ${{ github.repository }}
           ACTOR: ${{ github.actor }}
           WORKFLOW_FILE: ${{ job.workflow_file_path }}
-          AUTHOR_ASSOCIATION: ${{ github.event.comment.author_association || needs.issue.outputs.author_association }}
+          AUTHOR_ASSOCIATION: ${{ needs.issue.outputs.author_association }}
         run: |
-          if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then
+          if [ "$GITHUB_EVENT_NAME" != issues ]; then
             echo 'allowed=true' >> "$GITHUB_OUTPUT"
             exit 0
           fi
@@ -383,21 +383,11 @@ jobs:
           esac
           since=$(date -u -d '60 minutes ago' +%Y-%m-%dT%H:%M:%SZ)
           workflow=${WORKFLOW_FILE##*/}
-          runs=$(
-            gh api "repos/$REPO/actions/workflows/$workflow/runs?actor=$ACTOR&created=>=$since&per_page=100" --paginate --slurp \
-              | jq -r --argjson current "$GITHUB_RUN_NUMBER" \
-                '.[] | .workflow_runs[] | select((.event == "issues" or .event == "issue_comment") and .run_number < $current) | .id'
+          count=$(
+            gh api "repos/$REPO/actions/workflows/$workflow/runs?actor=$ACTOR&event=issues&created=>=$since&per_page=100" --paginate --slurp \
+              | jq --argjson current "$GITHUB_RUN_NUMBER" \
+                '[.[] | .workflow_runs[] | select(.run_number < $current)] | length'
           )
-          count=0
-          while read -r run; do
-            [ -n "$run" ] || continue
-            # The issue job succeeds only after command and permission validation.
-            accepted=$(
-              gh api "repos/$REPO/actions/runs/$run/jobs?per_page=100" --paginate --slurp \
-                | jq '[.[] | .jobs[] | select(.name == "issue" and .conclusion == "success")] | length'
-            )
-            count=$((count + accepted))
-          done <<< "$runs"
           if [ "$count" -ge "$limit" ]; then
             echo 'allowed=false' >> "$GITHUB_OUTPUT"
             echo "Triage rate limit reached: $count prior issue runs by $ACTOR in 60 minutes (limit: $limit)." >> "$GITHUB_STEP_SUMMARY"
