@@ -8,11 +8,14 @@ required:
 properties:
   comment:
     description: |
-      A concise, free-form reply to the maintainer's request. Avoid repeating the original
-      triage report. A pull_request is only a proposal; do not claim it has been opened.
+      A brief, free-form reply in 2–4 short sentences and at most 100 words. State the outcome,
+      summarize verification, and mention any blocker or important behavior change. Do not
+      repeat the original triage report or include tables, code blocks, or test commands.
+      Put reproduction steps and detailed verification in pull_request.body when proposing
+      a fix. A pull_request is only a proposal; do not claim it has been opened.
     type: string
     minLength: 1
-    maxLength: 5000
+    maxLength: 800
   pull_request:
     description: A PR proposal for fix.patch, only after reproducing the bug and verifying the fix.
     type: object
