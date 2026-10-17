@@ -4735,6 +4735,10 @@ message SearchLoggedModels {
   // Token indicating the page of Logged Models to fetch.
   optional string page_token = 5;
 
+  // Whether to include metric values in the response. Defaults to true.
+  // Filtering and ordering by metrics are unaffected.
+  optional bool include_metrics = 7 [default = true];
+
   message OrderBy {
     // Name of the field to order by, e.g. "metrics.accuracy".
     optional string field_name = 1 [(validate_required) = true];
