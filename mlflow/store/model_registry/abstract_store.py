@@ -1311,3 +1311,59 @@ class AbstractStore:
     def supports_workspaces(self) -> bool:
         """Return whether this model registry store supports workspace-aware operations."""
         return False
+
+    def find_satisfying_resources(self, entity, clauses, ids):
+        """Return which of ``ids`` satisfy **every** clause.
+
+        An optional pushdown hook for a caller combining conditions with OR, which
+        the removed AND-era probe could not serve: it reported the first id failing one
+        condition, and per-condition answers cannot be intersected into "an id that no
+        condition admits" because a first failure is not the failing set. The satisfying
+        set can be unioned across conditions and subtracted once.
+
+        The union is left to the caller deliberately. Which conditions apply is decided per
+        id -- a condition scoped to a resource pattern governs only some ids in play -- so
+        only the caller knows which sets each id was eligible for.
+
+        Clauses are conjunctive, so this intersects across them. An id satisfies a clause
+        only if it **has** an entry under that key whose value compares true, so an absent
+        tag or alias satisfies nothing, including ``!=`` and ``NOT IN``. An id absent from
+        the store likewise satisfies nothing and is indistinguishable from one that failed
+        a clause -- deliberately, since distinguishing them would reveal which ids exist to
+        a caller who may not read them.
+
+        Raises:
+            NotImplementedError: if the store cannot express a clause for this entity.
+                Declining the whole call is required rather than answering from the clauses
+                it understood, which would judge a conjunction against a subset of itself.
+        """
+        raise NotImplementedError(f"{type(self)} does not support find_satisfying_resources")
+
+    def iter_child_resource_tags(
+        self,
+        entity: str,
+        parent_id: str,
+        *,
+        chunk_size: int,
+        max_timestamp_ms: "int | None" = None,
+        stage: "str | None" = None,
+    ):
+        """Yield a parent's children with their tags, a chunk at a time.
+
+        See :meth:`mlflow.store.tracking.abstract_store.AbstractStore.iter_child_resource_tags`
+        for the full contract. An optional pushdown hook for a caller that must judge every
+        child of a parent against conditions combined with OR, which
+        the removed AND-era probe could not answer: it reported the first resource failing
+        one conjunctive clause list, and a disjunction asks whether some child is admitted
+        by *no* condition, which does not decompose into per-condition calls.
+
+        A child with no tags is yielded with an empty mapping rather than skipped, because
+        under target semantics an absent tag fails every comparator -- skipping it would
+        permit what a condition forbids.
+
+        Raises:
+            NotImplementedError: if the store cannot enumerate this entity's children, or
+                cannot express a requested bound. Declining is required rather than
+                yielding nothing, which would read as "no child objected".
+        """
+        raise NotImplementedError(f"{type(self)} does not support iter_child_resource_tags")

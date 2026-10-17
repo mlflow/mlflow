@@ -122,6 +122,7 @@ from mlflow.protos.databricks_pb2 import (
     TEMPORARILY_UNAVAILABLE,
     ErrorCode,
 )
+from mlflow.store import condition_pushdown
 from mlflow.store.analytics import trace_correlation
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.db.db_types import MSSQL, MYSQL, SQLITE
@@ -159,6 +160,10 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlLoggedModelMetric,
     SqlLoggedModelParam,
     SqlLoggedModelTag,
+    SqlMCPServerAlias,
+    SqlMCPServerTag,
+    SqlMCPServerVersion,
+    SqlMCPServerVersionTag,
     SqlMetric,
     SqlOnlineScoringConfig,
     SqlParam,
@@ -10310,6 +10315,194 @@ class SqlAlchemyStore(
                 row.completed_time_ms = now_ms
             session.flush()
             return row.to_mlflow_entity()
+
+    # Ids bind one SQL parameter each. Chosen well below every backend's cap (SQLite's
+    # is ~32k, MySQL and PostgreSQL higher) so one value is safe everywhere rather than
+    # per-dialect, and so a cascade's 2000 children cost two statements, not a failure.
+    _TAG_PUSHDOWN_ID_CHUNK = 900
+
+    # A pushable namespace is described by its table and the columns the predicate
+    # needs: the id column(s), the column holding the clause key, and the column
+    # holding the compared value. Both namespaces have the same shape -- a tag row
+    # is (id, key, value), an alias row is (name, alias, version) -- so one query
+    # builder serves both and ``aliases`` needs no second method.
+    #
+    # ``id_columns`` is a tuple because a version's id is composite: the auth layer
+    # addresses one as ``name/version`` while the table keeps the parts in separate
+    # columns. Such an entity is passed already-decomposed ids (see the contract on
+    # ``AbstractStore.filter_ids_by_clauses``) -- the composite *format* is the auth
+    # layer's invention, so the store matches parts and never parses it.
+    #
+    # An entity, or a namespace within one, absent here declines (``None``) rather
+    # than guessing: adding one is opt-in, and a typo cannot answer for the wrong
+    # table. Only the three alias-owning types list ``aliases`` (D18) -- a version's
+    # alias list names aliases stored on its parent, so a version must not be gated
+    # on one.
+    _PUSHDOWN_NAMESPACES = {
+        "run": {"tags": ("SqlTag", ("run_uuid",), "key", "value")},
+        "experiment": {"tags": ("SqlExperimentTag", ("experiment_id",), "key", "value")},
+        "trace": {"tags": ("SqlTraceTag", ("request_id",), "key", "value")},
+        # ``SqlLoggedModelTag`` names its columns ``tag_key``/``tag_value``, unlike the
+        # other tag tables. Spelled per entity precisely so this can differ.
+        "logged_model": {"tags": ("SqlLoggedModelTag", ("model_id",), "tag_key", "tag_value")},
+        "mcp_server": {
+            "tags": ("SqlMCPServerTag", ("name",), "key", "value"),
+            "aliases": ("SqlMCPServerAlias", ("name",), "alias", "version"),
+        },
+        "mcp_server_version": {
+            "tags": ("SqlMCPServerVersionTag", ("name", "version"), "key", "value"),
+        },
+    }
+
+    _PUSHDOWN_MODELS = {
+        "SqlTag": SqlTag,
+        "SqlExperimentTag": SqlExperimentTag,
+        "SqlTraceTag": SqlTraceTag,
+        "SqlLoggedModelTag": SqlLoggedModelTag,
+        "SqlMCPServerTag": SqlMCPServerTag,
+        "SqlMCPServerAlias": SqlMCPServerAlias,
+        "SqlMCPServerVersionTag": SqlMCPServerVersionTag,
+    }
+
+    # Cascade pushdown needs the child's own table too:
+    # (child model, child id columns, parent column on the child, tag model,
+    #  tag id columns, tag key column, tag value column, parent column on the TAG
+    #  table or None).
+    #
+    # The key/value names are carried rather than assumed to be ``key``/``value``:
+    # ``SqlLoggedModelTag`` calls them ``tag_key``/``tag_value``, and hardcoding the
+    # common names made every logged-model tag write 500 once a logged-model condition
+    # existed.
+    #
+    # The last element is what lets a composite-keyed child be mapped. An experiment
+    # child is identified by one globally unique column, so its subquery needs no
+    # parent filter and the entry is ``None``. A version is identified by
+    # ``(name, version)`` and ``version`` repeats across models, so its tag subquery
+    # must be scoped to the parent as well -- see ``iter_child_tag_batches``.
+    #
+    # An entity absent here declines rather than guessing: adding one is opt-in, and a
+    # typo cannot answer for the wrong table.
+    #: The column a predicate-mode mutation bounds its population by, per cascade entity.
+    #: Only traces have one: ``DeleteTraces`` is the only route that deletes a timestamp
+    #: slice of a parent's children rather than all of them. Declared separately from
+    #: ``_CASCADE_PUSHDOWN_ENTITIES`` so an entity without a window is simply absent here
+    #: and the store refuses to express one, rather than silently ignoring the bound.
+    _CASCADE_PUSHDOWN_WINDOW_COLUMNS = {
+        "trace": SqlTraceInfo.timestamp_ms,
+    }
+
+    _CASCADE_PUSHDOWN_ENTITIES = {
+        "run": (
+            SqlRun,
+            ("run_uuid",),
+            "experiment_id",
+            SqlTag,
+            ("run_uuid",),
+            "key",
+            "value",
+            None,
+        ),
+        "trace": (
+            SqlTraceInfo,
+            ("request_id",),
+            "experiment_id",
+            SqlTraceTag,
+            ("request_id",),
+            "key",
+            "value",
+            None,
+        ),
+        "logged_model": (
+            SqlLoggedModel,
+            ("model_id",),
+            "experiment_id",
+            SqlLoggedModelTag,
+            ("model_id",),
+            "tag_key",
+            "tag_value",
+            None,
+        ),
+        "mcp_server_version": (
+            SqlMCPServerVersion,
+            ("name", "version"),
+            "name",
+            SqlMCPServerVersionTag,
+            ("name", "version"),
+            "key",
+            "value",
+            "name",
+        ),
+    }
+
+    def find_satisfying_resources(self, entity, clauses, ids):
+        """Which of these ids satisfy every clause?
+
+        See :meth:`AbstractStore.find_satisfying_resources`. The scan lives in
+        :func:`condition_pushdown.satisfying_named`, shared with the registry store, and
+        resolution mirrors :meth:`find_satisfying_resources` -- the same
+        namespace mapping and the same refusals -- so the two answer over the same rows.
+        """
+        namespaces = self._PUSHDOWN_NAMESPACES.get(entity)
+        if namespaces is None:
+            raise condition_pushdown.cannot_express(self, entity, "it has no id-selector mapping")
+        resolved = condition_pushdown.resolve_clauses(namespaces, self._PUSHDOWN_MODELS, clauses)
+        if resolved is None:
+            raise condition_pushdown.cannot_express(
+                self, entity, "a clause names a namespace this entity does not own"
+            )
+        return condition_pushdown.satisfying_named(self, resolved, ids, self._TAG_PUSHDOWN_ID_CHUNK)
+
+    def _pushdown_id_chunks(self, ordered, id_columns, value):
+        """Split ids so one statement's bind parameters stay under the backend's cap.
+
+        Ids bind one parameter each -- more for a composite -- and the clause itself
+        binds the key plus one per compared value, which for ``IN`` is the whole list.
+        Every backend caps how many a statement may carry; SQLite raises "too many SQL
+        variables" below the number of children a cascade can reach. Subtracting the
+        clause's own parameters keeps that cap a property of the statement rather than
+        a limit on how many resources a caller may ask about.
+        """
+        clause_params = 1 + (len(value) if isinstance(value, tuple) else 1)
+        budget = self._TAG_PUSHDOWN_ID_CHUNK - clause_params
+        size = max(1, budget // len(id_columns))
+        for start in range(0, len(ordered), size):
+            yield ordered[start : start + size]
+
+    def iter_child_resource_tags(
+        self, entity, parent_id, *, chunk_size, max_timestamp_ms=None, stage=None
+    ):
+        """Yield this parent's children with their tags, a chunk at a time.
+
+        See :meth:`AbstractStore.iter_child_resource_tags`. The scan lives in
+        :func:`condition_pushdown.iter_child_tag_batches`, shared with the registry store
+        for the same reason the single-query probe is: the two answer the same question
+        over same-shaped tables, and a drift between two copies would be a difference in
+        who may write what.
+
+        Resolution mirrors the cascade mapping exactly -- the same mapping
+        and the same window column -- so the population this yields is the population that
+        probe would have judged.
+        """
+        if stage is not None:
+            # No tracking entity has a stage; declining rather than ignoring it keeps a
+            # caller that asked about one stage from being answered about the whole parent.
+            raise condition_pushdown.cannot_express(
+                self, entity, "a stage window is a registry concept and has no column here"
+            )
+        mapping = self._CASCADE_PUSHDOWN_ENTITIES.get(entity)
+        if mapping is None:
+            raise condition_pushdown.cannot_express(self, entity, "it has no cascade mapping")
+        extra_filters = ()
+        if max_timestamp_ms is not None:
+            window_column = self._CASCADE_PUSHDOWN_WINDOW_COLUMNS.get(entity)
+            if window_column is None:
+                raise condition_pushdown.cannot_express(
+                    self, entity, "it has no timestamp column to narrow the cascade by"
+                )
+            extra_filters = (window_column <= max_timestamp_ms,)
+        yield from condition_pushdown.iter_child_tag_batches(
+            self, mapping, parent_id, chunk_size, extra_filters=extra_filters
+        )
 
 
 def _get_sqlalchemy_filter_clauses(parsed, session, dialect):

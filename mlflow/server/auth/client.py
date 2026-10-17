@@ -1,4 +1,5 @@
 from mlflow.server.auth.entities import (
+    Condition,
     GetUserPermissionResult,
     Role,
     RolePermission,
@@ -6,23 +7,29 @@ from mlflow.server.auth.entities import (
     UserRoleAssignment,
 )
 from mlflow.server.auth.routes import (
+    ADD_CONDITIONS,
     ADD_ROLE_PERMISSION,
+    ADD_USER_CONDITION,
     ASSIGN_ROLE,
     CREATE_ROLE,
     CREATE_USER,
     DELETE_ROLE,
     DELETE_USER,
+    GET_CONDITIONS,
     GET_ROLE,
     GET_USER,
     GET_USER_PERMISSION,
     GRANT_USER_PERMISSION,
+    LIST_CONDITIONS,
     LIST_ROLE_PERMISSIONS,
     LIST_ROLE_USERS,
     LIST_ROLES,
     LIST_USER_ROLES,
+    REMOVE_CONDITIONS,
     REMOVE_ROLE_PERMISSION,
     REVOKE_USER_PERMISSION,
     UNASSIGN_ROLE,
+    UPDATE_CONDITIONS,
     UPDATE_ROLE,
     UPDATE_ROLE_PERMISSION,
     UPDATE_USER_ADMIN,
@@ -30,6 +37,11 @@ from mlflow.server.auth.routes import (
 )
 from mlflow.utils.credentials import get_default_host_creds
 from mlflow.utils.rest_utils import http_request, verify_rest_response
+
+#: Distinguishes "leave this condition unchanged" from "clear it". ``None`` already
+#: means clear, so omission needs its own marker -- otherwise an update touching one
+#: condition would silently drop the other.
+_UNSET = object()
 
 
 class AuthServiceClient:
@@ -357,6 +369,216 @@ class AuthServiceClient:
     def list_role_users(self, role_id: int) -> list[UserRoleAssignment]:
         resp = self._request(LIST_ROLE_USERS, "GET", params={"role_id": str(role_id)})
         return [UserRoleAssignment.from_json(a) for a in resp["assignments"]]
+
+    # ---- Conditions (condition-based access control) ----
+    #
+    # Two optional filters per (role, resource_type) that gate create/mutation only,
+    # never reads. Conditions **subtract** from what the role's grants allow: they
+    # never confer access, and a role with no conditions behaves exactly as before.
+
+    def add_condition(
+        self,
+        role_id: int,
+        resource_type: str,
+        *,
+        resource_pattern: str | None = None,
+        container_resource_type: str | None = None,
+        container_resource_pattern: str | None = None,
+        type: str,
+        filter: str,
+    ) -> Condition:
+        """Attach one condition object to ``role_id`` for ``resource_type``.
+
+        A role may hold several conditions per resource type. **Any one of them passing
+        is enough** -- conditions of a type are alternatives, they do not AND. Two
+        objects saying "``env = dev``" and "``owner = me``" permit resources that are
+        *either*, so adding the second widens what the first allowed.
+
+        The consequence to plan for: a condition cannot be relied on to restrict unless
+        every sibling of its type also restricts. A sibling may come from a *different
+        role* the same user holds, so attaching a permissive condition elsewhere can lift
+        this one's restriction. Clauses within one filter still AND, so express a
+        conjunction as one condition with several clauses -- not as several conditions.
+
+        Args:
+            role_id: The role to condition. Conditions apply on top of that role's
+                grants and cannot widen them.
+            resource_type: One of ``experiment``, ``run``, ``trace``, ``logged_model``,
+                ``registered_model``, ``registered_model_version``, ``prompt``,
+                ``prompt_version``, ``mcp_server``, ``mcp_server_version``. Other types
+                are rejected -- a condition is only meaningful for a type carrying tags
+                or aliases.
+            resource_pattern: Which resources of ``resource_type`` to govern: ``"*"``
+                for all (the default), or one resource id. The grain follows that type's
+                *grants*, so a top-level type (``experiment``, ``registered_model``,
+                ``prompt``, ``mcp_server``) accepts an id while a sub-resource is
+                wildcard-only -- a per-id child restriction could not be enforced in list
+                and search paths, so it is refused rather than half-held.
+            container_resource_type: Which container to govern within. ``"workspace"``
+                (the default) is no narrowing; otherwise the type's declared parent. A
+                top-level type has no other container, which is why it narrows with
+                ``resource_pattern`` instead. Containment is exact and does not inherit
+                across resource types.
+            container_resource_pattern: The container's id, or ``"*"``. A wildcard here
+                means every container, which is the same statement as ``"workspace"`` and
+                is normalised to it.
+            type: ``"VALUE"`` or ``"TARGET"``, selecting which half of a
+                mutation the filter is read against. The two are separate conditions
+                because they answer different questions and must both hold -- a single
+                row silent about one half would be a wildcard for it.
+            filter: The filter string, whose vocabulary depends on ``type``.
+
+                ``VALUE`` constrains *what values* a mutation may set, over ``tag_key``,
+                ``tag_value`` and ``alias``. Evaluated against the request and applied on
+                create. A clause whose identifier the request does not carry is vacuous,
+                so a metrics-only ``LogBatch`` is not denied by a ``tag_key`` clause.
+                Reserved ``mlflow.*`` tag keys are rejected, because MLflow writes them.
+
+                ``TARGET`` constrains *which existing resources* may be mutated, over
+                ``tags.<key>`` and ``aliases.<name>``. Evaluated against the resource's
+                current state and vacuous on create. **A missing tag fails the clause**,
+                matching search semantics -- so ``tags.lifecycle != 'prod'`` denies an
+                untagged resource.
+
+        The filter is required and cannot be empty: conditions of a type are
+        alternatives, so an empty filter is an unconditional pass that nullifies every
+        sibling rather than a weaker restriction. It takes at most five AND-joined
+        clauses; ``OR`` between clauses is not supported -- write a second condition of
+        the same type instead, which is what makes them alternatives.
+
+        Returns:
+            The created :py:class:`Condition`, carrying the server-allocated
+            ``condition_slot``.
+        """
+        resp = self._request(
+            ADD_CONDITIONS,
+            "POST",
+            json={
+                "role_id": role_id,
+                "resource_type": resource_type,
+                "resource_pattern": resource_pattern,
+                "container_resource_type": container_resource_type,
+                "container_resource_pattern": container_resource_pattern,
+                "type": type,
+                "filter": filter,
+            },
+        )
+        return Condition.from_json(resp["conditions"])
+
+    def add_user_condition(
+        self,
+        username: str,
+        resource_type: str,
+        *,
+        resource_pattern: str | None = None,
+        container_resource_type: str | None = None,
+        container_resource_pattern: str | None = None,
+        type: str,
+        filter: str,
+    ) -> Condition:
+        """Attach one condition object to ``username``'s direct grants.
+
+        The user-addressed counterpart of :meth:`add_condition`, and the
+        condition analogue of :meth:`grant_user_permission`. Per-user access is stored on
+        a hidden per-user role; this resolves that role -- creating it if the user has no
+        direct grants yet -- so the caller never names it.
+
+        Everything :meth:`add_condition` says about semantics applies unchanged:
+        conditions AND with each other and with those on the user's other roles, they
+        cannot widen a grant, and they never apply to reads.
+
+        Args:
+            username: The user whose direct grants to condition.
+            resource_type: As :meth:`add_condition`.
+            resource_pattern: As :meth:`add_condition`.
+            container_resource_type: As :meth:`add_condition`.
+            container_resource_pattern: As :meth:`add_condition`.
+            type: As :meth:`add_condition`.
+            filter: As :meth:`add_condition`.
+
+        Returns:
+            The created :py:class:`Condition`. Its ``role_id`` is the per-user
+            role, which is an implementation detail -- address later updates and removals
+            by the returned ``id``.
+        """
+        resp = self._request(
+            ADD_USER_CONDITION,
+            "POST",
+            json={
+                "username": username,
+                "resource_type": resource_type,
+                "resource_pattern": resource_pattern,
+                "container_resource_type": container_resource_type,
+                "container_resource_pattern": container_resource_pattern,
+                "type": type,
+                "filter": filter,
+            },
+        )
+        return Condition.from_json(resp["conditions"])
+
+    def get_condition(self, condition_id: int) -> Condition:
+        resp = self._request(
+            GET_CONDITIONS,
+            "GET",
+            params={"condition_id": str(condition_id)},
+        )
+        return Condition.from_json(resp["conditions"])
+
+    def update_condition(
+        self,
+        condition_id: int,
+        *,
+        filter: str | None = _UNSET,
+        resource_pattern: str | None = _UNSET,
+        container_resource_type: str | None = _UNSET,
+        container_resource_pattern: str | None = _UNSET,
+    ) -> Condition | None:
+        """Update one condition object, leaving any argument you omit untouched.
+
+        Passing ``None`` explicitly **clears** that condition; omitting the argument
+        leaves it as it is. The two are different operations, so they cannot share a
+        sentinel -- if they did, an update that only meant to change the value
+        condition would silently drop the target condition.
+
+        The scope moves as a unit: pass any of ``resource_pattern``,
+        ``container_resource_type`` or ``container_resource_pattern`` and all three are
+        replaced, with anything you omit taking its widest default. The axes are validated
+        together -- a container's legality depends on the resource type -- so they cannot be
+        changed independently.
+
+        Returns:
+            The updated object, or ``None`` if clearing both filters deleted it -- an
+            object restricting nothing is removed rather than left holding a slot.
+        """
+        body: dict[str, object] = {"condition_id": condition_id}
+        if filter is not _UNSET:
+            body["filter"] = filter
+        scope_args = (resource_pattern, container_resource_type, container_resource_pattern)
+        if any(arg is not _UNSET for arg in scope_args):
+            # The scope moves as a unit -- the server validates the axes together -- so an
+            # argument left out here takes its default rather than its current value.
+            body["update_scope"] = True
+            body["resource_pattern"] = None if resource_pattern is _UNSET else resource_pattern
+            body["container_resource_type"] = (
+                None if container_resource_type is _UNSET else container_resource_type
+            )
+            body["container_resource_pattern"] = (
+                None if container_resource_pattern is _UNSET else container_resource_pattern
+            )
+        resp = self._request(UPDATE_CONDITIONS, "PATCH", json=body)
+        payload = resp.get("conditions")
+        return Condition.from_json(payload) if payload else None
+
+    def remove_condition(self, condition_id: int) -> None:
+        self._request(
+            REMOVE_CONDITIONS,
+            "DELETE",
+            json={"condition_id": condition_id},
+        )
+
+    def list_conditions(self, role_id: int) -> list[Condition]:
+        resp = self._request(LIST_CONDITIONS, "GET", params={"role_id": str(role_id)})
+        return [Condition.from_json(c) for c in resp["conditions"]]
 
     def list_all_roles(self) -> list[Role]:
         # Same endpoint as list_roles; omitting the ``workspace`` param returns the
