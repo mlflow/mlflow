@@ -1,7 +1,6 @@
-# Bug Triage
+# Bug reproduction and fix verification
 
-Reproduce the reported bug at the current checkout, show exactly how to reproduce it, and
-suggest a fix.
+Use these steps to investigate a bug or verify a proposed fix.
 
 ## 1. Understand the issue
 
@@ -21,9 +20,9 @@ Trigger the bug in whatever form fits it: a CLI command, a short Python snippet,
 local server, a pytest test, or UI steps. Use as little setup as possible: a local SQLite
 store, tiny models and datasets, no external services. Put scratch files under
 `$out_dir/work`. For UI bugs, seed the data the page needs through the Python client, then
-drive the UI as described in "Running the UI" in `SKILL.md` and record the observed behavior.
+drive the UI as described in "Running the UI" in [runtime.md](../runtime.md) and record the observed behavior.
 Capture an image or short recording under `$out_dir/media` only when it helps a reader see the
-symptom; cite the exact path in the comment as described in `SKILL.md`.
+symptom; cite the exact path in the comment as described in [output.md](../output.md).
 
 If the symptom is not obvious in the screenshot, use `agent-browser eval` to add temporary
 JavaScript overlays such as an arrow, outline, or short label pointing out the bug, then
@@ -39,7 +38,7 @@ selectors you will put in `$out_dir/work/steps.json` (snapshot refs such as `@e1
 to a new session), and hide side panels, popups, and onboarding hints that cover the page, then:
 
 ```bash
-agent-browser --session <sess> --input-mode human --init-script .claude/skills/triage/init.js open <url>
+agent-browser --session <sess> --input-mode human --init-script .claude/skills/triage/scripts/init.js open <url>
 agent-browser --session <sess> record start $out_dir/media/<name>.mp4 --cursor --contact-sheet
 timeout 120 agent-browser --session <sess> batch --bail < $out_dir/work/steps.json  # [["click", "<sel>"], ["wait", "500"], ...]
 agent-browser --session <sess> record stop
@@ -54,7 +53,7 @@ such as the browser's Back button, a key press, or a wait: add
 If the batch times out, retry once in a fresh session, then fall back to screenshots. Check the
 contact sheet to confirm the video shows the bug before citing it.
 When you propose a fix for a visible UI bug, record the same steps again after applying it,
-against the same servers from "Running the UI" in `SKILL.md`, and cite both videos in the
+against the same servers from "Running the UI" in [runtime.md](../runtime.md), and cite both videos in the
 `pull_request` body as a before/after comparison. Adjust the captions for the after video if
 needed.
 
@@ -77,60 +76,11 @@ Only when the bug reproduces at the current checkout. Find the line that is wron
 just where the error surfaces, then verify: patch the code, rerun the reproduction, and confirm the
 symptom goes away without breaking the tests that cover that code.
 
-For frontend fixes, verify against the dev servers from "Running the UI" in `SKILL.md`, which
+For frontend fixes, verify against the dev servers from "Running the UI" in [runtime.md](../runtime.md), which
 reload code changes. For simple visual or UI changes, manual browser inspection of the
 reproduction before and after the fix can be sufficient verification. Run relevant existing
 tests when they meaningfully cover the affected behavior.
 
-Keep the fix minimal and in the style of the surrounding code. When the right fix is a design
-decision (a public API, a default, or a storage schema), describe the options instead of
+Keep the fix minimal and in the style of the surrounding code. If a design choice remains
+unresolved (a public API, a default, or a storage schema), describe the options instead of
 picking one.
-
-## 4. Propose a pull request
-
-Propose a pull request only when all of these hold:
-
-- The `PR_DISABLED` environment variable is not `true`.
-- The verdict is Reproduced and the issue is simple.
-- The fix is straightforward, verified as in step 3, and needs no decisions: no design choice,
-  no trade-off between plausible fixes, nothing a maintainer should weigh in on first.
-- Every changed file is under `mlflow/` or `tests/`.
-- The issue author has not offered to fix it themselves in the issue body (for
-  example, "I'd be happy to submit a PR"). If they have, leave the fix to them.
-
-Otherwise, skip this step: the comment's suggested fix is enough.
-
-Add regression tests when they add meaningful coverage. Place new regression tests next to
-the existing tests for that code, verify that they fail without the fix and pass with it,
-and run them together with those tests.
-Then leave only the fix and any regression tests changed in the checkout (revert anything else
-you edited there) and write the patch:
-
-```bash
-git add -N mlflow tests
-git diff HEAD -- mlflow tests > "$out_dir/fix.patch"
-git diff HEAD --stat
-```
-
-The last command must list only the files in the patch. Then add `pull_request` to the payload
-using the template in `pull_request` of `payload.schema.yml`. The comment's suggested fix
-still describes the change in full.
-
-For visible UI fixes, include a before/after comparison in the PR body when it helps
-reviewers assess the change. Stack screenshots vertically with **Before** above **After**, rather than
-side-by-side. Capture the broken behavior before applying the fix and the
-fixed behavior with the same data, page state, and viewport. Label the captures **Before**
-and **After**, save them under `$out_dir/media`, and cite their exact paths as described in
-`SKILL.md`.
-
-## 5. Decide the verdict
-
-Pick exactly one verdict using the label descriptions in `payload.schema.yml`, and set the
-payload's `label` to that exact `const` value.
-
-## 6. Comment
-
-Write the comment using the template in `comment.description` of `payload.schema.yml`.
-
-Prefer code to prose: give commands and code a reader can paste and run, not steps
-to follow by hand. Keep the comment tight.
