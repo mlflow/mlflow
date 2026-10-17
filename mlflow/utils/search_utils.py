@@ -993,11 +993,7 @@ class SearchUtils:
 
         try:
             decoded_token = base64.b64decode(page_token)
-        except TypeError:
-            raise MlflowException(
-                "Invalid page token, could not base64-decode", error_code=INVALID_PARAMETER_VALUE
-            )
-        except base64.binascii.Error:
+        except (TypeError, ValueError):
             raise MlflowException(
                 "Invalid page token, could not base64-decode", error_code=INVALID_PARAMETER_VALUE
             )
@@ -1010,6 +1006,12 @@ class SearchUtils:
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
+        if not isinstance(parsed_token, dict):
+            raise MlflowException(
+                f"Invalid page token, parsed value={parsed_token}",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
         offset_str = parsed_token.get("offset")
         if not offset_str:
             raise MlflowException(
@@ -1019,7 +1021,7 @@ class SearchUtils:
 
         try:
             offset = int(offset_str)
-        except ValueError:
+        except (TypeError, ValueError, OverflowError):
             raise MlflowException(
                 f"Invalid page token, not stringable {offset_str}",
                 error_code=INVALID_PARAMETER_VALUE,

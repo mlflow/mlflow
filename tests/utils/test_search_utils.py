@@ -947,13 +947,29 @@ def test_pagination(page_token, max_results, matching_runs, expected_next_page_t
         (base64.b64encode(json.dumps({}).encode("utf-8")), "Invalid page token"),
         (base64.b64encode(json.dumps({"offset": "a"}).encode("utf-8")), "Invalid page token"),
         (base64.b64encode(json.dumps({"offsoot": 7}).encode("utf-8")), "Invalid page token"),
+        (base64.b64encode(json.dumps(None).encode("utf-8")), "Invalid page token"),
+        (base64.b64encode(json.dumps([]).encode("utf-8")), "Invalid page token"),
+        (base64.b64encode(json.dumps([1]).encode("utf-8")), "Invalid page token"),
+        (base64.b64encode(json.dumps("offset").encode("utf-8")), "Invalid page token"),
+        (base64.b64encode(json.dumps(1).encode("utf-8")), "Invalid page token"),
+        (base64.b64encode(json.dumps({"offset": [1]}).encode("utf-8")), "Invalid page token"),
+        (
+            base64.b64encode(json.dumps({"offset": {"value": 1}}).encode("utf-8")),
+            "Invalid page token",
+        ),
+        (
+            base64.b64encode(json.dumps({"offset": float("inf")}).encode("utf-8")),
+            "Invalid page token",
+        ),
         (base64.b64encode(b"not json"), "Invalid page token"),
         ("not base64", "Invalid page token"),
+        ("é", "Invalid page token"),
     ],
 )
 def test_invalid_page_tokens(page_token, error_message):
-    with pytest.raises(MlflowException, match=error_message):
+    with pytest.raises(MlflowException, match=error_message) as exc:
         SearchUtils.paginate([], page_token, 1)
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
 
 
 def test_like_pattern_with_plus_character():
