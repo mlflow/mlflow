@@ -106,6 +106,7 @@ export {
 } from '../traceV4Identifiers';
 
 export const FETCH_TRACE_INFO_QUERY_KEY = 'model-trace-info-v3';
+const PAIRWISE_PREFERENCE_ASSESSMENT_NAME = 'Pairwise preference';
 
 export const displayErrorNotification = (errorMessage: string): void => {
   Utils.displayGlobalErrorNotification(errorMessage);
@@ -1044,6 +1045,13 @@ export const getAssessmentMap = (traceInfo: ModelTrace['info']): Record<string, 
     assessments = traceInfo.assessments ?? [];
   } else {
     assessments = getAssessmentsFromTags(traceInfo.tags);
+  }
+  // With the new eval runs UI, pairwise review preferences are shown in pairwise review and its table
+  // column, not as regular assessments on the trace.
+  if (shouldEnableNewEvalRunsUi()) {
+    assessments = assessments.filter(
+      (assessment) => assessment.assessment_name !== PAIRWISE_PREFERENCE_ASSESSMENT_NAME,
+    );
   }
 
   // hydrate the assessments with the overridden assessment objects

@@ -11,7 +11,10 @@ import { AssessmentDisplayValue } from '@databricks/web-shared/model-trace-explo
 import { AssessmentSourceName } from '@databricks/web-shared/model-trace-explorer/assessments-pane/AssessmentSourceName';
 import { getSourceIcon } from '@databricks/web-shared/model-trace-explorer/assessments-pane/utils';
 import { GenAIMarkdownRenderer } from '@databricks/web-shared/genai-markdown-renderer';
+import { shouldEnableNewEvalRunsUi } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 import { pickCellAssessment } from '../utils/assessmentColumns';
+import { PAIRWISE_PREFERENCE_ASSESSMENT_NAME } from '../utils/pairwiseReview';
+import { PairwiseScoreCell } from './PairwiseScoreCell';
 
 export interface TraceAssessmentCellProps {
   trace: ModelTraceInfoV3;
@@ -135,6 +138,9 @@ export const TraceAssessmentHoverContent = ({ assessment }: { assessment: Assess
  * and last-updated time. Renders nothing when the trace has no such assessment.
  */
 export const TraceAssessmentCell = ({ trace, assessmentName, columnType }: TraceAssessmentCellProps) => {
+  if (shouldEnableNewEvalRunsUi() && assessmentName === PAIRWISE_PREFERENCE_ASSESSMENT_NAME) {
+    return <PairwiseScoreCell trace={trace} />;
+  }
   const assessment = pickCellAssessment(trace, assessmentName);
   if (!assessment) {
     return null;

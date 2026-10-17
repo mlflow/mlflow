@@ -94,6 +94,8 @@ export const ModelTraceExplorerDetailView = ({
   selectedSpanId: _selectedSpanId,
   onSelectSpan,
   enableGraphView = true,
+  showSpanTree = true,
+  onShowSpanTreeChange,
 }: {
   modelTraceInfo: ModelTrace['info'];
   className?: string;
@@ -104,6 +106,8 @@ export const ModelTraceExplorerDetailView = ({
    * Defaults to `true` to preserve existing behavior.
    */
   enableGraphView?: boolean;
+  showSpanTree?: boolean;
+  onShowSpanTreeChange?: (showSpanTree: boolean) => void;
 }): JSX.Element => {
   const { theme } = useDesignSystemTheme();
   const paneRef = useRef<ModelTraceExplorerResizablePaneRef>(null);
@@ -389,6 +393,52 @@ export const ModelTraceExplorerDetailView = ({
     </div>
   ) : null;
 
+  if (!showSpanTree) {
+    return (
+      <div
+        css={{
+          display: 'flex',
+          flexDirection: 'column',
+          flex: 1,
+          minHeight: 0,
+        }}
+        className={className}
+      >
+        {isSearchVisible && (
+          <div
+            css={{
+              display: 'flex',
+              alignItems: 'center',
+              flexShrink: 0,
+              borderBottom: `1px solid ${theme.colors.border}`,
+              backgroundColor: theme.colors.backgroundPrimary,
+              padding: `${theme.spacing.sm}px ${theme.spacing.md}px`,
+            }}
+          >
+            <ModelTraceExplorerSearchBox
+              searchFilter={searchFilter}
+              setSearchFilter={setSearchFilter}
+              matchData={matchData}
+              handleNextSearchMatch={handleNextSearchMatch}
+              handlePreviousSearchMatch={handlePreviousSearchMatch}
+            />
+          </div>
+        )}
+        <ModelTraceExplorerRightPaneTabs
+          activeSpan={selectedNode}
+          modelTraceInfo={modelTraceInfo}
+          searchFilter={searchFilter}
+          activeMatch={matchData.match}
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          onSelectSpan={handleSelectLinkedSpan}
+          showSpanTree={showSpanTree}
+          onShowSpanTreeChange={onShowSpanTreeChange}
+        />
+      </div>
+    );
+  }
+
   return (
     <div
       css={{
@@ -535,6 +585,8 @@ export const ModelTraceExplorerDetailView = ({
             activeTab={activeTab}
             setActiveTab={setActiveTab}
             onSelectSpan={handleSelectLinkedSpan}
+            showSpanTree={showSpanTree}
+            onShowSpanTreeChange={onShowSpanTreeChange}
           />
         }
         rightMinWidth={RIGHT_PANE_MIN_WIDTH}

@@ -24,7 +24,12 @@ import { ToolbarCollapsibleLabel } from '@databricks/web-shared/traces-table';
 import { GenAITraceComparisonModal } from '@databricks/web-shared/genai-traces-table/components/GenAITraceComparisonModal';
 import { useSearchParams } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 import { type TracesV4TraceActions } from '../hooks/useTracesV4TraceActions';
-import { BASELINE_TRACE_ID_PARAM, CANDIDATE_TRACE_ID_PARAM, TRACE_ID_PARAM } from '../hooks/useTracesV4UrlState';
+import {
+  BASELINE_TRACE_ID_PARAM,
+  CANDIDATE_TRACE_ID_PARAM,
+  PAIRWISE_REVIEW_MODE_PARAM,
+  TRACE_ID_PARAM,
+} from '../hooks/useTracesV4UrlState';
 
 // The comparison drawer supports comparing 2–3 traces at once, matching `GenAITracesTableActions`.
 const MIN_COMPARE = 2;
@@ -258,6 +263,7 @@ export const TracesV4ActionsButton = ({
                       params.set(BASELINE_TRACE_ID_PARAM, baselineTraceId);
                       params.set(CANDIDATE_TRACE_ID_PARAM, candidateTraceId);
                       params.set(TRACE_ID_PARAM, candidateTraceId);
+                      params.delete(PAIRWISE_REVIEW_MODE_PARAM);
                       params.delete('spanId');
                       return params;
                     });

@@ -40,6 +40,8 @@ function ModelTraceExplorerRightPaneTabsImpl({
   activeTab,
   setActiveTab,
   onSelectSpan,
+  showSpanTree,
+  onShowSpanTreeChange,
 }: {
   activeSpan: ModelTraceSpanNode | undefined;
   modelTraceInfo?: ModelTrace['info'];
@@ -48,6 +50,8 @@ function ModelTraceExplorerRightPaneTabsImpl({
   activeTab: ModelTraceExplorerTab;
   setActiveTab: (tab: ModelTraceExplorerTab) => void;
   onSelectSpan?: (spanId: string) => void;
+  showSpanTree?: boolean;
+  onShowSpanTreeChange?: (showSpanTree: boolean) => void;
 }): JSX.Element {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -57,6 +61,7 @@ function ModelTraceExplorerRightPaneTabsImpl({
     updatePaneSizeRatios,
     getPaneSizeRatios,
     readOnly: displayReadOnlyAssessments,
+    hideAssessments,
     isTraceInitialLoading,
     subscribeToHighlightEvent,
     nodeMap,
@@ -64,6 +69,7 @@ function ModelTraceExplorerRightPaneTabsImpl({
     selectedNodeComparisonRole,
   } = useModelTraceExplorerViewState();
   const [paneWidth, setPaneWidth] = useState(500);
+  const showReadOnlyAssessments = displayReadOnlyAssessments && !hideAssessments;
   const rightPaneHorizontalPadding = theme.spacing.md + theme.spacing.xs;
   const contentStyle: Interpolation<Theme> = {
     flex: 1,
@@ -164,7 +170,9 @@ function ModelTraceExplorerRightPaneTabsImpl({
       <ModelTraceExplorerRightPaneHeader
         activeSpan={activeSpan}
         modelTraceInfo={modelTraceInfo}
-        showAssessmentsToggle={!displayReadOnlyAssessments && !assessmentsPaneExpanded}
+        showAssessmentsToggle={!hideAssessments && !displayReadOnlyAssessments && !assessmentsPaneExpanded}
+        showSpanTree={showSpanTree}
+        onShowSpanTreeChange={onShowSpanTreeChange}
       />
       <Tabs.List
         tabListCss={{ borderBottom: `0.5px solid ${theme.colors.border}` }}
@@ -216,7 +224,7 @@ function ModelTraceExplorerRightPaneTabsImpl({
             Links <ModelTraceExplorerBadge count={linkCount} variant="neutral" />
           </Tabs.Trigger>
         )}
-        {displayReadOnlyAssessments && (
+        {showReadOnlyAssessments && (
           <Tabs.Trigger value="assessments">
             <FormattedMessage
               defaultMessage="Assessments"
@@ -251,7 +259,7 @@ function ModelTraceExplorerRightPaneTabsImpl({
           />
         </Tabs.Content>
       )}
-      {displayReadOnlyAssessments && (
+      {showReadOnlyAssessments && (
         <Tabs.Content css={contentStyle} value="assessments">
           <SimplifiedAssessmentView
             assessments={getTraceLevelAssessments(activeSpan.assessments)}
@@ -271,7 +279,7 @@ function ModelTraceExplorerRightPaneTabsImpl({
     />
   );
 
-  return assessmentsPaneEnabled && assessmentsPaneExpanded ? (
+  return !hideAssessments && assessmentsPaneEnabled && assessmentsPaneExpanded ? (
     <ModelTraceExplorerResizablePane
       initialRatio={getPaneSizeRatios().detailsSidebar}
       paneWidth={paneWidth}

@@ -24,6 +24,7 @@ import {
   PlusIcon,
   SearchIcon,
   Tag,
+  ToggleButton,
   Tooltip,
   TruncationTooltip,
   Typography,
@@ -219,6 +220,8 @@ export interface ModelTraceExplorerDrawerProps {
     }[];
     onSelectBaselineTrace?: (traceId: string) => void;
     onSelectCandidateTrace?: (traceId: string) => void;
+    isReviewMode?: boolean;
+    onReviewModeChange?: (isReviewMode: boolean) => void;
   };
 }
 
@@ -367,6 +370,12 @@ export const ModelTraceExplorerDrawer = ({
       setIsFullscreen(Boolean(initiallyFullscreen));
     }
   }, [initiallyFullscreen, isNewEvalRunsUi]);
+
+  useLayoutEffect(() => {
+    if (traceComparison?.isReviewMode) {
+      setIsFullscreen(true);
+    }
+  }, [traceComparison?.isReviewMode]);
 
   useLayoutEffect(() => {
     if (!isDrawerScoped) {
@@ -597,6 +606,17 @@ export const ModelTraceExplorerDrawer = ({
     defaultMessage: 'Review',
     description: 'Visible label for the action that flags a trace for review',
   });
+  const pairwiseReviewLabel = intl.formatMessage({
+    defaultMessage: 'Review',
+    description: 'Action that opens pairwise review for the compared traces',
+  });
+  const pairwiseReviewTooltip = intl.formatMessage(
+    {
+      defaultMessage: '{label} (R)',
+      description: 'Tooltip for the pairwise review action with its keyboard shortcut',
+    },
+    { label: pairwiseReviewLabel },
+  );
   const addToLabelingSessionLabel = intl.formatMessage({
     defaultMessage: 'Add to labeling session',
     description: 'Accessible label for adding a trace to a labeling session',
@@ -694,6 +714,15 @@ export const ModelTraceExplorerDrawer = ({
       </Tooltip>
     ) : null;
   const handleToggleFullscreen = useCallback(() => setIsFullscreen((value) => !value), []);
+  const handleReviewModeChange = useCallback(
+    (isReviewMode: boolean) => {
+      if (isReviewMode) {
+        setIsFullscreen(true);
+      }
+      traceComparison?.onReviewModeChange?.(isReviewMode);
+    },
+    [traceComparison],
+  );
   const handleFindClick = useCallback(() => setSearchVisible((visible) => !visible), []);
   const analyzeTraceLabel = traceComparison
     ? intl.formatMessage({
@@ -1423,6 +1452,28 @@ export const ModelTraceExplorerDrawer = ({
               </Tooltip>
               {addToDatasetButton}
               {flagForReviewButton}
+              {traceComparison?.onReviewModeChange && (
+                <Tooltip componentId="mlflow.trace-comparison.review-tooltip" content={pairwiseReviewTooltip}>
+                  <ToggleButton
+                    componentId="mlflow.trace-comparison.review"
+                    aria-label={pairwiseReviewTooltip}
+                    pressed={traceComparison.isReviewMode}
+                    onPressedChange={handleReviewModeChange}
+                    icon={<CheckboxIcon css={headerIconCss} />}
+                    size="small"
+                    css={[
+                      fullscreenActionButtonCss,
+                      {
+                        '&&[data-state="on"], &&[data-state="on"]:hover, &&[data-state="on"]:active': {
+                          backgroundColor: theme.colors.actionDefaultBackgroundHover,
+                        },
+                      },
+                    ]}
+                  >
+                    {showFullscreenActionLabels ? pairwiseReviewLabel : undefined}
+                  </ToggleButton>
+                </Tooltip>
+              )}
               <Tooltip
                 componentId="mlflow.evaluations_review.modal.copy-link-tooltip"
                 content={tooltipMessage}

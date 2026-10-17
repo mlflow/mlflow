@@ -30,7 +30,13 @@ import { EvaluationsReviewDetailsHeader } from '@databricks/web-shared/genai-tra
 import { useSearchParams } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 import { useGetTrace } from '../hooks/useGetTrace';
 import type { TracesV4TraceActions } from '../hooks/useTracesV4TraceActions';
-import { BASELINE_TRACE_ID_PARAM, CANDIDATE_TRACE_ID_PARAM, TRACE_ID_PARAM } from '../hooks/useTracesV4UrlState';
+import {
+  BASELINE_TRACE_ID_PARAM,
+  CANDIDATE_TRACE_ID_PARAM,
+  PAIRWISE_REVIEW_MODE_PARAM,
+  TRACE_ID_PARAM,
+} from '../hooks/useTracesV4UrlState';
+import { TracesV4PairwiseReviewContent } from './TracesV4PairwiseReviewContent';
 
 export interface TracesV4TraceDrawerProps {
   /** Long id (`trace:/<catalog.schema>/<id>`) of the open trace, or undefined when the drawer is closed. */
@@ -91,6 +97,8 @@ export const TracesV4TraceDrawer = ({
     (traceId === baselineTraceId || traceId === candidateTraceId),
   );
   const comparisonRole = isComparisonMode && traceId === baselineTraceId ? 'baseline' : 'candidate';
+  // Pairwise review shows both compared traces side by side; it only exists inside comparison mode.
+  const isPairwiseReviewMode = isComparisonMode && searchParams.get(PAIRWISE_REVIEW_MODE_PARAM) === 'true';
   const counterpartTraceId = isComparisonMode
     ? comparisonRole === 'baseline'
       ? candidateTraceId
@@ -162,8 +170,20 @@ export const TracesV4TraceDrawer = ({
     url.searchParams.set(TRACE_ID_PARAM, selectedTraceId);
     url.searchParams.delete(BASELINE_TRACE_ID_PARAM);
     url.searchParams.delete(CANDIDATE_TRACE_ID_PARAM);
+    url.searchParams.delete(PAIRWISE_REVIEW_MODE_PARAM);
     url.searchParams.delete('spanId');
     return url.toString();
+  };
+
+  const handleReviewModeChange = (isReviewMode: boolean) => {
+    setSearchParams((params) => {
+      if (isReviewMode) {
+        params.set(PAIRWISE_REVIEW_MODE_PARAM, 'true');
+      } else {
+        params.delete(PAIRWISE_REVIEW_MODE_PARAM);
+      }
+      return params;
+    });
   };
 
   // The drawer renders its own skeleton while `isLoading`, so this only covers the settled states.
@@ -173,6 +193,32 @@ export const TracesV4TraceDrawer = ({
     }
     if (isComparisonMode && counterpartError) {
       return <TraceLoadError traceId={counterpartTraceId ?? ''} />;
+    }
+    if (isPairwiseReviewMode && traceData && counterpartTraceData && baselineTraceId && candidateTraceId) {
+      const baselineTrace = comparisonRole === 'baseline' ? traceData : counterpartTraceData;
+      const candidateTrace = comparisonRole === 'candidate' ? traceData : counterpartTraceData;
+      return (
+        <div
+          css={{
+            height: '100%',
+            display: 'flex',
+            minHeight: 0,
+            marginLeft: -theme.spacing.lg,
+            marginRight: -theme.spacing.lg,
+          }}
+        >
+          <ModelTraceExplorerPreferencesProvider>
+            <TracesV4PairwiseReviewContent
+              key={`${baselineTraceId}:${candidateTraceId}`}
+              baselineTrace={baselineTrace}
+              baselineTraceId={baselineTraceId}
+              candidateTrace={candidateTrace}
+              candidateTraceId={candidateTraceId}
+              onEditTags={showTagAssignmentModal}
+            />
+          </ModelTraceExplorerPreferencesProvider>
+        </div>
+      );
     }
     if (traceData && (!isComparisonMode || counterpartTraceData)) {
       return (
@@ -259,6 +305,8 @@ export const TracesV4TraceDrawer = ({
                     : isV3ModelTraceInfo(counterpartTraceData?.info)
                       ? counterpartTraceData.info
                       : undefined,
+                isReviewMode: isPairwiseReviewMode,
+                onReviewModeChange: handleReviewModeChange,
               }
             : undefined
         }
