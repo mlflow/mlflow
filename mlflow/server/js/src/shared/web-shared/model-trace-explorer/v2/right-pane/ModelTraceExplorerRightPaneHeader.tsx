@@ -18,7 +18,8 @@ import { FormattedMessage, useIntl } from '@databricks/i18n';
 
 import { useCopyController } from '../../../copy/useCopyController';
 import { doesTraceSupportV4API } from '../../../genai-traces-table/utils/TraceLocationUtils';
-import { formatCostUSD } from '../../CostUtils';
+import { formatCostUSD, formatEstimatedCostUSD } from '../../CostUtils';
+import { estimatedCostMessages } from '../../EstimatedCostValue';
 import { getExperimentChatSessionPageRoute } from '../../MlflowUtils';
 import type { ModelTrace, ModelTraceSpanNode, SpanCostInfo } from '../ModelTrace.types';
 import { createTraceV4LongIdentifier, getSpanExceptionCount, isV3ModelTraceInfo } from '../ModelTraceExplorer.utils';
@@ -28,9 +29,10 @@ import { Link, useParams } from '../../RoutingUtils';
 import { SELECTED_TRACE_ID_QUERY_PARAM, SESSION_ID_METADATA_KEY } from '../../constants';
 import { isUserFacingTag, truncateToFirstLineWithMaxLength } from '../../TagUtils';
 import { AssessmentPaneToggle } from '../assessments-pane/AssessmentPaneToggle';
-import { getSpanTokenUsage, type SpanTokenUsage } from '../ModelTraceTokenUsage.utils';
+import { formatCompactNumber, getSpanTokenUsage, type SpanTokenUsage } from '../ModelTraceTokenUsage.utils';
 import { ModelTraceExplorerLinkedPromptsPopover } from '../../linked-prompts/ModelTraceExplorerLinkedPromptsPopover';
 import { MLFLOW_LINKED_PROMPTS_TAG, parseLinkedPrompts } from '../../linked-prompts/utils';
+import { shouldEnableNewEvalRunsUi } from '../../../../../common/utils/FeatureUtils';
 
 export type HeaderTokenUsage = SpanTokenUsage;
 
@@ -208,11 +210,19 @@ export const TokenUsageMetadataItem = ({ tokenUsage }: { tokenUsage: HeaderToken
         >
           <TokenIcon />
           <Typography.Text color="secondary" size="sm">
-            <FormattedMessage
-              defaultMessage="{tokenCount, number} tokens"
-              description="Compact token count in the trace details header"
-              values={{ tokenCount: tokenUsage.total_tokens }}
-            />
+            {shouldEnableNewEvalRunsUi() ? (
+              <FormattedMessage
+                defaultMessage="{tokenCount} tokens"
+                description="Compact token count in the trace details header, abbreviated (e.g. 1.2K)"
+                values={{ tokenCount: formatCompactNumber(tokenUsage.total_tokens) }}
+              />
+            ) : (
+              <FormattedMessage
+                defaultMessage="{tokenCount, number} tokens"
+                description="Compact token count in the trace details header"
+                values={{ tokenCount: tokenUsage.total_tokens }}
+              />
+            )}
           </Typography.Text>
         </span>
       }
@@ -279,25 +289,38 @@ export const TokenUsageMetadataItem = ({ tokenUsage }: { tokenUsage: HeaderToken
 
 export const CostMetadataItem = ({
   cost,
-  formatTotalCost = formatCostUSD,
+  formatTotalCost,
 }: {
   cost: TraceCost | SpanCostInfo;
   formatTotalCost?: (cost: number) => string;
 }): JSX.Element => {
   const { theme } = useDesignSystemTheme();
-  const totalCost = formatTotalCost(cost.total_cost);
+  const intl = useIntl();
+  // The new eval runs UI marks pricing-table costs as estimated (≈ prefix and an explanation).
+  const isNewEvalRunsUi = shouldEnableNewEvalRunsUi();
+  const totalCost = (formatTotalCost ?? (isNewEvalRunsUi ? formatEstimatedCostUSD : formatCostUSD))(cost.total_cost);
+  // aria-label announces the plain dollar amount so screen readers say "Estimated cost: $X" regardless of how the
+  // visual value is formatted.
+  const estimatedAriaLabel = isNewEvalRunsUi
+    ? intl.formatMessage(estimatedCostMessages.ariaLabel, { cost: formatCostUSD(cost.total_cost) })
+    : undefined;
 
   return (
     <HoverCard
       trigger={
         <span
-          css={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: theme.spacing.xs,
-            minWidth: 0,
-            color: theme.colors.textSecondary,
-          }}
+          aria-label={estimatedAriaLabel}
+          css={
+            isNewEvalRunsUi
+              ? { display: 'inline-flex', alignItems: 'center', minWidth: 0 }
+              : {
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: theme.spacing.xs,
+                  minWidth: 0,
+                  color: theme.colors.textSecondary,
+                }
+          }
         >
           <Typography.Text color="secondary" size="sm">
             {totalCost}
@@ -329,6 +352,11 @@ export const CostMetadataItem = ({
               bold
             />
           </div>
+          {isNewEvalRunsUi && (
+            <Typography.Text color="secondary" size="sm">
+              <FormattedMessage {...estimatedCostMessages.tooltip} />
+            </Typography.Text>
+          )}
         </div>
       }
       side="bottom"

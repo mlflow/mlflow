@@ -2,6 +2,9 @@ import type { TokenUsage } from '../ModelTraceExplorerTokenUsageHoverCard';
 
 export type SpanTokenUsage = Partial<TokenUsage> & Pick<TokenUsage, 'total_tokens'>;
 
+export const formatCompactNumber = (value: number): string =>
+  new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 }).format(value);
+
 export interface SpanTokenUsageSource {
   attributes?: unknown;
   tokenUsage?: SpanTokenUsage;

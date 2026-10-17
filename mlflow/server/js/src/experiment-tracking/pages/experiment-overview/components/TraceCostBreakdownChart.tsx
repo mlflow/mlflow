@@ -1,8 +1,18 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { useDesignSystemTheme, PieChartIcon, type DesignSystemThemeInterface } from '@databricks/design-system';
+import {
+  useDesignSystemTheme,
+  PieChartIcon,
+  Typography,
+  type DesignSystemThemeInterface,
+} from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { PieChart, Pie, ResponsiveContainer, Legend, Sector, Tooltip } from 'recharts';
-import { formatCostUSD } from '@databricks/web-shared/model-trace-explorer';
+import {
+  estimatedCostMessages,
+  formatCostUSD,
+  formatEstimatedCostUSD,
+} from '@databricks/web-shared/model-trace-explorer';
+import { shouldEnableNewEvalRunsUi } from '../../../../common/utils/FeatureUtils';
 import { useTraceCostBreakdownChartData } from '../hooks/useTraceCostBreakdownChartData';
 import { useTraceCostDimension } from '../hooks/useTraceCostDimension';
 import { CostDimensionToggle } from './CostDimensionToggle';
@@ -15,6 +25,10 @@ import {
   DEFAULT_CHART_CONTENT_HEIGHT,
 } from './OverviewChartComponents';
 import { useChartColors, useLegendHighlight, type ActiveShapeProps } from '../utils/chartUtils';
+
+// The new eval runs UI marks pricing-table costs as estimated (≈ prefix and a footnote).
+const formatChartCost = (cost: number): string =>
+  shouldEnableNewEvalRunsUi() ? formatEstimatedCostUSD(cost) : formatCostUSD(cost);
 
 // Pie chart sizing constants
 const PIE_INNER_RADIUS = 50;
@@ -71,7 +85,7 @@ const renderActiveShape = (props: ActiveShapeProps, theme: DesignSystemThemeInte
         fill={theme.colors.textSecondary}
         fontSize={theme.typography.fontSizeSm}
       >
-        {formatCostUSD(value)}, {percentage.toFixed(2)}%
+        {formatChartCost(value)}, {percentage.toFixed(2)}%
       </text>
     </g>
   );
@@ -182,7 +196,7 @@ export const TraceCostBreakdownChart: React.FC = () => {
         <OverviewChartHeader
           icon={<PieChartIcon />}
           title={<FormattedMessage defaultMessage="Cost Breakdown" description="Title for the cost breakdown chart" />}
-          value={formatCostUSD(totalCost)}
+          value={formatChartCost(totalCost)}
           subtitle={
             <FormattedMessage defaultMessage="Total Cost" description="Subtitle for the cost breakdown chart total" />
           }
@@ -239,6 +253,11 @@ export const TraceCostBreakdownChart: React.FC = () => {
           />
         )}
       </div>
+      {shouldEnableNewEvalRunsUi() && (
+        <Typography.Text size="sm" color="secondary" css={{ marginTop: theme.spacing.xs }}>
+          <FormattedMessage {...estimatedCostMessages.tooltip} />
+        </Typography.Text>
+      )}
     </OverviewChartContainer>
   );
 };
