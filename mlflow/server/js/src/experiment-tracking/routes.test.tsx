@@ -16,6 +16,9 @@ describe('experiment tracking page routes', () => {
 
   test('yields correct route paths for experiment page routes', () => {
     expect(Routes.getExperimentPageRoute('123')).toEqual('/experiments/123');
+    expect(Routes.getEvaluationRunDetailsRoute('123', 'run-1')).toEqual(
+      '/experiments/123/evaluation-runs/run-1/details',
+    );
     expect(Routes.getCompareExperimentsPageRoute(['123', '124'])).toEqual(
       '/compare-experiments/s?experiments=["123","124"]',
     );

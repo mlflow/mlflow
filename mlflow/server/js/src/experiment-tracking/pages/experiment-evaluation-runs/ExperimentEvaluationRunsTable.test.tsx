@@ -145,6 +145,7 @@ const renderTable = ({
   setSelectedColumns = jest.fn(),
   initialEntries,
   baselineRun,
+  extraRoutes = [],
 }: {
   data: RunEntityOrGroupData[];
   enableNewEvalRunsUi?: boolean;
@@ -156,6 +157,7 @@ const renderTable = ({
   setSelectedColumns?: jest.Mock;
   initialEntries?: string[];
   baselineRun?: RunEntityWithChildren;
+  extraRoutes?: ReturnType<typeof testRoute>[];
 }) => {
   const table = (tableData: RunEntityOrGroupData[]) => (
     <IntlProvider locale="en">
@@ -188,6 +190,7 @@ const renderTable = ({
                   enableNewEvalRunsUi={enableNewEvalRunsUi}
                 />,
               ),
+              ...extraRoutes,
             ]}
           />
         </ExperimentEvaluationRunsRowVisibilityProvider>
@@ -443,7 +446,22 @@ describe('ExperimentEvaluationRunsTable run name cell', () => {
       'href',
       Routes.getIssueDetectionRunDetailsRoute('exp-1', 'issue-run'),
     );
+  });
+
+  test('flag on: eval run names are real links to the evaluation run details page', () => {
+    renderTable({ data: [makeRun('eval-run')], enableNewEvalRunsUi: true });
+
+    expect(screen.getByRole('link', { name: 'Run eval-run' })).toHaveAttribute(
+      'href',
+      Routes.getEvaluationRunDetailsRoute('exp-1', 'eval-run'),
+    );
+  });
+
+  test('flag off: eval run names are not links', () => {
+    renderTable({ data: [makeRun('eval-run')] });
+
     expect(screen.queryByRole('link', { name: 'Run eval-run' })).not.toBeInTheDocument();
+    expect(screen.getByText('Run eval-run')).toBeInTheDocument();
   });
 
   test('flag on: issue-detection run links keep the time range query', () => {
@@ -467,9 +485,27 @@ describe('ExperimentEvaluationRunsTable run name cell', () => {
     );
   });
 
-  test('flag on: clicking an eval run name opens the run in the split view', async () => {
+  test('flag on: clicking an eval run name opens the evaluation run details page', async () => {
     const setSelectedRunUuid = jest.fn();
-    renderTable({ data: [makeRun('eval-run')], enableNewEvalRunsUi: true, setSelectedRunUuid });
+    renderTable({
+      data: [makeRun('eval-run')],
+      enableNewEvalRunsUi: true,
+      setSelectedRunUuid,
+      initialEntries: ['/experiments/exp-1/evaluation-runs'],
+      extraRoutes: [
+        testRoute(<div>Evaluation run details</div>, '/experiments/:experimentId/evaluation-runs/:runUuid/details'),
+      ],
+    });
+
+    await userEvent.click(screen.getByText('Run eval-run'));
+
+    expect(await screen.findByText('Evaluation run details')).toBeInTheDocument();
+    expect(setSelectedRunUuid).not.toHaveBeenCalled();
+  });
+
+  test('flag off: clicking an eval run name opens the run in the split view', async () => {
+    const setSelectedRunUuid = jest.fn();
+    renderTable({ data: [makeRun('eval-run')], setSelectedRunUuid });
 
     await userEvent.click(screen.getByText('Run eval-run'));
 

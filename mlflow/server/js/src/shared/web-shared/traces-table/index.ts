@@ -20,6 +20,7 @@ export {
   TRACE_COLUMN_IDS,
   isTraceColumnId,
   SORTABLE_TRACE_COLUMNS,
+  getSortableTraceColumns,
   isSortableTraceColumn,
   DEFAULT_SORT_COLUMN,
   DEFAULT_SORT_DIR,
