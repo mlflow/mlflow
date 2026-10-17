@@ -90,3 +90,38 @@ def test_config_development_config_to_dict():
         "llm_parameters": {"temperature": 0.01, "max_tokens": 500},
         "llm_prompt_template_variables": ["chat_history", "context", "question"],
     }
+
+
+def test_model_config_utf8_encoding(tmp_path, monkeypatch):
+    import builtins
+    from mlflow.utils.model_utils import _validate_and_get_model_config_from_file
+
+    real_open = builtins.open
+
+    def cp1252_open(file, mode="r", buffering=-1, encoding=None, *args, **kwargs):
+        if "b" not in mode and encoding is None:
+            encoding = "cp1252"
+        return real_open(file, mode, buffering, encoding, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "open", cp1252_open)
+
+    # Test YAML config with non-ASCII characters
+    yaml_path = tmp_path / "config.yaml"
+    content = 'system_prompt: "You’re a helpful assistant — reply in 日本語"\n'
+    yaml_path.write_text(content, encoding="utf-8")
+
+    config = ModelConfig(development_config=str(yaml_path))
+    assert config.get("system_prompt") == "You’re a helpful assistant — reply in 日本語"
+    assert _validate_and_get_model_config_from_file(str(yaml_path)) == {
+        "system_prompt": "You’re a helpful assistant — reply in 日本語"
+    }
+
+    # Test Chinese characters that fail with charmap decoding in cp1252
+    yaml_path_zh = tmp_path / "config_zh.yaml"
+    yaml_path_zh.write_text('prompt: "请提供简短的回答"\n', encoding="utf-8")
+    config_zh = ModelConfig(development_config=str(yaml_path_zh))
+    assert config_zh.get("prompt") == "请提供简短的回答"
+    assert _validate_and_get_model_config_from_file(str(yaml_path_zh)) == {
+        "prompt": "请提供简短的回答"
+    }
+
