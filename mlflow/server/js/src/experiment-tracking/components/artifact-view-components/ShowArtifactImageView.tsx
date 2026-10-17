@@ -36,6 +36,7 @@ const ShowArtifactImageView = ({
   const [imageUrl, setImageUrl] = useState(null);
 
   useEffect(() => {
+    let cancelled = false;
     setIsLoading(true);
 
     // Download image contents using XHR so all necessary
@@ -51,11 +52,15 @@ const ShowArtifactImageView = ({
       },
       getArtifact,
     ).then((result: any) => {
+      if (cancelled) return;
       const options = path.toLowerCase().endsWith('.svg') ? { type: 'image/svg+xml' } : undefined;
       // @ts-expect-error TS(2345): Argument of type 'string' is not assignable to par... Remove this comment to see the full error message
       setImageUrl(URL.createObjectURL(new Blob([new Uint8Array(result)], options)));
       setIsLoading(false);
     });
+    return () => {
+      cancelled = true;
+    };
   }, [runUuid, path, getArtifact, isLoggedModelsMode, loggedModelId, experimentId, entityTags]);
 
   return (

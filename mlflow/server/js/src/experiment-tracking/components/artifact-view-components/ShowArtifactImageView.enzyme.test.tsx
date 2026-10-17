@@ -48,4 +48,30 @@ describe('ShowArtifactImageView', () => {
       done();
     });
   });
+
+  test('should ignore a stale response after the path changes', async () => {
+    let resolveFirst: (value: ArrayBuffer) => void = () => {};
+    const firstBytes = new ArrayBuffer(1);
+    const secondBytes = new ArrayBuffer(2);
+    const getArtifact = jest.fn((url: string) =>
+      url.includes('first.svg')
+        ? new Promise<ArrayBuffer>((resolve) => {
+            resolveFirst = resolve;
+          })
+        : Promise.resolve(secondBytes),
+    );
+    objectUrlSpy.mockImplementation((blob: Blob) => (blob.size === 1 ? 'blob:first' : 'blob:second'));
+
+    wrapper = mount(<ShowArtifactImageView {...minimalProps} path="first.svg" getArtifact={getArtifact} />);
+    wrapper.setProps({ path: 'second.svg' });
+    await new Promise((resolve) => setImmediate(resolve));
+    wrapper.update();
+    expect(wrapper.find('img').first().prop('src')).toBe('blob:second');
+
+    resolveFirst(firstBytes);
+    await new Promise((resolve) => setImmediate(resolve));
+    wrapper.update();
+    expect(wrapper.find('img').first().prop('src')).toBe('blob:second');
+    expect(wrapper.find('img').first().prop('alt')).toBe('second.svg');
+  });
 });
