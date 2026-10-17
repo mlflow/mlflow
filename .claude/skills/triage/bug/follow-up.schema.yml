@@ -8,11 +8,8 @@ required:
 properties:
   comment:
     description: |
-      A brief, free-form reply in 2–4 short sentences and at most 100 words. State the outcome,
-      summarize verification, and mention any blocker or important behavior change. Do not
-      repeat the original triage report or include tables, code blocks, or test commands.
-      Put reproduction steps and detailed verification in pull_request.body when proposing
-      a fix. A pull_request is only a proposal; do not claim it has been opened.
+      Summarize the outcome, verification, and blockers in 2–4 sentences (at most 100 words).
+      Put details in the PR body. Do not repeat the report or claim a proposed PR is open.
     type: string
     minLength: 1
     maxLength: 800
