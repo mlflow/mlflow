@@ -108,7 +108,7 @@ if (require.main === module) {
       if (existing) throw new Error(`A triage PR already exists: ${existing.html_url}`);
     } else {
       throw new Error(
-        "Usage: node .claude/skills/triage/scripts/github.js <prepare|check-pr> [path]"
+        "Usage: node .claude/skills/triage/scripts/utils.js <prepare|check-pr> [path]"
       );
     }
   } catch (error) {
