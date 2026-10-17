@@ -150,8 +150,9 @@ const ExperimentEvaluationRunsPageImpl = ({ baseline }: { baseline?: EvalRunsBas
     searchFilter,
     filters,
     filterString,
-    resolveFilterString,
     isAnyFilterActive,
+    hasRelativeDateWindow,
+    refreshDateWindow,
     setSearchFilter,
     setDatePreset,
     setClauses,
@@ -174,7 +175,6 @@ const ExperimentEvaluationRunsPageImpl = ({ baseline }: { baseline?: EvalRunsBas
     experimentId,
     enabled: true,
     filter: filterString,
-    resolveFilter: resolveFilterString,
   });
 
   // The filtered query cannot report the unfiltered total, so keep a first-page unfiltered query
@@ -190,10 +190,15 @@ const ExperimentEvaluationRunsPageImpl = ({ baseline }: { baseline?: EvalRunsBas
   const fetchedBaselineRun = baseline?.fetchedBaselineRun;
   const refetchBaseline = baseline?.refetchBaseline;
   const refetchAll = useCallback(() => {
-    refetch();
+    // Moving a relative date window forward changes the query key, which fetches the runs on its own.
+    if (hasRelativeDateWindow) {
+      refreshDateWindow();
+    } else {
+      refetch();
+    }
     refetchBaseline?.();
     invalidateMlflowSearchTracesCache({ queryClient });
-  }, [refetch, refetchBaseline, queryClient]);
+  }, [hasRelativeDateWindow, refreshDateWindow, refetch, refetchBaseline, queryClient]);
 
   const runUuids = useMemo(() => runs?.map((run) => run.info.runUuid) ?? [], [runs]);
   // A baseline that the current filters exclude is fetched on its own, so it stays pinned.
