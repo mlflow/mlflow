@@ -1,6 +1,6 @@
 ---
 name: triage
-description: Triage bugs or handle authenticated maintainer follow-ups in a sandbox, writing a response and optional verified fix proposal for the workflow to publish.
+description: Triage GitHub issues or handle authenticated maintainer follow-ups in a sandbox, writing a response and optional verified implementation proposal for the workflow to publish.
 disable-model-invocation: true
 argument-hint: "<initial|followup> <issue_path> <out_dir>"
 arguments: [action, issue_path, out_dir]
