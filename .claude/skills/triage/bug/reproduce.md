@@ -44,7 +44,7 @@ timeout 120 agent-browser --session <sess> batch --bail < $out_dir/work/steps.js
 agent-browser --session <sess> record stop
 ```
 
-`init.js` defines `caption(text)`, which shows a short caption at the bottom of the page
+`init.js` defines `caption(text)`, which shows a short caption at the top of the page
 (`caption()` hides it; pass `"dark"` as a second argument when the page uses a dark theme).
 Caption each step so viewers can follow along, especially actions that leave no visible trace,
 such as the browser's Back button, a key press, or a wait: add
