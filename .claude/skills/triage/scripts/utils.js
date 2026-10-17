@@ -24,11 +24,10 @@ function escapeMarkup(text) {
 }
 
 function findOpenPr(repo, issueNumber, api = ghApi) {
-  const pulls = api(`repos/${repo}/pulls?state=open&per_page=100`, "--paginate", "--slurp").flat();
-  return pulls.find(
-    (pr) =>
-      pr.head.repo?.full_name === repo && pr.head.ref.startsWith(`triage/issue-${issueNumber}-`)
-  );
+  const owner = repo.split("/")[0];
+  const head = encodeURIComponent(`${owner}:triage/issue-${issueNumber}`);
+  const pulls = api(`repos/${repo}/pulls?state=open&head=${head}&per_page=100`);
+  return pulls.find((pr) => pr.head.repo?.full_name === repo);
 }
 
 function prepareFollowup({ repo, issue, comment, api = ghApi }) {

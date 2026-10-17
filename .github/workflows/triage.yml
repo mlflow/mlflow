@@ -1168,13 +1168,16 @@ jobs:
           BASE: ${{ github.event.repository.default_branch }}
           ISSUE_NUMBER: ${{ needs.issue.outputs.number }}
         run: |
-          branch="triage/issue-$ISSUE_NUMBER-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          branch="triage/issue-$ISSUE_NUMBER"
           git config user.name 'mlflow-app[bot]'
           git config user.email '191841109+mlflow-app[bot]@users.noreply.github.com'
           # The check step already applied the patch to the index.
           git switch -c "$branch"
           git commit -s -F "$RUNNER_TEMP/pr-title.txt"
-          git push "https://x-access-token:$GH_TOKEN@github.com/$REPO.git" "HEAD:refs/heads/$branch"
+          remote="https://x-access-token:$GH_TOKEN@github.com/$REPO.git"
+          previous=$(git ls-remote "$remote" "refs/heads/$branch" | cut -f1)
+          # Reuse a leftover bot branch only if it has not changed since this lookup.
+          git push --force-with-lease="refs/heads/$branch:$previous" "$remote" "HEAD:refs/heads/$branch"
           pr_url=$(gh pr create --repo "$REPO" \
             --base "$BASE" --head "$branch" \
             --title "$(cat "$RUNNER_TEMP/pr-title.txt")" \
