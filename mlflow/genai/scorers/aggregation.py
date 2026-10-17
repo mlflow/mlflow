@@ -76,7 +76,7 @@ def compute_aggregated_metrics(
 
 def _cast_assessment_value_to_float(assessment: Feedback) -> float | None:
     """Cast the value of an assessment to a float."""
-    if isinstance(assessment.value, (int, float, bool)):
+    if isinstance(assessment.value, (int, float, bool, np.number, np.bool_)):
         return float(assessment.value)
     elif (
         isinstance(assessment.value, str)
