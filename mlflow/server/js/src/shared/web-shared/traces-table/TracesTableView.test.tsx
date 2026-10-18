@@ -110,7 +110,8 @@ describe('TracesTableView', () => {
   });
 
   test.each([
-    { counts: { traceCount: 5, traceTotal: 42 }, expected: '5 of 42' },
+    { counts: { traceCount: 25, traceTotal: 524 }, expected: '25 of 524 traces' },
+    { counts: { traceCount: 1, traceTotal: 1 }, expected: '1 of 1 trace' },
     {
       counts: { traceCount: 5, traceTotal: 42, sessionCount: 2, sessionTotal: 7 },
       expected: '2 of 7 sessions · 5 of 42 traces',
@@ -120,7 +121,7 @@ describe('TracesTableView', () => {
       expected: '1 of 1 session · 1 of 1 trace',
     },
     // Grouped with no sessions in range: the session count is dropped rather than reading "0 of 0".
-    { counts: { traceCount: 5, traceTotal: 42, sessionCount: 0, sessionTotal: 0 }, expected: '5 of 42' },
+    { counts: { traceCount: 5, traceTotal: 42, sessionCount: 0, sessionTotal: 0 }, expected: '5 of 42 traces' },
   ])('footer count reads "$expected"', async ({ counts, expected }) => {
     await renderWithProviders(<TracesTableView {...baseProps({ viewState: 'ready', ...counts })} />);
     expect(screen.getByText(expected)).toBeInTheDocument();
