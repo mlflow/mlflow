@@ -174,9 +174,10 @@ export const ExperimentViewRuns = React.memo((props: ExperimentViewRunsProps) =>
   // If true, logged (and registered) models will be fetched based on runs inputs/outputs.
   const isUsingGetLoggedModelsAPI = shouldUseGetLoggedModelsBatchAPI();
 
-  // Conditionally use legacy hook for fetching all logged models in the experiment
+  // Conditionally use the legacy search API for models belonging to the displayed runs.
   const loggedModelsV3ByRunUuidFromExperiment = useLoggedModelsForExperimentRunsTable({
     experimentIds,
+    runIds: runData.map(({ runInfo }) => runInfo.runUuid),
     enabled: !isUsingGetLoggedModelsAPI,
   });
 
