@@ -38,6 +38,7 @@ from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.entities.workspace import TraceArchivalConfig, Workspace
 from mlflow.environment_variables import (
+    MLFLOW_SQL_TRACE_ROLLUPS_ENABLED,
     MLFLOW_TRACE_ARCHIVAL_CONFIG,
 )
 from mlflow.exceptions import (
@@ -55,6 +56,7 @@ from mlflow.protos.databricks_pb2 import (
 )
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.store.db.db_types import MSSQL, MYSQL, POSTGRES
+from mlflow.store.db.utils import _get_managed_session_maker
 from mlflow.store.tracking.dbmodels.models import (
     SqlSpan,
     SqlSpanMetrics,
@@ -3998,6 +4000,43 @@ async def test_log_spans_async_allows_concurrent_store_calls(store: SqlAlchemySt
         )
 
     assert results == [[], []]
+
+
+@pytest.mark.parametrize("rollups_enabled", [False, True])
+def test_log_spans_with_single_connection_pool(
+    store: SqlAlchemyStore, monkeypatch, rollups_enabled
+):
+    monkeypatch.setenv(MLFLOW_SQL_TRACE_ROLLUPS_ENABLED.name, str(rollups_enabled).lower())
+    experiment_id = store.create_experiment("single_connection_pool")
+    artifact_location = store.get_experiment(experiment_id).artifact_location
+    spans = [create_test_span(f"tr-single-connection-{i}", span_id=i, trace_num=i) for i in (1, 2)]
+    engine = sqlalchemy.create_engine(
+        store.engine.url,
+        poolclass=sqlalchemy.pool.QueuePool,
+        pool_size=1,
+        max_overflow=0,
+        pool_timeout=0.1,
+    )
+    try:
+        managed_session_maker = _get_managed_session_maker(
+            sqlalchemy.orm.sessionmaker(bind=engine), store.db_type
+        )
+        with mock.patch.object(store, "ManagedSessionMaker", managed_session_maker):
+            assert store.log_spans(experiment_id, spans) == spans
+
+            for span in spans:
+                info = store.get_trace_info(span.trace_id)
+                assert info.experiment_id == experiment_id
+                assert info.tags[MLFLOW_ARTIFACT_LOCATION] == append_to_uri_path(
+                    artifact_location, "traces", span.trace_id, "artifacts"
+                )
+
+            with store.ManagedSessionMaker() as session:
+                assert {(row.trace_id, row.span_id) for row in session.query(SqlSpan).all()} == {
+                    (span.trace_id, span.span_id) for span in spans
+                }
+    finally:
+        engine.dispose()
 
 
 def test_log_spans_multiple_traces(store: SqlAlchemyStore):

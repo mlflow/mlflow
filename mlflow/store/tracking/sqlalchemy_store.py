@@ -6030,7 +6030,8 @@ class SqlAlchemyStore(
             # their batch-local aggregates are authoritative (no recompute needed later).
             created_trace_ids: set[str] = set()
             if any(tid not in existing_traces for tid in all_trace_ids):
-                experiment = self.get_experiment(location)
+                # Reuse the write session instead of waiting for a second pooled connection.
+                experiment = self._get_experiment(session, location, ViewType.ALL)
                 for _attempt in range(_LOG_SPANS_MAX_TRACE_CREATE_RETRIES):
                     pending = [tid for tid in all_trace_ids if tid not in existing_traces]
                     if not pending:
