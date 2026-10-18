@@ -1,6 +1,6 @@
 import logging
 import re
-from collections.abc import Collection, Iterable
+from collections.abc import Collection, Iterable, Mapping
 from typing import NamedTuple
 from urllib.parse import quote, unquote
 
@@ -12,18 +12,32 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
+    INVALID_PARAMETER_VALUE,
     INVALID_STATE,
     RESOURCE_ALREADY_EXISTS,
     RESOURCE_DOES_NOT_EXIST,
+    TEMPORARILY_UNAVAILABLE,
+)
+from mlflow.server.auth.conditions import (
+    CONDITION_TYPE_NAMESPACES,
+    CONTAINER_WORKSPACE,
+    MAX_CONDITIONS_PER_ROLE_TYPE,
+    PARENT_RESOURCE_TYPES,
+    normalize_condition_scope,
+    validate_condition,
+    validate_condition_resource_type,
+    validate_condition_type,
 )
 from mlflow.server.auth.db import utils as dbutils
 from mlflow.server.auth.db.models import (
+    SqlCondition,
     SqlRole,
     SqlRolePermission,
     SqlUser,
     SqlUserRoleAssignment,
 )
 from mlflow.server.auth.entities import (
+    Condition,
     ExperimentPermission,
     GatewayEndpointPermission,
     GatewayModelDefinitionPermission,
@@ -45,7 +59,10 @@ from mlflow.server.auth.permissions import (
     RESOURCE_TYPE_GATEWAY_MODEL_DEFINITION,
     RESOURCE_TYPE_GATEWAY_SECRET,
     RESOURCE_TYPE_MCP_SERVER,
+    RESOURCE_TYPE_PROMPT,
+    RESOURCE_TYPE_PROMPT_VERSION,
     RESOURCE_TYPE_REGISTERED_MODEL,
+    RESOURCE_TYPE_REGISTERED_MODEL_VERSION,
     RESOURCE_TYPE_SCORER,
     RESOURCE_TYPE_WORKSPACE,
     SKILL_REGISTRY_RESOURCE_TYPES,
@@ -112,6 +129,56 @@ class RoleGrantRow(NamedTuple):
     resource_type: str
     resource_pattern: str
     permission: str
+
+
+class ConditionRow(NamedTuple):
+    """One role's conditions for one resource type, detached from the ORM session.
+
+    A plain tuple for the same reason as ``RoleGrantRow``: evaluation runs outside
+    the store, so nothing it receives should be a live SQLAlchemy instance. Both
+    fields are the filter string as authored -- parsing happens in
+    ``mlflow.server.auth.conditions``, not here.
+    """
+
+    resource_type: str
+    condition_type: str
+    filter: str
+    #: ``"*"`` for every resource of the type, or the one id this row governs. Matched by
+    #: the gate rather than in SQL: a cascade's child ids are not known when this query
+    #: runs, so filtering here would drop a condition written to govern one of those
+    #: children -- a fail-open. The container axis *is* filtered in SQL, because the
+    #: container is always resolved before the query runs.
+    resource_pattern: str = "*"
+    #: The container this row governs within: ``workspace`` plus ``"*"`` for the whole
+    #: workspace, or the type's declared parent plus one of its ids.
+    #:
+    #: Filtered in SQL *and* matched again by the gate, which is not redundant: the query
+    #: narrows to the containers in play for the whole REQUEST, while the gate decides per
+    #: CONTEXT. A request touching two experiments puts both in play, so a row scoped to
+    #: one of them comes back and would otherwise be charged against the resources in the
+    #: other. Over-denial rather than a bypass, but it applies a restriction to resources
+    #: its author did not name.
+    container_resource_type: str = CONTAINER_WORKSPACE
+    container_resource_pattern: str = "*"
+
+
+#: How many times ``add_condition`` re-picks a slot before giving up.
+#:
+#: Each retry means a concurrent writer committed the slot this transaction chose, so
+#: the loop only spins while adds are genuinely racing. A small bound is right: the
+#: alternative to retrying is overshooting the per-role-and-type limit, and a caller
+#: who loses this many races is better served by an explicit "retry the request" than
+#: by an unbounded loop holding a write transaction open.
+_SLOT_ALLOCATION_ATTEMPTS = 5
+
+#: The registry families a rename can address, each mapped to the version type that names
+#: that family as its ``container_resource_type``. The pairing is what keeps a rename of one
+#: family from retargeting the other's version rows, and the map is the single place the two
+#: families are enumerated, so a third registry family cannot be added to one half only.
+_REGISTRY_RENAME_VERSION_TYPES: dict[str, str] = {
+    RESOURCE_TYPE_REGISTERED_MODEL: RESOURCE_TYPE_REGISTERED_MODEL_VERSION,
+    RESOURCE_TYPE_PROMPT: RESOURCE_TYPE_PROMPT_VERSION,
+}
 
 
 class SqlAlchemyStore:
@@ -644,6 +711,106 @@ class SqlAlchemyStore:
                 {SqlRolePermission.resource_pattern: new_pattern},
                 synchronize_session=False,
             )
+
+    def rename_conditions_for_registry_resource(
+        self, old_name: str, new_name: str, resource_families: tuple[str, ...]
+    ) -> None:
+        """Follow a registered-model/prompt rename with the conditions scoped to that name.
+
+        The companion to :meth:`rename_grants_for_resource`, and necessary for the same
+        reason: a registry resource IS its name, so a rename moves the identity every
+        scoped row is addressed by. Grants were already migrated; conditions were not, so
+        a rename silently dropped every restriction on the resource while leaving the
+        grants that the restrictions narrowed fully intact. That is the fail-open
+        direction, and it is reachable by anyone who can rename.
+
+        Two kinds of row are addressed by the old name, because the two scope axes carry
+        it differently (see :func:`normalize_condition_scope`):
+
+        - the **parent** rows -- type ``registered_model``/``prompt``, whose
+          ``resource_pattern`` is the name itself;
+        - the **version** rows -- type ``registered_model_version``/``prompt_version``,
+          which are wildcard-only on their own axis and name the model as their
+          ``container_resource_pattern`` instead.
+
+        ``resource_families`` selects which families to rewrite, and the caller passes the
+        one that was actually renamed. Sweeping both unconditionally -- which this did,
+        following the grant hook -- is wrong, because conditions are not existence-bound:
+        a ``prompt`` row naming the string a ``registered_model`` currently holds is a
+        legitimate pre-created policy rather than debris, and moving it leaves a prompt
+        later created under the old name unrestricted. Names being unique across the
+        registry makes "exactly one family matches" true of the *resource* and not of the
+        *policy*, which is where the old reasoning broke.
+
+        Each selected family's version type is paired with its own container type. That
+        pairing is defence in depth rather than what provides the isolation: the per-type
+        ``resource_type ==`` filter already partitions the rows, and
+        :func:`normalize_condition_scope` refuses to store a row whose container is not its
+        type's declared one. It costs nothing and keeps a corrupt row from being retargeted.
+
+        Scoped to the active workspace, like the grant rename: a name identifies a
+        different resource in a different workspace, so rewriting beyond it would retarget
+        conditions at resources the rename never touched.
+
+        Unlike the grant rename this is NOT limited to synthetic roles. Grants on named
+        roles are managed by an admin through the role APIs, but conditions live on named
+        roles by design -- that is the only place an admin can write one -- so limiting
+        this to synthetic roles would miss essentially every condition.
+
+        One transaction, so a rename cannot leave the parent row migrated and its versions
+        stranded. No unique constraint can be violated: uniqueness is on
+        ``(role_id, resource_type, condition_slot)``.
+
+        Two rows that end up scoped to the same name do NOT simply add up. Conditions of
+        a type are alternatives, so identical filters are idempotent but *differing*
+        filters pool into one disjunction and either one passing authorizes the request.
+        A rename can therefore relax a restriction: if ``model-a`` carried
+        ``tag_key != 'pii'`` and ``model-b`` carried ``tag_key != 'secret'``, renaming
+        the first onto the second leaves a write setting ``secret`` permitted, because
+        the migrated row passes. This is the same OR gap an admin can already reach by
+        writing one row on ``model-*`` and another on ``model-b``, so the rename is not
+        creating a new hazard -- but it does reach it without the admin authoring
+        anything, which is worth knowing when a deny channel is designed.
+        """
+        families = tuple(resource_families)
+        unknown = [family for family in families if family not in _REGISTRY_RENAME_VERSION_TYPES]
+        if not families or unknown:
+            # Refused rather than defaulted: a silent no-op would drop every restriction on
+            # the renamed resource, which is the fail-open this method exists to prevent.
+            raise MlflowException.invalid_parameter_value(
+                "'resource_families' must be a non-empty selection of "
+                f"{', '.join(repr(f) for f in _REGISTRY_RENAME_VERSION_TYPES)}; got "
+                f"{', '.join(repr(f) for f in families) if families else 'nothing'}."
+            )
+        with self.ManagedSessionMaker(read_only=False) as session:
+            workspace = self._get_active_workspace_name()
+            role_ids = [
+                role_id
+                for (role_id,) in session
+                .query(SqlRole.id)
+                .filter(SqlRole.workspace == workspace)
+                .all()
+            ]
+            if not role_ids:
+                return
+            session.query(SqlCondition).filter(
+                SqlCondition.role_id.in_(role_ids),
+                SqlCondition.resource_type.in_(families),
+                SqlCondition.resource_pattern == old_name,
+            ).update(
+                {SqlCondition.resource_pattern: new_name},
+                synchronize_session=False,
+            )
+            for family in families:
+                session.query(SqlCondition).filter(
+                    SqlCondition.role_id.in_(role_ids),
+                    SqlCondition.resource_type == _REGISTRY_RENAME_VERSION_TYPES[family],
+                    SqlCondition.container_resource_type == family,
+                    SqlCondition.container_resource_pattern == old_name,
+                ).update(
+                    {SqlCondition.container_resource_pattern: new_name},
+                    synchronize_session=False,
+                )
 
     # ---- Legacy per-resource CRUD (tombstones) ----
     #
@@ -2023,6 +2190,451 @@ class SqlAlchemyStore:
             _validate_permission_for_resource_type(permission, rp.resource_type)
             rp.permission = permission
             return rp.to_mlflow_entity()
+
+    # ---- Condition CRUD ----
+    #
+    # Two optional filters per (role, resource_type) that gate create/mutation only.
+    # Conditions subtract from what grants allow and never confer access, so an
+    # empty table reproduces the pre-conditions behaviour exactly.
+
+    @staticmethod
+    def _filter_or_none(filter_string: "str | None") -> "str | None":
+        """Blank is ABSENT, not a filter.
+
+        ``parse_condition`` already treats ``""`` and ``None`` identically -- both parse to
+        zero clauses and constrain nothing. Storing the blank rather than normalizing it
+        let a row exist that holds a condition slot and reads as a configured restriction
+        while permitting every request, which is the worst shape for a security control:
+        the operator believes a restriction is in force and nothing is ever refused.
+
+        Normalizing at the boundary makes a blank behave exactly as its absence does --
+        refused by the add paths when it is the only filter given, and treated by ``update``
+        as clearing that half, which then deletes an object left with neither.
+        """
+        if filter_string is None or not filter_string.strip():
+            return None
+        return filter_string
+
+    def add_condition(
+        self,
+        role_id: int,
+        resource_type: str,
+        *,
+        condition_type: str,
+        filter: str,
+        resource_pattern: "str | None" = None,
+        container_resource_type: "str | None" = None,
+        container_resource_pattern: "str | None" = None,
+    ) -> Condition:
+        validate_condition_resource_type(resource_type)
+        validate_condition_type(condition_type)
+        resource_pattern, container_resource_type, container_resource_pattern = (
+            normalize_condition_scope(
+                resource_type,
+                resource_pattern,
+                container_resource_type,
+                container_resource_pattern,
+            )
+        )
+        # Validate here, not at evaluation time. A condition that failed to parse
+        # mid-request would have to either fail open (unsafe) or deny every mutation
+        # (an outage), so the only good place to catch it is on the way in.
+        # A blank filter is the same as no filter (see _filter_or_none), so collapse it
+        # before the guard -- otherwise "" slips past the emptiness check and stores a
+        # restriction that restricts nothing.
+        filter = self._filter_or_none(filter)
+        if filter is None:
+            raise MlflowException(
+                "A condition needs a 'filter'. A condition with no filter answers "
+                "its question with 'anything', and because same-type conditions combine with "
+                "OR that is an unconditional pass which nullifies every sibling of its type. "
+                "To leave a type unconstrained, store no condition of that type.",
+                INVALID_PARAMETER_VALUE,
+            )
+        validate_condition(filter, CONDITION_TYPE_NAMESPACES[condition_type], resource_type)
+        with self.ManagedSessionMaker(read_only=False) as session:
+            self._get_role(session, role_id)
+            return self._insert_condition(
+                session,
+                role_id,
+                resource_type,
+                condition_type=condition_type,
+                filter=filter,
+                resource_pattern=resource_pattern,
+                container_resource_type=container_resource_type,
+                container_resource_pattern=container_resource_pattern,
+            )
+
+    def add_user_condition(
+        self,
+        username: str,
+        resource_type: str,
+        *,
+        condition_type: str,
+        filter: str,
+        resource_pattern: "str | None" = None,
+        container_resource_type: "str | None" = None,
+        container_resource_pattern: "str | None" = None,
+    ) -> Condition:
+        """Add a condition to ``username``'s synthetic role in the active workspace.
+
+        The user-addressed counterpart of ``grant_user_resource_permission``, and it
+        exists for the same reason: a direct grant and a direct condition both belong to
+        the hidden ``__user_<id>__`` role, and a caller naming a user should not have to
+        know that, nor have to create the role first.
+
+        Creating the role on demand is what makes the two symmetric. Requiring a direct
+        grant before a direct condition could be added would be an ordering constraint
+        with no model behind it -- the role is an implementation detail of how per-user
+        access is stored, not something the caller asked for.
+
+        Validation is shared with the role-addressed path, so an unknown type or an
+        unparsable or empty filter is refused here too, before any role is created.
+        """
+        validate_condition_resource_type(resource_type)
+        validate_condition_type(condition_type)
+        resource_pattern, container_resource_type, container_resource_pattern = (
+            normalize_condition_scope(
+                resource_type,
+                resource_pattern,
+                container_resource_type,
+                container_resource_pattern,
+            )
+        )
+        # A blank filter is the same as no filter (see _filter_or_none), so collapse it
+        # before the guard -- otherwise "" slips past the emptiness check and stores a
+        # restriction that restricts nothing.
+        filter = self._filter_or_none(filter)
+        if filter is None:
+            raise MlflowException(
+                "A condition needs a 'filter'. A condition with no filter answers "
+                "its question with 'anything', and because same-type conditions combine with "
+                "OR that is an unconditional pass which nullifies every sibling of its type. "
+                "To leave a type unconstrained, store no condition of that type.",
+                INVALID_PARAMETER_VALUE,
+            )
+        validate_condition(filter, CONDITION_TYPE_NAMESPACES[condition_type], resource_type)
+        with self.ManagedSessionMaker(read_only=False) as session:
+            user = self._get_user(session, username=username)
+            workspace_name = self._get_active_workspace_name()
+            role = self._get_or_create_synthetic_user_role(session, user.id, workspace_name)
+            return self._insert_condition(
+                session,
+                role.id,
+                resource_type,
+                condition_type=condition_type,
+                filter=filter,
+                resource_pattern=resource_pattern,
+                container_resource_type=container_resource_type,
+                container_resource_pattern=container_resource_pattern,
+            )
+
+    def _insert_condition(
+        self,
+        session,
+        role_id: int,
+        resource_type: str,
+        *,
+        condition_type: str,
+        filter: str,
+        resource_pattern: str,
+        container_resource_type: str,
+        container_resource_pattern: str,
+    ) -> Condition:
+        """Allocate a slot and insert, retrying on the UNIQUE.
+
+        The slot is picked from what this transaction can see, so two concurrent adds can
+        choose the same free slot; the constraint is what actually enforces the bound, and
+        the loser simply picks again. A savepoint keeps the failed insert from poisoning
+        the surrounding session.
+
+        Takes a session rather than opening one so the user-addressed path can create the
+        synthetic role and insert the condition in a single transaction -- otherwise a
+        failure here would leave behind a role the caller never asked for.
+        """
+        for _ in range(_SLOT_ALLOCATION_ATTEMPTS):
+            slot = self._allocate_condition_slot(session, role_id, resource_type, condition_type)
+            mc = SqlCondition(
+                role_id=role_id,
+                resource_type=resource_type,
+                condition_type=condition_type,
+                condition_slot=slot,
+                resource_pattern=resource_pattern,
+                container_resource_type=container_resource_type,
+                container_resource_pattern=container_resource_pattern,
+                filter=filter,
+            )
+            try:
+                with session.begin_nested():
+                    session.add(mc)
+                    session.flush()
+            except IntegrityError:
+                continue
+            return mc.to_mlflow_entity()
+        raise MlflowException(
+            f"Could not allocate a condition slot for (role_id={role_id}, "
+            f"resource_type={resource_type}, condition_type={condition_type}) after "
+            f"{_SLOT_ALLOCATION_ATTEMPTS} attempts "
+            f"because concurrent writers kept taking the chosen slot. Retry the request.",
+            TEMPORARILY_UNAVAILABLE,
+        )
+
+    @staticmethod
+    def _allocate_condition_slot(
+        session, role_id: int, resource_type: str, condition_type: str
+    ) -> int:
+        """The lowest free slot for this ``(role, resource_type, condition_type)``.
+
+        Lowest-free rather than max-plus-one so that slots freed by ``remove`` are
+        reused -- otherwise a role repeatedly adding and removing conditions would
+        exhaust the range while holding almost none.
+
+        Scoped by condition_type because each type has its own slot space, which is what
+        makes MAX_CONDITIONS_PER_ROLE_TYPE apply to VALUE and TARGET independently. Without
+        the type in the filter, a role's TARGET conditions would consume slots its VALUE
+        conditions need and the effective bound would be 100 across both.
+
+        Slots carry no ordering meaning: same-type conditions OR, and OR is commutative,
+        so there is nothing to order. The number exists only to make the bound
+        enforceable by a constraint.
+        """
+        used = {
+            slot
+            for (slot,) in session
+            .query(SqlCondition.condition_slot)
+            .filter(
+                SqlCondition.role_id == role_id,
+                SqlCondition.resource_type == resource_type,
+                SqlCondition.condition_type == condition_type,
+            )
+            .all()
+        }
+        for slot in range(1, MAX_CONDITIONS_PER_ROLE_TYPE + 1):
+            if slot not in used:
+                return slot
+        raise MlflowException(
+            f"Role {role_id} already has the maximum of {MAX_CONDITIONS_PER_ROLE_TYPE} "
+            f"conditions for resource type '{resource_type}'. Remove one before "
+            f"adding another, or express the restriction in fewer objects -- conditions all "
+            f"AND, so several narrow objects are often one broader one.",
+            RESOURCE_ALREADY_EXISTS,
+        )
+
+    @staticmethod
+    def _get_condition(session, condition_id: int):
+        try:
+            return session.query(SqlCondition).filter(SqlCondition.id == condition_id).one()
+        except NoResultFound:
+            raise MlflowException(
+                f"Condition with id={condition_id} not found",
+                RESOURCE_DOES_NOT_EXIST,
+            )
+
+    def get_condition(self, condition_id: int) -> Condition:
+        with self.ManagedSessionMaker() as session:
+            return self._get_condition(session, condition_id).to_mlflow_entity()
+
+    def update_condition(
+        self,
+        condition_id: int,
+        *,
+        filter: "str | None" = None,
+        update_filter: bool = True,
+        resource_pattern: "str | None" = None,
+        container_resource_type: "str | None" = None,
+        container_resource_pattern: "str | None" = None,
+        update_scope: bool = False,
+    ) -> "Condition | None":
+        """Partial update, addressed by condition id.
+
+        Two intents, which is why ``update_filter`` exists rather than overloading
+        ``None``:
+
+        - **set**: pass the new string with ``update_filter`` true
+        - **leave unchanged**: pass ``update_filter`` false
+
+        The filter cannot be *cleared*. A condition with no filter answers its question
+        with "anything", and because same-type conditions combine with OR that is an
+        unconditional pass which nullifies every sibling of its type -- so clearing one
+        would silently widen access rather than narrow it. Removing a restriction is
+        ``remove_condition``, which says what it does.
+
+        The condition's **type is immutable**. Each type's filter draws on its own
+        namespace, so re-typing a row would almost always invalidate the filter it
+        carries; changing a condition's type is a remove plus an add.
+
+        The parent scope is replaced as a **pair** under its own flag: an exact
+        ``(type, id)`` or two ``None``s for unscoped. Updating one half alone is not
+        expressible, because half a scope is not a scope.
+        """
+        with self.ManagedSessionMaker(read_only=False) as session:
+            mc = self._get_condition(session, condition_id)
+            resource_type = mc.resource_type
+            if update_filter:
+                filter = self._filter_or_none(filter)
+                if filter is None:
+                    raise MlflowException(
+                        "A condition's 'filter' cannot be cleared. A condition with "
+                        "no filter is an unconditional pass that nullifies every sibling of "
+                        "its type, so clearing one widens access instead of narrowing it. Use "
+                        "remove to delete the condition.",
+                        INVALID_PARAMETER_VALUE,
+                    )
+                validate_condition(
+                    filter, CONDITION_TYPE_NAMESPACES[mc.condition_type], resource_type
+                )
+                mc.filter = filter
+            if update_scope:
+                # One flag for both axes, because they are validated together: whether a
+                # container is legal depends on the resource type, and whether a wildcard
+                # container collapses to the workspace depends on the container. Replacing
+                # half a scope would skip that joint check.
+                (
+                    new_pattern,
+                    new_container_type,
+                    new_container_pattern,
+                ) = normalize_condition_scope(
+                    resource_type,
+                    resource_pattern,
+                    container_resource_type,
+                    container_resource_pattern,
+                )
+                mc.resource_pattern = new_pattern
+                mc.container_resource_type = new_container_type
+                mc.container_resource_pattern = new_container_pattern
+            return mc.to_mlflow_entity()
+
+    def remove_condition(self, condition_id: int) -> None:
+        with self.ManagedSessionMaker(read_only=False) as session:
+            mc = self._get_condition(session, condition_id)
+            session.delete(mc)
+
+    def list_conditions(self, role_id: int) -> list[Condition]:
+        with self.ManagedSessionMaker() as session:
+            self._get_role(session, role_id)
+            rows = (
+                session
+                .query(SqlCondition)
+                .filter(SqlCondition.role_id == role_id)
+                .order_by(
+                    SqlCondition.resource_type,
+                    SqlCondition.condition_slot,
+                )
+                .all()
+            )
+            return [r.to_mlflow_entity() for r in rows]
+
+    def list_conditions_for_user(
+        self,
+        user_id: int,
+        workspace: str,
+        resource_types: "Collection[str]",
+        parents: "Mapping[str, Collection[str]] | None" = None,
+    ) -> list["ConditionRow"]:
+        """Every condition applying to ``user_id`` in ``workspace`` for these types.
+
+        One query, the same join shape as ``list_grants``. Two differences from the
+        grants path, both because conditions only subtract:
+
+        - **No workspace-wide fallback.** ``list_grants`` folds in
+          ``resource_type='workspace'`` rows because a workspace grant applies to
+          every type. A condition is not a grant, and a workspace-wide *restriction*
+          is not something the RFC defines, so only the named types are queried.
+        - **No precedence.** Rows come back flat and the caller ANDs them. There is
+          nothing to fold, because two restrictions cannot conflict -- if either says
+          no, the answer is no.
+
+        Per-user conditions need no special-casing: a per-user grant lives on a
+        synthetic ``__user_<id>__`` role that is a real ``roles`` row, so this join
+        picks it up like any other role the user holds (D10).
+
+        ``parents`` carries the resolved direct parent IDs in play for each type, and
+        is what keeps the per-role-and-type bound a *storage* bound. The scope
+        predicate runs in SQL, so a role holding the full
+        ``MAX_CONDITIONS_PER_ROLE_TYPE`` for one type transfers only the conditions
+        that actually apply to this request -- the unscoped ones plus those naming a
+        parent in play. Filtering in Python instead would transfer all of them on
+        every request and turn the bound into a per-request cost.
+
+        A type absent from ``parents``, or mapped to no IDs, matches only unscoped
+        conditions. That is the correct reading and not a fail-open: a scoped
+        condition governs children of a named parent, so a request whose parent could
+        not be resolved is outside every scope. The *refusal* for an unresolvable
+        parent belongs at the context-construction boundary, where the caller knows it
+        had a child to govern -- by the time a query runs, an empty parent set and a
+        genuinely parentless target are indistinguishable.
+        """
+        types = set(resource_types)
+        for resource_type in types:
+            validate_condition_resource_type(resource_type)
+        if not types:
+            return []
+        parents = parents or {}
+        with self.ManagedSessionMaker() as session:
+            rows = (
+                session
+                .query(
+                    SqlCondition.resource_type,
+                    SqlCondition.condition_type,
+                    SqlCondition.filter,
+                    SqlCondition.resource_pattern,
+                    SqlCondition.container_resource_type,
+                    SqlCondition.container_resource_pattern,
+                )
+                .join(SqlRole, SqlRole.id == SqlCondition.role_id)
+                .join(SqlUserRoleAssignment, SqlRole.id == SqlUserRoleAssignment.role_id)
+                .filter(
+                    SqlUserRoleAssignment.user_id == user_id,
+                    SqlRole.workspace == workspace,
+                    or_(*self._scope_predicates(types, parents)),
+                )
+                .all()
+            )
+            return [
+                ConditionRow(rtype, value, target, pattern, container_type, container_pattern)
+                for rtype, value, target, pattern, container_type, container_pattern in rows
+            ]
+
+    @staticmethod
+    def _scope_predicates(types: "Collection[str]", parents: "Mapping[str, Collection[str]]"):
+        """One predicate per type in play: workspace-wide, or a container in play.
+
+        Every condition has a container, so this is an equality test rather than a
+        null check: ``workspace`` means no containment narrowing and matches always,
+        and any other container must name an id the request actually resolved.
+
+        Built per type rather than as a single ``resource_type IN (...)`` plus one shared
+        container filter, because the containers in play differ by type. Under a shared
+        filter a request touching runs of experiment 7 would also pull in a version
+        condition contained by registered model 7 -- the id would satisfy a container
+        belonging to another type. Each type therefore gets its own container set.
+
+        The ``container_resource_type`` equality is defence in depth rather than what
+        provides that isolation: the per-type ``resource_type ==`` already partitions the
+        rows, and :func:`normalize_condition_scope` refuses to store a row whose container
+        is not its resource type's declared one. It costs nothing and keeps a corrupt row
+        from matching.
+
+        A wildcard container never appears here because it is normalised to ``workspace``
+        on write, which is what keeps this to two branches.
+        """
+        predicates = []
+        for resource_type in sorted(types):
+            in_play = parents.get(resource_type) or ()
+            unscoped = SqlCondition.container_resource_type == CONTAINER_WORKSPACE
+            if in_play:
+                scope = or_(
+                    unscoped,
+                    and_(
+                        SqlCondition.container_resource_type
+                        == PARENT_RESOURCE_TYPES.get(resource_type),
+                        SqlCondition.container_resource_pattern.in_(sorted(set(in_play))),
+                    ),
+                )
+            else:
+                scope = unscoped
+            predicates.append(and_(SqlCondition.resource_type == resource_type, scope))
+        return predicates
 
     # ---- UserRoleAssignment CRUD ----
 

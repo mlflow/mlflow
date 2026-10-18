@@ -64,7 +64,7 @@ def assert_unauthenticated():
 
 @contextmanager
 def assert_unauthorized():
-    with pytest.raises(MlflowException, match=r"Permission denied.") as exception_context:
+    with pytest.raises(MlflowException, match=r"Permission denied") as exception_context:
         yield
     assert exception_context.value.error_code == ErrorCode.Name(PERMISSION_DENIED)
 

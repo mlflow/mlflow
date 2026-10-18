@@ -25,6 +25,7 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_ALREADY_EXISTS,
     RESOURCE_DOES_NOT_EXIST,
 )
+from mlflow.store import condition_pushdown
 from mlflow.store.artifact.utils.models import _parse_model_uri
 from mlflow.store.db.utils import (
     _all_tables_exist,
@@ -1795,3 +1796,140 @@ class SqlAlchemyStore(AbstractStore):
             return webhook
 
         raise MlflowException(f"Webhook with ID {webhook_id} not found.", RESOURCE_DOES_NOT_EXIST)
+
+    # A pushable namespace is described by its table, the column(s) holding the
+    # owning resource's id, the column holding the clause key, and the column
+    # holding the compared value. A tag row and an alias row have the same shape,
+    # so one query builder serves both.
+    #
+    # There are no prompt tables: a prompt IS a registered model, discriminated
+    # only by the reserved ``mlflow.prompt.is_prompt`` tag. So ``prompt`` resolves
+    # to the same rows as ``registered_model``, and the type selects nothing but
+    # the table. The discriminator is deliberately absent from the predicate --
+    # the ids come from the request, so a request naming a prompt supplies prompt
+    # names and nothing else can enter the set. It is also unwritable as a
+    # condition, because ``mlflow.*`` is banned in both namespaces (D4).
+    #
+    # Only the alias-owning types list ``aliases`` (D18): a version's alias list
+    # names aliases stored on its parent, so a version must not be gated on one.
+    _PUSHDOWN_NAMESPACES = {
+        "registered_model": {
+            "tags": ("SqlRegisteredModelTag", ("name",), "key", "value"),
+            "aliases": ("SqlRegisteredModelAlias", ("name",), "alias", "version"),
+        },
+        "prompt": {
+            "tags": ("SqlRegisteredModelTag", ("name",), "key", "value"),
+            "aliases": ("SqlRegisteredModelAlias", ("name",), "alias", "version"),
+        },
+        "registered_model_version": {
+            "tags": ("SqlModelVersionTag", ("name", "version"), "key", "value"),
+        },
+        "prompt_version": {
+            "tags": ("SqlModelVersionTag", ("name", "version"), "key", "value"),
+        },
+    }
+
+    _PUSHDOWN_MODELS = {
+        "SqlRegisteredModelTag": SqlRegisteredModelTag,
+        "SqlRegisteredModelAlias": SqlRegisteredModelAlias,
+        "SqlModelVersionTag": SqlModelVersionTag,
+    }
+
+    _PUSHDOWN_ID_CHUNK = 900
+
+    # An entry's versions, for the cascade selector. Both version types resolve to the
+    # same tables: a prompt *is* a registered model (T12.9), so there are no prompt
+    # tables and ``prompt_version`` is the same rows under a different condition type.
+    #
+    # Shape and meaning are documented on ``iter_child_tag_batches``. The trailing ``name``
+    # is the parent column on the TAG table, and it is required here rather than
+    # optional: a version's discriminator is ``version``, which repeats across models,
+    # so an unscoped subquery would let a sibling model's satisfying version acquit this
+    # model's failing one.
+    #: The column a cascade can be narrowed by, per entity. ``TransitionModelVersionStage``
+    #: with ``archive_existing_versions`` reaches only the versions already in the stage
+    #: being transitioned into, not every version of the model. Declared separately from
+    #: ``_CASCADE_PUSHDOWN_ENTITIES`` so an entity without a stage is absent here and the
+    #: store refuses to express a window rather than silently answering about the parent.
+    _CASCADE_PUSHDOWN_STAGE_COLUMNS = {
+        "registered_model_version": SqlModelVersion.current_stage,
+        "prompt_version": SqlModelVersion.current_stage,
+    }
+
+    _CASCADE_PUSHDOWN_ENTITIES = {
+        "registered_model_version": (
+            SqlModelVersion,
+            ("name", "version"),
+            "name",
+            SqlModelVersionTag,
+            ("name", "version"),
+            "key",
+            "value",
+            "name",
+        ),
+        "prompt_version": (
+            SqlModelVersion,
+            ("name", "version"),
+            "name",
+            SqlModelVersionTag,
+            ("name", "version"),
+            "key",
+            "value",
+            "name",
+        ),
+    }
+
+    def iter_child_resource_tags(
+        self, entity, parent_id, *, chunk_size, max_timestamp_ms=None, stage=None
+    ):
+        """Yield this parent's children with their tags, a chunk at a time.
+
+        See :meth:`AbstractStore.iter_child_resource_tags`. The scan lives in
+        :func:`condition_pushdown.iter_child_tag_batches`, shared with the tracking store.
+
+        Resolution mirrors :meth:`iter_child_resource_tags`
+        exactly -- the same cascade mapping, the same stage column, the same refusal of a
+        timestamp bound -- so the population this yields is the one that probe would have
+        judged. Every query goes through :meth:`_get_query`, which applies workspace
+        scoping; that is not optional here, since each table is keyed by *name* and a name
+        is not unique across workspaces.
+        """
+        if max_timestamp_ms is not None:
+            # No registry cascade is bounded by a timestamp, so there is no column to
+            # express this against. Declining is fail-closed: ignoring the bound would
+            # judge a narrow mutation against the whole parent and refuse it.
+            raise condition_pushdown.cannot_express(
+                self, entity, "no registry cascade is bounded by a timestamp"
+            )
+        mapping = self._CASCADE_PUSHDOWN_ENTITIES.get(entity)
+        if mapping is None:
+            raise condition_pushdown.cannot_express(self, entity, "it has no cascade mapping")
+        extra_filters = ()
+        if stage is not None:
+            stage_column = self._CASCADE_PUSHDOWN_STAGE_COLUMNS.get(entity)
+            if stage_column is None:
+                raise condition_pushdown.cannot_express(
+                    self, entity, "it has no stage column to narrow the cascade by"
+                )
+            extra_filters = (stage_column == stage,)
+        yield from condition_pushdown.iter_child_tag_batches(
+            self, mapping, parent_id, chunk_size, extra_filters=extra_filters
+        )
+
+    def find_satisfying_resources(self, entity, clauses, ids):
+        """Which of these ids satisfy every clause?
+
+        See :meth:`AbstractStore.find_satisfying_resources`. The scan lives in
+        :func:`condition_pushdown.satisfying_named`, shared with the tracking store, and
+        resolution mirrors :meth:`find_satisfying_resources` -- the same
+        namespace mapping and the same refusals -- so the two answer over the same rows.
+        """
+        namespaces = self._PUSHDOWN_NAMESPACES.get(entity)
+        if namespaces is None:
+            raise condition_pushdown.cannot_express(self, entity, "it has no id-selector mapping")
+        resolved = condition_pushdown.resolve_clauses(namespaces, self._PUSHDOWN_MODELS, clauses)
+        if resolved is None:
+            raise condition_pushdown.cannot_express(
+                self, entity, "a clause names a namespace this entity does not own"
+            )
+        return condition_pushdown.satisfying_named(self, resolved, ids, self._PUSHDOWN_ID_CHUNK)
