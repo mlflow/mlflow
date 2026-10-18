@@ -18,7 +18,7 @@ Read `$issue_path`: JSON with `title`, `body`, `repository`, `issue_number`, and
 
 Stop without writing a payload if the action is unknown or its input requirement is unmet.
 Read only the selected action's instructions and schema, plus the shared
-[runtime](runtime.md) and [output rules](output.md).
+[runtime](runtime.md), [output rules](output.md), and [visual aid instructions](viz-aid.md).
 
 Write `$out_dir/payload.json`, then validate it against the selected action's schema:
 

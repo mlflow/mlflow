@@ -89,9 +89,11 @@ short. Logs go to `$out_dir/work`.
    `curl --noproxy '*' http://localhost:3000/` both succeed. Seed data through the backend
    (`MLFLOW_TRACKING_URI=http://localhost:5000`), and open the UI at `http://localhost:3000`.
 4. Drive it with `agent-browser`: `open <url>` and `snapshot -i` to inspect the page, then
-   interact with it to reproduce the reported behavior. Only navigate to local MLflow URLs.
-   Start every session with `--init-script .claude/skills/triage/scripts/init.js` on its first
-   `open`. It reports the browser as online: the sandbox browser otherwise reports
+   interact with it to reproduce the reported behavior. Only navigate to local MLflow URLs
+   or explanatory HTML you created under `$out_dir/work`, opened via `file://` or a local
+   static server as described in [viz-aid.md](viz-aid.md).
+   Start every MLflow UI session with `--init-script .claude/skills/triage/scripts/init.js`
+   on its first `open`. It reports the browser as online: the sandbox browser otherwise reports
    `navigator.onLine === false`, and the UI never sends requests that change data (Create,
    Save, Delete).
 
