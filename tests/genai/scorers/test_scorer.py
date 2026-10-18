@@ -331,6 +331,32 @@ def test_scorer_run_converts_numpy_scalars(value, expected):
     assert type(result) is type(expected)
 
 
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        (np.bool_(True), True),
+        (np.int64(3), 3),
+        (np.float32(0.5), 0.5),
+    ],
+)
+def test_scorer_run_converts_numpy_scalars_in_feedback(value, expected):
+    @scorer
+    def single_feedback_scorer(outputs):
+        return Feedback(value=value)
+
+    @scorer
+    def feedback_list_scorer(outputs):
+        return [Feedback(name="a", value=value), Feedback(name="b", value=value)]
+
+    feedback = single_feedback_scorer.run(outputs="answer")
+    assert feedback.value == expected
+    assert type(feedback.value) is type(expected)
+
+    feedbacks = feedback_list_scorer.run(outputs="answer")
+    assert [f.value for f in feedbacks] == [expected, expected]
+    assert all(type(f.value) is type(expected) for f in feedbacks)
+
+
 def test_evaluate_with_scorers_returning_numpy_scalars(sample_data, is_in_databricks):
     @scorer
     def np_bool_scorer(outputs):
@@ -344,14 +370,38 @@ def test_evaluate_with_scorers_returning_numpy_scalars(sample_data, is_in_databr
     def np_feedback_scorer(outputs):
         return Feedback(value=np.float32(0.5))
 
+    @scorer
+    def np_feedback_list_scorer(outputs):
+        return [
+            Feedback(name="np_list_bool", value=np.bool_(False)),
+            Feedback(name="np_list_int", value=np.int64(7)),
+        ]
+
     results = mlflow.genai.evaluate(
         data=sample_data,
-        scorers=[np_bool_scorer, np_int_scorer, np_feedback_scorer],
+        scorers=[np_bool_scorer, np_int_scorer, np_feedback_scorer, np_feedback_list_scorer],
     )
 
     assert results.metrics["np_bool_scorer/mean"] == 1.0
     assert results.metrics["np_int_scorer/mean"] == 2.0
     assert results.metrics["np_feedback_scorer/mean"] == 0.5
+    assert results.metrics["np_list_bool/mean"] == 0.0
+    assert results.metrics["np_list_int/mean"] == 7.0
+
+    # Assessments must also be persisted on the traces, not only aggregated into metrics
+    traces = mlflow.search_traces(run_id=results.run_id, return_type="list")
+    assert len(traces) == len(sample_data)
+    for trace in traces:
+        feedback_values = {
+            a.name: a.value for a in trace.info.assessments if isinstance(a, Feedback)
+        }
+        assert feedback_values == {
+            "np_bool_scorer": True,
+            "np_int_scorer": 2,
+            "np_feedback_scorer": 0.5,
+            "np_list_bool": False,
+            "np_list_int": 7,
+        }
 
 
 @pytest.mark.parametrize(

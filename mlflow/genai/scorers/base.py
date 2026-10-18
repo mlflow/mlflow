@@ -1004,6 +1004,10 @@ class Scorer(BaseModel):
         sig = inspect.signature(self.__call__)
         filtered = {k: v for k, v in merged.items() if k in sig.parameters}
         result = _to_python_scalar(self(**filtered))
+        # Feedback values are JSON-serialized when logged, which fails for NumPy scalars
+        for feedback in result if isinstance(result, list) else [result]:
+            if isinstance(feedback, Feedback):
+                feedback.value = _to_python_scalar(feedback.value)
         if not (
             # TODO: Replace 'Assessment' with 'Feedback' once we migrate from the agent eval harness
             isinstance(result, (int, float, bool, str, Assessment, LegacyAssessment))
