@@ -1603,6 +1603,10 @@
     "defaultMessage": "Owner",
     "description": "Queue settings: owner field label"
   },
+  "48ek2n": {
+    "defaultMessage": "{count} of {total, plural, one {# trace} other {# traces}}",
+    "description": "Traces table footer showing how many traces are loaded out of the total"
+  },
   "4AQBnK": {
     "defaultMessage": "Collapse assertion text",
     "description": "Aria label for the chevron that collapses a long assertion text"
@@ -2786,10 +2790,6 @@
   "8Oqhz5": {
     "defaultMessage": "Copy failed — clipboard unavailable.",
     "description": "Error toast shown when copying a saved experiment view share link fails"
-  },
-  "8Pg6K7": {
-    "defaultMessage": "{count} of {total, plural, one {# trace} other {# traces}}",
-    "description": "Traces table footer when grouped by session, showing how many traces are loaded out of the total"
   },
   "8Q36QS": {
     "defaultMessage": "Actions ({count})",
@@ -5406,10 +5406,6 @@
   "I9bJ/T": {
     "defaultMessage": "Select All",
     "description": "Option to select all items in the item selector"
-  },
-  "IA1Jy3": {
-    "defaultMessage": "{count} of {total}",
-    "description": "Traces table footer showing how many traces are loaded out of the total"
   },
   "IARcQx": {
     "defaultMessage": "Manage workspace {name}",

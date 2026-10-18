@@ -773,7 +773,7 @@ describe('TracesV4PageContent', () => {
       // Two full-page paginations exceed 30s under parallel CI load; keep a per-test limit.
     }, 60000);
 
-    test('shows the "{n} of {total}" count — current page rows out of the metrics total', async () => {
+    test('shows the "{n} of {total} traces" count — current page rows out of the metrics total', async () => {
       // 3 rows on the page; the trace-metrics endpoint reports 42 total.
       state.pages = { '': { traces: makeTraces(3), next_page_token: undefined } };
       env.metricsTotalCount = 42;
@@ -783,7 +783,7 @@ describe('TracesV4PageContent', () => {
       // The count trails the table (it awaits the separate trace-metrics query, then re-renders the
       // full page), so poll longer than findBy's 1s default — the whole page render is slow under
       // parallel jsdom load (matches the explicit findBy timeouts in TracesV4TraceDrawer.test).
-      expect(await screen.findByText('3 of 42', {}, { timeout: 25000 })).toBeInTheDocument();
+      expect(await screen.findByText('3 of 42 traces', {}, { timeout: 25000 })).toBeInTheDocument();
       // Ungrouped, the total is the trace count — the session metric is never requested.
       expect(env.metricsCalls).toContain('trace_count');
       expect(env.metricsCalls).not.toContain('session_count');
@@ -822,7 +822,7 @@ describe('TracesV4PageContent', () => {
       env.sessionsTotalCount = 0;
       renderPage({ initialUrl: `${URL}?groupBy=session` });
 
-      expect(await screen.findByText('3 of 42', {}, { timeout: 25000 })).toBeInTheDocument();
+      expect(await screen.findByText('3 of 42 traces', {}, { timeout: 25000 })).toBeInTheDocument();
       expect(screen.queryByText(/of \d+ sessions?/)).not.toBeInTheDocument();
     }, 30000);
   });

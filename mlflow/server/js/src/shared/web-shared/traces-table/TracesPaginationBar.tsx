@@ -24,7 +24,7 @@ export interface TracesPaginationBarProps {
   hasNext: boolean;
   hasPrev: boolean;
   /**
-   * Optional "{n} of {total}" row count shown bottom-left. `count` is the current page's row count;
+   * Optional "{n} of {total} traces" row count shown bottom-left. `count` is the current page's row count;
    * `total` is the grand total (from a separate count source, since the cursor API returns none).
    * Omit `count` to hide the count entirely; pass `count` with an undefined `total` while it loads
    * to show a spinner in place of the total.
@@ -84,7 +84,7 @@ export const TracesPaginationBar: React.FC<TracesPaginationBarProps> = ({
             <Spinner size="small" />
           ) : (
             <Typography.Text color="secondary" size="sm">
-              {hasSessions ? (
+              {hasSessions && (
                 <>
                   <FormattedMessage
                     defaultMessage="{count} of {total, plural, one {# session} other {# sessions}}"
@@ -92,19 +92,13 @@ export const TracesPaginationBar: React.FC<TracesPaginationBarProps> = ({
                     values={{ count: sessionCount, total: sessionTotal ?? sessionCount }}
                   />
                   {' · '}
-                  <FormattedMessage
-                    defaultMessage="{count} of {total, plural, one {# trace} other {# traces}}"
-                    description="Traces table footer when grouped by session, showing how many traces are loaded out of the total"
-                    values={{ count, total: total ?? count }}
-                  />
                 </>
-              ) : (
-                <FormattedMessage
-                  defaultMessage="{count} of {total}"
-                  description="Traces table footer showing how many traces are loaded out of the total"
-                  values={{ count, total: total ?? count }}
-                />
               )}
+              <FormattedMessage
+                defaultMessage="{count} of {total, plural, one {# trace} other {# traces}}"
+                description="Traces table footer showing how many traces are loaded out of the total"
+                values={{ count, total: total ?? count }}
+              />
             </Typography.Text>
           ))}
       </span>
