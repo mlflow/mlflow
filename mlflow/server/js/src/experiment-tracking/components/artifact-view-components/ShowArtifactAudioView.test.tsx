@@ -23,7 +23,7 @@ jest.mock('wavesurfer.js', () => {
 
 const fakeBlobUrl = 'blob:http://localhost/fake-audio';
 const fakeBlob = new Blob(['fake audio data'], { type: 'audio/wav' });
-const mockGetArtifact = jest.fn(() => Promise.resolve(fakeBlob));
+const mockGetArtifact = jest.fn((_artifactUrl: string) => Promise.resolve(fakeBlob));
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -34,6 +34,7 @@ beforeEach(() => {
 const minimalProps = {
   path: 'fakepath',
   runUuid: 'fakeUuid',
+  experimentId: 'fakeExperimentId',
   getArtifact: mockGetArtifact,
 };
 
@@ -65,6 +66,34 @@ describe('ShowArtifactAudioView tests', () => {
         }),
       );
     });
+  });
+
+  test('fetches artifact from the run artifact endpoint by default', async () => {
+    await act(async () => {
+      render(
+        <IntlProvider locale="en">
+          <ShowArtifactAudioView {...minimalProps} />
+        </IntlProvider>,
+      );
+    });
+
+    expect(mockGetArtifact).toHaveBeenCalledWith(
+      expect.stringContaining('get-artifact?path=fakepath&run_uuid=fakeUuid'),
+    );
+  });
+
+  test('fetches artifact from the logged model artifact endpoint in logged models mode', async () => {
+    await act(async () => {
+      render(
+        <IntlProvider locale="en">
+          <ShowArtifactAudioView {...minimalProps} isLoggedModelsMode loggedModelId="m-123" />
+        </IntlProvider>,
+      );
+    });
+
+    expect(mockGetArtifact).toHaveBeenCalledWith(
+      expect.stringContaining('ajax-api/2.0/mlflow/logged-models/m-123/artifacts/files?artifact_file_path=fakepath'),
+    );
   });
 
   test('destroys WaveSurfer on component unmount', async () => {

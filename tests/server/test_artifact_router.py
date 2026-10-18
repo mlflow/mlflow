@@ -118,6 +118,18 @@ def test_upload_with_stream_upload_mixin(client):
     assert kwargs["artifact_path"] == "nested"
 
 
+@pytest.mark.parametrize("prefix", ["/api/2.0", "/ajax-api/2.0"])
+@pytest.mark.parametrize(
+    "path",
+    ["skills/private/token/SKILL.md", "%2e/skills/private/token/SKILL.md"],
+)
+def test_skill_content_cannot_be_overwritten_through_artifact_proxy(client, prefix, path):
+    with mock.patch("mlflow.server.artifact_router._get_artifact_repo") as get_repo:
+        response = client.put(f"{prefix}/mlflow-artifacts/artifacts/{path}", content=b"changed")
+    assert response.status_code == 403
+    get_repo.assert_not_called()
+
+
 def test_upload_without_stream_mixin_uses_log_artifact(client):
     test_data = b"uploaded artifact"
 

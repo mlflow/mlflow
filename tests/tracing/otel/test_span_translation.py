@@ -14,6 +14,7 @@ from mlflow.tracing.otel.translation import (
     update_token_usage,
 )
 from mlflow.tracing.otel.translation.base import OtelSchemaTranslator
+from mlflow.tracing.otel.translation.claude_code import ClaudeCodeTranslator
 from mlflow.tracing.otel.translation.gemini_cli import GeminiCliTranslator
 from mlflow.tracing.otel.translation.genai_semconv import GenAiTranslator
 from mlflow.tracing.otel.translation.google_adk import GoogleADKTranslator
@@ -309,7 +310,11 @@ def test_translate_token_usage_edge_cases(
     assert usage[TokenUsageKey.TOTAL_TOKENS] == expected_total
 
 
-def test_translate_token_usage_with_cache_fields():
+@pytest.mark.parametrize(
+    "cache_creation_key",
+    ["gen_ai.usage.cache_write.input_tokens", "gen_ai.usage.cache_creation.input_tokens"],
+)
+def test_translate_token_usage_with_cache_fields(cache_creation_key):
     span = mock.Mock(spec=Span)
     span.parent_id = "parent_123"
     span_dict = {
@@ -317,7 +322,7 @@ def test_translate_token_usage_with_cache_fields():
             "gen_ai.usage.input_tokens": 100,
             "gen_ai.usage.output_tokens": 50,
             "gen_ai.usage.cache_read.input_tokens": 80,
-            "gen_ai.usage.cache_creation.input_tokens": 20,
+            cache_creation_key: 20,
         }
     }
     span.to_dict.return_value = span_dict
@@ -329,6 +334,24 @@ def test_translate_token_usage_with_cache_fields():
     assert usage[TokenUsageKey.OUTPUT_TOKENS] == 50
     assert usage[TokenUsageKey.TOTAL_TOKENS] == 150
     assert usage[TokenUsageKey.CACHE_READ_INPUT_TOKENS] == 80
+    assert usage[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS] == 20
+
+
+def test_translate_token_usage_prefers_cache_write_over_cache_creation():
+    span = mock.Mock(spec=Span)
+    span.parent_id = "parent_123"
+    span.to_dict.return_value = {
+        "attributes": {
+            "gen_ai.usage.input_tokens": 100,
+            "gen_ai.usage.output_tokens": 50,
+            "gen_ai.usage.cache_write.input_tokens": 20,
+            "gen_ai.usage.cache_creation.input_tokens": 30,
+        }
+    }
+
+    result = translate_span_when_storing(span)
+
+    usage = json.loads(result["attributes"][SpanAttributeKey.CHAT_USAGE])
     assert usage[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS] == 20
 
 
@@ -1057,3 +1080,129 @@ def test_update_token_usage_without_cached_tokens():
     # Cached keys should not appear
     assert TokenUsageKey.CACHE_READ_INPUT_TOKENS not in result
     assert TokenUsageKey.CACHE_CREATION_INPUT_TOKENS not in result
+
+
+def _translate_claude_code_span(attributes, events=None):
+    span = mock.Mock(spec=Span)
+    span.parent_id = "parent_123"
+    span.to_dict.return_value = {
+        "attributes": {k: json.dumps(v) for k, v in attributes.items()},
+        "events": events or [],
+    }
+    return translate_span_when_storing(span)["attributes"]
+
+
+@pytest.mark.parametrize(
+    ("span_type", "expected_type"),
+    [
+        ("claude_code.interaction", SpanType.AGENT),
+        ("claude_code.llm_request", SpanType.LLM),
+        ("claude_code.tool", SpanType.TOOL),
+        # Real Claude Code telemetry emits bare values; the prefix appears only on span names
+        ("interaction", SpanType.AGENT),
+        ("llm_request", SpanType.LLM),
+        ("tool", SpanType.TOOL),
+    ],
+)
+def test_claude_code_translator_maps_span_types(span_type, expected_type):
+    assert translate_span_type_from_otel({"span.type": json.dumps(span_type)}) == expected_type
+
+
+@pytest.mark.parametrize(
+    "attributes",
+    [
+        {"span.type": "some_other.tool"},
+        {"span.type": "hook"},
+        {"span.type": "tool.blocked_on_user"},
+        {"span.type": "claude_code.tool.blocked_on_user"},
+        {"span.type": "tool.execution"},
+        {"span.type": "claude_code.tool.execution"},
+    ],
+)
+def test_claude_code_translator_does_not_map(attributes):
+    assert ClaudeCodeTranslator().translate_span_type(attributes) is None
+
+
+def test_claude_code_translator_token_usage_includes_cache_tokens():
+    attributes = _translate_claude_code_span({
+        "span.type": "claude_code.llm_request",
+        "gen_ai.request.model": "claude-sonnet-4-5",
+        "input_tokens": 12,
+        "output_tokens": 64,
+        "cache_read_tokens": 1000,
+        "cache_creation_tokens": 400,
+    })
+
+    usage = json.loads(attributes[SpanAttributeKey.CHAT_USAGE])
+    assert usage == {
+        TokenUsageKey.INPUT_TOKENS: 1412,
+        TokenUsageKey.OUTPUT_TOKENS: 64,
+        TokenUsageKey.TOTAL_TOKENS: 1476,
+        TokenUsageKey.CACHE_READ_INPUT_TOKENS: 1000,
+        TokenUsageKey.CACHE_CREATION_INPUT_TOKENS: 400,
+    }
+
+
+def test_claude_code_translator_ignores_bare_token_keys_on_other_spans():
+    attributes = _translate_claude_code_span({"input_tokens": 12, "output_tokens": 64})
+    assert SpanAttributeKey.CHAT_USAGE not in attributes
+
+
+def test_claude_code_translator_interaction_input():
+    attributes = _translate_claude_code_span({
+        "span.type": "claude_code.interaction",
+        "user_prompt": "List the files",
+    })
+    assert json.loads(attributes[SpanAttributeKey.INPUTS]) == "List the files"
+
+
+def test_claude_code_translator_skips_redacted_content():
+    attributes = _translate_claude_code_span({
+        "span.type": "claude_code.interaction",
+        "user_prompt": "<REDACTED>",
+    })
+    assert SpanAttributeKey.INPUTS not in attributes
+
+
+def test_claude_code_translator_llm_request_content():
+    attributes = _translate_claude_code_span({
+        "span.type": "claude_code.llm_request",
+        "new_context": "List the files",
+        "response.model_output": "5",
+    })
+    assert json.loads(attributes[SpanAttributeKey.INPUTS]) == "List the files"
+    assert json.loads(attributes[SpanAttributeKey.OUTPUTS]) == "5"
+
+
+def test_claude_code_translator_tool_input_from_details_and_output_from_event():
+    attributes = _translate_claude_code_span(
+        {"span.type": "claude_code.tool", "tool_name": "Bash", "full_command": "ls"},
+        events=[{"name": "tool.output", "attributes": {"output": "a.txt\nb.txt"}}],
+    )
+    assert json.loads(attributes[SpanAttributeKey.INPUTS]) == {"full_command": "ls"}
+    assert json.loads(attributes[SpanAttributeKey.OUTPUTS]) == "a.txt\nb.txt"
+
+
+def test_claude_code_translator_prefers_serialized_tool_input():
+    attributes = _translate_claude_code_span({
+        "span.type": "claude_code.tool",
+        "tool_input": json.dumps({"command": "ls"}),
+        "full_command": "ls",
+    })
+    assert json.loads(attributes[SpanAttributeKey.INPUTS]) == {"command": "ls"}
+
+
+@pytest.mark.parametrize("attributes", [{}, {"span.type": "claude_code.llm_request"}])
+def test_claude_code_translator_ignores_tool_output_event_on_other_spans(attributes):
+    attributes = _translate_claude_code_span(
+        attributes, events=[{"name": "tool.output", "attributes": {"output": "a.txt"}}]
+    )
+    assert SpanAttributeKey.OUTPUTS not in attributes
+
+
+def test_claude_code_translator_skips_redacted_tool_output_event():
+    attributes = _translate_claude_code_span(
+        {"span.type": "tool"},
+        events=[{"name": "tool.output", "attributes": {"output": "<REDACTED>"}}],
+    )
+    assert SpanAttributeKey.OUTPUTS not in attributes

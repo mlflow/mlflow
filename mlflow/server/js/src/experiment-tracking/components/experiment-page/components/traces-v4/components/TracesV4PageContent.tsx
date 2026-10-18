@@ -46,6 +46,7 @@ import { TracesV4EmptyState } from './TracesV4EmptyState';
 import { IssueDetectionModal } from '../../traces-v3/IssueDetectionModal';
 import { TracesV4SavedViewsButton, useTracesV4SavedViews } from './TracesV4SavedViews';
 import { type TraceColumnHeaderAction } from '@databricks/web-shared/traces-table';
+import { useExperimentPageRevampContext } from '../../../../../pages/experiment-page-tabs/ExperimentPageRevampContext';
 
 interface TracesV4PageContentProps {
   experimentId: string;
@@ -68,6 +69,7 @@ const isStandardColumnId = (id: string): id is TraceColumnId => (TRACE_COLUMN_ID
  */
 export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) => {
   const { theme } = useDesignSystemTheme();
+  const { enabled: revampEnabled } = useExperimentPageRevampContext();
   const intl = useIntl();
   const navigate = useNavigate();
   const { pathname, search, hash } = useLocation();
@@ -363,7 +365,7 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
     ? 'error'
     : !page.isFetching && flags.isEmptyPageBeyondFirst
       ? 'no-more-results'
-      : !page.isFetching && flags.hasNoTracesAtAll
+      : !page.isFetching && flags.hasNoTracesInRange
         ? 'empty'
         : !page.isFetching && flags.hasNoSearchResults
           ? 'no-results'
@@ -395,8 +397,8 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
             flex: 1,
             minHeight: 0,
             gap: theme.spacing.md,
-            paddingTop: theme.spacing.md,
-            paddingLeft: theme.spacing.md,
+            paddingTop: revampEnabled ? 0 : theme.spacing.md,
+            paddingLeft: revampEnabled ? 0 : theme.spacing.md,
             marginBottom: -theme.spacing.sm,
           }}
         >
@@ -485,10 +487,16 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
             getErrorDescription={getErrorDescription}
             customEmptyState={
               // Short-circuits before the viewState switch (keeping toolbar + banner). Gated on the
-              // resolved `empty` state, not `hasNoTracesAtAll` alone, so error / no-results /
+              // resolved `empty` state, not `hasNoTracesInRange` alone, so error / no-results /
               // no-more-results still flow through the switch — a trace-id-search miss lands on
               // `no-results`, and a first-load error on `error`, not the quickstart.
-              viewState === 'empty' ? <TracesV4EmptyState experimentId={experimentId} /> : undefined
+              viewState === 'empty' ? (
+                <TracesV4EmptyState
+                  kind={controller.emptyStateKind}
+                  timeLabel={controller.timeLabel}
+                  onViewAll={() => controller.setTimeRange({ timeLabel: 'ALL' })}
+                />
+              ) : undefined
             }
           />
 

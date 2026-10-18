@@ -78,8 +78,6 @@ jobs:
           ref: ${{ github.event.inputs.ref }}
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
-        with:
-          pin-micro-version: false
       - name: Install flavors
         run: |
           uv sync --package flavors
@@ -151,6 +149,7 @@ jobs:
       - uses: ./.github/actions/setup-python
         with:
           python-version: ${{ matrix.python }}
+          pin-micro-version: true
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
         with:

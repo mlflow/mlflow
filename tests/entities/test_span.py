@@ -671,6 +671,26 @@ def test_span_from_otel_proto_can_preserve_request_id_for_round_trip():
     assert mlflow_span.to_otel_proto().links[0].trace_id == link_trace_id
 
 
+def test_span_to_otel_proto_skips_links_with_oversized_ids():
+    otel_proto = OTelProtoSpan()
+    otel_proto.trace_id = bytes.fromhex("12345678901234567890123456789012")
+    otel_proto.span_id = bytes.fromhex("1234567890123456")
+    otel_proto.name = "span"
+    otel_proto.start_time_unix_nano = 1000000000
+    otel_proto.end_time_unix_nano = 2000000000
+
+    valid_link = otel_proto.links.add()
+    valid_link.trace_id = bytes.fromhex("aabbccddeeff00112233445566778899")
+    valid_link.span_id = bytes.fromhex("1122334455667788")
+    oversized_link = otel_proto.links.add()
+    oversized_link.trace_id = bytes.fromhex("ff" * 24)
+    oversized_link.span_id = bytes.fromhex("ff" * 12)
+
+    proto = Span.from_otel_proto(otel_proto).to_otel_proto()
+
+    assert [link.trace_id for link in proto.links] == [valid_link.trace_id]
+
+
 def test_otel_roundtrip_conversion(sample_otel_span_for_conversion):
     # Start with OTel span -> MLflow span
     mlflow_span = Span(sample_otel_span_for_conversion)

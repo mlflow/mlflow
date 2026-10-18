@@ -1,6 +1,7 @@
 import copy
 import datetime
 import json
+import logging
 import threading
 import time
 import uuid
@@ -27,6 +28,8 @@ try:
     from optuna.trial import FrozenTrial, TrialState
 except ImportError as e:
     raise ImportError("Install optuna to use `mlflow.optuna` module") from e
+
+_logger = logging.getLogger(__name__)
 
 optuna_mlflow_status_map = {
     TrialState.RUNNING: "RUNNING",
@@ -199,8 +202,13 @@ class MlflowStorage(BaseStorage):
             if batch_size >= self._batch_size_threshold:
                 self._flush_batch(run_id)
 
-    def _flush_batch(self, run_id: str):
-        """Flush the batch for a specific run_id to MLflow."""
+    def _flush_batch(self, run_id: str, raise_on_error: bool = False):
+        """Flush the batch for a specific run_id to MLflow.
+
+        If ``raise_on_error`` is True, any failure is raised and the batch is kept for a
+        later retry. Otherwise only "run not found" errors are raised and other failures
+        are logged and the batch is dropped.
+        """
         with self._batch_lock:
             if run_id not in self._batch_queue:
                 return
@@ -209,15 +217,25 @@ class MlflowStorage(BaseStorage):
 
             # Only make the API call if there's something to flush
             if batch["metrics"] or batch["params"] or batch["tags"]:
+                # Async logging would only enqueue the write, so strict mode forces a
+                # synchronous call to surface failures before the batch is cleared.
+                sync_kwargs = {"synchronous": True} if raise_on_error else {}
                 try:
                     self._mlflow_client.log_batch(
-                        run_id, metrics=batch["metrics"], params=batch["params"], tags=batch["tags"]
+                        run_id,
+                        metrics=batch["metrics"],
+                        params=batch["params"],
+                        tags=batch["tags"],
+                        **sync_kwargs,
                     )
                 except Exception as e:
-                    # If the run doesn't exist, propagate the error
-                    if "Run with id=" in str(e) and "not found" in str(e):
+                    if raise_on_error or ("Run with id=" in str(e) and "not found" in str(e)):
                         raise
-                    # Otherwise, handle or log the error as needed
+                    _logger.warning(
+                        "Failed to flush batched Optuna data for run %s; dropping it: %s",
+                        run_id,
+                        e,
+                    )
 
                 # Clear the batch
                 batch["metrics"] = []
@@ -480,16 +498,16 @@ class MlflowStorage(BaseStorage):
             param_distribution = json_to_distribution(distributions_dict[param_name])
             check_distribution_compatibility(param_distribution, distribution)
 
-        # Queue parameter update
+        distributions_dict[param_name] = distribution_to_json(distribution)
+        # Queue the param value and its distribution together so they are flushed in the same
+        # log_batch; otherwise other workers can read the value without its distribution.
         self._queue_batch_operation(
             trial_id,
             params=[Param(param_name, distribution.to_external_repr(param_value_internal))],
-            tags=[RunTag(f"param_internal_val_{param_name}", json.dumps(param_value_internal))],
-        )
-
-        distributions_dict[param_name] = distribution_to_json(distribution)
-        self._queue_batch_operation(
-            trial_id, tags=[RunTag("param_directions", json.dumps(distributions_dict))]
+            tags=[
+                RunTag(f"param_internal_val_{param_name}", json.dumps(param_value_internal)),
+                RunTag("param_directions", json.dumps(distributions_dict)),
+            ],
         )
 
     def get_trial_id_from_study_id_trial_number(self, study_id, trial_number: int) -> int:
@@ -523,16 +541,9 @@ class MlflowStorage(BaseStorage):
             if current_state != TrialState.WAITING:
                 return False
 
-        # Update trial state
-        if state.is_finished():
-            self._mlflow_client.set_terminated(trial_id, status=optuna_mlflow_status_map[state])
-        else:
-            self._mlflow_client.update_run(trial_id, status=optuna_mlflow_status_map[state])
-
-        # Queue value metrics if provided
         timestamp = int(time.time() * 1000)
+        metrics = []
         if values is not None:
-            metrics = []
             if len(values) > 1:
                 metrics = [
                     Metric(f"value_{idx}", val, timestamp, 1) for idx, val in enumerate(values)
@@ -540,7 +551,17 @@ class MlflowStorage(BaseStorage):
             else:
                 metrics = [Metric("value", values[0], timestamp, 1)]
 
-            self._queue_batch_operation(trial_id, metrics=metrics)
+        # Persist pending trial data and values before updating the state, so that other
+        # workers never observe a finished trial without its values. Failures must raise
+        # rather than leave a COMPLETE trial with no value behind.
+        self._flush_batch(trial_id, raise_on_error=True)
+        if metrics:
+            self._mlflow_client.log_batch(trial_id, metrics=metrics, synchronous=True)
+
+        if state.is_finished():
+            self._mlflow_client.set_terminated(trial_id, status=optuna_mlflow_status_map[state])
+        else:
+            self._mlflow_client.update_run(trial_id, status=optuna_mlflow_status_map[state])
         return True
 
     def set_trial_intermediate_value(self, trial_id, step: int, intermediate_value: float) -> None:

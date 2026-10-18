@@ -214,6 +214,28 @@ def test_build_endpoint_config_bedrock_api_base_defaults_to_none():
     config = _build_endpoint_config("test-ep", model_config, EndpointType.LLM_V1_CHAT)
     assert isinstance(config.model.config, AmazonBedrockConfig)
     assert config.model.config.api_base is None
+    
+@pytest.mark.parametrize(
+    ("auth_config", "expected_base"),
+    [
+        (None, "https://generativelanguage.googleapis.com/v1beta/models"),
+        ({}, "https://generativelanguage.googleapis.com/v1beta/models"),
+        (
+            {"api_base": "https://gemini.example.com/relay/v1"},
+            "https://gemini.example.com/relay/v1",
+        ),
+    ],
+)
+
+def test_build_endpoint_config_gemini_api_base(auth_config, expected_base):
+    model_config = _make_model_config("gemini", "gemini-2.0-flash")
+    model_config.auth_config = auth_config
+    config = _build_endpoint_config("test-ep", model_config, EndpointType.LLM_V1_CHAT)
+
+    assert isinstance(config.model.config, GeminiConfig)
+    assert config.model.config.gemini_api_key == "sk-test"
+    assert config.model.config.gemini_api_base == expected_base
+    assert GeminiProvider(config).get_endpoint_url("llm/v1/chat").startswith(expected_base + "/")
 
 
 def test_create_provider_from_endpoint_name_openai(store: SqlAlchemyStore):
@@ -621,9 +643,12 @@ def _create_endpoint(store: SqlAlchemyStore, name: str, provider: str, auth_conf
     )
 
 
-def test_upstream_ssrf_protection_enabled_for_user_supplied_api_base(store: SqlAlchemyStore):
+@pytest.mark.parametrize("provider", ["openai", "gemini"])
+def test_upstream_ssrf_protection_enabled_for_user_supplied_api_base(
+    store: SqlAlchemyStore, provider: str
+):
     endpoint = _create_endpoint(
-        store, "custom-base", "openai", auth_config={"api_base": "https://llm.example.com/v1"}
+        store, "custom-base", provider, auth_config={"api_base": "https://llm.example.com/v1"}
     )
     assert upstream_ssrf_protection.get() is False
 
