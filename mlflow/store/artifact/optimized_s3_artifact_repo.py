@@ -22,7 +22,13 @@ from mlflow.store.artifact.cloud_artifact_repo import (
     _compute_num_chunks,
     _validate_chunk_size_aws,
 )
-from mlflow.store.artifact.s3_artifact_repo import _file_is_directory_marker, _get_s3_client
+from mlflow.store.artifact.s3_artifact_repo import (
+    ALLOWED_MPU_ABORT_ARGS,
+    ALLOWED_MPU_CREATE_ARGS,
+    ALLOWED_MPU_EXTRA_ARGS,
+    _file_is_directory_marker,
+    _get_s3_client,
+)
 from mlflow.utils.file_utils import read_chunk
 from mlflow.utils.request_utils import cloud_storage_http_request
 from mlflow.utils.rest_utils import augmented_raise_for_status
@@ -165,19 +171,7 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
         else:
             return None
 
-    def _get_multipart_upload_encryption_args(self):
-        extra_args = dict(self._s3_upload_extra_args)
-        if environ_extra_args := self.get_s3_file_upload_extra_args():
-            extra_args.update(environ_extra_args)
-        encryption_arg_names = {
-            "BucketKeyEnabled",
-            "ServerSideEncryption",
-            "SSEKMSKeyId",
-            "SSEKMSEncryptionContext",
-        }
-        return {key: value for key, value in extra_args.items() if key in encryption_arg_names}
-
-    def _upload_file(self, s3_client, local_file, bucket, key):
+    def _extra_args(self, local_file):
         extra_args = {}
         extra_args.update(self._s3_upload_extra_args)
         guessed_type, guessed_encoding = guess_type(local_file)
@@ -189,6 +183,10 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
         environ_extra_args = self.get_s3_file_upload_extra_args()
         if environ_extra_args is not None:
             extra_args.update(environ_extra_args)
+        return extra_args
+
+    def _upload_file(self, s3_client, local_file, bucket, key):
+        extra_args = self._extra_args(local_file)
 
         def try_func(creds):
             creds.upload_file(Filename=local_file, Bucket=bucket, Key=key, ExtraArgs=extra_args)
@@ -230,12 +228,12 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
     def _multipart_upload(self, cloud_credential_info, local_file, bucket, key):
         # Create multipart upload
         s3_client = cloud_credential_info
-        response = s3_client.create_multipart_upload(
-            Bucket=bucket,
-            Key=key,
-            **self._bucket_owner_params,
-            **self._get_multipart_upload_encryption_args(),
-        )
+        extra_args = self._extra_args(local_file)
+        # filtered for upload_part / complete_multipart_upload
+        upload_part_args = {k: v for k, v in extra_args.items() if k in ALLOWED_MPU_EXTRA_ARGS}
+        abort_args = {k: v for k, v in extra_args.items() if k in ALLOWED_MPU_ABORT_ARGS}
+        create_args = {k: v for k, v in extra_args.items() if k in ALLOWED_MPU_CREATE_ARGS}
+        response = s3_client.create_multipart_upload(Bucket=bucket, Key=key, **create_args)
         upload_id = response["UploadId"]
 
         num_parts = _compute_num_chunks(local_file, MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get())
@@ -255,7 +253,8 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
                         "UploadId": upload_id,
                         "PartNumber": part_number,
                         **self._bucket_owner_params,
-                    },
+                    }
+                    | upload_part_args,
                 )
                 with cloud_storage_http_request("put", presigned_url, data=data) as response:
                     augmented_raise_for_status(response)
@@ -298,7 +297,7 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
                 Key=key,
                 UploadId=upload_id,
                 MultipartUpload={"Parts": parts},
-                **self._bucket_owner_params,
+                **upload_part_args,
             )
         except Exception as e:
             _logger.warning(
@@ -309,7 +308,7 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
                 Bucket=bucket,
                 Key=key,
                 UploadId=upload_id,
-                **self._bucket_owner_params,
+                **abort_args,
             )
             raise e
 
@@ -365,13 +364,16 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
     def _get_presigned_uri(self, remote_file_path):
         s3_client = self._get_s3_client()
         s3_full_path = posixpath.join(self.bucket_path, remote_file_path)
+        extra_args = self.get_s3_file_upload_extra_args() or {}
+        get_args = {k: v for k, v in extra_args.items() if k in ALLOWED_MPU_EXTRA_ARGS}
         return s3_client.generate_presigned_url(
             "get_object",
             Params={
                 "Bucket": self.bucket,
                 "Key": s3_full_path,
                 **self._bucket_owner_params,
-            },
+            }
+            | get_args,
         )
 
     def _get_read_credential_infos(self, remote_file_paths):
