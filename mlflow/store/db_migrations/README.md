@@ -10,6 +10,17 @@ https://github.com/mlflow/mlflow/issues.
 
 ## Migration descriptions
 
+### 8b6ad64cb8f5_extend_issue_contract
+
+This migration adds Issue metadata, last-seen timestamps, last-updated-by values, and indexed
+categories. It retains the legacy Issue fields and category JSON.
+
+Downgrading removes the new columns, indexes, and category index table. Existing Issues, legacy
+category JSON, and IssueReference assessments are preserved. The metadata, last-seen timestamps,
+and last-updated-by values are lost, so take a database backup before downgrading. Re-upgrading
+rebuilds the category index from the retained JSON and initializes last-seen timestamps from each
+Issue's creation timestamp; it cannot restore the discarded values.
+
 ### 89d4b8295536_create_latest_metrics_table
 
 This migration creates a `latest_metrics` table and populates it with the latest metric entry for

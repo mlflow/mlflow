@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { sanitizeHref } from '../utils';
 
 export const useIconFallback = (primarySrc: string | undefined, fallbackSrc: string | undefined) => {
   const [primaryFailed, setPrimaryFailed] = useState(false);

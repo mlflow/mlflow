@@ -153,4 +153,61 @@ describe('ExperimentViewRunsColumnSelector', () => {
       expect(screen.queryByTestId('column-selector-tree')).not.toBeInTheDocument();
     });
   });
+
+  it('makes the desktop panel horizontally and vertically resizable', async () => {
+    renderComponent();
+    await userEvent.click(screen.getByTestId('column-selection-dropdown'));
+
+    const panel = await screen.findByTestId('column-selector-panel');
+    expect(panel).toHaveStyle({ resize: 'both', width: '400px', minWidth: '320px', minHeight: '240px' });
+    // Height stays automatic so the panel shrink-wraps instead of a fixed ~600px.
+    expect(panel.style.height).toBe('');
+  });
+
+  it('shrinks to the list content when search returns one item', async () => {
+    renderComponent();
+    await userEvent.click(screen.getByTestId('column-selection-dropdown'));
+
+    const panel = await screen.findByTestId('column-selector-panel');
+    const list = screen.getByTestId('column-selector-list');
+    // 15 Tree rows at 32px, matching the previous max-height cap.
+    expect(list).toHaveStyle({ maxHeight: '480px' });
+
+    await userEvent.type(screen.getByPlaceholderText('Search columns'), 'alpha');
+
+    await waitFor(() => {
+      expect(screen.getByTestId('column-selector-tree').textContent).not.toContain('accuracy');
+    });
+    expect(screen.getByTestId('column-selector-tree').textContent).toContain('alpha');
+    // A single match must not keep a fixed panel height; the list still caps at 15 rows.
+    expect(panel.style.height).toBe('');
+    expect(list).toHaveStyle({ maxHeight: '480px' });
+    expect(panel).toHaveStyle({ resize: 'both', width: '400px' });
+  });
+
+  it('disables resizing on small (xs) viewports', async () => {
+    const matchMediaSpy = jest.spyOn(window, 'matchMedia').mockImplementation(
+      (query: string): MediaQueryList =>
+        ({
+          matches: query.includes('max-width'),
+          media: query,
+          onchange: null,
+          addListener: jest.fn(),
+          removeListener: jest.fn(),
+          addEventListener: jest.fn(),
+          removeEventListener: jest.fn(),
+          dispatchEvent: jest.fn(),
+        }) as MediaQueryList,
+    );
+
+    try {
+      renderComponent();
+      await userEvent.click(screen.getByTestId('column-selection-dropdown'));
+
+      const panel = await screen.findByTestId('column-selector-panel');
+      expect(panel).toHaveStyle({ resize: 'none', width: '100vw' });
+    } finally {
+      matchMediaSpy.mockRestore();
+    }
+  });
 });

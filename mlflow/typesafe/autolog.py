@@ -108,6 +108,7 @@ def _serialize_for_trace(value: Any) -> Any:
 
 
 def _set_request_attributes(span: LiveSpan, inputs: dict[str, Any]) -> None:
+    span.set_attribute(SpanAttributeKey.MESSAGE_FORMAT, "typesafe")
     span.set_attribute(SpanAttributeKey.MODEL_PROVIDER, "typesafe")
     if model := inputs.get("model"):
         span.set_attribute(SpanAttributeKey.MODEL, model)

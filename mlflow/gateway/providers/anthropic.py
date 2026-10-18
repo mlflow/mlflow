@@ -288,6 +288,12 @@ class AnthropicAdapter(ProviderAdapter):
                 case {"type": "function", "function": {"name": name}}:
                     payload["tool_choice"] = {"type": "tool", "name": name}
 
+        # Anthropic controls parallel tool use through tool_choice, not a top-level field.
+        if payload.pop("parallel_tool_calls", None) is False:
+            tool_choice = payload.get("tool_choice")
+            if isinstance(tool_choice, dict) and tool_choice.get("type") in ("auto", "any", "tool"):
+                tool_choice["disable_parallel_tool_use"] = True
+
         # Transform response_format for Anthropic structured outputs
         # Anthropic uses output_config.format with {"type": "json_schema", "schema": {...}}
         if response_format := payload.pop("response_format", None):

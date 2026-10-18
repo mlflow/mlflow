@@ -2223,6 +2223,25 @@ def test_search_mcp_server_versions_order_by_version_ignores_build_metadata_prec
     assert set(versions[1:]) == {"1.0.0+aaa", "1.0.0+zzz"}
 
 
+@pytest.mark.parametrize("name", ["com.example/versionLIKE", "com.example/versionILIKE"])
+@pytest.mark.parametrize(
+    ("filter_template", "expected_versions"),
+    [
+        ("name = '{name}'", {"1.0.0", "2.0.0"}),
+        ("name = '{name}' AND version = '1.0.0'", {"1.0.0"}),
+        ("version = '1.0.0' AND name = '{name}'", {"1.0.0"}),
+    ],
+)
+def test_search_mcp_server_versions_preserves_name_filter_values(
+    store, name, filter_template, expected_versions
+):
+    _setup_server(store, name, versions=("1.0.0", "2.0.0"))
+
+    result = store.search_mcp_server_versions(name, filter_string=filter_template.format(name=name))
+
+    assert {version.version for version in result} == expected_versions
+
+
 def test_search_mcp_server_versions_filter_by_version_equality_uses_exact_string_match(store):
     for version in ("1.0.0-alpha+aaa", "1.0.0-alpha+zzz", "1.0.0"):
         store.create_mcp_server_version(_server_json("io.github.test/serveremver-eq", version))

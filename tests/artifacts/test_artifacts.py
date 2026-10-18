@@ -144,6 +144,25 @@ def test_load_dict(run_with_json_artifact):
     assert mlflow.artifacts.load_dict(artifact.uri) == artifact.content
 
 
+@pytest.mark.parametrize("file_name", ["data.json", "data.yaml", "data.yml"])
+def test_load_dict_round_trips_log_dict(file_name):
+    data = {"answer": 42, "nested": {"items": [1, "two"]}}
+    with mlflow.start_run() as run:
+        mlflow.log_dict(data, file_name)
+    uri = str(pathlib.PurePosixPath(run.info.artifact_uri) / file_name)
+    assert mlflow.artifacts.load_dict(uri) == data
+
+
+def test_load_dict_invalid_yaml(tmp_path):
+    path = tmp_path / "data.yaml"
+    path.write_text("key: [unclosed")
+    with mlflow.start_run() as run:
+        mlflow.log_artifact(path)
+    uri = str(pathlib.PurePosixPath(run.info.artifact_uri) / "data.yaml")
+    with pytest.raises(MlflowException, match="Unable to form a YAML object"):
+        mlflow.artifacts.load_dict(uri)
+
+
 def test_load_text_and_dict_read_utf8_regardless_of_default_encoding(monkeypatch):
     text = "café 台北 🚀"
     data = {"城市": "台北"}

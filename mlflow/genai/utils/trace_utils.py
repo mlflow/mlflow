@@ -6,6 +6,8 @@ import logging
 import math
 import threading
 from collections import OrderedDict
+from contextlib import contextmanager
+from contextvars import ContextVar
 from typing import TYPE_CHECKING, Any, Callable
 
 from cachetools.func import cached
@@ -39,6 +41,7 @@ from mlflow.tracing.constant import (
 from mlflow.tracing.display import IPythonTraceDisplayHandler
 from mlflow.tracing.utils import TraceJSONEncoder
 from mlflow.tracing.utils.search import traces_to_df
+from mlflow.tracing.utils.session_hierarchy import parse_session_path, session_group_key
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils.uri import is_databricks_uri
 
@@ -50,6 +53,12 @@ if TYPE_CHECKING:
     from mlflow.types.chat import ChatTool
 
 _logger = logging.getLogger(__name__)
+
+# A contextvar rather than a parameter so that judges nested inside built-in session
+# scorers, which call `validate_session` themselves, see the group being scored too.
+_session_level_group_key: ContextVar[str | None] = ContextVar(
+    "mlflow_session_level_group_key", default=None
+)
 
 _MESSAGE_KEY = "message"
 _MESSAGES_KEY = "messages"
@@ -277,9 +286,27 @@ def parse_tool_call_messages_from_trace(trace: Trace) -> list[dict[str, str]]:
     return tool_messages
 
 
+@contextmanager
+def _session_level_group(group_key: str):
+    """
+    Make `validate_session` accept traces grouped at a session-hierarchy level.
+
+    Within this context, traces whose hierarchical session ID starts with the
+    ``group_key`` path count as one session even if their full IDs differ.
+    """
+    token = _session_level_group_key.set(group_key)
+    try:
+        yield
+    finally:
+        _session_level_group_key.reset(token)
+
+
 def validate_session(session: list[Trace]) -> None:
     """
     Validate that all traces in session belong to the same session.
+
+    Inside :func:`_session_level_group`, traces are compared by their session ID
+    prefix at the group's hierarchy level instead of by their full session ID.
 
     Args:
         session: List of traces to validate.
@@ -287,6 +314,7 @@ def validate_session(session: list[Trace]) -> None:
     Raises:
         MlflowException: If traces are missing session_id or belong to different sessions.
     """
+    group_path = parse_session_path(_session_level_group_key.get())
     session_id_to_trace_ids: dict[str, list[str]] = {}
     for trace in session:
         session_id = trace.info.trace_metadata.get(TraceMetadataKey.TRACE_SESSION)
@@ -298,6 +326,8 @@ def validate_session(session: list[Trace]) -> None:
                 f"for information on how to set session_id on traces.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
+        if group_path is not None:
+            session_id = session_group_key(session_id, len(group_path) - 1)
         if session_id not in session_id_to_trace_ids:
             session_id_to_trace_ids[session_id] = []
         session_id_to_trace_ids[session_id].append(trace.info.trace_id)
@@ -698,16 +728,22 @@ def _is_responses_api_output(maybe_output: Any) -> bool:
 
 
 def _extract_responses_api_content(output: list[dict[str, Any]]) -> str:
-    """Extract text content from OpenAI Responses API output format."""
+    """Extract text content from Responses API and ResponsesAgent output."""
     for item in reversed(output):
         if item.get("role") == "assistant" and "content" in item:
             content = item["content"]
             if isinstance(content, str):
                 return content
             if isinstance(content, list):
-                for part in content:
-                    if isinstance(part, dict) and part.get("type") in ("text", "output_text"):
-                        return part.get("text", json.dumps(output))
+                text_parts = [
+                    part.get("text")
+                    for part in content
+                    if isinstance(part, dict) and part.get("type") in ("text", "output_text")
+                ]
+                if text_parts:
+                    if all(isinstance(text, str) for text in text_parts):
+                        return "".join(text_parts)
+                    return json.dumps(output)
     return json.dumps(output)
 
 

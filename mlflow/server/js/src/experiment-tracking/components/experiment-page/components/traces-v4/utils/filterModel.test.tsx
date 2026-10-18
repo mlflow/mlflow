@@ -209,14 +209,14 @@ describe('compileFilterModel', () => {
 describe('useMlflowTraceFilterFields', () => {
   const wrapper = ({ children }: { children: React.ReactNode }) => <IntlProvider locale="en">{children}</IntlProvider>;
 
-  test('offers one combobox "Assessment" field whose keyOptions are the assessment names', () => {
+  test('offers one combobox "Feedback" field whose keyOptions are the assessment names', () => {
     const { result } = renderHook(() => useMlflowTraceFilterFields(['relevance', 'safety']), { wrapper });
 
     const assessmentFields = result.current.filter((field) => field.id === 'assessment');
     expect(assessmentFields).toHaveLength(1);
     expect(assessmentFields[0]).toEqual({
       id: 'assessment',
-      label: 'Assessment',
+      label: 'Feedback',
       operators: [FilterOp.EQUALS, FilterOp.NOT_EQUALS],
       valueInput: 'text',
       requiresKey: true,
@@ -225,11 +225,11 @@ describe('useMlflowTraceFilterFields', () => {
         { value: 'relevance', label: 'relevance' },
         { value: 'safety', label: 'safety' },
       ],
-      keyPlaceholder: 'Assessment name',
+      keyPlaceholder: 'Feedback name',
     });
   });
 
-  test('still offers the "Assessment" field with empty keyOptions when no names are given', () => {
+  test('still offers the "Feedback" field with empty keyOptions when no names are given', () => {
     const { result } = renderHook(() => useMlflowTraceFilterFields(), { wrapper });
     const assessment = result.current.find((field) => field.id === 'assessment');
     expect(assessment?.keyInput).toBe('combobox');

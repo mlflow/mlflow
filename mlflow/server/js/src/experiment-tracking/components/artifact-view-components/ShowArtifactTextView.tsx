@@ -112,7 +112,7 @@ class ShowArtifactTextView extends Component<Props, State> {
 
   /** Fetches artifacts and updates component state with the result */
   fetchArtifacts() {
-    this.setState({ loading: true });
+    this.setState({ loading: true, error: undefined });
     const { isLoggedModelsMode, loggedModelId, path, runUuid, experimentId, entityTags } = this.props;
 
     this.props
