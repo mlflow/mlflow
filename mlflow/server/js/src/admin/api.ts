@@ -8,7 +8,12 @@ import type {
   ListAssignmentsResponse,
   ListRolesResponse,
   ListUsersResponse,
+  AddConditionRequest,
+  AddUserConditionRequest,
+  ListConditionsResponse,
+  ConditionResponse,
   RolePermissionResponse,
+  UpdateConditionRequest,
   RoleResponse,
   UpdateAdminRequest,
   UpdateRoleRequest,
@@ -117,6 +122,62 @@ export const AdminApi = {
       body: JSON.stringify({ role_permission_id: rolePermissionId }),
       error: defaultErrorHandler,
     });
+  },
+
+  // Conditions (condition-based access control)
+  //
+  // Addressed by condition id, not by (role, resource_type): a role may hold up to 100
+  // conditions per type, so the pair does not identify one.
+  addCondition: (request: AddConditionRequest) => {
+    return fetchEndpoint({
+      relativeUrl: 'ajax-api/3.0/mlflow/roles/conditions/add',
+      method: 'POST',
+      body: JSON.stringify(request),
+      error: defaultErrorHandler,
+    }) as Promise<ConditionResponse>;
+  },
+
+  updateCondition: (request: UpdateConditionRequest) => {
+    // Clearing BOTH filters deletes the object and the response payload is null --
+    // an object with neither filter would restrict nothing, so it is not a state the
+    // server keeps.
+    return fetchEndpoint({
+      relativeUrl: 'ajax-api/3.0/mlflow/roles/conditions/update',
+      method: 'PATCH',
+      body: JSON.stringify(request),
+      error: defaultErrorHandler,
+    }) as Promise<ConditionResponse | null>;
+  },
+
+  removeCondition: (conditionId: number) => {
+    return fetchEndpoint({
+      relativeUrl: 'ajax-api/3.0/mlflow/roles/conditions/remove',
+      method: 'DELETE',
+      body: JSON.stringify({ condition_id: conditionId }),
+      error: defaultErrorHandler,
+    });
+  },
+
+  // The server resolves -- and creates, if absent -- the synthetic role backing this
+  // user's direct grants, so there is no role_id and no direct grant has to exist first.
+  // ``workspace`` overrides the session workspace the same way the grant call does, so
+  // both halves target the same per-user role.
+  addUserCondition: (request: AddUserConditionRequest, workspace?: string) => {
+    return fetchEndpoint({
+      relativeUrl: 'ajax-api/3.0/mlflow/users/conditions/add',
+      method: 'POST',
+      body: JSON.stringify(request),
+      error: defaultErrorHandler,
+      ...workspaceHeader(workspace),
+    }) as Promise<ConditionResponse>;
+  },
+
+  listConditions: (roleId: number) => {
+    return fetchEndpoint({
+      relativeUrl: `ajax-api/3.0/mlflow/roles/conditions/list?role_id=${roleId}`,
+      method: 'GET',
+      error: defaultErrorHandler,
+    }) as Promise<ListConditionsResponse>;
   },
 
   // User-Role Assignments
