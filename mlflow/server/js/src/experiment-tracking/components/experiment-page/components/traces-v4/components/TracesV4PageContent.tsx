@@ -469,13 +469,14 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
             onPageSizeChange={url.setPageSize}
             hasNext={page.hasNext}
             hasPrev={page.hasPrev}
-            // Grouped mode fetches one big page: hide the page-size selector always, and hide the whole
-            // bar when that page holds everything (no prev/next to offer).
-            hidePagination={controller.isGroupedBySession && !page.hasNext && !page.hasPrev}
+            // Grouped mode fetches one big page, so the page-size selector is moot. The bar itself stays
+            // even when that page holds everything: it carries the session count.
             hidePageSizeSelector={controller.isGroupedBySession}
-            // "{n} of {total}" footer count (bottom-left).
-            traceCount={page.traces.length}
+            // "{n} of {total}" footer count (bottom-left), led by the session count when grouped by session.
+            traceCount={controller.traceCount.currentCount}
             traceTotal={controller.traceCount.totalCount}
+            sessionCount={controller.traceCount.sessions?.currentCount}
+            sessionTotal={controller.traceCount.sessions?.totalCount}
             isTraceCountLoading={controller.traceCount.isTotalLoading}
             // Reserve the pinned pagination bar's height with the floating-obstruction store so the
             // Assistant FAB rises above it instead of overlapping the prev/next/page-size controls.
