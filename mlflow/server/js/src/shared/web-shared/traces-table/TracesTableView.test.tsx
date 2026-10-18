@@ -109,15 +109,21 @@ describe('TracesTableView', () => {
     expect(screen.getByText(/Rows per page/)).toBeInTheDocument();
   });
 
-  test('labels the footer count as sessions only when isSessionCount is set', async () => {
-    const counts = { viewState: 'ready' as const, traceCount: 2, traceTotal: 7 };
-
-    const { unmount } = await renderWithProviders(<TracesTableView {...baseProps(counts)} />);
-    expect(screen.getByText('2 of 7')).toBeInTheDocument();
-    unmount();
-
-    await renderWithProviders(<TracesTableView {...baseProps({ ...counts, isSessionCount: true })} />);
-    expect(screen.getByText('2 of 7 sessions')).toBeInTheDocument();
+  test.each([
+    { counts: { traceCount: 5, traceTotal: 42 }, expected: '5 of 42' },
+    {
+      counts: { traceCount: 5, traceTotal: 42, sessionCount: 2, sessionTotal: 7 },
+      expected: '2 of 7 sessions · 5 of 42 traces',
+    },
+    {
+      counts: { traceCount: 1, traceTotal: 1, sessionCount: 1, sessionTotal: 1 },
+      expected: '1 of 1 session · 1 of 1 trace',
+    },
+    // Grouped with no sessions in range: the session count is dropped rather than reading "0 of 0".
+    { counts: { traceCount: 5, traceTotal: 42, sessionCount: 0, sessionTotal: 0 }, expected: '5 of 42' },
+  ])('footer count reads "$expected"', async ({ counts, expected }) => {
+    await renderWithProviders(<TracesTableView {...baseProps({ viewState: 'ready', ...counts })} />);
+    expect(screen.getByText(expected)).toBeInTheDocument();
   });
 
   test('forwards sessionsMayBeIncomplete so paginated grouped sessions hide partial aggregates', async () => {

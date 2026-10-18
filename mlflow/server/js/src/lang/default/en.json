@@ -1351,6 +1351,10 @@
     "defaultMessage": "No minimum",
     "description": "Numeric question: min-value input placeholder when unbounded"
   },
+  "3gNQg8": {
+    "defaultMessage": "{count} of {total, plural, one {# session} other {# sessions}}",
+    "description": "Traces table footer when grouped by session, showing how many sessions are loaded out of the total"
+  },
   "3geT+I": {
     "defaultMessage": "Use the log artifact APIs to store file outputs from MLflow runs.",
     "description": "Information in the empty state explaining how one could log artifacts output files for the experiment runs"
@@ -2526,6 +2530,10 @@
   "8Oqhz5": {
     "defaultMessage": "Copy failed — clipboard unavailable.",
     "description": "Error toast shown when copying a saved experiment view share link fails"
+  },
+  "8Pg6K7": {
+    "defaultMessage": "{count} of {total, plural, one {# trace} other {# traces}}",
+    "description": "Traces table footer when grouped by session, showing how many traces are loaded out of the total"
   },
   "8Q36QS": {
     "defaultMessage": "Actions ({count})",
@@ -12074,10 +12082,6 @@
   "jjidVr": {
     "defaultMessage": "{numValue}/{numEvals} for run \"{runName}\"",
     "description": "Passing assessment tooltip"
-  },
-  "jjuT5Z": {
-    "defaultMessage": "{count} of {total} sessions",
-    "description": "Traces table footer showing how many sessions are loaded out of the total when traces are grouped by session"
   },
   "jkeYf8": {
     "defaultMessage": "Unpin group",

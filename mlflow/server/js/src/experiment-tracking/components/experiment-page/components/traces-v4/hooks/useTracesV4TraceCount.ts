@@ -4,15 +4,17 @@ import { useTraceMetricsQuery } from '@mlflow/mlflow/src/experiment-tracking/pag
 import type { StartEndTime } from '../utils/timeRange';
 
 export interface TracesV4TraceCount {
-  /** Rows on the current page (session groups when counting sessions). */
+  /** Rows on the current page. */
   currentCount: number;
-  /**
-   * Total traces (or sessions, when counting sessions) matching the current experiment + time range,
-   * from the trace-metrics endpoint.
-   */
+  /** Total traces matching the current experiment + time range, from the trace-metrics endpoint. */
   totalCount: number | undefined;
-  /** True while the total is still resolving (the current count is always known immediately). */
+  /** True while a total is still resolving (the current counts are always known immediately). */
   isTotalLoading: boolean;
+  /**
+   * Distinct sessions on the current page out of the `session_count` total, alongside the trace
+   * counts. Set only when counting sessions (grouped by session).
+   */
+  sessions?: { currentCount: number; totalCount: number | undefined };
 }
 
 interface UseTracesV4TraceCountOptions {
@@ -29,10 +31,10 @@ interface UseTracesV4TraceCountOptions {
    */
   isResultLoading?: boolean;
   /**
-   * Count sessions instead of traces (the table is grouped by session). The total then comes from
-   * the `session_count` metric, and `currentPageCount` is expected to be the page's session groups.
+   * Distinct sessions on the current page. Pass it when grouped by session to also count sessions,
+   * totalled from the `session_count` metric with the same experiment and time-range scoping.
    */
-  countSessions?: boolean;
+  pageSessionCount?: number;
 }
 
 /**
@@ -51,20 +53,30 @@ export const useTracesV4TraceCount = (
   experimentId: string,
   currentPageCount: number,
   timeRange: StartEndTime,
-  { isExactTraceIdSearch = false, isResultLoading = false, countSessions = false }: UseTracesV4TraceCountOptions = {},
+  { isExactTraceIdSearch = false, isResultLoading = false, pageSessionCount }: UseTracesV4TraceCountOptions = {},
 ): TracesV4TraceCount => {
   const experimentIds = useMemo(() => [experimentId], [experimentId]);
   const startTimeMs = timeRange.startTime ? Number(timeRange.startTime) : undefined;
   const endTimeMs = timeRange.endTime ? Number(timeRange.endTime) : undefined;
+  const isCountingSessions = pageSessionCount !== undefined;
 
-  const { data, isLoading, isFetching } = useTraceMetricsQuery({
+  const traceTotalQuery = useTraceMetricsQuery({
     experimentIds,
     viewType: MetricViewType.TRACES,
-    metricName: countSessions ? TraceMetricKey.SESSION_COUNT : TraceMetricKey.TRACE_COUNT,
+    metricName: TraceMetricKey.TRACE_COUNT,
     aggregations: [{ aggregation_type: AggregationType.COUNT }],
     startTimeMs,
     endTimeMs,
     enabled: !isExactTraceIdSearch,
+  });
+  const sessionTotalQuery = useTraceMetricsQuery({
+    experimentIds,
+    viewType: MetricViewType.TRACES,
+    metricName: TraceMetricKey.SESSION_COUNT,
+    aggregations: [{ aggregation_type: AggregationType.COUNT }],
+    startTimeMs,
+    endTimeMs,
+    enabled: isCountingSessions && !isExactTraceIdSearch,
   });
 
   if (isExactTraceIdSearch) {
@@ -74,15 +86,29 @@ export const useTracesV4TraceCount = (
       currentCount: currentPageCount,
       totalCount: isResultLoading ? undefined : currentPageCount,
       isTotalLoading: isResultLoading,
+      sessions:
+        pageSessionCount === undefined
+          ? undefined
+          : { currentCount: pageSessionCount, totalCount: isResultLoading ? undefined : pageSessionCount },
     };
   }
 
-  // Normal path: the time-scoped metrics total. `isFetching` (not just `isLoading`) gates the value
-  // so that when the query is re-enabled on leaving trace-id mode, we spin until the fresh total
-  // lands rather than briefly surfacing the prior fetch's cached (differently-scoped) count.
+  // Normal path: the time-scoped metrics totals. `isFetching` (not just `isLoading`) gates each value
+  // so that when a query is re-enabled on leaving trace-id mode, we spin until the fresh total lands
+  // rather than briefly surfacing the prior fetch's cached (differently-scoped) count. A disabled
+  // query still reports `isLoading` in react-query v4, so the session query only counts when enabled.
+  const getTotal = ({ data, isFetching }: typeof traceTotalQuery) =>
+    isFetching ? undefined : data?.data_points?.[0]?.values?.[AggregationType.COUNT];
   return {
     currentCount: currentPageCount,
-    totalCount: isFetching ? undefined : data?.data_points?.[0]?.values?.[AggregationType.COUNT],
-    isTotalLoading: isLoading || isFetching,
+    totalCount: getTotal(traceTotalQuery),
+    isTotalLoading:
+      traceTotalQuery.isLoading ||
+      traceTotalQuery.isFetching ||
+      (isCountingSessions && (sessionTotalQuery.isLoading || sessionTotalQuery.isFetching)),
+    sessions:
+      pageSessionCount === undefined
+        ? undefined
+        : { currentCount: pageSessionCount, totalCount: getTotal(sessionTotalQuery) },
   };
 };
