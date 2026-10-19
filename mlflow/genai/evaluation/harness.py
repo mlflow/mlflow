@@ -925,9 +925,6 @@ def _run_score(
         )
     eval_result.assessments.extend(_get_new_expectations(eval_item))
 
-    if eval_item.trace is None:
-        return eval_result
-
     tags = eval_item.tags if not is_none_or_nan(eval_item.tags) else {}
     validate_tags(tags)
 
