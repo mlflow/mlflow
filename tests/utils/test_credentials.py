@@ -1,5 +1,5 @@
 from unittest import mock
-from unittest.mock import patch
+from unittest.mock import call, patch
 
 import pytest
 
@@ -148,3 +148,49 @@ def test_mlflow_login_noninteractive():
             match="No valid Databricks credentials found while running in non-interactive mode",
         ):
             login(backend="databricks", interactive=False)
+
+
+def test_mlflow_login_invalid_host_retry(tmp_path, monkeypatch):
+    with (
+        patch(
+            "builtins.input",
+            side_effect=[
+                "http://insecure.databricks.com",
+                "community.cloud.databricks.com",
+                "https://community.cloud.databricks.com/",
+                "dummyusername",
+            ],
+        ),
+        patch("getpass.getpass", side_effect=["dummypassword"]),
+        patch("mlflow.utils.credentials._logger.error") as mock_logger_error,
+    ):
+        file_name = f"{tmp_path}/.databrickscfg"
+        profile = "TEST"
+        monkeypatch.setenv("DATABRICKS_CONFIG_FILE", file_name)
+        monkeypatch.setenv("DATABRICKS_CONFIG_PROFILE", profile)
+
+        with patch(
+            "mlflow.utils.credentials._validate_databricks_auth",
+            side_effect=[MlflowException("Invalid databricks credentials."), None],
+        ):
+            login("databricks")
+
+    mock_logger_error.assert_has_calls([
+        call(
+            "Invalid host: http://insecure.databricks.com, host must begin with https://, "
+            "please retry."
+        ),
+        call(
+            "Invalid host: community.cloud.databricks.com, host must begin with https://, "
+            "please retry."
+        ),
+    ])
+
+    with open(file_name) as f:
+        lines = f.readlines()
+        assert lines[0] == "[TEST]\n"
+        assert lines[1] == "host = https://community.cloud.databricks.com/\n"
+        assert lines[2] == "username = dummyusername\n"
+        assert lines[3] == "password = dummypassword\n"
+
+    assert get_tracking_uri() == "databricks"
