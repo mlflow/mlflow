@@ -1362,13 +1362,18 @@ def test_load_pickle_model_does_not_import_artifact_pickle_module_when_disallowe
         serialization_format="pickle",
     )
     (Path(model_path) / "data" / "pickle_module_info.txt").write_text("pickle_module_canary")
+    code_dir = os.path.join(model_path, "code")
 
     monkeypatch.setenv("MLFLOW_ALLOW_PICKLE_DESERIALIZATION", "false")
     with pytest.raises(MlflowException, match="MLFLOW_ALLOW_PICKLE_DESERIALIZATION"):
         mlflow.pytorch.load_model(model_path)
     assert not marker_path.exists()
     assert "pickle_module_canary" not in sys.modules
+    # The rejected load must not leave the artifact's code directory importable either.
+    assert code_dir not in sys.path
 
+    # `mlflow.pyfunc.load_model` prepends the code directory itself before calling the flavor,
+    # so only the import is checked on this route.
     with pytest.raises(MlflowException, match="MLFLOW_ALLOW_PICKLE_DESERIALIZATION"):
         mlflow.pyfunc.load_model(model_path)
     assert not marker_path.exists()
