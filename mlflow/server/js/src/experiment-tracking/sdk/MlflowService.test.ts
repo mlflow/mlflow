@@ -92,3 +92,36 @@ describe('artifact-service credential scope', () => {
     expect(global.fetch).toHaveBeenCalledWith(url, expect.objectContaining({ method: 'PUT', body: 'raw contents' }));
   });
 });
+
+describe('artifact proxy URLs for subpath UIs', () => {
+  const originalUseAbsoluteAjaxUrls = process.env['MLFLOW_USE_ABSOLUTE_AJAX_URLS'];
+  let base: HTMLBaseElement;
+
+  beforeEach(() => {
+    base = document.createElement('base');
+    base.href = new URL('/tracking/experiments/1', window.location.href).toString();
+    document.head.append(base);
+  });
+
+  afterEach(() => {
+    base.remove();
+    if (originalUseAbsoluteAjaxUrls === undefined) delete process.env['MLFLOW_USE_ABSOLUTE_AJAX_URLS'];
+    else process.env['MLFLOW_USE_ABSOLUTE_AJAX_URLS'] = originalUseAbsoluteAjaxUrls;
+  });
+
+  it.each([false, true])('resolves authority-free byte URLs with absolute AJAX set to %s', (absolute) => {
+    process.env['MLFLOW_USE_ABSOLUTE_AJAX_URLS'] = String(absolute);
+    const route = 'ajax-api/2.0/mlflow-artifacts/artifacts/root/a%20b.txt';
+    const url = MlflowService.getMlflowArtifactsProxyUrl('root/a b.txt');
+    expect(url).toBe(absolute ? `/${route}` : route);
+    expect(new URL(url, document.baseURI).pathname).toBe(absolute ? `/${route}` : `/tracking/experiments/${route}`);
+  });
+
+  it.each([false, true])('preserves explicit service prefixes with absolute AJAX set to %s', (absolute) => {
+    process.env['MLFLOW_USE_ABSOLUTE_AJAX_URLS'] = String(absolute);
+    const base = `${window.location.origin}/artifact-service/`;
+    expect(MlflowService.getMlflowArtifactsProxyUrl('root/a b.txt', base)).toBe(
+      `${base}api/2.0/mlflow-artifacts/artifacts/root/a%20b.txt`,
+    );
+  });
+});

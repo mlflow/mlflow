@@ -20,6 +20,7 @@ import {
   defaultResponseParser,
   deleteJson,
   fetchEndpoint,
+  getAjaxUrl,
   getJson,
   HTTPMethods,
   patchJson,
@@ -180,7 +181,7 @@ export class MlflowService {
     }>;
 
   static getMlflowArtifactsProxyUrl = (path: string, artifactServiceBaseUrl?: string) =>
-    getMlflowArtifactsRequest('artifacts', path, artifactServiceBaseUrl).relativeUrl;
+    getAjaxUrl(getMlflowArtifactsRequest('artifacts', path, artifactServiceBaseUrl).relativeUrl);
 
   static uploadMlflowArtifact = async (path: string, body: BodyInit, artifactServiceBaseUrl?: string) =>
     fetchEndpoint({

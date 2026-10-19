@@ -98,8 +98,15 @@ export async function getArtifactChunkedText(
 }
 
 /** Fetch artifact text for a preview. */
-export function getArtifactContent(artifactLocation: string, options?: ArtifactRequestOptions): Promise<string> {
-  return getArtifactChunkedText(artifactLocation, options);
+export async function getArtifactContent(artifactLocation: string, options?: ArtifactRequestOptions): Promise<string> {
+  const blob = await getArtifactBlob(artifactLocation, options);
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(reader.error);
+    // FileReader preserves BOM-based encoding detection after the byte limit is enforced.
+    reader.readAsText(blob);
+  });
 }
 
 /** Fetch artifact bytes for a preview without converting them to text. */

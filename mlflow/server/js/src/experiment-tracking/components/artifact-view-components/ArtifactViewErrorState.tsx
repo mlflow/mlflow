@@ -7,7 +7,7 @@ import { ErrorWrapper } from '../../../common/utils/ErrorWrapper';
 interface ArtifactViewErrorStateProps extends Omit<React.HTMLAttributes<HTMLDivElement>, 'title'> {
   description?: React.ReactNode;
   title?: React.ReactNode;
-  error?: unknown;
+  error: unknown;
 }
 
 const getArtifactErrorDescription = (error: unknown) => {

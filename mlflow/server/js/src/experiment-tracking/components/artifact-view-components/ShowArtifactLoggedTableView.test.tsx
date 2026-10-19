@@ -1,10 +1,11 @@
 import { jest, describe, beforeEach, beforeAll, afterAll, afterEach, it, expect } from '@jest/globals';
+import { ErrorWrapper } from '../../../common/utils/ErrorWrapper';
 import userEvent from '@testing-library/user-event';
 import { render, screen, waitFor } from '../../../common/utils/TestUtils.react18';
 import { ShowArtifactLoggedTableView } from './ShowArtifactLoggedTableView';
 import { IntlProvider } from 'react-intl';
 import { DesignSystemProvider } from '@databricks/design-system';
-import { getArtifactBlob, getArtifactContent } from '../../../common/utils/ArtifactUtils';
+import { ArtifactPreviewTooLargeError, getArtifactBlob, getArtifactContent } from '../../../common/utils/ArtifactUtils';
 
 // eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(90000); // Larger timeout for integration testing (table rendering)
@@ -82,6 +83,28 @@ describe('ShowArtifactLoggedTableView', () => {
 
   afterEach(() => {
     jest.restoreAllMocks();
+  });
+
+  it.each([
+    ['preview size', new ArtifactPreviewTooLargeError(), /Maximum file size for preview: 50 MiB/],
+    ['server mode', new ErrorWrapper({ artifacts_presigned_only: true }, 403), /Reload this page to continue/],
+    [
+      'artifact origin',
+      new ErrorWrapper({ external_artifact_service: true, message: 'Use a same-origin artifact service.' }, 403),
+      /Use a same-origin artifact service/,
+    ],
+    [
+      'artifact root',
+      new ErrorWrapper(
+        { invalid_artifact_root: true, message: 'The artifact root URI cannot be decoded safely.' },
+        400,
+      ),
+      /The artifact root URI cannot be decoded safely/,
+    ],
+  ])('shows actionable %s guidance', async (_name, error, guidance) => {
+    jest.mocked(getArtifactContent).mockRejectedValue(error);
+    renderComponent();
+    expect(await screen.findByText(guidance as RegExp)).toBeInTheDocument();
   });
 
   it('renders the table and expected values in the cells', async () => {

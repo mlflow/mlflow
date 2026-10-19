@@ -31,6 +31,7 @@ import { ShowArtifactLoggedTableViewDataPreview } from './ShowArtifactLoggedTabl
 import Utils from '@mlflow/mlflow/src/common/utils/Utils';
 import type { LoggedModelArtifactViewerProps } from './ArtifactViewComponents.types';
 import { fetchArtifactUnified } from './utils/fetchArtifactUnified';
+import { ArtifactViewErrorState } from './ArtifactViewErrorState';
 
 const MAX_ROW_HEIGHT = 160;
 const MIN_COLUMN_WIDTH = 100;
@@ -514,7 +515,7 @@ export const ShowArtifactLoggedTableView = React.memo(
       );
     }
     if (error) {
-      return renderErrorState(error.message);
+      return <ArtifactViewErrorState error={error} description={error instanceof Error ? error.message : undefined} />;
     } else if (text) {
       if (!data) {
         return renderErrorState(

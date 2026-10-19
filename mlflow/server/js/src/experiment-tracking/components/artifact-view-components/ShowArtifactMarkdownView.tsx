@@ -80,7 +80,7 @@ const ShowArtifactMarkdownView = ({
     return <ArtifactViewSkeleton className="artifact-markdown-view-loading" />;
   }
   if (error) {
-    return <ArtifactViewErrorState className="artifact-markdown-view-error" />;
+    return <ArtifactViewErrorState error={error} className="artifact-markdown-view-error" />;
   }
 
   return (

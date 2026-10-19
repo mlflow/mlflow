@@ -129,6 +129,27 @@ describe('bounded artifact previews', () => {
   });
 
   test.each([
+    ['UTF-8', [0x41, 0xe2, 0x82, 0xac], 'text/plain', 'A€'],
+    ['UTF-8 BOM', [0xef, 0xbb, 0xbf, 0x41, 0xe2, 0x82, 0xac], 'text/plain', 'A€'],
+    ['UTF-16LE BOM', [0xff, 0xfe, 0x41, 0x00, 0xac, 0x20, 0x3d, 0xd8, 0x00, 0xde], 'text/plain', 'A€😀'],
+    ['UTF-16BE BOM', [0xfe, 0xff, 0x00, 0x41, 0x20, 0xac, 0xd8, 0x3d, 0xde, 0x00], 'text/plain', 'A€😀'],
+    ['BOM overriding charset', [0xff, 0xfe, 0x41, 0x00], 'text/plain;charset=utf-8', 'A'],
+    ['empty text', [], 'text/plain', ''],
+  ] as const)('preserves %s decoding across split stream chunks', async (_encoding, values, contentType, text) => {
+    const bytes = new Uint8Array(values);
+    const { fetchSpy, releaseLock } = mockArtifactStream([bytes.slice(0, 1), bytes.slice(1, 3), bytes.slice(3)], {
+      'Content-Type': contentType,
+    });
+
+    await expect(
+      getArtifactContent('https://storage.example/artifact', { headers: { 'x-storage': 'required' } }),
+    ).resolves.toBe(text);
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect((fetchSpy.mock.calls[0][0] as Request).headers.get('x-storage')).toBe('required');
+    expect(releaseLock).toHaveBeenCalledTimes(1);
+  });
+
+  test.each([
     ['text', getArtifactContent],
     ['chunked text', getArtifactChunkedText],
     ['bytes', getArtifactBytesContent],

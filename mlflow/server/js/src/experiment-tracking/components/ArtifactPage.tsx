@@ -241,6 +241,7 @@ export class ArtifactPageImpl extends Component<ArtifactPageImplProps, ArtifactP
         <ArtifactViewErrorState
           css={{ flex: this.props.useAutoHeight ? 1 : 'unset', height: this.props.useAutoHeight ? 'auto' : undefined }}
           data-testid="artifact-view-error"
+          error={failedReq?.error}
           description={errorDescription}
         />
       );
