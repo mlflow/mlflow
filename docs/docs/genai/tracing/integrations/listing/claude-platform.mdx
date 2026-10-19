@@ -56,10 +56,10 @@ This example uses SQLite as the backend store. To use other types of SQL databas
 
 The Claude API sends spans from Anthropic's infrastructure, so it can't reach a server on `localhost`. The endpoint must be an HTTPS URL on port 443 with a public hostname, for example `https://mlflow.example.com`. Put a reverse proxy, a load balancer, or a tunnel in front of the MLflow server, or use a hosted MLflow server.
 
-By default, the MLflow server only accepts requests whose `Host` header is a local or private address. Add your public hostname with the `--allowed-hosts` option:
+By default, the MLflow server only accepts requests whose `Host` header is a local or private address. Setting the `--allowed-hosts` option replaces these defaults, so list your public hostname together with the local hosts that you still use:
 
 ```bash
-mlflow server --backend-store-uri sqlite:///mlflow.db --port 5000 --allowed-hosts "mlflow.example.com"
+mlflow server --backend-store-uri sqlite:///mlflow.db --port 5000 --allowed-hosts "localhost:*,127.0.0.1:*,mlflow.example.com"
 ```
 
 See [Network Security](/self-hosting/security/network) for more details.
@@ -85,13 +85,13 @@ You need the admin role in your Claude Console organization to add a destination
 1. Open the [OpenTelemetry settings page](https://platform.claude.com/settings/telemetry-destinations) in the Claude Console and click **Add destination**.
 2. Configure the destination:
 
-   | Field                 | Value                                                                                                                           |
-   | --------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-   | **Provider**          | **Custom**                                                                                                                      |
+   | Field                 | Value                                                                                                                            |
+   | --------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+   | **Provider**          | **Custom**                                                                                                                       |
    | **OTLP endpoint URL** | The public URL of your MLflow server, for example `https://mlflow.example.com`. Don't add `/v1/traces`, because the API adds it. |
-   | **Request headers**   | `x-mlflow-experiment-id` with the experiment ID from step 3.                                                                    |
+   | **Request headers**   | `x-mlflow-experiment-id` with the experiment ID from step 3.                                                                     |
    | **Content mode**      | **Full content**, to see prompts and responses in MLflow. With **Metadata only**, spans have timing, status, and token usage.    |
-   | **Workspaces**        | The workspaces whose requests you want to trace.                                                                                |
+   | **Workspaces**        | The workspaces whose requests you want to trace.                                                                                 |
 
 3. Click **Add destination**.
 4. In the destination's **More actions** menu, click **Test**. Check that an `anthropic.test` span arrives in your MLflow experiment.
@@ -153,7 +153,7 @@ With SDK tracing, the Claude SDK emits a span for each request that your applica
 <Tabs>
   <TabItem value="python" label="Python" default>
 ```bash
-pip install --upgrade mlflow anthropic opentelemetry-sdk opentelemetry-exporter-otlp-proto-http
+pip install --upgrade mlflow "anthropic>=1.14.0" opentelemetry-sdk opentelemetry-exporter-otlp-proto-http
 ```
   </TabItem>
   <TabItem value="typescript" label="JS / TS">
@@ -282,14 +282,15 @@ The SDK span and the API spans of a request all carry its token usage. MLflow co
 
 The Claude Console shows the last delivery error when you hover over **Failing** in the **Delivery** column of the destination.
 
-| Error                       | Likely cause                                                                                                                       |
-| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| HTTP error (status 401)     | The MLflow server has authentication enabled and the `Authorization` header is missing or wrong.                                   |
-| HTTP error (status 403)     | The hostname isn't in the `--allowed-hosts` option of the MLflow server, or the user doesn't have permission on the experiment.    |
-| HTTP error (status 404)     | The **OTLP endpoint URL** ends with `/v1/traces`, or the experiment ID in the `x-mlflow-experiment-id` header doesn't exist.        |
-| HTTP error (status 422)     | The `x-mlflow-experiment-id` header is missing.                                                                                    |
-| Spans have no prompts       | The content mode of the destination or the SDK is **Metadata only**. Change it to **Full content** (`content` in the SDK).         |
-| Each request appears twice  | Both MLflow's Anthropic autolog and the Claude SDK trace the same client. Disable one of them, for example with `ANTHROPIC_OPEN_TELEMETRY=false`. |
+| Error                                        | Likely cause                                                                                                                                      |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| HTTP error (status 401)                      | The MLflow server has authentication enabled and the `Authorization` header is missing or wrong.                                                  |
+| HTTP error (status 403)                      | The hostname isn't in the `--allowed-hosts` option of the MLflow server, or the user doesn't have permission on the experiment.                   |
+| HTTP error (status 404)                      | The **OTLP endpoint URL** ends with `/v1/traces`.                                                                                                 |
+| HTTP error (status 422)                      | The `x-mlflow-experiment-id` header is missing.                                                                                                   |
+| Delivery is **Healthy**, but no spans appear | The experiment ID in the `x-mlflow-experiment-id` header doesn't exist. MLflow accepts the request and drops the spans.                           |
+| Spans have no prompts                        | The content mode of the destination or the SDK is **Metadata only**. Change it to **Full content** (`content` in the SDK).                        |
+| Each request appears twice                   | Both MLflow's Anthropic autolog and the Claude SDK trace the same client. Disable one of them, for example with `ANTHROPIC_OPEN_TELEMETRY=false`. |
 
 ## Next steps
 
