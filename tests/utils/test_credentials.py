@@ -137,6 +137,34 @@ def test_mlflow_login(tmp_path, monkeypatch):
     assert get_tracking_uri() == "databricks"
 
 
+def test_mlflow_login_retries_on_invalid_host(tmp_path, monkeypatch):
+    file_name = f"{tmp_path}/.databrickscfg"
+    monkeypatch.setenv("DATABRICKS_CONFIG_FILE", file_name)
+    monkeypatch.setenv("DATABRICKS_CONFIG_PROFILE", "TEST")
+    with (
+        patch(
+            "builtins.input",
+            side_effect=["http://invalid.host", "https://valid.cloud.databricks.com"],
+        ) as mock_input,
+        patch("getpass.getpass", side_effect=["dummytoken"]),
+        patch(
+            "mlflow.utils.credentials._validate_databricks_auth",
+            side_effect=[MlflowException("Invalid databricks credentials."), None],
+        ),
+        patch("mlflow.utils.credentials._logger.error") as mock_error,
+    ):
+        login("databricks")
+
+    assert mock_input.call_count == 2
+    mock_error.assert_called_once_with(
+        "Invalid host: http://invalid.host, host must begin with https://, please retry."
+    )
+    with open(file_name) as f:
+        lines = f.readlines()
+        assert lines[1] == "host = https://valid.cloud.databricks.com\n"
+        assert lines[2] == "token = dummytoken\n"
+
+
 def test_mlflow_login_noninteractive():
     # Forces mlflow.utils.credentials._validate_databricks_auth to raise `MlflowException()`
     with patch(
