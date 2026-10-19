@@ -12,7 +12,6 @@ import {
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { createTraceLocationForExperiment, useSearchMlflowTraces } from '@databricks/web-shared/genai-traces-table';
-import { DEFAULT_TRACES_V4_TIME_LABEL } from '../../components/experiment-page/components/traces-v4/utils/timeRange';
 import { shouldEnableIssueDetection } from '../../../common/utils/FeatureUtils';
 import { generatePath, useLocation, useNavigate, useParams } from '../../../common/utils/RoutingUtils';
 import Routes, { RoutePaths } from '../../routes';
@@ -126,8 +125,8 @@ export const ExperimentGenAIJourneyOverviewPage = () => {
   const { search } = useLocation();
   const navigate = useNavigate();
   const isIssueDetectionEnabled = shouldEnableIssueDetection();
-  const useRollingSevenDayRange = true;
-  const overviewTimeLabel = DEFAULT_TRACES_V4_TIME_LABEL;
+  const useRollingSevenDayRange = false;
+  const overviewTimeLabel = 'LAST_30_DAYS';
   const sqlWarehouseContext = useSqlWarehouseContextSafe();
   const { canUseAssistant, openPanel, prefillPrompt, sendMessageWhenReady } = useAssistant();
   const { state: traceState, retry: retryTraceQuery } = useGenAIOverviewTraceState(

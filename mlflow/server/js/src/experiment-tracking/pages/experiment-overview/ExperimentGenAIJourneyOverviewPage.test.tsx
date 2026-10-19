@@ -2,8 +2,8 @@ import { beforeEach, describe, expect, jest, test } from '@jest/globals';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithDesignSystem } from '../../../common/utils/TestUtils.react18';
-import { setupTestRouter, testRoute, TestRouter } from '../../../common/utils/RoutingTestUtils';
-import { generatePath } from '../../../common/utils/RoutingUtils';
+import { testRoute, TestRouter } from '../../../common/utils/RoutingTestUtils';
+import { generatePath, useLocation } from '../../../common/utils/RoutingUtils';
 import { RoutePaths } from '../../routes';
 import ExperimentGenAIJourneyOverviewPage from './ExperimentGenAIJourneyOverviewPage';
 
@@ -21,6 +21,15 @@ const mockUseGenAIOverviewStaleIssueDetectionState = jest.fn();
 const mockUseExperimentContainsTraces = jest.fn();
 const mockUseGenAIOverviewIssueDetectionProgress = jest.fn();
 const mockRegisterIssueDetectionJob = jest.fn();
+
+const CurrentTestLocation = () => {
+  const { pathname, search } = useLocation();
+  return (
+    <div role="status" aria-label="Current test location">
+      {`${pathname}${search}`}
+    </div>
+  );
+};
 
 jest.mock('../../../assistant', () => ({
   useAssistant: () => mockUseAssistant(),
@@ -122,13 +131,13 @@ jest.mock('../../components/experiment-page/components/traces-v3/IssueDetectionM
 }));
 
 describe('ExperimentGenAIJourneyOverviewPage', () => {
-  const { history } = setupTestRouter();
-
   const renderPage = () =>
     renderWithDesignSystem(
       <TestRouter
-        history={history}
-        routes={[testRoute(<ExperimentGenAIJourneyOverviewPage />, RoutePaths.experimentPageTabJourneyOverview)]}
+        routes={[
+          testRoute(<ExperimentGenAIJourneyOverviewPage />, RoutePaths.experimentPageTabJourneyOverview),
+          testRoute(<CurrentTestLocation />, RoutePaths.experimentPageTabTraces),
+        ]}
         initialEntries={[
           generatePath(RoutePaths.experimentPageTabJourneyOverview, {
             experimentId: '123',
@@ -184,6 +193,18 @@ describe('ExperimentGenAIJourneyOverviewPage', () => {
       expect.stringContaining('## Selected Overview chart context'),
     );
     expect(mockSendAssistantMessage).toHaveBeenCalledWith(expect.stringContaining('"traceCount": 12'));
+  });
+
+  test('uses the 30-day range for trace activity and trace navigation', async () => {
+    renderPage();
+
+    await userEvent.click(await screen.findByRole('button', { name: 'View traces' }));
+
+    expect(mockUseGenAIOverviewTraceState).toHaveBeenLastCalledWith('123', false);
+    expect(mockUseGenAIOverviewAnalyzeState).toHaveBeenLastCalledWith('123', false);
+    expect(await screen.findByRole('status', { name: 'Current test location' })).toHaveTextContent(
+      '/experiments/123/traces?startTimeLabel=LAST_30_DAYS',
+    );
   });
 
   test('hides Assistant actions when the Assistant is unavailable', async () => {

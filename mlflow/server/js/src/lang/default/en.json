@@ -5635,10 +5635,6 @@
     "defaultMessage": "Evaluation score trends. Use arrow keys to select a run.",
     "description": "Accessible label for the interactive evaluation overview chart"
   },
-  "HstzaX": {
-    "defaultMessage": "Only the most recent 100 versions are shown.",
-    "description": "Warning shown when the MCP server has more versions than can be displayed"
-  },
   "Ht3zGx": {
     "defaultMessage": "Hide column",
     "description": "Traces table column header menu item to hide the column"
@@ -8718,10 +8714,6 @@
   "SVXXp4": {
     "defaultMessage": "Input type",
     "description": "Review question input variant selector"
-  },
-  "SW4qfw": {
-    "defaultMessage": "{label} theme",
-    "description": "Preview item theme label"
   },
   "SWAgsV": {
     "defaultMessage": "Recommended",
