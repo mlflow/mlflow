@@ -8803,6 +8803,10 @@
     "defaultMessage": "Traces",
     "description": "Label for the traces tab on the logged model details page"
   },
+  "TeTu42": {
+    "defaultMessage": "Full-size image unavailable",
+    "description": "Image grid > error displayed in a cell when its full-size preview cannot be loaded"
+  },
   "TeUXPe": {
     "defaultMessage": "Open trace {traceId} — {column}",
     "description": "Aria label for a clickable traces-table cell that opens the trace detail drawer"
@@ -9666,6 +9670,10 @@
   "WZXP1G": {
     "defaultMessage": "Run name",
     "description": "Header for the traces table run-name column"
+  },
+  "WatQf0": {
+    "defaultMessage": "Image unavailable",
+    "description": "Image grid > error displayed in a cell when its image cannot be loaded"
   },
   "Wbpp7P": {
     "defaultMessage": "Create a role to assign permissions to users.",

@@ -42,6 +42,14 @@ class ShowArtifactMapView extends Component<Props, State> {
     this.mapDivId = 'map';
   }
 
+  private artifactRequestId = 0;
+
+  componentWillUnmount() {
+    this.artifactRequestId += 1;
+    this.leafletMap?.off();
+    this.leafletMap?.remove();
+  }
+
   static defaultProps = {
     getArtifact: fetchArtifactUnified,
   };
@@ -61,7 +69,13 @@ class ShowArtifactMapView extends Component<Props, State> {
   }
 
   componentDidUpdate(prevProps: Props) {
-    if (this.props.path !== prevProps.path || this.props.runUuid !== prevProps.runUuid) {
+    if (
+      this.props.path !== prevProps.path ||
+      this.props.runUuid !== prevProps.runUuid ||
+      this.props.artifactRootUri !== prevProps.artifactRootUri ||
+      this.props.isLoggedModelsMode !== prevProps.isLoggedModelsMode ||
+      this.props.loggedModelId !== prevProps.loggedModelId
+    ) {
       this.fetchArtifacts();
     }
 
@@ -69,8 +83,6 @@ class ShowArtifactMapView extends Component<Props, State> {
       if (this.leafletMap.hasOwnProperty('_layers')) {
         this.leafletMap.off();
         this.leafletMap.remove();
-        const inner = "<div id='" + this.mapDivId + "'></div>";
-        document.getElementsByClassName('map-container')[0].innerHTML = inner;
         this.leafletMap = undefined;
       }
     }
@@ -121,7 +133,7 @@ class ShowArtifactMapView extends Component<Props, State> {
       return <ArtifactViewSkeleton className="artifact-map-view-loading" />;
     }
     if (this.state.error) {
-      return <ArtifactViewErrorState className="artifact-map-view-error" />;
+      return <ArtifactViewErrorState error={this.state.error} className="artifact-map-view-error" />;
     } else {
       return (
         <div className="map-container">
@@ -138,15 +150,19 @@ class ShowArtifactMapView extends Component<Props, State> {
 
   /** Fetches artifacts and updates component state with the result */
   fetchArtifacts() {
-    const { path, runUuid, isLoggedModelsMode, loggedModelId, experimentId, entityTags } = this.props;
+    const requestId = ++this.artifactRequestId;
+    const { artifactRootUri, path, runUuid, isLoggedModelsMode, loggedModelId } = this.props;
+    this.setState({ loading: true, error: undefined, features: undefined });
 
     this.props
-      .getArtifact?.({ path, runUuid, isLoggedModelsMode, loggedModelId, experimentId, entityTags }, getArtifactContent)
+      .getArtifact?.({ artifactRootUri, path, runUuid, isLoggedModelsMode, loggedModelId }, getArtifactContent)
       .then((rawFeatures: any) => {
+        if (requestId !== this.artifactRequestId) return;
         const parsedFeatures = JSON.parse(rawFeatures);
-        this.setState({ features: parsedFeatures, loading: false });
+        this.setState({ features: parsedFeatures, error: undefined, loading: false });
       })
       .catch((error: any) => {
+        if (requestId !== this.artifactRequestId) return;
         this.setState({ error: error, loading: false, features: undefined });
       });
   }
