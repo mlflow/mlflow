@@ -1508,8 +1508,6 @@ module.exports = {
   "mlflow.genai-overview.add-monitor": "",
   "mlflow.genai-overview.cancel-issue-detection": "",
   "mlflow.genai-overview.chart-context": "",
-  "mlflow.genai-overview.dashboard-move-notice": "",
-  "mlflow.genai-overview.dashboard-move-notice.link": "",
   "mlflow.genai-overview.detect-issues": "",
   "mlflow.genai-overview.eval-chart.ask-assistant": "",
   "mlflow.genai-overview.eval-chart.view-runs": "",
