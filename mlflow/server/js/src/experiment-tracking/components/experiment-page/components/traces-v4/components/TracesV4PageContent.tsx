@@ -31,7 +31,7 @@ import {
   AssistantAwareDrawer,
   shouldPreventDrawerDismiss,
 } from '@mlflow/mlflow/src/common/components/AssistantAwareDrawer';
-import { useAssistant } from '@mlflow/mlflow/src/assistant';
+import { useAssistant, useCoverFloatingBottomObstructions } from '@mlflow/mlflow/src/assistant';
 import { useExperimentPageLayoutContainer } from '@mlflow/mlflow/src/experiment-tracking/pages/experiment-page-tabs/ExperimentPageLayout';
 import { AssistantAwareActionBar } from '@mlflow/mlflow/src/common/components/AssistantAwareActionBar';
 import Routes from '@mlflow/mlflow/src/experiment-tracking/routes';
@@ -400,6 +400,9 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
   const drawerScope = experimentPageLayoutContainer ?? tracesContentContainer;
   const getDrawerPortalContainer = useCallback(() => drawerScope ?? document.body, [drawerScope]);
   const isDrawerScoped = isNewEvalRunsUi && isAssistantPanelOpen;
+  // The new eval runs UI leaves the Assistant button in place over the open trace drawer, which covers the
+  // table's pagination bar, so the button should not keep rising above that bar.
+  useCoverFloatingBottomObstructions(isNewEvalRunsUi && Boolean(url.traceId));
 
   // The selection stores the full `ModelTraceInfoV3` per trace (keyed by id), so this is the entire
   // cross-page selection — every bulk action (judges, Genie, add-to-dataset, labeling, review queue)
