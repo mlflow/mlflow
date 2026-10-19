@@ -236,6 +236,9 @@ describe('Experiment Issues', () => {
     });
     expect(invalidate.mock.calls.filter(([key]) => Array.isArray(key) && key[0] === 'SEARCH_ISSUES')).toHaveLength(1);
     invalidate.mockRestore();
+    // Selecting the detected issue starts loading its evidence traces. Let that land here, so the
+    // next test's request handlers only ever see the requests that test made.
+    await waitFor(() => expect(client.isFetching()).toBe(0));
   });
   test.each(['', '?selectedIssueId=iss-a'])(
     'does not load Issues or detection data from a direct link when the flag is disabled (%s)',
