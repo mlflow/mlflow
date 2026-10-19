@@ -120,6 +120,8 @@ const resolveScopedDrawerWidth = (width: number | string | undefined, scopeWidth
   return width ?? scopeWidth;
 };
 
+const getDocumentBody = () => document.body;
+
 // Radix dispatches focus-outside dismissals under this event type; pointer dismissals use a different one.
 const RADIX_FOCUS_OUTSIDE_EVENT = 'dismissableLayer.focusOutside';
 
@@ -148,7 +150,7 @@ const scopedDrawerExitAnimation = keyframes({
 const ResponsiveTraceDrawerContent = (props: ResponsiveTraceDrawerContentProps) => {
   const { theme } = useDesignSystemTheme();
   const drawerScope = useContext(TracesV4DrawerScopeContext);
-  const { isFullscreen = false, css: drawerCss, width, onInteractOutside, ...drawerProps } = props;
+  const { isFullscreen = false, css: drawerCss, width, onInteractOutside, title, ...drawerProps } = props;
   const [scopeBounds, setScopeBounds] = useState(() => measureDrawerScope(drawerScope));
   const [drawerPortalContainer, setDrawerPortalContainer] = useState<HTMLDivElement | null>(null);
   const previousDrawerScopeRef = useRef(drawerScope);
@@ -208,6 +210,13 @@ const ResponsiveTraceDrawerContent = (props: ResponsiveTraceDrawerContentProps) 
       <Global styles={{ '[data-testid="drawer-overlay"]': { backgroundColor: 'transparent !important' } }} />
       <Drawer.Content
         {...drawerProps}
+        // The header's tooltips and menus render at body level, as in managed, so this clipping container
+        // can't cut them off at the drawer's edge beside the Assistant. The drawer body keeps its popups here.
+        title={
+          <ApplyDesignSystemContextOverrides getPopupContainer={getDocumentBody}>
+            {title}
+          </ApplyDesignSystemContextOverrides>
+        }
         data-trace-drawer-fullscreen={isFullscreen}
         data-trace-drawer-scope-transition={Boolean(scopeTransitionDirection)}
         // Same rule as AssistantAwareDrawer.Content, which this replaces: clicks in the Assistant, on the resize

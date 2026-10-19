@@ -127,6 +127,12 @@ describe('TracesV4PageContent trace drawer with the MLflow Assistant', () => {
     expect(screen.getByRole('button', { name: 'Full screen' })).toBeInTheDocument();
     expect(drawerScope).toContainElement(screen.getByRole('separator', { name: 'Resize trace drawer' }));
 
+    // Header tooltips render at body level, so the drawer's clipping container can't cut them off.
+    await user.hover(screen.getByRole('button', { name: 'Close trace panel' }));
+    const closeTooltip = await screen.findByRole('tooltip', { name: 'Close trace panel' });
+    expect(screen.getByTestId('trace-drawer-portal')).not.toContainElement(closeTooltip);
+    await user.unhover(screen.getByRole('button', { name: 'Close trace panel' }));
+
     // Working in the Assistant does not close the drawer.
     await user.click(screen.getByRole('button', { name: 'Assistant control' }));
     expect(drawer).toBeInTheDocument();
