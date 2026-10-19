@@ -155,9 +155,10 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
             return self._server_capabilities
 
     def _should_multipart_upload(self, local_file):
-        return self._is_multipart_upload_enabled() and (
-            os.path.getsize(local_file) >= MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE.get()
-            or self._is_artifacts_presigned_only()
+        # Enforcement takes precedence over ordinary-mode multipart opt-in flags.
+        return self._is_artifacts_presigned_only() or (
+            self._is_multipart_upload_enabled()
+            and os.path.getsize(local_file) >= MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE.get()
         )
 
     def log_artifact(self, local_file, artifact_path=None):
@@ -231,7 +232,9 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         # The presigned endpoint is part of MLflow's canonical artifact-service API.
         # A generic HTTP artifact repository must continue to stream from its configured URL,
         # even when the process-wide multipart-download override is enabled.
-        if self._artifact_server_base_uri() is not None and self._is_multipart_download_enabled():
+        if self._artifact_server_base_uri() is not None and (
+            self._is_artifacts_presigned_only() or self._is_multipart_download_enabled()
+        ):
             try:
                 presigned_response = self._get_presigned_download_url(remote_file_path)
                 file_size = presigned_response.file_size

@@ -69,6 +69,44 @@ def test_canonical_http_artifact_uri_discovers_server_capabilities(monkeypatch):
     mock_fetch_server_info.assert_called_once()
 
 
+@pytest.mark.parametrize("presigned_only", [True, False])
+@pytest.mark.parametrize("override", [None, "false"])
+@pytest.mark.parametrize("contents", [b"", b"small artifact"])
+def test_upload_presigned_only_takes_precedence_over_optional_multipart_flags(
+    monkeypatch, tmp_path, presigned_only, override, contents
+):
+    if override is None:
+        monkeypatch.delenv("MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD", raising=False)
+    else:
+        monkeypatch.setenv("MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD", override)
+    repo = HttpArtifactRepository(
+        "https://artifacts.example/api/2.0/mlflow-artifacts/artifacts/run"
+    )
+    repo._server_capabilities = {
+        SERVER_INFO_ARTIFACTS_PRESIGNED_ONLY: presigned_only,
+        SERVER_INFO_MULTIPART_UPLOADS_ENABLED: False,
+    }
+    source = tmp_path / "artifact.txt"
+    source.write_bytes(contents)
+
+    with (
+        mock.patch.object(repo, "_try_multipart_upload") as multipart,
+        mock.patch(
+            "mlflow.store.artifact.http_artifact_repo.http_request",
+            return_value=MockResponse({}, 200),
+        ) as proxy,
+    ):
+        repo.log_artifact(source, "subdir")
+
+    if presigned_only:
+        multipart.assert_called_once_with(source, "subdir")
+        proxy.assert_not_called()
+    else:
+        multipart.assert_not_called()
+        proxy.assert_called_once()
+        assert proxy.call_args.args[1:3] == ("/subdir/artifact.txt", "PUT")
+
+
 def test_non_artifact_http_uri_does_not_probe_server_info(monkeypatch):
     monkeypatch.delenv("MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD", raising=False)
     repo = HttpArtifactRepository("https://example.com/files")
@@ -834,7 +872,7 @@ def test_download_file_fallback_when_presigned_not_supported(
 def test_download_without_file_size_uses_storage(
     mlflow_artifact_repo_for_download, tmp_path, monkeypatch, presigned_only, storage_status
 ):
-    monkeypatch.setenv("MLFLOW_ENABLE_PROXY_MULTIPART_DOWNLOAD", "true")
+    monkeypatch.setenv("MLFLOW_ENABLE_PROXY_MULTIPART_DOWNLOAD", str(not presigned_only).lower())
     payload = b"artifact bytes without a known size"
     received_headers = []
 

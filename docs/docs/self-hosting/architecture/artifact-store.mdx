@@ -271,6 +271,9 @@ version or newer. Listing and deleting artifacts remain available through the Tr
 at startup that the artifact destination supports
 both presigned multipart uploads and downloads. Currently, only S3 compatible storage is supported.
 
+Compatible clients use presigned transfers for artifacts of every size in this mode, even when the optional
+`MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD` and `MLFLOW_ENABLE_PROXY_MULTIPART_DOWNLOAD` client settings are disabled.
+
 This mode applies to run and model artifacts served by the artifact endpoints. Trace attachments and
 artifact-backed trace data are not yet covered and can still pass through the Tracking Server.
 
