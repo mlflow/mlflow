@@ -871,8 +871,8 @@ def _run_predict(
         if eval_item.trace is None and eval_item.error_message is None:
             _logger.warning(
                 "Failed to log trace and assessments to MLflow: no trace tagged with "
-                "%s was found for this item (inputs=%s). If predict_fn starts the "
-                "agent on another thread, submit that work with "
+                "%s was found for this item (inputs=%s). A common cause is predict_fn "
+                "starting the agent on another thread; submit that work with "
                 "contextvars.copy_context().run.",
                 TraceTagKey.EVAL_REQUEST_ID,
                 eval_item.inputs,

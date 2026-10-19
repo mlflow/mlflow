@@ -587,7 +587,7 @@ def test_evaluate_keeps_untagged_run_traces_when_eval_request_id_is_missing(serv
         return f"answer: {question}"
 
     def predict_fn(question: str) -> str:
-        with ThreadPoolExecutor(max_workers=1) as ex:
+        with ThreadPoolExecutor(max_workers=1, thread_name_prefix="eval-off-thread") as ex:
             return ex.submit(predict, question).result()
 
     result = mlflow.genai.evaluate(
@@ -598,9 +598,14 @@ def test_evaluate_keeps_untagged_run_traces_when_eval_request_id_is_missing(serv
     mlflow.flush_trace_async_logging()
 
     traces = mlflow.search_traces(run_id=result.run_id, return_type="list")
-    # Validation plus each predict_fn call can emit an untagged agent trace. The
-    # contract is that those traces stay on the run without assessments.
-    assert len(traces) >= len(questions)
+    # The traced scorer also leaves untagged traces on the run, so identify the agent
+    # traces by their root span and check that every row's trace survived cleanup.
+    agent_questions = {
+        trace.data.spans[0].inputs["question"]
+        for trace in traces
+        if trace.data.spans[0].name == "predict"
+    }
+    assert agent_questions == set(questions)
     assert all(trace.info.tags.get(TraceTagKey.EVAL_REQUEST_ID) is None for trace in traces)
     assert all(not trace.info.assessments for trace in traces)
 
