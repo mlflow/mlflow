@@ -218,6 +218,9 @@ export const fetchModelVersionArtifact = async (
         : async () => (await MlflowService.getRun({ run_id: runId }))?.run?.info?.artifactUri,
     );
     if (!artifactRootUri) return fetchRegistryArtifact();
+    // A matching run ID alone does not establish that an absolute source uses this storage root.
+    const expectedSource = [artifactRootUri.replace(/\/$/, ''), modelArtifactPath].filter(Boolean).join('/');
+    if (!modelSource?.startsWith('runs:') && modelSource !== expectedSource) return fetchRegistryArtifact();
     const mlModelPath = [modelArtifactPath, 'MLmodel'].filter(Boolean).join('/');
     return fetchArtifactPreferPresigned(
       { runUuid: runId, path: mlModelPath, artifactRootUri },

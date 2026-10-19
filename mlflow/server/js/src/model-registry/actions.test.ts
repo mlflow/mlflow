@@ -100,6 +100,43 @@ describe('fetchModelVersionArtifact', () => {
     );
   });
 
+  test.each([
+    ['s3://active/12/run-123/artifacts/model', true],
+    ['s3://archive/12/run-123/artifacts/model', false],
+    ['s3://active/other/run-123/artifacts/model', false],
+    ['s3://active/12/run-123/artifacts-elsewhere/model', false],
+    ['runs:/another-run/model', false],
+  ])('verifies the registered source %s before using run storage', async (source, matchesRoot) => {
+    const version = jest.spyOn(Services, 'getModelVersion').mockResolvedValue({
+      model_version: { run_id: 'run-123', source },
+    });
+    const run = jest.spyOn(MlflowService, 'getRun').mockResolvedValue({
+      run: { info: { artifactUri: 's3://active/12/run-123/artifacts' } },
+    } as any);
+    const presignedRead = jest
+      .spyOn(PresignedArtifactUtils, 'fetchArtifactPreferPresigned')
+      .mockResolvedValue('run contents');
+    const registryRead = jest.spyOn(ArtifactUtils, 'getArtifactContent').mockResolvedValue('registered contents');
+
+    await expect(fetchModelVersionArtifact('Model A', '1')).resolves.toBe(
+      matchesRoot ? 'run contents' : 'registered contents',
+    );
+    expect(version).toHaveBeenCalledTimes(1);
+    if (matchesRoot) {
+      expect(run).toHaveBeenCalledWith({ run_id: 'run-123' });
+      expect(presignedRead).toHaveBeenCalledWith(
+        { runUuid: 'run-123', path: 'model/MLmodel', artifactRootUri: 's3://active/12/run-123/artifacts' },
+        'model-versions/get-artifact?path=MLmodel&name=Model%20A&version=1',
+        ArtifactUtils.getArtifactContent,
+      );
+      expect(registryRead).not.toHaveBeenCalled();
+    } else {
+      expect(registryRead).toHaveBeenCalledWith('model-versions/get-artifact?path=MLmodel&name=Model%20A&version=1');
+      expect(presignedRead).not.toHaveBeenCalled();
+      expect(run).toHaveBeenCalledTimes(source.includes('/run-123/artifacts/') ? 1 : 0);
+    }
+  });
+
   test('uses the logged-model presigned flow for a logged-model-backed version', async () => {
     jest.spyOn(Services, 'getModelVersion').mockResolvedValue({
       model_version: { model_id: 'm-123', source: 'models:/m-123' },
