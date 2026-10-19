@@ -32,6 +32,7 @@ from mlflow.gateway.providers.utils import provider_call_duration_ms
 from mlflow.protos.databricks_pb2 import BAD_REQUEST, ErrorCode
 from mlflow.server import app as flask_app
 from mlflow.server.artifact_router import artifact_router
+from mlflow.server.artifact_transfer import reject_proxied_artifact_upload
 from mlflow.server.asgi_utils import get_routed_asgi_path
 from mlflow.server.assistant.api import assistant_router
 from mlflow.server.assistant.identity import auth_plugin_active
@@ -117,6 +118,26 @@ class _EfficientWSGIMiddleware:
             return
         responder = _EfficientWSGIResponder(self.app, scope)
         await responder(receive, send)
+
+
+def add_fastapi_artifact_transfer_middleware(fastapi_app: FastAPI) -> None:
+    upload_path = _add_static_prefix("/ajax-api/2.0/mlflow/upload-artifact")
+
+    @fastapi_app.middleware("http")
+    async def artifact_transfer_middleware(request: Request, call_next):
+        path = get_routed_asgi_path(request)
+        root_path = request.scope.get("root_path", "").rstrip("/")
+        if root_path and path.startswith(f"{root_path}/"):
+            path = path[len(root_path) :]
+        if request.method == "POST" and path.rstrip("/") == upload_path:
+            try:
+                reject_proxied_artifact_upload()
+            except MlflowException as e:
+                return JSONResponse(
+                    status_code=e.get_http_status_code(),
+                    content=json.loads(e.serialize_as_json()),
+                )
+        return await call_next(request)
 
 
 def add_fastapi_workspace_middleware(fastapi_app: FastAPI) -> None:
@@ -342,6 +363,7 @@ def create_fastapi_app(flask_app: Flask = flask_app):
 
     add_fastapi_workspace_middleware(fastapi_app)
     add_gateway_timing_middleware(fastapi_app)
+    add_fastapi_artifact_transfer_middleware(fastapi_app)
 
     # Include OpenTelemetry API router BEFORE mounting Flask app
     # This ensures FastAPI routes take precedence over the catch-all Flask mount
