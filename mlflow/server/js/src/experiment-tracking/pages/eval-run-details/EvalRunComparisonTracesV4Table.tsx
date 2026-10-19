@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Button,
@@ -30,6 +30,14 @@ import { TracesV4TableSurface } from '../../components/experiment-page/component
 import { useTracesV4ToolbarSlots } from '../../components/experiment-page/components/traces-v4/components/TracesV4Toolbar';
 import { useTracesV4Density } from '../../components/experiment-page/components/traces-v4/hooks/useTracesV4Density';
 import { useTracesV4TraceActions } from '../../components/experiment-page/components/traces-v4/hooks/useTracesV4TraceActions';
+import {
+  BASELINE_TRACE_ID_PARAM,
+  CANDIDATE_TRACE_ID_PARAM,
+  PAIRWISE_REVIEW_MODE_PARAM,
+  TRACE_ID_PARAM,
+} from '../../components/experiment-page/components/traces-v4/hooks/useTracesV4UrlState';
+import type { TracesV4DrawerComparisonRunOption } from '../../components/experiment-page/components/traces-v4/components/TracesV4TraceDrawer';
+import { PAIRWISE_PREFERENCE_ASSESSMENT_NAME } from '../../components/experiment-page/components/traces-v4/utils/pairwiseReview';
 import {
   assessmentColumnId,
   assessmentNameFromColumnId,
@@ -67,7 +75,10 @@ const moveColumn = (order: string[], activeColumn: string, targetColumn: string)
   return next;
 };
 
-export type EvalRunComparisonTracesV4TableProps = EvalRunComparisonTracesV4Params;
+export interface EvalRunComparisonTracesV4TableProps extends EvalRunComparisonTracesV4Params {
+  /** Receives the action that starts pairwise review, or undefined when there's nothing to review. */
+  onPairwiseReviewActionChange?: (action: (() => void) | undefined) => void;
+}
 
 /** Matches the compared runs' traces by input (or sessions by scenario) and shows a sub-row per run. */
 export const EvalRunComparisonTracesV4Table = (props: EvalRunComparisonTracesV4TableProps) => {
@@ -78,7 +89,7 @@ export const EvalRunComparisonTracesV4Table = (props: EvalRunComparisonTracesV4T
 };
 
 const EvalRunComparisonTracesV4Content = (props: EvalRunComparisonTracesV4TableProps) => {
-  const { experimentId } = props;
+  const { experimentId, onPairwiseReviewActionChange } = props;
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const controller = useEvalRunComparisonTracesV4Controller(props);
@@ -102,11 +113,47 @@ const EvalRunComparisonTracesV4Content = (props: EvalRunComparisonTracesV4TableP
   const searchInputRef = useRef<InputRef>(null);
   useSlashFocusSearch(searchInputRef);
   const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const baselineTraceId = searchParams.get(BASELINE_TRACE_ID_PARAM) ?? undefined;
+  const candidateTraceId = searchParams.get(CANDIDATE_TRACE_ID_PARAM) ?? undefined;
+  const isPairwiseReviewMode = searchParams.get(PAIRWISE_REVIEW_MODE_PARAM) === 'true';
+  // The runs of the row that opened the comparison; a deep link with only the two ids derives them below.
+  const [comparisonRunOptions, setComparisonRunOptions] = useState<TracesV4DrawerComparisonRunOption[]>();
+  const directComparisonRunOptions = useMemo(() => {
+    if (!baselineTraceId || !candidateTraceId) {
+      return undefined;
+    }
+    const selectedTraceIds = new Set([baselineTraceId, candidateTraceId]);
+    const runNames = new Map(summaryRuns.map((run) => [run.runUuid, run.label]));
+    const options = data.runsWithTraces.flatMap((run) => {
+      const trace = run.traceInfos.find((candidate) => selectedTraceIds.has(getEvalRunComparisonTraceId(candidate)));
+      return trace
+        ? [
+            {
+              runUuid: run.runUuid,
+              runName: runNames.get(run.runUuid) ?? run.runUuid,
+              traceId: getEvalRunComparisonTraceId(trace),
+            },
+          ]
+        : [];
+    });
+    return selectedTraceIds.size === options.length ? options : undefined;
+  }, [baselineTraceId, candidateTraceId, data.runsWithTraces, summaryRuns]);
+  const activeComparisonRunOptions = comparisonRunOptions ?? directComparisonRunOptions;
+  const selectedBaselineRunUuid = activeComparisonRunOptions?.find(
+    (option) => option.traceId === baselineTraceId,
+  )?.runUuid;
+  const selectedCandidateRunUuid = activeComparisonRunOptions?.find(
+    (option) => option.traceId === candidateTraceId,
+  )?.runUuid;
   const getTraceHref = useCallback<TraceHrefGetter>(
     (trace) => {
       const params = new URLSearchParams(location.search);
       params.set('selectedEvaluationId', getEvalRunComparisonTraceId(trace));
-      params.delete('traceId');
+      params.delete(TRACE_ID_PARAM);
+      params.delete(BASELINE_TRACE_ID_PARAM);
+      params.delete(CANDIDATE_TRACE_ID_PARAM);
+      params.delete(PAIRWISE_REVIEW_MODE_PARAM);
       params.delete('spanId');
       return `${location.pathname}?${params.toString()}${location.hash}`;
     },
@@ -116,6 +163,129 @@ const EvalRunComparisonTracesV4Content = (props: EvalRunComparisonTracesV4TableP
     (trace: ModelTraceInfoV3) => url.setTraceId(getEvalRunComparisonTraceId(trace)),
     [url],
   );
+  // Opens a matched row as a comparison of two of its runs' traces, keeping the runs picked earlier when the row has them.
+  const openComparisonRow = useCallback(
+    (row: TraceComparisonRow, isReviewMode: boolean) => {
+      const runOptions = row.runs.map((run) => ({
+        runUuid: run.runUuid,
+        runName: run.label,
+        traceId: run.trace ? getEvalRunComparisonTraceId(run.trace) : undefined,
+      }));
+      const availableRuns = runOptions.filter(
+        (option): option is TracesV4DrawerComparisonRunOption & { traceId: string } => Boolean(option.traceId),
+      );
+      const baseline = availableRuns.find((option) => option.runUuid === selectedBaselineRunUuid) ?? availableRuns[0];
+      const candidate =
+        availableRuns.find(
+          (option) => option.runUuid === selectedCandidateRunUuid && option.runUuid !== baseline?.runUuid,
+        ) ?? availableRuns.find((option) => option.runUuid !== baseline?.runUuid);
+      if (!baseline || !candidate) {
+        return;
+      }
+      setComparisonRunOptions(runOptions);
+      setSearchParams((params) => {
+        params.set(BASELINE_TRACE_ID_PARAM, baseline.traceId);
+        params.set(CANDIDATE_TRACE_ID_PARAM, candidate.traceId);
+        params.set(TRACE_ID_PARAM, candidate.traceId);
+        if (isReviewMode) {
+          params.set(PAIRWISE_REVIEW_MODE_PARAM, 'true');
+        } else {
+          params.delete(PAIRWISE_REVIEW_MODE_PARAM);
+        }
+        params.delete('selectedEvaluationId');
+        params.delete('spanId');
+        return params;
+      });
+    },
+    [selectedBaselineRunUuid, selectedCandidateRunUuid, setSearchParams],
+  );
+  const onComparisonRowSelected = useCallback(
+    (row: TraceComparisonRow) => openComparisonRow(row, false),
+    [openComparisonRow],
+  );
+  const comparisonTraceRows = useMemo(
+    () => controller.rows.filter((row): row is TraceComparisonRow => row.kind !== 'session'),
+    [controller.rows],
+  );
+  // Previous/next move between rows that have traces for both picked runs.
+  const navigableComparisonTraceRows = useMemo(() => {
+    if (!selectedBaselineRunUuid || !selectedCandidateRunUuid) {
+      return comparisonTraceRows;
+    }
+    return comparisonTraceRows.filter((row) => {
+      const runsWithTraces = new Set(row.runs.filter((run) => run.trace).map((run) => run.runUuid));
+      return runsWithTraces.has(selectedBaselineRunUuid) && runsWithTraces.has(selectedCandidateRunUuid);
+    });
+  }, [comparisonTraceRows, selectedBaselineRunUuid, selectedCandidateRunUuid]);
+  const activeComparisonRowIndex = useMemo(() => {
+    if (!baselineTraceId || !candidateTraceId) {
+      return -1;
+    }
+    return navigableComparisonTraceRows.findIndex((row) => {
+      const rowTraceIds = new Set(
+        row.runs.flatMap((run) => (run.trace ? [getEvalRunComparisonTraceId(run.trace)] : [])),
+      );
+      return rowTraceIds.has(baselineTraceId) && rowTraceIds.has(candidateTraceId);
+    });
+  }, [baselineTraceId, candidateTraceId, navigableComparisonTraceRows]);
+  const previousComparisonRow =
+    activeComparisonRowIndex > 0 ? navigableComparisonTraceRows[activeComparisonRowIndex - 1] : undefined;
+  const nextComparisonRow =
+    activeComparisonRowIndex >= 0 && activeComparisonRowIndex < navigableComparisonTraceRows.length - 1
+      ? navigableComparisonTraceRows[activeComparisonRowIndex + 1]
+      : undefined;
+  const comparisonNavigation = useMemo(
+    () => ({
+      onPrevious: previousComparisonRow
+        ? () => openComparisonRow(previousComparisonRow, isPairwiseReviewMode)
+        : undefined,
+      onNext: nextComparisonRow ? () => openComparisonRow(nextComparisonRow, isPairwiseReviewMode) : undefined,
+      currentIndex: activeComparisonRowIndex,
+      totalCount: navigableComparisonTraceRows.length,
+    }),
+    [
+      activeComparisonRowIndex,
+      navigableComparisonTraceRows.length,
+      isPairwiseReviewMode,
+      nextComparisonRow,
+      openComparisonRow,
+      previousComparisonRow,
+    ],
+  );
+  const firstReviewableComparisonRow = comparisonTraceRows.find(
+    (row) => row.runs.filter((run) => run.trace).length >= 2,
+  );
+  // Review continues the open comparison, or opens the first row that has two traces.
+  const startPairwiseReview = useCallback(() => {
+    if (baselineTraceId && candidateTraceId) {
+      setSearchParams((params) => {
+        params.set(PAIRWISE_REVIEW_MODE_PARAM, 'true');
+        params.set(TRACE_ID_PARAM, candidateTraceId);
+        params.delete('selectedEvaluationId');
+        return params;
+      });
+    } else if (firstReviewableComparisonRow) {
+      openComparisonRow(firstReviewableComparisonRow, true);
+    }
+  }, [baselineTraceId, candidateTraceId, firstReviewableComparisonRow, openComparisonRow, setSearchParams]);
+  const canStartPairwiseReview = Boolean((baselineTraceId && candidateTraceId) || firstReviewableComparisonRow);
+  useEffect(() => {
+    onPairwiseReviewActionChange?.(canStartPairwiseReview ? startPairwiseReview : undefined);
+    return () => onPairwiseReviewActionChange?.(undefined);
+  }, [canStartPairwiseReview, onPairwiseReviewActionChange, startPairwiseReview]);
+  const closeTrace = useCallback(() => {
+    setComparisonRunOptions(undefined);
+    // Closing also leaves the comparison and its review, in the same update so they can't come back.
+    setSearchParams((params) => {
+      params.delete('selectedEvaluationId');
+      params.delete(TRACE_ID_PARAM);
+      params.delete(BASELINE_TRACE_ID_PARAM);
+      params.delete(CANDIDATE_TRACE_ID_PARAM);
+      params.delete(PAIRWISE_REVIEW_MODE_PARAM);
+      params.delete('spanId');
+      return params;
+    });
+  }, [setSearchParams]);
   const getSessionHref = useCallback<SessionHrefGetter>(
     ({ trace, sessionId }) => {
       const base = Routes.getExperimentPageTabSingleChatSessionRoute(experimentId, sessionId);
@@ -137,7 +307,11 @@ const EvalRunComparisonTracesV4Content = (props: EvalRunComparisonTracesV4TableP
       { id: 'tokens', label: intl.formatMessage({ defaultMessage: 'Tokens', description: 'Trace tokens column' }) },
       { id: 'cost', label: intl.formatMessage({ defaultMessage: 'Cost', description: 'Trace cost column' }) },
       ...assessmentInfos
-        .filter((info) => info.dtype === 'numeric' || info.dtype === 'boolean' || info.dtype === 'pass-fail')
+        .filter(
+          (info) =>
+            info.name !== PAIRWISE_PREFERENCE_ASSESSMENT_NAME &&
+            (info.dtype === 'numeric' || info.dtype === 'boolean' || info.dtype === 'pass-fail'),
+        )
         .map((info) => ({ id: assessmentColumnId(info.name), label: info.name })),
     ],
     [intl, assessmentInfos],
@@ -152,7 +326,7 @@ const EvalRunComparisonTracesV4Content = (props: EvalRunComparisonTracesV4TableP
         const columnId = column.id;
         if (!columnId) return column;
         const info = assessmentInfos.find((item) => item.name === assessmentNameFromColumnId(columnId));
-        if (info?.dtype !== 'numeric') return column;
+        if (info?.dtype !== 'numeric' || info.name === PAIRWISE_PREFERENCE_ASSESSMENT_NAME) return column;
         const current = aggregateMethods[columnId] ?? 'mean';
         return {
           ...column,
@@ -383,6 +557,7 @@ const EvalRunComparisonTracesV4Content = (props: EvalRunComparisonTracesV4TableP
     viewState,
     traces: controller.pageTraces,
     comparisonRows: controller.rows,
+    onComparisonRowSelected,
     expandedComparisonGroups: controller.expandedComparisonGroups,
     onToggleComparisonGroup: controller.toggleComparisonGroup,
     expandedComparisonRuns: controller.expandedComparisonRuns,
@@ -527,11 +702,13 @@ const EvalRunComparisonTracesV4Content = (props: EvalRunComparisonTracesV4TableP
       }}
       drawerProps={{
         traceId: controller.activeTraceId,
-        onClose: () => url.setTraceId(undefined),
+        onClose: closeTrace,
         experimentId,
         traces: controller.pageTraces,
         onSelectTrace: url.setTraceId,
         runJudgeConfiguration: actions.runJudges?.runJudgeConfiguration,
+        comparisonRunOptions: activeComparisonRunOptions,
+        comparisonNavigation,
       }}
       overlaySlots={{ actionModals: actions.runJudges?.RunJudgesModal }}
       layoutProps={{ paddingTop: 0, paddingLeft: 0, marginBottom: -theme.spacing.sm }}
