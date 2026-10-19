@@ -1467,6 +1467,10 @@
     "defaultMessage": "No minimum",
     "description": "Numeric question: min-value input placeholder when unbounded"
   },
+  "3gNQg8": {
+    "defaultMessage": "{count} of {total, plural, one {# session} other {# sessions}}",
+    "description": "Traces table footer when grouped by session, showing how many sessions are loaded out of the total"
+  },
   "3geT+I": {
     "defaultMessage": "Use the log artifact APIs to store file outputs from MLflow runs.",
     "description": "Information in the empty state explaining how one could log artifacts output files for the experiment runs"
@@ -1598,6 +1602,10 @@
   "48M+kw": {
     "defaultMessage": "Owner",
     "description": "Queue settings: owner field label"
+  },
+  "48ek2n": {
+    "defaultMessage": "{count} of {total, plural, one {# trace} other {# traces}}",
+    "description": "Traces table footer showing how many traces are loaded out of the total"
   },
   "4AQBnK": {
     "defaultMessage": "Collapse assertion text",
@@ -5398,10 +5406,6 @@
   "I9bJ/T": {
     "defaultMessage": "Select All",
     "description": "Option to select all items in the item selector"
-  },
-  "IA1Jy3": {
-    "defaultMessage": "{count} of {total}",
-    "description": "Traces table footer showing how many traces are loaded out of the total"
   },
   "IARcQx": {
     "defaultMessage": "Manage workspace {name}",

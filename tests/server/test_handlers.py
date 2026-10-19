@@ -548,7 +548,19 @@ def test_server_info_multipart_capabilities_disabled_by_default():
         assert data[SERVER_INFO_MULTIPART_DOWNLOADS_ENABLED] is False
 
 
-def test_server_info_multipart_capabilities_with_multipart_backend(monkeypatch):
+@pytest.mark.parametrize(
+    ("upload_env", "download_env", "expected_uploads", "expected_downloads"),
+    [
+        (None, None, False, False),
+        ("true", None, True, False),
+        (None, "true", False, True),
+        ("true", "true", True, True),
+        ("false", "false", False, False),
+    ],
+)
+def test_server_info_multipart_capabilities_with_multipart_backend(
+    monkeypatch, upload_env, download_env, expected_uploads, expected_downloads
+):
     from mlflow.store.artifact.artifact_repo import MultipartDownloadMixin, MultipartUploadMixin
 
     class _FakeMultipartArtifactRepo(MultipartUploadMixin, MultipartDownloadMixin):
@@ -564,6 +576,14 @@ def test_server_info_multipart_capabilities_with_multipart_backend(monkeypatch):
         def get_download_presigned_url(self, artifact_path, expiration=300):
             raise NotImplementedError
 
+    for name, value in [
+        ("MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD", upload_env),
+        ("MLFLOW_ENABLE_PROXY_MULTIPART_DOWNLOAD", download_env),
+    ]:
+        if value is None:
+            monkeypatch.delenv(name, raising=False)
+        else:
+            monkeypatch.setenv(name, value)
     monkeypatch.setattr("mlflow.server.handlers._is_serving_proxied_artifacts", lambda: True)
     monkeypatch.setattr(
         "mlflow.server.handlers._get_artifact_repo_mlflow_artifacts",
@@ -574,11 +594,13 @@ def test_server_info_multipart_capabilities_with_multipart_backend(monkeypatch):
         response = c.get("/api/3.0/mlflow/server-info")
         assert response.status_code == 200
         data = response.get_json()
-        assert data[SERVER_INFO_MULTIPART_UPLOADS_ENABLED] is True
-        assert data[SERVER_INFO_MULTIPART_DOWNLOADS_ENABLED] is True
+        assert data[SERVER_INFO_MULTIPART_UPLOADS_ENABLED] is expected_uploads
+        assert data[SERVER_INFO_MULTIPART_DOWNLOADS_ENABLED] is expected_downloads
 
 
 def test_server_info_multipart_capabilities_with_local_backend(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD", "true")
+    monkeypatch.setenv("MLFLOW_ENABLE_PROXY_MULTIPART_DOWNLOAD", "true")
     monkeypatch.setattr("mlflow.server.handlers._is_serving_proxied_artifacts", lambda: True)
     monkeypatch.setattr(
         "mlflow.server.handlers._get_artifact_repo_mlflow_artifacts",

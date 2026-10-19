@@ -79,6 +79,8 @@ from mlflow.environment_variables import (
     MLFLOW_CREATE_MODEL_VERSION_SOURCE_VALIDATION_REGEX,
     MLFLOW_DEPLOYMENTS_TARGET,
     MLFLOW_ENABLE_AI_GATEWAY,
+    MLFLOW_ENABLE_PROXY_MULTIPART_DOWNLOAD,
+    MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD,
     MLFLOW_ENABLE_WORKSPACES,
     MLFLOW_PRESIGNED_DOWNLOAD_URL_TTL_SECONDS,
     MLFLOW_SERVER_INFO_TRACKING_AUTH,
@@ -7614,8 +7616,15 @@ def build_server_info_payload() -> dict[str, Any]:
     if _is_serving_proxied_artifacts():
         try:
             artifact_repo = _get_artifact_repo_mlflow_artifacts()
-            multipart_uploads_enabled = isinstance(artifact_repo, MultipartUploadMixin)
-            multipart_downloads_enabled = isinstance(artifact_repo, MultipartDownloadMixin)
+            # Multipart transfers use presigned URLs that clients access directly, bypassing the
+            # proxy, so they're only advertised when the server operator opts in.
+            multipart_uploads_enabled = MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD.get() and isinstance(
+                artifact_repo, MultipartUploadMixin
+            )
+            multipart_downloads_enabled = (
+                MLFLOW_ENABLE_PROXY_MULTIPART_DOWNLOAD.get()
+                and isinstance(artifact_repo, MultipartDownloadMixin)
+            )
         except Exception:
             _logger.debug(
                 "Failed to resolve artifact repo for multipart capability advertisement; "

@@ -37,8 +37,8 @@ export interface TracesV4ToolbarParams {
   onReorderColumn: (activeColumn: string, targetColumn: string) => void;
   /** Assessment column selection (dynamic, per-page) rendered as a group in the column selector. */
   assessmentColumns: TracesV4AssessmentColumns;
-  /** Custom (tag + metadata) column selection (dynamic, per-page). */
-  customColumns: TracesV4CustomColumns;
+  /** Custom (tag + metadata) column selection (dynamic, per-page). Omit to offer no custom columns. */
+  customColumns?: TracesV4CustomColumns;
   /** Active sort column + direction, and its setter — surfaced in the Display popover's Sort submenu. */
   sort: TraceColumnId;
   dir: SortDirection;
@@ -246,7 +246,7 @@ export const useTracesV4ToolbarSlots = ({
   // the bulk "show/hide all assessments" affordance via its toggle-all header. Each group is included
   // only when the page has relevant candidates.
   const columnGroups: TracesV4ColumnGroup[] = [];
-  if (customColumns.tags.selectorOptions.length > 0) {
+  if (customColumns && customColumns.tags.selectorOptions.length > 0) {
     columnGroups.push({
       label: (
         <FormattedMessage
@@ -260,7 +260,7 @@ export const useTracesV4ToolbarSlots = ({
       onToggleAll: customColumns.tags.setAllVisible,
     });
   }
-  if (customColumns.metadata.selectorOptions.length > 0) {
+  if (customColumns && customColumns.metadata.selectorOptions.length > 0) {
     columnGroups.push({
       label: (
         <FormattedMessage
