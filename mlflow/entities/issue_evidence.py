@@ -139,8 +139,9 @@ class IssueEvidence:
             known_span_ids: The span IDs the trace actually carries.
 
         Raises:
-            MlflowException: If a step cites a span the trace does not contain. A fabricated span
-                locator would render an unopenable step, so it is rejected at write time.
+            mlflow.exceptions.MlflowException: If a step cites a span the trace does not contain.
+                A fabricated span locator would render an unopenable step, so it is rejected at
+                write time.
         """
         known = set(known_span_ids)
         if unknown := [span_id for span_id in self.span_ids if span_id not in known]:
@@ -166,7 +167,8 @@ class IssueEvidence:
         once the outer encoding escapes it and the caller's own keys are added.
 
         Raises:
-            MlflowException: If the resulting metadata would not fit in the column.
+            mlflow.exceptions.MlflowException: If the resulting metadata would not fit in the
+                column.
         """
         merged = {**(metadata or {}), ISSUE_EVIDENCE_METADATA_KEY: self.to_metadata_value()}
         stored_bytes = len(json.dumps(merged).encode("utf-8"))
@@ -186,8 +188,8 @@ class IssueEvidence:
         reference written before this schema reads.
 
         Raises:
-            MlflowException: If the metadata is present but not valid evidence of a known
-                schema version.
+            mlflow.exceptions.MlflowException: If the metadata is present but not valid evidence
+                of a known schema version.
         """
         if not value:
             return None
