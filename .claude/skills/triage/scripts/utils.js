@@ -1,5 +1,5 @@
 const { execFileSync } = require("node:child_process");
-const { readFileSync } = require("node:fs");
+const { appendFileSync, readFileSync } = require("node:fs");
 const { sanitizeInput } = require("./sanitize.js");
 
 function ghApi(endpoint, ...args) {
@@ -30,7 +30,20 @@ function findOpenPr(repo, issueNumber, api = ghApi) {
   return pulls.find((pr) => pr.head.repo?.full_name === repo);
 }
 
-function prepareFollowup({ repo, issue, comment, api = ghApi }) {
+// In a dry run, an existing triage PR is reported instead of failing the run, since nothing
+// would be posted or opened.
+function checkExistingPr({ repo, issueNumber, dryRun = false, api = ghApi }) {
+  const existing = findOpenPr(repo, issueNumber, api);
+  if (!existing) return;
+  const message = `A triage PR already exists: ${existing.html_url}`;
+  if (!dryRun) throw new Error(message);
+  console.error(`Dry run: ${message}`);
+  if (process.env.GITHUB_STEP_SUMMARY) {
+    appendFileSync(process.env.GITHUB_STEP_SUMMARY, `Dry run: ${message}\n`);
+  }
+}
+
+function prepareFollowup({ repo, issue, comment, dryRun = false, api = ghApi }) {
   if (issue.pull_request || issue.state !== "open")
     throw new Error("Triage requires an open issue.");
   if (comment.issue_url !== issue.url || comment.user.type !== "User") {
@@ -43,8 +56,7 @@ function prepareFollowup({ repo, issue, comment, api = ghApi }) {
   if (!["admin", "maintain"].includes(permission.role_name)) {
     throw new Error("Only repository admins and maintainers can request follow-up triage.");
   }
-  const existing = findOpenPr(repo, issue.number, api);
-  if (existing) throw new Error(`A triage PR already exists: ${existing.html_url}`);
+  checkExistingPr({ repo, issueNumber: issue.number, dryRun, api });
 
   const comments = api(
     `repos/${repo}/issues/${issue.number}/comments?per_page=100`,
@@ -74,7 +86,7 @@ function prepareFollowup({ repo, issue, comment, api = ghApi }) {
   };
 }
 
-function prepareContext({ repo, issue, event, comment, api = ghApi }) {
+function prepareContext({ repo, issue, event, comment, dryRun = false, api = ghApi }) {
   let request = event.comment;
   if (!request && comment?.trim()) {
     const text = comment.trim();
@@ -85,16 +97,17 @@ function prepareContext({ repo, issue, event, comment, api = ghApi }) {
     };
   }
   const context = request
-    ? prepareFollowup({ repo, issue, comment: request, api })
+    ? prepareFollowup({ repo, issue, comment: request, dryRun, api })
     : { body: issue.body ?? "", followup: null };
   return { title: issue.title, repository: repo, issue_number: issue.number, ...context };
 }
 
-module.exports = { parseCommand, findOpenPr, prepareContext };
+module.exports = { parseCommand, findOpenPr, checkExistingPr, prepareContext };
 
 if (require.main === module) {
   try {
     const mode = process.argv[2];
+    const dryRun = process.env.DRY_RUN === "true";
     if (mode === "prepare") {
       const event = JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH, "utf8"));
       const issue = JSON.parse(readFileSync(process.argv[3], "utf8"));
@@ -103,11 +116,15 @@ if (require.main === module) {
         issue,
         event,
         comment: process.env.COMMENT,
+        dryRun,
       });
       process.stdout.write(JSON.stringify(context));
     } else if (mode === "check-pr") {
-      const existing = findOpenPr(process.env.REPO, process.env.ISSUE_NUMBER);
-      if (existing) throw new Error(`A triage PR already exists: ${existing.html_url}`);
+      checkExistingPr({
+        repo: process.env.REPO,
+        issueNumber: process.env.ISSUE_NUMBER,
+        dryRun,
+      });
     } else {
       throw new Error(
         "Usage: node .claude/skills/triage/scripts/utils.js <prepare|check-pr> [path]"
