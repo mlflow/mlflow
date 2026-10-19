@@ -116,11 +116,10 @@ export const CategoricalAggregateChart = React.memo(
 
     return (
       <table
-        css={
-          layout === 'inline'
-            ? { width: theme.spacing.xl * 4, maxWidth: '100%', borderCollapse: 'collapse' }
-            : undefined
-        }
+        // Only the inline layout passes `css`: even `css={undefined}` adds a class to the stacked table.
+        {...(layout === 'inline'
+          ? { css: { width: theme.spacing.xl * 4, maxWidth: '100%', borderCollapse: 'collapse' } }
+          : {})}
       >
         <tbody>
           {visibleItems.map((barData) => (
