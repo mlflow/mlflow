@@ -55,6 +55,11 @@ import {
 export interface EvalRunTracesV4TableProps {
   experimentId: string;
   runUuid: string;
+  /** The experiment's baseline run, when it's another run; the scorer headers show the change from it. */
+  baselineRunUuid?: string;
+  /** Saved run metrics of this run and of the baseline run, from `getEvalRunScores`. */
+  currentScores?: Record<string, number>;
+  baselineScores?: Record<string, number>;
 }
 
 const STANDARD_COLUMN_IDS: readonly string[] = TRACE_COLUMN_IDS;
@@ -79,7 +84,13 @@ const moveColumn = (order: string[], activeColumn: string, targetColumn: string)
 };
 
 /** Evaluation-run composition over the shared V4 traces rendering surface. */
-export const EvalRunTracesV4Table = ({ experimentId, runUuid }: EvalRunTracesV4TableProps) => {
+export const EvalRunTracesV4Table = ({
+  experimentId,
+  runUuid,
+  baselineRunUuid,
+  currentScores,
+  baselineScores,
+}: EvalRunTracesV4TableProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const navigate = useNavigate();
@@ -158,6 +169,11 @@ export const EvalRunTracesV4Table = ({ experimentId, runUuid }: EvalRunTracesV4T
         toggleAssessmentFilter,
         runUuid,
         areChartsCollapsed: areAssessmentChartsCollapsed,
+        currentScores,
+        baselineScores,
+        baselineRunHref: baselineRunUuid
+          ? Routes.getEvaluationRunDetailsRoute(experimentId, baselineRunUuid)
+          : undefined,
       }),
     [
       assessments.columnDefs,
@@ -166,6 +182,10 @@ export const EvalRunTracesV4Table = ({ experimentId, runUuid }: EvalRunTracesV4T
       toggleAssessmentFilter,
       runUuid,
       areAssessmentChartsCollapsed,
+      currentScores,
+      baselineScores,
+      baselineRunUuid,
+      experimentId,
     ],
   );
   const assessmentHeaderBottomOverlay = useMemo(

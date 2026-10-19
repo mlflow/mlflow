@@ -31,6 +31,7 @@ const TRACES: ModelTraceInfoV3[] = [
       makeFeedbackAssessment('correctness', 'yes'),
       makeFeedbackAssessment('is_polite', true),
       makeFeedbackAssessment('relevance', 4),
+      makeFeedbackAssessment('tone', 'curt'),
     ],
   }),
   makeTrace('tr-2', {
@@ -69,6 +70,7 @@ const baseColumns = buildAssessmentColumnDefs([
   { name: 'correctness', type: 'categorical' },
   { name: 'is_polite', type: 'categorical' },
   { name: 'relevance', type: 'numeric' },
+  { name: 'tone', type: 'categorical' },
   { name: 'not_summarized', type: 'categorical' },
 ]);
 
@@ -98,10 +100,16 @@ const build = ({
   assessmentFilters = [],
   toggleAssessmentFilter = jest.fn(),
   areChartsCollapsed = false,
+  currentScores,
+  baselineScores,
+  baselineRunHref,
 }: {
   assessmentFilters?: AssessmentFilter[];
   toggleAssessmentFilter?: (name: string, value: unknown) => void;
   areChartsCollapsed?: boolean;
+  currentScores?: Record<string, number>;
+  baselineScores?: Record<string, number>;
+  baselineRunHref?: string;
 } = {}) =>
   buildEvalRunAssessmentColumnDefs({
     columnDefs: baseColumns,
@@ -110,9 +118,15 @@ const build = ({
     toggleAssessmentFilter,
     runUuid: RUN_UUID,
     areChartsCollapsed,
+    currentScores,
+    baselineScores,
+    baselineRunHref,
   });
 
 const header = (name: RegExp) => screen.getByRole('columnheader', { name });
+const pillIn = (name: RegExp) => within(header(name)).getByTestId('assessment-baseline-delta-pill');
+const BASELINE_HREF = '/experiments/exp-1/evaluation-runs/baseline-1/details';
+const SAVED_SCORES = { correctness: 0.84, relevance: 3.5, tone: 0.5 };
 
 describe('evaluation run assessment column headers', () => {
   test('gives summarized assessment columns a rich summary header and leaves the rest as they are', () => {
@@ -121,7 +135,7 @@ describe('evaluation run assessment column headers', () => {
 
     expect(byId.get('assessment:correctness')?.headerVariant).toBe('rich');
     expect(byId.get('assessment:relevance')?.headerVariant).toBe('rich');
-    expect(byId.get('assessment:not_summarized')).toBe(baseColumns[3]);
+    expect(byId.get('assessment:not_summarized')).toBe(baseColumns[4]);
     expect(hasCollapsibleAssessmentChart(columns)).toBe(true);
     expect(hasCollapsibleAssessmentChart(baseColumns)).toBe(false);
   });
@@ -158,6 +172,76 @@ describe('evaluation run assessment column headers', () => {
     await userEvent.click(within(header(/^Correctness/)).getByRole('progressbar', { name: 'Fail' }));
 
     expect(toggleAssessmentFilter).toHaveBeenCalledWith('correctness', 'no');
+  });
+
+  test("shows the run's saved metrics and their change from the baseline run", async () => {
+    await renderWithProviders(
+      <TracesTable
+        {...tableProps(
+          build({
+            currentScores: SAVED_SCORES,
+            baselineScores: { correctness: 0.8, relevance: 3.25, tone: 0.25 },
+            baselineRunHref: BASELINE_HREF,
+          }),
+        )}
+      />,
+    );
+
+    // A string scorer keeps its count of values, even with a saved metric.
+    const tone = header(/^tone/);
+    expect(tone).toHaveAccessibleName('tone STRING 2 values');
+    expect(within(tone).queryByTestId('assessment-baseline-delta-pill')).not.toBeInTheDocument();
+    // Rates change in percentage points; the summaries computed from the traces would say 75% and 3.
+    expect(header(/^Correctness/)).toHaveAccessibleName(/^Correctness PASS 84% \+4 /);
+    expect(pillIn(/^Correctness/)).toHaveAttribute('data-baseline-delta-direction', 'improvement');
+    expect(header(/^relevance/)).toHaveAccessibleName('relevance AVG 3.5 +0.25');
+    // A scorer without a saved metric keeps its summary and has no pill.
+    expect(header(/^is_polite/)).toHaveAccessibleName(/^is_polite TRUE 67% /);
+    expect(within(header(/^is_polite/)).queryByTestId('assessment-baseline-delta-pill')).not.toBeInTheDocument();
+  });
+
+  test('marks a regression, and an equal score as neutral', async () => {
+    await renderWithProviders(
+      <TracesTable
+        {...tableProps(
+          build({
+            currentScores: SAVED_SCORES,
+            baselineScores: { correctness: 0.9, relevance: 3.5 },
+            baselineRunHref: BASELINE_HREF,
+          }),
+        )}
+      />,
+    );
+
+    expect(pillIn(/^Correctness/)).toHaveTextContent('-6');
+    expect(pillIn(/^Correctness/)).toHaveAttribute('data-baseline-delta-direction', 'regression');
+    expect(pillIn(/^relevance/)).toHaveTextContent('+0.0');
+    expect(pillIn(/^relevance/)).toHaveAttribute('data-baseline-delta-direction', 'neutral');
+  });
+
+  test('links to the baseline run and says when it has no score for a scorer', async () => {
+    await renderWithProviders(
+      <TracesTable
+        {...tableProps(build({ currentScores: SAVED_SCORES, baselineScores: {}, baselineRunHref: BASELINE_HREF }))}
+      />,
+    );
+
+    const pill = pillIn(/^Correctness/);
+    expect(pill).toHaveTextContent('-');
+    expect(pill).toHaveAttribute('data-baseline-delta-direction', 'neutral');
+    await userEvent.hover(pill);
+
+    expect(await screen.findByText(/does not have this scorer/)).toBeInTheDocument();
+    const link = screen.getByRole('link', { name: 'Open evaluation baseline run in a new tab' });
+    expect(link).toHaveAttribute('href', BASELINE_HREF);
+    expect(link).toHaveAttribute('target', '_blank');
+  });
+
+  test('shows no change pills without a baseline run', async () => {
+    await renderWithProviders(<TracesTable {...tableProps(build({ currentScores: SAVED_SCORES }))} />);
+
+    expect(header(/^Correctness/)).toHaveAccessibleName(/^Correctness PASS 84% /);
+    expect(screen.queryByTestId('assessment-baseline-delta-pill')).not.toBeInTheDocument();
   });
 
   test('renders the collapse toggle over the header and reports its state', async () => {

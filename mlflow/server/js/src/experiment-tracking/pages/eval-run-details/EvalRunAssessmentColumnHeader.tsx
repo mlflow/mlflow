@@ -20,6 +20,7 @@ import {
   isAssessmentColumnId,
 } from '../../components/experiment-page/components/traces-v4/utils/assessmentColumns';
 import type { EvalRunAssessmentAggregate } from './useEvalRunAssessmentAggregates';
+import { EvalRunBaselineDeltaPill } from './EvalRunBaselineDeltaPill';
 
 interface EvalRunAssessmentColumnMeta {
   evalRunScorer: EvalRunAssessmentAggregate;
@@ -27,6 +28,11 @@ interface EvalRunAssessmentColumnMeta {
   toggleAssessmentFilter: (assessmentName: string, filterValue: AssessmentValueType) => void;
   runUuid: string;
   areChartsCollapsed: boolean;
+  /** The scorer's saved run metric, shown instead of the summary's score when the run has one. */
+  currentScore?: number;
+  baselineScore?: number;
+  /** Set when the experiment has a baseline run other than this one; shows the delta pill. */
+  baselineRunHref?: string;
 }
 
 const hasEvalRunAssessmentColumnMeta = (meta: unknown): meta is EvalRunAssessmentColumnMeta =>
@@ -59,7 +65,17 @@ const EvalRunAssessmentColumnHeader = ({ column }: HeaderContext<ModelTraceInfoV
   if (!hasEvalRunAssessmentColumnMeta(meta)) {
     return null;
   }
-  const { evalRunScorer: scorer, assessmentFilters, toggleAssessmentFilter, runUuid, areChartsCollapsed } = meta;
+  const {
+    evalRunScorer: scorer,
+    assessmentFilters,
+    toggleAssessmentFilter,
+    runUuid,
+    areChartsCollapsed,
+    currentScore,
+    baselineScore,
+    baselineRunHref,
+  } = meta;
+  const isRate = scorer.dtype === 'pass-fail' || scorer.dtype === 'boolean';
 
   return (
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
@@ -78,6 +94,24 @@ const EvalRunAssessmentColumnHeader = ({ column }: HeaderContext<ModelTraceInfoV
           allAssessmentFilters={assessmentFilters}
           toggleAssessmentFilter={(assessmentName, filterValue) => toggleAssessmentFilter(assessmentName, filterValue)}
           currentRunDisplayName={runUuid}
+          displayScoreOverride={
+            currentScore === undefined
+              ? undefined
+              : intl.formatNumber(
+                  currentScore,
+                  isRate ? { style: 'percent', maximumFractionDigits: 0 } : { maximumFractionDigits: 2 },
+                )
+          }
+          baselineDeltaPill={
+            baselineRunHref ? (
+              <EvalRunBaselineDeltaPill
+                isRate={isRate}
+                currentScore={currentScore}
+                baselineScore={baselineScore}
+                baselineRunHref={baselineRunHref}
+              />
+            ) : undefined
+          }
           collapsedHeader={areChartsCollapsed || !hasCollapsibleChart(scorer)}
           categoricalChartLayout="inline"
         />
@@ -176,6 +210,9 @@ export const buildEvalRunAssessmentColumnDefs = ({
   toggleAssessmentFilter,
   runUuid,
   areChartsCollapsed,
+  currentScores,
+  baselineScores,
+  baselineRunHref,
 }: {
   columnDefs: TraceTableColumn[];
   scorersByName: ReadonlyMap<string, EvalRunAssessmentAggregate>;
@@ -183,22 +220,34 @@ export const buildEvalRunAssessmentColumnDefs = ({
   toggleAssessmentFilter: (assessmentName: string, filterValue: AssessmentValueType) => void;
   runUuid: string;
   areChartsCollapsed: boolean;
+  /** Saved run metrics keyed by scorer name and by metric name (see `getEvalRunScores`). */
+  currentScores?: Record<string, number>;
+  baselineScores?: Record<string, number>;
+  baselineRunHref?: string;
 }): TraceTableColumn[] =>
   columnDefs.map((column): TraceTableColumn => {
     const columnId = column.id;
     if (!columnId || !isAssessmentColumnId(columnId)) {
       return column;
     }
-    const scorer = scorersByName.get(assessmentNameFromColumnId(columnId));
+    const assessmentName = assessmentNameFromColumnId(columnId);
+    const scorer = scorersByName.get(assessmentName);
     if (!scorer) {
       return column;
     }
+    // String scorers summarize as a count of values, so a saved metric has no score to replace.
+    const showsScore = scorer.dtype === 'pass-fail' || scorer.dtype === 'boolean' || scorer.dtype === 'numeric';
     const meta: EvalRunAssessmentColumnMeta = {
       evalRunScorer: scorer,
       assessmentFilters,
       toggleAssessmentFilter,
       runUuid,
       areChartsCollapsed,
+      ...(showsScore && {
+        currentScore: currentScores?.[assessmentName] ?? currentScores?.[scorer.assessmentInfo.metricName],
+        baselineScore: baselineScores?.[assessmentName] ?? baselineScores?.[scorer.assessmentInfo.metricName],
+        baselineRunHref,
+      }),
     };
     return {
       ...column,
