@@ -15,3 +15,4 @@ to choose.
 Read [init.schema.yml](init.schema.yml). Pick exactly one verdict from its label
 descriptions and set `label` to that exact value. Write `comment` using its report template.
 When proposing a PR, still describe the suggested fix in full in the issue comment.
+Add a diagram to the Summary as described in [visual aids](../viz-aid.md).
