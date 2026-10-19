@@ -1,5 +1,6 @@
 import { useDesignSystemTheme } from '@databricks/design-system';
 import { EvalRunCompareSelectionBar } from './EvalRunCompareSelectionBar';
+import { EvalRunComparisonOverviewTab } from './EvalRunComparisonOverviewTab';
 import { useEvalRunComparisonBaseline } from './useEvalRunComparisonBaseline';
 
 export interface EvalRunCompareViewProps {
@@ -33,6 +34,11 @@ export const EvalRunCompareView = ({ experimentId, baselineRunUuid, compareRunUu
         baselineRunUuid={baselineRunUuid}
         compareRunUuids={compareRunUuids}
         onSelectBaseline={onSelectBaseline}
+      />
+      <EvalRunComparisonOverviewTab
+        experimentId={experimentId}
+        baselineRunUuid={baselineRunUuid}
+        compareRunUuids={compareRunUuids}
       />
     </div>
   );

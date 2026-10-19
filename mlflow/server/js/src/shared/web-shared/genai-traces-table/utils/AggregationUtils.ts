@@ -410,6 +410,7 @@ export function getNumericAggregateFromCounts(valueCounts: Map<number, number>):
 export function getAssessmentNumericAggregates(
   assessmentInfo: AssessmentInfo,
   evalResults: RunEvaluationTracesDataEntry[],
+  excludeErroredValues = false,
 ): NumericAggregate | undefined {
   if (assessmentInfo.dtype !== 'numeric') {
     return undefined;
@@ -419,7 +420,11 @@ export function getAssessmentNumericAggregates(
       const assessments = assessmentInfo.isOverall
         ? evalResult.overallAssessments
         : evalResult.responseAssessmentsByName[assessmentInfo.name];
-      const result = assessments
+      const result = (
+        excludeErroredValues
+          ? assessments?.filter((assessment) => !doesAssessmentContainErrors(assessment))
+          : assessments
+      )
         ?.map((assessment) => getEvaluationResultAssessmentValue(assessment))
         .filter((value) => value !== undefined && typeof value === 'number');
       return result;
@@ -431,6 +436,7 @@ export function getAssessmentNumericAggregates(
 function getAssessmentRunValueCounts(
   assessmentInfo: AssessmentInfo,
   evalResults: RunEvaluationTracesDataEntry[],
+  excludeErroredValues = false,
 ): AssessmentRunCounts | undefined {
   if (assessmentInfo.dtype === 'numeric') {
     return undefined;
@@ -442,7 +448,7 @@ function getAssessmentRunValueCounts(
       : evalResult.responseAssessmentsByName[assessmentInfo.name];
     const valueCountsBySourceId =
       assessments && assessments.length > 0
-        ? getUniqueValueCountsBySourceId(assessmentInfo, assessments)
+        ? getUniqueValueCountsBySourceId(assessmentInfo, assessments, excludeErroredValues)
         : [{ value: undefined, count: 1 }];
     const keysToCount = assessmentInfo.containsErrors
       ? [ERROR_KEY, ...assessmentInfo.uniqueValues]
@@ -475,15 +481,25 @@ export function getAssessmentAggregates(
   assessmentInfo: AssessmentInfo,
   evalResults: EvalTraceComparisonEntry[],
   allAssessmentFilters: AssessmentFilter[],
+  /** Leaves errored assessments out of value counts and numeric averages (eval run comparison only). */
+  { excludeErroredValues = false }: { excludeErroredValues?: boolean } = {},
 ): AssessmentAggregates {
   const currentEvalResults = evalResults.map((entry) => entry.currentRunValue).filter((entry) => !isNil(entry));
   const otherEvalResults = evalResults.map((entry) => entry.otherRunValue).filter((entry) => !isNil(entry));
 
-  const currentAssessmentAggregates = getAssessmentRunValueCounts(assessmentInfo, currentEvalResults);
-  const otherAssessmentAggregates = getAssessmentRunValueCounts(assessmentInfo, otherEvalResults);
+  const currentAssessmentAggregates = getAssessmentRunValueCounts(
+    assessmentInfo,
+    currentEvalResults,
+    excludeErroredValues,
+  );
+  const otherAssessmentAggregates = getAssessmentRunValueCounts(assessmentInfo, otherEvalResults, excludeErroredValues);
 
-  const currentNumericAggregates = getAssessmentNumericAggregates(assessmentInfo, currentEvalResults);
-  const otherNumericAggregates = getAssessmentNumericAggregates(assessmentInfo, otherEvalResults);
+  const currentNumericAggregates = getAssessmentNumericAggregates(
+    assessmentInfo,
+    currentEvalResults,
+    excludeErroredValues,
+  );
+  const otherNumericAggregates = getAssessmentNumericAggregates(assessmentInfo, otherEvalResults, excludeErroredValues);
 
   const assessmentFilters = allAssessmentFilters.filter((filter) => filter.assessmentName === assessmentInfo.name);
 
@@ -755,6 +771,7 @@ function getAssessmentBarChartValueText(
 export function getUniqueValueCountsBySourceId(
   assessmentInfo: AssessmentInfo,
   assessments: RunEvaluationResultAssessment[],
+  excludeErroredValues = false,
 ): {
   value: AssessmentValueType | undefined;
   count: number;
@@ -789,7 +806,7 @@ export function getUniqueValueCountsBySourceId(
     latestAssessment: RunEvaluationResultAssessment;
   }[] = [];
   for (const value of uniqueValues) {
-    const assessmentsWithValue = filteredAssessments.filter(
+    const assessmentsWithValue = (excludeErroredValues ? validAssessments : filteredAssessments).filter(
       (assessment) => getEvaluationResultAssessmentValue(assessment) === value,
     );
     const count = assessmentsWithValue.length;
