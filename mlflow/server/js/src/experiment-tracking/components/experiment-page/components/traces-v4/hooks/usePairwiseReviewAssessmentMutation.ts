@@ -19,6 +19,7 @@ import {
 } from '@databricks/web-shared/model-trace-explorer';
 import { createAssessment as createAssessmentV3 } from '@databricks/web-shared/model-trace-explorer/api';
 import { useMutation, useQueryClient } from '@databricks/web-shared/query-client';
+import { useCurrentUserQuery } from '@mlflow/mlflow/src/account/hooks';
 
 import {
   findPairwiseScoreAssessment,
@@ -125,7 +126,10 @@ const addAssessmentToSearchCache = (cached: unknown, assessment: Assessment): un
 export const usePairwiseReviewAssessmentMutation = () => {
   const intl = useIntl();
   const queryClient = useQueryClient();
-  const sourceId = getUser() ?? '';
+  const { data: currentUser, isLoading: isLoadingCurrentUser } = useCurrentUserQuery();
+  // A server with auth enabled knows the signed-in user. Without auth, `/users/current` fails and the
+  // review is attributed to the same placeholder user as the trace explorer's other assessment writes.
+  const sourceId = currentUser?.user?.username || getUser() || '';
 
   const mutation = useMutation<SavedPairwiseReview, Error, SavePairwiseReviewParams>({
     mutationFn: async ({ baseline, candidate, rationale }) => {
@@ -188,5 +192,8 @@ export const usePairwiseReviewAssessmentMutation = () => {
   return {
     savePairwiseReview: mutation.mutateAsync,
     isSavingPairwiseReview: mutation.isLoading,
+    reviewerSourceId: sourceId,
+    // Saving before `/users/current` settles would attribute the review to the placeholder user.
+    isReviewerResolved: !isLoadingCurrentUser,
   };
 };

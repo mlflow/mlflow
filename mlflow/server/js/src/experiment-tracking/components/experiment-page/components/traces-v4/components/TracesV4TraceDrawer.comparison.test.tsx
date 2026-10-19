@@ -30,6 +30,7 @@ const URL = '/ml/experiments/exp-1/traces';
 const TRACE_INFO_V3_ENDPOINT = '/ajax-api/3.0/mlflow/traces/:traceId';
 const CREATE_ASSESSMENT_V3_ENDPOINT = '/ajax-api/3.0/mlflow/traces/:traceId/assessments';
 const TRACE_DATA_V3_ENDPOINT = '/ajax-api/3.0/mlflow/traces/get';
+const CURRENT_USER_ENDPOINT = '/ajax-api/2.0/mlflow/users/current';
 
 const BASELINE_TRACE = makeTaggedTrace('tr-000', { env: 'prod' });
 const CANDIDATE_TRACE = makeTaggedTrace('tr-001', { env: 'prod' });
@@ -37,8 +38,13 @@ const BASELINE_LONG_ID = 'trace:/cat.sch/tr-000';
 const CANDIDATE_LONG_ID = 'trace:/cat.sch/tr-001';
 
 let createdAssessments: { traceId: string; assessment: Record<string, any> }[] = [];
+// The signed-in user on an auth-enabled server; undefined is a server without auth, where `/users/current` 404s.
+let signedInUsername: string | undefined;
 
 setupServer(
+  rest.get(CURRENT_USER_ENDPOINT, (_req, res, ctx) =>
+    signedInUsername ? res(ctx.json({ user: { username: signedInUsername } })) : res(ctx.status(404)),
+  ),
   // Trace data is read from `traces/get?trace_id=…`; answer it per trace so both compared sides differ.
   rest.get(TRACE_DATA_V3_ENDPOINT, (req, res, ctx) => {
     const trace = req.url.searchParams.get('trace_id') === 'tr-001' ? CANDIDATE_TRACE : BASELINE_TRACE;
@@ -84,6 +90,7 @@ const JSDOM_WIDTH = window.innerWidth;
 
 beforeEach(() => {
   createdAssessments = [];
+  signedInUsername = undefined;
   jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(false);
   // The new eval runs UI shows the header metadata (and so the comparison header) only on wide drawers.
   window.innerWidth = 1600;
@@ -238,6 +245,7 @@ describe('TracesV4TraceDrawer pairwise review', () => {
 
     const drawer = await findDrawer();
     await within(drawer).findByText('Which run is better?');
+    await waitFor(() => expect(within(drawer).getByRole('radio', { name: /000/ })).toBeEnabled());
     await user.keyboard('1');
 
     await waitFor(() => expect(createdAssessments).toHaveLength(2));
@@ -257,6 +265,23 @@ describe('TracesV4TraceDrawer pairwise review', () => {
         metadata: { 'mlflow.assessment.pairwiseOpponentTraceId': 'tr-000' },
       }),
     );
+  }, 20000);
+
+  test('attributes the review to the signed-in user on a server with auth', async () => {
+    jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(true);
+    signedInUsername = 'alice';
+    const user = userEvent.setup();
+    renderComparisonDrawer(jest.fn(), { [PAIRWISE_REVIEW_MODE_PARAM]: 'true' });
+
+    const drawer = await findDrawer();
+    await within(drawer).findByText('Which run is better?');
+    await waitFor(() => expect(within(drawer).getByRole('radio', { name: /000/ })).toBeEnabled());
+    await user.keyboard('2');
+
+    await waitFor(() => expect(createdAssessments).toHaveLength(2));
+    for (const { assessment } of createdAssessments) {
+      expect(assessment['source']).toEqual({ source_type: 'HUMAN', source_id: 'alice' });
+    }
   }, 20000);
 
   test('clears pairwise review from the URL when the drawer closes', async () => {

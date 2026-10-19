@@ -10,7 +10,6 @@ import {
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { getUser } from '@databricks/web-shared/global-settings/getUser';
 import { RunColorCircle } from '@databricks/web-shared/genai-traces-table';
 import {
   ModelTraceExplorer,
@@ -58,7 +57,13 @@ export const TracesV4PairwiseReviewContent = ({
   const candidateLabel = candidateRunName ?? getTraceIdPreview(candidateTraceId);
   const baselineTraceInfo = isV3ModelTraceInfo(baselineTrace.info) ? baselineTrace.info : undefined;
   const candidateTraceInfo = isV3ModelTraceInfo(candidateTrace.info) ? candidateTrace.info : undefined;
-  const sourceId = getUser() ?? '';
+  const {
+    savePairwiseReview,
+    isSavingPairwiseReview,
+    reviewerSourceId: sourceId,
+    isReviewerResolved,
+  } = usePairwiseReviewAssessmentMutation();
+  const isReviewLocked = isSavingPairwiseReview || !isReviewerResolved;
   const existingBaselineAssessment =
     baselineTraceInfo && candidateTraceInfo
       ? findPairwiseScoreAssessment({
@@ -96,7 +101,6 @@ export const TracesV4PairwiseReviewContent = ({
   const selectedTraceId = selectedTraceIdOverride ?? persistedSelectedTraceId;
   const rationale = rationaleOverride ?? persistedRationale;
   const lastSavedRationale = lastSavedRationaleOverride ?? persistedRationale;
-  const { savePairwiseReview, isSavingPairwiseReview } = usePairwiseReviewAssessmentMutation();
   const questionValue =
     selectedTraceId === baselineTraceId ? true : selectedTraceId === candidateTraceId ? false : null;
   const commentLabel = intl.formatMessage({
@@ -130,12 +134,7 @@ export const TracesV4PairwiseReviewContent = ({
 
   const selectWinner = useCallback(
     (nextSelectedTraceId: string) => {
-      if (
-        !baselineTraceInfo ||
-        !candidateTraceInfo ||
-        isSavingPairwiseReview ||
-        nextSelectedTraceId === selectedTraceId
-      ) {
+      if (!baselineTraceInfo || !candidateTraceInfo || isReviewLocked || nextSelectedTraceId === selectedTraceId) {
         return;
       }
       const previousSelectedTraceId = selectedTraceId;
@@ -144,7 +143,7 @@ export const TracesV4PairwiseReviewContent = ({
         setSelectedTraceId(previousSelectedTraceId);
       });
     },
-    [baselineTraceInfo, candidateTraceInfo, isSavingPairwiseReview, persistReview, rationale, selectedTraceId],
+    [baselineTraceInfo, candidateTraceInfo, isReviewLocked, persistReview, rationale, selectedTraceId],
   );
 
   useEffect(() => {
@@ -260,7 +259,7 @@ export const TracesV4PairwiseReviewContent = ({
               componentId="mlflow.traces-v4.pairwise-review.question"
               name="mlflow.traces-v4.pairwise-review.question"
               value={questionValue ?? undefined}
-              disabled={!baselineTraceInfo || !candidateTraceInfo || isSavingPairwiseReview}
+              disabled={!baselineTraceInfo || !candidateTraceInfo || isReviewLocked}
               onChange={(event) => {
                 const nextSelectedTraceId = event.target.value ? baselineTraceId : candidateTraceId;
                 selectWinner(nextSelectedTraceId);
@@ -338,14 +337,14 @@ export const TracesV4PairwiseReviewContent = ({
               componentId="mlflow.traces-v4.pairwise-review.rationale"
               aria-label={commentLabel}
               value={rationale}
-              disabled={isSavingPairwiseReview}
+              disabled={isReviewLocked}
               placeholder={intl.formatMessage({
                 defaultMessage: 'Add a comment (optional)',
                 description: 'Placeholder for an optional comment in pairwise trace review',
               })}
               onChange={(event) => setRationale(event.target.value)}
               onBlur={() => {
-                if (selectedTraceId && rationale !== lastSavedRationale && !isSavingPairwiseReview) {
+                if (selectedTraceId && rationale !== lastSavedRationale && !isReviewLocked) {
                   void persistReview(selectedTraceId, rationale).catch(() => {
                     setRationale(lastSavedRationale);
                   });
