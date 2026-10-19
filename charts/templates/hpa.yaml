@@ -15,18 +15,18 @@
 {{- end }}
 
 {{- /* Validation: CPU target requires resource requests */ -}}
-{{- if and .Values.autoscaling.targetCPUUtilizationPercentage (not .Values.resources.requests.cpu) }}
+{{- if and .Values.autoscaling.targetCPUUtilizationPercentage (not (dig "requests" "cpu" "" .Values.resources)) }}
 {{- fail "autoscaling with targetCPUUtilizationPercentage requires resources.requests.cpu to be set" }}
 {{- end }}
 
 {{- /* Validation: memory target requires resource requests */ -}}
-{{- if and .Values.autoscaling.targetMemoryUtilizationPercentage (not .Values.resources.requests.memory) }}
+{{- if and .Values.autoscaling.targetMemoryUtilizationPercentage (not (dig "requests" "memory" "" .Values.resources)) }}
 {{- fail "autoscaling with targetMemoryUtilizationPercentage requires resources.requests.memory to be set" }}
 {{- end }}
 
 {{- /* Validation: minReplicas must not exceed maxReplicas */ -}}
-{{- if gt .Values.autoscaling.minReplicas .Values.autoscaling.maxReplicas }}
-{{- fail (printf "autoscaling.minReplicas (%d) must not exceed maxReplicas (%d)" .Values.autoscaling.minReplicas .Values.autoscaling.maxReplicas) }}
+{{- if gt (int .Values.autoscaling.minReplicas) (int .Values.autoscaling.maxReplicas) }}
+{{- fail (printf "autoscaling.minReplicas (%d) must not exceed maxReplicas (%d)" (int .Values.autoscaling.minReplicas) (int .Values.autoscaling.maxReplicas)) }}
 {{- end }}
 
 apiVersion: autoscaling/v2
