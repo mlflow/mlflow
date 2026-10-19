@@ -1,6 +1,7 @@
 import json
 import os
 
+import docker
 import pytest
 import requests
 
@@ -97,6 +98,88 @@ def test_missing_result_fails_with_container_logs(tmp_path):
     assert result.status == JobStatus.FAILED
     assert "without writing a result" in result.error_message
     assert "container log line" in result.error_message
+
+
+def _killed_for_memory(container):
+    container.oom_killed = True
+    return {"StatusCode": 137}
+
+
+def test_container_out_of_memory_names_the_limit_and_the_setting(tmp_path):
+    client = FakeClient(_killed_for_memory)
+
+    result = _run(client, tmp_path, resource_limits={"memory": "256Mi"})
+
+    assert result.status == JobStatus.FAILED
+    assert "exited with code 137" in result.error_message
+    assert "Docker reports that the container was stopped because it ran out of memory" in (
+        result.error_message
+    )
+    assert "its memory limit is 256Mi" in result.error_message
+    assert (
+        'MLFLOW_JOB_RESOURCE_LIMITS_run_online_trace_scorer, for example {"memory": "512Mi"}'
+        in (result.error_message)
+    )
+    assert "container log line" in result.error_message
+    # The container's attributes are from when it started, so the final state needs a reload.
+    assert client.started[0].reloads == 1
+    assert client.started[0].removed
+
+
+def test_out_of_memory_is_named_when_a_partial_result_was_written(tmp_path):
+    def on_wait(container):
+        (container._output_dir() / jc._RESULT_FILE).write_text('{"succeeded": tr')
+        container.oom_killed = True
+        return {"StatusCode": 137}
+
+    result = _run(FakeClient(on_wait), tmp_path)
+
+    assert result.status == JobStatus.FAILED
+    assert "ran out of memory (its memory limit is 1Gi)" in result.error_message
+
+
+def test_out_of_memory_is_named_with_a_failure_result(tmp_path):
+    def on_wait(container):
+        _SubprocessJobResult(succeeded=False, error="MemoryError").dump(
+            str(container._output_dir() / jc._RESULT_FILE)
+        )
+        container.oom_killed = True
+        return {"StatusCode": 1}
+
+    result = _run(FakeClient(on_wait), tmp_path)
+
+    assert result.error_message.startswith("MemoryError Docker reports that the container")
+
+
+def test_exit_without_running_out_of_memory_keeps_the_plain_message(tmp_path):
+    result = _run(FakeClient(lambda container: {"StatusCode": 137}), tmp_path)
+
+    assert result.status == JobStatus.FAILED
+    assert "without writing a result. Container logs:" in result.error_message
+    assert "memory" not in result.error_message
+
+
+def _state_unreadable(self):
+    raise docker.errors.NotFound("No such container")
+
+
+def test_unreadable_container_state_keeps_the_plain_message(tmp_path, monkeypatch):
+    monkeypatch.setattr(FakeContainer, "reload", _state_unreadable)
+
+    result = _run(FakeClient(_killed_for_memory), tmp_path)
+
+    assert result.status == JobStatus.FAILED
+    assert "without writing a result. Container logs:" in result.error_message
+    assert "memory" not in result.error_message
+
+
+@pytest.mark.parametrize(
+    ("num_bytes", "shown"),
+    [(2 * 1024**3, "2Gi"), (512 * 1024**2, "512Mi"), (10**9, "1G"), (3 * 1024**4, "3Ti"), (7, "7")],
+)
+def test_format_memory_uses_the_suffixes_limits_accept(num_bytes, shown):
+    assert jc._format_memory(num_bytes) == shown
+    assert jc._parse_memory(shown) == num_bytes
 
 
 def test_timeout_kills_and_removes_the_container(tmp_path):

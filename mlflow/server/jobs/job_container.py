@@ -392,29 +392,79 @@ def _remove_labeled_containers(client, label: str) -> None:
         _remove_quietly(container)
 
 
+def _format_memory(num_bytes: int) -> str:
+    """Show a byte count with the largest suffix ``_parse_memory`` accepts that divides it."""
+    for suffix in ("Ti", "Gi", "Mi", "Ki", "T", "G", "M", "k"):
+        if num_bytes % _MEMORY_SUFFIXES[suffix] == 0:
+            return f"{num_bytes // _MEMORY_SUFFIXES[suffix]}{suffix}"
+    return str(num_bytes)
+
+
+def _out_of_memory_note(container, job_name: str, memory: int) -> str:
+    """A sentence for the error message if Docker reports that ``container`` ran out of memory.
+
+    Empty if it does not, or if the container's state cannot be read.
+    """
+    try:
+        # The container's attributes are from when it started; reload them to see its final state.
+        container.reload()
+        oom_killed = container.attrs["State"]["OOMKilled"]
+    except Exception:
+        _logger.debug("Could not read the state of the container for %s", job_name, exc_info=True)
+        return ""
+    if not oom_killed:
+        return ""
+    return (
+        " Docker reports that the container was stopped because it ran out of memory (its memory "
+        f"limit is {_format_memory(memory)}). If the scorer needs more memory, raise the limit "
+        f"with MLFLOW_JOB_RESOURCE_LIMITS_{job_name}, for example "
+        f'{{"memory": "{_format_memory(2 * memory)}"}}. The setting is a JSON object that '
+        "replaces any earlier value of the variable, so keep other limits you set in it, such as "
+        '"cpu". This does not help if the host itself is low on memory.'
+    )
+
+
 def job_result_from_container(
-    container, exit_code: int | None, output_dir: Path, job_id: str, plan: DockerJobPlan
+    container,
+    exit_code: int | None,
+    output_dir: Path,
+    job_id: str,
+    plan: DockerJobPlan,
+    job_name: str,
+    memory: int,
 ) -> JobResult:
-    """The result of a job whose container exited: its untrusted result, checked and finalized."""
+    """The result of a job whose container exited: its untrusted result, checked and finalized.
+
+    ``job_name`` and ``memory`` (the container's memory limit in bytes) are used to explain a
+    failure when Docker reports that the container ran out of memory.
+    """
     result_path = output_dir / _RESULT_FILE
     if not os.path.lexists(result_path):
+        out_of_memory = _out_of_memory_note(container, job_name, memory)
         logs = _log_tail(container)
         return JobResult(
             status=JobStatus.FAILED,
             error_message=(
                 f"The container for job {job_id!r} exited with code {exit_code} without "
-                f"writing a result. Container logs:\n{logs}"
+                f"writing a result.{out_of_memory} Container logs:\n{logs}"
             ),
         )
 
     try:
         subprocess_result = _load_result(result_path)
     except MlflowException as e:
-        return JobResult(status=JobStatus.FAILED, error_message=e.message)
-    if not subprocess_result.succeeded:
+        # For example a result file cut short when the container ran out of memory.
         return JobResult(
             status=JobStatus.FAILED,
-            error_message=subprocess_result.error,
+            error_message=e.message + _out_of_memory_note(container, job_name, memory),
+        )
+    if not subprocess_result.succeeded:
+        error = subprocess_result.error
+        if out_of_memory := _out_of_memory_note(container, job_name, memory):
+            error = f"{error}{out_of_memory}" if error else out_of_memory.lstrip()
+        return JobResult(
+            status=JobStatus.FAILED,
+            error_message=error,
             is_transient_error=bool(subprocess_result.is_transient_error),
         )
 
@@ -451,8 +501,9 @@ def run_plan_in_container(
 
     ``image`` must already be present: a missing image is pulled inside the start, which counts
     against ``timeout``. ``timeout`` bounds starting the container and waiting for it to exit. The
-    steps after that are not part of it: fetching the logs of a container that wrote no result and
-    removing the container are bounded only by the Docker client's request timeout, and
+    steps after that are not part of it: inspecting the state of a container that failed, fetching
+    the logs of a container that wrote no result, and removing the container are bounded only by
+    the Docker client's request timeout, and
     ``plan.finalize`` runs on the host with no time limit, so a caller with a deadline must leave
     time for them. The container is removed before this returns, but not if this process is killed
     while it runs; the caller must then remove it (it is labeled with ``job_id``).
@@ -501,7 +552,7 @@ def run_plan_in_container(
                 error_message=f"Lost track of the container for job {job_id!r}: {e}",
             )
         return job_result_from_container(
-            container, outcome.get("StatusCode"), output_dir, job_id, plan
+            container, outcome.get("StatusCode"), output_dir, job_id, plan, job_name, memory
         )
     finally:
         _remove_quietly(container)
