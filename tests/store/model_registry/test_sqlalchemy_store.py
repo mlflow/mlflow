@@ -28,6 +28,7 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_DOES_NOT_EXIST,
     ErrorCode,
 )
+from mlflow.store.model_registry import RegistrySearchNameScope
 from mlflow.store.model_registry.dbmodels.models import (
     SqlModelVersion,
     SqlModelVersionTag,
@@ -1280,6 +1281,37 @@ def _search_registered_models(store, filter_string, max_results=10, order_by=Non
     return [registered_model.name for registered_model in result], result.token
 
 
+@pytest.mark.parametrize("wildcard_readable", [False, True])
+@pytest.mark.parametrize("search_versions", [False, True])
+def test_large_authorization_scope_applies_before_registry_pagination(
+    store, wildcard_readable, search_versions
+):
+    names = [f"scope-model-{suffix}" for suffix in ("a", "b", "c")]
+    for name in names:
+        _rm_maker(store, name)
+        if search_versions:
+            _mv_maker(store, name)
+
+    exceptions = {f"unused-model-{i:04}" for i in range(3400)}
+    exceptions.add("unused-model-' OR 1=1 --")
+    exceptions.update([names[1]] if wildcard_readable else [names[0], names[2]])
+    scope = RegistrySearchNameScope(wildcard_readable, frozenset(exceptions))
+    search = store.search_model_versions if search_versions else store.search_registered_models
+
+    first = search(max_results=1, order_by=["name DESC"], authorization_scope=scope)
+    second = search(
+        max_results=1,
+        order_by=["name DESC"],
+        page_token=first.token,
+        authorization_scope=scope,
+    )
+    assert [row.name for row in first] == [names[2]]
+    assert [row.name for row in second] == [names[0]]
+    assert second.token is None
+    deny_all = RegistrySearchNameScope(False, frozenset())
+    assert search(max_results=1, authorization_scope=deny_all) == []
+
+
 def test_search_registered_models(store):
     # create some registered models
     prefix = "test_for_search_"
@@ -2101,6 +2133,30 @@ def test_search_prompts(store):
     )
     assert len(rms) == 1
     assert rms[0].name == "prompt_2"
+
+
+def test_search_prompt_marker_is_case_insensitive(store):
+    store.create_registered_model("model")
+    store.create_model_version("model", "1", "dummy_source")
+    for value in ("True", "TRUE"):
+        name = f"prompt_{value}"
+        store.create_registered_model(
+            name, tags=[RegisteredModelTag(key=IS_PROMPT_TAG_KEY, value=value)]
+        )
+        store.create_model_version(
+            name, "1", "dummy_source", tags=[ModelVersionTag(key=IS_PROMPT_TAG_KEY, value=value)]
+        )
+        assert store.get_registered_model(name)._is_prompt()
+        assert store.get_model_version(name, 1)._is_prompt()
+
+    model_filter = f"tags.`{IS_PROMPT_TAG_KEY}` != 'true'"
+    prompt_filter = f"tags.`{IS_PROMPT_TAG_KEY}` = 'true'"
+    for search in (store.search_registered_models, store.search_model_versions):
+        assert [row.name for row in search(filter_string=model_filter, max_results=10)] == ["model"]
+        assert {row.name for row in search(filter_string=prompt_filter, max_results=10)} == {
+            "prompt_True",
+            "prompt_TRUE",
+        }
 
 
 def test_search_prompts_versions(store):

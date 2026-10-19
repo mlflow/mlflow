@@ -2,6 +2,7 @@ import logging
 
 from mlflow.entities.model_registry import ModelVersion, RegisteredModel
 from mlflow.entities.webhook import Webhook, WebhookEvent, WebhookStatus, WebhookTestResult
+from mlflow.exceptions import MlflowException
 from mlflow.protos.model_registry_pb2 import (
     CreateModelVersion,
     CreateRegisteredModel,
@@ -167,7 +168,12 @@ class RestStore(WorkspaceRestStoreMixin, BaseRestStore):
         self._call_endpoint(DeleteRegisteredModel, req_body)
 
     def search_registered_models(
-        self, filter_string=None, max_results=None, order_by=None, page_token=None
+        self,
+        filter_string=None,
+        max_results=None,
+        order_by=None,
+        page_token=None,
+        authorization_scope=None,
     ):
         """
         Search for registered models in backend that satisfy the filter criteria.
@@ -179,6 +185,7 @@ class RestStore(WorkspaceRestStoreMixin, BaseRestStore):
                 matching search results.
             page_token: Token specifying the next page of results. It should be obtained from
                 a ``search_registered_models`` call.
+            authorization_scope: Internal name scope, unsupported by this remote store.
 
         Returns:
             A PagedList of :py:class:`mlflow.entities.model_registry.RegisteredModel` objects
@@ -186,6 +193,10 @@ class RestStore(WorkspaceRestStoreMixin, BaseRestStore):
             obtained via the ``token`` attribute of the object.
 
         """
+        if authorization_scope is not None:
+            raise MlflowException.invalid_parameter_value(
+                "This registry backend cannot search with a large authorization scope"
+            )
         req_body = message_to_json(
             SearchRegisteredModels(
                 filter=filter_string,
@@ -405,7 +416,12 @@ class RestStore(WorkspaceRestStoreMixin, BaseRestStore):
         return response_proto.artifact_uri
 
     def search_model_versions(
-        self, filter_string=None, max_results=None, order_by=None, page_token=None
+        self,
+        filter_string=None,
+        max_results=None,
+        order_by=None,
+        page_token=None,
+        authorization_scope=None,
     ):
         """
         Search for model versions in backend that satisfy the filter criteria.
@@ -419,6 +435,7 @@ class RestStore(WorkspaceRestStoreMixin, BaseRestStore):
                 matching search results.
             page_token: Token specifying the next page of results. It should be obtained from
                 a ``search_model_versions`` call.
+            authorization_scope: Internal name scope, unsupported by this remote store.
 
         Returns:
             A PagedList of :py:class:`mlflow.entities.model_registry.ModelVersion`
@@ -426,6 +443,10 @@ class RestStore(WorkspaceRestStoreMixin, BaseRestStore):
             page can be obtained via the ``token`` attribute of the object.
 
         """
+        if authorization_scope is not None:
+            raise MlflowException.invalid_parameter_value(
+                "This registry backend cannot search with a large authorization scope"
+            )
         req_body = message_to_json(
             SearchModelVersions(
                 filter=filter_string,

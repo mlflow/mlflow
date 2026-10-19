@@ -54,6 +54,8 @@ class AbstractStore:
     Abstract class that defines API interfaces for storing Model Registry metadata.
     """
 
+    # Set only when both registry searches apply authorization_scope before pagination.
+    supports_registry_search_authorization_scope = False
     __metaclass__ = ABCMeta
 
     def __init__(self, store_uri=None, tracking_uri=None):
@@ -154,7 +156,12 @@ class AbstractStore:
 
     @abstractmethod
     def search_registered_models(
-        self, filter_string=None, max_results=None, order_by=None, page_token=None
+        self,
+        filter_string=None,
+        max_results=None,
+        order_by=None,
+        page_token=None,
+        authorization_scope=None,
     ):
         """
         Search for registered models in backend that satisfy the filter criteria.
@@ -166,6 +173,7 @@ class AbstractStore:
                 matching search results.
             page_token: Token specifying the next page of results. It should be obtained from
                 a ``search_registered_models`` call.
+            authorization_scope: Internal name scope to apply before ordering and pagination.
 
         Returns:
             A PagedList of :py:class:`mlflow.entities.model_registry.RegisteredModel` objects
@@ -342,7 +350,12 @@ class AbstractStore:
 
     @abstractmethod
     def search_model_versions(
-        self, filter_string=None, max_results=None, order_by=None, page_token=None
+        self,
+        filter_string=None,
+        max_results=None,
+        order_by=None,
+        page_token=None,
+        authorization_scope=None,
     ):
         """
         Search for model versions in backend that satisfy the filter criteria.
@@ -356,6 +369,7 @@ class AbstractStore:
                 matching search results.
             page_token: Token specifying the next page of results. It should be obtained from
                 a ``search_model_versions`` call.
+            authorization_scope: Internal name scope to apply before ordering and pagination.
 
         Returns:
             A PagedList of :py:class:`mlflow.entities.model_registry.ModelVersion`

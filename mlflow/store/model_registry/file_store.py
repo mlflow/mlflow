@@ -40,6 +40,7 @@ from mlflow.store.model_registry import (
     DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH,
     SEARCH_MODEL_VERSION_MAX_RESULTS_THRESHOLD,
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_THRESHOLD,
+    RegistrySearchNameScope,
 )
 from mlflow.store.model_registry.abstract_store import AbstractStore
 from mlflow.utils.file_utils import (
@@ -120,6 +121,7 @@ class FileModelVersion(ModelVersion):
 
 
 class FileStore(AbstractStore):
+    supports_registry_search_authorization_scope = True
     MODELS_FOLDER_NAME = "models"
     META_DATA_FILE_NAME = "meta.yaml"
     TAGS_FOLDER_NAME = "tags"
@@ -372,7 +374,12 @@ class FileStore(AbstractStore):
         return [self._get_registered_model_from_path(path) for path in registered_model_paths]
 
     def search_registered_models(
-        self, filter_string=None, max_results=None, order_by=None, page_token=None
+        self,
+        filter_string=None,
+        max_results=None,
+        order_by=None,
+        page_token=None,
+        authorization_scope: RegistrySearchNameScope | None = None,
     ):
         """
         Search for registered models in backend that satisfy the filter criteria.
@@ -384,6 +391,7 @@ class FileStore(AbstractStore):
                 matching search results.
             page_token: Token specifying the next page of results. It should be obtained from
                 a ``search_registered_models`` call.
+            authorization_scope: Internal name scope applied before reading model files.
 
         Returns:
             A PagedList of :py:class:`mlflow.entities.model_registry.RegisteredModel` objects
@@ -406,7 +414,16 @@ class FileStore(AbstractStore):
 
         filter_string = add_prompt_filter_string(filter_string, is_prompt=False)
 
-        registered_models = self._list_all_registered_models()
+        registered_model_paths = self._get_all_registered_model_paths()
+        if authorization_scope is not None:
+            registered_model_paths = [
+                path
+                for path in registered_model_paths
+                if authorization_scope.includes(os.path.basename(path))
+            ]
+        registered_models = [
+            self._get_registered_model_from_path(path) for path in registered_model_paths
+        ]
         filtered_rms = SearchModelUtils.filter(registered_models, filter_string)
         sorted_rms = SearchModelUtils.sort(filtered_rms, order_by)
         start_offset = SearchUtils.parse_start_offset_from_page_token(page_token)
@@ -907,7 +924,12 @@ class FileStore(AbstractStore):
         ]
 
     def search_model_versions(
-        self, filter_string=None, max_results=None, order_by=None, page_token=None
+        self,
+        filter_string=None,
+        max_results=None,
+        order_by=None,
+        page_token=None,
+        authorization_scope: RegistrySearchNameScope | None = None,
     ) -> list[ModelVersion]:
         """
         Search for model versions in backend that satisfy the filter criteria.
@@ -921,6 +943,7 @@ class FileStore(AbstractStore):
                 matching search results.
             page_token: Token specifying the next page of results. It should be obtained from
                 a ``search_model_versions`` call.
+            authorization_scope: Internal name scope applied before reading version files.
 
         Returns:
             A PagedList of :py:class:`mlflow.entities.model_registry.ModelVersion`
@@ -943,6 +966,12 @@ class FileStore(AbstractStore):
             )
 
         registered_model_paths = self._get_all_registered_model_paths()
+        if authorization_scope is not None:
+            registered_model_paths = [
+                path
+                for path in registered_model_paths
+                if authorization_scope.includes(os.path.basename(path))
+            ]
         model_versions = []
         for path in registered_model_paths:
             model_versions.extend(

@@ -14,12 +14,21 @@ import unicodedata
 import urllib
 from collections.abc import Iterable
 from functools import partial, wraps
-from typing import Any, Callable
+from typing import Any, Callable, Literal
 from zlib import adler32
 
 import requests
 from cachetools import TTLCache
-from flask import Request, Response, current_app, g, jsonify, request, send_file
+from flask import (
+    Request,
+    Response,
+    current_app,
+    g,
+    has_request_context,
+    jsonify,
+    request,
+    send_file,
+)
 from google.protobuf import descriptor
 from google.protobuf.json_format import ParseError
 from werkzeug.exceptions import RequestedRangeNotSatisfiable
@@ -356,6 +365,10 @@ from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.store.artifact.utils.models import _parse_model_uri, get_model_name_and_version
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.jobs.abstract_store import AbstractJobStore
+from mlflow.store.model_registry import (
+    SEARCH_MODEL_VERSION_MAX_RESULTS_THRESHOLD,
+    SEARCH_REGISTERED_MODEL_MAX_RESULTS_THRESHOLD,
+)
 from mlflow.store.model_registry.abstract_store import AbstractStore as AbstractModelRegistryStore
 from mlflow.store.model_registry.rest_store import RestStore as ModelRegistryRestStore
 from mlflow.store.tracking import (
@@ -411,6 +424,7 @@ from mlflow.utils.providers import (
     get_models,
     get_provider_config_response,
 )
+from mlflow.utils.search_utils import SearchModelUtils, SearchModelVersionUtils
 from mlflow.utils.server_info import (
     SERVER_INFO_ARTIFACT_SERVING_ENABLED,
     SERVER_INFO_FEATURES_ENABLED,
@@ -3029,12 +3043,10 @@ def _search_registered_models():
             "page_token": [_assert_string],
         },
     )
+    search_policy = _prepare_model_registry_search(request_message)
     store = _get_model_registry_store()
-    registered_models = store.search_registered_models(
-        filter_string=request_message.filter,
-        max_results=request_message.max_results,
-        order_by=request_message.order_by,
-        page_token=request_message.page_token or None,
+    registered_models = _search_model_registry_page(
+        store.search_registered_models, request_message, search_policy
     )
     response_message = SearchRegisteredModels.Response()
     response_message.registered_models.extend([e.to_proto() for e in registered_models])
@@ -3611,13 +3623,88 @@ def _search_model_versions():
     return _wrap_response(response_message)
 
 
+def _normalize_model_registry_search(
+    request_message: SearchRegisteredModels | SearchModelVersions,
+) -> Literal["prompt", "registered_model"]:
+    search_utils = (
+        SearchModelVersionUtils
+        if isinstance(request_message, SearchModelVersions)
+        else SearchModelUtils
+    )
+    predicates = [
+        clause
+        for clause in search_utils.parse_search_filter(request_message.filter)
+        if clause["type"] == "tag" and clause["key"] == IS_PROMPT_TAG_KEY
+    ]
+    is_prompt = any(
+        (clause["comparator"] == "=" and clause["value"].lower() == "true")
+        or (clause["comparator"] == "!=" and clause["value"].lower() == "false")
+        for clause in predicates
+    )
+    comparator = "=" if is_prompt else "!="
+    # Put the resource selector first so every store and auth plugin sees the same namespace,
+    # including when the caller supplied several predicates on the prompt tag.
+    if not predicates or predicates[0] != {
+        "type": "tag",
+        "key": IS_PROMPT_TAG_KEY,
+        "comparator": comparator,
+        "value": "true",
+    }:
+        selector = f"tags.`{IS_PROMPT_TAG_KEY}` {comparator} 'true'"
+        request_message.filter = (
+            f"{selector} AND {request_message.filter}" if request_message.filter else selector
+        )
+    return "prompt" if is_prompt else "registered_model"
+
+
+def _prepare_model_registry_search(request_message):
+    """Auth plugins may set ``g.mlflow_model_registry_search_authorizer`` per request.
+
+    The hook receives the normalized message and registry namespace and returns a policy
+    implementing ``search(store_search, kwargs)``. An enabled auth app must install a hook.
+    """
+    resource_type = _normalize_model_registry_search(request_message)
+    authorizer = (
+        getattr(g, "mlflow_model_registry_search_authorizer", None)
+        if has_request_context()
+        else None
+    )
+    if authorizer is not None:
+        return authorizer(request_message, resource_type)
+    if _is_server_auth_enabled():
+        raise MlflowException("Registry search authorization is unavailable", INTERNAL_ERROR)
+
+
+def _search_model_registry_page(search, request_message, search_policy):
+    max_results = request_message.max_results
+    if not isinstance(max_results, int) or max_results < 1:
+        raise MlflowException.invalid_parameter_value(
+            f"Invalid value for max_results. It must be a positive integer, but got {max_results}"
+        )
+    threshold = (
+        SEARCH_REGISTERED_MODEL_MAX_RESULTS_THRESHOLD
+        if isinstance(request_message, SearchRegisteredModels)
+        else SEARCH_MODEL_VERSION_MAX_RESULTS_THRESHOLD
+    )
+    if max_results > threshold:
+        raise MlflowException.invalid_parameter_value(
+            f"Invalid value for max_results. It must be at most {threshold}, but got {max_results}"
+        )
+
+    kwargs = {
+        "filter_string": request_message.filter,
+        "max_results": max_results,
+        "order_by": request_message.order_by,
+        "page_token": request_message.page_token or None,
+    }
+    return search_policy.search(search, kwargs) if search_policy is not None else search(**kwargs)
+
+
 def search_model_versions_impl(request_message):
+    search_policy = _prepare_model_registry_search(request_message)
     store = _get_model_registry_store()
-    model_versions = store.search_model_versions(
-        filter_string=request_message.filter,
-        max_results=request_message.max_results,
-        order_by=request_message.order_by,
-        page_token=request_message.page_token or None,
+    model_versions = _search_model_registry_page(
+        store.search_model_versions, request_message, search_policy
     )
     response_message = SearchModelVersions.Response()
     response_message.model_versions.extend([e.to_proto() for e in model_versions])
