@@ -272,7 +272,8 @@ from mlflow.utils import chunk_list
 from mlflow.utils.file_utils import local_file_uri_to_path
 from mlflow.utils.issue_utils import (
     issue_category_hash,
-    issue_page_offset,
+    issue_keyset_token,
+    issue_page_position,
     issue_page_token,
     issue_query_fingerprint,
     validate_issue_fields,
@@ -9027,7 +9028,10 @@ class SqlAlchemyStore(
             categories: Match any category, ignoring case and surrounding whitespace.
                 Different filter fields are ANDed.
             order_by: Field and optional ASC/DESC; supports name, status, severity and timestamps.
-                Issue ID breaks ties. Omit to retain the legacy severity/count/creation ordering.
+                Issue ID breaks ties. Explicit ordering uses a cursor over the last row's sort
+                values, so inserts or removals before it do not shift subsequent pages.
+                This is a live list, not a snapshot: edits to sort/filter fields can move rows
+                across the cursor. Omit to retain the legacy severity/count/creation ordering.
             include_total_count: Return the matching count before pagination in total_count.
             view: "basic" returns an empty description and omits root_causes and metadata.
                 The default is "full".
@@ -9068,7 +9072,7 @@ class SqlAlchemyStore(
             view=view,
         )
         with self.ManagedSessionMaker() as session:
-            offset = issue_page_offset(page_token, fingerprint, allow_legacy=not enhanced)
+            position = issue_page_position(page_token, fingerprint, allow_legacy=not enhanced)
 
             query = self._get_query(session, SqlIssue)
 
@@ -9134,6 +9138,7 @@ class SqlAlchemyStore(
                 SqlIssue.created_timestamp.desc(),
                 SqlIssue.issue_id.desc(),
             ])
+            sort_columns = []
             if order_by:
                 sortable = {
                     "name": func.lower(SqlIssue.name),
@@ -9159,12 +9164,38 @@ class SqlAlchemyStore(
                             f"Invalid issue order_by: {order!r}"
                         )
                     column = sortable[parts[0]]
-                    order_clauses.append(
-                        column.desc()
-                        if len(parts) == 2 and parts[1].upper() == "DESC"
-                        else column.asc()
+                    descending = len(parts) == 2 and parts[1].upper() == "DESC"
+                    sort_columns.append((column, descending))
+                sort_columns.append((SqlIssue.issue_id, True))
+                order_clauses = [
+                    column.desc() if descending else column.asc()
+                    for column, descending in sort_columns
+                ]
+            if position.values is not None:
+                value_types = [
+                    str if order.split()[0] == "name" else int for order in order_by or []
+                ] + [str]
+                if (
+                    not sort_columns
+                    or len(position.values) != len(value_types)
+                    or any(
+                        type(value) is not expected
+                        for value, expected in zip(position.values, value_types)
                     )
-                order_clauses.append(SqlIssue.issue_id.desc())
+                ):
+                    raise MlflowException.invalid_parameter_value("Invalid issue page token")
+                equal_prefix = []
+                after_cursor = []
+                for (column, descending), value in zip(sort_columns, position.values):
+                    after_cursor.append(
+                        and_(*equal_prefix, column < value if descending else column > value)
+                    )
+                    equal_prefix.append(column == value)
+                query = query.filter(or_(*after_cursor))
+            if sort_columns:
+                # Read the effective keys from SQL (including LOWER/COALESCE/CASE), not from
+                # the entity or the anchor row on a later request; the anchor may be deleted.
+                query = query.add_columns(*(column for column, _ in sort_columns))
             query = query.order_by(*order_clauses)
             if view == "basic":
                 query = query.options(
@@ -9173,19 +9204,22 @@ class SqlAlchemyStore(
                     defer(SqlIssue.issue_metadata),
                 )
 
-            query = query.offset(offset).limit(max_results + 1)
+            query = query.offset(position.offset).limit(max_results + 1)
 
             results = query.all()
             has_next_page = len(results) > max_results
-            next_token = (
-                (
-                    issue_page_token(offset + max_results, fingerprint)
-                    if enhanced
-                    else SearchTraceUtils.create_page_token(offset + max_results)
-                )
-                if has_next_page
-                else None
-            )
+            next_token = None
+            if has_next_page:
+                if sort_columns:
+                    next_token = issue_keyset_token(
+                        list(results[max_results - 1][-len(sort_columns) :]), fingerprint
+                    )
+                elif enhanced:
+                    next_token = issue_page_token(position.offset + max_results, fingerprint)
+                else:
+                    next_token = SearchTraceUtils.create_page_token(position.offset + max_results)
+            if sort_columns:
+                results = [(row[0], row[1]) if include_trace_count else row[0] for row in results]
 
             if include_trace_count:
                 issues = [

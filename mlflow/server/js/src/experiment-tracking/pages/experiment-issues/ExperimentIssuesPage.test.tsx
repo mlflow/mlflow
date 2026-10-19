@@ -275,6 +275,24 @@ describe('Experiment Issues', () => {
     expect(searches[searches.length - 1]['page_token']).toBeUndefined();
     expect(await screen.findByRole('button', { name: /Later match/ })).toBeInTheDocument();
   });
+  test('merges repeated IDs if an already seen Issue moves past the cursor', async () => {
+    server.use(
+      rest.post('*/ajax-api/3.0/mlflow/issues/search', async (req, res, ctx) => {
+        const body = await req.json();
+        return res(
+          ctx.json(
+            body.page_token
+              ? { issues: [makeIssue('iss-a', 'Updated title'), makeIssue('iss-b')], total_count: 2 }
+              : { issues: [makeIssue('iss-a')], total_count: 2, next_page_token: 'opaque-cursor' },
+          ),
+        );
+      }),
+    );
+    renderPage();
+    await userEvent.click(await screen.findByRole('button', { name: 'Load more' }));
+    await screen.findByRole('button', { name: /Updated title/ });
+    expect(screen.getAllByTestId('experiment-issue-row')).toHaveLength(2);
+  });
   test('searches beyond the loaded page in SQL', async () => {
     responsePageSize = 2;
     issues = Array.from({ length: 3 }, (_, index) =>
