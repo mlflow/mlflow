@@ -338,6 +338,12 @@ def _get_trace_span_ids(trace_id: str) -> list[str]:
     An issue can be logged from inside the traced call, before anything has been exported, which
     is why the active trace is consulted first -- the same order ``get_trace_info`` uses. A trace
     recorded elsewhere, or already finished, is read from the store.
+
+    An in-progress trace is a complete view of itself: spans are only added to it and the whole
+    trace is popped once its root span ends, so spans that incremental export has already written
+    to the store are still listed here. The exception is a process that joins a distributed trace,
+    which registers it locally holding only the spans that process created; evidence logged there
+    can cite only those spans, the same ones ``get_trace`` returns in that process.
     """
     with InMemoryTraceManager.get_instance().get_trace(trace_id) as trace:
         if trace is not None:

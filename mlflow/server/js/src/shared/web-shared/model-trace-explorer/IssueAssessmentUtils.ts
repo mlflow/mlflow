@@ -91,14 +91,18 @@ const parseEvidence = (value?: string): IssueEvidence | undefined => {
     ) {
       return undefined;
     }
-    const steps = parsed['steps'].map(parseEvidenceStep);
-    if (steps.length === 0 || steps.some((step) => step === undefined)) {
+    const steps: IssueEvidenceStep[] = [];
+    for (const rawStep of parsed['steps']) {
+      const step = parseEvidenceStep(rawStep);
+      if (!step) {
+        return undefined;
+      }
+      steps.push(step);
+    }
+    if (steps.length === 0) {
       return undefined;
     }
-    return {
-      schemaVersion: ISSUE_EVIDENCE_SCHEMA_VERSION,
-      steps: steps.filter((step): step is IssueEvidenceStep => step !== undefined),
-    };
+    return { schemaVersion: ISSUE_EVIDENCE_SCHEMA_VERSION, steps };
   } catch {
     return undefined;
   }
