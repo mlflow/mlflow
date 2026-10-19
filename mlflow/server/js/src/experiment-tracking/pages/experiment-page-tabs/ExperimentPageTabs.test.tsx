@@ -439,6 +439,41 @@ describe('ExperimentLoggedModelListPage', () => {
       expect(await screen.findByRole('dialog', { name: 'Edit experiment' })).toBeInTheDocument();
     });
 
+    test('flag on: shows the experiment description under the breadcrumb row, not in it', async () => {
+      jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(true);
+      server.use(
+        graphql.query('MlflowGetExperimentQuery', (req, res, ctx) =>
+          res(
+            ctx.data(
+              createTestExperimentResponse({
+                ...genAIExperiment,
+                tags: [...genAIExperiment.tags, { key: NOTE_CONTENT_TAG, value: 'Nightly support agent evals' }],
+              }),
+            ),
+          ),
+        ),
+      );
+      renderTestComponent('/experiments/12345678/traces');
+
+      const description = await screen.findByText('Nightly support agent evals');
+      const breadcrumb = screen.getByRole('navigation', { name: 'Breadcrumb' });
+      const breadcrumbRow = screen.getByRole('main').firstElementChild;
+      expect(breadcrumbRow).toContainElement(breadcrumb);
+      expect(breadcrumbRow).not.toContainElement(description);
+      expect(screen.getByRole('main')).toContainElement(description);
+
+      await userEvent.click(screen.getByTestId('experiment-metadata-editor-edit-button'));
+      expect(await screen.findByRole('dialog', { name: 'Edit experiment' })).toBeInTheDocument();
+    });
+
+    test('flag on: shows no description area when the experiment has no description', async () => {
+      jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(true);
+      renderTestComponent('/experiments/12345678/traces');
+
+      expect(await screen.findByRole('navigation', { name: 'Breadcrumb' })).toBeInTheDocument();
+      expect(screen.queryByTestId('experiment-metadata-editor-edit-button')).not.toBeInTheDocument();
+    });
+
     test('flag on: keeps the experiment title header for non-GenAI experiments', async () => {
       jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(true);
       server.use(

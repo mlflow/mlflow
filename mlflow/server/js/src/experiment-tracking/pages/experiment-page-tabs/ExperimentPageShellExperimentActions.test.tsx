@@ -47,6 +47,7 @@ const renderActions = (path: string, { hideHeaderActions = false } = {}) =>
                 testRoute(
                   <ExperimentPageShellExperimentActions
                     experiment={experiment}
+                    setEditing={() => {}}
                     pageAction={<button type="button">Page action</button>}
                   />,
                   '*',
