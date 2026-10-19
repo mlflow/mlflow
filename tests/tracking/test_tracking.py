@@ -1326,6 +1326,41 @@ def test_log_table_with_pil_image_columns(file_type):
     reason="Skinny client does not support the np or pandas dependencies",
 )
 @pytest.mark.parametrize("file_type", ["json", "parquet"])
+@pytest.mark.parametrize("image_type", ["mlflow", "pil"])
+def test_log_table_with_image_dataframe_reused_across_runs(file_type, image_type):
+    import numpy as np
+    import pandas as pd
+    from PIL import Image
+
+    pixels = np.array([[[255, 0, 0], [0, 255, 0]]], dtype=np.uint8)
+    image = mlflow.Image(pixels) if image_type == "mlflow" else Image.fromarray(pixels)
+    data = pd.DataFrame({"inputs": ["prompt"], "image": [image]})
+    original_data = data.copy()
+    artifact_file = f"images.{file_type}"
+    client = MlflowClient()
+
+    for _ in range(2):
+        with mlflow.start_run() as run:
+            client.log_table(run.info.run_id, data, artifact_file)
+            artifact_path = client.download_artifacts(run.info.run_id, artifact_file)
+            logged_image = read_data(artifact_path)["image"][0]
+            assert logged_image["type"] == "image"
+            for key in ("filepath", "compressed_filepath"):
+                image_path = client.download_artifacts(run.info.run_id, logged_image[key])
+                with Image.open(image_path) as logged:
+                    logged.load()
+                    if key == "filepath":
+                        np.testing.assert_array_equal(np.array(logged), pixels)
+
+    pd.testing.assert_frame_equal(data, original_data)
+    assert data["image"][0] is image
+
+
+@pytest.mark.skipif(
+    "MLFLOW_SKINNY" in os.environ,
+    reason="Skinny client does not support the np or pandas dependencies",
+)
+@pytest.mark.parametrize("file_type", ["json", "parquet"])
 def test_log_table_with_invalid_image_columns(file_type):
     image = mlflow.Image([[1, 2, 3]])
     table_dict = {

@@ -3497,6 +3497,8 @@ class MlflowClient:
             # for data like {"inputs": "What is MLflow?"}
             except ValueError:
                 data = pd.DataFrame([data])
+        else:
+            data = data.copy()
 
         # Check if the column is a `PIL.Image.Image` or `mlflow.Image` object
         # and save filepath
