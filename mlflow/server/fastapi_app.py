@@ -39,6 +39,7 @@ from mlflow.server.fastapi_security import init_fastapi_security
 from mlflow.server.gateway_api import gateway_router
 from mlflow.server.handlers import STATIC_PREFIX_ENV_VAR, _add_static_prefix
 from mlflow.server.job_api import job_api_router
+from mlflow.server.jobs.executor_registry import warm_executor_registry_in_background
 from mlflow.server.mcp_server_api import (
     _request_validation_error_response,
     get_mcp_server_api_route_prefixes,
@@ -276,6 +277,14 @@ async def _lifespan(app: FastAPI):
         await anyio.to_thread.run_sync(reap_stale_sessions)
     except Exception:
         _logger.warning("Assistant session cleanup failed", exc_info=True)
+
+    # Handlers submit jobs from this worker, so check the job executor backends now (see
+    # warm_executor_registry). It runs in a background thread, so a Docker daemon that does not
+    # answer does not delay the worker's startup.
+    try:
+        warm_executor_registry_in_background()
+    except Exception:
+        _logger.warning("Could not start checking the job executor backends", exc_info=True)
 
     # Remote mode but no sandbox means the assistant runs its work on the host; surface that once
     # at startup rather than silently, since it is a weaker isolation posture for a shared server.

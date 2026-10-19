@@ -5,6 +5,7 @@ import inspect
 import json
 import logging
 import os
+import re
 import shutil
 import signal
 import subprocess
@@ -1075,6 +1076,14 @@ def register_periodic_tasks(huey_instance) -> None:
             cached_tracking_store = initialize_periodic_tasks_tracking_store()
         return cached_tracking_store
 
+    # The error the online scoring scheduler last failed with, so that a failure that repeats
+    # every minute (for example while the Docker daemon is unreachable) is logged once.
+    scheduler_error = None
+
+    def error_key(e: Exception) -> str:
+        # Memory addresses in a message (for example "object at 0x10a2b3c4d") differ each time.
+        return f"{type(e).__name__}: {re.sub(r'0x[0-9a-fA-F]+', '0x', str(e))}"
+
     @huey_instance.periodic_task(crontab(minute="*/1"))
     # Prevent concurrent execution if scheduler takes longer than 1 minute.
     @huey_instance.lock_task("online-scoring-scheduler-lock")
@@ -1082,10 +1091,25 @@ def register_periodic_tasks(huey_instance) -> None:
         """Runs every minute to fetch active scorer configs and submit scoring jobs."""
         from mlflow.genai.scorers.job import run_online_scoring_scheduler
 
+        nonlocal scheduler_error
         try:
             run_online_scoring_scheduler()
         except Exception as e:
-            _logger.exception(f"Online scoring scheduler failed: {e!r}")
+            error = error_key(e)
+            if error == scheduler_error:
+                _logger.debug(f"Online scoring scheduler failed again: {e!r}")
+            else:
+                _logger.exception(
+                    f"Online scoring scheduler failed: {e!r}. It runs again every minute; this "
+                    "error is not logged again while it repeats."
+                )
+                scheduler_error = error
+            return
+        if scheduler_error is not None:
+            _logger.info(
+                f"Online scoring scheduler recovered after failing with: {scheduler_error}"
+            )
+            scheduler_error = None
 
     _logger.info("Registered online_scoring_scheduler periodic task (runs every 1 minute)")
 

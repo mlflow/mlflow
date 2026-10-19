@@ -1,8 +1,10 @@
+import threading
 from unittest import mock
 
 import pytest
 
 from mlflow.server import fastapi_app
+from mlflow.server.jobs import executor_registry
 
 
 @pytest.fixture(autouse=True)
@@ -108,3 +110,63 @@ async def test_lifespan_reaps_expired_sessions_even_if_home_reap_fails(reap_sess
             pass
 
     reap_sessions.assert_called_once()
+
+
+@pytest.fixture
+def no_reaping():
+    with (
+        mock.patch("mlflow.server.fastapi_app.shutil.which", return_value=None),
+        mock.patch("mlflow.server.assistant.session.reap_stale_sandbox_homes"),
+    ):
+        yield
+
+
+@pytest.mark.asyncio
+@pytest.mark.usefixtures("no_reaping")
+async def test_lifespan_checks_the_job_executor_backends_without_waiting_for_it():
+    release = threading.Event()
+    warm = mock.Mock(side_effect=lambda: release.wait(10))
+    threads = []
+    start = executor_registry.warm_executor_registry_in_background
+    with (
+        mock.patch("mlflow.server.jobs.executor_registry.warm_executor_registry", warm),
+        mock.patch(
+            "mlflow.server.fastapi_app.warm_executor_registry_in_background",
+            side_effect=lambda: threads.append(start()),
+        ),
+    ):
+        # Startup finishes while the check is still running.
+        async with fastapi_app._lifespan(mock.MagicMock()):
+            assert threads[0].is_alive()
+        release.set()
+        threads[0].join(10)
+
+    warm.assert_called_once()
+
+
+@pytest.mark.asyncio
+@pytest.mark.usefixtures("no_reaping")
+async def test_lifespan_survives_an_error_in_the_job_executor_check(caplog):
+    threads = []
+    start = executor_registry.warm_executor_registry_in_background
+    with mock.patch(
+        "mlflow.server.jobs.executor_registry.warm_executor_registry",
+        side_effect=RuntimeError("check failed"),
+    ):
+        with mock.patch(
+            "mlflow.server.fastapi_app.warm_executor_registry_in_background",
+            side_effect=lambda: threads.append(start()),
+        ):
+            async with fastapi_app._lifespan(mock.MagicMock()):
+                pass
+        threads[0].join(10)
+    assert "check failed" in caplog.text
+
+    # Nor does an error starting the check.
+    with mock.patch(
+        "mlflow.server.fastapi_app.warm_executor_registry_in_background",
+        side_effect=RuntimeError("can't start new thread"),
+    ):
+        async with fastapi_app._lifespan(mock.MagicMock()):
+            pass
+    assert "can't start new thread" in caplog.text

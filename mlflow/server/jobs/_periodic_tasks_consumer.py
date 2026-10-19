@@ -7,6 +7,7 @@ It is launched by the job runner and runs in a separate process from job executi
 
 import threading
 
+from mlflow.server.jobs.executor_registry import warm_executor_registry_in_background
 from mlflow.server.jobs.logging_utils import configure_logging_for_jobs
 from mlflow.server.jobs.utils import (
     HUEY_PERIODIC_TASKS_INSTANCE_KEY,
@@ -30,3 +31,6 @@ huey_instance = _get_or_init_huey_instance(HUEY_PERIODIC_TASKS_INSTANCE_KEY).ins
 
 # Register periodic tasks with this dedicated instance
 register_periodic_tasks(huey_instance)
+
+# The online scoring scheduler submits jobs from this process.
+warm_executor_registry_in_background()

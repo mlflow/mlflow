@@ -1,8 +1,12 @@
+import importlib
+import sys
+import threading
 from typing import Any
 from unittest import mock
 
 import pytest
 
+import mlflow.server.jobs
 from mlflow.entities._job_status import JobStatus
 from mlflow.exceptions import MlflowException
 from mlflow.server.jobs.executor import (
@@ -20,6 +24,8 @@ from mlflow.server.jobs.executor_registry import (
     get_executor_registry,
     shutdown_executor_registry,
     validate_executor_config,
+    warm_executor_registry,
+    warm_executor_registry_in_background,
 )
 from mlflow.utils.environment import _PythonEnv
 
@@ -305,6 +311,129 @@ def test_get_executor_registry_lazy_init(monkeypatch):
     assert get_executor_registry() is registry
 
     shutdown_executor_registry()
+
+
+@pytest.fixture
+def executor_engine_server(monkeypatch, tmp_path):
+    """The environment of a server process that runs jobs on the executor engine."""
+    import mlflow.server.jobs.executor_registry as mod
+
+    monkeypatch.setattr(mod, "_global_registry", None)
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
+    monkeypatch.setenv("MLFLOW_SERVER_JOB_EXECUTION_ENGINE", "executor")
+    monkeypatch.setenv("_MLFLOW_SERVER_FILE_STORE", f"sqlite:///{tmp_path / 'mlflow.db'}")
+    monkeypatch.setenv("MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND", "local")
+    monkeypatch.delenv("MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND", raising=False)
+    with mock.patch("mlflow.server.jobs.executor_registry.get_entry_points", return_value=[]):
+        yield mod
+    shutdown_executor_registry()
+
+
+def test_warm_executor_registry_builds_the_registry_on_the_executor_engine(
+    executor_engine_server, monkeypatch
+):
+    check = mock.Mock()
+    monkeypatch.setattr(
+        "mlflow.server.jobs.local_executor.LocalJobExecutor.check_requirements", check
+    )
+
+    warm_executor_registry()
+
+    check.assert_called_once()
+    assert executor_engine_server._global_registry is not None
+    # Later job submissions reuse it without checking the backends again.
+    assert get_executor_registry() is executor_engine_server._global_registry
+    check.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    ("setting", "value"),
+    [
+        ("MLFLOW_SERVER_JOB_EXECUTION_ENGINE", None),
+        ("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "false"),
+        ("_MLFLOW_SERVER_FILE_STORE", None),
+    ],
+)
+def test_warm_executor_registry_does_nothing_without_the_executor_engine(
+    executor_engine_server, monkeypatch, setting, value
+):
+    if value is None:
+        monkeypatch.delenv(setting)
+    else:
+        monkeypatch.setenv(setting, value)
+    check = mock.Mock()
+    monkeypatch.setattr(
+        "mlflow.server.jobs.local_executor.LocalJobExecutor.check_requirements", check
+    )
+
+    warm_executor_registry()
+
+    check.assert_not_called()
+    assert executor_engine_server._global_registry is None
+
+
+def test_warm_executor_registry_logs_a_failed_check_and_leaves_it_for_first_use(
+    executor_engine_server, monkeypatch, caplog
+):
+    check = mock.Mock(side_effect=MlflowException("The Docker daemon is not reachable"))
+    monkeypatch.setattr(
+        "mlflow.server.jobs.local_executor.LocalJobExecutor.check_requirements", check
+    )
+
+    warm_executor_registry()
+
+    assert executor_engine_server._global_registry is None
+    assert "The Docker daemon is not reachable" in caplog.text
+    # The first job submission checks the backends again.
+    check.side_effect = None
+    assert get_executor_registry() is executor_engine_server._global_registry
+    assert check.call_count == 2
+
+
+def test_warm_executor_registry_in_background_does_not_block_the_caller(monkeypatch):
+    release = threading.Event()
+    warm = mock.Mock(side_effect=lambda: release.wait(10))
+    monkeypatch.setattr("mlflow.server.jobs.executor_registry.warm_executor_registry", warm)
+
+    thread = warm_executor_registry_in_background()
+
+    # The caller gets the thread back while the check is still running.
+    assert thread.is_alive()
+    assert thread.daemon
+    release.set()
+    thread.join(10)
+    warm.assert_called_once()
+
+
+def test_warm_executor_registry_in_background_logs_an_unexpected_error(monkeypatch, caplog):
+    monkeypatch.setattr(
+        "mlflow.server.jobs.executor_registry.warm_executor_registry",
+        mock.Mock(side_effect=RuntimeError("unexpected")),
+    )
+
+    warm_executor_registry_in_background().join(10)
+
+    assert "Could not check the job executor backends" in caplog.text
+    assert "unexpected" in caplog.text
+
+
+def test_periodic_tasks_consumer_checks_the_executor_backends_when_it_starts(monkeypatch):
+    module = "mlflow.server.jobs._periodic_tasks_consumer"
+    # Import the module fresh, and restore the original afterwards.
+    monkeypatch.delitem(sys.modules, module, raising=False)
+    monkeypatch.delattr(mlflow.server.jobs, "_periodic_tasks_consumer", raising=False)
+    monkeypatch.setattr("mlflow.server.jobs.logging_utils.configure_logging_for_jobs", mock.Mock())
+    monkeypatch.setattr("mlflow.server.jobs.utils._exit_when_orphaned", mock.Mock())
+    monkeypatch.setattr("mlflow.server.jobs.utils._get_or_init_huey_instance", mock.Mock())
+    monkeypatch.setattr("mlflow.server.jobs.utils.register_periodic_tasks", mock.Mock())
+    warm = mock.Mock()
+    monkeypatch.setattr(
+        "mlflow.server.jobs.executor_registry.warm_executor_registry_in_background", warm
+    )
+
+    importlib.import_module(module)
+
+    warm.assert_called_once()
 
 
 def test_shutdown_executor_registry_is_idempotent():
