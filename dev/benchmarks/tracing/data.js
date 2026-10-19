@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792384082077,
+  "lastUpdate": 1792391758151,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "jon@jonburdo.com",
-            "name": "Jon Burdo",
-            "username": "jonburdo"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "7cdf9eee5ed360d57d800c2bf815ccc4a28d8575",
-          "message": "Accept MCP registry server envelopes (#24572)\n\nSigned-off-by: Jon Burdo <jon@jonburdo.com>\nCo-authored-by: Cursor <cursoragent@cursor.com>",
-          "timestamp": "2026-07-23T20:22:12Z",
-          "tree_id": "921f687b084b22007b17014c311508d7ef3583ef",
-          "url": "https://github.com/mlflow/mlflow/commit/7cdf9eee5ed360d57d800c2bf815ccc4a28d8575"
-        },
-        "date": 1784838330712,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 48.66682950000296,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 22.162963542856623,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 20.242143238096418,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 21.51844358620599,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 21.589228929825236,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 53.850058599999784,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 29.410528399995428,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "47496635+alleyxd@users.noreply.github.com",
+            "name": "Ali Ashter",
+            "username": "alleyxd"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "6b0859e97945fb83311925e265f595a0ea8856a0",
+          "message": "Fix missing f-string prefix in `mlflow.dspy.save_model` invalid task error (#26860)\n\nSigned-off-by: Ali Ashter <47496635+alleyxd@users.noreply.github.com>",
+          "timestamp": "2026-10-19T06:29:18Z",
+          "tree_id": "e8c9cc4da3496fb8328adf0ce9240df0a8157a0e",
+          "url": "https://github.com/mlflow/mlflow/commit/6b0859e97945fb83311925e265f595a0ea8856a0"
+        },
+        "date": 1792391754999,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 37.127857499998385,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 5.627781514285094,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 4.858809878612975,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 4.391289567742309,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 5.878852494316885,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 4.025214285718448,
             "unit": "ms"
           }
         ]
