@@ -2827,16 +2827,27 @@ def _get_role_workspace_from_request() -> str | None:
     Returns ``None`` if the referenced role/role_permission does not exist — callers
     (validators) should treat that as unauthorized rather than leaking existence via
     a 404.
+
+    Every identifier present must agree. Handlers read whichever identifier they act
+    on, so if the validator picked one by fixed priority, a request carrying e.g. a
+    ``role_id`` from a workspace the caller administers plus a ``role_permission_id``
+    from another workspace would be authorized against the first and mutate the
+    second. Conflicts resolve to ``None`` (denied) rather than a 400 so a non-admin
+    cannot probe which role or workspace a given id belongs to.
     """
     params = _request_params()
+    role_ids: set[int] = set()
     try:
-        if "role_id" in params:
-            return store.get_role(_coerce_int_param("role_id", params["role_id"])).workspace
         if "role_permission_id" in params:
             rp = store.get_role_permission(
                 _coerce_int_param("role_permission_id", params["role_permission_id"])
             )
-            return store.get_role(rp.role_id).workspace
+            role_ids.add(rp.role_id)
+        if "role_id" in params:
+            role_ids.add(_coerce_int_param("role_id", params["role_id"]))
+        if len(role_ids) > 1:
+            return None
+        workspaces = {store.get_role(role_id).workspace for role_id in role_ids}
     except MlflowException as e:
         if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
             return None
@@ -2847,10 +2858,14 @@ def _get_role_workspace_from_request() -> str | None:
             raise MlflowException.invalid_parameter_value(
                 "Parameter 'workspace' must be a non-empty string."
             )
-        return workspace
-    raise MlflowException.invalid_parameter_value(
-        "Request must include one of: role_id, role_permission_id, workspace."
-    )
+        workspaces.add(workspace)
+    if not workspaces:
+        raise MlflowException.invalid_parameter_value(
+            "Request must include one of: role_id, role_permission_id, workspace."
+        )
+    if len(workspaces) > 1:
+        return None
+    return workspaces.pop()
 
 
 def validate_can_manage_roles():

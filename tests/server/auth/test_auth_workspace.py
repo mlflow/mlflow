@@ -26,7 +26,13 @@ from mlflow.server.auth.permissions import (
 )
 from mlflow.server.auth.requirements import ACTION_NOT_DENIED, Requirement
 from mlflow.server.auth.routes import (
+    ADD_ROLE_PERMISSION,
+    AJAX_ADD_ROLE_PERMISSION,
+    AJAX_CREATE_ROLE,
+    AJAX_REMOVE_ROLE_PERMISSION,
+    AJAX_UPDATE_ROLE_PERMISSION,
     CREATE_PROMPTLAB_RUN,
+    CREATE_ROLE,
     GET_ARTIFACT,
     GET_METRIC_HISTORY_BULK,
     GET_METRIC_HISTORY_BULK_INTERVAL,
@@ -35,7 +41,9 @@ from mlflow.server.auth.routes import (
     GET_TRACE_ARTIFACT_V3,
     INVOKE_GENAI_EVALUATE,
     INVOKE_ISSUE_DETECTION,
+    REMOVE_ROLE_PERMISSION,
     SEARCH_DATASETS,
+    UPDATE_ROLE_PERMISSION,
     UPLOAD_ARTIFACT,
 )
 from mlflow.server.auth.sqlalchemy_store import RoleGrantRow, SqlAlchemyStore
@@ -4919,6 +4927,88 @@ def test_validate_can_manage_roles_nonexistent_resource_denied(role_auth_setup, 
         )
     with ctx:
         assert auth_module.validate_can_manage_roles() is False
+
+
+@pytest.mark.parametrize(
+    ("path", "method"),
+    [
+        (UPDATE_ROLE_PERMISSION, "PATCH"),
+        (AJAX_UPDATE_ROLE_PERMISSION, "PATCH"),
+        (REMOVE_ROLE_PERMISSION, "DELETE"),
+        (AJAX_REMOVE_ROLE_PERMISSION, "DELETE"),
+    ],
+)
+def test_validate_can_manage_roles_denies_role_id_from_other_workspace(
+    role_auth_setup, path, method
+):
+    # The update/remove handlers act on role_permission_id, so a foo admin must not
+    # be able to authorize against their own role_id while
+    # targeting a permission row that belongs to a bar role.
+    role_auth_setup["login_as"]("ws_admin_foo")
+    body = {
+        "role_id": role_auth_setup["role_foo_id"],
+        "role_permission_id": role_auth_setup["role_permission_bar_id"],
+        "permission": MANAGE.name,
+    }
+    with auth_module.app.test_request_context(path, method=method, json=body):
+        assert auth_module.validate_can_manage_roles() is False
+
+
+@pytest.mark.parametrize("path", [ADD_ROLE_PERMISSION, AJAX_ADD_ROLE_PERMISSION])
+def test_validate_can_manage_roles_denies_role_permission_id_from_other_workspace(
+    role_auth_setup, path
+):
+    # Inverse pairing: add_role_permission acts on role_id, so a foo admin must not
+    # be able to authorize against a foo permission row while targeting a bar role.
+    role_auth_setup["login_as"]("ws_admin_foo")
+    body = {
+        "role_id": role_auth_setup["role_bar_id"],
+        "role_permission_id": role_auth_setup["role_permission_foo_id"],
+        "resource_type": "experiment",
+        "resource_pattern": "*",
+        "permission": MANAGE.name,
+    }
+    with auth_module.app.test_request_context(path, method="POST", json=body):
+        assert auth_module.validate_can_manage_roles() is False
+
+
+@pytest.mark.parametrize("path", [CREATE_ROLE, AJAX_CREATE_ROLE])
+def test_validate_can_manage_roles_denies_workspace_conflicting_with_role_id(role_auth_setup, path):
+    # create_role acts on ``workspace``, so a foo role_id must not authorize creating
+    # a role in bar.
+    role_auth_setup["login_as"]("ws_admin_foo")
+    body = {"name": "new-role", "workspace": "bar", "role_id": role_auth_setup["role_foo_id"]}
+    with auth_module.app.test_request_context(path, method="POST", json=body):
+        assert auth_module.validate_can_manage_roles() is False
+
+
+def test_validate_can_manage_roles_allows_consistent_role_id_and_role_permission_id(
+    role_auth_setup,
+):
+    # A redundant-but-consistent pair stays authorized, so the conflict check only
+    # bites on genuinely mismatched identifiers.
+    role_auth_setup["login_as"]("ws_admin_foo")
+    body = {
+        "role_id": role_auth_setup["role_foo_id"],
+        "role_permission_id": role_auth_setup["role_permission_foo_id"],
+        "workspace": "foo",
+        "permission": MANAGE.name,
+    }
+    with auth_module.app.test_request_context(UPDATE_ROLE_PERMISSION, method="PATCH", json=body):
+        assert auth_module.validate_can_manage_roles() is True
+
+
+def test_validate_can_manage_roles_conflicting_ids_still_bypassed_by_super_admin(
+    role_auth_setup,
+):
+    role_auth_setup["login_as"]("super_admin")
+    body = {
+        "role_id": role_auth_setup["role_foo_id"],
+        "role_permission_id": role_auth_setup["role_permission_bar_id"],
+        "permission": MANAGE.name,
+    }
+    with auth_module.app.test_request_context(UPDATE_ROLE_PERMISSION, method="PATCH", json=body):
+        assert auth_module.validate_can_manage_roles() is True
 
 
 def test_validate_can_manage_roles_nonexistent_role_id_bypassed_by_super_admin(
