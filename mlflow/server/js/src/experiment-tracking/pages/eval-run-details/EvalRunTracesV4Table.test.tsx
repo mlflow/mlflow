@@ -275,7 +275,7 @@ describe('EvalRunTracesV4Table', () => {
       const header = await screen.findByRole('columnheader', { name: /^Correctness PASS 75% / });
       await userEvent.click(within(header).getByRole('progressbar', { name: 'Fail' }));
       // Feedback filters match the run's own assessments on the page; the server only scopes to the run.
-      await waitFor(() => expect(state.searchCalls[state.searchCalls.length - 1]?.max_results).toBe(1000));
+      await waitFor(() => expect(state.searchCalls[state.searchCalls.length - 1]?.max_results).toBe(500));
       expect(state.searchCalls[state.searchCalls.length - 1]?.filter).toBe(RUN_FILTER);
       expect(await findTraceRow('tr-002')).toBeInTheDocument();
       await waitFor(() => expect(screen.queryByText(/tr-000/)).not.toBeInTheDocument());
