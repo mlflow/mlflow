@@ -238,7 +238,8 @@ const collectScalarValues = (field: FilterFieldDef, traces: ModelTraceInfoV3[]):
     }
     // Select fields (currently State) may have a fixed set of supported values. Do not suggest a
     // value that the field model cannot serialize even when a row contains an unknown enum token.
-    if (field.options && !field.options.some((option) => option.value === value)) {
+    // Combobox fields' options are only suggestions, so observed values stay.
+    if (field.valueInput === 'select' && field.options && !field.options.some((option) => option.value === value)) {
       continue;
     }
     addObservedValue(values, value, field.id === 'duration' ? `${value} ms` : getFieldOptionLabel(field, value));
