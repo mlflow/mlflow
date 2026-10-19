@@ -759,7 +759,7 @@ jobs:
           ANTHROPIC_DEFAULT_SONNET_MODEL: databricks-claude-sonnet-5
           CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS: "1"
           AGENT_BROWSER_ARGS: --no-sandbox
-          AGENT_BROWSER_SCREENSHOT_DIR: /tmp/triage-output/media
+          AGENT_BROWSER_SCREENSHOT_DIR: /tmp/triage-out/media
           MODEL: ${{ inputs.model || 'databricks-claude-opus-5-5' }}
           ISSUE_PATH: ${{ runner.temp }}/issue-context/issue-context.json
           TRIAGE_ACTION: ${{ needs.issue.outputs.action }}
@@ -803,7 +803,7 @@ jobs:
             --print \
             --verbose \
             --output-format stream-json \
-            "/triage $TRIAGE_ACTION $ISSUE_PATH /tmp/triage-output" \
+            "/triage $TRIAGE_ACTION $ISSUE_PATH /tmp/triage-out" \
             | .claude/scripts/stream.sh || { echo "::$token::"; exit 1; }
           echo "::$token::"
       - name: Stage triage report for upload
@@ -815,7 +815,7 @@ jobs:
           import stat
           from pathlib import Path
 
-          stage = Path(os.environ["RUNNER_TEMP"]) / "triage-output"
+          stage = Path(os.environ["RUNNER_TEMP"]) / "triage-out"
           stage.mkdir(mode=0o700)
           flags = os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK
 
@@ -827,7 +827,7 @@ jobs:
                   with destination.open("xb") as target:
                       shutil.copyfileobj(source, target)
 
-          report_fd = os.open("/tmp/triage-output", flags | os.O_DIRECTORY)
+          report_fd = os.open("/tmp/triage-out", flags | os.O_DIRECTORY)
           try:
               copy_regular(report_fd, "payload.json", stage / "payload.json")
               try:
@@ -856,8 +856,8 @@ jobs:
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: triage-output-${{ github.run_id }}
-          path: ${{ runner.temp }}/triage-output
+          name: triage-out-${{ github.run_id }}
+          path: ${{ runner.temp }}/triage-out
           if-no-files-found: error
           overwrite: true
           retention-days: 1
@@ -901,20 +901,20 @@ jobs:
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         if: needs.triage.result == 'success'
         with:
-          name: triage-output-${{ github.run_id }}
-          path: /tmp/triage-output
+          name: triage-out-${{ github.run_id }}
+          path: /tmp/triage-out
       - name: Validate triage payload
         if: needs.triage.result == 'success'
         env:
-          PAYLOAD_PATH: /tmp/triage-output/payload.json
+          PAYLOAD_PATH: /tmp/triage-out/payload.json
         run: |
           uvx check-jsonschema@0.37.4 \
             --schemafile "$PAYLOAD_SCHEMA" "$PAYLOAD_PATH"
       - name: Validate triage media
         if: needs.triage.result == 'success'
         env:
-          PAYLOAD_PATH: /tmp/triage-output/payload.json
-          MEDIA_DIR: /tmp/triage-output/media
+          PAYLOAD_PATH: /tmp/triage-out/payload.json
+          MEDIA_DIR: /tmp/triage-out/media
           SHOULD_POST: ${{ needs.issue.outputs.dry_run == 'false' }}
         run: |
           if ! check_output=$(jq -j .comment "$PAYLOAD_PATH" |
@@ -924,7 +924,7 @@ jobs:
             exit 1
           fi
           media_references=$(jq -r .comment "$PAYLOAD_PATH" |
-            grep -oE '\]\(/tmp/triage-output/media/[^)]+\)' |
+            grep -oE '\]\(/tmp/triage-out/media/[^)]+\)' |
             sed -E 's/^\]\((.*)\)$/\1/' |
             sort -u || true)
           {
@@ -953,8 +953,8 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.UPLOAD_MEDIA_TOKEN }}
           REPOSITORY_ID: ${{ github.repository_id }}
-          PAYLOAD_PATH: /tmp/triage-output/payload.json
-          MEDIA_DIR: /tmp/triage-output/media
+          PAYLOAD_PATH: /tmp/triage-out/payload.json
+          MEDIA_DIR: /tmp/triage-out/media
         run: |
           jq -j .comment "$PAYLOAD_PATH" |
             uv run --directory .claude/skills --package skills skills embed-media \
@@ -967,7 +967,7 @@ jobs:
       - name: Sanitize triage comment
         if: needs.triage.result == 'success'
         env:
-          PAYLOAD_PATH: /tmp/triage-output/payload.json
+          PAYLOAD_PATH: /tmp/triage-out/payload.json
         run: |
           jq -j .comment "$PAYLOAD_PATH" |
             node .claude/skills/triage/scripts/sanitize.js output > "$RUNNER_TEMP/sanitized-triage-comment.md"
@@ -984,7 +984,7 @@ jobs:
           REPO: ${{ github.repository }}
           ISSUE_NUMBER: ${{ needs.issue.outputs.number }}
           COMMENT_ID: ${{ needs.start_triage.outputs.comment_id }}
-          PAYLOAD_PATH: /tmp/triage-output/payload.json
+          PAYLOAD_PATH: /tmp/triage-out/payload.json
           SHOULD_POST: ${{ needs.issue.outputs.dry_run == 'false' }}
         run: |
           triage_label=$(jq -r '.label // empty' "$PAYLOAD_PATH")
@@ -1052,12 +1052,12 @@ jobs:
       - uses: ./.github/actions/setup-python
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: triage-output-${{ github.run_id }}
-          path: /tmp/triage-output
+          name: triage-out-${{ github.run_id }}
+          path: /tmp/triage-out
       - name: Check proposed fix
         id: check
         env:
-          OUT_DIR: /tmp/triage-output
+          OUT_DIR: /tmp/triage-out
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
           ISSUE_NUMBER: ${{ needs.issue.outputs.number }}
@@ -1088,7 +1088,7 @@ jobs:
         env:
           GH_TOKEN: ${{ needs.issue.outputs.dry_run == 'false' && secrets.UPLOAD_MEDIA_TOKEN || '' }}
           REPOSITORY_ID: ${{ github.repository_id }}
-          OUT_DIR: /tmp/triage-output
+          OUT_DIR: /tmp/triage-out
         run: |
           if [ -z "$GH_TOKEN" ]; then
             # Dry run: keep the local paths in the preview.
@@ -1101,7 +1101,7 @@ jobs:
       - name: Apply fix
         if: steps.check.outputs.proposed == 'true'
         env:
-          OUT_DIR: /tmp/triage-output
+          OUT_DIR: /tmp/triage-out
         run: |
           git apply --index "$OUT_DIR/fix.patch"
           # --no-renames lists both sides of a rename.
@@ -1118,7 +1118,7 @@ jobs:
       - name: Prepare pull request
         if: steps.check.outputs.proposed == 'true'
         env:
-          OUT_DIR: /tmp/triage-output
+          OUT_DIR: /tmp/triage-out
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}
           SHOULD_POST: ${{ needs.issue.outputs.dry_run == 'false' }}
         run: |
