@@ -939,6 +939,10 @@ def _load_model(path, device=None, **kwargs):
         model_path = os.path.join(path, "model.pth")
         if os.path.exists(model_path):
             is_exported_model = False
+            # The pickle module name below is read from the model artifact and imported, so it
+            # must stay behind the pickle-deserialization guard: a crafted artifact could otherwise
+            # name a module shipped in its own `code` directory and run it before `torch.load`.
+            _load_by_pickle_check(False)
             pickle_module_path = os.path.join(path, _PICKLE_MODULE_INFO_FILE_NAME)
             with open(pickle_module_path) as f:
                 pickle_module_name = f.read()
