@@ -64,15 +64,20 @@ mlflow server --backend-store-uri sqlite:///mlflow.db --port 5000 --allowed-host
 
 See [Network Security](/self-hosting/security/network) for more details.
 
+:::warning
+`--allowed-hosts` only checks the `Host` header and doesn't authenticate callers. Anyone who can reach the public URL can read and modify the traces and experiments on the server. Enable [authentication](/self-hosting/security/basic-http-auth) on the MLflow server or the proxy before you expose it, and add the credentials to the destination in step 4.
+:::
+
 :::note
 This step is only necessary for API tracing. For SDK tracing only, your application exports the spans, so a local MLflow server works. Go to [Add SDK Spans](#add-sdk-spans).
 :::
 
 <StepHeader number={3} title="Create an MLflow Experiment" />
 
-Create an experiment to store the traces, and note its ID:
+Create an experiment on the server that receives the traces, and note its ID. Without `MLFLOW_TRACKING_URI`, the command creates the experiment in a local store instead:
 
 ```bash
+export MLFLOW_TRACKING_URI=http://localhost:5000
 mlflow experiments create --experiment-name "Claude Platform"
 ```
 
@@ -264,7 +269,7 @@ def answer_question(question: str) -> str:
         max_tokens=1024,
         messages=[{"role": "user", "content": question}],
     )
-    return message.content[0].text
+    return "".join(block.text for block in message.content if block.type == "text")
 
 
 answer_question("What is MLflow?")
@@ -282,15 +287,14 @@ The SDK span and the API spans of a request all carry its token usage. MLflow co
 
 The Claude Console shows the last delivery error when you hover over **Failing** in the **Delivery** column of the destination.
 
-| Error                                        | Likely cause                                                                                                                                      |
-| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| HTTP error (status 401)                      | The MLflow server has authentication enabled and the `Authorization` header is missing or wrong.                                                  |
-| HTTP error (status 403)                      | The hostname isn't in the `--allowed-hosts` option of the MLflow server, or the user doesn't have permission on the experiment.                   |
-| HTTP error (status 404)                      | The **OTLP endpoint URL** ends with `/v1/traces`.                                                                                                 |
-| HTTP error (status 422)                      | The `x-mlflow-experiment-id` header is missing.                                                                                                   |
-| Delivery is **Healthy**, but no spans appear | The experiment ID in the `x-mlflow-experiment-id` header doesn't exist. MLflow accepts the request and drops the spans.                           |
-| Spans have no prompts                        | The content mode of the destination or the SDK is **Metadata only**. Change it to **Full content** (`content` in the SDK).                        |
-| Each request appears twice                   | Both MLflow's Anthropic autolog and the Claude SDK trace the same client. Disable one of them, for example with `ANTHROPIC_OPEN_TELEMETRY=false`. |
+| Error                      | Likely cause                                                                                                                                      |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| HTTP error (status 401)    | The MLflow server has authentication enabled and the `Authorization` header is missing or wrong.                                                  |
+| HTTP error (status 403)    | The hostname isn't in the `--allowed-hosts` option of the MLflow server, or the user doesn't have permission on the experiment.                   |
+| HTTP error (status 404)    | The **OTLP endpoint URL** ends with `/v1/traces`, or the experiment ID in the `x-mlflow-experiment-id` header doesn't exist.                      |
+| HTTP error (status 422)    | The `x-mlflow-experiment-id` header is missing.                                                                                                   |
+| Spans have no prompts      | The content mode of the destination or the SDK is **Metadata only**. Change it to **Full content** (`content` in the SDK).                        |
+| Each request appears twice | Both MLflow's Anthropic autolog and the Claude SDK trace the same client. Disable one of them, for example with `ANTHROPIC_OPEN_TELEMETRY=false`. |
 
 ## Next steps
 
