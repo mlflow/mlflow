@@ -45,8 +45,11 @@ import {
 import { SEARCH_DEBOUNCE_MS } from '../../components/experiment-page/components/traces-v4/utils/constants';
 import { useNumericAssessmentKeys } from '../../components/experiment-page/components/traces-v4/hooks/useNumericAssessmentKeys';
 import { useEvalRunTracesV4UrlState } from './useEvalRunTracesV4UrlState';
+import { matchesEvalRunAssessmentFilter, splitEvalRunAssessmentFilters } from './evalRunAssessmentFilters';
 
 const EXCLUDE_SCORER_TRACES_CLAUSE = 'tags.`mlflow.trace.sourceScorer` IS NULL';
+// With a feedback or expectation filter the page matches the run's traces itself, over at most this many.
+export const ASSESSMENT_FILTER_SCAN_LIMIT = 1000;
 const EVAL_RUN_DEFAULT_HIDDEN_COLUMNS: ReadonlySet<TraceColumnId> = new Set(['start_time']);
 
 interface UseEvalRunTracesV4ControllerParams {
@@ -135,25 +138,38 @@ export const useEvalRunTracesV4Controller = ({
     [experimentId],
   );
   const { numericAssessmentKeys, recordTraces } = useNumericAssessmentKeys(persistenceId);
+  const { serverFilterModel, assessmentFilters } = useMemo(
+    () => splitEvalRunAssessmentFilters(filterModel),
+    [filterModel],
+  );
+  const hasAssessmentFilters = assessmentFilters.length > 0;
   const filter = useMemo(
     () =>
       buildEvalRunTraceFilter({
         runUuid,
         searchQuery: url.search,
-        extraClauses: [...compileFilterModel(filterModel, numericAssessmentKeys), ...compileTagFilters(url.tagFilters)],
+        extraClauses: [
+          ...compileFilterModel(serverFilterModel, numericAssessmentKeys),
+          ...compileTagFilters(url.tagFilters),
+        ],
       }),
-    [runUuid, url.search, url.tagFilters, filterModel, numericAssessmentKeys],
+    [runUuid, url.search, url.tagFilters, serverFilterModel, numericAssessmentKeys],
   );
   const orderBy = useMemo(() => buildOrderBy(url.sort, url.dir), [url.sort, url.dir]);
   const queryPageSize = isGroupedBySession ? GROUPED_TRACES_LIMIT : url.pageSize;
   const identity = useMemo<TracesQueryIdentity>(
-    () => ({ locations, filter, orderBy, pageSize: queryPageSize }),
-    [locations, filter, orderBy, queryPageSize],
+    () => ({
+      locations,
+      filter,
+      orderBy,
+      pageSize: hasAssessmentFilters ? ASSESSMENT_FILTER_SCAN_LIMIT : queryPageSize,
+    }),
+    [locations, filter, orderBy, queryPageSize, hasAssessmentFilters],
   );
   const tokenCache = useTraceTokenCache();
   const searchPage = useTracesPageQuery({
     identity,
-    pageIndex: url.pageIndex,
+    pageIndex: hasAssessmentFilters ? 1 : url.pageIndex,
     tokenCache,
     enabled: true,
     onPageIndexChange: url.setPageIndex,
@@ -164,10 +180,37 @@ export const useEvalRunTracesV4Controller = ({
     [searchPage.traces, runUuid],
   );
   useEffect(() => recordTraces(runScopedTraces), [runScopedTraces, recordTraces]);
-  const page = useMemo<TracesPageQueryResult>(
-    () => ({ ...searchPage, traces: runScopedTraces }),
-    [searchPage, runScopedTraces],
-  );
+  const { setPageIndex: setUrlPageIndex } = url;
+  const page = useMemo<TracesPageQueryResult>(() => {
+    if (!hasAssessmentFilters) {
+      return { ...searchPage, traces: runScopedTraces };
+    }
+    // Feedback and expectation filters match the run's own assessments, so they apply after run scoping,
+    // and the page pages through the matches itself.
+    const matches = runScopedTraces.filter((trace) =>
+      assessmentFilters.every((clause) => matchesEvalRunAssessmentFilter(trace, clause)),
+    );
+    const pageStart = (url.pageIndex - 1) * queryPageSize;
+    return {
+      ...searchPage,
+      traces: matches.slice(pageStart, pageStart + queryPageSize),
+      hasNext: matches.length > pageStart + queryPageSize,
+      hasPrev: url.pageIndex > 1,
+      goToPage: (target: number) => {
+        if (target >= 1 && target !== url.pageIndex) {
+          setUrlPageIndex(target);
+        }
+      },
+    };
+  }, [
+    searchPage,
+    runScopedTraces,
+    hasAssessmentFilters,
+    assessmentFilters,
+    url.pageIndex,
+    queryPageSize,
+    setUrlPageIndex,
+  ]);
 
   const selectedTraceId = url.traceId;
   const isSelectedTraceIdValid = Boolean(selectedTraceId && isExactTraceIdSearch(selectedTraceId));
@@ -230,7 +273,7 @@ export const useEvalRunTracesV4Controller = ({
     void queryClient.invalidateQueries({ queryKey: [SEARCH_MLFLOW_TRACES_QUERY_KEY] });
   }, [lastRefreshTime, queryClient]);
 
-  const isCurrentPageKnown = tokenCache.isPageKnown(url.pageIndex);
+  const isCurrentPageKnown = hasAssessmentFilters || tokenCache.isPageKnown(url.pageIndex);
   useEffect(() => {
     if (url.pageIndex > 1 && !page.isLoading && !isCurrentPageKnown) {
       setPageIndex(1);

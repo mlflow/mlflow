@@ -193,11 +193,59 @@ describe('EvalRunTracesV4Table', () => {
     fireEvent.change(searchBox, { target: { value: "feedback.relevance = 'yes'" } });
     fireEvent.keyDown(searchBox, { key: 'Enter', code: 'Enter', keyCode: 13, which: 13 });
 
-    await waitFor(() =>
-      expect(state.searchCalls[state.searchCalls.length - 1]?.filter).toBe(
-        `${RUN_FILTER} AND feedback.\`relevance\` = 'yes'`,
-      ),
-    );
+    // Feedback filters match the run's own assessments on the page, so the server only scopes to the run.
+    await waitFor(() => expect(state.searchCalls[state.searchCalls.length - 1]?.max_results).toBe(1000));
+    expect(state.searchCalls[state.searchCalls.length - 1]?.filter).toBe(RUN_FILTER);
     expect(await screen.findByRole('button', { name: "Edit filter feedback.relevance = 'yes'" })).toBeInTheDocument();
+    expect(await findTraceRow('tr-000')).toBeInTheDocument();
+  });
+
+  test('pages through the feedback matches on the page', async () => {
+    const ofThisRun = { metadata: { 'mlflow.assessment.sourceRunId': RUN_UUID } };
+    state.traces = Array.from({ length: 30 }, (_, i) =>
+      makeRunTrace(`tr-${String(i).padStart(3, '0')}`, {
+        assessments: [makeFeedbackAssessment('correctness', i < 27 ? 'yes' : 'no', ofThisRun)],
+      }),
+    );
+    renderTable();
+    await findTraceRow('tr-000');
+
+    const searchBox = screen.getByRole('combobox', { name: 'Type something to use full text search' });
+    fireEvent.change(searchBox, { target: { value: "feedback.correctness = 'yes'" } });
+    fireEvent.keyDown(searchBox, { key: 'Enter', code: 'Enter', keyCode: 13, which: 13 });
+    await screen.findByRole('button', { name: "Edit filter feedback.correctness = 'yes'" });
+    expect(await findTraceRow('tr-024')).toBeInTheDocument();
+
+    // 27 matches over pages of 25: the second page holds the last 2.
+    await userEvent.click(screen.getByRole('button', { name: 'Next page' }));
+    expect(await findTraceRow('tr-026')).toBeInTheDocument();
+    expect(await findTraceRow('tr-025')).toBeInTheDocument();
+    expect(screen.queryByText(/tr-024/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/tr-027/)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Next page' })).toBeDisabled();
+  }, 60000);
+
+  test("filters linked traces on the run's own feedback, not another run's", async () => {
+    const ofRun = (runUuid: string) => ({ metadata: { 'mlflow.assessment.sourceRunId': runUuid } });
+    state.traces = [
+      // Linked to this run and another: the other run said "no", this run said "yes".
+      makeRunTrace('tr-linked', {
+        assessments: [
+          makeFeedbackAssessment('correctness', 'no', ofRun('run-2')),
+          makeFeedbackAssessment('correctness', 'yes', ofRun(RUN_UUID)),
+        ],
+      }),
+      makeRunTrace('tr-own-no', { assessments: [makeFeedbackAssessment('correctness', 'no', ofRun(RUN_UUID))] }),
+    ];
+    renderTable();
+    await findTraceRow('tr-linked');
+
+    const searchBox = screen.getByRole('combobox', { name: 'Type something to use full text search' });
+    fireEvent.change(searchBox, { target: { value: "feedback.correctness = 'no'" } });
+    fireEvent.keyDown(searchBox, { key: 'Enter', code: 'Enter', keyCode: 13, which: 13 });
+
+    expect(await screen.findByRole('button', { name: "Edit filter feedback.correctness = 'no'" })).toBeInTheDocument();
+    expect(await findTraceRow('tr-own-no')).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByText(/tr-linked/)).not.toBeInTheDocument());
   });
 });
