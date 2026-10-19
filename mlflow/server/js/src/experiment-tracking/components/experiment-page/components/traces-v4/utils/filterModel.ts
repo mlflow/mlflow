@@ -328,6 +328,9 @@ const compileAssessmentClause = (fieldRef: string, operator: FilterOp, value: st
   ) {
     const number = Number(trimmed);
     if (operator === FilterOp.EQUALS) {
+      // The server checks each half against any assessment with the name, so a trace with 3 from one run
+      // and 5 from another also matches `= 4`. There's no single-assessment form to send instead (no `IN`
+      // for assessments, and `RLIKE` fails on MSSQL). The evaluation run page matches these filters itself.
       return `${fieldRef} >= ${number} AND ${fieldRef} <= ${number}`;
     }
     const spellings = Number.isInteger(number) ? [`${number}`, `${number}.0`] : [`${number}`];
