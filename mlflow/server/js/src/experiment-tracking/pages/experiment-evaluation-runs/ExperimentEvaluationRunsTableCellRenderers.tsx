@@ -147,6 +147,13 @@ export const RunNameCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({
     return timeRangeSearch ? `${route}${timeRangeSearch}` : route;
   })();
 
+  // New UI opens other runs in the evaluation run details page, also as a real anchor.
+  const evalRunDetailsLinkTo =
+    enableNewEvalRunsUi && !issueDetectionRunLinkTo && !(isIssueDetectionRun && showIssuesPanelFlag)
+      ? Routes.getEvaluationRunDetailsRoute(experimentId, runUuid)
+      : undefined;
+  const runLinkTo = issueDetectionRunLinkTo ?? evalRunDetailsLinkTo;
+
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     // When flag is ON and clicking on an issue detection run, navigate to the issue detection run details page
@@ -154,6 +161,10 @@ export const RunNameCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({
       const route = Routes.getIssueDetectionRunDetailsRoute(experimentId, runUuid);
       const timeRangeSearch = getPreservedQueryString(searchParams.toString());
       navigate(timeRangeSearch ? `${route}${timeRangeSearch}` : route);
+      return;
+    }
+    if (evalRunDetailsLinkTo) {
+      navigate(evalRunDetailsLinkTo);
       return;
     }
     // Otherwise follow old behavior - open the right-side panel
@@ -176,12 +187,12 @@ export const RunNameCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({
     flexShrink: 1,
   } as const;
 
-  const runNameLink = issueDetectionRunLinkTo ? (
+  const runNameLink = runLinkTo ? (
     <Link
       css={runNameLinkStyle}
       componentId="mlflow.eval-runs.run-name-cell"
       id="run-name-cell"
-      to={issueDetectionRunLinkTo}
+      to={runLinkTo}
       onClick={(e) => e.stopPropagation()}
     >
       {row.original.info.runName}
