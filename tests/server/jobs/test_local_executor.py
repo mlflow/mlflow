@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import signal
 import subprocess
 import sys
@@ -15,11 +16,12 @@ import pytest
 from mlflow.entities._job_status import JobStatus
 from mlflow.environment_variables import MLFLOW_GATEWAY_URI, MLFLOW_TRACKING_URI, MLFLOW_WORKSPACE
 from mlflow.exceptions import MlflowException
-from mlflow.server.jobs import job
+from mlflow.server.jobs import job, local_executor
 from mlflow.server.jobs.executor import JobExecutionContext, JobExecutorConfig
 from mlflow.server.jobs.local_executor import (
     _STDERR_TAIL_MAX_CHARS,
     LocalJobExecutor,
+    _BoundedStderrReader,
     _LocalJobProcess,
 )
 from mlflow.server.jobs.utils import (
@@ -130,6 +132,14 @@ def local_executor_stderr_crash():
     sys.stderr.write("boom-on-stderr-marker\n")
     sys.stderr.flush()
     os._exit(3)
+
+
+@job(name="local_executor_stderr_success", max_workers=1)
+def local_executor_stderr_success():
+    sys.stderr.write("success-stderr-marker\n")
+    sys.stderr.write("no-trailing-newline-marker")
+    sys.stderr.flush()
+    return "done"
 
 
 @job(name="local_executor_stderr_flood", max_workers=1)
@@ -1163,6 +1173,246 @@ def test_local_executor_deadline_elapsed_before_launch_returns_timeout(
     assert "during environment setup" in result.error_message
     assert not final_process_marker.exists()
     assert executor._processes == {}
+
+
+def test_local_executor_forwards_stderr_of_a_successful_job(executor, capfd):
+    job_id = str(uuid4())
+
+    executor.submit_job(
+        job_id=job_id,
+        job_name="local_executor_stderr_success",
+        fn_fullname="tests.server.jobs.test_local_executor.local_executor_stderr_success",
+        params={},
+        context=_make_context(job_id),
+    )
+    result = executor.wait_for_job(job_id)
+
+    assert result.status == JobStatus.SUCCEEDED
+    lines = capfd.readouterr().err.splitlines()
+    assert f"[job {job_id}] success-stderr-marker" in lines
+    assert f"[job {job_id}] no-trailing-newline-marker" in lines
+
+
+def test_local_executor_forwards_stderr_of_a_failed_job_and_keeps_its_tail(executor, capfd):
+    job_id = str(uuid4())
+
+    executor.submit_job(
+        job_id=job_id,
+        job_name="local_executor_stderr_crash",
+        fn_fullname="tests.server.jobs.test_local_executor.local_executor_stderr_crash",
+        params={},
+        context=_make_context(job_id),
+    )
+    result = executor.wait_for_job(job_id)
+
+    assert result.status == JobStatus.FAILED
+    assert "boom-on-stderr-marker" in result.error_message
+    assert f"[job {job_id}] boom-on-stderr-marker" in capfd.readouterr().err.splitlines()
+
+
+@pytest.fixture
+def pipe_reader():
+    """Start a reader on a new pipe; yields (start, write) and cleans up both ends."""
+    fds = {}
+    readers = []
+
+    def start(**kwargs):
+        read_fd, fds["write"] = os.pipe()
+        reader = _BoundedStderrReader(os.fdopen(read_fd, "rb"), **kwargs)
+        readers.append(reader)
+        return reader
+
+    def write(data: bytes) -> None:
+        os.write(fds["write"], data)
+
+    def close_writer() -> None:
+        if (fd := fds.pop("write", None)) is not None:
+            os.close(fd)
+
+    try:
+        yield start, write, close_writer
+    finally:
+        close_writer()
+        for reader in readers:
+            reader.close()
+
+
+def _wait_until(condition, timeout=10.0):
+    deadline = time.monotonic() + timeout
+    while not condition():
+        assert time.monotonic() < deadline, "timed out"
+        time.sleep(0.01)
+
+
+def test_stderr_reader_holds_a_line_until_it_is_complete(pipe_reader, capfd):
+    start, write, close_writer = pipe_reader
+    reader = start(job_id="j1")
+    write(b"par")
+    # Wait until the reader has read the bytes, so nothing forwarded proves they are held.
+    _wait_until(lambda: reader._partial_line == b"par")
+    assert capfd.readouterr().err == ""
+    write(b"tial\nnext")
+    close_writer()
+    reader.close()
+
+    assert capfd.readouterr().err == "[job j1] partial\n[job j1] next\n"
+    assert reader.tail() == "partial\nnext"
+
+
+def test_stderr_reader_forwards_a_long_line_in_pieces(pipe_reader, capfd, monkeypatch):
+    monkeypatch.setattr(local_executor, "_FORWARD_MAX_LINE_BYTES", 4)
+    start, write, close_writer = pipe_reader
+    reader = start(job_id="j1")
+    write(b"abcdefghij")
+    close_writer()
+    reader.close()
+
+    assert capfd.readouterr().err.splitlines() == ["[job j1] abcd", "[job j1] efgh", "[job j1] ij"]
+
+
+def test_stderr_reader_drains_without_a_stderr_to_forward_to(pipe_reader, monkeypatch):
+    monkeypatch.setattr(sys, "stderr", None)
+    start, write, close_writer = pipe_reader
+    reader = start(job_id="j1")
+    # More than a pipe holds, so a reader that stopped draining would block this write.
+    for _ in range(40):
+        write(b"y" * 4095 + b"\n")
+    close_writer()
+    reader.close()
+
+    assert not reader._thread.is_alive()
+    assert reader._stream.closed
+    assert "y" * 10 in reader.tail()
+
+
+class _BlockedStderr:
+    """A stderr whose writes block until released, like a log collector that stopped reading."""
+
+    def __init__(self):
+        self.release = threading.Event()
+        self.buffer = self
+
+    def write(self, data):
+        self.release.wait()
+
+    def flush(self):
+        pass
+
+
+def test_stderr_reader_keeps_draining_when_stderr_is_blocked(pipe_reader, monkeypatch):
+    blocked = _BlockedStderr()
+    monkeypatch.setattr(sys, "stderr", blocked)
+    monkeypatch.setattr(local_executor, "_FORWARD_MAX_QUEUED_LINES", 10)
+    start, write, close_writer = pipe_reader
+    reader = start(job_id="j1")
+    try:
+        # Far more than the queue and a pipe hold; this would block if the drain waited on
+        # stderr.
+        for _ in range(40):
+            write(b"y" * 4095 + b"\n")
+        close_writer()
+        _wait_until(lambda: not reader._thread.is_alive())
+        start_time = time.monotonic()
+        reader.close()
+        # close() does not wait on the blocked writer beyond its short flush.
+        assert time.monotonic() - start_time < 3
+        assert reader._dropped_lines > 0
+    finally:
+        blocked.release.set()
+
+
+def _gated_stderr_writer(monkeypatch):
+    """Make the reader's stderr writes wait for the returned event."""
+    gate = threading.Event()
+    real_writer = local_executor._stderr_writer()
+
+    def gated():
+        def write(data):
+            gate.wait()
+            real_writer(data)
+
+        return write
+
+    monkeypatch.setattr(local_executor, "_stderr_writer", gated)
+    return gate
+
+
+def test_stderr_reader_notes_dropped_lines_where_they_are_missing(pipe_reader, monkeypatch, capfd):
+    monkeypatch.setattr(local_executor, "_FORWARD_MAX_QUEUED_LINES", 2)
+    gate = _gated_stderr_writer(monkeypatch)
+    start, write, close_writer = pipe_reader
+    reader = start(job_id="j1")
+    for i in range(20):
+        write(f"line-{i}\n".encode())
+    close_writer()
+    _wait_until(lambda: not reader._thread.is_alive())
+    gate.set()
+    reader._writer.join(timeout=10)
+
+    forwarded = []
+    last = -1
+    for line in capfd.readouterr().err.splitlines():
+        if m := re.fullmatch(r"\[job j1\] \((\d+) lines of job output were not forwarded.*", line):
+            forwarded.append(("dropped", int(m.group(1))))
+        else:
+            forwarded.append(("line", int(re.fullmatch(r"\[job j1\] line-(\d+)", line).group(1))))
+    # Each note sits where lines are missing, and says how many.
+    for kind, value in forwarded:
+        if kind == "dropped":
+            last += value
+        else:
+            assert value == last + 1
+            last = value
+    assert last == 19
+    assert reader._dropped_lines > 0
+
+
+def test_stderr_reader_drops_lines_beyond_the_queued_bytes(pipe_reader, monkeypatch):
+    monkeypatch.setattr(local_executor, "_FORWARD_MAX_QUEUED_BYTES", 100)
+    gate = _gated_stderr_writer(monkeypatch)
+    start, write, close_writer = pipe_reader
+    reader = start(job_id="j1")
+    try:
+        for _ in range(10):
+            write(b"y" * 49 + b"\n")
+        close_writer()
+        _wait_until(lambda: not reader._thread.is_alive())
+        assert reader._queued_bytes <= 100
+        assert reader._dropped_lines > 0
+    finally:
+        gate.set()
+
+
+def test_stderr_reader_writes_the_last_lines_after_the_stream_ends(pipe_reader, monkeypatch, capfd):
+    gate = _gated_stderr_writer(monkeypatch)
+    start, write, close_writer = pipe_reader
+    reader = start(job_id="j1")
+    write(b"first\n")
+    # The writer has taken the first line and waits in its write.
+    _wait_until(lambda: reader._writer is not None and not reader._lines)
+    write(b"second\nlast-partial")
+    close_writer()
+    # The drain queues the rest and ends while the writer is busy.
+    _wait_until(lambda: not reader._thread.is_alive())
+    gate.set()
+    reader._writer.join(timeout=10)
+
+    assert not reader._writer.is_alive()
+    assert capfd.readouterr().err.splitlines() == [
+        "[job j1] first",
+        "[job j1] second",
+        "[job j1] last-partial",
+    ]
+
+
+def test_stderr_reader_without_a_readable_stream_starts_no_writer():
+    reader = _BoundedStderrReader(mock.MagicMock(), job_id="j1")
+    start = time.monotonic()
+    reader.close()
+
+    assert time.monotonic() - start < 1
+    assert reader._writer is None
+    assert not any(t.name == "local-job-stderr-writer" for t in threading.enumerate())
 
 
 def test_local_executor_bounds_captured_stderr_tail(executor):
