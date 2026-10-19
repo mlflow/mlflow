@@ -53,7 +53,7 @@ export MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND=docker
 mlflow server --backend-store-uri sqlite:///mlflow.db
 ```
 
-When the server starts, it checks these settings and that it can reach the Docker daemon. Then its job runner prepares the job image. When the job runner is ready, the server logs a warning that starts with `The docker job executor runs custom scorers without network access`. If the job image cannot be prepared, the job runner stops, and no jobs run until you fix the problem and restart the server. The server log has the error.
+When the server starts, it checks these settings and that it can reach the Docker daemon. If it cannot reach the daemon, the server does not start. Then its job runner prepares the job image. When the job runner is ready, the server logs a warning that starts with `The docker job executor runs custom scorers without network access`. If the job image cannot be prepared, the job runner stops, and no jobs run until you fix the problem and restart the server. The server log has the error. See [Run the server in production](#run-the-server-in-production).
 
 Run the MLflow server as a non-root user. Job containers run as the same user as the server.
 
@@ -72,6 +72,17 @@ RUN pip install "mlflow==<the server's MLflow version>" rapidfuzz
 ```
 
 If the image you set is not present locally, the job runner pulls it when it starts.
+
+## Run the server in production
+
+With job containers, the MLflow server depends on the Docker daemon:
+
+- **Start the server after Docker.** If the server cannot reach the Docker daemon when it starts, it does not start at all, so tracking and the UI are down too. The server's user also needs access to the Docker socket; without it, the server cannot reach the daemon. Membership in the `docker` group gives that access, but it also gives root-level access to the host. Rootless Docker or Podman avoids this. Run the server with a process manager that starts it after Docker and restarts it when it exits. For example, with systemd, use `Wants=docker.service` and `After=docker.service` (or `podman.socket` for Podman), and `Restart=always` with `RestartSec=10`. Avoid `Requires=docker.service`: with it, systemd also stops or restarts the MLflow server whenever Docker is stopped or restarted.
+- **Check the job image before you start the server.** If the job runner cannot pull or build the image when it starts, or cannot reach Docker at that moment, it stops. The server keeps serving requests, and its `/health` endpoint still returns `OK`, but no job runs, so nothing is scored, LLM judges included. The server log has `Executor job runner exited unexpectedly`. If you set `MLFLOW_JOB_IMAGE`, pull the image before you start the server, for example with `docker pull <your image>`. The default image is built when the job runner starts. If that build cannot reach the package index, build your own image instead. See [The job image](#the-job-image).
+- **Know what happens while Docker is down.**
+  - If Docker is unreachable when an online scoring job starts, the job tries to set up its containers again for about a minute. If Docker is still unreachable, each code-based scorer gives the job's traces an error assessment (a session-level scorer gives it on the session's first trace), and those traces are not scored again. If Docker becomes unreachable during a job, the rest of the job's containers fail in the same way, without retrying. LLM judges keep running.
+  - Each server process checks that it can reach Docker the first time it submits a job. If Docker is unreachable at that moment, that process cannot submit any job until Docker is back. For automatic evaluation, this applies until the server starts its first online scoring job: until then, automatic evaluation stops for every scorer, LLM judges included. Traces logged in the meantime are scored when Docker is back, if they are less than about one hour old. Scorer runs and other jobs started from the UI can fail in the same way. The server log has `The docker job executor cannot reach the Docker daemon`.
+- **Find problems in the assessments.** Online scoring jobs report problems with code-based scorers as error assessments on the traces. Messages that an online scoring job logs while it runs, such as the setup retries above, do not reach the server log when the job succeeds. Messages from the scheduler that starts the jobs, such as a message that a scorer is skipped, do.
 
 ## Turn on automatic evaluation for a code-based scorer
 
@@ -118,9 +129,11 @@ The server checks each container's result before it logs anything. A container c
 
 ## When something fails
 
-- **Automatic evaluation:** a scorer that raises, a container that fails or times out, or a result that does not pass the server's checks gives the trace an error assessment, as for a scorer that fails on the server. If the server cannot set up the job containers (for example while the Docker daemon restarts), the job tries again a few times before it gives the traces error assessments.
+- **Automatic evaluation:** a scorer that raises, a container that fails or times out, or a result that does not pass the server's checks gives the trace an error assessment, as for a scorer that fails on the server. If the Docker daemon is unreachable, see [Run the server in production](#run-the-server-in-production).
+- **Memory:** a container that exits with code 137 usually used more memory than its limit, and Docker stopped it. Files that the scorer writes to `/tmp` count toward the limit too. Raise the limit with `MLFLOW_JOB_RESOURCE_LIMITS_<job name>`. See [What scorer code can do](#what-scorer-code-can-do).
+- **MLflow version:** if the job image has a different MLflow version than the server, the container can fail with an error such as an `AttributeError` or `ImportError`. For automatic evaluation, the error is in the traces' error assessments; for scorer runs started from the UI, it is in the job's status. Use the same MLflow version in the image.
 - **Scorer runs started from the UI:** the job fails, and the error is in the job's status and the server log.
-- **The job image:** if it cannot be pulled or built, the job runner stops. See [Set up the server](#set-up-the-server).
+- **The job image:** if it cannot be pulled or built, the job runner stops. See [Run the server in production](#run-the-server-in-production).
 
 These cases need an operator:
 
