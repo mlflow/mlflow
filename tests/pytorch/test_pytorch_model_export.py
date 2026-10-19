@@ -5,6 +5,7 @@ import logging
 import os
 import pickle
 import re
+import sys
 import threading
 import zipfile
 from pathlib import Path
@@ -1344,6 +1345,39 @@ def test_load_pt2_model_rejected_on_unverifiable_torch_when_pickle_deserializati
         pytest.raises(MlflowException, match="Upgrade to `torch` >= 2.10"),
     ):
         mlflow.pytorch.load_model(model_path)
+
+
+def test_load_pickle_model_does_not_import_artifact_pickle_module_when_disallowed(
+    model_path, monkeypatch, tmp_path
+):
+    # A crafted model names a module from its own `code` directory in `pickle_module_info.txt`;
+    # the pickle guard must fire before that module is imported, on both load routes.
+    marker_path = tmp_path / "payload_executed"
+    canary_module = tmp_path / "pickle_module_canary.py"
+    canary_module.write_text(f"from pathlib import Path\n\nPath({str(marker_path)!r}).touch()\n")
+    mlflow.pytorch.save_model(
+        get_sequential_model(),
+        model_path,
+        code_paths=[str(canary_module)],
+        serialization_format="pickle",
+    )
+    (Path(model_path) / "data" / "pickle_module_info.txt").write_text("pickle_module_canary")
+    code_dir = os.path.join(model_path, "code")
+
+    monkeypatch.setenv("MLFLOW_ALLOW_PICKLE_DESERIALIZATION", "false")
+    with pytest.raises(MlflowException, match="MLFLOW_ALLOW_PICKLE_DESERIALIZATION"):
+        mlflow.pytorch.load_model(model_path)
+    assert not marker_path.exists()
+    assert "pickle_module_canary" not in sys.modules
+    # The rejected load must not leave the artifact's code directory importable either.
+    assert code_dir not in sys.path
+
+    # `mlflow.pyfunc.load_model` prepends the code directory itself before calling the flavor,
+    # so only the import is checked on this route.
+    with pytest.raises(MlflowException, match="MLFLOW_ALLOW_PICKLE_DESERIALIZATION"):
+        mlflow.pyfunc.load_model(model_path)
+    assert not marker_path.exists()
+    assert "pickle_module_canary" not in sys.modules
 
 
 @pytest.mark.parametrize("not_state_dict", [0, "", get_sequential_model()])
