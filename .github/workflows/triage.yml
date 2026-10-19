@@ -1030,12 +1030,13 @@ jobs:
           fi
   create_pr:
     needs: [issue, label, triage, post_triage]
-    # Branch from the default branch only, so the PR's base matches the commit triage ran on.
+    # Dry runs validate proposals on any branch; live runs publish from the default branch only.
     if: >-
       needs.issue.outputs.pr_enabled == 'true' &&
       needs.triage.result == 'success' &&
       needs.post_triage.result == 'success' &&
-      github.ref_name == github.event.repository.default_branch
+      (needs.issue.outputs.dry_run == 'true' ||
+       github.ref_name == github.event.repository.default_branch)
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
