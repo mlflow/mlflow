@@ -487,3 +487,22 @@ def test_remove_on_error_logs_nothing_for_nonexistent_path(tmp_path, file_utils_
             raise ValueError("root cause")
 
     assert file_utils_caplog.records == []
+
+
+@pytest.mark.parametrize("verify", [None, True, False])
+def test_download_file_using_http_uri_tls_verification(tmp_path, verify):
+    destination = tmp_path / "artifact"
+    with mock.patch("mlflow.utils.file_utils.cloud_storage_http_request") as request:
+        request.return_value.__enter__.return_value.iter_content.return_value = [b"content"]
+        kwargs = {} if verify is None else {"verify": verify}
+        file_utils.download_file_using_http_uri(
+            "https://storage.example/artifact", destination, **kwargs
+        )
+    request.assert_called_once_with(
+        "get",
+        "https://storage.example/artifact",
+        stream=True,
+        headers={},
+        verify=True if verify is None else verify,
+    )
+    assert destination.read_bytes() == b"content"

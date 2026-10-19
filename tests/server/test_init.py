@@ -14,6 +14,7 @@ from mlflow.environment_variables import (
     _MLFLOW_IN_JOB_EXECUTOR,
     _MLFLOW_SERVER_BOOT_ID,
     _MLFLOW_SGI_NAME,
+    MLFLOW_ARTIFACTS_PRESIGNED_ONLY,
     MLFLOW_FLASK_SERVER_SECRET_KEY,
 )
 from mlflow.exceptions import MlflowException
@@ -397,6 +398,26 @@ def test_run_server_passes_public_store_config_to_job_runner(
     assert job_env["MLFLOW_DEFAULT_ARTIFACT_ROOT"] == "file:///artifacts"
     assert job_env["MLFLOW_TRACKING_URI"] == f"http://{host}:5000{static_prefix or ''}"
     assert job_env["MLFLOW_GATEWAY_URI"] == f"http://{host}:5000{static_prefix or ''}"
+
+
+def test_run_server_propagates_presigned_only_mode(mock_exec_cmd, monkeypatch):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "false")
+    with mock.patch("sys.platform", return_value="linux"):
+        server._run_server(
+            file_store_path="",
+            registry_store_uri="",
+            default_artifact_root="",
+            serve_artifacts=True,
+            artifacts_only=False,
+            artifacts_presigned_only=True,
+            artifacts_destination="s3://bucket",
+            host="",
+            port="",
+        )
+
+    assert (
+        mock_exec_cmd.call_args.kwargs["extra_env"][MLFLOW_ARTIFACTS_PRESIGNED_ONLY.name] == "true"
+    )
 
 
 def test_run_server_win32(mock_exec_cmd, monkeypatch):

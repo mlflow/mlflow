@@ -76,6 +76,7 @@ from mlflow.entities.trace_metrics import MetricAggregation, MetricViewType
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.entities.webhook import WebhookAction, WebhookEntity, WebhookEvent, WebhookStatus
 from mlflow.environment_variables import (
+    MLFLOW_ARTIFACTS_PRESIGNED_ONLY,
     MLFLOW_CREATE_MODEL_VERSION_SOURCE_VALIDATION_REGEX,
     MLFLOW_DEPLOYMENTS_TARGET,
     MLFLOW_ENABLE_AI_GATEWAY,
@@ -333,6 +334,10 @@ from mlflow.protos.webhooks_pb2 import (
     UpdateWebhook,
     WebhookService,
 )
+from mlflow.server.artifact_transfer import (
+    reject_proxied_artifact_download,
+    reject_proxied_artifact_upload,
+)
 from mlflow.server.validation import _validate_content_type
 from mlflow.server.workspace_helpers import (
     _get_workspace_store,
@@ -413,7 +418,9 @@ from mlflow.utils.providers import (
 )
 from mlflow.utils.server_info import (
     SERVER_INFO_ARTIFACT_SERVING_ENABLED,
+    SERVER_INFO_ARTIFACTS_PRESIGNED_ONLY,
     SERVER_INFO_FEATURES_ENABLED,
+    SERVER_INFO_MODEL_ARTIFACT_PRESIGNED_DOWNLOADS_SUPPORTED,
     SERVER_INFO_MULTIPART_DOWNLOADS_ENABLED,
     SERVER_INFO_MULTIPART_UPLOADS_ENABLED,
     SERVER_INFO_PRESIGNED_UPLOAD_MODEL_ID_SUPPORTED,
@@ -428,6 +435,7 @@ from mlflow.utils.server_info import (
 from mlflow.utils.string_utils import is_string_type
 from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.uri import (
+    append_to_uri_path,
     get_uri_scheme,
     is_local_uri,
     validate_path_is_safe,
@@ -1442,6 +1450,23 @@ def _disable_if_artifacts_only(func):
     return wrapper
 
 
+def _disable_if_artifacts_presigned_only(*, upload=False, allow_presigned=False):
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            if allow_presigned and request.args.get("presigned") == "true":
+                return func(*args, **kwargs)
+            if upload:
+                reject_proxied_artifact_upload()
+            else:
+                reject_proxied_artifact_download()
+            return func(*args, **kwargs)
+
+        return wrapper
+
+    return decorator
+
+
 def _disable_if_gateway_disabled(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
@@ -1792,6 +1817,7 @@ def _delete_workspace_handler(workspace_name: str):
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_artifacts_presigned_only()
 def get_artifact_handler():
     run_id = request.args.get("run_id") or request.args.get("run_uuid")
     path = request.args["path"]
@@ -2687,6 +2713,7 @@ def create_promptlab_run_handler():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_artifacts_presigned_only(upload=True)
 def upload_artifact_handler():
     args = request.args
     run_uuid = args.get("run_uuid")
@@ -3482,12 +3509,25 @@ def _is_prompt(name: str) -> bool:
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_artifacts_presigned_only(allow_presigned=True)
 def get_model_version_artifact_handler():
     name = request.args.get("name")
     version = request.args.get("version")
     path = request.args["path"]
     path = validate_path_is_safe(path)
     artifact_uri = _get_model_registry_store().get_model_version_download_uri(name, version)
+    if request.args.get("presigned") == "true" and RunsArtifactRepository.is_runs_uri(artifact_uri):
+        run_id, source_path = RunsArtifactRepository.parse_runs_uri(artifact_uri)
+        if urllib.parse.urlparse(artifact_uri).netloc:
+            raise MlflowException.invalid_parameter_value(
+                "Run artifact sources cannot include a host."
+            )
+        source_path = validate_path_is_safe(source_path or "")
+        # Use the workspace-scoped store directly: model-version READ is sufficient,
+        # even when the caller cannot read the source run through the tracking API.
+        run_root = _get_tracking_store().get_run(run_id).info.artifact_uri
+        artifact_uri = append_to_uri_path(run_root, source_path)
+        validate_artifact_uri_host(artifact_uri)
     if _is_servable_proxied_run_artifact_root(artifact_uri):
         artifact_repo = _get_artifact_repo_mlflow_artifacts()
         artifact_path = _get_proxied_run_artifact_destination_path(
@@ -3499,6 +3539,14 @@ def get_model_version_artifact_handler():
         artifact_repo = _get_artifact_repository_for_uri(artifact_uri)
         artifact_path = path
 
+    if request.args.get("presigned") == "true":
+        # This route already checks model-version READ permission, independently of
+        # access to the source run. Signing must retain that authorization boundary.
+        _validate_support_presigned_download(artifact_repo)
+        presigned = artifact_repo.get_download_presigned_url(
+            artifact_path, expiration=MLFLOW_PRESIGNED_DOWNLOAD_URL_TTL_SECONDS.get()
+        )
+        return jsonify(presigned.to_dict())
     return _send_artifact(artifact_repo, artifact_path)
 
 
@@ -3993,6 +4041,7 @@ def _get_workspace_scoped_repo_path_if_enabled(artifact_path: str | None) -> str
 
 @catch_mlflow_exception
 @_disable_unless_serve_artifacts
+@_disable_if_artifacts_presigned_only()
 def _download_artifact(artifact_path):
     """
     A request handler for `GET /mlflow-artifacts/artifacts/<artifact_path>` to download an artifact
@@ -4026,6 +4075,7 @@ def _reject_skill_artifact_mutation(artifact_path: str) -> None:
 
 @catch_mlflow_exception
 @_disable_unless_serve_artifacts
+@_disable_if_artifacts_presigned_only(upload=True)
 def _upload_artifact(artifact_path):
     """
     A request handler for `PUT /mlflow-artifacts/artifacts/<artifact_path>` to upload an artifact
@@ -6007,6 +6057,7 @@ def _deprecated_search_traces_v2():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_artifacts_presigned_only(allow_presigned=True)
 def get_logged_model_artifact_handler(model_id: str):
     artifact_file_path = request.args.get("artifact_file_path")
     if not artifact_file_path:
@@ -6028,6 +6079,12 @@ def get_logged_model_artifact_handler(model_id: str):
         artifact_repo = _get_artifact_repository_for_uri(logged_model.artifact_location)
         artifact_path = artifact_file_path
 
+    if request.args.get("presigned") == "true":
+        _validate_support_presigned_download(artifact_repo)
+        presigned = artifact_repo.get_download_presigned_url(
+            artifact_path, expiration=MLFLOW_PRESIGNED_DOWNLOAD_URL_TTL_SECONDS.get()
+        )
+        return jsonify(presigned.to_dict())
     return _send_artifact(artifact_repo, artifact_path)
 
 
@@ -7571,19 +7628,10 @@ def build_server_info_payload() -> dict[str, Any]:
     # This JSON is returned with no login, including when basic auth is on.
     # Clients use it to learn how the server is set up before they authenticate.
     # Do not add secrets, credentials, tenant data, or internal addresses.
+    from mlflow.server import ARTIFACTS_ONLY_ENV_VAR
     from mlflow.store.tracking.file_store import FileStore
     from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 
-    store = _get_tracking_store()
-    try:
-        trace_archival_config = get_trace_archival_server_config()
-    except Exception:
-        _logger.warning(
-            "Failed to load trace archival config while serving server-info; "
-            + "defaulting to disabled.",
-            exc_info=True,
-        )
-        trace_archival_config = None
     # The limits a skill upload is checked against, so a client can refuse an oversized folder
     # before packaging it. A malformed limit setting leaves them out rather than failing the
     # whole response, which every client reads at startup.
@@ -7598,18 +7646,33 @@ def build_server_info_payload() -> dict[str, Any]:
             exc_info=True,
         )
         skill_content_limits = {}
-    trace_archival_enabled = bool(
-        trace_archival_config
-        and trace_archival_config.enabled
-        and _store_supports_trace_archival(store)
-    )
 
-    if isinstance(store, FileStore):
-        store_type = "FileStore"
-    elif isinstance(store, SqlAlchemyStore):
-        store_type = "SqlStore"
-    else:
+    if os.environ.get(ARTIFACTS_ONLY_ENV_VAR):
         store_type = None
+        trace_archival_enabled = False
+    else:
+        store = _get_tracking_store()
+        try:
+            trace_archival_config = get_trace_archival_server_config()
+        except Exception:
+            _logger.warning(
+                "Failed to load trace archival config while serving server-info; "
+                + "defaulting to disabled.",
+                exc_info=True,
+            )
+            trace_archival_config = None
+        trace_archival_enabled = bool(
+            trace_archival_config
+            and trace_archival_config.enabled
+            and _store_supports_trace_archival(store)
+        )
+
+        if isinstance(store, FileStore):
+            store_type = "FileStore"
+        elif isinstance(store, SqlAlchemyStore):
+            store_type = "SqlStore"
+        else:
+            store_type = None
 
     multipart_uploads_enabled = False
     multipart_downloads_enabled = False
@@ -7646,10 +7709,12 @@ def build_server_info_payload() -> dict[str, Any]:
         # These advertise request-contract support; repository support is checked per resource.
         SERVER_INFO_PRESIGNED_UPLOAD_RUN_ID_SUPPORTED: True,
         SERVER_INFO_PRESIGNED_UPLOAD_MODEL_ID_SUPPORTED: True,
+        SERVER_INFO_MODEL_ARTIFACT_PRESIGNED_DOWNLOADS_SUPPORTED: True,
         SERVER_INFO_FEATURES_ENABLED: {
             "gateway": MLFLOW_ENABLE_AI_GATEWAY.get(),
         },
         SERVER_INFO_TRACKING_AUTH: MLFLOW_SERVER_INFO_TRACKING_AUTH.get() or "",
+        SERVER_INFO_ARTIFACTS_PRESIGNED_ONLY: MLFLOW_ARTIFACTS_PRESIGNED_ONLY.get(),
     }
 
 
