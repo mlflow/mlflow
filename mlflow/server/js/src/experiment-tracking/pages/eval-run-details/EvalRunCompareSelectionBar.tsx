@@ -202,7 +202,7 @@ export const EvalRunCompareSelectionBar = ({
           <Button
             endIcon={<ChevronDownIcon />}
             componentId="mlflow.eval_run_details.compare.selection_bar.baseline_trigger"
-            css={{ maxWidth: 320, minWidth: 0, '& .db-btn-content': { minWidth: 0 } }}
+            css={{ maxWidth: 320, minWidth: 0, '& > span': { minWidth: 0 } }}
           >
             <span css={runTriggerStyle}>
               <Tag
@@ -264,7 +264,7 @@ export const EvalRunCompareSelectionBar = ({
               componentId="mlflow.eval_run_details.compare.selection_bar.comparison_trigger"
               disabled={comparisonOptions.length === 0}
               title={compareRunUuids.map(labelFor).join(', ')}
-              css={{ maxWidth: '100%', minWidth: 0, '& .db-btn-content': { minWidth: 0 } }}
+              css={{ maxWidth: '100%', minWidth: 0, '& > span': { minWidth: 0 } }}
             >
               <span
                 css={{
