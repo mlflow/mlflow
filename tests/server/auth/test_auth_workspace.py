@@ -5011,6 +5011,33 @@ def test_validate_can_manage_roles_conflicting_ids_still_bypassed_by_super_admin
         assert auth_module.validate_can_manage_roles() is True
 
 
+@pytest.mark.parametrize("exists", [True, False])
+def test_validate_can_manage_roles_malformed_role_id_rejected_regardless_of_existence(
+    role_auth_setup, exists
+):
+    # Format checks run before any lookup; otherwise a non-admin could tell existing
+    # from missing role_permission_ids by whether a malformed role_id yields a 400
+    # or a deny.
+    role_auth_setup["login_as"]("outsider")
+    rp_id = role_auth_setup["role_permission_bar_id"] if exists else 999_999
+    body = {"role_id": "not-an-int", "role_permission_id": rp_id, "permission": MANAGE.name}
+    with auth_module.app.test_request_context(UPDATE_ROLE_PERMISSION, method="PATCH", json=body):
+        with pytest.raises(MlflowException, match="must be an integer"):
+            auth_module.validate_can_manage_roles()
+
+
+@pytest.mark.parametrize("exists", [True, False])
+def test_validate_can_manage_roles_blank_workspace_rejected_regardless_of_existence(
+    role_auth_setup, exists
+):
+    role_auth_setup["login_as"]("outsider")
+    role_id = role_auth_setup["role_bar_id"] if exists else 999_999
+    body = {"name": "new-role", "workspace": "   ", "role_id": role_id}
+    with auth_module.app.test_request_context(CREATE_ROLE, method="POST", json=body):
+        with pytest.raises(MlflowException, match="non-empty string"):
+            auth_module.validate_can_manage_roles()
+
+
 def test_validate_can_manage_roles_nonexistent_role_id_bypassed_by_super_admin(
     role_auth_setup,
 ):
