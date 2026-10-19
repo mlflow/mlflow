@@ -9,7 +9,7 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import Utils from '../../../common/utils/Utils';
 import type { Issue, IssueSeverity, IssueStatus } from '../../components/run-page/hooks/useSearchIssuesQuery';
 import { IssueCategoryTag } from './IssueCategoryTag';
-import { SEVERITY_GLYPH_LABELS, STATUS_LABELS } from './issueLabels';
+import { categoryDescription, SEVERITY_GLYPH_LABELS, STATUS_LABELS } from './issueLabels';
 
 // Severity is the list's primary scan key, so it gets a glyph rather than a text tag: three
 // signal bars, filled by rank. Bar count carries the ordering on its own, so severity survives
@@ -144,12 +144,14 @@ export const ExperimentIssueRow = ({
   affectedTraceCount = issue.trace_count ?? null,
 }: ExperimentIssueRowProps) => {
   const { theme } = useDesignSystemTheme();
+  const descriptionId = `issue-${issue.issue_id}-categories`;
   const age = Utils.timeSinceStr(issue.created_timestamp);
   return (
     <PreviewCard
       componentId="mlflow.experiment-issues.row"
       data-testid="experiment-issue-row"
       onClick={onSelect}
+      aria-describedby={descriptionId}
       // PreviewCard renders role="button" and aria-pressed={selected}, so selection stays driven
       // by the URL rather than by internal component state.
       selected={isSelected}
@@ -226,6 +228,11 @@ export const ExperimentIssueRow = ({
           pointerEvents: 'none',
         }}
       >
+        <span id={descriptionId} hidden>
+          {issue.categories?.map((category) => (
+            <span key={category}>{categoryDescription(category)} </span>
+          ))}
+        </span>
         {issue.categories?.map((category) => (
           <IssueCategoryTag
             key={category}

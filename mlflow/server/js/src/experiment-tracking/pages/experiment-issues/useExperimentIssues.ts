@@ -69,7 +69,7 @@ export const useExperimentIssue = (experimentId: string, issueId?: string) => {
   });
 };
 
-export const useHasExperimentIssues = (experimentId: string) => {
+export const useHasExperimentIssues = (experimentId: string, enabled: boolean) => {
   const workspace = useActiveWorkspace();
   return useQuery<IssuesPage, Error>({
     queryKey: [...issueListKey(workspace, experimentId), 'any'],
@@ -79,6 +79,7 @@ export const useHasExperimentIssues = (experimentId: string) => {
         signal,
         body: { experiment_id: experimentId, max_results: 1, view: 'basic' },
       }),
+    enabled,
     retry: false,
   });
 };

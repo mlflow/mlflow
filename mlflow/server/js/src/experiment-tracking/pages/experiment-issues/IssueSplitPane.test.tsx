@@ -1,5 +1,6 @@
 import { beforeAll, beforeEach, describe, expect, it } from '@jest/globals';
-import { screen } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { setLocalStorageItem } from '../../../shared/web-shared/hooks';
 
 import {
@@ -32,7 +33,12 @@ const renderSplitPane = ({ withDetail }: { withDetail: boolean }) =>
  * The list pane's width is an inline pixel width on the resizable box wrapping the list, so read it
  * off the list's parent. Only the resizable pane sets it — in single-column mode there is none.
  */
-const listPaneWidth = () => screen.getByTestId('issue-list').parentElement?.style.width;
+const listPaneWidth = () =>
+  screen
+    .getByTestId('issue-list')
+    .closest('.react-resizable')
+    ?.getAttribute('style')
+    ?.match(/width: ([^;]+)/)?.[1];
 
 beforeAll(() => {
   // jsdom never lays anything out and has no ResizeObserver, so report a fixed container width.
@@ -92,6 +98,30 @@ describe('IssueSplitPane', () => {
     renderSplitPane({ withDetail: true });
 
     expect(listPaneWidth()).toBe(`${WIDE_CONTAINER / 3}px`);
+  });
+
+  it('resizes with the keyboard, clamps both bounds and persists the ratio', async () => {
+    const { unmount } = renderSplitPane({ withDetail: true });
+    const separator = screen.getByRole('separator', { name: 'Resize issue list' });
+    expect(separator).toHaveAttribute('aria-orientation', 'vertical');
+    expect(document.getElementById(separator.getAttribute('aria-controls') ?? '')).toContainElement(
+      screen.getByTestId('issue-list'),
+    );
+    separator.focus();
+    await userEvent.keyboard('{ArrowRight}');
+    expect(listPaneWidth()).toBe('320px');
+    await userEvent.keyboard('{Home}{ArrowLeft}');
+    expect(listPaneWidth()).toBe('280px');
+    await userEvent.keyboard('{End}{ArrowRight}');
+    expect(listPaneWidth()).toBe('420px');
+    expect(separator).toHaveFocus();
+    expect(separator).toHaveAttribute('aria-valuenow', '420');
+    await waitFor(() =>
+      expect(localStorage.getItem(`${ISSUE_LIST_RATIO_STORAGE_KEY}_v1`)).toBe(String(420 / WIDE_CONTAINER)),
+    );
+    unmount();
+    renderSplitPane({ withDetail: true });
+    expect(listPaneWidth()).toBe('420px');
   });
 
   it('keeps both panes, list at its minimum, when the container cannot fit both minimums', () => {

@@ -11,6 +11,7 @@ import { getPreservedQueryString } from '../../../../pages/experiment-page-tabs/
 
 export interface SubmittedIssueDetectionJob {
   experimentId: string;
+  workspace?: string | null;
   jobId: string;
   runId: string;
   traceCount: number;
@@ -89,12 +90,15 @@ const setTrackedExperimentIds = (experimentIds: string[]) => {
 };
 
 const setSubmittedIssueDetectionJobsForExperiment = (experimentId: string, jobs: SubmittedIssueDetectionJob[]) => {
-  const storedJobs = jobs.map<StoredSubmittedIssueDetectionJob>(({ jobId, runId, traceCount, submittedAtMs }) => ({
-    jobId,
-    runId,
-    traceCount,
-    submittedAtMs,
-  }));
+  const storedJobs = jobs.map<StoredSubmittedIssueDetectionJob>(
+    ({ jobId, runId, traceCount, submittedAtMs, workspace }) => ({
+      jobId,
+      runId,
+      traceCount,
+      submittedAtMs,
+      workspace,
+    }),
+  );
   getSubmittedJobStore(experimentId).setItem(ISSUE_DETECTION_SUBMITTED_JOBS_STORAGE_KEY, JSON.stringify(storedJobs));
 
   const trackedExperimentIds = getTrackedExperimentIds();

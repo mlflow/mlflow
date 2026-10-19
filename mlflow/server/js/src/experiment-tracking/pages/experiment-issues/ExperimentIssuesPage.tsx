@@ -16,6 +16,7 @@ import { ExperimentIssuesFilterChips, ExperimentIssuesSortControl } from './Expe
 import { useIssueListControls } from './useExperimentIssuesListControls';
 import { ExperimentIssuesActionBar } from './ExperimentIssuesActionBar';
 import { IssueSplitPane } from './IssueSplitPane';
+import { markDetectIssuesGuidanceSeen } from '../../../shared/web-shared/genai-traces-table/components/DetectIssuesButton';
 import { ExperimentIssuesEmptyState } from './ExperimentIssuesEmptyState';
 import { useDetectionTraceIds, useLatestIssueDetection } from './useIssueDetection';
 import { useExperimentIssue, useExperimentIssues, useHasExperimentIssues } from './useExperimentIssues';
@@ -79,7 +80,17 @@ const ExperimentIssuesContent = ({ experimentId }: { experimentId: string }) => 
   const { theme } = useDesignSystemTheme();
   const controls = useIssueListControls();
   const search = useExperimentIssues(experimentId, controls.filters);
-  const anyIssue = useHasExperimentIssues(experimentId);
+  const issues = useMemo(() => search.data?.pages.flatMap((page) => page.issues ?? []) ?? [], [search.data]);
+  const hasRestrictiveFilters = Boolean(
+    controls.filters.name ||
+    controls.filters.statuses.length ||
+    controls.filters.severities.length ||
+    controls.filters.categories.length,
+  );
+  const needsExistenceCheck = search.isSuccess && !issues.length && hasRestrictiveFilters;
+  const anyIssue = useHasExperimentIssues(experimentId, needsExistenceCheck);
+  const existenceLoading = needsExistenceCheck && anyIssue.isLoading;
+  const existenceError = needsExistenceCheck ? anyIssue.error : null;
   const detection = useLatestIssueDetection(experimentId);
   const isDetecting = Boolean(detection.run) && !isJobComplete(detection.status);
   const detectionEnabled = useFeatureEnabled(SERVER_FEATURE_KEYS.GATEWAY);
@@ -87,7 +98,6 @@ const ExperimentIssuesContent = ({ experimentId }: { experimentId: string }) => 
   const traces = useDetectionTraceIds(experimentId, showDetection);
   const isDetectionButtonLoading = isDetecting || (showDetection && traces.isFetching);
   const [params, setParams] = useSearchParams();
-  const issues = useMemo(() => search.data?.pages.flatMap((page) => page.issues ?? []) ?? [], [search.data]);
   const requestedIssueId = params.get(SELECTED_ISSUE_ID_PARAM) ?? undefined;
   const firstIssueId = issues[0]?.issue_id;
   const selectedId = requestedIssueId ?? firstIssueId;
@@ -128,7 +138,7 @@ const ExperimentIssuesContent = ({ experimentId }: { experimentId: string }) => 
       return current;
     });
   const total = search.data?.pages[0]?.total_count;
-  const hasAny = Boolean(anyIssue.data?.issues?.length);
+  const hasAny = issues.length > 0 || (needsExistenceCheck && Boolean(anyIssue.data?.issues?.length));
   const cleanScan = detection.status === JobStatus.SUCCEEDED && detection.result?.issues === 0;
   const isEmptyState =
     !requestedIssueId &&
@@ -136,17 +146,20 @@ const ExperimentIssuesContent = ({ experimentId }: { experimentId: string }) => 
     !search.error &&
     !issues.length &&
     !hasAny &&
-    !anyIssue.isLoading &&
-    !anyIssue.error;
+    !existenceLoading &&
+    !existenceError;
   const isResolvingEmptyState =
     !requestedIssueId &&
     !issues.length &&
     !hasAny &&
     !search.error &&
-    !anyIssue.error &&
-    (search.isLoading || anyIssue.isLoading || detection.isLoading);
+    !existenceError &&
+    (search.isLoading || existenceLoading || detection.isLoading);
+  const hasShownIssues = useRef(false);
+  if (hasAny) hasShownIssues.current = true;
   const detectionError = detection.error ?? (!isJobComplete(detection.status) ? detection.job.error : undefined);
   const startDetection = () => {
+    markDetectIssuesGuidanceSeen();
     setShowDetection(true);
     if (traces.error) traces.refetch();
   };
@@ -192,8 +205,8 @@ const ExperimentIssuesContent = ({ experimentId }: { experimentId: string }) => 
           <>
             {issues.length === 0 ? (
               <CenteredState>
-                {anyIssue.error ? (
-                  <ReadError error={anyIssue.error} retry={() => anyIssue.refetch()} />
+                {existenceError ? (
+                  <ReadError error={existenceError} retry={() => anyIssue.refetch()} />
                 ) : (
                   <Empty
                     description={
@@ -267,10 +280,10 @@ const ExperimentIssuesContent = ({ experimentId }: { experimentId: string }) => 
   ) : undefined;
   return (
     <div css={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, height: '100%' }}>
-      {!isEmptyState && !isResolvingEmptyState && (
+      {(hasShownIssues.current || (!isEmptyState && !isResolvingEmptyState)) && (
         <div css={{ flexShrink: 0, paddingBottom: theme.spacing.md, borderBottom: `1px solid ${theme.colors.border}` }}>
           <ExperimentIssuesActionBar
-            controls={{ ...controls, totalCount: total }}
+            controls={controls}
             searchInput={controls.search.input}
             onSearchInputChange={controls.search.setInput}
             onSearchSubmit={controls.search.flush}
@@ -336,7 +349,8 @@ const ExperimentIssuesContent = ({ experimentId }: { experimentId: string }) => 
       ) : isEmptyState ? (
         <CenteredState>
           <ExperimentIssuesEmptyState
-            hasCompletedDetectionRuns={cleanScan}
+            hasCompletedDetectionRuns={detection.status === JobStatus.SUCCEEDED}
+            isCleanScan={cleanScan}
             hasTimedOutDetectionRun={detection.status === JobStatus.TIMEOUT}
             hasFailedDetectionRun={detection.status === JobStatus.FAILED}
             isDetecting={isDetectionButtonLoading}

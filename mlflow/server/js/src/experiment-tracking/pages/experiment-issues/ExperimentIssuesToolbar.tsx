@@ -22,7 +22,7 @@ import { defineMessage, FormattedMessage, useIntl } from 'react-intl';
 import type { MessageDescriptor } from 'react-intl';
 import type { IssueSeverity, IssueStatus } from '../../components/run-page/hooks/useSearchIssuesQuery';
 import type { IssueCategory } from '../../components/experiment-page/components/traces-v3/IssueDetectionCategories';
-import { categoryColor, categoryDescription, TAG_MARGIN_RESET } from './issueLabels';
+import { categoryColor, categoryDescription, STATUS_LABELS, TAG_MARGIN_RESET } from './issueLabels';
 import {
   ISSUE_DETECTION_CATEGORIES,
   ISSUE_DETECTION_SEVERITIES,
@@ -59,8 +59,7 @@ const SEVERITY_LABELS: Record<IssueSeverity, MessageDescriptor> = {
   }),
 };
 
-// An option composes "{label} ({count})", which needs a formatted string, while the shared titles
-// are rendered `<FormattedMessage>` elements. Only the definitions are shared.
+// Combobox values need strings; the shared category titles are React elements.
 const CATEGORY_LABELS: Record<IssueCategory, MessageDescriptor> = {
   correctness: defineMessage({
     defaultMessage: 'Correctness',
@@ -85,21 +84,6 @@ const CATEGORY_LABELS: Record<IssueCategory, MessageDescriptor> = {
   safety: defineMessage({
     defaultMessage: 'Safety',
     description: 'Experiment issues tab > Safety category filter option',
-  }),
-};
-
-const STATUS_LABELS: Record<IssueStatus, MessageDescriptor> = {
-  pending: defineMessage({
-    defaultMessage: 'Open',
-    description: 'Experiment issues tab > Open (pending) status option',
-  }),
-  rejected: defineMessage({
-    defaultMessage: 'Rejected',
-    description: 'Experiment issues tab > Rejected status option',
-  }),
-  resolved: defineMessage({
-    defaultMessage: 'Resolved',
-    description: 'Experiment issues tab > Resolved status option',
   }),
 };
 
@@ -153,43 +137,21 @@ export const ExperimentIssuesFilterControl = ({
     setCategories,
     statuses,
     setStatuses,
-    severityCounts,
-    categoryCounts,
-    statusCounts,
-    totalCount,
     hasActiveFilters,
     clearFilters,
   } = controls;
 
-  // Builds the "Label (count)" text a filter option and its collapsed trigger both show, or just the
-  // label when there is no count to show.
-  const optionLabel = (label: MessageDescriptor, count: number | undefined) =>
-    count === undefined
-      ? intl.formatMessage(label)
-      : intl.formatMessage(
-          {
-            defaultMessage: '{label} ({count})',
-            description: 'Experiment issues tab > A filter option label followed by its matching-issue count',
-          },
-          { label: intl.formatMessage(label), count },
-        );
-
-  // Without per-option counts, the total matches a dimension's "All" only while that dimension is
-  // unset: then every other filter is applied and this one isn't, which is what "All" counts.
-  const allOptionLabel = (allCount: number | undefined, isDimensionUnset: boolean) =>
-    optionLabel(ALL_LABEL, allCount ?? (isDimensionUnset ? totalCount : undefined));
-
   const severityDisplayValue = (value: string) => {
     const severity = ISSUE_DETECTION_SEVERITIES.find((candidate) => candidate === value);
-    return severity ? optionLabel(SEVERITY_LABELS[severity], severityCounts?.[severity]) : value;
+    return severity ? intl.formatMessage(SEVERITY_LABELS[severity]) : value;
   };
   const categoryDisplayValue = (value: string) => {
     const category = ISSUE_DETECTION_CATEGORIES.find((candidate) => candidate === value);
-    return category ? optionLabel(CATEGORY_LABELS[category], categoryCounts?.[category]) : value;
+    return category ? intl.formatMessage(CATEGORY_LABELS[category]) : value;
   };
   const statusDisplayValue = (value: string) => {
     const status = ISSUE_DETECTION_TRIAGE_STATUSES.find((candidate) => candidate === value);
-    return status ? optionLabel(STATUS_LABELS[status], statusCounts?.[status]) : value;
+    return status ? intl.formatMessage(STATUS_LABELS[status]) : value;
   };
 
   const toggleSeverity = (value: IssueSeverity) => {
@@ -307,7 +269,7 @@ export const ExperimentIssuesFilterControl = ({
                   width={180}
                   withInlineLabel={false}
                   aria-label={severityRowLabel}
-                  placeholder={allOptionLabel(severityCounts?.all, severities.length === 0)}
+                  placeholder={intl.formatMessage(ALL_LABEL)}
                   showTagAfterValueCount={1}
                   renderDisplayedValue={severityDisplayValue}
                   onClear={() => setSeverities([])}
@@ -319,7 +281,7 @@ export const ExperimentIssuesFilterControl = ({
                       checked={severities.length === 0}
                       onChange={() => setSeverities([])}
                     >
-                      {allOptionLabel(severityCounts?.all, severities.length === 0)}
+                      {intl.formatMessage(ALL_LABEL)}
                     </DialogComboboxOptionListCheckboxItem>
                     {ISSUE_DETECTION_SEVERITIES.map((value) => (
                       <DialogComboboxOptionListCheckboxItem
@@ -328,7 +290,7 @@ export const ExperimentIssuesFilterControl = ({
                         checked={severities.includes(value)}
                         onChange={() => toggleSeverity(value)}
                       >
-                        {optionLabel(SEVERITY_LABELS[value], severityCounts?.[value])}
+                        {intl.formatMessage(SEVERITY_LABELS[value])}
                       </DialogComboboxOptionListCheckboxItem>
                     ))}
                   </DialogComboboxOptionList>
@@ -355,7 +317,7 @@ export const ExperimentIssuesFilterControl = ({
                   width={180}
                   withInlineLabel={false}
                   aria-label={categoryRowLabel}
-                  placeholder={allOptionLabel(categoryCounts?.all, categories.length === 0)}
+                  placeholder={intl.formatMessage(ALL_LABEL)}
                   showTagAfterValueCount={1}
                   renderDisplayedValue={categoryDisplayValue}
                   onClear={() => setCategories([])}
@@ -376,7 +338,7 @@ export const ExperimentIssuesFilterControl = ({
                           checked={categories.length === 0}
                           onChange={() => setCategories([])}
                         >
-                          {allOptionLabel(categoryCounts?.all, categories.length === 0)}
+                          {intl.formatMessage(ALL_LABEL)}
                         </DialogComboboxOptionListCheckboxItem>
                       )}
                       {/* Anchored right so it does not cover the adjacent option. `asChild` keeps
@@ -393,7 +355,7 @@ export const ExperimentIssuesFilterControl = ({
                             checked={categories.includes(value)}
                             onChange={() => toggleCategory(value)}
                           >
-                            {optionLabel(CATEGORY_LABELS[value], categoryCounts?.[value])}
+                            {intl.formatMessage(CATEGORY_LABELS[value])}
                           </DialogComboboxOptionListCheckboxItem>
                         </Tooltip>
                       ))}
@@ -432,7 +394,7 @@ export const ExperimentIssuesFilterControl = ({
                   width={180}
                   withInlineLabel={false}
                   aria-label={statusRowLabel}
-                  placeholder={allOptionLabel(statusCounts?.all, statuses.length === 0)}
+                  placeholder={intl.formatMessage(ALL_LABEL)}
                   showTagAfterValueCount={1}
                   renderDisplayedValue={statusDisplayValue}
                   onClear={() => setStatuses([])}
@@ -444,7 +406,7 @@ export const ExperimentIssuesFilterControl = ({
                       checked={statuses.length === 0}
                       onChange={() => setStatuses([])}
                     >
-                      {allOptionLabel(statusCounts?.all, statuses.length === 0)}
+                      {intl.formatMessage(ALL_LABEL)}
                     </DialogComboboxOptionListCheckboxItem>
                     {ISSUE_DETECTION_TRIAGE_STATUSES.map((value) => (
                       <DialogComboboxOptionListCheckboxItem
@@ -453,7 +415,7 @@ export const ExperimentIssuesFilterControl = ({
                         checked={statuses.includes(value)}
                         onChange={() => toggleStatus(value)}
                       >
-                        {optionLabel(STATUS_LABELS[value], statusCounts?.[value])}
+                        {intl.formatMessage(STATUS_LABELS[value])}
                       </DialogComboboxOptionListCheckboxItem>
                     ))}
                   </DialogComboboxOptionList>
@@ -480,7 +442,7 @@ export const ExperimentIssuesSortControl = ({
 }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
-  const { sortKey, setSortKey, sortKeys = BACKEND_ISSUE_SORT_KEYS } = controls;
+  const { sortKey, setSortKey } = controls;
   return (
     <DropdownMenu.Root>
       <DropdownMenu.Trigger asChild>
@@ -523,7 +485,7 @@ export const ExperimentIssuesSortControl = ({
             }
           }}
         >
-          {sortKeys.map((key) => (
+          {BACKEND_ISSUE_SORT_KEYS.map((key) => (
             <DropdownMenu.RadioItem key={key} value={key}>
               <DropdownMenu.ItemIndicator />
               {intl.formatMessage(SORT_LABELS[key])}

@@ -23,6 +23,10 @@
     "defaultMessage": "Medium",
     "description": "Issue severity tag label for medium severity"
   },
+  "+32Pbf": {
+    "defaultMessage": "About category {category}",
+    "description": "Experiment Issues category explanation button"
+  },
   "+33ShX": {
     "defaultMessage": "Cancel",
     "description": "Button label for cancelling the creation of an assessment"
@@ -2751,6 +2755,10 @@
     "defaultMessage": "Total",
     "description": "Label for the total tokensin the tooltip for the tokens cell."
   },
+  "85j63R": {
+    "defaultMessage": "Resize panes",
+    "description": "Accessible label for the trace explorer pane divider"
+  },
   "88bRGB": {
     "defaultMessage": "Select record {recordId}",
     "description": "Aria label for the per-row select checkbox in the V2 dataset records table"
@@ -3102,10 +3110,6 @@
   "9KLNi5": {
     "defaultMessage": "Delete",
     "description": "Experiments page list, delete bulk experiments modal primary button"
-  },
-  "9KOwZy": {
-    "defaultMessage": "Resolved",
-    "description": "Experiment issues tab > Resolved status option"
   },
   "9KXBFn": {
     "defaultMessage": "Tags",
@@ -6131,6 +6135,10 @@
     "defaultMessage": "Tags",
     "description": "Header for the tags column in the registered prompts table"
   },
+  "KN+vcO": {
+    "defaultMessage": "No issues to display",
+    "description": "Experiment issues tab > Empty state title after prior detection"
+  },
   "KObL+y": {
     "defaultMessage": "Endpoints ({count})",
     "description": "Gateway > Endpoints using key drawer > Title"
@@ -7982,10 +7990,6 @@
   "Qv7cZx": {
     "defaultMessage": "Promote model",
     "description": "Button text to promote the model to a different registered model"
-  },
-  "Qw93OG": {
-    "defaultMessage": "Rejected",
-    "description": "Experiment issues tab > Rejected status option"
   },
   "QyA0SZ": {
     "defaultMessage": "Clear filters",
@@ -10266,10 +10270,6 @@
   "Z6kodo": {
     "defaultMessage": "Move down",
     "description": "Experiment page > compare runs tab > chart header > move down option"
-  },
-  "Z7kVT7": {
-    "defaultMessage": "{label} ({count})",
-    "description": "Experiment issues tab > A filter option label followed by its matching-issue count"
   },
   "ZAqdq9": {
     "defaultMessage": "Edit API key",
@@ -13531,6 +13531,10 @@
     "defaultMessage": "Drag to reorder {option}",
     "description": "Categorical option chip: drag-handle accessibility label"
   },
+  "k5Aq77": {
+    "defaultMessage": "Issue detection has completed. There are currently no issues in this experiment. Run it again as your application changes.",
+    "description": "Experiment issues tab > Completed detection with an empty store and unknown or nonzero historical results"
+  },
   "k5kAB3": {
     "defaultMessage": "Rejected ({count})",
     "description": "Issue status filter > Rejected button label"
@@ -14919,10 +14923,6 @@
     "defaultMessage": "Delete",
     "description": "Skill detail action that deletes the skill"
   },
-  "p0qzQo": {
-    "defaultMessage": "Open",
-    "description": "Experiment issues tab > Open (pending) status option"
-  },
   "p0zgPJ": {
     "defaultMessage": "View trace",
     "description": "Link text for navigating to the corresponding scorer trace"
@@ -15190,6 +15190,10 @@
   "q7c+LG": {
     "defaultMessage": "None",
     "description": "Evaluation-runs sort option clearing sorting"
+  },
+  "q80AoD": {
+    "defaultMessage": "Resize issue list",
+    "description": "Experiment Issues list/detail separator accessible label"
   },
   "q8qLrG": {
     "defaultMessage": "Add icon",

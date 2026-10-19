@@ -247,6 +247,7 @@ const IssueDetectionExampleBubbles = () => {
 
 export interface ExperimentIssuesEmptyStateProps {
   hasCompletedDetectionRuns: boolean;
+  isCleanScan?: boolean;
   hasTimedOutDetectionRun: boolean;
   hasFailedDetectionRun: boolean;
   isDetecting: boolean;
@@ -256,6 +257,7 @@ export interface ExperimentIssuesEmptyStateProps {
 
 export const ExperimentIssuesEmptyState = ({
   hasCompletedDetectionRuns,
+  isCleanScan = false,
   hasTimedOutDetectionRun,
   hasFailedDetectionRun,
   isDetecting,
@@ -281,10 +283,15 @@ export const ExperimentIssuesEmptyState = ({
       image={<IssueDetectionExampleBubbles />}
       title={
         <span css={{ display: 'block', marginBottom: theme.spacing.xs }}>
-          {hasCompletedDetectionRuns ? (
+          {isCleanScan ? (
             <FormattedMessage
               defaultMessage="No issues detected"
               description="Experiment issues tab > Empty state title after a completed detection found no issues"
+            />
+          ) : hasCompletedDetectionRuns ? (
+            <FormattedMessage
+              defaultMessage="No issues to display"
+              description="Experiment issues tab > Empty state title after prior detection"
             />
           ) : (
             <FormattedMessage
@@ -305,10 +312,15 @@ export const ExperimentIssuesEmptyState = ({
             defaultMessage="The previous issue detection failed. Start a new detection to try again."
             description="Experiment issues tab > Empty state description after issue detection failed"
           />
-        ) : hasCompletedDetectionRuns ? (
+        ) : isCleanScan ? (
           <FormattedMessage
             defaultMessage="Issue detection did not find problems in the analyzed traces. Run it again as your application changes."
             description="Experiment issues tab > Empty state description after a completed detection found no issues"
+          />
+        ) : hasCompletedDetectionRuns ? (
+          <FormattedMessage
+            defaultMessage="Issue detection has completed. There are currently no issues in this experiment. Run it again as your application changes."
+            description="Experiment issues tab > Completed detection with an empty store and unknown or nonzero historical results"
           />
         ) : (
           <FormattedMessage

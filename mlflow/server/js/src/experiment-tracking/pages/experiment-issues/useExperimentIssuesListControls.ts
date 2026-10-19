@@ -1,7 +1,6 @@
 import { useCallback, useMemo } from 'react';
 import { useSearchParams } from '../../../common/utils/RoutingUtils';
 import { ISSUE_CATEGORY_DEFINITIONS } from '../../components/experiment-page/components/traces-v3/IssueDetectionCategories';
-import type { IssueCategory } from '../../components/experiment-page/components/traces-v3/IssueDetectionCategories';
 import type { IssueSeverity, IssueStatus } from '../../components/run-page/hooks/useSearchIssuesQuery';
 import { useDebouncedSearchInput } from '../experiment-evaluation-datasets-v2/hooks/useDebouncedSearchInput';
 import type { IssueFilters } from './useExperimentIssues';
@@ -31,13 +30,7 @@ export interface ExperimentIssuesListState {
   hasActiveFilters: boolean;
   clearFilters: () => void;
 }
-export interface ExperimentIssuesToolbarControls extends ExperimentIssuesListState {
-  severityCounts?: Record<'all' | IssueSeverity, number>;
-  categoryCounts?: Record<'all' | IssueCategory, number>;
-  statusCounts?: Record<'all' | IssueStatus, number>;
-  totalCount?: number;
-  sortKeys?: readonly IssueSortKey[];
-}
+export type ExperimentIssuesToolbarControls = ExperimentIssuesListState;
 
 const SORTS: Record<IssueSortKey, string[]> = {
   severity: ['status ASC', 'severity DESC', 'last_seen_timestamp DESC'],

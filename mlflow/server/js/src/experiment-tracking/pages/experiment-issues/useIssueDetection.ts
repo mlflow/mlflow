@@ -1,9 +1,11 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@databricks/web-shared/query-client';
 import { fetchAPI, getAjaxUrl } from '../../../common/utils/FetchUtils';
 import { useActiveWorkspace } from '../../../workspaces/utils/WorkspaceUtils';
 import { searchMlflowTracesQueryFn } from '../../../shared/web-shared/genai-traces-table/hooks/useMlflowTraces';
 import {
+  getSubmittedIssueDetectionJobs,
+  clearSubmittedIssueDetectionJob,
   ISSUE_DETECTION_JOB_COMPLETED_EVENT,
   ISSUE_DETECTION_JOB_SUBMITTED_EVENT,
   type SubmittedIssueDetectionJob,
@@ -28,6 +30,12 @@ interface DetectionRun {
 export const useLatestIssueDetection = (experimentId: string) => {
   const workspace = useActiveWorkspace();
   const queryClient = useQueryClient();
+  const [submitted, setSubmitted] = useState(
+    () =>
+      getSubmittedIssueDetectionJobs()
+        .filter((job) => job.experimentId === experimentId && (job.workspace ?? null) === workspace)
+        .sort((a, b) => b.submittedAtMs - a.submittedAtMs)[0],
+  );
   const completedRuns = useRef(new Set<string>());
   const refreshCompletedRun = useCallback(
     (runId: string) => {
@@ -54,9 +62,25 @@ export const useLatestIssueDetection = (experimentId: string) => {
       }),
     retry: false,
     refetchInterval: (data) =>
-      data?.runs?.[0]?.info.status === 'RUNNING' && !completedRuns.current.has(data.runs[0].info.run_id) ? 3000 : false,
+      (submitted && !completedRuns.current.has(submitted.runId)) ||
+      (data?.runs?.[0]?.info.status === 'RUNNING' && !completedRuns.current.has(data.runs[0].info.run_id))
+        ? 3000
+        : false,
   });
-  const run = latest.data?.runs?.[0];
+  const latestRun = latest.data?.runs?.[0];
+  // History can still contain an older terminal run immediately after submission.
+  const run = useMemo(
+    () =>
+      submitted &&
+      latestRun?.info.run_id !== submitted.runId &&
+      (!latestRun || latestRun.info.start_time <= submitted.submittedAtMs)
+        ? {
+            info: { run_id: submitted.runId, status: 'RUNNING', start_time: submitted.submittedAtMs },
+            data: { tags: [{ key: MLFLOW_ISSUE_DETECTION_JOB_ID_TAG, value: submitted.jobId }] },
+          }
+        : latestRun,
+    [submitted, latestRun],
+  );
   const jobId = run?.data?.tags?.find((tag) => tag.key === MLFLOW_ISSUE_DETECTION_JOB_ID_TAG)?.value;
   const job = useFetchJobStatus({ jobId });
   const runStatus = (
@@ -66,36 +90,44 @@ export const useLatestIssueDetection = (experimentId: string) => {
   useEffect(() => {
     if (run && isJobComplete(status)) {
       refreshCompletedRun(run.info.run_id);
+      if (submitted?.runId === run.info.run_id) clearSubmittedIssueDetectionJob(submitted.jobId);
     }
-  }, [status, refreshCompletedRun, run]);
+  }, [status, refreshCompletedRun, run, submitted]);
   useEffect(() => {
     // Global notifications also observe older concurrent runs, beyond the latest run polled here.
     const onCompleted = (event: Event) => {
       const completed = (event as CustomEvent<SubmittedIssueDetectionJob>).detail;
-      if (completed?.experimentId === experimentId) refreshCompletedRun(completed.runId);
+      if (completed?.experimentId === experimentId && (completed.workspace ?? null) === workspace) {
+        refreshCompletedRun(completed.runId);
+      }
     };
     window.addEventListener(ISSUE_DETECTION_JOB_COMPLETED_EVENT, onCompleted);
     return () => window.removeEventListener(ISSUE_DETECTION_JOB_COMPLETED_EVENT, onCompleted);
-  }, [experimentId, refreshCompletedRun]);
+  }, [experimentId, workspace, refreshCompletedRun]);
   useEffect(() => {
-    const refresh = () => queryClient.invalidateQueries([LATEST_ISSUE_DETECTION_QUERY_KEY]);
-    window.addEventListener(ISSUE_DETECTION_JOB_SUBMITTED_EVENT, refresh);
-    return () => window.removeEventListener(ISSUE_DETECTION_JOB_SUBMITTED_EVENT, refresh);
-  }, [queryClient]);
+    const onSubmitted = (event: Event) => {
+      const job = (event as CustomEvent<SubmittedIssueDetectionJob>).detail;
+      if (job?.experimentId !== experimentId || (job.workspace ?? null) !== workspace) return;
+      setSubmitted(job);
+      queryClient.invalidateQueries([LATEST_ISSUE_DETECTION_QUERY_KEY, workspace, experimentId]);
+    };
+    window.addEventListener(ISSUE_DETECTION_JOB_SUBMITTED_EVENT, onSubmitted);
+    return () => window.removeEventListener(ISSUE_DETECTION_JOB_SUBMITTED_EVENT, onSubmitted);
+  }, [queryClient, workspace, experimentId]);
   const readCount = (key: string) => {
     const value = run?.data?.tags?.find((tag) => tag.key === key)?.value;
     const count = value === undefined ? undefined : Number(value);
     return count !== undefined && Number.isInteger(count) && count >= 0 ? count : undefined;
   };
-  const result =
+  const jobResult =
     typeof job.result === 'object' && job.result !== null
       ? (job.result as { issues?: number; total_traces_analyzed?: number })
-      : !jobId
-        ? {
-            issues: readCount(MLFLOW_ISSUE_DETECTION_RESULT_ISSUES_TAG),
-            total_traces_analyzed: readCount(MLFLOW_ISSUE_DETECTION_RESULT_TOTAL_TRACES_TAG),
-          }
-        : undefined;
+      : undefined;
+  const result = {
+    issues: jobResult?.issues ?? readCount(MLFLOW_ISSUE_DETECTION_RESULT_ISSUES_TAG),
+    total_traces_analyzed:
+      jobResult?.total_traces_analyzed ?? readCount(MLFLOW_ISSUE_DETECTION_RESULT_TOTAL_TRACES_TAG),
+  };
   return {
     run,
     jobId,

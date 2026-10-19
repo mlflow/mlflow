@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { useIntl } from 'react-intl';
 import { useState } from 'react';
 import { useLocalStorage } from '../../../shared/web-shared/hooks';
 import { ModelTraceExplorerResizablePane } from '../../../shared/web-shared/model-trace-explorer';
@@ -39,6 +40,7 @@ export interface IssueSplitPaneProps {
  * ratio is remembered per user across sessions, mirroring the traces table's persisted column layout.
  */
 export const IssueSplitPane = ({ list, detail }: IssueSplitPaneProps) => {
+  const intl = useIntl();
   const [storedRatio, setStoredRatio] = useLocalStorage<number>({
     key: ISSUE_LIST_RATIO_STORAGE_KEY,
     version: ISSUE_LIST_RATIO_STORAGE_VERSION,
@@ -52,6 +54,10 @@ export const IssueSplitPane = ({ list, detail }: IssueSplitPaneProps) => {
     <div css={{ display: 'flex', flex: 1, width: '100%', minWidth: 0, minHeight: 0, overflow: 'hidden' }}>
       {detail ? (
         <ModelTraceExplorerResizablePane
+          resizeLabel={intl.formatMessage({
+            defaultMessage: 'Resize issue list',
+            description: 'Experiment Issues list/detail separator accessible label',
+          })}
           initialRatio={sanitizeRatio(storedRatio)}
           paneWidth={paneWidth}
           setPaneWidth={setPaneWidth}

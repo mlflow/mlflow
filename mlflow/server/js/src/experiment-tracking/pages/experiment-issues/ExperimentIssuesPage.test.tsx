@@ -1,7 +1,14 @@
 import { beforeEach, describe, expect, jest, test } from '@jest/globals';
 import { rest } from 'msw';
 import userEvent from '@testing-library/user-event';
-import { act, fireEvent, renderWithDesignSystem, screen, waitFor } from '../../../common/utils/TestUtils.react18';
+import {
+  act,
+  fireEvent,
+  renderWithDesignSystem,
+  screen,
+  waitFor,
+  within,
+} from '../../../common/utils/TestUtils.react18';
 import { setupServer } from '../../../common/utils/setup-msw';
 import { shouldEnableExperimentIssuesTab } from '../../../common/utils/FeatureUtils';
 import { MemoryRouter, Route, Routes, useLocation, useNavigate } from '../../../common/utils/RoutingUtils';
@@ -10,7 +17,6 @@ import { ServerInfoProvider } from '../../hooks/useServerInfo';
 import type { Issue } from '../../components/run-page/hooks/useSearchIssuesQuery';
 import {
   clearSubmittedIssueDetectionJob,
-  ISSUE_DETECTION_JOB_SUBMITTED_EVENT,
   IssueDetectionJobNotifications,
   recordSubmittedIssueDetectionJob,
 } from '../../components/experiment-page/components/traces-v3/IssueDetectionJobNotifications';
@@ -50,7 +56,7 @@ let issues: Issue[];
 let searches: Record<string, unknown>[];
 let responsePageSize: number | undefined;
 let latestRun:
-  | { info: { run_id: string; status: string }; data: { tags: { key: string; value: string }[] } }
+  | { info: { run_id: string; status: string; start_time?: number }; data: { tags: { key: string; value: string }[] } }
   | undefined;
 let jobStatus: string;
 const server = setupServer(
@@ -468,6 +474,145 @@ describe('Experiment Issues', () => {
       expect(screen.getByRole('button', { name: 'Detect issues in traces' })).toBeEnabled();
     },
   );
+  test.each([false, true])(
+    'keeps a submitted job active across stale history and remount (empty: %s)',
+    async (empty) => {
+      if (empty) issues = [];
+      latestRun = { info: { run_id: 'old-run', status: 'FINISHED', start_time: 1 }, data: { tags: [] } };
+      jobStatus = 'RUNNING';
+      const buttonName = empty ? 'Run issue detection' : 'Detect issues in traces';
+      const first = renderPage();
+      await screen.findByRole('button', { name: buttonName, busy: false });
+      act(() => recordSubmittedIssueDetectionJob({ experimentId: '1', runId: 'run-1', jobId: 'job-1', traceCount: 2 }));
+      expect(screen.getByRole('button', { name: buttonName, busy: true })).toBeDisabled();
+      await waitFor(() => expect(first.client.isFetching()).toBe(0));
+      expect(screen.getByRole('button', { name: buttonName })).toBeDisabled();
+      first.unmount();
+      const { client } = renderPage();
+      const button = await screen.findByRole('button', { name: buttonName, busy: true });
+      expect(button).toBeDisabled();
+      await userEvent.click(button);
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      jobStatus = 'FAILED';
+      await act(async () => {
+        await client.invalidateQueries(['FETCH_JOB_STATUS', 'job-1']);
+      });
+      expect(
+        await screen.findByRole('button', { name: empty ? 'Start new detection' : buttonName, busy: false }),
+      ).toBeEnabled();
+    },
+  );
+  test.each([{ experimentId: 'other' }, { experimentId: '1', workspace: 'other' }])(
+    'ignores submissions outside the current scope (%o)',
+    async (scope) => {
+      renderPage();
+      await screen.findByText('Description for iss-a');
+      act(() => recordSubmittedIssueDetectionJob({ ...scope, runId: 'run-1', jobId: 'job-1', traceCount: 2 }));
+      expect(screen.getByRole('button', { name: 'Detect issues in traces' })).toBeEnabled();
+    },
+  );
+  test.each([undefined, '0', '2'])(
+    'uses completed history when a collaborator cannot read the job (count: %s)',
+    async (count) => {
+      issues = [];
+      latestRun = {
+        info: { run_id: 'run-1', status: 'FINISHED' },
+        data: {
+          tags: [
+            { key: 'mlflow.issueDetection.jobId', value: 'job-1' },
+            ...(count === undefined ? [] : [{ key: 'mlflow.issueDetection.result.issues', value: count }]),
+          ],
+        },
+      };
+      server.use(rest.get('*/ajax-api/3.0/mlflow/jobs/job-1', (_req, res, ctx) => res(ctx.status(403))));
+      renderPage();
+      expect(
+        await screen.findByText(count === '0' ? 'No issues detected' : 'No issues to display'),
+      ).toBeInTheDocument();
+      expect(screen.queryByText('Discover issues automatically')).not.toBeInTheDocument();
+      expect(screen.queryByText('Unable to update detection progress')).not.toBeInTheDocument();
+    },
+  );
+  test.each(['populated', 'filtered-empty', 'unfiltered-empty', 'error'])(
+    'only checks existence when necessary (%s)',
+    async (mode) => {
+      if (mode.includes('empty')) issues = [];
+      if (mode === 'error') {
+        server.use(
+          rest.post('*/ajax-api/3.0/mlflow/issues/search', async (req, res, ctx) => {
+            searches.push(await req.json());
+            return res(ctx.status(500));
+          }),
+        );
+      }
+      const { client } = renderPage(mode === 'unfiltered-empty' ? '?issueStatus=all' : '');
+      await screen.findByRole('button', {
+        name: mode.includes('empty') ? 'Run issue detection' : 'Detect issues in traces',
+      });
+      await waitFor(() => expect(client.isFetching()).toBe(0));
+      expect(searches.filter((body) => body['max_results'] === 1)).toHaveLength(mode === 'filtered-empty' ? 1 : 0);
+    },
+  );
+  test('retries a failed existence check without calling it a completed empty scan', async () => {
+    issues = [];
+    latestRun = { info: { run_id: 'run-1', status: 'FINISHED' }, data: { tags: [] } };
+    server.use(
+      rest.post('*/ajax-api/3.0/mlflow/issues/search', async (req, res, ctx) => {
+        const body = await req.json();
+        return body['max_results'] === 1 ? res(ctx.status(500)) : res(ctx.json({ issues: [] }));
+      }),
+    );
+    renderPage();
+    await screen.findByText('Unable to load issues');
+    expect(screen.queryByText('No issues to display')).not.toBeInTheDocument();
+    server.use(rest.post('*/ajax-api/3.0/mlflow/issues/search', (_req, res, ctx) => res(ctx.json({ issues: [] }))));
+    await userEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    expect(await screen.findByText('No issues to display')).toBeInTheDocument();
+  });
+  test('exposes category help without nesting a button in the selectable row', async () => {
+    renderPage();
+    const row = await screen.findByRole('button', { name: /Slow response/ });
+    expect(row).toHaveAccessibleDescription(/./);
+    expect(within(row).queryByRole('button')).not.toBeInTheDocument();
+    const help = await screen.findByRole('button', { name: 'About category latency' });
+    help.focus();
+    await userEvent.keyboard('{Enter}');
+    expect(await screen.findByRole('dialog')).toHaveTextContent(/./);
+    await userEvent.keyboard('{Escape}');
+    expect(help).toHaveFocus();
+    await userEvent.click(help);
+    expect(await screen.findByRole('dialog')).toBeInTheDocument();
+  });
+  test('shares the triage label with filters and omits facet counts', async () => {
+    renderPage();
+    expect(await screen.findByText('2 results')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Filter issues' }));
+    await userEvent.click(screen.getByRole('combobox', { name: 'Status' }));
+    expect(await screen.findByRole('option', { name: 'All' })).toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: 'Rejected' })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('option', { name: 'Not an issue' }));
+    await waitFor(() =>
+      expect(searches).toContainEqual(expect.objectContaining({ statuses: ['pending', 'rejected'] })),
+    );
+    expect(screen.getByText('Status: Not an issue')).toBeInTheDocument();
+  });
+  test('does not show first-use guidance after launching from the empty page', async () => {
+    localStorage.removeItem(`${DEFAULT_DETECT_ISSUES_GUIDANCE_STORAGE_KEY}_v1`);
+    issues = [];
+    const { client, unmount } = renderPage();
+    await userEvent.click(await screen.findByRole('button', { name: 'Run issue detection' }));
+    expect(await screen.findByRole('dialog')).toBeInTheDocument();
+    issues = [makeIssue('new-issue')];
+    await act(async () => {
+      await client.invalidateQueries(['SEARCH_ISSUES']);
+    });
+    expect(await screen.findByRole('button', { name: 'Detect issues in traces' })).toBeInTheDocument();
+    expect(screen.queryByText('Detect Issues in Your Traces')).not.toBeInTheDocument();
+    unmount();
+    renderPage();
+    await screen.findByRole('button', { name: 'Detect issues in traces' });
+    expect(screen.queryByText('Detect Issues in Your Traces')).not.toBeInTheDocument();
+  });
   test('discovers a newly submitted job without navigating away', async () => {
     renderPage();
     await screen.findByText('Description for iss-a');
@@ -476,7 +621,7 @@ describe('Experiment Issues', () => {
       data: { tags: [{ key: 'mlflow.issueDetection.jobId', value: 'job-1' }] },
     };
     jobStatus = 'RUNNING';
-    act(() => window.dispatchEvent(new CustomEvent(ISSUE_DETECTION_JOB_SUBMITTED_EVENT)));
+    act(() => recordSubmittedIssueDetectionJob({ experimentId: '1', jobId: 'job-1', runId: 'run-1', traceCount: 2 }));
     expect(await screen.findByRole('button', { name: 'Detect issues in traces', busy: true })).toBeDisabled();
   });
   test('keeps the button spinning while job status is unavailable, including permission failures', async () => {
