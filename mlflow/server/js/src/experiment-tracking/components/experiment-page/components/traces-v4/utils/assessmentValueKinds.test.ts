@@ -25,6 +25,21 @@ describe('classifyAssessmentValueKinds', () => {
     expect(kinds.has(assessmentValueKindKey('expectation', 'relevance'))).toBe(false);
   });
 
+  test('an errored or empty value does not turn numeric matching off', () => {
+    const kinds = classifyAssessmentValueKinds([
+      makeTrace('t1', { assessments: [makeFeedbackAssessment('relevance', 4)] }),
+      makeTrace('t2', {
+        assessments: [
+          makeFeedbackAssessment('relevance', 0, {
+            feedback: { value: null, error: { error_code: 'SCORER_ERROR', error_message: 'timed out' } },
+          } as Parameters<typeof makeFeedbackAssessment>[2]),
+        ],
+      }),
+    ]);
+
+    expect(kinds.get(assessmentValueKindKey('feedback', 'relevance'))).toBe('numeric');
+  });
+
   test('ignores assessments that get no column', () => {
     const kinds = classifyAssessmentValueKinds([
       makeTrace('t1', { assessments: [makeFeedbackAssessment('stale', 1, { valid: false })] }),

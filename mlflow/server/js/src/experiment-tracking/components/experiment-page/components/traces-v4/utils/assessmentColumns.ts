@@ -128,7 +128,8 @@ export const assessmentValueKindKey = (field: 'feedback' | 'expectation', name: 
 
 /**
  * Classify the displayable assessments on `traces` by the type of their values: `numeric` when every
- * loaded value is a number, `other` as soon as one isn't (a string, a boolean, or a missing value).
+ * loaded value is a number, `other` as soon as one isn't (a string or a boolean). Errored or empty
+ * values are skipped: they're stored as null and match no filter, so they say nothing about the type.
  */
 export const classifyAssessmentValueKinds = (traces: ModelTraceInfoV3[]): Map<string, AssessmentValueKind> => {
   const kinds = new Map<string, AssessmentValueKind>();
@@ -141,7 +142,11 @@ export const classifyAssessmentValueKinds = (traces: ModelTraceInfoV3[]): Map<st
         isExpectationAssessment(assessment) ? 'expectation' : 'feedback',
         assessment.assessment_name,
       );
-      const kind: AssessmentValueKind = typeof getAssessmentValue(assessment) === 'number' ? 'numeric' : 'other';
+      const value = getAssessmentValue(assessment);
+      if (value === null || value === undefined) {
+        continue;
+      }
+      const kind: AssessmentValueKind = typeof value === 'number' ? 'numeric' : 'other';
       if (kinds.get(key) !== 'other') {
         kinds.set(key, kind);
       }
