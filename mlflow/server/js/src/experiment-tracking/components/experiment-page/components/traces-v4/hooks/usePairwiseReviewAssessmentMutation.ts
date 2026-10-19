@@ -175,6 +175,9 @@ export const usePairwiseReviewAssessmentMutation = () => {
           addAssessmentToSearchCache(cached, assessment),
         );
       }
+      // The traces table caches each page as a `{ trace_infos }` response, which the patch above doesn't
+      // touch, so refetch it like the trace explorer's other assessment writes do.
+      void queryClient.invalidateQueries({ queryKey: [SEARCH_MLFLOW_TRACES_QUERY_KEY] });
     },
     onError: (error) => {
       displayErrorNotification(
