@@ -105,6 +105,8 @@ from mlflow.genai.review_queues.validation import validate_item_ids_for_attach
 from mlflow.genai.scorers.scorer_utils import (
     DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR,
     custom_scorer_execution_blocked,
+    custom_scorer_without_source_error,
+    find_custom_scorer_without_source,
 )
 from mlflow.genai.skill_content.archive import MAX_ARCHIVE_ENTRIES, get_max_decompressed_size
 from mlflow.models import Model
@@ -6240,7 +6242,8 @@ def _validate_serialized_scorer_payload(serialized_scorer: str) -> None:
     Decorator scorers carry a `call_source` field that is executed via exec() when the scorer
     is deserialized. Reconstructing them server-side is blocked unless the operator opts in with
     `MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS`; the check is recursive, so a decorator nested inside an
-    ensemble is caught too (see `custom_scorer_execution_blocked`). Third-party scorer kwargs that
+    ensemble is caught too (see `custom_scorer_execution_blocked`). Decorator scorers with empty
+    source code, which can never run, are rejected too. Third-party scorer kwargs that
     would steer the judge's outbound requests are always rejected, independent of that flag.
     Applied to caller payloads and to registered scorers fetched from the store, since rows
     written before these checks existed can carry the same fields.
@@ -6253,6 +6256,9 @@ def _validate_serialized_scorer_payload(serialized_scorer: str) -> None:
         raise MlflowException.invalid_parameter_value(
             DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR
         )
+    # Such a custom scorer can never run.
+    if (name := find_custom_scorer_without_source(serialized_data)) is not None:
+        raise MlflowException.invalid_parameter_value(custom_scorer_without_source_error(name))
     _validate_third_party_scorer_data(serialized_data)
 
 

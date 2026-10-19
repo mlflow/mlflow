@@ -953,6 +953,34 @@ def test_upsert_online_scoring_config_rejects_custom_scorer_requiring_expectatio
         )
 
 
+def test_upsert_online_scoring_config_names_a_custom_scorer_without_source(
+    store: SqlAlchemyStore, monkeypatch
+):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS", "true")
+    monkeypatch.setenv("MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND", "docker")
+    experiment_id = store.create_experiment("test_online_config_custom_without_source")
+    # A version saved before registration rejected custom scorers without source code.
+    data = json.loads(_custom_scorer_json())
+    data["call_source"] = ""
+    store.register_scorer(experiment_id, "output_length", json.dumps(data))
+
+    with pytest.raises(MlflowException, match="'output_length' has no source code"):
+        store.upsert_online_scoring_config(
+            experiment_id=experiment_id, scorer_name="output_length", sample_rate=0.5
+        )
+
+    # An ensemble keeps the ensemble error, even if a custom scorer in it has no source code.
+    store.register_scorer(
+        experiment_id,
+        "ensemble",
+        json.dumps({"name": "ensemble", "ensemble_scorer_data": {"scorers": [data]}}),
+    )
+    with pytest.raises(MlflowException, match="is not a single custom scorer"):
+        store.upsert_online_scoring_config(
+            experiment_id=experiment_id, scorer_name="ensemble", sample_rate=0.5
+        )
+
+
 def test_online_scoring_store_methods_do_not_load_the_server_package(tmp_path):
     # Loading the server package in a client process changes how it loads custom scorers.
     (tmp_path / "scorer.json").write_text(_custom_scorer_json())
