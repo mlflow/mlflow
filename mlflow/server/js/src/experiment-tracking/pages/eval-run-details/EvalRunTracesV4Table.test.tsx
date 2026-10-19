@@ -367,5 +367,26 @@ describe('EvalRunTracesV4Table', () => {
       expect(within(sessionRow).getByText('complete-yes')).toBeInTheDocument();
       expect(screen.getAllByText('complete-yes')).toHaveLength(1);
     });
+
+    test('summarizes a session judge over the sessions in its header, without counting other turns as missing', async () => {
+      const judgeOf = (sessionId: string, value: string) =>
+        makeFeedbackAssessment('session_completeness', value, {
+          metadata: { 'mlflow.assessment.sourceRunId': RUN_UUID, 'mlflow.trace.session': sessionId },
+        });
+      const turn = (id: string, sessionId: string, assessments: ReturnType<typeof makeFeedbackAssessment>[] = []) =>
+        makeRunTrace(id, { trace_metadata: { 'mlflow.trace.session': sessionId }, assessments });
+      state.traces = [
+        turn('tr-s1-1', 's1', [judgeOf('s1', 'yes')]),
+        turn('tr-s1-2', 's1'),
+        turn('tr-s1-3', 's1'),
+        turn('tr-s2-1', 's2', [judgeOf('s2', 'no')]),
+        turn('tr-s2-2', 's2'),
+      ];
+      renderTable();
+
+      const header = await screen.findByRole('columnheader', { name: /^session_completeness PASS 50% / });
+      expect(header).not.toHaveTextContent(/null/);
+      expect(within(header).getByRole('progressbar', { name: 'Pass' })).toHaveAttribute('aria-valuenow', '50');
+    });
   });
 });
