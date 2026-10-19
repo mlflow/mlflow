@@ -1319,6 +1319,29 @@ const sidebarsGenAI: SidebarsConfig = {
     },
     {
       type: 'category',
+      label: 'Skill Registry',
+      className: 'sidebar-top-level-category',
+      items: [
+        {
+          type: 'doc',
+          id: 'skill-registry/register-and-import-skills',
+        },
+        {
+          type: 'doc',
+          id: 'skill-registry/manage-versions-and-aliases',
+        },
+        {
+          type: 'doc',
+          id: 'skill-registry/pull-skills',
+        },
+      ],
+      link: {
+        type: 'doc',
+        id: 'skill-registry/index',
+      },
+    },
+    {
+      type: 'category',
       label: 'MCP Registry',
       className: 'sidebar-top-level-category',
       items: [
