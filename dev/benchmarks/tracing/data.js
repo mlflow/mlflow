@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792383868768,
+  "lastUpdate": 1792384082077,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "henishbrb@gmail.com",
-            "name": "Henish Borad",
-            "username": "henishborad"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "4cf9613795d8dde4a9a6af679c324c4456ab2072",
-          "message": "Add `createPresignedDownloadUrl` tracking-service endpoint for direct artifact downloads (#24435)\n\nSigned-off-by: Henish Borad <henishb@amazon.com>\nCo-authored-by: Henish Borad <henishb@amazon.com>\nCo-authored-by: Yuki Watanabe <31463517+B-Step62@users.noreply.github.com>",
-          "timestamp": "2026-07-23T10:23:13-07:00",
-          "tree_id": "72a2ea8f428d8062a7bdc9aef8bc99afd8228e24",
-          "url": "https://github.com/mlflow/mlflow/commit/4cf9613795d8dde4a9a6af679c324c4456ab2072"
-        },
-        "date": 1784827476995,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 52.45778549999969,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 22.094980531249142,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 16.707083999999586,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 26.23358889795967,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 22.42663894545558,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 9.770753199998694,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 12.322014428572661,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "41357160+kimnamu@users.noreply.github.com",
+            "name": "Lucas Kim",
+            "username": "kimnamu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "3af77f796c0aab59d34e3b065466ca0bd69f967a",
+          "message": "Fix empty Bedrock AI Gateway chat responses for inference profile ARNs with API key auth (#26792)\n\nSigned-off-by: kimnamu <jihoon.lucas.kim@gmail.com>\nCo-authored-by: Claude <noreply@anthropic.com>\nCo-authored-by: Haoji Tang <haoji.tang@databricks.com>",
+          "timestamp": "2026-10-19T04:24:34Z",
+          "tree_id": "a8985e1c6b289534b5b63206a872e53652f9b7bf",
+          "url": "https://github.com/mlflow/mlflow/commit/3af77f796c0aab59d34e3b065466ca0bd69f967a"
+        },
+        "date": 1792384079139,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 56.34339029999751,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 7.709229482142429,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 6.656577203251221,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 6.732792894309999,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 7.216692911506309,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 29.410528399995428,
             "unit": "ms"
           }
         ]
