@@ -815,7 +815,7 @@ jobs:
           import stat
           from pathlib import Path
 
-          stage = Path(os.environ["RUNNER_TEMP"]) / "triage-report"
+          stage = Path(os.environ["RUNNER_TEMP"]) / "triage-out"
           stage.mkdir(mode=0o700)
           flags = os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK
 
@@ -856,8 +856,8 @@ jobs:
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: triage-report-${{ github.run_id }}
-          path: ${{ runner.temp }}/triage-report
+          name: triage-out-${{ github.run_id }}
+          path: ${{ runner.temp }}/triage-out
           if-no-files-found: error
           overwrite: true
           retention-days: 1
@@ -901,7 +901,7 @@ jobs:
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         if: needs.triage.result == 'success'
         with:
-          name: triage-report-${{ github.run_id }}
+          name: triage-out-${{ github.run_id }}
           path: /tmp/triage-out
       - name: Validate triage payload
         if: needs.triage.result == 'success'
@@ -1052,7 +1052,7 @@ jobs:
       - uses: ./.github/actions/setup-python
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: triage-report-${{ github.run_id }}
+          name: triage-out-${{ github.run_id }}
           path: /tmp/triage-out
       - name: Check proposed fix
         id: check
