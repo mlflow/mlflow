@@ -90,14 +90,31 @@ export const useEvalRunAssessmentAggregates = ({
 
   const scorers = useMemo(
     () =>
-      assessmentInfos.map((assessmentInfo) => ({
-        name: assessmentInfo.name,
-        displayName: assessmentInfo.displayName,
-        dtype: assessmentInfo.dtype,
-        assessmentInfo,
-        aggregates: getAssessmentAggregates(assessmentInfo, evaluatedTraces, []),
-      })),
-    [assessmentInfos, evaluatedTraces],
+      assessmentInfos.map((runAssessmentInfo) => {
+        // A session-level scorer is logged on one turn per session, so it's summarized over those turns;
+        // the session's other turns aren't missing a value.
+        const summarizedTraces = runAssessmentInfo.isSessionLevelAssessment
+          ? evaluatedTraces.filter(
+              ({ currentRunValue }) =>
+                (currentRunValue?.responseAssessmentsByName[runAssessmentInfo.name]?.length ?? 0) > 0,
+            )
+          : evaluatedTraces;
+        const assessmentInfo = runAssessmentInfo.isSessionLevelAssessment
+          ? (getAssessmentInfos(
+              intl,
+              summarizedTraces.flatMap(({ currentRunValue }) => (currentRunValue ? [currentRunValue] : [])),
+              undefined,
+            ).find((info) => info.name === runAssessmentInfo.name) ?? runAssessmentInfo)
+          : runAssessmentInfo;
+        return {
+          name: assessmentInfo.name,
+          displayName: assessmentInfo.displayName,
+          dtype: assessmentInfo.dtype,
+          assessmentInfo,
+          aggregates: getAssessmentAggregates(assessmentInfo, summarizedTraces, []),
+        };
+      }),
+    [intl, assessmentInfos, evaluatedTraces],
   );
   const { refetch: refetchAggregateQuery } = aggregateQuery;
   const refetch = useCallback(() => {

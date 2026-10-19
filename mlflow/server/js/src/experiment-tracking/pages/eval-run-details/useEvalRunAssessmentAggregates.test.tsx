@@ -88,6 +88,51 @@ describe('useEvalRunAssessmentAggregates', () => {
     expect(byName.get('relevance')?.aggregates.currentNumericAggregate?.average).toBe(3);
   });
 
+  test('summarizes a session-level scorer over the sessions, not every turn', async () => {
+    const ofSession = (sessionId: string) => ({
+      metadata: { 'mlflow.assessment.sourceRunId': RUN_UUID, 'mlflow.trace.session': sessionId },
+    });
+    // Two sessions of two turns; the session judges sit on each session's first turn.
+    state.pages = [
+      [
+        makeTrace('s1-t1', {
+          assessments: [
+            makeFeedbackAssessment('correctness', 'yes', ofRun(RUN_UUID)),
+            makeFeedbackAssessment('completeness', 'yes', ofSession('s1')),
+            makeFeedbackAssessment('frustration', 'none', ofSession('s1')),
+          ],
+        }),
+        makeTrace('s1-t2', { assessments: [makeFeedbackAssessment('correctness', 'no', ofRun(RUN_UUID))] }),
+        makeTrace('s2-t1', {
+          assessments: [
+            makeFeedbackAssessment('correctness', 'yes', ofRun(RUN_UUID)),
+            makeFeedbackAssessment('completeness', 'no', ofSession('s2')),
+            makeFeedbackAssessment('frustration', 'high', ofSession('s2')),
+          ],
+        }),
+        makeTrace('s2-t2', { assessments: [makeFeedbackAssessment('correctness', 'yes', ofRun(RUN_UUID))] }),
+      ],
+    ];
+    const { result } = renderAggregates();
+
+    await waitFor(() => expect(result.current.scorers).toHaveLength(3));
+    const byName = new Map(result.current.scorers.map((scorer) => [scorer.name, scorer]));
+    const completeness = byName.get('completeness')?.aggregates.currentCounts;
+    expect(completeness?.get('yes')).toBe(1);
+    expect(completeness?.get('no')).toBe(1);
+    expect(completeness?.get(undefined) ?? 0).toBe(0);
+    const frustration = byName.get('frustration')?.aggregates.currentCounts;
+    expect(
+      [...(frustration?.entries() ?? [])]
+        .filter(([, count]) => count > 0)
+        .map(([value]) => value)
+        .sort(),
+    ).toEqual(['high', 'none']);
+    expect([...(byName.get('frustration')?.assessmentInfo.uniqueValues ?? [])].sort()).toEqual(['high', 'none']);
+    // Turn-level scorers still count every turn.
+    expect(byName.get('correctness')?.aggregates.currentCounts?.get('yes')).toBe(3);
+  });
+
   test(`pages through the run and stops at ${AGGREGATE_TRACE_LIMIT} traces`, async () => {
     const page = (start: number) =>
       Array.from({ length: 400 }, (_, i) =>
