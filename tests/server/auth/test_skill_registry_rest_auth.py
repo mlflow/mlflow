@@ -222,6 +222,79 @@ def test_parent_skill_responses_include_allowed_actions(workspace_registry):
     assert updated.json()["allowed_actions"] == ["USE", "UPDATE"]
 
 
+@pytest.mark.parametrize("skill_count", [1, 100])
+@pytest.mark.parametrize("workspaces_enabled", [False, True])
+def test_search_allowed_actions_reuse_authorization_grants(
+    workspace_registry, monkeypatch, skill_count, workspaces_enabled
+):
+    client, auth_store, tracking_store, creator = workspace_registry
+    monkeypatch.setenv("MLFLOW_ENABLE_WORKSPACES", str(workspaces_enabled).lower())
+    auth_store.grant_user_permission(creator.username, "skill", "*", EDIT.name)
+    for index in range(skill_count):
+        tracking_store.create_skill(f"skill-{index}", organization="acme")
+
+    with (
+        mock.patch.object(auth_store, "get_user", wraps=auth_store.get_user) as get_user,
+        mock.patch.object(auth_store, "list_grants", wraps=auth_store.list_grants) as list_grants,
+        mock.patch.object(tracking_store, "get_skill", wraps=tracking_store.get_skill) as get_skill,
+    ):
+        response = client.get("/api/3.0/mlflow/skills")
+
+    assert response.status_code == 200, response.text
+    skills = response.json()["skills"]
+    assert len(skills) == skill_count
+    assert all(skill["allowed_actions"] == ["USE", "UPDATE"] for skill in skills)
+    get_user.assert_called_once_with(creator.username)
+    list_grants.assert_called_once_with(creator.id, "default", {"skill"})
+    get_skill.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("permission", "default_permission", "workspace_admin", "grant_default_access", "actions"),
+    [
+        (READ, EDIT, False, False, ["USE", "UPDATE"]),
+        (None, READ, False, True, []),
+        (None, EDIT, False, False, None),
+        (DENY, EDIT, False, True, None),
+        (DENY, NO_PERMISSIONS, True, False, ["USE", "UPDATE", "DELETE", "MANAGE"]),
+    ],
+)
+def test_search_allowed_actions_preserve_permission_rules(
+    workspace_registry,
+    monkeypatch,
+    permission,
+    default_permission,
+    workspace_admin,
+    grant_default_access,
+    actions,
+):
+    client, auth_store, tracking_store, creator = workspace_registry
+    tracking_store.create_skill("reviewer", organization="acme")
+    if permission is not None:
+        auth_store.grant_user_permission(
+            creator.username, "skill", "@acme/reviewer", permission.name
+        )
+    if workspace_admin:
+        auth_store.set_workspace_permission("default", creator.username, MANAGE.name)
+    monkeypatch.setattr(
+        auth,
+        "auth_config",
+        auth.auth_config._replace(
+            default_permission=default_permission.name,
+            grant_default_workspace_access=grant_default_access,
+        ),
+    )
+
+    response = client.get("/api/3.0/mlflow/skills")
+    assert response.status_code == 200, response.text
+    skills = response.json()["skills"]
+    if actions is None:
+        assert skills == []
+    else:
+        assert len(skills) == 1
+        assert skills[0]["allowed_actions"] == actions
+
+
 def test_skill_allowed_actions_are_workspace_scoped(workspace_registry, monkeypatch, db_uri):
     _, auth_store, tracking_store, creator = workspace_registry
     workspace_store = WorkspaceStore(db_uri)
