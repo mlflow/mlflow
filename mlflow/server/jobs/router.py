@@ -11,6 +11,10 @@ from mlflow.server.jobs.executor_registry import get_executor_registry
 
 _logger = logging.getLogger(__name__)
 
+# Job names already logged as falling back to the default backend. Online scoring jobs are submitted
+# every minute, so the fallback is logged once per job name rather than for every submission.
+_logged_fallback_job_names: set[str] = set()
+
 
 def select_executor_backend(
     *,
@@ -32,12 +36,14 @@ def select_executor_backend(
     if job_name is not None and not get_executor_registry().get(custom_backend).supports_job(
         job_name, params or {}
     ):
-        _logger.info(
-            "Custom scorer job %s runs on the %r executor backend because the %r backend does not "
-            "support it.",
-            job_name,
-            default_backend,
-            custom_backend,
-        )
+        if job_name not in _logged_fallback_job_names:
+            _logged_fallback_job_names.add(job_name)
+            _logger.info(
+                "Custom scorer job %s runs on the %r executor backend because the %r backend does "
+                "not support it.",
+                job_name,
+                default_backend,
+                custom_backend,
+            )
         return default_backend
     return custom_backend

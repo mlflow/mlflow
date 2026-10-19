@@ -1,0 +1,129 @@
+---
+description: Run code-based scorers on a self-hosted MLflow server in Docker job containers without network access, for automatic evaluation and for scorer runs started from the MLflow UI.
+---
+
+import { APILink } from "@site/src/components/APILink";
+
+# Run code-based scorers in job containers
+
+:::note[Experimental]
+
+Running code-based scorers in job containers is experimental. It may change or be removed in a future release.
+
+:::
+
+A code-based scorer made with the <APILink fn="mlflow.genai.scorers.scorer">`@scorer`</APILink> decorator is Python code. When you [register](/genai/eval-monitor/scorers/custom) one, MLflow stores the function's source code, and the server must run that code to use the scorer. By default, a self-hosted MLflow server does not run this code, because it can do anything the server process can do.
+
+A self-hosted server can instead run `@scorer` scorers in **job containers**: short-lived Docker containers that have no network access. With job containers, the server runs `@scorer` scorers for:
+
+- [**Automatic evaluation**](/genai/eval-monitor/automatic-evaluations): online scoring jobs score new traces and sessions as they are logged.
+- **Scorer runs started from the MLflow UI**: running a registered scorer on selected traces.
+
+The server still finds and samples the traces, and it checks and logs the results. Only the scorer's code runs in the container.
+
+Scorers defined with the [`Scorer` class](/genai/eval-monitor/scorers/custom/#define-scorers-with-the-scorer-class) are not supported.
+
+:::warning[Other jobs still run scorer code on the server host]
+
+Setting up job containers requires `MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS=true`. With that setting, jobs that job containers do not support still run code-based scorers on the server host, outside any container. Examples are evaluations started from the MLflow UI, and UI scorer runs of an ensemble that mixes code-based scorers with LLM judges. Enable this setting only if you trust the people who can register scorers on the server.
+
+:::
+
+## Requirements
+
+- A self-hosted MLflow server on Linux or macOS, with a database backend store (`--backend-store-uri`), so that the server can run jobs.
+- A Docker daemon on the same host as the MLflow server. The server and the containers exchange files through bind mounts, so a remote daemon does not work. A Podman socket also works.
+- A single server replica. The job execution engine that job containers need supports only one replica today.
+
+## Set up the server
+
+Set these environment variables before you start `mlflow server`:
+
+- `MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS=true`: allow the server to run code-based scorers at all.
+- `MLFLOW_SERVER_JOB_EXECUTION_ENGINE=executor`: use the job execution engine that supports job containers.
+- `MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND=docker`: run code-based scorers in job containers.
+- `MLFLOW_JOB_IMAGE` (optional): the image for job containers. See [The job image](#the-job-image).
+- `MLFLOW_JOBS_DOCKER_HOST` (optional): the Docker daemon to use, for example `unix:///var/run/docker.sock`. By default, the Docker client's default daemon is used.
+
+```bash
+export MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS=true
+export MLFLOW_SERVER_JOB_EXECUTION_ENGINE=executor
+export MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND=docker
+
+mlflow server --backend-store-uri sqlite:///mlflow.db
+```
+
+When the server starts, it checks these settings and that it can reach the Docker daemon. Then its job runner prepares the job image. When the job runner is ready, the server logs a warning that starts with `The docker job executor runs custom scorers without network access`. If the job image cannot be prepared, the job runner stops, and no jobs run until you fix the problem and restart the server. The server log has the error.
+
+Run the MLflow server as a non-root user. Job containers run as the same user as the server.
+
+## The job image
+
+Job containers have no network access, so the image must already contain everything the scorer needs:
+
+- MLflow, with the same version as the server.
+- Every package that the scorer imports.
+
+If you do not set `MLFLOW_JOB_IMAGE`, the job runner uses the image `mlflow-job:<MLflow version>`, and builds it if it is not present: a slim Python image with the server's Python and MLflow versions and nothing else. This build installs MLflow from the package index (or from the server's source code for a development install), and it does not use your `PIP_INDEX_URL` or `PIP_EXTRA_INDEX_URL`. If your server cannot reach the public package index, or your scorers need more packages, build your own image and set `MLFLOW_JOB_IMAGE`. Use the same Python version as the server:
+
+```dockerfile
+FROM python:3.11-slim
+RUN pip install "mlflow==<the server's MLflow version>" rapidfuzz
+```
+
+If the image you set is not present locally, the job runner pulls it when it starts.
+
+## Turn on automatic evaluation for a code-based scorer
+
+Register the scorer and start it with <APILink fn="mlflow.genai.Scorer.start" />, as you would for an [LLM judge](/genai/eval-monitor/automatic-evaluations). `start()` returns the scorer, which loads the scorer's code on the client, so set `MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS=true` where you run this code, too. Without it, `start()` turns on automatic evaluation and then raises an error.
+
+```python
+import mlflow
+from mlflow.genai.scorers import ScorerSamplingConfig, scorer
+
+mlflow.set_tracking_uri("http://localhost:5000")
+experiment_id = mlflow.set_experiment("my-app").experiment_id
+
+
+@scorer
+def answer_length(outputs) -> int:
+    return len(str(outputs))
+
+
+registered = answer_length.register(name="answer_length", experiment_id=experiment_id)
+registered.start(
+    experiment_id=experiment_id,
+    sampling_config=ScorerSamplingConfig(sample_rate=1.0),
+)
+```
+
+New traces get an `answer_length` assessment after they are scored. Scorers that accept a `session` argument score whole sessions, and their assessment is logged on the session's first trace. The assessments have a `CODE` source with the scorer's name.
+
+## What scorer code can do
+
+Scorer code in a job container runs with these limits:
+
+- **No network access.** The scorer cannot call an LLM, an API, or any other service. A scorer that tries to connect fails, for example with a name resolution error or `Network is unreachable`. To use an LLM, use an [LLM judge](/genai/eval-monitor/scorers/#llms-as-judges) instead: LLM judges keep running on the server.
+- **Only the scorer function is stored.** Import the modules that the scorer uses inside the function, and use only packages that are in the job image.
+- **No expectations.** Automatic evaluation has no ground truth, so it does not accept scorers that take an `expectations` argument.
+- **One scorer at a time.** Automatic evaluation does not accept an ensemble that includes code-based scorers.
+- **Later versions.** If you register a new version of the scorer that takes `expectations` or is an ensemble, automatic evaluation stops running the scorer and the server logs a warning.
+- **CPU and memory.** By default, each container gets 1 CPU and 1 GiB of memory. To change this, set `MLFLOW_JOB_RESOURCE_LIMITS_<job name>` to a JSON object such as `{"cpu": "2", "memory": "2Gi"}`. The job names are `run_online_trace_scorer` and `run_online_session_scorer` for automatic evaluation, and `invoke_scorer` for scorer runs started from the UI.
+- **Time.** Each job has a time limit, `MLFLOW_SERVER_JOB_DEFAULT_TIMEOUT` (default 3600 seconds).
+  - A scorer run started from the UI is split into jobs of up to `MLFLOW_SERVER_SCORER_INVOKE_BATCH_SIZE` traces (default 100), or one job per session for a session-level scorer. Each job runs one container.
+  - An online scoring job runs its scorers one batch at a time: up to `MLFLOW_SERVER_SCORER_INVOKE_BATCH_SIZE` traces for a trace-level scorer, or one session for a session-level scorer. The batches share the job's time limit. Each batch gets at most half of it, and at least 30 seconds (or half the limit, if that is less). Batches that are still waiting when the job has less time left than that are not run, and get an error assessment. If this happens, lower the sample rate or the number of code-based scorers, or raise the time limit.
+- **Output size.** Each file that the scorer writes is limited to 64 MiB, and the scorer's result to 8 MiB.
+
+The server checks each container's result before it logs anything. A container can only report results for the traces it was given. It cannot remove assessments that LLM judges, built-in scorers or people logged. When a session-level scorer scores a session again, its new assessment replaces older session assessments with the same name that code-based scorers logged.
+
+## When something fails
+
+- **Automatic evaluation:** a scorer that raises, a container that fails or times out, or a result that does not pass the server's checks gives the trace an error assessment, as for a scorer that fails on the server. If the server cannot set up the job containers (for example while the Docker daemon restarts), the job tries again a few times before it gives the traces error assessments.
+- **Scorer runs started from the UI:** the job fails, and the error is in the job's status and the server log.
+- **The job image:** if it cannot be pulled or built, the job runner stops. See [Set up the server](#set-up-the-server).
+
+These cases need an operator:
+
+- **Leftover containers.** If the server is killed or crashes, job containers can keep running. Containers of online scoring jobs can also outlive a normal stop. The server removes leftover containers of an online scoring job when it next runs the same kind of job for the same experiment, and leftover containers of UI scorer runs when it starts again with the same settings. To remove them yourself after you stop the server, run `docker ps -aq --filter label=mlflow.job_name | xargs -r docker rm -f`. This removes the job containers of every MLflow server that uses this Docker daemon.
+- **The host disk.** The job's output directory on the host has no total size limit, so a scorer can fill the disk until its job times out.
+- **Changed settings.** If the server restarts without `MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND=docker`, or with code-based scorers disabled, automatic evaluation stops running code-based scorers until the settings are restored. It never runs that code outside a job container.

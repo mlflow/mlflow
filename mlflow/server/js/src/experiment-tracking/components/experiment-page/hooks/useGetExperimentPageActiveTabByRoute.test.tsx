@@ -30,6 +30,12 @@ describe('useGetExperimentPageActiveTabByRoute', () => {
 
   const testCases = [
     {
+      name: 'selects the experiment Issues tab',
+      pathname: '/experiments/123/issues',
+      expectedTabName: ExperimentPageTabName.Issues,
+      expectedTopLevelTabName: ExperimentPageTabName.Issues,
+    },
+    {
       name: 'should return Runs tab when on runs route',
       pathname: '/experiments/123/runs',
       expectedTabName: ExperimentPageTabName.Runs,
