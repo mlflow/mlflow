@@ -112,10 +112,26 @@ _BLOCK_REMOTE_ACCESS_ERROR_MSG = (
 )
 
 
+# Headers a reverse proxy adds to describe the hop it forwarded. A caller on this host talks to
+# uvicorn directly and never sends them, so any of them marks a forwarded request, whose client
+# address is not evidence of locality: uvicorn's ProxyHeadersMiddleware rewrites request.client
+# from X-Forwarded-For whenever the TCP peer is a trusted proxy (127.0.0.1 by default, every peer
+# under --forwarded-allow-ips=*), so a loopback value there can be one the remote caller chose
+# (GHSA-7xcw-g7v8-rq26). A proxy that forwards without adding any of these headers is
+# indistinguishable from a same-host caller; that deployment is out of this check's reach.
+_FORWARDED_REQUEST_HEADERS = (
+    "forwarded",
+    "x-forwarded-for",
+    "x-forwarded-host",
+    "x-forwarded-proto",
+    "x-real-ip",
+    "via",
+)
+
+
 def _is_localhost(request: Request) -> bool:
-    # This app is only ever served via uvicorn (see mlflow/server/__init__.py), which by
-    # default trusts X-Forwarded-For from 127.0.0.1 and rewrites request.client.host
-    # accordingly. So a same-host reverse proxy on 127.0.0.1 does not defeat this check.
+    if any(header in request.headers for header in _FORWARDED_REQUEST_HEADERS):
+        return False
     client_host = request.client.host if request.client else None
     if not client_host:
         return False

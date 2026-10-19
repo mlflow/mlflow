@@ -733,7 +733,8 @@ class AmazonBedrockProvider(BaseProvider):
         resp = await send_request(
             headers=self._get_token_auth_headers(),
             base_url=self._get_token_auth_base_url(),
-            path=f"model/{model_id}/converse",
+            # Inference profile ARNs contain "/", which has to be escaped in the path.
+            path=f"model/{quote(model_id, safe=':')}/converse",
             payload=kwargs,
         )
         return self._converse_to_chat_response(resp)

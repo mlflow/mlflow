@@ -8,8 +8,10 @@ arguments: [action, issue_path, out_dir]
 
 # Triage
 
-Read `$issue_path`: JSON with `title`, `body`, `repository`, `issue_number`, and optional
-`followup`. This skill currently supports bugs. The workflow selects `$action` explicitly:
+Read `$issue_path`: JSON with `title`, `body` (the issue description), `comments` (earlier
+comments as `{author, created_at, url, body}`, oldest first; empty for `init`), `repository`,
+`issue_number`, and optional `followup`. This skill currently supports bugs. The workflow
+selects `$action` explicitly:
 
 | Action      | Instructions                     | Output schema                                    | Input requirement          |
 | ----------- | -------------------------------- | ------------------------------------------------ | -------------------------- |

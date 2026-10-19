@@ -773,7 +773,7 @@ describe('TracesV4PageContent', () => {
       // Two full-page paginations exceed 30s under parallel CI load; keep a per-test limit.
     }, 60000);
 
-    test('shows the "{n} of {total}" count — current page rows out of the metrics total', async () => {
+    test('shows the "{n} of {total} traces" count — current page rows out of the metrics total', async () => {
       // 3 rows on the page; the trace-metrics endpoint reports 42 total.
       state.pages = { '': { traces: makeTraces(3), next_page_token: undefined } };
       env.metricsTotalCount = 42;
@@ -783,7 +783,47 @@ describe('TracesV4PageContent', () => {
       // The count trails the table (it awaits the separate trace-metrics query, then re-renders the
       // full page), so poll longer than findBy's 1s default — the whole page render is slow under
       // parallel jsdom load (matches the explicit findBy timeouts in TracesV4TraceDrawer.test).
-      expect(await screen.findByText('3 of 42', {}, { timeout: 25000 })).toBeInTheDocument();
+      expect(await screen.findByText('3 of 42 traces', {}, { timeout: 25000 })).toBeInTheDocument();
+      // Ungrouped, the total is the trace count — the session metric is never requested.
+      expect(env.metricsCalls).toContain('trace_count');
+      expect(env.metricsCalls).not.toContain('session_count');
+    }, 30000);
+
+    test('grouped by session, shows sessions out of the session_count total ahead of the trace count', async () => {
+      // 5 traces: two sessions (3 + 1 turns) plus a standalone trace that belongs to no session.
+      state.pages = {
+        '': {
+          traces: [
+            makeSessionTrace('a-1', 'session-a'),
+            makeSessionTrace('a-2', 'session-a'),
+            makeSessionTrace('a-3', 'session-a'),
+            makeSessionTrace('b-1', 'session-b'),
+            makeTrace('standalone'),
+          ],
+          next_page_token: undefined,
+        },
+      };
+      env.metricsTotalCount = 42;
+      env.sessionsTotalCount = 7;
+      renderPage({ initialUrl: `${URL}?groupBy=session` });
+
+      // 2 sessions on the page out of 7, then all 5 traces (standalone included) out of 42. The bar
+      // renders although the single grouped page holds everything.
+      expect(await screen.findByText('2 of 7 sessions · 5 of 42 traces', {}, { timeout: 25000 })).toBeInTheDocument();
+      expect(env.metricsCalls).toContain('session_count');
+      expect(env.metricsCalls).toContain('trace_count');
+      // Grouped mode fetches one big page, so the page-size selector stays hidden.
+      expect(screen.queryByLabelText('Rows per page')).not.toBeInTheDocument();
+    }, 30000);
+
+    test('grouped by session with no sessions, shows the trace count alone', async () => {
+      state.pages = { '': { traces: makeTraces(3), next_page_token: undefined } };
+      env.metricsTotalCount = 42;
+      env.sessionsTotalCount = 0;
+      renderPage({ initialUrl: `${URL}?groupBy=session` });
+
+      expect(await screen.findByText('3 of 42 traces', {}, { timeout: 25000 })).toBeInTheDocument();
+      expect(screen.queryByText(/of \d+ sessions?/)).not.toBeInTheDocument();
     }, 30000);
   });
 

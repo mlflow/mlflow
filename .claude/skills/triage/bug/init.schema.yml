@@ -30,6 +30,8 @@ properties:
 
       **<verdict>**: <one or two sentences on what happens and on which versions>.
 
+      <the diagram from viz-aid.md, if any: ![<takeaway>](<path>)>
+
       - Expected: <what should happen>
       - Actual: <what happens, in one line, e.g. the exception and its message>
       - Fails at: <only for Reproduced: permalink to the line that raises or returns the wrong value>
