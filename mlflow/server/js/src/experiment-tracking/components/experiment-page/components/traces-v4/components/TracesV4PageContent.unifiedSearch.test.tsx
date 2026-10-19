@@ -67,7 +67,7 @@ describe('TracesV4PageContent unified search', () => {
     await waitFor(() => expect(screen.queryByRole('button', { name: /Remove filter/ })).not.toBeInTheDocument());
   }, 20000);
 
-  test('shows click-to-filter tags as pills and moves them into the filters when one is removed', async () => {
+  test('shows click-to-filter tags as pills and keeps them in the URL until their own pill is removed', async () => {
     jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(true);
     const user = userEvent.setup();
     renderPage({ initialUrl: `${URL}?tag=${encodeURIComponent('env=prod')}` });
@@ -80,11 +80,18 @@ describe('TracesV4PageContent unified search', () => {
     await waitFor(() => expect(lastFilter()).toContain("tags.team = 'ml'"));
     expect(lastFilter()).toContain("tags.env = 'prod'");
 
+    // Removing another pill leaves the URL tag in the URL, so a reload or a shared link keeps it.
     await user.click(screen.getByRole('button', { name: "Remove filter tag.team = 'ml'" }));
-    await waitFor(() => expect(new URLSearchParams(env.lastSearch).get('tag')).toBeNull());
-    expect(screen.queryByRole('button', { name: "Edit filter tag.team = 'ml'" })).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: "Edit filter tag.team = 'ml'" })).not.toBeInTheDocument(),
+    );
+    expect(new URLSearchParams(env.lastSearch).get('tag')).toBe('env=prod');
     expect(screen.getByRole('button', { name: "Edit filter tag.env = 'prod'" })).toBeInTheDocument();
-  }, 20000);
+
+    await user.click(screen.getByRole('button', { name: "Remove filter tag.env = 'prod'" }));
+    await waitFor(() => expect(new URLSearchParams(env.lastSearch).get('tag')).toBeNull());
+    expect(screen.queryByRole('button', { name: "Edit filter tag.env = 'prod'" })).not.toBeInTheDocument();
+  }, 40000);
 
   test('with the new eval runs UI on, plain text still runs a text search', async () => {
     jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(true);
