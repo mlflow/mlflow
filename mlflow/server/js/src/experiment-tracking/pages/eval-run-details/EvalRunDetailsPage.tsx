@@ -1,9 +1,10 @@
-import { useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { FormattedMessage } from 'react-intl';
 import {
   Breadcrumb,
   DangerIcon,
   Empty,
+  GenericSkeleton,
   Icon,
   ParagraphSkeleton,
   Tag,
@@ -12,6 +13,7 @@ import {
 } from '@databricks/design-system';
 import { Link, useNavigate, useParams } from '../../../common/utils/RoutingUtils';
 import { shouldEnableNewEvalRunsUi } from '../../../common/utils/FeatureUtils';
+import { shouldEnableModelTraceExplorerCustomTraceView } from '@databricks/web-shared/model-trace-explorer';
 import { MonitoringConfigProvider } from '../../hooks/useMonitoringConfig';
 import Routes from '../../routes';
 import { ExperimentPageTabName } from '../../constants';
@@ -27,6 +29,14 @@ import {
   useExperimentPageRevampContext,
   useSetExperimentBreadcrumbTitle,
 } from '../experiment-page-tabs/ExperimentPageRevampContext';
+
+// Same lazy Custom View provider as the Traces tab, so the drawer lists and saves the experiment's
+// custom views. Lazy because it pulls in @a2ui (ESM-only).
+const LazyExperimentCustomViewProvider = React.lazy(() =>
+  import('../../components/experiment-page/components/traces-v3/ExperimentCustomViewProvider').then((module) => ({
+    default: module.ExperimentCustomViewProvider,
+  })),
+);
 
 const EvalRunDetailsLoadingSkeleton = () => {
   const { theme } = useDesignSystemTheme();
@@ -96,6 +106,7 @@ const EvalRunDetailsPageContent = ({ experimentId, runUuid }: { experimentId: st
     return <EvalRunDetailsLoadingSkeleton />;
   }
 
+  const v4Table = <EvalRunTracesV4Table experimentId={experimentId} runUuid={runUuid} />;
   const tracesTable =
     traceTablesLoggedInRun.length > 0 ? (
       <RunViewEvaluationsTab
@@ -110,7 +121,15 @@ const EvalRunDetailsPageContent = ({ experimentId, runUuid }: { experimentId: st
     ) : (
       <TracesV4PageWrapper resetKey={`${experimentId}.${runUuid}`}>
         <MonitoringConfigProvider>
-          <EvalRunTracesV4Table experimentId={experimentId} runUuid={runUuid} />
+          {shouldEnableModelTraceExplorerCustomTraceView() ? (
+            <React.Suspense fallback={<GenericSkeleton css={{ flex: 1, margin: 16 }} />}>
+              <LazyExperimentCustomViewProvider key={experimentId} experimentId={experimentId}>
+                {v4Table}
+              </LazyExperimentCustomViewProvider>
+            </React.Suspense>
+          ) : (
+            v4Table
+          )}
         </MonitoringConfigProvider>
       </TracesV4PageWrapper>
     );

@@ -1,5 +1,5 @@
 import { describe, test, expect, jest, beforeEach } from '@jest/globals';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { IntlProvider } from 'react-intl';
 import { setupTestRouter, testRoute, TestRouter } from '../../../common/utils/RoutingTestUtils';
@@ -32,6 +32,13 @@ jest.mock('./EvalRunTracesV4Table', () => ({
 }));
 jest.mock('../../components/experiment-page/components/traces-v4/components/TracesV4PageWrapper', () => ({
   TracesV4PageWrapper: ({ children }: { children: React.ReactNode }) => children,
+}));
+jest.mock('../../components/experiment-page/components/traces-v3/ExperimentCustomViewProvider', () => ({
+  ExperimentCustomViewProvider: ({ experimentId, children }: { experimentId?: string; children: React.ReactNode }) => (
+    <div data-testid="custom-view-provider" data-experiment-id={experimentId}>
+      {children}
+    </div>
+  ),
 }));
 
 type Progress = ReturnType<typeof useEvalRunProgress>;
@@ -99,6 +106,14 @@ describe('EvalRunDetailsPage', () => {
     expect(screen.queryByTestId('eval-results-table')).not.toBeInTheDocument();
     expect(screen.queryByRole('tab', { name: 'Overview' })).not.toBeInTheDocument();
     expect(screen.queryByRole('tab', { name: 'Traces' })).not.toBeInTheDocument();
+  });
+
+  test("renders the traces table inside the experiment's custom view provider", async () => {
+    renderAt('/experiments/123/evaluation-runs/run-1/details');
+
+    const provider = await screen.findByTestId('custom-view-provider');
+    expect(provider).toHaveAttribute('data-experiment-id', '123');
+    expect(within(provider).getByTestId('eval-results-v4')).toHaveTextContent('run:run-1');
   });
 
   test('keeps the artifact renderer for artifact-backed evaluation results', async () => {
