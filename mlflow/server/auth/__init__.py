@@ -2747,13 +2747,38 @@ def validate_can_manage_scorer_permission():
     return _get_permission_from_scorer_permission_request().can_manage
 
 
+def _scorer_not_denied_requirements(experiment_id: str, name: str) -> "list[Requirement]":
+    # Not-denied, as for registering or invoking a scorer: these checks add a veto on the
+    # scorer and its versions to the experiment check, so a scorer READ grant does not stop an
+    # experiment editor, but a DENY does.
+    return [
+        Requirement(
+            RESOURCE_TYPE_SCORER, store._scorer_pattern(experiment_id, name), ACTION_NOT_DENIED
+        ),
+        Requirement(RESOURCE_TYPE_SCORER_VERSION, "*", ACTION_NOT_DENIED),
+    ]
+
+
 def validate_can_update_online_scoring_config():
-    body = request.get_json(silent=True) or {}
-    experiment_id = body.get("experiment_id")
-    if not experiment_id:
+    """Turning automatic evaluation on or off decides whether a stored scorer runs, so a DENY on
+    the scorer or its versions also applies, as for registering a version.
+    """
+    # Parse the body as the handler does, so a double-encoded body is read the same way.
+    body = _get_normalized_request_json(request)
+    if not isinstance(body, dict):
         return False
-    username = authenticate_request().username
-    return _get_experiment_permission(experiment_id, username).can_update
+    experiment_id = body.get("experiment_id")
+    name = body.get("name")
+    if not experiment_id or not isinstance(name, str):
+        return False
+    return authorize(
+        authenticate_request().username,
+        (RESOURCE_TYPE_EXPERIMENT, experiment_id),
+        [
+            Requirement(RESOURCE_TYPE_EXPERIMENT, experiment_id, "update"),
+            *_scorer_not_denied_requirements(experiment_id, name),
+        ],
+    )
 
 
 def validate_can_read_online_scoring_configs():
@@ -2768,11 +2793,33 @@ def validate_can_read_online_scoring_configs():
     if not scorer_ids:
         return True
     username = authenticate_request().username
-    configs = _get_tracking_store().get_online_scoring_configs(scorer_ids)
-    for config in configs:
-        if not _get_experiment_permission(config.experiment_id, username).can_read:
-            return False
-    return True
+    tracking_store = _get_tracking_store()
+    configs = tracking_store.get_online_scoring_configs(scorer_ids)
+    # The experiment check comes first, so a caller who cannot read the experiments gets no
+    # further lookups.
+    if not all(
+        _get_experiment_permission(config.experiment_id, username).can_read for config in configs
+    ):
+        return False
+    # A config names its scorer only by ID, while the scorer's grants are keyed by name. This
+    # lookup skips the experiments' lifecycle checks, so a deleted experiment is not an error
+    # here. It returns only scorers that still have a version: one with none left has no code
+    # to protect, so the experiment check alone decides for its config.
+    scorer_names = {
+        scorer_version.scorer_id: scorer_version.scorer_name
+        for scorer_version in tracking_store.list_scorers_across_experiments(
+            sorted({config.experiment_id for config in configs})
+        )
+    }
+    return all(
+        authorize(
+            username,
+            (RESOURCE_TYPE_EXPERIMENT, config.experiment_id),
+            _scorer_not_denied_requirements(config.experiment_id, scorer_names[config.scorer_id]),
+        )
+        for config in configs
+        if config.scorer_id in scorer_names
+    )
 
 
 def sender_is_admin():
