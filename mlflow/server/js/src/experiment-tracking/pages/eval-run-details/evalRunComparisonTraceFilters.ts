@@ -18,7 +18,7 @@ import {
   parseTraceDurationToMs,
   type FilterClause,
   type FilterFieldDef,
-  type TraceComparisonRow,
+  type TracesComparisonRow,
   type TraceFilterModel,
 } from '@databricks/web-shared/traces-table';
 import { isAssessmentColumnEligible } from '../../components/experiment-page/components/traces-v4/utils/assessmentColumns';
@@ -214,7 +214,7 @@ export const matchesComparisonTraceSearch = (trace: ModelTraceInfoV3, search: st
 };
 
 /** Evaluate every criterion on the same trace, then retain its complete, already-matched group. */
-export const filterEvalRunComparisonRows = <T extends TraceComparisonRow>(
+export const filterEvalRunComparisonRows = <T extends TracesComparisonRow>(
   rows: T[],
   model: TraceFilterModel,
   search: string,

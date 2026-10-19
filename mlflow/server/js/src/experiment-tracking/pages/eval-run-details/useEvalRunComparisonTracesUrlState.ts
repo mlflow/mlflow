@@ -43,6 +43,7 @@ export const useEvalRunComparisonTracesUrlState = () => {
   const filtersRaw = searchParams.get('comparisonFilters');
   const sortRaw = searchParams.get('comparisonSort');
   const dirRaw = searchParams.get('comparisonDir');
+  const isGroupedBySession = searchParams.get('comparisonGroupBy') === 'session';
   const filters = useMemo(() => parseFilters(filtersRaw), [filtersRaw]);
   const validSort =
     sortRaw !== null && isComparisonSortableTraceColumn(sortRaw) && (dirRaw === 'asc' || dirRaw === 'desc');
@@ -85,6 +86,19 @@ export const useEvalRunComparisonTracesUrlState = () => {
     [setSearchParams],
   );
   const clearFilters = useCallback(() => setFilterModel([]), [setFilterModel]);
+  const setIsGroupedBySession = useCallback(
+    (next: boolean) => {
+      setSearchParams((params) => {
+        if (next) {
+          params.set('comparisonGroupBy', 'session');
+        } else {
+          params.delete('comparisonGroupBy');
+        }
+        return params;
+      });
+    },
+    [setSearchParams],
+  );
   const clearAll = useCallback(() => {
     setSearchParams((params) => {
       params.delete('comparisonQ');
@@ -98,11 +112,13 @@ export const useEvalRunComparisonTracesUrlState = () => {
     ...filters,
     sort,
     dir,
+    isGroupedBySession,
+    setIsGroupedBySession,
     setSearch,
     setFilterModel,
     setSort,
     clearFilters,
     clearAll,
-    criteriaKey: JSON.stringify([search, filtersRaw, sort, dir]),
+    criteriaKey: JSON.stringify([search, filtersRaw, sort, dir, isGroupedBySession]),
   };
 };
