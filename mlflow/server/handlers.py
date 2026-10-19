@@ -1,6 +1,4 @@
 # Define all the service endpoint handlers here.
-import base64
-import binascii
 import io
 import json
 import logging
@@ -21,7 +19,16 @@ from zlib import adler32
 
 import requests
 from cachetools import TTLCache
-from flask import Request, Response, current_app, g, jsonify, request, send_file
+from flask import (
+    Request,
+    Response,
+    current_app,
+    g,
+    has_request_context,
+    jsonify,
+    request,
+    send_file,
+)
 from google.protobuf import descriptor
 from google.protobuf.json_format import ParseError
 from werkzeug.exceptions import RequestedRangeNotSatisfiable
@@ -354,7 +361,6 @@ from mlflow.store.artifact.host_policy import (
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.store.artifact.utils.models import _parse_model_uri, get_model_name_and_version
 from mlflow.store.db.db_types import DATABASE_ENGINES
-from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.jobs.abstract_store import AbstractJobStore
 from mlflow.store.model_registry import (
     SEARCH_MODEL_VERSION_MAX_RESULTS_THRESHOLD,
@@ -1207,9 +1213,6 @@ def _get_request_message(request_message, flask_request=request, schema=None):
         proto_parsing_succeeded = False
 
     _validate_request_json_with_schema(request_json, schema, proto_parsing_succeeded)
-
-    if isinstance(request_message, (SearchRegisteredModels, SearchModelVersions)):
-        _normalize_model_registry_search(request_message)
 
     return request_message
 
@@ -3035,10 +3038,10 @@ def _search_registered_models():
             "page_token": [_assert_string],
         },
     )
-    can_read_entity = _prepare_model_registry_search(request_message)
+    search_policy = _prepare_model_registry_search(request_message)
     store = _get_model_registry_store()
     registered_models = _search_model_registry_page(
-        store.search_registered_models, request_message, can_read_entity
+        store.search_registered_models, request_message, search_policy
     )
     response_message = SearchRegisteredModels.Response()
     response_message.registered_models.extend([e.to_proto() for e in registered_models])
@@ -3650,18 +3653,24 @@ def _normalize_model_registry_search(
 
 
 def _prepare_model_registry_search(request_message):
+    """Auth plugins may set ``g.mlflow_model_registry_search_authorizer`` per request.
+
+    The hook receives the normalized message and registry namespace and returns a policy
+    implementing ``search(store_search, kwargs)``. An enabled auth app must install a hook.
+    """
     resource_type = _normalize_model_registry_search(request_message)
+    authorizer = (
+        getattr(g, "mlflow_model_registry_search_authorizer", None)
+        if has_request_context()
+        else None
+    )
+    if authorizer is not None:
+        return authorizer(request_message, resource_type)
     if _is_server_auth_enabled():
-        # Auth imports handlers, so importing here avoids a circular dependency.
-        from mlflow.server.auth import scope_model_registry_search
-
-        return scope_model_registry_search(request_message, resource_type)
+        raise MlflowException("Registry search authorization is unavailable", INTERNAL_ERROR)
 
 
-_AUTH_SEARCH_TOKEN_PREFIX = "mlflow-auth-search:"
-
-
-def _search_model_registry_page(search, request_message, can_read_entity):
+def _search_model_registry_page(search, request_message, search_policy):
     max_results = request_message.max_results
     if not isinstance(max_results, int) or max_results < 1:
         raise MlflowException.invalid_parameter_value(
@@ -3683,73 +3692,14 @@ def _search_model_registry_page(search, request_message, can_read_entity):
         "order_by": request_message.order_by,
         "page_token": request_message.page_token or None,
     }
-    if can_read_entity is None:
-        return search(**kwargs)
-
-    # Most stores enforce the scoped filter themselves. Check their returned rows too,
-    # since a store may compare the prompt marker differently from point authorization.
-    if not (kwargs["page_token"] or "").startswith(_AUTH_SEARCH_TOKEN_PREFIX):
-        page = search(**kwargs)
-        if all(can_read_entity(entity) for entity in page):
-            return page
-
-    page_size = min(1000, max(100, max_results))
-    page_token = kwargs["page_token"]
-    skip = 0
-    if page_token and page_token.startswith(_AUTH_SEARCH_TOKEN_PREFIX):
-        try:
-            cursor = json.loads(
-                base64.urlsafe_b64decode(page_token[len(_AUTH_SEARCH_TOKEN_PREFIX) :])
-            )
-            page_token = cursor["page_token"]
-            skip = cursor["skip"]
-            page_size = cursor["page_size"]
-            if (
-                not isinstance(page_token, (str, type(None)))
-                or not isinstance(skip, int)
-                or skip < 0
-                or not isinstance(page_size, int)
-                or not 1 <= page_size <= 1000
-            ):
-                raise ValueError("Invalid scoped search cursor")
-        except (ValueError, KeyError, TypeError, binascii.Error) as e:
-            raise MlflowException.invalid_parameter_value("Invalid page token") from e
-
-    readable = []
-    while True:
-        page = search(
-            filter_string=request_message.filter,
-            max_results=page_size,
-            order_by=request_message.order_by,
-            page_token=page_token,
-        )
-        if skip > len(page):
-            raise MlflowException.invalid_parameter_value("Invalid page token")
-        for index in range(skip, len(page)):
-            if can_read_entity(page[index]):
-                if len(readable) == max_results:
-                    # The store token skips the whole page; retain the position of this
-                    # unreturned row so the next request resumes within the same page.
-                    cursor = {"page_token": page_token, "skip": index, "page_size": page_size}
-                    token = (
-                        _AUTH_SEARCH_TOKEN_PREFIX
-                        + base64.urlsafe_b64encode(json.dumps(cursor).encode()).decode()
-                    )
-                    return PagedList(readable, token)
-                readable.append(page[index])
-        if not page.token:
-            return PagedList(readable, None)
-        if page.token == page_token:
-            raise MlflowException.invalid_parameter_value("Invalid page token")
-        page_token = page.token
-        skip = 0
+    return search_policy.search(search, kwargs) if search_policy is not None else search(**kwargs)
 
 
 def search_model_versions_impl(request_message):
-    can_read_entity = _prepare_model_registry_search(request_message)
+    search_policy = _prepare_model_registry_search(request_message)
     store = _get_model_registry_store()
     model_versions = _search_model_registry_page(
-        store.search_model_versions, request_message, can_read_entity
+        store.search_model_versions, request_message, search_policy
     )
     response_message = SearchModelVersions.Response()
     response_message.model_versions.extend([e.to_proto() for e in model_versions])

@@ -1,3 +1,17 @@
+from dataclasses import dataclass
+
+
+@dataclass(frozen=True)
+class RegistrySearchNameScope:
+    """Effective exceptions to the wildcard read decision for one registry namespace."""
+
+    wildcard_readable: bool
+    exception_names: frozenset[str]
+
+    def includes(self, name: str) -> bool:
+        return self.wildcard_readable != (name in self.exception_names)
+
+
 # Path to default location for backend when using local FileStore.
 DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH = "./mlruns"
 

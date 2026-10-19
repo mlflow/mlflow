@@ -39,6 +39,7 @@ from mlflow.store.model_registry import (
     SEARCH_MODEL_VERSION_MAX_RESULTS_THRESHOLD,
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_THRESHOLD,
+    RegistrySearchNameScope,
 )
 from mlflow.store.model_registry.abstract_store import AbstractStore
 from mlflow.store.model_registry.dbmodels.models import (
@@ -83,6 +84,29 @@ _WORKSPACE_MODELS = (
     SqlRegisteredModelAlias,
 )
 
+
+def _registry_name_scope_clause(column, scope: RegistrySearchNameScope):
+    # Inline safely quoted literals at execution time so large scopes do not exhaust a
+    # database's bound-parameter limit. Keep each IN clause below Oracle's 1,000-item limit.
+    names = sorted(scope.exception_names)
+    clauses = [
+        column.in_(
+            sqlalchemy.bindparam(
+                f"auth_scope_names_{index // 900}",
+                value=names[index : index + 900],
+                expanding=True,
+                literal_execute=True,
+            )
+        )
+        for index in range(0, len(names), 900)
+    ]
+    if not clauses:
+        return sqlalchemy.true() if scope.wildcard_readable else sqlalchemy.false()
+    if scope.wildcard_readable:
+        return sqlalchemy.and_(*(~clause for clause in clauses))
+    return sqlalchemy.or_(*clauses)
+
+
 # For each database table, fetch its columns and define an appropriate attribute for each column
 # on the table's associated object representation (Mapper). This is necessary to ensure that
 # columns defined via backreference are available as Mapper instance attributes (e.g.,
@@ -108,6 +132,7 @@ class SqlAlchemyStore(AbstractStore):
     :py:class:`mlflow.store.model_registry.models.ModelVersion`
     """
 
+    supports_registry_search_authorization_scope = True
     CREATE_MODEL_VERSION_RETRIES = 3
 
     # Class-level cache for SQLAlchemy engines to prevent connection pool leaks
@@ -528,6 +553,7 @@ class SqlAlchemyStore(AbstractStore):
         max_results=SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
         order_by=None,
         page_token=None,
+        authorization_scope: RegistrySearchNameScope | None = None,
     ):
         """
         Search for registered models in backend that satisfy the filter criteria.
@@ -539,6 +565,7 @@ class SqlAlchemyStore(AbstractStore):
                 matching search results.
             page_token: Token specifying the next page of results. It should be obtained from
                 a ``search_registered_models`` call.
+            authorization_scope: Internal name scope applied before ordering and pagination.
 
         Returns:
             A PagedList of :py:class:`mlflow.entities.model_registry.RegisteredModel` objects
@@ -563,6 +590,10 @@ class SqlAlchemyStore(AbstractStore):
             filter_query = self._get_search_registered_model_filter_query(
                 session, parsed_filters, self.engine.dialect.name
             )
+            if authorization_scope is not None:
+                filter_query = filter_query.filter(
+                    _registry_name_scope_clause(SqlRegisteredModel.name, authorization_scope)
+                )
             query = (
                 filter_query
                 .options(*self._get_eager_registered_model_query_options())
@@ -1322,6 +1353,7 @@ class SqlAlchemyStore(AbstractStore):
         max_results=SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
         order_by=None,
         page_token=None,
+        authorization_scope: RegistrySearchNameScope | None = None,
     ):
         """
         Search for model versions in backend that satisfy the filter criteria.
@@ -1335,6 +1367,7 @@ class SqlAlchemyStore(AbstractStore):
                 matching search results.
             page_token: Token specifying the next page of results. It should be obtained from
                 a ``search_model_versions`` call.
+            authorization_scope: Internal name scope applied before ordering and pagination.
 
         Returns:
             A PagedList of :py:class:`mlflow.entities.model_registry.ModelVersion`
@@ -1361,6 +1394,10 @@ class SqlAlchemyStore(AbstractStore):
         filter_query = self._get_search_model_versions_filter_clauses(
             parsed_filters, self.engine.dialect.name
         )
+        if authorization_scope is not None:
+            filter_query = filter_query.filter(
+                _registry_name_scope_clause(SqlModelVersion.name, authorization_scope)
+            )
 
         parsed_orderby = self._parse_search_model_versions_order_by(
             order_by or ["last_updated_timestamp DESC", "name ASC", "version_number DESC"]

@@ -28,6 +28,7 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_DOES_NOT_EXIST,
     ErrorCode,
 )
+from mlflow.store.model_registry import RegistrySearchNameScope
 from mlflow.store.model_registry.dbmodels.models import (
     SqlModelVersion,
     SqlModelVersionTag,
@@ -1278,6 +1279,37 @@ def _search_registered_models(store, filter_string, max_results=10, order_by=Non
         page_token=page_token,
     )
     return [registered_model.name for registered_model in result], result.token
+
+
+@pytest.mark.parametrize("wildcard_readable", [False, True])
+@pytest.mark.parametrize("search_versions", [False, True])
+def test_large_authorization_scope_applies_before_registry_pagination(
+    store, wildcard_readable, search_versions
+):
+    names = [f"scope-model-{suffix}" for suffix in ("a", "b", "c")]
+    for name in names:
+        _rm_maker(store, name)
+        if search_versions:
+            _mv_maker(store, name)
+
+    exceptions = {f"unused-model-{i:04}" for i in range(3400)}
+    exceptions.add("unused-model-' OR 1=1 --")
+    exceptions.update([names[1]] if wildcard_readable else [names[0], names[2]])
+    scope = RegistrySearchNameScope(wildcard_readable, frozenset(exceptions))
+    search = store.search_model_versions if search_versions else store.search_registered_models
+
+    first = search(max_results=1, order_by=["name DESC"], authorization_scope=scope)
+    second = search(
+        max_results=1,
+        order_by=["name DESC"],
+        page_token=first.token,
+        authorization_scope=scope,
+    )
+    assert [row.name for row in first] == [names[2]]
+    assert [row.name for row in second] == [names[0]]
+    assert second.token is None
+    deny_all = RegistrySearchNameScope(False, frozenset())
+    assert search(max_results=1, authorization_scope=deny_all) == []
 
 
 def test_search_registered_models(store):

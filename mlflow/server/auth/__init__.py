@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import binascii
 import functools
 import hmac
 import importlib
@@ -54,7 +55,6 @@ from werkzeug.datastructures import Authorization
 from mlflow import MlflowException
 from mlflow.entities import Experiment
 from mlflow.entities.logged_model import LoggedModel
-from mlflow.entities.model_registry import RegisteredModel
 from mlflow.entities.skill import Skill
 from mlflow.environment_variables import (
     _MLFLOW_AUTH_ADMIN_BOOTSTRAPPED,
@@ -74,6 +74,7 @@ from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
     INTERNAL_ERROR,
     INVALID_PARAMETER_VALUE,
+    NOT_IMPLEMENTED,
     RESOURCE_ALREADY_EXISTS,
     RESOURCE_DOES_NOT_EXIST,
     ErrorCode,
@@ -482,6 +483,7 @@ from mlflow.server.workspace_helpers import (
 )
 from mlflow.store.artifact.utils.models import _parse_model_uri
 from mlflow.store.entities import PagedList
+from mlflow.store.model_registry import RegistrySearchNameScope
 from mlflow.store.tracking.skill_registry.artifact_paths import (
     SkillArtifactIdentity,
     is_skill_upload_namespace,
@@ -1004,27 +1006,6 @@ class RetentionGate:
                 ]
             self._folded[key] = fold_grants_for_key(grants, key)
         return self._folded[key]
-
-    def name_filter(self, resource_type: str, max_names: int | None = None) -> str | None:
-        """Express a registry namespace's grants as a bounded IN or NOT IN search clause."""
-        wildcard_readable = self.retains(resource_type, "*")
-        names = set()
-        for grant in self._grants:
-            if (
-                grant.resource_type == resource_type
-                and grant.resource_pattern != "*"
-                and self.retains(resource_type, grant.resource_pattern) != wildcard_readable
-            ):
-                names.add(grant.resource_pattern)
-                if max_names is not None and len(names) > max_names:
-                    return None
-        if wildcard_readable and not names:
-            return ""
-        # Registry names cannot be empty. This keeps an empty scope unmatchable while allowing
-        # the store to validate the rest of the request normally. List filters use literal_eval.
-        values = ", ".join(repr(name) for name in sorted(names)) or "''"
-        comparator = "NOT IN" if wildcard_readable else "IN"
-        return f"name {comparator} ({values})"
 
 
 def retention_gate(
@@ -3285,10 +3266,109 @@ def _role_based_read_predicate(
     return lambda resource_id: gate.retains(resource_type, resource_id)
 
 
+@dataclass(frozen=True)
+class _ScopedRegistryRead:
+    predicate: Callable[[Any], bool]
+    name_scope: RegistrySearchNameScope | None = None
+
+    def __call__(self, entity) -> bool:
+        return self.predicate(entity)
+
+    def search(self, search, kwargs):
+        kwargs = dict(kwargs)
+        if self.name_scope is not None:
+            backend = getattr(search, "__self__", None)
+            supports_scope = (
+                getattr(type(backend), "supports_registry_search_authorization_scope", False)
+                if backend is not None
+                else getattr(search, "supports_registry_search_authorization_scope", False)
+            )
+            if supports_scope is not True:
+                raise MlflowException(
+                    "This registry backend cannot search with a large authorization scope",
+                    NOT_IMPLEMENTED,
+                )
+            kwargs["authorization_scope"] = self.name_scope
+
+        token_prefix = "mlflow-auth-search:"
+        if not (kwargs["page_token"] or "").startswith(token_prefix):
+            page = search(**kwargs)
+            if all(self(entity) for entity in page):
+                return page
+
+        max_results = kwargs["max_results"]
+        page_size = min(1000, max(100, max_results))
+        page_token = kwargs["page_token"]
+        skip = 0
+        if page_token and page_token.startswith(token_prefix):
+            try:
+                cursor = json.loads(base64.urlsafe_b64decode(page_token[len(token_prefix) :]))
+                page_token = cursor["page_token"]
+                skip = cursor["skip"]
+                page_size = cursor["page_size"]
+                if (
+                    not isinstance(page_token, (str, type(None)))
+                    or not isinstance(skip, int)
+                    or skip < 0
+                    or not isinstance(page_size, int)
+                    or not 1 <= page_size <= 1000
+                ):
+                    raise ValueError("Invalid scoped search cursor")
+            except (ValueError, KeyError, TypeError, binascii.Error) as e:
+                raise MlflowException.invalid_parameter_value("Invalid page token") from e
+
+        readable = []
+        while True:
+            page = search(**{**kwargs, "max_results": page_size, "page_token": page_token})
+            if skip > len(page):
+                raise MlflowException.invalid_parameter_value("Invalid page token")
+            for index in range(skip, len(page)):
+                if self(page[index]):
+                    if len(readable) == max_results:
+                        cursor = {"page_token": page_token, "skip": index, "page_size": page_size}
+                        token = (
+                            token_prefix
+                            + base64.urlsafe_b64encode(json.dumps(cursor).encode()).decode()
+                        )
+                        return PagedList(readable, token)
+                    readable.append(page[index])
+            if not page.token:
+                return PagedList(readable, None)
+            next_token = page.token.decode() if isinstance(page.token, bytes) else page.token
+            if next_token == page_token:
+                raise MlflowException.invalid_parameter_value("Invalid page token")
+            page_token = next_token
+            skip = 0
+
+
+def _registry_name_scope(gate: RetentionGate, resource_type: str) -> RegistrySearchNameScope:
+    wildcard_readable = gate.retains(resource_type, "*")
+    names = {
+        grant.resource_pattern
+        for grant in gate._grants
+        if grant.resource_type == resource_type
+        and grant.resource_pattern != "*"
+        and gate.retains(resource_type, grant.resource_pattern) != wildcard_readable
+    }
+    return RegistrySearchNameScope(wildcard_readable, frozenset(names))
+
+
+def _registry_name_filter(scope: RegistrySearchNameScope, max_names: int) -> str | None:
+    if len(scope.exception_names) > max_names:
+        return None
+    if scope.wildcard_readable and not scope.exception_names:
+        return ""
+    # Registry names cannot be empty. The empty IN clause remains unmatchable while the
+    # store validates the other request filters. List filters use literal_eval.
+    values = ", ".join(repr(name) for name in sorted(scope.exception_names)) or "''"
+    comparator = "NOT IN" if scope.wildcard_readable else "IN"
+    return f"name {comparator} ({values})"
+
+
 def scope_model_registry_search(
     request_message: SearchRegisteredModels | SearchModelVersions,
     resource_type: Literal["prompt", "registered_model"],
-) -> Callable[[Any], bool] | None:
+) -> _ScopedRegistryRead | None:
     """Scope a normalized registry search before REST or GraphQL queries the store."""
     if sender_is_admin():
         return
@@ -3307,7 +3387,7 @@ def scope_model_registry_search(
     )
     key = (username, workspace_name, resource_type, version_type)
     if cache is not None and key in cache:
-        name_filter, gate = cache[key]
+        name_filter, name_scope, gate = cache[key]
     else:
         requirements = [
             Requirement(
@@ -3320,13 +3400,14 @@ def scope_model_registry_search(
         if version_type is not None:
             requirements.append(Requirement(version_type, "*", ACTION_NOT_DENIED))
         gate = retention_gate(username, (RESOURCE_TYPE_WORKSPACE, "*"), requirements)
-        name_filter = (
-            "name IN ('')"
-            if version_type is not None and not gate.retains(version_type, "*")
-            else gate.name_filter(resource_type, max_names=1000)
-        )
+        if version_type is not None and not gate.retains(version_type, "*"):
+            name_filter = "name IN ('')"
+            name_scope = RegistrySearchNameScope(False, frozenset())
+        else:
+            name_scope = _registry_name_scope(gate, resource_type)
+            name_filter = _registry_name_filter(name_scope, max_names=1000)
         if cache is not None:
-            cache[key] = name_filter, gate
+            cache[key] = name_filter, name_scope, gate
 
     def retain(entity):
         return (
@@ -3336,13 +3417,13 @@ def scope_model_registry_search(
         )
 
     if name_filter is None:
-        return retain
+        return _ScopedRegistryRead(retain, name_scope)
     if name_filter:
         scoped_filter = f"{request_message.filter} AND {name_filter}"
         if sum(1 for _ in tokenize(scoped_filter)) >= 9000:
-            return retain
+            return _ScopedRegistryRead(retain, name_scope)
         request_message.filter = scoped_filter
-    return retain
+    return _ScopedRegistryRead(retain)
 
 
 def filter_experiment_ids(experiment_ids: list[str]) -> list[str]:
@@ -5638,6 +5719,7 @@ def _before_request():
 
     # Expose the authenticated user to handlers (e.g. to stamp a review-queue owner).
     g.mlflow_authenticated_user = authorization.username
+    g.mlflow_model_registry_search_authorizer = scope_model_registry_search
 
     # admins don't need to be authorized, but data-integrity rules still apply to
     # them. A custom review queue (or rename) may not shadow a username; admins skip
