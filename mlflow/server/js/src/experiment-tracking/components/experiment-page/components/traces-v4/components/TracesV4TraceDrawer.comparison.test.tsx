@@ -238,6 +238,28 @@ describe('TracesV4TraceDrawer pairwise review', () => {
     expect(new URLSearchParams(lastSearch).get(PAIRWISE_REVIEW_MODE_PARAM)).toBe('true');
   }, 20000);
 
+  test('r toggles pairwise review in a comparison, but not while typing a comment', async () => {
+    jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(true);
+    const user = userEvent.setup();
+    renderComparisonDrawer();
+
+    const drawer = await findDrawer();
+    await within(drawer).findByText('Comparing traces');
+    await user.keyboard('r');
+
+    expect(await within(drawer).findByText('Which run is better?')).toBeInTheDocument();
+    expect(within(drawer).getByRole('button', { name: 'Exit full screen' })).toBeInTheDocument();
+    expect(new URLSearchParams(lastSearch).get(PAIRWISE_REVIEW_MODE_PARAM)).toBe('true');
+
+    await user.type(within(drawer).getByRole('textbox', { name: 'Comment' }), 'r');
+    expect(within(drawer).getByText('Which run is better?')).toBeInTheDocument();
+
+    within(drawer).getByRole('button', { name: 'Review (R)' }).focus();
+    await user.keyboard('r');
+    await waitFor(() => expect(within(drawer).queryByText('Which run is better?')).not.toBeInTheDocument());
+    expect(new URLSearchParams(lastSearch).get(PAIRWISE_REVIEW_MODE_PARAM)).toBeNull();
+  }, 20000);
+
   test('saves a win for the chosen trace and a loss for the other one', async () => {
     jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(true);
     const user = userEvent.setup();

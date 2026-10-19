@@ -523,6 +523,15 @@ export const ModelTraceExplorerDrawer = ({
     }
   }, [renderManagedAddToDatasetDropdown]);
   const canFlagForReview = Boolean(renderAddToReviewQueueDropdown && experimentId && traceInfo);
+  const handleReviewModeChange = useCallback(
+    (isReviewMode: boolean) => {
+      if (isReviewMode) {
+        setIsFullscreen(true);
+      }
+      traceComparison?.onReviewModeChange?.(isReviewMode);
+    },
+    [traceComparison],
+  );
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -546,16 +555,9 @@ export const ModelTraceExplorerDrawer = ({
         e.preventDefault();
         e.stopPropagation();
         selectNextEval();
-      } else if (
-        isNewEvalRunsUi &&
-        !traceComparison &&
-        !e.altKey &&
-        !e.ctrlKey &&
-        !e.metaKey &&
-        !e.shiftKey &&
-        !e.repeat
-      ) {
-        // The new eval runs UI opens the dataset (d) and review (r) actions from the keyboard.
+      } else if (isNewEvalRunsUi && !e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey && !e.repeat) {
+        // The new eval runs UI opens the dataset (d) and review (r) actions from the keyboard. In a trace
+        // comparison, which has neither action, r toggles pairwise review instead.
         if (
           showDatasetModal ||
           isAddToDatasetDropdownOpen ||
@@ -564,7 +566,12 @@ export const ModelTraceExplorerDrawer = ({
         ) {
           return;
         }
-        if (e.key === 'd' && showAddToDatasetButton) {
+        if (traceComparison) {
+          if (e.key === 'r' && traceComparison.onReviewModeChange) {
+            e.preventDefault();
+            handleReviewModeChange(!traceComparison.isReviewMode);
+          }
+        } else if (e.key === 'd' && showAddToDatasetButton) {
           e.preventDefault();
           setIsFlagForReviewDropdownOpen(false);
           handleAddToDatasetClick();
@@ -590,6 +597,7 @@ export const ModelTraceExplorerDrawer = ({
       showAddToDatasetButton,
       handleAddToDatasetClick,
       canFlagForReview,
+      handleReviewModeChange,
     ],
   );
 
@@ -720,15 +728,6 @@ export const ModelTraceExplorerDrawer = ({
       </Tooltip>
     ) : null;
   const handleToggleFullscreen = useCallback(() => setIsFullscreen((value) => !value), []);
-  const handleReviewModeChange = useCallback(
-    (isReviewMode: boolean) => {
-      if (isReviewMode) {
-        setIsFullscreen(true);
-      }
-      traceComparison?.onReviewModeChange?.(isReviewMode);
-    },
-    [traceComparison],
-  );
   const handleFindClick = useCallback(() => setSearchVisible((visible) => !visible), []);
   const analyzeTraceLabel = traceComparison
     ? intl.formatMessage({
