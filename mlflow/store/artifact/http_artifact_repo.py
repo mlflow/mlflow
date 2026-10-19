@@ -86,6 +86,11 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
                 return
             except _UnsupportedMultipartUploadException:
                 pass
+            except Exception:
+                _logger.warning(
+                    "Multipart upload failed for %s. Falling back to single-part upload.",
+                    local_file,
+                )
 
         file_name = os.path.basename(local_file)
         mime_type = _guess_mime_type(file_name)
@@ -382,7 +387,6 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
 
             parts = sorted(parts.values(), key=lambda part: part.part_number)
             self.complete_multipart_upload(local_file, create.upload_id, parts, artifact_path)
-        except Exception as e:
+        except Exception:
             self.abort_multipart_upload(local_file, create.upload_id, artifact_path)
-            _logger.warning(f"Failed to upload file {local_file} using multipart upload: {e}")
             raise

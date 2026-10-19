@@ -102,6 +102,7 @@ def test_log_artifact(
     filename,
     expected_mime_type,
     monkeypatch,
+    caplog,
 ):
     file_path = tmp_path.joinpath(filename)
     file_path.write_text("0")
@@ -163,9 +164,9 @@ def test_log_artifact(
         http_artifact_repo.log_artifact(file_path, artifact_path)
         assert_called_log_artifact(mock_put)
 
-    # assert if mpu is triggered but the uploads failed, mpu is aborted and exception is raised
+    # assert if mpu uploads fail, mpu is aborted and normal upload is attempted
     with (
-        mock.patch("requests.put", side_effect=Exception("MPU_UPLOAD_FAILS")),
+        mock.patch("requests.put", side_effect=Exception("MPU_UPLOAD_FAILS")) as mock_part,
         mock.patch.object(
             http_artifact_repo,
             "create_multipart_upload",
@@ -173,16 +174,114 @@ def test_log_artifact(
                 upload_id="upload_id",
                 credentials=[MultipartUploadCredential(url="url", part_number=1, headers={})],
             ),
-        ),
+        ) as mock_create,
         mock.patch.object(
             http_artifact_repo,
             "abort_multipart_upload",
             return_value=None,
         ) as mock_abort,
+        mock.patch(
+            "mlflow.store.artifact.http_artifact_repo.http_request",
+            return_value=MockResponse({}, 200),
+        ) as mock_put,
     ):
-        with pytest.raises(Exception, match="MPU_UPLOAD_FAILS"):
-            http_artifact_repo.log_artifact(file_path, artifact_path)
+        http_artifact_repo.log_artifact(file_path, artifact_path)
+        mock_part.assert_called_once()
+        mock_create.assert_called_once()
         mock_abort.assert_called_once()
+        assert_called_log_artifact(mock_put)
+    assert "MPU_UPLOAD_FAILS" not in caplog.text
+    assert caplog.text.count("Falling back to single-part upload") == 1
+
+
+@pytest.mark.parametrize("artifact_path", [None, "dir"])
+@pytest.mark.parametrize("status_code", [403, 500])
+def test_log_artifact_falls_back_when_multipart_creation_fails(
+    http_artifact_repo, tmp_path, monkeypatch, caplog, artifact_path, status_code
+):
+    monkeypatch.setenv("MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD", "true")
+    monkeypatch.setenv("MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE", "1")
+    file_path = tmp_path / "artifact.txt"
+    file_path.write_text("artifact content")
+    with (
+        mock.patch.object(
+            http_artifact_repo,
+            "create_multipart_upload",
+            side_effect=HTTPError(
+                response=MockResponse({"message": "Insufficient credentials"}, status_code)
+            ),
+        ) as mock_create,
+        mock.patch.object(http_artifact_repo, "abort_multipart_upload") as mock_abort,
+        mock.patch(
+            "mlflow.store.artifact.http_artifact_repo.http_request",
+            return_value=MockResponse({}, 200),
+        ) as mock_put,
+    ):
+        http_artifact_repo.log_artifact(file_path, artifact_path)
+
+    mock_create.assert_called_once_with(file_path, 1, artifact_path)
+    mock_abort.assert_not_called()
+    paths = (artifact_path, file_path.name) if artifact_path else (file_path.name,)
+    mock_put.assert_called_once_with(
+        http_artifact_repo._host_creds,
+        posixpath.join("/", *paths),
+        "PUT",
+        data=FileObjectMatcher(str(file_path), "rb"),
+        extra_headers={"Content-Type": "text/plain"},
+    )
+    assert "Falling back to single-part upload" in caplog.text
+
+
+@pytest.mark.parametrize("abort_fails", [False, True])
+@pytest.mark.parametrize("fallback_fails", [False, True])
+def test_log_artifact_falls_back_when_multipart_completion_fails(
+    http_artifact_repo, tmp_path, monkeypatch, caplog, abort_fails, fallback_fails
+):
+    monkeypatch.setenv("MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD", "true")
+    monkeypatch.setenv("MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE", "1")
+    file_path = tmp_path / "artifact.txt"
+    file_path.write_text("artifact content")
+    credential = MultipartUploadCredential(url="url", part_number=1, headers={})
+    part = MultipartUploadPart(part_number=1, etag="etag", url="url")
+    with (
+        mock.patch.object(
+            http_artifact_repo,
+            "create_multipart_upload",
+            return_value=CreateMultipartUploadResponse(
+                upload_id="upload_id", credentials=[credential]
+            ),
+        ) as mock_create,
+        mock.patch.object(http_artifact_repo, "_upload_part", return_value=part) as mock_part,
+        mock.patch.object(
+            http_artifact_repo,
+            "complete_multipart_upload",
+            side_effect=MlflowException("Multipart completion failed"),
+        ) as mock_complete,
+        mock.patch.object(
+            http_artifact_repo,
+            "abort_multipart_upload",
+            side_effect=MlflowException("Multipart abort failed") if abort_fails else None,
+        ) as mock_abort,
+        mock.patch(
+            "mlflow.store.artifact.http_artifact_repo.http_request",
+            return_value=MockResponse({}, 400 if fallback_fails else 200),
+        ) as mock_put,
+    ):
+        if fallback_fails:
+            with pytest.raises(Exception, match="request failed"):
+                http_artifact_repo.log_artifact(file_path, "dir")
+        else:
+            http_artifact_repo.log_artifact(file_path, "dir")
+
+    mock_create.assert_called_once_with(file_path, 1, "dir")
+    mock_part.assert_called_once()
+    mock_complete.assert_called_once_with(file_path, "upload_id", [part], "dir")
+    mock_abort.assert_called_once_with(file_path, "upload_id", "dir")
+    mock_put.assert_called_once()
+    assert mock_put.call_args.args[1:3] == ("/dir/artifact.txt", "PUT")
+    assert caplog.text.count("Falling back to single-part upload") == 1
+    assert "Multipart completion failed" not in caplog.text
+    assert "Multipart abort failed" not in caplog.text
 
 
 def test_log_artifact_skips_size_check_when_multipart_disabled(http_artifact_repo, tmp_path):
