@@ -268,7 +268,7 @@ describe('IssueDetectionModal', () => {
   });
 
   test('records submitted background job when form is submitted', async () => {
-    const onClose = jest.fn();
+    const onClose = jest.fn(() => expect(getSubmittedIssueDetectionJob()?.jobId).toBe('job-123'));
     renderWithDesignSystem(
       <IssueDetectionModal {...defaultProps} onClose={onClose} initialSelectedTraceIds={['trace-1']} />,
     );
@@ -281,6 +281,7 @@ describe('IssueDetectionModal', () => {
 
     expect(getSubmittedIssueDetectionJob()).toEqual({
       experimentId: 'exp-123',
+      workspace: null,
       jobId: 'job-123',
       runId: 'run-456',
       traceCount: 1,

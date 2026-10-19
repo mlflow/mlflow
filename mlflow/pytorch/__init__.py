@@ -939,6 +939,10 @@ def _load_model(path, device=None, **kwargs):
         model_path = os.path.join(path, "model.pth")
         if os.path.exists(model_path):
             is_exported_model = False
+            # The pickle module name below is read from the model artifact and imported, so it
+            # must stay behind the pickle-deserialization guard: a crafted artifact could otherwise
+            # name a module shipped in its own `code` directory and run it before `torch.load`.
+            _load_by_pickle_check(False)
             pickle_module_path = os.path.join(path, _PICKLE_MODULE_INFO_FILE_NAME)
             with open(pickle_module_path) as f:
                 pickle_module_name = f.read()
@@ -1073,6 +1077,11 @@ def load_model(model_uri, dst_path=None, **kwargs):
 
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
     pytorch_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
+    torch_model_artifacts_path = os.path.join(local_model_path, pytorch_conf["model_data"])
+    # Refuse a pickle-format model before its `code` directory is prepended to `sys.path`, so a
+    # rejected load leaves nothing from the artifact importable for the rest of the process.
+    if os.path.exists(os.path.join(torch_model_artifacts_path, "model.pth")):
+        _load_by_pickle_check(False)
     _add_code_from_conf_to_system_path(local_model_path, pytorch_conf)
 
     if torch.__version__ != pytorch_conf["pytorch_version"]:
@@ -1081,7 +1090,6 @@ def load_model(model_uri, dst_path=None, **kwargs):
             pytorch_conf["pytorch_version"],
             torch.__version__,
         )
-    torch_model_artifacts_path = os.path.join(local_model_path, pytorch_conf["model_data"])
     return _load_model(path=torch_model_artifacts_path, **kwargs)
 
 
