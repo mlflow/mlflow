@@ -37,7 +37,7 @@ function checkExistingPr({ repo, issueNumber, dryRun = false, api = ghApi }) {
   if (!existing) return;
   const message = `A triage PR already exists: ${existing.html_url}`;
   if (!dryRun) throw new Error(message);
-  console.log(`Dry run: ${message}`);
+  console.error(`Dry run: ${message}`);
   if (process.env.GITHUB_STEP_SUMMARY) {
     appendFileSync(process.env.GITHUB_STEP_SUMMARY, `Dry run: ${message}\n`);
   }
