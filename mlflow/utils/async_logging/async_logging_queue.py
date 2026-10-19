@@ -204,9 +204,11 @@ class AsyncLoggingQueue:
         """Submits a batch to the worker threadpool.
 
         Tags are applied last write wins, so batches of the same run that carry params or tags
-        are logged one at a time in submission order, by at most one worker per run. Metric-only
-        batches don't depend on the apply order because stores resolve the latest metric by
-        step, timestamp and value, so they go straight to the pool and are logged concurrently.
+        are logged one at a time in submission order, by at most one worker per run. Params take
+        the same path so that when two batches log conflicting values for the same param, it is
+        deterministic which one stores the value and which one raises. Metric-only batches don't
+        depend on the apply order because stores resolve the latest metric by step, timestamp
+        and value, so they go straight to the pool and are logged concurrently.
         """
         if not run_batch.params and not run_batch.tags:
             try:
@@ -221,13 +223,14 @@ class AsyncLoggingQueue:
                 return
             self._pending_batches_by_run[run_batch.run_id] = deque([run_batch])
 
+        self._submit_pending_batches(run_batch.run_id)
+
+    def _submit_pending_batches(self, run_id: str) -> None:
         try:
-            self._batch_logging_worker_threadpool.submit(
-                self._log_pending_batches, run_batch.run_id
-            )
+            self._batch_logging_worker_threadpool.submit(self._log_pending_batches, run_id)
         except Exception as e:
             with self._pending_batches_lock:
-                failed_batches = self._pending_batches_by_run.pop(run_batch.run_id)
+                failed_batches = self._pending_batches_by_run.pop(run_id, ())
             self._fail_batches(failed_batches, e)
 
     def _fail_batches(self, run_batches: Iterable[RunBatch], exception: Exception) -> None:
@@ -242,14 +245,21 @@ class AsyncLoggingQueue:
             run_batch.complete()
 
     def _log_pending_batches(self, run_id: str) -> None:
-        while True:
-            with self._pending_batches_lock:
-                pending = self._pending_batches_by_run[run_id]
-                if not pending:
-                    del self._pending_batches_by_run[run_id]
-                    return
-                run_batch = pending.popleft()
-            self._log_batch(run_batch)
+        try:
+            while (run_batch := self._pop_pending_batch(run_id)) is not None:
+                self._log_batch(run_batch)
+        except BaseException:
+            # Hand the run's remaining batches to a new worker. Otherwise they stay queued with
+            # nothing draining them, and waiting on them (e.g. at shutdown) blocks forever.
+            self._submit_pending_batches(run_id)
+            raise
+
+    def _pop_pending_batch(self, run_id: str) -> RunBatch | None:
+        with self._pending_batches_lock:
+            if pending := self._pending_batches_by_run[run_id]:
+                return pending.popleft()
+            del self._pending_batches_by_run[run_id]
+            return None
 
     def _log_batch(self, run_batch: RunBatch) -> None:
         try:
