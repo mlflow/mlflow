@@ -587,7 +587,7 @@ describe('Experiment Issues', () => {
     expect(row).toHaveAccessibleDescription(/./);
     expect(within(row).queryByRole('button')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /About category/ })).not.toBeInTheDocument();
-    const chip = within(screen.getByTestId('experiment-issue-detail')).getByTestId('issue-category-tag');
+    const chip = within(await screen.findByTestId('experiment-issue-detail')).getByTestId('issue-category-tag');
     await userEvent.hover(chip);
     expect(await screen.findByRole('tooltip')).toHaveTextContent(/./);
     await userEvent.keyboard('{Escape}');
