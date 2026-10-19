@@ -120,6 +120,9 @@ const resolveScopedDrawerWidth = (width: number | string | undefined, scopeWidth
   return width ?? scopeWidth;
 };
 
+// Radix dispatches focus-outside dismissals under this event type; pointer dismissals use a different one.
+const RADIX_FOCUS_OUTSIDE_EVENT = 'dismissableLayer.focusOutside';
+
 interface ResponsiveTraceDrawerContentProps extends Drawer.DrawerContentProps {
   isFullscreen?: boolean;
 }
@@ -208,9 +211,11 @@ const ResponsiveTraceDrawerContent = (props: ResponsiveTraceDrawerContentProps) 
         data-trace-drawer-fullscreen={isFullscreen}
         data-trace-drawer-scope-transition={Boolean(scopeTransitionDirection)}
         // Same rule as AssistantAwareDrawer.Content, which this replaces: clicks in the Assistant, on the resize
-        // handle or in a body-level popover are not outside the drawer.
+        // handle or in a body-level popover are not outside the drawer. The drawer is non-modal, so focus can
+        // also leave it without a click, e.g. when a menu that opened it hands focus back to its trigger; only
+        // a click outside closes it.
         onInteractOutside={(event) => {
-          if (shouldPreventDrawerDismiss(event.target as HTMLElement)) {
+          if (event.type === RADIX_FOCUS_OUTSIDE_EVENT || shouldPreventDrawerDismiss(event.target as HTMLElement)) {
             event.preventDefault();
           }
           onInteractOutside?.(event);
