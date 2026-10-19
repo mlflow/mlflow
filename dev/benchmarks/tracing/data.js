@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792420735510,
+  "lastUpdate": 1792429327456,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "shivamagarwal36029@gmail.com",
-            "name": "Shivam Agarwal",
-            "username": "shivamxtech"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "315d174b63b8d43e4b82ce4ff56c71ca6537f21c",
-          "message": "Add `sap-ai-core:/` provider for SAP AI Core Orchestration v2 with `extra_headers` support (#24356)\n\nSigned-off-by: Shivam Agarwal <shivamagarwal36029@gmail.com>",
-          "timestamp": "2026-07-26T23:13:40-07:00",
-          "tree_id": "697a018e93ad9122c01ec0c752376354646ae76d",
-          "url": "https://github.com/mlflow/mlflow/commit/315d174b63b8d43e4b82ce4ff56c71ca6537f21c"
-        },
-        "date": 1785132903075,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 46.29601409999964,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 17.848198166667828,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 24.82330464912321,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 25.08576697777869,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 27.65221031914859,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 10.051593200000752,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 11.038898399999653,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "47610280+NeriCarcasci@users.noreply.github.com",
+            "name": "Neri Carcasci",
+            "username": "NeriCarcasci"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "237cfafb293c1afb6c1bb2e65b727897403a3077",
+          "message": "Support presigned artifact flows in the UI (#26268)\n\nSigned-off-by: Neri Carcasci <nericarcasci@gmail.com>",
+          "timestamp": "2026-10-19T16:58:29Z",
+          "tree_id": "10e696e9d13af46d7d0a0e071282240f21a2c9de",
+          "url": "https://github.com/mlflow/mlflow/commit/237cfafb293c1afb6c1bb2e65b727897403a3077"
+        },
+        "date": 1792429323710,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 114.57650289999819,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 6.265525461537672,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 5.141543272109012,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 5.283874055944214,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 5.677596014389273,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 6.134888166670294,
             "unit": "ms"
           }
         ]
