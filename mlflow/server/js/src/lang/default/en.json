@@ -975,6 +975,10 @@
     "defaultMessage": "Evaluate traces",
     "description": "Title for the run evaluation modal dialog"
   },
+  "1QnDrr": {
+    "defaultMessage": "Open trace comparison",
+    "description": "Accessible label for a matched trace comparison row"
+  },
   "1RAM3C": {
     "defaultMessage": "Failed to delete some API keys. Please try again.",
     "description": "Gateway > Bulk delete API keys modal > Error message"
@@ -2751,6 +2755,10 @@
     "defaultMessage": "Create Guardrail",
     "description": "Create guardrail button"
   },
+  "73tIKS": {
+    "defaultMessage": "Trace {traceNumber} of {traceCount}",
+    "description": "Current trace comparison position shown between pairwise review navigation buttons"
+  },
   "73ydH0": {
     "defaultMessage": "Off",
     "description": "Runs charts > line chart > ignore outliers > off setting label"
@@ -3122,6 +3130,10 @@
   "8ALhnh": {
     "defaultMessage": "Type a key",
     "description": "Key-value tag editor modal > Tag dropdown > Tag input placeholder"
+  },
+  "8AefRn": {
+    "defaultMessage": "Review",
+    "description": "Action that starts pairwise review for evaluation run comparison traces"
   },
   "8CgyA/": {
     "defaultMessage": "Tags",

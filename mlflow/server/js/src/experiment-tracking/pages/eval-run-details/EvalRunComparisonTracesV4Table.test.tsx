@@ -1,5 +1,5 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, jest, test } from '@jest/globals';
-import { configure, fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { act, configure, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useEffect } from 'react';
 import { rest } from 'msw';
@@ -192,7 +192,7 @@ describe('EvalRunComparisonTracesV4Table', () => {
     expect(within(qualityHeader).getByRole('group', { name: 'Candidate run' })).toHaveTextContent('0.9');
   });
 
-  test('opens a run’s trace in the trace drawer from its sub-row', async () => {
+  test('opens the matched row as a trace comparison from a run’s sub-row', async () => {
     renderTable();
     await findMatchedRows();
 
@@ -206,13 +206,116 @@ describe('EvalRunComparisonTracesV4Table', () => {
       }
       return row;
     });
-    await userEvent.click(within(candidateRow).getByRole('link', { name: 'Candidate run' }));
+    await userEvent.click(within(candidateRow).getByRole('button', { name: 'Candidate run' }));
 
-    await waitFor(() => expect(new URLSearchParams(lastSearch).get('selectedEvaluationId')).toBe(traceId('c1')));
-    expect(new URLSearchParams(lastSearch).get('compareRuns')).toBe('candidate');
+    await waitFor(() => expect(new URLSearchParams(lastSearch).get('baselineTraceId')).toBe(traceId('b1')));
+    const params = new URLSearchParams(lastSearch);
+    expect(params.get('candidateTraceId')).toBe(traceId('c1'));
+    expect(params.get('traceId')).toBe(traceId('c1'));
+    expect(params.get('selectedEvaluationId')).toBeNull();
+    expect(params.get('pairwiseReview')).toBeNull();
+    expect(params.get('compareRuns')).toBe('candidate');
     // Opening the trace drawer over the full comparison table can pass 20s on loaded CI runners; a
     // per-test timeout avoids the lint-forbidden global jest.setTimeout.
   }, 60000);
+
+  test('opens the trace comparison by activating the matched row bundle', async () => {
+    renderTable(`${COMPARE_URL}&selectedEvaluationId=${traceId('b2')}&spanId=span-1`);
+    await findMatchedRows();
+
+    // The open trace drawer is modal, so the table behind it is hidden from the accessibility tree.
+    const [firstRow] = await screen.findAllByRole('rowgroup', { name: 'Open trace comparison', hidden: true });
+    fireEvent.click(within(firstRow).getByRole('button', { name: 'Open trace comparison', hidden: true }));
+
+    await waitFor(() => expect(new URLSearchParams(lastSearch).get('candidateTraceId')).toBe(traceId('c1')));
+    const params = new URLSearchParams(lastSearch);
+    expect(params.get('baselineTraceId')).toBe(traceId('b1'));
+    expect(params.get('traceId')).toBe(traceId('c1'));
+    expect(params.get('selectedEvaluationId')).toBeNull();
+    expect(params.get('spanId')).toBeNull();
+  });
+
+  test('leaves the comparison and its review when the drawer closes', async () => {
+    renderTable(
+      `${COMPARE_URL}&baselineTraceId=${traceId('b1')}&candidateTraceId=${traceId('c1')}&traceId=${traceId('c1')}&pairwiseReview=true`,
+    );
+    const drawer = await screen.findByRole('dialog', {}, { timeout: 15000 });
+    await userEvent.click(within(drawer).getByRole('button', { name: /close/i }));
+
+    await waitFor(() => expect(new URLSearchParams(lastSearch).get('baselineTraceId')).toBeNull());
+    const params = new URLSearchParams(lastSearch);
+    expect(params.get('candidateTraceId')).toBeNull();
+    expect(params.get('traceId')).toBeNull();
+    expect(params.get('pairwiseReview')).toBeNull();
+    expect(params.get('compareRuns')).toBe('candidate');
+  });
+
+  test('keeps a row with only one run’s trace opening that trace on its own', async () => {
+    state.tracesByRun['baseline'].push(scored(traceId('b3'), 'baseline', 'Baseline only question', 0.5));
+    renderTable();
+    await screen.findByText('3 comparison rows');
+
+    expect(screen.getAllByRole('rowgroup', { name: 'Open trace comparison' })).toHaveLength(2);
+    const onlyRow = await waitFor(() => {
+      const row = screen
+        .getAllByRole('row', { name: /Baseline run/ })
+        .find((candidate) => within(candidate).queryByText('baseline answer to Baseline only question'));
+      if (!row) {
+        throw new Error('Expected the baseline-only sub-row');
+      }
+      return row;
+    });
+    await userEvent.click(within(onlyRow).getByRole('link', { name: 'Baseline run' }));
+
+    await waitFor(() => expect(new URLSearchParams(lastSearch).get('selectedEvaluationId')).toBe(traceId('b3')));
+    expect(new URLSearchParams(lastSearch).get('baselineTraceId')).toBeNull();
+  });
+
+  test('offers pairwise review that opens the first comparable row, or continues an open comparison', async () => {
+    const onPairwiseReviewActionChange = jest.fn<(action: (() => void) | undefined) => void>();
+    renderTracesV4Page({
+      initialUrl: COMPARE_URL,
+      routes: [
+        {
+          path: PATH,
+          element: (
+            <>
+              <LocationSpy />
+              <EvalRunComparisonTracesV4Table
+                experimentId={EXPERIMENT_ID}
+                runUuids={['baseline', 'candidate']}
+                onPairwiseReviewActionChange={onPairwiseReviewActionChange}
+              />
+            </>
+          ),
+        },
+      ],
+      history,
+      experimentId: EXPERIMENT_ID,
+    });
+    await findMatchedRows();
+    const latestAction = () => onPairwiseReviewActionChange.mock.calls.at(-1)?.[0];
+    await waitFor(() => expect(latestAction()).toEqual(expect.any(Function)));
+
+    act(() => latestAction()?.());
+    await waitFor(() => expect(new URLSearchParams(lastSearch).get('pairwiseReview')).toBe('true'));
+    let params = new URLSearchParams(lastSearch);
+    expect(params.get('baselineTraceId')).toBe(traceId('b1'));
+    expect(params.get('candidateTraceId')).toBe(traceId('c1'));
+    expect(params.get('traceId')).toBe(traceId('c1'));
+
+    // With a comparison already open, Review keeps it and only turns review mode on. The open drawer is
+    // modal, so the table behind it is hidden from the accessibility tree.
+    const [, secondRow] = screen.getAllByRole('rowgroup', { name: 'Open trace comparison', hidden: true });
+    fireEvent.click(within(secondRow).getByRole('button', { name: 'Open trace comparison', hidden: true }));
+    await waitFor(() => expect(new URLSearchParams(lastSearch).get('pairwiseReview')).toBeNull());
+    expect(new URLSearchParams(lastSearch).get('candidateTraceId')).toBe(traceId('c2'));
+    act(() => latestAction()?.());
+    await waitFor(() => expect(new URLSearchParams(lastSearch).get('pairwiseReview')).toBe('true'));
+    params = new URLSearchParams(lastSearch);
+    expect(params.get('baselineTraceId')).toBe(traceId('b2'));
+    expect(params.get('candidateTraceId')).toBe(traceId('c2'));
+  });
 
   test('narrows the rows to the search and offers to clear it when nothing matches', async () => {
     renderTable(`${COMPARE_URL}&comparisonQ=nothing%20matches`);

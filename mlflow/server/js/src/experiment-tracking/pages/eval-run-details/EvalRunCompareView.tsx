@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FormattedMessage } from 'react-intl';
 import { Tabs, useDesignSystemTheme } from '@databricks/design-system';
 import { TracesV4PageWrapper } from '../../components/experiment-page/components/traces-v4/components/TracesV4PageWrapper';
@@ -8,6 +8,13 @@ import { EvalRunComparisonTracesV4Table } from './EvalRunComparisonTracesV4Table
 import type { EvalRunComparisonTraceFilter } from './EvalRunComparisonDelta';
 import { normalizeComparisonRunUuids } from './evalRunComparisonData';
 import { useEvalRunComparisonBaseline } from './useEvalRunComparisonBaseline';
+import { shouldEnableNewEvalRunsUi } from '../../../common/utils/FeatureUtils';
+import { useSearchParams } from '../../../common/utils/RoutingUtils';
+import {
+  BASELINE_TRACE_ID_PARAM,
+  CANDIDATE_TRACE_ID_PARAM,
+  PAIRWISE_REVIEW_MODE_PARAM,
+} from '../../components/experiment-page/components/traces-v4/hooks/useTracesV4UrlState';
 
 enum EvalRunCompareTab {
   Overview = 'overview',
@@ -20,6 +27,8 @@ export interface EvalRunCompareViewProps {
   baselineRunUuid: string;
   /** Other runs being compared against the baseline; empty until the user adds some. */
   compareRunUuids: string[];
+  /** Receives the action that starts pairwise review, or undefined when it isn't available. */
+  onPairwiseReviewActionChange?: (action: (() => void) | undefined) => void;
 }
 
 /**
@@ -27,7 +36,12 @@ export interface EvalRunCompareViewProps {
  * selection bar sits above the tab shell so the Overview and Details tabs share one
  * selection.
  */
-export const EvalRunCompareView = ({ experimentId, baselineRunUuid, compareRunUuids }: EvalRunCompareViewProps) => {
+export const EvalRunCompareView = ({
+  experimentId,
+  baselineRunUuid,
+  compareRunUuids,
+  onPairwiseReviewActionChange,
+}: EvalRunCompareViewProps) => {
   const { theme } = useDesignSystemTheme();
   const onSelectBaseline = useEvalRunComparisonBaseline(experimentId, baselineRunUuid, compareRunUuids);
   const runUuids = useMemo(
@@ -35,7 +49,15 @@ export const EvalRunCompareView = ({ experimentId, baselineRunUuid, compareRunUu
     [baselineRunUuid, compareRunUuids],
   );
   const comparisonKey = JSON.stringify([experimentId, runUuids]);
-  const [activeTab, setActiveTab] = useState<EvalRunCompareTab>(EvalRunCompareTab.Overview);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const isPairwiseReviewMode = searchParams.get(PAIRWISE_REVIEW_MODE_PARAM) === 'true';
+  // A link to a trace comparison (e.g. a shared review) opens on Details, where its drawer lives.
+  const hasTraceComparisonParams = Boolean(
+    searchParams.get(BASELINE_TRACE_ID_PARAM) && searchParams.get(CANDIDATE_TRACE_ID_PARAM),
+  );
+  const [activeTab, setActiveTab] = useState<EvalRunCompareTab>(
+    hasTraceComparisonParams ? EvalRunCompareTab.TraceView : EvalRunCompareTab.Overview,
+  );
   const [outcomeFilter, setOutcomeFilter] = useState<{
     filter: EvalRunComparisonTraceFilter;
     comparisonKey: string;
@@ -52,6 +74,63 @@ export const EvalRunCompareView = ({ experimentId, baselineRunUuid, compareRunUu
     [comparisonKey],
   );
   const hasComparison = runUuids.length > 1;
+  // The Details table owns the review action; from Overview, review switches to Details and runs it once it's there.
+  const activeTabRef = useRef(activeTab);
+  activeTabRef.current = activeTab;
+  const openPairwiseReviewRef = useRef<() => void>();
+  const pendingPairwiseReviewRef = useRef(false);
+  const handlePairwiseReviewActionChange = useCallback((action: (() => void) | undefined) => {
+    openPairwiseReviewRef.current = action;
+    if (action && activeTabRef.current === EvalRunCompareTab.TraceView && pendingPairwiseReviewRef.current) {
+      pendingPairwiseReviewRef.current = false;
+      action();
+    }
+  }, []);
+  const enablePairwiseReview = shouldEnableNewEvalRunsUi() && hasComparison;
+  const startPairwiseReview = useCallback(() => {
+    if (activeTabRef.current === EvalRunCompareTab.TraceView && openPairwiseReviewRef.current) {
+      openPairwiseReviewRef.current();
+      return;
+    }
+    pendingPairwiseReviewRef.current = true;
+    setActiveTab(EvalRunCompareTab.TraceView);
+  }, []);
+
+  useEffect(() => {
+    onPairwiseReviewActionChange?.(enablePairwiseReview ? startPairwiseReview : undefined);
+    return () => onPairwiseReviewActionChange?.(undefined);
+  }, [onPairwiseReviewActionChange, startPairwiseReview, enablePairwiseReview]);
+
+  // R starts pairwise review, or leaves it while reviewing; typing in a field doesn't count.
+  useEffect(() => {
+    if (!enablePairwiseReview) {
+      return;
+    }
+    const handleReviewShortcut = (event: KeyboardEvent) => {
+      if (event.target instanceof HTMLElement) {
+        const isEditableTarget =
+          event.target.matches('textarea, select, input:not([type="radio"]):not([type="checkbox"])') ||
+          event.target.isContentEditable ||
+          Boolean(event.target.closest('[contenteditable="true"]'));
+        if (isEditableTarget) {
+          return;
+        }
+      }
+      if (event.key.toLowerCase() === 'r' && !event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey) {
+        event.preventDefault();
+        if (isPairwiseReviewMode) {
+          setSearchParams((params) => {
+            params.delete(PAIRWISE_REVIEW_MODE_PARAM);
+            return params;
+          });
+        } else {
+          startPairwiseReview();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleReviewShortcut);
+    return () => window.removeEventListener('keydown', handleReviewShortcut);
+  }, [isPairwiseReviewMode, setSearchParams, startPairwiseReview, enablePairwiseReview]);
 
   return (
     <div
@@ -129,6 +208,7 @@ export const EvalRunCompareView = ({ experimentId, baselineRunUuid, compareRunUu
                 experimentId={experimentId}
                 runUuids={runUuids}
                 initialOutcomeFilter={outcomeFilter?.comparisonKey === comparisonKey ? outcomeFilter.filter : undefined}
+                onPairwiseReviewActionChange={handlePairwiseReviewActionChange}
               />
             </TracesV4PageWrapper>
           ) : (

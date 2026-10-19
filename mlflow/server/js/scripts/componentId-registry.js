@@ -964,6 +964,7 @@ module.exports = {
   "mlflow.eval_run_details.compare.insight.assistant": "",
   "mlflow.eval_run_details.compare.insight.scorer": "",
   "mlflow.eval_run_details.compare.retry": "",
+  "mlflow.eval_run_details.compare.review": "",
   "mlflow.eval_run_details.compare.run_link": "",
   "mlflow.eval_run_details.compare.scorers.breakdown": "",
   "mlflow.eval_run_details.compare.scorers.breakdown_trigger": "",
@@ -2530,6 +2531,7 @@ module.exports = {
   "mlflow.traces-v4.table-view-sessions-tooltip": "",
   "mlflow.traces-v4.table-view-traces-tooltip": "",
   "mlflow.traces-v4.trace-context.back-to-session": "",
+  "mlflow.traces-v4.trace-context.comparison-position": "",
   "mlflow.traces-v4.trace-context.session-id": "",
   "mlflow.traces-v4.trace-context.session-id-tooltip": "",
 
