@@ -345,10 +345,80 @@ def test_http_artifact_root_uses_presigned_only_split_server(tmp_path):
                 )
                 assert pathlib.Path(downloaded_path).read_text() == "presigned transfer"
 
-                legacy_response = requests.get(
+                proxied_response = requests.get(
                     f"{artifact_server_url}/api/2.0/mlflow-artifacts/artifacts/{object_key}"
                 )
-                assert legacy_response.status_code == 403
+                assert proxied_response.status_code == 403
+
+
+@pytest.mark.skipif(is_windows(), reason="The Moto server command is not supported on Windows")
+@pytest.mark.parametrize("proxied", [False, True])
+def test_model_version_runs_source_presigned_download(tmp_path, proxied):
+    boto3 = pytest.importorskip("boto3")
+    pytest.importorskip("moto.server")
+    moto_port = get_safe_port()
+    moto_url = f"http://{LOCALHOST}:{moto_port}"
+    server_env = {
+        **os.environ,
+        "AWS_ACCESS_KEY_ID": "testing",
+        "AWS_SECRET_ACCESS_KEY": "testing",
+        "AWS_DEFAULT_REGION": "us-east-1",
+        "MLFLOW_S3_ENDPOINT_URL": moto_url,
+    }
+    moto_cmd = [sys.executable, "-m", "moto.server", "--host", LOCALHOST, "--port", str(moto_port)]
+    with _launch_service(moto_cmd, moto_port, env=server_env, cwd=tmp_path):
+        s3 = boto3.client(
+            "s3",
+            endpoint_url=moto_url,
+            aws_access_key_id="testing",
+            aws_secret_access_key="testing",
+            region_name="us-east-1",
+        )
+        bucket = "model-version-source"
+        s3.create_bucket(Bucket=bucket)
+        port = get_safe_port()
+        url = f"http://{LOCALHOST}:{port}"
+        command = [
+            sys.executable,
+            "-m",
+            "mlflow",
+            "server",
+            "--host",
+            LOCALHOST,
+            "--port",
+            str(port),
+            "--backend-store-uri",
+            f"sqlite:///{tmp_path / 'tracking.db'}",
+            "--artifacts-destination",
+            f"s3://{bucket}",
+            "--artifacts-presigned-only",
+        ]
+        if not proxied:
+            command.extend(["--default-artifact-root", f"s3://{bucket}"])
+        with _launch_service(command, port, env=server_env, cwd=tmp_path):
+            client = MlflowClient(tracking_uri=url)
+            experiment_id = client.create_experiment("model-version-source")
+            run = client.create_run(experiment_id)
+            payload = b"artifact from registered runs source"
+            key = f"{experiment_id}/{run.info.run_id}/artifacts/model/MLmodel"
+            s3.put_object(Bucket=bucket, Key=key, Body=payload)
+            client.create_registered_model("RunsModel")
+            version = client.create_model_version(
+                "RunsModel", f"runs:/{run.info.run_id}/model", run.info.run_id
+            )
+            params = {"name": "RunsModel", "version": version.version, "path": "MLmodel"}
+            signed = requests.get(
+                f"{url}/model-versions/get-artifact", params={**params, "presigned": "true"}
+            )
+            signed.raise_for_status()
+            credentials = signed.json()
+            downloaded = requests.get(credentials["url"], headers=credentials.get("headers", {}))
+            downloaded.raise_for_status()
+            assert downloaded.content == payload
+            assert credentials["file_size"] == len(payload)
+            blocked = requests.get(f"{url}/model-versions/get-artifact", params=params)
+            assert blocked.status_code == 403
+            assert blocked.json()["artifacts_presigned_only"] is True
 
 
 def is_github_actions():

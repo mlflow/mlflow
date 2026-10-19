@@ -17,7 +17,7 @@ _PRESIGNED_ONLY_DOWNLOAD_MESSAGE = (
 )
 
 
-def reject_legacy_artifact_upload() -> None:
+def reject_proxied_artifact_upload() -> None:
     if MLFLOW_ARTIFACTS_PRESIGNED_ONLY.get():
         raise MlflowException(
             _PRESIGNED_ONLY_UPLOAD_MESSAGE,
@@ -26,7 +26,7 @@ def reject_legacy_artifact_upload() -> None:
         )
 
 
-def reject_legacy_artifact_download() -> None:
+def reject_proxied_artifact_download() -> None:
     if MLFLOW_ARTIFACTS_PRESIGNED_ONLY.get():
         raise MlflowException(
             _PRESIGNED_ONLY_DOWNLOAD_MESSAGE,

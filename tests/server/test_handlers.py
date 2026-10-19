@@ -282,6 +282,7 @@ from mlflow.server.handlers import (
 from mlflow.store._unity_catalog.registry.rest_store import UcModelRegistryStore
 from mlflow.store.artifact.artifact_repo import (
     ArtifactRepository,
+    MultipartDownloadMixin,
     PresignedUploadMixin,
 )
 from mlflow.store.artifact.azure_blob_artifact_repo import AzureBlobArtifactRepository
@@ -293,6 +294,7 @@ from mlflow.store.model_registry import (
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
 )
 from mlflow.store.model_registry.rest_store import RestStore as ModelRegistryRestStore
+from mlflow.store.model_registry.sqlalchemy_store import SqlAlchemyStore as RegistryStore
 from mlflow.store.tracking import MAX_RESULTS_QUERY_TRACE_METRICS
 from mlflow.store.tracking.databricks_rest_store import DatabricksTracingRestStore
 from mlflow.telemetry.schemas import Record, Status
@@ -7037,6 +7039,92 @@ def test_model_version_presigned_download_uses_registry_authorization(
     send_artifact.assert_not_called()
 
 
+@pytest.mark.parametrize("presigned_only", [False, True])
+@pytest.mark.parametrize("proxied", [False, True])
+@pytest.mark.parametrize("workspace", [None, "team-red"])
+def test_model_version_signing_resolves_runs_source(
+    monkeypatch, enable_serve_artifacts, presigned_only, proxied, workspace, tmp_path
+):
+    monkeypatch.setenv("MLFLOW_ARTIFACTS_PRESIGNED_ONLY", str(presigned_only).lower())
+    monkeypatch.setenv("MLFLOW_ENABLE_WORKSPACES", str(workspace is not None).lower())
+    monkeypatch.setenv("MLFLOW_PRESIGNED_DOWNLOAD_URL_TTL_SECONDS", "30")
+    registry = RegistryStore(f"sqlite:///{tmp_path / 'registry.db'}")
+    run_id = "a" * 32
+    # The SQL registry retains this URI rather than resolving it when the version is created.
+    with WorkspaceContext(workspace):
+        registry.create_registered_model("RunsModel")
+        registry.create_model_version("RunsModel", f"runs:/{run_id}/model", run_id)
+        assert registry.get_model_version_download_uri("RunsModel", "1") == f"runs:/{run_id}/model"
+        root = f"mlflow-artifacts:/12/{run_id}/artifacts" if proxied else "s3://bucket/artifacts"
+        repo = mock.MagicMock(spec=MultipartDownloadMixin)
+        repo.get_download_presigned_url.return_value = PresignedDownloadUrlResponse(
+            url="https://storage.example/signed", headers={}, file_size=12
+        )
+        with (
+            app.test_request_context(
+                query_string={
+                    "name": "RunsModel",
+                    "version": "1",
+                    "path": "MLmodel",
+                    "presigned": "true",
+                }
+            ),
+            mock.patch(
+                "mlflow.server.handlers._get_model_registry_store", return_value=registry
+            ) as get_registry,
+            mock.patch("mlflow.server.handlers._get_tracking_store") as tracking,
+            mock.patch(
+                "mlflow.server.handlers._get_artifact_repository_for_uri", return_value=repo
+            ) as direct,
+            mock.patch(
+                "mlflow.server.handlers._get_artifact_repo_mlflow_artifacts", return_value=repo
+            ) as proxy,
+            mock.patch("mlflow.server.handlers._send_artifact") as send,
+        ):
+            tracking.return_value.get_run.return_value = SimpleNamespace(
+                info=SimpleNamespace(artifact_uri=root)
+            )
+            response = get_model_version_artifact_handler()
+        assert response.status_code == 200
+        assert response.get_json()["url"] == "https://storage.example/signed"
+        get_registry.assert_called_once()
+        tracking.assert_called_once()
+        tracking.return_value.get_run.assert_called_once_with(run_id)
+        if proxied:
+            prefix = f"workspaces/{workspace}/" if workspace else ""
+            repo.get_download_presigned_url.assert_called_once_with(
+                f"{prefix}12/{run_id}/artifacts/model/MLmodel", expiration=30
+            )
+            proxy.assert_called_once()
+            direct.assert_not_called()
+        else:
+            direct.assert_called_once_with("s3://bucket/artifacts/model")
+            proxy.assert_not_called()
+            repo.get_download_presigned_url.assert_called_once_with("MLmodel", expiration=30)
+        send.assert_not_called()
+
+
+@pytest.mark.parametrize("root", ["hdfs://internal:8020/artifacts", "ftp://internal/artifacts"])
+def test_model_version_runs_source_retains_storage_host_validation(root, enable_serve_artifacts):
+    with (
+        app.test_request_context(
+            query_string={"name": "Model", "version": "1", "path": "MLmodel", "presigned": "true"}
+        ),
+        mock.patch("mlflow.server.handlers._get_model_registry_store") as registry,
+        mock.patch("mlflow.server.handlers._get_tracking_store") as tracking,
+        mock.patch("mlflow.server.handlers.get_artifact_repository") as get_repo,
+    ):
+        registry.return_value.get_model_version_download_uri.return_value = "runs:/run1/model"
+        tracking.return_value.get_run.return_value = SimpleNamespace(
+            info=SimpleNamespace(artifact_uri=root)
+        )
+        response = get_model_version_artifact_handler()
+    assert response.status_code == 400
+    registry.assert_called_once()
+    tracking.return_value.get_run.assert_called_once_with("run1")
+    get_repo.assert_not_called()
+
+
 @pytest.mark.parametrize("proxied", [False, True])
 @pytest.mark.parametrize("presigned_only", [False, True])
 def test_logged_model_presigned_request_never_streams_bytes(
@@ -7283,7 +7371,7 @@ def test_download_artifact_uses_local_path_fast_path(enable_serve_artifacts, tmp
     mock_tmp_dir.assert_not_called()
 
 
-def test_download_artifact_rejects_legacy_transfer_in_presigned_only_mode(
+def test_download_artifact_rejects_proxied_transfer_in_presigned_only_mode(
     enable_serve_artifacts, monkeypatch
 ):
     monkeypatch.setenv("MLFLOW_ARTIFACTS_PRESIGNED_ONLY", "true")
@@ -7319,12 +7407,12 @@ def test_upload_artifact_uses_stream_upload_when_mixin_supported(enable_serve_ar
     assert response.status_code == 200
 
 
-def test_upload_artifact_rejects_legacy_transfer_in_presigned_only_mode(
+def test_upload_artifact_rejects_proxied_transfer_in_presigned_only_mode(
     enable_serve_artifacts, monkeypatch
 ):
     monkeypatch.setenv("MLFLOW_ARTIFACTS_PRESIGNED_ONLY", "true")
 
-    with app.test_request_context(method="PUT", data=b"legacy upload"):
+    with app.test_request_context(method="PUT", data=b"proxied upload"):
         response = _upload_artifact("model.pkl")
 
     assert response.status_code == 403
@@ -8694,14 +8782,14 @@ def test_upload_artifact_handler_applies_workspace_scoping(monkeypatch):
         assert logged_path.startswith("workspaces/team-purple/")
 
 
-def test_upload_artifact_handler_rejects_legacy_transfer_in_presigned_only_mode(monkeypatch):
+def test_upload_artifact_handler_rejects_proxied_transfer_in_presigned_only_mode(monkeypatch):
     monkeypatch.setenv("MLFLOW_ARTIFACTS_PRESIGNED_ONLY", "true")
 
     with (
         app.test_request_context(
             method="POST",
             query_string={"run_uuid": "run1", "path": "output.txt"},
-            data=b"legacy upload",
+            data=b"proxied upload",
         ),
         mock.patch("mlflow.server.handlers._get_tracking_store") as mock_store,
     ):

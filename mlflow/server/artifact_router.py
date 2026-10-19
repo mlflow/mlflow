@@ -22,8 +22,8 @@ from fastapi.responses import FileResponse, JSONResponse, Response, StreamingRes
 
 from mlflow.exceptions import MlflowException
 from mlflow.server.artifact_transfer import (
-    reject_legacy_artifact_download,
-    reject_legacy_artifact_upload,
+    reject_proxied_artifact_download,
+    reject_proxied_artifact_upload,
 )
 from mlflow.store.artifact.artifact_repo import ARTIFACT_STREAM_CHUNK_SIZE, StreamUploadMixin
 from mlflow.store.tracking.skill_registry.artifact_paths import is_skill_upload_namespace
@@ -64,11 +64,11 @@ def _content_disposition(filename: str) -> str:
 
 @artifact_router.get(
     "/api/2.0/mlflow-artifacts/artifacts/{artifact_path:path}",
-    dependencies=[Depends(reject_legacy_artifact_download)],
+    dependencies=[Depends(reject_proxied_artifact_download)],
 )
 @artifact_router.get(
     "/ajax-api/2.0/mlflow-artifacts/artifacts/{artifact_path:path}",
-    dependencies=[Depends(reject_legacy_artifact_download)],
+    dependencies=[Depends(reject_proxied_artifact_download)],
 )
 async def download_artifact(artifact_path: str):
     if not _is_serving_proxied_artifacts():
@@ -145,11 +145,11 @@ async def download_artifact(artifact_path: str):
 
 @artifact_router.put(
     "/api/2.0/mlflow-artifacts/artifacts/{artifact_path:path}",
-    dependencies=[Depends(reject_legacy_artifact_upload)],
+    dependencies=[Depends(reject_proxied_artifact_upload)],
 )
 @artifact_router.put(
     "/ajax-api/2.0/mlflow-artifacts/artifacts/{artifact_path:path}",
-    dependencies=[Depends(reject_legacy_artifact_upload)],
+    dependencies=[Depends(reject_proxied_artifact_upload)],
 )
 async def upload_artifact(artifact_path: str, request: Request):
     if not _is_serving_proxied_artifacts():

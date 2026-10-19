@@ -335,8 +335,8 @@ from mlflow.protos.webhooks_pb2 import (
     WebhookService,
 )
 from mlflow.server.artifact_transfer import (
-    reject_legacy_artifact_download,
-    reject_legacy_artifact_upload,
+    reject_proxied_artifact_download,
+    reject_proxied_artifact_upload,
 )
 from mlflow.server.validation import _validate_content_type
 from mlflow.server.workspace_helpers import (
@@ -435,6 +435,7 @@ from mlflow.utils.server_info import (
 from mlflow.utils.string_utils import is_string_type
 from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.uri import (
+    append_to_uri_path,
     get_uri_scheme,
     is_local_uri,
     validate_path_is_safe,
@@ -1456,9 +1457,9 @@ def _disable_if_artifacts_presigned_only(*, upload=False, allow_presigned=False)
             if allow_presigned and request.args.get("presigned") == "true":
                 return func(*args, **kwargs)
             if upload:
-                reject_legacy_artifact_upload()
+                reject_proxied_artifact_upload()
             else:
-                reject_legacy_artifact_download()
+                reject_proxied_artifact_download()
             return func(*args, **kwargs)
 
         return wrapper
@@ -3515,6 +3516,18 @@ def get_model_version_artifact_handler():
     path = request.args["path"]
     path = validate_path_is_safe(path)
     artifact_uri = _get_model_registry_store().get_model_version_download_uri(name, version)
+    if request.args.get("presigned") == "true" and RunsArtifactRepository.is_runs_uri(artifact_uri):
+        run_id, source_path = RunsArtifactRepository.parse_runs_uri(artifact_uri)
+        if urllib.parse.urlparse(artifact_uri).netloc:
+            raise MlflowException.invalid_parameter_value(
+                "Run artifact sources cannot include a host."
+            )
+        source_path = validate_path_is_safe(source_path or "")
+        # Use the workspace-scoped store directly: model-version READ is sufficient,
+        # even when the caller cannot read the source run through the tracking API.
+        run_root = _get_tracking_store().get_run(run_id).info.artifact_uri
+        artifact_uri = append_to_uri_path(run_root, source_path)
+        validate_artifact_uri_host(artifact_uri)
     if _is_servable_proxied_run_artifact_root(artifact_uri):
         artifact_repo = _get_artifact_repo_mlflow_artifacts()
         artifact_path = _get_proxied_run_artifact_destination_path(

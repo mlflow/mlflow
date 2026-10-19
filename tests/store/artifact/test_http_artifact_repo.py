@@ -27,6 +27,7 @@ from mlflow.store.artifact.artifact_repository_registry import get_artifact_repo
 from mlflow.store.artifact.http_artifact_repo import HttpArtifactRepository
 from mlflow.store.artifact.mlflow_artifacts_repo import MlflowArtifactsRepository
 from mlflow.utils.credentials import get_default_host_creds
+from mlflow.utils.request_utils import cloud_storage_http_request
 from mlflow.utils.rest_utils import MlflowHostCreds
 from mlflow.utils.server_info import (
     SERVER_INFO_ARTIFACTS_PRESIGNED_ONLY,
@@ -174,7 +175,9 @@ def http_artifact_repo(monkeypatch):
     monkeypatch.setenv("MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD", "false")
     monkeypatch.setenv("MLFLOW_ENABLE_PROXY_MULTIPART_DOWNLOAD", "false")
     artifact_uri = "http://test.com/api/2.0/mlflow-artifacts/artifacts"
-    return HttpArtifactRepository(artifact_uri)
+    repo = HttpArtifactRepository(artifact_uri)
+    repo._server_capabilities = {}
+    return repo
 
 
 @pytest.fixture
@@ -183,10 +186,12 @@ def mlflow_artifact_repo_for_download():
 
     For multipart download tests.
     """
-    return MlflowArtifactsRepository(
+    repo = MlflowArtifactsRepository(
         artifact_uri="mlflow-artifacts:/",
         tracking_uri="http://test.com",
     )
+    repo._server_capabilities = {}
+    return repo
 
 
 @pytest.mark.parametrize(
@@ -869,10 +874,17 @@ def test_download_file_fallback_when_presigned_not_supported(
 
 @pytest.mark.parametrize("presigned_only", [True, False])
 @pytest.mark.parametrize("storage_status", [200, 403])
+@pytest.mark.parametrize("ignore_tls", [False, True])
 def test_download_without_file_size_uses_storage(
-    mlflow_artifact_repo_for_download, tmp_path, monkeypatch, presigned_only, storage_status
+    mlflow_artifact_repo_for_download,
+    tmp_path,
+    monkeypatch,
+    presigned_only,
+    storage_status,
+    ignore_tls,
 ):
     monkeypatch.setenv("MLFLOW_ENABLE_PROXY_MULTIPART_DOWNLOAD", str(not presigned_only).lower())
+    monkeypatch.setenv("MLFLOW_S3_IGNORE_TLS", str(ignore_tls).lower())
     payload = b"artifact bytes without a known size"
     received_headers = []
 
@@ -899,6 +911,10 @@ def test_download_without_file_size_uses_storage(
         with (
             mock.patch.object(repo, "_get_presigned_download_url", return_value=response) as sign,
             mock.patch("mlflow.store.artifact.http_artifact_repo.http_request") as proxy,
+            mock.patch(
+                "mlflow.utils.file_utils.cloud_storage_http_request",
+                wraps=cloud_storage_http_request,
+            ) as storage_request,
         ):
             destination = tmp_path / "artifact.bin"
             if storage_status == 200:
@@ -911,6 +927,9 @@ def test_download_without_file_size_uses_storage(
 
         sign.assert_called_once_with("artifact.bin")
         proxy.assert_not_called()
+        storage_request.assert_called_once_with(
+            "get", response.url, stream=True, headers=response.headers, verify=not ignore_tls
+        )
         assert len(received_headers) == 1
         assert received_headers[0]["x-storage-token"] == "signed-token"
         assert "Authorization" not in received_headers[0]

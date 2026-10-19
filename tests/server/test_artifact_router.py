@@ -213,9 +213,9 @@ def test_upload_disabled_returns_503(client_no_serve):
         ("PUT", "/ajax-api/2.0/mlflow-artifacts/artifacts/model.pkl"),
     ],
 )
-def test_presigned_only_rejects_native_legacy_artifact_routes(client_presigned_only, method, path):
+def test_presigned_only_rejects_native_proxied_artifact_routes(client_presigned_only, method, path):
     with mock.patch("mlflow.server.artifact_router._get_artifact_repo") as mock_get_repo:
-        response = client_presigned_only.request(method, path, content=b"legacy upload")
+        response = client_presigned_only.request(method, path, content=b"proxied upload")
 
     assert response.status_code == 403
     body = response.json()

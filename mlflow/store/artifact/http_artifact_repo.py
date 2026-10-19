@@ -252,7 +252,10 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
                     # on storage even when range downloads cannot be used.
                     with remove_on_error(local_path):
                         download_file_using_http_uri(
-                            presigned_response.url, local_path, headers=presigned_response.headers
+                            presigned_response.url,
+                            local_path,
+                            headers=presigned_response.headers,
+                            verify=not MLFLOW_S3_IGNORE_TLS.get(),
                         )
                 return
             except HTTPError as e:
@@ -475,7 +478,7 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         """
         chunk_size = MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get()
         # Empty artifacts still need one upload part so that presigned-only servers can accept
-        # them without using the legacy byte-stream endpoint.
+        # them without using the proxied byte-stream endpoint.
         num_parts = max(1, _compute_num_chunks(local_file, chunk_size))
 
         try:

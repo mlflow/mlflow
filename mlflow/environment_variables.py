@@ -500,7 +500,7 @@ MLFLOW_ENABLE_PROXY_MULTIPART_DOWNLOAD = _BooleanEnvironmentVariable(
     "MLFLOW_ENABLE_PROXY_MULTIPART_DOWNLOAD", False
 )
 
-#: Server-side: When enabled, reject legacy proxied artifact upload and download requests and
+#: Server-side: When enabled, reject proxied artifact upload and download requests and
 #: require clients to transfer artifact bytes directly through presigned URLs.
 #: (default: ``False``)
 MLFLOW_ARTIFACTS_PRESIGNED_ONLY = _BooleanEnvironmentVariable(
