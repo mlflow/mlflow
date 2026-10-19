@@ -12,6 +12,8 @@ any fix are verified, and skip it if fewer than 10 minutes of the run remain.
    verified values and names, and mark steps that were not measured as illustrative.
 3. **Size:** Design the figure 800px wide, the width GitHub shows it at, and keep every label
    at least 14px. Never break an identifier, path, or ID mid-token.
+4. **Theme:** Always use a dark theme. Keep secondary text at least as light as `#9da7b3` so
+   it stays readable on the dark background.
 
 Create a self-contained HTML file with CSS and inline SVG under `$out_dir/work`. Include
 `<meta charset="utf-8">`, set text colors explicitly (including `fill` for SVG text) so labels
