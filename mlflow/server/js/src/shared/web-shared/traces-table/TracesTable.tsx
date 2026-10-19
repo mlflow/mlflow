@@ -637,6 +637,9 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
           right: 0,
           bottom: -theme.spacing.xs,
           padding: 0,
+          // The row gives each child a bottom border; this one hangs below the header, so its border
+          // would draw a second line under the header's own.
+          borderBottom: 'none',
           zIndex: 101,
           pointerEvents: 'none',
         }}
