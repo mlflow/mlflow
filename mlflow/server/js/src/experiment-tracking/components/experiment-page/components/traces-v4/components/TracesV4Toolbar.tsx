@@ -63,6 +63,13 @@ export interface TracesV4ToolbarParams {
   onDetectIssues?: () => void;
   /** The "Views" saved-views dropdown, rendered far left (before the date selector). Omit to hide it. */
   savedViewsButton?: React.ReactNode;
+  /**
+   * Leave the Filters button and the spacer after it out of the right controls, for a toolbar whose
+   * search renders the filter editor itself (through `renderFilterEditor`).
+   */
+  hideFilterButton?: boolean;
+  /** Traces on the current page; with the new evaluation runs UI the filter editor suggests their values. */
+  traces?: ModelTraceInfoV3[];
 }
 
 // Column-selector options: static componentIds (lint requires static ids) + localized labels. Adding
@@ -121,6 +128,10 @@ const COLUMN_OPTIONS: ColumnSelectorOption[] = [
 ];
 
 export interface TracesV4ToolbarSlots {
+  /** The filter editor anchored to a consumer-rendered trigger, such as the unified search box. */
+  renderFilterEditor: (
+    renderTrigger: (openEditor: (filterIndex?: number) => void) => React.ReactNode,
+  ) => React.ReactNode;
   /** Rendered before the shared search box: the Views dropdown, then the date-range selector. */
   leftControls: React.ReactNode;
   /** Rendered after the shared search box: filters, columns, a spacer, Detect Issues, and refresh. */
@@ -155,6 +166,8 @@ export const useTracesV4ToolbarSlots = ({
   selectedTraceInfos,
   onDetectIssues,
   savedViewsButton,
+  hideFilterButton = false,
+  traces,
   isGroupedBySession,
   onToggleSessionGrouping,
   columnOrder,
@@ -163,7 +176,7 @@ export const useTracesV4ToolbarSlots = ({
   const intl = useIntl();
   const { theme } = useDesignSystemTheme();
   const hasSelection = selectionCount > 0;
-  const filterFields = useMlflowTraceFilterFields(assessmentColumns.candidateNames);
+  const filterFields = useMlflowTraceFilterFields(assessmentColumns.candidateNames, traces);
 
   // While grouped by session the table force-shows the Session column, so lock its column-selector
   // toggle (checked + disabled) rather than letting an unchecking click silently no-op.
@@ -302,15 +315,27 @@ export const useTracesV4ToolbarSlots = ({
         <TracesV4DateSelector experimentId={experimentId} />
       </>
     ),
+    renderFilterEditor: (renderTrigger) => (
+      <TraceFilterButton
+        fields={filterFields}
+        filterModel={filterModel}
+        onChange={onFilterChange}
+        onClearAll={onClearFilters}
+        activeCount={activeFilterCount}
+        renderTrigger={renderTrigger}
+      />
+    ),
     rightControls: (
       <>
-        <TraceFilterButton
-          fields={filterFields}
-          filterModel={filterModel}
-          onChange={onFilterChange}
-          onClearAll={onClearFilters}
-          activeCount={activeFilterCount}
-        />
+        {!hideFilterButton && (
+          <TraceFilterButton
+            fields={filterFields}
+            filterModel={filterModel}
+            onChange={onFilterChange}
+            onClearAll={onClearFilters}
+            activeCount={activeFilterCount}
+          />
+        )}
         {shouldEnableSessionGrouping() && (
           <Tooltip
             componentId="mlflow.traces-v4.group-by-session.tooltip"
@@ -362,7 +387,7 @@ export const useTracesV4ToolbarSlots = ({
             selectedTraceInfos={selectedTraceInfos}
           />
         )}
-        <div css={{ flex: 1 }} />
+        {!hideFilterButton && <div css={{ flex: 1 }} />}
         <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
           <TracesV4RefreshButton isFetching={isRefreshing} />
           {shouldEnableIssueDetection() && onDetectIssues && (
