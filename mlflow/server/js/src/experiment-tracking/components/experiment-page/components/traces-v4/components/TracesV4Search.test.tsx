@@ -115,6 +115,17 @@ const selectLatencyGreaterThanOrEqual = async () => {
 };
 
 describe('TracesV4Search', () => {
+  test('reopens suggestions when the focused input is clicked', async () => {
+    const user = userEvent.setup();
+    renderSearch();
+    await user.click(searchBox());
+    expect(searchBox()).toHaveAttribute('aria-expanded', 'true');
+    await user.keyboard('{Escape}');
+    expect(searchBox()).toHaveAttribute('aria-expanded', 'false');
+    await user.click(searchBox());
+    expect(searchBox()).toHaveAttribute('aria-expanded', 'true');
+  });
+
   test('clearing search text leaves filter pills alone', async () => {
     const user = userEvent.setup();
     renderSearch({ filterModel: [{ field: 'state', operator: FilterOp.EQUALS, value: 'OK' }] });

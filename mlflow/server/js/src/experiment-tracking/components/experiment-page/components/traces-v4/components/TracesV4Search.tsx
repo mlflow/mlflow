@@ -425,6 +425,8 @@ export const TracesV4Search = ({
       onClear={onClear}
       onOpenFilter={() => openFilter()}
       onFocusChange={setInputFocused}
+      // Reopens the suggestions when the focused input is clicked after Escape, applying or submitting.
+      onInputClick={() => setOpen(true)}
       recentOptions={recentOptions}
       suggestions={suggestions}
       chips={chips}
