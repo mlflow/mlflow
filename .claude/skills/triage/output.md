@@ -49,7 +49,7 @@ and **After**, save them under `$out_dir/media`, and cite their exact paths as d
 
 Save useful screenshots and recordings under `$out_dir/media`. Cite their exact absolute
 paths in `comment` or `pull_request.body`, for example
-`![Broken UI](/tmp/triage-out/media/broken-ui.png)`. Cite videos on their own line.
+`![Broken UI](/tmp/triage-output/media/broken-ui.png)`. Cite videos on their own line.
 The workflow uploads only cited files and rewrites their paths. Do not upload media yourself.
 
 If you wrote media, check its citations before finishing:
