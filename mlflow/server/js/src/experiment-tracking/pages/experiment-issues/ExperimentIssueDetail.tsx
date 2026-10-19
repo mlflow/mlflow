@@ -26,6 +26,16 @@ const IssueAge = ({ issue }: { issue: Issue }) => {
   return <Typography.Text color="secondary">{timeAgo}</Typography.Text>;
 };
 
+const IssueSourceRun = ({ issue }: { issue: Issue }) =>
+  issue.source_run_id ? (
+    <Link
+      componentId="mlflow.experiment-issues.source-run"
+      to={Routes.getRunPageRoute(issue.experiment_id, issue.source_run_id)}
+    >
+      <FormattedMessage defaultMessage="Source run" description="Experiment Issue source run link" />
+    </Link>
+  ) : null;
+
 export interface ExperimentIssueDetailProps {
   issue: Issue;
   onUpdateStatus: (status: IssueStatus) => void;
@@ -113,6 +123,7 @@ export const ExperimentIssueDetailHeader = ({
           <IssueCategoryTag key={category} category={category} componentId="mlflow.experiment-issues.detail.category" />
         ))}
         <IssueAge issue={issue} />
+        <IssueSourceRun issue={issue} />
       </div>
     </div>
   );
@@ -176,25 +187,6 @@ export const ExperimentIssueDetail = ({
       )}
       <ExperimentIssueDescription description={issue.description ?? ''} />
       <IssueEvidenceSection experimentId={issue.experiment_id} issueId={issue.issue_id} onViewTrace={onViewTrace} />
-      <Typography.Text color="secondary">
-        <FormattedMessage
-          defaultMessage="Last seen {time}"
-          description="Experiment Issue last observation timestamp"
-          values={{ time: Utils.formatTimestamp(issue.last_seen_timestamp ?? issue.created_timestamp) }}
-        />
-        {issue.source_run_id && (
-          <>
-            {' '}
-            ·{' '}
-            <Link
-              componentId="mlflow.experiment-issues.source-run"
-              to={Routes.getRunPageRoute(issue.experiment_id, issue.source_run_id)}
-            >
-              <FormattedMessage defaultMessage="Source run" description="Experiment Issue source run link" />
-            </Link>
-          </>
-        )}
-      </Typography.Text>
     </IssueDetailColumn>
   );
 };

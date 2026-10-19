@@ -1799,6 +1799,10 @@
     "defaultMessage": "Undo",
     "description": "Experiment page > shared view > undo button on the override confirmation toast"
   },
+  "4cAopc": {
+    "defaultMessage": "Open issue details in a new tab",
+    "description": "Tooltip for opening the issue details page in a new browser tab"
+  },
   "4cnExh": {
     "defaultMessage": "{count, plural, one {# reviewer} other {# reviewers}} selected",
     "description": "Queue settings: reviewers dropdown selected-count summary"
@@ -9835,10 +9839,6 @@
     "defaultMessage": "Input an artifact location (optional)",
     "description": "Input placeholder to enter artifact location for create experiment"
   },
-  "WwEvmi": {
-    "defaultMessage": "Last seen {time}",
-    "description": "Experiment Issue last observation timestamp"
-  },
   "WwFre9": {
     "defaultMessage": "New queue",
     "description": "Add to review queue: create new queue link"
@@ -11186,6 +11186,10 @@
   "bxI0i4": {
     "defaultMessage": "State",
     "description": "Trace filter field: run state"
+  },
+  "bxdjTE": {
+    "defaultMessage": "{count, plural, one {Issue detected: {issueName}} other {# issues detected}}",
+    "description": "Tooltip for an issue indicator on a trace span tree node"
   },
   "by+x8N": {
     "defaultMessage": "Type",

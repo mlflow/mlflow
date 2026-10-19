@@ -103,3 +103,8 @@ export {
   type IssueEvidenceStep,
   type TraceIssueReference,
 } from './IssueAssessmentUtils';
+export {
+  getIssueDetailsHref,
+  ModelTraceExplorerIssueEvidence,
+  ModelTraceExplorerIssueIndicator,
+} from './ModelTraceExplorerIssueBanner';
