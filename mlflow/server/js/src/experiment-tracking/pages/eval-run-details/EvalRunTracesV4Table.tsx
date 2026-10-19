@@ -226,7 +226,7 @@ export const EvalRunTracesV4Table = ({ experimentId, runUuid }: EvalRunTracesV4T
     filterModel,
     setFilterModel: controller.setFilterModel,
     tagFilters: url.tagFilters,
-    clearTagFilters: url.clearTagFilters,
+    setTagFilters: url.setTagFilters,
     searchInput,
   });
 

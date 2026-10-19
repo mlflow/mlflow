@@ -328,7 +328,7 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
     filterModel,
     setFilterModel: controller.setFilterModel,
     tagFilters: url.tagFilters,
-    clearTagFilters: url.clearTagFilters,
+    setTagFilters: url.setTagFilters,
     searchInput,
   });
 

@@ -10,7 +10,7 @@ interface UseTracesV4UnifiedSearchParams {
   filterModel: TraceFilterModel;
   setFilterModel: (next: TraceFilterModel) => void;
   tagFilters: { key: string; value: string }[];
-  clearTagFilters: () => void;
+  setTagFilters: (filters: { key: string; value: string }[]) => void;
   searchInput: UseDebouncedSearchInputResult;
 }
 
@@ -36,13 +36,13 @@ export const useTracesV4UnifiedSearch = ({
   filterModel,
   setFilterModel,
   tagFilters,
-  clearTagFilters,
+  setTagFilters,
   searchInput,
 }: UseTracesV4UnifiedSearchParams) => {
   const [searchMinimumWidth, setSearchMinimumWidth] = useState(340);
 
-  // Click-to-filter tags live in the URL. They show as pills too, and editing or removing any pill
-  // moves them into the filter model so the pills keep a single source.
+  // Click-to-filter tags live in the URL and show as pills too. They stay in the URL until their own
+  // pill is edited or removed, so a reload, a shared link or Back keeps them.
   const searchFilterModel = useMemo(
     () => [
       ...filterModel,
@@ -53,12 +53,19 @@ export const useTracesV4UnifiedSearch = ({
 
   const setSearchFilters = useCallback(
     (next: TraceFilterModel) => {
-      setFilterModel(next);
-      if (tagFilters.length > 0) {
-        clearTagFilters();
+      const isUrlTagClause = (clause: FilterClause) =>
+        clause.field === 'tag' &&
+        clause.operator === FilterOp.EQUALS &&
+        tagFilters.some(({ key, value }) => key === clause.key && value === clause.value);
+      const keptTagFilters = tagFilters.filter(({ key, value }) =>
+        next.some((clause) => isUrlTagClause(clause) && clause.key === key && clause.value === value),
+      );
+      setFilterModel(next.filter((clause) => !isUrlTagClause(clause)));
+      if (keptTagFilters.length !== tagFilters.length) {
+        setTagFilters(keptTagFilters);
       }
     },
-    [setFilterModel, tagFilters.length, clearTagFilters],
+    [setFilterModel, tagFilters, setTagFilters],
   );
 
   // Picking a filter replaces the typed query that produced it.
