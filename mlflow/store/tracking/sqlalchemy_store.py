@@ -9219,6 +9219,8 @@ class SqlAlchemyStore(
                 else:
                     next_token = SearchTraceUtils.create_page_token(position.offset + max_results)
             if sort_columns:
+                # Sort keys follow the optional trace count: (SqlIssue, trace_count, *sort_keys)
+                # when requested, otherwise (SqlIssue, *sort_keys).
                 results = [(row[0], row[1]) if include_trace_count else row[0] for row in results]
 
             if include_trace_count:

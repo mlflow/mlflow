@@ -82,6 +82,8 @@ const ExperimentIssuesContent = ({ experimentId }: { experimentId: string }) => 
   const controls = useIssueListControls();
   const search = useExperimentIssues(experimentId, controls.filters);
   const issues = useMemo(() => {
+    // Later pages update an Issue's data while keeping its first-seen position, so loading more
+    // does not reshuffle existing rows. Refreshing the list establishes a new sort order.
     const byId = new Map<string, Issue>();
     search.data?.pages.forEach((page) => page.issues?.forEach((issue) => byId.set(issue.issue_id, issue)));
     return Array.from(byId.values());
