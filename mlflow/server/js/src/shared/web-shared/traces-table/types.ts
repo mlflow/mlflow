@@ -28,6 +28,21 @@ export interface TraceComparisonRow {
   }[];
 }
 
+/** Already-matched conversations. Turns belong to a run; they are not matched by position. */
+export interface SessionComparisonRow {
+  kind: 'session';
+  id: string;
+  runs: {
+    runUuid: string;
+    label: string;
+    color: string;
+    sessionId?: string;
+    traces: ModelTraceInfoV3[];
+  }[];
+}
+
+export type TracesComparisonRow = TraceComparisonRow | SessionComparisonRow;
+
 /** Renders one run slot's value with access to its matched row; slot order carries no shared meaning. */
 export type ComparisonCellRenderer = (params: {
   trace: ModelTraceInfoV3;

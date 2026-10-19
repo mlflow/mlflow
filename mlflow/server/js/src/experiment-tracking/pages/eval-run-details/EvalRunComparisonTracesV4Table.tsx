@@ -13,14 +13,18 @@ import type { ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explor
 import {
   getTextColumnMaxSize,
   isTraceColumnId,
+  type SessionHrefGetter,
   type TraceColumnId,
+  type TraceComparisonRow,
   type TraceHrefGetter,
   type TracesTableViewProps,
   type TracesTableViewState,
 } from '@databricks/web-shared/traces-table';
 import { AssistantAwareDrawer } from '../../../common/components/AssistantAwareDrawer';
 import { AssistantAwareActionBar } from '../../../common/components/AssistantAwareActionBar';
-import { useLocation } from '../../../common/utils/RoutingUtils';
+import { useLocation, useSearchParams } from '../../../common/utils/RoutingUtils';
+import Routes from '../../routes';
+import { SELECTED_TRACE_ID_QUERY_PARAM } from '../../constants';
 import { useSlashFocusSearch } from '../experiment-evaluation-datasets-v2/hooks/useSlashFocusSearch';
 import { TracesV4TableSurface } from '../../components/experiment-page/components/traces-v4/components/TracesV4TableSurface';
 import { useTracesV4ToolbarSlots } from '../../components/experiment-page/components/traces-v4/components/TracesV4Toolbar';
@@ -41,6 +45,7 @@ import {
 import { EvalRunComparisonColumnSummary } from './EvalRunComparisonColumnSummary';
 import { EvalRunComparisonOutcomeFilters } from './EvalRunComparisonOutcomeFilters';
 import { withEvalRunComparisonAssessmentDeltas } from './evalRunComparisonAssessmentColumns';
+import { buildComparisonSessionAssessmentColumns } from './EvalRunComparisonSessionAssessmentCell';
 
 const NO_SELECTION = new Map<string, ModelTraceInfoV3>();
 const NO_TRACES: ModelTraceInfoV3[] = [];
@@ -64,8 +69,15 @@ const moveColumn = (order: string[], activeColumn: string, targetColumn: string)
 
 export type EvalRunComparisonTracesV4TableProps = EvalRunComparisonTracesV4Params;
 
-/** Matches the compared runs' traces by input and shows one row per input with a sub-row per run. */
+/** Matches the compared runs' traces by input (or sessions by scenario) and shows a sub-row per run. */
 export const EvalRunComparisonTracesV4Table = (props: EvalRunComparisonTracesV4TableProps) => {
+  const [searchParams] = useSearchParams();
+  const sessionMode = searchParams.get('comparisonGroupBy') === 'session';
+  // Storage hooks read their namespace at mount; do not carry trace preferences into session mode.
+  return <EvalRunComparisonTracesV4Content key={sessionMode ? 'sessions' : 'traces'} {...props} />;
+};
+
+const EvalRunComparisonTracesV4Content = (props: EvalRunComparisonTracesV4TableProps) => {
   const { experimentId } = props;
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -82,6 +94,7 @@ export const EvalRunComparisonTracesV4Table = (props: EvalRunComparisonTracesV4T
     setAggregateMethod,
     allTraces,
   } = controller;
+  const isGroupedBySession = criteria.isGroupedBySession;
   const { density, setDensity } = useTracesV4Density(controller.persistenceId);
   const { refetch } = controller;
   const refetchComparison = useCallback(() => void refetch(), [refetch]);
@@ -103,7 +116,17 @@ export const EvalRunComparisonTracesV4Table = (props: EvalRunComparisonTracesV4T
     (trace: ModelTraceInfoV3) => url.setTraceId(getEvalRunComparisonTraceId(trace)),
     [url],
   );
-  const visibleColumns = useMemo(() => columns.visibleColumns.filter(isShownColumn), [columns.visibleColumns]);
+  const getSessionHref = useCallback<SessionHrefGetter>(
+    ({ trace, sessionId }) => {
+      const base = Routes.getExperimentPageTabSingleChatSessionRoute(experimentId, sessionId);
+      return `${base}?${new URLSearchParams({ [SELECTED_TRACE_ID_QUERY_PARAM]: trace.trace_id }).toString()}`;
+    },
+    [experimentId],
+  );
+  const visibleColumns = useMemo<TraceColumnId[]>(() => {
+    const visible = columns.visibleColumns.filter(isShownColumn);
+    return isGroupedBySession ? [...new Set<TraceColumnId>(['session', ...visible, 'input', 'output'])] : visible;
+  }, [columns.visibleColumns, isGroupedBySession]);
   const filterableColumns = useMemo(
     () => [
       { id: 'state', label: intl.formatMessage({ defaultMessage: 'State', description: 'Trace state column' }) },
@@ -164,8 +187,24 @@ export const EvalRunComparisonTracesV4Table = (props: EvalRunComparisonTracesV4T
     [assessments.columnDefs, assessmentInfos, aggregateMethods, setAggregateMethod],
   );
   const extraColumns = useMemo(
-    () => withEvalRunComparisonAssessmentDeltas(traceAssessmentColumnDefs, allTraces, controller.rows, intl),
-    [traceAssessmentColumnDefs, allTraces, controller.rows, intl],
+    () =>
+      isGroupedBySession
+        ? buildComparisonSessionAssessmentColumns(assessments.columnDefs, controller.sessionAssessmentInfos)
+        : withEvalRunComparisonAssessmentDeltas(
+            traceAssessmentColumnDefs,
+            allTraces,
+            controller.rows.filter((row): row is TraceComparisonRow => row.kind !== 'session'),
+            intl,
+          ),
+    [
+      assessments.columnDefs,
+      traceAssessmentColumnDefs,
+      controller.sessionAssessmentInfos,
+      isGroupedBySession,
+      allTraces,
+      controller.rows,
+      intl,
+    ],
   );
   const columnHeaderSummaries = useMemo(
     () =>
@@ -177,10 +216,15 @@ export const EvalRunComparisonTracesV4Table = (props: EvalRunComparisonTracesV4T
               <EvalRunComparisonColumnSummary
                 aggregate={aggregate}
                 runs={summaryRuns}
+                isGroupedBySession={isGroupedBySession}
                 columnLabel={columnLabels.get(columnId) ?? assessmentNameFromColumnId(columnId)}
                 higherIsBetter={isAssessmentColumnId(columnId)}
                 filterOptionCounts={filterOptionAggregates[columnId]?.values.map(({ changeCounts }) => changeCounts)}
-                onOutcomeClick={(runUuid, outcome) => toggleOutcomeFilter({ columnId, runUuid, outcome })}
+                onOutcomeClick={
+                  isGroupedBySession
+                    ? undefined
+                    : (runUuid, outcome) => toggleOutcomeFilter({ columnId, runUuid, outcome })
+                }
                 activeOutcomes={Object.fromEntries(
                   outcomeFilters
                     .filter((filter) => filter.columnId === columnId)
@@ -221,6 +265,7 @@ export const EvalRunComparisonTracesV4Table = (props: EvalRunComparisonTracesV4T
       columnLabels,
       intl,
       theme,
+      isGroupedBySession,
     ],
   );
   const comparisonColumnSizing = useMemo(
@@ -229,10 +274,13 @@ export const EvalRunComparisonTracesV4Table = (props: EvalRunComparisonTracesV4T
   );
   const defaultColumnOrder = useMemo(
     () =>
-      buildEvalRunTableColumnOrder(columns.columnOrder, assessments.visibleIds, allTraces, []).filter(
-        (id) => !isTraceColumnId(id) || isShownColumn(id),
-      ),
-    [assessments.visibleIds, columns.columnOrder, allTraces],
+      buildEvalRunTableColumnOrder(
+        columns.columnOrder,
+        assessments.visibleIds,
+        allTraces,
+        controller.sessionAssessmentInfos.map((info) => info.name),
+      ).filter((id) => !isTraceColumnId(id) || isShownColumn(id)),
+    [assessments.visibleIds, columns.columnOrder, allTraces, controller.sessionAssessmentInfos],
   );
   // A drag in the column selector reorders this comparison until it changes, as on the single-run page.
   const [reorderedColumns, setReorderedColumns] = useState<string[]>();
@@ -278,11 +326,18 @@ export const EvalRunComparisonTracesV4Table = (props: EvalRunComparisonTracesV4T
     activeFilterCount,
     filterFields: controller.filterFields,
     validateFilters: controller.validateFilters,
-    filterDescription: intl.formatMessage({
-      defaultMessage: 'Keep a comparison row when one trace matches all filters and the search.',
-      description: 'Comparison filter semantics shown in the filter builder',
-    }),
-    showSessionGrouping: false,
+    filterDescription: isGroupedBySession
+      ? intl.formatMessage({
+          defaultMessage:
+            'Keep every turn and run in a session comparison when one trace matches all filters and the search. Filters use individual trace values, not session scores or totals.',
+          description: 'Trace-level filtering semantics in the session comparison',
+        })
+      : intl.formatMessage({
+          defaultMessage: 'Keep a comparison row when one trace matches all filters and the search.',
+          description: 'Comparison filter semantics shown in the filter builder',
+        }),
+    // Outcome filters only match traces, so session grouping is offered only without them.
+    showSessionGrouping: outcomeFilters.length === 0,
     visibleColumns,
     columnOrder: comparisonColumnOrder,
     onReorderColumn: reorderColumn,
@@ -300,8 +355,8 @@ export const EvalRunComparisonTracesV4Table = (props: EvalRunComparisonTracesV4T
     experimentId,
     actions,
     selectedTraceInfos: NO_TRACES,
-    isGroupedBySession: false,
-    onToggleSessionGrouping: noop,
+    isGroupedBySession,
+    onToggleSessionGrouping: criteria.setIsGroupedBySession,
   });
   const error = useMemo(
     () =>
@@ -328,6 +383,11 @@ export const EvalRunComparisonTracesV4Table = (props: EvalRunComparisonTracesV4T
     viewState,
     traces: controller.pageTraces,
     comparisonRows: controller.rows,
+    expandedComparisonGroups: controller.expandedComparisonGroups,
+    onToggleComparisonGroup: controller.toggleComparisonGroup,
+    expandedComparisonRuns: controller.expandedComparisonRuns,
+    onToggleComparisonRun: controller.toggleComparisonRun,
+    isGroupedBySession,
     columnHeaderSummaries,
     visibleColumns,
     extraColumns,
@@ -339,6 +399,7 @@ export const EvalRunComparisonTracesV4Table = (props: EvalRunComparisonTracesV4T
     skeletonRowCount: controller.pageSize,
     onTraceSelected,
     getTraceHref,
+    getSessionHref,
     selectedTraceId: controller.activeTraceId,
     selectedForBulk: NO_SELECTION,
     isAllOnPageSelected: false,
@@ -349,11 +410,17 @@ export const EvalRunComparisonTracesV4Table = (props: EvalRunComparisonTracesV4T
     dir: criteria.dir,
     onSort: criteria.setSort,
     enableSorting: true,
-    sortTooltip: intl.formatMessage({
-      defaultMessage:
-        'Groups are sorted by the baseline trace’s value. Ties use the other runs in displayed order. Missing values appear last.',
-      description: 'Explains baseline-first comparison group sorting on the active column sort toggle',
-    }),
+    sortTooltip: isGroupedBySession
+      ? intl.formatMessage({
+          defaultMessage:
+            'Groups are sorted by the baseline session’s summary. Ties use the other runs in displayed order. Missing values appear last. Turns remain chronological.',
+          description: 'Explains sorting complete matched sessions',
+        })
+      : intl.formatMessage({
+          defaultMessage:
+            'Groups are sorted by the baseline trace’s value. Ties use the other runs in displayed order. Missing values appear last.',
+          description: 'Explains baseline-first comparison group sorting on the active column sort toggle',
+        }),
     onHideColumn: hideColumn,
     previewLineClamp: PREVIEW_LINES[density],
     searchValue: searchInput.input,
@@ -374,11 +441,19 @@ export const EvalRunComparisonTracesV4Table = (props: EvalRunComparisonTracesV4T
     hasPrev: controller.hasPrev,
     paginationLeadingContent: (
       <Typography.Text color="secondary">
-        <FormattedMessage
-          defaultMessage="{count, plural, one {# comparison row} other {# comparison rows}}"
-          description="Number of matched input rows in the run comparison"
-          values={{ count: controller.totalRows }}
-        />
+        {isGroupedBySession ? (
+          <FormattedMessage
+            defaultMessage="{count, plural, one {# comparison group} other {# comparison groups}}"
+            description="Number of matched session or standalone trace groups"
+            values={{ count: controller.totalRows }}
+          />
+        ) : (
+          <FormattedMessage
+            defaultMessage="{count, plural, one {# comparison row} other {# comparison rows}}"
+            description="Number of matched input rows in the run comparison"
+            values={{ count: controller.totalRows }}
+          />
+        )}
       </Typography.Text>
     ),
     PaginationBarWrapper: AssistantAwareActionBar,
@@ -391,15 +466,17 @@ export const EvalRunComparisonTracesV4Table = (props: EvalRunComparisonTracesV4T
     customEmptyState: viewState === 'empty' ? <EvalRunTracesEmptyState /> : undefined,
     bannerSlot: (
       <>
-        <EvalRunComparisonOutcomeFilters
-          filters={outcomeFilters}
-          aggregates={filterOptionAggregates}
-          columns={filterableColumns}
-          runs={summaryRuns}
-          onReplace={controller.replaceOutcomeFilter}
-          onRemove={controller.removeOutcomeFilter}
-          onClear={controller.clearOutcomeFilters}
-        />
+        {!isGroupedBySession && (
+          <EvalRunComparisonOutcomeFilters
+            filters={outcomeFilters}
+            aggregates={filterOptionAggregates}
+            columns={filterableColumns}
+            runs={summaryRuns}
+            onReplace={controller.replaceOutcomeFilter}
+            onRemove={controller.removeOutcomeFilter}
+            onClear={controller.clearOutcomeFilters}
+          />
+        )}
         {controller.filterError && (
           <Alert
             componentId="mlflow.eval-run-comparison.invalid-filters"
@@ -417,11 +494,19 @@ export const EvalRunComparisonTracesV4Table = (props: EvalRunComparisonTracesV4T
             componentId="mlflow.eval-run-comparison.traces-cap"
             type="warning"
             message={
-              <FormattedMessage
-                defaultMessage="Comparison is limited to {limit, number} traces per run. Matches and results may be incomplete."
-                description="Warning when the run comparison trace fetch limit is reached"
-                values={{ limit: data.traceLimit }}
-              />
+              isGroupedBySession ? (
+                <FormattedMessage
+                  defaultMessage="Comparison is limited to {limit, number} traces per run. Sessions may have missing turns, and matches and summaries may be incomplete."
+                  description="Loaded session summaries may be partial when the trace cap is reached"
+                  values={{ limit: data.traceLimit }}
+                />
+              ) : (
+                <FormattedMessage
+                  defaultMessage="Comparison is limited to {limit, number} traces per run. Matches and results may be incomplete."
+                  description="Warning when the run comparison trace fetch limit is reached"
+                  values={{ limit: data.traceLimit }}
+                />
+              )
             }
           />
         )}
@@ -438,7 +523,7 @@ export const EvalRunComparisonTracesV4Table = (props: EvalRunComparisonTracesV4T
           renderAddToReviewQueueDropdown: actions.AddToReviewQueueDropdown,
           DrawerComponent: AssistantAwareDrawer,
         },
-        genAITracesTable: { experimentId, getTrace: actions.getTrace, isGroupedBySession: false },
+        genAITracesTable: { experimentId, getTrace: actions.getTrace, isGroupedBySession },
       }}
       drawerProps={{
         traceId: controller.activeTraceId,

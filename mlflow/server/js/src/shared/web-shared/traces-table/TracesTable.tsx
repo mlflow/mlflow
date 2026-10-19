@@ -31,7 +31,11 @@ import { createTraceV4LongIdentifier } from '../model-trace-explorer/ModelTraceE
 import type { ModelTraceInfoV3 } from '../model-trace-explorer/ModelTrace.types';
 import { SESSION_ID_METADATA_KEY } from '../model-trace-explorer/constants';
 import { doesTraceSupportV4API } from '../genai-traces-table/utils/TraceLocationUtils';
-import { getTraceInfoInputs, getTraceInfoOutputs } from '../genai-traces-table/utils/TraceUtils';
+import {
+  getTraceInfoInputPreview,
+  getTraceInfoInputs,
+  getTraceInfoOutputs,
+} from '../genai-traces-table/utils/TraceUtils';
 import { Link } from '../genai-traces-table/utils/RoutingUtils';
 import { type ColumnSizingState, flexRender, getCoreRowModel, type Row } from '@tanstack/react-table';
 import { Fragment, memo, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
@@ -45,10 +49,12 @@ import type {
   TraceColumnId,
   TraceColumnHeaderAction,
   TraceColumnHeaderSummary,
+  SessionComparisonRow,
   TraceComparisonRow,
   TraceHrefGetter,
   TraceSortColumnId,
   TraceTableColumn,
+  TracesComparisonRow,
 } from './types';
 import { getVisibleColumnDefs, type TracesTableMeta } from './columns';
 import { getContentColumnMaxSizes } from './getColumnMaxSizes';
@@ -120,6 +126,8 @@ const COMPARISON_RUN_COLUMN: TraceTableColumn = {
   header: () => null,
   cell: () => null,
 };
+// In session comparisons the Session column also holds the group hierarchy and each run's identity.
+const COMPARISON_SESSION_HIERARCHY_WIDTH = 180;
 // A trace can appear in more than one run of a comparison, so a table row is a (trace, run) slot.
 const comparisonSlotId = (traceId: string, runUuid: string) => JSON.stringify([traceId, runUuid]);
 
@@ -271,7 +279,12 @@ const TraceTableHeaderDragOverlay = ({ label }: TraceTableHeaderDragOverlayProps
 export interface TracesTableProps {
   traces: ModelTraceInfoV3[];
   /** Consumer-matched input rows, one sub-row per run. Bulk selection is unavailable in this presentation. */
-  comparisonRows?: TraceComparisonRow[];
+  comparisonRows?: TracesComparisonRow[];
+  /** With `comparisonRows` grouped by session: the open groups and, within each, the runs whose turns are open. */
+  expandedComparisonGroups?: ReadonlySet<string>;
+  onToggleComparisonGroup?: (comparisonId: string) => void;
+  expandedComparisonRuns?: ReadonlyMap<string, ReadonlySet<string>>;
+  onToggleComparisonRun?: (comparisonId: string, runUuid: string) => void;
   visibleColumns: TraceColumnId[];
   /** Product-specific columns appended after the standard columns. Memoize a stable reference. */
   extraColumns?: TraceTableColumn[];
@@ -366,6 +379,10 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
   function TracesTable({
     traces,
     comparisonRows,
+    expandedComparisonGroups,
+    onToggleComparisonGroup,
+    expandedComparisonRuns,
+    onToggleComparisonRun,
     visibleColumns,
     extraColumns,
     columnOrder,
@@ -404,6 +421,7 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
     const { theme } = useDesignSystemTheme();
     const intl = useIntl();
     const isComparison = comparisonRows !== undefined;
+    const isSessionComparison = isComparison && isGroupedBySession;
     // Keep the checkbox centered and leave a full spacing token before the first data column.
     const selectCellCss = {
       '.table-row-select-cell': { alignItems: 'center', paddingRight: theme.spacing.sm },
@@ -429,13 +447,14 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
         ? [...visibleColumnDefs].sort((left, right) => getGroupedColumnRank(left.id) - getGroupedColumnRank(right.id))
         : visibleColumnDefs;
       // Comparison rows pin Input first, then the Run identity column, then the value columns.
-      const presentedColumnDefs = isComparison
-        ? [
-            ...orderedVisibleColumnDefs.filter((column) => column.id === 'input'),
-            COMPARISON_RUN_COLUMN,
-            ...orderedVisibleColumnDefs.filter((column) => column.id !== 'input'),
-          ]
-        : orderedVisibleColumnDefs;
+      const presentedColumnDefs =
+        isComparison && !isSessionComparison
+          ? [
+              ...orderedVisibleColumnDefs.filter((column) => column.id === 'input'),
+              COMPARISON_RUN_COLUMN,
+              ...orderedVisibleColumnDefs.filter((column) => column.id !== 'input'),
+            ]
+          : orderedVisibleColumnDefs;
       // Product-specific column ids are intentionally absent and resolve to undefined.
       const contentMaxSizes: Readonly<Record<string, number | undefined>> = getContentColumnMaxSizes(traces, intl);
       return presentedColumnDefs.map((column) => {
@@ -444,6 +463,19 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
         }
         const contentMaxSize = contentMaxSizes[column.id];
         const persistedSize = initialColumnSizing[column.id];
+        if (isSessionComparison && column.id === 'session') {
+          // The hierarchy and run identity share the resizable Session column in comparison mode.
+          return {
+            ...column,
+            minSize: Math.max(column.minSize ?? 0, COMPARISON_SESSION_HIERARCHY_WIDTH),
+            size: (column.size ?? 0) + COMPARISON_SESSION_HIERARCHY_WIDTH,
+            maxSize: Math.max(
+              column.maxSize ?? 0,
+              (contentMaxSize ?? 0) + COMPARISON_SESSION_HIERARCHY_WIDTH,
+              persistedSize ?? 0,
+            ),
+          };
+        }
         const summaryMinWidth = columnHeaderSummaries?.[column.id]?.minWidth;
         if (summaryMinWidth !== undefined) {
           // A header summary must fit every run's value, so it sets the column's minimum width.
@@ -467,6 +499,7 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
       extraColumns,
       isGroupedBySession,
       isComparison,
+      isSessionComparison,
       traces,
       intl,
       initialColumnSizing,
@@ -508,7 +541,10 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
       () =>
         comparisonRows?.flatMap((row) =>
           row.runs.flatMap((run) =>
-            run.trace ? [{ id: comparisonSlotId(run.trace.trace_id, run.runUuid), trace: run.trace }] : [],
+            ('traces' in run ? run.traces : run.trace ? [run.trace] : []).map((trace) => ({
+              id: comparisonSlotId(trace.trace_id, run.runUuid),
+              trace,
+            })),
           ),
         ),
       [comparisonRows],
@@ -679,7 +715,7 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
     const selectCellWidth = isComparison ? 0 : theme.spacing.md + theme.spacing.sm * 2;
     // Grouped mode inserts a leading expand/collapse toggle cell (a small button) before the columns;
     // reserve its width so header, session, and trace rows all stay column-aligned.
-    const sessionToggleWidth = isGroupedBySession ? theme.general.heightSm + theme.spacing.xs : 0;
+    const sessionToggleWidth = isGroupedBySession && !isComparison ? theme.general.heightSm + theme.spacing.xs : 0;
     const rowWidth = leafHeaders.reduce(
       (total, header) => total + header.getSize(),
       selectCellWidth + sessionToggleWidth,
@@ -866,12 +902,14 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
       zIndex: 1,
       backgroundColor: theme.colors.backgroundPrimary,
     } as const;
-    const comparisonInputHeader = isComparison ? leafHeaders.find((header) => header.column.id === 'input') : undefined;
+    const comparisonInputHeader =
+      isComparison && !isSessionComparison ? leafHeaders.find((header) => header.column.id === 'input') : undefined;
     const comparisonRunHeader = isComparison
       ? leafHeaders.find((header) => header.column.id === COMPARISON_RUN_COLUMN_ID)
       : undefined;
     const comparisonValueHeaders = leafHeaders.filter(
-      (header) => header.column.id !== 'input' && header.column.id !== COMPARISON_RUN_COLUMN_ID,
+      (header) =>
+        (isSessionComparison || header.column.id !== 'input') && header.column.id !== COMPARISON_RUN_COLUMN_ID,
     );
     const hasSummaryHeaders = leafHeaders.some((header) => Boolean(columnHeaderSummaries?.[header.column.id]));
     const growingComparisonColumnCount = leafHeaders.filter((header) => GROWING_COLUMNS.has(header.column.id)).length;
@@ -888,7 +926,7 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
       ...comparisonValueHeaders.map(getComparisonColumnWidth),
     ].join(' ');
     const comparisonRunGridColumn = comparisonInputHeader ? 2 : 1;
-    const comparisonValueGridColumnOffset = comparisonRunGridColumn + 1;
+    const comparisonValueGridColumnOffset = comparisonRunHeader ? comparisonRunGridColumn + 1 : 1;
     const comparisonCellRenderers = new Map(
       columns.flatMap((column) =>
         column.id && column.renderComparisonCell ? [[column.id, column.renderComparisonCell] as const] : [],
@@ -927,7 +965,9 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
           setColumnSizing={table.setColumnSizing}
           style={{
             ...columnStyles.get(columnId),
-            ...(columnId === 'input' ? { ...pinnedComparisonInputStyle, zIndex: 2 } : undefined),
+            ...(columnId === 'input' && !isSessionComparison
+              ? { ...pinnedComparisonInputStyle, zIndex: 2 }
+              : undefined),
           }}
           wrapContent={false}
         >
@@ -1066,21 +1106,31 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
                 </TableCell>
               )}
               {comparisonValueHeaders.map((header, columnIndex) => {
+                // Session comparisons have no pinned Input column, so the input spans the run sub-rows here.
+                const isInput = isSessionComparison && header.column.id === 'input';
+                if (isInput && runIndex > 0) {
+                  return null;
+                }
                 const cell = row?.getVisibleCells().find((candidate) => candidate.column.id === header.column.id);
                 const renderComparisonCell = comparisonCellRenderers.get(header.column.id);
                 return (
                   <TableCell
                     key={header.id}
                     wrapContent={false}
+                    aria-rowspan={isInput ? comparison.runs.length : undefined}
                     style={{
                       gridColumn: comparisonValueGridColumnOffset + columnIndex,
-                      gridRow: runIndex + 1,
+                      gridRow: isInput ? `1 / span ${comparison.runs.length}` : runIndex + 1,
                       minWidth: 0,
-                      backgroundColor: isSelected ? theme.colors.tableBackgroundUnselectedHover : undefined,
+                      backgroundColor: !isInput && isSelected ? theme.colors.tableBackgroundUnselectedHover : undefined,
                     }}
                     css={comparisonCellCss}
                   >
-                    {cell && trace ? (
+                    {isSessionComparison && header.column.id === 'session' ? (
+                      renderComparisonRunLabel(run)
+                    ) : isInput ? (
+                      renderSessionPreview(comparison.input)
+                    ) : cell && trace ? (
                       renderComparisonCell ? (
                         renderComparisonCell({ trace, row: comparison, runIndex })
                       ) : (
@@ -1098,7 +1148,329 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
       </div>
     );
 
-    const renderComparisonTable = (rows: TraceComparisonRow[]) => (
+    // A tree guide for session comparisons: a vertical line through the group, with a branch to each row.
+    const renderComparisonGuide = (
+      isLast: boolean,
+      { width, showBranch = true, verticalPadding }: { width: number; showBranch?: boolean; verticalPadding: number },
+    ) => (
+      <div
+        aria-hidden
+        css={{
+          position: 'relative',
+          alignSelf: 'stretch',
+          width,
+          flexShrink: 0,
+          '&::before': {
+            content: "''",
+            position: 'absolute',
+            top: -verticalPadding,
+            bottom: isLast ? '50%' : -verticalPadding,
+            left: theme.general.heightSm / 2,
+            borderLeft: `1px solid ${theme.colors.borderDecorative}`,
+          },
+          '&::after': {
+            content: showBranch ? "''" : undefined,
+            position: 'absolute',
+            top: '50%',
+            left: theme.general.heightSm / 2,
+            width: theme.spacing.sm,
+            borderTop: `1px solid ${theme.colors.borderDecorative}`,
+          },
+        }}
+      />
+    );
+
+    const renderSessionComparisonRow = (comparison: SessionComparisonRow) => {
+      const expanded = expandedComparisonGroups?.has(comparison.id) ?? false;
+      const expandedRuns = expandedComparisonRuns?.get(comparison.id);
+      const populatedRuns = comparison.runs.filter((run) => run.traces.length > 0);
+      const sharedSessionId = populatedRuns[0]?.sessionId;
+      const sessionLabel =
+        sharedSessionId && populatedRuns.every((run) => run.sessionId === sharedSessionId)
+          ? sharedSessionId
+          : intl.formatMessage({
+              defaultMessage: 'Matched sessions',
+              description: 'Label for a comparison group containing different session IDs across runs',
+            });
+      const turnCount = populatedRuns.reduce((count, run) => count + run.traces.length, 0);
+      const guideOptions = {
+        width: theme.general.heightSm + theme.spacing.xs,
+        verticalPadding: theme.spacing.xs + 2,
+      };
+      const comparisonRowStyle = { ...rowWidthStyle, minHeight: dataRowStyle.minHeight };
+      return (
+        <Fragment key={comparison.id}>
+          <TableRow
+            aria-label={intl.formatMessage(
+              {
+                defaultMessage: 'Session comparison {sessionId}',
+                description: 'Parent row for a matched group of run sessions',
+              },
+              { sessionId: sessionLabel },
+            )}
+            style={comparisonRowStyle}
+            css={rowPaddingCss}
+          >
+            <TableCell wrapContent={false} style={{ flex: 1 }}>
+              <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm, minWidth: 0 }}>
+                <Button
+                  componentId={`${COMPONENT_ID}.comparison-session-toggle`}
+                  size="small"
+                  icon={expanded ? <ChevronDownIcon /> : <ChevronRightIcon />}
+                  aria-expanded={expanded}
+                  aria-label={
+                    expanded
+                      ? intl.formatMessage(
+                          {
+                            defaultMessage: 'Collapse session comparison {sessionId}',
+                            description: 'Collapse the run rows within a matched session comparison',
+                          },
+                          { sessionId: sessionLabel },
+                        )
+                      : intl.formatMessage(
+                          {
+                            defaultMessage: 'Expand session comparison {sessionId}',
+                            description: 'Expand the run rows within a matched session comparison',
+                          },
+                          { sessionId: sessionLabel },
+                        )
+                  }
+                  onClick={() => onToggleComparisonGroup?.(comparison.id)}
+                />
+                <Typography.Text bold ellipsis title={sessionLabel}>
+                  {sessionLabel}
+                </Typography.Text>
+                <Typography.Text size="sm" color="secondary">
+                  {intl.formatMessage(
+                    {
+                      defaultMessage: '{runCount} · {turnCount}',
+                      description: 'Number of populated runs and loaded trace turns in a session comparison group',
+                    },
+                    {
+                      runCount: intl.formatMessage(
+                        {
+                          defaultMessage: '{count, plural, one {# run} other {# runs}}',
+                          description: 'Number of populated runs in a session comparison group',
+                        },
+                        { count: populatedRuns.length },
+                      ),
+                      turnCount: intl.formatMessage(
+                        {
+                          defaultMessage: '{count, plural, one {# turn} other {# turns}}',
+                          description: 'Number of loaded trace turns across runs in a session comparison group',
+                        },
+                        { count: turnCount },
+                      ),
+                    },
+                  )}
+                </Typography.Text>
+              </div>
+            </TableCell>
+          </TableRow>
+          {expanded &&
+            comparison.runs.map((run, runIndex) => {
+              const first = run.traces[0];
+              const last = run.traces.at(-1);
+              const firstRow = first ? table.getRow(comparisonSlotId(first.trace_id, run.runUuid)) : undefined;
+              const lastRow = last ? table.getRow(comparisonSlotId(last.trace_id, run.runUuid)) : undefined;
+              const runExpanded = Boolean(first && expandedRuns?.has(run.runUuid));
+              const isLastRun = runIndex === comparison.runs.length - 1;
+              const runIdentity = (
+                <div css={{ display: 'flex', alignItems: 'center', alignSelf: 'stretch', minWidth: 0 }}>
+                  {renderComparisonGuide(isLastRun, guideOptions)}
+                  <div css={{ width: theme.general.heightSm, flexShrink: 0 }}>
+                    {first && (
+                      <Button
+                        componentId={`${COMPONENT_ID}.comparison-session-run-toggle`}
+                        size="small"
+                        icon={runExpanded ? <ChevronDownIcon /> : <ChevronRightIcon />}
+                        aria-expanded={runExpanded}
+                        aria-label={
+                          runExpanded
+                            ? intl.formatMessage(
+                                {
+                                  defaultMessage: 'Collapse {runName} session {sessionId}',
+                                  description: 'Collapse one run’s turns within a matched session comparison',
+                                },
+                                { runName: run.label, sessionId: run.sessionId ?? sessionLabel },
+                              )
+                            : intl.formatMessage(
+                                {
+                                  defaultMessage: 'Expand {runName} session {sessionId}',
+                                  description: 'Expand one run’s turns within a matched session comparison',
+                                },
+                                { runName: run.label, sessionId: run.sessionId ?? sessionLabel },
+                              )
+                        }
+                        onClick={() => onToggleComparisonRun?.(comparison.id, run.runUuid)}
+                      />
+                    )}
+                  </div>
+                  <div css={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                    <Tooltip componentId={`${COMPONENT_ID}.comparison-session-run-tooltip`} content={run.label}>
+                      <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm, minWidth: 0 }}>
+                        <span
+                          aria-hidden
+                          css={{
+                            backgroundColor: run.color,
+                            width: theme.spacing.sm,
+                            height: theme.spacing.sm,
+                            borderRadius: '50%',
+                            flexShrink: 0,
+                          }}
+                        />
+                        <Typography.Text ellipsis>{run.label}</Typography.Text>
+                      </div>
+                    </Tooltip>
+                    {first && run.sessionId ? (
+                      renderSessionHeaderCell(run.sessionId, first)
+                    ) : (
+                      <Typography.Text color="secondary">—</Typography.Text>
+                    )}
+                  </div>
+                </div>
+              );
+              return (
+                <Fragment key={run.runUuid}>
+                  <TableRow
+                    aria-label={
+                      run.sessionId
+                        ? intl.formatMessage(
+                            {
+                              defaultMessage: '{runName} session {sessionId}',
+                              description: 'Summary row for one run in a matched session comparison',
+                            },
+                            { runName: run.label, sessionId: run.sessionId },
+                          )
+                        : intl.formatMessage(
+                            {
+                              defaultMessage: '{runName} session unavailable',
+                              description: 'Placeholder row for a run with no matching session',
+                            },
+                            { runName: run.label },
+                          )
+                    }
+                    style={comparisonRowStyle}
+                    css={rowPaddingCss}
+                  >
+                    {leafHeaders.map((header) => {
+                      const sourceRow = header.column.id === 'state' ? lastRow : firstRow;
+                      const cell = sourceRow
+                        ?.getVisibleCells()
+                        .find((candidate) => candidate.column.id === header.column.id);
+                      return (
+                        <TableCell key={header.id} wrapContent={false} style={columnStyles.get(header.column.id)}>
+                          {header.column.id === 'session' ? (
+                            runIdentity
+                          ) : (
+                            <div css={{ display: 'flex', alignItems: 'center', minWidth: 0 }}>
+                              {!first ? (
+                                <Typography.Text color="secondary">—</Typography.Text>
+                              ) : header.column.id === 'input' ? (
+                                renderSessionPreview(getTraceInfoInputPreview(first), 'secondary')
+                              ) : header.column.id === 'output' ? (
+                                renderSessionPreview(getTraceInfoOutputs(last ?? first))
+                              ) : (header.column.id === 'start_time' || header.column.id === 'state') && cell ? (
+                                flexRender(cell.column.columnDef.cell, cell.getContext())
+                              ) : (
+                                (sessionCellRenderers.get(header.column.id)?.(run.traces) ?? (
+                                  <Typography.Text color="secondary">—</Typography.Text>
+                                ))
+                              )}
+                            </div>
+                          )}
+                        </TableCell>
+                      );
+                    })}
+                  </TableRow>
+                  {runExpanded && (
+                    <div
+                      role="rowgroup"
+                      aria-label={intl.formatMessage(
+                        {
+                          defaultMessage: '{runName} session turns',
+                          description: 'Trace block for one run in an expanded session comparison',
+                        },
+                        { runName: run.label },
+                      )}
+                    >
+                      {run.traces.map((trace, turn) => {
+                        const row = table.getRow(comparisonSlotId(trace.trace_id, run.runUuid));
+                        return (
+                          <TableRow
+                            key={row.id}
+                            style={comparisonRowStyle}
+                            css={{
+                              ...rowPaddingCss,
+                              cursor: 'pointer',
+                              backgroundColor:
+                                rowIdFor(trace) === selectedTraceId
+                                  ? theme.colors.tableBackgroundUnselectedHover
+                                  : undefined,
+                            }}
+                            onClick={(event) => {
+                              // Cell activators already open the trace; only plain row content needs this fallback.
+                              if (
+                                event.target instanceof Element &&
+                                event.target.closest('a, button, [role="button"]')
+                              ) {
+                                return;
+                              }
+                              const href = getTraceHref?.(trace);
+                              if ((event.ctrlKey || event.metaKey) && href) {
+                                event.preventDefault();
+                                window.open(
+                                  typeof href === 'string' ? href : createPath(href),
+                                  '_blank',
+                                  'noopener,noreferrer',
+                                );
+                                return;
+                              }
+                              onTraceSelected(trace);
+                            }}
+                          >
+                            {row.getVisibleCells().map((cell) => (
+                              <TableCell
+                                key={cell.id}
+                                wrapContent={cell.column.id !== 'session'}
+                                style={columnStyles.get(cell.column.id)}
+                              >
+                                {cell.column.id === 'session' ? (
+                                  <div css={{ display: 'flex', alignItems: 'center', alignSelf: 'stretch' }}>
+                                    {isLastRun ? (
+                                      <div aria-hidden css={{ width: guideOptions.width, flexShrink: 0 }} />
+                                    ) : (
+                                      renderComparisonGuide(false, { ...guideOptions, showBranch: false })
+                                    )}
+                                    {renderComparisonGuide(turn === run.traces.length - 1, guideOptions)}
+                                    <Tag componentId={`${COMPONENT_ID}.comparison-session-turn`}>
+                                      {intl.formatMessage(
+                                        {
+                                          defaultMessage: 'Turn {turnNumber}',
+                                          description: 'Turn number within one run session, not a cross-run match',
+                                        },
+                                        { turnNumber: turn + 1 },
+                                      )}
+                                    </Tag>
+                                  </div>
+                                ) : (
+                                  flexRender(cell.column.columnDef.cell, cell.getContext())
+                                )}
+                              </TableCell>
+                            ))}
+                          </TableRow>
+                        );
+                      })}
+                    </div>
+                  )}
+                </Fragment>
+              );
+            })}
+        </Fragment>
+      );
+    };
+
+    const renderComparisonTable = (rows: TracesComparisonRow[]) => (
       <div
         role="region"
         aria-busy={isFetching}
@@ -1157,7 +1529,9 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
                       css={{ verticalAlign: 'middle' }}
                       style={{
                         ...columnStyles.get(header.column.id),
-                        ...(header.column.id === 'input' ? pinnedComparisonInputStyle : undefined),
+                        ...(header.column.id === 'input' && !isSessionComparison
+                          ? pinnedComparisonInputStyle
+                          : undefined),
                       }}
                     >
                       <TableSkeleton seed={`traces-${header.id}-${i}`} />
@@ -1165,7 +1539,7 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
                   ))}
                 </TableRow>
               ))
-            : rows.map(renderComparisonRow)}
+            : rows.map((row) => (row.kind === 'session' ? renderSessionComparisonRow(row) : renderComparisonRow(row)))}
         </Table>
       </div>
     );

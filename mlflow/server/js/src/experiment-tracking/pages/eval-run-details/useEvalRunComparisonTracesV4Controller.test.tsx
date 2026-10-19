@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { beforeEach, describe, expect, it } from '@jest/globals';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { IntlProvider } from 'react-intl';
-import type { ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
+import { SESSION_ID_METADATA_KEY, type ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
 import { QueryClient, QueryClientProvider } from '@databricks/web-shared/query-client';
 import { setupServer } from '@databricks/web-shared/test-utils/setup-msw';
 import { rest } from 'msw';
@@ -162,9 +162,9 @@ describe('useEvalRunComparisonTracesV4Controller', () => {
     act(() => result.current.setPageIndex(2));
     act(() => result.current.criteria.setSort('duration', 'desc'));
     expect(result.current.pageIndex).toBe(1);
-    expect(result.current.rows.map((row) => row.runs.map(({ trace }) => trace?.trace_id))).toEqual(
-      Array.from({ length: 25 }, (_, index) => [`t-${25 - index}`, `t-${25 - index}`]),
-    );
+    expect(
+      result.current.rows.map((row) => row.runs.map((run) => ('trace' in run ? run.trace?.trace_id : undefined))),
+    ).toEqual(Array.from({ length: 25 }, (_, index) => [`t-${25 - index}`, `t-${25 - index}`]));
   });
 
   it('blocks results for unsupported persisted filters until explicitly cleared', async () => {
@@ -204,9 +204,9 @@ describe('useEvalRunComparisonTracesV4Controller', () => {
     act(() => result.current.searchInput.setInput('trace-0'));
     act(() => result.current.searchInput.submit());
     expect(result.current.pageIndex).toBe(1);
-    expect(result.current.rows.map((row) => row.runs.map((run) => run.trace?.trace_id))).toEqual([
-      ['trace-0', 'trace-0'],
-    ]);
+    expect(
+      result.current.rows.map((row) => row.runs.map((run) => ('trace' in run ? run.trace?.trace_id : undefined))),
+    ).toEqual([['trace-0', 'trace-0']]);
     expect(new URLSearchParams(lastSearch).get('compareRuns')).toBe('candidate');
   });
 
@@ -741,5 +741,278 @@ describe('useEvalRunComparisonTracesV4Controller', () => {
     }
     await waitFor(() => expect(result.current.activeTraceId).toBe(`trace:/cat.sch/${offPageId}`));
     expect(new URLSearchParams(lastSearch).get('selectedEvaluationId')).toBe(offPageId);
+  });
+
+  it('retains complete matched sessions only when one turn satisfies every trace filter and search', async () => {
+    const sessionTrace = (id: string, sessionId: string, state: ModelTraceInfoV3['state'], input: string) =>
+      makeTrace(id, { state, request_preview: input, trace_metadata: { [SESSION_ID_METADATA_KEY]: sessionId } });
+    const baselineTraces = [
+      sessionTrace('split-error', 'split-session', 'ERROR', 'unrelated input'),
+      sessionTrace('split-search', 'split-session', 'OK', 'needle'),
+      sessionTrace('matched-error', 'matched-session', 'ERROR', 'needle'),
+      sessionTrace('matched-other-turn', 'matched-session', 'OK', 'keep the entire conversation'),
+    ];
+    const candidateTraces = [
+      sessionTrace('candidate-split', 'split-session', 'OK', 'different conversation'),
+      sessionTrace('candidate-matched', 'matched-session', 'OK', 'different matched-run input'),
+    ];
+    server.use(
+      rest.post('*/ajax-api/3.0/mlflow/traces/search', async (req, res, ctx) => {
+        const body = await req.json<{ filter: string }>();
+        return res(
+          ctx.json({ traces: runUuidInFilter(body.filter) === 'baseline' ? baselineTraces : candidateTraces }),
+        );
+      }),
+    );
+    const { result } = await renderController({ query: '&comparisonGroupBy=session' });
+    await waitFor(() => expect(result.current.totalRows).toBe(2));
+
+    act(() => result.current.criteria.setFilterModel([{ field: 'state', operator: FilterOp.EQUALS, value: 'ERROR' }]));
+    act(() => result.current.criteria.setSearch('needle'));
+
+    expect(result.current.totalRows).toBe(1);
+    expect(
+      result.current.rows.map((row) =>
+        row.kind === 'session'
+          ? row.runs.map((run) => ({
+              session: run.sessionId,
+              traces: run.traces.map((trace) => trace.trace_id),
+            }))
+          : undefined,
+      ),
+    ).toEqual([
+      [
+        { session: 'matched-session', traces: ['matched-error', 'matched-other-turn'] },
+        { session: 'matched-session', traces: ['candidate-matched'] },
+      ],
+    ]);
+    expect(result.current.columnAggregates['state']?.values.map((value) => value.displayValue)).toEqual(['0%', '0%']);
+  });
+
+  it('aggregates all loaded session summaries before paging without expansion changing rows or totals', async () => {
+    pageTraces = Array.from({ length: 26 }, (_, index) =>
+      [0, 1].map((turn) =>
+        makeTrace(`session-${index}-turn-${turn}`, {
+          request_time: new Date(Date.UTC(2026, 0, 1, index, turn)).toISOString(),
+          trace_metadata: { [SESSION_ID_METADATA_KEY]: `session-${index}` },
+          assessments: [makeFeedbackAssessment('quality', index === 25 ? 10 : turn * 2)],
+        }),
+      ),
+    ).flat();
+    const { result } = await renderController({ query: '&comparisonGroupBy=session' });
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+      expect(result.current.totalRows).toBe(26);
+      expect(result.current.rows).toHaveLength(25);
+    });
+    expect(result.current.rows).toHaveLength(25);
+    expect(result.current.pageTraces).toHaveLength(50);
+    expect(result.current.expandedComparisonGroups.size).toBe(26);
+    expect(result.current.expandedComparisonRuns).toEqual(new Map());
+    expect(result.current.columnAggregates['assessment:quality']?.values.map((value) => value.displayValue)).toEqual([
+      '1.35',
+      '1.35',
+    ]);
+
+    const groupId = result.current.rows[0].id;
+    const loadedTraceIds = result.current.pageTraces.map((trace) => trace.trace_id);
+    act(() => result.current.toggleComparisonGroup(groupId));
+    act(() => result.current.toggleComparisonRun(groupId, 'baseline'));
+    act(() => result.current.toggleComparisonRun(groupId, 'candidate'));
+    expect(result.current.rows).toHaveLength(25);
+    expect(result.current.pageTraces.map((trace) => trace.trace_id)).toEqual(loadedTraceIds);
+    expect(result.current.pageIndex).toBe(1);
+    act(() => result.current.setPageIndex(2));
+
+    expect(result.current.rows).toHaveLength(1);
+    expect(result.current.expandedComparisonGroups.has(result.current.rows[0].id)).toBe(true);
+    expect(result.current.pageTraces).toHaveLength(2);
+    expect(result.current.totalRows).toBe(26);
+    expect(result.current.columnAggregates['assessment:quality']?.values.map((value) => value.displayValue)).toEqual([
+      '1.35',
+      '1.35',
+    ]);
+  });
+
+  it('keeps group and run expansion independent while preserving sibling selections', async () => {
+    pageTraces = ['first', 'second'].map((sessionId) =>
+      makeTrace(`${sessionId}-turn`, { trace_metadata: { [SESSION_ID_METADATA_KEY]: sessionId } }),
+    );
+    const { result } = await renderController({ query: '&comparisonGroupBy=session' });
+    await waitFor(() => expect(result.current.totalRows).toBe(2));
+    const [firstGroup, secondGroup] = result.current.rows.map((row) => row.id);
+    expect(result.current.expandedComparisonGroups).toEqual(new Set([firstGroup, secondGroup]));
+    expect(result.current.expandedComparisonRuns).toEqual(new Map());
+
+    act(() => {
+      result.current.toggleComparisonRun(firstGroup, 'baseline');
+      result.current.toggleComparisonRun(firstGroup, 'candidate');
+      result.current.toggleComparisonRun(secondGroup, 'candidate');
+    });
+    expect(result.current.expandedComparisonGroups).toEqual(new Set([firstGroup, secondGroup]));
+    expect(result.current.expandedComparisonRuns).toEqual(
+      new Map([
+        [firstGroup, new Set(['baseline', 'candidate'])],
+        [secondGroup, new Set(['candidate'])],
+      ]),
+    );
+
+    act(() => result.current.toggleComparisonGroup(firstGroup));
+    expect(result.current.expandedComparisonGroups).toEqual(new Set([secondGroup]));
+    expect(result.current.expandedComparisonRuns).toEqual(
+      new Map([
+        [firstGroup, new Set(['baseline', 'candidate'])],
+        [secondGroup, new Set(['candidate'])],
+      ]),
+    );
+    act(() => result.current.toggleComparisonRun(firstGroup, 'baseline'));
+    expect(result.current.expandedComparisonRuns).toEqual(
+      new Map([
+        [firstGroup, new Set(['candidate'])],
+        [secondGroup, new Set(['candidate'])],
+      ]),
+    );
+    act(() => result.current.toggleComparisonRun(firstGroup, 'candidate'));
+    expect(result.current.expandedComparisonRuns.get(firstGroup)?.size ?? 0).toBe(0);
+    expect(result.current.expandedComparisonRuns.get(secondGroup)).toEqual(new Set(['candidate']));
+    act(() => result.current.toggleComparisonGroup(firstGroup));
+    expect(result.current.expandedComparisonGroups).toEqual(new Set([firstGroup, secondGroup]));
+  });
+
+  it.each(['pagination', 'filtering', 'sorting', 'search'])(
+    'preserves collapsed session and expanded run identities through %s',
+    async (change) => {
+      pageTraces = Array.from({ length: 26 }, (_, index) =>
+        makeTrace(`session-${index}-turn`, {
+          request_time: new Date(Date.UTC(2026, 0, 1, 0, index)).toISOString(),
+          state: index === 25 ? 'ERROR' : 'OK',
+          trace_metadata: { [SESSION_ID_METADATA_KEY]: `session-${index}` },
+        }),
+      );
+      const { result } = await renderController({ query: '&comparisonGroupBy=session' });
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+        expect(result.current.totalRows).toBe(26);
+        expect(
+          result.current.rows.some(
+            (row) => row.kind === 'session' && row.runs.some((run) => run.sessionId === 'session-25'),
+          ),
+        ).toBe(true);
+      });
+      const group = result.current.rows.find(
+        (row) => row.kind === 'session' && row.runs.some((run) => run.sessionId === 'session-25'),
+      );
+      if (!group) {
+        throw new Error('Expected newest session on the first page');
+      }
+      const otherGroups = new Set(result.current.expandedComparisonGroups);
+      otherGroups.delete(group.id);
+      act(() => {
+        result.current.toggleComparisonGroup(group.id);
+        result.current.toggleComparisonRun(group.id, 'candidate');
+      });
+      if (change === 'pagination') {
+        act(() => result.current.setPageIndex(2));
+      } else if (change === 'filtering') {
+        act(() => result.current.criteria.setFilterModel([{ field: 'state', operator: FilterOp.EQUALS, value: 'OK' }]));
+      } else if (change === 'sorting') {
+        act(() => result.current.criteria.setSort('start_time', 'asc'));
+      } else {
+        act(() => result.current.criteria.setSearch('session-0-turn'));
+      }
+      expect(result.current.rows.map((row) => row.id)).not.toContain(group.id);
+      expect(result.current.expandedComparisonGroups).toEqual(otherGroups);
+      expect(result.current.expandedComparisonRuns).toEqual(new Map([[group.id, new Set(['candidate'])]]));
+
+      if (change === 'pagination') {
+        act(() => result.current.setPageIndex(1));
+      } else if (change === 'filtering') {
+        act(() => result.current.criteria.clearFilters());
+      } else if (change === 'sorting') {
+        act(() => result.current.criteria.setSort('start_time', 'desc'));
+      } else {
+        act(() => result.current.criteria.setSearch(''));
+      }
+      expect(result.current.rows.map((row) => row.id)).toContain(group.id);
+      expect(result.current.expandedComparisonGroups).toEqual(otherGroups);
+      expect(result.current.expandedComparisonRuns).toEqual(new Map([[group.id, new Set(['candidate'])]]));
+    },
+  );
+
+  it('opens newly loaded sessions after refresh while retaining collapsed parents and expanded runs', async () => {
+    pageTraces = ['first', 'second'].map((sessionId) =>
+      makeTrace(`${sessionId}-turn`, { trace_metadata: { [SESSION_ID_METADATA_KEY]: sessionId } }),
+    );
+    const { result } = await renderController({ query: '&comparisonGroupBy=session' });
+    await waitFor(() => expect(result.current.totalRows).toBe(2));
+    const collapsedGroup = result.current.rows.find(
+      (row) => row.kind === 'session' && row.runs.some((run) => run.sessionId === 'first'),
+    );
+    if (!collapsedGroup) {
+      throw new Error('Expected first session fixture');
+    }
+    const initialGroupIds = result.current.rows.map((row) => row.id);
+    act(() => {
+      result.current.toggleComparisonGroup(collapsedGroup.id);
+      result.current.toggleComparisonRun(collapsedGroup.id, 'candidate');
+    });
+    pageTraces = [
+      ...pageTraces,
+      makeTrace('first-added-turn', { trace_metadata: { [SESSION_ID_METADATA_KEY]: 'first' } }),
+      makeTrace('new-session-turn', { trace_metadata: { [SESSION_ID_METADATA_KEY]: 'new-session' } }),
+    ];
+
+    await act(async () => {
+      await result.current.refetch();
+    });
+    await waitFor(() => expect(result.current.totalRows).toBe(3));
+
+    const newGroup = result.current.rows.find(
+      (row) => row.kind === 'session' && row.runs.some((run) => run.sessionId === 'new-session'),
+    );
+    if (!newGroup) {
+      throw new Error('Expected refreshed session fixture');
+    }
+    expect(result.current.pageTraces.map((trace) => trace.trace_id).sort()).toEqual([
+      'first-added-turn',
+      'first-turn',
+      'new-session-turn',
+      'second-turn',
+    ]);
+    expect(result.current.expandedComparisonGroups).toEqual(
+      new Set([...initialGroupIds.filter((id) => id !== collapsedGroup.id), newGroup.id]),
+    );
+    expect(result.current.expandedComparisonRuns).toEqual(new Map([[collapsedGroup.id, new Set(['candidate'])]]));
+  });
+
+  it('resets pagination and isolates column preferences when switching to sessions', async () => {
+    pageTraces = Array.from({ length: 30 }, (_, index) =>
+      makeTrace(`turn-${index}`, {
+        trace_metadata: { [SESSION_ID_METADATA_KEY]: `session-${Math.floor(index / 2)}` },
+      }),
+    );
+    const { result } = await renderController({ query: '&comparisonSort=duration&comparisonDir=asc' });
+    await waitFor(() => expect(result.current.totalRows).toBe(30));
+    expect(result.current.persistenceId).toBe('experiment.run-comparison');
+    act(() => result.current.setPageIndex(2));
+    act(() => result.current.criteria.setIsGroupedBySession(true));
+    expect(result.current.pageIndex).toBe(1);
+    expect(result.current.totalRows).toBe(15);
+    expect(result.current.persistenceId).toBe('experiment.run-comparison.sessions');
+    expect(result.current.criteria.sort).toBe('duration');
+    expect(result.current.criteria.dir).toBe('asc');
+    expect(new URLSearchParams(lastSearch).get('compareRuns')).toBe('candidate');
+  });
+
+  it('leaves session grouping when opened with an outcome filter', async () => {
+    pageTraces = [makeOutcomeTrace('improved', [1, 2], [1, 2]), makeOutcomeTrace('regressed', [2, 1], [2, 1])];
+    const { result } = await renderController({
+      query: '&comparisonGroupBy=session',
+      initialOutcomeFilter: { columnId: 'assessment:quality', runUuid: 'candidate', outcome: 'improvement' },
+    });
+    await waitFor(() => expect(result.current.criteria.isGroupedBySession).toBe(false));
+    await waitFor(() => expect(result.current.totalRows).toBe(1));
+    await waitFor(() => expect(result.current.rows[0]?.runs[0]).toMatchObject({ trace: { trace_id: 'improved' } }));
+    expect(new URLSearchParams(lastSearch).has('comparisonGroupBy')).toBe(false);
   });
 });
