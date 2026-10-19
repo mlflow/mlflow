@@ -17,12 +17,6 @@ function parseCommand(body) {
   return match[1]?.trim() ?? "";
 }
 
-function escapeMarkup(text) {
-  return text.replace(/[&<>"']/g, (character) => {
-    return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&apos;" }[character];
-  });
-}
-
 function findOpenPr(repo, issueNumber, api = ghApi) {
   const owner = repo.split("/")[0];
   const head = encodeURIComponent(`${owner}:triage/issue-${issueNumber}`);
@@ -63,22 +57,18 @@ function prepareFollowup({ repo, issue, comment, dryRun = false, api = ghApi }) 
     "--paginate",
     "--slurp"
   ).flat();
-  const discussion = comments
+  const precedingComments = comments
     .filter((candidate) => comment.id === undefined || candidate.id < comment.id)
     .sort((a, b) => a.id - b.id)
-    .map(
-      (candidate) =>
-        `<comment author="${escapeMarkup(candidate.user?.login ?? "deleted user")}" ` +
-        `created_at="${escapeMarkup(candidate.created_at)}" url="${escapeMarkup(
-          candidate.html_url
-        )}">\n` +
-        `${escapeMarkup(sanitizeInput(candidate.body ?? ""))}\n</comment>`
-    );
+    .map((candidate) => ({
+      author: candidate.user?.login ?? "deleted user",
+      created_at: candidate.created_at,
+      url: candidate.html_url,
+      body: sanitizeInput(candidate.body ?? ""),
+    }));
   return {
-    body: [
-      `<issue>\n${escapeMarkup(sanitizeInput(issue.body ?? ""))}\n</issue>`,
-      ...discussion,
-    ].join("\n\n"),
+    body: issue.body ?? "",
+    comments: precedingComments,
     followup: {
       instructions: sanitizeInput(instructions),
       author: comment.user.login,
@@ -98,7 +88,7 @@ function prepareContext({ repo, issue, event, comment, dryRun = false, api = ghA
   }
   const context = request
     ? prepareFollowup({ repo, issue, comment: request, dryRun, api })
-    : { body: issue.body ?? "", followup: null };
+    : { body: issue.body ?? "", comments: [], followup: null };
   return { title: issue.title, repository: repo, issue_number: issue.number, ...context };
 }
 
