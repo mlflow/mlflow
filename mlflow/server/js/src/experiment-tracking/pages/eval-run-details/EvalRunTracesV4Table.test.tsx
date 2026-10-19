@@ -194,7 +194,7 @@ describe('EvalRunTracesV4Table', () => {
     fireEvent.keyDown(searchBox, { key: 'Enter', code: 'Enter', keyCode: 13, which: 13 });
 
     // Feedback filters match the run's own assessments on the page, so the server only scopes to the run.
-    await waitFor(() => expect(state.searchCalls[state.searchCalls.length - 1]?.max_results).toBe(1000));
+    await waitFor(() => expect(state.searchCalls[state.searchCalls.length - 1]?.max_results).toBe(500));
     expect(state.searchCalls[state.searchCalls.length - 1]?.filter).toBe(RUN_FILTER);
     expect(await screen.findByRole('button', { name: "Edit filter feedback.relevance = 'yes'" })).toBeInTheDocument();
     expect(await findTraceRow('tr-000')).toBeInTheDocument();

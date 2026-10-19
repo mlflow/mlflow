@@ -48,8 +48,9 @@ import { useEvalRunTracesV4UrlState } from './useEvalRunTracesV4UrlState';
 import { matchesEvalRunAssessmentFilter, splitEvalRunAssessmentFilters } from './evalRunAssessmentFilters';
 
 const EXCLUDE_SCORER_TRACES_CLAUSE = 'tags.`mlflow.trace.sourceScorer` IS NULL';
-// With a feedback or expectation filter the page matches the run's traces itself, over at most this many.
-export const ASSESSMENT_FILTER_SCAN_LIMIT = 1000;
+// With a feedback or expectation filter the page matches the run's traces itself, over at most this many
+// (one page at the OSS search limit, like grouped mode).
+export const ASSESSMENT_FILTER_SCAN_LIMIT = GROUPED_TRACES_LIMIT;
 const EVAL_RUN_DEFAULT_HIDDEN_COLUMNS: ReadonlySet<TraceColumnId> = new Set(['start_time']);
 
 interface UseEvalRunTracesV4ControllerParams {
