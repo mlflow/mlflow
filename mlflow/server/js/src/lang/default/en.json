@@ -23,10 +23,6 @@
     "defaultMessage": "Medium",
     "description": "Issue severity tag label for medium severity"
   },
-  "+32Pbf": {
-    "defaultMessage": "About category {category}",
-    "description": "Experiment Issues category explanation button"
-  },
   "+33ShX": {
     "defaultMessage": "Cancel",
     "description": "Button label for cancelling the creation of an assessment"
@@ -10351,10 +10347,6 @@
     "defaultMessage": "Install MLflow 3:",
     "description": "Instruction for installing MLflow from mlflow-3 branch in log MLflow 3 models"
   },
-  "ZVdFms": {
-    "defaultMessage": "High",
-    "description": "Experiment issues tab > High severity filter option"
-  },
   "ZXKIdt": {
     "defaultMessage": "Dataset record details",
     "description": "Aria label for the dataset record edit side panel"
@@ -10602,10 +10594,6 @@
   "aQxQIF": {
     "defaultMessage": "(empty)",
     "description": "Experiment page > artifact compare view > results table > no result (empty cell)"
-  },
-  "aRnqT9": {
-    "defaultMessage": "Medium",
-    "description": "Experiment issues tab > Medium severity filter option"
   },
   "aS7m1u": {
     "defaultMessage": "Learn more",
@@ -11171,10 +11159,6 @@
     "defaultMessage": "Reopen",
     "description": "Experiment issue reopen action"
   },
-  "cNicAH": {
-    "defaultMessage": "Not an issue",
-    "description": "Experiment Issues legacy severity filter option"
-  },
   "cNkqxA": {
     "defaultMessage": "API key",
     "description": "Label for API key selector"
@@ -11518,10 +11502,6 @@
   "dkw8bG": {
     "defaultMessage": "Deny",
     "description": "Button to deny a tool-call permission request"
-  },
-  "dkyeTx": {
-    "defaultMessage": "Search categories",
-    "description": "Experiment Issues category filter search"
   },
   "dl0TeT": {
     "defaultMessage": "Save",
@@ -16518,10 +16498,6 @@
   "uw/A3k": {
     "defaultMessage": "Undo",
     "description": "Traces page > shared view > undo button on the override confirmation toast"
-  },
-  "uyKg+n": {
-    "defaultMessage": "Low",
-    "description": "Experiment issues tab > Low severity filter option"
   },
   "uyNJ7b": {
     "defaultMessage": "Duration",

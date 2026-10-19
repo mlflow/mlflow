@@ -6,7 +6,7 @@ import { useDebouncedSearchInput } from '../experiment-evaluation-datasets-v2/ho
 import type { IssueFilters } from './useExperimentIssues';
 
 export const ISSUE_DETECTION_CATEGORIES = ISSUE_CATEGORY_DEFINITIONS.map(({ id }) => id);
-export const ISSUE_DETECTION_SEVERITIES: IssueSeverity[] = ['high', 'medium', 'low', 'not_an_issue'];
+export const ISSUE_DETECTION_SEVERITIES: IssueSeverity[] = ['high', 'medium', 'low'];
 export const ISSUE_DETECTION_TRIAGE_STATUSES: IssueStatus[] = ['pending', 'resolved', 'rejected'];
 export const BACKEND_ISSUE_SORT_KEYS = ['severity', 'mostRecent', 'lastSeen', 'lastUpdated'] as const;
 export type IssueSortKey = (typeof BACKEND_ISSUE_SORT_KEYS)[number];

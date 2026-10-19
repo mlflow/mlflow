@@ -1,5 +1,4 @@
-import { useIntl } from 'react-intl';
-import { Button, InfoSmallIcon, Popover, Tag, Tooltip } from '@databricks/design-system';
+import { Tag, Tooltip, useDesignSystemTheme } from '@databricks/design-system';
 import { categoryColor, categoryDescription, categoryLabel, TAG_MARGIN_RESET } from './issueLabels';
 
 export interface IssueCategoryTagProps {
@@ -14,7 +13,7 @@ export interface IssueCategoryTagProps {
 }
 
 export const IssueCategoryTag = ({ category, componentId, insideClickableRow = false }: IssueCategoryTagProps) => {
-  const intl = useIntl();
+  const { theme } = useDesignSystemTheme();
   const description = categoryDescription(category);
   const chip = (
     <Tag
@@ -22,42 +21,29 @@ export const IssueCategoryTag = ({ category, componentId, insideClickableRow = f
       color={categoryColor(category)}
       // Tag's default role="status" is an aria-live region; a list of fifty would announce itself.
       role="presentation"
-      css={{ ...TAG_MARGIN_RESET, ...(insideClickableRow && { pointerEvents: 'none' }) }}
+      css={{ ...TAG_MARGIN_RESET, pointerEvents: 'none' }}
     >
       {categoryLabel(category)}
     </Tag>
   );
 
   if (!description) return chip;
-  if (!insideClickableRow) {
-    return (
-      <span css={{ display: 'inline-flex', alignItems: 'center' }}>
-        {chip}
-        <Popover.Root componentId={`${componentId}.definition`}>
-          <Popover.Trigger asChild>
-            <Button
-              componentId={`${componentId}.help`}
-              size="small"
-              type="tertiary"
-              icon={<InfoSmallIcon />}
-              aria-label={intl.formatMessage(
-                {
-                  defaultMessage: 'About category {category}',
-                  description: 'Experiment Issues category explanation button',
-                },
-                { category },
-              )}
-            />
-          </Popover.Trigger>
-          <Popover.Content css={{ maxWidth: 320 }}>{description}</Popover.Content>
-        </Popover.Root>
-      </span>
-    );
-  }
   return (
     <Tooltip componentId={`${componentId}.definition_tooltip`} content={description}>
-      {/* Unfocusable on purpose: it takes the pointer, the row still takes the click. */}
-      <span data-testid="issue-category-tag" css={{ display: 'inline-flex', pointerEvents: 'auto' }}>
+      {/* Keep the row as one focus target; detail chips also expose descriptions on keyboard focus. */}
+      <span
+        data-testid="issue-category-tag"
+        tabIndex={insideClickableRow ? undefined : 0}
+        css={{
+          display: 'inline-flex',
+          pointerEvents: 'auto',
+          borderRadius: theme.borders.borderRadiusSm,
+          '&:focus-visible': {
+            outline: `2px solid ${theme.colors.actionDefaultBorderFocus}`,
+            outlineOffset: 2,
+          },
+        }}
+      >
         {chip}
       </span>
     </Tooltip>

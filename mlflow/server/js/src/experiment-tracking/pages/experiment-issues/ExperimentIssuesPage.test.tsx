@@ -363,30 +363,24 @@ describe('Experiment Issues', () => {
     );
     expect(screen.getByRole('textbox', { name: 'Search issues by title' })).toHaveValue('Slow');
   });
-  test.each(['Correctness', 'CORRECTNESS'])(
-    'uses the built-in category ID when entering its label (%s) and preserves custom categories',
-    async (label) => {
-      renderPage();
-      await userEvent.click(await screen.findByRole('button', { name: 'Filter issues' }));
-      await userEvent.click(screen.getByRole('combobox', { name: 'Category' }));
-      const categoryInput = await screen.findByRole('searchbox', { name: 'Search categories' });
-      await userEvent.type(categoryInput, label);
-      await userEvent.click(
-        await screen.findByRole('option', { name: label.toLowerCase() === 'correctness' ? 'Correctness' : label }),
-      );
-      await waitFor(() =>
-        expect(searches).toContainEqual(expect.objectContaining({ categories: ['correctness', '[correctness]'] })),
-      );
-      await userEvent.clear(categoryInput);
-      await userEvent.type(categoryInput, 'CustomerSupport');
-      await userEvent.click(await screen.findByRole('option', { name: 'CustomerSupport' }));
-      await waitFor(() =>
-        expect(searches).toContainEqual(
-          expect.objectContaining({ categories: ['correctness', '[correctness]', 'CustomerSupport'] }),
-        ),
-      );
-    },
-  );
+  test('lists category options without search and preserves custom-category links', async () => {
+    issues[0].categories = ['CustomerSupport'];
+    renderPage('?issueCategory=CustomerSupport');
+    await userEvent.click(await screen.findByRole('button', { name: 'Filter issues' }));
+    await userEvent.click(screen.getByRole('combobox', { name: 'Category' }));
+    expect(screen.queryByRole('searchbox')).not.toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'CustomerSupport', selected: true })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('option', { name: 'Correctness' }));
+    await waitFor(() =>
+      expect(searches).toContainEqual(
+        expect.objectContaining({ categories: ['CustomerSupport', 'correctness', '[correctness]'] }),
+      ),
+    );
+    await userEvent.click(screen.getByRole('option', { name: 'CustomerSupport' }));
+    await waitFor(() =>
+      expect(searches).toContainEqual(expect.objectContaining({ categories: ['correctness', '[correctness]'] })),
+    );
+  });
   test.each([
     ['newest', 'Most recent', 'created_timestamp DESC'],
     ['updated', 'Last updated', 'last_updated_timestamp DESC'],
@@ -569,24 +563,31 @@ describe('Experiment Issues', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Retry' }));
     expect(await screen.findByText('No issues to display')).toBeInTheDocument();
   });
-  test('exposes category help without nesting a button in the selectable row', async () => {
+  test('shows category descriptions on chip hover and focus without extra help buttons', async () => {
     renderPage();
     const row = await screen.findByRole('button', { name: /Slow response/ });
     expect(row).toHaveAccessibleDescription(/./);
     expect(within(row).queryByRole('button')).not.toBeInTheDocument();
-    const help = await screen.findByRole('button', { name: 'About category latency' });
-    help.focus();
-    await userEvent.keyboard('{Enter}');
-    expect(await screen.findByRole('dialog')).toHaveTextContent(/./);
+    expect(screen.queryByRole('button', { name: /About category/ })).not.toBeInTheDocument();
+    const chip = within(screen.getByTestId('experiment-issue-detail')).getByTestId('issue-category-tag');
+    await userEvent.hover(chip);
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(/./);
     await userEvent.keyboard('{Escape}');
-    expect(help).toHaveFocus();
-    await userEvent.click(help);
-    expect(await screen.findByRole('dialog')).toBeInTheDocument();
+    await userEvent.unhover(chip);
+    await waitFor(() => expect(screen.queryByRole('tooltip')).not.toBeInTheDocument());
+    act(() => chip.focus());
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(/./);
+    await userEvent.keyboard('{Escape}');
+    expect(chip).toHaveFocus();
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
   });
   test('shares the triage label with filters and omits facet counts', async () => {
     renderPage();
     expect(await screen.findByText('2 results')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Filter issues' }));
+    await userEvent.click(screen.getByRole('combobox', { name: 'Severity' }));
+    expect(screen.getAllByRole('option').map((option) => option.textContent)).toEqual(['All', 'High', 'Medium', 'Low']);
+    await userEvent.keyboard('{Escape}');
     await userEvent.click(screen.getByRole('combobox', { name: 'Status' }));
     expect(await screen.findByRole('option', { name: 'All' })).toBeInTheDocument();
     expect(screen.queryByRole('option', { name: 'Rejected' })).not.toBeInTheDocument();

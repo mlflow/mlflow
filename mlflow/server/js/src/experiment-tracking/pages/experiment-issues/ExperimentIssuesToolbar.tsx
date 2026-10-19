@@ -1,11 +1,9 @@
-import { useState } from 'react';
 import {
   Button,
   ChevronDownIcon,
   DialogCombobox,
   DialogComboboxContent,
   DialogComboboxOptionList,
-  DialogComboboxOptionListSearch,
   DialogComboboxOptionListCheckboxItem,
   DialogComboboxTrigger,
   DropdownMenu,
@@ -22,7 +20,7 @@ import { defineMessage, FormattedMessage, useIntl } from 'react-intl';
 import type { MessageDescriptor } from 'react-intl';
 import type { IssueSeverity, IssueStatus } from '../../components/run-page/hooks/useSearchIssuesQuery';
 import type { IssueCategory } from '../../components/experiment-page/components/traces-v3/IssueDetectionCategories';
-import { categoryColor, categoryDescription, STATUS_LABELS, TAG_MARGIN_RESET } from './issueLabels';
+import { categoryColor, categoryDescription, SEVERITY_LABELS, STATUS_LABELS, TAG_MARGIN_RESET } from './issueLabels';
 import {
   ISSUE_DETECTION_CATEGORIES,
   ISSUE_DETECTION_SEVERITIES,
@@ -39,25 +37,6 @@ const ALL_LABEL = defineMessage({
   defaultMessage: 'All',
   description: 'Experiment issues tab > Filter option that matches every value in a dimension',
 });
-
-const SEVERITY_LABELS: Record<IssueSeverity, MessageDescriptor> = {
-  not_an_issue: defineMessage({
-    defaultMessage: 'Not an issue',
-    description: 'Experiment Issues legacy severity filter option',
-  }),
-  high: defineMessage({
-    defaultMessage: 'High',
-    description: 'Experiment issues tab > High severity filter option',
-  }),
-  medium: defineMessage({
-    defaultMessage: 'Medium',
-    description: 'Experiment issues tab > Medium severity filter option',
-  }),
-  low: defineMessage({
-    defaultMessage: 'Low',
-    description: 'Experiment issues tab > Low severity filter option',
-  }),
-};
 
 // Combobox values need strings; the shared category titles are React elements.
 const CATEGORY_LABELS: Record<IssueCategory, MessageDescriptor> = {
@@ -168,21 +147,7 @@ export const ExperimentIssuesFilterControl = ({
     setStatuses(statuses.includes(value) ? statuses.filter((status) => status !== value) : [...statuses, value]);
   };
 
-  const [categorySearch, setCategorySearch] = useState('');
-  const query = categorySearch.trim();
-  const matchesCategory = (value: string) => categoryDisplayValue(value).toLowerCase().includes(query.toLowerCase());
-  const customCategories = Array.from(
-    new Set([
-      ...categories.filter((value) => !ISSUE_DETECTION_CATEGORIES.some((id) => id === value)),
-      ...(query &&
-      !ISSUE_DETECTION_CATEGORIES.some(
-        (id) =>
-          id === query.toLowerCase() || intl.formatMessage(CATEGORY_LABELS[id]).toLowerCase() === query.toLowerCase(),
-      )
-        ? [query]
-        : []),
-    ]),
-  ).filter(matchesCategory);
+  const customCategories = categories.filter((value) => !ISSUE_DETECTION_CATEGORIES.some((id) => id === value));
 
   const severityRowLabel = intl.formatMessage({
     defaultMessage: 'Severity',
@@ -324,52 +289,41 @@ export const ExperimentIssuesFilterControl = ({
                 />
                 <DialogComboboxContent width={180} style={{ zIndex: theme.options.zIndexBase + 40 }} matchTriggerWidth>
                   <DialogComboboxOptionList>
-                    <DialogComboboxOptionListSearch
-                      aria-label={intl.formatMessage({
-                        defaultMessage: 'Search categories',
-                        description: 'Experiment Issues category filter search',
-                      })}
-                      controlledValue={categorySearch}
-                      setControlledValue={setCategorySearch}
+                    <DialogComboboxOptionListCheckboxItem
+                      value="all"
+                      checked={categories.length === 0}
+                      onChange={() => setCategories([])}
                     >
-                      {!query && (
+                      {intl.formatMessage(ALL_LABEL)}
+                    </DialogComboboxOptionListCheckboxItem>
+                    {/* Anchored right so it does not cover the adjacent option. `asChild` keeps
+                      the item's `role="option"` div, which the list's keyboard nav queries. */}
+                    {ISSUE_DETECTION_CATEGORIES.map((value) => (
+                      <Tooltip
+                        key={value}
+                        componentId={`${COMPONENT_ID}.filter.category.definition_tooltip`}
+                        content={categoryDescription(value)}
+                        side="right"
+                      >
                         <DialogComboboxOptionListCheckboxItem
-                          value="all"
-                          checked={categories.length === 0}
-                          onChange={() => setCategories([])}
-                        >
-                          {intl.formatMessage(ALL_LABEL)}
-                        </DialogComboboxOptionListCheckboxItem>
-                      )}
-                      {/* Anchored right so it does not cover the adjacent option. `asChild` keeps
-                        the item's `role="option"` div, which the list's keyboard nav queries. */}
-                      {ISSUE_DETECTION_CATEGORIES.filter(matchesCategory).map((value) => (
-                        <Tooltip
-                          key={value}
-                          componentId={`${COMPONENT_ID}.filter.category.definition_tooltip`}
-                          content={categoryDescription(value)}
-                          side="right"
-                        >
-                          <DialogComboboxOptionListCheckboxItem
-                            value={value}
-                            checked={categories.includes(value)}
-                            onChange={() => toggleCategory(value)}
-                          >
-                            {intl.formatMessage(CATEGORY_LABELS[value])}
-                          </DialogComboboxOptionListCheckboxItem>
-                        </Tooltip>
-                      ))}
-                      {customCategories.map((value) => (
-                        <DialogComboboxOptionListCheckboxItem
-                          key={value}
                           value={value}
                           checked={categories.includes(value)}
                           onChange={() => toggleCategory(value)}
                         >
-                          {value}
+                          {intl.formatMessage(CATEGORY_LABELS[value])}
                         </DialogComboboxOptionListCheckboxItem>
-                      ))}
-                    </DialogComboboxOptionListSearch>
+                      </Tooltip>
+                    ))}
+                    {customCategories.map((value) => (
+                      <DialogComboboxOptionListCheckboxItem
+                        key={value}
+                        value={value}
+                        checked={categories.includes(value)}
+                        onChange={() => toggleCategory(value)}
+                      >
+                        {value}
+                      </DialogComboboxOptionListCheckboxItem>
+                    ))}
                   </DialogComboboxOptionList>
                 </DialogComboboxContent>
               </DialogCombobox>
