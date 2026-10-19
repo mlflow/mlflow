@@ -891,7 +891,7 @@ jobs:
       PAYLOAD_SCHEMA: .claude/skills/triage/bug/${{ needs.issue.outputs.action }}.schema.yml
       TRIAGE_NOTICE: |-
         > [!NOTE]
-        > [Automated triage](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}). Please verify the findings.
+        > [Automated triage](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}). Please verify the findings. Maintainers can comment `/triage <instructions>` to direct the agent (e.g. `/triage open a PR with the first option`).
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
