@@ -4998,17 +4998,36 @@ def test_validate_can_manage_roles_allows_consistent_role_id_and_role_permission
         assert auth_module.validate_can_manage_roles() is True
 
 
-def test_validate_can_manage_roles_conflicting_ids_still_bypassed_by_super_admin(
-    role_auth_setup,
-):
-    role_auth_setup["login_as"]("super_admin")
-    body = {
-        "role_id": role_auth_setup["role_foo_id"],
-        "role_permission_id": role_auth_setup["role_permission_bar_id"],
-        "permission": MANAGE.name,
-    }
+@pytest.mark.parametrize(
+    "conflict",
+    [
+        "role_id_vs_role_permission_id",
+        "role_id_vs_workspace",
+        "role_permission_id_vs_workspace",
+        "missing_role_permission_id_with_valid_workspace",
+    ],
+)
+def test_get_role_workspace_from_request_returns_none_on_conflict(role_auth_setup, conflict):
+    # Exercise the resolver directly: the validators short-circuit for super admins
+    # before reaching it, so this is the only place the conflict branch is asserted
+    # independently of who is logged in.
+    match conflict:
+        case "role_id_vs_role_permission_id":
+            body = {
+                "role_id": role_auth_setup["role_foo_id"],
+                "role_permission_id": role_auth_setup["role_permission_bar_id"],
+            }
+        case "role_id_vs_workspace":
+            body = {"role_id": role_auth_setup["role_foo_id"], "workspace": "bar"}
+        case "role_permission_id_vs_workspace":
+            body = {
+                "role_permission_id": role_auth_setup["role_permission_foo_id"],
+                "workspace": "bar",
+            }
+        case "missing_role_permission_id_with_valid_workspace":
+            body = {"role_permission_id": 999_999, "workspace": "foo"}
     with auth_module.app.test_request_context(UPDATE_ROLE_PERMISSION, method="PATCH", json=body):
-        assert auth_module.validate_can_manage_roles() is True
+        assert auth_module._get_role_workspace_from_request() is None
 
 
 @pytest.mark.parametrize("exists", [True, False])

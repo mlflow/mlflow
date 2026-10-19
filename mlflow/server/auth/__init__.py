@@ -2868,6 +2868,10 @@ def _get_role_workspace_from_request() -> str | None:
         workspaces = {store.get_role(role_id).workspace for role_id in role_ids}
     except MlflowException as e:
         if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+            # Fail closed as soon as any supplied identifier cannot be resolved, even
+            # if another identifier (e.g. ``workspace``) could have resolved on its
+            # own: the handler may act on the unresolved one, and falling back would
+            # let the caller choose which identifier gets authorized.
             return None
         raise
     if workspace is not None:
