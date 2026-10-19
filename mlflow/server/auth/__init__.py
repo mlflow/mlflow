@@ -2827,30 +2827,58 @@ def _get_role_workspace_from_request() -> str | None:
     Returns ``None`` if the referenced role/role_permission does not exist — callers
     (validators) should treat that as unauthorized rather than leaking existence via
     a 404.
+
+    Every identifier present must agree. Handlers read whichever identifier they act
+    on, so if the validator picked one by fixed priority, a request carrying e.g. a
+    ``role_id`` from a workspace the caller administers plus a ``role_permission_id``
+    from another workspace would be authorized against the first and mutate the
+    second. Conflicts resolve to ``None`` (denied) rather than a 400 so a non-admin
+    cannot probe which role or workspace a given id belongs to.
+
+    All parameter-format checks run before any store lookup. Otherwise a malformed
+    redundant parameter (e.g. a non-integer ``role_id`` next to a valid
+    ``role_permission_id``) would raise a 400 only when the looked-up row exists and
+    deny with ``None`` when it does not, turning the error code into an existence
+    oracle.
     """
     params = _request_params()
+    role_permission_id = (
+        _coerce_int_param("role_permission_id", params["role_permission_id"])
+        if "role_permission_id" in params
+        else None
+    )
+    role_ids: set[int] = set()
+    if "role_id" in params:
+        role_ids.add(_coerce_int_param("role_id", params["role_id"]))
+    workspace = params.get("workspace")
+    if "workspace" in params and (not isinstance(workspace, str) or not workspace.strip()):
+        raise MlflowException.invalid_parameter_value(
+            "Parameter 'workspace' must be a non-empty string."
+        )
+    if role_permission_id is None and not role_ids and workspace is None:
+        raise MlflowException.invalid_parameter_value(
+            "Request must include one of: role_id, role_permission_id, workspace."
+        )
+
     try:
-        if "role_id" in params:
-            return store.get_role(_coerce_int_param("role_id", params["role_id"])).workspace
-        if "role_permission_id" in params:
-            rp = store.get_role_permission(
-                _coerce_int_param("role_permission_id", params["role_permission_id"])
-            )
-            return store.get_role(rp.role_id).workspace
+        if role_permission_id is not None:
+            role_ids.add(store.get_role_permission(role_permission_id).role_id)
+        if len(role_ids) > 1:
+            return None
+        workspaces = {store.get_role(role_id).workspace for role_id in role_ids}
     except MlflowException as e:
         if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+            # Fail closed as soon as any supplied identifier cannot be resolved, even
+            # if another identifier (e.g. ``workspace``) could have resolved on its
+            # own: the handler may act on the unresolved one, and falling back would
+            # let the caller choose which identifier gets authorized.
             return None
         raise
-    if "workspace" in params:
-        workspace = params["workspace"]
-        if not isinstance(workspace, str) or not workspace.strip():
-            raise MlflowException.invalid_parameter_value(
-                "Parameter 'workspace' must be a non-empty string."
-            )
-        return workspace
-    raise MlflowException.invalid_parameter_value(
-        "Request must include one of: role_id, role_permission_id, workspace."
-    )
+    if workspace is not None:
+        workspaces.add(workspace)
+    if len(workspaces) > 1:
+        return None
+    return workspaces.pop()
 
 
 def validate_can_manage_roles():
