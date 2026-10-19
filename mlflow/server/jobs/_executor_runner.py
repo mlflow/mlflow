@@ -19,7 +19,7 @@ import json
 import logging
 import os
 import random
-import signal
+import sys
 import threading
 import time
 from contextlib import nullcontext
@@ -35,7 +35,11 @@ from mlflow.environment_variables import (
 )
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import TEMPORARILY_UNAVAILABLE, ErrorCode
-from mlflow.server.constants import BACKEND_STORE_URI_ENV_VAR, MLFLOW_SERVER_UP_TIME
+from mlflow.server.constants import (
+    BACKEND_STORE_URI_ENV_VAR,
+    EXECUTOR_JOB_RUNNER_FATAL_EXIT_CODE,
+    MLFLOW_SERVER_UP_TIME,
+)
 from mlflow.server.jobs.executor import (
     _MIN_JOB_LEASE_TTL,
     AbstractJobExecutor,
@@ -1037,7 +1041,7 @@ def main() -> None:
     # configured backend (the default, plus a separate custom-scorer backend when one is set)
     # independently. Resolving and starting the executors run inside the try so any failure there
     # (the runner re-validates the backend registry independently of the parent) still triggers
-    # cleanup and the SIGTERM below.
+    # cleanup and the exit below.
     started: list[tuple[str, AbstractJobExecutor]] = []
     fatal_exit = False
     try:
@@ -1059,8 +1063,8 @@ def main() -> None:
         fatal_exit = True
     finally:
         # Guard each stop_executor so a failure (e.g. a half-initialized backend when
-        # start_executor raised) cannot skip the others or the SIGTERM below: that signal is the
-        # only thing that tears the process down, since the periodic-tasks consumer thread is
+        # start_executor raised) cannot skip the others or the exit below: that exit is the only
+        # thing that tears the process down, since the periodic-tasks consumer thread is
         # non-daemon. Backends that were never started are not stopped.
         for name, executor in started:
             try:
@@ -1069,10 +1073,14 @@ def main() -> None:
                 _logger.exception("Failed to stop executor backend %r during shutdown.", name)
     if fatal_exit:
         # A non-daemon thread (the periodic-tasks consumer) keeps this process alive, so an
-        # unhandled exit from the loop — e.g. a startup failure — would otherwise leave a live
-        # process with no executor while jobs pile up PENDING. Terminate so the failure is visible.
-        # Sent after stop_executor() above so backend cleanup is not skipped by the signal.
-        os.kill(os.getpid(), signal.SIGTERM)
+        # unhandled exit from the loop (e.g. a startup failure) would otherwise leave a live
+        # process with no executor while jobs pile up PENDING. Exit at once, after stop_executor()
+        # above, with a code of its own: the server stops when its runner exits with it, while a
+        # SIGTERM can also mean the server is shutting down.
+        # Log handlers flush on every record; os._exit skips the flush of the standard streams.
+        sys.stdout.flush()
+        sys.stderr.flush()
+        os._exit(EXECUTOR_JOB_RUNNER_FATAL_EXIT_CODE)
 
 
 if __name__ == "__main__":

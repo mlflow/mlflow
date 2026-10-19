@@ -2,6 +2,7 @@ import signal
 import socket
 import subprocess
 import sys
+import threading
 import time
 from datetime import date
 from unittest import mock
@@ -17,15 +18,18 @@ from mlflow.environment_variables import (
     MLFLOW_FLASK_SERVER_SECRET_KEY,
 )
 from mlflow.exceptions import MlflowException
+from mlflow.server.constants import EXECUTOR_JOB_RUNNER_FATAL_EXIT_CODE
 from mlflow.store.tracking.dbmodels.models import SqlTraceMetricDailyRollup
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.utils import find_free_port
 from mlflow.utils.os import is_windows
+from mlflow.utils.process import ShellCommandException
 
 
 @pytest.fixture
 def mock_exec_cmd():
     with mock.patch("mlflow.server._exec_cmd") as m:
+        m.return_value.wait.return_value = 0
         yield m
 
 
@@ -618,3 +622,212 @@ def test_run_server_skips_admin_bootstrap_for_default_app(mock_exec_cmd, monkeyp
         )
     bootstrap.assert_not_called()
     assert _MLFLOW_AUTH_ADMIN_BOOTSTRAPPED.name not in mock_exec_cmd.call_args.kwargs["extra_env"]
+
+
+def _process(*, returncode, running=True):
+    """A ``subprocess.Popen`` stand-in for the job runner watcher."""
+    proc = mock.Mock()
+    proc.wait.return_value = returncode
+    proc.poll.return_value = None if running else returncode
+    return proc
+
+
+@pytest.mark.parametrize(
+    ("returncode", "reason"),
+    [
+        (EXECUTOR_JOB_RUNNER_FATAL_EXIT_CODE, "See the job runner's error above"),
+        (-signal.SIGKILL, "was killed with SIGKILL"),
+    ],
+)
+def test_watch_job_runner_stops_the_server_when_the_runner_fails(caplog, returncode, reason):
+    server_proc = _process(returncode=None)
+    runner_failed = threading.Event()
+
+    server._watch_job_runner(
+        _process(returncode=returncode), server_proc, threading.Event(), runner_failed
+    )
+
+    assert runner_failed.is_set()
+    server_proc.terminate.assert_called_once()
+    server_proc.kill.assert_not_called()
+    assert reason in caplog.text
+
+
+@pytest.mark.parametrize(
+    ("returncode", "shutting_down", "server_running"),
+    [
+        # A SIGTERM is also how the runner stops when the server stops.
+        (-signal.SIGTERM, False, True),
+        (0, False, True),
+        # The server is shutting down, or already stopped.
+        (EXECUTOR_JOB_RUNNER_FATAL_EXIT_CODE, True, True),
+        (EXECUTOR_JOB_RUNNER_FATAL_EXIT_CODE, False, False),
+    ],
+)
+def test_watch_job_runner_leaves_the_server_running(returncode, shutting_down, server_running):
+    server_proc = _process(returncode=0, running=server_running)
+    shutdown = threading.Event()
+    if shutting_down:
+        shutdown.set()
+    runner_failed = threading.Event()
+
+    server._watch_job_runner(_process(returncode=returncode), server_proc, shutdown, runner_failed)
+
+    assert not runner_failed.is_set()
+    server_proc.terminate.assert_not_called()
+
+
+def test_watch_job_runner_kills_a_server_that_does_not_stop(caplog):
+    server_proc = _process(returncode=None)
+    server_proc.wait.side_effect = subprocess.TimeoutExpired("server", 30)
+
+    server._watch_job_runner(
+        _process(returncode=EXECUTOR_JOB_RUNNER_FATAL_EXIT_CODE),
+        server_proc,
+        threading.Event(),
+        threading.Event(),
+    )
+
+    server_proc.terminate.assert_called_once()
+    server_proc.wait.assert_called_once_with(timeout=server._SERVER_STOP_TIMEOUT_SECONDS)
+    server_proc.kill.assert_called_once()
+    assert "did not stop within 30 seconds" in caplog.text
+
+
+def _python(code):
+    return subprocess.Popen([sys.executable, "-c", code])
+
+
+def _run_server_with_job_runner(
+    monkeypatch, server_proc, launch_job_runner, engine="executor", handlers=None
+):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
+    monkeypatch.setenv("MLFLOW_SQL_TRACE_ROLLUPS_ENABLED", "false")
+    if engine:
+        monkeypatch.setenv("MLFLOW_SERVER_JOB_EXECUTION_ENGINE", engine)
+    else:
+        monkeypatch.delenv("MLFLOW_SERVER_JOB_EXECUTION_ENGINE", raising=False)
+    launcher = "_launch_executor_runner" if engine == "executor" else "_launch_job_runner"
+    handlers = {} if handlers is None else handlers
+    with (
+        mock.patch("mlflow.server._exec_cmd", return_value=server_proc),
+        # Keep the handlers _run_server installs out of the test process.
+        mock.patch("signal.signal", side_effect=lambda signum, h: handlers.update({signum: h})),
+        mock.patch("mlflow.server.jobs.utils._check_requirements"),
+        mock.patch("mlflow.server.jobs.executor_registry.validate_executor_config"),
+        mock.patch(f"mlflow.server.jobs.utils.{launcher}", side_effect=launch_job_runner),
+        mock.patch("mlflow.tracing.trace_rollup_service.validate_sql_trace_rollup_startup"),
+    ):
+        server._run_server(
+            file_store_path="sqlite:///primary.db",
+            registry_store_uri="",
+            default_artifact_root="file:///artifacts",
+            serve_artifacts="",
+            artifacts_only="",
+            artifacts_destination="",
+            host="localhost",
+            port="5000",
+        )
+
+
+@pytest.mark.skipif(is_windows(), reason="Job execution does not support Windows")
+def test_run_server_stops_when_the_job_runner_fails(monkeypatch):
+    server_proc = _python("import time; time.sleep(10)")
+    runner_code = (
+        f"import os, time; time.sleep(0.5); os._exit({EXECUTOR_JOB_RUNNER_FATAL_EXIT_CODE})"
+    )
+
+    started = time.monotonic()
+    with pytest.raises(ShellCommandException, match="The job runner failed"):
+        _run_server_with_job_runner(monkeypatch, server_proc, lambda *args: _python(runner_code))
+
+    assert server_proc.returncode == -signal.SIGTERM
+    assert time.monotonic() - started < 8
+
+
+@pytest.mark.skipif(is_windows(), reason="Job execution does not support Windows")
+def test_run_server_kills_a_server_that_does_not_stop(monkeypatch, tmp_path):
+    monkeypatch.setattr(server, "_SERVER_STOP_TIMEOUT_SECONDS", 0.5)
+    ready = tmp_path / "ready"
+    server_proc = _python(
+        "import pathlib, signal, time; signal.signal(signal.SIGTERM, signal.SIG_IGN); "
+        f"pathlib.Path({str(ready)!r}).touch(); time.sleep(10)"
+    )
+
+    def launch_job_runner(*args):
+        _wait_for_file(ready)
+        return _python(f"import os; os._exit({EXECUTOR_JOB_RUNNER_FATAL_EXIT_CODE})")
+
+    with pytest.raises(ShellCommandException, match="The job runner failed"):
+        _run_server_with_job_runner(monkeypatch, server_proc, launch_job_runner)
+
+    assert server_proc.returncode == -signal.SIGKILL
+
+
+@pytest.mark.skipif(is_windows(), reason="Job execution does not support Windows")
+def test_run_server_reports_a_server_that_fails_before_the_job_runner(monkeypatch):
+    server_proc = _python("import sys; sys.exit(3)")
+    # The job runner stops itself once the server is gone, and here with the failure code too.
+    runner_code = f"import os, time; time.sleep(1); os._exit({EXECUTOR_JOB_RUNNER_FATAL_EXIT_CODE})"
+
+    with pytest.raises(ShellCommandException, match="The server process exited with code 3"):
+        _run_server_with_job_runner(monkeypatch, server_proc, lambda *args: _python(runner_code))
+
+
+@pytest.mark.skipif(is_windows(), reason="Job execution does not support Windows")
+def test_run_server_shutdown_is_not_reported_as_a_job_runner_failure(monkeypatch, tmp_path):
+    ready = tmp_path / "ready"
+    # The server is still up when the job runner exits during the shutdown.
+    server_proc = _python(
+        "import pathlib, signal, time; signal.signal(signal.SIGTERM, signal.SIG_IGN); "
+        f"pathlib.Path({str(ready)!r}).touch(); time.sleep(1.5)"
+    )
+    handlers = {}
+
+    def launch_job_runner(*args):
+        _wait_for_file(ready)
+        handlers[signal.SIGTERM](signal.SIGTERM, None)
+        return _python(f"import os; os._exit({EXECUTOR_JOB_RUNNER_FATAL_EXIT_CODE})")
+
+    _run_server_with_job_runner(monkeypatch, server_proc, launch_job_runner, handlers=handlers)
+
+    assert server_proc.returncode == 0
+
+
+def test_run_server_does_not_watch_the_default_job_runner(monkeypatch):
+    server_proc = mock.Mock(pid=123)
+    server_proc.wait.return_value = 0
+
+    with mock.patch.object(server, "_stop_server_if_job_runner_exits") as watch:
+        _run_server_with_job_runner(
+            monkeypatch, server_proc, lambda *args: mock.Mock(), engine=None
+        )
+
+    watch.assert_not_called()
+
+
+def test_run_server_fails_when_the_server_process_fails(mock_exec_cmd, monkeypatch):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "false")
+    mock_exec_cmd.return_value.wait.return_value = 3
+
+    with (
+        mock.patch("signal.signal"),
+        pytest.raises(ShellCommandException, match="exited with code 3"),
+    ):
+        server._run_server(
+            file_store_path="",
+            registry_store_uri="",
+            default_artifact_root="",
+            serve_artifacts="",
+            artifacts_only="",
+            artifacts_destination="",
+            host="",
+            port="",
+        )
+
+
+def _wait_for_file(path, timeout=10):
+    deadline = time.monotonic() + timeout
+    while not path.exists():
+        assert time.monotonic() < deadline, f"{path} was not created"
+        time.sleep(0.05)

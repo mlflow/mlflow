@@ -39,6 +39,7 @@ from mlflow.store.tracking.file_store import FileStore
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.store.workspace.sqlalchemy_store import SqlAlchemyStore as WorkspaceSqlAlchemyStore
 from mlflow.utils.os import is_windows
+from mlflow.utils.process import ShellCommandException
 from mlflow.utils.rest_utils import augmented_raise_for_status
 from mlflow.utils.time import get_current_time_millis
 
@@ -67,6 +68,19 @@ def test_mlflow_server_command(command):
             assert resp.text == "OK"
         finally:
             kill_process_tree(process.pid)
+
+
+def test_server_reports_why_it_failed():
+    with mock.patch(
+        "mlflow.server._run_server",
+        side_effect=ShellCommandException("The server process exited with code 3."),
+    ):
+        result = CliRunner().invoke(server)
+
+    assert result.exit_code == 1
+    assert "Running the mlflow server failed: The server process exited with code 3." in (
+        result.output
+    )
 
 
 def test_server_static_prefix_validation():
