@@ -1,51 +1,30 @@
-import { useCallback, useEffect, useState } from 'react';
-import {
-  clearSubmittedIssueDetectionJob,
-  getSubmittedIssueDetectionJobs,
-  type SubmittedIssueDetectionJob,
-} from '../../../components/experiment-page/components/traces-v3/IssueDetectionJobNotifications';
+import { useCallback } from 'react';
 import { useCancelJob } from '../../../components/run-page/hooks/useCancelJob';
-import { isJobComplete, JobStatus, useFetchJobStatus } from '../../../components/run-page/hooks/useFetchJobStatus';
+import { isJobComplete, JobStatus } from '../../../components/run-page/hooks/useFetchJobStatus';
+import { useLatestIssueDetection } from '../../experiment-issues/useIssueDetection';
 
 export type GenAIOverviewIssueDetectionPhase = 'idle' | 'starting' | 'running';
 
-const getTrackedJob = (experimentId: string) =>
-  getSubmittedIssueDetectionJobs().find((job) => job.experimentId === experimentId);
-
 export const useGenAIOverviewIssueDetectionProgress = (experimentId: string) => {
-  const [job, setJob] = useState<SubmittedIssueDetectionJob | undefined>(() => getTrackedJob(experimentId));
-  const { status } = useFetchJobStatus({ jobId: job?.jobId, enabled: Boolean(job) });
-  const { cancelJobAsync, isCancelling } = useCancelJob();
-
-  useEffect(() => {
-    setJob(getTrackedJob(experimentId));
-  }, [experimentId]);
-
-  useEffect(() => {
-    if (!job || !isJobComplete(status)) return;
-    clearSubmittedIssueDetectionJob(job.jobId);
-    setJob((currentJob) => (currentJob?.jobId === job.jobId ? undefined : currentJob));
-  }, [job, status]);
-
-  const registerJob = useCallback((submittedJob: SubmittedIssueDetectionJob) => {
-    setJob(submittedJob);
-  }, []);
+  const detection = useLatestIssueDetection(experimentId);
+  const { cancelJobAsync, isCancelling, error: cancelError } = useCancelJob();
+  const isRunning = Boolean(detection.run) && !isJobComplete(detection.status);
+  const phase: GenAIOverviewIssueDetectionPhase = !isRunning
+    ? 'idle'
+    : detection.status === undefined || detection.status === JobStatus.PENDING
+      ? 'starting'
+      : 'running';
 
   const cancelDetection = useCallback(async () => {
-    if (!job) return;
-    await cancelJobAsync({ jobId: job.jobId, runUuid: job.runId });
-    clearSubmittedIssueDetectionJob(job.jobId);
-    setJob(undefined);
-  }, [cancelJobAsync, job]);
-
-  const isRunning =
-    Boolean(job) && (status === undefined || status === JobStatus.PENDING || status === JobStatus.RUNNING);
+    if (!detection.jobId || !detection.run) return;
+    await cancelJobAsync({ jobId: detection.jobId, runUuid: detection.run.info.run_id });
+  }, [cancelJobAsync, detection.jobId, detection.run]);
 
   return {
-    phase: (isRunning ? 'running' : 'idle') as GenAIOverviewIssueDetectionPhase,
+    phase,
     canStartDetection: !isRunning,
-    cancelDetection: isRunning ? cancelDetection : undefined,
+    cancelDetection: isRunning && detection.jobId ? cancelDetection : undefined,
     isCancelling,
-    registerJob,
+    cancelError,
   };
 };

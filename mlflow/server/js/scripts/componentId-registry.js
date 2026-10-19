@@ -1507,6 +1507,7 @@ module.exports = {
   // -- mlflow.genai-overview --
   "mlflow.genai-overview.add-monitor": "",
   "mlflow.genai-overview.cancel-issue-detection": "",
+  "mlflow.genai-overview.cancel-issue-detection-error": "",
   "mlflow.genai-overview.chart-context": "",
   "mlflow.genai-overview.detect-issues": "",
   "mlflow.genai-overview.eval-chart.ask-assistant": "",
@@ -1514,6 +1515,7 @@ module.exports = {
   "mlflow.genai-overview.issue-chart.ask-assistant": "",
   "mlflow.genai-overview.issue-chart.view-issues": "",
   "mlflow.genai-overview.issue-detection-docs": "",
+  "mlflow.genai-overview.issue-detection-traces-error": "",
   "mlflow.genai-overview.monitor-chart.ask-assistant": "",
   "mlflow.genai-overview.monitor-chart.view-dashboard": "",
   "mlflow.genai-overview.monitor.assessment-selector": "",

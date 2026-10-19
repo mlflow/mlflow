@@ -12,7 +12,8 @@ const mockPrefillAssistantPrompt = jest.fn();
 const mockSendAssistantMessage = jest.fn();
 const mockUseAssistant = jest.fn();
 const mockShouldEnableIssueDetection = jest.fn();
-const mockUseSearchMlflowTraces = jest.fn();
+const mockShouldEnableExperimentIssuesTab = jest.fn();
+const mockUseDetectionTraceIds = jest.fn();
 const mockUseGenAIOverviewTraceState = jest.fn();
 const mockUseGenAIOverviewAnalyzeState = jest.fn();
 const mockUseGenAIOverviewEvalState = jest.fn();
@@ -20,7 +21,6 @@ const mockUseGenAIOverviewMonitorState = jest.fn();
 const mockUseGenAIOverviewStaleIssueDetectionState = jest.fn();
 const mockUseExperimentContainsTraces = jest.fn();
 const mockUseGenAIOverviewIssueDetectionProgress = jest.fn();
-const mockRegisterIssueDetectionJob = jest.fn();
 
 const CurrentTestLocation = () => {
   const { pathname, search } = useLocation();
@@ -38,11 +38,11 @@ jest.mock('../../../assistant', () => ({
 jest.mock('../../../common/utils/FeatureUtils', () => ({
   ...jest.requireActual<typeof import('../../../common/utils/FeatureUtils')>('../../../common/utils/FeatureUtils'),
   shouldEnableIssueDetection: () => mockShouldEnableIssueDetection(),
+  shouldEnableExperimentIssuesTab: () => mockShouldEnableExperimentIssuesTab(),
 }));
 
-jest.mock('@databricks/web-shared/genai-traces-table', () => ({
-  ...jest.requireActual<Record<string, unknown>>('@databricks/web-shared/genai-traces-table'),
-  useSearchMlflowTraces: (...args: unknown[]) => mockUseSearchMlflowTraces(...args),
+jest.mock('../experiment-issues/useIssueDetection', () => ({
+  useDetectionTraceIds: (...args: unknown[]) => mockUseDetectionTraceIds(...args),
 }));
 
 jest.mock('./hooks/useGenAIOverviewState', () => ({
@@ -74,10 +74,6 @@ jest.mock('../../components/traces/hooks/useExperimentContainsTraces', () => ({
   useExperimentContainsTraces: (...args: unknown[]) => mockUseExperimentContainsTraces(...args),
 }));
 
-jest.mock('../experiment-page-tabs/SqlWarehouseContext', () => ({
-  useSqlWarehouseContextSafe: () => null,
-}));
-
 jest.mock('./components/GenAIOverviewTraceActivityChart', () => ({
   GenAIOverviewTraceActivityChart: ({ onAskAssistant }: { onAskAssistant?: (context: unknown) => void }) =>
     onAskAssistant ? (
@@ -98,34 +94,9 @@ jest.mock('./components/GenAIOverviewTraceActivityChart', () => ({
 }));
 
 jest.mock('../../components/experiment-page/components/traces-v3/IssueDetectionModal', () => ({
-  IssueDetectionModal: ({
-    availableTraceIds,
-    onJobStarted,
-  }: {
-    availableTraceIds: string[];
-    onJobStarted: (job: {
-      experimentId: string;
-      jobId: string;
-      runId: string;
-      traceCount: number;
-      submittedAtMs: number;
-    }) => void;
-  }) => (
+  IssueDetectionModal: ({ availableTraceIds }: { availableTraceIds: string[] }) => (
     <div role="dialog" aria-label="Detect Issues">
       <span>{availableTraceIds.join(',')}</span>
-      <button
-        onClick={() =>
-          onJobStarted({
-            experimentId: '123',
-            jobId: 'job-1',
-            runId: 'run-1',
-            traceCount: availableTraceIds.length,
-            submittedAtMs: 1,
-          })
-        }
-      >
-        Start mocked detection
-      </button>
     </div>
   ),
 }));
@@ -137,6 +108,8 @@ describe('ExperimentGenAIJourneyOverviewPage', () => {
         routes={[
           testRoute(<ExperimentGenAIJourneyOverviewPage />, RoutePaths.experimentPageTabJourneyOverview),
           testRoute(<CurrentTestLocation />, RoutePaths.experimentPageTabTraces),
+          testRoute(<CurrentTestLocation />, RoutePaths.experimentPageTabIssues),
+          testRoute(<CurrentTestLocation />, RoutePaths.experimentPageTabIssueDetectionRunDetailsWithTab),
         ]}
         initialEntries={[
           generatePath(RoutePaths.experimentPageTabJourneyOverview, {
@@ -156,7 +129,12 @@ describe('ExperimentGenAIJourneyOverviewPage', () => {
       sendMessageWhenReady: mockSendAssistantMessage,
     });
     mockShouldEnableIssueDetection.mockReturnValue(false);
-    mockUseSearchMlflowTraces.mockReturnValue({ data: [{ trace_id: 'trace-1' }, { trace_id: 'trace-2' }] });
+    mockShouldEnableExperimentIssuesTab.mockReturnValue(false);
+    mockUseDetectionTraceIds.mockReturnValue({
+      data: ['trace-1', 'trace-2'],
+      isFetching: false,
+      error: null,
+    });
     mockUseGenAIOverviewTraceState.mockReturnValue({
       state: {
         status: 'ready',
@@ -174,7 +152,7 @@ describe('ExperimentGenAIJourneyOverviewPage', () => {
       phase: 'idle',
       canStartDetection: true,
       isCancelling: false,
-      registerJob: mockRegisterIssueDetectionJob,
+      cancelError: null,
     });
   });
 
@@ -244,21 +222,24 @@ describe('ExperimentGenAIJourneyOverviewPage', () => {
     expect(mockPrefillAssistantPrompt).not.toHaveBeenCalled();
   });
 
-  test('opens native issue detection with loaded traces and tracks the new job', async () => {
+  test('opens native issue detection only after its traces are loaded', async () => {
     mockShouldEnableIssueDetection.mockReturnValue(true);
     renderPage();
 
     await userEvent.click(await screen.findByRole('button', { name: 'Detect issues' }));
     expect(await screen.findByRole('dialog', { name: 'Detect Issues' })).toHaveTextContent('trace-1,trace-2');
-    await userEvent.click(screen.getByRole('button', { name: 'Start mocked detection' }));
+    expect(mockUseDetectionTraceIds).toHaveBeenLastCalledWith('123', true);
+  });
 
-    expect(mockRegisterIssueDetectionJob).toHaveBeenCalledWith({
-      experimentId: '123',
-      jobId: 'job-1',
-      runId: 'run-1',
-      traceCount: 2,
-      submittedAtMs: 1,
-    });
+  test('does not mount issue detection with a false empty state while traces are loading', async () => {
+    mockShouldEnableIssueDetection.mockReturnValue(true);
+    mockUseDetectionTraceIds.mockReturnValue({ data: undefined, isFetching: true, error: null });
+    renderPage();
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Detect issues' }));
+
+    expect(screen.queryByRole('dialog', { name: 'Detect Issues' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'loading' })).toHaveAttribute('loading', 'true');
   });
 
   test('keeps completed results when issue detection is unavailable', async () => {
@@ -276,9 +257,49 @@ describe('ExperimentGenAIJourneyOverviewPage', () => {
 
     renderPage();
 
-    expect(await screen.findByRole('button', { name: 'View issues' })).toBeVisible();
+    await userEvent.click(await screen.findByRole('button', { name: 'View latest results' }));
+    expect(await screen.findByRole('status', { name: 'Current test location' })).toHaveTextContent(
+      '/experiments/123/evaluation-runs/run-1/issues',
+    );
     expect(screen.queryByText(/MLFLOW_ENABLE_AI_GATEWAY=true/)).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Learn more about enabling issue detection' })).not.toBeInTheDocument();
+  });
+
+  test('links View issues to the experiment Issues tab when it is enabled', async () => {
+    mockShouldEnableExperimentIssuesTab.mockReturnValue(true);
+    mockUseGenAIOverviewAnalyzeState.mockReturnValue({
+      state: {
+        status: 'completed',
+        runUuid: 'run-1',
+        latestRunCompletedAtMs: 1,
+        issueCount: 2,
+        issuesCreatedInLastSevenDays: 0,
+        activity: [],
+      },
+      refetch: jest.fn(),
+    });
+
+    renderPage();
+
+    await userEvent.click(await screen.findByRole('button', { name: 'View issues' }));
+    expect(await screen.findByRole('status', { name: 'Current test location' })).toHaveTextContent(
+      '/experiments/123/issues',
+    );
+  });
+
+  test('shows cancellation errors instead of leaving a rejected cancellation silent', async () => {
+    mockUseGenAIOverviewIssueDetectionProgress.mockReturnValue({
+      phase: 'running',
+      canStartDetection: false,
+      cancelDetection: jest.fn(),
+      isCancelling: false,
+      cancelError: new Error('cancel failed'),
+    });
+
+    renderPage();
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Unable to cancel issue detection');
+    expect(screen.getByRole('alert')).toHaveTextContent('cancel failed');
   });
 
   test('does not show a waiting status before the first trace arrives', async () => {

@@ -1,24 +1,26 @@
-import { describe, expect, test } from '@jest/globals';
-import { ErrorWrapper } from '../../../../common/utils/ErrorWrapper';
+import { beforeEach, describe, expect, jest, test } from '@jest/globals';
 import type { RunEntity, RunInfoEntity } from '../../../types';
 import type { Issue, IssueSeverity, IssueStatus } from '../../../components/run-page/hooks/useSearchIssuesQuery';
-import {
-  findLatestReadableIssueDetectionRun,
-  resolveGenAIOverviewAnalyzeState,
-  type LatestReadableIssueDetectionRunDependencies,
-} from './useGenAIOverviewAnalyzeState';
+import { fetchGenAIOverviewIssues, resolveGenAIOverviewAnalyzeState } from './useGenAIOverviewAnalyzeState';
+
+const mockFetchAPI = jest.fn<(...args: unknown[]) => Promise<unknown>>();
+
+jest.mock('../../../../common/utils/FetchUtils', () => ({
+  fetchAPI: (...args: unknown[]) => mockFetchAPI(...args),
+  getAjaxUrl: (path: string) => path,
+}));
 
 const DAY_IN_MILLISECONDS = 24 * 60 * 60 * 1000;
 const startTimeMs = Date.UTC(2026, 7, 1);
 const endTimeMs = startTimeMs + 2 * DAY_IN_MILLISECONDS;
 
-const createRun = (status: RunInfoEntity['status'], runUuid: string, startTime: number, endTime = 0): RunEntity => ({
+const createRun = (status: RunInfoEntity['status'], startTime = startTimeMs, endTime = 0): RunEntity => ({
   info: {
     artifactUri: '',
     endTime,
     experimentId: 'experiment-1',
     lifecycleStage: 'active',
-    runUuid,
+    runUuid: 'run-1',
     runName: 'Issue detection',
     startTime,
     status,
@@ -26,43 +28,66 @@ const createRun = (status: RunInfoEntity['status'], runUuid: string, startTime: 
   data: { tags: [], params: [], metrics: [] },
 });
 
-const createIssue = (issueId: string, severity?: IssueSeverity, status: IssueStatus = 'pending'): Issue => ({
+const createIssue = (
+  issueId: string,
+  createdTimestamp: number,
+  severity?: IssueSeverity,
+  status: IssueStatus = 'pending',
+): Issue => ({
   issue_id: issueId,
   experiment_id: 'experiment-1',
   name: `Issue ${issueId}`,
   severity,
   status,
-  created_timestamp: startTimeMs,
-  last_updated_timestamp: startTimeMs,
+  created_timestamp: createdTimestamp,
+  last_updated_timestamp: createdTimestamp,
 });
 
+const resolveState = (overrides: Partial<Parameters<typeof resolveGenAIOverviewAnalyzeState>[0]> = {}) =>
+  resolveGenAIOverviewAnalyzeState({
+    latestCompletedRun: undefined,
+    isLoading: false,
+    error: null,
+    issues: [],
+    issueCount: 0,
+    startTimeMs,
+    endTimeMs,
+    recentIssueStartTimeMs: startTimeMs,
+    ...overrides,
+  });
+
 describe('resolveGenAIOverviewAnalyzeState', () => {
-  test('aggregates visible OSS issues by day and severity', () => {
-    const firstRun = createRun('FINISHED', 'run-1', startTimeMs);
-    const latestRun = createRun('FINISHED', 'run-2', startTimeMs + DAY_IN_MILLISECONDS);
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  test.each([
+    [{ isLoading: true }, 'loading'],
+    [{ error: new Error('failed') }, 'error'],
+    [{}, 'never-run'],
+  ])('returns $expectedStatus', (overrides, expectedStatus) => {
+    expect(resolveState(overrides)).toMatchObject({ status: expectedStatus });
+  });
+
+  test('uses the experiment issue count and buckets issues by their creation date', () => {
+    const latestRun = createRun('FINISHED', startTimeMs, startTimeMs + DAY_IN_MILLISECONDS);
 
     expect(
-      resolveGenAIOverviewAnalyzeState({
-        runs: [latestRun, firstRun],
-        isLoading: false,
-        error: null,
-        issuesByRunUuid: new Map([
-          ['run-1', [createIssue('high', 'high'), createIssue('rejected', 'low', 'rejected')]],
-          ['run-2', [createIssue('unclassified'), createIssue('not-an-issue', 'not_an_issue')]],
-        ]),
-        areIssuesLoading: false,
-        startTimeMs,
-        endTimeMs,
-        recentIssueStartTimeMs: startTimeMs,
-        latestReadableRun: { runUuid: 'run-2', completedAtMs: startTimeMs + DAY_IN_MILLISECONDS },
-        isLatestReadableRunLoading: false,
-        latestReadableRunError: null,
+      resolveState({
+        latestCompletedRun: latestRun,
+        issueCount: 7,
+        issues: [
+          createIssue('high', startTimeMs, 'high'),
+          createIssue('unclassified', startTimeMs + DAY_IN_MILLISECONDS),
+          createIssue('rejected', startTimeMs, 'low', 'rejected'),
+          createIssue('not-an-issue', startTimeMs, 'not_an_issue'),
+        ],
       }),
     ).toEqual({
       status: 'completed',
-      runUuid: 'run-2',
+      runUuid: 'run-1',
       latestRunCompletedAtMs: startTimeMs + DAY_IN_MILLISECONDS,
-      issueCount: 2,
+      issueCount: 7,
       issuesCreatedInLastSevenDays: 2,
       activity: [
         { timestampMs: startTimeMs, count: 1, high: 1, medium: 0, low: 0 },
@@ -71,42 +96,43 @@ describe('resolveGenAIOverviewAnalyzeState', () => {
       ],
     });
   });
+
+  test('counts recent issues outside the displayed activity range', () => {
+    expect(
+      resolveState({
+        latestCompletedRun: createRun('FINISHED'),
+        issues: [createIssue('recent', endTimeMs + DAY_IN_MILLISECONDS, 'medium')],
+        issueCount: 1,
+      }),
+    ).toMatchObject({
+      issueCount: 1,
+      issuesCreatedInLastSevenDays: 1,
+      activity: expect.not.arrayContaining([expect.objectContaining({ count: 1 })]),
+    });
+  });
 });
 
-describe('findLatestReadableIssueDetectionRun', () => {
-  test('skips a missing result and continues across search pages', async () => {
-    const fetchedRunUuids: string[] = [];
-    const dependencies: LatestReadableIssueDetectionRunDependencies = {
-      searchRuns: async (_experimentId, pageToken) =>
-        pageToken
-          ? { runs: [createRun('FINISHED', 'run-readable', startTimeMs)] }
-          : {
-              runs: [createRun('FINISHED', 'run-missing', endTimeMs)],
-              next_page_token: 'next-page',
-            },
-      fetchIssues: async (_experimentId, runUuid) => {
-        fetchedRunUuids.push(runUuid);
-        if (runUuid === 'run-missing') throw new ErrorWrapper('missing', 404);
-        return [];
-      },
-    };
+describe('fetchGenAIOverviewIssues', () => {
+  test('loads experiment-wide visible issues and their server-side total in one request', async () => {
+    const issue = createIssue('issue-1', startTimeMs, 'high');
+    mockFetchAPI.mockResolvedValue({ issues: [issue], total_count: 7 });
 
-    await expect(findLatestReadableIssueDetectionRun('experiment-1', dependencies)).resolves.toEqual({
-      runUuid: 'run-readable',
-      completedAtMs: startTimeMs,
+    await expect(fetchGenAIOverviewIssues('experiment-1')).resolves.toEqual({ issues: [issue], totalCount: 7 });
+    expect(mockFetchAPI).toHaveBeenCalledTimes(1);
+    const [, request] = mockFetchAPI.mock.calls[0];
+    expect(request).toEqual({
+      method: 'POST',
+      signal: undefined,
+      body: {
+        experiment_id: 'experiment-1',
+        statuses: ['pending', 'resolved'],
+        severities: ['low', 'medium', 'high'],
+        order_by: ['created_timestamp DESC'],
+        include_total_count: true,
+        max_results: 1000,
+        view: 'basic',
+      },
     });
-    expect(fetchedRunUuids).toEqual(['run-missing', 'run-readable']);
-  });
-
-  test('propagates transient issue-search failures', async () => {
-    const requestError = new ErrorWrapper('temporarily unavailable', 503);
-    const dependencies: LatestReadableIssueDetectionRunDependencies = {
-      searchRuns: async () => ({ runs: [createRun('FINISHED', 'run-1', startTimeMs)] }),
-      fetchIssues: async () => {
-        throw requestError;
-      },
-    };
-
-    await expect(findLatestReadableIssueDetectionRun('experiment-1', dependencies)).rejects.toBe(requestError);
+    expect((request as { body: Record<string, unknown> }).body).not.toHaveProperty('include_trace_count');
   });
 });

@@ -5207,6 +5207,10 @@
     "defaultMessage": "Predict on a Pandas DataFrame:",
     "description": "Section heading to display the code block on how we can use registered model to predict using pandas DataFrame"
   },
+  "GYvoV9": {
+    "defaultMessage": "View latest results",
+    "description": "Action to view the latest issue detection results"
+  },
   "GYxv/z": {
     "defaultMessage": "Unassign {count, plural, one {# trace} other {# traces}} from the queue",
     "description": "Review queue: tooltip explaining that the button removes the selected traces from the queue (the traces themselves are not deleted)"
@@ -8242,6 +8246,10 @@
   "QravWY": {
     "defaultMessage": "Optimize Prompt",
     "description": "Title of the optimize prompt modal"
+  },
+  "Qs1V6A": {
+    "defaultMessage": "Unable to cancel issue detection",
+    "description": "Issue detection cancellation error shown on the GenAI overview"
   },
   "Qs1m5L": {
     "defaultMessage": "All ({count})",
@@ -11707,10 +11715,6 @@
     "defaultMessage": "Remove {value} from {dimension} filter",
     "description": "Experiment issues tab > Accessible label for removing one selected value from a filter"
   },
-  "d/dx+q": {
-    "defaultMessage": "Add icon",
-    "description": "Aria label for add icon button in MCP server icon editor"
-  },
   "d00egE": {
     "defaultMessage": "No span with type RETRIEVER found in trace.",
     "description": "GenAi Traces Table > Modal > Message displayed when no retrievals are found"
@@ -12170,10 +12174,6 @@
   "eXp8N1": {
     "defaultMessage": "Collapse run details",
     "description": "Footer control to collapse the evaluation run sidebar"
-  },
-  "eYB6j0": {
-    "defaultMessage": "Detect Issues",
-    "description": "Button to detect issues in traces"
   },
   "eYEyfq": {
     "defaultMessage": "Delete",
@@ -13158,6 +13158,10 @@
   "hZFbZl": {
     "defaultMessage": "Issue detection canceled",
     "description": "Issue detection progress > Step label when canceled"
+  },
+  "haSGTq": {
+    "defaultMessage": "Unable to load traces for issue detection",
+    "description": "Issue detection trace loading error shown on the GenAI overview"
   },
   "hcDB9U": {
     "defaultMessage": "+∞",
@@ -17706,6 +17710,10 @@
   "x90XmL": {
     "defaultMessage": "The model must call at least one tool.",
     "description": "Hint shown under the tool choice selector when Required is selected"
+  },
+  "xA0JCB": {
+    "defaultMessage": "Dismiss trace loading error",
+    "description": "Accessible label for dismissing the issue detection trace loading error"
   },
   "xAfhMB": {
     "defaultMessage": "Removes this version from resolution, discovery and pull. Its number is never reused.",

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import {
+  Alert,
   BeakerIcon,
   Button,
   ChartLineIcon,
@@ -11,8 +12,7 @@ import {
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { createTraceLocationForExperiment, useSearchMlflowTraces } from '@databricks/web-shared/genai-traces-table';
-import { shouldEnableIssueDetection } from '../../../common/utils/FeatureUtils';
+import { shouldEnableExperimentIssuesTab, shouldEnableIssueDetection } from '../../../common/utils/FeatureUtils';
 import { generatePath, useLocation, useNavigate, useParams } from '../../../common/utils/RoutingUtils';
 import Routes, { RoutePaths } from '../../routes';
 import { ExperimentPageTabName, RunPageTabName } from '../../constants';
@@ -38,7 +38,7 @@ import { IssueDetectionModal } from '../../components/experiment-page/components
 import { useGenAIOverviewIssueDetectionProgress } from './hooks/useGenAIOverviewIssueDetectionProgress';
 import { OverviewTab } from './hooks/useOverviewTab';
 import { useGenAIOverviewStaleIssueDetectionState } from './hooks/useGenAIOverviewStaleIssueDetectionState';
-import { useSqlWarehouseContextSafe } from '../experiment-page-tabs/SqlWarehouseContext';
+import { useDetectionTraceIds } from '../experiment-issues/useIssueDetection';
 
 const GENAI_OVERVIEW_EVAL_SETUP_PROMPT =
   'Set up and run an offline evaluation for this MLflow experiment. Inspect its traces and issue-detection results, propose an evaluation dataset and offline evaluation scorers, and ask for confirmation. After confirmation, create the dataset and any scorer definitions needed only for this offline evaluation, then run it using MLflow so the result is logged as an evaluation run in this experiment. Do not register or schedule online scorers, enable monitoring, or change sampling settings.';
@@ -125,9 +125,9 @@ export const ExperimentGenAIJourneyOverviewPage = () => {
   const { search } = useLocation();
   const navigate = useNavigate();
   const isIssueDetectionEnabled = shouldEnableIssueDetection();
+  const isExperimentIssuesTabEnabled = shouldEnableExperimentIssuesTab();
   const useRollingSevenDayRange = false;
   const overviewTimeLabel = 'LAST_30_DAYS';
-  const sqlWarehouseContext = useSqlWarehouseContextSafe();
   const { canUseAssistant, openPanel, prefillPrompt, sendMessageWhenReady } = useAssistant();
   const { state: traceState, retry: retryTraceQuery } = useGenAIOverviewTraceState(
     experimentId,
@@ -148,7 +148,7 @@ export const ExperimentGenAIJourneyOverviewPage = () => {
     canStartDetection: canStartIssueDetection,
     cancelDetection: cancelIssueDetection,
     isCancelling: isCancellingIssueDetection,
-    registerJob: registerIssueDetectionJob,
+    cancelError: cancelIssueDetectionError,
   } = useGenAIOverviewIssueDetectionProgress(experimentId);
   const staleIssueDetectionState = useGenAIOverviewStaleIssueDetectionState({
     experimentId,
@@ -183,18 +183,7 @@ export const ExperimentGenAIJourneyOverviewPage = () => {
   const isResolvingOverviewState =
     traceState.status === 'loading' || (isTracingOnboardingCandidate && isCheckingTraceHistory);
   const showTracingOnboarding = isTracingOnboardingCandidate && !isCheckingTraceHistory && !containsTraces;
-  const issueDetectionTraceLocations = useMemo(
-    () => sqlWarehouseContext?.traceSearchLocations ?? [createTraceLocationForExperiment(experimentId)],
-    [experimentId, sqlWarehouseContext?.traceSearchLocations],
-  );
-  const { data: issueDetectionTraces } = useSearchMlflowTraces({
-    locations: issueDetectionTraceLocations,
-    disabled: !isIssueDetectionModalOpen,
-    limit: 50,
-    pageSize: 50,
-    enablePagination: false,
-    sqlWarehouseId: sqlWarehouseContext?.warehouseId ?? undefined,
-  });
+  const issueDetectionTraces = useDetectionTraceIds(experimentId, isIssueDetectionModalOpen);
   const scorersRoute = Routes.getExperimentPageTabRoute(experimentId, ExperimentPageTabName.Judges);
   const qualityDashboardRoute = generatePath(RoutePaths.experimentPageTabDashboard, {
     experimentId,
@@ -392,9 +381,9 @@ export const ExperimentGenAIJourneyOverviewPage = () => {
         });
   const latestIssueDetectionRunRoute =
     analyzeState.status === 'completed'
-      ? analyzeState.issueCount > 0
-        ? Routes.getIssueDetectionRunDetailsTabRoute(experimentId, analyzeState.runUuid, RunPageTabName.ISSUES)
-        : Routes.getIssueDetectionRunDetailsRoute(experimentId, analyzeState.runUuid)
+      ? isExperimentIssuesTabEnabled
+        ? Routes.getExperimentPageTabRoute(experimentId, ExperimentPageTabName.Issues)
+        : Routes.getIssueDetectionRunDetailsTabRoute(experimentId, analyzeState.runUuid, RunPageTabName.ISSUES)
       : undefined;
   const startIssueDetection = () => {
     if (isIssueDetectionEnabled) {
@@ -408,7 +397,7 @@ export const ExperimentGenAIJourneyOverviewPage = () => {
         size="small"
         loading={isCancellingIssueDetection}
         onClick={() => {
-          void cancelIssueDetection?.();
+          if (cancelIssueDetection) void cancelIssueDetection().catch(() => undefined);
         }}
       >
         <FormattedMessage defaultMessage="Cancel" description="Cancel issue detection action" />
@@ -436,6 +425,7 @@ export const ExperimentGenAIJourneyOverviewPage = () => {
         componentId="mlflow.genai-overview.detect-issues"
         type={primaryStage === 'analyze' ? 'primary' : undefined}
         size="small"
+        loading={isIssueDetectionModalOpen && issueDetectionTraces.isFetching}
         onClick={startIssueDetection}
       >
         <FormattedMessage defaultMessage="Detect issues" description="Button to detect issues in traces" />
@@ -720,7 +710,14 @@ export const ExperimentGenAIJourneyOverviewPage = () => {
                   action={analyzeAction}
                   artifactHref={latestIssueDetectionRunRoute}
                   artifactLabel={
-                    <FormattedMessage defaultMessage="View issues" description="Action to view detected issues" />
+                    isExperimentIssuesTabEnabled ? (
+                      <FormattedMessage defaultMessage="View issues" description="Action to view detected issues" />
+                    ) : (
+                      <FormattedMessage
+                        defaultMessage="View latest results"
+                        description="Action to view the latest issue detection results"
+                      />
+                    )
                   }
                 />
                 <GenAIOverviewStaleIssueDetectionAlert
@@ -730,6 +727,43 @@ export const ExperimentGenAIJourneyOverviewPage = () => {
                   canStartDetection={canStartIssueDetection}
                   onDetectNewIssues={startIssueDetection}
                 />
+                {cancelIssueDetectionError && (
+                  <div css={{ padding: `0 ${theme.spacing.lg}px ${theme.spacing.md}px` }}>
+                    <Alert
+                      componentId="mlflow.genai-overview.cancel-issue-detection-error"
+                      type="error"
+                      closable={false}
+                      message={
+                        <FormattedMessage
+                          defaultMessage="Unable to cancel issue detection"
+                          description="Issue detection cancellation error shown on the GenAI overview"
+                        />
+                      }
+                      description={cancelIssueDetectionError.message}
+                    />
+                  </div>
+                )}
+                {isIssueDetectionModalOpen && issueDetectionTraces.error && (
+                  <div css={{ padding: `0 ${theme.spacing.lg}px ${theme.spacing.md}px` }}>
+                    <Alert
+                      componentId="mlflow.genai-overview.issue-detection-traces-error"
+                      type="error"
+                      closable
+                      closeIconLabel={intl.formatMessage({
+                        defaultMessage: 'Dismiss trace loading error',
+                        description: 'Accessible label for dismissing the issue detection trace loading error',
+                      })}
+                      onClose={() => setIsIssueDetectionModalOpen(false)}
+                      message={
+                        <FormattedMessage
+                          defaultMessage="Unable to load traces for issue detection"
+                          description="Issue detection trace loading error shown on the GenAI overview"
+                        />
+                      }
+                      description={issueDetectionTraces.error.message}
+                    />
+                  </div>
+                )}
               </div>
               <GenAIOverviewStageCard
                 componentId="mlflow.genai-overview.stage.eval"
@@ -884,12 +918,11 @@ export const ExperimentGenAIJourneyOverviewPage = () => {
           )}
         </section>
       </div>
-      {isIssueDetectionModalOpen && (
+      {isIssueDetectionModalOpen && issueDetectionTraces.data && (
         <IssueDetectionModal
           experimentId={experimentId}
           onClose={() => setIsIssueDetectionModalOpen(false)}
-          onJobStarted={registerIssueDetectionJob}
-          availableTraceIds={issueDetectionTraces?.map((trace) => trace.trace_id) ?? []}
+          availableTraceIds={issueDetectionTraces.data}
         />
       )}
     </main>
