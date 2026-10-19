@@ -94,6 +94,7 @@ export const ExperimentPageShellExperimentDescription = ({
         setEditing={setEditing}
         onNoteUpdated={onNoteUpdated}
         defaultValue={experimentDescription}
+        collapseToSingleLine
       />
     </div>
   );

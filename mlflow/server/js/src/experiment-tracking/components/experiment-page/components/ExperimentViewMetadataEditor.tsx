@@ -143,12 +143,15 @@ export const ExperimentViewMetadataEditor = ({
   setEditing,
   onNoteUpdated,
   defaultValue,
+  collapseToSingleLine = false,
 }: {
   experiment: ExperimentEntity;
   editing: boolean;
   setEditing: (editing: boolean) => void;
   onNoteUpdated?: () => void;
   defaultValue?: string;
+  // Shows exactly one line while collapsed, instead of the fixed collapsed height.
+  collapseToSingleLine?: boolean;
 }) => {
   const storedNote = useSelector((state) => {
     const tags = getExperimentTags(experiment.experimentId, state);
@@ -404,7 +407,7 @@ export const ExperimentViewMetadataEditor = ({
               overflow: 'hidden',
               overflowWrap: isExpanded ? 'break-word' : undefined,
               padding: `${theme.spacing.sm}px ${PADDING_HORIZONTAL}px`,
-              maxHeight: isExpanded ? 'none' : COLLAPSE_MAX_HEIGHT + 'px',
+              maxHeight: isExpanded || collapseToSingleLine ? 'none' : COLLAPSE_MAX_HEIGHT + 'px',
               wordBreak: 'break-word',
               '&>:first-child': {
                 marginBlockStart: 0,
@@ -416,6 +419,18 @@ export const ExperimentViewMetadataEditor = ({
                       WebkitBoxOrient: 'vertical',
                     }),
               },
+              ...(collapseToSingleLine &&
+                !isExpanded && {
+                  '&>:first-child': {
+                    marginBlockStart: 0,
+                    display: '-webkit-box',
+                    WebkitLineClamp: 1,
+                    WebkitBoxOrient: 'vertical',
+                    overflow: 'hidden',
+                  },
+                  // One line of preview text, so headings render at text size instead of overflowing it.
+                  '&>:first-child > *': { marginBlock: 0, fontSize: 'inherit', lineHeight: 'inherit' },
+                }),
             }}
           >
             <div
