@@ -295,6 +295,12 @@ MLFLOW_TRACKING_AWS_SIGV4 = _BooleanEnvironmentVariable("MLFLOW_TRACKING_AWS_SIG
 #: (default: ``None``). When set, it will overwrite the "Authorization" HTTP header.
 MLFLOW_TRACKING_AUTH = _EnvironmentVariable("MLFLOW_TRACKING_AUTH", str, None)
 
+#: Auth provider name to advertise in server-info for client snippets.
+#: This does not affect the server's own tracking requests. (default: ``None``)
+MLFLOW_SERVER_INFO_TRACKING_AUTH = _EnvironmentVariable(
+    "MLFLOW_SERVER_INFO_TRACKING_AUTH", str, None
+)
+
 #: Specifies the chunk size to use when downloading a file from GCS
 #: (default: ``None``). If None, the chunk size is automatically determined by the
 #: ``google-cloud-storage`` package.
@@ -474,6 +480,9 @@ MLFLOW_ENABLE_MULTIPART_DOWNLOAD = _BooleanEnvironmentVariable(
 MLFLOW_ENABLE_MULTIPART_UPLOAD = _BooleanEnvironmentVariable("MLFLOW_ENABLE_MULTIPART_UPLOAD", True)
 
 #: Specifies whether or not to use multipart upload for proxied artifact access.
+#: When set on the tracking server, the server advertises multipart upload support to clients
+#: if its artifact destination supports it. Clients then upload large files directly to cloud
+#: storage using presigned URLs. When set on a client, it overrides the server's advertisement.
 #: (default: ``False``)
 MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD = _BooleanEnvironmentVariable(
     "MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD", False
@@ -483,6 +492,9 @@ MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD = _BooleanEnvironmentVariable(
 #: When enabled, large files (>= MLFLOW_MULTIPART_DOWNLOAD_MINIMUM_FILE_SIZE) are downloaded
 #: in parallel chunks directly from cloud storage using presigned URLs, bypassing the tracking
 #: server. This reduces load on the tracking server for large artifact downloads.
+#: When set on the tracking server, the server advertises multipart download support to clients,
+#: including the UI, if its artifact destination supports it. When set on a client, it overrides
+#: the server's advertisement.
 #: (default: ``False``)
 MLFLOW_ENABLE_PROXY_MULTIPART_DOWNLOAD = _BooleanEnvironmentVariable(
     "MLFLOW_ENABLE_PROXY_MULTIPART_DOWNLOAD", False
@@ -1784,7 +1796,10 @@ MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND = _EnvironmentVariable(
 #: container without network access. Requires the executor job-execution engine
 #: (``MLFLOW_SERVER_JOB_EXECUTION_ENGINE=executor``). A custom scorer job the backend does not
 #: support stays on ``MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND``; the ``docker`` backend runs only
-#: on-demand scorer runs made only of custom ``@scorer`` scorers. Validated at startup. Note this
+#: on-demand scorer runs made only of custom ``@scorer`` scorers. With the ``docker`` backend,
+#: online scoring jobs also run custom ``@scorer`` scorers in job containers, one batch at a time,
+#: and automatic evaluation accepts custom scorers (but not ensembles that include them). The
+#: online jobs themselves stay on the default backend. Validated at startup. Note this
 #: only selects *where* a custom scorer runs -- running one at all still requires
 #: ``MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS`` to be enabled (it is off by default), otherwise custom
 #: scorer jobs are rejected regardless of this backend.

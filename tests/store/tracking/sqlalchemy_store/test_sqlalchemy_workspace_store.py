@@ -52,6 +52,7 @@ from mlflow.environment_variables import (
     MLFLOW_TRACE_ARCHIVAL_CONFIG,
 )
 from mlflow.exceptions import MlflowException
+from mlflow.genai import scorer as scorer_decorator
 from mlflow.store.db.trace_rollups import run_sql_trace_rollups
 from mlflow.store.tracking.dbmodels.models import (
     SqlAssessmentDailyRollup,
@@ -2636,6 +2637,34 @@ def test_get_active_online_scorers_workspace_scoped(workspace_tracking_store):
         assert active_scorers[0].online_config.experiment_id == exp_a
 
 
+def test_upsert_online_scoring_config_custom_scorer_workspace_scoped(
+    workspace_tracking_store, monkeypatch
+):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS", "true")
+    monkeypatch.setenv("MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND", "docker")
+
+    @scorer_decorator
+    def output_length(outputs) -> int:
+        return len(str(outputs))
+
+    with WorkspaceContext("team-custom-a"):
+        exp_a = workspace_tracking_store.create_experiment("exp-custom-a")
+        workspace_tracking_store.register_scorer(
+            exp_a, "output_length", json.dumps(output_length.model_dump())
+        )
+        workspace_tracking_store.upsert_online_scoring_config(
+            experiment_id=exp_a, scorer_name="output_length", sample_rate=0.5
+        )
+
+    with WorkspaceContext("team-custom-b"):
+        assert workspace_tracking_store.get_active_online_scorers() == []
+
+    with WorkspaceContext("team-custom-a"):
+        active_scorers = workspace_tracking_store.get_active_online_scorers()
+        assert [s.name for s in active_scorers] == ["output_length"]
+        assert active_scorers[0].online_config.experiment_id == exp_a
+
+
 def test_find_completed_sessions_workspace_scoped(workspace_tracking_store):
     with WorkspaceContext("team-sessions-a"):
         exp_a = workspace_tracking_store.create_experiment("exp-sessions-a")
@@ -3323,6 +3352,48 @@ def test_review_queue_question_lock_holds_in_workspace_store(workspace_tracking_
             workspace_tracking_store.update_review_queue(queue.queue_id, schema_ids=[ls1.schema_id])
         updated = workspace_tracking_store.update_review_queue(queue.queue_id, users=["alice"])
         assert updated.users == ["alice"]
+
+
+def test_extended_issue_fields_and_paging_are_workspace_scoped(workspace_tracking_store):
+    store = workspace_tracking_store
+    with WorkspaceContext("team-a"):
+        experiment_id = store.create_experiment("extended-issues")
+        for index in range(2):
+            store.create_issue(
+                experiment_id,
+                f"Issue {index}",
+                "",
+                issue_id=f"iss-team-a-{index}",
+                categories=["Cost", " COST "],
+                metadata={"private": "value"},
+            )
+        page = store.search_issues(categories=[" cOsT "], include_total_count=True, max_results=1)
+        assert page.total_count == 2
+        assert page.token
+        run = store.create_run(experiment_id, "user", 1, [], "run")
+    with WorkspaceContext("team-b"):
+        other_experiment = store.create_experiment("extended-issues")
+        assert store.search_issues(categories=["cost"], include_total_count=True).total_count == 0
+        with pytest.raises(MlflowException, match="not found"):
+            store.update_issue("iss-team-a-0", metadata={"private": "changed"}, categories=[])
+        with pytest.raises(MlflowException, match="page token"):
+            store.search_issues(
+                categories=["cost"],
+                include_total_count=True,
+                max_results=1,
+                page_token=page.token,
+            )
+        with pytest.raises(MlflowException, match="not found"):
+            store.create_issue(
+                other_experiment, "Foreign source", "", source_run_id=run.info.run_id
+            )
+    with WorkspaceContext("team-a"):
+        assert store.get_issue("iss-team-a-0").metadata == {"private": "value"}
+        second = store.search_issues(
+            categories=["COST"], include_total_count=True, max_results=1, page_token=page.token
+        )
+        assert second.total_count == 2
+        assert second[0].issue_id != page[0].issue_id
 
 
 def _seed_skill_registry_graph(session, workspace):

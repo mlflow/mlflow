@@ -138,6 +138,18 @@ class ScorerSamplingConfig:
 AggregationFunc = Callable[[list[float]], float]  # List of per-row value -> aggregated value
 
 
+def _to_python_scalar(value: Any) -> Any:
+    """
+    Convert a NumPy scalar (e.g. ``np.bool_``, ``np.int64``), which is not a subclass of the
+    matching Python primitive, to that primitive. NumPy is looked up lazily so this module
+    stays importable without it.
+    """
+    np = sys.modules.get("numpy")
+    if np is not None and isinstance(value, np.generic):
+        return value.item()
+    return value
+
+
 def _extract_scorer_value(result: Any) -> Any:
     """Reduce a sub-scorer's return to a single aggregatable value.
 
@@ -384,6 +396,15 @@ def _job_executor_scorer_context():
             os.environ.pop(_MLFLOW_IN_JOB_EXECUTOR.name, None)
         else:
             os.environ[_MLFLOW_IN_JOB_EXECUTOR.name] = previous
+
+
+def _is_decorator_scorer(serialized: SerializedScorer) -> bool:
+    """Whether a serialized scorer is a single custom ``@scorer``, not, for example, an ensemble
+    that includes one.
+    """
+    return bool(
+        serialized.call_source and serialized.call_signature and serialized.original_func_name
+    )
 
 
 def _serialized_scorer_is_custom_code(
@@ -664,7 +685,7 @@ class Scorer(BaseModel):
             return BuiltInScorer.model_validate(obj)
 
         # Handle decorator scorers
-        elif serialized.call_source and serialized.call_signature and serialized.original_func_name:
+        elif _is_decorator_scorer(serialized):
             # Reconstructing a custom scorer executes its stored source via exec(). The tracking
             # server must never do that: it returns a non-executing handle that carries the
             # scorer's metadata and serialized form and forwards it to the job executor, which
@@ -952,6 +973,7 @@ class Scorer(BaseModel):
             aggregations=serialized.aggregations,
             description=serialized.description,
             timeout=serialized.timeout,
+            session_level=serialized.session_level,
         )
         object.__setattr__(handle, "_is_session_level", serialized.is_session_level_scorer)
         object.__setattr__(handle, "_cached_dump", asdict(serialized))
@@ -981,7 +1003,11 @@ class Scorer(BaseModel):
         # Filter to only the parameters the function actually expects
         sig = inspect.signature(self.__call__)
         filtered = {k: v for k, v in merged.items() if k in sig.parameters}
-        result = self(**filtered)
+        result = _to_python_scalar(self(**filtered))
+        # Feedback values are JSON-serialized when logged, which fails for NumPy scalars
+        for feedback in result if isinstance(result, list) else [result]:
+            if isinstance(feedback, Feedback):
+                feedback.value = _to_python_scalar(feedback.value)
         if not (
             # TODO: Replace 'Assessment' with 'Feedback' once we migrate from the agent eval harness
             isinstance(result, (int, float, bool, str, Assessment, LegacyAssessment))

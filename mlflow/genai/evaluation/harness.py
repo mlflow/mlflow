@@ -931,6 +931,15 @@ def _run_score(
     tags = eval_item.tags if not is_none_or_nan(eval_item.tags) else {}
     validate_tags(tags)
 
+    if eval_item.trace is None:
+        # No trace to attach tags/assessments to (e.g. predict_fn raised before producing one).
+        # Surface the underlying error instead of failing on the missing trace.
+        _logger.warning(
+            "Skipping logging tags and assessments to MLflow because no trace is available"
+            + (f": {eval_item.error_message}" if eval_item.error_message else ".")
+        )
+        return eval_result
+
     for key in tags.keys() - IMMUTABLE_TAGS:
         try:
             mlflow.set_trace_tag(trace_id=eval_item.trace.info.trace_id, key=key, value=tags[key])

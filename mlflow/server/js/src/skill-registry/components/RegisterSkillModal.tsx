@@ -16,7 +16,7 @@ import {
 import { defineMessages, FormattedMessage, useIntl } from 'react-intl';
 
 import { useArtifactServingEnabled, useSkillContentLimits } from '../../experiment-tracking/hooks/useServerInfo';
-import { useActiveWorkspace } from '../../workspaces/utils/WorkspaceUtils';
+import { useTrackingSnippetConnection } from '../../common/utils/trackingSnippetConnection';
 import { SkillIconEditor } from './SkillIconEditor';
 import { SkillTagsInput } from './SkillTagsInput';
 import { RegisterSkillApiView, RepositoryImportHint } from './RegisterSkillApiView';
@@ -154,7 +154,7 @@ const RegisterSkillDialog = ({ onClose, skill, sourceVersion, onRegistered }: Re
   const [seededForm] = useState(() => formFromVersion(sourceVersion, fixedIdentity));
   // Content MLflow stores itself needs a server that serves artifacts; other servers can only import.
   const uploadEnabled = useArtifactServingEnabled();
-  const workspace = useActiveWorkspace();
+  const snippetConnection = useTrackingSnippetConnection();
   const { maxBytes, maxFiles } = useSkillContentLimits();
   const [mode, setMode] = useState<RegistrationMode>(
     uploadEnabled && sourceVersion?.source_type === 'mlflow' ? 'upload' : 'pointer',
@@ -380,7 +380,7 @@ const RegisterSkillDialog = ({ onClose, skill, sourceVersion, onRegistered }: Re
       ref: ref || undefined,
       subpath: subpath || undefined,
       status: form.status,
-      workspace,
+      ...snippetConnection,
       ...snippetIdentity,
     },
     repositoryUrl: isVersion ? undefined : parsed?.repositoryUrl,

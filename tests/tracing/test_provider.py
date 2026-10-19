@@ -1,12 +1,11 @@
 import random
-import sys
 import threading
 from concurrent.futures import ThreadPoolExecutor
-from pathlib import Path
 from unittest import mock
 
 import pytest
 from opentelemetry import trace
+from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider as SDKTracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
@@ -846,7 +845,7 @@ def test_otel_resource_attributes(monkeypatch):
         attributes.pop("service.instance.id", None)
         return attributes
 
-    default_service_name = f"unknown_service:{Path(sys.executable).name}"
+    default_service_name = Resource.create({}).attributes["service.name"]
     tracer = _get_tracer("test")
     # By default, only MLflow's SDK attributes are set on an empty resource
     assert resource_attributes(tracer) == {

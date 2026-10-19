@@ -30,6 +30,7 @@ from mlflow.genai.evaluation.harness import (
     NoOpRateLimiter,
     _get_new_expectations,
     _run_predict,
+    _run_score,
     _ScoreSubmitter,
     _should_clone_trace,
     backpressure_buffer,
@@ -2538,6 +2539,34 @@ def _make_eval_item(trace=None, expectations=None):
 def test_get_new_expectations_returns_empty_when_trace_is_none():
     eval_item = _make_eval_item(trace=None, expectations={"expected": "value"})
     assert _get_new_expectations(eval_item) == []
+
+
+def test_run_score_skips_logging_and_surfaces_error_when_trace_is_none():
+    eval_item = _make_eval_item(trace=None)
+    eval_item.tags = {"env": "dev"}
+    eval_item.error_message = "Failed to invoke the predict_fn: boom"
+
+    @scorer
+    def always_pass(outputs):
+        return True
+
+    with (
+        mock.patch("mlflow.set_trace_tag") as mock_set_tag,
+        mock.patch("mlflow.genai.evaluation.harness._log_assessments") as mock_log,
+        mock.patch("mlflow.genai.evaluation.harness._logger.warning") as mock_warning,
+    ):
+        result = _run_score(
+            eval_item,
+            scorers=[always_pass],
+            run_id=None,
+            scorer_rate_limiter=NoOpRateLimiter(),
+        )
+
+    assert [a.name for a in result.assessments] == ["always_pass"]
+    mock_set_tag.assert_not_called()
+    mock_log.assert_not_called()
+    mock_warning.assert_called_once()
+    assert "Failed to invoke the predict_fn: boom" in mock_warning.call_args[0][0]
 
 
 def test_get_new_expectations_filters_existing(mlflow_experiment_trace):

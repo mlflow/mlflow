@@ -29,7 +29,7 @@ export const CopyableSnippet = ({
         css={overlayButtonStyles(theme)}
       />
       <CodeSnippet
-        language={format === 'python' ? 'python' : 'text'}
+        language={format === 'python' ? 'python' : 'bash'}
         theme={theme.isDarkMode ? 'duotoneDark' : 'light'}
         style={{ padding: theme.spacing.sm, paddingRight: theme.spacing.xl + theme.spacing.sm }}
       >

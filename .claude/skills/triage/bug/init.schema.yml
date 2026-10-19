@@ -23,12 +23,14 @@ properties:
         description: Reproduction needs resources the sandbox lacks.
   comment:
     description: |
-      Markdown comment for the issue. Fill in this template: replace each `<...>` placeholder,
-      and drop a line or section that has nothing to say, except the verdict.
+      Markdown comment for initial triage. Fill in this template: replace each `<...>`
+      placeholder, and drop a line or section that has nothing to say, except the verdict.
 
       ### Summary
 
       **<verdict>**: <one or two sentences on what happens and on which versions>.
+
+      <the diagram from viz-aid.md, if any: ![<takeaway>](<path>)>
 
       - Expected: <what should happen>
       - Actual: <what happens, in one line, e.g. the exception and its message>
@@ -53,12 +55,21 @@ properties:
       ### What I tried
 
       <for any verdict other than Reproduced: the attempts and why each did not reproduce it>
+
+      ### Next steps
+
+      <Keep steps brief; omit repeated details. If you open a pull request, the reporter tests it and
+      maintainers review it. Otherwise, anyone else who wants to open a PR must wait for a maintainer
+      to add the `ready` issue label.>
+
+      - Reporter: <e.g. "Test the PR." or "Wait for the `ready` label before opening a PR." or "Share a minimal reproduction.">
+      - Maintainers: <e.g. "Review the PR." or "Review findings and add the `ready` label if appropriate." or "Choose a fix direction.">
     type: string
     minLength: 1
     maxLength: 5000
   pull_request:
     description: |
-      Draft pull request for `fix.patch`. Only for a Reproduced bug whose fix is small, verified,
+      Draft pull request for `fix.patch`. Only for a Reproduced bug whose fix is verified
       and leaves nothing for a maintainer to decide.
     type: object
     additionalProperties: false

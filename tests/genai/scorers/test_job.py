@@ -1,4 +1,6 @@
 import json
+import subprocess
+import sys
 from unittest import mock
 
 import pytest
@@ -12,13 +14,20 @@ from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
 from mlflow.exceptions import MlflowException
 from mlflow.genai import scorer
 from mlflow.genai.evaluation.entities import EvalItem, EvalResult
-from mlflow.genai.scorers.base import SCORER_BACKEND_TRACKING
+from mlflow.genai.scorers.base import SCORER_BACKEND_TRACKING, _in_job_executor
 from mlflow.genai.scorers.job import (
+    _online_scorers_this_job_can_run,
     _plan_invoke_scorer_job_for_docker,
     _run_session_scorer,
     _score_single_turn_traces,
     invoke_scorer_job,
+    run_online_session_scorer_job,
+    run_online_trace_scorer_job,
 )
+from mlflow.genai.scorers.online.container_scoring import OnlineContainerScorer
+from mlflow.genai.scorers.online.entities import OnlineScorer, OnlineScoringConfig
+from mlflow.genai.scorers.online.session_processor import OnlineSessionScoringProcessor
+from mlflow.genai.scorers.online.trace_processor import OnlineTraceScoringProcessor
 from mlflow.server.constants import BACKEND_STORE_URI_ENV_VAR
 from mlflow.server.jobs.utils import _load_function
 from mlflow.tracing.constant import AssessmentMetadataKey, TraceMetadataKey
@@ -375,6 +384,122 @@ def test_docker_plan_logs_assessments_in_the_job_workspace(db_uri, tmp_path, mon
         with WorkspaceContext("team-b"):
             with pytest.raises(MlflowException, match=trace_id):
                 plan_and_finalize()
+
+
+@pytest.mark.parametrize(
+    ("job_fn", "processor_cls"),
+    [
+        (run_online_trace_scorer_job, OnlineTraceScoringProcessor),
+        (run_online_session_scorer_job, OnlineSessionScoringProcessor),
+    ],
+)
+@pytest.mark.parametrize("backend", [None, "docker"])
+def test_online_jobs_never_run_custom_scorer_code_in_their_own_process(
+    backend, job_fn, processor_cls, monkeypatch
+):
+    if backend:
+        monkeypatch.setenv("MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND", backend)
+    else:
+        monkeypatch.delenv("MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND", raising=False)
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS", "true")
+    seen = {}
+
+    def create(experiment_id, online_scorers, tracking_store, container_scorer=None):
+        seen["may_run_scorer_code"] = _in_job_executor()
+        seen["container_scorer"] = container_scorer
+        seen["scorers"] = [s.name for s in online_scorers]
+        return mock.Mock()
+
+    custom_scorer = {
+        "name": "output_length",
+        "serialized_scorer": _custom_scorer_json(),
+        "online_config": {
+            "online_scoring_config_id": "c",
+            "scorer_id": "s",
+            "sample_rate": 1.0,
+            "experiment_id": "exp-1",
+            "filter_string": None,
+        },
+    }
+
+    with (
+        mock.patch.object(processor_cls, "create", side_effect=create),
+        mock.patch("mlflow.genai.scorers.job._get_tracking_store"),
+    ):
+        job_fn(experiment_id="exp-1", online_scorers=[custom_scorer])
+
+    assert seen["may_run_scorer_code"] is False
+    if backend:
+        assert isinstance(seen["container_scorer"], OnlineContainerScorer)
+        assert seen["scorers"] == ["output_length"]
+    else:
+        assert seen["container_scorer"] is None
+        # The job drops the custom scorer before its processor loads it.
+        assert seen["scorers"] == []
+
+
+def test_importing_the_scorer_jobs_first_registers_every_job_function():
+    # The job utils load all job functions when first imported, so a module this one imports at
+    # the top level must not import them while this module is only partly initialized.
+    code = (
+        "import mlflow.genai.scorers.job\n"
+        "from mlflow.server.jobs import _SUPPORTED_JOB_FUNCTION_LIST\n"
+        "from mlflow.server.jobs.utils import _job_name_to_fn_fullname_map\n"
+        "assert sorted(_job_name_to_fn_fullname_map.values()) == sorted(\n"
+        "    set(_SUPPORTED_JOB_FUNCTION_LIST)\n"
+        "), _job_name_to_fn_fullname_map\n"
+    )
+    subprocess.check_call([sys.executable, "-c", code])
+
+
+@pytest.mark.parametrize(
+    ("backend", "custom_scorers_enabled", "expected"),
+    [
+        # Without job containers, custom scorer code would run in the job's own process.
+        (None, True, ["judge"]),
+        ("docker", True, ["judge", "output_length"]),
+        ("docker", False, ["judge"]),
+    ],
+)
+def test_online_jobs_run_custom_scorers_only_in_job_containers(
+    backend, custom_scorers_enabled, expected, monkeypatch
+):
+    if backend:
+        monkeypatch.setenv("MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND", backend)
+    else:
+        monkeypatch.delenv("MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND", raising=False)
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS", str(custom_scorers_enabled).lower())
+
+    @scorer
+    def output_length(outputs) -> int:
+        return len(str(outputs))
+
+    judge = json.dumps({
+        "name": "judge",
+        "instructions_judge_pydantic_data": {
+            "model": "gateway:/ep",
+            "instructions": "{{ outputs }}",
+        },
+    })
+    config = OnlineScoringConfig(
+        online_scoring_config_id="c",
+        scorer_id="s",
+        sample_rate=1.0,
+        experiment_id="1",
+        filter_string=None,
+    )
+    online_scorers = [
+        OnlineScorer(name="judge", serialized_scorer=judge, online_config=config),
+        OnlineScorer(
+            name="output_length",
+            serialized_scorer=json.dumps(output_length.model_dump()),
+            online_config=config,
+        ),
+    ]
+
+    runnable = _online_scorers_this_job_can_run(online_scorers)
+
+    assert [s.name for s in runnable] == expected
 
 
 def test_scorer_jobs_pass_the_trace_inputs_and_outputs_to_scorers(sqlite_tracking):

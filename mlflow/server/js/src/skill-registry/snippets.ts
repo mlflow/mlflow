@@ -1,27 +1,37 @@
 // Copyable CLI and Python examples. Every user-supplied value goes through a quoting helper.
 import { SkillStatus } from './types';
 import type { SkillRegistrationSourceType } from './sourceLocation';
+import type { TrackingSnippetConnection } from '../common/utils/trackingSnippetConnection';
 
 const quoteShellArg = (value: string) => `'${value.replace(/'/g, "'\\''")}'`;
 
 // JSON string escapes (\", \\, \n, \uXXXX) are all valid Python string-literal escapes.
 const quotePythonString = (value: string) => JSON.stringify(value);
 
-/** The active workspace when workspaces are enabled; commands then run against it. */
-type SnippetWorkspace = string | null | undefined;
-
 // The MLflow client reads the workspace from MLFLOW_WORKSPACE, so it scopes any `mlflow` command.
-const cliCommand = (lines: string[], workspace?: SnippetWorkspace) =>
-  lines
-    .map((line, index) =>
-      index > 0 ? `    ${line}` : workspace ? `MLFLOW_WORKSPACE=${quoteShellArg(workspace)} ${line}` : line,
-    )
-    .join(' \\\n');
+const cliCommand = (lines: string[], connection: TrackingSnippetConnection = {}) => {
+  const env = [
+    connection.trackingUri && `MLFLOW_TRACKING_URI=${quoteShellArg(connection.trackingUri)}`,
+    connection.trackingAuth && `MLFLOW_TRACKING_AUTH=${quoteShellArg(connection.trackingAuth)}`,
+    connection.workspace && `MLFLOW_WORKSPACE=${quoteShellArg(connection.workspace)}`,
+  ].filter(Boolean);
+  return [...env, ...lines.map((line, index) => (index > 0 ? `    ${line}` : line))].join(' \\\n');
+};
 
 const pythonCall = (call: string, args: string[]) => `${call}(\n${args.map((arg) => `    ${arg},`).join('\n')}\n)`;
 
-const pythonSnippet = (imports: string[], call: string, workspace?: SnippetWorkspace) =>
-  [...imports, '', ...(workspace ? [`mlflow.set_workspace(${quotePythonString(workspace)})`] : []), call].join('\n');
+const pythonSnippet = (imports: string[], call: string, connection: TrackingSnippetConnection = {}) => {
+  const authEnv =
+    connection.trackingAuth && `os.environ["MLFLOW_TRACKING_AUTH"] = ${quotePythonString(connection.trackingAuth)}`;
+  return [
+    ...(authEnv ? ['import os', '', authEnv, ''] : []),
+    ...imports,
+    '',
+    ...(connection.trackingUri ? [`mlflow.set_tracking_uri(${quotePythonString(connection.trackingUri)})`] : []),
+    ...(connection.workspace ? [`mlflow.set_workspace(${quotePythonString(connection.workspace)})`] : []),
+    call,
+  ].join('\n');
+};
 
 const PYTHON_SOURCE_CLASS: Record<SkillRegistrationSourceType, string> = {
   git: 'GitSource',
@@ -29,7 +39,7 @@ const PYTHON_SOURCE_CLASS: Record<SkillRegistrationSourceType, string> = {
   zip: 'ZipSource',
 };
 
-export interface SkillRegisterSnippetOptions {
+export interface SkillRegisterSnippetOptions extends TrackingSnippetConnection {
   sourceType?: SkillRegistrationSourceType;
   location: string;
   local: boolean;
@@ -38,7 +48,6 @@ export interface SkillRegisterSnippetOptions {
   ref?: string;
   subpath?: string;
   status?: SkillStatus;
-  workspace?: SnippetWorkspace;
 }
 
 export const formatSkillRegisterCli = ({
@@ -51,6 +60,8 @@ export const formatSkillRegisterCli = ({
   subpath,
   status,
   workspace,
+  trackingUri,
+  trackingAuth,
 }: SkillRegisterSnippetOptions) => {
   const lines = [
     local ? `mlflow skills register --source ${quoteShellArg('<directory>')}` : `mlflow skills register ${sourceType}`,
@@ -63,7 +74,7 @@ export const formatSkillRegisterCli = ({
     if (subpath) lines.push(`--subpath ${quoteShellArg(subpath)}`);
   }
   if (status && status !== SkillStatus.ACTIVE) lines.push(`--status ${status}`);
-  return cliCommand(lines, workspace);
+  return cliCommand(lines, { workspace, trackingUri, trackingAuth });
 };
 
 export const formatSkillRegisterPython = ({
@@ -76,6 +87,8 @@ export const formatSkillRegisterPython = ({
   subpath,
   status,
   workspace,
+  trackingUri,
+  trackingAuth,
 }: SkillRegisterSnippetOptions) => {
   const args: string[] = [];
   if (name) args.push(`name=${quotePythonString(name)}`);
@@ -94,17 +107,20 @@ export const formatSkillRegisterPython = ({
   const imports = local
     ? ['import mlflow']
     : ['import mlflow', `from mlflow.genai import ${PYTHON_SOURCE_CLASS[sourceType]}`];
-  return pythonSnippet(imports, pythonCall('mlflow.genai.register_skill', args), workspace);
+  return pythonSnippet(imports, pythonCall('mlflow.genai.register_skill', args), {
+    workspace,
+    trackingUri,
+    trackingAuth,
+  });
 };
 
-export interface SkillImportSnippetOptions {
+export interface SkillImportSnippetOptions extends TrackingSnippetConnection {
   source: string;
   ref?: string;
   /** Discovery root; the import registers every SKILL.md found beneath it. */
   subpath?: string;
   organization?: string;
   status?: SkillStatus;
-  workspace?: SnippetWorkspace;
 }
 
 /**
@@ -130,6 +146,8 @@ export const buildRegistrationSnippets = ({
           organization: register.organization || undefined,
           status: register.status,
           workspace: register.workspace,
+          trackingUri: register.trackingUri,
+          trackingAuth: register.trackingAuth,
         }
       : undefined,
 });
@@ -141,13 +159,15 @@ export const formatSkillImportCli = ({
   organization,
   status,
   workspace,
+  trackingUri,
+  trackingAuth,
 }: SkillImportSnippetOptions) => {
   const lines = [`mlflow skills import --source ${quoteShellArg(source)}`];
   if (ref) lines.push(`--ref ${quoteShellArg(ref)}`);
   if (subpath) lines.push(`--subpath ${quoteShellArg(subpath)}`);
   if (organization) lines.push(`--organization ${quoteShellArg(organization)}`);
   if (status && status !== SkillStatus.ACTIVE) lines.push(`--status ${status}`);
-  return cliCommand(lines, workspace);
+  return cliCommand(lines, { workspace, trackingUri, trackingAuth });
 };
 
 export const formatSkillImportPython = ({
@@ -157,6 +177,8 @@ export const formatSkillImportPython = ({
   organization,
   status,
   workspace,
+  trackingUri,
+  trackingAuth,
 }: SkillImportSnippetOptions) => {
   const sourceArgs = [`url=${quotePythonString(source)}`];
   if (ref) sourceArgs.push(`ref=${quotePythonString(ref)}`);
@@ -167,16 +189,16 @@ export const formatSkillImportPython = ({
   return pythonSnippet(
     ['import mlflow', 'from mlflow.genai import GitSource'],
     pythonCall('mlflow.genai.import_skills', args),
-    workspace,
+    { workspace, trackingUri, trackingAuth },
   );
 };
 
-export const formatSkillPullCli = (uri: string, destination: string, workspace?: SnippetWorkspace) =>
-  cliCommand([`mlflow skills pull ${uri}`, `--destination ${destination}`], workspace);
+export const formatSkillPullCli = (uri: string, destination: string, connection?: TrackingSnippetConnection) =>
+  cliCommand([`mlflow skills pull ${uri}`, `--destination ${destination}`], connection);
 
-export const formatSkillPullPython = (uri: string, destination: string, workspace?: SnippetWorkspace) =>
+export const formatSkillPullPython = (uri: string, destination: string, connection?: TrackingSnippetConnection) =>
   pythonSnippet(
     ['import mlflow.genai'],
     pythonCall('mlflow.genai.pull', [quotePythonString(uri), `destination=${quotePythonString(destination)}`]),
-    workspace,
+    connection,
   );

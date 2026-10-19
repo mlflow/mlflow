@@ -3,10 +3,16 @@
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
-from mlflow.entities.assessment import Assessment
+from mlflow.entities import AssessmentError, AssessmentSourceType, Trace
+from mlflow.entities.assessment import Assessment, Feedback
 from mlflow.environment_variables import MLFLOW_ONLINE_SCORING_MAX_WORKER_THREADS
-from mlflow.genai.scorers.base import Scorer, warn_session_level_unsupported_online
+from mlflow.genai.scorers.base import (
+    Scorer,
+    _UnexecutedDecoratorScorer,
+    warn_session_level_unsupported_online,
+)
 from mlflow.genai.scorers.online.constants import (
     EXCLUDE_EVAL_RUN_TRACES_FILTER,
     MAX_SESSIONS_PER_JOB,
@@ -20,7 +26,12 @@ from mlflow.genai.scorers.online.session_checkpointer import (
 )
 from mlflow.genai.scorers.online.trace_loader import OnlineTraceLoader
 from mlflow.store.tracking.abstract_store import AbstractStore
-from mlflow.tracing.constant import AssessmentMetadataKey
+from mlflow.tracing.constant import AssessmentMetadataKey, TraceMetadataKey
+
+if TYPE_CHECKING:
+    # Type-only: importing the job container code here would import the server's job package,
+    # which imports this module back through the tracking store.
+    from mlflow.genai.scorers.online.container_scoring import OnlineContainerScorer
 
 _logger = logging.getLogger(__name__)
 
@@ -60,12 +71,14 @@ class OnlineSessionScoringProcessor:
         sampler: OnlineScorerSampler,
         experiment_id: str,
         tracking_store: AbstractStore,
+        container_scorer: "OnlineContainerScorer | None" = None,
     ):
         self._trace_loader = trace_loader
         self._checkpoint_manager = checkpoint_manager
         self._sampler = sampler
         self._experiment_id = experiment_id
         self._tracking_store = tracking_store
+        self._container_scorer = container_scorer
 
     @classmethod
     def create(
@@ -73,6 +86,7 @@ class OnlineSessionScoringProcessor:
         experiment_id: str,
         online_scorers: list[OnlineScorer],
         tracking_store: AbstractStore,
+        container_scorer: "OnlineContainerScorer | None" = None,
     ) -> "OnlineSessionScoringProcessor":
         """
         Factory method to create an OnlineSessionScoringProcessor with dependencies.
@@ -81,6 +95,8 @@ class OnlineSessionScoringProcessor:
             experiment_id: The experiment ID to process sessions from.
             online_scorers: List of OnlineScorer instances.
             tracking_store: The tracking store instance.
+            container_scorer: If given, custom ``@scorer`` scorers run in job containers through
+                it, and their code never runs in this process.
 
         Returns:
             Configured OnlineSessionScoringProcessor instance.
@@ -88,9 +104,12 @@ class OnlineSessionScoringProcessor:
         return cls(
             trace_loader=OnlineTraceLoader(tracking_store),
             checkpoint_manager=OnlineSessionCheckpointManager(tracking_store, experiment_id),
-            sampler=OnlineScorerSampler(online_scorers),
+            sampler=OnlineScorerSampler(
+                online_scorers, run_custom_scorers_on_host=container_scorer is None
+            ),
             experiment_id=experiment_id,
             tracking_store=tracking_store,
+            container_scorer=container_scorer,
         )
 
     def process_sessions(self) -> None:
@@ -213,7 +232,11 @@ class OnlineSessionScoringProcessor:
         return sorted_tasks[:MAX_SESSIONS_PER_JOB]
 
     def _clean_up_old_assessments(
-        self, trace, session_id: str, new_assessments: list[Assessment]
+        self,
+        trace,
+        session_id: str,
+        new_assessments: list[Assessment],
+        only_replace_code_assessments: bool = False,
     ) -> None:
         """
         Remove old online scoring assessments after successfully logging new ones.
@@ -225,6 +248,7 @@ class OnlineSessionScoringProcessor:
             trace: The Trace object containing all assessments.
             session_id: The session ID to match in assessment metadata.
             new_assessments: List of new assessments that were just logged.
+            only_replace_code_assessments: Only remove old assessments that code scorers logged.
         """
         if not trace or not trace.info.assessments:
             return
@@ -241,6 +265,13 @@ class OnlineSessionScoringProcessor:
                 online_session_id == session_id
                 and assessment.name in new_assessment_names
                 and assessment.assessment_id not in new_assessment_ids
+                and (
+                    not only_replace_code_assessments
+                    or (
+                        assessment.source
+                        and assessment.source.source_type == AssessmentSourceType.CODE
+                    )
+                )
             ):
                 self._tracking_store.delete_assessment(
                     trace_id=trace.info.trace_id, assessment_id=assessment.assessment_id
@@ -252,7 +283,79 @@ class OnlineSessionScoringProcessor:
 
     def _execute_session_scoring(self, tasks: list[SessionScoringTask]) -> None:
         """
-        Execute session-level scoring tasks in parallel.
+        Execute session-level scoring tasks: custom scorers in job containers when a container
+        scorer is set, and all other scorers in parallel in this process.
+
+        Args:
+            tasks: List of SessionScoringTask objects containing sessions and their scorers.
+        """
+        if self._container_scorer is None:
+            self._execute_session_scoring_on_host(tasks)
+            return
+
+        host_tasks = []
+        container_tasks = []
+        for task in tasks:
+            # The sampler loads custom scorers without their code in this mode.
+            if others := [s for s in task.scorers if not isinstance(s, _UnexecutedDecoratorScorer)]:
+                host_tasks.append(SessionScoringTask(session=task.session, scorers=others))
+            if custom := [s for s in task.scorers if isinstance(s, _UnexecutedDecoratorScorer)]:
+                container_tasks.append(SessionScoringTask(session=task.session, scorers=custom))
+
+        self._execute_session_scoring_on_host(host_tasks)
+
+        work = []
+        session_ids = {}
+        for task in container_tasks:
+            try:
+                traces = self._fetch_session_traces(task.session)
+            except Exception as e:
+                _logger.warning(
+                    f"Failed to fetch traces for session {task.session.session_id}: {e}",
+                    exc_info=True,
+                )
+                continue
+            if not traces:
+                continue
+            session_ids[traces[0].info.trace_id] = task.session.session_id
+            work.extend((self._sampler.online_scorer(s.name), traces) for s in task.scorers)
+
+        def on_result(online_scorer: OnlineScorer, traces: list[Trace], feedbacks: list[Feedback]):
+            self._log_session_assessments(
+                traces[0],
+                session_ids[traces[0].info.trace_id],
+                feedbacks,
+                # The container chose these names, so they must not replace assessments a built-in
+                # or judge scorer logged.
+                only_replace_code_assessments=True,
+            )
+
+        def on_failure(online_scorer: OnlineScorer, traces: list[Trace], error: str):
+            # Imported lazily to avoid pulling in pandas at module load time (skinny client).
+            from mlflow.genai.evaluation.utils import (
+                add_scorer_metadata,
+                make_code_type_assessment_source,
+            )
+
+            # Logged like an error from a session scorer that runs on the host, on the first trace.
+            session_id = session_ids[traces[0].info.trace_id]
+            feedback = Feedback(
+                name=online_scorer.name,
+                error=AssessmentError(error_code="SCORER_ERROR", error_message=error),
+                source=make_code_type_assessment_source(online_scorer.name),
+                trace_id=traces[0].info.trace_id,
+                metadata={TraceMetadataKey.TRACE_SESSION: session_id},
+            )
+            add_scorer_metadata(self._sampler.scorer(online_scorer.name), [feedback])
+            self._log_session_assessments(
+                traces[0], session_id, [feedback], only_replace_code_assessments=True
+            )
+
+        self._container_scorer.score_sessions(work, on_result, on_failure)
+
+    def _execute_session_scoring_on_host(self, tasks: list[SessionScoringTask]) -> None:
+        """
+        Execute session-level scoring tasks in parallel in this process.
 
         Each thread loads traces for its session independently and runs all applicable
         scorers on that session.
@@ -292,13 +395,28 @@ class OnlineSessionScoringProcessor:
         # Import evaluation modules lazily to avoid pulling in pandas at module load
         # time, which would break the skinny client.
         from mlflow.genai.evaluation.entities import EvalItem
-        from mlflow.genai.evaluation.harness import _log_assessments
         from mlflow.genai.evaluation.session_utils import evaluate_session_level_scorers
 
         if not task.scorers:
             return
 
         session = task.session
+        full_traces = self._fetch_session_traces(session)
+        if not full_traces:
+            return
+        session_items = [EvalItem.from_trace(t) for t in full_traces]
+
+        result = evaluate_session_level_scorers(
+            session_id=session.session_id,
+            session_items=session_items,
+            multi_turn_scorers=task.scorers,
+        )
+
+        if result.assessments and (trace := result.eval_item.trace):
+            self._log_session_assessments(trace, session.session_id, result.assessments)
+
+    def _fetch_session_traces(self, session: CompletedSession) -> list[Trace] | None:
+        """The session's traces, oldest first, or None (with a warning) if there are none."""
         session_filter = f"metadata.`mlflow.trace.session` = '{session.session_id}'"
         combined_filter = f"{EXCLUDE_EVAL_RUN_TRACES_FILTER} AND {session_filter}"
         trace_infos = self._trace_loader.fetch_trace_infos_in_range(
@@ -310,37 +428,43 @@ class OnlineSessionScoringProcessor:
 
         if not trace_infos:
             _logger.warning(f"No traces found for session {session.session_id}")
-            return
+            return None
 
         trace_ids = [t.trace_id for t in trace_infos]
         full_traces = self._trace_loader.fetch_traces(trace_ids)
         if not full_traces:
             _logger.warning(f"Failed to fetch full traces for session {session.session_id}")
-            return
+            return None
         full_traces.sort(key=lambda t: t.info.timestamp_ms)
-        session_items = [EvalItem.from_trace(t) for t in full_traces]
+        return full_traces
 
-        result = evaluate_session_level_scorers(
-            session_id=session.session_id,
-            session_items=session_items,
-            multi_turn_scorers=task.scorers,
-        )
+    def _log_session_assessments(
+        self,
+        trace: Trace,
+        session_id: str,
+        assessments: list[Assessment],
+        only_replace_code_assessments: bool = False,
+    ) -> None:
+        """Log a session's new assessments on ``trace`` and remove the ones they replace."""
+        # Imported lazily to avoid pulling in pandas at module load time (skinny client).
+        from mlflow.genai.evaluation.harness import _log_assessments
 
-        if result.assessments and (trace := result.eval_item.trace):
-            try:
-                # Add session ID metadata to identify these as online scoring assessments
-                for feedback in result.assessments:
-                    feedback.metadata = {
-                        **(feedback.metadata or {}),
-                        AssessmentMetadataKey.ONLINE_SCORING_SESSION_ID: session.session_id,
-                    }
-                _log_assessments(run_id=None, trace=trace, assessments=result.assessments)
+        try:
+            # Add session ID metadata to identify these as online scoring assessments
+            for feedback in assessments:
+                feedback.metadata = {
+                    **(feedback.metadata or {}),
+                    AssessmentMetadataKey.ONLINE_SCORING_SESSION_ID: session_id,
+                }
+            _log_assessments(run_id=None, trace=trace, assessments=assessments)
 
-                # Clean up old assessments after successfully logging new ones
-                self._clean_up_old_assessments(trace, session.session_id, result.assessments)
-            except Exception as e:
-                _logger.warning(
-                    f"Failed to log assessments for trace {trace.info.trace_id} "
-                    f"in session {session.session_id}: {e}",
-                    exc_info=_logger.isEnabledFor(logging.DEBUG),
-                )
+            # Clean up old assessments after successfully logging new ones
+            self._clean_up_old_assessments(
+                trace, session_id, assessments, only_replace_code_assessments
+            )
+        except Exception as e:
+            _logger.warning(
+                f"Failed to log assessments for trace {trace.info.trace_id} "
+                f"in session {session_id}: {e}",
+                exc_info=_logger.isEnabledFor(logging.DEBUG),
+            )

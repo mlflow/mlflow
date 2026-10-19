@@ -1695,6 +1695,27 @@
       "deprecation_date": "2026-10-21",
       "last_updated_at": "2026-09-24"
     },
+    "deepseek-ai/deepseek-v4.1-flash-maas": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 1048576,
+        "max_tokens": 1048576
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.3,
+        "output_per_million_tokens": 1.2,
+        "cache_read_per_million_tokens": 0.03
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-10-16"
+    },
     "gemini-2.0-flash": {
       "mode": "chat",
       "pricing": {
@@ -2181,8 +2202,7 @@
           },
           "flex": {
             "input_per_million_tokens": 0.25,
-            "output_per_million_tokens": 1.5,
-            "cache_read_per_million_tokens": 0.05
+            "output_per_million_tokens": 1.5
           },
           "priority": {
             "input_per_million_tokens": 0.9,
@@ -2211,7 +2231,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-15"
+      "last_updated_at": "2026-10-16"
     },
     "gemini-3-pro-image": {
       "mode": "image_generation",
@@ -2611,8 +2631,7 @@
           },
           "flex": {
             "input_per_million_tokens": 1.0,
-            "output_per_million_tokens": 6.0,
-            "cache_read_per_million_tokens": 0.2
+            "output_per_million_tokens": 6.0
           },
           "priority": {
             "input_per_million_tokens": 3.6,
@@ -2623,8 +2642,8 @@
         "long_context": [
           {
             "threshold_tokens": 200000,
-            "cache_read_per_million_tokens": 0.4,
             "cache_write_per_million_tokens": 0.25,
+            "cache_read_per_million_tokens": 0.4,
             "input_per_million_tokens": 4.0,
             "output_per_million_tokens": 18.0
           }
@@ -2644,7 +2663,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-15"
+      "last_updated_at": "2026-10-16"
     },
     "gemini-3.1-pro-preview-customtools": {
       "mode": "chat",
@@ -2921,7 +2940,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-23"
+      "deprecation_date": "2027-09-02",
+      "last_updated_at": "2026-10-19"
     },
     "gemini-3.8-flash-cyber": {
       "mode": "chat",
@@ -3009,7 +3029,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-14"
+      "deprecation_date": "2027-10-13",
+      "last_updated_at": "2026-10-19"
     },
     "gemini-4-argon-cyber-permissive": {
       "mode": "chat",

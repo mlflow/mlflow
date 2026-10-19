@@ -5,6 +5,9 @@ import { useQuery, useQueryClient } from '../../common/utils/reactQueryHooks';
 import { fetchAPI, getAjaxUrl } from '../../common/utils/FetchUtils';
 
 const SERVER_INFO_QUERY_KEY = 'serverInfo';
+export const SERVER_INFO_PATH = 'ajax-api/3.0/mlflow/server-info';
+
+export const getServerInfoUrl = (): string => getAjaxUrl(SERVER_INFO_PATH);
 
 interface ServerInfoResponse {
   store_type: string | null;
@@ -17,6 +20,8 @@ interface ServerInfoResponse {
   /** Skill upload limits: total file bytes and file count. Absent on servers that predate them. */
   skill_content_max_size?: number;
   skill_content_max_files?: number;
+  /** Client auth provider name, when the server advertises one for generated snippets. */
+  tracking_auth?: string;
   features_enabled?: Record<FeatureKey, boolean>;
 }
 
@@ -70,7 +75,7 @@ async function fetchServerInfo(): Promise<ServerInfoResponse> {
   const timeoutId = setTimeout(() => controller.abort(), SERVER_INFO_TIMEOUT_MS);
 
   try {
-    return await fetchAPI(getAjaxUrl('ajax-api/3.0/mlflow/server-info'), { signal: controller.signal });
+    return await fetchAPI(getServerInfoUrl(), { signal: controller.signal });
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') {
       // Without this the timeout is indistinguishable from a server that reports these defaults.
