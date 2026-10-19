@@ -46,15 +46,21 @@ foo:
   autologging:
     minimum: "1.0.0"
     maximum: "2.0.0"
+    java: {"< 2.0.0": "11"}
+    runs_on: {"< 2.0.0": "ubuntu-22.04"}
     run: pytest tests/foo
     test_tracing_sdk: true
 """
-    # The minimum version supports Python 3.10 but the latest version requires 3.11. The
-    # tracing SDK job tests the latest version, so it must not inherit the Python version
-    # resolved for whichever version the autologging loop happened to visit last.
+    # The minimum version supports Python 3.10 but the latest version requires 3.11, and the
+    # Java/runner overrides only apply below 2.0.0. The tracing SDK job tests the latest
+    # version, so it must not inherit the values resolved for whichever version the
+    # autologging loop happened to visit last.
     packages = {"foo": _package({"1.0.0": ">=3.10", "2.0.0": ">=3.11"})}
     matrix = {item.job_name: item for item in _expand(src, packages)}
 
-    assert matrix["foo / autologging / 1.0.0"].python == "3.10"
-    assert matrix["foo / autologging / 2.0.0"].python == "3.11"
-    assert matrix["foo / tracing-sdk / 2.0.0"].python == "3.11"
+    oldest = matrix["foo / autologging / 1.0.0"]
+    assert (oldest.python, oldest.java, oldest.runs_on) == ("3.10", "11", "ubuntu-22.04")
+    latest = matrix["foo / autologging / 2.0.0"]
+    assert (latest.python, latest.java, latest.runs_on) == ("3.11", "17", "ubuntu-24.04")
+    tracing = matrix["foo / tracing-sdk / 2.0.0"]
+    assert (tracing.python, tracing.java, tracing.runs_on) == ("3.11", "17", "ubuntu-24.04")
