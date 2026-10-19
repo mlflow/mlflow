@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792429327456,
+  "lastUpdate": 1792435714205,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "84731421+iyashk@users.noreply.github.com",
-            "name": "Yashwanth Kiran",
-            "username": "iyashk"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "289b29836c55b6b31ac6c2c09b38de43f5502023",
-          "message": "Normalize reasoning content parts for `ChatAgentMessage` in `parse_message` (#24642)\n\nSigned-off-by: Yashwanth Kiran <yashwanthkiran2624@gmail.com>",
-          "timestamp": "2026-07-27T09:11:14Z",
-          "tree_id": "e35ab7b47da2959cdd9857bf594d1752a073ad18",
-          "url": "https://github.com/mlflow/mlflow/commit/289b29836c55b6b31ac6c2c09b38de43f5502023"
-        },
-        "date": 1785143695735,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 45.02687650000041,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 18.253413714278718,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 20.646604677420644,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 22.216102754384792,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 21.351126816665555,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 12.451384600007032,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 6.134888166670294,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "79597212+bardenr@users.noreply.github.com",
+            "name": "Ryan Barden",
+            "username": "bardenr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "601df7af96941561d918dd436904b0f8eda15d0c",
+          "message": "Add Skill Registry user documentation (#26806)\n\nSigned-off-by: Ryan Barden <rbarden@redhat.com>\nCo-authored-by: Codex <noreply@openai.com>",
+          "timestamp": "2026-10-19T18:45:10Z",
+          "tree_id": "66e6ac7ce770821e2337b88d928e1b3c4fc77f44",
+          "url": "https://github.com/mlflow/mlflow/commit/601df7af96941561d918dd436904b0f8eda15d0c"
+        },
+        "date": 1792435710537,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 43.2377226500023,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 6.093026432837965,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 5.404152831081004,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 5.428674638889162,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 5.840478340742181,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 33.71994783333795,
             "unit": "ms"
           }
         ]
