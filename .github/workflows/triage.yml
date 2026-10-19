@@ -976,6 +976,46 @@ jobs:
           mv "$RUNNER_TEMP/sanitized-triage-payload.json" "$PAYLOAD_PATH"
           uvx check-jsonschema@0.37.4 \
             --schemafile "$PAYLOAD_SCHEMA" "$PAYLOAD_PATH"
+      - name: Preview and update issue title
+        if: needs.triage.result == 'success' && needs.issue.outputs.action == 'init'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          ISSUE_NUMBER: ${{ needs.issue.outputs.number }}
+          ORIGINAL_TITLE: ${{ needs.issue.outputs.title }}
+          PAYLOAD_PATH: /tmp/triage-out/payload.json
+          SHOULD_POST: ${{ needs.issue.outputs.dry_run == 'false' }}
+        run: |
+          if ! jq -e 'has("issue_title")' "$PAYLOAD_PATH" > /dev/null; then
+            exit 0
+          fi
+          jq -j .issue_title "$PAYLOAD_PATH" |
+            node .claude/skills/triage/scripts/sanitize.js output > "$RUNNER_TEMP/issue-title.txt"
+          jq -en --rawfile title "$RUNNER_TEMP/issue-title.txt" \
+            '$title | (length > 0 and length <= 120 and test("[^\\s]") and (test("[\\r\\n]") | not))' \
+            > /dev/null
+          proposed_title=$(cat "$RUNNER_TEMP/issue-title.txt")
+          {
+            echo "### Issue title proposal"
+            echo
+            jq -nr --arg title "$proposed_title" '"Title: <code>\($title | @html)</code>"'
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$SHOULD_POST" != true ]; then
+            echo "Title not updated (dry run)." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          current_issue=$(gh api "repos/$REPO/issues/$ISSUE_NUMBER")
+          if ! jq -e --arg original "$ORIGINAL_TITLE" '.title == $original' \
+            <<< "$current_issue" > /dev/null; then
+            echo "Title not updated: it changed while triage was running." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          if [ "$proposed_title" = "$ORIGINAL_TITLE" ]; then
+            echo "Title already matches the proposal." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          gh issue edit "$ISSUE_NUMBER" --repo "$REPO" --title "$proposed_title"
+          echo "Issue title updated." >> "$GITHUB_STEP_SUMMARY"
       - name: Preview and post triage response
         id: post
         if: needs.triage.result == 'success'

@@ -7,9 +7,20 @@ Prefer permalinks to file paths:
 `https://github.com/<repository>/blob/<sha>/<path>#L<start>-L<end>`, with the SHA from
 `git rev-parse HEAD`.
 
-Do not comment on, label, or close the issue, and do not commit, push, or open a PR.
+Do not rename, comment on, label, or close the issue, and do not commit, push, or open a PR.
 A PR in the payload is a proposal; the workflow publishes it later, so do not claim it
 is already open. Stop after writing and validating the output.
+
+## Optional issue title
+
+During initial triage, suggest a concise, specific title only when the current title is
+blank or whitespace-only, template-only (e.g. `[BUG]`), or semantically vague (e.g.
+`Bug`, `Help`, or `It doesn't work`). Preserve short but informative titles. Derive the
+proposal from the reported symptom and affected component, preserve an appropriate
+existing issue-type prefix, and do not assert an unverified root cause. This applies
+even when reproduction is skipped or needs more information. Omit the proposal when
+the report lacks enough information for a useful title. The workflow applies it; do not
+rename the issue yourself.
 
 ## Optional pull request
 
