@@ -707,6 +707,10 @@
     "defaultMessage": "Error registering model",
     "description": "Notification title for model registration failure on the logged model details page"
   },
+  "0SQ4a6": {
+    "defaultMessage": "Compare",
+    "description": "Leading label of the eval-run comparison selection bar"
+  },
   "0SomUd": {
     "defaultMessage": "All time",
     "description": "Date range preset in the evaluation runs filters"
@@ -1195,6 +1199,10 @@
     "defaultMessage": "Could not assign yourself to the queue: {error}",
     "description": "Review queue: error toast when self-assigning to a queue fails"
   },
+  "2O7c5v": {
+    "defaultMessage": "Comparisons",
+    "description": "Evaluation run sidebar section for selecting runs to compare"
+  },
   "2OifbU": {
     "defaultMessage": "Inputs cannot be empty",
     "description": "Status text shown in the dataset record drawer footer when the inputs editor is empty (would otherwise wipe the field server-side)"
@@ -1511,6 +1519,10 @@
     "defaultMessage": "Loading source model",
     "description": "Screen reader label shown while the source logged model of a model version is loading"
   },
+  "3MVQ8B": {
+    "defaultMessage": "Select runs to compare",
+    "description": "Trigger label for selecting evaluation runs to compare"
+  },
   "3MZ6H+": {
     "defaultMessage": "Submit",
     "description": "Label for the submit button on the playground page that runs the chat completion request"
@@ -1558,6 +1570,10 @@
   "3YddwH": {
     "defaultMessage": "Traffic split percentages must total 100%",
     "description": "Tooltip shown when save button is disabled due to invalid traffic split total"
+  },
+  "3avJZe": {
+    "defaultMessage": "Created {date}",
+    "description": "Creation date shown below an evaluation run name in the comparison picker"
   },
   "3bagxW": {
     "defaultMessage": "<link>Learn more</link>",
@@ -1978,6 +1994,10 @@
   "4zJtO4": {
     "defaultMessage": "Copy for coding agent",
     "description": "Tab label for the copy-prompt-to-coding-agent path in the agent action card"
+  },
+  "5+Alkd": {
+    "defaultMessage": "{count, plural, one {# run selected} other {# runs selected}}",
+    "description": "Trigger label showing how many evaluation runs are selected for comparison"
   },
   "5/g+b+": {
     "defaultMessage": "Could not register the skill.",
@@ -2739,6 +2759,10 @@
     "defaultMessage": "Context sufficient",
     "description": "Evaluation results > context sufficiency assessment > positive value label. Displayed if retrieved context is sufficient to generate the expected response."
   },
+  "7ULPAY": {
+    "defaultMessage": "Could not load runs for comparison.",
+    "description": "Message shown when the eval-run comparison picker cannot load runs"
+  },
   "7Uj0KJ": {
     "defaultMessage": "Move to bottom",
     "description": "Experiment page > compare runs tab > chart header > move to bottom option"
@@ -3147,6 +3171,10 @@
     "defaultMessage": "3. Access the MLflow UI",
     "description": "Section title explaining how to access traces in the MLflow UI"
   },
+  "8tU+ow": {
+    "defaultMessage": "Comparison runs",
+    "description": "Accessible name for the comparison run selector"
+  },
   "8v0vur": {
     "defaultMessage": "Archive after: {retention}",
     "description": "Badge showing the active trace archival retention for the experiment"
@@ -3382,6 +3410,10 @@
   "9dX4XQ": {
     "defaultMessage": "Select parameter or metric",
     "description": "Placeholder text for parameter/metric selector in box plot comparison in MLflow"
+  },
+  "9e0bkg": {
+    "defaultMessage": "Base",
+    "description": "Small label shown inside the baseline run selector in eval-run comparison mode"
   },
   "9eJuAr": {
     "defaultMessage": "{filtered, number} of {total, plural, one {# record} other {# records}}",
@@ -4371,6 +4403,10 @@
     "defaultMessage": "Add filter",
     "description": "Button to add a filter row in the eval-runs filter"
   },
+  "Chht41": {
+    "defaultMessage": "Select at least 2 runs to compare",
+    "description": "Tooltip for the eval-runs compare button when fewer than 2 runs are selected"
+  },
   "CjBv5h": {
     "defaultMessage": "Approve pending request",
     "description": "Title for a model version stage transition modal when approving a pending request"
@@ -4986,6 +5022,10 @@
   "FA9oSo": {
     "defaultMessage": "Judge is running…",
     "description": "Tooltip shown in assessment cell while a judge is executing on this trace"
+  },
+  "FAWbPl": {
+    "defaultMessage": "Actions",
+    "description": "Accessible label for the experiment evaluation runs actions menu button"
   },
   "FAfPOl": {
     "defaultMessage": "Stop Sequences",
@@ -5623,6 +5663,10 @@
     "defaultMessage": "Failed to set tag. Error: {userVisibleError}",
     "description": "Text for user visible error when setting tag in model version view"
   },
+  "HNMC9Q": {
+    "defaultMessage": "Baseline run",
+    "description": "Accessible name for the baseline run selector"
+  },
   "HNQ9dM": {
     "defaultMessage": "Status",
     "description": "Label for the status section"
@@ -5750,6 +5794,10 @@
   "HgOEfC": {
     "defaultMessage": "Error",
     "description": "Failed trace status in the trace drawer header"
+  },
+  "HhBwie": {
+    "defaultMessage": "to",
+    "description": "Separator between the baseline run and the runs it is compared against"
   },
   "Hia8kG": {
     "defaultMessage": "There is no version to resolve.",
@@ -7951,6 +7999,10 @@
     "defaultMessage": "Key name is required",
     "description": "Error message when key name is empty"
   },
+  "Oy0YDb": {
+    "defaultMessage": "Compare selected runs",
+    "description": "Tooltip for the eval-runs compare button when at least 2 runs are selected"
+  },
   "OzFBcd": {
     "defaultMessage": "Choose which questions reviewers answer for traces in this queue.",
     "description": "Create review queue: questions field hint"
@@ -8410,6 +8462,10 @@
   "QUpam+": {
     "defaultMessage": "Key/value metadata stored with the skill. You can edit it later from the skill page.",
     "description": "Hint for skill registration tags"
+  },
+  "QVyfhV": {
+    "defaultMessage": "Back to Reference Run",
+    "description": "Exit comparison and show the reference evaluation run"
   },
   "QWJklp": {
     "defaultMessage": "Connect to {name}",
@@ -12443,6 +12499,10 @@
     "defaultMessage": "Destination",
     "description": "Label for the destination selector in the playground save-prompt-version modal"
   },
+  "eGgwOK": {
+    "defaultMessage": "Compare",
+    "description": "Action that opens the evaluation run comparison view"
+  },
   "eGhQB6": {
     "defaultMessage": "Override my view",
     "description": "Menu item that adopts the currently-applied shared view into the user's own view"
@@ -14947,6 +15007,10 @@
     "defaultMessage": "Dataset digest",
     "description": "Eval run detail: digest identifying the evaluated dataset contents"
   },
+  "m+kOa1": {
+    "defaultMessage": "Date unavailable",
+    "description": "Fallback for an evaluation run whose creation date is unavailable"
+  },
   "m/gY3l": {
     "defaultMessage": "Viewing version {version}",
     "description": "Skill version detail heading"
@@ -16554,6 +16618,10 @@
   "rBPhzU": {
     "defaultMessage": "Detects harmful, offensive, or toxic content in requests and responses.",
     "description": "Safety guardrail type description"
+  },
+  "rBVvLq": {
+    "defaultMessage": "Compare ({numRuns})",
+    "description": "Standalone eval-runs compare button label with the number of selected runs"
   },
   "rBydei": {
     "defaultMessage": "The retrieval-relevance LLM judge determines whether the chunks returned by the retriever are relevant to the input request. Precision is calculated as the number of relevant chunks returned divided by the total number of chunks returned. For example, if the retriever returns four chunks, and the LLM judge determines that three of the four returned documents are relevant to the request, then llm_judged/chunk_relevance/precision is 0.75.",
@@ -18974,6 +19042,10 @@
   "zdYXP8": {
     "defaultMessage": "Parent run",
     "description": "Run page > Overview > Parent run"
+  },
+  "zddMXX": {
+    "defaultMessage": "+{count} more",
+    "description": "Number of additional evaluation runs selected for comparison"
   },
   "ze1m7Z": {
     "defaultMessage": "Run name cannot consist only of whitespace!",

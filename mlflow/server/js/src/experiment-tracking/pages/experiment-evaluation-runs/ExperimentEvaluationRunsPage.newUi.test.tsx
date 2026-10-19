@@ -11,6 +11,7 @@ import { IntlProvider } from 'react-intl';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { shouldEnableNewEvalRunsUi } from '../../../common/utils/FeatureUtils';
+import { useLocation } from '../../../common/utils/RoutingUtils';
 
 jest.mock('../../../common/utils/FeatureUtils', () => ({
   ...jest.requireActual<typeof import('../../../common/utils/FeatureUtils')>('../../../common/utils/FeatureUtils'),
@@ -40,6 +41,11 @@ const createMockRun = (name: string, startTime: number, accuracy: number) => ({
   outputs: { model_outputs: [] },
 });
 
+const CompareTarget = () => {
+  const location = useLocation();
+  return <div data-testid="compare-target">{`${location.pathname}${location.search}`}</div>;
+};
+
 describe('ExperimentEvaluationRunsPage new eval runs UI', () => {
   const server = setupServer(
     rest.post('ajax-api/2.0/mlflow/runs/search', (_req, res, ctx) =>
@@ -63,7 +69,10 @@ describe('ExperimentEvaluationRunsPage new eval runs UI', () => {
             <IntlProvider locale="en">
               <DesignSystemProvider>
                 <TestRouter
-                  routes={[testRoute(<ExperimentEvaluationRunsPage />, '/experiments/:experimentId/evaluation-runs')]}
+                  routes={[
+                    testRoute(<ExperimentEvaluationRunsPage />, '/experiments/:experimentId/evaluation-runs'),
+                    testRoute(<CompareTarget />, '/experiments/:experimentId/evaluation-runs/:runUuid/details'),
+                  ]}
                   initialEntries={[initialEntry]}
                 />
               </DesignSystemProvider>
@@ -145,26 +154,33 @@ describe('ExperimentEvaluationRunsPage new eval runs UI', () => {
     expect(screen.queryByText('Earliest run')).not.toBeInTheDocument();
   });
 
-  test('flag on: the actions menu counts the selection, filters the chart, and keeps Compare', async () => {
+  test('flag on: the actions menu filters the chart and Compare moves to its own button', async () => {
     jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(true);
-    const menu = await openActionsForRunA('Actions (1)');
+    renderPage();
+    await userEvent.click(await screen.findByTestId('eval-runs-table-cell-checkbox-run-a'));
+
+    expect(screen.getByRole('button', { name: 'Compare (1)' })).toBeDisabled();
+    const actions = screen.getByRole('button', { name: 'Actions' });
+    expect(actions).not.toHaveTextContent('Actions');
+    await userEvent.click(actions);
+    const menu = await screen.findByRole('menu');
 
     expect(within(menu).getByText('Filter chart to selected runs')).toBeInTheDocument();
     expect(within(menu).getByText('Delete runs')).toBeInTheDocument();
-    expect(within(menu).getByRole('menuitem', { name: 'Compare' })).toHaveAttribute('aria-disabled', 'true');
+    expect(within(menu).queryByRole('menuitem', { name: /Compare/ })).not.toBeInTheDocument();
   });
 
-  test('flag on: Compare with two runs selected opens the comparison view', async () => {
+  test('flag on: Compare with two runs selected opens the comparison page', async () => {
     jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(true);
     renderPage();
     await userEvent.click(await screen.findByTestId('eval-runs-table-cell-checkbox-run-a'));
     await userEvent.click(screen.getByTestId('eval-runs-table-cell-checkbox-run-b'));
-    expect(screen.getByText('Earliest run')).toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole('button', { name: 'Actions (2)' }));
-    await userEvent.click(within(await screen.findByRole('menu')).getByRole('menuitem', { name: 'Compare' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Compare (2)' }));
 
-    await waitFor(() => expect(screen.queryByText('Earliest run')).not.toBeInTheDocument());
+    expect(await screen.findByTestId('compare-target')).toHaveTextContent(
+      '/experiments/exp-1/evaluation-runs/run-a/details?compare=true&compareFrom=runs&compareRuns=run-b',
+    );
   });
 
   test('flag off: the actions menu keeps Compare', async () => {

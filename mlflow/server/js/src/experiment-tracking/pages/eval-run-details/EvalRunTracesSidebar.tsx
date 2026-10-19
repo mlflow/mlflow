@@ -12,6 +12,7 @@ import {
 } from '@databricks/design-system';
 import { RunDetailsSidebar } from './RunDetailsSidebar';
 import { useEvalRunSidebarData } from './useEvalRunSidebarData';
+import { EvalRunComparisonsSection } from './EvalRunComparisonsSection';
 
 const MIN_SIDEBAR_WIDTH = 320;
 const MAX_SIDEBAR_WIDTH = 640;
@@ -19,9 +20,10 @@ const MAX_SIDEBAR_WIDTH = 640;
 export interface EvalRunTracesSidebarProps {
   experimentId: string;
   runUuid: string;
+  runName?: string;
 }
 
-export const EvalRunTracesSidebar = ({ experimentId, runUuid }: EvalRunTracesSidebarProps) => {
+export const EvalRunTracesSidebar = ({ experimentId, runUuid, runName }: EvalRunTracesSidebarProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const [collapsed, setCollapsed] = useState(false);
@@ -140,6 +142,7 @@ export const EvalRunTracesSidebar = ({ experimentId, runUuid }: EvalRunTracesSid
       >
         <div id="eval-run-sidebar-content" hidden={collapsed}>
           <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.lg }}>
+            <EvalRunComparisonsSection experimentId={experimentId} runUuid={runUuid} runName={runName ?? ''} />
             {isLoading ? (
               <ParagraphSkeleton
                 label={intl.formatMessage({
