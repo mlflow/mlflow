@@ -1,5 +1,7 @@
 import asyncio
+import base64
 import gzip
+import json
 import threading
 from abc import ABC
 from unittest import mock
@@ -16,7 +18,7 @@ from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE
 from mlflow.server.fastapi_app import add_fastapi_workspace_middleware
-from mlflow.server.otel_api import otel_router
+from mlflow.server.otel_api import _convert_otlp_json_ids_to_base64, otel_router
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.tracing.utils.otlp import OTLP_TRACES_PATH, _set_otel_proto_anyvalue
 from mlflow.utils import workspace_context
@@ -720,3 +722,136 @@ def test_otlp_prometheus_metrics(monkeypatch):
 
     assert delta(before, after, "spans") == 10
     assert delta(before, after, "spans_per_req_sum") == 10
+
+
+def test_convert_otlp_json_ids_to_base64_with_links():
+    trace_id_hex = "0af7651916cd43dd8448eb211c80319c"
+    span_id_hex = "b7ad6b7169203331"
+    parent_span_id_hex = "0123456789abcdef"
+    linked_trace_id_hex = "1234567890abcdef1234567890abcdef"
+    linked_span_id_hex = "fedcba9876543210"
+
+    raw_payload = json.dumps({
+        "resourceSpans": [
+            {
+                "scopeSpans": [
+                    {
+                        "spans": [
+                            {
+                                "traceId": trace_id_hex,
+                                "spanId": span_id_hex,
+                                "parentSpanId": parent_span_id_hex,
+                                "name": "span-with-links",
+                                "links": [
+                                    {
+                                        "traceId": linked_trace_id_hex,
+                                        "spanId": linked_span_id_hex,
+                                    },
+                                    # Non-dict item should be safely ignored
+                                    None,
+                                ],
+                            },
+                            {
+                                "traceId": trace_id_hex,
+                                "spanId": span_id_hex,
+                                "name": "span-without-links",
+                                "links": [],
+                            },
+                        ]
+                    }
+                ]
+            }
+        ]
+    }).encode("utf-8")
+
+    converted = json.loads(_convert_otlp_json_ids_to_base64(raw_payload))
+    spans = converted["resourceSpans"][0]["scopeSpans"][0]["spans"]
+
+    # Verify span-level IDs
+    span1 = spans[0]
+    assert base64.b64decode(span1["traceId"]).hex() == trace_id_hex
+    assert base64.b64decode(span1["spanId"]).hex() == span_id_hex
+    assert base64.b64decode(span1["parentSpanId"]).hex() == parent_span_id_hex
+
+    # Verify link IDs are converted from hex to base64
+    link = span1["links"][0]
+    assert base64.b64decode(link["traceId"]).hex() == linked_trace_id_hex
+    assert base64.b64decode(link["spanId"]).hex() == linked_span_id_hex
+
+    # Verify span without links
+    span2 = spans[1]
+    assert base64.b64decode(span2["traceId"]).hex() == trace_id_hex
+    assert base64.b64decode(span2["spanId"]).hex() == span_id_hex
+    assert span2["links"] == []
+
+
+def test_otlp_json_payload_preserves_span_links(monkeypatch):
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
+
+    captured_spans = []
+
+    class DummyTrackingStore(_DummyTrackingStore):
+        def log_spans(self, experiment_id, spans):
+            captured_spans.extend(spans)
+
+    monkeypatch.setattr(
+        "mlflow.server.otel_api._get_tracking_store",
+        lambda: DummyTrackingStore(),
+    )
+
+    client = _make_test_client()
+    trace_id_hex = "0af7651916cd43dd8448eb211c80319c"
+    span_id_hex = "b7ad6b7169203331"
+    linked_trace_id_hex = "1234567890abcdef1234567890abcdef"
+    linked_span_id_hex = "fedcba9876543210"
+
+    json_payload = json.dumps({
+        "resourceSpans": [
+            {
+                "scopeSpans": [
+                    {
+                        "spans": [
+                            {
+                                "traceId": trace_id_hex,
+                                "spanId": span_id_hex,
+                                "name": "span-with-link-ingest",
+                                "startTimeUnixNano": "1000",
+                                "endTimeUnixNano": "2000",
+                                "links": [
+                                    {
+                                        "traceId": linked_trace_id_hex,
+                                        "spanId": linked_span_id_hex,
+                                    }
+                                ],
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    })
+
+    resp = client.post(
+        OTLP_TRACES_PATH,
+        content=json_payload,
+        headers={
+            "Content-Type": "application/json",
+            "X-MLflow-Experiment-Id": "1",
+        },
+    )
+
+    assert resp.status_code == 200
+    assert len(captured_spans) == 1
+    span = captured_spans[0]
+    assert len(span.links) == 1
+
+    # Verify link IDs stored on the MLflow Span entity
+    link = span.links[0]
+    assert link.trace_id == f"tr-{linked_trace_id_hex}"
+    assert link.span_id == linked_span_id_hex
+
+    # Verify converting back to OTel proto preserves the link
+    proto_span = span.to_otel_proto()
+    assert len(proto_span.links) == 1
+    assert proto_span.links[0].trace_id == bytes.fromhex(linked_trace_id_hex)
+    assert proto_span.links[0].span_id == bytes.fromhex(linked_span_id_hex)
