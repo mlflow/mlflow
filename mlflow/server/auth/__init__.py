@@ -3513,8 +3513,54 @@ def validate_can_invoke_issue_detection():
     return _get_gateway_secret_permission(secret_id).can_use
 
 
+def _registered_scorer_names_in_evaluate_request(body: dict[str, Any]) -> list[str] | None:
+    """The scorer names a GenAI evaluate request loads from the store, read as the handler does.
+
+    An entry whose ``scorer_versions`` value is not null is a registered scorer, looked up by the
+    ``name`` in its ``serialized_scorers`` entry. Returns None when such an entry has no readable
+    name, so the request is denied rather than authorized without that scorer's checks.
+    """
+    serialized_scorers = body.get("serialized_scorers")
+    scorer_versions = body.get("scorer_versions")
+    if not isinstance(serialized_scorers, list) or not isinstance(scorer_versions, list):
+        return []
+    names = []
+    for serialized_scorer, scorer_version in zip(serialized_scorers, scorer_versions):
+        if scorer_version is None:
+            continue
+        try:
+            name = json.loads(serialized_scorer)["name"]
+        except (json.JSONDecodeError, KeyError, TypeError):
+            return None
+        if not isinstance(name, str) or not name:
+            return None
+        names.append(name)
+    return names
+
+
 def validate_can_invoke_genai_evaluate():
-    return _authorize_create_in_experiment(_get_request_param("experiment_id"), RESOURCE_TYPE_RUN)
+    experiment_id = _get_request_param("experiment_id")
+    body = request.get_json(silent=True)
+    names = _registered_scorer_names_in_evaluate_request(body if isinstance(body, dict) else {})
+    if names is None:
+        return False
+    # The job runs every registered scorer the request names, so a DENY on one vetoes the
+    # request, as for invoking a registered scorer. Unlike invoke, inline scorers get no
+    # scorer-version check here: the UI sends only inline scorers, and adding that veto would
+    # newly deny those requests.
+    extra = []
+    for name in dict.fromkeys(names):
+        scorer = (RESOURCE_TYPE_SCORER, store._scorer_pattern(experiment_id, name))
+        extra.append(Requirement(*scorer, ACTION_NOT_DENIED))
+        extra.append(
+            Requirement(
+                RESOURCE_TYPE_SCORER_VERSION,
+                "*",
+                ACTION_NOT_DENIED,
+                fallback_if_no_grant=(scorer,),
+            )
+        )
+    return _authorize_create_in_experiment(experiment_id, RESOURCE_TYPE_RUN, extra)
 
 
 def _validate_can_use_model_definitions(

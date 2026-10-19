@@ -5814,7 +5814,8 @@ def _invoke_genai_evaluate_handler():
                 "A registered scorer must contain a valid name"
             ) from e
         registered_scorer = tracking_store.get_scorer(experiment_id, scorer_name, scorer_version)
-        serialized_scorers[index] = registered_scorer.serialized_scorer
+        # The stored JSON; the entity's `serialized_scorer` property is the parsed object.
+        serialized_scorers[index] = registered_scorer._serialized_scorer
         scorer_versions[index] = registered_scorer.scorer_version
 
     # The job deserializes and runs these scorers, so validate the final payloads (inline and
@@ -7763,7 +7764,9 @@ def _invoke_scorer_handler():
     tracking_store = _get_tracking_store()
     if scorer_name is not None:
         registered_scorer = tracking_store.get_scorer(experiment_id, scorer_name, scorer_version)
-        serialized_scorer = registered_scorer.serialized_scorer
+        # The stored JSON; the entity's `serialized_scorer` property is the parsed object.
+        serialized_scorer = registered_scorer._serialized_scorer
+        scorer_version = registered_scorer.scorer_version
         _validate_serialized_scorer_payload(serialized_scorer)
 
     scorer = Scorer.model_validate_json(serialized_scorer)
