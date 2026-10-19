@@ -6,6 +6,7 @@ import { DetectIssuesButton, shouldEnableSessionGrouping } from '@databricks/web
 import {
   TraceFilterButton,
   type ColumnSelectorOption,
+  type FilterFieldDef,
   type SortDirection,
   type ReorderableTraceColumnOption,
   type TraceColumnId,
@@ -77,6 +78,10 @@ export interface TracesV4ToolbarParams {
   hideFilterButton?: boolean;
   /** Traces on the current page; with the new evaluation runs UI the filter editor suggests their values. */
   traces?: ModelTraceInfoV3[];
+  /** Replaces the Filters button's fields (default: the trace filter fields for these traces). */
+  filterFields?: FilterFieldDef[];
+  /** Offer the session grouping toggle (default true, when session grouping is enabled). */
+  showSessionGrouping?: boolean;
 }
 
 // Column-selector options: static componentIds (lint requires static ids) + localized labels. Adding
@@ -176,6 +181,8 @@ export const useTracesV4ToolbarSlots = ({
   savedViewsButton,
   hideFilterButton = false,
   traces,
+  filterFields: filterFieldsOverride,
+  showSessionGrouping = true,
   isGroupedBySession,
   onToggleSessionGrouping,
   columnOrder,
@@ -184,7 +191,8 @@ export const useTracesV4ToolbarSlots = ({
   const intl = useIntl();
   const { theme } = useDesignSystemTheme();
   const hasSelection = selectionCount > 0;
-  const filterFields = useMlflowTraceFilterFields(assessmentColumns.candidateNames, traces);
+  const defaultFilterFields = useMlflowTraceFilterFields(assessmentColumns.candidateNames, traces);
+  const filterFields = filterFieldsOverride ?? defaultFilterFields;
 
   // While grouped by session the table force-shows the Session column, so lock its column-selector
   // toggle (checked + disabled) rather than letting an unchecking click silently no-op.
@@ -344,7 +352,7 @@ export const useTracesV4ToolbarSlots = ({
             activeCount={activeFilterCount}
           />
         )}
-        {shouldEnableSessionGrouping() && (
+        {showSessionGrouping && shouldEnableSessionGrouping() && (
           <Tooltip
             componentId="mlflow.traces-v4.group-by-session.tooltip"
             content={intl.formatMessage({

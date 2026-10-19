@@ -517,6 +517,52 @@ export function getAssessmentAggregates(
 }
 
 /**
+ * N-run analog of {@link getAssessmentAggregates}: computes per-run aggregates (ordered baseline-first) for
+ * an assessment across `numRuns` runs, reusing the same per-run helpers. Also back-fills the 2-run
+ * current/other fields from indices 0/1. Consumers read a run's score/delta via `getDisplayScoreAndChangeForRun`.
+ */
+export function getAssessmentAggregatesMulti(
+  assessmentInfo: AssessmentInfo,
+  evalResults: EvalTraceComparisonEntry[],
+  allAssessmentFilters: AssessmentFilter[],
+  numRuns: number,
+): AssessmentAggregates {
+  const perRunEvalResults: RunEvaluationTracesDataEntry[][] = [];
+  for (let runIndex = 0; runIndex < numRuns; runIndex++) {
+    perRunEvalResults.push(
+      evalResults
+        .map((entry) => entry.runValues?.[runIndex])
+        .filter((entry): entry is RunEvaluationTracesDataEntry => !isNil(entry)),
+    );
+  }
+
+  const countsByRun = perRunEvalResults.map((results) => getAssessmentRunValueCounts(assessmentInfo, results));
+  const numericAggregateByRun = perRunEvalResults.map((results) =>
+    getAssessmentNumericAggregates(assessmentInfo, results),
+  );
+  const numericAverageByRun = numericAggregateByRun.map((aggregate) => aggregate?.average);
+  const numRootCauseByRun = perRunEvalResults.map((results) => getRootCauseAssessmentCount(assessmentInfo, results));
+
+  const assessmentFilters = allAssessmentFilters.filter((filter) => filter.assessmentName === assessmentInfo.name);
+
+  return {
+    assessmentInfo,
+    currentCounts: countsByRun[0],
+    otherCounts: countsByRun[1],
+    currentNumericAverage: numericAverageByRun[0],
+    otherNumericAverage: numericAverageByRun[1],
+    currentNumericAggregate: numericAggregateByRun[0],
+    currentNumRootCause: numRootCauseByRun[0] ?? 0,
+    otherNumRootCause: numRootCauseByRun[1] ?? 0,
+    countsByRun,
+    numericAverageByRun,
+    numRootCauseByRun,
+    numericAggregateByRun,
+    assessmentFilters,
+  };
+}
+
+/**
  * Computes the total aggregate score for an assessment and evaluation results.
  *
  * For pass-fail dtypes, it computes what percentage of the runs have the assessment value as 'yes'.
