@@ -12,7 +12,7 @@ from typing import Any
 import pydantic
 from google.protobuf.descriptor import FieldDescriptor
 from google.protobuf.duration_pb2 import Duration
-from google.protobuf.json_format import MessageToDict, ParseDict
+from google.protobuf.json_format import MessageToDict, ParseDict, ParseError
 from google.protobuf.struct_pb2 import NULL_VALUE, Value
 from google.protobuf.timestamp_pb2 import Timestamp
 
@@ -166,8 +166,89 @@ def milliseconds_to_proto_duration(milliseconds: int) -> str:
     return d.ToJsonString()
 
 
+# Below this size, walking and copying the message costs more than scanning the string.
+_LARGE_PROTO_STRING_THRESHOLD = 4096
+
+
+def _extract_large_proto_strings(js_dict, descriptor, strings, path=()):
+    # Well-known types have custom JSON representations, which ParseDict must handle.
+    if (
+        not isinstance(js_dict, dict)
+        or len(path) > 100
+        or descriptor.full_name.startswith("google.protobuf.")
+    ):
+        return js_dict
+
+    result = js_dict
+    seen = set()
+    fields_by_json_name = {field.json_name: field for field in descriptor.fields}
+    for key, value in js_dict.items():
+        field = fields_by_json_name.get(key) or descriptor.fields_by_name.get(key)
+        if field is None:
+            continue
+        if field.name in seen:
+            # Let ParseDict decide how aliases and duplicate oneof fields are handled.
+            raise ValueError("Duplicate protobuf field")
+        seen.add(field.name)
+        is_repeated = getattr(field, "is_repeated", None)
+        if is_repeated is None:
+            is_repeated = field.label == FieldDescriptor.LABEL_REPEATED
+        field_path = (*path, field.name)
+        replacement = value
+        if field.type == FieldDescriptor.TYPE_MESSAGE:
+            if field.message_type.GetOptions().map_entry:
+                continue
+            if is_repeated:
+                if not isinstance(value, list):
+                    continue
+                items = [
+                    _extract_large_proto_strings(
+                        item, field.message_type, strings, (*field_path, i)
+                    )
+                    for i, item in enumerate(value)
+                ]
+                if any(a is not b for a, b in zip(items, value)):
+                    replacement = items
+            else:
+                replacement = _extract_large_proto_strings(
+                    value, field.message_type, strings, field_path
+                )
+        elif (
+            field.type == FieldDescriptor.TYPE_STRING
+            and not is_repeated
+            and isinstance(value, str)
+            and len(value) >= _LARGE_PROTO_STRING_THRESHOLD
+        ):
+            strings.append((field_path, value))
+            replacement = ""
+        if replacement is not value:
+            if result is js_dict:
+                result = js_dict.copy()
+            result[key] = replacement
+    return result
+
+
 def parse_dict(js_dict, message):
     """Parses a JSON dictionary into a message proto, ignoring unknown fields in the JSON."""
+    strings = []
+    try:
+        prepared = _extract_large_proto_strings(js_dict, message.DESCRIPTOR, strings)
+        if strings:
+            candidate = type(message)()
+            candidate.CopyFrom(message)
+            ParseDict(js_dict=prepared, message=candidate, ignore_unknown_fields=True)
+            for path, value in strings:
+                target = candidate
+                for part in path[:-1]:
+                    target = target[part] if isinstance(part, int) else getattr(target, part)
+                # The native protobuf setter validates UTF-8 without the JSON parser's
+                # Python regex scan, which is expensive for large span attributes.
+                setattr(target, path[-1], value)
+            message.CopyFrom(candidate)
+            return
+    except (ParseError, ValueError, TypeError, AttributeError, IndexError, KeyError):
+        # Preserve the original parser's errors and partial-message behavior on invalid input.
+        pass
     ParseDict(js_dict=js_dict, message=message, ignore_unknown_fields=True)
 
 
