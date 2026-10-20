@@ -1197,13 +1197,13 @@
         }
       },
       "capabilities": {
-        "function_calling": false,
+        "function_calling": true,
         "vision": true,
         "reasoning": true,
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-19"
+      "last_updated_at": "2026-10-20"
     },
     "accounts/fireworks/models/devstral-small-2505": {
       "mode": "chat",
@@ -1943,7 +1943,8 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-15"
+      "deprecation_date": "2026-11-07",
+      "last_updated_at": "2026-10-20"
     },
     "accounts/fireworks/models/gpt-oss-20b": {
       "mode": "chat",
@@ -2051,7 +2052,8 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-02"
+      "deprecation_date": "2026-11-07",
+      "last_updated_at": "2026-10-20"
     },
     "accounts/fireworks/models/internvl3-38b": {
       "mode": "chat",
@@ -3077,6 +3079,34 @@
       },
       "last_updated_at": "2026-09-22"
     },
+    "accounts/fireworks/models/minimax-m3p1-flash": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 1048576,
+        "max_tokens": 1048576
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.15,
+        "output_per_million_tokens": 0.6,
+        "cache_read_per_million_tokens": 0.015,
+        "service_tiers": {
+          "priority": {
+            "input_per_million_tokens": 0.225,
+            "output_per_million_tokens": 0.9,
+            "cache_read_per_million_tokens": 0.0225
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-10-20"
+    },
     "accounts/fireworks/models/ministral-3-14b-instruct-2512": {
       "mode": "chat",
       "context_window": {
@@ -3524,7 +3554,8 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-01"
+      "deprecation_date": "2026-11-07",
+      "last_updated_at": "2026-10-20"
     },
     "accounts/fireworks/models/nemotron-lightning-3p5-30b-a3b": {
       "mode": "chat",
@@ -3552,7 +3583,8 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-01"
+      "deprecation_date": "2026-11-07",
+      "last_updated_at": "2026-10-20"
     },
     "accounts/fireworks/models/nemotron-nano-v2-12b-vl": {
       "mode": "chat",
@@ -6489,7 +6521,8 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-15"
+      "deprecation_date": "2026-11-07",
+      "last_updated_at": "2026-10-20"
     },
     "gpt-oss-20b": {
       "mode": "chat",
@@ -6835,7 +6868,8 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-01"
+      "deprecation_date": "2026-11-07",
+      "last_updated_at": "2026-10-20"
     },
     "nemotron-lightning-3p5-30b-a3b": {
       "mode": "chat",
@@ -6863,7 +6897,8 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-01"
+      "deprecation_date": "2026-11-07",
+      "last_updated_at": "2026-10-20"
     },
     "qwen3p7-plus": {
       "mode": "chat",
