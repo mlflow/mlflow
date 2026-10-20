@@ -6,7 +6,7 @@ import json
 import logging
 import math
 import re
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Literal
 
 import mlflow
@@ -221,23 +221,9 @@ def _log_comparison(result: "ComparisonResult") -> None:
                 metrics.append(Metric(key=key, value=float(value), timestamp=timestamp, step=0))
     if metrics:
         client.log_batch(result.candidate_run_id, metrics=metrics)
-
-    scorers = {
-        name: {
-            key: None if isinstance(value, float) and not math.isfinite(value) else value
-            for key, value in asdict(comparison).items()
-        }
-        for name, comparison in result.scorers.items()
-    }
+    # The metric keys only carry the short baseline ID. The artifact maps it back to the run.
     client.log_dict(
         result.candidate_run_id,
-        {
-            "baseline_run_id": result.baseline_run_id,
-            "candidate_run_id": result.candidate_run_id,
-            "scorers": scorers,
-            "unpaired_baseline_trace_ids": result.unpaired_baseline_trace_ids,
-            "unpaired_candidate_trace_ids": result.unpaired_candidate_trace_ids,
-            "paired_rows": result.paired_rows,
-        },
+        {"baseline_run_id": result.baseline_run_id},
         f"{_comparison_key(result.baseline_run_id)}.json",
     )

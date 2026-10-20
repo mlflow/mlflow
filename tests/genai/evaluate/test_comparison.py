@@ -626,14 +626,11 @@ def test_compare_evaluations_logs_results_to_candidate_run():
     assert not any(key.startswith("compare/") for key in baseline_metrics)
 
     artifact = mlflow.artifacts.load_dict(f"runs:/{candidate_run_id}/compare/{short_id}.json")
-    assert artifact["baseline_run_id"] == baseline_run_id
-    assert artifact["candidate_run_id"] == candidate_run_id
-    assert artifact["scorers"]["score"]["p_value"] == pytest.approx(result.scorers["score"].p_value)
-    assert artifact["paired_rows"] == result.paired_rows
-    assert sorted(row["scores"]["score"]["delta"] for row in artifact["paired_rows"]) == (
+    assert artifact == {"baseline_run_id": baseline_run_id}
+    assert sorted(row["scores"]["score"]["delta"] for row in result.paired_rows) == (
         pytest.approx(sorted(c - b for c, b in zip(candidate_scores, baseline_scores)))
     )
-    assert {row["paired_on"] for row in artifact["paired_rows"]} == {"eval_request_id"}
+    assert {row["paired_on"] for row in result.paired_rows} == {"eval_request_id"}
     tags = MlflowClient().get_run(candidate_run_id).data.tags
     assert not any(key.startswith("mlflow.compare") for key in tags)
 

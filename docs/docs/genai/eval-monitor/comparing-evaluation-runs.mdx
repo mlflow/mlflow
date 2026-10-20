@@ -134,10 +134,12 @@ result = mlflow.genai.compare_evaluations(
 
 ## Logged results
 
-By default (`log_results=True`) the comparison is logged to the **candidate** run, so it is visible in the runs table and can be re-derived later:
+By default (`log_results=True`) the comparison is logged to the **candidate** run, so it is visible in the runs table:
 
 - Metrics `compare/<baseline_short_id>/<scorer>/{diff, ci_low, ci_high, p_value, effect_size, n_paired}`, where `<baseline_short_id>` is the first 8 characters of the baseline run ID.
-- One artifact `compare/<baseline_short_id>.json` containing the full baseline run ID, the per-scorer statistics, the unpaired trace IDs, and the baseline value, candidate value and delta of every paired row.
+- One artifact `compare/<baseline_short_id>.json` containing the full baseline run ID, so the short ID in the metric keys can be resolved back to the run.
+
+The per-row values and deltas are only available on the returned `ComparisonResult` (`paired_rows`).
 
 Because the baseline is part of the key, comparing one candidate against several baselines keeps each comparison's results. Pass `log_results=False` to compute the comparison without writing anything.
 
