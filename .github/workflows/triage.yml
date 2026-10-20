@@ -1126,7 +1126,7 @@ jobs:
           body=$(gh api "repos/$REPO/issues/comments/$COMMENT_ID" --jq .body)
           if [[ "$body" == *"$marker"* ]]; then
             gh api "repos/$REPO/issues/comments/$COMMENT_ID" -X PATCH \
-              -f body="Automated triage did not complete. [Follow the workflow run]($RUN_URL). $marker"
+              -f body="Automated triage failed, possibly due to a transient error. Select **Re-run failed jobs** in the [workflow run]($RUN_URL) to retry. $marker"
           fi
   create_pr:
     needs: [issue, label, triage, post_triage]
