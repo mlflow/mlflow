@@ -735,13 +735,16 @@ def test_server_trace_archival_config_rejects_invalid_max_traces_per_pass(tmp_pa
     assert "'trace_archival.max_traces_per_pass' must be a positive integer" in result.output
 
 
-def test_server_trace_archival_config_requires_archival_capable_tracking_store(tmp_path):
+def test_server_trace_archival_config_requires_archival_capable_tracking_store(
+    tmp_path, monkeypatch
+):
     handlers._tracking_store = None
     handlers._model_registry_store = None
     backend_uri = f"sqlite:///{tmp_path / 'backend.db'}"
     artifact_root = (tmp_path / "artifacts").as_uri()
     config_path = _write_trace_archival_config(tmp_path)
     mock_tracking_store = mock.Mock(supports_trace_archival=False)
+    monkeypatch.setenv(MLFLOW_TRACE_ARCHIVAL_CONFIG.name, str(config_path))
 
     with (
         mock.patch("mlflow.server._run_server") as run_server_mock,
