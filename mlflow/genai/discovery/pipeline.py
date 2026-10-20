@@ -58,7 +58,6 @@ from mlflow.genai.discovery.utils import (
     get_session_id,
     group_traces_by_session,
     log_discovery_artifacts,
-    safe_trace_id,
     verify_scorer,
 )
 from mlflow.genai.judges.make_judge import make_judge
@@ -624,6 +623,17 @@ def build_issue_discovery_scorer(
     )
 
 
+def _lookup_by_trace_id(traces: list[Trace]) -> dict[str, Trace]:
+    """Traces by ID, skipping any whose ID cannot be read rather than keying them positionally."""
+    lookup = {}
+    for trace in traces:
+        try:
+            lookup[trace.info.trace_id] = trace
+        except Exception:
+            continue
+    return lookup
+
+
 def _merge_cost_findings(
     triage,
     cost_anomalies: list[CostAnomaly],
@@ -826,11 +836,9 @@ def discover_issues(
     # `token_counter`.
     cost_anomalies = analyze_cost_anomalies(scored_traces) if CATEGORY_COST in categories else []
 
-    cost_findings = _merge_cost_findings(
-        triage,
-        cost_anomalies,
-        {safe_trace_id(trace, position): trace for position, trace in enumerate(scored_traces)},
-    )
+    # Keyed on the real trace ID: an anomaly only ever carries one, because a trace whose ID
+    # could not be read was excluded while grouping.
+    cost_findings = _merge_cost_findings(triage, cost_anomalies, _lookup_by_trace_id(scored_traces))
     if cost_findings:
         _logger.info(
             "%d traces were flagged for cost alone, as outliers against their own peers",

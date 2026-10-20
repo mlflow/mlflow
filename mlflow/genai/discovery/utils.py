@@ -155,6 +155,10 @@ COST_ANOMALY_DEVIATIONS = 4.5
 # Above this share of a group, "anomalies" are the distribution rather than outliers in it,
 # so none are reported. Also guards a degenerate group whose spread is near zero.
 MAX_ANOMALOUS_FRACTION = 0.10
+# When the group agrees on one figure there is no spread to measure against, so a multiple of
+# it stands in. Deliberately well above the ordinary bar: unanimous peers are usually a sign of
+# synthetic or heavily cached work, where small differences mean little.
+UNANIMOUS_PEER_RATIO = 3.0
 # MAD to standard-deviation scale factor for a normal distribution.
 _MAD_TO_SIGMA = 1.4826
 
@@ -180,7 +184,7 @@ def get_agent_label(trace: Trace) -> str:
 
 def _trace_cost(trace: Trace) -> float | None:
     total = (trace.info.cost or {}).get("total_cost")
-    return float(total) if total else None
+    return float(total) if total is not None else None
 
 
 def _anomalies_in_group(
@@ -189,27 +193,41 @@ def _anomalies_in_group(
     logs = [math.log(cost) for _, cost in priced]
     centre = statistics.median(logs)
     mad = statistics.median([abs(value - centre) for value in logs])
-    spread = _MAD_TO_SIGMA * mad if mad > 0 else statistics.pstdev(logs)
-    if spread <= 0:
-        # Every trace in the group cost the same; there is no outlier to find.
-        return []
-
     typical = math.exp(centre)
-    found = [
-        CostAnomaly(
-            trace_id=trace_id,
-            label=label,
-            cost_usd=cost,
-            typical_usd=typical,
-            peer_count=len(priced),
-            deviations=(math.log(cost) - centre) / spread,
-        )
-        for trace_id, cost in priced
-        if (math.log(cost) - centre) / spread >= deviations
-    ]
+
+    if mad > 0:
+        spread = _MAD_TO_SIGMA * mad
+        scored = [(trace_id, cost, (math.log(cost) - centre) / spread) for trace_id, cost in priced]
+        found = [entry for entry in scored if entry[2] >= deviations]
+    else:
+        # More than half the group agrees on one figure, so there is no spread to scale by.
+        # Estimating one from the whole group would let a runaway set its own threshold: the
+        # standard deviation grows with it, and the score saturates no matter how extreme the
+        # trace gets. Against unanimous peers, a material multiple is the evidence.
+        found = [
+            (trace_id, cost, math.inf)
+            for trace_id, cost in priced
+            if cost >= UNANIMOUS_PEER_RATIO * typical
+        ]
+
     if len(found) > MAX_ANOMALOUS_FRACTION * len(priced):
+        # The qualifying share is the distribution, not an outlier in it.
         return []
-    return sorted(found, key=lambda anomaly: anomaly.cost_usd, reverse=True)
+    return sorted(
+        (
+            CostAnomaly(
+                trace_id=trace_id,
+                label=label,
+                cost_usd=cost,
+                typical_usd=typical,
+                peer_count=len(priced),
+                deviations=score,
+            )
+            for trace_id, cost, score in found
+        ),
+        key=lambda anomaly: anomaly.cost_usd,
+        reverse=True,
+    )
 
 
 def analyze_cost_anomalies(

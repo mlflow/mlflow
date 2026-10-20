@@ -51,6 +51,7 @@ class CostAnomaly:
         peer_count: How many priced traces the comparison group held.
         deviations: How far above typical the spend sits, in robust deviations of
             log spend. Reported so a reader can tell a clear outlier from a marginal one.
+            Infinite when the peers agreed on one figure, leaving no spread to measure.
     """
 
     trace_id: str

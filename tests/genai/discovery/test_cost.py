@@ -12,6 +12,18 @@ from mlflow.genai.discovery.utils import (
 
 
 def _trace(*, name, cost_usd=None):
+    """
+    A trace carrying an exact cost.
+
+    The cost is injected into the fetched trace's metadata rather than derived from token
+    usage on an LLM span. Both go through ``TraceInfo.cost``, but the derived path prices
+    tokens with LiteLLM's catalog, so in an environment without ``litellm`` every trace would
+    come back unpriced and these tests would pass vacuously on empty input. Injection keeps
+    them independent of that, and the assertion below keeps the injection honest: if the
+    attribute these tests rely on ever stops being read from this dict, they fail loudly here
+    instead of silently asserting nothing.
+    """
+
     @mlflow.trace(name=name, span_type=SpanType.AGENT)
     def _run():
         return "done"
@@ -20,6 +32,7 @@ def _trace(*, name, cost_usd=None):
     trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     if cost_usd is not None:
         trace.info.trace_metadata["mlflow.trace.cost"] = json.dumps({"total_cost": cost_usd})
+        assert (trace.info.cost or {}).get("total_cost") == cost_usd
     return trace
 
 
@@ -196,3 +209,48 @@ def test_a_quality_failure_keeps_its_rationale_when_cost_is_added():
     assert "answered the wrong question" in rationale
     assert "[cost anomaly]" in rationale
     assert triage.categories_map[expensive.info.trace_id] == ["correctness", "cost"]
+
+
+def test_a_runaway_among_unanimous_peers_is_not_allowed_to_set_its_own_threshold():
+    # Reported in review: when the peers agree on one figure the deviation estimated from the
+    # whole group grows with the candidate, so the score saturates and no multiple is ever
+    # extreme enough. Nine identical traces and one at 40x must flag.
+    traces = _sample("agent", [0.01] * 9 + [0.40])
+
+    anomalies = analyze_cost_anomalies(traces)
+
+    assert [anomaly.cost_usd for anomaly in anomalies] == [0.40]
+    # And raising it further must not make it less anomalous.
+    assert len(analyze_cost_anomalies(_sample("agent", [0.01] * 9 + [400.0]))) == 1
+
+
+def test_two_runaways_among_unanimous_peers_are_both_reported():
+    traces = _sample("agent", [0.01] * 18 + [0.40, 0.44])
+
+    anomalies = analyze_cost_anomalies(traces)
+
+    assert sorted(anomaly.cost_usd for anomaly in anomalies) == [0.40, 0.44]
+
+
+def test_a_runaway_is_caught_at_the_minimum_sample_size():
+    costs = _ordinary_costs(9)
+    traces = _sample("agent", [*costs, statistics.median(costs) * 40])
+
+    assert len(analyze_cost_anomalies(traces)) == 1
+
+
+def test_two_runaways_among_twenty_traces_are_both_reported():
+    costs = _ordinary_costs(18)
+    runaway = statistics.median(costs) * 40
+    traces = _sample("agent", [*costs, runaway, runaway * 1.1])
+
+    assert len(analyze_cost_anomalies(traces)) == 2
+
+
+def test_an_explicit_zero_cost_is_not_mistaken_for_a_missing_one():
+    # A recorded $0 is priced information; it is excluded because a log-scale comparison has
+    # no position for zero, not because the trace failed to record its spend.
+    from mlflow.genai.discovery.utils import _trace_cost
+
+    assert _trace_cost(_trace(name="agent", cost_usd=0.0)) == 0.0
+    assert _trace_cost(_trace(name="agent")) is None

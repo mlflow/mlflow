@@ -205,7 +205,7 @@ def collect_session_rationales(
 
     # Session-level first: it frames the turns that follow, and reading it from the session's
     # own first trace means it is not missed when that turn passed triage.
-    if ordered_session := (session_traces or traces):
+    if ordered_session := (session_traces if session_traces is not None else traces):
         if session_feedback := extract_assessment_rationale(
             ordered_session[0], scorer_name, session_scoped=True
         ):
@@ -346,7 +346,7 @@ def extract_failing_traces(
         row_categories: list[str] = []
         is_failing = False
         judged = False
-        errored: str | None = None
+        errors: list[str] = []
         for scorer_name in scorer_names:
             assessments = trace.search_assessments(scorer_name, type="feedback")
             assessment = assessments[-1] if assessments else None
@@ -357,7 +357,9 @@ def extract_failing_traces(
             if getattr(assessment, "error", None) is not None:
                 error = assessment.error
                 message = getattr(error, "error_message", None) or str(error)
-                errored = f"{scorer_name}: {message}" if message else scorer_name
+                # Every failing scorer is recorded: knowing one of three failed says less
+                # than knowing which, and a run log is where that is read.
+                errors.append(f"{scorer_name}: {message}" if message else scorer_name)
                 continue
             if assessment.value is None:
                 continue
@@ -373,9 +375,9 @@ def extract_failing_traces(
         # A scorer error only counts as one when no other scorer reached a verdict; a trace
         # judged by one scorer is classified even if another failed on it.
         if not judged:
-            if errored is not None:
+            if errors:
                 scorer_error_ids.append(trace_id)
-                scorer_errors[trace_id] = errored
+                scorer_errors[trace_id] = "; ".join(errors)
             else:
                 unclassified_ids.append(trace_id)
             continue
