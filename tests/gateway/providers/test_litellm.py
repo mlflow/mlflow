@@ -847,6 +847,27 @@ def test_litellm_extract_passthrough_token_usage_gemini_with_cached_tokens():
     }
 
 
+@pytest.mark.parametrize(
+    ("counts", "expected"),
+    [
+        ({"candidatesTokenCount": 2, "thoughtsTokenCount": 300}, 302),
+        ({"thoughtsTokenCount": 300}, 300),
+        ({"candidatesTokenCount": 2}, 2),
+    ],
+)
+def test_litellm_extract_passthrough_token_usage_gemini_includes_thoughts(counts, expected):
+    provider = LiteLLMProvider(EndpointConfig(**chat_config()))
+    result = {"usageMetadata": {"promptTokenCount": 10, "totalTokenCount": 10 + expected, **counts}}
+    token_usage = provider._extract_passthrough_token_usage(
+        PassthroughAction.GEMINI_GENERATE_CONTENT, result
+    )
+    assert token_usage == {
+        "input_tokens": 10,
+        "output_tokens": expected,
+        "total_tokens": 10 + expected,
+    }
+
+
 def test_litellm_extract_passthrough_token_usage_no_usage():
     provider = LiteLLMProvider(EndpointConfig(**chat_config()))
     result = {"id": "chatcmpl-123", "choices": []}
@@ -909,6 +930,21 @@ def test_litellm_extract_streaming_token_usage_gemini_with_cached_tokens():
         "output_tokens": 20,
         "total_tokens": 30,
         "cache_read_input_tokens": 5,
+    }
+
+
+def test_litellm_extract_streaming_token_usage_gemini_includes_thoughts():
+    provider = LiteLLMProvider(EndpointConfig(**chat_config()))
+    chunk = (
+        b'data: {"candidates":[{"content":{}}],"usageMetadata":'
+        b'{"promptTokenCount":10,"candidatesTokenCount":2,"thoughtsTokenCount":300,'
+        b'"totalTokenCount":312}}\n'
+    )
+    result = provider._extract_streaming_token_usage(chunk)
+    assert result == {
+        "input_tokens": 10,
+        "output_tokens": 302,
+        "total_tokens": 312,
     }
 
 
