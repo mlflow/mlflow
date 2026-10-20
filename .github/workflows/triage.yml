@@ -567,10 +567,12 @@ jobs:
         with:
           name: issue-context-${{ github.run_id }}
           path: ${{ runner.temp }}/issue-context
-      # Independent setup, run together.
+      # TODO: Restore parallel setup once the runner fix is deployed to hosted runners.
+      # https://github.com/actions/runner/issues/4789
+      - uses: ./.github/actions/setup-python
+      - uses: ./.github/actions/setup-node
+      # Install system packages and CLIs in parallel.
       - parallel:
-          - uses: ./.github/actions/setup-python
-          - uses: ./.github/actions/setup-node
           - name: Install system packages
             run: |
               sudo apt-get update
@@ -1287,6 +1289,14 @@ jobs:
             --body-file "$RUNNER_TEMP/pr-body.md")
           echo "Opened $pr_url" >> "$GITHUB_STEP_SUMMARY"
           echo "number=${pr_url##*/}" >> "$GITHUB_OUTPUT"
+      - name: Request autoformat
+        if: steps.open.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ steps.open.outputs.number }}
+        run: |
+          gh pr comment "$PR_NUMBER" --repo "$REPO" --body '/autoformat'
       - name: Comment on issue
         if: steps.open.outcome == 'success'
         env:
