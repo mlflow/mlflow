@@ -865,6 +865,7 @@ module.exports = {
   "mlflow.eval-runs.compare-button.tooltip": "",
   "mlflow.eval-runs.dataset-cell": "",
   "mlflow.eval-runs.dataset-cell-tooltip": "",
+  "mlflow.eval-runs.dataset-cell.hover-card.view-dataset": "",
   "mlflow.eval-runs.dataset-version-cell-tooltip": "",
   "mlflow.eval-runs.empty-state.learn-more-link": "",
   "mlflow.eval-runs.empty-state.unified": "",
@@ -910,6 +911,11 @@ module.exports = {
 
   // -- mlflow.eval_run_details --
   "mlflow.eval_run_details.breadcrumb.evaluation_runs": "",
+  "mlflow.eval_run_details.overview.dataset_link": "",
+  "mlflow.eval_run_details.overview.dataset_tooltip": "",
+  "mlflow.eval_run_details.overview.prompt_link": "",
+  "mlflow.eval_run_details.overview.prompt_tooltip": "",
+  "mlflow.eval_run_details.overview.scorer_link": "",
   "mlflow.eval_run_details.overview.tag": "",
   "mlflow.eval_run_details.overview.tag_tooltip": "",
   "mlflow.eval_run_details.run_stats.total_cost.info": "",
@@ -1095,6 +1101,7 @@ module.exports = {
   "mlflow.experiment-scorers.new-scorer-button": "",
   "mlflow.experiment-scorers.output-type-select": "",
   "mlflow.experiment-scorers.scorer-status-tag": "",
+  "mlflow.experiment-scorers.selected-scorer-not-found": "",
   "mlflow.experiment-scorers.switch-to-endpoint-link": "",
   "mlflow.experiment-scorers.switch-to-manual-link": "",
   "mlflow.experiment-scorers.traces-view-create-judge": "",
