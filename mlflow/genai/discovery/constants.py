@@ -64,11 +64,6 @@ user asked! Correcting for an assistant's mistakes or shortcomings is also NOT a
 Goals should always be independent of the agent's behavior.\
 """
 
-# Below this duration a trace is not called slow on timing alone: a sub-second response is
-# not a latency problem because the rest of the sample was faster still. A user complaint
-# (condition (a) of the check) overrides it.
-LATENCY_FLOOR_SECONDS = 2.0
-
 LATENCY_CHECK_INSTRUCTIONS = """
 LATENCY CHECK: If trace timing information is provided (e.g. "Total duration: X.XXs" \
 and/or "Slowest spans: ..."), evaluate whether the response time was reasonable for \
@@ -77,16 +72,12 @@ the task{latency_context}. Consider latency problematic if ANY of the following 
       - "that took forever" / "taking too long" / "so slow" / "speed this up"
       - "still waiting" / "hurry up" / "faster" / "this is slow"
       - Expressing impatience, frustration about wait time, or asking if system is working
-  (b) Duration is far outside typical performance for this dataset (if timing context is \
-      provided, use it: more than twice the p90 is very slow)
+  (b) Duration significantly exceeds typical performance for this dataset (if timing \
+      context is provided, use it: e.g., >2x the p90 is very slow, >p95 is slow)
   (c) Trace includes error messages related to timeouts or performance issues
-Being the slowest trace in the sample is NOT itself a finding: every sample has a slowest \
-trace, and ranking high in one is not evidence of a latency problem. Judge the duration \
-against what the task required, and do not flag a trace that completed in under \
-{latency_floor_s:.0f}s on timing alone — a fast response is not slow because others were \
-faster. When user feedback about slowness is present (condition a), ALWAYS tag latency even \
-if duration seems reasonable by thresholds — user perception is ground truth. If "Slowest \
-spans" information is provided and latency is problematic, cite the specific slow operations \
+When user feedback about slowness is present (condition a), ALWAYS tag latency even if \
+duration seems reasonable by thresholds — user perception is ground truth. If "Slowest spans" \
+information is provided and latency is problematic, cite the specific slow operations \
 in your rationale to help identify bottlenecks.
 """
 
@@ -247,9 +238,7 @@ def build_satisfaction_instructions(
             if latency_stats
             else ""
         )
-        latency_check = "\n" + LATENCY_CHECK_INSTRUCTIONS.format(
-            latency_context=latency_context, latency_floor_s=LATENCY_FLOOR_SECONDS
-        )
+        latency_check = "\n" + LATENCY_CHECK_INSTRUCTIONS.format(latency_context=latency_context)
 
     if not use_conversation:
         trace_instructions = TRACE_QUALITY_INSTRUCTIONS.replace("{latency_check}", latency_check)
