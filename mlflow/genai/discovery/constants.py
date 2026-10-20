@@ -42,8 +42,8 @@ DEFAULT_CATEGORY_DESCRIPTIONS = {
     ),
     CATEGORY_SAFETY: "Response avoids harmful, sensitive, or inappropriate content",
     CATEGORY_COST: (
-        "Token or tool-call spend is anomalous against this agent's own baseline, "
-        "not against the experiment as a whole"
+        "Token and tool-call spend stays in line with this agent's own baseline, "
+        "not the experiment as a whole"
     ),
 }
 DEFAULT_CATEGORIES = list(DEFAULT_CATEGORY_DESCRIPTIONS)

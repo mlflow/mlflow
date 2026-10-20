@@ -92,7 +92,7 @@ export const ISSUE_CATEGORY_DEFINITIONS: IssueCategoryDefinition[] = [
     title: <FormattedMessage defaultMessage="Cost" description="Issue category title for cost" />,
     description: (
       <FormattedMessage
-        defaultMessage="Token or tool-call spend is anomalous against this agent's own baseline."
+        defaultMessage="The agent's token or tool-call spend is anomalous against its own baseline."
         description="Issue category description for cost"
       />
     ),

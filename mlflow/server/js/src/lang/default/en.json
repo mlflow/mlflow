@@ -63,10 +63,6 @@
     "defaultMessage": "Follow these steps to enable the AI Gateway feature for managing AI provider credentials.",
     "description": "AI Gateway setup guide > Subtitle"
   },
-  "+8G/Ed": {
-    "defaultMessage": "Token or tool-call spend is anomalous against this agent's own baseline.",
-    "description": "Issue category description for cost"
-  },
   "+8uMvO": {
     "defaultMessage": "Enter new password",
     "description": "Placeholder for the new-password input"
@@ -5446,6 +5442,10 @@
   "HcY5MF": {
     "defaultMessage": "Create your first experiment to start tracking ML workflows.",
     "description": "Home page experiments empty state description"
+  },
+  "HcfqOz": {
+    "defaultMessage": "The agent's token or tool-call spend is anomalous against its own baseline.",
+    "description": "Issue category description for cost"
   },
   "HdEgbb": {
     "defaultMessage": "Error",
