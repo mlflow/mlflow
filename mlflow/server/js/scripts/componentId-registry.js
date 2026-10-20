@@ -833,6 +833,10 @@ module.exports = {
   "mlflow.eval-datasets-v2.side-panel.source-trace-link": "",
   "mlflow.eval-datasets-v2.trace-modal": "",
 
+  // -- mlflow.eval-run --
+  "mlflow.eval-run.traces.selected-trace-error": "",
+  "mlflow.eval-run.traces.selected-trace-error.retry": "",
+
   // -- mlflow.eval-runs --
   "mlflow.eval-runs.actions-button": "",
   "mlflow.eval-runs.actions.compare": "",
@@ -903,6 +907,15 @@ module.exports = {
   "mlflow.eval-runs.unified-search.error": "",
   "mlflow.eval-runs.unified-search.input": "",
   "mlflow.eval-runs.visibility-mode-selector": "",
+
+  // -- mlflow.eval_run_details --
+  "mlflow.eval_run_details.breadcrumb.evaluation_runs": "",
+  "mlflow.eval_run_details.overview.tag": "",
+  "mlflow.eval_run_details.overview.tag_tooltip": "",
+  "mlflow.eval_run_details.run_stats.total_cost.info": "",
+  "mlflow.eval_run_details.sidebar.footer_toggle": "",
+  "mlflow.eval_run_details.sidebar.toggle": "",
+  "mlflow.eval_run_details.status_tag": "",
 
   // -- mlflow.evaluations_overview --
   "mlflow.evaluations_overview.column_selector_dropdown": "",
@@ -1004,6 +1017,28 @@ module.exports = {
   "mlflow.experiment-evaluation-monitoring.trace-info-hover-other-request-time": "",
   "mlflow.experiment-evaluation-monitoring.trace-info-hover-request-time": "",
 
+  // -- mlflow.experiment-issues --
+  "mlflow.experiment-issues.detail.category": "",
+  "mlflow.experiment-issues.detail.status": "",
+  "mlflow.experiment-issues.detail.status.reject": "",
+  "mlflow.experiment-issues.detail.status.reopen": "",
+  "mlflow.experiment-issues.detail.status.resolve": "",
+  "mlflow.experiment-issues.detect": "",
+  "mlflow.experiment-issues.detection-error": "",
+  "mlflow.experiment-issues.empty-state.learn-how": "",
+  "mlflow.experiment-issues.empty-state.run-detection": "",
+  "mlflow.experiment-issues.load-more": "",
+  "mlflow.experiment-issues.page-error": "",
+  "mlflow.experiment-issues.read-error": "",
+  "mlflow.experiment-issues.retry": "",
+  "mlflow.experiment-issues.retry-detection": "",
+  "mlflow.experiment-issues.retry-refresh": "",
+  "mlflow.experiment-issues.row": "",
+  "mlflow.experiment-issues.row.category": "",
+  "mlflow.experiment-issues.source-run": "",
+  "mlflow.experiment-issues.trace-error": "",
+  "mlflow.experiment-issues.triage-error": "",
+
   // -- mlflow.experiment-label-schemas --
   "mlflow.experiment-label-schemas.preview": "",
   "mlflow.experiment-label-schemas.preview.comment": "",
@@ -1070,6 +1105,7 @@ module.exports = {
   "mlflow.experiment-side-nav.genai.agent-versions": "",
   "mlflow.experiment-side-nav.genai.datasets": "",
   "mlflow.experiment-side-nav.genai.evaluation-runs": "",
+  "mlflow.experiment-side-nav.genai.issues": "",
   "mlflow.experiment-side-nav.genai.judges": "",
   "mlflow.experiment-side-nav.genai.overview": "",
   "mlflow.experiment-side-nav.genai.playground": "",
@@ -2314,6 +2350,7 @@ module.exports = {
   "mlflow.traces-v4.saved_views": "",
   "mlflow.traces-v4.saved_views.delete_confirm": "",
   "mlflow.traces-v4.saved_views.trigger": "",
+  "mlflow.traces-v4.search.typeahead": "",
 
   // -- mlflow.unified-search --
   "mlflow.unified-search.add-filter": "",

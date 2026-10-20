@@ -26,7 +26,13 @@ from mlflow.server.auth.permissions import (
 )
 from mlflow.server.auth.requirements import ACTION_NOT_DENIED, Requirement
 from mlflow.server.auth.routes import (
+    ADD_ROLE_PERMISSION,
+    AJAX_ADD_ROLE_PERMISSION,
+    AJAX_CREATE_ROLE,
+    AJAX_REMOVE_ROLE_PERMISSION,
+    AJAX_UPDATE_ROLE_PERMISSION,
     CREATE_PROMPTLAB_RUN,
+    CREATE_ROLE,
     GET_ARTIFACT,
     GET_METRIC_HISTORY_BULK,
     GET_METRIC_HISTORY_BULK_INTERVAL,
@@ -35,7 +41,9 @@ from mlflow.server.auth.routes import (
     GET_TRACE_ARTIFACT_V3,
     INVOKE_GENAI_EVALUATE,
     INVOKE_ISSUE_DETECTION,
+    REMOVE_ROLE_PERMISSION,
     SEARCH_DATASETS,
+    UPDATE_ROLE_PERMISSION,
     UPLOAD_ARTIFACT,
 )
 from mlflow.server.auth.sqlalchemy_store import RoleGrantRow, SqlAlchemyStore
@@ -4921,6 +4929,134 @@ def test_validate_can_manage_roles_nonexistent_resource_denied(role_auth_setup, 
         assert auth_module.validate_can_manage_roles() is False
 
 
+@pytest.mark.parametrize(
+    ("path", "method"),
+    [
+        (UPDATE_ROLE_PERMISSION, "PATCH"),
+        (AJAX_UPDATE_ROLE_PERMISSION, "PATCH"),
+        (REMOVE_ROLE_PERMISSION, "DELETE"),
+        (AJAX_REMOVE_ROLE_PERMISSION, "DELETE"),
+    ],
+)
+def test_validate_can_manage_roles_denies_role_id_from_other_workspace(
+    role_auth_setup, path, method
+):
+    # The update/remove handlers act on role_permission_id, so a foo admin must not
+    # be able to authorize against their own role_id while
+    # targeting a permission row that belongs to a bar role.
+    role_auth_setup["login_as"]("ws_admin_foo")
+    body = {
+        "role_id": role_auth_setup["role_foo_id"],
+        "role_permission_id": role_auth_setup["role_permission_bar_id"],
+        "permission": MANAGE.name,
+    }
+    with auth_module.app.test_request_context(path, method=method, json=body):
+        assert auth_module.validate_can_manage_roles() is False
+
+
+@pytest.mark.parametrize("path", [ADD_ROLE_PERMISSION, AJAX_ADD_ROLE_PERMISSION])
+def test_validate_can_manage_roles_denies_role_permission_id_from_other_workspace(
+    role_auth_setup, path
+):
+    # Inverse pairing: add_role_permission acts on role_id, so a foo admin must not
+    # be able to authorize against a foo permission row while targeting a bar role.
+    role_auth_setup["login_as"]("ws_admin_foo")
+    body = {
+        "role_id": role_auth_setup["role_bar_id"],
+        "role_permission_id": role_auth_setup["role_permission_foo_id"],
+        "resource_type": "experiment",
+        "resource_pattern": "*",
+        "permission": MANAGE.name,
+    }
+    with auth_module.app.test_request_context(path, method="POST", json=body):
+        assert auth_module.validate_can_manage_roles() is False
+
+
+@pytest.mark.parametrize("path", [CREATE_ROLE, AJAX_CREATE_ROLE])
+def test_validate_can_manage_roles_denies_workspace_conflicting_with_role_id(role_auth_setup, path):
+    # create_role acts on ``workspace``, so a foo role_id must not authorize creating
+    # a role in bar.
+    role_auth_setup["login_as"]("ws_admin_foo")
+    body = {"name": "new-role", "workspace": "bar", "role_id": role_auth_setup["role_foo_id"]}
+    with auth_module.app.test_request_context(path, method="POST", json=body):
+        assert auth_module.validate_can_manage_roles() is False
+
+
+def test_validate_can_manage_roles_allows_consistent_role_id_and_role_permission_id(
+    role_auth_setup,
+):
+    # A redundant-but-consistent pair stays authorized, so the conflict check only
+    # bites on genuinely mismatched identifiers.
+    role_auth_setup["login_as"]("ws_admin_foo")
+    body = {
+        "role_id": role_auth_setup["role_foo_id"],
+        "role_permission_id": role_auth_setup["role_permission_foo_id"],
+        "workspace": "foo",
+        "permission": MANAGE.name,
+    }
+    with auth_module.app.test_request_context(UPDATE_ROLE_PERMISSION, method="PATCH", json=body):
+        assert auth_module.validate_can_manage_roles() is True
+
+
+@pytest.mark.parametrize(
+    "conflict",
+    [
+        "role_id_vs_role_permission_id",
+        "role_id_vs_workspace",
+        "role_permission_id_vs_workspace",
+        "missing_role_permission_id_with_valid_workspace",
+    ],
+)
+def test_get_role_workspace_from_request_returns_none_on_conflict(role_auth_setup, conflict):
+    # Exercise the resolver directly: the validators short-circuit for super admins
+    # before reaching it, so this is the only place the conflict branch is asserted
+    # independently of who is logged in.
+    match conflict:
+        case "role_id_vs_role_permission_id":
+            body = {
+                "role_id": role_auth_setup["role_foo_id"],
+                "role_permission_id": role_auth_setup["role_permission_bar_id"],
+            }
+        case "role_id_vs_workspace":
+            body = {"role_id": role_auth_setup["role_foo_id"], "workspace": "bar"}
+        case "role_permission_id_vs_workspace":
+            body = {
+                "role_permission_id": role_auth_setup["role_permission_foo_id"],
+                "workspace": "bar",
+            }
+        case "missing_role_permission_id_with_valid_workspace":
+            body = {"role_permission_id": 999_999, "workspace": "foo"}
+    with auth_module.app.test_request_context(UPDATE_ROLE_PERMISSION, method="PATCH", json=body):
+        assert auth_module._get_role_workspace_from_request() is None
+
+
+@pytest.mark.parametrize("exists", [True, False])
+def test_validate_can_manage_roles_malformed_role_id_rejected_regardless_of_existence(
+    role_auth_setup, exists
+):
+    # Format checks run before any lookup; otherwise a non-admin could tell existing
+    # from missing role_permission_ids by whether a malformed role_id yields a 400
+    # or a deny.
+    role_auth_setup["login_as"]("outsider")
+    rp_id = role_auth_setup["role_permission_bar_id"] if exists else 999_999
+    body = {"role_id": "not-an-int", "role_permission_id": rp_id, "permission": MANAGE.name}
+    with auth_module.app.test_request_context(UPDATE_ROLE_PERMISSION, method="PATCH", json=body):
+        with pytest.raises(MlflowException, match="must be an integer"):
+            auth_module.validate_can_manage_roles()
+
+
+@pytest.mark.parametrize("exists", [True, False])
+def test_validate_can_manage_roles_blank_workspace_rejected_regardless_of_existence(
+    role_auth_setup, exists
+):
+    role_auth_setup["login_as"]("outsider")
+    role_id = role_auth_setup["role_bar_id"] if exists else 999_999
+    body = {"name": "new-role", "workspace": "   ", "role_id": role_id}
+    with auth_module.app.test_request_context(CREATE_ROLE, method="POST", json=body):
+        with pytest.raises(MlflowException, match="non-empty string"):
+            auth_module.validate_can_manage_roles()
+
+
 def test_validate_can_manage_roles_nonexistent_role_id_bypassed_by_super_admin(
     role_auth_setup,
 ):
@@ -7543,15 +7679,21 @@ def test_get_assessment_inherits_the_experiment(workspace_permission_setup, monk
     assert _run_get_assessment(monkeypatch, "exp-1") is True
 
 
-def _run_model_version_artifact(name="model-xyz", version="3"):
+def _run_model_version_artifact(name="model-xyz", version="3", presigned=False):
     with auth_module.app.test_request_context(
         "/model-versions/get-artifact",
-        query_string={"name": name, "version": version, "path": "MLmodel"},
+        query_string={
+            "name": name,
+            "version": version,
+            "path": "MLmodel",
+            "presigned": str(presigned).lower(),
+        },
     ):
         return auth_module.validate_can_read_model_version_artifact()
 
 
-def test_model_version_artifact_honors_a_version_deny(workspace_permission_setup):
+@pytest.mark.parametrize("presigned", [False, True])
+def test_model_version_artifact_honors_a_version_deny(workspace_permission_setup, presigned):
     """The artifact IS the version's content -- the handler streams
     get_model_version_download_uri(name, version) -- yet the route whose entire subject is a
     version resolved only the registered model.
@@ -7569,17 +7711,20 @@ def test_model_version_artifact_honors_a_version_deny(workspace_permission_setup
         ],
     )
 
-    assert _run_model_version_artifact() is False
+    assert _run_model_version_artifact(presigned=presigned) is False
 
 
-def test_model_version_artifact_unchanged_without_a_version_grant(workspace_permission_setup):
+@pytest.mark.parametrize("presigned", [False, True])
+def test_model_version_artifact_unchanged_without_a_version_grant(
+    workspace_permission_setup, presigned
+):
     # No version grant: the registered model tier decides, exactly as before.
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
     _grant(store, username, "team-a", [("registered_model", "*", READ.name)])
 
-    assert _run_model_version_artifact() is True
+    assert _run_model_version_artifact(presigned=presigned) is True
 
 
 def _run_search_traces(filter_string, order_by=None):

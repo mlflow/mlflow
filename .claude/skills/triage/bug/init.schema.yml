@@ -7,6 +7,12 @@ required:
   - label
   - comment
 properties:
+  issue_title:
+    description: Optional descriptive replacement for a blank, template-only, or vague issue title.
+    type: string
+    pattern: '^[^\r\n]+$'
+    minLength: 1
+    maxLength: 120
   label:
     description: Bug triage outcome label.
     type: string
@@ -23,12 +29,14 @@ properties:
         description: Reproduction needs resources the sandbox lacks.
   comment:
     description: |
-      Markdown comment for the issue. Fill in this template: replace each `<...>` placeholder,
-      and drop a line or section that has nothing to say, except the verdict.
+      Markdown comment for initial triage. Fill in this template: replace each `<...>`
+      placeholder, and drop a line or section that has nothing to say, except the verdict.
 
       ### Summary
 
       **<verdict>**: <one or two sentences on what happens and on which versions>.
+
+      <the diagram from viz-aid.md, if any: ![<takeaway>](<path>)>
 
       - Expected: <what should happen>
       - Actual: <what happens, in one line, e.g. the exception and its message>
@@ -67,7 +75,7 @@ properties:
     maxLength: 5000
   pull_request:
     description: |
-      Draft pull request for `fix.patch`. Only for a Reproduced bug whose fix is small, verified,
+      Draft pull request for `fix.patch`. Only for a Reproduced bug whose fix is verified
       and leaves nothing for a maintainer to decide.
     type: object
     additionalProperties: false

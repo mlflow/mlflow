@@ -10,6 +10,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi import APIRouter, FastAPI, HTTPException
 from fastapi.testclient import TestClient
+from starlette.requests import Request
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 from mlflow.assistant.config import AssistantConfig, ProjectConfig
 from mlflow.assistant.config import ProviderConfig as AssistantProviderConfig
@@ -23,6 +25,7 @@ from mlflow.assistant.providers.base import (
 )
 from mlflow.assistant.types import Event, Message, ToolUseBlock
 from mlflow.server.assistant.api import (
+    _BLOCK_REMOTE_ACCESS_ERROR_MSG,
     PermissionDecision,
     _AssistantAPIRoute,
     _enforce_remote_access,
@@ -1487,3 +1490,63 @@ def test_stream_explains_a_host_only_provider_to_restricted_callers(restricted, 
 
     assert response.status_code == 200
     assert message in response.text
+
+
+def _request_from(client_host: str, headers: list[tuple[str, str]]) -> Request:
+    return Request({
+        "type": "http",
+        "method": "POST",
+        "path": "/",
+        "query_string": b"",
+        "headers": [(k.lower().encode(), v.encode()) for k, v in headers],
+        "client": (client_host, 54321),
+    })
+
+
+@pytest.mark.parametrize(
+    "header",
+    ["X-Forwarded-For", "Forwarded", "X-Forwarded-Host", "X-Forwarded-Proto", "X-Real-IP", "Via"],
+)
+def test_is_localhost_blocks_forwarded_request_with_loopback_client(header):
+    assert not _is_localhost(_request_from("127.0.0.1", [(header, "127.0.0.1")]))
+
+
+def test_is_localhost_allows_direct_loopback_request():
+    assert _is_localhost(_request_from("127.0.0.1", [("Content-Type", "application/json")]))
+
+
+@pytest.mark.parametrize(
+    ("peer", "trusted_proxies"),
+    [
+        # Operator widened uvicorn's proxy trust to every peer (--forwarded-allow-ips=*)
+        (("203.0.113.9", 4321), "*"),
+        # uvicorn's default: a same-host reverse proxy passing the caller's header through verbatim
+        (("127.0.0.1", 4321), "127.0.0.1"),
+    ],
+)
+def test_message_blocks_remote_caller_spoofing_loopback_via_x_forwarded_for(
+    monkeypatch, peer, trusted_proxies
+):
+    monkeypatch.delenv("MLFLOW_ENABLE_REMOTE_ASSISTANT", raising=False)
+    app = FastAPI()
+    app.include_router(assistant_router)
+    mock_provider = MockProvider()
+    with (
+        patch("mlflow.server.assistant.api.list_providers", return_value=[mock_provider]),
+        patch("mlflow.server.assistant.api._get_selected_provider", return_value=mock_provider),
+    ):
+        proxied = TestClient(
+            ProxyHeadersMiddleware(app, trusted_hosts=trusted_proxies), client=peer
+        )
+        spoofed = proxied.post(
+            "/ajax-api/3.0/mlflow/assistant/message",
+            json={"message": "Hello"},
+            headers={"X-Forwarded-For": "127.0.0.1"},
+        )
+        direct = TestClient(app, client=("127.0.0.1", 4321)).post(
+            "/ajax-api/3.0/mlflow/assistant/message", json={"message": "Hello"}
+        )
+
+    assert spoofed.status_code == 403
+    assert spoofed.json()["detail"] == _BLOCK_REMOTE_ACCESS_ERROR_MSG
+    assert direct.status_code == 200

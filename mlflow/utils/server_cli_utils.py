@@ -92,3 +92,33 @@ def artifacts_only_config_validation(
             "artifact-only servers do not initialize the tracking store required for "
             "server-owned trace archival."
         )
+
+
+def artifacts_presigned_only_config_validation(
+    artifacts_presigned_only: bool,
+    serve_artifacts: bool,
+    artifacts_destination: str,
+) -> None:
+    if not artifacts_presigned_only:
+        return
+    if not serve_artifacts:
+        raise click.UsageError(
+            "--artifacts-presigned-only requires artifact serving to be enabled; "
+            "--no-serve-artifacts is not supported."
+        )
+
+    from mlflow.store.artifact.artifact_repo import MultipartDownloadMixin, MultipartUploadMixin
+    from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
+
+    artifact_repo = get_artifact_repository(artifacts_destination)
+    missing = []
+    if not isinstance(artifact_repo, MultipartUploadMixin):
+        missing.append("presigned uploads")
+    if not isinstance(artifact_repo, MultipartDownloadMixin):
+        missing.append("presigned downloads")
+    if missing:
+        raise click.UsageError(
+            "--artifacts-presigned-only requires an artifacts destination that supports "
+            + " and ".join(missing)
+            + f" (got {artifacts_destination!r})."
+        )

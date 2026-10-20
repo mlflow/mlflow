@@ -146,12 +146,21 @@ const ExperimentEvaluationRunsPageImpl = ({ baseline }: { baseline?: EvalRunsBas
   const filterButtonRef = useRef<EvalRunsFilterButtonHandle>(null);
   const handleFilterByColumn = useCallback((field: string) => filterButtonRef.current?.openForField(field), []);
 
-  const { searchFilter, filters, filterString, isAnyFilterActive, setSearchFilter, setDatePreset, setClauses } =
-    useEvalRunsFilters({
-      experimentId,
-      enabled: enableNewEvalRunsUi,
-      persistDatePreset: enableNewEvalRunsUi,
-    });
+  const {
+    searchFilter,
+    filters,
+    filterString,
+    isAnyFilterActive,
+    hasRelativeDateWindow,
+    refreshDateWindow,
+    setSearchFilter,
+    setDatePreset,
+    setClauses,
+  } = useEvalRunsFilters({
+    experimentId,
+    enabled: enableNewEvalRunsUi,
+    persistDatePreset: enableNewEvalRunsUi,
+  });
 
   const {
     data: runs,
@@ -181,10 +190,15 @@ const ExperimentEvaluationRunsPageImpl = ({ baseline }: { baseline?: EvalRunsBas
   const fetchedBaselineRun = baseline?.fetchedBaselineRun;
   const refetchBaseline = baseline?.refetchBaseline;
   const refetchAll = useCallback(() => {
-    refetch();
+    // Moving a relative date window forward changes the query key, which fetches the runs on its own.
+    if (hasRelativeDateWindow) {
+      refreshDateWindow();
+    } else {
+      refetch();
+    }
     refetchBaseline?.();
     invalidateMlflowSearchTracesCache({ queryClient });
-  }, [refetch, refetchBaseline, queryClient]);
+  }, [hasRelativeDateWindow, refreshDateWindow, refetch, refetchBaseline, queryClient]);
 
   const runUuids = useMemo(() => runs?.map((run) => run.info.runUuid) ?? [], [runs]);
   // A baseline that the current filters exclude is fetched on its own, so it stays pinned.

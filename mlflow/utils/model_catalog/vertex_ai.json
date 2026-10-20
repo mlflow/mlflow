@@ -2940,7 +2940,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-23"
+      "last_updated_at": "2026-10-19"
     },
     "gemini-3.8-flash-cyber": {
       "mode": "chat",
@@ -3028,7 +3028,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-14"
+      "deprecation_date": "2027-10-13",
+      "last_updated_at": "2026-10-19"
     },
     "gemini-4-argon-cyber-permissive": {
       "mode": "chat",

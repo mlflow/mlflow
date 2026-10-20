@@ -1,3 +1,5 @@
+import base64
+import json
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from unittest import mock
@@ -9,6 +11,8 @@ from mlflow.entities.assessment import IssueReference
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_location import TraceLocation
 from mlflow.exceptions import MlflowException
+from mlflow.store.tracking.dbmodels.models import SqlIssue
+from mlflow.utils.issue_utils import issue_page_token
 from mlflow.utils.time import get_current_time_millis
 
 DEFAULT_EXPERIMENT_ID = "0"
@@ -1390,3 +1394,127 @@ def test_issue_concurrent_metadata_patches_preserve_unrelated_keys(store):
     updated = store.get_issue(issue.issue_id)
     assert updated.metadata == {str(index): "value" for index in range(12)}
     assert updated.last_seen_timestamp == 11
+
+
+@pytest.mark.parametrize(
+    "order_by",
+    [
+        ["status ASC", "severity DESC", "last_seen_timestamp DESC"],
+        ["last_seen_timestamp DESC"],
+        ["created_timestamp DESC"],
+        ["last_updated_timestamp DESC"],
+        ["name ASC", "severity DESC"],
+    ],
+)
+@pytest.mark.parametrize("mutation", ["insert", "triage", "delete_anchor", "update_anchor"])
+@pytest.mark.parametrize("include_trace_count", [False, True])
+def test_issue_keyset_pages_survive_list_mutations(store, order_by, mutation, include_trace_count):
+    for index in range(6):
+        with mock.patch(
+            "mlflow.store.tracking.sqlalchemy_store.get_current_time_millis",
+            return_value=100 + index,
+        ) as clock:
+            store.create_issue(
+                "0",
+                f"Issue {index}",
+                "",
+                issue_id=f"iss-cursor-{index}",
+                severity=IssueSeverity.HIGH if index % 2 else IssueSeverity.LOW,
+                last_seen_timestamp=1000 + index,
+            )
+            clock.assert_called_once()
+    options = {
+        "experiment_id": "0",
+        "statuses": ["pending"],
+        "order_by": order_by,
+        "include_total_count": True,
+        "include_trace_count": include_trace_count,
+        "view": "basic",
+    }
+    expected = [issue.issue_id for issue in store.search_issues(**options)]
+    first = store.search_issues(**options, max_results=2)
+    token = json.loads(base64.b64decode(first.token))
+    assert token["version"] == 2
+    assert "offset" not in token
+    if mutation == "insert":
+        with mock.patch(
+            "mlflow.store.tracking.sqlalchemy_store.get_current_time_millis", return_value=9000
+        ) as clock:
+            store.create_issue(
+                "0", "AAA", "", severity=IssueSeverity.HIGH, last_seen_timestamp=9000
+            )
+            clock.assert_called_once()
+    elif mutation == "triage":
+        store.update_issue(first[0].issue_id, status=IssueStatus.RESOLVED)
+    elif mutation == "delete_anchor":
+        with store.ManagedSessionMaker() as session:
+            session.query(SqlIssue).filter(SqlIssue.issue_id == first[-1].issue_id).delete()
+    else:
+        store.update_issue(first[-1].issue_id, last_seen_timestamp=9000, name="AAA")
+    remaining = []
+    next_token = first.token
+    while next_token:
+        page = store.search_issues(**options, max_results=2, page_token=next_token)
+        assert page.total_count == 6 + (mutation == "insert") - (
+            mutation in {"triage", "delete_anchor"}
+        )
+        remaining.extend(issue.issue_id for issue in page)
+        next_token = page.token
+    assert remaining == expected[2:]
+
+
+@pytest.mark.parametrize(
+    "order_by",
+    [
+        ["severity ASC", "status DESC", "last_seen_timestamp ASC"],
+        ["name ASC"],
+        ["last_seen_timestamp DESC"],
+    ],
+)
+def test_issue_keyset_ties_nulls_and_legacy_tokens(store, order_by):
+    with mock.patch(
+        "mlflow.store.tracking.sqlalchemy_store.get_current_time_millis", return_value=100
+    ) as clock:
+        for index in range(5):
+            store.create_issue(
+                "0",
+                "Same title",
+                "",
+                issue_id=f"iss-tie-{index}",
+                severity=IssueSeverity.LOW if index % 2 else None,
+                status=IssueStatus.RESOLVED if index % 2 else IssueStatus.PENDING,
+            )
+        assert clock.call_count == 5
+    with store.ManagedSessionMaker() as session:
+        session.query(SqlIssue).update({SqlIssue.last_seen_timestamp: None})
+    options = {"order_by": order_by, "include_trace_count": True, "include_total_count": True}
+    expected = [issue.issue_id for issue in store.search_issues(**options)]
+    first = store.search_issues(**options, max_results=1)
+    fingerprint = json.loads(base64.b64decode(first.token))["query"]
+    # A token issued before the cursor rollout is accepted, then upgraded on the next page.
+    second = store.search_issues(
+        **options, max_results=1, page_token=issue_page_token(1, fingerprint)
+    )
+    assert second[0].issue_id == expected[1]
+    assert json.loads(base64.b64decode(second.token))["version"] == 2
+    remaining = list(second)
+    token = second.token
+    while token:
+        page = store.search_issues(**options, max_results=1, page_token=token)
+        remaining.extend(page)
+        token = page.token
+    assert [issue.issue_id for issue in first + remaining] == expected
+    for malformed in [
+        {"version": 3},
+        {"after": []},
+        {"after": [True, "iss-tie-0"]},
+        {"after": [None, "iss-tie-0"]},
+        {"after": [[], "iss-tie-0"]},
+        {"after": [100]},
+        {"query": "another-query"},
+        {"after": [2**100, "iss-tie-0"]},
+    ]:
+        data = json.loads(base64.b64decode(first.token)) | malformed
+        token = base64.b64encode(json.dumps(data).encode()).decode()
+        with pytest.raises(MlflowException, match="page token"):
+            store.search_issues(**options, max_results=1, page_token=token)

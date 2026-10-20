@@ -221,6 +221,29 @@ describe('ExperimentEvaluationRunsPage new eval runs UI flows', () => {
     expect(screen.queryByText('No evaluation runs in this time range')).not.toBeInTheDocument();
   });
 
+  test('moves a relative time range forward to now on refresh', async () => {
+    const hour = 60 * 60 * 1000;
+    const cutoffs: number[] = [];
+    useSearchHandler((req, res, ctx) => {
+      const cutoff = /attributes\.start_time > (\d+)/.exec(req.body.filter ?? '')?.[1];
+      if (cutoff) {
+        cutoffs.push(Number(cutoff));
+      }
+      return res(ctx.json({ runs: [createMockRun({ index: 0 })], next_page_token: null }));
+    });
+    const nowSpy = jest.spyOn(Date, 'now').mockReturnValue(10 * hour);
+
+    renderTestComponent({ initialEntry: '/experiments/exp-1/evaluation-runs?startTimeLabel=LAST_HOUR' });
+    await screen.findByText('Test Run 0');
+    expect(cutoffs).toEqual([9 * hour]);
+
+    nowSpy.mockReturnValue(11 * hour);
+    await userEvent.click(screen.getByRole('button', { name: 'Refresh evaluation runs' }));
+
+    await waitFor(() => expect(cutoffs).toEqual([9 * hour, 10 * hour]));
+    nowSpy.mockRestore();
+  });
+
   test('waits for the unfiltered runs before choosing an empty state', async () => {
     let releaseUnfilteredRuns: () => void = () => {};
     const unfilteredRunsReleased = new Promise<void>((resolve) => {

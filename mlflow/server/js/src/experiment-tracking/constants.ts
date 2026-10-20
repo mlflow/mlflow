@@ -155,6 +155,7 @@ export enum ExperimentPageTabName {
   Models = 'models',
   EvaluationMonitoring = 'evaluation-monitoring',
   Judges = 'judges',
+  Issues = 'issues',
   EvaluationRuns = 'evaluation-runs',
   Datasets = 'datasets',
   LabelingSessions = 'labeling-sessions',
