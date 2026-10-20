@@ -3,6 +3,8 @@ from __future__ import annotations
 import abc
 import asyncio
 import json
+import os
+import secrets
 from contextlib import nullcontext
 from typing import TYPE_CHECKING, Any
 
@@ -32,6 +34,15 @@ ScorerResult = bool | str | Feedback | list[Feedback]
 # Header added to internal sanitization requests so the gateway can skip guardrails
 # on the call, preventing recursive guardrail execution loops.
 _SANITIZE_BYPASS_HEADER = "X-MLflow-Guardrail-Bypass"
+
+# Value expected in the bypass header. This must not be a static, guessable value:
+# the header is read from inbound requests, so a constant like "1" would let any
+# client disable all guardrails (PII filtering, jailbreak detection, ...) by simply
+# setting the header. A per-process random token blocks that, and multi-worker
+# deployments can share one token across workers via the environment variable.
+_SANITIZE_BYPASS_TOKEN = os.environ.get("MLFLOW_GATEWAY_SANITIZE_BYPASS_TOKEN") or (
+    secrets.token_urlsafe(32)
+)
 _MAX_RATIONALE_LEN = 500
 
 # Only forward these headers to internal sanitization calls — forwarding all
@@ -276,7 +287,7 @@ class JudgeGuardrail(Guardrail):
             else {}
         )
         # Bypass guardrails on the sanitization call to prevent recursive loops.
-        headers[_SANITIZE_BYPASS_HEADER] = "1"
+        headers[_SANITIZE_BYPASS_HEADER] = _SANITIZE_BYPASS_TOKEN
 
         span_ctx = (
             mlflow.start_span(name="sanitization", span_type=SpanType.LLM)
