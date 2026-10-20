@@ -54,23 +54,17 @@ This example uses SQLite as the backend store. To use other types of SQL databas
 
 <StepHeader number={2} title="Make the Server Reachable from the Claude API" />
 
-The Claude API sends spans from Anthropic's infrastructure, so it can't reach a server on `localhost`. The endpoint must be an HTTPS URL on port 443 with a public hostname, for example `https://mlflow.example.com`. Put a reverse proxy, a load balancer, or a tunnel in front of the MLflow server, or use a hosted MLflow server.
-
-By default, the MLflow server only accepts requests whose `Host` header is a local or private address. Setting the `--allowed-hosts` option replaces these defaults, so list your public hostname together with the local hosts that you still use:
+The Claude API can't reach `localhost`. Expose the MLflow server at a public HTTPS URL on port 443, for example `https://mlflow.example.com`, with a reverse proxy or a tunnel. Then add that hostname to `--allowed-hosts`, together with the local hosts that you still use:
 
 ```bash
 mlflow server --backend-store-uri sqlite:///mlflow.db --port 5000 --allowed-hosts "localhost:*,127.0.0.1:*,mlflow.example.com"
 ```
 
-See [Network Security](/self-hosting/security/network) for more details.
-
 :::warning
-`--allowed-hosts` only checks the `Host` header and doesn't authenticate callers. Anyone who can reach the public URL can read and modify the traces and experiments on the server. Enable [authentication](/self-hosting/security/basic-http-auth) on the MLflow server or the proxy before you expose it, and add the credentials to the destination in step 4.
+Enable [authentication](/self-hosting/security/basic-http-auth) before you expose the server. `--allowed-hosts` doesn't authenticate callers. See [Network Security](/self-hosting/security/network).
 :::
 
-:::note
-This step is only necessary for API tracing. For SDK tracing only, your application exports the spans, so a local MLflow server works. Go to [Add SDK Spans](#add-sdk-spans).
-:::
+For SDK tracing only, skip this step and go to [Add SDK Spans](#add-sdk-spans).
 
 <StepHeader number={3} title="Create an MLflow Experiment" />
 
