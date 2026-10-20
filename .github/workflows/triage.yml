@@ -875,7 +875,8 @@ jobs:
           TOKEN: ${{ steps.telemetry.outputs.token }}
           DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
           TRACE_LOCATION: ${{ vars.TRIAGE_MLFLOW_TRACE_LOCATION }}
-          WAREHOUSE_ID: ${{ vars.TRIAGE_SQL_WAREHOUSE_ID }}
+          # Serverless Starter Warehouse; the service principal cannot list warehouses to find one.
+          WAREHOUSE_ID: f4f08c92b972c5f0
           SESSION_ID: ${{ steps.session.outputs.id }}
           ACTION: ${{ needs.issue.outputs.action }}
           TYPE: ${{ needs.label.outputs.type }}
