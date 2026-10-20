@@ -277,6 +277,11 @@ export const EvalRunComparisonTracesV4Table = (props: EvalRunComparisonTracesV4T
     onClearFilters: criteria.clearFilters,
     activeFilterCount,
     filterFields: controller.filterFields,
+    validateFilters: controller.validateFilters,
+    filterDescription: intl.formatMessage({
+      defaultMessage: 'Keep a comparison row when one trace matches all filters and the search.',
+      description: 'Comparison filter semantics shown in the filter builder',
+    }),
     showSessionGrouping: false,
     visibleColumns,
     columnOrder: comparisonColumnOrder,

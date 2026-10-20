@@ -298,6 +298,18 @@ describe('EvalRunComparisonTracesV4Table', () => {
     expect(screen.queryByRole('option', { name: 'Span name' })).not.toBeInTheDocument();
   });
 
+  test('explains comparison filtering and keeps an incomplete filter in the editor', async () => {
+    renderTable();
+    expect(await findMatchedRows()).toBeVisible();
+    await userEvent.click(screen.getByRole('button', { name: /Filters/ }));
+    expect(screen.getByText('Keep a comparison row when one trace matches all filters and the search.')).toBeVisible();
+    await userEvent.click(screen.getByRole('button', { name: 'Apply filters' }));
+
+    expect(screen.getByText('Complete or remove unsupported filters before applying.')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Apply filters' })).toBeVisible();
+    expect(new URLSearchParams(lastSearch).get('comparisonFilters')).toBeNull();
+  });
+
   test('offers recovery for an unsupported saved filter', async () => {
     const filters = JSON.stringify([{ field: 'span_name', operator: '=', value: 'ignored' }]);
     renderTable(`${COMPARE_URL}&comparisonFilters=${encodeURIComponent(filters)}`);

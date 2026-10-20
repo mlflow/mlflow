@@ -18123,6 +18123,10 @@
     "defaultMessage": "Overall",
     "description": "Evaluation results > known type of evaluation result assessment > overall assessment."
   },
+  "up3dAE": {
+    "defaultMessage": "Keep a comparison row when one trace matches all filters and the search.",
+    "description": "Comparison filter semantics shown in the filter builder"
+  },
   "up3hbr": {
     "defaultMessage": "Receive HTTP notifications when events occur in MLflow.",
     "description": "Settings content section subtitle for webhooks"

@@ -5,6 +5,7 @@ import type { ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explor
 import { DetectIssuesButton, shouldEnableSessionGrouping } from '@databricks/web-shared/genai-traces-table';
 import {
   TraceFilterButton,
+  type TraceFilterButtonProps,
   type ColumnSelectorOption,
   type FilterFieldDef,
   type SortDirection,
@@ -80,6 +81,10 @@ export interface TracesV4ToolbarParams {
   traces?: ModelTraceInfoV3[];
   /** Replaces the Filters button's fields (default: the trace filter fields for these traces). */
   filterFields?: FilterFieldDef[];
+  /** Explains the Filters button's matching semantics (default: none). */
+  filterDescription?: TraceFilterButtonProps['description'];
+  /** Rejects an Apply in the Filters button while keeping the draft editable (default: none). */
+  validateFilters?: TraceFilterButtonProps['validateFilters'];
   /** Offer the session grouping toggle (default true, when session grouping is enabled). */
   showSessionGrouping?: boolean;
 }
@@ -182,6 +187,8 @@ export const useTracesV4ToolbarSlots = ({
   hideFilterButton = false,
   traces,
   filterFields: filterFieldsOverride,
+  filterDescription,
+  validateFilters,
   showSessionGrouping = true,
   isGroupedBySession,
   onToggleSessionGrouping,
@@ -339,6 +346,8 @@ export const useTracesV4ToolbarSlots = ({
         onClearAll={onClearFilters}
         activeCount={activeFilterCount}
         renderTrigger={renderTrigger}
+        description={filterDescription}
+        validateFilters={validateFilters}
       />
     ),
     rightControls: (
@@ -350,6 +359,8 @@ export const useTracesV4ToolbarSlots = ({
             onChange={onFilterChange}
             onClearAll={onClearFilters}
             activeCount={activeFilterCount}
+            description={filterDescription}
+            validateFilters={validateFilters}
           />
         )}
         {showSessionGrouping && shouldEnableSessionGrouping() && (
