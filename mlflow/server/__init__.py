@@ -351,6 +351,9 @@ def _bootstrap_basic_auth() -> None:
 # waits for open connections (for example streaming responses) without a time limit of its own.
 _SERVER_STOP_TIMEOUT_SECONDS = 30
 
+# Windows has no SIGKILL.
+_SIGKILL = getattr(signal, "SIGKILL", None)
+
 
 def _watch_job_runner(
     job_runner_proc, server_proc, shutting_down: threading.Event, runner_failed: threading.Event
@@ -364,7 +367,7 @@ def _watch_job_runner(
     returncode = job_runner_proc.wait()
     if returncode == EXECUTOR_JOB_RUNNER_FATAL_EXIT_CODE:
         reason = f"exited with code {returncode}. See the job runner's error above"
-    elif returncode == -signal.SIGKILL:
+    elif _SIGKILL is not None and returncode == -_SIGKILL:
         reason = "was killed with SIGKILL, for example by the out-of-memory killer"
     else:
         return

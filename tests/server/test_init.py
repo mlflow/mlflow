@@ -632,12 +632,17 @@ def _process(*, returncode, running=True):
     return proc
 
 
+def _watch_job_runner_test_cases():
+    # Built at runtime: Windows has no SIGKILL, and the module must still be collected there.
+    cases = [(EXECUTOR_JOB_RUNNER_FATAL_EXIT_CODE, "See the job runner's error above")]
+    if hasattr(signal, "SIGKILL"):
+        cases.append((-signal.SIGKILL, "was killed with SIGKILL"))
+    return cases
+
+
 @pytest.mark.parametrize(
     ("returncode", "reason"),
-    [
-        (EXECUTOR_JOB_RUNNER_FATAL_EXIT_CODE, "See the job runner's error above"),
-        (-signal.SIGKILL, "was killed with SIGKILL"),
-    ],
+    _watch_job_runner_test_cases(),
 )
 def test_watch_job_runner_stops_the_server_when_the_runner_fails(caplog, returncode, reason):
     server_proc = _process(returncode=None)
