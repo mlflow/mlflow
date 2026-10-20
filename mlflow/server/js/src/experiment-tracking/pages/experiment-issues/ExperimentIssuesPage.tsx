@@ -8,6 +8,7 @@ import { useParams, useSearchParams } from '../../../common/utils/RoutingUtils';
 import { useActiveWorkspace } from '../../../workspaces/utils/WorkspaceUtils';
 import { IssueDetectionModal } from '../../components/experiment-page/components/traces-v3/IssueDetectionModal';
 import { JobStatus, isJobComplete } from '../../components/run-page/hooks/useFetchJobStatus';
+import type { Issue } from '../../components/run-page/hooks/useSearchIssuesQuery';
 import { SELECTED_ISSUE_ID_PARAM } from '../../constants';
 import { SERVER_FEATURE_KEYS, useFeatureEnabled, useServerInfo } from '../../hooks/useServerInfo';
 import { ExperimentIssueDetail } from './ExperimentIssueDetail';
@@ -80,7 +81,13 @@ const ExperimentIssuesContent = ({ experimentId }: { experimentId: string }) => 
   const { theme } = useDesignSystemTheme();
   const controls = useIssueListControls();
   const search = useExperimentIssues(experimentId, controls.filters);
-  const issues = useMemo(() => search.data?.pages.flatMap((page) => page.issues ?? []) ?? [], [search.data]);
+  const issues = useMemo(() => {
+    // Later pages update an Issue's data while keeping its first-seen position, so loading more
+    // does not reshuffle existing rows. Refreshing the list establishes a new sort order.
+    const byId = new Map<string, Issue>();
+    search.data?.pages.forEach((page) => page.issues?.forEach((issue) => byId.set(issue.issue_id, issue)));
+    return Array.from(byId.values());
+  }, [search.data]);
   const hasRestrictiveFilters = Boolean(
     controls.filters.name ||
     controls.filters.statuses.length ||
