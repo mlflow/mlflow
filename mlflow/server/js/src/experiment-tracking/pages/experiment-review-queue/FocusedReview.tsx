@@ -204,6 +204,8 @@ export const FocusedReview = ({
   const responsePreview = trace?.info?.response_preview;
   const hasIO = Boolean(requestPreview || responsePreview);
   const showCustomView = Boolean(onTraceViewDisplayModeChange) && traceViewDisplayMode === 'custom';
+  // A rendered custom view pads and scrolls its own content; a second scroller around it would clip it.
+  const isCustomViewRendered = showCustomView && !traceLoading && Boolean(trace);
 
   // Prefill the widgets from the trace's existing assessments; edits overlay
   // the prefill so the query result never clobbers what the reviewer typed.
@@ -505,8 +507,9 @@ export const FocusedReview = ({
           <div
             css={{
               flex: 1,
-              overflow: 'auto',
-              padding: theme.spacing.md,
+              minHeight: 0,
+              overflow: isCustomViewRendered ? 'hidden' : 'auto',
+              padding: isCustomViewRendered ? 0 : theme.spacing.md,
               display: 'flex',
               flexDirection: 'column',
               gap: theme.spacing.md,
