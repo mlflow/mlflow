@@ -1,4 +1,5 @@
 import json
+from unittest import mock
 
 import mlflow
 from mlflow.entities.span import SpanType
@@ -244,3 +245,13 @@ def test_an_anomaly_on_a_trace_with_incomplete_usage_is_not_turned_into_a_findin
 
     assert added == 0
     assert triage.failing_traces == []
+
+
+def test_a_trace_whose_cost_cannot_be_read_is_excluded_not_fatal():
+    traces = [mock.MagicMock(spec="Trace") for _ in range(3)]
+
+    analysis = analyze_cost_anomalies(traces)
+
+    assert analysis.anomalies == []
+    assert len(analysis.excluded) == 3
+    assert set(analysis.excluded.values()) == {EXCLUDED_NO_COST}

@@ -18,6 +18,7 @@ from dataclasses import dataclass, field
 
 from mlflow.entities.span import SpanType
 from mlflow.entities.trace import Trace
+from mlflow.genai.discovery.coverage import _safe_trace_id
 from mlflow.tracing.constant import TraceTagKey
 
 _logger = logging.getLogger(__name__)
@@ -294,12 +295,21 @@ def analyze_cost_anomalies(
     analysis = CostAnalysis()
 
     by_label: dict[str, list[tuple[Trace, float]]] = {}
-    for trace in traces:
-        cost = _trace_cost(trace)
-        if cost is None:
-            analysis.excluded[trace.info.trace_id] = EXCLUDED_NO_COST
+    for position, trace in enumerate(traces):
+        trace_id = _safe_trace_id(trace, position)
+        try:
+            cost = _trace_cost(trace)
+            label = get_agent_label(trace)
+        except Exception:
+            # Cost findings are advisory, so a trace whose usage cannot be read is disclosed
+            # as unpriced rather than taking the run down with it.
+            _logger.debug("Could not read cost for trace %s", trace_id, exc_info=True)
+            analysis.excluded[trace_id] = EXCLUDED_NO_COST
             continue
-        by_label.setdefault(get_agent_label(trace), []).append((trace, cost))
+        if cost is None:
+            analysis.excluded[trace_id] = EXCLUDED_NO_COST
+            continue
+        by_label.setdefault(label, []).append((trace, cost))
 
     for label, entries in sorted(by_label.items(), key=lambda item: str(item[0])):
         if len(entries) < min_peers:

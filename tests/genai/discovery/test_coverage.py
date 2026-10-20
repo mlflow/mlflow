@@ -1,3 +1,5 @@
+from unittest import mock
+
 import mlflow
 from mlflow.entities.span import SpanType
 from mlflow.genai.discovery.coverage import (
@@ -169,3 +171,15 @@ def test_a_sample_reports_every_trace_so_the_denominator_is_not_shrunk():
 
     assert len(adequacy) == 3
     assert set(adequacy) == {trace.info.trace_id for trace in traces}
+
+
+def test_a_trace_whose_shape_cannot_be_read_is_counted_not_dropped():
+    # A caller can hand the pipeline trace-like objects (telemetry tests do), and losing one
+    # silently would shrink the denominator a failure rate is quoted against.
+    traces = [mock.MagicMock(spec="Trace") for _ in range(3)]
+
+    adequacy = assess_sample_data_adequacy(traces)
+
+    assert len(adequacy) == 3
+    assert all(not entry.quality_judgeable for entry in adequacy.values())
+    assert all("unreadable trace at position" in key for key in adequacy)

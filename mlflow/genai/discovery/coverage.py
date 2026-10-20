@@ -196,6 +196,20 @@ def _cache_usage_gap(trace: Trace) -> list[str]:
     return [] if (has_cache or has_cost) else [GAP_CACHE_USAGE_MISSING]
 
 
+def _safe_trace_id(trace: Trace, position: int) -> str:
+    """
+    A trace's ID, or a positional stand-in when even that cannot be read.
+
+    Falling back rather than raising keeps the entry in the result: dropping the trace would
+    shrink the denominator a failure rate is quoted against, which is the thing this module
+    exists to protect.
+    """
+    try:
+        return trace.info.trace_id
+    except Exception:
+        return f"(unreadable trace at position {position})"
+
+
 def assess_trace_data_adequacy(trace: Trace) -> TraceDataAdequacy:
     """
     Check that a trace records the content its judgments would need.
@@ -208,7 +222,7 @@ def assess_trace_data_adequacy(trace: Trace) -> TraceDataAdequacy:
         no gaps; a thin one is reported rather than judged, because analyzing a content-free
         trace produces findings the trace cannot support.
     """
-    trace_id = trace.info.trace_id
+    trace_id = _safe_trace_id(trace, 0)
     gaps: list[str] = []
 
     request = trace.data.request
@@ -241,17 +255,23 @@ def assess_trace_data_adequacy(trace: Trace) -> TraceDataAdequacy:
 
 
 def assess_sample_data_adequacy(traces: list[Trace]) -> dict[str, TraceDataAdequacy]:
-    """Data adequacy for every trace in a sample, keyed by trace ID."""
+    """
+    Data adequacy for every trace in a sample, keyed by trace ID.
+
+    Every input gets an entry. A trace whose shape cannot be read at all is recorded as
+    unjudgeable rather than skipped, so the sample size the caller reports stays the sample
+    size that was inspected.
+    """
     adequacy = {}
-    for trace in traces:
+    for position, trace in enumerate(traces):
+        # Resolved up front: the fallback below must not re-read the attribute that failed.
+        trace_id = _safe_trace_id(trace, position)
         try:
-            adequacy[trace.info.trace_id] = assess_trace_data_adequacy(trace)
+            adequacy[trace_id] = assess_trace_data_adequacy(trace)
         except Exception:
-            # A trace whose shape cannot be read is reported as unknown rather than dropped:
-            # silently omitting it would shrink the denominator a failure rate is quoted against.
-            _logger.debug("Could not assess trace %s", trace.info.trace_id, exc_info=True)
-            adequacy[trace.info.trace_id] = TraceDataAdequacy(
-                trace_id=trace.info.trace_id,
+            _logger.debug("Could not assess trace %s", trace_id, exc_info=True)
+            adequacy[trace_id] = TraceDataAdequacy(
+                trace_id=trace_id,
                 gaps=[GAP_ROOT_MISSING],
                 quality_judgeable=False,
                 cost_judgeable=False,

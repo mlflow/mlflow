@@ -37,6 +37,7 @@ from mlflow.genai.discovery.cost import analyze_cost_anomalies
 from mlflow.genai.discovery.coverage import (
     GAP_CACHE_USAGE_MISSING,
     TraceDataAdequacy,
+    _safe_trace_id,
     assess_sample_data_adequacy,
 )
 from mlflow.genai.discovery.entities import (
@@ -595,7 +596,6 @@ def build_issue_discovery_scorer(
     )
 
 
-@record_usage_event(DiscoverIssuesEvent)
 def _merge_cost_findings(
     triage,
     cost_analysis,
@@ -662,7 +662,15 @@ def _build_coverage(
     The denominator matters: a failure rate quoted against the whole sample implies verdicts
     the run never reached, so judged traces are counted separately from the unjudgeable ones.
     """
-    timestamps = [trace.info.timestamp_ms for trace in triage_traces if trace.info.timestamp_ms]
+    # The time range is disclosure, not a verdict: a trace whose info cannot be read should
+    # narrow the window rather than fail the run that was about to report its coverage.
+    timestamps = []
+    for trace in triage_traces:
+        try:
+            if timestamp := trace.info.timestamp_ms:
+                timestamps.append(timestamp)
+        except Exception:
+            continue
     unjudged = len(triage.scorer_error_trace_ids) + len(triage.unclassified_trace_ids)
 
     gap_counts: dict[str, int] = {}
@@ -690,6 +698,7 @@ def _build_coverage(
     )
 
 
+@record_usage_event(DiscoverIssuesEvent)
 def discover_issues(
     experiment_id: str | None = None,
     traces: list[Trace] | None = None,
@@ -864,7 +873,7 @@ def discover_issues(
     cost_findings = _merge_cost_findings(
         triage,
         cost_analysis,
-        {trace.info.trace_id: trace for trace in scored_traces},
+        {_safe_trace_id(trace, position): trace for position, trace in enumerate(scored_traces)},
         adequacy,
     )
     if cost_findings:
