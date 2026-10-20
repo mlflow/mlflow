@@ -5,6 +5,7 @@ from mlflow.genai.discovery.constants import (
     DEDUP_ISSUES_PROMPT_TEMPLATE,
     DEFAULT_CATEGORIES,
     DEFAULT_CATEGORY_DESCRIPTIONS,
+    LATENCY_FLOOR_SECONDS,
     build_cluster_summary_prompt,
     build_satisfaction_instructions,
 )
@@ -82,3 +83,18 @@ def test_the_cluster_summariser_is_told_to_keep_the_description_stable():
 def test_deduplication_is_told_that_figures_do_not_decide_identity():
     assert "Neither wording nor numbers decide it" in DEDUP_ISSUES_PROMPT_TEMPLATE
     assert "Compare the mechanism" in DEDUP_ISSUES_PROMPT_TEMPLATE
+
+
+def test_latency_is_not_judged_by_rank_within_the_sample():
+    instructions = build_satisfaction_instructions(
+        use_conversation=True, categories=DEFAULT_CATEGORIES
+    )
+
+    # A rank-based bar flags a fixed share of every sample, so a healthy run would report
+    # latency issues as readily as an unhealthy one.
+    assert "p95" not in instructions
+    assert "Being the slowest trace in the sample is NOT itself a finding" in instructions
+    # A ratio against a high percentile can come back empty; a floor keeps a fast response
+    # from being called slow because the rest of the sample was faster still.
+    assert "more than twice the p90" in instructions
+    assert f"under {LATENCY_FLOOR_SECONDS:.0f}s on timing alone" in instructions
