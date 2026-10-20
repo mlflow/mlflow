@@ -3030,8 +3030,8 @@ class MlflowClient:
 
             # If the file extension doesn't exist or match any of [".json", ".yaml", ".yml"],
             # JSON format is used.
-            mlflow.log_dict(run_id, dictionary, "data")
-            mlflow.log_dict(run_id, dictionary, "data.txt")
+            client.log_dict(run_id, dictionary, "data")
+            client.log_dict(run_id, dictionary, "data.txt")
 
         """
         extension = os.path.splitext(artifact_file)[1]
@@ -6427,12 +6427,13 @@ class MlflowClient:
 
         .. code-block:: python
 
+            import mlflow
             from mlflow import MlflowClient
 
             client = MlflowClient()
 
             # For Unity Catalog, delete all versions first
-            if client.get_registry_uri().startswith("databricks-uc"):
+            if mlflow.get_registry_uri().startswith("databricks-uc"):
                 versions = client.search_prompt_versions("my_prompt")
                 for version in versions:
                     client.delete_prompt_version("my_prompt", version.version)
