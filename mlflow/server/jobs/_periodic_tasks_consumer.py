@@ -5,6 +5,7 @@ This is a dedicated consumer that only runs periodic tasks (like the online scor
 It is launched by the job runner and runs in a separate process from job execution consumers.
 """
 
+import logging
 import threading
 
 from mlflow.server.jobs.executor_registry import warm_executor_registry_in_background
@@ -15,6 +16,8 @@ from mlflow.server.jobs.utils import (
     _get_or_init_huey_instance,
     register_periodic_tasks,
 )
+
+_logger = logging.getLogger(__name__)
 
 # Configure Python logging to suppress noisy job logs
 configure_logging_for_jobs()
@@ -33,4 +36,7 @@ huey_instance = _get_or_init_huey_instance(HUEY_PERIODIC_TASKS_INSTANCE_KEY).ins
 register_periodic_tasks(huey_instance)
 
 # The online scoring scheduler submits jobs from this process.
-warm_executor_registry_in_background()
+try:
+    warm_executor_registry_in_background()
+except Exception:
+    _logger.warning("Could not start checking the job executor backends", exc_info=True)

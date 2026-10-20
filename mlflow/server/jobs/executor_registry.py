@@ -199,36 +199,23 @@ def get_executor_registry() -> JobExecutorRegistry:
     return _global_registry
 
 
-def warm_executor_registry() -> None:
-    """Build and check this process's executor registry now, when jobs use the executor engine.
-
-    ``get_executor_registry`` builds the registry the first time a process needs it, and caches it
-    only when every configured backend passes its checks. If a backend is unavailable at that
-    moment (for example the Docker daemon), the process cannot submit any job until the backend
-    is back. These server processes, started by ``mlflow server``, call this when they start (see
-    ``warm_executor_registry_in_background``), just after the server checked the same backends,
-    so that a backend that becomes unavailable later does not stop them from submitting jobs:
-
-    - the periodic task process, which runs the online scoring scheduler, when it starts;
-    - each uvicorn worker, at startup (the FastAPI lifespan);
-    - each gunicorn or waitress worker, on its first request (the Flask app has no startup hook).
-
-    A failure here is logged, not raised: the process then builds the registry on first use, as
-    before. That is also what happens in a process started while the backend is unavailable.
-    """
+def _executor_engine_in_use() -> bool:
+    """Whether jobs from this process run on the executor engine, so it has a registry to build."""
+    if not MLFLOW_SERVER_ENABLE_JOB_EXECUTION.get():
+        return False
     # Imported here: importing the job utils loads the job functions, and this module can be
     # imported while one of their modules (for example mlflow.genai.scorers.job) is still loading.
     from mlflow.server.jobs.utils import _check_requirements, get_job_execution_engine
 
     try:
-        if not MLFLOW_SERVER_ENABLE_JOB_EXECUTION.get():
-            return
         _check_requirements()
-        if get_job_execution_engine() != "executor":
-            return
+        return get_job_execution_engine() == "executor"
     except MlflowException:
         # Job execution is unavailable in this process; submit_job reports why when it is used.
-        return
+        return False
+
+
+def _build_registry_or_log() -> None:
     try:
         get_executor_registry()
     except Exception as e:
@@ -236,22 +223,40 @@ def warm_executor_registry() -> None:
             "Could not check the job executor backends when this process started; job "
             "submissions from it will check them again: %s",
             e,
+            exc_info=not isinstance(e, MlflowException),
         )
 
 
-def warm_executor_registry_in_background() -> threading.Thread:
-    """Run ``warm_executor_registry`` in a daemon thread, so a slow check (for example a Docker
-    daemon that does not answer) does not delay the caller. A job submitted meanwhile waits for it,
-    because ``get_executor_registry`` builds the registry under a lock.
+def warm_executor_registry_in_background() -> threading.Thread | None:
+    """Build and check this process's executor registry now, when jobs use the executor engine.
+
+    ``get_executor_registry`` builds the registry the first time a process needs it, and caches it
+    only when every configured backend passes its checks. If a backend is unavailable at that
+    moment (for example the Docker daemon), the process cannot submit any job until the backend
+    is back. These server processes, started by ``mlflow server``, build it when they start, just
+    after the server checked the same backends, so that a backend that becomes unavailable later
+    does not stop them from submitting jobs:
+
+    - the periodic task process, which runs the online scoring scheduler, when it starts;
+    - each uvicorn worker, at startup (the FastAPI lifespan);
+    - each gunicorn or waitress worker, on its first request (the Flask app has no startup hook).
+
+    The registry is built in a daemon thread, so a slow check (for example a Docker daemon that
+    does not answer) does not delay the caller. A job submitted meanwhile waits for it, because
+    ``get_executor_registry`` builds the registry under a lock. A failed check is logged, not
+    raised: the process then builds the registry on first use, as before. That is also what
+    happens in a process started while the backend is unavailable.
+
+    Whether the executor engine is used is checked first, on the calling thread, and no thread is
+    started otherwise. A thread that is importing modules when the process forks (as
+    ``multiprocessing`` does on Linux) can leave the child process deadlocked, so most processes
+    should not start one.
     """
-
-    def warm():
-        try:
-            warm_executor_registry()
-        except Exception:
-            _logger.warning("Could not check the job executor backends", exc_info=True)
-
-    thread = threading.Thread(target=warm, name="MLflow-warm-executor-registry", daemon=True)
+    if not _executor_engine_in_use():
+        return None
+    thread = threading.Thread(
+        target=_build_registry_or_log, name="MLflow-warm-executor-registry", daemon=True
+    )
     thread.start()
     return thread
 

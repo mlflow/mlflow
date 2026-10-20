@@ -279,8 +279,7 @@ async def _lifespan(app: FastAPI):
         _logger.warning("Assistant session cleanup failed", exc_info=True)
 
     # Handlers submit jobs from this worker, so check the job executor backends now (see
-    # warm_executor_registry). It runs in a background thread, so a Docker daemon that does not
-    # answer does not delay the worker's startup.
+    # warm_executor_registry_in_background), without delaying the worker's startup.
     try:
         warm_executor_registry_in_background()
     except Exception:

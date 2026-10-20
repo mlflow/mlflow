@@ -103,7 +103,7 @@ def _warm_executor_registry_on_first_request():
 
     uvicorn workers do this when they start (the FastAPI lifespan). gunicorn and waitress serve
     this Flask app, which has no startup hook, so their workers do it here, once, in a background
-    thread. See ``warm_executor_registry``.
+    thread. See ``warm_executor_registry_in_background``.
     """
     global _executor_registry_warm_started
     if _executor_registry_warm_started:

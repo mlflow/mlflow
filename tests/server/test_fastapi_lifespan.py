@@ -125,11 +125,12 @@ def no_reaping():
 @pytest.mark.usefixtures("no_reaping")
 async def test_lifespan_checks_the_job_executor_backends_without_waiting_for_it():
     release = threading.Event()
-    warm = mock.Mock(side_effect=lambda: release.wait(10))
+    build = mock.Mock(side_effect=lambda: release.wait(10))
     threads = []
     start = executor_registry.warm_executor_registry_in_background
     with (
-        mock.patch("mlflow.server.jobs.executor_registry.warm_executor_registry", warm),
+        mock.patch.object(executor_registry, "_executor_engine_in_use", return_value=True),
+        mock.patch.object(executor_registry, "get_executor_registry", build),
         mock.patch(
             "mlflow.server.fastapi_app.warm_executor_registry_in_background",
             side_effect=lambda: threads.append(start()),
@@ -141,7 +142,7 @@ async def test_lifespan_checks_the_job_executor_backends_without_waiting_for_it(
         release.set()
         threads[0].join(10)
 
-    warm.assert_called_once()
+    build.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -149,16 +150,18 @@ async def test_lifespan_checks_the_job_executor_backends_without_waiting_for_it(
 async def test_lifespan_survives_an_error_in_the_job_executor_check(caplog):
     threads = []
     start = executor_registry.warm_executor_registry_in_background
-    with mock.patch(
-        "mlflow.server.jobs.executor_registry.warm_executor_registry",
-        side_effect=RuntimeError("check failed"),
-    ):
-        with mock.patch(
+    with (
+        mock.patch.object(executor_registry, "_executor_engine_in_use", return_value=True),
+        mock.patch.object(
+            executor_registry, "get_executor_registry", side_effect=RuntimeError("check failed")
+        ),
+        mock.patch(
             "mlflow.server.fastapi_app.warm_executor_registry_in_background",
             side_effect=lambda: threads.append(start()),
-        ):
-            async with fastapi_app._lifespan(mock.MagicMock()):
-                pass
+        ),
+    ):
+        async with fastapi_app._lifespan(mock.MagicMock()):
+            pass
         threads[0].join(10)
     assert "check failed" in caplog.text
 
